@@ -189,6 +189,13 @@ const en = {
     // two undo handlers (`useConsoleActionRuntime` and `RecordDetailView`), not
     // by the runner (objectui#11056).
     undone: 'Change undone',
+    // The console's global Ctrl+Z / Ctrl+Shift+Z toasts, raised by
+    // `AppContent`'s `useGlobalUndo` handlers once the operation has been
+    // undone / redone (objectui#11080). `{{description}}` is the operation's
+    // own description, passed through unchanged; the pack owns the words and
+    // the word order around it.
+    undoneOperation: 'Undo: {{description}}',
+    redoneOperation: 'Redo: {{description}}',
   },
   validation: {
     required: '{{field}} is required',
@@ -238,6 +245,57 @@ const en = {
     // only displace it by authoring a `description`, which makes a VISIBLE
     // subtitle appear on every form — so the fallback has to come from here.
     dialogDescriptionFallback: 'Complete the form fields, then submit or cancel.',
+    // The hint under a field the caller may read but not write, shown when the
+    // field declares no description of its own (objectui#11071).
+    deniedDescription: 'You do not have edit access to this field.',
+    // The master-detail form's own chrome (objectui#11071): the collection
+    // placeholder while its columns resolve, the document totals stack
+    // (`{{rate}}` is the header's tax rate), the row editor's title
+    // (`{{title}}` is the collection's authored title, or `lineItem` when it
+    // has none; `{{row}}` is the 1-based row number), its Apply button, and the
+    // sr-only description of the dialog that hosts the form. The verbs `Add`,
+    // `Close` and `Saving…` come from `detail.add`, `common.close` and
+    // `detail.saving`.
+    masterDetail: {
+      loadingColumns: 'Loading columns…',
+      subtotal: 'Subtotal',
+      tax: 'Tax ({{rate}}%)',
+      total: 'Total',
+      lineItem: 'Line item',
+      rowTitle: '{{title}} — row {{row}}',
+      applyRow: 'Apply',
+      editorDescription: 'Enter the record and its line items, then save.',
+      // A collection's configuration hints (objectui#11160): no `childObject`
+      // (the twin of `lineItems.noChildObject`, which names the panel), a
+      // child schema that failed to load, and no lookup or master_detail
+      // field on the child that references the parent. `{{property}}` is a
+      // property name and `{{object}}` / `{{parent}}` are object names; each
+      // is rendered as code and never translated. `lookup` and
+      // `master_detail` are field type names, so every pack keeps them as
+      // written.
+      noChildObject: 'This collection has no child object configured: set {{property}} to the object whose rows it lists.',
+      schemaUnavailable: 'Could not load the schema of {{object}}, so this collection has no columns to show. Check that the object exists and is readable, then reload.',
+      noRelationshipField: 'Could not work out how {{object}} links to {{parent}}: no lookup or master_detail field on it references the parent. Set {{property}} on this collection to the field that holds the parent record.',
+    },
+    // The record page's `record:line_items` panel (objectui#11131): its
+    // title when the author declared none. Its Save / Saving… button reads
+    // `common.save` / `detail.saving`. `MasterDetailForm` reads `title` too,
+    // for a collection that authors no heading (objectui#11145).
+    //
+    // The rest is the panel's own states (objectui#11145): no parent record
+    // bound yet, rows held for another parent, and the two fallbacks for a
+    // failed load or save, shown when the server sent no message of its own.
+    // Its loading line reads `common.loading`. `noChildObject` is the config
+    // hint for a panel with no `childObject`: `{{property}}` is filled with
+    // the property name, rendered as code and never translated.
+    lineItems: {
+      title: 'Line Items',
+      saveRecordFirst: 'Save the record first to add line items.',
+      notLoaded: 'This record’s line items have not been loaded.',
+      loadFailed: 'Failed to load line items',
+      saveFailed: 'Failed to save line items',
+      noChildObject: 'This panel has no child object configured: set {{property}} to the object whose rows it lists.',
+    },
     keepEditing: 'Keep editing',
     discard: 'Discard',
     conflictTitle: 'Save conflict',
@@ -492,6 +550,26 @@ const en = {
     textarea: {
       characterCount: 'Character count: {{count}} of {{max}}',
       charactersRemaining: 'Characters remaining: {{count}}',
+    },
+    // objectui#11131 — the line-items grid's default chrome (`GridField`):
+    // its Add button, the read-only grid's empty state, and the list-mode
+    // grid's empty state. An authored `add_label` still wins over `addLine`,
+    // and it fills the `{{label}}` hole (`detail.add` when none is authored).
+    //
+    // objectui#11145 — the rest of that chrome: the column chooser's heading,
+    // the computed cell's tooltip, and the row actions. Each row action has
+    // one key, read by both its `aria-label` and its `title`. The chooser's
+    // button reads `table.columns`, the footer `form.masterDetail.total` and
+    // the drag handle `view.dragToReorder`.
+    grid: {
+      addLine: 'Add line',
+      noItems: 'No items',
+      noItemsAddHint: 'No items yet — click “{{label}}” to begin.',
+      optionalColumns: 'Optional columns',
+      computed: 'Computed',
+      openRow: 'Open row',
+      duplicateRow: 'Duplicate row',
+      removeRow: 'Remove row',
     },
   },
   table: {
@@ -1461,6 +1539,8 @@ const en = {
     },
     loading: 'Loading…',
     refreshing: 'Refreshing…',
+    refreshAll: 'Refresh All',
+    refreshDashboard: 'Refresh dashboard',
     pickMeasures: 'Pick measures (values) for this dataset widget.',
     datasetUnsupported: 'This data source does not support dataset queries.',
     widgetForbiddenTitle: 'You don’t have access',
@@ -3397,6 +3477,10 @@ const en = {
     thankYouTitle: 'Thank you!',
     thankYouMessage: 'Your submission has been received successfully.',
     redirecting: 'Redirecting in {{seconds}} seconds…',
+    // The console form page's line for a submit whose declared redirect is
+    // pending (objectui#11071). `redirecting` above is the embeddable form's
+    // countdown and carries a `{{seconds}}` hole this page has no value for.
+    redirectPending: 'Redirecting…',
     unavailableTitle: 'Form unavailable',
     unavailableDescription:
       'No public form is available at this URL. Make sure the underlying view has anonymous sharing enabled and matches this slug.',
@@ -3404,6 +3488,10 @@ const en = {
     retry: 'Retry',
     loading: 'Loading form…',
     requiredHint: '* Required field',
+    // The console form page's client-side refusal when required rows are empty
+    // (objectui#11071). `{{fields}}` is the empty rows' labels joined with a
+    // comma; the colon, its spacing and the order are the pack's.
+    requiredFields: 'Required: {{fields}}',
     consentLabelDefault: 'I agree to the privacy policy and consent to my data being processed for this request.',
     consentLink: 'Privacy policy',
     consentRequired: 'Please accept the privacy policy to continue.',

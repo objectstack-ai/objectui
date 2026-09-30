@@ -54,6 +54,7 @@ import {
   legacyRecordDrawerWidthKey, recordOverlayWidthStorageKey, useOverlayAnchor,
   Popover, PopoverContent, PopoverTrigger,
   RefreshIndicator,
+  DataEmptyState, resolveIcon,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
 import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, type FilterTokenScope } from '@object-ui/core';
@@ -453,6 +454,10 @@ const GRID_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // Reused by the grouped-view pager (falls back here when no I18nProvider).
   'table.rowsPerPage': 'Rows per page',
   'table.pageInfo': 'Page {{current}} of {{total}}',
+  // The heading of an authored `emptyState` that declares no `title`
+  // (objectui#11068): the words the table's own empty row shows, so leaving the
+  // member out changes nothing a user reads.
+  'table.noResults': 'No results found',
   // Heading of the record-detail overlay this grid opens on row click
   // (objectui#3426). Borrowed from the `detail.*` namespace rather than minted
   // as `grid.recordDetail`: `NavigationOverlay` already resolves
@@ -2420,15 +2425,30 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               );
               return extra.length > 0 ? [...list, ...extra] : list;
             };
+            // [objectui#11105] ONE projection for BOTH branches: gate, then read
+            // each entry's field NAME through `columnIdentity`, then drop the
+            // entries that have none. Only names go on the wire.
+            //
+            // The `schemaFields` branch used to return its entries UNMAPPED,
+            // and `ListView` hands its effective column entries to the grid as
+            // `fields` AND `columns` alike. So a view whose columns are objects
+            // (`{ field, width }`) put the objects themselves into `$select`,
+            // which the adapter's `join(',')` serialized as `[object Object]`.
+            // Harmless while grouped grids got inline rows; since the grid
+            // groups on the server (objectui#7189) every group's row page
+            // carries this `$select`, and a server that refuses unknown select
+            // keys answered INVALID_FIELD in every group. For a `fields` entry
+            // that is already a name, `columnIdentity` hands it back unchanged.
+            const projectFieldNames = (entries: unknown[]): string[] =>
+              entries
+                .filter(passesProjectionGate)
+                .map((entry) => columnIdentity(entry))
+                .filter((v): v is string => !!v);
             if (schemaFields) {
-              return withHarvestedFields(ensureId((schemaFields as any[]).filter(passesProjectionGate)));
+              return withHarvestedFields(ensureId(projectFieldNames(schemaFields as unknown[])));
             }
             if (schemaColumns && Array.isArray(schemaColumns)) {
-              const fields = schemaColumns
-                .filter(passesProjectionGate)
-                .map((c: any) => columnIdentity(c))
-                .filter((v): v is string => !!v);
-              return withHarvestedFields(ensureId(fields));
+              return withHarvestedFields(ensureId(projectFieldNames(schemaColumns)));
             }
             return undefined;
           };
@@ -3928,7 +3948,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       prefix: exportConfig?.fileNamePrefix,
       label: objectSchema?.label,
       objectName: objectName || schema.objectName,
-      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
+      // `title` is the deprecated spelling of `label` and takes the same door:
+      // the spec types it `I18nLabel`, so an inline locale map reaches this
+      // string sink and must resolve here, not stringify (objectui#10993).
+      viewLabel: resolveInlineI18nLabel(schema.label, displayLocale)
+        || resolveInlineI18nLabel(schema.title, displayLocale),
     });
 
     // Server-streamed path: csv / xlsx / json via dataSource.exportDownload.
@@ -5119,7 +5143,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
   const dataTableSchema: ObjectGridDataTableSchema = {
     type: 'data-table',
-    caption: resolveInlineI18nLabel(schema.label, displayLocale) || schema.title,
+    // The deprecated `title` fallback resolves like `label` (objectui#10993):
+    // handed on raw, a locale map reached the data-table caption as an object
+    // and the whole block failed to render.
+    caption: resolveInlineI18nLabel(schema.label, displayLocale)
+      || resolveInlineI18nLabel(schema.title, displayLocale),
     columns: orderedColumns,
     data,
     pagination: paginationEnabled,
@@ -5640,6 +5668,19 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     );
   };
 
+  // objectui#11068 — `description`: one line of help text above the grid, in
+  // the treatment `ListView` gives a view's description (`view-description`),
+  // so the two surfaces draw the same key the same way. Resolved like `label`:
+  // a locale map against the display locale. Guarded on the RESOLVED text, so a
+  // map with no usable entry draws no empty strip. Drawn by every branch that
+  // draws rows — the card view, the split pane and the table.
+  const resolvedDescription = resolveInlineI18nLabel(schema.description, displayLocale);
+  const gridDescription = resolvedDescription ? (
+    <p className="px-3 sm:px-4 pt-1.5 text-xs text-muted-foreground" data-testid="object-grid-description">
+      {resolvedDescription}
+    </p>
+  ) : null;
+
   // Mobile card-view: below the 768px app breakpoint (matches useIsMobile /
   // Tailwind md: / the responsive page+grid layout), render stacked cards
   // instead of a side-scrolling wide table.
@@ -5740,6 +5781,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
     return (
       <>
+        {gridDescription}
         <div className="space-y-2 p-2" {...anchorCaptureProps}>
           {data.map((row, idx) => {
             // Collect secondary fields (skip the title column)
@@ -6164,6 +6206,43 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     </div>
   );
 
+  // objectui#11068 — `emptyState`: what the grid draws INSTEAD of an empty
+  // table, through the same shared component (`DataEmptyState`) and the same
+  // icon resolver (`resolveIcon`) `ListView` draws a list's empty state with,
+  // so one key means one picture on both surfaces.
+  //
+  // Drawn only when the author declared it, the grid holds no row to draw (no
+  // group, when grouped) and nothing is loading — and NOT when a term typed
+  // into this grid's own server-side search box is what emptied it: replacing
+  // the table there would take the search box with it, and the user could not
+  // clear the term. That case keeps the table's own "no results" row. Rows the
+  // browser filters itself never reach here: `data` still holds them.
+  //
+  // A member left out keeps the grid's default: `DataEmptyState`'s own glyph
+  // (an icon name that resolves to nothing is the same as none), the table's
+  // "No results found" heading, and no message line. Text only, as the table's
+  // empty row is — an empty table draws no add-record row either.
+  const authoredEmptyState = schema.emptyState;
+  const searchEmptiedRows = manualSearchOn && manualSearch.trim() !== '';
+  const drawsAuthoredEmptyState = authoredEmptyState != null
+    && !loading
+    && !searchEmptiedRows
+    && (isGrouped ? groups.length === 0 : data.length === 0);
+  const AuthoredEmptyIcon = drawsAuthoredEmptyState ? resolveIcon(authoredEmptyState?.icon) : null;
+  const renderedGridContent = drawsAuthoredEmptyState ? (
+    <DataEmptyState
+      data-testid="object-grid-empty-state"
+      className="flex-1 min-h-[200px]"
+      // The annotation the other `resolveIcon` seam call sites carry: it returns
+      // a STABLE, cached component per icon name; it does not create one during
+      // render. The rule cannot see that through a call.
+      // eslint-disable-next-line react-hooks/static-components
+      icon={AuthoredEmptyIcon ? <AuthoredEmptyIcon className="size-5 text-muted-foreground" /> : undefined}
+      title={authoredEmptyState?.title || t('table.noResults')}
+      description={authoredEmptyState?.message || undefined}
+    />
+  ) : gridContent;
+
   // Rendered BulkActionDialog (shared across both render branches).
   //
   // ⭐ objectui#9722: `dataSource` reaches this hand-off through a `!`, and
@@ -6221,8 +6300,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           {...recordOverlayShellProps}
           mainContent={
             <div className="flex flex-col h-full">
+              {gridDescription}
               {gridToolbar}
-              {gridContent}
+              {renderedGridContent}
               <BulkActionBar
                 selectedRows={selectedRows}
                 actions={effectiveBulkActions ?? []}
@@ -6259,8 +6339,9 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           {isRefreshing ? t('grid.refreshing') : t('grid.pullToRefresh')}
         </div>
       )}
+      {gridDescription}
       {gridToolbar}
-      {gridContent}
+      {renderedGridContent}
       <BulkActionBar
         selectedRows={selectedRows}
         actions={effectiveBulkActions ?? []}

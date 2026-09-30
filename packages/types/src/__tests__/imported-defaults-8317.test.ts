@@ -108,6 +108,8 @@ import {
   objectNavTargetExclusivity,
   checkListViewCalendarVisualization,
   checkPageSourceCompleteness,
+  checkDashboardWidgetStageOrder,
+  checkDashboardWidgetMetricMeasureArity,
 } from '@objectstack/spec/ui';
 import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
@@ -281,10 +283,14 @@ const CARRIES_DEFAULT = IMPORTED.filter(([, s]) => defaultsIn(s) > 0);
  * inferred, so the set cannot grow in silence — the lazy test below holds it
  * equal to what the graph re-derives.
  *
- * `ElementDataSourceSchema` (objectui#10872 batch 2, the `element:number`
- * arm's `dataSource`) reaches the recursive filter clause through `filter`.
+ * EMPTY since `@objectstack/spec` 17.5.0 (objectui#11073). It named
+ * `ElementDataSourceSchema` (objectui#10872 batch 2, the `element:number` arm's
+ * `dataSource`), whose `filter` reached the recursive filter clause's `z.lazy`.
+ * 17.5.0 converged that `filter` on the `ViewFilterRule` array, which reaches
+ * no `z.lazy`, so the schema is clean and now comes back reference-equal like
+ * every other member of `CARRIES_NONE`.
  */
-const REBUILT_CLEAN: ReadonlySet<string> = new Set(['ElementDataSourceSchema']);
+const REBUILT_CLEAN: ReadonlySet<string> = new Set<string>();
 /** …and the complement of both, where the strip must be the identity function. */
 const CARRIES_NONE = IMPORTED.filter(([n, s]) => defaultsIn(s) === 0 && !REBUILT_CLEAN.has(n));
 
@@ -402,6 +408,14 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
      * probe list. `.default(v)` makes a member omissible; `.removeDefault()`
      * alone gives that omissibility back to a bare `ZodDefault(T)` — so every
      * member that was omissible before must still be omissible after.
+     *
+     * ⚠️ Omissibility is a RUNG, and zod 4.6 has two omissible rungs
+     * (objectui#11073): a `.default()` member answers `optin: 'defaulted'`
+     * ("absent, and something is substituted"), where zod 4.4 answered
+     * `'optional'` for it. Removing the substitution is this boundary's whole
+     * job, so the stripped member answers `'optional'`: a rung CHANGE that is
+     * not a narrowing. What must never happen is an omissible rung becoming
+     * none at all, and a `'defaulted'` rung surviving the strip.
      */
     it.each(CARRIES_DEFAULT.map(([n]) => [n] as const))('%s: no member became REQUIRED', (name) => {
       const [, raw] = CARRIES_DEFAULT.find(([n]) => n === name)!;
@@ -410,10 +424,16 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       const strippedShape = defOf(stripImportedDefaults(raw))!.shape!;
       const optin = (n: unknown) => (n as { _zod?: { optin?: string } })._zod?.optin;
       for (const key of Object.keys(rawShape)) {
+        const before = optin(rawShape[key]);
+        const after = optin(strippedShape[key]);
         expect(
-          optin(strippedShape[key]),
+          after !== undefined,
           `${name}.${key} changed omissibility — removing a default must not narrow the accept set`,
-        ).toBe(optin(rawShape[key]));
+        ).toBe(before !== undefined);
+        expect(
+          after,
+          `${name}.${key}: the strip left a substituting rung behind, or moved a rung it had no default to remove`,
+        ).toBe(before === 'defaulted' ? 'optional' : before);
       }
     });
   });
@@ -534,6 +554,10 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       // rebuilt them without the spec object's own checks.
       ['checkListViewCalendarVisualization', checkListViewCalendarVisualization],
       ['checkPageSourceCompleteness', checkPageSourceCompleteness],
+      // objectui#11073: the two `@objectstack/spec` 17.5.0 added to `DashboardWidgetSchema`,
+      // re-attached by objectui's `DashboardWidgetSchema` under the same ruling.
+      ['checkDashboardWidgetStageOrder', checkDashboardWidgetStageOrder],
+      ['checkDashboardWidgetMetricMeasureArity', checkDashboardWidgetMetricMeasureArity],
     ]);
 
     const isSpecModule = (m: string): boolean =>

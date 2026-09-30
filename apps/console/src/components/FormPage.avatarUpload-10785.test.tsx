@@ -31,6 +31,7 @@ import { render, screen, waitFor, cleanup } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { UploadProvider } from '@object-ui/providers';
+import { createI18n } from '@object-ui/i18n';
 import { FormPage } from './FormPage';
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -128,6 +129,12 @@ function submitButton(container: HTMLElement): HTMLButtonElement {
 }
 
 beforeEach(() => {
+  // The submit button reads the i18n catalogue (objectui#11071) through the
+  // provider `main.tsx` mounts above this route. The app's own factory
+  // registers its instance as react-i18next's global, which is how this
+  // unwrapped route reaches the `en` pack; the harness restores the global
+  // after every test (`installI18nGlobalReset`).
+  createI18n({ defaultLanguage: 'en', detectBrowserLanguage: false });
   submits = [];
   pendingUploads.length = 0;
   uploadSpy.mockClear();

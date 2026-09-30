@@ -35,6 +35,10 @@
  *     invokes the prototype setter. The field vanished from the serialised
  *     body while the spec stood ready to accept it. That is what makes
  *     `Object.fromEntries` load-bearing here rather than stylistic.
+ *     ⚠️ `@objectstack/spec` 17.5.0 refuses this name BY NAME (objectui#11073
+ *     re-pinned `the instrument`), which keeps the load-bearing part: the
+ *     refusal can name the field only if the serialised body still carries
+ *     it, and a document stored before 17.5.0 still arrives with it.
  *
  * The third refusal, duplicates, is the conversion's OWN hazard: a designer
  * list can carry two fields called `amount` and a map cannot, so the later one
@@ -223,8 +227,16 @@ describe('the instrument', () => {
     expect(parseWithFields({ undefined: { type: 'text', label: 'N' } }).success).toBe(true);
   });
 
-  it('treats `__proto__` as a LEGAL field name — the spec would have accepted what assignment threw away', () => {
-    expect(parseWithFields({ ['__proto__']: { type: 'text', label: 'P' } }).success).toBe(true);
+  it('refuses `__proto__` BY NAME since 17.5.0 — a refusal that reaches the author only if the key survives', () => {
+    // Through `@objectstack/spec` 17.4.0 this row read `success === true`: the
+    // spec would have accepted what assignment threw away. 17.5.0 refuses the
+    // name at the key, by name (`z.record()` drops it from its output while
+    // reporting success), so keeping it in the body is now what lets that
+    // refusal name the field instead of the save silently losing it
+    // (objectui#11073 re-pin).
+    expect(issuesOf(parseWithFields({ ['__proto__']: { type: 'text', label: 'P' } }))).toEqual([
+      'custom @ fields.__proto__',
+    ]);
     // Control, so the line above is a verdict about this key rather than a
     // schema that accepts anything: a camelCase name is refused AT THE KEY.
     expect(issuesOf(parseWithFields({ firstName: { type: 'text', label: 'F' } }))).toEqual([

@@ -309,11 +309,12 @@ describe('pin 4 — the rest of the ACCEPT set still renders (objectui#6781)', (
     expect(diagnosticOf(container), 'the type rule fired on a perfectly good gantt').toBeNull();
     expect(axisOf(container)).toEqual(['Jan 2024', 'Feb 2024', 'Mar 2024']);
     // Re-derived by objectui#11079 on the one axis, January 1st to the end of
-    // March 2024, 91 days: see #6750's pin 4.
+    // March 2024, 91 days, and again by objectui#11112, which draws a
+    // date-only end through its day: see #6750's pin 4.
     expect(barStylesOf(container)).toEqual([
-      'left: 0%; width: 32.967032967032964%;',
-      'left: 34.065934065934066%; width: 64.83516483516483%;',
-      'left: 15.384615384615385%; width: 34.065934065934066%;',
+      'left: 0%; width: 34.065934065934066%;',
+      'left: 34.065934065934066%; width: 65.93406593406593%;',
+      'left: 15.384615384615385%; width: 35.16483516483517%;',
     ]);
   });
 });
@@ -367,8 +368,9 @@ describe('pin 6 — the PINNED path keeps its `||` asymmetry (objectui#6759 boun
       const { container } = gantt({ items: [GOOD_ROW], minDate: pin, maxDate: pin });
       expect(diagnosticOf(container), `a discarded ${String(pin)} pin was refused`).toBeNull();
       expect(axisOf(container)).toEqual(['Jan 2024', 'Feb 2024', 'Mar 2024']);
-      // Re-derived by objectui#11079: 60 of the axis's 91 days, as pin 4.
-      expect(barStylesOf(container)).toEqual(['left: 0%; width: 65.93406593406593%;']);
+      // Re-derived by objectui#11079 and again by objectui#11112: January 1st
+      // through March 1st, 61 of the axis's 91 days.
+      expect(barStylesOf(container)).toEqual(['left: 0%; width: 67.03296703296702%;']);
     }
   });
 

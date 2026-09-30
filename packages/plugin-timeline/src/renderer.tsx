@@ -7,7 +7,7 @@
  */
 
 import * as React from 'react';
-import { ComponentRegistry, isRealCalendarDate, toDateInputValue, toDisplayDate, toDomProps } from '@object-ui/core';
+import { ComponentRegistry, isRealCalendarDate, toDateInputValue, toDisplayDate, toDisplayEndDate, toDomProps } from '@object-ui/core';
 import type { TimelineRenderSchema } from './renderHandoff';
 import {
   Timeline,
@@ -100,6 +100,9 @@ export function resolveTimelineScale(schema: { scale?: unknown }): string {
  * reduce, and a range the guard calls ordered must be one the headers can
  * walk. A stop that kept the engine parse would disagree with the others by
  * the viewer's UTC offset.
+ *
+ * A bar's END takes one more step after this read, `readGanttBarEnd`
+ * (objectui#11112): a date-only end is drawn through the end of its day.
  */
 function readGanttDate(value: string | number | Date): Date {
   return typeof value === 'string' ? toDisplayDate(value) : new Date(value);
@@ -263,6 +266,36 @@ function axisScaleOf(scale: string): TimelineAxisScale {
 }
 
 /**
+ * THE ONE READ of a bar's END (objectui#11112): where a bar is drawn to.
+ *
+ * A date-only end is INCLUSIVE: the bar runs through the end of the day it
+ * names, which is the next day's local midnight, the step the day column
+ * takes too (a calendar day, never 24 hours). So a bar authored `2024-01-01`
+ * to `2024-01-31` fills January and ends exactly where the February column
+ * begins, and a bar whose date-only start and end name the same day is one day
+ * wide, across a DST change too (that day's column is 23 or 25 hours wide, and
+ * so is the bar). That is how the catalog producer and a project plan author
+ * an end: "January 1st to January 31st" runs through January 31st.
+ *
+ * The rule itself lives in `@object-ui/core`, `toDisplayEndDate`
+ * (objectui#11141), which `plugin-gantt` reads its ends through too, so the
+ * two gantt surfaces draw one authored end on one day. ⛔ Do not step a day
+ * here again. A string is handed to it: it reads the value as
+ * `toDisplayDate` does, which is `readGanttDate`'s read of a string, and then
+ * steps a date-only value (`isRealCalendarDate`) to its day's end.
+ *
+ * A value with a time part is an instant and the bar ends at it, as does a
+ * number (epoch milliseconds) or a `Date` (objectui#10866), which keep
+ * `readGanttDate`'s own read.
+ *
+ * The tooltip still prints the authored end: `formatDate` reads the day the
+ * value names, not the edge the bar is drawn to.
+ */
+function readGanttBarEnd(value: string | number | Date): Date {
+  return typeof value === 'string' ? toDisplayEndDate(value) : readGanttDate(value);
+}
+
+/**
  * Build the one axis for `scale` across `[minDate, maxDate]`, or `undefined`
  * when the range is unparseable or inverted.
  *
@@ -274,6 +307,15 @@ function axisScaleOf(scale: string): TimelineAxisScale {
  * Both ends are read by `readGanttDate` (objectui#10866, slice 3), so a
  * date-only end is local midnight of the day it names, and a value with a time
  * part keeps its instant and snaps to the start of its local unit.
+ *
+ * `through`, when given, is the last instant the rows' bars cover
+ * (`calculateDateRange`, objectui#11112), and the axis runs on to the unit
+ * that contains it. The computed `maxDate` is a DAY, which an `hour` axis
+ * reads as that day's first hour, while a bar ending on that day is drawn
+ * through its end (a date-only end) or to its hour (an instant). On every
+ * other scale a unit that contains the day already contains every instant of
+ * it, so `through` adds no unit there. It is not given for an author-pinned
+ * `maxDate`, which stays exactly the author's range, nor for the empty plan.
  */
 function timelineAxis(
   scale: string,
@@ -281,14 +323,16 @@ function timelineAxis(
   maxDate: string,
   locale: string,
   t: TimelineTranslate,
+  through?: number,
 ): TimelineAxis | undefined {
   const min = readGanttDate(minDate).getTime();
   const max = readGanttDate(maxDate).getTime();
   if (Number.isNaN(min) || Number.isNaN(max) || min > max) return undefined;
+  const last = through === undefined ? max : Math.max(max, through);
   const unitScale = axisScaleOf(scale);
   const units: TimelineAxisUnit[] = [];
   const cursor = unitScale.floor(new Date(min));
-  while (cursor.getTime() <= max) {
+  while (cursor.getTime() <= last) {
     const start = cursor.getTime();
     const label = unitScale.label(new Date(start), units.length, locale, t);
     unitScale.step(cursor);
@@ -590,8 +634,19 @@ function classifyGanttRows(items: unknown): GanttRowsVerdict {
  * for the table, and for why the repair was not a guard on this line. Every
  * `row.items` reaching this reduce is an array by construction; every date in
  * it parses, because the caller refuses an unparseable one first.
+ *
+ * `through` is the last instant any bar covers, with each end read as the bar
+ * geometry reads it (`readGanttBarEnd`, objectui#11112): the instant before a
+ * bar's drawn end, or its start when it has no length. The axis runs on to the
+ * unit that contains it (`timelineAxis`), which on an `hour` axis is the last
+ * hour of a date-only end's day, where the printed `maxDate` alone stops at
+ * that day's first hour. The empty plan has no bars, so it has no `through`.
  */
-function calculateDateRange(rows: readonly GanttRow[]): { minDate: string; maxDate: string } {
+function calculateDateRange(rows: readonly GanttRow[]): {
+  minDate: string;
+  maxDate: string;
+  through?: number;
+} {
   const allDates = rows.flatMap((row) =>
     row.items.flatMap((item: any) => [item.startDate, item.endDate])
   );
@@ -624,9 +679,22 @@ function calculateDateRange(rows: readonly GanttRow[]): { minDate: string; maxDa
   const minTimestamp = Math.min(...allDates.map((d) => readGanttDate(d).getTime()));
   const maxTimestamp = Math.max(...allDates.map((d) => readGanttDate(d).getTime()));
 
+  // objectui#11112 — a bar is drawn to `readGanttBarEnd`, so the extent reads
+  // each end the same way. `end - 1` is the last millisecond of `[start, end)`.
+  const through = Math.max(
+    ...rows.flatMap((row) =>
+      row.items.map((item) => {
+        const start = readGanttDate(item.startDate).getTime();
+        const end = readGanttBarEnd(item.endDate).getTime();
+        return end > start ? end - 1 : start;
+      }),
+    ),
+  );
+
   return {
     minDate: toDateInputValue(new Date(minTimestamp)),
     maxDate: toDateInputValue(new Date(maxTimestamp)),
+    through,
   };
 }
 
@@ -1349,6 +1417,10 @@ function findUnusableGanttDate(
  * viewer's day. Across a DST change the day's column is 23 or 25 hours wide,
  * as the day is, so a bar's edge stays on its column's edge.
  *
+ * The end then takes `readGanttBarEnd` (objectui#11112): a date-only end is
+ * drawn through the end of its day, so a bar ending on January 31st ends where
+ * the February header begins. An instant end is where the bar ends.
+ *
  * ## objectui#6750's degenerate axis is gone, not guarded
  *
  * This used to measure bars on the span from the minimum date to the maximum
@@ -1359,16 +1431,16 @@ function findUnusableGanttDate(
  * `totalDuration === 0` guard drew such a bar as `{ start: 0, width: 100 }`.
  * The axis now always spans at least the one unit that contains its dates, so
  * the span is never zero and that guard had nothing left to catch. A
- * same-day task is measured like every other bar: a zero-length task is a
- * zero-width bar at its start, as it already was on any plan with two
- * distinct dates.
+ * same-day task is measured like every other bar: its date-only end runs
+ * through that day, so it is one day wide (objectui#11112). A zero-length
+ * task, an instant end equal to its start, is a zero-width bar at its start.
  */
 function calculateBarDimensions(
   startDate: string,
   endDate: string,
   axis: TimelineAxis,
 ): { start: number; width: number } {
-  return placeOnAxis(axis, readGanttDate(startDate).getTime(), readGanttDate(endDate).getTime());
+  return placeOnAxis(axis, readGanttDate(startDate).getTime(), readGanttBarEnd(endDate).getTime());
 }
 
 /**
@@ -1739,13 +1811,16 @@ export const TimelineRenderer = ({ schema, className, style, ...hostProps }: { s
       // The one axis the header row and the bars are both drawn on
       // (objectui#11079). The spec `scale` key is the only axis spelling (the
       // `timeScale` alias is retired, objectui#6355); every spec scale
-      // produces a header row (#2942).
+      // produces a header row (#2942). A computed end runs on to the last
+      // instant the bars cover; a pinned `maxDate` is the author's range
+      // exactly (objectui#11112, `timelineAxis`).
       const axis = timelineAxis(
         resolveTimelineScale(schema as { scale?: unknown }),
         minDate,
         maxDate,
         displayLocale,
         t,
+        schema.maxDate ? undefined : dateRange.through,
       );
 
       /**

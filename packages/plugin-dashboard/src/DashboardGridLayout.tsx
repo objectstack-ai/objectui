@@ -4,7 +4,7 @@ import 'react-grid-layout/css/styles.css';
 import { cn, Card, CardHeader, CardTitle, CardContent, Button } from '@object-ui/components';
 import { Edit, GripVertical, Save, X, RefreshCw } from 'lucide-react';
 import { SchemaRenderer, useHasDndProvider, useDnd } from '@object-ui/react';
-import { useObjectTranslation, useObjectLabel, pickLocalized } from '@object-ui/i18n';
+import { useObjectTranslation, useObjectLabel, useSafeTranslate, pickLocalized } from '@object-ui/i18n';
 import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
 import { chartCategoryKey, chartConfigPresentation, chartMeasureKey } from '@object-ui/core';
 import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
@@ -134,6 +134,10 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
   // `useObjectTranslation` is provider-safe (react-i18next falls back to its
   // global instance and never throws), so a standalone grid still renders.
   const { t, language } = useObjectTranslation();
+  // The refresh button's copy is three pack keys (`dashboard.refreshAll`,
+  // `dashboard.refreshDashboard`, `dashboard.refreshing`), the same three
+  // `DashboardRenderer` reads, each through `tt` like the package's other one-off labels.
+  const tt = useSafeTranslate();
   // `fieldLabel` — the bundle lookup `composeSeriesLabel` (below) consults
   // before falling back to the humanized key. Same provider-safe contract as
   // `useObjectTranslation` above: a bundle miss degrades to the fallback
@@ -508,10 +512,10 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
                   size="sm"
                   variant="outline"
                   disabled={refreshing}
-                  aria-label="Refresh dashboard"
+                  aria-label={tt('dashboard.refreshDashboard', 'Refresh dashboard')}
                 >
                   <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-                  {refreshing ? 'Refreshing…' : 'Refresh All'}
+                  {refreshing ? tt('dashboard.refreshing', 'Refreshing…') : tt('dashboard.refreshAll', 'Refresh All')}
                 </Button>
               )}
               <Button onClick={() => setEditMode(true)} size="sm" variant="outline">

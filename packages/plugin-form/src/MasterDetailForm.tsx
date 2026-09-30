@@ -35,7 +35,14 @@ import type { BatchTransactionOperation, DataSource, I18nLabel } from '@object-u
 import { runBatchTransaction } from '@object-ui/core';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import { Button, Card, CardContent, CardHeader, CardTitle, cn, toast } from '@object-ui/components';
-import { pickLocalized, useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
+import {
+  formatDisplayNumber,
+  pickLocalized,
+  resolveFieldCurrency,
+  useDisplayLocale,
+  useLocalization,
+  useObjectTranslation,
+} from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
 import { dataChangeMatches, subscribeDataChanges } from '@object-ui/react';
 import { ObjectForm } from './ObjectForm';
@@ -52,7 +59,7 @@ import {
   type ChildSchema,
 } from './masterDetailTx';
 import { isSameStoredValue } from './sanitize';
-import { deriveDetail, hydrateColumns, type InlineMode } from './deriveMasterDetail';
+import { deriveDetail, type InlineMode } from './deriveMasterDetail';
 
 export interface MasterDetailDetailConfig {
   /** Child object name, e.g. 'expense_line'. */
@@ -351,6 +358,87 @@ interface DetailEntry {
   /** The authored config, with derived columns / FK folded in once resolved. */
   config: MasterDetailDetailConfig;
   status: DetailResolution;
+  /**
+   * The child object's own definition of `config.amountField`, kept from the
+   * schema the resolve effect loaded, so the document totals stack can read the
+   * amount's currency off the FIELD (objectui#11132). Absent when no schema was
+   * loaded for this entry (a fully configured entry skips the fetch) or the
+   * child declares no such field; the stack then resolves to the tenant's
+   * currency. Internal state, never part of the authored config.
+   */
+  amountFieldDef?: CurrencyFieldDef;
+}
+
+/** The field shape `resolveFieldCurrency` reads — the one currency resolver. */
+type CurrencyFieldDef = Parameters<typeof resolveFieldCurrency>[0];
+
+/**
+ * The child object's definition of `fieldName`, or `undefined` when the name is
+ * unset or the child declares no such field.
+ */
+function childFieldDef(
+  childSchema: { fields?: Record<string, unknown> } | undefined,
+  fieldName: string | undefined,
+): CurrencyFieldDef {
+  if (!fieldName) return undefined;
+  const def = childSchema?.fields?.[fieldName];
+  return def && typeof def === 'object' ? (def as CurrencyFieldDef) : undefined;
+}
+
+/**
+ * The currency the document totals stack is denominated in (objectui#11132).
+ *
+ * Each entry that switches the stack on (one with an `amountField`) resolves its
+ * amount's currency through `resolveFieldCurrency`, the one precedence every
+ * currency face shares: the field's fixed currency, else the tenant default.
+ * ⛔ No constant: the stack used to print a literal `¥` whatever either said.
+ *
+ * The stack adds every entry's amounts into ONE subtotal, so it has one
+ * currency only when every entry resolves to the same code. When they differ,
+ * or none is known, this answers `undefined` and the stack shows plain numbers,
+ * the resolver's own answer for an amount with no known currency: never a
+ * guessed sign.
+ */
+function totalsCurrency(entries: DetailEntry[], tenantCurrency: string | undefined): string | undefined {
+  const codes = new Set(
+    entries
+      .filter((e) => !!e.config.amountField)
+      .map((e) => resolveFieldCurrency(e.amountFieldDef, tenantCurrency)),
+  );
+  return codes.size === 1 ? codes.values().next().value : undefined;
+}
+
+/**
+ * The fraction width of a totals line with no currency: the historical two
+ * places the stack always showed, which is also `CurrencyField`'s width when
+ * no currency resolves.
+ */
+const PLAIN_AMOUNT_DIGITS = 2;
+
+/**
+ * One line of the document totals stack, in the display locale (objectui#9909).
+ *
+ * With a currency, the amount is `Intl`'s own currency format through
+ * `formatDisplayNumber`, the formatter the line grid's currency cells use. So
+ * the sign sits where the locale puts it (`$1,234.50`, `1.234,50 $` in de-DE)
+ * and the width is the currency's ISO 4217 minor unit, the default `Intl`
+ * applies to `style: 'currency'`: 2 for USD, 0 for JPY, 3 for KWD. A
+ * currency's decimal places are the currency's, not a setting.
+ *
+ * Without one, a plain number at {@link PLAIN_AMOUNT_DIGITS}. A code `Intl`
+ * refuses (`RangeError: Invalid currency code`) is shown as the code beside
+ * that plain number, as `CurrencyField` and the grid cells show one, rather
+ * than taking the form down; the digits stay in the display locale.
+ */
+function formatTotalsAmount(n: number, currency: string | undefined, locale: string): string {
+  const plain = () =>
+    formatDisplayNumber(n, { locale, minimumFractionDigits: PLAIN_AMOUNT_DIGITS, maximumFractionDigits: PLAIN_AMOUNT_DIGITS });
+  if (!currency) return plain();
+  try {
+    return formatDisplayNumber(n, { locale, currency });
+  } catch {
+    return `${currency} ${plain()}`;
+  }
 }
 
 /**
@@ -504,6 +592,29 @@ function scrapeHeaderRecord(host: HTMLElement | null): Record<string, unknown> {
   return out;
 }
 
+/**
+ * A configuration hint's pack sentence, with each `{{hole}}` rendered as code
+ * (objectui#11160).
+ *
+ * The three collection hints below name what the author has to find or set: a
+ * property (`childObject`, `relationshipField`) or an object's name. Those stay
+ * code and are never translated, so the pack sentence carries a hole for each.
+ * The caller asks `t` for the sentence with every hole filled by itself, and
+ * this splits the text on the holes and puts each one's value in its place, in
+ * whatever order the locale's word order puts them. `LineItemsPanel`'s
+ * `form.lineItems.noChildObject` split is the one-hole form of the same move.
+ */
+function withCodeHoles(sentence: string, holes: Record<string, string | undefined>): React.ReactNode[] {
+  const names = Object.keys(holes);
+  const pattern = new RegExp(`(${names.map((name) => `\\{\\{${name}\\}\\}`).join('|')})`);
+  return sentence.split(pattern).map((part, i) => {
+    const name = names.find((n) => part === `{{${n}}}`);
+    return name === undefined ? part : (
+      <code key={i} className="font-mono">{holes[name]}</code>
+    );
+  });
+}
+
 interface MasterDetailLinesProps {
   entries: DetailEntry[];
   /** Row state addressed by ENTRY ID, never by array position (objectui#6371). */
@@ -561,6 +672,16 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   // used to pass `toLocaleString` an explicit `undefined`, i.e. the MACHINE's
   // locale (objectui#9909).
   const displayLocale = useDisplayLocale();
+  // The tenant default currency (ADR-0053): the totals stack's currency when
+  // the amount field fixes none (objectui#11132).
+  const { currency: tenantCurrency } = useLocalization();
+  // The collection placeholder, the document totals stack and the in-form
+  // collection's default add label, in the session locale (objectui#11071).
+  // Since objectui#11145 also a collection's heading when it authors no
+  // `title`: the key the record page's line-items panel reads for its own.
+  // Since objectui#11160 also the three collection hints (no `childObject`,
+  // a schema that failed to load, no relationship field to the parent).
+  const { t } = useFormChromeTranslation();
   // The caller's field-level grants on each CHILD object. With no provider
   // mounted this is the fail-open answer (`isLoaded` false) and every grid below
   // renders exactly as it did before permissions existed (objectui#10163).
@@ -611,7 +732,10 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
   const taxPct = taxRate ?? 0;
   const taxAmount = subtotal * (taxPct / 100);
   const grandTotal = subtotal + taxAmount;
-  const money = (n: number) => `¥${n.toLocaleString(displayLocale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // The amounts' own currency, else the tenant's; never a constant sign
+  // (objectui#11132). See `totalsCurrency` and `formatTotalsAmount`.
+  const currency = totalsCurrency(entries, tenantCurrency);
+  const money = (n: number) => formatTotalsAmount(n, currency, displayLocale);
 
   return (
     <>
@@ -628,7 +752,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
         // its position, so a sibling moving above it re-associated the section
         // and its rows with a different collection (objectui#6371).
         <section key={entry.id} className="space-y-2">
-          <h3 className="text-sm font-medium text-foreground">{d.title || 'Line Items'}</h3>
+          <h3 className="text-sm font-medium text-foreground">{d.title || t('form.lineItems.title')}</h3>
           {/* A detail whose child object never resolved gets its OWN branch,
               ahead of the columns/loading one (objectui#6360) — the render half
               of the decline at `MasterDetailForm`'s resolve effect, and the same
@@ -644,8 +768,10 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               className="py-4 text-sm text-muted-foreground"
               data-testid="md-detail-no-child-object"
             >
-              This collection has no child object configured: set{' '}
-              <code className="font-mono">childObject</code> to the object whose rows it lists.
+              {withCodeHoles(
+                t('form.masterDetail.noChildObject', { property: '{{property}}' }),
+                { property: 'childObject' },
+              )}
             </p>
           ) : entry.status === 'failed' ? (
             /* The OTHER arm of the same resolver (objectui#6372). This entry
@@ -665,9 +791,10 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               role="status"
               data-testid="md-detail-schema-unavailable"
             >
-              Could not load the schema of{' '}
-              <code className="font-mono">{d.childObject}</code>, so this collection has no
-              columns to show. Check that the object exists and is readable, then reload.
+              {withCodeHoles(
+                t('form.masterDetail.schemaUnavailable', { object: '{{object}}' }),
+                { object: d.childObject },
+              )}
             </p>
           ) : entry.status === 'underivable' ? (
             /* The THIRD arm of the same resolver (objectui#6394): the schema
@@ -688,14 +815,17 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               className="py-4 text-sm text-muted-foreground"
               data-testid="md-detail-no-relationship-field"
             >
-              Could not work out how <code className="font-mono">{d.childObject}</code> links
-              to <code className="font-mono">{parentObjectName}</code>: no lookup or
-              master_detail field on it references the parent. Set{' '}
-              <code className="font-mono">relationshipField</code> on this collection to the
-              field that holds the parent record.
+              {withCodeHoles(
+                t('form.masterDetail.noRelationshipField', {
+                  object: '{{object}}',
+                  parent: '{{parent}}',
+                  property: '{{property}}',
+                }),
+                { object: d.childObject, parent: parentObjectName, property: 'relationshipField' },
+              )}
             </p>
           ) : !d.columns?.length ? (
-            <p className="py-4 text-sm text-muted-foreground">Loading columns…</p>
+            <p className="py-4 text-sm text-muted-foreground">{t('form.masterDetail.loadingColumns')}</p>
           ) : (
             <LineItemsField
               value={rowState[entry.id]?.rows ?? []}
@@ -732,7 +862,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
                   sort_field: d.sortField,
                   min_rows: d.minRows,
                   max_rows: d.maxRows,
-                  add_label: d.inlineMode === 'form' ? (d.addLabel || 'Add') : d.addLabel,
+                  add_label: d.inlineMode === 'form' ? (d.addLabel || t('detail.add')) : d.addLabel,
                 } as any
               }
             />
@@ -747,15 +877,15 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
         <div className="flex justify-end">
           <dl className="w-64 space-y-1.5 text-sm" data-testid="md-totals">
             <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground">Subtotal</dt>
+              <dt className="text-muted-foreground">{t('form.masterDetail.subtotal')}</dt>
               <dd className="tabular-nums" data-testid="md-subtotal">{money(subtotal)}</dd>
             </div>
             <div className="flex items-center justify-between">
-              <dt className="text-muted-foreground">Tax ({taxPct}%)</dt>
+              <dt className="text-muted-foreground">{t('form.masterDetail.tax', { rate: taxPct })}</dt>
               <dd className="tabular-nums" data-testid="md-tax">{money(taxAmount)}</dd>
             </div>
             <div className="flex items-center justify-between border-t border-border pt-1.5 text-base font-semibold">
-              <dt>Total</dt>
+              <dt>{t('form.masterDetail.total')}</dt>
               <dd className="tabular-nums" data-testid="md-grand-total">{money(grandTotal)}</dd>
             </div>
           </dl>
@@ -894,17 +1024,35 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
             return { ...entry, status: 'failed' };
           }
           try {
-            // Author gave the FK + an explicit column set but left some columns
-            // untyped — hydrate just their widget types from the schema, keeping
-            // their exact column set / order / labels (don't re-derive columns).
-            if (d.relationshipField && d.columns?.length) {
-              return { ...entry, config: { ...d, columns: hydrateColumns(d.columns, childSchema) }, status: 'ready' };
-            }
+            // ONE derivation for every entry that reaches here. With authored
+            // `columns`, `deriveDetail` keeps them: its `columns` is
+            // `hydrateColumns(d.columns, childSchema)`, and its amount rule
+            // picks from that same set. An authored `amountField` / `sortField`
+            // still wins over the derived one.
             const derived = deriveDetail(d.childObject, childSchema, schema.objectName, {
               relationshipField: d.relationshipField,
               columns: d.columns,
               amountField: d.amountField,
             });
+            const amountField = d.amountField ?? derived.amountField;
+            const sortField = d.sortField ?? derived.sortField;
+            // Author gave the FK + an explicit column set but left some columns
+            // untyped — hydrate just their widget types from the schema, keeping
+            // their exact column set / order / labels (don't re-derive columns),
+            // and their own `formFields` / `inlineMode`. The sort field and the
+            // amount field are still taken from the derivation: a child whose
+            // relationship declares `inlineColumns` lands here, and nothing
+            // else supplies them (the spec has no inline sort-field key), so
+            // skipping them lost the drag-reorder `position` and the running
+            // total (objectui#11144).
+            if (d.relationshipField && d.columns?.length) {
+              return {
+                ...entry,
+                config: { ...d, columns: derived.columns, amountField, sortField },
+                status: 'ready',
+                amountFieldDef: childFieldDef(childSchema, amountField),
+              };
+            }
             return {
               ...entry,
               status: 'ready',
@@ -914,9 +1062,10 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
                 columns: derived.columns,
                 formFields: d.formFields ?? derived.formFields,
                 inlineMode: d.inlineMode ?? derived.mode,
-                amountField: d.amountField ?? derived.amountField,
-                sortField: d.sortField ?? derived.sortField,
+                amountField,
+                sortField,
               },
+              amountFieldDef: childFieldDef(childSchema, amountField),
             };
           } catch (err) {
             // THE DERIVE FAILED, on a schema that loaded fine — almost always
@@ -1638,7 +1787,10 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
         <Card className="border-primary/40 shadow-none ring-1 ring-primary/10" data-testid="md-row-form">
           <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2 space-y-0">
             <CardTitle className="text-sm font-medium">
-              {(expandedDetail.title || 'Line item')} — row {expanded.rowIdx + 1}
+              {t('form.masterDetail.rowTitle', {
+                title: expandedDetail.title || t('form.masterDetail.lineItem'),
+                row: expanded.rowIdx + 1,
+              })}
             </CardTitle>
             <Button
               type="button"
@@ -1647,7 +1799,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
               className="h-7 text-xs text-muted-foreground"
               onClick={cancelRowEdit}
             >
-              Close
+              {t('common.close')}
             </Button>
           </CardHeader>
           <CardContent>
@@ -1667,7 +1819,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
                   // No recordId → ObjectForm uses initialData (no backend fetch).
                   initialData: expandedRow ?? {},
                   ...(expandedDetail.formFields?.length ? { fields: expandedDetail.formFields } : {}),
-                  submitText: 'Apply',
+                  submitText: t('form.masterDetail.applyRow'),
                   // Non-persisting: return the values; the atomic batch on the
                   // parent Save does the real write.
                   submitHandler: async (values: any) => values,
@@ -1703,7 +1855,7 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
               disabled={saving || (needsDerive && !resolvedEntries) || uploadGate.uploading}
               data-testid="md-form-submit"
             >
-              {uploadGate.uploading ? uploadGate.busyLabel : saving ? 'Saving…' : submitText}
+              {uploadGate.uploading ? uploadGate.busyLabel : saving ? t('detail.saving') : submitText}
             </Button>
           </div>
         </div>

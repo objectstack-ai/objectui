@@ -136,13 +136,14 @@ const walk = (schema: z.ZodType): z.ZodType => {
   // `ViewSchema.formViews[…].groups[].fields[]`, walked because the whole
   // container crosses the boundary, not only the slot.
   // Each sits inside a schema that carries a default anyway, so the exception
-  // costs no extra rebuild — with ONE named exception since objectui#10872
-  // batch 2: `ElementDataSourceSchema` (the `element:number` arm's
-  // `dataSource`) reaches the recursive filter clause and carries no default,
-  // so it is the one clean import this arm rebuilds — an equal-answering
-  // clone, not the spec's own object. The pin file re-derives the count and
-  // that named set (`REBUILT_CLEAN`), and goes red if either moves, rather than
-  // trusting this sentence.
+  // costs no extra rebuild. objectui#10872 batch 2 had ONE named exception,
+  // `ElementDataSourceSchema` (the `element:number` arm's `dataSource`), whose
+  // `filter` reached the recursive filter clause with no default above it;
+  // `@objectstack/spec` 17.5.0 converged that `filter` on the `ViewFilterRule`
+  // array, which reaches no `z.lazy`, so it is clean and comes back as the
+  // spec's own object (objectui#11073). The pin file re-derives the count and
+  // the named set of clean rebuilt imports (`REBUILT_CLEAN`, empty today), and
+  // goes red if either moves, rather than trusting this sentence.
   //
   // ⛔ Rebuilt through `cloneWithDef`, not `z.lazy(…)`: a fresh `z.lazy` would
   // be a different class with none of this node's own `def.checks` or registry

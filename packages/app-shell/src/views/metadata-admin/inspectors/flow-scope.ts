@@ -17,6 +17,10 @@
  *     node's OWN outputs and any DOWNSTREAM node's outputs are deliberately
  *     excluded — they don't exist yet when N runs. This is the property the
  *     picker's "a downstream output is not offered upstream" guarantee rests on.
+ *   - Edges — an out-edge's guard is evaluated AFTER its source node ran, so
+ *     an edge's scope is the scope at its source PLUS that source's own
+ *     outputs ({@link resolveEdgeScope}, objectui#11085). The one rule for
+ *     which own outputs count is {@link edgeSourceOutputRefs}.
  *   - Loop / map iterators — the `iteratorVariable` of an enclosing loop/map
  *     ancestor, surfaced as its own group.
  *   - Trigger record — on a record-triggered flow, the trigger object's fields.
@@ -106,6 +110,8 @@ interface ScopeFlowNode {
 interface FlowEdgeLike {
   source?: unknown;
   target?: unknown;
+  /** `fault` marks the failure route — see {@link edgeSourceOutputRefs}. */
+  type?: unknown;
 }
 
 /** Trigger types that fire on a single record (so `record` is in scope). */
@@ -394,6 +400,50 @@ export function resolveFlowScope(
   }
 
   return { refs: dedupeByToken(refs) };
+}
+
+/**
+ * The source node's OWN outputs that are in scope on one of its out-edges —
+ * the single rule both the edge inspector and the Problems panel's edge scan
+ * read (objectui#11085).
+ *
+ * The engine writes a node's outputs (its executor's `outputVariable` and the
+ * `<nodeId>.<key>` write-back of its result) BEFORE `traverseNext` evaluates
+ * its out-edge guards, so a guard can read what its own source just wrote.
+ * Two out-edges get none:
+ *   - a `fault` edge — the engine walks it only when the node FAILED, when no
+ *     output was written back, and never evaluates its condition
+ *     (`traverseNext` filters fault edges out);
+ *   - an edge leaving the start node, which contributes the trigger record
+ *     rather than outputs (as in {@link resolveFlowScope}).
+ */
+export function edgeSourceOutputRefs(
+  draft: Record<string, unknown>,
+  edge: FlowEdgeLike,
+  connectors?: unknown,
+): ScopeRef[] {
+  const sourceId = str(edge.source);
+  if (!sourceId || str(edge.type) === 'fault') return [];
+  const source = asArray(draft.nodes).map(asRecord).find((n) => str(n.id) === sourceId) as ScopeFlowNode | undefined;
+  if (!source || str(source.type) === 'start') return [];
+  return nodeOutputRefs(source, connectors);
+}
+
+/**
+ * Resolve the in-scope reference set on an EDGE's guard: everything in scope
+ * at its source node ({@link resolveFlowScope}) plus the source's own outputs
+ * ({@link edgeSourceOutputRefs}), de-duplicated by token. `trigger` is the
+ * source node's.
+ */
+export function resolveEdgeScope(
+  draft: Record<string, unknown>,
+  edge: FlowEdgeLike,
+  locale?: string,
+  connectors?: unknown,
+): FlowScope {
+  const atSource = resolveFlowScope(draft, str(edge.source), locale, connectors);
+  const refs = dedupeByToken([...atSource.refs, ...edgeSourceOutputRefs(draft, edge, connectors)]);
+  return atSource.trigger ? { refs, trigger: atSource.trigger } : { refs };
 }
 
 /**

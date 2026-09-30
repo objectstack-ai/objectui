@@ -10,7 +10,9 @@
  * everything else in the envelope must survive that edit.
  *
  * Fixtures are authored input fed through `HookSchema.parse` — never
- * hand-written envelopes — so they cannot drift from the spec.
+ * hand-written envelopes — so they cannot drift from the spec. The one
+ * exception is the ast-only envelope, which `@objectstack/spec` 17.5.0 refuses
+ * to produce; its row says why (objectui#11073).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -47,9 +49,24 @@ describe('expressionSource — read (#3218)', () => {
     // `disabled` is `boolean | ExpressionInput` on an action — a boolean is
     // not an expression and must not be stringified into the editor.
     expect(expressionSource(true)).toBe('');
-    // An AST-only envelope (spec phase M9.2) has no readable source YET;
-    // `conditionText` says so rather than inventing text.
-    expect(expressionSource(storedCondition({ dialect: 'cel', ast: { op: 'gt' } }))).toBe('');
+    // An AST-only envelope (spec phase M9.2) has no readable source;
+    // `conditionText` says so rather than inventing text. Through
+    // `@objectstack/spec` 17.4.0 `HookSchema.parse` produced one; 17.5.0
+    // REFUSES it at `condition` (an evaluated slot needs a non-blank `source`),
+    // so the spec can no longer mint this fixture (objectui#11073). The read
+    // still owes an answer for the one that is already STORED — the exact
+    // object 17.4.0 parsed to, which a hand-written literal now reproduces.
+    const astOnly = { dialect: 'cel', ast: { op: 'gt' } };
+    const refused = HookSchema.safeParse({
+      name: 'guard_hook',
+      object: 'lead',
+      events: ['beforeInsert'],
+      handler: 'guard_fn',
+      condition: astOnly,
+    });
+    expect(refused.success, 'the spec refuses an ast-only envelope since 17.5.0').toBe(false);
+    expect(refused.success ? [] : refused.error.issues.map((i) => i.path.join('.'))).toContain('condition');
+    expect(expressionSource(astOnly)).toBe('');
     // Never `[object Object]` — the generic SchemaForm condition widget used
     // to `String(value)` an envelope straight into the editor.
     expect(expressionSource({ dialect: 'cel', source: 'a > 1' })).not.toContain('object Object');

@@ -8,7 +8,7 @@
 
 import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema, DataSource } from '@object-ui/types';
 import { SchemaRenderer, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables, useResolvedDataSource } from '@object-ui/react';
-import { useObjectTranslation, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
+import { useObjectTranslation, useSafeTranslate, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import type { ActionDef, ActionResult, ActionContext, ModalHandler, SduiDomPassThroughKey } from '@object-ui/core';
 import {
   resolveDashboardFilterDefs,
@@ -306,6 +306,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     // it's missing we silently degrade to the raw English fallbacks.
     const { dashboardLabel, dashboardDescription, dashboardActionLabel, widgetTitle, widgetDescription, fieldLabel } = useObjectLabel();
     const { t, language } = useObjectTranslation();
+    // The refresh button's copy is three pack keys (`dashboard.refreshAll`,
+    // `dashboard.refreshDashboard`, `dashboard.refreshing`), the same three
+    // `DashboardGridLayout` reads, each through `tt` like the package's other one-off labels.
+    const tt = useSafeTranslate();
     // The record-count badge is a number face; it groups in the display locale,
     // not the MACHINE's (objectui#9909).
     const displayLocale = useDisplayLocale();
@@ -1192,10 +1196,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
           size="sm"
           onClick={handleRefresh}
           disabled={refreshing}
-          aria-label="Refresh dashboard"
+          aria-label={tt('dashboard.refreshDashboard', 'Refresh dashboard')}
         >
           <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-          {refreshing ? 'Refreshing…' : 'Refresh All'}
+          {refreshing ? tt('dashboard.refreshing', 'Refreshing…') : tt('dashboard.refreshAll', 'Refresh All')}
         </Button>
       </div>
     );

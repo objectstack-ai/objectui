@@ -35,10 +35,10 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-function session(locale: string, node: React.ReactNode): React.ReactElement {
+function session(locale: string, node: React.ReactNode, currency?: string): React.ReactElement {
   return (
     <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }} persistLanguage={false}>
-      <LocalizationProvider value={{ locale }}>{node}</LocalizationProvider>
+      <LocalizationProvider value={{ locale, currency }}>{node}</LocalizationProvider>
     </I18nProvider>
   );
 }
@@ -112,6 +112,8 @@ interface Surface {
   read: () => Promise<string>;
   de: RegExp;
   en: RegExp;
+  /** The tenant's default currency, for a surface that shows money. */
+  currency?: string;
 }
 
 const SURFACES: Surface[] = [
@@ -134,8 +136,12 @@ const SURFACES: Surface[] = [
         return text;
       });
     },
-    de: /^¥1\.234,50$/,
-    en: /^¥1,234\.50$/,
+    // The grouping is the display locale's; the sign is the tenant's USD, where
+    // the locale puts it (objectui#11132). It used to be a literal `¥` prefix
+    // whatever the currency.
+    currency: 'USD',
+    de: /^1\.234,50 \$$/,
+    en: /^\$1,234\.50$/,
   },
   {
     name: "useOccSave — the conflict dialog's “their save” time",
@@ -152,7 +158,7 @@ const SURFACES: Surface[] = [
 ];
 
 async function faceUnder(locale: string, surface: Surface): Promise<string> {
-  render(session(locale, surface.node()));
+  render(session(locale, surface.node(), surface.currency));
   const text = (await surface.read()).replace(/\s+/g, ' ').trim();
   cleanup();
   return text;
@@ -176,7 +182,7 @@ describe('form number and time faces follow the declared session locale (objectu
 
   it.each(SURFACES)('$name — every locale-taking call receives the declared tag', async (surface) => {
     const calls = await recordLocaleArgumentsAsync(async () => {
-      render(session('de-DE', surface.node()));
+      render(session('de-DE', surface.node(), surface.currency));
       await surface.read();
     });
     cleanup();

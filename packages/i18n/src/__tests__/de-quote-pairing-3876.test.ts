@@ -299,7 +299,10 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // `form.noPermissionToEdit`, the notice on a form locked for a closed
     // affordance, which each quote the object's label („{{object}}“-Datensätze)
     // — two interpolated spans, runtime data.
-    expect(okSpans, 'correctly paired spans').toBe(68);
+    // 69 once objectui#11131 added `fields.grid.noItemsAddHint`, the list-mode
+    // line-items grid's empty text, which quotes the Add button's label
+    // („{{label}}“) — one interpolated span, runtime data.
+    expect(okSpans, 'correctly paired spans').toBe(69);
   });
 
   it('keeps the count identity that replaces the card’s count(„) === count(“)', () => {
@@ -334,8 +337,9 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // 66 / 66 / 0 after objectui#7699 added `fields.file.uploadIncomplete`, one
     // more matched pair. 68 / 68 / 0 after objectui#11000 added
     // `form.noPermissionToCreate` and `form.noPermissionToEdit`, one matched
-    // pair each.
-    expect({ open, close, rdq }).toEqual({ open: 68, close: 68, rdq: 0 });
+    // pair each. 69 / 69 / 0 after objectui#11131 added
+    // `fields.grid.noItemsAddHint`, one more matched pair.
+    expect({ open, close, rdq }).toEqual({ open: 69, close: 69, rdq: 0 });
     // The durable shape: every „ closed by a “, every surplus “ an English
     // opener answered by a ”. Survived translating the two English values.
     expect(close).toBe(open + rdq);

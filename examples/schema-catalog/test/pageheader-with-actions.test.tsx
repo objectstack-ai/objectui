@@ -1,52 +1,49 @@
 /**
- * The PageHeader docs demo renders the COMPONENT, not a hand-rolled header
- * (objectui#3787).
+ * The PageHeader docs demo is the CANONICAL `page:header` node (objectui#3906),
+ * and it renders the component rather than a hand-rolled header (objectui#3787).
  *
- * `layout-page-header/pageheader-with-actions` is the only runnable example on
- * `content/docs/layout/page-header.mdx`. It used to be a `div`/`text`/`button`
- * tree carrying Tailwind classes copied out of `PageHeader.tsx` — so the page
- * documenting the component shipped a copy-paste reference that told authors
- * (AI authors included) to bypass it, it exercised none of `page-header`'s
- * rendering, and it held a third, already-drifted copy of the component's
- * spacing numbers (objectui#3786 fixed the second copy, in the prose).
+ * `layout-page-header/basic-page-header` is the only runnable example on
+ * `content/docs/layout/page-header.mdx`. Until objectui#3906 it was a
+ * `page-header` node — the `@object-ui/layout` alias, a different renderer with
+ * no `ComponentPropsMap` row — so the page's live demo taught the one spelling
+ * the contract does not know. The maintainer's ruling on that card (direction
+ * (b)) made the page's author face the canonical key; this file pins the demo to
+ * it.
  *
- * Five things are pinned here, and they are different facts:
+ * ⚠️ The file keeps its old name on purpose. Tests in `packages/layout` cite it
+ * BY PATH for the alias-registration and manifest pins at the bottom (the
+ * `diagnose()` helper lives here), so renaming it would silently falsify those
+ * pointers. The demo it pins was renamed instead: it carries no actions any
+ * more, for the reason the render pin below states.
  *
- *  1. SHAPE — the example's root node is a `page-header`, and it contains none
- *     of the class strings that only exist inside `PageHeader.tsx`. This is the
- *     regression that would fire if anyone hand-rolls the header again.
- *  2. RENDER — driven through the real `SchemaRenderer`, the node produces the
- *     header: an `<h1>` title, the subtitle, and BOTH schema children in the
- *     right-hand slot.
- *  3. VALIDATE — the same JSON, put through the manifest the app really builds
- *     from the live registry, draws no `not-a-container` diagnostic (#3900).
- *  4. VALIDATE, PROPS — the same JSON draws no `unknown-prop` either, and an
- *     array-valued `navigation-renderer.items` draws no `type-mismatch` (#3972).
- *     Same lie as (3) on the prop face instead of the containment face.
- *  5. VALIDATE, OPTIONALITY — a `navigation-renderer` WITHOUT `items` now draws
- *     an error-level `missing-required-prop` (#3987), and the props the renderer
- *     defaults still draw nothing. Unlike (3) and (4) this one is a tightening,
- *     not a false-diagnostic fix; see that describe's header.
+ * Pinned for the demo, each a different fact:
  *
- * (2) and (3) are two halves of one contradiction that used to be live. The
- * render path never consults `isContainer` — `SchemaRenderer` strips `children`
- * from the React props but always passes the whole node as `schema`, and
- * `PageHeader` re-introduces `schema.children` itself — so the header rendered
- * its children correctly while `packages/layout/src/index.ts` omitted
- * `isContainer: true` from the registration. The flag's consumers are elsewhere:
- * `sdui-parser`'s `not-a-container` diagnostic, the Studio palette, and the
- * react-page tag map. So the omission never blocked anything; it made the
- * VALIDATOR contradict the docs, the demo and the render — an author following
- * this very page got a warning telling them their working schema was invalid.
- * #3900 added the flag (maintainer ruling, route A: `children` is a base
- * property of every protocol node, not a `PageHeaderProps` key, so declaring it
- * mints no authoring surface outside the spec). (3) is what keeps the two faces
- * from drifting apart again in either direction.
+ *  1. SHAPE — the root is `page:header`, its props sit in `properties` (the
+ *     page-component spelling, the only place the contract judges them), and the
+ *     JSON restates none of the classes the canonical renderer owns. The last
+ *     half is the hand-rolled-copy guard of objectui#3787, re-derived against the
+ *     canonical renderer's classes.
+ *  2. RENDER — through the real `SchemaRenderer`, the node produces the bare
+ *     header layout: a `<header>` root, an `<h1>` title, the subtitle, and the
+ *     container classes the docs page's Styling section states.
+ *  3. CONTRACT — the demo passes the spec's page-component shape and the
+ *     `ComponentPropsMap['page:header']` row in FULL (value-level, not only
+ *     "no unrecognized key"), and objectui's own schema mirror. Each pass is
+ *     paired with a planted mistake the same validator must still refuse.
+ *  4. DECLARATION — every key the demo writes is a declared input of the
+ *     `page:header` registration, read through the manifest the app builds.
  *
- * Module-scope imports, not `beforeAll` (AGENTS.md §测试纪律): the child
- * `button` node resolves through `@object-ui/components`' registration
- * side-effects, and paying that cost at import time keeps it out of every
- * test/hook timeout budget.
+ * Why no actions and no children (measured, objectui#3906): the canonical
+ * renderer draws no `children` at all, and its `actions` are action IDS
+ * resolved against the object bound to the page. A docs demo is bound to no
+ * object, so ids there resolve to nothing (the renderer warns once per id) — a
+ * demo "with actions" would render none. The contract refuses the other two
+ * shapes the old demo used: `children` on this node (objectui#9256) and an
+ * inline action object in `actions` (the spec's `z.array(z.string())`).
+ *
+ * Module-scope imports, not `beforeAll` (AGENTS.md §测试纪律): the registrations
+ * are import-time side effects, and paying that cost at import time keeps it out
+ * of every test/hook timeout budget.
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -56,20 +53,32 @@ import { SchemaRenderer } from '@object-ui/react';
 import { registerLayout } from '@object-ui/layout';
 import { manifestFromConfigs, validateTree } from '@object-ui/sdui-parser';
 import type { Diagnostic, SchemaElement } from '@object-ui/sdui-parser';
+import { safeValidateSchema } from '@object-ui/types/zod';
+import { ComponentPropsMap, PageComponentSchema } from '@objectstack/spec/ui';
 import { getExample } from '../src/index.js';
 
-const EXAMPLE_ID = 'layout-page-header/pageheader-with-actions';
+const EXAMPLE_ID = 'layout-page-header/basic-page-header';
+
+interface DemoNode {
+  type?: string;
+  properties?: Record<string, unknown>;
+  [key: string]: unknown;
+}
+
+const demo = (): DemoNode => getExample(EXAMPLE_ID).schema as DemoNode;
 
 /**
- * Class strings that exist to style the header and live in `PageHeader.tsx`
- * (`:210`, `:211`, `:231`, `:233`). Their presence in the example JSON is the
- * signature of a hand-rolled copy — the defect, not a styling choice.
+ * Class strings the canonical renderer's bare layout puts on its own elements.
+ * Their presence in the example JSON is the signature of a hand-rolled copy —
+ * the defect objectui#3787 removed, not a styling choice.
  */
 const COMPONENT_OWNED_CLASSES = [
-  'text-2xl',
-  'tracking-tight',
-  'text-muted-foreground',
+  'border-b',
   'pb-4',
+  'font-semibold',
+  'tracking-tight',
+  'text-2xl',
+  'text-muted-foreground',
 ];
 
 beforeAll(() => {
@@ -83,8 +92,8 @@ beforeAll(() => {
  * `getJsxManifest()` in `packages/components/src/renderers/layout/page.tsx`
  * (module-private, hence the four lines here): key it off `getAllConfigs()`
  * instead and the bare `page-header` tag authors write is absent from the
- * manifest, so every assertion below would pass on `unknown-component` and
- * never reach the containment check at all.
+ * manifest, so every alias assertion below would pass on `unknown-component`
+ * and never reach the check it names.
  */
 const diagnose = (schema: unknown): Diagnostic[] => {
   const configs = ComponentRegistry.getKnownTypes().map((t) => {
@@ -95,93 +104,192 @@ const diagnose = (schema: unknown): Diagnostic[] => {
   return validateTree(schema as SchemaElement, manifest).diagnostics;
 };
 
-describe('the page-header docs demo uses the page-header component (#3787)', () => {
-  it('is rooted at a `page-header` node', () => {
-    const schema = getExample(EXAMPLE_ID).schema as { type?: string };
-    expect(schema.type).toBe('page-header');
+/** Every issue as `path: code`, so a red run says what broke rather than `false`. */
+const issuesOf = (result: { success: boolean; error?: { issues: Array<{ path: PropertyKey[]; code: string }> } }) =>
+  result.success ? [] : (result.error?.issues ?? []).map((i) => `${i.path.map(String).join('.')}: ${i.code}`);
+
+describe('the page-header docs demo is the canonical `page:header` node (objectui#3906)', () => {
+  it('is rooted at `page:header` and carries its props in `properties`', () => {
+    const schema = demo();
+    expect(schema.type).toBe('page:header');
+    // Nothing else on the node: a prop written beside `type` is read by the
+    // renderer but judged by no validator (see the CONTRACT describe below),
+    // which is exactly the unchecked spelling the page tells authors not to use.
+    expect(Object.keys(schema).sort()).toEqual(['properties', 'type']);
+    expect(schema.properties).toEqual({
+      title: 'Users',
+      subtitle: 'Manage your team members and permissions',
+    });
   });
 
-  it('declares title/subtitle on the component instead of restating its classes', () => {
-    const schema = getExample(EXAMPLE_ID).schema as Record<string, unknown>;
-    expect(schema.title).toBe('Users');
-    expect(schema.subtitle).toBe('Manage your team members and permissions');
-    // The third copy of the spacing/typography numbers (#3786) is gone, and
-    // stays gone: re-hand-rolling the header re-introduces these strings.
-    const json = JSON.stringify(schema);
+  it('restates none of the classes the canonical renderer owns (the objectui#3787 guard)', () => {
+    const json = JSON.stringify(demo());
     for (const cls of COMPONENT_OWNED_CLASSES) {
       expect(json, `example JSON should not restate \`${cls}\``).not.toContain(cls);
     }
   });
 
-  it('renders the real header: h1 title, subtitle, and both children in the action slot', () => {
-    const { container } = render(
-      <SchemaRenderer schema={getExample(EXAMPLE_ID).schema as never} />,
-    );
+  it('renders the real canonical header: `<header>` root, `<h1>` title, subtitle', () => {
+    const { container } = render(<SchemaRenderer schema={demo() as never} />);
 
-    // The title is the document heading — the page's Accessibility section
-    // claims an `<h1>`, and the hand-rolled demo it replaces emitted a `span`.
+    const root = container.querySelector('[data-obj-type="page:header"]');
+    // The canonical renderer, not the alias's `<div>` root.
+    expect(root?.tagName).toBe('HEADER');
+
     const h1 = container.querySelector('h1');
     expect(h1?.textContent).toBe('Users');
     expect(screen.getByText('Manage your team members and permissions')).toBeTruthy();
 
-    // Both children reach the right-hand slot. This held even while the
-    // registration omitted `isContainer` — the render path never reads the flag
-    // (see the module header), which is why the omission was invisible here and
-    // only the validator complained.
-    expect(screen.getByRole('button', { name: 'Export' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Add User' })).toBeTruthy();
+    // No actions authored and none resolvable without a bound object, and the
+    // node draws no children: the header renders no button at all.
+    expect(container.querySelectorAll('button')).toHaveLength(0);
   });
 
-  it('renders the container spacing the docs Styling section states (#3786)', () => {
-    // Pins the CODE side of the three Container bullets in
-    // `content/docs/layout/page-header.mdx`: `pb-4` with no responsive
-    // variant, `gap-3` on the outer column, and a `border-b`. Changing any of
-    // them turns this red, which is the prompt to update that section — the
-    // doc drifted precisely because nothing was watching. (Mechanising the
-    // prose itself is the separate decision #3786 deferred.)
-    const { container } = render(
-      <SchemaRenderer schema={getExample(EXAMPLE_ID).schema as never} />,
-    );
-    const root = container.querySelector('[data-obj-type="page-header"]');
+  it('renders the classes the docs Styling section states for the bare layout', () => {
+    // Pins the CODE side of the bare-layout bullets in
+    // `content/docs/layout/page-header.mdx`. Changing any of them turns this
+    // red, which is the prompt to update that section.
+    const { container } = render(<SchemaRenderer schema={demo() as never} />);
+    const root = container.querySelector('[data-obj-type="page:header"]');
     const cls = root?.className ?? '';
-
-    expect(cls).toContain('gap-3');
+    expect(cls).toContain('gap-2');
     expect(cls).toContain('pb-4');
     expect(cls).toContain('border-b');
-    // No responsive padding variant — the doc used to promise `pb-8` on desktop.
-    expect(cls).not.toMatch(/\b(sm|md|lg|xl):pb-/);
+    expect(cls).not.toMatch(/\b(sm|md|lg|xl):(pb|gap)-/);
+
+    const h1Cls = container.querySelector('h1')?.className ?? '';
+    expect(h1Cls).toContain('text-2xl');
+    expect(h1Cls).toContain('font-semibold');
+    expect(h1Cls).not.toMatch(/\b(sm|md|lg|xl):text-/);
   });
 });
 
 /**
- * The validator agrees with the docs, the demo and the render (#3900).
+ * The demo satisfies the contract the page teaches — and the same validators
+ * still refuse the mistakes the page warns about.
+ *
+ * Every positive is paired with a control, because "passes" is also what a
+ * validator that stopped judging looks like. Controls assert the issue's CODE
+ * and PATH, never its wording.
+ */
+describe('the demo satisfies the `page:header` contract (objectui#3906)', () => {
+  const row = ComponentPropsMap['page:header'];
+
+  it('passes the spec page-component shape and the `page:header` props row in full', () => {
+    const schema = demo();
+    expect(issuesOf(PageComponentSchema.safeParse(schema))).toEqual([]);
+    // A FULL parse, not only "no unrecognized key": the row also judges values.
+    expect(issuesOf(row.safeParse(schema.properties))).toEqual([]);
+  });
+
+  it('passes objectui’s own schema mirror', () => {
+    expect(issuesOf(safeValidateSchema(demo()))).toEqual([]);
+  });
+
+  it('CONTROL — the row refuses the retired `icon` by name', () => {
+    const issues = issuesOf(row.safeParse({ ...demo().properties, icon: 'users' }));
+    expect(issues).toEqual(['icon: invalid_type']);
+  });
+
+  it('CONTROL — the mirror refuses a misspelled key inside `properties`', () => {
+    const result = safeValidateSchema({ ...demo(), properties: { ...demo().properties, subTitle: 'x' } });
+    expect(issuesOf(result)).toEqual(['properties: unrecognized_keys']);
+  });
+
+  it('CONTROL — the spec refuses a prop written beside `type`, which is why the demo uses `properties`', () => {
+    const issues = issuesOf(PageComponentSchema.safeParse({ ...demo(), title: 'Users' }));
+    expect(issues).toEqual([': unrecognized_keys']);
+  });
+
+  it('CONTROL — the mirror refuses `children` on this node, which is why the demo carries none', () => {
+    const result = safeValidateSchema({ ...demo(), children: [{ type: 'button', label: 'Export' }] });
+    expect(issuesOf(result)).toEqual(['children: invalid_type']);
+  });
+});
+
+/**
+ * The declaration face: every key the demo writes is a declared input of the
+ * `page:header` registration.
+ *
+ * `validateTree` reads keys on the node itself, the way the JSX tier writes them
+ * (as attributes); it has no notion of the `properties` bag. `SchemaRenderer`
+ * hoists `properties.*` onto the node before the renderer reads it, so the demo
+ * is validated here in that hoisted shape — the shape the registration's
+ * `inputs` describe.
+ */
+describe('the `page:header` registration declares every key the demo writes (objectui#3906)', () => {
+  const hoisted = (extra: Record<string, unknown> = {}) => {
+    const { properties, ...node } = demo();
+    return { ...node, ...properties, ...extra };
+  };
+
+  it('draws no diagnostic at all', () => {
+    const diagnostics = diagnose(hoisted());
+    // Reachability first: an `unknown-component` return never reaches the prop
+    // check, and an empty list would then mean nothing.
+    expect(diagnostics.filter((d) => d.code === 'unknown-component')).toEqual([]);
+    expect(diagnostics.map((d) => d.code)).toEqual([]);
+  });
+
+  it('CONTROL — a misspelled key still draws `unknown-prop`', () => {
+    expect(diagnose(hoisted({ subTitle: 'x' })).map((d) => d.code)).toContain('unknown-prop');
+  });
+
+  it('CONTROL — children under `page:header` draw `not-a-container`', () => {
+    // The manifest agrees with the renderer and the mirror: the canonical node
+    // takes no child list.
+    const codes = diagnose(hoisted({ children: [{ type: 'button', label: 'Export' }] })).map((d) => d.code);
+    expect(codes).toContain('not-a-container');
+  });
+});
+
+/**
+ * ── The `page-header` ALIAS registration, below this line ─────────────────────
+ *
+ * Everything from here down is about `@object-ui/layout`'s registrations, not
+ * about the docs demo. The alias stays registered (retiring it is not
+ * objectui#3906's job), and `packages/layout` tests point here by path for the
+ * manifest half of these facts. Until objectui#3906 these pins read the docs
+ * demo; they now read `ALIAS_FIXTURE`, which is that former demo JSON verbatim,
+ * so what they measure has not moved.
+ */
+const ALIAS_FIXTURE = {
+  type: 'page-header',
+  title: 'Users',
+  subtitle: 'Manage your team members and permissions',
+  icon: 'users',
+  children: [
+    { type: 'button', label: 'Export', variant: 'outline' },
+    { type: 'button', label: 'Add User' },
+  ],
+};
+
+/**
+ * The validator agrees with the alias's render (#3900).
  *
  * Two directions, and BOTH are load-bearing. Asserting only the first would
  * leave the suite green if someone silenced the containment check outright, or
  * flipped `isContainer` on by default — the test would then be measuring
  * nothing. The second case is the control that keeps the first one meaningful.
  */
-describe('the documented demo validates clean of `not-a-container` (#3900)', () => {
+describe('the `page-header` alias validates clean of `not-a-container` (#3900)', () => {
   const CONTAINMENT = 'not-a-container';
 
-  it('reports no `not-a-container` for the demo the docs page ships', () => {
-    const schema = getExample(EXAMPLE_ID).schema as { children?: unknown[] };
-    const diagnostics = diagnose(schema);
+  it('reports no `not-a-container` for an alias node with children', () => {
+    const diagnostics = diagnose(ALIAS_FIXTURE);
 
     // Reachability BEFORE the absence — an empty result proves nothing if the
     // containment branch never ran. Two ways it silently would not:
     // `validateTree` reports `unknown-component` and returns before the
     // containment check when the tag is missing from the manifest, and the
-    // branch is guarded by `node.children?.length`, so a demo that lost its
+    // branch is guarded by `node.children?.length`, so a fixture that lost its
     // children would satisfy the assertion below for the wrong reason.
     expect(diagnostics.filter((d) => d.code === 'unknown-component')).toEqual([]);
-    expect(schema.children?.length ?? 0).toBeGreaterThan(0);
+    expect(ALIAS_FIXTURE.children.length).toBeGreaterThan(0);
 
-    // Filtered by code, not asserted against an empty diagnostic list. When this
-    // was written the demo's `icon` drew a live `unknown-prop` — the same lie as
-    // #3900 on the prop face — which #3972 has since fixed and pins in the
-    // describe below. The filter stays: this test owns the CONTAINMENT fact only,
-    // so a future diagnostic on another key belongs to that key's pin, not here.
+    // Filtered by code, not asserted against an empty diagnostic list: this test
+    // owns the CONTAINMENT fact only, so a future diagnostic on another key
+    // belongs to that key's pin, not here.
     expect(diagnostics.filter((d) => d.code === CONTAINMENT)).toEqual([]);
   });
 
@@ -192,17 +300,10 @@ describe('the documented demo validates clean of `not-a-container` (#3900)', () 
     // author must still hear about it. If this component ever legitimately
     // becomes a container, this assertion goes red — move the control to
     // another childless registration rather than deleting it.
-    // `items: []` is written for the same single-fact reason the two earlier
-    // versions of this comment gave, arrived at from the opposite direction each
-    // time. It used to be OMITTED because writing it drew a `type-mismatch` (the
-    // registration said `type: 'object'` while `NavigationRendererProps.items` is
-    // `NavigationItem[]` — fixed by #3972, pinned in the describe below), and
-    // because its absence drew nothing at all. Both halves have since moved: the
-    // array form now validates clean, and the absence draws
-    // `missing-required-prop` (#3987 — omitting `items` crashes the renderer, so
-    // the declaration says `required: true`). Supplying the empty array keeps the
-    // planted defect — children under a childless component — the only thing
-    // wrong with this node.
+    // `items: []` keeps the planted defect — children under a childless
+    // component — the only thing wrong with this node: an array-valued `items`
+    // validates clean (#3972) and omitting it draws `missing-required-prop`
+    // (#3987), both pinned below.
     const codes = diagnose({
       type: 'navigation-renderer',
       items: [],
@@ -220,38 +321,29 @@ describe('the documented demo validates clean of `not-a-container` (#3900)', () 
  * top-level props against, so a key the renderer reads and `inputs` omits comes
  * back as `unknown-prop`, and a key declared with the wrong `type` comes back as
  * `type-mismatch` — on CORRECT authoring, both times. Two keys were in that
- * state: `page-header.icon` (rendered at `PageHeader.tsx:224-226`, declared by the
- * spec, written by the demo below) and `navigation-renderer.items` (declared
- * `object`, actually `NavigationItem[]`).
+ * state: `page-header.icon` (the alias's renderer-own key, objectui#3829) and
+ * `navigation-renderer.items` (declared `object`, actually `NavigationItem[]`).
  *
  * Every assertion here comes in pairs, positive then control, because "no
- * diagnostic" is exactly what a silenced check also looks like: if `unknown-prop`
- * or `type-mismatch` were removed from `validate.ts`, or `inputs` were widened to
- * accept anything, the positive halves would all still pass. The controls are
- * chosen so they can only stay green while the check is still working.
+ * diagnostic" is exactly what a silenced check also looks like.
  */
-describe('the declaration face matches what the renderers read (#3972)', () => {
+describe('the alias declaration face matches what the renderers read (#3972)', () => {
   const codesFor = (schema: unknown): string[] => diagnose(schema).map((d) => d.code);
 
-  it('draws no `unknown-prop` on the demo the docs page ships', () => {
-    const schema = getExample(EXAMPLE_ID).schema as Record<string, unknown>;
+  it('draws no `unknown-prop` on the alias fixture', () => {
+    // Reachability first: the fixture must still WRITE `icon`, otherwise the
+    // absence below is satisfied by a fixture that stopped exercising the key.
+    expect(ALIAS_FIXTURE.icon).toBe('users');
+    expect(diagnose(ALIAS_FIXTURE).filter((d) => d.code === 'unknown-component')).toEqual([]);
 
-    // Reachability first: the demo must still WRITE `icon`, otherwise the absence
-    // below is satisfied by a fixture that stopped exercising the key. (The docs
-    // page documents `icon` in its Component Props block, so a demo without one
-    // is its own defect.)
-    expect(schema.icon).toBe('users');
-    expect(diagnose(schema).filter((d) => d.code === 'unknown-component')).toEqual([]);
-
-    expect(diagnose(schema).filter((d) => d.code === 'unknown-prop')).toEqual([]);
+    expect(diagnose(ALIAS_FIXTURE).filter((d) => d.code === 'unknown-prop')).toEqual([]);
   });
 
   it('still draws `unknown-prop` for a near-miss the declaration does not carry', () => {
     // The control: `subTitle` is a misspelling of the declared `subtitle`. If this
     // goes green, the check stopped running, and the assertion above is then
-    // measuring nothing. It was `description` until objectui#11044 — see below.
-    const schema = { ...(getExample(EXAMPLE_ID).schema as Record<string, unknown>), subTitle: 'x' };
-    expect(codesFor(schema)).toContain('unknown-prop');
+    // measuring nothing.
+    expect(codesFor({ ...ALIAS_FIXTURE, subTitle: 'x' })).toContain('unknown-prop');
   });
 
   it('draws nothing for `description`, the retired alias of `subtitle` — the named cost of objectui#11044', () => {
@@ -262,17 +354,15 @@ describe('the declaration face matches what the renderers read (#3972)', () => {
     // registrations declare, a base prop wherever a type declares no input of that
     // name, so the parser tier no longer reports it on `page-header`. Pinned so that
     // restoring the warning is a deliberate change rather than a silent one.
-    const schema = { ...(getExample(EXAMPLE_ID).schema as Record<string, unknown>), description: 'x' };
+    const schema = { ...ALIAS_FIXTURE, description: 'x' };
     expect(diagnose(schema).filter((d) => d.message.includes('"description"'))).toEqual([]);
   });
 
-  it('accepts the `actions` array the docs page documents', () => {
-    // `actions` is read at `PageHeader.tsx:119` / `:192-196` and declared by the
-    // spec, so it was `unknown-prop` for the same reason `icon` was. Type matters
-    // as much as presence here: it is declared `array`, matching the canonical
-    // `page:header`, so the array form authors write validates clean…
+  it('accepts an `actions` array on the alias, and reports a non-array', () => {
+    // `actions` is declared `array` on the alias, matching the canonical
+    // `page:header`, so the array form validates clean…
     expect(codesFor({ type: 'page-header', title: 'Users', actions: ['export'] })).toEqual([]);
-    // …and a non-array is now reported instead of silently accepted.
+    // …and a non-array is reported instead of silently accepted.
     expect(codesFor({ type: 'page-header', title: 'Users', actions: { export: true } })).toContain(
       'type-mismatch',
     );
@@ -305,22 +395,19 @@ describe('the declaration face matches what the renderers read (#3972)', () => {
  *
  * `navigation-renderer.items` is non-optional in TS and has no default, so a node
  * that omits it throws `TypeError: items is not iterable` on the first thing the
- * render does with it (`NavigationRenderer.tsx:1242` → `:1410`; measured in
+ * render does with it (measured in
  * `packages/layout/src/__tests__/navigation-renderer-items-declaration.test.tsx`).
- * The declaration used to leave `required` unset, and `validate.ts:55-64` reports
+ * The declaration used to leave `required` unset, and `validateTree` reports
  * `missing-required-prop` only when it is set — so the ONE node shape guaranteed
  * to crash was also the one shape the validator had nothing to say about.
  *
  * This is a TIGHTENING, not a false-diagnostic fix like #3900/#3972: it adds an
- * error-level diagnostic to schemas that validated clean yesterday. That is the
+ * error-level diagnostic to schemas that validated clean before. That is the
  * point — the schemas it newly rejects are exactly the ones that cannot render —
  * but it is also why the control below matters more than usual. "Required" has to
- * stay a per-prop fact read off the component: if it ever becomes a blanket, this
- * gate starts rejecting perfectly renderable schemas and authors learn to ignore
- * `missing-required-prop` the way #3972's authors were being taught to ignore
- * `type-mismatch`.
+ * stay a per-prop fact read off the component.
  */
-describe('the validator now reports the node shape that is guaranteed to crash (#3987)', () => {
+describe('the validator reports the node shape that is guaranteed to crash (#3987)', () => {
   const REQUIRED = 'missing-required-prop';
 
   it('reports `missing-required-prop` for a `navigation-renderer` without `items`', () => {
@@ -339,8 +426,6 @@ describe('the validator now reports the node shape that is guaranteed to crash (
   });
 
   it('reports nothing once `items` is supplied', () => {
-    // The array form the renderer actually consumes: no `missing-required-prop`,
-    // and no `type-mismatch` either (that pair is #3972's, asserted above).
     expect(diagnose({ type: 'navigation-renderer', items: [] }).map((d) => d.code)).toEqual([]);
     expect(
       diagnose({
@@ -353,12 +438,8 @@ describe('the validator now reports the node shape that is guaranteed to crash (
 
   it('does not report the optional props the renderer defaults', () => {
     // The control that keeps `required` a per-prop fact. `basePath` is omitted
-    // here (as it is in the first node of the test above, while the second one
-    // supplies it — both validate clean): the renderer defaults it
-    // (`basePath = ''`), the declaration leaves `required` unset, and the gate
-    // must stay silent about it. If this goes red, the tightening has spread
-    // from "the prop whose absence crashes" to "every declared prop", and the
-    // assertions above stop meaning what they say.
+    // here: the renderer defaults it (`basePath = ''`), the declaration leaves
+    // `required` unset, and the gate must stay silent about it.
     const codes = diagnose({ type: 'navigation-renderer', items: [] }).map((d) => d.code);
     expect(codes).not.toContain(REQUIRED);
 

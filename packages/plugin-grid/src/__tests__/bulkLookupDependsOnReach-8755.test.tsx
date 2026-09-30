@@ -44,6 +44,12 @@
  * authorable — that inference is the trap this card was filed to close, and leg
  * B is here so it fails loudly rather than being re-derived.
  *
+ * ⚠️ That was the reading through `@objectstack/spec` 17.4.0. 17.5.0 CLOSED
+ * `BulkActionParamSchema` and declares `dependsOn` on it (objectui#11073), so
+ * leg B did fail loudly — and was re-pinned to the new reading: the accept is
+ * now a declaration, and the key IS authorable on a bulk param. The sibling
+ * `ActionParamSchema` still refuses it.
+ *
  * ## Every reading has a lit control beside it
  *
  * - leg A pairs the subject with a CONTROL lookup identical but for `dependsOn`
@@ -331,8 +337,14 @@ describe('objectui#8755 leg A — a `dependsOn` lookup BULK param gates on an EM
  * this repo has installed, and the answers move if those schemas do. It is
  * pinned because the STRICTNESS DIFFERENCE between the two param schemas is
  * doing work that is invisible at every call site.
+ *
+ * ⚠️ THEY MOVED at 17.5.0 (objectui#11073). Through 17.4.0 the bulk schema was
+ * `.passthrough()` and refused nothing, so its accept of `dependsOn` was a NULL
+ * reading. 17.5.0 CLOSED it — a nonsense key is refused by name — and declares
+ * `dependsOn` as a member, so the same accept is now EVIDENCE: `dependsOn` is
+ * authorable on a bulk param. Re-pinned as that, rather than relaxed.
  */
-describe('objectui#8755 leg B — the bulk param schema refuses nothing, so its accept of `dependsOn` is a NULL reading', () => {
+describe('objectui#8755 leg B — the bulk param schema is strict since 17.5.0, so its accept of `dependsOn` is a reading', () => {
   const NONSENSE = 'zzz_not_a_key_any_producer_emits';
   const bulkParam = (over: Record<string, unknown>) => ({
     name: 'contact', label: 'Contact', type: 'lookup', object: 'contacts', ...over,
@@ -347,21 +359,26 @@ describe('objectui#8755 leg B — the bulk param schema refuses nothing, so its 
     expect(ActionParamSchema.safeParse(actionParam({})).success).toBe(true);
   });
 
-  it('⭐ NEGATIVE CONTROL — a nonsense key is ACCEPTED by the bulk schema and REFUSED by the single-record one', () => {
-    // This one assertion is the whole card's warning. The two schemas disagree
-    // about whether an unknown key is an error at all, so an "accept" means
-    // something on one side and nothing on the other.
-    expect(BulkActionParamSchema.safeParse(bulkParam({ [NONSENSE]: 1 })).success).toBe(true);
+  it('⭐ NEGATIVE CONTROL — a nonsense key is REFUSED by BOTH schemas since 17.5.0', () => {
+    // Through 17.4.0 this one assertion was the whole card's warning: the bulk
+    // schema ACCEPTED the nonsense key, so an "accept" meant nothing there.
+    // 17.5.0 closed it (objectui#11073), and the two schemas now agree that an
+    // unknown key is an error — which is what makes the SUBJECT row a reading.
+    const bulk = BulkActionParamSchema.safeParse(bulkParam({ [NONSENSE]: 1 }));
+    expect(bulk.success).toBe(false);
+    expect(bulk.error?.issues.some((i) => i.code === 'unrecognized_keys')).toBe(true);
 
     const strict = ActionParamSchema.safeParse(actionParam({ [NONSENSE]: 1 }));
     expect(strict.success).toBe(false);
     expect(strict.error?.issues.some((i) => i.code === 'unrecognized_keys')).toBe(true);
   });
 
-  it('SUBJECT — `dependsOn` is accepted by the bulk schema, and that accept carries NO information', () => {
-    // Read this ONLY together with the negative control above: the schema that
-    // accepted this also accepted `zzz_not_a_key_any_producer_emits`. ⛔ It is
-    // not evidence that `dependsOn` is authorable on a bulk param.
+  it('SUBJECT — `dependsOn` is accepted by the now-strict bulk schema, so it IS authorable on a bulk param', () => {
+    // Read this ONLY together with the negative control above. Through 17.4.0
+    // the schema that accepted this also accepted
+    // `zzz_not_a_key_any_producer_emits`, so the accept carried no information;
+    // since 17.5.0 that schema refuses the nonsense key, and this accept is a
+    // declaration reading (objectui#11073).
     expect(BulkActionParamSchema.safeParse(bulkParam({ dependsOn: ['region'] })).success).toBe(true);
 
     // …while the strict sibling names it, which is what objectui#8672 left

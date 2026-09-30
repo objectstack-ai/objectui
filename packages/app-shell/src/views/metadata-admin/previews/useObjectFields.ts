@@ -16,6 +16,7 @@
 
 import * as React from 'react';
 import { useMetadataClient } from '../useMetadata.js';
+import { t, useMetadataLocale } from '../i18n.js';
 import { readFields } from './object-fields-io.js';
 
 export interface ObjectFieldInfo {
@@ -57,30 +58,39 @@ export function useObjectFields(
   override?: ObjectFieldInfo[],
 ): UseObjectFieldsResult {
   const client = useMetadataClient();
-  const [state, setState] = React.useState<UseObjectFieldsResult>({
-    fields: [],
-    loading: !override && !!objectName,
-    error: null,
+  // The designer locale the hook's own not-found sentence reads in
+  // (objectui#10862). The fetch records THAT the object was not found, and the
+  // row is read here, where the hook returns, so a language switch re-reads it
+  // without a refetch. A transport error is the transport's message and
+  // passes through as it came.
+  const locale = useMetadataLocale();
+  const [state, setState] = React.useState<{ result: UseObjectFieldsResult; notFound: boolean }>({
+    result: {
+      fields: [],
+      loading: !override && !!objectName,
+      error: null,
+    },
+    notFound: false,
   });
 
   React.useEffect(() => {
     // Override short-circuits the fetch: trust the caller-supplied catalog.
     if (override) {
-      setState({ fields: override, loading: false, error: null });
+      setState({ result: { fields: override, loading: false, error: null }, notFound: false });
       return;
     }
     if (!objectName) {
-      setState({ fields: [], loading: false, error: null });
+      setState({ result: { fields: [], loading: false, error: null }, notFound: false });
       return;
     }
     let cancelled = false;
-    setState((s) => ({ ...s, loading: true, error: null }));
+    setState((s) => ({ result: { ...s.result, loading: true, error: null }, notFound: false }));
     client
       .get<Record<string, unknown>>('object', objectName)
       .then((obj) => {
         if (cancelled) return;
         if (!obj) {
-          setState({ fields: [], loading: false, error: 'Object not found' });
+          setState({ result: { fields: [], loading: false, error: null }, notFound: true });
           return;
         }
         const view = readFields((obj as any).fields);
@@ -94,14 +104,17 @@ export function useObjectFields(
           hidden: e.def.hidden === true,
           ...(e.def.required === true ? { required: true } : {}),
         }));
-        setState({ fields, loading: false, error: null });
+        setState({ result: { fields, loading: false, error: null }, notFound: false });
       })
       .catch((err) => {
         if (cancelled) return;
         setState({
-          fields: [],
-          loading: false,
-          error: err?.message ?? String(err),
+          result: {
+            fields: [],
+            loading: false,
+            error: err?.message ?? String(err),
+          },
+          notFound: false,
         });
       });
     return () => {
@@ -109,5 +122,5 @@ export function useObjectFields(
     };
   }, [client, objectName, override]);
 
-  return state;
+  return state.notFound ? { ...state.result, error: t('engine.form.objectNotFound', locale) } : state.result;
 }

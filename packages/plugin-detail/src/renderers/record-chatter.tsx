@@ -86,12 +86,20 @@
  * legs: the pinned slice renders, and the dropdown does not.
  *
  * ⚠️ `aria` — the third row of objectui#8968's table, which the card filed as
- * NOT MEASURED — was measured on that card and is NOT part of this path's
- * remainder: it is unread on `record:activity` as well, so it is a gap over the
- * `record:*` block family rather than a chatter-path one, and closing it means
- * deciding how an authored label composes with the timeline's own. Reported on
- * objectui#8968, deliberately not fixed here. ⚠️ Nothing in this file
- * re-derives that reading — it was taken once, and the card carries it.
+ * NOT MEASURED — was measured on that card and left out of this path's
+ * remainder, as a gap over the whole `record:*` block family. Both halves are
+ * read now, and neither is read in this file's pipeline:
+ *
+ *   `aria`        the block's own bag, read below through `useRecordAriaProps`
+ *                 onto this renderer's container (objectui#9556);
+ *   `feed.aria`   the feed's bag, read by `RecordChatterPanel` through the same
+ *                 hook onto a `div` around the embedded timeline, the way
+ *                 `record-activity.tsx` puts its own bag on the `div` around
+ *                 its timeline (objectui#11083). The timeline's own name, its
+ *                 heading, is untouched; an authored feed name names the region
+ *                 around it.
+ *
+ * Pinned by `__tests__/recordChatterFeedAria-11083.test.tsx`.
  */
 
 import React from 'react';

@@ -33,12 +33,13 @@
  * not the reading of a schema that accepts everything, and "REFUSED" is not the
  * reading of one that refuses everything.
  *
- * ⭐ SECOND, INDEPENDENT ROUTE to the same floor. `ListViewSchema` gained
- * `pageName` in the same release, and `type: 'page'` with it. The fixture
- * `normalize-list-view.pageResidual-8429.test.ts` asserts the spec ACCEPTS is
- * refused by 17.0.0 / 17.1.0 / 17.2.0 (`refused-keys=['pageName']` plus an
- * `invalid_value` on `type`) and accepted from 17.3.0. So the floor below is
- * not propped up by one key family: two independent ones land on it.
+ * A SECOND, INDEPENDENT ROUTE landed on the same floor until objectui#11073:
+ * `ListViewSchema` gained `pageName` in the same release, and `type: 'page'`
+ * with it, refused by 17.0.0 / 17.1.0 / 17.2.0 and accepted from 17.3.0.
+ * `@objectstack/spec` 17.5.0 RETIRED both (ADR-0049 enforce-or-remove), so that
+ * route no longer props the floor: it rests on the `UserActionsConfigSchema`
+ * key family alone, which is what the rows below measure. The retirement itself
+ * is pinned in `normalize-list-view.pageResidual-8429.test.ts`.
  *
  * ⇒ 17.3.0 is the FIRST published version that accepts, verified across the
  * whole published 17.x stable line rather than by taking the first version that
@@ -170,16 +171,9 @@ describe('the DECLARED spec floor admits only specs that accept the fold (object
     it('requires a spec that declares every key the floor was chosen for', () => {
       const specKeys = Object.keys(UserActionsConfigSchema.shape);
       for (const key of ADOPTED_KEYS) expect(specKeys).toContain(key);
-
-      // The second, independent route to the same floor: `pageName` on a whole
-      // ListView document (objectui#8429's fixture, refused before 17.3.0).
-      const page = SpecListViewSchema.safeParse({
-        name: 'account_page',
-        type: 'page',
-        pageName: 'crm_welcome',
-        columns: [],
-      });
-      expect(page.success, '`pageName` on a `page` view must be authorable').toBe(true);
+      // The second route (`pageName` on a `page` view) was retired by the spec at
+      // 17.5.0 and no longer props this floor (objectui#11073).
+      expect(SpecListViewSchema.safeParse({ name: 'account_page', type: 'page', pageName: 'crm_welcome', columns: [] }).success).toBe(false);
     });
   });
 });

@@ -139,16 +139,17 @@ export type GuardEvaluation =
  *    other value is read as "no condition".
  * 2. Shape: the spec's `structuralConditionRefusal`, the first thing
  *    `registerFlow`'s edge pass and `evaluateCondition` do. A boolean, number,
- *    array or source-less object is refused.
+ *    array or source-less object is refused — an `ast`-only envelope included,
+ *    which `@objectstack/spec` 17.5.0 moved to this step (objectui#11073).
  * 3. Evaluated slot: the rule `FlowEdgeSchema.condition` applies on main
  *    (`EvaluatedExpressionInputSchema`), from its two installed parts. A string
  *    must be non-blank (main's `NON_BLANK_STRING`), so `''` and `'   '` are
  *    refused with the spec's `EVALUATED_EXPRESSION_SOURCE_REQUIRED`. Anything
  *    else must satisfy `EvaluatedExpressionSchema`: an envelope with a
  *    `dialect` (`ExpressionSchema` requires one, so `{ source: 'n == 2' }` is
- *    refused) and a non-blank `source` (so `{ dialect: 'cel', source: '' }`
- *    and an `ast`-only envelope are refused). `null` is not an envelope and is
- *    refused here too.
+ *    refused) and a non-blank `source` (so `{ dialect: 'cel', source: '' }` is
+ *    refused; an `ast`-only envelope was refused here through 17.4.0 and is
+ *    caught by step 2 since). `null` is not an envelope and is refused here too.
  * 4. CEL: `validateExpression('predicate', …)`, the parse `registerFlow`
  *    refuses a flow with. A dialect other than `cel` is refused, and so is a
  *    `{var}` or `${…}` template, which is not CEL.
@@ -234,9 +235,11 @@ function evalCelPredicate(
  * {@link evalCelPredicate} (objectui#10692).
  *
  * - A blank `expression` is read as `false`, as `evaluateCondition` reads an
- *   empty source; objectstack main refuses it at `registerFlow`
- *   (`predicateSlotRefusal`, objectstack#17493) and the installed 17.4.0 admits it — a
- *   declared divergence.
+ *   empty source. The platform refuses it at `registerFlow`
+ *   (`predicateSlotRefusal`, objectstack#17493), and so does the installed
+ *   17.5.0's `FlowSchema` at parse, at `config.conditions[i].expression` (it
+ *   admitted it through 17.4.0; objectui#11073) — so only a draft that has
+ *   not passed that door reaches this read.
  * - A non-string `expression` is refused with the spec's
  *   `predicateSlotRefusal`, the refusal `registerFlow` applies to this slot.
  */

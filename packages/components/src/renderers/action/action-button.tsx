@@ -45,7 +45,11 @@ import { readStaticParamValues } from './static-params';
  * as the SDUI envelope's component discriminator — `'action:button'` on every
  * authored path — and is no longer read as an action type by anything here.
  */
-export interface ActionButtonProps {
+// `…RendererProps`, not `ActionButtonProps` (objectui#11073): `@objectstack/spec/ui` 17.5.0 exports
+// `ActionButtonProps` as the block's AUTHORED property bag (`actionType`, `label`, `variant`, …).
+// This is the React envelope that carries a node (`schema`, `context`, `disabled`, an open
+// tail) — a different layer, named as objectui#7265 named `RecordAlertRendererProps`.
+export interface ActionButtonRendererProps {
   schema: UIActionSchema & { type: string; className?: string; actionType?: string };
   className?: string;
   /** Override context for this specific action */
@@ -61,21 +65,21 @@ export interface ActionButtonProps {
   [key: string]: any;
 }
 
-// `PropsWithoutRef` would collapse `ActionButtonProps` to its bare index
+// `PropsWithoutRef` would collapse `ActionButtonRendererProps` to its bare index
 // signature, so the type argument carries the declared props WITHOUT it (each
-// derived off `ActionButtonProps`, so the two cannot drift) and the index
+// derived off `ActionButtonRendererProps`, so the two cannot drift) and the index
 // signature stays on the parameter annotation — mechanism note on `action:bar`
 // (objectui#4422), pinned by
 // `__tests__/forwardref-props-annotation.guard.test.ts`.
 const ActionButtonRenderer = forwardRef<
   HTMLButtonElement,
   {
-    schema: ActionButtonProps['schema'];
-    className?: ActionButtonProps['className'];
-    context?: ActionButtonProps['context'];
+    schema: ActionButtonRendererProps['schema'];
+    className?: ActionButtonRendererProps['className'];
+    context?: ActionButtonRendererProps['context'];
   }
 >(
-  ({ schema, className, context: localContext, ...props }: ActionButtonProps, ref) => {
+  ({ schema, className, context: localContext, ...props }: ActionButtonRendererProps, ref) => {
     const {
       'data-obj-id': dataObjId,
       'data-obj-type': dataObjType,
@@ -185,7 +189,7 @@ const ActionButtonRenderer = forwardRef<
         // where TypeScript actually RUNS the excess-property (freshness) check.
         // It does not run it on a literal that spreads a value of type `any`,
         // and `localContext` is exactly that: `PropsWithoutRef` collapses
-        // `ActionButtonProps` (which carries an `[key: string]: any` index
+        // `ActionButtonRendererProps` (which carries an `[key: string]: any` index
         // signature) to a pure index-signature type, so every destructured prop
         // arrives as `any`. Spreading it into the payload made this site absorb
         // unknown keys in silence while `action:group` / `action:menu` — same

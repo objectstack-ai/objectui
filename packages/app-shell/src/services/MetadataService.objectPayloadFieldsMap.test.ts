@@ -149,9 +149,13 @@ describe('the instrument', () => {
     expect(ObjectSchema.safeParse({ name: 'account', label: 'Account', fields: { undefined: { type: 'text', label: 'N' } } }).success).toBe(true);
   });
 
-  it('keys the record with a snake_case rule — `__proto__` is a LEGAL field name', () => {
+  it('keys the record with a snake_case rule — `__proto__` matches it, and the spec refuses it BY NAME', () => {
     // Which is why `toFieldsMap` builds through `Object.fromEntries`: plain
     // assignment would invoke the prototype setter and drop the field silently.
+    // Through `@objectstack/spec` 17.4.0 the name was LEGAL; 17.5.0 refuses it
+    // by name, because `z.record()` drops the key from its output while
+    // reporting success. That refusal names the field only if the body still
+    // carries it, so `Object.fromEntries` still earns its place (objectui#11073).
     //
     // The fixture below spells the key `['__proto__']` DELIBERATELY, and the
     // two controls are why (objectui#6524). Per Annex B.3.1 a PLAIN
@@ -162,7 +166,9 @@ describe('the instrument', () => {
     // test claims to pin.
     expect(Object.keys({ __proto__: { type: 'text', label: 'P' } })).toEqual([]);
     expect(Object.keys({ ['__proto__']: { type: 'text', label: 'P' } })).toEqual(['__proto__']);
-    expect(ObjectSchema.safeParse({ name: 'account', label: 'Account', fields: { ['__proto__']: { type: 'text', label: 'P' } } }).success).toBe(true);
+    expect(issuesOf(ObjectSchema.safeParse({ name: 'account', label: 'Account', fields: { ['__proto__']: { type: 'text', label: 'P' } } }))).toEqual([
+      'custom @ fields.__proto__',
+    ]);
     expect(issuesOf(ObjectSchema.safeParse({ name: 'account', label: 'Account', fields: { firstName: { type: 'text', label: 'F' } } }))).toEqual([
       'invalid_key @ fields.firstName',
     ]);
@@ -395,9 +401,10 @@ describe('objectui#6240 · a field with no name FAILS LOUDLY, and nothing is sen
   });
 
   it('keys a field literally named `__proto__` instead of silently dropping it', async () => {
-    // `__proto__` matches the record's key rule, so it is authorable. Built by
-    // assignment it would set the prototype and vanish from the serialised
-    // body; built by `Object.fromEntries` it is an own property.
+    // `__proto__` matches the record's key rule, so a designer can type it.
+    // Built by assignment it would set the prototype and vanish from the
+    // serialised body; built by `Object.fromEntries` it is an own property —
+    // which is what lets the spec's by-name refusal (17.5.0) reach the author.
     const { adapter, puts } = makeCapturingAdapter();
     await new MetadataService(adapter).saveObject(ACCOUNT, [
       { name: '__proto__', type: 'text', label: 'Proto' },

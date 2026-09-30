@@ -19,6 +19,10 @@
  * authored `successMessage`, `submitText`, `cancelText` or thank-you `title`
  * still wins, exactly as before.
  *
+ * Since objectui#11071 the table also carries the master-detail form's own
+ * chrome (the totals stack, the row editor's title and buttons, the collection
+ * placeholder, the in-flight Save label) and `ObjectForm`'s locked-field hint.
+ *
  * `WizardForm`, `DrawerForm` and `ModalForm` already had a
  * `createSafeTranslation` hook of their own and carry the rows they need in
  * it; the rows are the same keys, and `pnpm check:i18n-keys` holds every table
@@ -44,6 +48,37 @@ const FORM_CHROME_DEFAULTS = {
     + 'so the navigation did not happen.',
   'publicForm.thankYouTitle': 'Thank you!',
   'publicForm.loading': 'Loading form…',
+  // The hint under a field the caller may read but not write (`ObjectForm`).
+  'form.deniedDescription': 'You do not have edit access to this field.',
+  // The master-detail form's own chrome (objectui#11071). The three verbs at
+  // the end are the shared keys `MasterDetailForm` reads for its `Add` /
+  // `Close` / in-flight Save labels, not keys of its own.
+  'form.masterDetail.loadingColumns': 'Loading columns…',
+  'form.masterDetail.subtotal': 'Subtotal',
+  'form.masterDetail.tax': 'Tax ({{rate}}%)',
+  'form.masterDetail.total': 'Total',
+  'form.masterDetail.lineItem': 'Line item',
+  'form.masterDetail.rowTitle': '{{title}} — row {{row}}',
+  'form.masterDetail.applyRow': 'Apply',
+  'detail.add': 'Add',
+  'common.close': 'Close',
+  'detail.saving': 'Saving…',
+  // A collection's three configuration hints (objectui#11160): no
+  // `childObject`, a child schema that failed to load, and no field on the
+  // child that links it to the parent. Each hole is filled with a property or
+  // an object name, rendered as code and never translated.
+  'form.masterDetail.noChildObject':
+    'This collection has no child object configured: set {{property}} to the object whose rows it lists.',
+  'form.masterDetail.schemaUnavailable':
+    'Could not load the schema of {{object}}, so this collection has no columns to show. '
+    + 'Check that the object exists and is readable, then reload.',
+  'form.masterDetail.noRelationshipField':
+    'Could not work out how {{object}} links to {{parent}}: no lookup or master_detail field on it '
+    + 'references the parent. Set {{property}} on this collection to the field that holds the parent record.',
+  // A master-detail collection's heading when it authors no `title`
+  // (objectui#11145): the key the record page's `record:line_items` panel
+  // reads for its own default title, not a key of the form's own.
+  'form.lineItems.title': 'Line Items',
 };
 
 /**

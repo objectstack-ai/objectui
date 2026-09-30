@@ -357,6 +357,59 @@ const resolveWidgetType = (f: any): string => f?.widget || f?.field?.widget || f
 const BUILTIN_FIELD_TYPES = new Set(['input', 'textarea', 'checkbox', 'switch', 'select']);
 
 /**
+ * Built-in types whose `multiple: true` form is a DIFFERENT registered widget
+ * (objectui#11116).
+ *
+ * `select` is a {@link BUILTIN_FIELD_TYPES} member, so a hand-authored
+ * `{ type: 'select', multiple: true }` used to render the built-in branch of
+ * `renderFieldComponent` — `BuiltinSelectControl`, a single-value Radix select
+ * that reads `multiple` nowhere. The field declared zero-or-more values and
+ * collected one; measured through the real `SchemaRenderer` with
+ * `@object-ui/fields` registered, the catalog's `fields-select/multi-select`
+ * example drew the SAME single-value combobox with and without the key.
+ *
+ * The object-bound path never had the defect: `@object-ui/fields`'
+ * `mapFieldTypeToFormType` maps `select` + `multiple` to `field:multiselect`
+ * (its `MULTI_VALUE_FORM_TYPES` table) before the type reaches this renderer.
+ * The hand-authored spelling is routed to that SAME registry id here, so one
+ * widget renders a multi-value select on both paths and the submitted value is
+ * that widget's array. ⛔ Not a second multi-select inside
+ * `BuiltinSelectControl`: the arity lives in the widget id, exactly as the
+ * `fields` table documents, so the label association that widget declares
+ * (`labelling: 'group'`) and the component that renders cannot disagree.
+ *
+ * A one-entry copy of that table, on purpose: `@object-ui/components` cannot
+ * import `@object-ui/fields` (the dependency runs the other way), and the id is
+ * reached through `ComponentRegistry` at render time like every other `field:*`
+ * widget. `select` is the only member on both sides; keep them in step.
+ *
+ * With nothing registered under `field:multiselect` (no `@object-ui/fields`),
+ * the routed id takes `renderFieldComponent`'s `default` branch — the answer an
+ * object-bound `field:multiselect` gets in that host — rather than falling back
+ * to the single-value control that drops the declared arity.
+ */
+const BUILTIN_MULTI_VALUE_WIDGETS: Readonly<Record<string, string>> = {
+  select: 'field:multiselect',
+};
+
+/**
+ * The widget key a field row renders under, once its declared arity is
+ * applied — see {@link BUILTIN_MULTI_VALUE_WIDGETS}. Applied where `resolvedType`
+ * is computed, BEFORE any of its readers run: `renderFieldComponent` and its
+ * three mirrors (`resolveFieldLabelling`, `resolvesToRegisteredFieldWidget`,
+ * `rendersBuiltinSelectEmptyState`) must all see the routed id, or the label
+ * would be associated for a single control while a chip group renders.
+ *
+ * `multiple` is read the way `mapFieldTypeToFormType` reads it (truthy), so the
+ * two paths answer the same field the same way.
+ */
+function applyDeclaredArity(type: string, multiple: unknown): string {
+  return multiple && hasOwn(BUILTIN_MULTI_VALUE_WIDGETS, type)
+    ? BUILTIN_MULTI_VALUE_WIDGETS[type]
+    : type;
+}
+
+/**
  * Fields whose unrecognized validation-rule names were already reported, keyed
  * by field name + the sorted offending keys. Module-level for the same reason
  * as `basic/div.tsx`'s `_warnedDeprecations`: `rawFields` is a caller-owned
@@ -2777,7 +2830,14 @@ ComponentRegistry.register('form',
       // otherwise degrade a picker field to its raw `type` input.
       // (`.field` is the resolved metadata OBJECT — declared on FormField
       // since #3090, never the spec string; see types/form.ts)
-      const resolvedType = widget || fieldProps.field?.widget || type;
+      //
+      // A built-in type declared `multiple` is routed to its multi-value
+      // widget HERE, before any reader of `resolvedType` runs
+      // (objectui#11116) — see `applyDeclaredArity`.
+      const resolvedType = applyDeclaredArity(
+        widget || fieldProps.field?.widget || type,
+        fieldProps.multiple,
+      );
 
       // Cascading / role-gated option lists (#2284). For option fields,
       // narrow the set by each option's `visibleWhen` (evaluated against

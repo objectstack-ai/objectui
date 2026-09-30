@@ -143,6 +143,16 @@ export interface BuildFlowProblemsArgs {
   variables?: unknown[];
   /** UI locale for the structural-validation messages. */
   locale?: string;
+  /**
+   * The runtime connector registry (`GET /api/v1/automation/connectors`,
+   * unwrapped to the connector array), handed to the expression scan so a
+   * committed `connector_action` node's declared output keys are in scope
+   * downstream (objectui#11085). A host reads it as the inspectors do —
+   * `useConnectorRegistry(hasCommittedConnectorAction(draft))` — so a flow with
+   * no such node never fetches. Omitted, those references are reported as not
+   * in scope.
+   */
+  connectors?: unknown;
 }
 
 /**
@@ -150,7 +160,7 @@ export interface BuildFlowProblemsArgs {
  * diagnostics. Errors are listed before warnings; within a level each source
  * keeps its own emit order (structural before server).
  */
-export function buildFlowProblems({ nodes, edges, serverDiagnostics, variables, locale }: BuildFlowProblemsArgs): FlowProblem[] {
+export function buildFlowProblems({ nodes, edges, serverDiagnostics, variables, locale, connectors }: BuildFlowProblemsArgs): FlowProblem[] {
   const problems: FlowProblem[] = [];
 
   const v = validateFlowDraft(nodes as unknown as SimNode[], edges as unknown as SimEdge[], locale);
@@ -184,7 +194,7 @@ export function buildFlowProblems({ nodes, edges, serverDiagnostics, variables, 
 
   // Client-side EXPRESSION issues (ADR-0032 braces + scope-aware unknown refs),
   // resolved onto node / edge targets — see flow-expr-problems.
-  flowExpressionProblems({ nodes, edges, variables: variables ?? [] }, locale).forEach((ep, i) => {
+  flowExpressionProblems({ nodes, edges, variables: variables ?? [] }, locale, connectors).forEach((ep, i) => {
     const target: FlowProblemTarget =
       ep.target.kind === 'edge'
         ? {

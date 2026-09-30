@@ -28,8 +28,8 @@
  * would paint English and fail the row. The plain-string row is the control.
  *
  * ⛔ Not `title`. The deprecated `title` is the caption's fallback when `label`
- * resolves to nothing, and that fallback still reads a map raw; objectui#10993
- * holds that site back to a later batch, so this file authors no `title`.
+ * resolves to nothing; its pin is `ObjectGrid.titleI18nLabel-10993.test.tsx`
+ * (objectui#10993, batch 3), so this file authors no `title`.
  */
 
 import React from 'react';

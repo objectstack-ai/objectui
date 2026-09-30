@@ -80,6 +80,28 @@
  *     key arriving through a spread (objectui#8651 measured exactly that
  *     failure and had to withdraw a retirement). ⇒ routed, rung untouched.
  *
+ * ## ⚠️ UPDATE at `@objectstack/spec` 17.5.0 (objectui#11073) — the readings moved
+ *
+ * The bump turned the three spec-reading rows below red, which is what they
+ * are for. Re-measured on the installed 17.5.0:
+ *
+ *   - `ComponentPropsMap['object-tree']` now EXISTS — a strict entry declaring
+ *     `objectName` `data` `staticData` `filter` `tree` `navigation`. There is
+ *     still no `tree` entry.
+ *   - `navigation` is declared on SEVEN element entries, `object-tree` and
+ *     `object-calendar` among them — objectui#8652's unlock criterion ("a
+ *     released spec carrying the declaration installable here") is MET. The
+ *     ruled second step, mirroring it, is that card's and is ⛔ not executed by
+ *     the bump, so the key stays ledgered and undeclared here.
+ *   - `tree` is declared on exactly ONE element entry, `object-tree`, as the
+ *     nested author face (the same block `ListViewSchema.tree` declares). The
+ *     "declaring it on the node would fork" premise above has EXPIRED: declaring
+ *     is now align-the-mirror. That is a new DECLARE verdict — it widens the
+ *     published node — and it is ⛔ not executed by the bump either.
+ *
+ * The rows below pin those readings; the "stays undeclared here" rows are
+ * unchanged and now mean "owed, not yet executed".
+ *
  * ## The ceiling, stated so nobody reads this file as claiming more
  *
  * `BaseSchema` ends in `[key: string]: any`. Typing the prop makes the question
@@ -335,8 +357,16 @@ describe('objectui#8655 — every key read off the node is declared, or ledgered
 /* ── 3. ③ — the spec readings each verdict rests on ────────────────────────── */
 
 describe('objectui#8655 — the spec has no element schema for this node', () => {
-  it('no `object-tree` entry, and no `tree` entry (controls: two that ARE there)', () => {
-    expect(specElementKeys('object-tree')).toBeNull();
+  it('an `object-tree` entry since 17.5.0, and still no `tree` entry (controls: two that ARE there)', () => {
+    // `toBeNull()` through 17.4.0; the bump turned it red (objectui#11073).
+    expect(specElementKeys('object-tree')?.sort()).toEqual([
+      'data',
+      'filter',
+      'navigation',
+      'objectName',
+      'staticData',
+      'tree',
+    ]);
     expect(specElementKeys('tree')).toBeNull();
     // FIRING CONTROLS on those two nulls — without them a broken reader and a
     // real absence give the same answer.
@@ -345,12 +375,20 @@ describe('objectui#8655 — the spec has no element schema for this node', () =>
   });
 });
 
-describe('objectui#8655 — `navigation` is objectui#8652\'s, and the unlock has not happened', () => {
-  it('the spec declares it on ONE element entry, and it is not this one', () => {
-    const declaring = specElementsDeclaring('navigation');
-    expect(declaring).toContain('object-grid');
-    expect(declaring).not.toContain('object-tree');
-    expect(declaring).not.toContain('object-calendar');
+describe('objectui#8655 — `navigation` is objectui#8652\'s, and its unlock HAS happened', () => {
+  it('the spec declares it on seven element entries since 17.5.0, this one included', () => {
+    // Through 17.4.0: ONE entry, `object-grid`, and not this one. 17.5.0 met
+    // objectui#8652's unlock criterion (objectui#11073); mirroring is that
+    // card's ruled second step.
+    expect(specElementsDeclaring('navigation')).toEqual([
+      'object-calendar',
+      'object-gantt',
+      'object-grid',
+      'object-kanban',
+      'object-map',
+      'object-timeline',
+      'object-tree',
+    ]);
   });
 
   it('⛔ and it stays UNDECLARED here — this card must not rule the family', () => {
@@ -396,8 +434,10 @@ describe('objectui#8655 — `tree` is a VIEW-level block, so declaring it on the
     expect(blockKeys).toEqual(['defaultExpandedDepth', 'fields', 'labelField', 'parentField']);
   });
 
-  it('…and NO element face declares a `tree` key (control: one key that IS on four)', () => {
-    expect(specElementsDeclaring('tree')).toEqual([]);
+  it('…and ONE element face declares a `tree` key since 17.5.0 — this node\'s (control: one key that IS on four)', () => {
+    // `[]` through 17.4.0. The premise this describe is named for expired at
+    // the bump (objectui#11073): see the UPDATE note in this file's header.
+    expect(specElementsDeclaring('tree')).toEqual(['object-tree']);
     // FIRING CONTROL on that zero, same instrument, same corpus.
     expect(specElementsDeclaring('filter').length).toBeGreaterThan(3);
   });

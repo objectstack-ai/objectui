@@ -139,10 +139,17 @@ describe('objectui#9187 — record:highlights `layout` against the installed spe
     const layout = RecordHighlightsProps.def.shape.layout;
     const entries = Object.keys(layout.def.innerType.def.entries).sort();
     expect(entries).toEqual(['horizontal', 'vertical']);
+    // `@objectstack/spec` 17.5.0 added the record-block security members
+    // (`requiredPermissions`, `redactFields`, `enforceFieldSecurity`) beside
+    // `layout` (objectui#11073). `layout`'s closed set above did not move, so
+    // every pin in this file still describes the contract as it stands.
     expect(Object.keys(RecordHighlightsProps.def.shape).sort()).toEqual([
       'aria',
+      'enforceFieldSecurity',
       'fields',
       'layout',
+      'redactFields',
+      'requiredPermissions',
     ]);
   });
 

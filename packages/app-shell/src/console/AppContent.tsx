@@ -456,17 +456,20 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   // device-local value is a cache from here on rather than a second setting.
   useSignedInUserLocale();
 
+  // objectui#11080 — both toasts read the session's language: the words around
+  // the operation's description are pack keys beside `actions.undo`, and the
+  // description itself is interpolated unchanged.
   useGlobalUndo({
     dataSource: dataSource ?? undefined,
     onUndo: (op: any) => {
-      toast.info(`Undo: ${op.description}`, { duration: 4000 });
+      toast.info(t('actions.undoneOperation', { description: op.description }), { duration: 4000 });
       setRefreshKey(k => k + 1);
       // Precisely-scoped invalidation — UndoableOperation carries the target
       // (objectName + recordId), so detail readers refresh in place too.
       if (op?.objectName) notifyDataChanged({ objectName: op.objectName, recordId: op.recordId });
     },
     onRedo: (op: any) => {
-      toast.info(`Redo: ${op.description}`, { duration: 3000 });
+      toast.info(t('actions.redoneOperation', { description: op.description }), { duration: 3000 });
       setRefreshKey(k => k + 1);
       if (op?.objectName) notifyDataChanged({ objectName: op.objectName, recordId: op.recordId });
     },

@@ -26,6 +26,10 @@ import {
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema, specFieldsExcept } from './base.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
+// objectui#10872 batch 9 — the node-level `responsiveStyles` fragment the public
+// blocks declare, spread into `FlexSchema` below. `./public-blocks.zod.ts`
+// imports nothing from this module, so this adds no cycle.
+import { NODE_ENVELOPE } from './public-blocks.zod.js';
 
 /**
  * ⭐ THE IMPORT BOUNDARY (objectui#8317, decision batch #90, 2026-09-08).
@@ -325,6 +329,13 @@ export const ContainerSchema = BaseSchema.extend({
  */
 export const FlexSchema = BaseSchema.extend({
   type: z.literal('flex'),
+  // objectui#10872 batch 9 — the node-level `responsiveStyles` the spec's
+  // `PageComponentSchema` declares, from the ONE fragment the public blocks
+  // spread (`NODE_ENVELOPE`). The objectstack showcase writes it on `flex`
+  // nodes, and `SchemaRenderer` compiles it on every node. ⛔ Not on `stack`,
+  // `grid` or `container`: no producer was measured writing it there. The TS
+  // twin declares it too.
+  ...NODE_ENVELOPE,
   direction: z.enum(['row', 'col', 'row-reverse', 'col-reverse'])
     .optional()
     .describe('Flex direction'),

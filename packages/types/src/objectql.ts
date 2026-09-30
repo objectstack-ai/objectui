@@ -33,6 +33,9 @@ import type { QueryParams } from './data.js';
 import type { BulkActionOperation } from '@objectstack/spec/ui';
 // objectui#11070 — the per-element binding `dataSource` declares, by reference.
 import type { ElementDataSource } from '@objectstack/spec/ui';
+// objectui#10872 batch 9 — the per-breakpoint style maps `responsiveStyles` declares
+// on `ObjectGridSchema` and `ObjectChartSchema`, by reference.
+import type { ResponsiveStyles as SpecResponsiveStyles } from '@objectstack/spec/ui';
 // objectui#7928 — `ObjectViewSchema.listViews` is the protocol's record of this
 // schema, BY REFERENCE. The spec publishes a TS type for `ListView` and none for
 // the object-scoped `ObjectListView`, so the member reads it as `z.input` (the
@@ -773,6 +776,18 @@ export interface ListViewExportOptions {
  */
 export interface ObjectGridSchema extends BaseSchema {
   type: 'object-grid';
+
+  /**
+   * Per-breakpoint scoped style maps (ADR-0065): `@objectstack/spec`'s
+   * `ResponsiveStyles`, the type `PageComponentSchema.responsiveStyles`
+   * declares, by reference (objectui#10872 batch 9). `SchemaRenderer` compiles
+   * it to CSS scoped to this node and adds the scope class to the node's
+   * `className`, which `ObjectGrid` forwards. A producer writes it on
+   * `object-grid` nodes (the objectstack showcase; the reading is recorded on
+   * objectui#10872). Same declaration on {@link ObjectChartSchema}; the zod
+   * mirror spreads the public blocks' fragment (`NODE_ENVELOPE`).
+   */
+  responsiveStyles?: SpecResponsiveStyles;
 
   /**
    * Per-element data binding — `@objectstack/spec`'s `ElementDataSource`
@@ -4933,6 +4948,13 @@ export type KanbanConditionalFormattingRule =
  */
 export interface ObjectChartSchema extends BaseSchema {
   type: 'object-chart';
+  /**
+   * Per-breakpoint scoped style maps (ADR-0065): `@objectstack/spec`'s
+   * `ResponsiveStyles`, by reference (objectui#10872 batch 9). The same
+   * declaration as {@link ObjectGridSchema.responsiveStyles}; a producer writes
+   * it on `object-chart` nodes (the objectstack showcase).
+   */
+  responsiveStyles?: SpecResponsiveStyles;
   /** ObjectQL object name (legacy inline path; optional under ADR-0021 dataset binding) */
   objectName?: string;
   /** Chart type. Includes donut / horizontal-bar / column — all rendered by

@@ -4339,7 +4339,7 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // `ResponsiveStylesSchema` by reference. The arm reasons above describe the
   // members each arm adds of its own; this fragment is shared by all of them.
   // Pinned in `./public-block-responsive-styles-10872.test.ts`.
-  'public-blocks.zod.ts#PUBLIC_BLOCK_ENVELOPE':
+  'public-blocks.zod.ts#NODE_ENVELOPE':
     "a shape FRAGMENT, not a schema and not a mirror — `{ responsiveStyles }`, the spec's `ResponsiveStylesSchema` by reference (the schema `PageComponentSchema.responsiveStyles` declares), spread into every public-block arm so the one declaration is shared; no TS declaration in this package restates it",
   // objectui#10919 — the `cloud:plan-status` widget's arm, declared locally from
   // the widget's read points: `@objectstack/spec` has no row for a `cloud:`

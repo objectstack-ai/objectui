@@ -1227,10 +1227,11 @@ export interface ObjectGridSchema extends BaseSchema {
    * key. Writing it into a stored document does nothing at all.
    *
    * Programmatic callers should prefer `ObjectGridComponentProps`
-   * (`@object-ui/plugin-grid`), where the nine sibling callbacks —
-   * `onRowClick`, `onRowSelect`, `onCellChange`, `onRowSave`, `onBatchSave`,
-   * `onEdit`, `onDelete`, `onBulkDelete`, `onAddRecord` — live and only live,
-   * for exactly this reason.
+   * (`@object-ui/plugin-grid`), which declares ten callbacks: this one, as a
+   * prop since objectui#9547 — and the prop wins when both are supplied — and
+   * the nine siblings `onRowClick`, `onRowSelect`, `onCellChange`,
+   * `onRowSave`, `onBatchSave`, `onEdit`, `onDelete`, `onBulkDelete`,
+   * `onAddRecord`, which live and only live there, for exactly this reason.
    *
    * The declaration is kept rather than removed: with the key explicitly
    * published, removing it is a breaking public type change plus a deprecation
@@ -3013,7 +3014,7 @@ export type ViewNavigationConfig = NavigationConfig;
  * `__tests__/onNavigateProp-9547.test.tsx` reads that row and fails when the
  * two vocabularies part.
  *
- * ⛔ Not `'edit'`: no branch of the hook has ever emitted it
+ * ⛔ Not `'edit'`: no branch of the hook emits it
  * (objectstack#19057 dropped it from the catalogue). ⛔ Not `string`: the slot
  * is closed, and an open type defers every misspelt mode to runtime.
  * ⚠️ `ObjectViewSchema.onNavigate` is a different channel with its own

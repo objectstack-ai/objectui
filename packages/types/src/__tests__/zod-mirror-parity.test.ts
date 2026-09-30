@@ -2334,8 +2334,9 @@ interface KnownDrift {
    * `ComponentPropsMap['object-grid']` `strictObject` already refused the key.
    *
    * ⚠️ No in-repo host builds an `object-grid` node carrying it — measured. The
-   * read is live and deliberate (`onNavigate: schema.onNavigate` into
-   * `useNavigationOverlay`), and `plugin-grid`'s `gridNonAuthorKeys.test.tsx`
+   * read is live and deliberate (`onNavigate: onNavigate ?? schema.onNavigate`
+   * into `useNavigationOverlay` — the fallback behind the component prop since
+   * objectui#9547), and `plugin-grid`'s `gridNonAuthorKeys.test.tsx`
    * supplies it from a schema and asserts the call fires.
    */
   'objectql.zod.ts#ObjectGridSchema': 'onNavigate';

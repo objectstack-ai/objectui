@@ -435,7 +435,8 @@ export const ObjectGridSchema = BaseSchema.extend({
   //
   // ⛔ Disposition MEASURED, not patterned. `'retired'` publishes "no renderer
   // reads this key" — FALSE here: `ObjectGrid` reads it (`onNavigate:
-  // schema.onNavigate` into its `useNavigationOverlay` call) and
+  // onNavigate ?? schema.onNavigate` into its `useNavigationOverlay` call —
+  // the node key is the fallback behind the component prop, objectui#9547) and
   // `gridNonAuthorKeys.test.tsx` pins the read firing on a row click from a
   // SCHEMA-supplied function. So `'runtime-slot'`, and the channel is the one
   // the maintainer's 2026-08-19 ruling on objectui#5234 (option C) preserved on

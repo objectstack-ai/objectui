@@ -44,7 +44,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { resolveKeyedI18nLabel } from '@object-ui/react';
+import { resolveNavItemLabel } from '@object-ui/layout';
 import { useDesignerTranslation } from './hooks/useDesignerTranslation';
 import { useConfirmDialog } from './hooks/useConfirmDialog';
 
@@ -570,7 +570,8 @@ function NavigationBuilderStep({
                 <span className="text-xs text-gray-400">{item.icon}</span>
               )}
               <span className="flex-1 truncate text-sm text-gray-800">
-                {item.type === 'separator' ? t('appDesigner.separatorLabel') : resolveKeyedI18nLabel(item.label)}
+                {/* The runtime's rule (objectui#11196): an entry with no `label` shows the text it inherits. */}
+                {item.type === 'separator' ? t('appDesigner.separatorLabel') : resolveNavItemLabel(item)}
               </span>
               <span
                 className={cn(

@@ -63,9 +63,7 @@ export function parseSurfaceParam(value: string | null | undefined): { type: str
 
 interface NavNode {
   id?: string;
-  label?: string;
-  title?: string;
-  name?: string;
+  label?: unknown;
   children?: NavNode[];
   [k: string]: unknown;
 }
@@ -74,6 +72,15 @@ interface NavNode {
  * Locate a nav item by its `id` across all accepted root keys, returning
  * the positional selection id the canvas/inspector pair uses
  * (`<rootKey>[i]` / `<rootKey>[i].children[j]`), or null when absent.
+ *
+ * `label` is the item's authored plain-string `label`, and nothing else
+ * (objectui#11196). It used to fall back to `title` / `name`, which are not
+ * nav-item keys, so an entry with no label was named by keys the spec refuses
+ * rather than by the text it inherits. That text is its target's CURRENT
+ * label, which only a surface holding the metadata can answer, so a
+ * label-less entry leaves `label` undefined here: the inspector names the
+ * selected entry from the entry itself, through the runtime's inheritance
+ * rule. This module stays pure string/array plumbing.
  */
 export function findNavPositionById(
   draft: Record<string, unknown>,
@@ -85,8 +92,7 @@ export function findNavPositionById(
       if (!node || typeof node !== 'object') continue;
       const pos = `${prefix}[${i}]`;
       if (node.id === navId) {
-        const label = node.label ?? node.title ?? node.name;
-        return { selectionId: pos, label: typeof label === 'string' ? label : undefined };
+        return { selectionId: pos, label: typeof node.label === 'string' ? node.label : undefined };
       }
       if (Array.isArray(node.children)) {
         const hit = walk(node.children, `${pos}.children`);

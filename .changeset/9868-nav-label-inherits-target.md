@@ -6,12 +6,13 @@
 
 feat(types,layout,app-shell): a navigation entry with no `label` shows its target's current label, resolved at render time (objectui#9868)
 
-`@objectstack/spec` 17.5.0 made `NavigationItemSchema.label` optional on every
-navigation entry, with a declared semantic (the cloud#2021 letter-A ruling):
-absent ⇒ the entry shows the CURRENT label of what it opens — the view's label
-when it names a labelled view, else the object's / dashboard's label; present ⇒
-rendered verbatim. Nothing is stored for the absent case, so a renamed target
-shows its new name on the next render.
+`@objectstack/spec` 17.5.0 made a navigation entry's `label` optional on every
+entry arm of its `NavigationItemSchema` (the separator still carries none), with
+a declared semantic (the cloud#2021 letter-A ruling): absent ⇒ the entry
+shows the CURRENT label of what it opens — the view's label when it names a
+labelled view, else the object's / dashboard's label; present ⇒ rendered
+verbatim. Nothing is stored for the absent case, so a renamed target shows its
+new name on the next render.
 
 - `@object-ui/types` (widening): `NavigationEntryItem.label` is optional, and
   `NavigationItemSchema` accepts a label-less entry of every type the spec does,

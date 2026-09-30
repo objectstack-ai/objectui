@@ -10,8 +10,9 @@
  * useNavTargetLabel — the console's answer to "what is this navigation target
  * called NOW?", for navigation entries that carry no `label` (objectui#9868).
  *
- * `@objectstack/spec` 17.5.0 made `NavigationItemSchema.label` optional with a
- * declared semantic (the cloud#2021 letter-A ruling): an ABSENT label means the
+ * `@objectstack/spec` 17.5.0 made a navigation entry's `label` optional (on the
+ * nav-item base every `NavigationItemSchema` entry arm shares) with a declared
+ * semantic (the cloud#2021 letter-A ruling): an ABSENT label means the
  * entry shows, at render time, the CURRENT label of what it opens — the view's
  * label when it names a labelled view, else the object's / dashboard's label.
  * `@object-ui/layout`'s `resolveNavItemLabel` walks that ladder; this hook is

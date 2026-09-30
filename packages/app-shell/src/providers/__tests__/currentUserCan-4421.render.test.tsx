@@ -44,9 +44,10 @@
  *
  * Drop the `permissions` hand-off in `evalFieldPredicate` (`fieldRules.ts`):
  * every GRANTED arm goes red (the engine refuses `can` with no data, so the
- * fail-closed surfaces hide the action for a grant holder too); the NOT-LOADED
- * and DENIED arms stay green — they hide either way, which is why the denied
- * arm also asserts silence and the not-loaded arm asserts the named reason.
+ * fail-closed surfaces hide the action for a grant holder too), and every
+ * DENIED arm goes red through its SILENCE assertion only — the action is
+ * hidden either way, and it is the reported fault that tells the ablated tree
+ * apart. The NOT-LOADED arms stay green: nothing was handed off there to drop.
  */
 
 import '@testing-library/jest-dom/vitest';

@@ -49,6 +49,7 @@ import { useFavorites } from '../hooks/useFavorites.js';
 import { useNavPins } from '../hooks/useNavPins.js';
 import { useNavActionDispatch } from '../hooks/useNavActionDispatch.js';
 import { useNavTargetLabel } from '../hooks/useNavTargetLabel.js';
+import { useNavDocTargetCheck } from '../hooks/useNavDocTargetCheck.js';
 import { matchAppBySegment, appRouteSegment, resolveKeyedI18nLabel } from '../utils/index.js';
 import { useHomePath } from '../hooks/useHomePath.js';
 // Aliased for symmetry with objectui's own `resolveKeyedI18nLabel` above (the
@@ -280,11 +281,19 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   // an area that renders nothing. Same derivation as `AppSchemaRenderer`
   // (@object-ui/layout); the predicate is shared, not re-implemented.
   const areas: NavigationArea[] = activeApp?.areas || [];
+  // A `doc` entry the member may not read is not drawn (objectui#10188) —
+  // defence in depth behind the server's app read, which already drops it
+  // (objectstack#19790). Asked only in an app: on Home `activeApp` is merely
+  // the first app, whose menu this sidebar does not draw.
+  const checkDocTarget = useNavDocTargetCheck(
+    context === 'app' ? [activeApp?.navigation, ...areas.map((area) => area.navigation)] : [],
+  );
   const visibleAreas = areas.filter((area) =>
     hasVisibleNavigationItems(area.navigation, {
       evaluateVisibility: evalVis,
       checkPermission: checkPerm,
       checkCapability: checkCap,
+      checkDocTarget,
       // This sidebar always wires `onAction={dispatchNavAction}` on its
       // NavigationRenderer (framework#4509), so `action` items render and
       // count as area content.
@@ -566,6 +575,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
              evaluateVisibility={evalVis}
              checkPermission={checkPerm}
              checkCapability={checkCap}
+             checkDocTarget={checkDocTarget}
              enablePinning={!isMobile}
              onPinToggle={togglePin}
              enableReorder={!isMobile}

@@ -281,11 +281,23 @@ adding a separate enable flag.
 ### useFilterScope / useResolvedFilter
 
 A data node that sends its own authored `filter` into a query resolves the
-spec's context tokens in it first: `{current_user_id}`, `{current_org_id}` and
-the date macros such as `{today}` (objectui#10666). `useFilterScope()` reads
-the session scope a host mounts with `FilterScopeProvider`;
+spec's context tokens in it first: `{current_user_id}`, `{current_org_id}`,
+`{record_id}` and the date macros such as `{today}` (objectui#10666).
+`useFilterScope()` reads the session scope a host mounts with
+`FilterScopeProvider`, plus the id of the record in view when a
+`RecordContextProvider` is mounted above the node (objectui#7297);
 `useResolvedFilter(filter, scope)` resolves the filter through
 `@object-ui/core`'s `resolveFilterPlaceholders` and HOLDS the result.
+
+`{record_id}` is the id of the record a `type: 'record'` page shows, taken from
+that page's mounted record context and never from a URL parameter or a page
+variable: on a person's record page, `{ assignee: '{record_id}' }` counts that
+person's tasks. With no record in context (a list view, a dashboard, a page
+that is not a record page) it is refused by name, with the same warning an
+unresolved `{current_user_id}` gets, and left as written, so the filter never
+widens. It scopes what a component shows; it is not access control, which
+stays with the server's row-level security. `FilterScopeProvider` carries the
+session values only.
 
 ```tsx
 import { useEffect } from 'react'
@@ -311,9 +323,9 @@ function ObjectSomething({
 
 The held value keeps its reference while the authored filter is structurally
 equal (a filter rebuilt inline on every render included) and the scope's user,
-organization and `onUnresolved` are unchanged, so the effect above runs once.
-A structurally different filter, or a new signed-in user or organization,
-resolves again. A filter with no token to resolve is handed back as the value
+organization, record and `onUnresolved` are unchanged, so the effect above runs
+once. A structurally different filter, a new signed-in user or organization, or
+another record in view resolves again. A filter with no token to resolve is handed back as the value
 passed in. A token the scope cannot resolve is left in place, and the resolver
 logs one warning naming it.
 

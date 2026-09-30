@@ -31,6 +31,7 @@ import { render, screen, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { NavigationItem } from '@object-ui/types';
 import { SidebarProvider } from '@object-ui/components';
+import { AppSchemaRenderer } from '../AppSchemaRenderer';
 import {
   NavigationRenderer,
   resolveNavItemLabel,
@@ -209,5 +210,33 @@ describe('objectui#9868 — NavigationRenderer renders the inherited label', () 
 
   it('filterNavigationItems without resolvers matches the machine-name backstop, and never throws on an absent label', () => {
     expect(filterNavigationItems(items, 'board').map((i) => i.id)).toEqual(['nav_board']);
+  });
+});
+
+describe('objectui#9868 — AppSchemaRenderer’s mobile tab bar names an unlabelled entry', () => {
+  it('shows the machine-name backstop (it used to read `label.defaultValue` off undefined); control: an authored label', () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/apps/crm']}>
+        <AppSchemaRenderer
+          schema={{
+            type: 'app',
+            name: 'crm',
+            title: 'CRM',
+            navigation: [
+              { id: 'nav_page', type: 'page', pageName: 'my_page' },
+              { id: 'nav_acc', type: 'object', objectName: 'account', label: 'Accounts' },
+            ],
+          }}
+          basePath="/apps/crm"
+          mobileNavMode="bottom_nav"
+        >
+          <div />
+        </AppSchemaRenderer>
+      </MemoryRouter>,
+    );
+    const bar = container.querySelector('[role="navigation"][aria-label="Mobile navigation"]');
+    expect(bar).not.toBeNull();
+    const texts = Array.from(bar!.querySelectorAll('a span.truncate')).map((span) => span.textContent);
+    expect(texts).toEqual(['my_page', 'Accounts']);
   });
 });

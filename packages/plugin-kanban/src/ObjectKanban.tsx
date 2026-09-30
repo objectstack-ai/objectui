@@ -74,7 +74,15 @@ const KANBAN_DEFAULT_TRANSLATIONS: Record<string, string> = {
 };
 
 /**
- * Rows fetched when the author declared no `limit`.
+ * The board's FETCH BATCH: the `$top` of its one query when the author declared
+ * no `limit`.
+ *
+ * A fetch batch, ⛔ not a page size (objectui#9853, ruling 5824040487,
+ * structure B): the board has no pager, so this is how many records it asks
+ * for at once, and rows past it are not reachable. Its value is kept, and it
+ * does not follow the display page size the protocol declares for
+ * `pagination.pageSize`, so no board silently loses reachable records when that
+ * default moves. Before that ruling it was named `DEFAULT_KANBAN_LIMIT`.
  *
  * The number is the one this board has always intended: until objectui#4025 the
  * fetch passed `{ options: { $top: 100 } }`, and `options` is not a `QueryParams`
@@ -85,10 +93,10 @@ const KANBAN_DEFAULT_TRANSLATIONS: Record<string, string> = {
  * window is now real, and authorable — same shape `object-timeline` took in
  * objectui#4009 for the identical defect.
  */
-export const DEFAULT_KANBAN_LIMIT = 100;
+export const DEFAULT_KANBAN_FETCH_BATCH_SIZE = 100;
 
 /**
- * What the contract admits as a row cap for this board.
+ * What the contract admits as this board's `limit`, the fetch batch it asks for.
  *
  * `@objectstack/spec` has already answered what `limit: 0` means. The
  * `object-kanban` props declare the member a POSITIVE INTEGER
@@ -104,11 +112,12 @@ function isUsableRowLimit(value: unknown): value is number {
 }
 
 /**
- * The ONE resolver for this board's row cap, for the reason objectui#9853 gave
+ * The ONE resolver for this board's fetch batch, for the reason objectui#9853 gave
  * when it landed the same shape on `ObjectGrid` and objectui#9897 repeated on
  * `ListView`: one resolver at every entry is what keeps the answer single.
  *
- * Before objectui#9925 this read was a bare `schema.limit ?? DEFAULT_KANBAN_LIMIT`,
+ * Before objectui#9925 this read was a bare `schema.limit ?? DEFAULT_KANBAN_LIMIT`
+ * (the constant is `DEFAULT_KANBAN_FETCH_BATCH_SIZE` since objectui#9853),
  * and `??` rejects only `null` and `undefined` — so an authored `limit: 0` was
  * not nullish and survived as a real window. It reached the wire as `$top: 0`,
  * the board asked the server for nothing, and the empty board named no cause.
@@ -149,10 +158,10 @@ function describeRefusedRowLimit(authored: unknown, objectName: unknown): string
       ? `object-kanban on ${objectName}`
       : 'object-kanban';
   return (
-    `[ObjectUI] ObjectKanban row cap: ${where} declared limit: ${String(authored)}, `
-    + 'which is not a positive integer. A row cap must be a positive integer '
+    `[ObjectUI] ObjectKanban fetch batch: ${where} declared limit: ${String(authored)}, `
+    + 'which is not a positive integer. A fetch batch must be a positive integer '
     + '(the spec refuses zero and negative values), so it was ignored and this '
-    + `board fell back to its default row cap (${DEFAULT_KANBAN_LIMIT}).`
+    + `board fell back to its default fetch batch (${DEFAULT_KANBAN_FETCH_BATCH_SIZE}).`
   );
 }
 
@@ -709,7 +718,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
                 // bucket records in fetch order, so this is also the in-lane
                 // order. Absent → `undefined`, the query is unchanged.
                 $orderby: convertSortToQueryParams(schema.sort),
-                $top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT),
+                $top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_FETCH_BATCH_SIZE),
                 ...(expand.length > 0 ? { $expand: expand } : {}),
             };
             const results = await dataSource.find(schema.objectName, query);

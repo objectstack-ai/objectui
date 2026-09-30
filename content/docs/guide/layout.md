@@ -585,6 +585,15 @@ The handler name goes in `actionType`, which `action:button` forwards to the act
 runner as the action's type; the runner dispatches to the handler registered under it.
 Same spelling as [Record Edit Modes](./record-edit-modes.md).
 
+The rest of the action is authored on the same node. `action:button` and `action:icon`
+evaluate `visible` and `disabled` themselves (a boolean, a CEL string, or a
+`{ dialect, source }` envelope), and forward the action-definition keys to the runner:
+`params`, `confirmText`, `successMessage`, `errorMessage`, `toast`, `bodyExtra`,
+`bodyShape`, `operation` / `patch`, `onSuccess`, `objectName` and the others each
+registration's `inputs` lists, with a `description` per key. For an `api` action, write
+the request URL in `target`: `endpoint` is not published, because the console's `api`
+handler never reads it.
+
 ## Responsive Behavior
 
 The shell has exactly **one** layout breakpoint, at **768px** — Tailwind's `md`, and

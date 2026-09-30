@@ -1102,6 +1102,7 @@ const de = {
     writeStrippedReadonly: "Schreibgeschützt und daher nicht übernommen: {{fields}}",
     writeStrippedByState: "Im aktuellen Status dieses Datensatzes nicht bearbeitbar und daher nicht übernommen: {{fields}}",
     writeStrippedPrimaryKey: "Die Kennung des Datensatzes kann beim Speichern nicht geändert werden und wurde daher nicht übernommen: {{fields}}",
+    writeStrippedComputed: "Wird vom Server per Formel berechnet, daher wurde der gesendete Wert nicht übernommen: {{fields}}",
     writeStrippedUnknownReason: "Vom Server nicht übernommen: {{fields}}",
     approvalPendingEditable: "In Genehmigung · bearbeitbar",
     approvalPendingTooltip: "Dieser Datensatz hat eine ausstehende Genehmigungsanfrage; dieser Schritt erlaubt weiterhin die Bearbeitung",

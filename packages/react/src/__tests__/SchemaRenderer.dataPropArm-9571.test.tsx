@@ -75,7 +75,13 @@ const seen = () => captured.props;
  * `register()` call produces several, and `SchemaRenderer` looks the arm up
  * with the raw `schema.type`, so each key has to answer. ⛔ Not re-derived here:
  * these are `recordSourceDataArmForType`'s rows, and the registry-derived pins
- * in `plugin-grid` and `plugin-map` are what keep the rows honest.
+ * in `plugin-grid`, `plugin-map`, `plugin-gantt` and `plugin-tree` are what keep
+ * the rows honest.
+ *
+ * The four tree spellings joined the object arm with objectui#8348: they read
+ * `'undeclared'` while no published face declared a `data` row for
+ * `object-tree`, and `ComponentPropsMap['object-tree']` now declares the
+ * `ViewData` union.
  *
  * ⛔ Bare `grid` is deliberately NOT in the object-arm list — it is
  * `@object-ui/components`' LAYOUT grid, which `plugin-grid`'s `skipFallback`
@@ -89,6 +95,10 @@ const OBJECT_ARM_TYPES = [
   'plugin-map:object-map',
   'object-gantt',
   'plugin-gantt:object-gantt',
+  'object-tree',
+  'plugin-tree:object-tree',
+  'view:tree',
+  'tree',
 ] as const;
 const ARRAY_ARM_TYPES = [
   'object-calendar',
@@ -96,9 +106,8 @@ const ARRAY_ARM_TYPES = [
   'view:calendar',
   'calendar',
 ] as const;
-const UNDECLARED_TYPES = ['object-tree', 'plugin-tree:object-tree', 'view:tree', 'tree'] as const;
 
-const ALL_PROBE_TYPES = [...OBJECT_ARM_TYPES, ...ARRAY_ARM_TYPES, ...UNDECLARED_TYPES];
+const ALL_PROBE_TYPES = [...OBJECT_ARM_TYPES, ...ARRAY_ARM_TYPES];
 
 describe('SchemaRenderer — an authored `data` is refused a prop seat on the object arm (objectui#9571)', () => {
   beforeEach(() => {
@@ -150,7 +159,7 @@ describe('SchemaRenderer — an authored `data` is refused a prop seat on the ob
     });
   });
 
-  it.each([...ARRAY_ARM_TYPES, ...UNDECLARED_TYPES])(
+  it.each([...ARRAY_ARM_TYPES])(
     '4. ⛔ CONTROL: %s is NOT on the object arm, so its authored `data` keeps the prop seat verbatim',
     (type) => {
       render(<SchemaRenderer schema={{ type, id: `c-${type}`, data: AUTHORED } as never} />);
@@ -231,7 +240,8 @@ describe('SchemaRenderer — an authored `data` is refused a prop seat on the ob
   it('10. the reading itself: each registered spelling answers the arm its own ladder call site passes', () => {
     for (const type of OBJECT_ARM_TYPES) expect(recordSourceDataArmForType(type)).toBe('view-data');
     for (const type of ARRAY_ARM_TYPES) expect(recordSourceDataArmForType(type)).toBe('array');
-    for (const type of UNDECLARED_TYPES) expect(recordSourceDataArmForType(type)).toBe('undeclared');
+    // No LISTED type answers `'undeclared'` since objectui#8348 moved the tree;
+    // row 11 is where the default is still read, on an unlisted type.
   });
 
   it('12. ⛔ CONTROL: bare `grid` is the LAYOUT container, and it keeps its `data` prop', () => {

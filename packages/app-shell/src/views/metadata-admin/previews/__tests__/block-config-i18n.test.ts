@@ -389,7 +389,7 @@ describe('placeholders that must NOT be translated (#3979)', () => {
     'record:related_list.limit': { literal: '10', because: 'a row limit' },
     'object-kanban.limit': {
       literal: '100',
-      because: "a row limit — DEFAULT_KANBAN_LIMIT, the board's fetch cap when the box is empty",
+      because: "a row limit — DEFAULT_KANBAN_FETCH_BATCH_SIZE, the board's fetch batch when the box is empty",
     },
     'record:details.sections.columns': { literal: '2', because: 'a column count' },
   };
@@ -403,7 +403,7 @@ describe('placeholders that must NOT be translated (#3979)', () => {
     // PR objectstack#7115 retired `PageHeaderProps.icon`. Then 17 / 7 / 10
     // until objectui#7772 gave `object-kanban` the `limit` control its schema
     // has declared since objectui#7322 — a VALUE placeholder (`100`,
-    // `DEFAULT_KANBAN_LIMIT`), so it lands on the literal side and the keyed
+    // `DEFAULT_KANBAN_FETCH_BATCH_SIZE`), so it lands on the literal side and the keyed
     // half is what stays untouched this time. Then 18 / 7 / 11 until
     // objectui#8280 removed the `ai:input` panel, whose `agentName` box was a
     // KEYED placeholder — the palette never offered that block.

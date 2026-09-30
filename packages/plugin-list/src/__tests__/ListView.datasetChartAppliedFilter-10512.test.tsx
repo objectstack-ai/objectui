@@ -36,8 +36,12 @@
  *   - CONTROLS: on a grid, and on a chart bound to the list object (whose node
  *     carries the effective filter, objectui#10250), the restored group still
  *     narrows the fetch.
- *   - With nothing held, the switch into the dataset chart re-issues no query:
- *     the withholding does not reopen objectui#7394.
+ *   - With nothing held, the withholding does not reopen objectui#7394. With a
+ *     `pageSize` declared, the switch into the dataset chart re-issues no
+ *     query. With none declared, it re-issues exactly one, and only because
+ *     the window moves: the paged grid's `$top` is the spec display default
+ *     and the chart's is the list's fetch batch (objectui#9853, structure B;
+ *     the cost the maintainer accepted in ruling record 5909000462).
  *
  * Each case first waits for the view's stand-in, so a mount that never reached
  * the view's render branch reads as a broken harness, never as a pass.
@@ -46,9 +50,13 @@
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
+import { PaginationConfigSchema } from '@objectstack/spec/ui';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRendererProvider } from '@object-ui/react';
-import { ListView } from '../ListView';
+import { ListView, DEFAULT_LIST_FETCH_BATCH_SIZE } from '../ListView';
+
+/** The protocol's display default, read the way the renderer reads it. */
+const SPEC_DISPLAY_DEFAULT: number = PaginationConfigSchema.parse({}).pageSize;
 
 let chartNodes: Array<Record<string, unknown>> = [];
 
@@ -228,7 +236,16 @@ describe('objectui#10512 — a held user filter does not narrow ListView\'s fetc
     expect(onFilterChange).not.toHaveBeenCalled();
   });
 
-  it('CONTROL (objectui#7394): with nothing held, the switch to the dataset chart re-issues no query', async () => {
+  it('with nothing held and no pageSize declared, the switch to the dataset chart re-issues exactly one query, whose $top moves from the spec display default to the fetch batch', async () => {
+    // [objectui#9853] Ruling record 5909000462: the maintainer accepted this
+    // one further query as structure B's cost. A paged view's undeclared window
+    // is the spec display default and an unpaged view's is the fetch batch, so
+    // the switch changes `$top` and the list asks again. This row pinned "no
+    // query" before that ruling; the no-query half now lives in the DECLARED
+    // control below.
+    //
+    // The row discriminates only while the two numbers differ.
+    expect(SPEC_DISPLAY_DEFAULT).not.toBe(DEFAULT_LIST_FETCH_BATCH_SIZE);
     const dataSource = mount(
       { viewType: 'grid', chart: DATASET_BLOCK, appearance: { allowedVisualizations: ['grid', 'chart'] } },
       { showViewSwitcher: true },
@@ -236,7 +253,42 @@ describe('objectui#10512 — a held user filter does not narrow ListView\'s fetc
     await onScreen('grid-standin');
     await waitFor(() => expect(dataSource.find).toHaveBeenCalled());
     await settle();
+    const calls = () => dataSource.find.mock.calls.map((c: unknown[]) => c[1] as Record<string, unknown>);
+    const before = calls().length;
+    expect(calls()[0].$top).toBe(SPEC_DISPLAY_DEFAULT);
+
+    pick('Chart');
+    await onScreen('chart-standin');
+    const topsAfter = () => calls().slice(before).map((p) => p.$top);
+    await waitFor(() => expect(topsAfter()).toEqual([DEFAULT_LIST_FETCH_BATCH_SIZE]));
+    // Exactly one: no second copy lands once the first has.
+    await settle();
+    expect(topsAfter()).toEqual([DEFAULT_LIST_FETCH_BATCH_SIZE]);
+    // Only the window moved: the further query is the one already on screen
+    // with the chart's `$top`, so nothing the chart withholds reached it.
+    expect(calls()[before]).toEqual({ ...calls()[before - 1], $top: DEFAULT_LIST_FETCH_BATCH_SIZE });
+  });
+
+  it('CONTROL (objectui#7394 §1): with nothing held and a pageSize declared, the switch to the dataset chart re-issues no query', async () => {
+    // A declared size is one window for every kind, so the switch moves
+    // nothing and the withholding alone must not re-issue the fetch. §1 of
+    // `ListView.viewSwitchRefetch-7394.test.tsx` pins the same for grid to
+    // kanban; this row pins it for the dataset chart.
+    const DECLARED_PAGE_SIZE = 7;
+    const dataSource = mount(
+      {
+        viewType: 'grid',
+        chart: DATASET_BLOCK,
+        pagination: { pageSize: DECLARED_PAGE_SIZE },
+        appearance: { allowedVisualizations: ['grid', 'chart'] },
+      },
+      { showViewSwitcher: true },
+    );
+    await onScreen('grid-standin');
+    await waitFor(() => expect(dataSource.find).toHaveBeenCalled());
+    await settle();
     const before = dataSource.find.mock.calls.length;
+    expect((dataSource.find.mock.calls[0][1] as Record<string, unknown>).$top).toBe(DECLARED_PAGE_SIZE);
 
     pick('Chart');
     await onScreen('chart-standin');

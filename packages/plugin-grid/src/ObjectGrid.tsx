@@ -47,7 +47,7 @@ import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object
 // `string | I18nLabel` form `BaseSchema` has carried since objectui#4580: the
 // two reads below put the label in STRING positions, so a map-valued label used
 // to reach them as an object and the compiler could not say so.
-import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
+import { resolveI18nLabel as resolveInlineI18nLabel, PaginationConfigSchema } from '@objectstack/spec/ui';
 import { stateMachineNextValues, isFieldInlineEditable } from './inline-edit-options';
 import {
   Badge, Button, NavigationOverlay, EmptyValue,
@@ -1290,24 +1290,53 @@ function resolveRowHeightMode(rowHeight: unknown): RowHeightMode {
 }
 
 /**
- * The three page-size defaults this component falls back to, named so the
- * divergence between them is DECLARED rather than a by-product of three
- * hand-spelled fallback chains that happened to end in different literals.
+ * The page size every display surface of this component falls back to when the
+ * author declared none (objectui#9853, rulings 5749197629 and 5824040487): the
+ * flat table, the server-paged table, the grouped view's page of groups, and a
+ * server-grouped leaf's page of rows. Wherever there is a pager, this is its
+ * page.
  *
- * They are three different quantities and that is why they are three
- * constants: one sizes a page of ROWS in the client-paged table, one sizes a
- * page of GROUPS in the grouped view, and one sizes the `$top` WINDOW the
- * server-paged fetch asks for. ⚠️ What is NOT settled here is whether the
- * first and the third should be the same number — the same grid with no
- * authored `pagination` shows the server-window default per page while it
- * fetches its own rows and the flat default when it does not, which is a
- * visible inconsistency an author never declared. Changing either literal
- * changes what every undeclared grid renders, so it is handed back as a
- * question (objectui#9853) rather than decided here.
+ * READ from `@objectstack/spec`, not restated. The protocol's pagination config
+ * declares `pageSize` with a default, and that declaration is the one answer an
+ * author can look up; a literal here would be a second answer free to drift
+ * from it. Parsing an empty object is the spec's own way of saying what an
+ * undeclared member means, so this is the value the schema would fill in.
+ *
+ * ⚠️ There is deliberately no local fallback number behind this read. If a
+ * future `@objectstack/spec` stops declaring the default (the same principle
+ * `packages/types` applies at its own import boundary is that a validator does
+ * not write values), this throws at module load instead of quietly
+ * substituting a number nobody declared. The spec version is locked, so that
+ * can only surface on a spec upgrade, where the pin
+ * `ObjectGrid.displayPageSizeDefault-9853.test.tsx` reddens first.
  */
-const DEFAULT_FLAT_PAGE_SIZE = 10;
-const DEFAULT_GROUPS_PER_PAGE = 10;
-const DEFAULT_SERVER_WINDOW_SIZE = 50;
+function readSpecDisplayPageSize(): number {
+  const declared: unknown = PaginationConfigSchema.parse({}).pageSize;
+  if (typeof declared !== 'number' || !Number.isInteger(declared) || declared <= 0) {
+    throw new Error(
+      '[ObjectUI] ObjectGrid: @objectstack/spec no longer declares a positive default '
+      + `for pagination.pageSize (read ${String(declared)}); the grid has no display `
+      + 'page size to fall back to.',
+    );
+  }
+  return declared;
+}
+const DEFAULT_DISPLAY_PAGE_SIZE = readSpecDisplayPageSize();
+
+/**
+ * How many rows this grid FETCHES when it buckets a window into groups in the
+ * browser and the author declared no page size (`bucketsFetchedWindow`). A
+ * fetch batch, ⛔ not a page size: no display path reads it, and it does not
+ * follow the display default (objectui#9853, ruling 5824040487, structure B).
+ * Before ruling 5749197629 this number was named as a "server window" and also
+ * sized the server-paged table's visible page, so one constant meant two
+ * quantities.
+ *
+ * It stays a constant of this component rather than the protocol's value
+ * because the protocol declares no fetch batch: it is how much of the result
+ * set a client-grouped view holds, which is an implementation choice.
+ */
+const DEFAULT_FETCH_BATCH_SIZE = 50;
 
 /**
  * The mode a `selection` object with no `type` member asks for (objectui#9837,
@@ -1485,10 +1514,11 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   const [activeBulkSkipped, setActiveBulkSkipped] = useState(0);
   const lastFindParamsRef = React.useRef<Record<string, unknown> | null>(null);
   // Grouped view paginates whole groups (groups stay intact, never split across
-  // pages). Defaults to the schema page size, falling back to 10 groups/page.
+  // pages). Defaults to the schema page size, falling back to the display
+  // default the spec declares (objectui#9853) — here counted in groups.
   const [groupedPage, setGroupedPage] = useState(1);
   const [groupedPageSize, setGroupedPageSize] = useState<number>(
-    resolvePageSize(schema, DEFAULT_GROUPS_PER_PAGE),
+    resolvePageSize(schema, DEFAULT_DISPLAY_PAGE_SIZE),
   );
 
   // Sync internal rowHeightMode when schema.rowHeight prop changes (e.g., parent ListView density toggle).
@@ -1957,10 +1987,15 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // ($top/$skip) and the DataTable's display page size are the SAME number here
   // — the records we hold ARE one page, so paging means refetching the next
   // slice from the server instead of slicing an in-memory batch. This is what
-  // makes records beyond the first batch reachable at all (framework #2212).
+  // makes records beyond the first batch reachable at all
+  // (objectstack-ai/objectstack#2212).
+  //
+  // That makes this a DISPLAY page size, so undeclared it is the spec's display
+  // default, ⛔ not the fetch batch (objectui#9853). A server-grouped leaf pages
+  // its rows by this same size (`useServerGroupRows` below).
   const [serverPage, setServerPage] = useState(1);
   const [serverPageSize, setServerPageSize] = useState<number>(
-    resolvePageSize(schema, DEFAULT_SERVER_WINDOW_SIZE),
+    resolvePageSize(schema, DEFAULT_DISPLAY_PAGE_SIZE),
   );
 
   // Column-header sort, when this grid fetches its own rows (objectui#3106).
@@ -2156,6 +2191,30 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     && Array.isArray(handedRows)
     && (hostRowCount as number) > handedRows.length
     && usableGroupingFields(groupingFieldsRaw).some((gf) => !groupingRefusedKnownMasked.includes(gf.field));
+  // What the load effect's ONE flat fetch asks for (objectui#9853, ruling
+  // 5824040487, structure B). Where the rows it holds ARE the page on screen,
+  // that is the display page size. Where this grid buckets the rows it holds
+  // into groups in the browser, nothing pages them, so it asks for the fetch
+  // BATCH instead, which no display path reads. Since objectui#7189 a grouped
+  // grid that fetches its own rows buckets a window only when the server
+  // cannot group for it and the grid has not refused: not server-grouped
+  // (`serverGroupedFetch` strips `$top` and pages each group), not refused
+  // (`groupingNeedsHeaderQuery` asks for no rows), and at least one grouping
+  // entry left once a KNOWN masked key is refused. The case that reaches it
+  // today is a grouping key this principal may not read, over a data source
+  // that answers the header query (see `groupingKeyReadable`).
+  //
+  // Counted the way the two predicates above count, less the keys refused on a
+  // KNOWN masked type and NOT less the ones merely withheld while the object's
+  // types load: otherwise the first fetch would go out at the page size and be
+  // re-issued at the batch the moment the types land.
+  const bucketsFetchedWindow =
+    !serverGroupedFetch
+    && !groupingNeedsHeaderQuery
+    && usableGroupingFields(groupingFieldsRaw).some((gf) => !groupingRefusedKnownMasked.includes(gf.field));
+  const fetchWindow = bucketsFetchedWindow
+    ? resolvePageSize(schema, DEFAULT_FETCH_BATCH_SIZE)
+    : serverPageSize;
   // The grid's own row query — projection, expansion, order and the view's
   // filter — resolved by the load effect below exactly as the flat fetch
   // resolves it, and handed to each group's row page. `null` until resolved.
@@ -2455,8 +2514,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
 
           const params: any = {
             $select: getSelectFields(),
-            $top: serverPageSize,
-            $skip: (serverPage - 1) * serverPageSize,
+            $top: fetchWindow,
+            $skip: (serverPage - 1) * fetchWindow,
           };
 
           // The block's declared `filter` input, already lowered to an AST at
@@ -2716,7 +2775,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // `groupingNeedsHeaderQuery` (objectui#10881): it flips when the object's
   // types land and show the only grouping key masked, and the flat fetch it
   // withheld must then go out.
-  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, serverPageSize, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery]);
+  }, [objectName, schemaFields, schemaColumns, schemaFilter, schemaFilterRefusal, schemaDefaultFilters, schemaSort, headerSort, searchTerm, schemaPagination, schemaPageSize, serverPage, fetchWindow, dataSource, hasInlineData, dataConfig, refreshKey, perms.isLoaded, groupingProjectionKey, invalidationNonce, serverGroupedFetch, groupingNeedsHeaderQuery]);
 
   // The same reset, for the path the loader above never runs on (objectui#4501
   // clause 2). "All N matching are selected" is a claim about ONE query, so it
@@ -5027,7 +5086,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // Through the same resolver as the two seeds above (objectui#9853). This
   // site used `||` and the seeds used `??`, so one authored `pageSize: 0`
   // reached three read points and got two different answers.
-  const pageSize = resolvePageSize(schema, DEFAULT_FLAT_PAGE_SIZE);
+  const pageSize = resolvePageSize(schema, DEFAULT_DISPLAY_PAGE_SIZE);
 
   // Determine search settings
   const searchEnabled = schema.searchableFields !== undefined
@@ -6157,7 +6216,10 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           value={groupedPageSize}
           onChange={(e) => { setGroupedPageSize(Number(e.target.value)); setGroupedPage(1); }}
         >
-          {[5, 10, 20, 50, 100].map((n) => (
+          {/* The active size is merged in, as the DataTable pager does, so the
+              selector shows the size in force even when it is not one of the
+              steps: the spec's display default is not (objectui#9853). */}
+          {Array.from(new Set([5, 10, 20, 50, 100, groupedPageSize])).sort((a, b) => a - b).map((n) => (
             <option key={n} value={n}>{n}</option>
           ))}
         </select>

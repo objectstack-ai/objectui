@@ -618,18 +618,20 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
    */
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
-  // `'undeclared'` — and that is a finding, not a shrug (objectui#8348).
-  // MEASURED: NO published face declares a `data` row for `object-tree`.
-  // `@objectstack/spec` 17.4.0 has no `ComponentPropsMap['object-tree']` entry;
-  // `ObjectTreeSchema` (`@object-ui/types`) declares `objectName` REQUIRED and
-  // no `data` / `staticData`; and this package's registration declares no
-  // `data` input. Decision batch #83 rules by reference to the block's own
-  // published row — "the row decides" — so with no row on any face, neither arm
-  // of that ruling reaches this block and rung 1 keeps its pre-8348 verbatim
-  // behaviour here. ⛔ Do NOT copy this arm to a block that HAS a row: it is
-  // the honest answer for an unruled block, reported on the card rather than
-  // guessed at.
-  const dataConfig = useMemo(() => resolveRecordSourceConfig(schema, 'undeclared'), [schema]);
+  // `'view-data'` — the arm `object-tree`'s published `data` row declares
+  // (objectui#8348). Decision batch #83 rules by the block's own row — 「8348
+  // 以协议为准」 — and ruling batch #136 item 3 (Q1-C) had the protocol gain
+  // that row: `ComponentPropsMap['object-tree']` declares `data` as the
+  // `ViewData` union and `staticData` as an array. ⛔ The verdict is not
+  // restated here as a fact about a version; it is derived from the INSTALLED
+  // row at test time by `ObjectTree.dataArmSpecRow-8348.test.tsx`, so a spec
+  // release that moves the row turns that pin red.
+  //
+  // So `{ provider, … }` under `data` is rung 1, and a bare array under `data`
+  // is not a record source: the ladder falls through to `staticData`, then
+  // `objectName`. This used to pass `'undeclared'`, which honoured ANY truthy
+  // `data` — right only while no published face declared a row for this block.
+  const dataConfig = useMemo(() => resolveRecordSourceConfig(schema, 'view-data'), [schema]);
 
   /**
    * The object THIS render is bound to, as a plain string — so the resolution
@@ -745,8 +747,8 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   // The object is `dataObjectName` — the `object` provider's own object,
   // whether the node spelled it `objectName` or `data: { provider: 'object' }`
   // — and it is subscribed exactly when the `object` arm below queries: inline
-  // rows (a `data` array, the `value` provider) name no object and query no
-  // adapter, so they do not subscribe.
+  // rows (`staticData`, or the `value` provider under `data`) name no object
+  // and query no adapter, so they do not subscribe.
   //
   // ⚠️ Rows a HOST hands down as the `data` prop (ListView's tree) do NOT
   // exempt the tree: the `object` arm runs its own full query ahead of them,
@@ -847,19 +849,20 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
           return;
         }
 
-        // Otherwise fall back to inline/static data (tests, value provider).
+        // Otherwise: rows a HOST handed down as the `data` React prop
+        // (`ListView`'s tree seat), then the inline `value` provider below.
         //
-        // ⭐ `schema.data` is read WITHOUT a cast since objectui#8655, and the
-        // missing cast is the finding rather than a tidy-up. This was one of
-        // that card's two class-(d) reads — reported "unanswerable", not
-        // "undeclared", because the prop was `any` and
-        // `checker.getPropertyOfType` cannot tell those apart through one.
-        // Typed at the node, the checker answers: `data` IS declared, on
-        // `BaseSchema` ("Arbitrary data attached to the component"), so the
-        // `as any` was hiding a declaration rather than reaching past its
-        // absence. ⛔ The sibling cast on `rest` stays — `rest` is the
-        // untyped remainder of the props bag, a different question.
-        const passed = (rest as any).data ?? schema.data;
+        // ⛔ The AUTHORED `schema.data` is NOT read here any more
+        // (objectui#8348). This line used to be `rest.data ?? schema.data`
+        // with an `Array.isArray` test — a second reader of the authored key
+        // that bypassed the shared ladder, so a bare array under `data` drew
+        // its rows whatever arm the ladder was told. The authored key has ONE
+        // reader now, `dataConfig` above, which judges it against this block's
+        // published row. Through `SchemaRenderer` the authored key does not
+        // arrive as the prop either: the arm table stops that spread for
+        // object-arm blocks (objectui#9571), so `rest.data` is the host's
+        // carrier only — which option B of that ruling refused to gate.
+        const passed = (rest as any).data;
         if (Array.isArray(passed)) {
           if (!cancelled) {
             setHeld({ provider: dataProvider, object: dataObjectName, rows: passed });

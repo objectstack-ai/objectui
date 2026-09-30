@@ -31,7 +31,7 @@ import { useObjectLabel, useSafeFieldLabel, createSafeTranslation, useDisplayLoc
 // objectui's keyed `{ key, defaultValue, params }` ref — that vocabulary lives
 // on the FLAT `schema.ariaLabel` and is resolved by `SchemaRenderer` instead
 // (objectui#5134).
-import { resolveI18nLabel as resolveInlineI18nLabel, normalizeFilterOperator } from '@objectstack/spec/ui';
+import { resolveI18nLabel as resolveInlineI18nLabel, normalizeFilterOperator, PaginationConfigSchema } from '@objectstack/spec/ui';
 import { usePermissions } from '@object-ui/permissions';
 
 /**
@@ -962,18 +962,50 @@ function useListFieldLabel() {
 }
 
 /**
- * The page size this view falls back to when no usable one is declared.
+ * The page size a PAGED list falls back to when no usable one is declared: the
+ * flat grid view, which this component pages on the server (`paginate`), so
+ * the window it fetches is the page on screen and the size it hands the child
+ * grid's pager (objectui#9853, ruling 5824040487, structure B: "page size"
+ * means one page only where there is a pager).
  *
- * ⚠️ Named rather than spelled inline because it is a FIFTH different default
- * in this family: `ObjectGrid` carries three (a page of rows, a page of
- * groups, a fetch window) and this view carries its own — the single `$top`
- * window it asks the server for, which then doubles as the child grid's page
- * size. ⛔ Whether 100 belongs next to the grid's numbers is NOT settled here:
- * changing it changes what every list with no authored `pagination` fetches,
- * which is a product decision rather than an execution seat's. It is handed
- * back as a question on objectui#9897.
+ * READ from `@objectstack/spec`, not restated, the same read `ObjectGrid`
+ * makes: the protocol's pagination config declares `pageSize` with a default,
+ * and parsing an empty config is the spec's own way of saying what an
+ * undeclared member means. ⚠️ There is no local number behind the read: if a
+ * future spec stops declaring a positive default, this throws at module load
+ * rather than substituting a number nobody declared.
  */
-const DEFAULT_LIST_PAGE_SIZE = 100;
+function readSpecDisplayPageSize(): number {
+  const declared: unknown = PaginationConfigSchema.parse({}).pageSize;
+  if (typeof declared !== 'number' || !Number.isInteger(declared) || declared <= 0) {
+    throw new Error(
+      '[ObjectUI] ListView: @objectstack/spec no longer declares a positive default '
+      + `for pagination.pageSize (read ${String(declared)}); a paged list has no display `
+      + 'page size to fall back to.',
+    );
+  }
+  return declared;
+}
+const DEFAULT_LIST_DISPLAY_PAGE_SIZE = readSpecDisplayPageSize();
+
+/**
+ * The `$top` of the ONE unpaged fetch a list view makes when no usable page
+ * size is declared: every view this component does not page on the server
+ * (`paginate` is false), which is every kind but the flat grid, plus a grouped
+ * grid's window. Those views have no pager, so rows past this number are not
+ * reachable at all (`dataLimitReached` says so).
+ *
+ * A fetch batch, ⛔ not a page size (objectui#9853, ruling 5824040487,
+ * structure B): its value is kept, and it does not follow the display default,
+ * so no view silently loses reachable records when the protocol's page size
+ * moves. A DECLARED `pagination.pageSize` still sizes this fetch, as it always
+ * has; only the undeclared fallback is split by kind.
+ *
+ * Exported for pins that assert "the fetch batch" rather than its value
+ * (objectui#9853, ruling record 5909000462); the package index does not
+ * re-export it.
+ */
+export const DEFAULT_LIST_FETCH_BATCH_SIZE = 100;
 
 /**
  * What the contract admits as a page size. The spec's view pagination config
@@ -1038,17 +1070,21 @@ function describeRefusedPageSize(
   chosen: unknown,
   authored: unknown,
   objectName: unknown,
+  paged: boolean,
 ): string | null {
   const candidate = chosen ?? authored;
   if (candidate === undefined || candidate === null) return null;
   if (isUsablePageSize(candidate)) return null;
   const where =
     typeof objectName === 'string' && objectName ? `list-view on ${objectName}` : 'list-view';
+  const fellBackTo = paged
+    ? `its default page size (${DEFAULT_LIST_DISPLAY_PAGE_SIZE})`
+    : `its default fetch batch (${DEFAULT_LIST_FETCH_BATCH_SIZE}), since this view does not page`;
   return (
     `[ObjectUI] ListView pagination: ${where} declared pageSize: ${String(candidate)}, `
     + 'which is not a positive integer. A page size must be a positive integer '
     + '(the spec refuses zero and negative values), so it was ignored and this '
-    + `list fell back to its default page size (${DEFAULT_LIST_PAGE_SIZE}).`
+    + `list fell back to ${fellBackTo}.`
   );
 }
 
@@ -1394,27 +1430,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
 
   // Dynamic page size state (wired from pageSizeOptions selector)
   const [dynamicPageSize, setDynamicPageSize] = React.useState<number | undefined>(undefined);
-  // [objectui#9897] Through the resolver rather than a bare `??` chain. This
-  // value is resolved ONCE and then feeds six consumers — the `$top` window,
-  // the `$skip` step that turns the page, the has-more gate behind the
-  // "showing first N" cap, the page size handed down to the child grid, the
-  // record cap printed in that banner, and the rows-per-page control's own
-  // displayed value. `??` rejects only null/undefined, so one refused
-  // declaration used to reach all six.
   const authoredPageSize = schema.pagination?.pageSize;
-  const effectivePageSize = resolvePageSize(
-    dynamicPageSize,
-    authoredPageSize,
-    DEFAULT_LIST_PAGE_SIZE,
-  );
-
-  // [objectui#9897] The loud half, on the channel this component already uses
-  // for "you declared it, the renderer dropped it". Keyed on the declaration,
-  // so it is one warning per declaration rather than one per render.
-  React.useEffect(() => {
-    const message = describeRefusedPageSize(dynamicPageSize, authoredPageSize, schema.objectName);
-    if (message) console.warn(message);
-  }, [dynamicPageSize, authoredPageSize, schema.objectName]);
 
   // --- Server-side pagination (objectstack-ai/objectstack#2212) ---
   // ListView owns the fetch, so it owns paging too: it requests one window at a
@@ -1502,6 +1518,35 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    * values every consumer sees are the ones they saw before.
    */
   const paginate = currentView === 'grid' && !(groupingConfig?.fields?.length);
+  // [objectui#9897] Through the resolver rather than a bare `??` chain. This
+  // value is resolved ONCE and then feeds six consumers — the `$top` window,
+  // the `$skip` step that turns the page, the has-more gate behind the
+  // "showing first N" cap, the page size handed down to the child grid, the
+  // record cap printed in that banner, and the rows-per-page control's own
+  // displayed value. `??` rejects only null/undefined, so one refused
+  // declaration used to reach all six.
+  //
+  // [objectui#9853] Undeclared, what it falls back to depends on whether this
+  // surface pages (structure B): a paged surface falls back to the display
+  // default the spec declares, and an unpaged one to the fetch batch. So with
+  // no declared size, switching between the paged grid and an unpaged kind
+  // moves the window and re-issues the fetch, where a declared size keeps one
+  // window across the switch (objectui#7394).
+  const effectivePageSize = resolvePageSize(
+    dynamicPageSize,
+    authoredPageSize,
+    paginate ? DEFAULT_LIST_DISPLAY_PAGE_SIZE : DEFAULT_LIST_FETCH_BATCH_SIZE,
+  );
+
+  // [objectui#9897] The loud half, on the channel this component already uses
+  // for "you declared it, the renderer dropped it". Keyed on the declaration
+  // (and on which fallback it names), so it is one warning per declaration
+  // rather than one per render.
+  React.useEffect(() => {
+    const message = describeRefusedPageSize(dynamicPageSize, authoredPageSize, schema.objectName, paginate);
+    if (message) console.warn(message);
+  }, [dynamicPageSize, authoredPageSize, schema.objectName, paginate]);
+
   const fetchSkip = paginate ? (serverPage - 1) * effectivePageSize : 0;
   const serverTotal = paginate ? fetchedTotal : null;
 

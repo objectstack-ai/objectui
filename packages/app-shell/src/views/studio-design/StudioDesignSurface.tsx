@@ -110,7 +110,7 @@ import { useHomePath } from '../../hooks/useHomePath.js';
 import { resolveSurface, findSurfaceInTree, type NavNode, type Surface } from './navSurface.js';
 import { useSurfaceDeepLink, resolveSurfaceDeepLink, type SurfaceTarget } from './useSurfaceDeepLink.js';
 import { SurfaceDeepLinkProvider, useRequestedSurface } from './surfaceDeepLinkChannel.js';
-import { buildObjectSkeleton, buildFlowSkeleton, buildAppSkeleton, buildPermissionSkeleton } from './skeletons.js';
+import { buildObjectSkeleton, buildFlowSkeleton, buildAppSkeleton, buildPermissionSkeleton, type AppNavSeed } from './skeletons.js';
 import { OWD_CREATE_MODELS, OWD_DEFAULT, type OwdCreateModel } from './owd-sharing.js';
 import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadata-admin/i18n.js';
 import { useDisplayLocale } from '@object-ui/i18n';
@@ -991,19 +991,22 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // hand in the Interfaces pillar (objectui#2262).
   const [appAddObjects, setAppAddObjects] = React.useState(true);
 
-  const loadPackageObjects = React.useCallback(async (): Promise<Array<{ name: string; label: string }>> => {
+  const loadPackageObjects = React.useCallback(async (): Promise<AppNavSeed[]> => {
     // Published objects + pending DRAFT objects, merged — a fresh package's
     // objects are usually still drafts (same merge the Data pillar rail does).
+    // Names only (objectui#11201): a seeded entry carries no label, so nothing
+    // here reads one. This used to hand `buildAppSkeleton` each object's label,
+    // and a draft's or unlabelled object's machine name in its place.
     const [list, draftHeaders] = await Promise.all([
       shellClient.list('object', { packageId }) as Promise<Array<Record<string, unknown>>>,
       shellClient.listDrafts({ packageId, type: 'object' }).catch(() => [] as Array<{ name?: string }>),
     ]);
-    const items = (list || [])
-      .map((o) => ({ name: String(o.name ?? ''), label: String(o.label ?? o.name ?? '') }))
+    const items: AppNavSeed[] = (list || [])
+      .map((o) => ({ name: String(o.name ?? '') }))
       .filter((o) => o.name);
     const known = new Set(items.map((o) => o.name));
     for (const d of draftHeaders) {
-      if (d.name && !known.has(d.name)) items.push({ name: d.name, label: d.name });
+      if (d.name && !known.has(d.name)) items.push({ name: d.name });
     }
     return items;
   }, [shellClient, packageId]);
@@ -1445,8 +1448,13 @@ function NavTree({
  * (`navigation[i]`), so binding is a business-friendly object picker rather
  * than the raw path field of the generic AppNavInspector: picking an object
  * writes `{ type: 'object', objectName }` (which the runtime resolves to that
- * object's record list) and, if the label is still the placeholder, adopts the
- * object's label. The comment used to say it writes `{ object }` — the bare
+ * object's record list) and, if the label is still the placeholder, REMOVES it
+ * (objectui#11201, ruling B). The entry is then a standard one: its absent
+ * label inherits the object's current label at render time, in the viewer's
+ * language. It used to adopt the object's label here, stored as a copy (the
+ * machine name for a draft or unlabelled object), and a present label renders
+ * verbatim. A label the author typed, or a locale map, is kept as authored.
+ * The comment used to say it writes `{ object }` — the bare
  * spelling `AppSchema` answers with `unrecognized_keys`; the code has always
  * written the canonical key and cleared `object` (objectui#4881).
  *
@@ -1507,6 +1515,35 @@ export function StudioNavItemInspector({
   // default from AppNavCanvas so items created in any locale are recognized.
   const isPlaceholder =
     !curLabel || curLabel === 'New item' || curLabel === t('engine.appNav.newItem', locale);
+  /**
+   * Binding an object to this entry (objectui#11201). A placeholder label is
+   * removed, never replaced by the object's text, so the entry inherits. A
+   * locale map is author text in its other languages, so it is kept even when
+   * the designer locale's entry is empty or the placeholder.
+   */
+  const bindObject = (objName: string) => {
+    const dropLabel = isPlaceholder && (label === undefined || typeof label === 'string');
+    onNavPatch({
+      navigation: nav.map((n, i) => {
+        if (i !== idx) return n;
+        // Emit a spec-complete ObjectNavItem: the app schema's nav is a
+        // discriminated union on `type` and BaseNavItem requires a
+        // snake_case `id`. Missing either fails "navigation.0: Invalid
+        // input" at save. `object`/`path` are cleared so no stray keys
+        // linger from the blank placeholder.
+        const next: Record<string, unknown> = {
+          ...n,
+          id: (node.id as string) || `nav_${objName}`,
+          type: 'object',
+          objectName: objName,
+          object: undefined,
+          path: undefined,
+        };
+        if (dropLabel) delete next.label;
+        return next;
+      }),
+    });
+  };
   return (
     <div className="space-y-3">
       <div>
@@ -1524,28 +1561,12 @@ export function StudioNavItemInspector({
           value={boundObject}
           onChange={(e) => {
             const objName = e.target.value;
-            const obj = objects.find((o) => o.name === objName);
             if (!objName) {
               // Unbind → back to an (invalid, dropped-on-save) placeholder.
               patch({ type: undefined, objectName: undefined, object: undefined });
               return;
             }
-            // Emit a spec-complete ObjectNavItem: the app schema's nav is a
-            // discriminated union on `type` and BaseNavItem requires a
-            // snake_case `id`. Missing either fails "navigation.0: Invalid
-            // input" at save. `object`/`path` are cleared so no stray keys
-            // linger from the blank placeholder.
-            patch({
-              id: (node.id as string) || `nav_${objName}`,
-              type: 'object',
-              objectName: objName,
-              object: undefined,
-              path: undefined,
-              // Adopting the object's label is an edit like any other: a map
-              // keeps every other locale's entry. A real label is kept as
-              // authored, never rewritten as its resolved text.
-              label: isPlaceholder && obj ? renamedLabel(label, obj.label, locale) : label,
-            });
+            bindObject(objName);
           }}
           className="w-full rounded border bg-background px-2 py-1 text-xs"
         >

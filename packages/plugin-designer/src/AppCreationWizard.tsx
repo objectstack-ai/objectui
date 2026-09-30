@@ -98,18 +98,41 @@ const DEFAULT_DRAFT: AppWizardDraft = {
 // Helpers
 // ============================================================================
 
+/**
+ * The label a generated object entry is written with, or `undefined` for none
+ * (objectui#11201, ruling B).
+ *
+ * A generated entry is a standard entry, so by default it carries NO label: an
+ * absent label inherits the object's CURRENT label at render time, in the
+ * viewer's language. The one text inheritance cannot produce is the object's
+ * declared plural label (nav entries open a list view: 'Projects' rather than
+ * 'Project'), so that is written, unless it spells the object's singular label
+ * or its machine name (trimmed, case-insensitive), which inheritance already
+ * shows. The entry used to store `pluralLabel || label`, and a host's
+ * `label` is the object's machine name when the object has none
+ * (`CreateAppPage` / `EditAppPage`), so an unlabelled object's entry stored its
+ * machine name.
+ */
+function generatedEntryLabel(o: ObjectSelection): string | undefined {
+  const plural = o.pluralLabel?.trim().toLowerCase();
+  if (!plural) return undefined;
+  const spells = (text: string | undefined) => typeof text === 'string' && text.trim().toLowerCase() === plural;
+  return spells(o.label) || spells(o.name) ? undefined : o.pluralLabel;
+}
+
 function generateNavFromObjects(objects: ObjectSelection[]): NavigationItem[] {
   return objects
     .filter((o) => o.selected)
-    .map((o) => ({
-      id: o.name,
-      type: 'object' as const,
-      // Nav entries open a list view — prefer the object's plural label
-      // ('Projects') over its singular label ('Project') when available.
-      label: o.pluralLabel || o.label,
-      icon: o.icon,
-      objectName: o.name,
-    }));
+    .map((o) => {
+      const label = generatedEntryLabel(o);
+      return {
+        id: o.name,
+        type: 'object' as const,
+        ...(label ? { label } : {}),
+        icon: o.icon,
+        objectName: o.name,
+      };
+    });
 }
 
 /**

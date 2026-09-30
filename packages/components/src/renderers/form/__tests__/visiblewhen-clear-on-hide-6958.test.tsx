@@ -265,7 +265,14 @@ describe('#6958 — a field its own `visibleWhen` hides is cleared, not carried'
     expect((await payloadOf(onSubmit)).source).toBe('import');
   });
 
-  it('BOUNDARY — a BROKEN predicate fails open, so nothing is cleared', async () => {
+  it('BOUNDARY — a BROKEN predicate fails open, so nothing is cleared — and nothing is written either', async () => {
+    // The constraint ADR-0137 carries verbatim from this card: a broken
+    // predicate must NEVER silently null a stored column. It holds in two
+    // halves since objectui#8069 (D3 + D2): at RENDER the rule fails open, so
+    // the clear-on-hide never fires and the value stays in the form; at SUBMIT
+    // the unevaluable `visibleWhen` refuses the write, so neither a null nor
+    // the unchecked value reaches the host. Before #8069 the second half was
+    // "the value is written as it stood", which this pin used to assert.
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
     const onSubmit = vi.fn();
@@ -284,8 +291,14 @@ describe('#6958 — a field its own `visibleWhen` hides is cleared, not carried'
     });
 
     fireEvent.change(screen.getByLabelText(/plan/i), { target: { value: 'basic' } });
+    // Not cleared: the field is still drawn and still holds its value.
+    expect((screen.getByLabelText(/contact/i) as HTMLInputElement).value).toBe('AEwPffbk');
     save();
-    expect((await payloadOf(onSubmit)).crm_contact).toBe('AEwPffbk');
+    await waitFor(() =>
+      expect(screen.getByText(/visibleWhen rule of Contact could not be evaluated/)).toBeTruthy(),
+    );
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect((screen.getByLabelText(/contact/i) as HTMLInputElement).value).toBe('AEwPffbk');
   });
 
   it('BOUNDARY — an already-empty hidden field is never written to (no invented null)', async () => {

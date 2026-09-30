@@ -20,6 +20,7 @@ import { ExpressionContext } from './ExpressionContext.js';
 import { ExpressionCache } from './ExpressionCache.js';
 import { FormulaFunctions } from './FormulaFunctions.js';
 import { evalFieldPredicate } from './fieldRules.js';
+import { isBlankPredicateText } from './declaredPredicate.js';
 
 /**
  * Options for expression evaluation
@@ -419,7 +420,29 @@ export class ExpressionEvaluator {
    * syntax) throws; a genuine `false` never throws.
    */
   private evaluateCelCondition(source: string, options: EvaluationOptions): boolean {
-    if (!source.trim()) return true; // no predicate → visible/enabled
+    if (isBlankPredicateText(source)) {
+      // A BLANK gate: no predicate → visible/enabled, exactly as before
+      // (objectui#3850 / #3960's verdict), in EVERY mode — `throwOnError`
+      // included, since the author wrote nothing that could fault. What
+      // changed is that it is no longer SILENT (ADR-0137 D4: a blank gate
+      // predicate is "diagnosed, never a silent `true`"; objectui#8069). The
+      // report is `evalFieldPredicate`'s own `[blank]` one — the channel every
+      // other predicate fault already uses — so a caller that passed `onFault`
+      // receives it there (and prints its own, node-named line), and every
+      // other caller gets the deduped built-in warning. No engine call is made:
+      // a blank predicate never reaches the engine.
+      evalFieldPredicate(
+        source,
+        {},
+        true,
+        undefined,
+        undefined,
+        options.onFault
+          ? { warn: false, onFault: options.onFault }
+          : { context: 'a CEL gate predicate, read as no gate' },
+      );
+      return true;
+    }
     const bag = this.context.toObject();
     const rec = bag.record;
     const record = (rec && typeof rec === 'object' && !Array.isArray(rec))

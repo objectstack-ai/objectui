@@ -289,6 +289,10 @@ const useSafeFormTranslation = createSafeTranslation(
     'form.noPermissionToSave': "You don't have permission to save this record.",
     'form.submitFailed': 'Could not save. Please try again.',
     'form.clearedOnHide': 'Cleared — no longer applicable given the current values: {{fields}}',
+    // objectui#8069 — the submit refusal for a field `visibleWhen` that could
+    // not be evaluated (see `handleSubmit`). Byte-identical to the `en` pack.
+    'form.visibleWhenFaulted':
+      "Can't submit: the visibleWhen rule of {{fields}} could not be evaluated. The rule must be fixed before this form can be submitted.",
   },
   'common.selectOption',
 );
@@ -1548,8 +1552,26 @@ ComponentRegistry.register('form',
     // a payload. Re-evaluating the predicates the render path also evaluates
     // cannot double-warn: `warnPredicateFailure` dedupes by predicate source,
     // which `readonlyFieldNames` above already leans on.
-    const conditionallyHiddenFieldNames = React.useMemo(() => {
+    //
+    // ── …and the fields whose `visibleWhen` could NOT be evaluated
+    // (objectui#8069, ADR-0137 D2 as ruled) ─────────────────────────────────
+    // The same `resolveFieldRuleState` call reports them (`faults`), so the
+    // submit refusal below reads the verdict this memo already drew and never
+    // evaluates a predicate a second time. Every declared field is judged, not
+    // only the drawn ones: a faulted `visibleWhen` fails OPEN, so the field is
+    // never cleared on hide (`6a449fc49`) and its value reaches the payload
+    // whether or not a section or tab happens to hide it — the rule changes
+    // the write either way, so the write is refused either way.
+    //
+    // One exclusion, about WHAT the slot holds rather than about the fault: a
+    // `section-divider` row carries its SECTION's predicate in this same
+    // `visibleWhen` slot, which is a layout gate and not a field rule. A
+    // stored BLANK field rule is a fault like any other (ADR-0137 D2; see
+    // `FieldRuleFaults`) and is refused; a new one is refused earlier, at
+    // authoring, by the form schema's triad wire.
+    const { conditionallyHiddenFieldNames, faultedVisibleWhenFieldNames } = React.useMemo(() => {
       const hidden = new Set<string>();
+      const faulted: string[] = [];
       for (const f of fields as FormFieldConfig[]) {
         const name = f?.name;
         if (!name) continue;
@@ -1571,6 +1593,7 @@ ComponentRegistry.register('form',
             // predicate is reported once, against the field.
             `field '${name}'`,
           );
+          if (st.faults.visibleWhen !== undefined && f.type !== 'section-divider') faulted.push(name);
           if (!st.visible) {
             hidden.add(name);
             continue;
@@ -1585,7 +1608,7 @@ ComponentRegistry.register('form',
           hidden.add(name);
         }
       }
-      return hidden;
+      return { conditionallyHiddenFieldNames: hidden, faultedVisibleWhenFieldNames: faulted };
     }, [fields, ruleRecord, previousRecord, isCreateForm, predicateScope]);
 
     // ── The section grouping contract (objectui#6236, maintainer ruling
@@ -2394,8 +2417,10 @@ ComponentRegistry.register('form',
       revealField(firstName);
     };
 
-    // Handle form submission
-    const handleSubmit = form.handleSubmit(async (data) => {
+    // Handle form submission — react-hook-form's validation, then the write.
+    // Reached only through `handleSubmit` below, which refuses first on a
+    // faulted `visibleWhen`.
+    const submitThroughValidation = form.handleSubmit(async (data) => {
       setIsSubmitting(true);
       setSubmitError(null);
       // …and the toast twin of that banner (objectui#7252). Both belong to the
@@ -2541,6 +2566,58 @@ ComponentRegistry.register('form',
       // regardless of scroll position (mirrors the server-error toast above).
       announceFieldErrors(Object.keys(validationErrors || {}));
     });
+
+    /**
+     * The submit entry: a faulted `visibleWhen` refuses the write, naming the
+     * field and the rule (objectui#8069 — ADR-0137 D2, ruled as Q1 = B: one
+     * judge per rule).
+     *
+     * ## Why `visibleWhen` alone
+     *
+     * It is the one field rule no server evaluates, so its fail-open render
+     * direction (D3: a faulting `visibleWhen` SHOWS the field) would otherwise
+     * be a silent grant — a field the working rule would have hidden, drawn,
+     * edited and written, with nothing anywhere saying the rule did not run.
+     * `requiredWhen` / `readonlyWhen` keep their render direction and warning
+     * here unchanged: the server evaluates both and refuses a fault itself
+     * (D2), field-attributed, and that refusal lands beside the input through
+     * the `extractFieldErrors` → `form.setError` path above. A second judge on
+     * the client, with less of the record in hand than the server has, would
+     * refuse writes the server accepts.
+     *
+     * ## Why BEFORE react-hook-form's validation
+     *
+     * Nothing the person filling the form can type clears a broken rule, so
+     * asking them to satisfy the other rules first only to refuse them anyway
+     * would be wasted work. The refusal therefore runs first and ends the
+     * attempt: no validation, no `onAction` / `onSubmit`, no write.
+     *
+     * ## The accepted residual, named rather than worked around
+     *
+     * A `visibleWhen` reading `previous` cannot be evaluated on a CREATE form
+     * (there is no stored row), so such a form is refused on every submit. The
+     * ruling accepted that; it is pinned, not patched.
+     *
+     * The verdict is read from `faultedVisibleWhenFieldNames` — the same
+     * evaluation that decided which fields are hidden — never re-derived here.
+     */
+    const handleSubmit = (event?: React.BaseSyntheticEvent) => {
+      if (faultedVisibleWhenFieldNames.length > 0) {
+        event?.preventDefault?.();
+        toast.dismiss(outcomeToastId);
+        const message = t('form.visibleWhenFaulted', {
+          fields: faultedVisibleWhenFieldNames
+            .map((n) => fieldLabelByName[n] || n)
+            .join(t('validation.formInvalidJoiner')),
+        });
+        setSubmitError(message);
+        toast.error(message, { id: outcomeToastId });
+        // Marks the tabs that hold the fields, as a rejected submit does.
+        setRejectedFieldNames(faultedVisibleWhenFieldNames);
+        return Promise.resolve();
+      }
+      return submitThroughValidation(event);
+    };
 
     // Handle cancel
     const handleCancel = () => {

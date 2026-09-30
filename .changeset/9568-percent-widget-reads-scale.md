@@ -28,25 +28,22 @@ members:
   now renders `25%` and steps by `1`.
 - A percent field declaring `precision` no longer pads to it. Declaring
   `precision: 10` previously rendered `25.0000000000%` and stepped by `1e-10`;
-  it now falls to the widget's own two-decimal default.
+  it now takes the width of a percent field that declares no `scale` (below).
 
 **Migration.** Restate the intended fraction width as `scale`, the member the
 contract has always declared for it. Metadata carrying an accurate
 `decimal(p, s)` pair — both members, as a database column exposes them — needs no
 change and simply stops being padded.
 
-**Unchanged: a percent field that declares neither member.** The absent-`scale`
-width stays this widget's own two decimals (`12.35%`, `step="0.01"`), so the
-repair is invisible to metadata that declares nothing, and the whole-percent
-convention this widget detects from a declared `max` above 1 is untouched.
-
-⚠️ That default is deliberate and it is NOT the cell's: `PercentCellRenderer`
-spells the same absence as zero fraction digits. The two faces therefore still
-disagree for a field that declares nothing — `12%` in a grid cell against
-`12.35%` in the editor — as they did before this change. objectui#9568 declines
-to make widget-versus-cell agreement a premise, and closing that gap needs its
-own ruling rather than arriving as a side effect of moving the member that is
-read.
+**A percent field that declares neither member.** This change left its width
+alone: the widget kept its own two decimals while `PercentCellRenderer` spelled
+the same absence as zero fraction digits, and objectui#9568 declined to settle
+that disagreement as a side effect of moving the member that is read. It was
+settled by its own ruling, in objectui#9843, released alongside this change: the
+absent width is `@objectstack/spec`'s, read through `resolveFieldScale` on every
+percent face, so the editor and the grid cell now agree for a field that
+declares nothing. The whole-percent convention this widget detects from a
+declared `max` above 1 is untouched.
 
 `CurrencyField` is not part of this change: a currency's decimal places are the
 currency's own ISO 4217 minor-unit count, and since objectui#10276 that widget

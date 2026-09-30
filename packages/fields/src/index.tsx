@@ -12,7 +12,9 @@ import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeL
 // The platform's own value-shape contract, asked rather than restated
 // (objectui#6744). See `locationStoredValueSchemaFor` below for why this is a
 // runtime import in the barrel and not a hand-written coordinate range.
-import { valueSchemaFor } from '@objectstack/spec/data';
+// `resolveFieldScale` is the same kind of ask: the width an ABSENT `scale`
+// means is the protocol's answer, not this package's (objectui#9843).
+import { valueSchemaFor, resolveFieldScale } from '@objectstack/spec/data';
 import { useLocalization, useDisplayLocale, formatDisplayNumber } from '@object-ui/i18n';
 import { Badge, Avatar, AvatarImage, AvatarFallback, Button, Checkbox, EmptyValue, cn } from '@object-ui/components';
 import { Check, Copy, Phone as PhoneIcon, MapPin, CircleQuestionMark } from 'lucide-react';
@@ -861,17 +863,36 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   // the opposite convention and its own `scale` alias — the spec warns against
   // conflating them at the field-face declaration itself.
   //
-  // An ABSENT `scale` keeps today's `0`, deliberately, and ⛔ NOT the
-  // `undefined` (min 0 / max 20) that `NumberCellRenderer` above uses for the
-  // same absence. The two are not interchangeable HERE because this path
-  // multiplies by 100 first (`percentDisplayValue`), and `Intl` renders from
-  // the shortest decimal representation of the resulting double: measured, a
-  // stored `0.07` becomes `7.000000000000001` and `0.29` becomes
+  // An ABSENT `scale` is the PROTOCOL's to answer, not this cell's
+  // (objectui#9843, executing ruling A′ recorded on that card):
+  // `resolveFieldScale` in `@objectstack/spec/data` returns the declared width
+  // when the field has a well-formed one, and otherwise the platform's own
+  // value for the field's type. The detail chip, the grid footer and the edit
+  // widget ask the same function, so an undeclared `percent` reads one width
+  // on every face, and ⛔ none of them spells a `?? N` of its own — a private
+  // default is how this cell and the edit widget once rendered one stored
+  // `0.25` as `25%` and `25.00%`.
+  //
+  // For `percent` the answer is a NUMBER — the type has a row — and ⛔ never
+  // the `undefined` (min 0 / max 20) `NumberCellRenderer` above renders for a
+  // `number` that declares nothing. The row is load-bearing HERE because this
+  // path multiplies by 100 first (`percentDisplayValue`), and `Intl` renders
+  // from the shortest decimal representation of the resulting double:
+  // measured, a stored `0.07` becomes `7.000000000000001` and `0.29` becomes
   // `28.999999999999996`, so an unbounded maximum prints binary residue
-  // straight to the user. `NumberCellRenderer` can afford max 20 because it
-  // does no arithmetic on the value. The grid footer's percent arm spells the
-  // same absence the same way (`?? 0`), so the cell and the footer agree.
-  const scale = percentField.scale ?? 0;
+  // straight to the user.
+  //
+  // ⚠️ This renderer also draws `progress`, and a textual field promoted by a
+  // `format: 'percent'` hint (`resolveCellRendererType`). Neither type has a
+  // row, so the resolver answers `undefined` for them — "no fixed width" —
+  // and `formatPercent`'s own parameter default decides, as it did before.
+  // That default is named in objectui#9843's report rather than widened here:
+  // the protocol has not said what those types show when nothing is declared.
+  //
+  // The two members are handed over BY NAME — the spelling the detail chip and
+  // the edit widget use — so the read of `scale` off this field stays visible
+  // at the call site, where objectui#9784's source pin looks for it.
+  const scale = resolveFieldScale({ type: percentField.type, scale: percentField.scale });
   const numValue = Number(safe);
   if (isNaN(numValue)) {
     return <span className="tabular-nums whitespace-nowrap">{String(safe)}</span>;

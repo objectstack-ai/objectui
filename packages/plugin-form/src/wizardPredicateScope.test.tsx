@@ -13,7 +13,7 @@
  *
  * ## What was broken, and why it is worse than a render-path gap
  *
- * `missingRequiredByStep` is not a render path. It re-checks the WHOLE declared
+ * `gateFinalSubmit` (was `missingRequiredByStep`) is not a render path. It re-checks the WHOLE declared
  * field set at final submit, because `allowSkip` lets the user jump past a step
  * whose fields were therefore never mounted, never registered and never
  * validated. Its own docstring states the contract it is built to keep:
@@ -142,7 +142,7 @@ async function skipPastOwnerAndSubmit(
   await waitFor(() => expect(document.body.querySelector('[data-field="subject"]')).toBeTruthy());
   fill('subject', 'S1');
   // Straight to the last step — step 2 is never mounted, so react-hook-form has
-  // no rule registered for `owner` and only `missingRequiredByStep` can speak.
+  // no rule registered for `owner` and only `gateFinalSubmit` can speak.
   fireEvent.click(stepIndicator(2));
   await waitFor(() => expect(document.body.querySelector('[data-field="notes"]')).toBeTruthy());
   fill('notes', 'S3');

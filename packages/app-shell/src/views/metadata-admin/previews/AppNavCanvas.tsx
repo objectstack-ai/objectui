@@ -31,6 +31,7 @@
 import * as React from 'react';
 import {
   BarChart3,
+  BookOpen,
   Compass,
   Database,
   FileText,
@@ -63,6 +64,8 @@ interface RawNav {
   reportName?: string;
   url?: string;
   componentRef?: string;
+  book?: string;
+  doc?: string;
   actionDef?: { actionName?: string };
   children?: RawNav[];
   [k: string]: unknown;
@@ -101,6 +104,8 @@ function kindIcon(kind: string): LucideIcon {
       return MousePointerClick;
     case 'component':
       return Puzzle;
+    case 'doc':
+      return BookOpen;
     case 'separator':
       return Minus;
     default:
@@ -150,6 +155,15 @@ const KIND_TONE: Record<string, KindTone> = {
   component: {
     icon: 'text-cyan-500',
     badge: 'border-cyan-200 bg-cyan-50 text-cyan-700 dark:border-cyan-900 dark:bg-cyan-950/40 dark:text-cyan-300',
+  },
+  /**
+   * A documentation entry (objectui#11197). Without its own tone a spec-valid
+   * `doc` entry fell to `untyped`'s amber — the "AppSchema will reject this"
+   * warning — below.
+   */
+  doc: {
+    icon: 'text-emerald-500',
+    badge: 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-300',
   },
   separator: {
     icon: 'text-zinc-400',
@@ -208,6 +222,9 @@ function navTarget(it: RawNav): string | undefined {
       return pick(it.componentRef);
     case 'action':
       return pick(it.actionDef?.actionName);
+    case 'doc':
+      // The page it opens, else the book (objectui#11197).
+      return pick(it.doc) ?? pick(it.book);
     default:
       return undefined;
   }

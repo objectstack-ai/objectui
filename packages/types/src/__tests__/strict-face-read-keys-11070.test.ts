@@ -159,10 +159,12 @@ describe('objectui#11070 — the read keys left undeclared pending a ruling stay
   // second spelling of a spec key this card DID declare (`reference_to` /
   // `reference`, `min_length` / `minLength`): the seat's answer on
   // objectui#11070 keeps the legacy spelling refused, so an author writes the
-  // spec's. Three wait on a question that stays open on objectui#11070: a
-  // snake_case spelling with no read of the spec's to declare instead
-  // (`return_type` / `returnType`, `summary_type` / `summaryOperations`), and
-  // an element shape not yet decided (the grid field's `columns`). ⛔
+  // spec's. Three wait on objectui#11070's later rounds. `return_type` and
+  // `summary_type` are ruled (the seat's answer A): the widgets move to the
+  // spec's `returnType` and `summaryOperations`. That move waits on this face
+  // declaring those two members, since today the strict face refuses them by
+  // name as well, so moving the reads first would only rename the refused key.
+  // The grid field's `columns` has an element shape not yet decided. ⛔
   // Declaring one is a contract ruling, not a fix to this list.
   const PENDING: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
     ['return_type', { type: 'formula', return_type: 'number' }],
@@ -177,7 +179,7 @@ describe('objectui#11070 — the read keys left undeclared pending a ruling stay
     expect(issuesOf(AnyComponentSchema, form(field))).toBeNull();
   });
 
-  it('`object-chart.dataSource` is refused by name: the react-page wrapper writes the host adapter (or `null`) under that key, and objectui#10770 pins that node as valid on the tolerant face', () => {
+  it('`object-chart.dataSource` is refused by name until it is declared (the react-page wrapper no longer puns the adapter into that key; the declaration and the objectui#10770 node pin move together)', () => {
     const doc = { type: 'object-chart', objectName: 'task', chartType: 'bar', dataSource: { object: 'task' } };
     expect(undeclared(issuesOf(StrictAnyComponentSchema, doc))).toEqual(['dataSource']);
     expect(issuesOf(AnyComponentSchema, doc)).toBeNull();

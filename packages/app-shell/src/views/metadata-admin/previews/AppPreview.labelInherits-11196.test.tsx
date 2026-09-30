@@ -61,7 +61,9 @@ function metadata(leadLabel: string) {
   };
 }
 
-function preview(value: ReturnType<typeof metadata> | null, design?: { onPatch: ReturnType<typeof vi.fn> }) {
+type Patch = (patch: Record<string, unknown>) => void;
+
+function preview(value: ReturnType<typeof metadata> | null, design?: { onPatch: Patch }) {
   const node = (
     <AppPreview
       type="app"
@@ -114,7 +116,7 @@ describe('objectui#11196 — the preview list names a label-less entry as the co
 
 describe('objectui#11196 — the design-mode canvas names a label-less entry as the console does', () => {
   it("shows the inherited text on the card, and an authored label verbatim", () => {
-    render(preview(metadata('Leads'), { onPatch: vi.fn() }));
+    render(preview(metadata('Leads'), { onPatch: vi.fn<Patch>() }));
 
     expect(screen.getByText('Leads')).toBeTruthy();
     expect(screen.getByText('Sales Overview')).toBeTruthy();
@@ -124,7 +126,7 @@ describe('objectui#11196 — the design-mode canvas names a label-less entry as 
   });
 
   it('the inline rename shows the inherited text as the placeholder, and leaving it untouched writes nothing', () => {
-    const onPatch = vi.fn();
+    const onPatch = vi.fn<Patch>();
     render(preview(metadata('Leads'), { onPatch }));
 
     fireEvent.doubleClick(screen.getByText('Leads'));
@@ -135,7 +137,7 @@ describe('objectui#11196 — the design-mode canvas names a label-less entry as 
   });
 
   it('typing into it writes an author label', () => {
-    const onPatch = vi.fn();
+    const onPatch = vi.fn<Patch>();
     render(preview(metadata('Leads'), { onPatch }));
 
     fireEvent.doubleClick(screen.getByText('Leads'));

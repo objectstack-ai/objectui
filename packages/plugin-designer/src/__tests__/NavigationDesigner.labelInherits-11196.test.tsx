@@ -85,7 +85,9 @@ describe("objectui#11196 — the app wizard's Navigation step names a label-less
         onComplete={() => {}}
       />,
     );
-    fireEvent.click(screen.getByTestId('wizard-step-navigation'));
+    // The step indicator only goes back or one step on: Basic → Objects → Navigation.
+    fireEvent.click(screen.getByTestId('wizard-next'));
+    fireEvent.click(screen.getByTestId('wizard-next'));
     const step = screen.getByTestId('wizard-step-navigation-content');
     for (const [id, text] of INHERITED) {
       expect(within(step).getByTestId(`nav-item-${id}`).textContent).toContain(text);

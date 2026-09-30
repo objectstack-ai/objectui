@@ -657,20 +657,15 @@ a second key, `OBJECTSTACK_REF`, moved by hand under a MUST that nothing could c
 shape as the version drift above, and retired for the same reason (objectui#7964). Deriving it
 means the app source and the published packages it runs on come from one release by construction.
 
-That file carries a **second** pin, `BETTER_AUTH_VERSION`, and it is a different kind of thing:
-not a matched-pair pin but a workaround for a break inside the published packages themselves.
-`@objectstack/plugin-auth` imports `createLocalAccountIssuer` from `@better-auth/core/db` and
-declares `@better-auth/core` with a caret; `@better-auth/core@1.7.3` removed that export in a
-**patch** release and is also `latest`, so a fresh install floats onto it, AuthPlugin fails to
-load, no `sys_*` table is ever created, the seeded sign-in never answers, and the lane dies on
-its 300-second readiness timeout having run zero specs (objectstack#16186, objectui#8084).
-`start-backend.sh` therefore writes an npm `overrides` block pinning that family, and — because
-pinning a dependency to turn a lane green is a gate weakening — `e2e/live/ci/better-auth-pin.mjs`
-runs on **every** start, cache hits included, and fails by name if the override was not declared,
-did not resolve, or resolved and still lacks the export. ⛔ It is not, and must not become, a
-repair of the version pin above: objectui#7689's triage forbids repairing this lane by moving it.
-Retire the pin and its guard together in the PR that bumps `OBJECTSTACK_VERSION` past the
-upstream fix.
+No transitive dependency is overridden in the backend's install: the published manifests decide
+what installs, which is the pair the lane exists to test. The file used to carry a **second**
+pin, `BETTER_AUTH_VERSION`, with `e2e/live/ci/better-auth-pin.mjs` as its guard. It was a
+workaround for a break inside the published packages: `@objectstack/plugin-auth` imported an
+export `@better-auth/core@1.7.3` removed in a patch release, so the lane held the family at 1.7.2
+(objectstack#16186, objectui#8084). Both were retired together in the 17.5.0 bump, as their own
+text prescribed (objectui#11073, the maintainer's ruling on objectui#11111): `plugin-auth` 17.5.0
+declares the whole family at exactly 1.7.3 and no longer imports that export, so holding 1.7.2
+on it made the lane test a combination nobody ships, and the seeded sign-in never answered.
 
 ## Internal Docs Links (`docs-links.yml`)
 

@@ -37,14 +37,8 @@ vi.mock('../useMetadata', async (importOriginal) => {
   return { ...mod, useMetadataClient: () => mockClient };
 });
 
-import {
-  DocPreview,
-  localeRefusal,
-  patchAddLocale,
-  patchRemoveLocale,
-  resolvePlacements,
-  toBookOptions,
-} from './DocPreview';
+import { DocPreview } from './DocPreview';
+import { localeRefusal, patchAddLocale, patchRemoveLocale, resolvePlacements, toBookOptions } from './doc-draft';
 
 const STUB_NS = 'doc-preview-test';
 

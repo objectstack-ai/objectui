@@ -194,7 +194,7 @@ function lockBannerTitle(
  * editable via the no-selection default inspector. Other types keep
  * the conventional "name it first, design after save" create flow.
  */
-const CREATE_MODE_CANVAS_TYPES = new Set<string>(['object', 'report', 'dataset']);
+const CREATE_MODE_CANVAS_TYPES = new Set<string>(['object', 'report', 'dataset', 'doc']);
 
 /**
  * Top-level metadata keys that a type's canvas PreviewComponent owns and
@@ -205,6 +205,9 @@ const CREATE_MODE_CANVAS_TYPES = new Set<string>(['object', 'report', 'dataset']
  */
 const CANVAS_OWNED_KEYS: Record<string, string[]> = {
   object: ['fields', 'fieldGroups'],
+  // The doc editor (`previews/DocPreview`, objectui#10188): the Markdown body,
+  // its per-locale variants and the book-section placement are written there.
+  doc: ['content', 'translations', 'group'],
 };
 
 

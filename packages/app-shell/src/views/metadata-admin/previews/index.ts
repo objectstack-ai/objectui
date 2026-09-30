@@ -30,6 +30,7 @@ import { DatasourcePreview } from './DatasourcePreview.js';
 import { ValidationPreview } from './ValidationPreview.js';
 import { DatasetPreview } from './DatasetPreview.js';
 import { BookPreview } from './BookPreview.js';
+import { DocPreview } from './DocPreview.js';
 
 export function registerBuiltinPreviews(): void {
   // UI surfaces
@@ -56,6 +57,9 @@ export function registerBuiltinPreviews(): void {
   // Documentation navigation spine (ADR-0046 §6): ordered groups with
   // derived membership over docs.
   registerMetadataPreview('book', BookPreview);
+  // The doc itself (ADR-0046): a Markdown source pane beside a live preview,
+  // its locale variants and its book-section placement (objectui#10188).
+  registerMetadataPreview('doc', DocPreview);
   // Automation
   // Approval is a flow node (`type: 'approval'`) since ADR-0019 — it renders on
   // the Flow canvas with its `approve` / `reject` branches; no standalone

@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
   cn,
   EmptyValue,
+  hasDeclaredVisibilityGate,
   resolveIcon,
   useIsMobile,
 } from '@object-ui/components';
@@ -435,6 +436,11 @@ function dropRedactedColumns<T>(cols: T[], redacted: ReadonlySet<string>): T[] {
  * permissions payload has loaded, an unbound root — hides the button and is
  * reported once, instead of showing an action whose guard is broken. This leg
  * used to fail SOFT to `true`.
+ *
+ * Whether a gate is DECLARED at all is asked with `hasDeclaredVisibilityGate`,
+ * as every other member of the action family asks it (objectui#3812,
+ * objectui#11244), never by truthiness: `visible: false` is a declared gate and
+ * hides the button, while a blank predicate (`''`, whitespace) is no gate.
  */
 export const RelatedToolbarButton: React.FC<{
   action: RelatedRowActionDef;
@@ -447,7 +453,7 @@ export const RelatedToolbarButton: React.FC<{
     throwOnError: true,
     label: `related-list toolbar action "${action.name}" (visible)`,
   });
-  if (visiblePred && !isVisible) return null;
+  if (hasDeclaredVisibilityGate(visiblePred) && !isVisible) return null;
   const ActionIcon = action.icon ? resolveIconComponent(action.icon) : null;
   return (
     <Button

@@ -473,7 +473,7 @@ export const kanbanComponents = {
  * What `ObjectKanban` reads for its own query: `objectName`, `filter`, `sort`
  * and `limit` (`ObjectKanban.tsx`, the `dataSource.find` call — `$filter:
  * schema.filter`, `$orderby: convertSortToQueryParams(schema.sort)`, `$top:
- * resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT)`).
+ * resolveRowLimit(schema.limit, DEFAULT_KANBAN_FETCH_BATCH_SIZE)`).
  *
  * `limit` was unmapped until objectui#4025, on the rationale that the board
  * "fetches with a fixed `$top: 100`, so there is no key to write it to". That
@@ -634,7 +634,7 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  * faces, TS and zod; `content/docs/plugins/plugin-kanban.mdx`; the spec).
  * ⛔ The declaration carries NO default: a materialised `limit` would defeat the
  * gate's `readLimit(base) === undefined` branch, and a bound view's
- * `pagination.pageSize` would then never fill it. `DEFAULT_KANBAN_LIMIT = 100`
+ * `pagination.pageSize` would then never fill it. `DEFAULT_KANBAN_FETCH_BATCH_SIZE = 100`
  * stays documented rather than declared. An unrecognised probe key draws
  * `unrecognized_keys` on these calls while none of the declared keys does.
  *

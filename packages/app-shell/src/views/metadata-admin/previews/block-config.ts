@@ -235,10 +235,10 @@ export const BLOCK_CONFIG: Record<string, BlockPropField[]> = {
     { name: 'titleField', label: 'engine.inspector.pageBlock.field.object-kanban.titleField', kind: 'field-picker', objectFrom: 'self', objectProp: 'objectName' },
     { name: 'cardFields', label: 'engine.inspector.pageBlock.field.object-kanban.cardFields', kind: 'field-list', objectFrom: 'self', objectProp: 'objectName' },
     // The board's fetch window, not a page size: `ObjectKanban.tsx` sends it as
-    // a real `$top` (`$top: schema.limit ?? DEFAULT_KANBAN_LIMIT`) and renders
+    // a real `$top` (`$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_FETCH_BATCH_SIZE)`) and renders
     // every fetched record into a lane with no pagination, so an author with
     // more than 100 records had no way to widen it. `{ literal: '100' }` is
-    // `DEFAULT_KANBAN_LIMIT`, the value that applies when the box is empty.
+    // `DEFAULT_KANBAN_FETCH_BATCH_SIZE`, the value that applies when the box is empty.
     { name: 'limit', label: 'engine.inspector.pageBlock.field.object-kanban.limit', kind: 'number', placeholder: { literal: '100' } },
   ],
 

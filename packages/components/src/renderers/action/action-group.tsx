@@ -20,7 +20,7 @@ import React, { forwardRef, useCallback, useState } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import type { ActionDef } from '@object-ui/core';
 import type { UIActionSchema, ActionLocation } from '@object-ui/types';
-import { actionRendersAt } from '@object-ui/types';
+import { ACTION_LOCATIONS, actionRendersAt } from '@object-ui/types';
 import { useAction } from '@object-ui/react';
 import { useCondition, toPredicateInput, usePredicateRecordContext, useConfigBagEvaluator } from '@object-ui/react';
 import { Button } from '../../ui';
@@ -37,10 +37,11 @@ import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
 import { readActionEntryParamValues, readMemberStaticParamValues } from './static-params';
 
+// No group-level `name` (objectui#11168): nothing renders, forwards or keys on
+// it, and `@objectstack/spec` refuses it on this block, so the registration
+// below stopped publishing it. Each MEMBER's own `name` is what identifies it.
 export interface ActionGroupSchema {
   type: 'action:group';
-  /** Group name */
-  name?: string;
   /** Group label */
   label?: string;
   /** Group icon */
@@ -51,8 +52,8 @@ export interface ActionGroupSchema {
   display?: 'dropdown' | 'inline';
   /** Filter actions by location */
   location?: ActionLocation;
-  /** Group visibility condition */
-  visible?: string;
+  /** Group visibility predicate: a boolean, a CEL string, or a `{ dialect, source }` envelope */
+  visible?: boolean | string | { dialect: string; source?: string };
   /** Button variant for inline actions */
   variant?: string;
   /** Button size for inline actions */
@@ -411,15 +412,40 @@ ComponentRegistry.register('group', ActionGroupRenderer, {
   namespace: 'action',
   skipFallback: true,
   label: 'Action Group',
+  // objectui#11168 slice 1 — each key below was decided by measuring what this
+  // renderer reads through the real `SchemaRenderer`, against the installed
+  // `ComponentPropsMap['action:group']` row; the pins live in
+  // `__tests__/action-group-menu-inputs-11168.test.tsx`.
+  //
+  // - `name` is NOT published: nothing reads a group-level `name` (inline mode
+  //   only leaks it onto the wrapping `<div>`), and the spec refuses it here.
+  // - `actions` is a LIST of action objects: the renderer reads
+  //   `schema.actions || []` and then `.filter` / `.map`, and the spec refuses
+  //   the `object` kind this entry used to declare.
+  // - `size` publishes the Button primitive's four sizes, the set the spec
+  //   accepts. `md` is not one of them; the renderer still maps a stored `md`
+  //   to `default` in dropdown mode, as a back-compat read.
   inputs: [
-    { name: 'name', type: 'string' },
     { name: 'label', type: 'string' },
     { name: 'icon', type: 'string' },
-    { name: 'actions', type: 'object' },
+    {
+      name: 'actions',
+      type: 'array',
+      of: 'object',
+      description:
+        'The actions in this group, in order. Each member is an action object the group draws and runs itself (`name`, `label`, `icon`, `type`, `target`, `locations`, `visible`, `disabled`, …); a member\'s executor is its own `type`',
+    },
     {
       name: 'display',
       type: 'enum',
       enum: ['inline', 'dropdown'],
+    },
+    {
+      name: 'location',
+      type: 'enum',
+      enum: [...ACTION_LOCATIONS],
+      description:
+        'Render only the members whose `locations` include this location. Omit to render every member',
     },
     {
       name: 'variant',
@@ -429,7 +455,15 @@ ComponentRegistry.register('group', ActionGroupRenderer, {
     {
       name: 'size',
       type: 'enum',
-      enum: ['sm', 'md', 'lg'],
+      enum: ['default', 'sm', 'lg', 'icon'],
+      description:
+        'Button size for the dropdown trigger and for every inline member that sets none',
+    },
+    {
+      name: 'visible',
+      type: ['boolean', 'string', 'object'],
+      description:
+        'Visibility predicate for the whole group: `true`/`false`, a bare CEL expression, or the `{ dialect: \'cel\', source }` envelope, evaluated against the row the host binds. Omit for always-visible',
     },
     { name: 'className', type: 'string' },
   ],

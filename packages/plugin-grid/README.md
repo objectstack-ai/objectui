@@ -485,6 +485,15 @@ const schema: ObjectGridSchema = {
 always carries a rows-per-page picker, and `pageSizeOptions` only replaces the
 choices it offers with your own.
 
+With no `pageSize` declared, every page the grid shows — the server-paged table,
+the table over inline `data`, the grouped view's page of groups, and a group's
+own page of rows — uses the default `@objectstack/spec` declares for
+`pagination.pageSize`; the grid reads it from the spec rather than keeping a
+number of its own. Declare `pagination.pageSize` to choose the count yourself.
+A window of rows the grid groups in the browser, because the server does not
+group it, is not a page: undeclared, it is a fixed fetch batch of the grid's
+own, and it does not follow the display default.
+
 ### Grouping is server-side
 
 `grouping` is answered by the **server**, not by bucketing the records the

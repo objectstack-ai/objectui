@@ -227,6 +227,26 @@ const viewTypes: Record<NonNullable<ListViewSchema['viewType']>, string> = {
 export { view, richColumns, viewTypes };
 ```
 
+## Page size and fetch batch
+
+A list view asks the server for one window of records. When
+`pagination.pageSize` is not declared, what that window is depends on whether
+the view pages:
+
+- **The grid view pages on the server.** The window is one page, and the
+  grid's pager turns it. Its size is the default `@objectstack/spec` declares
+  for `pagination.pageSize`; the list reads it from the spec rather than
+  keeping a number of its own.
+- **Every other view does not page** — kanban, calendar, gallery and the rest,
+  and a grouped grid. The window is one fetch batch of **100** records, and
+  records past it are not reachable; the record-count bar says so when the
+  batch comes back full. It is a fetch size, not a page size, so it does not
+  follow the spec's display default.
+
+A declared `pagination.pageSize` sizes the window on every view, as before.
+With no declared size, switching between the grid view and another view
+changes the window, so the list fetches again.
+
 ## Page binding — `dataSource` (referencing a saved view by name)
 
 On a metadata page, a `list-view` component can bind its data through the spec's

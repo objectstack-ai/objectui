@@ -42,7 +42,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, cleanup, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import { DEFAULT_KANBAN_LIMIT } from '../ObjectKanban';
+import { DEFAULT_KANBAN_FETCH_BATCH_SIZE } from '../ObjectKanban';
 // Registers `object-kanban` (and the ElementDataSourceGate wiring that carries
 // the bound entrance).
 import '../index';
@@ -128,7 +128,9 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const rowCapWarnings = () => warnings.filter((w) => w.includes('ObjectKanban row cap'));
+// The channel prefix the board's diagnostic carries; objectui#9853 renamed the
+// board's default to a fetch batch, and the prefix with it.
+const rowCapWarnings = () => warnings.filter((w) => w.includes('ObjectKanban fetch batch'));
 
 describe('object-kanban — a row cap the contract refuses never reaches the wire (objectui#9925)', () => {
   // ── ENTRANCE 1: AUTHORED, NO BINDING ───────────────────────────────────
@@ -154,7 +156,7 @@ describe('object-kanban — a row cap the contract refuses never reaches the wir
       const sent = await tops(adapter);
       // The relation, not the literal: whatever this site documents as its
       // default is what a refused declaration falls back to.
-      for (const top of sent) expect(top).toBe(DEFAULT_KANBAN_LIMIT);
+      for (const top of sent) expect(top).toBe(DEFAULT_KANBAN_FETCH_BATCH_SIZE);
     });
 
     it('CONTROL — a legitimate authored limit still reaches `$top` unchanged', async () => {
@@ -165,7 +167,7 @@ describe('object-kanban — a row cap the contract refuses never reaches the wir
       // Without this row, "never 0" is satisfied by a board that ignores the
       // member entirely and always sends its own default.
       expect(sent).toContain(7);
-      expect(sent).not.toContain(DEFAULT_KANBAN_LIMIT);
+      expect(sent).not.toContain(DEFAULT_KANBAN_FETCH_BATCH_SIZE);
     });
 
     it('CONTROL — declaring no limit at all still sends the default', async () => {
@@ -173,7 +175,7 @@ describe('object-kanban — a row cap the contract refuses never reaches the wir
       renderBlock(authoredBoard(undefined), adapter);
 
       const sent = await tops(adapter);
-      expect(sent).toContain(DEFAULT_KANBAN_LIMIT);
+      expect(sent).toContain(DEFAULT_KANBAN_FETCH_BATCH_SIZE);
     });
   });
 
@@ -186,7 +188,7 @@ describe('object-kanban — a row cap the contract refuses never reaches the wir
       const sent = await tops(adapter);
       expect(sent.length).toBeGreaterThan(0);
       expect(sent, `the view's ${bad} reached the wire`).not.toContain(bad);
-      for (const top of sent) expect(top).toBe(DEFAULT_KANBAN_LIMIT);
+      for (const top of sent) expect(top).toBe(DEFAULT_KANBAN_FETCH_BATCH_SIZE);
     });
 
     it('CONTROL — a legitimate page size still becomes the board’s window', async () => {

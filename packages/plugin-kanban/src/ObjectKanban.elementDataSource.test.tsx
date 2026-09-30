@@ -33,7 +33,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import { DEFAULT_KANBAN_LIMIT } from './ObjectKanban';
+import { DEFAULT_KANBAN_FETCH_BATCH_SIZE } from './ObjectKanban';
 // Registers `object-kanban` (and the ElementDataSourceGate wiring under test).
 import './index';
 // The lane titles asserted below render INSIDE `KanbanRenderer`'s `React.lazy`
@@ -181,7 +181,7 @@ describe('object-kanban — the row cap reaches the wire (objectui#4025)', () =>
     // The number is the one the board always intended; it just reaches the
     // adapter now (`convertQueryParams` in `@object-ui/data-objectstack` and
     // `ApiDataSource` both read `params.$top`, neither reads `params.options`).
-    expect(params.$top).toBe(DEFAULT_KANBAN_LIMIT);
+    expect(params.$top).toBe(DEFAULT_KANBAN_FETCH_BATCH_SIZE);
     expect(params.$top).toBe(100);
     expect(params.options).toBeUndefined();
   });

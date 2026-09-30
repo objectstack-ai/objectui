@@ -414,8 +414,8 @@ export {
 } from './ai.zod.js';
 
 // ============================================================================
-// ADR-0080 Public Blocks - the spec-row `page:` / `record:` / `element:`
-// blocks (objectui#10872)
+// ADR-0080 Public Blocks - the spec-row `page:` / `record:` / `element:` /
+// `action:` blocks (objectui#10872)
 // ============================================================================
 export {
   PageHeaderBlockSchema,
@@ -439,6 +439,12 @@ export {
   ElementNumberBlockSchema,
   ElementButtonBlockSchema,
   ElementDividerBlockSchema,
+  ElementDefinitionListBlockSchema,
+  ElementRepeaterBlockSchema,
+  ActionButtonBlockSchema,
+  ActionIconBlockSchema,
+  ActionGroupBlockSchema,
+  ActionMenuBlockSchema,
   PublicBlockComponentSchema,
 } from './public-blocks.zod.js';
 

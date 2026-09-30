@@ -102,6 +102,13 @@ import {
   RecordAlertProps as SpecRecordAlertProps,
   ElementTextPropsSchema as SpecElementTextPropsSchema,
   ElementButtonPropsSchema as SpecElementButtonPropsSchema,
+  // objectui#10872 batch 4 — the six rows `@objectstack/spec` 17.5.0 carries.
+  ElementDefinitionListPropsSchema as SpecElementDefinitionListPropsSchema,
+  ElementRepeaterPropsSchema as SpecElementRepeaterPropsSchema,
+  ActionButtonPropsSchema as SpecActionButtonPropsSchema,
+  ActionIconPropsSchema as SpecActionIconPropsSchema,
+  ActionGroupPropsSchema as SpecActionGroupPropsSchema,
+  ActionMenuPropsSchema as SpecActionMenuPropsSchema,
   // objectui#10872 batch 2 — `element:number`'s row, and the node's `dataSource`.
   ElementNumberPropsSchema as SpecElementNumberPropsSchema,
   ElementDataSourceSchema as SpecElementDataSourceSchema,
@@ -264,6 +271,16 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   ['RecordAlertProps', SpecRecordAlertProps],
   ['ElementTextPropsSchema', SpecElementTextPropsSchema],
   ['ElementButtonPropsSchema', SpecElementButtonPropsSchema],
+  // objectui#10872 batch 4: the six held blocks' arms read their rows as their
+  // `properties` bags, each crossed through this boundary like every other
+  // row. None carries a default or reaches a `z.lazy`, so each strip is the
+  // identity function.
+  ['ElementDefinitionListPropsSchema', SpecElementDefinitionListPropsSchema],
+  ['ElementRepeaterPropsSchema', SpecElementRepeaterPropsSchema],
+  ['ActionButtonPropsSchema', SpecActionButtonPropsSchema],
+  ['ActionIconPropsSchema', SpecActionIconPropsSchema],
+  ['ActionGroupPropsSchema', SpecActionGroupPropsSchema],
+  ['ActionMenuPropsSchema', SpecActionMenuPropsSchema],
   // objectui#10872 batch 2: the `element:number` arm's bag is its row (with
   // `object` made optional after the strip), and its node declares
   // `dataSource` as the spec's element binding — two crossings, measured here

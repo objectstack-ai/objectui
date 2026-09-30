@@ -30,11 +30,11 @@ import { WizardForm } from './WizardForm';
 registerAllFields();
 
 let toastError: ReturnType<typeof vi.spyOn>;
-let warn: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   toastError = vi.spyOn(toast, 'error').mockImplementation(() => 'id' as never);
-  warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  // Muted: the faults these cases provoke warn once each by design.
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
 afterEach(() => {

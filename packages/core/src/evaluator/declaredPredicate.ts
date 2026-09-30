@@ -7,6 +7,10 @@
  */
 
 import { toPredicateInput } from './predicateInput.js';
+// A cycle with `fieldRules.ts`, which imports `isBlankPredicateText` from here.
+// Benign by construction: each side reads the other only inside a function
+// body, never while its module is being evaluated.
+import { evalFieldPredicate, type FieldRulePredicate } from './fieldRules.js';
 
 /**
  * Is the predicate TEXT blank — in EITHER spelling? (objectui#3960)
@@ -21,10 +25,10 @@ import { toPredicateInput } from './predicateInput.js';
  *
  * This is not a fourth dialect of "empty": it is the SAME rule core's evaluation
  * entries already apply on the value side — `evaluateCondition`
- * (`if (!trimmed) return true`), `evaluateCelCondition` (`if (!source.trim())
- * return true`), `evalRowPredicate` (`listConditional.ts`) — brought to the one
- * place that answers "is there a condition at all?", so the two halves cannot
- * disagree about the same blank.
+ * (`if (!trimmed) return true`), `evaluateCelCondition` (which asks THIS
+ * function since objectui#8069), `evalRowPredicate` (`listConditional.ts`) —
+ * brought to the one place that answers "is there a condition at all?", so the
+ * two halves cannot disagree about the same blank.
  *
  * Exported since objectui#8069 for its second consumer, `evalFieldPredicate`
  * (`evaluator/fieldRules.ts`), which is the entry this docblock's list did NOT
@@ -77,8 +81,9 @@ export function isBlankPredicateText(value: unknown): boolean {
  *     see {@link isBlankPredicateText} for why this is the layer that says it.
  *     Core's other predicate entries already treat both as blank:
  *     `evaluateCondition` (`if (!trimmed) return true`), `evaluateCelCondition`
- *     (`if (!source.trim()) return true`) and `evalRowPredicate`
- *     (`evaluator/listConditional.ts`, `if (!source.trim())`).
+ *     (`isBlankPredicateText(source)`, then `true` — diagnosed since
+ *     objectui#8069) and `evalRowPredicate` (`evaluator/listConditional.ts`,
+ *     `if (!source.trim())`).
  *   - `{ dialect, source: '' }` — the empty ENVELOPE. This is not an exotic
  *     spelling: `@objectstack/spec`'s `ExpressionInputSchema` normalizes every
  *     authored predicate into an envelope, so "author left the predicate empty"
@@ -88,6 +93,12 @@ export function isBlankPredicateText(value: unknown): boolean {
  *     evaluator cannot read must not be the reason a control is disabled or an
  *     action refuses to run. Fail-open on junk, which is the posture
  *     `ActionRunner` already committed to (`catch { isDisabled = false }`).
+ *
+ * The three BLANK shapes above (`''`, whitespace-only text, and an envelope
+ * whose `source` is blank) are still folded to "not declared" — that is the
+ * verdict — but no longer in silence: each is reported once (objectui#8069,
+ * ADR-0137 D4), see {@link reportBlankGate}. `null` / `undefined` (no key) and
+ * junk are not blank TEXT and stay silent: nothing was declared there to report.
  *
  * A declared-and-`false` gate is DECLARED (`toPredicateInput` returns the
  * boolean unchanged): `disabled: false` / `visible: false` are verdicts, and
@@ -155,6 +166,40 @@ export function isBlankPredicateText(value: unknown): boolean {
  * repo now asks "is a gate declared?" anywhere but here.
  */
 export function hasDeclaredPredicate(value: unknown): boolean {
-  if (isBlankPredicateText(value)) return false;
+  if (isBlankPredicateText(value)) {
+    reportBlankGate(value as FieldRulePredicate);
+    return false;
+  }
   return toPredicateInput(value) !== undefined;
+}
+
+/**
+ * Say out loud that a DECLARED gate was blank — the one side effect
+ * {@link hasDeclaredPredicate} has (objectui#8069).
+ *
+ * The fold above is objectui#3850 / #3960's ruled verdict and it stands: a
+ * blank gate is "no gate". What ADR-0137 D4 removed is the SILENCE of it — "a
+ * gate predicate that is blank or faulting is diagnosed, never a silent
+ * `true`" — and this fold is where a blank `visible` / `hidden` / `enabled` /
+ * `disabled` / `condition` stopped before it could reach any evaluator that
+ * might have said so.
+ *
+ * Reported through `evalFieldPredicate`'s own `[blank]` report — the channel
+ * every other predicate fault already uses, with its once-per-(text, locator)
+ * dedupe — and not through a warner of its own. It makes no engine call: a
+ * blank predicate never reaches the engine. The `false` it is handed is this
+ * function's answer ("not declared"); nothing reads it back.
+ *
+ * ⚠️ The locator is FIXED, because this question is key-neutral and receives
+ * nothing that names the node. So the dedupe is per blank SPELLING across the
+ * app: `''`, `'   '` and a blank envelope each warn once, and a second node
+ * with the same blank spelling does not warn again. That is weaker than the
+ * field-rule path, which joins the field's locator to a blank's key, and it is
+ * the price of diagnosing at the one definition rather than at each of its
+ * callers.
+ */
+function reportBlankGate(value: FieldRulePredicate): void {
+  evalFieldPredicate(value, {}, false, undefined, undefined, {
+    context: 'a declared gate, read as no gate',
+  });
 }

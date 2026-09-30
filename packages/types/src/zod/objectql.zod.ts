@@ -2655,7 +2655,7 @@ const OBJECT_KANBAN_NEITHER_CHANNEL = neitherContentChannelGuidance(
 
 // objectui#7322 — `groupBy` and `limit` are the keys `ObjectKanban.tsx` reads
 // (thirteen `schema.groupBy` sites; the row cap lowered into the query as
-// `$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT)`, re-spelled by
+// `$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_FETCH_BATCH_SIZE)`, re-spelled by
 // objectui#9925); until this card neither was declared and both rode
 // `BaseSchema`'s `.passthrough()` unexamined, while the REQUIRED `groupField`
 // had zero read sites. `groupField` is now a `retirementTombstone()` — still
@@ -2687,7 +2687,7 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   // reasoned on `ObjectKanbanLaneSchema` above and on the TS twin.
   columns: z.union([z.array(z.string()), z.array(ObjectKanbanLaneSchema)]).optional()
     .describe('Swimlane definitions — EITHER an array of { id, title } lanes per groupBy value OR an array of bare value strings; NOT a field projection (the fields drawn on a card are cardFields), and not a mix of the two, which the renderer cannot dispatch'),
-  limit: z.number().int().positive().optional().describe('Row cap — the most records the board fetches, sent as a real $top on the query; default 100 (DEFAULT_KANBAN_LIMIT)'),
+  limit: z.number().int().positive().optional().describe('Row cap — the most records the board fetches, sent as a real $top on the query; default 100 (DEFAULT_KANBAN_FETCH_BATCH_SIZE)'),
   // objectui#8174 — the query key `ObjectKanban.tsx` lowers onto its own
   // `dataSource.find` (`$filter: schema.filter`), alongside the `$top` that
   // `limit` above feeds. Same position `groupBy` and `limit` were in before

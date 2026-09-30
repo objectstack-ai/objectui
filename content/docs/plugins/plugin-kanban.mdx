@@ -208,11 +208,13 @@ rendered on each card resolve in priority order:
 Defaulting to `highlightFields` keeps a card's contents consistent with the
 object's other views without every kanban view having to re-declare its fields.
 
-### Row cap (object-driven boards)
+### Fetch batch (object-driven boards)
 
 An object-driven board fetches at most `limit` records, defaulting to **100**. A
 board renders every fetched record into a lane and offers no pagination control,
-so this is the author's window on the object rather than a page size:
+so this is the author's window on the object — one fetch batch — rather than a
+page size. The default does not follow the display page size `@objectstack/spec`
+declares for `pagination.pageSize`:
 
 ```tsx
 import type { ObjectKanbanSchema } from '@object-ui/types'

@@ -41,7 +41,8 @@
  * (objectui#9925). That card made the board REFUSE a non-positive row cap
  * before it reaches the wire, and both halves of the reading moved with it:
  * the spelling is now `$top: resolveRowLimit(schema.limit,
- * DEFAULT_KANBAN_LIMIT)`, and the `schema.limit` CODE read sites are FOUR, not
+ * DEFAULT_KANBAN_FETCH_BATCH_SIZE)` (the constant renamed by objectui#9853), and
+ * the `schema.limit` CODE read sites are FOUR, not
  * two — that `$top`, its effect's deps, the refusal diagnostic and that
  * diagnostic's own effect deps. The older reading is left standing rather than
  * rewritten away because it is the measurement that motivated the declaration;
@@ -115,10 +116,13 @@ const READ_TEXT: Record<Declared, readonly string[]> = {
     'if (schema.groupBy && objectDef?.fields?.[schema.groupBy]?.options) {',
     'const groupBy = schema.groupBy;',
   ],
-  limit: ['$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_LIMIT)'],
+  limit: ['$top: resolveRowLimit(schema.limit, DEFAULT_KANBAN_FETCH_BATCH_SIZE)'],
 };
-/** The default the `limit` docblock names. */
-const DEFAULT_LIMIT_TEXT = 'export const DEFAULT_KANBAN_LIMIT = 100;';
+/**
+ * The default the `limit` docblock names. objectui#9853 renamed the constant to
+ * a fetch batch (ruling 5824040487, structure B) and kept its value.
+ */
+const DEFAULT_LIMIT_TEXT = 'export const DEFAULT_KANBAN_FETCH_BATCH_SIZE = 100;';
 
 /**
  * A plausible lane-key spelling the renderer never reads (the read set below

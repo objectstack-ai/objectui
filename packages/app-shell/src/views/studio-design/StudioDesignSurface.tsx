@@ -180,12 +180,16 @@ const PILLARS: ReadonlyArray<{ key: string; label: string; Icon: LucideIcon }> =
 //    timer publishes the malformed definition a second later (objectui#4306);
 //  - a FAILED save does not retry until the user edits again (the snapshot
 //    it attempted is remembered), so an invalid draft can't toast-loop.
+//  - objectui#11189 — the returned `flush` fires the pending save now instead
+//    of at the timer, under the same conditions, and says whether a save went
+//    out. A flushed snapshot counts as attempted, so the timer never sends it
+//    a second time.
 function useDraftAutoSave(opts: {
   dirty: boolean;
   blocked: boolean;
   snapshot: unknown;
   save: () => void | Promise<void>;
-}): void {
+}): () => boolean {
   const { dirty, blocked, snapshot, save } = opts;
   const snapKey = React.useMemo(() => {
     try {
@@ -199,18 +203,32 @@ function useDraftAutoSave(opts: {
   }, [snapshot]);
   const lastAttemptRef = React.useRef<string | null>(null);
   const saveRef = React.useRef(save);
+  // What the timer below would send, as last committed, for `flush` to read.
+  const pendingRef = React.useRef({ dirty, blocked, snapKey });
   React.useEffect(() => {
     saveRef.current = save;
+    pendingRef.current = { dirty, blocked, snapKey };
   });
   React.useEffect(() => {
     if (!dirty || blocked) return;
     if (lastAttemptRef.current === snapKey) return;
     const timer = setTimeout(() => {
+      if (lastAttemptRef.current === snapKey) return;
       lastAttemptRef.current = snapKey;
       void saveRef.current();
     }, 1500);
     return () => clearTimeout(timer);
   }, [dirty, blocked, snapKey]);
+  // A state initializer, not a memo: React keeps its identity by contract, so
+  // a caller may list it as an effect dependency (AGENTS.md #10).
+  const [flush] = React.useState(() => (): boolean => {
+    const pending = pendingRef.current;
+    if (!pending.dirty || pending.blocked || lastAttemptRef.current === pending.snapKey) return false;
+    lastAttemptRef.current = pending.snapKey;
+    void saveRef.current();
+    return true;
+  });
+  return flush;
 }
 
 // objectui#5813 — Access is a low-frequency ADMIN surface, demoted from the
@@ -1635,6 +1653,11 @@ export function InterfacesPillar({
   const [editNav, setEditNav] = React.useState(false);
   const [navSel, setNavSel] = React.useState<{ kind: string; id: string } | null>(null);
   const [navDirty, setNavDirty] = React.useState(false);
+  // objectui#11189 — the nav buffer's edit generation: every nav edit bumps it,
+  // in the same update as the edit, so a save reads the generation it sends
+  // from the render whose buffer it sends. A load's install or a read-only put
+  // back is not an edit and does not bump it.
+  const [navGen, setNavGen] = React.useState(0);
 
   // App resolution status — tells "still loading" apart from "this package has
   // no app", so the canvas shows a real empty state instead of an endless
@@ -1702,6 +1725,14 @@ export function InterfacesPillar({
   React.useEffect(() => {
     onDirtyChangeRef.current?.(navDirty);
   }, [navDirty]);
+  // objectui#11189 — `navGen` and `navDirty` as last committed, for the two
+  // readers that land after an await: a nav save completing, and the app load
+  // installing what it read. The same state, read late; only this effect
+  // writes it.
+  const navCommittedRef = React.useRef({ gen: navGen, dirty: navDirty });
+  React.useEffect(() => {
+    navCommittedRef.current = { gen: navGen, dirty: navDirty };
+  }, [navGen, navDirty]);
   React.useEffect(
     () => () => {
       onDirtyChangeRef.current?.(false);
@@ -1902,7 +1933,13 @@ export function InterfacesPillar({
         // list row's. A locale map is taken as it is, not stringified.
         const bodyLabel = (body.label ?? body.name) as I18nLabel | undefined;
         if (bodyLabel != null) setAppLabel(bodyLabel);
-        setAppDraft(body);
+        // objectui#11189 — a re-read of the same package (a save's
+        // draft-saved signal, a publish, a copilot pulse) does not install
+        // the served draft over a buffer holding an unsent nav edit, taken
+        // before this read or while it was in flight. It defers: the save
+        // that sends the edit signals again, and that re-read installs. A
+        // package switch replaces the buffer, as it always has.
+        if (!isSameApp || !navCommittedRef.current.dirty) setAppDraft(body);
         navBaselineRef.current = body;
         setNavHasDraft(!!appDraftBody);
         setAppStatus('ready');
@@ -2079,10 +2116,13 @@ export function InterfacesPillar({
   // nav editing — patch appDraft.navigation, then save/publish the App overlay
   const onNavPatch = React.useCallback((patch: Record<string, unknown>) => {
     setAppDraft((d) => ({ ...d, ...patch }));
+    setNavGen((g) => g + 1);
     setNavDirty(true);
   }, []);
   const doNavSave = React.useCallback(async () => {
     if (!appName) return;
+    // objectui#11189 — the edit generation of the buffer this save sends.
+    const sentGen = navGen;
     setNavSaving('draft');
     try {
       // "Add nav item" inserts a blank placeholder that only becomes a valid,
@@ -2101,21 +2141,38 @@ export function InterfacesPillar({
       await client.save('app', appName, saved, { mode: 'draft', packageId });
       navBaselineRef.current = saved;
       setNavHasDraft(true);
-      setNavDirty(false);
+      // Clear only the generation this save sent. An edit taken while it was
+      // in flight keeps the buffer dirty: the autosave (or a pending "Done")
+      // sends it next, and the leave guard holds until then.
+      if (navCommittedRef.current.gen === sentGen) setNavDirty(false);
       onDraftSaved?.();
     } catch (e) {
       setError(formatMetadataError(e));
     } finally {
       setNavSaving(false);
     }
-  }, [client, appName, appDraft, onDraftSaved]);
+  }, [client, appName, appDraft, navGen, onDraftSaved]);
   // objectui#5813 — nav edits auto-save while edit mode is open.
-  useDraftAutoSave({
+  const flushNavSave = useDraftAutoSave({
     dirty: navDirty,
     blocked: !appName || !editNav || !!navSaving || readOnly,
     snapshot: appDraft,
     save: doNavSave,
   });
+  // objectui#11189 — "Done" never closes nav editing over an unsent edit. It
+  // asks for the close; this effect sends a dirty buffer at once (the
+  // autosave, fired early), waits out a save in flight, and closes once the
+  // buffer is clean. A buffer that cannot be sent (the save it already
+  // attempted failed, and its error is on screen) keeps editing open.
+  const [navClosing, setNavClosing] = React.useState(false);
+  React.useEffect(() => {
+    if (!navClosing || navSaving) return;
+    if (navDirty && flushNavSave()) return;
+    setNavClosing(false);
+    if (navDirty) return;
+    setEditNav(false);
+    setNavSel(null);
+  }, [navClosing, navSaving, navDirty, flushNavSave]);
 
   // ADR-0057 P3c — the canvas and the inspector are rendered by BOTH layouts
   // below (the classic three-zone row, and the folded center-tabs grid that
@@ -2563,7 +2620,13 @@ export function InterfacesPillar({
                 <button
                   type="button"
                   onClick={() => {
-                    setEditNav((v) => !v);
+                    // objectui#11189 — "Done" closes through the effect beside
+                    // the nav autosave, which sends an unsent edit first.
+                    if (editNav) {
+                      setNavClosing(true);
+                      return;
+                    }
+                    setEditNav(true);
                     setNavSel(null);
                   }}
                   title={editNav ? t('engine.studio.if.doneEditTitle', locale) : t('engine.studio.if.editNavTitle', locale)}

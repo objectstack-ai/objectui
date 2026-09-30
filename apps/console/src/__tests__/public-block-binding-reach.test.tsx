@@ -117,6 +117,19 @@ const NO_DATA_REACH: Readonly<Record<string, string>> = {
   // titles the panel.
   'record:related_list':
     'needs the parent record id from RecordContext before it may fetch; declines to fetch without one (objectstack#4413 ledger)',
+  // objectui#11168 slice 1 published the spec key `objectName` on the two
+  // action leaves, and on these blocks the key is not a data binding at all:
+  // it names the object the ACTION acts on. The block draws a button and
+  // fetches nothing; the key takes effect when the action is dispatched, where
+  // the server-action route becomes `/api/v1/actions/{objectName}/{action}`
+  // instead of the page's object. That dispatch read is pinned in
+  // `packages/components/src/renderers/action/__tests__/action-button-icon-inputs-11168.test.tsx`;
+  // what this ledger asserts is the other half — that the block still asks the
+  // data layer for NOTHING under that name.
+  'action:button':
+    'objectName names the object the action is dispatched against (the server-action route), not a data binding; the block renders a button and fetches nothing (objectui#11168)',
+  'action:icon':
+    'objectName names the object the action is dispatched against (the server-action route), not a data binding; the block renders an icon button and fetches nothing (objectui#11168)',
 
   // `list-view` and `embeddable-form` were the other two entries here for
   // exactly one release of this file. Neither registration bridged the
@@ -178,6 +191,11 @@ const EXPECTED_CANDIDATES = [
   // an `objectName`, so it joins this derived population — additive, and the
   // probe below is what decides whether the binding actually reaches.
   'object-tree',
+  // objectui#11168 slice 1 published `objectName` on the two action leaves, so
+  // they join the population too; both are ledgered in NO_DATA_REACH, because
+  // on an action block the key is a dispatch target rather than a binding.
+  'action:button',
+  'action:icon',
 ];
 
 /**

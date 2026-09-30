@@ -4,7 +4,7 @@
 '@object-ui/react': minor
 ---
 
-fix: an action gated on `current_user.can(object, verb)` stays hidden (or disabled) until the permissions payload has loaded, on every action surface, and `record:quick_actions` can answer `current_user` at all
+fix: an action gated on `current_user.can(object, verb)` stays hidden until the permissions payload has loaded on every action `visible` surface, a `page:header` action gated through `disabled` stays disabled, and `record:quick_actions` can answer `current_user` at all
 
 An action whose `visible` asks `current_user.can(...)` has no answer until the signed-in
 user's permissions have loaded. On `action:group` (both display modes, and the group's own

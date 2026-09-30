@@ -787,6 +787,10 @@ sending it first. A `select` added in Studio, and saved before its first option,
 now waits in the client, with the field named, until it has one:
 
 ```ts
+import { MetadataClient } from '@object-ui/data-objectstack';
+
+const client = new MetadataClient({ baseUrl: '/api/v1' });
+
 await client.save('object', 'deal', {
   name: 'deal',
   fields: { stage: { type: 'select', label: 'Stage', options: [] } },

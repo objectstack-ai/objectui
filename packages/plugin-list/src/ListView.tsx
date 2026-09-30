@@ -1000,8 +1000,12 @@ const DEFAULT_LIST_DISPLAY_PAGE_SIZE = readSpecDisplayPageSize();
  * so no view silently loses reachable records when the protocol's page size
  * moves. A DECLARED `pagination.pageSize` still sizes this fetch, as it always
  * has; only the undeclared fallback is split by kind.
+ *
+ * Exported for pins that assert "the fetch batch" rather than its value
+ * (objectui#9853, ruling record 5909000462); the package index does not
+ * re-export it.
  */
-const DEFAULT_LIST_FETCH_BATCH_SIZE = 100;
+export const DEFAULT_LIST_FETCH_BATCH_SIZE = 100;
 
 /**
  * What the contract admits as a page size. The spec's view pagination config

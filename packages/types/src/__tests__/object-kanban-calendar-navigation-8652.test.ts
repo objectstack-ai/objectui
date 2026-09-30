@@ -59,11 +59,23 @@ import type {
   ViewNavigationConfig,
 } from '../objectql';
 
+/** The slice of a zod `safeParse` result these rows read — no zod internals. */
+type ParseResult = {
+  success: boolean;
+  error?: { issues: Array<{ path: PropertyKey[]; code: string }> };
+  data?: unknown;
+};
+type Parser = { safeParse: (doc: unknown) => ParseResult };
+
 type Arm = {
   type: 'object-kanban' | 'object-calendar';
-  mirror: { safeParse: (doc: unknown) => { success: boolean; error?: { issues: Array<{ path: PropertyKey[]; code: string }> }; data?: unknown } };
+  mirror: Parser;
   base: Record<string, unknown>;
 };
+
+/** The installed spec's element entry, read through the same narrow slice. */
+const specEntry = (type: Arm['type']): Parser =>
+  (ComponentPropsMap as unknown as Record<string, Parser>)[type];
 
 /**
  * One valid document per arm. The kanban board carries `objectName` and the
@@ -73,12 +85,12 @@ type Arm = {
 const ARMS: Arm[] = [
   {
     type: 'object-kanban',
-    mirror: KanbanMirror as unknown as Arm['mirror'],
+    mirror: KanbanMirror as unknown as Parser,
     base: { type: 'object-kanban', objectName: 'task', groupBy: 'status' },
   },
   {
     type: 'object-calendar',
-    mirror: CalendarMirror as unknown as Arm['mirror'],
+    mirror: CalendarMirror as unknown as Parser,
     base: { type: 'object-calendar', objectName: 'event', startDateField: 'starts_at' },
   },
 ];
@@ -94,9 +106,8 @@ function issuesOf(arm: Arm, doc: unknown): string[] {
  * element entry does not declare the node discriminator). Read, not restated.
  */
 function specIssuesOf(type: Arm['type'], navigation: unknown): string[] {
-  const entry = (ComponentPropsMap as unknown as Record<string, { safeParse: (v: unknown) => any }>)[type];
-  const r = entry.safeParse({ navigation });
-  return r.success ? [] : r.error.issues.map((i: { path: PropertyKey[]; code: string }) => `${i.path.map(String).join('.')}|${i.code}`);
+  const r = specEntry(type).safeParse({ navigation });
+  return r.success ? [] : (r.error?.issues ?? []).map((i) => `${i.path.map(String).join('.')}|${i.code}`);
 }
 
 const shapeKeys = (schema: unknown): string[] =>
@@ -109,10 +120,9 @@ describe.each(ARMS)('`$type` declares `navigation` (objectui#8652)', (arm) => {
     // A valid block is accepted and a bogus key beside it is refused, on the
     // same entry: the acceptance is a declaration, not a blanket accept.
     expect(specIssuesOf(arm.type, { mode: 'drawer' })).toEqual([]);
-    const entry = (ComponentPropsMap as unknown as Record<string, { safeParse: (v: unknown) => any }>)[arm.type];
-    const bogus = entry.safeParse({ zzqxNoSuchKey: 1 });
+    const bogus = specEntry(arm.type).safeParse({ zzqxNoSuchKey: 1 });
     expect(bogus.success).toBe(false);
-    expect(bogus.error.issues.map((i: { code: string }) => i.code)).toContain('unrecognized_keys');
+    expect((bogus.error?.issues ?? []).map((i) => i.code)).toContain('unrecognized_keys');
   });
 
   it('the mirror names it as a member of its own shape', () => {
@@ -232,6 +242,6 @@ describe('the TS face admits what the zod face admits (objectui#8652)', () => {
     ['object-kanban', KANBAN_WITH_NAVIGATION, KanbanMirror],
     ['object-calendar', CALENDAR_WITH_NAVIGATION, CalendarMirror],
   ] as const)('the annotated %s document also parses', (_type, doc, mirror) => {
-    expect((mirror as unknown as Arm['mirror']).safeParse(doc).success).toBe(true);
+    expect((mirror as unknown as Parser).safeParse(doc).success).toBe(true);
   });
 });

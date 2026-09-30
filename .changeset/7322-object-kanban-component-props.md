@@ -95,3 +95,5 @@ boards (`columns` + inline `data`, no fetch) that author no `objectName`, which
 `ObjectKanbanSchema` declared required **as of 2026-09-06** — objectui#7780's subject,
 and that card made it a record-source presence rule on 2026-09-07; their casts stay,
 now carrying the reason and the card number.
+
+⏱ **Dated note, 2026-09-30 (objectui#8652).** 「`navigation` is declared on neither face」 in 「Casts this removes」 above was true when written and is falsified by objectui#8652, which declares `navigation` on `ObjectKanbanSchema` on both faces of `@object-ui/types`, by reference to the spec's `NavigationConfig`. The paragraph is kept as written, and is not restated in the present tense.

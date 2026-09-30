@@ -566,6 +566,27 @@ ComponentRegistry.register('details', RecordDetailsRenderer, {
     // have.
     { name: 'inlineEdit', type: 'boolean', description: 'Offer the per-field double-click / pencil inline-edit affordances in the detail body. On by default, and an OPT-OUT only: the value is combined with the object\'s own editability (system, engine-owned, append-only and better-auth objects are not user-editable unless they opened userActions.edit) and with the server\'s effective API operation set for the object, so `false` always wins while `true` cannot open editing the platform refuses. The edit session and the atomic Save bar are hosted by the page, so one draft spans the highlights strip and this body.' },
     { name: 'showHeader', type: 'boolean', description: 'Render the detail body\'s own title / follow-star / copy-id chip above the fields. Off by default because this block is normally composed under a `page:header` that already draws that chrome, and turning it on there shows the record title twice. Set it true only when this block is the whole page.' },
+    // The field-security triple — `enforceFieldSecurity`, `redactFields`,
+    // `requiredPermissions` — is DECLARED here by objectui#8649, the reverse
+    // direction `hideFields` above records (objectui#3808), on the three keys
+    // `@objectstack/spec` 17.5.0 declared on `record:details`,
+    // `record:highlights` and `record:related_list` (objectstack#18159).
+    // `RecordDetailsRenderer` honoured all three before either declaration,
+    // through a cast: through 17.4.0 an author who wrote one was refused at
+    // parse and honoured by the renderer, and after the 17.5.0 bump the parse
+    // accepted it while this manifest still said nothing. Publishing them moves
+    // what the manifest advertises, and no rendering, gating or masking
+    // behaviour.
+    //
+    // Types and descriptions are the CONTRACT's, verbatim: `boolean` for
+    // `z.boolean()`, `array` of `string` for `z.array(z.string())`, and each
+    // description is this block's own `.describe()` text. The describe is the
+    // text of record, and `__tests__/recordDetailsInputs.spec-parity.test.ts`
+    // re-reads it off the installed spec every run, so a spec that rewords one
+    // turns that file red here rather than leaving the manifest to drift.
+    { name: 'enforceFieldSecurity', type: 'boolean', description: 'Fold this block\'s field list through the caller\'s FIELD-read permissions before rendering, so a field the permission set denies leaves no empty row behind (renderer default: off). Presentation only: it re-applies the same field-read answer the server already enforced (ADR-0066 D3) and never widens access — with it off a denied field still arrives masked or stripped, and with it on the server still decides every value.' },
+    { name: 'redactFields', type: 'array', of: 'string', description: 'Field names this block never renders, whatever the permission answer (renderer default: render everything authored). Presentation only, evaluated in the browser after the record is fetched — the values are still in the page, so this is NOT a data-access control and NOT the object\'s `publicSharing.redactFields`, which removes them server-side. To keep a value from the caller, gate the field itself (`requiredPermissions` / `maskingRule`, ADR-0066 D3) or the permission set. Neighbours `hideFields`, which is the dedupe channel the renderer also writes to.' },
+    { name: 'requiredPermissions', type: 'array', of: 'string', description: '[ADR-0066] Capabilities the user must ALL hold — names that permission sets grant through `systemPermissions`, not object actions: `read` or `update` here is an ordinary capability name, not the object\'s read or edit permission. When the client has resolved the user\'s capabilities and any of these is missing, this block does not render its content; wherever it would otherwise render, an insufficient-permissions notice takes its place. Presentation only: it authorises nothing, and the data API still serves the same data to the same user. A client that cannot resolve the user\'s capabilities (no permission provider, or one that does not report `systemPermissions`) renders this block as if they were held — it fails open.' },
   ],
 });
 
@@ -646,6 +667,13 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
     // `record:activity.showSubscriptionToggle` precedent; the sentence went away
     // with the gap, not before it.
     { name: 'add', type: 'object', description: 'Adds an "Add" button that assigns EXISTING records instead of creating one — the m2m/junction case. Shape: `{ picker: { object, valueField?, labelField?, filter? }, linkField?, label? }`. `picker.object` (required) is the object whose records the dialog offers. `picker.valueField` is the field of the picked record used as the link value (default "id"); `picker.labelField` is the column shown in the picker rows (default "name", and the other columns are derived from that object\'s schema). With `linkField` set, selecting records CREATES rows in this list\'s own object as `{ [relationshipField]: parentValue, [linkField]: pickedId }` — the junction case; omit `linkField` and the picked child is RE-PARENTED instead, by setting its own `relationshipField` to this parent. `label` is the button text (default "Add", localizable inline). Setting `add` also enables generic link removal on rows when no host delete handler is wired. `picker.filter` restricts which records the dialog offers — a list of `{ field, operator, value }` rules in the same vocabulary as this list\'s own `filter`, applied as a hard constraint the user cannot widen (it never appears as an editable filter row).' },
+    // The field-security triple, DECLARED by objectui#8649 on the contract's
+    // 17.5.0 declaration — types and descriptions verbatim from this block's
+    // spec row. The reasoning is written once, on `record:details` above;
+    // `__tests__/recordRelatedListInputs.spec-parity.test.ts` re-reads each description off the installed spec.
+    { name: 'enforceFieldSecurity', type: 'boolean', description: 'Fold this list\'s `columns` through the caller\'s FIELD-read permissions on the RELATED object before rendering (renderer default: off). Presentation only: it re-applies the same field-read answer the server already enforced (ADR-0066 D3) and never widens access — the rows are fetched either way and the server still decides every value.' },
+    { name: 'redactFields', type: 'array', of: 'string', description: 'Field names this list never renders, whatever the permission answer (renderer default: render every column authored or derived). Applies to the authored `columns` AND to the columns the list derives for itself when none are authored. Presentation only, evaluated in the browser after the rows are fetched — the values are still in the page, so this is NOT a data-access control and NOT the object\'s `publicSharing.redactFields`, which removes them server-side. To keep a value from the caller, gate the field itself (`requiredPermissions` / `maskingRule`, ADR-0066 D3) or the permission set.' },
+    { name: 'requiredPermissions', type: 'array', of: 'string', description: '[ADR-0066] Capabilities the user must ALL hold — names that permission sets grant through `systemPermissions`, not object actions: `read` or `update` here is an ordinary capability name, not the object\'s read or edit permission. When the client has resolved the user\'s capabilities and any of these is missing, this block does not render its content; wherever it would otherwise render, an insufficient-permissions notice takes its place. Presentation only: it authorises nothing, and the data API still serves the same data to the same user. A client that cannot resolve the user\'s capabilities (no permission provider, or one that does not report `systemPermissions`) renders this block as if they were held — it fails open.' },
   ],
 });
 
@@ -660,8 +688,10 @@ ComponentRegistry.register('highlights', RecordHighlightsRenderer, {
   // `readonly` is documented INSIDE the `fields` description, not declared as
   // an input of its own, because that is where the contract puts it: the spec's
   // `RecordHighlightsField` carries `readonly` on each ENTRY, while
-  // `RecordHighlightsProps` has exactly three top-level keys (fields, layout,
-  // aria). A top-level `{ name: 'readonly', type: 'boolean' }` here would look
+  // `RecordHighlightsProps` declares no top-level `readonly` (its top-level
+  // keys are read off the installed spec by
+  // `__tests__/recordHighlightsInputs.spec-parity.test.ts`, not listed here).
+  // A top-level `{ name: 'readonly', type: 'boolean' }` here would look
   // like the fix for "the manifest never mentions readonly" and would instead
   // publish a key the platform does not accept: the generated
   // `sdui.manifest.json` and `sdui-intrinsics.d.ts` would advertise
@@ -687,6 +717,13 @@ ComponentRegistry.register('highlights', RecordHighlightsRenderer, {
   inputs: [
     { name: 'fields', type: 'array', required: true, description: 'Key fields to highlight (1-7), bare names or {name,label?,type?,readonly?}. Set readonly: true on an entry to render that chip read-only — it suppresses the inline-edit affordance and the HeaderHighlight editability gate enforces it. Use it for hook/automation-maintained columns that must not be hand-edited from the record header; marking the OBJECT field readonly instead would also strip the hook\'s own write-back.' },
     { name: 'layout', type: 'enum', enum: ['horizontal', 'vertical'], description: 'Layout orientation for highlight fields' },
+    // The field-security triple, DECLARED by objectui#8649 on the contract's
+    // 17.5.0 declaration — types and descriptions verbatim from this block's
+    // spec row. The reasoning is written once, on `record:details` above;
+    // `__tests__/recordHighlightsInputs.spec-parity.test.ts` re-reads each description off the installed spec.
+    { name: 'enforceFieldSecurity', type: 'boolean', description: 'Fold this block\'s highlight chips through the caller\'s FIELD-read permissions before rendering, so a field the permission set denies leaves no empty chip behind (renderer default: off). Presentation only: it re-applies the same field-read answer the server already enforced (ADR-0066 D3) and never widens access — the record is fetched either way and the server still decides every value.' },
+    { name: 'redactFields', type: 'array', of: 'string', description: 'Field names this block never renders as a chip, whatever the permission answer (renderer default: render every field authored). Presentation only, evaluated in the browser after the record is fetched — the values are still in the page, so this is NOT a data-access control and NOT the object\'s `publicSharing.redactFields`, which removes them server-side. To keep a value from the caller, gate the field itself (`requiredPermissions` / `maskingRule`, ADR-0066 D3) or the permission set.' },
+    { name: 'requiredPermissions', type: 'array', of: 'string', description: '[ADR-0066] Capabilities the user must ALL hold — names that permission sets grant through `systemPermissions`, not object actions: `read` or `update` here is an ordinary capability name, not the object\'s read or edit permission. When the client has resolved the user\'s capabilities and any of these is missing, this block does not render its content; wherever it would otherwise render, an insufficient-permissions notice takes its place. Presentation only: it authorises nothing, and the data API still serves the same data to the same user. A client that cannot resolve the user\'s capabilities (no permission provider, or one that does not report `systemPermissions`) renders this block as if they were held — it fails open.' },
   ],
 });
 

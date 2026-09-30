@@ -7106,6 +7106,7 @@ export { extractDraftBody } from './draft-envelope';
 export {
   assertObjectMetadataWritable,
   RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
+  CHOICE_TYPES_REQUIRING_OPTIONS,
   OBJECT_METADATA_TYPE,
 } from './object-metadata-write-guard';
 export type {

@@ -1,8 +1,9 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * objectui#8676 — the guard's ONE list is derived from the installed contract on
- * every run, never recalled.
+ * objectui#8676 — the guard's lists are derived from the installed contract on
+ * every run, never recalled. objectui#11253 added the second one, for choice
+ * fields; its derivation is the last two `describe` blocks below.
  *
  * ## Why this file is the point rather than a formality
  *
@@ -29,7 +30,11 @@
 
 import { describe, expect, it } from 'vitest';
 import { FieldSchema, FieldType, ObjectSchema } from '@objectstack/spec/data';
-import { RELATIONSHIP_TYPES_REQUIRING_REFERENCE } from './object-metadata-write-guard';
+import { checkFieldCompleteness, FIELD_CHOICE_WITHOUT_OPTIONS } from '@objectstack/spec/kernel';
+import {
+  CHOICE_TYPES_REQUIRING_OPTIONS,
+  RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
+} from './object-metadata-write-guard';
 
 /** Every field type the installed contract refuses for want of a `reference`. */
 function deriveTypesRequiringReference(): string[] {
@@ -91,5 +96,74 @@ describe('the four target states, measured against the contract rather than asse
       fields: { rel: { type: 'lookup', label: 'L', reference: 'contact' } },
     });
     expect(result.success).toBe(true);
+  });
+});
+
+/**
+ * objectui#11253 — the choice set, and the one claim the guard's docblock makes
+ * about the server for it.
+ *
+ * `FieldSchema` cannot answer "which types need options" yet: the door the
+ * maintainer's ruling A on objectstack#20827 closes has not shipped. The
+ * contract DOES already state the rule, at author time: ADR-0078's
+ * `field/choice-without-options` in `checkFieldCompleteness`, which the ruling
+ * names as the rule the door adopts. So the set is derived from THAT, keeping
+ * only the `error`-severity findings (the `warning` one is `checkboxes`, which
+ * the ruling does not name).
+ */
+function deriveChoiceTypesRequiringOptions(): string[] {
+  return FieldType.options.filter((type) =>
+    checkFieldCompleteness({ type, label: 'L' }).some(
+      (finding) => finding.rule === FIELD_CHOICE_WITHOUT_OPTIONS && finding.severity === 'error',
+    ),
+  );
+}
+
+describe('CHOICE_TYPES_REQUIRING_OPTIONS — derived from the installed spec (objectui#11253)', () => {
+  it('is exactly the set the contract reports as an inert choice at `error`', () => {
+    expect([...CHOICE_TYPES_REQUIRING_OPTIONS].sort()).toEqual(deriveChoiceTypesRequiringOptions().sort());
+  });
+
+  it('CONTROL — the probe is neither reporting nor passing everything', () => {
+    const derived = deriveChoiceTypesRequiringOptions();
+    expect(derived.length).toBeGreaterThan(0);
+    expect(derived.length).toBeLessThan(FieldType.options.length);
+    // The same rule at `warning` exists, and is excluded by severity, not by luck.
+    expect(checkFieldCompleteness({ type: 'checkboxes', label: 'L' })).toEqual([
+      expect.objectContaining({ rule: FIELD_CHOICE_WITHOUT_OPTIONS, severity: 'warning' }),
+    ]);
+  });
+
+  it('an EMPTY `options` list is no option source, and one option is', () => {
+    // The guard refuses `options: []` on this reading, which is the list the
+    // metadata-admin canvas seeds a new choice field with.
+    for (const type of CHOICE_TYPES_REQUIRING_OPTIONS) {
+      expect(checkFieldCompleteness({ type, label: 'L', options: [] }).map((f) => f.rule))
+        .toContain(FIELD_CHOICE_WITHOUT_OPTIONS);
+      expect(checkFieldCompleteness({ type, label: 'L', options: [{ label: 'Open', value: 'open' }] })
+        .map((f) => f.rule)).not.toContain(FIELD_CHOICE_WITHOUT_OPTIONS);
+    }
+  });
+});
+
+describe('the installed server still ACCEPTS a choice with no options (objectui#11253)', () => {
+  // The guard's docblock says its choice refusal is deliberately AHEAD of the
+  // server, by ruling. That is a claim about the installed artifact, so it is
+  // measured here rather than left in prose (AGENTS.md #9).
+  //
+  // ⭐ When this goes red, the door has shipped and the pin has reached it. Then
+  // rewrite the guard's docblock paragraph on the choice refusal into the
+  // relationship form ("refused one layer down"), and turn this block into the
+  // refusal pin the relationship rule has above: refused at `options`.
+  for (const type of CHOICE_TYPES_REQUIRING_OPTIONS) {
+    it(`\`${type}\` with no \`options\` still parses through \`ObjectSchema\``, () => {
+      const result = ObjectSchema.safeParse({ name: 'account', label: 'A', fields: { stage: { type, label: 'L' } } });
+      expect(result.success).toBe(true);
+    });
+  }
+
+  it('CONTROL — the same schema on the same document DOES refuse a target-less lookup', () => {
+    const result = ObjectSchema.safeParse({ name: 'account', label: 'A', fields: { stage: { type: 'lookup', label: 'L' } } });
+    expect(result.success).toBe(false);
   });
 });

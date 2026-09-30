@@ -708,15 +708,17 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
   }, [t]);
 
   // `'view-data'` — the arm `object-gantt`'s published `data` row declares
-  // (objectui#8348). MEASURED: `@objectstack/spec` 17.4.0 has NO
-  // `ComponentPropsMap['object-gantt']` row at all, so the published row that
-  // governs this block is this repo's own `ObjectGanttSchema.data`
-  // (`@object-ui/types`), `ViewDataSchema.optional()` — the discriminated union
-  // over four strict OBJECT arms. A bare array under `data` is not on it, so it
-  // is no longer a record source and the ladder falls through to `staticData` /
-  // `objectName`; it was inert before (it carried no `provider`, so no fetch
-  // branch below ever matched it), which is why nothing a published document
-  // can express moves here.
+  // (objectui#8348): `ComponentPropsMap['object-gantt'].data` in the INSTALLED
+  // `@objectstack/spec`, the discriminated union over four strict OBJECT arms,
+  // which ruling batch #136 item 3 (Q1-C) had the protocol gain. Until it was
+  // installable this block was judged through this repo's own
+  // `ObjectGanttSchema.data`, spelled the same. ⛔ Not restated as a fact about
+  // a version: `dataArmSpecRow-8348.test.ts` derives the arm from the
+  // installed row and turns red if a release moves it. A bare array under
+  // `data` is not on it, so it is no longer a record source and the ladder
+  // falls through to `staticData` / `objectName`; it was inert before (it
+  // carried no `provider`, so no fetch branch below ever matched it), which is
+  // why nothing a published document can express moves here.
   const rawDataConfig = resolveRecordSourceConfig(schema, 'view-data');
   // The authored data config's deep VALUE, as one primitive — the memo's only
   // dependency, hoisted out of the dependency array so it has a name. ⛔ It is

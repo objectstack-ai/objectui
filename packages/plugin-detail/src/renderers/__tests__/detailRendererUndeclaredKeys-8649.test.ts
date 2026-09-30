@@ -52,23 +52,23 @@
  *     which is the same standing `dataSource` and `className` have in
  *     `recordRelatedListInputs.spec-parity.test.ts`. ⇒ ALIGN THE MIRROR, for the
  *     one member this renderer reads off the envelope.
- *   - `enforceFieldSecurity` and `redactFields` (three renderers each) — declared
- *     by NO block the UI contract maps, and not on the shared node envelope
- *     either. ⇒ "declare" is off the table
- *     outright. ROUTED TO THE PRODUCER, ⛔ not retired here: the renderers honour
- *     both keys today on the raw-node path, so deleting the reads would remove a
- *     redaction that is working, and changing runtime masking behaviour is the
- *     maintainer floor this card must not cross.
- *   - `requiredPermissions` (three renderers each) — the sharpest of the twelve.
- *     The contract DOES declare it, on the sibling block `record:quick_actions`,
- *     but NOT on the three this card covers. A word-frequency screen over the contract reads "present" and is
- *     wrong about exactly this; the per-schema census below is what separates
- *     them. ⇒ ROUTED TO THE PRODUCER, same floor.
- *   - ⭐ UPDATE, `@objectstack/spec` 17.5.0 (objectui#11073): the routed card
- *     LANDED upstream. All three keys are now declared on exactly these three
- *     blocks, so the two routings above have expired into align-the-mirror.
- *     The census rows fired and were flipped; the alignment itself is this
- *     card's burn-down and was ⛔ not taken by the bump.
+ *   - The field-security triple — `enforceFieldSecurity`, `redactFields`,
+ *     `requiredPermissions` (three renderers each). Through `@objectstack/spec`
+ *     17.4.0 the first two were declared by NO block the UI contract maps, and
+ *     `requiredPermissions` only on the sibling block `record:quick_actions` —
+ *     the reading a word-frequency screen got backwards. The first landing of
+ *     this card ROUTED all three to the producer (objectstack#18159), ⛔ neither
+ *     declared nor retired: the renderers honoured them on the raw-node path,
+ *     and changing runtime masking or permission behaviour is the maintainer
+ *     floor this card must not cross.
+ *   - ⭐ The routed card LANDED (objectstack PR #19913, ruling A) and shipped in
+ *     `@objectstack/spec` 17.5.0: all three keys are declared on exactly these
+ *     three blocks. The census rows below fired at the 17.5.0 bump
+ *     (objectui#11073), which declared nothing; this card's SECOND landing took
+ *     the exit that expiry left — ALIGN THE MIRROR: the three keys are declared
+ *     on the three props interfaces, the reads are un-cast, and the three
+ *     blocks' registry `inputs` publish them. The emitted JavaScript of the three
+ *     renderers is byte-identical, so no gating or masking behaviour moved.
  *
  * ## What each leg can and cannot prove
  *
@@ -86,10 +86,11 @@
  *   - The source-text legs read the three renderers through the shared comment
  *     mask, so a re-introduced `{} as any` is caught by a run that never
  *     type-checks. Each carries a control that varies only the claim.
- *   - {@link ROUTED_KEYS} is a LEDGER, and a stale exception is a hole: every
- *     entry is asserted to be STILL READ by the file it is ledgered against. If
- *     someone retires one of these reads, this file goes red and the routing
- *     claim has to be re-derived rather than quietly outliving its subject.
+ *   - {@link ALIGNED_TRIPLE} names the renderer files each triple key is read
+ *     in. Every entry is asserted STILL READ, and read UN-CAST: a cast between
+ *     `schema` and the key would spend the declaration at its own read site —
+ *     the D1 shape this card's first contract review found — while every
+ *     membership-shaped leg above stayed green.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -109,8 +110,15 @@ import {
   type ComponentPropsInput,
   type ReferenceRailEntry,
 } from '@objectstack/spec/ui';
-import type { RecordRelatedListComponentProps } from '@object-ui/types';
+import type {
+  RecordDetailsComponentProps,
+  RecordHighlightsComponentProps,
+  RecordRelatedListComponentProps,
+} from '@object-ui/types';
 import type { RecordReferenceRailRendererProps } from '../record-reference-rail';
+import type { RecordDetailsRendererProps } from '../record-details';
+import type { RecordHighlightsRendererProps } from '../record-highlights';
+import type { RecordRelatedListRendererProps } from '../record-related-list';
 // @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
 import { maskComments } from '../../../../../scripts/js-comment-mask.mjs';
 
@@ -202,6 +210,160 @@ export type _RailPropertiesEntriesIsSpecEntry = Expect<
   Equal<NonNullable<RailSchema['properties']>['entries'], ReferenceRailEntry[] | undefined>
 >;
 
+/*
+ * Exit "align the mirror", keys 3-5: the field-security triple on all three
+ * blocks (objectui#8649's second landing, on `@objectstack/spec` 17.5.0).
+ *
+ * Each mirror member is compared against the contract's own input type for
+ * the same block, reached through the same block-tag map as the
+ * `relationshipValueField` pin above. RED before the second landing: `TS2339`,
+ * the members did not exist on the three interfaces.
+ */
+
+type SpecDetailsProps = ComponentPropsInput<'record:details'>;
+type SpecHighlightsProps = ComponentPropsInput<'record:highlights'>;
+
+export type _DetailsTripleMirrorsSpec = Expect<
+  Equal<
+    [
+      RecordDetailsComponentProps['enforceFieldSecurity'],
+      RecordDetailsComponentProps['redactFields'],
+      RecordDetailsComponentProps['requiredPermissions'],
+    ],
+    [
+      SpecDetailsProps['enforceFieldSecurity'],
+      SpecDetailsProps['redactFields'],
+      SpecDetailsProps['requiredPermissions'],
+    ]
+  >
+>;
+
+export type _HighlightsTripleMirrorsSpec = Expect<
+  Equal<
+    [
+      RecordHighlightsComponentProps['enforceFieldSecurity'],
+      RecordHighlightsComponentProps['redactFields'],
+      RecordHighlightsComponentProps['requiredPermissions'],
+    ],
+    [
+      SpecHighlightsProps['enforceFieldSecurity'],
+      SpecHighlightsProps['redactFields'],
+      SpecHighlightsProps['requiredPermissions'],
+    ]
+  >
+>;
+
+export type _RelatedListTripleMirrorsSpec = Expect<
+  Equal<
+    [
+      RecordRelatedListComponentProps['enforceFieldSecurity'],
+      RecordRelatedListComponentProps['redactFields'],
+      RecordRelatedListComponentProps['requiredPermissions'],
+    ],
+    [
+      SpecRelatedListProps['enforceFieldSecurity'],
+      SpecRelatedListProps['redactFields'],
+      SpecRelatedListProps['requiredPermissions'],
+    ]
+  >
+>;
+
+/**
+ * Spelled out as well as derived, for the reason given at
+ * `_RelationshipValueFieldIsOptionalString`: `Equal` against the spec alone is
+ * satisfied if BOTH faces drift to the same wrong type.
+ */
+type TripleShape = [boolean | undefined, string[] | undefined, string[] | undefined];
+
+export type _TripleIsTheContractShapeOnEveryBlock = Expect<
+  Equal<
+    [
+      [
+        RecordDetailsComponentProps['enforceFieldSecurity'],
+        RecordDetailsComponentProps['redactFields'],
+        RecordDetailsComponentProps['requiredPermissions'],
+      ],
+      [
+        RecordHighlightsComponentProps['enforceFieldSecurity'],
+        RecordHighlightsComponentProps['redactFields'],
+        RecordHighlightsComponentProps['requiredPermissions'],
+      ],
+      [
+        RecordRelatedListComponentProps['enforceFieldSecurity'],
+        RecordRelatedListComponentProps['redactFields'],
+        RecordRelatedListComponentProps['requiredPermissions'],
+      ],
+    ],
+    [TripleShape, TripleShape, TripleShape]
+  >
+>;
+
+/**
+ * The renderers' own `schema` bindings carry the members — the type every read
+ * in the three files goes through. ⚠️ A MEMBERSHIP question: a cast at the read
+ * site leaves these green, which is why the source-text legs below exist.
+ *
+ * One pin per block, deliberately. The three written as ONE nested tuple
+ * compare unequal under this `Equal` even though each block compares equal on
+ * its own (measured while writing them: the nested form reddened, each split
+ * form was green) — a limit of the identity trick on types derived through an
+ * intersection, not a difference in the members.
+ */
+export type _DetailsBindingCarriesTheTriple = Expect<
+  Equal<
+    [
+      NonNullable<RecordDetailsRendererProps['schema']>['enforceFieldSecurity'],
+      NonNullable<RecordDetailsRendererProps['schema']>['redactFields'],
+      NonNullable<RecordDetailsRendererProps['schema']>['requiredPermissions'],
+    ],
+    TripleShape
+  >
+>;
+
+export type _HighlightsBindingCarriesTheTriple = Expect<
+  Equal<
+    [
+      NonNullable<RecordHighlightsRendererProps['schema']>['enforceFieldSecurity'],
+      NonNullable<RecordHighlightsRendererProps['schema']>['redactFields'],
+      NonNullable<RecordHighlightsRendererProps['schema']>['requiredPermissions'],
+    ],
+    TripleShape
+  >
+>;
+
+export type _RelatedListBindingCarriesTheTriple = Expect<
+  Equal<
+    [
+      NonNullable<RecordRelatedListRendererProps['schema']>['enforceFieldSecurity'],
+      NonNullable<RecordRelatedListRendererProps['schema']>['redactFields'],
+      NonNullable<RecordRelatedListRendererProps['schema']>['requiredPermissions'],
+    ],
+    TripleShape
+  >
+>;
+
+/** The card's repro as literals: spec-valid documents, accepted by all three faces. */
+const tripleAccepted = {
+  details: {
+    enforceFieldSecurity: true,
+    redactFields: ['salary'],
+    requiredPermissions: ['crm.manage'],
+  } satisfies RecordDetailsComponentProps,
+  highlights: {
+    fields: ['name'],
+    enforceFieldSecurity: true,
+    redactFields: ['salary'],
+    requiredPermissions: ['crm.manage'],
+  } satisfies RecordHighlightsComponentProps,
+  relatedList: {
+    objectName: 'task',
+    relationshipField: 'account',
+    enforceFieldSecurity: true,
+    redactFields: ['salary'],
+    requiredPermissions: ['crm.manage'],
+  } satisfies RecordRelatedListComponentProps,
+};
+
 /* ── Runtime legs ─────────────────────────────────────────────────────────── */
 
 /**
@@ -272,15 +434,32 @@ const nodeLevelKeys = (): string[] => objectShapeKeys(PageComponentSchema) ?? []
 const CARD_BLOCKS = ['record:details', 'record:highlights', 'record:related_list'] as const;
 
 /**
- * The keys routed to the producer, and the renderer files each is ledgered
- * against. Every entry is asserted STILL READ below — a ledger entry whose
- * subject has gone is a hole, not a pass.
+ * The field-security triple, and the renderer files each key is read in. It
+ * was the ROUTED-to-producer ledger until the contract declared the keys; it is
+ * now the set whose reads must stay live AND un-cast (see the legs below).
  */
-const ROUTED_KEYS = {
+const ALIGNED_TRIPLE = {
   enforceFieldSecurity: ['record-details.tsx', 'record-highlights.tsx', 'record-related-list.tsx'],
   redactFields: ['record-details.tsx', 'record-highlights.tsx', 'record-related-list.tsx'],
   requiredPermissions: ['record-details.tsx', 'record-highlights.tsx', 'record-related-list.tsx'],
 } as const;
+
+/** The block each renderer file registers, for the contract readings below. */
+const BLOCK_OF_FILE = {
+  'record-details.tsx': 'record:details',
+  'record-highlights.tsx': 'record:highlights',
+  'record-related-list.tsx': 'record:related_list',
+} as const;
+
+/**
+ * A cast standing between `schema` and `key`, e.g. `(schema as any).key`.
+ * Applied to the real sources AND to a control below.
+ */
+const castBefore = (key: string): RegExp =>
+  new RegExp(`\\(\\s*schema\\s+as\\s+\\w+\\s*\\)\\s*\\.\\s*${key}\\b`);
+
+/** The un-cast read, e.g. `schema.key` — the liveness half. */
+const unCastRead = (key: string): RegExp => new RegExp(`(?<![\\w)])schema\\s*\\.\\s*${key}\\b`);
 
 /** The three files whose `schema` annotation the erasure used to destroy. */
 const ERASURE_REPAIRED = [
@@ -381,15 +560,41 @@ describe('objectui#8649 — the erasure is repaired and stays repaired', () => {
   }
 });
 
-describe('objectui#8649 — the routed-key ledger is not stale', () => {
-  for (const [key, files] of Object.entries(ROUTED_KEYS)) {
+describe('objectui#8649 — the field-security triple is read UN-CAST, and still read', () => {
+  it('the two matchers discriminate, so the readings below are readings', () => {
+    // Each control varies ONLY the claim.
+    expect(castBefore('redactFields').test('Array.isArray((schema as any).redactFields)')).toBe(true);
+    expect(castBefore('redactFields').test('Array.isArray(schema.redactFields)')).toBe(false);
+    expect(unCastRead('redactFields').test('Array.isArray(schema.redactFields)')).toBe(true);
+    expect(unCastRead('redactFields').test('Array.isArray((schema as any).redactFields)')).toBe(false);
+    // Comments are masked before the legs run, so prose that spells the cast
+    // out — this file's and the renderers' — can neither satisfy nor defeat them.
+    expect(mask('// (schema as any).redactFields\nconst x = 1;')).not.toMatch(castBefore('redactFields'));
+  });
+
+  for (const [key, files] of Object.entries(ALIGNED_TRIPLE)) {
     for (const file of files) {
-      it(`${file} still reads \`${key}\` (ledger entry stays live)`, () => {
+      it(`${file} reads \`${key}\` off \`schema\` un-cast, and still reads it at all`, () => {
         const source = maskedSource(file);
-        expect(source).toContain(`.${key}`);
+        // Liveness: a negative guard alone is satisfied by deleting the read.
+        expect(source).toMatch(unCastRead(key));
+        // ⭐ The load-bearing NEGATIVE: no cast may stand between the two again.
+        expect(source).not.toMatch(castBefore(key));
       });
     }
   }
+
+  it('every file in the ledger registers a block the contract declares the whole triple on', () => {
+    // So the un-cast reads above are reads of DECLARED keys, block by block —
+    // the premise of removing each cast, re-derived rather than assumed.
+    for (const [key, files] of Object.entries(ALIGNED_TRIPLE)) {
+      for (const file of files) {
+        expect(declaringBlocksOf(key), `${key} on ${file}`).toContain(
+          BLOCK_OF_FILE[file as keyof typeof BLOCK_OF_FILE],
+        );
+      }
+    }
+  });
 
   /**
    * ⭐ The assertion this block used to carry was
@@ -421,8 +626,8 @@ describe('objectui#8649 — the routed-key ledger is not stale', () => {
     expect(CAST_BEFORE_PROPERTIES.test('Array.isArray(schema.properties?.entries)')).toBe(false);
   });
 
-  it('the ledger matcher can fire negative, so the legs above are readings', () => {
-    expect(mask('const x = 1;')).not.toContain('.enforceFieldSecurity');
+  it('the liveness matcher can fire negative, so the legs above are readings', () => {
+    expect(mask('const x = 1;')).not.toMatch(unCastRead('enforceFieldSecurity'));
   });
 });
 
@@ -431,6 +636,35 @@ describe('objectui#8649 — the aligned mirror keys reach the renderers', () => 
     // The compile-time legs are the discriminating half; this keeps the literal
     // reachable from a vitest run so the fixture cannot rot unnoticed.
     expect(relationshipValueFieldAccepted.relationshipValueField).toBe('name');
+  });
+
+  it('the triple fixtures are reachable from a vitest run (the type legs are the discriminating half)', () => {
+    expect(tripleAccepted.details.redactFields).toEqual(['salary']);
+    expect(tripleAccepted.highlights.requiredPermissions).toEqual(['crm.manage']);
+    expect(tripleAccepted.relatedList.enforceFieldSecurity).toBe(true);
+  });
+
+  it('the contract accepts the triple fixtures on each block, values intact, and refuses a wrong-typed value', () => {
+    const cases = [
+      ['record:details', tripleAccepted.details],
+      ['record:highlights', tripleAccepted.highlights],
+      ['record:related_list', { ...tripleAccepted.relatedList, columns: ['name'] }],
+    ] as const;
+    for (const [tag, doc] of cases) {
+      const schema = ComponentPropsMap[tag] as unknown as {
+        safeParse: (v: unknown) => { success: boolean; data?: Record<string, unknown>; error?: { issues: Array<{ path: PropertyKey[] }> } };
+      };
+      const parsed = schema.safeParse(doc);
+      expect(parsed.success, tag).toBe(true);
+      expect(parsed.data?.enforceFieldSecurity, tag).toBe(true);
+      expect(parsed.data?.redactFields, tag).toEqual(['salary']);
+      expect(parsed.data?.requiredPermissions, tag).toEqual(['crm.manage']);
+      // A VALUE-level refusal, with the path it names: the mirror's
+      // `string[]` is the contract's, not a looser face over it.
+      const wrong = schema.safeParse({ ...doc, requiredPermissions: 'crm.manage' });
+      expect(wrong.success, `${tag} accepted a bare-string requiredPermissions`).toBe(false);
+      expect(wrong.error?.issues.map((i) => i.path.join('.')), tag).toContain('requiredPermissions');
+    }
   });
 
   it('the contract accepts the same document, so mirror and contract agree', () => {

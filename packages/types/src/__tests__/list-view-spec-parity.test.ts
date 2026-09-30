@@ -132,6 +132,21 @@ const HANDLER_KEY_REFUSALS = new Set<string>([
   'onPageSizeChange',
 ]);
 
+/**
+ * A FOURTH category (objectui#11070): spec members that belong to the page
+ * COMPONENT envelope rather than to the list view it carries.
+ *
+ * `dataSource` is `@objectstack/spec`'s `PageComponentSchema.dataSource` — the
+ * per-element binding every page component may carry — so the spec's
+ * `ListViewSchema` (a view config) has no such member, and this arm, being
+ * the `list-view` NODE, declares it. Neither branch of the #2231 decision
+ * fits: it is not objectui-only, and it cannot be promoted into the spec's
+ * view schema because the spec already owns it one level up. It arrives by
+ * reference to the spec's `ElementDataSourceSchema`; the test below checks
+ * that it behaves as that binding, so this set cannot park a local field.
+ */
+const PAGE_COMPONENT_ENVELOPE = new Set<string>(['dataSource']);
+
 describe('ListView spec parity (#2231 drift guard)', () => {
   it('covers every @objectstack/spec ListView field (spec cannot grow a field objectui ignores)', () => {
     // Fails when the spec adds a field that objectui neither imports nor envelope-owns —
@@ -154,9 +169,23 @@ describe('ListView spec parity (#2231 drift guard)', () => {
         !specShape[k] &&
         !ENVELOPE.has(k) &&
         !SANCTIONED_LOCAL.has(k) &&
-        !HANDLER_KEY_REFUSALS.has(k),
+        !HANDLER_KEY_REFUSALS.has(k) &&
+        !PAGE_COMPONENT_ENVELOPE.has(k),
     );
     expect(rogue).toEqual([]);
+  });
+
+  it('every PAGE_COMPONENT_ENVELOPE member is the spec binding — the set cannot hide a local field (objectui#11070)', () => {
+    const node = (extra: Record<string, unknown>) => ({ type: 'list-view', objectName: 'accounts', ...extra });
+    for (const key of PAGE_COMPONENT_ENVELOPE) {
+      expect(ouiKeys.has(key), `${key} is listed but not declared on the arm`).toBe(true);
+      // The spec's binding: a named object with the binding's own keys parses…
+      expect(OuiListViewSchema.safeParse(node({ [key]: { object: 'account', view: 'hot', limit: 10 } })).success).toBe(true);
+      // …a binding that names no object does not (the spec requires `object`)…
+      expect(OuiListViewSchema.safeParse(node({ [key]: { view: 'hot' } })).success).toBe(false);
+      // …and neither does an adapter-shaped value, which is not metadata at all.
+      expect(OuiListViewSchema.safeParse(node({ [key]: 'objectstack' })).success).toBe(false);
+    }
   });
 
   it('every HANDLER_KEY_REFUSALS member really refuses — the set cannot hide an authorable field', () => {

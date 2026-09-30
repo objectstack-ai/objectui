@@ -86,10 +86,12 @@ export interface RecordRelatedListRendererProps {
    * declared key type-checked at every read below, cast or not — the refusal
    * the mirror declares stopped one layer short of the reads it exists for.
    *
-   * ⛔ Do not reopen it to admit a key the renderer reads through a cast
-   * (`requiredPermissions`, `enforceFieldSecurity`, `redactFields`): no block
-   * the contract maps onto this tag declares them, and objectui#8649 routed
-   * them to the producer rather than to a declaration here.
+   * The field-security triple (`requiredPermissions`, `enforceFieldSecurity`,
+   * `redactFields`) arrives through the mirror like every other member:
+   * `@objectstack/spec` 17.5.0 declares it on `record:related_list`, and
+   * objectui#8649 declared it on `RecordRelatedListComponentProps` and removed
+   * the casts its reads used to go through. ⛔ Still do not reopen this type to
+   * admit a key the contract does not declare on this block.
    */
   schema?: Omit<RecordRelatedListComponentProps, 'objectName'> &
     Partial<Pick<RecordRelatedListComponentProps, 'objectName'>> & {
@@ -237,8 +239,11 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
     return null;
   }
 
-  const required: string[] = Array.isArray((schema as any).requiredPermissions)
-    ? (schema as any).requiredPermissions
+  // Read UN-CAST (objectui#8649), like `enforceFieldSecurity` and
+  // `redactFields` below. The mechanism is written once, at the same read in
+  // `record-details.tsx`.
+  const required: string[] = Array.isArray(schema.requiredPermissions)
+    ? schema.requiredPermissions
     : [];
   /**
    * Block-level ADR-0066 CAPABILITY gate, read fail-closed (objectui#10155 —
@@ -248,7 +253,13 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
    * the one meaning the word carries on `action`, `app`, `field` and
    * `bulkAction` — so it is read through the permission context's capability
    * path (`hasCapabilities` over the reported `systemPermissions`). An unheld
-   * or unrecognised capability hides the whole section.
+   * or unrecognised capability withholds the section's content, and an
+   * insufficient-permissions notice (`role="status"`) renders in its place:
+   * the block is not hidden. That is what the contract's describe on
+   * `RecordRelatedListProps.requiredPermissions` says ("an
+   * insufficient-permissions notice takes its place"). The automatic
+   * child-object read gate above is a different gate and does hide the
+   * section: it returns `null`.
    *
    * ⛔ NOT `perms.can(objectName, name)`. That call's second argument is the
    * closed object-action enum, and the stock `/me/permissions` provider maps
@@ -283,9 +294,9 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
     );
   }
 
-  const enforceFLS = (schema as any).enforceFieldSecurity === true;
-  const redact: string[] = Array.isArray((schema as any).redactFields)
-    ? (schema as any).redactFields
+  const enforceFLS = schema.enforceFieldSecurity === true;
+  const redact: string[] = Array.isArray(schema.redactFields)
+    ? schema.redactFields
     : [];
   const rawColumns: any[] = Array.isArray(schema.columns) ? (schema.columns as any[]) : [];
   let filteredColumns: any[] = rawColumns;

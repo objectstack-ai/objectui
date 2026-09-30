@@ -75,10 +75,11 @@ const REFUSED_AT_TYPE = 73;
  * The head's refused count over the NAMESPACED keys (objectui#10872 batch 1:
  * 418 on `main` before it, minus the twenty ADR-0080 public blocks armed from
  * their `@objectstack/spec` `ComponentPropsMap` rows; batch 2: minus
- * `element:number`, armed with the spec's `dataSource` waiver). LOWER it when
- * a batch arms more keys; never raise it.
+ * `element:number`, armed with the spec's `dataSource` waiver; batch 4: minus
+ * the six blocks `@objectstack/spec` 17.5.0 gave a row). LOWER it when a batch
+ * arms more keys; never raise it.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 397;
+const NAMESPACED_REFUSED_AT_TYPE = 391;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));
@@ -99,6 +100,11 @@ const ARMED_PUBLIC_BLOCKS_10872 = [
 
 /** The public block objectui#10872 batch 2 armed. */
 const ARMED_PUBLIC_BLOCKS_10872_BATCH_2 = ['element:number'] as const;
+
+/** The six public blocks objectui#10872 batch 4 armed, held until `@objectstack/spec` 17.5.0 carried their rows. */
+const ARMED_PUBLIC_BLOCKS_10872_BATCH_4 = [
+  'action:button', 'action:icon', 'action:group', 'action:menu', 'element:definition-list', 'element:repeater',
+] as const;
 
 /** Is `type` unclaimed by every arm of the validator's root union? */
 function refusedAtType(type: string): boolean {
@@ -197,6 +203,13 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
     }
   });
 
+  it('counts the six public blocks objectui#10872 batch 4 armed', () => {
+    for (const key of ARMED_PUBLIC_BLOCKS_10872_BATCH_4) {
+      expect(NAMESPACED_KEYS, key).toContain(key);
+      expect(refusedAtType(key), key).toBe(false);
+    }
+  });
+
   it('counts `cloud:plan-status` armed — it registered WITH its arm (objectui#10919)', () => {
     // One registry key (`skipFallback: true`, so no bare `plan-status`), armed in
     // `@object-ui/types/zod` in the same change, so the pin above did not move.
@@ -211,6 +224,7 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
 /** Rooted on this file, never on `process.cwd()`. */
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PLUGIN_AI_README = join(HERE, '..', '..', '..', 'plugin-ai', 'README.md');
+const QUICK_START = join(HERE, '..', '..', '..', '..', 'content', 'docs', 'guide', 'quick-start.md');
 
 /** See `validate-root-path-line.test.ts` — the escape byte is never spelled. */
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
@@ -345,6 +359,72 @@ describe('objectui validate — a page built from ADR-0080 public blocks (object
     const text = out.join('\n').replace(ANSI, '');
     expect(text).toContain('Schema validation failed');
     expect(text).toContain('dataSource.object');
+    expect(exitCodes).toEqual([1]);
+  });
+
+  it('validates a page with the taught `action:button` node (objectui#10872 batch 4)', async () => {
+    // The node the quick-start's "Add Actions" section teaches — the one
+    // AGENTS.md #4 and the handler-key refusals' own remedy point at — read
+    // from the page that teaches it, beside a `page:header`.
+    const quickStart = readFileSync(QUICK_START, 'utf8');
+    const fence = /```json\n([\s\S]*?)\n```/.exec(quickStart.slice(quickStart.indexOf('### Add Actions')));
+    expect(fence, 'no ```json fence under "### Add Actions" in the quick-start').not.toBeNull();
+    const taught = JSON.parse((fence as RegExpExecArray)[1]);
+    // Lit control on the extraction: it is the taught node.
+    expect(taught.type).toBe('action:button');
+    const page = {
+      type: 'page',
+      title: 'Users',
+      children: [{ type: 'page:header', properties: { title: 'Users' } }, taught],
+    };
+    const file = join(dir, 'action-button-page.json');
+    writeFileSync(file, JSON.stringify(page, null, 2), 'utf-8');
+
+    await validate(file);
+
+    const text = out.join('\n').replace(ANSI, '');
+    expect(text).not.toContain('Schema validation failed');
+    expect(text).toContain('Schema is valid');
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it('validates a page of the six batch-4 blocks in the spec\'s `properties` spelling', async () => {
+    const page = {
+      type: 'page',
+      children: [
+        { type: 'action:button', properties: { label: 'Open details', actionType: 'url', target: '/users/ada' } },
+        { type: 'action:icon', properties: { icon: 'pencil', label: 'Edit', actionType: 'url', target: '/users/ada/edit' } },
+        { type: 'action:group', properties: { display: 'dropdown', actions: [{ name: 'archive', label: 'Archive' }] } },
+        { type: 'action:menu', properties: { actions: [{ name: 'delete', label: 'Delete' }] } },
+        { type: 'element:definition-list', properties: { columns: 2, items: [{ term: 'Owner', description: 'Ada' }] } },
+        { type: 'element:repeater', properties: { object: 'task', fields: ['subject'], limit: 5 } },
+      ],
+    };
+    const file = join(dir, 'held-blocks-page.json');
+    writeFileSync(file, JSON.stringify(page, null, 2), 'utf-8');
+
+    await validate(file);
+
+    const text = out.join('\n').replace(ANSI, '');
+    expect(text).not.toContain('Schema validation failed');
+    expect(text).toContain('Schema is valid');
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it('still judges an `action:button` bag — an undeclared prop is refused and named (batch 4)', async () => {
+    // The control that keeps the two rows above from passing for the wrong reason.
+    const page = {
+      type: 'page',
+      children: [{ type: 'action:button', properties: { label: 'Go', inventedProp10872b4: true } }],
+    };
+    const file = join(dir, 'action-button-page-refused.json');
+    writeFileSync(file, JSON.stringify(page, null, 2), 'utf-8');
+
+    await validate(file);
+
+    const text = out.join('\n').replace(ANSI, '');
+    expect(text).toContain('Schema validation failed');
+    expect(text).toContain('inventedProp10872b4');
     expect(exitCodes).toEqual([1]);
   });
 });

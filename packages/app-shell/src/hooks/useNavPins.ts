@@ -15,7 +15,7 @@
 
 import { useCallback, useMemo } from 'react';
 import type { NavigationItem } from '@object-ui/types';
-import { resolveHref } from '@object-ui/layout';
+import { resolveHref, resolveNavItemLabel } from '@object-ui/layout';
 import { useFavorites } from '../context/FavoritesProvider.js';
 
 const MAX_PINS = 20;
@@ -65,7 +65,11 @@ export function useNavPins() {
         if (item && item.type !== 'separator') {
           addFavorite({
             id: favId,
-            label: item.label,
+            // An entry's `label` may be absent (objectui#9868: it inherits its
+            // target's label at render time). A `type: 'nav'` favorite's label
+            // is a placeholder — the sidebar renders the live nav tree's label —
+            // so the machine-name text the renderer falls back to is enough here.
+            label: resolveNavItemLabel(item),
             href: deriveHref(item, basePath ?? ''),
             type: 'nav',
             navId: itemId,

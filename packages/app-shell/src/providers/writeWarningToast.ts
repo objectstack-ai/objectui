@@ -115,8 +115,24 @@ type StrippedLine = (t: TranslateFn, fields: string) => string;
  * shape the framework side of this seam uses (`service-automation`'s
  * `DROPPED_REASON_LABEL`), and the shape the spec's own schema comment asks every
  * consumer that branches on `reason` to use.
+ *
+ * ⭐ Keyed by the spec union WIDENED BY `'computed'`, and the widening is what
+ * lets one spelling compile against both specs this repository is checked
+ * against (objectui#11206). objectstack `b2805465` added the `computed` arm (a
+ * `formula` field's caller-supplied value, stripped on every write path); the
+ * published pin, `@objectstack/spec` 17.5.0, predates it, while the
+ * `Spec Main Shape Gate` compiles against objectstack `main`, which carries it.
+ * A bare `Record<DroppedFieldsEvent['reason'], …>` is exact in both directions,
+ * so the row is a missing key against `main` and an excess key (TS2353) against
+ * the pin; `satisfies` does not help, because it runs the same excess-property
+ * check on an object literal. The union with the one literal instead makes the
+ * required key set IDENTICAL on both sides — the pin's three plus `computed` —
+ * and still names the spec's union as the thing being covered, so the promise
+ * above holds on both: the NEXT arm upstream adds is a missing key here. When
+ * the pin reaches a release carrying `computed`, the `| 'computed'` is a no-op
+ * and is deleted; `writeWarningToast.test.ts` fails on that bump to say so.
  */
-const STRIPPED_LINE: Record<DroppedFieldsEvent['reason'], StrippedLine> = {
+const STRIPPED_LINE: Record<DroppedFieldsEvent['reason'] | 'computed', StrippedLine> = {
   readonly: (t: TranslateFn, fields: string) =>
     t('detail.writeStrippedReadonly', {
       fields,
@@ -133,6 +149,14 @@ const STRIPPED_LINE: Record<DroppedFieldsEvent['reason'], StrippedLine> = {
       fields,
       defaultValue:
         "The record's identifier cannot be changed by a save, so it did not take effect: {{fields}}",
+    }),
+  // Not a read-only lock either: the server computes a formula field on read and
+  // has nowhere to store a value for it, whoever sends one.
+  computed: (t: TranslateFn, fields: string) =>
+    t('detail.writeStrippedComputed', {
+      fields,
+      defaultValue:
+        'Calculated by the server from a formula, so the value sent did not take effect: {{fields}}',
     }),
 };
 

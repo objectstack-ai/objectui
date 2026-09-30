@@ -80,8 +80,10 @@ function seenFor(schema: object, hostProps: Record<string, unknown> = {}): Recor
 /**
  * Registry keys on the object arm. ⛔ Not re-derived here — these are
  * `recordSourceDataArmForType`'s rows, kept honest by the registry-derived pins
- * in `plugin-grid` and `plugin-map`; row 10 re-reads them through the predicate
- * itself so this file cannot drift from the table.
+ * in `plugin-grid`, `plugin-map`, `plugin-gantt` and `plugin-tree`; row 14
+ * re-reads them through the predicate itself so this file cannot drift from
+ * the table. The tree spellings joined the object arm with objectui#8348, when
+ * `ComponentPropsMap['object-tree']` began to declare the `ViewData` union.
  */
 const OBJECT_ARM_TYPES = [
   'object-grid',
@@ -91,11 +93,13 @@ const OBJECT_ARM_TYPES = [
   'plugin-map:object-map',
   'object-gantt',
   'plugin-gantt:object-gantt',
+  'object-tree',
+  'view:tree',
+  'tree',
 ] as const;
 const ARRAY_ARM_TYPES = ['object-calendar', 'view:calendar', 'calendar'] as const;
-const UNDECLARED_TYPES = ['object-tree', 'view:tree', 'tree'] as const;
 
-const ALL_PROBE_TYPES = [...OBJECT_ARM_TYPES, ...ARRAY_ARM_TYPES, ...UNDECLARED_TYPES];
+const ALL_PROBE_TYPES = [...OBJECT_ARM_TYPES, ...ARRAY_ARM_TYPES];
 
 describe('SchemaRenderer — the legacy `props` alias loses the `data` prop seat on the object arm (objectui#9758)', () => {
   beforeEach(() => {
@@ -161,7 +165,7 @@ describe('SchemaRenderer — the legacy `props` alias loses the `data` prop seat
     expect('data' in seen).toBe(false);
   });
 
-  it.each([...ARRAY_ARM_TYPES, ...UNDECLARED_TYPES])(
+  it.each([...ARRAY_ARM_TYPES])(
     '5. ⛔ CONTROL: %s is NOT on the object arm, so its aliased `data` keeps the prop seat verbatim',
     (type) => {
       const seen = seenFor({ type, id: `c-${type}`, props: { data: AUTHORED } });
@@ -295,6 +299,5 @@ describe('SchemaRenderer — the legacy `props` alias loses the `data` prop seat
   it('14. the reading itself: each spelling this file drives answers the arm its ladder call site passes', () => {
     for (const type of OBJECT_ARM_TYPES) expect(recordSourceDataArmForType(type)).toBe('view-data');
     for (const type of ARRAY_ARM_TYPES) expect(recordSourceDataArmForType(type)).toBe('array');
-    for (const type of UNDECLARED_TYPES) expect(recordSourceDataArmForType(type)).toBe('undeclared');
   });
 });

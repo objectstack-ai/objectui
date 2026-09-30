@@ -35,14 +35,16 @@
  *
  * ## What is refused now that was admitted before — measured, not implied
  *
- * The three keys the renderer reads THROUGH a cast (`requiredPermissions`,
- * `enforceFieldSecurity`, `redactFields`) are declared by no block the UI
- * contract maps; objectui#8649 routed them to the producer and ruled
- * "declare" off the table (`detailRendererUndeclaredKeys-8649.test.ts` ledgers
- * them). Their READS are untouched — each goes through its own cast. What the
- * narrowing refuses is a TYPED call site writing one of them into a `schema`
- * literal, which is the contract's own answer for these keys; the legs below
- * pin that as a reading.
+ * When this card landed, the three keys the renderer read THROUGH a cast
+ * (`requiredPermissions`, `enforceFieldSecurity`, `redactFields`) were declared
+ * by no block the UI contract mapped, and the narrowing refused a TYPED call
+ * site writing one of them into a `schema` literal — the contract's own answer
+ * then. That answer moved: `@objectstack/spec` 17.5.0 declares all three on
+ * `record:related_list`, and objectui#8649 declared them on the mirror and
+ * removed the casts. They are now ordinary mirror members, reached through the
+ * same `Omit` as every other, so the legs below that pinned the refusal now pin
+ * the acceptance — and a misspelling of any of them is refused like any other
+ * misspelled key.
  *
  * ## Which instrument settles what
  *
@@ -190,27 +192,52 @@ export const _everyMirrorMember: Schema = {
   showViewAll: true,
   actions: ['new'],
   add: { picker: { object: 'contact' }, linkField: 'contact_id', label: 'Add' },
+  enforceFieldSecurity: true,
+  redactFields: ['salary'],
+  requiredPermissions: ['crm.manage'],
   aria: { ariaLabel: 'Contacts' },
 };
 
-/* What the narrowing refuses at a TYPED call site: the three cast-read keys objectui#8649 routed to the producer. */
+/*
+ * The field-security triple at a TYPED call site. These three legs pinned the
+ * REFUSAL while the contract declared the keys on no block mapped onto this tag;
+ * `@objectstack/spec` 17.5.0 declares them on `record:related_list` and
+ * objectui#8649 aligned the mirror, so each is now accepted with the contract's
+ * type — and a wrong-typed value or a misspelling is refused, which the three
+ * `@ts-expect-error` rows below keep as readings.
+ */
 
-export const _requiredPermissionsRefused: Schema = {
+export const _requiredPermissionsAccepted: Schema = {
   relationshipField: 'account_id',
-  // @ts-expect-error objectui#9963 — `requiredPermissions` is declared by no block the contract maps onto this tag (objectui#8649); its read is a cast, its typed write is refused.
   requiredPermissions: ['crm.manage'],
 };
 
-export const _enforceFieldSecurityRefused: Schema = {
+export const _enforceFieldSecurityAccepted: Schema = {
   relationshipField: 'account_id',
-  // @ts-expect-error objectui#9963 — same standing as above (objectui#8649 ROUTED_KEYS).
   enforceFieldSecurity: true,
 };
 
-export const _redactFieldsRefused: Schema = {
+export const _redactFieldsAccepted: Schema = {
   relationshipField: 'account_id',
-  // @ts-expect-error objectui#9963 — same standing as above (objectui#8649 ROUTED_KEYS).
   redactFields: ['salary'],
+};
+
+export const _requiredPermissionsWrongTypeRefused: Schema = {
+  relationshipField: 'account_id',
+  // @ts-expect-error objectui#8649 — the contract declares `z.array(z.string())`; a bare string is refused.
+  requiredPermissions: 'crm.manage',
+};
+
+export const _enforceFieldSecurityWrongTypeRefused: Schema = {
+  relationshipField: 'account_id',
+  // @ts-expect-error objectui#8649 — the contract declares `z.boolean()`; the string spelling is refused.
+  enforceFieldSecurity: 'true',
+};
+
+export const _redactFieldsMisspelledRefused: Schema = {
+  relationshipField: 'account_id',
+  // @ts-expect-error objectui#8649 — a misspelling of a declared member is refused like any other undeclared key.
+  redactField: ['salary'],
 };
 
 /* ── Runtime legs: the two retained loosenesses are READ ─────────────────── */

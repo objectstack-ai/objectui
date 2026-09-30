@@ -41,9 +41,12 @@
  *
  * ## The instrument, stated rather than smuggled
  *
- * `enforceFieldSecurity` / `redactFields` are read off the block's schema with
- * `(schema as any)`. They are the ONLY switch that makes the fold run at all;
- * using them here is not a claim that they are a declared authoring surface.
+ * `enforceFieldSecurity` / `redactFields` are the ONLY switch that makes the fold
+ * run at all. When this file was written the block read them through
+ * `(schema as any)` and the contract declared neither; `@objectstack/spec` 17.5.0
+ * declares both on `record:details`, and objectui#8649 aligned the mirror and
+ * removed the cast. Their authoring standing comes from that declaration — this
+ * file uses them as the switch, and is not evidence either way.
  */
 
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';

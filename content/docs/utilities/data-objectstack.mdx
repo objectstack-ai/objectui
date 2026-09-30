@@ -338,7 +338,10 @@ its own:
 ```json
 {
   "type": "object-kanban",
-  "dataSource": { "object": "task", "filter": { "project": "acme" } }
+  "dataSource": {
+    "object": "task",
+    "filter": [{ "field": "project", "operator": "equals", "value": "acme" }]
+  }
 }
 ```
 

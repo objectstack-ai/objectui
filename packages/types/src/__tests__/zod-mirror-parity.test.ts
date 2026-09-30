@@ -364,7 +364,12 @@
  *     and 37 / 53 until objectui#7344 swept the string / `z.any()` handler mirrors:
  *     `DetailSchema` and `DetailViewSchema` entered (one `onBack` each) and
  *     `CalendarViewSchema` grew by `onEventClick`.
- *   - **12 entries** in `UnmirroredDeclared`, **81 keys** across them — 12 / 84 until
+ *   - **12 entries** in `UnmirroredDeclared`, **62 keys** across them — 12 / 81 until
+ *     objectui#6152 round 1 MIRRORED nineteen of `ObjectFormSchema`'s twenty-one keys,
+ *     each measured authored and READ (`ObjectForm` reads them off its schema, or
+ *     `ObjectView` / `RecordFormPage` / `ScreenView` relay them into the node it
+ *     reads): the entry kept `open` and `submitHandler`, so only the key total moved,
+ *     and the TypeScript face did not move at all; 12 / 84 until
  *     objectui#11068 MIRRORED `ObjectGridSchema.emptyState` (the grid reads it from that
  *     card on) and TOMBSTONED `rowSpecActions` / `bulkSpecActions` (second spellings
  *     nothing read): three keys off an entry that kept eleven, so only the key figure
@@ -2480,7 +2485,7 @@ interface KnownDrift {
  *
  * objectui#6058 seeded this ledger at **121 keys**, and — on ONE line, because the
  * pin below reads this sentence off disk —
- * **81 keys** is what this ledger records today.
+ * **62 keys** is what this ledger records today.
  * The movements between the two are different facts. objectui#6152 measured the 23
  * callback-shaped (`on*`) keys and ruled that mirroring is the wrong remedy for every
  * one of them;
@@ -2499,7 +2504,11 @@ interface KnownDrift {
  * keys — growth, and the only growth this ledger has seen since the seed. Then
  * objectui#7779 MIRRORED eight of `ObjectViewSchema`'s keys BY REFERENCE and RETIRED a
  * ninth (`viewTabBar`) — the largest single shrink, and the movement this docstring
- * did not follow: the figure above read 94, fully green, until objectui#8243.
+ * did not follow: the figure above read 94, fully green, until objectui#8243. Then
+ * objectui#6152 round 1 MIRRORED nineteen of `ObjectFormSchema`'s keys, each measured
+ * authored and read — larger than objectui#7779's shrink, and all of it by REPAIR.
+ * The entry stays, holding the two keys that round left open (`open`,
+ * `submitHandler`).
  *
  * ## The decomposition of "121" — a reading at NAMED REVISIONS, so it cannot rot
  *
@@ -2584,7 +2593,13 @@ interface KnownDrift {
  * explicit that forcing the 121 per-key decisions now would be wrong. Two splits
  * are recorded here so whoever works them off does not re-derive them:
  *
- *   - **SPEC-DERIVED (3 entries, 34 keys)** — it was 3 / 37 until objectui#11068 closed three
+ *   - **SPEC-DERIVED (4 entries, 16 keys)** — it was 4 / 35 until objectui#6152 round 1
+ *     MIRRORED nineteen of `ObjectFormSchema`'s keys: the entry kept two, so it stayed in
+ *     this half and only the keys moved. It was 3 / 34 until objectui#11070 declared nine
+ *     field-metadata members on `FormFieldSchema` by reference to the spec's `FieldSchema`:
+ *     none of them was in the ledger, so no key closed, but the spec reference re-derives
+ *     the pair's entry (its one key, `field`) into this half — the objectui#10993 membership
+ *     move again, with ZERO keys repaired. It was 3 / 37 until objectui#11068 closed three
  *     keys of `ObjectGridSchema`'s entry (`emptyState` mirrored, `rowSpecActions` /
  *     `bulkSpecActions` tombstoned), an entry that stayed. It was 2 / 16 until objectui#10993 MIRRORED
  *     five `ObjectFormSchema` members by reference to the spec's `I18nLabelSchema`: none
@@ -2653,7 +2668,9 @@ interface KnownDrift {
  *     spec schema does not model, which is objectui#2231's unification question and
  *     NOT a local mirror edit. They are marked, not exempted: exempting them in the
  *     instrument would re-blind exactly the pairs objectui#5927 leaned on hardest.
- *   - **LOCAL (9 entries, 47 keys)** — plain omissions from a hand-written mirror.
+ *   - **LOCAL (8 entries, 46 keys)** — plain omissions from a hand-written mirror.
+ *     It was 9 / 47 until objectui#11070 re-derived `FormFieldSchema`'s entry (one key)
+ *     into the SPEC-DERIVED half by membership: no key moved between ledgers.
  *     It was 10 / 68 until objectui#10993 re-derived `ObjectFormSchema`'s entry (21
  *     keys) into the SPEC-DERIVED half by membership: no key moved between ledgers.
  *     It was 11 / 69 until objectui#8072 MIRRORED `InputSchema.wrapperClass`: the entry's
@@ -2706,10 +2723,13 @@ interface KnownDrift {
  * `ObjectViewSchema.listViews`, that entry's last key, by reference: the SPEC-DERIVED
  * half lost the entry, and the LOCAL half did not move. objectui#10993 then moved
  * `ObjectFormSchema`'s entry (21 keys) from the LOCAL half to the SPEC-DERIVED one by
- * membership alone, without moving the totals. The seeded pair is no longer
+ * membership alone, without moving the totals, and objectui#11070 moved
+ * `FormFieldSchema`'s entry (one key) the same way. objectui#6152 round 1 then MIRRORED
+ * nineteen of `ObjectFormSchema`'s keys: the SPEC-DERIVED half lost keys and no entry,
+ * and the LOCAL half did not move. The seeded pair is no longer
  * among them, and the ledger now totals — on ONE line, because the pin below reads
  * this sentence off disk —
- * **12 entries / 81 keys** — 3 / 34 spec-derived, 9 / 47 local.
+ * **12 entries / 62 keys** — 4 / 16 spec-derived, 8 / 46 local.
  *
  * ⛔ The four split figures above and this totals line are PINNED: 'objectui#7279'
  * at the bottom of this file derives every one of them from the `UnmirroredDeclared`
@@ -2797,7 +2817,13 @@ interface UnmirroredDeclared {
     | 'page' | 'rowActionDefs' | 'rowClassName'
     | 'rowCount' | 'rowStyle' | 'search' | 'selectionResetKey' | 'selectionStyle'
     | 'showAddRow' | 'showSelectionCount' | 'singleClickEdit' | 'sort';
-  /** LOCAL. */
+  /**
+   * SPEC-DERIVED by MEMBERSHIP since objectui#11070, LOCAL before it: that card declared
+   * nine field-metadata members by reference to the spec's `FieldSchema`, so
+   * `SPEC_DERIVED_PAIRS` re-derives the pair into that half. ⚠️ `field` itself did not
+   * move and is not a spec key here: it is the resolved object-field metadata stash,
+   * kept out of the authorable surface on purpose (objectui#6609).
+   */
   'form.zod.ts#FormFieldSchema': 'field';
   /**
    * LOCAL. `fields` is in `KnownDrift` above (mirrored, drifted in TYPE; `mode` sat
@@ -2825,24 +2851,40 @@ interface UnmirroredDeclared {
   // entry above (`onRowClick`, a runtime slot the mirror refuses by name) and records
   // nothing here.
   /**
-   * SPEC-DERIVED by MEMBERSHIP since objectui#10993, LOCAL before it, and still the
-   * second-largest at 21. That card mirrored five `I18nLabel` members BY REFERENCE to
-   * the spec's `I18nLabelSchema`, none of them in this entry, which puts a `Spec…`
-   * symbol in the mirror's initializer: the `ObjectGridSchema` (objectui#7762) shape.
-   * ⚠️ Read the half as MEMBERSHIP, not as a remedy: these 21 keys are still plain
-   * hand-written omissions on a `BaseSchema.extend({…})` mirror. `nextText` and
-   * `prevText` are the row's other two `I18nLabel` members, left unmirrored by that
-   * card on purpose (`object-form-i18n-label-members-10993.test.ts` records it).
-   * It was 26: the five `on*` keys are in
+   * SPEC-DERIVED by MEMBERSHIP since objectui#10993, LOCAL before it. That card
+   * mirrored five `I18nLabel` members BY REFERENCE to the spec's `I18nLabelSchema`,
+   * none of them in this entry, which puts a `Spec…` symbol in the mirror's
+   * initializer: the `ObjectGridSchema` (objectui#7762) shape. ⚠️ Read the half as
+   * MEMBERSHIP, not as a remedy: the keys below are plain hand-written omissions on a
+   * `BaseSchema.extend({…})` mirror.
+   *
+   * It was 21 until objectui#6152 round 1 MIRRORED nineteen of them — the ledger's
+   * largest single shrink by REPAIR. Each was measured authored (a document, the
+   * object-view `form` slot, or a form view relayed into the node) and READ (`ObjectForm`
+   * reads the variant keys off `schema.*`; `buttons` / `defaults` / `subforms` through
+   * casts after `ObjectView` / `RecordFormPage` / `ScreenView` relay them), and is shaped
+   * as the twin declares it, `nextText` / `prevText` by reference to the spec's
+   * `I18nLabelSchema` as objectui#10993 bound their five siblings. The two keys left
+   * are the entry's MEASURED EXCEPTIONS, and mirroring repairs neither:
+   *
+   *   - `submitHandler` — a FUNCTION slot `ObjectForm` calls in place of the data
+   *     source's write (`await schema.submitHandler(…)`), supplied in code by
+   *     `MasterDetailForm` and authored nowhere. objectui#6182 ruled the handler-string
+   *     dialect out, so it is ⛔ never mirrored as a string; and `RuntimeOnlyDeclared`'s
+   *     shape pin admits `/^on[A-Z]/` spellings only, so filing it there means relaxing
+   *     that pin — a ruling, not a refiling. Its route is open on objectui#6152.
+   *   - `open` — a BOOLEAN the drawer and modal variants read (`open: schema.open`),
+   *     written only by hosts that build the node in code (`AppContent`,
+   *     `useActionModal`, `ObjectManager`, `FieldDesigner`), authored in no document, and
+   *     outside the spec's `ComponentPropsMap['object-form']`. Not callback-shaped, so
+   *     not `RuntimeOnlyDeclared`'s either; its route is open on objectui#6152.
+   *
+   * It was 26 before that: the five `on*` keys are in
    * `RuntimeOnlyDeclared` below (objectui#6152). ⚠️ `submitHandler` is NOT among them
    * — the reclassification took the measured `/^on[A-Z]/` set and nothing else, so a
-   * handler-shaped key with another name stays here until someone measures it.
+   * handler-shaped key with another name stayed here until round 1 measured it.
    */
-  'objectql.zod.ts#ObjectFormSchema':
-    | 'allowSkip' | 'buttons' | 'defaultTab' | 'defaults' | 'drawerSide' | 'drawerWidth'
-    | 'formType' | 'mobile' | 'modalCloseButton' | 'modalSize' | 'nextText' | 'open' | 'prevText'
-    | 'sections' | 'showStepIndicator' | 'splitDirection' | 'splitResizable' | 'splitSize'
-    | 'subforms' | 'submitHandler' | 'tabPosition';
+  'objectql.zod.ts#ObjectFormSchema': 'open' | 'submitHandler';
   /**
    * SPEC-DERIVED by MEMBERSHIP since objectui#7762, LOCAL before it: that card mirrored
    * `exportOptions` as the spec's OBJECT ARM by reference, which puts a `Spec…` symbol in
@@ -2895,7 +2937,7 @@ interface UnmirroredDeclared {
  *
  * `UnmirroredDeclared` above was seeded at **121 keys** by objectui#6058, and — on
  * ONE line, because the pin below reads this sentence off disk —
- * `UnmirroredDeclared` records **81 keys** today.
+ * `UnmirroredDeclared` records **62 keys** today.
  * These 23 moved here whole. Keys have since left that ledger by MIRRORING and by
  * RETIREMENT, but the move recorded HERE is neither and repaired nothing. ⛔ Nothing
  * was mirrored by it, no declaration was removed, no defect was repaired and nothing was
@@ -4043,6 +4085,25 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "spec-owned BY REFERENCE — `BaseSchema` + the `element:button` literal + `properties`, which IS `ComponentPropsMap['element:button']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ElementDividerBlockSchema':
     "spec-owned, RESTATED — `BaseSchema` + the `element:divider` literal + a member-less strict `properties`, because `@objectstack/spec/ui` exports `ComponentPropsMap['element:divider']` under no name to read by reference; its key set and accept set are pinned to the row's in `./public-block-arms-10872.test.ts`, and no TS declaration in this package restates the node",
+  // objectui#10872 batch 4 — the six blocks held until `@objectstack/spec`
+  // 17.5.0 carried their rows. Same shape as the rows above;
+  // `action:button` / `action:icon` add the two handler keys their renderers
+  // read off the node. `action:group` / `action:menu` have renderer-side
+  // interfaces in `@object-ui/components`, outside this package. The
+  // objectui#9256 channel refusals reached them in objectui#10872 batch 5,
+  // pinned in `./held-block-content-channels-10872.test.ts`.
+  'public-blocks.zod.ts#ElementDefinitionListBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `element:definition-list` literal + `properties`, which IS `ComponentPropsMap['element:definition-list']`, + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#ElementRepeaterBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `element:repeater` literal + `properties`, which IS `ComponentPropsMap['element:repeater']`, + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#ActionButtonBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `action:button` literal + `properties`, which IS `ComponentPropsMap['action:button']`, + the `onClick` runtime-slot refusal (objectui#6124) and the flat-`onSuccess` alias refusal naming `properties.onSuccess`, the two handler keys its renderer reads off the node, + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#ActionIconBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `action:icon` literal + `properties`, which IS `ComponentPropsMap['action:icon']`, + the `onClick` runtime-slot refusal (objectui#6124) and the flat-`onSuccess` alias refusal naming `properties.onSuccess`, the two handler keys its renderer reads off the node, + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#ActionGroupBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `action:group` literal + `properties`, which IS `ComponentPropsMap['action:group']`, + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#ActionMenuBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `action:menu` literal + `properties`, which IS `ComponentPropsMap['action:menu']`, + the objectui#9256 `body` / `children` refusals (objectui#10872 batch 5; its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#PublicBlockComponentSchema':
     "a union OVER the public-block arms, not an object of its own — its members are accounted for individually above",
   // objectui#10919 — the `cloud:plan-status` widget's arm, declared locally from
@@ -4233,6 +4294,12 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // reference (the axis config object `ChartConfigSchema` declares), so a spec
   // bump that moves the axis vocabulary moves ONE side of this pair.
   'data-display.zod.ts#ChartSchema',
+  // objectui#11070: nine of the field-metadata members a hand-authored form
+  // writes on the entry itself are the spec's `FieldSchema` members by
+  // reference (`multiple`, `rows`, `accept`, `dimensions`, `reference`, `min`,
+  // `max`, `minLength`, `maxLength`), so a spec bump that moves one of those field
+  // keys moves ONE side of this pair. The first spec reference in this mirror.
+  'form.zod.ts#FormFieldSchema',
   'form.zod.ts#SelectOptionSchema',
   'layout.zod.ts#PageNodeSchema',
   // ⭐ ONE entry, SIX spec crossings over FIVE spec symbols — three cards put
@@ -4277,6 +4344,13 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // `SpecListViewSchema.shape.exportOptions` (the two-arm union) so the bare-array arm,
   // which LIFTS, is left behind and refused by name on this node instead.
   'objectql.zod.ts#ObjectGridSchema',
+  // objectui#11070: `dataSource` is the spec's `ElementDataSourceSchema` by
+  // reference (the per-element binding `PageComponentSchema.dataSource`
+  // declares) — the first spec reference in this mirror. `ObjectGridSchema`,
+  // `ObjectFormSchema`, `ListViewSchema`, `ObjectGanttSchema`,
+  // `ObjectMapSchema` and `ObjectCalendarSchema` gained the same member and
+  // were already spec-derived.
+  'objectql.zod.ts#ObjectKanbanSchema',
   'objectql.zod.ts#ObjectMapSchema',
   // objectui#7779: BACK, by a real code reference this time — `navigation`,
   // `searchableFields` and `filterableFields` are `SpecListViewSchema.shape.*`

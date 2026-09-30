@@ -18,7 +18,7 @@
 
 import { z } from 'zod';
 import { aliasKeyRefusal, handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
-import { SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
+import { FieldSchema as SpecFieldSchema, SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 // The predicate wire shape (`string | { dialect?, source }`, #2212) was a
 // module-private const here until objectui#7530 hoisted it into
@@ -959,6 +959,25 @@ export const FormFieldSchema = z.object({
   span: z.enum(['auto', 'full']).optional().describe('Relative field width'),
   fields: z.array(z.string()).optional()
     .describe('Section grouping claim (objectui#6236) — section-divider rows only: names of the fields the section claims (the FormFieldTab.fields membership shape); the divider predicate then gates the whole group'),
+  // objectui#11070 — field metadata a hand-authored form writes on the entry
+  // itself, which the renderer hands to each field widget as its metadata
+  // carrier. Every member but `pattern` is the spec's `FieldSchema` member BY
+  // REFERENCE (values, checks and `.describe()` text included), so it cannot
+  // drift from the key the widgets were written against. The reads, and the
+  // read keys deliberately NOT declared, are reasoned on the TS twin.
+  multiple: stripImportedDefaults(SpecFieldSchema).shape.multiple,
+  rows: stripImportedDefaults(SpecFieldSchema).shape.rows,
+  accept: stripImportedDefaults(SpecFieldSchema).shape.accept,
+  dimensions: stripImportedDefaults(SpecFieldSchema).shape.dimensions,
+  // The spec spelling of a lookup / user field's target object; the legacy
+  // `reference_to` is read too and deliberately stays undeclared (objectui#11070).
+  reference: stripImportedDefaults(SpecFieldSchema).shape.reference,
+  min: stripImportedDefaults(SpecFieldSchema).shape.min,
+  max: stripImportedDefaults(SpecFieldSchema).shape.max,
+  minLength: stripImportedDefaults(SpecFieldSchema).shape.minLength,
+  maxLength: stripImportedDefaults(SpecFieldSchema).shape.maxLength,
+  pattern: z.string().optional()
+    .describe('Regular expression the value must match, as a string (JSON has no RegExp) — the built-in input branch puts it on the native control as `pattern`; the field-level spelling the `validation.pattern` refusal directs JSON authors to'),
 }).superRefine((field, ctx) => {
   // objectui#5449 — the namespace rule `@object-ui/core` has enforced since
   // objectui#5375, stated here so `objectui validate` (which reaches this
@@ -994,6 +1013,10 @@ export const FormSchema = BaseSchema.extend({
   submitLabel: z.string().optional().describe('Submit button label'),
   cancelLabel: z.string().optional().describe('Cancel button label'),
   showCancel: z.boolean().optional().describe('Show cancel button'),
+  // objectui#11070 — read by the `form` renderer (destructured off the node,
+  // default `true`; the submit button renders only while it holds) and
+  // refused by the strict authoring face until declared here.
+  showSubmit: z.boolean().optional().describe('Show the submit button (default true); `false` renders the fields with no submit button'),
   layout: z.enum(['vertical', 'horizontal', 'grid']).optional().describe('Form layout'),
   columns: z.number().optional().describe('Number of columns (for grid layout)'),
   validationMode: z.enum(['onSubmit', 'onChange', 'onBlur', 'onTouched', 'all']).optional().describe('Validation mode'),

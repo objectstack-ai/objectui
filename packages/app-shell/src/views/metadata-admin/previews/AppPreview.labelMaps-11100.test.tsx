@@ -16,8 +16,10 @@
  *     the text resolved for the designer locale, under en and zh, with no
  *     `[object Object]` anywhere; the nav item keeps its target;
  *   - plain strings are the control, and read as they always did;
- *   - a label that is truly absent (or resolves to nothing) still reads
- *     `(unnamed)`, but never decides whether an entry with a target exists;
+ *   - a label that resolves to nothing still reads `(unnamed)`, but never
+ *     decides whether an entry with a target exists. A label that is truly
+ *     ABSENT is not unnamed: the entry shows the text it inherits
+ *     (objectui#11196, pinned in `AppPreview.labelInherits-11196.test.tsx`);
  *   - the app label resolves in design mode too.
  */
 
@@ -107,7 +109,7 @@ describe('AppPreview resolves locale-map labels in the designer locale (objectui
   });
 
   for (const locale of ['en-US', 'zh-CN']) {
-    it(`keeps ${locale} "(unnamed)" for a truly absent label, but never drops an entry that has a target`, () => {
+    it(`keeps ${locale} "(unnamed)" for a label that resolves to nothing, inherits for an absent one, and never drops an entry that has a target`, () => {
       const unnamed = t('engine.appPreview.unnamed', locale);
       renderApp(
         {
@@ -127,9 +129,15 @@ describe('AppPreview resolves locale-map labels in the designer locale (objectui
         locale,
       );
 
-      expect(screen.getAllByText(unnamed)).toHaveLength(3);
-      expect(screen.getByText('lead')).toBeTruthy();
+      // Only the empty map reads unnamed. The two absent labels inherit
+      // (objectui#11196): the group its id, the object its machine name, which
+      // the row also prints as its target.
+      expect(screen.getAllByText(unnamed)).toHaveLength(1);
+      expect(screen.getByText('admin')).toBeTruthy();
+      expect(screen.getAllByText('lead')).toHaveLength(2);
       expect(screen.getByText('deal')).toBeTruthy();
+      // No label, no children, no target: still not listed.
+      expect(screen.queryByText('ghost')).toBeNull();
       expect(document.body.textContent).not.toContain('[object Object]');
     });
   }

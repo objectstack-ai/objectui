@@ -20,6 +20,10 @@
  *
  *  - a label-less page shows its `pageName`, a dashboard its `dashboardName`,
  *    a group its `id`;
+ *  - the wizard holds its objects' labels, and hands them to the rule as the
+ *    host's target resolver: a label-less object entry shows its object's
+ *    label, and one whose object the wizard does not list shows its
+ *    `objectName`;
  *  - CONTROL: an authored label renders verbatim;
  *  - the row's inline rename shows the inherited text as a placeholder, and
  *    leaving it empty writes nothing.
@@ -81,7 +85,16 @@ describe("objectui#11196 — the app wizard's Navigation step names a label-less
   it('lists each entry by its inherited text, and an authored label verbatim', () => {
     render(
       <AppCreationWizard
-        initialDraft={{ name: 'acme_crm', title: 'Acme CRM', navigation: ITEMS }}
+        availableObjects={[{ name: 'contact', label: 'Contact', pluralLabel: 'Contacts' }]}
+        initialDraft={{
+          name: 'acme_crm',
+          title: 'Acme CRM',
+          navigation: [
+            ...ITEMS,
+            { id: 'nav_contacts', type: 'object', objectName: 'contact' },
+            { id: 'nav_leads', type: 'object', objectName: 'lead' },
+          ],
+        }}
         onComplete={() => {}}
       />,
     );
@@ -92,5 +105,10 @@ describe("objectui#11196 — the app wizard's Navigation step names a label-less
     for (const [id, text] of INHERITED) {
       expect(within(step).getByTestId(`nav-item-${id}`).textContent).toContain(text);
     }
+    // The object's label, from the wizard's own list, as the console's sidebar shows it.
+    // Exact text: the object's `label`, never the `pluralLabel` the old generated entries stored.
+    expect(within(within(step).getByTestId('nav-item-nav_contacts')).getByText('Contact')).toBeTruthy();
+    // An object the wizard does not list: the rule's machine-name rung.
+    expect(within(within(step).getByTestId('nav-item-nav_leads')).getByText('lead')).toBeTruthy();
   });
 });

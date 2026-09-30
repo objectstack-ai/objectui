@@ -405,12 +405,12 @@ describe('Interfaces page inspector — a save in flight across a page switch (o
     if (offered) editText(offered, 'Typed during load');
     await pastDebounce();
     expect(server.saves.map((s) => [s.type, s.name, s.body.label])).toEqual([['page', 'home', 'Welcome']]);
-    expect(offered).toBeNull();
 
     await releaseLoad();
     await waitFor(async () => expect(await pageLabel()).toHaveValue('Landing'), SLOW);
     await pastDebounce(1800);
     expect(server.saves.map((s) => [s.type, s.name, s.body.label])).toEqual([['page', 'home', 'Welcome']]);
+    expect(offered).toBeNull();
   }, 30000);
 });
 
@@ -583,8 +583,9 @@ const startLabelOf = (body: Record<string, unknown>) =>
 
 describe("the load window: nothing of the previous item is offered, shown or saved under the next one (objectui#11272)", () => {
   // Whatever a pillar still offers while the next item's load is held, the
-  // author can use. So each sequence USES it when it is there: what reaches
-  // the server is the reading, and a later assertion says what was offered.
+  // author can use. So each sequence USES it when it is there, and records
+  // what was shown: every save reading is taken first, and what was shown is
+  // asserted last.
 
   it('Interfaces page inspector: the page form typed into during the load sends nothing; the edit after the load saves once', async () => {
     render(
@@ -602,9 +603,10 @@ describe("the load window: nothing of the previous item is offered, shown or sav
     if (offered) editText(offered, 'Typed during load');
     await pastDebounce();
     expect(savesRead()).toEqual([]);
-    // Nothing of `home` is shown under `landing` until its own document is in.
-    expect(rail().queryByLabelText(/^Label/)).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Select hello' })).toBeNull();
+    const shownDuringLoad = {
+      pageForm: rail().queryByLabelText(/^Label/) !== null,
+      homeBlock: screen.queryByRole('button', { name: 'Select hello' }) !== null,
+    };
 
     await release();
     await waitFor(() => expect(rail().getByLabelText(/^Label/)).toHaveValue('Landing'), SLOW);
@@ -617,6 +619,8 @@ describe("the load window: nothing of the previous item is offered, shown or sav
     expect(server.saves.map((s) => [s.type, s.name, s.body.label, s.body.regions])).toEqual([
       ['page', 'landing', 'Landing two', LANDING.regions],
     ]);
+    // Nothing of `home` was shown under `landing` until its own document was in.
+    expect(shownDuringLoad).toEqual({ pageForm: false, homeBlock: false });
   }, 30000);
 
   it("Automations: the enable switch flipped during the load saves nothing; after the load it saves the flow's own document once", async () => {
@@ -633,8 +637,7 @@ describe("the load window: nothing of the previous item is offered, shown or sav
     if (offered && !offered.hasAttribute('disabled')) fireEvent.click(offered);
     await pastDebounce();
     expect(savesRead()).toEqual([]);
-    // The switch reads the open flow's status: it is not offered on another's.
-    expect(screen.queryByRole('switch')).toBeNull();
+    const shownDuringLoad = { enableSwitch: screen.queryByRole('switch') !== null };
 
     await release();
     await waitFor(() => expect(document.querySelector('[data-node-id="start"]')).toHaveTextContent('Begin'), SLOW);
@@ -648,6 +651,8 @@ describe("the load window: nothing of the previous item is offered, shown or sav
     expect(server.saves.map((s) => [s.type, s.name, s.body.label, startLabelOf(s.body), s.body.status])).toEqual([
       ['flow', 'nightly_digest', 'Nightly digest', 'Begin', 'obsolete'],
     ]);
+    // The switch reads the open flow's status: it was not offered on another's.
+    expect(shownDuringLoad).toEqual({ enableSwitch: false });
   }, 30000);
 
   it('Data: a field added during the load saves nothing; one added after the load saves once, to the object opened', async () => {
@@ -664,9 +669,10 @@ describe("the load window: nothing of the previous item is offered, shown or sav
     if (offered) fireEvent.click(offered);
     await pastDebounce();
     expect(savesRead()).toEqual([]);
-    // No field count or add-field of `acme_task` under `acme_note`.
-    expect(screen.queryByText(/^\d+ fields$/)).toBeNull();
-    expect(screen.queryByTitle(/^Add a field/)).toBeNull();
+    const shownDuringLoad = {
+      fieldCount: screen.queryByText(/^\d+ fields$/) !== null,
+      addField: screen.queryByTitle(/^Add a field/) !== null,
+    };
 
     await release();
     await waitFor(() => expect(screen.getByText(/^\d+ fields$/)).toHaveTextContent('1 fields'), SLOW);
@@ -679,6 +685,8 @@ describe("the load window: nothing of the previous item is offered, shown or sav
     expect(server.saves.map((s) => [s.type, s.name, s.body.label, fieldNamesOf(s.body)])).toEqual([
       ['object', 'acme_note', 'Note', ['body', 'field_2']],
     ]);
+    // No field count or add-field of `acme_task` was shown under `acme_note`.
+    expect(shownDuringLoad).toEqual({ fieldCount: false, addField: false });
   }, 30000);
 });
 

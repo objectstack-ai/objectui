@@ -120,9 +120,12 @@ export default function DocsSlug() {
     return <Navigate to={`${base}/${bookSlug(named)}`} replace />;
   }
 
-  // A doc or book the member may not read: the server's refusal, in place.
-  if (answer?.slug === slug && answer.refusal !== null) {
-    return <DocRefusal name={slug} message={answer.refusal} />;
+  // A doc or book the member may not read: the server's refusal, in place. No
+  // answer for this segment (none was asked, or it was not a refusal) leaves the
+  // portal's own answer below standing.
+  const refusal = answer !== null && answer.slug === slug ? answer.refusal : null;
+  if (refusal !== null) {
+    return <DocRefusal name={slug} message={refusal} />;
   }
 
   // The name-prefix fallback for a name no installed doc carries (unchanged).

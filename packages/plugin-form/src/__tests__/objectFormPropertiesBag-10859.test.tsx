@@ -65,10 +65,13 @@ function makeAdapter() {
   };
 }
 
+type ProviderDataSource = React.ComponentProps<typeof SchemaRendererProvider>['dataSource'];
+type RenderedSchema = React.ComponentProps<typeof SchemaRenderer>['schema'];
+
 const draw = (schema: Record<string, unknown>, adapter: ReturnType<typeof makeAdapter>) =>
   render(
-    <SchemaRendererProvider dataSource={adapter as any}>
-      <SchemaRenderer schema={schema as any} />
+    <SchemaRendererProvider dataSource={adapter as unknown as ProviderDataSource}>
+      <SchemaRenderer schema={schema as unknown as RenderedSchema} />
     </SchemaRendererProvider>,
   );
 

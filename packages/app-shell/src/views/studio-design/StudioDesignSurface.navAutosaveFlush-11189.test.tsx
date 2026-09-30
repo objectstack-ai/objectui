@@ -26,6 +26,12 @@
  * `beforeunload` it cancels while the pillar reports unsaved nav edits).
  * objectui#11167's read-only close has its own suite, unmodified, and is the
  * control for the close path.
+ *
+ * objectui#11196 re-judged what an Add appends: a new canvas entry is born
+ * with no `label` (it was born "New item"), so the rail shows it by its `id`
+ * (`nav_item_3`, `nav_item_4`: the fixture has two entries) and a save carries
+ * it with no `label` key. The counts and the saves below read that; what they
+ * pin is unchanged.
  */
 
 import '@testing-library/jest-dom/vitest';
@@ -209,9 +215,12 @@ function rail(): HTMLElement {
   return innermost[0];
 }
 
-/** How many appended items the rail shows: a canvas row each while editing, a tree entry each in view mode. */
+/**
+ * How many appended items the rail shows: a canvas row each while editing, a
+ * tree entry each in view mode. A label-less new entry shows its `id`.
+ */
 function addedItemsInRail(): number {
-  return (rail().textContent ?? '').split('New item').length - 1;
+  return (rail().textContent ?? '').match(/nav_item_\d+/g)?.length ?? 0;
 }
 
 /** True while the surface's leave guard holds unsaved nav edits (it cancels `beforeunload`). */
@@ -236,9 +245,15 @@ async function clickDone(): Promise<void> {
   });
 }
 
-/** The labels of the navigation the n-th app save carried (1-based). */
-function savedLabels(n: number): string[] {
-  return (server.appSaves[n - 1]?.navigation ?? []).map((item) => String(item.label));
+/**
+ * The navigation the n-th app save carried (1-based), one entry per item: its
+ * label, or `{ id }` for an entry saved with no `label` key (a new canvas
+ * entry, objectui#11196).
+ */
+function savedEntries(n: number): Array<string | { id: unknown }> {
+  return (server.appSaves[n - 1]?.navigation ?? []).map((item) =>
+    Object.prototype.hasOwnProperty.call(item, 'label') ? String(item.label) : { id: item.id },
+  );
 }
 
 describe('Studio surface — "Done" sends a shown nav edit (objectui#11189)', () => {
@@ -253,7 +268,7 @@ describe('Studio surface — "Done" sends a shown nav edit (objectui#11189)', ()
     await clickDone();
     // Sent at once — not left to a timer that closing editing would clear.
     expect(server.appSaves).toHaveLength(1);
-    expect(savedLabels(1)).toEqual(['Home menu', 'Landing menu', 'New item']);
+    expect(savedEntries(1)).toEqual(['Home menu', 'Landing menu', { id: 'nav_item_3' }]);
     // The close waits for the send: editing stays open, and the guard holds.
     expect(navEditingOpen()).toBe(true);
     expect(leaveGuarded()).toBe(true);
@@ -315,7 +330,7 @@ describe('Studio surface — an edit taken while a nav save is in flight (object
 
     await release();
     // The completed save carried item 1 only; item 2 is still on screen and unsent.
-    expect(savedLabels(1)).toEqual(['Home menu', 'Landing menu', 'New item']);
+    expect(savedEntries(1)).toEqual(['Home menu', 'Landing menu', { id: 'nav_item_3' }]);
     await waitFor(
       () => expect(mockClient.getDraft.mock.calls.filter(([t, n]) => t === 'app' && n === APP.name).length).toBeGreaterThan(1),
       { timeout: 8000 },
@@ -327,7 +342,7 @@ describe('Studio surface — an edit taken while a nav save is in flight (object
 
     // The next save carries both items, and then the guard lets go.
     await waitFor(() => expect(server.appSaves).toHaveLength(2), { timeout: 8000 });
-    expect(savedLabels(2)).toEqual(['Home menu', 'Landing menu', 'New item', 'New item']);
+    expect(savedEntries(2)).toEqual(['Home menu', 'Landing menu', { id: 'nav_item_3' }, { id: 'nav_item_4' }]);
     await waitFor(() => expect(leaveGuarded()).toBe(false), { timeout: 8000 });
     expect(addedItemsInRail()).toBe(2);
     expect(server.drafts.get(key('app', APP.name))?.navigation).toHaveLength(NAV.length + 2);
@@ -351,7 +366,7 @@ describe('Studio surface — an edit taken while a nav save is in flight (object
     await releaseFirst();
     // The later edit goes out as soon as the first save lands, not a debounce later.
     await waitFor(() => expect(server.appSaves).toHaveLength(2), { timeout: 1000 });
-    expect(savedLabels(2)).toEqual(['Home menu', 'Landing menu', 'New item', 'New item']);
+    expect(savedEntries(2)).toEqual(['Home menu', 'Landing menu', { id: 'nav_item_3' }, { id: 'nav_item_4' }]);
     expect(navEditingOpen()).toBe(true);
     expect(leaveGuarded()).toBe(true);
 
@@ -389,6 +404,6 @@ describe('Interfaces pillar — a re-read of the same package over an unsent nav
     expect(addedItemsInRail()).toBe(1);
 
     await waitFor(() => expect(server.appSaves).toHaveLength(1), { timeout: 8000 });
-    expect(savedLabels(1)).toEqual(['Home menu', 'Landing menu', 'New item']);
+    expect(savedEntries(1)).toEqual(['Home menu', 'Landing menu', { id: 'nav_item_3' }]);
   });
 });

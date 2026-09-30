@@ -275,23 +275,30 @@ export function AppNavCanvas({
 
   const addItem = React.useCallback(() => {
     if (!onPatch) return;
-    const newLabel = t('engine.appNav.newItem', locale);
     // Spec invariants from birth (#2245): a snake_case `id` and a `type`
     // (object is the 80% case per the app-composition guide) — never the
     // old `{label, path:''}` placeholder that failed save validation. The
     // item completes once the inspector's object picker fills `objectName`.
+    //
+    // Born with NO `label` (objectui#11196). An absent label inherits, so the
+    // card shows the entry's `id` until a target is bound and then that
+    // target's current label, as the console draws it. It used to be born
+    // with a localized "New item" label: a placeholder STORED as the author's
+    // label, which a present label renders verbatim, so an entry bound to an
+    // object kept saying "New item" wherever the pickers did not recognise the
+    // sentinel. A producer does not write a placeholder as a label.
     const taken = new Set(items.map((it) => (typeof it.id === 'string' ? it.id : '')).filter(Boolean));
     let navId = `nav_item_${items.length + 1}`;
     for (let n = items.length + 2; taken.has(navId); n++) navId = `nav_item_${n}`;
-    const newItem: RawNav = { id: navId, type: 'object', label: newLabel };
+    const newItem: RawNav = { id: navId, type: 'object' };
     const next = appendArray(items, newItem);
     setItems(next);
     onSelectionChange?.({
       kind: 'nav',
       id: `${rootKey}[${next.length - 1}]`,
-      label: newLabel,
+      label: navLabel(newItem, next.length - 1, locale, targetLabel),
     });
-  }, [onPatch, items, setItems, rootKey, onSelectionChange, locale]);
+  }, [onPatch, items, setItems, rootKey, onSelectionChange, locale, targetLabel]);
 
   const removeItem = React.useCallback(
     (index: number) => {

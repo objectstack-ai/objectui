@@ -85,7 +85,8 @@ describe('StudioNavItemInspector — object binding (objectui#4881)', () => {
   });
 
   it('picking an object writes a nav item the spec accepts whole', () => {
-    const onNavPatch = renderInspector({ id: 'nav_lead', type: 'object', label: 'New item' });
+    // The entry as the canvas births it: label-less since objectui#11196.
+    const onNavPatch = renderInspector({ id: 'nav_lead', type: 'object' });
     fireEvent.change(screen.getByRole('combobox'), { target: { value: 'crm_lead' } });
 
     expect(onNavPatch).toHaveBeenCalledTimes(1);

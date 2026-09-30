@@ -1,4 +1,5 @@
 import React from 'react';
+import { resolveFieldScale } from '@objectstack/spec/data';
 import { Input, Slider, EmptyValue, cn } from '@object-ui/components';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
@@ -58,7 +59,7 @@ const storedFraction = (displayValue: number): number => {
 
 /**
  * PercentField - Percentage input whose decimal places follow the field's
- * declared `scale` (see the read below)
+ * `scale` as the protocol resolves it (see the read below)
  * Stores values as decimals (0-1) and displays as percentages (0-100%)
  * Includes a slider for interactive control.
  */
@@ -85,27 +86,42 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
    * currency's own ISO 4217 minor-unit count, and that widget reads neither
    * `precision` nor `scale` for them (objectui#10276).
    *
-   * `typeof`, not truthiness: `scale: 0` is a valid declaration (a percent
-   * field that edits whole percents) and `||` would silently drop it — the
-   * reason `NumberField` guards its own read the same way, and the guard the
-   * `max` read below already uses. `??` would keep a `0` too, but it also
-   * keeps a `scale: "2"` arriving from JSON metadata, and inventing a width
-   * from a string is the consumer-side guessing AGENTS.md #0.1 refuses.
+   * A declared `scale: 0` is a valid declaration (a percent field that edits
+   * whole percents) and is honoured; a `scale: "2"` arriving from JSON
+   * metadata is not a declaration, and inventing a width from a string is the
+   * consumer-side guessing AGENTS.md #0.1 refuses. Both judgements are the
+   * resolver's below, not this widget's: it applies the same well-formedness
+   * door the platform's record validator does.
    *
-   * An ABSENT `scale` keeps this widget's own 2. The repair moves the MEMBER
-   * that is read and nothing else, so it is invisible to every percent field
-   * that declares neither member. ⚠️ Stated rather than papered over: that
-   * leaves this widget and `PercentCellRenderer` still disagreeing when
-   * nothing is declared — the cell spells the same absence `0` and pins it —
-   * which is a disagreement objectui#9568 explicitly declines to make a
-   * premise and this change neither widens nor closes. Whether the two faces
-   * should agree at all needs its own ruling, not a side effect of this one.
+   * An ABSENT `scale` is the PROTOCOL's to answer (objectui#9843). This widget
+   * used to keep its own `2` for it while `PercentCellRenderer` spelled the
+   * same absence `0`, so one stored `0.25` read `25.00%` here and `25%` in the
+   * list — the disagreement objectui#9568 declined to settle and wrote down as
+   * needing "its own ruling". That ruling is A′, recorded on objectui#9843:
+   * `@objectstack/spec` declares the absent width per field type and every
+   * consumer reads it from there — `resolveFieldScale` — with ⛔ no `?? N` in
+   * any of them. The cell, the detail chip and the grid footer ask the same
+   * function, so the faces agree by reference rather than by matching
+   * constants.
+   *
+   * The type asked about is `percent` — this widget's own, the one every
+   * registry that mounts it keys it by — rather than whatever `type` the host's
+   * bag carries: a bag without one must still get the percent width, never
+   * the resolver's "no fixed width" answer for an unknown type, which as a
+   * `step` is `NaN`. `percent` has a row, so the answer is always a number.
+   *
+   * ⚠️ The price, measured rather than papered over: `step` below follows the
+   * same width, so an undeclared percent now steps by whole percents, as a
+   * declared `scale: 0` always has. A stored `12.5%` still shows `12.5` and
+   * saves untouched (React re-syncs the input's `value` attribute, the step
+   * base, on blur), but TYPING an off-step value and pressing Enter while the
+   * box still has focus is refused by the browser's own step validation.
+   * objectui#9843's report carries that reading.
    */
-  const declaredScale = percentField?.scale;
-  // The width this face resolves. The objectui#9808 out-of-range clamp retired
-  // at its own SUNSET (objectui#11073): `@objectstack/spec` 17.5.0 refuses a
-  // `scale` above 100, so a width the engine cannot render no longer arrives.
-  const scale = typeof declaredScale === 'number' ? declaredScale : 2;
+  // The objectui#9808 out-of-range clamp retired at its own SUNSET
+  // (objectui#11073): `@objectstack/spec` 17.5.0 refuses a `scale` above 100,
+  // so a width the engine cannot render no longer arrives.
+  const scale = resolveFieldScale({ type: 'percent', scale: percentField?.scale }) as number;
 
   // Before the readonly return below: hooks are unconditional (objectui#6780).
   const { refusal, readBadInput } = useBadInputRefusal('12.5');

@@ -4,10 +4,11 @@
 
 `ObjectKanbanSchema` now judges two of the three handler keys the kanban board reads off the
 authored document (the `plugin-kanban` slice; director seat ruling of
-2026-09-07, decision batch #69): `onCardClick` and `onQuickAdd` are declared as objectui#6124
-RUNTIME SLOTS — callable on the TypeScript face, refused BY NAME in the zod mirror because
-JSON has no function value — and the message points at the node-type spelling an author can
-write instead.
+2026-09-07, decision batch #69): `onCardClick` is declared as an objectui#6124 RUNTIME SLOT —
+callable on the TypeScript face, refused BY NAME in the zod mirror because JSON has no function
+value — and the message points at the node-type spelling an author can write instead.
+`onQuickAdd` was declared the same way here; objectui#11234 retires it on `object-kanban` in the
+same release, so it is `?: never` on the TypeScript face and refused BY NAME as RETIRED.
 
 Until now neither was declared anywhere. `BaseSchema` is `.passthrough()`, so a key no arm
 declares is not refused: it stops being judged and the value is KEPT, then reaches the

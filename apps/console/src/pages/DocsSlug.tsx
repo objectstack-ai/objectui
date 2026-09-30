@@ -11,7 +11,7 @@ import { FileQuestion, Loader2 } from 'lucide-react';
 import { DocShell } from './DocShell';
 import BookPage from './BookPage';
 import { useBookData } from './use-book-data';
-import { bookSlug, homeBook } from './book-nav';
+import { bookNamedBy, bookSlug, homeBook } from './book-nav';
 
 /**
  * `/docs/:slug` — resolves a single segment under the portal to either a book
@@ -24,6 +24,13 @@ import { bookSlug, homeBook } from './book-nav';
  * canonical in-book URL `/docs/<homeBook>/<name>` — every doc has a home book
  * (its package's authored or implicit book, §6.4), so this resolves for any
  * installed doc. An unknown segment degrades to a "not found" notice.
+ *
+ * A segment that is a book's NAME rather than its slug — what a
+ * `{ type: 'doc', book }` navigation entry links to (objectui#11197) — redirects
+ * to that book's canonical slug URL. It is looked up only AFTER the two answers
+ * that stand today (a book slug, then an installed doc's name), and before the
+ * name-prefix fallback, whose redirect for a name no installed doc carries lands
+ * on "not found". So nothing that resolves today changes its answer.
  */
 export default function DocsSlug() {
   const { slug, appName } = useParams<{ slug: string; appName?: string }>();
@@ -45,6 +52,17 @@ export default function DocsSlug() {
   // Otherwise a flat doc permalink → redirect to its canonical in-book URL.
   const base = appName ? `/apps/${appName}/docs` : '/docs';
   const hb = slug ? homeBook(slug, books, docs) : null;
+  if (hb && slug && docs.some((d) => d.name === slug)) {
+    return <Navigate to={`${base}/${bookSlug(hb)}/${slug}`} replace />;
+  }
+
+  // A book NAME that is not its slug → the book's canonical URL (objectui#11197).
+  const named = slug ? bookNamedBy(slug, books) : null;
+  if (named) {
+    return <Navigate to={`${base}/${bookSlug(named)}`} replace />;
+  }
+
+  // The name-prefix fallback for a name no installed doc carries (unchanged).
   if (hb && slug) {
     return <Navigate to={`${base}/${bookSlug(hb)}/${slug}`} replace />;
   }

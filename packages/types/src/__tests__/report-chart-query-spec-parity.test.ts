@@ -824,9 +824,15 @@ type SameType<A, B> = [A] extends [B] ? ([B] extends [A] ? true : false) : false
 type BlockMember<T, K extends PropertyKey> = K extends keyof T ? T[K] : never;
 
 // 0. The derivation. The published block is neither erased nor `any`, and it is
-//    the spec's block in both directions.
+//    the spec's block in both directions. Mutual assignability alone cannot see
+//    an OPTIONAL key dropped or added (every block member but `name` is
+//    optional), so the declared key sets are compared as well.
 const _publishedBlockTyping = null as unknown as SpecTyping<PublishedJoinedReportBlock> satisfies 'typed';
-const _publishedBlockIsTheSpecBlock = true satisfies SameType<PublishedJoinedReportBlock, SpecJoinedReportBlock>;
+const _publishedBlockIsTheSpecBlock = true satisfies (
+  SameType<PublishedJoinedReportBlock, SpecJoinedReportBlock> extends true
+    ? SameType<DeclaredBlockKeys<PublishedJoinedReportBlock>, DeclaredBlockKeys<SpecJoinedReportBlock>>
+    : false
+);
 // …and a published joined report's `blocks` are the spec's own report blocks,
 // on the PARSED tier of `SpecReport`: required, each element the spec's parsed
 // block, assignable to the authoring-tier block but not the other way round

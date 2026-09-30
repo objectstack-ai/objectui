@@ -158,6 +158,27 @@ objectui validate app.json
 objectui validate ./schemas/dashboard.yaml
 ```
 
+#### What is judged
+
+Every node is judged by its own component schema, at every depth: a child in a
+node-level slot such as `children`, and a component nested in a container's
+props bag — at the positions `@objectstack/spec`'s own page walk
+(`walkAddressedPageComponents`) descends, which for the page containers are
+`properties.children` and `properties.items[].children`. A nested failure is
+reported at the nested node's real path:
+
+```text
+1. Invalid input
+   Path: properties → items → 0 → children → 0 → type
+   Code: invalid_union
+   No arm accepts type "element:txt" at properties → items → 0 → children → 0.
+   Nearest of the … accepted types: element:text, element:button, …
+```
+
+A slot that walk does not descend is not judged here. One is live today:
+`page:card`'s `properties.footer`, which the card draws — a component written
+there is accepted unexamined until the spec's walk reaches it.
+
 #### Reading a failure
 
 A document is checked against a union of every component type, so a failure is

@@ -59,8 +59,8 @@ const FACES: ReadonlyArray<readonly [string, (document: unknown) => Result]> = [
 ];
 
 const issuesOf = (result: Result): Issue[] => (result.success ? [] : (result.error!.issues as Issue[]));
-const at = (path: PropertyKey[]) => path.join('.');
-const startsWith = (path: PropertyKey[], prefix: PropertyKey[]) =>
+const at = (path: readonly PropertyKey[]) => path.join('.');
+const startsWith = (path: readonly PropertyKey[], prefix: readonly PropertyKey[]) =>
   prefix.every((segment, i) => path[i] === segment);
 
 /** Valid on its own: `element:text` with the one member its row requires. */
@@ -76,7 +76,7 @@ const UNKNOWN = { type: 'element:no-such-block' };
  * child list at (spelled as (d) derives positions from the spec's walk), a
  * document with `child` there, and the path the child lands at.
  */
-const CONTAINERS: ReadonlyArray<readonly [type: string, position: string, place: (child: unknown) => unknown, path: PropertyKey[]]> = [
+const CONTAINERS: ReadonlyArray<readonly [type: string, position: string, place: (child: unknown) => unknown, path: readonly PropertyKey[]]> = [
   ...['page:card', 'page:section', 'page:footer', 'page:sidebar'].map((type) => [
     type,
     'properties.children[]',
@@ -263,7 +263,7 @@ describe('objectui#11223 (d) — objectui walks every position the spec\'s walk 
 
   it.each(POSITIONS)('%s — `nestedComponentsOf` reaches a component placed there', (position) => {
     const { document, path } = placeAt(position, UNKNOWN);
-    expect(nestedComponentsOf(document).map(({ component, path: found }) => [component, at(found as PropertyKey[])]))
+    expect(nestedComponentsOf(document).map(({ component, path: found }) => [component, at(found)]))
       .toEqual([[UNKNOWN, at(path)]]);
   });
 
@@ -287,7 +287,7 @@ describe('objectui#11223 (d) — objectui walks every position the spec\'s walk 
     const found = nestedComponentsOf(node);
     expect(found.map(({ component }) => component)).toEqual(direct);
     expect(found.map(({ component }) => component)).not.toContain(deeper);
-    expect(found.map(({ path }) => at(path as PropertyKey[]))).toEqual([
+    expect(found.map(({ path }) => at(path))).toEqual([
       'properties.children.2', 'properties.children.3', 'properties.items.1.children.0',
     ]);
   });
@@ -300,7 +300,8 @@ describe('objectui#11223 (e) — `page:card`\'s `properties.footer`: declared, d
     expect(Object.keys(PageCardProps.shape)).toContain('footer');
     // ⚠️ When this goes red, the spec's walk has started descending the card's
     // footer, and every row of (d) now judges it: delete this block and record
-    // the close on objectui#11223. Nothing else needs to change.
+    // the close on objectui#11223, with the `page:card` footer note in
+    // `content/docs/utilities/cli.mdx`. Nothing else needs to change.
     expect(POSITIONS).not.toContain('properties.footer[]');
   });
 

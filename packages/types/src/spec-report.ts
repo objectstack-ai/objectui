@@ -168,7 +168,8 @@ export interface LegacyReportPresentationLike {
   type: 'report';
   title?: string;
   description?: string;
-  reportType?: 'tabular' | 'summary' | 'matrix';
+  // No `reportType`: `ReportComponentSchema.reportType` is retired (objectui#6152
+  // round 4) — nothing read it, and this adapter was its only writer.
   fields?: Array<{
     name: string;
     label?: string;
@@ -207,15 +208,10 @@ function resolveLabel(label: unknown, fallback: string): string {
  * aggregation / sort / granularity for the dataset-aware renderer to resolve.
  */
 export function specReportToPresentation(report: SpecReport): LegacyReportPresentationLike {
-  const reportType = (report.type ?? 'tabular') as SpecReportTypeName;
-
-  // The legacy schema only knows tabular/summary/matrix; collapse `joined` to
-  // `tabular` so it at least renders something. A real `joined` renderer is a
-  // separate milestone.
-  const legacyReportType: 'tabular' | 'summary' | 'matrix' =
-    reportType === 'joined' || reportType === 'tabular'
-      ? 'tabular'
-      : reportType;
+  // The spec report's `type` is deliberately NOT carried over. This adapter used to
+  // write it as `reportType` (collapsing `joined` to `tabular`), and nothing on the
+  // presentation path ever read it, so the key was retired on both faces of
+  // `ReportComponentSchema` and this write went with it (objectui#6152 round 4).
 
   // `values` are measure names defined in the dataset; the report only refers
   // to them. Label / aggregation are resolved downstream from the dataset.
@@ -235,7 +231,6 @@ export function specReportToPresentation(report: SpecReport): LegacyReportPresen
     description: report.description
       ? resolveLabel(report.description, '')
       : undefined,
-    reportType: legacyReportType,
     fields,
     groupBy: groupBy.length > 0 ? groupBy : undefined,
   };

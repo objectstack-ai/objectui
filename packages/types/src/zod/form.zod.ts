@@ -754,20 +754,28 @@ export const LabelSchema = BaseSchema.extend({
   type: z.literal('label'),
   text: z.string().optional().describe('Label text'),
   label: z.string().optional().describe('Label text (alternative)'),
+  // objectui#6152 round 4 — a THIRD spelling of the label's text, retired on both faces
+  // (the TypeScript twin is `content?: never`) and dropped from the renderer's read.
+  // A tombstone, not a deletion: `BaseSchema` is `.passthrough()`, so a deleted arm
+  // would KEEP an authored value in silence.
+  content: retirementTombstone(
+    'RETIRED (objectui#6152, ADR-0049) — `content` was a third spelling of the label text, and the '
+    + '`label` renderer no longer reads it. Write the text as `text` (or `label`) instead.',
+  ),
   htmlFor: z.string().optional().describe('Associated input ID'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `label` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `content`, `label`, `text`.',
+    + 'What it renders instead: `label`, `text`.',
   ),
   children: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `label` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker across all 24 registering packages, no renderer read consumes `body` or '
     + '`children` for this node, and `SchemaRenderer` strips both out of the props bag it spreads. An '
     + 'authored value therefore rendered NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `content`, `label`, `text`.',
+    + 'What it renders instead: `label`, `text`.',
   ),
 });
 

@@ -1576,7 +1576,10 @@ export interface ChatbotSchema extends BaseSchema {
    * always was. Minting an arm to refuse it would be the declared-but-
    * unmirrored axis (objectui#6152); the retirement test pins both twins'
    * shapes as a tripwire so that whoever mints the mirror adds the
-   * `retirementTombstone()` half at that time.
+   * `retirementTombstone()` half at that time. objectui#6152 round 4 took the
+   * question under that ruling and kept the refusal TypeScript-only: stored
+   * designer documents carry `displayMode: 'floating'`, so no arm is minted
+   * and the key stays unmirrored on both twins by decision, not as debt.
    *
    * @deprecated Not part of this contract — the value was inert. The node
    * `type` selects the presentation.
@@ -2010,6 +2013,16 @@ export interface FloatingChatbotConfig {
    * nothing about the other. This retirement deliberately does not widen into
    * it, so `triggerIcon`'s refusal is TYPE-LEVEL ONLY. Runtime parse behaviour
    * is unchanged.
+   *
+   * ⚠️ AMENDED by objectui#6152 round 4, which minted that mirror. The
+   * `chatbot-floating` twin now declares `floatingConfig` through a
+   * module-private restatement of this interface in `zod/complex.zod.ts`, and
+   * that restatement carries the `retirementTombstone()` half for this key, so
+   * on a `chatbot-floating` node `floatingConfig.triggerIcon` is refused at
+   * runtime too. `ChatbotSchema.floatingConfig` stays unmirrored — the `chatbot`
+   * registration never reads it — so on a `chatbot` node the refusal is still
+   * type-level only. The paragraph above is the reading this retirement landed
+   * on.
    *
    * ## Why a tombstone and not a deletion, with only the `tsc` channel available
    *

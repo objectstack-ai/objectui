@@ -891,6 +891,12 @@ export const ChatbotSchema = BaseSchema.extend({
   model: z.string().optional().describe('AI model identifier'),
   streamingEnabled: z.boolean().optional().describe('Enable streaming responses'),
   headers: z.record(z.string(), z.string()).optional().describe('Additional API headers'),
+  // objectui#6152 round 4 — declared on the interface all along and READ by all three
+  // registrations (`body: schema.requestBody`, forwarded to the chat runtime), but
+  // mirrored only on the two twins below. Declared HERE so the shared pick carries it
+  // and the three faces spell it once; `body` below points authors at this key.
+  requestBody: z.record(z.string(), z.unknown()).optional()
+    .describe('Additional body parameters sent with each API request (forwarded to the chat runtime as its `body` option)'),
   body: retirementTombstone(
     'REFUSED (objectui#8572, ADR-0049) — `body` is the CONTENT slot on every other component, and '
     + '`chatbot` reads NEITHER content channel; this arm restated it as the chat API body params, the one '
@@ -944,12 +950,12 @@ export const ChatbotSchema = BaseSchema.extend({
  * Not exported: it is a census, not a mirror, and the parity census in
  * `__tests__/zod-mirror-parity.test.ts` registers `export const`s only.
  *
- * `requestBody` is deliberately NOT in this pick, and cannot be: the two twins
- * below mirror the key the renderer actually reads, while `ChatbotSchema` above
- * does not declare it at all — it rides through `.passthrough()` there, the
- * state `__tests__/zod-mirror-parity.test.ts` records under
- * `UnmirroredDeclared`. Picking a key this shape does not hold would pick
- * nothing.
+ * `requestBody` is in this pick since objectui#6152 round 4. Before it,
+ * `ChatbotSchema` above did not declare the key at all — it rode through
+ * `.passthrough()` there, recorded under `UnmirroredDeclared` in
+ * `__tests__/zod-mirror-parity.test.ts` — so each twin below carried its own
+ * copy of the arm. Now `ChatbotSchema` declares it and all three faces share
+ * this one spelling, as `../complex.ts`'s `ChatbotSharedKey` always said.
  *
  * ⚠️ This note used to end "ruling on `ChatbotSchema`'s own `body` arm is a
  * separate question and is not decided here". It has been decided: ruling A on
@@ -967,6 +973,7 @@ const ChatbotSharedMirrorShape = ChatbotSchema.pick({
   model: true,
   streamingEnabled: true,
   headers: true,
+  requestBody: true,
   onError: true,
   showTimestamp: true,
   userAvatarUrl: true,
@@ -980,9 +987,6 @@ const ChatbotSharedMirrorShape = ChatbotSchema.pick({
 }).shape;
 
 /** The arms `chatbot-enhanced` and `chatbot-floating` share beyond the pick above. */
-const chatbotRequestBodyArm = () =>
-  z.record(z.string(), z.unknown()).optional()
-    .describe('Additional body parameters sent with each API request (forwarded to the chat runtime as its `body` option)');
 const chatbotEnableMarkdownArm = () =>
   z.boolean().optional().describe('Render assistant messages as markdown (default true)');
 const chatbotEnableFileUploadArm = () =>
@@ -1000,7 +1004,6 @@ const chatbotOnClearArm = () =>
 export const ChatbotEnhancedSchema = BaseSchema.extend({
   type: z.literal('chatbot-enhanced'),
   ...ChatbotSharedMirrorShape,
-  requestBody: chatbotRequestBodyArm(),
   maxToolRoundtrips: ChatbotSchema.shape.maxToolRoundtrips,
   maxHeight: ChatbotSchema.shape.maxHeight,
   processVisibility: ChatbotSchema.shape.processVisibility,
@@ -1042,38 +1045,66 @@ export const ChatbotEnhancedSchema = BaseSchema.extend({
 });
 
 /**
+ * objectui#6152 round 4 — `../complex.ts`'s `FloatingChatbotConfig`, restated
+ * member for member: the trigger and panel geometry `FloatingChatbot` destructures
+ * (`position`, `defaultOpen`, `panelWidth`, `panelHeight`, `title`, `triggerSize`),
+ * each measured READ by a type-checker census. Module-private: a nested shape of
+ * the `chatbot-floating` arm below, not a registered pair — the parity ratchet
+ * compares it through that arm's `floatingConfig` member.
+ *
+ * `triggerIcon` is the RUNTIME half of objectui#7654's tombstone, which that card
+ * left type-level only because this mirror did not exist; its tripwire
+ * (`../__tests__/floating-chatbot-trigger-icon-retired.test.ts`) asked whoever
+ * minted the mirror to add it here, at the same time.
+ */
+const FloatingChatbotConfigSchema = z.object({
+  position: z.enum(['bottom-right', 'bottom-left']).optional()
+    .describe('Corner the trigger button sits in (default bottom-right)'),
+  defaultOpen: z.boolean().optional().describe('Open the panel on mount (default false)'),
+  panelWidth: z.number().optional().describe('Panel width in pixels (default 400)'),
+  panelHeight: z.number().optional().describe('Panel height in pixels (default 520)'),
+  title: z.string().optional().describe('Panel header title (default "Chat")'),
+  triggerIcon: retirementTombstone(
+    'RETIRED (objectui#7654, ADR-0049) — never read: the floating trigger renders a fixed icon and takes '
+    + 'no icon prop, so no authored value changes it. Delete the key.',
+  ),
+  triggerSize: z.number().optional().describe('Trigger button size in pixels (default 56)'),
+});
+
+/**
  * Chatbot Floating Schema - `chatbot-floating` component (objectui#7655).
  *
- * Zod twin of `../complex.ts`'s `ChatbotFloatingSchema`. Two of that
- * declaration's keys are deliberately NOT mirrored, and the parity ledger
- * records both under `UnmirroredDeclared` for this pair — exactly as it
- * records the same two keys for `ChatbotSchema`, which declares them too:
+ * Zod twin of `../complex.ts`'s `ChatbotFloatingSchema`. One of that
+ * declaration's keys is deliberately NOT mirrored, and the parity ledger
+ * records it under `UnmirroredDeclared` for this pair — exactly as it records
+ * the same key for `ChatbotSchema`, which declares it too:
  *
- *   - `floatingConfig` — `FloatingChatbotConfig` has no Zod mirror at all;
- *     minting one is the declared-but-unmirrored axis (objectui#6152), a
- *     different defect from the one this pair closes, and the axis the
- *     `triggerIcon` tombstone's tripwire watches (objectui#7654).
  *   - `displayMode` — RETIRED by objectui#7654 (maintainer ruling B,
  *     2026-09-05): the node `type` is the one selector of presentation. The
  *     TypeScript half landed there — `?: never` tombstone on both faces,
- *     designer control and seed removed — and, per the ruling, the mirror
- *     half (`retirementTombstone()`) is owed at the moment objectui#6152 mints
- *     an arm for it, not before: a mirror arm here today would be a parse
- *     outcome the ruling did not ask for, so this twin has none and a stored
- *     document carrying the key parses exactly as it did
+ *     designer control and seed removed. The refusal stays TypeScript-only:
+ *     stored designer documents carry `displayMode: 'floating'`, and
+ *     objectui#6152 round 4 kept that under the ruling, so this twin has no
+ *     arm and a stored document carrying the key parses exactly as it did
  *     (`chatbot-display-mode-retired.test.ts` pins the shape as the tripwire).
+ *     It rides through `BaseSchema`'s `.passthrough()` unvalidated, byte for
+ *     byte as it does on `ChatbotSchema`'s twin.
  *
- * Both ride through `BaseSchema`'s `.passthrough()` unvalidated, byte for byte
- * as they do on `ChatbotSchema`'s twin.
+ * `floatingConfig` was the second such key until objectui#6152 round 4 minted
+ * `FloatingChatbotConfigSchema` above and declared it here: this registration is
+ * the one that reads it (`floatingConfig={schema.floatingConfig}`). On
+ * `ChatbotSchema`'s twin it stays unmirrored — the `chatbot` registration never
+ * reads it.
  */
 export const ChatbotFloatingSchema = BaseSchema.extend({
   type: z.literal('chatbot-floating'),
   ...ChatbotSharedMirrorShape,
-  requestBody: chatbotRequestBodyArm(),
   maxToolRoundtrips: ChatbotSchema.shape.maxToolRoundtrips,
   enableMarkdown: chatbotEnableMarkdownArm(),
   enableFileUpload: chatbotEnableFileUploadArm(),
   onClear: chatbotOnClearArm(),
+  floatingConfig: FloatingChatbotConfigSchema.optional()
+    .describe('Trigger button and panel geometry for the floating chat'),
   // Declared HERE rather than inherited, because objectui#6771's retirement
   // of `BaseSchema.body` refuses the key with a message naming `children` —
   // which is the right remedy on every node except this family, where

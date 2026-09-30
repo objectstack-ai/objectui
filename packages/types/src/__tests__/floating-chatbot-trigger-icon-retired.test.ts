@@ -49,6 +49,13 @@
  * type-checks its tests through `tsconfig.test.json`, so re-widening the
  * declaration fails the build on the unused directive. A green `vitest` run is
  * NOT evidence about them — type assertions are erased before it runs.
+ *
+ * ⚠️ AMENDED by objectui#6152 round 4: "type-level only" now holds on a `chatbot`
+ * node alone. That round minted the `FloatingChatbotConfig` mirror on the
+ * `chatbot-floating` twin — the registration that reads `floatingConfig` — with
+ * the `retirementTombstone()` half this file's tripwire asked for, so a
+ * `chatbot-floating` node refuses `triggerIcon` at runtime as well. The runtime
+ * section below pins the two twins apart.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -128,44 +135,29 @@ describe('the `triggerIcon` tombstone makes authoring a `tsc` error', () => {
   });
 });
 
-/* ── the runtime channel: DELIBERATELY unchanged, and a tripwire if that ends ─ */
+/* ── the runtime channel: unchanged on `chatbot`, refused on `chatbot-floating` since objectui#6152 round 4 ─ */
 
 // Both faces declare `floatingConfig` — `ChatbotSchema` always did, and
 // objectui#7655 declared it on `ChatbotFloatingSchema`, the face of the one
-// registration that reads it — and NEITHER twin has an arm for it, so the
-// tripwire parses both nodes, each through its own twin.
-describe.each([
-  ['chatbot', ChatbotSchema],
-  ['chatbot-floating', ChatbotFloatingSchema],
-] as const)('there is NO zod refusal on a `%s` node, and that is deliberate (objectui#7654)', (type, twin) => {
+// registration that reads it. Until objectui#6152 round 4 NEITHER twin had an arm
+// for it, and this file's runtime half pinned that on both, as a TRIPWIRE: whoever
+// minted a `FloatingChatbotConfig` mirror had to add the `retirementTombstone()`
+// half for `triggerIcon` in the same change, and flip these controls rather than
+// delete them into a vacuum. Round 4 minted it on the `chatbot-floating` twin only
+// (that registration reads the key; `chatbot`'s never does), so the two twins are
+// now pinned apart.
+describe('there is NO zod refusal on a `chatbot` node, and that is deliberate (objectui#7654)', () => {
   const node = {
-    type,
+    type: 'chatbot',
     messages: [{ id: 'm1', role: 'user' as const, content: 'hi' }],
   };
 
-  it(`a ${type} node carrying \`floatingConfig.triggerIcon\` still parses GREEN`, () => {
-    // `FloatingChatbotConfig` has NO zod mirror: `floatingConfig` sits in the
-    // `UnmirroredDeclared` ledger (`zod-mirror-parity.test.ts`, under both
-    // `complex.zod.ts#ChatbotSchema` and, since objectui#7655,
-    // `complex.zod.ts#ChatbotFloatingSchema`), and `BaseSchema` is
-    // `.passthrough()`, so the whole object rides through unvalidated. This was
-    // green before the tombstone and is green after it — the retirement changed
-    // the TypeScript face only, and this pins that it changed no parse outcome.
-    //
-    // ⚠️ TRIPWIRE: if objectui#6152 ever mints a `FloatingChatbotConfigSchema`
-    // and wires it onto these twins as the `floatingConfig` arm, the assertion
-    // that fires is the SHAPE PIN at the foot of this block — the one reading
-    // `shape.floatingConfig` — and NOT this line. Measured on objectui#7678's
-    // base, arm injected on both twins and restored under a trap: a
-    // house-style non-strict `z.object` mirror reds the shape pin ONLY (2
-    // failures, one per twin) and leaves this parse-green line GREEN, because
-    // a non-strict object accepts `triggerIcon` and strips it, so `success`
-    // stays `true`; a `z.strictObject` mirror reds both (4 failures). Either
-    // shape trips the file — that is the intended signal, not a nuisance:
-    // whoever lands the mirror must add the `retirementTombstone()` half for
-    // `triggerIcon` at the same time, and flip these controls rather than
-    // delete them into a vacuum.
-    const result = twin.safeParse({
+  it('a chatbot node carrying `floatingConfig.triggerIcon` still parses GREEN', () => {
+    // `ChatbotSchema.floatingConfig` stays in the `UnmirroredDeclared` ledger
+    // (`zod-mirror-parity.test.ts`): the `chatbot` registration never reads it, so
+    // objectui#6152 round 4 did not mirror it. `BaseSchema` is `.passthrough()`,
+    // so the whole object rides through unvalidated on this twin.
+    const result = ChatbotSchema.safeParse({
       ...node,
       floatingConfig: { title: 'Chat', triggerIcon: 'Sparkles' },
     });
@@ -173,7 +165,7 @@ describe.each([
   });
 
   it('a live `floatingConfig` parses green too — the non-vacuity control', () => {
-    const result = twin.safeParse({
+    const result = ChatbotSchema.safeParse({
       ...node,
       floatingConfig: { title: 'Chat', triggerSize: 56 },
     });
@@ -181,16 +173,50 @@ describe.each([
   });
 
   it('the mirror really has no `floatingConfig` key at all', () => {
-    // The load-bearing fact behind everything above, asserted rather than
-    // assumed: a key the mirror declares would appear in its shape.
-    //
-    // ⚠️ This is also the assertion the objectui#6152 TRIPWIRE fires through:
-    // under a house-style non-strict mirror it reds HERE and nowhere else in
-    // this file. The measurement is recorded at that comment, above.
-    const shape = (twin as unknown as { shape: Record<string, unknown> }).shape;
+    // The load-bearing fact behind the two lines above, asserted rather than
+    // assumed: a key the mirror declares would appear in its shape. This is the
+    // assertion the TRIPWIRE fires through if this twin ever gains the arm.
+    const shape = (ChatbotSchema as unknown as { shape: Record<string, unknown> }).shape;
     expect(shape.floatingConfig).toBeUndefined();
     // Lit control: a key the mirror DOES declare is present, so the reading
     // above is a measurement and not an empty object.
     expect(shape.messages).toBeDefined();
+  });
+});
+
+describe('a `chatbot-floating` node REFUSES `floatingConfig.triggerIcon` at runtime (objectui#6152 round 4 minted the mirror)', () => {
+  const node = {
+    type: 'chatbot-floating',
+    messages: [{ id: 'm1', role: 'user' as const, content: 'hi' }],
+  };
+
+  it('`floatingConfig.triggerIcon` is refused at its own path, and the refusal says the key was never read', () => {
+    // The flipped tripwire: this line used to assert `success: true`.
+    const result = ChatbotFloatingSchema.safeParse({
+      ...node,
+      floatingConfig: { title: 'Chat', triggerIcon: 'Sparkles' },
+    });
+    expect(result.success).toBe(false);
+    const issues = (result.error?.issues ?? []).filter((i) => i.path.join('.') === 'floatingConfig.triggerIcon');
+    expect(issues.length, JSON.stringify(result.error?.issues)).toBe(1);
+    expect(issues[0].code).toBe('invalid_type');
+    expect(issues[0].message).toContain('objectui#7654');
+  });
+
+  it('a live `floatingConfig` parses green — the non-vacuity control', () => {
+    const result = ChatbotFloatingSchema.safeParse({
+      ...node,
+      floatingConfig: { title: 'Chat', triggerSize: 56 },
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('the mirror declares `floatingConfig`, and its `triggerIcon` is a MEMBER tombstone, not an undeclared key', () => {
+    const shape = (ChatbotFloatingSchema as unknown as { shape: Record<string, unknown> }).shape;
+    expect(shape.floatingConfig).toBeDefined();
+    const inner = (shape.floatingConfig as { unwrap: () => { shape: Record<string, unknown> } }).unwrap().shape;
+    expect(inner.triggerIcon).toBeDefined();
+    // Lit control: a live member sits beside it.
+    expect(inner.triggerSize).toBeDefined();
   });
 });

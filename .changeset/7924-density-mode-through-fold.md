@@ -35,6 +35,12 @@ carry it. The `@object-ui/react` `useDensityMode` JSDoc example reads and persis
 `rowHeight` (through `rowHeightToDensityMode` / `DENSITY_MODE_TO_ROW_HEIGHT`) instead of
 `densityMode`; that is a documentation fix with no behaviour change.
 
+⚠️ **Dated note, 2026-09-30 — `allowExport` has since been retired too — objectui#11013.**
+Later in this same release both relays stopped reading `allowExport` off a view, and
+`NamedListView.allowExport` became a `?: never` tombstone. So "`allowExport` stays
+declared" above no longer holds. `.changeset/11013-view-row-declared-spellings.md`
+states what ships; the text above is kept as the reading of this change.
+
 **ADR-0087 disposition:** `densityMode` is a **D2** conversion. Stored documents are
 accepted and converted at load by the existing runtime fold (`normalizeListViewSchema`
 maps it onto `rowHeight`), and the TypeScript face refuses the old spelling at authoring

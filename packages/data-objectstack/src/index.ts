@@ -9,6 +9,10 @@
 import { ObjectStackClient, type QueryOptions as ObjectStackQueryOptions } from '@objectstack/client';
 import type { DroppedFieldsEvent, EngineAggregateOptions } from '@objectstack/spec/data';
 import type { ListViewGroupHeaderRow } from '@objectstack/spec/ui';
+// objectui#11013 — a VALUE import: the keys `listViews` carries off a stored
+// ViewItem record are the spec's own record of the console's round-trip keys,
+// read off the pin rather than hand-listed (see `VIEW_ITEM_ROUND_TRIP_KEYS`).
+import { VIEW_CONSOLE_ROUND_TRIP_KEYS } from '@objectstack/spec/ui';
 // #4934 — a VALUE import, not a type one: the write-warning boundary parses the
 // wire's `reason` against the enum the spec itself declares, so the accept set
 // is read off the pin instead of hand-copied here (a hand copy is the drift
@@ -2811,6 +2815,26 @@ function withoutNoOpDrops(
 }
 
 /**
+ * The console's round-trip keys the spec declares on the ViewItem RECORD — the
+ * keys of `VIEW_CONSOLE_ROUND_TRIP_KEYS` whose members include `viewItem`
+ * (objectui#11013). Derived, never hand-listed: the spec's record says which
+ * keys the console writes onto a stored row and reads back, and on which
+ * members each is declared; `_isOverride` is declared on the list overlay only,
+ * so it is not one of these.
+ *
+ * {@link ObjectStackAdapter.listViews} carries exactly these off a record when
+ * it flattens the record's `config` to the row the switcher reads. They live
+ * at the record's TOP level: the pin toggle and the drag-reorder write them
+ * through {@link ObjectStackAdapter.updateView}, which merges
+ * `{ ...current, ...partial }`, and app-shell's view-config save carries them
+ * forward beside the envelope's `config`. A flatten that kept only `config`
+ * dropped them on the reload.
+ */
+const VIEW_ITEM_ROUND_TRIP_KEYS: readonly string[] = (
+  Object.keys(VIEW_CONSOLE_ROUND_TRIP_KEYS) as Array<keyof typeof VIEW_CONSOLE_ROUND_TRIP_KEYS>
+).filter((key) => (VIEW_CONSOLE_ROUND_TRIP_KEYS[key] as readonly string[]).includes('viewItem'));
+
+/**
  * Resolve which object a `type='view'` metadata item belongs to.
  *
  * The metadata index is name-only, not field-typed: `GET /api/v1/meta/view`
@@ -2828,8 +2852,17 @@ function withoutNoOpDrops(
  *
  * `object` is the identity field the write path stamps (and that the
  * framework's overlay heals onto identity-less personalization rows —
- * objectstack#2555); `data.object` is the config's data-provider target and
- * `objectName` the legacy artifact spelling.
+ * objectstack#2555); `data.object` is the config's data-provider target.
+ *
+ * ⛔ No `objectName` leg (objectui#11013, ruling 甲 on objectstack#20051:
+ * objectui reads a stored view row by the spec's declared spellings). The
+ * spec declares `object` on every `view` member — required on the ViewItem
+ * record and on both flattened overlays — and declares `objectName` on none,
+ * so the metadata write door refuses a row that carries only `objectName`
+ * (`viewItemObjectName.declaredSpelling-11013.test.ts` pins that door beside
+ * this reader). Every write path in this package stamps `object` as well, so a
+ * row the console wrote carries it; a row that carries ONLY the undeclared
+ * spelling no longer matches any object here.
  *
  * **Exported** since objectui#4373, for the same one-spelling reason: a writer
  * outside this module that holds a view BODY but not its object name (app-shell's
@@ -2841,7 +2874,7 @@ function withoutNoOpDrops(
 export function viewItemObjectName(item: any): string | undefined {
   // Handle both bare view spec and `{list: {...}}` artifact wrapper
   const spec = item?.list ?? item;
-  return spec?.data?.object ?? spec?.object ?? spec?.objectName;
+  return spec?.data?.object ?? spec?.object;
 }
 
 /**
@@ -5608,14 +5641,33 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         // no top-level `type`, so ObjectView's saved-view normalization defaults
         // it to 'grid' and overrides the metadata entry — a kanban/gallery/
         // calendar view then silently renders as a plain table.
+        //
+        // objectui#11013 — the flattened row also carries the record's declared
+        // members the console reads back off it: its bound `object`, and the
+        // round-trip keys the spec declares on the record
+        // (`VIEW_ITEM_ROUND_TRIP_KEYS`: `isPinned`, `sortOrder`, `visibility`,
+        // `columnState`, and `isDefault`, coerced to a boolean as before). The
+        // switcher sorts saved views by the `sortOrder` it reads off THIS row,
+        // and nothing else restored it, so a reordered record lost its place
+        // on the reload. Each is copied only when the record carries it, and
+        // after `config`, so a record-level key wins over a config key of the
+        // same name. (MetadataProvider's `applyViewItem` still flattens to
+        // `config` + identity: the tab it feeds is merged with the stored
+        // record through `loadViewOverrides`, which is where that path gets
+        // these keys back. The sort reads this row, not the tab.)
         if (spec && spec.config && typeof spec.config === 'object') {
-          return {
+          const row: Record<string, unknown> = {
             ...spec.config,
             name: spec.name ?? spec.config.name,
             label: spec.label ?? spec.config.label,
-            isDefault: !!spec.isDefault,
-            ...(isDraft ? { _draft: true } : {}),
           };
+          if (spec.object !== undefined) row.object = spec.object;
+          for (const key of VIEW_ITEM_ROUND_TRIP_KEYS) {
+            if (spec[key] !== undefined) row[key] = spec[key];
+          }
+          row.isDefault = !!spec.isDefault;
+          if (isDraft) row._draft = true;
+          return row;
         }
         return isDraft ? { ...spec, _draft: true } : spec;
       });

@@ -323,8 +323,9 @@ describe('the fence reads the named view first for every protocol member it rela
     const offProtocol = namedViewReadsIn(regionSlice()).filter((k) => !protocol.includes(k));
     expect(offProtocol).toEqual([]);
     // Control on the same instrument: the fence DOES relay non-protocol keys —
-    // off the host entry and the node only (`allowExport` is objectui's own,
-    // ruled on objectui#7924) — so "none off the named view" is a reading.
+    // off the node only (`allowExport` is objectui's own, ruled on
+    // objectui#7924; objectui#11013 dropped its host-entry read) — so "none
+    // off the named view" is a reading.
     const rungs = namedViewRungs();
     expect(rungs).toHaveProperty('allowExport', false);
     expect(protocol).not.toContain('allowExport');

@@ -156,10 +156,13 @@ function makeAdapter(meta: any) {
     return ds;
 }
 
-/** `savedViews` exactly as `ObjectView` normalizes the adapter's rows. */
+/**
+ * `savedViews` exactly as `ObjectView` normalizes the adapter's rows
+ * (objectui#11013 dropped the `objectName` stamp that normalization carried).
+ */
 async function readSavedViews(ds: any) {
     const rows: any[] = await ds.listViews(OBJECT_NAME);
-    return rows.map((sv) => ({ ...sv, id: viewRowId(sv), objectName: sv.objectName || sv.object || OBJECT_NAME }));
+    return rows.map((sv) => ({ ...sv, id: viewRowId(sv) }));
 }
 
 describe('objectui#10210 — the view-config save persists a ViewItem envelope', () => {

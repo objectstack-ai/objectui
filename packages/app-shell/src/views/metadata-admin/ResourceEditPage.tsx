@@ -274,6 +274,27 @@ export function shouldRenderDiagnostics(opts: {
   return opts.hasDiag || opts.hasClientValidator;
 }
 
+/**
+ * The `view-ref` picker's catalog: the views bound to `objectName`, as
+ * `{ name, label }`, first occurrence of each name kept.
+ *
+ * A row's binding is read under `object` alone (objectui#11013, ruling 甲 on
+ * objectstack#20051). The spec declares `object` on every `view` member, and
+ * declares neither `objectName` nor `object_name`, which this filter used to
+ * read first and last. Extracted so the reading is assertable without opening
+ * the picker (Radix portals its options on open).
+ */
+export function viewRefCatalog(
+  rows: ReadonlyArray<Record<string, unknown>> | null | undefined,
+  objectName: string,
+): Array<{ name: string; label?: string }> {
+  const seen = new Set<string>();
+  return (rows || [])
+    .filter((v) => v?.object === objectName)
+    .map((v) => ({ name: v?.name as string, label: (v?.label as string) || undefined }))
+    .filter((v) => !!v.name && !seen.has(v.name) && seen.add(v.name));
+}
+
 export interface MetadataResourceEditPageProps {
   type?: string;
   name?: string;
@@ -880,23 +901,17 @@ function MetadataResourceEditPageImpl({
   // View catalog of the source object — fuels the `view-ref` picker for
   // `interfaceConfig.sourceView` so the author chooses an existing view
   // instead of typing (and mistyping) a name. Views are standalone metadata
-  // keyed to their object via `objectName`/`object`; the LIST endpoint returns
-  // name + label, which is all the picker needs.
+  // keyed to their object via `object` ({@link viewRefCatalog}); the LIST
+  // endpoint returns name + label, which is all the picker needs.
   const objectViewsState = usePickerLoad<Array<{ name: string; label?: string }>>(
     React.useMemo(
       () =>
         sourceObjectName
-          ? async () => {
-              const all = (await client.list('view')) as Array<Record<string, any>>;
-              const forObject = (all || []).filter((v) => {
-                const obj = v?.objectName ?? v?.object ?? v?.object_name;
-                return obj === sourceObjectName;
-              });
-              const seen = new Set<string>();
-              return forObject
-                .map((v) => ({ name: v?.name as string, label: (v?.label as string) || undefined }))
-                .filter((v) => !!v.name && !seen.has(v.name) && seen.add(v.name));
-            }
+          ? async () =>
+              viewRefCatalog(
+                (await client.list('view')) as Array<Record<string, any>>,
+                sourceObjectName,
+              )
           : null,
       [client, sourceObjectName],
     ),

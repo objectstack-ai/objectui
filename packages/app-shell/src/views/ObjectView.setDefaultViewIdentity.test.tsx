@@ -22,10 +22,10 @@
  *             the entry is ABSENT rather than present-and-inert.
  *
  * WHICH ROUTE — settled here, statically, and it is route 2. Both routes consult
- * the SAME predicate over the SAME array (`readonly: !saved` at
- * ObjectView.tsx:2022 and `isSavedView` at :1003 both ask `viewRowId(sv) === id`),
+ * the SAME predicate over the SAME array (`readonly: !saved` in the switcher's
+ * tab mapping and the `isSavedView` callback both ask `viewRowId(sv) === id`),
  * and all four render sites of the set-default entry are gated on `!isReadonly`
- * (`ViewTabBar.tsx:564`, `:667`; `ManageViewsDialog.tsx:300`, `:361`). So when the
+ * (two in `ViewTabBar.tsx`, two in `ManageViewsDialog.tsx`). So when the
  * ids diverge the entry is never rendered, and route 1's toast is unreachable
  * through the UI — there is no control left to click. Route 1 survives only as
  * the handler's own guard against a caller that ignores `readonly`; it is pinned
@@ -82,16 +82,18 @@ const OBJECT_NAME = 'crm_lead';
 /** The auto-generated "all records" tab, which no case here should reach. */
 const fallbackTab = () => ({ id: 'all', label: 'All records', type: 'grid', columns: [] });
 
-/** `ObjectView`'s overlay normalization (ObjectView.tsx:706-713), verbatim. */
+/**
+ * `ObjectView`'s overlay normalization (the `listViews` effect's `.map`),
+ * verbatim. objectui#11013 dropped the `objectName` stamp it used to add.
+ */
 const normalizeSavedViews = (rows: any[]) =>
   rows.map((sv: any) => ({
     ...sv,
     id: viewRowId(sv),
-    objectName: sv.objectName || sv.object || OBJECT_NAME,
   }));
 
 /**
- * The tab's `readonly` flag, exactly as ObjectView.tsx:2022-2025 computes it:
+ * The tab's `readonly` flag, exactly as the switcher's tab mapping computes it:
  * `saved = savedViews.find(sv => viewRowId(sv) === view.id)`, `isSystem = !saved`.
  * Asserting `isSavedViewId` is asserting this same predicate — they are one
  * function now, which is the whole point of the fix.
@@ -101,20 +103,21 @@ const isReadonlyTab = (savedViews: any[], tabId: string) => !isSavedViewId(saved
 // ─────────────────────────────────────────────────────────────────────────────
 
 describe('the identity seam — ONE spelling for a view row id (#4211)', () => {
-  it('prefers `name`, then `id`, then `_id`', () => {
+  it('reads `name`, and only `name` (objectui#11013)', () => {
+    // The spec declares `name` on every `view` member and a top-level `id` /
+    // `_id` on none. This read `name`, then `id`, then `_id` until
+    // objectui#11013 aligned it to the declared spelling.
     expect(viewRowId({ name: 'crm_lead.my_view', id: 'other', _id: 'third' }))
       .toBe('crm_lead.my_view');
-    expect(viewRowId({ id: 'other', _id: 'third' })).toBe('other');
-    expect(viewRowId({ _id: 'third' })).toBe('third');
+    expect(viewRowId({ id: 'other', _id: 'third' })).toBeUndefined();
+    expect(viewRowId({ _id: 'third' })).toBeUndefined();
     expect(viewRowId({})).toBeUndefined();
     expect(viewRowId(null)).toBeUndefined();
   });
 
-  it('skips an EMPTY name rather than answering with it', () => {
-    // A blank `name` used to win the old `sv.name || sv.id` chain only by
-    // falsiness; making that explicit keeps a row addressable by its next
-    // spelling instead of producing an id nothing can match.
-    expect(viewRowId({ name: '', id: 'crm_lead.my_view' })).toBe('crm_lead.my_view');
+  it('an EMPTY name is no identity, and no undeclared spelling stands in for it', () => {
+    // Before objectui#11013 a blank `name` fell through to the row's `id`.
+    expect(viewRowId({ name: '', id: 'crm_lead.my_view' })).toBeUndefined();
   });
 
   it('is IDEMPOTENT across the overlay normalization — producer and readers agree', () => {
@@ -381,15 +384,19 @@ describe('controls — what must NOT change (#4211)', () => {
 
   it('rename / delete / pin / config — the guard’s other consumers accept the same ids', () => {
     // All five handlers short-circuit on `isSavedView(vid)`; they share one
-    // predicate, so pinning it across the id shapes pins them together.
+    // predicate, so pinning it across the id shapes pins them together. Since
+    // objectui#11013 the one id shape is the declared `name`: a row that
+    // carries only a top-level `id` / `_id` is no saved view to any of them.
     const savedViews = normalizeSavedViews([
       { name: 'crm_lead.by_name', object: OBJECT_NAME },
       { id: 'by_id', object: OBJECT_NAME },
       { _id: 'by_underscore_id', object: OBJECT_NAME },
     ]);
-    for (const id of ['crm_lead.by_name', 'by_id', 'by_underscore_id']) {
-      expect(isSavedViewId(savedViews, id)).toBe(true);
-      expect(isReadonlyTab(savedViews, id)).toBe(false);
+    expect(isSavedViewId(savedViews, 'crm_lead.by_name')).toBe(true);
+    expect(isReadonlyTab(savedViews, 'crm_lead.by_name')).toBe(false);
+    for (const id of ['by_id', 'by_underscore_id']) {
+      expect(isSavedViewId(savedViews, id)).toBe(false);
+      expect(isReadonlyTab(savedViews, id)).toBe(true);
     }
     expect(isSavedViewId(savedViews, 'crm_lead.default')).toBe(false);
   });

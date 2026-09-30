@@ -22,7 +22,10 @@ import { ChevronRight, Plus, Trash2, Shield, Lock, PanelTop, FlaskConical } from
 import { CelPredicateField } from './CelPredicateField.js';
 import { CelTestRunDialog } from './CelTestRunDialog.js';
 import type { CelLintIssue } from './celAuthoring.js';
-import type { AdminScope as SpecAdminScope } from '@objectstack/spec/security';
+import type {
+  AdminScope as SpecAdminScope,
+  RowLevelSecurityPolicy as SpecRlsPolicy,
+} from '@objectstack/spec/security';
 
 /**
  * Structured editors for the three "advanced" permission facets — Row-Level
@@ -42,7 +45,18 @@ import type { AdminScope as SpecAdminScope } from '@objectstack/spec/security';
  * assignablePermissionSets[]}`.
  */
 
-interface RlsPolicy {
+/**
+ * One RLS policy as this editor holds it.
+ *
+ * `label` / `description` are DRAWN, not authored, here (objectui#11199): each
+ * policy card heads its inputs with the author's label and, beneath it, the
+ * description, verbatim; a policy that declares neither renders exactly as
+ * before. Their types are taken from the spec's `RowLevelSecurityPolicy`
+ * (plain optional strings, not I18nLabel) rather than restated. No write path
+ * here names them; every write spreads the policy (`{ ...pol, name }`), so an
+ * edit carries both keys back out untouched.
+ */
+interface RlsPolicy extends Pick<SpecRlsPolicy, 'label' | 'description'> {
   name?: string;
   object?: string;
   operation?: string;
@@ -335,6 +349,14 @@ export function PermissionAdvancedFacets({
         <div className="space-y-3">
           {policies.map((pol, i) => (
             <div key={i} className="rounded-md border p-3 space-y-2 bg-background">
+              {(pol.label || pol.description) && (
+                <div className="space-y-0.5">
+                  {pol.label && <div className="text-sm font-medium">{pol.label}</div>}
+                  {pol.description && (
+                    <p className="text-xs text-muted-foreground">{pol.description}</p>
+                  )}
+                </div>
+              )}
               <div className="flex flex-wrap items-center gap-2">
                 <Input
                   value={pol.name ?? ''}

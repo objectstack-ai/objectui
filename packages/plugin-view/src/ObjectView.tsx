@@ -1902,6 +1902,15 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
 
   // --- Generate view component schema for non-grid views ---
   const generateViewSchema = useCallback((viewType: string): any => {
+    // objectui#11013 — the host `views` entry's toolbar policy, under its
+    // declared spelling `userActions`. `baseProps` below read the bare
+    // `showSearch` / `showSort` / `showFilters` flags off the entry, so a view
+    // declaring `userActions: { search: false }` was not heard. A stored entry
+    // that still carries a bare flag is folded onto `userActions` by
+    // `normalizeListViewSchema`, the fold the `list-view` relay already runs.
+    const activeViewUserActions = (normalizeListViewSchema(activeView ?? {}) as {
+      userActions?: { search?: boolean; sort?: boolean; filter?: boolean };
+    }).userActions;
     const baseProps: Record<string, any> = {
       objectName: schema.objectName,
       // objectui#5269 — the `table` segment reads the CANONICAL key first.
@@ -1946,9 +1955,9 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
       fields: viewColumnFieldNames(currentNamedViewConfig?.columns) || activeView?.columns
         || tableColumnFieldNames(schema.table?.columns) || schema.table?.fields,
       className: 'h-full w-full',
-      showSearch: activeView?.showSearch ?? schema.showSearch ?? false,
-      showSort: activeView?.showSort ?? schema.showSort ?? false,
-      showFilters: activeView?.showFilters ?? schema.showFilters ?? false,
+      showSearch: activeViewUserActions?.search ?? schema.showSearch ?? false,
+      showSort: activeViewUserActions?.sort ?? schema.showSort ?? false,
+      showFilters: activeViewUserActions?.filter ?? schema.showFilters ?? false,
       color: activeView?.color,
     };
 
@@ -2834,7 +2843,11 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
             ...currentNamedViewConfig?.userActions,
           },
           compactToolbar: currentNamedViewConfig?.compactToolbar ?? activeView?.compactToolbar ?? (schema as any).compactToolbar,
-          allowExport: activeView?.allowExport ?? (schema as any).allowExport,
+          // objectui#11013 — the host `views` entry is no longer read for
+          // `allowExport`: nothing writes it onto a view (no console surface,
+          // no authored view here, and the spec's view schema refuses it by
+          // name). The node's value is the objectui#5097 host-composition read.
+          allowExport: (schema as any).allowExport,
           exportOptions: currentNamedViewConfig?.exportOptions ?? activeView?.exportOptions,
           // Propagate display properties
           color: activeView?.color ?? (schema as any).color,
@@ -2857,13 +2870,18 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
           rowColor: currentNamedViewConfig?.rowColor ?? activeView?.rowColor,
           // Propagate view-config properties (Bug 4 / items 14-22)
           inlineEdit: currentNamedViewConfig?.inlineEdit ?? activeView?.inlineEdit ?? (schema as any).inlineEdit,
-          wrapHeaders: activeView?.wrapHeaders ?? (schema as any).wrapHeaders,
-          clickIntoRecordDetails: activeView?.clickIntoRecordDetails ?? (schema as any).clickIntoRecordDetails,
-          addRecordViaForm: activeView?.addRecordViaForm ?? (schema as any).addRecordViaForm,
-          addDeleteRecordsInline: activeView?.addDeleteRecordsInline ?? (schema as any).addDeleteRecordsInline,
-          collapseAllByDefault: activeView?.collapseAllByDefault ?? (schema as any).collapseAllByDefault,
-          fieldTextColor: activeView?.fieldTextColor ?? (schema as any).fieldTextColor,
-          prefixField: activeView?.prefixField ?? (schema as any).prefixField,
+          // objectui#11013 — the seven renderer flags below are read off the
+          // NODE only (the objectui#5097 host-composition keys). The host
+          // `views` entry is a stored view row, and no producer writes any of
+          // them onto one: no console surface, no view authored here, and the
+          // spec's view schema refuses each by name.
+          wrapHeaders: (schema as any).wrapHeaders,
+          clickIntoRecordDetails: (schema as any).clickIntoRecordDetails,
+          addRecordViaForm: (schema as any).addRecordViaForm,
+          addDeleteRecordsInline: (schema as any).addDeleteRecordsInline,
+          collapseAllByDefault: (schema as any).collapseAllByDefault,
+          fieldTextColor: (schema as any).fieldTextColor,
+          prefixField: (schema as any).prefixField,
           showDescription: activeView?.showDescription ?? (schema as any).showDescription,
           // ViewData source override (spec `data` key) — e.g. gantt views fed
           // by a composite api endpoint; without this pick the api provider

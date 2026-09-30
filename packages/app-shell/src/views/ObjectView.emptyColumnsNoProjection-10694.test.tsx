@@ -114,7 +114,7 @@ vi.mock('./metadata-admin/inspectors/ViewVariantInspector', () => ({
       <button
         type="button"
         data-testid="inspector-edit-unrelated"
-        onClick={() => onPatch({ config: { ...(draft?.config ?? {}), wrapHeaders: true } })}
+        onClick={() => onPatch({ config: { ...(draft?.config ?? {}), resizable: false } })}
       >
         unrelated
       </button>
@@ -157,8 +157,12 @@ const OBJECT_NAME = 'duly_task';
 
 /** The column identities the grid was last handed. */
 let drawn: string[] | undefined;
-/** The `wrapHeaders` the grid was last handed: the panel's unrelated edit. */
-let drawnWrapHeaders: unknown;
+/**
+ * The `resizable` the grid was last handed: the panel's unrelated edit. (It was
+ * `wrapHeaders` until objectui#11013 dropped that key's view rung: a stored view
+ * no longer supplies it, so an edit of it no longer reaches the grid.)
+ */
+let drawnResizable: unknown;
 
 // `ListView` draws its rows through `object-grid`. The stub records what it is
 // handed and nothing else, so what the grid would derive on its own stays out
@@ -166,9 +170,9 @@ let drawnWrapHeaders: unknown;
 let prevObjectGrid: unknown;
 beforeAll(() => {
   prevObjectGrid = ComponentRegistry.get('object-grid');
-  ComponentRegistry.register('object-grid', ((props: { schema?: { columns?: unknown; wrapHeaders?: unknown } }) => {
+  ComponentRegistry.register('object-grid', ((props: { schema?: { columns?: unknown; resizable?: unknown } }) => {
     const cols = props.schema?.columns;
-    drawnWrapHeaders = props.schema?.wrapHeaders;
+    drawnResizable = props.schema?.resizable;
     drawn = Array.isArray(cols)
       ? cols.map((c: any) => (typeof c === 'string' ? c : (c?.field ?? c?.name)))
       : undefined;
@@ -257,13 +261,13 @@ async function openPanel(): Promise<void> {
 /** Edit a field that is not `columns`, and wait until the edit reaches the grid. */
 async function editUnrelatedField(): Promise<void> {
   fireEvent.click(screen.getByTestId('inspector-edit-unrelated'));
-  await waitFor(() => expect(drawnWrapHeaders).toBe(true));
+  await waitFor(() => expect(drawnResizable).toBe(false));
 }
 
 /** Discard the panel, and wait until the revert reaches the grid. */
 async function discardPanel(): Promise<void> {
   fireEvent.click(screen.getByTestId('view-config-discard'));
-  await waitFor(() => expect(drawnWrapHeaders).toBeUndefined());
+  await waitFor(() => expect(drawnResizable).toBeUndefined());
 }
 
 /** The unprojected view the panel cases edit: both keys, and the hide toggle on. */

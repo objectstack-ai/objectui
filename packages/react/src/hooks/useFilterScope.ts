@@ -8,10 +8,13 @@
 
 import { createContext, createElement, useContext, useMemo, type ReactNode } from 'react';
 import type { FilterTokenScope } from '@object-ui/core';
+import { useRecordContext } from '../context/RecordContext.js';
 
 /**
  * The session values filter placeholders resolve against — `{current_user_id}`
- * and `{current_org_id}` (objectstack-ai/objectstack#3574).
+ * and `{current_org_id}` (objectstack-ai/objectstack#3574). The record-scoped
+ * `{record_id}` is not a session value and is not provided here: see
+ * {@link useFilterScope}.
  *
  * ## Why a dedicated context
  *
@@ -59,13 +62,38 @@ export function FilterScopeProvider({
 }
 
 /**
- * Read the session scope for filter placeholder resolution.
+ * Read the scope for filter placeholder resolution: the session scope the host
+ * mounted, plus the id of the record in view when there is one.
  *
  * Pass the result straight to `resolveFilterPlaceholders(filter, scope)` from
  * `@object-ui/core` — that helper expands every placeholder vocabulary in one
  * call, which is the point: resolving only some of them is the defect behind
  * objectstack-ai/objectstack#3574.
+ *
+ * ## `{record_id}` reads the MOUNTED record (objectui#7297)
+ *
+ * `recordId` comes from the nearest `RecordContextProvider` — the record a
+ * `type: 'record'` page is showing, the same provider whose row a component's
+ * `visibleWhen` binds as `record` — and from nowhere else: ⛔ not a URL
+ * parameter, not a page variable, and not a prop of `FilterScopeProvider`,
+ * which stays session-only. Every data node that already resolves its filter
+ * through this hook therefore resolves `{record_id}` on a record page without
+ * a line of its own, and refuses it by name everywhere else (a list view, a
+ * dashboard, a page that is not a record page), because there the member is
+ * simply absent.
+ *
+ * Outside a record context the session scope is handed back as the very
+ * object the provider published, so nothing changes for a surface that shows
+ * no record. Inside one, the combined scope is rebuilt only when the session
+ * scope or the record id changes. A consumer that holds a resolution compares
+ * the members one by one — `recordId` among them — never this object's
+ * identity (AGENTS.md #10).
  */
 export function useFilterScope(): FilterTokenScope {
-  return useContext(FilterScopeContext);
+  const session = useContext(FilterScopeContext);
+  const recordId = useRecordContext()?.recordId;
+  return useMemo<FilterTokenScope>(
+    () => (recordId == null ? session : { ...session, recordId }),
+    [session, recordId],
+  );
 }

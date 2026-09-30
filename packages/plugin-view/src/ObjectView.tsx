@@ -439,6 +439,7 @@ function useResolvedFilterSegments(
   if (
     held.currentUserId !== scope.currentUserId
     || held.currentOrgId !== scope.currentOrgId
+    || held.recordId !== scope.recordId
     || held.onUnresolved !== scope.onUnresolved
     || !isStructurallyEqual(held.segments, segments)
   ) {
@@ -457,6 +458,7 @@ interface HeldFilterSegments {
   segments: AuthoredFilterSegments;
   currentUserId: FilterTokenScope['currentUserId'];
   currentOrgId: FilterTokenScope['currentOrgId'];
+  recordId: FilterTokenScope['recordId'];
   onUnresolved: FilterTokenScope['onUnresolved'];
   resolved: AuthoredFilterSegments;
 }
@@ -466,6 +468,7 @@ function resolveFilterSegments(segments: AuthoredFilterSegments, scope: FilterTo
     segments,
     currentUserId: scope.currentUserId,
     currentOrgId: scope.currentOrgId,
+    recordId: scope.recordId,
     onUnresolved: scope.onUnresolved,
     resolved: resolveFilterPlaceholders(segments, scope),
   };

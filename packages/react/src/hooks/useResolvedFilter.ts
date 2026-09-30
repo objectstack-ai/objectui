@@ -26,6 +26,7 @@ interface HeldFilter {
   authored: unknown;
   currentUserId: FilterTokenScope['currentUserId'];
   currentOrgId: FilterTokenScope['currentOrgId'];
+  recordId: FilterTokenScope['recordId'];
   onUnresolved: FilterTokenScope['onUnresolved'];
   resolved: unknown;
 }
@@ -36,6 +37,7 @@ function resolveHeldFilter(authored: unknown, scope: FilterTokenScope): HeldFilt
     authored,
     currentUserId: scope.currentUserId,
     currentOrgId: scope.currentOrgId,
+    recordId: scope.recordId,
     onUnresolved: scope.onUnresolved,
     // `resolveFilterPlaceholders` copies every array and plain object it walks,
     // so a filter with nothing to resolve comes back EQUAL but not the same
@@ -91,9 +93,11 @@ function isSameAuthoredFilter(a: unknown, b: unknown, depth = 0): boolean {
  * Resolve a data node's own authored `filter` ONCE, and hold the result.
  *
  * Every context token the spec defines for filters (`{current_user_id}`,
- * `{current_org_id}`, and the date macros such as `{today}`) is expanded by
- * `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the session
- * scope the host provides. Pass `useFilterScope()` as `scope`:
+ * `{current_org_id}`, `{record_id}` where a record is in view, and the date
+ * macros such as `{today}`) is expanded by `@object-ui/core`'s shared
+ * `resolveFilterPlaceholders`, against the scope `useFilterScope()` reads: the
+ * session scope the host provides plus the mounted record's id
+ * (objectui#7297). Pass `useFilterScope()` as `scope`:
  *
  * ```tsx
  * const filterScope = useFilterScope();
@@ -111,8 +115,9 @@ function isSameAuthoredFilter(a: unknown, b: unknown, depth = 0): boolean {
  * date macro such as `{now}` resolves to a new value at every call, so
  * comparing OUTPUTS cannot stop that. The key is the authored filter, compared
  * by structure (a host that rebuilds an equal filter inline must not
- * re-query), plus the scope's three members read one by one, never the scope
- * object's identity (AGENTS.md #10). The held pair lives in state, so the
+ * re-query), plus each scope member read one by one (`recordId` among them,
+ * so moving to another record resolves again), never the scope object's
+ * identity (AGENTS.md #10). The held pair lives in state, so the
  * value handed out is always the one React committed. A structurally different
  * filter, or a changed scope member, resolves again and hands out a new value.
  *
@@ -126,6 +131,7 @@ export function useResolvedFilter<T>(authored: T, scope: FilterTokenScope): T {
   if (
     held.currentUserId !== scope.currentUserId
     || held.currentOrgId !== scope.currentOrgId
+    || held.recordId !== scope.recordId
     || held.onUnresolved !== scope.onUnresolved
     || !isSameAuthoredFilter(held.authored, authored)
   ) {

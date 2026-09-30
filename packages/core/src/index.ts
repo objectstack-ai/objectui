@@ -76,7 +76,8 @@ export * from './runtime/capabilities.js';
 export { composeStacks } from '@objectstack/spec';
 export * from './utils/drill-down.js';
 export * from './utils/date-macros.js';
-// Session-scoped filter placeholders ({current_user_id} / {current_org_id})
+// Session-scoped filter placeholders ({current_user_id} / {current_org_id}),
+// the record-scoped `{record_id}` (objectui#7297),
 // plus `resolveFilterPlaceholders`, the single entry point every surface
 // should call so no vocabulary is silently skipped (objectstack-ai/objectstack#3574).
 export * from './utils/filter-tokens.js';

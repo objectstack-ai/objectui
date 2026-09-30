@@ -10,6 +10,8 @@ import {
   CONTEXT_TOKENS,
   CONTEXT_TOKEN_SUGGESTIONS,
   isContextToken,
+  isRecordContextToken,
+  type RecordContextToken,
 } from '@objectstack/spec/data';
 
 import { resolveDateMacros } from './date-macros.js';
@@ -47,6 +49,25 @@ import { resolveDateMacros } from './date-macros.js';
  * different vocabulary rooted at `current_user` (`owner_id = current_user.id`).
  * Dropping a `{current_user_id}` filter widens a view; it must never widen
  * access. Never use a context token as an access control.
+ *
+ * ## `{record_id}` — the record in view, not the session (objectui#7297)
+ *
+ * `@objectstack/spec` declares one sibling of the two session tokens:
+ * `RECORD_CONTEXT_TOKENS` = `{record_id}`, the id of the record a
+ * `type: 'record'` page is showing (objectstack-ai/objectstack#20003). It is a
+ * separate list, not a member of `CONTEXT_TOKENS`, because it resolves against
+ * the SURFACE rather than the session, and only here: the server never knows
+ * which record a page shows, so it refuses a filter still carrying the token
+ * by name (`FILTER_TOKEN_UNRESOLVED`).
+ *
+ * Its value is `FilterTokenScope.recordId`, which `useFilterScope()` in
+ * `@object-ui/react` fills from the mounted `RecordContextProvider` and from
+ * nothing else — never a URL parameter, never a page variable. With no record
+ * in scope the token is refused by name through `onUnresolved`, in the voice
+ * an unresolved session token gets, and left as written: it never becomes
+ * `null` (a count about nobody) and its condition is never dropped (a count
+ * about everybody). Like the session tokens it scopes what a record page
+ * SHOWS; which of those rows the caller may read is still RLS's decision.
  *
  * ## Contract source
  *
@@ -89,9 +110,19 @@ export interface FilterTokenScope {
   /** The active organization id. */
   currentOrgId?: string | null;
   /**
+   * The id of the record the surface is bound to, which resolves
+   * `{record_id}` (objectui#7297): the mounted record context of a
+   * `type: 'record'` page. `useFilterScope()` in `@object-ui/react` fills it
+   * from the nearest `RecordContextProvider`, and a host that renders no
+   * record leaves it unset, so the token is refused there. ⛔ Never fill it
+   * from a URL parameter or a page variable.
+   */
+  recordId?: string | null;
+  /**
    * Called when a placeholder cannot be resolved — either a recognised token
-   * with no value in scope (signed out), or a near-miss spelling that resolves
-   * in no vocabulary. Defaults to a `console.warn`; pass `null` to silence.
+   * with no value in scope (signed out, or no record in context), or a
+   * near-miss spelling that resolves in no vocabulary. Defaults to a
+   * `console.warn`; pass `null` to silence.
    */
   onUnresolved?: ((message: string) => void) | null;
 }
@@ -117,13 +148,14 @@ const WHOLE_TOKEN_RE = /^\$?\{([a-zA-Z0-9_]+)\}$/;
  * `@objectstack/spec`'s own map is left untouched (out of scope here; the
  * identical shape in its `classifyFilterToken` is the one objectstack `4342c9923` closed).
  */
-const NEAR_MISS_SUGGESTIONS: Readonly<Record<string, ContextTokenName>> = Object.assign(
+const NEAR_MISS_SUGGESTIONS: Readonly<Record<string, ContextTokenName | RecordContextToken>> = Object.assign(
   Object.create(null),
   CONTEXT_TOKEN_SUGGESTIONS,
 );
 
 /**
- * Expand `{current_user_id}` / `{current_org_id}` inside a filter.
+ * Expand `{current_user_id}` / `{current_org_id}`, and `{record_id}` where a
+ * record is in scope, inside a filter.
  *
  * Walks arrays and plain objects recursively, which is what makes one
  * resolver cover both platform filter shapes: the MongoDB-style object a
@@ -147,7 +179,7 @@ const NEAR_MISS_SUGGESTIONS: Readonly<Record<string, ContextTokenName>> = Object
 export function resolveContextTokens<T = any>(filter: T, scope: FilterTokenScope = {}): T {
   if (filter == null) return filter;
 
-  const { currentUserId, currentOrgId } = scope;
+  const { currentUserId, currentOrgId, recordId } = scope;
   const warn =
     scope.onUnresolved === null
       ? () => {}
@@ -166,6 +198,13 @@ export function resolveContextTokens<T = any>(filter: T, scope: FilterTokenScope
     current_user_id: currentUserId,
     current_org_id: currentOrgId,
   } satisfies Record<ContextTokenName, string | null | undefined>;
+  // The record-context sibling, kept apart for the reason the spec keeps the
+  // two lists apart: it is filled from the record in view, never from the
+  // session. The same `satisfies` ratchet: a second record-context token in
+  // the spec reds this literal at compile time.
+  const recordValues: Record<string, string | null | undefined> = {
+    record_id: recordId,
+  } satisfies Record<RecordContextToken, string | null | undefined>;
 
   const walk = (value: any): any => {
     if (value == null) return value;
@@ -182,6 +221,26 @@ export function resolveContextTokens<T = any>(filter: T, scope: FilterTokenScope
           `Filter placeholder "{${token}}" could not be resolved — no ${
             token === 'current_user_id' ? 'signed-in user' : 'active organization'
           } in scope. The filter will match no records.`,
+        );
+        return value;
+      }
+
+      // `{record_id}` (objectui#7297). Resolved only from the record in scope.
+      // With none, it is refused BY NAME, in the voice of the unresolved
+      // session token above, and left as written: never `null` (a count about
+      // nobody), never dropped (a count about everybody), and never reported as
+      // an unknown spelling, because the spelling is right and the surface is
+      // not. The ObjectStack server then refuses the same filter by name
+      // (`FILTER_TOKEN_UNRESOLVED`), since no server path has a record in view.
+      if (isRecordContextToken(token)) {
+        const resolved = recordValues[token];
+        if (resolved != null && resolved !== '') return resolved;
+        warn(
+          `Filter placeholder "{${token}}" could not be resolved — no record in context ` +
+            `on this surface. It resolves only on a component of a \`type: 'record'\` page, ` +
+            `to the id of the record that page shows. It is left as written, so the filter ` +
+            `never widens: the server refuses it by name, and a backend with no resolver ` +
+            `matches no records.`,
         );
         return value;
       }

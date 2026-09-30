@@ -97,6 +97,7 @@ interface HeldGridFilters {
   authored: AuthoredGridFilters;
   currentUserId: FilterTokenScope['currentUserId'];
   currentOrgId: FilterTokenScope['currentOrgId'];
+  recordId: FilterTokenScope['recordId'];
   onUnresolved: FilterTokenScope['onUnresolved'];
   resolved: AuthoredGridFilters;
 }
@@ -106,6 +107,7 @@ function resolveGridFilters(authored: AuthoredGridFilters, scope: FilterTokenSco
     authored,
     currentUserId: scope.currentUserId,
     currentOrgId: scope.currentOrgId,
+    recordId: scope.recordId,
     onUnresolved: scope.onUnresolved,
     resolved: resolveFilterPlaceholders(authored, scope),
   };
@@ -170,8 +172,9 @@ function isSameAuthoredFilter(a: unknown, b: unknown, depth = 0): boolean {
  * every render; and a date macro such as `{now}` resolves to a new value at
  * every call, so comparing OUTPUTS cannot stop that. The key is the authored
  * filters, compared by structure (a host that rebuilds an equal filter inline
- * must not re-query), plus the scope's three members read one by one, never
- * the scope object's identity (AGENTS.md #10). The held pair lives in state,
+ * must not re-query), plus each scope member read one by one (`recordId`
+ * among them, objectui#7297), never the scope object's identity (AGENTS.md
+ * #10). The held pair lives in state,
  * so the value handed out is always the one React committed.
  */
 function useResolvedGridFilters(authored: AuthoredGridFilters, scope: FilterTokenScope): AuthoredGridFilters {
@@ -179,6 +182,7 @@ function useResolvedGridFilters(authored: AuthoredGridFilters, scope: FilterToke
   if (
     held.currentUserId !== scope.currentUserId
     || held.currentOrgId !== scope.currentOrgId
+    || held.recordId !== scope.recordId
     || held.onUnresolved !== scope.onUnresolved
     || !isSameAuthoredFilter(held.authored, authored)
   ) {

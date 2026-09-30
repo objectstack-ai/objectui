@@ -759,7 +759,7 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
 const OBJECTUI_11111_LEDGER_CAPS = {
   unjudgedBlocks: 4, // objectui#11168: object-gantt, object-map, object-timeline, object-tree
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
-  unpublishedKeys: 53, // objectui#11168: 42 (22 + 20); objectui#8652: 2; objectui#8649: 9
+  unpublishedKeys: 14, // objectui#11168: 3 (action:button endpoint + undoable, action:icon endpoint); objectui#8652: 2; objectui#8649: 9
   refusedArms: 2, // objectui#11168: element:definition-list, object-form
   memberPins: 4, // objectui#11168: element:definition-list, element:repeater ×3
 } as const;
@@ -1383,25 +1383,29 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
    * entries it lists` — `OBJECTUI_11111_LEDGER_CAPS.unpublishedKeys` is the
    * number, and each owner card's landing lowers it.
    */
+  // objectui#11168 slice 1 measured every `action:button` / `action:icon` key
+  // below through the real `SchemaRenderer` and `ActionRunner` and DECLARED the
+  // ones honoured on the block path — all but the three still listed here,
+  // which the slice held back with its measurement and a question for the
+  // card. The pins are
+  // `packages/components/src/renderers/action/__tests__/action-button-icon-inputs-11168.test.tsx`.
   ...owedEntries(
     'action:button',
-    [
-      'visible', 'disabled', 'params', 'description', 'openIn', 'endpoint', 'method', 'bodyExtra',
-      'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
-      'undoable', 'recordIdField', 'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
-    ],
+    ['endpoint'],
     'objectui#11168',
-    'A SPEC KEY NOT PUBLISHED: `action:button` entered `covered` with 17.5.0 and its `inputs` omit this key its spec row declares.',
+    'A SPEC KEY HELD UNPUBLISHED AFTER MEASUREMENT (slice 1): the block forwards `endpoint` and the runner\'s built-in `api` executor reads it, but the console registers its own `api` handler, which reads `target` and never `endpoint` — so on the console an `api` action with an `endpoint` sends nothing there.',
+  ),
+  ...owedEntries(
+    'action:button',
+    ['undoable'],
+    'objectui#11168',
+    'A SPEC KEY HELD UNPUBLISHED AFTER MEASUREMENT (slice 1): the block forwards `undoable`, but the runner\'s `operation: update` path and the console runtime offer Undo only with a host `_rowRecord` stash this block never writes; only the record page\'s own `api` handler honours it.',
   ),
   ...owedEntries(
     'action:icon',
-    [
-      'visible', 'disabled', 'params', 'description', 'openIn', 'endpoint', 'method', 'bodyExtra',
-      'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
-      'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
-    ],
+    ['endpoint'],
     'objectui#11168',
-    'A SPEC KEY NOT PUBLISHED: `action:icon` entered `covered` with 17.5.0 and its `inputs` omit this key its spec row declares.',
+    'A SPEC KEY HELD UNPUBLISHED AFTER MEASUREMENT (slice 1): the block forwards `endpoint` and the runner\'s built-in `api` executor reads it, but the console registers its own `api` handler, which reads `target` and never `endpoint` — so on the console an `api` action with an `endpoint` sends nothing there.',
   ),
   // `action:group`'s `location` / `visible` and `action:menu`'s `size` /
   // `visible` stood here until objectui#11168 slice 1 measured each against its
@@ -2530,6 +2534,45 @@ interface MemberPin {
 }
 
 /**
+ * The member pins objectui#11168 slice 1 registered for the array/object-armed
+ * keys `action:button` and `action:icon` publish. ONE file drives both blocks
+ * through the same rows (`describe.each`), so each key's claim is identical on
+ * the two and is written once here; `actionLeafMemberPins` spells it out per
+ * block, so every id below still names its block and its key.
+ */
+const ACTION_LEAF_PIN_FILE =
+  'packages/components/src/renderers/action/__tests__/action-button-icon-inputs-11168.test.tsx';
+const ACTION_LEAF_MEMBER_CLAIMS: Record<string, string> = {
+  visible:
+    'The `object` arm is the CEL predicate envelope `{ dialect: \'cel\', source }`, mounted through the real `SchemaRenderer` with `data` bound: the holding envelope renders the control and its failing twin removes it, and the boolean and bare-CEL arms carry the same holds/fails pair, so a gate never consulted (equal verdicts) is red (objectui#11168 slice 1).',
+  disabled:
+    'The `object` arm is the CEL predicate envelope `{ dialect: \'cel\', source }`, mounted through the real `SchemaRenderer` with `data` bound: the holding envelope greys the control and its failing twin leaves it pressable, with the control ON SCREEN in both rows so "disabled" cannot read as "never rendered"; the boolean and bare-CEL arms carry the same pair (objectui#11168 slice 1).',
+  params:
+    'Members are the `ActionParam` definitions the runner collects: the whole list, in order and unchanged, is what the parameter-collection handler is handed, and the value collected for a member reaches the executor under that member\'s `name`; with no `params` nothing is collected and the action runs straight away (objectui#11168 slice 1).',
+  bodyExtra:
+    'Members are request-body fields, merged into the body the runner\'s built-in `api` executor sends, LAST: a member overrides a static `properties.params` value of the same name while the other static values survive; without the key the body is the static values alone (objectui#11168 slice 1).',
+  bodyShape:
+    'The `object` arm\'s one member is `wrap`: `{ wrap: \'data\' }` nests the static values under `data` with `bodyExtra` riding flat beside it, while `flat` and an absent key send the same flat body — asserted on the body the runner\'s built-in `api` executor sends (objectui#11168 slice 1).',
+  patch:
+    'Members are field values for `operation: update`, merged UNDER the supplied values on the way to the write route (the `script` dispatch the runner hands an update to): a member the user also supplies loses, a member only `patch` carries is written, and the same `patch` without `operation` is merged by nothing (objectui#11168 slice 1).',
+  locations:
+    'Members are placement names, read at dispatch by `@object-ui/core`\'s `createServerActionHandler` (the console\'s `script` handler is built on it): a list carrying a record-scoped member (`record_header`) refuses to run with no record or selection in scope — an error toast and no request — while an object-level list (`list_toolbar`) runs (objectui#11168 slice 1).',
+  toast:
+    'Members `showOnSuccess` / `showOnError` / `duration`, each asserted on the toast handler the runner calls: `showOnSuccess: false` silences a success, `showOnError: false` silences a failure, and `duration` is handed to the toast; with no `toast` both outcomes are toasted (objectui#11168 slice 1).',
+  resultDialog:
+    'The spec reaches the reveal-dialog handler WHOLE (deep-equal, `fields` included) together with the response data, and it replaces the success toast. The runner reads no member itself — the members are the dialog\'s to interpret — so the pin is that none is dropped or rewritten on the way (objectui#11168 slice 1).',
+  onSuccess:
+    'Members `navigate` and `openIn`: `navigate` is interpolated from the response (`${result.id}` becomes the handler\'s id) and handed to the navigation handler, and `openIn: newTab` opens a tab where its absence navigates in place; with no `onSuccess` a successful action navigates nowhere (objectui#11168 slice 1).',
+};
+const actionLeafMemberPins = (type: 'action:button' | 'action:icon'): Record<string, MemberPin> =>
+  Object.fromEntries(
+    Object.entries(ACTION_LEAF_MEMBER_CLAIMS).map(([key, pins]) => [
+      `${type}.${key}`,
+      { file: ACTION_LEAF_PIN_FILE, pins },
+    ]),
+  );
+
+/**
  * The per-block member pins this repo has, by key.
  *
  * An entry is a claim that the named file constrains the member shape the
@@ -2548,6 +2591,8 @@ interface MemberPin {
  * was built for.
  */
 const MEMBER_PINS: Record<string, MemberPin> = {
+  ...actionLeafMemberPins('action:button'),
+  ...actionLeafMemberPins('action:icon'),
   'action:group.actions': {
     file: 'packages/components/src/renderers/action/__tests__/action-group-menu-inputs-11168.test.tsx',
     pins: 'Members are ACTION OBJECTS the group draws and runs itself, driven through the real `SchemaRenderer`: `label` is the button text (the dropdown falls back to `name`), a member\'s own `visible` / `disabled` gate THAT member only (a sibling is the control), `variant`, `size` and `className` style it, with a member `size` outranking the group\'s and the group\'s outranking the `sm` fallback, `tags: [separator-before]` draws the dropdown divider, and `locations` is what the group\'s `location` filters on. A click hands the runner the member under its OWN `type` with its own keys (`target`, `objectName`). The list kind is pinned against the contract as well: the spec refuses an `object` at `actions` by kind and accepts a list of objects, which is the narrowing objectui#11168 slice 1 made to the declaration.',
@@ -5550,6 +5595,6 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
           reasons.filter((reason) => reason.startsWith(`${OWED_PREFIX}${owner}.`)).length,
         ]),
       ),
-    ).toEqual({ 'objectui#11168': 52, 'objectui#8652': 2, 'objectui#8649': 9 });
+    ).toEqual({ 'objectui#11168': 13, 'objectui#8652': 2, 'objectui#8649': 9 });
   });
 });

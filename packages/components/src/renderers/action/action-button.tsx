@@ -396,6 +396,21 @@ ComponentRegistry.register('button', ActionButtonRenderer, {
   namespace: 'action',
   skipFallback: true,
   label: 'Action Button',
+  // objectui#11168 slice 1 — the keys after `className` are the spec keys this
+  // block's `ComponentPropsMap` row declares, each published because it was
+  // measured HONOURED through the block path: the real `SchemaRenderer` hands
+  // it to this renderer, which consumes it or forwards it, and the runner (or
+  // the handler it dispatches to) acts on the forwarded value. The pins live
+  // in `__tests__/action-button-icon-inputs-11168.test.tsx`. `action:icon`
+  // publishes the same list minus `recordIdField`, which its spec row does not
+  // declare (and its renderer does not forward); the two are kept literal so
+  // the source readers that census registrations can still name every entry.
+  //
+  // Two spec keys stay unpublished, each with its measurement on objectui#11168:
+  // `endpoint` (the runner's built-in `api` executor reads it, but the console
+  // registers its own `api` handler, which reads `target` and never `endpoint`)
+  // and `undoable` (the runner's update path offers Undo only with a host row
+  // stash this block never writes).
   inputs: [
     { name: 'name', type: 'string' },
     { name: 'label', type: 'string' },
@@ -417,6 +432,122 @@ ComponentRegistry.register('button', ActionButtonRenderer, {
       enum: ['sm', 'md', 'lg'],
     },
     { name: 'className', type: 'string' },
+    {
+      name: 'visible',
+      type: ['boolean', 'string', 'object'],
+      description:
+        'Visibility predicate: `true`/`false`, a bare CEL expression, or the `{ dialect: \'cel\', source }` envelope, evaluated against the row the host binds; the button is not rendered when it is false, nor when the predicate fails to evaluate. Omit for always-visible',
+    },
+    {
+      name: 'disabled',
+      type: ['boolean', 'string', 'object'],
+      description:
+        'Disabled predicate, in the same three shapes as `visible`: the button is shown but cannot be pressed while it holds. Omit for never-disabled',
+    },
+    {
+      name: 'params',
+      type: 'array',
+      description:
+        'The parameters to collect from the user before the action runs (`ActionParam` objects: `name`, `type`, `label`, …); each collected value reaches the executor under its parameter `name`. Static execution values ride `properties.params` instead',
+    },
+    {
+      name: 'description',
+      type: 'string',
+      description: 'Action description — the parameter dialog shows it under its title',
+    },
+    {
+      name: 'openIn',
+      type: 'enum',
+      enum: ['self', 'new-tab'],
+      description: 'For a `url` action: `self` navigates in place, `new-tab` opens a new browser tab',
+    },
+    {
+      name: 'method',
+      type: 'string',
+      description: 'HTTP method of an `api` action (`POST` when omitted)',
+    },
+    {
+      name: 'bodyExtra',
+      type: 'object',
+      description:
+        'Static request-body fields of an `api` action, merged last, so a constant here overrides a collected value of the same name',
+    },
+    {
+      name: 'bodyShape',
+      type: ['enum', 'object'],
+      enum: ['flat'],
+      description:
+        'How an `api` action shapes its request body: `flat` (the default) or `{ wrap: KEY }` to nest the collected values under that key, with `bodyExtra` beside it',
+    },
+    {
+      name: 'operation',
+      type: 'enum',
+      enum: ['update'],
+      description:
+        '`update` declares a single-record field write: the runner dispatches it to the platform action route with `patch` merged under the collected values',
+    },
+    {
+      name: 'patch',
+      type: 'object',
+      description:
+        'For `operation: update`: the field values written, merged UNDER the values the user supplies, so a collected value of the same name wins',
+    },
+    {
+      name: 'confirmText',
+      type: 'string',
+      description: 'Confirmation question asked before the action runs; the action runs only if it is confirmed',
+    },
+    {
+      name: 'successMessage',
+      type: 'string',
+      description: 'Toast text when the action succeeds (a message the server returns takes precedence)',
+    },
+    {
+      name: 'errorMessage',
+      type: 'string',
+      description: 'Toast text when the action fails, in place of the raw error',
+    },
+    {
+      name: 'refreshAfter',
+      type: 'boolean',
+      description: 'Refresh the surrounding data after the action succeeds',
+    },
+    {
+      name: 'locations',
+      type: 'array',
+      of: 'string',
+      description:
+        'The placements the action declares (`list_toolbar`, `list_item`, `record_header`, …). A `script` or `flow` action declared record-scoped (`list_item`, `record_header`, `record_more` or `record_section`) refuses to run when no record or single selection is in scope, instead of running without one',
+    },
+    {
+      name: 'toast',
+      type: 'object',
+      description:
+        'Toast behaviour: `{ showOnSuccess?, showOnError?, duration? }` — `false` suppresses that toast, `duration` is handed to the toast',
+    },
+    {
+      name: 'resultDialog',
+      type: 'object',
+      description:
+        'One-shot result dialog for a value the response shows exactly once (a 2FA code, a fresh secret); it replaces the success toast',
+    },
+    {
+      name: 'onSuccess',
+      type: 'object',
+      description:
+        'Post-success navigation `{ navigate, openIn? }`: `navigate` is a route template that can read `${result.*}`, `openIn` is `self` (the default) or `newTab`',
+    },
+    {
+      name: 'objectName',
+      type: 'string',
+      description: "Object the action acts on — dispatch goes to this object instead of the page's. Omit to act on the page's object",
+    },
+    {
+      name: 'recordIdField',
+      type: 'string',
+      description:
+        'For a `script` action run against a single selected row: the row field whose value is sent as the record id (default `id`)',
+    },
   ],
   defaultProps: {
     label: 'Action',

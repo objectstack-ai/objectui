@@ -344,7 +344,9 @@ const SCREEN_FIELD_KEYS = Object.keys(SCREEN_FIELD_CARRY) as Array<keyof ScreenF
 /** Carry one key of an authored row onto `field`, when its value holds the declared type. */
 function carryKey<K extends keyof ScreenFieldSpec>(field: ScreenFieldSpec, key: K, row: Record<string, unknown>): void {
   const value = SCREEN_FIELD_CARRY[key](row[key]);
-  if (value !== undefined) field[key] = value;
+  // The `!== undefined` check does not narrow a generic indexed type, so the
+  // value is restated as the key's own type once it is known present.
+  if (value !== undefined) field[key] = value as ScreenFieldSpec[K];
 }
 
 /**

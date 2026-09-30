@@ -63,7 +63,9 @@ const OBJECT_BODY = {
   description: 'A customer project.',
   fields: {
     name: { type: 'text', label: 'Name', required: true },
-    stage: { type: 'select', label: 'Stage', helpText: 'Pipeline stage.' },
+    // One option: a `select` with no option source is held by the object write
+    // guard (objectui#11253), which is not what this file measures.
+    stage: { type: 'select', label: 'Stage', helpText: 'Pipeline stage.', options: [{ label: 'Open', value: 'open' }] },
     amount: { type: 'currency', label: 'Amount' },
   },
   indexes: [{ name: 'by_stage', fields: ['stage'] }],

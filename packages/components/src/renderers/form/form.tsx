@@ -944,8 +944,9 @@ function FullscreenTextarea({
    * ride `rest`, because it now has THREE readers, not one: the native
    * `maxLength` attribute on each of the two textareas, and the counter that
    * renders beside them. It rode `rest` for as long as the branch's only use
-   * of it was the attribute — which is also why the legacy `max_length`
-   * spelling silently did nothing here (see the call site).
+   * of it was the attribute — which is also why the snake_case `max_length`
+   * spelling silently did nothing here before objectui#3439 (that spelling is
+   * retired since objectui#11070; see the call site).
    */
   maxLength?: number;
   /**
@@ -3668,8 +3669,8 @@ const NATIVE_PICKER_INPUT_TYPES = new Set(['date', 'datetime-local', 'time', 'mo
  *
  * So this table is not a new tolerance (AGENTS.md #0.1): it is what keeps the
  * VISIBLE rendering of these two types byte-identical to what the fallback
- * produced, while the leak, the duplicate `<label>` and the dead `max_length`
- * go away. An explicitly authored `inputType` still wins over it.
+ * produced, while the leak and the duplicate `<label>` go away. An explicitly
+ * authored `inputType` still wins over it.
  *
  * Deliberately narrow. Every other declared field type with a native HTML
  * equivalent (`url`, `phone`, `number`, `color`, `date` …) ALREADY takes this
@@ -4056,50 +4057,31 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
 
   switch (type) {
     case 'input': {
-      // The declared ceiling is resolved HERE, in BOTH authored spellings,
-      // rather than left to ride the pass-through onto the DOM
-      // (objectui#5201). This is the same mechanism the `textarea` branch
-      // below resolves for the same reason (objectui#3439) — this branch was
-      // deliberately left out of that card because the COUNTER half is a
-      // design question for a single-line input; the ceiling half is not.
+      // The declared ceiling is resolved HERE rather than left to ride the
+      // pass-through onto the DOM (objectui#5201). This is the same mechanism
+      // the `textarea` branch below resolves for the same reason
+      // (objectui#3439) — this branch was deliberately left out of that card
+      // because the COUNTER half is a design question for a single-line input;
+      // the ceiling half is not.
       //
-      // Measured on `origin/main`, the pass-through answered the two spellings
-      // differently: a camelCase `maxLength` happened to work because it names
-      // a real DOM attribute, so the element got `maxlength="50"`; the legacy
-      // `max_length` reached the same element as a STRAY, inert
-      // `max_length="50"` attribute and the field had no cap at all — no
-      // truncation, and invalid HTML that reads like a working cap to whoever
-      // greps this file next.
-      //
-      // `maxLength ?? max_length` is not a tolerance invented at a consumer
-      // (AGENTS.md #0.1): the registered `field:*` widgets have dual-read it
-      // since framework#1878 §3, all three producers of a form field do
-      // (`ObjectForm`, `sectionFields`, `EmbeddableForm.applyDefaultMaxLengths`)
-      // and `packages/types`' field types declare `max_length`. Every reader in
-      // the repo honoured it except this branch — which is precisely the one
-      // serving a hand-authored `FormSchema` handed straight to the renderer,
-      // where there is no normalizing producer in between and the author IS
-      // the producer.
-      //
-      // The legacy key is destructured off LOCALLY — not added to
-      // `stripRendererOnlyProps` — because that helper feeds EVERY branch
-      // (`checkbox`, `switch`, `select` and the `default` fallback all share
-      // `domFieldProps`), so extending it would change what reaches the DOM
-      // for widgets this card neither fixes nor tests. The `textarea` branch
-      // strips it the same local way.
+      // The spec's `maxLength` — which `FormField` declares by reference to
+      // `FieldSchema.maxLength` — is the one spelling read. The snake_case
+      // `max_length` this branch also read until objectui#11070 is retired,
+      // with no alias: `FieldSchema` and the strict authoring face refuse it
+      // by name, no objectui type declares it, and no in-repo producer writes
+      // it. The local strip that kept it off the element went with the read,
+      // so nothing in this branch names it any more.
       //
       // Scope: the CEILING only. Whether a single-line input should also carry
       // a visible `{n}/{max}` counter and an announced limit the way the
       // `textarea` branch does is an independent design trade-off that does
       // NOT follow from #3439's conclusion, and is deliberately not decided
       // here (the objectui#5201 triage ruling).
-      const { max_length: _maxLengthLegacy, ...inputProps } = domFieldProps as any;
-      const maxLength = (fieldProps as any).maxLength ?? (fieldProps as any).max_length;
+      const maxLength = (fieldProps as any).maxLength;
       if (inputType === 'file') {
         // File inputs cannot be controlled with value prop. No cap applies to a
-        // file picker, but the stray legacy key must not reach it either — it
-        // is off `inputProps` already.
-        const { value, ...fileProps } = inputProps;
+        // file picker.
+        const { value, ...fileProps } = domFieldProps;
         return <Input type="file" placeholder={placeholder} className="min-h-[44px] sm:min-h-0" {...fileProps} />;
       }
       return (
@@ -4107,17 +4089,17 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
           type={inputType || 'text'}
           placeholder={placeholder}
           className={cn('min-h-[44px] sm:min-h-0', readonlyInputClass)}
-          {...inputProps}
-          // After the spread, so the resolved cap wins over the raw camelCase
-          // key `inputProps` still carries (the #3222 discipline). `undefined`
-          // when neither spelling was declared, which renders no attribute.
+          {...domFieldProps}
+          // After the spread, so the resolved cap is the one written (the
+          // #3222 discipline). `undefined` when the field declares no
+          // `maxLength`, which renders no attribute.
           maxLength={maxLength}
           onClick={(e) => {
             openNativePickerOnClick(inputType)?.(e);
-            inputProps.onClick?.(e);
+            domFieldProps.onClick?.(e);
           }}
           readOnly={readonly}
-          value={inputProps.value ?? ''}
+          value={domFieldProps.value ?? ''}
         />
       );
     }
@@ -4150,30 +4132,19 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
       // inline control announced `aria-invalid="true"` for the same field. The
       // primitive, not this branch, decides what to do with it.
       //
-      // `maxLength` is resolved HERE, in both authored spellings, rather than
-      // left to ride `rest` onto the DOM (objectui#3439). Measured on
-      // `origin/main`, the pass-through answered the two spellings differently:
-      // a camelCase `maxLength` happened to work because it names a real DOM
-      // attribute, so the element got `maxlength="100"`; the legacy
-      // `max_length` reached the same element as a STRAY, inert
-      // `max_length="100"` attribute and the field had no cap at all — no
-      // truncation, and (before this change) no counter either. The registered
-      // `field:textarea` widget has dual-read `maxLength ?? max_length` since
-      // framework#1878 §3, as do all three producers of a form field
-      // (`ObjectForm`, `sectionFields`, `EmbeddableForm.applyDefaultMaxLengths`),
-      // so this is not a new tolerance invented at a consumer (AGENTS.md #0.1)
-      // — it is this path finally resolving the declaration the way every other
-      // reader in the repo already resolves it. A hand-authored `FormSchema`
-      // handed straight to this renderer, which is the standalone/embedded host
-      // this branch exists for, has no producer in between to normalize it.
-      //
-      // `max_length` is then kept OFF the element: it is not a DOM attribute in
-      // any spelling, so leaving it in `rest` renders invalid HTML that looks
-      // like a working cap to the next reader.
+      // `maxLength` is resolved HERE rather than left to ride `rest` onto the
+      // DOM (objectui#3439): it has three readers in this branch — the native
+      // attribute on each of the two textareas, and the counter beside them.
+      // The spec's `maxLength` — which `FormField` declares by reference to
+      // `FieldSchema.maxLength` — is the one spelling read, as in the
+      // registered `field:textarea` widget. The snake_case `max_length` this
+      // branch also read until objectui#11070 is retired, with no alias: the
+      // spec and the strict authoring face refuse it by name, no objectui type
+      // declares it, and no in-repo producer writes it. The local strip that
+      // kept it off the element went with the read.
       const { mobile_fullscreen, label, error } = fieldProps as any;
-      const { max_length: _maxLengthLegacy, ...textareaProps } = fieldProps as any;
-      const maxLength = (fieldProps as any).maxLength ?? (fieldProps as any).max_length;
-      const rest = stripRendererOnlyProps(textareaProps);
+      const maxLength = (fieldProps as any).maxLength;
+      const rest = domFieldProps;
       if (mobile_fullscreen) {
         return (
           <FullscreenTextarea
@@ -4189,8 +4160,8 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
             // was on. (`disabled` rides `rest`, which no strip touches.)
             className={cn('min-h-[44px] sm:min-h-0', readonlyInputClass)}
             {...rest}
-            // After the spread, so the resolved cap wins over the raw
-            // camelCase key `rest` still carries (the #3222 discipline).
+            // After the spread, so the resolved cap is the one written (the
+            // #3222 discipline).
             maxLength={maxLength}
             readOnly={readonly}
             value={rest.value ?? ''}
@@ -4338,43 +4309,19 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
         );
       }
 
-      // The declared ceiling is resolved HERE, in BOTH authored spellings,
-      // rather than left to ride the pass-through onto the DOM
-      // (objectui#5253). Identical mechanism, identical reasons and identical
-      // shape to the `input` branch above (objectui#5201) and the `textarea`
-      // branch (objectui#3439) — this fallback was simply out of #5201's
-      // scoped surface, so it kept the defect after that card landed.
+      // The declared ceiling is resolved HERE rather than left to ride the
+      // pass-through onto the DOM (objectui#5253). Identical mechanism and
+      // identical reasons to the `input` branch above (objectui#5201) and the
+      // `textarea` branch (objectui#3439) — this fallback was simply out of
+      // #5201's scoped surface, so it kept the defect after that card landed.
       //
-      // Measured on `origin/main` at 87d9202b1, with a `type` that is neither
-      // a `BUILTIN_FIELD_TYPES` member nor a registered component (so this
-      // branch renders it), the pass-through answered the two spellings
-      // differently:
-      //
-      //   max_length: 50 → attrs=[…,"max_length",…]  maxlength=null
-      //   maxLength: 50 → attrs=[…,"maxlength",…]    maxlength="50"
-      //
-      // i.e. camelCase capped by COINCIDENCE (it names a real DOM attribute),
-      // while the legacy `max_length` capped NOTHING and landed as a stray,
-      // inert `max_length="50"` attribute — invalid HTML that reads like a
-      // working cap to the next reader. Two independent defects.
-      //
-      // `maxLength ?? max_length` is not a tolerance invented at a consumer
-      // (AGENTS.md #0.1): the registered `field:*` widgets have dual-read it
-      // since framework#1878 §3, all three producers of a form field do
-      // (`ObjectForm`, `sectionFields`, `EmbeddableForm.applyDefaultMaxLengths`)
-      // and `packages/types`' field types declare `max_length`. This branch —
-      // like the `input` one — serves a hand-authored `FormSchema` handed
-      // straight to the renderer, where there is no normalizing producer in
-      // between and the author IS the producer.
-      //
-      // The legacy key is destructured off LOCALLY — NOT added to
-      // `stripRendererOnlyProps` — because that helper feeds EVERY branch
-      // (`checkbox`, `switch`, `select` and this fallback all share
-      // `domFieldProps`), so extending it would change what reaches the DOM
-      // for widgets this card neither fixes nor tests. Both landed siblings
-      // strip it the same local way.
-      const { max_length: _maxLengthLegacy, ...fallbackProps } = domFieldProps as any;
-      const maxLength = (fieldProps as any).maxLength ?? (fieldProps as any).max_length;
+      // The spec's `maxLength` — which `FormField` declares by reference to
+      // `FieldSchema.maxLength` — is the one spelling read. The snake_case
+      // `max_length` this branch also read until objectui#11070 is retired,
+      // with no alias: the spec and the strict authoring face refuse it by
+      // name, no objectui type declares it, and no in-repo producer writes it.
+      // The local strip that kept it off the element went with the read.
+      const maxLength = (fieldProps as any).maxLength;
       return (
         <Input
           // ── Half 2: RESPECT the declared input type ───────────────────
@@ -4398,15 +4345,15 @@ function renderFieldComponent(type: string, props: RenderFieldProps) {
           type={inputType || NATIVE_INPUT_FIELD_TYPES[declaredType] || 'text'}
           placeholder={placeholder}
           className={cn(readonlyInputClass)}
-          {...fallbackProps}
-          // After the spread, so the resolved cap wins over the raw camelCase
-          // key `fallbackProps` still carries (the #3222 discipline).
-          // `undefined` when neither spelling was declared, which renders no
-          // attribute — an uncapped field is left exactly as it was.
+          {...domFieldProps}
+          // After the spread, so the resolved cap is the one written (the
+          // #3222 discipline). `undefined` when the field declares no
+          // `maxLength`, which renders no attribute — an uncapped field is
+          // left exactly as it was.
           maxLength={maxLength}
           onClick={(e) => {
             openNativePickerOnClick(inputType)?.(e);
-            fallbackProps.onClick?.(e);
+            domFieldProps.onClick?.(e);
           }}
           readOnly={readonly}
         />

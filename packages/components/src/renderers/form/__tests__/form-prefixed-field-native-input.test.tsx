@@ -253,13 +253,12 @@ describe('the unregistered-widget default branch, per spelling (objectui#5322)',
     });
 
     it('still caps a prefixed field by its declared ceiling', () => {
-      // The `maxLength ?? max_length` resolution this branch does (#5253) is
-      // untouched by the type-key change above.
+      // The `maxLength` resolution this branch does (#5253; the spec spelling
+      // alone since objectui#11070) is untouched by the type-key change above.
       renderForm([
-        { name: 'contact', label: 'Contact', type: 'field:email', max_length: 50 },
+        { name: 'contact', label: 'Contact', type: 'field:email', maxLength: 50 },
       ]);
       expect(input()!.getAttribute('maxlength')).toBe('50');
-      expect(input()!.getAttributeNames()).not.toContain('max_length');
     });
   });
 });

@@ -30,6 +30,12 @@
  * the registered widget since framework#1878 §3, and by all three producers of
  * a form field) landed as an inert attribute and capped nothing at all.
  *
+ * ⭐ objectui#11070 later retired the snake_case `max_length` everywhere:
+ * `@objectstack/spec` and the strict authoring face refuse it by name, no
+ * objectui type declares it, and every reader — this branch and the registered
+ * widget included — reads the spec's `maxLength` alone. The pins below read it
+ * that way: the retired spelling caps nothing and draws no counter.
+ *
  * The consequence that matters is the accessibility one: a screen-reader user
  * on this path was told the limit only as a validation error AFTER submitting.
  * Shipping the visible digits alone would have fixed the sighted half and left
@@ -112,20 +118,12 @@ describe('built-in textarea — native cap (objectui#3439)', () => {
     expect(inlineTextarea()).toHaveAttribute('maxlength', '100');
   });
 
-  it('applies the LEGACY max_length spelling too — it capped nothing before', () => {
+  it('the retired max_length caps nothing and draws no counter (objectui#11070)', () => {
     renderForm([longText({ max_length: 100 })]);
-    // The registered widget has dual-read `maxLength ?? max_length` since
-    // framework#1878 §3. Measured on `origin/main` this element had
-    // `maxlength: null` and a stray `max_length="100"`, i.e. no cap at all —
-    // one declaration, two behaviours, which is the whole of this card.
-    expect(inlineTextarea()).toHaveAttribute('maxlength', '100');
-  });
-
-  it('never leaks max_length onto the DOM as a stray attribute', () => {
-    renderForm([longText({ max_length: 100 })]);
-    // Not a DOM attribute in any spelling. Left in the pass-through it renders
-    // invalid HTML that reads like a working cap to whoever greps next.
-    expect(inlineTextarea().getAttributeNames()).not.toContain('max_length');
+    // The spec's `maxLength` is the one spelling read, here as in the
+    // registered widget.
+    expect(inlineTextarea()).not.toHaveAttribute('maxlength');
+    expect(visibleCounter()).toBeNull();
   });
 
   it('leaves an uncapped field exactly as it was — no attribute, no counter', () => {
@@ -153,10 +151,6 @@ describe('built-in textarea — the visible digits (node 1)', () => {
     expect(visibleCounter()).toHaveTextContent('5/100');
   });
 
-  it('counts a legacy-spelled cap too', () => {
-    renderForm([longText({ max_length: 40 })]);
-    expect(visibleCounter()).toHaveTextContent('0/40');
-  });
 });
 
 describe('built-in textarea — the cap is announced ON FOCUS (node 2)', () => {

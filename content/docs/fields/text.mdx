@@ -25,7 +25,10 @@ The Text Field component provides a single-line text input for collecting basic 
 
 A text field is authored as `TextFieldMetadata` (`@object-ui/types`), which is the
 source of truth for the key set: it extends `BaseFieldMetadata` with the
-text-specific validation keys.
+text-specific validation keys. The length bounds are `@objectstack/spec`'s own
+`FieldSchema.minLength` / `maxLength`, typed by reference; the snake_case
+`min_length` / `max_length` are retired, refused by the spec by name and read by
+nothing.
 
 ```ts
 import type { TextFieldMetadata } from '@object-ui/types';
@@ -37,8 +40,8 @@ const productName: TextFieldMetadata = {
   placeholder: 'Enter a product name',
   help: 'Shown on the storefront and in search results.',
   required: true,
-  min_length: 2,
-  max_length: 120,
+  minLength: 2,
+  maxLength: 120,
   pattern: '^[A-Za-z0-9 -]+$',
   pattern_message: 'Letters, digits, spaces and hyphens only.',
 };

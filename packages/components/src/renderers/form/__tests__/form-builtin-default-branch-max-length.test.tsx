@@ -7,8 +7,8 @@
  */
 
 /**
- * The built-in `default` FALLBACK branch honours a declared ceiling in BOTH
- * authored spellings — objectui#5253.
+ * The built-in `default` FALLBACK branch honours a declared ceiling —
+ * objectui#5253 — in the spec's spelling alone since objectui#11070.
  *
  * ## Which branch this is
  *
@@ -41,23 +41,19 @@
  * and this fallback alike, so widening it would change three branches this
  * card does not test).
  *
- * `max_length` is a live authoring spelling, not a fossil: the registered
- * widgets dual-read `maxLength ?? max_length` (framework#1878 §3), all three
- * producers of a form field normalize it (`ObjectForm`, `sectionFields`,
- * `EmbeddableForm.applyDefaultMaxLengths`) and `packages/types` declares it on
- * several field types. This branch, like the `input` one, is a path with no
- * producer in between — a hand-written `FormSchema` fed straight to the
- * renderer — so on it the author IS the producer and nothing normalizes the
- * spelling.
+ * At the time `max_length` was a live authoring spelling — the registered
+ * widgets dual-read it and `packages/types` declared it on several field
+ * types — so the fix resolved `maxLength ?? max_length` and stripped the
+ * snake_case key off the element.
  *
- * ## Why the assertions read `getAttributeNames()` AND `getAttribute()`
+ * ## ⭐ objectui#11070 retired `max_length`
  *
- * The missing cap and the stray attribute are two DISTINCT defects, and a test
- * that only checked the cap would let the invalid attribute survive the fix —
- * demonstrably so: with BOTH spellings declared, `getAttribute('maxlength')`
- * was already `"50"` before the fix while the stray `max_length` was still on
- * the element. Reading the attribute NAMES is what makes that half observable,
- * and it is how the card measured it.
+ * `@objectstack/spec`'s `FieldSchema` and the strict authoring face refuse it
+ * by name, no objectui type declares it any more, no in-repo producer writes
+ * it, and every reader — this branch included — reads the spec's `maxLength`
+ * alone, with no alias. So the snake_case spelling caps nothing here, and the
+ * local strip went with the read. The retirement pin below is the reading of
+ * that.
  */
 
 import React from 'react';
@@ -113,31 +109,13 @@ describe('built-in default fallback — the declared ceiling (objectui#5253)', (
     expect(input().getAttribute('maxlength')).toBe('50');
   });
 
-  it('applies the LEGACY max_length spelling too — it capped nothing before', () => {
+  it('the retired max_length caps nothing — the spec spelling is the only one read (objectui#11070)', () => {
     renderForm([fallbackField({ max_length: 50 })]);
-    expect(input().getAttribute('maxlength')).toBe('50');
-  });
-
-  it('never leaks max_length onto the DOM as a stray attribute', () => {
-    renderForm([fallbackField({ max_length: 50 })]);
-    // Not a DOM attribute in any spelling. Left in the pass-through it renders
-    // invalid HTML that looks like a working cap to the next reader — the
-    // second, independent half of this defect.
-    expect(input().getAttributeNames()).not.toContain('max_length');
-  });
-
-  it('lets the canonical spelling win when both are declared', () => {
-    // `maxLength ?? max_length` — the resolution order every other reader in
-    // the repo already uses. Note the two halves fail independently here: the
-    // cap assertion passed before the fix, the stray one did not.
-    renderForm([fallbackField({ maxLength: 50, max_length: 80 })]);
-    expect(input().getAttribute('maxlength')).toBe('50');
-    expect(input().getAttributeNames()).not.toContain('max_length');
+    expect(input().getAttribute('maxlength')).toBeNull();
   });
 
   it('leaves an uncapped field exactly as it was — no attribute either way', () => {
     renderForm([fallbackField()]);
     expect(input().getAttributeNames()).not.toContain('maxlength');
-    expect(input().getAttributeNames()).not.toContain('max_length');
   });
 });

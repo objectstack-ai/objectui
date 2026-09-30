@@ -3783,11 +3783,13 @@ export function buildValidationRules(field: any): any {
   // vars); a field-authored `*_message` is a string and passes through as-is,
   // still winning over the localized default. See form.tsx `localizeRule`.
 
-  // Length validation for text fields. The spec-canonical keys are camelCase
-  // (`minLength`/`maxLength`, @objectstack/spec FieldSchema — what the server
-  // record-validator enforces); the snake_case pair is the legacy objectui
-  // spelling, kept as fallback (framework#1878/#1891 naming-drift closeout).
-  const minLength = (field as any).minLength ?? field.min_length;
+  // Length validation for text fields. The keys are the spec's `minLength` /
+  // `maxLength` (@objectstack/spec FieldSchema — what the server
+  // record-validator enforces), and they are the only spelling read: the
+  // snake_case pair this function also read until objectui#11070 is retired,
+  // with no alias. The spec refuses it by name, and no objectui type declares
+  // it any more.
+  const minLength = field.minLength;
   if (minLength) {
     rules.minLength = {
       value: minLength,
@@ -3796,7 +3798,7 @@ export function buildValidationRules(field: any): any {
     };
   }
 
-  const maxLength = (field as any).maxLength ?? field.max_length;
+  const maxLength = field.maxLength;
   if (maxLength) {
     rules.maxLength = {
       value: maxLength,

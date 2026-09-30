@@ -1092,13 +1092,15 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
         // `formField` is the FORM FIELD; the metadata carrier a registered
         // `field:*` widget reads is `formField.field` — a DIFFERENT object,
         // assigned from the raw object-schema `field` further down. So
-        // `TextAreaField` resolves its cap from `field.max_length` directly and
+        // `TextAreaField` resolves its cap from that carrier directly and
         // never consults the key written here. Ablation, both configurations,
         // with the two statements below replaced by a comment: the rendered
         // `maxlength` attribute and the character counter were byte-identical
-        // to the unablated run (a `textarea` with `max_length: 111` kept
+        // to the unablated run (a `textarea` with a 111 cap kept
         // `maxlength="111"` and its `0/111` counter; `markdown`, `html` and
-        // `richtext` rendered no `maxlength` either way).
+        // `richtext` rendered no `maxlength` either way). That was measured on
+        // objectui#8438's base, when the cap was spelled `max_length`; the
+        // carrier split it measured is unchanged.
         //
         // ⇒ objectui#8438 was filed as "`richtext` is missing from this list".
         // It is — and adding it would have changed nothing observable, which is
@@ -1113,12 +1115,12 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
         // form field IS the carrier — and removing a dead assignment is a
         // different question from this card's, on a shared file.
         if (field.type === 'text' || field.type === 'textarea' || field.type === 'markdown' || field.type === 'html') {
-          // Spec FieldSchema declares camelCase; `max_length`/`min_length` is
-          // the legacy objectui spelling. Dual-read like buildValidationRules
-          // already does (framework#1878 §3 recheck) — without this a
-          // spec-authored `maxLength` never reached the HTML maxlength cap.
-          formField.maxLength = (field as any).maxLength ?? field.max_length;
-          formField.minLength = (field as any).minLength ?? field.min_length;
+          // The spec's `maxLength` / `minLength` (`FieldSchema`), the one
+          // spelling read — as in `buildValidationRules`. The snake_case pair
+          // this also read until objectui#11070 is retired: the spec refuses
+          // it by name, and no objectui type declares it.
+          formField.maxLength = field.maxLength;
+          formField.minLength = field.minLength;
         }
 
         if (field.type === 'file' || field.type === 'image') {

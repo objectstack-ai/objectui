@@ -199,15 +199,14 @@ describe('the fullscreen dialog counter is reachable from the input (objectui#34
     expect(describedText(fullscreenInput())).not.toMatch(/[\u3000-\u30ff\u4e00-\u9fff]/);
   });
 
-  it('reads the legacy snake_case max_length spelling here too', () => {
-    // The dual-read predates all of this (framework#1878 §3). Sharing the
-    // counting UI across surfaces must not narrow which spelling reaches the
-    // fullscreen one.
+  it('reads the spec maxLength only — the retired snake_case max_length draws no counter here either (objectui#11070)', () => {
+    // The widget dual-read `maxLength ?? max_length` from framework#1878 §3
+    // until objectui#11070 retired the snake_case spelling. The fullscreen
+    // surface shares the inline one's single read, so it draws nothing for it.
     render(<Host metaExtra={{ max_length: 80 }} initial="hello" />);
     openDialog();
 
-    expect(fullscreenCounter()).toHaveTextContent('5/80');
-    expect(describedText(fullscreenInput())).toBe('Character count: 5 of 80');
+    expect(fullscreenCounter()).toBeNull();
   });
 });
 

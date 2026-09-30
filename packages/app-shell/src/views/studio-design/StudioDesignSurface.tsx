@@ -1612,6 +1612,11 @@ export function InterfacesPillar({
   const [appLabel, setAppLabel] = React.useState<string>(packageId);
   const [appName, setAppName] = React.useState<string | null>(null);
   const [appDraft, setAppDraft] = React.useState<Record<string, unknown>>({});
+  // objectui#11167 — the app document as the server holds it, as far as this
+  // pillar knows: written where the load below installs `appDraft` and where a
+  // nav save lands. `appDraft` is also the nav edit buffer, so this is what a
+  // read-only answer puts back (see the effect below).
+  const navBaselineRef = React.useRef<Record<string, unknown>>({});
   const navTree = React.useMemo<NavNode[]>(
     () => (Array.isArray(appDraft.navigation) ? (appDraft.navigation as NavNode[]) : []),
     [appDraft],
@@ -1619,11 +1624,42 @@ export function InterfacesPillar({
   // nav editing — drag-drop reorder / rename / add / remove via AppNavCanvas
   const [editNav, setEditNav] = React.useState(false);
   const [navSel, setNavSel] = React.useState<{ kind: string; id: string } | null>(null);
+  const [navDirty, setNavDirty] = React.useState(false);
 
   // App resolution status — tells "still loading" apart from "this package has
   // no app", so the canvas shows a real empty state instead of an endless
   // spinner.
   const [appStatus, setAppStatus] = React.useState<'loading' | 'ready' | 'missing'>('loading');
+
+  // objectui#11167 — a read-only answer closes nav editing. The Studio surface
+  // learns the package's write state from its own request (see
+  // `readOnlySettled`), and an unknown state stays ungated, so the toggle is on
+  // offer while that request is in flight: an author can open nav editing, and
+  // edit, before `writable: false` arrives. The nav autosave is blocked on
+  // `readOnly`, and the server refuses authoring on a read-only package
+  // (ADR-0070), so from that answer on nothing in the buffer can be saved.
+  //  - Editing closes the way the toggle closes it: `editNav` and `navSel`
+  //    reset, and the nav-item inspector (it needs both) goes with them.
+  //  - An unsaved edit is put back to the baseline, which the toggle does not
+  //    do: on a writable package a buffer kept at "Done" still has an autosave
+  //    to reach, and here it has none. Kept, it would stay on screen in the rail
+  //    as if it were the package's navigation, and hold the leave guard and the
+  //    copilot refresh (both keyed on `navDirty`) for good.
+  // Declared BEFORE the `?sel=nav:` deep link below on purpose: effects run in
+  // declaration order, and the answer that closes editing is also the one
+  // that settles a pending link, so the link applies after the close and its
+  // read-only selection is not cleared by it. Both read the same `readOnly`.
+  React.useEffect(() => {
+    if (!readOnly) return;
+    if (editNav) {
+      setEditNav(false);
+      setNavSel(null);
+    }
+    if (navDirty) {
+      setAppDraft(navBaselineRef.current);
+      setNavDirty(false);
+    }
+  }, [readOnly, editNav, navDirty]);
 
   // #2272 — designer deep-link: `?sel=nav:<id>` selects the nav item with
   // that spec `id` and switches the pillar into nav editing. The id is the
@@ -1645,7 +1681,6 @@ export function InterfacesPillar({
       setNavSel({ kind: 'nav', id: hit.selectionId });
     },
   });
-  const [navDirty, setNavDirty] = React.useState(false);
   // Mirror `navDirty` up to the surface (see the onDirtyChange prop doc).
   // Ref-stabilized like PermissionMatrixEditPage's report, so a non-memoized
   // callback prop doesn't refire the effect; the unmount cleanup reports
@@ -1857,6 +1892,7 @@ export function InterfacesPillar({
           setAppLabel(String(body.label ?? body.name ?? label));
         }
         setAppDraft(body);
+        navBaselineRef.current = body;
         setNavHasDraft(!!appDraftBody);
         setAppStatus('ready');
         const tree = Array.isArray(body.navigation) ? (body.navigation as NavNode[]) : [];
@@ -2050,7 +2086,9 @@ export function InterfacesPillar({
           const item = n as Record<string, unknown>;
           return typeof item.id === 'string' && item.id ? item : { ...item, id: `nav_item_${i + 1}` };
         });
-      await client.save('app', appName, { ...appDraft, navigation: cleanedNav }, { mode: 'draft', packageId });
+      const saved = { ...appDraft, navigation: cleanedNav };
+      await client.save('app', appName, saved, { mode: 'draft', packageId });
+      navBaselineRef.current = saved;
       setNavHasDraft(true);
       setNavDirty(false);
       onDraftSaved?.();

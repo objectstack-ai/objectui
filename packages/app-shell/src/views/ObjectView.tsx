@@ -48,7 +48,7 @@ import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { ViewConfigPanel } from './ViewConfigPanel.js';
 import { useMetadataClient } from './metadata-admin/useMetadata.js';
 import { persistRuntimeMetadata, createRuntimeMetadata, viewEnvelope, type ViewEnvelope } from './runtime-metadata-persistence.js';
-import { ListViewSchema as SpecListViewSchema, normalizeFilterOperator } from '@objectstack/spec/ui';
+import { ListViewSchema as SpecListViewSchema, normalizeFilterOperator, VIEW_CONSOLE_ROUND_TRIP_KEYS } from '@objectstack/spec/ui';
 import { CreateViewDialog } from './CreateViewDialog.js';
 import {
   usePreviewDrafts,
@@ -1098,8 +1098,17 @@ export function buildPersistedViewBody(
  * body (objectstack `d5552ca13`). A view-config save is a whole-document PUT, so
  * these are carried forward at the envelope's top level; dropping them would
  * erase the default flag, the pin and the column widths the row held.
+ *
+ * objectui#11013 — read off the spec, not retyped: the keys of
+ * `VIEW_CONSOLE_ROUND_TRIP_KEYS` (objectstack#20456) declared on the `viewItem`
+ * member, which is the member this save's envelope is judged by. `_isOverride`
+ * is declared on the list overlay only, so it is not carried here. The same
+ * derivation is `@object-ui/data-objectstack`'s, where `listViews()` carries
+ * these keys back off the stored record.
  */
-const VIEW_ROW_STATE_KEYS = ['isDefault', 'isPinned', 'sortOrder', 'visibility', 'columnState'] as const;
+const VIEW_ROW_STATE_KEYS: readonly string[] = (
+    Object.keys(VIEW_CONSOLE_ROUND_TRIP_KEYS) as Array<keyof typeof VIEW_CONSOLE_ROUND_TRIP_KEYS>
+).filter((key) => (VIEW_CONSOLE_ROUND_TRIP_KEYS[key] as readonly string[]).includes('viewItem'));
 
 /**
  * The keys a list view's `config` may carry — read off the spec's own closed

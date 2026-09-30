@@ -52,6 +52,7 @@
 import { useState, useCallback, useMemo } from 'react';
 
 import type { NavigationConfigSchema, NavigationMode as SpecNavigationMode } from '@objectstack/spec/ui';
+import type { RecordNavigateAction } from '@object-ui/types';
 import type { SpecAuthoredInput } from '../spec-input.js';
 
 /**
@@ -171,8 +172,19 @@ export interface UseNavigationOverlayOptions {
   navigation?: NavigationConfig;
   /** Object name — used to build default URLs for page/new_window modes */
   objectName?: string;
-  /** External onNavigate callback (e.g., from ActionProvider or parent) */
-  onNavigate?: (recordId: string | number, action?: string) => void;
+  /**
+   * Called for page-level navigation with the record id and a
+   * {@link RecordNavigateAction} — a navigation-MODE token from a closed
+   * vocabulary: `'view'` opens the record page, `'new_window'` opens it in a
+   * new browser tab.
+   *
+   * `handleClick` below is the one producer of that token, and every call it
+   * makes is typed against this declaration — so a third token is a compile
+   * error here, not a branch a host's handler silently never matches
+   * (objectui#9547). Supplied by the host that renders the list (a
+   * `schema.onNavigate`, a component prop, or the host's own router closure).
+   */
+  onNavigate?: (recordId: string | number, action: RecordNavigateAction) => void;
   /**
    * External onRowClick callback — if set, takes full priority.
    *

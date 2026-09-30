@@ -2342,9 +2342,9 @@ interface KnownDrift {
   /**
    * RUNTIME SLOT (objectui#6124 shape, declared by objectui#7804) — the same
    * key NAME as the entry above and nothing else in common: a different second
-   * parameter (`mode: 'view' | 'edit'` rather than `action?: string`), a
-   * different renderer, a different supplier. Judged separately for exactly
-   * that reason.
+   * parameter (`mode: 'view' | 'edit'` rather than
+   * `action: RecordNavigateAction`, objectui#9547), a different renderer, a
+   * different supplier. Judged separately for exactly that reason.
    *
    * `plugin-view`'s `ObjectView` invokes it at four sites —
    * `schema.onNavigate('new', 'edit')` on create, and the record id with

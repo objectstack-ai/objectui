@@ -209,7 +209,7 @@ describe('ARITY axis — `select` + `multiple: true` is the multiselect widget',
   });
 
   it('CONTROL — a multi-value lookup keeps the lookup widget, which handles both arities itself', async () => {
-    renderForm({ refs: { type: 'lookup', label: 'Refs', multiple: true, reference_to: 'x' } }, ['refs']);
+    renderForm({ refs: { type: 'lookup', label: 'Refs', multiple: true, reference: 'x' } }, ['refs']);
     expect(await widgetOf('refs')).toBe('lookup');
   });
 });

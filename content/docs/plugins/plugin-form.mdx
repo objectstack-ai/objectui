@@ -98,7 +98,7 @@ has **23 declared keys**, and `name` is the only **required** one: `type` and
 | `dependsOn` | `DependsOnInput` | cascading parent(s): a bare name, a list of names, or `{ field, param }` entries |
 | `span` | `'auto' \| 'full'` | relative field width, independent of the column count (preferred) |
 | `colSpan` | `number` | legacy column span (1–4), clamped to the current column count |
-| `field` | `Record<string, any>` | the resolved object-field **metadata object**, stashed by the object-bound paths so widgets can read `precision`, `currency`, `reference_to`, … |
+| `field` | `Record<string, any>` | the resolved object-field **metadata object**, stashed by the object-bound paths so widgets can read `precision`, `currency`, `reference`, … |
 
 `FormField` also declares `[key: string]: any`, so a misspelled or invented key
 is **not** a compile error — it is simply outside the contract. Two that a

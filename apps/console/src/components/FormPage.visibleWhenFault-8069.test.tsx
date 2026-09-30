@@ -166,9 +166,9 @@ describe('objectui#8069 — FormPage refuses a faulted visibleWhen at submit', (
     renderForm(objectWith({}), {
       sections: [{ label: 'Basics', fields: ['title', 'priority', { field: 'notes', visibleWhen: '' }, 'status'] }],
     });
+    await waitFor(() => expect(screen.getByLabelText('Notes')).toBeInTheDocument());
     await submit();
     await waitFor(() => expect(writes()).toHaveLength(1));
-    expect(screen.getByLabelText('Notes')).toBeInTheDocument();
   });
 
   it('a faulted requiredWhen is NOT refused on the client — it is the server’s to refuse (D2)', async () => {

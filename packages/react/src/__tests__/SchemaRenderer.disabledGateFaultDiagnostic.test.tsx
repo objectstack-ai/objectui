@@ -533,10 +533,14 @@ describe('#6445 group 3 — nothing else became loud', () => {
     });
   });
 
-  it('the objectui#3862 EMPTY shapes stay silent AND stay enabled — an undeclared gate never reaches the evaluator', async () => {
+  it('the objectui#3862 EMPTY shapes stay enabled and never reach the evaluator — the BLANK ones are now diagnosed (objectui#8069)', async () => {
     // `hasDeclaredPredicate` still decides this one line earlier, so these rows
-    // are not faults; they are non-gates. A wiring that reported them would be
-    // reporting metadata that says nothing, once per empty spelling in the app.
+    // are not FAULTS: nothing reaches this file's enablement reporter. What
+    // changed is ADR-0137 D4 ("a gate predicate that is blank ... is
+    // diagnosed, never a silent `true`"): the fold itself now reports a BLANK
+    // one through core's `[blank]` channel — once per blank spelling, since
+    // that key-neutral fold names no node. `null` is not blank text and stays
+    // silent. The verdicts are objectui#3862's, unchanged.
     await inProduction((mount) => {
       const warn = spyWarn();
       mount([
@@ -548,7 +552,11 @@ describe('#6445 group 3 — nothing else became loud', () => {
       ]);
       expect(shownCount()).toBe(5);
       expect(disabledProp()).toBe('absent');
-      expect(allWarnings(warn)).toHaveLength(0);
+      expect(reports(warn)).toHaveLength(0);
+      const blank = allWarnings(warn).filter((m) => m.includes('[blank]'));
+      // `''` and `{ source: '' }` are one blank spelling; `'   '` is another.
+      expect(blank).toHaveLength(2);
+      expect(allWarnings(warn)).toHaveLength(blank.length);
     });
   });
 

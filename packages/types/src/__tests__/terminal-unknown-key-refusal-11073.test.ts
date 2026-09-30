@@ -154,7 +154,15 @@ function readFace(nodes: Set<Z>, specOwned: Set<Z>): FaceReading {
     });
 
     // The OPEN twin: every closed arm rebuilt as an ordinary ZodObject from the same def.
-    const twin = z.union((d.options as Z[]).map((o) => (isStrict(o) && isClosed(o) ? new (z.ZodObject as any)({ ...o._zod.def }) : o)) as any);
+    // The union itself is rebuilt from ITS def too, so a check the union carries
+    // (objectui#8069: the form field-rule triad's blank refusal, a `.superRefine`
+    // over the shared predicate wire) stays on both sides and the differential
+    // still measures the arms alone — `z.union(options)` would drop `def.checks`,
+    // the loss `node-derivation.ts`'s `cloneWithDef` exists to prevent.
+    const twin = new (z.ZodUnion as any)({
+      ...d,
+      options: (d.options as Z[]).map((o) => (isStrict(o) && isClosed(o) ? new (z.ZodObject as any)({ ...o._zod.def }) : o)),
+    });
 
     const corpus: unknown[] = [undefined, null, '', 'x', 0, 1, true, [], {}, { zzUnknown: 1 }];
     const samples = arms.filter((o) => o._zod.def.type === 'object').map((o) => sample(o) as Record<string, unknown>);

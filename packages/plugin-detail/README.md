@@ -258,8 +258,10 @@ render as text it renders as text.
 
 A **`percent`** chip is formatted by `@object-ui/fields`' `formatPercent` — the
 same call the list cell makes — so one stored value reads the same beside the H1
-as it does in a list: scaled by `percentDisplayValue`, rounded to the field's
-declared `precision` (`0` when it declares none), and rendered through the
+as it does in a list: scaled by `percentDisplayValue`, rounded to the width
+`resolveFieldScale` (`@objectstack/spec/data`) resolves for the field — its
+declared `scale`, or the protocol's own width for a percent that declares none,
+which every percent face reads (objectui#9843) — and rendered through the
 display locale's own percent affix rather than an appended sign. A stored
 `1234.5` therefore reads `1,235%` in an `en` session and carries the locale's
 own affix and marks elsewhere. Which stored values that convention moves, and

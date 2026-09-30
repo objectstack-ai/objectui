@@ -128,6 +128,7 @@ import {
   isRuntimeDefault,
   isServerOwnedValue,
   resolveFieldRuleState,
+  type FieldRuleFaults,
   type FieldRulePredicate,
 } from '@object-ui/core';
 import { omitServerResolvedDefaults, resolveSectionGroupReferences } from '@object-ui/plugin-form';
@@ -994,7 +995,7 @@ export function resolveRowState(
   previous: Record<string, unknown> | null | undefined,
   isCreateForm: boolean,
   predicateScope?: Record<string, unknown>,
-): { visible: boolean; readonly: boolean; required: boolean } {
+): { visible: boolean; readonly: boolean; required: boolean; faults: FieldRuleFaults } {
   const ruleState = resolveFieldRuleState(
     field.rules ?? {},
     values,
@@ -1018,6 +1019,10 @@ export function resolveRowState(
     visible: ruleState.visible && viewVisible,
     readonly: ruleState.readonly,
     required: ruleState.required,
+    // The OBJECT-level rules' fault report, passed through untouched for the
+    // submit check (objectui#8069). The view-level predicate has none: it is
+    // a layout gate, evaluated by `isFieldVisible`, and not a field rule.
+    faults: ruleState.faults,
   };
 }
 
@@ -1783,7 +1788,7 @@ function needsDependentValues(widgetKey: string): boolean {
  *    attribute. The widget contract refuses a `required` boolean by name so the
  *    asterisk keeps one author, and arming the browser's constraint bubble
  *    would put a second validator beside this page's own submit check (see
- *    {@link findMissingRequired});
+ *    {@link findSubmitRefusals});
  *  - readonly as `disabled`: the control stays on screen, labelled and inert,
  *    which is what this page's rows have always done. A widget's `readonly`
  *    branch renders a replacement display that drops the host id, and the
@@ -1846,8 +1851,31 @@ function FieldInput({ field, state, value, onChange, values, onUploadingChange }
 }
 
 /**
- * The rows that would submit EMPTY while their effective verdict says required
- * — the page's own required check (objectui#10179).
+ * What this page's own submit check refuses, read off ONE {@link resolveRowState}
+ * call per row — so the refusal is decided by the evaluation that drew the row,
+ * never by a second one.
+ *
+ * ## `faultedVisibleWhen` — the rule no server judges (objectui#8069)
+ *
+ * The rows whose OBJECT-level `visibleWhen` could not be evaluated. ADR-0137
+ * D2, as ruled for objectui#8069 (Q1 = B, one judge per rule): the client
+ * refuses the submit on this one rule, because no server evaluates it and its
+ * fail-open render direction (D3) would otherwise be a silent grant.
+ * `requiredWhen` / `readonlyWhen` faults are the server's to refuse; this page
+ * keeps their render direction and warning unchanged. A stored BLANK
+ * `visibleWhen` is a fault like any other (ADR-0137 D2, `FieldRuleFaults`); the
+ * view-level predicate is not a field rule at all but a layout gate, and is
+ * not judged.
+ *
+ * Judged over the rows the required check below walks — a hidden SECTION is
+ * skipped by both. On this page visibility decides what is DRAWN and nothing
+ * else (a hidden row's value still submits, unchanged), so a row a hidden
+ * section already keeps off screen cannot be shown by its own broken rule, and
+ * there is no grant to refuse.
+ *
+ * ## `missing` — the rows that would submit EMPTY while required
+ *
+ * The page's own required check (objectui#10179).
  *
  * The hand-rolled controls this page used to render carried the NATIVE
  * `required` attribute, so the browser refused such a submit on the text-like
@@ -1859,24 +1887,26 @@ function FieldInput({ field, state, value, onChange, values, onUploadingChange }
  * `0` are values), and skips exactly what a browser skips — a row that is not
  * on screen, and a locked one.
  */
-function findMissingRequired(
+function findSubmitRefusals(
   sections: RenderableSection[],
   values: Record<string, unknown>,
   previous: Record<string, unknown> | null | undefined,
   isCreateForm: boolean,
   predicateScope?: Record<string, unknown>,
-): RenderableField[] {
+): { faultedVisibleWhen: RenderableField[]; missing: RenderableField[] } {
+  const faultedVisibleWhen: RenderableField[] = [];
   const missing: RenderableField[] = [];
   for (const sec of sections) {
     if (!isSectionVisible(sec, values, previous, predicateScope)) continue;
     for (const f of sec.fields) {
       const state = resolveRowState(f, values, previous, isCreateForm, predicateScope);
+      if (state.faults.visibleWhen !== undefined) faultedVisibleWhen.push(f);
       if (state.visible && state.required && !state.readonly && isMissingForRequired(values[f.name])) {
         missing.push(f);
       }
     }
   }
-  return missing;
+  return { faultedVisibleWhen, missing };
 }
 
 // ─── Main component ─────────────────────────────────────────────────
@@ -2117,12 +2147,32 @@ export function FormPage({ mode, recordPath }: FormPageProps) {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     if (!loaded) return;
+    // The client-side refusals — see `findSubmitRefusals`. Both go out on the
+    // page's failure channel and the outcome toast id, so a retry that
+    // succeeds supersedes them exactly as it supersedes a refused write
+    // (objectui#7252).
+    const { faultedVisibleWhen, missing } = findSubmitRefusals(
+      sections,
+      values,
+      loaded.record,
+      isCreateForm,
+      predicateScope,
+    );
+    // A faulted `visibleWhen` first (objectui#8069): it names the field and
+    // the rule, and nothing typed into the form can clear it, so the required
+    // check behind it would only ask for work that is refused anyway.
+    if (faultedVisibleWhen.length > 0) {
+      const msg = t('form.visibleWhenFaulted', {
+        fields: faultedVisibleWhen
+          .map((f) => fieldLabel(loaded.object, f.name, f.label))
+          .join(t('validation.formInvalidJoiner')),
+      });
+      setError(msg);
+      toast.error(msg, { id: outcomeToastId });
+      return;
+    }
     // The client-side required refusal the native attribute used to give the
-    // hand-rolled controls (objectui#10179) — see `findMissingRequired`. It
-    // goes out on the page's failure channel and the outcome toast id, so a
-    // retry that succeeds supersedes it exactly as it supersedes a refused
-    // write (objectui#7252).
-    const missing = findMissingRequired(sections, values, loaded.record, isCreateForm, predicateScope);
+    // hand-rolled controls (objectui#10179).
     if (missing.length > 0) {
       // One catalogue frame around the labels (objectui#11071), joined with
       // the pack's own list separator: the colon, its spacing and the order of

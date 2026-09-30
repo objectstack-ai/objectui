@@ -120,6 +120,7 @@ import {
   checkDashboardWidgetMetricMeasureArity,
 } from '@objectstack/spec/ui';
 import { FieldSchema as SpecFieldSchema, SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
+import { EvaluatedExpressionInputSchema as SpecEvaluatedExpressionInputSchema } from '@objectstack/spec/shared';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -222,6 +223,10 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // objectui#8885: `ObjectChartSchema.drillDown` crosses this boundary.
   ['ChartDrillDownSchema', SpecChartDrillDownSchema],
   ['SelectOptionSchema', SpecSelectOptionSchema],
+  // objectui#8069: the form field-rule triad's blank check hands a predicate's
+  // TEXT to this schema and takes its verdict and sentence (ADR-0137 D1), so
+  // the crossing is measured here like every other one.
+  ['EvaluatedExpressionInputSchema', SpecEvaluatedExpressionInputSchema],
   // objectui#7265, the @object-ui/types slice: `UserFiltersSchema.fields[]`
   // stopped being a hand copy of the spec's field shape and now derives from
   // it, so that crossing is measured here like every other one.

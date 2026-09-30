@@ -46,8 +46,11 @@ What changed underneath:
   batch of 100, the value it had. A declared `pagination.pageSize` sizes the
   window on every view, as before. With no declared size, switching between the
   grid view and an unpaged view now changes the window, so the list fetches
-  again. A refused page size still warns, and the warning names the fallback
-  that view actually used.
+  again: one request, whose `$top` is the fetch batch. That qualifies the
+  objectui#10512 note in this same release, which says a switch into a dataset
+  chart with no user filter set issues no new request: it still holds when a
+  page size is declared. A refused page size still warns, and the warning names
+  the fallback that view actually used.
 - **`@object-ui/plugin-kanban`.** The board's default `limit` is renamed from
   `DEFAULT_KANBAN_LIMIT` to `DEFAULT_KANBAN_FETCH_BATCH_SIZE` and stays 100. Its
   diagnostic for a refused `limit` now calls it the board's fetch batch.

@@ -46,11 +46,10 @@ let toastError: ReturnType<typeof vi.spyOn>;
 let warn: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
-  toastError = vi.spyOn(toast, 'error').mockImplementation(() => 'id' as any);
+  toastError = vi.spyOn(toast, 'error').mockImplementation(() => 'id' as never);
   warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
-  if (!(Element.prototype as any).scrollIntoView) {
-    (Element.prototype as any).scrollIntoView = () => {};
-  }
+  const proto = Element.prototype as unknown as { scrollIntoView?: () => void };
+  if (!proto.scrollIntoView) proto.scrollIntoView = () => {};
 });
 
 afterEach(() => {
@@ -77,8 +76,8 @@ function SERVER_D2_REFUSAL(field: string, slot: 'requiredWhen' | 'readonlyWhen')
 }
 
 function renderForm(
-  fields: any[],
-  onSubmit: (data: any) => Promise<unknown>,
+  fields: Array<Record<string, unknown>>,
+  onSubmit: (data: unknown) => Promise<unknown>,
   extra: Record<string, unknown> = {},
 ) {
   const Form = ComponentRegistry.get('form')!;

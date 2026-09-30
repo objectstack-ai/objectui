@@ -42,7 +42,7 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-const makeDataSource = (ownerRules: Record<string, unknown>): any => ({
+const makeDataSource = (ownerRules: Record<string, unknown>) => ({
   getObjectSchema: vi.fn().mockResolvedValue({
     name: 'case',
     fields: {
@@ -81,8 +81,8 @@ async function skipPastOwnerAndSubmit(ownerRules: Record<string, unknown>) {
           { name: 's2', label: 'Step 2', fields: ['owner'] },
           { name: 's3', label: 'Step 3', fields: ['notes'] },
         ],
-      } as any}
-      dataSource={dataSource}
+      } as never}
+      dataSource={dataSource as never}
     />,
   );
   await waitFor(() => expect(document.body.querySelector('[data-field="subject"]')).toBeTruthy());
@@ -95,7 +95,7 @@ async function skipPastOwnerAndSubmit(ownerRules: Record<string, unknown>) {
   return dataSource;
 }
 
-async function expectSubmitted(dataSource: any) {
+async function expectSubmitted(dataSource: ReturnType<typeof makeDataSource>) {
   await waitFor(() => expect(dataSource.create).toHaveBeenCalledTimes(1));
 }
 

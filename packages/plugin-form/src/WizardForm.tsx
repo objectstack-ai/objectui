@@ -832,7 +832,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
           if (state.faults.visibleWhen !== undefined && field.type !== 'section-divider') {
             faultedVisibleWhen.set(index, [
               ...(faultedVisibleWhen.get(index) ?? []),
-              (field as any).label || name,
+              field.label || name,
             ]);
           }
           // View-level FormField.visibleOn hides the field the same way a

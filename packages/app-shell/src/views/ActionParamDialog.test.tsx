@@ -176,7 +176,7 @@ describe('filterVisibleParams — faults are fail-open and LOUD (objectui#4640)'
   });
 
   it('control — an ABSENT predicate is kept and silent: there is nothing declared to report', () => {
-    const params: ActionParamDef[] = [p('a'), { name: 'n', label: 'N', type: 'text', visible: null as any }];
+    const params: ActionParamDef[] = [p('a'), { name: 'n', label: 'N', type: 'text', visible: null as never }];
     const { result, warnings } = withWarnings(() => filterVisibleParams(params, {}, 'Create user'));
     expect(result.map((x) => x.name)).toEqual(['a', 'n']);
     expect(warnings).toEqual([]);

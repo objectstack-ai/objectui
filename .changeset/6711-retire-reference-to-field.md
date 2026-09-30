@@ -38,3 +38,5 @@ correct, so the absence is pinned directly instead
 (`__tests__/relationalMetaCopySet-6711.test.tsx`): all three call sites, each with a
 presence assertion on the eight surviving keys as the control against a fixture that
 passes by never reaching the copy path.
+
+⚠️ **Dated note, 2026-09-30 — `reference_to` has since left `LookupCellRenderer` and the copy set — objectui#11070.** The control above names `reference_to` among the keys `LookupCellRenderer` read. Later in this same release objectui#11070 (round 4) narrowed the cell to `reference` and removed `reference_to` from `RELATIONAL_META_KEYS`; the retirement of `reference_to_field` is unaffected. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.

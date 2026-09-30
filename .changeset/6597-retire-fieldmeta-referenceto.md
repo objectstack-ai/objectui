@@ -59,3 +59,5 @@ than assumed: `FieldMeta`, `AuthoredColumnOverrides`, `EnrichedColumn` and
 barrel re-exports only the `ObjectDataTable` component, and the package's `exports` map
 publishes only `"."`. No downstream type moves; this is a package-internal contract change
 plus a README correction, not a removal from a published type surface.
+
+⚠️ **Dated note, 2026-09-30 — `reference_to` has since left the cell and the grid's copy — objectui#11070.** The measurement above read `LookupCellRenderer` resolving its target from `field.reference_to` / `field.reference`, and `applyRelationalMeta` copying `reference_to`. Later in this same release objectui#11070 (round 4) narrowed the cell to `reference` alone and dropped `reference_to` from both copy sets. The verdict on `referenceTo` is unchanged. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.

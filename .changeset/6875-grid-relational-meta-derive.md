@@ -31,3 +31,5 @@ got a grid cell showing the referenced record's generic `.name` instead.
   in prose.
 - `plugin-dashboard`'s `CELL_RELATIONAL_META_KEYS` had the same omission in the
   same fallback chain and gains `displayField` too.
+
+⚠️ **Dated note, 2026-09-30 — the choke point's one reference rewrite is now one-way — objectui#11070.** "rewrites only the `reference` ⇄ `reference_to` pair" above held when this change landed. Later in this same release objectui#11070 (round 4) made that rewrite a fold onto `reference` that never stamps `reference_to`. Nothing else is rewritten on the way in, so the reasoning above is unaffected. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.

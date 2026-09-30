@@ -59,7 +59,7 @@ const OBJECT_SCHEMA = {
         { value: 'gift', label: 'Gift' },
       ],
     },
-    account: { type: 'lookup', label: 'Account', reference_to: 'showcase_account' },
+    account: { type: 'lookup', label: 'Account', reference: 'showcase_account' },
     agree: { type: 'boolean', label: 'Agree', required: true },
     priority: {
       type: 'radio',

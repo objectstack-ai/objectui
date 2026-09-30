@@ -51,3 +51,5 @@ surviving spellings.
 Pinned by `ObjectGantt.referenceArms-6837.test.tsx` and
 `ObjectTree.referenceArms-6837.test.tsx`, which keep the live arms green beside a
 named refusal for the deleted key.
+
+⚠️ **Dated note, 2026-09-30 — the choke point folds, it no longer stamps both keys — objectui#11070.** "`normalizeSchemaReferenceKeys` ... stamps both snake_case keys" above held when this change landed. Later in this same release objectui#11070 (round 4) made that pass fold a legacy spelling onto `reference` without stamping `reference_to`; a def that entered through it still carries `reference`, the one arm both components keep. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.

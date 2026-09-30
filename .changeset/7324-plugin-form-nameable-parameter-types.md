@@ -42,3 +42,5 @@ requires a `type` on every field, and has no `reference_to` member — while
 `isCurrentUserSeedField` honours both `reference` and `reference_to` on purpose. Adopting
 it would have narrowed what these functions accept and dropped one of the two honoured
 spellings, not widened anything.
+
+⚠️ **Dated note, 2026-09-30 — `FieldDefaultsSchemaLike` pins three members now — objectui#11070.** "the four field members its rule reads (`defaultValue`, `type`, `reference`, `reference_to`)" and "honours both `reference` and `reference_to`" above held when this change landed. Later in this same release objectui#11070 (round 4) retired `reference_to` there: `isCurrentUserSeedField` reads the target as `reference` alone, and the published type no longer carries a `reference_to` member. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.

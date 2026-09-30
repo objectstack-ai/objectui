@@ -31,3 +31,5 @@ so the two shared nothing and no gate could report a split; and the two member
 sets already differed, by `tree`. Lockstep now holds mechanically — the pin is
 on object identity (a spy on core's `has`), so a member-identical private copy
 fails where a value check would pass.
+
+⚠️ **Dated note, 2026-09-30 — the target key `paramToField` hands the widget is now `reference` — objectui#11070.** Later in this same release objectui#11070 (round 4) moved that key from `reference_to` to `reference`, the only spelling `LookupField` and `UserField` read. The rule this change converged is unaffected. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.

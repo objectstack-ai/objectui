@@ -51,3 +51,5 @@ inline-edit enrichment allow-list in `@object-ui/plugin-detail`. `plugin-grid`'s
 `relationalMetaKeys.ts` drops the four `legacy-alias` verdicts and retires that verdict
 class; its gate is restated to assert the class no longer exists rather than passing
 vacuously.
+
+⚠️ **Dated note, 2026-09-30 — `reference_to` did not stay — objectui#11070.** "`reference_to` in particular **stays**" above held when this change landed. Later in this same release objectui#11070 (round 4) retired it: the ingestion pass no longer stamps it, the widgets and read cells read `reference` only, and `LookupFieldMetadata` declares `reference`. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.

@@ -483,8 +483,10 @@ describe('objectui#6875 — the copy set is derived from the consumers, not rest
   it('⛔ objectui#7166 — the three retired keys stay OUT of the copy set, and objectui#7187 makes that DERIVED', () => {
     const retired = ['descriptionField', 'lookupColumns', 'lookupFilters'];
     // Control: the copy set is populated, so "not contained" is a reading.
-    // objectui#7155 shrank it from 7 to 3 by retiring the snake_case dialect.
-    expect(RELATIONAL_META_KEYS.length).toBeGreaterThan(2);
+    // objectui#7155 shrank it from 7 to 3 by retiring the snake_case dialect,
+    // and objectui#11070 round 4 to 2 by retiring `reference_to`.
+    expect(RELATIONAL_META_KEYS.length).toBeGreaterThan(1);
+    expect(RELATIONAL_META_KEYS).toContain('reference');
     expect(RELATIONAL_META_KEYS).toContain('displayField');
     for (const key of retired) {
       expect(

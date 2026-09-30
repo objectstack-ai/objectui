@@ -34,3 +34,5 @@ pass over the same cells.
 
 Pinned by `RecordDetailDrawer.referenceArms-6837.test.tsx`, which keeps the live
 arms green beside a named refusal per deleted key.
+
+⚠️ **Dated note, 2026-09-30 — the choke point folds, and the drawer emits `reference` — objectui#11070.** "`normalizeSchemaReferenceKeys` ... stamps both snake_case keys" above held when this change landed. Later in this same release objectui#11070 (round 4) made that pass fold a legacy spelling onto `reference` without stamping `reference_to`, and the drawer's field list now carries the target as `reference`. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.

@@ -56,7 +56,8 @@ const OBJECT_SCHEMA = {
   fields: {
     title: { type: 'text', label: 'Title' },
     applicant: { type: 'lookup', label: '申请人', reference: 'sys_user', defaultValue: 'current_user' },
-    // objectui-types spelling of the reference key — must be honoured too.
+    // A second sys_user lookup. It spelled the target `reference_to` until
+    // objectui#11070 round 4 retired that spelling; `reference` is the only one read.
     reviewer: { type: 'lookup', label: 'Reviewer', reference: 'sys_user', defaultValue: 'current_user' },
     // The dedicated user field type is the token's other legal home.
     owner_person: { type: 'user', label: 'Owner', defaultValue: 'current_user' },

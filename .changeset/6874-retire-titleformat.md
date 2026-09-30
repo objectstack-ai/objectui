@@ -56,3 +56,5 @@ removal is correct, so the absence is pinned directly instead
 (`__tests__/relationalMetaCopySet-6874.test.tsx`): all three call sites, each with a
 presence assertion on the seven surviving keys as the control against a fixture that passes
 by never reaching the copy path.
+
+⚠️ **Dated note, 2026-09-30 — the copied target key is now `reference` — objectui#11070.** "Copying `reference_to` is what makes `titleFormat` work" above held when this change landed. Later in this same release objectui#11070 (round 4) removed `reference_to` from `RELATIONAL_META_KEYS`; the target reaches the cell as `reference`, which is what the referenced schema is fetched by now. The `titleFormat` retirement is unaffected. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.

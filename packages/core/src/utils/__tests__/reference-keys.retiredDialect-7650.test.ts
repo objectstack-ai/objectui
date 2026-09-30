@@ -194,8 +194,9 @@ describe('the NEGATIVE pins the ruling required (objectui#7650)', () => {
     expect(f.display_field).toBe('legacy_name');
     // objectui#8938: was `not.toHaveBeenCalled()`. The producer's value still
     // stands — that is what the two assertions above pin, and it is unchanged —
-    // but the retired spelling beside it reaches no consumer, and that was the
-    // third silent refusal. The diagnostic names the occupied canonical key;
+    // but the retired spelling beside it reaches no consumer of the declared
+    // spelling (a kept snake read can still see it — objectui#7650), and that
+    // was the third silent refusal. The diagnostic names the occupied canonical key;
     // the behaviour here is untouched.
     expect(warn).toHaveBeenCalledTimes(1);
     expect(String(warn.mock.calls[0]?.[0])).toContain('CANNOT');
@@ -323,6 +324,39 @@ describe('the id_field diagnostic carries the PUBLISHED spec reason (objectui#76
       vi.unstubAllEnvs();
       vi.doUnmock('@objectstack/spec/data');
       vi.resetModules();
+    }
+  });
+
+  it('the `id_field` line never claims NO reader sees the value — kept snake reads do', () => {
+    // `resolveActionParam` (app-shell) reads `id_field` on purpose — objectui#7435
+    // kept it — and `resolveGroupByLabels` (plugin-charts) reads it too. So the
+    // line may only speak for the consumers of the declared spellings.
+    normalizeFieldReferenceKeys(plainField({ id_field: 'code' }), 'owner', 'account');
+    expect(warn).toHaveBeenCalledTimes(1);
+    const message = String(warn.mock.calls[0]?.[0]);
+    expect(message).not.toContain('reaches no reader');
+    // LIT, same line: it still closes on a claim about readers, so the negative
+    // above is not satisfied by a line that merely lost its closing clause.
+    expect(message).toContain('a consumer that reads only the spellings');
+    expect(message).toContain('will not see this value');
+  });
+
+  it('CONTROL — the scoped claim is kept where it is true, beside the fact it states', () => {
+    // Occupied canonical: the declared spelling carries the PRODUCER's value, so
+    // a consumer of the declared spelling really does not see the retired one.
+    const occupied: Record<string, unknown> = plainField({
+      display_field: 'legacy_name',
+      displayField: 'canonical_name',
+    });
+    normalizeFieldReferenceKeys(occupied, 'owner', 'account');
+    expect(occupied.displayField).toBe('canonical_name');
+    // A typo: no declared spelling carries it at all.
+    const typo: Record<string, unknown> = plainField({ sortible: true });
+    normalizeFieldReferenceKeys(typo, 'owner', 'account');
+    expect(typo.sortable).toBeUndefined();
+    expect(warn).toHaveBeenCalledTimes(2);
+    for (const call of warn.mock.calls) {
+      expect(String(call[0])).toContain('will not see this value');
     }
   });
 

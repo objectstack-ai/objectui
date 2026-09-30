@@ -17,3 +17,8 @@ Nothing else moves. `id_field` is still never folded and no `idField` is read; a
 `sortible` still gets no suggestion; no accepted document, published type or served value
 changes. No floor raise: `@object-ui/core` already declares `@objectstack/spec ^17.5.0`, and
 17.5.0 is the first published release carrying the row (17.4.0 has none).
+
+The line's closing clause is corrected for every refusal: it said the value "reaches no reader",
+which is false where a retired spelling is still read on purpose (`resolveActionParam` reads
+`id_field`), and it now says that a consumer reading only the spellings `FieldSchema` declares
+will not see the value.

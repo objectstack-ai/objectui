@@ -145,8 +145,10 @@ import { FIELD_KEY_GUIDANCE, FieldSchema } from '@objectstack/spec/data';
  * canonical, and silent data loss on a serve path is the worst of the shapes.
  *
  * ⭐ The leave arm is no longer SILENT, which is the other half of that
- * sentence: the document keeps the value, and the consumers — narrowed to the
- * canonical spelling by objectui#7155 / #7166 / #7435 — read none of it. See
+ * sentence: the document keeps the value, and the consumers narrowed to the
+ * canonical spelling by objectui#7155 / #7166 / #7435 read none of it (not
+ * every consumer was narrowed — the kept retired-spelling readers are named in
+ * {@link warnUnfoldableRetiredKey}'s docblock). See
  * {@link warnUnfoldableRetiredKey} (objectui#8938) for the diagnostic maintainer
  * ruling item 3 asked for, and for the two cases it deliberately stays out of.
  *
@@ -259,14 +261,29 @@ type UnfoldableReason = 'no-declared-twin' | 'ambiguous-probe' | 'canonical-occu
  * point cannot fold". The fold arm shipped with a warning for the spelling it
  * CAN fold ({@link canonicalizeRetiredFieldKeys}) and nothing for the one it
  * cannot, which is the half the ruling named: a key that folds still reaches
- * every consumer, while a key that does not fold reaches none of them.
+ * every consumer, while a key that does not fold reaches none of the consumers
+ * of the declared spellings.
  *
  * ⛔ "Not a silent DROP" is about the reader, not about the document. Nothing
  * here removes a key or a value — the leave arm is lossless and stays lossless.
- * What is lost is the READ: the retirement cards in this family (objectui#7155,
- * #7166, #7435) narrowed the consumers to the canonical spelling, so a value
- * that never reaches a canonical key is a value nothing reads. That is the
- * silence this makes audible.
+ * What is lost is the READ by those consumers: the retirement cards in this
+ * family (objectui#7155, #7166, #7435) narrowed them to the canonical spelling,
+ * so a value that never reaches a canonical key is a value none of them reads.
+ * That is the silence this makes audible.
+ *
+ * ⚠️ Not NO reader, and the line never says so (objectui#7650). Some reads of a
+ * retired spelling were KEPT on purpose and still see a value this arm leaves
+ * alone. For the two `no-declared-twin` keys: `resolveActionParam` in
+ * `@object-ui/app-shell` reads `id_field` and `title_format` (objectui#7435
+ * kept them; its pin `resolveActionParams.declaredLookupLegs-7435.test.ts`
+ * calls them the snake spellings that must keep working), and
+ * `resolveGroupByLabels` in `@object-ui/plugin-charts` reads
+ * `fieldDef.id_field || 'id'`. Those two are named, not counted: other kept
+ * snake reads exist (`deriveColumns` in `@object-ui/plugin-form` reads
+ * `display_field`, for one), and nothing re-derives a complete list. So the
+ * line claims only what holds for every refusal: a consumer that reads only
+ * declared spellings will not see the value. Retiring any of those reads is a
+ * separate decision, not taken here.
  *
  * ## The three refusals, and why each is a different sentence
  *
@@ -287,10 +304,12 @@ type UnfoldableReason = 'no-declared-twin' | 'ambiguous-probe' | 'canonical-occu
  *     the pin that exercises it substitutes a colliding `FieldSchema`.
  *   - `canonical-occupied` — the declared twin is already on the def carrying a
  *     DIFFERENT value, and the fold never overwrites a value the producer set.
- *     The producer's value is served, the retired one is inert, and NOTHING said
- *     so before this. ⛔ Same value under both spellings is NOT this case: that
- *     is the state this pass leaves behind on its own second run, and reporting
- *     it would make every re-normalization of a correctly folded def noisy.
+ *     The producer's value is served under the declared key, the retired one
+ *     reaches no consumer of the declared spelling (a kept snake read can still
+ *     see it — see above), and NOTHING said so before this. ⛔ Same value under
+ *     both spellings is NOT this case: that is the state this pass leaves
+ *     behind on its own second run, and reporting it would make every
+ *     re-normalization of a correctly folded def noisy.
  *
  * ## ⛔ What it does NOT fire on — the two exclusions that keep it honest
  *
@@ -329,9 +348,9 @@ function warnUnfoldableRetiredKey(
   console.warn(
     `[ObjectUI] Object \`${owner}\`, field \`${named}\`: the ingestion choke point CANNOT ` +
       `canonicalize the retired spelling \`${key}\`. ${detail}${published} The key and its value are LEFT ` +
-      `on the def exactly as served — nothing is dropped here — but the consumers read only the ` +
-      `spelling \`@objectstack/spec\`'s \`FieldSchema\` declares, so this value reaches no ` +
-      `reader. Fix the PRODUCER, or migrate the stored document. (maintainer ruling item 3 on ` +
+      `on the def exactly as served — nothing is dropped here — but a consumer that reads only ` +
+      `the spellings \`@objectstack/spec\`'s \`FieldSchema\` declares will not see this value. ` +
+      `Fix the PRODUCER, or migrate the stored document. (maintainer ruling item 3 on ` +
       `objectui#7650; objectui#8938)`,
   );
 }

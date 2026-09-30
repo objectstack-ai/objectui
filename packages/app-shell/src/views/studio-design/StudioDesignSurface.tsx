@@ -206,12 +206,26 @@ const PILLARS: ReadonlyArray<{ key: string; label: string; Icon: LucideIcon }> =
 //    once, while the buffer holds the previous item's document until the new
 //    load installs its own; so a period that began on another item is never
 //    sent, by the timer or by `flush`, and it ends only when the caller's dirty
-//    flag falls (each caller's load clears it as it installs the new buffer).
+//    flag falls.
 //    The previous item's pending edit is dropped: what the Data pillar's switch
 //    has always done, and what every pillar did whenever the new load landed
 //    inside the debounce. A claim also reads moved once the target has
 //    changed, so a save that lands after a switch never clears the dirty flag
 //    of the item opened since.
+//  - objectui#11272 — the buffer belongs to the item it was loaded for. The
+//    caller names that item as `loadedFor`, in `target`'s spelling, and sets
+//    it where its load installs a buffer and nowhere else. Until the open
+//    item's own document is in, `loadedFor` is not `target`: then the timer
+//    and `flush` send nothing, `sending` gives no claim (every save the caller
+//    sends itself asks it first, and sends nothing without one), and `loaded`
+//    is false, which the caller reads to show and offer nothing of the buffer
+//    under the open item. An edit a period begins while the buffer is another
+//    item's is never sent. It ends with the dirty flag, which every caller's
+//    buffer install clears: the page inspector's and the Data pillar's as
+//    they install (the Data pillar also at its load's start), a leaf with no
+//    editable draft as its `{}` goes in, and Automations when the load
+//    settles. The Interfaces nav installs only over a clean buffer, or on its
+//    mount (it is keyed by package).
 
 /**
  * objectui#11204 — one draft save's claim on the buffer it sent. `unmoved()`
@@ -240,12 +254,21 @@ function draftSnapshotKey(snapshot: unknown): string {
 function useDraftAutoSave(opts: {
   /** objectui#11232 — the item `save` addresses, as a primitive identity. */
   target: string;
+  /** objectui#11272 — the item whose document the buffer holds: the target
+   * the caller's load installed it for, in the same spelling. */
+  loadedFor: string;
   dirty: boolean;
   blocked: boolean;
   snapshot: unknown;
   save: (sent: DraftSend) => void | Promise<void>;
-}): { flush: () => boolean; sending: (snapshot: unknown) => DraftSend } {
-  const { target, dirty, blocked, snapshot, save } = opts;
+}): {
+  flush: () => boolean;
+  /** A claim for a save the caller sends itself; `null` refuses it (objectui#11272). */
+  sending: (snapshot: unknown) => DraftSend | null;
+  /** objectui#11272 — the buffer is the open item's own document. */
+  loaded: boolean;
+} {
+  const { target, loadedFor, dirty, blocked, snapshot, save } = opts;
   // Pure (the react compiler forbids impure render calls).
   const snapKey = React.useMemo(() => draftSnapshotKey(snapshot), [snapshot]);
   const lastAttemptRef = React.useRef<string | null>(null);
@@ -255,11 +278,11 @@ function useDraftAutoSave(opts: {
   // a render commits: a save that lands right after an edit reads the edit.
   // `since` is the target the dirty period began on (objectui#11232): taken
   // as the flag rises, kept while it stays up.
-  const pendingRef = React.useRef({ dirty, blocked, snapKey, target, since: target });
+  const pendingRef = React.useRef({ dirty, blocked, snapKey, target, loadedFor, since: target });
   React.useLayoutEffect(() => {
     const prev = pendingRef.current;
     saveRef.current = save;
-    pendingRef.current = { dirty, blocked, snapKey, target, since: dirty && prev.dirty ? prev.since : target };
+    pendingRef.current = { dirty, blocked, snapKey, target, loadedFor, since: dirty && prev.dirty ? prev.since : target };
   });
   // A state initializer, not a memo: React keeps its identity by contract, so
   // a caller may list it, or a member of it, as an effect dependency
@@ -269,8 +292,12 @@ function useDraftAutoSave(opts: {
       unmoved: () => pendingRef.current.target === sentFor && pendingRef.current.snapKey === key,
     });
     // objectui#11232 — the pending edit is the open item's own: its dirty
-    // period began on the item `save` now addresses.
-    const owned = (): boolean => pendingRef.current.since === pendingRef.current.target;
+    // period began on the item `save` now addresses. objectui#11272 — and the
+    // buffer it edits is that item's document: its load installed it for it.
+    const owned = (): boolean => {
+      const { since, target: now, loadedFor: holds } = pendingRef.current;
+      return since === now && holds === now;
+    };
     const send = (key: string): void => {
       lastAttemptRef.current = key;
       void saveRef.current(claim(key, pendingRef.current.target));
@@ -284,7 +311,8 @@ function useDraftAutoSave(opts: {
         send(pending.snapKey);
         return true;
       },
-      sending: (sent: unknown): DraftSend => claim(draftSnapshotKey(sent), pendingRef.current.target),
+      sending: (sent: unknown): DraftSend | null =>
+        owned() ? claim(draftSnapshotKey(sent), pendingRef.current.target) : null,
     };
   });
   React.useEffect(() => {
@@ -298,7 +326,7 @@ function useDraftAutoSave(opts: {
     }, 1500);
     return () => clearTimeout(timer);
   }, [dirty, blocked, snapKey, api]);
-  return { flush: api.flush, sending: api.sending };
+  return { flush: api.flush, sending: api.sending, loaded: loadedFor === target };
 }
 
 // objectui#5813 — Access is a low-frequency ADMIN surface, demoted from the
@@ -1363,10 +1391,28 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
           </header>
 
           <div className="min-h-0 flex-1">
+            {/* objectui#11272 — Data and Automations are keyed by package too,
+                for the reason written at `InterfacesPillar` below. Unkeyed,
+                each list effect kept the open item (it keeps the current one
+                on a re-read of the same package, a publish or a copilot
+                pulse, as it must), its load did not re-run, and an edit saved
+                the previous package's item into the next package. */}
             {tab === 'data' ? (
-              <DataPillar packageId={packageId} publishNonce={publishNonce} onDraftSaved={onDraftSaved} readOnly={readOnly} />
+              <DataPillar
+                key={packageId}
+                packageId={packageId}
+                publishNonce={publishNonce}
+                onDraftSaved={onDraftSaved}
+                readOnly={readOnly}
+              />
             ) : tab === 'automations' ? (
-              <AutomationsPillar packageId={packageId} publishNonce={publishNonce} onDraftSaved={onDraftSaved} readOnly={readOnly} />
+              <AutomationsPillar
+                key={packageId}
+                packageId={packageId}
+                publishNonce={publishNonce}
+                onDraftSaved={onDraftSaved}
+                readOnly={readOnly}
+              />
             ) : tab === 'access' ? (
               <AccessPillar
                 packageId={packageId}
@@ -1703,6 +1749,9 @@ export function StudioNavItemInspector({
   );
 }
 
+/** The Interfaces pillar's leaf identity, `type:name` (`:` when none is open). */
+const leafKeyOf = (s: Surface | null): string => `${s?.type ?? ''}:${s?.name ?? ''}`;
+
 export function InterfacesPillar({
   packageId,
   publishNonce = 0,
@@ -1769,6 +1818,9 @@ export function InterfacesPillar({
   const [appLabel, setAppLabel] = React.useState<I18nLabel>(packageId);
   const [appName, setAppName] = React.useState<string | null>(null);
   const [appDraft, setAppDraft] = React.useState<Record<string, unknown>>({});
+  // objectui#11272 — the app `appDraft` was loaded for, `app:NAME`: written
+  // where the app load installs it, and nowhere else.
+  const [appDraftFor, setAppDraftFor] = React.useState('');
   // objectui#11167 — the app document as the server holds it, as far as this
   // pillar knows: written where the load below installs `appDraft` and where a
   // nav save lands. `appDraft` is also the nav edit buffer, so this is what a
@@ -1915,6 +1967,9 @@ export function InterfacesPillar({
   // blocks to inspect). Non-source surfaces never show the tab strip.
   const [inspectorTab, setInspectorTab] = React.useState<'props' | 'source'>('source');
   const [draft, setDraft] = React.useState<Record<string, unknown>>({});
+  // objectui#11272 — the leaf `draft` was loaded for, as `leafKeyOf` spells
+  // it: written where the load below installs a buffer, and nowhere else.
+  const [draftFor, setDraftFor] = React.useState('');
   // objectui#7137 — the block selection is STAMPED with the leaf it was made
   // on, so it expires BY CONSTRUCTION when the leaf changes — the same shape
   // `blockingReport` already uses against `inspectorKey` below, and the reason
@@ -1939,7 +1994,7 @@ export function InterfacesPillar({
   // makes `selection` null in the SAME render. And an imperative clear is what
   // this defect was: a guard added later stranded it, and the next guard could
   // strand it again.
-  const leafKey = `${current?.type ?? ''}:${current?.name ?? ''}`;
+  const leafKey = leafKeyOf(current);
   const [selectionState, setSelectionState] = React.useState<{
     key: string;
     value: MetadataSelection | null;
@@ -2074,7 +2129,10 @@ export function InterfacesPillar({
         // before this read or while it was in flight. It defers: the save
         // that sends the edit signals again, and that re-read installs. A
         // package switch replaces the buffer, as it always has.
-        if (!isSameApp || !navCommittedRef.current.dirty) setAppDraft(body);
+        if (!isSameApp || !navCommittedRef.current.dirty) {
+          setAppDraft(body);
+          setAppDraftFor(`app:${name}`);
+        }
         navBaselineRef.current = body;
         setNavHasDraft(!!appDraftBody);
         setAppStatus('ready');
@@ -2178,8 +2236,15 @@ export function InterfacesPillar({
   // Load the selected surface's draft (only for editable preview types).
   React.useEffect(() => {
     if (!current || !isEditable) {
+      // objectui#11272 — `{}` is this leaf's buffer, not the page it replaces:
+      // stamped as this leaf's, and clean, like every buffer a load installs.
+      // Otherwise a dirty flag raised on a page outlived it, and reopening
+      // that page with its reload slower than the debounce sent `{}` as the
+      // page's draft.
       setDraft({});
+      setDraftFor(leafKeyOf(current));
       setHasDraft(false);
+      setIfDirty(false);
       return;
     }
     let cancelled = false;
@@ -2206,6 +2271,7 @@ export function InterfacesPillar({
         // Served draft as-is, baseline only without one (objectui#10765): a
         // spread over `effective` resurrects every key the draft deleted.
         setDraft(body ?? baseline);
+        setDraftFor(leafKeyOf(current));
         setHasDraft(!!body);
         setIfDirty(false);
       } catch (e) {
@@ -2244,9 +2310,10 @@ export function InterfacesPillar({
       setSaving(false);
     }
   }, [client, current, draft, onDraftSaved]);
-  useDraftAutoSave({
+  const { loaded: draftLoaded } = useDraftAutoSave({
     // objectui#11232 — the leaf `doSave` addresses, `type:name`.
     target: leafKey,
+    loadedFor: draftFor,
     dirty: ifDirty,
     blocked: !current || !isEditable || !!saving || readOnly || inspectorBlocking > 0,
     snapshot: draft,
@@ -2295,6 +2362,7 @@ export function InterfacesPillar({
     // objectui#11232 — the app `doNavSave` addresses. The package is this
     // pillar's mount (it is keyed by package where the surface renders it).
     target: `app:${appName ?? ''}`,
+    loadedFor: appDraftFor,
     dirty: navDirty,
     blocked: !appName || !editNav || !!navSaving || readOnly,
     snapshot: appDraft,
@@ -2330,6 +2398,7 @@ export function InterfacesPillar({
     !(appStatus === 'missing' && !error) &&
     !!current &&
     !loading &&
+    draftLoaded &&
     !StudioCanvas &&
     !isSourcePage &&
     !!Preview;
@@ -2432,10 +2501,15 @@ export function InterfacesPillar({
           </div>
         ) : !current ? (
           <div className="py-16 text-center text-sm text-muted-foreground">{t('engine.studio.if.pickLeft', locale)}</div>
-        ) : loading ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" /> {t('engine.studio.loading', locale)}
-          </div>
+        ) : loading || !draftLoaded ? (
+          // objectui#11272 — nothing of another leaf's buffer is shown under
+          // this one. A load that failed leaves it there: the error above says
+          // why, and no spinner promises it is still coming.
+          error && !loading ? null : (
+            <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> {t('engine.studio.loading', locale)}
+            </div>
+          )
         ) : StudioCanvas ? (
           // Studio-canvas surface override. The object nav leaf resolves here to
           // the records list as the running app shows it (preview = runtime) —
@@ -2583,6 +2657,10 @@ export function InterfacesPillar({
           {t('engine.studio.inspector.studioCanvasNoBlocks', locale)}
         </div>
       </div>
+    ) : current && !draftLoaded ? (
+      // objectui#11272 — no editor over another leaf's buffer: the canvas
+      // beside it says whether this leaf's own document is on its way.
+      <div className="min-h-0 flex-1" />
     ) : selection && Inspector && current ? (
       <div className="min-h-0 flex-1 overflow-auto p-3">
         <Inspector
@@ -2725,7 +2803,7 @@ export function InterfacesPillar({
         ) : (
           <span className="text-[11px] text-muted-foreground">{t('engine.studio.if.pickLeft', locale)}</span>
         )}
-        {hasDraft && (
+        {hasDraft && draftLoaded && (
           <span className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
             {t('engine.studio.unpublishedDraft', locale)}
           </span>
@@ -3094,6 +3172,9 @@ export function DataPillar({
     if (match) setCurrent(match);
   }, [requestedSurface, objects, objectsLoaded]);
   const [objDraft, setObjDraft] = React.useState<Record<string, unknown>>({});
+  // objectui#11272 — the object `objDraft` was loaded for, `object:NAME`:
+  // written where the load below installs it, and nowhere else.
+  const [objDraftFor, setObjDraftFor] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   // field management — a selected field opens ObjectFieldInspector (full type + config)
@@ -3272,6 +3353,11 @@ export function DataPillar({
         const draftBody = extractDraftBody(draftResp);
         // Served draft as-is, baseline only without one (objectui#10765).
         setObjDraft(draftBody ?? baseline);
+        setObjDraftFor(`object:${current.name}`);
+        // objectui#11272 — the buffer installed is clean, as every pillar's
+        // is: an edit a period began while it was another object's is dropped
+        // with it, never sent as this object's.
+        setDirty(false);
         setHasDraft(!!draftBody);
         setHasBaseline(!!(lay.effective ?? lay.code));
         // The projection baseline: the object as the SERVER has it. `objDraft`
@@ -3383,19 +3469,6 @@ export function DataPillar({
     setDirty(true);
   }, []);
 
-  // "+ add field": append a fresh text field and select it for editing in the panel.
-  // Guarded in addition to being hidden — it's also reachable through
-  // GridFieldAuthoringProvider/ObjectFormDesigner.
-  const addField = React.useCallback(() => {
-    if (readOnly) return;
-    const view = readFields(objDraft.fields);
-    const name = nextFieldName(view.entries.map((e) => e.name));
-    view.entries.push(newField(name, 'text', t('engine.studio.data.newFieldLabel', locale)));
-    setObjDraft((d) => ({ ...d, fields: writeFields(view) }));
-    setDirty(true);
-    setFieldSel({ kind: 'field', id: name });
-  }, [objDraft, readOnly]);
-
   // "+ new object": create a fresh object as a DRAFT in this package (runtime
   // create — same path the classic Studio editor uses), seeded with one text
   // field so the form/grid isn't empty. It stays draft-only (no physical table)
@@ -3454,14 +3527,29 @@ export function DataPillar({
 
   // objectui#5813 — auto-save replaces the Save draft button; the blocked guard
   // is the button's old disabled-condition verbatim.
-  const { sending: sendingObjDraft } = useDraftAutoSave({
+  const { sending: sendingObjDraft, loaded: objLoaded } = useDraftAutoSave({
     // objectui#11232 — the object `doSave` addresses.
     target: `object:${current?.name ?? ''}`,
+    loadedFor: objDraftFor,
     dirty,
     blocked: !current || !!saving || readOnly || saveBlocking > 0,
     snapshot: objDraft,
     save: doSave,
   });
+
+  // "+ add field": append a fresh text field and select it for editing in the panel.
+  // Guarded in addition to being hidden — it's also reachable through
+  // GridFieldAuthoringProvider/ObjectFormDesigner.
+  const addField = React.useCallback(() => {
+    // objectui#11272 — never onto another object's buffer (not offered then).
+    if (readOnly || !objLoaded) return;
+    const view = readFields(objDraft.fields);
+    const name = nextFieldName(view.entries.map((e) => e.name));
+    view.entries.push(newField(name, 'text', t('engine.studio.data.newFieldLabel', locale)));
+    setObjDraft((d) => ({ ...d, fields: writeFields(view) }));
+    setDirty(true);
+    setFieldSel({ kind: 'field', id: name });
+  }, [objDraft, readOnly, objLoaded]);
 
   // Drag-reorder columns → reorder the object's `fields` metadata (field display
   // order follows metadata order), saved as a DRAFT. Published later via the
@@ -3482,8 +3570,10 @@ export function DataPillar({
       let vi = 0;
       const entries = view.entries.map((e) => (visible.has(e.name) ? visibleInOrder[vi++] : e));
       const body = { ...objDraft, fields: writeFields({ ...view, entries }) };
-      setObjDraft(body);
+      // objectui#11272 — no claim, no save: the buffer is not this object's.
       const sent = sendingObjDraft(body);
+      if (!sent) return;
+      setObjDraft(body);
       setSaving('draft');
       setError(null);
       try {
@@ -3528,7 +3618,7 @@ export function DataPillar({
   // The selected object's own icon (from its metadata) — prefer the loaded
   // draft body, fall back to the rail header. getIcon degrades to Database.
   const HeaderIcon = getIcon(
-    typeof objDraft.icon === 'string' ? (objDraft.icon as string) : current?.icon,
+    objLoaded && typeof objDraft.icon === 'string' ? (objDraft.icon as string) : current?.icon,
   );
 
   return (
@@ -3550,14 +3640,17 @@ export function DataPillar({
             <span className="shrink-0 rounded bg-muted/70 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
               {current.name}
             </span>
-            <span className="shrink-0 text-[11px] text-muted-foreground">
-              {tFormat('engine.studio.data.fieldCount', locale, { count: fieldCount })}
-            </span>
+            {/* objectui#11272 — the count reads the buffer: this object's only. */}
+            {objLoaded && (
+              <span className="shrink-0 text-[11px] text-muted-foreground">
+                {tFormat('engine.studio.data.fieldCount', locale, { count: fieldCount })}
+              </span>
+            )}
           </span>
         ) : (
           <span className="text-[11px] text-muted-foreground">{t('engine.studio.data.pickObject', locale)}</span>
         )}
-        {hasDraft && (
+        {hasDraft && objLoaded && (
           <span className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
             {t('engine.studio.unpublishedDraft', locale)}
           </span>
@@ -3737,7 +3830,7 @@ export function DataPillar({
                     </DropdownMenuContent>
                   </DropdownMenu>
                 </div>
-                {(viewMode === 'grid' || viewMode === 'form') && !readOnly && (
+                {(viewMode === 'grid' || viewMode === 'form') && !readOnly && objLoaded && (
                   <button
                     type="button"
                     onClick={addField}
@@ -3753,7 +3846,15 @@ export function DataPillar({
                   {error}
                 </div>
               )}
-              {viewMode === 'rules' ? (
+              {!objLoaded ? (
+                // objectui#11272 — no view of another object's buffer under
+                // this one; after a failed load, the error above says why.
+                error && !loading ? null : (
+                  <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" /> {t('engine.studio.loading', locale)}
+                  </div>
+                )
+              ) : viewMode === 'rules' ? (
                 <ObjectValidationsPanel
                   draft={objDraft}
                   onPatch={onPatch}
@@ -4024,7 +4125,7 @@ export function DataPillar({
           * is a question the rail body answers, not a reason to swallow the
           * click. (Unreachable in production today only because registration is
           * eager — the very thing part A wants to make lazy.) */}
-        {current && fieldSel && (
+        {current && fieldSel && objLoaded && (
           <aside className="flex w-80 shrink-0 flex-col border-l">
             <header className="sticky top-0 z-10 flex items-center gap-2 border-b bg-background/95 px-3 py-2 backdrop-blur">
               <SlidersHorizontal className="h-3.5 w-3.5" />
@@ -4206,6 +4307,9 @@ export function AutomationsPillar({
   // the pillars uniform so a future "design this flow" bridge just works.
   const initialSurface = useSurfaceDeepLink(current);
   const [draft, setDraft] = React.useState<Record<string, unknown>>({});
+  // objectui#11272 — the flow `draft` was loaded for, `flow:NAME`: written
+  // where the load below installs it, and nowhere else.
+  const [draftFor, setDraftFor] = React.useState('');
   const [selection, setSelection] = React.useState<MetadataSelection | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState<false | 'draft' | 'publish'>(false);
@@ -4332,6 +4436,7 @@ export function AutomationsPillar({
         const draftBody = extractDraftBody(draftResp);
         // Served draft as-is, baseline only without one (objectui#10765).
         setDraft(draftBody ?? baseline);
+        setDraftFor(`flow:${current.name}`);
         setHasDraft(!!draftBody);
       } catch (e) {
         if (!cancelled) setError(formatMetadataError(e));
@@ -4372,9 +4477,10 @@ export function AutomationsPillar({
       setSaving(false);
     }
   }, [client, current, draft, onDraftSaved]);
-  useDraftAutoSave({
+  const { sending: sendingFlowDraft, loaded: flowLoaded } = useDraftAutoSave({
     // objectui#11232 — the flow `doSave` addresses.
     target: `flow:${current?.name ?? ''}`,
+    loadedFor: draftFor,
     dirty: autoDirty,
     blocked: !current || !isEditable || !!saving || readOnly,
     snapshot: draft,
@@ -4402,6 +4508,9 @@ export function AutomationsPillar({
     const next = !(draft.status !== 'obsolete' && draft.status !== 'invalid');
     const nextStatus = next ? 'active' : 'obsolete';
     const nextDraft = { ...draft, status: nextStatus };
+    // objectui#11272 — refused on a buffer that is not this flow's document
+    // (its load is not in yet): the switch is not offered then either.
+    if (!sendingFlowDraft(nextDraft)) return;
     setDraft(nextDraft);
     setSaving('draft');
     setError(null);
@@ -4425,7 +4534,7 @@ export function AutomationsPillar({
     } finally {
       setSaving(false);
     }
-  }, [client, current, draft, packageId, onDraftSaved, locale, readOnly]);
+  }, [client, current, draft, packageId, onDraftSaved, locale, readOnly, sendingFlowDraft]);
 
   return (
     <div className="flex h-full flex-col">
@@ -4439,12 +4548,14 @@ export function AutomationsPillar({
           <Menu className="h-4 w-4" />
         </button>
         <span className="text-[11px] text-muted-foreground">{t('engine.studio.auto.defaultOff', locale)}</span>
-        {hasDraft && (
+        {hasDraft && flowLoaded && (
           <span className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300">
             {t('engine.studio.unpublishedDraft', locale)}
           </span>
         )}
-        {current && (
+        {/* objectui#11272 — the switch reads and saves the open flow's own
+            document, so it waits for it: not offered over another's. */}
+        {current && flowLoaded && (
           <button
             type="button"
             role="switch"
@@ -4554,10 +4665,14 @@ export function AutomationsPillar({
           <div className="min-h-0 flex-1 rounded-lg border bg-background p-4">
             {!current ? (
               <div className="py-16 text-center text-sm text-muted-foreground">{t('engine.studio.auto.pick', locale)}</div>
-            ) : loading ? (
-              <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> {t('engine.studio.loading', locale)}
-              </div>
+            ) : loading || !flowLoaded ? (
+              // objectui#11272 — nothing of another flow's buffer under this
+              // one; after a failed load, the error above says why.
+              error && !loading ? null : (
+                <div className="flex items-center justify-center gap-2 py-16 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> {t('engine.studio.loading', locale)}
+                </div>
+              )
             ) : Preview ? (
               React.createElement(Preview, {
                 type: current.type,
@@ -4597,7 +4712,7 @@ export function AutomationsPillar({
             )}
           </header>
           <div className="p-3">
-            {selection && inspector && current ? (
+            {selection && inspector && current && flowLoaded ? (
               React.createElement(inspector, {
                 type: 'flow',
                 name: current.name,

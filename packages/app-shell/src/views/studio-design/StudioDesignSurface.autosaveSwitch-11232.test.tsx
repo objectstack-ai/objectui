@@ -397,12 +397,15 @@ describe('Interfaces page inspector — a save in flight across a page switch (o
     fireEvent.click(screen.getByRole('button', { name: /Landing menu/ }));
     // The save of `home` lands while `landing` is still loading.
     await releaseSave();
-    // The rail still holds `home`'s document; an edit typed there is not
-    // `landing`'s, and the dirty period that `home`'s save left standing
-    // keeps it from being sent there.
-    editText(await pageLabel(), 'Typed during load');
+    // The buffer still holds `home`'s document; an edit typed there is not
+    // `landing`'s, and it is not sent there. objectui#11272: the rail offers
+    // no editor over it under `landing`, so the edit goes to whatever it does
+    // offer, and nothing is.
+    const offered = within(screen.getByRole('complementary')).queryByLabelText(/^Label/);
+    if (offered) editText(offered, 'Typed during load');
     await pastDebounce();
     expect(server.saves.map((s) => [s.type, s.name, s.body.label])).toEqual([['page', 'home', 'Welcome']]);
+    expect(offered).toBeNull();
 
     await releaseLoad();
     await waitFor(async () => expect(await pageLabel()).toHaveValue('Landing'), SLOW);

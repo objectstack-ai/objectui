@@ -41,6 +41,7 @@ import {
   ExpressionProvider,
   createExpressionEvaluator,
   isObjectFieldVisible,
+  useExpressionPermissions,
 } from '../providers/ExpressionProvider.js';
 import { buildExpressionUser } from '../providers/expressionUser.js';
 import { SkeletonDetail } from '../skeletons/index.js';
@@ -200,6 +201,9 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
   // The private bag this replaced bound `user` alone, so an authored
   // `current_user` / `ctx.user` / `os.user` / `features` gate on a field
   // faulted here and failed OPEN while resolving normally on a nav item.
+  // objectui#4421 — the `permissions` input the `ExpressionProvider` below
+  // reads for itself, so `current_user.can(...)` answers the same on both.
+  const expressionPermissions = useExpressionPermissions();
   const expressionEvaluator = useMemo(
     () =>
       // ⛔ No `app`: objectui#8155 removed it from the predicate scope, because
@@ -213,8 +217,9 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
         // pass it through unconditionally.
         user: expressionUser,
         features,
+        permissions: expressionPermissions,
       }),
-    [expressionUser, features],
+    [expressionUser, features, expressionPermissions],
   );
 
   // Resolve the field list using the same visibility-aware logic as the

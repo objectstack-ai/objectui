@@ -774,7 +774,7 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/formula':
-        specifier: ^17.0.0
+        specifier: ^17.5.0
         version: 17.5.0(ai@7.0.65(zod@4.6.5))
       '@objectstack/lint':
         specifier: ^17.0.0
@@ -1190,7 +1190,7 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/formula':
-        specifier: ^17.0.0
+        specifier: ^17.5.0
         version: 17.5.0(ai@7.0.65(zod@4.6.5))
       '@objectstack/spec':
         specifier: ^17.5.0

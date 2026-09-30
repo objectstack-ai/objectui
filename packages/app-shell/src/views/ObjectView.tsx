@@ -48,7 +48,7 @@ import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { ViewConfigPanel } from './ViewConfigPanel.js';
 import { useMetadataClient } from './metadata-admin/useMetadata.js';
 import { persistRuntimeMetadata, createRuntimeMetadata, viewEnvelope, type ViewEnvelope } from './runtime-metadata-persistence.js';
-import { ListViewSchema as SpecListViewSchema, normalizeFilterOperator } from '@objectstack/spec/ui';
+import { ListViewSchema as SpecListViewSchema, normalizeFilterOperator, VIEW_CONSOLE_ROUND_TRIP_KEYS } from '@objectstack/spec/ui';
 import { CreateViewDialog } from './CreateViewDialog.js';
 import {
   usePreviewDrafts,
@@ -904,9 +904,9 @@ export function buildViewTabs({
             columns: sv.columns,
             filter: sv.filter,
             sort: sv.sort,
-            showSearch: sv.showSearch,
-            showFilters: sv.showFilters,
-            showSort: sv.showSort,
+            // objectui#11013 — no `showSearch` / `showFilters` / `showSort`
+            // picks: the toolbar policy's declared spelling is `userActions`,
+            // which the row carries (and the spread below keeps) like any key.
             isPinned: sv.isPinned,
             isDefault: sv.isDefault,
             visibility: sv.visibility,
@@ -1098,8 +1098,17 @@ export function buildPersistedViewBody(
  * body (objectstack `d5552ca13`). A view-config save is a whole-document PUT, so
  * these are carried forward at the envelope's top level; dropping them would
  * erase the default flag, the pin and the column widths the row held.
+ *
+ * objectui#11013 — read off the spec, not retyped: the keys of
+ * `VIEW_CONSOLE_ROUND_TRIP_KEYS` (objectstack#20456) declared on the `viewItem`
+ * member, which is the member this save's envelope is judged by. `_isOverride`
+ * is declared on the list overlay only, so it is not carried here. The same
+ * derivation is `@object-ui/data-objectstack`'s, where `listViews()` carries
+ * these keys back off the stored record.
  */
-const VIEW_ROW_STATE_KEYS = ['isDefault', 'isPinned', 'sortOrder', 'visibility', 'columnState'] as const;
+const VIEW_ROW_STATE_KEYS: readonly string[] = (
+    Object.keys(VIEW_CONSOLE_ROUND_TRIP_KEYS) as Array<keyof typeof VIEW_CONSOLE_ROUND_TRIP_KEYS>
+).filter((key) => (VIEW_CONSOLE_ROUND_TRIP_KEYS[key] as readonly string[]).includes('viewItem'));
 
 /**
  * The keys a list view's `config` may carry — read off the spec's own closed
@@ -1822,8 +1831,16 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 .then((rows: any[]) => {
                     if (cancelled) return;
                     // Normalize: ensure each view has an `id` for ViewTabBar
-                    // (which is name-keyed downstream). Stamp `objectName`
-                    // so the defensive filter in handlers still works.
+                    // (which is name-keyed downstream).
+                    //
+                    // objectui#11013 — no `objectName` is stamped here any more.
+                    // It was read `sv.objectName || sv.object`, the undeclared
+                    // spelling first, and no reader of this array consumed the
+                    // stamp: the handlers act on the route's `objectName`. What
+                    // it did do was ride a saved view's whole-body toolbar save
+                    // back into the stored row, an undeclared key the console
+                    // itself minted. The row's bound object is its declared
+                    // `object`, which `listViews()` carries.
                     const normalized = (rows || []).map((sv: any) => ({
                         ...sv,
                         // Overlay rows are keyed by `name`. Prefer that as the
@@ -1834,7 +1851,6 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                         // array too, so the key written here and the key read
                         // back cannot drift apart (objectui#4211).
                         id: viewRowId(sv),
-                        objectName: sv.objectName || sv.object || objectName,
                     }));
                     setSavedViews(normalized);
                 })
@@ -2837,7 +2853,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             onColumnStateChange: (state: { order?: string[]; widths?: Record<string, number> }) => {
                 persistViewPatch(viewDef.id, viewDef, { columnState: state });
             },
-            inlineEdit: viewDef.inlineEdit ?? viewDef.editRecordsInline ?? listSchema.inlineEdit,
+            // objectui#11013 — `inlineEdit` only. The `editRecordsInline`
+            // spelling this also read has no producer: no console surface
+            // writes it and the spec's view schema refuses it by name.
+            inlineEdit: viewDef.inlineEdit ?? listSchema.inlineEdit,
             // ADR-0047 — spec `appearance` (incl. allowedVisualizations, the
             // runtime visualization whitelist) flows from the view metadata;
             // the legacy bare `showDescription` flag is folded in on top.
@@ -2870,8 +2889,14 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 ...(normalizeListViewSchema(listSchema ?? {}) as { userActions?: object }).userActions,
                 ...(normalizeListViewSchema(viewDef ?? {}) as { userActions?: object }).userActions,
             },
-            allowExport: viewDef.allowExport ?? listSchema.allowExport,
-            exportOptions: viewDef.allowExport === false ? undefined : (viewDef.exportOptions ?? listSchema.exportOptions),
+            // objectui#11013 — no `allowExport` rung, and `exportOptions` is no
+            // longer withheld on a view's `allowExport: false`. Nothing writes
+            // `allowExport` onto a view: no console surface does, and the
+            // spec's view schema refuses it by name (the seat's disposition on
+            // objectstack#20456: no producer, no declared spelling). The
+            // export gate `ListView` keeps reading is the HOST's, carried in
+            // by `...listSchema` from the object-view node.
+            exportOptions: viewDef.exportOptions ?? listSchema.exportOptions,
             color: viewDef.color ?? listSchema.color,
             /**
              * The spec-canonical row-colour CONFIGURATION the author put on
@@ -2895,14 +2920,17 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
              * versus 'what the colours are').
              */
             rowColor: viewDef.rowColor ?? listSchema.rowColor,
-            // Propagate view-config properties (Bug 4 / items 14-22)
-            wrapHeaders: viewDef.wrapHeaders ?? listSchema.wrapHeaders,
-            clickIntoRecordDetails: viewDef.clickIntoRecordDetails ?? listSchema.clickIntoRecordDetails,
-            addRecordViaForm: viewDef.addRecordViaForm ?? listSchema.addRecordViaForm,
-            addDeleteRecordsInline: viewDef.addDeleteRecordsInline ?? listSchema.addDeleteRecordsInline,
-            collapseAllByDefault: viewDef.collapseAllByDefault ?? listSchema.collapseAllByDefault,
-            fieldTextColor: viewDef.fieldTextColor ?? listSchema.fieldTextColor,
-            prefixField: viewDef.prefixField ?? listSchema.prefixField,
+            // objectui#11013 — the seven renderer flags this relay used to read
+            // off the active view (`wrapHeaders`, `clickIntoRecordDetails`,
+            // `addRecordViaForm`, `addDeleteRecordsInline`,
+            // `collapseAllByDefault`, `fieldTextColor`, `prefixField`) have no
+            // rung. No console surface writes one onto a view, no view in this
+            // repository authors one, and the spec's view schema refuses each
+            // by name, so a stored view never supplies them. What reaches
+            // `ListView` is the host's value, carried by `...listSchema` from
+            // the object-view node (the objectui#5097 host-composition keys).
+            // The census answers each in `ObjectView.relayRungCensus-7559.test.ts`.
+            //
             // ViewData source override (spec `data` key): a view authored with
             // `data: {provider:'api', read, write}` must survive this explicit
             // picklist, or ObjectGantt falls back to provider:'object'.
@@ -3166,14 +3194,30 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         [views, activeViewId, viewDraft]
     );
 
+    // objectui#11013 — the active view's toolbar policy, read under its declared
+    // spelling `userActions.search` / `.filter` / `.sort`. These used to be read
+    // as the bare `showSearch` / `showFilters` / `showSort` flags, so a view
+    // that declared `userActions: { search: false }` still got a search box
+    // here. A stored view that still carries a bare flag is folded onto
+    // `userActions` by `normalizeListViewSchema`, the one fold the relay's own
+    // `userActions` rung already runs; this read names no legacy key. Not
+    // memoised: `activeView` is a fresh object on every render while a draft is
+    // open, and the schema below keys on the three booleans, not on this value.
+    const activeViewUserActions = (normalizeListViewSchema(activeView ?? {}) as {
+        userActions?: { search?: boolean; filter?: boolean; sort?: boolean };
+    }).userActions;
+    const activeViewSearch = activeViewUserActions?.search !== false;
+    const activeViewFilter = activeViewUserActions?.filter !== false;
+    const activeViewSort = activeViewUserActions?.sort !== false;
+
     // Build the ObjectViewSchema for the plugin — reads from activeView (which merges draft)
     const objectViewSchema = useMemo(() => ({
         type: 'object-view' as const,
         objectName: objectDef.name,
         layout: 'page' as const,
-        showSearch: activeView?.showSearch !== false,
-        showFilters: activeView?.showFilters !== false,
-        showSort: activeView?.showSort !== false,
+        showSearch: activeViewSearch,
+        showFilters: activeViewFilter,
+        showSort: activeViewSort,
         showCreate: false, // We render our own create button in the header
         allowCreateView: isAdmin,
         viewActions: isAdmin ? [
@@ -3198,7 +3242,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 }
             }
         },
-    }), [objectDef, onEdit, activeView?.showSearch, activeView?.showFilters, activeView?.showSort, activeView?.name, activeView?.label, navigate, viewId, isAdmin, location.pathname, location.search, viewLabel, objectLabel]);
+    }), [objectDef, onEdit, activeViewSearch, activeViewFilter, activeViewSort, activeView?.name, activeView?.label, navigate, viewId, isAdmin, location.pathname, location.search, viewLabel, objectLabel]);
 
     return (
         <ActionProvider {...actionRuntime.actionProviderProps}>

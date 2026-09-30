@@ -113,9 +113,10 @@
  *
  * ⚠️ The distinction the whole finding turns on: a member reached through
  * `activeView?.KEY` — the host's `views` prop — is NOT read off the named view.
- * `allowExport`, read off `activeView` and the node only, is the pinned
- * counter-control below (it was `rowHeight` until objectui#10758 made the
- * delegation read that one off the named view first).
+ * `allowExport`, read off the node only (off `activeView` too until
+ * objectui#11013), is the pinned counter-control below (it was `rowHeight`
+ * until objectui#10758 made the delegation read that one off the named view
+ * first).
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -312,9 +313,10 @@ const WERE_ABSENT_FROM_RENDERER = ['bulkActionDefs', 'exportOptions'] as const;
  *
  * The negative twin was `rowHeight` until objectui#10758 made the delegation
  * read it off the named view too. `allowExport` replaces it on the same
- * footing: declared, read off `activeView` and the node, and NOT off a named
- * view — objectui's own member (retained by the objectui#7924 ruling), which the
- * protocol does not declare there.
+ * footing: declared, read off the node, and NOT off a named view — objectui's
+ * own member, which the protocol does not declare there. Since objectui#11013
+ * it is a `?: never` tombstone and no longer read off `activeView` either; a
+ * tombstone is still a declared member, which is what its refusal by name is.
  */
 const NAMED_VIEW_READ_CONTROL = 'columns';
 const NAMED_VIEW_UNREAD_CONTROL = 'allowExport';
@@ -434,17 +436,32 @@ const BUCKET_LOCAL_ONLY_UNREAD = [
 ] as const;
 
 /**
- * The bucket-③ member objectui#7924 did NOT tombstone, because it is read and
- * acted on: `allowExport` gates `ListView`'s export control. It carries its
- * read as a source assertion in the retirement block below.
+ * The bucket-③ member objectui#7924 did NOT tombstone, because it was read and
+ * acted on: both relays carried `allowExport` off the active view, and
+ * `ListView` gates its export control on it.
  *
  * ⚠️ This held TWO names until ruling A′ (objectui#7924): `densityMode` was kept
  * because both relays of a named view carried it by name into the fold. Once
  * both relays read the density THROUGH the fold (`normalizeListViewSchema`),
  * nothing outside the fold reads it, so it retired as a legacy spelling of
  * top-level `rowHeight` — see {@link DENSITY_MODE_RETIRED}.
+ *
+ * ⚠️ …and it holds NONE since objectui#11013 (ruling 甲 on objectstack#20051,
+ * the seat's disposition on objectstack#20456: no producer, no declared
+ * spelling). Both relays stopped reading `allowExport` off a view, so it
+ * retired too — see {@link RETIRED_BY_11013}. `ListView`'s gate now hears the
+ * `list-view` node only.
  */
-const BUCKET_LOCAL_ONLY_RETAINED = ['allowExport'] as const;
+const BUCKET_LOCAL_ONLY_RETAINED = [] as const;
+
+/**
+ * The bucket-③ member objectui#11013 retired as a `?: never` tombstone once no
+ * relay read it off a view: the eighteenth objectui-only tombstone, and the one
+ * objectui#7924 did not put there. Kept apart from
+ * {@link NAMED_LIST_VIEW_TOMBSTONES}, which is that card's set and carries its
+ * marker, the way the objectui#11073 pair is kept apart below.
+ */
+const RETIRED_BY_11013 = ['allowExport'] as const;
 
 /**
  * The bucket-③ member retired LATER than its neighbours, by ruling A′ on
@@ -1474,12 +1491,13 @@ describe('objectui#7924 — the per-member liveness census on `NamedListView`, r
     expect(reads).toContain(NAMED_VIEW_READ_CONTROL);
     expect(declared).toContain(NAMED_VIEW_READ_CONTROL);
     // …and its negative twin: declared, and NOT read off a named view. It is
-    // read off `activeView` and the node instead — which is the distinction the
-    // whole finding turns on. (`rowHeight` held this role until objectui#10758
-    // made the delegation read it off the named view first.)
+    // read off the node instead — which is the distinction the whole finding
+    // turns on. (`rowHeight` held this role until objectui#10758 made the
+    // delegation read it off the named view first; objectui#11013 dropped the
+    // `activeView` half of this read.)
     expect(declared).toContain(NAMED_VIEW_UNREAD_CONTROL);
     expect(reads).not.toContain(NAMED_VIEW_UNREAD_CONTROL);
-    expect(readRepo(READER)).toContain('allowExport: activeView?.allowExport ?? (schema as any).allowExport,');
+    expect(readRepo(READER)).toContain('allowExport: (schema as any).allowExport,');
     // A spelling that is in neither set: non-vacuity for both probes at once.
     expect(declared).not.toContain(NAMED_VIEW_ABSENT_CONTROL);
     expect(reads).not.toContain(NAMED_VIEW_ABSENT_CONTROL);
@@ -1792,7 +1810,8 @@ describe('objectui#7924 — the unread members, in the FOUR buckets the ruling w
  * Two bucket-③ members were measured READ at retirement time and were NOT
  * tombstoned then. Ruling A′ (objectui#7924) retired one of them later:
  * `densityMode`, once both relays of a named view read the density through the
- * fold instead of by name. `allowExport` stays ({@link BUCKET_LOCAL_ONLY_RETAINED}).
+ * fold instead of by name. objectui#11013 retired the other, `allowExport`, once
+ * both relays stopped reading it off a view ({@link RETIRED_BY_11013}).
  */
 
 const LISTVIEW = 'packages/plugin-list/src/ListView.tsx';
@@ -1807,8 +1826,9 @@ type TombstoneTypes = { [K in Tombstone]: NamedListView[K] };
 // (to `boolean`, `string`, or `any` through a deletion) makes this union not
 // `undefined`, and the type-check goes red.
 export type _EveryTombstoneAdmitsOnlyAbsence = Expect<Equal<TombstoneTypes[Tombstone], undefined>>;
-// The retained member keeps its declared type.
-export type _AllowExportRetained = Expect<Equal<NamedListView['allowExport'], boolean | undefined>>;
+// `allowExport` — this pin asserted the member RETAINED (`boolean`) until
+// objectui#11013; re-pointed, not deleted, it now asserts the tombstone.
+export type _AllowExportTombstoned = Expect<Equal<NamedListView['allowExport'], undefined>>;
 // `densityMode` — this pin asserted the member RETAINED (its three-value union)
 // until ruling A′ (objectui#7924); re-pointed, not deleted, it now asserts the
 // tombstone: the member admits absence and nothing else.
@@ -1869,24 +1889,29 @@ export const _acceptedCanonical: NamedListView = {
   appearance: { ...PROTOCOL_APPEARANCE },
   rowColor: { field: 'status' },
 };
-// The retained member still accepts its value…
-export const _acceptedRetained: NamedListView = { ...BASE_VIEW, allowExport: false };
+// `allowExport` is refused like the rest since objectui#11013…
+// @ts-expect-error — `allowExport` is RETIRED (objectui#11013): the list-view node's gate, not a view key
+export const _refusedAllowExport: NamedListView = { ...BASE_VIEW, allowExport: false };
 // …and the density the retired `densityMode` spelled is authored as the
 // protocol's top-level `rowHeight`, which a named view accepts.
 export const _acceptedDensityCanonical: NamedListView = { ...BASE_VIEW, rowHeight: 'compact' };
 
-describe('objectui#7924 — the retirement: seventeen `?: never` tombstones, one retained read, the canonical blocks', () => {
-  it('the tombstone set is EXACTLY bucket ② plus bucket ③ minus the retained read and the one held member, derived off the AST', () => {
+describe('objectui#7924 — the retirement: seventeen `?: never` tombstones, objectui#11013\'s eighteenth, the canonical blocks', () => {
+  it('the tombstone set is EXACTLY bucket ② plus bucket ③ minus the objectui#11013 retirement and the one held member, derived off the AST', () => {
     const { tombstones: allTombstones, names } = namedListViewMembers();
     // The objectui#11073 pair are protocol-retirement tombstones, censused in
-    // their own bucket above; this row is about objectui#7924's seventeen.
-    const tombstones = allTombstones.filter((t) => !(BUCKET_PROTOCOL_RETIRED_TOMBSTONED as readonly string[]).includes(t));
-    expect(allTombstones).toHaveLength(19);
+    // their own bucket above, and `allowExport` is objectui#11013's; this row is
+    // about objectui#7924's seventeen.
+    const tombstones = allTombstones.filter((t) => !(BUCKET_PROTOCOL_RETIRED_TOMBSTONED as readonly string[]).includes(t)
+      && !(RETIRED_BY_11013 as readonly string[]).includes(t));
+    expect(allTombstones).toHaveLength(20);
     expect([...tombstones].sort()).toEqual([...NAMED_LIST_VIEW_TOMBSTONES]);
     expect(tombstones).toHaveLength(17);
+    expect(BUCKET_LOCAL_ONLY_RETAINED).toHaveLength(0);
+    for (const m of RETIRED_BY_11013) expect(allTombstones).toContain(m);
     const expected = [
       ...BUCKET_LEGACY_SHOW_SPELLINGS,
-      ...BUCKET_LOCAL_ONLY_UNREAD.filter((m) => !(BUCKET_LOCAL_ONLY_RETAINED as readonly string[]).includes(m)
+      ...BUCKET_LOCAL_ONLY_UNREAD.filter((m) => !(RETIRED_BY_11013 as readonly string[]).includes(m)
         && !(BUCKET_LOCAL_ONLY_HELD as readonly string[]).includes(m)),
     ].sort();
     expect([...tombstones].sort()).toEqual(expected);
@@ -1932,9 +1957,19 @@ describe('objectui#7924 — the retirement: seventeen `?: never` tombstones, one
     for (const m of BUCKET_LOCAL_ONLY_UNREAD) expect(map).not.toHaveProperty(m);
   });
 
-  it('`allowExport` is RETAINED because it is read: app-shell relays it off the named view and ListView gates export on it', () => {
-    expect(namedListViewMembers().tombstones).not.toContain('allowExport');
-    expect(readRepo(APP_SHELL_OBJECT_VIEW)).toContain('allowExport: viewDef.allowExport ?? listSchema.allowExport,');
+  it('`allowExport` is RETIRED (objectui#11013): neither relay reads it off a view, and ListView gates export on the node\'s value', () => {
+    // Re-pointed from the RETAINED pin it replaces: that pin held the app-shell
+    // relay line naming the key; this one holds the tombstone, the absence of
+    // the view read at BOTH relays, and — as the firing control on the same
+    // files — the node read upstream and the `ListView` gate that reads it.
+    const { tombstones, docs } = namedListViewMembers();
+    expect(tombstones).toContain('allowExport');
+    expect(docs.allowExport).toContain('RETIRED (objectui#11013)');
+    const appShell = readRepo(APP_SHELL_OBJECT_VIEW);
+    const pluginView = readRepo(READER);
+    expect(appShell).not.toContain('viewDef.allowExport');
+    expect(pluginView).not.toContain('activeView?.allowExport');
+    expect(pluginView).toContain('allowExport: (schema as any).allowExport,');
     expect(readRepo(LISTVIEW)).toContain('schema.allowExport !== false &&');
   });
 
@@ -1974,11 +2009,17 @@ describe('objectui#7924 — the retirement: seventeen `?: never` tombstones, one
     }
   });
 
-  it('the retained reads have a firing control: a tombstoned relay key that ListView never reads, on the same query', () => {
-    // app-shell relays `prefixField` exactly as it relays `allowExport`…
-    expect(readRepo(APP_SHELL_OBJECT_VIEW)).toContain('prefixField: viewDef.prefixField ?? listSchema.prefixField,');
-    // …but nothing downstream reads it — which is why it was tombstoned and
-    // `allowExport` was not. Same file, same query, opposite answers.
+  it('objectui#11013: app-shell relays neither `prefixField` nor `allowExport` off a view, and ListView still reads only the second', () => {
+    // app-shell used to relay `prefixField` exactly as it relayed
+    // `allowExport`; objectui#11013 dropped both rungs (no producer writes either
+    // onto a view). The reader side is the control: nothing downstream reads
+    // `prefixField`, while `ListView` still reads `allowExport` — off the node's
+    // value now. Same files, same query, opposite answers.
+    const appShell = readRepo(APP_SHELL_OBJECT_VIEW);
+    expect(appShell).not.toContain('viewDef.prefixField');
+    expect(appShell).not.toContain('viewDef.allowExport');
+    // Firing control on the same file: the relay still reads other keys off the view.
+    expect(appShell).toContain('rowColor: viewDef.rowColor ?? listSchema.rowColor,');
     const listView = readRepo(LISTVIEW);
     expect(listView).not.toMatch(/\bprefixField\b/);
     expect(listView).toMatch(/\ballowExport\b/);

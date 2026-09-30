@@ -40,16 +40,23 @@ import { primaryVariantBinding } from '../view-variant-model.js';
 import { t as tr } from '../i18n.js';
 import { withNodes } from './row-nodes.js';
 
-function resolveObjectName(
+/**
+ * The object a stored `view` draft is bound to, read under the spellings the
+ * spec declares: the row's `object` and its config's `data.object`.
+ *
+ * objectui#11013 (ruling 甲 on objectstack#20051): `objectName` was read here
+ * too, on the body and on the draft. The spec declares it on no `view` member,
+ * so the metadata door refuses a row bound by it alone; a draft that carries
+ * no declared binding previews as unbound, which is what it is.
+ */
+export function resolveObjectName(
   draft: Record<string, unknown>,
   body?: Record<string, unknown>,
 ): string | undefined {
   const candidates: any[] = [
     body?.object,
     (body as any)?.data?.object,
-    (body as any)?.objectName,
     (draft as any).object,
-    (draft as any).objectName,
     (draft as any).data?.object,
   ];
   for (const c of candidates) {

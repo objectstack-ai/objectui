@@ -295,6 +295,33 @@ has no ordering and a capped count would be a wrong number. An `element:number`
 that sets `aggregate` but names no object in either place (no `properties.object`,
 no `dataSource.object`) shows a short "no object named" notice instead of a count.
 
+#### Scoping a filter to the record in view: `{record_id}`
+
+On a `type: 'record'` page, a filter value can name the record the page shows
+with `{record_id}`, in a component's own filter and in its `dataSource.filter`
+alike. On a person's record page this counts that person's open tasks, and the
+next person's page counts theirs:
+
+```json
+{
+  "type": "element:number",
+  "dataSource": {
+    "object": "task",
+    "filter": [{ "field": "assignee", "operator": "equals", "value": "{record_id}" }]
+  },
+  "properties": { "aggregate": "count" }
+}
+```
+
+The id is the page's mounted record context, never a URL parameter or a page
+variable. Anywhere with no record in context (a list view, a dashboard, a report,
+a page that is not a record page) the token is refused by name: the renderer
+warns, the value is left as written rather than dropped or blanked, and the
+ObjectStack server refuses the query (`FILTER_TOKEN_UNRESOLVED`), so the number
+never silently becomes a count over every record. `{record_id}` scopes what a
+component *shows*; it is not access control, which stays with the server's
+row-level security (objectui#7297).
+
 On `record:related_list` and `record:line_items` the composed filter is
 AND-combined with the parent relationship condition, never substituted for it: a
 child panel is always scoped to the record it appears on, and an *additional*

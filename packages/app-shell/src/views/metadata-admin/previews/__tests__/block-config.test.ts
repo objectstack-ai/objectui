@@ -589,7 +589,7 @@ describe('page:accordion `title` / items `value` — dead designer inputs (#5212
  * refusal — which is precisely why the CONTROL that the panel offers a `groupBy`
  * box matters more than it did: the schema no longer backstops its absence. `limit` is the third declared key it never offered:
  * `ObjectKanban.tsx` sends it as a real `$top`, so a board over
- * `DEFAULT_KANBAN_LIMIT` records was silently truncated with no way to widen it.
+ * `DEFAULT_KANBAN_FETCH_BATCH_SIZE` records was silently truncated with no way to widen it.
  *
  * The parse probes below are the instrument this surface otherwise lacks: they
  * read the CONTRACT rather than a spelling, so the next control added here is
@@ -717,7 +717,7 @@ describe('object-kanban — the `groupBy` control, and the retired `groupField` 
 
   /* ── the placeholder states the real default ──────────────────────────── */
 
-  it("`limit`'s placeholder is DEFAULT_KANBAN_LIMIT, read from the renderer", () => {
+  it("`limit`'s placeholder is DEFAULT_KANBAN_FETCH_BATCH_SIZE, read from the renderer", () => {
     // The box is empty by default and the board still caps the fetch, so the
     // hint is only honest while it equals the constant `ObjectKanban.tsx`
     // actually falls back to. Read from source rather than imported: the
@@ -728,8 +728,8 @@ describe('object-kanban — the `groupBy` control, and the retired `groupField` 
       path.resolve(here, '../../../../../../plugin-kanban/src/ObjectKanban.tsx'),
       'utf8',
     );
-    const declared = /export const DEFAULT_KANBAN_LIMIT = (\d+)/.exec(src)?.[1];
-    expect(declared, 'could not read DEFAULT_KANBAN_LIMIT from ObjectKanban.tsx').toBeTruthy();
+    const declared = /export const DEFAULT_KANBAN_FETCH_BATCH_SIZE = (\d+)/.exec(src)?.[1];
+    expect(declared, 'could not read DEFAULT_KANBAN_FETCH_BATCH_SIZE from ObjectKanban.tsx').toBeTruthy();
 
     const limit = BLOCK_CONFIG['object-kanban'].find((f) => f.name === 'limit');
     expect(limit?.kind).toBe('number');

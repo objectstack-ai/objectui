@@ -100,7 +100,7 @@ complete list.
 
 ### Report Fields
 
-```plaintext
+```ts
 interface ReportField {
   name: string;                    // Field name
   label?: string;                  // Display label
@@ -164,7 +164,7 @@ rendering — a field with no `type` falls back to plain text.
 
 ### Filters
 
-```plaintext
+```ts
 interface ReportFilter {
   field: string;
   operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 
@@ -176,7 +176,7 @@ interface ReportFilter {
 
 ### Group By
 
-```plaintext
+```ts
 interface ReportGroupBy {
   field: string;
   label?: string;
@@ -188,7 +188,9 @@ interface ReportGroupBy {
 
 Define report structure with sections:
 
-```plaintext
+```ts
+import type { ChartSchema, ReportField, SchemaNode } from '@object-ui/types';
+
 interface ReportSection {
   type: 'header' | 'summary' | 'chart' | 'table' | 'text' | 'page-break';
   title?: string;
@@ -202,7 +204,7 @@ interface ReportSection {
 
 ## Export Configuration
 
-```plaintext
+```ts
 interface ReportExportConfig {
   format: 'pdf' | 'excel' | 'csv' | 'json' | 'html';
   filename?: string;
@@ -215,8 +217,10 @@ interface ReportExportConfig {
 
 ## Scheduling
 
-```plaintext
-interface ReportSchedule {
+```ts
+import type { ReportExportFormat } from '@object-ui/types';
+
+interface ReportScheduleConfig {
   enabled?: boolean;
   frequency?: 'once' | 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
   dayOfWeek?: number;          // For weekly (0-6)
@@ -232,7 +236,9 @@ interface ReportSchedule {
 
 ## Complete Example
 
-```plaintext
+```ts
+import type { ReportComponentSchema } from '@object-ui/types';
+
 const comprehensiveReport: ReportComponentSchema = {
   type: 'report',
   title: 'Quarterly Sales Analysis',

@@ -477,8 +477,25 @@ const ABSENCES: Record<string, Absence> = {
   tabs: { kind: 'unread', reason: "Spec view-tab list. ListView has no reader — the object page's tab bar is `ViewTabBar`, driven by `buildViewTabs`, and the `tabs` readers in the tree belong to `plugin-detail`'s DetailView." },
   dataSource: { kind: 'unread', reason: "The spec's per-element binding (declared on the list-view arm by objectui#11070). `ListView` has no read of `schema.dataSource`: the binding is resolved one layer up, by the registered `list-view` renderer `ListViewBlock` through `ElementDataSourceGate`, and `renderListView` bypasses that layer. It renders `ListView` directly with `schema={fullSchema}` and takes the ADAPTER as its separate `dataSource` argument (`ds`), not off the node." },
 
+  // ── Read off the view until objectui#11013; no producer writes them ───────
+  // Ruling 甲 on objectstack#20051, stage ii: a stored view row is read by the
+  // spec's declared spellings, and a read that nothing writes is dropped. These
+  // eight had rungs; no console surface writes one onto a view, no view in this
+  // repository authors one, and the spec's view schema refuses each by name.
+  // The two `ListView` still reads get the HOST's value: `plugin-view` composes
+  // each off the object-view node (`(schema as any).KEY`, objectui#5097), and
+  // it arrives through `...listSchema`. The other six feed no reader at all.
+  allowExport: { kind: 'node-authored', reason: "objectui#11013 dropped the view rung (no producer; the spec refuses it on a view, and the seat's disposition on objectstack#20456 is no declared spelling). `ListView` gates export on `schema.allowExport !== false`, and that value is the object-view node's, composed upstream as `(schema as any).allowExport`." },
+  wrapHeaders: { kind: 'node-authored', reason: 'objectui#11013 dropped the view rung: no producer writes it onto a view, and the spec refuses it there. `ListView` still hands `schema.wrapHeaders` to the grid; the value is the object-view node\'s, composed upstream as `(schema as any).wrapHeaders`.' },
+  clickIntoRecordDetails: { kind: 'unread', reason: 'objectui#11013 dropped the view rung: no producer writes it onto a view, the spec refuses it there, and ListView has no reader to relay it into. Row-click behaviour is `navigation`, which is relayed.' },
+  addRecordViaForm: { kind: 'unread', reason: 'objectui#11013 dropped the view rung: no producer writes it onto a view, the spec refuses it there, and ListView has no reader. Record creation is `addRecord` / `userActions.addRecordForm`.' },
+  addDeleteRecordsInline: { kind: 'unread', reason: 'objectui#11013 dropped the view rung: no producer writes it onto a view, the spec refuses it there, and ListView has no reader to relay it into.' },
+  collapseAllByDefault: { kind: 'unread', reason: 'objectui#11013 dropped the view rung: no producer writes it onto a view, the spec refuses it there, and ListView has no reader to relay it into.' },
+  fieldTextColor: { kind: 'unread', reason: 'objectui#11013 dropped the view rung: no producer writes it onto a view, the spec refuses it there, and ListView has no reader to relay it into.' },
+  prefixField: { kind: 'unread', reason: 'objectui#11013 dropped the view rung: no producer writes it onto a view, the spec refuses it there, and ListView has no reader to relay it into.' },
+
   // ── Authored on the NODE, resolved by the host ────────────────────────────
-  operations: { kind: 'node-authored', reason: "Legacy CRUD affordance authored on the object-view node (`examples/.../object-view-record-surface.json`), not on a view record; the host resolves it upstream (`schema.operations || schema.table?.operations || …`). ListView does read `schema.operations?.export`, but what would feed it here is the NODE's value, and forwarding it is the caller's composition to make — objectui#5097's surface, not a per-view rung." },
+  operations: { kind: 'node-authored', reason:"Legacy CRUD affordance authored on the object-view node (`examples/.../object-view-record-surface.json`), not on a view record; the host resolves it upstream (`schema.operations || schema.table?.operations || …`). ListView does read `schema.operations?.export`, but what would feed it here is the NODE's value, and forwarding it is the caller's composition to make — objectui#5097's surface, not a per-view rung." },
 
   // ── The runtime-only half of the intersection ─────────────────────────────
   onNavigate: { kind: 'host-runtime', reason: 'Host callback. This host wires record navigation through the `onRowClick` prop on the `<ListView>` element instead; a view record cannot carry a function.' },

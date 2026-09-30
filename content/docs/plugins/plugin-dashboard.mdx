@@ -88,7 +88,7 @@ the spec rejects it by name, so new documents author `label`. The retired
 
 ### Auto-registration (Side-effect Import)
 
-```plaintext
+```ts
 import '@object-ui/plugin-dashboard';
 ```
 
@@ -142,7 +142,7 @@ The import above needs no follow-up call. What a manual registration is for here
 is serving one of this package's exported components under a key of your own —
 you register the component, not a map:
 
-```plaintext
+```ts
 import { ComponentRegistry } from '@object-ui/core';
 import { MetricCard } from '@object-ui/plugin-dashboard';
 
@@ -366,7 +366,7 @@ from widget `options`. In particular, on a dataset-bound gauge:
 
 ## TypeScript Support
 
-```plaintext
+```ts
 import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
 
 const widget: DashboardWidgetSchema = {

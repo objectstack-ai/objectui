@@ -182,6 +182,7 @@ Put the header in the page's `header` region (or first in its `children`):
 ```json
 {
   "type": "page",
+  "pageType": "app",
   "title": "Users",
   "regions": [
     {
@@ -206,9 +207,10 @@ Put the header in the page's `header` region (or first in its `children`):
 }
 ```
 
-A page has exactly one `<h1>`. When a `page:header` with a literal title sits in the page's
-regions or children, the `page` renderer draws no heading of its own and the header's `<h1>`
-is the page heading.
+A page has exactly one `<h1>`. On a record page (`pageType` defaults to `record`) the header
+always owns it. On any other page type, a `page:header` with a literal title in the page's
+regions or children makes the `page` renderer drop its own heading, so the header's `<h1>` is
+the page heading; without one, the page draws its `title` itself.
 
 ## Accessibility
 

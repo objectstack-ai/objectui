@@ -24,7 +24,9 @@ level. `convertFiltersToAST` and `ValueDataSource` read the same two functions,
 so all three now refuse the same set: an empty string and any non-string,
 including a missing `value`. A missing value used to go out as JSON `null`.
 
-`MalformedFilterError` takes an optional third constructor argument, a refusal
-sentence that replaces its shape advice. The two-argument message is unchanged.
-The case-sensitive `contains` family is untouched: the table declares no such
-row for it.
+`MalformedFilterError`'s public signature is unchanged: the refusal sentence is
+seated inside this module. Building its message no longer throws for an entry
+that carries a BigInt (such a value is shown as its literal, e.g. `3n`), and its
+text is otherwise the same as before. The README's "Rule-shaped arrays" section
+documents the refusal. The case-sensitive `contains` family is untouched: the
+table declares no such row for it.

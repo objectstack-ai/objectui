@@ -115,6 +115,12 @@ async function expectEntryRefusal(
   expect(err.code).toBe('INVALID_FILTER');
   expect(err.httpStatus).toBe(400);
   expect(isMalformedFilterError(err)).toBe(true);
+  // An ordinary MalformedFilterError, not a look-alike: the name callers match
+  // on, and a stack header carrying the refusal rather than the shape advice
+  // the constructor wrote before the sentence replaced it.
+  expect(err.name).toBe('MalformedFilterError');
+  expect(String(err.stack)).toContain(`Filter entry ${expected.index} is refused.`);
+  expect(String(err.stack)).not.toContain('is not a usable filter rule');
   expect(err.index).toBe(expected.index);
   expect(err.message).toContain(`Filter entry ${expected.index} is refused.`);
   // The contract's reason, seated verbatim and naming the spelling that arrived.
@@ -378,10 +384,11 @@ describe('objectui#9048: the door is on the translator, so every place it runs i
 
   it('a BigInt comparand gets the contract reason, not a serialisation TypeError', async () => {
     // Driven through aggregate(), which reaches the translator with a BigInt
-    // intact. The refusal must not re-serialise the entry to explain itself:
-    // `JSON.stringify` throws on a BigInt, and that TypeError would reach the
-    // caller in the refusal's place. (`find()` never gets this far with a
-    // BigInt: its request-coalescing key stringifies the params first.)
+    // intact. The refusal is built by constructing a MalformedFilterError over
+    // the entry, and a bare `JSON.stringify` in that constructor throws on a
+    // BigInt, so the TypeError would reach the caller in the refusal's place.
+    // (`find()` never gets this far with a BigInt: its request-coalescing key
+    // stringifies the params first.)
     const { adapter, analyticsBodies } = makeAdapter();
     const error = await adapter
       .aggregate('account', {
@@ -396,5 +403,24 @@ describe('objectui#9048: the door is on the translator, so every place it runs i
       textComparandRefusalReason('name', 'icontains', BigInt(10)),
     );
     expect(analyticsBodies).toHaveLength(0);
+  });
+});
+
+describe('objectui#9048: the published class is unchanged', () => {
+  it('the public constructor still takes two arguments', () => {
+    // The refusal sentence is seated module-privately. A third constructor
+    // parameter would widen a published signature no consumer asked for.
+    expect(MalformedFilterError.length).toBe(2);
+  });
+
+  it('the shape refusal is built without throwing for an entry carrying a BigInt', () => {
+    const entry = { field: '', operator: 'eq', value: BigInt(3) };
+    let built: unknown;
+    expect(() => {
+      built = new MalformedFilterError(entry, 0);
+    }).not.toThrow();
+    expect(built).toBeInstanceOf(MalformedFilterError);
+    expect((built as MalformedFilterError).code).toBe('INVALID_FILTER');
+    expect((built as MalformedFilterError).entry).toBe(entry);
   });
 });

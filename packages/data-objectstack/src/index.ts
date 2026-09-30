@@ -198,6 +198,27 @@ function toAstFilterOperator(op: unknown): string | null {
 }
 
 /**
+ * A filter entry as it appears inside a refusal message, without letting the
+ * explanation throw.
+ *
+ * `JSON.stringify` throws on a BigInt and on a cyclic object. A `TypeError`
+ * raised while a refusal builds its message escapes in the refusal's place, and
+ * a caller then reads a transport-looking failure about a filter this adapter
+ * had already judged (objectui#9048: the text-comparand refusal constructs a
+ * {@link MalformedFilterError} for exactly such an entry). The replacer renders
+ * a BigInt as its literal and leaves every other value alone, so an entry that
+ * serialised before serialises to the same bytes now. Module-private.
+ */
+function describeFilterEntry(entry: unknown): string {
+  try {
+    return JSON.stringify(entry, (_key, value) => (typeof value === 'bigint' ? `${value}n` : value))
+      ?? String(entry);
+  } catch {
+    return String(entry);
+  }
+}
+
+/**
  * A filter entry this adapter cannot translate into an AST tuple.
  *
  * Thrown rather than skipped. Dropping one entry out of an `and` WIDENS the
@@ -209,26 +230,19 @@ function toAstFilterOperator(op: unknown): string | null {
  * Carries the code and status the data API uses for its own version of this
  * refusal (objectstack#4121) so a failed list renders "this view's filter is
  * malformed" rather than "check your connection" (#3066).
- *
- * `refusal`, when given, replaces the shape advice with the reason the entry is
- * refused: an entry can be well-formed and still carry a condition the contract
- * declares REFUSED (objectui#9048, see {@link refuseTextComparandEntry}), and
- * telling its author to supply `{ field, operator, value }` would prescribe a
- * repair they have already made. That message does not re-serialise the entry:
- * the refusal already names what it judged, and `JSON.stringify` throws on a
- * BigInt, which would put a `TypeError` in the refusal's place.
  */
 export class MalformedFilterError extends Error {
   readonly code = 'INVALID_FILTER';
   readonly httpStatus = 400;
   readonly entry: unknown;
   readonly index: number;
-  constructor(entry: unknown, index: number, refusal?: string) {
+  constructor(entry: unknown, index: number) {
+    // BigInt-safe (see `describeFilterEntry`); byte-identical to a bare
+    // `JSON.stringify(entry) ?? String(entry)` for every entry that did not throw.
+    const shown = describeFilterEntry(entry);
     super(
-      refusal === undefined
-        ? `Filter entry ${index} is not a usable filter rule (${JSON.stringify(entry) ?? String(entry)}). `
-          + 'Expected { field, operator, value } with a non-empty field.'
-        : `Filter entry ${index} is refused. ${refusal}`,
+      `Filter entry ${index} is not a usable filter rule (${shown}). `
+      + 'Expected { field, operator, value } with a non-empty field.',
     );
     this.name = 'MalformedFilterError';
     this.entry = entry;
@@ -556,6 +570,15 @@ export class UnlowerableAnalyticsFilterError extends Error {
  * 3-tuple, and an absent value went out as JSON `null` — a non-string
  * comparand, which is the table's second row. `ValueDataSource` refuses the
  * same rule for the same reason.
+ *
+ * The envelope is an ordinary {@link MalformedFilterError} whose message is
+ * replaced by the refusal sentence, so `instanceof`, `name`, `code` and
+ * `httpStatus` are the class's own. The sentence is seated here, module-private,
+ * rather than through a constructor parameter, because the class is published
+ * and no consumer needs a way to pass one: the refusal is this module's, and
+ * its public constructor stays exactly what it was. The shape advice the
+ * constructor writes first is discarded; building it is BigInt-safe (see
+ * `describeFilterEntry`), so a BigInt comparand still reaches this sentence.
  */
 function refuseTextComparandEntry(
   entry: { readonly value?: unknown },
@@ -569,11 +592,11 @@ function refuseTextComparandEntry(
     + `uses for this operator is the $-dialect '$icontains', which this form spells `
     + `'${arrived}'. Remove the entry, or give it a non-empty string value `
     + `(objectui#9048; the same refusal convertFiltersToAST and ValueDataSource already share).`;
-  throw new MalformedFilterError(
-    entry,
-    index,
-    `The ${textComparandRefusalReason(field, arrived, entry.value)}. ${tail}`,
-  );
+  const error = new MalformedFilterError(entry, index);
+  error.message =
+    `Filter entry ${index} is refused. `
+    + `The ${textComparandRefusalReason(field, arrived, entry.value)}. ${tail}`;
+  throw error;
 }
 
 /**

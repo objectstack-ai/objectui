@@ -112,17 +112,25 @@ describe('Grouped view pagination', () => {
     renderGroupedGrid();
     await waitFor(() => expect(screen.getByText('Page 1 of 3')).toBeInTheDocument());
 
+    // One of the selector's fixed steps that is not the default and splits
+    // the fixture into exactly two pages, derived rather than spelled so the
+    // row keeps its meaning whatever the spec declares.
+    const resizeTo = [5, 10, 20, 50, 100].find(
+      (n) => n !== DISPLAY_DEFAULT && n > GROUP_COUNT / 2 && n < GROUP_COUNT,
+    );
+    expect(resizeTo, 'no fixed selector step splits the fixture into two pages').toBeDefined();
+
     const select = document.querySelector('select') as HTMLSelectElement;
     expect(select).toBeTruthy();
-    fireEvent.change(select, { target: { value: '50' } });
+    fireEvent.change(select, { target: { value: String(resizeTo) } });
 
-    // GROUP_COUNT / 50 = 2 pages, page reset to 1, first page shows 50 groups.
+    // Two pages, page reset to 1, the first page shows `resizeTo` groups.
     await waitFor(() => expect(screen.getByText('Page 1 of 2')).toBeInTheDocument());
-    expect(groupRows().length).toBe(50);
+    expect(groupRows().length).toBe(resizeTo);
   });
 
   it('does not render a pager when groups fit on a single page', async () => {
-    renderGroupedGrid({ pagination: { pageSize: 100 } });
+    renderGroupedGrid({ pagination: { pageSize: GROUP_COUNT } });
     await waitFor(() => expect(groupRows().length).toBe(GROUP_COUNT));
     expect(screen.queryByText(/^Page \d+ of \d+$/)).not.toBeInTheDocument();
   });

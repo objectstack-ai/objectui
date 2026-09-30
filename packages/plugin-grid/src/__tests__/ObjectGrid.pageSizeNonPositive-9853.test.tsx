@@ -274,9 +274,9 @@ describe('ObjectGrid — a non-positive authored page size is refused at every r
   // The channel matters: the flat size is the table's live page size only when
   // `manualPaginationOn` is false, which is what inline `data` gives.
   //
-  // Thirty rows, so the display default leaves a second page and a refused
-  // value that slipped through would show a different count.
-  const INLINE_ROWS = Array.from({ length: 30 }, (_, i) => ({
+  // Ten rows past the display default, so it leaves a second page and a
+  // refused value that slipped through would show a different count.
+  const INLINE_ROWS = Array.from({ length: DISPLAY_DEFAULT + 10 }, (_, i) => ({
     id: String(i + 1),
     name: `Row ${String(i + 1).padStart(2, '0')}`,
     status: 'open',
@@ -306,7 +306,7 @@ describe('ObjectGrid — a non-positive authored page size is refused at every r
   it('a negative page size does not reach the flat table', async () => {
     const { container } = renderInline({ pagination: { pageSize: -10 } });
     await vi.waitFor(() => expect(bodyRows(container).length).toBeGreaterThan(0));
-    // Thirty rows at the display default: a full first page and a second one.
+    // The display default plus ten rows: a full first page and a second one.
     expect(bodyRows(container)).toHaveLength(DISPLAY_DEFAULT);
     expect(paginationWarnings().length).toBeGreaterThan(0);
   });

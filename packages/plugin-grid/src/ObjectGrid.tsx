@@ -1291,8 +1291,10 @@ function resolveRowHeightMode(rowHeight: unknown): RowHeightMode {
 
 /**
  * The page size every display surface of this component falls back to when the
- * author declared none (objectui#9853, ruling C-prime): the flat table, the
- * server-paged table and the grouped view's page of groups.
+ * author declared none (objectui#9853, rulings 5749197629 and 5824040487): the
+ * flat table, the server-paged table, the grouped view's page of groups, and a
+ * server-grouped leaf's page of rows. Wherever there is a pager, this is its
+ * page.
  *
  * READ from `@objectstack/spec`, not restated. The protocol's pagination config
  * declares `pageSize` with a default, and that declaration is the one answer an
@@ -1322,15 +1324,17 @@ function readSpecDisplayPageSize(): number {
 const DEFAULT_DISPLAY_PAGE_SIZE = readSpecDisplayPageSize();
 
 /**
- * How many rows the grouped view FETCHES to bucket client-side when the author
- * declared no page size. A fetch batch, ⛔ not a page size: no display path
- * reads it (objectui#9853, ruling C-prime, clause 1). Before that ruling this
- * number was named as a "server window" and also sized the server-paged table's
- * visible page, so one constant meant two quantities.
+ * How many rows this grid FETCHES when it buckets a window into groups in the
+ * browser and the author declared no page size (`bucketsFetchedWindow`). A
+ * fetch batch, ⛔ not a page size: no display path reads it, and it does not
+ * follow the display default (objectui#9853, ruling 5824040487, structure B).
+ * Before ruling 5749197629 this number was named as a "server window" and also
+ * sized the server-paged table's visible page, so one constant meant two
+ * quantities.
  *
  * It stays a constant of this component rather than the protocol's value
  * because the protocol declares no fetch batch: it is how much of the result
- * set the grouped view holds, which is an implementation choice.
+ * set a client-grouped view holds, which is an implementation choice.
  */
 const DEFAULT_FETCH_BATCH_SIZE = 50;
 
@@ -1983,22 +1987,16 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // ($top/$skip) and the DataTable's display page size are the SAME number here
   // — the records we hold ARE one page, so paging means refetching the next
   // slice from the server instead of slicing an in-memory batch. This is what
-  // makes records beyond the first batch reachable at all (framework #2212).
+  // makes records beyond the first batch reachable at all
+  // (objectstack-ai/objectstack#2212).
   //
   // That makes this a DISPLAY page size, so undeclared it is the spec's display
-  // default, ⛔ not the fetch batch (objectui#9853, ruling C-prime).
+  // default, ⛔ not the fetch batch (objectui#9853). A server-grouped leaf pages
+  // its rows by this same size (`useServerGroupRows` below).
   const [serverPage, setServerPage] = useState(1);
   const [serverPageSize, setServerPageSize] = useState<number>(
     resolvePageSize(schema, DEFAULT_DISPLAY_PAGE_SIZE),
   );
-  // What one fetch asks for. A grouped view buckets the rows it holds and has
-  // no row pager, so it asks for a fetch BATCH; everywhere else the rows held
-  // ARE the page on screen. `usableGroupingFields` is the predicate
-  // `useGroupedData` answers `isGrouped` with, so the two cannot disagree.
-  const groupedFetch = usableGroupingFields(schema.grouping?.fields).length > 0;
-  const fetchWindow = groupedFetch
-    ? resolvePageSize(schema, DEFAULT_FETCH_BATCH_SIZE)
-    : serverPageSize;
 
   // Column-header sort, when this grid fetches its own rows (objectui#3106).
   // `null` means "nobody has clicked a header" and the view's declared
@@ -2193,6 +2191,30 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     && Array.isArray(handedRows)
     && (hostRowCount as number) > handedRows.length
     && usableGroupingFields(groupingFieldsRaw).some((gf) => !groupingRefusedKnownMasked.includes(gf.field));
+  // What the load effect's ONE flat fetch asks for (objectui#9853, ruling
+  // 5824040487, structure B). Where the rows it holds ARE the page on screen,
+  // that is the display page size. Where this grid buckets the rows it holds
+  // into groups in the browser, nothing pages them, so it asks for the fetch
+  // BATCH instead, which no display path reads. Since objectui#7189 a grouped
+  // grid that fetches its own rows buckets a window only when the server
+  // cannot group for it and the grid has not refused: not server-grouped
+  // (`serverGroupedFetch` strips `$top` and pages each group), not refused
+  // (`groupingNeedsHeaderQuery` asks for no rows), and at least one grouping
+  // entry left once a KNOWN masked key is refused. The case that reaches it
+  // today is a grouping key this principal may not read, over a data source
+  // that answers the header query (see `groupingKeyReadable`).
+  //
+  // Counted the way the two predicates above count, less the keys refused on a
+  // KNOWN masked type and NOT less the ones merely withheld while the object's
+  // types load: otherwise the first fetch would go out at the page size and be
+  // re-issued at the batch the moment the types land.
+  const bucketsFetchedWindow =
+    !serverGroupedFetch
+    && !groupingNeedsHeaderQuery
+    && usableGroupingFields(groupingFieldsRaw).some((gf) => !groupingRefusedKnownMasked.includes(gf.field));
+  const fetchWindow = bucketsFetchedWindow
+    ? resolvePageSize(schema, DEFAULT_FETCH_BATCH_SIZE)
+    : serverPageSize;
   // The grid's own row query — projection, expansion, order and the view's
   // filter — resolved by the load effect below exactly as the flat fetch
   // resolves it, and handed to each group's row page. `null` until resolved.

@@ -36,6 +36,9 @@
  * For the same reason this page shows no `bound` / `status` column even though
  * `_status` carries both: §7.4 scopes it to what the activation ledger knows.
  * The Studio rail is where a flow's binding is diagnosed.
+ * The one exception is an unbound row's `reason`: the platform's own sentence
+ * for why the flow is not armed, shown verbatim and muted under its name
+ * (objectui#9217) — never parsed, never styled as an error.
  *
  * ## Server refusals reach the operator VERBATIM
  *
@@ -421,6 +424,14 @@ export function PackagedAutomationPage() {
                   <TableCell className="align-top">
                     <div className="font-medium">{row.label}</div>
                     <code className="font-mono text-xs text-muted-foreground">{row.name}</code>
+                    {row.reason && (
+                      // The PLATFORM's sentence for why the engine has not
+                      // armed this flow, verbatim. Muted and NOT an alert: a
+                      // deployment-policy refusal names its operator switch in
+                      // its own words, a binding failure says so in its own,
+                      // and neither is re-styled or read here (objectui#9217).
+                      <p className="mt-2 max-w-prose text-sm text-muted-foreground">{row.reason}</p>
+                    )}
                     {refusal && (
                       // VERBATIM server refusal, next to the control that
                       // caused it. `role="alert"` so it is announced.

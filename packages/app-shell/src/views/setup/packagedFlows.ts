@@ -15,11 +15,18 @@
  *
  * A read projection over what the engine's `getFlowRuntimeStates()` returns —
  * every field optional because older backends answer with fewer of them, and
- * this page must degrade rather than throw. Only `name` and `enabled` are read.
+ * this page must degrade rather than throw. Only `name`, `enabled` and `reason`
+ * are read.
  */
 export interface FlowRuntimeStateRow {
   name?: unknown;
   enabled?: unknown;
+  /**
+   * `FlowRuntimeState.reason` (`@objectstack/spec` 17.5.0): the platform's one
+   * sentence saying WHY an enabled flow is not armed, absent on every other
+   * row. `unknown` here like its siblings — only a string is taken.
+   */
+  reason?: unknown;
   [key: string]: unknown;
 }
 
@@ -31,6 +38,18 @@ export interface PackagedFlowRow {
   label: string;
   /** Activation state as the engine reports it. */
   enabled: boolean;
+  /**
+   * The platform's sentence for why the engine has not armed this flow —
+   * present only when the runtime row carried a non-empty string `reason`.
+   *
+   * It is RENDERED, never read: the contract's own words on the field are
+   * "Consumers RENDER it; ⛔ do not parse it". A deployment-policy refusal
+   * (package-authored scheduled work switched off) and a real binding failure
+   * both arrive here, each in the platform's own words, and this page tells
+   * them apart only by showing those words (objectui#9217). No sentence is
+   * matched, compared or restyled on this side, and none is kept in this repo.
+   */
+  reason?: string;
 }
 
 /**
@@ -94,12 +113,17 @@ export function joinPackagedFlows(
     const item = packaged.get(name);
     if (!item) continue;
     const label = item.label;
+    const reason = state.reason;
     rows.push({
       name,
       label: typeof label === 'string' && label ? label : name,
       // `enabled` is TRUE unless the engine says otherwise: an older backend
       // that omits the field has no ledger to disable anything with.
       enabled: state.enabled !== false,
+      // Absent, not `undefined`-valued, the way the engine omits it: a row
+      // with nothing to explain renders exactly as it did before the field
+      // existed, and so does every older backend that never sends one.
+      ...(typeof reason === 'string' && reason.length > 0 ? { reason } : {}),
     });
   }
   return rows.sort((a, b) => a.label.localeCompare(b.label) || a.name.localeCompare(b.name));

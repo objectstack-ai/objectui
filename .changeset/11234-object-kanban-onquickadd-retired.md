@@ -35,5 +35,5 @@ compiled and got nothing.
 Quick Add, mount `KanbanRenderer` from `@object-ui/plugin-kanban` in a React
 host and pass both `quickAdd` and `onQuickAdd` on its `schema`.
 
-This supersedes the closing "Unchanged" note of the objectui#8285 entry, which
-recorded `onQuickAdd` as staying a runtime slot on `object-kanban`.
+The objectui#8285 entry's closing note, which said `onQuickAdd` stayed a runtime
+slot on `object-kanban`, is amended in this change to match.

@@ -51,3 +51,5 @@ no longer does that. The leg is kept anyway, and objectui#8908 kept it deliberat
 than removing it as newly redundant: it is what makes that slot's answer independent of
 the bridge, and it is why `emptyAction` was never affected by this defect in the first
 place.
+
+⚠️ **Dated note, 2026-10-01 — the bridge's return type widens with the prop — objectui#11364.** Later in this same release `SchemaRendererProps.schema` becomes `BaseSchema | AuthoringNode | string | null | undefined`. `toRenderableSchema` returns `SchemaRendererProps['schema']` by reference, so its return type widens with it. So "The return type is unchanged: `BaseSchema | string | null | undefined`" no longer describes the release as a whole: the falsy leg still adds no `number` / `boolean`, and the pinned equality with the prop still holds. The rest of this entry is kept as the reading of this change.

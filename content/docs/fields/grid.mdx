@@ -253,8 +253,7 @@ await db.insert('orders', order);
 Example validation for grid data:
 
 ```plaintext
-import type { InlineGridColumn } from '@objectstack/spec/data';
-
+// InlineGridColumn: the spec's grid column type (@objectstack/spec/data)
 const validateGridData = (data: any[], columns: InlineGridColumn[]) => {
   const errors: string[] = [];
   

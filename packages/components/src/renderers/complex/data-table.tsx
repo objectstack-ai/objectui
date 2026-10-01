@@ -756,7 +756,6 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     reorderableColumns = true,
     editable = false,
     singleClickEdit = false,
-    selectionStyle = 'always',
     rowClassName,
     rowStyle,
     className,
@@ -2405,20 +2404,13 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                       }}
                     >
                       {selectable && (
-                        <TableCell className={cn(cellClassName, "px-3", frozenColumns > 0 && "sticky left-0 z-10 bg-background", selectionStyle === 'hover' && "relative")}>
-                          {selectionStyle === 'hover' ? (
-                            <div className={cn("transition-opacity", isSelected ? "opacity-100" : "opacity-0 group-hover/row:opacity-100")}>
-                              <Checkbox
-                                checked={isSelected}
-                                onCheckedChange={(checked) => handleSelectRow(rowId, checked as boolean)}
-                              />
-                            </div>
-                          ) : (
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={(checked) => handleSelectRow(rowId, checked as boolean)}
-                            />
-                          )}
+                        <TableCell className={cn(cellClassName, "px-3", frozenColumns > 0 && "sticky left-0 z-10 bg-background")}>
+                          {/* Always visible: the hover-only `selectionStyle` was retired
+                              (objectui#6152 round 5) — nothing authored or produced it. */}
+                          <Checkbox
+                            checked={isSelected}
+                            onCheckedChange={(checked) => handleSelectRow(rowId, checked as boolean)}
+                          />
                         </TableCell>
                       )}
                       {showRowNumbers && (

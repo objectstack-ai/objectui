@@ -25,6 +25,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import React from 'react';
+import type { RelatedRecordActionsValue } from '@object-ui/react';
 
 const PAGE_NAME = 'the_page';
 const navigate = vi.fn();
@@ -48,7 +49,9 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  useObjectTranslation: () => ({ t: (k: string, o?: any) => o?.defaultValue ?? o?.name ?? k }),
+  useObjectTranslation: () => ({
+    t: (k: string, o?: { defaultValue?: string; name?: string }) => o?.defaultValue ?? o?.name ?? k,
+  }),
 }));
 
 vi.mock('../../providers/MetadataProvider', () => ({
@@ -64,10 +67,10 @@ vi.mock('../MetadataInspector', () => ({
 }));
 
 /** What the page's blocks read off `RelatedRecordActionsContext`. */
-let seen: any;
+let seen: RelatedRecordActionsValue | null | undefined;
 
 vi.mock('@object-ui/react', async (orig) => {
-  const actual = await (orig as any)();
+  const actual = await orig<typeof import('@object-ui/react')>();
   return {
     ...actual,
     useAdapter: () => ({}),
@@ -80,7 +83,8 @@ vi.mock('@object-ui/react', async (orig) => {
   };
 });
 
-import { PageView, pageRecordActionsValue } from '../PageView';
+import { PageView } from '../PageView';
+import { pageRecordActionsValue } from '../pageRecordActions';
 
 beforeEach(() => {
   cleanup();
@@ -92,18 +96,18 @@ describe('objectui#11293 — PageView publishes the record navigator its blocks 
   it('a block on the page reads a navigator, and `openRecord` routes to the record page', () => {
     render(<PageView />);
     expect(seen, 'the page published no record navigator to its blocks').toBeTruthy();
-    seen.openRecord('account', 'r 1');
+    seen!.openRecord!('account', 'r 1');
     expect(navigate).toHaveBeenCalledTimes(1);
     expect(navigate).toHaveBeenCalledWith('/apps/crm/account/record/r%201');
   });
 
   it('an object the console cannot route to opens nothing, and resolves no related-list handlers', () => {
     render(<PageView />);
-    seen.openRecord('not_an_object', 'r1');
+    seen!.openRecord!('not_an_object', 'r1');
     expect(navigate).not.toHaveBeenCalled();
-    expect(seen.recordHref('not_an_object', 'r1')).toBeNull();
+    expect(seen!.recordHref!('not_an_object', 'r1')).toBeNull();
     // A page has no parent record: the related-list half stays read-only.
-    expect(seen.resolve({ objectName: 'account' })).toEqual({});
+    expect(seen!.resolve({ objectName: 'account' })).toEqual({});
   });
 });
 

@@ -91,7 +91,12 @@ describe('ObjectChart (react tier) — an authored `series` still draws a combo 
         { name: 'task_count', type: 'bar', yAxis: 'left' },
         { name: 'avg_progress', type: 'line', yAxis: 'right' },
       ],
-      yAxis: [{ title: 'Tasks' }, { title: 'Avg progress', position: 'right', min: 0, max: 100 }],
+      // `field` is required on the spec's `ChartAxis`; with `series` authored it
+      // binds nothing, so it changes no mark (objectui#11355).
+      yAxis: [
+        { field: 'task_count', title: 'Tasks' },
+        { field: 'avg_progress', title: 'Avg progress', position: 'right', min: 0, max: 100 },
+      ],
     });
     expect(await drawn(container)).toEqual({ bars: 1, lines: 1, areas: 0, yAxes: 2 });
     // The authored axis presentation is drawn too, on the axis it names.
@@ -111,7 +116,7 @@ describe('ObjectChart (react tier) — an authored `series` still draws a combo 
         { name: 'task_count', type: 'area' },
         { name: 'avg_progress', type: 'line', yAxis: 'right' },
       ],
-      yAxis: [{ title: 'Tasks' }, { title: 'Avg progress', position: 'right' }],
+      yAxis: [{ field: 'task_count', title: 'Tasks' }, { field: 'avg_progress', title: 'Avg progress', position: 'right' }],
     });
     expect(await drawn(container)).toEqual({ bars: 0, lines: 1, areas: 1, yAxes: 2 });
   });

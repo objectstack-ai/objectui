@@ -364,6 +364,21 @@ from widget `options`. In particular, on a dataset-bound gauge:
   derived measure to the dataset (`derived: { op: 'ratio', … }`) and bind the
   widget to it.
 
+## Translations — a served dashboard is translated once
+
+Widget texts have a client translation channel: bundle keys under
+`dashboards.<name>.widgets.<id>` (`title`, `description`, `subCaption`), plus
+`dashboards.<name>.label` and `.description`. A document read from
+ObjectStack's `/meta` route does not need it. The server has already applied
+those keys for the request's locale, and it keeps a published edit over them:
+an explicit override beats the packaged default.
+
+So the host tells the renderer which kind of document it holds. The `localized`
+prop on `DashboardRenderer` says the document was served, and the console's
+dashboard page sets it. Those texts are then drawn as served. Without the prop,
+the client bundle translates them. That covers an inline `dashboard` block, a
+preview or a design surface (objectui#11295).
+
 ## TypeScript Support
 
 ```ts

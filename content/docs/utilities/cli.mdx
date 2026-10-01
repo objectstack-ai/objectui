@@ -242,7 +242,7 @@ distinction matters:
 ```text
 ⚠️ 1 file carries a registered ObjectUI component type but did not validate as an ObjectUI schema:
    stores.json (type "object-map")
-     Issue at map: Unrecognized key: "latitudeFieId"
+     Issue at properties → map: Unrecognized key(s) on this map configuration: `latitudeFieId`. Did you mean `latitudeFieId` → `latitudeField`? Until these shapes were closed an unknown key was dropped silently — the view still rendered, without whatever the key was meant to configure.
 ```
 
 #### Expressions on text keys that are never evaluated

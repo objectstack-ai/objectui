@@ -6,7 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  *
  * `record:details`' `sections[].label` and `record:related_list`'s `add.label`
- * are `I18nLabel`, through the registry (objectui#10993, batch 4).
+ * and `columns[].label` are `I18nLabel`, through the registry (objectui#10993,
+ * batch 4).
  *
  * `@objectstack/spec` types both positions `I18nLabel` — a plain string or an
  * inline per-locale map — and both renderers resolve a map with
@@ -19,6 +20,16 @@
  * `record-components-i18n-label-members-10993.test.ts`; the other two members
  * widened beside these, `record:path`'s `stages[].label` and
  * `record:related_list`'s `title`, carry batch 2's render pins.
+ *
+ * `columns[].label` is the REPAIR in this file. The spec's
+ * `record:related_list.columns` declares the saved-view union since 17.5.0, so
+ * a column may be a `ListColumn` object whose `label` is `I18nLabel`. A string
+ * label became the column header, and a map drew a BLANK header: `RelatedList`
+ * turns `label` into the table's `header` through `columnHeader`, which takes
+ * a string only. `RecordRelatedListRenderer` now resolves the map against the
+ * UI language before it hands the columns on (`localizeColumnLabels`). This
+ * pins the render only; adopting the column-object arm on this package's
+ * registration input and on `@object-ui/types`' `columns` is not this card's.
  *
  * Each node is mounted the way a page mounts it: the `{ type, properties }`
  * document through the real `SchemaRenderer` and this package's registration,
@@ -59,6 +70,7 @@ afterEach(() => {
 /** `en` first on purpose; see the file header. */
 const SECTION_LABEL = { en: 'Commercial terms', 'zh-CN': '商务条款' };
 const ADD_LABEL = { en: 'Link tasks', 'zh-CN': '关联任务' };
+const COLUMN_LABEL = { en: 'Subject', 'zh-CN': '主题' };
 
 /**
  * `name` is declared and left unset: the page-H1 dedupe ladder resolves its
@@ -75,7 +87,7 @@ const objectSchema = {
 const record = { industry: 'Retail' };
 
 const makeDataSource = () => ({
-  find: vi.fn(async () => ({ data: [], total: 0 })),
+  find: vi.fn(async () => ({ data: [{ id: 't1', name: 'Call back' }], total: 1 })),
   findOne: vi.fn(async () => record),
   getObjectSchema: vi.fn(async (name: string) => ({ name, fields: { name: { type: 'text', label: 'Name' } } })),
 });
@@ -112,6 +124,22 @@ const relatedListDoc = (label: unknown) => ({
     add: { picker: { object: 'task' }, label },
   },
 });
+
+const columnsDoc = (label: unknown) => ({
+  type: 'record:related_list',
+  properties: {
+    objectName: 'task',
+    relationshipField: 'account_id',
+    title: 'Tasks',
+    columns: [{ field: 'name', label }],
+  },
+});
+
+/** The list's column headers, once its row is on screen (reachability first). */
+async function headersOf(container: HTMLElement): Promise<string[]> {
+  await screen.findByText('Call back');
+  return [...container.querySelectorAll('th')].map((th) => th.textContent ?? '');
+}
 
 function expectNoRawMap(container: HTMLElement) {
   expect(container.textContent ?? '').not.toContain('[object Object]');
@@ -157,5 +185,23 @@ describe('record:related_list add.label resolves an inline locale map through th
   it('CONTROL: a plain-string add.label renders exactly as authored, under zh', async () => {
     mountIn('zh', relatedListDoc('Link tasks'));
     expect(await screen.findByRole('button', { name: 'Link tasks' })).toBeInTheDocument();
+  });
+});
+
+describe('record:related_list columns[].label resolves an inline locale map through the registry (objectui#10993)', () => {
+  it('zh: the column header paints the zh-CN entry', async () => {
+    const { container } = mountIn('zh', columnsDoc(COLUMN_LABEL));
+    expect(await headersOf(container)).toEqual(['主题']);
+    expectNoRawMap(container);
+  });
+
+  it('en: the column header paints the en entry', async () => {
+    const { container } = mountIn('en', columnsDoc(COLUMN_LABEL));
+    expect(await headersOf(container)).toEqual(['Subject']);
+  });
+
+  it('CONTROL: a plain-string column label renders exactly as authored, under zh', async () => {
+    const { container } = mountIn('zh', columnsDoc('Subject'));
+    expect(await headersOf(container)).toEqual(['Subject']);
   });
 });

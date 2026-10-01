@@ -34,6 +34,7 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
   SidebarInput,
+  Badge,
 } from '@object-ui/components';
 import type { AppComponentSchema, NavigationItem, NavigationEntryItem, NavigationArea } from '@object-ui/types';
 import { menuItemToNavigationItem } from '@object-ui/types';
@@ -55,6 +56,8 @@ import {
   type CapabilityChecker,
   type DocTargetChecker,
 } from './NavigationRenderer';
+// Internal module, not re-exported by `index.ts` (objectui#11395).
+import { byNavOrder } from './navOrder';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -296,9 +299,16 @@ function MobileBottomNav({
   // wired. A gated group therefore takes its children with it, as it does in
   // the sidebar, and the guard runs before the five-tab cap, so a hidden entry
   // never takes a slot. ⛔ No copy of the guard here.
+  //
+  // objectui#11395: each level is sorted by `byNavOrder` before it is walked —
+  // the top level, then each group's children as the walk reaches them — which
+  // is the sidebar's one comparator at the sidebar's two sort sites. The tabs
+  // therefore come out in the sidebar's reading order, and the guard and the cap
+  // run after the sort, so the five tabs are the sidebar's first five drawn
+  // entries. ⛔ No copy of the sort here.
   const collectLeaves = (list: NavigationItem[]): NavigationEntryItem[] => {
     const out: NavigationEntryItem[] = [];
-    for (const item of list) {
+    for (const item of list.slice().sort(byNavOrder)) {
       if (!hasVisibleNavigationItems([item], guards)) continue;
       if (item.type === 'separator') continue;
       if (item.type === 'group') {
@@ -333,7 +343,7 @@ function MobileBottomNav({
       {leaves.map((item) => {
         const NavIcon = resolveIcon(item.icon);
         const { href, external } = resolveHref(item, basePath);
-        const className = `flex flex-col items-center gap-0.5 px-2 py-1.5 transition-colors min-w-[44px] min-h-[44px] justify-center ${
+        const className = `relative flex flex-col items-center gap-0.5 px-2 py-1.5 transition-colors min-w-[44px] min-h-[44px] justify-center ${
           item.id === activeId ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
         }`;
         const content = (
@@ -343,6 +353,18 @@ function MobileBottomNav({
                 absent since objectui#9868, and this host has no metadata, so it shows the
                 same machine-name backstop its `NavigationRenderer` does. */}
             <span className="text-[10px] truncate max-w-[60px]">{resolveNavItemLabel(item)}</span>
+            {/* objectui#11395: the spec-declared `badge` and `badgeVariant`, drawn when the
+                sidebar row draws them, with the same `Badge` and the same variant (an absent
+                `badgeVariant` is `Badge`'s own default, which is the sidebar's). Placed over
+                the icon's corner; last in the DOM so the tab reads in the sidebar row's order. */}
+            {item.badge != null && (
+              <Badge
+                variant={item.badgeVariant}
+                className="absolute top-0.5 left-1/2 ml-1.5 px-1 py-0 text-[9px] leading-tight"
+              >
+                {item.badge}
+              </Badge>
+            )}
           </>
         );
 

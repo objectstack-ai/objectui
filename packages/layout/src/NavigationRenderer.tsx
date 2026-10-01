@@ -71,6 +71,9 @@ import type { NavigationItem, KeyedI18nLabel } from '@object-ui/types';
 // the spec's resolver reads the INLINE locale map — neither accepts the other's
 // shape.
 import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
+// Internal module, not re-exported by `index.ts` (objectui#11395). ⛔ Do not
+// re-export `byNavOrder` from this file: `index.ts` re-exports it whole.
+import { byNavOrder } from './navOrder';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -1275,9 +1278,7 @@ function NavigationItemRenderer({
 
   // --- Group (collapsible) ---
   if (item.type === 'group') {
-    const children = (item.children ?? [])
-      .slice()
-      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const children = (item.children ?? []).slice().sort(byNavOrder);
 
     // A group survives only through its children (`73a3c89af`). Without
     // this the group's own label rendered as a disclosure that opens onto
@@ -1546,8 +1547,8 @@ export function NavigationRenderer({
     [filteredItems, evalVis, checkPerm, checkCap, checkDocTarget],
   );
 
-  // --- Sort top-level items by order ---
-  const sorted = filteredItems.slice().sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+  // --- Sort top-level items by order --- (the one comparator the tab bar uses too, objectui#11395)
+  const sorted = filteredItems.slice().sort(byNavOrder);
 
   // --- Drag-reorder sensors ---
   const sensors = useSensors(

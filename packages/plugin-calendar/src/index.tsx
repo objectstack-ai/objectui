@@ -400,6 +400,20 @@ export const ObjectCalendarRenderer: React.FC<{ schema: any; [key: string]: any 
  * description that recommends a write the renderer would drop is this gate's
  * own failure mode one layer in.
  *
+ * ## `navigation` — objectui#8652 (maintainer ruling 「B」)
+ *
+ * ⏱ The "COMPLETE" above was measured on 17.3.0. 17.5.0 declares one more key
+ * on this element, `navigation` — the platform half of the ruling, which the
+ * 17.5.0 bump booked as OWED to objectui#8652 rather than declaring
+ * (objectui#11111 decision 3 = B). This entry is the objectui half, together
+ * with the `ObjectCalendarSchema` member in `@object-ui/types`. The calendar
+ * honours the block through `useNavigationOverlay`, member by member — an
+ * overlay `mode`, `new_window`, `none`, `preventNavigation`, `openNewTab` and
+ * `size` — and the description states the one value it does NOT honour on
+ * its own: `page` needs a parent view to navigate for it, and it is also what
+ * a block without `mode` resolves to. Members pinned in
+ * `__tests__/calendarNavigationMembers-8652.test.tsx`.
+ *
  * ## `objectName` is not a required input (objectui#10392)
  *
  * The record source is ONE OF `data`, `staticData` and `objectName`: the
@@ -422,7 +436,7 @@ const OBJECT_CALENDAR_INPUTS: ComponentInput[] = [
   { name: 'locale', type: 'string', description: 'BCP-47 tag used to format the dates and times this calendar renders. A tag `Intl` refuses is dropped — the same answer as an absent key — rather than passed through to throw out of render.' },
   { name: 'data', type: 'array', description: 'Pre-fetched records drawn as-is, IN PLACE OF the calendar’s own query — `objectName`, `filter` and `sort` are then unused and `staticData` is never reached. Each member is a RECORD, read for the fields the `calendar` config names plus its `id`; a member with no value in the start field is counted in the unscheduled area rather than dropped.' },
   { name: 'staticData', type: 'array', description: 'Inline records, read SECOND on the record-source ladder: an authored `data` wins and this key is then never reached, while `objectName` is read AFTER it, so a calendar carrying both draws these rows and issues no query. Members are records read exactly as `data`’s are.' },
-  { name: 'loading', type: 'boolean', description: 'External loading state, honoured ONLY alongside an array `data`: it then replaces the calendar with its loading placeholder. On a calendar fed by `staticData` or by `objectName` it is dropped, because that calendar owns its own loading state.' },
+  { name: 'loading', type: 'boolean', description: 'External loading state, honoured ONLY alongside an array `data`: it then replaces the calendar with its loading placeholder. On a calendar fed by `staticData` or by `objectName` it is dropped, because that calendar owns its own loading state.' },  { name: 'navigation', type: 'object', description: 'What an event click opens — the `{ mode, size, openNewTab, preventNavigation }` block a list view declares. With the key ABSENT a click opens the record in a drawer. `mode` is an overlay (`drawer`, `modal`, `split`, `popover`), `new_window`, `page` or `none`; write it whenever the block is written, because a block without `mode` takes the spec’s `page` default and `page` opens nothing on a calendar no parent view navigates for. `openNewTab: true` opens the record page in a new tab and outranks the mode, `preventNavigation: true` opens nothing, and `size` sets the overlay width. An overlay mode wins over a parent view’s click handler; any other mode hands the click to it.' },
 ];
 
 ComponentRegistry.register('object-calendar', ObjectCalendarRenderer, {

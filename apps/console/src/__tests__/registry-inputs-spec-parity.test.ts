@@ -759,7 +759,7 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
 const OBJECTUI_11111_LEDGER_CAPS = {
   unjudgedBlocks: 4, // objectui#11168: object-gantt, object-map, object-timeline, object-tree
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
-  unpublishedKeys: 5, // objectui#11168: 3 (action:button endpoint + undoable, action:icon endpoint); objectui#8652: 2; objectui#8649: 0 (struck by its landing)
+  unpublishedKeys: 3, // objectui#11168: 3 (action:button endpoint + undoable, action:icon endpoint); objectui#8652: 0 and objectui#8649: 0 (each struck by its landing)
   refusedArms: 2, // objectui#11168: element:definition-list, object-form
   memberPins: 4, // objectui#11168: element:definition-list, element:repeater ×3
 } as const;
@@ -1411,18 +1411,11 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   // `visible` stood here until objectui#11168 slice 1 measured each against its
   // renderer through the real `SchemaRenderer` and DECLARED all four — the
   // documented exit: a declaration retires its own cover.
-  ...owedEntries(
-    'object-kanban',
-    ['navigation'],
-    'objectui#8652',
-    'A SPEC KEY NOT PUBLISHED: 17.5.0 declares `navigation` on this block; objectui#8652 met its unlock with that release and mirrors it as its ruled second step.',
-  ),
-  ...owedEntries(
-    'object-calendar',
-    ['navigation'],
-    'objectui#8652',
-    'A SPEC KEY NOT PUBLISHED: 17.5.0 declares `navigation` on this block; objectui#8652 met its unlock with that release and mirrors it as its ruled second step.',
-  ),
+  // objectui#8652's two entries — `navigation` on `object-kanban` and
+  // `object-calendar` — are STRUCK: that card declared the key on both blocks'
+  // `inputs` (and on both `@object-ui/types` faces), with a member pin apiece
+  // in `MEMBER_PINS`, so each entry went stale and `carries no stale
+  // unpublished-key exemption` would refuse it.
   // objectui#8649's nine entries — the field-security triple on `record:details`,
   // `record:highlights` and `record:related_list` — are STRUCK: that card
   // declared all three keys on the three blocks' `inputs`, with the contract's
@@ -2673,6 +2666,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-calendar/src/__tests__/ObjectCalendar.filterIsNotAConfigSlot-7711.test.tsx',
     pins: 'The members are ObjectQL `$filter` elements, and this renderer adds nothing to that contract and subtracts nothing from it: the authored value reaches `dataSource.find` as `$filter` BY IDENTITY (`toBe`, so a normalising rewrite cannot pass), and the retired `filter.calendar` member spelling yields NO configuration — one authored key read twice with two incompatible meanings is the member-level defect objectui#7711 closed here and objectui#4034 closed on the map. Both member forms are covered (the object form and the array-of-arrays form). The spec side cannot supply this: the `object-calendar` `filter` row is `z.unknown()`, so the wire is the only member contract there is (objectui#7711, registered as a pin by objectui#8176 once objectui#8186 declared the key).',
   },
+  'object-calendar.navigation': {
+    file: 'packages/plugin-calendar/src/__tests__/calendarNavigationMembers-8652.test.tsx',
+    pins: 'The members of the spec\'s `NavigationConfigSchema` block the calendar reads, each driven through a real event click on the real calendar and asserted on what the click DID: an ABSENT key opens a drawer (the renderer\'s own default, the lit control), `none` and `preventNavigation` open nothing with the flag outranking an overlay mode, `new_window` and `openNewTab` open the record page in a new tab with `openNewTab` outranking `page`, and `size` / `width` are one width decision (`width` wins, a bucket resolves through the size table, `auto` lands on the default). The precedence against a parent view is pinned both ways: an OVERLAY mode keeps the click from `onRowClick` / `onEventClick`, any other mode hands it to them. Two further rows pin the description\'s `page` warning — `page`, and a block without `mode`, open nothing on a calendar no parent view navigates for (objectui#8652).',
+  },
   'object-calendar.sort': {
     file: 'packages/plugin-calendar/src/__tests__/ObjectCalendar.sortMembersReachTheWire-8171.test.tsx',
     pins: 'The members are `{ field, order }` and those two keys are the whole of what this renderer reads inside one: `{ field, order }` lowers to the `field -> direction` map on `$orderby`, an omitted `order` is ascending rather than a dropped member (the objectui#4022 regression), every member arrives in authored order, and a member with no usable `field` is dropped rather than given an invented one — with an unauthored `sort` reaching the wire as `undefined` as the control. Also carries objectui#7711\'s case transposed: a sort on a field named `calendar` stays a sort and the config still comes from the declared `calendar` container. ⛔ NOT an identity pin, unlike the two `filter` entries: `ObjectCalendar.tsx` writes `$orderby: convertSortToQueryParams(schema.sort)`, which builds a new map, so `toBe` is false about this key — the pin asserts what is read inside the member instead, which is the sharper claim. The spec side cannot supply any of it: the `sort` row is unconstrained (an array, a bare string and a bare number all parse), so the wire is the whole member contract (objectui#8171).',
@@ -2848,6 +2845,10 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'object-kanban.grouping': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'ONE nested position and no more: `schema.grouping?.fields?.[0]?.field` is the FALLBACK source of `swimlaneField`, and that is the entire member contract this board carries for the key. Three rows make it a reading rather than a claim — the swimlane layout appears keyed by `fields[0].field` where without the key there is none; an explicit `swimlaneField` WINS over it; and a second `fields` entry changes nothing, which is what pins the read at `[0]` rather than at "the fields list". The declared description says the rest is inert precisely so the declaration does not recommend a write the renderer cannot honour — this file is what keeps that sentence true. The spec row is `z.unknown()`, so the read site is the whole member contract (objectui#8313).',
+  },
+  'object-kanban.navigation': {
+    file: 'packages/plugin-kanban/src/__tests__/kanbanNavigationMembers-8652.test.tsx',
+    pins: 'The members of the spec\'s `NavigationConfigSchema` block the board reads, each driven through a real card click on the real board and asserted on what the click DID: an ABSENT key opens a drawer (the renderer\'s own default, the lit control), `none` and `preventNavigation` open nothing with the flag outranking an overlay mode, `new_window` and `openNewTab` open the record page in a new tab with `openNewTab` outranking `page`, and `size` / `width` are one width decision (`width` wins, a bucket resolves through the size table, `auto` lands on the default). A parent view\'s click handler outranks the whole key, overlay mode included. Two further rows pin the description\'s `page` warning — `page`, and a block without `mode`, open nothing on a board no parent view navigates for (objectui#8652).',
   },
   'object-master-detail-form.cancelText': {
     file: 'packages/plugin-form/src/MasterDetailForm.i18nLabels.test.tsx',
@@ -4638,9 +4639,8 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // direction — greening a fresh divergence on these two blocks by writing a
     // nineteenth entry instead of declaring the input.
     //
-    // TWO is the BOOKED backlog today — objectui#8652's `navigation` pair,
-    // ruled at the 17.5.0 bump (the last row of the table below) — and ZERO
-    // is what it measured before that bump, not a budget. `object-calendar`
+    // ZERO again since objectui#8652 declared the `navigation` pair the 17.5.0
+    // bump had BOOKED to it (the last two rows of the table below). `object-calendar`
     // publishes all nine keys its spec row declares; `object-kanban` publishes
     // thirteen of fourteen, and the fourteenth is RULED rather than owed —
     // objectui#8313 emptied the board, objectui#8314 emptied the calendar, and
@@ -4676,6 +4676,9 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     //        The only step UP this ceiling has taken, and it is a ruling, not
     //        headroom: the cap is exactly the two booked entries, and
     //        objectui#8652's landing takes it back to 0.
+    //    0  objectui#8652 lands: `navigation` is declared on both blocks'
+    //        `inputs`, each with the `MEMBER_PINS` entry objectui#8212 made
+    //        part of the same obligation — the booked pair's paired exit.
     //
     // ⚠️ THE LAST STEP IS THE ONLY ONE THAT IS NOT A DECLARATION, and reading
     // it as one would be the wrong lesson. Every step above was this ceiling's
@@ -4729,20 +4732,17 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       'a new unpublished-key exemption was added on a block objectui#8176 newly ' +
         'judged — declare the input at its registration site instead; the ' +
         'backlog list is shrink-only',
-    ).toBeLessThanOrEqual(2);
+    ).toBeLessThanOrEqual(0);
     // Lower it here when the owning cards land, so the ceiling keeps ratcheting
     // rather than banking the headroom their fixes free up.
     expect(
       backlog.length,
       'the objectui#8176 backlog shrank — lower the ceiling above to match, in ' +
         'the same change that declared the input',
-    ).toBe(2);
-    // …and the two it holds are exactly objectui#8652's booked `navigation`
-    // pair, so the ruling's room cannot be spent on a different key.
-    expect(backlog.sort(), 'the backlog is not the two booked navigation keys').toEqual([
-      'object-calendar.navigation',
-      'object-kanban.navigation',
-    ]);
+    ).toBe(0);
+    // …and it is empty BY NAME, so the room objectui#8652's landing freed
+    // cannot be spent on a different key.
+    expect(backlog.sort(), 'the backlog is not empty').toEqual([]);
   });
 
   it('the one ruled carve-out on a newly judged block is real, and names its exit', () => {
@@ -5598,6 +5598,6 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
           reasons.filter((reason) => reason.startsWith(`${OWED_PREFIX}${owner}.`)).length,
         ]),
       ),
-    ).toEqual({ 'objectui#11168': 13, 'objectui#8652': 2, 'objectui#8649': 0 });
+    ).toEqual({ 'objectui#11168': 13, 'objectui#8652': 0, 'objectui#8649': 0 });
   });
 });

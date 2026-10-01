@@ -376,9 +376,11 @@ export function useObjectLabel() {
      * props could never fire — the renderer's `isCustomized` guard compared a
      * node's authored label against its own `id` (`Workspace` vs
      * `grp_workspace`), which never match, so the guard was true for every
-     * real entry. The props are gone; the promise was false, not merely
-     * unused. This helper is kept as a plain key reader for a consumer that
-     * renders navigation itself — it has no first-party caller.
+     * real entry. The props are gone, and so is the guard itself
+     * (objectui#11201: the renderer no longer matches a label's text against
+     * any name); the promise was false, not merely unused. This helper is kept
+     * as a plain key reader for a consumer that renders navigation itself — it
+     * has no first-party caller.
      */
     navGroupLabel: (appName: string, groupId: string, fallback: string) =>
       resolve(`apps.${appName}.navigation.${groupId}.label`, fallback),

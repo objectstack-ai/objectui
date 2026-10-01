@@ -299,9 +299,20 @@ const schema: ObjectCalendarSchema = {
   endDateField: 'endDate',
   allDayField: 'isAllDay',
   colorField: 'statusColor',
-  defaultView: 'month'
+  defaultView: 'month',
+  navigation: { mode: 'modal' }   // what an event click opens - see below
 };
 ```
+
+`navigation` is what an event click opens — the spec's `NavigationConfig` by
+reference, `ViewNavigationConfig` in `@object-ui/types`, the type
+`ObjectGridSchema.navigation` uses: `mode` (`page`, `drawer`, `modal`, `split`,
+`popover`, `new_window` or `none`) with `size`, `openNewTab` and
+`preventNavigation`. With the key absent a click opens the record in a drawer.
+An overlay mode keeps the click from a parent view's `onRowClick` /
+`onEventClick`; any other mode hands it to them. ⚠️ `page` — and a block written
+without `mode`, which takes the spec's `page` default — opens nothing on a
+calendar no parent view navigates for (objectui#11293).
 
 ### Interactive Calendar
 

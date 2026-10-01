@@ -108,6 +108,13 @@
  * is ledgered BY NAME below, with an assertion that it is STILL READ — a stale
  * exception is a hole (the objectui#8885 ledger discipline).
  *
+ * ⏱ objectui#8652 has since landed its half: `navigation` is DECLARED on
+ * `ObjectCalendarSchema` (both faces), and the read above dropped its cast. So
+ * its ledger entry below is STRUCK — the key now answers the population row
+ * like every other read, as a declared member — and the row that pinned it
+ * UNDECLARED is inverted rather than deleted. The two paragraphs above are
+ * this card's reading at the time, kept as written.
+ *
  * ## What the population assertion is, and why it is not a written-down list
  *
  * AGENTS.md #9: a claim that needs a live population is defended by an
@@ -155,11 +162,14 @@ const REPO_ROOT = join(HERE, '..', '..', '..', '..');
 const CALENDAR_READER = 'packages/plugin-calendar/src/ObjectCalendar.tsx';
 
 /**
- * The ONE key this card deliberately does not rule on — objectui#8652's remit,
- * maintainer-ruled B and blocked on objectstack#17987. Every entry must still
- * be READ; see the header for why the ledger asserts that and nothing else.
+ * Keys this card deliberately does not rule on. Every entry must still be
+ * READ; see the header for why the ledger asserts that and nothing else.
+ *
+ * EMPTY since objectui#8652 declared `navigation`, its one entry, on
+ * `ObjectCalendarSchema`: a declared read needs no carve-out, and keeping the
+ * entry would exempt a key the population row can now judge.
  */
-const LEDGERED_OTHER_CARD_READS = ['navigation'] as const;
+const LEDGERED_OTHER_CARD_READS: readonly string[] = [];
 
 /**
  * The two PRE-#2231 alias spellings this card ROUTES TO THE PRODUCER rather
@@ -293,7 +303,7 @@ describe('objectui#8651 — the props type is the published element schema', () 
 /* ── 2. The population: every read is declared, or ledgered by name ────────── */
 
 describe('objectui#8651 — every key read off the node is declared on that schema', () => {
-  it('no read is undeclared, with `navigation` ledgered by name', () => {
+  it('no read is undeclared — `navigation` included, since objectui#8652', () => {
     const reads = rendererReads();
     const declared = new Set(shapeKeys(ObjectCalendarMirror));
     const exempt = new Set<string>([...LEDGERED_OTHER_CARD_READS]);
@@ -313,8 +323,13 @@ describe('objectui#8651 — every key read off the node is declared on that sche
     }
   });
 
-  it('⛔ and `navigation` stays UNDECLARED here — objectui#8652 owns it, not this card', () => {
-    expect(shapeKeys(ObjectCalendarMirror)).not.toContain('navigation');
+  it('`navigation` is READ and DECLARED — objectui#8652 landed the mirror', () => {
+    // Inverted rather than deleted: this row pinned the key UNDECLARED while
+    // objectui#8652 held it. Both halves are read, so the declaration cannot
+    // satisfy it for a key the renderer stopped reading.
+    expect([...rendererReads()]).toContain('navigation');
+    expect(shapeKeys(ObjectCalendarMirror)).toContain('navigation');
+    expect(LEDGERED_OTHER_CARD_READS).not.toContain('navigation');
   });
 
   it('CONTROL: both halves of the row above can fail', () => {

@@ -16,14 +16,19 @@
  *
  * Until #5197 the renderer also accepted two id-keyed client-side resolvers
  * (`resolveGroupLabel` / `resolveItemLabel`). They could never fire — the
- * `isCustomized` guard compares the authored label against the branch's
+ * `isCustomized` guard compared the authored label against the branch's
  * comparison target, and on those branches the target was the node's own `id`
  * (`grp_workspace`) while the label was its text (`Workspace`), which never
- * match. They are gone; these tests pin what is left:
+ * match. They are gone, and since objectui#11201 (ruling B) so is the guard:
+ * the `object` / `dashboard` convention resolvers it gated are no longer
+ * consulted for any label. These tests pin what is left:
  *
  *  - a normal tree renders exactly the labels it was given (the removal is not
  *    user-visible, because the server path was the one answering all along);
- *  - the `object` / `dashboard` branches keep their resolvers AND their guard;
+ *  - a present `object` / `dashboard` label renders verbatim, the convention
+ *    resolvers unasked — including a label equal to the machine name
+ *    (restated by objectui#11201; these rows pinned the retired
+ *    translate-if-equal-to-name convention until then);
  *  - id-keyed client-side resolution stays absent — the last test fails if
  *    anyone re-introduces it.
  */
@@ -92,15 +97,19 @@ describe('NavigationRenderer — nav label ownership', () => {
     expect(screen.getByText('用户')).toBeTruthy();
   });
 
-  it('still resolves an un-customized object label through resolveObjectLabel', () => {
+  it('renders a present object label equal to the machine name verbatim, resolveObjectLabel unasked (objectui#11201)', () => {
+    // Restated by objectui#11201 (ruling B). Until then this row pinned the
+    // opposite: a label spelled like its target's machine name was looked up
+    // through `resolveObjectLabel` and rendered the translation.
     const resolveObjectLabel = vi.fn((_objectName: string, _fallback: string) => 'Accounts');
     renderNav(
       [{ id: 'nav_accounts', type: 'object', label: 'account', objectName: 'account' }],
       { resolveObjectLabel },
     );
 
-    expect(resolveObjectLabel).toHaveBeenCalledWith('account', 'account');
-    expect(screen.getByText('Accounts')).toBeTruthy();
+    expect(resolveObjectLabel).not.toHaveBeenCalled();
+    expect(screen.getByText('account')).toBeTruthy();
+    expect(screen.queryByText('Accounts')).toBeNull();
   });
 
   it('still lets an authored object label win over resolveObjectLabel', () => {
@@ -110,13 +119,17 @@ describe('NavigationRenderer — nav label ownership', () => {
       { resolveObjectLabel },
     );
 
-    // The `isCustomized` guard survives on this branch: an author who wrote a
-    // custom label must never have it overridden by an object translation.
+    // An author who wrote a custom label must never have it overridden by an
+    // object translation — since objectui#11201 for any spelling, not only
+    // for one that differs from the machine name.
     expect(resolveObjectLabel).not.toHaveBeenCalled();
     expect(screen.getByText('Projects')).toBeTruthy();
   });
 
-  it('keeps the same guard on the dashboard branch', () => {
+  it('renders both present dashboard labels verbatim, resolveDashboardLabel unasked (objectui#11201)', () => {
+    // Restated by objectui#11201 (ruling B). Until then the first entry, whose
+    // label is its dashboard's machine name, rendered the resolver's
+    // translation instead.
     const resolveDashboardLabel = vi.fn((_dashboardName: string, _fallback: string) => 'Sales overview (translated)');
     renderNav(
       [
@@ -126,11 +139,9 @@ describe('NavigationRenderer — nav label ownership', () => {
       { resolveDashboardLabel },
     );
 
-    // Assert on WHICH names reached the resolver, not on a call count — the
-    // tree re-renders (useIsMobile settles) and the count is not the contract.
-    expect(resolveDashboardLabel).toHaveBeenCalledWith('sales_overview', 'sales_overview');
-    expect(resolveDashboardLabel.mock.calls.every(([name]) => name === 'sales_overview')).toBe(true);
-    expect(screen.getByText('Sales overview (translated)')).toBeTruthy();
+    expect(resolveDashboardLabel).not.toHaveBeenCalled();
+    expect(screen.getByText('sales_overview')).toBeTruthy();
+    expect(screen.queryByText('Sales overview (translated)')).toBeNull();
     expect(screen.getByText('Executive summary')).toBeTruthy();
   });
 

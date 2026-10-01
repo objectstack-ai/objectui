@@ -79,3 +79,12 @@ bytes: exactly one catalogue may be in the built eager closure, and it must be
 the resident one. A byte ceiling cannot catch the catalogues returning one at a
 time inside its headroom, and cannot tell "left the closure" from "moved to a
 chunk with more room".
+
+**Correction, 2026-10-01 (objectui#11326).** The list above says
+`loadBuiltInLocale(code)` resolves `null` for a code this package does not ship,
+and pairs `isBuiltInLanguage(code)` with the ten codes. That was true when this
+change was written, and it no longer is: objectui#11326 looks a code up exact
+tag first, then its base language, so `loadBuiltInLocale('zh-CN')` resolves the
+`zh` catalogue and `isBuiltInLanguage('zh-CN')` is `true`. A code with no
+catalogue for the tag or for its base still resolves `null`, and
+`BUILT_IN_LANGUAGE_CODES` still lists the ten.

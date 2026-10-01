@@ -96,12 +96,53 @@ export const BUILT_IN_LANGUAGE_CODES: readonly string[] = Object.freeze([
   ...Object.keys(LAZY_LOCALE_LOADERS),
 ]);
 
-/** Whether `@object-ui/i18n` ships a catalogue for `lang`. */
-export function isBuiltInLanguage(lang: string): boolean {
+/**
+ * Exact-then-base language-tag matching: `tag` itself when `has(tag)`, else
+ * its base language (`zh-CN` → `zh`) when `has(base)`, else `null`.
+ *
+ * The ONE implementation of this order in the package (objectui#11326). The
+ * registry asks it which catalogue serves a code, and `I18nProvider` asks it
+ * which language a cached seed boots in — each with its own `has`, so the two
+ * can never disagree about the ORDER while each keeps its own notion of what
+ * exists.
+ *
+ * Exact first, so a catalogue keyed by a full tag (a `pt-BR` beside `pt`, a
+ * `zh-TW` beside `zh`) is never shadowed by its base language.
+ */
+export function matchLanguageTag(tag: string, has: (code: string) => boolean): string | null {
+  if (has(tag)) return tag;
+  const base = tag.split('-')[0];
+  if (base && base !== tag && has(base)) return base;
+  return null;
+}
+
+/** Whether a built-in catalogue is keyed by exactly `code`. */
+function hasBuiltInCatalogue(code: string): boolean {
   return (
-    lang === DEFAULT_BUILT_IN_LANGUAGE ||
-    Object.prototype.hasOwnProperty.call(LAZY_LOCALE_LOADERS, lang)
+    code === DEFAULT_BUILT_IN_LANGUAGE ||
+    Object.prototype.hasOwnProperty.call(LAZY_LOCALE_LOADERS, code)
   );
+}
+
+/**
+ * The code of the built-in catalogue that serves `lang`, or `null` when this
+ * package ships none for it.
+ *
+ * A region-tagged code is served by its base language's catalogue: the
+ * platform answers `zh-CN`, a language menu offers `zh-CN`, and the user's
+ * stored choice is `zh-CN`, while the catalogue is keyed `zh`. An exact match
+ * still wins — see {@link matchLanguageTag}.
+ */
+export function resolveBuiltInLanguage(lang: string): string | null {
+  return matchLanguageTag(lang, hasBuiltInCatalogue);
+}
+
+/**
+ * Whether `@object-ui/i18n` ships a catalogue that serves `lang` — exactly, or
+ * through its base language (`zh-CN` → `zh`; see {@link resolveBuiltInLanguage}).
+ */
+export function isBuiltInLanguage(lang: string): boolean {
+  return resolveBuiltInLanguage(lang) !== null;
 }
 
 /**
@@ -147,14 +188,27 @@ export function registerBuiltInLocale(lang: string, catalogue: LocaleCatalogue):
   loaded[lang] = catalogue;
 }
 
-/** Whether `lang`'s catalogue is already resident (no fetch needed). */
+/**
+ * Whether the catalogue that serves `lang` is already resident (no fetch
+ * needed). Reads the same exact-then-base resolution as
+ * {@link loadBuiltInLocale}, so the two agree for a region-tagged code: when
+ * `zh` is resident, `zh-CN` needs no fetch either.
+ */
 export function isBuiltInLocaleLoaded(lang: string): boolean {
-  return Object.prototype.hasOwnProperty.call(loaded, lang);
+  const code = resolveBuiltInLanguage(lang);
+  return code !== null && Object.prototype.hasOwnProperty.call(loaded, code);
 }
 
 /**
- * Fetch a built-in catalogue, or resolve `null` for a code this package does
- * not ship (an app-supplied locale, a typo, a region subtag).
+ * Fetch the built-in catalogue that serves `lang`, or resolve `null` for a code
+ * this package has no catalogue for (an app-supplied locale, a typo).
+ *
+ * A region-tagged code resolves its base language's catalogue (`zh-CN` → the
+ * `zh` catalogue) unless a catalogue is keyed by the full tag — see
+ * {@link resolveBuiltInLanguage}. The catalogue is fetched and memoised under
+ * ITS OWN code, so `zh-CN` and `zh` share one fetch and
+ * {@link getLoadedBuiltInLocales} stays keyed by catalogue code, which is how
+ * `createI18n` and the app-shell splash read it.
  *
  * Memoised in both directions: a resolved catalogue is returned from the
  * registry without a second import, and concurrent callers share one in-flight
@@ -163,27 +217,30 @@ export function isBuiltInLocaleLoaded(lang: string): boolean {
  * language preference is never worth wedging permanently over one bad fetch.
  */
 export async function loadBuiltInLocale(lang: string): Promise<LocaleCatalogue | null> {
-  const resident = loaded[lang];
+  const code = resolveBuiltInLanguage(lang);
+  if (code === null) return null;
+
+  const resident = loaded[code];
   if (resident) return resident;
 
-  const loader = Object.prototype.hasOwnProperty.call(LAZY_LOCALE_LOADERS, lang)
-    ? LAZY_LOCALE_LOADERS[lang]
+  const loader = Object.prototype.hasOwnProperty.call(LAZY_LOCALE_LOADERS, code)
+    ? LAZY_LOCALE_LOADERS[code]
     : undefined;
   if (!loader) return null;
 
-  const existing = inFlight.get(lang);
+  const existing = inFlight.get(code);
   if (existing) return existing;
 
   const pending = loader()
     .then((mod) => {
       const catalogue = mod.default;
-      loaded[lang] = catalogue;
+      loaded[code] = catalogue;
       return catalogue;
     })
     .finally(() => {
-      inFlight.delete(lang);
+      inFlight.delete(code);
     });
-  inFlight.set(lang, pending);
+  inFlight.set(code, pending);
   return pending;
 }
 

@@ -2138,13 +2138,13 @@ export const ObjectMapConfigSchema = z.object({
  * objectui#10859 batch 5 moved the authored `object-map` arm into the spec's
  * `properties` bag (`ObjectMapBlockSchema` below), so on that arm the three
  * rungs are read INSIDE the bag: `SchemaRenderer` hoists them onto the node
- * before the renderer resolves its ladder. The bag arm also counts the node's
+ * before the renderer resolves its ladder. That arm also counts the node's
  * `dataSource` binding as a source: the registration is
  * `elementDataSourceBlock`-wrapped, and `ElementDataSourceGate` lands the
  * binding's `object` (which the spec's `ElementDataSourceSchema` requires) on
- * `objectName` before `ObjectMap` runs; the spec row's own `objectName` is
- * optional for exactly that reason. The default (`'node'`) is the rule the
- * three flat mirrors have always applied, unchanged.
+ * `objectName` before `ObjectMap` runs; the spec row keeps its own
+ * `objectName` optional for exactly that reason. The default (`'node'`) is the
+ * rule the three flat mirrors have always applied, unchanged.
  */
 const RECORD_SOURCE_KEYS = ['data', 'staticData', 'objectName'] as const;
 function requireRecordSource(
@@ -3839,14 +3839,18 @@ const OBJECT_MAP_FLAT_PROP_REFUSALS = Object.fromEntries(
  *
  * ## The record source, `dataSource` and the content channels
  *
- * The record-source rule the flat mirror carries (`77cb489b4`) stays, read in
- * the bag: `requireRecordSource(…, 'properties')` asks for one of
- * `properties.data`, `properties.staticData` or `properties.objectName`, or the
- * node's `dataSource` binding, which `ElementDataSourceGate` lands on
- * `objectName` (the registration is `elementDataSourceBlock`-wrapped). The
- * binding itself is the spec's `ElementDataSourceSchema` by reference, as on
- * the arms above. Neither content channel is read, so both are refused with
- * the objectui#9256 string the flat mirror uses.
+ * The record-source rule the flat mirror carries (`77cb489b4`, the maintainer
+ * ruling recorded 2026-09-02) stays on the authored node, read in the bag:
+ * `requireRecordSource(…, 'properties')` asks for one of `properties.data`,
+ * `properties.staticData` or `properties.objectName`, or the node's
+ * `dataSource` binding, which `ElementDataSourceGate` lands on `objectName`
+ * (the registration is `elementDataSourceBlock`-wrapped). ⚠️ The spec row is
+ * looser here: it keeps all three optional and adds no such rule, so a node
+ * with no source and no binding passes the spec's own page component and is
+ * refused by this arm, as the flat mirror refused it. The binding itself is
+ * the spec's `ElementDataSourceSchema` by reference, as on the arms above.
+ * Neither content channel is read, so both are refused with the objectui#9256
+ * string the flat mirror uses.
  *
  * ## What did not move
  *

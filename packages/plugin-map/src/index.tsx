@@ -62,8 +62,12 @@ export const ObjectMapRenderer: React.FC<any> = elementDataSourceBlock(({ schema
 // `objectName` is NOT a required input (objectui#7470): `getDataConfig` reads
 // `data`, then `staticData`, then `objectName`, and the `object-map` zod schema
 // (`requireRecordSource`, `77cb489b4`) is where "one of the three" is
-// enforced. The input list is a flat declaration with a boolean `required`, so
-// it states the rule in the description rather than growing a one-of form.
+// enforced. Since objectui#10859 batch 5 the authored node's arm,
+// `ObjectMapBlockSchema`, reads the three in its `properties` bag and also
+// counts the node's `dataSource` binding, which `ElementDataSourceGate` above
+// lands on `objectName`. The input list is a flat declaration with a boolean
+// `required`, so it states the rule in the description rather than growing a
+// one-of form.
 //
 // `data` and `staticData` are declared (objectui#10394): `ObjectMapSchema`
 // declares both, and without an input the html tier's `validateTree` reported
@@ -93,7 +97,7 @@ ComponentRegistry.register('object-map', ObjectMapRenderer, {
   label: 'Object Map',
   category: 'view',
   inputs: [
-    { name: 'objectName', type: 'string', description: 'ObjectQL object name. The record source is one of `data`, `staticData` and `objectName`; the `object-map` schema refuses a block that declares none of them.' },
+    { name: 'objectName', type: 'string', description: 'ObjectQL object name. The record source is one of `data`, `staticData` and `objectName`, or the node’s `dataSource` binding; the `object-map` schema refuses a block that declares none of them.' },
     { name: 'map', type: 'object', description: 'latitudeField, longitudeField, titleField' },
     { name: 'data', type: 'object', description: 'A `{ provider, … }` data-source configuration, read FIRST on the record-source ladder: a map carrying one never reaches `staticData` and never queries `objectName`. `{ provider: \'value\', items }` plots those rows and `{ provider: \'object\', object }` queries that object, both narrowed by `filter` and ordered by `sort`. The `api` provider is not implemented on the map and plots no markers. A bare array is not this key’s shape and is not a record source: the map falls through to `staticData`, then `objectName`, so inline rows belong under `staticData`.' },
     { name: 'staticData', type: 'array', description: 'Inline records, read SECOND on the record-source ladder: a `data` configuration wins and this key is then never reached, while `objectName` is read AFTER it, so a map carrying both plots these rows and never queries that object. `filter` and `sort` narrow and order these rows exactly as they do fetched ones.' },

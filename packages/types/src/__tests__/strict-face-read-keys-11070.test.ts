@@ -141,7 +141,8 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
     ['object-kanban', { objectName: 'task' }],
     ['list-view', { objectName: 'task' }],
     ['object-gantt', { objectName: 'task' }],
-    ['object-map', { objectName: 'task' }],
+    // objectui#10859 batch 5: `object-map` takes its props in the bag too.
+    ['object-map', { properties: { objectName: 'task' } }],
     ['object-calendar', { objectName: 'task' }],
   ];
 

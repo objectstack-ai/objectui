@@ -59,19 +59,28 @@ consumer is the missing input.
 Registration is a side effect of the import. There is no manual-registration
 export to iterate over — the import *is* the registration.
 
+An authored `object-map` node takes its props in its `properties` bag, whose
+members are `@objectstack/spec`'s `ComponentPropsMap['object-map']` row.
+`objectui validate` refuses a prop written flat on the node by name, naming its
+bag member, as the spec's own page component does (objectui#10859).
+`SchemaRenderer` hoists the bag onto the node before `ObjectMap` runs, so
+`ObjectMapSchema` (`@object-ui/types`) is the node as the component reads it.
+
 ```ts
 import '@object-ui/plugin-map';
-import type { ObjectMapSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
 // Object-bound: the markers are the records the query returns.
-const schema: ObjectMapSchema = {
+const schema: BaseSchema = {
   type: 'object-map',
-  objectName: 'stores',
-  map: {
-    latitudeField: 'lat',
-    longitudeField: 'lng',
-    titleField: 'name',
-    descriptionField: 'address',
+  properties: {
+    objectName: 'stores',
+    map: {
+      latitudeField: 'lat',
+      longitudeField: 'lng',
+      titleField: 'name',
+      descriptionField: 'address',
+    },
   },
 };
 ```
@@ -79,15 +88,17 @@ const schema: ObjectMapSchema = {
 A literal record array instead of a query, with the same `map` block:
 
 ```ts
-import type { ObjectMapSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const schema: ObjectMapSchema = {
+const schema: BaseSchema = {
   type: 'object-map',
-  staticData: [
-    { id: 1, name: 'San Francisco HQ', lat: 37.7749, lng: -122.4194 },
-    { id: 2, name: 'Oakland Office', lat: 37.8044, lng: -122.2711 },
-  ],
-  map: { latitudeField: 'lat', longitudeField: 'lng', titleField: 'name' },
+  properties: {
+    staticData: [
+      { id: 1, name: 'San Francisco HQ', lat: 37.7749, lng: -122.4194 },
+      { id: 2, name: 'Oakland Office', lat: 37.8044, lng: -122.2711 },
+    ],
+    map: { latitudeField: 'lat', longitudeField: 'lng', titleField: 'name' },
+  },
 };
 ```
 
@@ -120,7 +131,7 @@ round-trip, so inline rows must be JSON-serializable.
 The declared configuration input. Every key is optional, and the block is
 **closed** (objectui#5157): a key outside this table — a typo such as
 `latitudeFieId` — is refused by `objectui validate` with an `unrecognized_keys`
-issue at `map` that names it (on a root node; a nested node reports under
+issue at `properties.map` that names it (on a root node; a nested node reports under
 `invalid_union` at `children`, with the key in the arm detail). At runtime
 `ObjectMap` does not throw: it renders from the declared keys and warns
 `[ObjectMap] Invalid map configuration` in the console, naming the same key; the
@@ -215,7 +226,9 @@ console.
 
 `ObjectMap` (the component), `ObjectMapRenderer` (the registered wrapper, for a
 host that registers types itself) and the `ObjectMapProps` type are the package's
-exports:
+exports. A component mounted directly is not behind `SchemaRenderer`, so nothing
+hoists a `properties` bag: its `schema` prop takes the node as the component
+reads it, with the keys flat:
 
 ```tsx
 import { ObjectMap, type ObjectMapProps } from '@object-ui/plugin-map';

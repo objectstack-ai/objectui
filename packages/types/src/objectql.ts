@@ -991,11 +991,28 @@ export interface ObjectGridSchema extends BaseSchema {
   showSearch?: boolean;
   
   /**
-   * @deprecated Use filter property instead
-   * Legacy filters toggle
+   * RETIRED on this node (objectui#11068, ADR-0049) — the grid has no filter UI.
+   *
+   * `ObjectGrid` never read the key, so an authored value drew nothing. The one
+   * filter surface objectui draws is the `list-view` toolbar's filter builder,
+   * switched by the list view's `userActions.filter`; honouring the key
+   * here would have built a second one, and the upstream protocol's
+   * `object-grid` row does not declare it. The rows this grid fetches are
+   * narrowed by {@link ObjectGridSchema.filter}.
+   *
+   * `?: never`, not a deletion — the convention of `rowSpecActions` below:
+   * without a member, the key would fall to {@link BaseSchema}'s index
+   * signature and type-check again. Lockstep with the Zod twin
+   * (`zod/objectql.zod.ts`, `retirementTombstone()`). An `object-view`'s own
+   * {@link ObjectViewSchema.showFilters} is a different member, read by
+   * `ObjectView`, and is unaffected.
+   *
+   * @deprecated RETIRED (objectui#11068) — author a `list-view` and switch its
+   * filter builder with `userActions.filter`; write `filter` to narrow this
+   * grid's rows.
    */
-  showFilters?: boolean;
-  
+  showFilters?: never;
+
   /**
    * @deprecated Use pagination config instead
    * Legacy pagination toggle
@@ -2133,14 +2150,14 @@ export interface ObjectFormSchema extends BaseSchema {
  *     active named view declares the same member, the named view wins;
  *   - three of the retirement tombstones `ObjectGridSchema` declares (`body`,
  *     `children`, `defaultSort`, each `?: never`). They type nothing: they keep
- *     the named refusal, and its guidance, on this face too. The four the grid
+ *     the named refusal, and its guidance, on this face too. The five the grid
  *     retired later (`name`, `placeholder`, `rowSpecActions`,
- *     `bulkSpecActions`, objectui#11068) are withheld instead, below — the
- *     slot refuses each of them by name either way.
+ *     `bulkSpecActions`, `showFilters`, objectui#11068) are withheld instead,
+ *     below — the slot refuses each of them by name either way.
  *
  * ⛔ Every other `ObjectGridSchema` member is WITHHELD, because on the view's
- * grid it reached nothing: `ObjectGrid` has no read of it (`showFilters`,
- * `keyboardNavigation`, and the four tombstones just named); `ObjectGrid`
+ * grid it reached nothing: `ObjectGrid` has no read of it
+ * (`keyboardNavigation`, and the five tombstones just named); `ObjectGrid`
  * reads it on its own node but the view does not hand it on (`emptyState`,
  * `description` — honoured by the grid since objectui#11068, and kept off
  * this slot by that card's ruling, which enforced them without widening it);

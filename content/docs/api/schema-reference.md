@@ -766,9 +766,9 @@ A data grid that auto-fetches from an ObjectQL object definition. Includes searc
 ```
 
 Every key in this example is one the grid reads (objectui#11068). It used to
-also author `showFilters`, `striped` and `operations.read`, which nothing reads,
-and `selection: { enabled, mode }` and `pagination.enabled`, which the validator
-refuses: selection is spelled `selection: { type: 'multiple' }` (`'none'`,
+also author `showFilters` (now retired on this node, below), `striped` and
+`operations.read`, which nothing reads, and `selection: { enabled, mode }` and
+`pagination.enabled`, which the validator refuses: selection is spelled `selection: { type: 'multiple' }` (`'none'`,
 `'single'` or `'multiple'`), and `pagination` declares no on switch — its
 presence enables paging.
 
@@ -797,6 +797,14 @@ presence enables paging.
 > grid is neither a form field (`name`) nor an input (`placeholder`). Both faces of
 > `@object-ui/types` refuse them by name. Write `rowActions`, `bulkActions`, `id`
 > or `label`, and `emptyState: { "message": … }` instead.
+
+> **`showFilters` is retired on this node too (objectui#11068).** An `object-grid`
+> has no filter UI, and nothing read the key. The filter builder is the
+> `list-view` toolbar's: author a `list-view` node and switch it with
+> `"userActions": { "filter": true }`. To narrow the rows a grid fetches, write
+> `filter`. Both faces of `@object-ui/types` refuse an authored `showFilters` on an
+> `object-grid` by name. An [`object-view`](#objectviewschema)'s own `showFilters`,
+> below, is a different key and is unchanged.
 
 > **`defaultSort` is retired (objectui#5861).** `ObjectGridSchema` used to accept a
 > legacy single-entry `defaultSort: { field, order }` beside `sort`. The installed

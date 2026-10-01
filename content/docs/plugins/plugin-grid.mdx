@@ -135,6 +135,12 @@ this node (objectui#11068): nothing ever read them, and both faces of
 `@object-ui/types` refuse them by name. Write `id` or `label`,
 `emptyState: { message }`, `rowActions` and `bulkActions` instead.
 
+`showFilters` is **retired** on this node too (objectui#11068). The grid has no
+filter UI, and nothing read the key. The filter builder is the `list-view`
+toolbar's, switched by its `userActions.filter`; to narrow the rows a grid
+fetches, write `filter`. An `object-view`'s own `showFilters` is a different key
+and is unchanged.
+
 ### Column Definition
 
 A column is either a **field name** (`"name"`) or a `ListColumn` object.

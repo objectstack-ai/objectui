@@ -272,6 +272,11 @@ const OBJECT_GRID_NAME_RETIRED =
 const OBJECT_GRID_PLACEHOLDER_RETIRED =
   'RETIRED on `object-grid` (objectui#11068, ADR-0049) — a grid is not an input, and nothing read '
   + '`placeholder`. The text the grid shows when it has no rows is `emptyState: { message }`.';
+const OBJECT_GRID_SHOW_FILTERS_RETIRED =
+  'RETIRED on `object-grid` (objectui#11068, ADR-0049) — the grid has no filter UI, and nothing read '
+  + '`showFilters`, so an authored value drew nothing. The filter builder is the `list-view` toolbar\'s: '
+  + 'author a `list-view` and switch the builder with its `userActions.filter`. To narrow the rows this '
+  + 'grid fetches, write `filter`.';
 
 /**
  * objectui#11070 — ONE `.describe()` string for every object-bound arm that declares
@@ -337,7 +342,6 @@ export const ObjectGridSchema = BaseSchema.extend({
   selectable: z.union([z.boolean(), z.enum(['single', 'multiple'])]).optional(),
   pageSize: z.number().optional(),
   showSearch: z.boolean().optional(),
-  showFilters: z.boolean().optional(),
   showPagination: z.boolean().optional(),
   // objectui#5861 — RETIRED under ADR-0049, in lockstep with the `?: never`
   // twin on the interface. `@objectstack/spec` refuses this key BY NAME on
@@ -414,10 +418,18 @@ export const ObjectGridSchema = BaseSchema.extend({
   // tombstone rather than a deletion, as for `defaultSort`: `BaseSchema` is
   // `.passthrough()` (and declares `name` / `placeholder` itself), so without a
   // member here the key would be KEPT unexamined, not refused.
+  //
+  // `showFilters` followed on triage's retriage answer: the grid has no filter
+  // UI, and the one filter surface objectui draws is the `list-view` toolbar's
+  // builder (`userActions.filter`), so honouring the key here would have built a
+  // second one. The upstream `object-grid` row does not declare it either. An
+  // `object-view`'s or a `list-view`'s own `showFilters` is a different member,
+  // read by its own renderer, and is untouched.
   rowSpecActions: retirementTombstone(OBJECT_GRID_ROW_SPEC_ACTIONS_RETIRED),
   bulkSpecActions: retirementTombstone(OBJECT_GRID_BULK_SPEC_ACTIONS_RETIRED),
   name: retirementTombstone(OBJECT_GRID_NAME_RETIRED),
   placeholder: retirementTombstone(OBJECT_GRID_PLACEHOLDER_RETIRED),
+  showFilters: retirementTombstone(OBJECT_GRID_SHOW_FILTERS_RETIRED),
   // objectui#11068 — read by `ObjectGrid`, which draws it in place of an empty
   // table. Mirrored member for member with the interface: three optional
   // strings, and an unknown member refused rather than kept, so a misspelt
@@ -727,9 +739,9 @@ export const ObjectFormSchema = BaseSchema.extend({
  * omitted key would be KEPT unexamined, and the slot would accept silently
  * what the TypeScript face refuses. Three of the tombstones `ObjectGridSchema`
  * itself declares (`body`, `children`, `defaultSort`) are inherited unchanged;
- * the four it retired later (`name`, `placeholder`, `rowSpecActions`,
- * `bulkSpecActions`, objectui#11068) are overridden below by this slot's own
- * refusal, which names the same remedy.
+ * the five it retired later (`name`, `placeholder`, `rowSpecActions`,
+ * `bulkSpecActions`, `showFilters`, objectui#11068) are overridden below by this
+ * slot's own refusal.
  */
 const tableKeyRefusal = (key: string, why: string) =>
   retirementTombstone(

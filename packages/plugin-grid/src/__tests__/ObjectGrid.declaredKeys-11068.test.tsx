@@ -10,16 +10,18 @@
  * Every key `ObjectGridSchema` declares takes effect or is retired
  * (objectui#11068) — the RENDERER half. The declaration half (the four
  * tombstones and the `emptyState` mirror) is `packages/types`'
- * `object-grid-declared-keys-11068.test.ts`.
+ * `object-grid-declared-keys-11068.test.ts`; the fifth tombstone, `showFilters`,
+ * is `object-grid-show-filters-retired-11068.test.ts` there.
  *
  *   1. `description` draws one line of help text above the grid, resolved like
  *      `label` — a locale map against the display locale.
  *   2. `emptyState` draws in place of an empty table — but not when a term in
  *      the grid's own server-side search box emptied it, where the table and its
  *      search box must stay.
- *   3. `name`, `placeholder`, `rowSpecActions` and `bulkSpecActions` — the four
- *      keys the card retired — draw nothing. Asked with a RULER, the same
- *      document drawn twice and compared as bytes, because `ObjectGridRenderer`
+ *   3. `name`, `placeholder`, `rowSpecActions`, `bulkSpecActions` and
+ *      `showFilters` — the five keys the card retired — draw nothing. Asked
+ *      with a RULER, the same document drawn twice and compared as bytes,
+ *      because `ObjectGridRenderer`
  *      hands a node's leftover keys on as props and a source grep cannot see
  *      that channel (AGENTS.md, "a source grep's zero cannot answer this").
  *
@@ -172,7 +174,7 @@ describe('`emptyState` draws in place of an empty table (objectui#11068)', () =>
   });
 });
 
-/* ── 3. The four retired keys draw nothing ────────────────────────────────── */
+/* ── 3. The five retired keys draw nothing ────────────────────────────────── */
 
 /** Draw one document and return its markup, once the rows are on screen. */
 async function draw(schema: Record<string, unknown>): Promise<string> {
@@ -198,13 +200,17 @@ describe('the ruler', () => {
   });
 });
 
-describe('the four keys objectui#11068 retired change nothing the grid draws', () => {
+describe('the five keys objectui#11068 retired change nothing the grid draws', () => {
   it.each([
     ['name', 'all_contacts'],
     ['placeholder', 'Nothing here yet'],
     ['rowSpecActions', ['edit', 'delete']],
     ['bulkSpecActions', ['delete']],
-  ])('`%s`', async (key, value) => {
+    // Retired after triage's retriage answer: the grid has no filter UI, so
+    // neither value draws anything — the filter builder is `list-view`'s.
+    ['showFilters', true],
+    ['showFilters', false],
+  ])('`%s` (%j)', async (key, value) => {
     const a = await draw(grid(ROWS));
     cleanup();
     const b = await draw(grid(ROWS, { [key]: value }));

@@ -304,9 +304,10 @@ import '@object-ui/plugin-calendar';
 // `@objectstack/spec` 17.5.0 newly carries, one block at a time: each import
 // below is what takes a block out of `UNJUDGED_SPEC_BLOCKS` (where the bump
 // booked it OWED) and puts it under both directions. `MINOR_17_5_LOADED_BLOCKS`
-// names them.
+// names them. Slice 4 adds `@object-ui/plugin-gantt`.
 import '@object-ui/plugin-tree';
 import '@object-ui/plugin-map';
+import '@object-ui/plugin-gantt';
 
 /** This block's spec props schema, or `undefined` when this pin has none. */
 const specSchema = (type: string): unknown => (ComponentPropsMap as Record<string, unknown>)[type];
@@ -599,8 +600,9 @@ const LAZY_REGISTERED_BLOCKS = [
  * (objectui#11073): the map went from 45 entries to 55. The other four new
  * entries — `object-gantt`, `object-map`, `object-timeline`, `object-tree` — are
  * registered lazily, and the bump booked them in `UNJUDGED_SPEC_BLOCKS` to
- * objectui#11168 instead (see `OWED_TO` below). That card's slice 3 loads them
- * one block at a time; each loaded block moves to `MINOR_17_5_LOADED_BLOCKS`.
+ * objectui#11168 instead (see `OWED_TO` below). That card loads them one block
+ * at a time (slice 3 the tree and the map, slice 4 the gantt); each loaded
+ * block moves to `MINOR_17_5_LOADED_BLOCKS`.
  *
  * Same shape as `GA_ONLY_BLOCKS` / `MINOR_17_1_BLOCKS`: this repo registered all
  * six with `inputs` before the spec described them, so what moved at the bump
@@ -621,7 +623,8 @@ const specCarries175Blocks = MINOR_17_5_BLOCKS.every((type) => type in Component
 
 /**
  * The lazily registered 17.5.0 blocks this file LOADS and judges — objectui#11168
- * slice 3, which takes them out of `UNJUDGED_SPEC_BLOCKS` one block at a time.
+ * slices 3 and 4, which take them out of `UNJUDGED_SPEC_BLOCKS` one block at a
+ * time.
  * Kept as its own group for the reason `LAZY_REGISTERED_BLOCKS` is: a reader
  * asking why the population moved without a pin bump gets the answer here. Each
  * entry is a block whose plugin package is imported at the top of this file.
@@ -629,7 +632,7 @@ const specCarries175Blocks = MINOR_17_5_BLOCKS.every((type) => type in Component
  * Pin-dependent like `MINOR_17_5_BLOCKS`: the spec carries these rows from
  * 17.5.0 on, and they are expected only when it does.
  */
-const MINOR_17_5_LOADED_BLOCKS = ['object-map', 'object-tree'];
+const MINOR_17_5_LOADED_BLOCKS = ['object-gantt', 'object-map', 'object-tree'];
 
 /** Does the installed `@objectstack/spec` carry the loaded 17.5.0 blocks? `every`, for the same reason. */
 const specCarries175LoadedBlocks = MINOR_17_5_LOADED_BLOCKS.every((type) => type in ComponentPropsMap);
@@ -781,7 +784,7 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
  * card to land sets all five to 0.
  */
 const OBJECTUI_11111_LEDGER_CAPS = {
-  unjudgedBlocks: 2, // objectui#11168: object-gantt, object-timeline (slice 3 loaded and judged object-map and object-tree)
+  unjudgedBlocks: 1, // objectui#11168: object-timeline (slice 3 loaded and judged object-map and object-tree, slice 4 object-gantt)
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
   unpublishedKeys: 3, // objectui#11168: 3 (action:button endpoint + undoable, action:icon endpoint); objectui#8652: 0 and objectui#8649: 0 (each struck by its landing)
   refusedArms: 0, // objectui#11168: slice 2 narrowed element:definition-list.columns, slice 3 object-form.layout
@@ -884,12 +887,9 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   // mechanism test names — an eager import — would judge them, and judging them
   // is objectui#11168's work, not the bump's (objectui#11111 decision 3 = B).
   // The bump booked four; `object-map` and `object-tree` were struck by
-  // objectui#11168 slice 3, which loads both at the top of this file and
-  // published the keys their renderers honour (`MINOR_17_5_LOADED_BLOCKS`).
-  'object-gantt': OWED_TO(
-    'objectui#11168',
-    'REGISTERED LAZILY, NOT LOADED HERE: `object-gantt` is new in `@objectstack/spec` 17.5.0, and loading `@object-ui/plugin-gantt` in this file is what judges it.',
-  ),
+  // objectui#11168 slice 3 and `object-gantt` by slice 4, which load them at
+  // the top of this file and published the keys their renderers honour
+  // (`MINOR_17_5_LOADED_BLOCKS`).
   'object-timeline': OWED_TO(
     'objectui#11168',
     'REGISTERED LAZILY, NOT LOADED HERE: `object-timeline` is new in `@objectstack/spec` 17.5.0, and loading `@object-ui/plugin-timeline` in this file is what judges it.',
@@ -3024,6 +3024,51 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-tree/src/__tests__/objectTreeInputs-11168.test.tsx',
     pins: 'The members of the spec\'s `NavigationConfigSchema` block the tree reads, each driven through a real row click and asserted on what the click DID: `drawer` (the LIT CONTROL), `modal` and `popover` open the row\'s record, and `split` opens it BESIDE the tree, which stays drawn (unlike the timeline, the tree hands the split shell its own view); `none` and `preventNavigation` open nothing, the flag outranking an overlay mode; `new_window` and `openNewTab` open `/{objectName}/record/{id}` in a new tab, `openNewTab` outranking `page` and `drawer` but NOT `none`, which is read first; and `size` / `width` are one width decision (`width` wins, a bucket resolves, `auto` lands where an unsized drawer does). A parent view\'s click handler outranks the whole key. An ABSENT key opens nothing, with the host\'s record navigator mounted and without. `page`, and a block without `mode`, are pinned both ways: under a host that publishes its record navigator (`RelatedRecordActionsContext`) they open a record page through it, with no overlay and no tab, and `drawer` stays the lit control there; with no host navigator, or on a tree that names neither `data.object` nor `objectName` (inline rows alone), they open nothing. The object opened is `data.object` when `data` is the object provider, both with no `objectName` and when both are written (the rows\' object wins), and the node\'s `objectName` otherwise (objectui#11168 slice 3, objectui#11293).',
   },
+  // objectui#11168 slice 4 — `object-gantt`, newly judged once this file loads
+  // `@object-ui/plugin-gantt`. Seven keys share ONE new file, every row through
+  // the real `SchemaRenderer`, this package's own registration and the real
+  // `GanttView`; `data`, `staticData` and `dataSource` PROMOTE pre-existing
+  // files, each read end to end first.
+  'object-gantt.gantt': {
+    file: 'packages/plugin-gantt/src/__tests__/objectGanttInputs-11168.test.tsx',
+    pins: 'Members are FIELD NAMES, each on the observable only it moves: `titleField` titles a task\'s row and `startDateField` / `endDateField` give its start and end, with a block naming other fields moving all three (the control). The block is taken WHOLE: flat `startDateField` / `endDateField` / `titleField` composed on the node beside it are ignored. The spec side is pinned with it: a block missing `titleField` is refused at `gantt.titleField`, and `percentageField` — which this key\'s description used to name, and nothing reads — is refused by name, while the description no longer names it. `exportFileName` is pinned with `object-gantt.label`; `colorField`, `dependenciesField` and `viewMode` keep their narrow pins (`ObjectGantt.colorFieldLadder-7243.test.tsx`, `ObjectGantt.dependencyAlias.test.tsx`, `ObjectGantt.viewmode.test.tsx`) and are not re-asserted (objectui#11168 slice 4).',
+  },
+  'object-gantt.data': {
+    file: 'packages/plugin-gantt/src/__tests__/recordSourceInputs-10394.test.tsx',
+    pins: 'Members are the `{ provider, … }` configurations, asserted through the real `SchemaRenderer` on the rows charted AND the query issued: `{ provider: \'value\', items }` charts those rows and queries nothing, `{ provider: \'object\', object }` queries THAT object and never `objectName`, and `{ provider: \'api\', read }` charts what its request returns and queries the adapter not at all. The ladder POSITION is pinned too: a `data` configuration wins over `staticData` and `objectName`, and a bare array under `data` is not a record source (`staticData` beside it is charted). ⚠️ The spec row also accepts `{ provider: \'schema\', schemaId }`, which the description does not name and this file does not pin: measured by objectui#11168 slice 4, it queries `objectName` (and, with none, an object with no name), so it is reported there as a finding rather than pinned as behaviour. Pre-existing file (objectui#10394), promoted after being read end to end (objectui#11168 slice 4).',
+  },
+  'object-gantt.staticData': {
+    file: 'packages/plugin-gantt/src/__tests__/recordSourceInputs-10394.test.tsx',
+    pins: 'Members are RECORDS, charted through the real `SchemaRenderer` by the `gantt` block\'s fields. The POSITION claim the description makes is pinned against a live control: a gantt carrying `staticData` and `objectName` charts the inline rows and never queries, while the same node with `objectName` alone does query; and a `data` configuration beside `staticData` wins. The spec row is `z.array(z.unknown())`, so the read site is the whole member contract. Pre-existing file (objectui#10394), promoted after being read end to end (objectui#11168 slice 4).',
+  },
+  'object-gantt.filter': {
+    file: 'packages/plugin-gantt/src/__tests__/objectGanttInputs-11168.test.tsx',
+    pins: 'Members are `{ field, operator, value }` rules: a rule narrows the inline rows charted, `operator` is read (`not_equals` charts the complement of `equals`), and on the object query the rule reaches `$filter` with its members unchanged, against a control with no `filter` whose query carries no `$filter`. The binding\'s filter AND-ing is `object-gantt.dataSource`\'s pin, and the context-token resolution is shared machinery pinned where it lives (objectui#11168 slice 4).',
+  },
+  'object-gantt.sort': {
+    file: 'packages/plugin-gantt/src/__tests__/objectGanttInputs-11168.test.tsx',
+    pins: 'Members are `{ field, order }`, and those two keys are all the gantt reads inside one: each member lowers to `field -> direction` on `$orderby`, in AUTHORED order, and an omitted `order` reads ascending rather than dropping the member; the same members order inline rows; with no `sort` the query carries no ordering (the control). ⛔ Not an identity pin: the shared `convertSortToQueryParams` sink builds a new map (objectui#11168 slice 4).',
+  },
+  'object-gantt.dataSource': {
+    file: 'packages/plugin-gantt/src/ObjectGantt.elementDataSource.test.tsx',
+    pins: 'The per-element binding\'s members as this block reads them, through the REAL `ElementDataSourceGate` + renderer pair: `object` is the object queried, a named `view`\'s `filter` / `sort` reach the fetch as `$filter` / `$orderby`, the binding\'s own `filter` AND-combines with the view\'s rather than replacing it, a `sort` member missing `order` reads ascending (objectui#4022), an unresolvable `view` reports instead of fetching the whole object, and an authored `limit` never reaches `$top`, which stays the platform ceiling (`OBJECT_GANTT_DATA_SOURCE` maps `filter` and `sort` only). A gantt with no binding behaves exactly as before one existed. ⚠️ The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), so the declaration says nothing about members. Pre-existing file (objectstack#7121), promoted after being read end to end (objectui#11168 slice 4).',
+  },
+  'object-gantt.navigation': {
+    file: 'packages/plugin-gantt/src/__tests__/objectGanttInputs-11168.test.tsx',
+    pins: 'The members of the spec\'s `NavigationConfigSchema` block the gantt reads, each driven through a real click on a task\'s open button and asserted on what the click DID: an ABSENT key opens the task\'s record in a drawer, writable (the renderer\'s own default, the lit control); `drawer`, `modal` and `popover` open it in that overlay, and `split` opens it BESIDE the chart, which stays drawn; `none` and `preventNavigation` open nothing, the flag outranking an overlay mode; `page` and a block without `mode` push the record page in the same tab, and `new_window` and `openNewTab` open it in a new tab, `openNewTab` outranking `page` and `drawer` but NOT `none`; `size` / `width` are one width decision (`width` wins, a bucket resolves, `auto` lands where an unsized drawer does). The object is `data.object` when `data` is the object provider and no `objectName` is written, and on inline rows that name no object every mode opens nothing, the default drawer included. Under a host that publishes its record navigator (`RelatedRecordActionsContext`), `drawer` stays the lit control and `page`, a mode-less block and an absent key behave exactly as without one: `openRecord` is never called, because the gantt hands the hook its own `onNavigate`. Measured, not endorsed: off the object\'s own route the derived address is the current one with `/OBJECT/record/ID` appended, host or not (objectui#11168 slice 4, objectui#11293).',
+  },
+  'object-gantt.holidays': {
+    file: 'packages/plugin-gantt/src/__tests__/objectGanttInputs-11168.test.tsx',
+    pins: 'Members are ISO `yyyy-mm-dd` DATES, each a non-working day of the working calendar: auto-schedule moves a dependent task past a listed date (a Saturday on its own, without `skipWeekends`; a Monday together with it), and the day view folds each listed date\'s column out of its axis, while an empty list folds nothing (the control). The spec row is `z.array(z.string())`, which is the member kind the input declares (`of: \'string\'`) (objectui#11168 slice 4).',
+  },
+  'object-gantt.markers': {
+    file: 'packages/plugin-gantt/src/__tests__/objectGanttInputs-11168.test.tsx',
+    pins: 'Members are `{ date, label?, color? }` objects, each on the observable only it moves: `date` places a vertical line, `label` is the text drawn against it (and its accessible name), and `color` paints it; an omitted `color` paints the theme\'s primary colour and an omitted `label` draws a bare line; a date outside the chart\'s range draws none, and with no `markers` there is none (the control). The spec row is `z.array(z.unknown())`, so the read site is the whole member contract, and the input declares no member kind (objectui#11168 slice 4).',
+  },
+  'object-gantt.label': {
+    file: 'packages/plugin-gantt/src/__tests__/objectGanttInputs-11168.test.tsx',
+    pins: 'The `object` arm is the inline locale map `{ en, "zh-CN", … }`, whose members are locale entries: the exported PNG file is named by the display locale\'s entry (`zh-CN` for a zh-CN audience, `en` for an en one), read off the real `GanttView` export\'s download anchor. The `string` arm names the file as written, a `label` written on the node itself reads the same as one in the bag, and the chain is pinned link by link: `gantt.exportFileName` outranks it, and it outranks the object\'s label, then `objectName`. The chart draws it nowhere else (objectui#11168 slice 4).',
+  },
   'page:accordion.items': {
     file: 'packages/components/src/__tests__/pageAccordionItemMembers-8071.test.tsx',
     pins: 'Which member of one panel definition becomes which part of the rendered accordion — the four `PageAccordionItem` members (`label`, `icon`, `collapsed`, `children`) asserted as a SET through the real renderer, which nothing did before: `label` becomes the trigger\'s accessible name and `children` the panel BODY, asserted against each other so a renderer painting the wrong one cannot pass. `collapsed` is the reading with real semantics to get wrong and it is strictly `=== false`: `collapsed: false` OPENS a panel while `collapsed: true` AND an omitted `collapsed` both leave it shut — the omitted-key arm is the control an "obvious" edit to `!it.collapsed` breaks, and a no-opener fixture keeps the two shut rows from passing on a renderer that opens nothing. The single/multiple split is pinned on the SAME items so only `allowMultiple` varies: single mode takes `defaultOpen[0]` and drops later openers, multiple mode opens them all without opening panels that never asked. `icon` is covered narrowly on purpose — `page-accordion-icon.test.tsx` (objectui#4721) is its pin and is not re-litigated. New file (objectui#8071 slice 7).',
@@ -4283,11 +4328,12 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       // objectui#11168 slice 3 moves blocks ACROSS the partition, never into or
       // out of it: each block it loads leaves the ledger and is judged
       // (`MINOR_17_5_LOADED_BLOCKS`). `object-tree` and `object-map`: 35 -> 37
-      // judged, 13 -> 11 ledgered. 37 + 7 + 11 = 55.
+      // judged, 13 -> 11 ledgered. 37 + 7 + 11 = 55. Slice 4 loads
+      // `object-gantt`: 37 -> 38 judged, 11 -> 10 ledgered. 38 + 7 + 10 = 55.
       specCarried: 55,
-      judged: 37,
+      judged: 38,
       registeredPropless: 7,
-      ledgeredUnjudgeable: 11,
+      ledgeredUnjudgeable: 10,
     });
     // Non-vacuity, stated rather than implied by the numbers above.
     expect(covered.length).toBeGreaterThan(0);
@@ -4314,8 +4360,8 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // 5902351047) booked the four lazily registered blocks 17.5.0 newly carries
     // OWED to objectui#11168, which loads and judges them. The expectation is
     // EXACTLY those booked entries, so a fifth unloaded block is still red, and
-    // the owner card's landing takes this back to `[]`. Slice 3 loads them one
-    // block at a time, and each one it loads leaves both this set and the ledger.
+    // the owner card's landing takes this back to `[]`. Slices 3 and 4 load them
+    // one block at a time, and each one loaded leaves both this set and the ledger.
     const registeredButUnloaded = Object.keys(ComponentPropsMap)
       .filter((type) => ComponentRegistry.hasLazy(type))
       .filter((type) => ComponentRegistry.getConfig(type) === undefined)
@@ -4407,7 +4453,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // come back, `hasLazy` starts answering true again, and the mechanism
     // assertion above reddens by name — which is the guard this instance pin
     // does not need to duplicate.
-    // objectui#11168 slice 3's loads are the same instance, one pin later.
+    // objectui#11168 slices 3 and 4's loads are the same instance, one pin later.
     for (const type of [...LAZY_REGISTERED_BLOCKS, ...MINOR_17_5_LOADED_BLOCKS]) {
       expect(
         (declaredInputs(type) ?? []).length,
@@ -5704,6 +5750,6 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
           reasons.filter((reason) => reason.startsWith(`${OWED_PREFIX}${owner}.`)).length,
         ]),
       ),
-    ).toEqual({ 'objectui#11168': 5, 'objectui#8652': 0, 'objectui#8649': 0 });
+    ).toEqual({ 'objectui#11168': 4, 'objectui#8652': 0, 'objectui#8649': 0 });
   });
 });

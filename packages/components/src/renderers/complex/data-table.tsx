@@ -10,6 +10,7 @@
 import React, { useState, useMemo, useRef, useEffect, useLayoutEffect } from 'react';
 import { cn } from '../../lib/utils';
 import { resolveIcon } from '../action/resolve-icon';
+import { hasDeclaredVisibilityGate } from '../action/visibility-gate';
 import { useGridFieldAuthoring } from '../../context/gridFieldAuthoring';
 import { describeIgnoredBind, describeNonArrayData } from './dataTableBindDiagnostic';
 import { ComponentRegistry, compareSortValues, evalRowPredicate, formatDate, hasDeclaredPredicate, formatDateTime, fromDateTimeInputValue, getSortValue, isImpossibleStoredDay, toDateInputValue, toDateTimeInputValue } from '@object-ui/core';
@@ -216,6 +217,7 @@ function evalRowActionVisibility(
   row: any,
   scope: Record<string, unknown>,
   label: string,
+  fields?: unknown,
 ): boolean {
   if (typeof pred === 'boolean') return pred;
   // Not dead, and not the place that decides "was a gate declared?" — the two
@@ -229,6 +231,10 @@ function evalRowActionVisibility(
     scope,
     warnOnError: true,
     label,
+    // Only plugin-grid's row menu passes the object's fields (see
+    // `isCustomRowActionVisible`). This file's own callers pass none, and
+    // `undefined` keeps the row payload verbatim, as before.
+    fields: fields as never,
   });
 }
 
@@ -261,30 +267,45 @@ export function isBuiltinRowActionVisible(
 
 /**
  * Does this schema-driven custom row action render for THIS row? Same
- * single-definition rule as the built-ins above.
+ * single-definition rule as the built-ins above, and the ONE definition for
+ * every row menu: this file's (the related list's data table) and
+ * plugin-grid's `RowActionMenu` (its "⋮" items, its inline primary buttons and
+ * its "⋮" guard), which imports it from the `@object-ui/components` barrel
+ * rather than keeping a twin (objectui#11294).
  *
- * A gate counts as DECLARED by `!= null && !== ''`, never by truthiness
- * (objectui#3758). Truthiness cannot answer the question: `visible: false` is a
- * declared gate that excludes every row, and testing `!action.visible`
- * classified it as *ungated* — so the most explicit way to say "never show this"
- * rendered the item for everyone, and counted toward the "⋮" guard. This is the
- * invariant objectui#3492 established for the selection bar (plugin-grid's
- * `hasVisibilityGate`), and the same `!= null` posture the built-in `visibleWhen`
- * gate above has always had. The boolean then decides in
- * {@link evalRowActionVisibility}, which short-circuits it instead of handing it
- * to the engine.
+ * Whether a gate is DECLARED at all is asked with `hasDeclaredVisibilityGate`,
+ * the action family's one definition (objectui#3812): the related list's
+ * toolbar, `action:*`, `DeclaredActionsBar` and the rest ask it too, so an
+ * action cannot show in a list's header and be missing from its rows.
  *
- * `''` is grouped with `null` deliberately: an empty predicate is nothing to
- * evaluate, so it must not hide the item from everyone either.
+ * - `visible: false` is a declared gate that excludes every row. Truthiness
+ *   cannot answer the question: testing `!action.visible` read it as ungated
+ *   and rendered the item for everyone (objectui#3758). The boolean then
+ *   decides in {@link evalRowActionVisibility}, which short-circuits it instead
+ *   of handing it to the engine.
+ * - A blank predicate is no gate, so the action shows: `''`, a whitespace-only
+ *   string, and an envelope whose `source` is blank. The blank is still
+ *   reported (ADR-0137 D4) through the family's one `[blank]` report, once per
+ *   blank spelling rather than once per row. This test used to be
+ *   `pred == null || pred === ''`, so a whitespace-only `visible` counted as
+ *   declared, was evaluated, and failed closed: the action showed in a related
+ *   list's toolbar and was missing from its rows (objectui#11294).
+ * - A value that is not a predicate at all (`0`, `{}`) is no gate either, as
+ *   on every other member of the family.
+ *
+ * `fields` is the object's field definitions, for a caller that has them:
+ * plugin-grid passes them so a relation compares as its stored foreign key
+ * (see `evalRowPredicate`). This file's own callers pass none.
  */
 export function isCustomRowActionVisible(
   action: { name?: string; visible?: unknown } | undefined,
   row: any,
   scope: Record<string, unknown>,
+  fields?: unknown,
 ): boolean {
   const pred = action?.visible;
-  if (pred == null || pred === '') return true;
-  return evalRowActionVisibility(pred, row, scope, action?.name ?? 'row-action');
+  if (!hasDeclaredVisibilityGate(pred)) return true;
+  return evalRowActionVisibility(pred, row, scope, action?.name ?? 'row-action', fields);
 }
 
 /** What the row overflow menu will actually render for ONE row. */

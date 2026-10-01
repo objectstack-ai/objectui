@@ -8,8 +8,10 @@
 
 /**
  * objectui#3951 — grid columns have ONE key spelling, and it is the declared
- * one: `GridColumnDefinition.name` (`@object-ui/types`), the same key the grid
- * docs page and the three `fields-grid` catalog examples author.
+ * one: `name`, the key of `GridFieldMetadata['columns']` (`@object-ui/types`),
+ * which is `@objectstack/spec`'s inline grid column by reference since
+ * objectui#11070 — the same key the grid docs page and the three `fields-grid`
+ * catalog examples author.
  *
  * `GridField` used to declare its own local column interface keyed by `field`
  * and read `c.field` everywhere — `key={c.field}`, `row[c.field]`,
@@ -19,9 +21,9 @@
  * column (the key was `undefined`). The three demos on `/docs/fields/grid`
  * shipped in exactly that state.
  *
- * The fixtures below are typed as `GridColumnDefinition[]` on purpose: the pin
- * is anchored to the DECLARED contract, not to the widget's own idea of it, so
- * the two can never silently drift apart again. Per AGENTS.md #0.1 the fix is
+ * The fixtures below are typed as `GridFieldMetadata['columns']` on purpose:
+ * the pin is anchored to the DECLARED contract, not to the widget's own idea
+ * of it, so the two can never silently drift apart again. Per AGENTS.md #0.1 the fix is
  * one spelling at the producer — there is deliberately no `c.field ?? c.name`
  * alias to make the retired spelling keep working.
  *
@@ -37,11 +39,11 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import React from 'react';
-import type { GridColumnDefinition, GridFieldMetadata } from '@object-ui/types';
+import type { GridFieldMetadata } from '@object-ui/types';
 import { GridField } from './GridField';
 
-/** Authored exactly as `GridColumnDefinition` declares — keyed by `name`. */
-const columns: GridColumnDefinition[] = [
+/** Authored exactly as `GridFieldMetadata['columns']` declares — keyed by `name`. */
+const columns: NonNullable<GridFieldMetadata['columns']> = [
   { name: 'product', label: 'Product', type: 'text' },
   { name: 'quantity', label: 'Qty', type: 'number' },
   { name: 'price', label: 'Price', type: 'currency' },
@@ -56,7 +58,7 @@ const rows = [
 const field = { type: 'grid', name: 'order_items', columns } as GridFieldMetadata;
 
 describe('GridField reads the DECLARED column spelling (objectui#3951)', () => {
-  it('renders every cell populated from metadata authored as GridColumnDefinition', () => {
+  it('renders every cell populated from metadata authored as the declared column type', () => {
     render(<GridField value={rows} onChange={() => {}} field={field} />);
 
     // One cell input per column per row, each echoing the row's stored value —

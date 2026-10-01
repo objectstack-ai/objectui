@@ -113,6 +113,11 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
   // objectui#10859 batch 6: `object-gantt` moved here the same way, with the
   // same binding.
   'object-gantt',
+  // objectui#11070 round 7: `object-chart` (here since objectui#11276) declares
+  // the same binding at node level, beside its bag — the gate-wrapped
+  // registration reads it, and the react-page wrapper no longer writes the
+  // host adapter under that key.
+  'object-chart',
 ]);
 
 /**

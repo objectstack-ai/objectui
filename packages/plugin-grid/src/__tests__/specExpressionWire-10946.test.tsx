@@ -20,9 +20,13 @@
  *
  * The `ast`-only envelope is typed loosely on purpose. The installed spec's
  * slot admits it and spec `main` does not, so a typed fixture would compile on
- * one line and fail the other. Its case pins the runtime answer the
- * declarations' docblocks describe: evaluated as a fault, so the rule does not
- * match and the bulk def qualifies no record, and the fault is warned.
+ * one line and fail the other. Its cases pin the runtime answers the
+ * declarations' docblocks describe. As a rule `condition` it is evaluated as a
+ * fault, so the rule does not match and the fault is warned. As a bulk def's
+ * `visible` it is not a declared gate at all: the selection bar asks the action
+ * family's one "declared?" definition, which reads an envelope with no `source`
+ * as no gate, so every selected record qualifies — as on the row menu and the
+ * toolbars (objectui#11322).
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -121,14 +125,17 @@ describe('objectui#10946 — a bulk def\'s `visible` envelope that carries `ast`
     expect(partitionBulkRows(def, BULK_ROWS).eligible.map((r) => r.id)).toEqual(['r1']);
   });
 
-  it('an `ast`-only envelope qualifies no record (fail closed), and the fault is warned', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  // [objectui#11322] This case used to pin the opposite: the selection bar kept
+  // a "declared?" test of its own (`!= null && !== ''`), counted the envelope
+  // as a gate, evaluated it, and failed closed for every record — while the row
+  // menu and the toolbars, which ask `hasDeclaredVisibilityGate`, read the same
+  // value as no gate and showed the action. The bar now asks that definition.
+  it('an `ast`-only envelope is no declared gate: every record qualifies, as on the row menu', () => {
     const def = { name: 'mark_done', operation: 'custom', visible: { dialect: 'cel', ast: { op: 'not' } } } as unknown as BulkActionDef;
 
     const { eligible, skipped } = partitionBulkRows(def, BULK_ROWS);
 
-    expect(eligible).toEqual([]);
-    expect(skipped).toBe(2);
-    expect(warn).toHaveBeenCalled();
+    expect(eligible).toBe(BULK_ROWS);
+    expect(skipped).toBe(0);
   });
 });

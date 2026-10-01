@@ -75,6 +75,12 @@ const bagOf = (arm: z.ZodObject): z.ZodType => (arm.shape.properties as z.ZodOpt
 const keysOf = (schema: z.ZodType): string[] =>
   Object.keys((schema as unknown as { shape?: Record<string, unknown> }).shape ?? {}).sort();
 
+/** The taught node with its bag hoisted flat — the spelling the page taught before objectui#11183. */
+const flattened = (node: Record<string, unknown>): Record<string, unknown> => {
+  const { properties, ...rest } = node;
+  return { ...rest, ...(properties as Record<string, unknown>) };
+};
+
 /** Every issue, union branches unfolded and paths made absolute. */
 const allIssues = (issues: Issue[] | undefined, prefix: PropertyKey[] = []): Issue[] =>
   (issues ?? []).flatMap((issue) => {
@@ -223,7 +229,11 @@ describe('objectui#10872 batch 4 — the two handler keys the action renderers r
 const HERE = dirname(fileURLToPath(import.meta.url));
 const QUICK_START = join(HERE, '..', '..', '..', '..', 'content', 'docs', 'guide', 'quick-start.md');
 
-/** The quick-start's "Add Actions" node — the one AGENTS.md #4 teaches, read from the page that teaches it. */
+/**
+ * The quick-start's "Add Actions" node — the one AGENTS.md #4 teaches, read from
+ * the page that teaches it. Since objectui#11183 the page writes it in the spec's
+ * spelling: the block's props in `properties`, nothing flat on the node.
+ */
 function taughtActionButton(): Record<string, unknown> {
   const doc = readFileSync(QUICK_START, 'utf8');
   const section = doc.slice(doc.indexOf('### Add Actions'));
@@ -233,10 +243,15 @@ function taughtActionButton(): Record<string, unknown> {
 }
 
 describe('objectui#10872 batch 4 — a page with an `action:button` validates', () => {
-  it('reads the taught node (non-vacuity)', () => {
+  it('reads the taught node (non-vacuity) — and it is in the bag spelling', () => {
     const node = taughtActionButton();
     expect(node.type).toBe('action:button');
-    expect(node.actionType).toBe('url');
+    const bag = node.properties as Record<string, unknown>;
+    expect(bag.actionType).toBe('url');
+    expect(bag.target).toBe('/users/ada');
+    // Nothing executor-shaped is left flat on the node (objectui#11183).
+    expect(node).not.toHaveProperty('actionType');
+    expect(node).not.toHaveProperty('target');
   });
 
   it('the taught node, in a page, passes the tolerant face `objectui validate` runs', () => {
@@ -245,23 +260,34 @@ describe('objectui#10872 batch 4 — a page with an `action:button` validates', 
     expect(result.success, JSON.stringify(result.error?.issues)).toBe(true);
   });
 
-  it.each(FACES)('%s face: the same node in the spec\'s spelling — its props in `properties` — validates', (_face, judge) => {
-    const { type, ...props } = taughtActionButton();
-    const page = { type: 'page', children: [{ type: 'page:header', properties: { title: 'Users' } }, { type, properties: props }] };
+  it.each(FACES)('%s face: the taught node AS WRITTEN — its props in `properties` — validates, in a page and alone', (_face, judge) => {
+    const page = { type: 'page', children: [{ type: 'page:header', properties: { title: 'Users' } }, taughtActionButton()] };
     const result = judge(page);
     expect(result.success, JSON.stringify(result.error?.issues)).toBe(true);
+    expect(judge(taughtActionButton()).success).toBe(true);
   });
 
-  it('⚠️ the strict face refuses the taught node\'s FLAT props — the flat-props question objectui#10872 holds', () => {
-    // A prop written flat on the node is not judged against the row: `label` is
-    // a `BaseSchema` key, and `actionType` / `target` are undeclared there, so
-    // the strict face refuses exactly those two, as the spec's own
-    // `PageComponentSchema` does. Whether the flat spelling becomes an
-    // authoring channel for `action:*` is that card's call; this reading moves
-    // with it.
-    const result = StrictAnyComponentSchema.safeParse(taughtActionButton());
+  it('the spec\'s own `PageComponentSchema` accepts the taught node as written', () => {
+    expect(PageComponentSchema.safeParse(taughtActionButton()).success).toBe(true);
+  });
+
+  it('CONTROL — the pre-objectui#11183 FLAT spelling of the same node is refused, by exactly its two executor keys', () => {
+    // objectui#10872's fork, ruled A on objectui#11183: the `properties` bag is
+    // the contract. A prop written flat on the node is not judged against the
+    // row — `label` is a `BaseSchema` key, `actionType` / `target` are
+    // undeclared there — so the strict face refuses exactly those two, as the
+    // spec's `PageComponentSchema` does. Derived from the taught node rather
+    // than transcribed, so the control moves with the page.
+    const flat = flattened(taughtActionButton());
+    expect(flat.actionType).toBe('url');
+    const result = StrictAnyComponentSchema.safeParse(flat);
     expect(result.success).toBe(false);
     expect(refusedKeys(result).sort()).toEqual(['actionType', 'target']);
-    expect(PageComponentSchema.safeParse(taughtActionButton()).success).toBe(false);
+    const spec = PageComponentSchema.safeParse(flat);
+    expect(spec.success).toBe(false);
+    expect(refusedKeys(spec as Result).sort()).toEqual(['actionType', 'target']);
+    // The tolerant face still keeps the flat node, which is why the page had to move
+    // before `objectui validate` reaches the strict face (objectui#5250).
+    expect(safeValidateSchema(flat).success).toBe(true);
   });
 });

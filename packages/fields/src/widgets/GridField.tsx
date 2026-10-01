@@ -25,6 +25,7 @@ import { toDateInputValue, toDateTimeInputValue, fromDateTimeInputValue, isImpos
 import { useFieldTranslation } from './useFieldTranslation.js';
 import { toDomProps } from './toDomProps.js';
 import { toHostGroupProps } from './toHostGroupProps.js';
+import type { InlineGridColumn } from '@objectstack/spec/data';
 
 /**
  * GridField / LineItemsField — editable child-grid ("line items") widget.
@@ -72,118 +73,63 @@ import { toHostGroupProps } from './toHostGroupProps.js';
  * column. This is the renderer for the `field:grid` widget and the cell
  * engine behind the master-detail subform (see ADR-0001).
  *
- * Column config (a subset of `GridColumnDefinition`):
- *   { name, label?, type?, options?, width?, required?, prefix?, step? }
- *   type ∈ 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time'
- *        | 'select' | 'lookup' | 'file'
+ * Column config: `@objectstack/spec`'s inline grid column, by reference —
+ * see {@link GridColumn}.
  *
  * Field-level config (from `GridFieldMetadata`):
  *   columns, min_rows, max_rows, allow_add, allow_delete, total_field
  */
 
-export interface GridColumn {
-  /**
-   * The column's field name — the key it reads and writes on each row object.
-   *
-   * Spelled `name`, exactly as the declared `GridColumnDefinition`
-   * (`@object-ui/types`) and the grid docs page say (objectui#3951). This
-   * widget used to read a divergent `field` key, so metadata authored against
-   * the published type rendered every cell empty plus a React key warning.
-   * There is deliberately no tolerant alias bridging the retired spelling to
-   * this one: a single spelling, enforced at the producer — AGENTS.md #0.1.
-   *
-   * (Wording note: do not restate that rule as an alternation expression over
-   * the two key names. `column-identity.ratchet.test.ts` (objectui#3104) scans
-   * these files line by line and cannot tell prose from code, so spelling the
-   * shape out here registers as a new dual read and fails the gate.)
-   */
-  name: string;
-  label?: string;
-  /**
-   * Cell control + read/write adapter for the column.
-   *
-   * `date` / `datetime` / `time` are three DISTINCT controls, not one
-   * (objectui#3569). Collapsing `datetime` onto the `date` control did not
-   * merely under-render it — `<input type="date">` hands back a bare
-   * `YYYY-MM-DD` on change, so touching the day of a `datetime` cell silently
-   * DELETED its time component from the record.
-   */
-  type?: 'text' | 'number' | 'currency' | 'date' | 'datetime' | 'time' | 'select' | 'lookup' | 'file';
-  options?: Array<{ label: string; value: string }>;
-  width?: number;
-  required?: boolean;
-  /**
-   * Symbol shown in a `currency` cell IN PLACE OF the resolved currency's own
-   * symbol. When absent, the cell shows the symbol of the currency it
-   * resolves (objectui#10355) — there is no default symbol: this used to fall
-   * back to a literal `¥` whatever the column's currency was.
-   */
-  prefix?: string;
-  step?: number;
-  /** For `type: 'lookup'` — the referenced object and label/id fields. */
-  reference?: string;
-  displayField?: string;
-  idField?: string;
-  /** Multi-value column: multi-record lookup, or multi-file upload cell. */
-  multiple?: boolean;
-  /** For `type: 'file'` — accepted MIME types / extensions for the picker
-   *  (e.g. `['image/*', '.pdf']`). Omit to accept anything. */
-  accept?: string[];
-  /**
-   * Hidden from the grid by default but revealable via the column chooser.
-   * Set by `deriveColumns` for fields beyond the default-visible budget — the
-   * data is NOT dropped (it's just collapsed, like Odoo's `optional` columns /
-   * Salesforce column personalization), so business-critical fields stay
-   * reachable. Required columns are never default-hidden.
-   */
-  defaultHidden?: boolean;
-  /**
-   * A computed (read-only) column whose value is derived live from sibling
-   * cells via {@link expr} — e.g. an invoice line's `amount = quantity *
-   * unit_price`. The grid renders it read-only, recomputes it as the row's
-   * inputs change, and writes the result back into the row so it persists
-   * (and any running total reflects it). The classic spreadsheet pattern used
-   * by QuickBooks / Stripe / NetSuite line grids — nobody types the amount.
-   */
-  computed?: boolean;
-  /** Arithmetic expression for a {@link computed} column. Supports `+ - * / %`,
-   *  parentheses, numeric literals and field refs (`record.qty` or bare `qty`). */
-  expr?: string;
-  /**
-   * Decimal places to round a computed `number` result to — the spec's
-   * `InlineGridColumnSchema.scale`.
-   *
-   * ⛔ Not read on a `currency` column (objectui#10783). A currency amount's
-   * decimal places are its currency's: the resolved currency's ISO 4217 minor
-   * unit decides both the stored and the shown width (`currencyWidth`), and
-   * `@objectstack/spec` 17.5.0 refuses `scale` on an inline grid column that
-   * declares `type: 'currency'`, as it refuses it on the currency FIELD
-   * (ruling B on objectstack-ai/objectstack#19629, ruling 乙 on
-   * objectstack-ai/objectstack#19910). The spec cannot see a column that
-   * declares no `type` and takes `currency` from its child field at render
-   * time, so `hydrateColumns` in `@object-ui/plugin-form` reports a `scale`
-   * on such a column instead of letting it go unread in silence.
-   */
-  scale?: number;
-  /** For `type: 'lookup'` — when a record is picked, copy its fields into any
-   *  sibling columns of the same name (e.g. a product's unit_price/description).
-   *  On by default for lookup columns; set `false` to disable the auto-fill. */
-  autofill?: boolean;
-  /**
-   * CEL predicate: when TRUE for this row, the cell is **read-only** (B2 field
-   * rules, generalized to grid cells). Evaluated per row against the row as
-   * `record` plus the header as `parent` (so a line locks when
-   * `parent.status == 'paid'` *or* on an intra-row condition like
-   * `record.kind == 'auto'`). Client-side UX; fails open (stays editable).
-   */
-  readonlyWhen?: string | { dialect?: string; source: string };
-  /**
-   * CEL predicate: when TRUE for this row, the cell is **required** (flagged
-   * inline-invalid while empty). Same `record` + `parent` scope as
-   * {@link readonlyWhen}.
-   */
-  requiredWhen?: string | { dialect?: string; source: string };
-}
+/**
+ * One grid column — `@objectstack/spec`'s inline grid column
+ * (`InlineGridColumn`, the element of `FieldSchema.inlineColumns`), BY
+ * REFERENCE (objectui#11070). The spec declares that shape as the strict
+ * mirror of this widget's column, so the widget's type IS the spec's: one
+ * declaration, the same one `GridFieldMetadata.columns` and
+ * `FormField.columns` (`@object-ui/types`) carry. This widget reads each
+ * column by exactly the spec's keys — every key below is one the spec
+ * declares, and there is no second spelling of any of them.
+ *
+ * How the widget reads the keys (the spec's own descriptions say what each
+ * MEANS; these are the renderer's notes):
+ *
+ *  - `name` — the key a column reads and writes on each row object. There is
+ *    deliberately no tolerant alias bridging the spelling objectui#3951
+ *    retired to this one: a single spelling, enforced at the producer —
+ *    AGENTS.md #0.1 (the spec refuses the retired spelling by name).
+ *    (Wording note: do not restate that rule as an alternation expression over
+ *    the two key names. `column-identity.ratchet.test.ts` (objectui#3104) scans
+ *    these files line by line and cannot tell prose from code, so spelling the
+ *    shape out here registers as a new dual read and fails the gate.)
+ *  - `type` — the cell control and its read/write adapter. `date` /
+ *    `datetime` / `time` are three DISTINCT controls, not one
+ *    (objectui#3569): `<input type="date">` hands back a bare `YYYY-MM-DD` on
+ *    change, so collapsing `datetime` onto it silently DELETED the time
+ *    component from the record.
+ *  - `prefix` — a symbol shown in a `currency` cell IN PLACE OF the resolved
+ *    currency's own symbol. When absent, the cell shows the symbol of the
+ *    currency it resolves (objectui#10355); there is no default symbol.
+ *  - `defaultHidden` — collapsed into the column chooser, not dropped
+ *    (`deriveColumns` sets it beyond the default-visible budget). Required
+ *    columns are never default-hidden.
+ *  - `computed` + `expr` — a read-only column recomputed live from sibling
+ *    cells by this file's own safe arithmetic evaluator (`+ - * / %`,
+ *    parentheses, numeric literals, `record.qty` or bare `qty`), and written
+ *    back into the row so it persists and any running total reflects it.
+ *  - `scale` — decimal places for a computed `number` result. ⛔ Not read on
+ *    a `currency` column (objectui#10783): the resolved currency's ISO 4217
+ *    minor unit decides both the stored and the shown width
+ *    (`currencyWidth`), and the spec refuses `scale` on a column declaring
+ *    `type: 'currency'`. A column that takes `currency` from its child field
+ *    at render time is reported by `hydrateColumns` in
+ *    `@object-ui/plugin-form` instead of being read in silence.
+ *  - `autofill` — for a `lookup` column: picking a record copies its fields
+ *    into sibling columns of the same name. On unless set `false`.
+ *  - `readonlyWhen` / `requiredWhen` — CEL predicates evaluated per row
+ *    against the row as `record` plus the header as `parent`. Client-side UX;
+ *    a predicate that faults fails open.
+ */
+export type GridColumn = InlineGridColumn;
 
 type Row = Record<string, any>;
 
@@ -341,9 +287,9 @@ export function lookupAutofillPatch(columns: GridColumn[], col: GridColumn, reco
  * `defaultCurrency` → the tenant default) — ⛔ never a second copy of it.
  *
  * The field-level legs are handed nothing, deliberately: a grid column
- * declares none of those keys — not `GridColumn`, not `GridColumnDefinition`
- * in `@object-ui/types`, and not the spec's strict `InlineGridColumnSchema`,
- * which refuses them — and the column derivation in `@object-ui/plugin-form`
+ * declares none of those keys — not `GridColumn`, which is the spec's strict
+ * `InlineGridColumnSchema` element by reference, and that schema refuses
+ * them — and the column derivation in `@object-ui/plugin-form`
  * copies none of them from the child field. Reading them off the column would
  * add a renderer read that no authored metadata can reach. So the precedence
  * lands on the tenant default, and `undefined` when none is configured: the
@@ -491,7 +437,7 @@ function temporalText(type: string | undefined, value: any, locale: string): str
   // ⛔ The style is a LITERAL, not an authored read, and that departs from the
   // call shape the ruling wrote (`field.format ?? 'compact'`). It has to:
   // `temporalText` is handed a column `type`, and the `GridColumn` its caller
-  // holds — like the published `GridColumnDefinition` it mirrors — declares no
+  // holds — the spec's inline grid column, by reference — declares no
   // `format` key at all, so there is nothing here to reuse the way
   // `DateTimeCellRenderer` reuses `DateTimeFieldMetadata.format`. Spelling the
   // read anyway would mean DECLARING that key, which the same ruling forbids

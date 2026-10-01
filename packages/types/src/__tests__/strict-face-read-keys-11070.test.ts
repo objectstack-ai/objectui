@@ -22,13 +22,14 @@
  *   - `form.showSubmit` — the `form` renderer's submit-button switch;
  *   - `form.fields[]` — field metadata a hand-authored form writes on the entry
  *     itself (`multiple`, `rows`, `accept`, `dimensions`, `reference`, `min`,
- *     `max`, `minLength`, `maxLength`, `pattern`, and since round 3
- *     `returnType` and `summaryOperations`), which the renderer hands each
- *     field widget as its metadata carrier;
+ *     `max`, `minLength`, `maxLength`, `pattern`, since round 3
+ *     `returnType` and `summaryOperations`, and since round 7 the `grid`
+ *     widget's `columns`, the spec's `inlineColumns` list), which the
+ *     renderer hands each field widget as its metadata carrier;
  *   - `dataSource` on `object-grid`, `object-form`, `object-kanban`,
- *     `list-view`, `object-gantt`, `object-map` and `object-calendar` — the
- *     spec's per-element binding, which each block's
- *     gate-wrapped registration reads off the node through
+ *     `list-view`, `object-gantt`, `object-map`, `object-calendar` and, since
+ *     round 7, `object-chart` — the spec's per-element binding, which each
+ *     block's gate-wrapped registration reads off the node through
  *     `ElementDataSourceGate`.
  *
  * Each read is reasoned on the TypeScript member that declares it.
@@ -39,9 +40,9 @@
  *      sibling is still refused BY NAME at the same path — the control that
  *      shows the face did not open up;
  *   2. the declared key is judged by its declared type on BOTH faces;
- *   3. the read keys this card deliberately did NOT declare are still refused
- *      on the strict face — each waits on a ruling the card records — and the
- *      snake_case spellings rounds 3, 4 and 5 retired are refused by name;
+ *   3. the snake_case spellings rounds 3, 4 and 5 retired, and the inline
+ *      dashboard dialect round 6 retired (objectui#11228 ruling C), are
+ *      refused by name on the strict face;
  *   4. the TypeScript faces type the binding, not `any`, and the field
  *      metadata types carry the spec members by reference with the retired
  *      snake_case members gone (type-level, read by
@@ -54,6 +55,7 @@ import { z } from 'zod';
 import type {
   ListViewSchema,
   ObjectCalendarSchema,
+  ObjectChartSchema,
   ObjectFormSchema,
   ObjectGanttSchema,
   ObjectGridSchema,
@@ -64,6 +66,7 @@ import type { FormField, FormSchema } from '../form.js';
 import type {
   EmailFieldMetadata,
   FormulaFieldMetadata,
+  GridFieldMetadata,
   HtmlFieldMetadata,
   LookupFieldMetadata,
   MarkdownFieldMetadata,
@@ -127,6 +130,8 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
     ['pattern', { type: 'input', pattern: '^[^@]+@[^@]+$' }],
     ['returnType', { type: 'formula', returnType: 'number' }],
     ['summaryOperations', { type: 'summary', summaryOperations: { object: 'orders', field: 'amount', function: 'sum' } }],
+    // Round 7: the `grid` widget's columns, the spec's `inlineColumns` list.
+    ['columns', { type: 'grid', columns: [{ name: 'qty', type: 'number' }, { name: 'sku' }] }],
   ];
 
   it.each(FIELD_CASES)('`fields[].%s` parses; a misspelled sibling is refused at the field', (key, field) => {
@@ -152,6 +157,9 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
     // objectui#10859 batch 5: `object-map` takes its props in the bag too.
     ['object-map', { properties: { objectName: 'task' } }],
     ['object-calendar', { objectName: 'task' }],
+    // Round 7: `object-chart`, authored with its props in the bag
+    // (objectui#11276); the binding stays on the node.
+    ['object-chart', { properties: { objectName: 'task', chartType: 'bar' } }],
   ];
 
   it.each(BOUND_NODES)('`%s.dataSource` parses; `dataSourc` beside it is refused by name', (type, rest) => {
@@ -175,6 +183,14 @@ describe('objectui#11070 — a declared key is judged by its declared type on bo
     ['an unknown member inside `summaryOperations` (the spec closes it)', form({ type: 'summary', summaryOperations: { object: 'orders', field: 'amount', function: 'sum', functon: 'avg' } })],
     ['a binding that names no `object`', { type: 'object-kanban', dataSource: { filter: { a: 1 } } }],
     ['an adapter-shaped `dataSource`', { type: 'object-grid', objectName: 'task', dataSource: 'objectstack' }],
+    // Round 7: the grid's columns are the spec's strict inline grid column.
+    ['a grid column keyed by the retired `field` spelling', form({ type: 'grid', columns: [{ field: 'qty' }] })],
+    ['a grid column `type` outside the spec\'s nine cell controls (`boolean`)', form({ type: 'grid', columns: [{ name: 'done', type: 'boolean' }] })],
+    ['a grid column `defaultValue` (the spec column declares none, and the grid reads none)', form({ type: 'grid', columns: [{ name: 'qty', defaultValue: 1 }] })],
+    ['a `scale` on a column declaring `type: \'currency\'` (the spec refuses it there)', form({ type: 'grid', columns: [{ name: 'amount', type: 'currency', scale: 2 }] })],
+    ['a bare-object `columns` (the spec types it as an array)', form({ type: 'grid', columns: { name: 'qty' } })],
+    ['a `null` `object-chart` binding (the adapter placeholder the wrapper no longer writes)', { type: 'object-chart', properties: { objectName: 'task', chartType: 'bar' }, dataSource: null }],
+    ['an adapter-shaped `object-chart` binding', { type: 'object-chart', properties: { objectName: 'task', chartType: 'bar' }, dataSource: 'objectstack' }],
   ];
 
   it.each(WRONG)('refuses %s', (_label, doc) => {
@@ -183,22 +199,14 @@ describe('objectui#11070 — a declared key is judged by its declared type on bo
   });
 });
 
-/* ── 3. the read keys this card did NOT declare stay refused ─────────────── */
+/* ── 3. the retired spellings stay refused ──────────────────────────────── */
 
-describe('objectui#11070 — the read keys left undeclared pending a ruling stay refused on the strict face', () => {
-  // Read by a widget and not declared: the grid field's `columns` has an
-  // element shape not yet decided. ⛔ Declaring it is a contract ruling, not a
-  // fix to this list. (`min_length` stood here until round 5 retired it: no
-  // reader reads it any more, so it moved to the RETIRED list below.)
-  const PENDING: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
-    ['columns', { type: 'grid', columns: [{ name: 'qty', type: 'number' }] }],
-  ];
-
-  it.each(PENDING)('`fields[].%s` is refused by name, and the tolerant face still accepts the document', (key, field) => {
-    expect(undeclared(issuesOf(StrictAnyComponentSchema, form(field)))).toEqual([`fields.0.${key}`]);
-    expect(issuesOf(AnyComponentSchema, form(field))).toBeNull();
-  });
-
+describe('objectui#11070 — the retired spellings stay refused on the strict face', () => {
+  // Round 7 emptied the PENDING list this block opened with: the grid field's
+  // `columns` (the last read key left undeclared) is the spec's
+  // `inlineColumns` list now (block 1), and `object-chart.dataSource` is
+  // declared with the other gate-wrapped bindings.
+  //
   // Round 3 (the seat's answer A): the `formula` and `summary` widgets read the
   // spec's `returnType` and `summaryOperations` only, so these snake_case
   // spellings are read by nothing and retired at once — no alias, no dual
@@ -261,12 +269,11 @@ describe('objectui#11070 — the read keys left undeclared pending a ruling stay
     expect(undeclared(issuesOf(StrictAnyComponentSchema, doc))).toContain(`widgets.0.${key}`);
   });
 
-  it('`object-chart.dataSource` is refused by name until it is declared (the react-page wrapper no longer puns the adapter into that key; the declaration and the objectui#10770 node pin move together)', () => {
-    // objectui#11276: the authored node takes its props in the `properties` bag;
-    // `dataSource` stays node-level, and stays undeclared on that arm too.
-    const doc = { type: 'object-chart', properties: { objectName: 'task', chartType: 'bar' }, dataSource: { object: 'task' } };
-    expect(undeclared(issuesOf(StrictAnyComponentSchema, doc))).toEqual(['dataSource']);
-    expect(issuesOf(AnyComponentSchema, doc)).toBeNull();
+  it('`object-chart.dataSource` stays on the NODE: in the bag it is refused by name, not taken for the binding (round 7)', () => {
+    // The binding is a node-level key of the spec's `PageComponentSchema`, so
+    // the bag (the flat mirror's own members) does not carry it.
+    const doc = { type: 'object-chart', properties: { objectName: 'task', chartType: 'bar', dataSource: { object: 'task' } } };
+    expect(undeclared(issuesOf(StrictAnyComponentSchema, doc))).toEqual(['properties.dataSource']);
   });
 });
 
@@ -280,7 +287,7 @@ type IsAny<T> = 0 extends 1 & T ? true : false;
 export type assertionFormFieldMembersAreTyped = Expect<Equal<
   IsAny<FormField['multiple'] | FormField['rows'] | FormField['accept'] | FormField['dimensions']
     | FormField['reference'] | FormField['min'] | FormField['max'] | FormField['minLength'] | FormField['maxLength'] | FormField['pattern']
-    | FormField['returnType'] | FormField['summaryOperations']>,
+    | FormField['returnType'] | FormField['summaryOperations'] | FormField['columns']>,
   false
 >>;
 /**
@@ -297,6 +304,28 @@ export type assertionSpecMembersByReference = [
   Expect<Equal<PasswordFieldMetadata['maxLength'], SpecField['maxLength']>>,
   // Round 6: the formula itself is the spec's `expression`, by reference.
   Expect<Equal<FormulaFieldMetadata['expression'], SpecField['expression']>>,
+];
+/**
+ * Round 7: the grid's columns are the spec's `inlineColumns` list BY
+ * REFERENCE, on the form-field face and on the grid field metadata type — an
+ * exact match, so a restated column shape (or a drift after a spec release)
+ * fails here.
+ */
+export type assertionGridColumnsBySpecReference = [
+  Expect<Equal<FormField['columns'], SpecField['inlineColumns']>>,
+  Expect<Equal<GridFieldMetadata['columns'], SpecField['inlineColumns']>>,
+];
+
+// @ts-expect-error objectui#11070 round 7 — `GridColumnDefinition` is RETIRED from `../field-types`: a grid column is the spec's `InlineGridColumn` (`GridFieldMetadata['columns']`).
+type _GridColumnDefinitionRetiredFromTheModule = import('../field-types').GridColumnDefinition;
+// @ts-expect-error objectui#11070 round 7 — and RETIRED from the package entry, the face an external consumer imports.
+type _GridColumnDefinitionRetiredFromTheEntry = import('../index').GridColumnDefinition;
+/** LIT CONTROLS for the two directives above: a sibling of the same export block resolves through the same forms. */
+type _GridSiblingResolvesFromTheModule = import('../field-types').GridFieldMetadata;
+type _GridSiblingResolvesFromTheEntry = import('../index').GridFieldMetadata;
+export type assertionGridSiblingControlsResolve = [
+  Expect<Equal<_GridSiblingResolvesFromTheModule['type'], 'grid'>>,
+  Expect<Equal<_GridSiblingResolvesFromTheEntry['type'], 'grid'>>,
 ];
 /**
  * Round 5: the text family carries the spec's length members BY REFERENCE —
@@ -364,6 +393,7 @@ export type assertionBindingIsTheSpecBinding = [
   Expect<Equal<BindingOf<ObjectGanttSchema>, SpecElementDataSource>>,
   Expect<Equal<BindingOf<ObjectMapSchema>, SpecElementDataSource>>,
   Expect<Equal<BindingOf<ObjectCalendarSchema>, SpecElementDataSource>>,
+  Expect<Equal<BindingOf<ObjectChartSchema>, SpecElementDataSource>>,
 ];
 
 // @ts-expect-error — an adapter is not a binding: the binding names an `object`.

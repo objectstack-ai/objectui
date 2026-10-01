@@ -48,3 +48,5 @@ stored string for an unreadable value, unchanged (objectui#3569).
 
 With this, objectui#7443's "`datetime` has one home" holds for all six bare
 no-bag sites objectui#8194 enumerated.
+
+⚠️ **Dated note, 2026-10-01 — `GridColumn` is the spec's inline grid column — objectui#11070.** "(`GridColumn`, mirroring the published `GridColumnDefinition`)" above held when this change landed. Later in this same release objectui#11070 (round 7) retired `GridColumnDefinition` and made `GridColumn` `@objectstack/spec`'s `InlineGridColumn` by reference. That shape declares no `format` key either, so the reasoning above is unchanged. `.changeset/11070-grid-columns-chart-binding-round7.md` states what ships; the text above is kept as the reading of this change.

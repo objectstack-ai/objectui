@@ -55,3 +55,5 @@ The gate's blocks-to-compile count rises from 248 to 249 — 21 conversions are
 one-block-for-one-block and `lookup.mdx` becomes two blocks (data-source-backed
 and static-option) — with diagnostics at 0, no new `FRAGMENT_MARKER`
 declarations, and the declared-fragment count unmoved at 111.
+
+⚠️ **Dated note, 2026-10-01 — `GridColumnDefinition` is retired — objectui#11070.** The two mentions of `GridColumnDefinition` above held when this change landed. Later in this same release objectui#11070 (round 7) retired it: `GridFieldMetadata.columns` is `@objectstack/spec`'s `FieldSchema.inlineColumns` by reference, and `grid.mdx` annotates against that. The spec's inline grid column is closed, so the page still cannot teach a column key the type does not have, and it declares neither a column `editable` nor a string `width`. `.changeset/11070-grid-columns-chart-binding-round7.md` states what ships; the text above is kept as the reading of this change.

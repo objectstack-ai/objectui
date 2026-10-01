@@ -63,19 +63,20 @@ refresh the page mid-edit (the form rehydrates from the URL `:recordId`).
 
 In addition to the implicit "click create/edit on a list" entry point,
 two declarative actions let you open the page-mode routes from an
-`action:button` in metadata. The handler name goes in `actionType`: that
-is the key the button renderer forwards to the action runner as the
-action's type, and the runner dispatches to the handler registered under
-it. Arguments are static values, and they go in the node's `properties`
-bag as `properties.params`:
+`action:button` in metadata. Every prop of the block lives in the node's
+`properties` bag, as `@objectstack/spec` declares it. The handler name goes
+in `properties.actionType`: that is the key the button renderer forwards to
+the action runner as the action's type, and the runner dispatches to the
+handler registered under it. Arguments are static values, and they go in
+the same bag as `properties.params`:
 
 ```jsonc
 {
   "type": "action:button",
-  "label": "New Account",
-  "icon":  "plus",
-  "actionType": "navigate_create",
   "properties": {
+    "label": "New Account",
+    "icon":  "plus",
+    "actionType": "navigate_create",
     "params": { "objectName": "account" }
   }
 }
@@ -89,10 +90,10 @@ names the record it sits on with `${record.id}`:
 ```jsonc
 {
   "type": "action:button",
-  "label": "Edit",
-  "icon":  "pencil",
-  "actionType": "navigate_edit",
   "properties": {
+    "label": "Edit",
+    "icon":  "pencil",
+    "actionType": "navigate_edit",
     "params": {
       "objectName": "account",
       "recordId":   "${record.id}"
@@ -126,8 +127,10 @@ entirely:
 ```jsonc
 {
   "type": "action:button",
-  "label": "New",
-  "actionType": "navigate_create"
+  "properties": {
+    "label": "New",
+    "actionType": "navigate_create"
+  }
 }
 ```
 

@@ -1007,9 +1007,23 @@ export interface VectorFieldMetadata extends BaseFieldMetadata {
 export interface GridFieldMetadata extends BaseFieldMetadata {
   type: 'grid';
   /**
-   * Column definitions for the grid
+   * The grid's columns — `@objectstack/spec`'s `FieldSchema.inlineColumns`,
+   * typed BY REFERENCE (objectui#11070): an array of the spec's strict,
+   * `name`-keyed inline grid column (`InlineGridColumn`), the shape the spec
+   * declares as the mirror of this widget's column. `GridField` reads each
+   * column by exactly the spec's keys and no other spelling, so a column the
+   * spec accepts is a column the grid renders, and a key the spec refuses
+   * (the retired `field`, a `title`, a per-column `defaultValue`) is refused
+   * here at compile time instead of being dropped at render time.
+   *
+   * The key is `columns` because a `grid` field is objectui's own field type
+   * (`@objectstack/spec` has no `grid` field type); the spec spells the same
+   * list `inlineColumns` on a `master_detail` field, whose inline editor this
+   * widget is. The former local `GridColumnDefinition` is retired: it was not
+   * the shape the widget read (it required a free-form `type` and declared
+   * `defaultValue` / `validate`, which nothing read).
    */
-  columns?: GridColumnDefinition[];
+  columns?: SpecField['inlineColumns'];
   /**
    * Minimum number of rows
    */
@@ -1030,40 +1044,6 @@ export interface GridFieldMetadata extends BaseFieldMetadata {
    * Whether to allow reordering rows
    */
   allow_reorder?: boolean;
-}
-
-/**
- * Grid column definition
- */
-export interface GridColumnDefinition {
-  /**
-   * Column field name
-   */
-  name: string;
-  /**
-   * Column label
-   */
-  label?: string;
-  /**
-   * Field type
-   */
-  type: string;
-  /**
-   * Whether column is required
-   */
-  required?: boolean;
-  /**
-   * Default value for new rows
-   */
-  defaultValue?: any;
-  /**
-   * Column width
-   */
-  width?: number;
-  /**
-   * Validation rules
-   */
-  validate?: FieldConstraints;
 }
 
 export interface ColorFieldMetadata extends BaseFieldMetadata {

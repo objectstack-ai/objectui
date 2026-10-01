@@ -143,16 +143,20 @@ Open [http://localhost:5173](http://localhost:5173). You should see a card and d
 ### Add Actions
 
 Actions are data, not inline functions. Declare one as an `action:button`
-node: `actionType` names the built-in executor the action runner dispatches to,
-and the action's own keys carry that executor's arguments — `target` is the
-location a `url` action navigates to:
+node whose `properties` bag carries the block's props, as `@objectstack/spec`
+declares them: `actionType` names the built-in executor the action runner
+dispatches to, and the bag's other keys carry that executor's arguments —
+`target` is the location a `url` action navigates to. Written flat on the node,
+`actionType` and `target` are refused by the spec's strict page component:
 
 ```json
 {
   "type": "action:button",
-  "label": "Open details",
-  "actionType": "url",
-  "target": "/users/ada"
+  "properties": {
+    "label": "Open details",
+    "actionType": "url",
+    "target": "/users/ada"
+  }
 }
 ```
 

@@ -184,7 +184,9 @@ declare const handleAddComment: (text: string) => void;
 
 `RecordActivityTimeline` is a presenter: you hand it `items`. The SDUI block
 `record:activity` is the schema-authored form of the same panel, and it finds
-its own feed. Drop it anywhere inside a record page:
+its own feed. Drop it anywhere inside a record page; its inputs go in the node's
+`properties` bag, as `@objectstack/spec` declares them (the strict page component
+refuses them written flat on the node):
 
 ```json
 {
@@ -195,7 +197,7 @@ its own feed. Drop it anywhere inside a record page:
         "label": "Activity",
         "value": "activity",
         "children": [
-          { "type": "record:activity", "limit": 20, "showCompleted": false }
+          { "type": "record:activity", "properties": { "limit": 20, "showCompleted": false } }
         ]
       }
     ]

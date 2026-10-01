@@ -57,7 +57,7 @@ import {
   DataEmptyState, resolveIcon,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, type FilterTokenScope } from '@object-ui/core';
+import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, type FilterTokenScope } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -4926,20 +4926,26 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         // [objectui#4420] `userActions.delete.visibleWhen` gates the built-in
         // Delete PER RECORD — the same key, the same fail-closed fold and the
         // same evaluator the row kebab and the rich-def bar already run
-        // (`partitionBulkRows` → `partitionRowsByPredicate`). Applied to the
-        // EXPANDED set for the reason #3067 states one line down in
-        // `dispatchBulkActionDef`: "select all N matching" pulls in records no
-        // on-screen check ever evaluated.
+        // (`partitionRowsByPredicate`). Applied to the EXPANDED set for the
+        // reason #3067 states one line down in `dispatchBulkActionDef`: "select
+        // all N matching" pulls in records no on-screen check ever evaluated.
+        //
+        // The fold directly, NOT `partitionBulkRows` (objectui#11322). That door
+        // belongs to bulk ACTIONS and asks the action family's "is a gate
+        // declared?" first, which reads a blank `visible` as no gate. This key
+        // is a field-rule key: a blank one keeps the fold's own answer and
+        // excludes every record, as plugin-list's `ListView` does with the
+        // same key.
         //
         // The predicates come from `objectDeletePredicates`, not
         // `deletePredicates`: the latter rides `canDelete`, which folds in the
         // ROW wiring (`onDelete`), and bulk delete rides `onBulkDelete`. A
         // consumer wiring only the bulk handler would otherwise have the
         // author's predicate silently dropped.
-        const { eligible, skipped } = partitionBulkRows(
-          { name: 'delete', visible: objectDeletePredicates?.visibleWhen as never },
+        const { eligible, skipped } = partitionRowsByPredicate(
+          objectDeletePredicates?.visibleWhen as never,
           expanded,
-          { scope: predicateScope, fields: objectSchema?.fields },
+          { scope: predicateScope, fields: objectSchema?.fields, label: 'delete' },
         );
         if (skipped === 0) {
           // Nothing was excluded, so there is nothing to report and no reason

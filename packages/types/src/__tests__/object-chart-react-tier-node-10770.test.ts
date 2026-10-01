@@ -53,12 +53,14 @@ import { safeValidateSchema } from '../zod/index.zod';
 
 /**
  * The node the react-page wrapper builds from the showcase `renewals-pipeline`
- * page's `<ObjectChart>`: `{ dataSource, ...props, specType, type: tag }`.
- * `dataSource` is the page adapter, `null` before the host connects one
- * (objectui#7912).
+ * page's `<ObjectChart>`: `{ ...props, specType, type: tag }`. The wrapper no
+ * longer writes the host adapter (or `null`) under `dataSource`: the adapter
+ * reaches the block through the page's `SchemaRendererProvider` alone
+ * (objectui#11070, round 2), and `dataSource` on this node is the spec's
+ * per-element BINDING, declared since round 7 — so a `null` there is refused
+ * (pinned in (c) below).
  */
 const SHOWCASE_NODE = {
-  dataSource: null,
   objectName: 'showcase_invoice',
   aggregate: { field: 'total', function: 'sum', groupBy: 'status' },
   xAxis: { field: 'status' },
@@ -72,12 +74,13 @@ const SHOWCASE_NODE = {
 
 /**
  * The same props as an AUTHORED node writes them (objectui#11276): in the
- * `properties` bag, the binding beside it at node level. The door judges this
- * spelling; the wrapper's flat node above is what the mirror judges.
+ * `properties` bag. A binding, when the author writes one, sits beside the bag
+ * at node level (see (b)). The door judges this spelling; the wrapper's flat
+ * node above is what the mirror judges.
  */
 const SHOWCASE_AUTHORED = (() => {
-  const { type, dataSource, ...props } = SHOWCASE_NODE;
-  return { type, dataSource, properties: props };
+  const { type, ...props } = SHOWCASE_NODE;
+  return { type, properties: props };
 })();
 
 const issuesOf = (doc: unknown) => {
@@ -136,6 +139,12 @@ describe('objectui#10770 (b) — the react tier\'s showcase node parses', () => 
     expect(r.success).toBe(true);
   });
 
+  it('with a per-element binding at node level, beside the bag (objectui#11070)', () => {
+    const r = safeValidateSchema({ ...SHOWCASE_AUTHORED, dataSource: { object: 'showcase_invoice' } });
+    expect(r.error?.issues ?? []).toEqual([]);
+    expect(r.success).toBe(true);
+  });
+
   it('keeps the authored series as written: the spec\'s defaults are not injected', () => {
     const r = ObjectChartMirror.safeParse(SHOWCASE_NODE);
     expect(r.data?.series).toEqual(SHOWCASE_NODE.series);
@@ -160,6 +169,11 @@ describe('objectui#10770 (c) — what stays refused', () => {
     const { specType: _family, ...noFamily } = SHOWCASE_NODE;
     expect(ObjectChartMirror.safeParse({ ...noFamily, chartType: 'bar' }).success).toBe(true);
     expect(ObjectChartMirror.safeParse({ type: 'object-chart', specType: 'line' }).success).toBe(true);
+  });
+
+  it('a `null` `dataSource`, the adapter placeholder the wrapper no longer writes (objectui#11070)', () => {
+    const issues = issuesOf({ ...SHOWCASE_NODE, dataSource: null });
+    expect(issues.map((i) => [i.code, i.path])).toEqual([['invalid_type', ['dataSource']]]);
   });
 
   it('the internal `{ dataKey }` arm is unchanged', () => {

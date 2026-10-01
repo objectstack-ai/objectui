@@ -164,8 +164,27 @@ export function isBlankPredicateText(value: unknown): boolean {
  * an empty predicate made the node VANISH (objectui#3955), and
  * `ActionEngine.getActionsForLocation`'s `visible` filter, which folded some
  * empty spellings by hand and coerced the rest with `Boolean(raw)`, so
- * `visible: 0` hid an action the renderers showed (objectui#3957). Nothing in the
- * repo now asks "is a gate declared?" anywhere but here.
+ * `visible: 0` hid an action the renderers showed (objectui#3957).
+ *
+ * The last one joined with objectui#11322: plugin-grid's `hasVisibilityGate`,
+ * on the grid's selection bar, asks it through the renderer-side name
+ * `hasDeclaredVisibilityGate`. It decides whether a bulk button whose `visible`
+ * admits no record is hidden, and `partitionBulkRows` asks it before handing a
+ * bulk def's `visible` to `partitionRowsByPredicate`. It had kept the old
+ * `!= null && !== ''` scope after every other member of the family moved here,
+ * so a whitespace-only `visible` counted as declared on that bar, failed closed
+ * for every record, and hid an action the row menu and toolbars showed.
+ *
+ * Nothing in the repo now asks "is a gate declared?" anywhere but here for
+ * the keys this definition serves. What stays outside is a different family,
+ * not a twin: the field-rule `*When` keys (ADR-0137) decide it by rules of
+ * their own. Examples are the built-in Edit / Delete row item's
+ * `visibleWhen != null` (`isBuiltinRowActionVisible`), and the opening test of
+ * the shared partitioner `partitionRowsByPredicate` (`null` / `undefined` /
+ * `''`), which is the answer its built-in Delete `visibleWhen` callers get. The
+ * action family asks here before it calls that partitioner.
+ * ⚠️ Nothing re-derives this paragraph: it was read off a source search when
+ * objectui#11322 landed, and no test or gate repeats that search.
  */
 export function hasDeclaredPredicate(value: unknown): boolean {
   if (isBlankPredicateText(value)) {

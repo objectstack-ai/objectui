@@ -535,7 +535,6 @@ export type {
   ObjectFieldMetadata,
   VectorFieldMetadata,
   GridFieldMetadata,
-  GridColumnDefinition,
   ColorFieldMetadata,
   CodeFieldMetadata,
   AvatarFieldMetadata,

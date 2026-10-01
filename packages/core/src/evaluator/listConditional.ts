@@ -370,9 +370,11 @@ export interface RowPartition<TRow> {
  * that loop written once, with the three cases each caller was otherwise
  * re-deriving:
  *
- *   - **absent** (`null` / `undefined` / blank string) — nothing is gated, so
- *     `rows` is returned BY REFERENCE and `skipped` is 0. The common case
- *     allocates nothing and a caller's downstream memo still holds.
+ *   - **absent** (`null` / `undefined` / `''`) — nothing is gated, so `rows` is
+ *     returned BY REFERENCE and `skipped` is 0. The common case allocates
+ *     nothing and a caller's downstream memo still holds. Whitespace-only text
+ *     and an envelope whose `source` is blank are NOT absent here: they are
+ *     evaluated, and fail closed like any other predicate that cannot run.
  *   - **boolean** — a verdict, not an expression, short-circuited exactly as
  *     `useCondition` / `useRowPredicate` do. Handing `true` to the engine
  *     produces `{ dialect: 'cel', source: undefined }`, which faults and — on
@@ -388,6 +390,24 @@ export interface RowPartition<TRow> {
  * record bound, `record.status != 'paid'` returns `true` for every row —
  * including the ones it was written to exclude — so an authored gate is not
  * weakened, it is inverted for half its inputs (objectui#3067).
+ *
+ * ## Who calls it, and who decides "is a gate declared?" (objectui#11322)
+ *
+ * This is a shared partitioner, and its opening test is not the action
+ * family's "is a gate declared?" question. Its callers:
+ *
+ *   - the bulk ACTION fold, plugin-grid's `partitionBulkRows` (a bulk def's
+ *     `visible`). The action family decides "declared?" BEFORE calling here,
+ *     through `hasDeclaredVisibilityGate`, and hands an undeclared gate over as
+ *     `undefined`. So a whitespace-only `visible` or a blank-`source` envelope
+ *     never reaches the test below from that caller.
+ *   - the built-in Delete's `userActions.delete.visibleWhen`, a field-rule key,
+ *     from plugin-grid's `ObjectGrid` and from plugin-list's `ListView`
+ *     (`bulkDeleteEligibility`). The test below is THEIR answer: a blank one
+ *     that is not `''` is evaluated and excludes every record.
+ *
+ * A caller that needs the action family's answer asks it first; it does not
+ * write a second blank test in front of this one.
  */
 export function partitionRowsByPredicate<TRow extends Record<string, unknown>>(
   pred: FieldRulePredicate | boolean | undefined | null,

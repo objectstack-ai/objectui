@@ -15,3 +15,20 @@ The two spec lines differ, and these members follow the installed one. The publi
 **Breaking for TypeScript readers of these members, released as `minor`** under this repo's version-alignment rule (the fixed group's major follows `@objectstack`). Code that reads `rule.condition` as a `string`, or reads `def.visible.source` as a `string`, stops compiling. Narrow on `typeof` first, as the shared evaluator does. Code that writes these members compiles unchanged.
 
 Pins: `spec-expression-wire-slots-10946.test.ts` in `@object-ui/types` covers the relays with no assertion, the zod twin's input equalling the TS member, envelope acceptance with string and empty-string controls, and the reference identity of the spec arm. `specExpressionWire-10946.test.tsx` in `@object-ui/plugin-grid` covers the real grid painting an envelope-matched row, the bulk fold reading `source` beside `ast`, and the `ast`-only fault on both.
+
+**Note, 2026-10-01 (objectui#11322, shipping in this same release).**
+The `ast`-only reading above changed for the bulk def after this entry was
+written. The grid's selection bar now asks the action family's one "is a gate
+declared?" definition (`hasDeclaredVisibilityGate`) before the bulk fold, as
+the row menu and the toolbars already did, and that definition reads an
+envelope with no `source` as no gate.
+- An `ast`-only bulk `visible` is no gate: the button shows and every selected
+  record qualifies, with no warning. The formatting rule's `ast`-only
+  `condition` is unchanged: it does not match, and the fault is warned.
+- `specExpressionWire-10946.test.tsx` pins the formatting fault and, for the
+  bulk def, the no-gate answer.
+
+So the sentences above that say the bulk def qualifies no record, and that the
+test file pins the `ast`-only fault "on both", describe the tree at
+objectui#10946, not the code in this release. See objectui#11322's changesets
+for `@object-ui/plugin-grid` and `@object-ui/types`.

@@ -7,6 +7,7 @@
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
+import { hasDeclaredVisibilityGate } from '@object-ui/components';
 import { partitionBulkRows, hasVisibilityGate } from '../bulkEligibility';
 
 const ROWS = [
@@ -131,6 +132,43 @@ describe('partitionBulkRows', () => {
       expect(hasVisibilityGate({ name: 'plain' })).toBe(false);
       expect(hasVisibilityGate({ name: 'blank', visible: '' })).toBe(false);
       expect(hasVisibilityGate(undefined)).toBe(false);
+    });
+  });
+
+  // [objectui#11322] Blank text is no gate, in either spelling. The selection
+  // bar used to ask "declared?" with `!= null && !== ''`, so the spellings below
+  // counted as gates, every record failed them, and the bar hid an action the
+  // row menu and toolbars show. `hasVisibilityGate` now asks the action family's
+  // definition, and `partitionBulkRows` asks it BEFORE the core fold, whose own
+  // opening test (`''` only) belongs to its field-rule callers. So the blank
+  // reaches the fold as `undefined` and every record comes back by reference.
+  // The `''` row above is the control; the boolean rows keep "not declared"
+  // from passing as "always".
+  describe('blank visible (objectui#11322)', () => {
+    const BLANKS = [
+      ['a whitespace-only string', '   '],
+      ['an envelope whose `source` is whitespace', { dialect: 'cel', source: '   ' }],
+      ['an envelope whose `source` is empty', { dialect: 'cel', source: '' }],
+    ] as const;
+
+    it.each(BLANKS)('%s is not a declared gate', (_label, visible) => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      expect(hasVisibilityGate({ name: 'blank', visible: visible as never })).toBe(false);
+    });
+
+    it.each(BLANKS)('%s passes every record through, by reference', (_label, visible) => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const { eligible, skipped } = partitionBulkRows({ name: 'blank', visible: visible as never }, ROWS);
+      expect(eligible).toBe(ROWS);
+      expect(skipped).toBe(0);
+    });
+
+    it('answers exactly what the action family answers, for every shape above', () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const shapes: unknown[] = [undefined, '', false, true, 'record.done', ...BLANKS.map(([, v]) => v)];
+      for (const visible of shapes) {
+        expect(hasVisibilityGate({ name: 'x', visible: visible as never })).toBe(hasDeclaredVisibilityGate(visible));
+      }
     });
   });
 });

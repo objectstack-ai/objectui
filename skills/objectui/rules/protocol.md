@@ -253,17 +253,23 @@ channel is objectui#4795's open question, not a taught surface.
 
 ## Rule: Actions Are Node Types, Not An Event Bag
 
-A control that RUNS something MUST be its own node — `action:button` — with
-`actionType` naming the executor the action runner dispatches to and the node's
-own keys carrying that executor's arguments:
+A control that RUNS something MUST be its own node — `action:button` — and its
+props live in the node's `properties` bag (the spec's row for the block, hoisted
+onto the node by `SchemaRenderer` as the rule above describes): `actionType`
+names the executor the action runner dispatches to, and the row's other keys carry
+that executor's arguments. ⛔ Not flat on the node: the spec's strict page
+component refuses a node-level `actionType` / `target` as mis-layered
+(ADR-0089 D3a), and objectui's strict authoring face refuses the same two keys.
 
 <!-- os:check -->
 ```json
 {
   "type": "action:button",
-  "label": "Submit",
-  "actionType": "url",
-  "target": "/success"
+  "properties": {
+    "label": "Submit",
+    "actionType": "url",
+    "target": "/success"
+  }
 }
 ```
 

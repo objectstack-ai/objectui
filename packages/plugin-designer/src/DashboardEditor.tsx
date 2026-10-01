@@ -45,6 +45,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
 import { pickLocalized, setLocalized } from '@object-ui/i18n';
 import { useUndoRedo } from './hooks/useUndoRedo';
 import { useDesignerTranslation } from './hooks/useDesignerTranslation';
@@ -305,6 +306,8 @@ function WidgetCard({
 
 interface WidgetPropertyPanelProps {
   widget: DashboardWidgetSchema;
+  /** The widget's position in `widgets[]`, which the grid auto-places it by. */
+  index: number;
   readOnly: boolean;
   onChange: (updates: Partial<DashboardWidgetSchema>) => void;
   onClose: () => void;
@@ -312,11 +315,22 @@ interface WidgetPropertyPanelProps {
 
 function WidgetPropertyPanel({
   widget,
+  index,
   readOnly,
   onChange,
   onClose,
 }: WidgetPropertyPanelProps) {
   const { t, language } = useDesignerTranslation();
+  // Width and height each edit ONE dimension of the spec's four-number
+  // `layout`, so both go through `completeWidgetLayout` (objectui#11388): on a
+  // widget with no `layout` the untouched coordinates come from the grid's
+  // auto-placement for this widget's index, and the stored box is whole.
+  // Spreading the one number onto an absent box stored `{ w }`, which the spec
+  // refuses. Both inputs SHOW the same completed box. This editor's own grid
+  // places widgets by array order and computes no `x` / `y`, so it seeds from
+  // `defaultWidgetPlacement`.
+  const placement = defaultWidgetPlacement(index);
+  const layout = completeWidgetLayout(widget.layout, {}, placement);
   // What the title input SHOWS: the active locale's entry. What a keystroke
   // WRITES is `writeWidgetTitle` — never this resolved string as a whole value.
   const titleDisplay = resolveWidgetTitle(widget.title, language);
@@ -430,8 +444,8 @@ function WidgetPropertyPanel({
               data-testid="widget-prop-width"
               type="number"
               min={1}
-              value={widget.layout?.w ?? 1}
-              onChange={(e) => onChange({ layout: { ...widget.layout, w: Number(e.target.value) || 1 } as DashboardWidgetSchema['layout'] })}
+              value={layout.w}
+              onChange={(e) => onChange({ layout: completeWidgetLayout(widget.layout, { w: Number(e.target.value) || 1 }, placement) })}
               disabled={readOnly}
               className="block w-full rounded-md border border-gray-300 px-2 py-1 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
             />
@@ -443,8 +457,8 @@ function WidgetPropertyPanel({
               data-testid="widget-prop-height"
               type="number"
               min={1}
-              value={widget.layout?.h ?? 1}
-              onChange={(e) => onChange({ layout: { ...widget.layout, h: Number(e.target.value) || 1 } as DashboardWidgetSchema['layout'] })}
+              value={layout.h}
+              onChange={(e) => onChange({ layout: completeWidgetLayout(widget.layout, { h: Number(e.target.value) || 1 }, placement) })}
               disabled={readOnly}
               className="block w-full rounded-md border border-gray-300 px-2 py-1 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
             />
@@ -562,7 +576,8 @@ export function DashboardEditor({
   );
 
   const widgets = currentSchema.widgets || [];
-  const selectedWidget = widgets.find((w) => w.id === selectedWidgetId);
+  const selectedIndex = widgets.findIndex((w) => w.id === selectedWidgetId);
+  const selectedWidget = selectedIndex < 0 ? undefined : widgets[selectedIndex];
 
   const addWidget = useCallback(
     (type: DashboardWidgetTypeName) => {
@@ -705,6 +720,7 @@ export function DashboardEditor({
       {selectedWidget && !previewMode && (
         <WidgetPropertyPanel
           widget={selectedWidget}
+          index={selectedIndex}
           readOnly={readOnly}
           onChange={updateWidget}
           onClose={() => setSelectedWidgetId(null)}

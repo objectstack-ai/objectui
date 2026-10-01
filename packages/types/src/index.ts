@@ -79,6 +79,12 @@ export {
   liftLegacyDashboardFilterDefaults,
 } from './dashboard-filter-alias.js';
 
+// Dashboard widget layout completion (objectui#11388) — the one helper the
+// widget width / height editors write a whole four-number `layout` through, and
+// the grid's auto-placement it seeds from. Zod-free, so it belongs on the main
+// entry.
+export { completeWidgetLayout, defaultWidgetPlacement } from './dashboard-widget-layout.js';
+
 // `ui:icon` glyph-key conversion (objectui#5631) — stored `{ type:'icon',
 // name:'check' }` -> `{ type:'icon', icon:'check' }`. A one-shot converter a
 // deployer runs over stored metadata; ⛔ NOT a read-path fallback, which the

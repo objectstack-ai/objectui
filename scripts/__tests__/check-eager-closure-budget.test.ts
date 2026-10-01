@@ -614,6 +614,32 @@ describe('chunk attribution (objectui#7399)', () => {
       },
     );
 
+    /**
+     * objectui#11101 — the same blind spot one option over. Every case above
+     * asks which group's `test` CLAIMS a module id, and `vendor-objectstack`'s
+     * test claims `@objectstack/spec`'s `/ai` and `/integration` entries as
+     * readily as `/ui`. Whether a claimed module is EAGER is not a property of
+     * the test at all: the group's chunk is a static import of the entry, so it
+     * is eager whatever the source does — which is how two spec entries that
+     * only the designers' client validation reaches, through `import()` in
+     * `clientValidation.ts`, were on every page load. `tags: ['$initial']`
+     * restricts the group to the entry's static closure.
+     *
+     * ⚠️ This pins the group TABLE. What the tag bought is weighed on a real
+     * console build by `scripts/check-eager-closure-budget.mjs`, whose lowered
+     * ceiling reds when the tag goes; neither substitutes for the other.
+     */
+    it('narrows `vendor-objectstack` to the entry`s static closure, so an `import()` stays lazy', () => {
+      const group = groups.find((g) => g.name === 'vendor-objectstack');
+      expect(group).toBeDefined();
+      expect(group!.options).toContain(`tags: ['$initial']`);
+      // The control: the parse reads the tag off THIS group, not off every
+      // group — a tail-blind or table-wide match would satisfy the line above.
+      expect(groups.filter((g) => g.options.includes('$initial')).map((g) => g.name)).toEqual([
+        'vendor-objectstack',
+      ]);
+    });
+
     it('leaves no second claimant at the winner`s priority', () => {
       for (const id of [LOCALE_MODULE, RESIDENT_LOCALE_MODULE, DATA_MODULE, ZOD_MODULE]) {
         const claiming = claimants(id);

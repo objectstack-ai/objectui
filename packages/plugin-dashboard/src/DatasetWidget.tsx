@@ -1071,12 +1071,23 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     // declared the key stays byte-identical.
     const accentClass = metricAccentTextClass(widget?.colorVariant);
     // ── The declared sub-caption (objectui#7293) ───────────────────────────
-    // `options.description` is the metric tile's SUB-CAPTION slot. It is
-    // declared end to end and reached nothing: it has its own translation key
-    // (`{ns}.dashboards.{dash}.widgets.{id}.subCaption`, objectui#4032 item 4 /
-    // objectstack#8056), the server's `translateDashboard` OVERLAYS that
-    // translation onto this very key, and `DashboardRenderer.tWidgetSubCaption`
-    // resolves it — but only onto the two INLINE arms of `getComponentSchema`.
+    // `options.description` is the metric tile's SUB-CAPTION slot. Before
+    // #7293 it was wired end to end and reached nothing here: it has its own
+    // translation key (`{ns}.dashboards.{dash}.widgets.{id}.subCaption`,
+    // objectui#4032 item 4 / objectstack#8056), the server's
+    // `translateDashboard` OVERLAYS that translation onto this very key, and
+    // `DashboardRenderer.tWidgetSubCaption` resolved it — but only onto the two
+    // INLINE arms of `getComponentSchema`.
+    //
+    // ⚠️ Wired, not DECLARED (objectui#11070 round 11). `@objectstack/spec`'s
+    // `DashboardWidgetOptionsSchema` has no `description` member; its open bag
+    // admits the key without judging it. `translateDashboard` writes it on the
+    // served path (objectstack's `check:widget-option-census` ledgers it as an
+    // undeclared resolver output). objectui's strict authoring face refuses an
+    // authored one with the inline-dialect keys (objectui#11228 ruling C).
+    // Which way it goes — a spec declaration, a declared home for the overlay,
+    // or retiring both ends — is an open decision on objectui#11070; this read
+    // stays meanwhile, because its writer is live.
     // `dataset` is REQUIRED on `DashboardWidgetSchema` (verified against the
     // published @objectstack/spec@17.4.0: required keys are id/dataset/values),
     // so every spec-legal widget renders HERE instead, and every author who

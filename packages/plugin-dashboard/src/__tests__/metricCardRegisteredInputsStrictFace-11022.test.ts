@@ -23,11 +23,26 @@
  * The instrument's controls: a key no registration declares is refused by
  * name (so walk 1 can fail), and the population is non-empty and holds the
  * card that motivated the repair.
+ *
+ *   3. THE SLOT'S `layout` (objectui#11070 round 11) — not a registered input
+ *      but a widget key, the spec's widget `layout`, which `DashboardGridLayout`'s
+ *      Save Layout (`mergeLayoutIntoSchema`) writes onto every `widgets[]`
+ *      entry, a component node included. The producer's own output is parsed
+ *      here, so the pin measures what Save Layout writes rather than a
+ *      hand-copied shape of it. The slot arm declares the spec's member by
+ *      reference, so a malformed `layout` is the control: refused, at
+ *      `layout`, on both faces.
  */
 import { describe, expect, it } from 'vitest';
+import { DashboardWidgetSchema as SpecDashboardWidgetSchema } from '@objectstack/spec/ui';
 import { ComponentRegistry } from '@object-ui/core';
-import { DASHBOARD_COMPONENT_WIDGET_TYPES } from '@object-ui/types';
 import {
+  DASHBOARD_COMPONENT_WIDGET_TYPES,
+  type DashboardComponentSchema as DashboardComponentNode,
+  type DashboardWidgetSlotComponentSchema,
+} from '@object-ui/types';
+import {
+  AnyComponentSchema,
   DashboardComponentSchema,
   deriveStrictAuthoringSchema,
   StrictAnyComponentSchema,
@@ -35,6 +50,7 @@ import {
 // Side-effect import: the package barrel runs the `ComponentRegistry.register`
 // calls, `metric-card`'s among them.
 import '../index';
+import { mergeLayoutIntoSchema } from '../DashboardGridLayout';
 
 type Issue = { code: string; path: PropertyKey[]; keys?: string[]; errors?: Issue[][] };
 type Def = {
@@ -131,5 +147,100 @@ describe('objectui#11022 — widget-slot registrations vs the strict authoring f
     // And the other half, read the same way: nothing registered is left out.
     const missing = [...registered].filter((key) => !tolerantKeys.has(key) && !admitted.includes(key));
     expect(missing).toEqual([]);
+  });
+});
+
+/** Every issue in the refusal, union arms flattened, each path made absolute to the widget. */
+const flatIssues = (issues: readonly Issue[], prefix: PropertyKey[] = []): Issue[] =>
+  issues.flatMap((issue) => [
+    { ...issue, path: [...prefix, ...issue.path] },
+    ...(issue.errors ?? []).flatMap((group) => flatIssues(group, [...prefix, ...issue.path])),
+  ]);
+
+/** A node of `type` carrying each REQUIRED registered input, so only `layout` is under test. */
+const nodeOf = (type: string): DashboardWidgetSlotComponentSchema => ({
+  type: type as DashboardWidgetSlotComponentSchema['type'],
+  id: `kpi-${type}`,
+  ...Object.fromEntries(
+    registeredInputs(type)
+      .filter((input) => (input as Input & { required?: boolean }).required)
+      .map((input) => [input.name, sampleFor(input)]),
+  ),
+});
+
+/** What Save Layout persists: the producer's merge of grid coordinates into the dashboard. */
+const savedLayout = (node: DashboardWidgetSlotComponentSchema): DashboardComponentNode =>
+  mergeLayoutIntoSchema({ type: 'dashboard', widgets: [node] }, [
+    { i: node.id ?? '', x: 0, y: 0, w: 3, h: 2 },
+  ]);
+
+describe('objectui#11070 round 11 — the slot\'s `layout`, as Save Layout writes it, on the strict face', () => {
+  describe.each([...DASHBOARD_COMPONENT_WIDGET_TYPES])('`%s`', (type) => {
+    it('the producer writes `layout` onto the component node — the population is real', () => {
+      const saved = savedLayout(nodeOf(type));
+      expect(saved.widgets[0]).toMatchObject({ type, layout: { x: 0, y: 0, w: 3, h: 2 } });
+    });
+
+    it('the saved dashboard parses on the strict face, and `layout` is not named', () => {
+      const result = StrictAnyComponentSchema.safeParse(savedLayout(nodeOf(type)));
+      const issues = result.success ? [] : (result.error.issues as unknown as Issue[]);
+      expect(unrecognized(issues), 'the strict face refuses the `layout` Save Layout wrote').not.toContain('layout');
+      expect(result.success).toBe(true);
+      // Control: the tolerant face accepts the same document — the two faces agree.
+      expect(AnyComponentSchema.safeParse(savedLayout(nodeOf(type))).success).toBe(true);
+    });
+
+    it.each([
+      ['a non-number coordinate', { x: 'left', y: 0, w: 3, h: 2 }, ['layout', 'x']],
+      ['a missing coordinate', { x: 0, y: 0, w: 3 }, ['layout', 'h']],
+      ['a key the spec does not declare', { x: 0, y: 0, w: 3, h: 2, z: 1 }, ['layout']],
+    ] as const)('CONTROL — %s in `layout` is refused at `layout`, on both faces', (_label, layout, path) => {
+      const doc = { type: 'dashboard', widgets: [{ ...nodeOf(type), layout }] };
+      for (const face of [StrictAnyComponentSchema, AnyComponentSchema]) {
+        const result = face.safeParse(doc);
+        expect(result.success).toBe(false);
+        const union = (result.success ? [] : (result.error.issues as unknown as Issue[])).find(
+          (issue) => issue.code === 'invalid_union' && issue.path.join('.') === 'widgets.0',
+        );
+        // The COMPONENT arm's own verdict — the union's first arm — not the widget
+        // arm's, which has always judged `layout` and would answer for it otherwise.
+        const componentArm = flatIssues(union?.errors?.[0] ?? []);
+        expect(componentArm.map((issue) => issue.path.join('.'))).toContain(path.join('.'));
+      }
+    });
+  });
+
+  it('both arms carry the spec\'s widget `layout` — one shape, read off the spec, not restated', () => {
+    let widgets = defOf(DashboardComponentSchema).shape?.widgets;
+    while (defOf(widgets).innerType) widgets = defOf(widgets).innerType;
+    const arms = defOf(defOf(widgets).element).options ?? [];
+    type Member = { safeParse: (value: unknown) => { success: boolean } };
+    // Each probe value, judged by the spec's member and by each arm's: the verdicts must agree.
+    const probes: unknown[] = [
+      undefined,
+      { x: 0, y: 0, w: 3, h: 2 },
+      { x: 0, y: 0, w: 3 },
+      { x: 'left', y: 0, w: 3, h: 2 },
+      { x: 0, y: 0, w: 3, h: 2, z: 1 },
+      'top',
+    ];
+    const verdicts = (member: Member) => probes.map((value) => member.safeParse(value).success);
+    const spec = verdicts(SpecDashboardWidgetSchema.shape.layout as unknown as Member);
+    // Non-vacuity: the spec's member accepts and refuses something in the probe set.
+    expect(spec).toContain(true);
+    expect(spec).toContain(false);
+    expect(arms).toHaveLength(2);
+    for (const arm of arms) {
+      const layout = defOf(arm).shape?.layout as Member | undefined;
+      expect(layout, 'a widget-slot arm declares no `layout`').toBeDefined();
+      expect(verdicts(layout as Member)).toEqual(spec);
+    }
+  });
+
+  it('the TypeScript face: the arm types `layout` by the spec\'s shape, not the index signature\'s `any`', () => {
+    const placed: DashboardWidgetSlotComponentSchema = { type: 'metric-card', layout: { x: 0, y: 0, w: 3, h: 2 } };
+    // @ts-expect-error -- `x` is a number in the spec's widget `layout`.
+    const misplaced: DashboardWidgetSlotComponentSchema = { type: 'metric-card', layout: { x: 'left', y: 0, w: 3, h: 2 } };
+    expect([placed.layout?.w, misplaced.type]).toEqual([3, 'metric-card']);
   });
 });

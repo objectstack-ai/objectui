@@ -39,7 +39,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 import type { ActionContext, ActionDef, ActionResult } from '@object-ui/core';
-import type { BaseSchema } from '@object-ui/types';
+import type { BaseSchema, PublicBlockNodeOf } from '@object-ui/types';
 import { ActionProvider, RecordContextProvider, SchemaRenderer } from '@object-ui/react';
 // Module-scope side-effect import so `action:button` is registered before the
 // first render - the light `dom` project does not load the components graph.
@@ -60,8 +60,15 @@ afterEach(() => {
   consoleError.mockRestore();
 });
 
-/** Render `schema` on a record page bound to {@link ROW}. */
-function renderOnRecordPage(schema: BaseSchema) {
+/**
+ * Render `schema` on a record page bound to {@link ROW}.
+ *
+ * Typed as the `action:button` node (objectui#11364, the arm's input: executor
+ * keys in the `properties` bag, objectui#11183) beside `BaseSchema`, so a
+ * literal below is checked against the spec's spelling once `BaseSchema`'s
+ * index signature goes (objectui#8347).
+ */
+function renderOnRecordPage(schema: BaseSchema | PublicBlockNodeOf<'action:button'>) {
   return render(
     <ActionProvider handlers={{ navigate_edit: navigateEdit }}>
       <RecordContextProvider objectName="account" recordId={ROW.id} data={ROW}>
@@ -83,8 +90,7 @@ describe('objectui#7867 - `params` values are templates, evaluated where `proper
   it('CONTROL: `properties.label` still resolves against the bound record', () => {
     renderOnRecordPage({
       type: 'action:button',
-      actionType: 'navigate_edit',
-      properties: { label: 'L-${record.id}' },
+      properties: { label: 'L-${record.id}', actionType: 'navigate_edit' },
     });
     expect(screen.getByRole('button', { name: 'L-rec_1' })).toBeInTheDocument();
   });
@@ -92,10 +98,11 @@ describe('objectui#7867 - `params` values are templates, evaluated where `proper
   it('CASE A: a node-level `params` OBJECT is not a values channel (objectui#10289)', async () => {
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     try {
+      // The node-level `params` object is the probe: it is the spelling this
+      // case proves is NOT read, so it stays on the node.
       renderOnRecordPage({
         type: 'action:button',
-        label: 'Edit',
-        actionType: 'navigate_edit',
+        properties: { label: 'Edit', actionType: 'navigate_edit' },
         params: { objectName: 'account', recordId: '${record.id}' },
       });
       const params = await paramsReceived('Edit');
@@ -108,9 +115,7 @@ describe('objectui#7867 - `params` values are templates, evaluated where `proper
   it('CASE B: `properties.params.recordId` resolves to the bound record id', async () => {
     renderOnRecordPage({
       type: 'action:button',
-      label: 'Edit',
-      actionType: 'navigate_edit',
-      properties: { params: { objectName: 'account', recordId: '${record.id}' } },
+      properties: { label: 'Edit', actionType: 'navigate_edit', params: { objectName: 'account', recordId: '${record.id}' } },
     });
     const params = await paramsReceived('Edit');
     expect(params.recordId).toBe('rec_1');
@@ -120,9 +125,9 @@ describe('objectui#7867 - `params` values are templates, evaluated where `proper
   it('a template two levels down resolves, inside objects and inside arrays', async () => {
     renderOnRecordPage({
       type: 'action:button',
-      label: 'Edit',
-      actionType: 'navigate_edit',
       properties: {
+        label: 'Edit',
+        actionType: 'navigate_edit',
         params: {
           target: { record: { id: '${record.id}' } },
           ids: ['${record.id}', 'literal'],
@@ -139,9 +144,7 @@ describe('objectui#7867 - `params` values are templates, evaluated where `proper
   it('an unresolvable template stays loud: raw at the handler, and reported by the dev diagnostic', async () => {
     renderOnRecordPage({
       type: 'action:button',
-      label: 'Edit',
-      actionType: 'navigate_edit',
-      properties: { params: { recordId: '${nope.id}' } },
+      properties: { label: 'Edit', actionType: 'navigate_edit', params: { recordId: '${nope.id}' } },
     });
     const params = await paramsReceived('Edit');
     // The evaluator hands an expression that throws back as its own source, so

@@ -121,6 +121,45 @@ function renderComponent(schema: AnySchema) {
 type ButtonSchema = SchemaByType<'button'>;
 ```
 
+### Authoring the spec's blocks in TypeScript
+
+The spec's page blocks take their props in a `properties` bag, which is the
+block's `ComponentPropsMap` row in `@objectstack/spec`. These types give each
+such node a TypeScript face, derived from the zod arm or the spec row, never
+restated by hand:
+
+- `PublicBlockNode`: every public block the zod face arms (`element:text`,
+  `page:tabs`, `action:button`, ...), each the arm's own input.
+  `PublicBlockNodeOf<'element:text'>` picks one.
+- `ElementTextInputNode` and `ElementRecordPickerNode`: the spec rows of
+  `element:text_input` and `element:record_picker`.
+- `PageDocumentNode`: a stored page document under its page kind
+  (`type: 'home'`, `kind: 'html'`, ...).
+- `AuthoringNode`: all of the above. `SchemaRenderer`'s `schema` prop
+  (`@object-ui/react`) accepts it beside `BaseSchema`.
+
+```typescript
+import type { ElementTextInputNode, PublicBlockNodeOf } from '@object-ui/types';
+
+const tabs: PublicBlockNodeOf<'page:tabs'> = {
+  type: 'page:tabs',
+  properties: {
+    items: [{ label: 'Details', value: 'details', children: [] }],
+  },
+};
+
+const workspace: ElementTextInputNode = {
+  type: 'element:text_input',
+  id: 'workspace',
+  properties: { label: 'Workspace', placeholder: 'acme' },
+};
+```
+
+A key misspelled inside a bag (`properties: { contnet: 'Hello' }` on an
+`element:text`) does not type-check against these types. An action's executor
+keys (`actionType`, `target`, `params`) belong in the `action:button` bag, not
+flat on the node.
+
 ### The strict authoring face
 
 `@object-ui/types/zod` publishes **two** faces over the same declarations.
@@ -164,7 +203,10 @@ sitting directly in a dashboard's `widgets` slot, whose props are its
 registration's `inputs`. The strict face admits exactly the input names that
 registration declares on that node, each judged as the tolerant face judges it,
 and still refuses any other key by name (objectui#11022; the names are held to
-the live registration by a test in `@object-ui/plugin-dashboard`):
+the live registration by a test in `@object-ui/plugin-dashboard`). The node also
+declares one widget key, `layout`, the spec's widget position, which the
+editable grid's Save Layout writes onto every entry; it is judged by the spec's
+shape (objectui#11070):
 
 ```typescript
 import { StrictAnyComponentSchema } from '@object-ui/types/zod';
@@ -173,6 +215,7 @@ const card = (widget: object) => ({ type: 'dashboard', widgets: [widget] });
 
 StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42 })).success; // true
 StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', bogus: 1 })).success;  // false — `bogus` is named
+StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42, layout: { x: 0, y: 0, w: 3, h: 2 } })).success; // true
 ```
 
 ## Type Categories
@@ -183,6 +226,7 @@ Foundation types that all components build upon:
 
 - `BaseSchema` - The base interface for all components
 - `SchemaNode` - Union type for schema nodes (objects, strings, numbers, etc.)
+- `AuthoringNode` - The spec-declared nodes with a typed `properties` bag (see "Authoring the spec's blocks in TypeScript")
 - `ComponentMeta` - Metadata for component registration
 - `ComponentInput` - Input field definitions for designers/editors
 

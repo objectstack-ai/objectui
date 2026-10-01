@@ -64,11 +64,14 @@ function renderSynthesizedStrip(language: string) {
         schema={{
           type: 'page:tabs',
           id: 'tabs',
-          items: SYNTHESIZED_TABS.map(({ token }) => ({
-            label: token,
-            value: token.toLowerCase(),
-            children: textChild(`${token} BODY`),
-          })),
+          // The bag, where `PageTabsProps` declares `items` (objectui#11364).
+          properties: {
+            items: SYNTHESIZED_TABS.map(({ token }) => ({
+              label: token,
+              value: token.toLowerCase(),
+              children: textChild(`${token} BODY`),
+            })),
+          },
         }}
       />
     </I18nProvider>,
@@ -152,10 +155,12 @@ describe('page:tabs — built-in record-detail labels speak the session locale (
           schema={{
             type: 'page:tabs',
             id: 'tabs',
-            items: [
-              { label: 'Invoices', value: 'a', children: textChild('A') },
-              { label: 'Details', value: 'b', children: textChild('B') },
-            ],
+            properties: {
+              items: [
+                { label: 'Invoices', value: 'a', children: textChild('A') },
+                { label: 'Details', value: 'b', children: textChild('B') },
+              ],
+            },
           }}
         />
       </I18nProvider>,

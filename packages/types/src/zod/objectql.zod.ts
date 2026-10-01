@@ -2995,6 +2995,11 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   cardTitle: z.string().optional().describe('Field rendered as each card title — the canonical spelling; `titleField` beside it is the legacy fallback, and the board reads `cardTitle || titleField`'),
   titleField: z.string().optional().describe('Title field'),
   cardFields: z.array(z.string()).optional().describe('Card fields'),
+  // objectui#11355 — declared on both faces, as `@objectstack/spec`'s
+  // `ComponentPropsMap['object-kanban']` row declares it (an optional string).
+  // Until then `.passthrough()` kept an authored value unjudged. `grouping`, the
+  // read's fallback, stays undeclared here: that is objectui#11216's.
+  swimlaneField: z.string().optional().describe('Record field that splits the board into horizontal swimlanes, across the groupBy columns; when absent the board falls back to grouping.fields[0].field'),
   // objectui#8285 — RETIRED on this arm (ruling B, director seat decision batch
   // #91, 2026-09-08), aligned with `@objectstack/spec` 17.5.0, whose
   // `ComponentPropsMap['object-kanban']` tombstones the same key. A tombstone

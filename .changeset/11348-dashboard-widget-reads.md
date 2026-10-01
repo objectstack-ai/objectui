@@ -26,3 +26,5 @@ compiles with the signature present.
 The drill-down drawer's `pageSize` is settled in `@object-ui/types` instead, by
 a declaration on `ObjectDataTableSchema` with its own changeset; the drawer's
 literal is unchanged.
+
+⚠️ **Dated note, 2026-10-01 — the component arm now declares `layout` — objectui#11070.** "the component arm has no spec row and declares none of them" above held when this change landed. Later in this same release, round 11 of objectui#11070 declared `layout` on the component arm, by reference to the spec's widget `layout`, because Save Layout writes it onto every `widgets[]` entry. `title` and `colorVariant` are still declared on the widget arm only. `.changeset/11070-dashboard-keys-round11.md` states what ships; the text above is kept as the reading of this change.

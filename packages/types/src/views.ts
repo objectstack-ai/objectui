@@ -20,6 +20,11 @@ import type { BaseSchema, SchemaNode } from './base.js';
 import type { ActionSchema } from './crud.js';
 import type { SelectOptionMetadata } from './field-types.js';
 import type { ListView as SpecListView } from '@objectstack/spec/ui';
+// objectui#11355 — `DetailViewSchema.showHeader` carries `record:details`'s own
+// `showHeader`, so it takes that row's type by reference. Aliased because the
+// bare name is the protocol's (`pnpm check:spec-symbols`). Type-only.
+import type { RecordDetailsProps as SpecRecordDetailsProps } from '@objectstack/spec/ui';
+import type { z } from 'zod';
 
 /**
  * View Type — the list-view types `@objectstack/spec` publishes, plus the two
@@ -799,6 +804,25 @@ export interface DetailViewSchema extends BaseSchema {
    * Tabs for additional content
    */
   tabs?: DetailViewTab[];
+  /**
+   * Draw the view's OWN heading: the title, follow-star and copy-id chip above
+   * the fields. `DetailView` draws it unless this is `false`. When it is
+   * `false` and inline editing is on, the approval band is drawn inline instead.
+   *
+   * The `detail-view` node has no `@objectstack/spec` row. The key's producer is
+   * `record:details`: it writes `showHeader: schema.showHeader ?? false` onto
+   * the `detail-view` node it builds, carrying its own spec-declared
+   * `RecordDetailsProps.showHeader` there. So the type is that row's, by
+   * reference, and the two keys cannot drift apart. The defaults differ:
+   * `record:details` is off by default, because it is normally composed under a
+   * `page:header`; a bare `detail-view` is on.
+   *
+   * Undeclared until objectui#11355, so both reads reached the key only through
+   * {@link BaseSchema}'s index signature.
+   *
+   * @default true
+   */
+  showHeader?: z.input<typeof SpecRecordDetailsProps>['showHeader'];
   /**
    * Show back button
    * @default true

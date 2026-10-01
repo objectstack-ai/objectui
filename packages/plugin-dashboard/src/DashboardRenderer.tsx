@@ -323,10 +323,11 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     const inferredColumns = (() => {
       if (schema.columns != null) return schema.columns;
       // Typed `DashboardWidgetSchema[]`, the type `renderWidget` below already
-      // takes (objectui#11348): `layout` is declared on the widget arm of the
-      // `widgets[]` union only — the spec's `DashboardWidget` row declares it —
-      // and the component arm (`DashboardWidgetSlotComponentSchema`) is
-      // assignable to that arm, so this is a checked widening, not a cast.
+      // takes (objectui#11348). Both arms of the `widgets[]` union declare
+      // `layout` as the spec's `DashboardWidget` member — the component arm
+      // (`DashboardWidgetSlotComponentSchema`) by reference since objectui#11070
+      // round 11 — and that arm is assignable to the widget arm, so this is a
+      // checked widening, not a cast.
       const widgets: DashboardWidgetSchema[] = schema.widgets ?? [];
       let maxSpan = 0;
       for (const w of widgets) {

@@ -221,6 +221,11 @@ export const DetailViewSchema = BaseSchema.extend({
   fields: z.array(DetailViewFieldSchema).optional().describe('Direct fields (without sections)'),
   actions: z.array(z.any()).optional().describe('Actions available in detail view'),
   tabs: z.array(DetailViewTabSchema).optional().describe('Tabs for additional content'),
+  // objectui#11355 — declared on both faces. Its producer is `record:details`,
+  // which carries its own spec-declared `showHeader` onto the node it builds,
+  // so the TS twin takes that row's type by reference. Until then
+  // `.passthrough()` kept an authored value unjudged.
+  showHeader: z.boolean().optional().describe('Draw the view\'s own heading (title, follow-star, copy-id chip); drawn unless false. record:details sets it from its own showHeader'),
   showBack: z.boolean().optional().describe('Show back button'),
   backUrl: z.string().optional().describe('Back button URL'),
   // RUNTIME SLOT (objectui#7344, the objectui#6182 ruling in the objectui#6124

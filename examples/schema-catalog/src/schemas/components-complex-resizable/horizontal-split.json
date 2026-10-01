@@ -9,16 +9,18 @@
       "content": [
         {
           "type": "flex",
-          "justify": "center",
-          "align": "center",
-          "gap": 0,
-          "className": "p-4 h-full bg-slate-50",
-          "children": [
-            {
-              "type": "text",
-              "content": "Panel 1"
-            }
-          ]
+          "properties": {
+            "justify": "center",
+            "align": "center",
+            "gap": 0,
+            "children": [
+              {
+                "type": "text",
+                "content": "Panel 1"
+              }
+            ]
+          },
+          "className": "p-4 h-full bg-slate-50"
         }
       ]
     },
@@ -27,16 +29,18 @@
       "content": [
         {
           "type": "flex",
-          "justify": "center",
-          "align": "center",
-          "gap": 0,
-          "className": "p-4 h-full bg-slate-100",
-          "children": [
-            {
-              "type": "text",
-              "content": "Panel 2"
-            }
-          ]
+          "properties": {
+            "justify": "center",
+            "align": "center",
+            "gap": 0,
+            "children": [
+              {
+                "type": "text",
+                "content": "Panel 2"
+              }
+            ]
+          },
+          "className": "p-4 h-full bg-slate-100"
         }
       ]
     }

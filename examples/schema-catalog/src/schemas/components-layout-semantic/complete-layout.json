@@ -22,25 +22,27 @@
       "children": [
         {
           "type": "flex",
-          "gap": 4,
-          "children": [
-            {
-              "type": "text",
-              "content": "Home"
-            },
-            {
-              "type": "text",
-              "content": "About"
-            },
-            {
-              "type": "text",
-              "content": "Services"
-            },
-            {
-              "type": "text",
-              "content": "Contact"
-            }
-          ]
+          "properties": {
+            "gap": 4,
+            "children": [
+              {
+                "type": "text",
+                "content": "Home"
+              },
+              {
+                "type": "text",
+                "content": "About"
+              },
+              {
+                "type": "text",
+                "content": "Services"
+              },
+              {
+                "type": "text",
+                "content": "Contact"
+              }
+            ]
+          }
         }
       ]
     },

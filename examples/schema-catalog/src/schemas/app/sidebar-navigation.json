@@ -8,63 +8,69 @@
       "children": [
         {
           "type": "flex",
-          "align": "center",
-          "gap": 2,
-          "className": "px-3 py-2 rounded-md bg-accent text-accent-foreground",
-          "children": [
-            {
-              "type": "icon",
-              "icon": "layout-dashboard",
-              "className": "h-4 w-4"
-            },
-            {
-              "type": "text",
-              "content": "Dashboard",
-              "className": "text-sm font-medium"
-            }
-          ]
+          "properties": {
+            "align": "center",
+            "gap": 2,
+            "children": [
+              {
+                "type": "icon",
+                "icon": "layout-dashboard",
+                "className": "h-4 w-4"
+              },
+              {
+                "type": "text",
+                "content": "Dashboard",
+                "className": "text-sm font-medium"
+              }
+            ]
+          },
+          "className": "px-3 py-2 rounded-md bg-accent text-accent-foreground"
         },
         {
           "type": "flex",
-          "align": "center",
-          "gap": 2,
-          "className": "px-3 py-2 rounded-md hover:bg-accent/50",
-          "children": [
-            {
-              "type": "icon",
-              "icon": "users",
-              "className": "h-4 w-4 text-muted-foreground"
-            },
-            {
-              "type": "text",
-              "content": "Contacts",
-              "className": "text-sm"
-            },
-            {
-              "type": "badge",
-              "label": "128",
-              "variant": "secondary",
-              "className": "ml-auto text-xs"
-            }
-          ]
+          "properties": {
+            "align": "center",
+            "gap": 2,
+            "children": [
+              {
+                "type": "icon",
+                "icon": "users",
+                "className": "h-4 w-4 text-muted-foreground"
+              },
+              {
+                "type": "text",
+                "content": "Contacts",
+                "className": "text-sm"
+              },
+              {
+                "type": "badge",
+                "label": "128",
+                "variant": "secondary",
+                "className": "ml-auto text-xs"
+              }
+            ]
+          },
+          "className": "px-3 py-2 rounded-md hover:bg-accent/50"
         },
         {
           "type": "flex",
-          "align": "center",
-          "gap": 2,
-          "className": "px-3 py-2 rounded-md hover:bg-accent/50",
-          "children": [
-            {
-              "type": "icon",
-              "icon": "target",
-              "className": "h-4 w-4 text-muted-foreground"
-            },
-            {
-              "type": "text",
-              "content": "Opportunities",
-              "className": "text-sm"
-            }
-          ]
+          "properties": {
+            "align": "center",
+            "gap": 2,
+            "children": [
+              {
+                "type": "icon",
+                "icon": "target",
+                "className": "h-4 w-4 text-muted-foreground"
+              },
+              {
+                "type": "text",
+                "content": "Opportunities",
+                "className": "text-sm"
+              }
+            ]
+          },
+          "className": "px-3 py-2 rounded-md hover:bg-accent/50"
         },
         {
           "type": "separator",
@@ -77,39 +83,43 @@
         },
         {
           "type": "flex",
-          "align": "center",
-          "gap": 2,
-          "className": "px-3 py-2 rounded-md hover:bg-accent/50",
-          "children": [
-            {
-              "type": "icon",
-              "icon": "megaphone",
-              "className": "h-4 w-4 text-muted-foreground"
-            },
-            {
-              "type": "text",
-              "content": "Campaigns",
-              "className": "text-sm"
-            }
-          ]
+          "properties": {
+            "align": "center",
+            "gap": 2,
+            "children": [
+              {
+                "type": "icon",
+                "icon": "megaphone",
+                "className": "h-4 w-4 text-muted-foreground"
+              },
+              {
+                "type": "text",
+                "content": "Campaigns",
+                "className": "text-sm"
+              }
+            ]
+          },
+          "className": "px-3 py-2 rounded-md hover:bg-accent/50"
         },
         {
           "type": "flex",
-          "align": "center",
-          "gap": 2,
-          "className": "px-3 py-2 rounded-md hover:bg-accent/50",
-          "children": [
-            {
-              "type": "icon",
-              "icon": "mail",
-              "className": "h-4 w-4 text-muted-foreground"
-            },
-            {
-              "type": "text",
-              "content": "Email Templates",
-              "className": "text-sm"
-            }
-          ]
+          "properties": {
+            "align": "center",
+            "gap": 2,
+            "children": [
+              {
+                "type": "icon",
+                "icon": "mail",
+                "className": "h-4 w-4 text-muted-foreground"
+              },
+              {
+                "type": "text",
+                "content": "Email Templates",
+                "className": "text-sm"
+              }
+            ]
+          },
+          "className": "px-3 py-2 rounded-md hover:bg-accent/50"
         },
         {
           "type": "separator",
@@ -117,21 +127,23 @@
         },
         {
           "type": "flex",
-          "align": "center",
-          "gap": 2,
-          "className": "px-3 py-2 rounded-md hover:bg-accent/50",
-          "children": [
-            {
-              "type": "icon",
-              "icon": "settings",
-              "className": "h-4 w-4 text-muted-foreground"
-            },
-            {
-              "type": "text",
-              "content": "Settings",
-              "className": "text-sm"
-            }
-          ]
+          "properties": {
+            "align": "center",
+            "gap": 2,
+            "children": [
+              {
+                "type": "icon",
+                "icon": "settings",
+                "className": "h-4 w-4 text-muted-foreground"
+              },
+              {
+                "type": "text",
+                "content": "Settings",
+                "className": "text-sm"
+              }
+            ]
+          },
+          "className": "px-3 py-2 rounded-md hover:bg-accent/50"
         }
       ]
     }

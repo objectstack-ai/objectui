@@ -262,7 +262,7 @@ Foundation types that all components build upon:
 Structure and organization:
 
 - `ContainerSchema` - Max-width container
-- `FlexSchema` - Flexbox layout
+- `FlexSchema` - Flexbox layout, as the renderer reads it; an authored `flex` node writes its `FlexLayoutProps` in its `properties` bag
 - `GridSchema` - CSS Grid layout
 - `CardSchema` - Card container
 - `TabsSchema` - Tabbed interface
@@ -396,7 +396,7 @@ function render(schema: AnySchema) {
 Components can nest indefinitely:
 
 ```typescript
-import type { ContainerSchema, FlexSchema, SidebarSchema } from '@object-ui/types';
+import type { BaseSchema, ContainerSchema, FlexLayoutProps, SidebarSchema } from '@object-ui/types';
 
 // The two leaves are annotated so the nesting below is checked against the
 // shipped types rather than absorbed by `BaseSchema`'s index signature.
@@ -410,19 +410,29 @@ const main: ContainerSchema = {
   children: [{ type: 'data-table', data: [] }]
 };
 
-const page: FlexSchema = {
+// An authored `flex` node takes its props, the child list included, in its
+// `properties` bag; `satisfies FlexLayoutProps` checks each bag.
+const page: BaseSchema = {
   type: 'flex',
-  direction: 'col',
-  children: [
-    { type: 'header-bar', crumbs: [{ label: 'My App' }] },
-    {
-      type: 'flex',
-      direction: 'row',
-      children: [sidebar, main]
-    }
-  ]
+  properties: {
+    direction: 'col',
+    children: [
+      { type: 'header-bar', crumbs: [{ label: 'My App' }] },
+      {
+        type: 'flex',
+        properties: {
+          direction: 'row',
+          children: [sidebar, main]
+        } satisfies FlexLayoutProps
+      }
+    ]
+  } satisfies FlexLayoutProps
 };
 ```
+
+`FlexSchema` is the same node as the `flex` renderer reads it, after `SchemaRenderer`
+hoists the bag onto the node; `objectui validate` refuses those props written flat on an
+authored node.
 
 ## Comparison
 

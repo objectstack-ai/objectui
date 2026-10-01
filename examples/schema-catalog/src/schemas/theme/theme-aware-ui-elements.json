@@ -4,62 +4,66 @@
   "children": [
     {
       "type": "flex",
-      "gap": 2,
-      "wrap": true,
-      "children": [
-        {
-          "type": "button",
-          "label": "Primary",
-          "variant": "default"
-        },
-        {
-          "type": "button",
-          "label": "Secondary",
-          "variant": "secondary"
-        },
-        {
-          "type": "button",
-          "label": "Outline",
-          "variant": "outline"
-        },
-        {
-          "type": "button",
-          "label": "Ghost",
-          "variant": "ghost"
-        },
-        {
-          "type": "button",
-          "label": "Destructive",
-          "variant": "destructive"
-        }
-      ]
+      "properties": {
+        "gap": 2,
+        "wrap": true,
+        "children": [
+          {
+            "type": "button",
+            "label": "Primary",
+            "variant": "default"
+          },
+          {
+            "type": "button",
+            "label": "Secondary",
+            "variant": "secondary"
+          },
+          {
+            "type": "button",
+            "label": "Outline",
+            "variant": "outline"
+          },
+          {
+            "type": "button",
+            "label": "Ghost",
+            "variant": "ghost"
+          },
+          {
+            "type": "button",
+            "label": "Destructive",
+            "variant": "destructive"
+          }
+        ]
+      }
     },
     {
       "type": "flex",
-      "gap": 2,
-      "wrap": true,
-      "children": [
-        {
-          "type": "badge",
-          "label": "Default",
-          "variant": "default"
-        },
-        {
-          "type": "badge",
-          "label": "Secondary",
-          "variant": "secondary"
-        },
-        {
-          "type": "badge",
-          "label": "Outline",
-          "variant": "outline"
-        },
-        {
-          "type": "badge",
-          "label": "Destructive",
-          "variant": "destructive"
-        }
-      ]
+      "properties": {
+        "gap": 2,
+        "wrap": true,
+        "children": [
+          {
+            "type": "badge",
+            "label": "Default",
+            "variant": "default"
+          },
+          {
+            "type": "badge",
+            "label": "Secondary",
+            "variant": "secondary"
+          },
+          {
+            "type": "badge",
+            "label": "Outline",
+            "variant": "outline"
+          },
+          {
+            "type": "badge",
+            "label": "Destructive",
+            "variant": "destructive"
+          }
+        ]
+      }
     },
     {
       "type": "grid",

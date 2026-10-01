@@ -238,42 +238,44 @@
   "compositeExample": {
     "type": "flex",
     "id": "user-profile-card",
-    "direction": "col",
-    "gap": 4,
-    "children": [
-      {
-        "type": "avatar",
-        "src": "https://github.com/shadcn.png",
-        "alt": "User Avatar",
-        "fallback": "JD",
-        "size": "lg"
-      },
-      {
-        "type": "statistic",
-        "label": "Followers",
-        "value": "1,234",
-        "trend": "up",
-        "icon": "users"
-      },
-      {
-        "type": "badge",
-        "label": "Pro Member",
-        "variant": "default"
-      },
-      {
-        "type": "list",
-        "items": [
-          {
-            "label": "Posts",
-            "description": "42 articles"
-          },
-          {
-            "label": "Achievements",
-            "description": "15 badges earned"
-          }
-        ],
-        "dividers": true
-      }
-    ]
+    "properties": {
+      "direction": "col",
+      "gap": 4,
+      "children": [
+        {
+          "type": "avatar",
+          "src": "https://github.com/shadcn.png",
+          "alt": "User Avatar",
+          "fallback": "JD",
+          "size": "lg"
+        },
+        {
+          "type": "statistic",
+          "label": "Followers",
+          "value": "1,234",
+          "trend": "up",
+          "icon": "users"
+        },
+        {
+          "type": "badge",
+          "label": "Pro Member",
+          "variant": "default"
+        },
+        {
+          "type": "list",
+          "items": [
+            {
+              "label": "Posts",
+              "description": "42 articles"
+            },
+            {
+              "label": "Achievements",
+              "description": "15 badges earned"
+            }
+          ],
+          "dividers": true
+        }
+      ]
+    }
   }
 }

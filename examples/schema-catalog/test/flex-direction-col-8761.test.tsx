@@ -40,6 +40,11 @@
  * carried when the card was worked. This is deliberately not a catalog-wide
  * walker, and it pins nothing about how the renderer treats an UNDECLARED
  * direction value; that question is outside this card.
+ *
+ * Since objectui#11276 (the maintainer's ruling A on objectui#11300) an
+ * authored `flex` takes `direction` in its `properties` bag, so the key these
+ * pins read is `properties.direction`; `SchemaRenderer` hoists it onto the node
+ * before the renderer reads it, which the render block below still proves.
  */
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
@@ -69,12 +74,13 @@ describe('objectui#8761 — the five stacked-label entries author the declared c
     expect(issues(getExample(id).schema)).toEqual([]);
   });
 
-  it.each(IDS)('%s is a `flex` root that authors `direction: "col"`', (id) => {
+  it.each(IDS)('%s is a `flex` root that authors `direction: "col"` in its bag', (id) => {
     // Names the key that moved, so a later sweep that deleted `direction`
     // outright (which would still parse, and draw a row) cannot pass here.
-    const schema = getExample(id).schema as { type?: unknown; direction?: unknown };
+    const schema = getExample(id).schema as { type?: unknown; direction?: unknown; properties?: { direction?: unknown } };
     expect(schema.type).toBe('flex');
-    expect(schema.direction).toBe('col');
+    expect(schema.properties?.direction).toBe('col');
+    expect(schema).not.toHaveProperty('direction');
   });
 
   it.each(IDS)('%s renders its `flex` root as a column', (id) => {
@@ -92,11 +98,11 @@ describe('objectui#8761 — the five stacked-label entries author the declared c
     // Counter-probe for the parse block: the same document shape with the CSS
     // spelling must fail, and fail for this key — otherwise a green above would
     // not be evidence that the value was checked at all.
-    const result = safeValidateSchema({ type: 'flex', direction: 'column' });
+    const result = safeValidateSchema({ type: 'flex', properties: { direction: 'column' } });
     expect(result.success).toBe(false);
     const found = result.success ? [] : result.error.issues.map((i) => [i.code, i.path.join('.')]);
-    expect(found).toEqual([['invalid_value', 'direction']]);
+    expect(found).toEqual([['invalid_value', 'properties.direction']]);
     // …and the declared spelling passes the same probe.
-    expect(safeValidateSchema({ type: 'flex', direction: 'col' }).success).toBe(true);
+    expect(safeValidateSchema({ type: 'flex', properties: { direction: 'col' } }).success).toBe(true);
   });
 });

@@ -99,7 +99,11 @@ export {
   IconSchema,
   SeparatorSchema,
   ContainerSchema,
+  // objectui#11276's `FlexBlockSchema` is the authored `flex` arm, its bag the
+  // flat mirror's own members (the spec has no row for it); `FlexSchema` stays
+  // the node as the `flex` renderer reads it.
   FlexSchema,
+  FlexBlockSchema,
   StackSchema,
   GridSchema,
   CardSchema,

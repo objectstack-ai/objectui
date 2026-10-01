@@ -27,9 +27,11 @@ import {
 import { BaseSchema, SchemaNodeSchema, specFieldsExcept } from './base.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
 // objectui#10872 batch 9 — the node-level `responsiveStyles` fragment the public
-// blocks declare, spread into `FlexSchema` below. `./public-blocks.zod.ts`
-// imports nothing from this module, so this adds no cycle.
-import { NODE_ENVELOPE } from './public-blocks.zod.js';
+// blocks declare, spread into `FlexSchema` below. objectui#11276 — the bag and
+// flat-prop helpers the authored `flex` arm (`FlexBlockSchema`) is built with.
+// `./public-blocks.zod.ts` imports nothing from this module, so this adds no
+// cycle.
+import { NODE_ENVELOPE, flatPropRefusals, propsBag } from './public-blocks.zod.js';
 
 /**
  * ⭐ THE IMPORT BOUNDARY (objectui#8317, decision batch #90, 2026-09-08).
@@ -326,6 +328,13 @@ export const ContainerSchema = BaseSchema.extend({
 
 /**
  * Flex Schema - Flexbox layout component
+ *
+ * The node as the `flex` renderer reads it, after `SchemaRenderer` hoists the
+ * `properties` bag onto the node, and as code composes it. Paired with the
+ * TypeScript `FlexSchema` (`../layout.ts`). ⚠️ Not the authored arm: since
+ * objectui#11276 an authored `flex` node takes these props in its `properties`
+ * bag, and `AnyComponentSchema` judges it through {@link FlexBlockSchema}
+ * below, whose bag is this mirror's own members by reference.
  */
 export const FlexSchema = BaseSchema.extend({
   type: z.literal('flex'),
@@ -355,6 +364,148 @@ export const FlexSchema = BaseSchema.extend({
     '`flex` reads `children`, never `body` (READ SITE, measured with the TypeScript type checker: `packages/components/src/renderers/layout/flex.tsx`). '
     + '`body` is the child-list spelling objectui#6771 retired — one concept, one spelling — so it is '
     + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
+  ),
+});
+
+/* ── The authored `flex` node: its props in the `properties` bag ───────────── */
+
+/**
+ * The node-level keys of `FlexSchema` above: everything the node base declares
+ * (`BaseSchema`, `type` and `body` among them) except `children`, plus the node
+ * envelope (`NODE_ENVELOPE`). Read off the declarations, not transcribed, so a
+ * key `BaseSchema` or the envelope gains stays at node level the day it lands.
+ *
+ * `children` is the one base key that is NOT node-level here: `flex` renders
+ * its child list, and its mirror declares the list as a member of its own, so
+ * the list is one of the props the bag holds. That is where the spec's page
+ * walk (`walkAddressedPageComponents`) and `SchemaRenderer`'s hoist read it
+ * (`properties.children`), as on the `page:` containers, whose rows declare it.
+ */
+const FLEX_NODE_LEVEL_KEYS = Object.fromEntries(
+  [...Object.keys(BaseSchema.shape).filter((key) => key !== 'children'), ...Object.keys(NODE_ENVELOPE)]
+    .map((key) => [key, true]),
+) as { [K in Exclude<keyof typeof BaseSchema.shape, 'children'> | keyof typeof NODE_ENVELOPE]: true };
+
+/**
+ * The child list in the `flex` bag (objectui#11276): the mirror's accept set —
+ * one node, or a list of them — judged ONCE.
+ *
+ * A list at `properties.children` is a position `@objectstack/spec`'s page
+ * walk descends, and `AnyComponentSchema` already judges every component the
+ * walk finds there, at its real path, on both faces (objectui#11223,
+ * `./nested-component-walk.ts`). So the list's entries are left to that
+ * judgment, as the `page:` containers' rows leave theirs (`z.array(z.unknown())`).
+ * Measured before this was written: with the mirror's own `children` member in
+ * the bag, a refused child was reported twice — an `invalid_union` at
+ * `properties.children` from the member, and the child's own issue from the
+ * walk — and every nesting level was judged twice over. A single node, which
+ * the walk does not descend, is judged by `SchemaNodeSchema`, the slot the
+ * mirror's member is built from.
+ */
+const FLEX_BAG_CHILDREN = z.union([z.array(z.unknown()), SchemaNodeSchema])
+  .optional()
+  .describe(
+    'Child components: a list, each entry judged as a component by the page walk (`properties.children`), '
+      + 'or one node.',
+  );
+
+/**
+ * The `flex` props bag (objectui#11276): the flat mirror's own members, BY
+ * REFERENCE — `direction`, `justify`, `align`, `gap` and `wrap`, each the SAME
+ * schema object `FlexSchema` holds — and the child list, `children`, in the
+ * spelling {@link FLEX_BAG_CHILDREN} gives it above.
+ *
+ * ⛔ `@objectstack/spec` has no `ComponentPropsMap['flex']` row, and none is
+ * invented here. The spec's `PageComponentSchema` types every `properties` bag
+ * as an open record and judges a bag only through a row, so for this type the
+ * spec accepts any bag at all. The bag's members are therefore objectui's own,
+ * the ones the TypeScript `FlexLayoutProps` (`../layout.ts`) declares. Nothing
+ * else is restated, so the bag and the post-hoist mirror cannot drift apart.
+ *
+ * The bag keeps the mirror's posture, `.passthrough()` (`BaseSchema`'s), so a
+ * key `flex` does not declare is judged in the bag exactly as it was judged on
+ * the flat node: unjudged by the tolerant face, refused by name by the strict
+ * authoring face, which closes every object it walks.
+ */
+const FlexPropsBag = FlexSchema.omit(FLEX_NODE_LEVEL_KEYS).extend({ children: FLEX_BAG_CHILDREN });
+
+/**
+ * The ONE refusal detail every `flex` prop written flat on the node gets
+ * (objectui#11276). `aliasKeyRefusal` puts the key and its bag member in front
+ * of it: "Did you mean `gap` → `properties.gap`?".
+ */
+const FLEX_FLAT_PROP =
+  'A `flex` node takes its props in its `properties` bag: write `{ "type": "flex", "properties": '
+  + '{ "direction": "col", "gap": 4, "children": [ … ] } }` (objectui#11276). `@objectstack/spec`\'s own page '
+  + 'component refuses a prop written on the node as mis-layered (ADR-0089 D3a), so this face and `os validate` '
+  + 'agree. The spec has no `ComponentPropsMap[\'flex\']` row, so the bag\'s members are `FlexSchema`\'s own. '
+  + 'Moving it changes nothing at render time: `SchemaRenderer` hoists every `properties` key onto the node '
+  + 'before `flex` reads it.';
+
+/**
+ * `flex` — the AUTHORED node: its props in the `properties` bag (objectui#11276,
+ * the `flex` batch, under the maintainer's ruling A on objectui#11300).
+ *
+ * ## Why the arm moved to the bag
+ *
+ * `@objectstack/spec`'s strict `PageComponentSchema` refuses a prop written on
+ * a page component itself as mis-layered (ADR-0089 D3a), for every component
+ * type: `properties` is the only home of a component's own props. This union
+ * used to arm the node with the flat `FlexSchema` above, so `objectui validate`
+ * refused the spec-shaped document — the objectstack showcase's layout boxes,
+ * `{ type: 'flex', responsiveStyles, properties: { children } }` — and accepted
+ * the flat one `os validate` refuses. The maintainer ruled A on objectui#11300:
+ * the bag is the contract on `flex` too, and objectui's own documents moved to
+ * it in the same change. objectui#6751's fence ("`flex` declares its own keys")
+ * is revoked for `flex` only; every other node-level arm is unchanged.
+ *
+ * It is the construct `ObjectChartBlockSchema` uses (`./objectql.zod.ts`) —
+ * `BaseSchema` + the `type` literal + `NODE_ENVELOPE` + `properties` through
+ * `propsBag` + one by-name refusal per bag member — because `flex`, like
+ * `object-chart`, has no spec row: the bag is `FlexPropsBag` above, the flat
+ * mirror's own members, and its description says so instead of naming a row.
+ * The refusals come from the shared `flatPropRefusals`, read off the bag, with
+ * a detail (`FLEX_FLAT_PROP`) that names no row.
+ *
+ * ## The flat spelling is refused by name
+ *
+ * Every member of the bag written FLAT on the node is refused on both faces,
+ * with a message naming its bag member — the child list included, which is
+ * `properties.children`. `body`, the child-list spelling objectui#6771
+ * retired, is refused with a message naming `properties.children` too,
+ * replacing the mirror's refusal, whose remedy (a node-level `children`) this
+ * arm refuses. `BaseSchema`'s other keys stay on the node (`id`, `className`,
+ * `style`, `visible`, …), as on every arm, and so does the node envelope's
+ * `responsiveStyles`. A key `flex` does not declare is left as every arm leaves
+ * an undeclared key: unjudged by the tolerant face, refused by the strict one.
+ *
+ * ## What did not move
+ *
+ * The TypeScript `FlexSchema` and its zod mirror above stay published: they are
+ * the node as the `flex` renderer reads it after `SchemaRenderer` hoists the
+ * bag, and as code composes it. A stored flat `flex` node keeps rendering,
+ * because `SchemaRenderer` reads both spellings and the narrowing is on the
+ * authoring faces only; a node compiled from the `kind: 'html'` JSX tier
+ * (`@object-ui/sdui-parser`) never passes through this face.
+ */
+export const FlexBlockSchema = BaseSchema.extend({
+  type: z.literal('flex'),
+  ...NODE_ENVELOPE,
+  ...flatPropRefusals('flex', FlexPropsBag, FLEX_FLAT_PROP),
+  properties: propsBag(
+    'flex',
+    FlexPropsBag,
+    'The `flex` props bag — the members `FlexSchema` declares beyond the node-level keys (`direction`, '
+      + '`justify`, `align`, `gap`, `wrap` and the child list, `children`), by reference. `@objectstack/spec` has '
+      + 'no `ComponentPropsMap[\'flex\']` row, so these are objectui\'s own members (objectui#11276).',
+  ),
+  body: aliasKeyRefusal(
+    'body',
+    'properties.children',
+    'this `flex` node',
+    '`body` is the child-list spelling objectui#6771 retired, and a `flex` node takes its child list in its '
+      + '`properties` bag: write `{ "type": "flex", "properties": { "children": [ … ] } }` (objectui#11276). '
+      + 'objectui#8284.',
   ),
 });
 
@@ -1003,7 +1154,10 @@ export const LayoutSchema = z.discriminatedUnion('type', [
   IconSchema,
   SeparatorSchema,
   ContainerSchema,
-  FlexSchema,
+  // objectui#11276 — the AUTHORED `flex` node, its props in the `properties`
+  // bag. `FlexSchema` (the flat mirror) stays exported as the node the renderer
+  // reads after the hoist, and leaves this union.
+  FlexBlockSchema,
   StackSchema,
   GridSchema,
   CardSchema,

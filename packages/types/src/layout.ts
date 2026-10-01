@@ -699,7 +699,18 @@ export interface FlexLayoutProps {
 }
 
 /**
- * Flexbox layout component
+ * Flexbox layout component — the node as the `flex` renderer reads it.
+ *
+ * ⚠️ That is the node AFTER `SchemaRenderer` hoists the `properties` bag, and
+ * the node as code composes it. An AUTHORED `flex` node takes the
+ * {@link FlexLayoutProps} members — the child list included — in its
+ * `properties` bag (objectui#11276, the maintainer's ruling A on
+ * objectui#11300): `{ type: 'flex', properties: { direction: 'col', gap: 4,
+ * children: [ … ] } }`. `objectui validate` refuses them written flat on the
+ * node, by name (the zod `FlexBlockSchema`), as `@objectstack/spec`'s page
+ * component does. A typed authored node checks its bag with
+ * `satisfies FlexLayoutProps`. A stored flat node keeps rendering: the hoist
+ * reads both spellings.
  */
 export interface FlexSchema extends BaseSchema, FlexLayoutProps {
   type: 'flex';

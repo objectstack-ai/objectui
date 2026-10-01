@@ -4,24 +4,26 @@
   "children": [
     {
       "type": "flex",
-      "gap": 4,
-      "children": [
-        {
-          "type": "text",
-          "content": "Home",
-          "className": "font-medium cursor-pointer hover:text-primary"
-        },
-        {
-          "type": "text",
-          "content": "About",
-          "className": "font-medium cursor-pointer hover:text-primary"
-        },
-        {
-          "type": "text",
-          "content": "Contact",
-          "className": "font-medium cursor-pointer hover:text-primary"
-        }
-      ]
+      "properties": {
+        "gap": 4,
+        "children": [
+          {
+            "type": "text",
+            "content": "Home",
+            "className": "font-medium cursor-pointer hover:text-primary"
+          },
+          {
+            "type": "text",
+            "content": "About",
+            "className": "font-medium cursor-pointer hover:text-primary"
+          },
+          {
+            "type": "text",
+            "content": "Contact",
+            "className": "font-medium cursor-pointer hover:text-primary"
+          }
+        ]
+      }
     }
   ]
 }

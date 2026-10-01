@@ -154,22 +154,24 @@ A `page` node has no action row of its own. Buttons are NODES, and they go in `c
   "children": [
     {
       "type": "flex",
-      "justify": "end",
-      "gap": 2,
-      "children": [
-        {
-          "type": "button",
-          "label": "Add Product",
-          "variant": "default",
-          "icon": "plus"
-        },
-        {
-          "type": "button",
-          "label": "Export",
-          "variant": "outline",
-          "icon": "download"
-        }
-      ]
+      "properties": {
+        "justify": "end",
+        "gap": 2,
+        "children": [
+          {
+            "type": "button",
+            "label": "Add Product",
+            "variant": "default",
+            "icon": "plus"
+          },
+          {
+            "type": "button",
+            "label": "Export",
+            "variant": "outline",
+            "icon": "download"
+          }
+        ]
+      }
     },
     {
       "type": "object-grid",
@@ -541,30 +543,32 @@ Same rule as above, and it governs the trail too: the breadcrumb and the buttons
     },
     {
       "type": "flex",
-      "justify": "end",
-      "gap": 2,
-      "children": [
-        {
-          "type": "action:button",
-          "properties": {
-            "name": "edit_record",
-            "label": "Edit",
-            "variant": "default",
-            "icon": "pencil",
-            "actionType": "editRecord"
+      "properties": {
+        "justify": "end",
+        "gap": 2,
+        "children": [
+          {
+            "type": "action:button",
+            "properties": {
+              "name": "edit_record",
+              "label": "Edit",
+              "variant": "default",
+              "icon": "pencil",
+              "actionType": "editRecord"
+            }
+          },
+          {
+            "type": "action:button",
+            "properties": {
+              "name": "delete_record",
+              "label": "Delete",
+              "variant": "destructive",
+              "icon": "trash",
+              "actionType": "deleteRecord"
+            }
           }
-        },
-        {
-          "type": "action:button",
-          "properties": {
-            "name": "delete_record",
-            "label": "Delete",
-            "variant": "destructive",
-            "icon": "trash",
-            "actionType": "deleteRecord"
-          }
-        }
-      ]
+        ]
+      }
     },
     {
       "type": "card",
@@ -726,11 +730,13 @@ Place primary actions in the first `children` node, so they sit above the conten
   "children": [
     {
       "type": "flex",
-      "justify": "end",
-      "gap": 2,
-      "children": [
-        { "type": "button", "label": "New Order", "variant": "default" }
-      ]
+      "properties": {
+        "justify": "end",
+        "gap": 2,
+        "children": [
+          { "type": "button", "label": "New Order", "variant": "default" }
+        ]
+      }
     }
   ]
 }

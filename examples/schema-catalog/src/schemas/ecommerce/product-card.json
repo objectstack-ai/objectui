@@ -4,17 +4,19 @@
   "children": [
     {
       "type": "flex",
-      "justify": "center",
-      "align": "center",
-      "gap": 0,
-      "className": "aspect-square bg-muted",
-      "children": [
-        {
-          "type": "icon",
-          "icon": "package",
-          "className": "h-24 w-24 text-muted-foreground"
-        }
-      ]
+      "properties": {
+        "justify": "center",
+        "align": "center",
+        "gap": 0,
+        "children": [
+          {
+            "type": "icon",
+            "icon": "package",
+            "className": "h-24 w-24 text-muted-foreground"
+          }
+        ]
+      },
+      "className": "aspect-square bg-muted"
     },
     {
       "type": "stack",
@@ -38,88 +40,94 @@
         },
         {
           "type": "flex",
-          "align": "center",
-          "gap": 1,
-          "children": [
-            {
-              "type": "icon",
-              "icon": "star",
-              "className": "h-4 w-4 fill-yellow-500 text-yellow-500"
-            },
-            {
-              "type": "icon",
-              "icon": "star",
-              "className": "h-4 w-4 fill-yellow-500 text-yellow-500"
-            },
-            {
-              "type": "icon",
-              "icon": "star",
-              "className": "h-4 w-4 fill-yellow-500 text-yellow-500"
-            },
-            {
-              "type": "icon",
-              "icon": "star",
-              "className": "h-4 w-4 fill-yellow-500 text-yellow-500"
-            },
-            {
-              "type": "icon",
-              "icon": "star",
-              "className": "h-4 w-4 text-muted"
-            },
-            {
-              "type": "text",
-              "content": "4.0 (128 reviews)",
-              "className": "text-sm text-muted-foreground ml-2"
-            }
-          ]
+          "properties": {
+            "align": "center",
+            "gap": 1,
+            "children": [
+              {
+                "type": "icon",
+                "icon": "star",
+                "className": "h-4 w-4 fill-yellow-500 text-yellow-500"
+              },
+              {
+                "type": "icon",
+                "icon": "star",
+                "className": "h-4 w-4 fill-yellow-500 text-yellow-500"
+              },
+              {
+                "type": "icon",
+                "icon": "star",
+                "className": "h-4 w-4 fill-yellow-500 text-yellow-500"
+              },
+              {
+                "type": "icon",
+                "icon": "star",
+                "className": "h-4 w-4 fill-yellow-500 text-yellow-500"
+              },
+              {
+                "type": "icon",
+                "icon": "star",
+                "className": "h-4 w-4 text-muted"
+              },
+              {
+                "type": "text",
+                "content": "4.0 (128 reviews)",
+                "className": "text-sm text-muted-foreground ml-2"
+              }
+            ]
+          }
         },
         {
           "type": "flex",
-          "align": "baseline",
-          "gap": 2,
-          "children": [
-            {
-              "type": "text",
-              "content": "$299.99",
-              "className": "text-2xl font-bold"
-            },
-            {
-              "type": "text",
-              "content": "$399.99",
-              "className": "text-sm text-muted-foreground line-through"
-            },
-            {
-              "type": "badge",
-              "label": "25% OFF",
-              "variant": "destructive",
-              "className": "ml-auto"
-            }
-          ]
+          "properties": {
+            "align": "baseline",
+            "gap": 2,
+            "children": [
+              {
+                "type": "text",
+                "content": "$299.99",
+                "className": "text-2xl font-bold"
+              },
+              {
+                "type": "text",
+                "content": "$399.99",
+                "className": "text-sm text-muted-foreground line-through"
+              },
+              {
+                "type": "badge",
+                "label": "25% OFF",
+                "variant": "destructive",
+                "className": "ml-auto"
+              }
+            ]
+          }
         },
         {
           "type": "flex",
-          "gap": 2,
-          "children": [
-            {
-              "type": "button",
-              "label": "Add to Cart",
-              "variant": "default",
-              "className": "flex-1"
-            },
-            {
-              "type": "button",
-              "label": "",
-              "variant": "outline",
-              "size": "icon",
-              "children": [
-                {
-                  "type": "icon",
-                  "icon": "heart",
-                  "className": "h-4 w-4"
-                }
-              ]
-            }
-          ]
+          "properties": {
+            "gap": 2,
+            "children": [
+              {
+                "type": "button",
+                "label": "Add to Cart",
+                "variant": "default",
+                "className": "flex-1"
+              },
+              {
+                "type": "button",
+                "label": "",
+                "variant": "outline",
+                "size": "icon",
+                "children": [
+                  {
+                    "type": "icon",
+                    "icon": "heart",
+                    "className": "h-4 w-4"
+                  }
+                ]
+              }
+            ]
+          }
         }
       ]
     }

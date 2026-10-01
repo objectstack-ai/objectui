@@ -69,20 +69,22 @@
     },
     {
       "type": "flex",
-      "gap": 2,
-      "className": "mt-4",
-      "children": [
-        {
-          "type": "button",
-          "label": "Apply Filters",
-          "variant": "default"
-        },
-        {
-          "type": "button",
-          "label": "Clear",
-          "variant": "outline"
-        }
-      ]
+      "properties": {
+        "gap": 2,
+        "children": [
+          {
+            "type": "button",
+            "label": "Apply Filters",
+            "variant": "default"
+          },
+          {
+            "type": "button",
+            "label": "Clear",
+            "variant": "outline"
+          }
+        ]
+      },
+      "className": "mt-4"
     }
   ]
 }

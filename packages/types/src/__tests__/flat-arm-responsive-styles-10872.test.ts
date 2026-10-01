@@ -35,11 +35,14 @@
  * ⚠️ objectui#11276 moved `object-chart`'s AUTHORED arm into the public-block
  * set (`ObjectChartBlockSchema`, its props in the `properties` bag), and its
  * `object-grid` batch moved `object-grid`'s the same way
- * (`ObjectGridBlockSchema`), so the population below is the one arm the node
- * union still selects a flat mirror for, `flex`. The flat `ObjectChartSchema`
- * and `ObjectGridSchema` keep the shared member as the post-hoist reading, and
- * the authored chart and grid arms are pinned with the other public blocks in
- * `./public-block-responsive-styles-10872.test.ts`.
+ * (`ObjectGridBlockSchema`), so the authored chart and grid arms are pinned
+ * with the other public blocks in `./public-block-responsive-styles-10872.test.ts`.
+ * Its `flex` batch moved `flex`'s authored arm to the bag too
+ * (`FlexBlockSchema`), which stays in the layout union, outside the public-block
+ * set: so the population below is that one arm, `flex`, whose nodes now carry
+ * their props in the bag beside the node-level key. The flat `FlexSchema`,
+ * `ObjectChartSchema` and `ObjectGridSchema` mirrors keep the shared member as
+ * the post-hoist reading.
  * The key is NOT declared on `BaseSchema` and NOT on any arm without a measured
  * producer: `grid`, `stack` and `container` below are the control, and the
  * whole arm list is read at run time so an arm that gains the member silently
@@ -63,6 +66,7 @@ import {
 import {
   AnyComponentSchema,
   BaseSchema,
+  FlexBlockSchema,
   FlexSchema,
   ObjectChartSchema,
   ObjectGridSchema,
@@ -85,6 +89,7 @@ type InputOf<T> = T extends z.ZodType ? z.input<T> : never;
 
 /** Each zod arm's member accepts exactly the spec's published type, absent allowed. */
 export type assertionZodMemberIsTheSpecType = [
+  Expect<Equal<InputOf<ShapeOf<typeof FlexBlockSchema>['responsiveStyles']>, SpecResponsiveStyles | undefined>>,
   Expect<Equal<InputOf<ShapeOf<typeof FlexSchema>['responsiveStyles']>, SpecResponsiveStyles | undefined>>,
   Expect<Equal<InputOf<ShapeOf<typeof ObjectGridSchema>['responsiveStyles']>, SpecResponsiveStyles | undefined>>,
   Expect<Equal<InputOf<ShapeOf<typeof ObjectChartSchema>['responsiveStyles']>, SpecResponsiveStyles | undefined>>,
@@ -138,10 +143,11 @@ function armsByLiteral(): Map<string, Arm> {
  * objectui#11276 moved its authored arm into the public-block set, and
  * `object-grid` the second until that card's `object-grid` batch moved its
  * authored arm the same way; each flat mirror keeps the member (the post-hoist
- * rows below).
+ * rows below). `flex`'s authored arm is `FlexBlockSchema` since that card's
+ * `flex` batch: its props in the bag, still outside the public-block set.
  */
 const FLAT_ARMS = [
-  ['flex', FlexSchema],
+  ['flex', FlexBlockSchema],
 ] as const;
 
 /** Arms with no producer: the strict face still refuses the key on them. */
@@ -158,18 +164,24 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set<string>();
 /** The five envelope keys the spec declares and this batch leaves undeclared. */
 const UNDECLARED_ENVELOPE = ['events', 'dataSource', 'aria', 'visibility', 'responsive'] as const;
 
-/** A valid flat node per arm, shaped like the producer's nodes, `responsiveStyles` included. */
+/**
+ * A valid node per arm, shaped like the producer's nodes, `responsiveStyles`
+ * included: the key on the node, the props in the `properties` bag
+ * (objectui#11276).
+ */
 const VALID_NODES = {
   flex: {
     type: 'flex',
     id: 'cc_panel',
-    direction: 'col',
     responsiveStyles: {
       large: { display: 'block', minWidth: '0', padding: '15px 17px 17px', borderRadius: '16px' },
       small: { padding: '12px', minHeight: '200px' },
     },
-    // A nested node carrying the key: judged at depth, through the node recursion.
-    children: [{ type: 'flex', id: 'cc_spacer', responsiveStyles: { large: { flex: '1 1 auto' } } }],
+    properties: {
+      direction: 'col',
+      // A nested node carrying the key: judged at depth, through the page walk.
+      children: [{ type: 'flex', id: 'cc_spacer', responsiveStyles: { large: { flex: '1 1 auto' } } }],
+    },
   },
 } as const;
 
@@ -226,6 +238,13 @@ describe('`responsiveStyles` is declared on the batch-9 arms, from the public bl
     const shared = PageSectionBlockSchema.shape.responsiveStyles;
     expect(shared).toBeDefined();
     expect(arm.shape.responsiveStyles).toBe(shared);
+  });
+
+  it('the flat `FlexSchema` mirror keeps the SAME member as the post-hoist reading (objectui#11276)', () => {
+    // Its authored arm is `FlexBlockSchema` since the `flex` batch; the mirror
+    // is the node as the `flex` renderer reads it, and it still declares the key.
+    expect(FlexSchema.shape.responsiveStyles).toBe(PageSectionBlockSchema.shape.responsiveStyles);
+    expect(armsByLiteral().get('flex')).not.toBe(FlexSchema);
   });
 
   it('the flat `ObjectChartSchema` mirror keeps the SAME member as the post-hoist reading (objectui#11276)', () => {
@@ -314,10 +333,10 @@ describe('the other five envelope keys stay undeclared on the batch-9 arms (obje
   );
 
   it.each(cases)('%s: a node-level `%s` is still refused on the strict face, by name', (type, key) => {
-    // The valid node without the key under test and without a nested child, so
-    // the only refusal left is the one this row asks about.
+    // The valid node without the key under test and without its bag (where its
+    // nested child sits), so the only refusal left is the one this row asks about.
     const { responsiveStyles: _styles, ...rest } = VALID_NODES[type] as Record<string, unknown>;
-    const { children: _children, ...bare } = rest;
+    const { properties: _bag, ...bare } = rest;
     const node = { ...bare, [key]: { x: 1 } };
     expect(refusedKeys(StrictAnyComponentSchema.safeParse(node))).toEqual([key]);
   });

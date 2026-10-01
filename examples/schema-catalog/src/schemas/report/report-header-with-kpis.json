@@ -4,53 +4,57 @@
   "children": [
     {
       "type": "flex",
-      "align": "center",
-      "justify": "between",
-      "children": [
-        {
-          "type": "stack",
-          "gap": 1,
-          "children": [
-            {
-              "type": "text",
-              "content": "Quarterly Sales Report",
-              "className": "text-xl font-bold"
-            },
-            {
-              "type": "text",
-              "content": "Q1 2024 · January - March",
-              "className": "text-sm text-muted-foreground"
+      "properties": {
+        "align": "center",
+        "justify": "between",
+        "children": [
+          {
+            "type": "stack",
+            "gap": 1,
+            "children": [
+              {
+                "type": "text",
+                "content": "Quarterly Sales Report",
+                "className": "text-xl font-bold"
+              },
+              {
+                "type": "text",
+                "content": "Q1 2024 · January - March",
+                "className": "text-sm text-muted-foreground"
+              }
+            ]
+          },
+          {
+            "type": "flex",
+            "properties": {
+              "gap": 2,
+              "children": [
+                {
+                  "type": "button",
+                  "label": "PDF",
+                  "variant": "outline",
+                  "size": "sm",
+                  "icon": "file-text"
+                },
+                {
+                  "type": "button",
+                  "label": "Excel",
+                  "variant": "outline",
+                  "size": "sm",
+                  "icon": "table"
+                },
+                {
+                  "type": "button",
+                  "label": "Print",
+                  "variant": "outline",
+                  "size": "sm",
+                  "icon": "printer"
+                }
+              ]
             }
-          ]
-        },
-        {
-          "type": "flex",
-          "gap": 2,
-          "children": [
-            {
-              "type": "button",
-              "label": "PDF",
-              "variant": "outline",
-              "size": "sm",
-              "icon": "file-text"
-            },
-            {
-              "type": "button",
-              "label": "Excel",
-              "variant": "outline",
-              "size": "sm",
-              "icon": "table"
-            },
-            {
-              "type": "button",
-              "label": "Print",
-              "variant": "outline",
-              "size": "sm",
-              "icon": "printer"
-            }
-          ]
-        }
-      ]
+          }
+        ]
+      }
     },
     {
       "type": "grid",

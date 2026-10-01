@@ -110,18 +110,23 @@ describe('objectui#7926 — the `page` node refuses `actions` (contract half)', 
   });
 
   it('the remedy the message names actually parses — buttons as nodes in `children`', () => {
+    // The guide's remedy, as `content/docs/guide/layout.md` teaches it: the
+    // `flex` row takes its props, its child list included, in its `properties`
+    // bag (objectui#11276).
     const r = PageNodeSchema.safeParse({
       type: 'page',
       title: 'Products',
       children: [
         {
           type: 'flex',
-          justify: 'end',
-          gap: 2,
-          children: [
-            { type: 'button', label: 'Add Product', variant: 'default', icon: 'plus' },
-            { type: 'button', label: 'Export', variant: 'outline', icon: 'download' },
-          ],
+          properties: {
+            justify: 'end',
+            gap: 2,
+            children: [
+              { type: 'button', label: 'Add Product', variant: 'default', icon: 'plus' },
+              { type: 'button', label: 'Export', variant: 'outline', icon: 'download' },
+            ],
+          },
         },
       ],
     });

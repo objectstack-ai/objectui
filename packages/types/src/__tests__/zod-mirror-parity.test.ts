@@ -4613,6 +4613,13 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "spec-owned BY REFERENCE — the local `.extend(…)` adds renderer props that no TS declaration in this package restates",
   'layout.zod.ts#LayoutSchema':
     "a union OVER the mirrors, not an object of its own — its members are checked individually above",
+  // objectui#11276 (the `flex` batch, the maintainer's ruling A on
+  // objectui#11300) — the authored `flex` arm, built as the `object-chart` arm
+  // with NO spec row: its bag is the flat mirror's own members. Its TS twin is
+  // paired with that FLAT mirror (`FlexSchema`), which stays the renderer's
+  // post-hoist reading.
+  'layout.zod.ts#FlexBlockSchema':
+    "mirror-owned BY REFERENCE — `BaseSchema` + the `flex` literal + `NODE_ENVELOPE` + `properties`, whose `direction` / `justify` / `align` / `gap` / `wrap` ARE the flat `layout.zod.ts#FlexSchema` mirror's own members (the same schema objects; `@objectstack/spec` has no `ComponentPropsMap['flex']` row) and whose `children` is the mirror's single-node-or-list slot with the list's entries left to the spec page walk's judgment, + `flatPropRefusals` over the bag (one `aliasKeyRefusal` per bag member, pointed at `properties.KEY`; the key set is read off the bag), + a `body` refusal pointed at `properties.children`; the TS declaration of the node, `FlexSchema` (`../layout.ts`), is the renderer's post-hoist reading and is paired with the flat mirror, not with this arm",
   'navigation.zod.ts#NavLinkSchema':
     "recursive; a `z.lazy` exposes no `.shape` to read, so there is no key set for the per-key comparison. Since objectui#7760 it carries its TS declaration as BOTH type arguments, so the pair IS compared — as a whole type, by `tsc`, at the annotation itself",
   'navigation.zod.ts#NavigationMenuItemSchema':

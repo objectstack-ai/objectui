@@ -127,60 +127,64 @@
                 },
                 {
                   "type": "flex",
-                  "align": "center",
-                  "justify": "between",
-                  "children": [
-                    {
-                      "type": "stack",
-                      "gap": 1,
-                      "children": [
-                        {
-                          "type": "text",
-                          "content": "Email Notifications",
-                          "className": "text-sm font-medium"
-                        },
-                        {
-                          "type": "text",
-                          "content": "Receive email updates about your activity",
-                          "className": "text-sm text-muted-foreground"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "switch",
-                      "id": "emailNotifications",
-                      "name": "emailNotifications",
-                      "defaultChecked": true
-                    }
-                  ]
+                  "properties": {
+                    "align": "center",
+                    "justify": "between",
+                    "children": [
+                      {
+                        "type": "stack",
+                        "gap": 1,
+                        "children": [
+                          {
+                            "type": "text",
+                            "content": "Email Notifications",
+                            "className": "text-sm font-medium"
+                          },
+                          {
+                            "type": "text",
+                            "content": "Receive email updates about your activity",
+                            "className": "text-sm text-muted-foreground"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "switch",
+                        "id": "emailNotifications",
+                        "name": "emailNotifications",
+                        "defaultChecked": true
+                      }
+                    ]
+                  }
                 },
                 {
                   "type": "flex",
-                  "align": "center",
-                  "justify": "between",
-                  "children": [
-                    {
-                      "type": "stack",
-                      "gap": 1,
-                      "children": [
-                        {
-                          "type": "text",
-                          "content": "Marketing Emails",
-                          "className": "text-sm font-medium"
-                        },
-                        {
-                          "type": "text",
-                          "content": "Receive updates about new features and products",
-                          "className": "text-sm text-muted-foreground"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "switch",
-                      "id": "marketingEmails",
-                      "name": "marketingEmails"
-                    }
-                  ]
+                  "properties": {
+                    "align": "center",
+                    "justify": "between",
+                    "children": [
+                      {
+                        "type": "stack",
+                        "gap": 1,
+                        "children": [
+                          {
+                            "type": "text",
+                            "content": "Marketing Emails",
+                            "className": "text-sm font-medium"
+                          },
+                          {
+                            "type": "text",
+                            "content": "Receive updates about new features and products",
+                            "className": "text-sm text-muted-foreground"
+                          }
+                        ]
+                      },
+                      {
+                        "type": "switch",
+                        "id": "marketingEmails",
+                        "name": "marketingEmails"
+                      }
+                    ]
+                  }
                 },
                 {
                   "type": "stack",
@@ -221,20 +225,22 @@
             },
             {
               "type": "flex",
-              "justify": "end",
-              "gap": 2,
-              "children": [
-                {
-                  "type": "button",
-                  "label": "Cancel",
-                  "variant": "outline"
-                },
-                {
-                  "type": "button",
-                  "label": "Save Changes",
-                  "variant": "default"
-                }
-              ]
+              "properties": {
+                "justify": "end",
+                "gap": 2,
+                "children": [
+                  {
+                    "type": "button",
+                    "label": "Cancel",
+                    "variant": "outline"
+                  },
+                  {
+                    "type": "button",
+                    "label": "Save Changes",
+                    "variant": "default"
+                  }
+                ]
+              }
             }
           ]
         }

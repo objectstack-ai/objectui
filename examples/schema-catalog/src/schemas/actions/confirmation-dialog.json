@@ -22,22 +22,24 @@
   "children": [
     {
       "type": "flex",
-      "justify": "end",
-      "gap": 2,
-      "className": "pt-4",
-      "children": [
-        {
-          "type": "button",
-          "label": "Cancel",
-          "variant": "outline"
-        },
-        {
-          "type": "button",
-          "label": "Yes, Delete",
-          "variant": "destructive",
-          "icon": "trash"
-        }
-      ]
+      "properties": {
+        "justify": "end",
+        "gap": 2,
+        "children": [
+          {
+            "type": "button",
+            "label": "Cancel",
+            "variant": "outline"
+          },
+          {
+            "type": "button",
+            "label": "Yes, Delete",
+            "variant": "destructive",
+            "icon": "trash"
+          }
+        ]
+      },
+      "className": "pt-4"
     }
   ]
 }

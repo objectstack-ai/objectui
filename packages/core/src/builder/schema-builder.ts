@@ -24,7 +24,7 @@ import type {
   InputSchema,
   CardSchema,
   GridSchema,
-  FlexSchema
+  FlexLayoutProps
 } from '@object-ui/types';
 
 /**
@@ -367,18 +367,28 @@ export class GridBuilder extends SchemaBuilder<GridSchema> {
 
 /**
  * Flex builder
+ *
+ * Builds an AUTHORED `flex` node: its props in the `properties` bag
+ * (objectui#11276, the maintainer's ruling A on objectui#11300) —
+ * `{ type: 'flex', properties: { direction, justify, align, gap, children } }`,
+ * the spelling `@objectstack/spec`'s page component declares and
+ * `@object-ui/types`' authoring faces accept. A `flex` prop written flat on the
+ * node is refused there by name, so the builder never writes one. The base
+ * setters (`id`, `className`, `visible`, …) stay on the node. The bag's members
+ * are `FlexLayoutProps`; `SchemaRenderer` hoists them onto the node before the
+ * `flex` renderer reads them.
  */
-export class FlexBuilder extends SchemaBuilder<FlexSchema> {
+export class FlexBuilder extends SchemaBuilder<BaseSchema & { type: 'flex'; properties: FlexLayoutProps }> {
   constructor() {
     super('flex');
-    this.schema.children = [];
+    this.schema.properties = { children: [] };
   }
 
   /**
    * Set flex direction
    */
   direction(direction: 'row' | 'col' | 'row-reverse' | 'col-reverse'): this {
-    this.schema.direction = direction;
+    this.schema.properties.direction = direction;
     return this;
   }
 
@@ -386,7 +396,7 @@ export class FlexBuilder extends SchemaBuilder<FlexSchema> {
    * Set justify content
    */
   justify(justify: 'start' | 'end' | 'center' | 'between' | 'around' | 'evenly'): this {
-    this.schema.justify = justify;
+    this.schema.properties.justify = justify;
     return this;
   }
 
@@ -394,7 +404,7 @@ export class FlexBuilder extends SchemaBuilder<FlexSchema> {
    * Set align items
    */
   align(align: 'start' | 'end' | 'center' | 'baseline' | 'stretch'): this {
-    this.schema.align = align;
+    this.schema.properties.align = align;
     return this;
   }
 
@@ -402,7 +412,7 @@ export class FlexBuilder extends SchemaBuilder<FlexSchema> {
    * Set gap
    */
   gap(gap: number): this {
-    this.schema.gap = gap;
+    this.schema.properties.gap = gap;
     return this;
   }
 
@@ -410,8 +420,8 @@ export class FlexBuilder extends SchemaBuilder<FlexSchema> {
    * Add a child
    */
   child(child: BaseSchema): this {
-    const children = Array.isArray(this.schema.children) ? this.schema.children : [];
-    this.schema.children = [...children, child];
+    const children = Array.isArray(this.schema.properties.children) ? this.schema.properties.children : [];
+    this.schema.properties.children = [...children, child];
     return this;
   }
 
@@ -419,7 +429,7 @@ export class FlexBuilder extends SchemaBuilder<FlexSchema> {
    * Set all children
    */
   children(children: BaseSchema[]): this {
-    this.schema.children = children;
+    this.schema.properties.children = children;
     return this;
   }
 }

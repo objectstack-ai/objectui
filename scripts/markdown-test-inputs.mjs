@@ -468,6 +468,14 @@ export const ADJUDICATED = new Map([
       walker: 'markdown-tree: walks `content/docs` and collects handler rows from every `.md`/`.mdx` under it',
     },
   ],
+  // objectui#11117. `documentedBindings()` parses every json fence on these two
+  // pages that binds a node through `dataSource`, and asserts each one parses on
+  // `safeValidateSchema` -- the documented per-element bindings ARE this pin's
+  // input, so an edit to either page's binding fences is an edit to the test.
+  [
+    'packages/types/src/__tests__/element-data-source-objectname-waiver-11117.test.ts',
+    { reads: ['content/docs/utilities/data-objectstack.mdx', 'content/docs/guide/data-source.md'] },
+  ],
   [
     'packages/types/src/__tests__/filter-builder-mirror-6939.test.ts',
     { reads: ['content/docs/components/complex/filter-builder.mdx'] },

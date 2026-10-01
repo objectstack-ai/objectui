@@ -34,3 +34,9 @@ refinement refuses (none of the three) was refused before too, at
 `objectName`. The two static-data examples in
 `content/docs/plugins/plugin-calendar.mdx` are now annotated
 `ObjectCalendarSchema` and compile under the doc-snippet gate.
+
+**Correction, 2026-10-01 (objectui#11117).** A node authoring none of the three is still
+refused, unless it names its object in a `dataSource` binding (`dataSource: { object }`, a
+non-empty name): objectui#11117 counts that binding as a record source, because the
+registration's `ElementDataSourceGate` lands it on `objectName`. The refusal message now names
+the binding beside `data`, `staticData` and `objectName`.

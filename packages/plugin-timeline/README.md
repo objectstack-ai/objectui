@@ -75,6 +75,37 @@ const schema = {
 };
 ```
 
+### Object-bound timeline (`object-timeline`)
+
+`object-timeline` fetches records from `objectName` and draws one entry per
+record, from the fields its `timeline` config names. An authored node takes its
+props in the `properties` bag, where `@objectstack/spec`'s
+`ComponentPropsMap['object-timeline']` row declares them:
+
+```json
+{
+  "type": "object-timeline",
+  "properties": {
+    "objectName": "project_task",
+    "timeline": { "startDateField": "start_date", "titleField": "name" },
+    "navigation": { "mode": "drawer" }
+  }
+}
+```
+
+`navigation` is what an entry click opens — the spec's `NavigationConfig` by
+reference, `ViewNavigationConfig` in `@object-ui/types`: `mode` (`page`,
+`drawer`, `modal`, `split`, `popover`, `new_window` or `none`) with `size`,
+`openNewTab` and `preventNavigation`. `drawer`, `modal` and `popover` open the
+entry's record in that overlay, `new_window` and `openNewTab: true` open the
+record page in a new tab, `preventNavigation: true` opens nothing, and `size`
+sets the overlay width. A click handler from a parent view outranks the whole
+key. ⚠️ Write the block with `mode`: with the key absent, or with a block
+written without `mode` (it takes the spec's `page` default), a click opens
+nothing on a timeline no parent view navigates for (objectui#11293). `split`
+opens nothing on this block either, because the timeline gives the split shell
+no main panel.
+
 ## Links
 
 - 📚 [Documentation](https://www.objectui.org/docs/plugins/plugin-timeline)

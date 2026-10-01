@@ -13,6 +13,15 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  // Does this schema-driven action render for THIS row? The ONE definition
+  // for every row menu, and here it governs BOTH surfaces a def can land on —
+  // the "⋮" item ({@link RowActionMenuItem}) and the inline primary button
+  // ({@link RowActionInlineButton}) — and the "⋮" guard's count, so a def
+  // cannot be visible on one and hidden on another. It asks the action
+  // family's `hasDeclaredVisibilityGate` whether a gate is declared, so a
+  // blank `visible` is no gate here as it is on every toolbar. This file used
+  // to keep a twin with a "declared?" test of its own (objectui#11294).
+  isCustomRowActionVisible,
 } from '@object-ui/components';
 import { Edit, Trash2, MoreVertical } from 'lucide-react';
 import { evalRowPredicate, hasDeclaredPredicate, type CrudAffordances } from '@object-ui/core';
@@ -149,13 +158,14 @@ export interface RowActionMenuProps {
 // ---------------------------------------------------------------------------
 
 /**
- * Evaluate a row-action visibility predicate the way this file's items do — on
- * the canonical CEL engine, failing CLOSED with a diagnosable warning — but
- * WITHOUT a hook.
+ * Evaluate a built-in Edit/Delete `visibleWhen` predicate the way this file's
+ * items do — on the canonical CEL engine, failing CLOSED with a diagnosable
+ * warning — but WITHOUT a hook. (A schema-driven action's `visible` is decided
+ * by `isCustomRowActionVisible`, imported above; it evaluates the same way.)
  *
- * Hook-free matters because the guard below asks this question for a VARIABLE
- * number of declared actions inside one `useMemo`; a `useRowPredicate` per
- * action would tie the hook count to `rowActionDefs.length`. Mirrors
+ * Hook-free matters because the guard below asks this question inside one
+ * `useMemo`, beside a VARIABLE number of declared actions; a `useRowPredicate`
+ * per action would tie the hook count to `rowActionDefs.length`. Mirrors
  * `useRowPredicate(pred, row, { fallback: false, warnOnError: true, label, fields })`
  * exactly, boolean short-circuit included — a boolean handed to the engine
  * faults ("AST-only evaluation not yet supported") and fails closed, which is
@@ -171,9 +181,9 @@ function evalRowActionVisibility(
   fields: unknown,
 ): boolean {
   if (typeof pred === 'boolean') return pred;
-  // Not dead, and not the place that decides "was a gate declared?" — the two
-  // callers below answer that first, each by its own rule. `''` still arrives
-  // here from `isBuiltinRowActionVisible`, whose gate is `!= null` alone; a
+  // Not dead, and not the place that decides "was a gate declared?" — the
+  // caller below answers that first, by its own rule. `''` still arrives here
+  // from `isBuiltinRowActionVisible`, whose gate is `!= null` alone; a
   // nothing-to-evaluate predicate that reached an evaluator fails CLOSED like
   // any other unevaluable one.
   if (pred == null || pred === '') return false;
@@ -215,38 +225,6 @@ export function isBuiltinRowActionVisible(
   const pred = predicates?.visibleWhen;
   if (pred == null) return true;
   return evalRowActionVisibility(pred, row, scope, `builtin:${name}:visibleWhen`, fields);
-}
-
-/**
- * Does this schema-driven action render for THIS row? Same single-definition
- * rule as the built-ins above, and it governs BOTH surfaces a def can land on:
- * the "⋮" menu item ({@link RowActionMenuItem}) and the inline primary button
- * ({@link RowActionInlineButton}). One function, so a def cannot be visible on
- * one surface and hidden on the other.
- *
- * A gate counts as DECLARED by `!= null && !== ''`, never by truthiness
- * (objectui#3758). Truthiness cannot answer the question: `visible: false` is a
- * declared gate that excludes every row, and testing `!def.visible` classified
- * it as *ungated* — so the most explicit way to say "never show this" rendered
- * the action for everyone, on both surfaces and in the "⋮" guard's count. This
- * is `bulkEligibility`'s `hasVisibilityGate` verbatim, the invariant
- * objectui#3492 established for the selection bar, and the same `!= null`
- * posture the built-in `visibleWhen` gate above has always had. The boolean then
- * decides in {@link evalRowActionVisibility}, which short-circuits it instead of
- * handing it to the engine.
- *
- * `''` is grouped with `null` deliberately: an empty predicate is nothing to
- * evaluate, so it must not hide the action from everyone either.
- */
-export function isCustomRowActionVisible(
-  def: RowActionDef | undefined,
-  row: any,
-  scope: Record<string, unknown>,
-  fields?: unknown,
-): boolean {
-  const pred = def?.visible;
-  if (pred == null || pred === '') return true;
-  return evalRowActionVisibility(pred, row, scope, def?.name ?? 'row-action', fields);
 }
 
 /** What this row's action cell will actually render. */

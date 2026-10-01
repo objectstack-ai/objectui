@@ -372,7 +372,18 @@
  *     and 37 / 53 until objectui#7344 swept the string / `z.any()` handler mirrors:
  *     `DetailSchema` and `DetailViewSchema` entered (one `onBack` each) and
  *     `CalendarViewSchema` grew by `onEventClick`.
- *   - **6 entries** in `UnmirroredDeclared`, **20 keys** across them — 9 / 44 until
+ *   - **5 entries** in `UnmirroredDeclared`, **16 keys** across them — 6 / 20 until
+ *     objectui#6152 round 5 closed ONE entry and shrank another, four keys by TWO routes
+ *     that must not be read as one. TWO were RETIRED on both faces under ADR-0049
+ *     enforce-or-remove, each a tombstone and so a mirrored member:
+ *     `DataTableSchema.selectionStyle` (read by `data-table` but authored and produced
+ *     nowhere, its hover branch dropped) and `ChatbotSchema.floatingConfig` (ZERO reads on
+ *     a `chatbot` node; `ChatbotFloatingSchema` keeps its own). TWO were RECLASSIFIED BY
+ *     NAME into `RuntimeOnlyDeclared` — see that bullet below: `DataTableSchema`'s
+ *     `editable` and `singleClickEdit`, host-paired flags `ObjectGrid` sets in code, which
+ *     emptied that entry with the retirement beside them. ⚠️ The LOCAL half did NOT reach
+ *     zero: `displayMode` stays on both chatbot twins BY DECISION (objectui#7654 ruling B,
+ *     its refusal TypeScript-only) — see those two entries; 9 / 44 until
  *     objectui#6152 round 4 closed THREE entries and shrank three more, twenty-four keys
  *     by THREE routes that must not be read as one. TWO were MIRRORED, each measured READ
  *     by a type-checker census: `ChatbotSchema.requestBody` (through the shared pick, so
@@ -459,7 +470,13 @@
  *     seeded long after the 121). It is ⛔ not replaced with a fresh digit, for the
  *     reason above. The full statement is on that ledger, which owns it — read it
  *     there, and ⛔ do not copy it back.
- *   - **4 entries** in `RuntimeOnlyDeclared`, **27 keys** across them — 4 / 9
+ *   - **4 entries** in `RuntimeOnlyDeclared`, **29 keys** across them — 4 / 27
+ *     until objectui#6152 round 5 filed TWO more non-callback keys here BY NAME, each
+ *     with its reason on `RuntimeOnlyNamedAllowList`, on the `DataTableSchema` entry that
+ *     already existed: `editable` and `singleClickEdit`, the inline-edit flags `ObjectGrid`
+ *     sets in code beside the save path it supplies. ⚠️ The OTHER side of
+ *     `UnmirroredDeclared` losing the same two — ⛔ not new debt, and nothing mirrored by
+ *     it. The entry count held; it was 4 / 9
  *     until objectui#6152 round 4 filed EIGHTEEN non-callback keys here BY NAME, each
  *     with its reason on `RuntimeOnlyNamedAllowList`, on two entries that already
  *     existed: fourteen code-produced `DataTableSchema` keys and four `DetailViewSchema`
@@ -508,8 +525,12 @@
  *     two. ⭐ The direction is the one this ledger is meant to drain in: a
  *     runtime-only key leaves by being declared on the mirror, never by being
  *     quietly refiled.
- *     **1 of the 4** are a subset of the **6** pairs above, so
- *     the union of the two unmirrored ledgers is **9** pairs, being **6** from `UnmirroredDeclared` plus **3** recorded ONLY in `RuntimeOnlyDeclared`.
+ *     **0 of the 4** are a subset of the **5** pairs above, so
+ *     the union of the two unmirrored ledgers is **9** pairs, being **5** from `UnmirroredDeclared` plus **4** recorded ONLY in `RuntimeOnlyDeclared`.
+ *     ⭐ objectui#6152 round 5 moved the difference from 3 to 4, and the shared count to
+ *     zero: `DataTableSchema` — the last pair in BOTH ledgers — left `UnmirroredDeclared`
+ *     whole (two keys filed here by name, one retired) while keeping its entry here, so
+ *     the union held at `9`. It read `1 of the 4`, `6` and `3` until then.
  *     ⭐ objectui#6152 round 4 moved the difference from 2 to 3: `DetailViewSchema` left
  *     `UnmirroredDeclared` whole (four keys filed here by name, one retired) while
  *     keeping its entry here. It read `2 of the 4`, a union of `11`, until then.
@@ -528,19 +549,23 @@
  *     drained it by MIRRORING the key as a named refusal. ⛔ The difference figure
  *     is not recoverable by editing this sentence — it is a fact about the ledgers,
  *     and it returns only when some pair is again runtime-only and nothing else.
- *     ⚠️ Every live figure in these two sentences is pinned: the `1` (a quantity
+ *     ⚠️ Every live figure in these two sentences is pinned: the `0` (a quantity
  *     of its own — how many entries the two unmirrored ledgers share), the `9` (the
- *     union) and the `3` (the pairs recorded only as runtime-only), and three
- *     RESTATEMENTS of counts already stated above — the `4` and both `6`s. (This list
- *     was amended by objectui#6152 round 3, which reshaped the sentence, and re-read
- *     by round 4, which moved only its digits.)
+ *     union) and the `4` after `plus` (the pairs recorded only as runtime-only), and
+ *     three RESTATEMENTS of counts already stated above — the `4` in `of the 4` and
+ *     both `5`s. (This list was amended by objectui#6152 round 3, which reshaped the
+ *     sentence, and re-read by rounds 4 and 5, which moved only its digits.)
  *     They were spelled as English WORDS
  *     until objectui#8222, which is why no instrument had ever read them: a figure
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **3 entries** in `WiderThanDeclared`, **3 keys** across them, and **3 arms**
- *     under those keys — split **2** SCHEMA-NODE, **1** CONCRETE, **0** MIXED, **0** unions.
+ *   - **4 entries** in `WiderThanDeclared`, **4 keys** across them, and **4 arms**
+ *     under those keys — split **2** SCHEMA-NODE, **2** CONCRETE, **0** MIXED, **0** unions.
+ *     It read 3 / 3 / 3 — 2 / 1 / 0 / 0 — until objectui#11117 waived
+ *     `objectql.zod.ts#ObjectGridSchema`'s `objectName` on the mirror beside a
+ *     `dataSource.object` binding while the TypeScript twin kept it required: the entry,
+ *     its one key and its one CONCRETE arm ENTERED together.
  *     It read 6 / 7 / 7 — 5 / 2 / 0 / 0 — until objectui#11073 bumped the installed
  *     `@objectstack/spec` to 17.5.0, whose `visibleWhen` envelope requires `source`: the
  *     spec-version-gated entries `views.zod.ts#DetailViewFieldSchema` (`options`, one CONCRETE
@@ -2559,7 +2584,7 @@ interface KnownDrift {
  *
  * objectui#6058 seeded this ledger at **121 keys**, and — on ONE line, because the
  * pin below reads this sentence off disk —
- * **20 keys** is what this ledger records today.
+ * **16 keys** is what this ledger records today.
  * The movements between the two are different facts. objectui#6152 measured the 23
  * callback-shaped (`on*`) keys and ruled that mirroring is the wrong remedy for every
  * one of them;
@@ -2593,7 +2618,10 @@ interface KnownDrift {
  * `DetailViewSchema.autoDiscoverRelated`), and eighteen RECLASSIFIED into
  * `RuntimeOnlyDeclared` by NAME (fourteen of `DataTableSchema`'s, four of
  * `DetailViewSchema`'s) — the largest single move since the seed, and mostly NOT a
- * repair.
+ * repair. Then objectui#6152 round 5 moved four keys by two routes: two RETIRED on both
+ * faces (`DataTableSchema.selectionStyle`, `ChatbotSchema.floatingConfig`) and two
+ * RECLASSIFIED into `RuntimeOnlyDeclared` by NAME (`DataTableSchema`'s `editable` and
+ * `singleClickEdit`) — ⛔ none of the four a repair, and none mirrored.
  *
  * ## The decomposition of "121" — a reading at NAMED REVISIONS, so it cannot rot
  *
@@ -2757,7 +2785,13 @@ interface KnownDrift {
  *     spec schema does not model, which is objectui#2231's unification question and
  *     NOT a local mirror edit. They are marked, not exempted: exempting them in the
  *     instrument would re-blind exactly the pairs objectui#5927 leaned on hardest.
- *   - **LOCAL (3 entries, 6 keys)** — plain omissions from a hand-written mirror.
+ *   - **LOCAL (2 entries, 2 keys)** — omissions from a hand-written mirror. ⚠️ The two
+ *     left are NOT plain omissions: both are `displayMode`, on the two chatbot twins, a
+ *     tombstone whose refusal stays TypeScript-only BY DECISION (objectui#7654 ruling B,
+ *     kept by objectui#6152 round 4) — so this half does not drain to zero by mirroring.
+ *     It was 3 / 6 until objectui#6152 round 5 closed `DataTableSchema`'s entry (two keys
+ *     RECLASSIFIED by name, one RETIRED) and shrank `ChatbotSchema`'s (`floatingConfig`
+ *     RETIRED). No entry crossed between the halves, so the SPEC-DERIVED half did not move.
  *     It was 6 / 30 until objectui#6152 round 4 closed THREE entries here and shrank
  *     three more: `LabelSchema` (its one key RETIRED), `ReportComponentSchema` (both keys
  *     RETIRED) and `DetailViewSchema` (four keys RECLASSIFIED by name, one RETIRED) left;
@@ -2835,9 +2869,14 @@ interface KnownDrift {
  * `ReportComponentSchema`'s last two keys and `DetailViewSchema.autoDiscoverRelated`,
  * RECLASSIFIED eighteen keys of `DataTableSchema` and `DetailViewSchema` into
  * `RuntimeOnlyDeclared` by name, and MIRRORED one key on each chatbot face — three
- * entries emptied. The seeded pair is no longer among them, and the ledger now totals — on ONE line, because the pin below
+ * entries emptied. objectui#6152 round 5 then moved only the LOCAL half again, by two
+ * routes: it RETIRED `DataTableSchema.selectionStyle` and `ChatbotSchema.floatingConfig`
+ * on both faces and RECLASSIFIED `DataTableSchema`'s `editable` and `singleClickEdit`
+ * into `RuntimeOnlyDeclared` by name — one entry emptied, and what the LOCAL half keeps
+ * is `displayMode` on the two chatbot twins, by decision rather than as debt. The seeded
+ * pair is no longer among them, and the ledger now totals — on ONE line, because the pin below
  * reads this sentence off disk —
- * **6 entries / 20 keys** — 3 / 14 spec-derived, 3 / 6 local.
+ * **5 entries / 16 keys** — 3 / 14 spec-derived, 2 / 2 local.
  *
  * ⛔ The four split figures above and this totals line are PINNED: 'objectui#7279'
  * at the bottom of this file derives every one of them from the `UnmirroredDeclared`
@@ -2879,22 +2918,25 @@ interface UnmirroredDeclared {
    * saying `body` sat in `KnownDrift` for a naming collision; objectui#8572 retired that
    * arm and the `KnownDrift` row, as that entry above records.)
    *
-   * The two left are NOT mirroring debt in waiting:
+   * It was two until objectui#6152 round 5 RETIRED `floatingConfig` on both faces (the
+   * seat's answer A to round 4's open question): ZERO reads on this node by a
+   * type-checker census and a runtime probe, since the `chatbot` registration never
+   * reads it and only `chatbot-floating`'s does. It is `?: never` on the interface and a
+   * `retirementTombstone()` on this mirror now — a tombstone is a mirrored member — and
+   * `ChatbotFloatingSchema` never inherited it (it picks the shared keys and declares
+   * its own `floatingConfig`), so the entry below did not move. The `chatbot` half of
+   * `floating-chatbot-trigger-icon-retired.test.ts` was the tripwire for that absence,
+   * and it now pins the refusal instead.
    *
-   *   - `displayMode` is a `?: never` tombstone since objectui#7654 (maintainer ruling B,
-   *     2026-09-05), and its refusal stays TypeScript-ONLY under that ruling: stored
-   *     designer documents carry `displayMode: 'floating'`, and a zod arm would refuse
-   *     them. objectui#6152 round 4 took the question under that ruling and minted no
-   *     arm, so the key stays here by DECISION, ⛔ not as a mirror half owed.
-   *     `chatbot-display-mode-retired.test.ts` pins this twin's shape as the tripwire.
-   *   - `floatingConfig` — ZERO reads on this node (round 4's type-checker census): the
-   *     `chatbot` registration never reads it, only `chatbot-floating`'s does, and that
-   *     twin mirrors it now (see the entry below). Mirroring it here would bless a key
-   *     nothing honours on this node, so it is a NARROWING candidate under ADR-0049
-   *     enforce-or-remove, reported by round 4 and ⛔ not narrowed. The `chatbot` half of
-   *     `floating-chatbot-trigger-icon-retired.test.ts` pins its absence as a tripwire.
+   * The one left is NOT mirroring debt in waiting: `displayMode` is a `?: never`
+   * tombstone since objectui#7654 (maintainer ruling B, 2026-09-05), and its refusal
+   * stays TypeScript-ONLY under that ruling: stored designer documents carry
+   * `displayMode: 'floating'`, and a zod arm would refuse them. objectui#6152 round 4
+   * took the question under that ruling and minted no arm, so the key stays here by
+   * DECISION, ⛔ not as a mirror half owed. `chatbot-display-mode-retired.test.ts` pins
+   * this twin's shape as the tripwire.
    */
-  'complex.zod.ts#ChatbotSchema': 'displayMode' | 'floatingConfig';
+  'complex.zod.ts#ChatbotSchema': 'displayMode';
   /**
    * LOCAL — a pair born ledgered (objectui#7655) with the two keys the floating
    * face declares alongside `ChatbotSchema`. It was two until objectui#6152 round 4
@@ -2932,30 +2974,27 @@ interface UnmirroredDeclared {
   // entry and `ObjectDataTableSchema`'s below went in the same change) — not a
   // reclassification and not a retirement: the key is still declared, still authorable,
   // and is now enforced. The pair holds no entry in either unmirrored ledger.
-  /**
-   * LOCAL. It was 17 until objectui#6152 round 4 measured every key (a type-checker
-   * census over every package's sources for reads and in-code producers, and an
-   * authored census over every tracked JSON file, Markdown JSON fence and
-   * `type: 'data-table'` object literal) and moved FOURTEEN to `RuntimeOnlyDeclared`
-   * below BY NAME, each with its reason on `RuntimeOnlyNamedAllowList`: keys a host
-   * sets in code (`ObjectGrid`'s in-code `data-table` node, or `RelatedList`'s) and no
-   * document authors — ⛔ none mirrored, no declaration moved. It was 29 before that:
-   * the twelve `on*` keys are in `RuntimeOnlyDeclared` below (objectui#6152).
-   * `rowActions` is in `KnownDrift` above — the mirror does declare that one, disjointly.
-   *
-   * The three left fit NONE of round 4's classes, so the round stopped at each and
-   * reported it rather than guess:
-   *
-   *   - `editable`, `singleClickEdit` — READ by `data-table`, produced in code by
-   *     `ObjectGrid`, and authored by no document; but the published docs page for
-   *     this node (`content/docs/components/complex/data-table.mdx`) lists both in its
-   *     interface block and teaches `editable: true` in prose. Filing them runtime-only
-   *     would contradict that page, and mirroring them would rest on no authored
-   *     document, so the route is a ruling.
-   *   - `selectionStyle` — READ by `data-table`, and neither authored nor produced
-   *     anywhere: no document and no in-code producer writes it.
-   */
-  'data-display.zod.ts#DataTableSchema': 'editable' | 'selectionStyle' | 'singleClickEdit';
+  // `data-display.zod.ts#DataTableSchema` recorded keys here (LOCAL) from objectui#6058's
+  // seeding until objectui#6152 round 5 emptied the entry by two routes that must not be
+  // read as one (the seat's answers 1 and 2 to round 4's open questions):
+  //
+  //   - `editable` and `singleClickEdit` were MOVED to `RuntimeOnlyDeclared` below BY
+  //     NAME, each with its reason on `RuntimeOnlyNamedAllowList` — round 4's class rule
+  //     for a key a host produces in code (`ObjectGrid`, beside the save path it
+  //     supplies) and no document authors. ⛔ Neither was mirrored and neither
+  //     declaration moved; the docs page that taught them on an authored node
+  //     (`content/docs/components/complex/data-table.mdx`) was corrected in the same
+  //     change, which is what had stopped round 4 at them.
+  //   - `selectionStyle` was RETIRED on both faces under ADR-0049 enforce-or-remove:
+  //     read by `data-table`, but authored and produced nowhere (re-measured in this
+  //     repository and in `objectstack`), so its hover-only branch was dropped and the key
+  //     is `?: never` on the interface and a `retirementTombstone()` on the mirror. A
+  //     tombstone is a mirrored member.
+  //
+  // It was three keys after round 4, which moved FOURTEEN host-produced keys to
+  // `RuntimeOnlyDeclared` by name; 17 before that, and 29 before the twelve `on*` keys
+  // went there (objectui#6152). `rowActions` is in `KnownDrift` above — the mirror does
+  // declare that one, disjointly. The pair now records nothing here.
   /**
    * SPEC-DERIVED by MEMBERSHIP since objectui#11070, LOCAL before it: that card declared
    * nine field-metadata members by reference to the spec's `FieldSchema`, so
@@ -3081,7 +3120,7 @@ interface UnmirroredDeclared {
  *
  * `UnmirroredDeclared` above was seeded at **121 keys** by objectui#6058, and — on
  * ONE line, because the pin below reads this sentence off disk —
- * `UnmirroredDeclared` records **20 keys** today.
+ * `UnmirroredDeclared` records **16 keys** today.
  * These 23 moved here whole. Keys have since left that ledger by MIRRORING and by
  * RETIREMENT, but the move recorded HERE is neither and repaired nothing. ⛔ Nothing
  * was mirrored by it, no declaration was removed, no defect was repaired and nothing was
@@ -3230,14 +3269,22 @@ interface RuntimeOnlyDeclared {
    * `sort` as well) — and no document authors any of them: the server-mode controlled
    * state that pairs with the four `on*` slots above, two FUNCTION slots
    * (`rowClassName`, `rowStyle`), and host-composition flags.
+   *
+   * ⭐ GREW by two more NON-callback keys with objectui#6152 round 5 (the seat's answer
+   * B to round 4's first open question, under that round's own class rule): `editable`
+   * and `singleClickEdit`, the inline-edit flags `ObjectGrid` sets in code beside the
+   * save path it supplies (`onRowSave` / `onBatchSave`), each filed BY NAME with its
+   * reason on `RuntimeOnlyNamedAllowList` below. Both came from `UnmirroredDeclared`
+   * above, emptying its `DataTableSchema` entry together with `selectionStyle`'s
+   * retirement. ⛔ Neither was mirrored and no declaration moved.
    */
   'data-display.zod.ts#DataTableSchema':
     | 'onColumnReorder'
     | 'onPageChange' | 'onPageSizeChange'
     | 'onSearchChange' | 'onSortChange'
-    | 'disableInnerScroll' | 'manualPagination' | 'manualSearch' | 'manualSorting'
+    | 'disableInnerScroll' | 'editable' | 'manualPagination' | 'manualSearch' | 'manualSorting'
     | 'page' | 'rowActionDefs' | 'rowClassName' | 'rowCount' | 'rowStyle'
-    | 'search' | 'selectionResetKey' | 'showAddRow' | 'showSelectionCount' | 'sort';
+    | 'search' | 'selectionResetKey' | 'showAddRow' | 'showSelectionCount' | 'singleClickEdit' | 'sort';
   /**
    * 1 of `FormSchema`'s former 9. OVERSIGHT group — `onSubmit`, `onChange` and
    * `onCancel` are mirrored beside it. Read at `renderers/form/form.tsx:997`, by
@@ -3435,9 +3482,16 @@ interface RuntimeOnlyNamedAllowList {
    * and found in no document by an authored census over every tracked JSON file,
    * Markdown JSON fence and `type: 'data-table'` object literal. ⛔ Not a waiver: the
    * comparison still reconciles each key, and a row whose key leaves the ledger is red.
+   *
+   * objectui#6152 round 5 added `editable` and `singleClickEdit` under the same class
+   * rule (the seat's answer B), re-measured the same way on that round's base. What
+   * had stopped round 4 at them was a docs page teaching both on an authored node; the
+   * same change corrected that page (`content/docs/components/complex/data-table.mdx`),
+   * because an authored `editable: true` stages edits that no callback persists.
    */
   'data-display.zod.ts#DataTableSchema': {
     disableInnerScroll: 'host-composition flag: set in code by ObjectGrid on each grouped sub-table so all groups share one scroll container; authored in no document';
+    editable: 'host-paired flag: set in code by ObjectGrid beside the onRowSave / onBatchSave save path it supplies; an authored value stages edits that nothing persists, and no document authors it';
     manualPagination: 'host-driven server paging: set in code by ObjectGrid with rowCount, page and the onPageChange slot; authored in no document';
     manualSearch: 'host-driven server search: set in code by ObjectGrid with search and the onSearchChange slot; authored in no document';
     manualSorting: 'host-driven server sort: set in code by ObjectGrid and RelatedList with sort and the onSortChange slot; authored in no document';
@@ -3450,6 +3504,7 @@ interface RuntimeOnlyNamedAllowList {
     selectionResetKey: 'imperative reset token: ObjectGrid bumps it in code to clear the checkboxes after a bulk action; authored in no document';
     showAddRow: 'host-paired flag: set in code by ObjectGrid from create permission, beside the onAddRecord slot the row calls; authored in no document';
     showSelectionCount: 'host-composition flag: set false in code by ObjectGrid, whose BulkActionBar shows the selection instead; authored in no document';
+    singleClickEdit: 'host-paired flag: set in code by ObjectGrid with editable, choosing how a cell enters inline edit; authored in no document';
     sort: 'controlled sort for manualSorting: set in code by ObjectGrid and RelatedList from their own sort state; authored in no document';
   };
   /**
@@ -3727,6 +3782,20 @@ interface WiderThanDeclared {
    * narrow.
    */
   'layout.zod.ts#PageNodeSchema': 'slots';
+  /**
+   * CONCRETE. `objectName` ENTERED under objectui#11117: the mirror waives it
+   * beside a `dataSource.object` binding, as the spec and `ElementDataSourceGate`
+   * do (the member is `z.string().optional()`, and the shared record-source
+   * refinement refuses a node with neither), so `{ type: 'object-grid',
+   * dataSource: { object: 'product' } }` parses green and `tsc` refuses it for the
+   * missing member. The declaration is the face that is wrong here, not the
+   * mirror — but it is also the type `ObjectGrid` reads after the gate has run,
+   * and `@object-ui/plugin-grid` passes it as a `string`
+   * (`translateOptions(schema.objectName, …)`), so widening it is a
+   * renderer-typing change that card left out of its file surface. The entry
+   * leaves when the declaration states `objectName?: string`.
+   */
+  'objectql.zod.ts#ObjectGridSchema': 'objectName';
   // `navigation.zod.ts#HeaderBarSchema` recorded `logo` here (CONCRETE, two arms; ENTERED
   // under objectui#7760): the mirror spelled it single-or-list `SchemaNode` and the
   // declaration a bare `string`. The `header-bar` renderer reads no `logo` at all — through
@@ -3863,6 +3932,7 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'app.zod.ts#AppComponentSchema::areas': ['SCHEMA-NODE'],
   'form.zod.ts#FormSchema::layout': ['CONCRETE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
+  'objectql.zod.ts#ObjectGridSchema::objectName': ['CONCRETE'],
 };
 
 /* ── The invariant ──────────────────────────────────────────────────────────── */
@@ -5429,13 +5499,34 @@ the two is stated ONCE, in this file's header.`)
     // reads that difference off the header and derives it from these same two
     // ledgers, so no direction needs asserting here, and the next drain moves a digit
     // rather than this leg. ⛔ Do not restore a direction leg of either sign. The two
-    // non-vacuity legs below are the ones both shapes relied on, and they stay.
+    // non-vacuity legs below are the ones both shapes relied on.
+    //
+    // ⭐ objectui#6152 round 5 made the second of them FALSE as a fact about the
+    // ledgers: `DataTableSchema`, the last pair in both, left `UnmirroredDeclared`
+    // whole, so the two unmirrored ledgers ARE disjoint now and the shared figure in
+    // the header reads `0`. Asserting a non-empty intersection here would have forced a
+    // key back onto a ledger to satisfy a test — route 1 again. What that leg guarded
+    // is kept, measured another way: an intersection of ZERO is only a reading if the
+    // entry reader spells one pair the same way in every ledger it reads — a reader
+    // that normalised names differently per ledger would return 0 for every
+    // intersection and the `0` would pass blind. So the lit control is an intersection
+    // that is NOT empty, read by the same reader: `KnownDrift` shares pairs with each
+    // of the two unmirrored ledgers (`ChatbotSchema` with one, `DataTableSchema` with
+    // the other, on this change's tree). ⛔ If a later drain empties BOTH of those
+    // intersections too, pick another non-empty one — never delete the control.
     const unmirrored = new Set(ledgerEntryKeys('UnmirroredDeclared'));
     const runtimeOnly = ledgerEntryKeys('RuntimeOnlyDeclared');
+    const knownDrift = new Set(ledgerEntryKeys('KnownDrift'));
     expect(runtimeOnly.length, 'RuntimeOnlyDeclared read as EMPTY — the subset and union figures are then vacuous')
       .toBeGreaterThan(0);
-    expect(runtimeOnly.filter((pair) => unmirrored.has(pair)).length, 'the two unmirrored ledgers read as DISJOINT')
-      .toBeGreaterThan(0);
+    expect(
+      [...unmirrored].filter((pair) => knownDrift.has(pair)).length,
+      'UnmirroredDeclared and KnownDrift read as DISJOINT — the entry reader may not spell one pair the same way in two ledgers, so a 0 intersection would be blind',
+    ).toBeGreaterThan(0);
+    expect(
+      runtimeOnly.filter((pair) => knownDrift.has(pair)).length,
+      'RuntimeOnlyDeclared and KnownDrift read as DISJOINT — the entry reader may not spell one pair the same way in two ledgers, so a 0 intersection would be blind',
+    ).toBeGreaterThan(0);
   });
 });
 

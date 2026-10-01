@@ -211,10 +211,12 @@ describe('BuiltinRowActionItem per-record CEL predicates (#2614)', () => {
  * Both of this component's custom-action surfaces read one gate
  * (`isCustomRowActionVisible`), and that gate used to ask truthiness: `visible:
  * false` — the most explicit way to say "never show this" — answered "no gate
- * declared" and the action rendered for everyone. Declaration is detected by
- * `!= null && !== ''`, the invariant objectui#3492 already established for the
- * selection bar (`hasVisibilityGate`) and the one the built-in `visibleWhen`
- * gate has always used, so a boolean reaches the evaluator and decides.
+ * declared" and the action rendered for everyone. Declaration was then
+ * detected by `!= null && !== ''`, the invariant objectui#3492 established for
+ * the selection bar (`hasVisibilityGate`), so a boolean reaches the evaluator
+ * and decides. Since objectui#11294 the gate asks the action family's
+ * `hasDeclaredVisibilityGate`, which answers the same for a boolean and for
+ * `''` (see the block at the end of this file).
  *
  * The `visible: true` and undeclared cases are asserted alongside on purpose:
  * they are what separates "detect the declaration" from "hide unconditionally",
@@ -274,5 +276,55 @@ describe('declared boolean `visible` on a custom row action (objectui#3758)', ()
   it('an empty-string `visible` is not a declared gate — the action still renders', () => {
     renderMenu({ rowActionDefs: [{ ...OPEN, visible: '' }] });
     expect(screen.getByTestId('row-action-inline-open')).toBeInTheDocument();
+  });
+});
+
+/**
+ * objectui#11294 — a BLANK `visible` is no gate on this row menu either.
+ *
+ * This component used to keep its own twin of `isCustomRowActionVisible`, and
+ * the twin asked "is a gate declared?" with `!= null && !== ''`: a
+ * whitespace-only `visible` counted as declared, was evaluated, and failed
+ * closed, so the action vanished from the row while the action family's
+ * toolbars (which ask `hasDeclaredVisibilityGate`) showed it. The component now
+ * reads the one function from `@object-ui/components`, which asks the family's
+ * question. The `''` case above is the control; the `visible: false` cases
+ * above keep "no gate" from passing as "always show".
+ */
+describe('a blank `visible` on a custom row action (objectui#11294)', () => {
+  const quiet = () => vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+  it('a whitespace-only `visible` → the inline primary button renders', () => {
+    const warn = quiet();
+    try {
+      renderMenu({ rowActionDefs: [{ ...OPEN, visible: '   ' }] });
+      expect(screen.getByTestId('row-action-inline-open')).toBeInTheDocument();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('a whitespace-only `visible` → the "⋮" guard keeps the trigger and the menu item renders', async () => {
+    const warn = quiet();
+    try {
+      // The only action on the row: the trigger exists only if the guard
+      // counted it.
+      renderMenu({ rowActionDefs: [{ ...ARCHIVE, visible: '   ' }] });
+      await userEvent.click(screen.getByTestId('row-action-trigger'));
+      expect(screen.getByTestId('row-action-archive')).toBeInTheDocument();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('an envelope whose `source` is blank → the menu item renders', async () => {
+    const warn = quiet();
+    try {
+      renderMenu({ rowActionDefs: [{ ...ARCHIVE, visible: { dialect: 'cel', source: '   ' } }] });
+      await userEvent.click(screen.getByTestId('row-action-trigger'));
+      expect(screen.getByTestId('row-action-archive')).toBeInTheDocument();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

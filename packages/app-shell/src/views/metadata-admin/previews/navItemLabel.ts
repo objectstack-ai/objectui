@@ -78,9 +78,6 @@ export function inheritedNavEntryText(entry: NavEntryLike, targetLabel?: NavTarg
   const text = resolveNavItemLabel(
     { ...entry, label: undefined } as unknown as NavigationItem,
     undefined,
-    undefined,
-    undefined,
-    undefined,
     targetLabel,
   );
   return typeof text === 'string' ? text : '';

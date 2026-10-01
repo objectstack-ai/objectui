@@ -161,7 +161,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   const { isMobile, setOpenMobile } = useSidebar();
   const location = useLocation();
   const { t, language } = useObjectTranslation();
-  const { objectLabel: resolveNavObjectLabel, dashboardLabel: resolveNavDashboardLabel, viewLabel: resolveNavViewLabel, appLabel } = useObjectLabel();
+  const { appLabel } = useObjectLabel();
   const { context, currentAppName } = useNavigationContext();
   const { user, activeOrganization } = useAuth();
   const { isAdmin: isWorkspaceAdmin } = useWorkspaceAdminStatus();
@@ -568,7 +568,9 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
              </SidebarGroup>
            )}
 
-           {/* App Navigation tree */}
+           {/* App Navigation tree. `locale` is the same `language` the area
+               labels above resolve in, so an entry label written as an inline
+               locale map reads the viewer's entry too (objectui#11299). */}
            <NavigationRenderer
              items={processedNavigation}
              basePath={basePath}
@@ -580,10 +582,8 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
              onPinToggle={togglePin}
              enableReorder={!isMobile}
              onReorder={handleReorder}
-             resolveObjectLabel={(objectName, fallback) => resolveNavObjectLabel({ name: objectName, label: fallback })}
-             resolveDashboardLabel={(dashboardName, fallback) => resolveNavDashboardLabel({ name: dashboardName, label: fallback })}
-             resolveViewLabel={(objectName, viewName, fallback) => resolveNavViewLabel(objectName, viewName, fallback)}
              resolveTargetLabel={resolveNavTargetLabel}
+             locale={language}
              onAction={dispatchNavAction}
              t={t}
              templateContext={{ currentUserId: user?.id ?? null, currentOrgId: activeOrganization?.id ?? null, contextValues }}
@@ -707,10 +707,8 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
              evaluateVisibility={evalVis}
              checkPermission={checkPerm}
              checkCapability={checkCap}
-             resolveObjectLabel={(objectName, fallback) => resolveNavObjectLabel({ name: objectName, label: fallback })}
-             resolveDashboardLabel={(dashboardName, fallback) => resolveNavDashboardLabel({ name: dashboardName, label: fallback })}
-             resolveViewLabel={(objectName, viewName, fallback) => resolveNavViewLabel(objectName, viewName, fallback)}
              resolveTargetLabel={resolveNavTargetLabel}
+             locale={language}
              onAction={dispatchNavAction}
              t={t}
              templateContext={{ currentUserId: user?.id ?? null, currentOrgId: activeOrganization?.id ?? null, contextValues }}

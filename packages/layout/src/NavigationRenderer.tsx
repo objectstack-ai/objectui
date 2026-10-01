@@ -223,29 +223,29 @@ export interface NavigationRendererProps {
   /** Called when navigation items are reordered via drag */
   onReorder?: (reorderedItems: NavigationItem[]) => void;
 
-  /**
-   * @deprecated Not consulted since objectui#11201 (ruling B). It was the
-   * object half of the renderer's translate-if-equal-to-name convention: a
-   * present plain-string label whose text equalled the object's machine name
-   * was looked up through it. A present label now renders verbatim, and an
-   * absent one inherits through {@link resolveTargetLabel}, which is where an
-   * object's localized name comes from. Passing it changes nothing.
-   */
-  resolveObjectLabel?: (objectName: string, fallbackLabel: string) => string;
+  // RETIRED (objectui#11299): `resolveObjectLabel` / `resolveDashboardLabel` /
+  // `resolveViewLabel`, the three convention resolvers of the retired
+  // translate-if-equal-to-name rule. objectui#11201 (ruling B) stopped
+  // consulting them; they were kept as inert no-ops and are gone now. A present
+  // label renders as authored and an absent one inherits through
+  // `resolveTargetLabel`, which is where a target's localized name comes from.
+  // Do not re-add them.
 
   /**
-   * @deprecated Not consulted since objectui#11201 (ruling B) — the dashboard
-   * half of the retired convention; see {@link resolveObjectLabel}.
+   * The viewer's locale (a BCP-47 tag such as `zh-CN`), for a PRESENT label
+   * written as an inline locale map (`{ en: 'Accounts', 'zh-CN': '客户' }`,
+   * the spec's `I18nLabel`): the map renders this locale's entry, through the
+   * spec's own `resolveI18nLabel`. When the map has no entry for this locale,
+   * the fallback order is that resolver's and is not restated here
+   * (objectui#11299).
+   *
+   * Injected, like `t`: this layer carries no i18n dependency, so the host that
+   * knows the language passes it (the console passes its active UI language,
+   * the same value its sidebar resolves area labels in). Omitted ⇒ the
+   * resolver's documented no-locale default, `en`. A plain-string label and an
+   * absent one are unaffected.
    */
-  resolveDashboardLabel?: (dashboardName: string, fallbackLabel: string) => string;
-
-  /**
-   * @deprecated Not consulted since objectui#11201 (ruling B) — the view half
-   * of the retired convention; see {@link resolveObjectLabel}. An unlabelled
-   * view entry still shows the VIEW's label (not the parent object's), through
-   * {@link resolveTargetLabel}.
-   */
-  resolveViewLabel?: (objectName: string, viewName: string, fallbackLabel: string) => string;
+  locale?: string;
 
   /**
    * Resolver for the text an entry with NO `label` inherits (objectui#9868):
@@ -270,7 +270,7 @@ export interface NavigationRendererProps {
    * (`{ key, defaultValue }`, see {@link resolveLabel}). When provided, labels
    * are translated through i18next; otherwise falls back to `defaultValue`.
    * An inline locale map (`{ en, 'zh-CN' }`) is not keyed and never reaches
-   * it — {@link resolveNavItemLabel} reads a map itself.
+   * it — {@link resolveNavItemLabel} reads a map itself, in {@link locale}.
    */
   t?: (key: string, options?: any) => string;
 
@@ -340,7 +340,8 @@ export function resolveLabel(
  *    renderer. App-navigation localization has that one owner — localize nav
  *    labels there, never here.
  * 2. A PRESENT label, as authored ({@link presentNavItemLabel}): an inline
- *    locale map reads its locale's entry, and a string renders verbatim.
+ *    locale map reads the entry for `locale` (the viewer's), and a string
+ *    renders verbatim.
  * 3. An ABSENT label inherits its target's CURRENT label (objectui#9868 —
  *    `@objectstack/spec` 17.5.0 made it optional, cloud#2021 letter-A ruling),
  *    resolved here at render time and never written back — see
@@ -352,10 +353,9 @@ export function resolveLabel(
  * ruling B). A present label equal to its target's machine name (`account`)
  * renders `account` in every locale: text cannot tell a deliberate `account`
  * from a machine-written one, so translation is keyed on identity (rung 1) or
- * comes through inheritance (rung 3). The three convention resolvers
- * (`resolveObjectLabel` / `resolveDashboardLabel` / `resolveViewLabel`) that
- * the retired rule consulted are still accepted in their positions, so no
- * caller breaks, and are not read.
+ * comes through inheritance (rung 3). The three convention resolvers that
+ * the retired rule consulted, and the three arguments that carried them, are
+ * gone (objectui#11299).
  *
  * EXPORTED since `969ba84f4`, for the same reason {@link resolveHref} is: a
  * second surface now renders the same `NavigationItem[]`. `nav:menu` is the
@@ -369,17 +369,15 @@ export function resolveLabel(
  */
 export function resolveNavItemLabel(
   item: NavigationItem,
-  _objectResolver?: (objectName: string, fallbackLabel: string) => string,
   t?: (key: string, options?: any) => string,
-  _dashboardResolver?: (dashboardName: string, fallbackLabel: string) => string,
-  _viewResolver?: (objectName: string, viewName: string, fallbackLabel: string) => string,
   targetLabel?: NavTargetLabelResolver,
+  locale?: string,
 ): string {
   // A separator carries no `label` (objectui#10867): there is nothing to name.
   if (item.type === 'separator') return '';
   // Absent ⇒ inherit (objectui#9868).
   if (item.label === undefined) return inheritedNavItemLabel(item, targetLabel);
-  return presentNavItemLabel(item.label, t);
+  return presentNavItemLabel(item.label, t, locale);
 }
 
 /**
@@ -388,14 +386,13 @@ export function resolveNavItemLabel(
  *
  *  - A string renders verbatim.
  *  - An inline locale map — the spec's `I18nLabel`, `{ en, 'zh-CN' }` — reads
- *    through the spec's own `resolveI18nLabel`, the resolver areas and the
- *    Studio's designer canvas use for the same vocabulary. This layer is handed
- *    no locale (it carries no i18n dependency by design — see
- *    `resolveAreaLabel` in `AppSchemaRenderer.tsx`), so the map resolves at
- *    that resolver's documented no-locale default: its `en` entry, else
- *    `default`, else any entry — the floor the area switcher settles for.
- *    A map with no text at all reads `''`: it is present, so it inherits
- *    nothing.
+ *    through the spec's own `resolveI18nLabel` in `locale`, the viewer's locale
+ *    the host injects (objectui#11299; this layer carries no i18n dependency,
+ *    so it is handed the locale rather than reading one). The fallback order
+ *    when the map has no entry for that locale is the resolver's own, never
+ *    restated here; with no `locale` at all it is the resolver's documented
+ *    no-locale default (`en`). A map with no text at all reads `''`: it is
+ *    present, so it inherits nothing.
  *  - objectui's KEYED reference `{ key, defaultValue?, params? }` resolves
  *    through `t` ({@link resolveLabel}), as before. The two object shapes do
  *    not overlap: the spec's inline-locale key pattern excludes both `key` and
@@ -404,10 +401,11 @@ export function resolveNavItemLabel(
 function presentNavItemLabel(
   label: unknown,
   t: ((key: string, options?: any) => string) | undefined,
+  locale: string | undefined,
 ): string {
   if (typeof label === 'string') return label;
   if (isKeyedLabel(label)) return resolveLabel(label, t);
-  return resolveInlineI18nLabel(label as Parameters<typeof resolveInlineI18nLabel>[0], undefined) ?? '';
+  return resolveInlineI18nLabel(label as Parameters<typeof resolveInlineI18nLabel>[0], locale) ?? '';
 }
 
 /** objectui's keyed label reference, told apart from an inline locale map by the two member names a map can never carry. */
@@ -1071,8 +1069,9 @@ const ActiveNavIdContext = React.createContext<string | null>(null);
  *
  * Matches the text the row SHOWS: `labelOf` defaults to
  * {@link resolveNavItemLabel} with no resolvers, and `NavigationRenderer` passes
- * its own resolvers so an unlabelled entry is found by the label it inherits
- * (objectui#9868), not by a `label` it does not have.
+ * its own resolvers and locale so an unlabelled entry is found by the label it
+ * inherits (objectui#9868), not by a `label` it does not have, and a map-valued
+ * one by its entry in the viewer's locale (objectui#11299).
  */
 export function filterNavigationItems(
   items: NavigationItem[],
@@ -1121,10 +1120,8 @@ function SortableNavigationItem({
   enablePinning,
   onPinToggle,
   enableReorder,
-  resolveObjectLabel,
-  resolveDashboardLabel,
-  resolveViewLabel,
   resolveTargetLabel,
+  locale,
   t: tProp,
   templateContext,
 }: {
@@ -1138,10 +1135,8 @@ function SortableNavigationItem({
   enablePinning?: boolean;
   onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
   enableReorder?: boolean;
-  resolveObjectLabel?: (objectName: string, fallbackLabel: string) => string;
-  resolveDashboardLabel?: (dashboardName: string, fallbackLabel: string) => string;
-  resolveViewLabel?: (objectName: string, viewName: string, fallbackLabel: string) => string;
   resolveTargetLabel?: NavTargetLabelResolver;
+  locale?: string;
   t?: (key: string, options?: any) => string;
   templateContext?: NavTemplateContext;
 }) {
@@ -1174,10 +1169,8 @@ function SortableNavigationItem({
         enablePinning={enablePinning}
         onPinToggle={onPinToggle}
         dragListeners={enableReorder ? listeners : undefined}
-        resolveObjectLabel={resolveObjectLabel}
-        resolveDashboardLabel={resolveDashboardLabel}
-        resolveViewLabel={resolveViewLabel}
         resolveTargetLabel={resolveTargetLabel}
+        locale={locale}
         t={tProp}
         templateContext={templateContext}
       />
@@ -1200,10 +1193,8 @@ function NavigationItemRenderer({
   enablePinning,
   onPinToggle,
   dragListeners,
-  resolveObjectLabel,
-  resolveDashboardLabel,
-  resolveViewLabel,
   resolveTargetLabel,
+  locale,
   t: tProp,
   templateContext,
 }: {
@@ -1217,10 +1208,8 @@ function NavigationItemRenderer({
   enablePinning?: boolean;
   onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
   dragListeners?: Record<string, any>;
-  resolveObjectLabel?: (objectName: string, fallbackLabel: string) => string;
-  resolveDashboardLabel?: (dashboardName: string, fallbackLabel: string) => string;
-  resolveViewLabel?: (objectName: string, viewName: string, fallbackLabel: string) => string;
   resolveTargetLabel?: NavTargetLabelResolver;
+  locale?: string;
   t?: (key: string, options?: any) => string;
   templateContext?: NavTemplateContext;
 }) {
@@ -1301,7 +1290,7 @@ function NavigationItemRenderer({
     // does for area election.
     if (!hasVisibleNavigationItems(children, guardOptions)) return null;
 
-    const groupLabel = resolveNavItemLabel(item, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel, resolveTargetLabel);
+    const groupLabel = resolveNavItemLabel(item, tProp, resolveTargetLabel, locale);
 
     return (
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -1329,10 +1318,8 @@ function NavigationItemRenderer({
                     onAction={onAction}
                     enablePinning={enablePinning}
                     onPinToggle={onPinToggle}
-                    resolveObjectLabel={resolveObjectLabel}
-                    resolveDashboardLabel={resolveDashboardLabel}
-                    resolveViewLabel={resolveViewLabel}
                     resolveTargetLabel={resolveTargetLabel}
+                    locale={locale}
                     t={tProp}
                     templateContext={templateContext}
                   />
@@ -1359,7 +1346,7 @@ function NavigationItemRenderer({
     // `label` may be absent too (objectui#9868), and that is where the absent
     // arm lives — as is the inline-locale-map read (objectui#11201), which
     // `resolveLabel` does not do.
-    const actionLabel = resolveNavItemLabel(item, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel, resolveTargetLabel);
+    const actionLabel = resolveNavItemLabel(item, tProp, resolveTargetLabel, locale);
     return (
       <SidebarMenuItem>
         {dragListeners && (
@@ -1413,7 +1400,7 @@ function NavigationItemRenderer({
   const Icon = resolveIcon(item.icon);
   const { href, external } = resolveHref(item, basePath, templateContext);
   const isActive = activeNavId !== null && item.id === activeNavId;
-  const itemLabel = resolveNavItemLabel(item, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel, resolveTargetLabel);
+  const itemLabel = resolveNavItemLabel(item, tProp, resolveTargetLabel, locale);
 
   const content = (
     <>
@@ -1520,10 +1507,8 @@ export function NavigationRenderer({
   onPinToggle,
   enableReorder,
   onReorder,
-  resolveObjectLabel,
-  resolveDashboardLabel,
-  resolveViewLabel,
   resolveTargetLabel,
+  locale,
   t: tProp,
   templateContext,
 }: NavigationRendererProps) {
@@ -1544,10 +1529,10 @@ export function NavigationRenderer({
     () =>
       searchQuery
         ? filterNavigationItems(items, searchQuery, (item) =>
-            resolveNavItemLabel(item, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel, resolveTargetLabel),
+            resolveNavItemLabel(item, tProp, resolveTargetLabel, locale),
           )
         : items,
-    [items, searchQuery, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel, resolveTargetLabel],
+    [items, searchQuery, tProp, resolveTargetLabel, locale],
   );
 
   // --- Pinned items (favorites section) ---
@@ -1595,10 +1580,8 @@ export function NavigationRenderer({
     onAction,
     enablePinning,
     onPinToggle,
-    resolveObjectLabel,
-    resolveDashboardLabel,
-    resolveViewLabel,
     resolveTargetLabel,
+    locale,
     t: tProp,
     templateContext,
   };

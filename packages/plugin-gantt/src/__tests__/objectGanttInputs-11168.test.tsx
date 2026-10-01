@@ -770,7 +770,7 @@ describe('`object-gantt.readOnly` — every write path off, the drawer locked (o
   });
 });
 
-describe('`object-gantt.mobileReadOnly` — read-only under 640px, ON unless an explicit `false` (objectui#11168)', () => {
+describe('`object-gantt.mobileReadOnly` — the chart read-only under 640px, ON unless an explicit `false`; the drawer is `readOnly`\'s (objectui#11168)', () => {
   it('absent, 639px is locked and 640px is editable', async () => {
     expect(await writePaths(bag({}), 639)).toEqual(LOCKED);
     cleanup();
@@ -781,5 +781,45 @@ describe('`object-gantt.mobileReadOnly` — read-only under 640px, ON unless an 
     expect(await writePaths(bag({ mobileReadOnly: false }), 420)).toEqual(EDITABLE);
     cleanup();
     expect(await writePaths(bag({ mobileReadOnly: false, readOnly: true }), 420)).toEqual(LOCKED);
+  });
+
+  /**
+   * Open the first task's record the way a narrow chart offers it once its task
+   * list has auto-collapsed: the bar's context menu, "View details". Returns
+   * whether the record opened writable (`onFieldSave` handed to its panel).
+   */
+  async function openFromBarMenu(node: Record<string, unknown>, width: number) {
+    Object.defineProperty(window, 'innerWidth', { value: width, configurable: true });
+    const { container } = await mount(node);
+    fireEvent.contextMenu(screen.getByTestId('gantt-task-bar-t1'), { clientX: 10, clientY: 10 });
+    fireEvent.click(screen.getByTestId('gantt-context-menu-view'));
+    await waitFor(() => expect(panel()).not.toBeNull());
+    return {
+      chartLocked: container.querySelector('[data-readonly="true"]') !== null,
+      record: panel()?.getAttribute('data-record'),
+      writable: panel()?.getAttribute('data-writable'),
+    };
+  }
+
+  it('the record drawer is locked by `readOnly` alone: on a narrow chart a task\'s record still opens WRITABLE', async () => {
+    // Measured, not endorsed: whether the drawer SHOULD lock on a narrow chart
+    // is not this file's question. The chart is locked and the drawer is not.
+    expect(await openFromBarMenu(bag({}), 420)).toEqual({ chartLocked: true, record: 't1', writable: 'true' });
+    cleanup();
+    // CONTROL: `readOnly` locks the same drawer, through the same click.
+    expect(await openFromBarMenu(bag({ readOnly: true }), 420)).toEqual({ chartLocked: true, record: 't1', writable: 'false' });
+  });
+
+  it('narrow is the chart\'s own measured width when there is one, the viewport\'s until then', async () => {
+    const measuring = (width: number) =>
+      vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+        width, height: 600, x: 0, y: 0, top: 0, left: 0, right: width, bottom: 600, toJSON: () => ({}),
+      } as DOMRect);
+    measuring(420);
+    expect(await writePaths(bag({}), 1280)).toEqual(LOCKED);
+    cleanup();
+    vi.restoreAllMocks();
+    measuring(1280);
+    expect(await writePaths(bag({}), 420)).toEqual(EDITABLE);
   });
 });

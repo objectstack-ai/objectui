@@ -10,7 +10,8 @@ The `object-gantt` registration now declares `navigation`, `label`, `skipWeekend
 - `label`: a string, or an inline locale map resolved to the display locale, naming the exported PNG/PDF file after `gantt.exportFileName` and before the object's own label.
 - `skipWeekends` and `holidays` (members: `yyyy-mm-dd` strings): working-day auto-schedule math, and the day view folds those days out of its axis. A non-empty `holidays` turns the working calendar on by itself.
 - `persistLayout` and `viewName`: the `objectName:viewName` storage key; `persistLayout: false` removes the save-layout button and stores nothing.
-- `markers`, `criticalPath`, `showBaselines`, `readOnly` and `mobileReadOnly` (read-only under 640px unless `false`).
+- `markers`, `criticalPath`, `showBaselines` and `readOnly`.
+- `mobileReadOnly`: on a chart narrower than 640px the chart's write paths are read-only unless `false`; the record drawer locks under `readOnly` alone, so a task's record still opens writable on a narrow chart.
 
 The `gantt` input's description no longer names `percentageField`, which nothing reads and the spec refuses by name. It now starts with the row's own describe and states the three required members.
 

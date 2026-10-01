@@ -191,7 +191,7 @@ ComponentRegistry.register('object-gantt', ObjectGanttRenderer, {
     { name: 'criticalPath', type: 'boolean', description: 'Seed the critical-path highlight ON; the toolbar toggle stays available either way' },
     { name: 'showBaselines', type: 'boolean', description: 'Render the planned-vs-actual baseline bars — ON unless an explicit `false` disables it. A task draws one only when `gantt.baselineStartField` and `gantt.baselineEndField` give it both baseline dates.' },
     { name: 'readOnly', type: 'boolean', description: 'Disable every write path on this gantt and lock the record drawer. A task click still opens the record, read-only.' },
-    { name: 'mobileReadOnly', type: 'boolean', description: 'Auto read-only on narrow viewports — ON unless an explicit `false` disables it. Narrow is under 640px wide, where the gantt then behaves as under `readOnly`; `false` keeps a narrow gantt editable, and `readOnly: true` still locks it.' },
+    { name: 'mobileReadOnly', type: 'boolean', description: 'Auto read-only on narrow viewports — ON unless an explicit `false` disables it. Narrow is under 640px: the chart\'s own width once it is measured, the viewport\'s until then. A narrow chart\'s own write paths are gated as under `readOnly`, read-only badge included, but the record drawer is locked by `readOnly` alone, so a task\'s record still opens writable. `false` keeps a narrow chart editable, and `readOnly: true` locks the chart and the drawer at any width.' },
   ],
 });
 

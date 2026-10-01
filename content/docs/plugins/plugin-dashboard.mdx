@@ -422,6 +422,13 @@ off any `widgets[]` entry, the strict authoring face accepts it on a component
 node, and a malformed one (not four numbers, or a key besides `x`, `y`, `w` and
 `h`) is refused on either arm.
 
+A widget with no `layout` is auto-placed by the grid. The width and height
+editors (Studio's widget inspector, `DashboardWithConfig` and
+`DashboardEditor`) write the whole box: the coordinates an edit leaves alone
+come from where the grid auto-places that widget, through `completeWidgetLayout`
+and `defaultWidgetPlacement` from `@object-ui/types`. So changing one dimension
+never stores a `{ w }` or `{ h }` box, which the spec refuses.
+
 ## Type-aware list/table widget cells
 
 `type: 'table'` widgets bound to an `objectName` infer the renderer for

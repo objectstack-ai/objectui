@@ -6,6 +6,7 @@ import { Edit, GripVertical, Save, X, RefreshCw } from 'lucide-react';
 import { SchemaRenderer, useHasDndProvider, useDnd } from '@object-ui/react';
 import { useObjectTranslation, useObjectLabel, useSafeTranslate, pickLocalized } from '@object-ui/i18n';
 import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
+import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
 import { chartCategoryKey, chartConfigPresentation, chartMeasureKey } from '@object-ui/core';
 import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
 import { classifyWidgetType } from './widgetDispatch';
@@ -107,14 +108,17 @@ export function mergeLayoutIntoSchema(
   return { ...schema, widgets };
 }
 
+/**
+ * The grid's box for every widget. A widget with no `layout` is auto-placed by
+ * `defaultWidgetPlacement` — the fallback the spec's widget `layout` states,
+ * and the one the widget width / height editors seed a new box from
+ * (objectui#11388), so this grid and those editors place it in the same spot.
+ */
 function buildDefaultLayouts(schema: DashboardComponentSchema): { lg: RGLLayout[] } {
   return {
     lg: schema.widgets?.map((widget: DashboardWidgetSchema, index: number) => ({
       i: widget.id || `widget-${index}`,
-      x: widget.layout?.x ?? (index % 4) * 3,
-      y: widget.layout?.y ?? Math.floor(index / 4) * 4,
-      w: widget.layout?.w ?? 3,
-      h: widget.layout?.h ?? 4,
+      ...completeWidgetLayout(widget.layout, {}, defaultWidgetPlacement(index)),
     })) || [],
   };
 }

@@ -218,6 +218,33 @@ StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', bogus: 1 })).succ
 StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42, layout: { x: 0, y: 0, w: 3, h: 2 } })).success; // true
 ```
 
+### Writing a widget's `layout`
+
+A widget's `layout` is optional, but once present it is four numbers: the spec
+refuses a box that carries only `w` or only `h`. A widget with no `layout` is
+auto-placed by the grid. An editor that changes one dimension writes the whole
+box through `completeWidgetLayout`, seeding the coordinates it does not edit
+from the box the grid shows the widget in, which for a widget with no `layout`
+is `defaultWidgetPlacement(index)` (objectui#11388):
+
+```typescript
+import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
+import type { DashboardWidgetSchema } from '@object-ui/types';
+
+declare const widget: DashboardWidgetSchema;
+declare const index: number; // the widget's position in `widgets[]`
+
+const layout = completeWidgetLayout(widget.layout, { w: 6 }, defaultWidgetPlacement(index));
+// No `layout` at index 0 → { x: 0, y: 0, w: 6, h: 4 }; an existing box keeps its x, y and h.
+const next: DashboardWidgetSchema = { ...widget, layout };
+```
+
+The width and height editors in `@object-ui/app-shell` (Studio),
+`@object-ui/plugin-dashboard` (`DashboardWithConfig`) and
+`@object-ui/plugin-designer` (`DashboardEditor`) all write through it, and
+`DashboardGridLayout` places a widget with no `layout` through the same
+default.
+
 ## Type Categories
 
 ### Base Types

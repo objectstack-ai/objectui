@@ -11,6 +11,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Settings } from 'lucide-react';
 import { cn, Button } from '@object-ui/components';
 import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
+import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
 
 import { DashboardRenderer } from './DashboardRenderer';
 import { DashboardConfigPanel } from './DashboardConfigPanel';
@@ -104,10 +105,15 @@ export function DashboardWithConfig({
     // `dashboard-widget-slot-component-arm-7952.test.ts`), so the annotation is
     // checked by the compiler rather than asserted.
     const widgets: DashboardWidgetSchema[] = liveSchema.widgets;
-    const widget = widgets.find(
+    const index = widgets.findIndex(
       (w) => (w.id || w.title) === selectedWidgetId,
     );
-    if (!widget) return null;
+    if (index < 0) return null;
+    const widget = widgets[index];
+    // The panel's width / height sliders start from the same completed box the
+    // live writer below stores (objectui#11388), so the dimension an edit
+    // leaves alone is the one the slider showed.
+    const layout = completeWidgetLayout(widget.layout, {}, defaultWidgetPlacement(index));
     // ADR-0021 dataset shape — the only authoring shape the panel edits.
     // `dataset`/`dimensions`/`values` are read through casts: the bundled
     // `@object-ui/types` gains them once objectui bumps `@objectstack/spec`.
@@ -127,8 +133,8 @@ export function DashboardWithConfig({
       // `actionUrl: widget.actionUrl ?? ''` here meant EVERY save from the
       // widget panel emitted `actionUrl: ''` — a parse error — even when the
       // author never opened the Behavior group (objectstack#7129).
-      layoutW: widget.layout?.w ?? 1,
-      layoutH: widget.layout?.h ?? 1,
+      layoutW: layout.w,
+      layoutH: layout.h,
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedWidgetId, configVersion]);
@@ -164,13 +170,19 @@ export function DashboardWithConfig({
           ...prev,
           // `DashboardWidgetSchema`, for the reason `selectedWidgetConfig`
           // states: `title` is a widget-arm key (objectui#11348).
-          widgets: prev.widgets.map((w: DashboardWidgetSchema) => {
+          //
+          // A slider edits ONE dimension of the spec's four-number `layout`,
+          // so it goes through `completeWidgetLayout` (objectui#11388): on a
+          // widget with no `layout` the untouched coordinates come from the
+          // grid's auto-placement for its index, and the box is whole.
+          // Spreading the one number onto an absent box stored `{ w }`, which
+          // the spec refuses. `DashboardRenderer` computes no `x` / `y` this
+          // component can read, so it seeds from `defaultWidgetPlacement`.
+          widgets: prev.widgets.map((w: DashboardWidgetSchema, index: number) => {
             if ((w.id || w.title) !== selectedWidgetId) return w;
-            if (field === 'layoutW') {
-              return { ...w, layout: { ...(w.layout || {}), w: value } as DashboardWidgetSchema['layout'] };
-            }
-            if (field === 'layoutH') {
-              return { ...w, layout: { ...(w.layout || {}), h: value } as DashboardWidgetSchema['layout'] };
+            if (field === 'layoutW' || field === 'layoutH') {
+              const patch = field === 'layoutW' ? { w: value } : { h: value };
+              return { ...w, layout: completeWidgetLayout(w.layout, patch, defaultWidgetPlacement(index)) };
             }
             return { ...w, [field]: value };
           }),

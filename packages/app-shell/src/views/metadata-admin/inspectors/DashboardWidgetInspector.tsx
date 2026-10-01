@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@object-ui/components';
 import type { DashboardWidgetSchema, DashboardWidgetTypeName } from '@object-ui/types';
+import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
 import { resolveDashboardFilterDefs, type DashboardFilterDef, type ComponentMeta } from '@object-ui/core';
 import type { MetadataInspectorProps } from '../inspector-registry.js';
 import { t, tFormat } from '../i18n.js';
@@ -196,6 +197,10 @@ export function DashboardWidgetInspector({
   }
 
   const { widget, index } = hit;
+  // The box the grid auto-places this widget in, and the widget's layout
+  // completed against it — what the width / height inputs show and write.
+  const placement = defaultWidgetPlacement(index);
+  const layout = completeWidgetLayout(widget.layout, {}, placement);
 
   function patchWidget(updates: Partial<DashboardWidgetSchema>) {
     const widgets = [...widgetsAll];
@@ -488,19 +493,27 @@ export function DashboardWidgetInspector({
         />
       </Field>
 
+      {/*
+        Width and height each edit ONE dimension of the spec's four-number
+        `layout`, so both go through `completeWidgetLayout` (objectui#11388):
+        on a widget with no `layout` the untouched coordinates come from the
+        grid's auto-placement for this widget's index, and the stored box is
+        whole. Spreading the one number onto an absent box stored `{ w }`, which
+        the spec refuses. Both inputs SHOW the same completed box, so the
+        dimension an edit leaves alone is the one on screen. The preview grid
+        computes no `x` / `y` this inspector can read, so it seeds from
+        `defaultWidgetPlacement`.
+      */}
       <div className="grid grid-cols-2 gap-3">
         <Field id="widget-w" label={t('engine.inspector.widget.width', locale)}>
           <Input
             id="widget-w"
             type="number"
             min={1}
-            value={widget.layout?.w ?? 1}
+            value={layout.w}
             onChange={(e) =>
               patchWidget({
-                layout: {
-                  ...(widget.layout ?? {}),
-                  w: Number(e.target.value) || 1,
-                } as DashboardWidgetSchema['layout'],
+                layout: completeWidgetLayout(widget.layout, { w: Number(e.target.value) || 1 }, placement),
               })
             }
             disabled={readOnly}
@@ -511,13 +524,10 @@ export function DashboardWidgetInspector({
             id="widget-h"
             type="number"
             min={1}
-            value={widget.layout?.h ?? 1}
+            value={layout.h}
             onChange={(e) =>
               patchWidget({
-                layout: {
-                  ...(widget.layout ?? {}),
-                  h: Number(e.target.value) || 1,
-                } as DashboardWidgetSchema['layout'],
+                layout: completeWidgetLayout(widget.layout, { h: Number(e.target.value) || 1 }, placement),
               })
             }
             disabled={readOnly}

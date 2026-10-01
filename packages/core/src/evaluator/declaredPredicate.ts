@@ -166,21 +166,23 @@ export function isBlankPredicateText(value: unknown): boolean {
  * empty spellings by hand and coerced the rest with `Boolean(raw)`, so
  * `visible: 0` hid an action the renderers showed (objectui#3957).
  *
- * The last two joined with objectui#11322. Both belong to the grid's selection
- * bar, and both had kept the old `!= null && !== ''` scope after every other
- * member of the family moved here: plugin-grid's `hasVisibilityGate` (which decides whether a
- * bulk button whose `visible` admits no record is hidden) asks it through the
- * renderer-side name `hasDeclaredVisibilityGate`, and this package's
- * `partitionRowsByPredicate` (the per-record bulk fold) asks it directly. A
- * whitespace-only `visible` had counted as declared on that bar, failed closed
- * for every record, and hidden an action the row menu and toolbars showed.
+ * The last one joined with objectui#11322: plugin-grid's `hasVisibilityGate`,
+ * on the grid's selection bar, asks it through the renderer-side name
+ * `hasDeclaredVisibilityGate`. It decides whether a bulk button whose `visible`
+ * admits no record is hidden, and `partitionBulkRows` asks it before handing a
+ * bulk def's `visible` to `partitionRowsByPredicate`. It had kept the old
+ * `!= null && !== ''` scope after every other member of the family moved here,
+ * so a whitespace-only `visible` counted as declared on that bar, failed closed
+ * for every record, and hid an action the row menu and toolbars showed.
  *
  * Nothing in the repo now asks "is a gate declared?" anywhere but here for
  * the keys this definition serves. What stays outside is a different family,
- * not a twin: the field-rule `*When` keys (ADR-0137) on row-level items decide
- * it by rules of their own, such as the built-in Edit / Delete row item's
- * `visibleWhen != null` (`isBuiltinRowActionVisible`). A value of such a key
- * that reaches `partitionRowsByPredicate` is answered here like any other.
+ * not a twin: the field-rule `*When` keys (ADR-0137) decide it by rules of
+ * their own. Examples are the built-in Edit / Delete row item's
+ * `visibleWhen != null` (`isBuiltinRowActionVisible`), and the opening test of
+ * the shared partitioner `partitionRowsByPredicate` (`null` / `undefined` /
+ * `''`), which is the answer its built-in Delete `visibleWhen` callers get. The
+ * action family asks here before it calls that partitioner.
  * ⚠️ Nothing re-derives this paragraph: it was read off a source search when
  * objectui#11322 landed, and no test or gate repeats that search.
  */

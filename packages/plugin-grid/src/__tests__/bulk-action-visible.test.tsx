@@ -77,10 +77,11 @@ describe('BulkActionBar — bulk action visible CEL', () => {
 
   // [objectui#11322] A BLANK `visible` is no gate on this bar, as on the row
   // menu and the toolbars of the same grid. The bar asked "is a gate declared?"
-  // with `!= null && !== ''` in two places (`hasVisibilityGate` and core's
-  // `partitionRowsByPredicate`), so a whitespace-only `visible` counted as a
-  // gate, every selected record failed it, and the button disappeared. Both now
-  // ask the action family's one definition.
+  // with `!= null && !== ''` (`hasVisibilityGate`) and handed the value to core's
+  // fold, whose own opening test also stops at `''`. So a whitespace-only
+  // `visible` counted as a gate, every selected record failed it, and the button
+  // disappeared. `hasVisibilityGate` now asks the action family's one definition,
+  // and `partitionBulkRows` asks it before handing anything to the fold.
   //
   // The `''` and no-gate rows are the controls the card measured as shown
   // before the fix; `visible: false` keeps "no gate" from passing as "always

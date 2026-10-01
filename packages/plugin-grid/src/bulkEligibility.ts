@@ -66,9 +66,9 @@ export type BulkEligibilityDef = Pick<BulkActionDef, 'name'> & {
 /**
  * Whether the def declares a visibility gate at all. The `def`-shaped door onto
  * the action family's one definition of "declared", `hasDeclaredVisibilityGate`
- * (`@object-ui/components`, a re-export of core's `hasDeclaredPredicate`) — the
- * same definition {@link partitionRowsByPredicate} asks for the fold, so the
- * button and the fold behind it cannot disagree about one def.
+ * (`@object-ui/components`, a re-export of core's `hasDeclaredPredicate`).
+ * {@link partitionBulkRows} asks it too before it hands anything to the fold,
+ * so the button and the fold behind it cannot disagree about one def.
  *
  * The bar reads it because "no record qualified" only means "hide me" for a def
  * that gated itself; an ungated def renders regardless. Truthiness cannot
@@ -90,13 +90,26 @@ export function hasVisibilityGate(def: BulkEligibilityDef | null | undefined): b
  * Split selected records into the ones this def may act on and a count of the
  * ones it may not.
  *
- * The loop, the "declared?" question, the boolean short-circuit and the
- * fail-closed posture all live in
+ * The loop, the boolean short-circuit and the fail-closed posture all live in
  * `@object-ui/core`'s {@link partitionRowsByPredicate} — the ONE per-record
- * fold every bulk surface shares (the built-in selection-bar Delete reads it
- * through the same primitive, objectui#4420). This function is the `def`-shaped
- * door onto it: it knows only that a bulk def spells its predicate `visible`
- * and labels warnings with the def's name.
+ * fold every bulk surface shares. This function is the bulk ACTION's door onto
+ * it: it knows that a bulk def spells its predicate `visible`, labels warnings
+ * with the def's name, and decides "is a gate declared?" first.
+ *
+ * That last part is the action family's question, asked here through
+ * {@link hasVisibilityGate} and not left to the fold (objectui#11322). The
+ * fold's own opening test (`null` / `undefined` / `''`) is its field-rule
+ * callers' answer, and it is narrower: a whitespace-only `visible` or an
+ * envelope whose `source` is blank would reach the evaluator there, fail
+ * closed for every record, and run the action over nothing, while the row menu
+ * and the toolbars read the same value as no gate. A def with no declared gate
+ * therefore reaches the fold as `undefined`, and every record qualifies, by
+ * reference.
+ *
+ * The built-in Delete's `userActions.delete.visibleWhen` does NOT come through
+ * here. It is a field-rule key, not an action's `visible`, so `ObjectGrid`
+ * hands it to the fold directly, as plugin-list's `ListView` does, and a blank
+ * one keeps the fold's answer (objectui#4420).
  */
 export function partitionBulkRows<TRow extends Record<string, unknown>>(
   def: BulkEligibilityDef | null | undefined,
@@ -112,7 +125,7 @@ export function partitionBulkRows<TRow extends Record<string, unknown>>(
     fields?: FieldContainerLike;
   } = {},
 ): BulkEligibility<TRow> {
-  return partitionRowsByPredicate(def?.visible as never, rows, {
+  return partitionRowsByPredicate(hasVisibilityGate(def) ? (def?.visible as never) : undefined, rows, {
     scope: opts.scope,
     fields: opts.fields,
     warnOnError: true,

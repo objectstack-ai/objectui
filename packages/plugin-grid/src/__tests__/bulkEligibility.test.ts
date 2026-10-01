@@ -135,11 +135,15 @@ describe('partitionBulkRows', () => {
     });
   });
 
-  // [objectui#11322] Blank text is no gate, in either spelling. Both halves of
-  // the selection bar used to ask "declared?" with `!= null && !== ''`, so the
-  // two spellings below counted as gates, every record failed them, and the bar
-  // hid an action the row menu and toolbars show. The `''` row above is the
-  // control; the boolean rows keep "not declared" from passing as "always".
+  // [objectui#11322] Blank text is no gate, in either spelling. The selection
+  // bar used to ask "declared?" with `!= null && !== ''`, so the spellings below
+  // counted as gates, every record failed them, and the bar hid an action the
+  // row menu and toolbars show. `hasVisibilityGate` now asks the action family's
+  // definition, and `partitionBulkRows` asks it BEFORE the core fold, whose own
+  // opening test (`''` only) belongs to its field-rule callers. So the blank
+  // reaches the fold as `undefined` and every record comes back by reference.
+  // The `''` row above is the control; the boolean rows keep "not declared"
+  // from passing as "always".
   describe('blank visible (objectui#11322)', () => {
     const BLANKS = [
       ['a whitespace-only string', '   '],

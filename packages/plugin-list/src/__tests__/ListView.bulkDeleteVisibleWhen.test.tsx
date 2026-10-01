@@ -208,4 +208,28 @@ describe('ListView non-grid bulk Delete vs `userActions.delete.visibleWhen` (obj
     fireEvent.click(screen.getByTestId('bulk-action-delete'));
     expect(dispatchedIds(onBulkAction, 'delete')).toEqual(['inv-1010', 'inv-1011']);
   });
+
+  // [objectui#11322] A BLANK `visibleWhen` keeps the fold's answer here: every
+  // selected record is excluded, as before. That card made a blank bulk ACTION
+  // `visible` "no gate" by asking the action family's definition before the
+  // fold; this key is a field-rule key and reaches the fold directly, so its
+  // blank does not widen into "delete everything". The no-gate case above is
+  // the control.
+  it.each([
+    ['a whitespace-only string', '   '],
+    ['an envelope whose `source` is whitespace', { dialect: 'cel', source: '   ' }],
+  ])('a blank `visibleWhen` (%s) still excludes every record (objectui#11322)', async (_label, visibleWhen) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      // The draft alone: a row the real predicate above would admit.
+      const { onBulkAction } = renderGalleryBulk({ selected: [DRAFT], userActionsDelete: { visibleWhen } });
+      await waitFor(() => expect(screen.getByTestId('bulk-actions-bar')).toBeInTheDocument());
+
+      expect(await screen.findByTestId('bulk-skipped-notice')).toHaveTextContent('1');
+      fireEvent.click(screen.getByTestId('bulk-action-delete'));
+      expect(dispatchedIds(onBulkAction, 'delete')).toEqual([]);
+    } finally {
+      warn.mockRestore();
+    }
+  });
 });

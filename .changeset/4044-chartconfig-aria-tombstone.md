@@ -14,8 +14,9 @@ DOM. The spec now declares the key as a `retiredKey()` tombstone that refuses an
   refuse it too, with the spec's own message at `chartConfig.aria`. A new pin records this.
 - **TypeScript: changed.** `DashboardWidgetSchema.chartConfig` was typed `any`, so an authored
   `aria` compiled. Its `aria` member now comes from the spec's own input type and admits no
-  value, so authoring one is a compile error. Every other `chartConfig` key keeps its previous
-  typing.
+  value, so authoring one is a compile error. The four structure keys the same spec release
+  retired on this carrier (`type`, `xAxis`, `yAxis`, `series`) are typed the same way in this
+  release (objectui#11315); every other `chartConfig` key keeps its previous typing.
 
 What to do: delete the key. The accessible name a chart does apply is `description` on the same
 chart config. The chart renderer turns it into `role="img"` plus `aria-label` on the chart.

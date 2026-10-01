@@ -336,9 +336,12 @@ describe('a client that cannot resolve capabilities fails OPEN — the describe\
 
 describe('the published description is the contract\'s shared record-block describe, verbatim (objectui#10224)', () => {
   /**
-   * The registration's `inputs` are the published authoring surface
-   * (`gen-manifest.ts` serializes them into `sdui.manifest.json` and the JSX
-   * authoring types). The describe is the text of record, read off the
+   * The registration's `inputs` are the published authoring surface:
+   * `gen-manifest.ts` serializes them into `sdui.manifest.json`, descriptions
+   * included. The generated JSX authoring types take only each input's name
+   * and value type (`generateDts` reads no `description`), so the manifest and
+   * the runtime registry are where this text is published. The describe is
+   * the text of record, read off the
    * INSTALLED spec every run rather than restated, so a spec that rewords it
    * turns this row red instead of leaving the manifest to drift. Every clause
    * of that text is a row above: ALL capabilities required (the partial-grant

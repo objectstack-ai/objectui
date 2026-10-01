@@ -13,6 +13,7 @@ or a backend that does not report `systemPermissions`) it renders the bar.
 
 `@objectstack/spec` 17.5.0 gives this key one describe, shared with
 `record:details`, `record:highlights` and `record:related_list`, and those three
-already publish it. The quick-actions input now publishes the same text, so
-`sdui.manifest.json` and the JSX authoring types carry it. No input name, type
-or shape changes, and no rendering or gating behaviour changes.
+already publish it. The quick-actions input now publishes the same text. It is
+carried by `sdui.manifest.json`, and at runtime by
+`ComponentRegistry.getConfig('record:quick_actions').inputs`. No input name,
+type or shape changes, and no rendering or gating behaviour changes.

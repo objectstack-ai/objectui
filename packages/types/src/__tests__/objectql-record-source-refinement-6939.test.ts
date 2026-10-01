@@ -65,18 +65,17 @@ function catalogEntry(id: string): Record<string, unknown> {
 }
 
 /**
- * The props of a document as its author wrote them. Since objectui#10859 batch
- * 5 an authored `object-map` takes them in the spec's `properties` bag (the
- * three map entries below are written that way); `object-gantt` still takes
- * them on the node.
+ * The props of a document as its author wrote them. Since objectui#10859
+ * batches 5 and 6 an authored `object-map` or `object-gantt` takes them in the
+ * spec's `properties` bag, and the six entries below are written that way.
  */
 function authoredProps(doc: Record<string, unknown>): Record<string, unknown> {
-  return doc.type === 'object-map' ? (doc.properties as Record<string, unknown>) : doc;
+  return doc.properties as Record<string, unknown>;
 }
 
-/** The authored spelling of a node's props: in the bag for `object-map` (objectui#10859 batch 5). */
+/** The authored spelling of a node's props: in the bag (objectui#10859 batches 5 and 6). */
 function authored(type: string, props: Record<string, unknown>): Record<string, unknown> {
-  return type === 'object-map' ? { type, properties: props } : { type, ...props };
+  return { type, properties: props };
 }
 
 /** Report the issues rather than `false`, so a red run says what broke. */

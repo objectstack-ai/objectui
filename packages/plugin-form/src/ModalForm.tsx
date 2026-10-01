@@ -715,9 +715,10 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     finalizeClose();
   }, [finalizeClose]);
 
-  const formLayout = (schema.layout === 'vertical' || schema.layout === 'horizontal')
-    ? schema.layout
-    : 'vertical';
+  // `vertical | horizontal` on the declared face; the fold that mapped any
+  // other value to `vertical` was retired with `inline` / `grid`
+  // (objectui#11168 slice 3, objectui#7759 group C).
+  const formLayout = schema.layout ?? 'vertical';
 
   // Build base form schema
   // Actions are hidden inside the form renderer — we render them in a sticky footer instead

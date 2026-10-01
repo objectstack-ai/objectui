@@ -1130,8 +1130,12 @@ export const FormSchema = BaseSchema.extend({
   // default `true`; the submit button renders only while it holds) and
   // refused by the strict authoring face until declared here.
   showSubmit: z.boolean().optional().describe('Show the submit button (default true); `false` renders the fields with no submit button'),
-  layout: z.enum(['vertical', 'horizontal', 'grid']).optional().describe('Form layout'),
-  columns: z.number().optional().describe('Number of columns (for grid layout)'),
+  // objectui#11168 slice 3 (objectui#7759 group C): `grid` retired. The
+  // declaration states `vertical | horizontal`, the `form` registration
+  // publishes those two, and the renderer reads only `layout === 'horizontal'`,
+  // so `grid` drew exactly what `vertical` draws.
+  layout: z.enum(['vertical', 'horizontal']).optional().describe('Label placement: vertical (the default) or horizontal'),
+  columns: z.number().optional().describe('Number of columns the fields are laid out in (multi-column layout)'),
   validationMode: z.enum(['onSubmit', 'onChange', 'onBlur', 'onTouched', 'all']).optional().describe('Validation mode'),
   resetOnSubmit: z.boolean().optional().describe('Reset form on successful submit'),
   mode: retirementTombstone(

@@ -206,8 +206,9 @@ export const ListItemSchema = z.object({
  */
 function listHasAnEntrySource(node: unknown, ctx: z.core.$RefinementCtx): void {
   if (!node || typeof node !== 'object' || Array.isArray(node)) return;
-  const { bind, items } = node as { bind?: unknown; items?: unknown };
-  if (bind !== undefined || items !== undefined) return;
+  // Read as a plain record: `bind` stays declared once, on `BaseSchema` (objectui#6357).
+  const keys = node as Record<string, unknown>;
+  if (keys.bind !== undefined || keys.items !== undefined) return;
   ctx.addIssue({
     code: 'custom',
     path: [],

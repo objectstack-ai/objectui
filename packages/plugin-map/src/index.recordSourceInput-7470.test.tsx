@@ -24,10 +24,15 @@
  * retired, objectui#10393):
  * 1. `objectName` is declared (non-vacuity: a wrong type/namespace read fails
  *    here) and is not required.
- * 2. Its description names all three record sources.
+ * 2. Its description names all three record sources, and the node's
+ *    `dataSource` binding the authored arm also counts (objectui#10859
+ *    batch 5).
  * 3. The description's claim about the schema is TRUE: `ObjectMapSchema`
  *    refuses a block with none of the three with the refinement's own code,
- *    and accepts a block authored on `staticData` alone.
+ *    and accepts a block authored on `staticData` alone. The authored arm,
+ *    `ObjectMapBlockSchema`, applies the same rule inside its `properties`
+ *    bag; its rows are in `@object-ui/types`'
+ *    `object-map-properties-bag-10859-b5.test.ts`.
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -66,7 +71,7 @@ describe('objectui#7470 — the map registration does not declare objectName req
 
   it.each(MAP_KEYS)('$label — the description names the three record sources', ({ type, namespace }) => {
     const description: string = objectNameInput(type, namespace)?.description ?? '';
-    for (const key of ['`data`', '`staticData`', '`objectName`']) {
+    for (const key of ['`data`', '`staticData`', '`objectName`', '`dataSource`']) {
       expect(description).toContain(key);
     }
     expect(description).toContain('`object-map` schema refuses');

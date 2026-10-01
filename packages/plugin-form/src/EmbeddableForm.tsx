@@ -211,8 +211,10 @@ export function applyDefaultMaxLengths(fields: FormField[] | undefined): FormFie
     const t = String((f as any).type || '').toLowerCase();
     const cap = DEFAULT_MAX_LENGTH[t];
     if (!cap) return f;
-    const existing = (f as any).maxLength ?? (f as any).max_length;
-    if (existing) return f;
+    // The spec's `maxLength` (which `FormField` declares by reference) is the
+    // one spelling read. The snake_case `max_length` this also read until
+    // objectui#11070 is retired: it no longer opts a field out of the default.
+    if (f.maxLength) return f;
     return { ...f, maxLength: cap } as FormField;
   });
 }

@@ -21,8 +21,8 @@
  * Three things are pinned here:
  *
  *  (ii) the validate face — `safeValidateSchema` refuses a `map` block carrying
- *       the card's typo with ONE `unrecognized_keys` issue at `map`, naming the
- *       key, and still accepts the clean block;
+ *       the card's typo with ONE `unrecognized_keys` issue at the block, naming
+ *       the key, and still accepts the clean block;
  *  (iii) the pre-landing sweep, held rather than remembered — every `map`
  *       block the sweep found in authored metadata parses clean under strict;
  *  and the boundary: `.shape` did not move, so every key list read from it
@@ -36,6 +36,10 @@ import { safeValidateSchema } from '../zod/index.zod.js';
 /** The card's own typo: `latitudeFieId`, capital i where the l belongs. */
 const TYPO_KEY = 'latitudeFieId';
 
+/**
+ * The node as `ObjectMap` reads it — the flat `ObjectMapSchema` mirror's
+ * spelling, after `SchemaRenderer` hoists `properties` (objectui#10859 batch 5).
+ */
 const CLEAN_NODE = {
   type: 'object-map',
   objectName: 'stores',
@@ -48,9 +52,19 @@ const TYPO_NODE = {
   map: { [TYPO_KEY]: 'lat', longitudeField: 'lng' },
 };
 
-/** The same node, one level down: what a page or a view actually carries. */
-const NESTED_TYPO = { type: 'div', children: [TYPO_NODE] };
-const NESTED_CLEAN = { type: 'div', children: [CLEAN_NODE] };
+/**
+ * The same two nodes as an author writes them, which is what the validate face
+ * judges: since objectui#10859 batch 5 an authored `object-map` takes its props
+ * in the spec's `properties` bag, and the flat spelling above is refused by
+ * name. The `map` block inside the bag is the spec row's `map` member, which
+ * declares the same eight keys and is closed the same way.
+ */
+const AUTHORED_CLEAN = { type: 'object-map', properties: { objectName: 'stores', map: CLEAN_NODE.map } };
+const AUTHORED_TYPO = { type: 'object-map', properties: { objectName: 'stores', map: TYPO_NODE.map } };
+
+/** The authored node, one level down: what a page or a view actually carries. */
+const NESTED_TYPO = { type: 'div', children: [AUTHORED_TYPO] };
+const NESTED_CLEAN = { type: 'div', children: [AUTHORED_CLEAN] };
 
 /** Each issue reduced to what a consumer keys off: its kind, its place, the keys it names. */
 function issues(result: { success: boolean; error?: { issues: ReadonlyArray<{ code: string; path: PropertyKey[]; keys?: string[] }> } }) {
@@ -58,13 +72,13 @@ function issues(result: { success: boolean; error?: { issues: ReadonlyArray<{ co
 }
 
 describe('(ii) the validate face refuses an undeclared `map` key, by name (objectui#5157)', () => {
-  it('refuses the typo block with one `unrecognized_keys` issue at `map`, naming the key', () => {
-    const result = safeValidateSchema(TYPO_NODE);
+  it('refuses the typo block with one `unrecognized_keys` issue at `properties.map`, naming the key', () => {
+    const result = safeValidateSchema(AUTHORED_TYPO);
     expect(result.success).toBe(false);
-    expect(issues(result)).toEqual([{ code: 'unrecognized_keys', path: ['map'], keys: [TYPO_KEY] }]);
+    expect(issues(result)).toEqual([{ code: 'unrecognized_keys', path: ['properties', 'map'], keys: [TYPO_KEY] }]);
   });
 
-  it('refuses the typo block on the node schema itself, at the same path', () => {
+  it('refuses the typo block on the flat mirror too, at `map`', () => {
     const result = ObjectMapSchema.safeParse(TYPO_NODE);
     expect(result.success).toBe(false);
     expect(issues(result)).toEqual([{ code: 'unrecognized_keys', path: ['map'], keys: [TYPO_KEY] }]);
@@ -85,9 +99,10 @@ describe('(ii) the validate face refuses an undeclared `map` key, by name (objec
   });
 
   it('still accepts the clean block, alone and nested (control)', () => {
-    expect(issues(safeValidateSchema(CLEAN_NODE))).toEqual([]);
-    expect(safeValidateSchema(CLEAN_NODE).success).toBe(true);
+    expect(issues(safeValidateSchema(AUTHORED_CLEAN))).toEqual([]);
+    expect(safeValidateSchema(AUTHORED_CLEAN).success).toBe(true);
     expect(safeValidateSchema(NESTED_CLEAN).success).toBe(true);
+    expect(issues(ObjectMapSchema.safeParse(CLEAN_NODE))).toEqual([]);
   });
 });
 
@@ -180,7 +195,8 @@ describe('(iii) every `map` block the pre-landing sweep found parses clean under
   it.each(SWEEP.map((row) => [`${row.repo} ${row.path} (${row.anchor})`, row.block] as const))(
     '%s validates as the `map` block of an object-map node',
     (_label, block) => {
-      expect(issues(safeValidateSchema({ type: 'object-map', objectName: 'stores', map: block }))).toEqual([]);
+      // The authored spelling (objectui#10859 batch 5): the block in the bag.
+      expect(issues(safeValidateSchema({ type: 'object-map', properties: { objectName: 'stores', map: block } }))).toEqual([]);
     },
   );
 });

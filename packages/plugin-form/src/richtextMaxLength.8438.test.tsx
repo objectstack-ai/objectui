@@ -7,8 +7,10 @@
  */
 
 /**
- * objectui#8438 — an authored `max_length` on a rich-content field must be
- * VISIBLE, not only enforced at submit.
+ * objectui#8438 — an authored ceiling on a rich-content field must be
+ * VISIBLE, not only enforced at submit. The card measured it spelled
+ * `max_length`; objectui#11070 retired that spelling (every reader reads the
+ * spec's `maxLength` alone), so the definitions below declare `maxLength`.
  *
  * ## Pinned by behaviour, deliberately
  *
@@ -31,7 +33,7 @@
  *
  * Both are one-shot proofs, run on the fix commit and recorded in the PR:
  *
- *  - delete the `maxLength` dual-read in `RichTextField` ⇒ BOTH suites red;
+ *  - delete the `maxLength` read in `RichTextField` ⇒ BOTH suites red;
  *  - delete `richtext` from `RICH_TEXT_CELL_RENDERERS` (THE table the
  *    `EmbeddableForm` default is now derived from) ⇒ the default-cap suite red.
  *
@@ -60,10 +62,10 @@ const docSchema = {
   name: 'doc',
   fields: {
     // The sibling that has always worked — a live control, not a claim.
-    note: { type: 'textarea', label: 'Note', max_length: 111 },
-    md: { type: 'markdown', label: 'MD', max_length: AUTHORED_CAPS.md },
-    htm: { type: 'html', label: 'HTML', max_length: AUTHORED_CAPS.htm },
-    rich: { type: 'richtext', label: 'Rich', max_length: AUTHORED_CAPS.rich },
+    note: { type: 'textarea', label: 'Note', maxLength: 111 },
+    md: { type: 'markdown', label: 'MD', maxLength: AUTHORED_CAPS.md },
+    htm: { type: 'html', label: 'HTML', maxLength: AUTHORED_CAPS.htm },
+    rich: { type: 'richtext', label: 'Rich', maxLength: AUTHORED_CAPS.rich },
   },
 };
 
@@ -114,7 +116,7 @@ function describedText(el: HTMLTextAreaElement): string {
     .join(' ');
 }
 
-describe('objectui#8438 — ObjectForm: an authored max_length is visible on a rich-content field', () => {
+describe('objectui#8438 — ObjectForm: an authored maxLength is visible on a rich-content field', () => {
   it.each([
     ['richtext', 'rich', AUTHORED_CAPS.rich],
     ['markdown', 'md', AUTHORED_CAPS.md],
@@ -200,9 +202,8 @@ describe('objectui#8438 — EmbeddableForm: the hardened default cap covers ever
   });
 
   it('an AUTHORED cap still wins over the default', () => {
-    const out = applyDefaultMaxLengths([{ name: 'rich', type: 'richtext', max_length: 40 } as any]);
-    expect((out![0] as any).maxLength).toBeUndefined();
-    expect((out![0] as any).max_length).toBe(40);
+    const out = applyDefaultMaxLengths([{ name: 'rich', type: 'richtext', maxLength: 40 } as any]);
+    expect((out![0] as any).maxLength).toBe(40);
   });
 
   it('CONTROL — a type outside the rich-content table gets no long-text default', () => {

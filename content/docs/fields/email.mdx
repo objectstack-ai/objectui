@@ -17,7 +17,8 @@ The Email Field component provides a text input with built-in email validation a
 
 An email field is authored as `EmailFieldMetadata` (`@object-ui/types`), which is the
 source of truth for the key set: it extends `BaseFieldMetadata` with a single length
-bound. Address-shape validation is the widget's, not a metadata key.
+bound, `@objectstack/spec`'s own `FieldSchema.maxLength`, typed by reference.
+Address-shape validation is the widget's, not a metadata key.
 
 ```ts
 import type { EmailFieldMetadata } from '@object-ui/types';
@@ -28,7 +29,7 @@ const contactEmail: EmailFieldMetadata = {
   label: 'Email Address',
   placeholder: 'name@example.com',
   required: true,
-  max_length: 254,
+  maxLength: 254,
 };
 ```
 

@@ -49,7 +49,7 @@ import {
   formatDisplayNumber,
   type DisplayNumberFormatOptions,
 } from '@object-ui/i18n';
-import type { AriaProps } from '@object-ui/types';
+import type { AriaProps, TextSchema } from '@object-ui/types';
 import { cn } from '../../lib/utils';
 import { LazyIcon } from '../../lib/lazy-icon';
 import { Button, Separator } from '../../ui';
@@ -78,17 +78,91 @@ const ALIGN_CLASS = {
   right: 'text-right',
 } as const;
 
-const VARIANT_CLASS: Record<string, string> = {
-  heading: 'text-2xl font-semibold tracking-tight',
-  subheading: 'text-lg font-medium text-foreground',
+/**
+ * `element:text`'s `variant` — ONE vocabulary with `ui:text` (objectui#7450,
+ * ruling B of 2026-09-07, landed in two spec releases as routed on 2026-09-09).
+ *
+ * ## The published nine
+ *
+ * `element:text` takes the nine values `@object-ui/types` publishes for its
+ * text node, `TextSchema.variant`: `h1`-`h6`, `body`, `caption`, `overline`.
+ * `@objectstack/spec` 17.5.0 widened `ElementTextPropsSchema.variant` to the
+ * same nine (objectstack#17108, release 1). That pin is what lets this file
+ * offer them: before it, the contract refused seven of the nine, and declaring
+ * a value the installed contract refuses is the consumer-side widening
+ * AGENTS.md #0.1 bans (`registry-inputs-spec-parity.test.ts` catches it).
+ *
+ * Each value maps the way `ui:text` maps it (`./text.tsx`): the six heading
+ * values render the heading element they name, and every one of the nine
+ * carries `ui:text`'s class for that value. The one deliberate difference is
+ * the element of `body`, `caption` and `overline`. `ui:text` wraps inline
+ * content in a `<span>`. This is a page block, and it has always rendered a
+ * paragraph for its non-heading values (`body` and `caption` included), and
+ * `ALIGN_CLASS` above carries no `block`, so a `<span>` would leave `align`
+ * with nothing to align.
+ * `__tests__/element-text-published-variants-7450.test.tsx` renders both
+ * renderers for all nine and asserts they agree, so this map cannot drift from
+ * `ui:text`'s without going red.
+ *
+ * ## `heading` / `subheading` — still accepted, still rendered, not offered
+ *
+ * The installed contract still ACCEPTS the two pre-convergence spellings. The
+ * ruling retires them in a LATER spec release, through the generic value-level
+ * retirement mechanism (objectstack#17109), and no objectui face refuses a
+ * value before the spec does. So they render exactly as they always have
+ * (`heading` an `<h2>`, `subheading` an `<h3>`, with their old classes), and a
+ * document the spec accepts keeps its heading. The Studio inspector stops
+ * offering them; the registry `inputs` below keep accepting them, for the
+ * reason written there. Migration: `heading` -> `h2`, `subheading` -> `h3`, or
+ * the level the document means.
+ *
+ * ## Absence is `body` here, and only here
+ *
+ * `props.variant ?? 'body'` stays. `ui:text` deliberately does NOT synthesise
+ * `body` for an absent `variant` (objectui#6942), so its unannotated corpus
+ * nodes keep the shape they had. This is a different component: a page block
+ * that has always rendered a body paragraph when no variant is authored, and
+ * `@objectstack/spec` declares `.default('body')` on this key, so the contract
+ * materialises the same value this renderer reads. Converging the vocabulary
+ * moves what absence means on neither side.
+ */
+type PublishedTextVariant = NonNullable<TextSchema['variant']>;
+/** The two spellings the installed contract still accepts, pending objectstack#17109's release. */
+type AcceptedLegacyTextVariant = 'heading' | 'subheading';
+type ElementTextVariant = PublishedTextVariant | AcceptedLegacyTextVariant;
+
+const VARIANT_CLASS: Record<ElementTextVariant, string> = {
+  h1: 'text-4xl font-semibold tracking-tight',
+  h2: 'text-3xl font-semibold tracking-tight',
+  h3: 'text-2xl font-semibold tracking-tight',
+  h4: 'text-xl font-semibold tracking-tight',
+  h5: 'text-lg font-semibold tracking-tight',
+  h6: 'text-base font-semibold tracking-tight',
   body: 'text-sm text-foreground',
   caption: 'text-xs text-muted-foreground',
+  overline: 'text-xs font-medium uppercase tracking-widest text-muted-foreground',
+  heading: 'text-2xl font-semibold tracking-tight',
+  subheading: 'text-lg font-medium text-foreground',
+};
+
+const VARIANT_TAG: Record<ElementTextVariant, 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p'> = {
+  h1: 'h1',
+  h2: 'h2',
+  h3: 'h3',
+  h4: 'h4',
+  h5: 'h5',
+  h6: 'h6',
+  body: 'p',
+  caption: 'p',
+  overline: 'p',
+  heading: 'h2',
+  subheading: 'h3',
 };
 
 function ElementTextRenderer({ schema }: { schema: any }) {
   const props = readProps<{
     content?: unknown;
-    variant?: 'heading' | 'subheading' | 'body' | 'caption';
+    variant?: ElementTextVariant;
     align?: 'left' | 'center' | 'right';
     aria?: AriaProps;
   }>(schema);
@@ -96,7 +170,9 @@ function ElementTextRenderer({ schema }: { schema: any }) {
   const locale = useDisplayLocale();
   const variant = props.variant ?? 'body';
   const align = props.align ?? 'left';
-  const Tag = variant === 'heading' ? 'h2' : variant === 'subheading' ? 'h3' : 'p';
+  // A value outside the contract is refused by every gate before it gets here;
+  // if one arrives anyway it renders as `body` did before this change.
+  const Tag = VARIANT_TAG[variant] ?? 'p';
   return (
     <Tag
       className={cn(VARIANT_CLASS[variant] ?? VARIANT_CLASS.body, ALIGN_CLASS[align], schema?.className)}
@@ -122,7 +198,24 @@ ComponentRegistry.register('text', ElementTextRenderer, {
     // `type-mismatch` on the map form, which is the shape this input's own
     // description teaches the author to write.
     { name: 'content', type: ['string', 'object'], required: true, description: 'Accepts an inline translation map ({ en, "zh-CN", … })' },
-    { name: 'variant', type: 'enum', enum: ['heading', 'subheading', 'body', 'caption'] },
+    // The installed contract's accept set, member for member: the published nine
+    // first, then the two spellings the contract still accepts (objectui#7450).
+    // This list is not only an offer. It is what the html tier compiles against
+    // (`page.tsx` builds its JSX manifest from these `inputs`, and an
+    // `invalid-enum` there fails the whole page), and what the published
+    // `sdui.manifest.json` hands the platform's JSX gate. Leaving `heading` /
+    // `subheading` out would refuse two values the spec accepts, a retirement
+    // ahead of the spec's. They leave when the spec refuses them, and
+    // `registry-inputs-spec-parity.test.ts` goes red the day it does. The offer
+    // narrows to the nine in `description`, and in the Studio inspector.
+    {
+      name: 'variant',
+      type: 'enum',
+      enum: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'body', 'caption', 'overline', 'heading', 'subheading'],
+      description:
+        'One of the nine text styles ui:text uses: h1-h6 (rendered as that heading level), body, caption or overline. '
+        + 'heading and subheading are earlier spellings the contract still accepts and renders as h2 and h3; write h2 or h3 instead.',
+    },
     { name: 'align', type: 'enum', enum: ['left', 'center', 'right'] },
   ],
 });

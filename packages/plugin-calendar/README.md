@@ -259,46 +259,59 @@ const schema = {
 ```
 
 The records above already use the default field names (`title`, `start`, `end`,
-`color`), so no field-name keys are needed; point `titleField` /
-`startDateField` / `endDateField` / `allDayField` / `colorField` at your own
-fields when they differ.
+`color`), so no field-name keys are needed; on a `calendar-view` node, point
+`titleField` / `startDateField` / `endDateField` / `allDayField` / `colorField`
+at your own fields when they differ. They sit flat on this node because
+`CalendarViewSchema` has no `calendar` block: here the flat keys are the only
+spelling. An `object-calendar` takes the same five inside its `calendar` block
+instead (next section).
 
 ### With ObjectQL Integration
 
-Every key below is one `ObjectCalendarSchema` declares. Spelling the start-date
-key anything else is not a partial failure: `getCalendarConfig` gates the whole
-configuration on it, so a calendar whose title and end keys are spelled correctly
-still renders the "Calendar configuration required" refusal screen and never
-reads them.
+Every key below is one `ObjectCalendarSchema` declares. The five field-name keys
+go inside the `calendar` block: `getCalendarConfig` reads that block first and
+returns it whole. A misspelt start-date key inside it is therefore not a partial
+failure either: no record has a date to be placed by, so every one is counted
+as unscheduled under the calendar instead of drawn.
 
-`startDateField` is the only key that gate asks for — `titleField` is optional,
-and an event with no explicit title resolves one through the ADR-0079 record
-display-name chain. The refusal screen says so, and it also names where the key
-belongs: the view's `calendar` block. That matters on an **interface page**,
-whose `interfaceConfig` has no calendar slot of its own — the only lever there
-is `sourceView`, pointed at a view that declares the block (objectui#8170).
+`startDateField` is the only one of the five the calendar needs — `titleField`
+is optional, and an event with no explicit title resolves one through the
+ADR-0079 record display-name chain. A calendar authored with no `calendar`
+block renders the "Calendar configuration required" refusal screen, which says
+so and also names where the key belongs: the view's `calendar` block. That
+matters on an **interface page**, whose `interfaceConfig` has no calendar slot
+of its own — the only lever there is `sourceView`, pointed at a view that
+declares the block (objectui#8170).
+
+The same five keys written flat on the node are **not** a second way to author
+this. That flat spelling is the runtime handoff — `ObjectView` and `ListView`
+emit it on the node they build, and `getCalendarConfig` falls back to it only
+when the node has no `calendar` block — so `ObjectCalendarSchema` declares it
+because the renderer reads it. `@objectstack/spec` refuses it at authoring with
+`unrecognized_keys` and names the `calendar` block in the same diagnostic (one
+key per concept, its Prime Directive #12).
 
 ```typescript
 import type { ObjectCalendarSchema } from '@object-ui/types';
 
 // What this annotation buys, and what it does not - measured, objectui#7925.
 // It type-checks the VALUES of the declared keys: `defaultView: 'agenda'` and
-// `titleField: 42` are both compile errors, and `check:doc-snippets` re-runs
-// that check on every commit. Since objectui#8466 that cover reaches all five
-// flat field-name keys - `allDayField` and `colorField` were reachable only
-// through `BaseSchema`'s index signature until then, so this block is also
-// what proves they are declared. It does NOT check key NAMES - this interface
-// extends `BaseSchema`, whose `[key: string]: any` admits any spelling, so a
+// `calendar: { titleField: 42 }` are both compile errors, and
+// `check:doc-snippets` re-runs that check on every commit. It does NOT check
+// key NAMES - this interface extends `BaseSchema`, whose `[key: string]: any`
+// admits any spelling, and the `calendar` block is open the same way, so a
 // misspelt key still compiles clean. Read the block as type-checked values,
 // never as a guarded key set.
 const schema: ObjectCalendarSchema = {
   type: 'object-calendar',
   objectName: 'events',
-  titleField: 'name',
-  startDateField: 'startDate',
-  endDateField: 'endDate',
-  allDayField: 'isAllDay',
-  colorField: 'statusColor',
+  calendar: {
+    titleField: 'name',
+    startDateField: 'startDate',
+    endDateField: 'endDate',
+    allDayField: 'isAllDay',
+    colorField: 'statusColor'
+  },
   defaultView: 'month',
   navigation: { mode: 'modal' }   // what an event click opens - see below
 };
@@ -348,8 +361,8 @@ Authored JSON reacts to clicks through the node's action channel instead
 When using with ObjectStack, the calendar can automatically fetch and display
 events. The adapter is **not** a schema key: `ObjectCalendarRenderer` reads it
 from the renderer context that `SchemaRendererProvider` supplies. The schema
-names the object and its fields with the same flat keys as above - there is no
-`fields` container.
+names the object with `objectName` and its fields inside the same `calendar`
+block as above - there is no `fields` container.
 
 ```typescript
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
@@ -365,9 +378,11 @@ const dataSource = createObjectStackAdapter({
 const schema: ObjectCalendarSchema = {
   type: 'object-calendar',
   objectName: 'calendar_events',
-  titleField: 'title',
-  startDateField: 'start_time',
-  endDateField: 'end_time',
+  calendar: {
+    titleField: 'title',
+    startDateField: 'start_time',
+    endDateField: 'end_time'
+  },
   defaultView: 'month'
 };
 ```

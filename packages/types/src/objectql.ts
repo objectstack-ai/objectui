@@ -991,11 +991,28 @@ export interface ObjectGridSchema extends BaseSchema {
   showSearch?: boolean;
   
   /**
-   * @deprecated Use filter property instead
-   * Legacy filters toggle
+   * RETIRED on this node (objectui#11068, ADR-0049) — the grid has no filter UI.
+   *
+   * `ObjectGrid` never read the key, so an authored value drew nothing. The one
+   * filter surface objectui draws is the `list-view` toolbar's filter builder,
+   * switched by the list view's `userActions.filter`; honouring the key
+   * here would have built a second one, and the upstream protocol's
+   * `object-grid` row does not declare it. The rows this grid fetches are
+   * narrowed by {@link ObjectGridSchema.filter}.
+   *
+   * `?: never`, not a deletion — the convention of `rowSpecActions` below:
+   * without a member, the key would fall to {@link BaseSchema}'s index
+   * signature and type-check again. Lockstep with the Zod twin
+   * (`zod/objectql.zod.ts`, `retirementTombstone()`). An `object-view`'s own
+   * {@link ObjectViewSchema.showFilters} is a different member, read by
+   * `ObjectView`, and is unaffected.
+   *
+   * @deprecated RETIRED (objectui#11068) — author a `list-view` and switch its
+   * filter builder with `userActions.filter`; write `filter` to narrow this
+   * grid's rows.
    */
-  showFilters?: boolean;
-  
+  showFilters?: never;
+
   /**
    * @deprecated Use pagination config instead
    * Legacy pagination toggle
@@ -2133,14 +2150,14 @@ export interface ObjectFormSchema extends BaseSchema {
  *     active named view declares the same member, the named view wins;
  *   - three of the retirement tombstones `ObjectGridSchema` declares (`body`,
  *     `children`, `defaultSort`, each `?: never`). They type nothing: they keep
- *     the named refusal, and its guidance, on this face too. The four the grid
+ *     the named refusal, and its guidance, on this face too. The five the grid
  *     retired later (`name`, `placeholder`, `rowSpecActions`,
- *     `bulkSpecActions`, objectui#11068) are withheld instead, below — the
- *     slot refuses each of them by name either way.
+ *     `bulkSpecActions`, `showFilters`, objectui#11068) are withheld instead,
+ *     below — the slot refuses each of them by name either way.
  *
  * ⛔ Every other `ObjectGridSchema` member is WITHHELD, because on the view's
- * grid it reached nothing: `ObjectGrid` has no read of it (`showFilters`,
- * `keyboardNavigation`, and the four tombstones just named); `ObjectGrid`
+ * grid it reached nothing: `ObjectGrid` has no read of it
+ * (`keyboardNavigation`, and the five tombstones just named); `ObjectGrid`
  * reads it on its own node but the view does not hand it on (`emptyState`,
  * `description` — honoured by the grid since objectui#11068, and kept off
  * this slot by that card's ruling, which enforced them without widening it);
@@ -3238,6 +3255,23 @@ export interface ObjectMapConfig {
  * declared that the renderer does not consume (objectui#5018 — the card exists
  * because the reverse was true, and a declared-but-unread key re-creates the
  * same defect pointing the other way).
+ *
+ * ## What this type describes (objectui#10859, batch 5)
+ *
+ * The `object-map` node as `ObjectMap` READS it: after `SchemaRenderer` has
+ * hoisted the node's `properties` bag onto it, or as code composes it
+ * (`ObjectView` and `ListView` flattening a stored map view, a host mounting
+ * `<ObjectMap schema={…}>`). That is why it still carries the flat
+ * `locationField` / `titleField` the flatten produces.
+ *
+ * It is NOT the shape of an AUTHORED `object-map` document. An authored node
+ * takes its props in the spec's `properties` bag, whose members are
+ * `@objectstack/spec`'s `ComponentPropsMap['object-map']` row
+ * (`ObjectMapProps`): `{ type: 'object-map', properties: { objectName, map:
+ * { latitudeField, longitudeField }, … } }`. `ObjectMapBlockSchema`
+ * (`./zod/objectql.zod.ts`) judges it, and refuses a prop written flat on the
+ * node by name. `SchemaRenderer` reads both spellings, so a node built in code
+ * keeps its flat keys.
  */
 export interface ObjectMapSchema extends BaseSchema {
   type: 'object-map';
@@ -3892,11 +3926,19 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * returns this block whole when it is present, and only falls through to the
    * flat members below when it is not.
    *
+   * ⭐ This is where the five field-name keys are AUTHORED (objectui#8831):
+   * `calendar: { startDateField, endDateField, titleField, colorField, allDayField }`.
+   * `ComponentPropsMap['object-calendar']` refuses the same five written flat on
+   * the node, and its diagnostic prescribes exactly this block (one key per
+   * concept, the spec's Prime Directive #12). The flat members below are the
+   * runtime handoff, declared because the renderer reads them, not a second
+   * spelling to write.
+   *
    * `@objectstack/spec` declares the KEY —
    * `ComponentPropsMap['object-calendar'].calendar` — and this package's
    * registration `inputs` publishes it, so authors are offered it. ⚠️ The spec
-   * does NOT declare its SHAPE: measured on 17.4.0 that slot is
-   * `z.unknown().optional()`, not `CalendarConfigSchema`, so the protocol
+   * does NOT declare its SHAPE: measured on 17.4.0, and again on 17.5.0, that
+   * slot is `z.unknown().optional()`, not `CalendarConfigSchema`, so the protocol
    * accepts any value there at all. The member list below is objectui's own —
    * see the mirror for the grounds. Both published faces of THIS package stayed
    * silent about the key until objectui#8651,
@@ -3908,9 +3950,9 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * DERIVED from the mirror rather than re-spelled, so the two faces cannot
    * fork — the same construction {@link ListViewSchema} uses through
    * `ListViewInferred`. What the mirror declares is the five members
-   * `ObjectCalendar`'s events pass destructures out of the resolved config: the
-   * spec's four plus objectui's own `allDayField`, on the lane objectui#8466
-   * took for the flat spelling of the same vocabulary.
+   * `ObjectCalendar`'s events pass destructures out of the resolved config.
+   * Through `@objectstack/spec` 17.4.0 that was the spec's four plus objectui's
+   * own `allDayField`; since 17.5.0 `CalendarConfigSchema` declares all five.
    *
    * ⛔ `defaultView` is deliberately NOT a member of this container even though
    * a list VIEW's calendar block carries one: this renderer seeds its view state
@@ -3919,9 +3961,25 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * carrying it still parses — it is simply not advertised.
    */
   calendar?: ObjectCalendarBlockConfig;
-  /** Field for event start */
+  /**
+   * Field for event start — the FLAT spelling, READ BUT NOT AUTHORED
+   * (objectui#8831). Write `calendar.startDateField` instead.
+   *
+   * This is the runtime handoff: `ObjectView` and `ListView` emit the five
+   * field-name keys flat on the `object-calendar` node they build, and
+   * `getCalendarConfig` reads them only when the node carries no
+   * {@link ObjectCalendarSchema.calendar} block. `@objectstack/spec` refuses
+   * the same five at this element with `unrecognized_keys`, and its diagnostic
+   * names the {@link ObjectCalendarSchema.calendar} block as the place to write
+   * them (one key per concept, its Prime Directive #12). The five stay declared
+   * here because the renderer reads them; a declaration records that read, it
+   * is not a second authoring spelling.
+   */
   startDateField?: string;
-  /** Field for event end */
+  /**
+   * Field for event end — the FLAT spelling, read but not authored. Write
+   * `calendar.endDateField`; see {@link ObjectCalendarSchema.startDateField}.
+   */
   endDateField?: string;
   /**
    * ⛔ RETIRED (objectui#8355, director ruling of 2026-09-16) — `dateField` was
@@ -3950,11 +4008,19 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * calendar drew, and only the end binding went missing.
    */
   endField?: never;
-  /** Field for event title */
+  /**
+   * Field for event title — the FLAT spelling, read but not authored. Write
+   * `calendar.titleField`; see {@link ObjectCalendarSchema.startDateField}.
+   */
   titleField?: string;
   /**
-   * Record field carrying the event's colour — any CSS colour or a semantic
-   * palette name, typically a server-computed status colour. Resolved PER
+   * Record field carrying the event's colour — the FLAT spelling, read but not
+   * authored: write `calendar.colorField`, and see
+   * {@link ObjectCalendarSchema.startDateField} for why the flat member stays
+   * declared.
+   *
+   * The value is any CSS colour or a semantic palette name, typically a
+   * server-computed status colour. Resolved PER
    * RECORD by `plugin-calendar/src/ObjectCalendar.tsx`, which falls back to the
    * record's own `color` value and then to the platform default, so an authored
    * value that never arrives is invisible rather than loud.
@@ -3972,23 +4038,25 @@ export interface ObjectCalendarSchema extends BaseSchema {
    */
   colorField?: SpecCalendarConfig['colorField'];
   /**
-   * Record field carrying the all-day flag. LOAD-BEARING since objectui#8026:
+   * Record field carrying the all-day flag — the FLAT spelling, read but not
+   * authored: write `calendar.allDayField`, and see
+   * {@link ObjectCalendarSchema.startDateField} for why the flat member stays
+   * declared.
+   *
+   * LOAD-BEARING since objectui#8026:
    * the events pass in `plugin-calendar/src/ObjectCalendar.tsx` reads it and a
-   * change to the authored key genuinely changes what is drawn. It is also in
+   * change to the key genuinely changes what is drawn. It is also in
    * that component's `getCalendarConfig` memo dependency list, which is what
    * makes the change reach the screen.
    *
-   * objectui-LOCAL, and the one member here with no {@link CalendarConfig} twin
-   * to derive from: `@objectstack/spec`'s `CalendarConfigSchema` is a
-   * `strictObject` of exactly `startDateField`, `endDateField`, `titleField`
-   * and `colorField`, so it refuses this key as UNDECLARED — ⚠️ not "by name".
-   * Measured on 17.4.0: it answers `allDayField` and a nonsense key with the
-   * identical `unrecognized_keys` diagnostic, so the refusal is blanket
-   * strictness and says nothing about this key in particular (objectui#8651). That is the class this package's mirror
-   * already names out loud, where `.passthrough()` is kept explicitly for this
-   * key — "the renderers grow config knobs ahead of the protocol (calendar's
-   * `allDayField`, for one), and stripping them here would silently disable a
-   * shipped capability" (`zod/objectql.zod.ts`).
+   * Through `@objectstack/spec` 17.4.0 this key was objectui-LOCAL in both
+   * positions: `CalendarConfigSchema` was a `strictObject` of exactly
+   * `startDateField`, `endDateField`, `titleField` and `colorField`, and
+   * answered `allDayField` and a nonsense key with the identical
+   * `unrecognized_keys` diagnostic (objectui#8651). Since 17.5.0 that schema
+   * declares `allDayField` too, so `calendar.allDayField` is a spec key like its
+   * four neighbours (objectui#11073). This flat member is still typed `string`
+   * rather than derived from {@link CalendarConfig}; the two types are equal.
    *
    * ⛔ Declaring it widens NO accept set, which is why Commandment #0.1 is not
    * engaged. Measured on spec 17.3.0: `ComponentPropsMap['object-calendar']`
@@ -3996,8 +4064,8 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * {@link ObjectCalendarSchema.titleField},
    * {@link ObjectCalendarSchema.startDateField} and
    * {@link ObjectCalendarSchema.endDateField} above, which have shipped
-   * DECLARED for releases. The flat face is objectui's own lane, taken whole;
-   * this key is its fifth member, not a new dialect. And under `BaseSchema`'s
+   * DECLARED for releases. This key is the fifth member of that flat handoff,
+   * not a new dialect. And under `BaseSchema`'s
    * index signature the value was already `any`, so declaring only NARROWS.
    *
    * ⭐ Nor is it a new precedent: {@link CalendarViewSchema} — a sibling
@@ -5768,7 +5836,10 @@ export interface ObjectDataTableSchema extends BaseSchema {
  * carried the same twelve members — `AnyComponentSchema` had no arm for either
  * node. The zod twin carries eleven since objectui#10859 batch 4: the authored
  * `object-form` node is armed from its spec row by `ObjectFormBlockSchema`,
- * and `ObjectFormSchema` here is the node as `ObjectForm` reads it.
+ * and `ObjectFormSchema` here is the node as `ObjectForm` reads it. It carries
+ * ten since batch 5, for the same reason: the authored `object-map` node is
+ * armed by `ObjectMapBlockSchema`, and `ObjectMapSchema` here is the node as
+ * `ObjectMap` reads it.
  */
 export type ObjectQLComponentSchema =
   | ObjectGridSchema

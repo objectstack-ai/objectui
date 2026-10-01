@@ -189,15 +189,16 @@ describe('TextAreaField character counter is translated (objectui#3406)', () => 
     expect(visibleCounter()).toHaveTextContent('11/200');
   });
 
-  it('keeps reading the legacy snake_case max_length spelling', () => {
-    // The dual-read predates this change (framework#1878 §3). Keying the
-    // sentence must not narrow which spelling reaches it.
+  it('reads the spec maxLength only — the retired snake_case max_length draws no counter (objectui#11070)', () => {
+    // The widget dual-read `maxLength ?? max_length` from framework#1878 §3
+    // until objectui#11070 retired the snake_case spelling: the spec refuses it
+    // by name and `TextareaFieldMetadata` declares `maxLength` alone.
     renderIn(
       'zh',
       <TextAreaField value="hello" onChange={vi.fn()} field={textareaField({ max_length: 80 })} />,
     );
 
-    expect(describedText()).toBe('已输入 5 个字符，最多 80 个');
+    expect(visibleCounter()).toBeNull();
   });
 
   it('renders no counter at all when the field declares no maxLength', () => {

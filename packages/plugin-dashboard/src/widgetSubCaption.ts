@@ -56,14 +56,18 @@
  * node at all. `useObjectLabel().widgetSubCaption` already collapses a miss to
  * `undefined`; the authored limb does the same via `|| undefined`.
  *
- * ## The server-overlay channel is untouched
+ * ## A served document skips limb 2
  *
- * A dashboard served through `/meta` never reaches limb 2 here: the server's
- * `translateDashboard` has already written the resolved `subCaption` INTO
- * `options.description`, so the overlaid string arrives as the authored value
- * and limb 1 renders it verbatim. This hook is the client half of the same
- * convention, for the app bundles objectui loads into `I18nProvider` itself —
- * not a second dialect, and not a competitor to the overlay.
+ * A dashboard served through `/meta` arrives with the server's answer already
+ * in `options.description`: `translateDashboard` writes the resolved
+ * `subCaption` there, and since objectstack#20680 keeps a published edit over
+ * the packaged catalog. Limb 2 used to run over that served value anyway, so a
+ * bundle entry won it back and a published edit drew as the packaged string.
+ * The host now says when its document was served (`localized`, objectui#11295)
+ * and limb 2 does not run for it; limb 1 still collapses an inline map. For a
+ * document the server never translated — inline, preview — both limbs run as
+ * before: this hook is the client half of the same convention, for the app
+ * bundles objectui loads into `I18nProvider` itself.
  */
 
 import { useCallback } from 'react';
@@ -91,6 +95,10 @@ export interface SubCaptionWidget {
  * same silent degradation `tWidgetTitle` / `tWidgetDescription` perform, not a
  * new one.
  *
+ * `localized` is the host's word that the document was served already
+ * translated (`DashboardRendererProps.localized`): the authored limb then
+ * answers alone, because the served value IS the translation.
+ *
  * Provider-safe: `useObjectLabel` and `useObjectTranslation` both degrade to a
  * no-instance stand-in when no `I18nProvider` is mounted (objectui#5564), which
  * `DashboardGridLayout` depends on — it is registered as the `dashboard-grid`
@@ -98,6 +106,7 @@ export interface SubCaptionWidget {
  */
 export function useWidgetSubCaption(
   dashName: string | undefined,
+  localized = false,
 ): (widget: SubCaptionWidget) => string | undefined {
   const { widgetSubCaption } = useObjectLabel();
   const { language } = useObjectTranslation();
@@ -106,9 +115,9 @@ export function useWidgetSubCaption(
     (widget: SubCaptionWidget): string | undefined => {
       const authored = (widget.options as Record<string, unknown> | undefined)?.description;
       const fallback = pickLocalized(authored, language) || undefined;
-      if (!dashName || !widget.id) return fallback;
+      if (localized || !dashName || !widget.id) return fallback;
       return widgetSubCaption(dashName, widget.id, fallback);
     },
-    [dashName, widgetSubCaption, language],
+    [localized, dashName, widgetSubCaption, language],
   );
 }

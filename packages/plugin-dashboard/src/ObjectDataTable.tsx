@@ -218,6 +218,25 @@ type ObjectDataTableRetiredReferenceToTombstone = { referenceTo?: never };
  */
 type ObjectDataTableRetiredReferenceToSnakeTombstone = { reference_to?: never };
 
+/**
+ * ⭐ `display_field` — RETIRED from `FieldMeta` ITSELF (objectui#11070's
+ * text-family round), the fourth key to leave that type, by the same mechanism
+ * as the three tombstones above: read {@link ObjectDataTableRetiredDecimalsTombstone}
+ * for why a hand-written tombstone, not the derived band, carries the refusal
+ * once a key leaves `keyof FieldMeta`.
+ *
+ * The verdict is unchanged and is objectui#6694's: an AUTHORED column may not
+ * source a lookup's display pointer, and nothing this seam emits carries this
+ * spelling either. What changed is the key's standing. `LookupCellRenderer`
+ * has resolved the display pointer as `displayField || reference_field` since
+ * objectui#7155 retired its `display_field` leg, and the ingestion choke point
+ * folds a served `display_field` onto `displayField`, so `buildFieldMeta`'s
+ * copy of it reached no reader; the copy stopped and the member went. The
+ * spec spelling `displayField` is still a `FieldMeta` member, so the derived
+ * band keeps refusing it on an authored column by itself.
+ */
+type ObjectDataTableRetiredDisplayFieldSnakeTombstone = { display_field?: never };
+
 export type EnrichedColumn =
   TableColumn
   /** HELD alias, objectui#5120 — see above. Not declared by `TableColumn`. */
@@ -228,7 +247,8 @@ export type EnrichedColumn =
   & { [K in Exclude<keyof FieldMeta, keyof TableColumn | 'name'>]?: never }
   & ObjectDataTableRetiredDecimalsTombstone
   & ObjectDataTableRetiredReferenceToTombstone
-  & ObjectDataTableRetiredReferenceToSnakeTombstone;
+  & ObjectDataTableRetiredReferenceToSnakeTombstone
+  & ObjectDataTableRetiredDisplayFieldSnakeTombstone;
 
 /**
  * What this widget's column producer is allowed to READ off the AUTHORED
@@ -377,11 +397,12 @@ export interface ObjectDataTableColumnHolds {}
  *
  * The pool shrank, then grew again. What THIS band refuses is `name` and
  * `label` — both of them `FieldMeta` members with answers this seam already
- * has (see the docblock above) — plus, since objectui#6694, the relational
- * members that card added: `reference` and `display_field`. It added
- * `reference_to` too; objectui#11070 round 4 retired that member from
- * `FieldMeta`, so it left this band's POOL and
- * {@link ObjectDataTableRetiredReferenceToSnakeTombstone} carries its refusal.
+ * has (see the docblock above) — plus the relational members objectui#6694 and
+ * objectui#6875 added: `reference` and `displayField`. objectui#6694 added
+ * `reference_to` and `display_field` too; objectui#11070 retired both members
+ * from `FieldMeta` (round 4 and the text-family round), so they left this
+ * band's POOL, and {@link ObjectDataTableRetiredReferenceToSnakeTombstone} and
+ * {@link ObjectDataTableRetiredDisplayFieldSnakeTombstone} carry their refusals.
  *
  * ⭐ Those members are the derivation working as designed, and their verdict is
  * the one objectui#6597 already reached for `referenceTo`: an AUTHORED column
@@ -415,7 +436,10 @@ export type AuthoredColumnOverrides =
   & ObjectDataTableRetiredReferenceToTombstone
   /** RETIRED from `FieldMeta` by objectui#11070 round 4 — re-stated by hand for
    *  the same reason. See the tombstone's docblock. */
-  & ObjectDataTableRetiredReferenceToSnakeTombstone;
+  & ObjectDataTableRetiredReferenceToSnakeTombstone
+  /** RETIRED from `FieldMeta` by objectui#11070's text-family round —
+   *  re-stated by hand for the same reason. See the tombstone's docblock. */
+  & ObjectDataTableRetiredDisplayFieldSnakeTombstone;
 
 /**
  * Shared empty fallback for the resolved row list (objectui#4629).

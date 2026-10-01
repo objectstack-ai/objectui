@@ -222,7 +222,6 @@ published is not an error: the expression is returned as its own source text.
     { "field": "created_at", "label": "Joined" }
   ],
   "showSearch": true,
-  "showFilters": true,
   "operations": { "create": true, "read": true, "update": true, "delete": true, "export": true }
 }
 ```

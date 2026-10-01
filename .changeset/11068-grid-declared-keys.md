@@ -38,5 +38,5 @@ now authors only keys the grid reads.
   refused by name.
 
 **Unchanged.** An `object-view`'s `table` slot still withholds `description` and `emptyState`.
-Write them on the `object-grid` node itself. `showFilters` and `keyboardNavigation` are still
-declared and still not read.
+Write them on the `object-grid` node itself. `keyboardNavigation` is still declared and still
+not read.

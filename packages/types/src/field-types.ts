@@ -226,8 +226,22 @@ export type FieldConstraints = {
  */
 export interface TextFieldMetadata extends BaseFieldMetadata {
   type: 'text';
-  min_length?: number;
-  max_length?: number;
+  /**
+   * Minimum character length — `@objectstack/spec`'s `FieldSchema.minLength`,
+   * typed BY REFERENCE (objectui#11070). The form's validation rules
+   * (`buildValidationRules` in `@object-ui/fields`) read it for every field
+   * type and enforce it at submit. It replaces the retired snake_case
+   * `min_length`, which the spec refuses by name and nothing reads.
+   */
+  minLength?: SpecField['minLength'];
+  /**
+   * Maximum character length — `@objectstack/spec`'s `FieldSchema.maxLength`,
+   * typed BY REFERENCE (objectui#11070). `buildValidationRules` enforces it at
+   * submit, and the `text` widget puts it on its input as the native
+   * `maxlength` stop. It replaces the retired snake_case `max_length`, which
+   * the spec refuses by name and nothing reads.
+   */
+  maxLength?: SpecField['maxLength'];
   pattern?: string | RegExp;
   pattern_message?: string;
 }
@@ -237,8 +251,18 @@ export interface TextFieldMetadata extends BaseFieldMetadata {
  */
 export interface TextareaFieldMetadata extends BaseFieldMetadata {
   type: 'textarea';
-  min_length?: number;
-  max_length?: number;
+  /**
+   * Minimum character length — `FieldSchema.minLength` by reference, read the
+   * same way as {@link TextFieldMetadata.minLength} (objectui#11070).
+   */
+  minLength?: SpecField['minLength'];
+  /**
+   * Maximum character length — `FieldSchema.maxLength` by reference
+   * (objectui#11070). The `textarea` widget reads it for the native stop and
+   * its `{n}/{max}` counter, and `buildValidationRules` enforces it at submit.
+   * It replaces the retired snake_case `max_length`.
+   */
+  maxLength?: SpecField['maxLength'];
   rows?: number;
 }
 
@@ -247,7 +271,12 @@ export interface TextareaFieldMetadata extends BaseFieldMetadata {
  */
 export interface MarkdownFieldMetadata extends BaseFieldMetadata {
   type: 'markdown';
-  max_length?: number;
+  /**
+   * Maximum character length — `FieldSchema.maxLength` by reference
+   * (objectui#11070). Read the same way on all three rich-content types; see
+   * {@link RichtextFieldMetadata.maxLength}.
+   */
+  maxLength?: SpecField['maxLength'];
   /**
    * Height of the INLINE editor, in text rows (the HTML textarea `rows`
    * attribute; the fullscreen dialog sizes itself and ignores it).
@@ -287,7 +316,11 @@ export interface MarkdownFieldMetadata extends BaseFieldMetadata {
  */
 export interface HtmlFieldMetadata extends BaseFieldMetadata {
   type: 'html';
-  max_length?: number;
+  /**
+   * Maximum character length — `FieldSchema.maxLength` by reference
+   * (objectui#11070). See {@link RichtextFieldMetadata.maxLength}.
+   */
+  maxLength?: SpecField['maxLength'];
   /**
    * Height of the INLINE editor, in text rows. Same declaration as
    * `MarkdownFieldMetadata.rows` (objectui#6140 Option A ruling — see the
@@ -334,48 +367,33 @@ export interface HtmlFieldMetadata extends BaseFieldMetadata {
  * entry for the type; both renderers there destructure `value` only, so the
  * display half contributes no metadata key.
  *
- * ## `max_length` — read at SUBMIT, not by the widget
+ * ## `maxLength` — the spec's bound, read by the widget AND at submit
  *
- * `RichTextField` never reads this key. It is declared because a live reader
- * outside the widget does, on every field regardless of type:
- * `buildValidationRules` (`packages/fields/src/index.tsx`) compiles
- * `(field as any).maxLength ?? field.max_length` into a react-hook-form
- * `maxLength` rule. That function is GENERIC — it has no field-type gate
- * anywhere in it — and both form producers call it on every field they build
- * (`ObjectForm`'s `validation: buildValidationRules(field)` and the same line
- * in `sectionFields.ts`); the form renderer spreads the result into the RHF
- * `rules` object and localizes the `maxLength` entry. ⇒ `max_length` written
- * on a `richtext` field IS enforced when the form is submitted. That is the
- * checkable reason this key is declared.
+ * Declared as `@objectstack/spec`'s `FieldSchema.maxLength`, typed BY
+ * REFERENCE (objectui#11070), on all three of this widget's metadata faces.
+ * Two readers honour it:
  *
- * ⛔ Spec symmetry is NOT that reason, and must not be restated as one. At
- * `@objectstack/spec` 17.3.0 `FieldSchema` answers identically for EVERY field
- * type — `text` included — on `maxLength` (admitted) and on the legacy
- * snake_case `max_length` (refused BY NAME), so that reading is
- * non-discriminating here: it says nothing about `richtext` versus its two
- * siblings. It is still pinned, for the three types this widget serves, in
- * `packages/fields/src/widgets/__tests__/richtext-field-metadata-7083.test.tsx`
- * — the `maxLength` admitted and `max_length` refused halves. `rows` admitted
- * is pinned separately, in
+ *  - `RichTextField` itself (objectui#8438): the native `maxlength` stop, the
+ *    character counter and the `aria-describedby` wiring, on the inline
+ *    surface and in the fullscreen dialog.
+ *  - `buildValidationRules` (`packages/fields/src/index.tsx`), which is
+ *    GENERIC — it has no field-type gate — and which both form producers call
+ *    on every field they build (`ObjectForm` and `sectionFields.ts`), so the
+ *    same cap is also enforced when the form is submitted.
+ *
+ * It replaces the snake_case `max_length` these three types declared until
+ * objectui#11070's text-family round. `FieldSchema` refuses that spelling BY
+ * NAME on every field type, and nothing reads it any more: the widget's and
+ * the validation rules' `maxLength ?? max_length` dual reads retired with the
+ * member, at once and with no alias. The spec reading for the three types
+ * this widget serves — `maxLength` admitted, `max_length` refused — is pinned
+ * in `packages/fields/src/widgets/__tests__/richtext-field-metadata-7083.test.tsx`;
+ * `rows` admitted is pinned separately, in
  * `packages/types/src/__tests__/select-option-spec-extension-7014.test.ts`.
  *
- * ⚠️ The two form-side sites this docblock used to name as not reaching
- * `richtext` were RE-MEASURED by objectui#8438, and the reading did not hold:
- * `ObjectForm`'s `text | textarea | markdown | html` list writes
- * `formField.maxLength`, which no registered widget reads (the carrier is
- * `formField.field`), so it forwarded the cap for NONE of its four types; and
- * `EmbeddableForm`'s `DEFAULT_MAX_LENGTH` did deliver 5000 for `markdown` and
- * `html`, where `RichTextField` then dropped it unread. ⇒ the cap was invisible
- * for all three of this widget's registry keys, not for `richtext` alone.
- * objectui#8438 fixed it where it was actually lost — `RichTextField` now
- * dual-reads `maxLength ?? max_length` — so a `max_length` authored here is
- * honoured by the native stop, the character counter and `aria-describedby`,
- * as well as at submit.
- *
- * Omitting the key would have left `richtext` the one type of the three whose
- * ceiling cannot be authored under an annotation, while the submit-time rule
- * that enforces it stayed live — a fresh instance of the asymmetry this member
- * exists to end.
+ * Omitting the key would leave `richtext` the one type of the three whose
+ * ceiling cannot be authored under an annotation while both of its readers
+ * stay live — a fresh instance of the asymmetry this member exists to end.
  *
  * The `rows` docblocks on the two siblings described the `@objectstack/spec`
  * 17.2.0 boundary, where `rows` was refused by name, and outlived it;
@@ -385,7 +403,12 @@ export interface HtmlFieldMetadata extends BaseFieldMetadata {
  */
 export interface RichtextFieldMetadata extends BaseFieldMetadata {
   type: 'richtext';
-  max_length?: number;
+  /**
+   * Maximum character length — `FieldSchema.maxLength` by reference
+   * (objectui#11070). The widget and the form's validation rules both read
+   * it; see the docblock above.
+   */
+  maxLength?: SpecField['maxLength'];
   /**
    * Height of the INLINE editor, in text rows. Same read as
    * `MarkdownFieldMetadata.rows` and `HtmlFieldMetadata.rows` — literally the
@@ -583,7 +606,13 @@ export interface SelectFieldMetadata extends BaseFieldMetadata {
  */
 export interface EmailFieldMetadata extends BaseFieldMetadata {
   type: 'email';
-  max_length?: number;
+  /**
+   * Maximum character length — `@objectstack/spec`'s `FieldSchema.maxLength`,
+   * typed BY REFERENCE (objectui#11070). `buildValidationRules` enforces it at
+   * submit. It replaces the retired snake_case `max_length`, which the spec
+   * refuses by name and nothing reads.
+   */
+  maxLength?: SpecField['maxLength'];
 }
 
 /**
@@ -599,7 +628,11 @@ export interface PhoneFieldMetadata extends BaseFieldMetadata {
  */
 export interface UrlFieldMetadata extends BaseFieldMetadata {
   type: 'url';
-  max_length?: number;
+  /**
+   * Maximum character length — `FieldSchema.maxLength` by reference, read the
+   * same way as {@link EmailFieldMetadata.maxLength} (objectui#11070).
+   */
+  maxLength?: SpecField['maxLength'];
 }
 
 /**
@@ -829,10 +862,11 @@ export interface FormulaFieldMetadata extends BaseFieldMetadata {
    * declares.
    */
   returnType?: SpecField['returnType'];
-  /**
-   * Whether to recompute on dependency changes
-   */
-  auto_compute?: boolean;
+  // ⛔ No `auto_compute` — RETIRED by objectui#11070 under ADR-0049
+  // (enforce-or-remove): declared, and read by nothing in the repository —
+  // the value is computed by the backend, and no widget or producer ever
+  // consulted a recompute switch. `@objectstack/spec`'s `FieldSchema` refuses
+  // it by name.
 }
 
 /**
@@ -857,10 +891,10 @@ export interface SummaryFieldMetadata extends BaseFieldMetadata {
    * spec refuses them, and no reader reads them any more.
    */
   summaryOperations?: SpecField['summaryOperations'];
-  /**
-   * Whether to auto-update on related record changes
-   */
-  auto_update?: boolean;
+  // ⛔ No `auto_update` — RETIRED by objectui#11070 under ADR-0049
+  // (enforce-or-remove): declared, and read by nothing in the repository —
+  // the roll-up is computed by the backend. `@objectstack/spec`'s
+  // `FieldSchema` refuses it by name.
 }
 
 /**

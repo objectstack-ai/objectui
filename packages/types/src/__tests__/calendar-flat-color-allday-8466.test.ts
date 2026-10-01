@@ -19,6 +19,16 @@
  * admitted, never examined by either published face. A misspelling therefore
  * left the calendar silently colourless while every published gate passed.
  *
+ * ⚠️ Dated note, 2026-10-01 — objectui#8831. The README sentence quoted above
+ * is no longer how `object-calendar` is taught. `ComponentPropsMap['object-calendar']`
+ * refuses all five flat keys and its diagnostic prescribes the `calendar`
+ * block, so the README now authors the five INSIDE that block and names the
+ * flat spelling as the runtime handoff `ObjectView`/`ListView` emit (it keeps
+ * the five-key sentence for `calendar-view` only, where flat is the one
+ * spelling). The declarations this file pins did NOT move: they record that the
+ * renderer READS the flat spelling, not that an author should write it. The
+ * README row below pins the new teaching.
+ *
  * ## Why BOTH keys, and the measurement that decided the second one
  *
  * The two keys look asymmetric and are not. `colorField` IS a spec key — but
@@ -85,8 +95,9 @@
  * improvement it existed to enable.
  *
  * The rule they now follow: read the FACT off disk — this key is read off the
- * node; this key is in that memo's dependency list; these five are taught in one
- * block — never the shape the fact happens to be written in. Casts, whitespace,
+ * node; this key is in that memo's dependency list; these five are authored
+ * inside the `calendar` block and never flat (objectui#8831) — never the shape
+ * the fact happens to be written in. Casts, whitespace,
  * dep ordering and fill width are all formatting, and each helper below is built
  * so none of them can move a verdict. Each carries a control known to fire in
  * the same region, because a re-anchor that can no longer go red has not fixed
@@ -98,10 +109,15 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 
 import { CalendarConfigSchema, ComponentPropsMap } from '@objectstack/spec/ui';
+// @ts-expect-error — plain-JS shared helper, intentionally untyped (`allowJs: false`)
+import { maskComments } from '../../../../scripts/js-comment-mask.mjs';
 
 import { ObjectCalendarSchema, safeValidateSchema } from '../zod/index.zod';
 import type { ObjectCalendarSchema as TsObjectCalendarSchema } from '../objectql';
 import type { CalendarViewSchema as TsCalendarViewSchema } from '../complex';
+
+/** Local annotation, since the import above is untyped — the call site stays checked. */
+const mask: (source: string) => string = maskComments;
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..', '..');
@@ -110,7 +126,10 @@ const CALENDAR_READER = 'packages/plugin-calendar/src/ObjectCalendar.tsx';
 const CALENDAR_REGISTRATION = 'packages/plugin-calendar/src/index.tsx';
 const CALENDAR_README = 'packages/plugin-calendar/README.md';
 
-/** The five flat field-name keys `getCalendarConfig` reads and the README teaches. */
+/**
+ * The five field-name keys `getCalendarConfig` reads off the node FLAT (the
+ * runtime handoff), and that the README authors inside the `calendar` block.
+ */
 const FLAT_KEYS = ['titleField', 'startDateField', 'endDateField', 'allDayField', 'colorField'] as const;
 /** The three that were already declared — the precedent the two new ones join. */
 const ALREADY_DECLARED = ['titleField', 'startDateField', 'endDateField'] as const;
@@ -175,7 +194,7 @@ const siblingPins: [
 // sibling does not declare either, so the five above are readings.
 export type _SiblingControlFallsThrough = Expect<IsAny<TsCalendarViewSchema['swatchField']>>;
 
-// The TS face ACCEPTS the documented shape…
+// The TS face ACCEPTS the flat handoff shape…
 const calendarLiteral: TsObjectCalendarSchema = {
   ...CALENDAR_NODE,
   colorField: 'status_colour',
@@ -257,17 +276,83 @@ function configMemoDeps(source: string): Set<string> {
   return schemaReads(source.slice(from, i - 1));
 }
 
+const OPENERS = '{[(';
+const CLOSERS = '}])';
+
+/** The index of the bracket that closes the one opened at `open`. Throws rather than guessing. */
+function matchingClose(code: string, open: number): number {
+  let depth = 0;
+  for (let i = open; i < code.length; i += 1) {
+    if (OPENERS.includes(code[i])) depth += 1;
+    else if (CLOSERS.includes(code[i])) {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  throw new Error(`unterminated literal from offset ${open}`);
+}
+
 /**
- * The markdown blocks that teach every one of `keys`, each block's internal
- * whitespace collapsed first. A blank line between blocks is STRUCTURE; where
- * the lines break inside one is formatting — which is why pinning the literal
- * wrap `'at your own\nfields when they differ.'` reddened on a re-wrap.
+ * Every node a markdown document AUTHORS with `type: '<type>'` in a TypeScript
+ * fence, as the text of the object literal that carries that `type` key
+ * (objectui#8831). Brace-matched, never line- or indent-based, so a re-wrap or
+ * a re-indent cannot move a verdict; comments are masked first, so a key named
+ * in a comment is not read as one written.
  */
-function blocksTeachingAll(markdown: string, keys: readonly string[]): string[] {
-  return markdown
-    .split(/\n\s*\n/)
-    .map((block) => block.replace(/\s+/g, ' ').trim())
-    .filter((block) => keys.every((key) => block.includes(`\`${key}\``)));
+function authoredNodes(markdown: string, type: string): string[] {
+  const nodes: string[] = [];
+  const typeKey = new RegExp(`\\btype\\s*:\\s*['"]${type}['"]`, 'g');
+  for (const fence of markdown.matchAll(/^```(?:ts|tsx|typescript)\n([\s\S]*?)^```/gm)) {
+    const code = mask(fence[1]);
+    for (const m of code.matchAll(typeKey)) {
+      // Walk BACK to the bracket that opens the literal holding this key.
+      let depth = 0;
+      let open = -1;
+      for (let i = (m.index ?? 0) - 1; i >= 0 && open < 0; i -= 1) {
+        if (CLOSERS.includes(code[i])) depth += 1;
+        else if (OPENERS.includes(code[i])) {
+          if (depth === 0) open = i;
+          else depth -= 1;
+        }
+      }
+      if (open < 0 || code[open] !== '{') {
+        throw new Error(`a \`type: '${type}'\` key outside any object literal`);
+      }
+      nodes.push(code.slice(open, matchingClose(code, open) + 1));
+    }
+  }
+  return nodes;
+}
+
+/** An object literal's text with every NESTED bracket region blanked, so only its own top level is left. */
+function topLevelText(literal: string): string {
+  // Indexed by UTF-16 unit, not by code point, so offsets into the result are
+  // offsets into `literal` — `memberLiteral` below depends on that.
+  let depth = 0;
+  let out = '';
+  for (let i = 0; i < literal.length; i += 1) {
+    const c = literal[i];
+    if (OPENERS.includes(c)) depth += 1;
+    out += depth === 1 ? c : ' ';
+    if (CLOSERS.includes(c)) depth -= 1;
+  }
+  return out;
+}
+
+/** The keys written at the top level of an object literal — a nested block's keys are not among them. */
+function topLevelKeys(literal: string): string[] {
+  return [...topLevelText(literal).matchAll(/[{,]\s*([A-Za-z_$][\w$]*)\s*:/g)].map((m) => m[1]);
+}
+
+/** The object literal written as the value of top-level `key`, or `undefined` when there is none. */
+function memberLiteral(literal: string, key: string): string | undefined {
+  const m = new RegExp(`[{,]\\s*${key}\\s*:`).exec(topLevelText(literal));
+  if (!m) return undefined;
+  // Skip whitespace in the ORIGINAL text: in the top-level text the nested
+  // opener is itself blanked to a space, so it cannot be looked for there.
+  let at = m.index + m[0].length;
+  while (/\s/.test(literal[at] ?? '')) at += 1;
+  return literal[at] === '{' ? literal.slice(at, matchingClose(literal, at) + 1) : undefined;
 }
 
 function shapeKeys(schema: unknown): string[] {
@@ -359,23 +444,39 @@ describe('objectui#8466 — the renderer reads these keys, which is what the dec
     expect(reads.has(CONTROL_KEY)).toBe(false);
   });
 
-  it('the README still teaches all five together, which is what makes them authorable', () => {
-    // The card's second half: the published prose. If this teaching is ever
-    // rewritten, the declaration set it justifies has to be revisited.
+  it('the README authors the five INSIDE the `calendar` block on `object-calendar`, never flat (objectui#8831)', () => {
+    // This row used to pin the opposite — that the README taught the five flat,
+    // "which is what makes them authorable". objectui#8831 ruled that spelling
+    // the runtime handoff: `ComponentPropsMap['object-calendar']` refuses it and
+    // its diagnostic prescribes the `calendar` block. So the README teaches the
+    // block, and the declarations this file pins stay because the renderer
+    // READS the flat spelling, not because an author should write it.
     //
-    // NOT the sentence's LINE WRAP: this used to pin the literal
-    // `'at your own\nfields when they differ.'`, so re-wrapping a prose
-    // paragraph in another package reddened a types test with no behaviour
-    // moving (objectui#8832). One markdown block is structure; where the lines
-    // break inside it is formatting.
+    // Read off the authored nodes by brace matching, never by line or indent,
+    // so a re-wrap or re-indent cannot move the verdict (objectui#8832).
     const readme = readRepo(CALENDAR_README);
-    for (const key of FLAT_KEYS) expect(readme).toContain(`\`${key}\``);
-    const teaching = blocksTeachingAll(readme, FLAT_KEYS);
-    expect(teaching.length, 'the five flat keys are no longer taught in one block').toBeGreaterThan(0);
-    // Control, fired in the same region: the same search over the same README
-    // returns nothing once a key the README does not teach joins the set, so the
-    // reading above is a reading and not "every block matches".
-    expect(blocksTeachingAll(readme, [...FLAT_KEYS, CONTROL_KEY])).toHaveLength(0);
+    const nodes = authoredNodes(readme, 'object-calendar');
+    expect(nodes.length, 'the README authors no `object-calendar` node, so the rows below read nothing').toBeGreaterThan(0);
+    for (const node of nodes) {
+      const top = topLevelKeys(node);
+      // Firing control at the SAME depth: the slice is the whole node.
+      expect(top).toContain(READ_CONTROL_KEY);
+      for (const key of FLAT_KEYS) {
+        expect(top, `a README \`object-calendar\` node writes \`${key}\` flat`).not.toContain(key);
+      }
+    }
+    // The teaching moved; it did not vanish. One node writes all five in its
+    // block — `allDayField` included, which the spec declares there since 17.5.0.
+    const blocks = nodes.map((node) => memberLiteral(node, 'calendar')).filter((b): b is string => b !== undefined);
+    expect(
+      blocks.some((block) => FLAT_KEYS.every((key) => topLevelKeys(block).includes(key))),
+      'no README `calendar` block carries all five field-name keys',
+    ).toBe(true);
+    // Control, same instrument, opposite verdict: a `calendar-view` node has no
+    // `calendar` block, so the README writes the keys flat there, and the
+    // extractor sees a flat key when one is written.
+    const views = authoredNodes(readme, 'calendar-view');
+    expect(views.some((view) => topLevelKeys(view).includes('titleField'))).toBe(true);
   });
 });
 
@@ -503,7 +604,7 @@ describe('objectui#8466 — the mirror declares what the interface declares', ()
     expect(keys).not.toContain(MISSPELLING);
   });
 
-  it('accepts the documented shape, and the values SURVIVE the parse', () => {
+  it('accepts the flat handoff shape `ObjectView`/`ListView` emit, and the values SURVIVE the parse', () => {
     const node = { ...CALENDAR_NODE, colorField: 'status_colour', allDayField: 'is_all_day' };
     const r = ObjectCalendarSchema.safeParse(node);
     expect(r.success, JSON.stringify(r.error?.issues)).toBe(true);
@@ -555,7 +656,7 @@ describe('objectui#8466 — the mirror declares what the interface declares', ()
 
 /* ── Keep the type-level consts referenced (they are the pins) ─────────────── */
 
-describe('objectui#8466 — the TS face accepts the documented node', () => {
+describe('objectui#8466 — the TS face accepts the flat handoff node', () => {
   it('the accepted literal carries the values it was authored with', () => {
     expect(calendarLiteral.colorField).toBe('status_colour');
     expect(calendarLiteral.allDayField).toBe('is_all_day');

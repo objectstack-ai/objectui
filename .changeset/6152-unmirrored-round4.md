@@ -48,3 +48,5 @@ minor bump, per the repository's version policy.
 
 `displayMode` on the two chatbot types is unchanged: its refusal stays TypeScript-only, so stored
 designer documents that carry `displayMode: 'floating'` parse exactly as before.
+
+**Correction, 2026-10-01 (objectui#6152, round 5).** The "Mirrored" section above says that on a `chatbot` node `floatingConfig` stays unvalidated. That was true when this change was written, and it no longer is: objectui#6152 round 5 retired `floatingConfig` on the `chatbot` type, so writing it on a `chatbot` node is now a `tsc` error and a parse error that names `chatbot-floating`. The `chatbot-floating` node keeps its `floatingConfig`, judged member by member, as this entry says.

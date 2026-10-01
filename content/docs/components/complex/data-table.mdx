@@ -45,19 +45,6 @@ interface DataTableSchema {
   resizableColumns?: boolean;            // Allow column resizing (default: true)
   reorderableColumns?: boolean;          // Allow column reordering (default: true)
 
-  // Inline editing
-  editable?: boolean;                    // Enable inline cell editing (default: false)
-  singleClickEdit?: boolean;             // Enter edit mode on single click (default: false)
-  renderCellEditor?: (ctx: {             // Host-supplied editor widget; null -> built-in input
-    column: any;
-    row: any;                            // the persisted record
-    pendingRow: any;                     // row + this row's staged, unsaved edits (#7188)
-    value: any;
-    stage: (v: any) => void;
-    commit: (v?: any) => void;
-    cancel: () => void;
-  }) => ReactNode;
-
   // Styling
   className?: string;                    // Tailwind CSS classes on the table wrapper
   cellClassName?: string;                // Tailwind CSS classes on the utility cells only
@@ -111,15 +98,41 @@ Drop the per-column half and the data cells stay at the table primitive's defaul
 
 ## Inline editing
 
-With `editable: true` a cell enters edit mode on double-click (or on single click
-with `singleClickEdit: true`) and the table renders one of its built-in editors —
-text, number, date — chosen from the column's `type`.
+Inline editing is a **host-paired** capability of this table, not a flag a document
+sets. The table only *stages* an edit; saving it is the job of callbacks that a host
+supplies in code (`onRowSave`, `onCellChange`, `onBatchSave`), and a JSON document
+cannot supply a function. So the keys that switch editing on — `editable`, and
+`singleClickEdit` for entering edit mode on the first click instead of a
+double-click — are set by the host on the `data-table` node it builds, together with
+that save path. `object-grid` is that host: it sets both keys on its table and
+passes its own save path, which writes through the data source.
 
-`renderCellEditor` lets the host supply a widget instead. The table calls it first
-for every cell it is about to edit; return a node to use it, or `null` to fall
-through to the built-in editor for that column. This is how `object-grid` gives a
-`select` or `lookup` cell the same dedicated control the form uses, without the
-component layer having to re-implement it.
+**Do not author `editable` or `singleClickEdit` on a `data-table` node.** Without a
+host save path the edits are staged in the table and nothing persists them. To edit
+records inline from a document, author an `object-grid` instead — see
+[Inline Editing](/docs/plugins/plugin-grid#inline-editing) in the grid plugin.
+
+When a host has switched editing on, a cell enters edit mode on double-click (or on
+a single click) and the table renders one of its built-in editors — text, number,
+date — chosen from the column's `type`.
+
+The host can also supply `renderCellEditor`, a function the table calls first for
+every cell it is about to edit; it returns a node to use, or `null` to fall through
+to the built-in editor for that column. This is how `object-grid` gives a `select`
+or `lookup` cell the same dedicated control the form uses, without the component
+layer having to re-implement it. Its context is:
+
+```plaintext
+renderCellEditor?: (ctx: {
+  column: any;
+  row: any;                            // the persisted record
+  pendingRow: any;                     // row + this row's staged, unsaved edits (#7188)
+  value: any;
+  stage: (v: any) => void;
+  commit: (v?: any) => void;
+  cancel: () => void;
+}) => ReactNode;
+```
 
 The returned node is wrapped by the table so it inherits the exit-edit
 affordances the built-in editors have: Enter commits from a single-line input,

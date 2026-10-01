@@ -45,13 +45,14 @@ import {
   // objectui#7928 — the spec's view CONTAINER, read for ONE slot: its
   // `listViews` record (`ObjectViewSchema.listViews` below, by reference).
   ViewSchema as SpecViewSchema,
-  // objectui#10859 (batches 2, 3 and 4) — the `ComponentPropsMap` rows of the
+  // objectui#10859 (batches 2 to 5) — the `ComponentPropsMap` rows of the
   // ADR-0080 public blocks this module arms, each read as its arm's
   // `properties` bag, by reference (`ObjectQLPublicBlockComponentSchema` below).
   ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
   ObjectMasterDetailFormPropsSchema as SpecObjectMasterDetailFormPropsSchema,
   ObjectTimelinePropsSchema as SpecObjectTimelinePropsSchema,
   ObjectFormPropsSchema as SpecObjectFormPropsSchema,
+  ObjectMapPropsSchema as SpecObjectMapPropsSchema,
   // objectui#11070 — the per-element data binding (`PageComponentSchema.dataSource`)
   // the object-bound arms below declare as `dataSource`, by reference.
   ElementDataSourceSchema as SpecElementDataSourceSchema,
@@ -65,7 +66,7 @@ import { DrillDownConfigSchema } from './data-display.zod.js';
 import { KanbanCardSchema } from './complex.zod.js';
 import { ViewSwitcherSchema } from './views.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
-import { NODE_ENVELOPE, propsBag } from './public-blocks.zod.js';
+import { dataSourceSuppliesObject, NODE_ENVELOPE, propsBag } from './public-blocks.zod.js';
 
 /**
  * ⭐ THE IMPORT BOUNDARY (objectui#8317, decision batch #90, 2026-09-08).
@@ -293,6 +294,18 @@ const ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION =
   + '`SchemaRenderer` strips this key from the props it spreads so it cannot shadow the adapter).';
 
 /**
+ * objectui#11117 — ONE `.describe()` string for the `objectName` member of the
+ * gate-wrapped arms whose ONLY rung it is (`object-grid`, `list-view`): optional
+ * as a member, required by `requireRecordSource` unless the node's binding names
+ * the object. The ladder arms (`object-map`, `object-gantt`, `object-calendar`,
+ * `object-kanban`) name the binding in their own rung descriptions.
+ */
+const OBJECT_NAME_BINDING_WAIVER_DESCRIPTION =
+  'ObjectQL object name — required unless the node\'s `dataSource.object` names the object, which '
+  + '`ElementDataSourceGate` lands here before the renderer reads the node. A node with neither is refused '
+  + 'here, keyed `RECORD_SOURCE_REQUIRED`.';
+
+/**
  * ObjectGrid Schema
  */
 export const ObjectGridSchema = BaseSchema.extend({
@@ -302,7 +315,10 @@ export const ObjectGridSchema = BaseSchema.extend({
   // spread (`NODE_ENVELOPE`). A producer writes it on `object-grid` nodes, and
   // `SchemaRenderer` compiles it on every node. The TS twin declares it too.
   ...NODE_ENVELOPE,
-  objectName: z.string().describe('ObjectQL object name'),
+  // objectui#11117 — OPTIONAL as a member, REQUIRED by the refinement at the end
+  // unless the node's `dataSource.object` names the object: the registration is
+  // gate-wrapped, and `ElementDataSourceGate` lands the binding's `object` here.
+  objectName: z.string().optional().describe(OBJECT_NAME_BINDING_WAIVER_DESCRIPTION),
   // objectui#11070 — the spec's per-element binding, by reference, as
   // `public-blocks.zod.ts`'s `element:number` arm already declares it. The
   // registered renderer reads it off the node through `ElementDataSourceGate`,
@@ -480,7 +496,10 @@ export const ObjectGridSchema = BaseSchema.extend({
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(OBJECT_GRID_NEITHER_CHANNEL),
   children: retirementTombstone(OBJECT_GRID_NEITHER_CHANNEL),
-});
+  // objectui#11117 — `objectName`'s requiredness, with the spec's binding waiver:
+  // the shared refinement (`requireRecordSource`, beside `ObjectMapSchema`; a
+  // hoisted function declaration) with this arm's one rung.
+}).superRefine(...requireRecordSource('object-grid', ['objectName']));
 
 /**
  * The prescription an author gets when a record id arrives as a number.
@@ -891,7 +910,12 @@ export const ObjectViewSchema = BaseSchema.extend({
   // objectui#10976 — the grid keys `ObjectView` hands its grid; every other
   // grid member is refused by name (`OBJECT_VIEW_TABLE_WITHHELD` above).
   table: z
-    .lazy(() => ObjectGridSchema.omit({ type: true, objectName: true }).extend(OBJECT_VIEW_TABLE_WITHHELD).partial())
+    // Rebuilt from the grid's `.shape` onto `BaseSchema` rather than `.omit()`ed off
+    // `ObjectGridSchema` itself: zod 4 refuses `.omit()` on an object carrying a
+    // refinement, and the grid carries its record-source one since objectui#11117.
+    // Same shape, same `.passthrough()`, and none of the grid's checks — the slot
+    // omits `objectName` anyway, because the view supplies it.
+    .lazy(() => BaseSchema.extend(ObjectGridSchema.shape).omit({ type: true, objectName: true }).extend(OBJECT_VIEW_TABLE_WITHHELD).partial())
     .optional()
     .describe('Table config'),
   form: z.lazy(() => ObjectFormSchema.omit({ type: true, objectName: true, mode: true }).partial()).optional().describe('Form config'),
@@ -1547,10 +1571,15 @@ const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial()
  * declaration rather than a footnote to it.
  */
 const ObjectCalendarBlockConfigSchema = stripImportedDefaults(SpecCalendarConfigSchema).partial().extend({
-  // objectui-local, no spec counterpart — see objectui#8466 for the measurement
-  // and the lane. The renderer honours it in BOTH positions: this container and
-  // the flat member of the node.
-  allDayField: z.string().optional().describe("Field carrying the all-day flag — objectui-local: the spec's CalendarConfigSchema is a strict object of startDateField, endDateField, titleField and colorField, so it refuses this key as undeclared, exactly as it refuses any other. LOAD-BEARING since objectui#8026"),
+  // Through `@objectstack/spec` 17.4.0 this member was objectui-local (see
+  // objectui#8466 for that measurement). 17.5.0 declares `allDayField` on
+  // `CalendarConfigSchema` itself as `z.string().optional()`, so this extension
+  // now restates the spec's member with the SAME accept set: removing it would
+  // change nothing a parse decides (objectui#8831 reports that and leaves the
+  // removal to its own change). The renderer honours the key in BOTH
+  // positions: this container, which is where it is authored, and the flat
+  // member of the node, which is the runtime handoff.
+  allDayField: z.string().optional().describe('Field carrying the all-day flag. Declared by the spec\'s CalendarConfigSchema since 17.5.0, with the same accept set as this member. LOAD-BEARING since objectui#8026'),
   // ⭐ objectui#8355 — the same two spellings the view-level block above refuses,
   // and deliberately NOT the same string: `getCalendarConfig` reads this
   // container FIRST and returns it WHOLE, so a retired spelling here never
@@ -1770,7 +1799,10 @@ export const ListViewSchema = BaseSchema
       .optional()
       .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
     // objectui-only object binding (spec binds via data.provider:'object'; migration deferred).
-    objectName: z.string().describe('Object Name'),
+    // objectui#11117 — OPTIONAL as a member, REQUIRED by the record-source
+    // refinement at the end of the chain unless the node's `dataSource.object`
+    // names the object (the registration is gate-wrapped; see `ObjectGridSchema`).
+    objectName: z.string().optional().describe(OBJECT_NAME_BINDING_WAIVER_DESCRIPTION),
     // Renamed spec `type` (view-kind); enum imported from spec so it can't drift.
     viewType: ViewKindEnum.optional().describe('View Type'),
     // Relaxed spec `columns` (spec requires it) + legacy `fields` alias for string[] columns.
@@ -2022,7 +2054,11 @@ export const ListViewSchema = BaseSchema
   // later reddens there instead of being dropped here in silence.
   .superRefine(checkListViewCalendarVisualization)
   // objectui's OWN object-level check, not a spec one: see its doc above.
-  .superRefine(checkListViewDatasetChartFilter);
+  .superRefine(checkListViewDatasetChartFilter)
+  // objectui#11117 — `objectName`'s requiredness, with the spec's binding
+  // waiver: the shared refinement `requireRecordSource` (beside
+  // `ObjectMapSchema`), with this arm's one rung.
+  .superRefine(...requireRecordSource('list-view', ['objectName']));
 
 /**
  * TS type for the ListView component node (spec-derived; issue #2231).
@@ -2091,7 +2127,10 @@ export const ObjectMapConfigSchema = z.object({
 
 /**
  * `77cb489b4` — the record-source refinement `ObjectMapSchema`,
- * `ObjectGanttSchema` and `ObjectCalendarSchema` below share.
+ * `ObjectGanttSchema` and `ObjectCalendarSchema` below share — and, since
+ * objectui#11117, every gate-wrapped arm with a record-source requirement:
+ * `ObjectKanbanSchema` with its own rung list, and `ObjectGridSchema` and
+ * `ListViewSchema` with `objectName` alone (see the last section).
  *
  * Those renderers resolve their records from ONE of three keys, in this order:
  * `data`, `staticData` (inline rows, wrapped into a `{ provider: 'value' }`
@@ -2143,21 +2182,97 @@ export const ObjectMapConfigSchema = z.object({
  *
  * ⛔ So do not read the message below as promising a fetchable source: on the
  * calendar, declaring `data` means handing the block rows it already has.
+ *
+ * ## The node's `dataSource` binding is a record source on every arm (objectui#11117)
+ *
+ * Every arm that installs this refinement is gate-wrapped: its registration is
+ * `elementDataSourceBlock`, so `ElementDataSourceGate` (`@object-ui/react`)
+ * lands a binding's `object` on `objectName` before the renderer reads the
+ * node. A node whose `dataSource.object` names an object therefore HAS a
+ * record source although it writes none of the rungs, and the spec accepts it:
+ * the `ComponentPropsMap` rows its props gate judges for these blocks require
+ * no object key (`list-view` has no row), and where a row does —
+ * `element:number`'s `object` — the gate waives exactly that member beside
+ * `dataSource.object`. So the binding counts here, on the
+ * predicate the gate and the runtime both use: `dataSourceSuppliesObject`
+ * from `./public-blocks.zod.ts`, the ONE copy, which `element:number`'s waiver
+ * reads too. A NON-EMPTY string name only — `dataSource: { object: '' }`
+ * supplies nothing, because `isElementDataSourceConfig` refuses it and the
+ * gate then lands nothing on the node.
+ *
+ * ONE refinement for every gate-wrapped arm with a record-source requirement,
+ * parameterised by the arm's own rung list, because the ladders genuinely
+ * differ (`object-kanban` has `bind` and no `staticData`; `object-grid` and
+ * `list-view` have `objectName` alone). What every arm shares is what this
+ * function owns: presence as `!== undefined` on the rungs, the binding as the
+ * last rung, the issue keyed `RECORD_SOURCE_REQUIRED`, and the message,
+ * which names the binding as a remedy beside the rungs. The issue sits at the
+ * ROOT when the arm has several rungs (no single key is at fault, as above),
+ * and at the rung itself when it has one — `objectName` on `object-grid` and
+ * `list-view`, the path the required member reported at, so a consumer that
+ * locates the refusal by path (`objectui validate` prints it) still finds it
+ * there.
+ *
+ * ⚠️ It returns the refinement AND its params, spread into `.superRefine()`,
+ * because `when: () => true` is load-bearing: zod skips a refinement once an
+ * earlier issue aborts the parse, and on `object-grid` and `list-view` this
+ * refinement replaces a required member, whose `invalid_type` was reported
+ * BESIDE every other issue on the node. Without it, a node with no object and
+ * a bad `columns` would report only the `columns`. So the body reads the raw
+ * input defensively — the node may be anything when it runs.
+ *
+ * ## `at: 'properties'` — the same rule, read where an AUTHORED block writes it
+ *
+ * objectui#10859 batch 5 moved the authored `object-map` arm into the spec's
+ * `properties` bag (`ObjectMapBlockSchema` below), so on that arm the three
+ * rungs are read INSIDE the bag: `SchemaRenderer` hoists them onto the node
+ * before the renderer resolves its ladder. That arm counts the node's
+ * `dataSource` binding as a source too, on the same `dataSourceSuppliesObject`
+ * predicate as every other arm (the section above): the registration is
+ * `elementDataSourceBlock`-wrapped, and `ElementDataSourceGate` lands the
+ * binding's `object` on `objectName` before `ObjectMap` runs; the spec row keeps
+ * its own `objectName` optional for exactly that reason. The default (`'node'`)
+ * reads the rungs on the node, as the flat arms always have.
+ *
+ * The two sections met in one merge (objectui#11117 merging objectui#10859
+ * batch 5). Batch 5 counted the bag arm's binding by PRESENCE (`dataSource !==
+ * undefined`); it now counts a NON-EMPTY `dataSource.object`, so the bag arm
+ * refuses `dataSource: { object: '' }` with no rung, as every flat arm does
+ * and as the runtime does: `isElementDataSourceConfig` refuses that binding and
+ * the gate lands nothing, so the map has no record source. The bag arm also
+ * gains `when: () => true` with the rest.
  */
 const RECORD_SOURCE_KEYS = ['data', 'staticData', 'objectName'] as const;
-function requireRecordSource(type: 'object-map' | 'object-gantt' | 'object-calendar') {
-  return (
-    schema: Partial<Record<(typeof RECORD_SOURCE_KEYS)[number], unknown>>,
-    ctx: z.core.$RefinementCtx,
-  ): void => {
-    if (RECORD_SOURCE_KEYS.some((key) => schema[key] !== undefined)) return;
+type RecordSourceRung = 'bind' | 'data' | 'staticData' | 'objectName';
+function requireRecordSource(
+  type: 'object-map' | 'object-gantt' | 'object-calendar' | 'object-kanban' | 'object-grid' | 'list-view',
+  rungs: readonly RecordSourceRung[],
+  at: 'node' | 'properties' = 'node',
+) {
+  const spell = (key: RecordSourceRung) => (at === 'properties' ? `properties.${key}` : key);
+  const named = rungs.map((key) => `\`${spell(key)}\``);
+  const declare = named.length === 1 ? named[0] : `one of ${named.slice(0, -1).join(', ')} or ${named[named.length - 1]}`;
+  // In the bag the rungs are `properties.KEY`, while the binding stays on the NODE, so that
+  // message says whose `dataSource` it means.
+  const binding = at === 'properties'
+    ? 'name the object in the node\'s `dataSource` binding (`dataSource.object`)'
+    : 'name the object in `dataSource.object`';
+  const message = `\`${type}\` has no record source: declare ${declare}, or ${binding}`;
+  const path = rungs.length === 1 ? (at === 'properties' ? ['properties', rungs[0]] : [rungs[0]]) : [];
+  const refinement = (node: unknown, ctx: z.core.$RefinementCtx): void => {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+    const bag = (node as { properties?: unknown }).properties;
+    const holder = at === 'node' ? node : bag && typeof bag === 'object' && !Array.isArray(bag) ? bag : {};
+    if (rungs.some((key) => (holder as Partial<Record<RecordSourceRung, unknown>>)[key] !== undefined)) return;
+    if (dataSourceSuppliesObject(node)) return;
     ctx.addIssue({
       code: 'custom',
-      path: [],
+      path,
       params: { code: 'RECORD_SOURCE_REQUIRED' },
-      message: `\`${type}\` has no record source: declare one of \`data\`, \`staticData\` or \`objectName\``,
+      message,
     });
   };
+  return [refinement, { when: () => true }] as const;
 }
 
 /** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectMapSchema`. */
@@ -2182,6 +2297,16 @@ const OBJECT_MAP_NEITHER_CHANNEL = neitherContentChannelGuidance(
  * `objectName`, so a map authored on inline rows never reads the object name —
  * three catalog entries drew correctly and were refused here. Requiredness
  * moved to the refinement above, which is where the renderer actually has it.
+ *
+ * ## No longer an authoring arm (objectui#10859, batch 5)
+ *
+ * This mirror is the node as `ObjectMap` reads it: after `SchemaRenderer` has
+ * hoisted the node's `properties` bag onto it, or as code composes it
+ * (`ObjectView` / `ListView` flattening a stored map view). It left
+ * `ObjectQLComponentSchema`, and so `AnyComponentSchema`: the AUTHORED
+ * `object-map` node is armed by `ObjectMapBlockSchema` below, whose
+ * `properties` is the spec's `ComponentPropsMap['object-map']` row. It stays
+ * exported and paired with its TypeScript twin.
  */
 export const ObjectMapSchema = BaseSchema.extend({
   type: z.literal('object-map'),
@@ -2190,7 +2315,7 @@ export const ObjectMapSchema = BaseSchema.extend({
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
     .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
-  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source getDataConfig resolves, after data and staticData; one of the three must be present'),
+  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source getDataConfig resolves, after data and staticData; one of the three must be present, unless the node\'s dataSource.object names the object, which ElementDataSourceGate lands here (objectui#11117)'),
   data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by getDataConfig'),
   staticData: z.array(z.any()).optional().describe('Inline records — read SECOND by getDataConfig, wrapped into a { provider: value } config'),
   filter: z.array(z.any()).optional().describe('Query filter, forwarded as $filter'),
@@ -2205,7 +2330,7 @@ export const ObjectMapSchema = BaseSchema.extend({
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(OBJECT_MAP_NEITHER_CHANNEL),
   children: retirementTombstone(OBJECT_MAP_NEITHER_CHANNEL),
-}).superRefine(requireRecordSource('object-map'));
+}).superRefine(...requireRecordSource('object-map', RECORD_SOURCE_KEYS));
 
 /** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectTreeSchema`. */
 const OBJECT_TREE_NEITHER_CHANNEL = neitherContentChannelGuidance(
@@ -2268,7 +2393,7 @@ export const ObjectGanttSchema = BaseSchema.extend({
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
     .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
-  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present'),
+  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present, unless the node\'s dataSource.object names the object, which ElementDataSourceGate lands here (objectui#11117)'),
   data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by resolveRecordSourceConfig'),
   startDateField: z.string().optional().describe('Start date field'),
   endDateField: z.string().optional().describe('End date field'),
@@ -2400,7 +2525,7 @@ export const ObjectGanttSchema = BaseSchema.extend({
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(OBJECT_GANTT_NEITHER_CHANNEL),
   children: retirementTombstone(OBJECT_GANTT_NEITHER_CHANNEL),
-}).superRefine(requireRecordSource('object-gantt'));
+}).superRefine(...requireRecordSource('object-gantt', RECORD_SOURCE_KEYS));
 
 /** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectCalendarSchema`. */
 const OBJECT_CALENDAR_NEITHER_CHANNEL = neitherContentChannelGuidance(
@@ -2408,6 +2533,23 @@ const OBJECT_CALENDAR_NEITHER_CHANNEL = neitherContentChannelGuidance(
   'its `any`-typed registration hands the node to `ObjectCalendar`, which reads it as `ObjectCalendarSchema`',
   'the records of `objectName` as events from `startDateField` to `endDateField`',
 );
+
+/**
+ * objectui#8831 — ONE description for the five FLAT field-name members of
+ * `ObjectCalendarSchema`, so the five cannot teach five different things.
+ *
+ * The flat spelling is read, not authored. `@objectstack/spec` refuses all five
+ * at this element and its diagnostic names the canonical form,
+ * `calendar: { startDateField, endDateField, titleField, colorField, allDayField }`
+ * (one key per concept, its Prime Directive #12). The members stay declared
+ * because the renderer reads them: `ObjectView` and `ListView` emit this
+ * spelling on the node they build, and `getCalendarConfig` falls back to it
+ * when the node has no `calendar` block. ⛔ Declared is not a licence to author
+ * it; the description says where the key is written instead.
+ */
+function objectCalendarFlatField(what: string, key: string): string {
+  return `${what} — FLAT spelling, read but not authored: the runtime handoff ObjectView/ListView emit, read by getCalendarConfig only when the node has no calendar block. Author calendar.${key} instead; the spec refuses the flat key on object-calendar (Prime Directive #12)`;
+}
 
 /**
  * ObjectCalendar Schema
@@ -2433,7 +2575,7 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
     .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
-  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present (objectui#7313)'),
+  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present (objectui#7313), unless the node\'s dataSource.object names the object, which ElementDataSourceGate lands here (objectui#11117)'),
   // objectui#9239 — the ARRAY arm, mirroring `ComponentPropsMap['object-calendar'].data`
   // on `@objectstack/spec` (`z.array(z.unknown()).optional()`, "Pre-fetched
   // records — skips the internal fetch"). ⛔ NOT `ViewDataSchema`: this member
@@ -2470,9 +2612,16 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // requiredness as `../objectql.ts` (both optional) so the zod-mirror-parity
   // ratchet stays at zero drift for this pair, exactly as the `filter`/`sort`
   // and `colorField`/`allDayField` pairs below.
-  calendar: ObjectCalendarBlockConfigSchema.optional().describe('Calendar configuration container — startDateField, endDateField, titleField, colorField (plus objectui\'s allDayField); read FIRST by getCalendarConfig, ahead of the flat spelling'),
-  startDateField: z.string().optional().describe('Start date field'),
-  endDateField: z.string().optional().describe('End date field'),
+  //
+  // objectui#8831 — this container is the AUTHORED spelling of the five
+  // field-name keys. `ComponentPropsMap['object-calendar']` refuses them FLAT
+  // and its own diagnostic prescribes
+  // `calendar: { startDateField, endDateField, titleField, colorField, allDayField }`,
+  // so this description names the container as the place to write them, and
+  // the five flat members below describe themselves as the runtime handoff.
+  calendar: ObjectCalendarBlockConfigSchema.optional().describe('Calendar configuration container, and the AUTHORED spelling of the five field-name keys: startDateField, endDateField, titleField, colorField, allDayField. Read FIRST by getCalendarConfig, ahead of the flat members, which are the runtime handoff and not a second authorable spelling'),
+  startDateField: z.string().optional().describe(objectCalendarFlatField('Start date field', 'startDateField')),
+  endDateField: z.string().optional().describe(objectCalendarFlatField('End date field', 'endDateField')),
   // ⭐ objectui#8355 — the FLAT spelling the retired ladder actually read, and
   // the one position where an unrefused alias is worst: `BaseSchema` ends
   // `.passthrough()`, so the key was KEPT, carried into the renderer, and — with
@@ -2481,14 +2630,16 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // `?: never` twin and `tsc` refuses the key at the authoring site too.
   dateField: CalendarNodeDateAliasRefusals.dateField,
   endField: CalendarNodeDateAliasRefusals.endField,
-  titleField: z.string().optional().describe('Title field'),
+  titleField: z.string().optional().describe(objectCalendarFlatField('Title field', 'titleField')),
   // objectui#8466 — the last two members of the FLAT field-name face, which
-  // `ObjectCalendar.tsx`'s `getCalendarConfig` reads bare off the node and
-  // which `plugin-calendar/README.md` teaches as authorable. Neither published
-  // face of this package named them: they rode `BaseSchema`'s `[key: string]:
-  // any` on the TS side and its `.passthrough()` here — admitted, never
-  // examined, so a misspelling left the calendar silently colourless while
-  // every published gate passed.
+  // `ObjectCalendar.tsx`'s `getCalendarConfig` reads bare off the node. When
+  // that card landed, `plugin-calendar/README.md` taught them as authorable;
+  // since objectui#8831 it teaches the `calendar` container instead, and the
+  // flat members stay declared because the renderer still reads them. Neither
+  // published face of this package named them: they rode `BaseSchema`'s
+  // `[key: string]: any` on the TS side and its `.passthrough()` here —
+  // admitted, never examined, so a misspelling left the calendar silently
+  // colourless while every published gate passed.
   //
   // Mirrored at the SAME requiredness as `../objectql.ts` (both optional) so
   // the zod-mirror-parity ratchet stays at zero drift for this pair, exactly as
@@ -2498,11 +2649,14 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // that asymmetry is deliberate: `ComponentPropsMap['object-calendar']`
   // refuses all five flat keys with `unrecognized_keys`, so declaring them
   // THERE would redden the FORWARD direction of
-  // `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`. The flat
-  // face is objectui's own lane — `titleField`/`startDateField`/`endDateField`
-  // have shipped declared here, and absent from `inputs`, for releases.
-  colorField: z.string().optional().describe('Field carrying the per-record event colour — a CSS colour or a semantic palette name'),
-  allDayField: z.string().optional().describe("Field carrying the all-day flag — objectui-local: the spec's CalendarConfigSchema is a strict object of startDateField, endDateField, titleField and colorField, so it refuses this key as undeclared, exactly as it refuses any other. LOAD-BEARING since objectui#8026"),
+  // `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`.
+  // `titleField`/`startDateField`/`endDateField` have shipped declared here, and
+  // absent from `inputs`, for releases. What the five declarations record is a
+  // READ, not an authoring lane (objectui#8831): `ObjectView`/`ListView` emit
+  // this spelling on the node they build, and `getCalendarConfig` falls back to
+  // it only when the node carries no `calendar` block.
+  colorField: z.string().optional().describe(objectCalendarFlatField('Field carrying the per-record event colour — a CSS colour or a semantic palette name', 'colorField')),
+  allDayField: z.string().optional().describe(objectCalendarFlatField('Field carrying the all-day flag, LOAD-BEARING since objectui#8026', 'allDayField')),
   defaultView: z.enum(['month', 'week', 'day']).optional().describe("Default view — 'month' | 'week' | 'day', the renderer's rendered set ('agenda' was retired)"),
   // objectui#8174 — the two query keys `ObjectCalendar.tsx` lowers onto its own
   // `dataSource.find` (`$filter: schema.filter`,
@@ -2541,7 +2695,7 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(OBJECT_CALENDAR_NEITHER_CHANNEL),
   children: retirementTombstone(OBJECT_CALENDAR_NEITHER_CHANNEL),
-}).superRefine(requireRecordSource('object-calendar'));
+}).superRefine(...requireRecordSource('object-calendar', RECORD_SOURCE_KEYS));
 
 /**
  * ObjectKanban Schema
@@ -2573,23 +2727,27 @@ export const KanbanConditionalFormattingRuleSchema = z.union([
 
 /**
  * The `object-kanban` board has a record source — at least one of `bind`,
- * `data`, `objectName` is present (objectui#7780).
+ * `data`, `objectName` is present (objectui#7780), or the node's
+ * `dataSource.object` names the object (objectui#11117).
  *
- * ⚠️ NOT `requireRecordSource` above, and deliberately not built on it. That
- * one serves the `object-map` / `object-gantt` / `object-calendar` ladder,
- * whose rungs are `data` (a `ViewData` PROVIDER BLOCK) → `staticData` →
- * `objectName`, resolved by the shared `resolveRecordSourceConfig` in
- * `@object-ui/core`. This board walks a DIFFERENT ladder in
- * `plugin-kanban/src/ObjectKanban.tsx`: the pre-fetched `data` PROP →
- * `useDataScope(schema.bind)` → the inline ROW ARRAY on `schema.data` → a
- * fetch keyed by `schema.objectName`
+ * ⚠️ `requireRecordSource` above, with THIS board's rung list — not the
+ * `object-map` / `object-gantt` / `object-calendar` one. Those rungs are
+ * `data` (a `ViewData` PROVIDER BLOCK) → `staticData` → `objectName`, resolved
+ * by the shared `resolveRecordSourceConfig` in `@object-ui/core`. This board
+ * walks a DIFFERENT ladder in `plugin-kanban/src/ObjectKanban.tsx`: the
+ * pre-fetched `data` PROP → `useDataScope(schema.bind)` → the inline ROW ARRAY
+ * on `schema.data` → a fetch keyed by `schema.objectName`
  * (`rawData = external || boundData || schema.data || fetchedData`, the fetch
  * gated on `schema.objectName && !boundData && !schema.data`). It has NO
  * `staticData` rung and it HAS a `bind` rung, so the two key sets are neither
- * equal nor nested and one predicate cannot serve both. objectui#7651 (ruled
- * B, closed `not_planned`) refuses giving this board the shared ladder; this
- * refinement describes the ladder that is already there rather than adding
- * one.
+ * equal nor nested and one key list cannot serve both — which is why
+ * `requireRecordSource` takes the rung list per arm (objectui#11117) rather
+ * than this board carrying a hand copy of the predicate, as it did until then.
+ * objectui#7651 (ruled B, closed `not_planned`) refuses giving this board the
+ * shared RUNTIME ladder; this refinement describes the ladder that is already
+ * there rather than adding one. The binding rung is the gate's, not the
+ * board's: `ElementDataSourceGate` lands `dataSource.object` on `objectName`
+ * before `ObjectKanban` reads the node, so the fetch rung is what it feeds.
  *
  * The pre-fetched `data` PROP is NOT a key here: it is a React prop
  * (`ObjectKanbanComponentProps.data`, passed by a parent such as `ListView`),
@@ -2612,30 +2770,30 @@ export const KanbanConditionalFormattingRuleSchema = z.union([
  * required — see the before/after table in
  * `__tests__/object-kanban-record-source-7780.test.ts`.
  *
- * ⛔ `groupBy` is NOT a rung and is untouched: it stays REQUIRED (objectui#7322,
- * PR #7774). A record source and a lane key are different questions, and the
- * two readings PR #7774 excluded from counting as a lane-less mode — the
- * `dataSource` json fragment in `content/docs/utilities/data-objectstack.mdx`
- * and `ListView.tsx`'s runtime-generated node — are still refused here, on
- * `groupBy`, exactly as they were.
+ * ⛔ `groupBy` is NOT a rung: a record source and a lane key are different
+ * questions (objectui#7322, PR #7774; `groupBy` itself is optional since
+ * objectui#8990). The `dataSource` json fragment in
+ * `content/docs/utilities/data-objectstack.mdx` — `{ type, dataSource }`, no
+ * `groupBy` and none of the three rungs — parses since objectui#11117, on the
+ * binding rung.
  *
  * Carries `params.code` so a consumer keys off the finding rather than
  * string-matching the message, and reports at the ROOT path (`[]`): no single
  * key is at fault when all three are absent, and blaming `objectName` would
  * re-teach the requiredness this card removes.
  *
- * Deliberately a `function`, not an `export const`, for the same reason
- * `requireRecordSource` is: the parity census in
+ * The rung list is a private `const` and the refinement is
+ * `requireRecordSource`, a `function`: the parity census in
  * `__tests__/zod-mirror-parity.test.ts` reads `^export const` out of this
- * directory and would demand a registered TS counterpart for it.
+ * directory and would demand a registered TS counterpart for either.
  */
 /**
  * The `object-kanban` SWIMLANE element (objectui#8913) — the mirror half of
  * `ObjectKanbanSchema.columns` in `../objectql.ts`, whose docblock carries the
  * measurements. Private on purpose: it publishes no new symbol, so the
  * `zod-mirror-parity` census (which pairs `^export const` mirrors with a TS
- * declaration) has nothing new to register, exactly as `requireKanbanRecordSource`
- * below is a `function` for the same reason.
+ * declaration) has nothing new to register, exactly as `requireRecordSource`
+ * is a `function` for the same reason.
  *
  * ⭐ Both arms, because `@objectstack/spec` admits both. Its
  * `ObjectKanbanPropsSchema.columns` is `z.array(z.unknown()).optional()` and
@@ -2690,18 +2848,6 @@ const ObjectKanbanLaneSchema = z.object({
 });
 
 const KANBAN_RECORD_SOURCE_KEYS = ['bind', 'data', 'objectName'] as const;
-function requireKanbanRecordSource(
-  schema: Partial<Record<(typeof KANBAN_RECORD_SOURCE_KEYS)[number], unknown>>,
-  ctx: z.core.$RefinementCtx,
-): void {
-  if (KANBAN_RECORD_SOURCE_KEYS.some((key) => schema[key] !== undefined)) return;
-  ctx.addIssue({
-    code: 'custom',
-    path: [],
-    params: { code: 'RECORD_SOURCE_REQUIRED' },
-    message: '`object-kanban` has no record source: declare one of `bind`, `data` or `objectName`',
-  });
-}
 
 /** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectKanbanSchema`. */
 const OBJECT_KANBAN_NEITHER_CHANNEL = neitherContentChannelGuidance(
@@ -2726,7 +2872,7 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
     .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
-  objectName: z.string().optional().describe('ObjectQL object name — the LAST rung of the board ladder, after the pre-fetched data prop, bind and the inline row array on data; one of bind, data, objectName must be present (objectui#7780)'),
+  objectName: z.string().optional().describe('ObjectQL object name — the LAST rung of the board ladder, after the pre-fetched data prop, bind and the inline row array on data; one of bind, data, objectName must be present (objectui#7780), unless the node\'s dataSource.object names the object, which ElementDataSourceGate lands here (objectui#11117)'),
   // objectui#8990 — OPTIONAL, mirroring `@objectstack/spec`
   // (`ObjectKanbanPropsSchema.groupBy` is `z.string().optional()`). Required
   // here until this card, so this validator refused a document the protocol
@@ -2893,7 +3039,7 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(OBJECT_KANBAN_NEITHER_CHANNEL),
   children: retirementTombstone(OBJECT_KANBAN_NEITHER_CHANNEL),
-}).superRefine(requireKanbanRecordSource);
+}).superRefine(...requireRecordSource('object-kanban', KANBAN_RECORD_SOURCE_KEYS));
 
 /**
  * The message for an `ObjectChartSchema.yAxis` that is not a list
@@ -3207,6 +3353,179 @@ export const ObjectChartSchema = BaseSchema.extend({
   children: retirementTombstone(OBJECT_CHART_NEITHER_CHANNEL),
 }).superRefine(requireObjectChartFamily);
 
+/* ── The authored `object-chart` node: its props in the `properties` bag ─── */
+
+/**
+ * The node-level keys of `ObjectChartSchema` above: everything the node base
+ * declares (`BaseSchema`, `type` and the two content channels among them) and
+ * the node envelope (`NODE_ENVELOPE`). The chart's OWN members are the rest of
+ * the mirror's shape, and they are what the bag below holds (objectui#11276).
+ * Read off the two declarations, not transcribed, so a key either one gains
+ * stays at node level the day it lands.
+ */
+const OBJECT_CHART_NODE_LEVEL_KEYS = Object.fromEntries(
+  [...Object.keys(BaseSchema.shape), ...Object.keys(NODE_ENVELOPE)].map((key) => [key, true]),
+) as { [K in keyof typeof BaseSchema.shape | keyof typeof NODE_ENVELOPE]: true };
+
+/**
+ * The `object-chart` props bag (objectui#11276): the flat mirror's own members,
+ * BY REFERENCE.
+ *
+ * ⛔ `@objectstack/spec` has no `ComponentPropsMap['object-chart']` row, and none
+ * is invented here. The spec's `PageComponentSchema` types every `properties`
+ * bag as an open record and judges a bag only through a row, so for this type
+ * the spec accepts any bag at all. The bag's members are therefore objectui's
+ * own: every member `ObjectChartSchema` declares beyond the node-level keys
+ * above, each the SAME schema object the mirror holds (its value checks, its
+ * spec bindings — `aggregate`, `series`, `drillDown`, `xAxis`, `yAxis` — and
+ * its objectui#10608 retirement tombstones). Nothing is restated, so the bag
+ * and the post-hoist mirror cannot drift apart.
+ *
+ * ⭐ Built from the mirror's SHAPE, not with `.omit()` on the mirror: zod
+ * refuses `.pick()` / `.omit()` on an object carrying a refinement, and the
+ * mirror carries the chart-family floor. That floor is a NODE rule, so the bag
+ * object deliberately carries no check of its own; the arm below re-applies the
+ * same floor one layer down (`requireObjectChartFamilyInBag`).
+ *
+ * The bag keeps the mirror's posture, `.passthrough()` (`BaseSchema`'s), so a
+ * key the chart does not declare is judged in the bag exactly as it was judged
+ * on the flat node: unjudged by the tolerant face, refused by name by the
+ * strict authoring face, which closes every object it walks.
+ */
+const ObjectChartPropsBag = z.looseObject(ObjectChartSchema.shape).omit(OBJECT_CHART_NODE_LEVEL_KEYS);
+
+/**
+ * The chart-family floor of {@link requireObjectChartFamily}, read in the bag
+ * (objectui#11276): an authored `object-chart` names its family as
+ * `properties.chartType` (or `properties.specType`). A node with no bag, or a
+ * bag naming neither, is refused at `properties.chartType`, as the flat mirror
+ * refuses a node naming neither key.
+ */
+function requireObjectChartFamilyInBag(
+  node: { properties?: unknown },
+  ctx: z.core.$RefinementCtx,
+): void {
+  const bag = node.properties;
+  const family = bag !== null && typeof bag === 'object' && !Array.isArray(bag)
+    ? (bag as { chartType?: unknown; specType?: unknown })
+    : {};
+  if (family.chartType !== undefined || family.specType !== undefined) return;
+  ctx.addIssue({
+    code: 'custom',
+    path: ['properties', 'chartType'],
+    message:
+      '`object-chart` names no chart family: write `properties.chartType` — '
+      + '`{ "type": "object-chart", "properties": { "chartType": "bar", … } }` (objectui#11276).',
+  });
+}
+
+/**
+ * The ONE refusal detail every `object-chart` prop written flat on the node
+ * gets (objectui#11276). `aliasKeyRefusal` puts the key and its bag member in
+ * front of it: "Did you mean `chartType` → `properties.chartType`?".
+ */
+const OBJECT_CHART_FLAT_PROP =
+  'An `object-chart` node takes its props in its `properties` bag: write `{ "type": "object-chart", '
+  + '"properties": { "chartType": "bar", "dataset": "…", "dimensions": ["…"], "values": ["…"] } }` '
+  + '(objectui#11276). `@objectstack/spec`\'s own page component refuses a prop written on the node as '
+  + 'mis-layered (ADR-0089 D3a), so this face and `os validate` agree. The spec has no '
+  + '`ComponentPropsMap[\'object-chart\']` row, so the bag\'s members are `ObjectChartSchema`\'s own. Moving it '
+  + 'changes nothing at render time: `SchemaRenderer` hoists every `properties` key onto the node before '
+  + '`ObjectChart` reads it.';
+
+/** A member of the `object-chart` bag — a TYPE position. */
+type ObjectChartBagKey = keyof typeof ObjectChartPropsBag.shape;
+
+/**
+ * One by-name refusal per member of the bag, keyed by the bag's own key set —
+ * read off the bag, not transcribed, so a member the mirror gains is refused
+ * flat the day it lands and the list cannot fall behind.
+ */
+const OBJECT_CHART_FLAT_PROP_REFUSALS = Object.fromEntries(
+  Object.keys(ObjectChartPropsBag.shape).map((key) => [
+    key,
+    aliasKeyRefusal(key, `properties.${key}`, 'this `object-chart` node', OBJECT_CHART_FLAT_PROP),
+  ]),
+) as { [K in ObjectChartBagKey]-?: ReturnType<typeof aliasKeyRefusal> };
+
+/**
+ * `object-chart` — the AUTHORED node: its props in the `properties` bag
+ * (objectui#11276, the `object-chart` batch of triage's routing call A).
+ *
+ * ## Why the arm moved to the bag
+ *
+ * `@objectstack/spec`'s strict `PageComponentSchema` refuses a prop written on
+ * a page component itself as mis-layered (ADR-0089 D3a), for every component
+ * type: `properties` is the only home of a component's own props. This union
+ * used to arm the node with the flat `ObjectChartSchema` above, so `objectui
+ * validate` refused the spec-shaped document — the objectstack showcase's
+ * command-center charts, `{ type: 'object-chart', responsiveStyles,
+ * properties: { dataset, dimensions, values, chartType, colors, yAxis } }` —
+ * and accepted the flat one `os validate` refuses. Triage's answer on
+ * objectui#11276 is this arm: "the `properties` bag is the contract on these
+ * three arms too", released for `object-chart` first.
+ *
+ * It is the construct `ObjectFormBlockSchema` and `ObjectMapBlockSchema` use
+ * (objectui#10859, batches 4 and 5) — `BaseSchema` + the `type` literal +
+ * `NODE_ENVELOPE` + `properties` through `propsBag` + one `aliasKeyRefusal`
+ * per bag member — with ONE difference, stated rather than hidden: ⛔ there is
+ * no spec row to read. `ComponentPropsMap` carries no `object-chart` row, so
+ * the bag is `ObjectChartPropsBag` above, the flat mirror's own members by
+ * reference, and its description says so instead of naming a row.
+ *
+ * ## The flat spelling is refused by name
+ *
+ * Every member of the bag written FLAT on the node is refused on both faces,
+ * with a message naming its bag member (`OBJECT_CHART_FLAT_PROP_REFUSALS`
+ * above). The three list-view spellings objectui#10608 retired
+ * (`xAxisField`, `yAxisFields`, `aggregation`) are the exception: written flat
+ * they keep the flat mirror's own retirement tombstones (the same objects, by
+ * reference), whose remedy is the spec spelling rather than a bag member that
+ * is itself retired. In the bag they are refused by the same tombstones.
+ * `BaseSchema`'s keys stay on the node, as on every arm. A key the chart does
+ * not declare is left as every arm leaves an undeclared key: unjudged by the
+ * tolerant face, refused by the strict one.
+ *
+ * ## The chart family, `dataSource` and the content channels
+ *
+ * The flat mirror's chart-family floor (objectui#10770) stays on the authored
+ * node, read in the bag (`requireObjectChartFamilyInBag`). `dataSource` stays
+ * undeclared, as on the flat mirror: objectui#11070 left `object-chart`'s
+ * binding refused by name on the strict face until it is declared, and this
+ * arm does not decide that. Neither content channel is read, so both are
+ * refused with the objectui#9256 string the flat mirror uses.
+ *
+ * ## What did not move
+ *
+ * The TypeScript `ObjectChartSchema` and its zod mirror above stay published:
+ * they are the node as `ObjectChart` reads it after `SchemaRenderer` hoists the
+ * bag, and as code composes it — `ObjectView`, `ListView`, the dashboard
+ * renderers and the react-page wrapper all build a flat `object-chart` node.
+ * Those keep working, because `SchemaRenderer` reads both spellings and no
+ * composed node passes through `safeValidateSchema`.
+ */
+export const ObjectChartBlockSchema = BaseSchema.extend({
+  type: z.literal('object-chart'),
+  ...NODE_ENVELOPE,
+  properties: propsBag(
+    'object-chart',
+    ObjectChartPropsBag,
+    'The `object-chart` props bag — the members `ObjectChartSchema` declares beyond the node-level keys, '
+      + 'by reference. `@objectstack/spec` has no `ComponentPropsMap[\'object-chart\']` row, so these are '
+      + 'objectui\'s own members (objectui#11276). The chart family is required here: `chartType` (or `specType`).',
+  ),
+  ...OBJECT_CHART_FLAT_PROP_REFUSALS,
+  // objectui#10608: the three retired list-view spellings keep their retirement
+  // when written flat — the flat mirror's own tombstones, by reference.
+  xAxisField: ObjectChartSchema.shape.xAxisField,
+  yAxisFields: ObjectChartSchema.shape.yAxisFields,
+  aggregation: ObjectChartSchema.shape.aggregation,
+  // objectui#9256: the renderer reads NEITHER content channel, so both are
+  // refused by name — the flat mirror's own members, by reference.
+  body: ObjectChartSchema.shape.body,
+  children: ObjectChartSchema.shape.children,
+}).superRefine(requireObjectChartFamilyInBag);
+
 /**
  * ObjectGallery Schema (objectui#6576)
  *
@@ -3389,7 +3708,7 @@ export const ObjectDataTableSchema = BaseSchema.extend({
  * ObjectQL Component Schema Union
  *
  * The members of the TS union in `../objectql.ts`, in the same order, less
- * `ObjectFormSchema` (see the last paragraph).
+ * `ObjectFormSchema` and `ObjectMapSchema` (see the last two paragraphs).
  * `ObjectGallerySchema` and `ObjectDataTableSchema` joined in objectui#7363:
  * PR #7355 (objectui#6576) minted both mirrors and deliberately did not extend
  * this union, so `AnyComponentSchema` — and `validateSchema` /
@@ -3411,16 +3730,23 @@ export const ObjectDataTableSchema = BaseSchema.extend({
  * reads it after the `properties` hoist; the authored `object-form` node is
  * armed by `ObjectFormBlockSchema` in `ObjectQLPublicBlockComponentSchema`
  * below, from its spec row.
+ *
+ * ⚠️ TEN since objectui#10859 batch 5: `ObjectMapSchema` left it the same way,
+ * for the same reason. Its TypeScript twin is the node as `ObjectMap` reads it,
+ * and the authored `object-map` node is armed by `ObjectMapBlockSchema` below.
+ *
+ * ⚠️ NINE since objectui#11276: `ObjectChartSchema` left it the same way. Its
+ * TypeScript twin is the node as `ObjectChart` reads it, and the authored
+ * `object-chart` node is armed by `ObjectChartBlockSchema` above, whose bag is
+ * the mirror's own members (the spec has no row for this type).
  */
 export const ObjectQLComponentSchema = z.discriminatedUnion('type', [
   ObjectGridSchema,
   ObjectViewSchema,
-  ObjectMapSchema,
   ObjectTreeSchema,
   ObjectGanttSchema,
   ObjectCalendarSchema,
   ObjectKanbanSchema,
-  ObjectChartSchema,
   ObjectGallerySchema,
   ObjectDataTableSchema,
   ListViewSchema,
@@ -3746,15 +4072,133 @@ export const ObjectFormBlockSchema = BaseSchema.extend({
 });
 
 /**
+ * The ONE refusal detail every `object-map` prop written flat on the node
+ * gets (objectui#10859, batch 5). `aliasKeyRefusal` puts the key and its bag
+ * member in front of it: "Did you mean `objectName` → `properties.objectName`?".
+ */
+const OBJECT_MAP_FLAT_PROP =
+  'An `object-map` node takes its props in its `properties` bag, where `@objectstack/spec`\'s '
+  + '`ComponentPropsMap[\'object-map\']` row declares them: write `{ "type": "object-map", "properties": '
+  + '{ "objectName": "…", "map": { "latitudeField": "…", "longitudeField": "…" } } }` (objectui#10859). The '
+  + 'spec\'s own page component refuses a prop written on the node as mis-layered (ADR-0089 D3a), so this face '
+  + 'and `os validate` agree. Moving it changes nothing at render time: `SchemaRenderer` hoists every '
+  + '`properties` key onto the node before `ObjectMap` reads it.';
+
+/** A member of the spec's `object-map` row — a TYPE position, so no boundary crossing. */
+type ObjectMapRowKey = keyof z.input<typeof SpecObjectMapPropsSchema>;
+
+/**
+ * One by-name refusal per member of the spec's `object-map` row, keyed by the
+ * row's own key set — read off the row, not transcribed, so a member the spec
+ * adds is refused flat the day it lands and the list cannot fall behind.
+ */
+const OBJECT_MAP_FLAT_PROP_REFUSALS = Object.fromEntries(
+  Object.keys(stripImportedDefaults(SpecObjectMapPropsSchema).shape).map((key) => [
+    key,
+    aliasKeyRefusal(key, `properties.${key}`, 'this `object-map` node', OBJECT_MAP_FLAT_PROP),
+  ]),
+) as { [K in ObjectMapRowKey]-?: ReturnType<typeof aliasKeyRefusal> };
+
+/**
+ * `object-map` — `ComponentPropsMap['object-map']`, plus the node's
+ * `dataSource` binding (objectui#10859, batch 5).
+ *
+ * ## Why the arm moved to the bag
+ *
+ * The spec's row is the published declaration of an authored `object-map`
+ * node's props, and the spec's strict `PageComponentSchema` refuses a prop
+ * written on the node itself as mis-layered (ADR-0089 D3a). This union used
+ * to arm the node with the flat `ObjectMapSchema` above, so `objectui
+ * validate` refused the spec-shaped `{ type, properties }` document (its
+ * record-source refinement found no source on the node) and accepted the flat
+ * one `os validate` refuses. The seat's answer at PR objectui#11248's ACCEPT,
+ * inherited from objectui#10872's triage answer A, is this arm: "The
+ * `properties` bag is the contract". `ObjectFormBlockSchema` above is the same
+ * move for `object-form` (batch 4).
+ *
+ * So it is built exactly as `ObjectMetricBlockSchema` above is: `BaseSchema` +
+ * the `type` literal + `properties`, which IS the row, by reference through
+ * the objectui#8317 import boundary. The row carries no spec default, so the
+ * boundary hands back the export itself. The row is strict and carries the
+ * spec's own refusals: a flat `map`-config key written in the bag
+ * (`properties.latitudeField`) is refused there with the spec's wrong-layer
+ * prescription, and `properties.filters` with the alias's.
+ *
+ * ## The flat spelling is refused by name
+ *
+ * Every member of the row written FLAT on the node is refused on both faces,
+ * with a message naming its bag member (`OBJECT_MAP_FLAT_PROP_REFUSALS`
+ * above). `data` is also a `BaseSchema` key; here the refusal overrides it,
+ * because the map's `data` is the row's member. The flat mirror's two
+ * remaining compatibility members, `locationField` and `titleField`, are
+ * refused too: their bag home is the row's `map` block, so the remedy names
+ * `properties.map.KEY`. A flat key neither the row nor the mirror declares
+ * (`latitudeField` and the other flat `map`-config spellings) is left as every
+ * arm leaves an undeclared key: unjudged by the tolerant face, refused by the
+ * strict one.
+ *
+ * ## The record source, `dataSource` and the content channels
+ *
+ * The record-source rule the flat mirror carries (`77cb489b4`, the maintainer
+ * ruling recorded 2026-09-02) stays on the authored node, read in the bag:
+ * `requireRecordSource(…, 'properties')` asks for one of `properties.data`,
+ * `properties.staticData` or `properties.objectName`, or the node's
+ * `dataSource` binding naming its object (a non-empty `dataSource.object`, the
+ * predicate every gate-wrapped arm shares since objectui#11117), which
+ * `ElementDataSourceGate` lands on `objectName` (the registration is
+ * `elementDataSourceBlock`-wrapped). ⚠️ The spec row is
+ * looser here: it keeps all three optional and adds no such rule, so a node
+ * with no source and no binding passes the spec's own page component and is
+ * refused by this arm, as the flat mirror refused it. The binding itself is
+ * the spec's `ElementDataSourceSchema` by reference, as on the arms above.
+ * Neither content channel is read, so both are refused with the objectui#9256
+ * string the flat mirror uses.
+ *
+ * ## What did not move
+ *
+ * The TypeScript `ObjectMapSchema` and its zod mirror above stay published:
+ * they are the node as `ObjectMap` reads it after the hoist, and as
+ * `ObjectView` / `ListView` compose it when they flatten a stored map view. A
+ * composed flat node keeps working, because `SchemaRenderer` reads both
+ * spellings and no composed node passes through `safeValidateSchema`.
+ */
+export const ObjectMapBlockSchema = BaseSchema.extend({
+  type: z.literal('object-map'),
+  ...NODE_ENVELOPE,
+  properties: propsBag('object-map', stripImportedDefaults(SpecObjectMapPropsSchema)),
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
+  ...OBJECT_MAP_FLAT_PROP_REFUSALS,
+  locationField: aliasKeyRefusal(
+    'locationField',
+    'properties.map.locationField',
+    'this `object-map` node',
+    OBJECT_MAP_FLAT_PROP,
+  ),
+  titleField: aliasKeyRefusal('titleField', 'properties.map.titleField', 'this `object-map` node', OBJECT_MAP_FLAT_PROP),
+  // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
+  // kept a MEMBER.
+  body: retirementTombstone(OBJECT_MAP_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_MAP_NEITHER_CHANNEL),
+}).superRefine(...requireRecordSource('object-map', RECORD_SOURCE_KEYS, 'properties'));
+
+/**
  * The public blocks above, as one arm of `AnyComponentSchema`
- * (objectui#10859, batches 2, 3 and 4).
+ * (objectui#10859, batches 2 to 5).
  *
  * A union of its own rather than more members of `ObjectQLComponentSchema`,
  * deliberately: that union mirrors the TypeScript union in `../objectql.ts`
  * member for member, and the authored node of each block here is declared by
- * the spec row its `properties` member reads, not there. `object-form` is the
- * one with a member there: its TypeScript twin is the node as `ObjectForm`
- * reads it after the hoist, not the authored document (batch 4).
+ * the spec row its `properties` member reads, not there. `object-form` and
+ * `object-map` are the two with a member there: each TypeScript twin is the
+ * node as its renderer reads it after the hoist, not the authored document
+ * (batches 4 and 5).
+ *
+ * `object-chart` joined in objectui#11276, the one arm here with NO spec row:
+ * `ComponentPropsMap` carries no `object-chart` entry, so its bag is the flat
+ * `ObjectChartSchema` mirror's own members by reference, and its TypeScript
+ * twin is likewise the node as `ObjectChart` reads it after the hoist.
  *
  * Each arm also spreads `NODE_ENVELOPE` from `./public-blocks.zod.ts`,
  * the node-level `responsiveStyles` every public block declares by reference to
@@ -3767,4 +4211,6 @@ export const ObjectQLPublicBlockComponentSchema = z.discriminatedUnion('type', [
   ObjectMasterDetailFormBlockSchema,
   ObjectTimelineBlockSchema,
   ObjectFormBlockSchema,
+  ObjectMapBlockSchema,
+  ObjectChartBlockSchema,
 ]);

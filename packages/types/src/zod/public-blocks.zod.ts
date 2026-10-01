@@ -235,13 +235,20 @@ import {
  * The ONE copy: `./objectql.zod.ts`'s public-block arms import it rather than
  * restate it (objectui#10872). Internal to this package's zod modules — deliberately NOT
  * re-exported from `index.zod.ts`, like the helpers in `./tombstone.zod.ts`.
+ *
+ * `description` replaces the provenance text for the one bag that is NOT a spec
+ * row: `object-chart` (objectui#11276) has no `ComponentPropsMap` row, so its
+ * bag is the flat mirror's own members, and its description says that rather
+ * than naming a row that does not exist. Every other caller omits it, and its
+ * description is unchanged.
  */
-export function propsBag<T extends z.ZodType>(type: string, row: T) {
+export function propsBag<T extends z.ZodType>(type: string, row: T, description?: string) {
   return row
     .optional()
     .describe(
-      `The \`${type}\` props bag — \`@objectstack/spec\` \`ComponentPropsMap['${type}']\`, by reference. `
-      + 'Judged only when present, as the spec\'s props gate judges it.',
+      description
+        ?? `The \`${type}\` props bag — \`@objectstack/spec\` \`ComponentPropsMap['${type}']\`, by reference. `
+          + 'Judged only when present, as the spec\'s props gate judges it.',
     );
 }
 
@@ -755,14 +762,25 @@ export const ElementTextBlockSchema = BaseSchema.extend({
 const ElementNumberPropsBag = stripImportedDefaults(SpecElementNumberPropsSchema).partial({ object: true });
 
 /**
- * Does this node's `dataSource` name the object `element:number` aggregates
- * over? The spec gate's `suppliedByDataSource` answer, read for this one node:
- * a `dataSource` that is a record whose `object` is a NON-EMPTY string. An
- * empty name, a non-string, a non-record, or no binding supplies nothing — the
- * gate's `strName` refuses the same three.
+ * Does this node's `dataSource` name the object it binds? The spec gate's
+ * `suppliedByDataSource` answer, read for one node: a `dataSource` that is a
+ * record whose `object` is a NON-EMPTY string. An empty name, a non-string, a
+ * non-record, or no binding supplies nothing — the gate's `strName` refuses the
+ * same three, and so does the runtime's `isElementDataSourceConfig`
+ * (`@object-ui/core`), which is what decides whether `ElementDataSourceGate`
+ * lands a binding on the node at all.
+ *
+ * The ONE copy of that predicate (objectui#11117): `element:number`'s waiver
+ * below reads it, and so does `./objectql.zod.ts`'s `requireRecordSource`,
+ * which counts the binding as a record source on every gate-wrapped arm that
+ * has one. Internal to this package's zod modules, like `propsBag` —
+ * deliberately NOT re-exported from `index.zod.ts`. It reads the raw input
+ * defensively, because both callers run it from a refinement installed with
+ * `when: () => true`, where the node may be anything.
  */
-function dataSourceSuppliesObject(node: { dataSource?: unknown }): boolean {
-  const dataSource = node.dataSource;
+export function dataSourceSuppliesObject(node: unknown): boolean {
+  if (!node || typeof node !== 'object' || Array.isArray(node)) return false;
+  const dataSource = (node as { dataSource?: unknown }).dataSource;
   if (!dataSource || typeof dataSource !== 'object' || Array.isArray(dataSource)) return false;
   const object = (dataSource as { object?: unknown }).object;
   return typeof object === 'string' && object.length > 0;

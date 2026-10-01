@@ -66,18 +66,17 @@ export function TextAreaField({ value, onChange, field, readonly, error, ...prop
   // same reason the ids are — proximity to the hook, not because the readonly
   // branch wants it.
   // The declared metadata face — every key this widget reads off the carrier
-  // (`rows`, `max_length`, `mobile_fullscreen`, `placeholder`, `label`) is a
+  // (`rows`, `maxLength`, `mobile_fullscreen`, `placeholder`, `label`) is a
   // `TextareaFieldMetadata` member, so the reads below are compiler-checked
   // (objectui#6140's de-cast sweep; the sibling `RichTextField` got the same
   // treatment when its types gained `rows`).
   const textareaField = field as TextareaFieldMetadata;
-  // Spec FieldSchema declares camelCase `maxLength`; `max_length` is the legacy
-  // objectui spelling. Dual-read (framework#1878 §3 recheck) — without this a
-  // spec-authored maxLength gave neither the textarea cap nor the counter. The
-  // camelCase half stays a narrow structural read because the objectui metadata
-  // type deliberately does not declare the spec spelling (that face alignment
-  // is objectui#4631's, not this widget's).
-  const maxLength = (field as { maxLength?: number }).maxLength ?? textareaField?.max_length;
+  // The spec's `maxLength` (`FieldSchema.maxLength`, which
+  // `TextareaFieldMetadata` declares by reference) is the one spelling read:
+  // it gives the textarea its native stop and the counter its ceiling. The
+  // snake_case `max_length` this widget also read until objectui#11070 is
+  // retired — the spec refuses it by name, and no reader reads it.
+  const maxLength = textareaField?.maxLength;
 
   /**
    * Two description ids off one `useId()` — one per editing surface.

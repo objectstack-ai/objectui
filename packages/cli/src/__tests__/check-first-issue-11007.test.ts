@@ -52,18 +52,24 @@ import { formatIssuePath } from '../utils/issue-path.js';
 /** The card's own typo: `latitudeFieId`, capital i where the l belongs. */
 const TYPO_KEY = 'latitudeFieId';
 
-/** The card's root case: no structural key, so the validity arm parses it. */
+/**
+ * The card's root case: no structural key, so the validity arm parses it.
+ * Written in the spec's `properties` bag, which an authored `object-map` takes
+ * its props in since objectui#10859 batch 5: the flat spelling is refused by
+ * name, so the typo sits at `properties.map`.
+ */
 const ROOT_TYPO = {
   type: 'object-map',
-  objectName: 'stores',
-  map: { [TYPO_KEY]: 'lat', longitudeField: 'lng' },
+  properties: { objectName: 'stores', map: { [TYPO_KEY]: 'lat', longitudeField: 'lng' } },
 };
 
 const ROOT_CLEAN = {
   type: 'object-map',
-  objectName: 'stores',
-  map: { latitudeField: 'lat', longitudeField: 'lng' },
+  properties: { objectName: 'stores', map: { latitudeField: 'lat', longitudeField: 'lng' } },
 };
+
+/** Where the `map` block sits on an authored `object-map` (objectui#10859 batch 5). */
+const MAP_PATH = ['properties', 'map'];
 
 /** The card's nested case: the same node under a page's `children`. */
 const NESTED_TYPO = { type: 'div', children: [ROOT_TYPO] };
@@ -140,11 +146,11 @@ afterEach(() => {
 describe('objectui check — a file that did not validate carries its first issue', () => {
   it('prints the refused key and the path it sits at, under the root typo', async () => {
     // The precondition, asserted rather than assumed: the validator refuses
-    // this block by naming the key at `map`. If this fires, the strict `map`
-    // block (objectui#5157) moved, and the fixture needs re-reading.
+    // this block by naming the key at the `map` block. If this fires, the
+    // strict `map` block (objectui#5157) moved, and the fixture needs re-reading.
     const issues = issuesOf(ROOT_TYPO);
     expect(issues.map((i) => ({ code: i.code, path: i.path }))).toEqual([
-      { code: 'unrecognized_keys', path: ['map'] },
+      { code: 'unrecognized_keys', path: MAP_PATH },
     ]);
 
     // Named `stores.json`, not `map.json`, so the path `map` can only be read
@@ -154,7 +160,7 @@ describe('objectui check — a file that did not validate carries its first issu
 
     const line = issueLineUnder('stores.json');
     expect(line).toContain(TYPO_KEY);
-    expect(line).toContain(` ${formatIssuePath(['map'])}: `);
+    expect(line).toContain(` ${formatIssuePath(MAP_PATH)}: `);
     expect(line.trim()).toBe(describeFirstIssue(issues));
     // Advisory, as before: listing the file does not fail the run.
     expect(exitCodes).toEqual([]);
@@ -166,24 +172,22 @@ describe('objectui check — a file that did not validate carries its first issu
     // behind `objectui validate`'s `Path:` line.
     const document = {
       type: 'object-map',
-      objectName: 'stores',
-      map: { latitudeField: 'lat', longitudeField: 'lng', zoom: 'far' },
+      properties: { objectName: 'stores', map: { latitudeField: 'lat', longitudeField: 'lng', zoom: 'far' } },
     };
     const issues = issuesOf(document);
-    expect(issues[0].path).toEqual(['map', 'zoom']);
+    expect(issues[0].path).toEqual([...MAP_PATH, 'zoom']);
 
     writeSchema('zoom.json', document);
     await check(cwd);
 
-    expect(issueLineUnder('zoom.json')).toContain(formatIssuePath(['map', 'zoom']));
+    expect(issueLineUnder('zoom.json')).toContain(formatIssuePath([...MAP_PATH, 'zoom']));
     expect(issueLineUnder('zoom.json').trim()).toBe(describeFirstIssue(issues));
   });
 
   it('says how many issues there were when it shows only the first', async () => {
     const document = {
       type: 'object-map',
-      objectName: 'stores',
-      map: { [TYPO_KEY]: 'lat', longitudeField: 'lng', zoom: 'far' },
+      properties: { objectName: 'stores', map: { [TYPO_KEY]: 'lat', longitudeField: 'lng', zoom: 'far' } },
     };
     const issues = issuesOf(document);
     expect(issues.length).toBeGreaterThan(1);

@@ -20,12 +20,12 @@
  * "Transfer Ownership" showed on the owner's own row. This exercises the
  * `DataTableRowActionItem` subcomponent that now evaluates the predicate.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 import { PredicateScopeProvider } from '@object-ui/react';
-import { DataTableRowActionItem } from '../data-table';
+import { DataTableRowActionItem, planDataTableRowMenu } from '../data-table';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -126,10 +126,11 @@ describe('data-table row action — visible / disabled CEL evaluation', () => {
  * `isCustomRowActionVisible` used to ask truthiness (`if (!action?.visible)
  * return true`), so `visible: false` — the most explicit way to say "never show
  * this" — answered "no gate declared" and the item rendered for every row.
- * Declaration is now detected by `!= null && !== ''`, the invariant
- * objectui#3492 established for the selection bar (`hasVisibilityGate`) and the
- * one the built-in `visibleWhen` gate has always used, so a declared boolean
- * reaches the evaluator and decides.
+ * Declaration was then detected by `!= null && !== ''`, the invariant
+ * objectui#3492 established for the selection bar (`hasVisibilityGate`), so a
+ * declared boolean reaches the evaluator and decides. Since objectui#11294 the
+ * question is the action family's `hasDeclaredVisibilityGate`, which answers
+ * the same for a boolean and for `''` (see the block at the end of this file).
  *
  * The `visible: true` and empty-string cases are asserted alongside on purpose:
  * they are what separates "detect the declaration" from "hide unconditionally".
@@ -150,5 +151,54 @@ describe('data-table row action — declared boolean `visible` (objectui#3758)',
   it('treats an empty-string `visible` as no gate at all, matching `hasVisibilityGate`', () => {
     renderRowActionItem({ name: 'compiled_away', label: 'Compiled Away', visible: '' }, { id: '2', role: 'member' });
     expect(screen.getByTestId('row-action-compiled_away')).toBeInTheDocument();
+  });
+});
+
+/**
+ * objectui#11294 — a BLANK `visible` is no gate, on the row menu as on the
+ * toolbar.
+ *
+ * `isCustomRowActionVisible` asks the action family's
+ * `hasDeclaredVisibilityGate` whether a gate is declared. It used to ask
+ * `pred == null || pred === ''` of its own, so a whitespace-only `visible`, or
+ * an envelope whose `source` is blank, counted as declared, was evaluated, and
+ * failed closed: the item was missing for every row while a related list's
+ * toolbar showed the same action. The `''` case above is the control. The
+ * declared `false` and the CEL cases above keep "no gate" from passing as
+ * "always show".
+ *
+ * Both halves of the row menu read the one function: the item, and the
+ * `planDataTableRowMenu` guard that decides whether the row gets a "⋮" at all.
+ */
+describe('data-table row action — a blank `visible` is no gate (objectui#11294)', () => {
+  const BLANKS: Array<[string, unknown]> = [
+    ['a whitespace-only string', '   '],
+    ['an envelope whose `source` is whitespace', { dialect: 'cel', source: '   ' }],
+    ['an envelope whose `source` is empty', { dialect: 'cel', source: '' }],
+  ];
+
+  it.each(BLANKS)('renders the item for %s', (_what, visible) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      renderRowActionItem({ name: 'blank_gate', label: 'Blank Gate', visible }, { id: '2', role: 'member' });
+      expect(screen.getByTestId('row-action-blank_gate')).toBeInTheDocument();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it.each(BLANKS)('counts it in the "⋮" guard for %s, so the row keeps its trigger', (_what, visible) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const plan = planDataTableRowMenu({
+        customActions: [{ name: 'blank_gate', visible }] as any,
+        row: { id: '2', role: 'member' },
+        scope: {},
+      });
+      expect(plan.custom.map((a) => a.name)).toEqual(['blank_gate']);
+      expect(plan.count).toBe(1);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

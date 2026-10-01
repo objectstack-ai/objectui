@@ -7,7 +7,6 @@
       "name": "due_date",
       "label": "Due Date",
       "type": "formula",
-      "expression": "created_at + 30 days",
       "returnType": "date",
       "readonly": true
     }

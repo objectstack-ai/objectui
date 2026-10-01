@@ -56,6 +56,15 @@
  * the `retirementTombstone()` half this file's tripwire asked for, so a
  * `chatbot-floating` node refuses `triggerIcon` at runtime as well. The runtime
  * section below pins the two twins apart.
+ *
+ * ⚠️ AMENDED again by objectui#6152 round 5, which RETIRED
+ * `ChatbotSchema.floatingConfig` on both faces (zero reads on a `chatbot` node).
+ * The `chatbot` half of this file was the TRIPWIRE for that member's absence from
+ * the mirror; it is flipped, not deleted: a `chatbot` node now refuses the WHOLE
+ * `floatingConfig` key, a live config included, at compile time and at parse
+ * time. "Type-level only" therefore holds on no node any more — the one face that
+ * still declares `FloatingChatbotConfig` is `chatbot-floating`, where both halves
+ * of the `triggerIcon` refusal hold.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -100,28 +109,38 @@ describe('the `triggerIcon` tombstone makes authoring a `tsc` error', () => {
     expect(config.triggerSize).toBe(56);
   });
 
-  it('reaches a `chatbot` node AND a `chatbot-floating` node through their faces — the tombstone bites wherever `floatingConfig` is declared', () => {
-    // Both faces declare `floatingConfig` (`ChatbotSchema` always did;
-    // objectui#7655 declared it on `ChatbotFloatingSchema` too). The pins above
-    // sit on `FloatingChatbotConfig` directly, so a face that LOST the member
-    // would not turn them red — the member would read as `any` through
-    // `BaseSchema`'s index signature and this literal would compile clean. That
-    // is exactly what #7655's contract review measured on its first cut, which
-    // moved the key off `ChatbotSchema`; pinned on the nodes since.
-    const onChatbot: TsChatbotSchema = {
-      type: 'chatbot',
-      messages: [],
-      // @ts-expect-error `triggerIcon` is a retirement tombstone (objectui#7654), reached through `ChatbotSchema.floatingConfig`
-      floatingConfig: { title: 'Chat', triggerIcon: 'Sparkles' },
-    };
+  it('reaches a `chatbot-floating` node through its face; on a `chatbot` node the WHOLE `floatingConfig` key is refused since objectui#6152 round 5', () => {
+    // The pins above sit on `FloatingChatbotConfig` directly, so a face that LOST
+    // the member would not turn them red — the member would read as `any` through
+    // `BaseSchema`'s index signature and the literal would compile clean. That is
+    // what #7655's contract review measured on its first cut, which DELETED the key
+    // off `ChatbotSchema`; pinned on the nodes since.
     const onFloating: TsChatbotFloatingSchema = {
       type: 'chatbot-floating',
       messages: [],
       // @ts-expect-error `triggerIcon` is a retirement tombstone (objectui#7654), reached through `ChatbotFloatingSchema.floatingConfig`
       floatingConfig: { title: 'Chat', triggerIcon: 'Sparkles' },
     };
+    // Lit control: a LIVE config type-checks on the floating face, so the
+    // directive above is about `triggerIcon` and not about the key.
+    const liveOnFloating: TsChatbotFloatingSchema = {
+      type: 'chatbot-floating',
+      messages: [],
+      floatingConfig: { title: 'Chat', triggerSize: 56 },
+    };
+    // The flipped tripwire, TS half: `ChatbotSchema.floatingConfig` is a `?: never`
+    // tombstone (objectui#6152 round 5), so even the LIVE config the line above
+    // accepts is refused on a `chatbot` node — the tombstone was not deleted into
+    // the index signature, where this literal would compile clean.
+    const onChatbot: TsChatbotSchema = {
+      type: 'chatbot',
+      messages: [],
+      // @ts-expect-error `floatingConfig` is RETIRED on `chatbot` (objectui#6152 round 5) — author `type: 'chatbot-floating'`
+      floatingConfig: { title: 'Chat', triggerSize: 56 },
+    };
     expect(onChatbot.type).toBe('chatbot');
     expect(onFloating.type).toBe('chatbot-floating');
+    expect(liveOnFloating.floatingConfig?.triggerSize).toBe(56);
   });
 
   it('a key the interface never declared still rides the widened path — the DELETED row', () => {
@@ -135,51 +154,58 @@ describe('the `triggerIcon` tombstone makes authoring a `tsc` error', () => {
   });
 });
 
-/* ── the runtime channel: unchanged on `chatbot`, refused on `chatbot-floating` since objectui#6152 round 4 ─ */
+/* ── the runtime channel: refused on BOTH nodes — `triggerIcon` on `chatbot-floating`, the whole key on `chatbot` ─ */
 
-// Both faces declare `floatingConfig` — `ChatbotSchema` always did, and
+// Both faces declared `floatingConfig` — `ChatbotSchema` always had, and
 // objectui#7655 declared it on `ChatbotFloatingSchema`, the face of the one
 // registration that reads it. Until objectui#6152 round 4 NEITHER twin had an arm
 // for it, and this file's runtime half pinned that on both, as a TRIPWIRE: whoever
 // minted a `FloatingChatbotConfig` mirror had to add the `retirementTombstone()`
 // half for `triggerIcon` in the same change, and flip these controls rather than
 // delete them into a vacuum. Round 4 minted it on the `chatbot-floating` twin only
-// (that registration reads the key; `chatbot`'s never does), so the two twins are
-// now pinned apart.
-describe('there is NO zod refusal on a `chatbot` node, and that is deliberate (objectui#7654)', () => {
+// (that registration reads the key; `chatbot`'s never does), and round 5 RETIRED
+// the key on the `chatbot` twin. Both flips are below; neither twin's control was
+// deleted.
+describe('a `chatbot` node REFUSES the whole `floatingConfig` key at runtime (objectui#6152 round 5 retired it there)', () => {
   const node = {
     type: 'chatbot',
     messages: [{ id: 'm1', role: 'user' as const, content: 'hi' }],
   };
 
-  it('a chatbot node carrying `floatingConfig.triggerIcon` still parses GREEN', () => {
-    // `ChatbotSchema.floatingConfig` stays in the `UnmirroredDeclared` ledger
-    // (`zod-mirror-parity.test.ts`): the `chatbot` registration never reads it, so
-    // objectui#6152 round 4 did not mirror it. `BaseSchema` is `.passthrough()`,
-    // so the whole object rides through unvalidated on this twin.
+  it('a chatbot node carrying `floatingConfig.triggerIcon` is refused at `floatingConfig` itself', () => {
+    // The flipped tripwire: this line asserted `success: true` until round 5,
+    // when `ChatbotSchema.floatingConfig` rode through `.passthrough()` unvalidated.
     const result = ChatbotSchema.safeParse({
       ...node,
       floatingConfig: { title: 'Chat', triggerIcon: 'Sparkles' },
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+    const issues = (result.error?.issues ?? []).map((i) => [i.path.join('.'), i.code]);
+    expect(issues, JSON.stringify(result.error?.issues)).toEqual([['floatingConfig', 'invalid_type']]);
   });
 
-  it('a live `floatingConfig` parses green too — the non-vacuity control', () => {
+  it('a LIVE `floatingConfig` is refused too — the tombstone refuses the key, not a member — and the refusal names the node that reads it', () => {
+    // The flipped non-vacuity control: until round 5 this parsed green.
     const result = ChatbotSchema.safeParse({
       ...node,
       floatingConfig: { title: 'Chat', triggerSize: 56 },
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+    const issues = (result.error?.issues ?? []).filter((i) => i.path.join('.') === 'floatingConfig');
+    expect(issues.length, JSON.stringify(result.error?.issues)).toBe(1);
+    expect(issues[0].message).toContain('chatbot-floating');
   });
 
-  it('the mirror really has no `floatingConfig` key at all', () => {
-    // The load-bearing fact behind the two lines above, asserted rather than
-    // assumed: a key the mirror declares would appear in its shape. This is the
-    // assertion the TRIPWIRE fires through if this twin ever gains the arm.
+  it('a chatbot node WITHOUT `floatingConfig` still parses green — the control', () => {
+    expect(ChatbotSchema.safeParse(node).success).toBe(true);
+  });
+
+  it('the mirror declares `floatingConfig` as a MEMBER tombstone, not an undeclared key', () => {
+    // The load-bearing fact behind the refusals above, asserted rather than
+    // assumed. Until round 5 this read `undefined`: the TRIPWIRE fired here.
     const shape = (ChatbotSchema as unknown as { shape: Record<string, unknown> }).shape;
-    expect(shape.floatingConfig).toBeUndefined();
-    // Lit control: a key the mirror DOES declare is present, so the reading
-    // above is a measurement and not an empty object.
+    expect(shape.floatingConfig).toBeDefined();
+    // Lit control: a key the mirror declares as a live arm sits beside it.
     expect(shape.messages).toBeDefined();
   });
 });

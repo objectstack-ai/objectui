@@ -526,8 +526,9 @@ const describeOf = (mirror: z.ZodType, key: string): string | undefined =>
  *  key under test.
  *
  *  ⚠️ Rebuilt rather than `.pick()`ed since objectui#7804. `ObjectKanbanSchema`
- *  closes with `.superRefine(requireKanbanRecordSource)` — the one-of
- *  `bind`/`data`/`objectName` rule — and zod refuses `.pick()` on an object
+ *  closes with a record-source `.superRefine()` — the one-of
+ *  `bind`/`data`/`objectName` rule, `requireRecordSource` since objectui#11117,
+ *  which also counts the node's `dataSource.object` — and zod refuses `.pick()` on an object
  *  carrying refinements (`.pick() cannot be used on object schemas containing
  *  refinements`), which is a THROW rather than a red assertion and so would
  *  have read as the instrument breaking rather than as a missing fixture. The

@@ -1113,7 +1113,6 @@ export type {
   UIActionSchema,
   DeclaredActionsRefusal,
   DeclaredActionsResolution,
-  ActionGroup,
   ActionContext,
   ActionResult,
   ActionExecutor,

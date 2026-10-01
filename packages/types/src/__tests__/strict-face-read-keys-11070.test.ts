@@ -41,7 +41,7 @@
  *   2. the declared key is judged by its declared type on BOTH faces;
  *   3. the read keys this card deliberately did NOT declare are still refused
  *      on the strict face — each waits on a ruling the card records — and the
- *      snake_case spellings rounds 3 and 4 retired are refused by name;
+ *      snake_case spellings rounds 3, 4 and 5 retired are refused by name;
  *   4. the TypeScript faces type the binding, not `any`, and the field
  *      metadata types carry the spec members by reference with the retired
  *      snake_case members gone (type-level, read by
@@ -62,11 +62,18 @@ import type {
 } from '../objectql.js';
 import type { FormField, FormSchema } from '../form.js';
 import type {
+  EmailFieldMetadata,
   FormulaFieldMetadata,
+  HtmlFieldMetadata,
   LookupFieldMetadata,
+  MarkdownFieldMetadata,
   MasterDetailFieldMetadata,
   PasswordFieldMetadata,
+  RichtextFieldMetadata,
   SummaryFieldMetadata,
+  TextFieldMetadata,
+  TextareaFieldMetadata,
+  UrlFieldMetadata,
 } from '../field-types.js';
 import type { DetailViewField } from '../views.js';
 import { DetailViewFieldSchema } from '../zod/views.zod.js';
@@ -141,7 +148,8 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
     ['object-kanban', { objectName: 'task' }],
     ['list-view', { objectName: 'task' }],
     ['object-gantt', { objectName: 'task' }],
-    ['object-map', { objectName: 'task' }],
+    // objectui#10859 batch 5: `object-map` takes its props in the bag too.
+    ['object-map', { properties: { objectName: 'task' } }],
     ['object-calendar', { objectName: 'task' }],
   ];
 
@@ -177,14 +185,11 @@ describe('objectui#11070 — a declared key is judged by its declared type on bo
 /* ── 3. the read keys this card did NOT declare stay refused ─────────────── */
 
 describe('objectui#11070 — the read keys left undeclared pending a ruling stay refused on the strict face', () => {
-  // Each is read by a widget and none is declared. `min_length` is the
-  // snake_case second spelling of a spec key this card DID declare
-  // (`minLength`): the seat's answer on objectui#11070 keeps the legacy
-  // spelling refused, so an author writes the spec's. The grid field's
-  // `columns` has an element shape not yet decided. ⛔ Declaring one is a
-  // contract ruling, not a fix to this list.
+  // Read by a widget and not declared: the grid field's `columns` has an
+  // element shape not yet decided. ⛔ Declaring it is a contract ruling, not a
+  // fix to this list. (`min_length` stood here until round 5 retired it: no
+  // reader reads it any more, so it moved to the RETIRED list below.)
   const PENDING: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
-    ['min_length', { type: 'password', min_length: 8 }],
     ['columns', { type: 'grid', columns: [{ name: 'qty', type: 'number' }] }],
   ];
 
@@ -203,7 +208,15 @@ describe('objectui#11070 — the read keys left undeclared pending a ruling stay
   // `lookup` and `user` widgets and both read cells read the spec's
   // `reference` only, and no in-repo producer writes `reference_to` any more,
   // so it joins this list rather than waiting on one.
+  //
+  // Round 5 (the text-family round): every length reader — the form
+  // renderer's built-in branches, the `textarea` and rich-text widgets, the
+  // validation rules and both form producers — reads the spec's `minLength` /
+  // `maxLength` only, so the snake_case pair is read by nothing and joins
+  // this list.
   const RETIRED: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
+    ['min_length', { type: 'password', min_length: 8 }],
+    ['max_length', { type: 'textarea', max_length: 200 }],
     ['reference_to', { type: 'lookup', reference_to: 'users' }],
     ['return_type', { type: 'formula', return_type: 'number' }],
     ['summary_type', { type: 'summary', summary_type: 'sum' }],
@@ -222,7 +235,9 @@ describe('objectui#11070 — the read keys left undeclared pending a ruling stay
   });
 
   it('`object-chart.dataSource` is refused by name until it is declared (the react-page wrapper no longer puns the adapter into that key; the declaration and the objectui#10770 node pin move together)', () => {
-    const doc = { type: 'object-chart', objectName: 'task', chartType: 'bar', dataSource: { object: 'task' } };
+    // objectui#11276: the authored node takes its props in the `properties` bag;
+    // `dataSource` stays node-level, and stays undeclared on that arm too.
+    const doc = { type: 'object-chart', properties: { objectName: 'task', chartType: 'bar' }, dataSource: { object: 'task' } };
     expect(undeclared(issuesOf(StrictAnyComponentSchema, doc))).toEqual(['dataSource']);
     expect(issuesOf(AnyComponentSchema, doc)).toBeNull();
   });
@@ -254,12 +269,41 @@ export type assertionSpecMembersByReference = [
   Expect<Equal<PasswordFieldMetadata['minLength'], SpecField['minLength']>>,
   Expect<Equal<PasswordFieldMetadata['maxLength'], SpecField['maxLength']>>,
 ];
-/** Round 3: the retired snake_case members are gone from the field metadata types — no second spelling. */
-type Retired = 'return_type' | 'summary_type' | 'summary_object' | 'summary_field' | 'summary_filter' | 'min_length' | 'max_length';
+/**
+ * Round 5: the text family carries the spec's length members BY REFERENCE —
+ * an exact match on every type that declares one.
+ */
+export type assertionTextFamilyLengthByReference = [
+  Expect<Equal<TextFieldMetadata['minLength'], SpecField['minLength']>>,
+  Expect<Equal<TextFieldMetadata['maxLength'], SpecField['maxLength']>>,
+  Expect<Equal<TextareaFieldMetadata['minLength'], SpecField['minLength']>>,
+  Expect<Equal<TextareaFieldMetadata['maxLength'], SpecField['maxLength']>>,
+  Expect<Equal<MarkdownFieldMetadata['maxLength'], SpecField['maxLength']>>,
+  Expect<Equal<HtmlFieldMetadata['maxLength'], SpecField['maxLength']>>,
+  Expect<Equal<RichtextFieldMetadata['maxLength'], SpecField['maxLength']>>,
+  Expect<Equal<EmailFieldMetadata['maxLength'], SpecField['maxLength']>>,
+  Expect<Equal<UrlFieldMetadata['maxLength'], SpecField['maxLength']>>,
+];
+/**
+ * Rounds 3 and 5: the retired snake_case members are gone from the field
+ * metadata types — no second spelling — and so are the two switches round 5
+ * retired under ADR-0049 because nothing read them (`auto_compute`,
+ * `auto_update`).
+ */
+type Retired =
+  | 'return_type' | 'summary_type' | 'summary_object' | 'summary_field' | 'summary_filter'
+  | 'min_length' | 'max_length' | 'auto_compute' | 'auto_update';
 export type assertionRetiredMembersAreGone = [
   Expect<Equal<Extract<keyof FormulaFieldMetadata, Retired>, never>>,
   Expect<Equal<Extract<keyof SummaryFieldMetadata, Retired>, never>>,
   Expect<Equal<Extract<keyof PasswordFieldMetadata, Retired>, never>>,
+  Expect<Equal<Extract<keyof TextFieldMetadata, Retired>, never>>,
+  Expect<Equal<Extract<keyof TextareaFieldMetadata, Retired>, never>>,
+  Expect<Equal<Extract<keyof MarkdownFieldMetadata, Retired>, never>>,
+  Expect<Equal<Extract<keyof HtmlFieldMetadata, Retired>, never>>,
+  Expect<Equal<Extract<keyof RichtextFieldMetadata, Retired>, never>>,
+  Expect<Equal<Extract<keyof EmailFieldMetadata, Retired>, never>>,
+  Expect<Equal<Extract<keyof UrlFieldMetadata, Retired>, never>>,
 ];
 /**
  * Round 4: the relational target is the spec's `reference`, carried BY

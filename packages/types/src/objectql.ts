@@ -870,9 +870,21 @@ export interface ObjectGridSchema extends BaseSchema {
   /**
    * ObjectQL object name (e.g., 'users', 'accounts', 'contacts')
    * Used when data provider is 'object' or not specified
+   *
+   * ⚠️ REQUIRED on this face, OPTIONAL on the zod mirror (objectui#11117). The
+   * registration is gate-wrapped, so `ElementDataSourceGate` lands a binding's
+   * `object` here before `ObjectGrid` reads the node, and the mirror accepts
+   * `{ type: 'object-grid', dataSource: { object: 'product' } }` — the binding
+   * the docs teach and the spec accepts — refusing only a node with neither
+   * (`requireRecordSource`, keyed `RECORD_SOURCE_REQUIRED`). This member stays
+   * `string` because `ObjectGrid` reads it as one after the gate has run
+   * (`translateOptions(schema.objectName, …)` in `@object-ui/plugin-grid`),
+   * so making it optional is a renderer-typing change outside that card. The
+   * difference is recorded in `zod-mirror-parity.test.ts`'s
+   * `WiderThanDeclared` ledger, which reddens when the two faces agree again.
    */
   objectName: string;
-  
+
   /**
    * Data Source Configuration
    * Aligned with @objectstack/spec ViewDataSchema
@@ -3255,6 +3267,23 @@ export interface ObjectMapConfig {
  * declared that the renderer does not consume (objectui#5018 — the card exists
  * because the reverse was true, and a declared-but-unread key re-creates the
  * same defect pointing the other way).
+ *
+ * ## What this type describes (objectui#10859, batch 5)
+ *
+ * The `object-map` node as `ObjectMap` READS it: after `SchemaRenderer` has
+ * hoisted the node's `properties` bag onto it, or as code composes it
+ * (`ObjectView` and `ListView` flattening a stored map view, a host mounting
+ * `<ObjectMap schema={…}>`). That is why it still carries the flat
+ * `locationField` / `titleField` the flatten produces.
+ *
+ * It is NOT the shape of an AUTHORED `object-map` document. An authored node
+ * takes its props in the spec's `properties` bag, whose members are
+ * `@objectstack/spec`'s `ComponentPropsMap['object-map']` row
+ * (`ObjectMapProps`): `{ type: 'object-map', properties: { objectName, map:
+ * { latitudeField, longitudeField }, … } }`. `ObjectMapBlockSchema`
+ * (`./zod/objectql.zod.ts`) judges it, and refuses a prop written flat on the
+ * node by name. `SchemaRenderer` reads both spellings, so a node built in code
+ * keeps its flat keys.
  */
 export interface ObjectMapSchema extends BaseSchema {
   type: 'object-map';
@@ -3274,9 +3303,11 @@ export interface ObjectMapSchema extends BaseSchema {
    * Optional since `77cb489b4`: a map authored on inline rows never reads
    * this key, and requiring it refused three catalog entries that draw
    * correctly. The requirement the renderer really has — at least one of
-   * `data`, `staticData`, `objectName` present — lives on the mirror as a
-   * refinement (`requireRecordSource` in `zod/objectql.zod.ts`), so the
-   * published declaration and the published validator say the same thing.
+   * `data`, `staticData`, `objectName` present, or the node's `dataSource.object`
+   * naming the object, which `ElementDataSourceGate` lands on this key
+   * (objectui#11117) — lives on the mirror as a refinement
+   * (`requireRecordSource` in `zod/objectql.zod.ts`), so the published
+   * declaration and the published validator say the same thing.
    */
   objectName?: string;
   /**
@@ -3474,9 +3505,11 @@ export interface ObjectGanttSchema extends BaseSchema {
    * Optional since `77cb489b4`: a gantt authored on inline rows never reads
    * this key, and requiring it refused three catalog entries that draw
    * correctly. The requirement the renderer really has — at least one of
-   * `data`, `staticData`, `objectName` present — lives on the mirror as a
-   * refinement (`requireRecordSource` in `zod/objectql.zod.ts`), so the
-   * published declaration and the published validator say the same thing.
+   * `data`, `staticData`, `objectName` present, or the node's `dataSource.object`
+   * naming the object, which `ElementDataSourceGate` lands on this key
+   * (objectui#11117) — lives on the mirror as a refinement
+   * (`requireRecordSource` in `zod/objectql.zod.ts`), so the published
+   * declaration and the published validator say the same thing.
    */
   objectName?: string;
   /**
@@ -3854,9 +3887,11 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * on inline rows never reads this key, and requiring it refused the two
    * documented static-data examples that draw correctly. The requirement the
    * renderer really has — at least one of
-   * `data`, `staticData`, `objectName` present — lives on the mirror as a
-   * refinement (`requireRecordSource` in `zod/objectql.zod.ts`), so the
-   * published declaration and the published validator say the same thing.
+   * `data`, `staticData`, `objectName` present, or the node's `dataSource.object`
+   * naming the object, which `ElementDataSourceGate` lands on this key
+   * (objectui#11117) — lives on the mirror as a refinement
+   * (`requireRecordSource` in `zod/objectql.zod.ts`), so the published
+   * declaration and the published validator say the same thing.
    */
   objectName?: string;
   /**
@@ -3909,11 +3944,19 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * returns this block whole when it is present, and only falls through to the
    * flat members below when it is not.
    *
+   * ⭐ This is where the five field-name keys are AUTHORED (objectui#8831):
+   * `calendar: { startDateField, endDateField, titleField, colorField, allDayField }`.
+   * `ComponentPropsMap['object-calendar']` refuses the same five written flat on
+   * the node, and its diagnostic prescribes exactly this block (one key per
+   * concept, the spec's Prime Directive #12). The flat members below are the
+   * runtime handoff, declared because the renderer reads them, not a second
+   * spelling to write.
+   *
    * `@objectstack/spec` declares the KEY —
    * `ComponentPropsMap['object-calendar'].calendar` — and this package's
    * registration `inputs` publishes it, so authors are offered it. ⚠️ The spec
-   * does NOT declare its SHAPE: measured on 17.4.0 that slot is
-   * `z.unknown().optional()`, not `CalendarConfigSchema`, so the protocol
+   * does NOT declare its SHAPE: measured on 17.4.0, and again on 17.5.0, that
+   * slot is `z.unknown().optional()`, not `CalendarConfigSchema`, so the protocol
    * accepts any value there at all. The member list below is objectui's own —
    * see the mirror for the grounds. Both published faces of THIS package stayed
    * silent about the key until objectui#8651,
@@ -3925,9 +3968,9 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * DERIVED from the mirror rather than re-spelled, so the two faces cannot
    * fork — the same construction {@link ListViewSchema} uses through
    * `ListViewInferred`. What the mirror declares is the five members
-   * `ObjectCalendar`'s events pass destructures out of the resolved config: the
-   * spec's four plus objectui's own `allDayField`, on the lane objectui#8466
-   * took for the flat spelling of the same vocabulary.
+   * `ObjectCalendar`'s events pass destructures out of the resolved config.
+   * Through `@objectstack/spec` 17.4.0 that was the spec's four plus objectui's
+   * own `allDayField`; since 17.5.0 `CalendarConfigSchema` declares all five.
    *
    * ⛔ `defaultView` is deliberately NOT a member of this container even though
    * a list VIEW's calendar block carries one: this renderer seeds its view state
@@ -3936,9 +3979,25 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * carrying it still parses — it is simply not advertised.
    */
   calendar?: ObjectCalendarBlockConfig;
-  /** Field for event start */
+  /**
+   * Field for event start — the FLAT spelling, READ BUT NOT AUTHORED
+   * (objectui#8831). Write `calendar.startDateField` instead.
+   *
+   * This is the runtime handoff: `ObjectView` and `ListView` emit the five
+   * field-name keys flat on the `object-calendar` node they build, and
+   * `getCalendarConfig` reads them only when the node carries no
+   * {@link ObjectCalendarSchema.calendar} block. `@objectstack/spec` refuses
+   * the same five at this element with `unrecognized_keys`, and its diagnostic
+   * names the {@link ObjectCalendarSchema.calendar} block as the place to write
+   * them (one key per concept, its Prime Directive #12). The five stay declared
+   * here because the renderer reads them; a declaration records that read, it
+   * is not a second authoring spelling.
+   */
   startDateField?: string;
-  /** Field for event end */
+  /**
+   * Field for event end — the FLAT spelling, read but not authored. Write
+   * `calendar.endDateField`; see {@link ObjectCalendarSchema.startDateField}.
+   */
   endDateField?: string;
   /**
    * ⛔ RETIRED (objectui#8355, director ruling of 2026-09-16) — `dateField` was
@@ -3967,11 +4026,19 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * calendar drew, and only the end binding went missing.
    */
   endField?: never;
-  /** Field for event title */
+  /**
+   * Field for event title — the FLAT spelling, read but not authored. Write
+   * `calendar.titleField`; see {@link ObjectCalendarSchema.startDateField}.
+   */
   titleField?: string;
   /**
-   * Record field carrying the event's colour — any CSS colour or a semantic
-   * palette name, typically a server-computed status colour. Resolved PER
+   * Record field carrying the event's colour — the FLAT spelling, read but not
+   * authored: write `calendar.colorField`, and see
+   * {@link ObjectCalendarSchema.startDateField} for why the flat member stays
+   * declared.
+   *
+   * The value is any CSS colour or a semantic palette name, typically a
+   * server-computed status colour. Resolved PER
    * RECORD by `plugin-calendar/src/ObjectCalendar.tsx`, which falls back to the
    * record's own `color` value and then to the platform default, so an authored
    * value that never arrives is invisible rather than loud.
@@ -3989,23 +4056,25 @@ export interface ObjectCalendarSchema extends BaseSchema {
    */
   colorField?: SpecCalendarConfig['colorField'];
   /**
-   * Record field carrying the all-day flag. LOAD-BEARING since objectui#8026:
+   * Record field carrying the all-day flag — the FLAT spelling, read but not
+   * authored: write `calendar.allDayField`, and see
+   * {@link ObjectCalendarSchema.startDateField} for why the flat member stays
+   * declared.
+   *
+   * LOAD-BEARING since objectui#8026:
    * the events pass in `plugin-calendar/src/ObjectCalendar.tsx` reads it and a
-   * change to the authored key genuinely changes what is drawn. It is also in
+   * change to the key genuinely changes what is drawn. It is also in
    * that component's `getCalendarConfig` memo dependency list, which is what
    * makes the change reach the screen.
    *
-   * objectui-LOCAL, and the one member here with no {@link CalendarConfig} twin
-   * to derive from: `@objectstack/spec`'s `CalendarConfigSchema` is a
-   * `strictObject` of exactly `startDateField`, `endDateField`, `titleField`
-   * and `colorField`, so it refuses this key as UNDECLARED — ⚠️ not "by name".
-   * Measured on 17.4.0: it answers `allDayField` and a nonsense key with the
-   * identical `unrecognized_keys` diagnostic, so the refusal is blanket
-   * strictness and says nothing about this key in particular (objectui#8651). That is the class this package's mirror
-   * already names out loud, where `.passthrough()` is kept explicitly for this
-   * key — "the renderers grow config knobs ahead of the protocol (calendar's
-   * `allDayField`, for one), and stripping them here would silently disable a
-   * shipped capability" (`zod/objectql.zod.ts`).
+   * Through `@objectstack/spec` 17.4.0 this key was objectui-LOCAL in both
+   * positions: `CalendarConfigSchema` was a `strictObject` of exactly
+   * `startDateField`, `endDateField`, `titleField` and `colorField`, and
+   * answered `allDayField` and a nonsense key with the identical
+   * `unrecognized_keys` diagnostic (objectui#8651). Since 17.5.0 that schema
+   * declares `allDayField` too, so `calendar.allDayField` is a spec key like its
+   * four neighbours (objectui#11073). This flat member is still typed `string`
+   * rather than derived from {@link CalendarConfig}; the two types are equal.
    *
    * ⛔ Declaring it widens NO accept set, which is why Commandment #0.1 is not
    * engaged. Measured on spec 17.3.0: `ComponentPropsMap['object-calendar']`
@@ -4013,8 +4082,8 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * {@link ObjectCalendarSchema.titleField},
    * {@link ObjectCalendarSchema.startDateField} and
    * {@link ObjectCalendarSchema.endDateField} above, which have shipped
-   * DECLARED for releases. The flat face is objectui's own lane, taken whole;
-   * this key is its fifth member, not a new dialect. And under `BaseSchema`'s
+   * DECLARED for releases. This key is the fifth member of that flat handoff,
+   * not a new dialect. And under `BaseSchema`'s
    * index signature the value was already `any`, so declaring only NARROWS.
    *
    * ⭐ Nor is it a new precedent: {@link CalendarViewSchema} — a sibling
@@ -4164,12 +4233,15 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * `data`-only board — which renders correctly today — was refused by both
    * published faces and could not be annotated with its own type. The
    * requirement the renderer really has, at least one of `bind`, `data`,
-   * `objectName` present, lives on the mirror as a refinement
-   * (`requireKanbanRecordSource` in `zod/objectql.zod.ts`), so the published
+   * `objectName` present, or the node's `dataSource.object` naming the object,
+   * which `ElementDataSourceGate` lands on this key (objectui#11117), lives on
+   * the mirror as a refinement (`requireRecordSource` in
+   * `zod/objectql.zod.ts`, with this board's own rung list), so the published
    * declaration and the published validator say the same thing.
    *
-   * ⚠️ This is NOT the `object-map` / `object-gantt` / `object-calendar` ladder
-   * and shares no code with it. Those three resolve through
+   * ⚠️ This is NOT the `object-map` / `object-gantt` / `object-calendar` ladder,
+   * and the renderer shares no code with it; only the mirror's refinement is
+   * shared, taking each arm's rungs as an argument. Those three resolve through
    * `resolveRecordSourceConfig` over `data` (a {@link ViewData} PROVIDER BLOCK)
    * → `staticData` → `objectName`, and their mirror members end in
    * `requireRecordSource`. This board has NO `staticData` rung, its `data` is a
@@ -4218,12 +4290,11 @@ export interface ObjectKanbanSchema extends BaseSchema {
    *   1. `content/docs/utilities/data-objectstack.mdx` documents an
    *      `object-kanban` node that is exactly `{ type, dataSource }` — no
    *      `groupBy`. ⚠️ WEAKER THAN IT LOOKS, and the limit is worth stating: that
-   *      fragment is STILL refused after this card, at `RECORD_SOURCE_REQUIRED`
-   *      — `dataSource` is not a rung of this ladder — so it is evidence that a
+   *      fragment was STILL refused after this card, at `RECORD_SOURCE_REQUIRED`
+   *      — `dataSource` was not a rung of this ladder — so it was evidence that a
    *      lane-less board is a DOCUMENTED AUTHORING, not a document this card
-   *      admits. ⛔ Do not cite it as "objectui refuses its own documented
-   *      example" without that qualifier; the record-source half of the refusal
-   *      is deliberate and survives.
+   *      admitted. It parses since objectui#11117, which counted the node's
+   *      binding as a record source, as `ElementDataSourceGate` already did.
    *   2. `packages/plugin-list/src/ListView.tsx` GENERATES the node with
    *      `groupBy: laneField`, where
    *      `laneField = groupByField || groupField || detectStatusField(objectDef) || undefined`.
@@ -5056,6 +5127,25 @@ export type KanbanConditionalFormattingRule =
  * objectui#10770's PR, and nothing re-derives it: no render, publish or
  * `objectui validate` path ran this schema on the wrapper's node. The defect
  * was on the contract face, not on a door.
+ *
+ * ## What this type describes (objectui#11276)
+ *
+ * The `object-chart` node as `ObjectChart` READS it: after `SchemaRenderer`
+ * has hoisted the node's `properties` bag onto it, or as code composes it —
+ * `ObjectView` and `ListView` building a chart view, the dashboard renderers
+ * building a widget, the react-page wrapper building the `<ObjectChart>`
+ * block, a host mounting `<ObjectChart schema={…}>`. That is why its members
+ * sit flat on the node.
+ *
+ * It is NOT the shape of an AUTHORED `object-chart` document. An authored node
+ * takes its props in the `properties` bag: `{ type: 'object-chart',
+ * properties: { chartType, dataset, dimensions, values, … } }`, because
+ * `@objectstack/spec`'s page component refuses a prop written on the node
+ * itself (ADR-0089 D3a). `ObjectChartBlockSchema` (`./zod/objectql.zod.ts`)
+ * judges it and refuses a prop written flat on the node by name. The spec has
+ * no `ComponentPropsMap['object-chart']` row, so that bag's members are this
+ * type's own members, read off its zod mirror by reference. `SchemaRenderer`
+ * reads both spellings, so a node built in code keeps its flat keys.
  */
 export interface ObjectChartSchema extends BaseSchema {
   type: 'object-chart';
@@ -5785,7 +5875,12 @@ export interface ObjectDataTableSchema extends BaseSchema {
  * carried the same twelve members — `AnyComponentSchema` had no arm for either
  * node. The zod twin carries eleven since objectui#10859 batch 4: the authored
  * `object-form` node is armed from its spec row by `ObjectFormBlockSchema`,
- * and `ObjectFormSchema` here is the node as `ObjectForm` reads it.
+ * and `ObjectFormSchema` here is the node as `ObjectForm` reads it. It carries
+ * ten since batch 5, for the same reason: the authored `object-map` node is
+ * armed by `ObjectMapBlockSchema`, and `ObjectMapSchema` here is the node as
+ * `ObjectMap` reads it. It carries nine since objectui#11276: the authored
+ * `object-chart` node is armed by `ObjectChartBlockSchema`, and
+ * `ObjectChartSchema` here is the node as `ObjectChart` reads it.
  */
 export type ObjectQLComponentSchema =
   | ObjectGridSchema

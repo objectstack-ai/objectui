@@ -1,6 +1,6 @@
 import React from 'react';
 import { Input, Textarea, EmptyValue } from '@object-ui/components';
-import { TextareaFieldMetadata } from '@object-ui/types';
+import type { TextFieldMetadata, TextareaFieldMetadata } from '@object-ui/types';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 
@@ -20,13 +20,14 @@ export function TextField({ value, onChange, field, readonly, error, ...props }:
 
   const domProps = toDomProps(props);
 
-  // Spec FieldSchema declares camelCase `maxLength` (objectui#10179). Read the
-  // way `TextAreaField` reads it — a narrow structural read, because the
-  // objectui metadata type does not declare the spec spelling — and put it on
-  // whichever element renders below. `toDomProps` forwards no `maxLength`, so
-  // this read is the only way a declared ceiling reaches the input. (No legacy
-  // `max_length` fallback: this widget never read that spelling.)
-  const maxLength = (fieldData as { maxLength?: number } | undefined)?.maxLength;
+  // The spec's `maxLength` (objectui#10179), read the way `TextAreaField`
+  // reads it and put on whichever element renders below. `TextFieldMetadata`
+  // and `TextareaFieldMetadata` both declare it by reference to
+  // `FieldSchema.maxLength` (objectui#11070), so the read is compiler-checked.
+  // `toDomProps` forwards no `maxLength`, so this read is the only way a
+  // declared ceiling reaches the input. The retired snake_case `max_length`
+  // is read by no widget.
+  const maxLength = (fieldData as TextFieldMetadata | TextareaFieldMetadata | undefined)?.maxLength;
 
   /**
    * `aria-invalid` is written AFTER the DOM spread in both branches below, the

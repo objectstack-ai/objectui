@@ -1267,12 +1267,30 @@ export interface DataTableSchema extends BaseSchema {
    */
   selectable?: boolean | 'single' | 'multiple';
   /**
-   * Selection checkbox display style
-   * - 'always': Checkboxes are always visible
-   * - 'hover': Checkboxes only appear on row hover
-   * @default 'always'
+   * RETIRED (objectui#6152 round 5, ADR-0049) — a selectable table always shows
+   * its row checkboxes; there is no hover-only style. Delete the key: `selectable`
+   * alone turns selection on.
+   *
+   * It was `'always' | 'hover'`, and `data-table` honoured `'hover'` (the checkbox
+   * cell faded in on row hover) — but nothing wrote it. Measured on the retiring
+   * change's base, a reading at that revision and ⛔ not a live count: no document
+   * in this repository or in `objectstack` authors it (every tracked
+   * JSON file, Markdown JSON fence and `type: 'data-table'` object literal), and a
+   * type-checker census over every package found its one destructuring read and
+   * no producer. A published capability with no author and no producer is
+   * retired, ⛔ not kept for its sunk cost, and the hover branch went with it.
+   *
+   * A `?: never` tombstone and ⛔ not a deletion, by the retire-vs-remove
+   * discriminator stated on `ChatbotSchema` in `complex.ts` (cited, not restated
+   * here): this member's published comment taught `'hover'` as a working style,
+   * and on a {@link BaseSchema} carrier a deleted member reads as `any` through
+   * the index signature, so a stale `'hover'` would type-check in silence. The
+   * zod twin refuses the key by name.
+   *
+   * @deprecated Not part of this contract — selection checkboxes are always
+   * visible.
    */
-  selectionStyle?: 'always' | 'hover';
+  selectionStyle?: never;
   /**
    * Whether to render the built-in "N selected" count in the table toolbar.
    * Set false when an outer container (e.g. ObjectGrid's BulkActionBar) already
@@ -1388,12 +1406,23 @@ export interface DataTableSchema extends BaseSchema {
   /**
    * Enable inline cell editing
    * When true, cells become editable on double-click or Enter key
+   *
+   * HOST-PAIRED, not an authored flag (objectui#6152 round 5): the table only
+   * STAGES an edit; persisting it is the job of the `onRowSave` / `onCellChange`
+   * / `onBatchSave` slots, which a host supplies in code — `ObjectGrid` sets this
+   * key on the `data-table` node it builds, together with that save path. A JSON
+   * document can supply no function, so an authored `editable: true` stages edits
+   * that nothing saves. To edit records inline from a document, author an
+   * `object-grid`, which carries the save path itself.
    * @default false
    */
   editable?: boolean;
   /**
    * Enable single-click editing mode
    * When true with editable, clicking a cell enters edit mode (instead of double-click)
+   *
+   * HOST-PAIRED with {@link DataTableSchema.editable} (objectui#6152 round 5):
+   * `ObjectGrid` sets it in code; no document authors it.
    * @default false
    */
   singleClickEdit?: boolean;

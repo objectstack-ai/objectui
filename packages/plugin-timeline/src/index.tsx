@@ -366,6 +366,25 @@ export const ObjectTimelineRenderer: React.FC<any> = elementDataSourceBlock(({ s
 const TIMELINE_FILTER_DESCRIPTION = 'Base query filter in the rule-array form `[{ field, operator, value }, ...]`, narrowing the records the timeline fetches. Context tokens such as `{current_user_id}` are resolved first, then the filter is lowered to `$filter` on the query. Authored `items` or `data` suppress that query, so the key then narrows nothing. The MongoDB-style record form is not this key’s shape.';
 const TIMELINE_SORT_DESCRIPTION = 'Entry order in `[{ field, order }]` form, ordering the records the timeline fetches. Lowered to `$orderby` on the same query.';
 
+// ## `navigation` — objectui#8654 (the timeline arm of objectui#8652's ruling 「B」)
+//
+// `@objectstack/spec` 17.5.0 declares it on the `object-timeline` row, for this
+// block standalone — the platform half of the ruling. This row is the objectui
+// half, together with the `navigation` member of `ObjectTimelineProps`'s schema
+// in `./ObjectTimeline`. It is declared on both tags for the reason `filter` and
+// `sort` are above: `view:timeline` is the same renderer under a second tag,
+// the precedent the calendar's shared input list follows for this key.
+//
+// The description states what `ObjectTimeline` does with each member, measured
+// on the real component, and it differs from the board's and the calendar's in
+// two places: this renderer supplies no drawer default, so an ABSENT key opens
+// nothing, and it hands the split shell no main panel, so `split` opens nothing
+// either. `page`, and a block without `mode`, open nothing as on the siblings
+// (objectui#11293). Members pinned in
+// `__tests__/timelineNavigationMembers-8654.test.tsx`; a renderer that changes
+// any of these reddens those rows, and the fix is to rewrite this description.
+const TIMELINE_NAVIGATION_DESCRIPTION = 'What an entry click opens — the `{ mode, size, openNewTab, preventNavigation }` block a list view declares. Write it with `mode`: with the key ABSENT, or with a block that omits `mode` (it takes the spec’s `page` default), a click opens nothing on a timeline no parent view navigates for. `drawer`, `modal` and `popover` open the entry’s record in that overlay; `new_window` opens the record page in a new tab; `page`, `none` and `split` open nothing here, because the timeline hands the split shell no main panel. `openNewTab: true` opens the record page in a new tab and outranks the mode, `preventNavigation: true` opens nothing, and `size` sets the overlay width. A click handler from a parent view outranks the whole key.';
+
 ComponentRegistry.register('object-timeline', ObjectTimelineRenderer, {
   namespace: 'plugin-timeline',
   label: 'Object Timeline',
@@ -375,6 +394,7 @@ ComponentRegistry.register('object-timeline', ObjectTimelineRenderer, {
     { name: 'variant', type: 'enum', enum: ['vertical', 'horizontal', 'gantt'] },
     { name: 'filter', type: 'array', description: TIMELINE_FILTER_DESCRIPTION },
     { name: 'sort', type: 'array', description: TIMELINE_SORT_DESCRIPTION },
+    { name: 'navigation', type: 'object', description: TIMELINE_NAVIGATION_DESCRIPTION },
   ]
 });
 
@@ -387,5 +407,6 @@ ComponentRegistry.register('timeline', ObjectTimelineRenderer, {
     { name: 'variant', type: 'enum', enum: ['vertical', 'horizontal', 'gantt'] },
     { name: 'filter', type: 'array', description: TIMELINE_FILTER_DESCRIPTION },
     { name: 'sort', type: 'array', description: TIMELINE_SORT_DESCRIPTION },
+    { name: 'navigation', type: 'object', description: TIMELINE_NAVIGATION_DESCRIPTION },
   ]
 });

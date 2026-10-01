@@ -115,12 +115,16 @@ const PICKER_KEYS = [
  * snake leg, so the old fixture row silently produced nothing and the
  * `PICKER_KEYS` loop below caught it. ⛔ Do not "fix" a future failure here by
  * restoring a dual read: the key is camelCase-only on both sides of the seam.
+ *
+ * ⭐ `displayField` is camel for the same reason (objectui#11070 round 6): the
+ * resolver's `display_field` leg is retired, so the snake row would produce
+ * nothing.
  */
 const field = (type: string) => ({
   type,
   label: type,
   reference: 'accounts',
-  display_field: 'name',
+  displayField: 'name',
   id_field: 'id',
   description_field: 'website',
   title_format: '{name}',

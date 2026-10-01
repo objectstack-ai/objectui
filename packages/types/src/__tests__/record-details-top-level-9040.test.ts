@@ -58,6 +58,7 @@ import { dirname, join } from 'node:path';
 import type { z } from 'zod';
 import { RecordDetailsProps } from '@objectstack/spec/ui';
 import type { RecordDetailsComponentProps } from '../record-components';
+import type { IsRetiredKeyType } from './retired-key-type';
 
 /** Rooted at THIS file, never at `process.cwd()` — the two differ per invocation. */
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -147,7 +148,7 @@ const inlineEditRefusesStrings: RecordDetailsComponentProps = {
 /**
  * The key is GONE. The two faces used to DISAGREE: the contract's tombstone
  * accepts nothing there (`z.never()` under its optional wrapper, so the
- * authoring type is `undefined`) while this one offered
+ * authoring type admits only absence) while this one offered
  * `stacked` | `inline` | `compact` — a third spelling, no value of which ever
  * parsed. They now agree by removal.
  *
@@ -170,8 +171,16 @@ type _KeyofStillResolvesOnThisInterface = Expect<
   Equal<'columns' extends keyof RecordDetailsComponentProps ? true : false, true>
 >;
 
-/** The contract's face, untouched by this removal: the tombstone accepts nothing. */
-type _LayoutOnTheContractFace = Expect<Equal<SpecProps['layout'], undefined>>;
+/**
+ * The contract's face, untouched by this removal: the tombstone accepts nothing.
+ * Its type is the spec's retired-key type — `undefined` at the pinned 17.5.0,
+ * the branded `[REMOVED]` mark on objectstack `main` — and the helper accepts
+ * exactly those two spellings (objectui#11330).
+ */
+type _LayoutOnTheContractFace = Expect<IsRetiredKeyType<SpecProps['layout']>>;
+
+/** THE CONTROL for the line above, through the same helper: a live contract key is not retired. */
+type _ColumnsOnTheContractFaceIsLive = Expect<Equal<IsRetiredKeyType<SpecProps['columns']>, false>>;
 
 /**
  * The retirement, as a literal: authoring `layout` is `TS2353` here now, so

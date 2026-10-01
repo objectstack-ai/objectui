@@ -124,7 +124,7 @@ const read = (relative: string): string => readFileSync(join(REPO_ROOT, relative
 const doc = read(DOC_PATH);
 const renderer = read(RENDERER_PATH);
 
-/* ── The documented surface, parsed out of the page's `plaintext` fence ──── */
+/* ── The documented surface, parsed out of the page's `ts` fence ─────────── */
 
 interface DocumentedMember {
   /** Spelled with a `?`. */
@@ -133,11 +133,16 @@ interface DocumentedMember {
   readonly typeText: string;
 }
 
-/** The one `plaintext` fence that carries the page's interface blocks. */
+/**
+ * The one `ts` fence that carries the page's interface blocks. objectui#5867
+ * batch 7 re-fenced it from `plaintext`, so `check-doc-snippet-types` now
+ * compiles it; the page declares its own interfaces, so that compile does not
+ * judge the member rows against the shipped schema. This file still does.
+ */
 function schemaFence(): string {
-  const fences = [...doc.matchAll(/```plaintext\n([\s\S]*?)```/g)].map((match) => match[1]);
+  const fences = [...doc.matchAll(/```ts\n([\s\S]*?)```/g)].map((match) => match[1]);
   if (fences.length !== 1) {
-    throw new Error(`expected exactly one \`plaintext\` fence in ${DOC_PATH}, found ${fences.length}`);
+    throw new Error(`expected exactly one \`ts\` fence in ${DOC_PATH}, found ${fences.length}`);
   }
   return fences[0];
 }

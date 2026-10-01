@@ -323,9 +323,12 @@ reference, `ViewNavigationConfig` in `@object-ui/types`, the type
 `popover`, `new_window` or `none`) with `size`, `openNewTab` and
 `preventNavigation`. With the key absent a click opens the record in a drawer.
 An overlay mode keeps the click from a parent view's `onRowClick` /
-`onEventClick`; any other mode hands it to them. ⚠️ `page` — and a block written
-without `mode`, which takes the spec's `page` default — opens nothing on a
-calendar no parent view navigates for (objectui#11293).
+`onEventClick`; any other mode hands it to them. `page` — and a block written
+without `mode`, which takes the spec's `page` default — opens the record page
+through the record navigator the host publishes on `RelatedRecordActionsContext`
+(objectui#11293); the console publishes one on its custom pages, record pages and
+list views. Under a host that publishes none, such as an embedded renderer,
+there is no record page to open and the click opens nothing.
 
 ### Interactive Calendar
 

@@ -45,7 +45,7 @@ import {
   // objectui#7928 — the spec's view CONTAINER, read for ONE slot: its
   // `listViews` record (`ObjectViewSchema.listViews` below, by reference).
   ViewSchema as SpecViewSchema,
-  // objectui#10859 (batches 2 to 5) — the `ComponentPropsMap` rows of the
+  // objectui#10859 (batches 2 to 6) — the `ComponentPropsMap` rows of the
   // ADR-0080 public blocks this module arms, each read as its arm's
   // `properties` bag, by reference (`ObjectQLPublicBlockComponentSchema` below).
   ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
@@ -53,6 +53,7 @@ import {
   ObjectTimelinePropsSchema as SpecObjectTimelinePropsSchema,
   ObjectFormPropsSchema as SpecObjectFormPropsSchema,
   ObjectMapPropsSchema as SpecObjectMapPropsSchema,
+  ObjectGanttPropsSchema as SpecObjectGanttPropsSchema,
   // objectui#11070 — the per-element data binding (`PageComponentSchema.dataSource`)
   // the object-bound arms below declare as `dataSource`, by reference.
   ElementDataSourceSchema as SpecElementDataSourceSchema,
@@ -609,8 +610,13 @@ export const ObjectFormSchema = BaseSchema.extend({
     collapsible: z.boolean().optional(),
     defaultCollapsed: z.boolean().optional(),
   })).optional().describe('Field groups'),
-  layout: z.enum(['vertical', 'horizontal', 'inline', 'grid']).optional().describe('Form layout'),
-  columns: z.number().optional().describe('Grid columns'),
+  // objectui#11168 slice 3 (objectui#7759 group C): the row's own enum, by
+  // reference — `inline` and `grid` are retired by `@objectstack/spec` 17.5.0
+  // (objectstack#20221) and rendered byte-identical to `vertical` on every
+  // layout, so this face refuses them as the authored bag already did.
+  layout: stripImportedDefaults(SpecObjectFormPropsSchema).shape.layout
+    .describe('Label placement: vertical (the default) or horizontal — the spec row\'s enum, by reference'),
+  columns: z.number().optional().describe('Number of columns the fields are laid out in (1-4)'),
   showSubmit: z.boolean().optional().describe('Show submit button'),
   submitText: stripImportedDefaults(SpecI18nLabelSchema).optional()
     .describe('Submit button text. @objectstack/spec I18nLabel, a plain string or an inline locale map'),
@@ -2169,9 +2175,11 @@ export const ObjectMapConfigSchema = z.object({
  * it from two different arms:
  *
  *  - `object-map` / `object-gantt` — `data` is a spec `ViewData` PROVIDER BLOCK
- *    (`{ provider, … }`), the source the block will FETCH FROM. Neither has a
- *    `ComponentPropsMap` row, so the published row that governs them is this
- *    file's own `ViewDataSchema.optional()`.
+ *    (`{ provider, … }`), the source the block will FETCH FROM. On the flat
+ *    mirrors the member is this file's own `ViewDataSchema.optional()`; on the
+ *    authored arms (`ObjectMapBlockSchema` and `ObjectGanttBlockSchema` below,
+ *    objectui#10859 batches 5 and 6) it is the `data` member of the block's
+ *    `ComponentPropsMap` row, the spec's `ViewData`, by reference.
  *  - `object-calendar` — `data` is an ARRAY of PRE-FETCHED RECORDS, drawn in
  *    place of the block's own query, NOT a source to fetch from.
  *    `ComponentPropsMap['object-calendar'].data` is `z.array(z.unknown())
@@ -2232,7 +2240,10 @@ export const ObjectMapConfigSchema = z.object({
  * `elementDataSourceBlock`-wrapped, and `ElementDataSourceGate` lands the
  * binding's `object` on `objectName` before `ObjectMap` runs; the spec row keeps
  * its own `objectName` optional for exactly that reason. The default (`'node'`)
- * reads the rungs on the node, as the flat arms always have.
+ * reads the rungs on the node, as the flat arms always have. objectui#10859
+ * batch 6 moved the authored `object-gantt` arm the same way
+ * (`ObjectGanttBlockSchema` below), with the same three rungs and the same
+ * binding: its registration is `elementDataSourceBlock`-wrapped too.
  *
  * The two sections met in one merge (objectui#11117 merging objectui#10859
  * batch 5). Batch 5 counted the bag arm's binding by PRESENCE (`dataSource !==
@@ -2385,6 +2396,17 @@ const OBJECT_GANTT_NEITHER_CHANNEL = neitherContentChannelGuidance(
  * refinement naming a key this mirror had never heard of. It is spelled exactly
  * as `ObjectMapSchema.data` above, so the two members' record sources cannot
  * fork.
+ *
+ * ## No longer an authoring arm (objectui#10859, batch 6)
+ *
+ * This mirror is the node as `ObjectGantt` reads it: after `SchemaRenderer`
+ * has hoisted the node's `properties` bag onto it, or as code composes it
+ * (`ObjectView` / `ListView` flattening a stored gantt view, which also write
+ * the flat `GanttConfig` keys and the `search` pair below). It left
+ * `ObjectQLComponentSchema`, and so `AnyComponentSchema`: the AUTHORED
+ * `object-gantt` node is armed by `ObjectGanttBlockSchema` below, whose
+ * `properties` is the spec's `ComponentPropsMap['object-gantt']` row. It stays
+ * exported and paired with its TypeScript twin.
  */
 export const ObjectGanttSchema = BaseSchema.extend({
   type: z.literal('object-gantt'),
@@ -2498,10 +2520,12 @@ export const ObjectGanttSchema = BaseSchema.extend({
   // This is the one entry among the 28 that NARROWS rather than merely names: a
   // `gantt` block previously rode through `.passthrough()` entirely unvalidated;
   // now it is PARSED against the spec's `GanttConfigSchema`, which REQUIRES
-  // `startDateField`/`endDateField`/`titleField`. This mirror reaches the CLI's
-  // `validate` through `AnyComponentSchema` → `safeValidateSchema`, so a
-  // block missing the trio moves from "accepted, then warned about at runtime"
-  // to "refused at authoring time" — a `declared = enforced` restoration, not
+  // `startDateField`/`endDateField`/`titleField`. This mirror reached the CLI's
+  // `validate` through `AnyComponentSchema` → `safeValidateSchema` (until
+  // objectui#10859 batch 6; the authored node's block is now the spec row's own
+  // `gantt` member, judged in `ObjectGanttBlockSchema`'s bag with the same
+  // trio), so a block missing the trio moved from "accepted, then warned about
+  // at runtime" to "refused at authoring time" — a `declared = enforced` restoration, not
   // new requiredness: the renderer already fed the block to
   // `GanttConfigSchema.safeParse` and logged `[ObjectGantt] Invalid gantt
   // configuration` on failure. Maintainer ruling, objectui#6475 (2026-08-27),
@@ -3708,7 +3732,8 @@ export const ObjectDataTableSchema = BaseSchema.extend({
  * ObjectQL Component Schema Union
  *
  * The members of the TS union in `../objectql.ts`, in the same order, less
- * `ObjectFormSchema` and `ObjectMapSchema` (see the last two paragraphs).
+ * `ObjectFormSchema`, `ObjectMapSchema`, `ObjectChartSchema` and
+ * `ObjectGanttSchema` (see the last four paragraphs).
  * `ObjectGallerySchema` and `ObjectDataTableSchema` joined in objectui#7363:
  * PR #7355 (objectui#6576) minted both mirrors and deliberately did not extend
  * this union, so `AnyComponentSchema` — and `validateSchema` /
@@ -3739,12 +3764,16 @@ export const ObjectDataTableSchema = BaseSchema.extend({
  * TypeScript twin is the node as `ObjectChart` reads it, and the authored
  * `object-chart` node is armed by `ObjectChartBlockSchema` above, whose bag is
  * the mirror's own members (the spec has no row for this type).
+ *
+ * ⚠️ EIGHT since objectui#10859 batch 6: `ObjectGanttSchema` left it the same
+ * way. Its TypeScript twin is the node as `ObjectGantt` reads it, and the
+ * authored `object-gantt` node is armed by `ObjectGanttBlockSchema` below, from
+ * its spec row.
  */
 export const ObjectQLComponentSchema = z.discriminatedUnion('type', [
   ObjectGridSchema,
   ObjectViewSchema,
   ObjectTreeSchema,
-  ObjectGanttSchema,
   ObjectCalendarSchema,
   ObjectKanbanSchema,
   ObjectGallerySchema,
@@ -4184,16 +4213,174 @@ export const ObjectMapBlockSchema = BaseSchema.extend({
 }).superRefine(...requireRecordSource('object-map', RECORD_SOURCE_KEYS, 'properties'));
 
 /**
+ * The ONE refusal detail every `object-gantt` prop written flat on the node
+ * gets (objectui#10859, batch 6). `aliasKeyRefusal` puts the key and its bag
+ * member in front of it: "Did you mean `objectName` → `properties.objectName`?".
+ */
+const OBJECT_GANTT_FLAT_PROP =
+  'An `object-gantt` node takes its props in its `properties` bag, where `@objectstack/spec`\'s '
+  + '`ComponentPropsMap[\'object-gantt\']` row declares them, and its field mapping in the bag\'s `gantt` block: '
+  + 'write `{ "type": "object-gantt", "properties": { "objectName": "…", "gantt": { "startDateField": "…", '
+  + '"endDateField": "…", "titleField": "…" } } }` (objectui#10859). The spec\'s own page component refuses a prop '
+  + 'written on the node as mis-layered (ADR-0089 D3a), so this face and `os validate` agree. Moving it changes '
+  + 'nothing at render time: `SchemaRenderer` hoists every `properties` key onto the node before `ObjectGantt` '
+  + 'reads it.';
+
+/** A member of the spec's `object-gantt` row — a TYPE position, so no boundary crossing. */
+type ObjectGanttRowKey = keyof z.input<typeof SpecObjectGanttPropsSchema>;
+
+/**
+ * The one row member that is ALSO a node-level key of the spec's
+ * `PageComponentSchema` (its display `label`), so a `label` written on the node
+ * is not mis-layered: the spec's page component accepts it, and `BaseSchema`
+ * keeps declaring it here. Every other member of the row written on the node
+ * is refused by the spec's page component as an unrecognized key, and by the
+ * refusals below. `object-gantt-properties-bag-10859-b6.test.ts` re-derives
+ * this split from the installed spec, member by member.
+ */
+type ObjectGanttNodeLevelRowKey = 'label';
+const OBJECT_GANTT_NODE_LEVEL_ROW_KEYS: readonly ObjectGanttNodeLevelRowKey[] = ['label'];
+
+/**
+ * One by-name refusal per member of the spec's `object-gantt` row, keyed by the
+ * row's own key set — read off the row, not transcribed, so a member the spec
+ * adds is refused flat the day it lands and the list cannot fall behind — less
+ * the node-level `label` above.
+ */
+const OBJECT_GANTT_FLAT_PROP_REFUSALS = Object.fromEntries(
+  Object.keys(stripImportedDefaults(SpecObjectGanttPropsSchema).shape)
+    .filter((key) => !(OBJECT_GANTT_NODE_LEVEL_ROW_KEYS as readonly string[]).includes(key))
+    .map((key) => [
+      key,
+      aliasKeyRefusal(key, `properties.${key}`, 'this `object-gantt` node', OBJECT_GANTT_FLAT_PROP),
+    ]),
+) as { [K in Exclude<ObjectGanttRowKey, ObjectGanttNodeLevelRowKey>]-?: ReturnType<typeof aliasKeyRefusal> };
+
+/** A member of the row's `gantt` block — a TYPE position, so no boundary crossing. */
+type ObjectGanttConfigKey = keyof NonNullable<z.input<typeof SpecObjectGanttPropsSchema>['gantt']>;
+
+/**
+ * The flat mirror's `GanttConfig` members (`startDateField`, `viewMode`,
+ * `colorField`, … — the flatten product `getGanttConfig` reads when a node has
+ * no `gantt` block) and its legacy alias `dependencyField`, each refused by name
+ * when written on the authored node and pointed at its home, the bag's `gantt`
+ * block: `properties.gantt.KEY` (`dependencyField` at the canonical
+ * `properties.gantt.dependenciesField`). The key set is the row's own `gantt`
+ * member, read off the crossed row, so it is the block the remedy names.
+ */
+const OBJECT_GANTT_FLAT_CONFIG_REFUSALS = {
+  ...(Object.fromEntries(
+    Object.keys(
+      (stripImportedDefaults(SpecObjectGanttPropsSchema).shape.gantt as unknown as {
+        unwrap(): { shape: Record<string, unknown> };
+      }).unwrap().shape,
+    ).map((key) => [
+      key,
+      aliasKeyRefusal(key, `properties.gantt.${key}`, 'this `object-gantt` node', OBJECT_GANTT_FLAT_PROP),
+    ]),
+  ) as { [K in ObjectGanttConfigKey]-?: ReturnType<typeof aliasKeyRefusal> }),
+  dependencyField: aliasKeyRefusal(
+    'dependencyField',
+    'properties.gantt.dependenciesField',
+    'this `object-gantt` node',
+    OBJECT_GANTT_FLAT_PROP,
+  ),
+};
+
+/**
+ * `object-gantt` — `ComponentPropsMap['object-gantt']`, plus the node's
+ * `dataSource` binding (objectui#10859, batch 6).
+ *
+ * ## Why the arm moved to the bag
+ *
+ * The spec's row is the published declaration of an authored `object-gantt`
+ * node's props, and the spec's strict `PageComponentSchema` refuses a prop
+ * written on the node itself as mis-layered (ADR-0089 D3a). This union used
+ * to arm the node with the flat `ObjectGanttSchema` above, so `objectui
+ * validate` refused the spec-shaped `{ type, properties }` document (its
+ * record-source refinement found no source on the node) and accepted the flat
+ * one `os validate` refuses. The seat's answer at PR objectui#11248's ACCEPT,
+ * inherited from objectui#10872's triage answer A, is this arm: "The
+ * `properties` bag is the contract". `ObjectMapBlockSchema` above is the same
+ * move for `object-map` (batch 5).
+ *
+ * So it is built exactly as `ObjectTimelineBlockSchema` above is: `BaseSchema`
+ * + the `type` literal + `properties`, which IS the row, by reference through
+ * the objectui#8317 import boundary. Like that row, this one carries spec
+ * defaults (inside `data`'s `api` provider), so the boundary hands back a
+ * rebuilt copy with every default removed and every key still omissible. The
+ * row is strict and carries the spec's own refusals: a flat `GanttConfig` key
+ * written in the bag (`properties.startDateField`) is refused there with the
+ * spec's prescription to move it into `gantt`, and so are the `search` pair
+ * and `title`, which the row deliberately leaves out.
+ *
+ * ## The flat spelling is refused by name
+ *
+ * Every member of the row written FLAT on the node is refused on both faces,
+ * with a message naming its bag member (`OBJECT_GANTT_FLAT_PROP_REFUSALS`
+ * above). `data` is also a `BaseSchema` key; here the refusal overrides it,
+ * because the gantt's `data` is the row's member. `label` is the one row member
+ * that stays: the spec's page component declares a node-level `label` of its
+ * own, so a `label` on the node is not mis-layered, and it keeps `BaseSchema`'s
+ * member. The flat mirror's `GanttConfig` members and its `dependencyField`
+ * alias are refused too, pointed at the bag's `gantt` block
+ * (`OBJECT_GANTT_FLAT_CONFIG_REFUSALS` above). A flat key neither the row nor
+ * that block declares — the mirror's `search` / `searchableFields`, which a
+ * list view writes onto the node it composes, among them — is left as every
+ * arm leaves an undeclared key: unjudged by the tolerant face, refused by the
+ * strict one.
+ *
+ * ## The record source, `dataSource` and the content channels
+ *
+ * The record-source rule the flat mirror carries (`77cb489b4`, the maintainer
+ * ruling recorded 2026-09-02) stays on the authored node, read in the bag, as
+ * on `ObjectMapBlockSchema`: `requireRecordSource(…, 'properties')` asks for
+ * one of `properties.data`, `properties.staticData` or
+ * `properties.objectName`, or the node's `dataSource` binding naming its object
+ * (a non-empty `dataSource.object`), which `ElementDataSourceGate` lands on
+ * `objectName` (the registration is `elementDataSourceBlock`-wrapped). So a
+ * node bound only through `dataSource` parses. ⚠️ The spec row is looser here:
+ * it keeps all three optional and adds no such rule, so a node with no source
+ * and no binding passes the spec's own page component and is refused by this
+ * arm, as the flat mirror refused it. The binding itself is the spec's
+ * `ElementDataSourceSchema` by reference, as on the arms above. Neither content
+ * channel is read, so both are refused with the objectui#9256 string the flat
+ * mirror uses.
+ *
+ * ## What did not move
+ *
+ * The TypeScript `ObjectGanttSchema` and its zod mirror above stay published:
+ * they are the node as `ObjectGantt` reads it after the hoist, and as
+ * `ObjectView` / `ListView` compose it when they flatten a stored gantt view. A
+ * composed flat node keeps working, because `SchemaRenderer` reads both
+ * spellings and no composed node passes through `safeValidateSchema`.
+ */
+export const ObjectGanttBlockSchema = BaseSchema.extend({
+  type: z.literal('object-gantt'),
+  ...NODE_ENVELOPE,
+  properties: propsBag('object-gantt', stripImportedDefaults(SpecObjectGanttPropsSchema)),
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
+  ...OBJECT_GANTT_FLAT_PROP_REFUSALS,
+  ...OBJECT_GANTT_FLAT_CONFIG_REFUSALS,
+  // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
+  // kept a MEMBER.
+  body: retirementTombstone(OBJECT_GANTT_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_GANTT_NEITHER_CHANNEL),
+}).superRefine(...requireRecordSource('object-gantt', RECORD_SOURCE_KEYS, 'properties'));
+
+/**
  * The public blocks above, as one arm of `AnyComponentSchema`
- * (objectui#10859, batches 2 to 5).
+ * (objectui#10859, batches 2 to 6).
  *
  * A union of its own rather than more members of `ObjectQLComponentSchema`,
  * deliberately: that union mirrors the TypeScript union in `../objectql.ts`
  * member for member, and the authored node of each block here is declared by
- * the spec row its `properties` member reads, not there. `object-form` and
- * `object-map` are the two with a member there: each TypeScript twin is the
- * node as its renderer reads it after the hoist, not the authored document
- * (batches 4 and 5).
+ * the spec row its `properties` member reads, not there. `object-form`,
+ * `object-map` and `object-gantt` are the spec-row arms with a member there:
+ * each TypeScript twin is the node as its renderer reads it after the hoist,
+ * not the authored document (batches 4 to 6).
  *
  * `object-chart` joined in objectui#11276, the one arm here with NO spec row:
  * `ComponentPropsMap` carries no `object-chart` entry, so its bag is the flat
@@ -4213,4 +4400,5 @@ export const ObjectQLPublicBlockComponentSchema = z.discriminatedUnion('type', [
   ObjectFormBlockSchema,
   ObjectMapBlockSchema,
   ObjectChartBlockSchema,
+  ObjectGanttBlockSchema,
 ]);

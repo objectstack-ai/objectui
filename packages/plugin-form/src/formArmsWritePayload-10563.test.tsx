@@ -78,7 +78,7 @@ const DEAL_SCHEMA = {
   fields: {
     name: { type: 'text', label: 'Name' },
     stage: { type: 'text', label: 'Stage' },
-    total: { type: 'formula', label: 'Total', formula: 'qty * price' },
+    total: { type: 'formula', label: 'Total', expression: 'record.qty * record.price' },
     score: { type: 'number', label: 'Score' },
     owner_id: { type: 'lookup', label: 'Owner', system: true },
     created_by: { type: 'lookup', label: 'Created by', system: true },

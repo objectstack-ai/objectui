@@ -21,11 +21,16 @@
  *    text it no longer shows does not;
  *  - a label-less page falls back to its `pageName` (not an inheriting target);
  *  - CONTROL: an authored label is listed verbatim.
+ *
+ * objectui#11299: an entry label written as an inline locale map is listed —
+ * and matched — in the viewer's language (`useObjectTranslation().language`,
+ * handed to `resolveNavItemLabel` as `locale`), under a real `I18nProvider`.
  */
 
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import React from 'react';
+import { createI18n, I18nProvider } from '@object-ui/i18n';
 
 const url = vi.hoisted(() => ({ search: '' }));
 
@@ -55,6 +60,8 @@ vi.mock('../../providers/MetadataProvider', () => ({
           { id: 'nav_dash', type: 'dashboard', dashboardName: 'sales_overview' },
           { id: 'nav_page', type: 'page', pageName: 'my_page' },
           { id: 'nav_home', type: 'page', pageName: 'home', label: 'Team Home' },
+          // objectui#11299: a present label written as an inline locale map.
+          { id: 'nav_contacts', type: 'object', objectName: 'contact', label: { en: 'Contacts', 'zh-CN': '联系人' } },
         ],
       },
     ],
@@ -106,5 +113,34 @@ describe('objectui#9868 — search lists and matches a label-less nav entry by t
     url.search = 'q=overview';
     render(<SearchResultsPage />);
     expect(screen.getByText('Sales Overview')).toBeTruthy();
+  });
+});
+
+describe('objectui#11299 — search lists and matches a map-labelled entry in the viewer’s language', () => {
+  beforeEach(() => {
+    url.search = '';
+  });
+
+  const inLanguage = (language: string) => (
+    <I18nProvider instance={createI18n({ defaultLanguage: language, detectBrowserLanguage: false })} persistLanguage={false}>
+      <SearchResultsPage />
+    </I18nProvider>
+  );
+
+  it('under zh-CN the entry is listed by its zh-CN text, and a zh-CN query finds it', () => {
+    render(inLanguage('zh-CN'));
+    expect(titles()).toContain('联系人');
+    expect(titles()).not.toContain('Contacts');
+    cleanup();
+
+    url.search = 'q=联系';
+    render(inLanguage('zh-CN'));
+    expect(titles()).toEqual(['联系人']);
+  });
+
+  it('under en the same entry is listed by its en text', () => {
+    render(inLanguage('en'));
+    expect(titles()).toContain('Contacts');
+    expect(titles()).not.toContain('联系人');
   });
 });

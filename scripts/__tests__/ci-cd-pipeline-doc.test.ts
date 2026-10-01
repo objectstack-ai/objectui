@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parse as parseYaml } from 'yaml';
 
 // Plain-JS CI helper; its types are INFERRED from the .mjs source by
 // `tsconfig.scripts.json` (`allowJs`), so no `@ts-expect-error` here — re-adding one
@@ -1942,53 +1943,63 @@ describe('ci-cd-pipeline.md — live-e2e backend pin (#7689)', () => {
 
 /**
  * objectui#8043 — the Half-State Patrol section told readers the sweeper's closed-card reader was
- * "switched **off** here via `PM_SWEEP_CLOSED_WINDOW_PAGES: '0'`". The workflow stopped setting
- * that variable on 2026-08-28: the reader is ON with a dated floor (`PM_SWEEP_CLOSED_FLOOR`), the
- * page window is deliberately absent, and the retired knob survives only in the workflow's header
- * comments as history. So the page sent anyone looking for the switch to a variable nothing sets,
- * and — worse in the direction this page is read — it described a predicate as disabled while it
- * runs four times a day.
+ * "switched **off** here via `PM_SWEEP_CLOSED_WINDOW_PAGES: '0'`". The workflow had stopped setting
+ * that variable on 2026-08-28: the reader was ON with a dated floor, the page window deliberately
+ * absent, and the retired knob survived only in the workflow's header comments as history. So the
+ * page sent anyone looking for the switch to a variable nothing set, and — worse in the direction
+ * this page is read — it described a predicate as disabled while it ran four times a day.
  *
  * The `workflow inventory` block above cannot see this: it matches filenames in headings and in
  * the inventory table's first column, so a
  * false sentence *inside* a documented section is exactly the drift it is blind to (objectui#7852
  * says so in as many words). This block closes that gap for the one thing on this page that names
- * the sweeper's wiring by identifier.
+ * the patrol's wiring by identifier.
  *
- * ⛔ The comparison reads the workflow's `env:` KEYS, never the file as text. A whole-file grep
- * would find `PM_SWEEP_CLOSED_WINDOW_PAGES` in the workflow's header comment and accept the very
- * sentence this block exists to reject — the retired knob is *discussed* there precisely because
- * it is retired. `envKeysOf` below is unit-controlled against that shape.
+ * objectui#11174 MOVED that wiring, and this block moved with it. The workflow no longer sets the
+ * sweeper's environment itself: it calls objectstack's composite action at a pinned sha and
+ * configures it through that one step's `with:` INPUTS, which the action maps onto the sweeper
+ * upstream. So the comparison is now the section against those inputs — the only place this
+ * install records its wiring. The `PM_SWEEP_*` names the section still carries belong to its
+ * hand-run recipe, which is the sweeper's own interface and not a setting of this workflow, and are
+ * deliberately not read here.
+ *
+ * ⛔ The workflow side is the patrol step's `with:` mapping, PARSED, never the file as text: the
+ * workflow's header argues about inputs (that is where the no-anchor opt-in is explained), and a
+ * whole-file grep would accept a section naming any of them. `patrolStepOf` below is
+ * unit-controlled against that shape.
+ *
+ * ⚠️ The page side is a heuristic, stated so it is not mistaken for a parser: the section's
+ * backticked kebab-case tokens, which is how an action input is spelled. A future backticked
+ * kebab-case word in this section that is NOT an input reads as a phantom below, and the failure
+ * says so — rephrase it, or teach `inputsNamedIn` the difference.
  */
 const HALF_STATE_WORKFLOW = 'half-state-patrol.yml';
 
+/** The action every half-state install calls, up to the `@` that begins its ref. */
+const PATROL_ACTION = 'objectstack-ai/objectstack/.github/actions/half-state-patrol';
+
+type PatrolStep = { ref: string; inputs: Map<string, unknown> };
+
 /**
- * Every key of every `env:` mapping in a workflow — i.e. the variables the workflow actually SETS.
- *
- * Whole-line comments go first (`withoutComments`), and only children at exactly `env:`'s
- * indentation + 2 are read, so the continuation lines of a folded scalar (`PROVENANCE: >-` runs to
- * three of them here) cannot be mistaken for further keys.
+ * The step of a workflow that calls the patrol action: its ref, and its `with:` inputs as the YAML
+ * parser reads them (so `true` is a boolean and `''` an empty string, exactly as the runner gets
+ * them before it stringifies). `undefined` when no step calls the action — which every assertion
+ * below treats as a failure in its own right, never as "nothing to compare".
  */
-function envKeysOf(yaml: string): Set<string> {
-  const keys = new Set<string>();
-  const lines = withoutComments(yaml).split('\n');
-
-  lines.forEach((line, index) => {
-    const opener = line.match(/^(\s*)env:\s*$/);
-    if (!opener) return;
-    const openIndent = opener[1].length;
-
-    for (const child of lines.slice(index + 1)) {
-      if (child.trim() === '') continue;
-      const indent = child.match(/^\s*/)![0].length;
-      if (indent <= openIndent) break;
-      if (indent !== openIndent + 2) continue;
-      const key = child.match(/^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:/);
-      if (key) keys.add(key[1]);
+function patrolStepOf(yaml: string): PatrolStep | undefined {
+  type Step = { uses?: unknown; with?: Record<string, unknown> | null };
+  type Job = { steps?: Step[] };
+  const parsed = parseYaml(yaml) as { jobs?: Record<string, Job> } | null;
+  for (const job of Object.values(parsed?.jobs ?? {})) {
+    for (const step of job?.steps ?? []) {
+      if (typeof step?.uses !== 'string' || !step.uses.startsWith(`${PATROL_ACTION}@`)) continue;
+      return {
+        ref: step.uses.slice(PATROL_ACTION.length + 1),
+        inputs: new Map(Object.entries(step.with ?? {})),
+      };
     }
-  });
-
-  return keys;
+  }
+  return undefined;
 }
 
 /** The page section headed by `<heading> (`<file>`)`, up to the next heading at that level or above. */
@@ -2002,103 +2013,179 @@ function sectionForWorkflow(file: string): string {
   return (next === -1 ? after : after.slice(0, next)).join('\n');
 }
 
-const SWEEP_NAME = /PM_SWEEP_[A-Z0-9_]+/g;
+/**
+ * The action inputs a piece of prose names: backticked kebab-case tokens, alone or as the key of a
+ * backticked `name: value`. Dotted file names, slash paths and `word:word` labels are not this
+ * shape, so they drop out on their own.
+ */
+function inputsNamedIn(prose: string): string[] {
+  const names = new Set<string>();
+  for (const m of prose.matchAll(/`([a-z][a-z0-9]*(?:-[a-z0-9]+)+)(?::\s[^`]*)?`/g)) names.add(m[1]);
+  return [...names].sort();
+}
 
-describe('ci-cd-pipeline.md — Half-State Patrol sweeper wiring (#8043)', () => {
+describe('ci-cd-pipeline.md — Half-State Patrol wiring (#8043, objectui#11174)', () => {
   const section = sectionForWorkflow(HALF_STATE_WORKFLOW);
-  const set = [...envKeysOf(readWorkflow(HALF_STATE_WORKFLOW))].filter((k) => k.startsWith('PM_SWEEP_')).sort();
-  const named = [...new Set([...section.matchAll(SWEEP_NAME)].map((m) => m[0]))].sort();
+  const step = patrolStepOf(readWorkflow(HALF_STATE_WORKFLOW));
+  const passed = [...(step?.inputs.keys() ?? [])].sort();
+  const named = inputsNamedIn(section);
 
   it('has both sides to compare — neither may be empty', () => {
-    // The vacuity legs. Each of the three below has a failure mode that renders the comparison
-    // green while checking nothing, and each fails silently: a renamed heading empties the
-    // section, a restructured `env:` empties the workflow side, and a rewrite that drops every
-    // identifier leaves the page describing the wiring without naming any of it.
+    // The vacuity legs. Each has a failure mode that renders the comparisons below green while
+    // checking nothing, and each fails silently: a renamed heading empties the section, a step
+    // that stopped calling the action (or moved its inputs) empties the workflow side, and a
+    // rewrite that drops every input name leaves the page describing the wiring without naming it.
     expect(
       section,
       `No heading on the page names \`${HALF_STATE_WORKFLOW}\`, so this block has no section to ` +
-        'read and its comparison below would pass vacuously. The `workflow inventory` block ' +
+        'read and its comparisons below would pass vacuously. The `workflow inventory` block ' +
         'requires that heading to exist; if it moved, teach `sectionForWorkflow` where it went.',
     ).not.toBe('');
 
     expect(
-      set,
-      `${HALF_STATE_WORKFLOW} sets no \`PM_SWEEP_*\` variable in any \`env:\` block. Either the ` +
-        'wiring moved out of `env:` — in which case `envKeysOf` is reading the wrong thing and ' +
-        'every name on the page would now be reported as a phantom — or the sweeper is no longer ' +
-        'called with any of it, and this section is describing a configuration that is gone.',
+      step,
+      `${HALF_STATE_WORKFLOW} has no step whose \`uses:\` calls ${PATROL_ACTION}. Either the ` +
+        'patrol stopped calling the action — and the section describes a configuration that is ' +
+        'gone — or the reference changed shape and `patrolStepOf` is reading the wrong thing.',
+    ).toBeDefined();
+
+    expect(
+      passed,
+      `The patrol step in ${HALF_STATE_WORKFLOW} passes no \`with:\` input at all, so the ` +
+        "comparisons below have nothing on the workflow side. The action's `github-token` is " +
+        'required, so a step with no inputs cannot run — this is the reader failing, not the ' +
+        'configuration emptying.',
     ).not.toEqual([]);
 
     expect(
       named,
-      'The Half-State Patrol section names no `PM_SWEEP_*` variable at all. The reader needs at ' +
-        'least the closure floor: it is the one thing about this install that is not the ' +
-        "sweeper's own default, and a section that omits it sends the next reader to the upstream " +
-        'script for behaviour that is decided in the workflow (objectui#8043).',
+      'The Half-State Patrol section names no action input at all. The reader needs at least ' +
+        "the closure floor and the anchor opt-in: they are the things about this install that " +
+        "are not the action's own defaults (objectui#8043, objectui#8740).",
     ).not.toEqual([]);
   });
 
-  it('reads the workflow\'s env keys, not the file as text', () => {
-    // The control for the paragraph above: a commented-out key is HISTORY, and a whole-file grep
-    // cannot tell it from a setting. That is not hypothetical here — it is the exact shape of
-    // `half-state-patrol.yml`'s header, and it is why the wrong sentence survived.
+  it("reads the patrol step's parsed inputs, not the file as text", () => {
+    // The control for the docblock above. A commented-out input is HISTORY, a folded scalar's body
+    // is a VALUE, and another step's `with:` is another action's — a text scan cannot tell any of
+    // the three from the patrol's own wiring.
     const specimen = [
       'jobs:',
       '  patrol:',
       '    steps:',
-      '      - name: sweep',
-      '        env:',
-      "          # PM_SWEEP_RETIRED: '0'  — read this until the cutover; history, not a setting",
-      "          PM_SWEEP_LIVE: 'x'",
-      '          FOLDED: >-',
-      '            PM_SWEEP_NOT_A_KEY: still just prose',
+      '      - uses: actions/setup-node@v7',
+      '        with:',
+      "          node-version: '22'",
+      `      - uses: ${PATROL_ACTION}@${'a'.repeat(40)}`,
+      '        with:',
+      "          # retired-input: '0'  — read until the cutover; history, not a setting",
+      "          closed-floor: '2026-08-28'",
+      '          folded: >-',
+      '            not-a-key: still just prose',
       '',
     ].join('\n');
 
-    expect([...envKeysOf(specimen)].sort()).toEqual(['FOLDED', 'PM_SWEEP_LIVE']);
+    const read = patrolStepOf(specimen);
+    expect(read?.ref).toBe('a'.repeat(40));
+    expect([...(read?.inputs.keys() ?? [])].sort()).toEqual(['closed-floor', 'folded']);
+    expect(patrolStepOf(specimen.replace(PATROL_ACTION, 'someone/else/.github/actions/x'))).toBeUndefined();
+    // And the page-side reader: an input, an input with its value, and the three shapes that are
+    // not inputs and must drop out.
+    expect(
+      inputsNamedIn("`closed-floor` · `anchor-optional: true` · `x.yml` · `a/b-c` · `pm:dispatched`"),
+    ).toEqual(['anchor-optional', 'closed-floor']);
   });
 
-  it('names only variables the workflow actually sets', () => {
-    const phantom = named.filter((name) => !set.includes(name));
+  it('names only inputs the workflow actually passes', () => {
+    const phantom = named.filter((name) => !passed.includes(name));
 
     expect(
       phantom,
-      'The Half-State Patrol section names these `PM_SWEEP_*` variables:\n' +
+      'The Half-State Patrol section names these action inputs:\n' +
         phantom.map((n) => `  - ${n}`).join('\n') +
-        `\n\n…and \`${HALF_STATE_WORKFLOW}\` sets none of them. What it does set is:\n` +
-        set.map((n) => `  - ${n}`).join('\n') +
-        '\n\nA reader who goes looking for the knob the page names finds a variable nothing ' +
-        'assigns, and — the expensive direction — believes whatever the page says that knob is ' +
-        'doing. That is objectui#8043 verbatim: the page claimed the closed-card reader was ' +
-        "switched off by `PM_SWEEP_CLOSED_WINDOW_PAGES: '0'` for the eight days after the " +
-        'workflow stopped setting it, while the reader ran four times a day. Fix the page ' +
-        'against the workflow, not the other way round: the `env:` block and the header ' +
-        'divergence list are where this install records its wiring.',
+        `\n\n…and the patrol step in \`${HALF_STATE_WORKFLOW}\` passes none of them. What it does ` +
+        'pass is:\n' +
+        passed.map((n) => `  - ${n}`).join('\n') +
+        '\n\nA reader who goes looking for the knob the page names finds an input nothing sets, ' +
+        'and — the expensive direction — believes whatever the page says that knob is doing. ' +
+        "That is objectui#8043's shape, one wiring later. Fix the page against the workflow: the " +
+        "patrol step's `with:` block is where this install records its wiring. (If the token is " +
+        'a backticked kebab-case word that is not an input at all, see this block\'s docblock.)',
     ).toEqual([]);
   });
 
-  it('quotes the closure floor the sweep step is actually given', () => {
-    const floor = withoutComments(readWorkflow(HALF_STATE_WORKFLOW)).match(
-      /^\s*PM_SWEEP_CLOSED_FLOOR:\s*'([^']+)'\s*$/m,
-    )?.[1];
+  it('names every input the workflow passes', () => {
+    const missing = passed.filter((name) => !named.includes(name));
 
     expect(
-      floor,
-      '`PM_SWEEP_CLOSED_FLOOR` is no longer set to a quoted literal in ' +
+      missing,
+      `The patrol step in \`${HALF_STATE_WORKFLOW}\` passes these inputs and the Half-State ` +
+        'Patrol section never names them:\n' +
+        missing.map((n) => `  - ${n}`).join('\n') +
+        "\n\nThe section presents the step's inputs as the whole of this install's configuration, " +
+        'so an input it omits is a setting a reader cannot learn from this page exists.',
+    ).toEqual([]);
+  });
+
+  it('quotes the closure floor the step is actually given', () => {
+    const floor = step?.inputs.get('closed-floor');
+
+    expect(
+      typeof floor === 'string' && floor !== '' ? floor : undefined,
+      '`closed-floor` is no longer passed to the patrol action as a non-empty value in ' +
         `${HALF_STATE_WORKFLOW}. If the floor was removed, the closed-card reader now judges the ` +
-        'whole window and the section above is wrong in the other direction; if it merely moved ' +
-        'to an expression, this assertion needs to read it from wherever the value now lives.',
+        'whole window and the section is wrong in the other direction; if it merely moved to an ' +
+        'expression, this assertion needs to read it from wherever the value now lives.',
     ).toBeDefined();
 
-    expect(named, 'the section must keep naming the floor variable').toContain('PM_SWEEP_CLOSED_FLOOR');
+    expect(named, 'the section must keep naming the floor input').toContain('closed-floor');
 
     expect(
       section,
-      `The workflow floors H22 at ${floor}, and the Half-State Patrol section does not say so. ` +
-        'The date is the whole of the divergence — it is what separates "the reader is off" from ' +
-        '"the reader judges everything closed since the convention started" — so a page that ' +
-        'names the variable without its value tells a reader nothing they can check.',
-    ).toContain(floor!);
+      `The workflow floors the closed-card reader at ${String(floor)}, and the Half-State Patrol ` +
+        'section does not say so. The date is the whole of the decision — it is what separates ' +
+        '"the reader is off" from "the reader judges everything closed since the convention ' +
+        'started" — so a page that names the input without its value tells a reader nothing they ' +
+        'can check.',
+    ).toContain(String(floor));
+  });
+
+  it('describes the anchor configuration the step actually passes (objectui#8740)', () => {
+    // The section says this board has NO anchor issue and that this is declared, not omitted.
+    // Both halves of that declaration are read off the step: an anchor number passed here, or the
+    // opt-in dropped, makes the section's account of where the findings go false.
+    const anchor = step?.inputs.get('anchor-issue');
+    const optional = step?.inputs.get('anchor-optional');
+
+    expect(
+      { anchor, optional: String(optional) },
+      `The patrol step in ${HALF_STATE_WORKFLOW} no longer passes an empty \`anchor-issue\` ` +
+        'beside `anchor-optional: true`. The Half-State Patrol section tells readers this board ' +
+        'has no anchor issue by decision and that its findings live in run summaries ' +
+        '(objectui#8740, objectstack-ai/objectstack#20793 decision A). If an anchor was ' +
+        'configured — which reverses the maintainer\'s decline on objectui#7852 — rewrite that ' +
+        'part of the section with it; if the opt-in was dropped, every scheduled run is now red.',
+    ).toEqual({ anchor: '', optional: 'true' });
+
+    expect(section).toContain('`anchor-optional: true`');
+    expect(named).toContain('anchor-issue');
+  });
+
+  it('pins the action to a 40-character sha, as the section says — never a branch', () => {
+    // The half of the pin ruling no other check holds. The Action Ref Convention gate's
+    // exception for this reference is matched by workflow and action, not by spelling, so
+    // `@main` in place of the sha would pass that gate untouched.
+    expect(
+      step?.ref,
+      `${HALF_STATE_WORKFLOW} calls ${PATROL_ACTION} at \`@${step?.ref}\`, which is not a ` +
+        "40-character commit sha. A sibling board pins the action to a sha and never to `@main` " +
+        '(objectstack-ai/objectstack#18471): `@main` adopts every upstream change on the next ' +
+        'run with no reviewed moment and nothing to roll back to. To bump the pin, take ' +
+        "objectstack `main`'s tip as read at that moment and record it in the pull request.",
+    ).toMatch(/^[0-9a-f]{40}$/);
+
+    expect(section).toContain('40-character objectstack commit sha');
+    expect(section).toContain('never `@main`');
   });
 });
 
@@ -3504,6 +3591,14 @@ const SWEEP_DECLARED_NON_RUN_COMMANDS = new Map<string, string>([
       "`--self-test` and bare invocations the job runs. The section offers it as the local " +
       'reproduction spelling and names the raw `--test` spelling beside it. ⛔ Whether such an ' +
       'alias should ever merge is a decision about the RULE — reported, not taken here.',
+  ],
+  [
+    'half-state-patrol.yml: scripts/pm/check-half-states.mjs',
+    "objectstack's sweeper, in objectstack's tree — no such file exists in this one. The section " +
+      'names it as what the pinned objectstack action runs, and again in the hand-run recipe a ' +
+      'seat types inside an objectstack checkout. ⚠️ Dual-eligible: since objectui#11174 this ' +
+      'job has no `run:` step at all (its work is the `uses:` of that action), so the rule reads ' +
+      'no command on the workflow side either.',
   ],
   [
     'hook-selftests.yml: scripts/dependabot-merge-gate.mjs',

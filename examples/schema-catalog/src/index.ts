@@ -4053,8 +4053,8 @@ const REGISTRY: Record<string, Example> = {
   'plugin-dashboard/filtered-dashboard-dataset-widgets': {
     id: 'plugin-dashboard/filtered-dashboard-dataset-widgets',
     meta: {
-      title: "Filtered Dashboard — Dataset + Inline Widgets",
-      description: "Dashboard filters scoping dataset-bound widgets (via the dataset query's runtimeFilter) alongside an inline widget",
+      title: "Filtered Dashboard — Widgets Over Two Datasets",
+      description: "Dashboard filters scoping widgets bound to two different datasets, each through its own dataset query's runtimeFilter",
       category: 'plugin-dashboard',
     },
     schema: plugin_dashboard_filtered_dashboard_dataset_widgets,

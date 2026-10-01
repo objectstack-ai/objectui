@@ -10,7 +10,12 @@
  */
 
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
-import { SchemaRenderer, notifyDataChanged, useAdapter } from '@object-ui/react';
+import {
+  SchemaRenderer,
+  notifyDataChanged,
+  useAdapter,
+  RelatedRecordActionsProvider,
+} from '@object-ui/react';
 import { Empty, EmptyTitle, EmptyDescription, Spinner } from '@object-ui/components';
 import { FileText, Pencil } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
@@ -22,6 +27,7 @@ import { preferLocal } from '../utils/preferLocal.js';
 import { ConsoleActionRuntimeProvider } from '../hooks/useConsoleActionRuntime.js';
 import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
 import { InterfaceListPage } from './InterfaceListPage.js';
+import { pageRecordActionsValue } from './pageRecordActions.js';
 
 /**
  * After a successful page-level action, declare the change on the
@@ -108,6 +114,10 @@ export function PageView() {
     if (!canEditInStudio) return;
     navigate(`/apps/${appName}/metadata/page/${encodeURIComponent(pageName!)}`);
   };
+  // The record navigator the page's blocks open a record through
+  // (objectui#11293). Not memoised: the schema below is rebuilt on every
+  // render too, and nothing may rest on this object's identity (AGENTS.md #10).
+  const pageRecordActions = pageRecordActionsValue(appName, (objects ?? []) as unknown[], navigate);
 
   return (
     // Mount the shared console action runtime so page-level `action:button`s can
@@ -139,47 +149,49 @@ export function PageView() {
             // curated list surface — rendered directly, not via regions.
             <InterfaceListPage page={page} reserveEditAffordance={canEditInStudio} />
           ) : (
-            <SchemaRenderer
-              schema={{
-                ...page,
-                // `type` stays the SchemaNode discriminator ComponentRegistry
-                // dispatches on. The spec's page KIND (`record|home|app|utility|
-                // list`) rides `pageType`, which PageRenderer reads — without
-                // this mapping every page fell back to `pageType: 'record'`,
-                // so non-record pages got the record max-width, a wrong
-                // `data-page-type` and a suppressed header (framework#1878 §3
-                // naming-drift recheck).
-                //
-                // ⭐ This is the WRITING end of the page-kind to node-type
-                // channel, and a comment here was not enough: two cards audited
-                // the READING end and concluded the registrations it feeds were
-                // undeclared (objectui#9263, re-ruled letter E "⛔ not a
-                // defect", and objectui#9576). The channel is now declared at
-                // both reading ends — `@object-ui/types`' `SchemaRegistry` map
-                // at its `'page'` entry, and the `PageRenderer` registrations in
-                // `@object-ui/components`. Each END is pinned by a DIFFERENT
-                // file, because no one package can import both.
-                //
-                // ⛔ Change this mapping and `page-kind-writing-end-9718`, in
-                // this package's `views/__tests__`, goes red by design and names
-                // the kind that stopped being written (objectui#9718): it is the
-                // declaration, not an incidental assertion.
-                //
-                // ⚠️ The reading end's pin — `page-kind-node-type-channel-9642`
-                // (objectui#9642) — does NOT answer for this line. It lives in
-                // `@object-ui/components`, which does not depend on this
-                // package, so its module graph cannot reach this file: gutting
-                // this mapping leaves it green, and deleting a registration
-                // turns it red. Both directions were measured on objectui#9718.
-                type: (page as any).type || 'page',
-                pageType: (page as any).type,
-                // `context` is built here, never read off the page: `PageSchema`
-                // refuses a page-level `context` key, so no parsed page can
-                // carry one (objectui#9673). Written after `...page`, it also
-                // overrides whatever an unparsed document smuggled in.
-                context: { params },
-              }}
-            />
+            <RelatedRecordActionsProvider value={pageRecordActions}>
+              <SchemaRenderer
+                schema={{
+                  ...page,
+                  // `type` stays the SchemaNode discriminator ComponentRegistry
+                  // dispatches on. The spec's page KIND (`record|home|app|utility|
+                  // list`) rides `pageType`, which PageRenderer reads — without
+                  // this mapping every page fell back to `pageType: 'record'`,
+                  // so non-record pages got the record max-width, a wrong
+                  // `data-page-type` and a suppressed header (framework#1878 §3
+                  // naming-drift recheck).
+                  //
+                  // ⭐ This is the WRITING end of the page-kind to node-type
+                  // channel, and a comment here was not enough: two cards audited
+                  // the READING end and concluded the registrations it feeds were
+                  // undeclared (objectui#9263, re-ruled letter E "⛔ not a
+                  // defect", and objectui#9576). The channel is now declared at
+                  // both reading ends — `@object-ui/types`' `SchemaRegistry` map
+                  // at its `'page'` entry, and the `PageRenderer` registrations in
+                  // `@object-ui/components`. Each END is pinned by a DIFFERENT
+                  // file, because no one package can import both.
+                  //
+                  // ⛔ Change this mapping and `page-kind-writing-end-9718`, in
+                  // this package's `views/__tests__`, goes red by design and names
+                  // the kind that stopped being written (objectui#9718): it is the
+                  // declaration, not an incidental assertion.
+                  //
+                  // ⚠️ The reading end's pin — `page-kind-node-type-channel-9642`
+                  // (objectui#9642) — does NOT answer for this line. It lives in
+                  // `@object-ui/components`, which does not depend on this
+                  // package, so its module graph cannot reach this file: gutting
+                  // this mapping leaves it green, and deleting a registration
+                  // turns it red. Both directions were measured on objectui#9718.
+                  type: (page as any).type || 'page',
+                  pageType: (page as any).type,
+                  // `context` is built here, never read off the page: `PageSchema`
+                  // refuses a page-level `context` key, so no parsed page can
+                  // carry one (objectui#9673). Written after `...page`, it also
+                  // overrides whatever an unparsed document smuggled in.
+                  context: { params },
+                }}
+              />
+            </RelatedRecordActionsProvider>
           )}
         </div>
         <MetadataPanel

@@ -87,6 +87,7 @@ import {
   ObjectTimelinePropsSchema as SpecObjectTimelinePropsSchema,
   ObjectFormPropsSchema as SpecObjectFormPropsSchema,
   ObjectMapPropsSchema as SpecObjectMapPropsSchema,
+  ObjectGanttPropsSchema as SpecObjectGanttPropsSchema,
   // objectui#10872 — the `ComponentPropsMap` rows the public-block arms read.
   PageHeaderProps as SpecPageHeaderProps,
   PageTabsProps as SpecPageTabsProps,
@@ -270,6 +271,11 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // objectui#10859 batch 5: the `object-map` arm's `properties` is its row,
   // crossed the same way, and its key set is read off the crossed copy too.
   ['ObjectMapPropsSchema', SpecObjectMapPropsSchema],
+  // objectui#10859 batch 6: the `object-gantt` arm's `properties` is its row,
+  // crossed the same way; the row's key set, and its `gantt` block's, are read
+  // off the crossed copy too. This row carries defaults (`data`'s `api`
+  // provider), so the boundary returns a rebuilt copy.
+  ['ObjectGanttPropsSchema', SpecObjectGanttPropsSchema],
   // objectui#10872: each ADR-0080 public-block arm's `properties` is the
   // block's `ComponentPropsMap` row, crossed through this boundary, so every
   // row is measured here like every other crossing (`page:section`,

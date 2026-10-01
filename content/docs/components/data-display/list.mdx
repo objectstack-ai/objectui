@@ -9,7 +9,9 @@ description: "Display a list of items"
 
 ## Schema
 
-```plaintext
+```ts
+import type { SchemaNode } from '@object-ui/types';
+
 interface ListSchema {
   type: 'list';
   items: SchemaNode[];

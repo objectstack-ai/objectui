@@ -614,6 +614,32 @@ describe('chunk attribution (objectui#7399)', () => {
       },
     );
 
+    /**
+     * objectui#11101 — the same blind spot one option over. Every case above
+     * asks which group's `test` CLAIMS a module id, and `vendor-objectstack`'s
+     * test claims `@objectstack/spec`'s `/ai` and `/integration` entries as
+     * readily as `/ui`. Whether a claimed module is EAGER is not a property of
+     * the test at all: the group's chunk is a static import of the entry, so it
+     * is eager whatever the source does — which is how two spec entries that
+     * only the designers' client validation reaches, through `import()` in
+     * `clientValidation.ts`, were on every page load. `tags: ['$initial']`
+     * restricts the group to the entry's static closure.
+     *
+     * ⚠️ This pins the group TABLE. What the tag bought is weighed on a real
+     * console build by `scripts/check-eager-closure-budget.mjs`, whose lowered
+     * ceiling reds when the tag goes; neither substitutes for the other.
+     */
+    it('narrows `vendor-objectstack` to the entry`s static closure, so an `import()` stays lazy', () => {
+      const group = groups.find((g) => g.name === 'vendor-objectstack');
+      expect(group).toBeDefined();
+      expect(group!.options).toContain(`tags: ['$initial']`);
+      // The control: the parse reads the tag off THIS group, not off every
+      // group — a tail-blind or table-wide match would satisfy the line above.
+      expect(groups.filter((g) => g.options.includes('$initial')).map((g) => g.name)).toEqual([
+        'vendor-objectstack',
+      ]);
+    });
+
     it('leaves no second claimant at the winner`s priority', () => {
       for (const id of [LOCALE_MODULE, RESIDENT_LOCALE_MODULE, DATA_MODULE, ZOD_MODULE]) {
         const claiming = claimants(id);
@@ -780,9 +806,10 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
     // down to 3060.0 when lucide's 1,781-icon record left it, objectui#10996 UP
     // to 3104.5 on the authorised re-pin over `main`'s own drift, objectui#11073
     // UP to 3563.2 on the ruled raise for `@objectstack/*` 17.5.0,
-    // objectui#11088 decision 1 = A) — a rendering derived in the test would
-    // agree with the renderer by construction and pin nothing.
-    expect(result.message).toContain('3563.2');
+    // objectui#11088 decision 1 = A, objectui#11101 down to 3552.8 on the first
+    // payback of that raise) — a rendering derived in the test would agree with
+    // the renderer by construction and pin nothing.
+    expect(result.message).toContain('3552.8');
   });
 
   it('is exactly one regression wide, from either side of the line', () => {
@@ -1612,7 +1639,7 @@ describe('main', () => {
     // about the FIXTURE while the gate under test behaved correctly. The number
     // this case is actually about is "the report's chunk count, echoed".
     expect(outputs.closure_chunks).toBe(String(fixture.files.length));
-    expect(outputs.closure_gzip_kb).toBe('3563.2');
+    expect(outputs.closure_gzip_kb).toBe('3552.8');
   });
 
   it('exits 1 — a verdict about the BUNDLE — when over budget', () => {
@@ -1759,9 +1786,22 @@ describe('main', () => {
    * maintainer retired that leg (the ruling is quoted in this file's header
    * and in the checker's), so the same fixture is now a pass — and the
    * over-by-one fixture below is what proves the budget did not leave with it.
+   *
+   * ⚠️ Both fixtures hold the AGGREGATE at `BASELINE`: the bytes `framework`
+   * gains come out of the rest of the closure. "Every size line in the file
+   * was satisfied" has to hold by construction, not by which headroom happens
+   * to be wider. It used to hold by the latter, and objectui#11101 ended that:
+   * the first payback of the 17.5.0 raise lowered the aggregate line by
+   * exactly what it recovered, which left the aggregate's constant headroom
+   * narrower than `framework`'s, so growing `framework` to its line on top of
+   * an unchanged rest crossed the AGGREGATE line first, and this pair is about
+   * the per-chunk one.
    */
+  const frameworkAt = (bytes: number) =>
+    budgeted({ framework: bytes }, PER_CHUNK_BASELINE.framework - bytes);
+
   it('exits 0 when a chunk sits just UNDER its ceiling — merely close is not a verdict', () => {
-    const { code, outputs } = run(budgeted({ framework: PER_CHUNK_GZIP_CEILINGS.framework - 1 }));
+    const { code, outputs } = run(frameworkAt(PER_CHUNK_GZIP_CEILINGS.framework - 1));
     expect(code).toBe(0);
     expect(outputs.closure_status).toBe('pass');
     expect(outputs.closure_chunk_status).toBe('pass');
@@ -1781,7 +1821,7 @@ describe('main', () => {
    * removed".
    */
   it('still exits 1 when that same chunk goes OVER the same ceiling — the budget stays', () => {
-    const { code, outputs } = run(budgeted({ framework: PER_CHUNK_GZIP_CEILINGS.framework + 1 }));
+    const { code, outputs } = run(frameworkAt(PER_CHUNK_GZIP_CEILINGS.framework + 1));
     expect(code).toBe(1);
     expect(outputs.closure_status).toBe('pass');
     expect(outputs.closure_chunk_status).toBe('fail');
@@ -2576,9 +2616,10 @@ describe('the prose attached to the baselines (objectui#7046)', () => {
    * enough to accept both shapes would stop recording anything.
    *
    * objectui#10996 is the first re-baseline to meet it, and re-pinned it to the
-   * shape it left: `squashMerge` null, one commit carried. ⛔ Still exact and
-   * positional — a back-fill of the squash reds here again, and is re-pinned to
-   * two strings the same way.
+   * shape it left: `squashMerge` null, one commit carried. objectui#11073 and
+   * objectui#11101 each re-pinned the constant onto a branch tip of their own
+   * and left the same shape. ⛔ Still exact and positional — a back-fill of the
+   * squash reds here again, and is re-pinned to two strings the same way.
    */
   it('records what each baseline carries as data, so the pin cannot go vacuous', () => {
     expect(commitsCarriedBy(BASELINE)).toEqual([BASELINE.commit]);

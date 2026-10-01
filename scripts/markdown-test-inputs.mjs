@@ -205,6 +205,11 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', '.turbo', 'coverage',
  *              something else, and says what.
  */
 export const ADJUDICATED = new Map([
+  // objectui#11165. Evaluates the guide's "customize only the header" fence, so an edit to that page is an edit to this test's input.
+  [
+    'examples/schema-catalog/test/slotted-pages-header-example-11165.test.ts',
+    { reads: ['content/docs/guide/slotted-pages.md'] },
+  ],
   [
     'packages/app-shell/src/views/metadata-admin/previews/readme-flow-canvas-draft.test.ts',
     { reads: ['packages/app-shell/README.md'] },

@@ -57,21 +57,33 @@ The `@object-ui/plugin-gantt` plugin provides Gantt chart visualization for Obje
 
 ## Usage
 
+An `object-gantt` node takes its props in its `properties` bag, whose members are
+`@objectstack/spec`'s `ComponentPropsMap['object-gantt']` row, and its field
+mapping in the bag's `gantt` block. `objectui validate` judges the bag against that
+row and refuses a prop written flat on the node by name, naming its bag member
+(`Did you mean objectName → properties.objectName?`, or
+`startDateField → properties.gantt.startDateField` for a field-mapping key), as the
+spec's own page component does (objectui#10859). `SchemaRenderer` hoists the bag
+onto the node before `ObjectGantt` runs, so `ObjectGanttSchema` is the node as the
+renderer reads it, and as code composes it.
+
 ### Basic Usage with ObjectQL
 
 ```tsx
 import '@object-ui/plugin-gantt'
-import type { ObjectGanttSchema } from '@object-ui/types'
+import type { BaseSchema } from '@object-ui/types'
 
-const schema: ObjectGanttSchema = {
+const schema: BaseSchema = {
   type: 'object-gantt',
-  objectName: 'tasks',  // Your ObjectQL object
-  gantt: {
-    startDateField: 'startDate',
-    endDateField: 'endDate',
-    titleField: 'taskName',
-    progressField: 'completion',
-    dependenciesField: 'dependencies'
+  properties: {
+    objectName: 'tasks',  // Your ObjectQL object
+    gantt: {
+      startDateField: 'startDate',
+      endDateField: 'endDate',
+      titleField: 'taskName',
+      progressField: 'completion',
+      dependenciesField: 'dependencies'
+    }
   }
 }
 ```
@@ -79,41 +91,43 @@ const schema: ObjectGanttSchema = {
 ### With Static Data
 
 ```tsx
-import type { ObjectGanttSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const schema: ObjectGanttSchema = {
+const schema: BaseSchema = {
   type: 'object-gantt',
-  staticData: [
-    {
-      id: 1,
-      taskName: 'Design Phase',
-      startDate: '2024-01-01',
-      endDate: '2024-01-15',
-      completion: 100
-    },
-    {
-      id: 2,
-      taskName: 'Development',
-      startDate: '2024-01-16',
-      endDate: '2024-02-28',
-      completion: 60,
-      dependencies: [1]
-    },
-    {
-      id: 3,
-      taskName: 'Testing',
-      startDate: '2024-03-01',
-      endDate: '2024-03-15',
-      completion: 0,
-      dependencies: [2]
+  properties: {
+    staticData: [
+      {
+        id: 1,
+        taskName: 'Design Phase',
+        startDate: '2024-01-01',
+        endDate: '2024-01-15',
+        completion: 100
+      },
+      {
+        id: 2,
+        taskName: 'Development',
+        startDate: '2024-01-16',
+        endDate: '2024-02-28',
+        completion: 60,
+        dependencies: [1]
+      },
+      {
+        id: 3,
+        taskName: 'Testing',
+        startDate: '2024-03-01',
+        endDate: '2024-03-15',
+        completion: 0,
+        dependencies: [2]
+      }
+    ],
+    gantt: {
+      startDateField: 'startDate',
+      endDateField: 'endDate',
+      titleField: 'taskName',
+      progressField: 'completion',
+      dependenciesField: 'dependencies'
     }
-  ],
-  gantt: {
-    startDateField: 'startDate',
-    endDateField: 'endDate',
-    titleField: 'taskName',
-    progressField: 'completion',
-    dependenciesField: 'dependencies'
   }
 }
 ```
@@ -123,17 +137,18 @@ const schema: ObjectGanttSchema = {
 ```plaintext
 {
   type: 'object-gantt',
-  objectName?: string,              // ObjectQL object name (read third)
-  staticData?: Array<any>,          // Static data array (read second)
-  data?: ViewData,                  // Advanced data configuration (read first)
-                                    // At least one of data / staticData / objectName is required
-  gantt?: GanttConfig,              // Gantt-specific configuration
-  viewMode?: 'day' | 'week' | 'month' | 'quarter' | 'year',
-  readOnly?: boolean                // disable every edit path
-  filter?: Array<any>,              // JSON-Rules query filter — applies on EVERY provider
-  sort?: Array<{ field, order }>,   // ordering — applies on EVERY provider
-  search?: string,                  // full-text term, sent as $search — applies on EVERY provider
-  searchableFields?: string[],      // narrows what `search` matches, sent as $searchFields with a term
+  dataSource?: ElementDataSource,     // Per-element binding; its object stands in for objectName
+  properties: {                       // The spec's ComponentPropsMap['object-gantt'] row
+    objectName?: string,              // ObjectQL object name (read third)
+    staticData?: Array<any>,          // Static data array (read second)
+    data?: ViewData,                  // Advanced data configuration (read first)
+                                      // At least one of data / staticData / objectName is
+                                      // required, or the node's dataSource binding
+    gantt?: GanttConfig,              // Field mapping and gantt options, viewMode among them
+    readOnly?: boolean,               // disable every edit path
+    filter?: Array<any>,              // JSON-Rules query filter — applies on EVERY provider
+    sort?: Array<{ field, order }>    // ordering — applies on EVERY provider
+  }
 }
 ```
 
@@ -144,16 +159,18 @@ footnote naming both numbers — applies to inline rows too. The ceiling is
 applied to the **filtered** set, so a large inline array that a `filter` cuts
 below the ceiling draws every matching row and shows no footnote.
 
-`search` is the chart's full-text term. A list view's toolbar Search box writes
-it (with the view's `searchableFields`) onto its gantt node, because the chart
-runs its own query; the server decides which fields a term matches unless
-`searchableFields` narrows them, and a `searchableFields` with no term sends
-nothing.
+`search` is the chart's full-text term, sent as `$search` on every provider, with
+`searchableFields` sent as `$searchFields` beside it. They are not authored keys:
+a list view's toolbar Search box writes both onto the gantt node it composes,
+because the chart runs its own query, and the spec's row does not declare them, so
+`objectui validate` refuses them in the bag. The server decides which fields a term
+matches unless `searchableFields` narrows them, and a `searchableFields` with no
+term sends nothing.
 
 `onTaskClick` and `className` are **React props on `<ObjectGantt>`**, not schema
 keys — the renderer never reads them off the schema, and a function cannot
-survive serializable metadata anyway. `viewMode` is read through the gantt
-config, so it applies alongside a `gantt` block or the flat `*Field` keys.
+survive serializable metadata anyway. `viewMode` is a member of the `gantt`
+block, read through the gantt config.
 
 ### GanttConfig
 
@@ -183,17 +200,19 @@ with a time part is an instant, and the bar ends exactly there. The timeline's
 Map your database fields to Gantt properties:
 
 ```tsx
-import type { ObjectGanttSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const fieldMappedGantt: ObjectGanttSchema = {
+const fieldMappedGantt: BaseSchema = {
   type: 'object-gantt',
-  objectName: 'project_tasks',
-  gantt: {
-    titleField: 'name',           // Database field for task name
-    startDateField: 'starts_at',  // Database field for start date
-    endDateField: 'ends_at',      // Database field for end date
-    progressField: 'percent_done', // Database field for progress
-    dependenciesField: 'depends_on' // Database field for dependencies
+  properties: {
+    objectName: 'project_tasks',
+    gantt: {
+      titleField: 'name',           // Database field for task name
+      startDateField: 'starts_at',  // Database field for start date
+      endDateField: 'ends_at',      // Database field for end date
+      progressField: 'percent_done', // Database field for progress
+      dependenciesField: 'depends_on' // Database field for dependencies
+    }
   }
 };
 ```
@@ -249,16 +268,18 @@ The dependencies field should contain an array of task IDs that this task depend
 ### Object Provider (Database)
 
 ```tsx
-import type { ObjectGanttSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const objectProviderGantt: ObjectGanttSchema = {
+const objectProviderGantt: BaseSchema = {
   type: 'object-gantt',
-  objectName: 'project_tasks',
-  gantt: {
-    startDateField: 'start_date',
-    endDateField: 'due_date',
-    titleField: 'title',
-    progressField: 'progress'
+  properties: {
+    objectName: 'project_tasks',
+    gantt: {
+      startDateField: 'start_date',
+      endDateField: 'due_date',
+      titleField: 'title',
+      progressField: 'progress'
+    }
   }
 };
 ```
@@ -266,18 +287,20 @@ const objectProviderGantt: ObjectGanttSchema = {
 ### Value Provider (Static)
 
 ```tsx
-import type { ObjectGanttSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const valueProviderGantt: ObjectGanttSchema = {
+const valueProviderGantt: BaseSchema = {
   type: 'object-gantt',
-  staticData: [
-    { id: 1, title: 'Task 1', start: '2024-01-01', end: '2024-01-15' },
-    { id: 2, title: 'Task 2', start: '2024-01-16', end: '2024-01-31' }
-  ],
-  gantt: {
-    startDateField: 'start',
-    endDateField: 'end',
-    titleField: 'title'
+  properties: {
+    staticData: [
+      { id: 1, title: 'Task 1', start: '2024-01-01', end: '2024-01-15' },
+      { id: 2, title: 'Task 2', start: '2024-01-16', end: '2024-01-31' }
+    ],
+    gantt: {
+      startDateField: 'start',
+      endDateField: 'end',
+      titleField: 'title'
+    }
   }
 };
 ```
@@ -285,21 +308,23 @@ const valueProviderGantt: ObjectGanttSchema = {
 ### API Provider
 
 ```tsx
-import type { ObjectGanttSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const apiProviderGantt: ObjectGanttSchema = {
+const apiProviderGantt: BaseSchema = {
   type: 'object-gantt',
-  data: {
-    provider: 'api',
-    // the api member is `read` / `write` HTTP requests — there is no
-    // top-level `endpoint` key, and nothing reads one
-    read: { url: '/api/project/tasks', method: 'GET' }
-  },
-  gantt: {
-    startDateField: 'startDate',
-    endDateField: 'endDate',
-    titleField: 'taskName',
-    progressField: 'percentComplete'
+  properties: {
+    data: {
+      provider: 'api',
+      // the api member is `read` / `write` HTTP requests — there is no
+      // top-level `endpoint` key, and nothing reads one
+      read: { url: '/api/project/tasks', method: 'GET' }
+    },
+    gantt: {
+      startDateField: 'startDate',
+      endDateField: 'endDate',
+      titleField: 'taskName',
+      progressField: 'percentComplete'
+    }
   }
 };
 ```
@@ -315,7 +340,9 @@ bare global fetch and rely on same-origin cookies alone.
 ### Task Click
 
 The click handler is a **React prop**, not a schema key — the schema stays
-serializable:
+serializable. A component mounted yourself, without `SchemaRenderer`, receives the
+node as it reads it, so its `schema` prop keeps its props on the node: nothing
+hoists a `properties` bag there.
 
 ```tsx
 import { ObjectGantt } from '@object-ui/plugin-gantt';
@@ -351,17 +378,19 @@ wire: clicking a row already opens the standard detail drawer.
 ### Software Project
 
 ```tsx
-import type { ObjectGanttSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const softwareProject: ObjectGanttSchema = {
+const softwareProject: BaseSchema = {
   type: 'object-gantt',
-  objectName: 'sprint_tasks',
-  gantt: {
-    startDateField: 'startDate',
-    endDateField: 'endDate',
-    titleField: 'taskTitle',
-    progressField: 'completionPercent',
-    dependenciesField: 'blockedBy'
+  properties: {
+    objectName: 'sprint_tasks',
+    gantt: {
+      startDateField: 'startDate',
+      endDateField: 'endDate',
+      titleField: 'taskTitle',
+      progressField: 'completionPercent',
+      dependenciesField: 'blockedBy'
+    }
   }
 }
 ```
@@ -369,16 +398,18 @@ const softwareProject: ObjectGanttSchema = {
 ### Construction Project
 
 ```tsx
-import type { ObjectGanttSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const constructionGantt: ObjectGanttSchema = {
+const constructionGantt: BaseSchema = {
   type: 'object-gantt',
-  objectName: 'construction_phases',
-  gantt: {
-    startDateField: 'phase_start',
-    endDateField: 'phase_end',
-    titleField: 'phase_name',
-    progressField: 'percent_complete'
+  properties: {
+    objectName: 'construction_phases',
+    gantt: {
+      startDateField: 'phase_start',
+      endDateField: 'phase_end',
+      titleField: 'phase_name',
+      progressField: 'percent_complete'
+    }
   }
 }
 ```
@@ -386,49 +417,51 @@ const constructionGantt: ObjectGanttSchema = {
 ### Marketing Campaign
 
 ```tsx
-import type { ObjectGanttSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const campaignGantt: ObjectGanttSchema = {
+const campaignGantt: BaseSchema = {
   type: 'object-gantt',
-  staticData: [
-    {
-      id: 1,
-      activity: 'Market Research',
-      start: '2024-01-01',
-      end: '2024-01-14',
-      done: 100
-    },
-    {
-      id: 2,
-      activity: 'Content Creation',
-      start: '2024-01-15',
-      end: '2024-02-15',
-      done: 80,
-      requires: [1]
-    },
-    {
-      id: 3,
-      activity: 'Campaign Launch',
-      start: '2024-02-16',
-      end: '2024-02-29',
-      done: 0,
-      requires: [2]
-    },
-    {
-      id: 4,
-      activity: 'Performance Analysis',
-      start: '2024-03-01',
-      end: '2024-03-15',
-      done: 0,
-      requires: [3]
+  properties: {
+    staticData: [
+      {
+        id: 1,
+        activity: 'Market Research',
+        start: '2024-01-01',
+        end: '2024-01-14',
+        done: 100
+      },
+      {
+        id: 2,
+        activity: 'Content Creation',
+        start: '2024-01-15',
+        end: '2024-02-15',
+        done: 80,
+        requires: [1]
+      },
+      {
+        id: 3,
+        activity: 'Campaign Launch',
+        start: '2024-02-16',
+        end: '2024-02-29',
+        done: 0,
+        requires: [2]
+      },
+      {
+        id: 4,
+        activity: 'Performance Analysis',
+        start: '2024-03-01',
+        end: '2024-03-15',
+        done: 0,
+        requires: [3]
+      }
+    ],
+    gantt: {
+      titleField: 'activity',
+      startDateField: 'start',
+      endDateField: 'end',
+      progressField: 'done',
+      dependenciesField: 'requires'
     }
-  ],
-  gantt: {
-    titleField: 'activity',
-    startDateField: 'start',
-    endDateField: 'end',
-    progressField: 'done',
-    dependenciesField: 'requires'
   }
 }
 ```
@@ -467,7 +500,7 @@ const campaignGantt: ObjectGanttSchema = {
 ## TypeScript Support
 
 ```ts
-import type { ObjectGanttSchema, GanttConfig } from '@object-ui/types'
+import type { BaseSchema, GanttConfig } from '@object-ui/types'
 
 const ganttConfig: GanttConfig = {
   startDateField: 'startDate',
@@ -477,12 +510,17 @@ const ganttConfig: GanttConfig = {
   dependenciesField: 'dependencies'
 }
 
-const ganttSchema: ObjectGanttSchema = {
+const ganttSchema: BaseSchema = {
   type: 'object-gantt',
-  objectName: 'project_tasks',
-  gantt: ganttConfig
+  properties: {
+    objectName: 'project_tasks',
+    gantt: ganttConfig
+  }
 }
 ```
+
+`ObjectGanttSchema` types the node as `ObjectGantt` reads it: after `SchemaRenderer`
+hoists the bag, or as you hand it to `<ObjectGantt schema={…}>` yourself.
 
 ## Related Documentation
 

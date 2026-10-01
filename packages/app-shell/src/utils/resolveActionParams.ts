@@ -346,9 +346,15 @@ interface RuntimeField {
   // ⭐ objectui#11070 round 4 removed the `reference_to` member: nothing here
   // read it (the target is read as `reference` below), and ObjectUI no longer
   // writes or reads that spelling anywhere.
+  //
+  // ⭐ objectui#11070 round 6 removed the `display_field` member the same way:
+  // `displayField` is now the only display spelling read below. A served def
+  // loses nothing, because the ingestion fold (objectui#7650 ruling A) stamps a
+  // stored `display_field` onto `displayField` on every object
+  // `MetadataProvider` stores; only a host that hands this resolver its own,
+  // unfolded `objects` loses the snake value.
   reference?: string;
   displayField?: string;
-  display_field?: string;
   reference_field?: string;
   id_field?: string;
   descriptionField?: string;
@@ -638,6 +644,8 @@ export function resolveActionParam(
         // document stored before the key was tightened (the serve path runs no
         // parse — objectui#7650) and a host adapter outside this repo. Dropping
         // a leg is a retirement with its own evidence, not a side effect here.
+        // (`display_field` has since had that retirement — objectui#11070
+        // round 6, below.)
         //
         // ⭐ objectui#7435 second slice — `lookupColumns` and `lookupPageSize`
         // get the same treatment, on the same re-taken measurement. Both are
@@ -665,17 +673,27 @@ export function resolveActionParam(
         // regression, and this comment is the reason they may not be split
         // again.
         //
-        // ⛔ The snake read is GONE rather than demoted, which is the one place
-        // this key departs from its five siblings above. Their snake legs are
-        // kept because a pre-tightening document or an out-of-repo host adapter
-        // could still emit them. `depends_on` has no such producer to protect:
-        // `FieldSchema` refuses it BY NAME (suggesting `dependsOn`), so no
-        // document that parses can carry it, and objectui#7357 already retired
-        // the renderer-side twin in `LookupField`. Keeping it would leave this
-        // resolver the last reader of a spelling the protocol rejects.
+        // ⛔ The snake read is GONE rather than demoted, which is where this
+        // key departs from the siblings above that keep one. Their snake legs
+        // are kept because a pre-tightening document or an out-of-repo host
+        // adapter could still emit them. `depends_on` has no such producer to
+        // protect: `FieldSchema` refuses it BY NAME (suggesting `dependsOn`), so
+        // no document that parses can carry it, and objectui#7357 already
+        // retired the renderer-side twin in `LookupField`. Keeping it would
+        // leave this resolver the last reader of a spelling the protocol rejects.
+        //
+        // ⭐ objectui#11070 round 6 — `displayField` reads its declared spelling
+        // alone too: the `display_field` leg is retired, with no alias. The
+        // pre-tightening document that leg was kept for is now covered by the
+        // ingestion fold (objectui#7650 ruling A stamps a stored
+        // `display_field` onto `displayField` on every object `MetadataProvider`
+        // stores), so a served def loses nothing. A host that hands this
+        // resolver its own, unfolded `objects` does lose the snake value; the
+        // round's changeset states that break. `reference_field` keeps its
+        // place behind it: `FieldSchema` declares no twin the fold could stamp
+        // it onto, so the fold leaves it on the def as served.
         referenceTo: param.reference ?? field.reference,
-        displayField:
-          field.displayField ?? field.display_field ?? field.reference_field,
+        displayField: field.displayField ?? field.reference_field,
         idField: field.id_field,
         descriptionField: field.descriptionField ?? field.description_field,
         titleFormat: field.title_format,

@@ -29,7 +29,10 @@
  *    copied here.
  *  - **TypeScript.** `complex.ts` re-typed `chartConfig` as `any`, so an
  *    authored `aria` compiled. The member now takes `aria` from the spec's own
- *    input type, which is `undefined`, so an authored value is a compile error.
+ *    input type, which is the spec's retired-key type (`undefined` at the
+ *    pinned 17.5.0, the branded `[REMOVED]` mark on objectstack `main`; both
+ *    spellings are `retired-key-type.ts`'s), so an authored value is a compile
+ *    error.
  *    The `@ts-expect-error` below is the real enforcement: this package's
  *    `type-check` compiles every test file (`tsconfig.test.json`), and putting
  *    `chartConfig?: any` back leaves the directive unused, which fails `tsc`.
@@ -42,6 +45,7 @@ import { describe, it, expect } from 'vitest';
 import type { z } from 'zod';
 import { DashboardWidgetChartConfigSchema as SpecWidgetChartConfigSchema } from '@objectstack/spec/ui';
 import type { DashboardWidgetSchema as DashboardWidgetInterface } from '../complex';
+import type { IsRetiredKeyType } from './retired-key-type';
 import {
   DashboardComponentSchema,
   DashboardWidgetSchema,
@@ -66,8 +70,12 @@ describe('the TS interface types `chartConfig.aria` as the spec tombstone (objec
     // first would not compile: `keyof any` has no `'aria'` literal.
     const ariaDeclared: 'aria' extends Declared ? true : false = true;
     const ariaNotAny: IsAny<ChartConfigMember['aria']> extends false ? true : false = true;
-    const ariaAdmitsNoValue: [ChartConfigMember['aria']] extends [undefined] ? true : false = true;
-    expect(ariaDeclared && ariaNotAny && ariaAdmitsNoValue).toBe(true);
+    const ariaAdmitsNoValue: IsRetiredKeyType<ChartConfigMember['aria']> extends true ? true : false = true;
+    // The control for the line above, through the same helper: a live sibling
+    // key is NOT a retired-key type, so a helper that said "retired" of
+    // anything would turn this line red (objectui#11330).
+    const titleIsLive: IsRetiredKeyType<ChartConfigMember['title']> extends false ? true : false = true;
+    expect(ariaDeclared && ariaNotAny && ariaAdmitsNoValue && titleIsLive).toBe(true);
   });
 
   it('an authored `chartConfig.aria` is a compile error; a legal chart config still compiles', () => {

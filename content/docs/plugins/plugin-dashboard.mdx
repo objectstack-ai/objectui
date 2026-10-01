@@ -293,11 +293,11 @@ the widget's own `filter`).
 The widgets above bind a **dataset** (ADR-0021). The pre-ADR-0021 top-level
 `object` + `categoryField` / `valueField` / `aggregate` shape was removed: the
 renderer no longer reads those keys and shows a *"This widget uses a retired
-data format. Edit it to bind a dataset."* prompt instead of a chart. A widget
-that needs a renderer-internal query rather than a semantic-layer one puts it
-under `options.data` as `{ "provider": "object", "object": "invoices",
-"aggregate": { "function": "count", "groupBy": "status" } }`; an
-`options.data` **array** is fixed demo data and is not filtered.
+data format. Edit it to bind a dataset."* prompt instead of a chart. Inline
+widget data is not an authoring surface either: `options.data` (an array of
+rows or a `{ "provider": "object", … }` query) and `options.xField` /
+`options.yField` are refused by name by `@object-ui/types`' strict authoring
+face (objectui#11228), and every widget binds a dataset.
 
 Binding rules, in precedence order:
 
@@ -310,9 +310,8 @@ Binding rules, in precedence order:
 
 Date presets stay symbolic (date-macro tokens such as `{30_days_ago}`) until
 query time. Dataset-bound widgets receive the merged filter through the
-dataset query's `runtimeFilter`. Static-data widgets (inline `data` arrays)
-have no query to scope and are not filtered. Filter values are also readable
-in widget expressions as `page.<name>`.
+dataset query's `runtimeFilter`. Filter values are also readable in widget
+expressions as `page.<name>`.
 
 For a step-by-step tutorial — filter types, `optionsFrom` dynamic options,
 `page.*` expression usage, and known limitations with workarounds — see the

@@ -33,7 +33,8 @@
  * leg.
  *
  *   `title`        → only a `displayField` read finds it
- *   `legacy_title` → only a `reference_field` / `display_field` read finds it
+ *   `legacy_title` → only a `reference_field` read, or a `display_field` the
+ *                    ingestion fold stamped onto `displayField`, finds it
  *   `name`         → only the generic heuristic at the end of the chain
  *
  * ## Measured, on the pin this tree resolves
@@ -45,20 +46,28 @@
  * controls lit in the same run: the minimal def ACCEPTED, `zzz_not_a_real_key`
  * REJECTED.
  *
- * ## Why the snake legs are still asserted rather than removed
+ * ## Why the snake legs were kept, and why `display_field` no longer is
  *
  * A per-site producer sweep found no in-repo producer of either snake spelling
  * (every occurrence in this repo is a test fixture) and zero key-position
- * occurrences in the producer repo, control lit. They are nevertheless KEPT,
- * because two producers that can still emit them lie outside what that sweep
- * measures: a document stored before the key was tightened (the serve path runs
- * no parse — objectui#7650) and a host `DataSource` whose `getObjectSchema` is
- * not `ObjectStackAdapter`'s and so never passes through
- * `normalizeSchemaReferenceKeys`. Dropping a leg would be a silent regression
- * for existing authored data — strictly worse than the wrong-label bug this
- * fixes — so the fallback gets its own cases here.
+ * occurrences in the producer repo, control lit. objectui#7435 nevertheless
+ * KEPT both, because two producers that can still emit them lie outside what
+ * that sweep measures: a document stored before the key was tightened (the
+ * serve path runs no parse — objectui#7650) and a host `DataSource` whose
+ * `getObjectSchema` is not `ObjectStackAdapter`'s and so never passes through
+ * `normalizeSchemaReferenceKeys`.
+ *
+ * ⭐ objectui#11070 round 6 retired the `display_field` leg. The stored
+ * document is now covered by the ingestion fold: objectui#7650 ruling A has
+ * `normalizeSchemaReferenceKeys` stamp a stored `display_field` onto
+ * `displayField`, so a served def reaches this chain under the declared key
+ * (the folded case below keeps the snake spelling as its INPUT). The host
+ * `DataSource` is the break the round's changeset states. `reference_field`
+ * keeps its fallback case: `FieldSchema` declares no twin the fold could stamp
+ * it onto.
  */
 import { describe, it, expect, vi } from 'vitest';
+import { normalizeSchemaReferenceKeys } from '@object-ui/core';
 import { resolveGroupByLabels } from './ObjectChart';
 
 /**
@@ -120,8 +129,20 @@ describe('ObjectChart display-field chain — the declared leg is read, and rank
     ).toBe('Apollo');
   });
 
-  it('a `display_field`-only def still resolves — the fallback is intact', async () => {
-    expect(await axisLabel({ display_field: 'legacy_title' })).toBe('Apollo (legacy dialect)');
+  it('a `display_field`-only def no longer resolves it — the leg is retired, with no alias (objectui#11070 round 6)', async () => {
+    expect(await axisLabel({ display_field: 'legacy_title' })).toBe('Apollo (generic heuristic)');
+  });
+
+  it('the same def folded at ingestion resolves it as `displayField` — a served def loses nothing (objectui#11070 round 6)', async () => {
+    // The snake spelling is the INPUT. `ObjectStackAdapter.getObjectSchema`
+    // runs this fold on every def it serves (objectui#7650 ruling A).
+    const folded = normalizeSchemaReferenceKeys({
+      name: 'crm_opportunity',
+      fields: { stage: { type: 'lookup', reference: 'projects', display_field: 'legacy_title' } },
+    });
+    const ds = { find: vi.fn(async () => ({ data: PROJECTS, total: PROJECTS.length })) };
+    const out = await resolveGroupByLabels(ROWS, 'stage', folded, ds);
+    expect(String(out[0].stage)).toBe('Apollo (legacy dialect)');
   });
 
   it('a `reference_field`-only def still resolves — the fallback is intact', async () => {

@@ -21,9 +21,13 @@ The Formula Field component displays computed values calculated from other field
 
 A formula field is authored as `FormulaFieldMetadata` (`@object-ui/types`), which is
 the source of truth for the key set: it extends `BaseFieldMetadata` with the
-expression and its declared return type. `returnType` is
-`@objectstack/spec`'s own `FieldSchema.returnType`, typed by reference: a closed
-union of `'number' | 'text' | 'boolean' | 'date'`.
+expression and its declared return type. Both are `@objectstack/spec`'s own
+`FieldSchema` members, typed by reference:
+
+- `expression` — the formula, written in CEL against the record
+  (`record.quantity * record.unit_price`), or the spec's expression envelope
+  (`{ "dialect": "cel", "source": "…" }`);
+- `returnType` — a closed union of `'number' | 'text' | 'boolean' | 'date'`.
 
 ```ts
 import type { FormulaFieldMetadata } from '@object-ui/types';
@@ -33,10 +37,13 @@ const totalPrice: FormulaFieldMetadata = {
   name: 'total_price',
   label: 'Total Price',
   readonly: true,
-  formula: 'quantity * unit_price',
+  expression: 'record.quantity * record.unit_price',
   returnType: 'number',
 };
 ```
+
+There is no `formula` key. `FieldSchema` refuses it by name and points at
+`expression`, and `FormulaFieldMetadata` does not declare it.
 
 The computed value, and the `className` a host supplies, are **not** metadata keys —
 they are runtime widget props. See [Field Widget Props](/docs/fields/widget-props).
@@ -52,24 +59,25 @@ The formula field formats values by `returnType`:
 
 ## Formula Examples
 
-Common formula patterns:
+Common formula patterns, each the value of `expression` (CEL, with the record's
+fields under `record.`):
 
 ```plaintext
 // Arithmetic
-formula: 'price * quantity'
-formula: '(subtotal - discount) * tax_rate'
+expression: 'record.price * record.quantity'
+expression: '(record.subtotal - record.discount) * record.tax_rate'
 
 // Text concatenation
-formula: 'first_name + " " + last_name'
-formula: 'city + ", " + state + " " + zip'
+expression: 'record.first_name + " " + record.last_name'
+expression: 'record.city + ", " + record.state + " " + record.zip'
 
 // Conditional
-formula: 'IF(age >= 18, "Adult", "Minor")'
-formula: 'IF(status == "closed", completed_at, null)'
+expression: 'record.age >= 18 ? "Adult" : "Minor"'
+expression: 'record.status == "closed" ? record.completed_at : null'
 
 // Date calculations
-formula: 'created_at + 7 days'
-formula: 'end_date - start_date'
+expression: 'addDays(record.created_at, 7)'
+expression: 'daysBetween(record.start_date, record.end_date)'
 ```
 
 ## Cell Renderer
@@ -84,19 +92,10 @@ import { FormulaCellRenderer } from '@object-ui/fields';
 
 ## Backend Implementation
 
-Formula fields are computed on the backend:
-
-```plaintext
-// Example backend calculation
-const calculateFormula = (formula: string, record: any) => {
-  // Parse and evaluate formula
-  if (formula === 'quantity * price') {
-    return record.quantity * record.price;
-  }
-  // Use expression parser for complex formulas
-  return evaluateExpression(formula, record);
-};
-```
+Formula fields are computed on the backend: the platform evaluates the field's
+`expression` against the record and returns the result as the field's value.
+The widget never evaluates anything; it formats the value it is given by
+`returnType`.
 
 ## Use Cases
 

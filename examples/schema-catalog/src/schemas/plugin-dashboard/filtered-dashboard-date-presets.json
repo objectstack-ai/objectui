@@ -12,35 +12,17 @@
       "id": "invoices_by_month",
       "title": "Invoices by Month",
       "type": "line",
-      "options": {
-        "xField": "month",
-        "yField": "count",
-        "data": [
-          { "month": "Jan", "count": 24 },
-          { "month": "Feb", "count": 31 },
-          { "month": "Mar", "count": 28 },
-          { "month": "Apr", "count": 37 },
-          { "month": "May", "count": 42 },
-          { "month": "Jun", "count": 39 }
-        ]
-      }
+      "dataset": "invoices",
+      "dimensions": ["created_month"],
+      "values": ["count"]
     },
     {
       "id": "accounts_signed_by_month",
       "title": "Accounts Signed by Month",
       "type": "area",
-      "options": {
-        "xField": "month",
-        "yField": "count",
-        "data": [
-          { "month": "Jan", "count": 6 },
-          { "month": "Feb", "count": 9 },
-          { "month": "Mar", "count": 14 },
-          { "month": "Apr", "count": 11 },
-          { "month": "May", "count": 17 },
-          { "month": "Jun", "count": 21 }
-        ]
-      },
+      "dataset": "accounts",
+      "dimensions": ["signed_month"],
+      "values": ["count"],
       "filterBindings": {
         "dateRange": "signed_at"
       }
@@ -49,9 +31,8 @@
       "id": "all_time_total",
       "title": "All-time Invoices",
       "type": "metric",
-      "options": {
-        "value": "3,912"
-      },
+      "dataset": "invoices",
+      "values": ["count"],
       "filterBindings": {
         "dateRange": false
       }

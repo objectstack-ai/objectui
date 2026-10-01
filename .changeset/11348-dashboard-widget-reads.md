@@ -23,5 +23,6 @@ compiles with the signature present.
   type guard over the same three `object-*` types first, to the node schema that
   declares `filter`.
 
-The drill-down drawer's `pageSize` is not changed here; it is an open question
-on objectui#11348.
+The drill-down drawer's `pageSize` is settled in `@object-ui/types` instead, by
+a declaration on `ObjectDataTableSchema` with its own changeset; the drawer's
+literal is unchanged.

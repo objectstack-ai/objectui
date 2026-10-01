@@ -64,7 +64,7 @@ import {
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
 import { aliasKeyRefusal, handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
-import { DrillDownConfigSchema } from './data-display.zod.js';
+import { DataTableSchema, DrillDownConfigSchema } from './data-display.zod.js';
 // The kanban CARD vocabulary has one authority (`./complex.zod.ts`); the
 // `object-kanban` lane below reads it rather than restating it (objectui#8913).
 import { KanbanCardSchema } from './complex.zod.js';
@@ -3727,6 +3727,10 @@ export const ObjectDataTableSchema = BaseSchema.extend({
   columns: z.array(z.any()).optional().describe('Column definitions (names or column objects)'),
   searchable: z.boolean().optional().describe('Forwarded to the rendered data-table'),
   pagination: z.boolean().optional().describe('Forwarded to the rendered data-table'),
+  // objectui#11348 — forwarded to the rendered `data-table` through the widget's
+  // node spread, and read there, so it is declared on both faces at once. The
+  // member is `DataTableSchema`'s own, by reference; the describe names the hop.
+  pageSize: DataTableSchema.shape.pageSize.describe('Forwarded to the rendered data-table'),
   // objectui#10685 — this block's OWN drill shape, the twin of
   // `ObjectDataTableDrillDownConfig` (`../data-display.ts`). A row drills to the
   // one record it already is, so the three members that configure a drilled

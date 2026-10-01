@@ -23,7 +23,7 @@ import type { BaseSchema } from './base.js';
 // and read here by `ObjectKanbanSchema.columns` (objectui#8913) so the two
 // kanban faces judge a card the same way. Type-only: no runtime edge.
 import type { KanbanCard } from './complex.js';
-import type { ObjectDataTableDrillDownConfig } from './data-display.js';
+import type { DataTableSchema, ObjectDataTableDrillDownConfig } from './data-display.js';
 // `QueryParams` is the destination `ObjectGallerySchema.filter`'s own docblock
 // names — the value is forwarded into that slot, context tokens resolved — so the declaration
 // is an INDEXED ACCESS on it rather than a copy of its arms (objectui#9309).
@@ -5846,6 +5846,19 @@ export interface ObjectDataTableSchema extends BaseSchema {
   searchable?: boolean;
   /** Forwarded to the rendered `data-table` */
   pagination?: boolean;
+  /**
+   * Forwarded to the rendered `data-table` (objectui#11348): rows per page,
+   * typed by reference to {@link DataTableSchema}'s own member.
+   *
+   * The widget spreads this node into the `data-table` it renders, and that
+   * node reads `pageSize`, so the key was honoured all along and declared on
+   * neither face. `plugin-dashboard`'s drill-down drawer writes it on the node it
+   * builds, from its `maxRows`; the drilled list's row count depends on it.
+   * No spec row reaches `object-data-table`, so the declaration follows the
+   * implementation (the objectui#11347 `list.title` ruling's governing text).
+   * The zod mirror declares the same member, so no parity row opens.
+   */
+  pageSize?: DataTableSchema['pageSize'];
   /**
    * Drill-to-record: clicking a row opens that record in a detail drawer.
    * `DashboardRenderer` defaults object-backed table widgets to `{ enabled: true }`.

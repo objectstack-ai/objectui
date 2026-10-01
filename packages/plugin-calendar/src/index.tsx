@@ -419,7 +419,9 @@ export const ObjectCalendarRenderer: React.FC<{ schema: any; [key: string]: any 
  * The record source is ONE OF `data`, `staticData` and `objectName`: the
  * shared ladder reads them in that order, and `ObjectCalendarSchema`
  * (`@object-ui/types`) enforces "one of the three" with
- * `requireRecordSource('object-calendar')`. A `required: true` flag here made
+ * `requireRecordSource`, which since objectui#11117 also counts a
+ * `dataSource.object` binding, because the gate lands it on `objectName`.
+ * A `required: true` flag here made
  * `sdui-parser`'s `validateTree` raise a `missing-required-prop` ERROR on a
  * `staticData`-only calendar that the schema accepts and the renderer draws.
  * Same repair as objectui#7470 made for map and gantt: the flag is gone, the
@@ -428,7 +430,7 @@ export const ObjectCalendarRenderer: React.FC<{ schema: any; [key: string]: any 
  * `__tests__/recordSourceInput-10392.test.ts`.
  */
 const OBJECT_CALENDAR_INPUTS: ComponentInput[] = [
-  { name: 'objectName', type: 'string', description: 'ObjectQL object name. The record source is one of `data`, `staticData` and `objectName`; the `object-calendar` schema refuses a block that declares none of them.' },
+  { name: 'objectName', type: 'string', description: 'ObjectQL object name. The record source is one of `data`, `staticData` and `objectName`; the `object-calendar` schema refuses a block that declares none of them, unless the node\'s `dataSource.object` names the object, which then lands on this key.' },
   { name: 'calendar', type: 'object', description: 'startDateField, endDateField, titleField, colorField' },
   { name: 'filter', type: 'array', description: 'Filter criteria in JSON-rules form, narrowing the records the calendar fetches. Lowered to `$filter` on the query.' },
   { name: 'sort', type: 'array', description: 'Sort order in `[{ field, order }]` form, ordering the records the calendar fetches. Lowered to `$orderby` on the query.' },

@@ -38,3 +38,8 @@ on the registrations disagreed with that rule in two ways:
 The renderers' read order and the zod schemas are unchanged. The
 `@object-ui/plugin-gantt` README sentence that listed the registration's inputs
 is updated.
+
+**Correction, 2026-10-01 (objectui#11117).** "One of the three" now has an exception on all
+three blocks: a block that declares none of them is accepted when its `dataSource.object` names
+the object, because the registration's `ElementDataSourceGate` lands that name on `objectName`.
+The `objectName` input description now says so.

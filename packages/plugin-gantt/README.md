@@ -147,8 +147,10 @@ Both spellings of the surviving key resolve — `register` stores the namespaced
 configuration object, and the two other record sources, `data` and `staticData`.
 `objectName` is not a required input: the record source is one of `data`,
 `staticData` and `objectName` (read in that order), and the `object-gantt` schema
-refuses a block that declares none of them. `data` is a `{ provider, … }`
-data-source configuration, never a bare array; inline rows go under `staticData`.
+refuses a block that declares none of them, unless the node's `dataSource.object`
+names the object, which the registration then lands on `objectName`. `data` is a
+`{ provider, … }` data-source configuration, never a bare array; inline rows go
+under `staticData`.
 
 > **The bare `gantt` key is retired** (objectui#8008, ruled 2026-09-09). This
 > table used to carry a second row, `gantt` / `view:gantt`, on the same renderer.

@@ -573,6 +573,26 @@ declaration as in the zod schema's two-arm slot). Its keys are checked as
 `BaseSchema` keys either way,
 never as widget keys.
 
+### Reading a widget key off `widgets[]`
+
+The widget keys (`layout`, `title`, `colorVariant`, `filter`, …) are declared
+on the widget arm, `DashboardWidgetSchema`, which takes them from the spec's
+`DashboardWidget` row. The component arm declares none of them. Read straight
+off a `widgets[]` entry, such a key is typed `any`, supplied by the component
+arm's passthrough. Read it through `DashboardWidgetSchema` instead, which is how
+this package's own readers do it. The component arm is assignable to that type,
+so the annotation is checked by the compiler, not asserted, and the key gets its
+declared type:
+
+```typescript
+import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
+
+declare const dashboard: DashboardComponentSchema;
+
+const widgets: DashboardWidgetSchema[] = dashboard.widgets;
+const widestSpan = Math.max(0, ...widgets.map((w) => w.layout?.w ?? 0));
+```
+
 ## Customization
 
 All components support Tailwind CSS classes:

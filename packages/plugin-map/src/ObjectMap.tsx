@@ -356,9 +356,9 @@ const warnedShadowedFlatKeys = new Set<string>();
 function warnOnShadowedFlatMapKeys(schema: MapConfigSource): void {
   if (!isDev()) return;
 
-  const shadowed = FLAT_MAP_CONFIG_KEYS.filter(
-    (key) => (schema as Record<string, unknown>)[key] !== undefined,
-  );
+  // `key` is a `FlatMapConfigKeys` key and `MapConfigSource` carries those, so
+  // the read is typed as it stands; no conversion is needed (objectui#11355).
+  const shadowed = FLAT_MAP_CONFIG_KEYS.filter((key) => schema[key] !== undefined);
   if (shadowed.length === 0) return;
 
   const memo = `${schema.type ?? 'map'}::${schema.objectName ?? ''}::${shadowed.join(',')}`;

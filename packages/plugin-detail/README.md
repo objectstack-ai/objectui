@@ -238,6 +238,9 @@ const schema: DetailViewSchema = {
   fields: [],
   tabs: [],
   actions: [],
+  // The view's own heading (title, follow-star, copy-id chip); drawn unless
+  // `false`. `record:details` sets it from its own `showHeader`.
+  showHeader: true,
   showBack: true,
   backUrl: '/accounts',
   showEdit: true,

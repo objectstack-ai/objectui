@@ -20,9 +20,10 @@ vi.mock('@object-ui/react', async (importOriginal) => {
   };
 });
 
+// No dashboard-root `title`: retired (objectui#7509), so inert here, and it
+// compiled only through `BaseSchema`'s index signature (objectui#11348).
 const DASHBOARD_WITH_WIDGETS: DashboardComponentSchema = {
   type: 'dashboard',
-  title: 'Test Dashboard',
   columns: 2,
   widgets: [
     { id: 'w1', title: 'Revenue', type: 'metric' },

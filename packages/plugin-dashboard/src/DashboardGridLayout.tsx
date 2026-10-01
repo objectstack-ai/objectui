@@ -187,8 +187,18 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
   // Re-derive layouts whenever the underlying schema changes (e.g. parent
   // re-fetches after a save, widgets are added/removed). Previously the
   // useState initializer ran once and the grid drifted from the schema.
+  //
+  // `w` is annotated `DashboardWidgetSchema`, as `buildDefaultLayouts` above
+  // already is (objectui#11348). A `widgets[]` entry is either arm of a union,
+  // and `layout` is declared on the widget arm only: the spec's
+  // `DashboardWidget` row declares it, and the component arm
+  // (`DashboardWidgetSlotComponentSchema`) has no spec row and declares none of
+  // the widget keys. That arm is assignable to `DashboardWidgetSchema` (pinned
+  // by `@object-ui/types`' `dashboard-widget-slot-component-arm-7952.test.ts`),
+  // so the annotation is checked by the compiler rather than asserted, and the
+  // read no longer rides `BaseSchema`'s index signature on the other arm.
   const widgetsSignature = React.useMemo(
-    () => JSON.stringify(schema.widgets?.map((w, i) => ({
+    () => JSON.stringify(schema.widgets?.map((w: DashboardWidgetSchema, i: number) => ({
       i: w.id || `widget-${i}`,
       x: w.layout?.x, y: w.layout?.y, w: w.layout?.w, h: w.layout?.h,
     })) ?? []),
@@ -539,7 +549,9 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
           resizeConfig={{ enabled: editMode }}
           onLayoutChange={handleLayoutChange}
         >
-          {schema.widgets?.map((widget, index) => {
+          {/* `DashboardWidgetSchema`, for the reason `widgetsSignature` states:
+              `title` below is declared on the widget arm only (objectui#11348). */}
+          {schema.widgets?.map((widget: DashboardWidgetSchema, index: number) => {
             const widgetId = widget.id || `widget-${index}`;
             // `getComponentSchema` builds a node for `SchemaRenderer` in every
             // branch, but its inferred union is wider than the renderer's

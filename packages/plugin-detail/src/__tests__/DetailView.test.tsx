@@ -10,7 +10,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { DetailView } from '../DetailView';
 import { __clearRecordEditableCache } from '../useRecordEditable';
-import type { DetailViewSchema } from '@object-ui/types';
+import type { DetailViewSchema, TextSchema } from '@object-ui/types';
 
 /**
  * objectui#3339 — a stand-in for the record-level explain probe.
@@ -229,6 +229,11 @@ describe('DetailView', () => {
   });
 
   it('should render tabs when provided', () => {
+    // Each tab's content is a `text` node, typed as one: `text` draws its
+    // `content` key (`TextSchema`). These fixtures used to author `text`, which
+    // no renderer reads (objectui#11355).
+    const detailsContent: TextSchema = { type: 'text', content: 'Details content' };
+    const activityContent: TextSchema = { type: 'text', content: 'Activity content' };
     const schema: DetailViewSchema = {
       type: 'detail-view',
       title: 'Account Details',
@@ -237,18 +242,12 @@ describe('DetailView', () => {
         {
           key: 'details',
           label: 'Details',
-          content: {
-            type: 'text',
-            text: 'Details content',
-          },
+          content: detailsContent,
         },
         {
           key: 'activity',
           label: 'Activity',
-          content: {
-            type: 'text',
-            text: 'Activity content',
-          },
+          content: activityContent,
         },
       ],
     };

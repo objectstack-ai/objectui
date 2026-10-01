@@ -326,14 +326,16 @@ export {
   ObjectDataTableSchema,
   ListViewSchema,
   ObjectQLComponentSchema,
-  // objectui#10859 batches 2 to 4 — ADR-0080 public blocks armed from their
+  // objectui#10859 batches 2 to 5 — ADR-0080 public blocks armed from their
   // `ComponentPropsMap` rows, and the union they reach `AnyComponentSchema` by.
-  // Batch 4's `ObjectFormBlockSchema` is the authored `object-form` arm;
-  // `ObjectFormSchema` above stays the node as the renderer reads it.
+  // Batch 4's `ObjectFormBlockSchema` and batch 5's `ObjectMapBlockSchema` are
+  // the authored `object-form` / `object-map` arms; `ObjectFormSchema` and
+  // `ObjectMapSchema` above stay the nodes as their renderers read them.
   ObjectMetricBlockSchema,
   ObjectMasterDetailFormBlockSchema,
   ObjectTimelineBlockSchema,
   ObjectFormBlockSchema,
+  ObjectMapBlockSchema,
   ObjectQLPublicBlockComponentSchema,
 } from './objectql.zod.js';
 

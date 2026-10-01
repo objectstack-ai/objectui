@@ -3238,6 +3238,23 @@ export interface ObjectMapConfig {
  * declared that the renderer does not consume (objectui#5018 — the card exists
  * because the reverse was true, and a declared-but-unread key re-creates the
  * same defect pointing the other way).
+ *
+ * ## What this type describes (objectui#10859, batch 5)
+ *
+ * The `object-map` node as `ObjectMap` READS it: after `SchemaRenderer` has
+ * hoisted the node's `properties` bag onto it, or as code composes it
+ * (`ObjectView` and `ListView` flattening a stored map view, a host mounting
+ * `<ObjectMap schema={…}>`). That is why it still carries the flat
+ * `locationField` / `titleField` the flatten produces.
+ *
+ * It is NOT the shape of an AUTHORED `object-map` document. An authored node
+ * takes its props in the spec's `properties` bag, whose members are
+ * `@objectstack/spec`'s `ComponentPropsMap['object-map']` row
+ * (`ObjectMapProps`): `{ type: 'object-map', properties: { objectName, map:
+ * { latitudeField, longitudeField }, … } }`. `ObjectMapBlockSchema`
+ * (`./zod/objectql.zod.ts`) judges it, and refuses a prop written flat on the
+ * node by name. `SchemaRenderer` reads both spellings, so a node built in code
+ * keeps its flat keys.
  */
 export interface ObjectMapSchema extends BaseSchema {
   type: 'object-map';
@@ -5768,7 +5785,10 @@ export interface ObjectDataTableSchema extends BaseSchema {
  * carried the same twelve members — `AnyComponentSchema` had no arm for either
  * node. The zod twin carries eleven since objectui#10859 batch 4: the authored
  * `object-form` node is armed from its spec row by `ObjectFormBlockSchema`,
- * and `ObjectFormSchema` here is the node as `ObjectForm` reads it.
+ * and `ObjectFormSchema` here is the node as `ObjectForm` reads it. It carries
+ * ten since batch 5, for the same reason: the authored `object-map` node is
+ * armed by `ObjectMapBlockSchema`, and `ObjectMapSchema` here is the node as
+ * `ObjectMap` reads it.
  */
 export type ObjectQLComponentSchema =
   | ObjectGridSchema

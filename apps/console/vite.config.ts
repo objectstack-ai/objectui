@@ -17,7 +17,11 @@ import zlib from 'node:zlib';
 import { viteCryptoStub } from '../../scripts/vite-crypto-stub.ts';
 import { viteMaplibreWorker } from '../../scripts/vite-maplibre-worker.ts';
 import { resolveClientDistInjection, widenVendorChunkTestForClient } from '../../scripts/vite-objectstack-client-dist.ts';
-import { formatConditionReport, resolveSpecDistInjection } from '../../scripts/vite-objectstack-spec-dist.ts';
+import {
+  assertSingleZodInstance,
+  formatConditionReport,
+  resolveSpecDistInjection,
+} from '../../scripts/vite-objectstack-spec-dist.ts';
 import { viteIneffectiveDynamicImports } from '../../scripts/vite-ineffective-dynamic-imports.ts';
 import { viteDeclaredLazyViews } from '../../scripts/vite-declared-lazy-views.ts';
 import { viteTypesZodLazy } from '../../scripts/vite-types-zod-lazy.ts';
@@ -737,9 +741,21 @@ const SPEC_MODULE_TEST = /@objectstack[\\/+]spec/;
 //
 // Inert when unset: `null` here leaves the alias table, the pre-bundle list, the
 // vendor chunk test and the dev server's fs allow-list at their baseline values.
+//
+// The injected spec also arrives with its OWN install tree, so left alone its
+// bare `zod` import resolves to the framework's zod and the bundle carries two
+// instances — the Studio's spec-derived forms then crash in `z.toJSONSchema`
+// (objectui#11327). The injection therefore pins every `zod` import to ONE
+// copy: the one `CONSOLE_ZOD_ANCHOR` resolves. That package is the anchor
+// because it is where the console walks spec schemas with its own zod (the
+// metadata-admin `*-schema.ts` modules) and it declares `zod` itself; the
+// injection refuses the build when that copy is outside the range the
+// injected spec declares.
+const CONSOLE_ZOD_ANCHOR = path.resolve(import.meta.dirname, '../../packages/app-shell');
 const specDistInjection = resolveSpecDistInjection(process.env.OBJECTSTACK_SPEC_DIST, {
   vendorChunkTest: VENDOR_OBJECTSTACK_TEST,
   specModuleTest: SPEC_MODULE_TEST,
+  consoleZodFrom: CONSOLE_ZOD_ANCHOR,
 });
 if (specDistInjection) Object.assign(workspaceAliases, specDistInjection.aliases);
 
@@ -813,6 +829,15 @@ export default defineConfig({
     // eagerly-loaded chunk. Runs on CI/Vercel too — it costs microseconds and
     // the regression it catches is invisible in every other signal.
     assertLazyLinterStaysLazy(specModuleTest),
+    // Under OBJECTSTACK_SPEC_DIST: resolve every bare `zod` import — the injected
+    // spec's included — to the console's one copy (objectui#11327). Registered
+    // only while the override is live, like every other injection surface.
+    ...(specDistInjection ? [specDistInjection.singleZodPlugin] : []),
+    // …and in EVERY build, injected or not: fail when the emitted chunks carry
+    // more than one zod instance, or none at all (the counter-probe). Measures
+    // the outcome rather than trusting the redirect above, because the first
+    // mechanism tried for this (`resolve.dedupe`, see below) was a silent no-op.
+    assertSingleZodInstance(),
     // The same refusal one directory over: fails the build if the
     // `@object-ui/types/zod` validators rejoin the eager closure, AND if they
     // stop being reachable from `@object-ui/plugin-map` at all (objectui#10065).
@@ -897,6 +922,14 @@ export default defineConfig({
     // different sonner instances and toasts never rendered (the "click does
     // nothing — no feedback" bug). Deduping keeps one instance so context,
     // hooks, and the sonner observer all line up.
+    //
+    // ⛔ `zod` is deliberately NOT listed. Dedupe resolves a listed package from
+    // the Vite root, and this root (`apps/console`) declares no `zod`: the
+    // lookup finds nothing and Vite falls back to each importer's own copy
+    // without a warning. Measured on objectui#11327 with OBJECTSTACK_SPEC_DIST
+    // set — adding `zod` here emitted the same two zod copies, byte-identical.
+    // The one-zod rule is held by `specDistInjection.singleZodPlugin` and
+    // checked by `assertSingleZodInstance` in the plugin list above.
     dedupe: ['react', 'react-dom', 'sonner'],
   },
   optimizeDeps: {

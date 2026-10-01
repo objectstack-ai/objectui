@@ -462,6 +462,8 @@ export interface SheetSchema extends BaseSchema {
    * `content`, `defaultOpen`, `description`, `footer`, `modal`, `side`,
    * `title`, `trigger` (in
    * `packages/components/src/renderers/overlay/sheet.tsx`).
+   * The `modal` read has since been retired (objectui#11347): it was never a
+   * member here and no producer authored it.
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -489,6 +491,8 @@ export interface SheetSchema extends BaseSchema {
    * `content`, `defaultOpen`, `description`, `footer`, `modal`, `side`,
    * `title`, `trigger` (in
    * `packages/components/src/renderers/overlay/sheet.tsx`).
+   * The `modal` read has since been retired (objectui#11347): it was never a
+   * member here and no producer authored it.
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -569,6 +573,9 @@ export interface DrawerSchema extends BaseSchema {
    * `content`, `defaultOpen`, `description`, `footer`, `shouldScaleBackground`,
    * `showClose`, `title`, `trigger` (in
    * `packages/components/src/renderers/overlay/drawer.tsx`).
+   * The `footer`, `shouldScaleBackground` and `showClose` reads have since
+   * been retired (objectui#11347): none was ever a member here and no producer
+   * authored any of them.
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -596,6 +603,9 @@ export interface DrawerSchema extends BaseSchema {
    * `content`, `defaultOpen`, `description`, `footer`, `shouldScaleBackground`,
    * `showClose`, `title`, `trigger` (in
    * `packages/components/src/renderers/overlay/drawer.tsx`).
+   * The `footer`, `shouldScaleBackground` and `showClose` reads have since
+   * been retired (objectui#11347): none was ever a member here and no producer
+   * authored any of them.
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -672,6 +682,8 @@ export interface PopoverSchema extends BaseSchema {
    * this declaration carries none. What the renderer DOES read off this node:
    * `align`, `content`, `defaultOpen`, `modal`, `side`, `trigger` (in
    * `packages/components/src/renderers/overlay/popover.tsx`).
+   * The `modal` read has since been retired (objectui#11347): it was never a
+   * member here and no producer authored it.
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -698,6 +710,8 @@ export interface PopoverSchema extends BaseSchema {
    * this declaration carries none. What the renderer DOES read off this node:
    * `align`, `content`, `defaultOpen`, `modal`, `side`, `trigger` (in
    * `packages/components/src/renderers/overlay/popover.tsx`).
+   * The `modal` read has since been retired (objectui#11347): it was never a
+   * member here and no producer authored it.
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -1083,6 +1097,8 @@ export interface DropdownMenuSchema extends BaseSchema {
    * this declaration carries none. What the renderer DOES read off this node:
    * `align`, `defaultOpen`, `items`, `label`, `modal`, `side`, `trigger` (in
    * `packages/components/src/renderers/overlay/dropdown-menu.tsx`).
+   * The `modal` read has since been retired (objectui#11347): it was never a
+   * member here and no producer authored it.
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -1110,6 +1126,8 @@ export interface DropdownMenuSchema extends BaseSchema {
    * this declaration carries none. What the renderer DOES read off this node:
    * `align`, `defaultOpen`, `items`, `label`, `modal`, `side`, `trigger` (in
    * `packages/components/src/renderers/overlay/dropdown-menu.tsx`).
+   * The `modal` read has since been retired (objectui#11347): it was never a
+   * member here and no producer authored it.
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here

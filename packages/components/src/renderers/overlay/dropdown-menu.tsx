@@ -83,6 +83,10 @@ const renderMenuItems = (items: MenuItem[] | undefined) => {
   });
 };
 
+// ⛔ No `modal` read (objectui#11347). `DropdownMenuSchema` declares no `modal`, the
+// installed `@objectstack/spec` has no row for `dropdown-menu`, and no catalog entry,
+// example, doc page or README authors one, so `modal={schema.modal}` rode
+// `BaseSchema`'s index signature alone and was retired.
 ComponentRegistry.register('dropdown-menu', 
   ({ schema, className, ...props }: { schema: DropdownMenuSchema; className?: string; [key: string]: any }) => {
     // Read-time resolution against the display locale (objectui#4580 revised
@@ -92,7 +96,7 @@ ComponentRegistry.register('dropdown-menu',
     // `DropdownMenuContent` lazily. The body became a block only to host this hook.
     const locale = useDisplayLocale();
     return (
-      <DropdownMenu modal={schema.modal} defaultOpen={schema.defaultOpen} {...props}>
+      <DropdownMenu defaultOpen={schema.defaultOpen} {...props}>
         {renderTriggerSlot(DropdownMenuTrigger, schema.trigger)}
         <DropdownMenuContent align={schema.align} side={schema.side} className={className}>
           {schema.label && (

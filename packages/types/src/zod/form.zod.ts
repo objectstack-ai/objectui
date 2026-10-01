@@ -1063,6 +1063,10 @@ export const FormFieldSchema = z.object({
   // `summary_field`) are retired and stay undeclared (objectui#11070).
   returnType: stripImportedDefaults(SpecFieldSchema).shape.returnType,
   summaryOperations: stripImportedDefaults(SpecFieldSchema).shape.summaryOperations,
+  // The `grid` widget's columns: the spec's `inlineColumns` list (its strict,
+  // `name`-keyed inline grid column), by reference. objectui's `grid` field
+  // type spells the list `columns` (objectui#11070).
+  columns: stripImportedDefaults(SpecFieldSchema).shape.inlineColumns,
 }).superRefine((field, ctx) => {
   // objectui#5449 — the namespace rule `@object-ui/core` has enforced since
   // objectui#5375, stated here so `objectui validate` (which reaches this

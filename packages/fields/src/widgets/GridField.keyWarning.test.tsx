@@ -8,7 +8,7 @@
 
 /**
  * objectui#3951, diagnostics half — a grid authored in the declared spelling
- * (`GridColumnDefinition.name`) must render without React's missing-key
+ * (`name`, the key of `GridFieldMetadata['columns']`) must render without React's missing-key
  * warning. While `GridField` read a divergent `field` key, every header, chip
  * and cell was emitted with `key={undefined}`, so a spec-compliant grid logged
  * the warning on top of rendering blank cells.
@@ -30,10 +30,10 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render } from '@testing-library/react';
 import React from 'react';
-import type { GridColumnDefinition, GridFieldMetadata } from '@object-ui/types';
+import type { GridFieldMetadata } from '@object-ui/types';
 import { GridField } from './GridField';
 
-const columns: GridColumnDefinition[] = [
+const columns: NonNullable<GridFieldMetadata['columns']> = [
   { name: 'product', label: 'Product', type: 'text' },
   { name: 'quantity', label: 'Qty', type: 'number' },
   { name: 'price', label: 'Price', type: 'currency' },

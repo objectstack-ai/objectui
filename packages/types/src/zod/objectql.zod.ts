@@ -3142,6 +3142,15 @@ export const ObjectChartSchema = BaseSchema.extend({
   // `NODE_ENVELOPE` fragment as `ObjectGridSchema` above. A producer writes
   // it on `object-chart` nodes. The TS twin declares it too.
   ...NODE_ENVELOPE,
+  // objectui#11070 — the spec's per-element binding, by reference, as on the
+  // other gate-wrapped arms (see `ObjectGridSchema.dataSource`). The
+  // registration is `elementDataSourceBlock`-wrapped, so
+  // `ElementDataSourceGate` reads it off the node and lands its `object` on
+  // `objectName`. A NODE-level key: `OBJECT_CHART_NODE_LEVEL_KEYS` below keeps
+  // it out of the authored `properties` bag.
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
   // Legacy inline path (objectName + aggregate). Optional now that a chart may
   // instead bind to a semantic-layer dataset (ADR-0021, objectstack-ai/objectstack#1890).
   objectName: z.string().optional().describe('ObjectQL object name (legacy inline path)'),
@@ -3357,15 +3366,18 @@ export const ObjectChartSchema = BaseSchema.extend({
 
 /**
  * The node-level keys of `ObjectChartSchema` above: everything the node base
- * declares (`BaseSchema`, `type` and the two content channels among them) and
- * the node envelope (`NODE_ENVELOPE`). The chart's OWN members are the rest of
- * the mirror's shape, and they are what the bag below holds (objectui#11276).
- * Read off the two declarations, not transcribed, so a key either one gains
- * stays at node level the day it lands.
+ * declares (`BaseSchema`, `type` and the two content channels among them), the
+ * node envelope (`NODE_ENVELOPE`), and the per-element `dataSource` binding,
+ * which the spec's `PageComponentSchema` declares on the node beside
+ * `properties` (objectui#11070), as `ObjectFormBlockSchema` and
+ * `ObjectMapBlockSchema` carry it. The chart's OWN members are the rest of the
+ * mirror's shape, and they are what the bag below holds (objectui#11276). Read
+ * off the declarations, not transcribed, so a key `BaseSchema` or the envelope
+ * gains stays at node level the day it lands.
  */
 const OBJECT_CHART_NODE_LEVEL_KEYS = Object.fromEntries(
-  [...Object.keys(BaseSchema.shape), ...Object.keys(NODE_ENVELOPE)].map((key) => [key, true]),
-) as { [K in keyof typeof BaseSchema.shape | keyof typeof NODE_ENVELOPE]: true };
+  [...Object.keys(BaseSchema.shape), ...Object.keys(NODE_ENVELOPE), 'dataSource'].map((key) => [key, true]),
+) as { [K in keyof typeof BaseSchema.shape | keyof typeof NODE_ENVELOPE | 'dataSource']: true };
 
 /**
  * The `object-chart` props bag (objectui#11276): the flat mirror's own members,
@@ -3489,11 +3501,13 @@ const OBJECT_CHART_FLAT_PROP_REFUSALS = Object.fromEntries(
  * ## The chart family, `dataSource` and the content channels
  *
  * The flat mirror's chart-family floor (objectui#10770) stays on the authored
- * node, read in the bag (`requireObjectChartFamilyInBag`). `dataSource` stays
- * undeclared, as on the flat mirror: objectui#11070 left `object-chart`'s
- * binding refused by name on the strict face until it is declared, and this
- * arm does not decide that. Neither content channel is read, so both are
- * refused with the objectui#9256 string the flat mirror uses.
+ * node, read in the bag (`requireObjectChartFamilyInBag`). The registration is
+ * `elementDataSourceBlock`-wrapped, so `dataSource` is the spec's
+ * `ElementDataSourceSchema` by reference, on the NODE beside the bag, as on
+ * `ObjectFormBlockSchema` and `ObjectMapBlockSchema` (objectui#11070; it is
+ * one of `OBJECT_CHART_NODE_LEVEL_KEYS`, so it is not a bag member and is not
+ * refused flat). Neither content channel is read, so both are refused with
+ * the objectui#9256 string the flat mirror uses.
  *
  * ## What did not move
  *
@@ -3514,6 +3528,9 @@ export const ObjectChartBlockSchema = BaseSchema.extend({
       + 'by reference. `@objectstack/spec` has no `ComponentPropsMap[\'object-chart\']` row, so these are '
       + 'objectui\'s own members (objectui#11276). The chart family is required here: `chartType` (or `specType`).',
   ),
+  // objectui#11070 — the node's binding, the flat mirror's own member by
+  // reference (the spec's `ElementDataSourceSchema`).
+  dataSource: ObjectChartSchema.shape.dataSource,
   ...OBJECT_CHART_FLAT_PROP_REFUSALS,
   // objectui#10608: the three retired list-view spellings keep their retirement
   // when written flat — the flat mirror's own tombstones, by reference.

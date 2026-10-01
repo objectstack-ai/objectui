@@ -94,6 +94,9 @@ const DECLARED_KEYS = [
   // widgets read (their snake_case forms are retired), by reference too.
   'returnType',
   'summaryOperations',
+  // objectui#11070 round 7 — the `grid` widget's columns: the spec's
+  // `inlineColumns` list (its strict inline grid column), by reference.
+  'columns',
 ];
 
 describe('FormFieldSchema covers the FormField contract', () => {

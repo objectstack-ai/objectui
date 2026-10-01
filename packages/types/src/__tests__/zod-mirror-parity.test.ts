@@ -4756,6 +4756,9 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // reference (`multiple`, `rows`, `accept`, `dimensions`, `reference`, `min`,
   // `max`, `minLength`, `maxLength`), so a spec bump that moves one of those field
   // keys moves ONE side of this pair. The first spec reference in this mirror.
+  // Round 3 added `returnType` / `summaryOperations`, and round 7 the `grid`
+  // widget's `columns` (the spec's `inlineColumns` list, so a spec bump that
+  // moves the inline grid column moves ONE side too).
   'form.zod.ts#FormFieldSchema',
   'form.zod.ts#SelectOptionSchema',
   'layout.zod.ts#PageNodeSchema',
@@ -4805,8 +4808,8 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // reference (the per-element binding `PageComponentSchema.dataSource`
   // declares) — the first spec reference in this mirror. `ObjectGridSchema`,
   // `ObjectFormSchema`, `ListViewSchema`, `ObjectGanttSchema`,
-  // `ObjectMapSchema` and `ObjectCalendarSchema` gained the same member and
-  // were already spec-derived.
+  // `ObjectMapSchema`, `ObjectCalendarSchema` and (round 7) `ObjectChartSchema`
+  // gained the same member and were already spec-derived.
   'objectql.zod.ts#ObjectKanbanSchema',
   'objectql.zod.ts#ObjectMapSchema',
   // objectui#7779: BACK, by a real code reference this time — `navigation`,

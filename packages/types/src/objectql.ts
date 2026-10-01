@@ -809,12 +809,9 @@ export interface ObjectGridSchema extends BaseSchema {
    * which the strict authoring face refused until it was written. Same
    * declaration on {@link ObjectFormSchema}, {@link ObjectKanbanSchema},
    * {@link ObjectGanttSchema}, {@link ObjectMapSchema},
-   * {@link ObjectCalendarSchema} and `ListViewSchema` (derived from its zod
-   * mirror; its absence from `@object-ui/app-shell`'s relay census is declared
-   * there, objectui#7559). ⚠️ Not on {@link ObjectChartSchema}: the react-page
-   * wrapper writes the host's ADAPTER (or `null`) under this key on every data
-   * block it builds, and objectui#10770 pins that `object-chart` node as
-   * valid, so declaring the binding there waits on objectui#11070's seat.
+   * {@link ObjectCalendarSchema}, {@link ObjectChartSchema} and
+   * `ListViewSchema` (derived from its zod mirror; its absence from
+   * `@object-ui/app-shell`'s relay census is declared there, objectui#7559).
    */
   dataSource?: ElementDataSource;
 
@@ -5156,6 +5153,18 @@ export interface ObjectChartSchema extends BaseSchema {
    * it on `object-chart` nodes (the objectstack showcase).
    */
   responsiveStyles?: SpecResponsiveStyles;
+  /**
+   * Per-element data binding — the spec's `ElementDataSource`, by reference
+   * (objectui#11070). This block's registration is gate-wrapped
+   * (`elementDataSourceBlock`), so `ElementDataSourceGate` reads the binding
+   * off the node and lands its `object` on {@link objectName}. Metadata, ⛔ not
+   * the adapter: see {@link ObjectGridSchema.dataSource}. It stays on the node
+   * on the authored spelling too, beside the `properties` bag, as the spec's
+   * `PageComponentSchema.dataSource` does. The react-page wrapper no longer
+   * writes the host adapter under this key (objectui#11070, round 2), which is
+   * what kept the binding undeclared here.
+   */
+  dataSource?: ElementDataSource;
   /** ObjectQL object name (legacy inline path; optional under ADR-0021 dataset binding) */
   objectName?: string;
   /** Chart type. Includes donut / horizontal-bar / column — all rendered by

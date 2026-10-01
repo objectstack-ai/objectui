@@ -1940,9 +1940,7 @@ export interface FormField {
   // Their snake_case forms (`min_length`, `max_length`, `reference_to`,
   // `return_type`, `summary_type`, …) are retired, read by nothing and
   // refused by the strict face (objectui#11070). The grid field's `columns`
-  // is read too, but its element shape is undecided: the declared
-  // `GridColumnDefinition` (`./field-types.ts`) is not the shape `GridField`
-  // reads. It remains open on objectui#11070.
+  // is the spec's inline grid column list, by reference (below).
 
   /**
    * Hold several values instead of one. Read by the `file`, `image`,
@@ -2028,6 +2026,18 @@ export interface FormField {
    * are read by nothing and refused.
    */
   summaryOperations?: SpecField['summaryOperations'];
+  /**
+   * The columns of a `grid` field: `@objectstack/spec`'s
+   * `FieldSchema.inlineColumns`, by reference — an array of the spec's strict,
+   * `name`-keyed inline grid column (`{ name, label?, type?, width?, … }`).
+   * The `grid` widget reads `columns` off its metadata carrier and each column
+   * by exactly the spec's keys, so a column the spec refuses (the retired
+   * `field` spelling, a `title`, a `type` outside its nine cell controls) is
+   * refused here too rather than rendered as an empty or plain-text cell. The
+   * spec spells the list `inlineColumns` on a `master_detail` field; a `grid`
+   * field is objectui's own type, whose key is `columns` (objectui#11070).
+   */
+  columns?: SpecField['inlineColumns'];
 }
 
 /**

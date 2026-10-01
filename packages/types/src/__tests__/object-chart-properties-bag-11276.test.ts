@@ -88,8 +88,8 @@ type InputOf<T> = T extends z.ZodType ? z.input<T> : never;
 type Arm = ShapeOf<typeof ObjectChartBlockSchema>;
 type Mirror = ShapeOf<typeof ObjectChartSchema>;
 type Bag = ShapeOf<NonNullable<ReturnType<Arm['properties']['unwrap']>>>;
-/** The node-level keys: the node base's and the envelope's. */
-type NodeLevel = keyof ShapeOf<typeof BaseSchema> | 'responsiveStyles';
+/** The node-level keys: the node base's, the envelope's, and the binding (objectui#11070). */
+type NodeLevel = keyof ShapeOf<typeof BaseSchema> | 'responsiveStyles' | 'dataSource';
 
 /**
  * The bag's key set is exactly the mirror's own members (its shape less the
@@ -258,7 +258,8 @@ describe('the spec has no `object-chart` row, and none is invented (objectui#112
 
 describe('the bag is the flat mirror\'s own members, by reference (objectui#11276)', () => {
   it('its key set is the mirror\'s shape less the node-level keys, read on every run', () => {
-    const nodeLevel = new Set([...Object.keys(BaseSchema.shape), 'responsiveStyles']);
+    // `dataSource` is the node's binding (objectui#11070): node-level, beside the bag.
+    const nodeLevel = new Set([...Object.keys(BaseSchema.shape), 'responsiveStyles', 'dataSource']);
     const expected = Object.keys(ObjectChartSchema.shape).filter((key) => !nodeLevel.has(key)).sort();
     expect(bagKeys().sort()).toEqual(expected);
     // Non-vacuity: the chart's own vocabulary is in it.
@@ -348,12 +349,17 @@ describe('the flat spelling is refused by name, with the bag member as the remed
 
   it.each([
     ['an invented key', 'inventedKey11276'],
-    ['the node-level `dataSource` this arm leaves undeclared (objectui#11070)', 'dataSource'],
   ] as const)('%s written flat stays unjudged on the tolerant face and is refused on the strict face', (_label, key) => {
     const doc = { ...SHOWCASE_BAR, [key]: { object: 'x' } };
     expect(safeValidateSchema(doc).success).toBe(true);
     const issue = issuesOf(StrictAnyComponentSchema.safeParse(doc)).find((i) => i.code === 'unrecognized_keys');
     expect((issue as { keys?: string[] } | undefined)?.keys).toEqual([key]);
+  });
+
+  it('the node-level `dataSource` binding parses on both faces and is not a bag member (objectui#11070)', () => {
+    const doc = { ...SHOWCASE_BAR, dataSource: { object: 'x' } };
+    for (const [, parse] of FACES) expect(parse(doc).error?.issues ?? []).toEqual([]);
+    expect(bagKeys()).not.toContain('dataSource');
   });
 
   it('a `BaseSchema` key stays on the node, as on every arm (control)', () => {

@@ -189,26 +189,34 @@ describe('object-map publishes the three spec keys its renderer honours (objectu
   });
 });
 
-describe('`mapStyle` and `enableClustering` — the two scalar keys, each as described (objectui#11168)', () => {
-  it('`mapStyle` replaces the public demo tiles', async () => {
-    mount({ map: MAP, staticData: ROWS, mapStyle: 'https://a.example/style.json' });
-    await mapDrawn();
-    expect(mapGl.props?.mapStyle).toBe('https://a.example/style.json');
-    cleanup();
-    mount({ map: MAP, staticData: ROWS });
-    await mapDrawn();
-    expect(mapGl.props?.mapStyle).toBe(DEMO_STYLE);
+describe('`object-map.mapStyle` is read BEFORE `map.style` — the spec row\'s own describe (objectui#11168, ruling A)', () => {
+  const A = 'https://a.example/style.json';
+  const B = 'https://b.example/style.json';
+
+  it('the registration publishes the installed spec row\'s describe, verbatim', () => {
+    // Read through `_def` for the reason `ObjectMap.dataArmSpecRow-8348` gives:
+    // the row is a lazy schema, and `_def` is the internal the spec publishes no type for.
+    type Member = { description?: string };
+    const def = (ComponentPropsMap as unknown as Record<string, { _def: { shape: Record<string, Member> | (() => Record<string, Member>) } }>)['object-map']._def;
+    const shape = typeof def.shape === 'function' ? def.shape() : def.shape;
+    const describe = shape.mapStyle?.description;
+    expect(describe).toContain('Read before `map.style`');
+    expect(inputOf('mapStyle')?.description).toBe(describe);
   });
 
-  it('measured: a `style` inside the `map` block WINS over `mapStyle` when both are written', async () => {
-    // The spec row's description says the opposite ("Read before `map.style`").
-    // The registration description states what the renderer does; the
-    // divergence is reported on objectui#11168, not resolved here.
-    mount({ map: { ...MAP, style: 'https://b.example/style.json' }, staticData: ROWS, mapStyle: 'https://a.example/style.json' });
+  it.each([
+    ['both written: `mapStyle` draws', { mapStyle: A, map: { ...MAP, style: B } }, A],
+    ['only `map.style`: it draws', { map: { ...MAP, style: B } }, B],
+    ['only `mapStyle`: it draws', { mapStyle: A, map: MAP }, A],
+    ['neither: the public demo tiles (the control)', { map: MAP }, DEMO_STYLE],
+  ])('%s', async (_label, schema, drawn) => {
+    mount({ ...schema, staticData: ROWS });
     await mapDrawn();
-    expect(mapGl.props?.mapStyle).toBe('https://b.example/style.json');
+    expect(mapGl.props?.mapStyle).toBe(drawn);
   });
+});
 
+describe('`enableClustering` — as described (objectui#11168)', () => {
   it('`enableClustering: true` clusters nearby markers; absent, a map of a few markers draws each one', async () => {
     const near = [ROWS[0], { ...ROWS[1], lat: 40.001, lng: -74.001 }];
     mount({ map: MAP, staticData: near, enableClustering: true });

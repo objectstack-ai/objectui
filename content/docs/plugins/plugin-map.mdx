@@ -128,7 +128,7 @@ const schema: BaseSchema = {
     map?: ObjectMapConfig,            // Map-specific configuration
     enableClustering?: boolean,       // Cluster nearby markers (auto past 100; false turns it off)
     navigation?: NavigationConfig,    // What a marker click opens (see Marker click navigation)
-    mapStyle?: string                 // MapLibre style URL; a `style` inside `map` wins over it
+    mapStyle?: string                 // MapLibre style URL; read before `map.style`
   },
   onMarkerClick?: (record: any) => void,  // A host callback: on the node, in code only
   className?: string

@@ -148,7 +148,7 @@ required" refusal below rather than a map.
 | `descriptionField` | Field shown under the title in the marker popup. |
 | `zoom` | Zoom level. Declaring it opts this view out of the auto-fit (see below). |
 | `center` | `[latitude, longitude]` — a two-number **tuple**, latitude first. Declaring it opts this view out of the auto-fit. |
-| `style` | MapLibre style URL/spec, replacing the default public demo style. Wins over the node-level `mapStyle` when both are written. |
+| `style` | MapLibre style URL/spec, replacing the default public demo style. The node-level `mapStyle` is read before it, so it applies when `mapStyle` is absent. |
 
 **Nothing is guessed — an unbound map REFUSES.** A map with no coordinate binding
 renders
@@ -173,7 +173,7 @@ takes its title from the record-title precedence above.
 
 | Key | Description |
 | --- | --- |
-| `mapStyle` | MapLibre style URL, replacing the demo tiles. A `style` inside the `map` block wins over it when both are written. |
+| `mapStyle` | MapLibre style URL or spec, replacing the demo tiles. Read before `map.style`, so it wins when both are written. Not the node's base `style`, which is an inline CSS record. |
 | `enableClustering` | `true` groups nearby markers into numbered clusters. Absent, the map clusters only above 100 markers; `false` turns clustering off at any count. |
 | `navigation` | What a marker click opens — the spec's `NavigationConfig`. `drawer`, `modal` and `popover` open the marker's record; `new_window` (or `openNewTab: true`, which outranks every mode except `none`) opens the record page in a new tab; `preventNavigation: true` opens nothing. An absent key, `page`, `none`, `split` and a block without `mode` open nothing on a map no parent view navigates for. A parent view's click handler outranks the whole key. |
 

@@ -121,6 +121,23 @@ const DECLARING: Readonly<Record<string, DeclaringArm>> = {
   },
 };
 
+/**
+ * Arms the census finds naming `grouping` that this pin does NOT cover, each
+ * with the reason and the paths the census records — so an arm cannot slip in
+ * here silently, and a reason that stops holding turns the rows below red.
+ *
+ * `object-grid` (objectui#11276's `object-grid` batch): the authored arm's
+ * `properties` is `@objectstack/spec`'s `ComponentPropsMap['object-grid']` row
+ * by reference, and the row types its `grouping` member as `z.unknown()`, so no
+ * grouping shape is judged in the bag and a padded field name is not refused
+ * there — the row's own reading, recorded rather than restated here. The
+ * node-level `grouping` is no declaration at all: it is the flat spelling's
+ * by-name refusal (`flatPropRefusals`), pointing at `properties.grouping`.
+ */
+const NOT_COVERED: Readonly<Record<string, readonly string[]>> = {
+  'object-grid': ['grouping', 'properties.grouping'],
+};
+
 /** The faces an authored document meets. `objectui validate` runs `safeValidateSchema`. */
 const facesFor = (arm: z.ZodType): ReadonlyArray<readonly [string, (doc: unknown) => Parsed]> => [
   ['the tolerant face (`AnyComponentSchema`)', (d) => AnyComponentSchema.safeParse(d)],
@@ -238,7 +255,23 @@ describe('objectui#7347 — census: the table above is every arm that declares `
       // skipping it would be a silent hole in the census.
       if (at.length) found[componentTypeOf(arm) ?? '?'] = at;
     }
-    const expected = Object.fromEntries(Object.entries(DECLARING).map(([type, spec]) => [type, [spec.declaredAt]]));
+    const expected = {
+      ...Object.fromEntries(Object.entries(DECLARING).map(([type, spec]) => [type, [spec.declaredAt]])),
+      ...NOT_COVERED,
+    };
     expect(found).toEqual(expected);
+  });
+
+  it('`object-grid` is not covered for the recorded reasons: a flat refusal on the node, the row\'s `unknown` in the bag', () => {
+    const doc = (grouping: unknown, at: 'node' | 'bag') => (at === 'node'
+      ? { type: 'object-grid', properties: { objectName: 'account' }, grouping }
+      : { type: 'object-grid', properties: { objectName: 'account', grouping } });
+    const padded = { fields: [{ field: PADDED[0], order: 'asc' }] };
+    // On the node, every value is refused by name, toward the bag member.
+    const flat = issuesOf(safeValidateSchema(doc({ fields: [{ field: CLEAN, order: 'asc' }] }, 'node')));
+    expect(flat.map((i) => i.path.join('.'))).toEqual(['grouping']);
+    // In the bag the row judges nothing about the shape: a padded name parses.
+    expect(safeValidateSchema(doc(padded, 'bag')).success).toBe(true);
+    expect(StrictAnyComponentSchema.safeParse(doc(padded, 'bag')).success).toBe(true);
   });
 });

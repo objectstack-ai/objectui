@@ -109,7 +109,9 @@ describe('AnyComponentSchema — the property discriminating rests on', () => {
     // (measured: `Invalid discriminated union option at index "9"`). These two
     // were the last flat sites, and `AnyComponentSchema` cannot discriminate
     // while either of them is one.
-    expect(literalsOf(ObjectQLComponentSchema)).toContain('object-grid');
+    // `object-view`, not `object-grid`: the authored `object-grid` arm left this
+    // union for the public-block one in objectui#11276's `object-grid` batch.
+    expect(literalsOf(ObjectQLComponentSchema)).toContain('object-view');
     expect(literalsOf(CRUDComponentSchema)).toContain('action');
     // `ActionSchema` reaches its literal through a `z.lazy` its maintainer-ruled
     // `z.ZodType<…>` annotation hides from `tsc` — the fact the cast at that arm

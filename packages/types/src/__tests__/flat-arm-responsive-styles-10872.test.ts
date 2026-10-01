@@ -33,10 +33,12 @@
  * `PAGE_COMPONENT_ENVELOPE`, so the member is the same object on all 33 arms.
  *
  * ⚠️ objectui#11276 moved `object-chart`'s AUTHORED arm into the public-block
- * set (`ObjectChartBlockSchema`, its props in the `properties` bag), so the
- * population below is the two arms the node union still selects a flat mirror
- * for. The flat `ObjectChartSchema` keeps the shared member as the post-hoist
- * reading, and the authored chart arm is pinned with the other public blocks in
+ * set (`ObjectChartBlockSchema`, its props in the `properties` bag), and its
+ * `object-grid` batch moved `object-grid`'s the same way
+ * (`ObjectGridBlockSchema`), so the population below is the one arm the node
+ * union still selects a flat mirror for, `flex`. The flat `ObjectChartSchema`
+ * and `ObjectGridSchema` keep the shared member as the post-hoist reading, and
+ * the authored chart and grid arms are pinned with the other public blocks in
  * `./public-block-responsive-styles-10872.test.ts`.
  * The key is NOT declared on `BaseSchema` and NOT on any arm without a measured
  * producer: `grid`, `stack` and `container` below are the control, and the
@@ -133,19 +135,25 @@ function armsByLiteral(): Map<string, Arm> {
  * outside the public-block set that a producer writes `responsiveStyles` on
  * (objectui#10872's batch-9 pull). NAMED, not derived, because the population
  * is a measurement of producers. `object-chart` was the third until
- * objectui#11276 moved its authored arm into the public-block set; its flat
- * mirror keeps the member (the post-hoist row below).
+ * objectui#11276 moved its authored arm into the public-block set, and
+ * `object-grid` the second until that card's `object-grid` batch moved its
+ * authored arm the same way; each flat mirror keeps the member (the post-hoist
+ * rows below).
  */
 const FLAT_ARMS = [
   ['flex', FlexSchema],
-  ['object-grid', ObjectGridSchema],
 ] as const;
 
 /** Arms with no producer: the strict face still refuses the key on them. */
 const CONTROL_TYPES = ['grid', 'stack', 'container'] as const;
 
-/** The arm that already declared `dataSource` before this batch (objectui#11070). */
-const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set(['object-grid']);
+/**
+ * The arms here that already declared `dataSource` before this batch
+ * (objectui#11070). `object-grid` was the one until objectui#11276 moved its
+ * authored arm into the public-block set, where it is named with that set's
+ * binding arms; `flex` declares none.
+ */
+const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set<string>();
 
 /** The five envelope keys the spec declares and this batch leaves undeclared. */
 const UNDECLARED_ENVELOPE = ['events', 'dataSource', 'aria', 'visibility', 'responsive'] as const;
@@ -162,13 +170,6 @@ const VALID_NODES = {
     },
     // A nested node carrying the key: judged at depth, through the node recursion.
     children: [{ type: 'flex', id: 'cc_spacer', responsiveStyles: { large: { flex: '1 1 auto' } } }],
-  },
-  'object-grid': {
-    type: 'object-grid',
-    id: 'cc_queue_g',
-    objectName: 'showcase_task',
-    columns: ['title', 'status'],
-    responsiveStyles: { large: { minWidth: '0', display: 'block' } },
   },
 } as const;
 
@@ -232,6 +233,15 @@ describe('`responsiveStyles` is declared on the batch-9 arms, from the public bl
     // mirror is the node as `ObjectChart` reads it, and it still declares the key.
     expect(ObjectChartSchema.shape.responsiveStyles).toBe(PageSectionBlockSchema.shape.responsiveStyles);
     expect(armsByLiteral().get('object-chart')).not.toBe(ObjectChartSchema);
+  });
+
+  it('the flat `ObjectGridSchema` mirror keeps the SAME member as the post-hoist reading (objectui#11276)', () => {
+    // Its authored arm left the node union for the public-block set in the
+    // `object-grid` batch; the mirror is the node as `ObjectGrid` reads it, and
+    // it still declares the key and the `dataSource` binding.
+    expect(ObjectGridSchema.shape.responsiveStyles).toBe(PageSectionBlockSchema.shape.responsiveStyles);
+    expect('dataSource' in ObjectGridSchema.shape).toBe(true);
+    expect(armsByLiteral().get('object-grid')).not.toBe(ObjectGridSchema);
   });
 
   it('the member is the spec\'s own map: the same breakpoints, each the spec\'s own value schema', () => {

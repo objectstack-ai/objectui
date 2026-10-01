@@ -118,6 +118,10 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
   // registration reads it, and the react-page wrapper no longer writes the
   // host adapter under that key.
   'object-chart',
+  // objectui#11276 (the `object-grid` batch): `object-grid` moved here from
+  // `ObjectQLComponentSchema`, carrying the binding its flat mirror has
+  // declared since objectui#11070.
+  'object-grid',
 ]);
 
 /**
@@ -126,13 +130,16 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
  * flat mirrors' record-source rule, read in the bag (objectui#10859 batches 5
  * and 6, `requireRecordSource`), and `object-chart` keeps the flat mirror's
  * chart-family floor, read in its bag (objectui#11276,
- * `requireObjectChartFamilyInBag`). Each node carries the smallest bag that
- * satisfies its rule; every other arm takes the bare node.
+ * `requireObjectChartFamilyInBag`). `object-grid` keeps its flat mirror's
+ * record-source rule the same way (objectui#11276's `object-grid` batch). Each
+ * node carries the smallest bag that satisfies its rule; every other arm takes
+ * the bare node.
  */
 const RECORD_SOURCE: Readonly<Record<string, Record<string, unknown>>> = {
   'object-map': { properties: { objectName: 'store' } },
   'object-gantt': { properties: { objectName: 'task' } },
   'object-chart': { properties: { chartType: 'bar' } },
+  'object-grid': { properties: { objectName: 'task' } },
 };
 
 /** The five envelope keys the spec declares and this batch leaves undeclared. */

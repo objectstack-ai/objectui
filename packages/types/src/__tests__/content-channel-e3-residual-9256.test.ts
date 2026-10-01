@@ -113,6 +113,9 @@ type Mirror = {
  * CONTROL block proves every `required` set parses on its own.
  */
 const ROWS: ReadonlyArray<readonly [type: string, mirror: Mirror, required: Record<string, unknown>]> = [
+  // The flat mirror is the node as `ObjectGrid` reads it after the `properties`
+  // hoist; the AUTHORED node takes the same members in the bag
+  // (`AUTHORED_REQUIRED` below, objectui#11276's `object-grid` batch).
   ['object-grid', ObjectGridMirror as unknown as Mirror, { objectName: 'account' }],
   // The flat mirror is the node as `ObjectForm` reads it after the `properties`
   // hoist; the AUTHORED node takes the same members in the bag
@@ -138,12 +141,13 @@ const ROWS: ReadonlyArray<readonly [type: string, mirror: Mirror, required: Reco
 
 /**
  * The authored spelling of a row's required members, where it differs from the
- * mirror's: an authored `object-form`, `object-map`, `object-chart` or
- * `object-gantt` takes its props in the `properties` bag, and
+ * mirror's: an authored `object-grid`, `object-form`, `object-map`,
+ * `object-chart` or `object-gantt` takes its props in the `properties` bag, and
  * `AnyComponentSchema` refuses them flat (objectui#10859 batches 4 to 6;
  * objectui#11276). The mirror rows above keep the post-hoist spelling.
  */
 const AUTHORED_REQUIRED: Readonly<Record<string, Record<string, unknown>>> = {
+  'object-grid': { properties: { objectName: 'account' } },
   'object-form': { properties: { objectName: 'account', mode: 'create' } },
   'object-map': { properties: { objectName: 'account' } },
   'object-chart': { properties: { objectName: 'account', chartType: 'bar' } },
@@ -216,10 +220,10 @@ describe('objectui#9256 E3 residual — CONTROLS', () => {
 
   it('a nested narrowed node is refused inside a container that reads `children`', () => {
     const tree = (child: Record<string, unknown>) => ({ type: 'div', children: [child] });
-    expect(AnyComponentSchema.safeParse(tree({ type: 'object-grid', objectName: 'account' })).success).toBe(true);
-    expect(AnyComponentSchema.safeParse(
-      tree({ type: 'object-grid', objectName: 'account', children: CONTENT }),
-    ).success).toBe(false);
+    // The authored spelling: its props in the bag (objectui#11276's `object-grid` batch).
+    const grid = { type: 'object-grid', ...AUTHORED_REQUIRED['object-grid'] };
+    expect(AnyComponentSchema.safeParse(tree(grid)).success).toBe(true);
+    expect(AnyComponentSchema.safeParse(tree({ ...grid, children: CONTENT })).success).toBe(false);
   });
 
   it('family C still reads a content channel — `div` takes `children`', () => {

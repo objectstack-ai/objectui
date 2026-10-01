@@ -49,8 +49,15 @@ import type {
 /** A control key no surface in this package or the protocol declares. */
 const UNKNOWN_KEY = 'zzzNotAKeyAnySurfaceDeclares11068';
 
-/** The minimum green `object-grid` document. */
-const GRID = { type: 'object-grid' as const, objectName: 'probe' };
+/**
+ * The minimum green AUTHORED `object-grid` document: its props in the
+ * `properties` bag, the spelling both faces take since objectui#11276's
+ * `object-grid` batch (a flat `objectName` is refused by name there).
+ */
+const GRID = { type: 'object-grid' as const, properties: { objectName: 'probe' } };
+
+/** The same grid as the flat mirror reads it, after `SchemaRenderer` hoists the bag. */
+const GRID_POST_HOIST = { type: 'object-grid' as const, objectName: 'probe' };
 
 type Issue = { code: string; path: PropertyKey[]; message: string; errors?: Issue[][] };
 
@@ -111,7 +118,7 @@ describe('an authored `showFilters` on `object-grid` is refused BY NAME on both 
 
   it('writes the SAME string into the metadata channel as into the parse message', () => {
     const described = (ObjectGridSchema.shape.showFilters as { description?: string }).description;
-    const issue = ObjectGridSchema.safeParse({ ...GRID, showFilters: true });
+    const issue = ObjectGridSchema.safeParse({ ...GRID_POST_HOIST, showFilters: true });
     expect(issue.success).toBe(false);
     const message = issue.success ? undefined : issue.error.issues.find((i) => i.path.join('.') === 'showFilters')?.message;
     expect(described).toBe(message);
@@ -165,7 +172,7 @@ describe('the UPSTREAM half, re-derived from the installed pin', () => {
  * re-typed as a live value.
  */
 export const authoredShowFiltersRefused: ObjectGridSchemaType = {
-  ...GRID,
+  ...GRID_POST_HOIST,
   // @ts-expect-error — `showFilters` is RETIRED on `object-grid` (objectui#11068): a list view's `userActions.filter`.
   showFilters: true,
 };

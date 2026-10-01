@@ -160,6 +160,10 @@ const VALID_BAG: Readonly<Record<string, Record<string, unknown>>> = {
   'object-metric': { objectName: 'order', label: 'Orders', description: 'Open orders', aggregate: { function: 'count' } },
   'object-master-detail-form': { objectName: 'order', mode: 'create', title: 'New order', submitText: 'Save' },
   'object-timeline': { objectName: 'task', limit: 5, data: [] },
+  // objectui#11276 (the `object-grid` batch): the authored `object-grid` arm
+  // spreads this helper over its row, so it is covered here like the three
+  // ObjectQL blocks above; `data` is the base-declared row key in play.
+  'object-grid': { objectName: 'task', title: 'Tasks', columns: ['subject'], data: { provider: 'object', object: 'task' } },
 };
 const COVERED = Object.keys(VALID_BAG);
 

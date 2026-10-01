@@ -183,7 +183,9 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
 
   const BINDING = { object: 'task', filter: [{ field: 'project', operator: 'equals', value: 'acme' }] };
   const BOUND_NODES: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
-    ['object-grid', { objectName: 'task' }],
+    // objectui#11276 (the `object-grid` batch): an authored `object-grid` takes
+    // its props in the spec's `properties` bag; the binding stays on the node.
+    ['object-grid', { properties: { objectName: 'task' } }],
     // objectui#10859 batch 4: an authored `object-form` takes its props in the
     // spec's `properties` bag; the flat spelling is refused by name.
     ['object-form', { properties: { objectName: 'task', mode: 'edit' } }],
@@ -223,7 +225,8 @@ describe('objectui#11070 — a declared key is judged by its declared type on bo
     ['a `summaryOperations.function` the spec does not list (`first`)', form({ type: 'summary', summaryOperations: { object: 'orders', field: 'amount', function: 'first' } })],
     ['an unknown member inside `summaryOperations` (the spec closes it)', form({ type: 'summary', summaryOperations: { object: 'orders', field: 'amount', function: 'sum', functon: 'avg' } })],
     ['a binding that names no `object`', { type: 'object-kanban', dataSource: { filter: { a: 1 } } }],
-    ['an adapter-shaped `dataSource`', { type: 'object-grid', objectName: 'task', dataSource: 'objectstack' }],
+    // The grid's own props in the bag (objectui#11276), so `dataSource` is the one key judged here.
+    ['an adapter-shaped `dataSource`', { type: 'object-grid', properties: { objectName: 'task' }, dataSource: 'objectstack' }],
     // Round 7: the grid's columns are the spec's strict inline grid column.
     ['a grid column keyed by the retired `field` spelling', form({ type: 'grid', columns: [{ field: 'qty' }] })],
     ['a grid column `type` outside the spec\'s nine cell controls (`boolean`)', form({ type: 'grid', columns: [{ name: 'done', type: 'boolean' }] })],

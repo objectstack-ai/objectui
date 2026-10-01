@@ -4668,6 +4668,12 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // (`ObjectGanttSchema`), which stays the renderer's post-hoist reading.
   'objectql.zod.ts#ObjectGanttBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `object-gantt` literal + `NODE_ENVELOPE` + `properties`, which IS `ComponentPropsMap['object-gantt']`, + the node's `dataSource` binding, which IS the spec's `ElementDataSourceSchema`, + one `aliasKeyRefusal` per member of the row but the node-level `label` (the flat spelling, refused by name and pointed at `properties.KEY`; the key set is read off the row) plus one per member of the row's `gantt` block and one for the flat mirror's `dependencyField` alias (pointed at `properties.gantt.KEY`), + the objectui#9256 `body` / `children` refusals; the TS declaration of the node, `ObjectGanttSchema` (`../objectql.ts`), is the renderer's post-hoist reading and is paired with the flat `objectql.zod.ts#ObjectGanttSchema` mirror, not with this arm",
+  // objectui#11276 (the `object-grid` batch) — the authored `object-grid` arm,
+  // from its row, built as batch 6's above. Its TS twin is paired with the FLAT
+  // mirror above (`ObjectGridSchema`), which stays the renderer's post-hoist
+  // reading and still builds the `object-view` `table` slot.
+  'objectql.zod.ts#ObjectGridBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `object-grid` literal + `NODE_ENVELOPE` + `properties`, which IS `ComponentPropsMap['object-grid']`, + the node's `dataSource` binding, which IS the spec's `ElementDataSourceSchema`, + `flatPropRefusals` over the row (one `aliasKeyRefusal` per member but the node-level `label`, pointed at `properties.KEY`, and the row's own `defaultSort` retirement; the key set is read off the row), + the flat mirror's own objectui#9739 / objectui#11068 tombstones, its objectui#6124 `onNavigate` runtime slot and its objectui#9256 `body` / `children` refusals, by reference; the TS declaration of the node, `ObjectGridSchema` (`../objectql.ts`), is the renderer's post-hoist reading and is paired with the flat `objectql.zod.ts#ObjectGridSchema` mirror, not with this arm",
   'objectql.zod.ts#ObjectQLPublicBlockComponentSchema':
     "a union OVER the public-block arms above, not an object of its own — its members are checked individually",
   'overlay.zod.ts#MenuItemSchema':

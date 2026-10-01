@@ -244,10 +244,31 @@ export interface DashboardRendererProps
    * title/subtitle so we don't display them twice.
    */
   hideHeaderText?: boolean;
+  /**
+   * The document arrives already translated for the active language: the host
+   * read it from the server's `/meta` route, which resolves the packaged
+   * catalog per request locale and keeps a published edit over it (an explicit
+   * override beats the packaged default — `translateDashboard` in
+   * `@objectstack/spec`). The console's dashboard page (`DashboardView`) sets
+   * it.
+   *
+   * When true, the texts the server translated — the dashboard `label` and
+   * `description`, and each widget's `title`, `description` and sub-caption
+   * (`options.description`) — are drawn as given: an inline per-locale map is
+   * still collapsed to the active language, but no client bundle lookup runs
+   * over them. A second pass over a served value is what let the packaged
+   * catalog win again, client-side, over a published edit (objectui#11295).
+   *
+   * Leave it unset for a document the server never translated — an inline
+   * block, a preview, a design surface: the client bundle is then its one
+   * translation pass, exactly as before. Header-action labels keep their bundle
+   * lookup either way: the server does not translate them.
+   */
+  localized?: boolean;
 }
 
 const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps>(
-  ({ schema, className, dataSource: dataSourceProp, onRefresh, recordCount, userActions, designMode, selectedWidgetId, onWidgetClick, onWidgetsReorder, modalHandler, scriptHandlers, hideHeaderText, ...props }: DashboardRendererProps & { [key: string]: any }, ref) => {
+  ({ schema, className, dataSource: dataSourceProp, onRefresh, recordCount, userActions, designMode, selectedWidgetId, onWidgetClick, onWidgetsReorder, modalHandler, scriptHandlers, hideHeaderText, localized, ...props }: DashboardRendererProps & { [key: string]: any }, ref) => {
     // objectui#10815 — the adapter every child of this dashboard reads, resolved
     // ONCE here the way the page-embeddable blocks of the family resolve theirs
     // (`useResolvedDataSource`, the `object-grid` / `object-form` /
@@ -367,6 +388,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
      * used as the fallback or the button text (objectui#7759). This read used
      * to return the authored value as-is, typed `string` by a hand-written
      * restatement of `header`, and a map reached React as a button child.
+     *
+     * It runs for a `localized` document too (objectui#11295): the server's
+     * `translateDashboard` does not translate header actions, so this lookup is
+     * their only translation pass, not a second one.
      */
     const tActionLabel = useCallback(
       (action: DashboardNodeHeaderAction): string => {
@@ -408,23 +433,29 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
      * string that falls out is what the bundle receives as its fallback. So a
      * per-locale literal and a bundle entry can never disagree about what "the
      * authored title" is, and a bundle entry always wins over an inline map.
+     *
+     * That composition is for a document the server did NOT translate. A
+     * `localized` document (objectui#11295) already carries the server's
+     * answer, so only the inline-map collapse runs and the bundle is not
+     * consulted: offered a served value as its fallback, the bundle would win
+     * it, and a published edit would draw as the packaged string again.
      */
     const tWidgetTitle = useCallback(
       (widget: DashboardWidgetSchema): string | undefined => {
         const fallback = resolveLabel(widget.title);
-        if (!dashName || !widget.id || fallback === undefined) return fallback;
+        if (localized || !dashName || !widget.id || fallback === undefined) return fallback;
         return widgetTitle(dashName, widget.id, fallback);
       },
-      [dashName, widgetTitle, resolveLabel],
+      [localized, dashName, widgetTitle, resolveLabel],
     );
 
     const tWidgetDescription = useCallback(
       (widget: DashboardWidgetSchema): string | undefined => {
         const fallback = resolveLabel(widget.description);
-        if (!dashName || !widget.id) return fallback;
+        if (localized || !dashName || !widget.id) return fallback;
         return widgetDescription(dashName, widget.id, fallback);
       },
-      [dashName, widgetDescription, resolveLabel],
+      [localized, dashName, widgetDescription, resolveLabel],
     );
 
     /**
@@ -470,8 +501,9 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
      * module's header. The limbs, their order and the `undefined`-never-`''`
      * contract are unchanged, which is why the pins in
      * `__tests__/DashboardRenderer.metricSubCaption.test.tsx` did not move.
+     * A `localized` document skips limb 2, as the title does (objectui#11295).
      */
-    const tWidgetSubCaption = useWidgetSubCaption(dashName);
+    const tWidgetSubCaption = useWidgetSubCaption(dashName, localized);
 
     // Install host-supplied modal/script handlers on the underlying ActionRunner.
     useEffect(() => {
@@ -1080,16 +1112,18 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     const headerActions = header?.actions ?? [];
     const headerSection = header && (showHeaderTitle || showHeaderDescription || headerActions.length > 0) && (
       <div className="col-span-full mb-4">
+        {/* A `localized` document's label and description are the server's
+            answer and are drawn as given, as its widget texts are (objectui#11295). */}
         {showHeaderTitle && (
           <h2 className="text-lg font-semibold tracking-tight">
-            {dashName
+            {dashName && !localized
               ? dashboardLabel({ name: dashName, label: resolveLabel(headerTitle) })
               : resolveLabel(headerTitle)}
           </h2>
         )}
         {showHeaderDescription && (
           <p className="text-sm text-muted-foreground mt-1">
-            {dashName
+            {dashName && !localized
               ? dashboardDescription({ name: dashName, description: resolveLabel(schema.description) })
               : resolveLabel(schema.description)}
           </p>

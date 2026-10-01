@@ -169,6 +169,23 @@ describe('DatasetDefaultInspector — a blank-Field dimension is held as incompl
     expect(seen.blocking.at(-1), 'a picked field releases the hold').toBe(0);
   });
 
+  it('the hold is never stricter than the spec: DatasetSchema refuses the field-less dimension it holds, and takes it once a field is picked', () => {
+    // The host keeps a verdict the server also returns advisory, because a
+    // client gate STRICTER than the server would wedge Save on a body the
+    // server takes (`ResourceEditPage`, the note above `blockingReport`). This
+    // hold is safe on that count only while the spec itself refuses a
+    // dimension without a `field` — if `DatasetDimensionSchema.field` ever
+    // turns optional, this goes red and the hold has to be revisited. (A
+    // stored `field: ''` is the one row it holds that this spec still takes:
+    // that one is ruled — not saved with `''` — and the Field box on screen
+    // repairs it, so it cannot wedge.)
+    const held = DatasetSchema.safeParse({ ...BASE, dimensions: [{ name: 'region', type: 'string' }] });
+    expect(held.success).toBe(false);
+    expect(held.error?.issues.map((i) => i.path.join('.'))).toContain('dimensions.0.field');
+    const picked = DatasetSchema.safeParse({ ...BASE, dimensions: [{ name: 'region', field: 'region', type: 'string' }] });
+    expect(picked.success, JSON.stringify(picked.error?.issues)).toBe(true);
+  });
+
   it('a stored dimension whose field is `\'\'` is held too, so it is not saved again as `\'\'`', () => {
     const seen = mountHost({ ...BASE, dimensions: [{ name: 'region', field: '', type: 'string' }] });
     expect(seen.blocking.at(-1)).toBe(1);

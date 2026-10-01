@@ -334,7 +334,10 @@ export {
   // and `ObjectGanttSchema` above stay the nodes as their renderers read them.
   // objectui#11276's `ObjectChartBlockSchema` is the authored `object-chart`
   // arm, its bag the flat mirror's own members (the spec has no row for it);
-  // `ObjectChartSchema` above stays the node as `ObjectChart` reads it.
+  // `ObjectChartSchema` above stays the node as `ObjectChart` reads it. Its
+  // `object-grid` batch's `ObjectGridBlockSchema` is the authored `object-grid`
+  // arm, from its row; `ObjectGridSchema` above stays the node as `ObjectGrid`
+  // reads it, and builds the `object-view` `table` slot.
   ObjectMetricBlockSchema,
   ObjectMasterDetailFormBlockSchema,
   ObjectTimelineBlockSchema,
@@ -342,6 +345,7 @@ export {
   ObjectMapBlockSchema,
   ObjectChartBlockSchema,
   ObjectGanttBlockSchema,
+  ObjectGridBlockSchema,
   ObjectQLPublicBlockComponentSchema,
 } from './objectql.zod.js';
 

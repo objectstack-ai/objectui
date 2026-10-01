@@ -786,6 +786,25 @@ export interface ListViewExportOptions {
  * - Column resizing, sorting
  * - Row selection
  * - Inline editing support
+ *
+ * ## What this type describes (objectui#11276)
+ *
+ * The `object-grid` node as `ObjectGrid` READS it: after `SchemaRenderer` has
+ * hoisted the node's `properties` bag onto it, or as code composes it —
+ * `ObjectView` and `ListView` building a grid view, the designers' previews, a
+ * host mounting `<ObjectGrid schema={…}>`. That is why `objectName` is
+ * required here and why its members sit flat on the node. The `object-view`
+ * `table` slot (`ObjectGridSlotKey`) is built from it too.
+ *
+ * It is NOT the shape of an AUTHORED `object-grid` document. An authored node
+ * takes its props in the spec's `properties` bag, whose members are
+ * `@objectstack/spec`'s `ComponentPropsMap['object-grid']` row
+ * (`ObjectGridProps`): `{ type: 'object-grid', properties: { objectName,
+ * columns, … } }`, because the spec's page component refuses a prop written on
+ * the node itself (ADR-0089 D3a). `ObjectGridBlockSchema`
+ * (`./zod/objectql.zod.ts`) judges it, and refuses a prop written flat on the
+ * node by name. `SchemaRenderer` reads both spellings, so a node built in code
+ * keeps its flat keys.
  */
 export interface ObjectGridSchema extends BaseSchema {
   type: 'object-grid';
@@ -6005,7 +6024,9 @@ export interface ObjectDataTableSchema extends BaseSchema {
  * `ObjectChartSchema` here is the node as `ObjectChart` reads it. It carries
  * eight since objectui#10859 batch 6: the authored `object-gantt` node is armed
  * by `ObjectGanttBlockSchema`, and `ObjectGanttSchema` here is the node as
- * `ObjectGantt` reads it.
+ * `ObjectGantt` reads it. It carries seven since objectui#11276's `object-grid`
+ * batch: the authored `object-grid` node is armed by `ObjectGridBlockSchema`,
+ * and `ObjectGridSchema` here is the node as `ObjectGrid` reads it.
  */
 export type ObjectQLComponentSchema =
   | ObjectGridSchema

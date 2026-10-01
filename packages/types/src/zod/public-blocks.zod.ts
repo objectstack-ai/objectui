@@ -414,8 +414,8 @@ type FlatPropRefusals<S> = {
  * tile, a form's master-detail node) never passes through this face.
  *
  * The ONE copy: every public-block arm here, and `./objectql.zod.ts`'s
- * `object-metric`, `object-master-detail-form` and `object-timeline` arms,
- * spread it. Internal to this package's zod modules, like `propsBag`:
+ * `object-metric`, `object-master-detail-form`, `object-timeline` and
+ * `object-grid` (objectui#11276) arms, spread it. Internal to this package's zod modules, like `propsBag`:
  * deliberately NOT re-exported from `index.zod.ts`.
  *
  * @param type the registered `type`, spelled into every message

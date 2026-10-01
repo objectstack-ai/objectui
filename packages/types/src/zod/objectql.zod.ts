@@ -57,6 +57,9 @@ import {
   ObjectFormPropsSchema as SpecObjectFormPropsSchema,
   ObjectMapPropsSchema as SpecObjectMapPropsSchema,
   ObjectGanttPropsSchema as SpecObjectGanttPropsSchema,
+  // objectui#11276 — the `object-grid` row, read as the authored arm's
+  // `properties` bag, by reference (`ObjectGridBlockSchema` below).
+  ObjectGridPropsSchema as SpecObjectGridPropsSchema,
   // objectui#11070 — the per-element data binding (`PageComponentSchema.dataSource`)
   // the object-bound arms below declare as `dataSource`, by reference.
   ElementDataSourceSchema as SpecElementDataSourceSchema,
@@ -311,6 +314,17 @@ const OBJECT_NAME_BINDING_WAIVER_DESCRIPTION =
 
 /**
  * ObjectGrid Schema
+ *
+ * ## No longer an authoring arm (objectui#11276)
+ *
+ * This mirror is the node as `ObjectGrid` reads it: after `SchemaRenderer` has
+ * hoisted the node's `properties` bag onto it, or as code composes it
+ * (`ObjectView`, `ListView`, the designers). It is also what the `object-view`
+ * `table` slot below is built from. It left `ObjectQLComponentSchema`, and so
+ * `AnyComponentSchema`: the AUTHORED `object-grid` node is armed by
+ * `ObjectGridBlockSchema` below, whose `properties` is the spec's
+ * `ComponentPropsMap['object-grid']` row. It stays exported and paired with
+ * its TypeScript twin.
  */
 export const ObjectGridSchema = BaseSchema.extend({
   type: z.literal('object-grid'),
@@ -3800,8 +3814,8 @@ export const ObjectDataTableSchema = BaseSchema.extend({
  * ObjectQL Component Schema Union
  *
  * The members of the TS union in `../objectql.ts`, in the same order, less
- * `ObjectFormSchema`, `ObjectMapSchema`, `ObjectChartSchema` and
- * `ObjectGanttSchema` (see the last four paragraphs).
+ * `ObjectGridSchema`, `ObjectFormSchema`, `ObjectMapSchema`,
+ * `ObjectChartSchema` and `ObjectGanttSchema` (see the last five paragraphs).
  * `ObjectGallerySchema` and `ObjectDataTableSchema` joined in objectui#7363:
  * PR #7355 (objectui#6576) minted both mirrors and deliberately did not extend
  * this union, so `AnyComponentSchema` — and `validateSchema` /
@@ -3837,9 +3851,14 @@ export const ObjectDataTableSchema = BaseSchema.extend({
  * way. Its TypeScript twin is the node as `ObjectGantt` reads it, and the
  * authored `object-gantt` node is armed by `ObjectGanttBlockSchema` below, from
  * its spec row.
+ *
+ * ⚠️ SEVEN since objectui#11276's `object-grid` batch: `ObjectGridSchema` left
+ * it the same way. Its TypeScript twin is the node as `ObjectGrid` reads it,
+ * the mirror still builds the `object-view` `table` slot, and the authored
+ * `object-grid` node is armed by `ObjectGridBlockSchema` below, from its spec
+ * row.
  */
 export const ObjectQLComponentSchema = z.discriminatedUnion('type', [
-  ObjectGridSchema,
   ObjectViewSchema,
   ObjectTreeSchema,
   ObjectCalendarSchema,
@@ -4453,6 +4472,111 @@ export const ObjectGanttBlockSchema = BaseSchema.extend({
 }).superRefine(...requireRecordSource('object-gantt', RECORD_SOURCE_KEYS, 'properties'));
 
 /**
+ * `object-grid` — `ComponentPropsMap['object-grid']`, plus the node's
+ * `dataSource` binding (objectui#11276, the `object-grid` batch of triage's
+ * routing call A).
+ *
+ * ## Why the arm moved to the bag
+ *
+ * `@objectstack/spec`'s strict `PageComponentSchema` refuses a prop written on
+ * a page component itself as mis-layered (ADR-0089 D3a), for every component
+ * type: `properties` is the only home of a component's own props. This union
+ * used to arm the node with the flat `ObjectGridSchema` above, so `objectui
+ * validate` refused the spec-shaped document — the objectstack showcase's work
+ * queues, `{ type: 'object-grid', properties: { objectName, columns, filter } }`
+ * (its record-source refinement found no source on the node, and the strict
+ * face named `properties` as an unrecognized key) — and accepted the flat one
+ * `os validate` refuses. Triage's answer on objectui#11276 is this arm: "A
+ * block schema takes the `properties` bag, while the flat mirror keeps the
+ * `object-view` table slot."
+ *
+ * It is the construct `ObjectFormBlockSchema`, `ObjectMapBlockSchema` and
+ * `ObjectGanttBlockSchema` use (objectui#10859, batches 4 to 6): `BaseSchema` +
+ * the `type` literal + `NODE_ENVELOPE` + `properties`, which IS the spec's row,
+ * by reference through the objectui#8317 import boundary. The row carries spec
+ * defaults (inside `data`'s `api` provider), so the boundary hands back a
+ * rebuilt copy with every default removed and every key still omissible. The
+ * row is strict and carries the spec's own refusals and prescriptions: an
+ * undeclared key in the bag is refused there, `properties.operators` with the
+ * spec's "Did you mean `operators` → `operations`?", and the record form of
+ * `filter` with the spec's ViewFilterRule prescription.
+ *
+ * ## The flat spelling is refused by name
+ *
+ * Every member of the row written FLAT on the node is refused on both faces,
+ * with a message naming its bag member — `flatPropRefusals`, the shared helper
+ * the `object-metric`, `object-master-detail-form` and `object-timeline` arms
+ * above spread, read off the row's own key set. It already encodes the two
+ * exceptions this row needs: `label` is a node-level key of the spec's page
+ * component too (its display label), so a `label` on the node is not
+ * mis-layered and keeps `BaseSchema`'s member; and `defaultSort` is a member
+ * the row itself retires, so written flat it gets the row's own retirement.
+ * `data` is also a `BaseSchema` key; here the refusal overrides it, because the
+ * grid's `data` is the row's member.
+ *
+ * The flat mirror's own retirements that are not row members keep their
+ * tombstones when written flat — the mirror's members, by reference:
+ * `operators` (objectui#9739), and `rowSpecActions`, `bulkSpecActions`, `name`,
+ * `placeholder`, `showFilters` (objectui#11068). `name` and `placeholder` are
+ * `BaseSchema` keys, so without the tombstone they would parse again. In the
+ * bag the row refuses each of them. `onNavigate`, which `ObjectGrid` reads off
+ * the node, stays the objectui#6124 runtime slot it is on the mirror. A flat
+ * key neither the row nor those declare — the mirror's `emptyState` and
+ * `keyboardNavigation` among them — is left as every arm leaves an undeclared
+ * key: unjudged by the tolerant face, refused by the strict one; the row
+ * refuses both inside the bag too.
+ *
+ * ## The record source, `dataSource` and the content channels
+ *
+ * The flat mirror's record-source rule (objectui#11117: `objectName`, or the
+ * node's binding naming the object) stays on the authored node, read in the
+ * bag, as on `ObjectMapBlockSchema`: `requireRecordSource(…, 'properties')`
+ * asks for `properties.objectName`, or the node's `dataSource` binding naming
+ * its object (a non-empty `dataSource.object`), which `ElementDataSourceGate`
+ * lands on `objectName` (the registration is `elementDataSourceBlock`-wrapped).
+ * ⚠️ The spec row is looser here: it keeps `objectName` optional and adds no
+ * such rule, so a node with no source passes the spec's own page component and
+ * is refused by this arm, as the flat mirror refused it. The binding itself is
+ * the spec's `ElementDataSourceSchema` by reference, as on the arms above.
+ * Neither content channel is read, so both are refused with the objectui#9256
+ * string the flat mirror uses.
+ *
+ * ## What did not move
+ *
+ * The TypeScript `ObjectGridSchema` and its zod mirror above stay published:
+ * they are the node as `ObjectGrid` reads it after the hoist, and as code
+ * composes it (`ObjectView`, `ListView`, the designers). The mirror also keeps
+ * building the `object-view` `table` slot. A composed flat node keeps working,
+ * because `SchemaRenderer` reads both spellings and no composed node passes
+ * through `safeValidateSchema`.
+ */
+export const ObjectGridBlockSchema = BaseSchema.extend({
+  type: z.literal('object-grid'),
+  ...NODE_ENVELOPE,
+  // A row member written flat on the node is refused by name, toward `properties.KEY`.
+  ...flatPropRefusals('object-grid', stripImportedDefaults(SpecObjectGridPropsSchema)),
+  properties: propsBag('object-grid', stripImportedDefaults(SpecObjectGridPropsSchema)),
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
+  // The flat mirror's retirements of keys the row does not declare: its own
+  // tombstones, by reference, so their remedies stay the ones it published.
+  operators: ObjectGridSchema.shape.operators,
+  rowSpecActions: ObjectGridSchema.shape.rowSpecActions,
+  bulkSpecActions: ObjectGridSchema.shape.bulkSpecActions,
+  name: ObjectGridSchema.shape.name,
+  placeholder: ObjectGridSchema.shape.placeholder,
+  showFilters: ObjectGridSchema.shape.showFilters,
+  // objectui#6124: `ObjectGrid` reads `onNavigate` off the node, so it stays the
+  // mirror's runtime slot, refused by name.
+  onNavigate: ObjectGridSchema.shape.onNavigate,
+  // objectui#9256: the renderer reads NEITHER content channel, so both are
+  // refused by name — the flat mirror's own members, by reference.
+  body: ObjectGridSchema.shape.body,
+  children: ObjectGridSchema.shape.children,
+}).superRefine(...requireRecordSource('object-grid', ['objectName'], 'properties'));
+
+/**
  * The public blocks above, as one arm of `AnyComponentSchema`
  * (objectui#10859, batches 2 to 6).
  *
@@ -4469,6 +4593,10 @@ export const ObjectGanttBlockSchema = BaseSchema.extend({
  * `ObjectChartSchema` mirror's own members by reference, and its TypeScript
  * twin is likewise the node as `ObjectChart` reads it after the hoist.
  *
+ * `object-grid` joined in objectui#11276's next batch, a spec-row arm like
+ * `object-form`: its TypeScript twin is the node as `ObjectGrid` reads it after
+ * the hoist, and its flat mirror keeps building the `object-view` `table` slot.
+ *
  * Each arm also spreads `NODE_ENVELOPE` from `./public-blocks.zod.ts`,
  * the node-level `responsiveStyles` every public block declares by reference to
  * the spec's `PageComponentSchema` (objectui#10872 batch 8) — the same one
@@ -4483,4 +4611,5 @@ export const ObjectQLPublicBlockComponentSchema = z.discriminatedUnion('type', [
   ObjectMapBlockSchema,
   ObjectChartBlockSchema,
   ObjectGanttBlockSchema,
+  ObjectGridBlockSchema,
 ]);

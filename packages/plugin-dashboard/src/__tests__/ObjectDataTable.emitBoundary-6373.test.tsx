@@ -380,6 +380,26 @@ describe("the emit type can FAIL — otherwise the annotation is decoration (#63
     // @ts-expect-error objectui#6694/#11070 — `reference_to` refused by the explicit retired-key tombstone.
     const referenceToSnakeWrittenRefused: EnrichedColumn = carriesReferenceToSnake;
     expect(referenceToSnakeWrittenRefused.accessorKey).toBe('a');
+
+    // objectui#11070's text-family round, same shape again: `display_field`
+    // was a `FieldMeta` member (objectui#6694), so the DERIVED band refused
+    // it; the round retired the member (the cell reads `displayField`), and
+    // the hand-written `ObjectDataTableRetiredDisplayFieldSnakeTombstone`
+    // carries it now.
+    const carriesDisplayFieldSnake: { header: string; accessorKey: string; display_field?: unknown } =
+      { header: 'h', accessorKey: 'a', display_field: 'code' };
+    // @ts-expect-error objectui#6694/#11070 — `display_field` refused by the explicit retired-key tombstone.
+    const displayFieldSnakeWrittenRefused: EnrichedColumn = carriesDisplayFieldSnake;
+    expect(displayFieldSnakeWrittenRefused.accessorKey).toBe('a');
+  });
+
+  it('the TOMBSTONE is what refuses the retired `display_field` at this emit (objectui#11070 text-family round)', () => {
+    // Counter-control for the pin above: `EnrichedColumn` minus that tombstone
+    // and nothing else ACCEPTS the source the directive refuses.
+    const carriesDisplayFieldSnake: { header: string; accessorKey: string; display_field?: unknown } =
+      { header: 'h', accessorKey: 'a', display_field: 'code' };
+    const untombstoned: Omit<EnrichedColumn, 'display_field'> = carriesDisplayFieldSnake;
+    expect(untombstoned.accessorKey).toBe('a');
   });
 
   it('the TOMBSTONE is what refuses the retired `reference_to` at this emit (objectui#11070 round 4)', () => {

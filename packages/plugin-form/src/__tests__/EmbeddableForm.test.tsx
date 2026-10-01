@@ -131,13 +131,14 @@ describe('applyDefaultMaxLengths', () => {
     expect((out![0] as any).maxLength).toBe(50);
   });
 
-  it('also respects the snake_case `max_length` alias used by some specs', () => {
+  it('reads the spec `maxLength` only — the retired snake_case `max_length` is no opt-out (objectui#11070)', () => {
+    // The snake_case spelling used to count as an authored cap here. The spec
+    // refuses it by name and no objectui type declares it, so it no longer
+    // opts a field out of the default: the field gets the long-text cap.
     const out = applyDefaultMaxLengths([
       { name: 'note', type: 'textarea', max_length: 1000 } as any,
     ]);
-    // Doesn't overwrite — the snake_case max_length acts as an opt-out
-    expect((out![0] as any).maxLength).toBeUndefined();
-    expect((out![0] as any).max_length).toBe(1000);
+    expect((out![0] as any).maxLength).toBe(5000);
   });
 
   it('leaves non-text field types untouched', () => {

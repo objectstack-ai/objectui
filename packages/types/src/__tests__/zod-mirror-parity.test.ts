@@ -4580,6 +4580,11 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // stays the renderer's post-hoist reading.
   'objectql.zod.ts#ObjectFormBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `object-form` literal + `properties`, which IS `ComponentPropsMap['object-form']`, + the node's `dataSource` binding, which IS the spec's `ElementDataSourceSchema`, + one `aliasKeyRefusal` per member of the row (the flat spelling, refused by name and pointed at `properties.KEY`; the key set is read off the row), + five `handlerKeyRefusal` runtime slots, + the objectui#9256 `body` / `children` refusals; the TS declaration of the node, `ObjectFormSchema` (`../objectql.ts`), is the renderer's post-hoist reading and is paired with the flat `objectql.zod.ts#ObjectFormSchema` mirror, not with this arm",
+  // objectui#10859 batch 5 — the authored `object-map` arm, from its row, built
+  // as batch 4's above. Its TS twin is paired with the FLAT mirror above
+  // (`ObjectMapSchema`), which stays the renderer's post-hoist reading.
+  'objectql.zod.ts#ObjectMapBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `object-map` literal + `properties`, which IS `ComponentPropsMap['object-map']`, + the node's `dataSource` binding, which IS the spec's `ElementDataSourceSchema`, + one `aliasKeyRefusal` per member of the row (the flat spelling, refused by name and pointed at `properties.KEY`; the key set is read off the row) plus two for the flat mirror's `locationField` / `titleField` (pointed at `properties.map.KEY`), + the objectui#9256 `body` / `children` refusals; the TS declaration of the node, `ObjectMapSchema` (`../objectql.ts`), is the renderer's post-hoist reading and is paired with the flat `objectql.zod.ts#ObjectMapSchema` mirror, not with this arm",
   'objectql.zod.ts#ObjectQLPublicBlockComponentSchema':
     "a union OVER the public-block arms above, not an object of its own — its members are checked individually",
   'overlay.zod.ts#MenuItemSchema':

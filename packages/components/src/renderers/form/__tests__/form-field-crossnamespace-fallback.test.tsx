@@ -99,11 +99,12 @@ describe('form field type resolution — no cross-namespace fallback (objectui#5
       expect(input().getAttributeNames()).not.toContain('field');
     });
 
-    it('never leaks `max_length`, and the declared ceiling now actually caps', () => {
-      renderForm([{ name: 'contact', label: 'Contact', type: 'email', max_length: 50 }]);
-      // Pre-fix: a stray `max_length="50"` attribute AND `maxlength` null —
-      // two independent halves, so both are asserted.
-      expect(input().getAttributeNames()).not.toContain('max_length');
+    it('caps the field by its declared ceiling', () => {
+      // Pre-fix the fixture spelled the ceiling `max_length`, which reached the
+      // element as a stray attribute and capped nothing. objectui#11070 retired
+      // that spelling (every reader reads the spec's `maxLength` alone), so the
+      // pin now declares the ceiling the one way it is read.
+      renderForm([{ name: 'contact', label: 'Contact', type: 'email', maxLength: 50 }]);
       expect(input().getAttribute('maxlength')).toBe('50');
     });
 

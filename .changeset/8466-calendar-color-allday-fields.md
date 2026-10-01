@@ -64,3 +64,5 @@ reason.
 The `BaseSchema` index-signature ceiling measured by
 objectstack-ai/objectui#7927 is unchanged — a MISSPELLED key is still admitted on
 both faces, and the accompanying pin asserts that rather than claiming otherwise.
+
+⚠️ **Dated note, 2026-10-01 — the README no longer teaches the flat spelling on `object-calendar` (objectui#8831).** The first two paragraphs above say the package README teaches all five flat keys. That was true when this entry was written, and the same release changes it. `@objectstack/spec` refuses the five flat on an `object-calendar` node and prescribes the `calendar` block, so the README now writes them inside `calendar` and calls the flat spelling the runtime handoff `ObjectView` and `ListView` emit. It keeps the five-key sentence for `calendar-view` only. The declarations this entry adds are unchanged: they record that the renderer reads the flat spelling, not that an author should write it. Separately, `@objectstack/spec` 17.5.0 (objectui#11073) declares `allDayField` on `CalendarConfigSchema`, so `calendar.allDayField` now has the spec twin that this entry says it lacks.

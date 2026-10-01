@@ -892,28 +892,21 @@ export interface UIActionSchema {
   onClick?: () => void | Promise<void>;
 }
 
-/**
- * Action group for organizing related actions
+/*
+ * `ActionGroup` — RETIRED (objectui#11168 slice 2). This interface stood here
+ * and was re-exported from the package entry, with no importer in this
+ * repository. It was not the TypeScript mirror of the `action:group` block,
+ * which is `ActionGroupBlockSchema` in `./zod/public-blocks.zod.ts` (the spec
+ * row by reference). It disagreed with that row on six counts:
+ *   - it required `name`, which the row refuses and slice 1 retired from the
+ *     block's published inputs;
+ *   - it required `label` and `actions`, which the row makes optional;
+ *   - it typed `visible` as a string only;
+ *   - it lacked `location`, `variant` and `size`.
+ * Type an `action:group` node with `ActionGroupBlockSchema` (or the spec's
+ * `ActionGroupProps` for its `properties` bag). Pinned retired by
+ * `__tests__/action-group-retired-11168.test.ts`.
  */
-export interface ActionGroup {
-  /** Group name */
-  name: string;
-  
-  /** Display label */
-  label: string;
-  
-  /** Optional icon */
-  icon?: string;
-  
-  /** Actions in this group */
-  actions: UIActionSchema[];
-  
-  /** Group visibility condition */
-  visible?: string;
-  
-  /** Display as dropdown or inline */
-  display?: 'dropdown' | 'inline';
-}
 
 /**
  * Action execution context

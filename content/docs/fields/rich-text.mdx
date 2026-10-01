@@ -33,7 +33,7 @@ const releaseNotes: MarkdownFieldMetadata = {
   name: 'release_notes',
   label: 'Release Notes',
   placeholder: 'Write the notes…',
-  max_length: 20000,
+  maxLength: 20000,
   // Inline editor height in text rows (positive integer; default 8). The
   // fullscreen dialog sizes itself and ignores it.
   rows: 12,
@@ -43,7 +43,7 @@ const emailBody: HtmlFieldMetadata = {
   type: 'html',
   name: 'email_body',
   label: 'Email Body',
-  max_length: 50000,
+  maxLength: 50000,
 };
 
 const articleBody: RichtextFieldMetadata = {
@@ -51,7 +51,7 @@ const articleBody: RichtextFieldMetadata = {
   name: 'article_body',
   label: 'Article Body',
   rows: 10,
-  max_length: 50000,
+  maxLength: 50000,
 };
 ```
 
@@ -63,10 +63,13 @@ through the same display pipeline as `html`, not the markdown one
 ([objectui#5452](https://github.com/objectstack-ai/objectui/issues/5452)) — and that
 pipeline is the only thing `type` changes between the three.
 
-`max_length` is a bound on the stored text. The widget itself does not read it; the
-form does — `buildValidationRules` compiles it into the submit-time validation rules
-for every field, whatever its type — so it is enforced when the form is submitted, not
-as a `maxlength` attribute on the rich-text editor.
+`maxLength` is `@objectstack/spec`'s own `FieldSchema.maxLength`, typed by reference: a
+bound on the stored text. The widget reads it — the editor's native stop, a character
+counter and its `aria-describedby` description, inline and in the fullscreen dialog
+([objectui#8438](https://github.com/objectstack-ai/objectui/issues/8438)) — and the form's
+validation rules enforce it again when the form is submitted, whatever the field's type.
+The snake_case `max_length` is retired: the spec refuses it by name and nothing reads it
+([objectui#11070](https://github.com/objectstack-ai/objectui/issues/11070)).
 
 `rows` sizes the inline editor, in text rows — declared on all three types (and on
 `@objectstack/spec`'s `FieldSchema` for the multiline editor types), matching the

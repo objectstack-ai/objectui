@@ -49,20 +49,30 @@ The `@object-ui/plugin-map` plugin provides map visualization for ObjectQL data 
 
 ## Usage
 
+An `object-map` node takes its props in its `properties` bag, whose members are
+`@objectstack/spec`'s `ComponentPropsMap['object-map']` row. `objectui validate`
+judges the bag against that row and refuses a prop written flat on the node by
+name, naming its bag member (`Did you mean objectName → properties.objectName?`),
+as the spec's own page component does (objectui#10859). `SchemaRenderer` hoists
+the bag onto the node before `ObjectMap` runs, so `ObjectMapSchema` is the node as
+the renderer reads it, and as code composes it.
+
 ### Basic Usage with ObjectQL
 
 ```tsx
 import '@object-ui/plugin-map'
-import type { ObjectMapSchema } from '@object-ui/types'
+import type { BaseSchema } from '@object-ui/types'
 
-const schema: ObjectMapSchema = {
+const schema: BaseSchema = {
   type: 'object-map',
-  objectName: 'locations',  // Your ObjectQL object
-  map: {
-    latitudeField: 'lat',
-    longitudeField: 'lng',
-    titleField: 'name',
-    descriptionField: 'address'
+  properties: {
+    objectName: 'locations',  // Your ObjectQL object
+    map: {
+      latitudeField: 'lat',
+      longitudeField: 'lng',
+      titleField: 'name',
+      descriptionField: 'address'
+    }
   }
 }
 ```
@@ -70,31 +80,33 @@ const schema: ObjectMapSchema = {
 ### With Static Data
 
 ```tsx
-import type { ObjectMapSchema } from '@object-ui/types'
+import type { BaseSchema } from '@object-ui/types'
 
-const schema: ObjectMapSchema = {
+const schema: BaseSchema = {
   type: 'object-map',
-  staticData: [
-    {
-      id: 1,
-      name: 'Office HQ',
-      lat: 37.7749,
-      lng: -122.4194,
-      address: '123 Main St, San Francisco, CA'
-    },
-    {
-      id: 2,
-      name: 'Warehouse',
-      lat: 37.8044,
-      lng: -122.2711,
-      address: '456 Oak Ave, Oakland, CA'
+  properties: {
+    staticData: [
+      {
+        id: 1,
+        name: 'Office HQ',
+        lat: 37.7749,
+        lng: -122.4194,
+        address: '123 Main St, San Francisco, CA'
+      },
+      {
+        id: 2,
+        name: 'Warehouse',
+        lat: 37.8044,
+        lng: -122.2711,
+        address: '456 Oak Ave, Oakland, CA'
+      }
+    ],
+    map: {
+      latitudeField: 'lat',
+      longitudeField: 'lng',
+      titleField: 'name',
+      descriptionField: 'address'
     }
-  ],
-  map: {
-    latitudeField: 'lat',
-    longitudeField: 'lng',
-    titleField: 'name',
-    descriptionField: 'address'
   }
 }
 ```
@@ -104,17 +116,21 @@ const schema: ObjectMapSchema = {
 ```plaintext
 {
   type: 'object-map',
-  objectName?: string,              // ObjectQL object name (read third)
-  staticData?: Array<any>,          // Static data array (read second)
-  data?: ViewData,                  // Advanced data configuration (read first)
-                                    // At least one of data / staticData / objectName is required
-  filter?: Array<any>,              // Query filter, sent as $filter
-  sort?: SortConfig[],              // Sort, sent as $orderby
-  map?: ObjectMapConfig,            // Map-specific configuration
-  enableClustering?: boolean,       // Cluster nearby markers (auto past 100)
-  navigation?: NavigationConfig,    // Record navigation (drawer/dialog/page)
-  mapStyle?: string,                // MapLibre style URL/spec
-  onMarkerClick?: (record: any) => void,
+  dataSource?: ElementDataSource,     // Per-element binding; its object stands in for objectName
+  properties: {                       // The spec's ComponentPropsMap['object-map'] row
+    objectName?: string,              // ObjectQL object name (read third)
+    staticData?: Array<any>,          // Static data array (read second)
+    data?: ViewData,                  // Advanced data configuration (read first)
+                                      // At least one of data / staticData / objectName is
+                                      // required, or the node's dataSource binding
+    filter?: Array<any>,              // Query filter, sent as $filter
+    sort?: SortConfig[],              // Sort, sent as $orderby
+    map?: ObjectMapConfig,            // Map-specific configuration
+    enableClustering?: boolean,       // Cluster nearby markers (auto past 100)
+    navigation?: NavigationConfig,    // Record navigation (drawer/dialog/page)
+    mapStyle?: string                 // MapLibre style URL/spec
+  },
+  onMarkerClick?: (record: any) => void,  // A host callback: on the node, in code only
   className?: string
 }
 ```
@@ -148,7 +164,7 @@ to `onMarkerClick` is not `===` the authored object.
 
 The block is closed (objectui#5157). A key it does not declare — a typo such as
 `latitudeFieId` — is refused by `objectui validate` with an `unrecognized_keys`
-issue at `map` that names the key (on a root node; a nested node reports under
+issue at `properties.map` that names the key (on a root node; a nested node reports under
 `invalid_union` at `children`, with the key in the arm detail). At runtime
 `ObjectMap` does not throw: it renders from the declared keys, and the console
 warns `[ObjectMap] Invalid map configuration`, naming the same key. A typo that
@@ -182,16 +198,18 @@ the way in. Both are gone. Declare the binding:
 When your data has separate latitude and longitude fields:
 
 ```tsx
-import type { ObjectMapSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const storeMap: ObjectMapSchema = {
+const storeMap: BaseSchema = {
   type: 'object-map',
-  objectName: 'stores',
-  map: {
-    latitudeField: 'latitude',
-    longitudeField: 'longitude',
-    titleField: 'storeName',
-    descriptionField: 'storeAddress'
+  properties: {
+    objectName: 'stores',
+    map: {
+      latitudeField: 'latitude',
+      longitudeField: 'longitude',
+      titleField: 'storeName',
+      descriptionField: 'storeAddress'
+    }
   }
 };
 ```
@@ -201,15 +219,17 @@ const storeMap: ObjectMapSchema = {
 When your data has a combined location field:
 
 ```tsx
-import type { ObjectMapSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const placeMap: ObjectMapSchema = {
+const placeMap: BaseSchema = {
   type: 'object-map',
-  objectName: 'places',
-  map: {
-    locationField: 'coordinates',  // e.g., "37.7749,-122.4194" or {lat: 37.7749, lng: -122.4194}
-    titleField: 'placeName',
-    descriptionField: 'description'
+  properties: {
+    objectName: 'places',
+    map: {
+      locationField: 'coordinates',  // e.g., "37.7749,-122.4194" or {lat: 37.7749, lng: -122.4194}
+      titleField: 'placeName',
+      descriptionField: 'description'
+    }
   }
 };
 ```
@@ -234,17 +254,19 @@ Two cases sit outside the fit:
 Declare either one to take the camera over and opt this view out of the auto-fit:
 
 ```tsx
-import type { ObjectMapSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const cameraMap: ObjectMapSchema = {
+const cameraMap: BaseSchema = {
   type: 'object-map',
-  objectName: 'locations',
-  map: {
-    latitudeField: 'lat',
-    longitudeField: 'lng',
-    titleField: 'name',
-    zoom: 12,                    // Zoom level (1-20)
-    center: [37.7749, -122.4194] // [latitude, longitude]
+  properties: {
+    objectName: 'locations',
+    map: {
+      latitudeField: 'lat',
+      longitudeField: 'lng',
+      titleField: 'name',
+      zoom: 12,                    // Zoom level (1-20)
+      center: [37.7749, -122.4194] // [latitude, longitude]
+    }
   }
 };
 ```
@@ -257,16 +279,18 @@ the centre of the records, `center` on its own at a continental zoom.
 ### Object Provider (Database)
 
 ```tsx
-import type { ObjectMapSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const retailStores: ObjectMapSchema = {
+const retailStores: BaseSchema = {
   type: 'object-map',
-  objectName: 'retail_stores',
-  map: {
-    latitudeField: 'store_lat',
-    longitudeField: 'store_lng',
-    titleField: 'store_name',
-    descriptionField: 'store_address'
+  properties: {
+    objectName: 'retail_stores',
+    map: {
+      latitudeField: 'store_lat',
+      longitudeField: 'store_lng',
+      titleField: 'store_name',
+      descriptionField: 'store_address'
+    }
   }
 };
 ```
@@ -276,14 +300,16 @@ const retailStores: ObjectMapSchema = {
 ```tsx
 const staticLocations = {
   type: 'object-map',
-  staticData: [
-    { id: 1, name: 'Location 1', lat: 37.7749, lng: -122.4194 },
-    { id: 2, name: 'Location 2', lat: 37.8044, lng: -122.2711 }
-  ],
-  map: {
-    latitudeField: 'lat',
-    longitudeField: 'lng',
-    titleField: 'name'
+  properties: {
+    staticData: [
+      { id: 1, name: 'Location 1', lat: 37.7749, lng: -122.4194 },
+      { id: 2, name: 'Location 2', lat: 37.8044, lng: -122.2711 }
+    ],
+    map: {
+      latitudeField: 'lat',
+      longitudeField: 'lng',
+      titleField: 'name'
+    }
   }
 };
 ```
@@ -303,16 +329,22 @@ already hold with the **Value Provider**.
 
 ### Marker Click
 
-```tsx
-import type { ObjectMapSchema } from '@object-ui/types';
+`onMarkerClick` is a function, so it is no member of the `properties` bag (the
+spec's row declares none): a schema built in code carries it on the node, beside
+the bag.
 
-const clickableMap: ObjectMapSchema = {
+```tsx
+import type { BaseSchema } from '@object-ui/types';
+
+const clickableMap: BaseSchema = {
   type: 'object-map',
-  objectName: 'locations',
-  map: {
-    latitudeField: 'lat',
-    longitudeField: 'lng',
-    titleField: 'name'
+  properties: {
+    objectName: 'locations',
+    map: {
+      latitudeField: 'lat',
+      longitudeField: 'lng',
+      titleField: 'name'
+    }
   },
   onMarkerClick: (location: Record<string, unknown>) => {
     console.log('Marker clicked:', location);
@@ -328,18 +360,20 @@ const clickableMap: ObjectMapSchema = {
 ### Store Locator
 
 ```tsx
-import type { ObjectMapSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const storeLocator: ObjectMapSchema = {
+const storeLocator: BaseSchema = {
   type: 'object-map',
-  objectName: 'retail_locations',
-  map: {
-    latitudeField: 'latitude',
-    longitudeField: 'longitude',
-    titleField: 'storeName',
-    descriptionField: 'fullAddress',
-    zoom: 10,
-    center: [37.7749, -122.4194]  // San Francisco
+  properties: {
+    objectName: 'retail_locations',
+    map: {
+      latitudeField: 'latitude',
+      longitudeField: 'longitude',
+      titleField: 'storeName',
+      descriptionField: 'fullAddress',
+      zoom: 10,
+      center: [37.7749, -122.4194]  // San Francisco
+    }
   },
   onMarkerClick: (store: Record<string, unknown>) => {
     // Show store details
@@ -351,16 +385,18 @@ const storeLocator: ObjectMapSchema = {
 ### Delivery Tracking
 
 ```tsx
-import type { ObjectMapSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const deliveryMap: ObjectMapSchema = {
+const deliveryMap: BaseSchema = {
   type: 'object-map',
-  objectName: 'active_deliveries',
-  map: {
-    latitudeField: 'current_lat',
-    longitudeField: 'current_lng',
-    titleField: 'driver_name',
-    descriptionField: 'delivery_address'
+  properties: {
+    objectName: 'active_deliveries',
+    map: {
+      latitudeField: 'current_lat',
+      longitudeField: 'current_lng',
+      titleField: 'driver_name',
+      descriptionField: 'delivery_address'
+    }
   },
   onMarkerClick: (delivery: Record<string, unknown>) => {
     // Show delivery details
@@ -372,17 +408,19 @@ const deliveryMap: ObjectMapSchema = {
 ### Real Estate Listings
 
 ```tsx
-import type { ObjectMapSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const propertyMap: ObjectMapSchema = {
+const propertyMap: BaseSchema = {
   type: 'object-map',
-  objectName: 'properties',
-  map: {
-    latitudeField: 'property_lat',
-    longitudeField: 'property_lng',
-    titleField: 'property_address',
-    descriptionField: 'property_details',
-    zoom: 12
+  properties: {
+    objectName: 'properties',
+    map: {
+      latitudeField: 'property_lat',
+      longitudeField: 'property_lng',
+      titleField: 'property_address',
+      descriptionField: 'property_details',
+      zoom: 12
+    }
   },
   onMarkerClick: (property: Record<string, unknown>) => {
     // Show property details
@@ -396,35 +434,37 @@ const propertyMap: ObjectMapSchema = {
 ```tsx
 const venueMap = {
   type: 'object-map',
-  staticData: [
-    {
-      id: 1,
-      venueName: 'Conference Center',
-      lat: 37.7833,
-      lng: -122.4167,
-      details: 'Capacity: 500 people'
-    },
-    {
-      id: 2,
-      venueName: 'Exhibition Hall',
-      lat: 37.7891,
-      lng: -122.3894,
-      details: 'Capacity: 1000 people'
-    },
-    {
-      id: 3,
-      venueName: 'Outdoor Amphitheater',
-      lat: 37.7694,
-      lng: -122.4862,
-      details: 'Capacity: 2000 people'
+  properties: {
+    staticData: [
+      {
+        id: 1,
+        venueName: 'Conference Center',
+        lat: 37.7833,
+        lng: -122.4167,
+        details: 'Capacity: 500 people'
+      },
+      {
+        id: 2,
+        venueName: 'Exhibition Hall',
+        lat: 37.7891,
+        lng: -122.3894,
+        details: 'Capacity: 1000 people'
+      },
+      {
+        id: 3,
+        venueName: 'Outdoor Amphitheater',
+        lat: 37.7694,
+        lng: -122.4862,
+        details: 'Capacity: 2000 people'
+      }
+    ],
+    map: {
+      latitudeField: 'lat',
+      longitudeField: 'lng',
+      titleField: 'venueName',
+      descriptionField: 'details',
+      zoom: 11
     }
-  ],
-  map: {
-    latitudeField: 'lat',
-    longitudeField: 'lng',
-    titleField: 'venueName',
-    descriptionField: 'details',
-    zoom: 11
   },
   onMarkerClick: (venue: Record<string, unknown>) => {
     // Show venue details
@@ -436,17 +476,19 @@ const venueMap = {
 ### Field Service Map
 
 ```tsx
-import type { ObjectMapSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
-const serviceMap: ObjectMapSchema = {
+const serviceMap: BaseSchema = {
   type: 'object-map',
-  objectName: 'service_calls',
-  map: {
-    latitudeField: 'customer_latitude',
-    longitudeField: 'customer_longitude',
-    titleField: 'customer_name',
-    descriptionField: 'service_type',
-    zoom: 10
+  properties: {
+    objectName: 'service_calls',
+    map: {
+      latitudeField: 'customer_latitude',
+      longitudeField: 'customer_longitude',
+      titleField: 'customer_name',
+      descriptionField: 'service_type',
+      zoom: 10
+    }
   },
   onMarkerClick: (serviceCall: Record<string, unknown>) => {
     // Show service call details
@@ -537,8 +579,13 @@ Consider using one of the full-featured mapping libraries above.
 
 ## TypeScript Support
 
+`ObjectMapConfig` types the `map` block. `ObjectMapSchema` is the node as
+`ObjectMap` reads it, after `SchemaRenderer` hoists the `properties` bag, or as
+code hands it to the component directly (`<ObjectMap schema={…} />`); an
+authored node writes its props in the bag.
+
 ```ts
-import type { ObjectMapSchema, ObjectMapConfig } from '@object-ui/types'
+import type { BaseSchema, ObjectMapSchema, ObjectMapConfig } from '@object-ui/types'
 
 const mapConfig: ObjectMapConfig = {
   latitudeField: 'lat',
@@ -549,6 +596,16 @@ const mapConfig: ObjectMapConfig = {
   center: [37.7749, -122.4194]
 }
 
+// The authored node: its props in the `properties` bag.
+const mapNode: BaseSchema = {
+  type: 'object-map',
+  properties: {
+    objectName: 'locations',
+    map: mapConfig
+  }
+}
+
+// The node as `ObjectMap` reads it, after the hoist.
 const mapSchema: ObjectMapSchema = {
   type: 'object-map',
   objectName: 'locations',

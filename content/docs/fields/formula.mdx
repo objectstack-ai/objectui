@@ -21,7 +21,7 @@ The Formula Field component displays computed values calculated from other field
 
 A formula field is authored as `FormulaFieldMetadata` (`@object-ui/types`), which is
 the source of truth for the key set: it extends `BaseFieldMetadata` with the
-expression, its declared return type and the recompute switch. `returnType` is
+expression and its declared return type. `returnType` is
 `@objectstack/spec`'s own `FieldSchema.returnType`, typed by reference: a closed
 union of `'number' | 'text' | 'boolean' | 'date'`.
 
@@ -35,7 +35,6 @@ const totalPrice: FormulaFieldMetadata = {
   readonly: true,
   formula: 'quantity * unit_price',
   returnType: 'number',
-  auto_compute: true,
 };
 ```
 

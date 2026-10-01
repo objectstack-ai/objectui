@@ -64,6 +64,21 @@ function catalogEntry(id: string): Record<string, unknown> {
   return JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, unknown>;
 }
 
+/**
+ * The props of a document as its author wrote them. Since objectui#10859 batch
+ * 5 an authored `object-map` takes them in the spec's `properties` bag (the
+ * three map entries below are written that way); `object-gantt` still takes
+ * them on the node.
+ */
+function authoredProps(doc: Record<string, unknown>): Record<string, unknown> {
+  return doc.type === 'object-map' ? (doc.properties as Record<string, unknown>) : doc;
+}
+
+/** The authored spelling of a node's props: in the bag for `object-map` (objectui#10859 batch 5). */
+function authored(type: string, props: Record<string, unknown>): Record<string, unknown> {
+  return type === 'object-map' ? { type, properties: props } : { type, ...props };
+}
+
 /** Report the issues rather than `false`, so a red run says what broke. */
 function reasons(schema: unknown): string[] {
   const r = safeValidateSchema(schema);
@@ -81,8 +96,9 @@ describe('objectui#6939 — the six catalog entries the mirrors refused now vali
     // The control that makes the case discriminating: every one of these
     // authors NO `objectName` and DOES author `staticData`. Before this card
     // each reported `: Invalid input` (the union's own top-level issue).
-    expect('objectName' in doc).toBe(false);
-    expect(Array.isArray(doc.staticData)).toBe(true);
+    const props = authoredProps(doc);
+    expect('objectName' in props).toBe(false);
+    expect(Array.isArray(props.staticData)).toBe(true);
     expect(reasons(doc)).toEqual([]);
   });
 });
@@ -92,9 +108,10 @@ describe('objectui#6939 — any ONE of the three record sources satisfies the re
     expect(member.safeParse({ type, data: { provider: 'object', object: 'tasks' } }).success).toBe(true);
     expect(member.safeParse({ type, staticData: [] }).success).toBe(true);
     expect(member.safeParse({ type, objectName: 'tasks' }).success).toBe(true);
-    // …and the same three through the published entry point.
-    expect(reasons({ type, staticData: [{ id: 1 }] })).toEqual([]);
-    expect(reasons({ type, objectName: 'tasks' })).toEqual([]);
+    // …and the same three through the published entry point, spelled as an
+    // author writes them.
+    expect(reasons(authored(type, { staticData: [{ id: 1 }] }))).toEqual([]);
+    expect(reasons(authored(type, { objectName: 'tasks' }))).toEqual([]);
   });
 
   it.each(MEMBERS)('%s: the accept set only WIDENED — `objectName` alone still parses, an empty one included', (type, member) => {

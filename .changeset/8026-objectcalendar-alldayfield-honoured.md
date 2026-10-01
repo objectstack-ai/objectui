@@ -39,3 +39,5 @@ the `CalendarConfig` mirror in `@object-ui/types`, whose comment names it: "the
 renderers grow config knobs ahead of the protocol (calendar's `allDayField`, for
 one), and stripping them here would silently disable a shipped capability." Nothing
 in this change widens any accept set.
+
+**Correction, 2026-10-01 (objectui#8831).** The "Not spec surface" paragraph above is false against `@objectstack/spec` 17.5.0, which this same release installs. That release's `CalendarConfigSchema` declares five keys, `allDayField` among them, and accepts it. It still refuses `defaultView`. The key no longer rides the `.passthrough()` of the `CalendarConfig` mirror in `@object-ui/types`: that mirror derives from the spec schema, so `allDayField` is now a declared member of it. objectui#11073's bump to 17.5.0 made the paragraph false, not this entry and not objectui#8831. The paragraphs about the renderer still hold: `object-calendar` takes no default field name for `allDayField`, and a declared one is the whole answer.

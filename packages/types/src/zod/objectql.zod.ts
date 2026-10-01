@@ -45,13 +45,14 @@ import {
   // objectui#7928 — the spec's view CONTAINER, read for ONE slot: its
   // `listViews` record (`ObjectViewSchema.listViews` below, by reference).
   ViewSchema as SpecViewSchema,
-  // objectui#10859 (batches 2, 3 and 4) — the `ComponentPropsMap` rows of the
+  // objectui#10859 (batches 2 to 5) — the `ComponentPropsMap` rows of the
   // ADR-0080 public blocks this module arms, each read as its arm's
   // `properties` bag, by reference (`ObjectQLPublicBlockComponentSchema` below).
   ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
   ObjectMasterDetailFormPropsSchema as SpecObjectMasterDetailFormPropsSchema,
   ObjectTimelinePropsSchema as SpecObjectTimelinePropsSchema,
   ObjectFormPropsSchema as SpecObjectFormPropsSchema,
+  ObjectMapPropsSchema as SpecObjectMapPropsSchema,
   // objectui#11070 — the per-element data binding (`PageComponentSchema.dataSource`)
   // the object-bound arms below declare as `dataSource`, by reference.
   ElementDataSourceSchema as SpecElementDataSourceSchema,
@@ -1547,10 +1548,15 @@ const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial()
  * declaration rather than a footnote to it.
  */
 const ObjectCalendarBlockConfigSchema = stripImportedDefaults(SpecCalendarConfigSchema).partial().extend({
-  // objectui-local, no spec counterpart — see objectui#8466 for the measurement
-  // and the lane. The renderer honours it in BOTH positions: this container and
-  // the flat member of the node.
-  allDayField: z.string().optional().describe("Field carrying the all-day flag — objectui-local: the spec's CalendarConfigSchema is a strict object of startDateField, endDateField, titleField and colorField, so it refuses this key as undeclared, exactly as it refuses any other. LOAD-BEARING since objectui#8026"),
+  // Through `@objectstack/spec` 17.4.0 this member was objectui-local (see
+  // objectui#8466 for that measurement). 17.5.0 declares `allDayField` on
+  // `CalendarConfigSchema` itself as `z.string().optional()`, so this extension
+  // now restates the spec's member with the SAME accept set: removing it would
+  // change nothing a parse decides (objectui#8831 reports that and leaves the
+  // removal to its own change). The renderer honours the key in BOTH
+  // positions: this container, which is where it is authored, and the flat
+  // member of the node, which is the runtime handoff.
+  allDayField: z.string().optional().describe('Field carrying the all-day flag. Declared by the spec\'s CalendarConfigSchema since 17.5.0, with the same accept set as this member. LOAD-BEARING since objectui#8026'),
   // ⭐ objectui#8355 — the same two spellings the view-level block above refuses,
   // and deliberately NOT the same string: `getCalendarConfig` reads this
   // container FIRST and returns it WHOLE, so a retired spelling here never
@@ -2143,19 +2149,43 @@ export const ObjectMapConfigSchema = z.object({
  *
  * ⛔ So do not read the message below as promising a fetchable source: on the
  * calendar, declaring `data` means handing the block rows it already has.
+ *
+ * ## `at: 'properties'` — the same rule, read where an AUTHORED block writes it
+ *
+ * objectui#10859 batch 5 moved the authored `object-map` arm into the spec's
+ * `properties` bag (`ObjectMapBlockSchema` below), so on that arm the three
+ * rungs are read INSIDE the bag: `SchemaRenderer` hoists them onto the node
+ * before the renderer resolves its ladder. That arm also counts the node's
+ * `dataSource` binding as a source: the registration is
+ * `elementDataSourceBlock`-wrapped, and `ElementDataSourceGate` lands the
+ * binding's `object` (which the spec's `ElementDataSourceSchema` requires) on
+ * `objectName` before `ObjectMap` runs; the spec row keeps its own
+ * `objectName` optional for exactly that reason. The default (`'node'`) is the
+ * rule the three flat mirrors have always applied, unchanged.
  */
 const RECORD_SOURCE_KEYS = ['data', 'staticData', 'objectName'] as const;
-function requireRecordSource(type: 'object-map' | 'object-gantt' | 'object-calendar') {
+function requireRecordSource(
+  type: 'object-map' | 'object-gantt' | 'object-calendar',
+  at: 'node' | 'properties' = 'node',
+) {
   return (
-    schema: Partial<Record<(typeof RECORD_SOURCE_KEYS)[number], unknown>>,
+    schema: Partial<Record<(typeof RECORD_SOURCE_KEYS)[number] | 'properties' | 'dataSource', unknown>>,
     ctx: z.core.$RefinementCtx,
   ): void => {
-    if (RECORD_SOURCE_KEYS.some((key) => schema[key] !== undefined)) return;
+    const bag = schema.properties;
+    const rungs: Partial<Record<(typeof RECORD_SOURCE_KEYS)[number], unknown>> =
+      at === 'node' ? schema : typeof bag === 'object' && bag !== null ? bag : {};
+    if (RECORD_SOURCE_KEYS.some((key) => rungs[key] !== undefined)) return;
+    if (at === 'properties' && schema.dataSource !== undefined) return;
     ctx.addIssue({
       code: 'custom',
       path: [],
       params: { code: 'RECORD_SOURCE_REQUIRED' },
-      message: `\`${type}\` has no record source: declare one of \`data\`, \`staticData\` or \`objectName\``,
+      message:
+        at === 'node'
+          ? `\`${type}\` has no record source: declare one of \`data\`, \`staticData\` or \`objectName\``
+          : `\`${type}\` has no record source: declare one of \`properties.data\`, \`properties.staticData\` or `
+            + `\`properties.objectName\`, or bind the node's \`dataSource\``,
     });
   };
 }
@@ -2182,6 +2212,16 @@ const OBJECT_MAP_NEITHER_CHANNEL = neitherContentChannelGuidance(
  * `objectName`, so a map authored on inline rows never reads the object name —
  * three catalog entries drew correctly and were refused here. Requiredness
  * moved to the refinement above, which is where the renderer actually has it.
+ *
+ * ## No longer an authoring arm (objectui#10859, batch 5)
+ *
+ * This mirror is the node as `ObjectMap` reads it: after `SchemaRenderer` has
+ * hoisted the node's `properties` bag onto it, or as code composes it
+ * (`ObjectView` / `ListView` flattening a stored map view). It left
+ * `ObjectQLComponentSchema`, and so `AnyComponentSchema`: the AUTHORED
+ * `object-map` node is armed by `ObjectMapBlockSchema` below, whose
+ * `properties` is the spec's `ComponentPropsMap['object-map']` row. It stays
+ * exported and paired with its TypeScript twin.
  */
 export const ObjectMapSchema = BaseSchema.extend({
   type: z.literal('object-map'),
@@ -2410,6 +2450,23 @@ const OBJECT_CALENDAR_NEITHER_CHANNEL = neitherContentChannelGuidance(
 );
 
 /**
+ * objectui#8831 — ONE description for the five FLAT field-name members of
+ * `ObjectCalendarSchema`, so the five cannot teach five different things.
+ *
+ * The flat spelling is read, not authored. `@objectstack/spec` refuses all five
+ * at this element and its diagnostic names the canonical form,
+ * `calendar: { startDateField, endDateField, titleField, colorField, allDayField }`
+ * (one key per concept, its Prime Directive #12). The members stay declared
+ * because the renderer reads them: `ObjectView` and `ListView` emit this
+ * spelling on the node they build, and `getCalendarConfig` falls back to it
+ * when the node has no `calendar` block. ⛔ Declared is not a licence to author
+ * it; the description says where the key is written instead.
+ */
+function objectCalendarFlatField(what: string, key: string): string {
+  return `${what} — FLAT spelling, read but not authored: the runtime handoff ObjectView/ListView emit, read by getCalendarConfig only when the node has no calendar block. Author calendar.${key} instead; the spec refuses the flat key on object-calendar (Prime Directive #12)`;
+}
+
+/**
  * ObjectCalendar Schema
  *
  * `objectName` is OPTIONAL and the member ends in `requireRecordSource`
@@ -2470,9 +2527,16 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // requiredness as `../objectql.ts` (both optional) so the zod-mirror-parity
   // ratchet stays at zero drift for this pair, exactly as the `filter`/`sort`
   // and `colorField`/`allDayField` pairs below.
-  calendar: ObjectCalendarBlockConfigSchema.optional().describe('Calendar configuration container — startDateField, endDateField, titleField, colorField (plus objectui\'s allDayField); read FIRST by getCalendarConfig, ahead of the flat spelling'),
-  startDateField: z.string().optional().describe('Start date field'),
-  endDateField: z.string().optional().describe('End date field'),
+  //
+  // objectui#8831 — this container is the AUTHORED spelling of the five
+  // field-name keys. `ComponentPropsMap['object-calendar']` refuses them FLAT
+  // and its own diagnostic prescribes
+  // `calendar: { startDateField, endDateField, titleField, colorField, allDayField }`,
+  // so this description names the container as the place to write them, and
+  // the five flat members below describe themselves as the runtime handoff.
+  calendar: ObjectCalendarBlockConfigSchema.optional().describe('Calendar configuration container, and the AUTHORED spelling of the five field-name keys: startDateField, endDateField, titleField, colorField, allDayField. Read FIRST by getCalendarConfig, ahead of the flat members, which are the runtime handoff and not a second authorable spelling'),
+  startDateField: z.string().optional().describe(objectCalendarFlatField('Start date field', 'startDateField')),
+  endDateField: z.string().optional().describe(objectCalendarFlatField('End date field', 'endDateField')),
   // ⭐ objectui#8355 — the FLAT spelling the retired ladder actually read, and
   // the one position where an unrefused alias is worst: `BaseSchema` ends
   // `.passthrough()`, so the key was KEPT, carried into the renderer, and — with
@@ -2481,14 +2545,16 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // `?: never` twin and `tsc` refuses the key at the authoring site too.
   dateField: CalendarNodeDateAliasRefusals.dateField,
   endField: CalendarNodeDateAliasRefusals.endField,
-  titleField: z.string().optional().describe('Title field'),
+  titleField: z.string().optional().describe(objectCalendarFlatField('Title field', 'titleField')),
   // objectui#8466 — the last two members of the FLAT field-name face, which
-  // `ObjectCalendar.tsx`'s `getCalendarConfig` reads bare off the node and
-  // which `plugin-calendar/README.md` teaches as authorable. Neither published
-  // face of this package named them: they rode `BaseSchema`'s `[key: string]:
-  // any` on the TS side and its `.passthrough()` here — admitted, never
-  // examined, so a misspelling left the calendar silently colourless while
-  // every published gate passed.
+  // `ObjectCalendar.tsx`'s `getCalendarConfig` reads bare off the node. When
+  // that card landed, `plugin-calendar/README.md` taught them as authorable;
+  // since objectui#8831 it teaches the `calendar` container instead, and the
+  // flat members stay declared because the renderer still reads them. Neither
+  // published face of this package named them: they rode `BaseSchema`'s
+  // `[key: string]: any` on the TS side and its `.passthrough()` here —
+  // admitted, never examined, so a misspelling left the calendar silently
+  // colourless while every published gate passed.
   //
   // Mirrored at the SAME requiredness as `../objectql.ts` (both optional) so
   // the zod-mirror-parity ratchet stays at zero drift for this pair, exactly as
@@ -2498,11 +2564,14 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // that asymmetry is deliberate: `ComponentPropsMap['object-calendar']`
   // refuses all five flat keys with `unrecognized_keys`, so declaring them
   // THERE would redden the FORWARD direction of
-  // `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`. The flat
-  // face is objectui's own lane — `titleField`/`startDateField`/`endDateField`
-  // have shipped declared here, and absent from `inputs`, for releases.
-  colorField: z.string().optional().describe('Field carrying the per-record event colour — a CSS colour or a semantic palette name'),
-  allDayField: z.string().optional().describe("Field carrying the all-day flag — objectui-local: the spec's CalendarConfigSchema is a strict object of startDateField, endDateField, titleField and colorField, so it refuses this key as undeclared, exactly as it refuses any other. LOAD-BEARING since objectui#8026"),
+  // `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`.
+  // `titleField`/`startDateField`/`endDateField` have shipped declared here, and
+  // absent from `inputs`, for releases. What the five declarations record is a
+  // READ, not an authoring lane (objectui#8831): `ObjectView`/`ListView` emit
+  // this spelling on the node they build, and `getCalendarConfig` falls back to
+  // it only when the node carries no `calendar` block.
+  colorField: z.string().optional().describe(objectCalendarFlatField('Field carrying the per-record event colour — a CSS colour or a semantic palette name', 'colorField')),
+  allDayField: z.string().optional().describe(objectCalendarFlatField('Field carrying the all-day flag, LOAD-BEARING since objectui#8026', 'allDayField')),
   defaultView: z.enum(['month', 'week', 'day']).optional().describe("Default view — 'month' | 'week' | 'day', the renderer's rendered set ('agenda' was retired)"),
   // objectui#8174 — the two query keys `ObjectCalendar.tsx` lowers onto its own
   // `dataSource.find` (`$filter: schema.filter`,
@@ -3389,7 +3458,7 @@ export const ObjectDataTableSchema = BaseSchema.extend({
  * ObjectQL Component Schema Union
  *
  * The members of the TS union in `../objectql.ts`, in the same order, less
- * `ObjectFormSchema` (see the last paragraph).
+ * `ObjectFormSchema` and `ObjectMapSchema` (see the last two paragraphs).
  * `ObjectGallerySchema` and `ObjectDataTableSchema` joined in objectui#7363:
  * PR #7355 (objectui#6576) minted both mirrors and deliberately did not extend
  * this union, so `AnyComponentSchema` — and `validateSchema` /
@@ -3411,11 +3480,14 @@ export const ObjectDataTableSchema = BaseSchema.extend({
  * reads it after the `properties` hoist; the authored `object-form` node is
  * armed by `ObjectFormBlockSchema` in `ObjectQLPublicBlockComponentSchema`
  * below, from its spec row.
+ *
+ * ⚠️ TEN since objectui#10859 batch 5: `ObjectMapSchema` left it the same way,
+ * for the same reason. Its TypeScript twin is the node as `ObjectMap` reads it,
+ * and the authored `object-map` node is armed by `ObjectMapBlockSchema` below.
  */
 export const ObjectQLComponentSchema = z.discriminatedUnion('type', [
   ObjectGridSchema,
   ObjectViewSchema,
-  ObjectMapSchema,
   ObjectTreeSchema,
   ObjectGanttSchema,
   ObjectCalendarSchema,
@@ -3746,15 +3818,126 @@ export const ObjectFormBlockSchema = BaseSchema.extend({
 });
 
 /**
+ * The ONE refusal detail every `object-map` prop written flat on the node
+ * gets (objectui#10859, batch 5). `aliasKeyRefusal` puts the key and its bag
+ * member in front of it: "Did you mean `objectName` → `properties.objectName`?".
+ */
+const OBJECT_MAP_FLAT_PROP =
+  'An `object-map` node takes its props in its `properties` bag, where `@objectstack/spec`\'s '
+  + '`ComponentPropsMap[\'object-map\']` row declares them: write `{ "type": "object-map", "properties": '
+  + '{ "objectName": "…", "map": { "latitudeField": "…", "longitudeField": "…" } } }` (objectui#10859). The '
+  + 'spec\'s own page component refuses a prop written on the node as mis-layered (ADR-0089 D3a), so this face '
+  + 'and `os validate` agree. Moving it changes nothing at render time: `SchemaRenderer` hoists every '
+  + '`properties` key onto the node before `ObjectMap` reads it.';
+
+/** A member of the spec's `object-map` row — a TYPE position, so no boundary crossing. */
+type ObjectMapRowKey = keyof z.input<typeof SpecObjectMapPropsSchema>;
+
+/**
+ * One by-name refusal per member of the spec's `object-map` row, keyed by the
+ * row's own key set — read off the row, not transcribed, so a member the spec
+ * adds is refused flat the day it lands and the list cannot fall behind.
+ */
+const OBJECT_MAP_FLAT_PROP_REFUSALS = Object.fromEntries(
+  Object.keys(stripImportedDefaults(SpecObjectMapPropsSchema).shape).map((key) => [
+    key,
+    aliasKeyRefusal(key, `properties.${key}`, 'this `object-map` node', OBJECT_MAP_FLAT_PROP),
+  ]),
+) as { [K in ObjectMapRowKey]-?: ReturnType<typeof aliasKeyRefusal> };
+
+/**
+ * `object-map` — `ComponentPropsMap['object-map']`, plus the node's
+ * `dataSource` binding (objectui#10859, batch 5).
+ *
+ * ## Why the arm moved to the bag
+ *
+ * The spec's row is the published declaration of an authored `object-map`
+ * node's props, and the spec's strict `PageComponentSchema` refuses a prop
+ * written on the node itself as mis-layered (ADR-0089 D3a). This union used
+ * to arm the node with the flat `ObjectMapSchema` above, so `objectui
+ * validate` refused the spec-shaped `{ type, properties }` document (its
+ * record-source refinement found no source on the node) and accepted the flat
+ * one `os validate` refuses. The seat's answer at PR objectui#11248's ACCEPT,
+ * inherited from objectui#10872's triage answer A, is this arm: "The
+ * `properties` bag is the contract". `ObjectFormBlockSchema` above is the same
+ * move for `object-form` (batch 4).
+ *
+ * So it is built exactly as `ObjectMetricBlockSchema` above is: `BaseSchema` +
+ * the `type` literal + `properties`, which IS the row, by reference through
+ * the objectui#8317 import boundary. The row carries no spec default, so the
+ * boundary hands back the export itself. The row is strict and carries the
+ * spec's own refusals: a flat `map`-config key written in the bag
+ * (`properties.latitudeField`) is refused there with the spec's wrong-layer
+ * prescription, and `properties.filters` with the alias's.
+ *
+ * ## The flat spelling is refused by name
+ *
+ * Every member of the row written FLAT on the node is refused on both faces,
+ * with a message naming its bag member (`OBJECT_MAP_FLAT_PROP_REFUSALS`
+ * above). `data` is also a `BaseSchema` key; here the refusal overrides it,
+ * because the map's `data` is the row's member. The flat mirror's two
+ * remaining compatibility members, `locationField` and `titleField`, are
+ * refused too: their bag home is the row's `map` block, so the remedy names
+ * `properties.map.KEY`. A flat key neither the row nor the mirror declares
+ * (`latitudeField` and the other flat `map`-config spellings) is left as every
+ * arm leaves an undeclared key: unjudged by the tolerant face, refused by the
+ * strict one.
+ *
+ * ## The record source, `dataSource` and the content channels
+ *
+ * The record-source rule the flat mirror carries (`77cb489b4`, the maintainer
+ * ruling recorded 2026-09-02) stays on the authored node, read in the bag:
+ * `requireRecordSource(…, 'properties')` asks for one of `properties.data`,
+ * `properties.staticData` or `properties.objectName`, or the node's
+ * `dataSource` binding, which `ElementDataSourceGate` lands on `objectName`
+ * (the registration is `elementDataSourceBlock`-wrapped). ⚠️ The spec row is
+ * looser here: it keeps all three optional and adds no such rule, so a node
+ * with no source and no binding passes the spec's own page component and is
+ * refused by this arm, as the flat mirror refused it. The binding itself is
+ * the spec's `ElementDataSourceSchema` by reference, as on the arms above.
+ * Neither content channel is read, so both are refused with the objectui#9256
+ * string the flat mirror uses.
+ *
+ * ## What did not move
+ *
+ * The TypeScript `ObjectMapSchema` and its zod mirror above stay published:
+ * they are the node as `ObjectMap` reads it after the hoist, and as
+ * `ObjectView` / `ListView` compose it when they flatten a stored map view. A
+ * composed flat node keeps working, because `SchemaRenderer` reads both
+ * spellings and no composed node passes through `safeValidateSchema`.
+ */
+export const ObjectMapBlockSchema = BaseSchema.extend({
+  type: z.literal('object-map'),
+  ...NODE_ENVELOPE,
+  properties: propsBag('object-map', stripImportedDefaults(SpecObjectMapPropsSchema)),
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
+  ...OBJECT_MAP_FLAT_PROP_REFUSALS,
+  locationField: aliasKeyRefusal(
+    'locationField',
+    'properties.map.locationField',
+    'this `object-map` node',
+    OBJECT_MAP_FLAT_PROP,
+  ),
+  titleField: aliasKeyRefusal('titleField', 'properties.map.titleField', 'this `object-map` node', OBJECT_MAP_FLAT_PROP),
+  // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
+  // kept a MEMBER.
+  body: retirementTombstone(OBJECT_MAP_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_MAP_NEITHER_CHANNEL),
+}).superRefine(requireRecordSource('object-map', 'properties'));
+
+/**
  * The public blocks above, as one arm of `AnyComponentSchema`
- * (objectui#10859, batches 2, 3 and 4).
+ * (objectui#10859, batches 2 to 5).
  *
  * A union of its own rather than more members of `ObjectQLComponentSchema`,
  * deliberately: that union mirrors the TypeScript union in `../objectql.ts`
  * member for member, and the authored node of each block here is declared by
- * the spec row its `properties` member reads, not there. `object-form` is the
- * one with a member there: its TypeScript twin is the node as `ObjectForm`
- * reads it after the hoist, not the authored document (batch 4).
+ * the spec row its `properties` member reads, not there. `object-form` and
+ * `object-map` are the two with a member there: each TypeScript twin is the
+ * node as its renderer reads it after the hoist, not the authored document
+ * (batches 4 and 5).
  *
  * Each arm also spreads `NODE_ENVELOPE` from `./public-blocks.zod.ts`,
  * the node-level `responsiveStyles` every public block declares by reference to
@@ -3767,4 +3950,5 @@ export const ObjectQLPublicBlockComponentSchema = z.discriminatedUnion('type', [
   ObjectMasterDetailFormBlockSchema,
   ObjectTimelineBlockSchema,
   ObjectFormBlockSchema,
+  ObjectMapBlockSchema,
 ]);

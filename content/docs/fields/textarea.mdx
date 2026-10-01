@@ -21,7 +21,9 @@ The TextArea Field component provides a multi-line text input for collecting lon
 
 A textarea field is authored as `TextareaFieldMetadata` (`@object-ui/types`), which is
 the source of truth for the key set: it extends `BaseFieldMetadata` with the length
-bounds and the editor's visible row count.
+bounds and the editor's visible row count. The length bounds are `@objectstack/spec`'s
+own `FieldSchema.minLength` / `maxLength`, typed by reference; `maxLength` also sets the
+editor's native stop and its `{n}/{max}` character counter.
 
 ```ts
 import type { TextareaFieldMetadata } from '@object-ui/types';
@@ -33,8 +35,8 @@ const description: TextareaFieldMetadata = {
   placeholder: 'Describe this record…',
   rows: 6,
   required: false,
-  min_length: 0,
-  max_length: 2000,
+  minLength: 0,
+  maxLength: 2000,
 };
 ```
 

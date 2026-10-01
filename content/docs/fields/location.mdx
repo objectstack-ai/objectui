@@ -113,20 +113,23 @@ export function StoreLocationInput() {
 
 **2. The map over the same field.** With the map plugin installed, an `object-map`
 node reads that field off every record. It is a metadata node, not a component
-call — the keys sit on the node itself, and a `props` envelope is never read by
-the renderer:
+call — its keys sit in the node's `properties` bag, the spelling
+`@objectstack/spec` declares, which the renderer hoists onto the node; a key
+written flat on the node is refused by `objectui validate` (objectui#10859):
 
 ```jsonc
 {
-  "type": "object-map",          // the registered type name — there is no `plugin:map`
-  "objectName": "store",         // the records to plot
-  "map": {                       // the declared config input; markers are derived from the data
-    "locationField": "location", // this page's field, read as { lat, lng }
-    "titleField": "name",        // field used as the marker label
-    "zoom": 12,                  // initial zoom level
-    // Initial centre as [latitude, longitude]. Used only when no record
-    // matches — with records the view fits to their bounds instead.
-    "center": [37.7749, -122.4194]
+  "type": "object-map",            // the registered type name — there is no `plugin:map`
+  "properties": {
+    "objectName": "store",         // the records to plot
+    "map": {                       // the declared config input; markers are derived from the data
+      "locationField": "location", // this page's field, read as { lat, lng }
+      "titleField": "name",        // field used as the marker label
+      "zoom": 12,                  // initial zoom level
+      // Initial centre as [latitude, longitude]. Used only when no record
+      // matches — with records the view fits to their bounds instead.
+      "center": [37.7749, -122.4194]
+    }
   }
 }
 ```

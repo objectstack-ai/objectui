@@ -1932,16 +1932,14 @@ export interface FormField {
   // typed BY REFERENCE to that member, so the two cannot drift; `pattern` is
   // the one the spec does not declare.
   //
-  // ⛔ Not every key a widget reads off the carrier is declared here. One is
-  // still read in a snake_case spelling beside a spec key of the same
-  // meaning — `min_length` (spec `minLength`) — and it is not declared: a
-  // second spelling is not added to this contract. The SPEC spelling is the
-  // one declared (`minLength`, above), and `min_length` stays refused by the
-  // strict face (the seat's answer on objectui#11070). The lookup and user
-  // widgets read ONLY the spec's `reference` (below), and the formula and
-  // summary widgets ONLY the spec's `returnType` and `summaryOperations`
-  // (below); their snake_case forms (`reference_to`, `return_type`,
-  // `summary_type`, …) are retired and refused. The grid field's `columns`
+  // ⛔ Not every key a widget reads off the carrier is declared here. No
+  // widget reads a snake_case second spelling of a spec key any more: the
+  // length readers read ONLY the spec's `minLength` / `maxLength` (below),
+  // the lookup and user widgets ONLY the spec's `reference`, and the formula
+  // and summary widgets ONLY the spec's `returnType` and `summaryOperations`.
+  // Their snake_case forms (`min_length`, `max_length`, `reference_to`,
+  // `return_type`, `summary_type`, …) are retired, read by nothing and
+  // refused by the strict face (objectui#11070). The grid field's `columns`
   // is read too, but its element shape is undecided: the declared
   // `GridColumnDefinition` (`./field-types.ts`) is not the shape `GridField`
   // reads. It remains open on objectui#11070.

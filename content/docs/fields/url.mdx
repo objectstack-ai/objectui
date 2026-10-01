@@ -16,7 +16,8 @@ The URL Field component provides a text input with URL validation and clickable 
 ## Field Schema
 
 A URL field is authored as `UrlFieldMetadata` (`@object-ui/types`), which is the source
-of truth for the key set: it extends `BaseFieldMetadata` with a single length bound.
+of truth for the key set: it extends `BaseFieldMetadata` with a single length bound,
+`@objectstack/spec`'s own `FieldSchema.maxLength`, typed by reference.
 
 ```ts
 import type { UrlFieldMetadata } from '@object-ui/types';
@@ -27,7 +28,7 @@ const website: UrlFieldMetadata = {
   label: 'Website',
   placeholder: 'https://example.com',
   required: false,
-  max_length: 2048,
+  maxLength: 2048,
 };
 ```
 

@@ -107,7 +107,21 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
   // `ObjectQLComponentSchema`, carrying the binding its flat mirror has
   // declared since objectui#11070.
   'object-form',
+  // objectui#10859 batch 5: `object-map` moved here the same way, with the
+  // same binding.
+  'object-map',
 ]);
+
+/**
+ * The one arm that refuses a node with nothing but `responsiveStyles` for a
+ * reason that is not about the envelope: `object-map` keeps the flat mirror's
+ * record-source rule, read in its bag (objectui#10859 batch 5,
+ * `requireRecordSource`). Its node carries the smallest source; every other arm
+ * takes the bare node.
+ */
+const RECORD_SOURCE: Readonly<Record<string, Record<string, unknown>>> = {
+  'object-map': { properties: { objectName: 'store' } },
+};
 
 /** The five envelope keys the spec declares and this batch leaves undeclared. */
 const UNDECLARED_ENVELOPE = ['events', 'dataSource', 'aria', 'visibility', 'responsive'] as const;
@@ -223,7 +237,7 @@ describe('a valid `responsiveStyles` is accepted on BOTH faces (objectui#10872 b
   );
 
   it.each(TYPES)('%s: a node carrying only `responsiveStyles` is accepted on the strict face', (type) => {
-    const node = { type, responsiveStyles: VALID_STYLES };
+    const node = { type, ...(RECORD_SOURCE[type] ?? {}), responsiveStyles: VALID_STYLES };
     expect(issuesOf(StrictAnyComponentSchema.safeParse(node))).toEqual([]);
     expect(issuesOf(safeValidateSchema(node))).toEqual([]);
   });

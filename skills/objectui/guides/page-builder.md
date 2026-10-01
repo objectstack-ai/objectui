@@ -74,8 +74,8 @@ branching in component code.
 
 These are the structural types to reach for. By volume in the schema
 catalogue, `flex`, `stack` and `box` are the three most-used layout nodes, so
-reach for them before anything heavier. All take `children` and read every key
-off the node.
+reach for them before anything heavier. All but `flex` take `children` and read
+every key off the node; `flex` takes its props and `children` in `properties`.
 
 | `type` | Renders | Key props (renderer defaults) | Reach for it when |
 |---|---|---|---|
@@ -86,7 +86,7 @@ off the node.
 | `box` | a bare `div` | none — `className` passes through **verbatim**, and the renderer injects nothing | you want a wrapper that adds no layout of its own: a Tailwind-only block, a positioning anchor |
 
 Use whichever of `flex` / `stack` names your intent; do not set
-`direction: "col"` on a `flex`.
+`direction: "col"` on a `flex`; `objectui validate` refuses flat `flex` props.
 
 `box` exists because every other option injects layout — the props column
 above, plus `card`'s border, shadow and `CardContent` wrapper. When you want

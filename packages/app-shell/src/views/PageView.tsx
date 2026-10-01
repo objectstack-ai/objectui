@@ -10,7 +10,14 @@
  */
 
 import { useParams, useSearchParams, useNavigate, useLocation } from 'react-router-dom';
-import { SchemaRenderer, notifyDataChanged, useAdapter } from '@object-ui/react';
+import {
+  SchemaRenderer,
+  notifyDataChanged,
+  useAdapter,
+  RelatedRecordActionsProvider,
+  type RelatedRecordActionsValue,
+  type RelatedRecordHandlers,
+} from '@object-ui/react';
 import { Empty, EmptyTitle, EmptyDescription, Spinner } from '@object-ui/components';
 import { FileText, Pencil } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
@@ -40,6 +47,65 @@ import { InterfaceListPage } from './InterfaceListPage.js';
  */
 function declarePageDataChanged(): void {
   notifyDataChanged({ objectName: '*' });
+}
+
+/** No related-list handlers — see {@link pageRecordActionsValue}. */
+const NO_RELATED_HANDLERS: RelatedRecordHandlers = Object.freeze({});
+
+/**
+ * What a custom page publishes on `RelatedRecordActionsContext`
+ * (objectui#11293): the console's record navigator, for the blocks placed on
+ * the page.
+ *
+ * A block on a page is rendered with no host callback — the page is a
+ * document, and a document carries no function. So an `object-kanban` or
+ * `object-calendar` whose authored `navigation` resolves to `page` (the
+ * spec's default `mode`) had nowhere to go: `useNavigationOverlay` hands such
+ * a click to the record navigator its host publishes, and this host published
+ * none. The record page and the object list page already publish one (the
+ * record page's `RelatedRecordActionsBridge`, the list page's
+ * `listRecordActionsValue`); this is the third surface, so a `page` click
+ * resolves the same way wherever the block sits.
+ *
+ * Deliberate limits, on the model of `listRecordActionsValue`:
+ *
+ *  - **`resolve` returns no handlers.** A page has no parent record, so it has
+ *    no related lists to serve; an empty handler set is what the context
+ *    documents as "capability unavailable", the same read-only outcome a
+ *    consumer gets with no provider at all.
+ *  - **Only objects this console can route to.** `recordHref` answers `null`
+ *    for an object outside the app's metadata, or outside an app route, and
+ *    `openRecord` then does nothing — the shape of the record page's own
+ *    builder, `/apps/:app/:object/record/:id`.
+ *
+ * ⚠️ The same seam feeds the grid's link column and the lookup cells, so on a
+ * page those now render as real anchors to the record they name, as they
+ * already do on the record and list pages.
+ *
+ * Exported for the pin test.
+ */
+export function pageRecordActionsValue(
+  appName: string | undefined,
+  objects: ReadonlyArray<unknown>,
+  navigate: (to: string) => void,
+): RelatedRecordActionsValue {
+  const routable = new Set(
+    objects
+      .map((o) => (o as { name?: unknown } | null | undefined)?.name)
+      .filter((name): name is string => typeof name === 'string' && name !== ''),
+  );
+  const recordHref = (objectName: string, recordId: string | number): string | null =>
+    appName && routable.has(objectName) && recordId != null && recordId !== ''
+      ? `/apps/${appName}/${objectName}/record/${encodeURIComponent(String(recordId))}`
+      : null;
+  return {
+    resolve: () => NO_RELATED_HANDLERS,
+    recordHref,
+    openRecord: (objectName, recordId) => {
+      const href = recordHref(objectName, recordId);
+      if (href) navigate(href);
+    },
+  };
 }
 
 export function PageView() {
@@ -108,6 +174,10 @@ export function PageView() {
     if (!canEditInStudio) return;
     navigate(`/apps/${appName}/metadata/page/${encodeURIComponent(pageName!)}`);
   };
+  // The record navigator the page's blocks open a record through
+  // (objectui#11293). Not memoised: the schema below is rebuilt on every
+  // render too, and nothing may rest on this object's identity (AGENTS.md #10).
+  const pageRecordActions = pageRecordActionsValue(appName, (objects ?? []) as unknown[], navigate);
 
   return (
     // Mount the shared console action runtime so page-level `action:button`s can
@@ -139,47 +209,49 @@ export function PageView() {
             // curated list surface — rendered directly, not via regions.
             <InterfaceListPage page={page} reserveEditAffordance={canEditInStudio} />
           ) : (
-            <SchemaRenderer
-              schema={{
-                ...page,
-                // `type` stays the SchemaNode discriminator ComponentRegistry
-                // dispatches on. The spec's page KIND (`record|home|app|utility|
-                // list`) rides `pageType`, which PageRenderer reads — without
-                // this mapping every page fell back to `pageType: 'record'`,
-                // so non-record pages got the record max-width, a wrong
-                // `data-page-type` and a suppressed header (framework#1878 §3
-                // naming-drift recheck).
-                //
-                // ⭐ This is the WRITING end of the page-kind to node-type
-                // channel, and a comment here was not enough: two cards audited
-                // the READING end and concluded the registrations it feeds were
-                // undeclared (objectui#9263, re-ruled letter E "⛔ not a
-                // defect", and objectui#9576). The channel is now declared at
-                // both reading ends — `@object-ui/types`' `SchemaRegistry` map
-                // at its `'page'` entry, and the `PageRenderer` registrations in
-                // `@object-ui/components`. Each END is pinned by a DIFFERENT
-                // file, because no one package can import both.
-                //
-                // ⛔ Change this mapping and `page-kind-writing-end-9718`, in
-                // this package's `views/__tests__`, goes red by design and names
-                // the kind that stopped being written (objectui#9718): it is the
-                // declaration, not an incidental assertion.
-                //
-                // ⚠️ The reading end's pin — `page-kind-node-type-channel-9642`
-                // (objectui#9642) — does NOT answer for this line. It lives in
-                // `@object-ui/components`, which does not depend on this
-                // package, so its module graph cannot reach this file: gutting
-                // this mapping leaves it green, and deleting a registration
-                // turns it red. Both directions were measured on objectui#9718.
-                type: (page as any).type || 'page',
-                pageType: (page as any).type,
-                // `context` is built here, never read off the page: `PageSchema`
-                // refuses a page-level `context` key, so no parsed page can
-                // carry one (objectui#9673). Written after `...page`, it also
-                // overrides whatever an unparsed document smuggled in.
-                context: { params },
-              }}
-            />
+            <RelatedRecordActionsProvider value={pageRecordActions}>
+              <SchemaRenderer
+                schema={{
+                  ...page,
+                  // `type` stays the SchemaNode discriminator ComponentRegistry
+                  // dispatches on. The spec's page KIND (`record|home|app|utility|
+                  // list`) rides `pageType`, which PageRenderer reads — without
+                  // this mapping every page fell back to `pageType: 'record'`,
+                  // so non-record pages got the record max-width, a wrong
+                  // `data-page-type` and a suppressed header (framework#1878 §3
+                  // naming-drift recheck).
+                  //
+                  // ⭐ This is the WRITING end of the page-kind to node-type
+                  // channel, and a comment here was not enough: two cards audited
+                  // the READING end and concluded the registrations it feeds were
+                  // undeclared (objectui#9263, re-ruled letter E "⛔ not a
+                  // defect", and objectui#9576). The channel is now declared at
+                  // both reading ends — `@object-ui/types`' `SchemaRegistry` map
+                  // at its `'page'` entry, and the `PageRenderer` registrations in
+                  // `@object-ui/components`. Each END is pinned by a DIFFERENT
+                  // file, because no one package can import both.
+                  //
+                  // ⛔ Change this mapping and `page-kind-writing-end-9718`, in
+                  // this package's `views/__tests__`, goes red by design and names
+                  // the kind that stopped being written (objectui#9718): it is the
+                  // declaration, not an incidental assertion.
+                  //
+                  // ⚠️ The reading end's pin — `page-kind-node-type-channel-9642`
+                  // (objectui#9642) — does NOT answer for this line. It lives in
+                  // `@object-ui/components`, which does not depend on this
+                  // package, so its module graph cannot reach this file: gutting
+                  // this mapping leaves it green, and deleting a registration
+                  // turns it red. Both directions were measured on objectui#9718.
+                  type: (page as any).type || 'page',
+                  pageType: (page as any).type,
+                  // `context` is built here, never read off the page: `PageSchema`
+                  // refuses a page-level `context` key, so no parsed page can
+                  // carry one (objectui#9673). Written after `...page`, it also
+                  // overrides whatever an unparsed document smuggled in.
+                  context: { params },
+                }}
+              />
+            </RelatedRecordActionsProvider>
           )}
         </div>
         <MetadataPanel

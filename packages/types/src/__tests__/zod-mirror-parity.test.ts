@@ -539,8 +539,12 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **3 entries** in `WiderThanDeclared`, **3 keys** across them, and **3 arms**
- *     under those keys — split **2** SCHEMA-NODE, **1** CONCRETE, **0** MIXED, **0** unions.
+ *   - **4 entries** in `WiderThanDeclared`, **4 keys** across them, and **4 arms**
+ *     under those keys — split **2** SCHEMA-NODE, **2** CONCRETE, **0** MIXED, **0** unions.
+ *     It read 3 / 3 / 3 — 2 / 1 / 0 / 0 — until objectui#11117 waived
+ *     `objectql.zod.ts#ObjectGridSchema`'s `objectName` on the mirror beside a
+ *     `dataSource.object` binding while the TypeScript twin kept it required: the entry,
+ *     its one key and its one CONCRETE arm ENTERED together.
  *     It read 6 / 7 / 7 — 5 / 2 / 0 / 0 — until objectui#11073 bumped the installed
  *     `@objectstack/spec` to 17.5.0, whose `visibleWhen` envelope requires `source`: the
  *     spec-version-gated entries `views.zod.ts#DetailViewFieldSchema` (`options`, one CONCRETE
@@ -3727,6 +3731,20 @@ interface WiderThanDeclared {
    * narrow.
    */
   'layout.zod.ts#PageNodeSchema': 'slots';
+  /**
+   * CONCRETE. `objectName` ENTERED under objectui#11117: the mirror waives it
+   * beside a `dataSource.object` binding, as the spec and `ElementDataSourceGate`
+   * do (the member is `z.string().optional()`, and the shared record-source
+   * refinement refuses a node with neither), so `{ type: 'object-grid',
+   * dataSource: { object: 'product' } }` parses green and `tsc` refuses it for the
+   * missing member. The declaration is the face that is wrong here, not the
+   * mirror — but it is also the type `ObjectGrid` reads after the gate has run,
+   * and `@object-ui/plugin-grid` passes it as a `string`
+   * (`translateOptions(schema.objectName, …)`), so widening it is a
+   * renderer-typing change that card left out of its file surface. The entry
+   * leaves when the declaration states `objectName?: string`.
+   */
+  'objectql.zod.ts#ObjectGridSchema': 'objectName';
   // `navigation.zod.ts#HeaderBarSchema` recorded `logo` here (CONCRETE, two arms; ENTERED
   // under objectui#7760): the mirror spelled it single-or-list `SchemaNode` and the
   // declaration a bare `string`. The `header-bar` renderer reads no `logo` at all — through
@@ -3863,6 +3881,7 @@ const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'app.zod.ts#AppComponentSchema::areas': ['SCHEMA-NODE'],
   'form.zod.ts#FormSchema::layout': ['CONCRETE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
+  'objectql.zod.ts#ObjectGridSchema::objectName': ['CONCRETE'],
 };
 
 /* ── The invariant ──────────────────────────────────────────────────────────── */

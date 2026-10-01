@@ -871,17 +871,19 @@ export interface ObjectGridSchema extends BaseSchema {
    * ObjectQL object name (e.g., 'users', 'accounts', 'contacts')
    * Used when data provider is 'object' or not specified
    *
-   * Optional as a member, required unless {@link dataSource} names the object
-   * (objectui#11117): the registration is gate-wrapped, so
-   * `ElementDataSourceGate` lands the binding's `object` here before
-   * `ObjectGrid` reads the node, and `{ type: 'object-grid', dataSource: {
-   * object: 'product' } }` — the binding the docs teach and the spec accepts —
-   * renders. A node with neither is refused by the zod mirror's record-source
-   * refinement (`requireRecordSource`, keyed `RECORD_SOURCE_REQUIRED`), the
-   * same split as {@link ObjectMapSchema.objectName}: a TypeScript member
-   * cannot say "this key or that one".
+   * ⚠️ REQUIRED on this face, OPTIONAL on the zod mirror (objectui#11117). The
+   * registration is gate-wrapped, so `ElementDataSourceGate` lands a binding's
+   * `object` here before `ObjectGrid` reads the node, and the mirror accepts
+   * `{ type: 'object-grid', dataSource: { object: 'product' } }` — the binding
+   * the docs teach and the spec accepts — refusing only a node with neither
+   * (`requireRecordSource`, keyed `RECORD_SOURCE_REQUIRED`). This member stays
+   * `string` because `ObjectGrid` reads it as one after the gate has run
+   * (`translateOptions(schema.objectName, …)` in `@object-ui/plugin-grid`),
+   * so making it optional is a renderer-typing change outside that card. The
+   * difference is recorded in `zod-mirror-parity.test.ts`'s
+   * `WiderThanDeclared` ledger, which reddens when the two faces agree again.
    */
-  objectName?: string;
+  objectName: string;
 
   /**
    * Data Source Configuration

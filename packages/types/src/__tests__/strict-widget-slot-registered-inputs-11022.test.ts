@@ -154,7 +154,7 @@ describe('objectui#11022 — the registered inputs are admitted by KEY; the stri
 
 /* ── 4. the tolerant face does not move ──────────────────────────────────── */
 
-describe('objectui#11022 — the tolerant slot arm is untouched', () => {
+describe('objectui#11022 — the tolerant slot arm is untouched by the record', () => {
   /** The slot's component-node arm, read off the exported tolerant schema. */
   const tolerantSlotArm = (): z.ZodType => {
     const widgets = internals(DashboardComponentSchema)._zod.def.shape?.widgets;
@@ -167,10 +167,12 @@ describe('objectui#11022 — the tolerant slot arm is untouched', () => {
   it('its shape declares none of the registered inputs the base does not — the record is a side table', () => {
     const arm = tolerantSlotArm();
     // The arm overrides `type`, `body` and `children`, all three base members,
-    // so its key set IS the base's: no registered input became a member.
+    // and adds ONE member the base lacks: `layout`, the spec's widget position
+    // (objectui#11070 round 11), a widget key and not a registered input. So its
+    // key set IS the base's plus `layout`: no registered input became a member.
     const baseKeys = Object.keys(internals(BaseSchema)._zod.def.shape ?? {}).sort();
     const armKeys = Object.keys(internals(arm)._zod.def.shape ?? {}).sort();
-    expect(armKeys).toEqual(baseKeys);
+    expect(armKeys).toEqual([...baseKeys, 'layout'].sort());
     for (const input of ['title', 'value', 'icon', 'trend', 'trendValue']) expect(armKeys).not.toContain(input);
     // Non-vacuity: this IS the arm that carries the record.
     expect(registeredInputsOf(arm)).toContain('value');

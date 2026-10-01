@@ -275,13 +275,17 @@ from the view — so a typo never passes silently, whatever the block.
 
 Reading the `object` column: it lands on the block's own object key, which is
 `objectName` everywhere except `record:line_items`, where the collection the panel
-lists, fetches and writes is `childObject`. So a node bound this way needs no
-`objectName` of its own, and the schema validator (`safeValidateSchema`, which
-`objectui validate` runs) accepts it; a node that names its object in neither
-place, or binds an empty `object`, is refused for having no record source. Its `relationshipField` is *not* part
+lists, fetches and writes is `childObject`. Its `relationshipField` is *not* part
 of the binding and stays the author's — it has to name a field on the bound child
 object, so rebinding `object` without updating it is an authoring error the panel
 cannot paper over.
+
+Because the binding lands on `objectName`, a node bound this way needs no
+`objectName` of its own. The schema validator (`safeValidateSchema`, which
+`objectui validate` runs) counts the binding as the record source of `list-view`,
+`object-grid`, `object-kanban`, `object-calendar`, `object-gantt` and `object-map`,
+and still refuses one of those nodes that names its object in neither place, or
+binds an empty `object`.
 
 The two `element:*` rows keep their configuration in the node's `properties` bag,
 so the binding does not land on a schema key there: each reads it directly, and

@@ -1747,10 +1747,16 @@ describe('objectui#11327: an injected console carries exactly one zod instance',
   });
 
   describe('wired into the REAL console config', () => {
-    const pluginNames = (config: any): string[] =>
-      ((config.plugins as unknown[]).flat(Infinity) as ({ name?: string } | null)[])
-        .filter(Boolean)
-        .map((p) => p!.name ?? '');
+    /** The slice of the console config these cases read. */
+    interface ConsoleConfigSlice {
+      plugins: unknown[];
+      resolve: { dedupe: string[] };
+    }
+    const registered = (config: ConsoleConfigSlice) =>
+      (config.plugins.flat(Infinity) as ({ name?: string; enforce?: string } | null)[]).filter(
+        (p): p is { name?: string; enforce?: string } => Boolean(p)
+      );
+    const pluginNames = (config: ConsoleConfigSlice): string[] => registered(config).map((p) => p.name ?? '');
 
     it('registers the guard in every build and the redirect only under the override', async () => {
       const baseline = await loadConsoleConfig();
@@ -1758,7 +1764,7 @@ describe('objectui#11327: an injected console carries exactly one zod instance',
       expect(pluginNames(baseline)).not.toContain(SINGLE_ZOD_PLUGIN_NAME);
 
       process.env.OBJECTSTACK_SPEC_DIST = installedSpecDir;
-      let injected: any;
+      let injected: ConsoleConfigSlice;
       try {
         injected = await loadConsoleConfig('?objectstack-spec-dist=11327');
       } finally {
@@ -1767,9 +1773,7 @@ describe('objectui#11327: an injected console carries exactly one zod instance',
       expect(pluginNames(injected)).toContain(SINGLE_ZOD_GUARD_NAME);
       expect(pluginNames(injected)).toContain(SINGLE_ZOD_PLUGIN_NAME);
       // The redirect resolves before Vite's own resolver, or it would answer too late.
-      const redirect = ((injected.plugins as unknown[]).flat(Infinity) as { name?: string; enforce?: string }[]).find(
-        (p) => p && p.name === SINGLE_ZOD_PLUGIN_NAME
-      );
+      const redirect = registered(injected).find((p) => p.name === SINGLE_ZOD_PLUGIN_NAME);
       expect(redirect!.enforce).toBe('pre');
       // `zod` is not in `resolve.dedupe`: measured a silent no-op from this root.
       expect(injected.resolve.dedupe).not.toContain('zod');

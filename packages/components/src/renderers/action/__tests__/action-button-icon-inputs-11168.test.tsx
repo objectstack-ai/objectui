@@ -37,6 +37,11 @@
  * `target` and never `endpoint`) and `undoable` on `action:button` (the
  * runner's update path offers Undo only with a host row stash this block never
  * writes).
+ *
+ * Slice 2 added the `size` rows at the end: `action:button` publishes the five
+ * sizes its spec row declares. The renderer hands `default`, `sm`, `lg` and
+ * `icon` to the Button primitive as-is and maps `md` to `default`; `default`
+ * and `icon` were unpublished before, so the page validator refused them.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
@@ -54,6 +59,9 @@ import {
   useAction,
 } from '@object-ui/react';
 import { ComponentPropsMap } from '@objectstack/spec/ui';
+import { manifestFromConfigs, validateTree } from '@object-ui/sdui-parser';
+import type { SchemaElement } from '@object-ui/sdui-parser';
+import { buttonVariants } from '../../../ui/button';
 // Module-scope side-effect imports: the registry must hold both renderers when
 // `SchemaRenderer` resolves the type, and the light `dom` project does not load
 // the components graph. Module scope, not a `beforeAll`, per AGENTS.md 测试纪律.
@@ -525,5 +533,60 @@ describe('action:button — `recordIdField`', () => {
     press();
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
     expect(JSON.parse(String(fetchSpy.mock.calls[0][1]?.body)).recordId).toBe('ID-1');
+  });
+});
+
+// ── objectui#11168 slice 2 ──────────────────────────────────────────────────
+
+/** The diagnostics the page validator raises for one node, over the manifest the registry publishes. */
+const diagnoseCodes = (schema: Record<string, unknown>) =>
+  validateTree(
+    schema as unknown as SchemaElement,
+    manifestFromConfigs(
+      ComponentRegistry.getAllConfigs() as unknown as Parameters<typeof manifestFromConfigs>[0],
+    ),
+  ).diagnostics.map((diagnostic) => diagnostic.code);
+
+/** The class list the Button primitive gives one size. */
+const primitiveSizeClasses = (size: 'default' | 'sm' | 'lg' | 'icon') =>
+  buttonVariants({ variant: 'default', size }).split(' ');
+
+describe('action:button — `size` publishes the five sizes the spec row declares (objectui#11168 slice 2)', () => {
+  const SIZES = ['default', 'sm', 'md', 'lg', 'icon'];
+
+  it('publishes exactly the sizes the installed spec row accepts, and the spec refuses one outside them', () => {
+    const size = ComponentRegistry.getConfig('action:button')?.inputs?.find((input) => input.name === 'size');
+    expect(size?.enum).toEqual(SIZES);
+    const row = (ComponentPropsMap as unknown as Record<string, { safeParse: (v: unknown) => { success: boolean } }>)[
+      'action:button'
+    ];
+    for (const value of SIZES) expect(row.safeParse({ size: value }).success, `spec refuses size ${value}`).toBe(true);
+    expect(row.safeParse({ size: 'xl' }).success).toBe(false);
+  });
+
+  it.each([
+    ['default', 'default'],
+    ['sm', 'sm'],
+    ['lg', 'lg'],
+    ['icon', 'icon'],
+    // `md` is the one size the renderer MAPS rather than hands on: it draws
+    // the primitive's `default`.
+    ['md', 'default'],
+  ] as const)('`size: %s` draws the Button primitive\'s `%s` size', (authored, drawn) => {
+    mount(node('action:button', { size: authored }));
+    const classes = screen.getByRole('button').className.split(' ');
+    for (const cls of primitiveSizeClasses(drawn)) expect(classes, `${authored} lacks ${cls}`).toContain(cls);
+  });
+
+  it('CONTROL: the sizes are distinguishable, so the rows above cannot pass on one shared class list', () => {
+    const drawn = (['default', 'sm', 'lg', 'icon'] as const).map((size) => primitiveSizeClasses(size).join(' '));
+    expect(new Set(drawn).size).toBe(4);
+  });
+
+  it('the page validator accepts every published size and reports a size outside them', () => {
+    for (const size of SIZES) {
+      expect(diagnoseCodes({ type: 'action:button', size }), `validator refuses size ${size}`).not.toContain('invalid-enum');
+    }
+    expect(diagnoseCodes({ type: 'action:button', size: 'xl' })).toContain('invalid-enum');
   });
 });

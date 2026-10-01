@@ -426,10 +426,18 @@ ComponentRegistry.register('button', ActionButtonRenderer, {
       type: 'enum',
       enum: ['default', 'primary', 'secondary', 'destructive', 'outline', 'ghost'],
     },
+    // objectui#11168 slice 2 — the five sizes the spec row declares, each
+    // measured through the real `SchemaRenderer`: `default`, `sm`, `lg` and
+    // `icon` reach the Button primitive as-is, and `md` renders as `default`
+    // (the mapping above). `default` and `icon` were unpublished, so the page
+    // validator refused two values the renderer honours. Pinned in
+    // `__tests__/action-button-icon-inputs-11168.test.tsx`.
     {
       name: 'size',
       type: 'enum',
-      enum: ['sm', 'md', 'lg'],
+      enum: ['default', 'sm', 'md', 'lg', 'icon'],
+      description:
+        'Button size: the Button primitive\'s `default`, `sm`, `lg` or `icon`, plus `md`, which renders as `default` (default: `default`)',
     },
     { name: 'className', type: 'string' },
     {

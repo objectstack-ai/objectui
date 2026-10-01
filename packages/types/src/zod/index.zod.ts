@@ -326,11 +326,12 @@ export {
   ObjectDataTableSchema,
   ListViewSchema,
   ObjectQLComponentSchema,
-  // objectui#10859 batches 2 to 5 — ADR-0080 public blocks armed from their
+  // objectui#10859 batches 2 to 6 — ADR-0080 public blocks armed from their
   // `ComponentPropsMap` rows, and the union they reach `AnyComponentSchema` by.
-  // Batch 4's `ObjectFormBlockSchema` and batch 5's `ObjectMapBlockSchema` are
-  // the authored `object-form` / `object-map` arms; `ObjectFormSchema` and
-  // `ObjectMapSchema` above stay the nodes as their renderers read them.
+  // Batch 4's `ObjectFormBlockSchema`, batch 5's `ObjectMapBlockSchema` and
+  // batch 6's `ObjectGanttBlockSchema` are the authored `object-form` /
+  // `object-map` / `object-gantt` arms; `ObjectFormSchema`, `ObjectMapSchema`
+  // and `ObjectGanttSchema` above stay the nodes as their renderers read them.
   // objectui#11276's `ObjectChartBlockSchema` is the authored `object-chart`
   // arm, its bag the flat mirror's own members (the spec has no row for it);
   // `ObjectChartSchema` above stays the node as `ObjectChart` reads it.
@@ -340,6 +341,7 @@ export {
   ObjectFormBlockSchema,
   ObjectMapBlockSchema,
   ObjectChartBlockSchema,
+  ObjectGanttBlockSchema,
   ObjectQLPublicBlockComponentSchema,
 } from './objectql.zod.js';
 

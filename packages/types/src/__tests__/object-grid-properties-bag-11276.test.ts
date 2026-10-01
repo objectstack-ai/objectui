@@ -41,8 +41,8 @@
  *     Both splits are re-derived from the installed spec below, not transcribed.
  *   - The flat mirror's own retirements of keys the row does not declare
  *     (`operators`, `rowSpecActions`, `bulkSpecActions`, `name`, `placeholder`,
- *     `showFilters`), its `onNavigate` runtime slot and its content-channel
- *     refusals ride onto the arm by reference.
+ *     `showFilters`) and its content-channel refusals ride onto the arm by
+ *     reference; its `onNavigate` runtime slot is declared as it declares it.
  *   - The row carries spec defaults (inside `data`'s `api` provider), so the
  *     import boundary hands back a rebuilt copy: the pins below hold the key
  *     set, probe equivalence and type-level equality, and that no default is
@@ -358,7 +358,8 @@ describe('the flat spelling is refused by name, with the bag member as the remed
   );
 
   it('`onNavigate` stays the runtime slot `ObjectGrid` reads off the node (objectui#6124)', () => {
-    expect(ObjectGridBlockSchema.shape.onNavigate).toBe(ObjectGridSchema.shape.onNavigate);
+    // Declared exactly as the flat mirror declares it: the same helper, the same text.
+    expect(ObjectGridBlockSchema.shape.onNavigate.description).toBe(ObjectGridSchema.shape.onNavigate.description);
     const issue = issuesOf(safeValidateSchema({ ...SHOWCASE_MY_WORK, onNavigate: { action: 'toast' } }))[0];
     expect(issue.path).toEqual(['onNavigate']);
     expect(issue.message).toContain('RUNTIME SLOT');

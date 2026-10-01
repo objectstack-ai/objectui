@@ -4520,7 +4520,8 @@ export const ObjectGanttBlockSchema = BaseSchema.extend({
  * `placeholder`, `showFilters` (objectui#11068). `name` and `placeholder` are
  * `BaseSchema` keys, so without the tombstone they would parse again. In the
  * bag the row refuses each of them. `onNavigate`, which `ObjectGrid` reads off
- * the node, stays the objectui#6124 runtime slot it is on the mirror. A flat
+ * the node, is declared exactly as the mirror declares it, an objectui#6124
+ * runtime slot. A flat
  * key neither the row nor those declare — the mirror's `emptyState` and
  * `keyboardNavigation` among them — is left as every arm leaves an undeclared
  * key: unjudged by the tolerant face, refused by the strict one; the row
@@ -4567,9 +4568,11 @@ export const ObjectGridBlockSchema = BaseSchema.extend({
   name: ObjectGridSchema.shape.name,
   placeholder: ObjectGridSchema.shape.placeholder,
   showFilters: ObjectGridSchema.shape.showFilters,
-  // objectui#6124: `ObjectGrid` reads `onNavigate` off the node, so it stays the
-  // mirror's runtime slot, refused by name.
-  onNavigate: ObjectGridSchema.shape.onNavigate,
+  // objectui#6124: `ObjectGrid` reads `onNavigate` off the node, so it is
+  // declared exactly as the flat mirror declares it: a RUNTIME SLOT, refused by
+  // name. Spelled as the helper call, as `ObjectFormBlockSchema` spells its five,
+  // so `check:handler-key-reads` reads the disposition off this arm.
+  onNavigate: handlerKeyRefusal('onNavigate', 'runtime-slot', 'Record navigation handler'),
   // objectui#9256: the renderer reads NEITHER content channel, so both are
   // refused by name — the flat mirror's own members, by reference.
   body: ObjectGridSchema.shape.body,

@@ -533,15 +533,15 @@ unsubscribe();
 
 ```typescript
 // Retool table → ObjectUI Grid. The props go in the node's `properties` bag
-// (the spec's `ComponentPropsMap['object-grid']` row): row selection is
-// `selection`, the export menu is `exportOptions`, and the adapter comes from
-// `SchemaRendererProvider`, never from the node.
+// (the spec's `ComponentPropsMap['object-grid']` row): declaring bulk actions
+// turns multi-row selection on, the export menu is `exportOptions`, and the
+// adapter comes from `SchemaRendererProvider`, never from the node.
 {
   type: 'object-grid',
   properties: {
     objectName: 'users',
     editable: true,
-    selection: { type: 'multiple' },
+    bulkActions: ['delete', 'export'],
     exportOptions: { formats: ['csv', 'xlsx'] },
   },
 }

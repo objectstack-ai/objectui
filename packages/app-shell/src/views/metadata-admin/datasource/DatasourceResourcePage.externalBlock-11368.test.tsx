@@ -355,9 +355,10 @@ describe('objectui#11368 — edit keeps the stored `external` block the read pat
     ]);
     const patch = await editThroughThePage(door, { label: 'Warehouse' });
 
-    expect(patch.body).not.toHaveProperty('external');
-    expect(patch.status).toBe(200);
-    expect(door.store.get('warehouse')?.external).toEqual(stored);
+    // Soft, so a body that does carry the block still reports what it cost.
+    expect.soft(patch.body).not.toHaveProperty('external');
+    expect.soft(patch.status).toBe(200);
+    expect(door.store.get('warehouse')?.external, 'the stored policy survives the Save').toEqual(stored);
     expect(door.store.get('warehouse')?.label).toBe('Warehouse');
   });
 
@@ -368,9 +369,9 @@ describe('objectui#11368 — edit keeps the stored `external` block the read pat
     const patch = await editThroughThePage(door, { mode: 'validate-only' });
 
     expect(patch.body).toMatchObject({ schemaMode: 'validate-only' });
-    expect(patch.body).not.toHaveProperty('external');
-    expect(patch.status).toBe(200);
-    expect(door.store.get('warehouse')?.external).toEqual(POLICY);
+    expect.soft(patch.body).not.toHaveProperty('external');
+    expect.soft(patch.status).toBe(200);
+    expect(door.store.get('warehouse')?.external, 'the stored policy survives the Save').toEqual(POLICY);
     expect(door.storedRecordValid('warehouse')).toBe(true);
   });
 

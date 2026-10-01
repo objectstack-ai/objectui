@@ -23,9 +23,11 @@
  *   - `form.fields[]` — field metadata a hand-authored form writes on the entry
  *     itself (`multiple`, `rows`, `accept`, `dimensions`, `reference`, `min`,
  *     `max`, `minLength`, `maxLength`, `pattern`, since round 3
- *     `returnType` and `summaryOperations`, and since round 7 the `grid`
- *     widget's `columns`, the spec's `inlineColumns` list), which the
- *     renderer hands each field widget as its metadata carrier;
+ *     `returnType` and `summaryOperations`, since round 7 the `grid`
+ *     widget's `columns`, the spec's `inlineColumns` list, and since round 10
+ *     the `grid` widget's eight field-level keys, `GridFieldMetadata`'s own
+ *     members), which the renderer hands each field widget as its metadata
+ *     carrier;
  *   - `dataSource` on `object-grid`, `object-form`, `object-kanban`,
  *     `list-view`, `object-gantt`, `object-map`, `object-calendar` and, since
  *     round 7, `object-chart` — the spec's per-element binding, which each
@@ -64,6 +66,7 @@ import type {
 } from '../objectql.js';
 import type { FormField, FormSchema } from '../form.js';
 import type {
+  BaseFieldMetadata,
   EmailFieldMetadata,
   FormulaFieldMetadata,
   GridFieldMetadata,
@@ -108,6 +111,31 @@ const form = (field: Record<string, unknown>, node: Record<string, unknown> = {}
   fields: [{ name: 'f', label: 'F', ...field }],
 });
 
+/** A `grid` entry the way the `fields-grid` catalog fixtures write one. */
+const GRID_ENTRY = {
+  type: 'grid',
+  columns: [{ name: 'product', type: 'text' }, { name: 'amount', type: 'currency' }],
+};
+
+/**
+ * Round 10: the `grid` widget's field-level keys — every member
+ * `GridFieldMetadata` declares besides `columns` (round 7) and the base field
+ * keys — each with a value of its declared type, on a grid entry.
+ */
+const GRID_FIELD_KEYS = {
+  min_rows: 1,
+  max_rows: 20,
+  allow_add: false,
+  allow_delete: false,
+  allow_reorder: false,
+  total_field: 'amount',
+  add_label: 'Add line',
+  sort_field: 'position',
+} as const;
+
+const GRID_FIELD_KEY_CASES: ReadonlyArray<readonly [string, Record<string, unknown>]> = Object.entries(GRID_FIELD_KEYS)
+  .map(([key, value]) => [key, { ...GRID_ENTRY, [key]: value }] as const);
+
 /* ── 1. accepted on the strict face; a misspelling beside it is not ─────── */
 
 describe('objectui#11070 — the declared read keys parse on the strict face', () => {
@@ -132,12 +160,25 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
     ['summaryOperations', { type: 'summary', summaryOperations: { object: 'orders', field: 'amount', function: 'sum' } }],
     // Round 7: the `grid` widget's columns, the spec's `inlineColumns` list.
     ['columns', { type: 'grid', columns: [{ name: 'qty', type: 'number' }, { name: 'sku' }] }],
+    // Round 10: the `grid` widget's field-level keys, `GridFieldMetadata`'s
+    // members, each on a grid entry. Every row was refused by name at the
+    // round's base (`fields.0.<key>`), so each one is a refusal that flipped.
+    ...GRID_FIELD_KEY_CASES,
   ];
 
   it.each(FIELD_CASES)('`fields[].%s` parses; a misspelled sibling is refused at the field', (key, field) => {
     expect(issuesOf(StrictAnyComponentSchema, form(field))).toBeNull();
     expect(undeclared(issuesOf(StrictAnyComponentSchema, form({ ...field, [`${key}x`]: 1 }))))
       .toEqual([`fields.0.${key}x`]);
+  });
+
+  it('a grid entry carrying all eight field-level keys at once parses on the strict face (round 10)', () => {
+    expect(issuesOf(StrictAnyComponentSchema, form({ ...GRID_ENTRY, ...GRID_FIELD_KEYS }))).toBeNull();
+    // The parsed entry KEEPS each value: the tolerant face used to strip them.
+    const parsed = AnyComponentSchema.safeParse(form({ ...GRID_ENTRY, ...GRID_FIELD_KEYS }));
+    expect(parsed.success).toBe(true);
+    expect(parsed.success && (parsed.data as { fields: Record<string, unknown>[] }).fields[0])
+      .toMatchObject(GRID_FIELD_KEYS);
   });
 
   const BINDING = { object: 'task', filter: [{ field: 'project', operator: 'equals', value: 'acme' }] };
@@ -189,6 +230,17 @@ describe('objectui#11070 — a declared key is judged by its declared type on bo
     ['a grid column `defaultValue` (the spec column declares none, and the grid reads none)', form({ type: 'grid', columns: [{ name: 'qty', defaultValue: 1 }] })],
     ['a `scale` on a column declaring `type: \'currency\'` (the spec refuses it there)', form({ type: 'grid', columns: [{ name: 'amount', type: 'currency', scale: 2 }] })],
     ['a bare-object `columns` (the spec types it as an array)', form({ type: 'grid', columns: { name: 'qty' } })],
+    // Round 10: each grid field-level key is judged by `GridFieldMetadata`'s
+    // type. At the round's base the tolerant face STRIPPED every one of these
+    // and accepted the document, so each row is red there.
+    ['a string `min_rows`', form({ ...GRID_ENTRY, min_rows: '1' })],
+    ['a string `max_rows`', form({ ...GRID_ENTRY, max_rows: '20' })],
+    ['a string `allow_add`', form({ ...GRID_ENTRY, allow_add: 'false' })],
+    ['a string `allow_delete`', form({ ...GRID_ENTRY, allow_delete: 'false' })],
+    ['a string `allow_reorder`', form({ ...GRID_ENTRY, allow_reorder: 'false' })],
+    ['a numeric `total_field`', form({ ...GRID_ENTRY, total_field: 3 })],
+    ['a numeric `add_label`', form({ ...GRID_ENTRY, add_label: 1 })],
+    ['a numeric `sort_field`', form({ ...GRID_ENTRY, sort_field: 0 })],
     ['a `null` `object-chart` binding (the adapter placeholder the wrapper no longer writes)', { type: 'object-chart', properties: { objectName: 'task', chartType: 'bar' }, dataSource: null }],
     ['an adapter-shaped `object-chart` binding', { type: 'object-chart', properties: { objectName: 'task', chartType: 'bar' }, dataSource: 'objectstack' }],
   ];
@@ -314,6 +366,33 @@ export type assertionSpecMembersByReference = [
 export type assertionGridColumnsBySpecReference = [
   Expect<Equal<FormField['columns'], SpecField['inlineColumns']>>,
   Expect<Equal<GridFieldMetadata['columns'], SpecField['inlineColumns']>>,
+];
+/**
+ * Round 10: the form-field face carries the `grid` widget's field-level keys
+ * BY REFERENCE to `GridFieldMetadata` — an exact match per key, so a restated
+ * value type fails here — and misses none of them: every member
+ * `GridFieldMetadata` declares beyond `BaseFieldMetadata` is a DECLARED member
+ * of `FormField` (not the index signature) with the same type. A key added to
+ * the grid's type and not mirrored on the form-field face fails to compile
+ * here; the zod side then follows through the `UnmirroredDeclared` ratchet in
+ * `zod-mirror-parity.test.ts` and the key set in `form-field-zod-coverage`.
+ */
+type DeclaredKeysOf<T> = keyof { [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K] };
+type GridFieldOwnKeys = Exclude<keyof GridFieldMetadata, keyof BaseFieldMetadata>;
+export type assertionGridFieldKeysOnTheFormFieldFace = [
+  // LIT CONTROL: the key set the two rows below range over is not empty, and
+  // it holds no base field key (an empty set would pass both in silence).
+  Expect<Equal<Extract<GridFieldOwnKeys, 'columns' | 'sort_field' | 'name'>, 'columns' | 'sort_field'>>,
+  Expect<Equal<Exclude<GridFieldOwnKeys, DeclaredKeysOf<FormField>>, never>>,
+  Expect<Equal<{ [K in GridFieldOwnKeys]: FormField[K] }, { [K in GridFieldOwnKeys]: GridFieldMetadata[K] }>>,
+  Expect<Equal<FormField['min_rows'], GridFieldMetadata['min_rows']>>,
+  Expect<Equal<FormField['max_rows'], GridFieldMetadata['max_rows']>>,
+  Expect<Equal<FormField['allow_add'], GridFieldMetadata['allow_add']>>,
+  Expect<Equal<FormField['allow_delete'], GridFieldMetadata['allow_delete']>>,
+  Expect<Equal<FormField['allow_reorder'], GridFieldMetadata['allow_reorder']>>,
+  Expect<Equal<FormField['total_field'], GridFieldMetadata['total_field']>>,
+  Expect<Equal<FormField['add_label'], GridFieldMetadata['add_label']>>,
+  Expect<Equal<FormField['sort_field'], GridFieldMetadata['sort_field']>>,
 ];
 
 // @ts-expect-error objectui#11070 round 7 — `GridColumnDefinition` is RETIRED from `../field-types`: a grid column is the spec's `InlineGridColumn` (`GridFieldMetadata['columns']`).

@@ -1067,6 +1067,21 @@ export interface GridFieldMetadata extends BaseFieldMetadata {
    * `@object-ui/plugin-form` writes here.
    */
   add_label?: string;
+  /**
+   * The CHILD field the grid stamps with each row's index (0, 1, 2, …) on
+   * every change, so the order a drag-reorder leaves survives a save and a
+   * reload. It names a field on the row object, not one of {@link columns}:
+   * a column that is also the sort field has its typed value overwritten on
+   * every change. Rows keep the order they were entered in when it is unset.
+   *
+   * Its producer is `deriveDetail` in `@object-ui/plugin-form`, through
+   * `MasterDetailForm`: the first of the child object's fields named
+   * `position`, `sort_order`, `sequence`, `line_no`, `line_number` or `sort`.
+   * There is no authored master-detail key for it (objectui#11070 round 9
+   * retired the detail's `sortField` override, which nothing wrote), and the
+   * spec declares no inline sort-field key.
+   */
+  sort_field?: string;
 }
 
 export interface ColorFieldMetadata extends BaseFieldMetadata {

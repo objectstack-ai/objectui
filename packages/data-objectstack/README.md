@@ -825,6 +825,39 @@ the installed `@objectstack/spec` by this package's own pin (the choice set from
 its `field/choice-without-options` completeness rule), so they follow the
 contract rather than a remembered list.
 
+## Showing a Refused Metadata Save
+
+When the server's spec check refuses a metadata save, it answers `422
+INVALID_METADATA`. The error's `message` is a headline: a count of issues and
+where they are. What the author should do is in the structured issues, which
+`MetadataClient` puts on the thrown error's `issues`. Show the error through
+`formatMetadataError`, not through `message` alone:
+
+```ts
+import { MetadataClient, formatMetadataError } from '@object-ui/data-objectstack';
+
+const client = new MetadataClient({ baseUrl: '/api/v1' });
+
+try {
+  await client.save('object', 'account', {
+    name: 'account',
+    fields: { 'Bad Name': { type: 'text', label: 'Bad' } },
+  });
+} catch (err) {
+  showBanner(formatMetadataError(err));
+  // • fields.Bad Name — Invalid key in record
+  // • fields.Bad Name — Field names must be lowercase snake_case (e.g., "first_name", …)
+}
+
+declare function showBanner(text: string): void;
+```
+
+It writes one line per issue, naming the field, and falls back to the error's
+`message` when there are no issues. Render the text with a class that keeps
+newlines (`whitespace-pre-line`). `formatMetadataIssue(issue)` is the same
+one-line format for a single issue, for code that lists several failures, such
+as a publish response's `failed[]`.
+
 ## User-Scoped State Adapter
 
 In addition to the main `DataSource` adapter, this package ships

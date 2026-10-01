@@ -19,20 +19,27 @@
  * `{ name: 'details', type: 'array', required: true }` with no `of` and no
  * description. The spec row is `z.array(z.unknown())`, so every member parses,
  * and its description names five members (`title`, `childObject`, `addLabel`,
- * `columns`, `relationshipField`). The renderer reads twelve. So the read site
- * is the whole member contract, and every row below is measured there.
+ * `columns`, `relationshipField`). The renderer reads every member
+ * `MasterDetailDetailConfig` declares, eleven since objectui#11070 round 9
+ * retired `sortField`; the compile-time block at the end of this file holds
+ * that member list, so the count is re-derived by the compiler rather than
+ * by this sentence. So the read site is the whole member contract, and every
+ * row below is measured there.
  *
  * ## Where each member lands
  *
  *   - `title` heads the collection's own section, with `Line Items` as the
  *     fallback. `columns` is handed to the line grid in authored order.
- *   - Five members reach the grid through ONE hand-written object, and four of
- *     them are RENAMED on the way: `sortField` to `sort_field`, `minRows` to
- *     `min_rows`, `maxRows` to `max_rows`, `addLabel` to `add_label`, and
- *     `amountField` to `total_field`. A member dropped from that object, or
- *     copied under its authored spelling, reaches a grid that reads nothing
- *     there, and nothing reports it. That is why row 2 pins the object as a
- *     SORTED KEY SET and not as a few spot values.
+ *   - Four members reach the grid through ONE hand-written object, each
+ *     RENAMED on the way: `minRows` to `min_rows`, `maxRows` to `max_rows`,
+ *     `addLabel` to `add_label`, and `amountField` to `total_field`. Beside
+ *     them and `columns`, the object carries `sort_field`, which is no member:
+ *     the block DERIVES it from the child object (`deriveDetail` picks its
+ *     `position` / `sort_order` / … field), and objectui#11070 round 9 retired
+ *     the `sortField` member that used to override it. A member dropped from
+ *     that object, or copied under its authored spelling, reaches a grid that
+ *     reads nothing there, and nothing reports it. That is why row 2 pins the
+ *     object as a SORTED KEY SET and not as a few spot values.
  *   - `inlineMode` and `formFields` choose the form factor: list-plus-form or
  *     editable cells, and whether a row can be opened in the full form.
  *   - `childObject` and `relationshipField` address the collection's writes
@@ -50,6 +57,12 @@
  *   2. The grid object is exactly six keys. Each authored member arrives under
  *      its renamed key, and off-list members are NOT forwarded, including
  *      one written in the grid's own snake_case spelling.
+ *   2c. `sortField` is no member (objectui#11070 round 9). On a detail the
+ *      block derives, the grid's `sort_field` is the child's sort-named field
+ *      even when a `sortField` naming another field is written beside it. On
+ *      a fully configured detail, which derives nothing, a written one leaves
+ *      `sort_field` empty. The compile-time block at the end of this file
+ *      refuses the member by name.
  *   3. `inlineMode: 'form'` turns the grid into a list with an `Add` action.
  *      In grid mode, `formFields` wider than `columns` offers the row form, and
  *      without that the offer is withheld. Each arm is the control for the
@@ -81,7 +94,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { registerAllFields } from '@object-ui/fields';
-import { MasterDetailForm } from '../MasterDetailForm';
+import { MasterDetailForm, type MasterDetailDetailConfig } from '../MasterDetailForm';
 
 /**
  * Every prop object `MasterDetailForm` hands the line grid, captured on the
@@ -104,8 +117,20 @@ vi.mock('@object-ui/fields', async (importOriginal) => {
 
 registerAllFields();
 
-/** The parent and two child objects, keyed by name, as the adapter serves them. */
+/** The parent and three child objects, keyed by name, as the adapter serves them. */
 const OBJECTS: Record<string, { name: string; fields: Record<string, any> }> = {
+  // Row 2c's child: two sort-named fields, so a derived pick and a written
+  // `sortField` can name DIFFERENT fields. The derivation takes the first of
+  // the child's fields that is sort-named, which is `position`.
+  po_step: {
+    name: 'po_step',
+    fields: {
+      po: { type: 'master_detail', reference: 'po', label: 'Purchase order' },
+      position: { type: 'number', label: 'Position' },
+      line_no: { type: 'number', label: 'Line No' },
+      note: { type: 'text', label: 'Note' },
+    },
+  },
   po: { name: 'po', fields: { ref: { type: 'text', label: 'Ref' } } },
   po_line: {
     name: 'po_line',
@@ -198,7 +223,7 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
     expect(gridOf('Line Items').field.columns.map((c: { name: string }) => c.name)).toEqual(['note']);
   });
 
-  it('2. five members reach the grid RENAMED, as exactly six keys, and off-list members are not forwarded', async () => {
+  it('2. four members reach the grid RENAMED, as exactly six keys, and off-list members are not forwarded', async () => {
     await mount({
       details: [
         {
@@ -206,7 +231,6 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
           relationshipField: 'po',
           title: 'Lines',
           columns: [QTY],
-          sortField: 'position',
           minRows: 1,
           maxRows: 3,
           addLabel: 'Add a line',
@@ -228,16 +252,16 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
       'total_field',
     ]);
     expect(field).toMatchObject({
-      sort_field: 'position',
       min_rows: 1,
       max_rows: 3,
       add_label: 'Add a line',
       total_field: 'qty',
     });
+    expect(field.sort_field, 'a fully configured detail derives nothing (row 2c)').toBeUndefined();
     expect(gridOf('Lines').displayMode).toBe('grid');
   });
 
-  it('2b. control: with none of the five authored, the same six keys arrive EMPTY', async () => {
+  it('2b. control: with none of the four authored and nothing derived, the same six keys arrive EMPTY', async () => {
     await mount({ details: [{ childObject: 'po_line', relationshipField: 'po', title: 'Lines', columns: [QTY] }] });
     const field = await waitFor(() => gridOf('Lines').field);
     // The key set first: `toEqual` treats a key holding `undefined` as absent,
@@ -258,6 +282,42 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
       add_label: undefined,
       total_field: undefined,
     });
+  });
+
+  it('2c. `sortField` is no member: a derived detail stamps the child’s sort-named field and a fully configured one stamps none, whatever the detail writes (objectui#11070 round 9)', async () => {
+    await mount({
+      details: [
+        // The lit control: nothing written, and the derivation's pick reaches
+        // the grid, so the row below cannot pass on a sort field that never
+        // arrives at all.
+        { childObject: 'po_step', title: 'Steps' },
+        // The same child with a `sortField` naming its OTHER sort-named field.
+        { childObject: 'po_step', title: 'Steps, written', sortField: 'line_no' },
+        // Fully configured (FK set, every column typed): no child schema is
+        // loaded and nothing is derived, so a written `sortField` is the only
+        // candidate there is, and it still reaches nothing.
+        {
+          childObject: 'po_step',
+          relationshipField: 'po',
+          title: 'Steps, configured',
+          columns: [NOTE],
+          sortField: 'position',
+        },
+      ],
+    });
+    const derived = await waitFor(() => {
+      const f = gridOf('Steps').field;
+      if (!f.columns?.length) throw new Error('columns not derived yet');
+      return f;
+    });
+    expect(derived.sort_field, 'the first of the child’s sort-named fields').toBe('position');
+    const written = await waitFor(() => {
+      const f = gridOf('Steps, written').field;
+      if (!f.columns?.length) throw new Error('columns not derived yet');
+      return f;
+    });
+    expect(written.sort_field, 'the written `sortField` is read by nothing').toBe('position');
+    expect(gridOf('Steps, configured').field.sort_field, 'nothing derived, and the written one not read').toBeUndefined();
   });
 
   it('3. `inlineMode` and `formFields` choose the form factor, each arm the other’s control', async () => {
@@ -398,3 +458,34 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
     ]);
   });
 });
+
+// ── The member list, held by the compiler (`tsc -p tsconfig.test.json`, this
+// package's `type-check`; runtime erases all of it) ──
+
+/** Exact type equality: `true` only when A and B are the same type. */
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+
+/**
+ * Every member a detail can be authored with: the list the header's count is
+ * read from. `sortField` is not on it (objectui#11070 round 9).
+ */
+const memberList: Equal<
+  keyof MasterDetailDetailConfig,
+  | 'childObject'
+  | 'relationshipField'
+  | 'columns'
+  | 'formFields'
+  | 'inlineMode'
+  | 'amountField'
+  | 'totalField'
+  | 'title'
+  | 'minRows'
+  | 'maxRows'
+  | 'addLabel'
+> = true;
+
+/** The lit control for the directive below: the same literal without the retired member compiles. */
+const authoredDetail: MasterDetailDetailConfig = { childObject: 'po_step', amountField: 'qty' };
+// @ts-expect-error objectui#11070 round 9: `sortField` is retired as a detail member; the sort field is derived from the child object.
+const retiredSortField: MasterDetailDetailConfig = { childObject: 'po_step', sortField: 'line_no' };
+void [memberList, authoredDetail, retiredSortField];

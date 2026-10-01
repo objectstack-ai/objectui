@@ -288,7 +288,7 @@ describe('en-US labels are unchanged by the key migration (#3913)', () => {
     'engine.inspector.pageBlock.field.page:card.bordered': 'Bordered',
     // the same field NAME in another block, with different text — the case that
     // makes the key positional
-    'engine.inspector.pageBlock.field.object-form.columns': 'Columns (grid layout)',
+    'engine.inspector.pageBlock.field.object-form.columns': 'Field columns (1–4)',
     'engine.inspector.pageBlock.field.element:definition-list.columns': 'Columns (1 or 2)',
     'engine.inspector.pageBlock.field.grid.columns': 'Columns',
     // text / json / color / field-picker

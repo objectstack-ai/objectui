@@ -143,7 +143,11 @@ describe('objectui#9550 - `ObjectTreeSchema` resolves from the root barrel', () 
     // reason for this one to red, while a member RETYPED here would be exactly
     // the "nothing retyped or narrowed" claim breaking.
     const tag: Eq<FromRootBarrel['type'], 'object-tree'> = true;
-    const objectName: Eq<FromRootBarrel['objectName'], string> = true;
+    // `string | undefined` since objectui#11168 slice 3: the member went
+    // OPTIONAL (a tree on inline rows never reads it; the zod twin's
+    // `requireRecordSource` refinement carries "one of the three"), measured
+    // against `@objectstack/spec` 17.5.0's `object-tree` row and the renderer.
+    const objectName: Eq<FromRootBarrel['objectName'], string | undefined> = true;
     const parentField: Eq<FromRootBarrel['parentField'], string | undefined> = true;
     const labelField: Eq<FromRootBarrel['labelField'], string | undefined> = true;
     const fields: Eq<FromRootBarrel['fields'], string[] | undefined> = true;

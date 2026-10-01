@@ -49,6 +49,7 @@ import { retiredFieldKeysFor } from '@object-ui/types/internal/retired-field-key
 import {
   MetadataClient,
   RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
+  formatMetadataError,
   type MetadataClientConfig,
 } from '@object-ui/data-objectstack';
 import { FieldDesigner } from './FieldDesigner';
@@ -921,7 +922,7 @@ export function MetadataFieldsPage({
     } catch (err) {
       setState({
         loading: false,
-        error: err instanceof Error ? err.message : String(err),
+        error: formatMetadataError(err),
         raw: null,
       });
     }
@@ -953,9 +954,16 @@ export function MetadataFieldsPage({
       await client.save('object', objectName, mergedObject);
       await reload();
     } catch (err) {
+      // objectui#11302 - through the ONE metadata-save error reader. A save the
+      // spec refuses answers 422 with a headline message (count plus
+      // `path [code]` locators) and the author's prescription riding
+      // `err.issues`; showing `err.message` alone showed the headline and never
+      // the remedy. The reader lists the issues one field per line, and falls
+      // back to the message for every other failure — including this page's
+      // own pre-request refusals from `toFieldsMap`.
       setState((s) => ({
         ...s,
-        error: err instanceof Error ? err.message : String(err),
+        error: formatMetadataError(err),
       }));
     }
   }, [client, objectName, reload, state.raw]);
@@ -970,6 +978,8 @@ export function MetadataFieldsPage({
 
   return (
     <div className={className} data-testid="metadata-fields-page">
+      {/* `pre` + `whitespace-pre-wrap` keeps the reader's newlines, so a
+          refused save's issues show one field per line (objectui#11302). */}
       {state.error && (
         <pre
           data-testid="metadata-fields-page-error"

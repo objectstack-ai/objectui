@@ -1,37 +1,17 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 //
-// Turn a metadata save/publish failure into a FIELD-ANCHORED message. The
-// framework validates a draft against its spec and returns structured issues
-// (`error.details.issues: [{ path, message }]`, surfaced on `MetadataError.issues`
-// by the client); a publish carries per-draft failures in `data.failed[]`. These
-// helpers render "which field, and why" instead of a single opaque banner line —
-// the point of surfacing validation at the save/publish moment.
+// Turn a publish response's per-draft failures into a FIELD-ANCHORED message.
+// A publish carries per-draft failures in `data.failed[]`, each with its own
+// spec-validation `issues`. This formatter heads each failed draft and lists
+// its issues in the one issue-line grammar.
+//
+// The single-error reader (`formatMetadataError`) and that line grammar
+// (`formatMetadataIssue`) moved to `@object-ui/data-objectstack` beside the
+// `MetadataError.issues` they read (objectui#11302), so `plugin-designer`'s
+// `MetadataFieldsPage` — which cannot import from app-shell — renders a refused
+// save through the same reader. Callers import them from there directly.
 
-import type { MetadataValidationIssue } from '@object-ui/data-objectstack';
-
-/** Pull structured validation issues off a caught error (empty if none). */
-export function extractIssues(e: unknown): MetadataValidationIssue[] {
-  const issues = (e as { issues?: unknown } | null | undefined)?.issues;
-  return Array.isArray(issues) ? (issues as MetadataValidationIssue[]) : [];
-}
-
-/** One issue → a single field-anchored line: `• fields.amount.type — Required`. */
-function issueLine(i: MetadataValidationIssue): string {
-  return `• ${i.path && i.path.length > 0 ? i.path : '(root)'} — ${i.message}`;
-}
-
-/**
- * Format a caught save/publish error for a banner/toast. When the error carries
- * spec-validation issues, list them (one field per line) so the user sees the
- * offending fields; otherwise fall back to the plain message. Rendered with
- * `whitespace-pre-line` so the lines show as a list.
- */
-export function formatMetadataError(e: unknown): string {
-  const issues = extractIssues(e);
-  if (issues.length > 0) return issues.map(issueLine).join('\n');
-  const err = e as { message?: string } | null | undefined;
-  return err?.message ?? String(e);
-}
+import { formatMetadataIssue, type MetadataValidationIssue } from '@object-ui/data-objectstack';
 
 /** A single failed draft from a publish response's `data.failed[]`. */
 export interface PublishFailure {
@@ -66,7 +46,7 @@ export function formatPublishFailures(failed: PublishFailure[]): string {
   const line = (f: PublishFailure): string => {
     const head = `${f.type}/${f.name}: ${f.error}`;
     const issues = Array.isArray(f.issues) ? f.issues : [];
-    return [head, ...issues.map((i) => `  ${issueLine(i)}`)].join('\n');
+    return [head, ...issues.map((i) => `  ${formatMetadataIssue(i)}`)].join('\n');
   };
   const aborted = failed.filter((f) => f.code === BATCH_ABORTED_CODE);
   if (aborted.length > 0) {

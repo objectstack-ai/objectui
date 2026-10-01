@@ -336,6 +336,7 @@ import fields_formula_numeric_formula from './schemas/fields-formula/numeric-for
 import fields_formula_text_concatenation from './schemas/fields-formula/text-concatenation.json' with { type: 'json' };
 import fields_grid_basic_grid from './schemas/fields-grid/basic-grid.json' with { type: 'json' };
 import fields_grid_grid_with_data from './schemas/fields-grid/grid-with-data.json' with { type: 'json' };
+import fields_grid_line_items_grid from './schemas/fields-grid/line-items-grid.json' with { type: 'json' };
 import fields_grid_read_only_grid from './schemas/fields-grid/read-only-grid.json' with { type: 'json' };
 import fields_image_basic_image_upload from './schemas/fields-image/basic-image-upload.json' with { type: 'json' };
 import fields_image_multiple_image_upload from './schemas/fields-image/multiple-image-upload.json' with { type: 'json' };
@@ -3391,6 +3392,15 @@ const REGISTRY: Record<string, Example> = {
       category: 'fields-grid',
     },
     schema: fields_grid_grid_with_data,
+  },
+  'fields-grid/line-items-grid': {
+    id: 'fields-grid/line-items-grid',
+    meta: {
+      title: "Line Items Grid",
+      description: "",
+      category: 'fields-grid',
+    },
+    schema: fields_grid_line_items_grid,
   },
   'fields-grid/read-only-grid': {
     id: 'fields-grid/read-only-grid',

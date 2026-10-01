@@ -4765,7 +4765,11 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // keys moves ONE side of this pair. The first spec reference in this mirror.
   // Round 3 added `returnType` / `summaryOperations`, and round 7 the `grid`
   // widget's `columns` (the spec's `inlineColumns` list, so a spec bump that
-  // moves the inline grid column moves ONE side too).
+  // moves the inline grid column moves ONE side too). Round 10 added the `grid`
+  // widget's eight field-level keys (`min_rows` … `sort_field`); those are
+  // LOCAL on both sides (the TS twin is `GridFieldMetadata`'s member by
+  // reference, and the spec declares none of them), so they add no spec
+  // crossing and leave this membership resting on the members above.
   'form.zod.ts#FormFieldSchema',
   'form.zod.ts#SelectOptionSchema',
   'layout.zod.ts#PageNodeSchema',
@@ -4819,6 +4823,11 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // gained the same member and were already spec-derived.
   'objectql.zod.ts#ObjectKanbanSchema',
   'objectql.zod.ts#ObjectMapSchema',
+  // objectui#11168 slice 3: `tree` and `navigation` are the spec's `TreeConfigSchema`
+  // and `NavigationConfigSchema` by reference — the two blocks the `object-tree` row
+  // declares — the first spec references in this mirror. So a spec bump that moves
+  // either vocabulary moves ONE side of this pair.
+  'objectql.zod.ts#ObjectTreeSchema',
   // objectui#7779: BACK, by a real code reference this time — `navigation`,
   // `searchableFields` and `filterableFields` are `SpecListViewSchema.shape.*`
   // by reference (identity-pinned in `object-view-unmirrored-keys-7779.test.ts`).

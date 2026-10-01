@@ -9,15 +9,16 @@
 /**
  * The grid widget's FIELD-level keys: one spelling each, and that spelling is
  * the one `GridFieldMetadata` (`@object-ui/types`) declares (objectui#11070,
- * round 8).
+ * rounds 8 and 9).
  *
  * Before this round the published type and the widget disagreed in both
  * directions: `GridFieldMetadata.allow_reorder` was declared and taught by the
  * docs while the widget read `reorderable`, so `allow_reorder: false` still
  * drew a drag handle on every row; the total was read under three spellings
  * (`total_field`, `amount_field`, `amountField`); and four keys were read that
- * no face declared (`allow_duplicate`, `show_line_numbers`, `add_label`, and
- * `sort_field`, which this file does not cover — see the changeset).
+ * no face declared (`allow_duplicate`, `show_line_numbers`, `add_label` and
+ * `sort_field`). Round 8 settled the first three; round 9 declared
+ * `sort_field`, the last read key no face declared.
  *
  * What each block pins:
  *
@@ -28,6 +29,9 @@
  *     (the spec's `amountField`, never its `totalField`); `amount_field` and
  *     `amountField` change nothing;
  *   - `add_label` — declared, and it labels the Add button;
+ *   - `sort_field` — declared (round 9): it names the CHILD field each row is
+ *     stamped with its index in, on every change, so a drag-reorder persists;
+ *     with no key the rows carry no position;
  *   - `allow_duplicate` and `show_line_numbers` — retired under ADR-0049 (no
  *     producer in either repository wrote them): the widget keeps the
  *     behaviour their defaults gave, a duplicate action whenever rows can be
@@ -41,8 +45,8 @@
  * document the compiler never saw would reach it.
  */
 
-import { describe, expect, it } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import type { GridFieldMetadata } from '@object-ui/types';
 import { GridField } from './GridField';
@@ -115,6 +119,34 @@ describe('GridField field-level keys: the declared spelling is the read spelling
     });
   });
 
+  describe('`sort_field`: the child field stamped with each row\'s index (objectui#11070 round 9)', () => {
+    /** Drag the second row onto the first, and return the rows the change handed back. */
+    function dragSecondOntoFirst(field: GridFieldMetadata): Array<Record<string, unknown>> {
+      const onChange = vi.fn();
+      render(<GridField value={rows} onChange={onChange} field={field} />);
+      const target = screen.getByTestId('line-items-drag-0').closest('tr')!;
+      fireEvent.dragStart(screen.getByTestId('line-items-drag-1'));
+      fireEvent.dragOver(target);
+      fireEvent.drop(target);
+      expect(onChange).toHaveBeenCalledTimes(1);
+      return onChange.mock.calls[0][0];
+    }
+
+    it('`sort_field` stamps each row with its new index after a drag-reorder', () => {
+      const next = dragSecondOntoFirst(grid({ sort_field: 'position' }));
+      expect(next.map((r) => [r.description, r.position])).toEqual([
+        ['B', 0],
+        ['A', 1],
+      ]);
+    });
+
+    it('CONTROL: with no key the reorder still lands, and no row carries a position', () => {
+      const next = dragSecondOntoFirst(grid());
+      expect(next.map((r) => r.description)).toEqual(['B', 'A']);
+      expect(next.every((r) => !('position' in r))).toBe(true);
+    });
+  });
+
   describe('`allow_duplicate` is retired: duplicate follows whether rows can be added', () => {
     it('`allow_duplicate: false` is not read: each row keeps its duplicate action', () => {
       show(withUndeclared({ allow_duplicate: false }));
@@ -149,6 +181,7 @@ const declared: GridFieldMetadata = {
   allow_reorder: false,
   total_field: 'amount',
   add_label: 'Add line',
+  sort_field: 'position',
 };
 void declared;
 

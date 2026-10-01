@@ -80,9 +80,11 @@ export interface MasterDetailDetailConfig {
   inlineMode?: InlineMode;
   /** Numeric child column to sum, e.g. 'amount'. */
   amountField?: string;
-  /** Child field holding the line sort position — stamped on drag-reorder so
-   *  order persists. Auto-derived from a `position`/`sort_order`/… field. */
-  sortField?: string;
+  // ⛔ No `sortField` member. The child field the grid stamps with each line's
+  // position is DERIVED from the child object (`deriveDetail`: its `position` /
+  // `sort_order` / … field) and carried on the resolved entry, never authored:
+  // objectui#11070 round 9 retired the authored override, which nothing wrote
+  // in either repository and no spec key carries.
   /** Parent field to receive the rolled-up sum, e.g. 'total_amount'. */
   totalField?: string;
   /** Section title. */
@@ -358,6 +360,16 @@ interface DetailEntry {
   /** The authored config, with derived columns / FK folded in once resolved. */
   config: MasterDetailDetailConfig;
   status: DetailResolution;
+  /**
+   * The child field the line grid stamps with each line's position, so a
+   * drag-reorder persists: `deriveDetail`'s pick (the child object's
+   * `position` / `sort_order` / … field), handed to the grid as `sort_field`.
+   * Derived only, never authored (objectui#11070 round 9), so it lives here
+   * beside the other resolved state rather than on the authored config. Absent
+   * when the entry was not derived (a fully configured entry loads no child
+   * schema) or the child has no such field.
+   */
+  sortField?: string;
   /**
    * The child object's own definition of `config.amountField`, kept from the
    * schema the resolve effect loaded, so the document totals stack can read the
@@ -859,7 +871,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
                   // Show the per-grid running total whenever an amount column is
                   // set — unless the document totals stack below subsumes it.
                   total_field: showTaxStack ? undefined : (d.amountField || (d.totalField ? 'amount' : undefined)),
-                  sort_field: d.sortField,
+                  sort_field: entry.sortField,
                   min_rows: d.minRows,
                   max_rows: d.maxRows,
                   add_label: d.inlineMode === 'form' ? (d.addLabel || t('detail.add')) : d.addLabel,
@@ -1027,15 +1039,16 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
             // ONE derivation for every entry that reaches here. With authored
             // `columns`, `deriveDetail` keeps them: its `columns` is
             // `hydrateColumns(d.columns, childSchema)`, and its amount rule
-            // picks from that same set. An authored `amountField` / `sortField`
-            // still wins over the derived one.
+            // picks from that same set. An authored `amountField` still wins
+            // over the derived one. The sort field is the derived one, full
+            // stop: there is no authored override to weigh it against
+            // (objectui#11070 round 9).
             const derived = deriveDetail(d.childObject, childSchema, schema.objectName, {
               relationshipField: d.relationshipField,
               columns: d.columns,
               amountField: d.amountField,
             });
             const amountField = d.amountField ?? derived.amountField;
-            const sortField = d.sortField ?? derived.sortField;
             // Author gave the FK + an explicit column set but left some columns
             // untyped — hydrate just their widget types from the schema, keeping
             // their exact column set / order / labels (don't re-derive columns),
@@ -1048,8 +1061,9 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
             if (d.relationshipField && d.columns?.length) {
               return {
                 ...entry,
-                config: { ...d, columns: derived.columns, amountField, sortField },
+                config: { ...d, columns: derived.columns, amountField },
                 status: 'ready',
+                sortField: derived.sortField,
                 amountFieldDef: childFieldDef(childSchema, amountField),
               };
             }
@@ -1063,8 +1077,8 @@ export const MasterDetailForm: React.FC<MasterDetailFormProps> = ({
                 formFields: d.formFields ?? derived.formFields,
                 inlineMode: d.inlineMode ?? derived.mode,
                 amountField,
-                sortField,
               },
+              sortField: derived.sortField,
               amountFieldDef: childFieldDef(childSchema, amountField),
             };
           } catch (err) {

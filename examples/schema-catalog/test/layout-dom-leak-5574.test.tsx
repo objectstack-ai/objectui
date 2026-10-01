@@ -103,7 +103,11 @@ const NODE_CENSUS: Readonly<Record<string, { rendered: number; noElement: number
   flex: { rendered: 248, noElement: 0 },
   stack: { rendered: 153, noElement: 0 },
   container: { rendered: 15, noElement: 0 },
-  grid: { rendered: 26, noElement: 0 },
+  // 26 -> 27 with objectui#11070 round 10: the new `fields-grid/line-items-grid`
+  // fixture's form field entry is `type: 'grid'`, which this structural walk
+  // collects, as it collects the other `fields-grid` entries. Catalog
+  // authoring, not a renderer change.
+  grid: { rendered: 27, noElement: 0 },
   // 699 -> 702: the two components-layout-box exemplars author 3 text nodes
   // (objectui#3965). 702 -> 701 and 176 -> 162 with objectui#6942, and the two
   // moves have different causes: `components-basic-text/muted.json` was deleted
@@ -129,7 +133,12 @@ const NODE_CENSUS: Readonly<Record<string, { rendered: number; noElement: number
   // the `div` -> `box` before/after the migration guide was missing, and its
   // two `text` nodes both carry a className, so both need an element — the
   // no-element count is unmoved. Catalog authoring, not a renderer change.
-  text: { rendered: 698, noElement: 154 },
+  // 698 -> 699 and 154 -> 155 with objectui#11070 round 10: the new
+  // `fields-grid/line-items-grid` fixture's `product` grid column is
+  // `type: 'text'`, which this structural walk collects as a `text` node;
+  // rendered on its own it draws no element. Catalog authoring, not a
+  // renderer change.
+  text: { rendered: 699, noElement: 155 },
   // The objectui#3965 migration population (80 nodes retyped from `div`) plus
   // the 4 nodes of the components-layout-box exemplars. `box` is born on
   // `toDomProps` and class-transparency, so it joins the measured set as a

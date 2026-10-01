@@ -97,6 +97,16 @@ const DECLARED_KEYS = [
   // objectui#11070 round 7 — the `grid` widget's columns: the spec's
   // `inlineColumns` list (its strict inline grid column), by reference.
   'columns',
+  // objectui#11070 round 10 — the `grid` widget's field-level keys, the
+  // members of `GridFieldMetadata` (the TS twin carries each by reference).
+  'min_rows',
+  'max_rows',
+  'allow_add',
+  'allow_delete',
+  'allow_reorder',
+  'total_field',
+  'add_label',
+  'sort_field',
 ];
 
 describe('FormFieldSchema covers the FormField contract', () => {

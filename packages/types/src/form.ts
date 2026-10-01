@@ -17,6 +17,7 @@
 
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { SelectOptionBase } from './select-option.js';
+import type { GridFieldMetadata } from './field-types.js';
 // objectui#11070 — the field-metadata members `FormField` declares by
 // reference to the spec's `FieldSchema`. Type-only: no runtime edge.
 import type { Field as SpecField } from '@objectstack/spec/data';
@@ -2048,6 +2049,33 @@ export interface FormField {
    * field is objectui's own type, whose key is `columns` (objectui#11070).
    */
   columns?: SpecField['inlineColumns'];
+
+  // ── The `grid` widget's field-level keys (objectui#11070 round 10) ──────
+  //
+  // A `form` `fields[]` entry of `type: 'grid'` is the authored path to the
+  // `grid` widget, which reads its field-level keys off that entry (its
+  // metadata carrier, as for `columns` above). Each member below is
+  // `GridFieldMetadata`'s own member BY REFERENCE, so the form-field face and
+  // the grid field's published type cannot drift; the meaning of each key is
+  // documented there. Only the `grid` widget reads them: on any other field
+  // type they are accepted and read by nothing.
+
+  /** The grid's minimum row count: {@link GridFieldMetadata.min_rows}. */
+  min_rows?: GridFieldMetadata['min_rows'];
+  /** The grid's maximum row count: {@link GridFieldMetadata.max_rows}. */
+  max_rows?: GridFieldMetadata['max_rows'];
+  /** Whether the grid offers Add (on unless `false`): {@link GridFieldMetadata.allow_add}. */
+  allow_add?: GridFieldMetadata['allow_add'];
+  /** Whether the grid offers Delete (on unless `false`): {@link GridFieldMetadata.allow_delete}. */
+  allow_delete?: GridFieldMetadata['allow_delete'];
+  /** Whether rows can be drag-reordered (on unless `false`): {@link GridFieldMetadata.allow_reorder}. */
+  allow_reorder?: GridFieldMetadata['allow_reorder'];
+  /** The CHILD column summed into the footer total: {@link GridFieldMetadata.total_field}. */
+  total_field?: GridFieldMetadata['total_field'];
+  /** The Add button's label: {@link GridFieldMetadata.add_label}. */
+  add_label?: GridFieldMetadata['add_label'];
+  /** The row field stamped with each row's index: {@link GridFieldMetadata.sort_field}. */
+  sort_field?: GridFieldMetadata['sort_field'];
 }
 
 /**

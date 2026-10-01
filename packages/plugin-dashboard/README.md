@@ -601,6 +601,12 @@ entry of `widgets[]`, a `metric-card` node included (see
 strict authoring face accepts it on a component node. A malformed one (not
 four numbers, or a key besides `x`, `y`, `w` and `h`) is refused on either arm.
 
+A widget with no `layout` is auto-placed by the grid. `DashboardWithConfig`'s
+width and height sliders write the whole box: the dimension a slider does not
+edit, and `x` and `y`, come from where the grid auto-places that widget
+(`completeWidgetLayout` and `defaultWidgetPlacement` from `@object-ui/types`,
+objectui#11388), so a one-dimension edit never stores a box the spec refuses.
+
 ## Customization
 
 All components support Tailwind CSS classes:

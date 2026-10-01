@@ -271,23 +271,29 @@ describe('objectui#10872 batch 4 — a page with an `action:button` validates', 
     expect(PageComponentSchema.safeParse(taughtActionButton()).success).toBe(true);
   });
 
-  it('CONTROL — the pre-objectui#11183 FLAT spelling of the same node is refused, by exactly its two executor keys', () => {
+  it.each(FACES)('CONTROL (%s face) — the pre-objectui#11183 FLAT spelling of the same node is refused by name, at exactly its two executor keys', (face, judge) => {
     // objectui#10872's fork, ruled A on objectui#11183: the `properties` bag is
-    // the contract. A prop written flat on the node is not judged against the
-    // row — `label` is a `BaseSchema` key, `actionType` / `target` are
-    // undeclared there — so the strict face refuses exactly those two, as the
-    // spec's `PageComponentSchema` does. Derived from the taught node rather
-    // than transcribed, so the control moves with the page.
+    // the contract. Since objectui#10872 batch 10 a row member written flat on
+    // the node is refused BY NAME on both faces, at its own path, with a message
+    // naming its bag member (`flatPropRefusals`). `label` stays: the spec's page
+    // component declares a node-level `label` of its own. So both faces refuse
+    // exactly `actionType` and `target`, as the spec's `PageComponentSchema`
+    // does. Derived from the taught node rather than transcribed, so the control
+    // moves with the page.
     const flat = flattened(taughtActionButton());
     expect(flat.actionType).toBe('url');
-    const result = StrictAnyComponentSchema.safeParse(flat);
-    expect(result.success).toBe(false);
-    expect(refusedKeys(result).sort()).toEqual(['actionType', 'target']);
-    const spec = PageComponentSchema.safeParse(flat);
+    const result = judge(flat);
+    expect(result.success, face).toBe(false);
+    const named = issuesOf(result).filter((i) => i.code === 'invalid_type' && i.path.length === 1);
+    expect(named.map((i) => String(i.path[0])).sort(), face).toEqual(['actionType', 'target']);
+    for (const issue of named) expect(issue.message, face).toContain(`\`properties.${String(issue.path[0])}\``);
+    // Nothing is left to the strict face's unnamed `unrecognized_keys`.
+    expect(refusedKeys(result), face).toEqual([]);
+  });
+
+  it('CONTROL — the spec\'s own `PageComponentSchema` refuses the same two flat keys', () => {
+    const spec = PageComponentSchema.safeParse(flattened(taughtActionButton()));
     expect(spec.success).toBe(false);
     expect(refusedKeys(spec as Result).sort()).toEqual(['actionType', 'target']);
-    // The tolerant face still keeps the flat node, which is why the page had to move
-    // before `objectui validate` reaches the strict face (objectui#5250).
-    expect(safeValidateSchema(flat).success).toBe(true);
   });
 });

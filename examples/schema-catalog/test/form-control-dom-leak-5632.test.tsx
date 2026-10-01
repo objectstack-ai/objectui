@@ -150,7 +150,11 @@ const NODE_CENSUS: Readonly<Record<string, { rendered: number; noElement: number
   slider: { rendered: 1, noElement: 0 },
   toggle: { rendered: 17, noElement: 0 },
   'sidebar-menu-button': { rendered: 15, noElement: 0 },
-  grid: { rendered: 26, noElement: 0 },
+  // 26 -> 27 with objectui#11070 round 10: the new `fields-grid/line-items-grid`
+  // fixture's form field entry is `type: 'grid'`, which this structural walk
+  // collects, as it collects the other `fields-grid` entries. Catalog
+  // authoring, not a renderer change.
+  grid: { rendered: 27, noElement: 0 },
 };
 
 function collect(node: unknown, out: Node[] = []): Node[] {

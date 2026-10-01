@@ -86,11 +86,14 @@ describe('objectui#7363 — the two objectui#6576 schemas are arms of the Object
     // objectui#10859 batches 4 and 5 (`object-form-properties-bag-10859-b4.test.ts`,
     // `object-map-properties-bag-10859-b5.test.ts`), and `object-chart`, whose
     // authored arm left the same way in objectui#11276
-    // (`object-chart-properties-bag-11276.test.ts`).
-    expect(literals).toHaveLength(9);
+    // (`object-chart-properties-bag-11276.test.ts`), and `object-gantt`, whose
+    // authored arm left in objectui#10859 batch 6
+    // (`object-gantt-properties-bag-10859-b6.test.ts`).
+    expect(literals).toHaveLength(8);
     expect(literals).not.toContain('object-form');
     expect(literals).not.toContain('object-map');
     expect(literals).not.toContain('object-chart');
+    expect(literals).not.toContain('object-gantt');
   });
 
   it.each([

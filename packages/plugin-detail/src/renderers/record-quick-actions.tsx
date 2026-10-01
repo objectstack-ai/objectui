@@ -237,8 +237,14 @@ export const RecordQuickActionsRenderer: React.FC<RecordQuickActionsRendererProp
    * the one meaning the word carries on `action`, `app`, `field` and
    * `bulkAction` — so it is read through the permission context's capability
    * path (`hasCapabilities` over the reported `systemPermissions`) and gates
-   * **fail-closed**: an unheld or unrecognised capability hides the whole bar
-   * (objectui#10058, ruling batch #192 item 5 letter B).
+   * **fail-closed** (objectui#10058, ruling batch #192 item 5 letter B): an
+   * unheld or unrecognised capability withholds every action, and an
+   * insufficient-permissions notice (`role="status"`) renders in the bar's
+   * place — the bar is not hidden. That is what the contract's shared
+   * record-block describe says ("an insufficient-permissions notice takes its
+   * place"), and the registration publishes that describe verbatim
+   * (objectui#10224). Capabilities that are never REPORTED open the gate
+   * instead; the ⚠️ paragraph below says why.
    *
    * ⛔ NOT `perms.can(objectName, name)`. That call's second argument is the
    * closed object-action enum, and the stock `/me/permissions` provider maps

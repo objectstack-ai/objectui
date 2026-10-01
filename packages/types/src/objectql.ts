@@ -151,6 +151,9 @@ import type {
   // local symbol under a `@objectstack/spec` export's name reads to the next
   // agent as the spec's own definition (`pnpm check:spec-symbols`).
   ObjectCalendarProps as SpecObjectCalendarProps,
+  // objectui#11168 slice 3 — `ComponentPropsMap['object-form']`'s author state,
+  // so `ObjectFormSchema.layout` takes the row's own enum by reference.
+  ObjectFormProps as SpecObjectFormProps,
   ChartDrillDown,
   I18nLabel,
   DashboardWidget as SpecDashboardWidget,
@@ -1724,21 +1727,23 @@ export interface ObjectFormSchema extends BaseSchema {
   }>;
   
   /**
-   * Form layout.
-   *
-   * Supported layouts:
+   * Label placement — `@objectstack/spec`'s `object-form` row's own enum, by
+   * reference:
    * - `vertical`   – label above field (default)
    * - `horizontal` – label and field in a row
-   * - `inline`     – compact inline layout, typically used in toolbars
-   * - `grid`       – **experimental** grid layout
+   *
+   * ⛔ `inline` and `grid` are RETIRED (objectui#11168 slice 3, objectui#7759
+   * group C). The spec refuses both since 17.5.0 (objectstack#20221), and
+   * measured through the real `SchemaRenderer` both rendered byte-identical to
+   * `vertical` — every layout folded them away.
    *
    * @default 'vertical'
    */
-  layout?: 'vertical' | 'horizontal' | 'inline' | 'grid';
+  layout?: SpecObjectFormProps['layout'];
   
   /**
-   * Grid columns (for grid layout).
-   * @default 2
+   * Number of columns the fields are laid out in (1-4). Independent of
+   * `layout`: the form body is one grid at this width.
    */
   columns?: number;
   
@@ -3483,6 +3488,25 @@ export interface ObjectTreeSchema extends BaseSchema {
 
 /**
  * Object Gantt Component Schema
+ *
+ * ## What this type describes (objectui#10859, batch 6)
+ *
+ * The `object-gantt` node as `ObjectGantt` READS it: after `SchemaRenderer` has
+ * hoisted the node's `properties` bag onto it, or as code composes it
+ * (`ObjectView` and `ListView` flattening a stored gantt view, a host mounting
+ * `<ObjectGantt schema={…}>`). That is why it still carries the flat
+ * `GanttConfig` keys (`startDateField`, `viewMode`, …) and the `search` pair
+ * the composers write.
+ *
+ * It is NOT the shape of an AUTHORED `object-gantt` document. An authored node
+ * takes its props in the spec's `properties` bag, whose members are
+ * `@objectstack/spec`'s `ComponentPropsMap['object-gantt']` row
+ * (`ObjectGanttProps`), with its field mapping in the bag's `gantt` block:
+ * `{ type: 'object-gantt', properties: { objectName, gantt: { startDateField,
+ * endDateField, titleField }, … } }`. `ObjectGanttBlockSchema`
+ * (`./zod/objectql.zod.ts`) judges it, and refuses a prop written flat on the
+ * node by name. `SchemaRenderer` reads both spellings, so a node built in code
+ * keeps its flat keys.
  */
 export interface ObjectGanttSchema extends BaseSchema {
   type: 'object-gantt';
@@ -3782,10 +3806,13 @@ export interface ObjectGanttSchema extends BaseSchema {
   // entirely unvalidated. Declaring it as {@link GanttConfig} means it is now
   // PARSED, and `GanttConfig` derives from the spec's `GanttConfigSchema`, which
   // REQUIRES `startDateField`, `endDateField` and `titleField`. Because
-  // `ObjectGanttSchema` is a member of `AnyComponentSchema`, that reaches
-  // `safeValidateSchema` and therefore the CLI's `validate` command: a
-  // block missing one of the three moves from "accepted, then warned about at
-  // runtime" to "refused at authoring time".
+  // `ObjectGanttSchema`'s zod mirror was a member of `AnyComponentSchema`, that
+  // reached `safeValidateSchema` and therefore the CLI's `validate` command: a
+  // block missing one of the three moved from "accepted, then warned about at
+  // runtime" to "refused at authoring time". Since objectui#10859 batch 6 the
+  // authored node's block is judged inside its `properties` bag, as the spec
+  // row's own `gantt` member (`ObjectGanttBlockSchema`), with the same three
+  // required.
   //
   // This is a `declared = enforced` restoration, not new requiredness: the
   // renderer already fed the block to `GanttConfigSchema.safeParse` and logged
@@ -5889,7 +5916,10 @@ export interface ObjectDataTableSchema extends BaseSchema {
  * armed by `ObjectMapBlockSchema`, and `ObjectMapSchema` here is the node as
  * `ObjectMap` reads it. It carries nine since objectui#11276: the authored
  * `object-chart` node is armed by `ObjectChartBlockSchema`, and
- * `ObjectChartSchema` here is the node as `ObjectChart` reads it.
+ * `ObjectChartSchema` here is the node as `ObjectChart` reads it. It carries
+ * eight since objectui#10859 batch 6: the authored `object-gantt` node is armed
+ * by `ObjectGanttBlockSchema`, and `ObjectGanttSchema` here is the node as
+ * `ObjectGantt` reads it.
  */
 export type ObjectQLComponentSchema =
   | ObjectGridSchema

@@ -40,8 +40,9 @@
  *      sibling is still refused BY NAME at the same path — the control that
  *      shows the face did not open up;
  *   2. the declared key is judged by its declared type on BOTH faces;
- *   3. the snake_case spellings rounds 3, 4 and 5 retired are refused by
- *      name on the strict face;
+ *   3. the snake_case spellings rounds 3, 4 and 5 retired, and the inline
+ *      dashboard dialect round 6 retired (objectui#11228 ruling C), are
+ *      refused by name on the strict face;
  *   4. the TypeScript faces type the binding, not `any`, and the field
  *      metadata types carry the spec members by reference with the retired
  *      snake_case members gone (type-level, read by
@@ -151,7 +152,8 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
     // whether the key is declared, and this block measures only the second.
     ['object-kanban', { objectName: 'task' }],
     ['list-view', { objectName: 'task' }],
-    ['object-gantt', { objectName: 'task' }],
+    // objectui#10859 batch 6: `object-gantt` takes its props in the bag too.
+    ['object-gantt', { properties: { objectName: 'task' } }],
     // objectui#10859 batch 5: `object-map` takes its props in the bag too.
     ['object-map', { properties: { objectName: 'task' } }],
     ['object-calendar', { objectName: 'task' }],
@@ -241,6 +243,32 @@ describe('objectui#11070 — the retired spellings stay refused on the strict fa
     expect(keys).not.toContain('reference_to');
   });
 
+  // Round 6 (objectui#11228 ruling C): the inline dashboard dialect is RETIRED,
+  // not declared. A widget binds a `dataset` and never carries rows, so these
+  // nine keys stay refused by name, and the catalog and docs no longer write
+  // them. ⛔ Declaring one reopens that ruling; it is not a fix to this list.
+  const DASHBOARD_DIALECT: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
+    ['options.data', { options: { data: [{ status: 'Paid', count: 47 }] } }],
+    ['options.xField', { options: { xField: 'status' } }],
+    ['options.yField', { options: { yField: 'count' } }],
+    ['options.value', { options: { value: '1,284' } }],
+    ['options.description', { options: { description: 'Monthly revenue' } }],
+    ['options.trend', { options: { trend: { value: 12, direction: 'up' } } }],
+    ['component.chartType', { component: { type: 'chart', chartType: 'area' } }],
+    ['component.xAxisKey', { component: { type: 'chart', xAxisKey: 'day' } }],
+    ['component.series', { component: { type: 'chart', series: [{ name: 'Sales' }] } }],
+  ];
+  const datasetWidget = { id: 'w', type: 'bar', dataset: 'invoices', dimensions: ['status'], values: ['count'] };
+
+  it('a dataset-bound widget parses on the strict face (the control for the dialect rows below)', () => {
+    expect(issuesOf(StrictAnyComponentSchema, { type: 'dashboard', widgets: [datasetWidget] })).toBeNull();
+  });
+
+  it.each(DASHBOARD_DIALECT)('the inline dashboard dialect `widgets[].%s` is refused by name (objectui#11228 ruling C)', (key, extra) => {
+    const doc = { type: 'dashboard', widgets: [{ ...datasetWidget, ...extra }] };
+    expect(undeclared(issuesOf(StrictAnyComponentSchema, doc))).toContain(`widgets.0.${key}`);
+  });
+
   it('`object-chart.dataSource` stays on the NODE: in the bag it is refused by name, not taken for the binding (round 7)', () => {
     // The binding is a node-level key of the spec's `PageComponentSchema`, so
     // the bag (the flat mirror's own members) does not carry it.
@@ -274,6 +302,8 @@ export type assertionSpecMembersByReference = [
   Expect<Equal<SummaryFieldMetadata['summaryOperations'], SpecField['summaryOperations']>>,
   Expect<Equal<PasswordFieldMetadata['minLength'], SpecField['minLength']>>,
   Expect<Equal<PasswordFieldMetadata['maxLength'], SpecField['maxLength']>>,
+  // Round 6: the formula itself is the spec's `expression`, by reference.
+  Expect<Equal<FormulaFieldMetadata['expression'], SpecField['expression']>>,
 ];
 /**
  * Round 7: the grid's columns are the spec's `inlineColumns` list BY
@@ -316,11 +346,12 @@ export type assertionTextFamilyLengthByReference = [
  * Rounds 3 and 5: the retired snake_case members are gone from the field
  * metadata types — no second spelling — and so are the two switches round 5
  * retired under ADR-0049 because nothing read them (`auto_compute`,
- * `auto_update`).
+ * `auto_update`). Round 6: so is `formula`, which `FieldSchema` refuses by
+ * name in favour of `expression` (above).
  */
 type Retired =
   | 'return_type' | 'summary_type' | 'summary_object' | 'summary_field' | 'summary_filter'
-  | 'min_length' | 'max_length' | 'auto_compute' | 'auto_update';
+  | 'min_length' | 'max_length' | 'auto_compute' | 'auto_update' | 'formula';
 export type assertionRetiredMembersAreGone = [
   Expect<Equal<Extract<keyof FormulaFieldMetadata, Retired>, never>>,
   Expect<Equal<Extract<keyof SummaryFieldMetadata, Retired>, never>>,

@@ -60,3 +60,5 @@ a consumer READS a key; it does not establish that a given BAG is how the consum
   negative assertion on a fixture that still declares it.
 
 ⚠️ **Dated note, 2026-09-30 — the lookup and user cells read `reference` alone — objectui#11070.** Later in this same release objectui#11070 (round 4) retired `reference_to` from `LookupCellRenderer` and `UserCellRenderer`, so the sets of keys those cells read, as listed above, no longer include it. The retirement of the three keys this change removed is unaffected. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.
+
+⚠️ **Dated note, 2026-10-01 — the lookup cell does not read `display_field` either — objectui#11070.** The list above of what `LookupCellRenderer` reads names `display_field`. That was already untrue when this note was added: objectui#7155 retired the cell's `display_field` leg, and the cell reads the display pointer as `displayField`, then `reference_field`. The retirement of the three keys this change removed is unaffected. The text above is kept as the reading of this change.

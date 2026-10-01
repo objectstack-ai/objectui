@@ -155,8 +155,8 @@
     "description": "Dashboard-level date + region filters driving multiple charts over different objects"
   },
   "plugin-dashboard/filtered-dashboard-dataset-widgets": {
-    "title": "Filtered Dashboard — Dataset + Inline Widgets",
-    "description": "Dashboard filters scoping dataset-bound widgets (via the dataset query's runtimeFilter) alongside an inline widget"
+    "title": "Filtered Dashboard — Widgets Over Two Datasets",
+    "description": "Dashboard filters scoping widgets bound to two different datasets, each through its own dataset query's runtimeFilter"
   },
   "plugin-dashboard/filtered-dashboard-date-presets": {
     "title": "Filtered Dashboard — Date Presets + Custom Range",

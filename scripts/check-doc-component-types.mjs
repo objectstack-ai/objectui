@@ -728,6 +728,13 @@ const DOC_TYPE_EXEMPTIONS = {
       '@objectstack/spec\'s `PageVariableSchema`). (This reason used to add "same vocabulary as ' +
       'blocks/block-schema.mdx\'s `string`"; that page was DELETED with the whole block schema ' +
       'family in objectui#4895, so this entry now stands on its own declaration site.)',
+    area:
+      'Dashboard widget kind under `widgets[].type` in the `DashboardComponentSchema` example — a ' +
+      'member of `ChartTypeSchema` (@objectstack/spec/ui) reaching this repo by reference through ' +
+      '`DashboardWidgetTypeName`. Not a node type: the node type is `dashboard`, which the enclosing ' +
+      'snippet spells. Needed from objectui#11070 round 6, which moved that example\'s `component` ' +
+      'chart to the dataset-bound widget form under objectui#11228 ruling C. Same vocabulary as the ' +
+      '`packages/plugin-dashboard/README.md` entries below.',
   },
   'content/docs/blocks/authentication.mdx': {
     submit:

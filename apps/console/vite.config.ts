@@ -925,7 +925,37 @@ export default defineConfig({
           groups: [
             { name: 'vendor-react', test: /[\\/]node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/, priority: 100 },
             { name: 'vendor-radix', test: /[\\/]node_modules[\\/]@radix-ui[\\/]/, priority: 95 },
-            { name: 'vendor-objectstack', test: vendorObjectstackTest, priority: 95 },
+            //
+            // ## `tags: ['$initial']` — this group claims only what the first screen runs (objectui#11101)
+            //
+            // A group claims by module ID, not by reachability, and this group's
+            // chunk is a static import of the entry. So every `@objectstack/*`
+            // module it claims is downloaded and parsed on every page load —
+            // including one the source reaches only through `import()`. That is
+            // how `@objectstack/lint` went eager in objectui#5266, and the
+            // lookaheads in `VENDOR_OBJECTSTACK_TEST` exclude that one package
+            // and nothing else. The tag closes the class: rolldown's built-in
+            // `$initial` tag marks a module statically reachable from an entry,
+            // so a vendor module that sits only behind an `import()` is no
+            // longer claimed here and follows its importer into a lazy chunk.
+            //
+            // What it moved, on objectui#11101's two builds of one tree that
+            // differ only in this tag: `@objectstack/spec`'s `/ai` and
+            // `/integration` entries, which the metadata designers' client
+            // validation (`views/metadata-admin/clientValidation.ts`) reaches
+            // only through `await import()`; `/contracts`, reached by lazy
+            // console pages and the linter; and `@objectstack/sdui-parser`,
+            // reached by the linter alone. The bytes are recorded once, on
+            // `BASELINE` in `scripts/check-eager-closure-budget.mjs`, ⛔ not here.
+            //
+            // ⛔ It moves nothing the first paint needs: `$initial` IS the static
+            // closure of the entry, so every module the first screen executes is
+            // still claimed by this group, into the same chunk. The linter's
+            // lookaheads stay — `assertLazyLinterStaysLazy` names them in its
+            // diagnostic. Dropping the tag puts the four modules back on every
+            // page load, and the lowered ceiling in
+            // `scripts/check-eager-closure-budget.mjs` is what reds on it.
+            { name: 'vendor-objectstack', test: vendorObjectstackTest, priority: 95, tags: ['$initial'] },
             { name: 'vendor-icons-core', test: /[\\/]node_modules[\\/]lucide-react[\\/]dist[\\/](lucide-react|esm[\\/](Icon|createLucideIcon|defaultAttributes|shared))/, priority: 90 },
             //
             // ## ONE CHUNK PER ICON — and ⛔ why this is not the regroup objectui#9251 forbids

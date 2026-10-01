@@ -662,9 +662,10 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
       : { height: schema.drawerWidth, maxHeight: schema.drawerWidth };
   }, [schema.drawerWidth, side]);
 
-  const formLayout = (schema.layout === 'vertical' || schema.layout === 'horizontal')
-    ? schema.layout
-    : 'vertical';
+  // `vertical | horizontal` on the declared face; the fold that mapped any
+  // other value to `vertical` was retired with `inline` / `grid`
+  // (objectui#11168 slice 3, objectui#7759 group C).
+  const formLayout = schema.layout ?? 'vertical';
 
   // Action buttons live in the drawer's own footer (not inside the form
   // renderer). Routing Cancel through the footer lets it call the

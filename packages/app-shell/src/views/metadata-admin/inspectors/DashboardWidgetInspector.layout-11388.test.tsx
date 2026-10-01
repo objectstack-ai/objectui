@@ -13,7 +13,7 @@
 
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { render, screen, cleanup, fireEvent } from '@testing-library/react';
+import { render, cleanup, fireEvent } from '@testing-library/react';
 import { DashboardWidgetSchema as SpecDashboardWidgetSchema } from '@objectstack/spec/ui';
 import type { DashboardWidgetSchema } from '@object-ui/types';
 

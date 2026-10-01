@@ -28,8 +28,9 @@ values to the action runner as `params`, where handlers such as
 `properties.params`:
 
 ```json
-{ "type": "action:button", "label": "Edit", "actionType": "navigate_edit",
-  "properties": { "params": { "objectName": "account", "recordId": "${record.id}" } } }
+{ "type": "action:button",
+  "properties": { "label": "Edit", "actionType": "navigate_edit",
+    "params": { "objectName": "account", "recordId": "${record.id}" } } }
 ```
 
 Templates in `properties.params` are evaluated as before (objectui#10282), so

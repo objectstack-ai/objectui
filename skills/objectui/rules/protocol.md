@@ -230,7 +230,7 @@ nothing at all if the host published none. See "Available scope variables" in
 [`../guides/schema-expressions.md`](../guides/schema-expressions.md) for the
 verdict that move flips.
 
-**Readers only.** `list` and `tree-view` (`@object-ui/components`) and the `object-*` plugin widgets call `useDataScope`. `data-table` does NOT: it reads its rows from an inline `data` array on the node, so a `bind` on it is ignored and the table renders its header over an empty body — no error, no warning.
+**Readers only.** `list` and `tree-view` (`@object-ui/components`) and the `object-*` plugin widgets call `useDataScope`. `data-table` does NOT: it reads its rows from an inline `data` array on the node, so a `bind` on it is ignored and the table renders its header over an empty body — no error, and nothing on the page says why: the one signal is a render-time console warning (`[ObjectUI] DataTable bind:`, objectui#6575); the parser tier stays silent too, since `bind` is a base prop every node may carry and draws no `unknown-prop` (objectui#11008).
 
 **Provider rows into a `data-table`.** Measured on `origin/main` `f1c27f037`,
 real `SchemaRenderer` under a host scope publishing

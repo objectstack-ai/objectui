@@ -61,9 +61,8 @@ describe('list draws its declared `title` (objectui#11347)', () => {
   });
 
   it('LIVE CONTROL: a list without a title draws no heading', () => {
-    const { container } = render(
-      <SchemaRenderer schema={{ ...GUIDE_LIST, title: undefined } satisfies ListSchema} />,
-    );
+    const untitled: ListSchema = { ...GUIDE_LIST, title: undefined };
+    const { container } = render(<SchemaRenderer schema={untitled} />);
     expect(container.querySelector('h3')).toBeNull();
     expect(container.querySelectorAll('ol > li')).toHaveLength(2);
   });

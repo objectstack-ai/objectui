@@ -58,19 +58,28 @@ authored here.
 
 ### Grid
 
-A grid node is an `ObjectGridSchema`: one required `objectName`, plus keys drawn
-from the list this plugin **declares** as its authoring surface
+An authored grid node takes its props in its `properties` bag, whose members are
+`@objectstack/spec`'s `ComponentPropsMap['object-grid']` row: one required
+`objectName` — or the node's `dataSource` binding naming the object — plus keys
+drawn from the list this plugin **declares** as its authoring surface
 (`GRID_QUERY_INPUTS`, `packages/plugin-grid/src/index.tsx`) — the same list that
 feeds the designer panel and the generated `sdui-intrinsics.d.ts`, so what is
-authorable here is what the renderer reads.
+authorable here is what the renderer reads. `objectui validate` judges the bag
+against that row and refuses a prop written flat on the node by name, naming
+where it goes (`Did you mean objectName → properties.objectName?`), as the spec's
+own page component does (objectui#11276). `SchemaRenderer` hoists the bag onto
+the node before the grid runs, so `ObjectGridSchema` (`@object-ui/types`) is the
+node as the grid reads it.
 
 ```json
 {
   "type": "object-grid",
-  "objectName": "users",
-  "columns": ["name", "email"],
-  "sort": [{ "field": "created", "order": "desc" }],
-  "pagination": { "pageSize": 20 }
+  "properties": {
+    "objectName": "users",
+    "columns": ["name", "email"],
+    "sort": [{ "field": "created", "order": "desc" }],
+    "pagination": { "pageSize": 20 }
+  }
 }
 ```
 
@@ -79,7 +88,7 @@ Note the `type`. It is `object-grid` (or `view:grid`), **never `grid`** — bare
 `columns` is a column **count**. See [Registration](#registration-is-a-side-effect-of-the-import)
 below for why this plugin deliberately does not claim it.
 
-| Key | Type | Notes |
+| Key (in `properties`) | Type | Notes |
 | --- | --- | --- |
 | `objectName` | `string` (**required**) | The object queried. There is no `object`. |
 | `columns` | `string[] \| ListColumn[]` | Field names or column objects — see below. |
@@ -94,7 +103,7 @@ below for why this plugin deliberately does not claim it.
 | `editable` / `singleClickEdit` | `boolean` | Inline editing — see [Inline Editing](#inline-editing). |
 | `navigation` | `NavigationConfig` | What a row click does: `{ mode: 'page' \| 'drawer' \| 'modal' \| 'split' \| 'none', … }`. |
 | `operations` | `object` | Toggles the built-in CRUD/export/import affordances, e.g. `{ delete: false }`. |
-| `rowHeight`, `frozenColumns`, `resizable`, `reorderableColumns`, `showColumnTypeIcons`, `rowColor`, `conditionalFormatting`, `aggregations`, `exportOptions`, `className` | | The rest of the declared surface. |
+| `rowHeight`, `frozenColumns`, `resizable`, `reorderableColumns`, `showColumnTypeIcons`, `rowColor`, `conditionalFormatting`, `aggregations`, `exportOptions` | | The rest of the declared surface. (`className` is a base prop: it stays on the node, beside the bag.) |
 | `grouping` | `GroupingConfig` | Row grouping — **server-side**: group set, counts and aggregations come from the query, rows are paged per group; see [Grouping is server-side](#grouping-is-server-side). |
 
 **There is no `sortable`, `filterable`, `onRowClick`, `onSelectionChange`,
@@ -105,7 +114,7 @@ booleans do not exist at all; the five `on*` names are **component props**
 
 #### `description` and `emptyState`
 
-Two more keys the grid honours on its own node (objectui#11068):
+Two more keys the grid honours on the node it reads (objectui#11068):
 
 - `description` — one line of help text drawn above the grid. A string, or an
   inline locale map resolved against the display locale the way `label` is.
@@ -116,19 +125,24 @@ Two more keys the grid honours on its own node (objectui#11068):
   search box stay, so the term can be cleared. Leave the key out and an empty
   grid draws the table's own empty row, as before.
 
+`description` is a base prop, so it sits on the node beside the bag:
+
 ```json
 {
   "type": "object-grid",
-  "objectName": "contacts",
   "description": "Everyone you work with",
-  "emptyState": { "title": "No contacts yet", "message": "Contacts you add appear here.", "icon": "users" }
+  "properties": { "objectName": "contacts" }
 }
 ```
 
-Neither is in `GRID_QUERY_INPUTS` yet. That list may only declare keys the
-upstream protocol's `object-grid` row accepts, and that row declares neither
-today — so the SDUI parser reports an authored `emptyState` as `unknown-prop` (a
-warning), while `description` is a base prop it accepts on every node.
+`emptyState` is **not authorable in a document today**. The upstream protocol's
+`object-grid` row does not declare it, so `objectui validate` refuses it inside
+the `properties` bag (the row's own refusal) and, on the node, its strict face
+refuses it as an unknown key — as `os validate` does. It stays a key of the node
+the grid reads: a host that mounts `<ObjectGrid schema={…}>` itself, or composes
+the node in code, can set it. For the same reason it is not in
+`GRID_QUERY_INPUTS` yet: that list may only declare keys the row accepts, so the
+SDUI parser reports an authored `emptyState` as `unknown-prop` (a warning).
 
 `name`, `placeholder`, `rowSpecActions` and `bulkSpecActions` are **retired** on
 this node (objectui#11068): nothing ever read them, and both faces of
@@ -276,15 +290,17 @@ than this package's component API.
 ```json
 {
   "type": "object-grid",
-  "objectName": "users",
-  "columns": [
-    { "field": "name", "label": "Name", "width": 200, "sortable": true },
-    { "field": "email", "label": "Email" },
-    { "field": "role", "label": "Role" },
-    { "field": "status", "label": "Status", "type": "select" }
-  ],
-  "sort": [{ "field": "name", "order": "asc" }],
-  "pagination": { "pageSize": 20 }
+  "properties": {
+    "objectName": "users",
+    "columns": [
+      { "field": "name", "label": "Name", "width": 200, "sortable": true },
+      { "field": "email", "label": "Email" },
+      { "field": "role", "label": "Role" },
+      { "field": "status", "label": "Status", "type": "select" }
+    ],
+    "sort": [{ "field": "name", "order": "asc" }],
+    "pagination": { "pageSize": 20 }
+  }
 }
 ```
 
@@ -298,13 +314,15 @@ render alike.
 ```json
 {
   "type": "object-grid",
-  "objectName": "opportunities",
-  "columns": [
-    { "field": "stage", "type": "select" },
-    { "field": "amount", "type": "currency", "align": "right", "summary": "sum" },
-    { "field": "name", "link": true, "prefix": { "field": "health", "type": "badge" } },
-    { "field": "owner_id", "action": "reassign" }
-  ]
+  "properties": {
+    "objectName": "opportunities",
+    "columns": [
+      { "field": "stage", "type": "select" },
+      { "field": "amount", "type": "currency", "align": "right", "summary": "sum" },
+      { "field": "name", "link": true, "prefix": { "field": "health", "type": "badge" } },
+      { "field": "owner_id", "action": "reassign" }
+    ]
+  }
 }
 ```
 
@@ -323,17 +341,19 @@ under `items`.
 ```json
 {
   "type": "object-grid",
-  "objectName": "users",
-  "columns": [
-    { "field": "name", "label": "Name" },
-    { "field": "email", "label": "Email" }
-  ],
-  "data": {
-    "provider": "value",
-    "items": [
-      { "id": 1, "name": "John Doe", "email": "john@example.com", "status": "Active" },
-      { "id": 2, "name": "Jane Smith", "email": "jane@example.com", "status": "Active" }
-    ]
+  "properties": {
+    "objectName": "users",
+    "columns": [
+      { "field": "name", "label": "Name" },
+      { "field": "email", "label": "Email" }
+    ],
+    "data": {
+      "provider": "value",
+      "items": [
+        { "id": 1, "name": "John Doe", "email": "john@example.com", "status": "Active" },
+        { "id": 2, "name": "Jane Smith", "email": "jane@example.com", "status": "Active" }
+      ]
+    }
   }
 }
 ```
@@ -343,10 +363,12 @@ under `items`.
 ```json
 {
   "type": "object-grid",
-  "objectName": "users",
-  "columns": ["name", "email"],
-  "selection": { "type": "multiple" },
-  "bulkActions": ["delete", "export"]
+  "properties": {
+    "objectName": "users",
+    "columns": ["name", "email"],
+    "selection": { "type": "multiple" },
+    "bulkActions": ["delete", "export"]
+  }
 }
 ```
 
@@ -362,9 +384,11 @@ see [Row callbacks are component props](#row-callbacks-are-component-props).
 ```json
 {
   "type": "object-grid",
-  "objectName": "users",
-  "columns": ["name", "email"],
-  "pagination": { "pageSize": 10, "pageSizeOptions": [10, 20, 50, 100] }
+  "properties": {
+    "objectName": "users",
+    "columns": ["name", "email"],
+    "pagination": { "pageSize": 10, "pageSizeOptions": [10, 20, 50, 100] }
+  }
 }
 ```
 
@@ -447,15 +471,17 @@ metadata `filter` (lowered to `$filter`) and search is `searchableFields`
 ```json
 {
   "type": "object-grid",
-  "objectName": "users",
-  "columns": [
-    { "field": "name", "label": "Name" },
-    { "field": "email", "label": "Email" },
-    { "field": "created_at", "label": "Created", "type": "datetime" }
-  ],
-  "filter": [{ "field": "status", "operator": "equals", "value": "active" }],
-  "searchableFields": ["name", "email"],
-  "pagination": { "pageSize": 20 }
+  "properties": {
+    "objectName": "users",
+    "columns": [
+      { "field": "name", "label": "Name" },
+      { "field": "email", "label": "Email" },
+      { "field": "created_at", "label": "Created", "type": "datetime" }
+    ],
+    "filter": [{ "field": "status", "operator": "equals", "value": "active" }],
+    "searchableFields": ["name", "email"],
+    "pagination": { "pageSize": 20 }
+  }
 }
 ```
 
@@ -475,12 +501,14 @@ is no top-level `sortable` switch.
 ```json
 {
   "type": "object-grid",
-  "objectName": "users",
-  "sort": [{ "field": "created", "order": "desc" }],
-  "columns": [
-    { "field": "name", "label": "Name" },
-    { "field": "email", "label": "Email", "sortable": false }
-  ]
+  "properties": {
+    "objectName": "users",
+    "sort": [{ "field": "created", "order": "desc" }],
+    "columns": [
+      { "field": "name", "label": "Name" },
+      { "field": "email", "label": "Email", "sortable": false }
+    ]
+  }
 }
 ```
 
@@ -493,13 +521,15 @@ search over the fields named in `searchableFields`.
 ```json
 {
   "type": "object-grid",
-  "objectName": "users",
-  "filter": [
-    { "field": "status", "operator": "equals", "value": "active" },
-    { "field": "created", "operator": "after", "value": "2026-01-01" }
-  ],
-  "searchableFields": ["name", "email"],
-  "columns": ["name", "email", "status"]
+  "properties": {
+    "objectName": "users",
+    "filter": [
+      { "field": "status", "operator": "equals", "value": "active" },
+      { "field": "created", "operator": "after", "value": "2026-01-01" }
+    ],
+    "searchableFields": ["name", "email"],
+    "columns": ["name", "email", "status"]
+  }
 }
 ```
 
@@ -513,11 +543,13 @@ carrying callbacks.
 ```json
 {
   "type": "object-grid",
-  "objectName": "users",
-  "columns": ["name", "email"],
-  "rowActions": ["view", "edit", "delete"],
-  "selection": { "type": "multiple" },
-  "bulkActions": ["delete", "export"]
+  "properties": {
+    "objectName": "users",
+    "columns": ["name", "email"],
+    "rowActions": ["view", "edit", "delete"],
+    "selection": { "type": "multiple" },
+    "bulkActions": ["delete", "export"]
+  }
 }
 ```
 
@@ -562,7 +594,8 @@ without any host code.
 whether the generic Edit / Delete entries exist at all, identically for every
 row. When the refusal belongs to one RECORD — a system field a designer may not
 drop — use `rowOperations`, a component prop called with a row record that
-answers for that row alone:
+answers for that row alone. Mounting `<ObjectGrid>` directly hands it the node as
+it reads it, so its `schema` prop is the flat `ObjectGridSchema`, with no bag:
 
 ```tsx
 import { ObjectGrid } from '@object-ui/plugin-grid';
@@ -604,15 +637,17 @@ Enable inline cell editing for quick data updates:
 ```json
 {
   "type": "object-grid",
-  "objectName": "users",
-  "columns": [
-    { "field": "id", "label": "ID" },
-    { "field": "name", "label": "Name" },
-    { "field": "email", "label": "Email" },
-    { "field": "status", "label": "Status", "type": "select" }
-  ],
-  "editable": true,
-  "singleClickEdit": false
+  "properties": {
+    "objectName": "users",
+    "columns": [
+      { "field": "id", "label": "ID" },
+      { "field": "name", "label": "Name" },
+      { "field": "email", "label": "Email" },
+      { "field": "status", "label": "Status", "type": "select" }
+    ],
+    "editable": true,
+    "singleClickEdit": false
+  }
 }
 ```
 
@@ -643,14 +678,16 @@ their own once a row has pending changes:
 ```json
 {
   "type": "object-grid",
-  "objectName": "products",
-  "columns": [
-    { "field": "sku", "label": "SKU" },
-    { "field": "name", "label": "Name" },
-    { "field": "price", "label": "Price", "type": "currency", "align": "right" },
-    { "field": "stock", "label": "Stock", "type": "number", "align": "right" }
-  ],
-  "editable": true
+  "properties": {
+    "objectName": "products",
+    "columns": [
+      { "field": "sku", "label": "SKU" },
+      { "field": "name", "label": "Name" },
+      { "field": "price", "label": "Price", "type": "currency", "align": "right" },
+      { "field": "stock", "label": "Stock", "type": "number", "align": "right" }
+    ],
+    "editable": true
+  }
 }
 ```
 
@@ -695,7 +732,9 @@ package's export surface, and both names are taken elsewhere by different
 things — `GridSchema` in `@object-ui/types` is the CSS Grid **layout**
 container, and `GridColumn` in `@object-ui/fields` is a column of the
 line-items form widget (keyed `name`). The data-grid pair is
-`ObjectGridSchema` + `ListColumn`.
+`ObjectGridSchema` + `ListColumn`. `ObjectGridSchema` types the component's
+`schema` prop — the node as the grid reads it, after `SchemaRenderer` hoists an
+authored node's `properties` bag onto it — so its keys sit flat here.
 
 ```typescript
 import type { ObjectGridSchema, ListColumn } from '@object-ui/types';

@@ -259,7 +259,8 @@ const sysUserView: ObjectViewSchema = {
 
 ```typescript
 import { ObjectStackAdapter } from '@object-ui/data-objectstack';
-import type { ObjectGridSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridProps } from '@objectstack/spec/ui';
 
 const dataSource = new ObjectStackAdapter({
   baseUrl: 'http://localhost:3000/api'
@@ -269,21 +270,24 @@ const dataSource = new ObjectStackAdapter({
 // `<SchemaRendererProvider dataSource={dataSource}>` from `@object-ui/react` —
 // never as a schema key. A node's `dataSource` is the per-element BINDING
 // (`{ object, view?, filter?, sort?, limit? }`), not the adapter, and
-// `SchemaRenderer` strips it from the props it spreads.
-const schema: ObjectGridSchema = {
+// `SchemaRenderer` strips it from the props it spreads. The grid's own props go
+// in its `properties` bag — the spec's `ComponentPropsMap['object-grid']` row.
+const schema: BaseSchema = {
   type: 'object-grid',
-  objectName: 'contact',
-  // Grid filter, JSON-rules form: an array of `{ field, operator, value }`
-  // entries, AND-ed together. `operator` takes the canonical view-filter
-  // vocabulary (`equals`, `greater_than_or_equal`, ...).
-  filter: [
-    { field: 'status', operator: 'equals', value: 'active' },
-    { field: 'created_date', operator: 'greater_than_or_equal', value: '2024-01-01' }
-  ],
-  // ObjectQL sorting
-  sort: [
-    { field: 'created_date', order: 'desc' }
-  ]
+  properties: {
+    objectName: 'contact',
+    // Grid filter, JSON-rules form: an array of `{ field, operator, value }`
+    // entries, AND-ed together. `operator` takes the canonical view-filter
+    // vocabulary (`equals`, `greater_than_or_equal`, ...).
+    filter: [
+      { field: 'status', operator: 'equals', value: 'active' },
+      { field: 'created_date', operator: 'greater_than_or_equal', value: '2024-01-01' }
+    ],
+    // ObjectQL sorting
+    sort: [
+      { field: 'created_date', order: 'desc' }
+    ],
+  } satisfies ObjectGridProps,
 };
 ```
 
@@ -314,12 +318,16 @@ function ContactList() {
   if (loading) return <div>Loading...</div>;
   if (error) return <div>Error: {error.message}</div>;
 
+  // The grid's props go in its `properties` bag. The rows `useViewData`
+  // fetched are handed over as inline `ViewData` (there is no `rowData` key).
   return (
     <SchemaRenderer
       schema={{
         type: 'object-grid',
-        rowData: data,
-        // ... other props
+        properties: {
+          objectName: 'contact',
+          data: { provider: 'value', items: data ?? [] },
+        },
       }}
     />
   );
@@ -471,26 +479,24 @@ ComponentRegistry.register('my-custom-widget', MyCustomWidget, {
 
 ### Event Handling & Callbacks
 
-{/* doc-snippet: fragment — a SHAPE excerpt continuing the "Using ObjectQL for Queries" block above, which is where `dataSource` is constructed: a bare object literal at statement position parses as a block with labels (measured: TS1005 x3) */}
+A metadata document cannot carry a function, so a callback is never a schema
+key: the grid's row callbacks (`onRowClick`, `onCellChange`, …) are **component
+props**, passed to the renderer. The grid's own props go in its `properties`
+bag, and with `editable` an edited cell saves through the adapter the
+`SchemaRendererProvider` above it supplies, with no callback to wire.
 
-```typescript
-{
-  type: 'object-grid',
-  objectName: 'contact',
-  dataSource,
-  callbacks: {
-    onRowClicked: (event) => {
+```tsx
+import { SchemaRenderer } from '@object-ui/react';
+
+export const ContactGrid = () => (
+  <SchemaRenderer
+    schema={{ type: 'object-grid', properties: { objectName: 'contact', editable: true } }}
+    onRowClick={(row: { id: string }) => {
       // Navigate to detail page
-      window.location.href = `/contact/${event.data.id}`;
-    },
-    onCellValueChanged: async (event) => {
-      // Auto-save on edit
-      await dataSource.update('contact', event.data.id, {
-        [event.column.field]: event.newValue
-      });
-    }
-  }
-}
+      window.location.href = `/contact/${row.id}`;
+    }}
+  />
+);
 ```
 
 ### Reacting to Data Changes
@@ -523,17 +529,21 @@ unsubscribe();
 
 ### From Retool
 
-{/* doc-snippet: fragment — a SHAPE excerpt showing the ObjectUI half of a side-by-side migration comparison; `dataSource` continues the "Using ObjectQL for Queries" block above, and a bare object literal at statement position parses as a block with labels (measured: TS1005 x4) */}
+{/* doc-snippet: fragment — a SHAPE excerpt showing the ObjectUI half of a side-by-side migration comparison; a bare object literal at statement position parses as a block with labels */}
 
 ```typescript
-// Retool table → ObjectUI Grid
+// Retool table → ObjectUI Grid. The props go in the node's `properties` bag
+// (the spec's `ComponentPropsMap['object-grid']` row): row selection is
+// `selection`, the export menu is `exportOptions`, and the adapter comes from
+// `SchemaRendererProvider`, never from the node.
 {
   type: 'object-grid',
-  objectName: 'users',
-  dataSource,
-  editable: true,
-  rowSelection: 'multiple',
-  exportConfig: { enabled: true }
+  properties: {
+    objectName: 'users',
+    editable: true,
+    selection: { type: 'multiple' },
+    exportOptions: { formats: ['csv', 'xlsx'] },
+  },
 }
 ```
 
@@ -622,9 +632,9 @@ test('renders contact grid', () => {
     <SchemaRenderer
       schema={{
         type: 'object-grid',
-        objectName: 'contact',
-        dataSource: mockDataSource
+        properties: { objectName: 'contact' },
       }}
+      dataSource={mockDataSource}
     />
   );
   expect(getByText('Contact')).toBeInTheDocument();

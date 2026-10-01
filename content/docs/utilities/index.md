@@ -165,17 +165,20 @@ through `@object-ui/react`'s `SchemaRendererProvider`:
 ```tsx
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import type { ObjectGridSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
 
 const dataSource = createObjectStackAdapter({
   baseUrl: 'https://api.example.com',
   token: 'your-api-token', // optional when auth is handled elsewhere
 });
 
-const schema: ObjectGridSchema = {
+// The block's props go in its `properties` bag, as `@objectstack/spec` declares them.
+const schema: BaseSchema = {
   type: 'object-grid',
-  objectName: 'account',
-  columns: ['name', 'owner', 'created'],
+  properties: {
+    objectName: 'account',
+    columns: ['name', 'owner', 'created'],
+  },
 };
 
 export function App() {

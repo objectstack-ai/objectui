@@ -212,17 +212,19 @@ published is not an error: the expression is returned as its own source text.
 ```json
 {
   "type": "object-grid",
-  "objectName": "user",
-  "title": "Users",
-  "columns": [
-    { "field": "name", "label": "Name", "sortable": true },
-    { "field": "email", "label": "Email" },
-    { "field": "role", "label": "Role" },
-    { "field": "status", "label": "Status" },
-    { "field": "created_at", "label": "Joined" }
-  ],
-  "showSearch": true,
-  "operations": { "create": true, "read": true, "update": true, "delete": true, "export": true }
+  "properties": {
+    "objectName": "user",
+    "title": "Users",
+    "columns": [
+      { "field": "name", "label": "Name", "sortable": true },
+      { "field": "email", "label": "Email" },
+      { "field": "role", "label": "Role" },
+      { "field": "status", "label": "Status" },
+      { "field": "created_at", "label": "Joined" }
+    ],
+    "showSearch": true,
+    "operations": { "create": true, "read": true, "update": true, "delete": true, "export": true }
+  }
 }
 ```
 

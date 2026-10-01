@@ -44,11 +44,13 @@ the schema types below resolve:
 import '@object-ui/plugin-grid';
 
 // The data grid is `object-grid`, and it queries an object — see below for why
-// this is not `type: 'grid'`.
+// this is not `type: 'grid'`. Its props go in the node's `properties` bag.
 const schema = {
   type: 'object-grid',
-  objectName: 'users',
-  columns: ['name', 'email']
+  properties: {
+    objectName: 'users',
+    columns: ['name', 'email']
+  }
 };
 ```
 
@@ -159,26 +161,36 @@ contract rather than this package's component API.
 
 ### Grid
 
-A grid node is an `ObjectGridSchema`: one required `objectName`, and keys drawn
-from the list this package **declares** as its authoring surface
+An authored grid node takes its props in its `properties` bag, whose members are
+`@objectstack/spec`'s `ComponentPropsMap['object-grid']` row (`ObjectGridProps`):
+one required `objectName` — or the node's `dataSource` binding naming the object —
+and keys drawn from the list this package **declares** as its authoring surface
 (`GRID_QUERY_INPUTS`, `src/index.tsx:166`) — the same list that feeds the designer
 panel and the generated `sdui-intrinsics.d.ts`, so what is authorable here is what
-the renderer reads.
+the renderer reads. `objectui validate` judges the bag against that row and
+refuses a prop written flat on the node by name, naming where it goes
+(`Did you mean objectName → properties.objectName?`), as the spec's own page
+component does (objectui#11276). `SchemaRenderer` hoists the bag onto the node
+before the grid runs, so `ObjectGridSchema` (`@object-ui/types`) is the node as the
+grid reads it — and the type of `<ObjectGrid>`'s `schema` prop.
 
 ```typescript
-import type { ObjectGridSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const grid: ObjectGridSchema = {
+const grid: BaseSchema = {
   type: 'object-grid',
-  objectName: 'users',
-  columns: ['name', 'email'],
-  sort: [{ field: 'created', order: 'desc' }],
-  pagination: { pageSize: 20 },
-  selection: { type: 'multiple' },
+  properties: {
+    objectName: 'users',
+    columns: ['name', 'email'],
+    sort: [{ field: 'created', order: 'desc' }],
+    pagination: { pageSize: 20 },
+    selection: { type: 'multiple' },
+  } satisfies ObjectGridProps,
 };
 ```
 
-| Key | Type | Notes |
+| Key (in `properties`) | Type | Notes |
 | --- | --- | --- |
 | `objectName` | `string` (**required**) | The object queried. There is no `object`. |
 | `columns` | `string[] \| ListColumn[]` | Field names or column objects — see below. |
@@ -193,7 +205,7 @@ const grid: ObjectGridSchema = {
 | `editable` / `singleClickEdit` | `boolean` | Inline editing — see [Inline Editing](#inline-editing). |
 | `navigation` | `NavigationConfig` | What a row click does, `{ mode: 'page' \| 'drawer' \| 'modal' \| 'split' \| 'none', … }`. |
 | `operations` | `object` | Toggles the built-in CRUD/export/import affordances, e.g. `{ delete: false }`. |
-| `rowHeight`, `frozenColumns`, `resizable`, `reorderableColumns`, `showColumnTypeIcons`, `rowColor`, `conditionalFormatting`, `aggregations`, `exportOptions`, `className` | | The rest of the declared surface. |
+| `rowHeight`, `frozenColumns`, `resizable`, `reorderableColumns`, `showColumnTypeIcons`, `rowColor`, `conditionalFormatting`, `aggregations`, `exportOptions` | | The rest of the declared surface. (`className` is a base prop: it stays on the node, beside the bag.) |
 | `grouping` | `GroupingConfig` | Row grouping — **server-side**: group set, counts and aggregations come from the query, rows are paged per group; see [Grouping is server-side](#grouping-is-server-side). |
 
 **There is no `sortable`, `filterable`, `onRowClick`, `onSelectionChange`,
@@ -204,7 +216,7 @@ booleans do not exist at all; the five `on*` names are **component props**
 
 #### `description` and `emptyState`
 
-Two more keys the grid honours on its own node (objectui#11068):
+Two more keys the grid honours on the node it reads (objectui#11068):
 
 - `description` — one line of help text drawn above the grid. A string, or an
   inline locale map resolved against the display locale the way `label` is.
@@ -215,19 +227,24 @@ Two more keys the grid honours on its own node (objectui#11068):
   search box stay, so the term can be cleared. Leave the key out and an empty
   grid draws the table's own empty row, as before.
 
+`description` is a base prop, so it sits on the node beside the bag:
+
 ```json
 {
   "type": "object-grid",
-  "objectName": "contacts",
   "description": "Everyone you work with",
-  "emptyState": { "title": "No contacts yet", "message": "Contacts you add appear here.", "icon": "users" }
+  "properties": { "objectName": "contacts" }
 }
 ```
 
-Neither is in `GRID_QUERY_INPUTS` yet. That list may only declare keys the
-upstream protocol's `object-grid` row accepts, and that row declares neither
-today — so the SDUI parser reports an authored `emptyState` as `unknown-prop` (a
-warning), while `description` is a base prop it accepts on every node.
+`emptyState` is **not authorable in a document today**. The upstream protocol's
+`object-grid` row does not declare it, so `objectui validate` refuses it inside
+the `properties` bag (the row's own refusal) and, on the node, its strict face
+refuses it as an unknown key — as `os validate` does. It stays a key of the node
+the grid reads: a host that mounts `<ObjectGrid schema={…}>` itself, or composes
+the node in code, can set it. For the same reason it is not in
+`GRID_QUERY_INPUTS` yet: that list may only declare keys the row accepts, so the
+SDUI parser reports an authored `emptyState` as `unknown-prop` (a warning).
 
 `name`, `placeholder`, `rowSpecActions` and `bulkSpecActions` are **retired** on
 this node (objectui#11068): nothing ever read them, and both faces of
@@ -339,9 +356,10 @@ view whose columns are all `none` (or carry no `summary`) has no footer.
 
 ## Examples
 
-Every example below is annotated `ObjectGridSchema`, which is the point: an
-un-annotated `const schema = { … }` type-checks no matter what is written in it,
-so a snippet that carries no annotation cannot tell you whether its keys are real.
+Every example below checks its bag with `satisfies ObjectGridProps` (the spec's
+row type), which is the point: an un-annotated `const schema = { … }` type-checks
+no matter what is written in it, so a snippet that carries no annotation cannot
+tell you whether its keys are real.
 And note the `type` — `object-grid`, never `grid`. Bare `grid` renders the CSS Grid
 *layout container* from `@object-ui/components`
 ([above](#the-schema-types-this-package-claims)), which is how a copied example ends
@@ -351,19 +369,22 @@ up leaking `columns="[object Object]"` into the DOM instead of drawing a table
 ### Basic Grid
 
 ```typescript
-import type { ObjectGridSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: ObjectGridSchema = {
+const schema: BaseSchema = {
   type: 'object-grid',
-  objectName: 'users',
-  columns: [
-    { field: 'name', label: 'Name', width: 200, sortable: true },
-    { field: 'email', label: 'Email' },
-    { field: 'role', label: 'Role' },
-    { field: 'status', label: 'Status', type: 'select' },
-  ],
-  sort: [{ field: 'name', order: 'asc' }],
-  pagination: { pageSize: 20 },
+  properties: {
+    objectName: 'users',
+    columns: [
+      { field: 'name', label: 'Name', width: 200, sortable: true },
+      { field: 'email', label: 'Email' },
+      { field: 'role', label: 'Role' },
+      { field: 'status', label: 'Status', type: 'select' },
+    ],
+    sort: [{ field: 'name', order: 'asc' }],
+    pagination: { pageSize: 20 },
+  } satisfies ObjectGridProps,
 };
 ```
 
@@ -378,22 +399,25 @@ fixtures, tests — give it a `ViewData` with the `value` provider. The rows go
 under `items`; a bare array is the deprecated `staticData` spelling.
 
 ```typescript
-import type { ObjectGridSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: ObjectGridSchema = {
+const schema: BaseSchema = {
   type: 'object-grid',
-  objectName: 'users',
-  columns: [
-    { field: 'name', label: 'Name' },
-    { field: 'email', label: 'Email' },
-  ],
-  data: {
-    provider: 'value',
-    items: [
-      { id: 1, name: 'John Doe', email: 'john@example.com', status: 'Active' },
-      { id: 2, name: 'Jane Smith', email: 'jane@example.com', status: 'Active' },
+  properties: {
+    objectName: 'users',
+    columns: [
+      { field: 'name', label: 'Name' },
+      { field: 'email', label: 'Email' },
     ],
-  },
+    data: {
+      provider: 'value',
+      items: [
+        { id: 1, name: 'John Doe', email: 'john@example.com', status: 'Active' },
+        { id: 2, name: 'Jane Smith', email: 'jane@example.com', status: 'Active' },
+      ],
+    },
+  } satisfies ObjectGridProps,
 };
 ```
 
@@ -459,14 +483,17 @@ Not covered:
 ### Selectable Grid
 
 ```typescript
-import type { ObjectGridSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: ObjectGridSchema = {
+const schema: BaseSchema = {
   type: 'object-grid',
-  objectName: 'users',
-  columns: ['name', 'email'],
-  selection: { type: 'multiple' },
-  bulkActions: ['delete', 'export'],
+  properties: {
+    objectName: 'users',
+    columns: ['name', 'email'],
+    selection: { type: 'multiple' },
+    bulkActions: ['delete', 'export'],
+  } satisfies ObjectGridProps,
 };
 ```
 
@@ -480,13 +507,16 @@ see [Row callbacks are component props](#row-callbacks-are-component-props).
 ### Grid with Pagination
 
 ```typescript
-import type { ObjectGridSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: ObjectGridSchema = {
+const schema: BaseSchema = {
   type: 'object-grid',
-  objectName: 'users',
-  columns: ['name', 'email'],
-  pagination: { pageSize: 10, pageSizeOptions: [10, 20, 50, 100] },
+  properties: {
+    objectName: 'users',
+    columns: ['name', 'email'],
+    pagination: { pageSize: 10, pageSizeOptions: [10, 20, 50, 100] },
+  } satisfies ObjectGridProps,
 };
 ```
 
@@ -571,24 +601,27 @@ host installs once, above the whole tree:
 import { SchemaRendererProvider, SchemaRenderer } from '@object-ui/react';
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
 import '@object-ui/plugin-grid';
-import type { ObjectGridSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridProps } from '@objectstack/spec/ui';
 
 const dataSource = createObjectStackAdapter({
   baseUrl: 'https://api.example.com',
   token: 'your-auth-token',
 });
 
-const schema: ObjectGridSchema = {
+const schema: BaseSchema = {
   type: 'object-grid',
-  objectName: 'users',
-  columns: [
-    { field: 'name', label: 'Name' },
-    { field: 'email', label: 'Email' },
-    { field: 'created', label: 'Created', type: 'datetime' },
-  ],
-  filter: [{ field: 'status', operator: 'equals', value: 'active' }],
-  searchableFields: ['name', 'email'],
-  pagination: { pageSize: 20 },
+  properties: {
+    objectName: 'users',
+    columns: [
+      { field: 'name', label: 'Name' },
+      { field: 'email', label: 'Email' },
+      { field: 'created', label: 'Created', type: 'datetime' },
+    ],
+    filter: [{ field: 'status', operator: 'equals', value: 'active' }],
+    searchableFields: ['name', 'email'],
+    pagination: { pageSize: 20 },
+  } satisfies ObjectGridProps,
 };
 
 export const App = () => (
@@ -621,16 +654,19 @@ Columns sort by default. `sortable` is a **per-column** key, used to turn a colu
 off; the grid-level `sort` declares the order the grid opens with.
 
 ```typescript
-import type { ObjectGridSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: ObjectGridSchema = {
+const schema: BaseSchema = {
   type: 'object-grid',
-  objectName: 'users',
-  sort: [{ field: 'created', order: 'desc' }],
-  columns: [
-    { field: 'name', label: 'Name' },
-    { field: 'email', label: 'Email', sortable: false },
-  ],
+  properties: {
+    objectName: 'users',
+    sort: [{ field: 'created', order: 'desc' }],
+    columns: [
+      { field: 'name', label: 'Name' },
+      { field: 'email', label: 'Email', sortable: false },
+    ],
+  } satisfies ObjectGridProps,
 };
 ```
 
@@ -641,17 +677,20 @@ baked into the metadata, and a toolbar search over the fields named in
 `searchableFields`.
 
 ```typescript
-import type { ObjectGridSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: ObjectGridSchema = {
+const schema: BaseSchema = {
   type: 'object-grid',
-  objectName: 'users',
-  filter: [
-    { field: 'status', operator: 'equals', value: 'active' },
-    { field: 'created', operator: 'after', value: '2026-01-01' },
-  ],
-  searchableFields: ['name', 'email'],
-  columns: ['name', 'email', 'status'],
+  properties: {
+    objectName: 'users',
+    filter: [
+      { field: 'status', operator: 'equals', value: 'active' },
+      { field: 'created', operator: 'after', value: '2026-01-01' },
+    ],
+    searchableFields: ['name', 'email'],
+    columns: ['name', 'email', 'status'],
+  } satisfies ObjectGridProps,
 };
 ```
 
@@ -662,15 +701,18 @@ themselves live in the object's action set, so the same action behaves identical
 wherever it is offered. They are `string[]`, not inline definitions with callbacks.
 
 ```typescript
-import type { ObjectGridSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: ObjectGridSchema = {
+const schema: BaseSchema = {
   type: 'object-grid',
-  objectName: 'users',
-  columns: ['name', 'email'],
-  rowActions: ['view', 'edit', 'delete'],
-  selection: { type: 'multiple' },
-  bulkActions: ['delete', 'export'],
+  properties: {
+    objectName: 'users',
+    columns: ['name', 'email'],
+    rowActions: ['view', 'edit', 'delete'],
+    selection: { type: 'multiple' },
+    bulkActions: ['delete', 'export'],
+  } satisfies ObjectGridProps,
 };
 ```
 
@@ -714,7 +756,8 @@ decides what a row click does without any host code.
 whether the generic Edit / Delete entries exist at all, identically for every
 row. When the refusal belongs to one RECORD — a system field a designer may not
 drop — use `rowOperations`, a component prop called with a row record that
-answers for that row alone:
+answers for that row alone. Mounting `<ObjectGrid>` directly hands it the node as
+it reads it, so its `schema` prop is the flat `ObjectGridSchema`, with no bag:
 
 ```tsx
 import { ObjectGrid } from '@object-ui/plugin-grid';
@@ -754,19 +797,22 @@ indistinguishable from a broken build (objectui#8674).
 Enable inline cell editing for quick updates:
 
 ```typescript
-import type { ObjectGridSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: ObjectGridSchema = {
+const schema: BaseSchema = {
   type: 'object-grid',
-  objectName: 'users',
-  columns: [
-    { field: 'id', label: 'ID' },
-    { field: 'name', label: 'Name' },
-    { field: 'email', label: 'Email' },
-    { field: 'status', label: 'Status', type: 'select' },
-  ],
-  editable: true,
-  singleClickEdit: false,
+  properties: {
+    objectName: 'users',
+    columns: [
+      { field: 'id', label: 'ID' },
+      { field: 'name', label: 'Name' },
+      { field: 'email', label: 'Email' },
+      { field: 'status', label: 'Status', type: 'select' },
+    ],
+    editable: true,
+    singleClickEdit: false,
+  } satisfies ObjectGridProps,
 };
 ```
 
@@ -802,18 +848,21 @@ The schema half is just `editable` — the save/cancel affordances appear on the
 own once a row has pending changes:
 
 ```typescript
-import type { ObjectGridSchema } from '@object-ui/types';
+import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: ObjectGridSchema = {
+const schema: BaseSchema = {
   type: 'object-grid',
-  objectName: 'products',
-  columns: [
-    { field: 'sku', label: 'SKU' },
-    { field: 'name', label: 'Name' },
-    { field: 'price', label: 'Price', type: 'currency', align: 'right' },
-    { field: 'stock', label: 'Stock', type: 'number', align: 'right' },
-  ],
-  editable: true,
+  properties: {
+    objectName: 'products',
+    columns: [
+      { field: 'sku', label: 'SKU' },
+      { field: 'name', label: 'Name' },
+      { field: 'price', label: 'Price', type: 'currency', align: 'right' },
+      { field: 'stock', label: 'Stock', type: 'number', align: 'right' },
+    ],
+    editable: true,
+  } satisfies ObjectGridProps,
 };
 ```
 
@@ -868,7 +917,9 @@ const persistence = (
 ## TypeScript Support
 
 The schema and column types come from `@object-ui/types`; this package exports the
-*component* types.
+*component* types. `ObjectGridSchema` types the component's `schema` prop — the
+node as the grid reads it, after `SchemaRenderer` hoists an authored node's
+`properties` bag onto it — so its keys sit flat here.
 
 ```typescript
 import type { ObjectGridSchema, ListColumn } from '@object-ui/types';

@@ -227,7 +227,7 @@ function App() {
         <SchemaRenderer
           schema={{
             type: 'object-grid',
-            objectName: 'task',
+            properties: { objectName: 'task' },
           }}
         />
       </div>
@@ -253,7 +253,9 @@ a grid that draws its header and nothing else:
   `dataSource` written on the block itself reaches that one block and never
   becomes context for anything under it.
 - **The object is named by `objectName`.** That is the key each of these blocks
-  declares as required; a differently-spelled key (`object`) is not read, so the
+  declares as required — inside the `properties` bag on `object-grid` and
+  `object-form`, as the spec's page component declares their props, and on the
+  node on `detail-view`; a differently-spelled key (`object`) is not read, so the
   block has no object to query.
 
 Neither mistake used to say anything — the block simply rendered empty. Both now
@@ -278,7 +280,7 @@ carries a data source of its own:
 <!-- doc-snippet: fragment — JSX to place inside the Step 5 App component; showForm, editId and their setters are the state declared in the block above -->
 ```tsx
 <SchemaRenderer
-  schema={{ type: 'object-grid', objectName: 'task' }}
+  schema={{ type: 'object-grid', properties: { objectName: 'task' } }}
   onRowClick={(row: any) => { setEditId(row.id); setShowForm(true); }}
 />
 
@@ -354,8 +356,8 @@ so this block does not offer that fallback.
 in the toolbar — on by default — and typing there drives
 `DataSource.find()`'s `$search` parameter directly; there is no separate
 query-param key to author. Add `searchableFields: ['title', 'description']`
-to the schema to narrow which fields the server matches; leave it out and the
-server decides.
+to the grid's `properties` bag to narrow which fields the server matches; leave
+it out and the server decides.
 
 ## Step 8: Add a Detail View
 

@@ -730,37 +730,36 @@ These schemas integrate with [ObjectStack](https://objectstack.ai) for automatic
 
 A data grid that auto-fetches from an ObjectQL object definition. Includes search, filters, pagination, grouping, and inline editing.
 
+An authored `object-grid` node takes its props in its `properties` bag, whose members are `@objectstack/spec`'s `ComponentPropsMap['object-grid']` row. `objectui validate` judges the bag against that row and refuses a prop written flat on the node by name, naming its bag member, as the spec's own page component does (objectui#11276). `SchemaRenderer` hoists the bag onto the node before `ObjectGrid` runs, so `ObjectGridSchema` is the node as the renderer reads it, and the table below lists its members. Base props such as `description` and `className` stay on the node, beside the bag.
+
 ```json
 {
   "type": "object-grid",
-  "objectName": "Contact",
-  "title": "All Contacts",
   "description": "Manage your contacts",
-  "searchableFields": ["name", "email", "company"],
-  "resizable": true,
-  "columns": [
-    { "field": "name" },
-    { "field": "email" },
-    { "field": "company" },
-    { "field": "phone" },
-    { "field": "status", "label": "Status", "sortable": true }
-  ],
-  "sort": [{ "field": "name", "order": "asc" }],
-  "operations": {
-    "create": true,
-    "update": true,
-    "delete": true,
-    "export": true
-  },
-  "rowActions": ["edit", "delete"],
-  "pagination": {
-    "pageSize": 25,
-    "pageSizeOptions": [10, 25, 50, 100]
-  },
-  "emptyState": {
-    "title": "No contacts yet",
-    "message": "Contacts you add appear here.",
-    "icon": "users"
+  "properties": {
+    "objectName": "Contact",
+    "title": "All Contacts",
+    "searchableFields": ["name", "email", "company"],
+    "resizable": true,
+    "columns": [
+      { "field": "name" },
+      { "field": "email" },
+      { "field": "company" },
+      { "field": "phone" },
+      { "field": "status", "label": "Status", "sortable": true }
+    ],
+    "sort": [{ "field": "name", "order": "asc" }],
+    "operations": {
+      "create": true,
+      "update": true,
+      "delete": true,
+      "export": true
+    },
+    "rowActions": ["edit", "delete"],
+    "pagination": {
+      "pageSize": 25,
+      "pageSizeOptions": [10, 25, 50, 100]
+    }
   }
 }
 ```
@@ -770,7 +769,9 @@ also author `showFilters` (now retired on this node, below), `striped` and
 `operations.read`, which nothing reads, and `selection: { enabled, mode }` and
 `pagination.enabled`, which the validator refuses: selection is spelled `selection: { type: 'multiple' }` (`'none'`,
 `'single'` or `'multiple'`), and `pagination` declares no on switch — its
-presence enables paging.
+presence enables paging. It also authored `emptyState`, which the grid reads but
+the spec's row does not declare, so it is not authorable in a document today (see
+its row below).
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -789,7 +790,7 @@ presence enables paging.
 | `grouping` | `GroupingConfig` | Row grouping configuration. **Server-side**: the set of groups, every group count and every per-group aggregation come from the group header query (`dataSource.queryGroupHeaders`), and each group's rows are paged by the server. Rows handed in whole are grouped in the browser (exact); over a data source with no header query, a grid that fetches its own rows refuses grouping with an error naming `queryGroupHeaders`. |
 | `frozenColumns` | `number` | Number of columns frozen on scroll. |
 | `navigation` | `ViewNavigationConfig` | SPA navigation configuration. |
-| `emptyState` | `{ title?, message?, icon? }` | Drawn in place of an empty table: a Lucide `icon`, a `title` (default: the table's "No results found") and a `message` (default: none). Not drawn when a term in the grid's own server-side search box emptied it — the table and its search box stay (objectui#11068). |
+| `emptyState` | `{ title?, message?, icon? }` | Drawn in place of an empty table: a Lucide `icon`, a `title` (default: the table's "No results found") and a `message` (default: none). Not drawn when a term in the grid's own server-side search box emptied it — the table and its search box stay (objectui#11068). **Not authorable in a document today:** the spec's `object-grid` row does not declare it, so `objectui validate` refuses it in the `properties` bag, and the strict face refuses it on the node; a host mounting `<ObjectGrid schema={…}>` or composing the node in code can set it. |
 
 > **`name`, `placeholder`, `rowSpecActions` and `bulkSpecActions` are retired on
 > this node (objectui#11068).** Nothing ever read them: `rowSpecActions` /
@@ -1282,8 +1283,10 @@ A toggle control that switches between different view types (list, grid, kanban,
       "icon": "List",
       "schema": {
         "type": "object-grid",
-        "objectName": "Contact",
-        "columns": ["name", "email", "phone"]
+        "properties": {
+          "objectName": "Contact",
+          "columns": ["name", "email", "phone"]
+        }
       }
     },
     {
@@ -1366,10 +1369,12 @@ Schemas are designed to compose. Nest any `SchemaNode` inside another to build c
     },
     {
       "type": "object-grid",
-      "objectName": "Lead",
-      "title": "All Leads",
-      "showSearch": true,
-      "columns": ["name", "company", "status", "value"]
+      "properties": {
+        "objectName": "Lead",
+        "title": "All Leads",
+        "showSearch": true,
+        "columns": ["name", "company", "status", "value"]
+      }
     }
   ]
 }

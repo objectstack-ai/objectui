@@ -166,9 +166,11 @@ describe('guide/building-crud-app.md — every `object-grid` snippet actually re
   it('names the object with the key this block declares — `object` fetches nothing', async () => {
     // The #5377 axis, pinned as a contrast rather than described. Same snippet,
     // same wiring, one key re-spelled the way the page used to spell it.
+    // The guide writes the grid's props in its `properties` bag, the spelling
+    // the spec declares (objectui#11276); `SchemaRenderer` hoists it.
     const [first] = GRID_SNIPPETS;
-    const asItWas = { ...first, object: first.objectName };
-    delete asItWas.objectName;
+    const { objectName, ...rest } = first.properties;
+    const asItWas = { ...first, properties: { ...rest, object: objectName } };
 
     const adapter = makeAdapter();
     const { container } = render(

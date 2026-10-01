@@ -10,11 +10,27 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
+import type { BaseSchema } from '@object-ui/types';
+import type { AriaProps } from '@objectstack/spec/ui';
 import { SchemaRenderer } from '../SchemaRenderer';
-// No `BaseSchema` import any more: the keyed-`ariaLabel` fixture below was the
-// only thing that needed it, for an `as unknown as BaseSchema` cast that
-// objectui#4581 made unnecessary by declaring the vocabulary the renderer
-// resolves.
+// The keyed-`ariaLabel` fixture below needs no cast: objectui#4581 declared the
+// vocabulary the renderer resolves on `BaseSchema` itself. `BaseSchema` is
+// imported for the probe node type below, not for a cast.
+
+/**
+ * The node the flat-ARIA cases author (objectui#11349): a registered
+ * `test-widget` carrying the two flat ARIA keys `resolveAriaProps` reads off the
+ * node but `BaseSchema` does not declare. They are typed by reference to
+ * `@objectstack/spec`'s `AriaProps`, the vocabulary that reader documents. The
+ * node also carries the `content` that `TestWidget` renders.
+ *
+ * Each literal is checked against this node, not against the `BaseSchema`
+ * that the `schema` prop accepts, so its keys stay checked once objectui#8347
+ * removes `BaseSchema`'s index signature.
+ */
+type FlatAriaProbe = BaseSchema &
+  Pick<AriaProps, 'ariaDescribedBy' | 'role'> & { content?: string };
+const flatAriaProbe = (schema: FlatAriaProbe): FlatAriaProbe => schema;
 
 // A simple test component that forwards ARIA attributes
 const TestWidget: React.FC<any> = (props) => (
@@ -57,7 +73,7 @@ describe('SchemaRenderer AriaProps injection', () => {
           type: 'test-widget',
           // No cast: `BaseSchema.ariaLabel` declares `string | KeyedI18nLabel`
           // (objectui#4581), which is the vocabulary the renderer actually
-          // resolves — `SchemaRenderer.tsx:111` calls `resolveKeyedI18nLabel`.
+          // resolves — `resolveAriaProps` in `SchemaRenderer.tsx` calls `resolveKeyedI18nLabel`.
           // This fixture carried `as unknown as BaseSchema` while the
           // declaration said the narrower `string` (objectui#4548).
           ariaLabel: { key: 'dialog.close', defaultValue: 'Close dialog' },
@@ -92,10 +108,10 @@ describe('SchemaRenderer AriaProps injection', () => {
   it('should inject aria-describedby from ariaDescribedBy', () => {
     render(
       <SchemaRenderer
-        schema={{
+        schema={flatAriaProbe({
           type: 'test-widget',
           ariaDescribedBy: 'help-text-1',
-        }}
+        })}
       />
     );
     const el = screen.getByTestId('test-widget');
@@ -105,10 +121,10 @@ describe('SchemaRenderer AriaProps injection', () => {
   it('should inject role from schema', () => {
     render(
       <SchemaRenderer
-        schema={{
+        schema={flatAriaProbe({
           type: 'test-widget',
           role: 'navigation',
-        }}
+        })}
       />
     );
     const el = screen.getByTestId('test-widget');
@@ -118,12 +134,12 @@ describe('SchemaRenderer AriaProps injection', () => {
   it('should inject all ARIA props together', () => {
     render(
       <SchemaRenderer
-        schema={{
+        schema={flatAriaProbe({
           type: 'test-widget',
           ariaLabel: 'Main nav',
           ariaDescribedBy: 'nav-desc',
           role: 'navigation',
-        }}
+        })}
       />
     );
     const el = screen.getByTestId('test-widget');
@@ -135,10 +151,10 @@ describe('SchemaRenderer AriaProps injection', () => {
   it('should not inject ARIA attrs when not in schema', () => {
     render(
       <SchemaRenderer
-        schema={{
+        schema={flatAriaProbe({
           type: 'test-widget',
           content: 'Hello',
-        }}
+        })}
       />
     );
     const el = screen.getByTestId('test-widget');

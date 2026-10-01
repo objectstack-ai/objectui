@@ -1044,23 +1044,14 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   });
 
   const navigation = useNavigationOverlay({
-    // ⛔ The cast STAYS, and it stays on purpose (objectui#8655). This is the
-    // card's other class-(d) read, and typing the node made it answerable:
-    // measured with `checker.getPropertyOfType` against the node type, this key
-    // is UNDECLARED — it survives only on `BaseSchema`'s `[key: string]: any`.
-    // Dropping the cast would compile through that index signature and type
-    // `any` with nothing marking it, which is the defect rather than the
-    // absence of one (objectui#8651 records that shape).
-    //
-    // ⛔ And this card does NOT rule it. `navigation` is objectui#8652's
-    // family: maintainer-ruled option B — declare on the PLATFORM element
-    // schemas first, then mirror — blocked on objectstack `e233db9db`, whose unlock
-    // criterion is a released `@objectstack/spec` carrying the declaration
-    // being installable here. Measured on the installed spec: `navigation` is
-    // declared on exactly one `ComponentPropsMap` entry, `object-grid`, and
-    // this element has no entry at all. ⇒ not declared here, not retired here,
-    // read untouched.
-    navigation: (schema as any).navigation,
+    // A DECLARED read since objectui#11168 slice 3. objectui#8655 kept a cast
+    // here on purpose: the key was undeclared on the node and survived only on
+    // `BaseSchema`'s `[key: string]: any`, and objectui#8652's family ruling
+    // (option B — the platform element schemas first, then the mirror) was
+    // waiting on a released spec. `@objectstack/spec` 17.5.0 declares
+    // `navigation` on the `object-tree` row, and `ObjectTreeSchema` now mirrors
+    // it as the spec's `NavigationConfig`, so the read is typed.
+    navigation: schema.navigation,
     // The record-page URL names the object the ROWS came from, not the block's
     // bare top-level key (`2ce2612df`). `77cb489b4` published `objectName`
     // as the THIRD RUNG of ONE record-source ladder (`data`, then `staticData`,

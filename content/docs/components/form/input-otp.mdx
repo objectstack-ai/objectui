@@ -27,7 +27,7 @@ The Input OTP component provides a secure way to enter one-time passwords or ver
 ```ts
 interface InputOTPSchema {
   type: 'input-otp';
-  length: number;                 // Number of digits
+  length?: number;                // Number of digits (default 6)
   value?: string;                 // Current value
   separator?: boolean;            // Show visual separator
   
@@ -43,6 +43,13 @@ interface InputOTPSchema {
   className?: string;
 }
 ```
+
+<Callout type="warn">
+  `length` is the slot count, and the renderer now reads it. Until objectui#11347
+  it read an undeclared `maxLength` instead and ignored `length`, so the 4- and
+  8-digit examples above drew six slots. `maxLength` is not a key of this node:
+  write `length`.
+</Callout>
 
 ## Examples
 

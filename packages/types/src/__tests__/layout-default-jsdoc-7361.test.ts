@@ -706,8 +706,8 @@ describe('objectui#8318 — the `@default`s the "no renderer reads it" list got 
  *   | `CRUDDialogSchema.size`             | no `crud-dialog` registration at all;    |
  *   | `.closeOnOutsideClick`              | plus, per key, its own name census:      |
  *   | `.closeOnEscape`                    | zero occurrences for the middle two, and |
- *   | `.showClose`                        | for `showClose` one occurrence that      |
- *   |                                     | belongs to `DrawerSchema`                |
+ *   | `.showClose`                        | for `showClose` a look-alike `drawer`    |
+ *   |                                     | read, retired since objectui#11347       |
  *
  * ## Derivation — the two `loading` rows
  *
@@ -746,8 +746,9 @@ describe('objectui#8318 — the `@default`s the "no renderer reads it" list got 
  * header of `handler-keys-string-any-mirrors-7344.test.ts`. What IS derived here
  * is everything reachable from a named file: that the `card` primitive does not
  * consume `variant`, that `page`'s allow-list does not carry `isDefault`, that
- * `ActionRunner` reads `method` but not `level`, and that the one `showClose`
- * read in the tree belongs to `DrawerSchema`.
+ * `ActionRunner` reads `method` but not `level`, and that the `drawer`
+ * renderer, whose look-alike `showClose` read this row once had to rule out,
+ * no longer reads the key at all (objectui#11347 retired it).
  */
 const UI_CARD = 'packages/components/src/ui/card.tsx';
 const UI_ALERT = 'packages/components/src/ui/alert.tsx';
@@ -965,21 +966,24 @@ describe('objectui#8318 ruling — nine `@default`s corrected against a measured
     });
 
     /**
-     * The one of the four whose census is NOT empty, which is why its wording
-     * differs: crediting this declaration with `DrawerSchema`'s reader is the
-     * exact mistake a name-only census makes.
+     * The one of the four whose census was NOT empty, which is why its wording
+     * differs: crediting this declaration with the `drawer` renderer's reader
+     * was the exact mistake a name-only census makes. objectui#11347 retired
+     * that look-alike read, and the docblock says so.
      */
-    it('row 24 — `showClose` publishes no tag and names the look-alike reader', () => {
+    it('row 24 — `showClose` publishes no tag and names the retired look-alike reader', () => {
       expectAbsentTagWithEvidence(interfaceBody(crud, 'CRUDDialogSchema'), 'showClose', [
         'drawer.tsx',
         'DrawerSchema',
+        'objectui#11347',
       ]);
     });
 
-    it('the look-alike really exists, and really is another declaration', () => {
+    it('the look-alike read is retired: the drawer renderer no longer reads `schema.showClose`', () => {
       const drawer = read(DRAWER);
-      expect(drawer).toMatch(/schema\.showClose/);
+      // FIRING CONTROL: the file was read, and it is still the drawer renderer.
       expect(drawer).toContain('DrawerSchema');
+      expect(drawer).not.toMatch(/schema\.showClose/);
     });
   });
 });

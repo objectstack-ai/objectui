@@ -145,6 +145,10 @@ import type {
   // type from this package's mirror like the other sixteen.
   ListView as SpecListView,
   CalendarConfig as SpecCalendarConfig,
+  // objectui#11168 slice 3 — the `object-tree` element's `tree` block, so
+  // `ObjectTreeSchema.tree` below takes the protocol's own type. Aliased for
+  // the reason `SpecGanttConfig` above is.
+  TreeConfig as SpecTreeConfig,
   // objectui#9239 — `ComponentPropsMap['object-calendar']`'s author state, so
   // `ObjectCalendarSchema.data` below DERIVES the protocol's `data` row rather
   // than re-spelling it. Aliased because the bare name is the protocol's, and a
@@ -3414,8 +3418,45 @@ export interface ObjectMapSchema extends BaseSchema {
  */
 export interface ObjectTreeSchema extends BaseSchema {
   type: 'object-tree';
-  /** ObjectQL object name */
-  objectName: string;
+  /**
+   * ObjectQL object name — the THIRD record source `resolveRecordSourceConfig`
+   * reads, after {@link ObjectTreeSchema.data} and
+   * {@link ObjectTreeSchema.staticData}.
+   *
+   * OPTIONAL since objectui#11168 slice 3, as on {@link ObjectMapSchema} and
+   * {@link ObjectGanttSchema}: a tree on inline rows never reads it, and the
+   * zod twin's `requireRecordSource` refinement is where "one of the three" is
+   * enforced. ⚠️ The node's `dataSource` binding is NOT a fourth rung here —
+   * this block's registration is not gate-wrapped, so nothing lands a binding's
+   * object on this key.
+   */
+  objectName?: string;
+  /**
+   * Data source configuration — read FIRST by `resolveRecordSourceConfig`, so a
+   * tree carrying one never reaches `staticData` or `objectName`. The `value`
+   * provider draws its `items` and the `object` provider queries its `object`;
+   * the `api` and `schema` providers draw no rows on the tree (objectui#11168
+   * slice 3, measured). A bare array here is not a record source
+   * (objectui#8348).
+   */
+  data?: ViewData;
+  /** Inline records, wrapped into a `{ provider: 'value' }` data config; read SECOND */
+  staticData?: any[];
+  /**
+   * The tree's field configuration — the spec's `TreeConfig`, by reference
+   * (objectui#11168 slice 3; the `tree` DECLARE verdict `ObjectTree.schemaTyped-8655`
+   * recorded as owed). Its four members are the four below; where both are
+   * written, the flat key on the node outranks the member of the same name
+   * (`getTreeConfig`).
+   */
+  tree?: SpecTreeConfig;
+  /**
+   * Row-click navigation — the spec's `NavigationConfig`, the same block
+   * `ListViewSchema.navigation` declares (objectui#11168 slice 3, the tree arm
+   * of objectui#8652's ruling 「B」). An absent key opens nothing on a tree no
+   * parent view navigates for; see the registration description for each mode.
+   */
+  navigation?: ViewNavigationConfig;
   /**
    * Query filter, forwarded as `$filter` on the tree's own fetch, with its
    * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).

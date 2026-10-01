@@ -49,3 +49,5 @@ described nothing that runs.
 
 The pin `packages/types/src/__tests__/layout-default-jsdoc-7361.test.ts` grows
 from 15 rows to 24, both sides derived off disk as before.
+
+**Correction, 2026-10-01 (objectui#11347).** The `CRUDDialogSchema` bullet above says `showClose`'s one other occurrence belongs to `DrawerSchema`. That bullet's `renderers/overlay/drawer.tsx:38` is an address into the tree at `33f4a1980`, where that line is the `drawer` registration's `showClose` read. The sentence was true when this change was written, and it no longer is: objectui#11347 retired that read, which `DrawerSchema` never declared and no producer authored, so `showClose` is now read under no node type at all. The `CRUDDialogSchema.showClose` docblock and its pin in `layout-default-jsdoc-7361.test.ts` say so. The verdict this change records is unchanged: `showClose` still publishes no `@default`.

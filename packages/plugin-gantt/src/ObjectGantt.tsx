@@ -31,6 +31,7 @@ import { GanttConfigSchema } from '@objectstack/spec/ui';
 // ref, `resolveKeyedI18nLabel` in `@object-ui/react`), and neither accepts the
 // other's shape. This one resolves the spec's INLINE locale MAP.
 import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
+import { resolveFieldScale } from '@objectstack/spec/data';
 import {
   useNavigationOverlay,
   useSettledSchema,
@@ -1382,8 +1383,21 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         // fixed at the producer rather than reimplemented here, which would
         // have forked percent formatting away from the list cell renderer and
         // the dashboard that share `percentDisplayValue`.
+        //
+        // objectui#11254 — and the WIDTH is the field's, read through
+        // `resolveFieldScale` (ruling A′ on objectstack-ai/objectstack#19628):
+        // the declared `scale` when well-formed, otherwise the protocol's row
+        // for a percent. This row handed `formatPercent` an `undefined` width,
+        // so the function's own parameter default decided, and a percent
+        // declaring `scale: 2` read whole percents here beside a list cell
+        // reading two decimals. The cell asks the same function, so the two
+        // agree by reference.
         case 'percent':
-          return formatPercent(Number(value), undefined, displayLocale);
+          return formatPercent(
+            Number(value),
+            resolveFieldScale({ type: def?.type, scale: def?.scale }),
+            displayLocale,
+          );
         case 'boolean':
         case 'checkbox':
           return value ? 'Yes' : 'No';

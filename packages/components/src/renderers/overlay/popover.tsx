@@ -15,9 +15,13 @@ import {
 } from '../../ui';
 import { renderChildren, renderTriggerSlot } from '../../lib/utils';
 
+// ⛔ No `modal` read (objectui#11347). `PopoverSchema` declares no `modal`, the
+// installed `@objectstack/spec` has no row for `popover`, and no catalog entry,
+// example, doc page or README authors one, so `modal={schema.modal}` rode
+// `BaseSchema`'s index signature alone and was retired.
 ComponentRegistry.register('popover', 
   ({ schema, className, ...props }: { schema: PopoverSchema; className?: string; [key: string]: any }) => (
-    <Popover modal={schema.modal} defaultOpen={schema.defaultOpen} {...props}>
+    <Popover defaultOpen={schema.defaultOpen} {...props}>
       {renderTriggerSlot(PopoverTrigger, schema.trigger)}
       <PopoverContent align={schema.align} side={schema.side} className={className}>
         {renderChildren(schema.content)}
@@ -28,7 +32,6 @@ ComponentRegistry.register('popover',
     namespace: 'ui',
     label: 'Popover',
     inputs: [
-      { name: 'modal', type: 'boolean' },
       { name: 'defaultOpen', type: 'boolean' },
       { name: 'align', type: 'enum', enum: ['start', 'center', 'end'] },
       { name: 'side', type: 'enum', enum: ['top', 'right', 'bottom', 'left'] },

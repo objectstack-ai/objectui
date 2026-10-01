@@ -14,9 +14,9 @@ It registers two component types via the `ComponentRegistry`:
 
 ## Usage
 
-Author an `object-tree` node. Its config keys sit **flat on the node**, and
-`ObjectQLComponentSchema` narrows on `type`, so each one is checked against
-`ObjectTreeSchema`:
+Author an `object-tree` node. `ObjectQLComponentSchema` narrows on `type`, so
+each key is checked against `ObjectTreeSchema`, which mirrors the `object-tree`
+row of `@objectstack/spec` (17.5.0 and later):
 
 ```ts
 import type { ObjectQLComponentSchema } from '@object-ui/types';
@@ -24,24 +24,72 @@ import type { ObjectQLComponentSchema } from '@object-ui/types';
 const schema: ObjectQLComponentSchema = {
   type: 'object-tree',
   objectName: 'business_unit',
-  parentField: 'parent',        // single-parent pointer (auto-detected if omitted)
-  labelField: 'name',           // indented first column
-  fields: ['name', 'manager'],  // additional flat columns
-  defaultExpandedDepth: 1,      // 0 = roots only; omit = expand all
+  tree: {
+    parentField: 'parent',        // single-parent pointer (auto-detected if omitted)
+    labelField: 'name',           // indented first column
+    fields: ['manager'],          // additional flat columns
+    defaultExpandedDepth: 1,      // 0 = roots only; omit = expand all
+  },
+  filter: [{ field: 'status', operator: 'equals', value: 'active' }],
+  navigation: { mode: 'drawer' },
 };
 ```
 
-### Config
+### Keys
+
+| Key | Description |
+| --- | --- |
+| `objectName` | The object to query. One of `data`, `staticData` and `objectName` is the record source, read in that order; `objectui validate` refuses a node with none of the three. |
+| `data` | A `{ provider, … }` configuration, read first. `{ provider: 'value', items }` draws those records and `{ provider: 'object', object }` queries that object. The `api` and `schema` providers draw no rows on the tree. A bare array is not a record source (objectui#8348): inline rows go under `staticData`. |
+| `staticData` | Inline records, read second: a `data` configuration wins, and a tree carrying both `staticData` and `objectName` draws these rows and never queries the object. |
+| `tree` | The field configuration — the spec's `TreeConfig` (table below). |
+| `filter` | Rule array `[{ field, operator, value }]`, lowered to `$filter` and applied to inline rows as well. Context tokens such as `{current_user_id}` are resolved first. A record whose parent the filter removed is drawn as a root. |
+| `navigation` | What a row click opens (below). |
+
+The node's `dataSource` binding is **not** a record source on this block: the
+registration is not wrapped in `ElementDataSourceGate`, so nothing lands a
+binding's object on `objectName`, and `objectui validate` does not count it.
+
+### The `tree` block
 
 | Key | Default | Description |
 | --- | --- | --- |
 | `parentField` | auto-detected | Field holding the parent reference. When omitted, the renderer picks the object's `tree` field (or a lookup/master_detail that references the same object). |
 | `labelField` | `name` | Field rendered indented in the first column. |
-| `fields` | `[]` | Additional fields rendered as flat columns. |
+| `fields` | `[]` | Additional fields rendered as flat columns after the label. |
 | `defaultExpandedDepth` | _unset_ | Initial expansion depth. `0` = roots only; unset = expand everything. |
 
 Records whose parent is missing (or points outside the result set) are kept as
 roots, so nothing is silently dropped.
+
+⚠️ The same four keys written **flat** on the node are still read, and a flat
+key outranks the block's member of the same name. They are the form a host
+composes; the spec row declares only the `tree` block, so author that.
+
+### `navigation`
+
+`navigation` takes the spec's `NavigationConfig` (`{ mode, size, width,
+openNewTab, preventNavigation }`), the block a list view declares. On a tree no
+parent view navigates for:
+
+- **Absent**: a click opens nothing. This renderer supplies no drawer default.
+- `drawer`, `modal` and `popover` open the row's record in that overlay; `split`
+  opens it beside the tree, which stays drawn.
+- `new_window` opens `/{objectName}/record/{id}` in a new tab; `none` opens
+  nothing.
+- `page`, and a block without `mode` (it takes the spec's `page` default), open
+  a record page through the record navigator the host publishes (the console
+  publishes one on its custom pages, record pages and list views). The object
+  is `data.object` when `data` is the object provider, so it wins when both
+  are written, and the tree's `objectName` otherwise. Under a host that
+  publishes none, such as an embedded renderer, or on a tree that names neither
+  (inline rows with no `objectName`), there is no record page to open and the
+  click opens nothing.
+- `preventNavigation: true` opens nothing whatever the mode. `openNewTab: true`
+  opens the record page in a new tab and outranks every mode except `none`.
+- `size` picks the overlay width bucket; the deprecated `width` wins over it.
+
+A click handler from a parent view outranks the whole key.
 
 ### Expansion: the seed and the user's answer
 
@@ -124,7 +172,7 @@ present.
 
 ⛔ This does not make `tree` an authorable view type. objectui#5321 is
 unchanged: the block is written by a **host**, never by a document author, and
-the authored node is the flat `object-tree` schema at the top of this file.
+the authored node is the `object-tree` schema at the top of this file.
 
 ## License
 

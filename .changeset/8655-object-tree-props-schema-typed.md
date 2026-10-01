@@ -50,3 +50,18 @@ needs a producer census a text search cannot make. `navigation` belongs to a
 blocked card and is ledgered, ⛔ not ruled.
 
 Nothing in `@object-ui/types` is declared, widened or narrowed by this change.
+
+**Note, 2026-10-01 (objectui#11168 slice 3, shipping in this same release).**
+The `navigation` and `tree` readings above changed after this entry was written.
+`@objectstack/spec` 17.5.0 gave `object-tree` an element row, and that row
+declares both keys, so both verdicts here were re-run on that contract.
+- `navigation` is DECLARED on `ObjectTreeSchema` as the spec's
+  `NavigationConfig`, and the cast this entry says "stays" is gone.
+- `tree` is DECLARED as the spec's `TreeConfig`, by reference. Mirroring the
+  element row is not the fork described above.
+- `ObjectTreeSchema` also declares `data` as `ViewData` (not `BaseSchema`'s
+  untyped `data`) and `staticData`, and `objectName` is optional.
+
+So the sentences above that say these keys are undeclared describe the tree at
+objectui#8655, not the code in this release. See that slice's changesets for
+`@object-ui/types` and `@object-ui/plugin-tree`.

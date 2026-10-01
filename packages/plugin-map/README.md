@@ -148,7 +148,7 @@ required" refusal below rather than a map.
 | `descriptionField` | Field shown under the title in the marker popup. |
 | `zoom` | Zoom level. Declaring it opts this view out of the auto-fit (see below). |
 | `center` | `[latitude, longitude]` — a two-number **tuple**, latitude first. Declaring it opts this view out of the auto-fit. |
-| `style` | MapLibre style URL/spec, replacing the default public demo style. |
+| `style` | MapLibre style URL/spec, replacing the default public demo style. The node-level `mapStyle` is read before it, so it applies when `mapStyle` is absent. |
 
 **Nothing is guessed — an unbound map REFUSES.** A map with no coordinate binding
 renders
@@ -168,6 +168,14 @@ that happens to carry `latitude` / `longitude` columns no longer plots on a view
 that declared no binding — it refuses, and the fix is to declare the binding.
 A title field is still never guessed (objectui#5953): an unconfigured marker
 takes its title from the record-title precedence above.
+
+## Node-level keys beside the block
+
+| Key | Description |
+| --- | --- |
+| `mapStyle` | MapLibre style URL or spec, replacing the demo tiles. Read before `map.style`, so it wins when both are written. Not the node's base `style`, which is an inline CSS record. |
+| `enableClustering` | `true` groups nearby markers into numbered clusters. Absent, the map clusters only above 100 markers; `false` turns clustering off at any count. |
+| `navigation` | What a marker click opens — the spec's `NavigationConfig`. `drawer`, `modal` and `popover` open the marker's record; `new_window` (or `openNewTab: true`, which outranks every mode except `none`) opens the record page in a new tab; `preventNavigation: true` opens nothing. An absent key, `none` and `split` open nothing (the map hands the split shell no main panel). `page`, and a block without `mode` (the spec's `page` default), open the record page of the map's `objectName` through the record navigator the host publishes (the console publishes one on its custom pages, record pages and list views); under a host that publishes none, or on a map that names no `objectName`, the click opens nothing. A parent view's click handler outranks the whole key. |
 
 ## Initial camera
 

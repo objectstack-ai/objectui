@@ -25,6 +25,9 @@ ComponentRegistry.register('list',
 
     return (
       <div className={cn("space-y-2", schema.wrapperClass)}>
+        {/* `title` is a declared `ListSchema` member (objectui#11347): the
+            published `skills/objectui` expressions guide authors it, so the
+            read is kept and the type now says so. */}
         {schema.title && (
           <h3 className="text-lg font-semibold tracking-tight">
              {schema.title}

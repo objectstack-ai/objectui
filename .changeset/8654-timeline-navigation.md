@@ -9,3 +9,14 @@
 - An authored `{ "type": "object-timeline", "properties": { … } }` document was already judged by the spec row: a bad `mode` is refused at `properties.navigation.mode`, and a member the spec does not declare inside the block is refused. That is unchanged and now pinned.
 
 What a click does with each member is unchanged. `drawer`, `modal` and `popover` open the entry's record in that overlay, and `new_window` or `openNewTab: true` opens the record page in a new tab. Three things open nothing on a timeline that no parent view navigates for: an absent key, `page` (also what a block without `mode` resolves to), and `split`. The published input description says so.
+
+**Note, 2026-10-01 (objectui#11168 slice 3, shipping in this same release).**
+The last paragraph above says `page`, and a block without `mode`, open nothing
+on a timeline that no parent view navigates for, and that the published input
+description says so. objectui#11293 changed that in this same release: a
+`page` click with no `onNavigate` now goes to the record navigator the host
+publishes, which the console publishes on its custom pages, record pages and
+list views. Under such a host `page` and a block without `mode` open the record
+page. They open nothing only under a host that publishes none, such as an
+embedded renderer. The input description now says so (objectui#11168). An
+absent key and `split` still open nothing.

@@ -286,6 +286,19 @@ export interface AvatarSchema extends BaseSchema {
 export interface ListSchema extends BaseSchema {
   type: 'list';
   /**
+   * Heading drawn above the list.
+   *
+   * READ SITE: `packages/components/src/renderers/data-display/list.tsx`, which
+   * draws `schema.title` in an `h3` above the list when it is set; the `list`
+   * registration publishes it as an input. Undeclared until objectui#11347,
+   * surviving only on `BaseSchema`'s index signature. The installed
+   * `@objectstack/spec` has no row for `list`, and the published
+   * `skills/objectui` expressions guide authors `title` on a `list` node, so
+   * the key is declared where the renderer and the registry already honour it
+   * rather than retired.
+   */
+  title?: string;
+  /**
    * List items
    */
   items: ListItem[];
@@ -307,7 +320,7 @@ export interface ListSchema extends BaseSchema {
   /**
    * Classes on the wrapper `div` around the title and the list.
    *
-   * READ SITE: `packages/components/src/renderers/data-display/list.tsx:27` —
+   * READ SITE: `packages/components/src/renderers/data-display/list.tsx` —
    * `cn("space-y-2", schema.wrapperClass)`. Undeclared until
    * objectui#7722, surviving only on `BaseSchema`'s index signature: the same
    * key, on the same class of read, that `CheckboxSchema` (`b74a8598d`),

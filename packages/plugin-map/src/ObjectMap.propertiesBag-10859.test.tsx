@@ -33,19 +33,22 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import type { BaseSchema, DataSource } from '@object-ui/types';
 import { safeValidateSchema } from '@object-ui/types/zod';
+
+type StandInProps = { children?: React.ReactNode; latitude?: number; longitude?: number };
 
 // No WebGL in the test env — the stand-in the sibling ObjectMap tests use.
 vi.mock('react-map-gl/maplibre', () => ({
-  default: ({ children }: any) => <div aria-label="Map">{children}</div>,
-  Map: ({ children }: any) => <div aria-label="Map">{children}</div>,
+  default: ({ children }: StandInProps) => <div aria-label="Map">{children}</div>,
+  Map: ({ children }: StandInProps) => <div aria-label="Map">{children}</div>,
   NavigationControl: () => <div data-testid="nav-control" />,
-  Marker: ({ children, latitude, longitude }: any) => (
+  Marker: ({ children, latitude, longitude }: StandInProps) => (
     <div data-testid="map-marker" data-lat={latitude} data-lng={longitude}>
       {children}
     </div>
   ),
-  Popup: ({ children }: any) => <div data-testid="map-popup">{children}</div>,
+  Popup: ({ children }: StandInProps) => <div data-testid="map-popup">{children}</div>,
 }));
 
 // Module scope, not a hook: this import IS the registration (AGENTS.md
@@ -84,8 +87,8 @@ function makeAdapter() {
 async function renderNode(schema: Record<string, unknown>) {
   const adapter = makeAdapter();
   const view = render(
-    <SchemaRendererProvider dataSource={adapter as any}>
-      <SchemaRenderer schema={schema as any} />
+    <SchemaRendererProvider dataSource={adapter as unknown as DataSource}>
+      <SchemaRenderer schema={schema as BaseSchema} />
     </SchemaRendererProvider>,
   );
   await waitFor(() => expect(adapter.find).toHaveBeenCalled());
@@ -101,7 +104,7 @@ describe('object-map renders from its `properties` bag (objectui#10859 batch 5)'
 
   it('the bag queries its object with its own filter and sort, and plots one marker per row', async () => {
     const { adapter, container } = await renderNode(BAG);
-    const [object, params] = adapter.find.mock.calls[0] as [string, any];
+    const [object, params] = adapter.find.mock.calls[0] as [string, { $filter?: unknown; $orderby?: unknown }];
     expect(object).toBe('store');
     expect(JSON.stringify(params.$filter)).toContain('region');
     expect(params.$orderby).toEqual({ name: 'desc' });

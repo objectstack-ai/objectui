@@ -42,7 +42,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { DetailView } from '../DetailView';
-import type { DetailViewSchema } from '@object-ui/types';
+import type { DetailViewSchema, SchemaNode } from '@object-ui/types';
 
 afterEach(() => cleanup());
 
@@ -59,9 +59,11 @@ const BASE: DetailViewSchema = {
 };
 
 function renderSlot(slot: 'header' | 'footer', value: unknown): string {
-  const schema: Record<string, unknown> = { ...BASE };
-  if (value !== OMIT) schema[slot] = value;
-  render(<DetailView schema={schema as DetailViewSchema} />);
+  // Typed as the view, and the value written through the slot's own type: both
+  // slots are `SchemaNode`, which admits the primitives this file feeds them.
+  const schema: DetailViewSchema = { ...BASE };
+  if (value !== OMIT) schema[slot] = value as SchemaNode;
+  render(<DetailView schema={schema} />);
   return document.body.textContent ?? '';
 }
 

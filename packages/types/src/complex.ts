@@ -2228,8 +2228,25 @@ export interface DashboardWidgetSchema
   /** Widget-specific configuration (spec shorthand format). Kept `unknown` — objectui
    *  renderers pass widget-family-specific bags the spec's `options` object does not model. */
   options?: unknown;
-  /** Chart configuration for chart-type widgets */
-  chartConfig?: any;
+  /**
+   * Chart configuration for chart-type widgets.
+   *
+   * Every key is still `any` on this face except one. `aria` is typed BY
+   * REFERENCE from the spec's own member (objectui#4044): @objectstack/spec
+   * 17.5.0 retired `ChartConfig.aria` as a `retiredKey` tombstone (ADR-0049 D2;
+   * no chart renderer ever applied it), so the member is `undefined` and an
+   * authored value is a compile error. That is the verdict the Zod twin already
+   * gives at parse, at `chartConfig.aria`, because `zod/complex.zod.ts`
+   * `DashboardWidgetSchema` takes the spec's `chartConfig` by reference. The
+   * accessible name a chart DOES apply is the sibling `description`, which the
+   * chart renderer lowers to `role="img"` plus `aria-label`.
+   *
+   * Pinned by `__tests__/chartconfig-aria-retired-4044.test.ts`.
+   */
+  chartConfig?: {
+    [key: string]: any;
+    aria?: NonNullable<SpecDashboardWidget['chartConfig']>['aria'];
+  };
   /**
    * Data binding: filter conditions. Kept `any` — objectui passes an ObjectQL
    * FilterNode array here, not the spec's `FilterCondition` envelope.

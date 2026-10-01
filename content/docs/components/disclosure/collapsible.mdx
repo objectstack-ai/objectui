@@ -9,7 +9,9 @@ description: "Toggle visibility of content"
 
 ## Schema
 
-```plaintext
+```ts
+import type { SchemaNode } from '@object-ui/types';
+
 interface CollapsibleSchema {
   type: 'collapsible';
   trigger: SchemaNode | SchemaNode[];

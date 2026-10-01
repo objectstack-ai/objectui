@@ -11,7 +11,9 @@ description: "Container with header, content, and footer sections"
 
 ## Schema
 
-```plaintext
+```ts
+import type { SchemaNode } from '@object-ui/types';
+
 interface CardSchema {
   type: 'card';
   title?: string;

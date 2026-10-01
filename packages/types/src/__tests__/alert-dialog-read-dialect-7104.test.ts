@@ -246,9 +246,15 @@ interface Member {
   readonly typeText: string;
 }
 
+/**
+ * The page's one `ts` fence. objectui#5867 batch 8 re-fenced it from
+ * `plaintext`, so `check-doc-snippet-types` now compiles it; the page declares
+ * its own interface, so that compile does not judge the member rows against the
+ * shipped schema. This file still does.
+ */
 function schemaFence(doc: string): string {
-  const fences = [...doc.matchAll(/```plaintext\n([\s\S]*?)```/g)].map((match) => match[1]);
-  if (fences.length !== 1) throw new Error(`expected exactly one plaintext fence in ${DOC}, found ${fences.length}`);
+  const fences = [...doc.matchAll(/```ts\n([\s\S]*?)```/g)].map((match) => match[1]);
+  if (fences.length !== 1) throw new Error(`expected exactly one ts fence in ${DOC}, found ${fences.length}`);
   return fences[0];
 }
 

@@ -286,11 +286,11 @@ interface Subject {
 }
 
 const SUBJECTS: readonly Subject[] = [
-  { name: 'AlertDialogSchema', docPath: 'content/docs/components/overlay/alert-dialog.mdx', fence: 'plaintext', declPath: 'packages/types/src/overlay.ts' },
-  { name: 'ContextMenuSchema', docPath: 'content/docs/components/overlay/context-menu.mdx', fence: 'plaintext', declPath: 'packages/types/src/overlay.ts' },
-  { name: 'HoverCardSchema', docPath: 'content/docs/components/overlay/hover-card.mdx', fence: 'plaintext', declPath: 'packages/types/src/overlay.ts' },
-  { name: 'DropdownMenuSchema', docPath: 'content/docs/components/overlay/dropdown-menu.mdx', fence: 'plaintext', declPath: 'packages/types/src/overlay.ts' },
-  { name: 'SheetSchema', docPath: 'content/docs/components/overlay/sheet.mdx', fence: 'plaintext', declPath: 'packages/types/src/overlay.ts' },
+  { name: 'AlertDialogSchema', docPath: 'content/docs/components/overlay/alert-dialog.mdx', fence: 'ts', declPath: 'packages/types/src/overlay.ts' },
+  { name: 'ContextMenuSchema', docPath: 'content/docs/components/overlay/context-menu.mdx', fence: 'ts', declPath: 'packages/types/src/overlay.ts' },
+  { name: 'HoverCardSchema', docPath: 'content/docs/components/overlay/hover-card.mdx', fence: 'ts', declPath: 'packages/types/src/overlay.ts' },
+  { name: 'DropdownMenuSchema', docPath: 'content/docs/components/overlay/dropdown-menu.mdx', fence: 'ts', declPath: 'packages/types/src/overlay.ts' },
+  { name: 'SheetSchema', docPath: 'content/docs/components/overlay/sheet.mdx', fence: 'ts', declPath: 'packages/types/src/overlay.ts' },
   { name: 'EmptySchema', docPath: 'content/docs/components/feedback/empty.mdx', fence: 'ts', declPath: 'packages/types/src/feedback.ts' },
 ];
 

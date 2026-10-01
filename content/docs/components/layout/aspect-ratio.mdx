@@ -25,7 +25,9 @@ The box holds its content one of two ways, and the renderer reads exactly one of
 set `image` for a photo, which is drawn to fill the box; otherwise the box renders
 `children`.
 
-```plaintext
+```ts
+import type { SchemaNode } from '@object-ui/types';
+
 interface AspectRatioSchema {
   type: 'aspect-ratio';
   ratio?: number;                  // Width / Height ratio (default: 16 / 9)

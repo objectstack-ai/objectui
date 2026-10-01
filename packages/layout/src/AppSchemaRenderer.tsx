@@ -45,6 +45,7 @@ import { AppShell, type AppShellBranding } from './AppShell';
 import {
   NavigationRenderer,
   hasVisibleNavigationItems,
+  resolveActiveNavItem,
   resolveHref,
   resolveIcon,
   resolveNavItemLabel,
@@ -296,6 +297,17 @@ function MobileBottomNav({
 
   if (leaves.length === 0) return null;
 
+  // objectui#11211: a tab opens the page its sidebar row opens, so it asks the
+  // sidebar's own rule pair with the sidebar's own arguments — `resolveHref`
+  // for where it goes and `resolveActiveNavItem` (its inverse) for whether it
+  // lights — never a per-type spelling of either. The arguments are the ones
+  // `InternalSidebar` hands `NavigationRenderer`: `basePath` and no template
+  // context, which `AppSchemaRendererProps` does not carry. The election runs
+  // over the whole tree, as the sidebar's does, so at most one tab lights and
+  // it is the row the sidebar highlights.
+  const activeId =
+    resolveActiveNavItem(items, location.pathname, location.search, basePath)?.id ?? null;
+
   return (
     <div
       className="fixed bottom-0 left-0 right-0 z-50 flex items-center justify-around border-t bg-background/95 backdrop-blur-sm px-2 py-1 sm:hidden safe-area-bottom"
@@ -304,51 +316,28 @@ function MobileBottomNav({
     >
       {leaves.map((item) => {
         const NavIcon = resolveIcon(item.icon);
-        let href = '#';
-        if (item.type === 'object') {
-          href = `${basePath}/${item.objectName}`;
-          if (item.viewName) href += `/view/${item.viewName}`;
-        }
-        else if (item.type === 'dashboard') href = item.dashboardName ? `${basePath}/dashboard/${item.dashboardName}` : '#';
-        else if (item.type === 'page') href = item.pageName ? `${basePath}/page/${item.pageName}` : '#';
-        else if (item.type === 'report') href = item.reportName ? `${basePath}/report/${item.reportName}` : '#';
-        else if (item.type === 'url') href = item.url ?? '#';
-        else if (item.type === 'component') {
-          const ref = item.componentRef;
-          if (ref) {
-            const segs = ref.split(':').filter(Boolean);
-            href = `${basePath}/component/${segs.join('/')}`;
-            const navParams = item.params;
-            if (navParams) {
-              const usp = new URLSearchParams();
-              for (const [k, v] of Object.entries(navParams)) {
-                if (v === undefined || v === null) continue;
-                usp.set(k, typeof v === 'string' ? v : JSON.stringify(v));
-              }
-              const qs = usp.toString();
-              if (qs) href += `?${qs}`;
-            }
-          }
-        }
-        // objectui#11197: a `doc` entry opens the docs portal. Delegated to
-        // `resolveHref` rather than spelled a second time here.
-        else if (item.type === 'doc') href = resolveHref(item, basePath).href;
-
-        const isActive = href !== '#' && location.pathname.startsWith(href);
-
-        return (
-          <Link
-            key={item.id}
-            to={href}
-            className={`flex flex-col items-center gap-0.5 px-2 py-1.5 transition-colors min-w-[44px] min-h-[44px] justify-center ${
-              isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
+        const { href, external } = resolveHref(item, basePath);
+        const className = `flex flex-col items-center gap-0.5 px-2 py-1.5 transition-colors min-w-[44px] min-h-[44px] justify-center ${
+          item.id === activeId ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
+        }`;
+        const content = (
+          <>
             <NavIcon className="h-5 w-5" />
             {/* `resolveNavItemLabel`, not a raw `item.label` read: an entry's label may be
                 absent since objectui#9868, and this host has no metadata, so it shows the
                 same machine-name backstop its `NavigationRenderer` does. */}
             <span className="text-[10px] truncate max-w-[60px]">{resolveNavItemLabel(item)}</span>
+          </>
+        );
+
+        // An `external` answer opens in a new tab, the way the sidebar draws it.
+        return external ? (
+          <a key={item.id} href={href} target="_blank" rel="noopener noreferrer" className={className}>
+            {content}
+          </a>
+        ) : (
+          <Link key={item.id} to={href} className={className}>
+            {content}
           </Link>
         );
       })}

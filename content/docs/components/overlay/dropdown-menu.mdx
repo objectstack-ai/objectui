@@ -30,7 +30,9 @@ refused at parse time rather than silently ignored.
 
 ## Schema
 
-```plaintext
+```ts
+import type { SchemaNode } from '@object-ui/types';
+
 interface DropdownMenuCommandItem {
   label: string;
   icon?: string;                  // kebab-case Lucide icon name (e.g. "square-pen")

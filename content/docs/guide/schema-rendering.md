@@ -307,16 +307,20 @@ Components can emit events that you handle in React:
 />
 ```
 
-Reference actions in schemas:
+Reference actions in schemas — the block's props go in its `properties` bag, as
+`@objectstack/spec` declares them; the spec's strict page component refuses them
+written flat on the node:
 
 ```json
 {
   "type": "action:button",
-  "name": "call_api",
-  "label": "Click Me",
-  "actionType": "api",
-  "endpoint": "/api/action",
-  "method": "POST"
+  "properties": {
+    "name": "call_api",
+    "label": "Click Me",
+    "actionType": "api",
+    "endpoint": "/api/action",
+    "method": "POST"
+  }
 }
 ```
 

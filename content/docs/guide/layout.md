@@ -546,19 +546,23 @@ Same rule as above, and it governs the trail too: the breadcrumb and the buttons
       "children": [
         {
           "type": "action:button",
-          "name": "edit_record",
-          "label": "Edit",
-          "variant": "default",
-          "icon": "pencil",
-          "actionType": "editRecord"
+          "properties": {
+            "name": "edit_record",
+            "label": "Edit",
+            "variant": "default",
+            "icon": "pencil",
+            "actionType": "editRecord"
+          }
         },
         {
           "type": "action:button",
-          "name": "delete_record",
-          "label": "Delete",
-          "variant": "destructive",
-          "icon": "trash",
-          "actionType": "deleteRecord"
+          "properties": {
+            "name": "delete_record",
+            "label": "Delete",
+            "variant": "destructive",
+            "icon": "trash",
+            "actionType": "deleteRecord"
+          }
         }
       ]
     },
@@ -573,7 +577,10 @@ Same rule as above, and it governs the trail too: the breadcrumb and the buttons
 ```
 
 A button that RUNS something is an `action:button` node, not a `button` carrying an
-`onClick`. `ButtonSchema.onClick` is declared as a runtime slot for a host-supplied
+`onClick`. Its props — `actionType` and the rest of the block's row — go in the node's
+`properties` bag, as `@objectstack/spec` declares them; the spec's strict page component
+refuses them written flat on the node, and `SchemaRenderer` hoists the bag onto the node
+before the renderer reads it. `ButtonSchema.onClick` is declared as a runtime slot for a host-supplied
 function and the zod mirror refuses it BY NAME — JSON has no function value, and no
 handler key consumes a declarative action object. The refusal is not the whole cost:
 `onClick` is on `SDUI_DOM_PASS_THROUGH_KEYS`, so an authored string or object is

@@ -122,15 +122,19 @@ Keep custom component registrations namespaced to avoid collisions.
 ### 5. Use action data, not inline callback spaghetti
 
 Represent interactions as data: a control that runs something is an `action:button`
-node, and `actionType` names the executor the action runner dispatches to.
+node. Its props go in the `properties` bag — `actionType` names the executor the
+action runner dispatches to — never flat on the node, which the spec's strict page
+component refuses (ADR-0089 D3a).
 
 <!-- os:check -->
 ```json
 {
   "type": "action:button",
-  "label": "Save customer",
-  "actionType": "url",
-  "target": "/customers"
+  "properties": {
+    "label": "Save customer",
+    "actionType": "url",
+    "target": "/customers"
+  }
 }
 ```
 
@@ -251,17 +255,20 @@ renderers do (`schema.objectName`, `schema.columns`, `schema.fields`,
 > names the field a form input writes. A grid column written as `{ "name": ... }`
 > names no field, so `ObjectGrid` drops it.
 
-**Form plugin example:**
+**Form plugin example** — an `object-form` takes its props in the spec's `properties`
+bag, and `objectui validate` refuses the flat spelling by name:
 <!-- os:check -->
 ```json
 {
   "type": "object-form",
-  "objectName": "customer",
-  "mode": "edit",
-  "fields": [
-    { "name": "name", "label": "Name", "type": "text", "required": true },
-    { "name": "email", "label": "Email", "type": "text" }
-  ]
+  "properties": {
+    "objectName": "customer",
+    "mode": "edit",
+    "fields": [
+      { "name": "name", "label": "Name", "type": "text", "required": true },
+      { "name": "email", "label": "Email", "type": "text" }
+    ]
+  }
 }
 ```
 

@@ -500,7 +500,7 @@ Omit `sidebar` and the content fills the width under the top bar.
   "maxWidth": "2xl",
   "children": {
     "type": "tabs",
-    "tabs": [
+    "items": [
       {
         "label": "General",
         "value": "general",

@@ -331,11 +331,15 @@ export {
   // Batch 4's `ObjectFormBlockSchema` and batch 5's `ObjectMapBlockSchema` are
   // the authored `object-form` / `object-map` arms; `ObjectFormSchema` and
   // `ObjectMapSchema` above stay the nodes as their renderers read them.
+  // objectui#11276's `ObjectChartBlockSchema` is the authored `object-chart`
+  // arm, its bag the flat mirror's own members (the spec has no row for it);
+  // `ObjectChartSchema` above stays the node as `ObjectChart` reads it.
   ObjectMetricBlockSchema,
   ObjectMasterDetailFormBlockSchema,
   ObjectTimelineBlockSchema,
   ObjectFormBlockSchema,
   ObjectMapBlockSchema,
+  ObjectChartBlockSchema,
   ObjectQLPublicBlockComponentSchema,
 } from './objectql.zod.js';
 

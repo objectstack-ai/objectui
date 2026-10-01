@@ -66,7 +66,7 @@ const LABELLED = world({
 });
 
 const label = (item: NavigationItem, target?: NavTargetLabelResolver) =>
-  resolveNavItemLabel(item, undefined, undefined, undefined, undefined, target);
+  resolveNavItemLabel(item, undefined, target);
 
 describe('objectui#9868 — resolveNavItemLabel: an absent label inherits its target', () => {
   it('a view entry shows the VIEW’s label, and after a rename the new one — same nav tree, nothing stored', () => {
@@ -130,13 +130,12 @@ describe('objectui#9868 — the controls: a PRESENT label is never replaced by t
 
   it('an explicit label EQUAL to the machine name stays verbatim — the sentinel route (B) was refused', () => {
     const spy = vi.fn(LABELLED);
-    // The i18n convention resolvers answer "no translation" (their fallback),
-    // so the only thing that could change this text is the target resolver.
-    const echo = (_name: string, fallback: string) => fallback;
-    const echoView = (_o: string, _v: string, fallback: string) => fallback;
+    // The only thing that could change this text is the target resolver (the
+    // i18n convention resolvers this row also used to pass retired in
+    // objectui#11299), and a viewer's locale does not reach a plain string.
     const item: NavigationItem = { id: 'nav_acc', type: 'object', objectName: 'account', label: 'account' };
-    expect(resolveNavItemLabel(item, echo, undefined, echo, echoView, spy)).toBe('account');
-    expect(resolveNavItemLabel({ ...VIEW_ENTRY, label: 'board' }, echo, undefined, echo, echoView, spy)).toBe('board');
+    expect(resolveNavItemLabel(item, undefined, spy, 'zh-CN')).toBe('account');
+    expect(resolveNavItemLabel({ ...VIEW_ENTRY, label: 'board' }, undefined, spy, 'zh-CN')).toBe('board');
     expect(spy).not.toHaveBeenCalled();
   });
 });

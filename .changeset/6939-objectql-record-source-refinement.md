@@ -31,3 +31,9 @@ including an empty one, still parses, because presence is `!== undefined` and
 not the renderer's truthiness. The one shape the refinement refuses (none of
 the three) was refused before too, when `objectName` was required. Documents
 the renderers already draw start validating.
+
+**Correction, 2026-10-01 (objectui#11117).** "The one shape the refinement refuses (none of the
+three)" is narrower now: a node with none of the three that names its object in a
+`dataSource` binding (`dataSource: { object }`, a non-empty name) parses, because the
+registration's `ElementDataSourceGate` lands that object on `objectName`. The refusal now names
+the binding beside the three keys.

@@ -47,3 +47,9 @@ objectui#8913 and recorded there as unreachable, is now reachable: it fires only
 `if (!schema.groupBy)`, which no schema-valid document could satisfy while the key was
 required. Pinned with a firing control in
 `packages/plugin-kanban/src/__tests__/laneLessBoard-8990.test.tsx`.
+
+**Correction, 2026-10-01 (objectui#11117).** The second bullet above says the
+`data-objectstack.mdx` fragment `{ type, dataSource }` is still refused at
+`RECORD_SOURCE_REQUIRED` because `dataSource` is not a rung. That no longer holds: objectui#11117
+counts a node's `dataSource.object` binding as a record source, as the registration's
+`ElementDataSourceGate` already did, so the fragment now parses.

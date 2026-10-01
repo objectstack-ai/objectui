@@ -412,6 +412,15 @@ export const DataTableSchema = BaseSchema.extend({
   pageSizeOptions: z.array(z.number()).optional().describe('Options for the rows-per-page selector (defaults to 5/10/20/50/100).'),
   searchable: z.boolean().optional().describe('Enable search'),
   selectable: z.union([z.boolean(), z.enum(['single', 'multiple'])]).optional().describe('Enable row selection — `true`/`multiple` = multi-select, `single` = replace-on-select with no select-all'),
+  // objectui#6152 round 5, ADR-0049 — declared on the interface and never
+  // mirrored, so `.passthrough()` KEPT an authored value unexamined; it is
+  // retired on both faces now (the census and the route are on the
+  // `DataTableSchema.selectionStyle` member in `../data-display.ts`).
+  selectionStyle: retirementTombstone(
+    'RETIRED (objectui#6152, ADR-0049) — a selectable table always shows its row checkboxes, and there is '
+    + 'no hover-only style: nothing authored or produced this key, so the hover branch was dropped. Delete the '
+    + 'key; `selectable` alone turns selection on.',
+  ),
   sortable: z.boolean().optional().describe('Enable sorting'),
   exportable: z.boolean().optional().describe('Enable data export'),
   rowActions: z.boolean().optional().describe('Show the row actions column (edit/delete) — mirrors the boolean the renderer truthiness-tests'),

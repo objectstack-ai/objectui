@@ -31,6 +31,13 @@
  *
  * The three arms spread the ONE shared fragment the public-block arms spread,
  * `PAGE_COMPONENT_ENVELOPE`, so the member is the same object on all 33 arms.
+ *
+ * ⚠️ objectui#11276 moved `object-chart`'s AUTHORED arm into the public-block
+ * set (`ObjectChartBlockSchema`, its props in the `properties` bag), so the
+ * population below is the two arms the node union still selects a flat mirror
+ * for. The flat `ObjectChartSchema` keeps the shared member as the post-hoist
+ * reading, and the authored chart arm is pinned with the other public blocks in
+ * `./public-block-responsive-styles-10872.test.ts`.
  * The key is NOT declared on `BaseSchema` and NOT on any arm without a measured
  * producer: `grid`, `stack` and `container` below are the control, and the
  * whole arm list is read at run time so an arm that gains the member silently
@@ -122,14 +129,16 @@ function armsByLiteral(): Map<string, Arm> {
 }
 
 /**
- * The three arms this batch widens: the arms outside the public-block set that
- * a producer writes `responsiveStyles` on (objectui#10872's batch-9 pull). NAMED,
- * not derived, because the population is a measurement of producers.
+ * The arms this batch widens that the node union still selects: the arms
+ * outside the public-block set that a producer writes `responsiveStyles` on
+ * (objectui#10872's batch-9 pull). NAMED, not derived, because the population
+ * is a measurement of producers. `object-chart` was the third until
+ * objectui#11276 moved its authored arm into the public-block set; its flat
+ * mirror keeps the member (the post-hoist row below).
  */
 const FLAT_ARMS = [
   ['flex', FlexSchema],
   ['object-grid', ObjectGridSchema],
-  ['object-chart', ObjectChartSchema],
 ] as const;
 
 /** Arms with no producer: the strict face still refuses the key on them. */
@@ -160,15 +169,6 @@ const VALID_NODES = {
     objectName: 'showcase_task',
     columns: ['title', 'status'],
     responsiveStyles: { large: { minWidth: '0', display: 'block' } },
-  },
-  'object-chart': {
-    type: 'object-chart',
-    id: 'cc_status_c',
-    dataset: 'showcase_task_metrics',
-    dimensions: ['status'],
-    values: ['task_count'],
-    chartType: 'bar',
-    responsiveStyles: { large: { width: '100%', minWidth: '0' }, xsmall: { display: 'none' } },
   },
 } as const;
 
@@ -220,11 +220,18 @@ describe('the population (objectui#10872 batch 9)', () => {
   });
 });
 
-describe('`responsiveStyles` is declared on the three arms, from the public blocks\' fragment (objectui#10872 batch 9)', () => {
+describe('`responsiveStyles` is declared on the batch-9 arms, from the public blocks\' fragment (objectui#10872 batch 9)', () => {
   it.each(FLAT_ARMS)('%s carries the member, and it is the SAME object the public-block arms carry', (_type, arm) => {
     const shared = PageSectionBlockSchema.shape.responsiveStyles;
     expect(shared).toBeDefined();
     expect(arm.shape.responsiveStyles).toBe(shared);
+  });
+
+  it('the flat `ObjectChartSchema` mirror keeps the SAME member as the post-hoist reading (objectui#11276)', () => {
+    // Its authored arm left the node union for the public-block set; the
+    // mirror is the node as `ObjectChart` reads it, and it still declares the key.
+    expect(ObjectChartSchema.shape.responsiveStyles).toBe(PageSectionBlockSchema.shape.responsiveStyles);
+    expect(armsByLiteral().get('object-chart')).not.toBe(ObjectChartSchema);
   });
 
   it('the member is the spec\'s own map: the same breakpoints, each the spec\'s own value schema', () => {
@@ -234,7 +241,7 @@ describe('`responsiveStyles` is declared on the three arms, from the public bloc
     for (const key of Object.keys(spec.shape)) expect(member.shape[key]).toBe(spec.shape[key]);
   });
 
-  it('exactly the public-block arms and these three declare it: no other arm, and not `BaseSchema`', () => {
+  it('exactly the public-block arms and these flat arms declare it: no other arm, and not `BaseSchema`', () => {
     expect(Object.keys(BaseSchema.shape)).not.toContain('responsiveStyles');
     const publicBlocks = [
       ...optionsOf(PublicBlockComponentSchema),
@@ -282,7 +289,7 @@ describe('an invalid `responsiveStyles` is refused on BOTH faces, with the spec\
   });
 });
 
-describe('the other five envelope keys stay undeclared on the three arms (objectui#10872 batch 9)', () => {
+describe('the other five envelope keys stay undeclared on the batch-9 arms (objectui#10872 batch 9)', () => {
   it('no arm gained any of them: `dataSource` only where objectui#11070 declared it', () => {
     const declared = FLAT_ARMS.flatMap(([type, arm]) =>
       UNDECLARED_ENVELOPE.filter((key) => key in arm.shape).map((key) => `${type}#${key}`),

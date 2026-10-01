@@ -40,8 +40,11 @@
  *
  * ## `displayMode` and `floatingConfig` live on BOTH faces; `displayMode` is a tombstone on both
  *
- * `ChatbotSchema` keeps `floatingConfig` exactly as it had it, and
- * `ChatbotFloatingSchema` declares the same member. `displayMode` was carried
+ * `ChatbotSchema` kept `floatingConfig` exactly as it had it, and
+ * `ChatbotFloatingSchema` declares the same member. (objectui#6152 round 5 has
+ * since RETIRED `ChatbotSchema.floatingConfig` on both faces — the `chatbot`
+ * registration never read it — so the member is live on the floating face only;
+ * the pins below read that.) `displayMode` was carried
  * the same way — declared verbatim on both faces, untouched by this card —
  * until objectui#7654 RETIRED it (maintainer ruling B, 2026-09-05): it is a
  * `?: never` tombstone on both faces now, the designer control and the
@@ -163,9 +166,10 @@ export type assertionFloatingDeclaresWhatItReads = Expect<
 /**
  * `chatbot` keeps its WHOLE face — the six legacy keys (`loading` … `height`),
  * the `onSendMessage` and (since objectui#7654) `displayMode` tombstones, and
- * `floatingConfig` — exactly where they were. A `?: never` member is still a
- * declared key, so the census does not move when a key is tombstoned. This
- * card declared faces; it retired and moved nothing.
+ * `floatingConfig` (a tombstone too since objectui#6152 round 5) — exactly where
+ * they were. A `?: never` member is still a declared key, so the census does not
+ * move when a key is tombstoned. This card declared faces; it retired and moved
+ * nothing.
  */
 export type assertionChatbotKeepsItsWholeFace = Expect<
   Equal<
@@ -177,19 +181,20 @@ export type assertionChatbotKeepsItsWholeFace = Expect<
 >;
 
 /**
- * The two floating keys stay TYPED on `ChatbotSchema`. Read off the member,
- * not the key set: a member that fell off the declaration would not go missing
- * here — it would read as `any` through `BaseSchema`'s index signature, wrong
- * values would compile, and the objectui#7669 `triggerIcon` tombstone would lose
- * its reach on `chatbot` nodes (all three measured on #7655's first cut, which
- * moved the keys). `Equal` is what catches the `any`. `displayMode` reads as
- * `undefined` since objectui#7654 tombstoned it (`?: never` without
- * `exactOptionalPropertyTypes` is `never | undefined`, which collapses) — a
- * reading `Equal` still tells apart from the `any` a deletion would leave.
+ * The two floating keys stay DECLARED on `ChatbotSchema` — as tombstones now. Read
+ * off the member, not the key set: a member that fell off the declaration would not
+ * go missing here — it would read as `any` through `BaseSchema`'s index signature,
+ * any value would compile on a `chatbot` node (measured on #7655's first cut, which
+ * moved the keys off this face by DELETION). `Equal` is what catches the `any`.
+ * `displayMode` reads as `undefined` since objectui#7654 tombstoned it, and
+ * `floatingConfig` since objectui#6152 round 5 RETIRED it on this face (the `chatbot`
+ * registration never read it): `?: never` without `exactOptionalPropertyTypes` is
+ * `never | undefined`, which collapses — a reading `Equal` still tells apart from
+ * the `any` a deletion would leave.
  */
 export type assertionFloatingKeysStayTypedOnChatbot = [
   Expect<Equal<ChatbotSchema['displayMode'], undefined>>,
-  Expect<Equal<ChatbotSchema['floatingConfig'], FloatingChatbotConfig | undefined>>,
+  Expect<Equal<ChatbotSchema['floatingConfig'], undefined>>,
 ];
 
 /* ── One declaration per shared key: a pick, not a copy ──────────────────── */
@@ -216,11 +221,15 @@ export type assertionMaxToolRoundtripsIsATombstoneOnEveryFace = [
   Expect<Equal<ChatbotFloatingSchema['maxToolRoundtrips'], undefined>>,
 ];
 
-/* ── `displayMode` / `floatingConfig`: one type, both faces ─────────────── */
+/* ── `displayMode`: one type on both faces; `floatingConfig`: live on the floating face only ── */
 
+/**
+ * `floatingConfig` had one type on both faces until objectui#6152 round 5 retired the
+ * `chatbot` face's copy; the floating face never inherited it (its `Pick` leaves it
+ * out) and keeps its own declaration. The second row is the half that must NOT move.
+ */
 export type assertionFloatingKeysHaveOneTypeOnBothFaces = [
   Expect<Equal<ChatbotFloatingSchema['displayMode'], ChatbotSchema['displayMode']>>,
-  Expect<Equal<ChatbotFloatingSchema['floatingConfig'], ChatbotSchema['floatingConfig']>>,
   // Both faces carry the objectui#7654 tombstone, so both read `undefined`.
   Expect<Equal<ChatbotFloatingSchema['displayMode'], undefined>>,
   Expect<Equal<ChatbotFloatingSchema['floatingConfig'], FloatingChatbotConfig | undefined>>,
@@ -448,13 +457,19 @@ describe('`ChatbotFloatingSchema` (zod) validates what the face declares, and le
   });
 
   it('`floatingConfig` is mirrored here since objectui#6152 round 4, and a wrong member value is refused at its path', () => {
-    // This registration is the one that reads the key; `ChatbotSchema`'s twin,
-    // whose registration never does, still has no arm for it.
+    // This registration is the one that reads the key. `ChatbotSchema`'s twin,
+    // whose registration never does, had no arm for it until objectui#6152 round 5
+    // RETIRED it there — a tombstone that refuses ANY value, the valid one this
+    // twin accepts included. Pinned on both twins so neither half can move alone.
     expect((ChatbotFloatingZod.shape as Record<string, unknown>).floatingConfig).toBeDefined();
     const wrong = ChatbotFloatingZod.safeParse({ ...node, floatingConfig: { panelHeight: '520px' } });
     expect(wrong.success).toBe(false);
     expect(wrong.error?.issues.some((i) => i.path.join('.') === 'floatingConfig.panelHeight')).toBe(true);
-    expect((ChatbotZod.shape as Record<string, unknown>).floatingConfig).toBeUndefined();
+    const valid = { panelHeight: 520, title: 'Support' };
+    expect(ChatbotFloatingZod.safeParse({ ...node, floatingConfig: valid }).success).toBe(true);
+    const onChatbot = ChatbotZod.safeParse({ ...node, type: 'chatbot', floatingConfig: valid });
+    expect(onChatbot.success).toBe(false);
+    expect(onChatbot.error?.issues.map((i) => [i.path.join('.'), i.code])).toEqual([['floatingConfig', 'invalid_type']]);
   });
 
   it('`onClear` / `onError` / `onSend` are refused by name here too', () => {

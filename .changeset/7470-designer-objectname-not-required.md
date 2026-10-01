@@ -19,3 +19,8 @@ schema refuses a block that declares none of them. No one-of form was added to t
 input declaration; the zod refinement stays the place that enforces it. The
 renderers' read order is unchanged. The `@object-ui/plugin-gantt` README sentence
 that called `objectName` required is corrected (objectui#7470).
+
+**Correction, 2026-10-01 (objectui#11117).** The rule this entry describes gained an exception:
+the `object-map` and `object-gantt` schemas also accept a block that declares none of the three
+when its `dataSource.object` names the object, because the registration's `ElementDataSourceGate`
+lands that name on `objectName`. The `objectName` input description now says so.

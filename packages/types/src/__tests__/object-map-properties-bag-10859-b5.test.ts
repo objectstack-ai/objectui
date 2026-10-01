@@ -220,7 +220,13 @@ describe('the flat spelling is refused by name, with the bag member as the remed
   it.each(FACES)('%s refuses the flat node at each flat key, naming `properties.KEY`', (_face, parse) => {
     const issues = issuesOf(parse(FLAT));
     const byPath = new Map(issues.map((i) => [i.path.join('.'), i.message]));
-    expect([...byPath.keys()].sort()).toEqual(['map', 'objectName']);
+    // objectui#11117: the record-source refinement now runs beside the flat-key
+    // refusals (`when: () => true`, shared by every gate-wrapped arm), so the
+    // flat node, whose bag holds no source, also carries the ROOT
+    // `RECORD_SOURCE_REQUIRED` issue. The flat keys are still the only KEYED issues.
+    expect([...byPath.keys()].sort()).toEqual(['', 'map', 'objectName']);
+    expect((issues.find((i) => i.path.length === 0) as { params?: { code?: string } }).params?.code)
+      .toBe('RECORD_SOURCE_REQUIRED');
     expect(byPath.get('objectName')).toContain('`objectName` → `properties.objectName`');
     expect(byPath.get('map')).toContain('`map` → `properties.map`');
     // The prescription is the whole document shape, not only the path.

@@ -7,7 +7,7 @@
  */
 
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
-import type { DataSource, TimelineSchema, ListViewTimelineConfig } from '@object-ui/types';
+import type { DataSource, TimelineSchema, ListViewTimelineConfig, ViewNavigationConfig } from '@object-ui/types';
 import { useDataScope, useNavigationOverlay, useSafeFieldLabel, useSettledSchema, useDataInvalidation, useFilterScope, useResolvedFilter } from '@object-ui/react';
 import { NavigationOverlay } from '@object-ui/components';
 import { extractRecords, buildExpandFields, convertSortToQueryParams, createFieldColorResolver, recordDisplayValueAt, toDisplayDate } from '@object-ui/core';
@@ -171,6 +171,41 @@ export interface ObjectTimelineProps {
      * has always declared on it, and that this renderer now actually reads.
      */
     timeline?: ListViewTimelineConfig;
+    /**
+     * Entry-click navigation — what a click on an entry opens (an overlay
+     * mode, the record page in a new tab, or nothing), with the overlay `size`
+     * and the `openNewTab` / `preventNavigation` flags. Handed to
+     * `useNavigationOverlay` below, which the composed `onItemClick` fires.
+     *
+     * DECLARED by objectui#8654, the timeline arm of the objectui#8652
+     * maintainer ruling, verbatim 「B」: the platform half is
+     * `@objectstack/spec` 17.5.0, whose `ComponentPropsMap['object-timeline']`
+     * row declares `navigation: NavigationConfigSchema.optional()` for this
+     * block standalone, with no enclosing view. So this member follows the
+     * installed spec rather than leading it. Before it, the read went through
+     * an `as any` cast, and without the cast it would have compiled only
+     * through `BaseSchema`'s `[key: string]: any`.
+     *
+     * Declared HERE, beside `objectName`, `timeline`, `filter` and `sort`,
+     * rather than on `TimelineSchema` in `@object-ui/types`, and that is the
+     * spec's own split: `TimelineSchema` is the presentational rail, whose
+     * renderer never reads this key, while the spec declares it on the
+     * object-bound `object-timeline` row only. That row's other members live
+     * on this half for the same reason. The zod face of the row is
+     * `ObjectTimelineBlockSchema`'s `properties` bag, which reads the spec row
+     * by reference and so judges this key already.
+     *
+     * Same spec type as `ObjectKanbanSchema.navigation` and
+     * `ObjectCalendarSchema.navigation` — aligned with `@objectstack/spec`
+     * `NavigationConfig` rather than restated, so the vocabulary cannot fork.
+     *
+     * ⚠️ Unlike the board and the calendar, this renderer supplies NO default
+     * for an ABSENT key: the hook then resolves the spec's `page`, and a click
+     * opens nothing on a timeline no parent view navigates for. A parent's
+     * `onRowClick` / `onItemClick` outranks the whole key. The members are
+     * pinned in `__tests__/timelineNavigationMembers-8654.test.tsx`.
+     */
+    navigation?: ViewNavigationConfig;
     /**
      * Query filter for the object fetch, in any shape `toFilterNode` accepts
      * (spec `ViewFilterRule[]`, ObjectQL AST nodes, or a MongoDB-style object).
@@ -750,8 +785,13 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
     enabled: !!schema.objectName && !!dataSource,
   });
 
+  // `navigation` is a declared member of this component's schema since
+  // objectui#8654 (see `ObjectTimelineProps`), so it is read with no cast.
+  // ⛔ No `?? { mode: 'drawer' }` here: an absent key resolving to the hook's
+  // `page` is the behaviour the published description states and the member
+  // pins hold. Changing it is objectui#11293's question, not a read-site edit.
   const navigation = useNavigationOverlay({
-    navigation: (schema as any).navigation,
+    navigation: schema.navigation,
     objectName: schema.objectName,
     onRowClick: onRowClick ?? onItemClick,
   });

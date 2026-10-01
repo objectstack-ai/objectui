@@ -48,7 +48,10 @@
  *   - HAS a `bind` rung the other three never walk;
  *   - calls `resolveRecordSourceConfig` / `getDataConfig` ZERO times.
  *
- * So the predicate is `requireKanbanRecordSource`, written for this ladder, and
+ * So the predicate is this ladder's own rung list (`requireRecordSource` with
+ * `bind` / `data` / `objectName` since objectui#11117, which also counts the
+ * node's `dataSource.object` binding; a hand copy, `requireKanbanRecordSource`,
+ * until then), and
  * the last two `it`s below are the CONTROL that keeps it that way: objectui#7651
  * ("Should `ObjectKanban` get a real record-source ladder?") was ruled B and
  * closed `not_planned` on 2026-09-05, refusing a sixth `getDataConfig` producer,
@@ -108,7 +111,7 @@ type DocumentName = keyof typeof DOCUMENTS;
 const DOCUMENT_NAMES = Object.keys(DOCUMENTS) as DocumentName[];
 
 /** The refinement's message, spelled exactly as the member emits it. */
-const REFUSAL_MESSAGE = '`object-kanban` has no record source: declare one of `bind`, `data` or `objectName`';
+const REFUSAL_MESSAGE = '`object-kanban` has no record source: declare one of `bind`, `data` or `objectName`, or name the object in `dataSource.object`';
 
 function doc(name: DocumentName): Record<string, unknown> {
   return { type: 'object-kanban', ...DOCUMENTS[name] };
@@ -256,25 +259,19 @@ describe('objectui#8990 — `groupBy` requiredness IS overturned; the record-sou
 
   it("PR #7774's two EXCLUDED readings — the corpus evidence that the requiredness was wrong", () => {
     // The `dataSource` json fragment taught in
-    // `content/docs/utilities/data-objectstack.mdx`. `dataSource` is not a rung
-    // of this ladder (`ElementDataSourceGate` maps its `object` ONTO
-    // `objectName` upstream of the node), so this document has no record source
-    // — and it is STILL refused for that, which is the record-source rule doing
-    // its job. What changed is that `groupBy` is no longer among the reasons.
+    // `content/docs/utilities/data-objectstack.mdx`. It was refused on the
+    // record-source rule until objectui#11117, because the node's binding was
+    // not a rung; `ElementDataSourceGate` maps its `object` ONTO `objectName`
+    // before the board reads the node, so the binding IS a record source, and
+    // the shared refinement now counts it. No lane key and none of the three
+    // rungs, and it parses: neither `groupBy` nor the record source is a reason
+    // to refuse it any more. (objectui#11117's own pins carry the waiver.)
     const fragment = {
       type: 'object-kanban',
       dataSource: { object: 'task', filter: [{ field: 'project', operator: 'equals', value: 'acme' }] },
     };
     const f = ObjectKanbanSchema.safeParse(fragment);
-    expect(f.success).toBe(false);
-    if (!f.success) {
-      expect(
-        f.error.issues.map((i) => i.path[0]),
-        'the lane key is no longer a reason to refuse this documented fragment',
-      ).not.toContain('groupBy');
-      expect(f.error.issues.map((i) => (i as unknown as { params?: { code?: string } }).params?.code))
-        .toContain('RECORD_SOURCE_REQUIRED');
-    }
+    expect(f.success, f.success ? '' : JSON.stringify(f.error.issues)).toBe(true);
     // `ListView.tsx`'s runtime-generated node, in the shape it emits when the
     // view declared no lane field: `groupBy: laneField` with `laneField`
     // undefined (`laneField = groupByField || groupField ||
@@ -331,8 +328,9 @@ describe('objectui#7780 — the member is still an object, and NO rung was added
   it('the sibling ladder is NOT this one: `object-calendar` still requires its own three, and refuses a bind-only board', () => {
     // Same document shape, opposite verdict — the two predicates are distinct.
     // A `bind`-only calendar has none of `data` / `staticData` / `objectName`,
-    // so `requireRecordSource` refuses it while `requireKanbanRecordSource`
-    // accepts the kanban twin.
+    // so the calendar's rung list refuses it while the board's (`bind` /
+    // `data` / `objectName`, the same `requireRecordSource`) accepts the
+    // kanban twin.
     const bindOnlyCalendar = { type: 'object-calendar', bind: 'app.settings.users' };
     expect(ObjectCalendarSchema.safeParse(bindOnlyCalendar).success).toBe(false);
     expect(ObjectKanbanSchema.safeParse(doc('bindOnly')).success).toBe(true);

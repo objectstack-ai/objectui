@@ -28,7 +28,11 @@
  *  - a present `object` / `dashboard` label renders verbatim, the convention
  *    resolvers unasked — including a label equal to the machine name
  *    (restated by objectui#11201; these rows pinned the retired
- *    translate-if-equal-to-name convention until then);
+ *    translate-if-equal-to-name convention until then). Since objectui#11299
+ *    those resolvers are not props at all, so these rows supply them the way
+ *    the last test supplies `resolveGroupLabel` / `resolveItemLabel`: as the
+ *    retired names a consumer that never updated could still pass, which
+ *    nothing may consume;
  *  - id-keyed client-side resolution stays absent — the last test fails if
  *    anyone re-introduces it.
  */

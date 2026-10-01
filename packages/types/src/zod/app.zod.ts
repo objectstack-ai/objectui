@@ -20,6 +20,7 @@ import { z } from 'zod';
 import {
   AppSchema as SpecAppSchema,
   AppContextSelectorSchema as SpecAppContextSelectorSchema,
+  I18nLabelSchema as SpecI18nLabelSchema,
   NavigationAreaSchema as SpecNavigationAreaSchema,
   // ⚠️ NOT a crossing, so it stays RAW — see THE IMPORT BOUNDARY below. This is
   // the spec's own refinement FUNCTION, not a schema: `stripImportedDefaults`
@@ -211,7 +212,13 @@ const NavigationItemObject = z.object({
   id: z.string().optional().describe('Unique identifier'),
   // Every type but `doc`, which is judged by its own arm below (objectui#11197).
   type: NavigationItemTypeSchema.exclude(['doc']).describe('Navigation item type'),
-  label: z.string().optional().describe("Display label. Optional: absent ⇒ the entry inherits its target's current label at render time (view, else object / dashboard, else the target's machine name); present ⇒ rendered verbatim. Never an empty string"),
+  // The spec's `I18nLabelSchema` BY REFERENCE (objectui#11299): a plain string,
+  // or an inline locale map (`{ en, 'zh-CN' }`) — exactly what the spec's
+  // shared nav-item base declares, so `objectui validate` and the platform's
+  // save door judge an entry label alike. Until objectui#11299 this was
+  // `z.string()` and refused a map the spec accepts. `refuseEmptyNavLabel`
+  // below still refuses an empty STRING — the one stated divergence.
+  label: stripImportedDefaults(SpecI18nLabelSchema).optional().describe("Display label: a plain string, or an inline locale map ({ en, 'zh-CN' }) rendered in the viewer's locale. Optional: absent ⇒ the entry inherits its target's current label at render time (view, else object / dashboard, else the target's machine name); present ⇒ rendered as authored. Never an empty string"),
   icon: z.string().optional().describe('Icon name (Lucide)'),
 
   // Type-specific target fields
@@ -360,9 +367,9 @@ const specDocNavArm = readSpecDocNavArm();
  * `visible` string into an expression envelope, and this validator does not
  * write values into an author's document (decision batches #69 / #90). The
  * parsed entry is this arm's own — the flat object's schemas for the base keys
- * the spec's arm spreads (so `label` is a plain string here as on every sibling,
- * and an empty one is refused the same way), and the spec arm's own `book` /
- * `doc` members for the two targets.
+ * the spec's arm spreads (so `label` is the spec's `I18nLabel` here as on every
+ * sibling, and an empty string is refused the same way), and the spec arm's own
+ * `book` / `doc` members for the two targets.
  *
  * The judge runs only on an entry whose keys already parsed, so one fault is
  * never reported twice.

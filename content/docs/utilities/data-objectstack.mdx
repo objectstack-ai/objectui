@@ -262,7 +262,7 @@ A schema node's `dataSource` key is the spec's `ElementDataSource` (validated by
 `ElementDataSourceSchema` in `@objectstack/spec`) — plain JSON metadata, **not**
 the adapter object:
 
-{/* doc-snippet: fragment — a SHAPE excerpt restating `@objectstack/spec`'s own `ElementDataSource`, whose `filter` member is typed `FilterCondition` — a spec type that is NOT re-exported from `@objectstack/spec`'s root entry, so neither this block nor a reader can import the name (measured: TS2304 x1). ⚠️ This gate never compiles a DECLARED block, so nothing here re-verifies this excerpt against `ElementDataSourceSchema` in the installed `@objectstack/spec` — and this reason may not claim it does (objectui#7505). The schema is the authority on which members are required and whether it is strict; read it there */}
+{/* doc-snippet: fragment — a SHAPE excerpt restating `@objectstack/spec`'s own `ElementDataSource` as a bare interface, so its `filter` member names the spec's `ViewFilterRule` without importing it (measured: TS2304 x1); the type is exported from `@objectstack/spec/ui`. ⚠️ This gate never compiles a DECLARED block, so nothing here re-verifies this excerpt against `ElementDataSourceSchema` in the installed `@objectstack/spec` — and this reason may not claim it does (objectui#7505). The schema is the authority on which members are required and whether it is strict; read it there */}
 ```typescript
 interface ElementDataSource {
   /** Object to query (required) */
@@ -271,8 +271,8 @@ interface ElementDataSource {
   /** Saved view name — supplies columns, filter, sort and page size */
   view?: string
 
-  /** Additional filter criteria; AND-combines with the view's filter */
-  filter?: FilterCondition
+  /** Additional filter rules, one `{ field, operator, value }` per condition; they AND together and with the view's filter */
+  filter?: ViewFilterRule[]
 
   /** Sort order — overrides the view's */
   sort?: Array<{ field: string; order: 'asc' | 'desc' }>
@@ -304,7 +304,8 @@ adapter itself is injected once, at the renderer boundary, as shown in Quick Sta
 ### Narrowing a saved view
 
 `filter` AND-combines with the view's own filter, so a binding can only narrow
-what the view already restricts:
+what the view already restricts. It is a list of `{ field, operator, value }`
+rules, which AND together:
 
 ```json
 {
@@ -312,7 +313,7 @@ what the view already restricts:
   "dataSource": {
     "object": "order",
     "view": "open_orders",
-    "filter": { "total": { "$gt": 100 } },
+    "filter": [{ "field": "total", "operator": "greater_than", "value": 100 }],
     "limit": 50
   }
 }

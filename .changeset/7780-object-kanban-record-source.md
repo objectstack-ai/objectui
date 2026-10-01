@@ -66,3 +66,12 @@ compiles, which is the assertion.
 
 Marked `minor` per this repo's version-alignment rule: a published accept set widens, and
 no declared shape narrows.
+
+**Correction, 2026-10-01 (objectui#11117).** Two statements above no longer hold. The
+`dataSource` json fragment in `content/docs/utilities/data-objectstack.mdx` is no longer
+refused: objectui#11117 counts a node's `dataSource.object` binding as a record source, because
+the registration's `ElementDataSourceGate` lands it on `objectName` before the board reads the
+node, so `{ type, dataSource }` parses and the pin now asserts that. And the refinement is no
+longer a board-specific `requireKanbanRecordSource`: it is the shared `requireRecordSource`,
+given this board's own rungs (`bind`, `data`, `objectName`). The ladder and its presence rule are
+otherwise unchanged.

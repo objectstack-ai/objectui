@@ -74,7 +74,7 @@ describe('objectui#11196 — a label-less entry reads as the runtime draws it', 
     const which = resolver ? 'with a target resolver' : 'with no target resolver';
     it(`PARITY ${which}: the designer's text is resolveNavItemLabel's own answer, for every nav type`, () => {
       for (const entry of LABEL_LESS) {
-        const runtime = resolveNavItemLabel(entry as unknown as NavigationItem, undefined, undefined, undefined, undefined, resolver);
+        const runtime = resolveNavItemLabel(entry as unknown as NavigationItem, undefined, resolver);
         expect(navEntryLabelText(entry, 'en-US', resolver), JSON.stringify(entry)).toBe(runtime);
         expect(inheritedNavEntryText(entry, resolver), JSON.stringify(entry)).toBe(runtime);
       }

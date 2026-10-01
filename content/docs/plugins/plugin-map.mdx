@@ -126,9 +126,9 @@ const schema: BaseSchema = {
     filter?: Array<any>,              // Query filter, sent as $filter
     sort?: SortConfig[],              // Sort, sent as $orderby
     map?: ObjectMapConfig,            // Map-specific configuration
-    enableClustering?: boolean,       // Cluster nearby markers (auto past 100)
-    navigation?: NavigationConfig,    // Record navigation (drawer/dialog/page)
-    mapStyle?: string                 // MapLibre style URL/spec
+    enableClustering?: boolean,       // Cluster nearby markers (auto past 100; false turns it off)
+    navigation?: NavigationConfig,    // What a marker click opens (see Marker click navigation)
+    mapStyle?: string                 // MapLibre style URL; a `style` inside `map` wins over it
   },
   onMarkerClick?: (record: any) => void,  // A host callback: on the node, in code only
   className?: string
@@ -326,6 +326,23 @@ Read from the database with the **Object Provider** above, or pass records you
 already hold with the **Value Provider**.
 
 ## Event Handling
+
+### Marker click navigation
+
+`navigation` takes the spec's `NavigationConfig` (`{ mode, size, width,
+openNewTab, preventNavigation }`), the block a list view declares. On a map no
+parent view navigates for:
+
+- **Absent**, or a block without `mode` (it takes the spec's `page` default): a
+  marker click opens nothing. Write `mode`.
+- `drawer`, `modal` and `popover` open the marker's record in that overlay.
+- `new_window` opens `/{objectName}/record/{id}` in a new tab. `page`, `none` and
+  `split` open nothing here: the map hands the split shell no main panel.
+- `preventNavigation: true` opens nothing whatever the mode. `openNewTab: true`
+  opens the record page in a new tab and outranks every mode except `none`.
+- `size` picks the overlay width bucket; the deprecated `width` wins over it.
+
+A click handler from a parent view (`onRowClick`) outranks the whole key.
 
 ### Marker Click
 

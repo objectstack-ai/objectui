@@ -306,6 +306,7 @@ import '@object-ui/plugin-calendar';
 // booked it OWED) and puts it under both directions. `MINOR_17_5_LOADED_BLOCKS`
 // names them.
 import '@object-ui/plugin-tree';
+import '@object-ui/plugin-map';
 
 /** This block's spec props schema, or `undefined` when this pin has none. */
 const specSchema = (type: string): unknown => (ComponentPropsMap as Record<string, unknown>)[type];
@@ -628,7 +629,7 @@ const specCarries175Blocks = MINOR_17_5_BLOCKS.every((type) => type in Component
  * Pin-dependent like `MINOR_17_5_BLOCKS`: the spec carries these rows from
  * 17.5.0 on, and they are expected only when it does.
  */
-const MINOR_17_5_LOADED_BLOCKS = ['object-tree'];
+const MINOR_17_5_LOADED_BLOCKS = ['object-map', 'object-tree'];
 
 /** Does the installed `@objectstack/spec` carry the loaded 17.5.0 blocks? `every`, for the same reason. */
 const specCarries175LoadedBlocks = MINOR_17_5_LOADED_BLOCKS.every((type) => type in ComponentPropsMap);
@@ -780,7 +781,7 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
  * card to land sets all five to 0.
  */
 const OBJECTUI_11111_LEDGER_CAPS = {
-  unjudgedBlocks: 3, // objectui#11168: object-gantt, object-map, object-timeline (slice 3 loaded and judged object-tree)
+  unjudgedBlocks: 2, // objectui#11168: object-gantt, object-timeline (slice 3 loaded and judged object-map and object-tree)
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
   unpublishedKeys: 3, // objectui#11168: 3 (action:button endpoint + undoable, action:icon endpoint); objectui#8652: 0 and objectui#8649: 0 (each struck by its landing)
   refusedArms: 1, // objectui#11168: object-form (slice 2 narrowed element:definition-list.columns)
@@ -882,16 +883,12 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   // file, so their declarations are real and unread. The remedy the
   // mechanism test names — an eager import — would judge them, and judging them
   // is objectui#11168's work, not the bump's (objectui#11111 decision 3 = B).
-  // The bump booked four; `object-tree` was struck by objectui#11168 slice 3,
-  // which loads it at the top of this file and published the keys its renderer
-  // honours (`MINOR_17_5_LOADED_BLOCKS`).
+  // The bump booked four; `object-map` and `object-tree` were struck by
+  // objectui#11168 slice 3, which loads both at the top of this file and
+  // published the keys their renderers honour (`MINOR_17_5_LOADED_BLOCKS`).
   'object-gantt': OWED_TO(
     'objectui#11168',
     'REGISTERED LAZILY, NOT LOADED HERE: `object-gantt` is new in `@objectstack/spec` 17.5.0, and loading `@object-ui/plugin-gantt` in this file is what judges it.',
-  ),
-  'object-map': OWED_TO(
-    'objectui#11168',
-    'REGISTERED LAZILY, NOT LOADED HERE: `object-map` is new in `@objectstack/spec` 17.5.0, and loading `@object-ui/plugin-map` in this file is what judges it.',
   ),
   'object-timeline': OWED_TO(
     'objectui#11168',
@@ -2964,6 +2961,38 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-dashboard/src/__tests__/objectMetricTrendMembers-8071.test.tsx',
     pins: 'The static badge\'s three members, each pinned on an observable only that member can move, driven through the registered block. `value` is painted as a PERCENTAGE — the `%` is the badge\'s own, asserted beside a metric whose `format` and `suffix` shape the NUMBER differently. `direction` chooses the glyph and is pinned as a SET (`up` / `down` / `neutral`, plus the OMITTED arm, which still paints the value and draws no glyph at all), so "renders an up arrow" cannot pass on a renderer that draws one unconditionally; an off-list member is asserted not to reach the badge, and a tile with neither `trend` nor `description` draws no badge row — the file\'s non-vacuity floor. The two rows with real semantics to get wrong: the tile-level `description` OUTRANKS `trend.label` in the one caption slot they share, so a tile that authors both silently loses the trend\'s own words; and a `compareTo`-DERIVED trend REPLACES the authored badge outright (`derivedTrend ?? trend`) rather than merging with it. That override is pinned against a no-`compareTo` control on the SAME schema, where 120-vs-100 derives +20% up while the authored badge says 99% down, so neither arm can pass by painting the other\'s numbers — which is what makes the registration\'s own sentence ("Use `compareTo` instead when the trend should be computed from data") true rather than advisory. The spec row is `z.unknown()`, so the read site is the whole member contract. New file (objectui#8071 slice 9).',
   },
+  // objectui#11168 slice 3 — `object-map`, newly judged once this file loads
+  // `@object-ui/plugin-map`. Six keys share ONE new file, every row through the
+  // real `SchemaRenderer` and this package's own registration with MapLibre
+  // stubbed; `dataSource` PROMOTES a pre-existing file, read end to end first.
+  'object-map.map': {
+    file: 'packages/plugin-map/src/__tests__/objectMapInputs-11168.test.tsx',
+    pins: 'Members are FIELD NAMES and the camera, each on the observable only it moves: `latitudeField` / `longitudeField` plot one marker per record, with a binding that names no number-holding field plotting none (the control); `locationField` reads a `"lat,lng"` string, a `{ lat, lng }` object and a `[lat, lng]` pair; `titleField` and `descriptionField` name the popup\'s heading and line after a marker click, a different `titleField` changing the heading; `zoom` and `center` (`[latitude, longitude]`) ARE the initial camera, where an absent camera fits the markers (`bounds`). `style` is pinned with `mapStyle`: inside the block it WINS over the flat key — measured, and the opposite of the spec row\'s prose, which is reported rather than resolved here. The spec block fixes names and value kinds; how each is used is the read site (objectui#11168 slice 3).',
+  },
+  'object-map.data': {
+    file: 'packages/plugin-map/src/__tests__/objectMapInputs-11168.test.tsx',
+    pins: 'Members are the `{ provider, … }` configurations, asserted on markers plotted AND queries issued: `value` plots its `items` and queries nothing, `object` queries THAT object and plots what it returns, and `api` plots nothing and queries nothing, as the description says. The ladder POSITION is pinned too: a `data` configuration wins over `staticData` and `objectName` on the same node. The bare-array spelling is objectui#8348\'s pin (`ObjectMap.dataArmSpecRow-8348.test.tsx`) and is not re-asserted (objectui#11168 slice 3).',
+  },
+  'object-map.staticData': {
+    file: 'packages/plugin-map/src/__tests__/objectMapInputs-11168.test.tsx',
+    pins: 'Members are RECORDS, plotted by the `map` block\'s fields: a record without readable coordinates is skipped, never placed at an invented point. The POSITION claim is pinned against a live control: a map carrying `staticData` and `objectName` plots the inline rows and never queries, while the same node without the rows does query. The spec row is `z.array(z.unknown())`, so the read site is the whole member contract (objectui#11168 slice 3).',
+  },
+  'object-map.filter': {
+    file: 'packages/plugin-map/src/__tests__/objectMapInputs-11168.test.tsx',
+    pins: 'Members are `{ field, operator, value }` rules: a rule narrows the inline records plotted, `operator` is read (`not_equals` plots the complement of `equals`), and on the object query the rule reaches `$filter` with its members unchanged, against a control with no `filter` whose query carries no `$filter`. The binding\'s filter AND-ing is `object-map.dataSource`\'s pin (objectui#11168 slice 3).',
+  },
+  'object-map.sort': {
+    file: 'packages/plugin-map/src/__tests__/objectMapInputs-11168.test.tsx',
+    pins: 'Members are `{ field, order }`, and those two keys are all the map reads inside one: each member lowers to `field -> direction` on `$orderby`, in AUTHORED order, and an omitted `order` reads ascending rather than dropping the member; with no `sort` the query carries no ordering (the control). ⛔ Not an identity pin: the shared `convertSortToQueryParams` sink builds a new map (objectui#11168 slice 3).',
+  },
+  'object-map.dataSource': {
+    file: 'packages/plugin-map/src/ObjectMap.elementDataSource.test.tsx',
+    pins: 'The per-element binding\'s members as this block reads them, through the REAL `ElementDataSourceGate` + renderer pair: `object` is the object queried, a named `view`\'s `filter` / `sort` reach the fetch as `$filter` / `$orderby`, the binding\'s own `filter` AND-combines with the view\'s rather than replacing it, a `sort` member missing `order` reads ascending (objectui#4022), an unresolvable `view` reports instead of fetching the whole object, and an authored `limit` never reaches `$top`, which stays the platform ceiling (`OBJECT_MAP_DATA_SOURCE` maps `filter` and `sort` only). A map with no binding behaves exactly as before one existed. ⚠️ The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`), so the declaration says nothing about members. Pre-existing file (objectstack#7121), promoted after being read end to end (objectui#11168 slice 3).',
+  },
+  'object-map.navigation': {
+    file: 'packages/plugin-map/src/__tests__/objectMapInputs-11168.test.tsx',
+    pins: 'The members of the spec\'s `NavigationConfigSchema` block the map reads, each driven through a real marker click: `drawer` (the LIT CONTROL), `modal` and `popover` open the marker\'s record; `split` opens NOTHING, because the map hands the split shell no main panel; `none` and `preventNavigation` open nothing, the flag outranking an overlay mode; `new_window` and `openNewTab` open `/{objectName}/record/{id}` in a new tab, `openNewTab` outranking `drawer` but NOT `none`; `size` / `width` are one width decision (`width` wins, a bucket resolves, `auto` lands where an unsized drawer does); and a parent view\'s click handler outranks the whole key. The rows that make the description true: an ABSENT key, `page`, and a block without `mode` open nothing on a map no parent view navigates for (objectui#11168 slice 3).',
+  },
   // objectui#11168 slice 3 — `object-tree`, newly judged once this file loads
   // `@object-ui/plugin-tree`. ONE file pins the five structured keys, every row
   // through the real `SchemaRenderer` and this package's own registration, with
@@ -4246,12 +4275,12 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       //
       // objectui#11168 slice 3 moves blocks ACROSS the partition, never into or
       // out of it: each block it loads leaves the ledger and is judged
-      // (`MINOR_17_5_LOADED_BLOCKS`). `object-tree`: 35 -> 36 judged, 13 -> 12
-      // ledgered. 36 + 7 + 12 = 55.
+      // (`MINOR_17_5_LOADED_BLOCKS`). `object-tree` and `object-map`: 35 -> 37
+      // judged, 13 -> 11 ledgered. 37 + 7 + 11 = 55.
       specCarried: 55,
-      judged: 36,
+      judged: 37,
       registeredPropless: 7,
-      ledgeredUnjudgeable: 12,
+      ledgeredUnjudgeable: 11,
     });
     // Non-vacuity, stated rather than implied by the numbers above.
     expect(covered.length).toBeGreaterThan(0);
@@ -5668,6 +5697,6 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
           reasons.filter((reason) => reason.startsWith(`${OWED_PREFIX}${owner}.`)).length,
         ]),
       ),
-    ).toEqual({ 'objectui#11168': 7, 'objectui#8652': 0, 'objectui#8649': 0 });
+    ).toEqual({ 'objectui#11168': 6, 'objectui#8652': 0, 'objectui#8649': 0 });
   });
 });

@@ -397,10 +397,12 @@ describe('Interfaces page inspector — a save in flight across a page switch (o
     fireEvent.click(screen.getByRole('button', { name: /Landing menu/ }));
     // The save of `home` lands while `landing` is still loading.
     await releaseSave();
-    // The rail still holds `home`'s document; an edit typed there is not
-    // `landing`'s, and the dirty period that `home`'s save left standing
-    // keeps it from being sent there.
-    editText(await pageLabel(), 'Typed during load');
+    // The buffer still holds `home`'s document; an edit typed there is not
+    // `landing`'s, and it is not sent there. objectui#11272: the rail offers
+    // no editor over it under `landing`, so the edit goes to whatever it does
+    // offer, and nothing is.
+    const offered = within(screen.getByRole('complementary')).queryByLabelText(/^Label/);
+    if (offered) editText(offered, 'Typed during load');
     await pastDebounce();
     expect(server.saves.map((s) => [s.type, s.name, s.body.label])).toEqual([['page', 'home', 'Welcome']]);
 
@@ -408,6 +410,7 @@ describe('Interfaces page inspector — a save in flight across a page switch (o
     await waitFor(async () => expect(await pageLabel()).toHaveValue('Landing'), SLOW);
     await pastDebounce(1800);
     expect(server.saves.map((s) => [s.type, s.name, s.body.label])).toEqual([['page', 'home', 'Welcome']]);
+    expect(offered).toBeNull();
   }, 30000);
 });
 
@@ -546,5 +549,235 @@ describe('Studio surface — a package switch over an unsaved nav edit (objectui
     await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
     expect(server.saves.map((s) => [s.type, s.name, s.packageId])).toEqual([['app', 'acme_app', PKG]]);
     expect(savedNav(server.saves[0].body)).toEqual(['Home menu', 'Landing menu', { id: 'nav_item_3' }]);
+  }, 30000);
+});
+
+// ---------------------------------------------------------------------------
+// objectui#11272 — a pillar never accepts an edit or a save on a buffer that is
+// not the open item's. One rule, three members: the load window on all three
+// pillars; Automations and Data across a package switch; and the page
+// inspector's non-editable round trip. Each sequence below is the card's, and
+// each gives zero saves of the wrong document; each ends on the control, an
+// edit after the load that saves once, to its own item.
+// ---------------------------------------------------------------------------
+
+/** Package B's own flow and object, for the package-switch member. */
+const BETA_SYNC = {
+  name: 'beta_sync',
+  label: 'Beta sync',
+  type: 'autolaunched',
+  status: 'active',
+  nodes: nodes('Sync'),
+  edges: [{ id: 'e1', source: 'start', target: 'end' }],
+};
+const BETA_ITEM = { name: 'beta_item', label: 'Beta item', fields: [{ name: 'name', label: 'Name', type: 'text' }] };
+function seedPackageB(): void {
+  server.active.set(key('flow', BETA_SYNC.name), { pkg: PKG_B, row: JSON.parse(JSON.stringify(BETA_SYNC)) });
+  server.active.set(key('object', BETA_ITEM.name), { pkg: PKG_B, row: JSON.parse(JSON.stringify(BETA_ITEM)) });
+}
+
+const savesRead = () => server.saves.map((s) => [s.type, s.name, s.packageId, s.body]);
+const fieldNamesOf = (body: Record<string, unknown>) => readFields(body.fields).entries.map((e) => e.name);
+const startLabelOf = (body: Record<string, unknown>) =>
+  String((body.nodes as Array<{ id: string; label?: string }>).find((n) => n.id === 'start')?.label);
+
+describe("the load window: nothing of the previous item is offered, shown or saved under the next one (objectui#11272)", () => {
+  // Whatever a pillar still offers while the next item's load is held, the
+  // author can use. So each sequence USES it when it is there, and records
+  // what was shown: every save reading is taken first, and what was shown is
+  // asserted last.
+
+  it('Interfaces page inspector: the page form typed into during the load sends nothing; the edit after the load saves once', async () => {
+    render(
+      <MemoryRouter initialEntries={[`/studio/${PKG}/interfaces`]}>
+        <InterfacesPillar packageId={PKG} />
+      </MemoryRouter>,
+    );
+    await screen.findByRole('button', { name: 'Select hello' }, SLOW);
+    const rail = () => within(screen.getByRole('complementary'));
+    await waitFor(() => expect(rail().getByLabelText(/^Label/)).toHaveValue('Home'), SLOW);
+
+    const release = holdLoad('page', 'landing');
+    fireEvent.click(screen.getByRole('button', { name: /Landing menu/ }));
+    const offered = rail().queryByLabelText(/^Label/);
+    if (offered) editText(offered, 'Typed during load');
+    await pastDebounce();
+    expect(savesRead()).toEqual([]);
+    const shownDuringLoad = {
+      pageForm: rail().queryByLabelText(/^Label/) !== null,
+      homeBlock: screen.queryByRole('button', { name: 'Select hello' }) !== null,
+    };
+
+    await release();
+    await waitFor(() => expect(rail().getByLabelText(/^Label/)).toHaveValue('Landing'), SLOW);
+    await pastDebounce(1800);
+    expect(server.saves).toEqual([]);
+
+    // The control: an edit after the load saves once, to its own page.
+    editText(rail().getByLabelText(/^Label/), 'Landing two');
+    await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
+    expect(server.saves.map((s) => [s.type, s.name, s.body.label, s.body.regions])).toEqual([
+      ['page', 'landing', 'Landing two', LANDING.regions],
+    ]);
+    // Nothing of `home` was shown under `landing` until its own document was in.
+    expect(shownDuringLoad).toEqual({ pageForm: false, homeBlock: false });
+  }, 30000);
+
+  it("Automations: the enable switch flipped during the load saves nothing; after the load it saves the flow's own document once", async () => {
+    render(
+      <MemoryRouter initialEntries={[`/studio/${PKG}/automations`]}>
+        <AutomationsPillar packageId={PKG} />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(document.querySelector('[data-node-id="start"]')).toHaveTextContent('Start'), SLOW);
+
+    const release = holdLoad('flow', 'nightly_digest');
+    fireEvent.click(screen.getByRole('button', { name: /Nightly digest/ }));
+    const offered = screen.queryByRole('switch');
+    if (offered && !offered.hasAttribute('disabled')) fireEvent.click(offered);
+    await pastDebounce();
+    expect(savesRead()).toEqual([]);
+    const shownDuringLoad = { enableSwitch: screen.queryByRole('switch') !== null };
+
+    await release();
+    await waitFor(() => expect(document.querySelector('[data-node-id="start"]')).toHaveTextContent('Begin'), SLOW);
+    await pastDebounce(1800);
+    expect(server.saves).toEqual([]);
+
+    // The control: the switch after the load saves once, the flow's own document.
+    expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'true');
+    fireEvent.click(screen.getByRole('switch'));
+    await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
+    expect(server.saves.map((s) => [s.type, s.name, s.body.label, startLabelOf(s.body), s.body.status])).toEqual([
+      ['flow', 'nightly_digest', 'Nightly digest', 'Begin', 'obsolete'],
+    ]);
+    // The switch reads the open flow's status: it was not offered on another's.
+    expect(shownDuringLoad).toEqual({ enableSwitch: false });
+  }, 30000);
+
+  it('Data: a field added during the load saves nothing; one added after the load saves once, to the object opened', async () => {
+    render(
+      <MemoryRouter initialEntries={[`/studio/${PKG}/data`]}>
+        <DataPillar packageId={PKG} />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByText(/^\d+ fields$/)).toHaveTextContent('2 fields'), SLOW);
+
+    const release = holdLoad('object', 'acme_note');
+    fireEvent.click(screen.getByRole('button', { name: /Note/ }));
+    const offered = screen.queryByTitle(/^Add a field/);
+    if (offered) fireEvent.click(offered);
+    await pastDebounce();
+    expect(savesRead()).toEqual([]);
+    const shownDuringLoad = {
+      fieldCount: screen.queryByText(/^\d+ fields$/) !== null,
+      addField: screen.queryByTitle(/^Add a field/) !== null,
+    };
+
+    await release();
+    await waitFor(() => expect(screen.getByText(/^\d+ fields$/)).toHaveTextContent('1 fields'), SLOW);
+    await pastDebounce(1800);
+    expect(server.saves).toEqual([]);
+
+    // The control: a field added after the load saves once, to its own object.
+    fireEvent.click(screen.getByTitle(/^Add a field/));
+    await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
+    expect(server.saves.map((s) => [s.type, s.name, s.body.label, fieldNamesOf(s.body)])).toEqual([
+      ['object', 'acme_note', 'Note', ['body', 'field_2']],
+    ]);
+    // No field count or add-field of `acme_task` was shown under `acme_note`.
+    expect(shownDuringLoad).toEqual({ fieldCount: false, addField: false });
+  }, 30000);
+});
+
+describe('a package switch: Automations and Data open nothing of the previous package (objectui#11272)', () => {
+  // Through the real surface and its `PackageSwitcher`: the route keeps the
+  // surface mounted across `:packageId`, as the console's does.
+  function surfaceTree(tab: string) {
+    return (
+      <MemoryRouter initialEntries={[`/studio/${PKG}/${tab}`]}>
+        <Routes>
+          <Route path="/studio/:packageId/:tab" element={<StudioDesignSurface />} />
+        </Routes>
+      </MemoryRouter>
+    );
+  }
+  async function switchToBeta(): Promise<void> {
+    fireEvent.click(await screen.findByTitle('Switch / create package', undefined, SLOW));
+    confirmSpy.mockReturnValue(true);
+    fireEvent.click(await screen.findByRole('button', { name: /Beta/ }, SLOW));
+    await waitFor(() => expect(screen.getByTitle('Switch / create package')).toHaveTextContent('Beta'), SLOW);
+  }
+
+  it("Automations: package A's open flow is not kept; an edit saves package B's own flow, in B", async () => {
+    seedPackageB();
+    render(surfaceTree('automations'));
+    await waitFor(() => expect(document.querySelector('[data-node-id="start"]')).toHaveTextContent('Start'), SLOW);
+
+    await switchToBeta();
+    await screen.findByRole('button', { name: /Beta sync/ }, SLOW);
+    // Whatever flow the canvas holds on package B takes the edit.
+    await waitFor(() => expect(document.querySelector('[data-node-id="start"]')).not.toBeNull(), SLOW);
+    fireEvent.click(document.querySelector('[data-node-id="start"] [role="button"]') as HTMLElement);
+    editText(await within(screen.getByRole('complementary')).findByLabelText('Label', undefined, SLOW), 'Kick-off');
+    await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
+    expect(server.saves.map((s) => [s.type, s.name, s.packageId, s.body.label, startLabelOf(s.body)])).toEqual([
+      ['flow', 'beta_sync', PKG_B, 'Beta sync', 'Kick-off'],
+    ]);
+  }, 30000);
+
+  it("Data: package A's open object is not kept; a field added saves package B's own object, in B", async () => {
+    seedPackageB();
+    render(surfaceTree('data'));
+    await waitFor(() => expect(screen.getByText(/^\d+ fields$/)).toHaveTextContent('2 fields'), SLOW);
+
+    await switchToBeta();
+    await screen.findByRole('button', { name: /Beta item/ }, SLOW);
+    await waitFor(() => expect(screen.getByText(/^\d+ fields$/)).toBeInTheDocument(), SLOW);
+    fireEvent.click(screen.getByTitle(/^Add a field/));
+    await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
+    expect(server.saves.map((s) => [s.type, s.name, s.packageId, s.body.label, fieldNamesOf(s.body)])).toEqual([
+      ['object', 'beta_item', PKG_B, 'Beta item', ['name', 'field_2']],
+    ]);
+  }, 30000);
+});
+
+describe("the page inspector's non-editable round trip (objectui#11272)", () => {
+  it("an edit, a studio-canvas leaf, then the same page again with its reload held: no '{}' is sent as the page's draft", async () => {
+    server.active.set(key('app', APP.name), {
+      pkg: PKG,
+      row: {
+        ...APP,
+        navigation: [...APP.navigation, { id: 'nav_tasks', type: 'object', label: 'Tasks menu', objectName: 'acme_task' }],
+      },
+    });
+    render(
+      <MemoryRouter initialEntries={[`/studio/${PKG}/interfaces`]}>
+        <InterfacesPillar packageId={PKG} />
+      </MemoryRouter>,
+    );
+    await screen.findByRole('button', { name: 'Select hello' }, SLOW);
+    const rail = () => within(screen.getByRole('complementary'));
+
+    // Inside the debounce: edit `home`, open the object leaf, reopen `home`.
+    editText(await rail().findByLabelText(/^Label/, undefined, SLOW), 'Welcome');
+    fireEvent.click(screen.getByRole('button', { name: /Tasks menu/ }));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Select hello' })).toBeNull(), SLOW);
+    const release = holdLoad('page', 'home');
+    fireEvent.click(screen.getByRole('button', { name: /Home menu/ }));
+    await pastDebounce();
+    expect(savesRead()).toEqual([]);
+
+    await release();
+    await screen.findByRole('button', { name: 'Select hello' }, SLOW);
+    await pastDebounce(1800);
+    expect(server.saves).toEqual([]);
+
+    // The control: an edit after the reload saves once, `home`'s own document.
+    editText(rail().getByLabelText(/^Label/), 'Home two');
+    await waitFor(() => expect(server.saves).toHaveLength(1), SLOW);
+    expect(server.saves.map((s) => [s.type, s.name, s.body.label, s.body.regions])).toEqual([
+      ['page', 'home', 'Home two', HOME.regions],
+    ]);
   }, 30000);
 });

@@ -251,6 +251,7 @@ const schema: ObjectCalendarSchema = {
   calendar?: CalendarConfig,        // Calendar-specific configuration
   filter?: ViewFilterRule[],        // Query filter, lowered to $filter
   sort?: SortConfig[],              // Query sort, lowered to $orderby
+  navigation?: ViewNavigationConfig, // What an event click opens (see below)
   onEventClick?: (record: any) => void,
   onDateClick?: (date: Date) => void,
   className?: string
@@ -266,6 +267,16 @@ ceiling is applied to the **filtered** set, so a large inline array that a
 footnote. Inline records reach the calendar as the in-memory adapter's own deep
 copy, so they must be JSON-serializable and a record handed to `onEventClick` is
 not `===` the authored object.
+
+`navigation` is what an event click opens — the spec's `NavigationConfig` by
+reference, `ViewNavigationConfig` in `@object-ui/types`, the type
+`ObjectGridSchema.navigation` uses: `mode` (`page`, `drawer`, `modal`, `split`,
+`popover`, `new_window` or `none`) with `size`, `openNewTab` and
+`preventNavigation`. With the key absent a click opens the record in a drawer.
+An overlay mode keeps the click from a parent view's `onRowClick` /
+`onEventClick`; any other mode hands it to them. ⚠️ `page` — and a block written
+without `mode`, which takes the spec's `page` default — opens nothing on a
+calendar no parent view navigates for (objectui#11293).
 
 ### CalendarConfig
 

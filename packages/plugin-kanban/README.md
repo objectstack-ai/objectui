@@ -126,7 +126,7 @@ import type { ObjectKanbanSchema } from '@object-ui/types';
 declare const columns: KanbanColumn[];
 
 // The board document. `type` is required, and so is ONE record source — `bind`,
-// `data` or `objectName`. `groupBy`, `columns` and `className` are optional.
+// `data` or `objectName`. `groupBy`, `columns`, `navigation` and `className` are optional.
 //
 // `groupBy` is OPTIONAL since objectui#8990, matching `@objectstack/spec`. It is
 // still the key that makes the board work: with no lane key the records are never
@@ -149,6 +149,7 @@ const board: ObjectKanbanSchema = {
   groupBy: 'status',                  // optional, but the field that makes the lanes
   data: [],                           // one record source is required
   columns,                            // Array of columns
+  navigation: { mode: 'modal' },      // What a card click opens (see below)
   className: 'h-full',                // Tailwind classes
 };
 
@@ -191,6 +192,17 @@ interface KanbanCard {
   coverImage?: string;                // Resolved cover-image URL, from the board's coverImageField
 }
 ```
+
+### Card-click navigation
+
+`navigation` is what a card click opens — the spec's `NavigationConfig` by
+reference, `ViewNavigationConfig` in `@object-ui/types`, the type
+`ObjectGridSchema.navigation` uses: `mode` (`page`, `drawer`, `modal`, `split`,
+`popover`, `new_window` or `none`) with `size`, `openNewTab` and
+`preventNavigation`. With the key absent a click opens the record in a drawer,
+and a click handler from a parent view outranks the whole key. ⚠️ `page` — and a
+block written without `mode`, which takes the spec's `page` default — opens
+nothing on a board no parent view navigates for (objectui#11293).
 
 ## Features
 

@@ -4055,6 +4055,33 @@ export interface ObjectCalendarSchema extends BaseSchema {
    */
   sort?: SortConfig[];
   /**
+   * Event-click navigation — what a click on an event opens (an overlay mode,
+   * the record page, a new tab, or nothing), with the overlay `size` and the
+   * `openNewTab` / `preventNavigation` flags. Read by `ObjectCalendar` (its
+   * `navConfig`), which hands it to `useNavigationOverlay`.
+   *
+   * DECLARED by objectui#8652, the objectui half of the maintainer ruling on
+   * that card, verbatim 「B」: declare `navigation` on the platform element
+   * schema first, then mirror it here. `@objectstack/spec` 17.5.0 is the
+   * release whose `ComponentPropsMap['object-calendar']` declares it, so this
+   * member follows the installed spec rather than leading it. Before it, the
+   * renderer read the key through an `as any` cast — the one objectui#8651
+   * left standing for this card — and the zod mirror kept any value through
+   * `.passthrough()`, admitted and never examined.
+   *
+   * Same spec type as {@link ObjectGridSchema.navigation} and
+   * {@link ObjectGanttSchema.navigation} — aligned with `@objectstack/spec`
+   * `NavigationConfig` rather than restated, so the vocabulary cannot fork.
+   *
+   * ⚠️ The default when the key is ABSENT is the renderer's `{ mode: 'drawer' }`,
+   * not the spec's `mode` default: it is documented, not declared, so a parsed
+   * calendar carries the key only when the author wrote it. When the resolved
+   * mode is an overlay, the calendar's own overlay wins over a parent's
+   * `onRowClick` / `onEventClick`. The members are pinned where the calendar
+   * reads them, in `plugin-calendar`'s `calendarNavigationMembers-8652` test.
+   */
+  navigation?: ViewNavigationConfig;
+  /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-calendar` reads
    * NEITHER content channel; see `children` below for the measurement.
    *
@@ -4650,6 +4677,35 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * Cards are colored based on field values matching conditions.
    */
   conditionalFormatting?: KanbanConditionalFormattingRule[];
+
+  /**
+   * Card-click navigation — what a click on a card opens (an overlay mode, the
+   * record page, a new tab, or nothing), with the overlay `size` and the
+   * `openNewTab` / `preventNavigation` flags. Read by `ObjectKanban` (its
+   * `navConfig`), which hands it to `useNavigationOverlay`.
+   *
+   * DECLARED by objectui#8652, the objectui half of the maintainer ruling on
+   * that card, verbatim 「B」: declare `navigation` on the platform element
+   * schema first, then mirror it here. `@objectstack/spec` 17.5.0 is the
+   * release whose `ComponentPropsMap['object-kanban']` declares it, so this
+   * member follows the installed spec rather than leading it. Before it, the
+   * renderer's read compiled only through {@link BaseSchema}'s
+   * `[key: string]: any`, and the zod mirror kept any value through
+   * `.passthrough()` — admitted, never examined — so `navigation: { mode:
+   * 'not-a-mode' }` passed both published faces of this package.
+   *
+   * Same spec type as {@link ObjectGridSchema.navigation} and
+   * {@link ObjectGanttSchema.navigation} — aligned with `@objectstack/spec`
+   * `NavigationConfig` rather than restated, so the vocabulary cannot fork.
+   *
+   * ⚠️ The default when the key is ABSENT is the renderer's `{ mode: 'drawer' }`,
+   * not the spec's `mode` default: it is documented, not declared, so a parsed
+   * board carries the key only when the author wrote it. A click handler from a
+   * parent view (`onRowClick`, or {@link ObjectKanbanSchema.onCardClick})
+   * outranks this key outright. The members are pinned where the board reads
+   * them, in `plugin-kanban`'s `kanbanNavigationMembers-8652` test.
+   */
+  navigation?: ViewNavigationConfig;
 
   /**
    * Card click handler.

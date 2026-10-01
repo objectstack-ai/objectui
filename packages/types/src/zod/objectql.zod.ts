@@ -2513,6 +2513,18 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // time".
   filter: z.array(z.any()).optional().describe('Query filter, forwarded as $filter with its context tokens ({current_user_id}, {current_org_id}, date macros) resolved first'),
   sort: z.array(SortConfigSchema).optional().describe('Sort configuration, forwarded as $orderby (array only; the legacy string clause is retired — objectui#8221)'),
+  // objectui#8652 — ruling B, verbatim 「B」: `navigation` is declared on the
+  // platform element schema first (`ComponentPropsMap['object-calendar']`,
+  // `@objectstack/spec` 17.5.0), then mirrored here BY REFERENCE, spelled as
+  // the gantt and map arms above spell it. Until this card it rode
+  // `BaseSchema`'s `.passthrough()`: `navigation: { mode: 'not-a-mode' }`
+  // parsed green here while the spec's own element schema refused it. The
+  // import-boundary strip keeps the spec's `mode: 'page'` default out of a
+  // parsed document, so the renderer's own `{ mode: 'drawer' }` fallback for
+  // an ABSENT key still applies (objectui#8317). Mirrored at the SAME
+  // requiredness as `../objectql.ts` (optional), so the zod-mirror-parity
+  // ratchet stays at zero drift for this pair.
+  navigation: stripImportedDefaults(SpecNavigationConfigSchema).optional().describe('Event-click navigation behaviour (drawer/modal/split/popover/page/new_window/none), the same block ListViewSchema.navigation declares; the renderer defaults an absent key to a drawer'),
   // objectui#9256 (E3 residual, ruling Q2 A on objectui#8284): the renderer reads NEITHER content
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(OBJECT_CALENDAR_NEITHER_CHANNEL),
@@ -2804,6 +2816,18 @@ export const ObjectKanbanSchema = BaseSchema.extend({
       'Delete the key; there is no board-level replacement to rename it to.',
   ),
   conditionalFormatting: z.array(KanbanConditionalFormattingRuleSchema).optional().describe('Card conditional formatting rules'),
+  // objectui#8652 — ruling B, verbatim 「B」: `navigation` is declared on the
+  // platform element schema first (`ComponentPropsMap['object-kanban']`,
+  // `@objectstack/spec` 17.5.0), then mirrored here BY REFERENCE, spelled as
+  // the gantt and map arms above spell it. Until this card it rode
+  // `BaseSchema`'s `.passthrough()`: `navigation: { mode: 'not-a-mode' }`
+  // parsed green here while the spec's own element schema refused it. The
+  // import-boundary strip keeps the spec's `mode: 'page'` default out of a
+  // parsed document, so the renderer's own `{ mode: 'drawer' }` fallback for
+  // an ABSENT key still applies (objectui#8317). Mirrored at the SAME
+  // requiredness as `../objectql.ts` (optional), so the zod-mirror-parity
+  // ratchet stays at zero drift for this pair.
+  navigation: stripImportedDefaults(SpecNavigationConfigSchema).optional().describe('Card-click navigation behaviour (drawer/modal/split/popover/page/new_window/none), the same block ListViewSchema.navigation declares; the renderer defaults an absent key to a drawer'),
   // ── `5a41ce733` — the three handler keys `KanbanRenderer` reads off the
   // document this arm judges, MEASURED one at a time (director seat ruling of
   // 2026-09-07, decision batch #69: the arm a `type` selects is the contract

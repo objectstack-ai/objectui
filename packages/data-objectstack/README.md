@@ -751,9 +751,13 @@ prerequisite.
 
 ## Object-Metadata Write Guard
 
-`MetadataClient.save` refuses an `object` document whose `fields` carry a
-relationship field (`lookup`, `master_detail`) with a missing, empty or
-whitespace-only `reference`, **before** issuing the request:
+`MetadataClient.save` refuses an `object` document whose `fields` carry either
+of two incomplete fields, **before** issuing the request:
+
+- a relationship field (`lookup`, `master_detail`) with a missing, empty or
+  whitespace-only `reference`;
+- a choice field (`select`, `radio`) with no option source: neither a non-empty
+  `options` list nor a shared `picklist`. `options: []` counts as none.
 
 ```ts
 import { MetadataClient } from '@object-ui/data-objectstack';
@@ -768,13 +772,36 @@ await client.save('object', 'account', {
 // `owner` is a `lookup` and carries no `reference` key at all ...
 ```
 
-Nothing that previously succeeded now fails. `@objectstack/spec` refuses the same
-document at the server with a 422 on `fields.owner.reference`, and that refusal
-blocks every *later* save of the object for as long as the half-filled field
-rides along in the draft. The guard moves the identical refusal earlier, names
-the field while it is still on screen, and leaves the draft in the client. Writes
-of every other metadata type are untouched, and the guard never strips the
-offending field — a dropped field reported as saved would be a silent deletion.
+For the relationship rule, nothing that previously succeeded now fails.
+`@objectstack/spec` refuses the same document at the server with a 422 on
+`fields.owner.reference`, and that refusal blocks every *later* save of the
+object for as long as the half-filled field rides along in the draft. The guard
+moves the identical refusal earlier, names the field while it is still on screen,
+and leaves the draft in the client.
+
+The choice rule is different, and on purpose: it holds a document the installed
+server still stores. It is the objectui half of the maintainer's ruling A on
+[objectstack#20827](https://github.com/objectstack-ai/objectstack/issues/20827),
+which refuses such a field at the `FieldSchema` door and has objectui stop
+sending it first. A `select` added in Studio, and saved before its first option,
+now waits in the client, with the field named, until it has one:
+
+```ts
+import { MetadataClient } from '@object-ui/data-objectstack';
+
+const client = new MetadataClient({ baseUrl: '/api/v1' });
+
+await client.save('object', 'deal', {
+  name: 'deal',
+  fields: { stage: { type: 'select', label: 'Stage', options: [] } },
+});
+// throws: MetadataClient.save refused this object metadata write: the field
+// `stage` is a `select` with no options ...
+```
+
+Writes of every other metadata type are untouched, and the guard never strips
+the offending field — a dropped field reported as saved would be a silent
+deletion.
 
 Hosts that write object metadata through their own transport can apply the same
 invariant at their own door:
@@ -792,10 +819,11 @@ async function uploadObject(name: string, body: unknown) {
 }
 ```
 
-`RELATIONSHIP_TYPES_REQUIRING_REFERENCE` and `OBJECT_METADATA_TYPE` are exported
-beside it. The relationship-type set is derived from the installed
-`@objectstack/spec` by this package's own pin, so it follows the contract rather
-than a remembered list.
+`RELATIONSHIP_TYPES_REQUIRING_REFERENCE`, `CHOICE_TYPES_REQUIRING_OPTIONS` and
+`OBJECT_METADATA_TYPE` are exported beside it. Both type sets are derived from
+the installed `@objectstack/spec` by this package's own pin (the choice set from
+its `field/choice-without-options` completeness rule), so they follow the
+contract rather than a remembered list.
 
 ## User-Scoped State Adapter
 

@@ -2255,8 +2255,8 @@ function requireRecordSource(
   // In the bag the rungs are `properties.KEY`, while the binding stays on the NODE, so that
   // message says whose `dataSource` it means.
   const binding = at === 'properties'
-    ? 'name the object in the node\'s \`dataSource\` binding (\`dataSource.object\`)'
-    : 'name the object in \`dataSource.object\`';
+    ? 'name the object in the node\'s `dataSource` binding (`dataSource.object`)'
+    : 'name the object in `dataSource.object`';
   const message = `\`${type}\` has no record source: declare ${declare}, or ${binding}`;
   const path = rungs.length === 1 ? (at === 'properties' ? ['properties', rungs[0]] : [rungs[0]]) : [];
   const refinement = (node: unknown, ctx: z.core.$RefinementCtx): void => {

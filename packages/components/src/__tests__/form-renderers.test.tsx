@@ -18,6 +18,31 @@ import {
 // cold transform is billed to `hookTimeout`, which is why this carried a raised
 // timeout. See object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
 import '../renderers';
+import type {
+  ButtonSchema,
+  InputSchema,
+  LabelSchema,
+  RadioGroupSchema,
+  SelectSchema,
+  SliderSchema,
+  TextSchema,
+} from '@object-ui/types';
+
+/**
+ * Types a literal below as the node it is rather than as the `BaseSchema`
+ * `renderComponent` accepts, children included (objectui#11347): once
+ * `BaseSchema`'s index signature is gone (objectui#8347), a literal checked
+ * against `BaseSchema` or `SchemaNode` may author only `BaseSchema`'s own keys.
+ * The literals that deliberately author a retired or undeclared key stay
+ * untyped, on purpose.
+ */
+const buttonNode = (schema: ButtonSchema): ButtonSchema => schema;
+const inputNode = (schema: InputSchema): InputSchema => schema;
+const labelNode = (schema: LabelSchema): LabelSchema => schema;
+const radioGroupNode = (schema: RadioGroupSchema): RadioGroupSchema => schema;
+const selectNode = (schema: SelectSchema): SelectSchema => schema;
+const sliderNode = (schema: SliderSchema): SliderSchema => schema;
+const textNode = (schema: TextSchema): TextSchema => schema;
 
 /**
  * Comprehensive tests for form renderer components
@@ -47,14 +72,14 @@ describe('Form Renderers - Display Issue Detection', () => {
     });
 
     it('should support different variants', () => {
-      const variants = ['default', 'secondary', 'destructive', 'outline', 'ghost', 'link'];
+      const variants: NonNullable<ButtonSchema['variant']>[] = ['default', 'secondary', 'destructive', 'outline', 'ghost', 'link'];
       
       variants.forEach(variant => {
-        const { container } = renderComponent({
+        const { container } = renderComponent(buttonNode({
           type: 'button',
           label: 'Test',
           variant,
-        });
+        }));
 
         const button = container.querySelector('button');
         expect(button).toBeTruthy();
@@ -62,14 +87,14 @@ describe('Form Renderers - Display Issue Detection', () => {
     });
 
     it('should support different sizes', () => {
-      const sizes = ['default', 'sm', 'lg', 'icon'];
+      const sizes: NonNullable<ButtonSchema['size']>[] = ['default', 'sm', 'lg', 'icon'];
       
       sizes.forEach(size => {
-        const { container } = renderComponent({
+        const { container } = renderComponent(buttonNode({
           type: 'button',
           label: 'Test',
           size,
-        });
+        }));
 
         const button = container.querySelector('button');
         expect(button).toBeTruthy();
@@ -77,10 +102,10 @@ describe('Form Renderers - Display Issue Detection', () => {
     });
 
     it('should render children when no label provided', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(buttonNode({
         type: 'button',
-        children: [{ type: 'text', content: 'Child Content' }],
-      });
+        children: [textNode({ type: 'text', content: 'Child Content' })],
+      }));
 
       expect(container.textContent).toContain('Child Content');
     });
@@ -110,12 +135,12 @@ describe('Form Renderers - Display Issue Detection', () => {
     });
 
     it('should show required indicator when required', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(inputNode({
         type: 'input',
         label: 'Required Field',
         name: 'required',
         required: true,
-      });
+      }));
 
       const label = container.querySelector('label');
       // The label should have a required indicator (*)
@@ -123,14 +148,14 @@ describe('Form Renderers - Display Issue Detection', () => {
     });
 
     it('should support different input types', () => {
-      const types = ['text', 'email', 'password', 'number', 'tel', 'url', 'date'];
+      const types: NonNullable<InputSchema['inputType']>[] = ['text', 'email', 'password', 'number', 'tel', 'url', 'date'];
       
       types.forEach(inputType => {
-        const { container } = renderComponent({
+        const { container } = renderComponent(inputNode({
           type: 'input',
           label: 'Test',
           inputType,
-        });
+        }));
 
         const input = container.querySelector('input');
         expect(input?.getAttribute('type')).toBe(inputType);
@@ -148,11 +173,11 @@ describe('Form Renderers - Display Issue Detection', () => {
     });
 
     it('should display error message when provided', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(inputNode({
         type: 'input',
         label: 'Field',
         error: 'This field has an error',
-      });
+      }));
 
       expect(container.textContent).toContain('This field has an error');
       const error = container.querySelector('.text-destructive');
@@ -177,11 +202,11 @@ describe('Form Renderers - Display Issue Detection', () => {
     });
 
     it('should handle readonly state', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(inputNode({
         type: 'input',
         label: 'Field',
         readOnly: true,
-      });
+      }));
 
       const input = container.querySelector('input');
       expect(input?.hasAttribute('readonly')).toBe(true);
@@ -261,14 +286,14 @@ describe('Form Renderers - Display Issue Detection', () => {
     });
 
     it('should render select with options', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(selectNode({
         type: 'select',
         label: 'Choose option',
         options: [
           { value: '1', label: 'Option 1' },
           { value: '2', label: 'Option 2' },
         ],
-      });
+      }));
 
       // Select component should be present
       expect(container.querySelector('[role="combobox"]') || container.querySelector('select')).toBeTruthy();
@@ -317,14 +342,14 @@ describe('Form Renderers - Display Issue Detection', () => {
     });
 
     it('should render radio group with options', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(radioGroupNode({
         type: 'radio-group',
         label: 'Choose one',
         options: [
           { value: 'a', label: 'Option A' },
           { value: 'b', label: 'Option B' },
         ],
-      });
+      }));
 
       const radioGroup = container.querySelector('[role="radiogroup"]');
       expect(radioGroup).toBeTruthy();
@@ -338,12 +363,12 @@ describe('Form Renderers - Display Issue Detection', () => {
     });
 
     it('should render slider component', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(sliderNode({
         type: 'slider',
         label: 'Volume',
         min: 0,
         max: 100,
-      });
+      }));
 
       const slider = container.querySelector('[role="slider"], input[type="range"]');
       expect(slider).toBeTruthy();
@@ -357,10 +382,10 @@ describe('Form Renderers - Display Issue Detection', () => {
     });
 
     it('should render label element', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(labelNode({
         type: 'label',
         text: 'Form Label',
-      });
+      }));
 
       const label = container.querySelector('label');
       expect(label).toBeTruthy();

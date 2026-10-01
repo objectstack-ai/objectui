@@ -54,6 +54,18 @@ import { renderComponent } from './test-utils';
 // Registers the renderers at module scope, not in a hook
 // (object-ui/no-dynamic-import-in-test-hook, objectui#3010).
 import '../renderers';
+import type { CheckboxSchema, InputSchema, SelectSchema, TextareaSchema } from '@object-ui/types';
+
+/**
+ * Types a literal below as the node it is rather than as the `BaseSchema`
+ * `renderComponent` accepts (objectui#11347): once `BaseSchema`'s index
+ * signature is gone (objectui#8347), a literal checked against `BaseSchema`
+ * may author only `BaseSchema`'s own keys.
+ */
+const inputNode = (schema: InputSchema): InputSchema => schema;
+const textareaNode = (schema: TextareaSchema): TextareaSchema => schema;
+const checkboxNode = (schema: CheckboxSchema): CheckboxSchema => schema;
+const selectNode = (schema: SelectSchema): SelectSchema => schema;
 
 afterEach(cleanup);
 
@@ -106,19 +118,19 @@ const SITES: Site[] = [
   },
   {
     site: 'input (renderers/form/input.tsx)',
-    render: (required) => renderComponent({ type: 'input', id: 'in-ctl', label: 'Title', required }),
+    render: (required) => renderComponent(inputNode({ type: 'input', id: 'in-ctl', label: 'Title', required })),
     label: () => document.querySelector('label[for="in-ctl"]'),
     expectRequiredState: () => expect(document.getElementById('in-ctl')).toHaveAttribute('required'),
   },
   {
     site: 'textarea (renderers/form/textarea.tsx)',
-    render: (required) => renderComponent({ type: 'textarea', id: 'ta-ctl', label: 'Title', required }),
+    render: (required) => renderComponent(textareaNode({ type: 'textarea', id: 'ta-ctl', label: 'Title', required })),
     label: () => document.querySelector('label[for="ta-ctl"]'),
     expectRequiredState: () => expect(document.getElementById('ta-ctl')).toHaveAttribute('required'),
   },
   {
     site: 'checkbox (renderers/form/checkbox.tsx)',
-    render: (required) => renderComponent({ type: 'checkbox', id: 'cb-ctl', label: 'Title', required }),
+    render: (required) => renderComponent(checkboxNode({ type: 'checkbox', id: 'cb-ctl', label: 'Title', required })),
     label: () => document.querySelector('label[for="cb-ctl"]'),
     // Radix writes `aria-required` on the role=checkbox button from `required`.
     expectRequiredState: () => expect(screen.getByRole('checkbox')).toHaveAttribute('aria-required', 'true'),
@@ -126,13 +138,13 @@ const SITES: Site[] = [
   {
     site: 'select (renderers/form/select.tsx)',
     render: (required) =>
-      renderComponent({
+      renderComponent(selectNode({
         type: 'select',
         id: 'sel-ctl',
         label: 'Title',
         required,
         options: [{ label: 'A', value: 'a' }],
-      }),
+      })),
     // The label names the trigger through `for` since objectui#10435, whose
     // own pin (`select-label-association.test.tsx`) reads the resulting name.
     label: () => document.querySelector('label[for="sel-ctl"]'),

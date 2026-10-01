@@ -43,11 +43,19 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
 import { SchemaRenderer } from '@object-ui/react';
-import type { TextSpanSchema } from '@object-ui/types';
+import type { TextSchema, TextSpanSchema } from '@object-ui/types';
 // Registers the renderers at module scope, NOT inside a `beforeAll` — there the
 // cold transform is billed to `hookTimeout`. See
 // object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
 import '../renderers';
+
+/**
+ * Types a child literal below as the `text` node it is (objectui#11347): a
+ * `children` entry is checked against `SchemaNode`, and once `BaseSchema`'s
+ * index signature is gone (objectui#8347) a literal checked against it may
+ * author only `BaseSchema`'s own keys.
+ */
+const textNode = (schema: TextSchema): TextSchema => schema;
 
 describe('span reads its declared `value` key (#5050)', () => {
   it('renders the plain `{ type: "span", value }` the card reports rendering empty', () => {
@@ -76,7 +84,7 @@ describe('span reads its declared `value` key (#5050)', () => {
       type: 'span',
       className: 'both-keys',
       value: 'value must not render',
-      children: [{ type: 'text', content: 'children win' }],
+      children: [textNode({ type: 'text', content: 'children win' })],
     };
 
     const { container } = render(<SchemaRenderer schema={schema} />);
@@ -95,7 +103,7 @@ describe('span reads its declared `value` key (#5050)', () => {
       type: 'span',
       className: 'single-child-wins',
       value: 'value must not render',
-      children: { type: 'text', content: 'lone child wins' },
+      children: textNode({ type: 'text', content: 'lone child wins' }),
     };
 
     const { container } = render(<SchemaRenderer schema={schema} />);

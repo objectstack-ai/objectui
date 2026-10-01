@@ -36,11 +36,18 @@ this reason.
 
 This moves one entry of the objectui#4020 first-string-wins ledger. That ledger's
 justification is "a locale-unaware pick a caller can OVERRIDE", which holds for a series
-`label` — `DatasetWidget` replaces it from the locale bundle — and never held for an axis
-title, which is spread onto the chart schema and drawn. `seriesPresentation` keeps the pick and
+`label` — the report renderer outranks it with objectui#4020's three-level display name — and
+never held for an axis title, which is spread onto the chart schema and drawn. `seriesPresentation` keeps the pick and
 is still pinned.
 
 What an author sees change: a filter that opted in with `object` now shows its translated
 field and option labels instead of the raw field name and English options; an axis title
 authored as a locale map now follows the viewer's language instead of the author's key order.
 Nothing that omits `object` or authors a plain-string axis title renders differently.
+
+⚠️ Released together with objectui#11315, which changes what point 2 reaches. `@objectstack/spec`
+17.5.0 refuses `chartConfig.xAxis` / `yAxis` / `series` on a dashboard widget, and the dashboard's
+dataset widget no longer reads them, so a dashboard draws no authored axis title at all, in any
+language. Point 2 still holds for `@object-ui/core`'s `axisPresentation` and
+`mergeAuthoredPresentation`, which forward a locale-map axis title verbatim to whatever chart
+schema their caller builds.

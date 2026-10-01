@@ -235,10 +235,21 @@ describe('ADR-0137 D4 — silencer 2: hasDeclaredPredicate folding a blank gate'
   it.each([
     ['undefined', undefined],
     ['null', null],
-    ['a number', 0],
-    ['an object without source', {}],
   ] as const)('control — %s is not blank TEXT: not declared, and silent', (_label, value) => {
     expect(hasDeclaredPredicate(value)).toBe(false);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  // objectui#11358 — these two were "not declared, and silent" controls. They
+  // are DECLARED now (a gate with no evaluable `source`, which faults), and
+  // still silent HERE: the report belongs to the evaluation that every
+  // declared gate goes on to, not to this definition — see
+  // `declaredPredicate.test.ts`'s objectui#11358 block.
+  it.each([
+    ['a number', 0],
+    ['an object without source', {}],
+  ] as const)('control — %s is not blank TEXT: declared (objectui#11358), and silent here', (_label, value) => {
+    expect(hasDeclaredPredicate(value)).toBe(true);
     expect(warn).not.toHaveBeenCalled();
   });
 

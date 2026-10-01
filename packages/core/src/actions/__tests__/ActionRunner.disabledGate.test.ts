@@ -55,10 +55,11 @@
  *     on its own, and these are what refuse it.
  *   • `false` / absent → still runs (ungated stays ungated), and `false` proves
  *     the gate did not start treating a declared-and-false gate as absent.
- *   • the non-predicate junk rows (`0`, `{}`) → now run. Behaviour change, and
- *     the fail-open direction the file already commits to (`catch { isDisabled
- *     = false }`): a value that is not a predicate at all must not decide that
- *     an action is disabled.
+ *   • the non-predicate junk rows (`0`, `{}`, an `ast`-only envelope, an
+ *     array) → BLOCKED since objectui#11358. They ran from objectui#3850 to
+ *     then, read as "no gate"; that ruling makes them a declared gate that
+ *     cannot be evaluated, which faults, and a faulting `disabled` refuses the
+ *     action (objectui#11242). Reported once, by `evaluateCondition`.
  *
  * ## The parity claim, now made for EVERY row (objectui#3850 closed the last three)
  *
@@ -222,11 +223,22 @@ const SHAPES: Shape[] = [
     blocked: false,
     rendererDisabled: false,
   },
-  // ── behaviour change: non-predicate junk fails open ─────────────────────
-  // Parity claimed since objectui#3850: the renderers stopped reading a
-  // non-predicate as a declared gate, so junk fails open on both faces.
-  { label: 'disabled: 0 (not a predicate)', disabled: 0, blocked: false, rendererDisabled: false },
-  { label: 'disabled: {} (not a predicate)', disabled: {}, blocked: false, rendererDisabled: false },
+  // ── behaviour change (objectui#11358): non-predicate junk fails CLOSED ──
+  // It used to fail open on both faces (objectui#3850: "not declared"). Triage's
+  // ruling on objectui#11358 made a present value with no evaluable `source` a
+  // DECLARED gate that faults, so it takes the direction every faulting
+  // `disabled` takes (objectui#11242): refused here, greyed out on the
+  // renderers. Parity still claimed — `rendererDisabled` moved with it, pinned
+  // live in `action-disabled-declared-gate.test.tsx` (components).
+  { label: 'disabled: 0 (not a predicate)', disabled: 0, blocked: true, rendererDisabled: true },
+  { label: 'disabled: {} (not a predicate)', disabled: {}, blocked: true, rendererDisabled: true },
+  {
+    label: "disabled: { dialect: 'cel', ast } (an `ast`-only envelope)",
+    disabled: { dialect: 'cel', ast: { kind: 'call', fn: '==' } },
+    blocked: true,
+    rendererDisabled: true,
+  },
+  { label: 'disabled: [] (an array)', disabled: ['record.id'], blocked: true, rendererDisabled: true },
 ];
 
 /** Execute one shape and report whether the handler ran. */

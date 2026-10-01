@@ -70,7 +70,7 @@
  *      "declared" to "not declared".
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { hasDeclaredPredicate } from '../declaredPredicate';
 import { toPredicateInput } from '../predicateInput';
 import { ExpressionEvaluator } from '../ExpressionEvaluator';
@@ -94,11 +94,16 @@ const SHAPES: Array<{ label: string; value: unknown; declared: boolean }> = [
   { label: "{ dialect: 'cel', source: '   ' } (blank source — objectui#3960)", value: { dialect: 'cel', source: '   ' }, declared: false },
   { label: "{ source: '   ' } (blank source, no dialect)", value: { source: '   ' }, declared: false },
   { label: "{ dialect: 'cel', source: '\\n' } (other blanks)", value: { dialect: 'cel', source: '\n' }, declared: false },
-  // ── not a predicate at all → fail open, never a reason to disable ──────
-  { label: '0', value: 0, declared: false },
-  { label: '{} (no source)', value: {}, declared: false },
-  { label: '[] (array)', value: [], declared: false },
-  { label: '{ dialect: "cel" } (envelope with no source key)', value: { dialect: 'cel' }, declared: false },
+  // ── declared, but nothing in it can be evaluated (objectui#11358) ──────
+  // These were "not a predicate at all → fail open" until triage's ruling on
+  // objectui#11358 made them "declared and faulting". The normalizer keeps
+  // them as a `cel` envelope with no `source`, so the derivation below still
+  // holds with no new exception.
+  { label: '0', value: 0, declared: true },
+  { label: '{} (no source)', value: {}, declared: true },
+  { label: '[] (array)', value: [], declared: true },
+  { label: '{ dialect: "cel" } (envelope with no source key)', value: { dialect: 'cel' }, declared: true },
+  { label: "{ dialect: 'cel', ast } (an `ast`-only envelope)", value: { dialect: 'cel', ast: { kind: 'call', fn: '==' } }, declared: true },
   // ── a declared verdict, including the explicit `false` ─────────────────
   { label: 'true', value: true, declared: true },
   { label: 'false (a verdict, not a missing gate — objectui#3812)', value: false, declared: true },
@@ -197,5 +202,80 @@ describe('why the question cannot be delegated to the verdict', () => {
     expect(hasDeclaredPredicate(false)).toBe(true);
     const ev = new ExpressionEvaluator({});
     expect(ev.evaluateCondition(false)).toBe(false);
+  });
+});
+
+/**
+ * objectui#11358 — the THIRD state. A present value with no evaluable `source`
+ * is neither absent (no gate) nor evaluable: it is declared and faulting.
+ *
+ * What this block pins, at the layer that tells the three states apart:
+ *
+ *   • the normalizer keeps the state — a frozen `cel` envelope with no
+ *     `source`, never `undefined` — so `hasDeclaredPredicate` answers
+ *     "declared" by the same derivation as every other shape;
+ *   • the evaluation step treats it as a FAULT: a `throwOnError` caller gets a
+ *     throw (its catch is its fail-closed answer and its report), any other
+ *     caller gets the fail-soft `true` and ONE `[unevaluable]` report — never
+ *     the silent `true` these shapes used to get (ADR-0137 D4);
+ *   • `hasDeclaredPredicate` itself reports nothing for it: the declared gate
+ *     always goes on to an evaluation, which reports.
+ *
+ * Reverse verification (predicted before running): restoring the fold
+ * (dropping the `isUnevaluablePredicate` line from `toPredicateInput`) turns
+ * RED every row of this block and the five rows marked objectui#11358 in the
+ * table above; the absent and real-CEL controls stay GREEN.
+ */
+describe('declared but not evaluable is a fault, not "no gate" (objectui#11358)', () => {
+  const UNEVALUABLE: Array<{ label: string; value: unknown }> = [
+    { label: "an `ast`-only envelope ({ dialect: 'cel', ast })", value: { dialect: 'cel', ast: { kind: 'call', fn: '==' } } },
+    { label: '0', value: 0 },
+    { label: '{}', value: {} },
+    { label: 'an array', value: ['record.id == 1'] },
+  ];
+
+  it.each(UNEVALUABLE)('$label → declared, normalized to a `cel` envelope with no `source`', ({ value }) => {
+    expect(hasDeclaredPredicate(value)).toBe(true);
+    const normalized = toPredicateInput(value);
+    expect(normalized).toEqual({ dialect: 'cel' });
+    expect(normalized).not.toHaveProperty('source');
+    // One shared, frozen value: a reader's memo sees one input per state, and
+    // no reader can learn what the `ast` said from it.
+    expect(Object.isFrozen(normalized)).toBe(true);
+    expect(toPredicateInput(value)).toBe(normalized);
+  });
+
+  it.each(UNEVALUABLE)('$label → a `throwOnError` evaluation throws, on the raw and the normalized value', ({ value }) => {
+    const ev = new ExpressionEvaluator({ record: { id: 1 } });
+    expect(() => ev.evaluateCondition(value as never, { throwOnError: true })).toThrow(/\[unevaluable\]/);
+    expect(() => ev.evaluateCondition(toPredicateInput(value) as never, { throwOnError: true })).toThrow(/\[unevaluable\]/);
+  });
+
+  it.each(UNEVALUABLE)('$label → a fail-soft evaluation answers `true` and reports once, as `[unevaluable]`', ({ value }) => {
+    const ev = new ExpressionEvaluator({ record: { id: 1 } });
+    const onFault = vi.fn();
+    expect(ev.evaluateCondition(toPredicateInput(value) as never, { onFault })).toBe(true);
+    expect(onFault).toHaveBeenCalledOnce();
+    expect(String(onFault.mock.calls[0][0])).toMatch(/^\[unevaluable\] /);
+  });
+
+  it('hasDeclaredPredicate reports nothing for it — the evaluation step does', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      for (const { value } of UNEVALUABLE) hasDeclaredPredicate(value);
+      expect(warn).not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('controls: absent is still no gate, a real CEL `source` still evaluates', () => {
+    const ev = new ExpressionEvaluator({ record: { id: 1 } });
+    expect(hasDeclaredPredicate(undefined)).toBe(false);
+    expect(toPredicateInput(undefined)).toBeUndefined();
+    expect(ev.evaluateCondition(undefined, { throwOnError: true })).toBe(true);
+    expect(hasDeclaredPredicate({ dialect: 'cel', source: 'record.id == 1' })).toBe(true);
+    expect(ev.evaluateCondition(toPredicateInput({ dialect: 'cel', source: 'record.id == 1' }), { throwOnError: true })).toBe(true);
+    expect(ev.evaluateCondition(toPredicateInput({ dialect: 'cel', source: 'record.id == 2' }), { throwOnError: true })).toBe(false);
   });
 });

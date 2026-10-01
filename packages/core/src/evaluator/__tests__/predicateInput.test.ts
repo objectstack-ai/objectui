@@ -80,8 +80,13 @@ describe('toPredicateInput — a bare expression is wrapped (unchanged)', () => 
     expect(toPredicateInput(undefined)).toBeUndefined();
     expect(toPredicateInput({ dialect: 'cel', source: '' })).toBeUndefined();
     expect(toPredicateInput('   ')).toBe('${   }');
-    expect(toPredicateInput(0)).toBeUndefined();
-    expect(toPredicateInput({})).toBeUndefined();
+    // objectui#11358: a present value with no evaluable `source` is no longer
+    // folded into `undefined` (absent). It is kept as a `cel` envelope with no
+    // `source` — declared, and a fault to the evaluator — and normalizing that
+    // again returns the same value (idempotent, as the cases below require).
+    expect(toPredicateInput(0)).toEqual({ dialect: 'cel' });
+    expect(toPredicateInput({})).toEqual({ dialect: 'cel' });
+    expect(toPredicateInput(toPredicateInput({}))).toBe(toPredicateInput({}));
   });
 });
 

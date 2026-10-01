@@ -1530,10 +1530,18 @@ function MetadataResourceEditPageImpl({
         });
       }
     } catch (err: any) {
+      // `err` is the client's parsed `MetadataError`: `MetadataClient`'s
+      // `parseError` has already read every live wire shape onto `message`,
+      // `issues` and `code` — the REST door's top-level `issues` and the HTTP
+      // dispatcher's `error.details.issues` alike. Both branches below read
+      // those fields. ⛔ Never `err.body`: re-reading the raw envelope is a
+      // second parse, and the one this page had knew only the REST shape, so a
+      // refusal the dispatcher served showed `[object Object]` with an empty
+      // field path (objectui#11379).
+      const parsedIssues: unknown[] = Array.isArray(err?.issues) ? err.issues : [];
       // Map destructive change → confirmation dialog.
       if (err?.status === 409 && errorCodeIs(err, 'DESTRUCTIVE_CHANGE')) {
-        const i = err?.body?.issues ?? [];
-        setDestructiveIssues(Array.isArray(i) ? i : []);
+        setDestructiveIssues(parsedIssues as Array<{ kind?: string; path?: string; message?: string }>);
         setPendingItem(draft);
       }
       // ADR-0070 D1/D3 — the kernel rejects authoring into a read-only
@@ -1546,8 +1554,7 @@ function MetadataResourceEditPageImpl({
       }
       // Map schema validation → inline field errors.
       else if (err?.status === 422 || errorCodeIsAnyOf(err, ['INVALID_METADATA', 'INVALID_PAYLOAD'])) {
-        const i = err?.body?.issues ?? [];
-        let mapped: SchemaFormIssue[] = (Array.isArray(i) ? i : []).map((x: any) => ({
+        let mapped: SchemaFormIssue[] = parsedIssues.map((x: any) => ({
           path: Array.isArray(x.path) ? x.path.join('.') : String(x.path ?? ''),
           message: translateValidationMessage(String(x.message ?? 'Invalid'), locale),
         }));
@@ -1555,7 +1562,7 @@ function MetadataResourceEditPageImpl({
         // "<type>/<name> failed spec validation: <path>: <message>".
         // Parse it into a single inline issue + summary so users see the
         // real problem instead of "0 issues".
-        const raw: string = String(err?.body?.error ?? err?.message ?? '');
+        const raw: string = String(err?.message ?? '');
         if (mapped.length === 0 && raw) {
           const m = raw.match(/failed spec validation:\s*(.+?):\s*(.+)$/);
           if (m) {

@@ -125,7 +125,12 @@ export function EmbeddedItemEditor({
       // Validation issues from the parent save apply to the embedded
       // path. Try to scope them back to this item.
       if (err?.status === 422 || errorCodeIsAnyOf(err, ['INVALID_METADATA', 'INVALID_PAYLOAD'])) {
-        const raw = err?.body?.issues ?? [];
+        // Read off the client's parsed `MetadataError`, whose `issues` already
+        // carries both live wire shapes (the REST door's top-level `issues`,
+        // the HTTP dispatcher's `error.details.issues`). ⛔ Never re-read
+        // `err.body.issues`: only the REST door fills it, so a dispatcher
+        // refusal counted zero issues and marked no field (objectui#11379).
+        const raw = err?.issues ?? [];
         const mapped: SchemaFormIssue[] = (Array.isArray(raw) ? raw : []).map((x: any) => {
           const fullPath = Array.isArray(x.path) ? x.path.join('.') : String(x.path ?? '');
           // Trim the `<embeddedPath>.<itemName>.` prefix so issues

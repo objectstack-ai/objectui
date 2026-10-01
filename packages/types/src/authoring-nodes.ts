@@ -37,9 +37,14 @@
  *     arm exists for these two. `AnyComponentSchema` still refuses both at
  *     `type`, and `registered-types-validate-ratchet-10859` in
  *     `@object-ui/cli` counts that population. The spec carries both rows
- *     (`ComponentPropsMap`), so each node is built the way an arm is built, on
- *     the same base shape: the `type` literal plus `properties` as the row, by
- *     reference. `element:record_picker` also declares `dataSource` (the
+ *     (`ComponentPropsMap`), so each node is built the way an arm is built:
+ *     the zod `BaseSchema` shape extended with the `type` literal, the node
+ *     envelope (`NODE_ENVELOPE`: `responsiveStyles`, which `SchemaRenderer`
+ *     compiles on every node), `properties` as the row, and the `body` /
+ *     `children` tombstones, each by reference. The spec's own
+ *     `PageComponentSchema` refuses a node-level `children` on both types as an
+ *     unrecognized key, as it does on `element:text`.
+ *     `element:record_picker` also declares `dataSource` (the
  *     spec's `ElementDataSourceSchema`), because its renderer reads the node's
  *     binding, the same rule `ElementNumberBlockSchema` follows. Its bag leaves
  *     `object` optional, because the spec's props gate waives that one member
@@ -76,7 +81,8 @@ import type {
   PageSchema as SpecPageSchema,
 } from '@objectstack/spec/ui';
 import type { BaseSchema as BaseSchemaMirror } from './zod/base.zod.js';
-import type { PublicBlockComponentSchema } from './zod/public-blocks.zod.js';
+import type { NODE_ENVELOPE, PublicBlockComponentSchema } from './zod/public-blocks.zod.js';
+import type { retirementTombstone } from './zod/tombstone.zod.js';
 
 /**
  * A zod object arm's authoring input, read off its shape with the object
@@ -87,11 +93,25 @@ import type { PublicBlockComponentSchema } from './zod/public-blocks.zod.js';
  */
 type ClosedArmInput<Arm> = Arm extends z.ZodObject ? z.input<z.ZodObject<Arm['shape']>> : never;
 
+/** What `.extend()` does to a shape: `Own`'s keys replace `Base`'s, the rest stay. */
+type ExtendedShape<Base, Own> = Omit<Base, keyof Own> & Own;
+
 /**
- * A node built from a spec `ComponentPropsMap` row with no zod arm: the arm
- * base shape (the zod `BaseSchema`, the same base every arm extends), a `type`
- * literal, `properties` as the row, and any node-level members the renderer
- * reads, each a spec schema by reference.
+ * The refusal every arm declares on `body` and `children` (objectui#9256,
+ * objectui#10872): the schema type `retirementTombstone` returns, by reference.
+ * Its input is `?: never`. The guidance text differs per arm; the type does not.
+ */
+type NodeTombstone = ReturnType<typeof retirementTombstone>;
+
+/**
+ * A node built from a spec `ComponentPropsMap` row with no zod arm, the way
+ * every arm is built: `BaseSchema.extend({ type, ...NODE_ENVELOPE, properties,
+ * body, children })`. So the zod `BaseSchema` shape (the base every arm
+ * extends), with the `type` literal, the node envelope (`NODE_ENVELOPE`, whose
+ * `responsiveStyles` is the spec's `ResponsiveStylesSchema`), `properties` as
+ * the row, and the `body` / `children` tombstones, each by reference, plus any
+ * further node-level member the renderer reads, each a spec schema by
+ * reference.
  */
 type SpecRowNode<
   Type extends string,
@@ -99,10 +119,15 @@ type SpecRowNode<
   NodeMembers extends z.core.$ZodShape = Record<never, never>,
 > = z.input<
   z.ZodObject<
-    Omit<(typeof BaseSchemaMirror)['shape'], 'type'> & {
-      type: z.ZodLiteral<Type>;
-      properties: z.ZodOptional<Bag>;
-    } & NodeMembers
+    ExtendedShape<
+      (typeof BaseSchemaMirror)['shape'],
+      {
+        type: z.ZodLiteral<Type>;
+        properties: z.ZodOptional<Bag>;
+        body: NodeTombstone;
+        children: NodeTombstone;
+      } & typeof NODE_ENVELOPE & NodeMembers
+    >
   >
 >;
 

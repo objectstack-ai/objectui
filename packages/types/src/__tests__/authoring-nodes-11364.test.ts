@@ -126,6 +126,26 @@ describe('objectui#11364: the spec-declared nodes have a TypeScript authoring fa
     expect([input, badInput, bound, unbound, badPicker]).toHaveLength(5);
   });
 
+  it('the spec-row nodes carry the node envelope and refuse a node-level child list, exactly as element:text does', () => {
+    // The node envelope every arm spreads (`NODE_ENVELOPE`: `responsiveStyles`, the spec's
+    // `ResponsiveStylesSchema`) compiles on both spec-row nodes after the removal, as on `element:text`.
+    const styles = { small: { padding: '8px' } };
+    const textStyled: PostRemovalSchema = { type: 'element:text', properties: { content: 'x' }, responsiveStyles: styles };
+    const inputStyled: PostRemovalSchema = { type: 'element:text_input', properties: { label: 'x' }, responsiveStyles: styles };
+    const pickerStyled: PostRemovalSchema = { type: 'element:record_picker', properties: { object: 'a' }, responsiveStyles: styles };
+    // The `body` / `children` tombstones every arm carries: a node-level child list is refused
+    // after the removal on all three, and on each node type itself.
+    // @ts-expect-error control: `element:text` refuses a node-level `children` (objectui#9256)
+    const textChildren: PostRemovalSchema = { type: 'element:text', properties: { content: 'x' }, children: [{ type: 'text' }] };
+    // @ts-expect-error the same tombstone on `element:text_input`
+    const inputChildren: PostRemovalSchema = { type: 'element:text_input', properties: { label: 'x' }, children: [{ type: 'text' }] };
+    // @ts-expect-error the same tombstone on `element:text_input`, on the node type itself
+    const inputNodeChildren: ElementTextInputNode = { type: 'element:text_input', children: [] };
+    // @ts-expect-error the same tombstone on `element:record_picker`, on the node type itself
+    const pickerNodeChildren: ElementRecordPickerNode = { type: 'element:record_picker', children: [] };
+    expect([textStyled, inputStyled, pickerStyled, textChildren, inputChildren, inputNodeChildren, pickerNodeChildren]).toHaveLength(7);
+  });
+
   it('a stored page document is typed under its page kind', () => {
     const home: PageDocumentNode = { type: 'home', kind: 'html', name: 'landing', label: 'Landing', source: '<Page />' };
     // @ts-expect-error `kind` is the spec's override mode (full | slotted | html | react | jsx)

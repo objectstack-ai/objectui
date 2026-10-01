@@ -56,12 +56,13 @@
  *      `title` (or `Line Items`), with `columns` in authored order.
  *   2. The grid object is exactly six keys. Each authored member arrives under
  *      its renamed key, and off-list members are NOT forwarded, including
- *      one written in the grid's own snake_case spelling and the retired
- *      `sortField`.
+ *      one written in the grid's own snake_case spelling.
  *   2c. `sortField` is no member (objectui#11070 round 9). On a detail the
  *      block derives, the grid's `sort_field` is the child's sort-named field
- *      even when a `sortField` naming another field is written beside it; the
- *      compile-time block at the end of this file refuses the member by name.
+ *      even when a `sortField` naming another field is written beside it. On
+ *      a fully configured detail, which derives nothing, a written one leaves
+ *      `sort_field` empty. The compile-time block at the end of this file
+ *      refuses the member by name.
  *   3. `inlineMode: 'form'` turns the grid into a list with an `Add` action.
  *      In grid mode, `formFields` wider than `columns` offers the row form, and
  *      without that the offer is withheld. Each arm is the control for the
@@ -235,13 +236,9 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
           addLabel: 'Add a line',
           amountField: 'qty',
           // Off the list. The second is the GRID's own spelling: the map is
-          // explicit, so writing the target key by hand reaches nothing. The
-          // third is the retired `sortField` (objectui#11070 round 9): this
-          // detail is fully configured, so nothing is derived, and the grid's
-          // `sort_field` stays empty however the detail spells one.
+          // explicit, so writing the target key by hand reaches nothing.
           readonly: true,
           allow_add: false,
-          sortField: 'position',
         },
       ],
     });
@@ -260,7 +257,7 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
       add_label: 'Add a line',
       total_field: 'qty',
     });
-    expect(field.sort_field, 'a written `sortField` is no member, and nothing was derived').toBeUndefined();
+    expect(field.sort_field, 'a fully configured detail derives nothing (row 2c)').toBeUndefined();
     expect(gridOf('Lines').displayMode).toBe('grid');
   });
 
@@ -287,7 +284,7 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
     });
   });
 
-  it('2c. `sortField` is no member: on a derived detail the grid stamps the child’s sort-named field, whatever the detail writes (objectui#11070 round 9)', async () => {
+  it('2c. `sortField` is no member: a derived detail stamps the child’s sort-named field and a fully configured one stamps none, whatever the detail writes (objectui#11070 round 9)', async () => {
     await mount({
       details: [
         // The lit control: nothing written, and the derivation's pick reaches
@@ -296,6 +293,16 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
         { childObject: 'po_step', title: 'Steps' },
         // The same child with a `sortField` naming its OTHER sort-named field.
         { childObject: 'po_step', title: 'Steps, written', sortField: 'line_no' },
+        // Fully configured (FK set, every column typed): no child schema is
+        // loaded and nothing is derived, so a written `sortField` is the only
+        // candidate there is, and it still reaches nothing.
+        {
+          childObject: 'po_step',
+          relationshipField: 'po',
+          title: 'Steps, configured',
+          columns: [NOTE],
+          sortField: 'position',
+        },
       ],
     });
     const derived = await waitFor(() => {
@@ -310,6 +317,7 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
       return f;
     });
     expect(written.sort_field, 'the written `sortField` is read by nothing').toBe('position');
+    expect(gridOf('Steps, configured').field.sort_field, 'nothing derived, and the written one not read').toBeUndefined();
   });
 
   it('3. `inlineMode` and `formFields` choose the form factor, each arm the other’s control', async () => {

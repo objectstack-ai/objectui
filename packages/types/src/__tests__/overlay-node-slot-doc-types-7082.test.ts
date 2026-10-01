@@ -12,7 +12,10 @@
  *
  * ## Why this file exists rather than "the docs gates went green"
  *
- * Every row this pins lives in a `plaintext` fence. `check:doc-snippets`
+ * Every row this pins lived in a `plaintext` fence when this file was written
+ * (objectui#5867 re-fences these pages `ts` in batches; `Subject.fence` names
+ * each page's language today, and a re-fenced page declares its own interface,
+ * which compiles without being judged against the declaration). `check:doc-snippets`
  * compiles `ts`/`tsx`/`typescript` fences only (`TS_FENCE_LANGUAGES`,
  * `scripts/check-doc-snippet-types.mjs`) and `check:doc-types` reads only the
  * `type` STRING LITERALS out of docs code blocks. So a member row in these
@@ -218,11 +221,16 @@ interface Member {
   readonly typeText: string;
 }
 
-/** The one `plaintext` fence that carries a page's interface blocks. */
-function schemaFence(doc: string, path: string): string {
-  const fences = [...doc.matchAll(/```plaintext\n([\s\S]*?)```/g)].map((match) => match[1]);
+/**
+ * The one fence of the page's own language that carries its interface blocks.
+ * The language is named per subject: objectui#5867 re-fences these pages from
+ * `plaintext` to `ts` in batches, so a page reads `ts` once its batch lands.
+ */
+function schemaFence(doc: string, path: string, fence: 'plaintext' | 'ts'): string {
+  const opener = new RegExp('```' + fence + '\\n([\\s\\S]*?)```', 'g');
+  const fences = [...doc.matchAll(opener)].map((match) => match[1]);
   if (fences.length !== 1) {
-    throw new Error(`expected exactly one \`plaintext\` fence in ${path}, found ${fences.length}`);
+    throw new Error(`expected exactly one \`${fence}\` fence in ${path}, found ${fences.length}`);
   }
   return fences[0];
 }
@@ -272,16 +280,18 @@ function members(body: string): Map<string, Member> {
 interface Subject {
   readonly name: string;
   readonly docPath: string;
+  /** The page's schema fence language (objectui#5867 re-fences it in batches). */
+  readonly fence: 'plaintext' | 'ts';
   readonly declPath: string;
 }
 
 const SUBJECTS: readonly Subject[] = [
-  { name: 'AlertDialogSchema', docPath: 'content/docs/components/overlay/alert-dialog.mdx', declPath: 'packages/types/src/overlay.ts' },
-  { name: 'ContextMenuSchema', docPath: 'content/docs/components/overlay/context-menu.mdx', declPath: 'packages/types/src/overlay.ts' },
-  { name: 'HoverCardSchema', docPath: 'content/docs/components/overlay/hover-card.mdx', declPath: 'packages/types/src/overlay.ts' },
-  { name: 'DropdownMenuSchema', docPath: 'content/docs/components/overlay/dropdown-menu.mdx', declPath: 'packages/types/src/overlay.ts' },
-  { name: 'SheetSchema', docPath: 'content/docs/components/overlay/sheet.mdx', declPath: 'packages/types/src/overlay.ts' },
-  { name: 'EmptySchema', docPath: 'content/docs/components/feedback/empty.mdx', declPath: 'packages/types/src/feedback.ts' },
+  { name: 'AlertDialogSchema', docPath: 'content/docs/components/overlay/alert-dialog.mdx', fence: 'plaintext', declPath: 'packages/types/src/overlay.ts' },
+  { name: 'ContextMenuSchema', docPath: 'content/docs/components/overlay/context-menu.mdx', fence: 'plaintext', declPath: 'packages/types/src/overlay.ts' },
+  { name: 'HoverCardSchema', docPath: 'content/docs/components/overlay/hover-card.mdx', fence: 'plaintext', declPath: 'packages/types/src/overlay.ts' },
+  { name: 'DropdownMenuSchema', docPath: 'content/docs/components/overlay/dropdown-menu.mdx', fence: 'plaintext', declPath: 'packages/types/src/overlay.ts' },
+  { name: 'SheetSchema', docPath: 'content/docs/components/overlay/sheet.mdx', fence: 'plaintext', declPath: 'packages/types/src/overlay.ts' },
+  { name: 'EmptySchema', docPath: 'content/docs/components/feedback/empty.mdx', fence: 'ts', declPath: 'packages/types/src/feedback.ts' },
 ];
 
 const documented = new Map<string, Map<string, Member>>();
@@ -290,7 +300,7 @@ for (const subject of SUBJECTS) {
   const doc = read(subject.docPath);
   documented.set(
     subject.name,
-    members(interfaceBody(schemaFence(doc, subject.docPath), `interface ${subject.name} {`, subject.docPath)),
+    members(interfaceBody(schemaFence(doc, subject.docPath, subject.fence), `interface ${subject.name} {`, subject.docPath)),
   );
   declared.set(
     subject.name,
@@ -443,7 +453,7 @@ describe('counter-probes: the readers above can still fail (objectui#7082)', () 
   });
 
   it('`schemaFence` throws when a page stops holding exactly one fence', () => {
-    expect(() => schemaFence('```plaintext\na\n```\n```plaintext\nb\n```\n', 'x.mdx')).toThrow(/found 2/);
+    expect(() => schemaFence('```plaintext\na\n```\n```plaintext\nb\n```\n', 'x.mdx', 'plaintext')).toThrow(/found 2/);
   });
 
   it('the extractors really parsed rows, not empty match sets', () => {

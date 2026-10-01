@@ -42,3 +42,16 @@ REPORTED empty array is a real answer and gates strictly.
 
 `perms.can()` itself is untouched: no other caller moves, and the full
 before/after truth table of both stock providers is pinned as unchanged.
+
+**Correction, 2026-10-01 (objectui#10224).** The phrase "hides the whole bar"
+above is wrong about what the reader sees. When a declared capability is unheld or
+unrecognised, no action is drawn and an insufficient-permissions notice
+(`role="status"`) renders where the bar would be. That is what the contract's
+shared record-block `requiredPermissions` describe says: "this block does not
+render its content; wherever it would otherwise render, an
+insufficient-permissions notice takes its place". The `record:quick_actions`
+registration now publishes that describe verbatim, in place of "Hide the whole
+bar unless the user holds these permissions", and the contract wording quoted
+in the first paragraph is retired upstream (objectstack#18159). Everything
+else above stands: the capabilities the gate asks for, its fail-closed
+verdict, and the fail-open when capabilities are unreported.

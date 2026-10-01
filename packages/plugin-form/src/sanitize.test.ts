@@ -47,6 +47,15 @@ describe('sanitizeFormData', () => {
     expect(out).toEqual({ name: 'Website', budget: 1000 });
   });
 
+  it('reads no `formula` flag: the retired key marks no other type computed (objectui#11070 round 6)', () => {
+    // A `type: 'formula'` field is dropped by its type, above. `FieldSchema`
+    // refuses `formula` by name on every field type (renaming it to
+    // `expression`), so a `formula` key on any other type is read by nothing
+    // here, and the value goes out like any writable field's.
+    const schema = { fields: { note: { type: 'text', formula: 'record.x' } } };
+    expect(sanitizeFormData({ note: 'kept' }, schema)).toEqual({ note: 'kept' });
+  });
+
   it('drops keys absent from the schema (flattened/projected fields)', () => {
     const schema = { fields: { name: { type: 'text' } } };
     const out = sanitizeFormData({ name: 'keep', account__name: 'drop' }, schema);

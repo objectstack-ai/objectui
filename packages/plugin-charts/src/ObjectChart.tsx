@@ -350,44 +350,38 @@ export async function resolveGroupByLabels(
 
       // Build id→label map using display field from metadata with sensible fallbacks.
       //
-      // ⭐ objectui#7435 — the DECLARED spelling is ranked FIRST. Until this
+      // ⭐ objectui#7435 — the DECLARED spelling is ranked FIRST. Until that
       // change the chain had no `FieldSchema` leg at all, so `displayField` —
       // the only display spelling a spec-compliant author can emit, and the one
       // `getObjectSchema` serves — could not reach this reader in any shape. The
       // chart fell through to the generic `'name'` heuristic and drew the wrong
-      // axis label. This is the shape objectui#7155 established (declared leg
-      // first, recorded dialect behind it), not a new lenient alias: the two
-      // snake legs below are PRE-EXISTING reads, kept in their pre-existing
-      // relative order, and this change only puts the contract ahead of them.
+      // axis label.
       //
-      // MEASURED on the pin resolved here, `@objectstack/spec@17.4.0`:
+      // MEASURED on the pin resolved then, `@objectstack/spec@17.4.0`:
       // `FieldSchema.safeParse` ACCEPTS `displayField` and REFUSES
       // `reference_field` / `display_field` with `unrecognized_keys` (controls
       // lit in the same run — a minimal lookup def ACCEPTED, `zzz_not_a_real_key`
       // REJECTED).
       //
-      // ⚠️ Why the two snake legs STAY. A producer sweep for this site found no
-      // in-repo producer of either spelling (every occurrence in this repo is a
-      // test fixture) and zero key-position occurrences in the producer repo
-      // (control: `displayField`, 23 files). They are kept anyway, because
-      // neither measurement covers the two producers that can still emit them:
-      // a document stored before the key was tightened (the serve path runs no
-      // parse — objectui#7650), and a HOST `DataSource` whose `getObjectSchema`
-      // is not `ObjectStackAdapter`'s and therefore never passes through
-      // `normalizeSchemaReferenceKeys`. Dropping a leg here would be a silent
-      // regression for existing authored data; that is a retirement decision
-      // with its own evidence, not a side effect of adding the declared leg.
+      // ⭐ objectui#11070 round 6 — the `display_field` leg is RETIRED, with no
+      // alias. objectui#7435 kept it for two producers its sweep did not cover.
+      // The first, a document stored before the key was tightened, is now
+      // covered by the ingestion fold: `ObjectStackAdapter.getObjectSchema`
+      // runs `normalizeSchemaReferenceKeys`, which stamps a stored
+      // `display_field` onto `displayField` (objectui#7650 ruling A), so a
+      // served def reaches this read under the declared key. The second, a
+      // HOST `DataSource` whose `getObjectSchema` is not `ObjectStackAdapter`'s,
+      // is not folded, and its `display_field` now falls through to `'name'`;
+      // the round's changeset states that break.
       //
-      // ⚠️ `reference_field` in particular is graded `no-producer` by this
-      // repo's own register (`plugin-grid/src/relationalMetaKeys.ts`), and the
-      // verdict was re-derived for this change and HOLDS. It keeps its place
-      // relative to `display_field` on purpose — reordering two legs nothing
-      // produces would be an unmeasured behaviour change on top of a measured
-      // one. What this change does fix is that it is no longer read FIRST.
+      // ⚠️ `reference_field` STAYS. `FieldSchema` declares no twin the fold
+      // could stamp it onto, so the fold leaves it on the def as served, and
+      // retiring it here is a decision with its own evidence, not this one.
+      // It is graded `no-producer` by this repo's own register
+      // (`plugin-grid/src/relationalMetaKeys.ts`).
       const displayField: string =
         fieldDef.displayField
         || fieldDef.reference_field
-        || fieldDef.display_field
         || 'name';
       const idToName: Record<string, string> = {};
       for (const rec of records) {

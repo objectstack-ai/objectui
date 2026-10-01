@@ -257,33 +257,34 @@ const schema = {
       value: '$123,456'
     },
     {
+      id: 'sales_trend',
       type: 'line',
       title: 'Sales Trend',
-      options: {
-        data: [/* [{ name: 'Jan', value: 1200 }, …] */],
-        xField: 'name',
-        yField: 'value'
-      }
+      dataset: 'sales',
+      dimensions: ['month'],
+      values: ['revenue']
     },
     {
+      id: 'revenue_by_category',
       type: 'pie',
       title: 'Category Distribution',
-      options: {
-        data: [/* [{ name: 'Hardware', value: 40 }, …] */],
-        xField: 'name',
-        yField: 'value'
-      }
+      dataset: 'sales',
+      dimensions: ['category'],
+      values: ['revenue']
     }
   ]
 };
 ```
 
 A chart widget names its family in `type` — one of the spec's chart families,
-the closed vocabulary `DashboardWidgetTypeName` declares — and carries its
-inline rows under `options.data`, with `options.xField` / `options.yField`
-naming the category and value keys. There is no `card` widget family and no
-nested `body` slot: a widget whose `type` is outside that vocabulary is refused
-at validation, by `@object-ui/types/zod`'s `DashboardComponentSchema`.
+the closed vocabulary `DashboardWidgetTypeName` declares — and binds a
+`dataset` (ADR-0021), selecting the dimension it plots in `dimensions` and its
+measures in `values`. It never carries rows: `options.data`,
+`options.xField` and `options.yField` are not widget keys, and
+`@object-ui/types/zod`'s `StrictAnyComponentSchema` refuses them by name
+(objectui#11228). There is no `card` widget family and no nested `body` slot: a
+widget whose `type` is outside that vocabulary is refused at validation, by
+`@object-ui/types/zod`'s `DashboardComponentSchema`.
 
 ### Responsive Dashboard
 
@@ -406,9 +407,10 @@ into each bound widget's inline query (`AND`-combined with the widget's own
     // dimensions/measures by name. The pre-ADR-0021 top-level `object` +
     // `categoryField`/`valueField`/`aggregate` shape was REMOVED — a widget
     // still carrying it renders "This widget uses a retired data format.
-    // Edit it to bind a dataset." instead of a chart. A renderer-internal
-    // query lives under `options.data` as `{ provider: 'object', object,
-    // aggregate }`; an `options.data` array is fixed demo data.
+    // Edit it to bind a dataset." instead of a chart. Inline widget data
+    // (`options.data`, `options.xField` / `options.yField`) is not an
+    // authoring surface either: the strict authoring face refuses those keys
+    // by name (objectui#11228).
     //
     // Default binding: the filter's own `field` (dateRange → created_at).
     { "id": "w1", "type": "bar", "dataset": "invoices", "dimensions": ["status"], "values": ["count"] },
@@ -441,8 +443,6 @@ Notes:
   query time, so widgets resolve them exactly like hand-authored filters.
 - Dataset-bound widgets receive the merged filter through the dataset
   query's `runtimeFilter`.
-- Static-data widgets (inline `data` arrays) have no query to scope and are
-  not filtered.
 - Filter values are also readable in widget expressions as `page.<name>`
   (e.g. `page.region`), since they are hosted as dashboard variables.
 - `optionsFrom` resolves distinct option values server-side (a dataset

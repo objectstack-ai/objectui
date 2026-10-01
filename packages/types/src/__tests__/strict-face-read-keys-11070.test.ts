@@ -235,6 +235,32 @@ describe('objectui#11070 — the read keys left undeclared pending a ruling stay
     expect(keys).not.toContain('reference_to');
   });
 
+  // Round 6 (objectui#11228 ruling C): the inline dashboard dialect is RETIRED,
+  // not declared. A widget binds a `dataset` and never carries rows, so these
+  // nine keys stay refused by name, and the catalog and docs no longer write
+  // them. ⛔ Declaring one reopens that ruling; it is not a fix to this list.
+  const DASHBOARD_DIALECT: ReadonlyArray<readonly [string, Record<string, unknown>]> = [
+    ['options.data', { options: { data: [{ status: 'Paid', count: 47 }] } }],
+    ['options.xField', { options: { xField: 'status' } }],
+    ['options.yField', { options: { yField: 'count' } }],
+    ['options.value', { options: { value: '1,284' } }],
+    ['options.description', { options: { description: 'Monthly revenue' } }],
+    ['options.trend', { options: { trend: { value: 12, direction: 'up' } } }],
+    ['component.chartType', { component: { type: 'chart', chartType: 'area' } }],
+    ['component.xAxisKey', { component: { type: 'chart', xAxisKey: 'day' } }],
+    ['component.series', { component: { type: 'chart', series: [{ name: 'Sales' }] } }],
+  ];
+  const datasetWidget = { id: 'w', type: 'bar', dataset: 'invoices', dimensions: ['status'], values: ['count'] };
+
+  it('a dataset-bound widget parses on the strict face (the control for the dialect rows below)', () => {
+    expect(issuesOf(StrictAnyComponentSchema, { type: 'dashboard', widgets: [datasetWidget] })).toBeNull();
+  });
+
+  it.each(DASHBOARD_DIALECT)('the inline dashboard dialect `widgets[].%s` is refused by name (objectui#11228 ruling C)', (key, extra) => {
+    const doc = { type: 'dashboard', widgets: [{ ...datasetWidget, ...extra }] };
+    expect(undeclared(issuesOf(StrictAnyComponentSchema, doc))).toContain(`widgets.0.${key}`);
+  });
+
   it('`object-chart.dataSource` is refused by name until it is declared (the react-page wrapper no longer puns the adapter into that key; the declaration and the objectui#10770 node pin move together)', () => {
     // objectui#11276: the authored node takes its props in the `properties` bag;
     // `dataSource` stays node-level, and stays undeclared on that arm too.
@@ -269,6 +295,8 @@ export type assertionSpecMembersByReference = [
   Expect<Equal<SummaryFieldMetadata['summaryOperations'], SpecField['summaryOperations']>>,
   Expect<Equal<PasswordFieldMetadata['minLength'], SpecField['minLength']>>,
   Expect<Equal<PasswordFieldMetadata['maxLength'], SpecField['maxLength']>>,
+  // Round 6: the formula itself is the spec's `expression`, by reference.
+  Expect<Equal<FormulaFieldMetadata['expression'], SpecField['expression']>>,
 ];
 /**
  * Round 5: the text family carries the spec's length members BY REFERENCE —
@@ -289,11 +317,12 @@ export type assertionTextFamilyLengthByReference = [
  * Rounds 3 and 5: the retired snake_case members are gone from the field
  * metadata types — no second spelling — and so are the two switches round 5
  * retired under ADR-0049 because nothing read them (`auto_compute`,
- * `auto_update`).
+ * `auto_update`). Round 6: so is `formula`, which `FieldSchema` refuses by
+ * name in favour of `expression` (above).
  */
 type Retired =
   | 'return_type' | 'summary_type' | 'summary_object' | 'summary_field' | 'summary_filter'
-  | 'min_length' | 'max_length' | 'auto_compute' | 'auto_update';
+  | 'min_length' | 'max_length' | 'auto_compute' | 'auto_update' | 'formula';
 export type assertionRetiredMembersAreGone = [
   Expect<Equal<Extract<keyof FormulaFieldMetadata, Retired>, never>>,
   Expect<Equal<Extract<keyof SummaryFieldMetadata, Retired>, never>>,

@@ -2627,73 +2627,88 @@ and calls the issues API.
 **Trigger:** Four times a day at `:37` past the hour (cron `37 1,7,13,19 * * *`), manual dispatch,
 or a pull request touching the workflow itself.
 
-Checks out `objectstack-ai/objectstack`, runs *its* `scripts/pm/check-half-states.mjs` against
-**this** repository's issue board and rewrites one pinned anchor issue's body with what it found.
-The sweeper carries a family of predicates over the dispatch protocol's label/assignee/PR
-invariants — a `pm:dispatched` card with no assignee, a card carrying both `pm:queue` and
-`pm:dispatched`, a merged PR whose card still says it is in flight, a `Blocked-by:` block whose
-blocker already closed, and so on.
+Runs objectstack's half-state patrol against **this** repository's issue board. The workflow is a
+caller and nothing more: it checks this repository out, sets up Node, and calls the composite action
+`objectstack-ai/objectstack/.github/actions/half-state-patrol`, pinned to an objectstack commit sha
+([#11174](https://github.com/objectstack-ai/objectui/issues/11174)). The action carries objectstack's
+sweeper, `scripts/pm/check-half-states.mjs` in that repository, whose predicates check the dispatch
+protocol's label/assignee/PR invariants — a `pm:dispatched` card with no assignee, a card carrying
+both `pm:queue` and `pm:dispatched`, a merged PR whose card still says it is in flight, a
+`Blocked-by:` block whose blocker already closed, and so on. How the findings are rendered and
+delivered, and when a run goes red, belong to the action, whose own header is the authority on them;
+this page does not restate them.
 
 **Report-only, and this is a rule rather than a description.** The job never writes a label, never
-closes a card, never fixes a state, and no finding fails anything: a completed sweep exits 0 whether
-it found 0 half-states or 40. Its one write is the anchor issue's body, and `permissions:` grants
-nothing beyond `contents: read` + `issues: write`. A pull-request run proves the sweep on a real
-runner but skips the anchor write entirely, publishing the rendered body to the run summary instead.
+closes a card, never fixes a state, and no finding fails anything: a completed sweep passes whether
+it found 0 half-states or 40. The run goes red when the sweep could not run — the patrol reporting its
+own death, not a gate on the board. `permissions:` grants nothing beyond `contents: read` +
+`issues: write`, the latter for an anchor write this repository does not ask for (below).
 
-The run *does* go red when the sweep could not run, or when a **configured** anchor could not be
-written — that is the patrol reporting its own death, not a gate on the board. A workflow that
-quietly does nothing because a credential lapsed would leave a stale anchor body that reads exactly
-like a clean board. For the same reason the `Swept` timestamp is refreshed even when the findings
-are unchanged: a timestamp that stops advancing is how a reader learns the standing caller died.
+**The pin.** The `uses:` ref is a 40-character objectstack commit sha, never `@main`: `@main` would
+adopt whatever landed upstream an hour ago, with no reviewed moment in this repository and nothing to
+roll back to. The runner places the whole objectstack repository at the referenced commit, so the pin
+freezes the sweeper as well as the action. To bump it, pin objectstack `main`'s tip as read at that
+moment and record the sha and the time it was read in the pull request — not the action's own last
+commit, which would roll the sweeper back to wherever it stood when the action last changed. The pin
+must contain objectstack `79114850f`, where `anchor-optional` was declared. The sha spelling is a
+declared exception to the Action Ref Convention above, in that gate's `DECLARED_EXCEPTIONS` table.
 
-**The anchor is optional, and unset is a supported configuration**
-([#8740](https://github.com/objectstack-ai/objectui/issues/8740)). The anchor issue is named by the
-repository *variable* `HALF_STATE_ANCHOR_ISSUE` (Settings → Secrets and variables → Actions →
-Variables). With it unset — which is this repository's state, after the maintainer declined the
-setup on [#7852](https://github.com/objectstack-ai/objectui/issues/7852) — the job still sweeps,
-publishes the rendered body to the **run summary**, emits a `::notice::` naming the variable, and
-**exits 0**. It will not guess an issue number and rewrite an unrelated card, and it no longer goes
-red for a settled configuration: a check red on the healthy case trains everyone to ignore red
-([#6596](https://github.com/objectstack-ai/objectui/issues/6596)), and this one was red four times
-a day.
+**What this repository decides is the step's inputs** — the whole of this install's configuration:
 
-⛔ That carve-out is **empty-only**. An anchor that is configured and unusable — a non-numeric
-value, an issue that is gone, a rejected write — still fails the run loudly: *nobody asked for
-delivery* and *delivery was asked for and failed* are opposite facts and do not share an exit code.
-The accepted cost of the empty branch, stated rather than discovered later, is that findings then
-live only in run summaries, which notify nobody
-([#5791](https://github.com/objectstack-ai/objectui/issues/5791) measured 58% of this board's
-machine-readable blocks false, one for a week, in exactly that silence).
+- `github-token` — this workflow's own `secrets.GITHUB_TOKEN`; each install reads and writes its own
+  board only.
+- `anchor-issue` — passed **empty**, and `anchor-optional` — passed as `true`: together they declare
+  that this board has no anchor issue by decision (next paragraph).
+- `closed-floor` — `'2026-08-28'`, the dated floor on the sweeper's closed-card reader (further below).
 
-**The sweeper is objectstack's; this repository keeps no copy of it**
-([#10208](https://github.com/objectstack-ai/objectui/issues/10208)). The workflow checks it out of
-`objectstack-ai/objectstack` at that repository's `main` on every run — not pinned to a sha — and
-names this board with `PM_SWEEP_REPO` and this checkout with `PM_SWEEP_CHECKOUT`. What is decided
-here is how the sweeper's closed-card reader (`pm:*` labels left on cards that already closed) is
-*called*: the reader is **on**, with a dated floor. The sweep step sets
-`PM_SWEEP_CLOSED_FLOOR: '2026-08-28'`, so only cards closed on or after that cutover are judged, and
-the closed-card window is left to the sweeper's own upstream default, which it exports as
-`CLOSED_ISSUE_WINDOW_DAYS` rather than being restated here, a constant copied into prose being a
-number that rots the moment the export moves.
+**No anchor issue, and that is a supported configuration**
+([#8740](https://github.com/objectstack-ai/objectui/issues/8740)). The maintainer declined the anchor
+setup on [#7852](https://github.com/objectstack-ai/objectui/issues/7852), so this board has no pinned
+anchor issue, and the workflow says so by name rather than by omission: an empty `anchor-issue` beside
+`anchor-optional: true`, the opt-in objectstack declared for exactly this board
+([objectstack#20793](https://github.com/objectstack-ai/objectstack/issues/20793), decision A). On a
+scheduled or dispatched run the action then sweeps, publishes the rendered findings to the **run
+summary**, emits a `::notice::`, skips the anchor write, and **passes**. It will not guess an issue
+number and rewrite an unrelated card, and it does not go red for a settled configuration: a check red
+on the healthy case trains everyone to ignore red
+([#6596](https://github.com/objectstack-ai/objectui/issues/6596)), and before #8740 this one was red
+four times a day.
+
+⛔ The opt-in is **empty-only**: a non-numeric `anchor-issue`, or a sweep that could not run, still
+fails the run. The accepted cost, stated rather than discovered later, is that findings live only in
+run summaries, which notify nobody ([#5791](https://github.com/objectstack-ai/objectui/issues/5791)
+measured 58% of this board's machine-readable blocks false, one for a week, in exactly that silence).
+A seat reading this board's half-states reads the patrol's run summaries; there is no anchor to read.
+
+⚠️ A pull-request run cannot show any of this: it sweeps, but skips both anchor steps. The first
+scheduled or dispatched run after a change to the workflow is the live reading of the opt-in — the
+resolve step's `configured=false`, the `::notice::`, the anchor write skipped, and a green run.
+
+**The closed-card floor** ([#5985](https://github.com/objectstack-ai/objectui/issues/5985)).
+`closed-floor: '2026-08-28'` holds the sweeper's closed-card reader (`pm:*` labels left on cards that
+already closed) to cards closed on or after that cutover. The closed-card window itself is left to the
+sweeper's own default, which it exports as `CLOSED_ISSUE_WINDOW_DAYS` rather than being restated
+here, a constant copied into prose being a number that rots the moment the export moves.
 
 **Running it by hand.** A seat runs the same sweeper from an objectstack checkout:
-`cd ../objectstack && PM_SWEEP_REPO=objectstack-ai/objectui PM_SWEEP_CHECKOUT=../objectui node scripts/pm/check-half-states.mjs`
+`cd ../objectstack && PM_SWEEP_REPO=objectstack-ai/objectui PM_SWEEP_CHECKOUT=../objectui PM_SWEEP_CLOSED_FLOOR=2026-08-28 node scripts/pm/check-half-states.mjs`
 — the board comes from `PM_SWEEP_REPO`; the script takes no `--repo` flag and refuses one by name.
+That checkout's `main` may be ahead of the pin; check the pinned sha out first to reproduce a
+patrol run exactly.
 
 **Why a floor rather than a plain "on".** Stripping `pm:*` on close only became this repo's practice
 on the cutover date, and the measurement taken just before it says what an unfloored reader would do
 here: 815 closed cards carry `pm:dispatched`, and ~87% of the issues in the default window carried
 some `pm:*` residue — against the 26% upstream measured. That predicate would report the
 *convention* rather than a defect, and its rows would consume the whole body budget and trim every
-other predicate out of the anchor. Cards closed before the cutover are inert history — the dispatch
-loop reads state on open cards only — so judging from the cutover forward buys the row's whole value
-with no backfill: no bulk relabelling of closed cards was run, none is owed, and the sweeper writes
-no label under any code path ([#5985](https://github.com/objectstack-ai/objectui/issues/5985)). A
-malformed floor is refused outright rather than degraded to "no floor", because a silent degrade
-would restore the flood four times a day and a flooded anchor reads exactly like a working patrol.
-Until the cutover this install switched the closed reader fully off through an objectui-only switch;
-that switch was dropped with the retired copy, not carried into objectstack
-([#10205](https://github.com/objectstack-ai/objectui/issues/10205)).
+other predicate out of the rendered body. Cards closed before the cutover are inert history — the
+dispatch loop reads state on open cards only — so judging from the cutover forward buys the row's
+whole value with no backfill: no bulk relabelling of closed cards was run, none is owed, and the
+sweeper writes no label under any code path ([#5985](https://github.com/objectstack-ai/objectui/issues/5985)).
+⛔ Do not move the date earlier without re-measuring: every day it moves back pulls in cards closed
+under no convention at all. Until the cutover this install switched the closed reader fully off
+through an objectui-only switch; that switch was dropped with the retired copy, not carried into
+objectstack ([#10205](https://github.com/objectstack-ai/objectui/issues/10205)).
 
 ### Board Snapshot (`board-snapshot.yml`)
 

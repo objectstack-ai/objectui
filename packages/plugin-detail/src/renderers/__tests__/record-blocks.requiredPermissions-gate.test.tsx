@@ -16,9 +16,11 @@
  * The key is an **ADR-0066 system capability set** — the one meaning the word
  * carries on `action`, `app`, `field` and `bulkAction` — read through the
  * permission context's capability path and gating **fail-closed**: an unheld
- * or unrecognised capability hides the block. objectui#10058 settled that for
- * `record:quick_actions`; these three carried the identical call and were
- * untouched by it.
+ * or unrecognised capability withholds the block's content, and an
+ * insufficient-permissions notice (`role="status"`) renders in its place — the
+ * block is not hidden (wording corrected by objectui#10224). objectui#10058
+ * settled the capability read for `record:quick_actions`; these three carried
+ * the identical call and were untouched by it.
  *
  * All three used to read `perms.can(objectName, name)`, whose second argument
  * is the closed object-action enum. Under the stock `/me/permissions` provider
@@ -175,7 +177,7 @@ describe.each(BLOCKS)('$key — the `requiredPermissions` capability gate on MeP
   const noBody = () => expect(screen.queryByTestId(block.shown)).not.toBeInTheDocument();
   const noRefusal = () => expect(screen.queryByText(block.refusal)).not.toBeInTheDocument();
 
-  it('hides the WHOLE block when the declared capability is not held (REPORTED-empty capability set)', async () => {
+  it('puts the notice in place of the WHOLE block when the declared capability is not held (REPORTED-empty capability set)', async () => {
     render(<MePermissionsProvider initialPermissions={me([])}>{bound(block, { requiredPermissions: ['crm.manage'] })}</MePermissionsProvider>);
     expect(await refused()).toBeInTheDocument();
     noBody();
@@ -187,7 +189,7 @@ describe.each(BLOCKS)('$key — the `requiredPermissions` capability gate on MeP
     noRefusal();
   });
 
-  it('an UNKNOWN capability name hides the block — unrecognised is refused, not waved through', async () => {
+  it('an UNKNOWN capability name gets the notice, not the block — unrecognised is refused, not waved through', async () => {
     render(<MePermissionsProvider initialPermissions={me(['crm.manage'])}>{bound(block, { requiredPermissions: ['not.a.real.capability'] })}</MePermissionsProvider>);
     expect(await refused()).toBeInTheDocument();
     noBody();

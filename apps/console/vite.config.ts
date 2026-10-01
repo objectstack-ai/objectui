@@ -17,7 +17,11 @@ import zlib from 'node:zlib';
 import { viteCryptoStub } from '../../scripts/vite-crypto-stub.ts';
 import { viteMaplibreWorker } from '../../scripts/vite-maplibre-worker.ts';
 import { resolveClientDistInjection, widenVendorChunkTestForClient } from '../../scripts/vite-objectstack-client-dist.ts';
-import { formatConditionReport, resolveSpecDistInjection } from '../../scripts/vite-objectstack-spec-dist.ts';
+import {
+  assertSingleZodInstance,
+  formatConditionReport,
+  resolveSpecDistInjection,
+} from '../../scripts/vite-objectstack-spec-dist.ts';
 import { viteIneffectiveDynamicImports } from '../../scripts/vite-ineffective-dynamic-imports.ts';
 import { viteDeclaredLazyViews } from '../../scripts/vite-declared-lazy-views.ts';
 import { viteTypesZodLazy } from '../../scripts/vite-types-zod-lazy.ts';
@@ -737,9 +741,22 @@ const SPEC_MODULE_TEST = /@objectstack[\\/+]spec/;
 //
 // Inert when unset: `null` here leaves the alias table, the pre-bundle list, the
 // vendor chunk test and the dev server's fs allow-list at their baseline values.
+//
+// The injected spec also arrives with its OWN install tree, so left alone its
+// bare `zod` import resolves to the framework's zod and the bundle carries two
+// instances — at the console pin objectui#11327 was reported against, the
+// Studio's spec-derived forms crashed in `z.toJSONSchema` over them. The
+// injection therefore pins every `zod` import to ONE
+// copy: the one `CONSOLE_ZOD_ANCHOR` resolves. That package is the anchor
+// because it is where the console walks spec schemas with its own zod (the
+// metadata-admin `*-schema.ts` modules) and it declares `zod` itself; the
+// injection refuses the build when that copy is outside the range the
+// injected spec declares.
+const CONSOLE_ZOD_ANCHOR = path.resolve(import.meta.dirname, '../../packages/app-shell');
 const specDistInjection = resolveSpecDistInjection(process.env.OBJECTSTACK_SPEC_DIST, {
   vendorChunkTest: VENDOR_OBJECTSTACK_TEST,
   specModuleTest: SPEC_MODULE_TEST,
+  consoleZodFrom: CONSOLE_ZOD_ANCHOR,
 });
 if (specDistInjection) Object.assign(workspaceAliases, specDistInjection.aliases);
 
@@ -813,6 +830,15 @@ export default defineConfig({
     // eagerly-loaded chunk. Runs on CI/Vercel too — it costs microseconds and
     // the regression it catches is invisible in every other signal.
     assertLazyLinterStaysLazy(specModuleTest),
+    // Under OBJECTSTACK_SPEC_DIST: resolve every bare `zod` import — the injected
+    // spec's included — to the console's one copy (objectui#11327). Registered
+    // only while the override is live, like every other injection surface.
+    ...(specDistInjection ? [specDistInjection.singleZodPlugin] : []),
+    // …and in EVERY build, injected or not: fail when the emitted chunks carry
+    // more than one zod instance, or none at all (the counter-probe). Measures
+    // the outcome rather than trusting the redirect above, because the first
+    // mechanism tried for this (`resolve.dedupe`, see below) was a silent no-op.
+    assertSingleZodInstance(),
     // The same refusal one directory over: fails the build if the
     // `@object-ui/types/zod` validators rejoin the eager closure, AND if they
     // stop being reachable from `@object-ui/plugin-map` at all (objectui#10065).
@@ -897,6 +923,14 @@ export default defineConfig({
     // different sonner instances and toasts never rendered (the "click does
     // nothing — no feedback" bug). Deduping keeps one instance so context,
     // hooks, and the sonner observer all line up.
+    //
+    // ⛔ `zod` is deliberately NOT listed. Dedupe resolves a listed package from
+    // the Vite root, and this root (`apps/console`) declares no `zod`: the
+    // lookup finds nothing and Vite falls back to each importer's own copy
+    // without a warning. Measured on objectui#11327 with OBJECTSTACK_SPEC_DIST
+    // set — adding `zod` here emitted the same two zod copies, byte-identical.
+    // The one-zod rule is held by `specDistInjection.singleZodPlugin` and
+    // checked by `assertSingleZodInstance` in the plugin list above.
     dedupe: ['react', 'react-dom', 'sonner'],
   },
   optimizeDeps: {
@@ -925,7 +959,37 @@ export default defineConfig({
           groups: [
             { name: 'vendor-react', test: /[\\/]node_modules[\\/](react|react-dom|react-router|scheduler)[\\/]/, priority: 100 },
             { name: 'vendor-radix', test: /[\\/]node_modules[\\/]@radix-ui[\\/]/, priority: 95 },
-            { name: 'vendor-objectstack', test: vendorObjectstackTest, priority: 95 },
+            //
+            // ## `tags: ['$initial']` — this group claims only what the first screen runs (objectui#11101)
+            //
+            // A group claims by module ID, not by reachability, and this group's
+            // chunk is a static import of the entry. So every `@objectstack/*`
+            // module it claims is downloaded and parsed on every page load —
+            // including one the source reaches only through `import()`. That is
+            // how `@objectstack/lint` went eager in objectui#5266, and the
+            // lookaheads in `VENDOR_OBJECTSTACK_TEST` exclude that one package
+            // and nothing else. The tag closes the class: rolldown's built-in
+            // `$initial` tag marks a module statically reachable from an entry,
+            // so a vendor module that sits only behind an `import()` is no
+            // longer claimed here and follows its importer into a lazy chunk.
+            //
+            // What it moved, on objectui#11101's two builds of one tree that
+            // differ only in this tag: `@objectstack/spec`'s `/ai` and
+            // `/integration` entries, which the metadata designers' client
+            // validation (`views/metadata-admin/clientValidation.ts`) reaches
+            // only through `await import()`; `/contracts`, reached by lazy
+            // console pages and the linter; and `@objectstack/sdui-parser`,
+            // reached by the linter alone. The bytes are recorded once, on
+            // `BASELINE` in `scripts/check-eager-closure-budget.mjs`, ⛔ not here.
+            //
+            // ⛔ It moves nothing the first paint needs: `$initial` IS the static
+            // closure of the entry, so every module the first screen executes is
+            // still claimed by this group, into the same chunk. The linter's
+            // lookaheads stay — `assertLazyLinterStaysLazy` names them in its
+            // diagnostic. Dropping the tag puts the four modules back on every
+            // page load, and the lowered ceiling in
+            // `scripts/check-eager-closure-budget.mjs` is what reds on it.
+            { name: 'vendor-objectstack', test: vendorObjectstackTest, priority: 95, tags: ['$initial'] },
             { name: 'vendor-icons-core', test: /[\\/]node_modules[\\/]lucide-react[\\/]dist[\\/](lucide-react|esm[\\/](Icon|createLucideIcon|defaultAttributes|shared))/, priority: 90 },
             //
             // ## ONE CHUNK PER ICON — and ⛔ why this is not the regroup objectui#9251 forbids

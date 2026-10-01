@@ -121,6 +121,19 @@ export type {
 // envelope `{ dialect?, source }`. Its zod twin is `ExpressionWireSchema` on
 // the `./zod` entry.
 export type { ExpressionWire } from './expression.js';
+// TypeScript authoring types for the spec-declared nodes `BaseSchema` gives no
+// face once its index signature goes (objectui#11364): the public blocks, the
+// `element:text_input` / `element:record_picker` rows, and a stored page
+// document under its page kind. Each is derived by reference from its zod arm
+// or spec row; `@object-ui/react`'s `SchemaRendererProps.schema` accepts them.
+export type {
+  AuthoringNode,
+  PublicBlockNode,
+  PublicBlockNodeOf,
+  ElementTextInputNode,
+  ElementRecordPickerNode,
+  PageDocumentNode,
+} from './authoring-nodes.js';
 
 // ============================================================================
 // Layout Components - Structure & Organization

@@ -65,3 +65,13 @@ misspelled key instead of a view that silently ignores it.
 ⛔ This does not make `tree` an authorable view type. objectui#5321 is untouched: the
 block is host config, written by a host and never by a document author, and the
 authored node remains the flat `ObjectTreeSchema`.
+
+**Note, 2026-10-01 (objectui#11168 slice 3, shipping in this same release).**
+The last sentence above calls the authored node "the flat `ObjectTreeSchema`".
+`@objectstack/spec` 17.5.0 gave `object-tree` an element row whose `tree` block
+carries `parentField`, `labelField`, `fields` and `defaultExpandedDepth`, and
+`ObjectTreeSchema` now declares that block by reference, so an authored tree
+writes those keys under `tree` rather than flat on the node. The flat spellings
+`ObjectTreeSchema` still carries are the form a host composes. What this entry
+says about the host `tree` view config, `TreeViewConfig` and objectui#5321 is
+unchanged.

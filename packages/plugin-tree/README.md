@@ -72,12 +72,17 @@ composes; the spec row declares only the `tree` block, so author that.
 openNewTab, preventNavigation }`), the block a list view declares. On a tree no
 parent view navigates for:
 
-- **Absent**, or a block without `mode` (it takes the spec's `page` default):
-  a click opens nothing. Write `mode`.
+- **Absent**: a click opens nothing. This renderer supplies no drawer default.
 - `drawer`, `modal` and `popover` open the row's record in that overlay; `split`
   opens it beside the tree, which stays drawn.
-- `new_window` opens `/{objectName}/record/{id}` in a new tab; `page` and `none`
-  open nothing.
+- `new_window` opens `/{objectName}/record/{id}` in a new tab; `none` opens
+  nothing.
+- `page`, and a block without `mode` (it takes the spec's `page` default), open
+  the record page of the tree's `objectName` through the record navigator the
+  host publishes (the console publishes one on its custom pages, record pages
+  and list views). Under a host that publishes none, such as an embedded
+  renderer, or on a tree that names no `objectName`, there is no record page to
+  open and the click opens nothing.
 - `preventNavigation: true` opens nothing whatever the mode. `openNewTab: true`
   opens the record page in a new tab and outranks every mode except `none`.
 - `size` picks the overlay width bucket; the deprecated `width` wins over it.

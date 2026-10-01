@@ -33,7 +33,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup, fireEvent } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { ComponentRegistry } from '@object-ui/core';
-import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import {
+  RelatedRecordActionsProvider,
+  SchemaRenderer,
+  SchemaRendererProvider,
+  type RelatedRecordActionsValue,
+} from '@object-ui/react';
 import { manifestFromConfigs, validateTree } from '@object-ui/sdui-parser';
 import { ComponentPropsMap } from '@objectstack/spec/ui';
 
@@ -491,7 +496,7 @@ describe('`object-map.navigation` — the members decide what a marker click ope
     await expectNothingOpened(open, 'parent handler');
   });
 
-  it('with the key ABSENT, `page`, or a block without `mode`, a click opens nothing on a map no parent view navigates for', async () => {
+  it('with NO host navigator, the key ABSENT, `page`, or a block without `mode` opens nothing — there is no record page to open', async () => {
     const absent = await clickMarker(undefined);
     await expectNothingOpened(absent.open, 'absent key');
     cleanup();
@@ -500,5 +505,97 @@ describe('`object-map.navigation` — the members decide what a marker click ope
     cleanup();
     const modeless = await clickMarker({ size: 'lg' });
     await expectNothingOpened(modeless.open, 'mode-less block');
+  });
+});
+
+/**
+ * A host that publishes its record navigator the way the console does on its
+ * custom pages, record pages and list views (`RelatedRecordActionsContext`):
+ * `openRecord` is the spy a `page` click must reach. The same host the
+ * board's and the calendar's `NavigationMembers-8652` pins mount.
+ */
+function recordNavigatorHost() {
+  const openRecord = vi.fn();
+  const value: RelatedRecordActionsValue = {
+    resolve: () => ({}),
+    recordHref: (objectName, recordId) => `/apps/demo/${objectName}/record/${recordId}`,
+    openRecord,
+  };
+  return { value, openRecord };
+}
+
+/** `clickMarker`, with the map mounted through the real `SchemaRenderer` UNDER that host. */
+async function clickMarkerUnderHost(
+  navigation: Record<string, unknown> | undefined,
+  host: RelatedRecordActionsValue,
+  { objectName = OBJECT as string | undefined } = {},
+) {
+  const open = vi.fn();
+  vi.stubGlobal('open', open);
+  render(
+    <RelatedRecordActionsProvider value={host}>
+      <SchemaRendererProvider dataSource={makeDataSource() as never}>
+        <SchemaRenderer
+          schema={{
+            type: 'object-map',
+            map: MAP,
+            ...(objectName ? { objectName } : {}),
+            staticData: [ROWS[0]],
+            ...(navigation ? { navigation } : {}),
+          } as never}
+        />
+      </SchemaRendererProvider>
+    </RelatedRecordActionsProvider>,
+  );
+  await mapDrawn();
+  fireEvent.click(pins()[0]);
+  return { open };
+}
+
+describe('`object-map.navigation` `page` under the host\'s record navigator (objectui#11168, objectui#11293)', () => {
+  it('LIT CONTROL: under the same host, `mode: "drawer"` opens the drawer and does not navigate', async () => {
+    // First, because the rows below would be vacuous against a map whose
+    // markers are not clickable under this host.
+    const { value, openRecord } = recordNavigatorHost();
+    const { open } = await clickMarkerUnderHost({ mode: 'drawer' }, value);
+    await waitFor(() => expect(dialog()).not.toBeNull());
+    expect(openRecord).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('`mode: "page"` opens the record page of the map\'s object through the host, and no overlay', async () => {
+    const { value, openRecord } = recordNavigatorHost();
+    const { open } = await clickMarkerUnderHost({ mode: 'page' }, value);
+    await waitFor(() => expect(openRecord).toHaveBeenCalledTimes(1));
+    expect(openRecord).toHaveBeenCalledWith(OBJECT, 'm1');
+    expect(dialog()).toBeNull();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('a block WITHOUT `mode` resolves to `page`, and navigates the same way', async () => {
+    const { value, openRecord } = recordNavigatorHost();
+    const { open } = await clickMarkerUnderHost({ size: 'lg' }, value);
+    await waitFor(() => expect(openRecord).toHaveBeenCalledTimes(1));
+    expect(openRecord).toHaveBeenCalledWith(OBJECT, 'm1');
+    expect(dialog()).toBeNull();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['the key ABSENT', undefined],
+    ['`mode: "none"`', { mode: 'none' }],
+    ['`mode: "split"`', { mode: 'split' }],
+  ] as const)('%s still opens nothing under the host, and does not navigate', async (why, navigation) => {
+    const { value, openRecord } = recordNavigatorHost();
+    const { open } = await clickMarkerUnderHost(navigation, value);
+    await expectNothingOpened(open, String(why));
+    expect(openRecord).not.toHaveBeenCalled();
+  });
+
+  it('a map that names no `objectName` (inline rows alone) has no record page to open, even under the host', async () => {
+    const { value, openRecord } = recordNavigatorHost();
+    const { open } = await clickMarkerUnderHost({ mode: 'page' }, value, { objectName: undefined });
+    await expectNothingOpened(open, 'page without objectName');
+    expect(openRecord).not.toHaveBeenCalled();
   });
 });

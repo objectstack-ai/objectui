@@ -292,7 +292,12 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     // collapse into a vertical stack. Expand to fit the largest widget span.
     const inferredColumns = (() => {
       if (schema.columns != null) return schema.columns;
-      const widgets = schema.widgets ?? [];
+      // Typed `DashboardWidgetSchema[]`, the type `renderWidget` below already
+      // takes (objectui#11348): `layout` is declared on the widget arm of the
+      // `widgets[]` union only — the spec's `DashboardWidget` row declares it —
+      // and the component arm (`DashboardWidgetSlotComponentSchema`) is
+      // assignable to that arm, so this is a checked widening, not a cast.
+      const widgets: DashboardWidgetSchema[] = schema.widgets ?? [];
       let maxSpan = 0;
       for (const w of widgets) {
         const span = (w.layout?.x ?? 0) + (w.layout?.w ?? 0);

@@ -461,7 +461,12 @@ function WidgetPropertyPanel({
 
 function DashboardPreview({ schema }: { schema: DashboardComponentSchema }) {
   const { t, language } = useDesignerTranslation();
-  const widgets = schema.widgets || [];
+  // Typed `DashboardWidgetSchema[]` (objectui#11348): the card below reads
+  // `title`, which is declared on the widget arm of the `widgets[]` union only
+  // (the spec's `DashboardWidget` row declares it). The component arm
+  // (`DashboardWidgetSlotComponentSchema`) is assignable to that arm, so this is
+  // a checked widening, not a cast — the same type `WidgetCard` already takes.
+  const widgets: DashboardWidgetSchema[] = schema.widgets || [];
   return (
     <div data-testid="dashboard-preview" className="rounded-lg border border-gray-200 bg-gray-50 p-4">
       {/*

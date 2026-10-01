@@ -135,7 +135,7 @@ describe('objectui#11299 — NavigationRenderer renders a map label in its `loca
   });
 
   it('a pinned map entry reads the same locale under Favorites', () => {
-    const pinned: NavigationItem[] = [{ ...entry(ACCOUNTS), pinned: true }];
+    const pinned: NavigationItem[] = [{ id: 'nav_accounts', type: 'object', objectName: 'account', label: ACCOUNTS, pinned: true }];
     renderNav(pinned, { locale: 'zh-CN', enablePinning: true });
     expect(screen.getAllByRole('link', { name: '客户' })).toHaveLength(2);
   });

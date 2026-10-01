@@ -174,12 +174,18 @@ in the order you wrote it:
 ```json
 {
   "type": "record:related_list",
-  "objectName": "contact",
-  "relationshipField": "account_id",
-  "columns": ["name", "email"],
-  "actions": ["export_contacts", "send_welcome"]
+  "properties": {
+    "objectName": "contact",
+    "relationshipField": "account_id",
+    "columns": ["name", "email"],
+    "actions": ["export_contacts", "send_welcome"]
+  }
 }
 ```
+
+The block's props go in its `properties` bag, the spec's
+`ComponentPropsMap['record:related_list']` row: `objectui validate` and the
+spec's page component both refuse them written flat on the node.
 
 - Each action is still placed by its own `locations`: naming it here does
   not move it. An action that declares none of `list_toolbar`, `list_item`

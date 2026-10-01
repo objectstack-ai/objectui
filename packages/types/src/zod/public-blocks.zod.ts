@@ -54,6 +54,10 @@
  * blocks' `onSuccess`, below); `element:number`'s `dataSource`, the spec's own
  * binding schema by reference (below); and the content-channel refusals (next
  * section) — the tombstones, and `record:alert`'s flat-`body` alias refusal.
+ * Beneath all three, every arm whose row declares a member spreads the
+ * flat-prop refusals (`flatPropRefusals`, objectui#10872 batch 10): each row
+ * member written on the node instead of in the bag is refused by name. An
+ * arm's own member of the same name, declared after the spread, wins.
  *
  * ## The content channels (objectui#9256)
  *
@@ -118,24 +122,25 @@
  * synthesizer (`buildDefaultPageSchema`'s `componentNode`) and the page
  * designer both emit `{ type, properties }`.
  *
- * ⚠️ A key written FLAT on the node is not judged against the block's row. One
- * the shared node base does not declare (`{ "type": "record:details",
- * "columns": "2" }`) passes the tolerant face unjudged, exactly as every
- * undeclared key of every arm does, and the strict authoring face refuses it;
- * one `BaseSchema` does declare (`children`, `label`, `disabled`, `visible`) is
- * judged by the base's own type — unless the arm declares it again, as the
- * content-channel refusals above do for `children` on every block here (on the
- * four `page:` containers, pointing at `properties.children`). A flat `body` is
- * refused on both faces: by those refusals, and on `record:alert` by its alias
- * refusal naming `properties.body`. Whether the flat spelling is ALSO an
- * authoring channel for the `page:` / `record:` / `action:` families (their
- * renderers read the hoisted node keys) is left open on objectui#10872 rather than decided by this module —
- * declaring it later is additive, and it must never extend to `element:*`,
- * whose renderers do not read a flat key at all. ⚠️ For `action:button` it is
- * the TAUGHT spelling: AGENTS.md #4 and the guides write `label`, `actionType`
- * and `target` flat on the node, which the tolerant face passes (`label` judged
- * by the base, the other two unjudged) and the strict face refuses, as the
- * spec's own `PageComponentSchema` does.
+ * A member of the block's row written FLAT on the node
+ * (`{ "type": "record:details", "columns": "2" }`) is refused by name on both
+ * faces, at its own path, with a message naming its bag member
+ * (`properties.columns`) — objectui#10872 batch 10, `flatPropRefusals` below.
+ * The flat spelling is not a second authoring channel: triage's answer A on
+ * objectui#10872 made the bag the contract, because `@objectstack/spec`'s
+ * strict `PageComponentSchema` refuses a block's prop on the node as
+ * mis-layered (ADR-0089 D3a), and a face that kept it would accept what
+ * `os validate` refuses. That holds for the members `BaseSchema` also declares
+ * (`visible`, `disabled`, `name`, `description`, `data`), whose base type used
+ * to judge them, and for `children`, which the content-channel refusals above
+ * already restated. Two kinds of row member are left alone: one the spec's page
+ * component itself declares at node level (`label`, `aria`), which keeps its
+ * node-level meaning; and one the row retires, which keeps the row's own
+ * retirement when written flat. A key that is in neither the row nor the base
+ * is left as every arm leaves an undeclared key: unjudged by the tolerant face,
+ * refused by the strict one. Nothing at render time moves: `SchemaRenderer`
+ * still reads both spellings, so stored documents and nodes composed in code
+ * keep rendering; this face judges what is authored.
  *
  * `properties` is optional on every arm, as it is on `PageComponentSchema`:
  * the spec's own props gate (`validateComponentProps`, `@objectstack/lint`)
@@ -850,10 +855,12 @@ const RECORD_ALERT_NO_CHILD_LIST =
  * ruling: `record:alert` gets its `children` narrowed, never a `body`
  * tombstone). ⛔ Not an accept either. A flat `body` does render, because the
  * renderer merges the node's own keys under `properties` (`readProps`), but
- * admitting it is the flat-props channel that objectui#10872 holds for every
- * block armed here. So the accept set stays where `BaseSchema` put it (a flat
- * `body` is refused with `invalid_type` at `body`, on both faces), and only the
- * prescription is this arm's own.
+ * admitting it would be the flat-props channel that triage's answer A on
+ * objectui#10872 ruled out: every row member written flat is refused by name
+ * (`flatPropRefusals`, batch 10). So a flat `body` is refused with
+ * `invalid_type` at `body`, on both faces, and this member, declared after the
+ * spread, keeps only its own prescription: the one that says why `children` is
+ * no remedy here.
  */
 export const RecordAlertBlockSchema = BaseSchema.extend({
   type: z.literal('record:alert'),

@@ -779,9 +779,12 @@ button, and render the same `<ObjectForm>` pipeline as the modal — so
 `tabbed`, `wizard`, and section configurations work in both modes.
 
 JSON `action:button` schemas can also trigger the page routes directly
-via the action runner, regardless of the object's `editMode`. The handler
-name goes in `actionType` — that is the key the button renderer forwards
-to the action runner as the action's type, and the runner dispatches to
+via the action runner, regardless of the object's `editMode`. The block's
+props go in its `properties` bag, the spec's `ComponentPropsMap['action:button']`
+row; `objectui validate` and the spec's page component refuse them written
+flat on the node. The handler name goes in `properties.actionType` — the key
+the button renderer forwards to the action runner as the action's type, once
+`SchemaRenderer` hoists the bag onto the node — and the runner dispatches to
 the handler registered under it. Arguments are static values under
 `properties.params` (an action's `params` is only the `ActionParam[]`
 list of inputs to collect; a node-level `params` object is ignored):
@@ -789,9 +792,9 @@ list of inputs to collect; a node-level `params` object is ignored):
 ```json
 {
   "type": "action:button",
-  "label": "New Account",
-  "actionType": "navigate_create",
   "properties": {
+    "label": "New Account",
+    "actionType": "navigate_create",
     "params": { "objectName": "account" }
   }
 }
@@ -805,9 +808,9 @@ values, so a button on a record page names its record with
 ```json
 {
   "type": "action:button",
-  "label": "Edit",
-  "actionType": "navigate_edit",
   "properties": {
+    "label": "Edit",
+    "actionType": "navigate_edit",
     "params": {
       "objectName": "account",
       "recordId": "${record.id}"

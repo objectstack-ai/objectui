@@ -10,4 +10,4 @@
 - `@object-ui/plugin-kanban`: the `object-kanban` registration publishes `navigation` in its `inputs`, so the designer offers it.
 - `@object-ui/plugin-calendar`: the `object-calendar` and `calendar` registrations publish `navigation` in their `inputs`, and `ObjectCalendar` reads the key without a cast.
 
-What a click does with each member is unchanged. One value has no effect on its own: `page` opens nothing on a board or calendar that no parent view navigates for, and a block written without `mode` resolves to `page`. The published input descriptions say so.
+What a click does with each member is unchanged. `page`, and a block written without `mode` (which resolves to `page`), open the record page through the record navigator the host publishes (objectui#11293); under a host that publishes none, such as an embedded renderer, they still open nothing. The published input descriptions say so.

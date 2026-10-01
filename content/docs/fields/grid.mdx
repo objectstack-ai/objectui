@@ -21,7 +21,8 @@ The Grid Field component provides an inline table for managing related records o
 
 A grid field is authored as `GridFieldMetadata` (`@object-ui/types`), which is the
 source of truth for the key set: it extends `BaseFieldMetadata` with the column list,
-the row-count and row-action limits, the footer total and the Add button's label.
+the row-count and row-action limits, the footer total, the Add button's label and the
+row field that keeps the rows' order.
 Each column is `@objectstack/spec`'s inline grid column (`InlineGridColumn`, the
 element of the spec's `inlineColumns` list on a `master_detail` field), typed by
 reference, so the columns are checked by the same compiler that checks the field,
@@ -47,6 +48,7 @@ const lineItems: GridFieldMetadata = {
   allow_reorder: false,
   total_field: 'amount',
   add_label: 'Add line',
+  sort_field: 'position',
 };
 ```
 
@@ -61,6 +63,15 @@ The field-level keys, each read under exactly this one spelling:
   It is the spec's `amountField`, not its `totalField` (the parent field a
   master-detail save writes the sum to). No total shows when it is unset.
 - `add_label` — the Add button's label.
+- `sort_field` — the name of a field on each **row** that the grid stamps with the
+  row's index (0, 1, 2, …) on every change, so the order a drag-reorder leaves is
+  saved with the rows. It is not one of the columns: a column of that name would
+  have its typed value overwritten. Rows carry no position when it is unset. When
+  a master-detail form derives a detail's grid from the child object (it does
+  unless the detail names its relationship field and types every column), it sets
+  this to the child's first field named `position`, `sort_order`, `sequence`,
+  `line_no`, `line_number` or `sort`; there is no master-detail key to override
+  that pick.
 
 A read-only or disabled grid offers no add, delete, duplicate or reorder, whatever
 these keys say. The line-number column always shows. There is no `reorderable`,
@@ -183,9 +194,9 @@ const gridValue = [
 
 ## Features
 
-- **Table Display**: Clean tabular layout
-- **Pagination Preview**: Shows first 5 rows with "Showing X of Y" indicator
-- **Type-Specific Rendering**: Each column renders according to its type
+- **Table Display**: Clean tabular layout, every row shown
+- **Type-Specific Cells**: Each editable cell is the control its column's `type` names;
+  read-only mode formats `date`, `datetime`, `time`, `file` and `lookup` cells for display
 - **Read-Only Mode**: Full table view without editing
 - **Responsive**: Scrollable for many columns
 

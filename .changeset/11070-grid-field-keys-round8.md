@@ -24,3 +24,10 @@ The grid field reads each field-level key under the one spelling `GridFieldMetad
 - **Rendering.** A grid field written with `reorderable`, `amount_field`, `amountField`, `allow_duplicate` or `show_line_numbers` renders as if that key were absent. Fix: write `allow_reorder: false` to turn off drag reordering, and `total_field` to name the summed column. To turn off the duplicate action, turn off adding with `allow_add: false`; there is no switch for the line-number column.
 - **Behaviour.** `allow_reorder: false` now removes the drag handles; before, it was ignored. A `record:line_items` panel with `amountField` and no `totalField` now shows the footer total of that column.
 - **TypeScript.** A `GridFieldMetadata` literal carrying any of the five retired keys was already a compile error, and still is.
+
+**Note, 2026-10-01 (objectui#11070 round 9, shipping in this same release).**
+The `sort_field` bullet above no longer holds. `GridFieldMetadata` now declares
+`sort_field`, so `GridField` reads no undeclared key, and a detail's `sortField`
+is no longer authored: `MasterDetailDetailConfig` has no such member, and
+`MasterDetailForm` hands the grid the sort field it derives from the child
+object. See `11070-grid-sort-field-round9`.

@@ -21,3 +21,9 @@ other detail, while keeping its own columns, order and labels. The amount field 
 picked from the authored columns by the rule a derived grid already uses. An
 authored `inlineAmountField` (or a detail's own `amountField` / `sortField`) still
 wins over the derived one.
+
+**Note, 2026-10-01 (objectui#11070 round 9, shipping in this same release).**
+A detail's own `sortField` no longer wins, because it is no longer read:
+objectui#11070 round 9 retired that member of `MasterDetailDetailConfig`. The
+derived sort field is the only one. An authored `inlineAmountField` (or a
+detail's own `amountField`) still wins over the derived amount field.

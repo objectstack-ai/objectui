@@ -78,8 +78,9 @@ import type { GridFieldMetadata } from '@object-ui/types';
  * see {@link GridColumn}.
  *
  * Field-level config: the keys `GridFieldMetadata` (`@object-ui/types`)
- * declares, each read under that one spelling (objectui#11070 round 8), plus
- * the one read key no face declares yet — see {@link UndeclaredGridKeys}.
+ * declares, each read under that one spelling (objectui#11070 round 8), and
+ * no other key: `sort_field`, the last key read before any face declared it,
+ * is declared there too (objectui#11070 round 9).
  */
 
 /**
@@ -132,22 +133,6 @@ import type { GridFieldMetadata } from '@object-ui/types';
  *    a predicate that faults fails open.
  */
 export type GridColumn = InlineGridColumn;
-
-/**
- * The field-level key this widget reads that no face declares.
- *
- * `sort_field` names the child field the grid stamps with each row's position
- * on every change, so a drag-reorder survives a reload. It has a live producer:
- * `MasterDetailForm` (`@object-ui/plugin-form`) writes it from its detail's
- * `sortField`, which `deriveDetail` derives from the child object's fields (a
- * `position` / `sort_order` / … field) when none is authored. The spec declares
- * no inline sort-field key, so whether it becomes a declared key is a protocol
- * question, held open on objectui#11070 (round 8) rather than decided here.
- * Until then it is named in this one place, not read through an `any`.
- */
-interface UndeclaredGridKeys {
-  sort_field?: string;
-}
 
 type Row = Record<string, any>;
 
@@ -596,10 +581,11 @@ export function GridField({
    *  the header (`parent.status == 'paid'`). Supplied by MasterDetailForm. */
   contextRecord?: Record<string, unknown>;
 }) {
-  // The field-level keys, read as `GridFieldMetadata` declares them, so a read
-  // of a key the type does not declare is a compile error here rather than a
-  // second, unpublished contract (objectui#11070 round 8).
-  const cfg = (field || {}) as Partial<GridFieldMetadata> & UndeclaredGridKeys;
+  // The field-level keys, read as `GridFieldMetadata` declares them and as
+  // nothing else, so a read of a key the type does not declare is a compile
+  // error here rather than a second, unpublished contract (objectui#11070
+  // rounds 8 and 9).
+  const cfg = (field || {}) as Partial<GridFieldMetadata>;
   const allColumns: GridColumn[] = cfg.columns || [];
   const rows: Row[] = Array.isArray(value) ? value : [];
   const contextRecord = props.contextRecord;
@@ -704,6 +690,9 @@ export function GridField({
   // When set, the row's order is persisted by stamping `row[sortField] = index`
   // on every change — so drag-reorder survives a reload (the app adds a numeric
   // position field and lists sort by it). Without it, reorder is order-of-entry.
+  // Declared on `GridFieldMetadata`; its producer is `deriveDetail`
+  // (`@object-ui/plugin-form`, through `MasterDetailForm`), which picks the
+  // child object's `position` / `sort_order` / … field (objectui#11070 round 9).
   const sortField: string | undefined = cfg.sort_field;
   // Drag-to-reorder is on for editable grids (off in read-only / list mode),
   // and `allow_reorder: false` turns it off: the key `GridFieldMetadata`

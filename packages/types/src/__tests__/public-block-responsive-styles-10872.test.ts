@@ -110,19 +110,23 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
   // objectui#10859 batch 5: `object-map` moved here the same way, with the
   // same binding.
   'object-map',
+  // objectui#10859 batch 6: `object-gantt` moved here the same way, with the
+  // same binding.
+  'object-gantt',
 ]);
 
 /**
  * The arms that refuse a node with nothing but `responsiveStyles` for a reason
- * that is not about the envelope: `object-map` keeps the flat mirror's
- * record-source rule, read in its bag (objectui#10859 batch 5,
- * `requireRecordSource`), and `object-chart` keeps the flat mirror's
+ * that is not about the envelope: `object-map` and `object-gantt` keep their
+ * flat mirrors' record-source rule, read in the bag (objectui#10859 batches 5
+ * and 6, `requireRecordSource`), and `object-chart` keeps the flat mirror's
  * chart-family floor, read in its bag (objectui#11276,
  * `requireObjectChartFamilyInBag`). Each node carries the smallest bag that
  * satisfies its rule; every other arm takes the bare node.
  */
 const RECORD_SOURCE: Readonly<Record<string, Record<string, unknown>>> = {
   'object-map': { properties: { objectName: 'store' } },
+  'object-gantt': { properties: { objectName: 'task' } },
   'object-chart': { properties: { chartType: 'bar' } },
 };
 

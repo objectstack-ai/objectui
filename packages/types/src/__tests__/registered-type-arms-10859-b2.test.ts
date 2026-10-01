@@ -353,7 +353,8 @@ describe('the spec-row arms read the row by reference (objectui#10859)', () => {
     // `object-timeline` joined the union in batch 3 (`object-timeline-arm-10859-b3.test.ts`),
     // `object-form` in batch 4 (`object-form-properties-bag-10859-b4.test.ts`),
     // `object-map` in batch 5 (`object-map-properties-bag-10859-b5.test.ts`),
-    // `object-chart` in objectui#11276 (`object-chart-properties-bag-11276.test.ts`).
+    // `object-chart` in objectui#11276 (`object-chart-properties-bag-11276.test.ts`),
+    // `object-gantt` in batch 6 (`object-gantt-properties-bag-10859-b6.test.ts`).
     expect(literals(ObjectQLPublicBlockComponentSchema)).toEqual([
       'object-metric',
       'object-master-detail-form',
@@ -361,6 +362,7 @@ describe('the spec-row arms read the row by reference (objectui#10859)', () => {
       'object-form',
       'object-map',
       'object-chart',
+      'object-gantt',
     ]);
     expect(literals(DataDisplaySchema)).toContain('pivot');
   });

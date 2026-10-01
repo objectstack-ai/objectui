@@ -4661,6 +4661,11 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // renderer's post-hoist reading.
   'objectql.zod.ts#ObjectChartBlockSchema':
     "mirror-owned BY REFERENCE — `BaseSchema` + the `object-chart` literal + `NODE_ENVELOPE` + `properties`, whose members ARE the flat `objectql.zod.ts#ObjectChartSchema` mirror's own members (the same schema objects; `@objectstack/spec` has no `ComponentPropsMap['object-chart']` row), + one `aliasKeyRefusal` per bag member (the flat spelling, refused by name and pointed at `properties.KEY`; the key set is read off the bag), + the mirror's own objectui#10608 tombstones and objectui#9256 `body` / `children` refusals; the TS declaration of the node, `ObjectChartSchema` (`../objectql.ts`), is the renderer's post-hoist reading and is paired with the flat mirror, not with this arm",
+  // objectui#10859 batch 6 — the authored `object-gantt` arm, from its row, built
+  // as batch 5's above. Its TS twin is paired with the FLAT mirror above
+  // (`ObjectGanttSchema`), which stays the renderer's post-hoist reading.
+  'objectql.zod.ts#ObjectGanttBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `object-gantt` literal + `NODE_ENVELOPE` + `properties`, which IS `ComponentPropsMap['object-gantt']`, + the node's `dataSource` binding, which IS the spec's `ElementDataSourceSchema`, + one `aliasKeyRefusal` per member of the row but the node-level `label` (the flat spelling, refused by name and pointed at `properties.KEY`; the key set is read off the row) plus one per member of the row's `gantt` block and one for the flat mirror's `dependencyField` alias (pointed at `properties.gantt.KEY`), + the objectui#9256 `body` / `children` refusals; the TS declaration of the node, `ObjectGanttSchema` (`../objectql.ts`), is the renderer's post-hoist reading and is paired with the flat `objectql.zod.ts#ObjectGanttSchema` mirror, not with this arm",
   'objectql.zod.ts#ObjectQLPublicBlockComponentSchema':
     "a union OVER the public-block arms above, not an object of its own — its members are checked individually",
   'overlay.zod.ts#MenuItemSchema':

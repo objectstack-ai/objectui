@@ -607,7 +607,7 @@ function NavigationBuilderStep({
                 {/* The runtime's rule (objectui#11196): an entry with no `label` shows the text it inherits. */}
                 {item.type === 'separator'
                   ? t('appDesigner.separatorLabel')
-                  : resolveNavItemLabel(item, undefined, undefined, undefined, undefined, targetLabel)}
+                  : resolveNavItemLabel(item, undefined, targetLabel)}
               </span>
               <span
                 className={cn(

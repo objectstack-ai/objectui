@@ -11,6 +11,12 @@
  * navigation over a new metadata value and expects the new name — nothing is
  * stored on the nav entry.
  *
+ * objectui#11299 adds the locale half of the same wiring: an entry label
+ * written as an inline locale map renders the viewer's `language` — the value
+ * `useObjectTranslation()` answers, which the sidebar already resolves its area
+ * labels in — because `UnifiedSidebar` hands it to `NavigationRenderer` as
+ * `locale`.
+ *
  * Harness: the provider / chrome mocks of
  * `UnifiedSidebar.derivedAreaVisibility.test.tsx`; `@object-ui/layout` and
  * `@object-ui/components` stay REAL.
@@ -23,11 +29,14 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import type { NavigationItem } from '@object-ui/types';
 
+// The active UI language, switchable per test (objectui#11299).
+const i18nState = vi.hoisted(() => ({ language: 'en' }));
+
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useObjectTranslation: () => ({
     t: (key: string, options?: Record<string, unknown>) => String(options?.defaultValue ?? key),
-    language: 'en',
+    language: i18nState.language,
   }),
   // No translation bundle: every convention lookup answers its fallback.
   useObjectLabel: () => ({
@@ -95,6 +104,8 @@ import { UnifiedSidebar } from '../UnifiedSidebar';
 const navigation: NavigationItem[] = [
   { id: 'nav_board', type: 'object', objectName: 'customer', viewName: 'board' },
   { id: 'nav_accounts', type: 'object', objectName: 'account', label: 'account' },
+  // objectui#11299: a present label written as an inline locale map.
+  { id: 'nav_contacts', type: 'object', objectName: 'contact', label: { en: 'Contacts', 'zh-CN': '联系人' } },
 ];
 
 function sidebarUi(viewLabel: string) {
@@ -107,6 +118,7 @@ function sidebarUi(viewLabel: string) {
         listViews: { 'customer.board': { name: 'customer.board', label: viewLabel } },
       },
       { name: 'account', label: 'Accounts' },
+      { name: 'contact', label: 'Contact People' },
     ],
   };
   return (
@@ -120,6 +132,7 @@ function sidebarUi(viewLabel: string) {
 
 beforeEach(() => {
   localStorage.clear();
+  i18nState.language = 'en';
 });
 
 describe('UnifiedSidebar — an unlabelled entry inherits its target’s label (objectui#9868)', () => {
@@ -140,5 +153,22 @@ describe('UnifiedSidebar — an unlabelled entry inherits its target’s label (
     render(sidebarUi('Board'));
     expect(screen.getByRole('link', { name: 'account' })).toHaveAttribute('href', '/apps/crm/account');
     expect(screen.queryByText('Accounts')).not.toBeInTheDocument();
+  });
+});
+
+describe('UnifiedSidebar — a map-valued entry label reads the viewer’s language (objectui#11299)', () => {
+  it('under zh-CN the entry shows its zh-CN text', () => {
+    i18nState.language = 'zh-CN';
+    render(sidebarUi('Board'));
+    expect(screen.getByRole('link', { name: '联系人' })).toHaveAttribute('href', '/apps/crm/contact');
+    expect(screen.queryByText('Contacts')).not.toBeInTheDocument();
+    // A present map is not an absent label: the target's label is not shown.
+    expect(screen.queryByText('Contact People')).not.toBeInTheDocument();
+  });
+
+  it('under en the same entry shows its en text', () => {
+    render(sidebarUi('Board'));
+    expect(screen.getByRole('link', { name: 'Contacts' })).toHaveAttribute('href', '/apps/crm/contact');
+    expect(screen.queryByText('联系人')).not.toBeInTheDocument();
   });
 });

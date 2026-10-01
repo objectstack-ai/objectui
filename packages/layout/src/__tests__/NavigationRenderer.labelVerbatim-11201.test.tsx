@@ -20,16 +20,19 @@
  * view / dashboard i18n resolvers. Ruling B retired it, so:
  *
  *  1. VERBATIM — a present label equal to its target's machine name renders
- *     that name, under `en` and under `zh-CN`, with the console's convention
- *     resolvers wired exactly as `UnifiedSidebar` wires them and never asked.
- *     The absent-label control in the same tree shows the wiring is live: it
- *     localizes in each locale.
+ *     that name, under `en` and under `zh-CN`, with the console's target
+ *     resolver and locale wired exactly as `UnifiedSidebar` wires them. The
+ *     absent-label control in the same tree shows the wiring is live: it
+ *     localizes in each locale. (The three convention resolvers this row used
+ *     to wire, and assert unasked, retired from the renderer's props in
+ *     objectui#11299; `NavigationRenderer.labelLocaleMap-11299.test.tsx` pins
+ *     them gone from the public type.)
  *  2. MAP — a present map-valued label renders its locale's entry, through the
- *     spec's own `resolveI18nLabel`. This layer is handed no locale (it has no
- *     i18n dependency by design, as `AppSchemaRenderer.areaI18nLabel.test.tsx`
- *     records for areas), so the locale it reads is that resolver's
- *     documented no-locale default, `en`. It never renders empty, and never
- *     `[object Object]`.
+ *     spec's own `resolveI18nLabel`. The rows here hand the renderer NO locale
+ *     (a host that passes none), so the locale it reads is that resolver's
+ *     documented no-locale default, `en`; objectui#11299 threads the viewer's
+ *     locale, and `NavigationRenderer.labelLocaleMap-11299.test.tsx` holds
+ *     those rows. It never renders empty, and never `[object Object]`.
  *  3. ABSENT — inherits and localizes; `NavigationRenderer.labelInheritsTarget-9868.test.tsx`
  *     holds those pins, and row 1's control repeats the one that matters here.
  */
@@ -70,23 +73,12 @@ type Locale = keyof typeof BUNDLES;
 
 /**
  * The renderer's label inputs as the console passes them in one locale: the
- * three convention resolvers (`useObjectLabel`'s lookups, falling back to the
- * text they are handed) and the target resolver (`useNavTargetLabel`, which
- * answers the target's localized name).
+ * target resolver (`useNavTargetLabel`, which answers the target's localized
+ * name) and the viewer's locale (`useObjectTranslation().language`).
  */
 function consoleWiring(locale: Locale) {
   const b = BUNDLES[locale];
-  const resolveObjectLabel = vi.fn(
-    (name: string, fallback: string) => (b.objects as Record<string, string>)[name] ?? fallback,
-  );
-  const resolveViewLabel = vi.fn(
-    (objectName: string, viewName: string, fallback: string) =>
-      (b.views as Record<string, string>)[`${objectName}.${viewName}`] ?? fallback,
-  );
-  const resolveDashboardLabel = vi.fn(
-    (name: string, fallback: string) => (b.dashboards as Record<string, string>)[name] ?? fallback,
-  );
-  const resolveTargetLabel: NavTargetLabelResolver = (target: NavLabelTarget) => {
+  const resolveTargetLabel = vi.fn<NavTargetLabelResolver>((target: NavLabelTarget) => {
     switch (target.kind) {
       case 'object':
         return (b.objects as Record<string, string>)[target.objectName];
@@ -95,8 +87,8 @@ function consoleWiring(locale: Locale) {
       case 'dashboard':
         return (b.dashboards as Record<string, string>)[target.dashboardName];
     }
-  };
-  return { resolveObjectLabel, resolveViewLabel, resolveDashboardLabel, resolveTargetLabel };
+  });
+  return { resolveTargetLabel, locale };
 }
 
 function renderNav(items: NavigationItem[], props: Record<string, unknown> = {}) {
@@ -120,7 +112,7 @@ const MACHINE_NAMED: NavigationItem[] = [
 const UNLABELLED: NavigationItem = { id: 'nav_contact', type: 'object', objectName: 'contact' };
 
 describe('objectui#11201 — a present label equal to its target’s machine name renders verbatim', () => {
-  it.each<Locale>(['en', 'zh-CN'])('in the sidebar, under %s, with the console’s resolvers wired and never asked', (locale) => {
+  it.each<Locale>(['en', 'zh-CN'])('in the sidebar, under %s, with the console’s target resolver and locale wired', (locale) => {
     const wiring = consoleWiring(locale);
     renderNav([...MACHINE_NAMED, UNLABELLED], wiring);
 
@@ -131,9 +123,8 @@ describe('objectui#11201 — a present label equal to its target’s machine nam
     expect(screen.queryByText(b.objects.account)).toBeNull();
     expect(screen.queryByText(b.views['account.board'])).toBeNull();
     expect(screen.queryByText(b.dashboards.sales_overview)).toBeNull();
-    expect(wiring.resolveObjectLabel).not.toHaveBeenCalled();
-    expect(wiring.resolveViewLabel).not.toHaveBeenCalled();
-    expect(wiring.resolveDashboardLabel).not.toHaveBeenCalled();
+    // The target resolver is asked about the unlabelled entry only.
+    expect(wiring.resolveTargetLabel.mock.calls.every(([target]) => target.kind === 'object' && target.objectName === 'contact')).toBe(true);
 
     // Control: the absent label inherits, in this locale — the wiring is live.
     expect(screen.getByRole('link', { name: b.objects.contact })).toBeTruthy();
@@ -141,8 +132,7 @@ describe('objectui#11201 — a present label equal to its target’s machine nam
 
   it.each<Locale>(['en', 'zh-CN'])('resolveNavItemLabel answers the authored text under %s, whatever its case or padding', (locale) => {
     const w = consoleWiring(locale);
-    const label = (item: NavigationItem) =>
-      resolveNavItemLabel(item, w.resolveObjectLabel, undefined, w.resolveDashboardLabel, w.resolveViewLabel, w.resolveTargetLabel);
+    const label = (item: NavigationItem) => resolveNavItemLabel(item, undefined, w.resolveTargetLabel, w.locale);
 
     // The retired rule compared trimmed, lower-cased text; none of these is
     // a match against anything now.
@@ -150,18 +140,16 @@ describe('objectui#11201 — a present label equal to its target’s machine nam
     expect(label({ id: 'nav_b', type: 'object', objectName: 'account', label: ' account ' })).toBe(' account ');
     expect(label({ id: 'nav_c', type: 'object', objectName: 'account', viewName: 'board', label: 'Board' })).toBe('Board');
     expect(label({ id: 'nav_d', type: 'dashboard', dashboardName: 'sales_overview', label: 'SALES_OVERVIEW' })).toBe('SALES_OVERVIEW');
-    expect(w.resolveObjectLabel).not.toHaveBeenCalled();
-    expect(w.resolveViewLabel).not.toHaveBeenCalled();
-    expect(w.resolveDashboardLabel).not.toHaveBeenCalled();
+    // A present label never asks the target.
+    expect(w.resolveTargetLabel).not.toHaveBeenCalled();
   });
 });
 
 /**
- * A map-valued entry label. The cast is the declared-type gap, stated:
- * `@object-ui/types` declares a nav entry's `label` as `string`, narrower than
- * the spec's `I18nLabel`, but the metadata reaching this renderer is the
- * spec's — `/meta` validates it against the spec and `translateApp` passes a
- * map it has no id-keyed entry for through unchanged.
+ * A map-valued entry label. Until objectui#11299 this was a cast over a
+ * declared-type gap (`@object-ui/types` declared a nav entry's `label` as
+ * `string`); the type is the spec's `I18nLabel` now, and the helper only keeps
+ * the rows below short.
  */
 const mapLabelled = (entry: Record<string, unknown>): NavigationItem => entry as unknown as NavigationItem;
 
@@ -171,9 +159,9 @@ describe('objectui#11201 — a present map-valued entry label renders the locale
   it('resolveNavItemLabel reads the map through the spec’s resolver, never inheriting', () => {
     const target = vi.fn<NavTargetLabelResolver>(() => 'Customer Accounts');
     const label = (entry: Record<string, unknown>) =>
-      resolveNavItemLabel(mapLabelled(entry), undefined, undefined, undefined, undefined, target);
+      resolveNavItemLabel(mapLabelled(entry), undefined, target);
 
-    // No locale is known to this layer: the resolver's default, `en`.
+    // No locale is handed in: the resolver's default, `en`.
     expect(label({ id: 'nav_acc', type: 'object', objectName: 'account', label: ACCOUNTS_MAP })).toBe('Accounts');
     // A map with no `en` entry still shows its text, by the resolver's own
     // fallback order — not empty, and not the target's label.

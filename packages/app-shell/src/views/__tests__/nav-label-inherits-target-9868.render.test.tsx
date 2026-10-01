@@ -21,6 +21,11 @@
  * `listViews` `MetadataProvider` merges into the object) with the SAME app and
  * the SAME navigation: nothing is written to the nav entry, and the new name
  * shows on the next render.
+ *
+ * objectui#11299: an entry label written as an inline locale map renders the
+ * viewer's language on both surfaces — `nav:menu` reads
+ * `useObjectTranslation().language` and the sidebar is handed it as `locale`,
+ * as `UnifiedSidebar` does — under a real `I18nProvider` in that language.
  */
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect } from 'vitest';
@@ -35,6 +40,7 @@ import { SchemaRenderer, MetadataCtx } from '@object-ui/react';
 import { NavigationRenderer } from '@object-ui/layout';
 import '../nav-menu-renderer';
 import { useNavTargetLabel } from '../../hooks/useNavTargetLabel';
+import { createI18n, I18nProvider, useObjectTranslation } from '@object-ui/i18n';
 
 const NAVIGATION = [
   // The subject: no label, names a view.
@@ -48,6 +54,8 @@ const NAVIGATION = [
   // Controls: authored labels, one of them spelled like the machine name.
   { id: 'nav_accounts', type: 'object', objectName: 'account', label: 'account' },
   { id: 'nav_pipeline', type: 'object', objectName: 'customer', viewName: 'board', label: 'Pipeline' },
+  // objectui#11299: a present label written as an inline locale map.
+  { id: 'nav_contacts', type: 'object', objectName: 'contact', label: { en: 'Contacts', 'zh-CN': '联系人' } },
 ];
 
 /** The metadata cache as `MetadataProvider` publishes it: views merged into `listViews`, keyed by `<object>.<key>`. */
@@ -81,10 +89,16 @@ function metadata(viewLabel: string) {
 /** The sidebar surface, wired the way `UnifiedSidebar` wires it. */
 function SidebarSurface() {
   const resolveTargetLabel = useNavTargetLabel();
+  const { language } = useObjectTranslation();
   return (
     <SidebarProvider defaultOpen>
       <nav aria-label="Sidebar">
-        <NavigationRenderer items={NAVIGATION as never} basePath="/apps/crm" resolveTargetLabel={resolveTargetLabel} />
+        <NavigationRenderer
+          items={NAVIGATION as never}
+          basePath="/apps/crm"
+          resolveTargetLabel={resolveTargetLabel}
+          locale={language}
+        />
       </nav>
     </SidebarProvider>
   );
@@ -162,6 +176,37 @@ describe('objectui#9868 — an unlabelled nav entry shows its target’s current
       expect(within(surface).queryByText('Accounts')).toBeNull();
       // …and 'Pipeline' is NOT replaced by the view's 'Board' it also names.
       expect(within(surface).getByRole('link', { name: 'Pipeline' })).toBeInTheDocument();
+    }
+  });
+});
+
+describe('objectui#11299 — a map-valued entry label renders the viewer’s language, on both surfaces', () => {
+  const inLanguage = (language: string) => (
+    <I18nProvider instance={createI18n({ defaultLanguage: language, detectBrowserLanguage: false })} persistLanguage={false}>
+      {tree(metadata('Board'))}
+    </I18nProvider>
+  );
+
+  // By the block's own data attribute, not by its accessible name: `nav:menu`
+  // localizes that name too ("应用导航" under zh-CN).
+  const localizedSurfaces = () => [
+    screen.getByRole('navigation', { name: 'Sidebar' }),
+    document.querySelector<HTMLElement>('nav[data-block="nav:menu"]')!,
+  ];
+
+  it('under zh-CN both surfaces show the zh-CN entry', () => {
+    render(inLanguage('zh-CN'));
+    for (const surface of localizedSurfaces()) {
+      expect(within(surface).getByRole('link', { name: '联系人' })).toHaveAttribute('href', '/apps/crm/contact');
+      expect(within(surface).queryByText('Contacts')).toBeNull();
+    }
+  });
+
+  it('under en both surfaces show the en entry', () => {
+    render(inLanguage('en'));
+    for (const surface of localizedSurfaces()) {
+      expect(within(surface).getByRole('link', { name: 'Contacts' })).toHaveAttribute('href', '/apps/crm/contact');
+      expect(within(surface).queryByText('联系人')).toBeNull();
     }
   });
 });

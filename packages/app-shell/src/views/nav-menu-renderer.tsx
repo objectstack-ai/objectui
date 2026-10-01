@@ -35,11 +35,12 @@
  *   - hrefs from `resolveHref` — the documented single source of truth for
  *     nav → URL, so `recordId` / `filters` / `viewName` / `runAction`
  *     precedence cannot drift between the sidebar and an authored menu;
- *   - labels from `resolveNavItemLabel` — the same convention-based object /
- *     view / dashboard i18n resolution the sidebar gets, and for an entry with
- *     NO `label` the same inherited target label (`useNavTargetLabel`,
- *     objectui#9868), so the two surfaces cannot show one entry under two
- *     names;
+ *   - labels from `resolveNavItemLabel` — the same rule the sidebar gets: a
+ *     present label as authored (an inline locale map in the viewer's
+ *     `language`, the locale `UnifiedSidebar` passes, objectui#11299), and for
+ *     an entry with NO `label` the same inherited target label
+ *     (`useNavTargetLabel`, objectui#9868), so the two surfaces cannot show
+ *     one entry under two names;
  *   - the active row from `resolveActiveNavItem`, the round-trip inverse of
  *     `resolveHref`;
  *   - the item-level guards in the same ORDER `NavigationItemRenderer` applies
@@ -115,7 +116,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import { useMetadata } from '@object-ui/react';
 import { useAuth } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
-import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
+import { useObjectTranslation } from '@object-ui/i18n';
 import { Badge, Separator, cn } from '@object-ui/components';
 import {
   hasVisibleNavigationItems,
@@ -155,8 +156,7 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
   schema: _schema,
   ...props
 }) => {
-  const { t } = useObjectTranslation();
-  const { objectLabel, viewLabel, dashboardLabel } = useObjectLabel();
+  const { t, language } = useObjectTranslation();
   const { apps, objects } = useMetadata();
   const { appName } = useParams();
   const { currentAppName } = useNavigationContext();
@@ -261,16 +261,8 @@ export const NavMenuRenderer: React.FC<NavMenuRendererProps> = ({
   /* ── Rendering ─────────────────────────────────────────────────────────── */
 
   const label = useCallback(
-    (item: NavigationItem) =>
-      resolveNavItemLabel(
-        item,
-        (objectName, fallback) => objectLabel({ name: objectName, label: fallback }),
-        t,
-        (dashboardName, fallback) => dashboardLabel({ name: dashboardName, label: fallback }),
-        (objectName, viewName, fallback) => viewLabel(objectName, viewName, fallback),
-        targetLabel,
-      ),
-    [objectLabel, dashboardLabel, viewLabel, t, targetLabel],
+    (item: NavigationItem) => resolveNavItemLabel(item, t, targetLabel, language),
+    [t, targetLabel, language],
   );
 
   // A plain (hoisted) function declaration, not a `useCallback`: it recurses

@@ -189,11 +189,6 @@ export const LayoutRenderer = ({ app, children, currentPath, onNavigate }: Layou
               />
             ))}
           </nav>
-          {app.version && isSidbarOpen && (
-            <div className="p-4 border-t text-xs text-muted-foreground">
-              v{app.version}
-            </div>
-          )}
         </aside>
       )}
 

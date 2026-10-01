@@ -1,0 +1,36 @@
+{
+  "number": 11339,
+  "kind": "pull_request",
+  "title": "docs(guide): slotted-pages header example keeps only PageHeaderProps keys; pin it (objectui#11165)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation",
+    "examples",
+    "tests"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-01T05:41:56Z",
+  "updated_at": "2026-10-01T07:49:05Z",
+  "closed_at": "2026-10-01T07:49:03Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-01T07:49:03Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11339",
+  "body": "Fixes #11165\nClause-②: no\n\n## What changed\n\n- `content/docs/guide/slotted-pages.md`, \"Example: customize only the header\": `slots.header` keeps only keys `PageHeaderProps` accepts. `eyebrow` (never declared) and `icon` (ADR-0087 D2 tombstone) are gone. A short lead-in now points at the [Page Header reference](/docs/layout/page-header) for the prop list. `breadcrumb: true` stays, per the dispatch ruling: it follows its own card (objectui#11166), and this PR does not touch it.\n- New pin `examples/schema-catalog/test/slotted-pages-header-example-11165.test.ts`, beside the nearest docs-example pin for this node (`pageheader-with-actions.test.tsx`, which pins the `page-header.mdx` demo). No test read `slotted-pages.md` before this. The pin reads the fence from the page and evaluates it (the `readme-dashboard-examples-spec-valid.test.ts` technique), so it follows the page and does not restate the node. It asserts:\n  1. the header node passes `safeValidateSchema` (the schema mirror `objectui validate` runs);\n  2. its `properties` pass `ComponentPropsMap['page:header']` in a full parse;\n  3. CONTROL: the same node with `eyebrow` and `icon` put back (the node the page taught before) is refused by both judges on exactly those two keys.\n\n## Re-measure at base `5262f7dd3`, before any edit\n\n- `safeValidateSchema(old node)`: `properties.icon: invalid_type`, `properties: unrecognized_keys [eyebrow]`. Without the two keys: OK.\n- `PageHeaderProps.safeParse(old properties)`: `icon: invalid_type`, `: unrecognized_keys [eyebrow]`. Without them: OK.\n- The whole page under `PageSchema` parses OK with or without the two keys. The page shape does not judge a component's `properties` by its `type`, so the pin asks the row.\n\n## Rest of the page (same defect class: `page:*` nodes carrying keys their row refuses)\n\nMeasured at base. Every `page:*` node on the page passes `safeValidateSchema`, `PageComponentSchema` and its row. The only defect was the example above.\n- The `regions` fence under \"The discussion panel is composed, never appended\": `page:header` with `title`. OK.\n- \"Naming the actions\" fence: `page:header` with `title`, `actions`. OK.\n- \"Declaring placement\" fence: `page:header` with `title`, `maxVisible`. OK.\n\n## Verification (head `ca770c6a`)\n\n- Pin: `pnpm exec vitest run --maxWorkers=2 examples/schema-catalog/test/slotted-pages-header-example-11165.test.ts` gives `Tests 4 passed (4)`. Run under the shared verify lock at `ca770c6a`, after the ablation restore.\n- Ablation (one, committed first): `scripts/ablation-replace.mjs` (objectstack checkout) planted `eyebrow: 'ACCOUNT',` back into the page fence. Anchor x1 to x0, blob `4d1327d81019` to `7c97d87158d5`. Result: `Tests 2 failed | 2 passed (4)`. Both positive legs went red, with `properties: unrecognized_keys eyebrow` (mirror) and `: unrecognized_keys eyebrow` (row). The lit control and the refusal control stayed green. Restore: blob back to `4d1327d81019` = HEAD, `git diff HEAD` empty. My first attempt was a no-op that the tool refused: its replacement contained its anchor, so the anchor count could not drop. It restored without running the test.\n- Gates at `ca770c6a`, each exit 0:\n  - `check:doc-fences` (`--self-test` and scan);\n  - `docs:check-links`: \"Links are valid across 17 scan roots\";\n  - `check:control-bytes`;\n  - `check:doc-types`;\n  - `check:doc-example-ids`;\n  - `check-new-cross-file-line-citations`: 0 new;\n  - `check-test-path-roots`: the new read is classified, not cwd-rooted;\n  - `check-lint-coverage` and `check-type-check-coverage`;\n  - `check-changeset-presence`: \"no changeset is owed\". This is a docs and test-only change, so there is no changeset and no `skip-changeset` label.\n- Lint: `eslint --no-inline-config --format json` on the two changed files. The test file was linted: 0 errors, 0 warnings. The `.md` is outside eslint's own population (\"File ignored because no matching configuration was supplied\"). `eslint.config.js` enables no type-aware linting, so this diff cannot move any untouched file's verdict. The full `pnpm lint` run belongs to CI.\n\n## NOT MEASURED locally (owed to CI)\n\n- `check:doc-snippets` (`check-doc-snippet-types.mjs`). The gate needs its 35-package `--build-filter` closure built. That was not run, because three devs share this container's memory. Narrowed instead: the edited fence alone was compiled with `tsc --strict` against the installed `@objectstack/spec`, and exited 0. The pre-fix fence also compiles (exit 0), which is why no snippet gate saw this defect. A control with an unknown page-level key fails TS2353, so the program does type-check. The fence imports only `@objectstack/spec/ui`, so no objectui `dist` enters its program, and no other fence's bytes changed.\n- The full `type-check` of `@object-ui/example-schema-catalog`. It needs that package's devDependency closure built. Narrowed instead: `@object-ui/types` was built (the new test's only workspace import), and the new test file alone was compiled under a temporary config extending `tsconfig.test.json`. Exit 0, and the file appears in `--listFiles`.\n- The repo-wide `pnpm test`, and `unit-registry-absence-collision` for the new unit-project file. The new file imports only `@object-ui/types/zod` and `@objectstack/spec/ui`, and neither registers a component.\n\n## Acceptance notes\n\n- **Brief vs triage on `breadcrumb`.** The triage comment's direction dropped `breadcrumb` too, citing objectui#11166's RETIRE ruling. The dispatch ruling and the claim keep it, so it stays. When the spec tombstones `breadcrumb`, this pin's row leg goes red. That is the prompt for objectui#11166 to edit this example.\n- **Out of the brief's `page:*` scope, not touched.** The `record:related_list` JSON fence under \"Naming a related list's actions\" writes its props beside `type`, not in `properties`. Measured at base:\n  - `safeValidateSchema` accepts it;\n  - `PageComponentSchema` refuses it with `: unrecognized_keys [objectName, relationshipField, columns, actions]`;\n  - inside a spec `Page` (`regions[].components[]`), `PageSchema` refuses it with `regions.0.components.0: unrecognized_keys`.\n\n  It goes to the dispatch report as a finding for the seat to grade.\n\nDev session: `https://claude.ai/code/session_01TdiauJaVCHuj45EzZGUxHh`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01TdiauJaVCHuj45EzZGUxHh)_\n"
+}

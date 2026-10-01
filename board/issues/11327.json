@@ -1,0 +1,37 @@
+{
+  "number": 11327,
+  "kind": "issue",
+  "title": "[finding] The vendored Console bundles TWO zod instances (4.4.3 + the spec's 4.6.1), so spec-derived Studio schemas crash — the New Package dialog cannot create a package; dashboard/report inspectors show \"Spec schema unavailable\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-bill"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-01T03:55:16Z",
+  "updated_at": "2026-10-01T07:56:16Z",
+  "closed_at": "2026-10-01T07:47:32Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11327",
+  "body": "Filing gate: **① a reproducible product defect with a named landing site** — `apps/console/vite.config.ts` + `scripts/vite-objectstack-spec-dist.ts` (the spec-dist injection) and `packages/app-shell/src/views/metadata-admin/*-schema.ts`. `reach:` the Console a stock `objectstack dev --ui` serves, reproduced in a browser on fresh boots (runner + independent verifier); **release-relevant** — the published `@objectstack/console@17.5.0` carries the same split (static evidence). Reader: triage first touch, then the lane owning the console build; the framework half (pin + build script) rides the pin bump that lands the fix. Dedupe: semantic search \"zod two versions console bundle toJSONSchema deferred push package schema missing from schema\" here and \"console zod version mismatch spec dist injection build-console toJSONSchema studio schema form\" in objectstack-ai/objectstack (open + closed) → 26 hits, none this defect.\n\nQA-source: objectstack-ai/objectstack#21056 · studio-authoring.first-run-loop · acceptance[0]\n\n## What happens\n\nAt objectui pin `db11afd4967c`, built by the framework's `scripts/build-console.sh`:\n- Studio → \"New package (writable base)\" renders only `#mdf-version` and `#mdf-type`, with \"Field name / id / namespace / description declared in form layout but missing from schema. Skipping.\"; \"Create package\" stays disabled and no `POST /api/v1/packages` is sent. The server door works (`POST /api/v1/packages {\"manifest\":{…}}` → 201) — the defect is client-only.\n- Browser console: `[package-schema] failed to derive manifest JSONSchema from spec TypeError: Cannot read properties of undefined (reading 'push')`, stack through `vendor-zod-*.js` → `_zod.processJSONSchema` in `vendor-objectstack-*.js`.\n- Same class: Studio `?surface=dashboard:…` and `report:…` log `[dashboard-schema]` / `[report-schema] failed to derive …` and the inspector shows \"Spec schema unavailable — basic properties only\"; `page:…` logs the failure too. The package Edit/View dialogs share the same `getPackageSchema` memo.\n\n## Reproduction\n\n1. Framework `objectstack-ai/objectstack@ef1ed17f`, `.objectui-sha` `db11afd4967c`, `pnpm objectui:build`; `OS_PORT=<p> pnpm -C examples/app-showcase exec objectstack dev --ui --seed-admin -p <p> -d file:<fresh>.db`.\n2. Sign in as admin → `/_console/studio` → \"New package (writable base)\". Observe the dialog and console warning above.\n3. Node-level: zod 4.4.3 `z.toJSONSchema(...)` over the spec's ManifestSchema, DashboardSchema, PageSchema, ReportSchema, ViewSchema and ListColumnSchema (built with 4.6.1) throws the same TypeError for all six; zod 4.6.1 succeeds on all six.\n\n## Mechanism\n\n- Two copies are bundled: `vendor-zod-*.js` is zod `4.4.3` (the pin's lockfile; its toJSONSchema context has no `deferred`), `vendor-objectstack-*.js` carries zod `4.6.1` (the framework spec's own dependency; its record processor calls `ctx.deferred.push`).\n- `build-console.sh` exports `OBJECTSTACK_SPEC_DIST`; `apps/console/vite.config.ts` → `resolveSpecDistInjection` (`scripts/vite-objectstack-spec-dist.ts`) aliases the spec and lets it keep its own zod; `resolve.dedupe` covers only `react`, `react-dom`, `sonner`.\n- `package-schema.ts` `getPackageSchema()` calls objectui's `z.toJSONSchema(ManifestSchema, …)` on a schema built by the other copy → throws → caught → `undefined` → `SchemaForm` falls back to `inferSchemaFromValue` → `PackageFormDialog` `canSubmit` (needs `name` + `id`) stays false.\n- objectui's own e2e never sets `OBJECTSTACK_SPEC_DIST`, so it never sees the split; the checklist's cited pin (`e2e/live/studio-object-designer.spec.ts`) targets testids that no longer exist at the pin.\n\n## Release relevance\n\nThe framework's `release` script and `release.yml` (\"Build vendored @objectstack/console SPA\") run the same `build-console.sh`, cached on `.objectui-sha` + the script only (the spec's zod version is not in the key). The published `@objectstack/console@17.5.0` has a byte-identical `vendor-zod` (4.4.3), a `vendor-objectstack` with 4.6.1's `deferred`, and the `[package-schema]` warning string — static evidence; not driven in a browser.\n\n## Landing site and acceptance\n\n- Durable fix: one zod instance in the console bundle (dedupe/alias zod for the injected spec) or a build-time assertion that the bundled zod versions match; the metadata-admin schema modules should derive JSON Schema with the zod that built the schema.\n- Framework half (objectstack-ai/objectstack): a zod-parity guard in `scripts/build-console.sh`, and the pin bump. objectui HEAD `582edef1c` locks zod `4.6.5`, whose `toJSONSchema` over the six 4.6.1-built schemas passes in node — a plausible mitigation, **browser-UNVERIFIED**, and still two copies that merely happen to agree.\n- Done when the Studio New Package dialog renders Name / Id / Namespace and creates a package on a console built by `build-console.sh`, the dashboard/report inspectors show the spec schema, and `studio-authoring.first-run-loop` acceptance[0] re-runs green.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -2,7 +2,7 @@
   "number": 11236,
   "kind": "pull_request",
   "title": "chore(deps): bump next from 16.3.3 to 16.3.6",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -19,11 +19,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-30T16:31:29Z",
-  "updated_at": "2026-09-30T19:24:49Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-01T07:56:43Z",
+  "closed_at": "2026-10-01T07:56:43Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 9,
+  "comments": 10,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/11236",
   "body": "Bumps [next](https://github.com/vercel/next.js) from 16.3.3 to 16.3.6.\n<details>\n<summary>Release notes</summary>\n<p><em>Sourced from <a href=\"https://github.com/vercel/next.js/releases\">next's releases</a>.</em></p>\n<blockquote>\n<h2>v16.3.6</h2>\n<p>This release contains a security fix for <a href=\"https://github.com/vercel/next.js/security/advisories/GHSA-vcvr-r3jv-pc5j\">GHSA-vcvr-r3jv-pc5j: Remote Code Execution in next/og ImageResponse</a></p>\n<h2>v16.3.5</h2>\n<p>The following bug fixes have been backported. It does not include all pending features/changes on canary.</p>\n<ul>\n<li>next/image: Skip 0-byte entries when initializing disk LRU cache (<a href=\"https://redirect.github.com/vercel/next.js/issues/98185\">#98185</a>)</li>\n<li>next/image: Reject empty images when reading/writing to the disk cache (<a href=\"https://redirect.github.com/vercel/next.js/issues/98186\">#98186</a>)</li>\n<li>Emit whole-app server NFTs when <code>output: 'standalone'</code> is used with an adapter (<a href=\"https://redirect.github.com/vercel/next.js/issues/98167\">#98167</a>)</li>\n<li>Add CSP nonce to script tags of loading and template files (<a href=\"https://redirect.github.com/vercel/next.js/issues/98403\">#98403</a>)</li>\n<li>Fix <code>use cache</code> prerender signal retention (<a href=\"https://redirect.github.com/vercel/next.js/issues/98448\">#98448</a>)</li>\n</ul>\n<h2>v16.3.4</h2>\n<p>Follow-up release to <a href=\"https://github.com/vercel/next.js/releases/tag/v16.3.3\">v16.3.3</a> re-enabling AVIF Image Optimization (<a href=\"https://redirect.github.com/vercel/next.js/pull/97949\">#97949</a>).</p>\n<p>The following bug fixes have been backported. It does <strong>not</strong> include all pending features/changes on canary.</p>\n<ul>\n<li>testmode: Fix infinite recursion in testmode passthrough fetch (<a href=\"https://redirect.github.com/vercel/next.js/issues/97691\">#97691</a>)</li>\n<li>Fix build error when aliasing typescript to <code>@​typescript/typescript6</code> (<a href=\"https://redirect.github.com/vercel/next.js/issues/97997\">#97997</a>)</li>\n<li>Fix unset crossOrigin in Turbopack manifests (<a href=\"https://redirect.github.com/vercel/next.js/issues/97930\">#97930</a>)</li>\n</ul>\n<h3>Credits</h3>\n<p>Huge thanks to <a href=\"https://github.com/eps1lon\"><code>@​eps1lon</code></a>, <a href=\"https://github.com/mischnic\"><code>@​mischnic</code></a>, and <a href=\"https://github.com/timneutkens\"><code>@​timneutkens</code></a> for helping!</p>\n</blockquote>\n</details>\n<details>\n<summary>Commits</summary>\n<ul>\n<li><a href=\"https://github.com/vercel/next.js/commit/a758ffcf501f6f1ddb03175bd1033508424c261e\"><code>a758ffc</code></a> v16.3.6</li>\n<li><a href=\"https://github.com/vercel/next.js/commit/868fad38690d72088868f299fa2bef339b26838e\"><code>868fad3</code></a> [active-lts] Harden next/og SVG serialization</li>\n<li><a href=\"https://github.com/vercel/next.js/commit/8c81cbb30a7f667ed74806d984f8117ee97f4665\"><code>8c81cbb</code></a> [lts-active] test: remove unsupported deployment ID builder cases (<a href=\"https://redirect.github.com/vercel/next.js/issues/98821\">#98821</a>)</li>\n<li><a href=\"https://github.com/vercel/next.js/commit/ca2c75eb7f8d9dd012a8bb83c06132149fe221f9\"><code>ca2c75e</code></a> v16.3.5</li>\n<li><a href=\"https://github.com/vercel/next.js/commit/14fb290de65077e9f1e22ef56d8de6cc1e63d436\"><code>14fb290</code></a> [backport] Fix use cache prerender signal retention (<a href=\"https://redirect.github.com/vercel/next.js/issues/98448\">#98448</a>)</li>\n<li><a href=\"https://github.com/vercel/next.js/commit/2b1f28dbe1de344807ec0946a85171bc890a6047\"><code>2b1f28d</code></a> [16.3.x] Add CSP nonce to script tags of loading and template files (<a href=\"https://redirect.github.com/vercel/next.js/issues/98403\">#98403</a>)</li>\n<li><a href=\"https://github.com/vercel/next.js/commit/4b56cee3f01d3b249edcd798b51895d5126a4170\"><code>4b56cee</code></a> [16.3.x] Backport docs fixes (<a href=\"https://redirect.github.com/vercel/next.js/issues/98317\">#98317</a>)</li>\n<li><a href=\"https://github.com/vercel/next.js/commit/5568a02a7d47f9cb088e58350f2c2e68d9e93a00\"><code>5568a02</code></a> [backport] docs: local development: Rewrite docker section, add Windows Dev D...</li>\n<li><a href=\"https://github.com/vercel/next.js/commit/93249ab2144132abfd4a8d611dad5b5978107ee2\"><code>93249ab</code></a> [16.3.X] Emit whole-app server NFTs when <code>output: 'standalone'</code> is used with ...</li>\n<li><a href=\"https://github.com/vercel/next.js/commit/6549fd7c4e15a8883b0ad1c2ef67dec287a44f12\"><code>6549fd7</code></a> [16.3.x] next/image: reject empty image on read/write to disk cache (<a href=\"https://redirect.github.com/vercel/next.js/issues/98186\">#98186</a>)</li>\n<li>Additional commits viewable in <a href=\"https://github.com/vercel/next.js/compare/v16.3.3...v16.3.6\">compare view</a></li>\n</ul>\n</details>\n<br />\n"

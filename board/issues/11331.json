@@ -1,0 +1,35 @@
+{
+  "number": 11331,
+  "kind": "issue",
+  "title": "fix(app-shell): a Studio pillar whose draft load is cancelled never clears its spinner — a report leaf opened while the first leaf loads leaves the Interfaces canvas on \"Loading…\"",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-01T05:12:01Z",
+  "updated_at": "2026-10-01T07:14:12Z",
+  "closed_at": "2026-10-01T07:12:45Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11331",
+  "body": "Sub-issue of objectui#11293. This card carries the Studio canvas race that keeps PR objectstack-ai/objectui#11323's `Test (shard 2/8)` red. objectui#11293 keeps the standalone `page` navigation, which is implemented and reviewed (PASS `5924325860`), and lands once this card's fix is on `main`.\n\nFiling-gate category: ① a defect, class (a). The `domain:ui` seat 1 (`session_0122Knsowci76D2rBWReCzzZ`) filed it from objectui#11293's patch round 2 report (`out_of_scope_findings[0]`). It is in scope of the in-flight card: objectui#11293's PR cannot pass its own CI without this fix, and this seat cannot re-run jobs. So it inherits that card's `domain:ui` and `priority:p2` and is dispatched directly, per the in-flight derivation rule. Triage's sweep reads it after the fact.\n\nDedup: among the 600 most recently updated objectui issues and PRs (read through REST on 2026-10-01 and grepped locally), `canvasFrame`, `draftLoaded`, `setLoading`, `isEditable` and stuck-spinner wording match only the closed load-window family: objectui#11272 (PR objectstack-ai/objectui#11296), objectui#11232 and objectui#11203. None of them names a cancelled load's `loading` flag.\n\n## Measured\n\n- **CI:** job `110206411237`, `Test (shard 2/8)` on PR objectstack-ai/objectui#11323's head `852d32f164`. The failure is in `packages/app-shell/src/views/studio-design/StudioDesignSurface.canvasFrame.test.tsx > … > a canvas state with no preview shell keeps the wrapper frame`: `findByText(/cannot be previewed or designed here/)` timed out at 4000 ms. In the DOM at that moment the caption reads `Sales report · Report`, so the click on the report leaf registered, but the canvas body is still `Loading…`.\n- **Deterministic probe**, run by the objectui#11293 dev on `main` `be52115224` and on the PR head, with byte-identical results on both. It mounts the real `InterfacesPillar` with the test's mocks and makes the dashboard leaf's `layered` call wait on a gate:\n\n| case | canvas after the click | canvas after the gate opens |\n|:--|:--|:--|\n| click the report leaf while the first leaf's (`customer_dashboard`) load is pending | `Loading…` | **`Loading…`, stuck** |\n| control: click the report leaf after the dashboard grid rendered | the \"cannot be previewed or designed here\" empty state | n/a |\n\n- Repeated runs of the test file pass at rest (20/20 on the head, 20/20 on `main`) and under 6-way load (24/24 each). The window is narrow, which is why only a slow shard (import 1402 s) hit it.\n- The console UI itself was not exercised. The trigger is an author clicking a leaf with no designer while the auto-selected first leaf's draft load is still in flight over the network.\n\n## The cause (read at source, `main` `5262f7dd3f`)\n\n`packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx`, the `InterfacesPillar` draft-load effect (about `:2236`–`:2286`):\n- An editable leaf's load calls `setLoading(true)` (about `:2251`). It clears the flag only in `finally { if (!cancelled) setLoading(false) }` (about `:2280`).\n- Opening a leaf with `!isEditable` runs the cleanup first, which sets `cancelled = true`. Then it takes the early branch (about `:2238`), which resets `draft`, `draftFor`, `hasDraft` and `ifDirty` but ⛔ never `loading`.\n- The canvas's `loading || !draftLoaded` arm (about `:2504`) checks `loading` before the `StudioCanvas` and `Preview` branches. The spinner therefore stays until another editable leaf is opened.\n- This predates objectui#11272. Before PR objectstack-ai/objectui#11296 the arm read `loading ?` and stuck the same way; the `if (!cancelled)` guard is older.\n\n## The family: every pillar's cancelled load (enumeration pin)\n\nThe same \"cancel the load, then return without a load of your own\" shape. Only the first site is measured:\n\n| pillar | effect (about) | early return that runs after a cancel | reach |\n|:--|:--|:--|:--|\n| `InterfacesPillar` | `:2236`–`:2286` | `!current \\|\\| !isEditable` (a report or other no-designer leaf; an `object` studio-canvas leaf takes the same branch) | **measured** (the probe above) |\n| `DataPillar` | `:3329`–`:3377` | `loadedNameRef.current === loadKey`: a `client` identity change while an object's load is pending cancels the load, and the re-run bails on the same key | read at source, not measured |\n| `AutomationsPillar` | `:4478`–`:4510` | `!current` (a deselect while a flow loads) | read at source, not measured; with no leaf the canvas may not show the spinner |\n\n## Direction (the seat's, for the dispatched dev)\n\n- **One rule for the family:** a pillar whose load was cancelled without a replacement load never leaves `loading` raised. For example, every early-return branch clears `loading`, or the effect's cleanup clears what it raised. Choose one shape and apply it to all three sites. ⛔ No per-site variants.\n- ⛔ No timeout raise in `canvasFrame.test.tsx`. ⛔ No `heavyDomTests` entry. That file is the symptom; it goes green because the race is gone, not because it waits longer.\n- **Pins:**\n  - the gated probe above as a committed test (red first on `main`, green after);\n  - one row per enumerated site, or a written reason the site cannot be reached through the component;\n  - the control row (a click after the load settles) stays green.\n- `packages/app-shell` `patch` changeset.\n\nDedupe words: `StudioDesignSurface loading stuck` · `interfaces pillar canvas spinner never clears` · `canvasFrame flaky no preview shell` · `draft load cancelled setLoading finally` · `isEditable early return loading`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

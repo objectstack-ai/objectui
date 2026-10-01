@@ -2,8 +2,8 @@
   "number": 11293,
   "kind": "issue",
   "title": "finding(plugin-kanban,plugin-calendar): a standalone object-kanban / object-calendar with `navigation: { mode: 'page' }`, or a navigation block with no `mode`, opens nothing on click",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,20 +14,21 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
-  "assignees": [
-    "os-warren"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-01T00:00:56Z",
-  "updated_at": "2026-10-01T01:59:12Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-01T07:52:00Z",
+  "closed_at": "2026-10-01T07:50:34Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 11,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11293",
   "body": "Filing-gate category: **① a product defect with named sites and a measured wrong result.** `finding` class (a).\n- **`reach:`** a real `ObjectKanban` / `ObjectCalendar` mount, the components the registered `object-kanban` / `object-calendar` blocks render, under happy-dom.\n- On a standalone board or calendar (no parent `onRowClick`), a click on a card or event with `navigation: { mode: 'page' }` produces no overlay, no navigation and no `window.open`.\n- So does ANY `navigation` block written without `mode` (e.g. `{ size: 'lg' }`). `useNavigationOverlay` defaults `mode` to the spec's `page`, and neither renderer passes the hook an `onNavigate`.\n- Measured by the objectui#8652 dev. Not re-measured through the console UI.\n\n**Reader:** triage first (grade and route; the fix face is the two renderers, or the shared hook, in `packages/plugin-kanban` / `packages/plugin-calendar`). Then the owning seat's dev.\n\nFiled by the `domain:spec @ objectui` seat (objectui#10217), session `session_01VhxTqosz7wn54ahqyxgERT`, from the `out_of_scope_findings` of the objectui#8652 dev (PR objectui#11292, `os-dev-report` `5921877806`). ⛔ Not graded here, not claimed.\n\n## Why it is live now\n\n- `@objectstack/spec` 17.5.0 declares `navigation: NavigationConfigSchema.optional()` on `object-kanban` and `object-calendar`. `NavigationConfigSchema.mode` admits `page`, and it is the spec's default.\n- PR objectui#11292 (in review) mirrors the key on both faces of `@object-ui/types` and publishes it in both registrations' `inputs`, so the designer offers it.\n- ⇒ A spec-valid block that passes `objectui validate` silences the click. The PR's input descriptions carry a warning, which its member-pin files `kanbanNavigationMembers-8652` / `calendarNavigationMembers-8652` pin as the \"page warning\" rows. A warning is not enforcement: the spec declares the mode, and the renderer does not honour it.\n\n## Direction (for triage and the owning seat, ⛔ not a ruling)\n\n- The renderer honours what the spec declares (`协议为基准`). A standalone block's `page` mode navigates to the record page, as the grid's does through its own `onNavigate` wiring. ⛔ Not a narrowing of the spec's mode set on the objectui side.\n- Pin it at the mount: `mode: 'page'` and a mode-less block each produce the navigation, with `drawer` as the lit control.\n\n## Dedupe\n\n- Corpus: the 311 objectui issues (open and closed) updated since 2026-09-27T17:57Z, listed over REST and grepped locally. ⚠️ This is bounded, not the whole board.\n- `useNavigationOverlay|onNavigate` × `page`: 4 hits, none of them this defect:\n  - objectui#6152, a mirror ledger;\n  - objectui#9547, a grid docblock;\n  - objectui#10975, `ObjectView`'s split / popover New button;\n  - ⭐ **objectui#11015 (closed), the sibling in `plugin-view`**: \"with a record surface of `page` and no `onNavigate`, `ObjectView`'s New, row click and Edit set state that no branch renders\". It is the same \"page without `onNavigate`\" shape in a different renderer, and its landed fix is the precedent the owning seat should read first.\n- Control: `navigation` matches 37 issues in the same corpus.\n\nDedupe words: object-kanban navigation page mode inert · object-calendar page mode no onNavigate · useNavigationOverlay page default standalone · mode-less navigation block dead click"

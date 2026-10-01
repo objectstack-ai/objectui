@@ -2,7 +2,7 @@
   "number": 11313,
   "kind": "pull_request",
   "title": "fix(components): element:definition-list, element:repeater and action:button publish their spec-declared inputs; types retires ActionGroup (objectui#11168 slice 2)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -22,10 +22,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-01T02:22:44Z",
-  "updated_at": "2026-10-01T02:39:00Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-01T02:54:30Z",
+  "closed_at": "2026-10-01T02:54:28Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-01T02:54:28Z",
   "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/11313",

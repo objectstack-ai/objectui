@@ -1,0 +1,26 @@
+{
+  "number": 11365,
+  "kind": "issue",
+  "title": "finding(components,docs): `input-otp`'s documented `separator` draws nothing — two catalog entries and the docs page's \"With Separator\" example author it, no type declares it, and the renderer reads nothing for it",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-01T08:31:43Z",
+  "updated_at": "2026-10-01T08:31:43Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11365",
+  "body": "Filing-gate category: ① — a product defect with a measured reproduction: a `finding` of class (c), declared on a public door and not enforced. `reach:` the public docs page `content/docs/components/form/input-otp.mdx` documents `separator?: boolean` in its interface block and shows a \"With Separator\" example. Rendered through the real `SchemaRenderer`, that example draws **0** elements with `role=\"separator\"`. Named producers: two catalog entries.\nReader: triage first, to route it. `@object-ui/components`' `input-otp` renderer and its docs page are probably `domain:ui`.\n\n## The measurement (objectui#11347's report `5927683269`, PR objectui#11360)\n\n- **Producers:**\n  - `examples/schema-catalog/src/schemas/components-form-input-otp/with-visual-separator.json` and `verification-form.json` both author `separator: true`;\n  - the docs page's interface block documents `separator?: boolean`.\n- **Declarations:** no type declares `separator` on `InputOTPSchema`, on the TS face or the zod face, and the installed `@objectstack/spec` 17.5.0 has no `input-otp` row.\n- **Reader:** the `input-otp` renderer reads nothing for `separator`.\n- **Rendered:** the `with-visual-separator` entry, through the real `SchemaRenderer`, gives 0 `role=\"separator\"` elements.\n\nSo the docs teach a capability the renderer does not have, and the catalog encodes it.\n\n## Direction (for triage and the owning seat, ⛔ not a ruling)\n\nThis is an enforce-or-remove fork (ADR-0049), and it is the owning seat's to measure and decide:\n- **Enforce:** declare `separator` on `InputOTPSchema`, and have the renderer draw the primitive's separator.\n- **Remove:** correct the docs page and the two catalog entries.\n\nThe startup-focus axis defaults to removal for a capability with no pull beyond the docs' own example. A real consumer would change that.\n\n## Dedupe\n\nLocal grep over every objectui issue updated since 2026-09-01 (2,212 issues, open and closed, with bodies, read 2026-10-01T08:3xZ): `separator` with `input-otp|InputOTP` returned 0 hits.\n\nDedupe words: input-otp separator undeclared · with-visual-separator renders no separator · InputOTPSchema separator docs example"
+}

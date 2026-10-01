@@ -2,7 +2,7 @@
   "number": 11310,
   "kind": "pull_request",
   "title": "feat(types): the dashboard widget's TypeScript chartConfig refuses the retired `aria`, and both faces are pinned (objectui#4044)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -18,10 +18,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-01T02:06:36Z",
-  "updated_at": "2026-10-01T02:38:31Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-01T02:54:30Z",
+  "closed_at": "2026-10-01T02:54:28Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-01T02:54:28Z",
   "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/11310",

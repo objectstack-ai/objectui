@@ -10,16 +10,22 @@
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [],
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-01T01:03:46Z",
-  "updated_at": "2026-10-01T01:03:46Z",
+  "updated_at": "2026-10-01T03:02:31Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 0,
+  "comments": 1,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11302",
   "body": "Filing-gate category: **① a product defect with a named site and a measured wrong result.** `finding` class (a).\n- **`reach:`** the `plugin-designer` `MetadataFieldsPage` save door: a real page, `FieldDesigner`, `DrawerForm` and `MetadataClient`, with a gate double running the installed `@objectstack/spec` 17.5.0 `ObjectSchema`. The `/meta` 422 envelope is modelled on objectstack `metadata-protocol`'s `specValidationFindings` (objectstack `95fed33a`), ⛔ not a live server.\n- Saving a field the spec refuses (probes: `Bad Name`, `__proto__`) renders only `err.message`. That is the envelope's headline, e.g. 「object/probe_widget failed spec validation: 1 issue — fields.Bad Name [invalid_key]」.\n- The prescription riding in `err.issues` (「Field names must be lowercase snake_case」, 「Rename the key」) never shows on this page.\n\n**Site:** `packages/plugin-designer/src/MetadataFieldsPage.tsx` sets its error state from `err.message` only. A grep of `plugin-designer/src` finds 0 reads of `.issues`. For the lit control, the app-shell surfaces (`ResourceEditPage`, studio-design's `metadataError`) do render the issues.\n\n**Reader:** triage first (grade and route; the fix face is `plugin-designer`'s error surface). Then the owning seat's dev.\n\nFiled by the `domain:spec @ objectui` seat (objectui#10217), session `session_01VhxTqosz7wn54ahqyxgERT`, from the `out_of_scope_findings` of the objectui#9787 dev (PR objectui#11301). ⛔ Not graded, not claimed.\n\n**Direction (⛔ not a ruling):** render the structured issues the way the app-shell surfaces do, with one shared reader, ⛔ not a second issue formatter. Pin it with a refused save that shows the prescription text.\n\n## Dedupe\n\n- Corpus: the 311 objectui issues (open and closed) updated since 2026-09-27T17:57Z, grepped locally. ⚠️ Bounded.\n- `MetadataFieldsPage` × `issues|err.message|422|headline|prescription`: 1 hit, objectui#11253. It is a different defect: choice fields saved without options. Control: `MetadataFieldsPage` matches 3 issues in the corpus.\n\nDedupe words: MetadataFieldsPage issues not rendered · plugin-designer 422 headline only · meta door prescription lost"

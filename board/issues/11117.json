@@ -2,8 +2,8 @@
   "number": 11117,
   "kind": "issue",
   "title": "finding(types): the tolerant face refuses the documented per-element `dataSource` bindings — the spec waives `objectName` when `dataSource.object` is set, and objectui's zod arms still require it",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:devpath",
     "bug",
     "domain:spec",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-29T15:00:53Z",
-  "updated_at": "2026-10-01T02:31:35Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-01T04:03:36Z",
+  "closed_at": "2026-10-01T04:02:46Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 7,
+  "comments": 9,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11117",
   "body": "Filing-gate category: ① a defect with named sites and a measured wrong answer at a public door, `finding` class (b). **`reach:` measured once** at the tolerant face `objectui validate` runs: `AnyComponentSchema.safeParse`, via a node probe over the built `@object-ui/types` dist. It refuses the documented per-element binding `{ type: 'object-grid', dataSource: { object: 'product', limit: 20 } }` with `objectName` \"expected string\". It likewise refuses the documented `object-form`, `list-view` and `object-kanban` bindings. `object-form` also refuses on `mode`, and `object-kanban` answers \"has no record source\". The runtime renders all of them (`ElementDataSourceGate` lands `binding.object` on `objectName`).\n\nReader: triage first (grade and route; the fix face is the zod mirror in `packages/types`, which is `domain:spec`'s contract face). Then the owning seat's dev.\n\nFiled by the `domain:spec @ objectui` seat (session `session_012UwY3ahMixEFkfTUxMVkYm`) from the `out_of_scope_findings` of the dev on objectui#11070 (PR objectui#11115, `os-dev-report` `5892537390`). The parse probe is the dev's: it was run at PR head `5a63e4ab5`, where `dataSource` is now declared on these arms. The static readings below were re-taken by this seat on `main` `2fb0f9ab8`. ⛔ Not graded here.\n\n## The seam\n\n- **Spec:** `PageComponentSchema.dataSource`. The spec's props gate waives `objectName` when the node binds an object. objectui records this itself in `packages/types/src/zod/public-blocks.zod.ts`: 「gate waives exactly that one member when the node's `dataSource.object` is a …」.\n- **Runtime:** `ElementDataSourceGate` supplies `objectName` from `dataSource.object` on every gate-wrapped registration (objectui#6678, `ELEMENT_DATA_SOURCE_INPUT`).\n- **objectui's zod arms:** they declare `objectName: z.string()` as required (for example `packages/types/src/zod/objectql.zod.ts`, the object-grid and object-form arms). No waiver applies when `dataSource.object` is present.\n- **Docs:** `content/docs/utilities/data-objectstack.mdx` says 「Every example below binds a block with the per-element `dataSource` metadata」, and its examples (`dataSource: { object: 'product', limit: 20 }`, `{ object: 'user' }`, `{ object: 'task', filter: … }`) omit `objectName`. So does `content/docs/guide/data-source.md`.\n\nSo every documented binding is refused by the face `objectui validate` answers with, although the runtime renders it.\n\n## Relation to open work\n\n- PR objectui#11115 (objectui#11070) makes the STRICT face accept the `dataSource` key by name.\n- This card is the separate refusal on BOTH faces: a required `objectName` with no binding waiver.\n- The `object-form` `mode` refusal and the `object-kanban` \"no record source\" refusal are the same documents' next errors. Re-measure them after the waiver lands, before treating them as separate defects.\n\n## Direction (for triage and the owning seat, ⛔ not a ruling)\n\n- Mirror the spec's waiver in the zod arms of the gate-wrapped blocks: `objectName` becomes optional exactly when `dataSource.object` is a non-empty name, with a refinement that keeps it required otherwise.\n- Pin it with the documented bindings parsing on both faces, and a binding-less node still refused.\n- `Clause-②: yes` (a widening).\n- ⛔ Not a `.passthrough()` flip, ⛔ not a docs-only fix: the docs describe the spec's contract.\n\n## Dedupe\n\n- Corpus: the 900 most recently updated objectui items (issues and PRs, open and closed, updated since 2026-09-24T19:50Z), plus all 109 open issues. Listed over REST 2026-09-29 and grepped locally.\n- Queries:\n  - `dataSource … objectName | objectName expected | has no record source`: 10 hits. They are PR objectui#11115 (the source) and objectui#11011 (open; a skills guide mounting app-shell's `ObjectView` without its props, which is a different defect). The rest are closed runtime-side binding fixes (objectui#10898, #10809, #10713, #10706, #10623, #10572, #10508, #10424); none is about the zod face's required `objectName`.\n  - `ElementDataSourceGate`: 13 hits, all closed runtime or pin work, or PR objectui#11115.\n\nDedupe words: dataSource object waiver objectName required · element data source binding requires objectName · object-kanban record source dataSource · binding documents refused validate"

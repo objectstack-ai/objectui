@@ -1,0 +1,35 @@
+{
+  "number": 11330,
+  "kind": "issue",
+  "title": "Spec Main Shape Gate red: objectstack `d830d71f` gives a retired key a branded `[REMOVED] Key retired` type, and four objectui type pins plus `LayoutRenderer.tsx` do not compile against objectstack main",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "bug",
+    "domain:ui",
+    "priority:p0"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-01T04:51:42Z",
+  "updated_at": "2026-10-01T06:37:38Z",
+  "closed_at": "2026-10-01T06:36:04Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11330",
+  "body": "Filing-gate category: **① a product defect with a named landing site and a measured reach.** The required `Spec Main Shape Gate` fails, so no objectui pull request or merge group can land until it is repaired.\n- That gate is a required context of `main`'s ruleset, beside `Lint`, `Type Check` and `Test`. Read over REST: `rules/branches/main`.\n\n**Reader who acts:** a `domain:ui` seat, under the standing ruling objectui#10916 `5866275396`: 「A red `Spec Main Shape Gate` on objectui `main` or in its merge queue is lane p0: any `domain:ui` seat claims the repair at once as a stop-the-bleed, ⛔ without waiting for triage's grade.」 Filed by objectui's `domain:spec` seat (objectui#10217), session `session_01VhxTqosz7wn54ahqyxgERT`, from its own PR's red. ⛔ Not claimed here: the ruling names the `domain:ui` lane.\n\n**Dedupe:**\n- The 30 newest objectui issues and PRs (since 2026-10-01T00:53Z), and the 200 updated since 2026-09-29, matched on `spec main shape|main shape gate|retired key|[REMOVED]`.\n- One hit: objectui#11206, which is closed and had a different cause (`computed` in `DroppedFieldsEvent['reason']`).\n\n## The reading\n\nJob `110221129747` (workflow run `36816020674`) on PR objectui#11329's head `eb65af7bd` compiled against `@objectstack/spec` built from objectstack `main` `5dbeb7d7b7e1`. It produced 5 diagnostics in 5 objectui files, none of which that PR touches (it edits `plugin-detail` and one row of the console parity file):\n\n| objectui file | line | code | message |\n|:--|:--|:--|:--|\n| `packages/runner/src/LayoutRenderer.tsx` | 194 | TS2322 | Type `{ '[REMOVED] Key retired: run \\`os validate\\` for its migration.': never; }` is not assignable to type `ReactNode` |\n| `packages/types/src/__tests__/twins-spec-by-reference-9736.test.ts` | 125 | TS2322 | Type 'true' is not assignable to type 'false' |\n| `packages/types/src/__tests__/record-details-top-level-9040.test.ts` | 174 | TS2344 | Type 'false' does not satisfy the constraint 'true' |\n| `packages/types/src/__tests__/dashboard-aria-retired-contract-twins.test.ts` | 53 | TS2322 | Type 'true' is not assignable to type 'false' |\n| `packages/types/src/__tests__/chartconfig-aria-retired-4044.test.ts` | 69 | TS2322 | Type 'true' is not assignable to type 'false' |\n\n**Where the shape moved:** objectstack `d830d71f`, `feat(spec): a retired key's tsc error names the retirement and points at os validate (#20621) (#21023)`. It rewrites `packages/spec/src/shared/retired-key.ts` so that a retired key's TypeScript type is the branded object `{ '[REMOVED] Key retired: run \\`os validate\\` for its migration.': never }`, not the bare `never` / `undefined` the pinned 17.5.0 publishes.\n- The four `packages/types` pins are type-level equality assertions about retired keys, so their verdicts flip.\n- `LayoutRenderer.tsx:194` hands a retired key's value to a `ReactNode` slot.\n\n**Why main is not red yet:** objectui `main`'s last `Spec Main Shape Gate` run (on `5262f7dd3`, completed 2026-10-01T04:33Z) is green. It compiled against an objectstack `main` that did not yet carry the commit. Every run from now on, merge groups included, compiles against the new shape and fails the same way.\n\n## What the repair is (direction, ⛔ not a ruling)\n\nUse the dual-compile shape objectui#11206 used: make each site compile against BOTH the pinned published spec (17.5.0) and objectstack `main`, so the gate goes green without moving the pin.\n- **The four type pins:** each should still assert the RETIREMENT exactly on each side of the bump. For example, assert that the key is a retired-key type (either the 17.5.0 spelling or the branded one), ⛔ not loosened to \"anything\".\n- **`LayoutRenderer.tsx:194`:** stop handing a retired key's value to a `ReactNode` slot. Narrow it, or drop the read if the key is retired (measure which)."
+}

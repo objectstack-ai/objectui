@@ -1,0 +1,32 @@
+{
+  "number": 11354,
+  "kind": "issue",
+  "title": "spec(plugin-form): ten object literals the form variants author with keys their target type does not declare block objectui#8347's index-signature removal (`fields` on drawer/modal, `layout` on split/tabbed/wizard)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-litant"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-01T07:31:59Z",
+  "updated_at": "2026-10-01T07:35:01Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11354",
+  "body": "Filing-gate category: ① — named landing points: the sites that objectui#8347's premise P1 enumerated, ordered by the objectui#7927 ruling's step 1. A derived child of in-flight objectui#8347, filed with the parent's `domain:spec` and `priority:p2`.\nReader: the `domain:spec @ objectui` seat (objectui#10217) dispatches it, and an os-dev executes it. It was unblocked when PR objectui#11351 landed (`17dc16793`), because that PR retired the `layout` folds in these same files.\nParent: objectui#8347. That card stays `pm:blocked` until this card and its siblings land.\n\n## Why this card exists\n\nThe objectui#7927 ruling (`5565351677`; the maintainer's 「同意」) orders the removal. **Step 1, verbatim:** 「Census first, delete never before: every read that rides the passthrough is enumerated and either declared on its schema or retired」. objectui#8327's sequencing ruling `5587717012` (Q2 = A) sets one card per reader package.\n\nobjectui#8347's P1 (report `5926022178`): `@object-ui/plugin-form` carries 10 errors in shipped source and 0 in tests once `BaseSchema`'s `[key: string]: any` is deleted alone. The control has 0 errors with the signature present.\n\n## The population (measured at `5262f7dd3`, before PR objectui#11351; re-derive at `main`)\n\n**All ten are object literals the renderer itself authors (TS2353):** a child node the form variant builds and hands on. The fix is producer-side, in these files.\n\n| file | key | count |\n|---|---|--:|\n| `DrawerForm.tsx` | `fields` | 3 |\n| `ModalForm.tsx` | `fields` | 4 |\n| `SplitForm.tsx`, `TabbedForm.tsx`, `WizardForm.tsx` | `layout` | 1 each |\n\nPR objectui#11351 narrowed `object-form.layout` to `vertical | horizontal` and retired the five folds in `DrawerForm` / `ModalForm` / `ObjectForm`, so the `layout` literals may have moved. Re-derive first: apply objectui#8347's P1 mutation in a worktree, rebuild `@object-ui/types`, and run this package's type-check programs un-chained. Capture the exit codes before any pipe.\n\n## What each site owes (measure, ⛔ none is decided here)\n\nFor each literal, ask four things:\n- **What type is the literal checked against?** The child node's declared type.\n- **Is the key on that type's spec row?**\n- **Does the child's renderer read it?**\n- **Does the variant need to author it at all?**\n\nThen apply one of three remedies:\n1. **The literal's target type is wrong:** the variant builds a `form` node but types it as a broader or narrower schema. Type the literal as the node it is, by reference.\n2. **The key is the child's real input, declared on its spec row, but missing on the TypeScript type:** declare it by reference. The zod mirror's drift goes to objectui#6152's `zod-mirror-parity` ledger.\n3. **The key is not read by the child:** stop authoring it (AGENTS.md #0.1).\n\n⛔ Never widen a type to absorb a literal.\n\n## Acceptance (executable)\n\n- **With the signature present:** the package's type-check and tests are green, and `main` stays green.\n- **With objectui#8347's P1 mutation applied locally:** this package's programs report 0 errors.\n- **Docs:** the docs agree (AGENTS.md #2). Add a changeset if published behaviour moves.\n\n## Out of scope ⛔\n\n- The removal, the compile-fail pin, and AGENTS.md §5 #0.1: those are objectui#8347's.\n- `object-form.layout`'s values, settled by objectui#11351.\n- The zod strict face (objectui#8345, objectui#11070), whose `form` `fields[]` pairs are objectui#11070's.\n\n## Dedupe\n\nLocal grep over every objectui issue updated since 2026-09-01 (2,212 issues, open and closed, with bodies, read 2026-10-01T07:31Z):\n- `DrawerForm|ModalForm` with `` `fields` ``: 1 hit, objectui#6033 (closed; a zod-mirror drift round, a different defect).\n- `SplitForm|TabbedForm|WizardForm` with `` `layout` ``: 0 hits.\n- Family: objectui#8347 (the parent), objectui#11351 (merged; the `layout` narrowing), and objectui#11070 (open; the strict-face `form` `fields[]` keys, a different face).\n\nDedupe words: BaseSchema index signature removal plugin-form literal · DrawerForm ModalForm fields child node type · SplitForm TabbedForm WizardForm layout literal undeclared"
+}

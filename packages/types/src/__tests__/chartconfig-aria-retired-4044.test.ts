@@ -37,8 +37,11 @@
  *    `type-check` compiles every test file (`tsconfig.test.json`), and putting
  *    `chartConfig?: any` back leaves the directive unused, which fails `tsc`.
  *
- * Every other `chartConfig` key keeps its old TypeScript typing. The control
- * cases show that a legal chart config still compiles and still parses.
+ * The four structure keys the same release retired on this carrier (`type`,
+ * `xAxis`, `yAxis`, `series`) are typed the same way since objectui#11315 and
+ * pinned in `chartconfig-structure-retired-11315.test.ts`; every other
+ * `chartConfig` key keeps its old TypeScript typing. The control cases show
+ * that a legal chart config still compiles and still parses.
  */
 
 import { describe, it, expect } from 'vitest';

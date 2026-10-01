@@ -68,9 +68,8 @@ import {
   chartTypeIgnoresCompareTo,
   // The authored half of the same split — moved to core beside `buildChartSeries`
   // so this widget and the report's embedded chart lower one vocabulary once
-  // (objectui#4877). Re-exported below under their original names.
+  // (objectui#4877). Re-exported below under its original name.
   chartConfigPresentation,
-  mergeAuthoredPresentation,
   // The console's ONE client-side sort primitive (objectui#3096). The flat
   // dataset table below sorts through it rather than inlining `a < b`, so a
   // dashboard table and a list view order the same values identically — and
@@ -390,9 +389,15 @@ const MEASURE_VALUE_KEY = '__value';
  * `ChartTypeSchema` member since spec 17.0.0-rc.1 — so it maps to ITSELF.
  * Until #4229 it had no entry at all and fell through the `?? 'bar'` default,
  * which is one of the two halves that made an authored combo render as grouped
- * bars; the other half is the presentation merge below. `widgetDispatch`
- * already resolves a `combo` widget to `chartType: 'combo'`
- * (`SERIES_CHART_TYPES`), so this entry makes the two surfaces agree.
+ * bars. `widgetDispatch` already resolves a `combo` widget to
+ * `chartType: 'combo'` (`SERIES_CHART_TYPES`), so this entry makes the two
+ * surfaces agree.
+ *
+ * The other half of #4229, the per-series mark and axis binding merged from
+ * `chartConfig.series` / `yAxis`, is gone with those keys (objectui#11315):
+ * spec 17.5.0 refuses them on a dashboard widget. A `combo` widget still draws
+ * as a combo; each series takes the renderer's own positional mark (the combo
+ * arm of `AdvancedChartImpl` decides it) rather than an authored one.
  */
 const CHART_TYPE_MAP: Record<string, string> = {
   bar: 'bar',
@@ -419,27 +424,23 @@ const CHART_TYPE_MAP: Record<string, string> = {
 };
 
 /**
- * The authored chart CHROME and the series/axis presentation merge, both of
- * which now live in `@object-ui/core`'s `chart-presentation` beside
- * `buildChartSeries` — the derivation they are merged onto (objectui#4877).
+ * The authored chart CHROME, which now lives in `@object-ui/core`'s
+ * `chart-presentation` beside `buildChartSeries` — the derivation it is lowered
+ * onto (objectui#4877).
  *
- * They were written here (#3135 → objectstack#7016 → #4229) and moved when the
- * report renderer's embedded chart turned out to need the SAME merge over the
- * same spec keys: `ReportChartSchema` and `ChartConfigSchema` declare one
- * vocabulary, and a second copy of the split beside this one is precisely the
- * duplication objectui#4389 filed as a defect. The doctrine — the two
- * admission criteria, the data/presentation ruling, why `aria` stays
+ * It was written here (#3135 → objectstack#7016 → #4229) and moved when the
+ * report renderer's embedded chart turned out to need the SAME lowering over
+ * the same spec keys, and a second copy of the split beside this one is
+ * precisely the duplication objectui#4389 filed as a defect. The doctrine — the
+ * two admission criteria, the data/presentation ruling, why `aria` stays
  * unforwarded — travelled with the code; see that module's header.
  *
- * Re-exported under their original names so this module's public surface is
- * unchanged.
+ * Re-exported under its original name. The series/axis presentation merge
+ * (`mergeAuthoredPresentation`) was re-exported here too until objectui#11315:
+ * a dashboard widget's `chartConfig` no longer carries the `series` / `xAxis` /
+ * `yAxis` it read (spec 17.5.0), so this widget no longer calls it.
  */
-export {
-  chartConfigPresentation,
-  mergeAuthoredPresentation,
-  type AuthoredSeriesPresentation,
-  type MergedChartSeries,
-} from '@object-ui/core';
+export { chartConfigPresentation } from '@object-ui/core';
 
 /**
  * The sub-caption a dashboard surface already resolved for this tile
@@ -1730,10 +1731,15 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
         builtinAggregateLabels: builtinAggregateLabels(tt),
       });
 
-  // The author's PRESENTATION, merged onto those derived bindings — per-series
-  // mark and axis binding, plus the axis definitions (#4229). Membership stays
-  // with the dataset; see `mergeAuthoredPresentation` for the ruled split.
-  const { series: presentedSeries, axes: authoredAxes } = mergeAuthoredPresentation(series, widget?.chartConfig);
+  // The chart's STRUCTURE is the dataset's: the series and the category axis
+  // above are emitted as derived, and nothing authored is merged onto them.
+  // `chartConfig.series` / `xAxis` / `yAxis` used to merge their presentation
+  // half here (#4229, through `@object-ui/core`'s `mergeAuthoredPresentation`).
+  // `@objectstack/spec` 17.5.0 retired all three on a dashboard widget
+  // (`DashboardWidgetChartConfigSchema`, ADR-0021 · ADR-0049 D2), so they are
+  // refused at parse, and a stored widget that still carries them renders the
+  // derivation, not an authored mark or axis (objectui#11315). `chartConfig`
+  // keeps the chrome, lowered below.
 
   // Comparison overlay — one extra series per compared measure, carrying the
   // same `variant: 'comparison'` the inline chart's overlay uses (ObjectChart's
@@ -1757,25 +1763,20 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   const comparisonSeries = pivotedSeries
     ? []
     : comparedSeries.map(({ dataKey, label }) => {
-        // An overlay is the SAME measure one period back, so it takes its
-        // primary's mark and axis — read off the already-merged series, never
-        // re-read from `chartConfig` (one merge path). Without this a combo's
-        // overlay fell to the renderer's positional guess and drew a bar
-        // measure as a line on the opposite axis. `stack` is deliberately NOT
-        // inherited: stacking an overlay onto its own primary would add the
-        // two periods together.
-        const primary = presentedSeries.find((s) => s.dataKey === dataKey);
+        // An overlay is the SAME measure one period back. It carries no mark
+        // and no axis of its own, and neither does its primary: on this
+        // carrier no series is authored (objectui#11315), so the renderer
+        // decides both for every series alike. Until then an overlay copied
+        // its primary's MERGED mark and axis (#4229).
         return {
           dataKey: compareColumn(dataKey),
           label: `${label} · ${compareLabel}`,
           variant: 'comparison' as const,
-          ...(primary?.chartType ? { chartType: primary.chartType } : {}),
-          ...(primary?.yAxis ? { yAxis: primary.yAxis } : {}),
         };
       });
   const chartSeries = comparisonSeries.length > 0
-    ? [...presentedSeries.map((s) => ({ ...s, variant: s.variant ?? 'current' })), ...comparisonSeries]
-    : presentedSeries;
+    ? [...series.map((s) => ({ ...s, variant: 'current' as const })), ...comparisonSeries]
+    : series;
 
   // Ordered-sequence charts (funnel/pyramid) need a DEFINED stage order.
   // `options.stageOrder` wins when the author states one explicitly; otherwise
@@ -1793,10 +1794,11 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // The widget's declared `chartConfig`, lowered onto the chart schema —
   // #3135 for `showLegend`, objectstack#7016 for the rest of the keys the chart
   // block measurably delivers. See `chartConfigPresentation` for the two
-  // criteria a key has to meet, for why `type`/`aria` are deliberately NOT
-  // here, and for where `xAxis`/`yAxis`/`series` go instead (#4229). It also
-  // owns the `colors` split, so the per-category map it returns already carries
-  // the dimension field's own option colours underneath any explicit author map.
+  // criteria a key has to meet, and for why `type`/`aria` are deliberately NOT
+  // here; `xAxis`/`yAxis`/`series` are not read at all (see the series above,
+  // objectui#11315). It also owns the `colors` split, so the per-category map
+  // it returns already carries the dimension field's own option colours
+  // underneath any explicit author map.
   const chartPresentation = chartConfigPresentation(widget?.chartConfig, categoryColors);
 
   // Map a clicked chart segment back to its dataset row, then drill through to
@@ -1844,7 +1846,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
         // measurement churn, can freeze there — bars never draw until an unrelated
         // re-render (#2756, follow-up to #2727's ineffective settle re-mount).
         // Turning the tween off makes the first paint deterministic.
-        schema={{ type: 'chart', chartType, data: chartData, xAxisKey, series: chartSeries, isAnimationActive: false, ...chartPresentation, ...authoredAxes, ...(effectiveCategoryOrder ? { categoryOrder: effectiveCategoryOrder } : {}) } as any}
+        schema={{ type: 'chart', chartType, data: chartData, xAxisKey, series: chartSeries, isAnimationActive: false, ...chartPresentation, ...(effectiveCategoryOrder ? { categoryOrder: effectiveCategoryOrder } : {}) } as any}
         onChartClick={chartDrill}
         onSegmentClick={chartDrill}
       />

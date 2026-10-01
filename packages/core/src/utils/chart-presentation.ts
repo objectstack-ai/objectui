@@ -25,6 +25,13 @@
  *    `showGridLines`/`position`/`logarithmic`, and the chart chrome
  *    (`showLegend`, `showDataLabels`, `colors`, `annotations`, …).
  *
+ * ⚠️ Which of those a surface may AUTHOR is its carrier's answer, not this
+ * file's. Since `@objectstack/spec` 17.5.0 a dashboard widget's `chartConfig`
+ * is `DashboardWidgetChartConfigSchema`, which refuses `type`, `xAxis`,
+ * `yAxis` and `series` at parse (ADR-0021 · ADR-0049 D2): on that carrier the
+ * dataset owns the structure and the author keeps the CHROME only. A report's
+ * chart keeps its `series`, and the react `ObjectChart` tier keeps all four.
+ *
  * ## Why it lives in `@object-ui/core` rather than in one plugin
  *
  * It was written for `plugin-dashboard`'s `DatasetWidget` (#3135 → objectstack#7016
@@ -40,18 +47,27 @@
  * already has (see {@link OptionLabelTranslator} there for why an i18n-resolved
  * string always arrives as an ARGUMENT rather than being read here).
  *
- * ## Two entry points, because the two surfaces declare axes differently
+ * ## Two entry points, because the two surfaces declared axes differently
  *
- * A dashboard widget's `chartConfig` spells its axes as spec `ChartAxis`
+ * A dashboard widget's `chartConfig` spelled its axes as spec `ChartAxis`
  * OBJECTS. A report's `chart.xAxis` / `chart.yAxis` are bare dimension/measure
  * NAME strings — on that surface the axes are pure DATA (they ARE the selection)
  * and carry no presentation at all. So:
  *
  *  - {@link mergeAuthoredPresentation} is the object-axis entry point: series
  *    merge + axis presentation, for a caller whose axes are `ChartAxis` objects.
+ *    ⚠️ It has NO production caller since objectui#11315. Its one carrier was
+ *    the dashboard widget's `chartConfig`, and spec 17.5.0 retired `xAxis`,
+ *    `yAxis` and `series` there (above), so `DatasetWidget` no longer calls it.
+ *    The react `ObjectChart` tier, where the spec keeps the keys authorable,
+ *    never called it: an inline-data chart's axes and series ARE its bindings,
+ *    and `normalizeChartSchema` in `@object-ui/plugin-charts` reads them off
+ *    the chart schema directly.
  *  - {@link mergeAuthoredSeries} is the series merge ALONE, for a caller whose
- *    axes are names. That split is structural, not a guard: handing a bare
- *    string to {@link mergeAuthoredPresentation} would run it through
+ *    axes are names: `plugin-report`'s dataset report chart, whose
+ *    `ReportChartSchema.series` is still live. That split is structural, not a
+ *    guard: handing a bare string to {@link mergeAuthoredPresentation} would
+ *    run it through
  *    `axisPresentation`, which reads nothing off a string and would synthesise a
  *    `yAxis: [{}]` entry — a y-axis declaring nothing but its own existence,
  *    which is precisely how the COUNT of entries turns on a secondary axis. A
@@ -236,7 +252,8 @@ export function axisPresentation(raw: unknown): Record<string, unknown> {
   //
   // This is the one entry of the objectui#4020 ledger that moved. Its
   // justification — "a locale-unaware pick a caller can OVERRIDE" — holds for a
-  // series `label` (`DatasetWidget` replaces it from the locale bundle) and
+  // series `label` (the report renderer, its one caller since objectui#11315,
+  // outranks it with objectui#4020's three-level display name) and
   // never held here: nothing overrides an axis title, it is spread onto the
   // chart schema and drawn. {@link seriesPresentation} keeps the pick.
   const title = forwardedI18nLabel(raw.title);
@@ -311,6 +328,12 @@ export function mergeAuthoredSeries(
  * {@link axisPresentation}, which is why a surface spelling those as bare NAME
  * strings must call `mergeAuthoredSeries` directly instead (file header).
  *
+ * ⚠️ Not called by `DatasetWidget` since objectui#11315. A dashboard widget's
+ * `chartConfig` refuses `series` / `xAxis` / `yAxis` at parse since spec
+ * 17.5.0, and the renderer no longer reads them off that carrier either, so a
+ * stored widget that still carries them renders the dataset's own derivation.
+ * Nothing else in this repository calls it (file header).
+ *
  * @param derived the bindings {@link buildChartSeries} produced from the selection
  * @param raw the authored chart config (anything, incl. absent)
  * @returns the merged series, plus the presentation-only axes to spread onto
@@ -340,9 +363,10 @@ export function mergeAuthoredPresentation(
 }
 
 /**
- * Lower an authored chart config's CHROME (spec `ChartConfigSchema` /
- * `ReportChartSchema` — the same keys on both) onto the chart schema a
- * dataset-bound surface hands the renderer.
+ * Lower an authored chart config's CHROME (spec
+ * `DashboardWidgetChartConfigSchema` / `ReportChartSchema`, both extensions of
+ * `ChartConfigSchema` that keep its chrome keys unchanged) onto the chart
+ * schema a dataset-bound surface hands the renderer.
  *
  * ## Why this is a whitelist and not a spread
  *
@@ -366,15 +390,18 @@ export function mergeAuthoredPresentation(
  *     exists to remove.
  *  2. **It does not fight the dataset derivation.** `type` stays out: the
  *     calling surface's own type already picks the chart family, which is the
- *     dataset path's chart-family channel.
+ *     dataset path's chart-family channel. The spec agrees on the dashboard
+ *     carrier: since 17.5.0 `DashboardWidgetChartConfigSchema` refuses
+ *     `chartConfig.type` at parse, with `xAxis` / `yAxis` / `series`, none of
+ *     which this whitelist ever lowered (objectui#11315).
  *
- * `aria` is the one declared key with **no reader at all**: `AdvancedChartImpl`
- * has no `aria` prop, and `SchemaRenderer`'s ARIA injection reads the FLAT
- * `ariaLabel`/`ariaDescribedBy`/`role`, never a nested `aria` object. It is
- * therefore left unforwarded on purpose (criterion 1) rather than papered over
- * with a caller-side flattening that would also collide with the accessible
- * name `description` already sets — reported back to objectstack#5175's
- * narrowing half instead.
+ * `aria` is not lowered either. No renderer reads it: `AdvancedChartImpl` has
+ * no `aria` prop, and `SchemaRenderer`'s ARIA injection reads the FLAT
+ * `ariaLabel`/`ariaDescribedBy`/`role`, never a nested `aria` object (criterion
+ * 1). And it is no longer declared: spec 17.5.0 retired `ChartConfig.aria` as
+ * a `retiredKey` tombstone (objectstack#17751, objectui#4044), so an authored
+ * one is refused at parse. The accessible name a chart applies is
+ * `description`, above.
  *
  * `title` IS emitted here. A caller that paints the title itself (the report
  * renderer's own `h3` above the chart) must drop it from the result, or the

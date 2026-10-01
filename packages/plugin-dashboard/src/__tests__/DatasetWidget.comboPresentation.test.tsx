@@ -1,46 +1,52 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * objectui#4229 — an authored `combo` widget renders as a combo on the DATASET
- * path, not as grouped bars.
+ * objectui#11315 — what a `combo` widget renders on the DATASET path, now that
+ * a dashboard widget's `chartConfig` carries no `series` / `xAxis` / `yAxis`.
  *
- * The QA run measured a widget authoring the spec's own combo shape
- * (`series[].type` + `series[].yAxis` + two `yAxis` entries) and got
- * **2 bars / 0 lines / 1 y-axis** where 1 bar + 1 line + 2 axes were authored.
- * Two halves caused it, both in `DatasetWidget`:
+ * ## History
  *
- *  1. `CHART_TYPE_MAP` had no `combo` entry, so a `combo` widget fell through
- *     the `?? 'bar'` default — bars, whatever the series said;
- *  2. `chartConfigPresentation` refused to forward `series`/`xAxis`/`yAxis` at
- *     all, on the grounds that they are "derived from the dataset selection" —
- *     so the per-series mark and the left/right axis binding could never reach
- *     the renderer even once (1) was fixed.
+ * objectui#4229 measured a widget authoring the spec's combo shape
+ * (`series[].type` + `series[].yAxis` + two `yAxis` entries) and got grouped
+ * bars. Two halves caused it: `CHART_TYPE_MAP` had no `combo` entry, and the
+ * widget forwarded none of `series` / `xAxis` / `yAxis`. #4229 fixed both, the
+ * second by merging the keys' PRESENTATION half (per-series mark and axis
+ * binding, axis scale and chrome) onto the dataset-derived bindings, through
+ * `@object-ui/core`'s `mergeAuthoredPresentation`. This file pinned that merge.
  *
- * The ruling that settles who owns what: **the dataset owns DATA (series
- * membership, the column each binding reads), the author owns PRESENTATION
- * (mark, axis binding, scale, chrome), merged forward by name/key with the
- * explicit binding winning.** That is objectui#2880's S2 rule — dual axes are
- * `yAxis[].position` plus `series[].yAxis`, and a combo binds its axes by
- * explicit binding first rather than by the implicit per-series-type guess —
- * which PR #2883 landed in `ObjectChart` and which the dataset path never
- * carried over.
+ * `@objectstack/spec` 17.5.0 then gave the dashboard widget its own chart
+ * config carrier, `DashboardWidgetChartConfigSchema`, which refuses `type`,
+ * `xAxis`, `yAxis` and `series` at parse (ADR-0021 · ADR-0049 D2; maintainer
+ * ruling 2026-09-12, decision batch #121 item 1). The dataset owns a
+ * dataset-bound chart's structure, presentation included: an authored axis
+ * `field` had been a live channel that could re-point a dataset-bound series at
+ * another column. The spec's liveness ledger records the cost by name: the
+ * per-series mark that made a dataset-bound combo authorable goes with the key.
  *
- * ## Where this stops, and why
+ * ## What is pinned now
  *
- * These assertions stop at the shape handed to the renderer, one step past the
- * seam: they run the emitted schema through `normalizeChartSchema`, the ONE
- * translation layer `ChartRenderer` puts between the schema and
- * `AdvancedChartImpl` (#2880 S1), so what is pinned is what the renderer
- * actually receives — not merely what this widget wrote down.
+ *  - The first half of #4229 survives: a `combo` widget resolves the `combo`
+ *    family instead of falling through to `bar`.
+ *  - The second half is retired, and these are its REFUSAL pins. A stored widget
+ *    that still carries the combo shape (nothing parses it on the way to this
+ *    renderer) gets the dataset's derivation: one series per measure with no
+ *    authored mark or axis, and no authored axes on the chart schema.
+ *  - The comparison overlay carries no mark or axis either: there is no merged
+ *    one to copy.
  *
- * They do NOT count recharts marks. That needs `ResponsiveContainer` mocked to
- * a measured box, and `recharts` resolves inside `plugin-charts` alone (the
- * same constraint `DatasetWidget.chartConfig.dom.test.tsx` records) — a
- * `vi.mock('recharts')` in THIS package cannot even resolve the specifier. The
- * mark half is already pinned there, against the exact shape asserted below:
- * `AdvancedChartImpl.comboFromSeries.test.tsx` draws a `chartType: 'line'`
- * series as a line and binds `yAxis: 'right'` to the right axis, and the combo
- * branch renders both y-axes unconditionally.
+ * The CONTROL for the other carrier lives with the renderer it is about:
+ * `packages/plugin-charts/src/ObjectChart.inlineComboSeries-11315.test.tsx`
+ * pins that the react `ObjectChart` tier, where the spec keeps the four keys
+ * authorable, still draws an authored `series` as a combo.
+ *
+ * ## Where these assertions stop
+ *
+ * At the shape handed to the renderer, read through `normalizeChartSchema`, the
+ * ONE translation layer `ChartRenderer` puts between the schema and
+ * `AdvancedChartImpl` (#2880 S1). They do not count recharts marks: `recharts`
+ * resolves inside `plugin-charts` alone, so a `vi.mock('recharts')` in THIS
+ * package cannot resolve the specifier (`DatasetWidget.chartConfig.dom.test.tsx`
+ * records the same constraint).
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -69,7 +75,7 @@ afterEach(() => {
   lastChartSchema = null;
 });
 
-/** The card's fixture: a count and a percentage that must not share an axis. */
+/** #4229's fixture: a count and a percentage. */
 const rows = [
   { assignee: 'ann', task_count: 12, avg_progress: 64 },
   { assignee: 'bob', task_count: 7, avg_progress: 88 },
@@ -81,21 +87,21 @@ const fields = [
   { name: 'avg_progress', label: 'Avg progress' },
 ];
 
-/** `combo_count_vs_progress` as the QA run authored it. */
-const comboChartConfig = {
+/** `combo_count_vs_progress` as #4229's QA run authored it — retired since spec 17.5.0. */
+const retiredComboChartConfig = {
   series: [
     { name: 'task_count', type: 'bar', yAxis: 'left' },
     { name: 'avg_progress', type: 'line', yAxis: 'right' },
   ],
+  xAxis: { field: 'assignee', title: 'By assignee' },
   yAxis: [
     { field: 'task_count', title: 'Tasks' },
     { field: 'avg_progress', title: 'Avg progress', position: 'right', min: 0, max: 100 },
   ],
 };
 
-const renderWidget = async (widget: Record<string, unknown>) => {
-  const src = { queryDataset: vi.fn(async () => ({ rows, fields })) };
-  render(<DatasetWidget widget={widget} dataSource={src} />);
+const renderWidget = async (widget: Record<string, unknown>, src?: { queryDataset: unknown }) => {
+  render(<DatasetWidget widget={widget} dataSource={src ?? { queryDataset: vi.fn(async () => ({ rows, fields })) }} />);
   await waitFor(() => expect(lastChartSchema).not.toBeNull());
 };
 
@@ -104,176 +110,72 @@ const comboWidget = (overrides: Record<string, unknown> = {}) => ({
   dataset: 'tasks',
   dimensions: ['assignee'],
   values: ['task_count', 'avg_progress'],
-  chartConfig: comboChartConfig,
   ...overrides,
 });
 
-/**
- * What `AdvancedChartImpl` is handed for the two bindings this card is about.
- *
- * `series` is read verbatim: `ChartRenderer` forwards an array that already
- * speaks the internal (`dataKey`) shape untouched, and this widget's does.
- * `yAxes` is the normalized form of the authored `yAxis`.
- */
-const asRenderer = (schema: any) => ({
-  chartType: schema.chartType ?? normalizeChartSchema(schema).chartType,
-  series: schema.series,
-  yAxes: normalizeChartSchema(schema).yAxes,
-  xAxisKey: schema.xAxisKey ?? normalizeChartSchema(schema).xAxisKey,
-});
+/** The dataset's own derivation for `comboWidget()`, as the widget emits it. */
+const DERIVED_SERIES = [
+  { dataKey: 'task_count', label: 'Tasks' },
+  { dataKey: 'avg_progress', label: 'Avg progress' },
+];
 
-describe('DatasetWidget — an authored combo reaches the renderer as a combo (#4229)', () => {
-  // Half 1. `combo` is a `ChartTypeSchema` member since spec 17.0.0-rc.1 and the
+describe('DatasetWidget — a `combo` widget is still a combo (#4229, first half)', () => {
+  // `combo` is a `ChartTypeSchema` member since spec 17.0.0-rc.1 and the
   // renderer draws it distinctly, so it maps to itself instead of falling
-  // through the `?? 'bar'` default that produced the measured bars.
+  // through the `?? 'bar'` default that produced #4229's grouped bars.
   it('resolves the `combo` family instead of falling through to bar', async () => {
     await renderWidget(comboWidget());
-    expect(asRenderer(lastChartSchema).chartType).toBe('combo');
-  });
-
-  // Half 2, the mark: `series[].type` is presentation and merges onto the
-  // derived binding. Without it the line measure drew as the second bar.
-  it('merges the authored per-series mark onto the derived series', async () => {
-    await renderWidget(comboWidget());
-    const { series } = asRenderer(lastChartSchema);
-    expect(series.map((s: any) => [s.dataKey, s.chartType])).toEqual([
-      ['task_count', 'bar'],
-      ['avg_progress', 'line'],
-    ]);
-    // The label still comes from the dataset field, not from the author's entry
-    // (which declared none) — membership and its labelling stay derived.
-    expect(series.map((s: any) => s.label)).toEqual(['Tasks', 'Avg progress']);
-  });
-
-  // Half 2, the axes: two declared entries are what turn on the secondary axis,
-  // and `series[].yAxis` is what binds a measure to it. The percentage measure
-  // must not be plotted against the count's scale.
-  it('declares two y-axes and binds each series to the authored one', async () => {
-    await renderWidget(comboWidget());
-    const { series, yAxes } = asRenderer(lastChartSchema);
-    expect(series.map((s: any) => s.yAxis)).toEqual(['left', 'right']);
-    expect(yAxes).toHaveLength(2);
-    expect(yAxes?.[1].position).toBe('right');
-    // The axis presentation travels with it: the percentage axis is pinned to
-    // 0–100 rather than sharing the count's auto domain.
-    expect(yAxes?.[1].min).toBe(0);
-    expect(yAxes?.[1].max).toBe(100);
-    expect(yAxes?.map((a: any) => a.title)).toEqual(['Tasks', 'Avg progress']);
-  });
-
-  // The membership pin. An authored entry naming a measure the dataset did not
-  // select is IGNORED — it cannot add a series, and it cannot re-point one.
-  it('ignores an authored series naming a measure outside the selection', async () => {
-    await renderWidget(
-      comboWidget({
-        chartConfig: {
-          series: [
-            { name: 'avg_progress', type: 'line', yAxis: 'right' },
-            { name: 'not_a_measure', type: 'line', yAxis: 'right', color: '#ff0000' },
-          ],
-        },
-      }),
-    );
-    const { series } = asRenderer(lastChartSchema);
-    expect(series.map((s: any) => s.dataKey)).toEqual(['task_count', 'avg_progress']);
-    expect(series.some((s: any) => s.color === '#ff0000')).toBe(false);
-  });
-
-  // The control on the other side of the match: a derived series the author
-  // said nothing about carries no presentation at all, so the renderer's family
-  // default decides its mark — `chartType` is absent, not defaulted here.
-  it('leaves a derived series with no authored entry untouched', async () => {
-    await renderWidget(
-      comboWidget({ chartConfig: { series: [{ name: 'avg_progress', type: 'line', yAxis: 'right' }] } }),
-    );
-    const { series } = asRenderer(lastChartSchema);
-    expect(series[0]).toEqual({ dataKey: 'task_count', label: 'Tasks' });
-    expect(series[1]).toMatchObject({ dataKey: 'avg_progress', chartType: 'line', yAxis: 'right' });
-  });
-
-  // `ChartAxis.field` is the one DATA key on an axis — it names the plotted
-  // column — so it does not travel, and the derived category binding is what
-  // the renderer keeps. This is what makes forwarding the axes safe: with
-  // `field` gone there is no channel by which an authored axis could name a
-  // series (`normalizeChartSchema` synthesises series from `yAxis[].field`).
-  it('does not let an authored axis `field` reach the renderer', async () => {
-    await renderWidget(
-      comboWidget({
-        chartConfig: {
-          xAxis: { field: 'not_a_column', title: 'By assignee' },
-          yAxis: [{ field: 'not_a_measure', title: 'Tasks' }],
-        },
-      }),
-    );
-    const schema = lastChartSchema;
-    expect(schema.xAxis).toEqual({ title: 'By assignee' });
-    expect(schema.yAxis).toEqual([{ title: 'Tasks' }]);
-    // The derived bindings are untouched.
-    expect(asRenderer(schema).xAxisKey).toBe('assignee');
-    expect(asRenderer(schema).series.map((s: any) => s.dataKey)).toEqual(['task_count', 'avg_progress']);
-  });
-
-  // A second `yAxis` entry that carries nothing but its own existence still
-  // declares the secondary axis — the COUNT is presentation, and stripping
-  // `field` must not collapse it (`hasDualAxis` is `yAxes.length > 1`).
-  it('keeps an axis slot that declared only its `field`', async () => {
-    await renderWidget(
-      comboWidget({ chartConfig: { yAxis: [{ field: 'task_count' }, { field: 'avg_progress' }] } }),
-    );
-    expect(asRenderer(lastChartSchema).yAxes).toHaveLength(2);
-  });
-
-  // A `type` the renderer cannot compose on one cartesian plot is dropped
-  // rather than passed through: as `chartType` it would count as a family
-  // disagreement, flip the chart into a combo, and then draw as a bar anyway.
-  it('drops a per-series type that is not bar/line/area', async () => {
-    await renderWidget(
-      comboWidget({ chartConfig: { series: [{ name: 'avg_progress', type: 'pie' }] } }),
-    );
-    expect('chartType' in asRenderer(lastChartSchema).series[1]).toBe(false);
+    expect(lastChartSchema.chartType).toBe('combo');
+    expect(normalizeChartSchema(lastChartSchema).chartType).toBe('combo');
+    // One series per selected measure, derived from the dataset.
+    expect(lastChartSchema.series).toEqual(DERIVED_SERIES);
   });
 });
 
-describe('DatasetWidget — the merge is presentation-only (#4229 controls)', () => {
-  // The guard against the merge forwarding stale keys the old code stripped:
-  // a widget that authors no chartConfig emits exactly what it emitted before.
-  it('emits no axis keys and a byte-identical derived series when nothing is authored', async () => {
-    await renderWidget({
-      type: 'bar',
-      dataset: 'tasks',
-      dimensions: ['assignee'],
-      values: ['task_count', 'avg_progress'],
-    });
+describe('DatasetWidget — the retired combo shape is not read (objectui#11315)', () => {
+  // The control: the same widget with no `chartConfig` at all. Every refusal
+  // below compares against it, so "nothing authored reached the renderer" is a
+  // measured equality, not an absence that a missing render would also satisfy.
+  it('emits the derived series and no authored axes when nothing is authored', async () => {
+    await renderWidget(comboWidget());
+    expect(lastChartSchema.series).toEqual(DERIVED_SERIES);
     expect('xAxis' in lastChartSchema).toBe(false);
     expect('yAxis' in lastChartSchema).toBe(false);
-    expect(lastChartSchema.chartType).toBe('bar');
-    expect(lastChartSchema.series).toEqual([
-      { dataKey: 'task_count', label: 'Tasks' },
-      { dataKey: 'avg_progress', label: 'Avg progress' },
-    ]);
+    expect(lastChartSchema.xAxisKey).toBe('assignee');
   });
 
-  // The same for a chartConfig that declares only chrome: the chrome lowers
-  // (objectstack#7016) and the bindings stay derived.
-  it('leaves the bindings alone for a chartConfig that declares only chrome', async () => {
-    await renderWidget({
-      type: 'line',
-      dataset: 'tasks',
-      dimensions: ['assignee'],
-      values: ['task_count'],
-      chartConfig: { title: 'Tasks by assignee', showLegend: false },
-    });
-    expect(lastChartSchema.title).toBe('Tasks by assignee');
-    expect(lastChartSchema.showLegend).toBe(false);
+  it('merges no authored per-series mark or axis binding onto the derived series', async () => {
+    await renderWidget(comboWidget({ chartConfig: retiredComboChartConfig }));
+    // Byte-identical to the control: no `chartType`, no `yAxis`, no label from
+    // the authored entry.
+    expect(lastChartSchema.series).toEqual(DERIVED_SERIES);
+    expect(lastChartSchema.series.some((s: any) => 'chartType' in s || 'yAxis' in s)).toBe(false);
+  });
+
+  it('spreads no authored axis onto the chart schema, so no second y-axis is declared', async () => {
+    // The control render first: what the renderer is handed for the axes when
+    // nothing is authored.
+    await renderWidget(comboWidget());
+    const control = normalizeChartSchema(lastChartSchema);
+    cleanup();
+    lastChartSchema = null;
+
+    await renderWidget(comboWidget({ chartConfig: retiredComboChartConfig }));
     expect('xAxis' in lastChartSchema).toBe(false);
     expect('yAxis' in lastChartSchema).toBe(false);
-    expect(lastChartSchema.series).toEqual([{ dataKey: 'task_count', label: 'Tasks' }]);
+    // Two authored `yAxis` entries no longer declare two axes: the renderer is
+    // handed exactly the control's axes.
+    const retired = normalizeChartSchema(lastChartSchema);
+    expect(retired.yAxes).toEqual(control.yAxes);
+    expect(retired.xAxisKey).toBe(control.xAxisKey);
+    // The derived category binding is untouched by the authored `xAxis.field`.
+    expect(lastChartSchema.xAxisKey).toBe('assignee');
   });
 
-  // A non-combo family gains the same merge — `series[].type` is how the spec
-  // says "this one measure is a line", and #2945 already taught the renderer to
-  // DERIVE a combo from that disagreement. The dataset path now delivers it.
-  it('lets a bar widget declare one line series (a derived combo)', async () => {
+  it('a bar widget authoring one line series stays a plain bar chart', async () => {
+    // Before 17.5.0 this was the dataset path's "derived combo" (#2945): one
+    // `series[].type: 'line'` turned a bar widget into a combo. The key is
+    // retired on this carrier, so the widget's own family is the whole answer.
     await renderWidget({
       type: 'bar',
       dataset: 'tasks',
@@ -281,44 +183,44 @@ describe('DatasetWidget — the merge is presentation-only (#4229 controls)', ()
       values: ['task_count', 'avg_progress'],
       chartConfig: { series: [{ name: 'avg_progress', type: 'line', yAxis: 'right' }] },
     });
-    const { chartType, series } = asRenderer(lastChartSchema);
-    // The widget's own family is unchanged — the renderer derives the combo.
-    expect(chartType).toBe('bar');
-    expect(series[1]).toMatchObject({ chartType: 'line', yAxis: 'right' });
+    expect(lastChartSchema.chartType).toBe('bar');
+    expect(normalizeChartSchema(lastChartSchema).chartType).toBe('bar');
+    expect(lastChartSchema.series).toEqual(DERIVED_SERIES);
+  });
+
+  // The appearance keys this carrier keeps still lower beside the refusal: the
+  // retirement took the structure keys, not the chart config.
+  it('still lowers the chrome a combo widget authors beside the retired keys', async () => {
+    await renderWidget(
+      comboWidget({ chartConfig: { ...retiredComboChartConfig, title: 'Tasks vs progress', showLegend: false } }),
+    );
+    expect(lastChartSchema.title).toBe('Tasks vs progress');
+    expect(lastChartSchema.showLegend).toBe(false);
+    expect(lastChartSchema.series).toEqual(DERIVED_SERIES);
   });
 });
 
-describe('DatasetWidget — a comparison overlay follows its own measure (#4229)', () => {
-  // `compareTo` adds one overlay series per compared measure. It is the SAME
-  // measure a period back, so it has to take that measure's merged mark and
-  // axis; left to the renderer's positional guess, the overlay of a bar/left
-  // measure drew as a line on the right axis the moment the chart became a
-  // combo.
-  it('gives each overlay the mark and axis of the series it overlays', async () => {
+describe('DatasetWidget — a comparison overlay carries no merged mark (objectui#11315)', () => {
+  // `compareTo` adds one overlay series per compared measure. Until 17.5.0 each
+  // overlay copied its primary's MERGED mark and axis (#4229). With no authored
+  // series there is no merged mark to copy, so the overlays and their primaries
+  // alike carry none, and the renderer decides every mark.
+  it('appends one overlay per measure, with no mark or axis of its own', async () => {
     const src = {
       queryDataset: vi.fn(async () => ({
         rows: rows.map((r) => ({ ...r, task_count__compare: 9, avg_progress__compare: 55 })),
         fields,
       })),
     };
-    render(
-      <DatasetWidget
-        widget={comboWidget({ compareTo: { kind: 'previousYear' } })}
-        dataSource={src}
-      />,
-    );
-    await waitFor(() => expect(lastChartSchema).not.toBeNull());
+    await renderWidget(comboWidget({ compareTo: { kind: 'previousYear' }, chartConfig: retiredComboChartConfig }), src);
 
     const series = lastChartSchema.series;
-    expect(series.map((s: any) => s.dataKey)).toEqual([
-      'task_count', 'avg_progress', 'task_count__compare', 'avg_progress__compare',
+    expect(series.map((s: any) => [s.dataKey, s.variant])).toEqual([
+      ['task_count', 'current'],
+      ['avg_progress', 'current'],
+      ['task_count__compare', 'comparison'],
+      ['avg_progress__compare', 'comparison'],
     ]);
-    expect(series.slice(2).map((s: any) => [s.chartType, s.yAxis, s.variant])).toEqual([
-      ['bar', 'left', 'comparison'],
-      ['line', 'right', 'comparison'],
-    ]);
-    // Stacking is NOT inherited: an overlay stacked onto its own primary would
-    // add the two periods together.
-    expect(series.every((s: any) => s.stack === undefined)).toBe(true);
+    expect(series.some((s: any) => 'chartType' in s || 'yAxis' in s || 'stack' in s)).toBe(false);
   });
 });

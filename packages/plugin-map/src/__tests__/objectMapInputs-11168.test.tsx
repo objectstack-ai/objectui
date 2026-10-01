@@ -38,12 +38,12 @@ import { manifestFromConfigs, validateTree } from '@object-ui/sdui-parser';
 import { ComponentPropsMap } from '@objectstack/spec/ui';
 
 /** The props `ObjectMap` handed the MapGL component on its last render. */
-const mapGl = vi.hoisted(() => ({ props: null as Record<string, any> | null }));
+const mapGl = vi.hoisted(() => ({ props: null as Record<string, unknown> | null }));
 
 vi.mock('react-map-gl/maplibre', () => ({
-  default: (props: Record<string, any>) => {
+  default: (props: Record<string, unknown>) => {
     mapGl.props = props;
-    return <div aria-label="Map">{props.children}</div>;
+    return <div aria-label="Map">{props.children as React.ReactNode}</div>;
   },
   Map: ({ children }: { children?: React.ReactNode }) => <div aria-label="Map">{children}</div>,
   NavigationControl: () => <div data-testid="nav-control" />,
@@ -78,7 +78,7 @@ const OPENED_RECORD_TEXT = 'Ada Lovelace';
 
 function makeDataSource() {
   return {
-    find: vi.fn(async (_object: string, _query?: Record<string, any>) => ({
+    find: vi.fn(async (_object: string, _query?: Record<string, unknown>) => ({
       data: [{ id: 'q1', name: 'Queried', lat: 10, lng: 10 }],
       total: 1,
     })),
@@ -374,7 +374,7 @@ describe('`object-map.sort` — the members are `{ field, order }` (objectui#111
       sort: [{ field: 'status', order: 'desc' }, { field: 'name' }],
     });
     await waitFor(() => expect(ds.find).toHaveBeenCalled());
-    const orderby = ds.find.mock.calls[0][1]?.$orderby;
+    const orderby = ds.find.mock.calls[0][1]?.$orderby as Record<string, string>;
     expect(orderby).toEqual({ status: 'desc', name: 'asc' });
     expect(Object.keys(orderby)).toEqual(['status', 'name']);
   });
@@ -382,7 +382,7 @@ describe('`object-map.sort` — the members are `{ field, order }` (objectui#111
   it('CONTROL: with no `sort` the query carries no ordering', async () => {
     const ds = mount({ map: MAP, objectName: OBJECT });
     await waitFor(() => expect(ds.find).toHaveBeenCalled());
-    const orderby = ds.find.mock.calls[0][1]?.$orderby;
+    const orderby = ds.find.mock.calls[0][1]?.$orderby as Record<string, string> | undefined;
     expect(orderby === undefined || Object.keys(orderby).length === 0).toBe(true);
   });
 });

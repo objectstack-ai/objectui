@@ -299,9 +299,24 @@ export interface ListSchema extends BaseSchema {
    */
   title?: string;
   /**
-   * List items
+   * List items — the entries drawn when {@link BaseSchema.bind} resolves no
+   * array.
+   *
+   * READ SITE: `packages/components/src/renderers/data-display/list.tsx`, which
+   * reads `useDataScope(schema.bind)` FIRST and falls back to this member only
+   * when the bound value is not an array (`Array.isArray(schema.items)`, so the
+   * read is guarded).
+   *
+   * Optional since objectui#11405. It was REQUIRED, so a bind-only `list` —
+   * which draws one entry per element of the bound array — was refused by both
+   * published faces and could not be annotated with its own type. The
+   * requirement the renderer really has, at least one of `bind` / `items`
+   * present (⛔ not exactly one: `items` is the fallback beside `bind`), lives
+   * on the mirror as a refinement (`listHasAnEntrySource` in
+   * `zod/data-display.zod.ts`, keyed `LIST_ENTRIES_REQUIRED`), so the published
+   * declaration and the published validator say the same thing.
    */
-  items: ListItem[];
+  items?: ListItem[];
   /**
    * Whether list is ordered
    * @default false

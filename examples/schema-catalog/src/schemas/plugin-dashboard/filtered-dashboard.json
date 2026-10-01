@@ -25,33 +25,17 @@
       "id": "invoices_by_status",
       "title": "Invoices by Status",
       "type": "bar",
-      "options": {
-        "xField": "status",
-        "yField": "count",
-        "data": [
-          { "status": "Draft", "count": 18 },
-          { "status": "Sent", "count": 31 },
-          { "status": "Paid", "count": 47 },
-          { "status": "Void", "count": 4 }
-        ]
-      }
+      "dataset": "invoices",
+      "dimensions": ["status"],
+      "values": ["count"]
     },
     {
       "id": "accounts_signed",
       "title": "Accounts Signed",
       "type": "line",
-      "options": {
-        "xField": "month",
-        "yField": "count",
-        "data": [
-          { "month": "Jan", "count": 6 },
-          { "month": "Feb", "count": 9 },
-          { "month": "Mar", "count": 14 },
-          { "month": "Apr", "count": 11 },
-          { "month": "May", "count": 17 },
-          { "month": "Jun", "count": 21 }
-        ]
-      },
+      "dataset": "accounts",
+      "dimensions": ["signed_month"],
+      "values": ["count"],
       "filterBindings": {
         "dateRange": "signed_at",
         "region": "sales_region"
@@ -61,9 +45,8 @@
       "id": "total_invoices",
       "title": "Total Invoices (all regions)",
       "type": "metric",
-      "options": {
-        "value": "1,284"
-      },
+      "dataset": "invoices",
+      "values": ["count"],
       "filterBindings": {
         "region": false
       }

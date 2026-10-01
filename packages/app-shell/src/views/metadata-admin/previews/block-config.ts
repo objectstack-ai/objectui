@@ -178,8 +178,9 @@ export const BLOCK_CONFIG: Record<string, BlockPropField[]> = {
       options: [
         { value: 'vertical', label: 'engine.inspector.pageBlock.option.layout.vertical' },
         { value: 'horizontal', label: 'engine.inspector.pageBlock.option.layout.horizontal' },
-        { value: 'inline', label: 'engine.inspector.pageBlock.option.layout.inline' },
-        { value: 'grid', label: 'engine.inspector.pageBlock.option.layout.grid' },
+        // `inline` / `grid` are not offered: `@objectstack/spec` 17.5.0 refuses
+        // both on `object-form.layout`, and they rendered as `vertical`
+        // (objectui#11168 slice 3, objectui#7759 group C).
       ],
     },
     { name: 'columns', label: 'engine.inspector.pageBlock.field.object-form.columns', kind: 'number', placeholder: { literal: '2' } },

@@ -1026,41 +1026,26 @@ A widget-based dashboard with configurable grid layout and auto-refresh.
       "type": "metric",
       "title": "Total Revenue",
       "layout": { "x": 0, "y": 0, "w": 1, "h": 2 },
-      "options": {
-        "value": "$48,200",
-        "description": "Monthly revenue",
-        "trend": { "value": 12, "direction": "up" }
-      }
+      "dataset": "sales",
+      "values": ["revenue"]
     },
     {
-      "id": "chart",
+      "id": "sales_trend",
+      "type": "area",
       "title": "Sales Trend",
       "layout": { "x": 1, "y": 0, "w": 2, "h": 4 },
-      "component": {
-        "type": "chart",
-        "chartType": "area",
-        "xAxisKey": "day",
-        "data": [
-          { "day": "Mon", "Sales": 120 },
-          { "day": "Tue", "Sales": 180 },
-          { "day": "Wed", "Sales": 150 },
-          { "day": "Thu", "Sales": 210 },
-          { "day": "Fri", "Sales": 190 }
-        ],
-        "series": [{ "name": "Sales" }]
-      }
+      "dataset": "sales",
+      "dimensions": ["day"],
+      "values": ["revenue"]
     },
     {
-      "id": "tasks",
-      "type": "list",
-      "title": "Recent Tasks",
+      "id": "open_tasks",
+      "type": "table",
+      "title": "Open Tasks by Owner",
       "layout": { "x": 3, "y": 0, "w": 1, "h": 4 },
-      "options": {
-        "data": [
-          { "task": "Renew the Acme contract", "due": "Mon" },
-          { "task": "Send the Q3 forecast", "due": "Wed" }
-        ]
-      }
+      "dataset": "tasks",
+      "dimensions": ["owner"],
+      "values": ["open_count"]
     }
   ]
 }
@@ -1070,12 +1055,12 @@ A widget-based dashboard with configurable grid layout and auto-refresh.
 |----------|------|-------------|
 | `columns` | `number` | Number of grid columns. |
 | `gap` | `number` | Gap between widgets (Tailwind spacing scale). |
-| `widgets` | `(DashboardWidgetSlotComponentSchema \| DashboardWidgetSchema)[]` | **Required.** Each entry is a widget or a component node. A widget (`DashboardWidgetSchema`) names itself with `id`, `title` and `description`, sizes itself with `layout: { x, y, w, h }`, and holds its content either as a family named in `type` with that family's settings under `options`, or as a registered component node in `component`; its full key set is the spec's `DashboardWidget` plus objectui's own. A component node (`DashboardWidgetSlotComponentSchema`) sits in the slot directly: its `type` is a member of the closed `DASHBOARD_COMPONENT_WIDGET_TYPES` set, such as `metric-card`, and its other keys are that component's own props. |
+| `widgets` | `(DashboardWidgetSlotComponentSchema \| DashboardWidgetSchema)[]` | **Required.** Each entry is a widget or a component node. A widget (`DashboardWidgetSchema`) names itself with `id`, `title` and `description`, sizes itself with `layout: { x, y, w, h }`, and holds its content either as a family named in `type` bound to a `dataset` (with that family's settings under `options`), or as a registered component node in `component`; its full key set is the spec's `DashboardWidget` plus objectui's own. A component node (`DashboardWidgetSlotComponentSchema`) sits in the slot directly: its `type` is a member of the closed `DASHBOARD_COMPONENT_WIDGET_TYPES` set, such as `metric-card`, and its other keys are that component's own props. |
 | `refreshIntervalSeconds` | `number` | Auto-refresh interval in **seconds** — the renderer multiplies by 1000. Renamed from `refreshInterval`, which this table documented as milliseconds and which it never was (objectui#7783). |
 
-A widget's size is its `layout`: `w` and `h` are the grid columns and rows it spans, and `x` and `y` are its position on the editable `dashboard-grid`. `layout` takes all four numbers or is left out. `colSpan`, `rowSpan` and `body` are **not** widget keys: `DashboardWidgetSchema` is strict (objectui#6002) and refuses all three by name. The size is `layout.w` / `layout.h`, and the content is `type` + `options` or `component`.
+A widget's size is its `layout`: `w` and `h` are the grid columns and rows it spans, and `x` and `y` are its position on the editable `dashboard-grid`. `layout` takes all four numbers or is left out. `colSpan`, `rowSpan` and `body` are **not** widget keys: `DashboardWidgetSchema` is strict (objectui#6002) and refuses all three by name. The size is `layout.w` / `layout.h`, and the content is `type` + `dataset` (with `options`) or `component`.
 
-The family in `type` decides what `options` holds: `metric` shows `options.value`; `list` and `table` show the rows in `options.data`; a chart family (`area`, `bar`, `line`, `pie`, …) plots the rows in `options.data`, with `options.xField` naming the category key and `options.yField` the value key. Instead of a family, a widget can hold a registered component node in `component`, as the `chart` widget above does — that node's keys are the component's own props (here [`ChartSchema`](#chartschema)'s), not widget keys. The caption under a `metric` widget's number is `options.description`; the widget's own `description` is the subtitle under its `title` in the card header, which an inline `metric` does not draw.
+A widget's data is a `dataset` (ADR-0021): `values` names the measures it shows and `dimensions` the dimensions it groups them by, both selected from the dataset by name. The family in `type` decides how the result is drawn: `metric` shows its one measure as a number; `table` lists a row per dimension value; a chart family (`area`, `bar`, `line`, `pie`, …) plots one series per measure over the dimension. A widget never carries rows. `options.data`, `options.xField` / `options.yField`, a metric's `options.value` / `options.description` / `options.trend`, and a `component` chart's `chartType` / `xAxisKey` / `series` are not widget keys, and `StrictAnyComponentSchema` refuses each of them by name (objectui#11228). The widget's own `description` is the subtitle under its `title` in the card header.
 
 **Related:** [GridSchema](#gridschema), [ChartSchema](#chartschema), [CardSchema](#cardschema)
 

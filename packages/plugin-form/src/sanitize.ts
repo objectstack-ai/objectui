@@ -94,8 +94,12 @@ const COMPUTED_FIELD_TYPES = new Set([
  *   column added to the platform after this module was written is refused
  *   without anyone editing the roster.
  * - When `objectSchema` is provided, drops fields that are flagged as
- *   `computed` / `formula` / `readOnly` or whose type is in
- *   {@link COMPUTED_FIELD_TYPES}.
+ *   `computed` / `readOnly` or whose type is in {@link COMPUTED_FIELD_TYPES}.
+ *   A `formula` key is NOT a flag this reads (objectui#11070 round 6): every
+ *   `type: 'formula'` field is already dropped by its type, and
+ *   `@objectstack/spec`'s `FieldSchema` refuses `formula` by name on every
+ *   field type (renaming it to `expression`), so no served definition can use
+ *   it to mark some other type computed.
  * - When `objectSchema` is provided, also drops keys that don't appear in
  *   `objectSchema.fields` at all (these are typically server-projected
  *   relationships or flattened lookups like `full_name`).
@@ -151,7 +155,6 @@ export function sanitizeFormData(
       const t = String(fieldDef.type || '').toLowerCase();
       if (COMPUTED_FIELD_TYPES.has(t)) continue;
       if (fieldDef.computed === true) continue;
-      if (fieldDef.formula) continue;
       if (fieldDef.readOnly === true || fieldDef.readonly === true) continue;
     }
 

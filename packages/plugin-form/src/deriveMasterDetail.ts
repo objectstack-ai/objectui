@@ -248,13 +248,19 @@ export function deriveColumns(
     if (col.type === 'select' && options) col.options = options;
     if (col.type === 'lookup') {
       col.reference = d?.reference;
-      // objectui#7642 CENSUS — verdict KEEP. In-repo the bag is the object-schema
-      // def (`MasterDetailForm` passes `dataSource.getObjectSchema(d.childObject)`),
-      // but `deriveColumns` is a PUBLIC export of `@object-ui/plugin-form`, so an
-      // external caller's `childSchema` cannot be traced from here. There is also no
-      // camel `d?.displayField` leg: retiring this read deletes the only read.
-      // The same read recurs in `hydrateColumns` below; this verdict covers both.
-      col.displayField = d?.display_field || d?.reference_field;
+      // The display pointer is read in `@objectstack/spec`'s spelling,
+      // `displayField` (objectui#11070 round 6). This read used to be
+      // `display_field || reference_field` with no camel leg, so a spec-valid
+      // def's `displayField` never reached the column. The `display_field` leg
+      // is retired, with no alias: a def served through `ObjectStackAdapter`
+      // reaches here with a stored `display_field` already stamped onto
+      // `displayField` by the ingestion fold (objectui#7650 ruling A). An
+      // external caller of this PUBLIC export that passes an unfolded
+      // `childSchema` loses the snake value; the round's changeset states that
+      // break. `reference_field` stays behind it: `FieldSchema` declares no
+      // twin the fold could stamp it onto. The same read recurs in
+      // `hydrateColumns` below.
+      col.displayField = d?.displayField || d?.reference_field;
     }
     if (col.type === 'file') applyFileColumnProps(col, d);
     // Field-level CEL conditional rules (B2 in grids). Carried through verbatim
@@ -365,9 +371,8 @@ export function hydrateColumns(
     if (type === 'select' && options && !next.options) next.options = options;
     if (type === 'lookup') {
       if (next.reference == null) next.reference = d?.reference;
-      // objectui#7642 CENSUS — verdict KEEP, same bag and same missing camel leg as
-      // `deriveColumns` above.
-      if (next.displayField == null) next.displayField = d?.display_field || d?.reference_field;
+      // The same read as `deriveColumns` above (objectui#11070 round 6).
+      if (next.displayField == null) next.displayField = d?.displayField || d?.reference_field;
     }
     if (type === 'file') applyFileColumnProps(next, d);
     if (next.readonlyWhen == null && d?.readonlyWhen) next.readonlyWhen = d.readonlyWhen;

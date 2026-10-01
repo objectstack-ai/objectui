@@ -11,20 +11,20 @@ that drives **several charts at once**. ObjectUI models this as a
 - Each widget declares which of **its own** fields a filter binds to via
   `filterBindings` — a small mapping, not a copied query.
 - At render time the dashboard **broadcasts** the active values into every
-  bound widget's inline query, `AND`-combined with the widget's own `filter`.
+  bound widget's own query, `AND`-combined with the widget's own `filter`.
 
 Charts stay inline and self-contained; one place owns the filter; each chart
 edit stays local.
 
 > **Working examples**: the schema catalog ships a
 > `plugin-dashboard/filtered-dashboard` example plus variants for dynamic
-> options, text/number/lookup filter types, dataset widgets, the
-> `targetWidgets` allow-list, and date presets with a custom range. They are
-> **presentation** examples — the filter declarations are what they teach, so
-> their widgets carry inline demo data (the dataset variant additionally binds
-> two widgets to a `dataset`), which is what lets the docs gallery draw them
-> with no application behind it. Inline static data is never filtered; see
-> Known limitations at the end of this page.
+> options, text/number/lookup filter types, widgets over two datasets, the
+> `targetWidgets` allow-list, and date presets with a custom range. Every
+> widget in them binds a `dataset`, exactly as the tutorial below does. They
+> are **presentation** examples — the filter declarations are what they teach.
+> The docs gallery draws them with no application behind it by answering each
+> dataset query with placeholder rows that no filter reaches, so the numbers
+> on the page are not real.
 
 ## Tutorial: from zero to a filtered dashboard
 
@@ -60,14 +60,20 @@ show everything:
 
 #### Where a widget's data comes from
 
-Filters scope a widget's **query**, so which data surface a widget uses decides
-whether it can respond at all:
+A widget binds a semantic-layer **dataset** (ADR-0021) — `"dataset": "invoices"`
+— and selects its `dimensions` and `values` from it by name. It never carries
+rows. Filters scope that dataset query: the dashboard merges the scoped filter
+into it as `runtimeFilter`.
 
-| Surface | Shape | Filtered? |
-| --- | --- | --- |
-| Semantic-layer dataset (ADR-0021) | `"dataset": "invoices"` + `dimensions` + `values` | yes — merged into the dataset query as `runtimeFilter` |
-| Inline object query | `"options": { "data": { "provider": "object", "object": "invoices", "aggregate": { "function": "count", "groupBy": "status" } } }` | yes — `AND`-merged into that query |
-| Inline static data | `"options": { "data": [ … ], "xField": "status", "yField": "count" }` | no — there is no query to scope |
+> **Not an authoring surface: inline widget data.** `options.data` (whether an
+> array of rows or a `{ "provider": "object", … }` query), `options.xField` /
+> `options.yField`, a metric's `options.value` / `options.description` /
+> `options.trend`, and a `component` chart's `chartType` / `xAxisKey` /
+> `series` are not dashboard widget keys. `@object-ui/types`' strict authoring
+> face (`StrictAnyComponentSchema`) refuses each of them by name, and
+> `@objectstack/spec` requires `dataset` on every widget. The renderer still
+> draws a stored widget that carries them, but that path is renderer-internal
+> (ADR-0021), not something to author against: bind the widget to a dataset.
 
 > **Retired: the top-level inline analytics shape.** `object` +
 > `categoryField` / `valueField` / `aggregate` on the widget itself (and the
@@ -75,10 +81,8 @@ whether it can respond at all:
 > longer reads those keys, and a stored widget still carrying them renders a
 > visible *"This widget uses a retired data format. Edit it to bind a dataset."*
 > prompt instead of a chart. Rebind such a widget to a `dataset` (select its
-> `dimensions` and `values` by name), or — for a renderer-internal query with
-> no semantic layer behind it — move the query under
-> `options.data` with `"provider": "object"`. `@objectstack/spec` refuses the
-> retired shape at publish, so this is not a soft deprecation.
+> `dimensions` and `values` by name). `@objectstack/spec` refuses the retired
+> shape at publish, so this is not a soft deprecation.
 
 ### Step 2 — add the built-in date range
 
@@ -309,15 +313,13 @@ is `{ "preset": "last_30_days" }`, a custom range is
 
 ## Dataset widgets
 
-Widgets bound to a semantic-layer `dataset` participate the same way: the
-dashboard merges the scoped filter into the widget's `filter`, which the
-dataset widget forwards to the dataset query as `runtimeFilter`. Dataset-bound
-and inline widgets mix freely on one filtered dashboard — the
-`plugin-dashboard/filtered-dashboard-dataset-widgets` catalog entry is exactly
-that, two dataset-bound widgets beside an inline one. What differs is only what
-each surface can answer: an inline **object query**
-(`options.data` with `"provider": "object"`) is scoped like a dataset widget,
-while an inline **static array** carries no query and is left untouched.
+Every widget is bound to a semantic-layer `dataset`, and the dashboard scopes
+each one the same way: it merges the scoped filter into the widget's `filter`,
+which the dataset widget forwards to the dataset query as `runtimeFilter`.
+Widgets over different datasets mix freely on one filtered dashboard — the
+`plugin-dashboard/filtered-dashboard-dataset-widgets` catalog entry binds two
+widgets to a `sales` dataset beside one bound to `invoices`, and each is scoped
+through its own query.
 
 ## Nested variable scopes
 
@@ -331,10 +333,6 @@ stay in sync.
 
 ## Known limitations
 
-- **Static-data widgets are not filtered** — a widget whose `options.data` is
-  an inline array has no query to scope, so dashboard filters do not apply to
-  it. Bind the widget to a `dataset` (or give it an `options.data` object
-  query) if it should respond to filters.
 - **A binding is applied as written** — the dashboard does not know a
   dataset's fields, so it cannot check a binding target for you. A default
   binding whose field the widget's data does not have produces an empty

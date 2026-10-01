@@ -294,7 +294,7 @@ type UnfoldableReason = 'no-declared-twin' | 'ambiguous-probe' | 'canonical-occu
  * `resolveGroupByLabels` in `@object-ui/plugin-charts` reads
  * `fieldDef.id_field || 'id'`. Those two are named, not counted: other kept
  * snake reads exist (`deriveColumns` in `@object-ui/plugin-form` reads
- * `display_field`, for one), and nothing re-derives a complete list. So the
+ * `reference_field`, for one), and nothing re-derives a complete list. So the
  * line claims only what holds for every refusal: a consumer that reads only
  * declared spellings will not see the value. Retiring any of those reads is a
  * separate decision, not taken here.

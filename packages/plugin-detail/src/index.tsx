@@ -876,7 +876,19 @@ ComponentRegistry.register('quick_actions', RecordQuickActionsRenderer, {
     // Implementing the fallback would be a behaviour expansion and needs its own
     // card; pinned by `recordQuickActionsInputs.actionNamesFallback.test.tsx`.
     { name: 'actionNames', type: 'array', of: 'string', description: 'Action names to expose, in order — resolved from the actions declared on the object. With no names (and no host-supplied actions) nothing is looked up and the bar renders its empty placeholder' },
-    { name: 'requiredPermissions', type: 'array', of: 'string', description: 'Hide the whole bar unless the user holds these permissions' },
+    // The contract's shared record-block describe, verbatim (objectstack#18159):
+    // `record:quick_actions` carries the one text `record:details`,
+    // `record:highlights` and `record:related_list` share, and objectui#8649
+    // already publishes it on those three. This input used to read
+    // "Hide the whole bar unless the user holds these permissions", which is not
+    // what the renderer does: the gate reads the CAPABILITY set
+    // (`perms.hasCapabilities`, objectui#10058), puts a `role="status"`
+    // insufficient-permissions notice where the bar would be, and fails open when
+    // capabilities are unreported (objectui#10224). Each clause is pinned on this
+    // block by `record-quick-actions.requiredPermissions-gate.test.tsx`, which
+    // also re-reads the installed describe every run, so a spec that rewords it
+    // turns that file red rather than leaving this text to drift.
+    { name: 'requiredPermissions', type: 'array', of: 'string', description: '[ADR-0066] Capabilities the user must ALL hold — names that permission sets grant through `systemPermissions`, not object actions: `read` or `update` here is an ordinary capability name, not the object\'s read or edit permission. When the client has resolved the user\'s capabilities and any of these is missing, this block does not render its content; wherever it would otherwise render, an insufficient-permissions notice takes its place. Presentation only: it authorises nothing, and the data API still serves the same data to the same user. A client that cannot resolve the user\'s capabilities (no permission provider, or one that does not report `systemPermissions`) renders this block as if they were held — it fails open.' },
     // Derived from the spec's own vocabulary rather than restated — #3019.
     { name: 'location', type: 'enum', enum: [...ACTION_LOCATIONS], description: 'Which declared action location this bar renders' },
     { name: 'align', type: 'enum', enum: ['start', 'center', 'end'] },

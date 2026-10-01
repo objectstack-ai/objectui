@@ -32,33 +32,17 @@
       "id": "invoices_by_status",
       "title": "Invoices by Status",
       "type": "bar",
-      "options": {
-        "xField": "status",
-        "yField": "count",
-        "data": [
-          { "status": "Draft", "count": 18 },
-          { "status": "Sent", "count": 31 },
-          { "status": "Paid", "count": 47 },
-          { "status": "Void", "count": 4 }
-        ]
-      }
+      "dataset": "invoices",
+      "dimensions": ["status"],
+      "values": ["count"]
     },
     {
       "id": "invoices_by_month",
       "title": "Invoices by Month",
       "type": "line",
-      "options": {
-        "xField": "month",
-        "yField": "count",
-        "data": [
-          { "month": "Jan", "count": 24 },
-          { "month": "Feb", "count": 31 },
-          { "month": "Mar", "count": 28 },
-          { "month": "Apr", "count": 37 },
-          { "month": "May", "count": 42 },
-          { "month": "Jun", "count": 39 }
-        ]
-      },
+      "dataset": "invoices",
+      "dimensions": ["created_month"],
+      "values": ["count"],
       "filterBindings": {
         "owner": "assigned_to"
       }
@@ -67,9 +51,8 @@
       "id": "total_invoices",
       "title": "Total Invoices (unfiltered)",
       "type": "metric",
-      "options": {
-        "value": "1,284"
-      },
+      "dataset": "invoices",
+      "values": ["count"],
       "filterBindings": {
         "customer": false,
         "amount": false,

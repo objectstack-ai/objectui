@@ -545,13 +545,13 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
   }
 
   if (schema.formType === 'drawer') {
-    const { layout: _layout, ...drawerRest } = schema;
-    const drawerLayout = (schema.layout === 'vertical' || schema.layout === 'horizontal') ? schema.layout : undefined;
+    // `layout` passes through unfolded: it is `vertical | horizontal` on both
+    // faces since objectui#11168 slice 3 (objectui#7759 group C), and the fold
+    // that mapped `inline` / `grid` away here is retired with them.
     return (
       <DrawerForm
         schema={{
-          ...drawerRest,
-          layout: drawerLayout,
+          ...schema,
           formType: 'drawer',
           sections: schema.sections?.map(s => ({
             name: s.name,
@@ -581,13 +581,11 @@ export const ObjectForm: React.FC<ObjectFormComponentProps> = ({
   }
 
   if (schema.formType === 'modal') {
-    const { layout: _layout2, ...modalRest } = schema;
-    const modalLayout = (schema.layout === 'vertical' || schema.layout === 'horizontal') ? schema.layout : undefined;
+    // `layout` passes through unfolded — see the drawer branch above.
     return (
       <ModalForm
         schema={{
-          ...modalRest,
-          layout: modalLayout,
+          ...schema,
           formType: 'modal',
           sections: schema.sections?.map(s => ({
             name: s.name,
@@ -1571,12 +1569,10 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
     );
   }
 
-  // Convert to FormSchema
-  // Note: FormSchema currently only supports 'vertical' and 'horizontal' layouts
-  // Map 'grid' and 'inline' to 'vertical' as fallback
-  const formLayout = (schema.layout === 'vertical' || schema.layout === 'horizontal') 
-    ? schema.layout 
-    : 'vertical';
+  // Convert to FormSchema. `layout` is `vertical | horizontal` on both faces
+  // since objectui#11168 slice 3 (objectui#7759 group C); the fold that mapped
+  // the retired `inline` / `grid` to `vertical` here is retired with them.
+  const formLayout = schema.layout ?? 'vertical';
 
   // If sections are provided (explicitly, or derived from the object's
   // `fieldGroups`) for the simple form, render them as full-width, optionally

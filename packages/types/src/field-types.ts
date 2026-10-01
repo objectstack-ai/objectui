@@ -842,12 +842,19 @@ export interface LookupFieldMetadata extends BaseFieldMetadata {
 export interface FormulaFieldMetadata extends BaseFieldMetadata {
   type: 'formula';
   /**
-   * Formula expression
-   * Supports JavaScript-like expressions with field references
-   * @example "${amount} * ${tax_rate}"
-   * @example "${firstName} + ' ' + ${lastName}"
+   * The formula — `@objectstack/spec`'s `FieldSchema.expression`, typed BY
+   * REFERENCE so the two cannot drift (objectui#11070): a CEL source string
+   * (`record.quantity * record.unit_price`) or the spec's expression envelope
+   * (`{ dialect, source, … }`). The backend evaluates it; `FormulaField` only
+   * formats the computed value by `returnType`.
+   *
+   * It replaces the retired `formula` member, which `FieldSchema` refuses by
+   * name (its rename hint points here) and which no typed reader read. A
+   * stored Studio draft that still carries `formula` is objectui#6526's ruled
+   * migration path on the metadata-admin seam, not this published type.
+   * @example "record.quantity * record.unit_price"
    */
-  formula?: string;
+  expression?: SpecField['expression'];
   /**
    * The value type the formula computes — `@objectstack/spec`'s
    * `FieldSchema.returnType`, typed BY REFERENCE so the two cannot drift

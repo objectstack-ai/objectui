@@ -51,6 +51,7 @@
  * NOT reach the param, while the snake read keeps working.
  */
 import { describe, it, expect } from 'vitest';
+import { normalizeSchemaReferenceKeys } from '@object-ui/core';
 import {
   resolveActionParams,
   type ResolveActionParamsContext,
@@ -175,12 +176,24 @@ describe('resolveActionParams lookup group — the declared spellings reach the 
   });
 });
 
-describe('resolveActionParams lookup group — the recorded dialect still resolves (objectui#7435)', () => {
-  it('a `display_field`-only def still reaches the picker', () => {
-    expect(resolved('snake').displayField).toBe('legacy_full_name');
-    expect(widgetField('snake').displayField).toBe('legacy_full_name');
+describe('resolveActionParams lookup group — the retired `display_field` (objectui#11070 round 6)', () => {
+  it('a `display_field`-only def no longer reaches the picker: the leg is retired, with no alias', () => {
+    expect(resolved('snake').displayField).toBeUndefined();
+    expect(widgetField('snake').displayField).toBeUndefined();
   });
 
+  it('the same def folded at ingestion reaches it as `displayField`: a served def loses nothing', () => {
+    // The snake spelling is the INPUT here. `MetadataProvider` runs this fold on
+    // every object it stores (objectui#7650 ruling A), which is the served path.
+    const folded = normalizeSchemaReferenceKeys(structuredClone(OBJECTS[0]));
+    const params: RawActionParam[] = [{ field: 'snake' }];
+    const [def] = resolveActionParams(params, { ...ctx(), objects: [folded] });
+    expect(def.displayField).toBe('legacy_full_name');
+    expect((paramToField(def) as unknown as Record<string, unknown>).displayField).toBe('legacy_full_name');
+  });
+});
+
+describe('resolveActionParams lookup group — the recorded dialect still resolves (objectui#7435)', () => {
   it('a `description_field`-only def still reaches the picker', () => {
     expect(resolved('snake').descriptionField).toBe('legacy_email');
     expect(widgetField('snake').descriptionField).toBe('legacy_email');

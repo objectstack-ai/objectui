@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { normalizeSchemaReferenceKeys } from '@object-ui/core';
 import { findRelationshipField, deriveColumns, deriveDetail, deriveFormFields, resolveInlineMode, fieldTypeToColumnType, hydrateColumns } from './deriveMasterDetail';
 
 const taskSchema = {
@@ -10,7 +11,7 @@ const taskSchema = {
     estimate_hours: { type: 'number', label: 'Estimate (h)' },
     budget: { type: 'currency', label: 'Budget' },
     due_date: { type: 'date', label: 'Due Date' },
-    assignee: { type: 'lookup', label: 'Assignee', reference: 'user', display_field: 'name' },
+    assignee: { type: 'lookup', label: 'Assignee', reference: 'user', displayField: 'name' },
     project: { type: 'master_detail', label: 'Project', reference: 'showcase_project', required: true },
     health: { type: 'formula', label: 'Health', expression: 'x' },
     created_at: { type: 'datetime' },
@@ -87,6 +88,28 @@ describe('deriveColumns', () => {
     expect(byName.estimate_hours.type).toBe('number');
     expect(byName.budget.type).toBe('currency');
     expect(byName.assignee).toMatchObject({ type: 'lookup', reference: 'user', displayField: 'name' });
+  });
+
+  /**
+   * objectui#11070 round 6: the display pointer is read in the spec's spelling
+   * alone. The retired `display_field` sets nothing on a def handed straight
+   * in, and the same def after the ingestion fold (objectui#7650 ruling A,
+   * which `ObjectStackAdapter.getObjectSchema` runs) carries it as
+   * `displayField`. The snake spelling is the INPUT of both cases.
+   */
+  it('reads `displayField` alone: a `display_field` def sets nothing raw, and keeps its value once folded', () => {
+    const snakeSchema = () => ({
+      name: 'line',
+      fields: { assignee: { type: 'lookup', label: 'Assignee', reference: 'user', display_field: 'full_name' } },
+    });
+    const raw = deriveColumns(snakeSchema()).find((c) => c.name === 'assignee');
+    expect(raw).toMatchObject({ type: 'lookup', reference: 'user' });
+    expect(raw?.displayField).toBeUndefined();
+    expect(hydrateColumns([{ name: 'assignee' }], snakeSchema())[0].displayField).toBeUndefined();
+
+    const folded = normalizeSchemaReferenceKeys(snakeSchema());
+    expect(deriveColumns(folded).find((c) => c.name === 'assignee')?.displayField).toBe('full_name');
+    expect(hydrateColumns([{ name: 'assignee' }], folded)[0].displayField).toBe('full_name');
   });
 
   it('carries field-level CEL conditional rules (readonlyWhen / requiredWhen) onto columns', () => {

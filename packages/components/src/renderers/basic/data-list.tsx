@@ -77,9 +77,33 @@ ComponentRegistry.register('definition-list', DefinitionListRenderer, {
   skipFallback: true,
   label: 'Definition List',
   category: 'content',
+  // objectui#11168 slice 2 — each input as the renderer reads it and as the
+  // `@objectstack/spec` row accepts it, pinned in
+  // `__tests__/element-list-inputs-11168.test.tsx`:
+  //   - `columns` is compared to the NUMBER 2 (`props.columns === 2`), so the
+  //     enum members are the numbers 1 and 2. The strings '1' / '2' it used to
+  //     publish render one column, and the spec refuses them.
+  //   - `items` is optional: absent and empty both render the "No details"
+  //     state, and the spec row does not require it. Marking it required made
+  //     the page validator raise `missing-required-prop` on a list the spec
+  //     and the renderer both accept.
   inputs: [
-    { name: 'items', type: 'array', required: true, description: 'Term/description pairs [{ term, description }]' },
-    { name: 'columns', type: 'enum', enum: ['1', '2'] },
+    {
+      name: 'items',
+      type: 'array',
+      of: 'object',
+      description:
+        'Term/description pairs [{ term, description }], in order: `term` is the row label, `description` is shown as-is (an object as JSON, an omitted one as an em dash). Omitted or empty renders the "No details" state',
+    },
+    {
+      name: 'columns',
+      type: 'enum',
+      enum: [
+        { label: '1', value: 1 },
+        { label: '2', value: 2 },
+      ],
+      description: 'Grid columns from the small breakpoint up: the NUMBER 1 or 2 (default 1)',
+    },
     { name: 'inline', type: 'boolean', description: 'Term and description on one baseline-aligned row' },
   ],
 });
@@ -88,9 +112,13 @@ ComponentRegistry.register('definition-list', DefinitionListRenderer, {
 // element:repeater — data-bound, chrome-free list
 // ---------------------------------------------------------------------------
 
+/**
+ * One entry of `fields` in its object form. `field` is the only member read:
+ * the list has no header row, so a `label` was never rendered, and the spec
+ * row refuses it (objectui#11168 slice 2).
+ */
 interface RepeaterColumn {
   field: string;
-  label?: string;
 }
 
 function RepeaterRenderer({ schema }: { schema: any }) {
@@ -207,12 +235,26 @@ ComponentRegistry.register('repeater', RepeaterRenderer, {
   skipFallback: true,
   label: 'Repeater',
   category: 'content',
+  // objectui#11168 slice 2 — the members of `fields`, `filter` and `sort` are
+  // pinned in `__tests__/element-list-inputs-11168.test.tsx`: what the
+  // renderer prints for each `fields` entry, and what it hands the adapter for
+  // `filter` (context tokens resolved first) and `sort`.
   inputs: [
     { name: 'object', type: 'string', required: true, description: 'Object whose records the list repeats over' },
     { name: 'titleField', type: 'string' },
-    { name: 'fields', type: 'array', description: 'Columns per row — bare names or { field, label? }' },
-    { name: 'filter', type: 'array' },
-    { name: 'sort', type: 'array' },
+    {
+      name: 'fields',
+      type: 'array',
+      description: 'Fields shown after the title on each line, in order: a bare field name, or `{ field }`',
+    },
+    {
+      name: 'filter',
+      type: 'array',
+      of: 'object',
+      description:
+        'Filter rules `[{ field, operator, value }]`. A string `value` may be a context token such as `{current_user_id}`, resolved before the query',
+    },
+    { name: 'sort', type: 'array', of: 'object', description: 'Sort order `[{ field, order }]`, applied in list order' },
     { name: 'limit', type: 'number' },
     { name: 'emptyText', type: 'string' },
     { name: 'divided', type: 'boolean', description: 'Separator between rows' },

@@ -760,8 +760,8 @@ const OBJECTUI_11111_LEDGER_CAPS = {
   unjudgedBlocks: 4, // objectui#11168: object-gantt, object-map, object-timeline, object-tree
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
   unpublishedKeys: 3, // objectui#11168: 3 (action:button endpoint + undoable, action:icon endpoint); objectui#8652: 0 and objectui#8649: 0 (each struck by its landing)
-  refusedArms: 2, // objectui#11168: element:definition-list, object-form
-  memberPins: 4, // objectui#11168: element:definition-list, element:repeater ×3
+  refusedArms: 1, // objectui#11168: object-form (slice 2 narrowed element:definition-list.columns)
+  memberPins: 0, // objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3
 } as const;
 
 /**
@@ -1985,11 +1985,13 @@ const OFF_SPEC_ARM_EXEMPTIONS: Record<string, string> = {
    * list of objects (`type: 'array'`, `of: 'object'`, the shape both renderers
    * read), and `action:group.size` publishes the Button primitive's four sizes
    * without the refused `md`.
+   *
+   * objectui#11168 slice 2 took `element:definition-list.columns:enum` the same
+   * way: the enum's members are now the NUMBERS `1` and `2`, which the spec row
+   * declares and the renderer compares (`props.columns === 2`); the strings it
+   * declared before drew one column. The pin is
+   * `packages/components/src/renderers/basic/__tests__/element-list-inputs-11168.test.tsx`.
    */
-  'element:definition-list.columns:enum': OWED_TO(
-    'objectui#11168',
-    'A REFUSED ARM: `element:definition-list.columns` declares the members `1` and `2`, and the contract refuses them.',
-  ),
   'object-form.layout:enum': OWED_TO(
     'objectui#11168',
     'A REFUSED ARM: `object-form.layout` declares the members `inline` and `grid`, which the 17.5.0 contract refuses.',
@@ -2243,6 +2245,8 @@ const OFF_SPEC_MEMBER_EXEMPTIONS: Record<string, string> = {};
 const MULTI_KIND_MEMBER_CONTRACTS: Record<string, string> = {
   'record:highlights.fields':
     'The member contract is a union — a field NAME or an inline field object — so no single coarse arm describes it and declaring both would advertise a member shape only the per-block pin next to the renderer can vouch for (packages/plugin-detail/src/__tests__/recordHighlightsInputs.spec-parity.test.ts). objectui#8067 leaves it undeclared on purpose.',
+  'element:repeater.fields':
+    'The member contract is a union — a bare field NAME or `{ field }` — so no single coarse arm describes it; what the renderer prints for each arm is pinned next to it (packages/components/src/renderers/basic/__tests__/element-list-inputs-11168.test.tsx). objectui#11168 slice 2 leaves it undeclared on purpose.',
 };
 
 // ── the MEMBER-PIN direction (objectui#8068) ─────────────────────────────────
@@ -2593,6 +2597,22 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'action:menu.visible': {
     file: 'packages/components/src/renderers/action/__tests__/action-group-menu-inputs-11168.test.tsx',
     pins: 'The `object` arm is the CEL predicate envelope `{ dialect: \'cel\', source }`, mounted through the real `SchemaRenderer` with `data` bound: an envelope that holds renders the trigger and its twin that fails hides the whole menu, with the boolean and bare-CEL arms carrying the same holds/fails pair (objectui#11168 slice 1).',
+  },
+  'element:definition-list.items': {
+    file: 'packages/components/src/renderers/basic/__tests__/element-list-inputs-11168.test.tsx',
+    pins: 'Members are `{ term, description }` items, read through the real `SchemaRenderer`, one `<dt>`/`<dd>` row each in list order: `term` is the row label, `description` is shown as-is (a string or number verbatim, an object as JSON, an omitted one as an em dash). The `label` / `value` spelling is read by nothing (a blank term and an em dash beside a control row carrying the same text under the read members), and the spec row refuses it by name. The key itself is optional, as the renderer reads it: absent renders "No details", and the page validator no longer reports it missing (objectui#11168 slice 2).',
+  },
+  'element:repeater.fields': {
+    file: 'packages/components/src/renderers/basic/__tests__/element-list-inputs-11168.test.tsx',
+    pins: 'Members are a bare field name or `{ field }`, read through the real `SchemaRenderer` over a recording adapter: each prints that field\'s value of the record, in list order after the title, and a field the record lacks prints an em dash. A `label` member is never printed (the list has no header row) while its `field` still is, and the spec row refuses it; the key declares no `of` because its member contract is that union (objectui#11168 slice 2).',
+  },
+  'element:repeater.filter': {
+    file: 'packages/components/src/renderers/basic/__tests__/element-list-inputs-11168.test.tsx',
+    pins: 'Members are `ViewFilterRule` objects `{ field, operator, value }`, asserted on EVERY query the adapter is handed: they reach `$filter` member for member, with a `{current_user_id}` / `{current_org_id}` token in `value` resolved first and the other members unchanged; a token-free list arrives unchanged and an absent key sends no `$filter`. The lowering to the server\'s filter AST is the adapter\'s own contract, pinned in `@object-ui/data-objectstack` (objectui#11168 slice 2).',
+  },
+  'element:repeater.sort': {
+    file: 'packages/components/src/renderers/basic/__tests__/element-list-inputs-11168.test.tsx',
+    pins: 'Members are `SortItem` objects `{ field, order }`, asserted on EVERY query the adapter is handed: they reach `$orderby` unchanged and in list order, and an absent key sends no `$orderby`. The renderer reads no member itself (`data-list.sortKey-10664.test.tsx` pins that the read is keyed on the list\'s content); serializing it is the adapter\'s own contract (objectui#11168 slice 2).',
   },
   'element:button.action': {
     file: 'packages/components/src/__tests__/elementButtonActionMembers-8071.test.tsx',
@@ -3199,22 +3219,11 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
 
   // ⚠️ 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).
   // The array/object-armed inputs of the blocks 17.5.0 newly judges, owed a
-  // member pin by objectui#11168. Counted into `MEMBER_PIN_EXEMPTION_CEILING`
-  // and capped at the entries listed; that card's pins strike them.
-  // `action:group.actions` and `action:menu.actions` stood here until
-  // objectui#11168 slice 1 registered their pins in `MEMBER_PINS`.
-  ...owedEntries(
-    'element:definition-list',
-    ['items'],
-    'objectui#11168',
-    'A MEMBER PIN OWED: `element:definition-list.items` is array/object-armed on a block 17.5.0 newly judges, and no pin states its members.',
-  ),
-  ...owedEntries(
-    'element:repeater',
-    ['fields', 'filter', 'sort'],
-    'objectui#11168',
-    'A MEMBER PIN OWED: this `element:repeater` input is array/object-armed on a block 17.5.0 newly judges, and no pin states its members.',
-  ),
+  // member pin by objectui#11168, stood here. All six are pinned now, so no
+  // booking is left: `action:group.actions` and `action:menu.actions` by
+  // slice 1, and `element:definition-list.items` and `element:repeater`'s
+  // `fields`, `filter` and `sort` by slice 2, each registered in
+  // `MEMBER_PINS`. Header kept as a landmark for a future grep.
 };
 
 /**
@@ -4020,8 +4029,16 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * the objectui#11111 bookings above landed between the card and this change, so
  * the four `element:*` units owed to objectui#11168 are what remain, and they
  * move only with that card.
+ *
+ * ## 4 -> 0 (objectui#11168 slice 2, the `element:*` pair) — the ruling paid off
+ *
+ * The slice registered member pins for `element:definition-list.items` and
+ * `element:repeater`'s `fields`, `filter` and `sort`, measured through the
+ * real renderer, and deleted their four booked entries. Nothing else stood in
+ * the list, so the ceiling follows it to 0 and this direction now runs with no
+ * exemption at all. A new array/object-armed key is answered with a pin.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 4;
+const MEMBER_PIN_EXEMPTION_CEILING = 0;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.
@@ -5598,6 +5615,6 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
           reasons.filter((reason) => reason.startsWith(`${OWED_PREFIX}${owner}.`)).length,
         ]),
       ),
-    ).toEqual({ 'objectui#11168': 13, 'objectui#8652': 0, 'objectui#8649': 0 });
+    ).toEqual({ 'objectui#11168': 8, 'objectui#8652': 0, 'objectui#8649': 0 });
   });
 });

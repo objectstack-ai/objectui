@@ -15,9 +15,16 @@
  * The sub-caption has two channels, and this hook is the only thing in the repo
  * that composes them:
  *
- *   1. the AUTHORED value, `widget.options.description`, which the spec admits
- *      as a plain string or as an inline per-locale map — collapsed to the
- *      active UI language through the objectui#4208 `pickLocalized` seam;
+ *   1. the AUTHORED value, `widget.options.description`, read as a plain
+ *      string or as an inline per-locale map — collapsed to the active UI
+ *      language through the objectui#4208 `pickLocalized` seam. ⚠️ The spec
+ *      does not DECLARE it: `DashboardWidgetOptionsSchema` has no
+ *      `description` member and its open bag admits the key unjudged, the
+ *      strict authoring face refuses an authored one (objectui#11228 ruling
+ *      C), and the server's `translateDashboard` writes it on the served
+ *      path — objectstack's `check:widget-option-census` ledgers it as an
+ *      undeclared resolver output. Its status is an open decision on
+ *      objectui#11070;
  *   2. the client i18n BUNDLE entry,
  *      `{ns}.dashboards.{dash}.widgets.{id}.subCaption` (objectui#4032 item 4 /
  *      objectstack#8056, shipped in `@objectstack/spec@17.0.0`), which is

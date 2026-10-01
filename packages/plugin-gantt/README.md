@@ -44,24 +44,41 @@ When used through `ObjectGantt` (the wiring the framework uses for the
   fetched by `DetailView` itself when `dataSource.getObjectSchema` is
   available).
 
-  Override by setting `navigation` on the schema: set `{ "mode": "page" }` to
-  route to the standalone detail page instead.
+  Override it with `navigation` in the `properties` bag — the spec's
+  `NavigationConfig`, `{ mode, size, openNewTab, preventNavigation }`. What a
+  task click does with each member, measured through the real `SchemaRenderer`
+  (objectui#11168 slice 4):
+
+  - **absent** — the drawer above, this renderer's own default;
+  - `drawer`, `modal`, `popover` — the task's record in that overlay; `split` —
+    the record beside the chart, which stays drawn;
+  - `page`, and a block written without `mode` (the spec's `page` default) —
+    the record page in the same tab; `new_window` — the same page in a new tab;
+  - `none` — nothing; `preventNavigation: true` — nothing, whatever the mode;
+    `openNewTab: true` — the record page in a new tab, outranking every mode
+    except `none`; `size` — the overlay width.
 
   ```json
-  { "navigation": { "mode": "page" } }
+  { "type": "object-gantt", "properties": { "objectName": "project_task", "gantt": { "startDateField": "start_date", "endDateField": "end_date", "titleField": "name" }, "navigation": { "mode": "page" } } }
   ```
 
-  The destination route is **not** authorable here — `useNavigationOverlay`
-  builds no URL out of this config, so page mode hands the record to the
-  host's `onNavigate` / `onRowClick` and the host owns where it lands. *Which*
-  detail layout opens is not authorable here either: assign a `record` page to
-  the object and let `isDefault` pick the one that opens. Page assignment is
-  what resolves a detail layout; this block only decides **how** that detail
-  is surfaced (`mode`, `size`) — `@object-ui/react`'s `useNavigationOverlay`
-  docblock owns that account. `navigation` is the spec's `NavigationConfig`,
-  and its schema refuses any key it does not declare: an undeclared key
-  rejects the whole config, so the `mode` beside it never takes effect either.
-  `@objectstack/spec`'s `NavigationConfigSchema` owns the member list.
+  The record-page address is the gantt's own. It derives it from the page it
+  is on and does not use a record navigator the host publishes
+  (objectui#11293), so mounting one changes nothing. On the object's own list
+  or view route (`…/project_task/view/all`) the address is the record page
+  `…/project_task/record/ID`; on any other page, such as a custom page, the
+  gantt appends `/project_task/record/ID` to the current address. The object is
+  `data.object` when `data` is the object provider, else `objectName`; on
+  inline rows that name neither, no mode opens anything, the default drawer
+  included.
+
+  *Which* detail layout opens is not authorable here: assign a `record` page
+  to the object and let `isDefault` pick the one that opens. Page assignment
+  is what resolves a detail layout; this block only decides **how** that
+  detail is surfaced. `navigation`'s schema refuses any key it does not
+  declare: an undeclared key rejects the whole config, so the `mode` beside it
+  never takes effect either. `@objectstack/spec`'s `NavigationConfigSchema`
+  owns the member list.
 
 
 ### Drag-and-drop rescheduling
@@ -270,9 +287,11 @@ const recordSource = {
 };
 ```
 
-`data` is the spec's `ViewData` union — `{ provider: 'object', object }`,
-`{ provider: 'value', items }`, `{ provider: 'api', read, write }` or
-`{ provider: 'schema', schemaId }`.
+`data` is the spec's `ViewData` union. This chart reads three of its arms:
+`{ provider: 'object', object }`, `{ provider: 'value', items }` and
+`{ provider: 'api', read, write }`. The fourth, `{ provider: 'schema', schemaId }`,
+is accepted by the spec and is not a source this chart reads: measured, a gantt
+carrying it queries `objectName` instead.
 
 **The provider does not change which query keys apply.** An authored `filter`
 and `sort` narrow and order the rows on **every** provider, inline ones
@@ -352,11 +371,12 @@ the node mounts and simply finds nothing to draw:
 | `onTaskClick`, `onTaskUpdate` | never read *off the schema* | React props on `<ObjectGantt>` / `<GanttView>` — functions do not belong in serializable metadata |
 | `className` | never read off the schema | a React prop on `<ObjectGantt>` |
 
-Keys that **are** read but only through a cast, so they are easy to miss when
-grepping — all of them genuine, all optional: `readOnly` (disables every edit
-path — drag/resize/inline/delete/link/undo), `mobileReadOnly`, `markers`,
-`navigation`, `skipWeekends`, `holidays`, `criticalPath`, `showBaselines`,
-`persistLayout` / `viewName`, `label`.
+The keys the renderer reads beside `gantt` — `readOnly`, `mobileReadOnly`,
+`markers`, `navigation`, `skipWeekends`, `holidays`, `criticalPath`,
+`showBaselines`, `persistLayout` / `viewName` and `label` — are all optional,
+all declared by the spec's `object-gantt` row, and all published by the
+registration since objectui#11168 slice 4. Each is described in the table
+below.
 
 #### Full field-mapping reference (`GanttConfig` members)
 
@@ -398,10 +418,13 @@ True siblings of `gantt` in the `properties` bag, not `GanttConfig` members.
 | `showBaselines: false` | Hide the baseline strips even when baseline fields are mapped (default `true`). |
 | `skipWeekends: true` | Working-calendar math: auto-schedule and critical path count working days only, and reschedules snap off Sat/Sun. In **day mode** this also folds weekend columns out of the timeline — Friday sits against Monday and a one-column drag advances one working day. Coarser scales stay linear. |
 | `holidays: ["yyyy-mm-dd", …]` | Extra non-working days for the working calendar, combined with or instead of `skipWeekends`. In day mode these columns fold out of the axis too. |
-| `markers: [{ date, label?, color? }]` | Extra vertical marker lines, like the Today line. |
-| `persistLayout: false` | Disable layout persistence. By default the toolbar's save-layout button snapshots the current granularity, zoom and task-list collapse state to `localStorage` (key `gantt-layout:OBJECT:VIEW`) and restores it on the next load. |
+| `markers: [{ date, label?, color? }]` | Extra vertical marker lines, like the Today line. `label` is drawn against the line and `color` paints it (the theme's primary colour when omitted); a date outside the chart's range draws no line. |
+| `persistLayout: false` | Disable layout persistence. By default the toolbar's save-layout button snapshots the current granularity, zoom and task-list collapse state, plus the quick-filter chips, to `localStorage` (key `gantt-layout:OBJECT:VIEW`) and restores it on the next load. `OBJECT` is `objectName`, else `data.object`, and `gantt` on inline rows that name neither. With `false` there is no save-layout button and nothing is stored. |
+| `viewName: "board"` | The `VIEW` half of that key (default `default`). Two gantts on the same object with different names keep separate layouts, and each restores only its own. |
 | `readOnly: true` | **Disable every edit path** — no bar drag/resize/progress, no inline edit, no delete, no dependency-link drag, no reorder, no auto-schedule, and the Undo/Redo buttons are hidden. A read-only badge shows in the toolbar and the right-click menu drops to view-only (or is suppressed when nothing is actionable). Task click and granularity switching still work. Use it for dashboards and shared read-only views. |
-| `mobileReadOnly: false` | On a narrow viewport (≤ 640 px) the chart auto-enters read-only, giving touch users a clean scrollable thumbnail — the same gating as `readOnly`, applied only while narrow. Enabled by default. |
+| `mobileReadOnly: false` | When the chart is narrow (under 640 px of its own measured width, or of the viewport until that is measured) it auto-enters read-only, giving touch users a clean scrollable thumbnail — the chart's write paths are gated as under `readOnly`, applied only while narrow. The record drawer is not: it locks under `readOnly` alone, so a task's record still opens writable on a narrow chart. Enabled by default; `false` keeps a narrow chart editable, and `readOnly: true` locks the chart and the drawer at any width. |
+| `label` | Names the exported PNG/PDF file: the link after `gantt.exportFileName` and before the object's own label, then `objectName`. A string, or an inline locale map (`{ "en": …, "zh-CN": … }`) resolved to the display locale. The chart draws it nowhere else. |
+| `navigation` | What a task click opens — see **Create / Edit / Delete / View** above. |
 
 The toolbar also carries **navigation** (jump-to-today / this-week / this-month
 buttons that scroll the timeline to the start of that period) and **export**

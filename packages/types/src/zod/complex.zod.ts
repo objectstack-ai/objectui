@@ -1381,10 +1381,24 @@ const DASHBOARD_WIDGET_SLOT_REGISTERED_INPUTS = {
  * the catchall, as on this face — while still refusing any key no registration
  * declares. The record is a side table keyed by this node: this arm's shape,
  * catchall and accept set are what they were.
+ *
+ * `layout` is the one WIDGET key this arm declares (objectui#11070 round 11),
+ * and it is the spec's member BY REFERENCE: `@objectstack/spec`'s
+ * `DashboardWidgetSchema.shape.layout`, the same member the strict widget arm
+ * above carries. It is not a registry input — no registration declares it and
+ * `MetricCard` never reads it — it is the slot's position, which the dashboard
+ * reads off every entry of `widgets[]`: `DashboardGridLayout` places each entry
+ * by it, and its Save Layout (`mergeLayoutIntoSchema`) writes it back onto
+ * EVERY entry, a component node included. Left to the passthrough, the strict
+ * face closed it out (`unrecognized_keys: ['layout']`), so a dashboard the
+ * grid had saved was refused there. Declared, both faces judge it by the
+ * spec's shape — four numbers, no other key — so a malformed one is refused
+ * on the tolerant face too, as it already was on the widget arm.
  */
 const DashboardWidgetSlotComponentSchema = declareRegisteredInputs(BaseSchema.extend({
   type: z.enum(DASHBOARD_COMPONENT_WIDGET_TYPES)
     .describe('objectui component type legal in a widget slot (closed set)'),
+  layout: stripImportedDefaults(SpecDashboardWidgetSchema).shape.layout,
   // objectui#9256: `MetricCard` reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER, as on the TypeScript twin.
   body: retirementTombstone(METRIC_CARD_NEITHER_CHANNEL),

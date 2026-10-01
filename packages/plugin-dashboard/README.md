@@ -499,7 +499,7 @@ The authored shape is typed by `@object-ui/types`:
 | --- | --- |
 | `DashboardComponentSchema` | the whole `type: 'dashboard'` node — `columns`, `gap`, `widgets`, `header`, `globalFilters`, `dateRange`, `refreshIntervalSeconds`, … |
 | `DashboardWidgetSchema` | one entry of `widgets[]` — the spec's `DashboardWidget` keys, plus objectui's own (`component`, `layout`, `options`, …) |
-| `DashboardWidgetSlotComponentSchema` | the other kind of `widgets[]` entry — a component node placed directly in the slot, `type` one of the closed component set (`metric-card`); every other key is that component's own prop |
+| `DashboardWidgetSlotComponentSchema` | the other kind of `widgets[]` entry — a component node placed directly in the slot, `type` one of the closed component set (`metric-card`); every other key is that component's own prop, except the spec's widget `layout`, which places the node |
 | `DashboardWidgetLayout` | a widget's `{ x, y, w, h }` grid box |
 
 ```typescript
@@ -575,8 +575,8 @@ never as widget keys.
 
 ### Reading a widget key off `widgets[]`
 
-The widget keys (`layout`, `title`, `colorVariant`, `filter`, …) are declared
-on the widget arm, `DashboardWidgetSchema`, which takes them from the spec's
+The widget keys (`title`, `colorVariant`, `filter`, …) are declared on the
+widget arm, `DashboardWidgetSchema`, which takes them from the spec's
 `DashboardWidget` row. The component arm declares none of them. Read straight
 off a `widgets[]` entry, such a key is typed `any`, supplied by the component
 arm's passthrough. Read it through `DashboardWidgetSchema` instead, which is how
@@ -590,8 +590,16 @@ import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui
 declare const dashboard: DashboardComponentSchema;
 
 const widgets: DashboardWidgetSchema[] = dashboard.widgets;
-const widestSpan = Math.max(0, ...widgets.map((w) => w.layout?.w ?? 0));
+const accents = widgets.map((w) => w.colorVariant ?? 'default');
 ```
+
+`layout` is the one widget key both arms declare. The component arm takes the
+spec's widget `layout` by reference, because Save Layout writes it onto every
+entry of `widgets[]`, a `metric-card` node included (see
+[DashboardGridLayout](#dashboardgridlayout--persisting-drag--resize-edits)). So
+`layout` reads with the spec's type straight off a `widgets[]` entry, and the
+strict authoring face accepts it on a component node. A malformed one (not
+four numbers, or a key besides `x`, `y`, `w` and `h`) is refused on either arm.
 
 ## Customization
 

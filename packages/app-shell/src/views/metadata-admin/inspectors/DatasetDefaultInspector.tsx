@@ -449,7 +449,9 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale
    * (objectui#4527 / objectui#6900), which holds Save, the autosave timer and
    * the shortcut alike — so the row is never saved as `field: ''`, and never
    * sent half-built. A stored `field: ''` counts too: it is the same blank box.
-   * The Field label carries the designer's required marker (objectui#10948).
+   * While the box is blank, that row's Field label carries the designer's
+   * required marker (objectui#10948), so the row the hold is about is the one
+   * shown as incomplete; a row with a field shows the plain label.
    *
    * A measure is NOT counted: its `field` is optional, and whether its
    * aggregate may go without one is the spec's verdict at save.
@@ -625,11 +627,12 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale
             </div>
             <InspectorTextField label={tr('engine.inspector.dataset.name')} value={d.name ?? ''} onCommit={(v) => patchDimension(i, { name: v })} placeholder={tr('engine.inspector.dataset.dimensionNamePlaceholder')} disabled={readOnly} mono />
             {/* The label is rendered here, not by the combo, so it can carry the
-                required marker; `id` is the combo's external-label variant. */}
+                required marker while the box is blank (objectui#11402); `id` is
+                the combo's external-label variant. */}
             <div className="space-y-1">
               <Label htmlFor={`${dimensionFieldIdPrefix}-${i}`} className="text-xs text-muted-foreground">
                 {tr('engine.inspector.dataset.field')}
-                <RequiredMarker />
+                {isBlankField(d.field) && <RequiredMarker />}
               </Label>
               <InspectorComboField
                 id={`${dimensionFieldIdPrefix}-${i}`}

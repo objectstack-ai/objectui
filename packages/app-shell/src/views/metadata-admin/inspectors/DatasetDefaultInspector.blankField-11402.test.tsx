@@ -165,14 +165,16 @@ describe('DatasetDefaultInspector — a blank-Field dimension is held as incompl
     fireEvent.click(screen.getByText('Add dimension'));
     expect(seen.blocking.at(-1), 'the field-less dimension is a blocking issue').toBe(1);
     expect(Object.hasOwn(seen.draft.dimensions![0], 'field'), 'and it is not held as `field: \'\'`').toBe(false);
-    // Shown as incomplete: the Field label carries the designer's required
-    // marker (objectui#10948) — the spec requires a dimension's field.
-    const fieldLabel = screen.getByText('Field').closest('label');
-    expect(fieldLabel?.querySelector('[data-required-marker="true"]'), 'the required marker on the Field label').toBeTruthy();
+    // Shown as incomplete: while the box is blank, the Field label carries the
+    // designer's required marker (objectui#10948) — the spec requires a
+    // dimension's field.
+    const markerOnFieldLabel = () => screen.getByText('Field').closest('label')?.querySelector('[data-required-marker="true"]');
+    expect(markerOnFieldLabel(), 'the required marker on the blank Field label').toBeTruthy();
 
     await pickComboOption('Field', 'region');
     expect(seen.draft.dimensions![0]).toMatchObject({ name: 'region', field: 'region', type: 'string' });
     expect(seen.blocking.at(-1), 'a picked field releases the hold').toBe(0);
+    expect(markerOnFieldLabel(), 'a complete row shows the plain label').toBeFalsy();
   });
 
   it('the hold is never stricter than the spec: DatasetSchema refuses the field-less dimension it holds, and takes it once a field is picked', () => {

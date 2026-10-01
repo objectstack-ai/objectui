@@ -2,7 +2,7 @@
   "number": 11346,
   "kind": "pull_request",
   "title": "docs: re-fence the complex, disclosure, layout, navigation and overlay remainder of objectui#5867 as ts, 31 blocks across 31 component pages (batch 8)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -21,10 +21,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-01T06:40:06Z",
-  "updated_at": "2026-10-01T08:29:09Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-01T08:45:23Z",
+  "closed_at": "2026-10-01T08:45:21Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-01T08:45:21Z",
   "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/11346",

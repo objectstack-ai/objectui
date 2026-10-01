@@ -2,8 +2,8 @@
   "number": 11347,
   "kind": "issue",
   "title": "spec(components): twelve un-cast reads of undeclared keys block objectui#8347's index-signature removal (`list`, `loading`, `input-otp`, `sidebar`, `drawer`, `dropdown-menu`, `popover`, `sheet`)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:spec",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -21,11 +20,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-01T06:41:16Z",
-  "updated_at": "2026-10-01T08:32:41Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-01T10:25:40Z",
+  "closed_at": "2026-10-01T10:25:40Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 3,
+  "comments": 7,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11347",
   "body": "Filing-gate category: ① — named landing points: the un-cast reads that objectui#8347's premise P1 enumerated, ordered by the objectui#7927 ruling's step 1. A derived child of in-flight objectui#8347, filed with the parent's `domain:spec` and `priority:p2`.\nReader: the `domain:spec @ objectui` seat (objectui#10217) dispatches it, and an os-dev executes it.\nParent: objectui#8347. That card stays `pm:blocked` until this card and its siblings land.\n\n## Why this card exists\n\nThe objectui#7927 ruling (`5565351677`, director seat, decision batch #68; the maintainer's 「同意」) orders the removal:\n- **Step 1, verbatim:** 「Census first, delete never before: every read that rides the passthrough is enumerated and either declared on its schema or retired」.\n- **Unit:** objectui#8327's sequencing ruling `5587717012` (Q2 = A) sets one card per reader package.\n\nobjectui#8347's P1 measured the un-cast population that the cast-aware objectui#8327 census could not see (report `5926022178`):\n- **Totals:** 303 errors across 17 packages once `BaseSchema`'s `[key: string]: any` is deleted alone.\n- **Control:** 0 errors at the same base with the signature present.\n- **This package:** `@object-ui/components` carries 12 errors in shipped source and 94 in tests.\n\n## The population (`origin/main` `5262f7dd3`; files and keys, no line addresses)\n\n**Shipped source: 12 un-cast reads, 8 renderers, 9 keys.** None of these keys was adjudicated by objectui#8648. That card covered four keys read off `UIActionSchema`, and none of them is here.\n\n| renderer (node type) | keys read off `schema`, undeclared on its type |\n|---|---|\n| `renderers/data-display/list.tsx` (`list`) | `title` ×2 |\n| `renderers/feedback/loading.tsx` (`loading`) | `text` ×2 |\n| `renderers/form/input-otp.tsx` (`input-otp`) | `maxLength` (TS2551: the type declares a near spelling) |\n| `renderers/navigation/sidebar.tsx` (`sidebar`) | `active` (the read is typed at `BaseSchema` itself) |\n| `renderers/overlay/drawer.tsx` (`drawer`) | `shouldScaleBackground`, `footer`, `showClose` |\n| `renderers/overlay/dropdown-menu.tsx`, `popover.tsx`, `sheet.tsx` | `modal` (one each) |\n\n**Tests: 94 errors in 20 files.**\n- Most are object literals typed `BaseSchema` that author a key the concrete node type declares, so the fix is a retype to the concrete schema.\n- The keys that recur most: `properties` ×14, `content` ×13, `actions` ×8, `location` ×8, `required` ×7, `options` ×6, `actionType` ×5, `maxVisible` ×4, and `props` ×4.\n- Deliberately misspelled or bogus probe keys (the \"an UNKNOWN key still compiles\" ceiling pins) are NOT this card's. They flip to `@ts-expect-error` in objectui#8347's removal commit.\n\n**Re-derive it:** apply objectui#8347's P1 mutation in a worktree (delete the six-line docblock and signature on `BaseSchema` only), rebuild `@object-ui/types`, and run this package's type-check programs un-chained (`tsc --noEmit`, then `tsc -p tsconfig.test.json`). Capture the exit codes before any pipe.\n\n## What each key owes (the per-key rule; measure each key, ⛔ none is decided here)\n\nThe objectui#8648–#8655 family's rule, with `协议为基准`:\n1. **The installed `@objectstack/spec` row for that node type declares the key.** Declare it on the TypeScript type by reference to the spec.\n   - The zod mirror is objectui#6152's face. If the declaration opens a `zod-mirror-parity` `UnmirroredDeclared` row, the PR books it there; it does not widen the mirror on its own.\n2. **The spec does not declare it, and a real producer authors it** (catalog, examples, docs, a server-shipped document). That is a contract fork: report it with the four-axis frame. ⛔ Never declare against the spec.\n3. **The spec does not declare it, and nothing authors it.** Retire the read, and the producer-side remedy follows AGENTS.md #0.1.\n4. **It is a host-supplied value, not authored metadata.** Move it to a typed React prop or the host channel, as objectui#9342 did for `onCardMove`. ⛔ Never declare it on the authoring face.\n5. **An existing ruling says never-declare** (objectui#5091, objectui#5097). Keep a deliberate, documented cast.\n\n`maxLength` on `input-otp` is the near-miss class (TS2551): measure whether the declared spelling or the read spelling is the spec's before choosing which one moves.\n\n## Acceptance (executable)\n\n- **With the signature present:** the package's type-check and tests are green, and `main` stays green. Every edit here compiles WITH the signature, so this card lands independently.\n- **With objectui#8347's P1 mutation applied locally:** this package's programs report 0 errors, except the ceiling-pin probe keys, which the PR body lists by file as objectui#8347's flips.\n- **Docs:** the docs and doc snippets for these node types agree with each verdict (AGENTS.md #2).\n\n## Out of scope ⛔\n\n- The removal itself, the compile-fail pin, and the AGENTS.md §5 #0.1 amendment. They are objectui#8347's, and that card lands last.\n- `dataSource` reaching components through SchemaRenderer's prop spread (objectui#11070), and the zod strict face (objectui#8345, objectui#11070).\n\n## Dedupe\n\nGrepped locally over every objectui issue updated since 2026-09-01: 2,209 issues, open and closed, with bodies, read 2026-10-01T06:35Z.\n- `showClose|shouldScaleBackground`: 1 hit, objectui#8318 (closed; about `@default` JSDoc on 16 de-defaulted keys, a different defect).\n- `` `modal` `` with `popover|sheet|dropdown`: 3 hits, objectui#9299, #9113 and #11015 (all closed; about overlay `navigation.mode`, a different key).\n- `input-otp|InputOTP` with `maxLength`: 0 hits.\n- Siblings and family: objectui#8648 (closed, `UIActionSchema`'s four keys), objectui#11070 (open, strict-face refusals; it shares no key with this card), and objectui#8347 (the parent).\n\nDedupe words: BaseSchema index signature removal components un-cast read · drawer showClose shouldScaleBackground undeclared · overlay modal undeclared popover sheet dropdown-menu · input-otp maxLength near spelling"

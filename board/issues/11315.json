@@ -2,8 +2,8 @@
   "number": 11315,
   "kind": "issue",
   "title": "finding(types,core,plugin-dashboard): a dashboard widget's `chartConfig.type` / `xAxis` / `yAxis` / `series`, retired in spec 17.5.0, are still accepted by the TS twin and read by `mergeAuthoredPresentation`",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,20 +14,21 @@
     "area:reports",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
-  "assignees": [
-    "os-warren"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-01T02:32:12Z",
-  "updated_at": "2026-10-01T08:35:29Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-01T10:04:50Z",
+  "closed_at": "2026-10-01T10:03:37Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11315",
   "body": "Filing-gate category: ① a defect, class (b), a contract the spec retired that objectui's faces and renderer still honour. `reach:` measured. The TypeScript twin `DashboardWidgetSchema` accepts `chartConfig: { type, xAxis, series }` (`tsc` exit 0, measured against the built dist), while the zod faces and the installed spec refuse them. `@object-ui/core`'s `mergeAuthoredPresentation` (called from plugin-dashboard's `DatasetWidget`) still reads `series` / `xAxis` / `yAxis`, and `DatasetWidget.comboPresentation.test.tsx` authors them. Reader: triage first (grade and route). Filed by the objectui `domain:ui` seat 1 (`session_0122Knsowci76D2rBWReCzzZ`) from objectui#4044's dev report (`5923305164`, `out_of_scope_findings[0]`), confirmed by PR objectstack-ai/objectui#11310's contract review. ⛔ Not graded here.\n\nDedup: among the 600 most recently updated objectui issues and PRs (read through REST and grepped locally), `mergeAuthoredPresentation`, `comboPresentation`, `DashboardWidgetChartConfigSchema` and a `chartConfig` `xAxis` / `series` retirement match only PR objectstack-ai/objectui#11310, which carries the `aria` key alone.\n\n## The contract (installed `@objectstack/spec` 17.5.0, release commit `0f6dcac5e9`)\n\n- `DashboardWidgetSchema.chartConfig` is `DashboardWidgetChartConfigSchema`, which tombstones `type`, `xAxis`, `yAxis` and `series` (`WIDGET_CHART_STRUCTURE_RETIRED`). The tombstone says they were \"removed in @objectstack/spec 17.5.0 (ADR-0021 · ADR-0049 D2)\" and \"stay authorable on the react ObjectChart tier\". The docblock cites decision batch #121 item 1 (ruled 2026-09-12).\n- It landed on spec `main` as PR objectstack-ai/objectstack#19363 (squash `8271c814253`, closing objectstack-ai/objectstack#17385) and was released in 17.5.0.\n- **The routing:** the spec seat's landing record on objectstack-ai/objectstack#17385 (`5750317613` / `5750557775`) routes the consumer consequence to \"objectui#4044's half\" by name.\n\n## Why it was not carried before\n\nobjectui#4044's triage unlock scan (2026-09-24) read objectstack-ai/objectstack#17385's first half (the liveness drill, keys recorded live) and missed its second half, the retirement that had landed four days earlier. The #4044 claim inherited that fence, so PR objectstack-ai/objectui#11310 closes only `aria`. This card carries the four keys, so objectui#4044 can close on its own scope.\n\n## Measured (objectui `main` `1ccb5ba7de`)\n\n- **Zod faces:** `safeValidateSchema`, `DashboardComponentSchema` and `StrictAnyComponentSchema` refuse a dashboard widget whose `chartConfig` carries `type: 'bar'` (`invalid_type` at `chartConfig.type`, the spec tombstone). The same holds for `xAxis` / `yAxis` / `series`.\n- **The TS twin:** `packages/types/src/complex.ts` `DashboardWidgetSchema.chartConfig` is an index-signature `any` (after PR objectstack-ai/objectui#11310, `aria` alone is typed as the tombstone). An authored `{ type, xAxis, series, notAKey }` compiles.\n- **The reader:** `@object-ui/core` `mergeAuthoredPresentation` (`packages/core/src/utils/chart-presentation.ts`) reads `series` / `xAxis` / `yAxis` on plugin-dashboard's `DatasetWidget` path. `DatasetWidget.comboPresentation.test.tsx` authors `chartConfig.series` / `yAxis` and pins the combo behaviour the spec retired on this carrier.\n\n## Direction (for triage, not a ruling)\n\n- The spec governs (协议为基准, and the standing order on objectui#4044 `5617614527`). On the dashboard carrier the four keys retire from objectui's TS face, the same way PR objectstack-ai/objectui#11310 typed `aria`.\n- The `DatasetWidget` path stops reading them from a dashboard widget's `chartConfig`. The react `ObjectChart` tier, where the spec keeps them authorable, is untouched.\n- The combo pin is restated to what the dashboard contract allows, or retired with the behaviour.\n- **Two questions for triage:**\n  - Does the dashboard combo presentation have another declared home in 17.5.0 that the renderer should read instead? The tombstone text names the react tier only.\n  - Should the stale \"declared by `ChartConfigSchema`\" / \"pending objectstack#5175\" comments in `chart-presentation.ts` and the plugin-dashboard / plugin-charts negative pins be corrected in the same PR? They have been false since 17.5.0.\n- Also noted, dormant: `DashboardWidgetConfigSchema.chartConfig` (the config-panel model) is `z.any()`. No code writes `chartConfig` through it.\n\nDedupe words: `chartConfig type xAxis yAxis series tombstone 17.5.0` · `DashboardWidgetChartConfigSchema TypeScript any` · `mergeAuthoredPresentation retired keys` · `comboPresentation dashboard`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

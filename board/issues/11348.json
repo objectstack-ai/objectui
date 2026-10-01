@@ -2,8 +2,8 @@
   "number": 11348,
   "kind": "issue",
   "title": "spec(plugin-dashboard,plugin-designer): twenty un-cast reads of undeclared widget keys block objectui#8347's index-signature removal (`layout`, `title`, `colorVariant`, `filter`, `pageSize`)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -12,18 +12,23 @@
   },
   "labels": [
     "domain:spec",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-litant"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-01T06:41:41Z",
-  "updated_at": "2026-10-01T06:41:41Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-01T13:53:47Z",
+  "closed_at": "2026-10-01T13:52:04Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 0,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11348",
   "body": "Filing-gate category: ① — named landing points: the un-cast reads that objectui#8347's premise P1 enumerated, ordered by the objectui#7927 ruling's step 1. A derived child of in-flight objectui#8347, filed with the parent's `domain:spec` and `priority:p2`.\nReader: the `domain:spec @ objectui` seat (objectui#10217) dispatches it, after PR objectui#11333 lands (see Serial below), and an os-dev executes it.\nParent: objectui#8347. That card stays `pm:blocked` until this card and its siblings land.\n\n## Why this card exists\n\nThe objectui#7927 ruling (`5565351677`, director seat, decision batch #68; the maintainer's 「同意」) orders the removal:\n- **Step 1, verbatim:** 「Census first, delete never before: every read that rides the passthrough is enumerated and either declared on its schema or retired」.\n- **Unit:** objectui#8327's sequencing ruling `5587717012` (Q2 = A) sets one card per reader package. These two packages share one widget type, so they are one unit.\n\nobjectui#8347's P1 measured the un-cast population that the cast-aware objectui#8327 census could not see (report `5926022178`):\n- **Totals:** 303 errors once `BaseSchema`'s `[key: string]: any` is deleted alone.\n- **Control:** 0 errors at the same base with the signature present.\n- **These packages:** `@object-ui/plugin-dashboard` carries 19 errors in source and 10 in tests; `@object-ui/plugin-designer` carries 1 and 5.\n\n## The population (`origin/main` `5262f7dd3`; files and keys, no line addresses)\n\n**Shipped source: 20 errors.**\n\n| file | keys | where the key is missing |\n|---|---|---|\n| `plugin-dashboard/src/DashboardGridLayout.tsx` | `layout` ×4, `title` | the `DashboardWidgetSchema \\| DashboardWidgetSlotComponentSchema` union: the key is missing on one arm |\n| `plugin-dashboard/src/DashboardRenderer.tsx` | `layout` ×4, `filter` | `layout` as above; `filter` is read at `BaseSchema` |\n| `plugin-dashboard/src/DashboardWithConfig.tsx` | `layout` ×4, `title` ×3, `colorVariant` | the same widget union |\n| `plugin-dashboard/src/DrillDownDrawer.tsx` | `pageSize` | an object literal the renderer itself authors, typed `ObjectDataTableSchema` |\n| `plugin-designer/src/DashboardEditor.tsx` | `title` | the same widget union |\n\nobjectui#8347's body names the one-arm class (\"(b)/(a): union `schema`; the key is declared on exactly ONE arm — a per-arm decision\"). Most of this card is that class.\n\n**Tests: 15 errors.**\n- plugin-dashboard has 10 in 5 files: `title` ×3, `layout`, plus the probe keys `zzUndeclared7353` ×4 and `bogusKey` ×2.\n- plugin-designer has 5 in 2 files, all `title`.\n- The probe keys are ceiling pins (\"an UNKNOWN key still compiles\"). They are NOT this card's: they flip in objectui#8347's removal commit.\n\n**Re-derive it:** apply objectui#8347's P1 mutation in a worktree, rebuild `@object-ui/types`, and run both packages' type-check programs un-chained. Capture the exit codes before any pipe.\n\n## What each key owes (measure each, ⛔ none is decided here)\n\nThe objectui#8648–#8655 family's rule, with `协议为基准`:\n1. **The installed `@objectstack/spec` dashboard widget row declares the key.** Declare it on the arm that lacks it, by reference. The zod mirror's drift goes to objectui#6152's `zod-mirror-parity` ledger, ⛔ not widened here.\n2. **The spec does not declare it, and a real producer authors it.** That is a contract fork: report it with the four-axis frame.\n3. **The spec does not declare it, and nothing authors it.** Retire the read.\n4. **It is host-supplied or renderer state** (for example a `filter` the dashboard computes, not one an author writes). Use a typed prop or channel, ⛔ not a declaration on the authoring face.\n5. **An existing ruling binds.** Read it first (objectui#5097's host composition), and then the cast stays deliberate and documented.\n\nFor `pageSize` on the drill-down drawer's own literal: measure whether `ObjectDataTableSchema`'s spec row carries it before choosing between the declaration and the renderer's literal.\n\n## Acceptance (executable)\n\n- **With the signature present:** both packages' type-check and tests are green, and `main` stays green. Every edit here compiles WITH the signature.\n- **With objectui#8347's P1 mutation applied locally:** both packages' programs report 0 errors, except the ceiling-pin probe keys, which the PR body lists by file as objectui#8347's flips.\n- **Docs:** `content/docs/plugins/plugin-dashboard.mdx` and the README agree with each verdict (AGENTS.md #2).\n\n## Serial\n\n- **PR objectui#11333** (objectui#11070 round 6, `domain:devx` seat 2) edits `plugin-dashboard.mdx`, the README, the catalog dashboard documents and `DashboardGridLayout.legacyRetired.test.tsx`. This card dispatches after it lands.\n- **objectui#11228** (`pm:blocked`, the inline dashboard dial) is a different defect on the zod strict face. Read it before declaring anything that face also judges.\n\n## Out of scope ⛔\n\n- The removal, the compile-fail pin, and AGENTS.md §5 #0.1: those are objectui#8347's.\n- `widgets[].options` / `widgets[].component` keys (objectui#11070), and the zod strict face (objectui#8345, objectui#11070, objectui#11228).\n\n## Dedupe\n\nGrepped locally over every objectui issue updated since 2026-09-01: 2,209 issues, open and closed, with bodies, read 2026-10-01T06:35Z.\n- `colorVariant`: 0 hits.\n- `DashboardGridLayout|DashboardWithConfig` with `layout|title|undeclared`: 4 hits.\n  - objectui#9172 (closed: the legend has no series label).\n  - objectui#7151 (closed: the legacy-retired fixture).\n  - objectui#10528 (closed: editable-grid table widgets).\n  - objectui#11070 (open: the `options` keys on the strict face).\n  None is this defect.\n- Family: objectui#8347 (the parent), objectui#8648–#8655 (closed; none covers a dashboard reader).\n\nDedupe words: BaseSchema index signature removal dashboard un-cast read · DashboardWidgetSchema one-arm layout title · colorVariant undeclared widget · DrillDownDrawer pageSize literal"

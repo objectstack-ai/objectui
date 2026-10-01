@@ -371,13 +371,17 @@ describe('objectui validate — a page built from ADR-0080 public blocks (object
   it('validates a page with the taught `action:button` node (objectui#10872 batch 4)', async () => {
     // The node the quick-start's "Add Actions" section teaches — the one
     // AGENTS.md #4 and the handler-key refusals' own remedy point at — read
-    // from the page that teaches it, beside a `page:header`.
+    // from the page that teaches it, beside a `page:header`. Since
+    // objectui#11183 the page writes it in the spec's spelling, the block's
+    // props in `properties`, so this row passes on the strict face as well.
     const quickStart = readFileSync(QUICK_START, 'utf8');
     const fence = /```json\n([\s\S]*?)\n```/.exec(quickStart.slice(quickStart.indexOf('### Add Actions')));
     expect(fence, 'no ```json fence under "### Add Actions" in the quick-start').not.toBeNull();
     const taught = JSON.parse((fence as RegExpExecArray)[1]);
-    // Lit control on the extraction: it is the taught node.
+    // Lit control on the extraction: it is the taught node, in the bag spelling.
     expect(taught.type).toBe('action:button');
+    expect(taught.properties?.actionType).toBe('url');
+    expect(taught).not.toHaveProperty('actionType');
     const page = {
       type: 'page',
       title: 'Users',

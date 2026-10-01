@@ -89,6 +89,11 @@ object, and the server rejects comment writes against it with
 
 ## Example: customize only the header
 
+The `header` slot takes one `page:header` node, and its `properties` are the
+keys `PageHeaderProps` declares. The
+[Page Header reference](/docs/layout/page-header) lists every one; the shape is
+closed, so a key it does not declare is refused by name.
+
 ```ts
 import type { Page } from '@objectstack/spec/ui';
 
@@ -106,8 +111,6 @@ export const AccountDetailPage: Page = {
       properties: {
         title: '{name}',
         subtitle: '{industry} · {type}',
-        eyebrow: 'ACCOUNT',
-        icon: 'building-2',
         breadcrumb: true,
       },
     },

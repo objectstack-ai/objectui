@@ -43,7 +43,7 @@ import {
   I18nProvider,
   isSpecTranslationData,
   transformSpecTranslations,
-  useObjectLabel,
+  useObjectTranslation,
 } from '@object-ui/i18n';
 import { useNavTargetLabel } from '../../hooks/useNavTargetLabel';
 import { buildAppSkeleton } from './skeletons';
@@ -88,7 +88,7 @@ function i18nIn(language: string) {
 
 /** The sidebar surface, wired the way `UnifiedSidebar` wires `NavigationRenderer`. */
 function Sidebar({ items }: { items: NavigationItem[] }) {
-  const { objectLabel, dashboardLabel, viewLabel } = useObjectLabel();
+  const { language } = useObjectTranslation();
   const resolveTargetLabel = useNavTargetLabel();
   return (
     <SidebarProvider defaultOpen>
@@ -96,10 +96,8 @@ function Sidebar({ items }: { items: NavigationItem[] }) {
         <NavigationRenderer
           items={items}
           basePath="/apps/acme"
-          resolveObjectLabel={(objectName, fallback) => objectLabel({ name: objectName, label: fallback })}
-          resolveDashboardLabel={(dashboardName, fallback) => dashboardLabel({ name: dashboardName, label: fallback })}
-          resolveViewLabel={(objectName, viewName, fallback) => viewLabel(objectName, viewName, fallback)}
           resolveTargetLabel={resolveTargetLabel}
+          locale={language}
         />
       </nav>
     </SidebarProvider>

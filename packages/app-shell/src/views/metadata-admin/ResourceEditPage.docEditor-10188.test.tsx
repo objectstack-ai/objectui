@@ -31,6 +31,7 @@ import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { z } from 'zod';
 import { ComponentRegistry } from '@object-ui/core';
 import { DocSchema } from '@objectstack/spec/system';
+import { MetadataClient, type MetadataError } from '@object-ui/data-objectstack';
 
 type SaveOpts = { force?: boolean; mode?: string; packageId?: string };
 
@@ -47,6 +48,24 @@ const MARKDOWN = '# Getting started\n\n- one\n- two\n\n[the portal](https://exam
 
 /** What the last accepted save stored — the "server" the reload reads back. */
 let stored: Record<string, unknown> | null = null;
+
+/** The error `MetadataClient` throws for a refused save, parsed from the wire body. */
+async function parsedRefusal(status: number, wire: unknown): Promise<MetadataError> {
+  const client = new MetadataClient({
+    baseUrl: 'http://localhost:3000',
+    fetch: (async () =>
+      new Response(JSON.stringify(wire), {
+        status,
+        headers: { 'content-type': 'application/json' },
+      })) as unknown as typeof fetch,
+  });
+  try {
+    await client.save('doc', 'getting_started_guide', {});
+  } catch (e) {
+    return e as MetadataError;
+  }
+  throw new Error('the stub transport accepted the save: there is no refusal to hand the page');
+}
 
 const mockClient = {
   list: vi.fn(async (type: string): Promise<unknown[]> => (type === 'book' ? [BOOK] : [])),
@@ -224,16 +243,17 @@ describe('MetadataResourceEditPage — `doc` is authored through the one edit fl
     const message =
       'Unrecognized key(s) on this doc: `title`. Did you mean `title` → `label`? Until this shape was closed, '
       + 'these were dropped silently — the doc still registered, just without whatever the key was meant to configure.';
+    // The wire body goes through the REAL client's error parser, so the error
+    // the page catches is the one production builds from that body — a
+    // hand-assembled error carried `body.issues` and no parsed `issues`, a
+    // shape no transport produces (objectui#11379).
+    const refused = await parsedRefusal(422, {
+      error: 'doc/getting_started_guide failed spec validation: 1 issue — <root> [unrecognized_keys]',
+      code: 'INVALID_METADATA',
+      issues: [{ path: '', message, code: 'unrecognized_keys' }],
+    });
     mockClient.save.mockImplementationOnce(async () => {
-      throw Object.assign(new Error('doc/getting_started_guide failed spec validation: 1 issue — <root> [unrecognized_keys]'), {
-        status: 422,
-        code: 'INVALID_METADATA',
-        body: {
-          error: 'doc/getting_started_guide failed spec validation: 1 issue — <root> [unrecognized_keys]',
-          code: 'INVALID_METADATA',
-          issues: [{ path: '', message, code: 'unrecognized_keys' }],
-        },
-      });
+      throw refused;
     });
 
     renderCreate();

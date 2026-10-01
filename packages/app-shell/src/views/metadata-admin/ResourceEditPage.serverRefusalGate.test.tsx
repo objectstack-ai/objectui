@@ -456,7 +456,7 @@ describe('MetadataResourceEditPage — a refusal is read off the parsed error on
       // The banner is the single-issue line: the field's label, then the
       // server's own prescription — not a headline, and never `String(object)`.
       expect(await screen.findByText(new RegExp(`${FIELD_TRAIL}: ${ISSUE_MESSAGE}$`))).toBeInTheDocument();
-      expect(screen.queryByText(/\[object Object\]/)).toBeNull();
+      expect(screen.queryAllByText(/\[object Object\]/)).toHaveLength(0);
     },
     20000,
   );

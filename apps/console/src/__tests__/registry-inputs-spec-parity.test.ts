@@ -2439,11 +2439,14 @@ const MULTI_KIND_MEMBER_CONTRACTS: Record<string, string> = {
 // (the shape this card's own dispatch names, over an arbitrary four). Neither
 // key needed `NO_READ_SITE_TO_PIN`: `actionNames` drives a real
 // `useMetadataItem` lookup against the object's own `actions`, and
-// `requiredPermissions` is a block-level gate (`required.every((p) =>
-// perms.can(objectName, p))`) that hides the whole bar before anything is
-// drawn — a DIFFERENT mechanism from an `ActionDef`'s own per-action field of
-// the same name, which a pre-existing fixture already exercised without
-// touching this key at all. Measured over this file's own ledger, before and
+// `requiredPermissions` is a block-level gate that puts an
+// insufficient-permissions notice in place of the whole bar before any action
+// is drawn. It reads the capability set (`perms.hasCapabilities(required)`)
+// since objectui#10058; slice 4 found it reading `perms.can(objectName, p)`
+// (sentence corrected by objectui#10224). It is a DIFFERENT mechanism from an
+// `ActionDef`'s own per-action field of the same name, which a pre-existing
+// fixture already exercised without touching this key at all. Measured over
+// this file's own ledger, before and
 // after: 90 array/object-armed inputs, 40 pinned, 50 exempt -> 90, 42 pinned,
 // 48 exempt, and `MEMBER_PIN_EXEMPTION_CEILING` follows 50 -> 48 in the same
 // commit. One of the two pins PROMOTES a pre-existing file
@@ -3036,7 +3039,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'record:quick_actions.requiredPermissions': {
     file: 'packages/plugin-detail/src/renderers/__tests__/record-quick-actions.requiredPermissions-gate.test.tsx',
-    pins: 'The BLOCK-LEVEL gate (`required.every((p) => perms.can(objectName, p))`) that hides the whole bar before any action is drawn — distinct from an `ActionDef`\'s own per-action `requiredPermissions`, which `record-quick-actions.declared-action-ids-7182.test.tsx`\'s `gated` fixture already covers. No key at all: the bar renders on the (empty) grant set, so the gate is provably driven by the key\'s PRESENCE. A single held permission gates as expected, and the discriminating row is a PARTIAL grant on a two-entry array — gated only when read as `.every` over the WHOLE array rather than its first element — with the all-granted case as that row\'s own positive control. New file: no existing test drove `schema.requiredPermissions` itself, only the unrelated per-action field of the same name (objectui#8071).',
+    pins: 'The BLOCK-LEVEL ADR-0066 capability gate, read through `perms.hasCapabilities(required)` (objectui#10058) — distinct from an `ActionDef`\'s own per-action `requiredPermissions`, which `record-quick-actions.declared-action-ids-7182.test.tsx`\'s `gated` fixture already covers. Members are CAPABILITY names and the bar needs ALL of them, driven through the real renderer under a REAL stock `MePermissionsProvider`: an unheld capability and an unrecognised one each put the insufficient-permissions notice in place of the whole bar with no action drawn, a held one renders the bar, an EMPTY array and an ABSENT key are no gate at all, and the discriminating row is a PARTIAL grant on a two-entry array — gated only when the members are read as `.every` over the WHOLE array rather than its first element — with the all-granted case as that row\'s own positive control. Discriminators pin that a member is a capability and not an object action (`allowRead` on the object does not open the gate, a held capability opens it with `allowRead: false`, the enum member `manage` is gated rather than resolved to the read bit, and `read` / `update` are gated despite `allowRead` / `allowEdit`), a detector pins that the object-permission path is never asked about a member, and the gate holds with no `objectName` in the record context. A client that cannot resolve capabilities fails open: the role-based `PermissionProvider`, no provider at all, and a stock provider whose backend omits `systemPermissions`. The same file pins the registration\'s description as the installed spec\'s shared record-block describe, verbatim, and as the text the three sibling record blocks publish (objectui#10224). New file at objectui#8071 slice 4: no existing test drove `schema.requiredPermissions` itself, only the unrelated per-action field of the same name.',
   },
   'record:related_list.actions': {
     file: 'packages/plugin-detail/src/__tests__/RecordRelatedListRenderer.authoredActions-11163.test.tsx',

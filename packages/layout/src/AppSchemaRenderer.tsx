@@ -49,6 +49,7 @@ import {
   resolveHref,
   resolveIcon,
   resolveNavItemLabel,
+  type NavigationVisibilityOptions,
   type VisibilityEvaluator,
   type PermissionChecker,
   type CapabilityChecker,
@@ -271,19 +272,34 @@ function AreaSwitcher({
 function MobileBottomNav({
   items,
   basePath,
+  guards,
+  onAction,
 }: {
   items: NavigationItem[];
   basePath: string;
+  /** The guard inputs the sidebar and the area derivation get (objectui#11362). */
+  guards: NavigationVisibilityOptions;
+  onAction?: (item: NavigationItem) => void;
 }) {
   const location = useLocation();
-  // Show up to 5 non-group leaf items. Flatten group children so apps that
+  // Show up to 5 entries the sidebar draws. Flatten group children so apps that
   // organise navigation into groups (e.g. Setup → Overview / Administration /
   // …) still surface real links in the mobile bottom nav.
   // Separators are skipped, so what comes back is entries only — each carries
   // the `label` the bottom nav draws (objectui#10867).
+  //
+  // objectui#11362: a tab is drawn only when its sidebar row is. Each node asks
+  // `hasVisibleNavigationItems` about itself alone, which is the sidebar's own
+  // per-node answer: `passesNavItemGuards` (`visible`, `requiredPermissions`,
+  // the capability gates, a `doc` entry's target), then a group survives only
+  // through a visible child and an `action` entry only when `onAction` is
+  // wired. A gated group therefore takes its children with it, as it does in
+  // the sidebar, and the guard runs before the five-tab cap, so a hidden entry
+  // never takes a slot. ⛔ No copy of the guard here.
   const collectLeaves = (list: NavigationItem[]): NavigationEntryItem[] => {
     const out: NavigationEntryItem[] = [];
     for (const item of list) {
+      if (!hasVisibleNavigationItems([item], guards)) continue;
       if (item.type === 'separator') continue;
       if (item.type === 'group') {
         out.push(...collectLeaves(item.children || []));
@@ -329,6 +345,18 @@ function MobileBottomNav({
             <span className="text-[10px] truncate max-w-[60px]">{resolveNavItemLabel(item)}</span>
           </>
         );
+
+        // An `action` entry runs, it does not navigate: the sidebar draws it as
+        // a button that hands the whole item to `onAction`, and so does the bar
+        // (objectui#11362). `collectLeaves` keeps one only when `onAction` is
+        // wired; its `resolveHref` answer is `#`, a dead tab.
+        if (item.type === 'action') {
+          return (
+            <button key={item.id} type="button" onClick={() => onAction?.(item)} className={className}>
+              {content}
+            </button>
+          );
+        }
 
         // An `external` answer opens in a new tab, the way the sidebar draws it.
         return external ? (
@@ -558,15 +586,20 @@ export function AppSchemaRenderer({
   // restores the "fully gated area disappears" UX without any authorable key.
   // The active area is elected among the VISIBLE areas only, so the user is
   // never landed in — or stranded on — an area that renders nothing.
+  //
+  // The mobile tab bar reads this same object (objectui#11362), built from the
+  // arguments `InternalSidebar` hands `NavigationRenderer`, so the area list,
+  // the sidebar and the bar judge an entry by the same inputs.
+  const navGuards: NavigationVisibilityOptions = {
+    evaluateVisibility: evalVis,
+    checkPermission: checkPerm,
+    checkCapability: checkCap,
+    checkDocTarget,
+    hasActionHandler: !!onAction,
+  };
   const areas = schema.areas ?? [];
   const visibleAreas = areas.filter((area) =>
-    hasVisibleNavigationItems(area.navigation, {
-      evaluateVisibility: evalVis,
-      checkPermission: checkPerm,
-      checkCapability: checkCap,
-      checkDocTarget,
-      hasActionHandler: !!onAction,
-    }),
+    hasVisibleNavigationItems(area.navigation, navGuards),
   );
   const [activeAreaId, setActiveAreaId] = useState<string | null>(
     () => visibleAreas.length > 0 ? visibleAreas[0].id : null,
@@ -640,7 +673,12 @@ export function AppSchemaRenderer({
         {children}
       </AppShell>
       {showBottomNav && (
-        <MobileBottomNav items={resolvedNavigation} basePath={basePath} />
+        <MobileBottomNav
+          items={resolvedNavigation}
+          basePath={basePath}
+          guards={navGuards}
+          onAction={onAction}
+        />
       )}
     </>
   );

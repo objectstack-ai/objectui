@@ -229,22 +229,24 @@ no second copy.
 
 ## Plugin integration in page schemas
 
-When pages need heavy widgets (grids, forms, kanbans, charts), import the plugin package and ensure its components are registered before rendering. Plugin
-widgets read their configuration off the node exactly like the built-in
-renderers do (`schema.objectName`, `schema.columns`, `schema.fields`,
-`schema.gantt`) — the `props` envelope is not read here either.
+When pages need heavy widgets (grids, forms, kanbans, charts), import the plugin package and ensure its components are registered before rendering. An
+`object-grid`, `object-form` or `object-gantt` takes its props in the spec's
+`properties` bag, and `objectui validate` refuses the flat spelling by name;
+`object-kanban` declares its keys on the node. The `props` envelope is not read here either.
 
-**Grid plugin example:**
+**Grid plugin example** — `bind` is a node key, so it stays beside the bag:
 <!-- os:check -->
 ```json
 {
   "type": "object-grid",
-  "objectName": "products",
-  "columns": [
-    { "field": "name", "label": "Name", "type": "text" },
-    { "field": "price", "label": "Price", "type": "currency" },
-    { "field": "status", "label": "Status", "type": "select" }
-  ],
+  "properties": {
+    "objectName": "products",
+    "columns": [
+      { "field": "name", "label": "Name", "type": "text" },
+      { "field": "price", "label": "Price", "type": "currency" },
+      { "field": "status", "label": "Status", "type": "select" }
+    ]
+  },
   "bind": "products"
 }
 ```
@@ -255,8 +257,7 @@ renderers do (`schema.objectName`, `schema.columns`, `schema.fields`,
 > names the field a form input writes. A grid column written as `{ "name": ... }`
 > names no field, so `ObjectGrid` drops it.
 
-**Form plugin example** — an `object-form` takes its props in the spec's `properties`
-bag, and `objectui validate` refuses the flat spelling by name:
+**Form plugin example:**
 <!-- os:check -->
 ```json
 {
@@ -288,11 +289,13 @@ bag, and `objectui validate` refuses the flat spelling by name:
 ```json
 {
   "type": "object-gantt",
-  "objectName": "project_task",
-  "gantt": {
-    "titleField": "name",
-    "startDateField": "start_date",
-    "endDateField": "end_date"
+  "properties": {
+    "objectName": "project_task",
+    "gantt": {
+      "titleField": "name",
+      "startDateField": "start_date",
+      "endDateField": "end_date"
+    }
   }
 }
 ```
@@ -301,12 +304,8 @@ Those three `gantt` keys are the required ones; every other option — the tree,
 dependency, baseline, resource-view, quick-filter, working-calendar and
 read-only surfaces — is optional and documented in
 [`@object-ui/plugin-gantt`'s README](https://github.com/objectstack-ai/objectui/blob/main/packages/plugin-gantt/README.md).
-The same configuration can also be written as flat `startDateField` /
-`endDateField` / ... keys **on the node** — never under `props`, which no
-`ui:*` renderer reads. That flat spelling is the internal ObjectView / ListView
-flatten product: it is taken only when there is no `gantt` block, and a node
-carrying both renders the block and warns about the ignored top-level keys.
-Author the `gantt` block.
+A flat `startDateField` / `endDateField` / `titleField` on the node is refused
+by name; the refusal points at `properties.gantt.KEY`, the block's one home.
 
 Import plugins in your app entry point to trigger registration:
 <!-- os:check -->

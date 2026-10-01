@@ -92,15 +92,21 @@ const BASE_BODY = {
 /**
  * A document that ALREADY stores a field named `__proto__`, written with a
  * computed key so it is an own property (see the header note). `JSON.stringify`
- * in the fetch double emits it as `{"__proto__": …}`, which is what a
- * spec-parsed server would send for this spec-legal field name.
+ * in the fetch double emits it as `{"__proto__": …}`, which is what a server
+ * sends for a document stored while the spec still accepted the name (through
+ * `@objectstack/spec` 17.4.0). Since 17.5.0 the spec refuses it as a `fields`
+ * key (`describe('the instrument')` below), so the server refuses a save that
+ * carries it, at `fields.__proto__`; a document stored before then is still
+ * served with it, and that is the case this fixture models. This file's fetch
+ * double accepts every PUT: the cases here measure the client's writer, not
+ * the server's gate.
  */
 const PROTO_BODY = {
   name: 'probe_widget',
   label: 'Widget',
   fields: {
     name: { type: 'text', label: 'Name' },
-    ['__proto__']: { type: 'text', label: 'Proto', inlineHelpText: 'Stored under a legal name.' },
+    ['__proto__']: { type: 'text', label: 'Proto', inlineHelpText: 'Stored before the spec refused this name.' },
   },
 };
 
@@ -335,7 +341,7 @@ describe('objectui#6489 · the map the page PUTs is built as own properties', ()
     expect(own(savedFields(), '__proto__')).toMatchObject({
       type: 'text',
       label: 'Renamed',
-      inlineHelpText: 'Stored under a legal name.',
+      inlineHelpText: 'Stored before the spec refused this name.',
     });
   });
 });

@@ -426,10 +426,27 @@ function assertRelationshipTargetPresent(
  * ## Why `Object.fromEntries` and not assignment into a literal
  *
  * `map['__proto__'] = field` does not create a key — it invokes the prototype
- * setter — and `__proto__` is a SPEC-LEGAL field name (the record's key schema
- * is `/^[a-z_][a-z0-9_]*$/`). The assignment form would therefore drop such a
- * field silently, which is this function's whole subject wearing a different
- * spelling. `Object.fromEntries` defines an own property instead.
+ * setter — so a field named `__proto__`, built by assignment, vanishes from the
+ * serialised body: this function's whole subject wearing a different spelling.
+ * The name matches the record's snake_case key rule (`/^[a-z_][a-z0-9_]*$/`),
+ * and through `@objectstack/spec` 17.4.0 the spec accepted the body with that
+ * field and without it alike, so the drop was silent. Since 17.5.0 the spec
+ * REFUSES a `fields` map that carries an own `__proto__` key, by name, at
+ * `fields.__proto__`, because `z.record()` would drop the key from its output
+ * while reporting success. (`constructor` and `prototype` are refused on the
+ * same map too, by a reserved-name rule.)
+ *
+ * That refusal is why the construction is still load-bearing: it can name the
+ * field only if the body still CARRIES the key. Assignment would hand the
+ * server a body that has already lost the field, and the spec accepts what is
+ * left. `Object.fromEntries` defines an own property instead. The version
+ * numbers say WHEN the contract changed, not what is installed today. The
+ * writer's half is re-measured by the "keys a field literally named
+ * `__proto__` instead of silently dropping it" test, and the spec's
+ * `__proto__` verdict by the "keys the record with a snake_case rule" test,
+ * both in `MetadataService.objectPayloadFieldsMap.test.ts`. Nothing in this
+ * package re-measures the `constructor` / `prototype` half; it is a reading of
+ * 17.5.0, recorded on objectui#9787.
  */
 function toFieldsMap(fields: FieldMetadataPayload[]): Record<string, FieldMetadataPayload> {
   const entries: Array<[string, FieldMetadataPayload]> = [];
@@ -536,9 +553,14 @@ function previousFieldsOf(existingObject: Record<string, unknown>): Record<strin
  * The previous entry for `name`, or `undefined` when there is none to carry.
  *
  * `hasOwnProperty` rather than a plain lookup, for the reason {@link toFieldsMap}
- * documents at the other end of the same map: `__proto__` is a SPEC-LEGAL field
- * name, and `previous['__proto__']` reads `Object.prototype` — an inherited
- * object that is not a previous field entry at all.
+ * documents at the other end of the same map: `previous['__proto__']` reads
+ * `Object.prototype` — an inherited object that is not a previous field entry
+ * at all. `__proto__` has not been a legal field name since `@objectstack/spec`
+ * 17.5.0, which refuses it as a `fields` key; but that refusal judges the PUT,
+ * and this lookup runs before it — for whatever name a caller hands
+ * `saveFields`, and over a stored document written before 17.5.0. Re-measured
+ * by the "does not read `Object.prototype` as a previous entry for a field
+ * named `__proto__`" test in `MetadataService.fieldKeyCarryOver.test.ts`.
  */
 function previousFieldEntry(previous: Record<string, unknown>, name: string): Record<string, unknown> | undefined {
   if (!Object.prototype.hasOwnProperty.call(previous, name)) return undefined;

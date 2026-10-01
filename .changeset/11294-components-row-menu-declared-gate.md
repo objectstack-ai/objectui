@@ -1,5 +1,5 @@
 ---
-'@object-ui/components': patch
+'@object-ui/components': minor
 ---
 
 fix(components): a related list's row menu shows an action whose `visible` is blank, as its toolbar does
@@ -25,3 +25,7 @@ definition the rest of the action family asks (objectui#3812):
 `isCustomRowActionVisible` is now exported from `@object-ui/components`, with an
 optional fourth argument for the object's field definitions, so plugin-grid's
 row menu reads this one function instead of keeping a twin.
+
+Widening: `isCustomRowActionVisible(action, row, scope, fields?)` is a new public
+export of `@object-ui/components`; before this release it was reachable only by a
+deep module path that the package's `exports` map does not publish.

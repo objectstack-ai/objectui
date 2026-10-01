@@ -29,7 +29,10 @@
  *   (a) the spec side: the react block publishes `type` and `series` over
  *       `ChartConfigSchema`, whose series arm is `{ name }`;
  *   (b) the showcase node parses, on the mirror and through
- *       `safeValidateSchema` (the `objectui validate` door);
+ *       `safeValidateSchema` (the `objectui validate` door) — at the door in
+ *       the authored spelling, its props in the `properties` bag, since
+ *       objectui#11276 armed the authored node with `ObjectChartBlockSchema`;
+ *       the wrapper's flat node is the mirror's (post-hoist) reading;
  *   (c) the controls: a series entry with neither `name` nor `dataKey`, and a
  *       node that names no chart family, are refused;
  *   (d) both new crossings are the spec's by reference, not look-alikes;
@@ -66,6 +69,16 @@ const SHOWCASE_NODE = {
   specType: 'bar',
   type: 'object-chart',
 } as const;
+
+/**
+ * The same props as an AUTHORED node writes them (objectui#11276): in the
+ * `properties` bag, the binding beside it at node level. The door judges this
+ * spelling; the wrapper's flat node above is what the mirror judges.
+ */
+const SHOWCASE_AUTHORED = (() => {
+  const { type, dataSource, ...props } = SHOWCASE_NODE;
+  return { type, dataSource, properties: props };
+})();
 
 const issuesOf = (doc: unknown) => {
   const r = ObjectChartMirror.safeParse(doc);
@@ -118,7 +131,7 @@ describe('objectui#10770 (b) — the react tier\'s showcase node parses', () => 
   });
 
   it('through `safeValidateSchema`, the parse `objectui validate` runs', () => {
-    const r = safeValidateSchema(SHOWCASE_NODE);
+    const r = safeValidateSchema(SHOWCASE_AUTHORED);
     expect(r.error?.issues ?? []).toEqual([]);
     expect(r.success).toBe(true);
   });

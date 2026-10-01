@@ -126,6 +126,8 @@ const ROWS: ReadonlyArray<readonly [type: string, mirror: Mirror, required: Reco
   ['object-view', ObjectViewMirror as unknown as Mirror, { objectName: 'account' }],
   ['object-gantt', ObjectGanttMirror as unknown as Mirror, { objectName: 'account' }],
   ['object-calendar', ObjectCalendarMirror as unknown as Mirror, { objectName: 'account' }],
+  // As `object-form` above: the authored node's spelling is `AUTHORED_REQUIRED`
+  // below (objectui#11276).
   ['object-chart', ObjectChartMirror as unknown as Mirror, { objectName: 'account', chartType: 'bar' }],
   ['detail-view', DetailViewMirror as unknown as Mirror, { objectName: 'account' }],
   ['email', InputShorthandMirror as unknown as Mirror, {}],
@@ -134,14 +136,15 @@ const ROWS: ReadonlyArray<readonly [type: string, mirror: Mirror, required: Reco
 
 /**
  * The authored spelling of a row's required members, where it differs from the
- * mirror's: an authored `object-form` or `object-map` takes its props in the
- * spec's `properties` bag, and `AnyComponentSchema` refuses them flat
- * (objectui#10859 batches 4 and 5). The mirror rows above keep the post-hoist
- * spelling.
+ * mirror's: an authored `object-form`, `object-map` or `object-chart` takes its
+ * props in the `properties` bag, and `AnyComponentSchema` refuses them flat
+ * (objectui#10859 batches 4 and 5; objectui#11276). The mirror rows above keep
+ * the post-hoist spelling.
  */
 const AUTHORED_REQUIRED: Readonly<Record<string, Record<string, unknown>>> = {
   'object-form': { properties: { objectName: 'account', mode: 'create' } },
   'object-map': { properties: { objectName: 'account' } },
+  'object-chart': { properties: { objectName: 'account', chartType: 'bar' } },
 };
 
 const CHANNELS = ['body', 'children'] as const;

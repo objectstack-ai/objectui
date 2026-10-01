@@ -274,18 +274,24 @@ internal to `@object-ui/components` and is reached through the registry, not by
 import. Importing any of the three from `app-shell` does not resolve.
 
 ```tsx
-import { AppShell, ObjectView, AdapterProvider, MetadataProvider } from '@object-ui/app-shell';
+import { AppShell, AdapterProvider, MetadataProvider } from '@object-ui/app-shell';
 
 <AdapterProvider adapter={myAdapter}>
   <MetadataProvider adapter={myAdapter}>
     <AppShell sidebar={<MySidebar />}>
-      <ObjectView objectName="contact" />
+      {/* your React Router routes — ObjectView mounts on an object route, see below */}
     </AppShell>
   </MetadataProvider>
 </AdapterProvider>
 ```
 
-App-shell is router-agnostic — wire it into React Router / Next.js / TanStack Router yourself.
+App-shell runs under React Router: `react-router-dom` is its peer dependency, and
+`ObjectView` resolves the object and view from the route (the console mounts it on
+`/apps/:appName/:objectName` and `/apps/:appName/:objectName/view/:viewId`), so it
+takes no `objectName` prop. Its props are the exported `ConsoleObjectViewProps` —
+`dataSource`, `objects`, `onEdit`, and the optional `externalRefreshKey`. Copy the
+mount from the "ObjectView" section of `packages/app-shell/README.md`: that block is
+the one `pnpm check:doc-snippets` compiles, and this guide does not restate it.
 
 ### `@object-ui/runner` — universal runtime
 

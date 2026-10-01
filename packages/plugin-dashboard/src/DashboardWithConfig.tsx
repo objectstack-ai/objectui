@@ -94,7 +94,15 @@ export function DashboardWithConfig({
   // field change. This prevents useConfigDraft from resetting the draft.
   const selectedWidgetConfig = React.useMemo(() => {
     if (!selectedWidgetId || !liveSchema.widgets) return null;
-    const widget = liveSchema.widgets.find(
+    // Read through `DashboardWidgetSchema` (objectui#11348). `title`,
+    // `colorVariant` and `layout` below are declared on the widget arm of the
+    // `widgets[]` union only — the spec's `DashboardWidget` row declares all
+    // three — and the component arm (`DashboardWidgetSlotComponentSchema`) is
+    // assignable to that arm (pinned by `@object-ui/types`'
+    // `dashboard-widget-slot-component-arm-7952.test.ts`), so the annotation is
+    // checked by the compiler rather than asserted.
+    const widgets: DashboardWidgetSchema[] = liveSchema.widgets;
+    const widget = widgets.find(
       (w) => (w.id || w.title) === selectedWidgetId,
     );
     if (!widget) return null;
@@ -152,7 +160,9 @@ export function DashboardWithConfig({
         if (!prev.widgets) return prev;
         return {
           ...prev,
-          widgets: prev.widgets.map((w) => {
+          // `DashboardWidgetSchema`, for the reason `selectedWidgetConfig`
+          // states: `title` and `layout` are widget-arm keys (objectui#11348).
+          widgets: prev.widgets.map((w: DashboardWidgetSchema) => {
             if ((w.id || w.title) !== selectedWidgetId) return w;
             if (field === 'layoutW') {
               return { ...w, layout: { ...(w.layout || {}), w: value } as DashboardWidgetSchema['layout'] };

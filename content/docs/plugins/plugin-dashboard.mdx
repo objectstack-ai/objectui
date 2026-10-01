@@ -397,6 +397,24 @@ const dashboard: DashboardComponentSchema = {
 };
 ```
 
+An entry of `widgets[]` is either a widget (`DashboardWidgetSchema`) or a
+component node placed directly in the slot (`DashboardWidgetSlotComponentSchema`).
+The widget keys (`layout`, `title`, `colorVariant`, `filter`, …) are declared on
+the widget arm, which takes them from the spec's `DashboardWidget` row, and on
+no member of the component arm. To read one off `widgets[]`, read it through
+`DashboardWidgetSchema`. The component arm is assignable to that type, so the
+annotation is checked rather than asserted, and the key gets its declared type
+instead of the `any` the component arm's passthrough supplies:
+
+```ts
+import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
+
+declare const dashboard: DashboardComponentSchema;
+
+const widgets: DashboardWidgetSchema[] = dashboard.widgets;
+const widestSpan = Math.max(0, ...widgets.map((w) => w.layout?.w ?? 0));
+```
+
 ## Type-aware list/table widget cells
 
 `type: 'table'` widgets bound to an `objectName` infer the renderer for

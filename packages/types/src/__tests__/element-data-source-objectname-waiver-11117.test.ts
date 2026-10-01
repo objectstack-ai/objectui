@@ -24,8 +24,9 @@
  * already read. This file pins, per arm:
  *
  *   - the binding parses, with no `objectName` and no other rung;
- *   - a node with neither is still refused, at the root, keyed
- *     `RECORD_SOURCE_REQUIRED`;
+ *   - a node with neither is still refused, keyed `RECORD_SOURCE_REQUIRED` —
+ *     at `objectName` on the two arms whose only rung it is, at the root on
+ *     the ladder arms;
  *   - an EMPTY `dataSource.object` supplies nothing — the waiver is "a
  *     non-empty name", as the spec gate's `strName` and the runtime's
  *     `isElementDataSourceConfig` read it, ⛔ not "the key exists";
@@ -65,6 +66,16 @@ const ARMS = [
   ['object-map', ObjectMapSchema],
 ] as const;
 
+/** Where the refusal sits: the one rung on a one-rung arm, the root on a ladder. */
+const REFUSAL_PATH: Record<(typeof ARMS)[number][0], PropertyKey[]> = {
+  'object-grid': ['objectName'],
+  'list-view': ['objectName'],
+  'object-kanban': [],
+  'object-calendar': [],
+  'object-gantt': [],
+  'object-map': [],
+};
+
 type Issue = { code: string; path: PropertyKey[]; params?: { code?: string } };
 type Parsed = { success: boolean; error?: { issues: Issue[] } };
 
@@ -87,13 +98,13 @@ describe('objectui#11117 — the binding is a record source on every gate-wrappe
     expect(r.success, explain(r)).toBe(true);
   });
 
-  it.each(ARMS)('%s: a node with NEITHER is still refused, at the root, keyed RECORD_SOURCE_REQUIRED', (type, member) => {
+  it.each(ARMS)('%s: a node with NEITHER is still refused, keyed RECORD_SOURCE_REQUIRED', (type, member) => {
     const r = member.safeParse({ type }) as Parsed;
     expect(r.success).toBe(false);
     const found = recordSourceIssues(r);
     expect(found, explain(r)).toHaveLength(1);
     expect(found[0].code).toBe('custom');
-    expect(found[0].path).toEqual([]);
+    expect(found[0].path).toEqual(REFUSAL_PATH[type]);
     expect(recordSourceIssues(safeValidateSchema({ type }) as Parsed)).toHaveLength(1);
   });
 
@@ -127,7 +138,7 @@ describe('objectui#11117 — the binding is a record source on every gate-wrappe
     // every other issue on the node; a refinement zod skipped after the
     // `columns` failure would have dropped it.
     const r = ObjectGridSchema.safeParse({ type: 'object-grid', columns: 5 }) as Parsed;
-    expect(issuesOf(r).map((i) => i.path.join('.')), explain(r)).toContain('columns');
+    expect(issuesOf(r).map((i) => i.path.join('.')), explain(r)).toEqual(['columns', 'objectName']);
     expect(recordSourceIssues(r), explain(r)).toHaveLength(1);
   });
 

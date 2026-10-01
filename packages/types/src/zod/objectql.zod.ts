@@ -297,7 +297,7 @@ const ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION =
 const OBJECT_NAME_BINDING_WAIVER_DESCRIPTION =
   'ObjectQL object name — required unless the node\'s `dataSource.object` names the object, which '
   + '`ElementDataSourceGate` lands here before the renderer reads the node. A node with neither is refused '
-  + 'at its root, keyed `RECORD_SOURCE_REQUIRED`.';
+  + 'here, keyed `RECORD_SOURCE_REQUIRED`.';
 
 /**
  * ObjectGrid Schema
@@ -2187,8 +2187,13 @@ export const ObjectMapConfigSchema = z.object({
  * differ (`object-kanban` has `bind` and no `staticData`; `object-grid` and
  * `list-view` have `objectName` alone). What every arm shares is what this
  * function owns: presence as `!== undefined` on the rungs, the binding as the
- * last rung, the root-path issue keyed `RECORD_SOURCE_REQUIRED`, and the
- * message, which names the binding as a remedy beside the rungs.
+ * last rung, the issue keyed `RECORD_SOURCE_REQUIRED`, and the message,
+ * which names the binding as a remedy beside the rungs. The issue sits at the
+ * ROOT when the arm has several rungs (no single key is at fault, as above),
+ * and at the rung itself when it has one — `objectName` on `object-grid` and
+ * `list-view`, the path the required member reported at, so a consumer that
+ * locates the refusal by path (`objectui validate` prints it) still finds it
+ * there.
  *
  * ⚠️ It returns the refinement AND its params, spread into `.superRefine()`,
  * because `when: () => true` is load-bearing: zod skips a refinement once an
@@ -2213,7 +2218,7 @@ function requireRecordSource(
     if (dataSourceSuppliesObject(node)) return;
     ctx.addIssue({
       code: 'custom',
-      path: [],
+      path: rungs.length === 1 ? [rungs[0]] : [],
       params: { code: 'RECORD_SOURCE_REQUIRED' },
       message,
     });

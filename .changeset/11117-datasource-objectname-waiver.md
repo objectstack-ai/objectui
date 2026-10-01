@@ -18,10 +18,10 @@ validates with no `objectName` and no other record source. Nothing that validate
 refused:
 
 - `objectName` alone still validates, an empty one included.
-- A node with neither is still refused, now at the node's root with
-  `params.code = 'RECORD_SOURCE_REQUIRED'` on `object-grid` and `list-view` too (it was an
-  `invalid_type` at `objectName` there). Its message names `dataSource.object` beside the keys the
-  block reads.
+- A node with neither is still refused, with `params.code = 'RECORD_SOURCE_REQUIRED'`: at
+  `objectName` on `object-grid` and `list-view` (a `custom` issue now, where it was an
+  `invalid_type`), and at the node's root on the four ladder blocks, as before. Its message names
+  `dataSource.object` beside the keys the block reads.
 - `dataSource: { object: '' }` supplies nothing, as at runtime, so that node is still refused.
 - A wrong-typed `objectName` beside a binding is still refused at `objectName`.
 

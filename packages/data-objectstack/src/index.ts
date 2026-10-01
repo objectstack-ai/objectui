@@ -7097,6 +7097,10 @@ export { MetadataClient, readSaveAdvisories } from './metadata-client';
 // `getDraft` that produces the envelope, because the unwrap-and-strip is part
 // of that method's contract rather than a detail of any one view.
 export { extractDraftBody } from './draft-envelope';
+// objectui#11302 - the one reader of a failed metadata save, exported beside the
+// `MetadataError.issues` it reads so every surface that saves through this
+// client renders the per-field prescription the same way.
+export { formatMetadataError, formatMetadataIssue } from './metadata-error';
 // objectui#8676 - the object-metadata write invariant, exported so the two DOORS
 // that do not run through `MetadataClient.save` can apply the same one. It is
 // exported for DOORS, not for writers: a writer that calls it by hand is a

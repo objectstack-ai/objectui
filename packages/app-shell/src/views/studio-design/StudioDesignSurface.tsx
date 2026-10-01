@@ -20,7 +20,8 @@ import { useAdapter, SchemaRendererProvider } from '@object-ui/react';
 // The ONE draft-envelope reader (objectui#8181): unwrap AND strip the
 // framework's read decorations in one place. This file used to carry its own
 // copy that did the unwrap and skipped the strip.
-import { extractDraftBody } from '@object-ui/data-objectstack';
+// …and `formatMetadataError`, the one metadata-save error reader (objectui#11302).
+import { extractDraftBody, formatMetadataError } from '@object-ui/data-objectstack';
 import type { FlowRuntimeState as SpecFlowRuntimeState } from '@objectstack/spec/contracts';
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { StudioChatDock, type StudioSurfaceLabel } from './StudioAiCopilot.js';
@@ -102,7 +103,7 @@ import { useNavSelDeepLink } from '../metadata-admin/useNavSelDeepLink.js';
 import { SourcePageEditor } from '../metadata-admin/previews/SourcePageEditor.js';
 import { usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { emitMetadataRefresh, subscribeMetadataRefresh } from '../../assistant/assistantBus.js';
-import { formatMetadataError, formatPublishFailures, type PublishFailure } from './metadataError.js';
+import { formatPublishFailures, type PublishFailure } from './metadataError.js';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 import { loadPackageSurfaces } from './packageSurfaces.js';
 import { useMetadataRefreshNonce } from './useMetadataRefreshNonce.js';

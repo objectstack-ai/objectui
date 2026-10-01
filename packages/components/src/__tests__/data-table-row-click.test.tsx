@@ -25,6 +25,15 @@ import { renderComponent } from './test-utils';
 // cold transform is billed to `hookTimeout`, which is why this carried a raised
 // timeout. See object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
 import '../renderers';
+import type { DataTableSchema } from '@object-ui/types';
+
+/**
+ * Types a literal below as the node it is rather than as the `BaseSchema`
+ * `renderComponent` accepts (objectui#11347): once `BaseSchema`'s index
+ * signature is gone (objectui#8347), a literal checked against `BaseSchema`
+ * may author only `BaseSchema`'s own keys.
+ */
+const dataTableNode = (schema: DataTableSchema): DataTableSchema => schema;
 
 describe('data-table — row click heuristic ignores overlay items', () => {
   const baseSchema = {
@@ -85,12 +94,12 @@ describe('data-table — row click heuristic ignores overlay items', () => {
 
   it('clicking a plain text cell still calls onRowClick (sanity)', () => {
     const onRowClick = vi.fn();
-    const { container } = renderComponent({
+    const { container } = renderComponent(dataTableNode({
       type: 'data-table',
       columns: [{ header: 'Name', accessorKey: 'name' }],
       data: [{ id: '1', name: 'Alice' }],
       onRowClick,
-    });
+    }));
 
     // Click on the name cell text (not a button/link/menu).
     const cell = Array.from(container.querySelectorAll('td')).find((td) =>

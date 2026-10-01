@@ -36,11 +36,19 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
 import { SchemaRenderer } from '@object-ui/react';
-import type { TextSpanSchema } from '@object-ui/types';
+import type { TextSchema, TextSpanSchema } from '@object-ui/types';
 // Registers the renderers at module scope, NOT inside a `beforeAll` — there the
 // cold transform is billed to `hookTimeout`. See
 // object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
 import '../renderers';
+
+/**
+ * Types a child literal below as the `text` node it is (objectui#11347): a
+ * `children` entry is checked against `SchemaNode`, and once `BaseSchema`'s
+ * index signature is gone (objectui#8347) a literal checked against it may
+ * author only `BaseSchema`'s own keys.
+ */
+const textNode = (schema: TextSchema): TextSchema => schema;
 
 /** Renders a `kind:'html'` page — source compiled by the parser, then rendered. */
 function renderHtmlPage(source: string) {
@@ -69,7 +77,7 @@ describe('span renders its canonical child key (#5027)', () => {
     const schema: TextSpanSchema = {
       type: 'span',
       className: 'json-authored',
-      children: [{ type: 'text', content: 'inline from children' }],
+      children: [textNode({ type: 'text', content: 'inline from children' })],
     };
 
     const { container } = render(<SchemaRenderer schema={schema} />);
@@ -83,7 +91,7 @@ describe('span renders its canonical child key (#5027)', () => {
     const schema: TextSpanSchema = {
       type: 'span',
       className: 'single-child',
-      children: { type: 'text', content: 'lone child' },
+      children: textNode({ type: 'text', content: 'lone child' }),
     };
 
     const { container } = render(<SchemaRenderer schema={schema} />);

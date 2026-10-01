@@ -1443,6 +1443,12 @@ export interface InputOTPSchema extends BaseSchema {
   label?: string;
   /**
    * Number of OTP digits
+   *
+   * READ SITE: `packages/components/src/renderers/form/input-otp.tsx`, as the
+   * slot count. Inert until objectui#11347: the renderer read an undeclared
+   * `maxLength` and drew six slots whatever `length` said, while every
+   * catalog entry and the docs page author `length`. The read moved to this
+   * spelling with no alias, which also makes the `@default` below true.
    * @default 6
    */
   length?: number;
@@ -1492,7 +1498,9 @@ export interface InputOTPSchema extends BaseSchema {
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
    * `maxLength`, `value` (in
-   * `packages/components/src/renderers/form/input-otp.tsx`).
+   * `packages/components/src/renderers/form/input-otp.tsx`). The undeclared
+   * `maxLength` read has since moved to the declared {@link InputOTPSchema.length}
+   * (objectui#11347).
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -1519,7 +1527,9 @@ export interface InputOTPSchema extends BaseSchema {
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
    * `maxLength`, `value` (in
-   * `packages/components/src/renderers/form/input-otp.tsx`).
+   * `packages/components/src/renderers/form/input-otp.tsx`). The undeclared
+   * `maxLength` read has since moved to the declared {@link InputOTPSchema.length}
+   * (objectui#11347).
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here

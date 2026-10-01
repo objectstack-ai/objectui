@@ -7,6 +7,15 @@ import { render } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { ActionProvider } from '@object-ui/react';
 import { renderComponent, validateComponentRegistration } from './test-utils';
+import type { ActionBarSchema } from '../renderers/action/action-bar';
+
+/**
+ * Types each literal below as the `action:bar` node it is rather than as the
+ * `BaseSchema` `renderComponent` accepts (objectui#11347): once `BaseSchema`'s
+ * index signature is gone (objectui#8347), a literal checked against
+ * `BaseSchema` may author only `BaseSchema`'s own keys.
+ */
+const actionBar = (schema: ActionBarSchema): ActionBarSchema => schema;
 
 // Ensure action renderers are loaded (side-effect imports via vitest.setup.tsx)
 
@@ -24,39 +33,39 @@ describe('ActionBar (action:bar)', () => {
 
   describe('rendering', () => {
     it('renders nothing when actions array is empty', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         actions: [],
-      });
+      }));
       expect(container.innerHTML).toBe('');
     });
 
     it('renders action buttons for provided actions', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         actions: [
           { name: 'save', label: 'Save', type: 'script', component: 'action:button' },
           { name: 'cancel', label: 'Cancel', type: 'script', component: 'action:button' },
         ],
-      });
+      }));
       expect(container.textContent).toContain('Save');
       expect(container.textContent).toContain('Cancel');
     });
 
     it('renders with role="toolbar" and aria-label', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         actions: [
           { name: 'test', label: 'Test', type: 'script' },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       expect(toolbar).toBeTruthy();
       expect(toolbar?.getAttribute('aria-label')).toBe('Actions');
     });
 
     it('filters actions by location', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         location: 'list_toolbar',
         actions: [
@@ -64,7 +73,7 @@ describe('ActionBar (action:bar)', () => {
           { name: 'header_action', label: 'Header Action', type: 'script', locations: ['record_header'] },
           { name: 'both_action', label: 'Both Action', type: 'script', locations: ['list_toolbar', 'record_header'] },
         ],
-      });
+      }));
       expect(container.textContent).toContain('Toolbar Action');
       expect(container.textContent).not.toContain('Header Action');
       expect(container.textContent).toContain('Both Action');
@@ -78,7 +87,7 @@ describe('ActionBar (action:bar)', () => {
     // is the declaration; no declaration, no located placement (ADR-0078 reads
     // an action with no `locations` as inert for exactly this reason).
     it('hides an action that declares no locations when filtering by location', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         location: 'record_header',
         actions: [
@@ -87,7 +96,7 @@ describe('ActionBar (action:bar)', () => {
           { name: 'other_loc', label: 'Other Location', type: 'script', locations: ['list_toolbar'] },
           { name: 'here_loc', label: 'Here Location', type: 'script', locations: ['record_header'] },
         ],
-      });
+      }));
       expect(container.textContent).not.toContain('No Location');
       // An empty array reads the same as an absent one — the third dialect
       // (`action:group` hid `[]` but showed `undefined`) is gone too.
@@ -97,26 +106,26 @@ describe('ActionBar (action:bar)', () => {
     });
 
     it('renders all actions when no location filter is set', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         actions: [
           { name: 'a1', label: 'Action 1', type: 'script', locations: ['list_toolbar'] },
           { name: 'a2', label: 'Action 2', type: 'script', locations: ['record_header'] },
         ],
-      });
+      }));
       expect(container.textContent).toContain('Action 1');
       expect(container.textContent).toContain('Action 2');
     });
 
     it('deduplicates actions by name', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         actions: [
           { name: 'change_status', label: 'Change Status', type: 'script', component: 'action:button' },
           { name: 'assign_user', label: 'Assign User', type: 'script', component: 'action:button' },
           { name: 'change_status', label: 'Change Status', type: 'script', component: 'action:button' },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       expect(toolbar).toBeTruthy();
       // Should only render 2 actions (duplicates removed)
@@ -126,7 +135,7 @@ describe('ActionBar (action:bar)', () => {
     });
 
     it('deduplicates actions after location filtering', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         location: 'record_header',
         actions: [
@@ -135,7 +144,7 @@ describe('ActionBar (action:bar)', () => {
           { name: 'change_status', label: 'Change Status', type: 'script', locations: ['record_header', 'record_more'] },
           { name: 'assign_user', label: 'Assign User', type: 'script', locations: ['record_header'] },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       expect(toolbar).toBeTruthy();
       // Should only render 2 unique actions
@@ -145,7 +154,7 @@ describe('ActionBar (action:bar)', () => {
 
   describe('overflow', () => {
     it('groups excess actions into overflow menu when maxVisible is exceeded', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         maxVisible: 2,
         actions: [
@@ -154,7 +163,7 @@ describe('ActionBar (action:bar)', () => {
           { name: 'a3', label: 'Action 3', type: 'script' },
           { name: 'a4', label: 'Action 4', type: 'script' },
         ],
-      });
+      }));
       // First 2 should be visible as buttons
       expect(container.textContent).toContain('Action 1');
       expect(container.textContent).toContain('Action 2');
@@ -167,14 +176,14 @@ describe('ActionBar (action:bar)', () => {
     });
 
     it('does not show overflow when actions fit within maxVisible', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         maxVisible: 5,
         actions: [
           { name: 'a1', label: 'Action 1', type: 'script' },
           { name: 'a2', label: 'Action 2', type: 'script' },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       expect(toolbar!.children.length).toBe(2);
     });
@@ -185,7 +194,7 @@ describe('ActionBar (action:bar)', () => {
       ':scope > button:not([aria-haspopup]), :scope > [role="button"]:not([aria-haspopup])';
 
     it('orders inline actions by `order` (lower = earlier / primary slot)', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         location: 'record_header',
         maxVisible: 5,
@@ -195,7 +204,7 @@ describe('ActionBar (action:bar)', () => {
           { name: 'print', label: 'Print', type: 'script', locations: ['record_header'], order: 5 },
           { name: 'approve', label: 'Approve', type: 'script', locations: ['record_header'], order: -10 },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       const inlineText = Array.from(toolbar!.querySelectorAll(inlineButtonsSelector))
         .map(b => b.textContent)
@@ -206,7 +215,7 @@ describe('ActionBar (action:bar)', () => {
     });
 
     it('promotes a low-`order` action into the primary slot even when registered last', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         location: 'record_header',
         maxVisible: 1,
@@ -214,7 +223,7 @@ describe('ActionBar (action:bar)', () => {
           { name: 'app_action', label: 'App Action', type: 'script', locations: ['record_header'] },
           { name: 'approve', label: 'Approve', type: 'script', locations: ['record_header'], order: -100 },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       // 1 inline primary button + 1 overflow menu trigger
       expect(toolbar!.children.length).toBe(2);
@@ -226,7 +235,7 @@ describe('ActionBar (action:bar)', () => {
     });
 
     it('is stable — actions without `order` keep their registration order', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         location: 'record_header',
         maxVisible: 5,
@@ -235,7 +244,7 @@ describe('ActionBar (action:bar)', () => {
           { name: 'b', label: 'Bravo', type: 'script', locations: ['record_header'] },
           { name: 'c', label: 'Charlie', type: 'script', locations: ['record_header'] },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       const inlineText = Array.from(toolbar!.querySelectorAll(inlineButtonsSelector))
         .map(b => b.textContent)
@@ -245,7 +254,7 @@ describe('ActionBar (action:bar)', () => {
     });
 
     it('tie-break: a `primary` action wins the primary slot when nobody sets `order`', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         location: 'record_header',
         maxVisible: 1,
@@ -255,7 +264,7 @@ describe('ActionBar (action:bar)', () => {
           { name: 'export', label: 'Export', type: 'script', locations: ['record_header'] },
           { name: 'submit', label: 'Submit', type: 'script', variant: 'primary', locations: ['record_header'] },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       // 1 inline primary button + 1 overflow menu trigger
       expect(toolbar!.children.length).toBe(2);
@@ -267,7 +276,7 @@ describe('ActionBar (action:bar)', () => {
     });
 
     it('`order` outranks the `primary` tie-break', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         location: 'record_header',
         maxVisible: 5,
@@ -277,7 +286,7 @@ describe('ActionBar (action:bar)', () => {
           { name: 'submit', label: 'Submit', type: 'script', variant: 'primary', locations: ['record_header'] },
           { name: 'approve', label: 'Approve', type: 'script', order: -100, locations: ['record_header'] },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       const inlineText = Array.from(toolbar!.querySelectorAll(inlineButtonsSelector))
         .map(b => b.textContent)
@@ -288,13 +297,13 @@ describe('ActionBar (action:bar)', () => {
 
   describe('systemActions', () => {
     it('renders a single overflow menu when only systemActions are provided', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         systemActions: [
           { name: 'sys_duplicate', label: 'Duplicate', type: 'script' },
           { name: 'sys_export', label: 'Export', type: 'script' },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       expect(toolbar).toBeTruthy();
       // 0 inline buttons + 1 overflow menu trigger
@@ -302,7 +311,7 @@ describe('ActionBar (action:bar)', () => {
     });
 
     it('merges business overflow and systemActions into ONE overflow menu', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         maxVisible: 2,
         actions: [
@@ -315,7 +324,7 @@ describe('ActionBar (action:bar)', () => {
           { name: 'sys_duplicate', label: 'Duplicate', type: 'script' },
           { name: 'sys_delete', label: 'Delete', type: 'script' },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       // 2 inline buttons + exactly 1 overflow menu trigger — never two
       expect(toolbar!.children.length).toBe(3);
@@ -325,7 +334,7 @@ describe('ActionBar (action:bar)', () => {
     });
 
     it('systemActions never appear inline regardless of maxVisible', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         maxVisible: 10,
         actions: [
@@ -334,7 +343,7 @@ describe('ActionBar (action:bar)', () => {
         systemActions: [
           { name: 'sys_duplicate', label: 'Duplicate', type: 'script' },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       // 1 inline business button + 1 overflow menu for the system action
       expect(toolbar!.children.length).toBe(2);
@@ -345,13 +354,13 @@ describe('ActionBar (action:bar)', () => {
     });
 
     it('renders overflow menu when only systemActions exist even with empty actions', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         actions: [],
         systemActions: [
           { name: 'sys_history', label: 'History', type: 'script' },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       expect(toolbar).toBeTruthy();
       expect(toolbar!.children.length).toBe(1);
@@ -360,36 +369,36 @@ describe('ActionBar (action:bar)', () => {
 
   describe('styling', () => {
     it('applies custom className', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         className: 'my-custom-bar',
         actions: [
           { name: 'test', label: 'Test', type: 'script' },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       expect(toolbar?.className).toContain('my-custom-bar');
     });
 
     it('supports vertical direction', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         direction: 'vertical',
         actions: [
           { name: 'test', label: 'Test', type: 'script' },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       expect(toolbar?.className).toContain('flex-col');
     });
 
     it('defaults to horizontal direction', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(actionBar({
         type: 'action:bar',
         actions: [
           { name: 'test', label: 'Test', type: 'script' },
         ],
-      });
+      }));
       const toolbar = container.querySelector('[role="toolbar"]');
       expect(toolbar?.className).toContain('flex-row');
     });
@@ -406,7 +415,7 @@ describe('ActionBar (action:bar)', () => {
   describe('requiredPermissions capability gate', () => {
     const Bar = ({ actions, systemActions }: { actions?: any[]; systemActions?: any[] }) => {
       const Component = ComponentRegistry.get('action:bar')!;
-      return <Component schema={{ type: 'action:bar', location: 'list_toolbar', actions, systemActions }} />;
+      return <Component schema={actionBar({ type: 'action:bar', location: 'list_toolbar', actions, systemActions })} />;
     };
     const withUser = (user: unknown, props: { actions?: any[]; systemActions?: any[] }) =>
       render(<ActionProvider context={{ user } as any}><Bar {...props} /></ActionProvider>);

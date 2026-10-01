@@ -13,16 +13,24 @@ import {
   DrawerTrigger, 
   DrawerContent, 
   DrawerHeader, 
-  DrawerFooter, 
   DrawerTitle, 
-  DrawerDescription,
-  DrawerClose
+  DrawerDescription
 } from '../../ui';
-import { renderChildren, renderNodeSlot, renderTriggerSlot } from '../../lib/utils';
+import { renderChildren, renderTriggerSlot } from '../../lib/utils';
 
 ComponentRegistry.register('drawer', 
   ({ schema, className, ...props }: { schema: DrawerSchema; className?: string; [key: string]: any }) => (
-    <Drawer shouldScaleBackground={schema.shouldScaleBackground} defaultOpen={schema.defaultOpen} {...props}>
+    // ⛔ Three reads retired here (objectui#11347): `shouldScaleBackground`,
+    // `footer` and `showClose`. `DrawerSchema` declares none of them, the
+    // installed `@objectstack/spec` has no row for `drawer`, and no catalog
+    // entry, example, doc page or README authors any of them, so each read
+    // rode `BaseSchema`'s index signature alone. The drawer therefore draws no
+    // footer and no Close button from the node. `shouldScaleBackground` is the
+    // primitive's own prop and still defaults inside the `Drawer` wrapper; the
+    // node no longer names it, and what an authored one does through
+    // `SchemaRenderer`'s prop spread is the strict face's question, not this
+    // read's.
+    <Drawer defaultOpen={schema.defaultOpen} {...props}>
       {renderTriggerSlot(DrawerTrigger, schema.trigger)}
       <DrawerContent className={className}>
         <DrawerHeader>
@@ -30,20 +38,6 @@ ComponentRegistry.register('drawer',
           {schema.description && <DrawerDescription>{schema.description}</DrawerDescription>}
         </DrawerHeader>
         {renderChildren(schema.content)}
-{/* ⛔ No `&&` guard on a node slot (objectui#9162): `&&` evaluates to the
-            slot, so a legal authored `footer: 0` painted the character "0" —
-            and it short-circuits, so `renderChildren`'s own falsy leg never
-            ran. `renderNodeSlot` runs the wrapper only when the slot has
-            content, so the chrome disappears with it. */}
-        {renderNodeSlot(schema.footer, (footer) => (
-          <DrawerFooter>
-             {renderChildren(footer)}
-             {/* `showClose` is a declared BOOLEAN, not a node slot — its `&&`
-                 is not the objectui#9162 construct and stays. Its coupling to
-                 `footer` is pre-existing behaviour and is unchanged here. */}
-             {schema.showClose && <DrawerClose asChild><button type="button">Close</button></DrawerClose>}
-          </DrawerFooter>
-        ))}
       </DrawerContent>
     </Drawer>
   ),
@@ -53,17 +47,12 @@ ComponentRegistry.register('drawer',
     inputs: [
       { name: 'title', type: 'string' },
       { name: 'description', type: 'string' },
-       { name: 'shouldScaleBackground', type: 'boolean' },
         { name: 'defaultOpen', type: 'boolean' },
-       { name: 'showClose', type: 'boolean' },
       { 
         name: 'trigger', 
         type: 'slot'      },
       { 
         name: 'content', 
-        type: 'slot'      },
-       { 
-        name: 'footer', 
         type: 'slot'      },
       { name: 'className', type: 'string' }
     ],

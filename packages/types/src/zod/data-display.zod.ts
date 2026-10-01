@@ -185,6 +185,8 @@ export const ListItemSchema = z.object({
  */
 export const ListSchema = BaseSchema.extend({
   type: z.literal('list'),
+  title: z.string().optional()
+    .describe('Heading drawn above the list (objectui#11347)'),
   items: z.array(ListItemSchema).describe('List items'),
   ordered: z.boolean().optional().describe('Whether list is ordered'),
   dividers: z.boolean().optional().describe('Show dividers between items'),

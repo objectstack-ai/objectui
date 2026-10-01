@@ -176,9 +176,13 @@ ComponentRegistry.register('sidebar-menu-button',
     // different mechanism group and a different card.
     const { style, ...buttonProps } = props;
 
+    // ⛔ No `isActive` from the node (objectui#11347). `active` was read off a
+    // `schema` typed `BaseSchema` itself: no type declares it for this node,
+    // the installed `@objectstack/spec` has no row for `sidebar-menu-button`,
+    // and no catalog entry, example, doc page or README authors it, so the read
+    // rode the index signature alone and was retired.
     return (
       <SidebarMenuButton
-        isActive={schema.active}
         {...toFormControlDomProps(buttonProps)}
         style={style}
       >
@@ -190,7 +194,6 @@ ComponentRegistry.register('sidebar-menu-button',
     namespace: 'ui',
     label: 'Sidebar Menu Button',
     inputs: [
-      { name: 'active', type: 'boolean' },
       { name: 'size', type: 'enum', enum: ['default', 'sm', 'lg'] },
       { name: 'tooltip', type: 'string' },
       CHILDREN_SLOT

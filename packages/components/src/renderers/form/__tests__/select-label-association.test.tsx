@@ -35,6 +35,15 @@ import { renderComponent } from '../../../__tests__/test-utils';
 // Registers `select` at module scope, not in a hook
 // (object-ui/no-dynamic-import-in-test-hook, objectui#3010).
 import '../../../renderers';
+import type { SelectSchema } from '@object-ui/types';
+
+/**
+ * Types a literal below as the node it is rather than as the `BaseSchema`
+ * `renderComponent` and `SchemaRenderer` accept (objectui#11347): once `BaseSchema`'s index
+ * signature is gone (objectui#8347), a literal checked against `BaseSchema`
+ * may author only `BaseSchema`'s own keys.
+ */
+const selectNode = (schema: SelectSchema): SelectSchema => schema;
 
 afterEach(cleanup);
 
@@ -45,7 +54,7 @@ const OPTIONS = [
 
 describe('ui:select — label names the combobox (objectui#10435)', () => {
   it('is found by getByRole combobox with the label as its name', () => {
-    renderComponent({ type: 'select', id: 'title', label: 'Title', options: OPTIONS });
+    renderComponent(selectNode({ type: 'select', id: 'title', label: 'Title', options: OPTIONS }));
 
     const combobox = screen.getByRole('combobox', { name: 'Title' });
     expect(combobox).toHaveAccessibleName('Title');
@@ -53,7 +62,7 @@ describe('ui:select — label names the combobox (objectui#10435)', () => {
   });
 
   it('keeps the name `Title` when required: the aria-hidden marker stays out of it', () => {
-    renderComponent({ type: 'select', id: 'title', label: 'Title', required: true, options: OPTIONS });
+    renderComponent(selectNode({ type: 'select', id: 'title', label: 'Title', required: true, options: OPTIONS }));
 
     // The marker is still drawn inside the label (objectui#10368) ...
     const label = document.querySelector('label[for="title"]');
@@ -67,7 +76,7 @@ describe('ui:select — label names the combobox (objectui#10435)', () => {
   });
 
   it('points `for` at an id that really exists on the trigger', () => {
-    renderComponent({ type: 'select', id: 'title', label: 'Title', options: OPTIONS });
+    renderComponent(selectNode({ type: 'select', id: 'title', label: 'Title', options: OPTIONS }));
 
     const label = document.querySelector('label[for]');
     expect(label).not.toBeNull();
@@ -81,7 +90,7 @@ describe('ui:select — label names the combobox (objectui#10435)', () => {
   });
 
   it('names the combobox with the label, not the placeholder text inside it', () => {
-    renderComponent({ type: 'select', id: 'title', label: 'Title', placeholder: 'Choose…', options: OPTIONS });
+    renderComponent(selectNode({ type: 'select', id: 'title', label: 'Title', placeholder: 'Choose…', options: OPTIONS }));
 
     const combobox = screen.getByRole('combobox');
     expect(combobox).toHaveTextContent('Choose…');
@@ -89,7 +98,7 @@ describe('ui:select — label names the combobox (objectui#10435)', () => {
   });
 
   it('names the combobox with the label, not the selected value text inside it', () => {
-    renderComponent({ type: 'select', id: 'title', label: 'Title', value: 'ms', options: OPTIONS });
+    renderComponent(selectNode({ type: 'select', id: 'title', label: 'Title', value: 'ms', options: OPTIONS }));
 
     const combobox = screen.getByRole('combobox');
     expect(combobox).toHaveTextContent('Ms');
@@ -101,7 +110,7 @@ describe('ui:select — label names the combobox (objectui#10435)', () => {
     // `schema.id`, so without one the renderer neither writes `for` nor mints
     // an `id`, and the combobox stays unnamed, as before this change. Pinned so
     // a later change to that answer is a visible decision, not a drift.
-    renderComponent({ type: 'select', label: 'Title', placeholder: 'Choose…', options: OPTIONS });
+    renderComponent(selectNode({ type: 'select', label: 'Title', placeholder: 'Choose…', options: OPTIONS }));
 
     const combobox = screen.getByRole('combobox');
     expect(combobox).toHaveTextContent('Choose…');
@@ -115,7 +124,7 @@ describe('ui:select — label names the combobox (objectui#10435)', () => {
   it('survives the real render path through SchemaRenderer', () => {
     render(
       <SchemaRenderer
-        schema={{ type: 'select', id: 'title', label: 'Title', required: true, options: OPTIONS }}
+        schema={selectNode({ type: 'select', id: 'title', label: 'Title', required: true, options: OPTIONS })}
       />,
     );
 

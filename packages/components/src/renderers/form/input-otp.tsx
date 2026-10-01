@@ -16,7 +16,12 @@ ComponentRegistry.register('input-otp',
     // `style` forwarded by name; the rest through the form-control
     // declaration (objectui#5632).
     const { style, ...otpProps } = props;
-    const length = schema.maxLength || 6;
+    // The slot count is the DECLARED `length` (`InputOTPSchema.length`,
+    // `@default 6`), the spelling every catalog entry and the docs page author.
+    // This used to read an undeclared `maxLength` and ignore `length`, so the
+    // published 4- and 8-digit examples drew six slots (objectui#11347). One
+    // spelling, no alias.
+    const length = schema.length || 6;
     const slots = Array.from({ length });
 
     const handleChange = (val: string) => {
@@ -46,11 +51,11 @@ ComponentRegistry.register('input-otp',
     namespace: 'ui',
     label: 'Input OTP',
     inputs: [
-      { name: 'maxLength', type: 'number' },
+      { name: 'length', type: 'number' },
       { name: 'className', type: 'string' }
     ],
     defaultProps: {
-      maxLength: 6
+      length: 6
     }
   }
 );

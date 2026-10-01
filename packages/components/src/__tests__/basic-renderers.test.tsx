@@ -17,6 +17,30 @@ import {
 // cold transform is billed to `hookTimeout`, which is why this carried a raised
 // timeout. See object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
 import '../renderers';
+import type {
+  DivSchema,
+  HtmlSchema,
+  IconSchema,
+  ImageSchema,
+  SeparatorSchema,
+  TextSchema,
+  TextSpanSchema,
+} from '@object-ui/types';
+
+/**
+ * Each literal below is typed as the node it is rather than as the
+ * `BaseSchema` `renderComponent` accepts, children included (objectui#11347):
+ * once `BaseSchema`'s index signature is gone (objectui#8347), a literal
+ * checked against `BaseSchema` or `SchemaNode` may author only `BaseSchema`'s
+ * own keys.
+ */
+const textNode = (schema: TextSchema): TextSchema => schema;
+const divNode = (schema: DivSchema): DivSchema => schema;
+const spanNode = (schema: TextSpanSchema): TextSpanSchema => schema;
+const imageNode = (schema: ImageSchema): ImageSchema => schema;
+const iconNode = (schema: IconSchema): IconSchema => schema;
+const separatorNode = (schema: SeparatorSchema): SeparatorSchema => schema;
+const htmlNode = (schema: HtmlSchema): HtmlSchema => schema;
 
 /**
  * Comprehensive tests for basic renderer components
@@ -32,10 +56,10 @@ describe('Basic Renderers - Display Issue Detection', () => {
     });
 
     it('should render text content without issues', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(textNode({
         type: 'text',
         content: 'Hello World',
-      });
+      }));
 
       expect(container.textContent).toContain('Hello World');
       const issues = getAllDisplayIssues(container);
@@ -43,10 +67,10 @@ describe('Basic Renderers - Display Issue Detection', () => {
     });
 
     it('should handle empty content gracefully', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(textNode({
         type: 'text',
         content: '',
-      });
+      }));
 
       const domCheck = checkDOMStructure(container);
       // Empty text is acceptable, just verify it doesn't crash
@@ -70,7 +94,7 @@ describe('Basic Renderers - Display Issue Detection', () => {
 
     it('should render with designer props correctly', () => {
       const { container } = renderComponent(
-        { type: 'text', content: 'Designer Test' },
+        textNode({ type: 'text', content: 'Designer Test' }),
       );
 
       // Verify it renders without errors
@@ -86,10 +110,10 @@ describe('Basic Renderers - Display Issue Detection', () => {
     });
 
     it('should render container without issues', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(divNode({
         type: 'div',
         className: 'test-class',
-      });
+      }));
 
       const div = container.querySelector('div');
       expect(div).toBeTruthy();
@@ -98,23 +122,23 @@ describe('Basic Renderers - Display Issue Detection', () => {
     });
 
     it('should render children correctly', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(divNode({
         type: 'div',
         children: [
-          { type: 'text', content: 'Child 1' },
-          { type: 'text', content: 'Child 2' },
+          textNode({ type: 'text', content: 'Child 1' }),
+          textNode({ type: 'text', content: 'Child 2' }),
         ],
-      });
+      }));
 
       expect(container.textContent).toContain('Child 1');
       expect(container.textContent).toContain('Child 2');
     });
 
     it('should not have display issues', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(divNode({
         type: 'div',
-        children: [{ type: 'text', content: 'Content' }],
-      });
+        children: [textNode({ type: 'text', content: 'Content' })],
+      }));
 
       const issues = getAllDisplayIssues(container);
       // Should have no critical issues
@@ -129,13 +153,13 @@ describe('Basic Renderers - Display Issue Detection', () => {
     });
 
     it('should render inline content', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(spanNode({
         type: 'span',
         // Canonical child key — what `TextSpanSchema` declares and what the
         // renderer reads (objectui#5027). This case used to spell `body`, the
         // one key nothing produced, which is what kept the defect invisible.
-        children: [{ type: 'text', content: 'Inline text' }],
-      });
+        children: [textNode({ type: 'text', content: 'Inline text' })],
+      }));
 
       const span = container.querySelector('span');
       expect(span).toBeTruthy();
@@ -150,11 +174,11 @@ describe('Basic Renderers - Display Issue Detection', () => {
     });
 
     it('should render with required alt attribute', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(imageNode({
         type: 'image',
         src: 'https://example.com/image.jpg',
         alt: 'Test image',
-      });
+      }));
 
       const img = container.querySelector('img');
       expect(img).toBeTruthy();
@@ -163,10 +187,10 @@ describe('Basic Renderers - Display Issue Detection', () => {
     });
 
     it('should detect missing alt attribute', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(imageNode({
         type: 'image',
         src: 'https://example.com/image.jpg',
-      });
+      }));
 
       const img = container.querySelector('img');
       // If img has alt, it's good; if not, our check should detect it
@@ -196,10 +220,10 @@ describe('Basic Renderers - Display Issue Detection', () => {
     // the placeholder marker is what separates "resolved the requested glyph"
     // from "drew the dashed box that means it did not".
     it('should render icon without issues', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(iconNode({
         type: 'icon',
         icon: 'star',
-      });
+      }));
 
       // Icon should render an SVG
       const svg = container.querySelector('svg');
@@ -208,11 +232,11 @@ describe('Basic Renderers - Display Issue Detection', () => {
     });
 
     it('should apply size classes correctly', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(iconNode({
         type: 'icon',
         icon: 'heart',
         size: 24,
-      });
+      }));
 
       const svg = container.querySelector('svg');
       expect(svg).toBeTruthy();
@@ -227,24 +251,24 @@ describe('Basic Renderers - Display Issue Detection', () => {
     });
 
     it('should render separator with proper role', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(separatorNode({
         type: 'separator',
-      });
+      }));
 
       const separator = container.querySelector('[role="separator"], hr, [data-orientation]');
       expect(separator).toBeTruthy();
     });
 
     it('should support both orientations', () => {
-      const { container: horizontal } = renderComponent({
+      const { container: horizontal } = renderComponent(separatorNode({
         type: 'separator',
         orientation: 'horizontal',
-      });
+      }));
 
-      const { container: vertical } = renderComponent({
+      const { container: vertical } = renderComponent(separatorNode({
         type: 'separator',
         orientation: 'vertical',
-      });
+      }));
 
       expect(horizontal.querySelector('*')).toBeTruthy();
       expect(vertical.querySelector('*')).toBeTruthy();
@@ -258,10 +282,10 @@ describe('Basic Renderers - Display Issue Detection', () => {
     });
 
     it('should render HTML content safely', () => {
-      const { container } = renderComponent({
+      const { container } = renderComponent(htmlNode({
         type: 'html',
         html: '<p>HTML Content</p>',
-      });
+      }));
 
       // HTML renderer uses dangerouslySetInnerHTML
       const hasContent = container.querySelector('p') || container.textContent?.includes('HTML Content');

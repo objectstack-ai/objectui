@@ -683,8 +683,9 @@ export function GridField({
   const allowDelete = cfg.allow_delete !== false && !readonly && !disabled;
   // A duplicate IS an add, so it is offered exactly when adding is. There is
   // no key of its own: `allow_duplicate` was read here while no face declared
-  // it and no producer in either repository wrote it, so it was retired under
-  // ADR-0049 (objectui#11070 round 8), keeping the behaviour its default gave.
+  // it and round 8's census of both repositories found no producer of it, so
+  // it was retired under ADR-0049 (objectui#11070 round 8), keeping the
+  // behaviour its default gave.
   const allowDuplicate = allowAdd;
   // Per-row "expand to full form" (mainstream hybrid: quick grid + rich form).
   const showExpand = typeof onRowExpand === 'function' && !readonly;
@@ -697,8 +698,8 @@ export function GridField({
   // `inlineAmountField` / `subforms[].amountField`), which both adapters in
   // `@object-ui/plugin-form` write here. ⛔ Not the spec's `totalField`, the
   // PARENT field that receives the rollup on save. One spelling: the
-  // `amount_field` / `amountField` reads beside it had no producer and are
-  // retired (objectui#11070 round 8).
+  // `amount_field` / `amountField` reads beside it are retired, round 8's
+  // census having found no producer of either (objectui#11070 round 8).
   const totalField: string | undefined = cfg.total_field;
   // When set, the row's order is persisted by stamping `row[sortField] = index`
   // on every change — so drag-reorder survives a reload (the app adds a numeric

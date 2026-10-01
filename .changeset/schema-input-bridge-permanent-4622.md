@@ -36,3 +36,5 @@ awaiting a merge.
 Following the old instruction has a measured cost: five `apps/site` call sites were
 forwarding directly when PR #4608 landed, and `Build Docs` was red on `main` for roughly
 five hours until PR #4621 routed all five through this function (objectui#4617).
+
+⚠️ **Dated note, 2026-10-01 — the prop's union widens — objectui#11364.** Later in this same release `SchemaRendererProps.schema` becomes `BaseSchema | AuthoringNode | string | null | undefined`, and `toRenderableSchema`'s return widens with it by reference. So the union spelled above (`schema: BaseSchema | string | null | undefined`) no longer describes the release as a whole. What it was quoted for still holds: the prop declares no `number` / `boolean`, so the bridge stays the crossing from `SchemaNode`. The rest of this entry is kept as the reading of this change.

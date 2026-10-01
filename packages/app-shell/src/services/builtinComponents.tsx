@@ -244,6 +244,28 @@ registerMetadataResource({
   ],
 });
 
+/**
+ * The body the page editor saves: the draft without `requires` (objectui#11357).
+ *
+ * An html page's `requires` is the server's stamp, not something the author
+ * writes: the save door compiles the `source` and stamps the namespaces it uses
+ * (ADR-0080 §5). The editor's draft is seeded from the served document, so it
+ * holds the last stamp; sent back, that stamp reads as a hand-written list, and
+ * once the source gains a plugin component the publish refuses it
+ * (`page-requires-disagrees-with-source`). Leaving the key out lets the server
+ * stamp it fresh on every save.
+ *
+ * ⛔ Never recompute `requires` here: the server owns the stamp, and it still
+ * refuses a hand-written list that disagrees with the source. The draft itself
+ * is not touched, so the editor keeps showing the stamp it last read.
+ */
+function pageSaveBody(draft: Record<string, unknown>): Record<string, unknown> {
+  if (!Object.prototype.hasOwnProperty.call(draft, 'requires')) return draft;
+  const body = { ...draft };
+  delete body.requires;
+  return body;
+}
+
 registerMetadataResource({
   type: 'page',
   label: 'Pages',
@@ -254,6 +276,7 @@ registerMetadataResource({
     { key: 'label', label: 'Label', width: '30%' },
     { key: 'route', label: 'Route' },
   ],
+  fromDraft: pageSaveBody,
 });
 
 /* -------------------------------------------------------------------------- */

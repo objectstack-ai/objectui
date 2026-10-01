@@ -105,6 +105,10 @@ vi.mock('@monaco-editor/react', () => {
 });
 
 import { InterfacesPillar } from './StudioDesignSurface';
+// objectui#11357 — the `page` resource config whose `fromDraft` the pillar's page save
+// goes through, registered at load exactly as the package entry registers it.
+import '../../services/builtinComponents.js';
+import { getMetadataResource } from '../metadata-admin/registry';
 import { createEmptyDataSource, failOnAbsorbedFetchError } from './__tests__/emptyDataSource';
 import { registerMetadataPreview } from '../metadata-admin/preview-registry';
 import { registerMetadataInspector } from '../metadata-admin/inspector-registry';
@@ -289,5 +293,75 @@ describe('Interfaces pillar on a writable package — the control (objectui#1113
     const editor = await openLandingFolded();
 
     expect(editor.readOnly).toBe(false);
+  });
+});
+
+/**
+ * objectui#11357 — the pillar's page save leaves `requires` out of the body.
+ *
+ * An html page's `requires` is the server's stamp (ADR-0080 §5). The pillar
+ * seeds its buffer from the served document, stamp included, and a source edit
+ * patches only `source`; sent whole, the old stamp reads as a hand-written
+ * list, and once the source gains a plugin component the publish refuses it
+ * (`page-requires-disagrees-with-source`). The pillar's page save goes through
+ * the `page` registration's `fromDraft`, the serialiser the metadata editor's
+ * save uses, so the server stamps the list from the source on every save.
+ *
+ * The call is PAGE-SCOPED: the pillar applies no `toDraft` on load, so a
+ * type's `fromDraft` is safe here only where that type registers no `toDraft`.
+ * The last case pins that precondition for `page`; the control pins that a
+ * type outside the rule is sent as the draft it is.
+ */
+describe('Interfaces pillar — a page save body carries no `requires`; the server stamps it (objectui#11357)', () => {
+  /** The landing page as the server stored it after a save: its `requires` is the stamp. */
+  const STAMPED_LANDING = { ...LANDING, requires: ['ui'] };
+  const WITH_KANBAN = '<h1>Hi</h1>\n<Kanban object="opportunity" />';
+
+  it('a source edit that adds a plugin component autosaves with no `requires` key, and nothing else changes', async () => {
+    server.active.set(key('page', LANDING.name), JSON.parse(JSON.stringify(STAMPED_LANDING)));
+    renderPillar(false);
+    const editor = await openLanding();
+
+    fireEvent.change(editor, { target: { value: WITH_KANBAN } });
+
+    await waitFor(() => expect(server.saves).toHaveLength(1), { timeout: 8000 });
+    const sent = server.saves[0]!;
+    expect(sent).toMatchObject({ type: 'page', name: 'landing' });
+    expect(sent.body, 'the pillar sends no `requires`').not.toHaveProperty('requires');
+    const { requires: _stamp, ...served } = STAMPED_LANDING;
+    expect(sent.body).toStrictEqual({ ...served, source: WITH_KANBAN });
+  });
+
+  it('CONTROL: a type outside the rule is sent as the draft it is — a dashboard keeps a key named `requires`', async () => {
+    const BoardCanvas = ({ onPatch }: { onPatch?: (patch: Record<string, unknown>) => void }) => (
+      <button type="button" onClick={() => onPatch?.({ label: 'Pipeline board' })}>
+        patch the board
+      </button>
+    );
+    registerMetadataPreview('dashboard', BoardCanvas as never);
+    const BOARD = { name: 'board', label: 'Board', requires: ['ui'], widgets: [] };
+    server.active.set(key('dashboard', BOARD.name), JSON.parse(JSON.stringify(BOARD)));
+    server.active.set(
+      key('app', APP.name),
+      { ...APP, navigation: [...NAV, { id: 'nav_board', type: 'dashboard', label: 'Board', dashboardName: 'board' }] },
+    );
+    renderPillar(false);
+    await openHome();
+
+    fireEvent.click(screen.getByRole('button', { name: /Board/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'patch the board' }, { timeout: 8000 }));
+
+    await waitFor(() => expect(server.saves).toHaveLength(1), { timeout: 8000 });
+    expect(server.saves[0]).toStrictEqual({ type: 'dashboard', name: 'board', body: { ...BOARD, label: 'Pipeline board' } });
+  });
+
+  it('the precondition of the page-scoped call: the `page` registration has a `fromDraft` and no `toDraft`', () => {
+    const page = getMetadataResource('page');
+    expect(page?.fromDraft).toBeTypeOf('function');
+    // The pillar loads a page with no `toDraft`. A `toDraft` registered for
+    // `page` would make its `fromDraft` that hook's inverse, and the pillar
+    // would then send an editor shape it never received: revisit the pillar's
+    // page save before adding one.
+    expect(page?.toDraft, 'the pillar applies no `toDraft` on load').toBeUndefined();
   });
 });

@@ -71,8 +71,11 @@ export async function validate(schemaPath: string) {
         console.log(chalk.gray('  ID:'), data.id);
       }
       
-      if (data.label || data.title) {
-        console.log(chalk.gray('  Label:'), data.label || data.title);
+      // `title` is declared by some arms of the parsed union and not others, so
+      // it is read only where the parsed node carries it (objectui#11355).
+      const title = 'title' in data ? data.title : undefined;
+      if (data.label || title) {
+        console.log(chalk.gray('  Label:'), data.label || title);
       }
       
       // Count children if present

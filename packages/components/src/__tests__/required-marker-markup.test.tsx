@@ -54,7 +54,7 @@ import { renderComponent } from './test-utils';
 // Registers the renderers at module scope, not in a hook
 // (object-ui/no-dynamic-import-in-test-hook, objectui#3010).
 import '../renderers';
-import type { CheckboxSchema, InputSchema, SelectSchema, TextareaSchema } from '@object-ui/types';
+import type { CheckboxSchema, ElementTextInputNode, InputSchema, SelectSchema, TextareaSchema } from '@object-ui/types';
 
 /**
  * Types a literal below as the node it is rather than as the `BaseSchema`
@@ -66,6 +66,8 @@ const inputNode = (schema: InputSchema): InputSchema => schema;
 const textareaNode = (schema: TextareaSchema): TextareaSchema => schema;
 const checkboxNode = (schema: CheckboxSchema): CheckboxSchema => schema;
 const selectNode = (schema: SelectSchema): SelectSchema => schema;
+// objectui#11364: the spec's `element:text_input` node, its row as the `properties` bag.
+const textInputNode = (schema: ElementTextInputNode): ElementTextInputNode => schema;
 
 afterEach(cleanup);
 
@@ -112,7 +114,7 @@ const SITES: Site[] = [
   {
     site: 'element:text_input (renderers/basic/text-input.tsx)',
     render: (required) =>
-      renderComponent({ type: 'element:text_input', id: 'ti-ctl', properties: { label: 'Title', required } }),
+      renderComponent(textInputNode({ type: 'element:text_input', id: 'ti-ctl', properties: { label: 'Title', required } })),
     label: () => document.querySelector('label[for="ti-ctl"]'),
     expectRequiredState: () => expect(document.getElementById('ti-ctl')).toHaveAttribute('required'),
   },

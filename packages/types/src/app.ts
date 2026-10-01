@@ -100,21 +100,25 @@ export interface NavigationEntryItem {
   type: Exclude<NavigationItemType, 'separator'>;
 
   /**
-   * Display label (plain string per @objectstack/spec v4 protocol).
+   * Display label — the spec's `I18nLabel` (objectui#11299): a plain string, or
+   * an inline locale map such as `{ en: 'Accounts', 'zh-CN': '客户' }`. A map
+   * renders the viewer's locale entry, falling back through the spec's own
+   * `resolveI18nLabel` order (`NavigationRenderer`'s `locale` prop).
    *
    * OPTIONAL since `@objectstack/spec` 17.5.0 (the cloud#2021 / objectui#9868
    * letter-A ruling), with the spec's declared semantic: **absent** ⇒ the entry
    * inherits, at RENDER time, the current label of what it opens — the view's
    * label when it names a labelled view, else the object's / dashboard's label,
    * else the target's machine name (`resolveNavItemLabel` in
-   * `@object-ui/layout`); **present** ⇒ rendered verbatim. Nothing is stored for
+   * `@object-ui/layout`); **present** ⇒ rendered as authored (a string verbatim,
+   * a map as its entry for the viewer's locale). Nothing is stored for
    * the absent case, so a renamed target shows its new name on the next render.
    *
    * ⛔ Do not write `''` for "no label": an empty string is PRESENT, so it would
    * render empty text instead of inheriting — omit the key. `objectui validate`
    * refuses an empty label for that reason.
    */
-  label?: string;
+  label?: I18nLabel;
 
   /** Icon name (Lucide) */
   icon?: string;

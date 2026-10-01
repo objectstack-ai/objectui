@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema, DataSource } from '@object-ui/types';
+import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema, DataSource, ObjectChartSchema, ObjectDataTableSchema } from '@object-ui/types';
 import { SchemaRenderer, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables, useResolvedDataSource } from '@object-ui/react';
 import { useObjectTranslation, useSafeTranslate, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import type { ActionDef, ActionResult, ActionContext, ModalHandler, SduiDomPassThroughKey } from '@object-ui/core';
@@ -47,6 +47,7 @@ import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
 import { useDashboardAutoRefresh } from './useDashboardAutoRefresh';
 import { DashboardFilterBar } from './DashboardFilterBar';
+import type { ObjectMetricWidgetProps } from './ObjectMetricWidget';
 
 /**
  * One `header.actions[]` entry, as the node's declaration types it: the spec's
@@ -147,11 +148,40 @@ function defaultChartDrill(chartType: string): { enabled: true } | undefined {
  * (`chart`, `data-table` with inline `data`) have no query to scope and are
  * intentionally not filtered.
  */
-const FILTERABLE_COMPONENT_TYPES = new Set([
+type FilterableComponentType = 'object-chart' | 'object-metric' | 'object-data-table';
+const FILTERABLE_COMPONENT_TYPES: ReadonlySet<string> = new Set<FilterableComponentType>([
   'object-chart',
   'object-metric',
   'object-data-table',
 ]);
+
+/**
+ * A child node of one of the {@link FILTERABLE_COMPONENT_TYPES}, as
+ * `getComponentSchema` hands it to `SchemaRenderer` — typed by the node schema
+ * that DECLARES its `filter` (objectui#11348), so the filter broadcast reads
+ * that key where it is declared instead of off `BaseSchema`, which declares no
+ * `filter` and only reached it through its index signature.
+ *
+ * `object-chart` and `object-data-table` are the `@object-ui/types` node
+ * schemas, by reference. `object-metric` has no TypeScript declaration there
+ * (the spec's `ComponentPropsMap` row is its only published one, and it types
+ * the `properties` bag); the node this renderer builds carries `filter` flat,
+ * and `ObjectMetricBlock` hands that key to the widget's `filter` prop, so it is
+ * typed by that prop.
+ *
+ * The value is not host state: the renderer wrote it from the widget's own
+ * spec-declared `filter` (or the provider's), and the dashboard's filter-bar
+ * values arrive separately, as the `scopedFilter` merged into it.
+ */
+type FilterableComponentSchema =
+  | ObjectChartSchema
+  | ObjectDataTableSchema
+  | (BaseSchema & { type: 'object-metric'; filter?: ObjectMetricWidgetProps['filter'] });
+
+/** Narrows a child node to {@link FilterableComponentSchema} by its `type`. */
+function isFilterableComponentSchema(cs: BaseSchema): cs is FilterableComponentSchema {
+  return FILTERABLE_COMPONENT_TYPES.has(cs.type);
+}
 
 /*
  * The retired-widget placeholder and its detector used to be declared right
@@ -948,11 +978,12 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             // the old cast dropped the `type` every branch of
             // `getComponentSchema` actually sets, so what reached
             // `SchemaRenderer` was a bag with no component descriptor as far as
-            // the type system knew. Both spellings keep arbitrary key access
-            // (BaseSchema carries an index signature); only this one keeps
-            // `type`.
+            // the type system knew. The `filter` read below does not lean on
+            // `BaseSchema`'s index signature for arbitrary key access: it
+            // narrows to the node schema that declares `filter` first
+            // (`isFilterableComponentSchema`, objectui#11348).
             const cs = getComponentSchema() as BaseSchema;
-            if (scopedFilter && cs && FILTERABLE_COMPONENT_TYPES.has(cs.type)) {
+            if (scopedFilter && cs && isFilterableComponentSchema(cs)) {
                 return { ...cs, filter: mergeFilters(cs.filter, scopedFilter) };
             }
             return cs;

@@ -35,7 +35,7 @@ import { PARAMS_KEY, isParamsBag, mapParamsLeaves } from './utils/paramsBag.js';
 import { reportUnevaluatedExpressions } from './utils/unevaluatedExpression.js';
 import { reportDroppedPropsBag, reportRefusedPropsPredicate } from './utils/propsBagDiagnostic.js';
 import { reportRefusedDataPropSpread } from './utils/refusedDataPropDiagnostic.js';
-import { expressionBindableTextKeysFor } from '@objectstack/spec/ui';
+import { expressionBindableTextKeysFor, type PageComponent } from '@objectstack/spec/ui';
 import {
   reportUnresolvableVisibilityPredicate,
   reportAdapterOnlyDataPredicate,
@@ -115,6 +115,111 @@ function validateSchemaOnce(schema: any): _ValidationCacheEntry {
 type VisibilityPredicate = Parameters<ExpressionEvaluator['evaluateCondition']>[0];
 
 /**
+ * The members a type DECLARES, without its index signatures: a key-remapping
+ * mapped type over `keyof T` keeps each declared member with its own modifiers
+ * and drops the `string` / `number` / `symbol` index keys.
+ *
+ * Applied to `BaseSchema` by {@link InterpreterWorkingCopy}, so that type's
+ * `[key: string]: any` does not ride into the working copy. objectui#8347
+ * removes that signature from `BaseSchema`; from then on this is the identity
+ * on it.
+ */
+type DeclaredMembersOf<T> = {
+  [K in keyof T as string extends K
+    ? never
+    : number extends K
+      ? never
+      : symbol extends K
+        ? never
+        : K]: T[K];
+};
+
+/**
+ * The two flags the evaluation memo in {@link SchemaRenderer} WRITES onto its
+ * working copy (objectui#11349). Both are renderer state, not metadata:
+ *
+ *   - set only by the memo itself (`shouldHide` sets `_hidden`, the enablement
+ *     chain sets `_disabled`, each to `true`);
+ *   - read only by this component: `_hidden` by the render pass, which returns
+ *     `null`; `_disabled` by the metadata destructure before `createElement`,
+ *     which strips BOTH flags and re-emits `_disabled` as the element's
+ *     `disabled` prop.
+ *
+ * ⚠️ The copy starts as `{ ...schema }`, so an authored key of either name
+ * would arrive here already set, and nothing refuses one. No producer writes
+ * either key: the census is on objectui#11349's pull request. It is a dated
+ * reading, and nothing here re-derives it.
+ */
+interface InterpreterMarkers {
+  /** Written by the visibility chain when the node is hidden. */
+  _hidden?: boolean;
+  /** Written by the enablement chain when the node is disabled. */
+  _disabled?: boolean;
+}
+
+/**
+ * The two AUTHORED keys the working copy names explicitly, each on a ruling
+ * (objectui#11349's per-key verdicts). Every other authored key the memo
+ * reads (`properties`, `content`, `params`, the text keys, `responsiveStyles`,
+ * …) stays `unknown` and narrows at its read site.
+ */
+interface WorkingCopyAuthoredKeys {
+  /**
+   * The annotated LEGACY ALIAS of the spec's `properties` config bag. The
+   * maintainer's 2026-08-18 ruling (objectui#5123), quoted at
+   * {@link propsWithoutCanonicalKeys}, binds it: `properties` wins on BOTH
+   * channels, and a key only `props` declares keeps working.
+   *
+   * Typed as that alias and nothing more: `unknown`, the type `properties`
+   * gets from the `Record<string, unknown>` part, because an authored bag may
+   * be degenerate (`props: 'not-a-bag'`) and every read narrows it with
+   * `isConfigBag` first. Naming it here neither retires it nor widens it.
+   */
+  props?: unknown;
+  /**
+   * `@objectstack/spec`'s DEPRECATED alias of `visibleWhen`, typed BY
+   * REFERENCE to the declaration on `PageComponentSchema`, which says it is
+   * "Accepted and normalized to `visibleWhen` at parse". A spec-parsed page
+   * never carries it. The `shouldHide` chain reads it for raw, un-normalized
+   * metadata, on its `@deprecated ADR-0089` leg.
+   *
+   * It is not narrowed at the read. The leg is chosen by `!== undefined`, and
+   * `evaluateCondition` answers every runtime shape. A narrowing guard would
+   * therefore move the verdict for an off-spec value. The type is the spec's.
+   * `BaseSchema` does not declare the key: objectui#10872 leaves the spec's
+   * other node-level keys off the authoring face until a producer needs them.
+   */
+  visibility?: PageComponent['visibility'];
+}
+
+/**
+ * The interpreter's WORKING COPY of one node: the shallow copy the evaluation
+ * memo in {@link SchemaRenderer} builds with `{ ...schema }`, rewrites in place
+ * and hands to the render pass (objectui#11349). The memo writes the evaluated
+ * bags, the `properties` hoist and the two markers into it.
+ *
+ * ## Renderer state, not an authoring site
+ *
+ * This is the type of a value this component OWNS while it interprets a node.
+ * It is ⛔ not the authoring face: that is `BaseSchema`, and the keys named
+ * here are ⛔ not declared there. That is the seat's ruling on objectui#11349,
+ * option (b). It is ⛔ not exported, and no published `.d.ts` names it.
+ *
+ * It has four parts:
+ *
+ *   1. the members `BaseSchema` DECLARES ({@link DeclaredMembersOf});
+ *   2. {@link InterpreterMarkers}, the two flags this component writes;
+ *   3. {@link WorkingCopyAuthoredKeys}, the two authored keys a ruling names;
+ *   4. `Record<string, unknown>` for every other key. A read of a key
+ *      `BaseSchema` does not declare is `unknown` and must NARROW before use.
+ *      That is stricter than the `any` this type replaces.
+ */
+type InterpreterWorkingCopy = DeclaredMembersOf<BaseSchema> &
+  InterpreterMarkers &
+  WorkingCopyAuthoredKeys &
+  Record<string, unknown>;
+
+/**
  * Extract AriaPropsSchema properties from a schema node and convert
  * them to standard HTML ARIA attributes.
  *
@@ -128,9 +233,15 @@ type VisibilityPredicate = Parameters<ExpressionEvaluator['evaluateCondition']>[
  * inline locale map. It does not read the NESTED `aria` bag a block's props
  * carry. That bag is read by `resolveInlineAriaProps` (`utils/inlineAria.ts`,
  * objectui#11051), and objectui#4580 Q2-B keeps the two readers separate.
+ *
+ * It takes the interpreter's working copy (objectui#11349). That copy used to
+ * arrive through a `Record<string, any>` parameter, which typed these reads
+ * `any`. `ariaLabel` is a `BaseSchema` member. `ariaDescribedBy` and `role`
+ * are not, so they read as `unknown` and are forwarded exactly as authored,
+ * the same bytes as before. The record is typed to say so.
  */
-function resolveAriaProps(schema: Record<string, any>): Record<string, string | undefined> {
-  const aria: Record<string, string | undefined> = {};
+function resolveAriaProps(schema: InterpreterWorkingCopy): Record<string, unknown> {
+  const aria: Record<string, unknown> = {};
   if (schema.ariaLabel) {
     aria['aria-label'] = resolveKeyedI18nLabel(schema.ariaLabel);
   }
@@ -1104,8 +1215,10 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     const evaluator = new ExpressionEvaluator(
       configEvaluationScope(predicateScope, boundRecord, pageVariables),
     );
-    // Shallow copy
-    const newSchema = { ...schema };
+    // Shallow copy: the interpreter's working copy, typed as renderer state
+    // rather than as the authoring face (objectui#11349). See
+    // `InterpreterWorkingCopy` for what it declares and why.
+    const newSchema: InterpreterWorkingCopy = { ...schema };
 
     /**
      * Evaluate ONE visibility predicate, and make an unresolvable one LOUD
@@ -1691,11 +1804,17 @@ export const SchemaRenderer: ForwardRefExoticComponent<
      * this loop CREATING an absent key as `undefined`, which would change what
      * `{ ...schema }` spreads and what `key in schema` answers downstream.
      */
+    //
+    // Read once into a local, so the `typeof` guard narrows the value it
+    // hands to `evaluate`. Two of the four keys are `BaseSchema` members, and
+    // the other two are `unknown` on the working copy (objectui#11349). The
+    // spec's carriage map is their declaration, and the guard narrows them.
     for (const key of expressionBindableTextKeysFor(
       typeof newSchema.type === 'string' ? newSchema.type : '',
     )) {
-      if (typeof newSchema[key] === 'string') {
-        newSchema[key] = evaluator.evaluate(newSchema[key]);
+      const authoredText = newSchema[key];
+      if (typeof authoredText === 'string') {
+        newSchema[key] = evaluator.evaluate(authoredText);
       }
     }
 
@@ -1939,7 +2058,9 @@ export const SchemaRenderer: ForwardRefExoticComponent<
     if (!node || typeof node !== 'object') {
       return { scopeClass: '', scopedCss: '', mergedClassName: undefined, schemaForComponent: node };
     }
-    const responsiveStyles = (node as Record<string, unknown>).responsiveStyles;
+    // `unknown` on the working copy (objectui#11349); `hasResponsiveStyles`
+    // narrows it to the spec's `ResponsiveStyles` before anything compiles it.
+    const responsiveStyles = node.responsiveStyles;
     if (!hasResponsiveStyles(responsiveStyles)) {
       // No scope class: hand the component `evaluatedSchema` ITSELF, which the
       // memo above already keeps stable. Never a copy — a copy here would

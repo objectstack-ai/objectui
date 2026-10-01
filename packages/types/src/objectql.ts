@@ -5127,6 +5127,25 @@ export type KanbanConditionalFormattingRule =
  * objectui#10770's PR, and nothing re-derives it: no render, publish or
  * `objectui validate` path ran this schema on the wrapper's node. The defect
  * was on the contract face, not on a door.
+ *
+ * ## What this type describes (objectui#11276)
+ *
+ * The `object-chart` node as `ObjectChart` READS it: after `SchemaRenderer`
+ * has hoisted the node's `properties` bag onto it, or as code composes it —
+ * `ObjectView` and `ListView` building a chart view, the dashboard renderers
+ * building a widget, the react-page wrapper building the `<ObjectChart>`
+ * block, a host mounting `<ObjectChart schema={…}>`. That is why its members
+ * sit flat on the node.
+ *
+ * It is NOT the shape of an AUTHORED `object-chart` document. An authored node
+ * takes its props in the `properties` bag: `{ type: 'object-chart',
+ * properties: { chartType, dataset, dimensions, values, … } }`, because
+ * `@objectstack/spec`'s page component refuses a prop written on the node
+ * itself (ADR-0089 D3a). `ObjectChartBlockSchema` (`./zod/objectql.zod.ts`)
+ * judges it and refuses a prop written flat on the node by name. The spec has
+ * no `ComponentPropsMap['object-chart']` row, so that bag's members are this
+ * type's own members, read off its zod mirror by reference. `SchemaRenderer`
+ * reads both spellings, so a node built in code keeps its flat keys.
  */
 export interface ObjectChartSchema extends BaseSchema {
   type: 'object-chart';
@@ -5859,7 +5878,9 @@ export interface ObjectDataTableSchema extends BaseSchema {
  * and `ObjectFormSchema` here is the node as `ObjectForm` reads it. It carries
  * ten since batch 5, for the same reason: the authored `object-map` node is
  * armed by `ObjectMapBlockSchema`, and `ObjectMapSchema` here is the node as
- * `ObjectMap` reads it.
+ * `ObjectMap` reads it. It carries nine since objectui#11276: the authored
+ * `object-chart` node is armed by `ObjectChartBlockSchema`, and
+ * `ObjectChartSchema` here is the node as `ObjectChart` reads it.
  */
 export type ObjectQLComponentSchema =
   | ObjectGridSchema

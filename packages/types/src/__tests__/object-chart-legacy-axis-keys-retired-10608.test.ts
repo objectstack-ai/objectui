@@ -65,6 +65,13 @@ import { ListViewSchema, safeValidateSchema } from '../zod/index.zod';
 
 const CHART = { type: 'object-chart', chartType: 'bar' } as const;
 const chart = (extra: Record<string, unknown>) => ({ ...CHART, ...extra });
+/**
+ * The AUTHORED node (objectui#11276): its props in the `properties` bag, the
+ * arm the public door judges. `authoredFlat` writes `extra` on that node
+ * itself. The mirror rows keep `chart(extra)`, the node as `ObjectChart` reads it.
+ */
+const authored = (extra: Record<string, unknown>) => ({ type: 'object-chart', properties: { chartType: 'bar', ...extra } });
+const authoredFlat = (extra: Record<string, unknown>) => ({ type: 'object-chart', properties: { chartType: 'bar' }, ...extra });
 
 /**
  * The retired keys, each with the values an author would plausibly have written
@@ -102,10 +109,17 @@ describe.each(RETIRED_KEYS)('objectui#10608 (a) — `%s` is RETIRED on `object-c
   it.each(values.map((v) => [JSON.stringify(v), v] as const))(
     'refuses `%s` at the public door and on the mirror: ONE `invalid_type` issue at the key, naming the remedy',
     (_label, value) => {
-      for (const r of [safeValidateSchema(chart({ [key]: value })), ObjectChartMirror.safeParse(chart({ [key]: value }))]) {
+      // objectui#11276: at the door the key is retired in the authored node's
+      // bag AND written flat on it (the flat mirror's own tombstone, by
+      // reference, not a pointer at a bag member that is itself retired).
+      for (const [r, path] of [
+        [safeValidateSchema(authored({ [key]: value })), ['properties', key]],
+        [safeValidateSchema(authoredFlat({ [key]: value })), [key]],
+        [ObjectChartMirror.safeParse(chart({ [key]: value })), [key]],
+      ] as const) {
         expect(r.success, `an authored \`${key}: ${JSON.stringify(value)}\` was ACCEPTED`).toBe(false);
         const issues = issuesOf(r);
-        expect(issues.map(({ code, path }) => ({ code, path }))).toEqual([{ code: 'invalid_type', path: [key] }]);
+        expect(issues.map(({ code, path }) => ({ code, path }))).toEqual([{ code: 'invalid_type', path }]);
         expect(issues[0]!.message).toContain(`\`${key}\``);
         expect(issues[0]!.message).toContain(remedy);
       }
@@ -130,12 +144,12 @@ describe('objectui#10608 (b) — LIT CONTROL: each remedy parses on the same nod
     ['`yAxis: [{ field }]` for `yAxisFields`', { yAxis: [{ field: 'amount' }] }],
     ['`aggregate: { field, function, groupBy }` for `aggregation`', { objectName: 'task', aggregate: { field: 'amount', function: 'sum', groupBy: 'status' } }],
   ])('%s', (_label, extra) => {
-    expect(issuesOf(safeValidateSchema(chart(extra)))).toEqual([]);
+    expect(issuesOf(safeValidateSchema(authored(extra)))).toEqual([]);
     expect(issuesOf(ObjectChartMirror.safeParse(chart(extra)))).toEqual([]);
   });
 
   it('all three remedies together, on one node', () => {
-    const node = chart({
+    const node = authored({
       objectName: 'task',
       aggregate: { field: 'amount', function: 'sum', groupBy: 'status' },
       xAxis: { field: 'status' },

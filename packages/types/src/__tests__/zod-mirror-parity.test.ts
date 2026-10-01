@@ -4655,6 +4655,12 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // (`ObjectMapSchema`), which stays the renderer's post-hoist reading.
   'objectql.zod.ts#ObjectMapBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `object-map` literal + `properties`, which IS `ComponentPropsMap['object-map']`, + the node's `dataSource` binding, which IS the spec's `ElementDataSourceSchema`, + one `aliasKeyRefusal` per member of the row (the flat spelling, refused by name and pointed at `properties.KEY`; the key set is read off the row) plus two for the flat mirror's `locationField` / `titleField` (pointed at `properties.map.KEY`), + the objectui#9256 `body` / `children` refusals; the TS declaration of the node, `ObjectMapSchema` (`../objectql.ts`), is the renderer's post-hoist reading and is paired with the flat `objectql.zod.ts#ObjectMapSchema` mirror, not with this arm",
+  // objectui#11276 — the authored `object-chart` arm, built as batches 4 and 5's
+  // above but with NO spec row: its bag is the flat mirror's own members. Its TS
+  // twin is paired with that FLAT mirror (`ObjectChartSchema`), which stays the
+  // renderer's post-hoist reading.
+  'objectql.zod.ts#ObjectChartBlockSchema':
+    "mirror-owned BY REFERENCE — `BaseSchema` + the `object-chart` literal + `NODE_ENVELOPE` + `properties`, whose members ARE the flat `objectql.zod.ts#ObjectChartSchema` mirror's own members (the same schema objects; `@objectstack/spec` has no `ComponentPropsMap['object-chart']` row), + one `aliasKeyRefusal` per bag member (the flat spelling, refused by name and pointed at `properties.KEY`; the key set is read off the bag), + the mirror's own objectui#10608 tombstones and objectui#9256 `body` / `children` refusals; the TS declaration of the node, `ObjectChartSchema` (`../objectql.ts`), is the renderer's post-hoist reading and is paired with the flat mirror, not with this arm",
   'objectql.zod.ts#ObjectQLPublicBlockComponentSchema':
     "a union OVER the public-block arms above, not an object of its own — its members are checked individually",
   'overlay.zod.ts#MenuItemSchema':

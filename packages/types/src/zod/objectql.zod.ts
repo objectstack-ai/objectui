@@ -3353,6 +3353,179 @@ export const ObjectChartSchema = BaseSchema.extend({
   children: retirementTombstone(OBJECT_CHART_NEITHER_CHANNEL),
 }).superRefine(requireObjectChartFamily);
 
+/* ── The authored `object-chart` node: its props in the `properties` bag ─── */
+
+/**
+ * The node-level keys of `ObjectChartSchema` above: everything the node base
+ * declares (`BaseSchema`, `type` and the two content channels among them) and
+ * the node envelope (`NODE_ENVELOPE`). The chart's OWN members are the rest of
+ * the mirror's shape, and they are what the bag below holds (objectui#11276).
+ * Read off the two declarations, not transcribed, so a key either one gains
+ * stays at node level the day it lands.
+ */
+const OBJECT_CHART_NODE_LEVEL_KEYS = Object.fromEntries(
+  [...Object.keys(BaseSchema.shape), ...Object.keys(NODE_ENVELOPE)].map((key) => [key, true]),
+) as { [K in keyof typeof BaseSchema.shape | keyof typeof NODE_ENVELOPE]: true };
+
+/**
+ * The `object-chart` props bag (objectui#11276): the flat mirror's own members,
+ * BY REFERENCE.
+ *
+ * ⛔ `@objectstack/spec` has no `ComponentPropsMap['object-chart']` row, and none
+ * is invented here. The spec's `PageComponentSchema` types every `properties`
+ * bag as an open record and judges a bag only through a row, so for this type
+ * the spec accepts any bag at all. The bag's members are therefore objectui's
+ * own: every member `ObjectChartSchema` declares beyond the node-level keys
+ * above, each the SAME schema object the mirror holds (its value checks, its
+ * spec bindings — `aggregate`, `series`, `drillDown`, `xAxis`, `yAxis` — and
+ * its objectui#10608 retirement tombstones). Nothing is restated, so the bag
+ * and the post-hoist mirror cannot drift apart.
+ *
+ * ⭐ Built from the mirror's SHAPE, not with `.omit()` on the mirror: zod
+ * refuses `.pick()` / `.omit()` on an object carrying a refinement, and the
+ * mirror carries the chart-family floor. That floor is a NODE rule, so the bag
+ * object deliberately carries no check of its own; the arm below re-applies the
+ * same floor one layer down (`requireObjectChartFamilyInBag`).
+ *
+ * The bag keeps the mirror's posture, `.passthrough()` (`BaseSchema`'s), so a
+ * key the chart does not declare is judged in the bag exactly as it was judged
+ * on the flat node: unjudged by the tolerant face, refused by name by the
+ * strict authoring face, which closes every object it walks.
+ */
+const ObjectChartPropsBag = z.looseObject(ObjectChartSchema.shape).omit(OBJECT_CHART_NODE_LEVEL_KEYS);
+
+/**
+ * The chart-family floor of {@link requireObjectChartFamily}, read in the bag
+ * (objectui#11276): an authored `object-chart` names its family as
+ * `properties.chartType` (or `properties.specType`). A node with no bag, or a
+ * bag naming neither, is refused at `properties.chartType`, as the flat mirror
+ * refuses a node naming neither key.
+ */
+function requireObjectChartFamilyInBag(
+  node: { properties?: unknown },
+  ctx: z.core.$RefinementCtx,
+): void {
+  const bag = node.properties;
+  const family = bag !== null && typeof bag === 'object' && !Array.isArray(bag)
+    ? (bag as { chartType?: unknown; specType?: unknown })
+    : {};
+  if (family.chartType !== undefined || family.specType !== undefined) return;
+  ctx.addIssue({
+    code: 'custom',
+    path: ['properties', 'chartType'],
+    message:
+      '`object-chart` names no chart family: write `properties.chartType` — '
+      + '`{ "type": "object-chart", "properties": { "chartType": "bar", … } }` (objectui#11276).',
+  });
+}
+
+/**
+ * The ONE refusal detail every `object-chart` prop written flat on the node
+ * gets (objectui#11276). `aliasKeyRefusal` puts the key and its bag member in
+ * front of it: "Did you mean `chartType` → `properties.chartType`?".
+ */
+const OBJECT_CHART_FLAT_PROP =
+  'An `object-chart` node takes its props in its `properties` bag: write `{ "type": "object-chart", '
+  + '"properties": { "chartType": "bar", "dataset": "…", "dimensions": ["…"], "values": ["…"] } }` '
+  + '(objectui#11276). `@objectstack/spec`\'s own page component refuses a prop written on the node as '
+  + 'mis-layered (ADR-0089 D3a), so this face and `os validate` agree. The spec has no '
+  + '`ComponentPropsMap[\'object-chart\']` row, so the bag\'s members are `ObjectChartSchema`\'s own. Moving it '
+  + 'changes nothing at render time: `SchemaRenderer` hoists every `properties` key onto the node before '
+  + '`ObjectChart` reads it.';
+
+/** A member of the `object-chart` bag — a TYPE position. */
+type ObjectChartBagKey = keyof typeof ObjectChartPropsBag.shape;
+
+/**
+ * One by-name refusal per member of the bag, keyed by the bag's own key set —
+ * read off the bag, not transcribed, so a member the mirror gains is refused
+ * flat the day it lands and the list cannot fall behind.
+ */
+const OBJECT_CHART_FLAT_PROP_REFUSALS = Object.fromEntries(
+  Object.keys(ObjectChartPropsBag.shape).map((key) => [
+    key,
+    aliasKeyRefusal(key, `properties.${key}`, 'this `object-chart` node', OBJECT_CHART_FLAT_PROP),
+  ]),
+) as { [K in ObjectChartBagKey]-?: ReturnType<typeof aliasKeyRefusal> };
+
+/**
+ * `object-chart` — the AUTHORED node: its props in the `properties` bag
+ * (objectui#11276, the `object-chart` batch of triage's routing call A).
+ *
+ * ## Why the arm moved to the bag
+ *
+ * `@objectstack/spec`'s strict `PageComponentSchema` refuses a prop written on
+ * a page component itself as mis-layered (ADR-0089 D3a), for every component
+ * type: `properties` is the only home of a component's own props. This union
+ * used to arm the node with the flat `ObjectChartSchema` above, so `objectui
+ * validate` refused the spec-shaped document — the objectstack showcase's
+ * command-center charts, `{ type: 'object-chart', responsiveStyles,
+ * properties: { dataset, dimensions, values, chartType, colors, yAxis } }` —
+ * and accepted the flat one `os validate` refuses. Triage's answer on
+ * objectui#11276 is this arm: "the `properties` bag is the contract on these
+ * three arms too", released for `object-chart` first.
+ *
+ * It is the construct `ObjectFormBlockSchema` and `ObjectMapBlockSchema` use
+ * (objectui#10859, batches 4 and 5) — `BaseSchema` + the `type` literal +
+ * `NODE_ENVELOPE` + `properties` through `propsBag` + one `aliasKeyRefusal`
+ * per bag member — with ONE difference, stated rather than hidden: ⛔ there is
+ * no spec row to read. `ComponentPropsMap` carries no `object-chart` row, so
+ * the bag is `ObjectChartPropsBag` above, the flat mirror's own members by
+ * reference, and its description says so instead of naming a row.
+ *
+ * ## The flat spelling is refused by name
+ *
+ * Every member of the bag written FLAT on the node is refused on both faces,
+ * with a message naming its bag member (`OBJECT_CHART_FLAT_PROP_REFUSALS`
+ * above). The three list-view spellings objectui#10608 retired
+ * (`xAxisField`, `yAxisFields`, `aggregation`) are the exception: written flat
+ * they keep the flat mirror's own retirement tombstones (the same objects, by
+ * reference), whose remedy is the spec spelling rather than a bag member that
+ * is itself retired. In the bag they are refused by the same tombstones.
+ * `BaseSchema`'s keys stay on the node, as on every arm. A key the chart does
+ * not declare is left as every arm leaves an undeclared key: unjudged by the
+ * tolerant face, refused by the strict one.
+ *
+ * ## The chart family, `dataSource` and the content channels
+ *
+ * The flat mirror's chart-family floor (objectui#10770) stays on the authored
+ * node, read in the bag (`requireObjectChartFamilyInBag`). `dataSource` stays
+ * undeclared, as on the flat mirror: objectui#11070 left `object-chart`'s
+ * binding refused by name on the strict face until it is declared, and this
+ * arm does not decide that. Neither content channel is read, so both are
+ * refused with the objectui#9256 string the flat mirror uses.
+ *
+ * ## What did not move
+ *
+ * The TypeScript `ObjectChartSchema` and its zod mirror above stay published:
+ * they are the node as `ObjectChart` reads it after `SchemaRenderer` hoists the
+ * bag, and as code composes it — `ObjectView`, `ListView`, the dashboard
+ * renderers and the react-page wrapper all build a flat `object-chart` node.
+ * Those keep working, because `SchemaRenderer` reads both spellings and no
+ * composed node passes through `safeValidateSchema`.
+ */
+export const ObjectChartBlockSchema = BaseSchema.extend({
+  type: z.literal('object-chart'),
+  ...NODE_ENVELOPE,
+  properties: propsBag(
+    'object-chart',
+    ObjectChartPropsBag,
+    'The `object-chart` props bag — the members `ObjectChartSchema` declares beyond the node-level keys, '
+      + 'by reference. `@objectstack/spec` has no `ComponentPropsMap[\'object-chart\']` row, so these are '
+      + 'objectui\'s own members (objectui#11276). The chart family is required here: `chartType` (or `specType`).',
+  ),
+  ...OBJECT_CHART_FLAT_PROP_REFUSALS,
+  // objectui#10608: the three retired list-view spellings keep their retirement
+  // when written flat — the flat mirror's own tombstones, by reference.
+  xAxisField: ObjectChartSchema.shape.xAxisField,
+  yAxisFields: ObjectChartSchema.shape.yAxisFields,
+  aggregation: ObjectChartSchema.shape.aggregation,
+  // objectui#9256: the renderer reads NEITHER content channel, so both are
+  // refused by name — the flat mirror's own members, by reference.
+  body: ObjectChartSchema.shape.body,
+  children: ObjectChartSchema.shape.children,
+}).superRefine(requireObjectChartFamilyInBag);
+
 /**
  * ObjectGallery Schema (objectui#6576)
  *
@@ -3561,6 +3734,11 @@ export const ObjectDataTableSchema = BaseSchema.extend({
  * ⚠️ TEN since objectui#10859 batch 5: `ObjectMapSchema` left it the same way,
  * for the same reason. Its TypeScript twin is the node as `ObjectMap` reads it,
  * and the authored `object-map` node is armed by `ObjectMapBlockSchema` below.
+ *
+ * ⚠️ NINE since objectui#11276: `ObjectChartSchema` left it the same way. Its
+ * TypeScript twin is the node as `ObjectChart` reads it, and the authored
+ * `object-chart` node is armed by `ObjectChartBlockSchema` above, whose bag is
+ * the mirror's own members (the spec has no row for this type).
  */
 export const ObjectQLComponentSchema = z.discriminatedUnion('type', [
   ObjectGridSchema,
@@ -3569,7 +3747,6 @@ export const ObjectQLComponentSchema = z.discriminatedUnion('type', [
   ObjectGanttSchema,
   ObjectCalendarSchema,
   ObjectKanbanSchema,
-  ObjectChartSchema,
   ObjectGallerySchema,
   ObjectDataTableSchema,
   ListViewSchema,
@@ -4018,6 +4195,11 @@ export const ObjectMapBlockSchema = BaseSchema.extend({
  * node as its renderer reads it after the hoist, not the authored document
  * (batches 4 and 5).
  *
+ * `object-chart` joined in objectui#11276, the one arm here with NO spec row:
+ * `ComponentPropsMap` carries no `object-chart` entry, so its bag is the flat
+ * `ObjectChartSchema` mirror's own members by reference, and its TypeScript
+ * twin is likewise the node as `ObjectChart` reads it after the hoist.
+ *
  * Each arm also spreads `NODE_ENVELOPE` from `./public-blocks.zod.ts`,
  * the node-level `responsiveStyles` every public block declares by reference to
  * the spec's `PageComponentSchema` (objectui#10872 batch 8) — the same one
@@ -4030,4 +4212,5 @@ export const ObjectQLPublicBlockComponentSchema = z.discriminatedUnion('type', [
   ObjectTimelineBlockSchema,
   ObjectFormBlockSchema,
   ObjectMapBlockSchema,
+  ObjectChartBlockSchema,
 ]);

@@ -19,3 +19,5 @@ field reorder triggered it, including edits that never touched that field.
 `Object.fromEntries` defines an own property, which is why
 `MetadataService.toFieldsMap` already used it. All 14 `writeFields` call sites
 across the designer are covered by the single change.
+
+**Correction, 2026-10-01 (objectui#9787).** The paragraph above that begins "`__proto__` is a spec-legal stored field key" says the mutilated document was ACCEPTED. That held through `@objectstack/spec` 17.4.0, while this defect shipped, and there the drop was silent. It no longer holds as a present-tense statement. Since 17.5.0 the spec refuses a `fields` map that carries an own `__proto__` key, at `fields.__proto__`. A body that has already lost the key is still accepted, so the `Object.fromEntries` fix stays load-bearing: the refusal can name the field only if the body still carries the key. The spec's verdict is re-measured by the "keys the record with a snake_case rule" test in `MetadataService.objectPayloadFieldsMap.test.ts`, and the `writeFields` half by "the spec still ACCEPTS the mutilated body" in `object-fields-io.prototypeKey-9237.test.ts`. The fix this entry describes is unaffected.

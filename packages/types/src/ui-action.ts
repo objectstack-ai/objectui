@@ -21,6 +21,9 @@
 import type { z } from 'zod';
 import type {
   Action as SpecAction,
+  // objectui#11168 slice 3 — the `action:button` row's author state, so
+  // `UIActionSchema.size` takes the row's own vocabulary by reference.
+  ActionButtonProps as SpecActionButtonProps,
   ActionLocation,
   ActionParamSchema as SpecActionParamSchema,
   ActionType as SpecActionType,
@@ -860,8 +863,22 @@ export interface UIActionSchema {
   /** Button variant */
   variant?: 'default' | 'primary' | 'secondary' | 'destructive' | 'outline' | 'ghost';
   
-  /** Button size */
-  size?: 'sm' | 'md' | 'lg';
+  /**
+   * Button size — the vocabulary `@objectstack/spec`'s `action:button` row
+   * declares, by reference: the Button primitive's `default`, `sm`, `lg` and
+   * `icon`, plus `md`, which renders as `default`.
+   *
+   * objectui#11168 slice 3: this was `'sm' | 'md' | 'lg'`, so `default` and
+   * `icon` — accepted by the row, published by the `action:button`
+   * registration since slice 2 and drawn as-is by the Button primitive — were
+   * TS2322 here. This type is ALSO the member type of the `action:group` /
+   * `action:menu` / `action:bar` lists, and the spec's member list is
+   * unconstrained, so the leaf's vocabulary is the one to take: measured through
+   * the real `SchemaRenderer`, a group MEMBER's `default` / `sm` / `md` / `lg` /
+   * `icon` render exactly as the same size on an `action:button` does (a
+   * member's own `md` is mapped to `default` by the group too).
+   */
+  size?: SpecActionButtonProps['size'];
   
   /** Custom CSS class */
   className?: string;

@@ -50,7 +50,7 @@
 
 import { describe, it, expect } from 'vitest';
 import type { SchemaNode as CoreSchemaNode } from '@object-ui/core';
-import type { SchemaNode as TypesSchemaNode } from '@object-ui/types';
+import type { SchemaNode as TypesSchemaNode, TextSchema } from '@object-ui/types';
 
 /* ── Type-level helpers ──────────────────────────────────────────────────── */
 
@@ -100,7 +100,12 @@ export function crossPackageHandoffCompiles(): void {
 
 export const plainStringIsANode: CoreSchemaNode = 'Plain string';
 export const nullishIsANode: CoreSchemaNode = null;
-export const objectIsStillANode: CoreSchemaNode = { type: 'text', value: 'Hello' };
+// Authored as the `text` node it is (objectui#11349). `value` is the spelling
+// `TextSchema` retired for `content` (objectui#7016), and a literal checked
+// against the union may author only `BaseSchema`'s own keys once objectui#8347
+// removes its index signature. Same string, same pin.
+const textNode: TextSchema = { type: 'text', content: 'Hello' };
+export const objectIsStillANode: CoreSchemaNode = textNode;
 
 /* ── Runtime companion ───────────────────────────────────────────────────── */
 

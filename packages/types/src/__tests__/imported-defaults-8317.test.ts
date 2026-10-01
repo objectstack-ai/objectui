@@ -66,6 +66,7 @@ import {
   CalendarConfigSchema as SpecCalendarConfigSchema,
   GalleryConfigSchema as SpecGalleryConfigSchema,
   TimelineConfigSchema as SpecTimelineConfigSchema,
+  TreeConfigSchema as SpecTreeConfigSchema,
   HttpMethodSubsetSchema as SpecHttpMethodSubsetSchema,
   HttpRequestSchema as SpecHttpRequestSchema,
   ViewDataSchema as SpecViewDataSchema,
@@ -214,6 +215,9 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   ['CalendarConfigSchema', SpecCalendarConfigSchema],
   ['GalleryConfigSchema', SpecGalleryConfigSchema],
   ['TimelineConfigSchema', SpecTimelineConfigSchema],
+  // objectui#11168 slice 3: `ObjectTreeSchema.tree` is the spec's tree block,
+  // crossed through this boundary like the other view-config blocks above.
+  ['TreeConfigSchema', SpecTreeConfigSchema],
   ['HttpMethodSubsetSchema', SpecHttpMethodSubsetSchema],
   ['HttpRequestSchema', SpecHttpRequestSchema],
   ['ViewDataSchema', SpecViewDataSchema],

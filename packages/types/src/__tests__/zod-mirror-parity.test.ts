@@ -4819,6 +4819,11 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // gained the same member and were already spec-derived.
   'objectql.zod.ts#ObjectKanbanSchema',
   'objectql.zod.ts#ObjectMapSchema',
+  // objectui#11168 slice 3: `tree` and `navigation` are the spec's `TreeConfigSchema`
+  // and `NavigationConfigSchema` by reference — the two blocks the `object-tree` row
+  // declares — the first spec references in this mirror. So a spec bump that moves
+  // either vocabulary moves ONE side of this pair.
+  'objectql.zod.ts#ObjectTreeSchema',
   // objectui#7779: BACK, by a real code reference this time — `navigation`,
   // `searchableFields` and `filterableFields` are `SpecListViewSchema.shape.*`
   // by reference (identity-pinned in `object-view-unmirrored-keys-7779.test.ts`).

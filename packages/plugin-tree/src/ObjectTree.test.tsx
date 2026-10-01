@@ -122,7 +122,10 @@ describe('ObjectTree', () => {
     ];
     render(
       <ObjectTree
-        schema={{ type: 'object-tree', objectName: 'x', parentField: 'parent_id', labelField: 'name', data: orphans }}
+        // The rows ride the HOST `data` prop. A bare array under the node's own
+        // `data` is not a record source (objectui#8348), and since
+        // objectui#11168 slice 3 the node type says so: `data` is `ViewData`.
+        schema={{ type: 'object-tree', objectName: 'x', parentField: 'parent_id', labelField: 'name' }}
         data={orphans}
       />,
     );

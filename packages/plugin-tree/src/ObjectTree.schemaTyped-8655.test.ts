@@ -102,6 +102,18 @@
  * The rows below pin those readings; the "stays undeclared here" rows are
  * unchanged and now mean "owed, not yet executed".
  *
+ * ## ⭐ EXECUTED by objectui#11168 slice 3 — both owed verdicts
+ *
+ * That slice loaded `object-tree` into the repo-wide registry parity guard and
+ * aligned this mirror with the 17.5.0 row: `navigation` (the spec's
+ * `NavigationConfig`) and `tree` (the spec's `TreeConfig`) are declared on both
+ * faces, by reference, alongside `data`, `staticData` and an optional
+ * `objectName`. So the two "stays undeclared" rows below flipped to "declared",
+ * the ledger of undeclared reads is EMPTY, and the renderer's `navigation` read
+ * lost its cast. The flat `parentField` / `labelField` / `fields` /
+ * `defaultExpandedDepth` are untouched: still declared here, still read, and
+ * not declared by the spec row.
+ *
  * ## The ceiling, stated so nobody reads this file as claiming more
  *
  * `BaseSchema` ends in `[key: string]: any`. Typing the prop makes the question
@@ -164,10 +176,12 @@ const CONTROL_KEY = 'zzplTreeAbsentControl8655' as const;
  * ③'s answers that are still UNDECLARED, by name. Every entry is asserted STILL
  * READ below: a ledger whose subject has gone is a hole, not an exemption
  * (objectui#8885). `filter` left this ledger when objectui#9549 executed its
- * declare verdict — it is now a member of the mirror's shape, so the population
- * row below counts it as declared rather than exempt.
+ * declare verdict, and `navigation` and `tree` left it when objectui#11168
+ * slice 3 executed theirs — each is a member of the mirror's shape now, so the
+ * population row below counts it as declared rather than exempt. EMPTY: every
+ * key the renderer reads off the node is declared.
  */
-const LEDGERED_UNDECLARED = ['navigation', 'tree'] as const;
+const LEDGERED_UNDECLARED: readonly string[] = [];
 
 /* ── Instruments ──────────────────────────────────────────────────────────── */
 
@@ -269,17 +283,24 @@ export type _LabelFieldIsDeclared = Expect<Declares<ObjectTreeNode, 'labelField'
 export type _FieldsIsDeclared = Expect<Declares<ObjectTreeNode, 'fields'>>;
 export type _DefaultExpandedDepthIsDeclared =
   Expect<Declares<ObjectTreeNode, 'defaultExpandedDepth'>>;
-export type _NavigationIsUndeclared = Expect<Equal<Declares<ObjectTreeNode, 'navigation'>, false>>;
+/** Declared by objectui#11168 slice 3 — the spec's `NavigationConfig`, by reference. */
+export type _NavigationIsDeclared = Expect<Declares<ObjectTreeNode, 'navigation'>>;
 /** Declared by objectui#9549 — the `filter` DECLARE verdict below, executed. */
 export type _FilterIsDeclared = Expect<Declares<ObjectTreeNode, 'filter'>>;
-export type _TreeIsUndeclared = Expect<Equal<Declares<ObjectTreeNode, 'tree'>, false>>;
+/** Declared by objectui#11168 slice 3 — the spec's `TreeConfig`, by reference. */
+export type _TreeIsDeclared = Expect<Declares<ObjectTreeNode, 'tree'>>;
+/** …and the record-source rungs the 17.5.0 row declares beside it. */
+export type _StaticDataIsDeclared = Expect<Declares<ObjectTreeNode, 'staticData'>>;
 
 /**
  * ⚠️ THE CEILING. An undeclared key still compiles and still types `any`, so
  * declaring buys VALUE typing and never buys refusal of a misspelling. Both
- * halves are pinned: the ledgered keys resolve to `any`, and so does a typo.
+ * halves are pinned: the control key resolves to `any`, and so does a typo —
+ * while a declared key (`navigation`, since objectui#11168 slice 3) no longer
+ * does, which is the value typing declaring bought.
  */
-export type _UndeclaredStillResolvesToAny = Expect<IsAny<ObjectTreeNode['navigation']>>;
+export type _UndeclaredStillResolvesToAny = Expect<IsAny<ObjectTreeNode[typeof CONTROL_KEY]>>;
+export type _DeclaredNoLongerResolvesToAny = Expect<Equal<IsAny<ObjectTreeNode['navigation']>, false>>;
 export type _MisspellingStillAdmitted = Expect<IsAny<ObjectTreeNode['objectNaem']>>;
 
 /** The node still type-checks the way a host writes it, with no cast. */
@@ -375,7 +396,7 @@ describe('objectui#8655 — the spec has no element schema for this node', () =>
   });
 });
 
-describe('objectui#8655 — `navigation` is objectui#8652\'s, and its unlock HAS happened', () => {
+describe('objectui#8655 — `navigation` is objectui#8652\'s, its unlock HAS happened, and objectui#11168 mirrored it', () => {
   it('the spec declares it on seven element entries since 17.5.0, this one included', () => {
     // Through 17.4.0: ONE entry, `object-grid`, and not this one. 17.5.0 met
     // objectui#8652's unlock criterion (objectui#11073); mirroring is that
@@ -391,8 +412,9 @@ describe('objectui#8655 — `navigation` is objectui#8652\'s, and its unlock HAS
     ]);
   });
 
-  it('⛔ and it stays UNDECLARED here — this card must not rule the family', () => {
-    expect(shapeKeys(ObjectTreeMirror)).not.toContain('navigation');
+  it('and the mirror declares it now — objectui#11168 slice 3 executed the ruled second step', () => {
+    // This row stood as `not.toContain` while the mirroring was owed.
+    expect(shapeKeys(ObjectTreeMirror)).toContain('navigation');
   });
 });
 
@@ -426,7 +448,7 @@ describe('objectui#8655 — `filter` is the one DECLARE verdict, executed by obj
   });
 });
 
-describe('objectui#8655 — `tree` is a VIEW-level block, so declaring it on the node would fork', () => {
+describe('objectui#8655 — `tree` was a VIEW-level block, and since 17.5.0 the node\'s own (declared by objectui#11168)', () => {
   it('the spec declares the block, and its members are the four this resolver reads', () => {
     const blockKeys = Object.keys(
       (TreeConfigSchema as unknown as { shape: Record<string, unknown> }).shape,
@@ -442,8 +464,9 @@ describe('objectui#8655 — `tree` is a VIEW-level block, so declaring it on the
     expect(specElementsDeclaring('filter').length).toBeGreaterThan(3);
   });
 
-  it('⛔ so it is not declared here either', () => {
-    expect(shapeKeys(ObjectTreeMirror)).not.toContain('tree');
+  it('so the mirror declares it — objectui#11168 slice 3 executed the DECLARE verdict', () => {
+    // This row stood as `not.toContain` while the verdict was owed.
+    expect(shapeKeys(ObjectTreeMirror)).toContain('tree');
   });
 });
 

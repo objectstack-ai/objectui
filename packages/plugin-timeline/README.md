@@ -99,12 +99,14 @@ reference, `ViewNavigationConfig` in `@object-ui/types`: `mode` (`page`,
 `openNewTab` and `preventNavigation`. `drawer`, `modal` and `popover` open the
 entry's record in that overlay, `new_window` and `openNewTab: true` open the
 record page in a new tab, `preventNavigation: true` opens nothing, and `size`
-sets the overlay width. A click handler from a parent view outranks the whole
-key. ⚠️ Write the block with `mode`: with the key absent, or with a block
-written without `mode` (it takes the spec's `page` default), a click opens
-nothing on a timeline no parent view navigates for (objectui#11293). `split`
-opens nothing on this block either, because the timeline gives the split shell
-no main panel.
+sets the overlay width. `page`, and a block written without `mode` (it takes
+the spec's `page` default), open the record page through the record navigator
+the host publishes (the console publishes one on its custom pages, record pages
+and list views); under a host that publishes none, such as an embedded renderer,
+the click opens nothing. A click handler from a parent view outranks the whole
+key. ⚠️ With the key absent a click opens nothing: this renderer supplies no
+drawer default. `split` opens nothing on this block either, because the
+timeline gives the split shell no main panel.
 
 ## Links
 

@@ -44,12 +44,20 @@
  * ⚠️ And the values the timeline does NOT honour on its own, pinned because
  * the registration's description states them and a description is a claim
  * about this renderer. Unlike the board and the calendar, this renderer
- * supplies no drawer default, so an ABSENT key opens nothing; `page`, and a
- * block written without `mode` (the spec's `page` default), open nothing on a
- * timeline no parent view navigates for (objectui#11293); and `split` opens
- * nothing, because the timeline hands the split shell no main panel. A
- * timeline that learns any of these reddens its row, and the fix is to rewrite
- * that description with it, ⛔ not to relax the row.
+ * supplies no drawer default, so an ABSENT key opens nothing, with a host
+ * record navigator mounted or not; and `split` opens nothing, because the
+ * timeline hands the split shell no main panel. A timeline that learns any of
+ * these reddens its row, and the fix is to rewrite that description with it,
+ * ⛔ not to relax the row.
+ *
+ * And `page`, pinned both ways. Since objectui#11293 `useNavigationOverlay`
+ * hands a `page` click it has no `onNavigate` for to the record navigator the
+ * HOST publishes (`RelatedRecordActionsContext.openRecord`), which the console
+ * mounts on its custom pages, record pages and list views. So under such a
+ * host `page`, and a block written without `mode` (the spec's `page` default),
+ * open the record page; with no host navigator there is no record page to
+ * open, and the click opens nothing (objectui#11168 slice 3 round 4, the
+ * board's `kanbanNavigationMembers-8652` host).
  */
 import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -59,6 +67,7 @@ import {
   assertNoOtherNetworkEscape,
   installRecordSecurityExplainDouble,
 } from '@object-ui/test-support';
+import { RelatedRecordActionsProvider, type RelatedRecordActionsValue } from '@object-ui/react';
 
 import { ObjectTimeline, type ObjectTimelineProps } from '../ObjectTimeline';
 
@@ -83,6 +92,7 @@ type Navigation = ObjectTimelineProps['schema']['navigation'];
 async function clickEntry(
   navigation: Navigation,
   props: Pick<ObjectTimelineProps, 'onRowClick'> = {},
+  host?: RelatedRecordActionsValue,
 ) {
   const open = vi.fn();
   vi.stubGlobal('open', open);
@@ -95,7 +105,8 @@ async function clickEntry(
   // `data` is read off the PROPS (pre-fetched records), so the timeline issues
   // no query and the click is the only thing under test.
   const extra = { data: RECORDS } as Record<string, unknown>;
-  render(<ObjectTimeline schema={schema} {...extra} {...props} />);
+  const timeline = <ObjectTimeline schema={schema} {...extra} {...props} />;
+  render(host ? <RelatedRecordActionsProvider value={host}>{timeline}</RelatedRecordActionsProvider> : timeline);
   fireEvent.click(await screen.findByText('Kickoff'));
   return { open };
 }
@@ -230,15 +241,14 @@ describe('the registration description\'s warnings are TRUE (objectui#8654)', ()
     await expectNothingOpened(open, 'absent key — rewrite the `navigation` description');
   });
 
-  it('`mode: "page"` opens NOTHING on a timeline no parent view navigates for', async () => {
+  it('with NO host navigator `mode: "page"` has no record page to open, and opens NOTHING', async () => {
     const { open } = await clickEntry({ mode: 'page' });
     await expectNothingOpened(open, 'page — rewrite the `navigation` description');
   });
 
-  it('a block WITHOUT `mode` resolves to `page` — so it opens nothing either', async () => {
-    // The trap the description warns about: `size` alone, written to widen an
-    // overlay, silences the click, because the absent `mode` is the spec's
-    // `page`. Compare the LIT CONTROL.
+  it('with NO host navigator a block WITHOUT `mode` resolves to `page` — so it opens nothing either', async () => {
+    // `size` alone, written to widen an overlay, takes the spec's `page`
+    // default rather than a drawer. Compare the LIT CONTROL.
     const { open } = await clickEntry({ size: 'lg' });
     await expectNothingOpened(open, 'mode-less block — rewrite the `navigation` description');
   });
@@ -246,5 +256,70 @@ describe('the registration description\'s warnings are TRUE (objectui#8654)', ()
   it('`mode: "split"` opens NOTHING — the timeline hands the split shell no main panel', async () => {
     const { open } = await clickEntry({ mode: 'split' });
     await expectNothingOpened(open, 'split — rewrite the `navigation` description');
+  });
+});
+
+/**
+ * A host that publishes its record navigator the way the console does
+ * (`RelatedRecordActionsContext`): `openRecord` is the spy a `page` click must
+ * reach. `resolve` returns no handlers, as the console's list surface does.
+ */
+function recordNavigatorHost() {
+  const openRecord = vi.fn();
+  const value: RelatedRecordActionsValue = {
+    resolve: () => ({}),
+    recordHref: (objectName, recordId) => `/apps/demo/${objectName}/record/${recordId}`,
+    openRecord,
+  };
+  return { value, openRecord };
+}
+
+describe('`page` opens the record page through the host\'s record navigator (objectui#11293)', () => {
+  it('LIT CONTROL: under the same host, `mode: "drawer"` opens the drawer and does not navigate', async () => {
+    // First, because the rows below would be vacuous against a timeline whose
+    // entries are not clickable under this host.
+    const { value, openRecord } = recordNavigatorHost();
+    const { open } = await clickEntry({ mode: 'drawer' }, {}, value);
+    await waitFor(() => expect(dialog()).not.toBeNull());
+    expect(openRecord).not.toHaveBeenCalled();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('`mode: "page"` opens the record page through the host, and no overlay', async () => {
+    const { value, openRecord } = recordNavigatorHost();
+    const { open } = await clickEntry({ mode: 'page' }, {}, value);
+    await waitFor(() => expect(openRecord).toHaveBeenCalledTimes(1));
+    expect(openRecord).toHaveBeenCalledWith(OBJECT, '1');
+    expect(dialog()).toBeNull();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('a block WITHOUT `mode` resolves to `page`, and navigates the same way', async () => {
+    const { value, openRecord } = recordNavigatorHost();
+    const { open } = await clickEntry({ size: 'lg' }, {}, value);
+    await waitFor(() => expect(openRecord).toHaveBeenCalledTimes(1));
+    expect(openRecord).toHaveBeenCalledWith(OBJECT, '1');
+    expect(dialog()).toBeNull();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('a parent view\'s `onRowClick` still outranks the host navigator on `page`', async () => {
+    const { value, openRecord } = recordNavigatorHost();
+    const onRowClick = vi.fn();
+    await clickEntry({ mode: 'page' }, { onRowClick }, value);
+    await waitFor(() => expect(onRowClick).toHaveBeenCalledTimes(1));
+    await settle();
+    expect(openRecord).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['the key ABSENT', undefined],
+    ['`mode: "none"`', { mode: 'none' }],
+    ['`mode: "split"`', { mode: 'split' }],
+  ] as const)('%s still opens nothing under the host, and does not navigate', async (why, navigation) => {
+    const { value, openRecord } = recordNavigatorHost();
+    const { open } = await clickEntry(navigation, {}, value);
+    await expectNothingOpened(open, String(why));
+    expect(openRecord).not.toHaveBeenCalled();
   });
 });

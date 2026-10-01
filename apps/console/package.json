@@ -44,7 +44,8 @@
   "scripts": {
     "dev": "vite",
     "build:plugin": "tsc -p tsconfig.plugin.json",
-    "build": "tsc && vite build && pnpm build:plugin",
+    "build:sdui-manifest": "tsx scripts/build-sdui-manifest.ts",
+    "build": "tsc && vite build && pnpm build:sdui-manifest && pnpm build:plugin",
     "type-check": "tsc --noEmit && tsc -b tsconfig.node.json --force",
     "lint": "eslint .",
     "build:analyze": "pnpm build && echo 'Bundle analysis available at dist/stats.html'",

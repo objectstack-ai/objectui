@@ -5475,13 +5475,34 @@ the two is stated ONCE, in this file's header.`)
     // reads that difference off the header and derives it from these same two
     // ledgers, so no direction needs asserting here, and the next drain moves a digit
     // rather than this leg. ⛔ Do not restore a direction leg of either sign. The two
-    // non-vacuity legs below are the ones both shapes relied on, and they stay.
+    // non-vacuity legs below are the ones both shapes relied on.
+    //
+    // ⭐ objectui#6152 round 5 made the second of them FALSE as a fact about the
+    // ledgers: `DataTableSchema`, the last pair in both, left `UnmirroredDeclared`
+    // whole, so the two unmirrored ledgers ARE disjoint now and the shared figure in
+    // the header reads `0`. Asserting a non-empty intersection here would have forced a
+    // key back onto a ledger to satisfy a test — route 1 again. What that leg guarded
+    // is kept, measured another way: an intersection of ZERO is only a reading if the
+    // entry reader spells one pair the same way in every ledger it reads — a reader
+    // that normalised names differently per ledger would return 0 for every
+    // intersection and the `0` would pass blind. So the lit control is an intersection
+    // that is NOT empty, read by the same reader: `KnownDrift` shares pairs with each
+    // of the two unmirrored ledgers (`ChatbotSchema` with one, `DataTableSchema` with
+    // the other, on this change's tree). ⛔ If a later drain empties BOTH of those
+    // intersections too, pick another non-empty one — never delete the control.
     const unmirrored = new Set(ledgerEntryKeys('UnmirroredDeclared'));
     const runtimeOnly = ledgerEntryKeys('RuntimeOnlyDeclared');
+    const knownDrift = new Set(ledgerEntryKeys('KnownDrift'));
     expect(runtimeOnly.length, 'RuntimeOnlyDeclared read as EMPTY — the subset and union figures are then vacuous')
       .toBeGreaterThan(0);
-    expect(runtimeOnly.filter((pair) => unmirrored.has(pair)).length, 'the two unmirrored ledgers read as DISJOINT')
-      .toBeGreaterThan(0);
+    expect(
+      [...unmirrored].filter((pair) => knownDrift.has(pair)).length,
+      'UnmirroredDeclared and KnownDrift read as DISJOINT — the entry reader may not spell one pair the same way in two ledgers, so a 0 intersection would be blind',
+    ).toBeGreaterThan(0);
+    expect(
+      runtimeOnly.filter((pair) => knownDrift.has(pair)).length,
+      'RuntimeOnlyDeclared and KnownDrift read as DISJOINT — the entry reader may not spell one pair the same way in two ledgers, so a 0 intersection would be blind',
+    ).toBeGreaterThan(0);
   });
 });
 

@@ -47,3 +47,5 @@ accepts everything.
 `tsconfig.test.json` names `node` in `types` for that test to compile, and its
 comment — which had recorded that no test in this package touches a Node global
 — is corrected rather than left standing.
+
+**Dated note, 2026-10-01 (objectui#11168 slice 4).** Two sentences above describe a README that has since moved. objectui#7334 (same release) gave `ObjectGantt` its own `onNavigate`, so a `page` click no longer falls through to a host handler: the gantt navigates to the record-page address it derives from the page it is on, and no `navigation` member authors that address, `basePath` included. The README example is now the authored node, with `{ "mode": "page" }` inside its `properties` bag, and the prose says where that address leads. The rest of this entry is kept as the reading of this change.

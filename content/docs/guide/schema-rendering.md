@@ -481,6 +481,25 @@ const schema: PageNodeSchema = {
 }
 ```
 
+The spec's page blocks take their props in a `properties` bag. `SchemaRenderer`
+accepts them through `AuthoringNode` from `@object-ui/types`, so the bag is
+typed by the spec's `ComponentPropsMap` row and a misspelled key in it does not
+compile:
+
+```tsx
+import { SchemaRenderer } from '@object-ui/react'
+import type { PublicBlockNodeOf } from '@object-ui/types'
+
+const heading: PublicBlockNodeOf<'element:text'> = {
+  type: "element:text",
+  properties: { content: "Quarterly revenue", variant: "h2" }
+}
+
+function Heading() {
+  return <SchemaRenderer schema={heading} />
+}
+```
+
 ## Best Practices
 
 ### 1. Keep Schemas Simple

@@ -190,13 +190,14 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
   //
   // `w` is annotated `DashboardWidgetSchema`, as `buildDefaultLayouts` above
   // already is (objectui#11348). A `widgets[]` entry is either arm of a union,
-  // and `layout` is declared on the widget arm only: the spec's
-  // `DashboardWidget` row declares it, and the component arm
-  // (`DashboardWidgetSlotComponentSchema`) has no spec row and declares none of
-  // the widget keys. That arm is assignable to `DashboardWidgetSchema` (pinned
-  // by `@object-ui/types`' `dashboard-widget-slot-component-arm-7952.test.ts`),
-  // so the annotation is checked by the compiler rather than asserted, and the
-  // read no longer rides `BaseSchema`'s index signature on the other arm.
+  // and both arms declare `layout` as the spec's `DashboardWidget` member: the
+  // widget arm through the spec row, the component arm
+  // (`DashboardWidgetSlotComponentSchema`) by reference to it, because
+  // `mergeLayoutIntoSchema` below writes it onto every entry, a component node
+  // included (objectui#11070 round 11). That arm is assignable to
+  // `DashboardWidgetSchema` (pinned by `@object-ui/types`'
+  // `dashboard-widget-slot-component-arm-7952.test.ts`), so the annotation is
+  // checked by the compiler rather than asserted.
   const widgetsSignature = React.useMemo(
     () => JSON.stringify(schema.widgets?.map((w: DashboardWidgetSchema, i: number) => ({
       i: w.id || `widget-${i}`,

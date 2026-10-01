@@ -2327,7 +2327,7 @@ export interface DashboardWidgetSchema
  * the TypeScript face. Twin of `zod/complex.zod.ts`
  * `DashboardWidgetSlotComponentSchema`, spelled the same way that arm is:
  * `BaseSchema` plus a `type` narrowed to the CLOSED component set
- * ({@link DASHBOARD_COMPONENT_WIDGET_TYPES}).
+ * ({@link DASHBOARD_COMPONENT_WIDGET_TYPES}) and the spec's widget `layout`.
  *
  * `BaseSchema`'s `[key: string]: any` is the passthrough. `value` / `icon` /
  * `trend` / `trendValue` are `MetricCard`'s registry `inputs`, not widget keys:
@@ -2362,6 +2362,19 @@ export interface DashboardWidgetSchema
 export interface DashboardWidgetSlotComponentSchema extends BaseSchema {
   /** An objectui component type legal in a widget slot — the CLOSED set. */
   type: DashboardComponentWidgetType;
+  /**
+   * The slot's grid position — the spec's widget `layout`, BY REFERENCE
+   * (`SpecDashboardWidget['layout']`), so this arm and the spec agree on the
+   * four numbers with no restated shape (objectui#11070 round 11).
+   *
+   * The one widget key this arm declares. It is not a `MetricCard` prop: the
+   * dashboard reads it off every `widgets[]` entry, and `DashboardGridLayout`'s
+   * Save Layout (`mergeLayoutIntoSchema`) writes it onto every entry, a
+   * component node included. Through the index signature it was `any` here
+   * and refused as undeclared by the strict authoring face. The Zod twin
+   * (`zod/complex.zod.ts`) declares the same spec member.
+   */
+  layout?: SpecDashboardWidget['layout'];
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `metric-card` reads NEITHER
    * content channel; see `children` below for the measurement.

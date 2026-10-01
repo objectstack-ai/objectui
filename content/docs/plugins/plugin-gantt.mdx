@@ -145,12 +145,27 @@ const schema: BaseSchema = {
                                       // At least one of data / staticData / objectName is
                                       // required, or the node's dataSource binding
     gantt?: GanttConfig,              // Field mapping and gantt options, viewMode among them
-    readOnly?: boolean,               // disable every edit path
     filter?: Array<any>,              // JSON-Rules query filter — applies on EVERY provider
-    sort?: Array<{ field, order }>    // ordering — applies on EVERY provider
+    sort?: Array<{ field, order }>,   // ordering — applies on EVERY provider
+    navigation?: NavigationConfig,    // what a task click opens (absent: a drawer)
+    label?: string | I18nLabel,       // the exported file's name, after gantt.exportFileName
+    skipWeekends?: boolean,           // working-day scheduling; the day axis folds Sat/Sun
+    holidays?: string[],              // extra non-working 'yyyy-mm-dd' dates
+    persistLayout?: boolean,          // false: no saved layout, no save-layout button
+    viewName?: string,                // the saved layout's scope (default 'default')
+    markers?: Array<{ date, label?, color? }>, // vertical reference lines
+    criticalPath?: boolean,           // start with the critical-path highlight on
+    showBaselines?: boolean,          // false: hide the baseline bars
+    readOnly?: boolean,               // disable every edit path
+    mobileReadOnly?: boolean          // false: keep a narrow (< 640px) chart editable
   }
 }
 ```
+
+Every key above is a member of the spec's `object-gantt` row and is published
+by the registration, so the page validator accepts it. The package README's
+node-level options table says what each one does, as measured through the real
+`SchemaRenderer` (objectui#11168).
 
 `filter` and `sort` are not object-only keys. They narrow and order inline rows
 (`staticData`, or `data: { provider: 'value' }`) exactly as they narrow and
@@ -372,6 +387,35 @@ export function ProjectGantt({ dataSource }: { dataSource: DataSource }) {
 
 Rendered through the registered `object-gantt` type there is usually nothing to
 wire: clicking a row already opens the standard detail drawer.
+
+### Task click navigation
+
+`navigation` in the `properties` bag decides what a task click opens. With the
+key absent it is the drawer. `drawer`, `modal` and `popover` open the task's
+record in that overlay, and `split` opens it beside the chart. `page`, and a
+block written without `mode`, open the record page in the same tab, and
+`new_window` opens it in a new tab. `none` opens nothing, `preventNavigation:
+true` opens nothing whatever the mode, `openNewTab: true` opens the record page
+in a new tab and outranks every mode except `none`, and `size` sets the overlay
+width.
+
+```json
+{
+  "type": "object-gantt",
+  "properties": {
+    "objectName": "project_task",
+    "gantt": { "startDateField": "start_date", "endDateField": "end_date", "titleField": "name" },
+    "navigation": { "mode": "modal", "size": "lg" }
+  }
+}
+```
+
+The record-page address is the gantt's own: it derives it from the page it is
+on and does not use a record navigator the host publishes, so mounting one
+changes nothing. On the object's own list or view route the address is the
+object's record page; on any other page, such as a custom page, the gantt
+appends `/OBJECT/record/ID` to the current address. On inline rows that name
+no object (no `objectName`, no object `data` provider), no mode opens anything.
 
 ## Examples
 

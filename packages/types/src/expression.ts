@@ -49,12 +49,14 @@
  *     `${...}` path. Declaring `dialect: 'cel'` alone would refuse a spelling
  *     the evaluator answers.
  *   - `source` is REQUIRED and a string. The runtime treats an object without
- *     a string `source` as "no predicate at all" (fail-open junk), so admitting
- *     it here would declare a value that never reaches a verdict.
+ *     a string `source` as a declared gate it cannot evaluate — a fault, failed
+ *     in its key's direction (objectui#11358) — so admitting it here would
+ *     declare a value that never reaches a verdict.
  *
  * It is NOT `@object-ui/core`'s `EvaluatorPredicateInput`: that is the OUTPUT
- * of normalization (a boolean, a `${...}` template, or a `cel`-only envelope
- * with a non-empty `source`); this is what an AUTHOR writes. And it is
+ * of normalization (a boolean, a `${...}` template, a `cel`-only envelope
+ * with a non-empty `source`, or one with no `source` for a declared gate that
+ * cannot be evaluated); this is what an AUTHOR writes. And it is
  * deliberately not the spec's `ExpressionInput` pipe, which canonicalizes a
  * string into an envelope at parse time and would change the parsed shape of
  * every schema that adopted it -- objectui keeps the wire un-normalized and

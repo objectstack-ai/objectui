@@ -290,8 +290,11 @@ export function isBuiltinRowActionVisible(
  *   `pred == null || pred === ''`, so a whitespace-only `visible` counted as
  *   declared, was evaluated, and failed closed: the action showed in a related
  *   list's toolbar and was missing from its rows (objectui#11294).
- * - A value that is not a predicate at all (`0`, `{}`) is no gate either, as
- *   on every other member of the family.
+ * - A value that is not a predicate at all (`0`, `{}`, an array, an
+ *   `ast`-only envelope) IS a declared gate, one that cannot be evaluated
+ *   (objectui#11358): the family's definition answers "declared", the row fold
+ *   faults on it and fails closed, so the action is hidden and the fault is
+ *   reported — as on every other member of the family.
  *
  * `fields` is the object's field definitions, for a caller that has them:
  * plugin-grid passes them so a relation compares as its stored foreign key

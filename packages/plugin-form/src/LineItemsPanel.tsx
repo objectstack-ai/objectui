@@ -96,7 +96,9 @@ export interface LineItemsPanelSchema {
   parentObject?: string;
   parentId?: string;
   recordId?: string;
+  /** Numeric CHILD column summed into the grid's footer total, e.g. `'amount'`. */
   amountField?: string;
+  /** PARENT field that receives that sum on save, e.g. `'total_amount'`. */
   totalField?: string;
   title?: string;
   readonly?: boolean;
@@ -700,7 +702,11 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
         // the surrounding form already disables that field (objectui#10163).
         // Adding and removing lines stay on `schema.readonly` below.
         columns: applyColumnPermissions(schema.columns, { perms, objectName: schema.childObject }),
-        total_field: schema.totalField ? schema.amountField || 'amount' : undefined,
+        // The grid's `total_field` is the CHILD column summed (this block's
+        // `amountField`), shown whenever one is named, exactly as
+        // `MasterDetailForm` maps it; `totalField` is only the PARENT field
+        // the sum is written to on save (objectui#11070 round 8).
+        total_field: schema.amountField || (schema.totalField ? 'amount' : undefined),
         min_rows: schema.minRows,
         max_rows: schema.maxRows,
         allow_add: !schema.readonly,

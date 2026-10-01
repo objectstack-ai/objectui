@@ -20,12 +20,12 @@ The Grid Field component provides an inline table for managing related records o
 ## Field Schema
 
 A grid field is authored as `GridFieldMetadata` (`@object-ui/types`), which is the
-source of truth for the key set: it extends `BaseFieldMetadata` with the column list
-and the row-count and row-action limits. Each column is `@objectstack/spec`'s inline
-grid column (`InlineGridColumn`, the element of the spec's `inlineColumns` list on a
-`master_detail` field), typed by reference, so the columns are checked by the same
-compiler that checks the field, and `objectui validate` refuses a column key the spec
-does not declare.
+source of truth for the key set: it extends `BaseFieldMetadata` with the column list,
+the row-count and row-action limits, the footer total and the Add button's label.
+Each column is `@objectstack/spec`'s inline grid column (`InlineGridColumn`, the
+element of the spec's `inlineColumns` list on a `master_detail` field), typed by
+reference, so the columns are checked by the same compiler that checks the field,
+and `objectui validate` refuses a column key the spec does not declare.
 
 ```ts
 import type { GridFieldMetadata } from '@object-ui/types';
@@ -38,14 +38,34 @@ const lineItems: GridFieldMetadata = {
     { name: 'product', label: 'Product', type: 'lookup', required: true, width: 240 },
     { name: 'quantity', label: 'Qty', type: 'number', width: 80 },
     { name: 'unit_price', label: 'Unit Price', type: 'currency', width: 120 },
+    { name: 'amount', label: 'Amount', type: 'currency', computed: true, expr: 'quantity * unit_price' },
   ],
   min_rows: 1,
   max_rows: 50,
   allow_add: true,
   allow_delete: true,
   allow_reorder: false,
+  total_field: 'amount',
+  add_label: 'Add line',
 };
 ```
+
+The field-level keys, each read under exactly this one spelling:
+
+- `min_rows` / `max_rows` — the row-count limits.
+- `allow_add` / `allow_delete` — whether rows can be added or removed. Each row's
+  duplicate action follows `allow_add`, since a duplicate is an add.
+- `allow_reorder` — set `false` to remove the drag handles; rows can be reordered
+  by dragging otherwise.
+- `total_field` — the `name` of the **child** column summed into the footer total.
+  It is the spec's `amountField`, not its `totalField` (the parent field a
+  master-detail save writes the sum to). No total shows when it is unset.
+- `add_label` — the Add button's label.
+
+A read-only or disabled grid offers no add, delete, duplicate or reorder, whatever
+these keys say. The line-number column always shows. There is no `reorderable`,
+`amount_field`, `amountField`, `allow_duplicate` or `show_line_numbers` key: none
+is read, and `GridFieldMetadata` refuses each.
 
 A column's `width` is a **number** of pixels. There is no per-column `editable`
 key (whether cells can be edited follows the field's own read-only state) and no

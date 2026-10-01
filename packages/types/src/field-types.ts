@@ -1041,9 +1041,32 @@ export interface GridFieldMetadata extends BaseFieldMetadata {
    */
   allow_delete?: boolean;
   /**
-   * Whether to allow reordering rows
+   * Whether rows can be reordered by dragging. On unless set `false`; a
+   * read-only or disabled grid never offers it. The one reorder key the grid
+   * reads (objectui#11070 round 8 retired the undeclared `reorderable` it used
+   * to read instead, which left this member taught and ignored).
    */
   allow_reorder?: boolean;
+  /**
+   * The CHILD column whose values are summed into the grid's footer total —
+   * the `name` of one of {@link columns}. No total shows when it is unset.
+   *
+   * It is the spec's `amountField` (`FieldSchema.inlineAmountField` on a
+   * `master_detail` field, `subforms[].amountField` on a form view): the
+   * master-detail and line-items adapters in `@object-ui/plugin-form` write
+   * that key here. ⛔ It is NOT the spec's `totalField`, the PARENT field that
+   * receives the rolled-up sum on save; the grid never writes the parent. The
+   * one spelling the grid reads (objectui#11070 round 8 retired its
+   * `amount_field` / `amountField` reads, which nothing produced).
+   */
+  total_field?: string;
+  /**
+   * Label of the grid's Add button, and the label its empty state names. The
+   * locale's own wording shows when it is unset. It is the spec's
+   * `subforms[].addLabel`, which the master-detail adapter in
+   * `@object-ui/plugin-form` writes here.
+   */
+  add_label?: string;
 }
 
 export interface ColorFieldMetadata extends BaseFieldMetadata {

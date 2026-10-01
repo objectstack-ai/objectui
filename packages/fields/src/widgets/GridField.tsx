@@ -26,6 +26,7 @@ import { useFieldTranslation } from './useFieldTranslation.js';
 import { toDomProps } from './toDomProps.js';
 import { toHostGroupProps } from './toHostGroupProps.js';
 import type { InlineGridColumn } from '@objectstack/spec/data';
+import type { GridFieldMetadata } from '@object-ui/types';
 
 /**
  * GridField / LineItemsField — editable child-grid ("line items") widget.
@@ -76,8 +77,9 @@ import type { InlineGridColumn } from '@objectstack/spec/data';
  * Column config: `@objectstack/spec`'s inline grid column, by reference —
  * see {@link GridColumn}.
  *
- * Field-level config (from `GridFieldMetadata`):
- *   columns, min_rows, max_rows, allow_add, allow_delete, total_field
+ * Field-level config: the keys `GridFieldMetadata` (`@object-ui/types`)
+ * declares, each read under that one spelling (objectui#11070 round 8), plus
+ * the one read key no face declares yet — see {@link UndeclaredGridKeys}.
  */
 
 /**
@@ -130,6 +132,22 @@ import type { InlineGridColumn } from '@objectstack/spec/data';
  *    a predicate that faults fails open.
  */
 export type GridColumn = InlineGridColumn;
+
+/**
+ * The field-level key this widget reads that no face declares.
+ *
+ * `sort_field` names the child field the grid stamps with each row's position
+ * on every change, so a drag-reorder survives a reload. It has a live producer:
+ * `MasterDetailForm` (`@object-ui/plugin-form`) writes it from its detail's
+ * `sortField`, which `deriveDetail` derives from the child object's fields (a
+ * `position` / `sort_order` / … field) when none is authored. The spec declares
+ * no inline sort-field key, so whether it becomes a declared key is a protocol
+ * question, held open on objectui#11070 (round 8) rather than decided here.
+ * Until then it is named in this one place, not read through an `any`.
+ */
+interface UndeclaredGridKeys {
+  sort_field?: string;
+}
 
 type Row = Record<string, any>;
 
@@ -578,7 +596,10 @@ export function GridField({
    *  the header (`parent.status == 'paid'`). Supplied by MasterDetailForm. */
   contextRecord?: Record<string, unknown>;
 }) {
-  const cfg = (field || {}) as any;
+  // The field-level keys, read as `GridFieldMetadata` declares them, so a read
+  // of a key the type does not declare is a compile error here rather than a
+  // second, unpublished contract (objectui#11070 round 8).
+  const cfg = (field || {}) as Partial<GridFieldMetadata> & UndeclaredGridKeys;
   const allColumns: GridColumn[] = cfg.columns || [];
   const rows: Row[] = Array.isArray(value) ? value : [];
   const contextRecord = props.contextRecord;
@@ -660,21 +681,34 @@ export function GridField({
 
   const allowAdd = cfg.allow_add !== false && !readonly && !disabled;
   const allowDelete = cfg.allow_delete !== false && !readonly && !disabled;
-  const allowDuplicate = cfg.allow_duplicate !== false && allowAdd;
+  // A duplicate IS an add, so it is offered exactly when adding is. There is
+  // no key of its own: `allow_duplicate` was read here while no face declared
+  // it and no producer in either repository wrote it, so it was retired under
+  // ADR-0049 (objectui#11070 round 8), keeping the behaviour its default gave.
+  const allowDuplicate = allowAdd;
   // Per-row "expand to full form" (mainstream hybrid: quick grid + rich form).
   const showExpand = typeof onRowExpand === 'function' && !readonly;
-  // Enterprise line grids (NetSuite/SAP/Salesforce) show a line-number column.
-  const showLineNumbers = cfg.show_line_numbers !== false;
+  // Enterprise line grids (NetSuite/SAP/Salesforce) show a line-number column,
+  // always: the `show_line_numbers` switch was retired with `allow_duplicate`,
+  // for the same reason (objectui#11070 round 8).
   const minRows: number = cfg.min_rows ?? 0;
   const maxRows: number | undefined = cfg.max_rows;
-  const totalField: string | undefined =
-    cfg.total_field || cfg.amount_field || cfg.amountField;
+  // The CHILD column summed into the footer: the spec's `amountField` (an
+  // `inlineAmountField` / `subforms[].amountField`), which both adapters in
+  // `@object-ui/plugin-form` write here. ⛔ Not the spec's `totalField`, the
+  // PARENT field that receives the rollup on save. One spelling: the
+  // `amount_field` / `amountField` reads beside it had no producer and are
+  // retired (objectui#11070 round 8).
+  const totalField: string | undefined = cfg.total_field;
   // When set, the row's order is persisted by stamping `row[sortField] = index`
   // on every change — so drag-reorder survives a reload (the app adds a numeric
   // position field and lists sort by it). Without it, reorder is order-of-entry.
   const sortField: string | undefined = cfg.sort_field;
-  // Drag-to-reorder is on for editable grids (off in read-only / list mode).
-  const allowReorder = cfg.reorderable !== false && !readonly && !disabled;
+  // Drag-to-reorder is on for editable grids (off in read-only / list mode),
+  // and `allow_reorder: false` turns it off: the key `GridFieldMetadata`
+  // declares. The undeclared `reorderable` this used to read is retired
+  // (objectui#11070 round 8).
+  const allowReorder = cfg.allow_reorder !== false && !readonly && !disabled;
 
   const emit = useCallback(
     (next: Row[]) => {
@@ -880,9 +914,7 @@ export function GridField({
         <table className="w-full text-sm">
           <thead className="bg-muted border-b border-border">
             <tr>
-              {showLineNumbers && (
-                <th className="w-10 px-2 py-2 text-right text-xs font-medium text-muted-foreground">#</th>
-              )}
+              <th className="w-10 px-2 py-2 text-right text-xs font-medium text-muted-foreground">#</th>
               {columns.map((c) => (
                 <th
                   key={c.name}
@@ -901,7 +933,7 @@ export function GridField({
             {rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={Math.max(columns.length + (showLineNumbers ? 1 : 0), 1)}
+                  colSpan={columns.length + 1}
                   className="px-3 py-6 text-center text-muted-foreground"
                 >
                   {t('fields.grid.noItems', { defaultValue: 'No items' })}
@@ -910,9 +942,7 @@ export function GridField({
             ) : (
               rows.map((row, rowIdx) => (
                 <tr key={rowIdx}>
-                  {showLineNumbers && (
-                    <td className="px-2 py-2 text-right text-muted-foreground tabular-nums">{rowIdx + 1}</td>
-                  )}
+                  <td className="px-2 py-2 text-right text-muted-foreground tabular-nums">{rowIdx + 1}</td>
                   {columns.map((c) => (
                     <td
                       key={c.name}
@@ -947,7 +977,7 @@ export function GridField({
             <tfoot className="border-t border-border bg-muted/40">
               <tr>
                 <td
-                  colSpan={Math.max((showLineNumbers ? 1 : 0) + totalColIndex, 1)}
+                  colSpan={1 + totalColIndex}
                   className="px-3 py-2 text-right text-xs font-medium text-muted-foreground"
                 >
                   {totalLabel}
@@ -1192,9 +1222,7 @@ export function GridField({
         <table ref={gridRef} className="w-full text-sm">
           <thead className="bg-muted/60 border-b border-border">
             <tr>
-              {showLineNumbers && (
-                <th className={cn('px-2 py-2 text-right text-xs font-medium text-muted-foreground', allowReorder ? 'w-14' : 'w-10')}>#</th>
-              )}
+              <th className={cn('px-2 py-2 text-right text-xs font-medium text-muted-foreground', allowReorder ? 'w-14' : 'w-10')}>#</th>
               {columns.map((c) => (
                 <th
                   key={c.name}
@@ -1215,7 +1243,7 @@ export function GridField({
             {isList && rows.length === 0 ? (
               <tr>
                 <td
-                  colSpan={columns.length + (hasRowActions ? 1 : 0) + (showLineNumbers ? 1 : 0)}
+                  colSpan={columns.length + (hasRowActions ? 1 : 0) + 1}
                   className="px-3 py-6 text-center text-muted-foreground"
                 >
                   {t('fields.grid.noItemsAddHint', {
@@ -1242,26 +1270,24 @@ export function GridField({
                         }
                       : {})}
                   >
-                    {showLineNumbers && (
-                      <td className="px-1 py-1 text-right align-middle text-xs text-muted-foreground tabular-nums">
-                        <span className="inline-flex items-center justify-end gap-0.5">
-                          {reorderable && (
-                            <span
-                              draggable
-                              onDragStart={() => { dragIndex.current = rowIdx; }}
-                              onDragEnd={() => { dragIndex.current = null; }}
-                              className="cursor-grab text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100"
-                              title={dragLabel}
-                              aria-label={dragLabel}
-                              data-testid={`line-items-drag-${rowIdx}`}
-                            >
-                              <GripVertical className="h-3.5 w-3.5" />
-                            </span>
-                          )}
-                          <span className={cn(isGhost && 'opacity-30')}>{rowIdx + 1}</span>
-                        </span>
-                      </td>
-                    )}
+                    <td className="px-1 py-1 text-right align-middle text-xs text-muted-foreground tabular-nums">
+                      <span className="inline-flex items-center justify-end gap-0.5">
+                        {reorderable && (
+                          <span
+                            draggable
+                            onDragStart={() => { dragIndex.current = rowIdx; }}
+                            onDragEnd={() => { dragIndex.current = null; }}
+                            className="cursor-grab text-muted-foreground/40 opacity-0 transition-opacity group-hover:opacity-100"
+                            title={dragLabel}
+                            aria-label={dragLabel}
+                            data-testid={`line-items-drag-${rowIdx}`}
+                          >
+                            <GripVertical className="h-3.5 w-3.5" />
+                          </span>
+                        )}
+                        <span className={cn(isGhost && 'opacity-30')}>{rowIdx + 1}</span>
+                      </span>
+                    </td>
                     {columns.map((c, colIdx) => {
                       // Inline validation: a required, non-computed cell that's
                       // empty flags red in place. The "required" verdict honors
@@ -1363,7 +1389,7 @@ export function GridField({
             <tfoot className="border-t border-border bg-muted/40">
               <tr>
                 <td
-                  colSpan={Math.max((showLineNumbers ? 1 : 0) + totalColIndex, 1)}
+                  colSpan={1 + totalColIndex}
                   className="px-3 py-2 text-right text-xs font-medium text-muted-foreground"
                 >
                   {totalLabel}

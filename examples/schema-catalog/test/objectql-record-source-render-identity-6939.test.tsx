@@ -163,12 +163,18 @@ describe('objectui#6939 — and the repair moved the validator, not the renderer
     // An entry that renders nothing — or the error boundary — satisfies
     // "identical" trivially. The authored titles on screen prove the rows
     // reached the chart through `staticData`, the source the mirror ignored.
-    const schema = getExample(id).schema as { staticData: Record<string, string>[]; gantt: { titleField: string } };
+    // Since objectui#10859 batch 6 each entry writes its props in the spec's
+    // `properties` bag, which `SchemaRenderer` hoists onto the node before
+    // `ObjectGantt` reads it — so the PRE_REPAIR readings above, taken on the
+    // flat spelling, hold for the bag too.
+    const schema = getExample(id).schema as {
+      properties: { staticData: Record<string, string>[]; gantt: { titleField: string } };
+    };
     const m = await measure(schema);
     expect(m.elements).toBeGreaterThan(100);
     expect(m.text).not.toContain('failed to render');
-    for (const row of schema.staticData) {
-      expect(m.visibleText).toContain(row[schema.gantt.titleField]);
+    for (const row of schema.properties.staticData) {
+      expect(m.visibleText).toContain(row[schema.properties.gantt.titleField]);
     }
   });
 });

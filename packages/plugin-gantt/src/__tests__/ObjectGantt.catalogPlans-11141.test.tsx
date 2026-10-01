@@ -59,8 +59,18 @@ interface Plan {
   gantt: { startDateField: string; endDateField: string; titleField: string; dependenciesField: string };
 }
 
+/**
+ * A plan as `ObjectGantt` reads it. The file is the authored document: since
+ * objectui#10859 batch 6 its props are in the spec's `properties` bag, which
+ * `SchemaRenderer` hoists onto the node before `ObjectGantt` runs. These pins
+ * mount `ObjectGantt` directly, so the bag is hoisted here the same way.
+ */
 function readPlan(file: string): Plan {
-  return JSON.parse(fs.readFileSync(path.join(CATALOG, file), 'utf8')) as Plan;
+  const doc = JSON.parse(fs.readFileSync(path.join(CATALOG, file), 'utf8')) as {
+    type: string;
+    properties: Omit<Plan, 'type'>;
+  };
+  return { type: doc.type, ...doc.properties };
 }
 
 /** A stored `YYYY-MM-DD` as a UTC day number, where every day is 24 hours. */

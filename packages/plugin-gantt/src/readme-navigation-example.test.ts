@@ -29,6 +29,15 @@
  * It was found exactly this way: objectui#5903's pin test used this README's
  * example verbatim as its "well-typed" fixture, and the fixture failed.
  *
+ * ⚠️ The mechanism sentence above is objectui#6050's, and objectui#7334
+ * overtook it: `ObjectGantt` now hands the hook its own `onNavigate`, so a
+ * `page` click navigates to the record-page address the gantt derives from
+ * the page it is on (measured by objectui#11168 slice 4, and pinned in
+ * `__tests__/objectGanttInputs-11168.test.tsx`). The conclusion stands: no
+ * `navigation` member authors that address, `basePath` included. Since that
+ * slice the example is the AUTHORED node, so `navigation` is read from its
+ * `properties` bag.
+ *
  * ## No gate in this repo can catch it, which is the point
  *
  * `check-doc-snippet-types` compiles `ts`/`tsx` fences and
@@ -101,7 +110,7 @@ const README = join(repoRoot(), 'packages/plugin-gantt/README.md');
 
 /** The bullet that documents the override, and the sentence that introduces it. */
 const SECTION_HEADING = '\n### Create / Edit / Delete / View\n';
-const ANCHOR = 'Override by setting `navigation` on the schema';
+const ANCHOR = 'Override it with `navigation` in the `properties` bag';
 
 /**
  * The declared member names, read out of the schema's OWN shape. Restating them
@@ -162,10 +171,13 @@ function readmeExample(): Record<string, unknown> {
   if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
     throw new Error('the README\'s navigation example is not a JSON object');
   }
-  const doc = parsed as Record<string, unknown>;
-  const nav = doc.navigation;
+  const bag = (parsed as Record<string, unknown>).properties;
+  if (typeof bag !== 'object' || bag === null || Array.isArray(bag)) {
+    throw new Error('the README\'s navigation example is no longer an authored node with a `properties` bag');
+  }
+  const nav = (bag as Record<string, unknown>).navigation;
   if (typeof nav !== 'object' || nav === null || Array.isArray(nav)) {
-    throw new Error('the README\'s navigation example no longer carries a `navigation` object');
+    throw new Error('the README\'s navigation example no longer carries a `navigation` object in its bag');
   }
   return nav as Record<string, unknown>;
 }
@@ -256,7 +268,7 @@ describe('plugin-gantt README: the record-navigation example', () => {
   it('still teaches the thing its sentence promises — page mode', () => {
     expect(
       EXAMPLE.mode,
-      'The sentence promises "route to the standalone detail page instead". `mode` is what ' +
+      'The example shows `page` opening the record page in the same tab. `mode` is what ' +
         'delivers that; an example that lost it would be valid and useless.',
     ).toBe('page');
   });
@@ -265,7 +277,7 @@ describe('plugin-gantt README: the record-navigation example', () => {
     expect(
       navigationSection().includes(REJECTED_KEY),
       `\`${REJECTED_KEY}\` is not authorable here in any spelling — prose or fence. ` +
-        '`useNavigationOverlay` builds no URL out of this config; the host owns the route.',
+        'No member of this config authors the address: the gantt derives it from the page it is on.',
     ).toBe(false);
   });
 

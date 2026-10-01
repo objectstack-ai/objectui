@@ -543,7 +543,7 @@ function recordNavigatorHost() {
 async function clickRootUnderHost(
   navigation: Record<string, unknown> | undefined,
   host: RelatedRecordActionsValue,
-  { objectName = OBJECT as string | undefined } = {},
+  { namesObject = true } = {},
 ) {
   const open = vi.fn();
   vi.stubGlobal('open', open);
@@ -554,7 +554,7 @@ async function clickRootUnderHost(
           schema={{
             type: 'object-tree',
             tree: TREE,
-            ...(objectName ? { objectName } : {}),
+            ...(namesObject ? { objectName: OBJECT } : {}),
             staticData: ROWS,
             ...(navigation ? { navigation } : {}),
           } as never}
@@ -608,7 +608,7 @@ describe('`object-tree.navigation` `page` under the host\'s record navigator (ob
 
   it('a tree that names no `objectName` (inline rows alone) has no record page to open, even under the host', async () => {
     const { value, openRecord } = recordNavigatorHost();
-    const { open } = await clickRootUnderHost({ mode: 'page' }, value, { objectName: undefined });
+    const { open } = await clickRootUnderHost({ mode: 'page' }, value, { namesObject: false });
     await expectNothingOpened(open, 'page without objectName');
     expect(openRecord).not.toHaveBeenCalled();
   });

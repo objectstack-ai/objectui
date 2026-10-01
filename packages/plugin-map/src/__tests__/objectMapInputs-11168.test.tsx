@@ -528,7 +528,7 @@ function recordNavigatorHost() {
 async function clickMarkerUnderHost(
   navigation: Record<string, unknown> | undefined,
   host: RelatedRecordActionsValue,
-  { objectName = OBJECT as string | undefined } = {},
+  { namesObject = true } = {},
 ) {
   const open = vi.fn();
   vi.stubGlobal('open', open);
@@ -539,7 +539,7 @@ async function clickMarkerUnderHost(
           schema={{
             type: 'object-map',
             map: MAP,
-            ...(objectName ? { objectName } : {}),
+            ...(namesObject ? { objectName: OBJECT } : {}),
             staticData: [ROWS[0]],
             ...(navigation ? { navigation } : {}),
           } as never}
@@ -594,7 +594,7 @@ describe('`object-map.navigation` `page` under the host\'s record navigator (obj
 
   it('a map that names no `objectName` (inline rows alone) has no record page to open, even under the host', async () => {
     const { value, openRecord } = recordNavigatorHost();
-    const { open } = await clickMarkerUnderHost({ mode: 'page' }, value, { objectName: undefined });
+    const { open } = await clickMarkerUnderHost({ mode: 'page' }, value, { namesObject: false });
     await expectNothingOpened(open, 'page without objectName');
     expect(openRecord).not.toHaveBeenCalled();
   });

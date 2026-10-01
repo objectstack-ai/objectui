@@ -94,6 +94,7 @@ import {
   listMetadataInspectorTypes,
 } from '../metadata-admin/inspector-registry.js';
 import { getMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
+import { getMetadataResource } from '../metadata-admin/registry.js';
 import { useMetadataClient, useMetadataTypes } from '../metadata-admin/useMetadata.js';
 import {
   DESIGNER_SURFACE_PARAM,
@@ -239,6 +240,26 @@ const PILLARS: ReadonlyArray<{ key: string; label: string; Icon: LucideIcon }> =
  */
 interface DraftSend {
   unmoved: () => boolean;
+}
+
+/**
+ * objectui#11357 — the body the Interfaces pillar saves for its open leaf. A
+ * page goes through the `page` registration's `fromDraft`, the serialiser
+ * the metadata editor's save uses: it leaves out the `requires` the server
+ * stamps from an html page's source, so the stamp the buffer was seeded with
+ * never travels back as a hand-written list. ⛔ Nothing here computes
+ * `requires`. Every other type is sent as the draft it is.
+ *
+ * Page-scoped on purpose. This pillar applies no `toDraft` on load, so a
+ * type's `fromDraft` is safe here only where that type registers no
+ * `toDraft` (a pair is an inverse; half of it would send a shape the pillar
+ * never received). The `page` registration has none, and the pillar's pin
+ * holds that precondition.
+ */
+function interfacesSaveBody(type: string, draft: Record<string, unknown>): Record<string, unknown> {
+  if (type !== 'page') return draft;
+  const fromDraft = getMetadataResource('page')?.fromDraft;
+  return fromDraft ? fromDraft(draft) : draft;
 }
 
 function draftSnapshotKey(snapshot: unknown): string {
@@ -2312,7 +2333,7 @@ export function InterfacesPillar({
     if (!current) return;
     setSaving('draft');
     try {
-      await client.save(current.type, current.name, draft, { mode: 'draft', packageId });
+      await client.save(current.type, current.name, interfacesSaveBody(current.type, draft), { mode: 'draft', packageId });
       setHasDraft(true);
       // objectui#11204 — clean only if nothing was edited while it was in flight.
       if (sent.unmoved()) setIfDirty(false);

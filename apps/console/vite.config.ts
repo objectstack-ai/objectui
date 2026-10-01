@@ -744,8 +744,9 @@ const SPEC_MODULE_TEST = /@objectstack[\\/+]spec/;
 //
 // The injected spec also arrives with its OWN install tree, so left alone its
 // bare `zod` import resolves to the framework's zod and the bundle carries two
-// instances — the Studio's spec-derived forms then crash in `z.toJSONSchema`
-// (objectui#11327). The injection therefore pins every `zod` import to ONE
+// instances — at the console pin objectui#11327 was reported against, the
+// Studio's spec-derived forms crashed in `z.toJSONSchema` over them. The
+// injection therefore pins every `zod` import to ONE
 // copy: the one `CONSOLE_ZOD_ANCHOR` resolves. That package is the anchor
 // because it is where the console walks spec schemas with its own zod (the
 // metadata-admin `*-schema.ts` modules) and it declares `zod` itself; the

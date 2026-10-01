@@ -79,13 +79,16 @@
 // bare `zod` import resolves from where the override sits — the framework's own
 // `node_modules` — so an injected console bundled TWO zod instances: the
 // console's (in `vendor-zod`) and the spec's (folded into `vendor-objectstack`).
-// A schema built by one and walked by the other breaks: the metadata-admin
-// schema modules call the console's `z.toJSONSchema` over the spec's
-// `ManifestSchema`, the spec's copy hands it a processor that pushes onto a
-// context field the console's copy never created, the walk throws, and the
+// A schema built by one and walked by the other is only as safe as the two
+// copies' internals happen to agree. At the console pin objectui#11327 was
+// reported against (zod 4.4.3, spec built with 4.6.1) they did not: the
+// metadata-admin schema modules call the console's `z.toJSONSchema` over the
+// spec's `ManifestSchema`, the spec's copy hands it a processor that pushes onto
+// a context field the console's copy never created, the walk throws, and the
 // Studio's spec-derived forms lose their fields (the New Package dialog could
-// not create a package). Two copies that happen to share a version are still
-// two instances, so the rule is ONE, not "matching".
+// not create a package). Two copies that happen to agree — a later console
+// zod walked those same schemas without throwing — are still two instances, so
+// the rule is ONE, not "matching".
 //
 // `resolve.dedupe` cannot deliver it here, measured on objectui#11327 against
 // the real console config: Vite resolves a deduped package from its ROOT, the
@@ -813,9 +816,10 @@ export function assertSingleZodInstance(): Plugin {
         context.error(
           `[${SINGLE_ZOD_GUARD_NAME}] the console bundle carries ${copies.size} zod instances and must ` +
             `carry exactly one (objectui#11327):\n${lines.join('\n')}\n` +
-            `A schema built by one instance and walked by another breaks — \`z.toJSONSchema\` over a spec ` +
-            `schema threw and the Studio's spec-derived forms lost their fields — and two copies that share ` +
-            `a version are still two instances. If \`OBJECTSTACK_SPEC_DIST\` is set, the single-zod redirect ` +
+            `A schema built by one instance and walked by another holds only while their internals happen ` +
+            `to agree — when they did not, \`z.toJSONSchema\` over a spec schema threw and the Studio's ` +
+            `spec-derived forms lost their fields — and two copies that agree, even on a version, are ` +
+            `still two instances. If \`OBJECTSTACK_SPEC_DIST\` is set, the single-zod redirect ` +
             `(\`pinZodToConsoleCopy\` in \`scripts/vite-objectstack-spec-dist.ts\`) did not take. Otherwise ` +
             `objectui's own lockfile resolves zod twice; dedupe the lockfile. Adding \`zod\` to ` +
             `\`resolve.dedupe\` is not a fix: the console root declares no zod, so Vite falls back to each ` +

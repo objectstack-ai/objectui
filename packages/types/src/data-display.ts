@@ -286,6 +286,19 @@ export interface AvatarSchema extends BaseSchema {
 export interface ListSchema extends BaseSchema {
   type: 'list';
   /**
+   * Heading drawn above the list.
+   *
+   * READ SITE: `packages/components/src/renderers/data-display/list.tsx`, which
+   * draws `schema.title` in an `h3` above the list when it is set; the `list`
+   * registration publishes it as an input. Undeclared until objectui#11347,
+   * surviving only on `BaseSchema`'s index signature. The installed
+   * `@objectstack/spec` has no row for `list`, and the published
+   * `skills/objectui` expressions guide authors `title` on a `list` node, so
+   * the key is declared where the renderer and the registry already honour it
+   * rather than retired.
+   */
+  title?: string;
+  /**
    * List items
    */
   items: ListItem[];
@@ -305,7 +318,7 @@ export interface ListSchema extends BaseSchema {
    */
   dense?: boolean;
   /**
-   * Classes on the wrapper `div` around the list.
+   * Classes on the wrapper `div` around the title and the list.
    *
    * READ SITE: `packages/components/src/renderers/data-display/list.tsx` —
    * `cn("space-y-2", schema.wrapperClass)`. Undeclared until
@@ -328,8 +341,6 @@ export interface ListSchema extends BaseSchema {
    * from; this declaration carries none. What the renderer DOES read off this
    * node, from the same instrument: `bind`, `items`, `ordered`, `title`,
    * `wrapperClass` (in `packages/components/src/renderers/data-display/list.tsx`).
-   * `title` has since been retired there (objectui#11347): it was never a
-   * member here and no producer authored it.
    *
    * ⭐ THE ITEM CHANNEL IS A DIFFERENT KEY AND STAYS LIVE. That renderer draws
    * each entry from its `content` (`renderChildren(item.content)`) — a read filed
@@ -377,8 +388,6 @@ export interface ListSchema extends BaseSchema {
    * from; this declaration carries none. What the renderer DOES read off this
    * node, from the same instrument: `bind`, `items`, `ordered`, `title`,
    * `wrapperClass` (in `packages/components/src/renderers/data-display/list.tsx`).
-   * `title` has since been retired there (objectui#11347): it was never a
-   * member here and no producer authored it.
    *
    * ⭐ THE ITEM CHANNEL IS A DIFFERENT KEY AND STAYS LIVE. That renderer draws
    * each entry from its `content` (`renderChildren(item.content)`) — a read filed

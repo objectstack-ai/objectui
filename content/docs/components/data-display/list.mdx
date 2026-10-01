@@ -12,6 +12,7 @@ description: "Display a list of items"
 ```plaintext
 interface ListSchema {
   type: 'list';
+  title?: string;           // heading drawn above the list
   items: SchemaNode[];
   ordered?: boolean;
   className?: string;

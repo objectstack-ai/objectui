@@ -46,4 +46,4 @@ await import('../dev/manifest-registry.ts');
 const { emitSduiManifest } = await import('./emit-sdui-manifest.ts');
 
 const written = emitSduiManifest(distDir);
-console.log(`✓ build-sdui-manifest: wrote ${written}`);
+process.stdout.write(`✓ build-sdui-manifest: wrote ${written}\n`);

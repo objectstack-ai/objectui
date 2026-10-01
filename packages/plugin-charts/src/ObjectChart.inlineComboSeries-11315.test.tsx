@@ -61,6 +61,7 @@ const drawn = async (c: HTMLElement) => {
   return {
     bars: c.querySelectorAll('.recharts-bar').length,
     lines: c.querySelectorAll('.recharts-line').length,
+    areas: c.querySelectorAll('.recharts-area').length,
     yAxes: c.querySelectorAll('.recharts-yAxis').length,
   };
 };
@@ -92,23 +93,26 @@ describe('ObjectChart (react tier) — an authored `series` still draws a combo 
       ],
       yAxis: [{ title: 'Tasks' }, { title: 'Avg progress', position: 'right', min: 0, max: 100 }],
     });
-    expect(await drawn(container)).toEqual({ bars: 1, lines: 1, yAxes: 2 });
+    expect(await drawn(container)).toEqual({ bars: 1, lines: 1, areas: 0, yAxes: 2 });
     // The authored axis presentation is drawn too, on the axis it names.
     expect(container.textContent).toContain('Avg progress');
   });
 
-  it('honours an explicit react-tier `combo` family with the same series', async () => {
+  it('honours an explicit react-tier `combo` family with authored marks', async () => {
     // `<ObjectChart type="combo">` reaches this node as `specType` (the
-    // node's own `type` is its registry discriminator).
+    // node's own `type` is its registry discriminator). The marks are chosen
+    // so the authored answer differs from the combo's positional default (a
+    // bar, then lines): an area and a line, no bar. A renderer that ignored
+    // `series[].type` here would still draw a combo, with a bar in it.
     const { container } = renderChart({
       specType: 'combo',
       xAxis: { field: 'assignee' },
       series: [
-        { name: 'task_count', type: 'bar' },
+        { name: 'task_count', type: 'area' },
         { name: 'avg_progress', type: 'line', yAxis: 'right' },
       ],
       yAxis: [{ title: 'Tasks' }, { title: 'Avg progress', position: 'right' }],
     });
-    expect(await drawn(container)).toEqual({ bars: 1, lines: 1, yAxes: 2 });
+    expect(await drawn(container)).toEqual({ bars: 0, lines: 1, areas: 1, yAxes: 2 });
   });
 });

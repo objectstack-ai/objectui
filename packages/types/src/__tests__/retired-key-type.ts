@@ -95,6 +95,7 @@ type _PinnedSpelling = Expect<Equal<IsRetiredKeyType<undefined>, true>>;
 type _MainSpelling = Expect<Equal<IsRetiredKeyType<Mark | undefined>, true>>;
 type _RewordedSentence = Expect<Equal<IsRetiredKeyType<{ '[REMOVED] Some other sentence.': never } | undefined>, true>>;
 
+// `any` is the probe's INPUT here: the row proves the helper refuses it.
 type _NotAny = Expect<Equal<IsRetiredKeyType<any>, false>>;
 type _NotUnknown = Expect<Equal<IsRetiredKeyType<unknown>, false>>;
 type _NotNever = Expect<Equal<IsRetiredKeyType<never>, false>>;
@@ -105,5 +106,5 @@ type _NotTheMarkWidened = Expect<Equal<IsRetiredKeyType<Mark | string | undefine
 type _NotAMarkThatAdmitsAValue = Expect<Equal<IsRetiredKeyType<{ '[REMOVED] Key retired.': string } | undefined>, false>>;
 type _NotAMarkWithASecondProperty = Expect<Equal<IsRetiredKeyType<(Mark & { title: never }) | undefined>, false>>;
 type _NotAMarkWithoutThePrefix = Expect<Equal<IsRetiredKeyType<{ removed: never } | undefined>, false>>;
-type _NotAnEmptyObject = Expect<Equal<IsRetiredKeyType<{} | undefined>, false>>;
+type _NotAnEmptyObject = Expect<Equal<IsRetiredKeyType<Record<never, never> | undefined>, false>>;
 type _NotATemplateIndexSignature = Expect<Equal<IsRetiredKeyType<{ [k: RemovedMarkKey]: never } | undefined>, false>>;

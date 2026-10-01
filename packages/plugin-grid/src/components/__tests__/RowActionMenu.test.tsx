@@ -269,9 +269,11 @@ describe('declared boolean `visible` on a custom row action (objectui#3758)', ()
   });
 
   // --- the other half of "declared": empty string is NOT a gate ------------
-  // `hasVisibilityGate` excludes `''` for the selection bar; the row surfaces
-  // match it, so an action whose predicate compiled away to an empty string is
-  // not silently hidden from everyone.
+  // The row surfaces and the selection bar (`hasVisibilityGate`) ask the same
+  // `hasDeclaredVisibilityGate`, which reads `''` as no gate — and, since
+  // objectui#11294 here and objectui#11322 on the bar, blank text in either
+  // spelling too (see the block below). So an action whose predicate compiled
+  // away to an empty string is not silently hidden from everyone.
 
   it('an empty-string `visible` is not a declared gate — the action still renders', () => {
     renderMenu({ rowActionDefs: [{ ...OPEN, visible: '' }] });

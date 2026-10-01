@@ -36,6 +36,7 @@
  */
 import { evalFieldPredicate, type FieldRulePredicate } from './fieldRules.js';
 import { ExpressionEvaluator } from './ExpressionEvaluator.js';
+import { hasDeclaredPredicate } from './declaredPredicate.js';
 import { toPredicateRecord, type FieldContainerLike } from '../utils/predicate-record.js';
 
 /**
@@ -370,9 +371,14 @@ export interface RowPartition<TRow> {
  * that loop written once, with the three cases each caller was otherwise
  * re-deriving:
  *
- *   - **absent** (`null` / `undefined` / blank string) — nothing is gated, so
- *     `rows` is returned BY REFERENCE and `skipped` is 0. The common case
- *     allocates nothing and a caller's downstream memo still holds.
+ *   - **not declared** — answered by {@link hasDeclaredPredicate}, the repo's
+ *     one definition of "is a gate declared?": `null` / `undefined`, `''`,
+ *     blank predicate text in either spelling (`'   '` and
+ *     `{ dialect: 'cel', source: '   ' }`), the empty envelope, and any value
+ *     that is not a predicate at all. Nothing is gated, so `rows` is returned
+ *     BY REFERENCE and `skipped` is 0. The common case allocates nothing and a
+ *     caller's downstream memo still holds. A blank is not silent: that
+ *     definition reports it once (ADR-0137 D4).
  *   - **boolean** — a verdict, not an expression, short-circuited exactly as
  *     `useCondition` / `useRowPredicate` do. Handing `true` to the engine
  *     produces `{ dialect: 'cel', source: undefined }`, which faults and — on
@@ -388,13 +394,31 @@ export interface RowPartition<TRow> {
  * record bound, `record.status != 'paid'` returns `true` for every row —
  * including the ones it was written to exclude — so an authored gate is not
  * weakened, it is inverted for half its inputs (objectui#3067).
+ *
+ * ## Why "declared?" is asked of the one definition (objectui#11322)
+ *
+ * This fold used to answer it with a test of its own, `pred == null ||
+ * pred === ''`, whose scope was narrower than the family's. A whitespace-only
+ * `visible` therefore counted as declared here, was evaluated, failed closed
+ * for every record and left nothing eligible: the grid's selection bar hid a
+ * bulk action that the same grid's row menu and toolbars show. Asking
+ * {@link hasDeclaredPredicate} keeps the three surfaces on one answer.
+ *
+ * The question is key-neutral, and so is this fold: every value a caller hands
+ * it gets the same answer. That includes the built-in Delete's
+ * `userActions.delete.visibleWhen`, which both selection bars pass through here
+ * (plugin-grid's through `partitionBulkRows`, plugin-list's `ListView`
+ * directly). A blank one admits every selected record rather than excluding
+ * them all. The built-in Delete ROW item decides "declared?" for that key by
+ * `!= null` and still hides on a blank; that row rule belongs to the field-rule
+ * `*When` keys and is not decided here.
  */
 export function partitionRowsByPredicate<TRow extends Record<string, unknown>>(
   pred: FieldRulePredicate | boolean | undefined | null,
   rows: readonly TRow[],
   opts: Omit<RowPredicateOptions, 'fallback' | 'rowless'> = {},
 ): RowPartition<TRow> {
-  if (pred == null || pred === '') {
+  if (!hasDeclaredPredicate(pred)) {
     return { eligible: rows as TRow[], skipped: 0 };
   }
   if (typeof pred === 'boolean') {

@@ -65,7 +65,7 @@ import { DrillDownConfigSchema } from './data-display.zod.js';
 import { KanbanCardSchema } from './complex.zod.js';
 import { ViewSwitcherSchema } from './views.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
-import { NODE_ENVELOPE, propsBag } from './public-blocks.zod.js';
+import { dataSourceSuppliesObject, NODE_ENVELOPE, propsBag } from './public-blocks.zod.js';
 
 /**
  * ⭐ THE IMPORT BOUNDARY (objectui#8317, decision batch #90, 2026-09-08).
@@ -288,6 +288,18 @@ const ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION =
   + '`SchemaRenderer` strips this key from the props it spreads so it cannot shadow the adapter).';
 
 /**
+ * objectui#11117 — ONE `.describe()` string for the `objectName` member of the
+ * gate-wrapped arms whose ONLY rung it is (`object-grid`, `list-view`): optional
+ * as a member, required by `requireRecordSource` unless the node's binding names
+ * the object. The ladder arms (`object-map`, `object-gantt`, `object-calendar`,
+ * `object-kanban`) name the binding in their own rung descriptions.
+ */
+const OBJECT_NAME_BINDING_WAIVER_DESCRIPTION =
+  'ObjectQL object name — required unless the node\'s `dataSource.object` names the object, which '
+  + '`ElementDataSourceGate` lands here before the renderer reads the node. A node with neither is refused '
+  + 'at its root, keyed `RECORD_SOURCE_REQUIRED`.';
+
+/**
  * ObjectGrid Schema
  */
 export const ObjectGridSchema = BaseSchema.extend({
@@ -297,7 +309,10 @@ export const ObjectGridSchema = BaseSchema.extend({
   // spread (`NODE_ENVELOPE`). A producer writes it on `object-grid` nodes, and
   // `SchemaRenderer` compiles it on every node. The TS twin declares it too.
   ...NODE_ENVELOPE,
-  objectName: z.string().describe('ObjectQL object name'),
+  // objectui#11117 — OPTIONAL as a member, REQUIRED by the refinement at the end
+  // unless the node's `dataSource.object` names the object: the registration is
+  // gate-wrapped, and `ElementDataSourceGate` lands the binding's `object` here.
+  objectName: z.string().optional().describe(OBJECT_NAME_BINDING_WAIVER_DESCRIPTION),
   // objectui#11070 — the spec's per-element binding, by reference, as
   // `public-blocks.zod.ts`'s `element:number` arm already declares it. The
   // registered renderer reads it off the node through `ElementDataSourceGate`,
@@ -468,7 +483,10 @@ export const ObjectGridSchema = BaseSchema.extend({
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(OBJECT_GRID_NEITHER_CHANNEL),
   children: retirementTombstone(OBJECT_GRID_NEITHER_CHANNEL),
-});
+  // objectui#11117 — `objectName`'s requiredness, with the spec's binding waiver:
+  // the shared refinement (`requireRecordSource`, beside `ObjectMapSchema`; a
+  // hoisted function declaration) with this arm's one rung.
+}).superRefine(...requireRecordSource('object-grid', ['objectName']));
 
 /**
  * The prescription an author gets when a record id arrives as a number.
@@ -879,7 +897,12 @@ export const ObjectViewSchema = BaseSchema.extend({
   // objectui#10976 — the grid keys `ObjectView` hands its grid; every other
   // grid member is refused by name (`OBJECT_VIEW_TABLE_WITHHELD` above).
   table: z
-    .lazy(() => ObjectGridSchema.omit({ type: true, objectName: true }).extend(OBJECT_VIEW_TABLE_WITHHELD).partial())
+    // Rebuilt from the grid's `.shape` onto `BaseSchema` rather than `.omit()`ed off
+    // `ObjectGridSchema` itself: zod 4 refuses `.omit()` on an object carrying a
+    // refinement, and the grid carries its record-source one since objectui#11117.
+    // Same shape, same `.passthrough()`, and none of the grid's checks — the slot
+    // omits `objectName` anyway, because the view supplies it.
+    .lazy(() => BaseSchema.extend(ObjectGridSchema.shape).omit({ type: true, objectName: true }).extend(OBJECT_VIEW_TABLE_WITHHELD).partial())
     .optional()
     .describe('Table config'),
   form: z.lazy(() => ObjectFormSchema.omit({ type: true, objectName: true, mode: true }).partial()).optional().describe('Form config'),
@@ -1758,7 +1781,10 @@ export const ListViewSchema = BaseSchema
       .optional()
       .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
     // objectui-only object binding (spec binds via data.provider:'object'; migration deferred).
-    objectName: z.string().describe('Object Name'),
+    // objectui#11117 — OPTIONAL as a member, REQUIRED by the record-source
+    // refinement at the end of the chain unless the node's `dataSource.object`
+    // names the object (the registration is gate-wrapped; see `ObjectGridSchema`).
+    objectName: z.string().optional().describe(OBJECT_NAME_BINDING_WAIVER_DESCRIPTION),
     // Renamed spec `type` (view-kind); enum imported from spec so it can't drift.
     viewType: ViewKindEnum.optional().describe('View Type'),
     // Relaxed spec `columns` (spec requires it) + legacy `fields` alias for string[] columns.
@@ -2010,7 +2036,11 @@ export const ListViewSchema = BaseSchema
   // later reddens there instead of being dropped here in silence.
   .superRefine(checkListViewCalendarVisualization)
   // objectui's OWN object-level check, not a spec one: see its doc above.
-  .superRefine(checkListViewDatasetChartFilter);
+  .superRefine(checkListViewDatasetChartFilter)
+  // objectui#11117 — `objectName`'s requiredness, with the spec's binding
+  // waiver: the shared refinement `requireRecordSource` (beside
+  // `ObjectMapSchema`), with this arm's one rung.
+  .superRefine(...requireRecordSource('list-view', ['objectName']));
 
 /**
  * TS type for the ListView component node (spec-derived; issue #2231).
@@ -2079,7 +2109,10 @@ export const ObjectMapConfigSchema = z.object({
 
 /**
  * `77cb489b4` — the record-source refinement `ObjectMapSchema`,
- * `ObjectGanttSchema` and `ObjectCalendarSchema` below share.
+ * `ObjectGanttSchema` and `ObjectCalendarSchema` below share — and, since
+ * objectui#11117, every gate-wrapped arm with a record-source requirement:
+ * `ObjectKanbanSchema` with its own rung list, and `ObjectGridSchema` and
+ * `ListViewSchema` with `objectName` alone (see the last section).
  *
  * Those renderers resolve their records from ONE of three keys, in this order:
  * `data`, `staticData` (inline rows, wrapped into a `{ provider: 'value' }`
@@ -2131,21 +2164,61 @@ export const ObjectMapConfigSchema = z.object({
  *
  * ⛔ So do not read the message below as promising a fetchable source: on the
  * calendar, declaring `data` means handing the block rows it already has.
+ *
+ * ## The node's `dataSource` binding is a record source on every arm (objectui#11117)
+ *
+ * Every arm that installs this refinement is gate-wrapped: its registration is
+ * `elementDataSourceBlock`, so `ElementDataSourceGate` (`@object-ui/react`)
+ * lands a binding's `object` on `objectName` before the renderer reads the
+ * node. A node whose `dataSource.object` names an object therefore HAS a
+ * record source although it writes none of the rungs, and the spec accepts it:
+ * the `ComponentPropsMap` rows its props gate judges for these blocks require
+ * no object key (`list-view` has no row), and where a row does —
+ * `element:number`'s `object` — the gate waives exactly that member beside
+ * `dataSource.object`. So the binding counts here, on the
+ * predicate the gate and the runtime both use: `dataSourceSuppliesObject`
+ * from `./public-blocks.zod.ts`, the ONE copy, which `element:number`'s waiver
+ * reads too. A NON-EMPTY string name only — `dataSource: { object: '' }`
+ * supplies nothing, because `isElementDataSourceConfig` refuses it and the
+ * gate then lands nothing on the node.
+ *
+ * ONE refinement for every gate-wrapped arm with a record-source requirement,
+ * parameterised by the arm's own rung list, because the ladders genuinely
+ * differ (`object-kanban` has `bind` and no `staticData`; `object-grid` and
+ * `list-view` have `objectName` alone). What every arm shares is what this
+ * function owns: presence as `!== undefined` on the rungs, the binding as the
+ * last rung, the root-path issue keyed `RECORD_SOURCE_REQUIRED`, and the
+ * message, which names the binding as a remedy beside the rungs.
+ *
+ * ⚠️ It returns the refinement AND its params, spread into `.superRefine()`,
+ * because `when: () => true` is load-bearing: zod skips a refinement once an
+ * earlier issue aborts the parse, and on `object-grid` and `list-view` this
+ * refinement replaces a required member, whose `invalid_type` was reported
+ * BESIDE every other issue on the node. Without it, a node with no object and
+ * a bad `columns` would report only the `columns`. So the body reads the raw
+ * input defensively — the node may be anything when it runs.
  */
 const RECORD_SOURCE_KEYS = ['data', 'staticData', 'objectName'] as const;
-function requireRecordSource(type: 'object-map' | 'object-gantt' | 'object-calendar') {
-  return (
-    schema: Partial<Record<(typeof RECORD_SOURCE_KEYS)[number], unknown>>,
-    ctx: z.core.$RefinementCtx,
-  ): void => {
-    if (RECORD_SOURCE_KEYS.some((key) => schema[key] !== undefined)) return;
+type RecordSourceRung = 'bind' | 'data' | 'staticData' | 'objectName';
+function requireRecordSource(
+  type: 'object-map' | 'object-gantt' | 'object-calendar' | 'object-kanban' | 'object-grid' | 'list-view',
+  rungs: readonly RecordSourceRung[],
+) {
+  const named = rungs.map((key) => `\`${key}\``);
+  const declare = named.length === 1 ? named[0] : `one of ${named.slice(0, -1).join(', ')} or ${named[named.length - 1]}`;
+  const message = `\`${type}\` has no record source: declare ${declare}, or name the object in \`dataSource.object\``;
+  const refinement = (node: unknown, ctx: z.core.$RefinementCtx): void => {
+    if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+    if (rungs.some((key) => (node as Partial<Record<RecordSourceRung, unknown>>)[key] !== undefined)) return;
+    if (dataSourceSuppliesObject(node)) return;
     ctx.addIssue({
       code: 'custom',
       path: [],
       params: { code: 'RECORD_SOURCE_REQUIRED' },
-      message: `\`${type}\` has no record source: declare one of \`data\`, \`staticData\` or \`objectName\``,
+      message,
     });
   };
+  return [refinement, { when: () => true }] as const;
 }
 
 /** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectMapSchema`. */
@@ -2178,7 +2251,7 @@ export const ObjectMapSchema = BaseSchema.extend({
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
     .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
-  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source getDataConfig resolves, after data and staticData; one of the three must be present'),
+  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source getDataConfig resolves, after data and staticData; one of the three must be present, unless the node\'s dataSource.object names the object, which ElementDataSourceGate lands here (objectui#11117)'),
   data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by getDataConfig'),
   staticData: z.array(z.any()).optional().describe('Inline records — read SECOND by getDataConfig, wrapped into a { provider: value } config'),
   filter: z.array(z.any()).optional().describe('Query filter, forwarded as $filter'),
@@ -2193,7 +2266,7 @@ export const ObjectMapSchema = BaseSchema.extend({
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(OBJECT_MAP_NEITHER_CHANNEL),
   children: retirementTombstone(OBJECT_MAP_NEITHER_CHANNEL),
-}).superRefine(requireRecordSource('object-map'));
+}).superRefine(...requireRecordSource('object-map', RECORD_SOURCE_KEYS));
 
 /** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectTreeSchema`. */
 const OBJECT_TREE_NEITHER_CHANNEL = neitherContentChannelGuidance(
@@ -2256,7 +2329,7 @@ export const ObjectGanttSchema = BaseSchema.extend({
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
     .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
-  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present'),
+  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present, unless the node\'s dataSource.object names the object, which ElementDataSourceGate lands here (objectui#11117)'),
   data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by resolveRecordSourceConfig'),
   startDateField: z.string().optional().describe('Start date field'),
   endDateField: z.string().optional().describe('End date field'),
@@ -2388,7 +2461,7 @@ export const ObjectGanttSchema = BaseSchema.extend({
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(OBJECT_GANTT_NEITHER_CHANNEL),
   children: retirementTombstone(OBJECT_GANTT_NEITHER_CHANNEL),
-}).superRefine(requireRecordSource('object-gantt'));
+}).superRefine(...requireRecordSource('object-gantt', RECORD_SOURCE_KEYS));
 
 /** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectCalendarSchema`. */
 const OBJECT_CALENDAR_NEITHER_CHANNEL = neitherContentChannelGuidance(
@@ -2421,7 +2494,7 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
     .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
-  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present (objectui#7313)'),
+  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present (objectui#7313), unless the node\'s dataSource.object names the object, which ElementDataSourceGate lands here (objectui#11117)'),
   // objectui#9239 — the ARRAY arm, mirroring `ComponentPropsMap['object-calendar'].data`
   // on `@objectstack/spec` (`z.array(z.unknown()).optional()`, "Pre-fetched
   // records — skips the internal fetch"). ⛔ NOT `ViewDataSchema`: this member
@@ -2529,7 +2602,7 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(OBJECT_CALENDAR_NEITHER_CHANNEL),
   children: retirementTombstone(OBJECT_CALENDAR_NEITHER_CHANNEL),
-}).superRefine(requireRecordSource('object-calendar'));
+}).superRefine(...requireRecordSource('object-calendar', RECORD_SOURCE_KEYS));
 
 /**
  * ObjectKanban Schema
@@ -2561,23 +2634,27 @@ export const KanbanConditionalFormattingRuleSchema = z.union([
 
 /**
  * The `object-kanban` board has a record source — at least one of `bind`,
- * `data`, `objectName` is present (objectui#7780).
+ * `data`, `objectName` is present (objectui#7780), or the node's
+ * `dataSource.object` names the object (objectui#11117).
  *
- * ⚠️ NOT `requireRecordSource` above, and deliberately not built on it. That
- * one serves the `object-map` / `object-gantt` / `object-calendar` ladder,
- * whose rungs are `data` (a `ViewData` PROVIDER BLOCK) → `staticData` →
- * `objectName`, resolved by the shared `resolveRecordSourceConfig` in
- * `@object-ui/core`. This board walks a DIFFERENT ladder in
- * `plugin-kanban/src/ObjectKanban.tsx`: the pre-fetched `data` PROP →
- * `useDataScope(schema.bind)` → the inline ROW ARRAY on `schema.data` → a
- * fetch keyed by `schema.objectName`
+ * ⚠️ `requireRecordSource` above, with THIS board's rung list — not the
+ * `object-map` / `object-gantt` / `object-calendar` one. Those rungs are
+ * `data` (a `ViewData` PROVIDER BLOCK) → `staticData` → `objectName`, resolved
+ * by the shared `resolveRecordSourceConfig` in `@object-ui/core`. This board
+ * walks a DIFFERENT ladder in `plugin-kanban/src/ObjectKanban.tsx`: the
+ * pre-fetched `data` PROP → `useDataScope(schema.bind)` → the inline ROW ARRAY
+ * on `schema.data` → a fetch keyed by `schema.objectName`
  * (`rawData = external || boundData || schema.data || fetchedData`, the fetch
  * gated on `schema.objectName && !boundData && !schema.data`). It has NO
  * `staticData` rung and it HAS a `bind` rung, so the two key sets are neither
- * equal nor nested and one predicate cannot serve both. objectui#7651 (ruled
- * B, closed `not_planned`) refuses giving this board the shared ladder; this
- * refinement describes the ladder that is already there rather than adding
- * one.
+ * equal nor nested and one key list cannot serve both — which is why
+ * `requireRecordSource` takes the rung list per arm (objectui#11117) rather
+ * than this board carrying a hand copy of the predicate, as it did until then.
+ * objectui#7651 (ruled B, closed `not_planned`) refuses giving this board the
+ * shared RUNTIME ladder; this refinement describes the ladder that is already
+ * there rather than adding one. The binding rung is the gate's, not the
+ * board's: `ElementDataSourceGate` lands `dataSource.object` on `objectName`
+ * before `ObjectKanban` reads the node, so the fetch rung is what it feeds.
  *
  * The pre-fetched `data` PROP is NOT a key here: it is a React prop
  * (`ObjectKanbanComponentProps.data`, passed by a parent such as `ListView`),
@@ -2600,30 +2677,30 @@ export const KanbanConditionalFormattingRuleSchema = z.union([
  * required — see the before/after table in
  * `__tests__/object-kanban-record-source-7780.test.ts`.
  *
- * ⛔ `groupBy` is NOT a rung and is untouched: it stays REQUIRED (objectui#7322,
- * PR #7774). A record source and a lane key are different questions, and the
- * two readings PR #7774 excluded from counting as a lane-less mode — the
- * `dataSource` json fragment in `content/docs/utilities/data-objectstack.mdx`
- * and `ListView.tsx`'s runtime-generated node — are still refused here, on
- * `groupBy`, exactly as they were.
+ * ⛔ `groupBy` is NOT a rung: a record source and a lane key are different
+ * questions (objectui#7322, PR #7774; `groupBy` itself is optional since
+ * objectui#8990). The `dataSource` json fragment in
+ * `content/docs/utilities/data-objectstack.mdx` — `{ type, dataSource }`, no
+ * `groupBy` and none of the three rungs — parses since objectui#11117, on the
+ * binding rung.
  *
  * Carries `params.code` so a consumer keys off the finding rather than
  * string-matching the message, and reports at the ROOT path (`[]`): no single
  * key is at fault when all three are absent, and blaming `objectName` would
  * re-teach the requiredness this card removes.
  *
- * Deliberately a `function`, not an `export const`, for the same reason
- * `requireRecordSource` is: the parity census in
+ * The rung list is a private `const` and the refinement is
+ * `requireRecordSource`, a `function`: the parity census in
  * `__tests__/zod-mirror-parity.test.ts` reads `^export const` out of this
- * directory and would demand a registered TS counterpart for it.
+ * directory and would demand a registered TS counterpart for either.
  */
 /**
  * The `object-kanban` SWIMLANE element (objectui#8913) — the mirror half of
  * `ObjectKanbanSchema.columns` in `../objectql.ts`, whose docblock carries the
  * measurements. Private on purpose: it publishes no new symbol, so the
  * `zod-mirror-parity` census (which pairs `^export const` mirrors with a TS
- * declaration) has nothing new to register, exactly as `requireKanbanRecordSource`
- * below is a `function` for the same reason.
+ * declaration) has nothing new to register, exactly as `requireRecordSource`
+ * is a `function` for the same reason.
  *
  * ⭐ Both arms, because `@objectstack/spec` admits both. Its
  * `ObjectKanbanPropsSchema.columns` is `z.array(z.unknown()).optional()` and
@@ -2678,18 +2755,6 @@ const ObjectKanbanLaneSchema = z.object({
 });
 
 const KANBAN_RECORD_SOURCE_KEYS = ['bind', 'data', 'objectName'] as const;
-function requireKanbanRecordSource(
-  schema: Partial<Record<(typeof KANBAN_RECORD_SOURCE_KEYS)[number], unknown>>,
-  ctx: z.core.$RefinementCtx,
-): void {
-  if (KANBAN_RECORD_SOURCE_KEYS.some((key) => schema[key] !== undefined)) return;
-  ctx.addIssue({
-    code: 'custom',
-    path: [],
-    params: { code: 'RECORD_SOURCE_REQUIRED' },
-    message: '`object-kanban` has no record source: declare one of `bind`, `data` or `objectName`',
-  });
-}
 
 /** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectKanbanSchema`. */
 const OBJECT_KANBAN_NEITHER_CHANNEL = neitherContentChannelGuidance(
@@ -2714,7 +2779,7 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
     .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
-  objectName: z.string().optional().describe('ObjectQL object name — the LAST rung of the board ladder, after the pre-fetched data prop, bind and the inline row array on data; one of bind, data, objectName must be present (objectui#7780)'),
+  objectName: z.string().optional().describe('ObjectQL object name — the LAST rung of the board ladder, after the pre-fetched data prop, bind and the inline row array on data; one of bind, data, objectName must be present (objectui#7780), unless the node\'s dataSource.object names the object, which ElementDataSourceGate lands here (objectui#11117)'),
   // objectui#8990 — OPTIONAL, mirroring `@objectstack/spec`
   // (`ObjectKanbanPropsSchema.groupBy` is `z.string().optional()`). Required
   // here until this card, so this validator refused a document the protocol
@@ -2881,7 +2946,7 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(OBJECT_KANBAN_NEITHER_CHANNEL),
   children: retirementTombstone(OBJECT_KANBAN_NEITHER_CHANNEL),
-}).superRefine(requireKanbanRecordSource);
+}).superRefine(...requireRecordSource('object-kanban', KANBAN_RECORD_SOURCE_KEYS));
 
 /**
  * The message for an `ObjectChartSchema.yAxis` that is not a list

@@ -870,9 +870,19 @@ export interface ObjectGridSchema extends BaseSchema {
   /**
    * ObjectQL object name (e.g., 'users', 'accounts', 'contacts')
    * Used when data provider is 'object' or not specified
+   *
+   * Optional as a member, required unless {@link dataSource} names the object
+   * (objectui#11117): the registration is gate-wrapped, so
+   * `ElementDataSourceGate` lands the binding's `object` here before
+   * `ObjectGrid` reads the node, and `{ type: 'object-grid', dataSource: {
+   * object: 'product' } }` — the binding the docs teach and the spec accepts —
+   * renders. A node with neither is refused by the zod mirror's record-source
+   * refinement (`requireRecordSource`, keyed `RECORD_SOURCE_REQUIRED`), the
+   * same split as {@link ObjectMapSchema.objectName}: a TypeScript member
+   * cannot say "this key or that one".
    */
-  objectName: string;
-  
+  objectName?: string;
+
   /**
    * Data Source Configuration
    * Aligned with @objectstack/spec ViewDataSchema
@@ -3257,9 +3267,11 @@ export interface ObjectMapSchema extends BaseSchema {
    * Optional since `77cb489b4`: a map authored on inline rows never reads
    * this key, and requiring it refused three catalog entries that draw
    * correctly. The requirement the renderer really has — at least one of
-   * `data`, `staticData`, `objectName` present — lives on the mirror as a
-   * refinement (`requireRecordSource` in `zod/objectql.zod.ts`), so the
-   * published declaration and the published validator say the same thing.
+   * `data`, `staticData`, `objectName` present, or the node's `dataSource.object`
+   * naming the object, which `ElementDataSourceGate` lands on this key
+   * (objectui#11117) — lives on the mirror as a refinement
+   * (`requireRecordSource` in `zod/objectql.zod.ts`), so the published
+   * declaration and the published validator say the same thing.
    */
   objectName?: string;
   /**
@@ -3457,9 +3469,11 @@ export interface ObjectGanttSchema extends BaseSchema {
    * Optional since `77cb489b4`: a gantt authored on inline rows never reads
    * this key, and requiring it refused three catalog entries that draw
    * correctly. The requirement the renderer really has — at least one of
-   * `data`, `staticData`, `objectName` present — lives on the mirror as a
-   * refinement (`requireRecordSource` in `zod/objectql.zod.ts`), so the
-   * published declaration and the published validator say the same thing.
+   * `data`, `staticData`, `objectName` present, or the node's `dataSource.object`
+   * naming the object, which `ElementDataSourceGate` lands on this key
+   * (objectui#11117) — lives on the mirror as a refinement
+   * (`requireRecordSource` in `zod/objectql.zod.ts`), so the published
+   * declaration and the published validator say the same thing.
    */
   objectName?: string;
   /**
@@ -3837,9 +3851,11 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * on inline rows never reads this key, and requiring it refused the two
    * documented static-data examples that draw correctly. The requirement the
    * renderer really has — at least one of
-   * `data`, `staticData`, `objectName` present — lives on the mirror as a
-   * refinement (`requireRecordSource` in `zod/objectql.zod.ts`), so the
-   * published declaration and the published validator say the same thing.
+   * `data`, `staticData`, `objectName` present, or the node's `dataSource.object`
+   * naming the object, which `ElementDataSourceGate` lands on this key
+   * (objectui#11117) — lives on the mirror as a refinement
+   * (`requireRecordSource` in `zod/objectql.zod.ts`), so the published
+   * declaration and the published validator say the same thing.
    */
   objectName?: string;
   /**
@@ -4147,12 +4163,15 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * `data`-only board — which renders correctly today — was refused by both
    * published faces and could not be annotated with its own type. The
    * requirement the renderer really has, at least one of `bind`, `data`,
-   * `objectName` present, lives on the mirror as a refinement
-   * (`requireKanbanRecordSource` in `zod/objectql.zod.ts`), so the published
+   * `objectName` present, or the node's `dataSource.object` naming the object,
+   * which `ElementDataSourceGate` lands on this key (objectui#11117), lives on
+   * the mirror as a refinement (`requireRecordSource` in
+   * `zod/objectql.zod.ts`, with this board's own rung list), so the published
    * declaration and the published validator say the same thing.
    *
-   * ⚠️ This is NOT the `object-map` / `object-gantt` / `object-calendar` ladder
-   * and shares no code with it. Those three resolve through
+   * ⚠️ This is NOT the `object-map` / `object-gantt` / `object-calendar` ladder,
+   * and the renderer shares no code with it; only the mirror's refinement is
+   * shared, taking each arm's rungs as an argument. Those three resolve through
    * `resolveRecordSourceConfig` over `data` (a {@link ViewData} PROVIDER BLOCK)
    * → `staticData` → `objectName`, and their mirror members end in
    * `requireRecordSource`. This board has NO `staticData` rung, its `data` is a
@@ -4201,12 +4220,11 @@ export interface ObjectKanbanSchema extends BaseSchema {
    *   1. `content/docs/utilities/data-objectstack.mdx` documents an
    *      `object-kanban` node that is exactly `{ type, dataSource }` — no
    *      `groupBy`. ⚠️ WEAKER THAN IT LOOKS, and the limit is worth stating: that
-   *      fragment is STILL refused after this card, at `RECORD_SOURCE_REQUIRED`
-   *      — `dataSource` is not a rung of this ladder — so it is evidence that a
+   *      fragment was STILL refused after this card, at `RECORD_SOURCE_REQUIRED`
+   *      — `dataSource` was not a rung of this ladder — so it was evidence that a
    *      lane-less board is a DOCUMENTED AUTHORING, not a document this card
-   *      admits. ⛔ Do not cite it as "objectui refuses its own documented
-   *      example" without that qualifier; the record-source half of the refusal
-   *      is deliberate and survives.
+   *      admitted. It parses since objectui#11117, which counted the node's
+   *      binding as a record source, as `ElementDataSourceGate` already did.
    *   2. `packages/plugin-list/src/ListView.tsx` GENERATES the node with
    *      `groupBy: laneField`, where
    *      `laneField = groupByField || groupField || detectStatusField(objectDef) || undefined`.

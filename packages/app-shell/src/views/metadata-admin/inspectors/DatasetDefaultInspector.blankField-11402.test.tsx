@@ -145,9 +145,15 @@ describe('DatasetDefaultInspector — a blank Field box on a measure writes no `
   });
 
   it('a cleared Field value is written as an absent key, never as `\'\'`', () => {
-    expect(writeRowField({ name: 'n', aggregate: 'sum', field: 'amount' }, '')).toStrictEqual({ name: 'n', aggregate: 'sum' });
-    expect(writeRowField({ name: 'n', aggregate: 'sum', field: 'amount' }, '   ')).toStrictEqual({ name: 'n', aggregate: 'sum' });
-    expect(writeRowField({ name: 'n', aggregate: 'sum' }, 'amount')).toStrictEqual({ name: 'n', aggregate: 'sum', field: 'amount' });
+    // Typed as the inspector's own row shape: a field-less literal shares no
+    // key with `{ field?: string }`, so left to inference it reads as a weak
+    // type and `tsc -p tsconfig.test.json` refuses its other keys.
+    type Row = { name: string; aggregate: string; field?: string };
+    const filled: Row = { name: 'n', aggregate: 'sum', field: 'amount' };
+    const fieldless: Row = { name: 'n', aggregate: 'sum' };
+    expect(writeRowField(filled, '')).toStrictEqual({ name: 'n', aggregate: 'sum' });
+    expect(writeRowField(filled, '   ')).toStrictEqual({ name: 'n', aggregate: 'sum' });
+    expect(writeRowField(fieldless, 'amount')).toStrictEqual({ name: 'n', aggregate: 'sum', field: 'amount' });
   });
 });
 

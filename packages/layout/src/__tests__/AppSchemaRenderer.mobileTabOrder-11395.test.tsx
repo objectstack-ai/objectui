@@ -192,3 +192,128 @@ describe('objectui#11395 — the tab bar draws its tabs in the sidebar\'s order'
     expect(tabs()).toEqual(drawn);
   });
 });
+
+/** The `lucide-*` tokens of the first icon in `el`: which glyph it is, not how big. */
+const glyph = (el: Element | null) =>
+  Array.from(el?.querySelector('svg')?.classList ?? []).filter((c) => c.startsWith('lucide-')).sort().join(' ');
+
+/** The `Badge` inside `el` whose text is `text`, and its variant. */
+function badgeIn(el: Element | null, text: string) {
+  const hit = el ? Array.from(el.querySelectorAll('div')).filter((d) => d.textContent === text) : [];
+  expect(hit.length).toBeLessThanOrEqual(1);
+  const b = hit[0];
+  if (!b) return null;
+  const variant =
+    ['primary', 'secondary', 'destructive'].find((v) => b.classList.contains(`bg-${v}`)) ??
+    (b.classList.contains('text-foreground') ? 'outline' : 'unknown');
+  return { el: b, variant: variant === 'primary' ? 'default' : variant };
+}
+
+describe('objectui#11395 — the enumeration: inputs the bar shares with the sidebar', () => {
+  it('label: the same `resolveNavItemLabel` answer — an absent label\'s machine name, a keyed label\'s default, a locale map\'s `en`', () => {
+    const navigation = [
+      { id: 'nav_absent', type: 'object', objectName: 'account' },
+      { id: 'nav_keyed', type: 'object', objectName: 'lead', label: { key: 'crm.leads', defaultValue: 'Keyed Leads' } },
+      { id: 'nav_map', type: 'object', objectName: 'deal', label: { en: 'Deals', 'zh-CN': '商机' } },
+    ] as unknown as NavigationItem[];
+    const { tabs, sidebarOrder } = renderShell(navigation);
+    const expected = ['account', 'Keyed Leads', 'Deals'];
+    expect(sidebarOrder(expected)).toEqual(expected);
+    expect(tabs()).toEqual(expected);
+  });
+
+  it('icon: the same `resolveIcon` answer — its own default for no icon, the fallback glyph for an unknown name', () => {
+    const navigation = [entry('Plain'), entry('Odd', undefined, { icon: 'not-a-lucide-icon-name' })];
+    const { tab, sidebarRow } = renderShell(navigation);
+    expect(glyph(tab('Plain'))).not.toBe('');
+    expect(glyph(tab('Plain'))).toBe(glyph(sidebarRow('Plain')));
+    expect(glyph(tab('Odd'))).toBe(glyph(sidebarRow('Odd')));
+    // The two inputs give two glyphs, so the equalities above can fail.
+    expect(glyph(tab('Plain'))).not.toBe(glyph(tab('Odd')));
+  });
+
+  it('`badge` / `badgeVariant`: drawn on the tab when the sidebar row draws them, with the same variant; control: no badge, none drawn', () => {
+    const navigation = [
+      entry('Reports', undefined, { badge: 'NEW', badgeVariant: 'secondary' }),
+      entry('Approvals', undefined, { badge: 3 }),
+      entry('Accounts'),
+    ];
+    const { tab, sidebarRow } = renderShell(navigation);
+
+    const sideNew = badgeIn(sidebarRow('Reports'), 'NEW');
+    const tabNew = badgeIn(tab('Reports'), 'NEW');
+    expect(sideNew?.variant).toBe('secondary');
+    expect(tabNew?.variant).toBe(sideNew?.variant);
+
+    const sideCount = badgeIn(sidebarRow('Approvals'), '3');
+    const tabCount = badgeIn(tab('Approvals'), '3');
+    expect(sideCount?.variant).toBe('default');
+    expect(tabCount?.variant).toBe(sideCount?.variant);
+
+    expect(tab('Accounts')?.querySelectorAll('div')).toHaveLength(0);
+    expect(tab('Accounts')?.textContent).toBe('Accounts');
+  });
+});
+
+describe('objectui#11395 — the enumeration: inputs that are deliberately bar-specific', () => {
+  it('`type: \'separator\'`: a rule, not a destination — no tab and no slot under the cap', () => {
+    const navigation: NavigationItem[] = [
+      entry('One'),
+      { id: 'sep_1', type: 'separator' } as NavigationItem,
+      entry('Two'),
+      entry('Three'),
+      entry('Four'),
+      entry('Five'),
+    ];
+    const { tabs, sidebarOrder } = renderShell(navigation);
+    const labels = ['One', 'Two', 'Three', 'Four', 'Five'];
+    expect(sidebarOrder(labels)).toEqual(labels);
+    expect(tabs()).toEqual(labels);
+  });
+
+  it('`type: \'group\'`: a disclosure, not a destination — its label is no tab, its children are', () => {
+    const navigation: NavigationItem[] = [
+      { id: 'grp_sales', type: 'group', label: 'Sales', children: [entry('Deals'), entry('Leads')] },
+    ];
+    const { tabs, container, bar } = renderShell(navigation);
+    const groupTrigger = Array.from(container.querySelectorAll('button')).find(
+      (el) => !bar()?.contains(el) && el.textContent === 'Sales',
+    );
+    expect(groupTrigger).toBeDefined();
+    expect(tabs()).toEqual(['Deals', 'Leads']);
+  });
+
+  it('`expanded: false`: the sidebar\'s open state, which the bar has no disclosure for — a collapsed group\'s children stay tabs', () => {
+    const navigation: NavigationItem[] = [
+      { id: 'grp_sales', type: 'group', label: 'Sales', expanded: false, children: [entry('Deals'), entry('Leads')] },
+    ];
+    const { tabs, sidebarRow, container, bar } = renderShell(navigation);
+    // The sidebar holds them behind its closed disclosure, one tap away.
+    expect(sidebarRow('Deals')).toBeNull();
+    const groupTrigger = Array.from(container.querySelectorAll('button')).find(
+      (el) => !bar()?.contains(el) && el.textContent === 'Sales',
+    );
+    expect(groupTrigger).toBeDefined();
+    expect(tabs()).toEqual(['Deals', 'Leads']);
+  });
+
+  it('`pinned` with `enablePinning`: the sidebar draws the entry twice (Favorites and the tree), the bar once, at its tree place', () => {
+    const navigation = [entry('Accounts'), entry('Deals', undefined, { pinned: true }), entry('Leads')];
+    const { tabs, container, bar } = renderShell(navigation, { enablePinning: true, onPinToggle: () => {} });
+    const sidebarDeals = Array.from(container.querySelectorAll('a')).filter(
+      (el) => !bar()?.contains(el) && el.querySelector('span')?.textContent === 'Deals',
+    );
+    expect(sidebarDeals).toHaveLength(2);
+    expect(tabs()).toEqual(['Accounts', 'Deals', 'Leads']);
+  });
+
+  it('the sidebar\'s search box: it narrows the sidebar while the user types; the bar, which has no search box, keeps every tab', () => {
+    const navigation = [entry('Accounts'), entry('Deals'), entry('Leads')];
+    const { tabs, sidebarOrder, container } = renderShell(navigation, { enableSearch: true });
+    const search = container.querySelector('input[aria-label="Search navigation"]');
+    expect(search).not.toBeNull();
+    fireEvent.change(search!, { target: { value: 'dea' } });
+    expect(sidebarOrder(['Accounts', 'Deals', 'Leads'])).toEqual(['Deals']);
+    expect(tabs()).toEqual(['Accounts', 'Deals', 'Leads']);
+  });
+});

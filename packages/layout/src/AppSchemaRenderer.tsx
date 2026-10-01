@@ -34,6 +34,7 @@ import {
   SidebarGroupLabel,
   SidebarGroupContent,
   SidebarInput,
+  Badge,
 } from '@object-ui/components';
 import type { AppComponentSchema, NavigationItem, NavigationEntryItem, NavigationArea } from '@object-ui/types';
 import { menuItemToNavigationItem } from '@object-ui/types';
@@ -342,7 +343,7 @@ function MobileBottomNav({
       {leaves.map((item) => {
         const NavIcon = resolveIcon(item.icon);
         const { href, external } = resolveHref(item, basePath);
-        const className = `flex flex-col items-center gap-0.5 px-2 py-1.5 transition-colors min-w-[44px] min-h-[44px] justify-center ${
+        const className = `relative flex flex-col items-center gap-0.5 px-2 py-1.5 transition-colors min-w-[44px] min-h-[44px] justify-center ${
           item.id === activeId ? 'text-primary' : 'text-muted-foreground hover:text-foreground'
         }`;
         const content = (
@@ -352,6 +353,18 @@ function MobileBottomNav({
                 absent since objectui#9868, and this host has no metadata, so it shows the
                 same machine-name backstop its `NavigationRenderer` does. */}
             <span className="text-[10px] truncate max-w-[60px]">{resolveNavItemLabel(item)}</span>
+            {/* objectui#11395: the spec-declared `badge` and `badgeVariant`, drawn when the
+                sidebar row draws them, with the same `Badge` and the same variant (an absent
+                `badgeVariant` is `Badge`'s own default, which is the sidebar's). Placed over
+                the icon's corner; last in the DOM so the tab reads in the sidebar row's order. */}
+            {item.badge != null && (
+              <Badge
+                variant={item.badgeVariant}
+                className="absolute top-0.5 left-1/2 ml-1.5 px-1 py-0 text-[9px] leading-tight"
+              >
+                {item.badge}
+              </Badge>
+            )}
           </>
         );
 

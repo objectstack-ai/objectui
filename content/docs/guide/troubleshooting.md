@@ -234,7 +234,7 @@ const resources = { en: { greeting: 'Hello' }, fr: { greeting: 'Bonjour' } };
 
 2. Check that locale files follow the expected structure. Each locale file should export a flat or nested object of key-value pairs.
 
-3. Verify the locale code matches exactly (e.g., `en`, `fr`, `de` — not `en-US` unless your locale files use that format).
+3. Verify the locale code matches exactly (e.g., `en`, `fr`, `de` — not `en-US` unless your locale files use that format). The built-in catalogues are looked up exact tag first, then base language, so a region-tagged code such as `zh-CN` is served by the built-in `zh` catalogue.
 
 ## 8b. The UI paints in English first, then switches to the user's language
 

@@ -79,7 +79,9 @@ An explicit choice outranks browser detection — otherwise a user who picked �
 on a `ja` browser would be handed `ja` back on every reload. A stored value the
 app no longer offers (not a built-in pack, not in `config.resources`) is ignored
 *and purged*, so a stale entry can never lock the UI to a locale with no
-translations.
+translations. A region-tagged choice such as `zh-CN` is served by its base
+language's built-in pack (`zh`), so it is kept, and kept as written: the
+provider's `language`, `<html lang>` and the stored value all stay `zh-CN`.
 
 ```tsx
 import type { ReactNode } from 'react';
@@ -190,8 +192,17 @@ import {
 
 BUILT_IN_LANGUAGE_CODES;            // ['en','zh','ja','ko','de','fr','es','pt','ru','ar']
 await loadBuiltInLocale('zh');      // the zh catalogue, fetched once and memoised
+await loadBuiltInLocale('zh-CN');   // the same zh catalogue — a region tag is served by its base
 await loadBuiltInLocale('tlh');     // null — not a code this package ships
+isBuiltInLanguage('zh-CN');         // true
+isBuiltInLanguage('xx-YY');         // false — no catalogue for the tag or its base
 ```
+
+A code is looked up **exact tag first, then its base language**: `zh-CN` is
+served by the `zh` catalogue, while a catalogue keyed by a full tag would win
+over its base. `isBuiltInLanguage` and `isBuiltInLocaleLoaded` answer by the same
+rule as `loadBuiltInLocale`, and a catalogue is memoised under its own code, so
+`zh` and `zh-CN` share one fetch.
 
 `I18nProvider` does this for you: it fetches the catalogue for whatever language
 it boots into, and `changeLanguage()` awaits the new catalogue before switching,

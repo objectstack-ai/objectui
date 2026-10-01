@@ -11,7 +11,9 @@ The Hover Card component displays rich content when hovering over an element.
 
 ## Schema
 
-```plaintext
+```ts
+import type { SchemaNode } from '@object-ui/types';
+
 interface HoverCardSchema {
   type: 'hover-card';
   trigger: SchemaNode | SchemaNode[];   // Trigger element

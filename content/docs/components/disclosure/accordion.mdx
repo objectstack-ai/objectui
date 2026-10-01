@@ -12,7 +12,9 @@ only — the rest of the accordion stays interactive.
 
 ## Schema
 
-```plaintext
+```ts
+import type { SchemaNode } from '@object-ui/types';
+
 interface AccordionItem {
   value: string;                        // Unique item identifier
   title: string;                        // Item title/trigger

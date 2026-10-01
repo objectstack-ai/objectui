@@ -12,6 +12,7 @@ import {
   BUILT_IN_LANGUAGE_CODES as BUILT_IN_CODES,
   isBuiltInLanguage,
   loadBuiltInLocale,
+  matchLanguageTag,
 } from './locales/registry.js';
 
 /**
@@ -264,15 +265,15 @@ function canResolveLanguage(lang: string, config?: I18nConfig, hasLoader = false
  * of which are about *which question to ask it*, not about second-guessing the
  * answer:
  *
- * **1. Region subtags are normalised away as a fallback.** A seed is a
- * full BCP-47 tag — the platform answers `zh-CN`, not `zh` (see
- * `LocalizationFetchProvider`'s fixtures) — while the packs are keyed by base
- * language. Asking only about `zh-CN` would reject the single most common
- * shape that answer takes. The exact tag is tried first so a genuine
- * `pt-BR` pack still wins over `pt`; this mirrors `createI18n`'s own browser
- * detection (`navigator.language.split('-')[0]`) and `pickLocalized`'s
- * documented exact-then-base order, so it is this codebase's existing
- * convention rather than a new rule.
+ * **1. Exact tag first, then its base language** — the registry's
+ * `matchLanguageTag`, the one implementation of that order in this package
+ * (objectui#11326). A seed is a full BCP-47 tag — the platform answers
+ * `zh-CN`, not `zh` (see `LocalizationFetchProvider`'s fixtures). Since
+ * objectui#11326 the built-in packs answer a region-tagged code themselves
+ * (`zh-CN` is served by the `zh` catalogue), so for them the exact step
+ * already succeeds and the seed boots in the tag the server stated; the base
+ * step is what still reaches an app-supplied `config.resources` pack keyed by
+ * base language. Exact first, so a genuine `pt-BR` pack still wins over `pt`.
  *
  * **2. The seed does NOT get the dynamic loader's credit** (`hasLoader` is left
  * at its default `false`). That credit exists for a *user-picked* value: the
@@ -288,10 +289,7 @@ function canResolveLanguage(lang: string, config?: I18nConfig, hasLoader = false
  * real explicit choice which outranks the seed from then on.
  */
 function resolveSeedLanguage(seed: string, config?: I18nConfig): string | null {
-  if (canResolveLanguage(seed, config)) return seed;
-  const base = seed.split('-')[0];
-  if (base && base !== seed && canResolveLanguage(base, config)) return base;
-  return null;
+  return matchLanguageTag(seed, (code) => canResolveLanguage(code, config));
 }
 
 /**

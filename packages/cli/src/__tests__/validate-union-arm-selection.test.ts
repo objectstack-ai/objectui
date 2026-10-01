@@ -64,16 +64,20 @@ const UNTYPED_DOCUMENT = { items: [] };
 /**
  * A document whose `type` selects exactly one arm, which then fails on its OWN
  * required key. The cleanest possible statement of "print that arm and nothing
- * else": `objectName` belongs to no other arm.
+ * else": `objectName` belongs to no other arm. Since objectui#11276's
+ * `object-grid` batch the authored arm reads it in the `properties` bag, so
+ * the issue sits at `properties → objectName`.
  */
 const OBJECT_GRID_MISSING_OBJECT_NAME = { type: 'object-grid' };
 
 /**
- * `.data` here is `@objectstack/spec`'s `ViewDataSchema`, a
- * `z.discriminatedUnion('provider', …)` — the one reachable union in this tree
- * keyed on something other than `type`.
+ * `.data` here is the `data` member of `@objectstack/spec`'s
+ * `ComponentPropsMap['object-grid']` row, a `z.discriminatedUnion('provider', …)`
+ * — a reachable union keyed on something other than `type`. It sits in the
+ * node's `properties` bag, where an authored `object-grid` takes its props
+ * since objectui#11276's `object-grid` batch.
  */
-const GRID_WITH_PROVIDERLESS_DATA = { type: 'object-grid', objectName: 'x', data: { type: 'rest' } };
+const GRID_WITH_PROVIDERLESS_DATA = { type: 'object-grid', properties: { objectName: 'x', data: { type: 'rest' } } };
 
 /** A failure that is not a union at all — the control for "nothing changed". */
 const FORM_WITH_UNRESOLVABLE_WIDGET = {
@@ -160,7 +164,7 @@ describe('objectui validate — the arm the document selected', () => {
     expect(exitCodes).toEqual([1]);
     const text = printed();
     // The arm `object-grid` selects, failing on its own required key.
-    expect(text).toContain('Path: objectName');
+    expect(text).toContain('Path: properties → objectName');
     // ...and nothing from the arms that merely disagree about `type`.
     // Option A would have printed one of these per arm; this is the assertion
     // that the ruling's rejection of it is real rather than nominal.
@@ -224,7 +228,7 @@ describe('objectui validate — a union keyed on something other than `type`', (
 
     expect(exitCodes).toEqual([1]);
     const text = printed();
-    expect(text).toContain('Path: data → provider');
+    expect(text).toContain('Path: properties → data → provider');
     expect(text).not.toContain('No arm accepts type');
     expect(text).not.toContain('No `type` is declared');
     expect(armEntries()).toHaveLength(0);

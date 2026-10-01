@@ -185,16 +185,18 @@ const AUTHORED = {
   mobileReadOnly: false,
 };
 
-let pushSpy: ReturnType<typeof vi.spyOn>;
-let openSpy: ReturnType<typeof vi.spyOn>;
+const spyOnPush = () => vi.spyOn(window.history, 'pushState');
+const spyOnOpen = () => vi.spyOn(window, 'open').mockReturnValue(null);
+let pushSpy: ReturnType<typeof spyOnPush>;
+let openSpy: ReturnType<typeof spyOnOpen>;
 
 beforeEach(() => {
   Object.defineProperty(window, 'innerWidth', { value: 1280, configurable: true });
   // An object view route, so the record-page address the gantt derives is the
   // record page; the off-route rows park elsewhere themselves.
   window.history.replaceState({}, '', `/console/${OBJECT}/views/all`);
-  pushSpy = vi.spyOn(window.history, 'pushState');
-  openSpy = vi.spyOn(window, 'open').mockReturnValue(null);
+  pushSpy = spyOnPush();
+  openSpy = spyOnOpen();
   try { window.localStorage.clear(); } catch { /* private mode */ }
 });
 afterEach(() => {

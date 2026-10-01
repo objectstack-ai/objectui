@@ -70,7 +70,7 @@ import { DataTableSchema, DrillDownConfigSchema } from './data-display.zod.js';
 import { KanbanCardSchema } from './complex.zod.js';
 import { ViewSwitcherSchema } from './views.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
-import { dataSourceSuppliesObject, NODE_ENVELOPE, propsBag } from './public-blocks.zod.js';
+import { dataSourceSuppliesObject, flatPropRefusals, NODE_ENVELOPE, propsBag } from './public-blocks.zod.js';
 
 /**
  * ⭐ THE IMPORT BOUNDARY (objectui#8317, decision batch #90, 2026-09-08).
@@ -3910,6 +3910,8 @@ const OBJECT_METRIC_NEITHER_CHANNEL = neitherContentChannelGuidance(
 export const ObjectMetricBlockSchema = BaseSchema.extend({
   type: z.literal('object-metric'),
   ...NODE_ENVELOPE,
+  // objectui#10872 batch 10: a row member written flat on the node is refused by name, toward `properties.KEY`.
+  ...flatPropRefusals('object-metric', stripImportedDefaults(SpecObjectMetricPropsSchema)),
   properties: propsBag('object-metric', stripImportedDefaults(SpecObjectMetricPropsSchema)),
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()
@@ -3966,6 +3968,8 @@ const OBJECT_MASTER_DETAIL_FORM_NEITHER_CHANNEL = neitherContentChannelGuidance(
 export const ObjectMasterDetailFormBlockSchema = BaseSchema.extend({
   type: z.literal('object-master-detail-form'),
   ...NODE_ENVELOPE,
+  // objectui#10872 batch 10: a row member written flat on the node is refused by name, toward `properties.KEY`.
+  ...flatPropRefusals('object-master-detail-form', stripImportedDefaults(SpecObjectMasterDetailFormPropsSchema)),
   properties: propsBag(
     'object-master-detail-form',
     stripImportedDefaults(SpecObjectMasterDetailFormPropsSchema),
@@ -4048,6 +4052,8 @@ const OBJECT_TIMELINE_NEITHER_CHANNEL = neitherContentChannelGuidance(
 export const ObjectTimelineBlockSchema = BaseSchema.extend({
   type: z.literal('object-timeline'),
   ...NODE_ENVELOPE,
+  // objectui#10872 batch 10: a row member written flat on the node is refused by name, toward `properties.KEY`.
+  ...flatPropRefusals('object-timeline', stripImportedDefaults(SpecObjectTimelinePropsSchema)),
   properties: propsBag('object-timeline', stripImportedDefaults(SpecObjectTimelinePropsSchema)),
   dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
     .optional()

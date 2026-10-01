@@ -25,7 +25,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, TableSortItem, DataTableSchema, ListViewExportFormat, RecordNavigateAction } from '@object-ui/types';
 import { isSystemManagedField, normalizeTableColumnType } from '@object-ui/types';
 import type { I18nLabel } from '@objectstack/spec/ui';
-import { parseFilterAST, type FilterCondition } from '@objectstack/spec/data';
+import { parseFilterAST, resolveFieldScale, type FilterCondition } from '@objectstack/spec/data';
 import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, useDataInvalidation, useFilterScope } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 // objectui#8920 — the grid reaches a cell renderer through THIS module and
@@ -6034,14 +6034,33 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                           : '—'}
                       </span>
                     )}
-                    {percentCols[0] && row[percentCols[0].accessorKey] != null && (
-                      <span className="tabular-nums">
-                        {/* objectui#4553: the mobile card's percent cell takes
-                            the same `displayLocale` its date sibling above
-                            already does (objectui#4272). */}
-                        {formatPercent(Number(row[percentCols[0].accessorKey]), undefined, displayLocale)}
-                      </span>
-                    )}
+                    {percentCols[0] && row[percentCols[0].accessorKey] != null && (() => {
+                      // objectui#11254 — the width is the FIELD's, read through
+                      // `resolveFieldScale` (ruling A′ on
+                      // objectstack-ai/objectstack#19628) off the field def the
+                      // amount cell above reads its currency from, so a percent
+                      // declaring `scale: 2` reads two decimals here as it does
+                      // in the desktop cell. This cell handed `formatPercent` an
+                      // `undefined` width, so the function's own default decided.
+                      //
+                      // Only a `percent` field's width is a percent width. The
+                      // column reached this slot by its NAME (`classify`), and a
+                      // `number` named like a rate counts its `scale` in the
+                      // stored value's decimals, not in the percentage points
+                      // printed here, so its scale is not read.
+                      const percentDef = objectSchema?.fields?.[percentCols[0].accessorKey];
+                      const width = percentDef?.type === 'percent'
+                        ? resolveFieldScale({ type: percentDef.type, scale: percentDef.scale })
+                        : undefined;
+                      return (
+                        <span className="tabular-nums">
+                          {/* objectui#4553: the mobile card's percent cell takes
+                              the same `displayLocale` its date sibling above
+                              already does (objectui#4272). */}
+                          {formatPercent(Number(row[percentCols[0].accessorKey]), width, displayLocale)}
+                        </span>
+                      );
+                    })()}
                   </div>
                 )}
 

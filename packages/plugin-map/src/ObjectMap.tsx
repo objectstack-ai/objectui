@@ -397,6 +397,13 @@ function getMapConfig(schema: MapConfigSource): ObjectMapConfig {
   // `BaseSchema.style` — inline CSS, a different key with a different meaning —
   // and is no longer consumed here at all (objectui#5017; see
   // `warnOnTopLevelStyleUrl`).
+  //
+  // PRECEDENCE: `mapStyle` first, then `map.style` — on EVERY return path,
+  // including the declared block's below (objectui#11168 slice 3, the seat's
+  // ruling A). The installed `@objectstack/spec` row says so in `mapStyle`'s own
+  // describe ("Read before `map.style`"), and this lane follows the spec. The
+  // block path used to hand `config.style` back first, so a map writing both
+  // drew `map.style`; no authored producer writes both.
   const style: string | undefined = schema.mapStyle || schema.map?.style;
 
   // 1. The declared configuration input: `{ name: 'map', type: 'object' }` at
@@ -410,7 +417,7 @@ function getMapConfig(schema: MapConfigSource): ObjectMapConfig {
       console.warn(`[ObjectMap] Invalid map configuration:`, result.error.format());
     }
     warnOnShadowedFlatMapKeys(schema);
-    return { ...config, style: config.style || style };
+    return { ...config, style };
   }
 
   // 2. The internal flat form — the ObjectView / ListView flatten product.

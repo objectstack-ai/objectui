@@ -25,6 +25,9 @@ import {
   GalleryConfigSchema as SpecGalleryConfigSchema,
   GroupingConfigSchema as SpecGroupingConfigSchema,
   TimelineConfigSchema as SpecTimelineConfigSchema,
+  // objectui#11168 slice 3 — the `object-tree` element's `tree` block, by
+  // reference (`ObjectTreeSchema.tree` below).
+  TreeConfigSchema as SpecTreeConfigSchema,
   HttpMethodSubsetSchema as SpecHttpMethodSubsetSchema,
   HttpRequestSchema as SpecHttpRequestSchema,
   ViewDataSchema as SpecViewDataSchema,
@@ -2255,10 +2258,18 @@ export const ObjectMapConfigSchema = z.object({
  */
 const RECORD_SOURCE_KEYS = ['data', 'staticData', 'objectName'] as const;
 type RecordSourceRung = 'bind' | 'data' | 'staticData' | 'objectName';
+/**
+ * `binding: 'not-read'` — for an arm whose registration is NOT gate-wrapped
+ * (objectui#11168 slice 3, `object-tree`). No `ElementDataSourceGate` lands a
+ * `dataSource.object` on that renderer's `objectName`, so the binding is not a
+ * record source there: counting it would accept a node that draws nothing, and
+ * naming it in the message would prescribe a write the renderer drops.
+ */
 function requireRecordSource(
-  type: 'object-map' | 'object-gantt' | 'object-calendar' | 'object-kanban' | 'object-grid' | 'list-view',
+  type: 'object-map' | 'object-gantt' | 'object-calendar' | 'object-kanban' | 'object-grid' | 'list-view' | 'object-tree',
   rungs: readonly RecordSourceRung[],
   at: 'node' | 'properties' = 'node',
+  bindingRung: 'counts' | 'not-read' = 'counts',
 ) {
   const spell = (key: RecordSourceRung) => (at === 'properties' ? `properties.${key}` : key);
   const named = rungs.map((key) => `\`${spell(key)}\``);
@@ -2268,14 +2279,16 @@ function requireRecordSource(
   const binding = at === 'properties'
     ? 'name the object in the node\'s `dataSource` binding (`dataSource.object`)'
     : 'name the object in `dataSource.object`';
-  const message = `\`${type}\` has no record source: declare ${declare}, or ${binding}`;
+  const message = bindingRung === 'counts'
+    ? `\`${type}\` has no record source: declare ${declare}, or ${binding}`
+    : `\`${type}\` has no record source: declare ${declare}`;
   const path = rungs.length === 1 ? (at === 'properties' ? ['properties', rungs[0]] : [rungs[0]]) : [];
   const refinement = (node: unknown, ctx: z.core.$RefinementCtx): void => {
     if (!node || typeof node !== 'object' || Array.isArray(node)) return;
     const bag = (node as { properties?: unknown }).properties;
     const holder = at === 'node' ? node : bag && typeof bag === 'object' && !Array.isArray(bag) ? bag : {};
     if (rungs.some((key) => (holder as Partial<Record<RecordSourceRung, unknown>>)[key] !== undefined)) return;
-    if (dataSourceSuppliesObject(node)) return;
+    if (bindingRung === 'counts' && dataSourceSuppliesObject(node)) return;
     ctx.addIssue({
       code: 'custom',
       path,
@@ -2352,10 +2365,34 @@ const OBJECT_TREE_NEITHER_CHANNEL = neitherContentChannelGuidance(
 
 /**
  * ObjectTree (tree-grid) Schema
+ *
+ * objectui#11168 slice 3 aligned this mirror with the `object-tree` row
+ * `@objectstack/spec` 17.5.0 declares, member by member, each by measurement
+ * on `ObjectTree`:
+ *
+ *   - `objectName` is OPTIONAL and the member ends in `requireRecordSource`, as
+ *     on `ObjectMapSchema` / `ObjectGanttSchema`: the renderer resolves its
+ *     record source through the shared ladder (`data`, then `staticData`, then
+ *     `objectName`), so a tree on inline rows never reads the object name.
+ *     Required, this face refused a `staticData`-only tree that draws — and
+ *     `objectui validate` prints exactly this face's verdict. The binding is
+ *     NOT a rung here: the tree's registration is not gate-wrapped, so a
+ *     `dataSource.object` reaches no `objectName`.
+ *   - `data`, `staticData`, `tree` and `navigation` are declared, each read by
+ *     the renderer. `tree` and `navigation` take the spec's own schemas by
+ *     reference, so this face cannot fork from the row.
+ *
+ * The flat `parentField` / `labelField` / `fields` / `defaultExpandedDepth`
+ * below stay as they were: the renderer still reads them, ahead of the `tree`
+ * block's members of the same name. The spec row does not declare them.
  */
 export const ObjectTreeSchema = BaseSchema.extend({
   type: z.literal('object-tree'),
-  objectName: z.string().describe('ObjectQL object name'),
+  objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source resolveRecordSourceConfig resolves, after data and staticData; one of the three must be present'),
+  data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by resolveRecordSourceConfig; the value and object providers draw rows, the api and schema providers draw none on the tree'),
+  staticData: z.array(z.any()).optional().describe('Inline records — read SECOND by resolveRecordSourceConfig, wrapped into a { provider: value } config'),
+  tree: stripImportedDefaults(SpecTreeConfigSchema).optional().describe('Tree field configuration (parentField, labelField, fields, defaultExpandedDepth) — the spec TreeConfig, by reference'),
+  navigation: stripImportedDefaults(SpecNavigationConfigSchema).optional().describe('Row-click navigation — the spec NavigationConfig, by reference; an absent key opens nothing on a standalone tree'),
   // objectui#9549 — declared in step with the twin in `../objectql.ts`
   // (`QueryParams['$filter']`), spelled exactly as `ObjectGallerySchema.filter`
   // below spells it (objectui#9309): the two arms of that slot, ARRAY FIRST.
@@ -2373,7 +2410,7 @@ export const ObjectTreeSchema = BaseSchema.extend({
   // channel, so both are refused by name here as on the TypeScript twin, each kept a MEMBER.
   body: retirementTombstone(OBJECT_TREE_NEITHER_CHANNEL),
   children: retirementTombstone(OBJECT_TREE_NEITHER_CHANNEL),
-});
+}).superRefine(...requireRecordSource('object-tree', RECORD_SOURCE_KEYS, 'node', 'not-read'));
 
 /** objectui#9256 (E3 residual): ONE refusal string for both content channels of `ObjectGanttSchema`. */
 const OBJECT_GANTT_NEITHER_CHANNEL = neitherContentChannelGuidance(

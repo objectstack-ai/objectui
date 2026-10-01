@@ -56,6 +56,8 @@ import { ComponentPropsMap } from '@objectstack/spec/ui';
 // the components graph. Module scope, not a `beforeAll`, per AGENTS.md 测试纪律.
 import '../action-group';
 import '../action-menu';
+// The leaf the size row below compares a group member with.
+import '../action-button';
 
 /** The row every predicate below is evaluated against. */
 const DATA = { status: 'draft' };
@@ -255,6 +257,30 @@ describe('action:group — the member shape of `actions` (the MEMBER-PIN directi
     expect(loud.className).toContain('h-11');
     expect(loud.className).toContain('member-class');
     expect(screen.getByRole('button', { name: 'SHOWN' }).className).toContain('h-9');
+  });
+
+  it.each(['default', 'sm', 'lg', 'icon', 'md'] as const)(
+    'a member at `size: %s` draws exactly as an `action:button` at that size (the `UIActionSchema.size` changeset\'s claim)',
+    (size) => {
+      // The variant is held equal (`default`, the leaf's own default; a
+      // member's is `outline`), so the class lists differ only if the SIZE is
+      // drawn differently. `md` is mapped to `default` on both.
+      mount({ type: 'action:group', actions: [member('alpha', { size, variant: 'default' })] });
+      const drawnAsMember = screen.getByRole('button', { name: 'ALPHA' }).className.split(' ').sort();
+      cleanup();
+      mount({ type: 'action:button', name: 'alpha', label: 'ALPHA', size });
+      const drawnAsLeaf = screen.getByRole('button', { name: 'ALPHA' }).className.split(' ').sort();
+      expect(drawnAsMember).toEqual(drawnAsLeaf);
+    },
+  );
+
+  it('CONTROL: with NO size the two differ — a member falls back to `sm`, a leaf to `default` — so the rows above can fail', () => {
+    mount({ type: 'action:group', actions: [member('alpha', { variant: 'default' })] });
+    const drawnAsMember = screen.getByRole('button', { name: 'ALPHA' }).className.split(' ').sort();
+    cleanup();
+    mount({ type: 'action:button', name: 'alpha', label: 'ALPHA' });
+    const drawnAsLeaf = screen.getByRole('button', { name: 'ALPHA' }).className.split(' ').sort();
+    expect(drawnAsMember).not.toEqual(drawnAsLeaf);
   });
 
   it('a click runs the member through the runner by its OWN `type`, carrying its own keys', async () => {

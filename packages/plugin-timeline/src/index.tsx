@@ -379,11 +379,12 @@ const TIMELINE_SORT_DESCRIPTION = 'Entry order in `[{ field, order }]` form, ord
 // on the real component, and it differs from the board's and the calendar's in
 // two places: this renderer supplies no drawer default, so an ABSENT key opens
 // nothing, and it hands the split shell no main panel, so `split` opens nothing
-// either. `page`, and a block without `mode`, open nothing as on the siblings
-// (objectui#11293). Members pinned in
+// either. `page`, and a block without `mode`, open the record page through the
+// host's record navigator as on the siblings, and nothing under a host that
+// publishes none (objectui#11293). Members pinned in
 // `__tests__/timelineNavigationMembers-8654.test.tsx`; a renderer that changes
 // any of these reddens those rows, and the fix is to rewrite this description.
-const TIMELINE_NAVIGATION_DESCRIPTION = 'What an entry click opens — the `{ mode, size, openNewTab, preventNavigation }` block a list view declares. Write it with `mode`: with the key ABSENT, or with a block that omits `mode` (it takes the spec’s `page` default), a click opens nothing on a timeline no parent view navigates for. `drawer`, `modal` and `popover` open the entry’s record in that overlay; `new_window` opens the record page in a new tab; `page`, `none` and `split` open nothing here, because the timeline hands the split shell no main panel. `openNewTab: true` opens the record page in a new tab and outranks the mode, `preventNavigation: true` opens nothing, and `size` sets the overlay width. A click handler from a parent view outranks the whole key.';
+const TIMELINE_NAVIGATION_DESCRIPTION = 'What an entry click opens — the `{ mode, size, openNewTab, preventNavigation }` block a list view declares. With the key ABSENT a click opens nothing: this renderer supplies no drawer default. `mode` is an overlay (`drawer`, `modal`, `split`, `popover`), `new_window`, `page` or `none`, and a block written without `mode` takes the spec’s `page` default. `drawer`, `modal` and `popover` open the entry’s record in that overlay, but `split` opens nothing, because the timeline hands the split shell no main panel; `new_window` opens the record page in a new tab; `none` opens nothing. `page` opens the record page through the record navigator the host publishes (the console publishes one on its custom pages, record pages and list views); under a host that publishes none, such as an embedded renderer, there is no record page to open and the click opens nothing. `preventNavigation: true` opens nothing whatever the mode, `openNewTab: true` opens the record page in a new tab and outranks every mode except `none`, and `size` sets the overlay width. A click handler from a parent view outranks the whole key.';
 
 ComponentRegistry.register('object-timeline', ObjectTimelineRenderer, {
   namespace: 'plugin-timeline',

@@ -126,9 +126,9 @@ const schema: BaseSchema = {
     filter?: Array<any>,              // Query filter, sent as $filter
     sort?: SortConfig[],              // Sort, sent as $orderby
     map?: ObjectMapConfig,            // Map-specific configuration
-    enableClustering?: boolean,       // Cluster nearby markers (auto past 100)
-    navigation?: NavigationConfig,    // Record navigation (drawer/dialog/page)
-    mapStyle?: string                 // MapLibre style URL/spec
+    enableClustering?: boolean,       // Cluster nearby markers (auto past 100; false turns it off)
+    navigation?: NavigationConfig,    // What a marker click opens (see Marker click navigation)
+    mapStyle?: string                 // MapLibre style URL; read before `map.style`
   },
   onMarkerClick?: (record: any) => void,  // A host callback: on the node, in code only
   className?: string
@@ -326,6 +326,30 @@ Read from the database with the **Object Provider** above, or pass records you
 already hold with the **Value Provider**.
 
 ## Event Handling
+
+### Marker click navigation
+
+`navigation` takes the spec's `NavigationConfig` (`{ mode, size, width,
+openNewTab, preventNavigation }`), the block a list view declares. On a map no
+parent view navigates for:
+
+- **Absent**: a marker click opens nothing. This renderer supplies no drawer
+  default.
+- `drawer`, `modal` and `popover` open the marker's record in that overlay.
+  `split` opens nothing: the map hands the split shell no main panel.
+- `new_window` opens `/{objectName}/record/{id}` in a new tab. `none` opens
+  nothing.
+- `page`, and a block without `mode` (it takes the spec's `page` default), open
+  the record page of the map's `objectName` through the record navigator the
+  host publishes (the console publishes one on its custom pages, record pages
+  and list views). Under a host that publishes none, such as an embedded
+  renderer, or on a map that names no `objectName`, there is no record page to
+  open and the click opens nothing.
+- `preventNavigation: true` opens nothing whatever the mode. `openNewTab: true`
+  opens the record page in a new tab and outranks every mode except `none`.
+- `size` picks the overlay width bucket; the deprecated `width` wins over it.
+
+A click handler from a parent view (`onRowClick`) outranks the whole key.
 
 ### Marker Click
 

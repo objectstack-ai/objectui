@@ -63,14 +63,15 @@ const colName = (entry: any): string | null =>
  * returned BY REFERENCE when no column carries a map, so the common path keeps
  * `RelatedList`'s column memo on the array it always received.
  */
-function localizeColumnLabels(columns: any[], language: string): any[] {
-  let out: any[] | null = null;
+function localizeColumnLabels<T>(columns: T[], language: string): T[] {
+  let out: T[] | null = null;
   for (let idx = 0; idx < columns.length; idx++) {
     const column = columns[idx];
-    const label: unknown = column && typeof column === 'object' ? column.label : undefined;
+    const label: unknown =
+      column && typeof column === 'object' ? (column as { label?: unknown }).label : undefined;
     if (label === null || typeof label !== 'object') continue;
     out ??= [...columns];
-    out[idx] = { ...column, label: pickLocalized(label, language) };
+    out[idx] = { ...(column as object), label: pickLocalized(label, language) } as T;
   }
   return out ?? columns;
 }

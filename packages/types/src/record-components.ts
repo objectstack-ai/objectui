@@ -126,7 +126,23 @@ export interface RecordDetailsComponentProps {
   sections?: Array<{
     /** Stable identifier for i18n key resolution (e.g. 'info', 'forecast'). */
     name?: string;
-    label?: string;
+    /**
+     * Section heading — the spec's `I18nLabel`
+     * (`RecordDetailsProps.sections[].label`): a plain string or an inline
+     * per-locale map such as `{ en: 'Overview', 'zh-CN': '概览' }`.
+     * `RecordDetailsRenderer` resolves a map with `pickLocalized` against the
+     * UI language; a named section's bundle key
+     * (`objects.OBJECT._sections.NAME.label`) still outranks the authored text.
+     *
+     * Typed `string` until objectui#10993 (batch 4), a NARROWING: the contract
+     * and the renderer both took the map while `tsc` refused it here. This
+     * file's four `I18nLabel` members widened together (this one,
+     * `RecordRelatedListComponentProps.title` and `.add.label`,
+     * `RecordPathComponentProps.stages[].label`), and
+     * `__tests__/record-components-i18n-label-members-10993.test.ts` holds all
+     * four to the spec's type.
+     */
+    label?: I18nLabel;
     /**
      * Field names shown in this section, in order.
      *
@@ -465,8 +481,15 @@ export interface RecordRelatedListComponentProps {
    * authoring half does.
    */
   filter?: ViewFilterRule[];
-  /** Section title */
-  title?: string;
+  /**
+   * Section title — the spec's `I18nLabel` (`RecordRelatedListProps.title`), a
+   * plain string or an inline per-locale map. `RecordRelatedListRenderer`
+   * resolves a map with `pickLocalized` against the UI language, ahead of the
+   * related object's label. Typed `string` until objectui#10993 (batch 4); see
+   * `RecordDetailsComponentProps.sections[].label` for the four members that
+   * widened together.
+   */
+  title?: I18nLabel;
   /** Show "View All" link */
   showViewAll?: boolean;
   /** Available actions for the related list */
@@ -504,7 +527,14 @@ export interface RecordRelatedListComponentProps {
      */
     picker: { object: string; valueField?: string; labelField?: string; filter?: ViewFilterRule[] };
     linkField?: string;
-    label?: string;
+    /**
+     * The Add button's text — the spec's `I18nLabel`
+     * (`RecordRelatedListProps.add.label`, default "Add"). The renderer resolves
+     * a map with `pickLocalized` against the UI language before it hands `add`
+     * to `RelatedList`. Typed `string` until objectui#10993 (batch 4); see
+     * `RecordDetailsComponentProps.sections[].label`.
+     */
+    label?: I18nLabel;
   };
   /**
    * Fold this list's authored `columns` through the viewer's FIELD-read
@@ -615,8 +645,15 @@ export interface RecordPathComponentProps {
   stages: Array<{
     /** Stage value (matches statusField values) */
     value: string;
-    /** Display label for the stage */
-    label: string;
+    /**
+     * Display label for the stage — the spec's `I18nLabel`
+     * (`RecordPathProps.stages[].label`), a plain string or an inline
+     * per-locale map. `RecordPathRenderer` resolves a map against the UI
+     * language before the picklist translation, the won/lost classification
+     * and both rails read it. Typed `string` until objectui#10993 (batch 4);
+     * see `RecordDetailsComponentProps.sections[].label`.
+     */
+    label: I18nLabel;
     /**
      * Terminal classification. Stages marked `'won'` render as the
      * success terminus of the forward path; stages marked `'lost'`

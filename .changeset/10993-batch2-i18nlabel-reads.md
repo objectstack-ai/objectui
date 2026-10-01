@@ -20,6 +20,4 @@ A `record:path` whose stage labels are per-locale maps now shows the viewer's la
 
 A value that matches neither arm, such as a number, is still reported. No renderer changes for these five: each already resolved the map.
 
-**Not in this batch.** `object-grid`'s deprecated `title`, read when `label` is absent, still renders a map raw; it follows in a later batch.
-
 **Clause-②: yes** — five published registry inputs widen from `'string'` to `['string', 'object']`, so `validateTree` accepts a locale map on them (and `view:grid`'s `label`, which shares `object-grid`'s inputs, declares the same arms). Nothing that was accepted before is refused now.

@@ -336,8 +336,9 @@ parent view navigates for:
 - **Absent**, or a block without `mode` (it takes the spec's `page` default): a
   marker click opens nothing. Write `mode`.
 - `drawer`, `modal` and `popover` open the marker's record in that overlay.
-- `new_window` opens `/{objectName}/record/{id}` in a new tab. `page`, `none` and
-  `split` open nothing here: the map hands the split shell no main panel.
+- `new_window` opens `/{objectName}/record/{id}` in a new tab. `page` and `none`
+  open nothing here, and neither does `split`: the map hands the split shell no
+  main panel.
 - `preventNavigation: true` opens nothing whatever the mode. `openNewTab: true`
   opens the record page in a new tab and outranks every mode except `none`.
 - `size` picks the overlay width bucket; the deprecated `width` wins over it.

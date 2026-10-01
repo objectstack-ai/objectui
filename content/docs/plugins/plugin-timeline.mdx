@@ -206,8 +206,8 @@ reference, `ViewNavigationConfig` in `@object-ui/types`, the type
 | Member | On an entry click |
 |--------|-------------------|
 | `mode: 'drawer'` / `'modal'` / `'popover'` | Opens the entry's record in that overlay |
-| `mode: 'new_window'`, or `openNewTab: true` | Opens the record page in a new tab; `openNewTab` outranks the mode |
-| `preventNavigation: true`, or `mode: 'none'` | Opens nothing |
+| `mode: 'new_window'`, or `openNewTab: true` | Opens the record page in a new tab; `openNewTab` outranks every mode except `none` |
+| `preventNavigation: true`, or `mode: 'none'` | Opens nothing, whatever else the block says |
 | `size` | Sets the overlay width (`sm` … `full`, or `auto` for the default) |
 
 A click handler from a parent view outranks the whole key.

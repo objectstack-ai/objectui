@@ -199,11 +199,16 @@ describe('action `visible` — engine path vs renderer path parity (#3314)', () 
  *
  * ## Reverse verification (direction predicted before running)
  *
- * Restoring the engine's hand-rolled range must turn RED the `0` / `NaN` /
+ * Restoring the engine's hand-rolled range must turn RED the
  * `'   '` / `'\t\n'` / blank-`source`-without-dialect rows of the table below —
  * `engine` becomes `false` while `rendererFace` stays `true` — and leave the rows
  * both ranges agreed on GREEN. It cannot go red in the other direction: the change
  * only ever stops the engine hiding an action.
+ *
+ * ⚠️ objectui#11358 moved the `0` / `NaN` / `{}` rows: they are declared gates
+ * that cannot be evaluated, HIDDEN on both faces now — the engine's old
+ * `Boolean(raw)` answer for `0` was the right verdict reached for the wrong
+ * reason, and the faces still agree, which is this suite's claim.
  */
 describe('action `visible` — the DECLARED gate agrees on both faces too (objectui#3957)', () => {
   const CONTEXT = { record: { id: 'r1', status: 'open' } };
@@ -239,12 +244,18 @@ describe('action `visible` — the DECLARED gate agrees on both faces too (objec
     { what: 'null', visible: null, shown: true },
     { what: "'   ' (blank predicate text — the row objectui#3966 created)", visible: '   ', shown: true },
     { what: "'\\t\\n' (other blanks)", visible: '\t\n', shown: true },
-    { what: '0 (not a predicate)', visible: 0, shown: true },
-    { what: 'NaN (not a predicate)', visible: NaN, shown: true },
-    { what: '{} (no source)', visible: {}, shown: true },
     { what: "{ dialect: 'cel', source: '' } (what `objectstack build` emits)", visible: { dialect: 'cel', source: '' }, shown: true },
     { what: "{ dialect: 'cel', source: '   ' } (blank source — objectui#3960)", visible: { dialect: 'cel', source: '   ' }, shown: true },
     { what: "{ source: '   ' } (blank source, no dialect)", visible: { source: '   ' }, shown: true },
+    // ── declared, nothing evaluable → hidden on both faces (objectui#11358) ─
+    // These were "nothing declared → shown" rows until triage's ruling on
+    // objectui#11358: a present value with no evaluable `source` is a declared
+    // gate that faults, and `visible` fails closed on a fault on both faces.
+    { what: '0 (declared, not evaluable)', visible: 0, shown: false },
+    { what: 'NaN (declared, not evaluable)', visible: NaN, shown: false },
+    { what: '{} (declared, not evaluable)', visible: {}, shown: false },
+    { what: '[] (declared, not evaluable)', visible: ['record.status'], shown: false },
+    { what: "{ dialect: 'cel', ast } (an `ast`-only envelope)", visible: { dialect: 'cel', ast: { kind: 'call', fn: '==' } }, shown: false },
     // ── declared → the verdict decides, identically on both faces ──────────
     { what: 'true', visible: true, shown: true },
     { what: 'false (a verdict, not a missing gate)', visible: false, shown: false },
@@ -281,6 +292,6 @@ describe('action `visible` — the DECLARED gate agrees on both faces too (objec
         expect(c.shown, `${c.what}: nothing declared must mean shown`).toBe(true);
       }
     }
-    expect(GATE_CASES.filter(c => !hasDeclaredPredicate(c.visible)).length).toBe(10);
+    expect(GATE_CASES.filter(c => !hasDeclaredPredicate(c.visible)).length).toBe(7);
   });
 });

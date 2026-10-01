@@ -41,8 +41,10 @@
  *   • `disabled: true` / a truthy expression / a truthy CEL envelope → still
  *     disabled. Anti-mutation guards: "never disable" satisfies most of this file
  *     alone, and these refuse it.
- *   • `disabled: false` → still not disabled, and `disabled: 0` → not disabled
- *     (junk fails open, as it now does at every other gate).
+ *   • `disabled: false` → still not disabled. `disabled: 0` (and `{}`, an
+ *     array, an `ast`-only envelope) → DISABLED since objectui#11358, reported:
+ *     a declared gate that cannot be evaluated faults, and a faulting
+ *     `disabled` greys the control out (it failed open, as "no gate", before).
  *   • `disabledOn` in each of those directions → the alias reads the same
  *     definition, not a copy of it.
  *   • precedence: an EMPTY `disabled` no longer short-circuits the chain, so a
@@ -74,7 +76,7 @@
  * definition) turns RED only the two blank-`source` rows on each key.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
@@ -83,6 +85,7 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
 import type { DataSource } from '@object-ui/types';
 import { PredicateScopeProvider } from '../hooks/useExpression';
+import { __resetVisibilityPredicateWarnings } from '../utils/visibilityDiagnostic';
 
 /**
  * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
@@ -160,9 +163,29 @@ describe('SchemaRenderer `disabled` — an empty predicate is not a declared gat
     expect(disabledProp()).toBe('absent');
   });
 
-  it('disabled: 0 (not a predicate) → not disabled — junk fails open here too', () => {
-    renderNode({ disabled: 0 });
-    expect(disabledProp()).toBe('absent');
+  // objectui#11358: junk is a DECLARED gate that cannot be evaluated, not "no
+  // gate". It reaches `evaluateEnablementPredicate`, which reports the fault
+  // and returns the evaluator's fail-soft `true` — on this key, DISABLED, as
+  // for a `disabled` predicate that faults with text in it (objectui#11242).
+  // A node id per row: the report dedupes per node and key.
+  it.each([
+    ['0', 0, 'probe-11358-zero'],
+    ['{} (no source)', {}, 'probe-11358-object'],
+    ['[] (array)', ['record.id'], 'probe-11358-array'],
+    ["{ dialect: 'cel', ast } (an `ast`-only envelope)", { dialect: 'cel', ast: { kind: 'call', fn: '==' } }, 'probe-11358-ast'],
+  ] as const)('disabled: %s (declared, not evaluable — objectui#11358) → disabled, reported once', (_label, value, id) => {
+    // The report dedupes on (type, key, predicate text), and an object with no
+    // `source` prints as one text — so each row starts from a clean dedupe.
+    __resetVisibilityPredicateWarnings();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      renderNode({ id, disabled: value });
+      expect(disabledProp()).toBe('true');
+      const lines = warn.mock.calls.map((c) => c.map(String).join(' '));
+      expect(lines.filter((l) => l.includes('[unevaluable]'))).toHaveLength(1);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('disabled: true → still disabled, and the prop is forwarded', () => {

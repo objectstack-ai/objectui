@@ -29,10 +29,11 @@
  *     `{ source: '' }`) → clickable. THE defect, one case per row of the #3850
  *     table's "残留" lines. Restore `!= null && !== ''` in the definition and
  *     exactly these go red.
- *   • the `disabled` leg's junk cases (`0`, `{}`) → clickable. Behaviour change
- *     in the same fail-open direction: a value the evaluator cannot read must not
- *     be the reason a control is dead. (`ActionRunner` already committed this
- *     module family to `catch { isDisabled = false }`.)
+ *   • the junk cases (`0`, `{}`, an `ast`-only envelope, an array) → since
+ *     objectui#11358 a DECLARED gate that cannot be evaluated, not "no gate":
+ *     `disabled` greys out and `visible` hides (each key's fault direction),
+ *     the legacy `enabled` leg stays enabled (its fault direction), and each is
+ *     reported. They were clickable / rendered from objectui#3850 until then.
  *   • `disabled: true` / a truthy expression / a truthy CEL envelope → still
  *     greyed. Anti-mutation guards: "never disable anything" satisfies most of
  *     this file on its own, and these refuse it.
@@ -76,11 +77,11 @@
  * objectui#3849 put them (`action-member-disabled-declared-gate.test.tsx`).
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
-import { ComponentRegistry, hasDeclaredPredicate } from '@object-ui/core';
+import { ComponentRegistry, ExpressionEvaluator, hasDeclaredPredicate, toPredicateInput } from '@object-ui/core';
 import { PredicateScopeProvider } from '@object-ui/react';
 // Module-scope side-effect import so the renderer is in the registry when
 // `ComponentRegistry.get` runs (the light `dom` project does not load the
@@ -111,11 +112,27 @@ const EMPTY_SHAPES: Array<{ label: string; value: unknown }> = [
   { label: 'null', value: null },
 ];
 
-/** Values the evaluator cannot read at all. */
+/**
+ * Values the evaluator cannot read at all — DECLARED and faulting since
+ * objectui#11358 (the four shapes triage's ruling names).
+ */
 const JUNK_SHAPES: Array<{ label: string; value: unknown }> = [
+  { label: "{ dialect: 'cel', ast } (an `ast`-only envelope)", value: { dialect: 'cel', ast: { kind: 'call', fn: '==' } } },
   { label: '0', value: 0 },
   { label: '{} (an object with no source)', value: {} },
+  { label: '[] (an array)', value: ['record.id'] },
 ];
+
+/** Run `fn` with `console.warn` captured; return the lines it printed. */
+function captureWarnings(fn: () => void): string[] {
+  const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+  try {
+    fn();
+    return warn.mock.calls.map(c => c.map(String).join(' '));
+  } finally {
+    warn.mockRestore();
+  }
+}
 
 describe('the one definition — `hasDeclaredVisibilityGate` is core\'s `hasDeclaredPredicate` (objectui#3850)', () => {
   it('is the same function object, not a same-shaped copy', () => {
@@ -125,9 +142,13 @@ describe('the one definition — `hasDeclaredVisibilityGate` is core\'s `hasDecl
     expect(hasDeclaredVisibilityGate).toBe(hasDeclaredPredicate);
   });
 
-  it('answers the empty spellings and the junk with "no gate", and a declared boolean with "gate"', () => {
-    for (const { label, value } of [...EMPTY_SHAPES, ...JUNK_SHAPES]) {
+  it('answers the empty spellings with "no gate", and the junk and a declared boolean with "gate"', () => {
+    for (const { label, value } of EMPTY_SHAPES) {
       expect(hasDeclaredVisibilityGate(value), `${label} must not count as a declared gate`).toBe(false);
+    }
+    // objectui#11358: declared, and faulting — never "no gate".
+    for (const { label, value } of JUNK_SHAPES) {
+      expect(hasDeclaredVisibilityGate(value), `${label} is a declared gate that cannot be evaluated`).toBe(true);
     }
     expect(hasDeclaredVisibilityGate(false)).toBe(true);
     expect(hasDeclaredVisibilityGate(true)).toBe(true);
@@ -140,9 +161,21 @@ describe('action:button `disabled` — an empty predicate is not a gate (objectu
     expect(act()).not.toBeDisabled();
   });
 
-  it.each(JUNK_SHAPES)('disabled: $label (not a predicate) → the button stays clickable', ({ value }) => {
-    renderLeaf({ ...ACT, disabled: value });
-    expect(act()).not.toBeDisabled();
+  it.each(JUNK_SHAPES)('disabled: $label (declared, not evaluable — objectui#11358) → greyed out, reported', ({ value }) => {
+    // `disabled`'s fault direction is CLOSED (objectui#11242): the evaluator's
+    // fail-soft `true` for a fault means "greyed out" on this key.
+    const onFault = vi.fn();
+    const lines = captureWarnings(() => {
+      renderLeaf({ ...ACT, disabled: value });
+    });
+    expect(act()).toBeDisabled();
+    // The report is `evalFieldPredicate`'s one-time `[unevaluable]` line, under
+    // one locator for the whole class — so at most one per render, and the
+    // reason is pinned through the evaluator directly.
+    expect(lines.filter(l => l.includes('[unevaluable]')).length).toBeLessThanOrEqual(1);
+    new ExpressionEvaluator({}).evaluateCondition(toPredicateInput(value) as never, { onFault });
+    expect(onFault).toHaveBeenCalledOnce();
+    expect(String(onFault.mock.calls[0][0])).toContain('[unevaluable]');
   });
 
   it('disabled: true → still greyed out', () => {
@@ -181,9 +214,17 @@ describe('action:button `visible` — the equivalence the ruling asked for, and 
     expect(act()).toBeInTheDocument();
   });
 
-  it.each(JUNK_SHAPES)('visible: $label (not a predicate) → still rendered', ({ value }) => {
-    renderLeaf({ ...ACT, visible: value });
-    expect(act()).toBeInTheDocument();
+  it.each(JUNK_SHAPES)('visible: $label (declared, not evaluable — objectui#11358) → hidden, reported once', ({ value }) => {
+    // The toolbar half of the ruling: `visible` fails CLOSED on a fault
+    // (`throwOnError`, objectui#11212), and the leg's own catch is the one
+    // report, naming the action. A label per row, so that report's dedupe
+    // (label + predicate) cannot carry one row into the next.
+    const label = `Act ${JUNK_SHAPES.findIndex(r => r.value === value)}`;
+    const lines = captureWarnings(() => {
+      const { container } = renderLeaf({ ...ACT, label, name: label, visible: value });
+      expect(container.querySelector('button')).toBeNull();
+    });
+    expect(lines.filter(l => l.includes('[unevaluable]'))).toHaveLength(1);
   });
 
   it('visible: false → still hidden, and visible: true / a true predicate still shown', () => {
@@ -229,6 +270,17 @@ describe('action:button legacy `enabled` leg — same definition, same scope', (
 
   it('enabled: true → not greyed out (unchanged)', () => {
     renderLeaf({ ...ACT, enabled: true });
+    expect(act()).not.toBeDisabled();
+  });
+
+  it.each(JUNK_SHAPES)('enabled: $label (declared, not evaluable — objectui#11358) → not greyed out: the key\'s fault direction', ({ value }) => {
+    // The legacy `enabled` leg is fail-soft on a fault (`true` = enabled), and
+    // objectui#11358 does not move a key's fault direction — it stops reading
+    // this value as "no gate". Same verdict as before the ruling, now reached
+    // as a fault (and reported) instead of in silence.
+    captureWarnings(() => {
+      renderLeaf({ ...ACT, enabled: value });
+    });
     expect(act()).not.toBeDisabled();
   });
 

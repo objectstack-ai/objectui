@@ -136,9 +136,13 @@ export function filterVisibleParams(
   return params.filter((p) => {
     const raw: unknown = p.visible;
     // "Is a gate declared?" is asked once, by the canonical definition —
-    // absent, `''`, whitespace-only, an empty `{ dialect, source: '' }` envelope
-    // (what a spec-normalized empty predicate compiles to) and junk all mean
+    // absent, `''`, whitespace-only and an empty `{ dialect, source: '' }`
+    // envelope (what a spec-normalized empty predicate compiles to) all mean
     // "no gate", and must not reach the evaluator to be reported as a fault.
+    // A value with no evaluable `source` (`0`, `{}`, an array, an `ast`-only
+    // envelope) is a declared gate since objectui#11358: it reaches the
+    // evaluator below, faults, and takes this surface's fail-open fallback —
+    // shown, and reported.
     if (!hasDeclaredPredicate(raw)) return true;
     // A BOOLEAN `visible` is a verdict, not an expression — short-circuited the
     // same way `useRowPredicate` / the row kebab / `bulkEligibility` do

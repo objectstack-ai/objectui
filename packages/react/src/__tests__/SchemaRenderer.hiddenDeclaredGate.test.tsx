@@ -54,8 +54,12 @@
  *     defect. Each shape reaches "nothing to evaluate" by its own route (string
  *     identity, `trim()`, envelope `source` empty, envelope `source` blank), so
  *     each is an independent mutation detector.
- *   • non-predicate junk (`0`, `{}`, `[]`) → renders. Fail-open on junk, the
- *     posture every other gate now takes.
+ *   • non-predicate junk (`0`, `{}`, `[]`, an `ast`-only envelope) → HIDDEN
+ *     since objectui#11358, and reported once. It rendered from objectui#3955
+ *     until then, read as "no gate"; that ruling made it a declared gate that
+ *     cannot be evaluated, and this leg answers a fault with the evaluator's
+ *     fail-soft `true` — which on `hidden` means hidden, exactly as it does for
+ *     a `hidden` predicate that faults with text in it.
  *   • `hidden: true` / a holding expression / a holding CEL envelope → STILL
  *     hidden. Anti-mutation guards: "never hide anything" satisfies most of this
  *     file on its own, and these refuse it.
@@ -73,7 +77,7 @@
  * ## Reverse verification (direction predicted before running)
  *
  * Restoring `newSchema.hidden !== undefined` / `hiddenOn !== undefined` must turn
- * RED exactly: every empty-shape case on both keys, the junk cases, and the
+ * RED exactly: every empty-shape case on both keys, and the
  * "undeclared `hidden` falls through to `hiddenOn`" precedence case (whose
  * `hiddenOn: false` becomes unreachable). Every `true` / `false` / expression /
  * envelope / `visible*` case stays GREEN — the change can only stop hiding a
@@ -84,7 +88,7 @@
  * "a DECLARED `hidden` wins" case, which no other case here would catch.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
@@ -93,6 +97,7 @@ import type { BaseSchema, DataSource } from '@object-ui/types';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererContext } from '../context/SchemaRendererContext';
 import { PredicateScopeProvider } from '../hooks/useExpression';
+import { __resetVisibilityPredicateWarnings } from '../utils/visibilityDiagnostic';
 
 /**
  * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
@@ -182,6 +187,7 @@ const JUNK_SHAPES: Array<{ label: string; value: unknown }> = [
   { label: '0', value: 0 },
   { label: '{} (no source)', value: {} },
   { label: '[] (array)', value: [] },
+  { label: "{ dialect: 'cel', ast } (an `ast`-only envelope)", value: { dialect: 'cel', ast: { kind: 'call', fn: '==' } } },
 ];
 
 describe('SchemaRenderer `hidden` — an empty predicate is not a declared gate (objectui#3955)', () => {
@@ -202,9 +208,22 @@ describe('SchemaRenderer `hidden` — an empty predicate is not a declared gate 
     expect(rendered()).toBe(true);
   });
 
-  it.each(JUNK_SHAPES)('hidden: $label (not a predicate) → the node renders — junk fails open', ({ value }) => {
-    renderNode({ hidden: value });
-    expect(rendered()).toBe(true);
+  it.each(JUNK_SHAPES)('hidden: $label (declared, not evaluable — objectui#11358) → hidden, reported once', ({ value }) => {
+    // A fresh node id per row: the unresolvable-predicate report dedupes per
+    // node and key, so a shared id would carry one row's report into the next.
+    const id = `probe-11358-${JUNK_SHAPES.findIndex((r) => r.value === value)}`;
+    // The report dedupes on (type, key, predicate text), and an object with no
+    // `source` prints as one text — so each row starts from a clean dedupe.
+    __resetVisibilityPredicateWarnings();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      renderNode({ id, hidden: value });
+      expect(rendered()).toBe(false);
+      const lines = warn.mock.calls.map((c) => c.map(String).join(' '));
+      expect(lines.filter((l) => l.includes('[unevaluable]'))).toHaveLength(1);
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it('hidden: true → still hidden; hidden: false → still rendered, with no `hidden` prop forwarded', () => {

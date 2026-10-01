@@ -153,6 +153,28 @@ describe('filterVisibleParams — faults are fail-open and LOUD (objectui#4640)'
     expect(warnings).toHaveLength(1);
   });
 
+  it('a declared `visible` with no evaluable source IS a fault — kept (this surface fails open), and named (objectui#11358)', () => {
+    // An `ast`-only envelope, `0`, `{}`, an array: until objectui#11358 these
+    // read as "no gate" and were kept in silence. They are declared gates that
+    // cannot be evaluated now, so they take this surface's fault path — the
+    // param is still shown (the direction a faulting param `visible` has
+    // always had here), and the fault is reported once, naming the param.
+    const shapes: Array<[string, unknown]> = [
+      ['ast_11358', { dialect: 'cel', ast: { kind: 'call', fn: '==' } }],
+      ['zero_11358', 0],
+      ['object_11358', {}],
+      ['array_11358', ['record.id']],
+    ];
+    for (const [name, visible] of shapes) {
+      const param = { name, label: name, type: 'text', visible } as unknown as ActionParamDef;
+      const { result, warnings } = withWarnings(() => filterVisibleParams([param], {}, 'Create user'));
+      expect(result.map((x) => x.name)).toEqual([name]);
+      expect(warnings).toHaveLength(1);
+      expect(warnings[0]).toContain(`param "${name}" of action "Create user"`);
+      expect(warnings[0]).toContain('[unevaluable]');
+    }
+  });
+
   it('a blank predicate is NOT a fault — kept, never evaluated, and diagnosed as blank (objectui#8069)', () => {
     // `''`, whitespace, and the empty `{ dialect, source: '' }` envelope a
     // spec-normalized empty predicate compiles to all mean "no gate declared"

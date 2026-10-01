@@ -23,10 +23,11 @@
  * one line and fail the other. Its cases pin the runtime answers the
  * declarations' docblocks describe. As a rule `condition` it is evaluated as a
  * fault, so the rule does not match and the fault is warned. As a bulk def's
- * `visible` it is not a declared gate at all: the selection bar asks the action
- * family's one "declared?" definition, which reads an envelope with no `source`
- * as no gate, so every selected record qualifies — as on the row menu and the
- * toolbars (objectui#11322).
+ * `visible` it is a declared gate that cannot be evaluated (objectui#11358):
+ * the selection bar asks the action family's one "declared?" definition, which
+ * since that ruling answers "declared" for an envelope with no `source`, and
+ * the per-record fold fails closed on the fault — no selected record
+ * qualifies, and it is warned once — as the row menu and the toolbars hide it.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -125,17 +126,27 @@ describe('objectui#10946 — a bulk def\'s `visible` envelope that carries `ast`
     expect(partitionBulkRows(def, BULK_ROWS).eligible.map((r) => r.id)).toEqual(['r1']);
   });
 
-  // [objectui#11322] This case used to pin the opposite: the selection bar kept
-  // a "declared?" test of its own (`!= null && !== ''`), counted the envelope
-  // as a gate, evaluated it, and failed closed for every record — while the row
-  // menu and the toolbars, which ask `hasDeclaredVisibilityGate`, read the same
-  // value as no gate and showed the action. The bar now asks that definition.
-  it('an `ast`-only envelope is no declared gate: every record qualifies, as on the row menu', () => {
-    const def = { name: 'mark_done', operation: 'custom', visible: { dialect: 'cel', ast: { op: 'not' } } } as unknown as BulkActionDef;
+  // [objectui#11322] This case pinned "no declared gate: every record
+  // qualifies" after the selection bar moved onto the action family's one
+  // definition, which then read an envelope with no `source` as no gate on all
+  // three surfaces. [objectui#11358] triage ruled that reading a silent `true`
+  // (ADR-0137 D4): the envelope is a DECLARED gate that cannot be evaluated, so
+  // the definition answers "declared" and the fold's fail-closed fault path
+  // admits no record — on this bar as on the row menu and the toolbars, which
+  // hide it. One report, labelled with the def.
+  it('an `ast`-only envelope is a declared gate that faults: no record qualifies, warned once', () => {
+    const def = { name: 'mark_done_11358', operation: 'custom', visible: { dialect: 'cel', ast: { op: 'not' } } } as unknown as BulkActionDef;
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const { eligible, skipped } = partitionBulkRows(def, BULK_ROWS);
 
-    const { eligible, skipped } = partitionBulkRows(def, BULK_ROWS);
-
-    expect(eligible).toBe(BULK_ROWS);
-    expect(skipped).toBe(0);
+      expect(eligible).toEqual([]);
+      expect(skipped).toBe(BULK_ROWS.length);
+      const lines = warn.mock.calls.map((c) => c.map(String).join(' '));
+      expect(lines.filter((l) => l.includes('[unevaluable]'))).toHaveLength(1);
+      expect(lines.filter((l) => l.includes('mark_done_11358'))).toHaveLength(1);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });

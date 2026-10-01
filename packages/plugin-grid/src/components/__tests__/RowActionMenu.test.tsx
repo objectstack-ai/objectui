@@ -330,3 +330,73 @@ describe('a blank `visible` on a custom row action (objectui#11294)', () => {
     }
   });
 });
+
+/**
+ * objectui#11358 — a `visible` that is DECLARED but has no evaluable `source`
+ * (an `ast`-only envelope, `0`, `{}`, an array) hides the action on this row
+ * menu, as on the toolbars and the selection bar, and is reported once.
+ *
+ * Nothing in this component changed for it: `isCustomRowActionVisible` asks
+ * the action family's definition, which since the ruling answers "declared"
+ * for these, and the row fold's fault path (`fallback: false`) hides. The
+ * guard and the item read the same function, so the "⋮" trigger does not
+ * survive an action it then suppresses.
+ */
+describe('a declared but not evaluable `visible` on a custom row action (objectui#11358)', () => {
+  const UNEVALUABLE = [
+    ['an `ast`-only envelope', { dialect: 'cel', ast: { kind: 'call', fn: '==' } }],
+    ['0', 0],
+    ['{}', {}],
+    ['an array', ['record.id']],
+  ] as const;
+
+  it.each(UNEVALUABLE)('%s → the action is hidden (inline and in the menu), reported once', async (label, visible) => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      const name = `gated_11358_${UNEVALUABLE.findIndex(([l]) => l === label)}`;
+      renderMenu({ rowActionDefs: [{ name, label: name, variant: 'primary', visible }, ARCHIVE] });
+      expect(screen.queryByTestId(`row-action-inline-${name}`)).toBeNull();
+      await userEvent.click(screen.getByTestId('row-action-trigger'));
+      expect(screen.getByTestId('row-action-archive')).toBeInTheDocument();
+      expect(screen.queryByTestId(`row-action-${name}`)).toBeNull();
+      const lines = warn.mock.calls.map((c) => c.map(String).join(' '));
+      expect(lines.filter((l) => l.includes(name))).toHaveLength(1);
+      expect(lines.filter((l) => l.includes('[unevaluable]'))).toHaveLength(1);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('a `disabled` gated that way → the item renders DISABLED (that key\'s fault direction)', async () => {
+    // The row `disabled` leg evaluates with `fallback: true` and counts the
+    // verdict only where a gate is declared — which this now is.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      renderMenu({ rowActionDefs: [{ ...ARCHIVE, disabled: { dialect: 'cel', ast: { kind: 'call' } } }] });
+      await userEvent.click(screen.getByTestId('row-action-trigger'));
+      const item = screen.getByTestId('row-action-archive');
+      expect(item).toHaveAttribute('aria-disabled', 'true');
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('the only action on the row, gated that way → no "⋮" trigger at all', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      renderMenu({ rowActionDefs: [{ ...ARCHIVE, visible: { dialect: 'cel', ast: { kind: 'call' } } }] });
+      expect(screen.queryByTestId('row-action-trigger')).toBeNull();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it('controls: an absent gate shows, a real CEL `source` evaluates as before', async () => {
+    const { unmount } = renderMenu({ rowActionDefs: [{ ...OPEN }] });
+    expect(screen.getByTestId('row-action-inline-open')).toBeInTheDocument();
+    unmount();
+    renderMenu({ rowActionDefs: [{ ...OPEN, visible: { dialect: 'cel', source: 'record.id == "e1"' } }, { ...UPGRADE, visible: { dialect: 'cel', source: 'record.id == "other"' } }] });
+    expect(screen.getByTestId('row-action-inline-open')).toBeInTheDocument();
+    expect(screen.queryByTestId('row-action-inline-upgrade')).toBeNull();
+  });
+});

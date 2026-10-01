@@ -171,4 +171,43 @@ describe('partitionBulkRows', () => {
       }
     });
   });
+
+  // [objectui#11358] A `visible` that is PRESENT but has no evaluable `source`
+  // — an `ast`-only envelope, `0`, `{}`, an array — is a declared gate that
+  // faults, not "no gate". Before the ruling the action family's definition
+  // read it as no gate, so the bar offered the action and it ran over EVERY
+  // selected record, in silence. Now the definition answers "declared", the
+  // fold evaluates it, the fault path fails closed (no record qualifies, so the
+  // bar hides the def), and the fault is reported once, naming the def.
+  describe('declared but not evaluable visible (objectui#11358)', () => {
+    const UNEVALUABLE = [
+      ["an `ast`-only envelope", { dialect: 'cel', ast: { kind: 'call', fn: '==' } }],
+      ['0', 0],
+      ['{}', {}],
+      ['an array', ['record.done']],
+    ] as const;
+
+    it.each(UNEVALUABLE)('%s is a declared gate, as the action family answers', (_label, visible) => {
+      expect(hasVisibilityGate({ name: 'x', visible: visible as never })).toBe(true);
+      expect(hasDeclaredVisibilityGate(visible)).toBe(true);
+    });
+
+    it.each(UNEVALUABLE)('%s admits no record, and is reported once naming the def', (label, visible) => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      const name = `bulk_11358_${UNEVALUABLE.findIndex(([l]) => l === label)}`;
+      const { eligible, skipped } = partitionBulkRows({ name, visible: visible as never }, ROWS);
+      expect(eligible).toEqual([]);
+      expect(skipped).toBe(ROWS.length);
+      const lines = warn.mock.calls.map(c => c.map(String).join(' '));
+      expect(lines.filter(l => l.includes(name))).toHaveLength(1);
+      expect(lines.filter(l => l.includes('[unevaluable]'))).toHaveLength(1);
+    });
+
+    it('controls: an absent gate passes every record, a real CEL `source` evaluates as before', () => {
+      expect(partitionBulkRows({ name: 'absent' }, ROWS).eligible).toBe(ROWS);
+      const real = partitionBulkRows({ name: 'real', visible: { dialect: 'cel', source: '!record.done' } as never }, ROWS);
+      expect(real.eligible.map(r => r.id)).toEqual(['r1', 'r3']);
+      expect(real.skipped).toBe(1);
+    });
+  });
 });

@@ -55,6 +55,8 @@ import {
   type CapabilityChecker,
   type DocTargetChecker,
 } from './NavigationRenderer';
+// Internal module, not re-exported by `index.ts` (objectui#11395).
+import { byNavOrder } from './navOrder';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -296,9 +298,16 @@ function MobileBottomNav({
   // wired. A gated group therefore takes its children with it, as it does in
   // the sidebar, and the guard runs before the five-tab cap, so a hidden entry
   // never takes a slot. ⛔ No copy of the guard here.
+  //
+  // objectui#11395: each level is sorted by `byNavOrder` before it is walked —
+  // the top level, then each group's children as the walk reaches them — which
+  // is the sidebar's one comparator at the sidebar's two sort sites. The tabs
+  // therefore come out in the sidebar's reading order, and the guard and the cap
+  // run after the sort, so the five tabs are the sidebar's first five drawn
+  // entries. ⛔ No copy of the sort here.
   const collectLeaves = (list: NavigationItem[]): NavigationEntryItem[] => {
     const out: NavigationEntryItem[] = [];
-    for (const item of list) {
+    for (const item of list.slice().sort(byNavOrder)) {
       if (!hasVisibleNavigationItems([item], guards)) continue;
       if (item.type === 'separator') continue;
       if (item.type === 'group') {

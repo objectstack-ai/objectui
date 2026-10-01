@@ -42,7 +42,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import type { DashboardComponentSchema } from '@object-ui/types';
+import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
 import { DashboardEditor } from '../DashboardEditor';
 
 const MAP_TITLE = { en: 'Pipeline', 'zh-CN': '销售漏斗' };
@@ -107,6 +107,18 @@ function lastSchema(onChange: ReturnType<typeof vi.fn>): DashboardComponentSchem
   return calls[calls.length - 1][0] as DashboardComponentSchema;
 }
 
+/**
+ * One widget by id, read through `DashboardWidgetSchema` (objectui#11348): a
+ * `widgets[]` entry is either arm of a union and `title` is declared on the
+ * widget arm only, which the component arm is assignable to — so the
+ * annotation is checked, where `.title` straight off the union element was
+ * reached only through `BaseSchema`'s index signature.
+ */
+function widgetById(schema: DashboardComponentSchema, id: string): DashboardWidgetSchema | undefined {
+  const widgets: DashboardWidgetSchema[] = schema.widgets ?? [];
+  return widgets.find((w) => w.id === id);
+}
+
 describe('DashboardEditor — the title INPUT is a write path, not a display (#4163)', () => {
   /** Select the widget so the property panel mounts. */
   function openPanelFor(schema: DashboardComponentSchema, widgetTestId: string) {
@@ -137,7 +149,7 @@ describe('DashboardEditor — the title INPUT is a write path, not a display (#4
     });
 
     expect(onChange).toHaveBeenCalled();
-    const title = lastSchema(onChange).widgets!.find((w) => w.id === 'w1')!.title;
+    const title = widgetById(lastSchema(onChange), 'w1')!.title;
     // Still a map — not flattened to the edited string.
     expect(typeof title).toBe('object');
     const map = title as Record<string, string>;
@@ -182,7 +194,7 @@ describe('DashboardEditor — the title INPUT is a write path, not a display (#4
 
     expect(onChange).toHaveBeenCalled();
     const saved = lastSchema(onChange);
-    const widget = saved.widgets!.find((w) => w.id === 'w1')!;
+    const widget = widgetById(saved, 'w1')!;
     expect(widget.title).toEqual(MAP_TITLE);
     // `toEqual` alone would pass for a rebuilt-but-equal object; this says the
     // OTHER locale is still there, which is the thing that gets lost.
@@ -201,6 +213,6 @@ describe('DashboardEditor — the title INPUT is a write path, not a display (#4
     fireEvent.change(input, { target: { value: 'Revenue (net)' } });
     expect(onChange).toHaveBeenCalled();
     const saved = lastSchema(onChange);
-    expect(saved.widgets!.find((w) => w.id === 'w2')!.title).toBe('Revenue (net)');
+    expect(widgetById(saved, 'w2')!.title).toBe('Revenue (net)');
   });
 });

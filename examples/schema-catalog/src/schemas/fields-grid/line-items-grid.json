@@ -1,0 +1,53 @@
+{
+  "type": "form",
+  "showSubmit": false,
+  "showCancel": false,
+  "defaultValues": {
+    "line_items": [
+      {
+        "product": "Widget A",
+        "quantity": 2,
+        "amount": 59.98,
+        "position": 0
+      },
+      {
+        "product": "Widget B",
+        "quantity": 1,
+        "amount": 49.99,
+        "position": 1
+      }
+    ]
+  },
+  "fields": [
+    {
+      "name": "line_items",
+      "label": "Line Items",
+      "type": "grid",
+      "columns": [
+        {
+          "name": "product",
+          "label": "Product",
+          "type": "text"
+        },
+        {
+          "name": "quantity",
+          "label": "Qty",
+          "type": "number"
+        },
+        {
+          "name": "amount",
+          "label": "Amount",
+          "type": "currency"
+        }
+      ],
+      "min_rows": 1,
+      "max_rows": 10,
+      "allow_add": true,
+      "allow_delete": true,
+      "allow_reorder": true,
+      "total_field": "amount",
+      "add_label": "Add line item",
+      "sort_field": "position"
+    }
+  ]
+}

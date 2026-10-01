@@ -198,14 +198,9 @@ describe('a master-detail child with authored inline columns derives its sort an
     expect(run.lines.map((l) => l.position)).toEqual([0, 1]);
   });
 
-  it('an authored sort field wins over the derived one', async () => {
-    const child = lineSchema({ line_no: { type: 'number', label: 'Line No' } });
-    const run = await enterReorderAndSave({ ...INLINE_COLUMNS, sortField: 'line_no' }, child);
-    expect(run.lines.map((l) => [l.description, l.line_no])).toEqual([
-      ['B', 0],
-      ['A', 1],
-    ]);
-    // The derived `position` is not stamped when the author named another field.
-    expect(run.lines.every((l) => !('position' in l))).toBe(true);
-  });
+  // There is no authored-sort-field row: a detail's `sortField` override was
+  // retired by objectui#11070 round 9 (it had no writer in either repository
+  // and no spec key), so the derived `position` above is the only sort field.
+  // `__tests__/masterDetailDetailsMembers-8071.test.tsx` row 2c pins that a
+  // `sortField` written on a detail is read by nothing.
 });

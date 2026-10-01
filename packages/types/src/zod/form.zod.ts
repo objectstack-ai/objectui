@@ -1067,6 +1067,27 @@ export const FormFieldSchema = z.object({
   // `name`-keyed inline grid column), by reference. objectui's `grid` field
   // type spells the list `columns` (objectui#11070).
   columns: stripImportedDefaults(SpecFieldSchema).shape.inlineColumns,
+  // objectui#11070 round 10 — the `grid` widget's field-level keys, which it
+  // reads off a `fields[]` entry of `type: 'grid'` (its metadata carrier). They
+  // are `GridFieldMetadata`'s members, which the TS twin carries by reference;
+  // `@objectstack/spec` declares none of them (a `grid` field is objectui's own
+  // type), so each value schema here is the TS member's own type, stated once.
+  min_rows: z.number().optional()
+    .describe('Minimum row count of a `grid` field; read only by the `grid` widget'),
+  max_rows: z.number().optional()
+    .describe('Maximum row count of a `grid` field; read only by the `grid` widget'),
+  allow_add: z.boolean().optional()
+    .describe('Whether a `grid` field offers Add (on unless false); read only by the `grid` widget'),
+  allow_delete: z.boolean().optional()
+    .describe('Whether a `grid` field offers Delete (on unless false); read only by the `grid` widget'),
+  allow_reorder: z.boolean().optional()
+    .describe('Whether a `grid` field\'s rows can be drag-reordered (on unless false); read only by the `grid` widget'),
+  total_field: z.string().optional()
+    .describe('Name of the CHILD column a `grid` field sums into its footer total; read only by the `grid` widget'),
+  add_label: z.string().optional()
+    .describe('Label of a `grid` field\'s Add button; read only by the `grid` widget'),
+  sort_field: z.string().optional()
+    .describe('Name of the row field a `grid` field stamps with each row\'s index, so a drag-reorder persists; read only by the `grid` widget'),
 }).superRefine((field, ctx) => {
   // objectui#5449 — the namespace rule `@object-ui/core` has enforced since
   // objectui#5375, stated here so `objectui validate` (which reaches this

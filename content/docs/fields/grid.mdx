@@ -17,11 +17,16 @@ The Grid Field component provides an inline table for managing related records o
 
 <SchemaExample id="fields-grid/read-only-grid" />
 
+## Field-Level Keys
+
+<SchemaExample id="fields-grid/line-items-grid" />
+
 ## Field Schema
 
 A grid field is authored as `GridFieldMetadata` (`@object-ui/types`), which is the
 source of truth for the key set: it extends `BaseFieldMetadata` with the column list,
-the row-count and row-action limits, the footer total and the Add button's label.
+the row-count and row-action limits, the footer total, the Add button's label and the
+row field that keeps the rows' order.
 Each column is `@objectstack/spec`'s inline grid column (`InlineGridColumn`, the
 element of the spec's `inlineColumns` list on a `master_detail` field), typed by
 reference, so the columns are checked by the same compiler that checks the field,
@@ -47,6 +52,7 @@ const lineItems: GridFieldMetadata = {
   allow_reorder: false,
   total_field: 'amount',
   add_label: 'Add line',
+  sort_field: 'position',
 };
 ```
 
@@ -61,6 +67,21 @@ The field-level keys, each read under exactly this one spelling:
   It is the spec's `amountField`, not its `totalField` (the parent field a
   master-detail save writes the sum to). No total shows when it is unset.
 - `add_label` — the Add button's label.
+- `sort_field` — the name of a field on each **row** that the grid stamps with the
+  row's index (0, 1, 2, …) on every change, so the order a drag-reorder leaves is
+  saved with the rows. It is not one of the columns: a column of that name would
+  have its typed value overwritten. Rows carry no position when it is unset. When
+  a master-detail form derives a detail's grid from the child object (it does
+  unless the detail names its relationship field and types every column), it sets
+  this to the child's first field named `position`, `sort_order`, `sequence`,
+  `line_no`, `line_number` or `sort`; there is no master-detail key to override
+  that pick.
+
+The same keys are accepted on a `form` field entry of `type: 'grid'`, as the
+Field-Level Keys example above writes them. `FormField` declares each one by
+reference to `GridFieldMetadata`, and its zod mirror judges each one by that type,
+so the strict authoring face accepts them there and refuses a value of the wrong
+type. Only the `grid` widget reads them.
 
 A read-only or disabled grid offers no add, delete, duplicate or reorder, whatever
 these keys say. The line-number column always shows. There is no `reorderable`,
@@ -183,9 +204,9 @@ const gridValue = [
 
 ## Features
 
-- **Table Display**: Clean tabular layout
-- **Pagination Preview**: Shows first 5 rows with "Showing X of Y" indicator
-- **Type-Specific Rendering**: Each column renders according to its type
+- **Table Display**: Clean tabular layout, every row shown
+- **Type-Specific Cells**: Each editable cell is the control its column's `type` names;
+  read-only mode formats `date`, `datetime`, `time`, `file` and `lookup` cells for display
 - **Read-Only Mode**: Full table view without editing
 - **Responsive**: Scrollable for many columns
 
@@ -297,12 +318,17 @@ const validateGridData = (data: any[], columns: InlineGridColumn[]) => {
 
 ## Integration with Advanced Grid
 
-For full-featured grids, use the `@object-ui/plugin-grid` package which provides:
+The `grid` field and `@object-ui/plugin-grid`'s `object-grid` node do different jobs.
+The `grid` field edits an array stored on the parent record, through the field-level
+keys above. `object-grid` lists records (fetched for its `objectName`, or handed to
+it) and acts on them as records. What each one reads:
 
-- Inline editing
-- Add/remove rows
-- Sorting and filtering
-- Drag-and-drop reordering
-- Export functionality
-- Formula columns
-- Aggregation rows
+| Feature | `grid` field (`@object-ui/fields`) | `object-grid` (`@object-ui/plugin-grid`) |
+| --- | --- | --- |
+| Inline editing | Every cell but a computed one is its column's control, unless the field is read-only or disabled | `editable: true` (off by default), only where the current user may edit the object |
+| Add and remove rows | `allow_add` and `allow_delete`, each on unless `false` | An add-record row with `operations.create`, and a row's Delete with `operations.delete` and the host's `onDelete`, each only where the current user may create or delete the object's records |
+| Sorting and filtering | None | Column-header sorting (a column opts out with `sortable: false`), the query's `filter` and `sort`, and search over `searchableFields` |
+| Drag-and-drop reordering | Rows, with `allow_reorder` (on unless `false`); `sort_field` keeps the order on save | Columns only, with `reorderableColumns: true`; rows are not reordered |
+| Export | None | `exportOptions` |
+| Computed columns | A column with `computed: true` and an arithmetic `expr` over the row's other cells | None: a formula field's value is shown as the server computed it |
+| Totals | One footer total, the sum of the `total_field` column | A footer summary per column (`columns[].summary`), and aggregates on group headers (`aggregations`) |

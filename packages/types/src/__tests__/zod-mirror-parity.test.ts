@@ -4765,7 +4765,11 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // keys moves ONE side of this pair. The first spec reference in this mirror.
   // Round 3 added `returnType` / `summaryOperations`, and round 7 the `grid`
   // widget's `columns` (the spec's `inlineColumns` list, so a spec bump that
-  // moves the inline grid column moves ONE side too).
+  // moves the inline grid column moves ONE side too). Round 10 added the `grid`
+  // widget's eight field-level keys (`min_rows` … `sort_field`); those are
+  // LOCAL on both sides (the TS twin is `GridFieldMetadata`'s member by
+  // reference, and the spec declares none of them), so they add no spec
+  // crossing and leave this membership resting on the members above.
   'form.zod.ts#FormFieldSchema',
   'form.zod.ts#SelectOptionSchema',
   'layout.zod.ts#PageNodeSchema',

@@ -10,8 +10,8 @@
  * objectui#3951 — grid columns have ONE key spelling, and it is the declared
  * one: `name`, the key of `GridFieldMetadata['columns']` (`@object-ui/types`),
  * which is `@objectstack/spec`'s inline grid column by reference since
- * objectui#11070 — the same key the grid docs page and the three `fields-grid`
- * catalog examples author.
+ * objectui#11070 — the same key the grid docs page and every `fields-grid`
+ * catalog example author.
  *
  * `GridField` used to declare its own local column interface keyed by `field`
  * and read `c.field` everywhere — `key={c.field}`, `row[c.field]`,

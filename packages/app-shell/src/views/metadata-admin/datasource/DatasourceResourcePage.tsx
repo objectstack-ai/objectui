@@ -157,6 +157,13 @@ interface EditorForm {
   label: string;
   driver: string;
   schemaMode: string;
+  /**
+   * The `schemaMode` the stored record had when the editor opened it, as
+   * `GET /datasources/:name` served it; `null` while creating. `draftBody`
+   * reads it to decide whether an edit may send an `external` block
+   * (objectui#11368).
+   */
+  storedSchemaMode: string | null;
   config: Record<string, unknown>;
   secret: string;
 }
@@ -310,6 +317,7 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
       label: '',
       driver: first?.id ?? '',
       schemaMode: 'managed',
+      storedSchemaMode: null,
       config: defaultConfig(first),
       secret: '',
     });
@@ -330,6 +338,7 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
         label: ds.label ?? '',
         driver: ds.driver ?? row.driver ?? (list[0]?.id ?? ''),
         schemaMode: ds.schemaMode ?? 'managed',
+        storedSchemaMode: ds.schemaMode ?? 'managed',
         config: { ...(ds.config ?? {}) },
         secret: '',
       });
@@ -349,7 +358,28 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
   const setConfigValue = (key: string, value: unknown) =>
     setForm((f) => (f ? { ...f, config: { ...f.config, [key]: value } } : f));
 
-  /** Assemble the request body, splitting the credential into `secret`. */
+  /**
+   * Assemble the request body, splitting the credential into `secret`.
+   *
+   * `external` (objectui#11368). `DatasourceSchema` requires an `external`
+   * block whenever `schemaMode` is not `managed`, and the admin door judges
+   * the record it will persist against that schema (objectstack#21133), so a
+   * federated Save without the block answers `400`. The form edits no
+   * federation setting, so the block it brings into being is `{}`: every
+   * member is optional or defaulted, and none is invented here. Whether the
+   * record is valid stays the door's call; a refusal reaches the user as the
+   * door's own message (`saveEditor`).
+   *
+   * An edit sends the block only when the stored record was `managed`. The
+   * door's `PATCH` keeps the stored `external` whole when the patch omits it,
+   * and REPLACES it, keeping only `credentialsRef`, when the patch carries
+   * one. `GET /datasources/:name` serves no `external` at all, so the editor
+   * cannot echo a stored federation policy back: sending `{}` over a
+   * federated record would wipe a policy written elsewhere (`allowWrites`,
+   * `allowedSchemas`, …). A stored `managed` record may carry only
+   * `credentialsRef` in that block (`DatasourceSchema` refuses any other
+   * non-default member there), and the door carries that across.
+   */
   const draftBody = (f: EditorForm) => {
     const body: Record<string, unknown> = {
       label: f.label || undefined,
@@ -357,6 +387,9 @@ export function DatasourceResourcePage(_props: { type?: string }): React.ReactEl
       schemaMode: f.schemaMode,
       config: f.config,
     };
+    if (f.schemaMode !== 'managed' && (f.storedSchemaMode === null || f.storedSchemaMode === 'managed')) {
+      body.external = {};
+    }
     if (f.secret) body.secret = f.secret;
     return body;
   };

@@ -32,9 +32,9 @@ import type { MetadataClient } from '@object-ui/data-objectstack';
 // The ONE draft-envelope reader (objectui#8181): unwrap AND strip the
 // framework's read decorations in one place. This file used to carry its own
 // copy that did the unwrap and skipped the strip.
-import { extractDraftBody } from '@object-ui/data-objectstack';
+// …and `formatMetadataError`, the one metadata-save error reader (objectui#11302).
+import { extractDraftBody, formatMetadataError } from '@object-ui/data-objectstack';
 import { t, tFormat, type SupportedLocale } from '../metadata-admin/i18n.js';
-import { formatMetadataError } from './metadataError.js';
 import { isExternalWider, deriveMasterObject } from './owd-sharing.js';
 import { toast } from 'sonner';
 

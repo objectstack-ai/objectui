@@ -492,6 +492,19 @@ export const ADJUDICATED = new Map([
     'packages/types/src/__tests__/held-public-block-arms-10872.test.ts',
     { reads: ['content/docs/guide/quick-start.md'] },
   ],
+  // objectui#11405. Reads every marked fence in the two guides that authors a
+  // bind-only `list`, with the marker gate's own `scanSkillFences`, and judges it
+  // through `safeValidateSchema` and the strict face -- so an edit to either guide
+  // is an edit to this test's input.
+  [
+    'packages/types/src/__tests__/list-bind-only-11405.test.ts',
+    {
+      reads: [
+        'skills/objectui/guides/data-integration.md',
+        'skills/objectui/guides/schema-expressions.md',
+      ],
+    },
+  ],
   [
     'packages/types/src/__tests__/object-calendar-record-source-7313.test.ts',
     { reads: ['content/docs/plugins/plugin-calendar.mdx'] },

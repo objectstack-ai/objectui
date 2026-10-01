@@ -376,16 +376,21 @@ export const ObjectGridSchema = BaseSchema.extend({
     + 'Rename the key to `sort` and wrap the value in an array: `sort: [{ field, order }]`.',
   ),
   defaultFilters: z.record(z.string(), z.any()).optional(),
-  // The legacy caption/export-title fallback — `ObjectGrid.tsx` reads it at
-  // exactly two sites, `viewLabel: schema.label || schema.title` and
-  // `caption: schema.label || schema.title`, only when `label` is absent — and
-  // the interface has declared it `@deprecated` all along. Mirrored under
-  // objectui#6639's census-directed ruling (2026-08-29, declare branch:
-  // authored `object-grid.title` nodes exist, so the key is declared rather
-  // than the read retired). Typed `z.string()`, not `z.any()` — serializable
+  // The legacy caption/export-title fallback — `ObjectGrid.tsx` draws it at
+  // exactly two sites, the export file name's `viewLabel` and the table
+  // `caption`, each resolving `label` first and this key only when `label`
+  // resolves to nothing — and the interface has declared it `@deprecated` all
+  // along. Mirrored under objectui#6639's census-directed ruling (2026-08-29,
+  // declare branch: authored `object-grid.title` nodes exist, so the key is
+  // declared rather than the read retired). Typed, not `z.any()` — serializable
   // metadata, the #6424 family form: the gain is the typed refusal, since the
   // `.passthrough()` base was already admitting ANY `title` unexamined.
-  title: z.string().optional().describe('DEPRECATED, write label instead: legacy caption/export-file-title fallback, read only when label is absent'),
+  // objectui#10993 (batch 4): the type is the spec's `I18nLabelSchema` BY
+  // REFERENCE, the row's own type for this key, so the inline locale map both
+  // read sites resolve since batch 3 parses; a number, or a map entry that is
+  // not a string, is still refused at the key. Was `z.string()`, which refused
+  // the map the contract accepts.
+  title: stripImportedDefaults(SpecI18nLabelSchema).optional().describe('DEPRECATED, write label instead: legacy caption/export-file-title fallback, read only when label resolves to nothing. @objectstack/spec I18nLabel, a plain string or an inline locale map'),
   // ⭐ objectui#9739 (maintainer ruling 2026-09-18, letter C) — the mirror stops
   // accepting a key the upstream protocol refuses BY NAME, and says so.
   //

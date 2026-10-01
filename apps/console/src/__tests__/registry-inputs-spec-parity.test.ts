@@ -59,8 +59,8 @@
  * tell — and the same four layers are just as quiet, only inverted:
  * `gen-manifest.ts` leaves it out of `sdui.manifest.json` and
  * `sdui-intrinsics.d.ts`, so it is in no designer panel and no `.d.ts`;
- * `validate.ts:74` does not find it in `comp.inputs` and reports `unknown-prop`
- * on it; and the renderer honours it anyway. An author who writes it is warned
+ * `sdui-parser`'s `validateTree` finds no input of that name in `comp.inputs`
+ * and reports `unknown-prop` on it; and the renderer honours it anyway. An author who writes it is warned
  * off a key that works, and an author who doesn't never learns it is there.
  * That is objectui#3407's original complaint verbatim (`readonly` was enforced
  * by the HeaderHighlight gate and honoured by the renderer — the description
@@ -69,8 +69,8 @@
  *
  * The reverse direction bites non-public blocks too, which is the other reason
  * coverage is not limited to `PUBLIC_BLOCKS`: `element:text_input` never reaches
- * `sdui.manifest.json`, but `page.tsx:462` builds the JSX-page compiler's prop
- * whitelist from `getKnownTypes()` + these same `inputs`, so its undeclared
+ * `sdui.manifest.json`, but `page.tsx`'s `getJsxManifest()` builds the JSX-page
+ * compiler's prop whitelist from `getKnownTypes()` + these same `inputs`, so its undeclared
  * `defaultValue` was a live `unknown-prop` warning on a key the renderer seeded
  * page variables from.
  *
@@ -80,8 +80,8 @@
  * imports exactly that pair (as `public-contract.test.ts` next door already
  * does) rather than a hand-assembled list that could agree with itself and
  * prove nothing. Coverage is deliberately NOT limited to the public tier:
- * `packages/components/src/renderers/layout/page.tsx:462` builds the runtime
- * JSX-page validation manifest from `getKnownTypes()`, so a non-public block's
+ * `getJsxManifest()` in `packages/components/src/renderers/layout/page.tsx`
+ * builds the runtime JSX-page validation manifest from `getKnownTypes()`, so a non-public block's
  * `inputs` are a live prop whitelist too — that is how `element:record_picker`,
  * absent from `PUBLIC_BLOCKS`, still publishes an authoring surface.
  *
@@ -418,15 +418,16 @@ function offSpecInputs(type: string): string[] {
  * Only `aria` qualifies, and only because the reason is genuinely uniform: it is
  * an accessibility escape hatch, not a layout choice, and the blocks that omit
  * it say so in the same words at their registration sites
- * (`plugin-detail/src/index.tsx:554-556`, verbatim: "`aria` is omitted for the
- * same reason it is omitted on `record:details` above"). Publishing it would put
+ * (`plugin-detail/src/index.tsx`, the comment above the `record:activity`
+ * registration, verbatim: "`aria` is omitted for the same reason it is omitted
+ * on `record:details` above"). Publishing it would put
  * an `aria` object in every designer panel and every generated `.d.ts` as though
  * hand-writing ARIA were the normal way to configure a block, when the renderers
  * derive their accessible names from labels and object metadata. A key whose
  * reason is per-block belongs in `UNPUBLISHED_EXEMPTIONS` below, not here.
  */
 const GLOBALLY_UNPUBLISHED_SPEC_KEYS: Record<string, string> = {
-  aria: 'Accessibility escape hatch, not a layout choice — renderers derive accessible names from labels and object metadata, and every block omits it for this one reason (plugin-detail/src/index.tsx:554-556). objectui#3808.',
+  aria: 'Accessibility escape hatch, not a layout choice — renderers derive accessible names from labels and object metadata, and every block omits it for this one reason (plugin-detail/src/index.tsx, the comment above the record:activity registration). objectui#3808.',
 };
 
 /**
@@ -480,9 +481,10 @@ const registeredWithoutInputs = Object.keys(ComponentPropsMap)
  * (objectui#4648, measured on a GA-installed tree).
  *
  * This repo has registered all four with `inputs` since long before the spec
- * described them — `plugin-form/src/index.tsx:100` (`object-form`) and `:252`
- * (`object-master-detail-form`), `plugin-grid/src/index.tsx:129`
- * (`object-grid`), `plugin-dashboard/src/index.tsx:141` (`object-metric`) —
+ * described them — the `ComponentRegistry.register('object-form', …)` and
+ * `('object-master-detail-form', …)` calls in `plugin-form/src/index.tsx`,
+ * `('object-grid', …)` in `plugin-grid/src/index.tsx` and `('object-metric', …)`
+ * in `plugin-dashboard/src/index.tsx` —
  * so what moves at the pin bump is the SPEC's side, not this repo's: they enter
  * `covered` the moment the installed spec carries them, and the reverse
  * direction then asks each of them for the keys it does not publish.
@@ -501,9 +503,9 @@ const GA_ONLY_BLOCKS = [
  *
  * Exactly the same shape as `GA_ONLY_BLOCKS` above, and for the same reason:
  * this repo has registered all five with `inputs` for far longer than the spec
- * has described them — `plugin-detail/src/index.tsx` registers `alert` (:686),
- * `history` (:662) and `reference_rail` (:675), and `quick_actions` /
- * `discussion` alongside them — so what moved at the pin bump is the SPEC's
+ * has described them — `plugin-detail/src/index.tsx` registers `alert`,
+ * `history`, `reference_rail`, `quick_actions` and `discussion` (each a
+ * `ComponentRegistry.register('NAME', …)` call under `namespace: 'record'`) — so what moved at the pin bump is the SPEC's
  * side, not this repo's. They enter `covered` the moment the installed spec
  * carries them, and the reverse direction then asks each for the keys it does
  * not publish. Only `record:reference_rail` had one: `entries`, exempted below.
@@ -579,8 +581,10 @@ const PINNED_EXPECTED_COVERED = [
  *
  * Pin-INDEPENDENT, unlike the two groups above: `@objectstack/spec` has carried
  * both since well before the GA line, and this repo has registered both with
- * `inputs` for just as long (`plugin-kanban/src/index.tsx:208`+,
- * `plugin-calendar/src/index.tsx:293`/`:303`). Nothing about either side moved.
+ * `inputs` for just as long (`OBJECT_KANBAN_INPUTS` in
+ * `plugin-kanban/src/index.tsx`, and `OBJECT_CALENDAR_INPUTS` in
+ * `plugin-calendar/src/index.tsx`, which both its `object-calendar` and
+ * `calendar` registrations spread). Nothing about either side moved.
  * What moved is this FILE — it now loads the two plugin packages (see the import
  * block at the top), so `getConfig` answers for them and the reverse direction
  * reaches them for the first time.
@@ -1352,8 +1356,9 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   //                                                                   (1 key)
   // The gap is not new; being GATED is. `@objectstack/spec` 17.1.0 added
   // `record:reference_rail` to `ComponentPropsMap` (37 entries to 42), so this
-  // file began judging a block it had never covered — the registration in
-  // `plugin-detail/src/index.tsx:675` has always published `hideEmpty` and only
+  // file began judging a block it had never covered — the
+  // `ComponentRegistry.register('reference_rail', …)` call in
+  // `plugin-detail/src/index.tsx` has always published `hideEmpty` and only
   // `hideEmpty`. Nothing about the renderer or its inputs changed on the pin
   // (objectui#5328).
   //
@@ -1387,7 +1392,7 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   // `.title`, `.limit` and `.displayField`. So the SHAPE limit above is the
   // entire justification for this exemption — it always was sufficient alone.
   'record:reference_rail.entries':
-    'An array of {objectName, relationshipField, title, limit, displayField} objects; `inputs` is a flat scalar carrier and cannot express it. Newly judged rather than newly missing — @objectstack/spec 17.1.0 added record:reference_rail to ComponentPropsMap, and the registration (plugin-detail/src/index.tsx:675) has always published only `hideEmpty` — the 17.1.0 pin, objectui#5328. The flat-carrier shape limit is the entire reason: the `icon` divergence that once also blocked an entries editor was settled by Option B (maintainer 2026-08-22, objectui#5494).',
+    'An array of {objectName, relationshipField, title, limit, displayField} objects; `inputs` is a flat scalar carrier and cannot express it. Newly judged rather than newly missing — @objectstack/spec 17.1.0 added record:reference_rail to ComponentPropsMap, and the registration (the reference_rail register call in plugin-detail/src/index.tsx) has always published only `hideEmpty` — the 17.1.0 pin, objectui#5328. The flat-carrier shape limit is the entire reason: the `icon` divergence that once also blocked an entries editor was settled by Option B (maintainer 2026-08-22, objectui#5494).',
 
   /*
    * ⚠️ THE 17.5.0 BOOKINGS — objectui#11111 decision 3 = B (record 5902351047).
@@ -3559,7 +3564,8 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * `record-activity.tsx` called — so they were inert nested inside `feed`, and
  * that was called a contract defect. It was an IMPLEMENTATION GAP against a
  * WIDER protocol instead: `@objectstack/spec` declares
- * `RecordChatterProps.feed` as `RecordActivityProps` (`component.zod.ts:1366`),
+ * `RecordChatterProps.feed` as `RecordActivityProps` (the `feed` member of
+ * `RecordChatterProps` in the spec's `ui/component.zod.ts`),
  * so objectui#8934 closed the gap in `renderers/record-chatter.tsx` rather than
  * narrowing the declaration, and the four filter members are live on that path
  * now. (`filterMode` and `enableMentions` were the remainder; objectui#8968

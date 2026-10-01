@@ -1075,8 +1075,18 @@ export interface ObjectGridSchema extends BaseSchema {
   /**
    * @deprecated Use label instead
    * Legacy title field — the caption/export-file-title fallback. `ObjectGrid.tsx`
-   * reads it at exactly two sites, `viewLabel: schema.label || schema.title` and
-   * `caption: schema.label || schema.title`, only when `label` is absent.
+   * draws it at exactly two sites, the export file name's `viewLabel` and the
+   * table `caption`, each spelled
+   * `resolveInlineI18nLabel(schema.label, displayLocale) || resolveInlineI18nLabel(schema.title, displayLocale)`,
+   * so only when `label` resolves to nothing.
+   *
+   * `I18nLabel` — the spec's own type for this key
+   * (`ComponentPropsMap['object-grid'].title`, "Fallback for `label`"): a plain
+   * string or an inline per-locale map, resolved against the display locale the
+   * way `label` is (objectui#10993 batch 3 taught both sites). Typed `string`
+   * until objectui#10993 (batch 4), a NARROWING on both faces of this schema:
+   * the contract and the renderer took the map while `tsc` and the zod mirror
+   * refused it.
    *
    * Kept DECLARED — not retired — by objectui#6639's census-directed maintainer
    * ruling (2026-08-29, declare branch): authored `object-grid.title` nodes exist
@@ -1086,7 +1096,7 @@ export interface ObjectGridSchema extends BaseSchema {
    * `UnmirroredDeclared` ledger in `__tests__/zod-mirror-parity.test.ts` by the
    * same card — the #6424 family form.
    */
-  title?: string;
+  title?: I18nLabel;
 
   /**
    * One line of help text drawn above the grid, in muted type — the same

@@ -48,6 +48,34 @@ import {
 const colName = (entry: any): string | null =>
   columnIdentity(entry) || (entry && typeof entry === 'object' ? entry.key : null) || null;
 
+/**
+ * `columns[].label` on the spec's column-object arm is an `I18nLabel`
+ * (`ComponentPropsMap['record:related_list'].columns` declares the saved-view
+ * union, `string[]` or `ListColumn[]`, since `@objectstack/spec` 17.5.0): a
+ * plain string or an inline per-locale map (objectui#10993). `RelatedList`
+ * turns an object column's `label` into the table's `header` through
+ * `columnHeader`, which takes a string only, so a map handed on raw drew a
+ * BLANK header while the same column with a string label drew it.
+ *
+ * Resolved here, against the UI language, beside this block's `title` and
+ * `add.label`. Only the map arm is touched: a string label, a bare-string
+ * column or any other value is handed on as authored, and the input array is
+ * returned BY REFERENCE when no column carries a map, so the common path keeps
+ * `RelatedList`'s column memo on the array it always received.
+ */
+function localizeColumnLabels<T>(columns: T[], language: string): T[] {
+  let out: T[] | null = null;
+  for (let idx = 0; idx < columns.length; idx++) {
+    const column = columns[idx];
+    const label: unknown =
+      column && typeof column === 'object' ? (column as { label?: unknown }).label : undefined;
+    if (label === null || typeof label !== 'object') continue;
+    out ??= [...columns];
+    out[idx] = { ...(column as object), label: pickLocalized(label, language) } as T;
+  }
+  return out ?? columns;
+}
+
 /** Extract a record's primary key, tolerating the `id` / `_id` split. */
 const rowId = (row: any): string | number | null => row?.id ?? row?._id ?? null;
 
@@ -447,7 +475,10 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
         objectName={objectName}
         referenceField={schema.relationshipField}
         parentId={parentLinkValue as any}
-        columns={filteredColumns as any}
+        // A column object's `label` locale map resolves to the UI language
+        // first (`localizeColumnLabels`, objectui#10993); the same array, by
+        // reference, when no column carries one.
+        columns={localizeColumnLabels(filteredColumns, language) as any}
         // [objectui#9053] The same list, pushed down to the component that
         // DECIDES columns. Filtering the authored array here only ever reached
         // one of the three paths that decide them: redacting every authored

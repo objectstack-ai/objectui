@@ -20,8 +20,8 @@
  *   1. the writer — `NavigationSyncEffect`, the console's one caller of the
  *      sync — stores the new dashboard's entry with NO `label` key;
  *   2. that STORED entry, handed to the sidebar's `NavigationRenderer` wired as
- *      `UnifiedSidebar` wires it (the convention resolvers from
- *      `useObjectLabel` plus `useNavTargetLabel`), under a real `I18nProvider`
+ *      `UnifiedSidebar` wires it (`useNavTargetLabel` plus the active
+ *      `language` as `locale`, objectui#11299), under a real `I18nProvider`
  *      carrying the app's zh-CN translation bundle the way the console loads
  *      it, shows the dashboard's label in each language.
  *
@@ -47,7 +47,7 @@ import {
   I18nProvider,
   isSpecTranslationData,
   transformSpecTranslations,
-  useObjectLabel,
+  useObjectTranslation,
 } from '@object-ui/i18n';
 import { NavigationSyncEffect } from '../useNavigationSync';
 import { useNavTargetLabel } from '../useNavTargetLabel';
@@ -126,7 +126,7 @@ function i18nIn(language: string) {
 
 /** The sidebar surface, wired the way `UnifiedSidebar` wires `NavigationRenderer`. */
 function Sidebar({ items }: { items: NavigationItem[] }) {
-  const { objectLabel, dashboardLabel, viewLabel } = useObjectLabel();
+  const { language } = useObjectTranslation();
   const resolveTargetLabel = useNavTargetLabel();
   return (
     <SidebarProvider defaultOpen>
@@ -134,10 +134,8 @@ function Sidebar({ items }: { items: NavigationItem[] }) {
         <NavigationRenderer
           items={items}
           basePath="/apps/crm"
-          resolveObjectLabel={(objectName, fallback) => objectLabel({ name: objectName, label: fallback })}
-          resolveDashboardLabel={(dashboardName, fallback) => dashboardLabel({ name: dashboardName, label: fallback })}
-          resolveViewLabel={(objectName, viewName, fallback) => viewLabel(objectName, viewName, fallback)}
           resolveTargetLabel={resolveTargetLabel}
+          locale={language}
         />
       </nav>
     </SidebarProvider>

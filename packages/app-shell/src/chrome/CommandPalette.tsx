@@ -60,14 +60,15 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
   const { appName } = useParams();
   const { setTheme } = useTheme();
   const { evaluator } = useExpressionContext();
-  const { t } = useObjectTranslation();
+  const { t, language } = useObjectTranslation();
   // A nav entry's text, the way the sidebar and `nav:menu` name it: an entry
   // with NO `label` shows its target's current label, else its target's machine
   // name (objectui#9868 — `NavigationSyncEffect` writes such entries). A present
-  // label resolves exactly as `resolveKeyedI18nLabel(item.label, t)` did here.
+  // label renders as authored — an inline locale map in the viewer's `language`,
+  // the locale the sidebar passes (objectui#11299).
   const targetLabel = useNavTargetLabel();
   const navLabel = (item: NavigationItem) =>
-    resolveNavItemLabel(item, undefined, t, undefined, undefined, targetLabel);
+    resolveNavItemLabel(item, t, targetLabel, language);
 
   // The ⌘K / Ctrl+K accelerator and the open-state source of truth now live in
   // CommandPaletteProvider so the keyboard shortcut, the header button, and the

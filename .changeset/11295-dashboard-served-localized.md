@@ -1,5 +1,5 @@
 ---
-'@object-ui/plugin-dashboard': patch
+'@object-ui/plugin-dashboard': minor
 ---
 
 fix(plugin-dashboard): a served dashboard draws its own title, description and sub-caption, not the packaged catalog's (objectui#11295)

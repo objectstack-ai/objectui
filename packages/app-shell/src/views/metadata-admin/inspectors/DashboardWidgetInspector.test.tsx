@@ -385,7 +385,9 @@ describe('DashboardWidgetInspector — map-valued title write-back (#5428)', () 
     // rewrite the title at all — not even into an equal-but-rebuilt object.
     const onPatch = vi.fn();
     renderWidget({ title: MAP_TITLE, dataset: 'sales_pipeline' }, { onPatch });
-    fireEvent.change(screen.getByLabelText('Height'), { target: { value: '4' } });
+    // Any height but the auto-placed 4 the input now shows for a widget with no
+    // `layout` (objectui#11388): re-entering the shown value fires no change.
+    fireEvent.change(screen.getByLabelText('Height'), { target: { value: '2' } });
     expect(patchedTitle(onPatch)).toBe(MAP_TITLE);
   });
 });

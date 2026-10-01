@@ -876,10 +876,10 @@ ComponentRegistry.register('quick_actions', RecordQuickActionsRenderer, {
     // Implementing the fallback would be a behaviour expansion and needs its own
     // card; pinned by `recordQuickActionsInputs.actionNamesFallback.test.tsx`.
     { name: 'actionNames', type: 'array', of: 'string', description: 'Action names to expose, in order — resolved from the actions declared on the object. With no names (and no host-supplied actions) nothing is looked up and the bar renders its empty placeholder' },
-    // The contract's shared record-block describe, verbatim (`@objectstack/spec`
-    // 17.5.0, objectstack#18159): `record:quick_actions` carries the one text
-    // `record:details`, `record:highlights` and `record:related_list` share, and
-    // objectui#8649 already publishes it on those three. This input used to read
+    // The contract's shared record-block describe, verbatim (objectstack#18159):
+    // `record:quick_actions` carries the one text `record:details`,
+    // `record:highlights` and `record:related_list` share, and objectui#8649
+    // already publishes it on those three. This input used to read
     // "Hide the whole bar unless the user holds these permissions", which is not
     // what the renderer does: the gate reads the CAPABILITY set
     // (`perms.hasCapabilities`, objectui#10058), puts a `role="status"`

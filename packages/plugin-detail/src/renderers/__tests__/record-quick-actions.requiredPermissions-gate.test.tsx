@@ -8,16 +8,16 @@
 
 /**
  * `record:quick_actions.requiredPermissions` — the BLOCK-LEVEL gate
- * (objectui#8071 slice 4). The installed contract (`@objectstack/spec` 17.5.0,
- * objectstack#18159) describes it with the one record-block describe this key
- * shares with `record:details`, `record:highlights` and `record:related_list`:
- * ALL the named capabilities must be held, and when one is missing "an
- * insufficient-permissions notice takes its place". The registration publishes
- * that describe verbatim, and the last block below re-reads it off the
- * installed spec (objectui#10224). Through 17.4.0 the contract said "Hide the
- * whole bar unless the current user holds every named permission on this
- * object", and the registration said "Hide the whole bar unless the user holds
- * these permissions"; neither named the notice the renderer draws.
+ * (objectui#8071 slice 4). Since objectstack#18159 the contract describes it
+ * with the one record-block describe this key shares with `record:details`,
+ * `record:highlights` and `record:related_list`: ALL the named capabilities
+ * must be held, and when one is missing "an insufficient-permissions notice
+ * takes its place". The registration publishes that describe verbatim, and the
+ * last block below re-reads it off the installed spec (objectui#10224). Before
+ * objectstack#18159 the contract said "Hide the whole bar unless the current
+ * user holds every named permission on this object", and the registration said
+ * "Hide the whole bar unless the user holds these permissions"; neither named
+ * the notice the renderer draws.
  *
  * ## What this file pins, and why it was rewritten (objectui#10058)
  *

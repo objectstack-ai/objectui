@@ -36,6 +36,10 @@ function App() {
 }
 ```
 
+`schema` takes a `BaseSchema` node, an `AuthoringNode` from `@object-ui/types` (a spec page
+block such as `element:text` with its typed `properties` bag, or a stored page document under
+its page kind), a bare string, or nothing.
+
 ### With Data
 
 Expression scope reaches the renderer through `PredicateScopeProvider`, never through a prop

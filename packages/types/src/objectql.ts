@@ -1560,6 +1560,22 @@ export type SubmitBehavior =
  *   #2545; until then they are sanctioned, documented extensions.
  * - **[runtime-only]** — non-serializable runtime concerns that never belong
  *   in view metadata (`mode`, `recordId`, `open`, callbacks, …).
+ *
+ * ## What this type describes (objectui#10859, batch 4)
+ *
+ * The `object-form` node as `ObjectForm` READS it: after `SchemaRenderer` has
+ * hoisted the node's `properties` bag onto it, or as code composes it
+ * (`ObjectView`, `RecordFormPage`, `ScreenView`, the plugin-form variants, a
+ * host mounting `<ObjectForm schema={…}>`). That is why its identity keys are
+ * required here and why it carries host callbacks.
+ *
+ * It is NOT the shape of an AUTHORED `object-form` document. An authored node
+ * takes its props in the spec's `properties` bag, whose members are
+ * `@objectstack/spec`'s `ComponentPropsMap['object-form']` row
+ * (`ObjectFormProps`): `{ type: 'object-form', properties: { objectName, mode,
+ * … } }`. `ObjectFormBlockSchema` (`./zod/objectql.zod.ts`) judges it, and
+ * refuses a prop written flat on the node by name. `SchemaRenderer` reads both
+ * spellings, so a node built in code keeps its flat keys.
  */
 export interface ObjectFormSchema extends BaseSchema {
   type: 'object-form';
@@ -5692,8 +5708,11 @@ export interface ObjectDataTableSchema extends BaseSchema {
  * `ObjectGallerySchema` and `ObjectDataTableSchema` joined in objectui#7363.
  * PR #7355 (objectui#6576) minted both beside the other members and left this
  * union alone, so `Extract< ObjectQLComponentSchema, { type: 'object-gallery' } >`
- * was `never` and — through the zod twin in `zod/objectql.zod.ts`, which carries
- * the same twelve members — `AnyComponentSchema` had no arm for either node.
+ * was `never` and — through the zod twin in `zod/objectql.zod.ts`, which then
+ * carried the same twelve members — `AnyComponentSchema` had no arm for either
+ * node. The zod twin carries eleven since objectui#10859 batch 4: the authored
+ * `object-form` node is armed from its spec row by `ObjectFormBlockSchema`,
+ * and `ObjectFormSchema` here is the node as `ObjectForm` reads it.
  */
 export type ObjectQLComponentSchema =
   | ObjectGridSchema

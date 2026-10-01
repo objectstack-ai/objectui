@@ -110,8 +110,10 @@ describe('guide/building-crud-app.md — the `object-form` snippet actually rend
   });
 
   it('names the object with `objectName` — `object` fetches nothing', async () => {
-    const asItWas = { ...SNIPPET, object: SNIPPET.objectName };
-    delete asItWas.objectName;
+    // The guide writes the props in the node's `properties` bag, the spelling
+    // the spec declares (objectui#10859 batch 4); `SchemaRenderer` hoists it.
+    const { objectName, ...rest } = SNIPPET.properties;
+    const asItWas = { ...SNIPPET, properties: { ...rest, object: objectName } };
 
     const adapter = makeAdapter();
     render(
@@ -129,10 +131,10 @@ describe('guide/building-crud-app.md — the `object-form` snippet actually rend
     // The correction, pinned. `detail-view` wants `resourceId`; this block does
     // not, and a sweep across the guide would have swapped a working key for a
     // dead one.
-    expect(SNIPPET.recordId).toBe('42');
+    expect(SNIPPET.properties.recordId).toBe('42');
 
-    const swept = { ...SNIPPET, resourceId: SNIPPET.recordId };
-    delete swept.recordId;
+    const { recordId, ...rest } = SNIPPET.properties;
+    const swept = { ...SNIPPET, properties: { ...rest, resourceId: recordId } };
 
     const adapter = makeAdapter();
     render(

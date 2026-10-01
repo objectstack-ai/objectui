@@ -1138,8 +1138,9 @@ export const FormSchema = BaseSchema.extend({
     'REFUSED (objectui#10286, ADR-0049; objectui#7759 ruling D1-(ii)) — the `form` node reads no `mode`: '
     + 'the key is not in `@objectstack/spec`, the `form` renderer never reads it, and every spelling '
     + 'rendered the same form — no render-time error or warning; only the parser tier\'s `unknown-prop` warning noticed it. The create / edit / view mode belongs to the '
-    + '`object-form` node (`ObjectFormSchema.mode`): author `{ "type": "object-form", "objectName": …, '
-    + '"mode": "edit", "recordId": … }` for it. To make this form non-editable, set `disabled`.',
+    + '`object-form` node, in its `properties` bag (`ComponentPropsMap[\'object-form\'].mode`): author '
+    + '`{ "type": "object-form", "properties": { "objectName": …, "mode": "edit", "recordId": … } }` for it. '
+    + 'To make this form non-editable, set `disabled`.',
   ),
   actions: z.array(z.any()).optional().describe('Custom actions'),
   onSubmit: handlerKeyRefusal('onSubmit', 'runtime-slot', 'Submit handler'),

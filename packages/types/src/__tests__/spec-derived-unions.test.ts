@@ -203,9 +203,11 @@ const _validationErrorShape: ValidationError = { field: 'name', message: 'requir
 //  - `NavigationItemSchema`— upstream IS precise now; pinned below. The live
 //                            blocker is SHAPE, and it is a RUNTIME one: see
 //                            `navigation-spec-parity.test.ts`.
-//  - `JoinedReportBlock`   — STILL erased, to `unknown`, by a cause #4171 never
-//                            covered. Pinned in
-//                            `report-chart-query-spec-parity.test.ts`.
+//  - `JoinedReportBlock`   — STILL erased then, to `unknown`, by a cause #4171 never
+//                            covered. Since BURNED DOWN: objectstack#20369 typed
+//                            it, spec 17.5.0 ships that, and objectui#10940
+//                            derived the published type from it. The derivation
+//                            is pinned in `report-chart-query-spec-parity.test.ts`.
 //
 // So the batch burns down to zero re-exports and the ledger's remaining debt is
 // now carried as state pins that name their own release condition, rather than as

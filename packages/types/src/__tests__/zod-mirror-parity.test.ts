@@ -4575,6 +4575,11 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // objectui#10859 batch 3 — the third, built the same way from its 17.5.0 row.
   'objectql.zod.ts#ObjectTimelineBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `object-timeline` literal + `properties`, which IS `ComponentPropsMap['object-timeline']`, + the node's `dataSource` binding, which IS the spec's `ElementDataSourceSchema` (`PageComponentSchema.dataSource`), + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node (`@object-ui/plugin-timeline`'s `ObjectTimelineProps` are the component's React props)",
+  // objectui#10859 batch 4 — the authored `object-form` arm, from its row. Its
+  // TS twin is paired with the FLAT mirror above (`ObjectFormSchema`), which
+  // stays the renderer's post-hoist reading.
+  'objectql.zod.ts#ObjectFormBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `object-form` literal + `properties`, which IS `ComponentPropsMap['object-form']`, + the node's `dataSource` binding, which IS the spec's `ElementDataSourceSchema`, + one `aliasKeyRefusal` per member of the row (the flat spelling, refused by name and pointed at `properties.KEY`; the key set is read off the row), + five `handlerKeyRefusal` runtime slots, + the objectui#9256 `body` / `children` refusals; the TS declaration of the node, `ObjectFormSchema` (`../objectql.ts`), is the renderer's post-hoist reading and is paired with the flat `objectql.zod.ts#ObjectFormSchema` mirror, not with this arm",
   'objectql.zod.ts#ObjectQLPublicBlockComponentSchema':
     "a union OVER the public-block arms above, not an object of its own — its members are checked individually",
   'overlay.zod.ts#MenuItemSchema':

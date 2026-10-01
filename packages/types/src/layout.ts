@@ -1378,8 +1378,8 @@ export interface PageNodeRegion {
  * mirror's `specFieldsExcept` call also reads, so both faces project the same
  * spec surface and move together on a pin bump.
  *
- * TWO keys are omitted from the spec projection beyond the shared list, on
- * the TypeScript face only:
+ * ONE key is omitted from the spec projection beyond the shared list, on the
+ * TypeScript face only:
  *  - `slots` — the member below types each slot as objectui's `SchemaNode`
  *    (which admits primitives and `null`), not the spec's page-component
  *    shape, so it is not assignable to the spec's member and cannot sit beside
@@ -1388,16 +1388,17 @@ export interface PageNodeRegion {
  *    ⛔ not changed here. The mirror keeps validating the spec's `slots` — the
  *    omission is type-side only, so it is spelled beside the shared list, not
  *    inside it.
- *  - `assignedProfiles` — a FORWARD-COMPAT omission. On the installed spec the
- *    spec's member is `string[]` and the one below matches it, but objectstack
- *    `main` has retired the key (`retiredKey()`, so its input type is
- *    `undefined`), and the hand-written `string[]` is not assignable to that.
- *    Without this omission the twin would stop compiling at the next pin bump,
- *    which `Spec Main Shape Gate` measures today. Retiring the member here is
- *    objectui#9409's decision, which is on hold until the installed spec
- *    refuses the key. ⛔ It is not retired, and not widened, here. Like
- *    `slots`, it is spelled beside the shared list, so the mirror keeps
- *    validating whatever the installed spec declares.
+ *
+ * `assignedProfiles` is RETIRED (objectui#9409) and is no longer omitted.
+ * @objectstack/spec 17.5.0 made the spec's member a `retiredKey()` tombstone
+ * (ADR-0090 D2 deleted the Profile concept it was named after; ADR-0049
+ * enforce-or-remove), so this interface now takes it BY REFERENCE, like App
+ * `version` and Dashboard `refreshInterval`: its type is the spec's, which
+ * admits no value, and authoring one is a `tsc` error. The zod mirror refuses
+ * the same value at parse with the spec's own message. The hand-written
+ * `string[]` member, described as "Profiles that can access this page", is
+ * gone: nothing in this repository ever enforced it, so it read as access
+ * control while gating nothing. Page audience is the permission set's.
  *
  * The other members this interface writes itself (`icon`, `object`,
  * `template`, `variables`, `isDefault`, `aria`, `kind`)
@@ -1413,7 +1414,7 @@ export interface PageNodeRegion {
  * `@object-ui/components` registers `PageRenderer` under, i.e. the wire key
  * authored metadata carries. Nothing else in the repo pins it.
  */
-export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_SPEC_EXCLUDED)[number] | 'slots' | 'assignedProfiles'> {
+export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_SPEC_EXCLUDED)[number] | 'slots'> {
   type: 'page';
   /**
    * ⛔ REFUSED BY NAME — `actions` is not a member of this node and never was
@@ -1590,10 +1591,6 @@ export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_
    * objectui#7963), not this card's.
    */
   isDefault?: boolean;
-  /**
-   * Profiles that can access this page
-   */
-  assignedProfiles?: string[];
   /**
    * ARIA accessibility attributes.
    * Aligned with @objectstack/spec AriaPropsSchema.

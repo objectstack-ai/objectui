@@ -21,6 +21,7 @@ import { ObjectGrid } from '@object-ui/plugin-grid';
 import { DrawerForm } from '@object-ui/plugin-form';
 import type { DrawerFormSchema } from '@object-ui/plugin-form';
 import { ValueDataSource } from '@object-ui/core';
+import { CHOICE_TYPES_REQUIRING_OPTIONS } from '@object-ui/data-objectstack';
 import {
   Columns3,
   Hash,
@@ -121,6 +122,24 @@ export const FIELD_TYPE_CATEGORIES: Record<FieldTypeCategory, DesignerFieldType[
 };
 
 export const CATEGORY_ORDER: FieldTypeCategory[] = ['text', 'number', 'date', 'choice', 'relation', 'advanced'];
+
+/**
+ * Whether the drawer's type `<select>` offers `type` for the field being
+ * created or edited (objectui#11253).
+ *
+ * A choice type (`select`, and any other member of the write guard's
+ * `CHOICE_TYPES_REQUIRING_OPTIONS`) needs at least one option, and this drawer
+ * has no options editor. Offered, it could only produce a field the object write
+ * guard holds client-side, on a page that saves every change at once; so it is
+ * not offered until the drawer can author options. The one exception is the
+ * field's OWN stored type: an existing picklist keeps its type in the drawer, so
+ * editing its label or flags shows what it is and writes it back unchanged (its
+ * options ride along untouched). The top-of-page type FILTER is a list filter,
+ * not a creation path, and keeps every type.
+ */
+function drawerOffersType(type: DesignerFieldType, editingType?: DesignerFieldType): boolean {
+  return !CHOICE_TYPES_REQUIRING_OPTIONS.includes(type) || type === editingType;
+}
 
 
 // ============================================================================
@@ -300,9 +319,13 @@ export function FieldDesigner({
   // Flatten for the <select> widget inside the drawer (which only takes `options`).
   // Visually grouped via inserting separator-like labels is not supported by shadcn Select.
   // For now we flatten and rely on the top filter for category-based filtering.
+  // objectui#11253 — minus the choice types this drawer cannot give options to.
   const flatTypeOptions = useMemo(
-    () => typeOptionsByCategory.flatMap((g) => g.options),
-    [typeOptionsByCategory],
+    () =>
+      typeOptionsByCategory
+        .flatMap((g) => g.options)
+        .filter((o) => drawerOffersType(o.value, editingField?.type)),
+    [typeOptionsByCategory, editingField],
   );
 
   // DrawerForm schema — right-side panel with Basic / Type-specific / Advanced sections

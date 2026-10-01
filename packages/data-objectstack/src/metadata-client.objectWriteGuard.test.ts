@@ -96,3 +96,30 @@ describe('MetadataClient.save — the door applies the object-metadata write gua
       .rejects.toThrow(/^MetadataClient\.save refused/);
   });
 });
+
+describe('MetadataClient.save — a choice field with no options stays in the client (objectui#11253)', () => {
+  const EMPTY_SELECT = {
+    name: 'account',
+    label: 'Account',
+    fields: [
+      { name: 'title', type: 'text', label: 'Title' },
+      { name: 'stage', type: 'select', label: 'Stage' },
+    ],
+  };
+
+  it('refuses it AND ISSUES NO REQUEST', async () => {
+    const { client, fetchImpl } = harness();
+    await expect(client.save('object', 'account', EMPTY_SELECT, { mode: 'draft' })).rejects.toThrow(/`stage`/);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it('CONTROL — the same field with one option reaches the wire', async () => {
+    const { client, fetchImpl } = harness();
+    const body = {
+      ...EMPTY_SELECT,
+      fields: [EMPTY_SELECT.fields[0], { ...EMPTY_SELECT.fields[1], options: [{ label: 'Open', value: 'open' }] }],
+    };
+    await client.save('object', 'account', body, { mode: 'draft' });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+  });
+});

@@ -37,3 +37,9 @@ Later in this same release the separator `label` stopped being a blocker: `Navig
 separator arm admits exactly the spec separator's keys, and `spec-derived-unions.test.ts` pins that agreement where
 the blocker stood. Two semantic blockers remain (`visible: boolean`, and `pinned` / `defaultOpen`), so the symbol
 is still not bindable. The rest of this entry still holds.
+
+⚠️ **Dated note, 2026-09-30 — `JoinedReportBlock` is no longer erased, and is now derived — objectui#10940.**
+Later in this same release, `@objectstack/spec` 17.5.0 (installed by objectui#11073) typed `JoinedReportBlockSchema`,
+and objectui#10940 replaced the hand-written `JoinedReportBlock` with the spec's type. Its "still erased" verdict above
+and its place among the "declared dialects" no longer hold: the `check:spec-symbols` ALLOW entry for it is retired.
+The rest of this entry still holds.

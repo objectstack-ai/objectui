@@ -531,26 +531,31 @@ no `multi-step-form` type. The registered type is `object-form`, and `formType: 
 turns its `sections` into steps; `WizardFormSchema` (exported by
 `@object-ui/plugin-form`) declares the shape. Because the wizard resolves its fields from
 the object's own metadata, a section lists field **names** rather than field definitions.
+Like every `object-form` prop, they go in the node's `properties` bag — the members of
+`@objectstack/spec`'s `ComponentPropsMap['object-form']` row. `objectui validate` refuses a
+prop written flat on the node by name, as the spec's own page component does.
 
 ```json
 {
   "type": "object-form",
-  "objectName": "contact",
-  "mode": "create",
-  "formType": "wizard",
-  "showStepIndicator": true,
-  "sections": [
-    {
-      "name": "personal",
-      "label": "Personal Info",
-      "fields": ["first_name", "last_name"]
-    },
-    {
-      "name": "contact_details",
-      "label": "Contact Info",
-      "fields": ["email", "phone"]
-    }
-  ]
+  "properties": {
+    "objectName": "contact",
+    "mode": "create",
+    "formType": "wizard",
+    "showStepIndicator": true,
+    "sections": [
+      {
+        "name": "personal",
+        "label": "Personal Info",
+        "fields": ["first_name", "last_name"]
+      },
+      {
+        "name": "contact_details",
+        "label": "Contact Info",
+        "fields": ["email", "phone"]
+      }
+    ]
+  }
 }
 ```
 

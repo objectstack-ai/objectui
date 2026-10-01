@@ -14,7 +14,7 @@
  * than the page's own context:
  *
  * ```json
- * { "object": "account", "view": "hot", "filter": { … }, "sort": [ … ], "limit": 20 }
+ * { "object": "account", "view": "hot", "filter": [ … ], "sort": [ … ], "limit": 20 }
  * ```
  *
  * This module owns the two pure halves of consuming it — telling the METADATA
@@ -76,11 +76,38 @@ export interface ElementDataSourceSort {
 /**
  * Element-level data source — matches `@objectstack/spec` `ElementDataSourceSchema`.
  *
- * `filter` is typed `unknown` rather than the spec's `FilterCondition` because
- * three shapes legitimately reach a renderer here (a MongoDB-style condition
- * object, an ObjectQL AST node array, a spec `ViewFilterRule[]`) and
- * {@link mergeFilterNodes} is the single sink that lowers all three. Narrowing
- * the type here would only move the cast, not remove it.
+ * `filter` has two populations, and since the upstream convergence they differ:
+ *
+ * - **What an author may write** is the spec's `ViewFilterRule` array alone —
+ *   `[{ field, operator, value }, …]`. The spec's `filter` doors converged on it
+ *   (objectui#6206; migration `element-data-source-and-object-block-filter-rule-array`),
+ *   and `ElementDataSourceSchema` refuses the other two shapes at the door: the
+ *   MongoDB-style record form (`{ status: 'open' }`) by kind, and an ObjectQL
+ *   AST tuple array (`[['status', '=', 'open']]`) because each member must be a
+ *   rule object.
+ * - **What a renderer may still receive** is all three. The D2 conversion that
+ *   migration entry records, `page-component-filter-record-to-rule-array`,
+ *   rewrites a stored `filter` only where the rule array spells it losslessly —
+ *   a flat record, an operator object whose operators the rule vocabulary
+ *   spells, several such keys, or a single-level AST tuple array — on every
+ *   ObjectStack stored-row read and under `os migrate meta --stored`. It leaves
+ *   exactly as stored a filter carrying `$and` / `$or` / `$not`; any filter with
+ *   a part that has no lossless rule spelling (a `null` value, an operator such
+ *   as `$null` / `$exists` or an AST `like`, an array or object comparand in
+ *   equality position, an AST `and` / `or` group); and every filter, the
+ *   binding's included, of a component whose rows are inline
+ *   (`data: { provider: 'value' }`, a `data` array, or `staticData`). And this
+ *   renderer is backend-agnostic: it replays no conversion itself, and only
+ *   ObjectStack's own data-at-rest seams do, so a page that reaches it any other
+ *   way arrives as it was written. Any of the three shapes may therefore still
+ *   arrive here, beside the rule array.
+ *
+ * `filter` is typed `unknown` rather than the spec's `ViewFilterRule[]` because
+ * this interface carries the second population, not the first, and
+ * {@link mergeFilterNodes} is the single sink that lowers all three shapes.
+ * Narrowing the type here would only move the cast, not remove it, and it would
+ * not stop a stored record-form filter from arriving. Refusing the retired
+ * shapes is the spec schema's job at the authoring door, not this type's.
  */
 export interface ElementDataSourceConfig {
   object: string;

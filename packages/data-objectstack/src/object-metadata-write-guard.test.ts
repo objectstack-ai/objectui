@@ -6,8 +6,9 @@
  * The companion halves, each pinning something this file cannot:
  *
  *  - `object-metadata-write-guard.derivation.test.ts` DERIVES the relationship
- *    type set from the installed `@objectstack/spec` and asserts it equals the
- *    array the guard keeps, so the one list here cannot go stale silently.
+ *    and choice type sets from the installed `@objectstack/spec` and asserts
+ *    they equal the arrays the guard keeps, so neither list can go stale
+ *    silently.
  *  - `metadata-client.objectWriteGuard.test.ts` pins the DOOR: that
  *    `MetadataClient.save` reaches this function, and that a refused body issues
  *    NO REQUEST. A guard nothing calls is the defect objectui#8676 is about, so
@@ -24,6 +25,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   assertObjectMetadataWritable,
+  CHOICE_TYPES_REQUIRING_OPTIONS,
   OBJECT_METADATA_TYPE,
   RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
 } from './object-metadata-write-guard';
@@ -148,5 +150,83 @@ describe('assertObjectMetadataWritable — everything it deliberately does not j
     expect(() => assertObjectMetadataWritable('object', body, 'TEST')).toThrow();
     expect(body.fields).toBe(fields);
     expect(Object.keys(fields)).toEqual(['owner']);
+  });
+});
+
+describe('assertObjectMetadataWritable — a choice field needs an option source (objectui#11253)', () => {
+  // The ruling's predicate (objectstack#20827, ruling A): "a `select` / `radio`
+  // with neither `options` nor `picklist`". An empty list is no source — the
+  // derivation pin measures that against the contract's own completeness rule.
+  const noSource: Array<[string, Record<string, unknown>]> = [
+    ['`options` absent', {}],
+    ['`options: []`', { options: [] }],
+    ['`options: null`', { options: null }],
+  ];
+
+  for (const type of CHOICE_TYPES_REQUIRING_OPTIONS) {
+    for (const [label, extra] of noSource) {
+      it(`refuses a \`${type}\` with ${label}, naming the field`, () => {
+        const body = objectWith({
+          title: { type: 'text', label: 'Title' },
+          stage: { type, label: 'Stage', ...extra },
+        });
+        expect(() => assertObjectMetadataWritable('object', body, 'TEST')).toThrow(/`stage`/);
+        expect(() => assertObjectMetadataWritable('object', body, 'TEST')).toThrow(/with no options/);
+      });
+    }
+
+    it(`CONTROL — a \`${type}\` with one option passes`, () => {
+      const body = objectWith({ stage: { type, label: 'Stage', options: [{ label: 'Open', value: 'open' }] } });
+      expect(() => assertObjectMetadataWritable('object', body, 'TEST')).not.toThrow();
+    });
+
+    it(`a \`${type}\` that names a shared \`picklist\` passes, with or without an empty list`, () => {
+      // ⛔ Never refuse a field that carries `picklist`: that is the other half
+      // of the ruling's "neither", and the server judges the name it carries.
+      const bare = objectWith({ stage: { type, label: 'Stage', picklist: 'deal_stage' } });
+      const withEmpty = objectWith({ stage: { type, label: 'Stage', picklist: 'deal_stage', options: [] } });
+      expect(() => assertObjectMetadataWritable('object', bare, 'TEST')).not.toThrow();
+      expect(() => assertObjectMetadataWritable('object', withEmpty, 'TEST')).not.toThrow();
+    });
+  }
+
+  it('covers each member of the derived set and says which state it saw', () => {
+    expect(CHOICE_TYPES_REQUIRING_OPTIONS.length).toBeGreaterThan(0);
+    const absent = objectWith({ stage: { type: 'select', label: 'Stage' } });
+    const empty = objectWith({ stage: { type: 'select', label: 'Stage', options: [] } });
+    expect(() => assertObjectMetadataWritable('object', absent, 'TEST')).toThrow(/no `options` key and no `picklist`/);
+    expect(() => assertObjectMetadataWritable('object', empty, 'TEST')).toThrow(/an empty `options` list and no `picklist`/);
+  });
+
+  it('reads the ARRAY `fields` shape the Studio data page PUTs', () => {
+    const body = objectWith([
+      { name: 'title', type: 'text', label: 'Title' },
+      { name: 'field_2', type: 'select', label: 'New field' },
+    ]);
+    expect(() => assertObjectMetadataWritable('object', body, 'TEST')).toThrow(/`field_2`/);
+  });
+
+  it('names the door that refused', () => {
+    const body = objectWith({ stage: { type: 'radio', label: 'Stage' } });
+    expect(() => assertObjectMetadataWritable('object', body, 'MetadataClient.save'))
+      .toThrow(/^MetadataClient\.save refused/);
+  });
+
+  it('says nothing about the multi-choice types the ruling does not name', () => {
+    // ⛔ The counter-case to a guard that drifted past its ruling: the door
+    // refuses `select` / `radio` only. `multiselect` / `tags` are free-form
+    // without options, and ADR-0078 grades `checkboxes` a warning.
+    for (const type of ['multiselect', 'checkboxes', 'tags']) {
+      const body = objectWith({ stage: { type, label: 'Stage' } });
+      expect(() => assertObjectMetadataWritable('object', body, 'TEST')).not.toThrow();
+    }
+  });
+
+  it('is a no-op for every metadata type other than `object`', () => {
+    const body = objectWith({ stage: { type: 'select', label: 'Stage' } });
+    for (const type of ['view', 'app', 'flow', 'permission', 'hook', 'dashboard']) {
+      expect(() => assertObjectMetadataWritable(type, body, 'TEST')).not.toThrow();
+    }
+    expect(() => assertObjectMetadataWritable(OBJECT_METADATA_TYPE, body, 'TEST')).toThrow();
   });
 });

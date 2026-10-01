@@ -687,23 +687,6 @@ const ALLOW = {
       "Converging on the union is a breaking change tracked separately.",
     issue: 4115,
   },
-  "@object-ui/types:JoinedReportBlock": {
-    reason:
-      "Two specs, two cases (objectui#10916). The INSTALLED spec, the published 17.4.0, is guard " +
-      "header case 2b: it declares `JoinedReportBlockSchema` as a bare `z.ZodTypeAny`, so its " +
-      "exported type resolves to `unknown`, and re-exporting would replace this package's block " +
-      "interface with nothing at all. objectstack `main` typed it in objectstack#20369, and there it " +
-      "is case 2c: precise, but a DIFFERENT shape — the ADR-0021 dataset-bound block (`dataset`/" +
-      "`rows`/`columns` as names/`values`/`runtimeFilter`/`order`) in a closed schema, against this " +
-      "package's legacy inline-query block (`objectName`/`columns` as objects/`groupingsDown`/" +
-      "`groupingsAcross`/`filter`/`chart`), all five of whose local-only keys the spec refuses. The " +
-      "burn-down is owed at the first spec bump past 17.4.0, and it REPLACES the published " +
-      "interface with the spec's type in its own slice (a published type changes); before that bump " +
-      "the derived type would be `unknown`. packages/types/src/__tests__/report-chart-query-spec-parity.test.ts " +
-      "pins each divergence at compile time and carries the test-time tripwire that fails at that " +
-      "bump — that tripwire, not the state of any upstream issue, is the release condition.",
-    issue: 4115,
-  },
   "@object-ui/types:SelectOption": {
     reason:
       "TS twin of the SelectOptionSchema dialect (objectui#3090): carries every spec key " +
@@ -906,10 +889,11 @@ const ALLOW = {
 //      Both sets live in `spec-derived-unions.test.ts` /
 //      `validation-rule-spec-parity.test.ts`, written to fail the day the
 //      blocker they name lifts.
-//   2b. The SPEC export resolves to `unknown` (`JoinedReportBlock` in the
-//      published 17.4.0, whose `JoinedReportBlockSchema` that release declares
-//      as `z.ZodTypeAny`; objectstack `main` typed it in objectstack#20369,
-//      which moves it to case 2c there — see its ALLOW entry). Just as
+//   2b. The SPEC export resolves to `unknown` (`JoinedReportBlock` through the
+//      published 17.4.0, whose `JoinedReportBlockSchema` those releases declare
+//      as `z.ZodTypeAny`; objectstack#20369 typed it, 17.5.0 ships that, and
+//      objectui#10940 derived the published type once 17.5.0 was installed — its
+//      ALLOW entry retired there). Just as
 //      empty as case 2 and just as unburnable, but the `any` probe reports
 //      `false` for it, so a triage that only screens for `any` waves it through
 //      as "safely derivable". Detect: `[unknown] extends [Spec]`. Pinned in

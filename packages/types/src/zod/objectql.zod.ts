@@ -45,12 +45,13 @@ import {
   // objectui#7928 — the spec's view CONTAINER, read for ONE slot: its
   // `listViews` record (`ObjectViewSchema.listViews` below, by reference).
   ViewSchema as SpecViewSchema,
-  // objectui#10859 (batches 2 and 3) — the `ComponentPropsMap` rows of the
+  // objectui#10859 (batches 2, 3 and 4) — the `ComponentPropsMap` rows of the
   // ADR-0080 public blocks this module arms, each read as its arm's
   // `properties` bag, by reference (`ObjectQLPublicBlockComponentSchema` below).
   ObjectMetricPropsSchema as SpecObjectMetricPropsSchema,
   ObjectMasterDetailFormPropsSchema as SpecObjectMasterDetailFormPropsSchema,
   ObjectTimelinePropsSchema as SpecObjectTimelinePropsSchema,
+  ObjectFormPropsSchema as SpecObjectFormPropsSchema,
   // objectui#11070 — the per-element data binding (`PageComponentSchema.dataSource`)
   // the object-bound arms below declare as `dataSource`, by reference.
   ElementDataSourceSchema as SpecElementDataSourceSchema,
@@ -527,7 +528,19 @@ const ObjectFormButtonToggleSchema = z.object({
 });
 
 /**
- * ObjectForm Schema
+ * ObjectForm Schema — the zod mirror of the TypeScript `ObjectFormSchema`
+ * (`../objectql.ts`): the `object-form` node as `ObjectForm` READS it, after
+ * `SchemaRenderer` has hoisted the `properties` bag onto the node, and as code
+ * composes it (`ObjectView`, `RecordFormPage`, `ScreenView`, the plugin-form
+ * variants). The object-view `form` slot below is built from it.
+ *
+ * ⚠️ NOT an arm of `AnyComponentSchema` since objectui#10859 batch 4. An
+ * AUTHORED `object-form` node takes its props in the spec's `properties` bag,
+ * judged by `ObjectFormBlockSchema` below, which refuses each prop written
+ * flat on the node by name and names its bag member. This mirror stays
+ * published and paired with its TypeScript twin in the parity census, because
+ * the twin stays the renderer's reading; it no longer answers for authored
+ * documents.
  */
 export const ObjectFormSchema = BaseSchema.extend({
   type: z.literal('object-form'),
@@ -3339,7 +3352,8 @@ export const ObjectDataTableSchema = BaseSchema.extend({
 /**
  * ObjectQL Component Schema Union
  *
- * Same twelve members as the TS union in `../objectql.ts`, in the same order.
+ * The members of the TS union in `../objectql.ts`, in the same order, less
+ * `ObjectFormSchema` (see the last paragraph).
  * `ObjectGallerySchema` and `ObjectDataTableSchema` joined in objectui#7363:
  * PR #7355 (objectui#6576) minted both mirrors and deliberately did not extend
  * this union, so `AnyComponentSchema` — and `validateSchema` /
@@ -3355,10 +3369,15 @@ export const ObjectDataTableSchema = BaseSchema.extend({
  * `crud.zod.ts#CRUDComponentSchema` for both reasons. All twelve arms already
  * declared a distinct `type` literal, so ⛔ no document changes verdict; what
  * changes is that a refusal now carries ONE arm's diagnosis instead of twelve.
+ *
+ * ⚠️ ELEVEN since objectui#10859 batch 4: `ObjectFormSchema` left this union.
+ * The TypeScript union still carries its twin, which is the node as `ObjectForm`
+ * reads it after the `properties` hoist; the authored `object-form` node is
+ * armed by `ObjectFormBlockSchema` in `ObjectQLPublicBlockComponentSchema`
+ * below, from its spec row.
  */
 export const ObjectQLComponentSchema = z.discriminatedUnion('type', [
   ObjectGridSchema,
-  ObjectFormSchema,
   ObjectViewSchema,
   ObjectMapSchema,
   ObjectTreeSchema,
@@ -3591,13 +3610,115 @@ export const ObjectTimelineBlockSchema = BaseSchema.extend({
 });
 
 /**
+ * The ONE refusal detail every `object-form` prop written flat on the node
+ * gets (objectui#10859, batch 4). `aliasKeyRefusal` puts the key and its bag
+ * member in front of it: "Did you mean `mode` → `properties.mode`?".
+ */
+const OBJECT_FORM_FLAT_PROP =
+  'An `object-form` node takes its props in its `properties` bag, where `@objectstack/spec`\'s '
+  + '`ComponentPropsMap[\'object-form\']` row declares them: write `{ "type": "object-form", "properties": '
+  + '{ "objectName": "…", "mode": "create" } }` (objectui#10859). The spec\'s own page component refuses a prop '
+  + 'written on the node as mis-layered (ADR-0089 D3a), so this face and `os validate` agree. Moving it changes '
+  + 'nothing at render time: `SchemaRenderer` hoists every `properties` key onto the node before `ObjectForm` '
+  + 'reads it.';
+
+/** A member of the spec's `object-form` row — a TYPE position, so no boundary crossing. */
+type ObjectFormRowKey = keyof z.input<typeof SpecObjectFormPropsSchema>;
+
+/**
+ * One by-name refusal per member of the spec's `object-form` row, keyed by the
+ * row's own key set — read off the row, not transcribed, so a member the spec
+ * adds is refused flat the day it lands and the list cannot fall behind.
+ */
+const OBJECT_FORM_FLAT_PROP_REFUSALS = Object.fromEntries(
+  Object.keys(stripImportedDefaults(SpecObjectFormPropsSchema).shape).map((key) => [
+    key,
+    aliasKeyRefusal(key, `properties.${key}`, 'this `object-form` node', OBJECT_FORM_FLAT_PROP),
+  ]),
+) as { [K in ObjectFormRowKey]-?: ReturnType<typeof aliasKeyRefusal> };
+
+/**
+ * `object-form` — `ComponentPropsMap['object-form']`, plus the node's
+ * `dataSource` binding and the five handler keys its renderer reads off the
+ * node (objectui#10859, batch 4).
+ *
+ * ## Why the arm moved to the bag
+ *
+ * The spec's row is the published declaration of an authored `object-form`
+ * node's props, and the spec's strict `PageComponentSchema` refuses a prop
+ * written on the node itself as mis-layered (ADR-0089 D3a). This union used
+ * to arm the node with the flat `ObjectFormSchema` above, so `objectui
+ * validate` refused the spec-shaped document — the objectstack showcase's
+ * wizard page among them — and accepted the flat one `os validate` refuses.
+ * The seat's answer at PR objectui#11248's ACCEPT, inherited from
+ * objectui#10872's triage answer A, is this arm: "The `properties` bag is the
+ * contract".
+ *
+ * So it is built exactly as `ObjectMetricBlockSchema` above is: `BaseSchema` +
+ * the `type` literal + `properties`, which IS the row, by reference through
+ * the objectui#8317 import boundary. The row carries no spec default, so the
+ * boundary hands back the export itself.
+ *
+ * ## The flat spelling is refused by name
+ *
+ * Every member of the row written FLAT on the node is refused on both faces,
+ * with a message naming its bag member (`OBJECT_FORM_FLAT_PROP_REFUSALS`
+ * above). Unlike the blocks above, the flat spelling is the one this node was
+ * taught in, so an author meets the remedy rather than a bare
+ * `unrecognized_keys`. `description` is also a `BaseSchema` key; here the
+ * refusal overrides it, because the form's description is the row's member.
+ * A key the row does not declare (`buttons`, `defaults`, `subforms`, `groups`)
+ * is left as every arm leaves an undeclared key: unjudged by the tolerant face,
+ * refused by the strict one.
+ *
+ * ## What did not move
+ *
+ * The TypeScript `ObjectFormSchema` and its zod mirror above stay published:
+ * they are the node as `ObjectForm` reads it after the hoist, and as code
+ * composes it. A runtime composer that builds a flat `object-form` node keeps
+ * working, because `SchemaRenderer` reads both spellings and no composed node
+ * passes through `safeValidateSchema` (`SchemaRenderer` runs `@object-ui/core`'s
+ * structural `validateSchema`).
+ *
+ * ## The handler keys, `dataSource` and the content channels
+ *
+ * `ObjectForm` reads `onSuccess`, `onCancel`, `onError`, `onOpenChange` and
+ * `onStepChange` off the node it is handed, so each is declared here exactly as
+ * the flat mirror declares it: an objectui#6124 RUNTIME SLOT, refused by name.
+ * The registration is `elementDataSourceBlock`-wrapped, so `dataSource` is the
+ * spec's `ElementDataSourceSchema` by reference, as on the arms above. Neither
+ * content channel is read, so both are refused with the objectui#9256 string
+ * the flat mirror uses.
+ */
+export const ObjectFormBlockSchema = BaseSchema.extend({
+  type: z.literal('object-form'),
+  ...NODE_ENVELOPE,
+  properties: propsBag('object-form', stripImportedDefaults(SpecObjectFormPropsSchema)),
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
+  ...OBJECT_FORM_FLAT_PROP_REFUSALS,
+  onCancel: handlerKeyRefusal('onCancel', 'runtime-slot', 'Cancel handler'),
+  onError: handlerKeyRefusal('onError', 'runtime-slot', 'Submit error handler'),
+  onOpenChange: handlerKeyRefusal('onOpenChange', 'runtime-slot', 'Modal/drawer open-state handler'),
+  onStepChange: handlerKeyRefusal('onStepChange', 'runtime-slot', 'Wizard step change handler'),
+  onSuccess: handlerKeyRefusal('onSuccess', 'runtime-slot', 'Submit success handler'),
+  // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
+  // kept a MEMBER.
+  body: retirementTombstone(OBJECT_FORM_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_FORM_NEITHER_CHANNEL),
+});
+
+/**
  * The public blocks above, as one arm of `AnyComponentSchema`
- * (objectui#10859, batches 2 and 3).
+ * (objectui#10859, batches 2, 3 and 4).
  *
  * A union of its own rather than more members of `ObjectQLComponentSchema`,
  * deliberately: that union mirrors the TypeScript union in `../objectql.ts`
- * member for member, and none of these blocks has a declaration there — their
- * declaration is the spec row each `properties` member reads.
+ * member for member, and the authored node of each block here is declared by
+ * the spec row its `properties` member reads, not there. `object-form` is the
+ * one with a member there: its TypeScript twin is the node as `ObjectForm`
+ * reads it after the hoist, not the authored document (batch 4).
  *
  * Each arm also spreads `NODE_ENVELOPE` from `./public-blocks.zod.ts`,
  * the node-level `responsiveStyles` every public block declares by reference to
@@ -3609,4 +3730,5 @@ export const ObjectQLPublicBlockComponentSchema = z.discriminatedUnion('type', [
   ObjectMetricBlockSchema,
   ObjectMasterDetailFormBlockSchema,
   ObjectTimelineBlockSchema,
+  ObjectFormBlockSchema,
 ]);

@@ -66,7 +66,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
-import { MetadataClient } from '@object-ui/data-objectstack';
+import { CHOICE_TYPES_REQUIRING_OPTIONS, MetadataClient } from '@object-ui/data-objectstack';
 import { DESIGNER_FIELD_TYPES } from '@object-ui/types';
 import type { DesignerFieldDefinition } from '@object-ui/types';
 // The same subpath `MetadataFieldsPage.specKeyReference.test.tsx` already reads
@@ -144,6 +144,13 @@ function json(body: unknown, status = 200): Response {
     headers: { 'content-type': 'application/json' },
   });
 }
+
+/**
+ * One option, for the choice fields below: a `select` / `radio` with no option
+ * source is held by the object write guard (objectui#11253), which is not what
+ * any pin in this file measures.
+ */
+const OPEN_OPTION = { label: 'Open', value: 'open' };
 
 /**
  * The object document, built per test. `name` is the CONTROL — a designer-owned
@@ -251,6 +258,10 @@ describe('objectui#8060 · P1 every census member survives an edit to a differen
       // would be measuring the target guard instead of the type.
       const probe: Record<string, unknown> = { type: storedType, label: 'Probe' };
       if (storedType === 'master_detail') probe.reference = 'invoice';
+      // objectui#11253 — the same reasoning for a choice type: the write guard
+      // holds a `select` / `radio` with no option source, so the fixture gives
+      // it one rather than measure that guard here.
+      if (CHOICE_TYPES_REQUIRING_OPTIONS.includes(storedType)) probe.options = [OPEN_OPTION];
 
       await renderPage({ probe });
       const wire = await relabelControlOnly();
@@ -323,7 +334,9 @@ describe('objectui#8060 · P3 the designer still owns every type inside its own 
     for (const t of DESIGNER_TYPES) {
       stored[`f_${t}`] = t === 'lookup'
         ? { type: t, label: t, reference: 'invoice' }
-        : { type: t, label: t };
+        : CHOICE_TYPES_REQUIRING_OPTIONS.includes(t)
+          ? { type: t, label: t, options: [OPEN_OPTION] }
+          : { type: t, label: t };
     }
 
     await renderPage(stored);
@@ -413,7 +426,7 @@ describe('objectui#8060 · P6 the carried-through half keeps its place in the do
   it('writes the fields back in stored declaration order, preserved ones in situ', async () => {
     await renderPage({
       vec: { type: 'vector', label: 'Vec' },
-      stage: { type: 'select', label: 'Stage' },
+      stage: { type: 'select', label: 'Stage', options: [OPEN_OPTION] },
     });
 
     const wire = await relabelControlOnly();
@@ -426,7 +439,7 @@ describe('objectui#8060 · P6 the carried-through half keeps its place in the do
   it('keeps stored fields ahead of a newly added one, carried-through ones included', async () => {
     await renderPage({
       vec: { type: 'vector', label: 'Vec' },
-      stage: { type: 'select', label: 'Stage' },
+      stage: { type: 'select', label: 'Stage', options: [OPEN_OPTION] },
     });
 
     const next: DesignerFieldDefinition[] = [

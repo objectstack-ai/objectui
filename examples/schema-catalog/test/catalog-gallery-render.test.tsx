@@ -1135,12 +1135,15 @@ describe('objectui#6024 — the derivation this pin is built on', () => {
    * its first paint until the fetch lands, which is why this shape settles.)
    */
   it('the provenance instrument still fails on a surface with no record behind it', async () => {
+    // The entries' spelling: the props in the `properties` bag (objectui#10859 batch 4).
     const r = await renderEntry({
       type: 'object-form',
-      objectName: 'users',
-      mode: 'edit',
-      recordId: 'no-such-record',
-      fields: ['name', 'email', 'department'],
+      properties: {
+        objectName: 'users',
+        mode: 'edit',
+        recordId: 'no-such-record',
+        fields: ['name', 'email', 'department'],
+      },
     });
     try {
       expect(

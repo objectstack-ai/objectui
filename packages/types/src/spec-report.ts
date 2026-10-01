@@ -53,6 +53,7 @@ import type {
   Report as SpecReportInputType_,
   ReportChartParsed as SpecReportChartType_,
   ReportChart as SpecReportChartInputType_,
+  JoinedReportBlock as SpecJoinedReportBlockType_,
 } from '@objectstack/spec/ui';
 
 import {
@@ -256,72 +257,45 @@ export function isSpecReport(value: unknown): value is SpecReport {
 }
 
 // ---------------------------------------------------------------------------
-// Joined Report (UI-layer extension to the spec)
+// Joined Report — derived from the spec (objectui#10940)
 // ---------------------------------------------------------------------------
 
 /**
- * UI-layer extension for `type: 'joined'` reports.
+ * A single block inside a `type: 'joined'` report: the spec's own
+ * `JoinedReportBlock` (`@objectstack/spec/ui`), the INPUT shape of
+ * `JoinedReportBlockSchema` — the same name with the same meaning it has
+ * upstream, so the authoring tier is not silently swapped for the parsed one.
  *
- * The upstream spec (`@objectstack/spec`) declares the `'joined'` report type
- * but does not yet define how the constituent blocks are carried in the JSON.
- * ObjectUI bridges that gap with a `blocks` field on the report: each block is
- * a fully self-contained `SpecReport` rendered independently (its own data
- * fetch, aggregations, drill), stacked vertically.
+ * Each block is an independently queried, ADR-0021 dataset-bound sub-report:
+ * it names its own `dataset`, selects `rows` / `columns` / `values` by
+ * dimension and measure NAME, may declare its own `runtimeFilter` (merged with
+ * the container's at query time) and orders itself through `order`. Its `type`
+ * defaults to `tabular`, and a block cannot itself be `joined` (no recursion).
+ * The schema is closed: an undeclared key is refused, and `chart` is refused
+ * by name (objectstack#20161).
  *
- * Semantics:
- *   - `report.filter` is merged into every block as a logical `$and` (block
- *     filters take precedence on key collisions — they're the "more specific"
- *     constraint by convention). This lets a top-level report-wide filter
- *     (e.g. "owner = me") flow down to all blocks without repetition.
- *   - Each block keeps its own `objectName`, so blocks may query different
- *     objects (e.g. new customers + churned customers + silent customers).
- *   - `actionRunner`, `dataSource`, `drillView`, `drillOpenIn` propagate
- *     uniformly so any block's drill behaves like a standalone report.
- *
- * Status: forward-compatible. When the upstream spec adopts a `blocks` field
- * the only churn here will be replacing this interface with a re-export.
+ * This replaced a hand-written interface that typed the legacy inline-query
+ * block (`objectName`, `columns` as column objects, `groupingsDown`,
+ * `groupingsAcross`, `filter`, `chart`, an index signature) while the spec
+ * still erased its schema to `unknown` (through `@objectstack/spec` 17.4.0).
+ * The spec's block has been typed since 17.5.0, so the local shape is gone
+ * rather than kept beside it.
  */
-/**
- * A single block inside a `type: 'joined'` report.
- *
- * The block IS a (constrained) report — its `columns`, `groupingsDown`,
- * `groupingsAcross`, `filter`, `chart` etc. are merged with the block's own
- * `objectName` (or the joined container's `objectName` as fallback) at render
- * time. Blocks cannot themselves be `joined` (no recursion).
- */
-export interface JoinedReportBlock {
-  /** Stable name within the joined report — used for React keys + drill scoping. */
-  name: string;
-  /** Display label rendered above the block. Falls back to `name`. */
-  label?: string | { default: string; translations?: Record<string, string> };
-  /** Optional description rendered below the label. */
-  description?: string | { default: string; translations?: Record<string, string> };
-  /** Block report type. `joined` is excluded — no recursion. Defaults to `tabular`. */
-  type?: 'tabular' | 'summary' | 'matrix';
-  /** Object queried by this block. Defaults to the container's `objectName`. */
-  objectName?: string;
-  /** Columns to display / aggregate. Same shape as `Report.columns`. */
-  columns: Array<{ field: string; label?: string; aggregate?: string; [k: string]: unknown }>;
-  /** Row groupings. */
-  groupingsDown?: Array<{ field: string; sortOrder?: 'asc' | 'desc'; dateGranularity?: string; [k: string]: unknown }>;
-  /** Column groupings — only meaningful when `type: matrix`. */
-  groupingsAcross?: Array<{ field: string; sortOrder?: 'asc' | 'desc'; dateGranularity?: string; [k: string]: unknown }>;
-  /** Block-specific filter, ANDed with the container filter at render time. */
-  filter?: Record<string, unknown>;
-  /** Optional inline chart configuration. */
-  chart?: Record<string, unknown>;
-  /** Forward-compatibility escape hatch. */
-  [k: string]: unknown;
-}
+export type JoinedReportBlock = SpecJoinedReportBlockType_;
 
 /**
  * A `SpecReport` of `type: 'joined'` carrying its constituent blocks.
  * Use this as the schema input to `ReportRenderer` (dataset-bound blocks render
  * through `DatasetReportRenderer`).
+ *
+ * `blocks` is the spec's own `Report.blocks`, made required. It is on the
+ * PARSED tier, like `SpecReport` itself (`type` and each `order[].direction`
+ * are defaulted), so each element is assignable to the authoring-tier
+ * {@link JoinedReportBlock}, but not the other way round.
  */
 export type JoinedSpecReport = SpecReport & {
   type: 'joined';
-  blocks: JoinedReportBlock[];
+  blocks: NonNullable<SpecReport['blocks']>;
 };
 
 /** Type guard for joined reports with a `blocks` array. */

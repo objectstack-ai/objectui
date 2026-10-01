@@ -138,7 +138,7 @@ Top-level page container. Defines a full page with optional regions (header, sid
 | `regions` | `PageRegion[]` | Named layout regions (header, sidebar, footer). |
 | `children` | `SchemaNode \| SchemaNode[]` | Main page content when the page declares no regions — one node, or a list of them. Spelled `body` until objectui#6771 retired that spelling. |
 | `isDefault` | `boolean` | Whether this is the default page for the object. |
-| `assignedProfiles` | `string[]` | Security profiles that can access this page. |
+| `assignedProfiles` | *retired* | ⛔ Refused by name (objectui#9409). `@objectstack/spec` retired the key: ADR-0090 D2 deleted the Profile concept it was named after, and nothing ever enforced it, so a page that listed profiles stayed open to everyone who could reach it. Both published faces take the spec's tombstone: any value is a TypeScript error and a parse failure at `assignedProfiles`. Delete the key. Page audience comes from permission sets: gate the data the page shows with the object's permission sets, and grant those sets to people through positions. |
 | `aria` | `AriaProps` | ARIA attributes for the page's root element: `ariaLabel` (a plain string, or an inline locale map such as `{ "en": "Orders", "fr": "Commandes" }`, resolved for the display locale) renders `aria-label`, `ariaDescribedBy` renders `aria-describedby`, and `role` renders `role`. This is the spec's inline vocabulary, not the keyed flat `ariaLabel` described under BaseSchema. The page adds no default role. |
 
 **Related:** [AppSchema](/docs/core/app-schema), [DivSchema](#divschema), [GridSchema](#gridschema)
@@ -815,30 +815,34 @@ presence enables paging.
 
 A smart form that auto-generates fields from an ObjectQL object. Supports simple, tabbed, wizard, split, drawer, and modal layouts.
 
+An authored `object-form` node takes its props in its `properties` bag, whose members are `@objectstack/spec`'s `ComponentPropsMap['object-form']` row. `objectui validate` judges the bag against that row and refuses a prop written flat on the node by name, naming its bag member, as the spec's own page component does (objectui#10859). `SchemaRenderer` hoists the bag onto the node before `ObjectForm` runs, so `ObjectFormSchema` is the node as the renderer reads it, and the table below lists its members.
+
 ```json
 {
   "type": "object-form",
-  "objectName": "Contact",
-  "mode": "create",
-  "formType": "tabbed",
-  "title": "New Contact",
-  "layout": "vertical",
-  "columns": 2,
-  "fields": ["firstName", "lastName", "email", "phone", "company"],
-  "sections": [
-    {
-      "label": "Basic Info",
-      "fields": ["firstName", "lastName", "email"]
-    },
-    {
-      "label": "Details",
-      "fields": ["phone", "company", "address"]
-    }
-  ],
-  "showSubmit": true,
-  "submitText": "Create Contact",
-  "showCancel": true,
-  "cancelText": "Cancel"
+  "properties": {
+    "objectName": "Contact",
+    "mode": "create",
+    "formType": "tabbed",
+    "title": "New Contact",
+    "layout": "vertical",
+    "columns": 2,
+    "fields": ["firstName", "lastName", "email", "phone", "company"],
+    "sections": [
+      {
+        "label": "Basic Info",
+        "fields": ["firstName", "lastName", "email"]
+      },
+      {
+        "label": "Details",
+        "fields": ["phone", "company", "address"]
+      }
+    ],
+    "showSubmit": true,
+    "submitText": "Create Contact",
+    "showCancel": true,
+    "cancelText": "Cancel"
+  }
 }
 ```
 
@@ -851,8 +855,8 @@ A smart form that auto-generates fields from an ObjectQL object. Supports simple
 | `fields` | `string[]` | Field API names to include (auto-resolved from object metadata). |
 | `customFields` | `FormField[]` | Manually defined fields that override auto-generated ones. |
 | `sections` | `ObjectFormSection[]` | Field sections (simple groups, tabs, or wizard steps depending on `formType`). Spec-aligned key. |
-| `groups` | `array` | **Deprecated.** Legacy alias of `sections` (spec defines `groups` as an alias); normalized into `sections` when `sections` is absent. Legacy shape: `title`→`label`, `defaultCollapsed`→`collapsed`. |
-| `layout` | `string` | Label layout: `"vertical"`, `"horizontal"`, `"inline"`, `"grid"`. |
+| `groups` | `array` | **Deprecated.** Legacy alias of `sections` (spec defines `groups` as an alias); normalized into `sections` when `sections` is absent. Legacy shape: `title`→`label`, `defaultCollapsed`→`collapsed`. Not a member of the spec's `object-form` row, so an authored bag refuses it; write `sections`. |
+| `layout` | `string` | Label layout: `"vertical"`, `"horizontal"`. The spec row retired `"inline"` and `"grid"` (both rendered as `"vertical"`), so an authored bag refuses them; for several columns set `columns`. |
 | `columns` | `number` | Number of form columns. |
 | `submitText` / `cancelText` | `string \| I18nLabel` | Button labels. |
 | `title` / `description` | `string \| I18nLabel` | Heading and subtitle of the drawer and modal presentations. |

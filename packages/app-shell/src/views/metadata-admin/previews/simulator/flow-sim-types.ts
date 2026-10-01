@@ -14,7 +14,7 @@
  * "success".
  */
 
-import type { ExpressionInput } from '@objectstack/spec/shared';
+import type { EvaluatedExpressionInput } from '@objectstack/spec/shared';
 
 export interface SimNode {
   id: string;
@@ -31,9 +31,19 @@ export interface SimEdge {
   target: string;
   /**
    * Optional guard, in the spec's authoring shape: a bare CEL string, or the
-   * ADR-0089 envelope (`{ dialect, source }`) that `ExpressionInputSchema`
-   * normalizes every authored string INTO at parse time — so the envelope is
-   * the form a persisted flow actually carries, not an exotic alternative.
+   * ADR-0089 envelope (`{ dialect, source }`) that the edge slot's schema,
+   * `EvaluatedExpressionInputSchema`, normalizes every authored string INTO at
+   * parse time — so the envelope is the form a persisted flow actually carries,
+   * not an exotic alternative.
+   *
+   * It is the EVALUATED input type, the same one `FlowDesignerEdge.condition`
+   * carries, because `FlowEdgeSchema.condition` composes that schema
+   * (objectstack#15807): an envelope there must carry a `source`. The spec's
+   * wider `ExpressionInput` is the persistence contract (`source` OR `ast`);
+   * this member imported it until objectui#8946, which let it describe an
+   * `ast`-only guard the server refuses at parse. The simulator still refuses
+   * such a guard at run time, because a draft is data and not a type
+   * (`evalGuard` in `flow-sim-validate.ts` takes `unknown` for that reason).
    *
    * Imported from the spec rather than restated. The local spelling used to be
    * `string | { source?: string }`, and a restatement gets it wrong in BOTH
@@ -46,7 +56,7 @@ export interface SimEdge {
    * was its last copy, and the reason the simulator could not read a guard the
    * platform itself produces (objectui#3216).
    */
-  condition?: ExpressionInput;
+  condition?: EvaluatedExpressionInput;
   isDefault?: boolean;
   label?: string;
   /**

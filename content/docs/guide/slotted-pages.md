@@ -154,8 +154,14 @@ rows; there the column layer alone hides a field the user cannot read.
 
 By default a related list draws its child object's own actions: the ones
 declared with `locations: ['list_toolbar']` as header buttons, and the ones
-declared with `locations: ['list_item']` in each row's menu. A list that
-declares no `actions` keeps that default.
+declared with `locations: ['list_item']` or `locations: ['record_related']`
+in each row's menu. A list that declares no `actions` keeps that default.
+
+`list_item` and `record_related` differ in scope. A `list_item` action shows
+on the child's rows everywhere the child is listed, including the child's
+own list view. A `record_related` action shows on them only in a related
+list inside a parent record: use it for an action that makes sense in the
+parent's context.
 
 Declare `actions` to choose the set for one list. It is a list of **action
 ids**, each the `name` of an action on the child object's own metadata. The
@@ -173,8 +179,8 @@ in the order you wrote it:
 ```
 
 - Each action is still placed by its own `locations`: naming it here does
-  not move it. An action that declares neither `list_toolbar` nor
-  `list_item` has nowhere to render on a list.
+  not move it. An action that declares none of `list_toolbar`, `list_item`
+  and `record_related` has nowhere to render on a related list.
 - `"actions": []` shows no actions. **New**, **Edit**, **Delete** and
   opening a row are not actions: they follow the child object's
   `userActions` and the user's permissions, whatever this key says.

@@ -81,8 +81,11 @@ describe('objectui#7363 — the two objectui#6576 schemas are arms of the Object
     expect(literals).toContain('object-gallery');
     expect(literals).toContain('object-data-table');
     // The ten arms PR #7355 left in place are all still there — this is an
-    // addition, not a reshuffle.
-    expect(literals).toHaveLength(12);
+    // addition, not a reshuffle — less `object-form`, whose authored arm left
+    // this union for `ObjectQLPublicBlockComponentSchema` in objectui#10859
+    // batch 4 (`object-form-properties-bag-10859-b4.test.ts`).
+    expect(literals).toHaveLength(11);
+    expect(literals).not.toContain('object-form');
   });
 
   it.each([

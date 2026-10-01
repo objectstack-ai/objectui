@@ -606,10 +606,59 @@ describe('`object-tree.navigation` `page` under the host\'s record navigator (ob
     expect(openRecord).not.toHaveBeenCalled();
   });
 
-  it('a tree that names no `objectName` (inline rows alone) has no record page to open, even under the host', async () => {
+  it('a tree that names no object at all (inline rows, no `objectName`) has no record page to open, even under the host', async () => {
     const { value, openRecord } = recordNavigatorHost();
     const { open } = await clickRootUnderHost({ mode: 'page' }, value, { namesObject: false });
     await expectNothingOpened(open, 'page without objectName');
     expect(openRecord).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Which object `page` opens is the object the ROWS came from: the tree hands
+ * the hook `resolveRecordSourceObjectName(schema, data) ?? objectName`, which
+ * reads `data.object` when `data` is the object provider and the node's
+ * `objectName` otherwise. These rows mount the `object-tree.data` rows' own
+ * object-provider shape under the same host.
+ */
+async function clickQueriedRootUnderHost(schema: Record<string, unknown>, host: RelatedRecordActionsValue) {
+  const open = vi.fn();
+  vi.stubGlobal('open', open);
+  const ds = makeDataSource();
+  render(
+    <RelatedRecordActionsProvider value={host}>
+      <SchemaRendererProvider dataSource={ds as never}>
+        <SchemaRenderer schema={{ type: 'object-tree', tree: TREE, ...schema } as never} />
+      </SchemaRendererProvider>
+    </RelatedRecordActionsProvider>,
+  );
+  expect(await drawn()).toEqual(['Queried root@0']);
+  fireEvent.click(screen.getAllByTestId('object-tree-row')[0]);
+  return { open, ds };
+}
+
+describe('`object-tree.navigation` `page` opens the record page of the object the rows came from (objectui#11168)', () => {
+  it('`data: { provider: "object", object }` with NO `objectName`: `page` opens THAT object\'s record page', async () => {
+    const { value, openRecord } = recordNavigatorHost();
+    const { open } = await clickQueriedRootUnderHost(
+      { data: { provider: 'object', object: OBJECT }, navigation: { mode: 'page' } },
+      value,
+    );
+    await waitFor(() => expect(openRecord).toHaveBeenCalledTimes(1));
+    expect(openRecord).toHaveBeenCalledWith(OBJECT, 'q1');
+    expect(dialog()).toBeNull();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it('both written: `data.object` wins over `objectName` — the rows\' object opens, and is the one queried', async () => {
+    const { value, openRecord } = recordNavigatorHost();
+    const { ds } = await clickQueriedRootUnderHost(
+      { objectName: 'org_chart', data: { provider: 'object', object: OBJECT }, navigation: { mode: 'page' } },
+      value,
+    );
+    await waitFor(() => expect(openRecord).toHaveBeenCalledTimes(1));
+    expect(openRecord).toHaveBeenCalledWith(OBJECT, 'q1');
+    expect(ds.find).toHaveBeenCalledWith(OBJECT, expect.anything());
+    expect(ds.find).not.toHaveBeenCalledWith('org_chart', expect.anything());
   });
 });

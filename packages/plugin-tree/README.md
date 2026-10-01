@@ -78,11 +78,13 @@ parent view navigates for:
 - `new_window` opens `/{objectName}/record/{id}` in a new tab; `none` opens
   nothing.
 - `page`, and a block without `mode` (it takes the spec's `page` default), open
-  the record page of the tree's `objectName` through the record navigator the
-  host publishes (the console publishes one on its custom pages, record pages
-  and list views). Under a host that publishes none, such as an embedded
-  renderer, or on a tree that names no `objectName`, there is no record page to
-  open and the click opens nothing.
+  a record page through the record navigator the host publishes (the console
+  publishes one on its custom pages, record pages and list views). The object
+  is `data.object` when `data` is the object provider, so it wins when both
+  are written, and the tree's `objectName` otherwise. Under a host that
+  publishes none, such as an embedded renderer, or on a tree that names neither
+  (inline rows with no `objectName`), there is no record page to open and the
+  click opens nothing.
 - `preventNavigation: true` opens nothing whatever the mode. `openNewTab: true`
   opens the record page in a new tab and outranks every mode except `none`.
 - `size` picks the overlay width bucket; the deprecated `width` wins over it.

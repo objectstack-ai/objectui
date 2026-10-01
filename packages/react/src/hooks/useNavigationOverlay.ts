@@ -47,6 +47,45 @@
  * member in this repository (`(navOverlay|nav|state).view` → no lines, against
  * a lit control on its sibling members in the same command). Hosts outside this
  * repository were NOT measured.
+ *
+ * ## `page` with no `onNavigate`: the HOST's record navigator (objectui#11293)
+ *
+ * `page` is the spec's default `mode`, so it is what `{ mode: 'page' }` and
+ * every authored block written without `mode` (`{ size: 'lg' }`) resolve to.
+ * The branch used to call `onNavigate` and nothing else, and a host that
+ * renders a block without wiring one — a board, a calendar, a gallery or a
+ * grid placed on a page as a standalone block — has no `onNavigate`: the
+ * click did nothing at all. Measured before the change: a standalone
+ * `object-kanban` / `object-calendar` with either spelling opened no overlay,
+ * called no navigation and no `window.open`, and a standalone `object-grid`
+ * did the same, because the grid's own `onNavigate` is host-supplied too.
+ *
+ * So when no `onNavigate` is supplied, a `page` click is handed to the record
+ * navigator the host PUBLISHES on `RelatedRecordActionsContext`
+ * (`openRecord(objectName, recordId)`). That is the seam the grid's link
+ * column and the lookup cells already read: the route is built by the host
+ * that owns it and never re-derived here, which is why this file still builds
+ * no record URL for `page`. Precedence is unchanged above it: an `onRowClick`
+ * takes the click first, and a supplied `onNavigate` wins over the published
+ * navigator, so every host that wires one (the grid's, the console's list
+ * views) behaves exactly as before. A host that publishes no navigator (the
+ * Studio preview, a bare React mount) has no record page to open, and the
+ * click still opens nothing: the context's documented absent state.
+ *
+ * ⚠️ Scoped to an AUTHORED block that resolves to `page`. An absent
+ * `navigation` stays the host's call (`onNavigate`, or nothing), and that is
+ * load-bearing rather than cautious: a host WITHHOLDS navigation by passing
+ * neither callback. `RelatedList` renders its mobile rows as an
+ * `object-gallery` with no `navigation` and an `onRowClick` that is undefined
+ * when the bridge withheld `onView`; reading the published navigator on the
+ * absent-key path would open those records anyway, under the very bridge that
+ * withheld them. So `{}` and no config still agree whenever an `onNavigate`
+ * is supplied, and part only where a host published a navigator but wired no
+ * callback. The kanban, calendar and gantt default an absent key to a drawer
+ * before it reaches this hook in any case. Modifier clicks and `new_window`
+ * are untouched as well. Pinned by
+ * `__tests__/useNavigationOverlay.hostRecordNavigator-11293.test.tsx` here and
+ * at the mounts by the kanban's and calendar's `NavigationMembers-8652` pins.
  */
 
 import { useState, useCallback, useMemo } from 'react';
@@ -54,6 +93,7 @@ import { useState, useCallback, useMemo } from 'react';
 import type { NavigationConfigSchema, NavigationMode as SpecNavigationMode } from '@objectstack/spec/ui';
 import type { RecordNavigateAction } from '@object-ui/types';
 import type { SpecAuthoredInput } from '../spec-input.js';
+import { useRelatedRecordActions } from '../context/RelatedRecordActionsContext.js';
 
 /**
  * The spec's `NavigationConfigSchema`, authoring side — by reference, with no
@@ -183,6 +223,10 @@ export interface UseNavigationOverlayOptions {
    * error here, not a branch a host's handler silently never matches
    * (objectui#9547). Supplied by the host that renders the list (a
    * `schema.onNavigate`, a component prop, or the host's own router closure).
+   *
+   * When it is absent, an authored `page` click goes to the record navigator
+   * the host publishes on `RelatedRecordActionsContext` instead
+   * (objectui#11293; see the module docblock). Supplied, it wins.
    */
   onNavigate?: (recordId: string | number, action: RecordNavigateAction) => void;
   /**
@@ -311,6 +355,9 @@ export function useNavigationOverlay(
   options: UseNavigationOverlayOptions
 ): NavigationOverlayState {
   const { navigation, objectName, onNavigate, onRowClick } = options;
+  // The host's published record navigator — read for the `page` branch only,
+  // and only when no `onNavigate` was supplied (objectui#11293).
+  const openRecord = useRelatedRecordActions()?.openRecord;
   const [isOpen, setIsOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState<Record<string, unknown> | null>(null);
 
@@ -392,11 +439,17 @@ export function useNavigationOverlay(
         return;
       }
 
-      // page — delegate to onNavigate callback
+      // page — delegate to onNavigate; with none supplied, to the record
+      // navigator the host publishes (objectui#11293). No URL is built here.
       if (mode === 'page') {
         const recordId = record.id || record._id;
-        if (onNavigate && recordId != null) {
+        if (recordId == null) return;
+        if (onNavigate) {
           onNavigate(recordId as string | number, 'view');
+          return;
+        }
+        if (objectName && openRecord) {
+          openRecord(objectName, recordId as string | number);
         }
         return;
       }
@@ -408,7 +461,7 @@ export function useNavigationOverlay(
         return;
       }
     },
-    [onRowClick, navigation, mode, objectName, onNavigate, isOverlay]
+    [onRowClick, navigation, mode, objectName, onNavigate, openRecord, isOverlay]
   );
 
   return useMemo(

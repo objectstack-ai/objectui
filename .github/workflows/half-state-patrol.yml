@@ -39,8 +39,8 @@ name: Half-State Patrol
 #
 # ## No anchor issue, by decision (objectui#8740)
 #
-# This board has no pinned anchor issue: the maintainer declined the setup
-# (objectui#7852, closed 「7852 太麻烦，直接关闭」). The step below says so BY
+# This board has no pinned anchor issue: the maintainer declined the setup and
+# closed objectui#7852 for it. The step below says so BY
 # NAME rather than by omission — `anchor-issue` is passed empty and
 # `anchor-optional: true` declares empty to be this board's supported
 # configuration (objectstack-ai/objectstack#20793, decision A). The action then

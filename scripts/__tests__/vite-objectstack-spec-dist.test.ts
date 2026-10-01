@@ -1735,13 +1735,15 @@ describe('objectui#11327: an injected console carries exactly one zod instance',
   });
 
   describe('which module ids the guard counts as zod', () => {
+    // Labelled rows: one id carries a leading NUL (a virtual-module marker), and
+    // a `%s` title would print that byte raw into every test report.
     it.each([
-      ['/r/node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/core.js', '/r/node_modules/.pnpm/zod@4.6.5/node_modules/zod'],
-      ['/r/node_modules/a/node_modules/zod/index.js', '/r/node_modules/a/node_modules/zod'],
-      ['\0/r/node_modules/zod/index.js?commonjs-proxy', '/r/node_modules/zod'],
-      ['/r/node_modules/zod-to-json-schema/dist/index.js', null],
-      ['/r/packages/types/src/zod/index.zod.ts', null],
-    ])('%s → %s', (id, expected) => {
+      ['a pnpm store path', '/r/node_modules/.pnpm/zod@4.6.5/node_modules/zod/v4/core/core.js', '/r/node_modules/.pnpm/zod@4.6.5/node_modules/zod'],
+      ['a copy nested under another package', '/r/node_modules/a/node_modules/zod/index.js', '/r/node_modules/a/node_modules/zod'],
+      ['a virtual-module id with a query', '\0/r/node_modules/zod/index.js?commonjs-proxy', '/r/node_modules/zod'],
+      ['a sibling package named zod-*', '/r/node_modules/zod-to-json-schema/dist/index.js', null],
+      ['workspace source under a zod/ folder', '/r/packages/types/src/zod/index.zod.ts', null],
+    ])('%s', (_label, id, expected) => {
       expect(zodPackageDirOf(id)).toBe(expected);
     });
   });

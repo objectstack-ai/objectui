@@ -57,6 +57,8 @@ import React from 'react';
 import { createI18n, I18nProvider } from '@object-ui/i18n';
 import { builtInLocales } from '@object-ui/i18n/locales';
 import { SchemaRenderer } from '@object-ui/react';
+import type { PageTabsProps } from '@objectstack/spec/ui';
+import type { z } from 'zod';
 // Registers `page:tabs` (and every other renderer) at module scope, never in a
 // hook — see object-ui/no-dynamic-import-in-test-hook.
 import '@object-ui/components';
@@ -78,19 +80,24 @@ function boot(lang: Lang) {
 /** The `page:tabs` count badge's accessible name at `count`. */
 function tabBadge(lang: Lang, count: number): string {
   const text = (content: string) => [{ type: 'element:text', properties: { content } }];
+  // The node in the spec's carrier: `page:tabs` takes its props in the
+  // `properties` bag, checked here against `@objectstack/spec`'s own
+  // `PageTabsProps`, and `SchemaRenderer` hoists the bag onto the node before
+  // the renderer reads `items` (objectui#11355).
+  const tabs = {
+    type: 'page:tabs',
+    id: 'tabs',
+    properties: {
+      // Two tabs: the strip, and with it the badge, is hidden at one.
+      items: [
+        { label: 'Related', value: 'related', count, children: text('A') },
+        { label: 'Details', value: 'details', children: text('B') },
+      ],
+    } satisfies z.input<typeof PageTabsProps>,
+  };
   const { container } = render(
     <I18nProvider instance={boot(lang)}>
-      <SchemaRenderer
-        schema={{
-          type: 'page:tabs',
-          id: 'tabs',
-          // Two tabs: the strip, and with it the badge, is hidden at one.
-          items: [
-            { label: 'Related', value: 'related', count, children: text('A') },
-            { label: 'Details', value: 'details', children: text('B') },
-          ],
-        }}
-      />
+      <SchemaRenderer schema={tabs} />
     </I18nProvider>,
   );
   const badges = container.querySelectorAll('[role="tab"] span[aria-label]');

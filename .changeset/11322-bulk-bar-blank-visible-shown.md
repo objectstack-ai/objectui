@@ -11,5 +11,6 @@ The selection bar decided whether a bulk action "declared a visibility gate" wit
 the button disappeared, while the row menu and the toolbars, which ask the action family's one
 definition, showed the same action. `hasVisibilityGate` now asks that definition,
 `hasDeclaredVisibilityGate`, so blank text in either spelling and the empty envelope are "no gate" here
-too, and the blank is reported once as it is on the other surfaces. `visible: false` is unchanged: it is
-still a declared gate that hides the button.
+too, and the blank is reported once as it is on the other surfaces. An envelope with an `ast` and no
+`source` is no gate here either, as on the row menu, where the bar used to evaluate it, fail closed and
+hide the button. `visible: false` is unchanged: it is still a declared gate that hides the button.

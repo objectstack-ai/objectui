@@ -402,7 +402,10 @@ export interface RowPartition<TRow> {
  * `visible` therefore counted as declared here, was evaluated, failed closed
  * for every record and left nothing eligible: the grid's selection bar hid a
  * bulk action that the same grid's row menu and toolbars show. Asking
- * {@link hasDeclaredPredicate} keeps the three surfaces on one answer.
+ * {@link hasDeclaredPredicate} keeps the three surfaces on one answer, over
+ * its whole scope: a value that is not a predicate at all, such as an envelope
+ * with an `ast` and no `source`, is no gate here either, where this fold used
+ * to evaluate it, fault, and qualify no record.
  *
  * The question is key-neutral, and so is this fold: every value a caller hands
  * it gets the same answer. That includes the built-in Delete's

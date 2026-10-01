@@ -634,8 +634,11 @@ export interface BulkActionDef {
    * and may carry `ast` and `meta`, so a named view's defs could not be relayed
    * into a grid without an assertion. Spec `main` narrows the slot to require a
    * non-blank `source`, and this arm follows the installed line. An `ast`-only
-   * envelope is evaluated as a fault, so no selected record qualifies (fail
-   * closed, warned).
+   * envelope carries no `source` to evaluate, so it is not a declared gate: the
+   * selection bar asks the action family's one "declared?" definition, as the
+   * row menu and the toolbars do, and every selected record qualifies. A blank
+   * `source` or a whitespace-only string is no gate either, reported once
+   * (objectui#11322).
    */
   visible?: ExpressionWire | SpecNamedViewBulkActionDef['visible'];
   /**

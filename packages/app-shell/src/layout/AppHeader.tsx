@@ -81,6 +81,8 @@ import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
 import { useSharedActivityFeed } from '../hooks/sharedUserFeeds.js';
 import { useInboxBell } from '../hooks/useInboxBell.js';
 import { useHomePath } from '../hooks/useHomePath.js';
+import { useServedViewItems, isServedView } from '../hooks/useServedViewItems.js';
+import { resolveViewId } from '../utils/resolveViewId.js';
 import { getProductName, getLogoUrl } from '../runtime-config.js';
 import { LocalizedSidebarTrigger } from './LocalizedSidebarTrigger.js';
 import { PreviewBadge } from './PreviewBadge.js';
@@ -186,6 +188,8 @@ export function AppHeader({
   const { t } = useObjectTranslation();
   const { objectLabel, dashboardLabel, pageLabel, reportLabel, viewLabel, appLabel } = useObjectLabel();
   const { apps: metadataApps, dashboards: metadataDashboards, pages: metadataPages, reports: metadataReports } = useMetadata();
+  // The views the `/meta/view` read served, already translated (objectui#11295).
+  const servedViews = useServedViewItems();
   const { currentAppName, recordTitle } = useNavigationContext();
   const mobileSwitcher = useMobileViewSwitcher();
 
@@ -371,8 +375,14 @@ export function AppHeader({
         const dashboardName = pathParts[3];
         // ADR-0048 Phase 2 — prefer the current app's package (container-scoped).
         const dashboardDef = preferLocal(metadataDashboards as any[], dashboardName, (currentApp as any)?._packageId);
-        const fallback = dashboardDef?.label || humanizeSlug(dashboardName);
-        extraSegments.push({ label: dashboardLabel({ name: dashboardName, label: fallback }) });
+        // A dashboard the `/meta` read served carries its label already
+        // translated (a published edit kept over the packaged catalog), so it
+        // is drawn as given — the page header draws it the same way. Only the
+        // humanized slug, which no server translated, goes through the bundle
+        // (objectui#11295).
+        extraSegments.push({
+          label: dashboardDef?.label || dashboardLabel({ name: dashboardName, label: humanizeSlug(dashboardName) }),
+        });
       }
     } else if (routeType === 'page') {
       extraSegments.push({ label: t('console.breadcrumb.pages'), href: baseHref });
@@ -439,9 +449,18 @@ export function AppHeader({
           // `list_views` leg is a compatibility READ for stored pre-settlement documents
           // (that stock has never been censused: objectstack#7917). Never WRITE the snake key.
           const definedViews = (currentObject as any).listViews || (currentObject as any).list_views || {};
-          const viewDef = (definedViews as Record<string, any>)[viewName];
+          // The URL may name the view bare (`/view/in_progress`, as a nav entry
+          // writes it) while its tab id is qualified (`<object>.in_progress`):
+          // matched by `resolveViewId`, the one matcher the object page uses to
+          // open it, so the crumb names the view the page shows (objectui#11295).
+          const viewId = resolveViewId(viewName, Object.keys(definedViews), currentObject.name);
+          const viewDef = viewId ? (definedViews as Record<string, any>)[viewId] : undefined;
           const fallbackLabel = (viewDef && (viewDef.label || viewDef.title)) || humanizeSlug(viewName);
-          const localizedViewLabel = viewLabel(currentObject.name, viewName, fallbackLabel);
+          // A served view's label is already translated — drawn as given, as its
+          // tab draws it; any other view's goes through the bundle (objectui#11295).
+          const localizedViewLabel = viewDef && isServedView(servedViews, viewId)
+            ? fallbackLabel
+            : viewLabel(currentObject.name, viewName, fallbackLabel);
           extraSegments.push({ label: localizedViewLabel });
         }
       }

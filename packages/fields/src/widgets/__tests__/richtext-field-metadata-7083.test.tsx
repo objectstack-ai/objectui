@@ -43,12 +43,14 @@
  * (`richField?.rows || 8`), `placeholder`, `mobile_fullscreen` and `label` are
  * the five keys the widget reads off this carrier on the `richtext` path; the
  * readonly branch hands `field` to a `RICH_TEXT_CELL_RENDERERS` entry, and both
- * renderers there read `value` only. The sixth key, `max_length`, is on the
- * member even though this widget does not read it, because the FORM does:
- * `buildValidationRules` is generic and compiles it into a submit-time rule for
- * every field. The last group below pins only the spec-boundary reading that
- * accompanies it — see the member's own docblock in
- * `packages/types/src/field-types.ts` for which of the two is the reason.
+ * renderers there read `value` only. The sixth key, `maxLength`, is read by
+ * the widget too (the native stop and the counter, objectui#8438) and by the
+ * FORM: `buildValidationRules` is generic and compiles it into a submit-time
+ * rule for every field. It is `@objectstack/spec`'s `FieldSchema.maxLength`
+ * by reference, and it replaced the snake_case `max_length` when objectui#11070
+ * retired that spelling. The last group below pins the spec-boundary reading
+ * for the two spellings — see the member's own docblock in
+ * `packages/types/src/field-types.ts`.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -73,7 +75,7 @@ const richtextField: RichtextFieldMetadata = {
   rows: 10,
   placeholder: 'Write the release notes…',
   mobile_fullscreen: true,
-  max_length: 5000,
+  maxLength: 5000,
 };
 
 describe('RichtextFieldMetadata — the declarable face of the `richtext` key', () => {
@@ -89,12 +91,17 @@ describe('RichtextFieldMetadata — the declarable face of the `richtext` key', 
     // existed there was no branch of the union this literal could inhabit.
     if (asUnion.type !== 'richtext') throw new Error('unreachable: literal is a richtext field');
     expect(asUnion.rows).toBe(10);
-    expect(asUnion.max_length).toBe(5000);
+    expect(asUnion.maxLength).toBe(5000);
   });
 
   it('renders the declared `rows` on the inline editor', () => {
     render(<RichTextField value="<p>hi</p>" onChange={() => {}} field={richtextField} />);
     expect(screen.getByRole('textbox')).toHaveAttribute('rows', '10');
+  });
+
+  it('renders the declared `maxLength` as the native stop', () => {
+    render(<RichTextField value="" onChange={() => {}} field={richtextField} />);
+    expect(screen.getByRole('textbox')).toHaveAttribute('maxlength', '5000');
   });
 
   it('renders the declared `placeholder`', () => {
@@ -124,26 +131,25 @@ describe('RichtextFieldMetadata — the declarable face of the `richtext` key', 
     render(<RichTextField value="" onChange={() => {}} field={bare} />);
 
     expect(screen.getByRole('textbox')).toHaveAttribute('rows', '8');
+    expect(screen.getByRole('textbox')).not.toHaveAttribute('maxlength');
     expect(screen.getByRole('textbox')).not.toHaveAttribute('placeholder', 'Write the release notes…');
     expect(screen.queryByTestId('richtext-fullscreen-toggle')).not.toBeInTheDocument();
   });
 });
 
 /**
- * The spec-boundary reading for the ONE key on the member that `RichTextField`
- * does not read.
+ * The spec-boundary reading for the ceiling key, in both spellings.
  *
- * ⛔ This group is NOT the reason `max_length` is declared. That reason is
- * `buildValidationRules` — generic, no field-type gate, called on every field
- * both form producers build — which makes the key enforceable at submit on a
- * `richtext` field. This reading is NON-DISCRIMINATING for it: at
- * `@objectstack/spec` 17.3.0 the authoring boundary answers IDENTICALLY for
- * every field type, `text` included, so it says nothing about `richtext`
- * versus its two siblings.
+ * ⛔ This group is NOT the reason `maxLength` is declared. That reason is its
+ * two readers — the widget and `buildValidationRules`. This reading is
+ * NON-DISCRIMINATING across types: at `@objectstack/spec` 17.3.0 the authoring
+ * boundary answers IDENTICALLY for every field type, `text` included, so it
+ * says nothing about `richtext` versus its two siblings.
  *
  * It is pinned anyway, for the three types this one widget serves, so the
  * member's docblock cannot rot into a false canonical claim about the spelling
- * — the failure mode objectui#7014 was opened for.
+ * — the failure mode objectui#7014 was opened for. The refused half is also
+ * why objectui#11070 retired `max_length` rather than keeping it as an alias.
  */
 describe('spec boundary — `richtext` is symmetric with `markdown`/`html` on the ceiling key', () => {
   const base = (type: string) => ({ name: 'body', type, label: 'Body' });

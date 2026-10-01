@@ -54,3 +54,5 @@ instance of the asymmetry this member exists to end.
 Docs: `content/docs/fields/rich-text.mdx` teaches all three metadata types and carries a
 `RichtextFieldMetadata` snippet; before this release the page stated there was no third
 type.
+
+⚠️ **Dated note, 2026-09-30 — the ceiling key is now the spec's `maxLength` — objectui#11070.** Later in this same release objectui#11070 (its text-family round) retired `max_length` from `RichtextFieldMetadata` and its two siblings in favour of `@objectstack/spec`'s `FieldSchema.maxLength`, typed by reference, and `buildValidationRules` now reads `maxLength` alone. So the paragraph above that declares `max_length`, and says a `max_length` on a `richtext` field is enforced at submit, no longer describes what ships: the ceiling is written `maxLength`, and `RichTextField` reads it as well (objectui#8438). `.changeset/11070-text-family-round5.md` states what ships; the text above is kept as the reading of this change.

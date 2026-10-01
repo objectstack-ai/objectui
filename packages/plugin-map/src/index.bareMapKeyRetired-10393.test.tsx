@@ -111,7 +111,11 @@ describe('the bare `map` node type key is retired (objectui#10393)', () => {
 
   it('2. CONTROL — the same content spelled `object-map` passes both faces', () => {
     expect(htmlTierCodes('object-map')).toEqual([]);
-    expect(safeValidateSchema(node('object-map')).success).toBe(true);
+    // The Zod face judges an authored JSON document, which takes the same
+    // content in the spec's `properties` bag since objectui#10859 batch 5; the
+    // html tier's attributes are the node's own keys.
+    const { type, ...props } = node('object-map');
+    expect(safeValidateSchema({ type, properties: props }).success).toBe(true);
   });
 
   it('3. the source registers ONE key, measured off disk rather than through the registry', () => {

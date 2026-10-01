@@ -690,16 +690,28 @@ function assertRelationshipTargetPresent(
  * ## Why `Object.fromEntries` and not assignment into a literal
  *
  * `map['__proto__'] = def` does not create a key — it invokes the prototype
- * setter — and `__proto__` is a SPEC-LEGAL field name (`ObjectSchema.fields`'
- * key schema is `/^[a-z_][a-z0-9_]*$/`, which it matches). Built by assignment,
- * such a field disappeared from the serialised PUT body while the spec stood
- * ready to accept it. Measured on `@objectstack/spec` 17.2.0:
+ * setter — so a field named `__proto__`, built by assignment, vanishes from the
+ * serialised PUT body. The name matches `ObjectSchema.fields`' snake_case key
+ * rule (`/^[a-z_][a-z0-9_]*$/`), and through `@objectstack/spec` 17.4.0 the spec
+ * accepted the body with that field and without it alike, so the loss was
+ * silent. Since 17.5.0 the spec REFUSES a `fields` map that carries an own
+ * `__proto__` key, by name, at `fields.__proto__`: a guard that runs before the
+ * parse, because `z.record()` would drop the key from its output while
+ * reporting success. (`constructor` and `prototype` are refused on the same map
+ * too, by a reserved-name rule.)
  *
- *   ObjectSchema.safeParse({ …, fields: { ['__proto__']: { type: 'text', label: 'P' } } })
- *     => success = true
- *
- * `Object.fromEntries` defines an own property instead. This is what makes the
- * construction load-bearing rather than stylistic.
+ * The construction is still load-bearing rather than stylistic, and the 17.5.0
+ * refusal is why: it can name the field only if the body still CARRIES the
+ * key. Built by assignment, the body would lose the field and the spec would
+ * accept what is left — the pre-17.5.0 silent loss, unchanged.
+ * `Object.fromEntries` defines an own property instead, so the field reaches
+ * the wire and the refusal names it on this page's error surface. The version
+ * numbers above say WHEN the contract changed, not what is installed today:
+ * the installed spec's `__proto__` verdict is re-measured by the
+ * `describe('the instrument')` block of
+ * `MetadataFieldsPage.fieldsMapKeying.test.tsx`, not by this note. Nothing in
+ * this package re-measures the `constructor` / `prototype` half; it is a
+ * reading of 17.5.0, recorded on objectui#9787.
  *
  * ## Why a missing name THROWS instead of writing `{ undefined: … }`
  *
@@ -817,11 +829,15 @@ function toFieldsMap(
     emitPreservedBefore(storedIndex.get(name) ?? Number.POSITIVE_INFINITY);
     // The carried-over previous definition is read as an OWN property for the
     // same reason the map is BUILT as own properties: `prevFields[name]` answers
-    // out of `Object.prototype` for the two spec-legal names that live there
-    // (`__proto__`, `constructor`). Measured, that read is harmless today —
-    // `carryOver` spreads whatever it gets, and both prototype values spread to
-    // `{}`, so the emitted field is identical either way — but the harmlessness
-    // is `carryOver`'s to lose, and this function should not depend on it.
+    // out of `Object.prototype` for the two names that live there (`__proto__`,
+    // `constructor`). Neither is a legal field name since `@objectstack/spec`
+    // 17.5.0 — the spec refuses both as `fields` keys — but the spec judges the
+    // PUT, and this read runs before it: `FieldDesigner` takes a free-text name,
+    // and a document stored before 17.5.0 can still carry either, so both still
+    // arrive here. Measured, that read is harmless today — `carryOver` spreads
+    // whatever it gets, and both prototype values spread to `{}`, so the emitted
+    // field is identical either way — but the harmlessness is `carryOver`'s to
+    // lose, and this function should not depend on it.
     const prev = Object.prototype.hasOwnProperty.call(prevFields, name)
       ? prevFields[name]
       : undefined;

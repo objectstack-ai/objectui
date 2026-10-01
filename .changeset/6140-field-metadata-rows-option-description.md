@@ -53,3 +53,5 @@ no longer describe the contract: both may be authored there, `rows` on those
 four types only. The rest of this entry, and the 17.2.0 correction above, are
 kept as the reading of this change; `select-option-spec-extension-7014.test.ts`
 in `@object-ui/types` re-derives both boundaries against the installed spec.
+
+⚠️ **Dated note, 2026-09-30 — `TextAreaField`'s dual read is retired — objectui#11070.** "the spec-face `maxLength` dual-read in `TextAreaField` stays as a documented structural read" above no longer describes what ships. Later in this same release objectui#11070 (its text-family round) declared `maxLength` on `TextareaFieldMetadata` by reference to `@objectstack/spec`'s `FieldSchema.maxLength`, and `TextAreaField` reads it through that declared type, alone; the snake_case `max_length` is retired. `.changeset/11070-text-family-round5.md` states what ships; the text above is kept as the reading of this change.

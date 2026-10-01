@@ -29,8 +29,11 @@
  * draw identical bytes (the ruler is stable — no timestamps, no random ids), the
  * second is a LIT CONTROL on a key the renderer demonstrably DOES read, and only
  * then is the measurement taken. It is taken twice: once on a plain grid and
- * once with the filter surface on, since `operators` is a filtering word and a
- * grid without a filter affordance would be the wrong corpus to ask.
+ * once with the grid's search box on (`searchableFields`), since `operators` is
+ * a filtering word and a grid without its one query affordance would be the
+ * wrong corpus to ask. That corpus also used to carry `showFilters: true`, which
+ * never drew anything: an `object-grid` has no filter UI, and objectui#11068
+ * retired the key on this node.
  *
  * ⚠️ The claim is bounded by the ruler: this is what the RENDERED output does
  * with the key, on these documents. ⛔ It is not a claim that no code anywhere
@@ -88,11 +91,11 @@ describe('an authored `operators`', () => {
     expect(b).toBe(a);
   });
 
-  it('changes nothing with the filter surface on either', async () => {
-    const FILTERS = { ...BASE, showFilters: true, searchableFields: ['name'] };
-    const a = await draw({ ...FILTERS });
+  it('changes nothing with the search box on either', async () => {
+    const SEARCH = { ...BASE, searchableFields: ['name'] };
+    const a = await draw({ ...SEARCH });
     cleanup();
-    const b = await draw({ ...FILTERS, operators: { name: ['equals', 'contains'] } });
+    const b = await draw({ ...SEARCH, operators: { name: ['equals', 'contains'] } });
     expect(b).toBe(a);
   });
 });

@@ -261,6 +261,10 @@ describe('objectui#6694 — buildFieldMeta copies the cell-read relational keys 
     // The snake twin objectui#11070 round 4 RETIRED — the cell reads
     // `reference` alone. Kept on the fixture so its absence below is a reading.
     reference_to: 'project',
+    // The snake twin of `displayField`, RETIRED by objectui#11070's
+    // text-family round — the cell reads `displayField`, and the ingestion
+    // choke point folds a served `display_field` onto it. Kept on the fixture
+    // so its absence below is a reading.
     display_field: 'project_code',
     // The SPEC spelling of the same pointer (objectui#6875). `FieldSchema`
     // declares `displayField` and none of the snake twins, so this is the leg a
@@ -283,11 +287,11 @@ describe('objectui#6694 — buildFieldMeta copies the cell-read relational keys 
     titleFormat: '{project_code}',
   };
 
-  it('copies reference / display_field / displayField — and not the retired reference_to', () => {
+  it('copies reference / displayField — and not the retired reference_to / display_field', () => {
     const meta = buildFieldMeta({ accessorKey: 'project', label: 'Project', def }) as any;
     expect(meta.reference).toBe('project');
     expect(meta).not.toHaveProperty('reference_to');
-    expect(meta.display_field).toBe('project_code');
+    expect(meta).not.toHaveProperty('display_field');
     // objectui#6875 — the spec-declared spelling, previously dropped here and in
     // `ObjectGrid` at the same time.
     expect(meta.displayField).toBe('project_code');

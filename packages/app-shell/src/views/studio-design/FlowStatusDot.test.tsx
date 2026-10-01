@@ -7,6 +7,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { FlowStatusDot } from './StudioDesignSurface';
+import { t } from '../metadata-admin/i18n';
 
 describe('FlowStatusDot', () => {
   it('shows a green "On" for an enabled flow', () => {
@@ -29,5 +30,73 @@ describe('FlowStatusDot', () => {
     expect(screen.getByTitle(/bound to its trigger/i)).toBeTruthy();
     rerender(<FlowStatusDot state={{ enabled: true, bound: false }} locale="en" />);
     expect(screen.getByTitle(/no trigger/i)).toBeTruthy();
+  });
+});
+
+/**
+ * objectui#11281 — `bound: false` is not "no trigger".
+ *
+ * `FlowRuntimeState.bound` (`@objectstack/spec`) is false both for a flow that
+ * declares no trigger and for one whose declared trigger the engine has not
+ * armed, and the contract says `triggerType` tells the two apart. `reason` is
+ * the platform's sentence for why such a flow is not armed: it is rendered,
+ * never parsed (objectui#9217 ruling B, delivered on the Setup page by PR
+ * objectui#11271).
+ *
+ * The reason below is fixture text, deliberately NOT a platform sentence: the
+ * dot shows whatever string arrives, so any string proves "verbatim", and no
+ * platform wording is copied into this repo.
+ *
+ * The assertions name the locale KEY each title must come from rather than its
+ * English text, so a reworded title cannot turn these pins green or red.
+ */
+describe('FlowStatusDot — a declared trigger the engine has not armed (objectui#11281)', () => {
+  const REASON = 'FIXTURE: the platform sentence for why this flow is not armed — shown as sent, never parsed.';
+
+  const dot = (container: HTMLElement) => container.querySelector('span[title]') as HTMLElement;
+
+  it('titles a policy-unbound schedule flow with its reason, verbatim — not "no trigger"', () => {
+    const { container } = render(
+      <FlowStatusDot state={{ enabled: true, bound: false, triggerType: 'schedule', reason: REASON }} locale="en" />,
+    );
+    const el = dot(container);
+    expect(el.getAttribute('title')).toBe(REASON);
+    expect(el.getAttribute('title')).not.toBe(t('engine.studio.auto.onUnbound', 'en'));
+    // Only the title changes: the visible text and the dot's colour stay those of
+    // an enabled flow, and nothing is styled as an error.
+    expect(el.textContent).toBe(t('engine.studio.auto.on', 'en'));
+    expect(el.querySelector('.bg-emerald-500')).not.toBeNull();
+    expect(container.querySelector('[role="alert"]')).toBeNull();
+    expect(container.innerHTML).not.toMatch(/destructive/);
+  });
+
+  it('shows the reason verbatim in every locale — it is the platform\'s text, not a key', () => {
+    const { container } = render(
+      <FlowStatusDot state={{ enabled: true, bound: false, triggerType: 'schedule', reason: REASON }} locale="zh" />,
+    );
+    expect(dot(container).getAttribute('title')).toBe(REASON);
+  });
+
+  it('a flow with no declared trigger (no `triggerType`) still says "no trigger" — the control', () => {
+    const { container } = render(<FlowStatusDot state={{ enabled: true, bound: false }} locale="en" />);
+    expect(dot(container).getAttribute('title')).toBe(t('engine.studio.auto.onUnbound', 'en'));
+  });
+
+  it('a declared trigger with no reason (a backend older than `reason`) says only "Enabled", never "no trigger"', () => {
+    const { container } = render(
+      <FlowStatusDot state={{ enabled: true, bound: false, triggerType: 'record_change' }} locale="en" />,
+    );
+    expect(dot(container).getAttribute('title')).toBe(t('engine.studio.auto.enabled', 'en'));
+    expect(dot(container).getAttribute('title')).not.toBe(t('engine.studio.auto.onUnbound', 'en'));
+  });
+
+  it('a bound flow and a disabled flow keep their titles, whatever `triggerType` says — the controls', () => {
+    const { container, rerender } = render(
+      <FlowStatusDot state={{ enabled: true, bound: true, triggerType: 'schedule' }} locale="en" />,
+    );
+    expect(dot(container).getAttribute('title')).toBe(t('engine.studio.auto.onBound', 'en'));
+    rerender(<FlowStatusDot state={{ enabled: false, bound: false, triggerType: 'schedule' }} locale="en" />);
+    expect(dot(container).getAttribute('title')).toBe(t('engine.studio.auto.offTitle', 'en'));
+    expect(dot(container).textContent).toBe(t('engine.studio.auto.off', 'en'));
   });
 });

@@ -66,10 +66,12 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
   //     the h1, the subtitle, the breadcrumb/action slots and the bottom rule;
   //     `recordChrome: false` selects the bare non-record layout, since this is
   //     a welcome page with no bound record.
-  //   • in-body headings are `element:text` with a variant — `subheading`
-  //     renders an h3, which is what the old `level: 3` asked for. (`heading`
-  //     is a VARIANT of element:text, never a type; that near-miss is how the
-  //     original went wrong.)
+  //   • in-body headings are `element:text` with a heading variant — `h3`
+  //     renders an h3, which is what the old `level: 3` asked for. The variant
+  //     names the level, the same nine values `ui:text` takes (objectui#7450);
+  //     `heading` / `subheading` are the pre-convergence spellings, not
+  //     authored here. (A heading is a VARIANT of element:text, never a type;
+  //     `{ type: 'heading' }` is the near-miss the original made.)
   //   • the rule is `element:divider`. The old bare `separator` did resolve —
   //     `ui:separator` claims the bare name — but it is not a page block type,
   //     and the `element:*` family is what the designer palette offers.
@@ -101,7 +103,7 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
           { type: 'page:header', properties: { title: 'Welcome to the CRM', recordChrome: false } },
           { type: 'element:text', properties: { content: 'Track accounts, contacts, and deals in one place.' } },
           { type: 'element:divider' },
-          { type: 'element:text', properties: { content: 'Quick links', variant: 'subheading' } },
+          { type: 'element:text', properties: { content: 'Quick links', variant: 'h3' } },
           { type: 'element:text', properties: { content: 'Open the pipeline, review tasks, or create a new lead.' } },
         ],
       },

@@ -307,11 +307,17 @@ before the spec declared it; the spec declares it since `@objectstack/spec`
 never declares it draws exactly as before, with the all-day flag inferred from
 the absence of an end date.
 
-Nor is a sixth key rejected on the way in. Neither published face of
-`ObjectCalendarSchema` declares the `calendar` container, so whatever you write
-inside it reaches the renderer unexamined; on the list-view path the container
-*is* declared — as objectui's own mirror of the spec schema, which keeps
-`.passthrough()` for exactly this. Annotating the block `CalendarConfig` is what
+Nor is a sixth key rejected on the way in. Both published faces of
+`ObjectCalendarSchema` declare the `calendar` container (objectui#8651), with
+the five keys above as its members. Their values are checked, so
+`calendar: { startDateField: 42 }` is refused, and the retired `dateField` /
+`endField` are refused by name (objectui#8355). The container keeps
+`.passthrough()`, though, so any other key you write inside it still parses and
+reaches the renderer unexamined. `@objectstack/spec` does not judge it there
+either: on an `object-calendar` node it declares the `calendar` key but not that
+key's shape. On the list-view path the container is objectui's own mirror of
+`CalendarConfigSchema`, kept `.passthrough()` in the same way, while the spec's
+own list-view block is strict. Annotating the block `CalendarConfig` is what
 narrows it to the spec's five.
 
 ## Configuration

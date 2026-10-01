@@ -21,7 +21,7 @@ The Summary Field component displays aggregated values from related records. Thi
 
 A summary field is authored as `SummaryFieldMetadata` (`@object-ui/types`), which is
 the source of truth for the key set: it extends `BaseFieldMetadata` with the roll-up
-definition `summaryOperations` and the auto-update switch. `summaryOperations` is
+definition `summaryOperations`. `summaryOperations` is
 `@objectstack/spec`'s own `FieldSchema.summaryOperations`, typed by reference: the
 child `object`, the child `field` to aggregate, the aggregation `function` — a closed
 union of `'count' | 'sum' | 'min' | 'max' | 'avg'` — and optionally the child's
@@ -41,7 +41,6 @@ const totalRevenue: SummaryFieldMetadata = {
     function: 'sum',
     filter: { stage: 'closed_won' },
   },
-  auto_update: true,
 };
 ```
 

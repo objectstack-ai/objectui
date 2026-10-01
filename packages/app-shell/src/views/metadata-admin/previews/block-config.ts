@@ -255,11 +255,23 @@ export const BLOCK_CONFIG: Record<string, BlockPropField[]> = {
       name: 'variant',
       label: 'engine.inspector.pageBlock.field.element:text.variant',
       kind: 'select',
+      // The nine `ui:text` publishes and `element:text` renders, in the order
+      // both registrations declare them (objectui#7450). `heading` and
+      // `subheading` are not offered: the installed contract still accepts both
+      // and the renderer still draws them, but the ruling retires them in a later
+      // spec release, so the designer stops writing them now. A block that
+      // already carries one keeps it; `InspectorSelectField` shows a stored
+      // value its options do not offer as a flagged row rather than blanking it.
       options: [
-        { value: 'heading', label: 'engine.inspector.pageBlock.option.variant.heading' },
-        { value: 'subheading', label: 'engine.inspector.pageBlock.option.variant.subheading' },
+        { value: 'h1', label: 'engine.inspector.pageBlock.option.variant.h1' },
+        { value: 'h2', label: 'engine.inspector.pageBlock.option.variant.h2' },
+        { value: 'h3', label: 'engine.inspector.pageBlock.option.variant.h3' },
+        { value: 'h4', label: 'engine.inspector.pageBlock.option.variant.h4' },
+        { value: 'h5', label: 'engine.inspector.pageBlock.option.variant.h5' },
+        { value: 'h6', label: 'engine.inspector.pageBlock.option.variant.h6' },
         { value: 'body', label: 'engine.inspector.pageBlock.option.variant.body' },
         { value: 'caption', label: 'engine.inspector.pageBlock.option.variant.caption' },
+        { value: 'overline', label: 'engine.inspector.pageBlock.option.variant.overline' },
       ],
     },
     { name: 'align', label: 'engine.inspector.pageBlock.field.element:text.align', kind: 'select', options: ALIGN_OPTS },

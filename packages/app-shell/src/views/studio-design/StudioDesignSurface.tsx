@@ -4249,27 +4249,84 @@ export function DataPillar({
  * hard-codes the degraded case (`if (!res.ok) return`, "dots just don't
  * render"). Every member is therefore optional HERE while the contract keeps
  * `name` / `enabled` / `bound` required, and the reads below narrow each one
- * explicitly (`if (s?.name)`, `s.enabled !== false`, `!!s.bound`) instead of
- * trusting the type. Pinned in `spec-symbol-parity.test.ts`: if the spec ever
+ * explicitly (`if (s?.name)`, then `s.enabled !== false`, `!!s.bound` and the
+ * two string checks in `flowRailState`) instead of trusting the type. Pinned in
+ * `spec-symbol-parity.test.ts`: if the spec ever
  * relaxes those three itself, the pin fails and this alias should collapse to a
  * plain re-export.
  */
 type FlowRuntimeState = Partial<SpecFlowRuntimeState>;
 
 /**
+ * What the Automations rail keeps from one flow's runtime row (objectui#11281).
+ *
+ * `bound` alone cannot say why an enabled flow is unbound. The contract's
+ * `FlowRuntimeState.bound` is false both for a flow that declares no trigger
+ * and for one whose declared trigger the engine has not armed, and "`triggerType`
+ * distinguishes the two". `reason` is the platform's one sentence for why such a
+ * flow is not armed: a deployment policy and a binding failure each arrive in
+ * the platform's own words. So the rail keeps both beside `enabled` / `bound`.
+ */
+interface FlowRailState {
+  enabled: boolean;
+  bound: boolean;
+  /**
+   * The flow's declared trigger type. Absent when the flow declares no trigger
+   * (the engine omits the field then), and on a backend that never sends it.
+   */
+  triggerType?: string;
+  /**
+   * The platform's sentence for why this flow is not armed. RENDERED verbatim,
+   * ⛔ never parsed, compared or restyled here (the contract: "Consumers RENDER
+   * it; ⛔ do not parse it"), the way the Setup page shows it (objectui#9217).
+   */
+  reason?: string;
+}
+
+/**
+ * Narrow one unvalidated runtime row into the rail's state. `triggerType` and
+ * `reason` are kept only as non-empty strings and are otherwise absent, the way
+ * the engine omits them, so a row without them, and every older backend, reads
+ * exactly as it did before they existed.
+ */
+function flowRailState(s: FlowRuntimeState): FlowRailState {
+  const { triggerType, reason } = s;
+  return {
+    enabled: s.enabled !== false,
+    bound: !!s.bound,
+    ...(typeof triggerType === 'string' && triggerType.length > 0 ? { triggerType } : {}),
+    ...(typeof reason === 'string' && reason.length > 0 ? { reason } : {}),
+  };
+}
+
+/**
  * A flow's live status in the Automations rail: a colored dot + On/Off, from the
  * engine's runtime state (persisted `status` is intent; this is what's actually
  * live). Renders nothing for a flow the engine doesn't know yet (never published)
  * — the amber "unpublished draft" chip already covers that case.
+ *
+ * The title of an enabled, unbound flow (objectui#11281):
+ *   - with a `reason`: that sentence, verbatim, and nothing else;
+ *   - with no `triggerType`: "no trigger (run manually)", the one case the
+ *     contract lets `bound: false` mean that, and what every older backend got;
+ *   - a declared trigger with no `reason` (a backend that predates the field):
+ *     only "Enabled". It claims nothing about the binding, as the Setup page
+ *     claims nothing for the same row.
+ * The visible text and the dot's colour follow `enabled` alone: a reason is
+ * never styled as an error.
  */
-export function FlowStatusDot({ state, locale }: { state?: { enabled: boolean; bound: boolean }; locale: string }): React.ReactElement | null {
+export function FlowStatusDot({ state, locale }: { state?: FlowRailState; locale: string }): React.ReactElement | null {
   if (!state) return null;
-  const { enabled, bound } = state;
-  const title = enabled
-    ? bound
+  const { enabled, bound, triggerType, reason } = state;
+  const title = !enabled
+    ? t('engine.studio.auto.offTitle', locale)
+    : bound
       ? t('engine.studio.auto.onBound', locale)
-      : t('engine.studio.auto.onUnbound', locale)
-    : t('engine.studio.auto.offTitle', locale);
+      : reason
+        ? reason
+        : triggerType
+          ? t('engine.studio.auto.enabled', locale)
+          : t('engine.studio.auto.onUnbound', locale);
   return (
     <span title={title} className="inline-flex shrink-0 items-center gap-1">
       <span className={'h-1.5 w-1.5 rounded-full ' + (enabled ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
@@ -4339,7 +4396,7 @@ export function AutomationsPillar({
   // `status` is intent; this is what's actually live in the engine — the truth
   // behind the rail's status dots. Refetched after a publish (publishNonce);
   // degrades silently on an older backend / offline (dots just don't render).
-  const [flowStatus, setFlowStatus] = React.useState<Record<string, { enabled: boolean; bound: boolean }>>({});
+  const [flowStatus, setFlowStatus] = React.useState<Record<string, FlowRailState>>({});
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -4349,8 +4406,8 @@ export function AutomationsPillar({
         const payload = (await res.json().catch(() => null)) as { data?: { flows?: FlowRuntimeState[] }; flows?: FlowRuntimeState[] } | null;
         const list = payload?.data?.flows ?? payload?.flows ?? [];
         if (cancelled || !Array.isArray(list)) return;
-        const map: Record<string, { enabled: boolean; bound: boolean }> = {};
-        for (const s of list) if (s?.name) map[s.name] = { enabled: s.enabled !== false, bound: !!s.bound };
+        const map: Record<string, FlowRailState> = {};
+        for (const s of list) if (s?.name) map[s.name] = flowRailState(s);
         setFlowStatus(map);
       } catch {
         /* offline / older backend → no dots */

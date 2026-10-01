@@ -65,7 +65,16 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
 
 const NAMES = ['event-venue-finder', 'real-time-delivery-tracking', 'store-locator-map'] as const;
 
-function catalogEntry(name: string): { staticData: Record<string, unknown>[]; map: { titleField: string } } {
+/**
+ * Each entry as its author writes it: since objectui#10859 batch 5 an authored
+ * `object-map` takes its props in the spec's `properties` bag, which
+ * `SchemaRenderer` hoists onto the node before `ObjectMap` reads it — so the
+ * PRE_REPAIR readings below, taken on the flat spelling, hold for the bag too.
+ */
+function catalogEntry(name: string): {
+  type: 'object-map';
+  properties: { staticData: Record<string, unknown>[]; map: { titleField: string } };
+} {
   const file = path.join(REPO_ROOT, 'examples/schema-catalog/src/schemas/plugin-map', `${name}.json`);
   return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
@@ -125,8 +134,8 @@ describe('objectui#6939 — the three map entries the mirror refused now validat
     // The control that makes the case discriminating: the entry authors NO
     // `objectName` and DOES author `staticData`. Each reported `: Invalid
     // input` (the union's own top-level issue) before this card.
-    expect('objectName' in doc).toBe(false);
-    expect(Array.isArray(doc.staticData)).toBe(true);
+    expect('objectName' in doc.properties).toBe(false);
+    expect(Array.isArray(doc.properties.staticData)).toBe(true);
     expect(reasons(doc)).toEqual([]);
   });
 });
@@ -151,7 +160,7 @@ describe('objectui#6939 — and the repair moved the validator, not the renderer
     const m = await measure(doc);
     expect(m.standInLive).toBe(true);
     expect(m.text).not.toContain('failed to render');
-    expect(m.markers).toBe(doc.staticData.length);
+    expect(m.markers).toBe(doc.properties.staticData.length);
     expect(m.markers).toBeGreaterThan(0);
   });
 });

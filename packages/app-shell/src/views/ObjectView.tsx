@@ -41,6 +41,7 @@ import {
 import { Plus, Upload, Star, StarOff, Table as TableIcon, KanbanSquare, Calendar, LayoutGrid, Activity, GanttChart, MapPin, BarChart3 } from 'lucide-react';
 import { useFavorites } from '../hooks/useFavorites.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
+import { useServedViewItems, isServedView } from '../hooks/useServedViewItems.js';
 import { getIcon } from '../utils/getIcon.js';
 import type { DataSource, ListViewSchema, TreeViewConfig, ViewNavigationConfig } from '@object-ui/types';
 import { detectStatusField, isSystemManagedField } from '@object-ui/types';
@@ -797,6 +798,46 @@ export async function loadViewOverrides(
     return map;
 }
 
+/** `useObjectLabel().viewLabel` — the client bundle's view-label lookup. */
+type ViewLabelLookup = (objectName: string, viewName: string, fallback: string) => string;
+
+/**
+ * A switcher tab's text — the desktop tab bar and the mobile switcher draw the
+ * same string (objectui#11295).
+ *
+ * A view the `/meta/view` read served arrives translated by the server, a
+ * published edit kept over the packaged catalog, so its text is drawn as
+ * given. Offering it to `viewLabel` as the fallback was a second translation
+ * pass in which the bundle won the edit back. Any other view — embedded in the
+ * object document, derived client-side — still goes through `viewLabel`, its
+ * only translation. `useServedViewItems` says which is which, and why.
+ */
+function viewTabLabel(
+    view: { id: string; name?: string; label?: string },
+    objectName: string,
+    servedViews: readonly unknown[],
+    viewLabel: ViewLabelLookup,
+): string {
+    const text = view.label || view.name || view.id;
+    return isServedView(servedViews, view.id) ? text : viewLabel(objectName, view.name || view.id, text);
+}
+
+/**
+ * The open view's name on the record page's way back (`location.state.from`),
+ * decided as {@link viewTabLabel} decides a tab's, so the link names the view
+ * the way its tab does. Empty when the view has no label: the caller falls back
+ * to the object's label.
+ */
+function viewOriginLabel(
+    view: { id?: string; name?: string; label?: string },
+    objectName: string,
+    servedViews: readonly unknown[],
+    viewLabel: ViewLabelLookup,
+): string {
+    const text = view.label ?? '';
+    return isServedView(servedViews, view.id) ? text : viewLabel(objectName, view.name ?? '', text);
+}
+
 /**
  * Build the switcher's tab list — the ONE place a tab's identity is decided
  * (objectui#4211).
@@ -1284,6 +1325,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     const { showDebug } = useMetadataInspector();
     const { t } = useObjectTranslation();
     const { objectLabel, objectDescription: objectDesc, viewLabel, viewEmptyState, actionParamText, fieldLabel, fieldOptionLabel } = useObjectLabel();
+    // The views the `/meta/view` read served, already translated: their labels
+    // are drawn as given, every other view's through `viewLabel` (objectui#11295).
+    const servedViews = useServedViewItems();
     // label + confirmText + successMessage through ONE call (objectui#4265).
     const localizeActionTexts = useActionTextLocalizer();
     const { isFavorite, toggleFavorite } = useFavorites();
@@ -2076,11 +2120,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             const Icon = VIEW_TYPE_ICONS[view.type as keyof typeof VIEW_TYPE_ICONS];
             return {
                 id: view.id,
-                label: viewLabel(objectDef.name, view.name || view.id, view.label || view.name || view.id),
+                label: viewTabLabel(view, objectDef.name, servedViews, viewLabel),
                 icon: Icon ? <Icon className="h-4 w-4" /> : undefined,
             };
         });
-    }, [views, objectDef.name, viewLabel]);
+    }, [views, objectDef.name, viewLabel, servedViews]);
     useMobileViewSwitcherRegistration({
         views: mobileViewSwitcherItems,
         activeViewId: activeViewId ?? '',
@@ -2445,7 +2489,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             const originState = {
               from: {
                 pathname: location.pathname + (location.search || ''),
-                label: viewLabel(objectDef.name, activeView?.name ?? '', activeView?.label ?? '') || objectLabel(objectDef),
+                label: viewOriginLabel({ id: activeView?.id, name: activeView?.name, label: activeView?.label }, objectDef.name, servedViews, viewLabel) || objectLabel(objectDef),
               },
             };
             if (viewId) {
@@ -2454,7 +2498,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 navigate(`record/${encodeURIComponent(String(recordId))}`, { state: originState });
             }
         },
-        [navigate, viewId, location.pathname, location.search, objectDef, activeView?.name, activeView?.label, viewLabel, objectLabel]
+        [navigate, viewId, location.pathname, location.search, objectDef, activeView?.id, activeView?.name, activeView?.label, viewLabel, objectLabel, servedViews]
     );
     /**
      * The list surface's half of the record-link mechanism (objectui#4490):
@@ -3232,7 +3276,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 const originState = {
                   from: {
                     pathname: location.pathname + (location.search || ''),
-                    label: viewLabel(objectDef.name, activeView?.name ?? '', activeView?.label ?? '') || objectLabel(objectDef),
+                    label: viewOriginLabel({ id: activeView?.id, name: activeView?.name, label: activeView?.label }, objectDef.name, servedViews, viewLabel) || objectLabel(objectDef),
                   },
                 };
                 if (viewId) {
@@ -3242,7 +3286,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 }
             }
         },
-    }), [objectDef, onEdit, activeViewSearch, activeViewFilter, activeViewSort, activeView?.name, activeView?.label, navigate, viewId, isAdmin, location.pathname, location.search, viewLabel, objectLabel]);
+    }), [objectDef, onEdit, activeViewSearch, activeViewFilter, activeViewSort, activeView?.id, activeView?.name, activeView?.label, navigate, viewId, isAdmin, location.pathname, location.search, viewLabel, objectLabel, servedViews]);
 
     return (
         <ActionProvider {...actionRuntime.actionProviderProps}>
@@ -3469,7 +3513,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                  const isSystem = !saved;
                  return {
                    id: view.id,
-                   label: viewLabel(objectDef.name, view.name || view.id, view.label || view.name || view.id),
+                   label: viewTabLabel(view, objectDef.name, servedViews, viewLabel),
                    type: view.type,
                    hasActiveFilters: Array.isArray(view.filter) && view.filter.length > 0,
                    hasActiveSort: Array.isArray(view.sort) && view.sort.length > 0,

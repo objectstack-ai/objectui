@@ -44,3 +44,5 @@ hand-writing the list. `EmbeddableForm`'s cap table is derived from it. This ans
 list question objectui#4831 raised and its fix declined to remove — the root cause behind
 objectui#4250, objectui#4831 and this card: a hand-written list that stops at two of one
 widget's three registry keys can no longer omit the third, because it no longer names one.
+
+⚠️ **Dated note, 2026-09-30 — the widget reads `maxLength` alone — objectui#11070.** Later in this same release objectui#11070 (its text-family round) retired the snake_case `max_length`: `RichTextField` reads `maxLength` only, not `maxLength ?? max_length`, and `MarkdownFieldMetadata`, `HtmlFieldMetadata` and `RichtextFieldMetadata` declare `maxLength` in its place. So "a field that already declares `max_length` … now shows a counter" above holds for `maxLength` only; a ceiling that reaches the widget spelled `max_length` gets no stop and no counter. `.changeset/11070-text-family-round5.md` states what ships; the text above is kept as the reading of this change.

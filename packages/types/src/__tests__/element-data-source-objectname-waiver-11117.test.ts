@@ -33,6 +33,13 @@
  *   - a wrong-typed `objectName` beside a binding is still the member's own
  *     refusal, so the waiver covers an OMITTED key only.
  *
+ * ⚠️ `object-map` is judged on its AUTHORED arm, `ObjectMapBlockSchema`, the
+ * `properties`-bag arm objectui#10859 batch 5 put in `AnyComponentSchema` in
+ * place of the flat `ObjectMapSchema`. That arm reads the rungs in the bag, so
+ * its `objectName` rows write `properties.objectName`. The flat mirror is no
+ * longer an arm of the face; it stays the node as `ObjectMap` reads it after
+ * the hoist, and carries the same refinement, pinned by the last case below.
+ *
  * And, from disk, that every documented binding in the two pages the card
  * names parses on the tolerant face.
  */
@@ -49,6 +56,7 @@ import {
   ObjectGanttSchema,
   ObjectGridSchema,
   ObjectKanbanSchema,
+  ObjectMapBlockSchema,
   ObjectMapSchema,
   ObjectViewSchema,
 } from '../zod/objectql.zod';
@@ -56,15 +64,21 @@ import {
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..', '..');
 
-/** The gate-wrapped arms with a record-source requirement, each with its mirror. */
+/** The gate-wrapped arms with a record-source requirement, each with the arm `AnyComponentSchema` judges it by. */
 const ARMS = [
   ['object-grid', ObjectGridSchema],
   ['list-view', ListViewSchema],
   ['object-kanban', ObjectKanbanSchema],
   ['object-calendar', ObjectCalendarSchema],
   ['object-gantt', ObjectGanttSchema],
-  ['object-map', ObjectMapSchema],
+  ['object-map', ObjectMapBlockSchema],
 ] as const;
+
+/** Where an arm takes its `objectName`: on the node, or in the `properties` bag (the authored `object-map`). */
+const withObjectName = (type: (typeof ARMS)[number][0], objectName: unknown): Record<string, unknown> =>
+  type === 'object-map' ? { type, properties: { objectName } } : { type, objectName };
+const OBJECT_NAME_PATH = (type: (typeof ARMS)[number][0]): string =>
+  type === 'object-map' ? 'properties.objectName' : 'objectName';
 
 /** Where the refusal sits: the one rung on a one-rung arm, the root on a ladder. */
 const REFUSAL_PATH: Record<(typeof ARMS)[number][0], PropertyKey[]> = {
@@ -122,14 +136,14 @@ describe('objectui#11117 — the binding is a record source on every gate-wrappe
   });
 
   it.each(ARMS)('%s: a wrong-typed `objectName` beside a binding is the member\'s refusal — only an OMITTED key is waived', (type, member) => {
-    const r = member.safeParse({ type, objectName: 7, dataSource: { object: 'account' } }) as Parsed;
+    const r = member.safeParse({ ...withObjectName(type, 7), dataSource: { object: 'account' } }) as Parsed;
     expect(r.success).toBe(false);
-    expect(issuesOf(r).map((i) => [i.code, i.path.join('.')]), explain(r)).toEqual([['invalid_type', 'objectName']]);
+    expect(issuesOf(r).map((i) => [i.code, i.path.join('.')]), explain(r)).toEqual([['invalid_type', OBJECT_NAME_PATH(type)]]);
   });
 
   it.each(ARMS)('%s: `objectName` alone still parses, an empty one included — nothing narrowed', (type, member) => {
-    expect((member.safeParse({ type, objectName: 'account' }) as Parsed).success).toBe(true);
-    expect((member.safeParse({ type, objectName: '' }) as Parsed).success).toBe(true);
+    expect((member.safeParse(withObjectName(type, 'account')) as Parsed).success).toBe(true);
+    expect((member.safeParse(withObjectName(type, '')) as Parsed).success).toBe(true);
   });
 
   it('object-grid: the record-source refusal is reported BESIDE another key\'s, as the required member was', () => {
@@ -140,6 +154,17 @@ describe('objectui#11117 — the binding is a record source on every gate-wrappe
     const r = ObjectGridSchema.safeParse({ type: 'object-grid', columns: 5 }) as Parsed;
     expect(issuesOf(r).map((i) => i.path.join('.')), explain(r)).toEqual(['columns', 'objectName']);
     expect(recordSourceIssues(r), explain(r)).toHaveLength(1);
+  });
+
+  it('object-map: the flat mirror, no longer an arm of the face, carries the same rule on the node', () => {
+    // The node as `ObjectMap` reads it after the hoist (objectui#10859 batch 5's
+    // docblock). Same helper, rungs read on the node instead of in the bag.
+    const bound = ObjectMapSchema.safeParse({ type: 'object-map', dataSource: { object: 'account' } }) as Parsed;
+    expect(bound.success, explain(bound)).toBe(true);
+    const neither = ObjectMapSchema.safeParse({ type: 'object-map' }) as Parsed;
+    expect(recordSourceIssues(neither).map((i) => i.path), explain(neither)).toEqual([[]]);
+    const empty = ObjectMapSchema.safeParse({ type: 'object-map', dataSource: { object: '' } }) as Parsed;
+    expect(recordSourceIssues(empty), explain(empty)).toHaveLength(1);
   });
 
   it('object-view: its `table` slot still takes the grid keys and passes unknown ones through, with no record-source check', () => {

@@ -129,9 +129,9 @@ const FORM_IDENTITY_KEYS = ['type', 'objectName', 'mode'] as const;
  */
 const TABLE_WITHHELD_BY_REASON = {
   /**
-   * `ObjectGrid` has no read of it, so nothing could draw it. Four of these are
+   * `ObjectGrid` has no read of it, so nothing could draw it. Five of these are
    * retirement tombstones on `ObjectGridSchema` itself since objectui#11068
-   * (`bulkSpecActions`, `name`, `placeholder`, `rowSpecActions`).
+   * (`bulkSpecActions`, `name`, `placeholder`, `rowSpecActions`, `showFilters`).
    */
   unread: ['bulkSpecActions', 'keyboardNavigation', 'name', 'placeholder', 'rowSpecActions', 'showFilters'],
   /**
@@ -157,7 +157,7 @@ const TABLE_WITHHELD_KEYS: readonly string[] = Object.values(TABLE_WITHHELD_BY_R
 /**
  * Retirement tombstones `ObjectGridSchema` declares itself (`?: never` on both
  * faces) that the slot keeps: they type nothing, and they carry the named
- * refusal and its guidance onto this face too. The four the grid retired in
+ * refusal and its guidance onto this face too. The five the grid retired in
  * objectui#11068 are in the withheld set above instead, refused by the slot's
  * own message.
  */

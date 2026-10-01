@@ -660,6 +660,28 @@ calls `onWidgetsReorder(nextWidgets)` with the reordered array; the host (e.g.
 A 5px pointer-activation distance keeps click-to-select working on the same
 widget surface.
 
+## DashboardRenderer — a document the server already translated (`localized`)
+
+A dashboard read from ObjectStack's `/meta` route arrives translated for the
+request's locale. The server resolves the packaged translation catalog, and it
+keeps a published edit over that catalog: an explicit override beats the
+packaged default. Pass `localized={true}` when your document came from such a
+read. The renderer then draws these texts as given:
+
+- the widget `title`, `description` and sub-caption (`options.description`);
+- its own header `label` and `description`.
+
+An inline per-locale map is still collapsed to the active language. The client
+bundle is not consulted again. A second lookup would let the packaged catalog
+win back over a published edit (objectui#11295). The console's dashboard page
+(`DashboardView`) sets the prop.
+
+Leave it unset for a document the server never translated: an inline block, a
+preview or a design surface. The bundle keys under
+`dashboards.<name>.widgets.<id>.*` are then that document's one translation
+pass, as before. Header-action labels always go through the bundle, because the
+server does not translate them.
+
 ## DashboardGridLayout — persisting drag / resize edits
 
 `DashboardGridLayout` (registered as schema `type: 'dashboard-grid'`) has an

@@ -717,7 +717,8 @@ const ELEMENT_TEXT_NEITHER_CHANNEL = neitherContentChannelGuidance(
   'element:text',
   'its registration (`element:text`, `@object-ui/components`) hands the node to `ElementTextRenderer`, an '
     + '`any`-typed renderer that reads the props bag (`readProps`) and `className` and nothing else off the node',
-  '`properties.content` as a heading, subheading or paragraph chosen by `variant`, aligned by `align`',
+  '`properties.content` as the heading level (`h1`-`h6`) or the paragraph style (`body`, `caption`, '
+    + '`overline`) chosen by `variant`, aligned by `align`',
 );
 
 /** `element:text` — `ComponentPropsMap['element:text']`. */

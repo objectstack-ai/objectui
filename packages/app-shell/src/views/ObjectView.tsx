@@ -829,13 +829,13 @@ function viewTabLabel(
  * to the object's label.
  */
 function viewOriginLabel(
-    view: { id?: string; name?: string; label?: string } | undefined,
+    view: { id?: string; name?: string; label?: string },
     objectName: string,
     servedViews: readonly unknown[],
     viewLabel: ViewLabelLookup,
 ): string {
-    const text = view?.label ?? '';
-    return isServedView(servedViews, view?.id) ? text : viewLabel(objectName, view?.name ?? '', text);
+    const text = view.label ?? '';
+    return isServedView(servedViews, view.id) ? text : viewLabel(objectName, view.name ?? '', text);
 }
 
 /**
@@ -2489,7 +2489,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             const originState = {
               from: {
                 pathname: location.pathname + (location.search || ''),
-                label: viewOriginLabel(activeView, objectDef.name, servedViews, viewLabel) || objectLabel(objectDef),
+                label: viewOriginLabel({ id: activeView?.id, name: activeView?.name, label: activeView?.label }, objectDef.name, servedViews, viewLabel) || objectLabel(objectDef),
               },
             };
             if (viewId) {
@@ -3276,7 +3276,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 const originState = {
                   from: {
                     pathname: location.pathname + (location.search || ''),
-                    label: viewOriginLabel(activeView, objectDef.name, servedViews, viewLabel) || objectLabel(objectDef),
+                    label: viewOriginLabel({ id: activeView?.id, name: activeView?.name, label: activeView?.label }, objectDef.name, servedViews, viewLabel) || objectLabel(objectDef),
                   },
                 };
                 if (viewId) {

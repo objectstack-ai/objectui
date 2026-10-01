@@ -84,10 +84,13 @@ describe('objectui#7363 — the two objectui#6576 schemas are arms of the Object
     // addition, not a reshuffle — less `object-form` and `object-map`, whose
     // authored arms left this union for `ObjectQLPublicBlockComponentSchema` in
     // objectui#10859 batches 4 and 5 (`object-form-properties-bag-10859-b4.test.ts`,
-    // `object-map-properties-bag-10859-b5.test.ts`).
-    expect(literals).toHaveLength(10);
+    // `object-map-properties-bag-10859-b5.test.ts`), and `object-chart`, whose
+    // authored arm left the same way in objectui#11276
+    // (`object-chart-properties-bag-11276.test.ts`).
+    expect(literals).toHaveLength(9);
     expect(literals).not.toContain('object-form');
     expect(literals).not.toContain('object-map');
+    expect(literals).not.toContain('object-chart');
   });
 
   it.each([

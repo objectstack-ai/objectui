@@ -175,12 +175,13 @@ export interface AppSchemaRendererProps {
  * There are two label vocabularies in play and they are NOT interchangeable
  * (objectui#4167 renamed objectui's own resolver to keep them apart):
  *
- *  - `NavigationItem.label` is objectui's KEYED ref — a translation key plus a
- *    default (`{ key, defaultValue, params }`) — resolved by `resolveLabel`
- *    against an injected `t`;
- *  - `NavigationArea.label` is `@objectstack/spec`'s `I18nLabel`, which
- *    17.0.0-rc.6 widened from `string` to `string | Record<string, string>` —
- *    the INLINE per-locale map the author writes directly in the metadata.
+ *  - objectui's KEYED ref — a translation key plus a default
+ *    (`{ key, defaultValue, params }`) — resolved by `resolveLabel` against an
+ *    injected `t`;
+ *  - `@objectstack/spec`'s `I18nLabel`, which 17.0.0-rc.6 widened from
+ *    `string` to `string | Record<string, string>` — the INLINE per-locale map
+ *    the author writes directly in the metadata. `NavigationArea.label` is
+ *    this, and since objectui#11299 so is a navigation entry's `label`.
  *
  * Feeding a map to the keyed resolver returns `undefined` (no `key`, no
  * `defaultValue`); feeding it to `String()` renders `[object Object]`. So this
@@ -191,10 +192,11 @@ export interface AppSchemaRendererProps {
  * ## Why no locale is threaded — a deliberate choice, not an omission
  *
  * `@object-ui/layout` carries **no i18n dependency by design**: this package's
- * whole i18n story is injection (`NavigationRenderer` takes `t` and the label
- * resolvers as arguments — "enables convention-based i18n auto-resolution
- * without coupling the layout package to i18n"), and `AppSchemaRendererProps`
- * exposes no locale, no `t`, and no context that carries one. Reaching for
+ * whole i18n story is injection (`NavigationRenderer` takes `t`, the target
+ * label resolver and — since objectui#11299 — the viewer's `locale` as props,
+ * so the layout package is never coupled to i18n), and
+ * `AppSchemaRendererProps` exposes no locale, no `t`, and no context that
+ * carries one. Reaching for
  * `@object-ui/i18n` here to read the live UI language would add exactly the
  * coupling that design forbids, so the resolver is called with `undefined`,
  * which it documents as "no locale known" and resolves as `en` — the platform's
@@ -205,9 +207,13 @@ export interface AppSchemaRendererProps {
  * of the viewer's language. That is strictly better than `[object Object]`, and
  * it is a floor, not a ceiling — the day a consumer needs per-viewer area
  * labels, the fix is to thread a locale down as a prop from the host that
- * already knows it, and this call is the one place it lands. Deliberately not
- * done pre-emptively: no consumer of `AppSchemaRenderer` in this repo has a
- * locale to give it today.
+ * already knows it, and this call is the one place it lands (that prop would
+ * also be the one to hand `NavigationRenderer`'s `locale`, which this
+ * component does not pass today, so its entries' map labels read the same
+ * `en` floor). Deliberately not done pre-emptively: no consumer of
+ * `AppSchemaRenderer` in this repo has a locale to give it today — objectui#11299
+ * measured it again and left it, since taking one would add a public prop to
+ * `AppSchemaRendererProps`.
  */
 function resolveAreaLabel(label: NavigationArea['label']): string {
   return resolveInlineI18nLabel(label, undefined) ?? '';

@@ -71,7 +71,7 @@ const TYPE_COLORS: Record<string, string> = {
 };
 
 export function SearchResultsPage() {
-  const { t } = useObjectTranslation();
+  const { t, language } = useObjectTranslation();
   const { appName } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const queryParam = searchParams.get('q') || '';
@@ -104,13 +104,15 @@ export function SearchResultsPage() {
         // `resolveNavItemLabel`, not `item.label || item.objectName || …`: that
         // chain listed an unlabelled entry by its machine name even when its
         // target is labelled, and handed a keyed label object to `toLowerCase`.
-        label: resolveNavItemLabel(item, undefined, t, undefined, undefined, targetLabel),
+        // An inline locale map is listed — and matched — in the viewer's
+        // `language`, as the sidebar shows it (objectui#11299).
+        label: resolveNavItemLabel(item, t, targetLabel, language),
         href,
         type: item.type,
         description: item.description,
       };
     }).filter((item: SearchResult) => item.href !== '#');
-  }, [activeApp, baseUrl, user?.id, t, targetLabel]);
+  }, [activeApp, baseUrl, user?.id, t, targetLabel, language]);
 
   // Filter results
   const results = useMemo(() => {

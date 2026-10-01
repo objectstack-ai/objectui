@@ -73,6 +73,13 @@ import { safeValidateSchema } from '../zod/index.zod';
 
 const CHART = { type: 'object-chart', chartType: 'bar' } as const;
 const chart = (extra: Record<string, unknown>) => ({ ...CHART, ...extra });
+/**
+ * The AUTHORED spelling of `chart(extra)` (objectui#11276): an authored
+ * `object-chart` takes its props in the `properties` bag, and the public door
+ * judges that arm, so every `safeValidateSchema` row below hands it this. The
+ * mirror rows keep `chart(extra)`, the node as `ObjectChart` reads it.
+ */
+const authored = (extra: Record<string, unknown>) => ({ type: 'object-chart', properties: { chartType: 'bar', ...extra } });
 
 const parsed = (doc: unknown) => {
   const r = ObjectChartMirror.safeParse(doc);
@@ -123,6 +130,12 @@ const SHOWCASE_NODE = {
   colors: ['hsl(192 86% 46%)', 'hsl(256 72% 62%)'],
   yAxis: [{ field: 'task_count', stepSize: 1 }],
 } as const;
+
+/** The same producer node as the producer WRITES it — its props in the bag (objectui#11276). */
+const SHOWCASE_AUTHORED = (() => {
+  const { id, type, responsiveStyles, ...props } = SHOWCASE_NODE;
+  return { id, type, responsiveStyles, properties: props };
+})();
 
 type Shape = Record<string, unknown>;
 const mirrorShape = (ObjectChartMirror as unknown as { shape: Shape }).shape;
@@ -200,7 +213,7 @@ describe('objectui#10518 (b) — LIT CONTROL: the showcase producer\'s node pars
   });
 
   it('through `safeValidateSchema`, the door `objectui validate` / `objectui check` run', () => {
-    expect(safeValidateSchema(SHOWCASE_NODE).success).toBe(true);
+    expect(safeValidateSchema(SHOWCASE_AUTHORED).success).toBe(true);
   });
 });
 
@@ -220,14 +233,14 @@ describe('objectui#10518 (c) — a malformed `yAxis` entry is refused at its own
   });
 
   it('the refusal reaches the public door — `safeValidateSchema` refuses the node', () => {
-    expect(safeValidateSchema(chart({ yAxis: [{ field: 'task_count', stepSize: 'big' }] })).success).toBe(false);
+    expect(safeValidateSchema(authored({ yAxis: [{ field: 'task_count', stepSize: 'big' }] })).success).toBe(false);
   });
 
   /* CONTROL for every refusal above: the same documents minus the defect parse. */
   it('CONTROL — the same entries, minus the defect, are accepted', () => {
     expect(() => parsed(chart({ yAxis: [{ field: 'task_count', stepSize: 2 }] }))).not.toThrow();
     expect(() => parsed(chart({ yAxis: [{ field: 'task_count', position: 'right', logarithmic: true }] }))).not.toThrow();
-    expect(safeValidateSchema(chart({ yAxis: [{ field: 'task_count', stepSize: 2 }] })).success).toBe(true);
+    expect(safeValidateSchema(authored({ yAxis: [{ field: 'task_count', stepSize: 2 }] })).success).toBe(true);
   });
 });
 
@@ -343,7 +356,7 @@ describe('objectui#10518 (g) — LIT CONTROL: the showcase `renewals-pipeline` a
   });
 
   it('through `safeValidateSchema`, the door `objectui validate` / `objectui check` run', () => {
-    expect(safeValidateSchema(chart(RENEWALS_AXES)).success).toBe(true);
+    expect(safeValidateSchema(authored(RENEWALS_AXES)).success).toBe(true);
   });
 });
 
@@ -363,7 +376,7 @@ describe('objectui#10518 (h) — a malformed `xAxis` object is refused at `xAxis
   });
 
   it('the refusal reaches the public door — `safeValidateSchema` refuses the node', () => {
-    expect(safeValidateSchema(chart({ xAxis: { field: 'status', min: 'zero' } })).success).toBe(false);
+    expect(safeValidateSchema(authored({ xAxis: { field: 'status', min: 'zero' } })).success).toBe(false);
   });
 
   /* CONTROL for every refusal above: the same objects, minus the defect, parse. */
@@ -388,7 +401,7 @@ describe('objectui#10518 (i) — `xAxis` is the spec object, and only that', () 
   });
 
   it('the bare string is refused at the public door too', () => {
-    expect(safeValidateSchema(chart({ xAxis: 'status' })).success).toBe(false);
+    expect(safeValidateSchema(authored({ xAxis: 'status' })).success).toBe(false);
   });
 
   it('CONTROL — the same column as the spec object parses, and a malformed OBJECT is not told the remedy', () => {

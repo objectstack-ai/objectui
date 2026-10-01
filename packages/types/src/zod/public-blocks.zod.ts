@@ -235,13 +235,20 @@ import {
  * The ONE copy: `./objectql.zod.ts`'s public-block arms import it rather than
  * restate it (objectui#10872). Internal to this package's zod modules — deliberately NOT
  * re-exported from `index.zod.ts`, like the helpers in `./tombstone.zod.ts`.
+ *
+ * `description` replaces the provenance text for the one bag that is NOT a spec
+ * row: `object-chart` (objectui#11276) has no `ComponentPropsMap` row, so its
+ * bag is the flat mirror's own members, and its description says that rather
+ * than naming a row that does not exist. Every other caller omits it, and its
+ * description is unchanged.
  */
-export function propsBag<T extends z.ZodType>(type: string, row: T) {
+export function propsBag<T extends z.ZodType>(type: string, row: T, description?: string) {
   return row
     .optional()
     .describe(
-      `The \`${type}\` props bag — \`@objectstack/spec\` \`ComponentPropsMap['${type}']\`, by reference. `
-      + 'Judged only when present, as the spec\'s props gate judges it.',
+      description
+        ?? `The \`${type}\` props bag — \`@objectstack/spec\` \`ComponentPropsMap['${type}']\`, by reference. `
+          + 'Judged only when present, as the spec\'s props gate judges it.',
     );
 }
 

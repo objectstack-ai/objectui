@@ -113,14 +113,17 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * The one arm that refuses a node with nothing but `responsiveStyles` for a
- * reason that is not about the envelope: `object-map` keeps the flat mirror's
+ * The arms that refuse a node with nothing but `responsiveStyles` for a reason
+ * that is not about the envelope: `object-map` keeps the flat mirror's
  * record-source rule, read in its bag (objectui#10859 batch 5,
- * `requireRecordSource`). Its node carries the smallest source; every other arm
- * takes the bare node.
+ * `requireRecordSource`), and `object-chart` keeps the flat mirror's
+ * chart-family floor, read in its bag (objectui#11276,
+ * `requireObjectChartFamilyInBag`). Each node carries the smallest bag that
+ * satisfies its rule; every other arm takes the bare node.
  */
 const RECORD_SOURCE: Readonly<Record<string, Record<string, unknown>>> = {
   'object-map': { properties: { objectName: 'store' } },
+  'object-chart': { properties: { chartType: 'bar' } },
 };
 
 /** The five envelope keys the spec declares and this batch leaves undeclared. */

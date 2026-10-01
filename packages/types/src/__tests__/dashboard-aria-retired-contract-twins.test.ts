@@ -29,7 +29,9 @@
  * objectui#9736 closed that half. The interface now extends the spec's own
  * `Dashboard` input type (`Omit< Dashboard, … >` over the exclusion list its
  * mirror reads), so it inherits the spec's tombstone as a DECLARED member typed
- * `undefined` — `aria` is back in the declared key set, but only as a refusal,
+ * as the spec's retired key (`undefined` at the pinned 17.5.0, the branded
+ * `[REMOVED]` mark on objectstack `main`) — `aria` is back in the declared key
+ * set, but only as a refusal,
  * and an authored value is a compile error: the same verdict the Zod twin gives
  * at parse. The pins below assert exactly that, with the former neighbours as
  * the control. Real enforcement because `packages/types/tsconfig.test.json` is
@@ -38,6 +40,7 @@
 
 import { describe, it, expect } from 'vitest';
 import type { DashboardComponentSchema } from '../complex';
+import type { IsRetiredKeyType } from './retired-key-type';
 import { DashboardComponentSchema as DashboardComponentZodSchema } from '../zod/index.zod';
 
 // Literal (declared) keys of T: `string extends K` is true only for the index
@@ -46,16 +49,21 @@ type DeclaredKeys<T> = { [K in keyof T as string extends K ? never : K]: T[K] };
 type Declared = keyof DeclaredKeys<DashboardComponentSchema>;
 
 describe('the TS interface declares `aria` only as the spec tombstone (objectui#5830, objectui#9736)', () => {
-  it('`aria` is declared, typed `undefined`; the neighbours it stood beside still are', () => {
+  it('`aria` is declared, typed as the spec\'s retired key; the neighbours it stood beside still are', () => {
     // Type-level pins, erased at runtime. `aria` is a DECLARED key again — the
-    // spec projection carries the tombstone — and its type admits no value.
+    // spec projection carries the tombstone — and its type admits no value:
+    // `undefined` at the pinned 17.5.0, the branded `[REMOVED]` mark on
+    // objectstack `main` (both spellings are `retired-key-type.ts`'s, objectui#11330).
     const ariaDeclared: 'aria' extends Declared ? true : false = true;
-    const ariaAdmitsNoValue: [DashboardComponentSchema['aria']] extends [undefined] ? true : false = true;
+    const ariaAdmitsNoValue: IsRetiredKeyType<DashboardComponentSchema['aria']> extends true ? true : false = true;
+    // The control for the line above, through the same helper: a live
+    // neighbour is NOT a retired-key type.
+    const widgetsIsLive: IsRetiredKeyType<DashboardComponentSchema['widgets']> extends false ? true : false = true;
     // Positive controls through the same extraction: a probe that saw no
     // members at all would also report `aria` absent.
     const widgetsDeclared: 'widgets' extends Declared ? true : false = true;
     const dateRangeDeclared: 'dateRange' extends Declared ? true : false = true;
-    expect(ariaDeclared && ariaAdmitsNoValue && widgetsDeclared && dateRangeDeclared).toBe(true);
+    expect(ariaDeclared && ariaAdmitsNoValue && widgetsIsLive && widgetsDeclared && dateRangeDeclared).toBe(true);
   });
 
   it('an authored `aria` value is a compile error — no longer absorbed by the index signature', () => {

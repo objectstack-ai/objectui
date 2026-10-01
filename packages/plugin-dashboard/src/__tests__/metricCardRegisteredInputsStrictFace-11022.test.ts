@@ -199,9 +199,13 @@ describe('objectui#11070 round 11 — the slot\'s `layout`, as Save Layout write
       for (const face of [StrictAnyComponentSchema, AnyComponentSchema]) {
         const result = face.safeParse(doc);
         expect(result.success).toBe(false);
-        const issues = flatIssues(result.success ? [] : (result.error.issues as unknown as Issue[]));
-        // The slot arm's own verdict, read at the widget: `widgets.0.<path>`.
-        expect(issues.map((issue) => issue.path.slice(2).join('.'))).toContain(path.join('.'));
+        const union = (result.success ? [] : (result.error.issues as unknown as Issue[])).find(
+          (issue) => issue.code === 'invalid_union' && issue.path.join('.') === 'widgets.0',
+        );
+        // The COMPONENT arm's own verdict — the union's first arm — not the widget
+        // arm's, which has always judged `layout` and would answer for it otherwise.
+        const componentArm = flatIssues(union?.errors?.[0] ?? []);
+        expect(componentArm.map((issue) => issue.path.join('.'))).toContain(path.join('.'));
       }
     });
   });

@@ -1,0 +1,37 @@
+{
+  "number": 11388,
+  "kind": "issue",
+  "title": "finding(app-shell,plugin-dashboard,plugin-designer): the widget width/height editors write a partial `layout` (`{ w }` or `{ h }`) onto a widget that has none, which the spec's four-number widget `layout` refuses",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:reports",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-01T15:02:44Z",
+  "updated_at": "2026-10-01T20:01:24Z",
+  "closed_at": "2026-10-01T19:57:07Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 7,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11388",
+  "body": "Filing gate: **① product defect**, `reach:` named real producers. Three in-code writers spread a single edited dimension onto a widget's possibly-absent `layout` and cast the result past the type checker. On a widget with no `layout` (which `DashboardRenderer`'s own comment says the Studio designer omits), the stored value is `{ w }` or `{ h }`, which `@objectstack/spec`'s widget `layout` refuses. Filed by `domain:devx` seat 2 (objectui#10917), `session_01TdiauJaVCHuj45EzZGUxHh`, from the out-of-scope finding in objectui#11070 round 11's dev report (`5934110109`), PR #11387.\n\n- **Who acts on it:** triage routes it. The fix lands in the three writers (app-shell Studio, plugin-dashboard and plugin-designer). Each must write a complete `layout` (`x`, `y`, `w`, `h`), seeding the missing coordinates from the widget's current grid placement or a default, instead of spreading one dimension onto `undefined`.\n- **Duplicate check** (semantic issue search, open and closed, objectui): \"dashboard widget inspector width height writes partial layout missing x y h cast\" → 10 hits; \"widget layout partial w only DashboardWithConfig layoutW layoutH spec refuses\" → 10 hits. None is this defect. The nearest are objectui#11348 (un-cast reads of undeclared widget keys, closed) and objectui#11228 (the inline-dialect decision, closed).\n\n## The writers (read at objectui `main`, 2026-10-01)\n\n- app-shell Studio metadata-admin `DashboardWidgetInspector.tsx` (about L501, L518): `{ ...(widget.layout ?? {}), w }` / `h`.\n- `@object-ui/plugin-dashboard` `DashboardWithConfig.tsx` (about L167–171): `{ ...(w.layout || {}), w: value }` / `h`, cast `as DashboardWidgetSchema['layout']`.\n- `@object-ui/plugin-designer` `DashboardEditor.tsx` (about L434, L447): `{ ...widget.layout, w: … }` / `h`, cast `as DashboardWidgetSchema['layout']`.\n- On a widget with no `layout`, each stores a one-dimension object. The casts are what keep `tsc` from refusing it.\n\n## Evidence\n\n- The round-11 dev measured it against `@objectstack/spec` 17.5.0: `DashboardWidgetSchema.safeParse({ id: 'w1', type: 'bar', title: 'T', dataset: 'ds', dimensions: ['stage'], values: ['amount'], layout: { w: 6 } })` → REFUSE, `invalid_type` at `layout.x`, `layout.y` and `layout.h`. A height-only edit refuses at `x`, `y` and `w`. A full `layout` accepts.\n- objectui#11070 round 11 (PR #11387) declares the spec's `layout` on the widget slot's component-node arm by reference, so a partial `layout` on a `metric-card` node is now refused on the tolerant face too, as it already was on the widget arm. That makes this producer bug reachable on one more arm.\n- **Not measured:** an end-to-end Studio save of a widget with no `layout`, followed by a re-load and validation. The first step of whoever takes this is to do that once.\n\n## Expected\n\n- Every writer stores a complete four-number `layout`, and the cast is dropped so `tsc` judges the object.\n- A pin per writer: edit one dimension on a widget with no `layout`, then parse the result with the spec's widget schema."
+}

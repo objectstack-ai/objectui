@@ -2,8 +2,8 @@
   "number": 11364,
   "kind": "issue",
   "title": "spec(types,react): the spec's public blocks, page kinds and the `action:button` node have no TypeScript authoring type, so objectui#8347's index-signature removal leaves their TS authors no face (29 literals measured in components' tests)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:spec",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -21,11 +20,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-01T08:31:04Z",
-  "updated_at": "2026-10-01T14:25:46Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-01T15:29:56Z",
+  "closed_at": "2026-10-01T15:29:56Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 2,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11364",
   "body": "Filing-gate category: ① — a named landing point (`@object-ui/types`' TypeScript face, and `SchemaRenderer`'s `schema` prop type), with measured reach and named producers, ordered by the objectui#7927 ruling's step 1. A derived child of objectui#8347, filed with the parent's `domain:spec` and `priority:p2`.\nReader: the `domain:spec @ objectui` seat (objectui#10217) dispatches it, and an os-dev executes it.\nParent: objectui#8347, which stays `pm:blocked` until this card and its siblings land.\n\n## What was measured (objectui#11347's report `5927683269`, PR objectui#11360 at `bba957503`)\n\nWith objectui#8347's P1 mutation applied (`BaseSchema`'s `[key: string]: any` deleted alone), `@object-ui/components`' test program still reads **29** non-probe errors after every literal that could be retyped was retyped. Each of them authors a node that **has no declaration on `@object-ui/types`' TypeScript face**, so no type exists to retype the literal to:\n\n| node | what the literal authors | literals |\n|---|---|--:|\n| the spec's public blocks `element:text`, `element:text_input`, `element:record_picker` | their `properties` bag | 14 |\n| `page:tabs` | `items` | 3 |\n| `action:button` (the node; `UIActionSchema` is the action *definition*) | executor keys `actionType` / `params` | 5 |\n| page kind `home` | `kind` (`PageNodeSchema` is `type: 'page'` only) | 2 |\n| any node | the `props` alias | 4 |\n| a test-registered probe type | (test-local) | 2 |\n\nTS2353 names only the first excess key per literal, so the real count is at least this.\n\n**The decisive measurement:** the spec's own `PageComponent` (re-exported as `SpecPageComponent`) is NOT assignable to `SchemaRenderer`'s `schema` prop under the mutation (TS2322). Neither a retype nor a spec-type route exists today.\n\n**Reach:** every TypeScript author of these nodes loses the face at the removal. The named producers are the objectstack showcase pages, `examples/schema-catalog`, and the React hosts that build page JSON in TS. Today they compile through the index signature, and after objectui#8347 they cannot.\n\n## Direction (the seat's, per 协议为基准 and the objectui#7927 ruling)\n\nobjectui#7927's ruling (`5565351677`) says the TypeScript face is a contract and \"the real extension keys are declared\". For these nodes, that means:\n1. **TypeScript node types for the spec's public blocks and page kinds, by reference** to their zod arms or spec rows (for example `z.input` of the block schema). ⛔ Not hand-written twins.\n2. **`SchemaRenderer`'s `schema` prop (and `SchemaNode`) accepts them.** Measure the prop's published type, and widen it only by those referenced node types. ⛔ Never by an index signature.\n3. **The `action:button` node's executor keys:** read objectui#11183 first. It moves the taught `action:*` node's executor keys into the `properties` bag (`domain:skills`, governed). The TS face follows that shape. ⛔ Never the retired flat spelling.\n4. ⛔ **Not decided here: the `props` alias on the authoring face.** The maintainer's 2026-08-18 ruling (quoted in `SchemaRenderer.tsx`'s docblock) keeps the alias working at runtime. Whether the TS authoring face declares it is a separate question, and AGENTS.md #0.1 weighs against a second spelling. Measure who authors `props` in TS, and report it as an `open_question` with the four-axis frame.\n\n**Clause-②:** `yes`, because published TS types are added. The at-tier contract record is owed.\n\n## Acceptance (executable)\n\n- **With objectui#8347's P1 mutation applied locally:** the 29 literals (re-derived) compile against the new types, except the `props` ones, which wait for their ruling.\n- **With the signature present:** everything stays green.\n- **A pin:** a misspelled key inside an `element:text` `properties` bag stops type-checking once the mutation is applied, and the correct spelling compiles.\n\n## Serial\n\n- objectui#11349 (react, in flight) holds `SchemaRenderer.tsx`'s internal working type. This card touches only the published `schema` prop type, so it dispatches after objectui#11349 lands.\n- objectui#10859 / objectui#11276 (`domain:ui`) are still moving flat arms into the bag. Read the merged state.\n\n## Dedupe\n\nLocal grep over every objectui issue updated since 2026-09-01 (2,212 issues, open and closed, with bodies, read 2026-10-01T08:3xZ):\n- `element:text|element:record_picker|ElementTextBlock` with a TypeScript-face term: 10 hits, none this defect. The nearest are:\n  - objectui#10872 (open; `objectui validate` refuses namespaced types on the zod face);\n  - objectui#11223 (closed; nested-node validation);\n  - objectui#7450 (closed; the `ui:text` variant vocabularies).\n- `public block` with `TypeScript|TS face|TS type`: 0 hits.\n\nDedupe words: public block TypeScript authoring type element:text properties bag · SchemaRenderer schema prop SpecPageComponent not assignable · page kind home PageNodeSchema · action:button node executor keys TS face · BaseSchema index signature removal no TS face"

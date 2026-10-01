@@ -66,6 +66,11 @@ import {
   useIsMobile,
 } from '@object-ui/components';
 import type { NavigationItem, KeyedI18nLabel } from '@object-ui/types';
+// Aliased on import, following PR #4169's convention (as `AppSchemaRenderer`
+// does): this file has its OWN `resolveLabel` over the KEYED vocabulary, and
+// the spec's resolver reads the INLINE locale map — neither accepts the other's
+// shape.
+import { resolveI18nLabel as resolveInlineI18nLabel } from '@objectstack/spec/ui';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -219,34 +224,26 @@ export interface NavigationRendererProps {
   onReorder?: (reorderedItems: NavigationItem[]) => void;
 
   /**
-   * Optional label resolver for object-type navigation items.
-   * When provided, called with `(objectName, fallbackLabel)` for items
-   * where `item.type === 'object'` and `item.label` is a plain string.
-   * Enables convention-based i18n auto-resolution without coupling
-   * the layout package to i18n.
+   * @deprecated Not consulted since objectui#11201 (ruling B). It was the
+   * object half of the renderer's translate-if-equal-to-name convention: a
+   * present plain-string label whose text equalled the object's machine name
+   * was looked up through it. A present label now renders verbatim, and an
+   * absent one inherits through {@link resolveTargetLabel}, which is where an
+   * object's localized name comes from. Passing it changes nothing.
    */
   resolveObjectLabel?: (objectName: string, fallbackLabel: string) => string;
 
   /**
-   * Optional label resolver for dashboard-type navigation items.
-   * Called with `(dashboardName, fallbackLabel)` for items where
-   * `item.type === 'dashboard'` and `item.label` is a plain string.
-   * Mirrors `resolveObjectLabel` for the convention-based i18n hook
-   * `useObjectLabel().dashboardLabel`.
+   * @deprecated Not consulted since objectui#11201 (ruling B) — the dashboard
+   * half of the retired convention; see {@link resolveObjectLabel}.
    */
   resolveDashboardLabel?: (dashboardName: string, fallbackLabel: string) => string;
 
   /**
-   * Optional label resolver for object-type navigation items that target a
-   * specific view (i.e. `viewName` is set). Called with
-   * `(objectName, viewName, fallbackLabel)`. Mirrors
-   * `useObjectLabel().viewLabel` and resolves
-   * `{ns}.objects.{objectName}._views.{viewName}.label`.
-   *
-   * Without this resolver, an object item with a `viewName` falls back to
-   * its schema-provided explicit label (which keeps it distinct from a bare
-   * object-list entry under the same group — avoids visual duplicates such
-   * as two `商机` rows where one is the list and the other is a Kanban view).
+   * @deprecated Not consulted since objectui#11201 (ruling B) — the view half
+   * of the retired convention; see {@link resolveObjectLabel}. An unlabelled
+   * view entry still shows the VIEW's label (not the parent object's), through
+   * {@link resolveTargetLabel}.
    */
   resolveViewLabel?: (objectName: string, viewName: string, fallbackLabel: string) => string;
 
@@ -261,15 +258,19 @@ export interface NavigationRendererProps {
   resolveTargetLabel?: NavTargetLabelResolver;
 
   // RETIRED (`9c60144b5`): `resolveGroupLabel` / `resolveItemLabel`, the two
-  // id-keyed label resolvers. They were unreachable by construction — see the
-  // note on `resolveNavItemLabel` below — and app-navigation localization is
-  // owned solely by the server-side `/meta` boundary. Do not re-add them; a
-  // sidebar label that needs translating is translated there.
+  // id-keyed label resolvers. They were unreachable by construction: they sat
+  // behind a text comparison of the label against the node's own `id`
+  // (`Workspace` vs `grp_workspace`), which never matched. App-navigation
+  // localization is owned solely by the server-side `/meta` boundary (rung 1
+  // of `resolveNavItemLabel`'s order). Do not re-add them; a sidebar label that
+  // needs translating is translated there.
 
   /**
-   * Optional i18n translation function for resolving I18nLabel objects
-   * (`{ key, defaultValue }`). When provided, labels are translated
-   * through i18next; otherwise falls back to `defaultValue`.
+   * Optional i18n translation function for resolving KEYED label objects
+   * (`{ key, defaultValue }`, see {@link resolveLabel}). When provided, labels
+   * are translated through i18next; otherwise falls back to `defaultValue`.
+   * An inline locale map (`{ en, 'zh-CN' }`) is not keyed and never reaches
+   * it — {@link resolveNavItemLabel} reads a map itself.
    */
   t?: (key: string, options?: any) => string;
 
@@ -329,30 +330,32 @@ export function resolveLabel(
 }
 
 /**
- * Resolve a navigation item label, applying:
- * 1. i18n translation for I18nLabel objects (when `t` is provided)
- * 2. Convention-based i18n for object-type items whose plain string label was
- *    never customized (still equal to the bare object/dashboard/item name),
- *    so standard nav entries still localize automatically
- *    (when `resolveObjectLabel`/`resolveDashboardLabel`/etc. is provided)
- * 3. Otherwise, the schema-authored explicit label always wins — an app
- *    author who wrote a custom label (e.g. a plural 'Projects') must never
- *    have it silently overridden by an `objects.<name>.label` translation.
+ * Resolve a navigation item's display text, in the spec's one order
+ * (`@objectstack/spec` `BaseNavItemSchema.label`, objectstack#20849):
  *
- * Deliberately NOT here: id-keyed resolution for `group` items and for
- * url/page/report/custom leaves. Those two hooks existed until `9c60144b5`
- * and could never fire: the `isCustomized` guard below compares the authored
- * label against the branch's comparison target, and on an id-keyed branch
- * that target is the node's own `id` (`grp_workspace`) while the label is its
- * text (`Workspace`). Those never compare equal, so the guard was true for
- * every real entry and the resolver under it was dead code with a live
- * docstring promising localization.
+ * 1. The id-keyed bundle entry `apps.APP.navigation.ID.label`. That rung runs
+ *    UPSTREAM of this function, at the server-side `/meta` boundary:
+ *    `translateApp` in `@objectstack/spec` (`src/system/i18n-resolver.ts`)
+ *    rewrites a node's `label` by its `id` before the metadata reaches this
+ *    renderer. App-navigation localization has that one owner — localize nav
+ *    labels there, never here.
+ * 2. A PRESENT label, as authored ({@link presentNavItemLabel}): an inline
+ *    locale map reads its locale's entry, and a string renders verbatim.
+ * 3. An ABSENT label inherits its target's CURRENT label (objectui#9868 —
+ *    `@objectstack/spec` 17.5.0 made it optional, cloud#2021 letter-A ruling),
+ *    resolved here at render time and never written back — see
+ *    {@link inheritedNavItemLabel} for the ladder. That arm is keyed on
+ *    ABSENCE alone, so an authored label is never swapped for the target's
+ *    metadata label, however it is spelled.
  *
- * App-navigation localization is owned solely by the server-side `/meta`
- * boundary: `translateApp` in `@objectstack/spec`
- * (`src/system/i18n-resolver.ts`) rewrites every navigation node's `label` by
- * id before the metadata reaches this renderer, so `base` is already
- * localized when it arrives. One owner, not two — localize nav labels there.
+ * ⛔ Nothing here matches a label's text against a name (objectui#11201,
+ * ruling B). A present label equal to its target's machine name (`account`)
+ * renders `account` in every locale: text cannot tell a deliberate `account`
+ * from a machine-written one, so translation is keyed on identity (rung 1) or
+ * comes through inheritance (rung 3). The three convention resolvers
+ * (`resolveObjectLabel` / `resolveDashboardLabel` / `resolveViewLabel`) that
+ * the retired rule consulted are still accepted in their positions, so no
+ * caller breaks, and are not read.
  *
  * EXPORTED since `969ba84f4`, for the same reason {@link resolveHref} is: a
  * second surface now renders the same `NavigationItem[]`. `nav:menu` is the
@@ -363,59 +366,53 @@ export function resolveLabel(
  * under two names on two surfaces of one app, which is exactly the drift the
  * "single source of truth" note on `resolveHref` exists to prevent. Nothing
  * about the behaviour changed with the keyword.
- *
- * ABSENT `label` (objectui#9868 — `@objectstack/spec` 17.5.0 made it optional,
- * cloud#2021 letter-A ruling): the entry inherits its target's CURRENT label,
- * resolved here at render time and never written back — see
- * {@link inheritedNavItemLabel} for the ladder. That arm is keyed on ABSENCE
- * alone: the steps above never consult `targetLabel`, so an authored label is
- * never swapped for the target's metadata label, however it is spelled.
  */
 export function resolveNavItemLabel(
   item: NavigationItem,
-  resolver?: (objectName: string, fallbackLabel: string) => string,
+  _objectResolver?: (objectName: string, fallbackLabel: string) => string,
   t?: (key: string, options?: any) => string,
-  dashboardResolver?: (dashboardName: string, fallbackLabel: string) => string,
-  viewResolver?: (objectName: string, viewName: string, fallbackLabel: string) => string,
+  _dashboardResolver?: (dashboardName: string, fallbackLabel: string) => string,
+  _viewResolver?: (objectName: string, viewName: string, fallbackLabel: string) => string,
   targetLabel?: NavTargetLabelResolver,
 ): string {
   // A separator carries no `label` (objectui#10867): there is nothing to name.
   if (item.type === 'separator') return '';
-  // Absent ⇒ inherit (objectui#9868). Resolved BEFORE `resolveLabel`, which
-  // takes only a present label.
+  // Absent ⇒ inherit (objectui#9868).
   if (item.label === undefined) return inheritedNavItemLabel(item, targetLabel);
-  const base = resolveLabel(item.label, t);
-  // Only apply convention-based resolution for items with plain string labels.
-  // I18nLabel objects (with explicit key/defaultValue) already have their own translation keys.
-  if (typeof item.label !== 'string') return base;
-  // An explicit label that differs from the bare target name was authored on
-  // purpose (e.g. a custom plural 'Projects') — never let convention-based
-  // i18n resolution override it.
-  const isCustomized = (target: string | undefined) =>
-    !!target && base.trim().toLowerCase() !== target.trim().toLowerCase();
-  if (item.type === 'object' && item.objectName) {
-    // View-scoped item — prefer view-specific label so a Kanban / Calendar /
-    // custom view in the sidebar doesn't collapse to the parent object's
-    // label (which would visually duplicate the object's list entry).
-    // Convention: `{ns}.objects.{objectName}._views.{viewName}.label`.
-    if (item.viewName) {
-      if (isCustomized(item.viewName)) return base;
-      if (viewResolver) return viewResolver(item.objectName, item.viewName, base);
-      // No view resolver: respect the schema-provided explicit label rather
-      // than overriding with the parent object's i18n label.
-      return base;
-    }
-    if (isCustomized(item.objectName)) return base;
-    if (resolver) return resolver(item.objectName, base);
-  }
-  if (item.type === 'dashboard' && (item as any).dashboardName) {
-    if (isCustomized((item as any).dashboardName)) return base;
-    if (dashboardResolver) return dashboardResolver((item as any).dashboardName, base);
-  }
-  // `group` items and non-object/non-dashboard leaves (url, page, report,
-  // custom) return the authored label untouched — their localization already
-  // happened at the server `/meta` boundary (see the note above).
-  return base;
+  return presentNavItemLabel(item.label, t);
+}
+
+/**
+ * The text of a PRESENT navigation label, as authored (rung 2 of
+ * {@link resolveNavItemLabel}'s order).
+ *
+ *  - A string renders verbatim.
+ *  - An inline locale map — the spec's `I18nLabel`, `{ en, 'zh-CN' }` — reads
+ *    through the spec's own `resolveI18nLabel`, the resolver areas and the
+ *    Studio's designer canvas use for the same vocabulary. This layer is handed
+ *    no locale (it carries no i18n dependency by design — see
+ *    `resolveAreaLabel` in `AppSchemaRenderer.tsx`), so the map resolves at
+ *    that resolver's documented no-locale default: its `en` entry, else
+ *    `default`, else any entry — the floor the area switcher settles for.
+ *    A map with no text at all reads `''`: it is present, so it inherits
+ *    nothing.
+ *  - objectui's KEYED reference `{ key, defaultValue?, params? }` resolves
+ *    through `t` ({@link resolveLabel}), as before. The two object shapes do
+ *    not overlap: the spec's inline-locale key pattern excludes both `key` and
+ *    `defaultValue`.
+ */
+function presentNavItemLabel(
+  label: unknown,
+  t: ((key: string, options?: any) => string) | undefined,
+): string {
+  if (typeof label === 'string') return label;
+  if (isKeyedLabel(label)) return resolveLabel(label, t);
+  return resolveInlineI18nLabel(label as Parameters<typeof resolveInlineI18nLabel>[0], undefined) ?? '';
+}
+
+/** objectui's keyed label reference, told apart from an inline locale map by the two member names a map can never carry. */
+function isKeyedLabel(label: unknown): label is KeyedI18nLabel {
+  return typeof label === 'object' && label !== null && ('key' in label || 'defaultValue' in label);
 }
 
 /**
@@ -1360,7 +1357,8 @@ function NavigationItemRenderer({
     const Icon = resolveIcon(item.icon);
     // Through `resolveNavItemLabel`, not `resolveLabel`: an action entry's
     // `label` may be absent too (objectui#9868), and that is where the absent
-    // arm lives. For a present label the two answer identically on this type.
+    // arm lives — as is the inline-locale-map read (objectui#11201), which
+    // `resolveLabel` does not do.
     const actionLabel = resolveNavItemLabel(item, resolveObjectLabel, tProp, resolveDashboardLabel, resolveViewLabel, resolveTargetLabel);
     return (
       <SidebarMenuItem>

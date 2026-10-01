@@ -14,7 +14,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useId, useRef } from 'react';
-import type { FormField, DataSource, ObjectFormSchema } from '@object-ui/types';
+import type { FormField, FormSchema, DataSource, ObjectFormSchema } from '@object-ui/types';
 import {
   Dialog,
   MobileDialogContent,
@@ -727,8 +727,13 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   const submitLabel = schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update'));
   const cancelLabel = schema.cancelText || t('common.cancel');
 
-  const baseFormSchema = {
-    type: 'form' as const,
+  // Typed as the child `form` node it is (objectui#11354), and so is every node
+  // `renderContent` builds from it: each is a `FormSchema` const before it
+  // reaches `SchemaRenderer`. `SchemaRenderer`'s `schema` slot is `BaseSchema`,
+  // so a literal written inline there was checked against `BaseSchema`, not
+  // against the `FormSchema` the `form` renderer reads.
+  const baseFormSchema: FormSchema = {
+    type: 'form',
     objectName: schema.objectName,
     layout: formLayout,
     defaultValues: formData,
@@ -836,7 +841,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         })
         .filter((g) => g.fields.length > 0);
 
-      const sharedFormSchema = {
+      const sharedFormSchema: FormSchema = {
         ...baseFormSchema,
         columns: formColumns,
         ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
@@ -847,26 +852,23 @@ export const ModalForm: React.FC<ModalFormProps> = ({
       // create/edit form composes with `tabbed`. The renderer owns the tab strip
       // and panels (`fieldTabs`) so all tabs stay mounted inside the one form.
       if (schema.contentLayout === 'tabbed' && groups.length > 1) {
-        return (
-          <SchemaRenderer
-            schema={{
-              ...sharedFormSchema,
-              fields: groups.flatMap((g) => g.fields),
-              fieldTabs: groups.map((g, index) => ({
-                key: g.key,
-                label: g.title || `Section ${index + 1}`,
-                description: g.description,
-                fields: g.fields.map((f) => f.name),
-                containerClass: g.gridClassName,
-                // The tab's predicate slot (#6237) — the same authored
-                // `FormSection.visibleWhen` the stacked arm copies onto its
-                // divider; the renderer evaluates it and hides trigger, panel
-                // and fields together under the ruled hidden-group semantics.
-                visibleWhen: g.visibleWhen,
-              })),
-            }}
-          />
-        );
+        const tabbedFormSchema: FormSchema = {
+          ...sharedFormSchema,
+          fields: groups.flatMap((g) => g.fields),
+          fieldTabs: groups.map((g, index) => ({
+            key: g.key,
+            label: g.title || `Section ${index + 1}`,
+            description: g.description,
+            fields: g.fields.map((f) => f.name),
+            containerClass: g.gridClassName,
+            // The tab's predicate slot (#6237) — the same authored
+            // `FormSection.visibleWhen` the stacked arm copies onto its
+            // divider; the renderer evaluates it and hides trigger, panel
+            // and fields together under the ruled hidden-group semantics.
+            visibleWhen: g.visibleWhen,
+          })),
+        };
+        return <SchemaRenderer schema={tabbedFormSchema} />;
       }
 
       // Stacked sections: a virtual `section-divider` field carries each group's
@@ -898,7 +900,8 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         allFields.push(...(collapse.collapsed ? g.fields.map((f) => ({ ...f, hidden: true })) : g.fields));
       });
 
-      return <SchemaRenderer schema={{ ...sharedFormSchema, fields: allFields }} />;
+      const stackedFormSchema: FormSchema = { ...sharedFormSchema, fields: allFields };
+      return <SchemaRenderer schema={stackedFormSchema} />;
     }
 
     // Derived field-group sections (object `fieldGroups` metadata) — rendered
@@ -945,16 +948,13 @@ export const ModalForm: React.FC<ModalFormProps> = ({
         allFields.push(...(collapse.collapsed ? laidOut.map((f) => ({ ...f, hidden: true })) : laidOut));
       });
       const groupedContainerClass = CONTAINER_GRID_COLS[columns];
-      return (
-        <SchemaRenderer
-          schema={{
-            ...baseFormSchema,
-            fields: allFields,
-            columns,
-            ...(groupedContainerClass ? { fieldContainerClass: groupedContainerClass } : {}),
-          }}
-        />
-      );
+      const groupedFormSchema: FormSchema = {
+        ...baseFormSchema,
+        fields: allFields,
+        columns,
+        ...(groupedContainerClass ? { fieldContainerClass: groupedContainerClass } : {}),
+      };
+      return <SchemaRenderer schema={groupedFormSchema} />;
     }
 
     // Reuse pre-computed auto-layout result for flat fields
@@ -964,16 +964,13 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     // responds to the modal width, not the viewport width.
     const containerFieldClass = CONTAINER_GRID_COLS[layoutResult.columns || 1];
 
-    return (
-      <SchemaRenderer
-        schema={{
-          ...baseFormSchema,
-          fields: gateFields(layoutResult.fields),
-          columns: layoutResult.columns,
-          ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
-        }}
-      />
-    );
+    const flatFormSchema: FormSchema = {
+      ...baseFormSchema,
+      fields: gateFields(layoutResult.fields),
+      columns: layoutResult.columns,
+      ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
+    };
+    return <SchemaRenderer schema={flatFormSchema} />;
   };
 
   // Master-detail in a modal: when the schema declares inline child collections,

@@ -14,7 +14,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useRef, useId } from 'react';
-import type { FormField, DataSource, ObjectFormSchema } from '@object-ui/types';
+import type { FormField, FormSchema, DataSource, ObjectFormSchema } from '@object-ui/types';
 import {
   Sheet,
   SheetContent,
@@ -678,9 +678,15 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
   const submitLabel = schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update'));
   const cancelLabel = schema.cancelText || t('common.cancel');
 
-  // Build base form schema
-  const baseFormSchema = {
-    type: 'form' as const,
+  // Build base form schema.
+  //
+  // Typed as the child `form` node it is (objectui#11354), and so is every node
+  // `renderContent` builds from it: each is a `FormSchema` const before it
+  // reaches `SchemaRenderer`. `SchemaRenderer`'s `schema` slot is `BaseSchema`,
+  // so a literal written inline there was checked against `BaseSchema`, not
+  // against the `FormSchema` the `form` renderer reads.
+  const baseFormSchema: FormSchema = {
+    type: 'form',
     objectName: schema.objectName,
     layout: formLayout,
     defaultValues: formData,
@@ -766,14 +772,11 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         }
       });
 
-      return (
-        <SchemaRenderer
-          schema={{
-            ...baseFormSchema,
-            fields: allFields,
-          }}
-        />
-      );
+      const sectionsFormSchema: FormSchema = {
+        ...baseFormSchema,
+        fields: allFields,
+      };
+      return <SchemaRenderer schema={sectionsFormSchema} />;
     }
 
     // Derived field-group sections (object `fieldGroups` metadata, #4774) —
@@ -817,16 +820,13 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
         allFields.push(...(collapse.collapsed ? laidOut.map(f => ({ ...f, hidden: true })) : laidOut));
       });
       const groupedFieldClass = CONTAINER_GRID_COLS[columns];
-      return (
-        <SchemaRenderer
-          schema={{
-            ...baseFormSchema,
-            fields: allFields,
-            columns,
-            ...(groupedFieldClass ? { fieldContainerClass: groupedFieldClass } : {}),
-          }}
-        />
-      );
+      const groupedFormSchema: FormSchema = {
+        ...baseFormSchema,
+        fields: allFields,
+        columns,
+        ...(groupedFieldClass ? { fieldContainerClass: groupedFieldClass } : {}),
+      };
+      return <SchemaRenderer schema={groupedFormSchema} />;
     }
 
     // Apply auto-layout for flat fields (infer columns + colSpan)
@@ -838,16 +838,13 @@ export const DrawerForm: React.FC<DrawerFormProps> = ({
     // responds to the drawer width, not the viewport width.
     const containerFieldClass = CONTAINER_GRID_COLS[autoLayoutResult.columns || 1];
 
-    return (
-      <SchemaRenderer
-        schema={{
-          ...baseFormSchema,
-          fields: autoLayoutResult.fields,
-          columns: autoLayoutResult.columns,
-          ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
-        }}
-      />
-    );
+    const flatFormSchema: FormSchema = {
+      ...baseFormSchema,
+      fields: autoLayoutResult.fields,
+      columns: autoLayoutResult.columns,
+      ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
+    };
+    return <SchemaRenderer schema={flatFormSchema} />;
   };
 
   // objectui#11000 — why `gateFields` locked every field, when the lock is the

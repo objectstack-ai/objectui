@@ -93,7 +93,11 @@ type ClosedArmInput<Arm> = Arm extends z.ZodObject ? z.input<z.ZodObject<Arm['sh
  * literal, `properties` as the row, and any node-level members the renderer
  * reads, each a spec schema by reference.
  */
-type SpecRowNode<Type extends string, Bag extends z.ZodType, NodeMembers extends z.core.$ZodShape = {}> = z.input<
+type SpecRowNode<
+  Type extends string,
+  Bag extends z.ZodType,
+  NodeMembers extends z.core.$ZodShape = Record<never, never>,
+> = z.input<
   z.ZodObject<
     Omit<(typeof BaseSchemaMirror)['shape'], 'type'> & {
       type: z.ZodLiteral<Type>;

@@ -7,7 +7,7 @@
  */
 
 import React, { forwardRef, useContext, useMemo, useEffect, useReducer, useState, Component, type ForwardRefExoticComponent, type RefAttributes } from 'react';
-import type { BaseSchema } from '@object-ui/types';
+import type { AuthoringNode, BaseSchema } from '@object-ui/types';
 import {
   ComponentRegistry,
   ExpressionEvaluator,
@@ -1040,9 +1040,22 @@ function withoutAuthoredObjectFields<T extends object>(bag: T): T {
  * them defensively (see the primitive guard in the evaluation memo) but no
  * author should be invited to pass them. Reconciling the two repo-wide
  * `SchemaNode` spellings is a separate concern and deliberately not done here.
+ *
+ * ## `AuthoringNode`: the spec-declared nodes, by reference (objectui#11364)
+ *
+ * The object member is `BaseSchema` OR an `AuthoringNode` from
+ * `@object-ui/types`: a public block (its zod arm's input), an
+ * `element:text_input` / `element:record_picker` (its spec row), or a stored
+ * page document under its page kind. Each is derived from the zod arm or the
+ * spec row, and none carries an index signature. Inside this union TypeScript
+ * discriminates on the literal `type`, so those nodes' own keys are judged:
+ * once objectui#8347 removes `BaseSchema`'s index signature, a misspelled key in
+ * an `element:text` bag is refused while the spec's spelling compiles. ⛔ The
+ * widening is by those referenced types only, never by an index signature or a
+ * `Record` on this prop.
  */
 export interface SchemaRendererProps {
-  schema: BaseSchema | string | null | undefined;
+  schema: BaseSchema | AuthoringNode | string | null | undefined;
 }
 
 /**

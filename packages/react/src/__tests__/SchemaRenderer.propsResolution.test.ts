@@ -55,7 +55,7 @@
 
 import { describe, it, expect } from 'vitest';
 import type { ComponentProps } from 'react';
-import type { BaseSchema } from '@object-ui/types';
+import type { AuthoringNode, BaseSchema } from '@object-ui/types';
 import { SchemaRenderer, type SchemaRendererProps } from '../SchemaRenderer';
 import { toRenderableSchema } from '../schema-input';
 
@@ -68,9 +68,10 @@ type CallSiteProps = ComponentProps<typeof SchemaRenderer>;
 
 // 1. THE assertion. `schema` survives to the call site with its declared type.
 //    Before the fix this was `any`, so every schema — and any prop typo next to
-//    it — passed silently.
+//    it — passed silently. objectui#11364 widened the object member by the
+//    referenced `AuthoringNode` types only (no index signature, no `Record`).
 type _SchemaIsDeclared = Assert<
-  Equal<CallSiteProps['schema'], BaseSchema | string | null | undefined>
+  Equal<CallSiteProps['schema'], BaseSchema | AuthoringNode | string | null | undefined>
 >;
 
 // 2. …and that is not vacuously true because the whole thing is `any`. On the

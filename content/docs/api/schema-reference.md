@@ -990,7 +990,7 @@ A drag-and-drop Kanban board. The `object-kanban` type key validates the shape t
 | `limit` | `number` | Fetch window for the board (default 100). |
 | `coverImageField` | `string` | Field whose URL renders as the card cover image. |
 | `conditionalFormatting` | `KanbanConditionalFormattingRule[]` | Card colouring rules — native `{ field, operator, value }` or spec `{ condition, style }`. |
-| `navigation` | `ViewNavigationConfig` | What a card click opens — the spec's `NavigationConfig` by reference, the type `ObjectGridSchema.navigation` uses: `mode` (`page`, `drawer`, `modal`, `split`, `popover`, `new_window` or `none`) with `size`, `openNewTab` and `preventNavigation`. With the key absent a click opens the record in a drawer. ⚠️ `page` — and a block written without `mode`, which takes the spec's `page` default — opens nothing on a board no parent view navigates for (objectui#11293). |
+| `navigation` | `ViewNavigationConfig` | What a card click opens — the spec's `NavigationConfig` by reference, the type `ObjectGridSchema.navigation` uses: `mode` (`page`, `drawer`, `modal`, `split`, `popover`, `new_window` or `none`) with `size`, `openNewTab` and `preventNavigation`. With the key absent a click opens the record in a drawer. `page` — and a block written without `mode`, which takes the spec's `page` default — opens the record page through the record navigator the host publishes (objectui#11293); the console publishes one on its custom pages, record pages and list views, and under a host that publishes none the click opens nothing. |
 
 > `groupField` is refused by name (objectui#7322): the renderer reads `groupBy`.
 

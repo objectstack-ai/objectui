@@ -1,6 +1,6 @@
 ---
 '@object-ui/components': minor
-'@object-ui/types': patch
+'@object-ui/types': minor
 ---
 
 Eight renderers stop riding `BaseSchema`'s index signature for node keys their types did not declare (objectui#11347, the `@object-ui/components` preparation for objectui#8347's removal of that signature). The installed `@objectstack/spec` has no row for any of these eight node types, so each key was decided by who authors it. Only one of them has a producer: the published `skills/objectui` expressions guide authors `title` on a `list` node. No catalog entry, example, docs page, package README or objectstack-shipped document authors any of the others.
@@ -27,3 +27,5 @@ Where a registration published a retired key as an input, the input goes too: `a
 - The docblocks of `LoadingSchema.label`, `InputOTPSchema.length`, `ListSchema.title` and the four overlay schemas record these changes.
 
 Apart from `ListSchema.title`, no member is added or removed and no accept set changes.
+
+**minor, not patch — the published face gains a member.** `ListSchema.title` is a new member of the shipped `.d.ts` and of the mirror's `.shape`, and the mirror refuses a non-string `title` by name, the class objectui#7722 graded `minor` on this same schema.

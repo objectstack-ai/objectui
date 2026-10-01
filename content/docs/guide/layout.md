@@ -173,7 +173,7 @@ A `page` node has no action row of its own. Buttons are NODES, and they go in `c
     },
     {
       "type": "object-grid",
-      "objectName": "products"
+      "properties": { "objectName": "products" }
     }
   ]
 }

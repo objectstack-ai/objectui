@@ -235,7 +235,9 @@ describe('objectui#11070 — the read keys left undeclared pending a ruling stay
   });
 
   it('`object-chart.dataSource` is refused by name until it is declared (the react-page wrapper no longer puns the adapter into that key; the declaration and the objectui#10770 node pin move together)', () => {
-    const doc = { type: 'object-chart', objectName: 'task', chartType: 'bar', dataSource: { object: 'task' } };
+    // objectui#11276: the authored node takes its props in the `properties` bag;
+    // `dataSource` stays node-level, and stays undeclared on that arm too.
+    const doc = { type: 'object-chart', properties: { objectName: 'task', chartType: 'bar' }, dataSource: { object: 'task' } };
     expect(undeclared(issuesOf(StrictAnyComponentSchema, doc))).toEqual(['dataSource']);
     expect(issuesOf(AnyComponentSchema, doc)).toBeNull();
   });

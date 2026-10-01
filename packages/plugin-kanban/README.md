@@ -45,8 +45,9 @@ import '@object-ui/plugin-kanban';
 // `object-kanban`. (The STORED `NamedListView.type` value `"kanban"` is a
 // different layer and is unaffected — do not rewrite saved views.)
 //
-// ONE record source (`data`, `bind` or `objectName`) is what the surviving face
-// requires of every board; `groupBy` is OPTIONAL since objectui#8990 but is what
+// ONE record source (`data`, `bind` or `objectName`, or a `dataSource.object`
+// binding, which the registration lands on `objectName`) is what the surviving
+// face requires of every board; `groupBy` is OPTIONAL since objectui#8990 but is what
 // makes the lanes hold cards, so every working board authors it. The shape below
 // is the one the catalog fixture `plugin-kanban/basic-kanban-board.json` carries.
 const schema = {
@@ -126,7 +127,8 @@ import type { ObjectKanbanSchema } from '@object-ui/types';
 declare const columns: KanbanColumn[];
 
 // The board document. `type` is required, and so is ONE record source — `bind`,
-// `data` or `objectName`. `groupBy`, `columns`, `navigation` and `className` are optional.
+// `data` or `objectName`, or a `dataSource.object` binding, which lands on
+// `objectName`. `groupBy`, `columns`, `navigation` and `className` are optional.
 //
 // `groupBy` is OPTIONAL since objectui#8990, matching `@objectstack/spec`. It is
 // still the key that makes the board work: with no lane key the records are never

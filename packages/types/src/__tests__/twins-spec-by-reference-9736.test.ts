@@ -46,6 +46,7 @@ import type { App, Dashboard, Page } from '@objectstack/spec/ui';
 import type { AppComponentSchema } from '../app';
 import type { DashboardComponentSchema } from '../complex';
 import type { PageNodeSchema } from '../layout';
+import type { IsRetiredKeyType } from './retired-key-type';
 import {
   AppComponentSchema as AppMirror,
   DashboardComponentSchema as DashboardMirror,
@@ -122,11 +123,16 @@ describe('spec tombstones surface on the twin as a refusal — the verdict the m
     // (ADR-0090 D2 deleted the Profile concept). Both faces take it by
     // reference, so the twin's member IS the spec's, and it admits no value.
     const isSpecMember: Equal<PageNodeSchema['assignedProfiles'], Page['assignedProfiles']> = true;
-    const admitsNoValue: Equal<PageNodeSchema['assignedProfiles'], undefined> = true;
+    // The spec's retired-key type: `undefined` at the pinned 17.5.0, the branded
+    // `[REMOVED]` mark on objectstack `main` (objectui#11330).
+    const admitsNoValue: Equal<IsRetiredKeyType<PageNodeSchema['assignedProfiles']>, true> = true;
+    // The control for the line above, through the same helper: an admitted
+    // spec key on the same twin is NOT a retired-key type.
+    const sourceIsLive: Equal<IsRetiredKeyType<PageNodeSchema['source']>, false> = true;
     // The `@ts-expect-error` below only sticks because the key is DECLARED;
     // undeclared, the index signature would absorb it as `any`.
     const declared: 'assignedProfiles' extends DeclaredKeys<PageNodeSchema> ? true : false = true;
-    expect([isSpecMember, admitsNoValue, declared]).toEqual([true, true, true]);
+    expect([isSpecMember, admitsNoValue, sourceIsLive, declared]).toEqual([true, true, true, true]);
 
     // @ts-expect-error — `assignedProfiles` is the spec's `retiredKey()` tombstone.
     const page: PageNodeSchema = { type: 'page', assignedProfiles: ['admin'] };

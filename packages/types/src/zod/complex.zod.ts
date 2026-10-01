@@ -915,6 +915,18 @@ export const ChatbotSchema = BaseSchema.extend({
     + 'any request was sent. Cap tool loops on the agent instead — `planning.maxIterations` (default 10). '
     + 'Delete the key.',
   ),
+  // objectui#6152 round 5, ADR-0049 — declared on the interface and never
+  // mirrored here, so `.passthrough()` KEPT an authored value that the `chatbot`
+  // registration never reads. Retired on both faces; the census and the route
+  // are on the TS twin's `ChatbotSchema.floatingConfig` member (`../complex.ts`).
+  // ⛔ Not in `ChatbotSharedMirrorShape` below, so the `chatbot-floating` twin's
+  // own `floatingConfig` arm is untouched.
+  floatingConfig: retirementTombstone(
+    'RETIRED (objectui#6152, ADR-0049) — never read on a `chatbot` node: the trigger and the panel this '
+    + 'key configures belong to the floating presentation, which a `chatbot` node does not render. Author '
+    + '`type: "chatbot-floating"` with `floatingConfig` instead — that is the registration that reads it — or '
+    + 'delete the key.',
+  ),
   onError: handlerKeyRefusal('onError', 'runtime-slot', 'Error callback'),
   // --- Local display + legacy auto-response fields (objectui#6169) ---
   // Mirrors the TS declaration added at ../complex.ts in lockstep, so these
@@ -1077,7 +1089,8 @@ const FloatingChatbotConfigSchema = z.object({
  * Zod twin of `../complex.ts`'s `ChatbotFloatingSchema`. One of that
  * declaration's keys is deliberately NOT mirrored, and the parity ledger
  * records it under `UnmirroredDeclared` for this pair — exactly as it records
- * the same key for `ChatbotSchema`, which declares it too:
+ * the same key for `ChatbotSchema`, which declares it too (the only key the two
+ * twins' ledger entries still hold since objectui#6152 round 5):
  *
  *   - `displayMode` — RETIRED by objectui#7654 (maintainer ruling B,
  *     2026-09-05): the node `type` is the one selector of presentation. The
@@ -1093,8 +1106,11 @@ const FloatingChatbotConfigSchema = z.object({
  * `floatingConfig` was the second such key until objectui#6152 round 4 minted
  * `FloatingChatbotConfigSchema` above and declared it here: this registration is
  * the one that reads it (`floatingConfig={schema.floatingConfig}`). On
- * `ChatbotSchema`'s twin it stays unmirrored — the `chatbot` registration never
- * reads it.
+ * `ChatbotSchema`'s twin it stayed unmirrored — the `chatbot` registration never
+ * reads it — until objectui#6152 round 5 RETIRED it there, a
+ * `retirementTombstone()` arm on that twin; this twin does not spread that arm
+ * (the shared pick leaves it out), so its own arm above is the only
+ * `floatingConfig` any chatbot twin accepts.
  */
 export const ChatbotFloatingSchema = BaseSchema.extend({
   type: z.literal('chatbot-floating'),

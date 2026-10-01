@@ -59,6 +59,16 @@ export { getLazyIcon, isLucideIconName, LazyIcon, toKebabIconName } from './lib/
 // already depends on this package, so the direction costs nothing new.
 export { hasDeclaredVisibilityGate } from './renderers/action/visibility-gate';
 
+// The row menu's member of that family — "does this custom row action render
+// for THIS row?" — asking `hasDeclaredVisibilityGate` and then evaluating the
+// row predicate fail-closed. Exported for the same reason: plugin-grid's
+// `RowActionMenu` used to keep a twin of it, and the twins asked "declared?"
+// with a test of their own, so a whitespace-only `visible` showed in a related
+// list's toolbar and was missing from its rows (objectui#11294). One function
+// in one place now serves both row menus. plugin-grid already depends on this
+// package, so the direction costs nothing new.
+export { isCustomRowActionVisible } from './renderers/complex/data-table';
+
 // THE icon-name seam (objectui#5935) — `name -> LucideIcon | null`, one
 // tokeniser and one rename map for the whole repo.
 //

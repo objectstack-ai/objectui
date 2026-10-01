@@ -280,6 +280,13 @@ of the binding and stays the author's — it has to name a field on the bound ch
 object, so rebinding `object` without updating it is an authoring error the panel
 cannot paper over.
 
+Because the binding lands on `objectName`, a node bound this way needs no
+`objectName` of its own. The schema validator (`safeValidateSchema`, which
+`objectui validate` runs) counts the binding as a record source of `list-view`,
+`object-grid`, `object-kanban`, `object-calendar`, `object-gantt` and `object-map`,
+and still refuses one of those nodes that declares no other record source and names
+its object in neither place. A binding with an empty `object` names nothing.
+
 The two `element:*` rows keep their configuration in the node's `properties` bag,
 so the binding does not land on a schema key there: each reads it directly, and
 `dataSource.object` wins over `properties.object`. They differ on `filter`.

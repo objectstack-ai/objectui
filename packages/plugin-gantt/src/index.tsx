@@ -115,7 +115,8 @@ export const ObjectGanttRenderer: React.FC<{ schema: any }> = elementDataSourceB
 // `objectName` is NOT a required input (objectui#7470): `getDataConfig` reads
 // `data`, then `staticData`, then `objectName`, and the `object-gantt` zod
 // schema (`requireRecordSource`, `77cb489b4`) is where "one of the three" is
-// enforced. The input list is a flat declaration with a boolean `required`, so
+// enforced — or a `dataSource.object` binding, which the gate lands on
+// `objectName` and the refinement counts since objectui#11117. The input list is a flat declaration with a boolean `required`, so
 // it states the rule in the description rather than growing a one-of form.
 //
 // `data` and `staticData` are declared (objectui#10394): `ObjectGanttSchema`
@@ -141,7 +142,7 @@ ComponentRegistry.register('object-gantt', ObjectGanttRenderer, {
   label: 'Object Gantt',
   category: 'view',
   inputs: [
-    { name: 'objectName', type: 'string', description: 'ObjectQL object name. The record source is one of `data`, `staticData` and `objectName`; the `object-gantt` schema refuses a block that declares none of them.' },
+    { name: 'objectName', type: 'string', description: 'ObjectQL object name. The record source is one of `data`, `staticData` and `objectName`; the `object-gantt` schema refuses a block that declares none of them, unless the node\'s `dataSource.object` names the object, which then lands on this key.' },
     { name: 'gantt', type: 'object', description: 'startDateField, endDateField, titleField, progressField, percentageField, colorField, dependenciesField' },
     { name: 'data', type: 'object', description: 'A `{ provider, … }` data-source configuration, read FIRST on the record-source ladder: a gantt carrying one never reaches `staticData` and never queries `objectName`. `{ provider: \'value\', items }` charts those rows, `{ provider: \'object\', object }` queries that object and `{ provider: \'api\', read }` reads through that request. A bare array is not this key’s shape and is not a record source: the gantt falls through to `staticData`, then `objectName`, so inline rows belong under `staticData`.' },
     { name: 'staticData', type: 'array', description: 'Inline records, read SECOND on the record-source ladder: a `data` configuration wins and this key is then never reached, while `objectName` is read AFTER it, so a gantt carrying both charts these rows and never queries that object. `filter` and `sort` narrow and order these rows exactly as they do fetched ones.' },

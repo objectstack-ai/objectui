@@ -173,7 +173,7 @@ A `page` node has no action row of its own. Buttons are NODES, and they go in `c
     },
     {
       "type": "object-grid",
-      "object": "products"
+      "objectName": "products"
     }
   ]
 }
@@ -500,7 +500,7 @@ Omit `sidebar` and the content fills the width under the top bar.
   "maxWidth": "2xl",
   "children": {
     "type": "tabs",
-    "tabs": [
+    "items": [
       {
         "label": "General",
         "value": "general",

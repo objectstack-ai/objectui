@@ -1587,10 +1587,39 @@ export interface ChatbotSchema extends BaseSchema {
   displayMode?: never;
 
   /**
-   * Configuration for the floating action button and the panel it opens —
-   * read by `chatbot-floating` alone and forwarded to `<FloatingChatbot>`.
+   * ADR-0049 RETIREMENT TOMBSTONE — `floatingConfig` on a `chatbot` node
+   * (objectui#6152 round 5, the seat's answer A). Author a `chatbot-floating`
+   * node instead: {@link ChatbotFloatingSchema.floatingConfig} is the one
+   * declaration of the trigger and panel geometry, and that registration is the
+   * one that reads it.
+   *
+   * What was measured, on the retiring change's base (a reading at that
+   * revision, ⛔ not a live count): a type-checker census over every package
+   * found no read of this member and no producer outside one test; a runtime
+   * probe through the real `SchemaRenderer` and registry rendered a `chatbot`
+   * node byte-for-byte the same with and without a full `floatingConfig`
+   * (a `placeholder` control moved the DOM, and the same config on a
+   * `chatbot-floating` node drew its title); and no document authored it on a
+   * `chatbot` node. The `chatbot` registration forwards only DOM-safe props,
+   * so the value never reached `<Chatbot>`, which has no trigger or panel to
+   * apply it to.
+   *
+   * Retired from THIS face only. {@link ChatbotFloatingSchema} does not
+   * inherit it: that face extends `Pick<ChatbotSchema, ChatbotSharedKey |
+   * 'maxToolRoundtrips'>` and declares its own `floatingConfig`, and its zod
+   * twin spreads the shared pick and mirrors the member itself — so no
+   * re-declaration was needed, and the floating face is untouched.
+   *
+   * A `?: never` tombstone and ⛔ not a deletion, by the discriminator stated
+   * on {@link ChatbotSchema.displayMode} above (cited, not restated): a deleted
+   * member on this {@link BaseSchema} carrier reads as `any` through the index
+   * signature, and this member's published comment advertised the floating
+   * configuration on the `chatbot` face. The zod twin refuses it by name.
+   *
+   * @deprecated Not a key `chatbot` reads — author `type: 'chatbot-floating'`
+   * with `floatingConfig`.
    */
-  floatingConfig?: FloatingChatbotConfig;
+  floatingConfig?: never;
   /**
    * REFUSED BY NAME (objectui#8572, ADR-0049) — the chat API's body params are
    * authored as `requestBody`, and `body` on this node means what it means on
@@ -1841,8 +1870,10 @@ export interface ChatbotEnhancedSchema
  *   - `enableMarkdown`, `enableFileUpload` and the `onClear` runtime slot,
  *     forwarded into the panel's `<ChatbotEnhanced>`;
  *   - `floatingConfig`, the trigger and panel geometry
- *     ({@link FloatingChatbotConfig}) — ALSO declared on {@link ChatbotSchema},
- *     unchanged there — and `displayMode`, a `?: never` tombstone on both
+ *     ({@link FloatingChatbotConfig}) — declared on THIS face alone since
+ *     objectui#6152 round 5 retired the `chatbot` face's copy, which that
+ *     registration never read (this face never inherited it: the `Pick` above
+ *     leaves it out) — and `displayMode`, a `?: never` tombstone on both
  *     faces since objectui#7654; see each member's comment.
  *
  * NOT declared, on purpose: `maxHeight` (the panel pins its inner chat to
@@ -1908,6 +1939,8 @@ export interface ChatbotFloatingSchema
   /**
    * Configuration for the floating action button and the panel it opens —
    * read by `chatbot-floating` alone and forwarded to `<FloatingChatbot>`.
+   * The one declaration of this geometry: {@link ChatbotSchema.floatingConfig}
+   * is a retirement tombstone since objectui#6152 round 5.
    */
   floatingConfig?: FloatingChatbotConfig;
   /**
@@ -2023,6 +2056,13 @@ export interface FloatingChatbotConfig {
    * registration never reads it — so on a `chatbot` node the refusal is still
    * type-level only. The paragraph above is the reading this retirement landed
    * on.
+   *
+   * ⚠️ AMENDED again by objectui#6152 round 5, which RETIRED
+   * `ChatbotSchema.floatingConfig` on both faces. A `chatbot` node now refuses
+   * the whole `floatingConfig` key — `triggerIcon` with it — at compile time and
+   * at parse time, so "type-level only" no longer holds anywhere: the one face
+   * that still declares this interface is `chatbot-floating`, where both halves
+   * of this refusal hold.
    *
    * ## Why a tombstone and not a deletion, with only the `tsc` channel available
    *

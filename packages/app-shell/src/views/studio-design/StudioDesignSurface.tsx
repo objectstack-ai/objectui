@@ -2248,6 +2248,8 @@ export function InterfacesPillar({
       return;
     }
     let cancelled = false;
+    // objectui#11331 — whether this run's load has settled (see the cleanup).
+    let settled = false;
     setLoading(true);
     setError(null);
     // A LEAF CHANGE no longer needs this — `selection` is keyed to the leaf and
@@ -2277,11 +2279,21 @@ export function InterfacesPillar({
       } catch (e) {
         if (!cancelled) setError(formatMetadataError(e));
       } finally {
+        settled = true;
         if (!cancelled) setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
+      // objectui#11331 — a load cancelled before it settled takes back what
+      // its start claimed. Its `finally` will not lower `loading`, and the next
+      // run may start no load at all (a leaf with no designer returns early
+      // above), which left the canvas on "Loading…" for good. A next run that
+      // does load raises the flag again in this same effect flush, so the two
+      // updates batch into one render; the `!draftLoaded` arm covers the new
+      // leaf either way. The Data and Automations pillars' loads follow the
+      // same rule.
+      if (!settled) setLoading(false);
     };
   }, [client, current, isEditable, publishNonce]);
 
@@ -3337,6 +3349,8 @@ export function DataPillar({
     if (loadedNameRef.current === loadKey) return;
     loadedNameRef.current = loadKey;
     let cancelled = false;
+    // objectui#11331 — whether this run's load has settled (see the cleanup).
+    let settled = false;
     setLoading(true);
     setError(null);
     setFieldSel(null);
@@ -3368,11 +3382,23 @@ export function DataPillar({
       } catch (e) {
         if (!cancelled) setError(formatMetadataError(e));
       } finally {
+        settled = true;
         if (!cancelled) setLoading(false);
       }
     })();
     return () => {
       cancelled = true;
+      // objectui#11331 — a load cancelled before it settled takes back what
+      // its start claimed, as in InterfacesPillar's draft load: `loading`, and
+      // here the load-once claim too. The cancelled load installed nothing, so
+      // a re-run for the same key (a new `client` while it was in flight) must
+      // load rather than bail as if it had, which left the object on
+      // "Loading…" for good. A load that settled keeps its claim, so a client
+      // change after it still never clobbers the draft being edited.
+      if (!settled) {
+        setLoading(false);
+        loadedNameRef.current = null;
+      }
     };
   }, [client, current, publishNonce]);
 
@@ -4478,6 +4504,8 @@ export function AutomationsPillar({
   React.useEffect(() => {
     if (!current) return;
     let cancelled = false;
+    // objectui#11331 — whether this run's load has settled (see the cleanup).
+    let settled = false;
     setLoading(true);
     setError(null);
     setSelection(null);
@@ -4498,6 +4526,7 @@ export function AutomationsPillar({
       } catch (e) {
         if (!cancelled) setError(formatMetadataError(e));
       } finally {
+        settled = true;
         if (!cancelled) {
           setLoading(false);
           setAutoDirty(false);
@@ -4506,6 +4535,9 @@ export function AutomationsPillar({
     })();
     return () => {
       cancelled = true;
+      // objectui#11331 — a load cancelled before it settled lowers the
+      // `loading` it raised, as in InterfacesPillar's draft load.
+      if (!settled) setLoading(false);
     };
   }, [client, current, publishNonce]);
 

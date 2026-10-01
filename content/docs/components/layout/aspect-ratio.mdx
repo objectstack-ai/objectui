@@ -26,6 +26,8 @@ set `image` for a photo, which is drawn to fill the box; otherwise the box rende
 `children`.
 
 ```ts
+import type { SchemaNode } from '@object-ui/types';
+
 interface AspectRatioSchema {
   type: 'aspect-ratio';
   ratio?: number;                  // Width / Height ratio (default: 16 / 9)

@@ -1535,10 +1535,15 @@ const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial()
  * declaration rather than a footnote to it.
  */
 const ObjectCalendarBlockConfigSchema = stripImportedDefaults(SpecCalendarConfigSchema).partial().extend({
-  // objectui-local, no spec counterpart — see objectui#8466 for the measurement
-  // and the lane. The renderer honours it in BOTH positions: this container and
-  // the flat member of the node.
-  allDayField: z.string().optional().describe("Field carrying the all-day flag — objectui-local: the spec's CalendarConfigSchema is a strict object of startDateField, endDateField, titleField and colorField, so it refuses this key as undeclared, exactly as it refuses any other. LOAD-BEARING since objectui#8026"),
+  // Through `@objectstack/spec` 17.4.0 this member was objectui-local (see
+  // objectui#8466 for that measurement). 17.5.0 declares `allDayField` on
+  // `CalendarConfigSchema` itself as `z.string().optional()`, so this extension
+  // now restates the spec's member with the SAME accept set: removing it would
+  // change nothing a parse decides (objectui#8831 reports that and leaves the
+  // removal to its own change). The renderer honours the key in BOTH
+  // positions: this container, which is where it is authored, and the flat
+  // member of the node, which is the runtime handoff.
+  allDayField: z.string().optional().describe('Field carrying the all-day flag. Declared by the spec\'s CalendarConfigSchema since 17.5.0, with the same accept set as this member. LOAD-BEARING since objectui#8026'),
   // ⭐ objectui#8355 — the same two spellings the view-level block above refuses,
   // and deliberately NOT the same string: `getCalendarConfig` reads this
   // container FIRST and returns it WHOLE, so a retired spelling here never
@@ -2398,6 +2403,23 @@ const OBJECT_CALENDAR_NEITHER_CHANNEL = neitherContentChannelGuidance(
 );
 
 /**
+ * objectui#8831 — ONE description for the five FLAT field-name members of
+ * `ObjectCalendarSchema`, so the five cannot teach five different things.
+ *
+ * The flat spelling is read, not authored. `@objectstack/spec` refuses all five
+ * at this element and its diagnostic names the canonical form,
+ * `calendar: { startDateField, endDateField, titleField, colorField, allDayField }`
+ * (one key per concept, its Prime Directive #12). The members stay declared
+ * because the renderer reads them: `ObjectView` and `ListView` emit this
+ * spelling on the node they build, and `getCalendarConfig` falls back to it
+ * when the node has no `calendar` block. ⛔ Declared is not a licence to author
+ * it; the description says where the key is written instead.
+ */
+function objectCalendarFlatField(what: string, key: string): string {
+  return `${what} — FLAT spelling, read but not authored: the runtime handoff ObjectView/ListView emit, read by getCalendarConfig only when the node has no calendar block. Author calendar.${key} instead; the spec refuses the flat key on object-calendar (Prime Directive #12)`;
+}
+
+/**
  * ObjectCalendar Schema
  *
  * `objectName` is OPTIONAL and the member ends in `requireRecordSource`
@@ -2458,9 +2480,16 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // requiredness as `../objectql.ts` (both optional) so the zod-mirror-parity
   // ratchet stays at zero drift for this pair, exactly as the `filter`/`sort`
   // and `colorField`/`allDayField` pairs below.
-  calendar: ObjectCalendarBlockConfigSchema.optional().describe('Calendar configuration container — startDateField, endDateField, titleField, colorField (plus objectui\'s allDayField); read FIRST by getCalendarConfig, ahead of the flat spelling'),
-  startDateField: z.string().optional().describe('Start date field'),
-  endDateField: z.string().optional().describe('End date field'),
+  //
+  // objectui#8831 — this container is the AUTHORED spelling of the five
+  // field-name keys. `ComponentPropsMap['object-calendar']` refuses them FLAT
+  // and its own diagnostic prescribes
+  // `calendar: { startDateField, endDateField, titleField, colorField, allDayField }`,
+  // so this description names the container as the place to write them, and
+  // the five flat members below describe themselves as the runtime handoff.
+  calendar: ObjectCalendarBlockConfigSchema.optional().describe('Calendar configuration container, and the AUTHORED spelling of the five field-name keys: startDateField, endDateField, titleField, colorField, allDayField. Read FIRST by getCalendarConfig, ahead of the flat members, which are the runtime handoff and not a second authorable spelling'),
+  startDateField: z.string().optional().describe(objectCalendarFlatField('Start date field', 'startDateField')),
+  endDateField: z.string().optional().describe(objectCalendarFlatField('End date field', 'endDateField')),
   // ⭐ objectui#8355 — the FLAT spelling the retired ladder actually read, and
   // the one position where an unrefused alias is worst: `BaseSchema` ends
   // `.passthrough()`, so the key was KEPT, carried into the renderer, and — with
@@ -2469,14 +2498,16 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // `?: never` twin and `tsc` refuses the key at the authoring site too.
   dateField: CalendarNodeDateAliasRefusals.dateField,
   endField: CalendarNodeDateAliasRefusals.endField,
-  titleField: z.string().optional().describe('Title field'),
+  titleField: z.string().optional().describe(objectCalendarFlatField('Title field', 'titleField')),
   // objectui#8466 — the last two members of the FLAT field-name face, which
-  // `ObjectCalendar.tsx`'s `getCalendarConfig` reads bare off the node and
-  // which `plugin-calendar/README.md` teaches as authorable. Neither published
-  // face of this package named them: they rode `BaseSchema`'s `[key: string]:
-  // any` on the TS side and its `.passthrough()` here — admitted, never
-  // examined, so a misspelling left the calendar silently colourless while
-  // every published gate passed.
+  // `ObjectCalendar.tsx`'s `getCalendarConfig` reads bare off the node. When
+  // that card landed, `plugin-calendar/README.md` taught them as authorable;
+  // since objectui#8831 it teaches the `calendar` container instead, and the
+  // flat members stay declared because the renderer still reads them. Neither
+  // published face of this package named them: they rode `BaseSchema`'s
+  // `[key: string]: any` on the TS side and its `.passthrough()` here —
+  // admitted, never examined, so a misspelling left the calendar silently
+  // colourless while every published gate passed.
   //
   // Mirrored at the SAME requiredness as `../objectql.ts` (both optional) so
   // the zod-mirror-parity ratchet stays at zero drift for this pair, exactly as
@@ -2486,11 +2517,14 @@ export const ObjectCalendarSchema = BaseSchema.extend({
   // that asymmetry is deliberate: `ComponentPropsMap['object-calendar']`
   // refuses all five flat keys with `unrecognized_keys`, so declaring them
   // THERE would redden the FORWARD direction of
-  // `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`. The flat
-  // face is objectui's own lane — `titleField`/`startDateField`/`endDateField`
-  // have shipped declared here, and absent from `inputs`, for releases.
-  colorField: z.string().optional().describe('Field carrying the per-record event colour — a CSS colour or a semantic palette name'),
-  allDayField: z.string().optional().describe("Field carrying the all-day flag — objectui-local: the spec's CalendarConfigSchema is a strict object of startDateField, endDateField, titleField and colorField, so it refuses this key as undeclared, exactly as it refuses any other. LOAD-BEARING since objectui#8026"),
+  // `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts`.
+  // `titleField`/`startDateField`/`endDateField` have shipped declared here, and
+  // absent from `inputs`, for releases. What the five declarations record is a
+  // READ, not an authoring lane (objectui#8831): `ObjectView`/`ListView` emit
+  // this spelling on the node they build, and `getCalendarConfig` falls back to
+  // it only when the node carries no `calendar` block.
+  colorField: z.string().optional().describe(objectCalendarFlatField('Field carrying the per-record event colour — a CSS colour or a semantic palette name', 'colorField')),
+  allDayField: z.string().optional().describe(objectCalendarFlatField('Field carrying the all-day flag, LOAD-BEARING since objectui#8026', 'allDayField')),
   defaultView: z.enum(['month', 'week', 'day']).optional().describe("Default view — 'month' | 'week' | 'day', the renderer's rendered set ('agenda' was retired)"),
   // objectui#8174 — the two query keys `ObjectCalendar.tsx` lowers onto its own
   // `dataSource.find` (`$filter: schema.filter`,

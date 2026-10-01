@@ -282,10 +282,10 @@ cannot paper over.
 
 Because the binding lands on `objectName`, a node bound this way needs no
 `objectName` of its own. The schema validator (`safeValidateSchema`, which
-`objectui validate` runs) counts the binding as the record source of `list-view`,
+`objectui validate` runs) counts the binding as a record source of `list-view`,
 `object-grid`, `object-kanban`, `object-calendar`, `object-gantt` and `object-map`,
-and still refuses one of those nodes that names its object in neither place, or
-binds an empty `object`.
+and still refuses one of those nodes that declares no other record source and names
+its object in neither place. A binding with an empty `object` names nothing.
 
 The two `element:*` rows keep their configuration in the node's `properties` bag,
 so the binding does not land on a schema key there: each reads it directly, and

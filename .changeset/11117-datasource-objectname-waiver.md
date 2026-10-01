@@ -4,10 +4,11 @@
 
 feat(types): a node bound through `dataSource.object` needs no `objectName` on the validator (objectui#11117)
 
-`safeValidateSchema` (and `objectui validate`, which runs it) refused every per-element binding
-the docs teach — `{ "type": "object-grid", "dataSource": { "object": "product", "limit": 20 } }`,
-the same on `list-view`, and `object-kanban`'s documented board — although each of those blocks
-renders it: their registrations are wrapped in `ElementDataSourceGate`, which lands the
+`safeValidateSchema` (and `objectui validate`, which runs it) refused the documented
+`object-grid`, `list-view` and `object-kanban` bindings —
+`{ "type": "object-grid", "dataSource": { "object": "product", "limit": 20 } }`, the same on
+`list-view`, and `object-kanban`'s documented board — although each of those blocks renders
+it: their registrations are wrapped in `ElementDataSourceGate`, which lands the
 binding's `object` on `objectName` before the renderer reads the node, and `@objectstack/spec`
 accepts the node as written. `object-grid` and `list-view` required `objectName`, and the
 record-source rule of `object-kanban`, `object-calendar`, `object-gantt` and `object-map` had no

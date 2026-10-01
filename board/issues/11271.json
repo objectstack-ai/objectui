@@ -1,0 +1,35 @@
+{
+  "number": 11271,
+  "kind": "pull_request",
+  "title": "feat(app-shell): Setup shows a time-triggered flow disabled by deployment policy with the platform's reason, not as a binding failure (objectui#9217)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-30T21:07:36Z",
+  "updated_at": "2026-09-30T21:45:36Z",
+  "closed_at": "2026-09-30T21:45:35Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-30T21:45:35Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11271",
+  "body": "Fixes #9217\nClause-②: no\n\nSetup › Packaged automation now shows the platform's reason for a packaged flow the engine has not armed. The sentence appears verbatim, in muted text, under the flow name. This is option **B** from the card's decision: the seat's answer is on the card, comment 5919298624.\n\n## Why\n\nThe page read only `name` and `enabled` from `GET /api/v1/automation/_status`. A time-triggered flow left unarmed by the deployment's scheduled-work switch (`OS_AUTOMATION_SCHEDULED_WORK_ENABLED` unset, the default in every posture) showed as a plain \"On\", the same as a flow that runs. A flow whose trigger failed to bind looked exactly the same. `@objectstack/spec` 17.5.0 now carries `FlowRuntimeState.reason`, and its contract says \"Consumers RENDER it; ⛔ do not parse it\".\n\n## What changed\n\n- `packagedFlows.ts`: `FlowRuntimeStateRow` declares `reason?: unknown`. `joinPackagedFlows` copies it onto the row only when it is a non-empty string. Otherwise the key is absent, the same way the engine omits it.\n- `PackagedAutomationPage.tsx`: a row with a `reason` renders it under the flow name as a muted paragraph (`text-muted-foreground`). There is no `role=alert` and no destructive class, and the text is never parsed or compared. A row without one renders exactly as before. The header's ADR-0126 §7.4 note gains one sentence recording the exception.\n- No dependency, no locale key and no copy of any platform sentence is added. The test file transcribes the platform's policy sentence as fixture text only, and it is byte-identical to `SCHEDULED_WORK_DISABLED_REASON` in `@objectstack/types` 17.5.0 (checked with a node equality against the installed package).\n- One changeset: `@object-ui/app-shell` minor.\n\n## Pins\n\n- `packagedFlows.test.ts`, describe \"the unbound reason (objectui#9217)\": a string reason passes through unchanged; the key is absent on rows that send none (older backend included); non-string or empty values (42, true, null, an object, an array, the empty string) are ignored.\n- `PackagedAutomationPage.test.tsx`, describe \"the platform reason for an unbound flow\": a policy row shows the platform sentence verbatim, muted, and not as an alert, with no \"binding failed\" wording added (acceptance ① and ③); a binding-failure row shows its own sentence the same way (acceptance ②); a row without a reason keeps exactly its old flow-cell text (bound, disabled and bare older-backend rows); a non-string reason is ignored.\n\n## Evidence (HEAD `d1a24b8fb`, every run after the final commit, heavy runs under `os-verify-lock`)\n\n- `pnpm exec vitest run --reporter=verbose packages/app-shell/src/views/setup/` gave `Test Files 5 passed (5)` and `Tests 65 passed (65)`.\n- **Ablation** (`ablation-replace.mjs`, WRAP mode). The reason paragraph was replaced with `null` (anchor 1 to 0, blob `3c9713a98d6a` to `6d25c6141bfd`). The page suite went to `Tests 2 failed | 12 passed (14)`. The two red tests are exactly the policy row and the binding-failure row; \"row without a reason\" and \"non-string reason\" stayed green. Restore was proven: the blob equals HEAD `3c9713a98d6a` and `git diff HEAD` is empty. The subject is imported from source, not from `dist`, so no dist preflight applies.\n- `turbo run build --filter='@object-ui/app-shell^...' --concurrency=2`: 28/28 tasks successful. Then `pnpm --filter @object-ui/app-shell type-check`, which runs `tsc --noEmit && tsc -p tsconfig.test.json`, exited 0 with 0 `error TS`. Both projects include the changed files; `tsconfig.test.json` lists both test files.\n- `pnpm exec eslint` on the 4 changed source/test files: 4 files linted, 0 errors, 0 warnings (counts from `--format json`).\n- `node scripts/check-changeset-presence.mjs`, `node scripts/check-control-bytes.mjs`, `pnpm check:new-line-citations` (0 new), `pnpm changeset:check`, `pnpm check:pending-changeset-literals` and `pnpm check:changeset-claims` all exited 0.\n- The diff adds a markdown changeset, so `node scripts/markdown-test-inputs.mjs --audit` was run (exit 0), and so was `pnpm exec vitest run scripts/__tests__/`: `Test Files 177 passed | 2 skipped (179)`, `Tests 5371 passed | 2 skipped (5373)`.\n- Not run locally: the i18n checks (no locale key and no `t()` call moved) and the full `pnpm test` / `pnpm lint` farm, which is left to CI.\n\n## Acceptance notes\n\n- **Premise, measured before any code.** Before this change the Setup page showed no binding state at all. A render probe fed it a policy row and a binding-failure row, both enabled, bound false and carrying a reason. Both rendered identically, as name, \"On\" and \"Clone\", with neither sentence and no alert. So a failure row gaining its platform sentence is new behaviour that acceptance ② asks for, not a regression. The seat's answer withdrew the dispatch's \"any other reason keeps today's rendering\" on that measurement.\n- **Not in this PR:** the Studio Automations rail's `FlowStatusDot` still titles every enabled unbound flow \"Enabled · no trigger (run manually)\", including a policy-unbound schedule flow. Its file, `StudioDesignSurface.tsx`, is held by objectui#11232. The seat has recorded the finding and will file it as a sub-issue of objectui#9217 once that file is free.\n\n---\n\n_Generated by [Claude Code](https://claude.ai/code/session_011p7ikEivgXefNDaE5S5Uec)_\n"
+}

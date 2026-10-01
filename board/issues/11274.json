@@ -1,0 +1,35 @@
+{
+  "number": 11274,
+  "kind": "pull_request",
+  "title": "fix(console): the docs portal's book sidebar keeps a doc placed by its own `group` key from outside the book's package (objectui#11245)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-30T21:23:44Z",
+  "updated_at": "2026-09-30T21:56:26Z",
+  "closed_at": "2026-09-30T21:56:25Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-09-30T21:56:25Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11274",
+  "body": "Fixes #11245\nClause-②: no\n\n## What\n\n`scopeDocsToBook` in `apps/console/src/pages/book-nav.ts` now keeps a doc whose own `group` names one of the book's group keys, whatever package the doc lives in. Everything else about the scoping step is unchanged. When the book declares a package, docs from other packages are still dropped before resolving, so they never reach the synthetic Uncategorized group or an `include` rule. `include` is still scoped by the local `resolveBookTree` port itself, to `group.package` or else the book's package. `resolveBookTree`, `homeBook` and the direct-route refusal are not touched. There is no new helper. `DocPage.tsx`, `BookPage.tsx` and `countBookDocs` pick up the fix through the helper they already call.\n\n## Why\n\nThe spec's `resolveBookTree` (`packages/spec/src/system/book.zod.ts` in objectstack, byte-identical at the `@objectstack/spec@17.5.0` tag this repo installs and on objectstack `main`) places a doc in a group by `d.group === group.key` with no package scope. `GET /meta/book/:name/tree` answers that resolver over every doc (`createMetaBookTreeAnswer` → `readableTree`, with `bookPackage = book._packageId`). The portal dropped the doc before resolving, so a doc an admin placed from the doc editor was listed by the endpoint and missing from the sidebar.\n\n## Measured (the order's Zone 2)\n\nThese readings come from a scratch suite that ran the port and the spec resolver on the same fixtures. The suite was not committed.\n\n1. **Red first.** Before the fix, through `scopeDocsToBook` → port, the book gave `start=[docprobe_gs_welcome] reference=[]`. The spec resolver on the endpoint's inputs gave `reference=[live_guide,probe_curl]`. After the fix the two agree.\n2. **The port's own scope. The PM's assumption is partly falsified.** With the scope passed and no pre-filter, the port matches the spec on the explicit-`group` leg. But neither the port nor the spec scopes the orphan catch-all. Both put another package's ungrouped doc into Uncategorized: `uncategorized=[other_note]` from each. So \"stop pre-filtering and pass the scope\" would break the ruled control. The fix therefore keeps the pre-filter and lets explicit members through it, as the ruling words it: \"`scopeDocsToBook` keeps any doc whose `group` names one of the book's group keys\". The portal's scoped Uncategorized is a deliberate, ruled narrowing of the endpoint's. The pins compare the **authored** groups with the spec's answer.\n3. **Group-level `package` override.** In both resolvers the override **replaces** the book's scope for that group's `include`; it does not add to it. Fixture: `own` gets only package a, `ext` gets package b through `include` plus c_1 through its own `group`. The portal's answer equals the spec's, and one pin holds it.\n4. **`homeBook` / `findBookContainingDoc`.** Nothing changes for a book that carries a stamped `packageId`. `homeBook` keeps only books of the doc's own package, and that package is already in scope for them. One edge case moves. The book must carry no stamped `packageId`, its name prefix must equal the doc's package, and its only package must be a group `package` override. If such a doc names one of that book's groups, it is now claimed by that book. `homeBook` then answers that book instead of the package's first book (the measured fixture moved from `q_other` to `q_manual`). That follows `homeBook`'s documented rule (the home is the book that claims the doc), and `homeBook` was not changed.\n\nDivergences beyond the explicit-`group` leg, reported and not widened:\n- **An unstamped doc under a scoped `include`.** The spec admits a doc with no `packageId` into any scoped `include`. The port falls back to the name prefix (`pkgOf`) and refuses it. Measured: port `all=[x_a]`, spec `all=[x_a,y_unstamped]`.\n- **A `pages` pin naming a doc from another package.** The pre-filter drops that doc's header, so the entry keeps its place but loses its label and description. Measured: port `{\"doc\":\"c_9\"}`, spec `{\"doc\":\"c_9\",\"label\":\"C9 Label\"}`.\n\n## Tests\n\n- `book-nav.explicitGroup-11245.test.ts`: the explicit member is listed in the group it names; the authored groups equal the spec resolver's answer (`@objectstack/spec/system`) for the same docs; `countBookDocs` counts it; the group-override case; control: another package's ungrouped doc, and one naming a key the book lacks, stay out, with no Uncategorized.\n- `docs-portal.explicitGroup-11245.test.tsx` renders through the real route table. The Reference group of the rendered sidebar links the placed doc, and marks it current when reading it. A book whose only member is placed that way opens to it instead of \"This book has no documents yet\". Control: another package's ungrouped doc is absent from the sidebar.\n- **Reverse verification**, run from the committed fix through `ablation-replace.mjs` with a disk-verified mutation and restore:\n  - Drop the explicit-member leg: 7 of the 9 new tests go red and both controls stay green.\n  - Drop the package filter entirely: both new controls go red, plus three existing `docs-portal.test.tsx` cases (that is the existing pin the triage names).\n  - Each restore was proven by blob equal to HEAD and an empty `git diff HEAD`.\n\nGate verdicts and the head they ran on are in the `os-dev-report` comment on the card.\n\n## Acceptance notes\n\n- `homeBook` edge case (reading 4 above): the canonical URL moves for a doc placed into an own-package book that has no stamped `packageId` and a group-level `package` override.\n- The two port divergences above: `pkgOf` falls back to the name prefix on an unstamped doc, and a `pages` pin from another package loses its label. Carrier: none.\n- A common group key such as `reference` places a doc in every book that has a group with that key. The spec resolver and the tree endpoint do the same; the pins do not cover it.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_0122Knsowci76D2rBWReCzzZ)_\n"
+}

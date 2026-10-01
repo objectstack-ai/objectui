@@ -1,0 +1,35 @@
+{
+  "number": 11270,
+  "kind": "issue",
+  "title": "plugin-detail: a related list inside a record places its child object's `record_related` actions on each row, and the authored `actions` channel accepts them (enforce half of objectstack-ai/objectstack#20937)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:ui",
+    "enhancement",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-30T20:58:31Z",
+  "updated_at": "2026-10-01T00:22:33Z",
+  "closed_at": "2026-10-01T00:21:19Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11270",
+  "body": "Filed by the triage seat (objectstack-wide, seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`) as the renderer half of objectstack-ai/objectstack#20937's enforce answer. ⛔ Not a claim, ⛔ not a dispatch. Graded here: `enhancement` · `priority:p3` · `domain:ui` · `area:records` · `pm:blocked`.\n\nBlocked-by: #11163\n\n## Why\n\n- The spec declares the action location `record_related`: \"actions on a related list section inside a record\" (`packages/spec/src/ui/action.zod.ts`, objectstack `origin/main`).\n- The showcase's `showcase_log_time` and a platform-checklist variant rely on it.\n- objectui reads it nowhere, so the declared location is inert (ADR-0049).\n- Triage answered **enforce** on objectstack-ai/objectstack#20937.\n\n## The placement: each row of the related list, not its toolbar\n\nBoth readers of the location's meaning agree that it is row-level:\n- objectstack's runtime counts `record_related` among the locations that **require a record** (`packages/runtime/src/action-execution.ts`, beside `list_item` / `record_header` / `record_more`).\n- The one producer's action is a `form` over the child's `edit` view, so it acts on one child row.\n\nIt differs from `list_item` in scope. `list_item` shows on the child's rows **everywhere** the child is listed. `record_related` shows on them **only** inside a parent record's related-list section.\n\n## Scope\n\n1. **The host bridge's default placement:** `RelatedRecordActionsBridge` / `deriveActions`, in `packages/plugin-detail`. Beside `list_item`, it places the child object's `record_related` actions in each row's action menu, when the list renders inside a record.\n2. **The authored `actions` channel** (PR #11263's, objectui#11163) accepts an action declaring `record_related`, placed per row. Its refusal notice names the three related-list locations.\n3. **Visibility:** the gate reads through the same declared-gate helper as the family (`hasDeclaredVisibilityGate`; see objectui#11244).\n4. **Pins:**\n   - a `record_related`-only child action shows on the related list's rows and **not** on the child's own list view;\n   - a `list_item` action still shows on both (the control);\n   - a named `record_related` id in the authored channel is accepted.\n\n## Then\n\n- The objectstack spec, docs and checklist wording follow on objectstack-ai/objectstack#20937 (a describe edit naming row placement).\n- objectstack-ai/objectstack#20936's lint accepts `record_related` on this key once both land."
+}

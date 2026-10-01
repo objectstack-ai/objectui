@@ -1,0 +1,31 @@
+{
+  "number": 11300,
+  "kind": "issue",
+  "title": "[Decision] objectui: a `flex` node at an objectstack page position: A bag only (rewrite the native corpus) / S page-node face for spec documents, native flat kept / C flat only (split from objectui#11276)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "domain:ui",
+    "needs-user-decision",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-01T00:53:38Z",
+  "updated_at": "2026-10-01T00:53:38Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11300",
+  "body": "由分诊席提交(objectstack-wide,席位帖 objectstack-ai/objectstack#6015,`session_01AavokzJ5DndAwitDXvKy4U`)。拆自 objectui#11276:该卡的普查止损线触发(`5922296377`,dev 报告 `5922247963`),`flex` 的走向需要维护者拍板。⛔ 不是认领,也不是派发。`object-chart` / `object-grid` 两项不等本卡,仍在 objectui#11276 里推进。\n\n## 一句话问题\n\nobjectstack 的页面文档里,`flex` 节点按 spec 把属性放进 `properties` 包;objectui 自己的文档和示例把属性直接写在节点上。`objectui validate` 该认哪一种?\n\n## 事实(已实测)\n\n- **spec 的规则:** `@objectstack/spec` 17.5.0 的 `PageComponentSchema` 对所有组件类型都是严格结构(ADR-0089 D3a)。它接受 showcase 的 16 个包写法 `flex` 节点,并点名拒绝扁平的 `direction` / `children`。也就是说,`os validate` 只认包。\n- **objectui 的现状:** `objectui validate` 只认扁平写法,所以拒绝这 16 个 spec 合法的节点。PR objectui#11069 计划切换到严格校验,这 16 个节点都算在它的「未通过」统计里。\n- **objectui 原生用量(普查):** 共 117 个非测试文件,其中没有一个是 spec 页面节点。\n  - 70 份 `examples/schema-catalog` 文档,共 248 个扁平节点;\n  - `layout.md`、`flex.mdx`、`@object-ui/types` 的 README 和示例;\n  - `@object-ui/core` 公开发布的 `flex()` 构造器。\n- **模拟收窄的结果:** 8 个测试文件、16 个测试变红,其中包括 objectui#6751 的钉子。该卡有一条分诊围栏:「flex 的键就在节点上……修复不是把属性改名进 properties」。\n- **先例:** `object-form` 已按包写法收口(PR objectui#11291,A)。但它的原生用量很小,`flex` 的原生用量大一个数量级。\n\n## 选项 × 真实代价\n\n| 选项 | 做什么 | 代价 |\n|---|---|---|\n| **A** 只认包 | `flex` 也只认 `properties` 包,扁平写法点名拒绝 | 改写全部原生文档、示例和 README(248+ 个节点);推翻 objectui#6751 的围栏;外部按 objectui 文档写的扁平 `flex` 全部失效 |\n| **S** 按文档种类分 | spec 页面文档里的节点用「页面节点」规则(只认包);objectui 原生文档继续用 `FlexSchema`(扁平) | 新增一个校验面,`objectui validate` 要能判断文档种类;每个位置仍只有一种写法 |\n| **C** 维持扁平 | `flex` 只认扁平 | 零改动;spec 合法的 objectstack 页面继续被 `objectui validate` 拒绝,两个验证器长期冲突 |\n\n## 业务直译\n\n- **A:** 把公司所有旧表格统一改成新格式,包括已经发给客户的模板。\n- **S:** 对外报表(objectstack 页面)用新格式,内部草稿(objectui 原生)保留旧格式;每份文件只有一种格式,系统按文件类型判断该用哪种。\n- **C:** 继续用旧格式,对外报表每次都会被退回。\n\n## 四轴\n\n1. **长远:** spec 是页面协议的唯一权威,objectstack 页面上的节点应以 spec 为准(C 违背这一点)。objectui 同时是通用渲染库,原生 schema 是它自己的协议。S 承认两种文档各有自己的权威,并且不会在同一位置出现两种写法。A 用一种写法统一一切,但要推翻已有围栏,并改写已发布的教学内容。\n2. **业务拉动:** 两边都有真实使用。showcase 的 16 个节点是 objectstack 自己的生产者;objectui 原生有 248 个节点,还有一个公开发布的构造器。\n3. **防 AI 犯错:** A 最统一。S 对 objectstack 作者是清楚的(他们只写页面文档,只有包写法),对 objectui 原生作者也不变。C 会让 AI 按 spec 写出的页面被 objectui 拒绝。\n4. **不扩散:** C 零改动;S 新增一个面,但不改原生资产;A 改动量最大。\n\n## 推荐\n\n**S;S 落地之前先按 C 维持现状。** 回退选 C。\n- 理由先看长远轴:页面节点以 spec 为准,同时不推翻 objectui 原生协议和 objectui#6751 的围栏。\n- **置信缺口:** `objectui validate` 现在能否可靠区分「spec 页面文档」和「objectui 原生文档」(比如按文件种类或顶层形状)还没有实测。如果区分不了,S 的成本会上升,届时回退到 C。\n- **自检:** 只看第 1 轴选 S。第 2、3、4 轴会翻转吗?第 2 轴两边都有真实拉动,支持 S;第 3 轴 A 略优,但不足以翻转;第 4 轴偏向 C,但 C 违背第 1 轴。结论:不翻转。\n\n## 裁后执行\n\n- **选 S:** 新开一张 objectui 卡:`objectui validate` 判断文档种类,spec 页面文档里的节点按页面节点规则(包)校验;原生文档不变,objectui#6751 的围栏保留。第一步先实测能否区分文档种类。\n- **选 A:** objectui#11276 扩展到 `flex`,带上全部原生文档迁移,并撤销 objectui#6751 的围栏;`flex()` 构造器的产出一并改为包写法。\n- **选 C:** 本卡以「维持现状」关闭。showcase 的 16 个节点在 objectui#11069 的统计里注明为「已裁定不收」。\n\n回复一行即可,例如 `flex S`。"
+}

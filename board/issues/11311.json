@@ -1,0 +1,30 @@
+{
+  "number": 11311,
+  "kind": "issue",
+  "title": "[PM seat] domain:skills @ objectui — 🟢 os-warren · session_01KTZmMfzVzjNvyaLyQ8mHvg · R1 in flight (#11183 #11011) · queue 3 · landed 0",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "pm:seat"
+  ],
+  "assignees": [
+    "os-warren"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-01T02:07:26Z",
+  "updated_at": "2026-10-01T02:22:23Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11311",
+  "body": "**This post is the single authoritative registration of the skills seat on objectui (`domain:skills @ objectui`, seat 1).** Four-section template; the job description is versioned at objectstack `.claude/skills/pm-dispatch/references/lanes/skills.md` — ⛔ not copied here. The same session holds the lane's objectstack seat (objectstack-ai/objectstack#7623); the two posts are one seat on two boards, each post carrying its own board's state. Body **r2**, written 2026-10-01T02:21Z at the R11 dispatch (r1 at seating, in the edit history).\n\n## Current PM\n\n🟢 **os-warren** · `session_01KTZmMfzVzjNvyaLyQ8mHvg` · seated 2026-10-01 ~02:00Z on the maintainer's order in that session, verbatim 「objecui 仓库的 skills你应该也要处理」(2026-10-01 ~01:15Z), after 「/pm-dispatch skills」 opened the objectstack seat on 2026-09-30.\n- **Write identity**: every content write goes through objectstack's `scripts/pm/` tools over the `fleet-write` relay with `--repo objectstack-ai/objectui`, stored as `objectstack-fleet[bot]`; the session ID is the attribution. Checkout for reads: `/home/user/objectui`.\n- **Served model** `claude-fable-5-1`; owed `## Contract review` records are rendered by an isolated at-tier subagent, the seat verifying the served model on each.\n- `batch` 3 across both boards, `mode:subagent`. Patrol: the objectstack seat's hourly Routine (`trig_014UfhpWroArwBsHBSK2YKPv`) reads this board on every fire.\n\n## Inherited + running ledger\n\n- **Landed on this board: 0.**\n- **In flight (R11, both `claude-fable-5-1`, Tier H):** **#11183** (claim 5923347428, branch `claude/issue-11183-action-node-properties-bag`; ranks at `pm:blocking` — objectui#5250 carries `Blocked-by: #11183`; lands before PR objectui#11069; #11198 does not ride it) · **#11011** (claim 5923408921, branch `claude/issue-11011-project-setup-objectview-mount`; serial-after PR objectui#11010 met, merged `ad0310fb5`).\n- **Queue now** (`pm:queue`, next batch in take-order): #11009 (p2, `bug`, `rules/protocol.md` 「Readers only.」; unlocked 02:10Z — #11008 closed; serial after #11183 on that file), #11256 (p2, `guides/schema-expressions.md` \"never blocks submit\"), #11198 (p3, `guides/app-composition.md` nav label; separate governed PR after #11183). Triage gap for the round report: #11183, #11256 and #11198 carry no `Path:` line.\n- **Decision box (this lane, this board): 0.**\n- **Cross-board**: objectstack#20395 (the objectstack half of ruling A on objectui#10887) is on the objectstack post.\n\n## Hot-file serial queue\n\n- `skills/objectui/guides/page-builder.md`, `skills/objectui/SKILL.md`, `skills/objectui/rules/protocol.md`, `AGENTS.md`, `content/docs/guide/{quick-start,record-edit-modes,schema-rendering,layout}.md`, `content/docs/plugins/plugin-detail.mdx`, `packages/plugin-detail/README.md` → **#11183** (in flight; then `rules/protocol.md` → #11009, queued).\n- `skills/objectui/guides/project-setup.md` → **#11011** (in flight).\n- `skills/objectui/guides/schema-expressions.md` → **#11256**.\n- `skills/objectui/guides/app-composition.md` → **#11198**.\n- Open PR objectui#11069 (`claude/issue-5250-strict-validate-wiring`, draft) touches `content/docs/guide/layout.md` and `schema-rendering.md`; #11183 lands first by its own order, #11069 merges `main` after.\n- Every other file of the lane: FREE.\n\n## Notes\n\n- **Landing on this board.** `skills/**`, `.claude/**`, `AGENTS.md`, `CLAUDE.md`, `docs/adr/**` are objectui's governed surfaces (AGENTS.md「受管面」): a PR touching any stays draft until an APPROVED review by `GOVERNED_APPROVERS` (`os-zhuang` / `hotlong`); then this seat lands it (ready + auto-merge → the merge queue). Only the queue lands anything (405 on a direct merge).\n- **Changesets on this board.** objectui has no `skip-changeset` label: a docs-only PR carries an empty-frontmatter changeset (review-checklist). ⛔ Never ask for or mint that label here.\n- **Deploy registration.** A merge to `main` publishes nothing by itself: npm publishing runs only through `changeset-release.yml`'s explicit publish lane (the `changeset-release/main` version PR, #5400); the published skills catalog ships by `npx skills add`, so a wrong `skills/**` line is installed elsewhere before anyone here reads it — the fable mandate for this surface (2026-09-10 ruling).\n- **Gates for `skills/**` edits**: `check:skills-paths`, `check:skill-examples`, `check:skill-eval-tokens` (their workflows trigger on `skills/**`), plus `lint.yml`'s roster and `check:new-line-citations` (differential; a card body is never a \"same file\"). Heavy verification shares the box with objectstack devs: build under `/home/user/objectstack/scripts/pm/os-verify-lock.sh`.\n- **Tooling home.** `scripts/pm/**` lives in objectstack; objectui carries none. Reads of this board go through REST with the session token; writes through the relay.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_\n"
+}

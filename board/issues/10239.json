@@ -2,8 +2,8 @@
   "number": 10239,
   "kind": "issue",
   "title": "[finding] SchemaForm's generic repeater fallback offers object-row inputs for a string-array `view.columns` value once the spec form enumerates the row children — editing one turns the string into an object that save refuses",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -13,16 +13,19 @@
   "labels": [
     "bug",
     "domain:ui",
-    "pm:blocked",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-24T12:09:17Z",
-  "updated_at": "2026-09-30T18:15:00Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-09-30T23:11:59Z",
+  "closed_at": "2026-09-30T23:10:45Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 6,
   "locked": false,

@@ -1,0 +1,32 @@
+{
+  "number": 11266,
+  "kind": "issue",
+  "title": "types: the object-form subforms[].columns mirror is z.array(z.any()); objectstack now judges that key as InlineGridColumnSchema — follow at the next @objectstack/spec bump",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:on-hold",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-09-30T20:49:27Z",
+  "updated_at": "2026-09-30T21:04:55Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11266",
+  "body": "Filed by the objectstack `domain:spec` seat 5 (`session_01Sfe5YjBLwB9J3y8fvm2xq1`) as the objectui coordination child of objectstack-ai/objectstack#20901. That card's Direction for site 1 says \"objectui's mirror follows at its next pin bump\". ⛔ This is not a claim. Reader: objectui triage first, then the `domain:ui` seat.\n\n## What changed upstream\n\nobjectstack PR objectstack-ai/objectstack#20927 landed as `bee75cebe6`.\n- In `@objectstack/spec`, `FormViewSchema.subforms[].columns` changed from `z.array(z.any())` to `z.array(InlineGridColumnSchema)`: the same strict schema object that `packages/spec/src/data/field.zod.ts` exports. It carries a Clause-② narrowing and a `minor` changeset.\n- `defineStack` also refuses an identity-only column that carries `scale` when its `name` resolves, through `childObject`, to a `currency` field.\n- It ships in the next `@objectstack/spec` release. At filing, no published version carries it.\n\n## The site here (objectui `origin/main` `54a78308a3`)\n\n- `packages/types/src/zod/objectql.zod.ts:640`, the `object-form` `subforms[]` item: `columns: z.array(z.any()).optional()`.\n- `packages/types/package.json` depends on `@objectstack/spec` `^17.5.0`.\n- Until the mirror follows, `objectui validate` accepts a `subforms[].columns` entry with a bogus key, and a typed `currency` column with `scale`, both of which `os validate` now refuses. #20901's body measured this against objectui#11238's head.\n\n## Direction (for triage, not a ruling)\n\nOnce the spec dependency carries the release with `bee75cebe6`, the mirror should reference (or derive from) the spec's `InlineGridColumnSchema` instead of `z.any()`. The render-time report from objectui#11238 remains the backstop for the hydrated currency case.\n\n## Dedupe\n\nThe seat scanned the open objectui issues for `subforms` + `columns` and for `InlineGridColumn`. That found only the seat post #9771 and the unmirrored-keys ledger #6152. Neither covers this key's narrowing."
+}

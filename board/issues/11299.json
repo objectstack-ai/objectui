@@ -1,0 +1,32 @@
+{
+  "number": 11299,
+  "kind": "issue",
+  "title": "layout,types: a nav entry's inline locale-map `label` (spec `I18nLabel`) is honoured only halfway: `objectui validate` refuses it, the renderer shows its `en` floor to every viewer, and three nav resolver props are inert after objectui#11201",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:i18n",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-01T00:50:23Z",
+  "updated_at": "2026-10-01T00:58:17Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11299",
+  "body": "Filing-gate category: ① a defect, class (b): a declared capability is not delivered. `reach:` a public door, measured. `safeValidateSchema`, the function `objectui validate` calls (`packages/cli/src/commands/validate.ts` imports it from `@object-ui/types/zod`), refuses `navigation[0].label = { en: 'Accounts', 'zh-CN': '客户' }` with \"Invalid input: expected string, received object\". `@objectstack/spec` 17.5.0 `NavigationItemSchema.safeParse` accepts the same entry. The control, a string label, passes both. This was measured at the function; the CLI binary was not run.\n\nReader who acts: triage first (grade and route), then the `domain:ui` seat.\n\nFiled by `domain:ui` seat 2 (`session_011p7ikEivgXefNDaE5S5Uec`). It is the one follow-up family card for PR objectui#11297 (objectui#11201, stage 2 of ruling B `5921167691`). It carries:\n- the dev report's two open questions (`5922299030`, Q1 and Q2);\n- its out-of-scope finding 1;\n- the contract review's additions (`5922460145` ③), which judged this disposition right.\n\n⛔ Not graded here.\n\nDedup: no card was found for a nav entry's map label, `NavigationEntryItem.label`, or the three nav resolver props.\n- Searched: the 1,000 most recently updated objectui issues and PRs (read through REST and grepped locally), plus the 40 newest.\n- Terms: `I18nLabel`, `locale map` (nav), `NavigationEntryItem`, `resolveObjectLabel`.\n\n## The declared capability\n\nThe spec's `BaseNavItemSchema.label` is `I18nLabel`: a string, or an inline locale map such as `{ en, 'zh-CN' }`. objectui honours it in three places, and differently in each.\n\n| face | at objectui `main` after PR objectui#11297 | state |\n|:--|:--|:--|\n| authoring door: `@object-ui/types` `NavigationEntryItem.label?: string`, and zod `NavigationItemObject.label: z.string().optional()` | refuses a map that the spec accepts | **measured** (`safeValidateSchema`) |\n| renderer: `NavigationRenderer` / `resolveNavItemLabel` | renders a map through the spec's `resolveI18nLabel` with **no locale**, so every viewer sees the `en` entry (then `default`, then any entry). The area labels above it in `UnifiedSidebar` resolve in the viewer's `language` | measured by PR objectui#11297's map pins (the no-locale default) |\n| props: `resolveObjectLabel`, `resolveDashboardLabel`, `resolveViewLabel` on `NavigationRendererProps`, and `resolveNavItemLabel`'s 2nd, 4th and 5th arguments | unread since the translate-if-equal arm was retired; kept as `@deprecated` no-ops because the ruling set \"no public prop change\" | read at source |\n\nAlso false after PR objectui#11297: the header comment of `packages/app-shell/src/views/nav-menu-renderer.tsx` (about `:38-39`) still promises \"the same convention-based object / view / dashboard i18n resolution the sidebar gets\". `UnifiedSidebar` and `nav-menu-renderer` still build the three resolvers that nothing reads.\n\n**Measured pull:** no readable app navigation writes a map-valued entry label. In objectstack `5f6b63a6f`, `label: {` appears only in translation bundles.\n\n## Questions for triage (options from the dev report and the review; not a ruling)\n\n**Q1: should the viewer's locale reach a map-valued entry label?**\n- A. An optional `locale` prop on `NavigationRenderer`, plus a trailing `locale` argument on `resolveNavItemLabel`. The console passes its active language: `UnifiedSidebar` (two mounts), `nav-menu-renderer`, `CommandPalette` and `SearchResultsPage`. `AppSchemaRenderer`'s areas could take the same prop. This is the route `resolveAreaLabel`'s docblock names. It adds one public prop: `Clause-② yes`, `minor`.\n- B. Keep the `en` floor, the area switcher's documented \"floor, not a ceiling\", and state it where nav labels are documented. No new surface.\n- C (the review's addition). Read the locale through `@object-ui/react`'s re-export of `useI18nContext`, a layout dependency, so no prop is needed. The cost is the coupling `resolveAreaLabel` documents as forbidden, and a split: the sidebar in the viewer's locale, the palette and search at `en`, unless the signature changes too.\n\n**Q2: retire the three inert resolver props and arguments?** A signature change to an exported function, `minor` with the break spelled out. The callers are three in-tree mounts and two tests. If done, it rides with Q1 A, which rewrites the same call sites, and it corrects `nav-menu-renderer`'s header comment.\n\n**Q3 (the measured defect): the authoring door.** `@object-ui/types`' nav entry `label` accepts the spec's `I18nLabel` (a string or an inline locale map), matching the spec, so `objectui validate` stops refusing a document `os validate` accepts. This is independent of Q1/Q2's answer, and it is the part that is a defect today.\n\n**Pins (whatever the answer):**\n- the map entry passes `safeValidateSchema` exactly as the spec's `safeParse` does, with a string-label control;\n- the renderer's map row under the chosen locale rule;\n- if Q2 is taken, the props are gone from the public type and the header comment is true.\n\nDedupe words: `nav label locale map` · `NavigationEntryItem label string` · `objectui validate navigation label` · `I18nLabel nav entry` · `resolveObjectLabel deprecated` · `nav-menu-renderer convention comment`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

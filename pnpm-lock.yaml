@@ -1750,6 +1750,9 @@ importers:
       '@object-ui/types':
         specifier: workspace:*
         version: link:../types
+      '@objectstack/spec':
+        specifier: ^17.5.0
+        version: 17.5.0(ai@7.0.65(zod@4.6.5))
       lucide-react:
         specifier: ^1.43.0
         version: 1.43.0(react@19.2.8)
@@ -1766,9 +1769,6 @@ importers:
       '@object-ui/test-support':
         specifier: workspace:*
         version: link:../test-support
-      '@objectstack/spec':
-        specifier: ^17.0.0
-        version: 17.5.0(ai@7.0.65(zod@4.6.5))
       '@types/react-grid-layout':
         specifier: ^2.1.0
         version: 2.1.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
@@ -2059,7 +2059,7 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^17.0.0
+        specifier: ^17.5.0
         version: 17.5.0(ai@7.0.65(zod@4.6.5))
       lucide-react:
         specifier: ^1.43.0

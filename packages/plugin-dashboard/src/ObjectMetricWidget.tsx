@@ -18,6 +18,7 @@ import {
   pickLocalized,
 } from '@object-ui/i18n';
 import { formatCurrency } from '@object-ui/fields';
+import { resolveFieldScale } from '@objectstack/spec/data';
 import { MetricWidget } from './MetricWidget';
 import { DrillDownDrawer } from './DrillDownDrawer';
 import {
@@ -78,6 +79,30 @@ function answersInFieldUnit(fn: string | undefined): boolean {
     Object.prototype.hasOwnProperty.call(ANSWERS_IN_FIELD_UNIT, fn) &&
     ANSWERS_IN_FIELD_UNIT[fn as TileAggregateFunction]
   );
+}
+
+/**
+ * The numeral pattern `MetricWidget` reads a fixed width of `width` decimal
+ * places from: `'0,0'`, `'0,0.00'`, and with `percent` the same pattern ending
+ * in `%`. The tile's formatter takes its width from the pattern alone, so this
+ * is how a width resolved here reaches it.
+ */
+function widthPattern(width: number, percent: boolean): string {
+  return `0,0${width > 0 ? `.${'0'.repeat(width)}` : ''}${percent ? '%' : ''}`;
+}
+
+/**
+ * The decimal places `value` carries in its own shortest spelling, exponent
+ * included (`1e-7` counts seven). The same reading `plugin-grid`'s column
+ * footer takes of each value in `widestFractionDigits`, over one value, and
+ * capped at 20 for the same reason: the most a no-fixed-width list cell
+ * renders.
+ */
+function ownFractionDigits(value: number): number {
+  const [mantissa, exponent] = String(value).split('e');
+  const point = mantissa.indexOf('.');
+  const fraction = point === -1 ? 0 : mantissa.length - point - 1;
+  return Math.min(Math.max(fraction - (exponent ? Number(exponent) : 0), 0), 20);
 }
 
 /**
@@ -282,13 +307,52 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // Derive format/currency from the field metadata when the dashboard config
   // doesn't override them. A currency field has no pattern here: its amount is
   // rendered by the list cell's formatter below (`tileValue`).
+  //
+  // objectui#11254 (ruling A′ on objectstack-ai/objectstack#19628): a
+  // `percent` or `number` aggregate is shown at the field's WIDTH, read through
+  // `resolveFieldScale` from `@objectstack/spec/data` — the declared `scale`
+  // when it is well-formed, otherwise the protocol's own answer for the type.
+  // The list cell, the detail chip, the grid footer and the edit widget ask
+  // the same function, so a `percent` declaring `scale: 2` reads `12.34%` here
+  // as it does in the cell, and a declared `number` keeps its decimals. This
+  // memo used to infer `'0,0%'` / `'0,0'` from the TYPE alone, so a `number`
+  // declaring `scale: 2` whose average is 3.75 showed `4`.
+  //
+  // `percent` has an absent-width row, so it always gets a number. `number`
+  // has none: with no declaration it has no fixed width, and A′ rounds a
+  // COMPUTED result to the widest decimal count among the values that entered
+  // it, ⛔ never to a constant. This tile reads a server aggregate, not its
+  // inputs:
+  //  - a `min` / `max` IS one of those inputs, so its own decimal count is
+  //    that reading, and the grid footer prints the same bytes over the same
+  //    rows. With `invert`, the values that entered `1 - v` are `1` and `v`,
+  //    so the width is still `v`'s, read before the inversion;
+  //  - a `sum` / `avg` needs the inputs' widths, and the aggregate answer
+  //    carries none: `AnalyticsResultResponseSchema`'s column metadata in
+  //    `@objectstack/spec/api` has no width member. Every reading that would
+  //    honour A′ there needs the query or the spec to report one, so this arm
+  //    keeps the whole-number pattern it already had, and the question is
+  //    returned on objectui#11254 rather than answered here.
   const inferredFormat = useMemo(() => {
     if (format) return format;
     if (!valueFieldDef || !fieldUnitApplies) return undefined;
-    if (valueFieldDef.type === 'percent') return '0,0%';
-    if (valueFieldDef.type === 'number' || valueFieldDef.type === 'integer') return '0,0';
-    return undefined;
-  }, [format, valueFieldDef, fieldUnitApplies]);
+    const type = valueFieldDef.type;
+    const percent = type === 'percent';
+    if (!percent && type !== 'number' && type !== 'integer') return undefined;
+    const width = resolveFieldScale({ type, scale: valueFieldDef.scale });
+    if (width !== undefined) return widthPattern(width, percent);
+    const fn = aggregate?.function;
+    if (fn === 'min' || fn === 'max') {
+      const entered =
+        typeof fetchedValue === 'number'
+          ? fetchedValue
+          : typeof fetchedValue === 'string' && fetchedValue.trim() !== ''
+            ? Number(fetchedValue)
+            : NaN;
+      if (Number.isFinite(entered)) return widthPattern(ownFractionDigits(entered), false);
+    }
+    return '0,0';
+  }, [format, valueFieldDef, fieldUnitApplies, aggregate?.function, fetchedValue]);
 
   // Tenant default currency (localization.currency, ADR-0053) backstops a
   // currency field that declares no explicit code of its own.

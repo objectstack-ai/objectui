@@ -4,7 +4,7 @@
 
 `element:text` takes the nine `variant` values `ui:text` publishes (`h1`-`h6`, `body`, `caption`, `overline`) and renders each one the way `ui:text` does (objectui#7450).
 
-`@objectstack/spec` 17.5.0 widened `ElementTextPropsSchema.variant` to those nine, plus the two spellings it already accepted (`heading`, `subheading`). This renderer still declared and drew only its old four, so `h1`-`h6` and `overline` rendered as a body paragraph, and the html tier refused `h1`, `h4`-`h6` and `overline` with `invalid-enum`, which fails the whole page.
+`@objectstack/spec` 17.5.0 widened `ElementTextPropsSchema.variant` to those nine, plus the two spellings it already accepted (`heading`, `subheading`). This renderer still declared and drew only its old four, so `h1`-`h6` and `overline` rendered as a body paragraph, and the html tier refused all seven of them (`h1`-`h6` and `overline`) with `invalid-enum`, which fails the whole page.
 
 - `h1`-`h6` render the heading element they name, with `ui:text`'s class for that level.
 - `body`, `caption` and `overline` take `ui:text`'s class and render a paragraph (`<p>`), the block element `element:text` has always used for them. `body` and `caption` render exactly as before.

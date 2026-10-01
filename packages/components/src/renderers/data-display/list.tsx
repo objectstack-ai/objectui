@@ -23,15 +23,13 @@ ComponentRegistry.register('list',
     // Default styles for ordered/unordered
     const listStyle = schema.ordered ? "list-decimal" : "list-disc";
 
+    // ⛔ No `title` heading (objectui#11347). `ListSchema` declares no `title`,
+    // the installed `@objectstack/spec` has no row for `list`, and no catalog
+    // entry, example, doc page or README authors one, so the read that drew an
+    // `h3` from it rode `BaseSchema`'s index signature alone and was retired.
     return (
       <div className={cn("space-y-2", schema.wrapperClass)}>
-        {schema.title && (
-          <h3 className="text-lg font-semibold tracking-tight">
-             {schema.title}
-          </h3>
-        )}
-        
-        <ListTag 
+        <ListTag
           className={cn(
             "ml-6 [&>li]:mt-2",
             listStyle,
@@ -52,7 +50,6 @@ ComponentRegistry.register('list',
     namespace: 'ui',
     label: 'List',
     inputs: [
-      { name: 'title', type: 'string' },
       { name: 'ordered', type: 'boolean' },
       { 
         name: 'items', 

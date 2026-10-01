@@ -190,14 +190,14 @@ export const ListSchema = BaseSchema.extend({
   dividers: z.boolean().optional().describe('Show dividers between items'),
   dense: z.boolean().optional().describe('Dense spacing'),
   wrapperClass: z.string().optional()
-    .describe('Classes on the wrapper div around the title and the list — merged with the base `space-y-2` (objectui#7722)'),
+    .describe('Classes on the wrapper div around the list — merged with the base `space-y-2` (objectui#7722)'),
   body: retirementTombstone(
     'REFUSED (objectui#9256, ADR-0049) — `list` reads NEITHER content channel: measured with the '
     + 'TypeScript type checker over one program built from the repo-root tsconfig on a BUILT tree, no '
     + 'renderer read consumes `body` or `children` for this node, and `SchemaRenderer` strips both out '
     + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no render-time error or '
     + 'warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `bind`, `items`, `ordered`, `title`, `wrapperClass`. '
+    + 'What it renders instead: `bind`, `items`, `ordered`, `wrapperClass`. '
     + 'The ITEM channel is a different key and stays live: each entry is drawn from its `content` '
     + '(`renderChildren(item.content)`), a read filed under ListItem and not under this node. '
     + '`ui:list` is the measured SOLE owner of the bare `list` key (`view:list` passes `skipFallback: true`); '
@@ -209,7 +209,7 @@ export const ListSchema = BaseSchema.extend({
     + 'renderer read consumes `body` or `children` for this node, and `SchemaRenderer` strips both out '
     + 'of the props bag it spreads. An authored value therefore rendered NOTHING — no render-time error or '
     + 'warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it. '
-    + 'What it renders instead: `bind`, `items`, `ordered`, `title`, `wrapperClass`. '
+    + 'What it renders instead: `bind`, `items`, `ordered`, `wrapperClass`. '
     + 'The ITEM channel is a different key and stays live: each entry is drawn from its `content` '
     + '(`renderChildren(item.content)`), a read filed under ListItem and not under this node. '
     + '`ui:list` is the measured SOLE owner of the bare `list` key (`view:list` passes `skipFallback: true`); '

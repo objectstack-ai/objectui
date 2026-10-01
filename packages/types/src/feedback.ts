@@ -23,7 +23,12 @@ import type { BaseSchema, SchemaNode } from './base.js';
 export interface LoadingSchema extends BaseSchema {
   type: 'loading';
   /**
-   * Loading text/message
+   * Loading text/message, drawn under the spinner.
+   *
+   * READ SITE: `packages/components/src/renderers/feedback/loading.tsx`, which
+   * draws `schema.label` in a `p` under the spinner. Inert until objectui#11347:
+   * the renderer read an undeclared `text` instead, which no producer
+   * authored, so the read moved to this declared spelling with no alias.
    */
   label?: string;
   /**
@@ -52,7 +57,9 @@ export interface LoadingSchema extends BaseSchema {
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
    * `fullscreen`, `size`, `text` (in
-   * `packages/components/src/renderers/feedback/loading.tsx`).
+   * `packages/components/src/renderers/feedback/loading.tsx`). The undeclared
+   * `text` read has since moved to the declared {@link LoadingSchema.label}
+   * (objectui#11347).
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -78,7 +85,9 @@ export interface LoadingSchema extends BaseSchema {
    * scores. Every read is filed under the TYPE of the object it is read from;
    * this declaration carries none. What the renderer DOES read off this node:
    * `fullscreen`, `size`, `text` (in
-   * `packages/components/src/renderers/feedback/loading.tsx`).
+   * `packages/components/src/renderers/feedback/loading.tsx`). The undeclared
+   * `text` read has since moved to the declared {@link LoadingSchema.label}
+   * (objectui#11347).
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here

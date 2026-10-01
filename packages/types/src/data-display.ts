@@ -305,9 +305,9 @@ export interface ListSchema extends BaseSchema {
    */
   dense?: boolean;
   /**
-   * Classes on the wrapper `div` around the title and the list.
+   * Classes on the wrapper `div` around the list.
    *
-   * READ SITE: `packages/components/src/renderers/data-display/list.tsx:27` —
+   * READ SITE: `packages/components/src/renderers/data-display/list.tsx` —
    * `cn("space-y-2", schema.wrapperClass)`. Undeclared until
    * objectui#7722, surviving only on `BaseSchema`'s index signature: the same
    * key, on the same class of read, that `CheckboxSchema` (`b74a8598d`),
@@ -328,6 +328,8 @@ export interface ListSchema extends BaseSchema {
    * from; this declaration carries none. What the renderer DOES read off this
    * node, from the same instrument: `bind`, `items`, `ordered`, `title`,
    * `wrapperClass` (in `packages/components/src/renderers/data-display/list.tsx`).
+   * `title` has since been retired there (objectui#11347): it was never a
+   * member here and no producer authored it.
    *
    * ⭐ THE ITEM CHANNEL IS A DIFFERENT KEY AND STAYS LIVE. That renderer draws
    * each entry from its `content` (`renderChildren(item.content)`) — a read filed
@@ -375,6 +377,8 @@ export interface ListSchema extends BaseSchema {
    * from; this declaration carries none. What the renderer DOES read off this
    * node, from the same instrument: `bind`, `items`, `ordered`, `title`,
    * `wrapperClass` (in `packages/components/src/renderers/data-display/list.tsx`).
+   * `title` has since been retired there (objectui#11347): it was never a
+   * member here and no producer authored it.
    *
    * ⭐ THE ITEM CHANNEL IS A DIFFERENT KEY AND STAYS LIVE. That renderer draws
    * each entry from its `content` (`renderChildren(item.content)`) — a read filed

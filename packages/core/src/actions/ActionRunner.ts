@@ -1033,8 +1033,10 @@ function rowCarries(rowRecord: Record<string, unknown>, field: string): boolean 
  * Both read {@link hasDeclaredPredicate} — the repo's one definition of that
  * question, in `evaluator/declaredPredicate.ts` beside the normalizer it is
  * derived from, with the scope objectui#3850 ruled on (`''` / whitespace-only /
- * empty-`source` envelope / non-predicate junk are NOT declared; a declared
- * `false` IS). This gate arrived here first as a module-private helper with a
+ * empty-`source` envelope are NOT declared; a declared `false` IS) and the
+ * third state objectui#11358 added (a present value with no evaluable `source`
+ * — `0`, `{}`, an array, an `ast`-only envelope — IS declared, and faults).
+ * This gate arrived here first as a module-private helper with a
  * scope note saying it stayed private until that ruling landed; it has, so the
  * definition moved down a layer and the renderer side reads the same one
  * (`components/renderers/action/visibility-gate.ts` re-exports it as
@@ -1068,9 +1070,15 @@ function rowCarries(rowRecord: Record<string, unknown>, field: string): boolean 
  * historical `Boolean(raw)` coercion, so `0` there meant "hidden" — fail-CLOSED
  * on junk, the opposite of what this module committed to for `disabled`
  * (`catch { isDisabled = false }`). That filter now reads
- * {@link hasDeclaredPredicate} too (objectui#3957), so a value that is not a
- * predicate at all decides nothing on either key, at either entry: `0` / `{}` are
- * "no gate" here, in the engine filter, and in the shared definition.
+ * {@link hasDeclaredPredicate} too (objectui#3957), so the two entries answer
+ * a value that is not a predicate at all the same way. Since objectui#11358
+ * that answer is "declared, and faulting" rather than "no gate": `0` / `{}` /
+ * an `ast`-only envelope reach `evaluateCondition`, which reports them and
+ * answers its fail-soft `true` — so `disabled` refuses the action (its closed
+ * direction, as for any faulting `disabled`) and `condition` lets it run (the
+ * direction a faulting `condition` has always taken), and the engine filter
+ * hides it (`throwOnError`). Pinned in `ActionRunner.disabledGate.test.ts` /
+ * `ActionRunner.conditionGate.test.ts`.
  */
 
 export class ActionRunner {

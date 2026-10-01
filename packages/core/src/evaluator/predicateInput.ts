@@ -6,11 +6,15 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import { isUnevaluablePredicate } from './unevaluablePredicate.js';
+
 /**
  * The normalized shape {@link ExpressionEvaluator.evaluateCondition} consumes:
  * a boolean (short-circuits), a `${…}` template string (legacy JS path), a
  * `{ dialect: 'cel', source }` envelope (canonical `@objectstack/formula`
- * path), or `undefined` for "no predicate declared".
+ * path), `undefined` for "no predicate declared", or a `cel` envelope with NO
+ * `source` for a gate that is declared but cannot be evaluated — which the
+ * evaluator treats as a fault, never as "absent" (objectui#11358).
  *
  * ## Why not `PredicateInput` (objectstack#4115 / objectui#3074)
  *
@@ -25,7 +29,8 @@
  * admits `boolean` and the `${…}` template spelling (neither of which the spec
  * models as a predicate), narrows `dialect` to `cel` alone (every other dialect
  * has already been flattened onto the legacy path by `toPredicateInput`),
- * requires a non-empty `source`, and carries no `ast` / `meta`. The two unions
+ * requires a non-empty `source` (or none at all, for the declared-but-
+ * unevaluable state), and carries no `ast` / `meta`. The two unions
  * are not mutually assignable in either direction.
  *
  * The rename is pinned from both sides by the tripwire in
@@ -38,7 +43,31 @@ export type EvaluatorPredicateInput =
   | string
   | boolean
   | { dialect: 'cel'; source: string }
+  | { readonly dialect: 'cel'; readonly source?: undefined }
   | undefined;
+
+/**
+ * The normalized answer for a gate that is DECLARED but has nothing the client
+ * can evaluate (objectui#11358) — the fourth member of
+ * {@link EvaluatorPredicateInput}, a `cel` envelope with no `source`.
+ *
+ * It exists so the normalizer can tell three states apart instead of two.
+ * `undefined` is "absent" and evaluates to `true` (visible / enabled) by the
+ * evaluator's one documented default; this value is "declared and faulting"
+ * and `ExpressionEvaluator.evaluateCondition` treats it as a FAULT — reported,
+ * thrown to a `throwOnError` caller, and answered with the fail-soft `true`
+ * otherwise — so every reader gets the fail direction its key already has for
+ * a predicate that cannot be evaluated. Folding it into `undefined`, as this
+ * function did, made an `ast`-only envelope, `0`, `{}` or an array read as
+ * "no gate" everywhere, in silence (ADR-0137 D4).
+ *
+ * Shape, not a marker: it says what the evaluator receives — a CEL predicate
+ * (a bare predicate is CEL by the spec's contract) whose `source` is absent —
+ * and carries nothing of the original value, so no reader can guess what an
+ * `ast` meant. Frozen and shared, so a reader's memo sees one value per state.
+ */
+const DECLARED_UNEVALUABLE: { readonly dialect: 'cel'; readonly source?: undefined } =
+  Object.freeze({ dialect: 'cel' as const });
 
 /**
  * Wrap a BARE expression as a `${…}` template, and leave a string that already
@@ -65,8 +94,13 @@ function wrapIfBare(expression: string): string {
  *     authored predicate, including bare strings) → a `cel` dialect keeps
  *     its envelope; every other dialect is unwrapped and wrapped as
  *     `${source}`.
- *   - `null` / `undefined` / empty / anything else → `undefined`
- *     (default visible/enabled).
+ *   - `null` / `undefined` / `''` / an envelope whose `source` is `''` →
+ *     `undefined` (absent: default visible/enabled).
+ *   - anything else that is present — an envelope with no string `source`
+ *     (`{ dialect: 'cel', ast }`), a number, `{}`, an array → the frozen
+ *     `{ dialect: 'cel' }` with no `source`: declared, and a FAULT to the
+ *     evaluator (objectui#11358 — see `DECLARED_UNEVALUABLE` above). This used
+ *     to fold into `undefined` with the absent shapes.
  *
  * ## Why the `cel` envelope must survive normalization (#2661 / #3314)
  *
@@ -146,6 +180,9 @@ export function toPredicateInput(value: unknown): EvaluatorPredicateInput {
   if (value === null || value === undefined || value === '') return undefined;
   if (typeof value === 'boolean') return value;
   if (typeof value === 'string') return wrapIfBare(value);
+  // Declared, but nothing here can be evaluated (objectui#11358): kept as its
+  // own state rather than folded into "absent". See `DECLARED_UNEVALUABLE`.
+  if (isUnevaluablePredicate(value)) return DECLARED_UNEVALUABLE;
   if (typeof value === 'object' && typeof (value as { source?: unknown }).source === 'string') {
     const src = (value as { source: string }).source;
     if (!src) return undefined;
@@ -156,5 +193,7 @@ export function toPredicateInput(value: unknown): EvaluatorPredicateInput {
     // Every other dialect (template / unset) keeps the legacy `${…}` behavior.
     return wrapIfBare(src);
   }
+  // Unreachable: every present value is a boolean, a string, an envelope with a
+  // string `source`, or unevaluable — all answered above. Kept for the compiler.
   return undefined;
 }

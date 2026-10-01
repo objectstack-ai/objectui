@@ -18,6 +18,7 @@
 
 import type { BaseSchema } from '@object-ui/types';
 import { hasDeclaredPredicate } from '../evaluator/declaredPredicate.js';
+import { isUnevaluablePredicate } from '../evaluator/unevaluablePredicate.js';
 
 /**
  * One issue found while walking an ObjectUI schema TREE — `path` locates the
@@ -84,7 +85,8 @@ export interface SchemaNodeValidationResult {
  * same value — which is the defect class this rule was already an instance of.
  * The delegation is behavioural, so it is pinned behaviourally: the drift pin in
  * `__tests__/predicate-valued-gate-rules.test.ts` asserts this rule's verdict
- * equals `boolean || hasDeclaredPredicate(value)` across every probe.
+ * equals `boolean || (declared && !unevaluable)` across every probe — the second
+ * half since objectui#11358, see below.
  *
  * ## Why the boolean arm survives even though it is subsumed
  *
@@ -97,19 +99,32 @@ export interface SchemaNodeValidationResult {
  *
  * ## What it still REFUSES (the half that is not negotiable)
  *
- * Everything `hasDeclaredPredicate` calls junk: a number, `null`, `{}`, an
- * array, `''`, whitespace-only predicate text, and the empty / blank-`source`
- * envelope (objectui#3960). Every one of those was refused before this change
- * too — the accept set widens and nothing refused becomes accepted. Dropping
- * the two keys from this table was the option this fix was explicitly forbidden
- * to take: an absent rule reports nothing at all, which is gate weakening
- * wearing the same green.
+ * `null`, `''`, whitespace-only predicate text and the empty / blank-`source`
+ * envelope (objectui#3960) — what `hasDeclaredPredicate` calls "not declared" —
+ * and a value that IS declared but cannot be evaluated: a number, `{}`, an
+ * array, an envelope with no string `source` (`isUnevaluablePredicate`).
+ * Every one of those was refused before this change too — the accept set
+ * widens and nothing refused becomes accepted. Dropping the two keys from this
+ * table was the option this fix was explicitly forbidden to take: an absent
+ * rule reports nothing at all, which is gate weakening wearing the same green.
+ *
+ * ## Why "declared" alone stopped being this rule's answer (objectui#11358)
+ *
+ * Until objectui#11358 every declared gate was also an evaluable one, so
+ * "declared" answered both questions. That ruling made a present value with no
+ * evaluable `source` DECLARED (and faulting) so that the runtime fails it in
+ * its key's fault direction instead of reading it as no gate — and this rule
+ * asks a different question, "is this a predicate the runtime can evaluate?".
+ * Reading `hasDeclaredPredicate` alone would have widened the accept set to
+ * exactly the shapes that ruling exists to stop. So the rule refuses the
+ * unevaluable state by the same internal definition the runtime uses for it,
+ * not by a list written here.
  */
 function predicateGateRule(key: 'visible' | 'disabled') {
   return {
     required: false,
     validate: (value: unknown): boolean =>
-      typeof value === 'boolean' || hasDeclaredPredicate(value),
+      typeof value === 'boolean' || (!isUnevaluablePredicate(value) && hasDeclaredPredicate(value)),
     message:
       `${key} must be a boolean or a declared predicate: an expression string ` +
       `(bare, e.g. "record.stage == 'closed'", or the "\${...}" template ` +

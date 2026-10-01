@@ -91,16 +91,45 @@ export function isBlankPredicateText(value: unknown): boolean {
  *     authored predicate into an envelope, so "author left the predicate empty"
  *     compiles to exactly this, which makes it the likeliest empty shape in real
  *     metadata (objectui#3850).
- *   - anything that is not a predicate at all (`0`, `{}`, an array): a value the
- *     evaluator cannot read must not be the reason a control is disabled or an
- *     action refuses to run. Fail-open on junk, which is the posture
- *     `ActionRunner` already committed to (`catch { isDisabled = false }`).
  *
  * The three BLANK shapes above (`''`, whitespace-only text, and an envelope
  * whose `source` is blank) are still folded to "not declared" — that is the
  * verdict — but no longer in silence: each is reported once (objectui#8069,
- * ADR-0137 D4), see {@link reportBlankGate}. `null` / `undefined` (no key) and
- * junk are not blank TEXT and stay silent: nothing was declared there to report.
+ * ADR-0137 D4), see {@link reportBlankGate}. `null` / `undefined` (no key) is
+ * not blank TEXT and stays silent: nothing was declared there to report.
+ *
+ * ## What is DECLARED although nothing in it can be evaluated (objectui#11358)
+ *
+ * A value that is present but is not a predicate the client can evaluate — an
+ * envelope with no string `source` (the `ast`-only `{ dialect: 'cel', ast }` an
+ * unmirrored authoring door admits), a number (`0`), an object with no `source`
+ * (`{}`), an array — IS a declared gate. Triage's ruling on objectui#11358:
+ * "declared and faulting", "reported once per predicate", and the action
+ * "hides". It used to be the fifth "nothing to evaluate" shape here, answered
+ * "not declared" in silence, so a bulk action gated that way ran over every
+ * selected record and the toolbars and row menu showed it to everyone.
+ *
+ * This function's CODE did not change for it: the normalizer did.
+ * {@link toPredicateInput} no longer folds such a value into `undefined`; it
+ * returns a `cel` envelope with no `source`, so `toPredicateInput(x) !==
+ * undefined` — the line below — answers "declared", and the derivation this
+ * definition rests on still holds with no second list. The state is told apart
+ * in one place, `isUnevaluablePredicate` (`./unevaluablePredicate.ts`).
+ *
+ * What a reader then DOES with it is the evaluation step's, not this
+ * function's: `ExpressionEvaluator.evaluateCondition` and `evalFieldPredicate`
+ * treat it as a FAULT, so each reader answers with the fail direction its key
+ * already has for a predicate that cannot be evaluated, and reports it there,
+ * once — through `evalFieldPredicate`'s report with the `[unevaluable]` reason,
+ * or through the caller's own fault report. That is why this function reports
+ * nothing for it: a declared gate always goes on to an evaluation, and two
+ * reports for one fault is the noise objectstack-ai/objectstack#5149 removed.
+ * On every action `visible` leg that direction is CLOSED (objectui#11212), on
+ * every `disabled` leg too (objectui#11242), and the hide-polarity `hidden` /
+ * `hiddenOn` legs of `SchemaRenderer` answer "hidden". The keys whose fault
+ * direction is OPEN keep it — a `condition` still lets the action run, a
+ * legacy `enabled` leaves the control enabled, an action param's `visible`
+ * still shows the param — now diagnosed rather than silent.
  *
  * A declared-and-`false` gate is DECLARED (`toPredicateInput` returns the
  * boolean unchanged): `disabled: false` / `visible: false` are verdicts, and

@@ -79,6 +79,7 @@ import { subjectPermissionsOf } from './subjectPermissions.js';
 import type { Expression } from '@objectstack/spec';
 
 import { isBlankPredicateText } from './declaredPredicate.js';
+import { isUnevaluablePredicate, UNEVALUABLE_PREDICATE_REASON } from './unevaluablePredicate.js';
 
 /** A field-rule predicate as authored in metadata. */
 export type FieldRulePredicate = string | { dialect?: string; source: string };
@@ -258,6 +259,15 @@ export function evalFieldPredicate(
     // this question (objectui#3960) — a fourth local `trim()` here is exactly
     // the drift it was consolidated to stop.
     reason = BLANK_PREDICATE_REASON;
+  } else if (isUnevaluablePredicate(pred)) {
+    // Declared, and nothing here can be evaluated: an envelope with no string
+    // `source` (an `ast`-only one), a number, `{}`, an array (objectui#11358).
+    // Answered here, beside the blank, for the blank's reasons: there is no
+    // `source` to hand the engine, and the engine's answer for one —
+    // `AST-only evaluation not yet supported; persist \`source\`` — was what
+    // a `0` reported too, which sends its author looking for a serializer.
+    // One reason, one tag, the same two channels.
+    reason = UNEVALUABLE_PREDICATE_REASON;
   } else {
     try {
       // objectui#4421 — the acting subject's effective object permissions, the

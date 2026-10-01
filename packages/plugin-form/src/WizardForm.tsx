@@ -14,7 +14,7 @@
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
-import type { FormField, DataSource, ObjectFormSchema } from '@object-ui/types';
+import type { FormField, FormSchema, DataSource, ObjectFormSchema } from '@object-ui/types';
 import { Button, cn, toast } from '@object-ui/components';
 import { AlertCircle, Check, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { resolveFieldRuleState, evalFieldPredicate, isMissingForRequired, isServerOwnedValue } from '@object-ui/core';
@@ -1209,6 +1209,44 @@ export const WizardForm: React.FC<WizardFormProps> = ({
   const stepGridColumns = clampCol(schema.columns) ?? clampCol(currentSection?.columns) ?? 1;
   const stepFieldContainerClass = containerGridColsFor(stepGridColumns);
 
+  // The current step's child `form` node, typed as the node it is
+  // (objectui#11354). `SchemaRenderer`'s `schema` slot is `BaseSchema`, so a
+  // literal written inline there was checked against `BaseSchema`, not
+  // against the `FormSchema` the `form` renderer reads. Rendered only while
+  // the step has a section with fields (below).
+  const stepFormSchema: FormSchema = {
+    type: 'form',
+    objectName: schema.objectName,
+    id: stepFormId,
+    // Multi-column on the field container inside the form, not a
+    // grid around the whole form (which leaves columns empty).
+    //
+    // Grid width: the form view's own `columns` first (spec
+    // FormView.columns — it was being dropped, so a view that
+    // declared 3 columns rendered single-column here while the same
+    // metadata gave 3 in a modal), else this step's own `columns`.
+    // Unlike the tabbed/split hosts there is no widest-section
+    // fallback: wizard steps never share a viewport, so there is no
+    // shared grid to size, and each step keeps its authored width.
+    fields: stepGridColumns > 1
+      ? applyAutoColSpan(currentSectionFields, stepGridColumns, clampCol(currentSection?.columns))
+      : currentSectionFields,
+    columns: stepGridColumns,
+    ...(stepFieldContainerClass ? { fieldContainerClass: stepFieldContainerClass } : {}),
+    layout: 'vertical',
+    defaultValues: formData,
+    // Persisted record → `previous` binding + read-only submit
+    // strip (#3484). Never `formData`: that already carries the
+    // answers from earlier steps.
+    previousValues: schema.mode === 'edit' ? persistedRecord : undefined,
+    showSubmit: false,
+    showCancel: false,
+    onSubmit: handleStepSubmit,
+    // The step form's dirtiness feeds the bus gate above
+    // (objectui#10715); the wizard adds its own unsaved steps.
+    onDirtyChange: handleStepDirtyChange,
+  };
+
   return (
     // `@container`: the step's field grid is sized with container queries
     // (`@md:grid-cols-2` …), which need a container ancestor to resolve against —
@@ -1327,41 +1365,7 @@ export const WizardForm: React.FC<WizardFormProps> = ({
             gridClassName={currentSection.gridClassName}
           >
             {currentSectionFields.length > 0 ? (
-              <SchemaRenderer
-                key={resetNonce}
-                schema={{
-                  type: 'form' as const,
-                  objectName: schema.objectName,
-                  id: stepFormId,
-                  // Multi-column on the field container inside the form, not a
-                  // grid around the whole form (which leaves columns empty).
-                  //
-                  // Grid width: the form view's own `columns` first (spec
-                  // FormView.columns — it was being dropped, so a view that
-                  // declared 3 columns rendered single-column here while the same
-                  // metadata gave 3 in a modal), else this step's own `columns`.
-                  // Unlike the tabbed/split hosts there is no widest-section
-                  // fallback: wizard steps never share a viewport, so there is no
-                  // shared grid to size, and each step keeps its authored width.
-                  fields: stepGridColumns > 1
-                    ? applyAutoColSpan(currentSectionFields, stepGridColumns, clampCol(currentSection.columns))
-                    : currentSectionFields,
-                  columns: stepGridColumns,
-                  ...(stepFieldContainerClass ? { fieldContainerClass: stepFieldContainerClass } : {}),
-                  layout: 'vertical' as const,
-                  defaultValues: formData,
-                  // Persisted record → `previous` binding + read-only submit
-                  // strip (#3484). Never `formData`: that already carries the
-                  // answers from earlier steps.
-                  previousValues: schema.mode === 'edit' ? persistedRecord : undefined,
-                  showSubmit: false,
-                  showCancel: false,
-                  onSubmit: handleStepSubmit,
-                  // The step form's dirtiness feeds the bus gate above
-                  // (objectui#10715); the wizard adds its own unsaved steps.
-                  onDirtyChange: handleStepDirtyChange,
-                }}
-              />
+              <SchemaRenderer key={resetNonce} schema={stepFormSchema} />
             ) : (
               // A step can legitimately have NO inputs — a final "Review"/confirm
               // step is the canonical case (this component's own usage example

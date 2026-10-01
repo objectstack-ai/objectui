@@ -24,7 +24,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import type { FormField, DataSource, ObjectFormSchema } from '@object-ui/types';
+import type { FormField, FormSchema, DataSource, ObjectFormSchema } from '@object-ui/types';
 import { cn, toast } from '@object-ui/components';
 import { SchemaRenderer, useSafeFieldLabel } from '@object-ui/react';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
@@ -541,6 +541,46 @@ export const SplitForm: React.FC<SplitFormProps> = ({
     }))
     .filter((pane) => pane.fields.length > 0);
 
+  // The child `form` node, typed as the node it is (objectui#11354).
+  // `SchemaRenderer`'s `schema` slot is `BaseSchema`, so a literal written
+  // inline there was checked against `BaseSchema`, not against the
+  // `FormSchema` the `form` renderer reads.
+  const splitFormSchema: FormSchema = {
+    type: 'form',
+    objectName: schema.objectName,
+    // Every pane's fields, in one list, for the one form instance. The
+    // panes below claim them back by name for layout only.
+    fields: panes.flatMap((pane) => pane.fields),
+    columns: formColumns,
+    ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
+    layout: 'vertical',
+    defaultValues: formData,
+    // Persisted record → `previous` binding + read-only submit strip (#3484).
+    previousValues: schema.mode === 'edit' && schema.recordId ? formData : undefined,
+    // While an upload is in flight the button says so, the same answer
+    // ActionParamDialog gives its Confirm (objectui#10166).
+    submitLabel: uploadGate.uploading
+      ? uploadGate.busyLabel
+      : schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update')),
+    cancelLabel: schema.cancelText,
+    showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
+    showCancel: schema.showCancel !== false,
+    onSubmit: handleSubmit,
+    onCancel: handleCancel,
+    // The renderer's dirtiness feeds the bus gate above (objectui#10715).
+    onDirtyChange: handleDirtyChange,
+    // A single pane is not a split — the renderer then falls back to a
+    // plain field list rather than a one-panel resizable group.
+    fieldPanes: panes.map((pane) => ({
+      key: pane.key,
+      fields: pane.fields.map((f) => f.name),
+      defaultSize: pane.defaultSize,
+      ...(pane.containerClass ? { containerClass: pane.containerClass } : {}),
+    })),
+    fieldPanesOrientation: direction,
+    fieldPanesResizable: schema.splitResizable !== false,
+  };
+
   return (
     <UploadGateProvider gate={uploadGate}>
     <div className={cn('w-full @container', className, schema.className)}>
@@ -556,43 +596,7 @@ export const SplitForm: React.FC<SplitFormProps> = ({
         objectName={schema.objectName}
         objectSchema={objectSchema}
       />
-      <SchemaRenderer
-        schema={{
-          type: 'form' as const,
-          objectName: schema.objectName,
-          // Every pane's fields, in one list, for the one form instance. The
-          // panes below claim them back by name for layout only.
-          fields: panes.flatMap((pane) => pane.fields),
-          columns: formColumns,
-          ...(containerFieldClass ? { fieldContainerClass: containerFieldClass } : {}),
-          layout: 'vertical' as const,
-          defaultValues: formData,
-          // Persisted record → `previous` binding + read-only submit strip (#3484).
-          previousValues: schema.mode === 'edit' && schema.recordId ? formData : undefined,
-          // While an upload is in flight the button says so, the same answer
-          // ActionParamDialog gives its Confirm (objectui#10166).
-          submitLabel: uploadGate.uploading
-            ? uploadGate.busyLabel
-            : schema.submitText || (schema.mode === 'create' ? t('form.create') : t('form.update')),
-          cancelLabel: schema.cancelText,
-          showSubmit: schema.showSubmit !== false && schema.mode !== 'view',
-          showCancel: schema.showCancel !== false,
-          onSubmit: handleSubmit,
-          onCancel: handleCancel,
-          // The renderer's dirtiness feeds the bus gate above (objectui#10715).
-          onDirtyChange: handleDirtyChange,
-          // A single pane is not a split — the renderer then falls back to a
-          // plain field list rather than a one-panel resizable group.
-          fieldPanes: panes.map((pane) => ({
-            key: pane.key,
-            fields: pane.fields.map((f) => f.name),
-            defaultSize: pane.defaultSize,
-            ...(pane.containerClass ? { containerClass: pane.containerClass } : {}),
-          })),
-          fieldPanesOrientation: direction,
-          fieldPanesResizable: schema.splitResizable !== false,
-        }}
-      />
+      <SchemaRenderer schema={splitFormSchema} />
       <UploadInFlightNotice gate={uploadGate} />
       {conflictDialog}
     </div>

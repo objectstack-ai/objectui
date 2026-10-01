@@ -40,6 +40,19 @@ import React, { useState } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { PageVariablesProvider, usePageVariables } from '../hooks/usePageVariables';
+import type { BaseSchema } from '@object-ui/types';
+import type { PageComponent } from '@objectstack/spec/ui';
+
+/**
+ * A node authoring `responsiveStyles` inline (objectui#11349), typed by
+ * reference to the spec row that declares it (`PageComponentSchema`).
+ * `BaseSchema` declares the key on no arm this test uses. The literal is
+ * checked against this node rather than against the `BaseSchema` the `schema`
+ * prop accepts, so the key stays checked once objectui#8347 removes
+ * `BaseSchema`'s index signature.
+ */
+type ScopedStyleNode = BaseSchema & Pick<PageComponent, 'responsiveStyles'>;
+const scopedStyleNode = (schema: ScopedStyleNode): ScopedStyleNode => schema;
 
 /** One capture per probe render: the exact `schema` object it was handed. */
 interface Capture {
@@ -240,11 +253,11 @@ describe('SchemaRenderer scoped-style schema identity (objectui#6270)', () => {
       try {
         render(
           <SchemaRenderer
-            schema={{
+            schema={scopedStyleNode({
               type: 'self-updating-probe',
               id: 'selfscoped',
               responsiveStyles: { large: { padding: '8px' } },
-            }}
+            })}
           />
         );
 

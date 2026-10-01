@@ -187,9 +187,16 @@ describe('objectui#11299 — a map-valued entry label renders the viewer’s lan
     </I18nProvider>
   );
 
+  // By the block's own data attribute, not by its accessible name: `nav:menu`
+  // localizes that name too ("应用导航" under zh-CN).
+  const localizedSurfaces = () => [
+    screen.getByRole('navigation', { name: 'Sidebar' }),
+    document.querySelector<HTMLElement>('nav[data-block="nav:menu"]')!,
+  ];
+
   it('under zh-CN both surfaces show the zh-CN entry', () => {
     render(inLanguage('zh-CN'));
-    for (const surface of surfaces()) {
+    for (const surface of localizedSurfaces()) {
       expect(within(surface).getByRole('link', { name: '联系人' })).toHaveAttribute('href', '/apps/crm/contact');
       expect(within(surface).queryByText('Contacts')).toBeNull();
     }
@@ -197,7 +204,7 @@ describe('objectui#11299 — a map-valued entry label renders the viewer’s lan
 
   it('under en both surfaces show the en entry', () => {
     render(inLanguage('en'));
-    for (const surface of surfaces()) {
+    for (const surface of localizedSurfaces()) {
       expect(within(surface).getByRole('link', { name: 'Contacts' })).toHaveAttribute('href', '/apps/crm/contact');
       expect(within(surface).queryByText('联系人')).toBeNull();
     }

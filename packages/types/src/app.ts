@@ -586,6 +586,27 @@ export interface AppComponentSchema extends BaseSchema, Omit<SpecApp, (typeof AP
   favicon?: never;
 
   /**
+   * ⛔ REFUSED BY NAME (objectui#11363). The mobile navigation mode is not a
+   * key of the app document. Set the `mobileNavMode` prop of
+   * `AppSchemaRenderer` (`@object-ui/layout`), or the `mobileNavMode` key of an
+   * `app-schema-renderer` node: `'drawer'` (the default) or `'bottom_nav'`.
+   *
+   * `@objectstack/spec`'s `AppSchema` never declared it and refuses it
+   * (`unrecognized_keys`), and `AppSchemaRenderer` reads only its prop, so a
+   * document carrying the key drew no bottom bar and said nothing. Before this
+   * member the key reached this type only as `any`, through `BaseSchema`'s
+   * index signature.
+   *
+   * A tombstone rather than an absent key, for the reason `logo` above gives.
+   * `?: never` is the twin of `zod/app.zod.ts`'s `retirementTombstone` arm; the
+   * pin is `__tests__/app-mobile-nav-mode-refusal-11363.test.ts`.
+   *
+   * @deprecated Not a key of this contract. Set the `AppSchemaRenderer` prop or
+   * the `app-schema-renderer` node key.
+   */
+  mobileNavMode?: never;
+
+  /**
    * Branding configuration
    */
   branding?: BrandingConfig;

@@ -104,8 +104,11 @@ const CASES: Record<string, Case> = {
     // (objectui#10842) are local REFUSALS, not capabilities: each is declared
     // only so an authored value is refused by name instead of kept in silence
     // by `.passthrough()`. `logo` and `favicon` were second spellings of the
-    // spec's `branding.logo` and `branding.favicon`.
-    local: ['title', 'logo', 'favicon', 'layout', 'menu', 'actions'],
+    // spec's `branding.logo` and `branding.favicon`. `mobileNavMode`
+    // (objectui#11363) is a refusal of the same kind: the spec refuses it, and
+    // the mode is read only from `AppSchemaRenderer`'s prop or an
+    // `app-schema-renderer` node, never from this document.
+    local: ['title', 'logo', 'favicon', 'mobileNavMode', 'layout', 'menu', 'actions'],
   },
   Dashboard: {
     spec: SpecDashboardSchema,

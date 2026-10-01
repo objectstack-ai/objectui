@@ -600,6 +600,34 @@ const APP_ACTIONS_REFUSAL =
   + 'not to app metadata.';
 
 /**
+ * The `mobileNavMode` REFUSAL on the app document (objectui#11363). The mode is
+ * read in exactly two places, and the app document is neither: the
+ * `mobileNavMode` prop of `AppSchemaRenderer` (`@object-ui/layout`), and the
+ * `mobileNavMode` key of an `app-schema-renderer` node, which `SchemaRenderer`
+ * hands to that component as the prop and `sdui-parser` checks against the
+ * registration's enum. `@objectstack/spec`'s strict `AppSchema` refuses the key
+ * (`unrecognized_keys`, with no alias), and `AppSchemaRenderer` never reads it
+ * from `schema`, so before this arm `BaseSchema`'s `.passthrough()` kept it here
+ * unread, a misspelt value included, and the shell drew no bottom bar.
+ *
+ * `retirementTombstone`, NOT the `aliasKeyRefusal` that `logo` / `favicon` use:
+ * that helper composes "Did you mean `mobileNavMode` → CANONICAL?", and no member
+ * of this document means a mobile navigation mode. The remedy is a different
+ * channel, not a sibling spelling, so the alias sentence could only say
+ * something untrue (the reasoning `MenuItemSchema.shortcut` records). Same
+ * `z.never` primitive, same `invalid_type` at the key's own path. The guidance
+ * opens with the sentence the spec answers this key with, so both doors lead
+ * with one answer. The TS twin is `mobileNavMode?: never` in `../app.ts`; the
+ * pin is `../__tests__/app-mobile-nav-mode-refusal-11363.test.ts`.
+ */
+const APP_MOBILE_NAV_MODE_REFUSAL =
+  'Unrecognized key(s) on this app: `mobileNavMode`. The mobile navigation mode is not a key of the '
+  + 'app document (objectui#11363): `@objectstack/spec`\'s `AppSchema` refuses it, and `AppSchemaRenderer` '
+  + 'never reads it from the document. Set it where it is read: the `mobileNavMode` prop of '
+  + '`AppSchemaRenderer` (`@object-ui/layout`), or the `mobileNavMode` key of an `app-schema-renderer` '
+  + 'node, which `sdui-parser` checks against `\'drawer\'` | `\'bottom_nav\'`.';
+
+/**
  * App Schema — the objectui app-shell renderer node, derived from
  * `@objectstack/spec/ui` `AppSchema` (see {@link SpecAppFields}). The drift
  * guard is `__tests__/page-app-dashboard-spec-parity.test.ts`.
@@ -636,6 +664,9 @@ export const AppComponentSchema = BaseSchema.extend(SpecAppFields.shape).extend(
     + '(objectui#10842): write `branding: { favicon: \'/favicon.ico\' }`. The top-level `favicon` was an '
     + 'objectui-only second spelling that the platform refuses, and the console reads only `branding.favicon`.',
   ),
+  // Not a key of the app document; the reason and the remedy are on
+  // `APP_MOBILE_NAV_MODE_REFUSAL` above.
+  mobileNavMode: retirementTombstone(APP_MOBILE_NAV_MODE_REFUSAL),
   layout: z.enum(['sidebar', 'header', 'empty']).optional().describe('Global layout strategy'),
   menu: z.array(MenuItemSchema).optional().describe('Legacy navigation menu (deprecated, use navigation)'),
   navigation: z.array(NavigationItemSchema).optional().describe('Unified navigation tree'),

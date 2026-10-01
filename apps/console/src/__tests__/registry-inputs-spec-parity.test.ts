@@ -760,7 +760,7 @@ const OBJECTUI_11111_LEDGER_CAPS = {
   unjudgedBlocks: 4, // objectui#11168: object-gantt, object-map, object-timeline, object-tree
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
   unpublishedKeys: 3, // objectui#11168: 3 (action:button endpoint + undoable, action:icon endpoint); objectui#8652: 0 and objectui#8649: 0 (each struck by its landing)
-  refusedArms: 1, // objectui#11168: object-form (slice 2 narrowed element:definition-list.columns)
+  refusedArms: 0, // objectui#11168: slice 2 narrowed element:definition-list.columns, slice 3 object-form.layout
   memberPins: 0, // objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3
 } as const;
 
@@ -1991,11 +1991,15 @@ const OFF_SPEC_ARM_EXEMPTIONS: Record<string, string> = {
    * declares and the renderer compares (`props.columns === 2`); the strings it
    * declared before drew one column. The pin is
    * `packages/components/src/renderers/basic/__tests__/element-list-inputs-11168.test.tsx`.
+   *
+   * objectui#11168 slice 3 took the last entry, `object-form.layout:enum`, the
+   * same way, and with it objectui#7759 group C: the enum is `vertical` /
+   * `horizontal`, the two the spec row declares. Measured through the real
+   * `SchemaRenderer`, `inline` and `grid` rendered byte-identical to
+   * `vertical`, so nothing that rendered is lost. The pin is
+   * `packages/plugin-form/src/__tests__/objectFormLayout-11168.test.tsx`.
+   * The map is EMPTY again.
    */
-  'object-form.layout:enum': OWED_TO(
-    'objectui#11168',
-    'A REFUSED ARM: `object-form.layout` declares the members `inline` and `grid`, which the 17.5.0 contract refuses.',
-  ),
 };
 
 // ── the MEMBER direction (objectui#8067) ─────────────────────────────────────
@@ -5615,6 +5619,6 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
           reasons.filter((reason) => reason.startsWith(`${OWED_PREFIX}${owner}.`)).length,
         ]),
       ),
-    ).toEqual({ 'objectui#11168': 8, 'objectui#8652': 0, 'objectui#8649': 0 });
+    ).toEqual({ 'objectui#11168': 7, 'objectui#8652': 0, 'objectui#8649': 0 });
   });
 });

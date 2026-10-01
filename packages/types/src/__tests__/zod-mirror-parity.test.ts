@@ -560,8 +560,13 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **4 entries** in `WiderThanDeclared`, **4 keys** across them, and **4 arms**
- *     under those keys — split **2** SCHEMA-NODE, **2** CONCRETE, **0** MIXED, **0** unions.
+ *   - **3 entries** in `WiderThanDeclared`, **3 keys** across them, and **3 arms**
+ *     under those keys — split **2** SCHEMA-NODE, **1** CONCRETE, **0** MIXED, **0** unions.
+ *     It read 4 / 4 / 4 — 2 / 2 / 0 / 0 — until objectui#11168 slice 3 (objectui#7759
+ *     group C) narrowed `form.zod.ts#FormSchema`'s `layout` to the `vertical` /
+ *     `horizontal` its declaration states: `@objectstack/spec` 17.5.0 retired `grid`, and
+ *     the renderer drew it as `vertical`. The entry, its one key and its one CONCRETE arm
+ *     LEFT together.
  *     It read 3 / 3 / 3 — 2 / 1 / 0 / 0 — until objectui#11117 waived
  *     `objectql.zod.ts#ObjectGridSchema`'s `objectName` on the mirror beside a
  *     `dataSource.object` binding while the TypeScript twin kept it required: the entry,
@@ -3744,16 +3749,14 @@ interface WiderThanDeclared {
   // fourth. ⛔ Do not re-add them for the class labels they carried (F,
   // "inline shape against a named declaration"; D, "disjoint") — a row this
   // ledger records must be a measured widening.
-  /**
-   * CONCRETE. `layout` is the clearest single instance in this ledger: the mirror
-   * is `z.enum(['vertical', 'horizontal', 'grid'])` and the declaration states the
-   * first two, so the third spelling parses green and `tsc` refuses it. (`fields`
-   * left under objectui#7759 group E: its wider reading was the nested `z.function()`
-   * arms of `FormFieldSchema`, not the element shape. `mode`, the disjoint key
-   * objectui#5927 left in `KnownDrift`, LEFT under objectui#10286: retired on both
-   * faces under the objectui#7759 ruling's D1-(ii).)
-   */
-  'form.zod.ts#FormSchema': 'layout';
+  // `form.zod.ts#FormSchema` LEFT this ledger WHOLE under objectui#11168 slice 3
+  // (objectui#7759 group C). Its last key was `layout`, CONCRETE: the mirror was
+  // `z.enum(['vertical', 'horizontal', 'grid'])` while the declaration stated the
+  // first two. `@objectstack/spec` 17.5.0 retired `grid` (and `inline`) from the
+  // form layout enum, the `form` renderer reads only `layout === 'horizontal'` —
+  // measured, `grid` drew exactly what `vertical` draws — so the mirror narrowed to
+  // the declaration's two and the entry would be STALE if it stayed. (`fields` left
+  // under objectui#7759 group E; `mode` under objectui#10286.)
   // `form.zod.ts#SliderSchema` recorded `defaultValue` and `value` here (CONCRETE, the class
   // objectui#7069 was filed for: a single-or-list mirror against a list-only declaration).
   // objectui#10280 (objectui#7759 group B) resolved both by the read site, per the director's
@@ -3930,7 +3933,6 @@ const WIDER_ARM_ROW_SEPARATOR = '::';
 
 const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'app.zod.ts#AppComponentSchema::areas': ['SCHEMA-NODE'],
-  'form.zod.ts#FormSchema::layout': ['CONCRETE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
   'objectql.zod.ts#ObjectGridSchema::objectName': ['CONCRETE'],
 };

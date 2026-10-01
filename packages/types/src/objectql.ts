@@ -151,6 +151,9 @@ import type {
   // local symbol under a `@objectstack/spec` export's name reads to the next
   // agent as the spec's own definition (`pnpm check:spec-symbols`).
   ObjectCalendarProps as SpecObjectCalendarProps,
+  // objectui#11168 slice 3 — `ComponentPropsMap['object-form']`'s author state,
+  // so `ObjectFormSchema.layout` takes the row's own enum by reference.
+  ObjectFormProps as SpecObjectFormProps,
   ChartDrillDown,
   I18nLabel,
   DashboardWidget as SpecDashboardWidget,
@@ -1727,21 +1730,23 @@ export interface ObjectFormSchema extends BaseSchema {
   }>;
   
   /**
-   * Form layout.
-   *
-   * Supported layouts:
+   * Label placement — `@objectstack/spec`'s `object-form` row's own enum, by
+   * reference:
    * - `vertical`   – label above field (default)
    * - `horizontal` – label and field in a row
-   * - `inline`     – compact inline layout, typically used in toolbars
-   * - `grid`       – **experimental** grid layout
+   *
+   * ⛔ `inline` and `grid` are RETIRED (objectui#11168 slice 3, objectui#7759
+   * group C). The spec refuses both since 17.5.0 (objectstack#20221), and
+   * measured through the real `SchemaRenderer` both rendered byte-identical to
+   * `vertical` — every layout folded them away.
    *
    * @default 'vertical'
    */
-  layout?: 'vertical' | 'horizontal' | 'inline' | 'grid';
+  layout?: SpecObjectFormProps['layout'];
   
   /**
-   * Grid columns (for grid layout).
-   * @default 2
+   * Number of columns the fields are laid out in (1-4). Independent of
+   * `layout`: the form body is one grid at this width.
    */
   columns?: number;
   

@@ -609,8 +609,13 @@ export const ObjectFormSchema = BaseSchema.extend({
     collapsible: z.boolean().optional(),
     defaultCollapsed: z.boolean().optional(),
   })).optional().describe('Field groups'),
-  layout: z.enum(['vertical', 'horizontal', 'inline', 'grid']).optional().describe('Form layout'),
-  columns: z.number().optional().describe('Grid columns'),
+  // objectui#11168 slice 3 (objectui#7759 group C): the row's own enum, by
+  // reference — `inline` and `grid` are retired by `@objectstack/spec` 17.5.0
+  // (objectstack#20221) and rendered byte-identical to `vertical` on every
+  // layout, so this face refuses them as the authored bag already did.
+  layout: stripImportedDefaults(SpecObjectFormPropsSchema).shape.layout
+    .describe('Label placement: vertical (the default) or horizontal — the spec row\'s enum, by reference'),
+  columns: z.number().optional().describe('Number of columns the fields are laid out in (1-4)'),
   showSubmit: z.boolean().optional().describe('Show submit button'),
   submitText: stripImportedDefaults(SpecI18nLabelSchema).optional()
     .describe('Submit button text. @objectstack/spec I18nLabel, a plain string or an inline locale map'),

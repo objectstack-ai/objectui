@@ -254,7 +254,12 @@ ComponentRegistry.register('object-form', ObjectFormRenderer, {
       description:
         'Subtitle under the drawer and modal heading. Accepts either a plain string or an inline per-locale map (`{ en: "Enter the order details", "zh-CN": "填写订单信息" }`), resolved against the active UI language with the same fallback chain as `title`.',
     },
-    { name: 'layout', type: 'enum', enum: ['vertical', 'horizontal', 'inline', 'grid'] },
+    // `inline` / `grid` RETIRED (objectui#11168 slice 3, objectui#7759 group C):
+    // `@objectstack/spec` 17.5.0's row refuses both (objectstack#20221), and
+    // measured through the real `SchemaRenderer` both rendered byte-identical
+    // to `vertical` — every layout folded them away. The authored bag already
+    // refused them by reference to the row; this publishes what it accepts.
+    { name: 'layout', type: 'enum', enum: ['vertical', 'horizontal'], description: 'Label placement: `vertical` puts each label above its field (the default), `horizontal` beside it.' },
     { name: 'columns', type: 'number' },
     // Tabbed
     { name: 'defaultTab', type: 'string' },

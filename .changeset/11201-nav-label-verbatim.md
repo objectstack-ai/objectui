@@ -13,8 +13,11 @@ shows the current, localized label of what the entry opens.
   **To fix such an entry:** clear its label so it inherits the target's localized label, or set the
   text you want shown. Stored navigation is not converted, and no notice is sent.
 - An entry label written as an inline locale map (`{ en: 'Accounts', 'zh-CN': '客户' }`) used to
-  render as empty text. It now renders the map's text. The sidebar is not told the viewer's locale,
-  so it reads the `en` entry, then `default`, then any entry, as it already does for an area label.
+  render as empty text. It now renders the map's text. objectui#11201 did not tell the sidebar the
+  viewer's locale, so it read the `en` entry, then `default`, then any entry; objectui#11299, in the
+  same release, gives the sidebar the viewer's locale (`.changeset/11299-layout-nav-label-locale.md`).
 - `NavigationRenderer`'s `resolveObjectLabel`, `resolveDashboardLabel` and `resolveViewLabel` props,
-  and the matching arguments of `resolveNavItemLabel`, are no longer read. They are still accepted,
-  so no caller breaks. An unlabelled entry's localized text comes from `resolveTargetLabel`.
+  and the matching arguments of `resolveNavItemLabel`, are no longer read. objectui#11201 still
+  accepted them, so no caller broke; objectui#11299, in the same release, removes them
+  (`.changeset/11299-layout-nav-label-locale.md`). An unlabelled entry's localized text comes from
+  `resolveTargetLabel`.

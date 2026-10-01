@@ -25,7 +25,7 @@
  */
 
 import React, { useState, useCallback, useRef } from 'react';
-import type { NavigationItem, NavigationItemType } from '@object-ui/types';
+import type { KeyedI18nLabel, NavigationItem, NavigationItemType } from '@object-ui/types';
 import {
   BookOpen,
   ChevronDown,
@@ -142,6 +142,23 @@ const QUICK_ADD_TYPES: Array<{ type: NavigationItemType; labelKey: string }> = [
 // Navigation Item Row (recursive)
 // ============================================================================
 
+/**
+ * The text the inline rename starts from: the AUTHORED label when it is a
+ * string, or objectui's keyed reference read as `resolveKeyedI18nLabel` reads
+ * it. A label written as an inline locale map (`{ en, 'zh-CN' }`) is not one
+ * string, so the draft starts empty — exactly what the keyed read answered for
+ * a map (it carries no `defaultValue` / `key`). objectui#11299 typed the label
+ * as the spec's `I18nLabel`, which is what made the map case visible here; the
+ * behaviour is unchanged.
+ */
+function labelDraftOf(label: unknown): string {
+  if (typeof label === 'string') return label;
+  if (typeof label === 'object' && label !== null && ('key' in label || 'defaultValue' in label)) {
+    return resolveKeyedI18nLabel(label as KeyedI18nLabel) ?? '';
+  }
+  return '';
+}
+
 interface NavItemRowProps {
   item: NavigationItem;
   depth: number;
@@ -178,7 +195,7 @@ function NavItemRow({
   t,
 }: NavItemRowProps) {
   const [editingLabel, setEditingLabel] = useState(false);
-  const [labelDraft, setLabelDraft] = useState(resolveKeyedI18nLabel(item.label) ?? '');
+  const [labelDraft, setLabelDraft] = useState(labelDraftOf(item.label));
   const [editingIcon, setEditingIcon] = useState(false);
   const [iconDraft, setIconDraft] = useState(item.icon || '');
   const meta = NAV_TYPE_META[item.type];
@@ -190,7 +207,7 @@ function NavItemRow({
     if (labelDraft.trim()) {
       onUpdateLabel(item.id, labelDraft.trim());
     } else {
-      setLabelDraft(resolveKeyedI18nLabel(item.label) ?? '');
+      setLabelDraft(labelDraftOf(item.label));
     }
     setEditingLabel(false);
   };
@@ -282,7 +299,7 @@ function NavItemRow({
             onKeyDown={(e) => {
               if (e.key === 'Enter') handleLabelCommit();
               if (e.key === 'Escape') {
-                setLabelDraft(resolveKeyedI18nLabel(item.label) ?? '');
+                setLabelDraft(labelDraftOf(item.label));
                 setEditingLabel(false);
               }
             }}
@@ -299,7 +316,7 @@ function NavItemRow({
             )}
             onDoubleClick={() => {
               if (!readOnly) {
-                setLabelDraft(resolveKeyedI18nLabel(item.label) ?? '');
+                setLabelDraft(labelDraftOf(item.label));
                 setEditingLabel(true);
               }
             }}

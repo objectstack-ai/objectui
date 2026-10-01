@@ -27,6 +27,11 @@
  *  - a label-less dashboard and a label-less view entry show their targets'
  *    CURRENT metadata labels, and a rename shows on the next render;
  *  - CONTROL: an authored label renders verbatim.
+ *
+ * objectui#11299: an entry label written as an inline locale map is shown — and
+ * searched — in the viewer's language, the `useObjectTranslation().language`
+ * the palette hands `resolveNavItemLabel` as its `locale`, under a real
+ * `I18nProvider` in that language.
  */
 
 import * as React from 'react';
@@ -34,6 +39,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { MetadataCtx } from '@object-ui/react';
+import { createI18n, I18nProvider } from '@object-ui/i18n';
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -53,6 +59,8 @@ const APP = {
     { id: 'nav_board', type: 'object', objectName: 'customer', viewName: 'board' },
     // Control: an authored label.
     { id: 'nav_home', type: 'page', pageName: 'home', label: 'Team Home' },
+    // objectui#11299: a present label written as an inline locale map.
+    { id: 'nav_contacts', type: 'object', objectName: 'contact', label: { en: 'Contacts', 'zh-CN': '联系人' } },
   ],
 };
 
@@ -133,5 +141,28 @@ describe('objectui#9868 — the ⌘K palette names a label-less nav entry like t
     const home = rows('page').find((r) => r.value.includes('home'));
     expect(home?.text).toBe('Team Home');
     expect(home?.value.toLowerCase()).toContain('team home');
+  });
+});
+
+describe('objectui#11299 — the ⌘K palette names a map-labelled entry in the viewer’s language', () => {
+  const inLanguage = (language: string) => (
+    <I18nProvider instance={createI18n({ defaultLanguage: language, detectBrowserLanguage: false })} persistLanguage={false}>
+      {tree(metadata('Board', 'Sales Overview'))}
+    </I18nProvider>
+  );
+
+  it('under zh-CN the row shows, and is searched by, its zh-CN text', () => {
+    render(inLanguage('zh-CN'));
+    if (!document.querySelector('[cmdk-input]')) throw new Error('the palette did not open');
+    const contacts = rows('object').find((r) => r.value.includes('contact'));
+    expect(contacts?.text).toBe('联系人');
+    expect(contacts?.value).toContain('联系人');
+    expect(contacts?.value).not.toContain('Contacts');
+  });
+
+  it('under en the same row shows its en text', () => {
+    render(inLanguage('en'));
+    if (!document.querySelector('[cmdk-input]')) throw new Error('the palette did not open');
+    expect(rows('object').find((r) => r.value.includes('contact'))?.text).toBe('Contacts');
   });
 });

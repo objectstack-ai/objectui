@@ -523,7 +523,7 @@ export const ObjectDefinitionSchema = z.object({
     'ObjectDefinition',
     'relationships',
     "a relationship is a field, not an object-level list — `@objectstack/spec`'s `ObjectSchema` refuses this array as an unrecognized key — and nothing read it.",
-    'declare the relationship on the referencing field (a `lookup` or `master_detail` field whose `referenceTo` names the related object), and delete the key.',
+    'declare the relationship on the referencing field (in this designer, a `lookup` field whose `referenceTo` names the related object; in `@objectstack/spec` metadata, a `lookup` / `master_detail` field whose `reference` names it), and delete the key.',
   ),
 });
 

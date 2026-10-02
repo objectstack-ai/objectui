@@ -205,7 +205,7 @@ describe('authoring a retired designer member is a `tsc` error (objectui#11434)'
       id: 'account',
       name: 'account',
       label: 'Account',
-      // @ts-expect-error `relationships` is retired (objectui#11434) — declare a lookup / master_detail field
+      // @ts-expect-error `relationships` is retired (objectui#11434) — declare a `lookup` field whose `referenceTo` names the related object
       relationships: [{ relatedObject: 'contact', type: 'one-to-many' }],
     };
     const field: DesignerFieldDefinition = {
@@ -213,7 +213,7 @@ describe('authoring a retired designer member is a `tsc` error (objectui#11434)'
       name: 'code',
       label: 'Code',
       type: 'text',
-      // @ts-expect-error `validationRules` is retired (objectui#11434) — use min / max / minLength / maxLength
+      // @ts-expect-error `validationRules` is retired (objectui#11434) — put min / max / minLength / maxLength in the field metadata
       validationRules: [{ type: 'maxLength', value: 10 }],
     };
     expect([component.id, relationship.id, node.id, object.id, field.id]).toEqual(['c', 'r', 'n', 'account', 'f']);

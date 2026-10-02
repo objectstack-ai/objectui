@@ -956,9 +956,10 @@ export interface ObjectDefinition {
    * Its element type `ObjectDefinitionRelationship` (`relatedObject`, `type`,
    * `label`, `foreignKey`) left the package with it.
    *
-   * **Instead:** declare the relationship on the referencing field — a `lookup`
-   * or `master_detail` field whose `referenceTo` names the related object — and
-   * delete the key.
+   * **Instead:** declare the relationship on the referencing field — in this
+   * designer, a `lookup` field whose `referenceTo` names the related object (in
+   * `@objectstack/spec` metadata, a `lookup` / `master_detail` field whose
+   * `reference` names it) — and delete the key.
    *
    * A tombstone rather than a deletion so the compile-time refusal names the
    * key; the zod mirror refuses it by name with the same prescription

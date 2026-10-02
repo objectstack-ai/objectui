@@ -45,3 +45,12 @@ control; the installed spec row's verdict on the same values; and a mount throug
 Not changed here: the console's `registry-inputs-spec-parity` ledger. It does not
 load these three plugins yet and books the blocks as unjudged, owed to
 objectui#11168, so this change moves none of its rows.
+
+**Note, 2026-10-02 (objectui#11168 slice 5, shipping in this same release).**
+The last paragraph above says the console's `registry-inputs-spec-parity` gate
+does not load these three plugins yet and books the blocks as unjudged. That no
+longer holds for the release: objectui#11168 loaded all three in this same
+release (`object-map` in slice 3, `object-gantt` in slice 4, `object-timeline`
+in slice 5), so the gate judges each registration in both directions, and its
+unjudged-block ledger books none of them. This change itself still moved none
+of those rows.

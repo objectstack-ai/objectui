@@ -532,6 +532,7 @@ describe('`object-timeline.sort` — the members are `{ field, order }`, and the
   it('the rail draws the fetched entries by start date whatever the order; with no `sort` the query carries none (the control)', async () => {
     // The adapter answers latest-first, as a `name desc` query would.
     let mounted = await mount(bag({ objectName: OBJECT, timeline: TL, sort: [{ field: 'name', order: 'desc' }] }), { rows: [RECORDS[1], RECORDS[0]], waitFor: 'Kickoff' });
+    expect(queries(mounted.dataSource)[0][1]?.$orderby).toEqual({ name: 'desc' });
     expect(titles()).toEqual(['Kickoff', 'Review']);
     cleanup();
     mounted = await mount(bag({ objectName: OBJECT, timeline: TL }), { waitFor: 'Kickoff' });

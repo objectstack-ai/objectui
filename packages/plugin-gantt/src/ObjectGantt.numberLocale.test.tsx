@@ -154,7 +154,14 @@ const OBJECT_SCHEMA = {
     name: { type: 'text' },
     start_date: { type: 'date' },
     end_date: { type: 'date' },
-    qty: { type: 'number', label: 'Qty' },
+    // `scale: 2` is DECLARED since objectui#11254. This file measures the
+    // locale, not the width: before, the row padded every number to two places
+    // whatever it declared, and these expectations rode on that constant. Under
+    // ruling A′ (objectstack-ai/objectstack#19628) an undeclared `number` has
+    // no fixed width, so the two places are now the field's own, and every
+    // expectation below keeps its bytes. The width itself is pinned in
+    // `ObjectGantt.numberResolvedWidth-11254.test.tsx`.
+    qty: { type: 'number', label: 'Qty', scale: 2 },
     amount: { type: 'currency', label: 'Amount', currency: 'EUR' },
     ratio: { type: 'percent', label: 'Ratio' },
     due_date: { type: 'date', label: 'Due' },

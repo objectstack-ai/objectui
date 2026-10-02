@@ -10,7 +10,7 @@
       "name": "progress",
       "label": "Progress",
       "type": "percent",
-      "precision": 1
+      "scale": 1
     }
   ]
 }

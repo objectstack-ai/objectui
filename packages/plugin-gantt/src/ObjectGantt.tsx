@@ -41,7 +41,7 @@ import {
   useFilterScope,
   useResolvedFilter,
 } from '@object-ui/react';
-import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
+import { useLocalization, useDisplayLocale, resolveFieldCurrency, formatDisplayNumber } from '@object-ui/i18n';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
   RecordDetailPanel,
@@ -88,7 +88,6 @@ import {
   humanizeLabel,
   formatDate,
   formatDateTime,
-  formatNumber,
   formatPercent,
   formatCurrency,
 } from '@object-ui/fields';
@@ -1361,13 +1360,36 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         // and `1,234.50` on the amount row beside it, where German groups with
         // `.` and marks the decimal with `,`. Inverted separators do not read
         // as an unstyled number; they read as a DIFFERENT number.
+        //
+        // objectui#11254 — and the WIDTH is the field's, read through
+        // `resolveFieldScale` (ruling A′ on objectstack-ai/objectstack#19628).
+        // This row handed `formatNumber` an `undefined` width, so that
+        // function's own parameter default (two places) decided: a `scale: 3`
+        // field read `1.50`, a `scale: 0` field read `1.50`, and an undeclared
+        // `number` read `1.50` beside a list cell reading `1.5`. `formatNumber`
+        // cannot say "no fixed width" (it fixes both bounds to one number), so
+        // the row renders through `formatDisplayNumber` with the two arms
+        // `NumberCellRenderer` spells: a resolved width fixes both bounds, and
+        // `undefined` (the protocol has no absent-`scale` row for any of these
+        // types, `integer` included) is the value's natural precision.
+        // ⛔ No `?? N` beside the resolver: `undefined` is its answer.
+        //
+        // ⚠️ Width only. No `scale` reaches the grouping policy here, so the
+        // row keeps grouping as it did; the list cell's ordinal rule for a
+        // declared `scale: 0` and its authored `useGrouping` are not this
+        // card's subject.
         case 'number':
         case 'integer':
         case 'float':
-        case 'decimal':
-          // `decimals` keeps its default: the display width is not this card's
-          // subject, only the locale that renders it.
-          return formatNumber(Number(value), undefined, displayLocale);
+        case 'decimal': {
+          const width = resolveFieldScale({ type: def?.type, scale: def?.scale });
+          return formatDisplayNumber(
+            Number(value),
+            width === undefined
+              ? { locale: displayLocale, minimumFractionDigits: 0, maximumFractionDigits: 20 }
+              : { locale: displayLocale, minimumFractionDigits: width, maximumFractionDigits: width },
+          );
+        }
         case 'currency':
           // The CODE was already resolved correctly (objectui#4542 made the memo
           // watch it); the locale that renders that code is what was missing.

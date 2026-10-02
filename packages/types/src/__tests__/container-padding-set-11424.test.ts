@@ -25,7 +25,7 @@
  * 9 and 20 are refused on both faces with the set named; each mapped value
  * parses; an absent key still parses (the control — the renderer half of it,
  * that the absent key draws the default ladder, is in
- * `components/src/__tests__/container-padding-set-11424.test.tsx`, which also
+ * `components/src/__tests__/layout-spacing-sets-11474.test.tsx`, which also
  * re-derives this set from the rendered branches).
  *
  * `BaseSchema` is `.passthrough()`, so the refusal also gets a lit control: an

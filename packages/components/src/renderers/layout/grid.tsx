@@ -207,8 +207,29 @@ ComponentRegistry.register('grid',
       },
       {
         name: 'gap',
-        type: 'number',
-        description: 'Gap between items (0-12)'
+        // A closed list, in `container.padding`'s object form, not
+        // `type: 'number'` (objectui#11474): these are the `GAPS` entries above.
+        // For any other number the renderer builds a class at runtime, and
+        // Tailwind never compiles a class it did not find in scanned source, so
+        // that grid drew no gap at all. `GridSchema` refuses the rest on both
+        // faces; this list carries the same set into the SDUI manifest, so
+        // `validateTree` answers `gap: 9` with `invalid-enum`.
+        // `layout-spacing-sets-11474.test.tsx` holds this list, the declaration
+        // and the rendered classes the compiled stylesheet defines to one set.
+        type: 'enum',
+        enum: [
+          { label: '0 (none)', value: 0 },
+          { label: '1', value: 1 },
+          { label: '2', value: 2 },
+          { label: '3', value: 3 },
+          { label: '4', value: 4 },
+          { label: '5', value: 5 },
+          { label: '6', value: 6 },
+          { label: '8', value: 8 },
+          { label: '10', value: 10 },
+          { label: '12', value: 12 },
+        ],
+        description: 'Gap step between items; 0 is none. Default 4.'
       },
       { name: 'className', type: 'string' },
       { name: 'children', type: 'slot' }

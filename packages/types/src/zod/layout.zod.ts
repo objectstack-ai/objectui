@@ -299,30 +299,61 @@ export const SeparatorSchema = BaseSchema.extend({
 });
 
 /**
+ * A layout spacing key closed to the steps its renderer maps, with a refusal
+ * that names them (objectui#11424, generalised by objectui#11474).
+ *
+ * `container.padding`, `stack.gap`, `flex.gap` and `grid.gap` are not keys
+ * `@objectstack/spec` declares, so each read site is the truth (the
+ * objectui#7759 ruling, the one objectui#10286 applied to `container.maxWidth`).
+ * Each renderer reads `schema.KEY ?? DEFAULT` and maps a closed set of steps to
+ * utility classes. A number outside the set reaches no rule in the compiled
+ * stylesheet, so the node renders without that spacing at all — not even the
+ * default, which `??` supplies only for an absent key. `z.number()` accepted
+ * such numbers. ⛔ The renderers neither round nor clamp an unmapped number,
+ * and must not start: the declaration closes to the set instead.
+ *
+ * The literal union is the refusal's carrier: zod's `invalid_value` issue
+ * lists the accepted values, and the message spells the same list out.
+ *
+ * `components/src/__tests__/layout-spacing-sets-11474.test.tsx` enumerates
+ * every registered layout renderer's numeric spacing input, re-derives each
+ * set by rendering the real node and reading which values draw a class the
+ * package's compiled stylesheet defines, and holds this declaration and the
+ * registration's closed `enum` to it, so the three cannot part silently.
+ */
+function rendererSpacingSteps<const Steps extends readonly [number, ...number[]]>(spec: {
+  /** The node type, as authored. */
+  node: string;
+  /** The spacing key on that node. */
+  key: 'gap' | 'padding';
+  /** The steps the renderer maps, in ascending order. */
+  steps: Steps;
+  /** The step the renderer applies when the key is absent. */
+  fallback: Steps[number];
+  /** The card that closed this key. */
+  card: string;
+  /** What an unmapped number did, measured, ending with the refusal's reason. */
+  unmapped: string;
+}) {
+  const set = spec.steps.join(', ');
+  const refusal =
+    `\`${spec.key}\` on a \`${spec.node}\` is one of ${set} (${spec.card}): those are the steps the ` +
+    `renderer maps to a ${spec.key} class, and \`0\` means none. ${spec.unmapped} ` +
+    'Pick the step you meant from that set.';
+  const noun = spec.key === 'gap' ? 'Gap' : 'Padding';
+  return z
+    .literal(spec.steps, { error: refusal })
+    .optional()
+    .describe(`${noun} step, one of ${set}; 0 is none (default ${spec.fallback})`);
+}
+
+/**
  * The `padding` steps the `container` renderer maps to a padding class
- * (objectui#11424) — the read site's set, not a design choice made here.
- *
- * `ContainerSchema.padding` is not a key `@objectstack/spec` declares, so the
- * read site is the truth (the objectui#7759 ruling, the one objectui#10286
- * applied to `maxWidth` on this same node). `container.tsx` reads
- * `schema.padding ?? 4` and then tests it against one `padding === N` branch
- * per step; a number that equals none of them matches no branch and draws NO
- * padding class at all — not even the default, which `??` supplies only for an
- * absent key. So `z.number()` accepted `9` and `20` and the container rendered
- * flush. The renderer neither rounds nor clamps an unmapped number, and must
- * not start: the declaration closes to the set instead.
- *
- * `components/src/__tests__/container-padding-set-11424.test.tsx` re-derives
- * the set by rendering the real `container` and compares it with this list and
- * with the registration's `padding` enum, so the three cannot part silently.
+ * (objectui#11424): `container.tsx` tests `schema.padding ?? 4` against one
+ * `padding === N` branch per step, and a number that equals none of them
+ * matches no branch and draws NO padding class.
  */
 const CONTAINER_PADDING_STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16] as const;
-
-const CONTAINER_PADDING_REFUSAL =
-  `\`padding\` on a \`container\` is one of ${CONTAINER_PADDING_STEPS.join(', ')} ` +
-  '(objectui#11424): those are the steps the renderer maps to a padding class, and `0` means ' +
-  'none. Any other number drew NO padding class at all, not even the default `4`, so it is ' +
-  'refused here rather than rendered flush. Pick the step you meant from that set.';
 
 /**
  * Container Schema - Generic container component
@@ -341,11 +372,17 @@ export const ContainerSchema = BaseSchema.extend({
   ]).optional().describe('Max width constraint'),
   centered: z.boolean().optional().describe('Center the container'),
   // A literal union of the renderer's mapped steps, not `z.number()`
-  // (objectui#11424) — see {@link CONTAINER_PADDING_STEPS}.
-  padding: z
-    .literal(CONTAINER_PADDING_STEPS, { error: CONTAINER_PADDING_REFUSAL })
-    .optional()
-    .describe(`Padding step, one of ${CONTAINER_PADDING_STEPS.join(', ')}; 0 is none (default 4)`),
+  // (objectui#11424) — see {@link rendererSpacingSteps}.
+  padding: rendererSpacingSteps({
+    node: 'container',
+    key: 'padding',
+    steps: CONTAINER_PADDING_STEPS,
+    fallback: 4,
+    card: 'objectui#11424',
+    unmapped:
+      'Any other number drew NO padding class at all, not even the default `4`, so it is '
+      + 'refused here rather than rendered flush.',
+  }),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
   body: aliasKeyRefusal(
     'body',
@@ -356,6 +393,15 @@ export const ContainerSchema = BaseSchema.extend({
     + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
+
+/**
+ * The `gap` steps the `flex` renderer maps to a gap class (objectui#11474):
+ * `flex.tsx` tests `schema.gap ?? 2` against one `gap === N` branch per step,
+ * 0 to 8, and a number that equals none of them draws NO gap class. The
+ * describe used to advertise "Tailwind scale 0-8", which was this set, but the
+ * declaration under it was `z.number()`.
+ */
+const FLEX_GAP_STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8] as const;
 
 /**
  * Flex Schema - Flexbox layout component
@@ -385,7 +431,19 @@ export const FlexSchema = BaseSchema.extend({
   align: z.enum(['start', 'end', 'center', 'baseline', 'stretch'])
     .optional()
     .describe('Align items'),
-  gap: z.number().optional().describe('Gap between items (Tailwind scale 0-8)'),
+  // A literal union of the renderer's mapped steps, not `z.number()`
+  // (objectui#11474). The authored bag holds this member BY REFERENCE
+  // (`FlexPropsBag` below), so `properties.gap` refuses the same numbers.
+  gap: rendererSpacingSteps({
+    node: 'flex',
+    key: 'gap',
+    steps: FLEX_GAP_STEPS,
+    fallback: 2,
+    card: 'objectui#11474',
+    unmapped:
+      'Any other number drew NO gap class at all, not even the default `2`, so it is refused '
+      + 'here rather than rendered with no gap.',
+  }),
   wrap: z.boolean().optional().describe('Allow items to wrap'),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
   body: aliasKeyRefusal(
@@ -541,6 +599,15 @@ export const FlexBlockSchema = BaseSchema.extend({
 });
 
 /**
+ * The `gap` steps the `stack` renderer maps to a gap class (objectui#11474):
+ * `stack.tsx` tests `schema.gap ?? 2` against one `gap === N` branch per step.
+ * It has no branch for `7`, which `flex` maps, and one for `10`, which `flex`
+ * does not, so the two sets differ; a number that equals none of them draws
+ * NO gap class.
+ */
+const STACK_GAP_STEPS = [0, 1, 2, 3, 4, 5, 6, 8, 10] as const;
+
+/**
  * Stack Schema - Vertical flex layout (shortcut)
  */
 export const StackSchema = BaseSchema.extend({
@@ -548,7 +615,18 @@ export const StackSchema = BaseSchema.extend({
   direction: z.enum(['row', 'col', 'row-reverse', 'col-reverse']).optional(),
   justify: z.enum(['start', 'end', 'center', 'between', 'around', 'evenly']).optional(),
   align: z.enum(['start', 'end', 'center', 'baseline', 'stretch']).optional(),
-  gap: z.number().optional(),
+  // A literal union of the renderer's mapped steps, not `z.number()`
+  // (objectui#11474) — see {@link STACK_GAP_STEPS}.
+  gap: rendererSpacingSteps({
+    node: 'stack',
+    key: 'gap',
+    steps: STACK_GAP_STEPS,
+    fallback: 2,
+    card: 'objectui#11474',
+    unmapped:
+      'Any other number drew NO gap class at all, not even the default `2`, so it is refused '
+      + 'here rather than rendered with no gap.',
+  }),
   wrap: z.boolean().optional(),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
   body: aliasKeyRefusal(
@@ -560,6 +638,20 @@ export const StackSchema = BaseSchema.extend({
     + 'refused here by name; write the content under `children`, the one child-list key. objectui#8284.',
   ),
 });
+
+/**
+ * The `gap` steps the `grid` renderer maps to a gap class (objectui#11474):
+ * `grid.tsx` looks `schema.gap ?? 4` up in its `GAPS` map. For any other
+ * number it builds an arbitrary-value class at runtime, `gap-[N*0.25rem]`
+ * (`gap-[2.25rem]` for `9`). Tailwind compiles only the class names it finds
+ * in scanned source text, and a class assembled from a template at runtime is
+ * not one of them, so an unmapped number reached no gap rule. The pin named in
+ * {@link rendererSpacingSteps} re-derives this against the package's own
+ * compiled stylesheet on every run; the console's stylesheet was read the same
+ * way once, on objectui#11474, and nothing re-derives that reading. The
+ * describe's "Tailwind scale 0-8" was not this set either.
+ */
+const GRID_GAP_STEPS = [0, 1, 2, 3, 4, 5, 6, 8, 10, 12] as const;
 
 /**
  * Grid Schema - CSS Grid layout component
@@ -585,7 +677,18 @@ export const GridSchema = BaseSchema.extend({
     z.number(),
     z.partialRecord(z.enum(['xs', 'sm', 'md', 'lg', 'xl', '2xl']), z.number()),
   ]).optional().describe('Number of columns (responsive)'),
-  gap: z.number().optional().describe('Gap between items (Tailwind scale 0-8)'),
+  // A literal union of the renderer's mapped steps, not `z.number()`
+  // (objectui#11474) — see {@link GRID_GAP_STEPS}.
+  gap: rendererSpacingSteps({
+    node: 'grid',
+    key: 'gap',
+    steps: GRID_GAP_STEPS,
+    fallback: 4,
+    card: 'objectui#11474',
+    unmapped:
+      'Any other number built a class at runtime that no compiled stylesheet defines, so the '
+      + 'grid rendered with no gap at all, not even the default `4`; it is refused here instead.',
+  }),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
   body: aliasKeyRefusal(
     'body',

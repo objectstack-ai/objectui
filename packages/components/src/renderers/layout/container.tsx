@@ -158,7 +158,7 @@ ComponentRegistry.register('container',
         // refuses the rest on both faces; this list carries the same set into
         // the manifest, so `validateTree` answers `padding: 9` with
         // `invalid-enum` and the generated intrinsics type the prop as the
-        // twelve literals. `container-padding-set-11424.test.tsx` holds this
+        // twelve literals. `layout-spacing-sets-11474.test.tsx` holds this
         // list, the declaration and the rendered branches to one set.
         type: 'enum',
         enum: [

@@ -284,8 +284,10 @@ describe('the bag is the flat mirror\'s own members (objectui#11276)', () => {
     for (const [, judge] of FACES) {
       expect(issuesOf(judge({ type: 'flex', properties: { direction: 'column' } })).map((i) => [i.code, i.path]))
         .toEqual([['invalid_value', 'properties.direction']]);
+      // `invalid_value`, not `invalid_type`, since objectui#11474 closed `gap` to a literal set of
+      // the renderer's steps: zod judges a literal union by value, so a string is an off-set value.
       expect(issuesOf(judge({ type: 'flex', properties: { gap: '4' } })).map((i) => [i.code, i.path]))
-        .toEqual([['invalid_type', 'properties.gap']]);
+        .toEqual([['invalid_value', 'properties.gap']]);
     }
   });
 

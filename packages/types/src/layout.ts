@@ -691,10 +691,17 @@ export interface FlexLayoutProps {
    */
   align?: 'start' | 'end' | 'center' | 'baseline' | 'stretch';
   /**
-   * Gap between items (Tailwind scale 0-8)
+   * Gap step between items; `0` means none.
+   *
+   * The steps are the ones `flex.tsx` maps to a gap class, and only those
+   * (objectui#11474): it reads `schema.gap ?? 2` and tests it against one
+   * branch per step, so any other number matched no branch and drew no gap
+   * class at all — not even the default. This was `number`, which let `9`
+   * through; the zod mirror (`zod/layout.zod.ts`) refuses it with the set
+   * named. {@link StackSchema} maps a different set and declares its own.
    * @default 2
    */
-  gap?: number;
+  gap?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
   /**
    * Allow items to wrap
    * @default false
@@ -771,9 +778,29 @@ export interface FlexSchema extends BaseSchema, FlexLayoutProps {
  * for why they are shared through a third interface rather than derived with an
  * `Omit` (objectui#6151) — except `responsiveStyles`, which `FlexSchema`
  * declares on its own (objectui#10872 batch 9).
+ *
+ * `gap` is the one shared member `stack` declares itself: its renderer maps a
+ * different set of steps (objectui#11474). The `Omit` here crosses
+ * {@link FlexLayoutProps}, which carries no index signature, so it keeps every
+ * other member's name; the objectui#6151 hazard is an `Omit` over a type that
+ * inherits `BaseSchema`'s. `__tests__/stack-schema-emitted-members.test.ts`
+ * measures the emitted declaration and holds the two member sets equal.
  */
-export interface StackSchema extends BaseSchema, FlexLayoutProps {
+export interface StackSchema extends BaseSchema, Omit<FlexLayoutProps, 'gap'> {
   type: 'stack';
+  /**
+   * Gap step between items; `0` means none.
+   *
+   * The steps are the ones `stack.tsx` maps to a gap class, and only those
+   * (objectui#11474): it reads `schema.gap ?? 2` and tests it against one
+   * branch per step, so any other number matched no branch and drew no gap
+   * class at all — not even the default. Unlike `flex`, `stack` has no branch
+   * for `7` and has one for `10`. This was `number`, which let `7` and `9`
+   * through; the zod mirror (`zod/layout.zod.ts`) refuses them with the set
+   * named.
+   * @default 2
+   */
+  gap?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 8 | 10;
   /**
    * REFUSED BY NAME (objectui#8284, ADR-0049) — `stack` reads `children`, and no
    * renderer read consumes `body`.
@@ -819,10 +846,17 @@ export interface GridSchema extends BaseSchema {
    */
   columns?: number | Partial<Record<BreakpointName, number>>;
   /**
-   * Gap between items (Tailwind scale 0-8)
+   * Gap step between items; `0` means none.
+   *
+   * The steps are the ones `grid.tsx` maps to a gap class, and only those
+   * (objectui#11474): it looks `schema.gap ?? 4` up in its `GAPS` map and,
+   * for any other number, builds an arbitrary-value class at runtime that no
+   * compiled stylesheet defines, so the grid drew no gap at all. This was
+   * `number`; the zod mirror (`zod/layout.zod.ts`) refuses the rest with the
+   * set named.
    * @default 4
    */
-  gap?: number;
+  gap?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 8 | 10 | 12;
   /**
    * Child components
    */

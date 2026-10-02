@@ -340,9 +340,10 @@ export class GridBuilder extends SchemaBuilder<GridSchema> {
   }
 
   /**
-   * Set gap
+   * Set gap — one of the steps the `grid` renderer maps (objectui#11474); the
+   * parameter is the declaration's own set, so `tsc` refuses any other number.
    */
-  gap(gap: number): this {
+  gap(gap: NonNullable<GridSchema['gap']>): this {
     this.schema.gap = gap;
     return this;
   }
@@ -409,9 +410,10 @@ export class FlexBuilder extends SchemaBuilder<BaseSchema & { type: 'flex'; prop
   }
 
   /**
-   * Set gap
+   * Set gap — one of the steps the `flex` renderer maps (objectui#11474); the
+   * parameter is the declaration's own set, so `tsc` refuses any other number.
    */
-  gap(gap: number): this {
+  gap(gap: NonNullable<FlexLayoutProps['gap']>): this {
     this.schema.properties.gap = gap;
     return this;
   }

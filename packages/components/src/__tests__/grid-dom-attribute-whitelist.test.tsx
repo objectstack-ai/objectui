@@ -67,15 +67,19 @@ const isAllowedAttribute = (name: string): boolean =>
 
 /**
  * A grid node carrying, deliberately, one of every category the leak drew from:
- * the renderer's own vocabulary in both `columns` spellings, SDUI node metadata,
- * the `props` container, an unknown authored key, and the legitimately forwarded
- * DOM channels.
+ * the renderer's own vocabulary, the four flat column keys it used to read,
+ * SDUI node metadata, the `props` container, an unknown authored key, and the
+ * legitimately forwarded DOM channels.
  */
 const CANARY_NODE = {
   type: 'grid',
   // Renderer vocabulary — CONSUMED off `schema`, never forwarded.
   columns: 4,
   gap: 4,
+  // The flat column keys, retired by objectui#11505: both zod faces refuse
+  // them by name, and the renderer no longer reads them. They stay in the
+  // canary because a document that skipped validation still carries them, and
+  // they must reach the DOM no more than any other key the renderer ignores.
   smColumns: 2,
   mdColumns: 2,
   lgColumns: 3,
@@ -131,12 +135,11 @@ describe('ui:grid — schema keys never reach the DOM (objectui#4787)', () => {
   });
 
   it('case 1b: a responsive `columns` OBJECT does not become columns="[object Object]"', () => {
-    // The flat `smColumns`/`mdColumns`/… keys deliberately OVERRIDE the object form
-    // in this renderer, so they are cleared here to exercise the object path itself.
-    const el = renderCanary({
-      columns: { xs: 1, md: 3 },
-      smColumns: undefined, mdColumns: undefined, lgColumns: undefined, xlColumns: undefined,
-    });
+    // The canary's flat `smColumns`/`mdColumns`/… keys are read by nothing since
+    // objectui#11505, so they stay on the node: the object path drives the
+    // classes alone. Until then they OVERRODE the object form, and this case
+    // had to clear them.
+    const el = renderCanary({ columns: { xs: 1, md: 3 } });
 
     expect(el.hasAttribute('columns')).toBe(false);
     expect(el.outerHTML).not.toContain('[object Object]');
@@ -154,9 +157,13 @@ describe('ui:grid — schema keys never reach the DOM (objectui#4787)', () => {
 
     // Computed layout classes — the renderer's real output, merged with the
     // authored className. A filter that dropped `className` would fail here.
+    // The bare `columns: 4` draws its mobile-first ramp: the canary's flat
+    // `mdColumns: 2` is read by nothing (objectui#11505), so `md` is the bare
+    // count, not the flat one.
     expect(el.className).toContain('grid');
     expect(el.className).toContain('sm:grid-cols-2');
-    expect(el.className).toContain('md:grid-cols-2');
+    expect(el.className).toContain('md:grid-cols-4');
+    expect(el.className).not.toContain('md:grid-cols-2');
     expect(el.className).toContain('gap-4');
     expect(el.className).toContain('authored-class');
 

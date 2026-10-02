@@ -121,16 +121,20 @@ const BREAKPOINTS = Object.keys({
 
 /**
  * Registration inputs the renderer reads and NEITHER face of the node's
- * declaration declares (objectui#11491, measured): the tolerant face passes
- * any value through (`BaseSchema` is `.passthrough()`), and the strict face
- * refuses the key at every value (`unrecognized_keys`). Their lists are
- * closed and held here like any other; their declaration is an open question
- * on objectui#11491 (declare them on `GridSchema`, or retire the flat channel
- * for the breakpoint object), so the reading is held instead, both ways: a key
- * that gets declared turns its row red, and an undeclared input missing here
- * turns the population row red.
+ * declaration declares: the tolerant face passes any value through
+ * (`BaseSchema` is `.passthrough()`), and the strict face refuses the key at
+ * every value (`unrecognized_keys`). Such a row's reading is held instead of
+ * its declaration, both ways: a key that gets declared turns its row red, and
+ * an undeclared input missing here turns the population row red.
+ *
+ * EMPTY, and the population row holds it empty. objectui#11491 measured four
+ * rows here, `grid`'s flat `smColumns` / `mdColumns` / `lgColumns` /
+ * `xlColumns`; objectui#11505 retired them (triage's ruling A): the
+ * registration no longer offers them, the renderer no longer reads them, and
+ * both faces refuse them by name, so the breakpoint object of `columns` is the
+ * one spelling. A row added back here is a second spelling being registered.
  */
-const REGISTERED_NOT_DECLARED = ['grid.lgColumns', 'grid.mdColumns', 'grid.smColumns', 'grid.xlColumns'];
+const REGISTERED_NOT_DECLARED: readonly string[] = [];
 
 /* ── The compiled stylesheet ─────────────────────────────────────────────── */
 

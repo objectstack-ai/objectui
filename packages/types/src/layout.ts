@@ -860,6 +860,35 @@ export interface GridSchema extends BaseSchema {
    */
   columns?: GridColumnCount | Partial<Record<BreakpointName, GridColumnCount>>;
   /**
+   * RETIRED (objectui#11505, ADR-0049) — a second spelling of the `sm` member
+   * of `columns`. Write the count in the breakpoint object, `columns: { sm: N }`;
+   * a bare `columns: C` beside it becomes the object's `xs: C`, and with no
+   * `columns` at all add `xs: 2` to keep the two columns the grid drew below `sm`.
+   * @deprecated The renderer no longer reads it; the zod mirror refuses it by name.
+   */
+  smColumns?: never;
+  /**
+   * RETIRED (objectui#11505, ADR-0049) — a second spelling of the `md` member
+   * of `columns`. Write `columns: { md: N }`, as {@link GridSchema.smColumns}
+   * describes for `sm`.
+   * @deprecated The renderer no longer reads it; the zod mirror refuses it by name.
+   */
+  mdColumns?: never;
+  /**
+   * RETIRED (objectui#11505, ADR-0049) — a second spelling of the `lg` member
+   * of `columns`. Write `columns: { lg: N }`, as {@link GridSchema.smColumns}
+   * describes for `sm`.
+   * @deprecated The renderer no longer reads it; the zod mirror refuses it by name.
+   */
+  lgColumns?: never;
+  /**
+   * RETIRED (objectui#11505, ADR-0049) — a second spelling of the `xl` member
+   * of `columns`. Write `columns: { xl: N }`, as {@link GridSchema.smColumns}
+   * describes for `sm`.
+   * @deprecated The renderer no longer reads it; the zod mirror refuses it by name.
+   */
+  xlColumns?: never;
+  /**
    * Gap step between items; `0` means none.
    *
    * The steps are the ones `grid.tsx` maps to a gap class, and only those

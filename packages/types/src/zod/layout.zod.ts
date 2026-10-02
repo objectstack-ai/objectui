@@ -702,6 +702,32 @@ const GRID_GAP_STEPS = [0, 1, 2, 3, 4, 5, 6, 8, 10, 12] as const;
 const GRID_COLUMN_COUNTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
 
 /**
+ * The objectui#11505 retirement guidance for the four flat per-breakpoint
+ * column keys of the `grid` node. One concept, responsive columns, has one
+ * spelling: the breakpoint object of `columns`. The refusal names the key, the
+ * breakpoint it spelled a second time, and the object member to write instead.
+ * The TypeScript face carries the same four keys as `?: never` tombstones.
+ *
+ * The migration it prescribes is the one that draws the same classes, measured
+ * through the real `SchemaRenderer` on objectui#11505: a flat key switched off
+ * the bare count's mobile-first ramp, so a bare `columns: C` beside it is the
+ * object's `xs: C`; with no `columns` at all the grid drew its default two
+ * columns below that breakpoint, and an object without `xs` draws one, so the
+ * object needs `xs: 2` to keep them.
+ */
+const retiredGridColumnsKey = (key: string, breakpoint: 'sm' | 'md' | 'lg' | 'xl') =>
+  retirementTombstone(
+    `RETIRED (objectui#11505, ADR-0049) — \`${key}\` on \`grid\` was a second spelling of the `
+    + `\`${breakpoint}\` member of \`columns\`: the registration offered it and the renderer read it over `
+    + 'the breakpoint object, but no face of `GridSchema` declared it, so the strict face refused it at '
+    + 'every value and the tolerant face passed any value through unexamined. The renderer no longer reads it. '
+    + `Instead: write the count, 1 to 12, as the \`${breakpoint}\` member of the breakpoint object, `
+    + `\`columns: { ${breakpoint}: N }\`, and delete the key. A bare \`columns: C\` beside it becomes the `
+    + "object's `xs: C`; with no `columns` at all, add `xs: 2` to keep the two columns the grid drew below "
+    + `\`${breakpoint}\`.`,
+  );
+
+/**
  * Grid Schema - CSS Grid layout component
  */
 export const GridSchema = BaseSchema.extend({
@@ -748,6 +774,14 @@ export const GridSchema = BaseSchema.extend({
         error: (issue) => (issue.code === 'invalid_union' ? refusal : undefined),
       }),
   ),
+  // ADR-0049 RETIREMENT TOMBSTONES (objectui#11505) — see
+  // {@link retiredGridColumnsKey}. A plain deletion would let each key ride
+  // `BaseSchema.passthrough()` on the tolerant face, unexamined, so each is
+  // refused by name on both faces instead.
+  smColumns: retiredGridColumnsKey('smColumns', 'sm'),
+  mdColumns: retiredGridColumnsKey('mdColumns', 'md'),
+  lgColumns: retiredGridColumnsKey('lgColumns', 'lg'),
+  xlColumns: retiredGridColumnsKey('xlColumns', 'xl'),
   // A literal union of the renderer's mapped steps, not `z.number()`
   // (objectui#11474) — see {@link GRID_GAP_STEPS}.
   gap: rendererMappedSet({

@@ -3,8 +3,9 @@
  * never `cols` (objectui#4001).
  *
  * `GridSchema` declares `columns` (`packages/types/src/layout.ts`), the `grid`
- * renderer reads only `schema.columns`, and the registered designer `inputs`
- * expose only `columns` / `smColumns` / `mdColumns` / `lgColumns` / `xlColumns`.
+ * renderer reads only `schema.columns`, and the registered `inputs` expose only
+ * `columns` as a column key: its breakpoint object is the one per-breakpoint
+ * spelling, since objectui#11505 retired the flat `smColumns` … `xlColumns`.
  * `cols` was never declared by the spec, the types, or the registry — nothing in
  * `core` / `react` / `types` normalizes it. Thirteen catalog examples spelled it
  * anyway, so the engine dropped the value on the floor: `baseCols` fell back to

@@ -34,8 +34,8 @@ Your app runs at `http://localhost:3000`.
 
 ## Commands
 
-The CLI exposes 15 commands. Run `objectui <command> --help` for the full
-flag list.
+Run `objectui --help` for the command list, and `objectui <command> --help`
+for a command's full flag list.
 
 ### `objectui init [name]`
 
@@ -280,14 +280,6 @@ failing exit code on a document that does not validate.
 
 Diagnose common environment issues (Node version, deps, config sanity).
 
-### `objectui add <component>`
-
-Add a new component renderer scaffold to your project.
-
-```bash
-objectui add Input
-```
-
 ### `objectui studio`
 
 Launch the visual designer (`@object-ui/plugin-designer`) against the local
@@ -303,12 +295,9 @@ objectui create plugin my-awesome-widget
 
 ### `objectui analyze`
 
-Analyze the built application.
-
-| Flag | Description |
-|---|---|
-| `--bundle-size` | Inspect bundle size |
-| `--render-performance` | Inspect render performance |
+Analyze the built application's bundle: the total, JavaScript and CSS sizes of
+`dist/` in the current directory (where `objectui build` writes by default),
+and its ten largest files. No flags.
 
 ## Schema file format
 

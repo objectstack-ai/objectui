@@ -109,10 +109,6 @@ objectui test --ui
 
 Generate new resources (`resource`/`object`, `page`, `plugin`).
 
-### `objectui add <component>`
-
-Add a new component renderer to your project.
-
 ### `objectui validate [schema]`
 
 Validate a schema file against the ObjectUI specification.

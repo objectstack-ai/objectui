@@ -3,12 +3,13 @@
 '@object-ui/plugin-dashboard': patch
 ---
 
-fix(dashboard,charts): two dashboard surfaces the spec types as translatable now resolve
+fix(dashboard): a dashboard filter declaring `object` now resolves its translated labels; the axis-title half reaches no surface
 
-`@objectstack/spec` declares both of these translatable and the Console resolved neither, so
-an author could set a key the contract documents and nothing happened. They turned out to be
-**two defects, not one** — a key never read, and a value that bypassed a resolver already in
-the tree — and they are fixed separately.
+`@objectstack/spec` declares two dashboard surfaces translatable — a filter's `object` and an
+axis `title` — and the Console resolved neither, so an author could set a key the contract
+documents and nothing happened. They turned out to be **two defects, not one** — a key never
+read, and a value that bypassed a resolver already in the tree — and they were fixed
+separately. Only the first reaches an author in this release: see the note at the end.
 
 **1. `GlobalFilterSchema.object` was never read.** The spec's describe text for the key is
 "Object whose `fields.<object>.<field>` translation-bundle entry resolves this filter's field
@@ -30,9 +31,10 @@ collapsed it with `labelText`, a first-string-in-KEY-ORDER pick. Measured both w
 one map: English to a `zh-CN` viewer and Chinese to an `en` viewer, decided by nothing but
 which key the author typed first. `normalizeChartSchema` already resolves an axis title
 through `pickLocalized` against the viewer's language, so the map only had to survive the
-lowering. It now travels verbatim through `forwardedI18nLabel` — the neighbour in the same
-module that already carries a chart's own `title` / `subtitle` / `description` for exactly
-this reason.
+lowering. The fix forwarded it verbatim through `forwardedI18nLabel` — the neighbour in the
+same module that already carries a chart's own `title` / `subtitle` / `description` for
+exactly this reason — and that lowering was then removed in the same release (the note at the
+end).
 
 This moves one entry of the objectui#4020 first-string-wins ledger. That ledger's
 justification is "a locale-unaware pick a caller can OVERRIDE", which holds for a series
@@ -41,13 +43,17 @@ never held for an axis title, which is spread onto the chart schema and drawn. `
 is still pinned.
 
 What an author sees change: a filter that opted in with `object` now shows its translated
-field and option labels instead of the raw field name and English options; an axis title
-authored as a locale map now follows the viewer's language instead of the author's key order.
-Nothing that omits `object` or authors a plain-string axis title renders differently.
+field and option labels instead of the raw field name and English options. Nothing that omits
+`object` renders differently, and point 2 changes nothing an author sees (below).
 
-⚠️ Released together with objectui#11315, which changes what point 2 reaches. `@objectstack/spec`
-17.5.0 refuses `chartConfig.xAxis` / `yAxis` / `series` on a dashboard widget, and the dashboard's
-dataset widget no longer reads them, so a dashboard draws no authored axis title at all, in any
-language. Point 2 still holds for `@object-ui/core`'s `axisPresentation` and
-`mergeAuthoredPresentation`, which forward a locale-map axis title verbatim to whatever chart
-schema their caller builds.
+⚠️ Point 2 reaches no surface in this release, which also carries objectui#11315 and
+objectui#11372. `@objectstack/spec` 17.5.0 refuses `chartConfig.xAxis` / `yAxis` / `series` on
+a dashboard widget, and the dashboard's dataset widget no longer reads them (objectui#11315), so
+a dashboard draws no authored axis title at all, in any language. That widget was the only
+caller of `axisPresentation` and `mergeAuthoredPresentation`, and objectui#11372 removes both
+from `@object-ui/core` in the same release, so the fixed lowering never ships. The react
+`ObjectChart` tier, which still authors its own axes, never went through that lowering: it hands
+`xAxis` / `yAxis` to `normalizeChartSchema`, which resolves a locale-map axis title against the
+viewer's language since objectui#8943 (released alongside this, under its own changeset).
+`ObjectChart.axisTitleLocale-10132.test.tsx` in `@object-ui/plugin-charts` pins that surface at
+two languages.

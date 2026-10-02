@@ -138,8 +138,12 @@ describe('ObjectGantt', () => {
     expect(screen.getByTestId('gv-field-1-1').textContent).toBe('Status=In Progress');
     // Date field formatted (not the raw ISO string).
     expect(screen.getByTestId('gv-field-1-2').textContent).not.toContain('2024-01-05');
-    // Number field formatted.
-    expect(screen.getByTestId('gv-field-1-3').textContent).toBe('Effort=12.00');
+    // Number field formatted. MOVED by objectui#11254: `effort` declares no
+    // `scale`, and under ruling A′ (objectstack-ai/objectstack#19628) an
+    // undeclared `number` has no fixed width, so the stored `12` reads `12`
+    // (as the list cell reads it), not the `12.00` a constant two-place
+    // default padded it to.
+    expect(screen.getByTestId('gv-field-1-3').textContent).toBe('Effort=12');
   });
 
   it('formats a multi-value lookup (array of records) by joining display names', async () => {

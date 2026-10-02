@@ -27,6 +27,7 @@ import {
   InspectorTextField,
   InspectorSelectField,
   InspectorCheckboxField,
+  RequiredMarker,
   appendArray,
   spliceArray,
 } from './_shared.js';
@@ -138,6 +139,28 @@ type Measure = {
   derived?: DerivedSpec;
   filter?: FilterCondition;
 };
+
+/**
+ * objectui#11402 — a row's `field` has ONE spelling for "no field": the key is
+ * absent. `DatasetMeasureSchema.field` is optional (only `count` may omit it),
+ * and a dimension's `field` is required, so an empty string is never a value
+ * either kind can use — the analytics door answered 500 on the ObjectQL
+ * strategy for a `count` measure with `field: ''`, and the narrowed spec
+ * refuses `''` at save (objectstack-ai/objectstack#21240).
+ */
+function isBlankField(field: unknown): boolean {
+  return typeof field !== 'string' || field.trim() === '';
+}
+
+/**
+ * Write a row's `field`: a blank value removes the key rather than storing
+ * `''`. The row is rebuilt without the key — not given `field: undefined` — so
+ * the held draft and the body the save sends say the same thing.
+ */
+export function writeRowField<T extends { field?: string }>(row: T, field: string): T {
+  const { field: _previous, ...rest } = row;
+  return (isBlankField(field) ? rest : { ...rest, field }) as T;
+}
 
 function SectionHeader({ title, count, onAdd, addLabel }: { title: string; count: number; onAdd?: () => void; addLabel: string }) {
   return (
@@ -347,7 +370,7 @@ export function objectChangePatch(next: string, current: string): Record<string,
   return { object: next, include: [], dimensions: [], measures: [], filter: undefined };
 }
 
-export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale }: MetadataDefaultInspectorProps) {
+export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale, onBlockingIssuesChange }: MetadataDefaultInspectorProps) {
   // The designer's chrome language, handed in by the host like every other
   // default inspector's (objectui#10586). A plain function, not a memoised
   // one: nothing below may key on its identity (AGENTS.md #10).
@@ -404,17 +427,50 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale
   // type (region:string, close_date:date, …) — the BI "pick field, type follows"
   // convention — while leaving the Type select free to override.
   const leafName = (path: string) => (path.includes('.') ? path.split('.').pop() ?? path : path);
+  // The field itself goes through `writeRowField`, so a blank pick removes the
+  // key instead of storing `''` (objectui#11402).
   const pickDimensionField = (i: number, v: string) => {
     const opt = fieldOptions.find((o) => o.value === v);
-    const patch: Partial<Dimension> = opt?.type ? { field: v, type: fieldTypeToDimensionType(opt.type) } : { field: v };
-    if (!dimensions[i]?.name) patch.name = leafName(v); // auto-name from field when unnamed
-    patchDimension(i, patch);
+    const patch: Partial<Dimension> = opt?.type ? { type: fieldTypeToDimensionType(opt.type) } : {};
+    if (!isBlankField(v) && !dimensions[i]?.name) patch.name = leafName(v); // auto-name from field when unnamed
+    onPatch({ dimensions: dimensions.map((d, idx) => (idx === i ? writeRowField({ ...d, ...patch }, v) : d)) });
   };
   const pickMeasureField = (i: number, v: string) => {
-    const patch: Partial<Measure> = { field: v };
-    if (!measures[i]?.name) patch.name = leafName(v); // auto-name from field when unnamed
-    patchMeasure(i, patch);
+    const patch: Partial<Measure> = {};
+    if (!isBlankField(v) && !measures[i]?.name) patch.name = leafName(v); // auto-name from field when unnamed
+    onPatch({ measures: measures.map((m, idx) => (idx === i ? writeRowField({ ...m, ...patch }, v) : m)) });
   };
+
+  /* ─── A field-less dimension → the host's Save gate (objectui#11402) ───
+   *
+   * A dimension's `field` is required (`DatasetDimensionSchema.field`), so a
+   * row whose Field box is blank is incomplete. It is reported on the
+   * blocking-issue channel the host already reads for this inspector family
+   * (objectui#4527 / objectui#6900), which holds Save, the autosave timer and
+   * the shortcut alike — so the row is never saved as `field: ''`, and never
+   * sent half-built. A stored `field: ''` counts too: it is the same blank box.
+   * While the box is blank, that row's Field label carries the designer's
+   * required marker (objectui#10948), so the row the hold is about is the one
+   * shown as incomplete; a row with a field shows the plain label.
+   *
+   * A measure is NOT counted: its `field` is optional, and whether its
+   * aggregate may go without one is the spec's verdict at save.
+   *
+   * The count is derived from the draft on every render — there is no queued
+   * verdict that could outlive the item it describes, so nothing is stamped
+   * here; the host's own stamp expires the count when this inspector goes. */
+  const incompleteDimensions = dimensions.filter((d) => isBlankField(d.field)).length;
+  // Held in a ref so an unmemoized host callback cannot re-fire the effect.
+  const onBlockingIssuesChangeRef = React.useRef(onBlockingIssuesChange);
+  React.useEffect(() => {
+    onBlockingIssuesChangeRef.current = onBlockingIssuesChange;
+  });
+  React.useEffect(() => {
+    onBlockingIssuesChangeRef.current?.(incompleteDimensions);
+  }, [incompleteDimensions]);
+  // One id prefix for every dimension row's Field label ⇄ combo pair; the row
+  // index keeps each pair distinct within this inspector.
+  const dimensionFieldIdPrefix = React.useId();
 
   return (
     <InspectorShell kindLabel={tr('engine.inspector.dataset.kind')} title={String(label || draft.name || tr('engine.inspector.dataset.kind'))} onClose={() => {}} hideClose>
@@ -548,7 +604,8 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale
           title={tr('engine.inspector.dataset.dimensions')}
           count={dimensions.length}
           addLabel={tr('engine.inspector.dataset.addDimension')}
-          onAdd={readOnly ? undefined : () => onPatch({ dimensions: appendArray(dimensions, { name: '', field: '', type: 'string' }) })}
+          // No `field` key until one is picked (objectui#11402) — never `''`.
+          onAdd={readOnly ? undefined : () => onPatch({ dimensions: appendArray<Dimension>(dimensions, { name: '', type: 'string' }) })}
         />
         {dimensions.map((d, i) => (
           <div key={i} className="rounded-md border p-2 space-y-1.5">
@@ -569,17 +626,26 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale
               )}
             </div>
             <InspectorTextField label={tr('engine.inspector.dataset.name')} value={d.name ?? ''} onCommit={(v) => patchDimension(i, { name: v })} placeholder={tr('engine.inspector.dataset.dimensionNamePlaceholder')} disabled={readOnly} mono />
-            <InspectorComboField
-              label={tr('engine.inspector.dataset.field')}
-              value={d.field ?? ''}
-              onCommit={(v) => pickDimensionField(i, v)}
-              options={fieldComboOptions}
-              loading={catalogLoading}
-              placeholder={tr('engine.inspector.dataset.dimensionFieldPlaceholder')}
-              searchPlaceholder={tr('engine.form.searchFields')}
-              disabled={readOnly}
-              mono
-            />
+            {/* The label is rendered here, not by the combo, so it can carry the
+                required marker while the box is blank (objectui#11402); `id` is
+                the combo's external-label variant. */}
+            <div className="space-y-1">
+              <Label htmlFor={`${dimensionFieldIdPrefix}-${i}`} className="text-xs text-muted-foreground">
+                {tr('engine.inspector.dataset.field')}
+                {isBlankField(d.field) && <RequiredMarker />}
+              </Label>
+              <InspectorComboField
+                id={`${dimensionFieldIdPrefix}-${i}`}
+                value={d.field ?? ''}
+                onCommit={(v) => pickDimensionField(i, v)}
+                options={fieldComboOptions}
+                loading={catalogLoading}
+                placeholder={tr('engine.inspector.dataset.dimensionFieldPlaceholder')}
+                searchPlaceholder={tr('engine.form.searchFields')}
+                disabled={readOnly}
+                mono
+              />
+            </div>
             {(() => { const rel = missingRelationship(d.field, include); return rel ? <RelWarning rel={rel} disabled={readOnly} locale={locale} onAdd={() => onPatch({ include: appendArray(include, rel) })} /> : null; })()}
             <InspectorSelectField label={tr('engine.inspector.dataset.type')} value={d.type} options={localizeOptions(DIMENSION_TYPE_OPTIONS, locale)} onCommit={(v) => patchDimension(i, { type: v })} disabled={readOnly} />
             <Advanced locale={locale}>
@@ -598,7 +664,8 @@ export function DatasetDefaultInspector({ draft, onPatch, readOnly, name, locale
           title={tr('engine.inspector.dataset.measures')}
           count={measures.length}
           addLabel={tr('engine.inspector.dataset.addMeasure')}
-          onAdd={readOnly ? undefined : () => onPatch({ measures: appendArray(measures, { name: '', aggregate: 'sum', field: '' }) })}
+          // No `field` key until one is picked (objectui#11402) — never `''`.
+          onAdd={readOnly ? undefined : () => onPatch({ measures: appendArray<Measure>(measures, { name: '', aggregate: 'sum' }) })}
         />
         {measures.map((m, i) => {
           const otherMeasures = measures.filter((_, idx) => idx !== i).map((x) => x.name).filter((n): n is string => !!n);

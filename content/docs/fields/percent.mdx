@@ -9,9 +9,9 @@ The Percent Field component provides a percentage input that automatically conve
 
 <SchemaExample id="fields-percent/basic-percent-field" />
 
-## With Precision
+## With Decimal Places
 
-<SchemaExample id="fields-percent/with-decimal-precision" />
+<SchemaExample id="fields-percent/with-decimal-places" />
 
 ## Required Field
 
@@ -25,7 +25,7 @@ The Percent Field component provides a percentage input that automatically conve
 
 A percent field is authored as `PercentFieldMetadata` (`@object-ui/types`), which is
 the source of truth for the key set: it extends `BaseFieldMetadata` with the decimal
-precision and the two bounds.
+places (`scale`), the total-digit `precision` and the two bounds.
 
 ```ts
 import type { PercentFieldMetadata } from '@object-ui/types';
@@ -35,11 +35,18 @@ const discountRate: PercentFieldMetadata = {
   name: 'discount_rate',
   label: 'Discount Rate',
   placeholder: '0%',
-  precision: 2,
+  scale: 2,
   min: 0,
   max: 1,
 };
 ```
+
+**Decimal places come from `scale`, not from `precision`.** `scale` is how many
+decimals the percent shows: the input's step, the read-only display and the table cell
+all follow it, so a stored `0.855` on the field above shows `85.50%`. `precision` is the
+total digit count of the stored decimal, so it never sets how many decimals are shown.
+Leave `scale` out and the field shows the platform's default width for a percent, which
+is whole percents: the same `0.855` shows `86%`.
 
 The value being edited, and the `className` / `disabled` a host supplies, are **not**
 metadata keys — they are runtime widget props. See [Field Widget Props](/docs/fields/widget-props).
@@ -79,12 +86,13 @@ Example:
 
 ## Cell Renderer
 
-In tables/grids, values are formatted with percentage symbol:
+In tables/grids, values are formatted with percentage symbol, to the field's `scale`:
 
 ```ts
 import { PercentCellRenderer } from '@object-ui/fields';
 
-// Renders: 85.50%
+// A stored 0.855 on a field declaring `scale: 2` renders: 85.50%
+// The same value on a field with no `scale` renders: 86%
 ```
 
 ## Use Cases

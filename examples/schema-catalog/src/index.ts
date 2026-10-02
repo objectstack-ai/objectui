@@ -358,7 +358,7 @@ import fields_password_with_minimum_length from './schemas/fields-password/with-
 import fields_percent_basic_percent_field from './schemas/fields-percent/basic-percent-field.json' with { type: 'json' };
 import fields_percent_read_only_percent from './schemas/fields-percent/read-only-percent.json' with { type: 'json' };
 import fields_percent_required_percent from './schemas/fields-percent/required-percent.json' with { type: 'json' };
-import fields_percent_with_decimal_precision from './schemas/fields-percent/with-decimal-precision.json' with { type: 'json' };
+import fields_percent_with_decimal_places from './schemas/fields-percent/with-decimal-places.json' with { type: 'json' };
 import fields_phone_basic_phone_field from './schemas/fields-phone/basic-phone-field.json' with { type: 'json' };
 import fields_phone_required_phone from './schemas/fields-phone/required-phone.json' with { type: 'json' };
 import fields_rich_text_html_editor from './schemas/fields-rich-text/html-editor.json' with { type: 'json' };
@@ -3591,14 +3591,14 @@ const REGISTRY: Record<string, Example> = {
     },
     schema: fields_percent_required_percent,
   },
-  'fields-percent/with-decimal-precision': {
-    id: 'fields-percent/with-decimal-precision',
+  'fields-percent/with-decimal-places': {
+    id: 'fields-percent/with-decimal-places',
     meta: {
-      title: "With Decimal Precision",
+      title: "With Decimal Places",
       description: "",
       category: 'fields-percent',
     },
-    schema: fields_percent_with_decimal_precision,
+    schema: fields_percent_with_decimal_places,
   },
   'fields-phone/basic-phone-field': {
     id: 'fields-phone/basic-phone-field',

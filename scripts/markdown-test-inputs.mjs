@@ -205,6 +205,15 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', '.turbo', 'coverage',
  *              something else, and says what.
  */
 export const ADJUDICATED = new Map([
+  // objectui#11403. The console's SDUI manifest pin lists the files the
+  // generator writes into a temp directory; no markdown in this tree is read.
+  [
+    'apps/console/src/__tests__/sdui-manifest-build-11403.test.ts',
+    {
+      reads: [],
+      walker: 'not-markdown: walks GENERATED output in a temp directory; its `sdui-blocks.md` literal names a file the generator writes, not one in this tree',
+    },
+  ],
   // objectui#11165. Evaluates the guide's "customize only the header" fence, so an edit to that page is an edit to this test's input.
   [
     'examples/schema-catalog/test/slotted-pages-header-example-11165.test.ts',

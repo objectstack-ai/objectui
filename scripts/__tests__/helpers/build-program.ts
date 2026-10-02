@@ -30,6 +30,7 @@ import { rel, repoRoot, type WorkspacePackage } from './turbo-inputs';
  *     tsup                     4 packages      the tsup config program + its tsconfig
  *     next build               1 app           the Next config program + its tsconfig
  *     node <script>            2 packages      the script and what it imports
+ *     tsx <script>             (as node)       the script and what it imports
  *     pnpm <script>            1 app           the same package's other script
  *
  * So a segment is classified by the tool it runs, and each tool contributes
@@ -276,10 +277,13 @@ function collectSegment(pkg: WorkspacePackage, command: string, acc: Accumulator
     return;
   }
 
-  if (tool === 'node') {
+  // `tsx SCRIPT` is node with a TypeScript loader: it reads the script and
+  // whatever the script imports, exactly as `node SCRIPT` does, so it takes the
+  // same branch rather than a copy of it (objectui#11403).
+  if (tool === 'node' || tool === 'tsx') {
     const script = tokens.slice(1).find((token) => !token.startsWith('-'));
     if (script === undefined) {
-      throw new Error(`${rel(pkg.dir)}: \`${command}\` runs node with no script to walk.`);
+      throw new Error(`${rel(pkg.dir)}: \`${command}\` runs ${tool} with no script to walk.`);
     }
     const resolved = path.resolve(pkg.dir, script);
     if (!fs.existsSync(resolved)) {

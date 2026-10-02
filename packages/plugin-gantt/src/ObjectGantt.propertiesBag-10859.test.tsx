@@ -115,7 +115,12 @@ function renderNode(schema: Record<string, unknown>) {
   const adapter = makeAdapter();
   const view = render(
     <SchemaRendererProvider dataSource={adapter as unknown as DataSource}>
-      <SchemaRenderer schema={schema as BaseSchema} />
+      {/* Through `unknown`, deliberately: these fixtures are unjudged document
+          JSON, two of them spellings the validator refuses (`FLAT`,
+          `FLAT_CONFIG`), handed to the renderer the way a stored document
+          reaches it. No node type declares all of them, and none should
+          (objectui#11355). */}
+      <SchemaRenderer schema={schema as unknown as BaseSchema} />
     </SchemaRendererProvider>,
   );
   return { adapter, ...view };

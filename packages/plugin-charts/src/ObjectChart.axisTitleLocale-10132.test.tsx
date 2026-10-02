@@ -56,10 +56,10 @@ import type { ObjectChartSchema } from '@object-ui/types';
 // under the headless DOM, so nothing paints. Fix its size — the same double the
 // sibling `ObjectChart` render tests install, for the same reason.
 vi.mock('recharts', async () => {
-  const actual = await vi.importActual<any>('recharts');
+  const actual = await vi.importActual<typeof import('recharts')>('recharts');
   return {
     ...actual,
-    ResponsiveContainer: ({ children }: any) =>
+    ResponsiveContainer: ({ children }: { children: React.ReactElement<{ width?: number; height?: number }> }) =>
       React.cloneElement(children, { width: 480, height: 320 }),
   };
 });

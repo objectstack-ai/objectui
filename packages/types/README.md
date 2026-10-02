@@ -328,6 +328,13 @@ Advanced composite components:
 - `CarouselSchema` - Image/content carousel
 - `ChatbotSchema` - Chat interface
 
+### Action Components
+
+Server-driven actions and the nodes that render them:
+
+- `UIActionSchema` - One action: what it runs, where it renders (`locations`) and how it looks
+- `ActionBarSchema` - The location-aware action toolbar (`action:bar`), rendered by `@object-ui/components`; it declares no index signature, so a typed literal may write only the keys the renderer reads
+
 ### Data Management
 
 Backend integration:

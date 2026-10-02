@@ -61,6 +61,7 @@
 import { useEffect } from 'react';
 import { SchemaRenderer, useCapabilityGate } from '@object-ui/react';
 import { actionRendersAt } from '@object-ui/types';
+import type { ActionBarSchema } from '@object-ui/types';
 import { Button, Skeleton } from '@object-ui/components';
 import { Plus } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
@@ -120,11 +121,11 @@ function otherActions(toolbarActions: any[]): any[] {
 
 function OtherActionsBar({ actions }: { actions: any[] }) {
   if (actions.length === 0) return null;
-  return (
-    <SchemaRenderer
-      schema={{ type: 'action:bar', location: 'list_toolbar', actions, size: 'sm', variant: 'outline' }}
-    />
-  );
+  // Typed as the `action:bar` node it is (objectui#11355), not as the
+  // `BaseSchema` the `schema` prop accepts: a key `ActionBarSchema` does not
+  // declare is refused here.
+  const bar: ActionBarSchema = { type: 'action:bar', location: 'list_toolbar', actions, size: 'sm', variant: 'outline' };
+  return <SchemaRenderer schema={bar} />;
 }
 
 interface Props {
@@ -258,15 +259,13 @@ export function EnvironmentListToolbar({ actions, entitlements, onUpgrade }: Pro
     };
   });
 
-  return (
-    <SchemaRenderer
-      schema={{
-        type: 'action:bar',
-        location: 'list_toolbar',
-        actions: renderedActions,
-        size: 'sm',
-        variant: 'outline',
-      }}
-    />
-  );
+  // Typed as the `action:bar` node it is (objectui#11355); see `OtherActionsBar`.
+  const bar: ActionBarSchema = {
+    type: 'action:bar',
+    location: 'list_toolbar',
+    actions: renderedActions,
+    size: 'sm',
+    variant: 'outline',
+  };
+  return <SchemaRenderer schema={bar} />;
 }

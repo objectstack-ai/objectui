@@ -926,6 +926,67 @@ export interface UIActionSchema {
  */
 
 /**
+ * The `action:bar` node — a location-aware action toolbar.
+ *
+ * Rendered by the `action:bar` renderer in `@object-ui/components`
+ * (`renderers/action/action-bar.tsx`), which reads the node as this type. The
+ * bar draws the {@link UIActionSchema} items in `actions` that render at
+ * `location` (`actionRendersAt`), splits them into an inline row and one "More"
+ * menu at `maxVisible` (`mobileMaxVisible` on a phone), and puts every item in
+ * `systemActions` in that same menu.
+ *
+ * Moved here from `@object-ui/components` by objectui#11355 (the seat's ruling
+ * B): a node schema lives in this package (AGENTS.md §3 and §8), so the hosts
+ * that build an `action:bar` node in code type it from the package they import
+ * every other node type from. No `@objectstack/spec` row exists for it: the
+ * spec's `ComponentPropsMap` has no `action:bar` entry, and `@object-ui/core`'s
+ * public-blocks list leaves it out on purpose.
+ *
+ * ⛔ No index signature, so the type checker re-derives the member list on
+ * every run: the renderer reading a key this type does not declare is a TS2339
+ * in `@object-ui/components`' `type-check`, and a literal typed with it that
+ * writes one is a TS2353. When objectui#11355 moved it (a dated reading, not
+ * re-derived here), the members were exactly the keys the renderer reads, and
+ * they covered every key an in-repo `action:bar` literal wrote. The renderer's
+ * pass-through for DOM and Shadcn props stays on its own parameter annotation
+ * (objectui#4422), not here.
+ */
+export interface ActionBarSchema {
+  type: 'action:bar';
+  /** Business actions to render — subject to the inline/overflow split at {@link ActionBarSchema.maxVisible}. */
+  actions?: UIActionSchema[];
+  /**
+   * System/chrome actions (Duplicate, Export, View History, Delete, etc.) that
+   * are *always* placed in the overflow menu — never inline — regardless of
+   * {@link ActionBarSchema.maxVisible}. They share a single overflow button
+   * with any business actions that spilled past `maxVisible` or were authored
+   * `component: 'action:menu'`, so a bar has at most one "More" menu.
+   *
+   * The first system action is automatically separated from business-overflow
+   * entries by a menu separator.
+   */
+  systemActions?: UIActionSchema[];
+  /** Render only the actions that declare this location; unset, no location filtering. */
+  location?: ActionLocation;
+  /** Maximum visible inline actions before overflow into the "More" menu (default: 3). */
+  maxVisible?: number;
+  /** Maximum visible inline actions on mobile devices (default: 1). Desktop uses `maxVisible` instead. */
+  mobileMaxVisible?: number;
+  /** Visibility condition expression. */
+  visible?: string;
+  /** Layout direction. */
+  direction?: 'horizontal' | 'vertical';
+  /** Gap between items (Tailwind gap class, default: 'gap-2'). */
+  gap?: string;
+  /** Button variant for all actions (each action's own `variant` wins). */
+  variant?: string;
+  /** Button size for all actions (each action's own `size` wins). */
+  size?: string;
+  /** Custom CSS class. */
+  className?: string;
+}
+
+/**
  * Action execution context
  */
 export interface ActionContext {

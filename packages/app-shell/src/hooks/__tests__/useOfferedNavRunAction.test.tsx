@@ -36,6 +36,7 @@ import '@object-ui/components';
 import { toast } from 'sonner';
 import { ActionProvider, PredicateScopeProvider, SchemaRenderer } from '@object-ui/react';
 import { actionRendersAt } from '@object-ui/types';
+import type { ActionBarSchema } from '@object-ui/types';
 import { NAV_RUN_ACTION_PARAM } from '@object-ui/layout';
 import type { ActionContext, ActionDef, ActionResult } from '@object-ui/core';
 import { useOfferedNavRunAction } from '../useNavRunAction';
@@ -60,7 +61,9 @@ const paramNow = () => new URL(window.location.href).searchParams.get(NAV_RUN_AC
 function Toolbar({ actions, enabled = true }: { actions: any[]; enabled?: boolean }) {
   const armed = useOfferedNavRunAction(actions, (a: any) => actionRendersAt(a, 'list_toolbar'), enabled);
   const composed = armed === null ? actions : actions.map((a) => (a?.name === armed ? { ...a, autoTrigger: true } : a));
-  return <SchemaRenderer schema={{ type: 'action:bar', location: 'list_toolbar', actions: composed }} />;
+  // Typed as the `action:bar` node it is (objectui#11355), as `ObjectView` types its own.
+  const bar: ActionBarSchema = { type: 'action:bar', location: 'list_toolbar', actions: composed };
+  return <SchemaRenderer schema={bar} />;
 }
 
 function mount(actions: any[], opts: { scope?: Record<string, unknown>; enabled?: boolean } = {}) {

@@ -27,7 +27,7 @@ import { Database } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { isSystemManagedField } from '@object-ui/types';
 import { leadWithNameField } from '@object-ui/core';
-import type { ListViewSchema } from '@object-ui/types';
+import type { ActionBarSchema, ListViewSchema } from '@object-ui/types';
 import { useMetadata } from '../providers/MetadataProvider.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
 import { parseUserFilterParams, applyUserFilterParams } from './userFilterUrlState.js';
@@ -566,6 +566,10 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
         // filters by location).
         .map((a: any) => ({ ...a, locations: ['list_toolbar'] }))
     : [];
+  // Typed as the `action:bar` node it is (objectui#11355), not as the
+  // `BaseSchema` the `schema` prop accepts: a key `ActionBarSchema` does not
+  // declare is refused here.
+  const buttonBar: ActionBarSchema = { type: 'action:bar', location: 'list_toolbar', actions: buttonActions, size: 'sm', variant: 'outline' };
 
   return (
     <div className={className ?? 'h-full flex flex-col'} data-testid="interface-list-page">
@@ -580,7 +584,7 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
         </div>
         {buttonActions.length > 0 && (
           <div className="shrink-0" data-testid="interface-page-buttons">
-            <SchemaRenderer schema={{ type: 'action:bar', location: 'list_toolbar', actions: buttonActions, size: 'sm', variant: 'outline' }} />
+            <SchemaRenderer schema={buttonBar} />
           </div>
         )}
       </div>

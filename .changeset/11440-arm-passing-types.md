@@ -16,3 +16,5 @@
 - **`{ type: 'detail-section', fields, … }`** — `DetailSectionNodeSchema`, one field section of `@object-ui/plugin-detail` as a node: the ten `DetailViewSectionSchema` members its registration publishes (`title`, `description`, `icon`, `fields`, `collapsible`, `defaultCollapsed`, `columns`, `showBorder`, `headerColor`, `hideEmpty`), flat on the node, `fields` required. The plugin-detail README's `detail-view` tab with a `detail-section` content validates. `children` and `body` are refused by name.
 
 The strict authoring face (`StrictAnyComponentSchema`) derives from these arms and accepts the same documents, closed to undeclared keys.
+
+**The TypeScript face.** `@object-ui/types` exports `ObjectPivotBlockNode` and `EmbeddableFormBlockNode`, the two arms' authoring inputs, derived by reference as the other `ObjectQLPublicBlockNode` members are, so they are in `AuthoringNode` and `SchemaRenderer`'s `schema` prop accepts them. Each bag is required and closed: a misspelled bag key, a missing bag and a prop written flat do not compile. The page kinds were already typed (`PageDocumentNode`, the spec's own page input).

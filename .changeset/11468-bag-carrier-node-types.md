@@ -35,3 +35,12 @@ accepted before is still accepted. Reading is a different matter: on a union, a
 key that one closed member does not declare is TS2339, so code that reads a key
 off `SchemaRendererProps['schema']` or off `toRenderableSchema`'s return needs
 to narrow first.
+
+⚠️ **Dated note, 2026-10-02 — two more members — objectui#11440.**
+Later in this same release `ObjectQLPublicBlockComponentSchema` gained the `object-pivot` and
+`embeddable-form` arms, so `ObjectQLPublicBlockNode` derives ten members, and "The eight members
+are also exported by name" above reads ten: `ObjectPivotBlockNode` and `EmbeddableFormBlockNode`
+join the list. Their bags have no row either (each is built from the block's registration
+inputs) and are REQUIRED, and the derivation closes a required bag as it closes an optional one.
+`.changeset/11440-arm-passing-types.md` states what ships. The rest of this entry is kept as the
+reading of this change.

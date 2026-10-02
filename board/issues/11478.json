@@ -1,0 +1,35 @@
+{
+  "number": 11478,
+  "kind": "issue",
+  "title": "spec(types): AnySchema (\"Union of all component schemas\") omits 17 exported node types and ActionBarSchema, so objectui#11466's declared-node slot union would refuse their correct literals",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-02T15:25:32Z",
+  "updated_at": "2026-10-02T16:51:33Z",
+  "closed_at": "2026-10-02T16:48:57Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11478",
+  "body": "This card carries objectui#11466's **Q3** half: the declared node types `AnySchema` is missing. objectui#11466 keeps the slot union itself (V1), the `CustomNodeRegistry` mechanism and its own residue. A child of objectui#11466, filed with its `domain:spec` and `priority:p2`.\n\nFiling-gate category: ① — a named landing point (`AnySchema` in `packages/types/src/index.ts`), a docblock that states a fact the union does not hold, and named producers.\nReader: the `domain:spec @ objectui` seat (objectui#10217) dispatches it, and an os-dev executes it.\nParent: objectui#11466, `pm:blocked` until this card and objectui#11466's producers card land.\n\n## What was measured (objectui#11466's report, at `main` `5988b6b53`)\n\n`AnySchema` (`packages/types/src/index.ts`, read on `origin/main` `6007dd4e4`) ends in a `| BaseSchema` arm, and its docblock says it is the union of all component schemas. Seventeen exported interfaces that extend `BaseSchema` with a literal `type` are not members:\n- `AIFormAssistSchema`, `AIRecommendationsSchema`, `NLQuerySchema`;\n- `DashboardWidgetSlotComponentSchema`;\n- `DataModelDesignerSchema`, `FieldDesignerSchema`, `ObjectManagerSchema`, `PageDesignerSchema`, `ProcessDesignerSchema`, `ReportDesignerSchema`;\n- `DetailViewSchema`, `FilterUISchema`, `SortUISchema`, `ViewSwitcherSchema`;\n- `ReportBuilderSchema`, `ReportComponentSchema`, `ReportViewerSchema`.\n\nThe standalone `ActionBarSchema` (`action:bar`, `packages/types/src/ui-action.ts`) is missing too. app-shell hands it to `SchemaRenderer` four times.\n\nWith the `BaseSchema` arm present, nothing refuses these nodes today. Under objectui#11466's slot union (V1, no catch-all arm), their correct literals are refused. The probe case was `{ type: 'detail-view', objectName }`, which `building-crud-app.md` and `data-source.md` author. `SchemaByType` is wrong for them today.\n\n`reach:` the published `AnySchema` / `SchemaByType`. Named producers: those two docs pages and app-shell's four `action:bar` hand-offs.\n\n## Seat answer: A (non-escalation; the union's own docblock decides it)\n\nAdd the eighteen to `AnySchema`. The slot union of objectui#11466 then inherits them through one list, ⛔ not a second list in a new type.\n- B (a second list only in the slot union) leaves two lists to drift.\n- C (have producers register them as custom types) is wrong, because they are this package's own declarations.\n\n## Constraints\n\n- With the signature AND the `BaseSchema` arm present, this changes no accept set. Every edit compiles as `main` does today.\n- **AGENTS.md #9:** the union's completeness must be re-derived by an instrument, ⛔ not stated in prose. The re-derivation in objectui#11466's report was a TypeScript-API enumeration of exported interfaces that extend `BaseSchema` with a literal `type` (105 members of `AnySchema`, 104 literal). A pin that fails when a new such interface is exported outside the union is this card's to add, if it can be done without a new gate (a test in `packages/types/src/__tests__/`).\n- The `app` and `list` discriminant collisions between `AnySchema` and `PageDocumentNode` (measured on objectui#11466) are objectui#11466's. ⛔ Not this card's.\n- `Clause-②` is stated at claim.\n\n## Dedupe\n\nThe REST list of objectui's 600 most recently updated issues and PRs, open and closed (back to 2026-09-28), grepped locally on 2026-10-02: `AnySchema` 1 hit (objectui#11466); `AnySchema` near omit/miss/lack/incomplete 0 (control `AnySchema` 1).\n\nDedupe words: `AnySchema missing node types` · `DetailViewSchema not in AnySchema` · `ActionBarSchema AnySchema union`"
+}

@@ -2,8 +2,8 @@
   "number": 11467,
   "kind": "issue",
   "title": "spec(types,plugin-dashboard): the metric-card component arm carries MetricCard's title, value, icon, trend and trendValue only through BaseSchema's index signature; declare them, or objectui#8347's removal breaks the README's ruled metric-card examples",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -12,7 +12,6 @@
   },
   "labels": [
     "domain:spec",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -21,11 +20,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-02T13:44:54Z",
-  "updated_at": "2026-10-02T14:12:50Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-02T17:05:47Z",
+  "closed_at": "2026-10-02T17:04:21Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 4,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11467",
   "body": "This card carries objectui#8347's **F2** half: the TypeScript face of the dashboard widget slot's component arm. objectui#8347 keeps the removal itself and everything its fork ACCEPT lists for the last PR.\n\nFiling-gate category: ① — a named landing point (`DashboardWidgetSlotComponentSchema` and the widget `component` slot in `packages/types/src/complex.ts`, with their zod twins), measured reach, and a named renderer. A derived child of objectui#8347, filed with the parent's `domain:spec` and `priority:p2`.\nReader: the `domain:spec @ objectui` seat (objectui#10217) dispatches it, and an os-dev executes it.\nParent: objectui#8347, which is `pm:blocked` until this card and its two siblings land.\n\n## What was measured (objectui#8347's P1 report `5953663875`, at `main` `5988b6b53`)\n\n`DashboardWidgetSlotComponentSchema extends BaseSchema` (read on `origin/main`), and the widget's `component` slot is typed `BaseSchema`. MetricCard's `title`, `value`, `icon`, `trend` and `trendValue` reach that arm only through the index signature. With the signature deleted alone:\n- types `dashboard-widget-slot-component-arm-7952` ×3 (`value`; the README usage copy) and `content-channel-public-blocks-9256` ×1 (`title`, the accepting control literal) stop compiling;\n- `check:doc-snippets` fails 3 blocks in the plugin-dashboard README's metric-card examples.\n\n`reach:` the published `@object-ui/types` arm. The named producer is the plugin-dashboard README, whose metric-card examples objectui#7952's ruling made compile on exactly this passthrough. PR objectui#11377 carried these literals to objectui#8347 unruled.\n\n## Seat answer: A (non-escalation; an existing ruling decides it)\n\n**Governing text:** objectui#7952's ruled outcome, under which the README's metric-card component examples compile.\n\n- **A:** declare MetricCard's registry inputs on the component arm by reference to the registration's inputs, type the widget `component` slot with that arm, and mirror them on the zod twin.\n- B (teach only the widget format and refuse inline metric-card props) narrows a documented, rendered capability against objectui#7952.\n- C (a named open record) is the index signature by another name.\n\nThe implementer measures first:\n- which of the five keys `MetricCard` really reads (a type-checker census AND a runtime probe);\n- the zod component arm's current shape. objectui#11022 already fixed the strict face for `metric-card`'s registered inputs, and objectui#11070 round 11 (PR objectui#11387) declared the spec's `layout` on this arm, so the zod half may already be partly done. Report what it finds; ⛔ no second spelling.\n\n## Constraints\n\n- Every edit here must compile WITH the signature still present, so this card lands on its own and `main` stays green.\n- objectui#11070 (`pm:blocked`, held by `domain:devx` seat 2) also edits this arm's zod and TS faces. Check its newest claim at dispatch and declare the overlap in the claim.\n- `Clause-②` is stated at claim from the actual accept-set change: the TS face gains no accepted key while the signature stands, and a zod arm that goes from passthrough to value-checked is a narrowing.\n\n## Dedupe\n\nThe same REST read as objectui#8347's siblings (600 most recently updated objectui issues and PRs, open and closed, back to 2026-09-28T12:31Z, 2026-10-02): `metric-card` / `MetricCard` / `DashboardWidgetSlotComponent` 16 hits. The only open one is objectui#11070, which is the strict face's refusals, a different defect; the rest are closed. Control `objectui` 589.\n\nDedupe words: `metric-card component arm title value` · `DashboardWidgetSlotComponentSchema index signature` · `widget component slot BaseSchema`"

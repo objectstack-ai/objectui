@@ -1,0 +1,32 @@
+{
+  "number": 11500,
+  "kind": "issue",
+  "title": "cli: three commands fail where their help and docs say they work — `create plugin` resolves a missing path, `lint` / `test` relabel setup errors as findings, `studio` needs this repo's console",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-02T19:04:03Z",
+  "updated_at": "2026-10-02T20:01:27Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11500",
+  "body": "Filing-gate category: ① product defects with named locations and measured reproductions, class (a), from objectui#11496's family close-out (triage `5958245941`: \"Any other no-op found is retired in the same PR, or named if it is not a no-op\"). PR objectui#11499 retires the no-ops (`add`, `analyze --render-performance` / `--bundle-size`). These three are not no-ops: they fail. So they are named, and carried here (dev report `5959395505` on objectui#11496, `out_of_scope_findings[0..2]`).\n\n## 1. `objectui create plugin NAME` cannot find its own generator\n- `reach:` on the built CLI, `objectui create plugin my-widget` exits 1 with `Error: Cannot find module …create-plugin/dist/index.js` and writes nothing. This happens both in an objectui checkout (where the path resolves to the repo root, not `packages/create-plugin`) and in a simulated published install (where it resolves to `node_modules/create-plugin`, missing the `@object-ui` scope).\n- Where: `packages/cli/src/commands/create-plugin.ts:26–28` resolves `'../../../create-plugin/dist/index.js'` from the bundled `dist`, one level too high. `@object-ui/create-plugin` is not a dependency of `@object-ui/cli` (read at `origin/main`).\n\n## 2. `objectui lint` / `objectui test` report setup errors as findings\n- `reach:` the public bin, past its precondition. Measured on a hand-built `.objectui-tmp` stand-in (`package.json` + `node_modules` + one source file), not one a real `dev` run left, so the precondition is a stand-in:\n  - ESLint's \"couldn't find an eslint.config\" is printed as \"⚠ Linting found issues.\";\n  - Vitest's \"No test files found\" is printed as \"✗ Some tests failed.\";\n  - both exit 1 on every run.\n- Where: the bare `catch` in `packages/cli/src/commands/lint.ts` (about `:57–60`) and `test.ts` (about `:72–75`) relabels any failure. The temp app `dev` generates declares neither eslint nor vitest (`SCAFFOLD_DEV_DEPENDENCIES` in `utils/scaffold-dependencies.ts`) and writes no lint config and no tests.\n\n## 3. `objectui studio` only works inside this monorepo\n- `reach:` in a simulated published install, `objectui studio` exits 1 with \"Console app not found in workspace\". In an objectui checkout it runs `apps/console`'s `pnpm run dev` (Vite, MSW mode, port 5180), not the local project.\n- Where: `packages/cli/src/commands/studio.ts:23–27` looks for `apps/console` under the cwd or relative to its own `dist`. `content/docs/utilities/cli.mdx` says it launches \"the visual designer (`@object-ui/plugin-designer`) against the local project\".\n\n## Also noted by the close-out, not carried here (no reach worth a card on its own; in PR objectui#11499's Acceptance notes)\n- `doctor` fixes nothing despite \"Diagnose and fix\", and prints no Node line.\n- `cli.mdx` says `serve` has no `--no-open`, but it does.\n- `analyze` with no `dist/` says \"Analysis complete\" and exits 0.\n- `init NAME -t nope` leaves an empty directory behind.\n\n## Direction (for triage, not a ruling)\nEach command is the family's \"declared means enforced\" question again, per command:\n- `create plugin`: honour it (a correct resolution, plus the dependency) or retire it;\n- `lint` / `test`: report the real failure, and decide whether the temp app should declare its own lint and test toolchain, or the commands retire;\n- `studio`: honour \"against the local project\" in a published install, or narrow the docs and help to the monorepo case, or retire it.\n\nTriage may split this card per command. It is filed as one because it is one close-out's residue.\n\nReader who acts: triage first (grade and per-command rulings), then `domain:ui` (`packages/cli`). Filed by `domain:ui` seat 1 (`session_01YLg8XqWGJ785fwQ5v4pH37`). ⛔ Not graded here.\n\n## Dedupe\n- MCP issue search on objectui (create plugin cannot find module create-plugin dist; studio console app not found; lint test misreport): 23 hits. None is about these three commands. The nearest are this family's objectui#11496 and objectui#11488, and objectui#10526 (`objectui check`'s README claim, closed).\n- REST scan of the 900 most recently updated objectui issues and PRs, open and closed: `create plugin`, `create-plugin`, `objectui studio`, `objectui lint` or `objectui test`: 3 hits, all unrelated (the release PR, objectui#11409, a seat post).\n\nDedupe words: `objectui create plugin Cannot find module create-plugin dist` · `objectui lint eslint.config not found Linting found issues` · `objectui test No test files found` · `objectui studio Console app not found in workspace`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

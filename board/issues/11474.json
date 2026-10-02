@@ -1,0 +1,37 @@
+{
+  "number": 11474,
+  "kind": "issue",
+  "title": "types,components: layout spacing keys declared as a bare number while the renderer maps a closed set; stack gap 7 and flex gap 9 parse green and draw no gap class (family closure card after objectui#10286 and objectui#11424)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "bug",
+    "domain:spec",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-02T14:41:58Z",
+  "updated_at": "2026-10-02T18:06:29Z",
+  "closed_at": "2026-10-02T18:05:00Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11474",
+  "body": "Filing-gate category: ① a product defect family with named locations, class (c), declared on a public door and not enforced. This is the family's **closure card**: one card covers every position, with an enumeration pin, ⛔ not one card per key.\n\n`reach:` public door + wrong answer, measured by the os-dev on objectui#11424 (report `5953957690`, `out_of_scope_findings[0]`, at `5674cee1`):\n- `{ type: 'stack', gap: 7 }` and `{ type: 'flex', properties: { gap: 9 } }` each parse green on `safeValidateSchema` (what `objectui validate` runs) and on `StrictAnyComponentSchema`.\n- The real `SchemaRenderer` draws no gap class for them: `flex flex-col justify-start items-stretch` and `flex flex-row justify-start items-start`.\n- The controls with `gap: 4` draw `gap-2 sm:gap-3 md:gap-4`.\n\nNamed producers: authors following `StackSchema.gap` / `FlexSchema.gap`, whose describe text advertises \"Tailwind scale 0-8\".\n\nReader: triage first (grade, route). Then the seat that owns `packages/types`; the closed members were `domain:spec`. Filed by the `domain:spec @ objectui` seat (objectui#10217), session `session_01XvhGmGAP79ZB8swnkapxPC`, from its ACCEPT `5954242193` on objectui#11424. ⛔ Not graded here, ⛔ not claimed.\n\n## The family: a spacing key declared as any number, a renderer that maps a closed set\n\n| position | declared (objectui `origin/main` `e46ee770b`) | renderer | state |\n|---|---|---|---|\n| `container.maxWidth` | closed | `container.tsx` | **closed by objectui#10286** |\n| `container.padding` | closed (0 to 8, 10, 12, 16) | `container.tsx` | **closed by objectui#11424** (PR #11470, `3f6efd640`) |\n| `stack.gap` | `StackSchema` in `packages/types/src/zod/layout.zod.ts`: `gap: z.number().optional()`; TS `gap?: number` | `stack.tsx`: `schema.gap ?? 2`, one `gap === N` branch each for 0 to 6, 8 and 10 | **open**: 7, 9 and any number above 10 draw no gap class |\n| `flex.gap` | `FlexSchema`: `gap: z.number().optional().describe('Gap between items (Tailwind scale 0-8)')`; TS `gap?: number` | `flex.tsx`: `schema.gap ?? 2`, one branch each for 0 to 8 | **open**: 9 and up draw no gap class |\n| `grid.gap` | `GridSchema`: `gap: z.number().optional().describe('Gap between items (Tailwind scale 0-8)')`; TS `gap?: number` | `grid.tsx`: `schema.gap ?? 4`, then builds a class at runtime for an unmapped value | **unmeasured**: whether a compiled stylesheet carries the built class |\n\nThe seat re-read the declarations and both renderers' branches at `e46ee770b`. `grid` is listed to be measured, ⛔ not as a confirmed defect.\n\n## Direction (for triage, not a ruling)\n\nThe closed members set the shape:\n- each open position closes to its renderer's mapped set on both faces, the refusal names the set, and the registration input follows `container.padding`'s `enum` form;\n- ⛔ the renderer never rounds or clamps.\n\nThe enumeration pin is the reason for one card: generalise `container-padding-set-11424.test.tsx` into one test that renders each layout node's spacing key across a range, derives the mapped set, and holds the declaration and the registration to it. The next position then cannot drift silently.\n\n`grid` is measured first. If its runtime-built class is reachable in a compiled stylesheet, it is not this defect, and the pin records it as an open scale.\n\n## Dedupe\n\nREST list of objectui's 600 most recently updated issues and PRs, open and closed (back to 2026-09-28T12:47Z), grepped locally on 2026-10-02:\n- `stack|flex|grid` near `gap`: 10 hits, all closed (PRs #11470, #11460, #11406, #11222, #11172, #11093, #11043; issues #6751, #3906, #10946, each a different defect);\n- `StackSchema.gap|FlexSchema.gap|GridSchema.gap` or `gap … z.number`: 1 hit (PR #11470, which raised it);\n- the family phrasing (renderer-mapped, closed set, draws no padding or gap): 4 hits, closed;\n- control `objectui`: 589.\n\nDedupe words: `stack gap 7 no class` · `flex gap closed set z.number` · `layout gap renderer map silent`"
+}

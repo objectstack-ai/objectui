@@ -1,0 +1,37 @@
+{
+  "number": 11483,
+  "kind": "issue",
+  "title": "types,plugin-dashboard: a metric-card widget with no value parses on both faces (the widget arm's type vocabulary admits metric-card) and draws an empty figure, while its registration and README say value is required",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:reports",
+    "bug",
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-02T16:00:46Z",
+  "updated_at": "2026-10-02T19:29:00Z",
+  "closed_at": "2026-10-02T19:27:15Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11483",
+  "body": "Filing-gate category: ① a product defect, class (b): it violates a declared contract. `reach:` public door + wrong answer. Measured by the os-dev on objectui#11467 (report on that card, `out_of_scope_findings[0]`) at objectui `d93e53f5` and again at PR objectui#11482's head `35a89136`: `DashboardComponentSchema` and `StrictAnyComponentSchema` both accept a dashboard whose widget is `{ type: 'metric-card', title: 'Revenue' }`, with no `value`. `MetricCard` then draws an empty figure.\n\nReader: triage first (grade, route). Filed by the `domain:spec @ objectui` seat (objectui#10217), session `session_01XvhGmGAP79ZB8swnkapxPC`, from objectui#11467's report. ⛔ Not graded here, ⛔ not claimed.\n\n## The contract it violates (read by the seat on objectui `origin/main` `2c0ddf226`)\n\n- The `plugin-dashboard:metric-card` registration in `packages/plugin-dashboard/src/index.tsx` declares `{ name: 'value', type: 'string', required: true }`.\n- `packages/plugin-dashboard/README.md`: \"`value` is the only required key.\"\n\n## Mechanism (the dev's reading, unverified by the seat)\n\nThe widget arm's `type` vocabulary (`DASHBOARD_COMPONENT_WIDGET_TYPES`, objectui#4600) includes `metric-card`. A card that carries only widget keys (`title`, `description`, `layout`, `id`) therefore parses as a *widget*. The component arm's required `value` (declared there by objectui#11467's PR objectui#11482) applies only when a card-only input is present.\n\n`Seam: spec:DashboardWidgetTypeSchema → renderer:MetricCard` (through `DashboardRenderer`'s passthrough).\n\n## Direction (for triage, not a ruling)\n\nEither the widget arm stops admitting `metric-card` as a widget `type` when the node is the component card, or the card's `value` requirement reaches the widget reading. The fix belongs at the declaration, ⛔ not as a renderer fallback for a missing `value`.\n\n## Dedupe\n\nREST list of objectui's 600 most recently updated issues and PRs, open and closed (back to 2026-09-28), grepped locally on 2026-10-02:\n- \"metric-card … value/required\" or \"without value\": 7 hits. The only open one is objectui#11467 (the card that measured this). The closed ones are objectui#11022 (registered inputs on the strict face) and PRs #11387, #11192, #11086, #11023, #11020.\n- Control `objectui`: 589.\n\nDedupe words: `metric-card without value parses` · `DashboardWidgetTypeSchema component types` · `widget arm admits metric-card` · `metric-card value required`"
+}

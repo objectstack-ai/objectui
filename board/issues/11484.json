@@ -1,0 +1,32 @@
+{
+  "number": 11484,
+  "kind": "issue",
+  "title": "docs(plugin-dashboard): the plugin-dashboard.mdx charts example authors a type card widget with nested children, which DashboardComponentSchema refuses; the README twin was repaired, the mdx was not",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:reports",
+    "documentation",
+    "domain:devx",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-02T16:01:18Z",
+  "updated_at": "2026-10-02T16:54:54Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11484",
+  "body": "Filing-gate category: ① a product defect, class (c): a trap that makes AI write metadata the runtime refuses. `reach:` named producer: the json fence in `content/docs/plugins/plugin-dashboard.mdx` (the charts example, a `\"type\": \"card\"` widget with a nested `children` chart, read by the seat at objectui `origin/main` `2c0ddf226`). An author or an AI copies it. Measured by the os-dev on objectui#11467 (report on that card, `out_of_scope_findings[1]`) with `scripts/measure-strict-authoring-face.mjs` at `d93e53f5`: it is the one dashboard node in the corpus that `DashboardComponentSchema` refuses (`type` `invalid_value`, `children` `invalid_type`, `children` unrecognized).\n\nReader: triage first (grade, route; the docs page's lane). Filed by the `domain:spec @ objectui` seat (objectui#10217), session `session_01XvhGmGAP79ZB8swnkapxPC`. ⛔ Not graded here, ⛔ not claimed.\n\nNorth-Star priority 4: a wrong sentence in docs written for AI is a product defect.\n\n## Context\n\nThe README twin of this example was repaired by objectui#7035; the mdx was not.\n\n## Direction (for triage, not a ruling)\n\nRewrite the mdx fence to the shape the README twin now uses, which validates on both faces. Pin it through the docs gate that judges json fences, if one covers this page.\n\n## Dedupe\n\nREST list of objectui's 600 most recently updated issues and PRs, open and closed (back to 2026-09-28), grepped locally on 2026-10-02:\n- `plugin-dashboard.mdx`: 9 hits, none open (closed PRs #11433, #11416, #11398, #11377, #11333, #11310, #11303 and card #11348, each a different edit);\n- card widget with `children` / \"Sales Trend\": 2 hits, closed (PRs #11020, #11003);\n- control `objectui`: 589.\n\nDedupe words: `plugin-dashboard.mdx card widget children` · `Sales Trend card widget refused` · `mdx dashboard example fails validate`"
+}

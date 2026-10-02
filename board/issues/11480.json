@@ -1,0 +1,30 @@
+{
+  "number": 11480,
+  "kind": "pull_request",
+  "title": "docs(skills): protocol.md tags BreakpointColumnMap by the ResponsiveGrid columns prop, not a retired node key (objectui#11471)",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "needs-user-decision"
+  ],
+  "assignees": [
+    "os-elon-musk"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-02T15:46:08Z",
+  "updated_at": "2026-10-02T15:58:58Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11480",
+  "body": "Fixes #11471\nClause-②: no\n\n## What changed\n\nOne parenthetical in `skills/objectui/rules/protocol.md`, in the grid `2xl` paragraph. Before:\n\n> `BreakpointColumnMap` in `@object-ui/layout` (`responsive-grid`) spells the same six.\n\nAfter:\n\n> `BreakpointColumnMap` in `@object-ui/layout` (the type of the `ResponsiveGrid` React component's `columns` prop) spells the same six.\n\n`responsive-grid` was the node type key that PR objectui#11460 retired under objectui#11441 (ruling B, comment 5950208338), together with its `layout:` twin. On this branch's base `6007dd4e`, `packages/layout/src/index.ts` has exactly two `ComponentRegistry.register(` calls, `page:card` and `app-schema-renderer`, so a node authored from the old parenthetical renders the \"Unknown component type\" panel and `objectui validate` refuses it at `type`. `BreakpointColumnMap` is still declared in `packages/layout/src/ResponsiveGrid.tsx` and types `ResponsiveGridProps.columns`; its docblock reads \"`ResponsiveGrid` is now a React-only export, and this map is the type of its `columns` prop\", which is the wording the new parenthetical follows. This is the triage's first option (the card's first option) with \"the type of\" added, so a TypeScript interface is not read as the prop itself. The node type key `responsive-grid` appears nowhere in the sentence now, and nowhere under `skills/` (`git grep responsive-grid -- skills/` is empty on this branch; on the base it hit only this parenthetical).\n\nNot touched: the other words of the sentence; the rest of the paragraph (six keys, `grid` reads all six, the measured class ramps, the pre-objectui#7097 note); the rest of the file; `skills/objectui/evals/protocol.json` (it never quotes this sentence: a grep for `BreakpointColumnMap` or \"spells the same six\" over `skills/objectui/evals/*.json` is empty); `packages/**`. The pin test `packages/layout/src/__tests__/navigation-responsive-grid-retired-11441.test.tsx` already covers the code side (`ResponsiveGrid` still turns a `BreakpointColumnMap` into grid classes), so no test is added for a prose edit. No \"retired\" narrative is added to the skill: the docs face and the code tombstones carry that; the skill teaches only the current spelling.\n\nAn empty-frontmatter changeset, `.changeset/11471-protocol-breakpointcolumnmap-parenthetical.md`, declares the change as unreleased (nothing under a published package's `files[]` moved).\n\n## Line readings (lines; objectui has no token ratchet)\n\n| surface | before | after | delta |\n|---|---|---|---|\n| `skills/objectui/rules/protocol.md`, whole file | 371 | 372 | +1 |\n| whole package: every `skills/objectui/**/*.md` plus every `skills/*/SKILL.md`, as a union (the only `SKILL.md` is `skills/objectui/SKILL.md`, already inside the first set, 142 lines) | 4816 | 4817 | +1 |\n\nThe budget for this card was +1 on the paragraph. Only the one line that carried the parenthetical was re-wrapped: it became two lines (71 and 56 columns), no other line of the paragraph moved, so the paragraph grows by exactly one line and the file's `git diff` is one deletion and two insertions.\n\n## Verification\n\nThe gate roster was derived by hand from `.github/workflows/*.yml` on the base (objectui has no `dispatch-gates`), each exit code redirected to a file before being read. Every gate's own verdict line is in the `os-dev-report` comment on objectui#11471. The two not run locally are the `lint.yml` and `ci.yml` jobs, whose \"Decide whether this change needs a full run\" step excludes `**/*.md` and `.changeset/**`, so on this diff they report a skip. `node scripts/check-governed-queue-guard.mjs --test` over the two files answers exit 3 GOVERNED, as expected for `skills/**`: this PR stays a draft until an authorized APPROVED review, then the claiming seat lands it.\n\n## 维护者速读(草稿)\n\n### 改了什么\n`skills/objectui/rules/protocol.md`(发布给使用者的 objectui 技能)grid `2xl` 段里的一处括号:原来把 `BreakpointColumnMap` 标注为 `responsive-grid`,现在改为「`ResponsiveGrid` React 组件 `columns` prop 的类型」。另加一个空 frontmatter 的 changeset,声明本次不发版。\n\n### 为什么改\n`responsive-grid` 这个节点类型键已在 objectui#11441(裁决 B)由 PR objectui#11460 退役,注册表里不再有它;技能文本却还把它当坐标给 AI 看,AI 照着写出的节点会渲染成「Unknown component type」。括号改为指向仍然存在的东西;技能面只教现行写法,不加「已退役」叙事(docs 面与代码墓碑已有)。\n\n### 风险与代价(含回滚)\n纯散文改动:不碰代码、测试、evals,代码围栏一字未动,技能示例门禁预期无差异;行数 +1,等于预算。回滚 = revert 本 PR 的 squash commit。受管面(`skills/**`,Tier H):停在 draft,等获授权批准后由席位落地,本 PR 不自行翻 ready、不入队。\n\n### 席位意见\n(留空,席位定稿)\n\n### 你要做的\n读一遍新句子是否通顺、措辞是否符合你对 `BreakpointColumnMap` 现状的理解(它只是 `ResponsiveGrid` React 组件 `columns` prop 的类型,不再对应任何可写节点);认可则留一条 APPROVED review,席位接手 ready 与入队。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01FNKm1SmPpuJASnbjxWGtsJ)_\n"
+}

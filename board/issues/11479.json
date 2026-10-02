@@ -1,0 +1,35 @@
+{
+  "number": 11479,
+  "kind": "issue",
+  "title": "spec(react,components,app-shell,plugin-dashboard,plugin-charts): producers hand SchemaRenderer a BaseSchema-typed or string-typed node; name the declared node type each builds, so objectui#11466's slot union lands on its own surface",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-02T15:26:09Z",
+  "updated_at": "2026-10-02T19:06:32Z",
+  "closed_at": "2026-10-02T19:06:32Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11479",
+  "body": "This card carries objectui#11466's **Q1-B / Q2** half: the producers and fixtures the declared-node slot union (V1) refuses while `BaseSchema`'s signature is still present. objectui#11466 keeps V1, `CustomNodeRegistry`, the residue listed below, and its own 8 literals and 17 doc blocks. A child of objectui#11466, filed with its `domain:spec` and `priority:p2`.\n\nFiling-gate category: ① — named landing points in five packages, measured by type-checker census, with named producers.\nReader: the `domain:spec @ objectui` seat (objectui#10217) dispatches it, and an os-dev executes it.\nParent: objectui#11466, `pm:blocked` until this card and objectui#11466's `AnySchema` card land.\n\n## What was measured (objectui#11466's report, at `main` `5988b6b53`, signature present, candidate V1 applied)\n\n**12 src sites:**\n- **react:** `schema-input.ts` `toRenderableSchema` takes `BaseSchema | primitives`.\n- **components:** `page.tsx` casts the HTML-page tree to `BaseSchema`.\n- **plugin-charts:** `ObjectChart`'s drill table is a `type: string` object.\n- **plugin-dashboard:** `DashboardGridLayout` ×2 and `DashboardRenderer` ×2 pass `BaseSchema` widget components; `ObjectDataTable` passes a `type: string` object.\n- **app-shell:** `EnvironmentListToolbar` ×2, `InterfaceListPage` ×1 and `ObjectView` ×1 pass `ActionBarSchema`, which objectui#11466's `AnySchema` card adds to the union.\n\n**Test programs:** 155 errors in 52 files across 12 programs, plus `apps/site` 2. By cause:\n- 71 fixtures whose `type` widened to `string`, with no annotation and no `as const`;\n- 43 test-only or deliberately unknown type literals;\n- 15 values typed `BaseSchema`;\n- 9 local probe interfaces typed `type: string`;\n- 2 `home` page-document literals;\n- 4 type-level pins stating the old prop or `SchemaNode` shape;\n- 4 closed `element:text` refusals (`props` ×2, `visibility` ×2);\n- 2 metric-card literals;\n- 2 `zod-mirror-parity` rows;\n- 3 others.\n\n## Seat answer, from the fork ACCEPT on objectui#11466\n\n**Q2: A.** Each producer names the declared node type it builds (`object-data-table`, `data-table`, `action:bar`, the widget component slot), and `toRenderableSchema` takes `SchemaNode`. ⛔ No cast at a consumer (AGENTS.md #0.1). A validated narrowing for untyped server JSON (option B) only if a producer of genuinely untyped JSON is measured. That would be a stop-and-report, not a decision here.\n\n## This card's surface, and what it does NOT carry\n\n**Carries:** the 12 src sites, the 71 widened fixtures (annotate with the declared type, or `as const`), the 15 `BaseSchema`-typed test values, the 9 `type: string` probe interfaces where the probe is not about an unknown type, and the 2 `apps/site` errors. Every edit compiles TODAY, with the signature and the `BaseSchema` arm present, and still compiles under the candidate V1.\n\n**Not this card's (objectui#11466 keeps them):**\n- the 43 test-only or unknown-type literals, which need `CustomNodeRegistry` or a refusal pin that only means something under V1;\n- the 4 old-shape type pins and the 2 parity rows;\n- the 2 metric-card literals (objectui#11467, F2);\n- the 4 `element:text` `props` / `visibility` literals (objectui#8347's probe flips);\n- the 2 `home` literals, unless measurement shows them as plain fixtures.\n\n## Constraints\n\n- **The probe:** the uncommitted candidate V1 patch from objectui#11466's run (`11466-candidate-v1.patch`, in the seat container's scratchpad under `issue-11466/`) can be applied in a throwaway check to prove each edit V1-clean. ⛔ It is never committed here.\n- **Serial:** the four plugin-dashboard widget-component sites type the slot objectui#11467 (F2, in flight) declares. This card follows objectui#11467's landing for those sites.\n- `Clause-②` is stated at claim. Retyping a producer to the type it already builds changes no published accept set; `toRenderableSchema`'s parameter type is a published signature.\n\n## Dedupe\n\nThe same REST read (600 most recently updated objectui issues and PRs, open and closed, back to 2026-09-28, 2026-10-02): `toRenderableSchema` 1 hit, closed (PR #11385); no open card on these producers. Control `AnySchema` 1.\n\nDedupe words: `toRenderableSchema BaseSchema parameter` · `widget component BaseSchema SchemaRenderer` · `action:bar SchemaRenderer schema prop type`"
+}

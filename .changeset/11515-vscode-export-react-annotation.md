@@ -8,4 +8,4 @@ Unannotated, every `type` in the constant widened to `string`. A `SchemaRenderer
 
 `SchemaNode` was the annotation first proposed, and it does not fit: it also admits `number` and `boolean`, which the prop leaves out, so every generated file was refused at its one JSX line.
 
-The compile pin gains a leg against the real prop type, read from `SchemaRenderer.tsx`, with a positive control. The two documented copies of the preamble (`DESIGN.md` and the docs page) follow it, and the docs page's sample authors a `text` node with its `h1` variant.
+The compile pin gains a leg against the real prop type, read from `SchemaRenderer.tsx`, with a positive control. The two documented copies of the preamble (`DESIGN.md` and the docs page) follow it. The docs page's sample keeps its `h1` node: `h1` is a declared type (`HtmlElementSchema`), and the annotated sample compiles both today and with objectui#11466 applied.

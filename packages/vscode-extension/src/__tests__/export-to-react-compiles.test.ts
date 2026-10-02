@@ -463,12 +463,16 @@ describe('Export to React — the documented mirrors of the preamble (objectui#7
 const REACT_SCHEMA_RENDERER = join(REPO_ROOT, 'packages/react/src/SchemaRenderer.tsx');
 const TYPES_SOURCE_ENTRY = join(REPO_ROOT, 'packages/types/src/index.ts');
 
-/** The documented sample (`content/docs/utilities/vscode-extension.mdx`), in declared types. */
+/**
+ * The documented sample (`content/docs/utilities/vscode-extension.mdx`). Both
+ * of its types are declared: `div`, and `h1`, one of the HTML passthrough tags
+ * `HtmlElementSchema` declares (objectui#8499).
+ */
 const DOC_SAMPLE_SCHEMA = JSON.stringify(
   {
     type: 'div',
     className: 'p-4',
-    children: [{ type: 'text', variant: 'h1', content: 'Hello World' }],
+    children: [{ type: 'h1', children: 'Hello World' }],
   },
   null,
   2

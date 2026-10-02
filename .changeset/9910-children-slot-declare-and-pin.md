@@ -48,3 +48,9 @@ TRUE `not-a-container` the flag used to silence.
 Later in this same release objectui#10859 batch 8 (phase 2c) unregistered `@object-ui/layout`'s
 `page-header` (and `layout:page-header`), so its `children` slot declaration left with it; authors write
 `page:header`. The rest of this entry is kept as the reading of this change.
+
+⚠️ **Dated note, 2026-10-02 — the ten `sidebar-*` parts are retired — objectui#10859.**
+Later in this same release objectui#10859 batch 8 (phase 2d) unregistered the ten `sidebar-*` parts, so their
+`children` slot declarations left with them. `sidebar` keeps its declaration, and it now mounts its own provider
+when none is above it, so the containment census measures it bare and its provider-scoped context probe is
+gone, as is `sidebar-menu-button`'s. The rest of this entry is kept as the reading of this change.

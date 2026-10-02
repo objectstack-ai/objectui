@@ -44,3 +44,8 @@ Anything that read one of the leaked attributes off the DOM — a CSS attribute
 selector such as `[label="Save"]`, or a test asserting `inputtype` on a rendered
 `ui:input` — must read the schema instead. No `@object-ui` code did; this is
 called out because the attributes were externally visible while they lasted.
+
+⚠️ **Dated note, 2026-10-02 — `ui:sidebar-menu-button` is retired — objectui#10859.**
+Later in this same release objectui#10859 batch 8 (phase 2d) unregistered the ten `sidebar-*` node type keys,
+`ui:sidebar-menu-button` among them, so seventeen of the eighteen renderers this entry names remain. The rest
+of this entry is kept as the reading of this change.

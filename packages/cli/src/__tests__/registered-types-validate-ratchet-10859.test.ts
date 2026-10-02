@@ -73,22 +73,23 @@ import { validate } from '../commands/validate.js';
  * and the `tree` / `view` aliases, see `RETIRED_BARE_KEYS_10859_BATCH_8`;
  * batch 8 phase 2b: minus twelve more RETIRED keys, see
  * `RETIRED_BARE_KEYS_10859_BATCH_8_PHASE_2B`; batch 8 phase 2c: minus four
- * more, see `UNREGISTERED_10859_BATCH_8_PHASE_2C`). LOWER it when a batch arms
- * or retires more keys; never raise it.
+ * more, see `UNREGISTERED_10859_BATCH_8_PHASE_2C`; batch 8 phase 2d: minus the
+ * ten `sidebar-*` primitives, see `UNREGISTERED_10859_BATCH_8_PHASE_2D`). LOWER
+ * it when a batch arms or retires more keys; never raise it.
  *
- * The 20 that remain are named in `STILL_REFUSED_10859`, and the row below
+ * The 10 that remain are named in `STILL_REFUSED_10859`, and the row below
  * pins the refused set to exactly that list, so this comment cannot drift from
- * the measurement:
+ * the measurement. They are the ten the seat ruling left registered —
+ * `object-pivot`, `embeddable-form`, `detail-section`, `home`, `record`,
+ * `utility`, `spec-report` and `app-schema-renderer` (objectui#11440, which
+ * arms them), plus `navigation-renderer` and `responsive-grid` (objectui#11441,
+ * the maintainer's decision card).
  *
- * - the ten the seat ruling left registered — `object-pivot`,
- *   `embeddable-form`, `detail-section`, `home`, `record`, `utility`,
- *   `spec-report` and `app-schema-renderer` (objectui#11440, which arms them),
- *   plus `navigation-renderer` and `responsive-grid` (objectui#11441, the
- *   maintainer's decision card);
- * - the ten `sidebar-*` primitives, phase 2b's third fork. The seat's fork
- *   ruling (`5948252391`) chose A, conditionally: the armed `sidebar` supplies
- *   its own `SidebarProvider` when no provider is above it, the teaching is
- *   rewritten to that node, and the ten retire in phase 2d.
+ * The ten `sidebar-*` primitives were phase 2b's third fork. The seat's fork
+ * ruling (`5948252391`) chose A, conditionally, and phase 2d executed it: the
+ * armed `sidebar` supplies its own `SidebarProvider` only when no provider is
+ * above it, the four `components-basic-sidebar` documents and `sidebar.mdx`
+ * teach that node, and the ten are unregistered.
  *
  * Phase 2b's other forks are closed by the same ruling and retired in phase 2c:
  * `pie-chart`, `donut-chart` and `radar-chart` once
@@ -100,9 +101,9 @@ import { validate } from '../commands/validate.js';
  * registration is objectui's to retire on its own schedule; its fixtures are
  * test data, not producers.
  *
- * The ruling's target is 10 after phase 2d; objectui#11440 then takes it to 2.
+ * 10 is the ruling's target after phase 2d; objectui#11440 then takes it to 2.
  */
-const REFUSED_AT_TYPE = 20;
+const REFUSED_AT_TYPE = 10;
 
 /**
  * The head's refused count over the NAMESPACED keys (objectui#10872 batch 1:
@@ -119,10 +120,12 @@ const REFUSED_AT_TYPE = 20;
  * batch 8 phase 2c: minus the five namespaced twins of the four keys it
  * unregistered — `plugin-charts:pie-chart`, `plugin-charts:donut-chart`,
  * `plugin-charts:radar-chart`, `layout:page-header` and
- * `protocol-placeholder:page-header`). LOWER it when a batch arms or retires
- * more keys; never raise it.
+ * `protocol-placeholder:page-header`; objectui#10859 batch 8 phase 2d: minus
+ * the ten `ui:sidebar-*` twins of the ten `sidebar-*` primitives it
+ * unregistered). LOWER it when a batch arms or retires more keys; never raise
+ * it.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 374;
+const NAMESPACED_REFUSED_AT_TYPE = 364;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));
@@ -207,15 +210,32 @@ const UNREGISTERED_10859_BATCH_8_PHASE_2C = {
 } as const;
 
 /**
- * Every bare key still refused at `type` after objectui#10859 batch 8 phase 2c
+ * The ten bare keys objectui#10859 batch 8 phase 2d RETIRED by unregistration
+ * (the seat's fork ruling `5948252391`, "Fork 3"), each mapped to the `ui:`
+ * twin that went with it. One tombstone docblock in
+ * `@object-ui/components`' `renderers/navigation/sidebar.tsx` covers all ten.
+ */
+const UNREGISTERED_10859_BATCH_8_PHASE_2D = {
+  'sidebar-provider': ['ui:sidebar-provider'],
+  'sidebar-header': ['ui:sidebar-header'],
+  'sidebar-content': ['ui:sidebar-content'],
+  'sidebar-group': ['ui:sidebar-group'],
+  'sidebar-menu': ['ui:sidebar-menu'],
+  'sidebar-menu-item': ['ui:sidebar-menu-item'],
+  'sidebar-menu-button': ['ui:sidebar-menu-button'],
+  'sidebar-footer': ['ui:sidebar-footer'],
+  'sidebar-inset': ['ui:sidebar-inset'],
+  'sidebar-trigger': ['ui:sidebar-trigger'],
+} as const;
+
+/**
+ * Every bare key still refused at `type` after objectui#10859 batch 8 phase 2d
  * — the `REFUSED_AT_TYPE` docblock says why each is still here. Alphabetical.
  */
 const STILL_REFUSED_10859 = [
   'app-schema-renderer', 'detail-section', 'embeddable-form', 'home',
   'navigation-renderer', 'object-pivot', 'record', 'responsive-grid',
-  'sidebar-content', 'sidebar-footer', 'sidebar-group', 'sidebar-header',
-  'sidebar-inset', 'sidebar-menu', 'sidebar-menu-button', 'sidebar-menu-item',
-  'sidebar-provider', 'sidebar-trigger', 'spec-report', 'utility',
+  'spec-report', 'utility',
 ] as const;
 
 /** Is `type` unclaimed by every arm of the validator's root union? */
@@ -346,6 +366,23 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
     expect(refusedAtType('page:header')).toBe(false);
   });
 
+  it('counts the ten keys batch 8 phase 2d retired as gone from the registry (objectui#10859 batch 8)', () => {
+    expect(Object.keys(UNREGISTERED_10859_BATCH_8_PHASE_2D)).toHaveLength(10);
+    for (const [key, twins] of Object.entries(UNREGISTERED_10859_BATCH_8_PHASE_2D)) {
+      // Retired, not armed: out of the population, still refused at `type`.
+      expect(BARE_KEYS, key).not.toContain(key);
+      expect(refusedAtType(key), key).toBe(true);
+      for (const twin of twins) expect(NAMESPACED_KEYS, twin).not.toContain(twin);
+    }
+    // Lit controls: the node the retirement points authors to is registered
+    // and claimed by an arm. Its `ui:sidebar` twin stays registered too; it is
+    // one of the namespaced keys objectui#10872 still counts as refused, so
+    // only its presence is asserted here.
+    expect(BARE_KEYS).toContain('sidebar');
+    expect(refusedAtType('sidebar')).toBe(false);
+    expect(NAMESPACED_KEYS).toContain('ui:sidebar');
+  });
+
   it('the refused set is exactly the named remainder — the pin comment cannot drift (objectui#10859 batch 8)', () => {
     const refused = BARE_KEYS.filter(refusedAtType).sort();
     expect(refused).toEqual([...STILL_REFUSED_10859]);
@@ -370,7 +407,9 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
   });
 
   it('reads the whole generated namespaced population (non-vacuity)', () => {
-    expect(NAMESPACED_KEYS.length).toBeGreaterThan(400);
+    // The floor was 400 until objectui#10859 batch 8 phase 2d unregistered the
+    // ten `ui:sidebar-*` twins (393 namespaced keys after it).
+    expect(NAMESPACED_KEYS.length).toBeGreaterThan(350);
     // Lit control: the one namespaced key armed before objectui#10872.
     expect(NAMESPACED_KEYS).toContain('ui:calendar');
     expect(refusedAtType('ui:calendar')).toBe(false);

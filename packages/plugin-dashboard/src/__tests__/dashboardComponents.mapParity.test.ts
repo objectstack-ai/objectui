@@ -63,8 +63,12 @@ describe('dashboardComponents map parity (objectui#5064)', () => {
     expect(ComponentRegistry.get('pivot')).toBe(dashboardComponents.pivot);
     for (const type of RETIRED_BARE_TYPES) {
       expect(Object.keys(dashboardComponents), `map key "${type}"`).not.toContain(type);
-      expect(ComponentRegistry.get(type), `registry key "${type}"`).toBeUndefined();
     }
+    // Spelled as literals, one per key: `scripts/__tests__/unit-registry-absence-collision.test.ts`
+    // resolves a registry-absence key statically and pins the sites it cannot.
+    expect(ComponentRegistry.get('metric')).toBeUndefined();
+    expect(ComponentRegistry.get('metric-card')).toBeUndefined();
+    expect(ComponentRegistry.get('dashboard-grid')).toBeUndefined();
     // `dashboard-grid` went under both spellings; the metric pair kept theirs.
     expect(ComponentRegistry.get('plugin-dashboard:dashboard-grid')).toBeUndefined();
   });

@@ -50,7 +50,11 @@ export interface DesignerCanvasConfig {
   snapToGrid?: boolean;
   /** Zoom level (1.0 = 100%) */
   zoom?: number;
-  /** Background color */
+  /**
+   * Background color — drawn on the canvas of the page, data-model and process
+   * designers alike, through a CSS custom property a static utility paints
+   * (objectui#11434), so a theme can still override it.
+   */
   backgroundColor?: string;
 }
 
@@ -66,7 +70,10 @@ export interface DesignerComponent {
   position: DesignerPosition;
   /** Component properties */
   props: Record<string, unknown>;
-  /** Child components */
+  /**
+   * Child components — drawn inside this component on the canvas, positioned
+   * within it, and indented under it in the component tree (objectui#11434).
+   */
   children?: DesignerComponent[];
   /**
    * RETIRED (objectui#11434, ADR-0049) — a second spelling of the component
@@ -85,11 +92,11 @@ export interface DesignerComponent {
    * @deprecated Not part of this contract — the value was inert.
    */
   parentId?: never;
-  /** Lock state */
+  /** Lock state — a locked component cannot be dragged or deleted on the canvas, and shows a lock */
   locked?: boolean;
-  /** Visibility */
+  /** Visibility — `false` draws the component faded, with a dashed edge and a hidden marker */
   visible?: boolean;
-  /** Z-index for layering */
+  /** Z-index for layering — the stacking order of overlapping components on the canvas */
   zIndex?: number;
 }
 
@@ -155,7 +162,7 @@ export interface DesignerPaletteCategory {
   name: string;
   /** Category label */
   label: string;
-  /** Category icon */
+  /** Category icon — a Lucide icon name, drawn beside the category label in the palette */
   icon?: string;
   /** Available components */
   items: DesignerPaletteItem[];
@@ -167,13 +174,13 @@ export interface DesignerPaletteItem {
   type: string;
   /** Display label */
   label: string;
-  /** Icon */
+  /** Icon — a Lucide icon name, drawn on the item's palette button in place of the generic "add" glyph */
   icon?: string;
   /** Default properties */
   defaultProps?: Record<string, unknown>;
   /** Default size */
   defaultSize?: { width: number | string; height: number | string };
-  /** Preview image URL */
+  /** Preview image URL — drawn as a thumbnail on the item's palette button */
   preview?: string;
 }
 
@@ -517,11 +524,34 @@ export interface ReportDesignerElement {
   type: 'text' | 'field' | 'image' | 'chart' | 'table' | 'barcode' | 'line' | 'rectangle' | 'expression';
   /** Position within section */
   position: DesignerPosition;
-  /** Element properties */
+  /**
+   * Element properties — the type's own settings (a text element's `text`).
+   *
+   * One key is REFUSED here by the zod face, by name: `field` (objectui#11434,
+   * ADR-0049). A field element's binding is the element's own declared
+   * `dataBinding`, and `ReportDesigner` reads that alone; it used to draw this
+   * undeclared bag key instead (and wrote it when a field element was added),
+   * so a declared member and a bag key both claimed the binding, and the
+   * declared member wins. **Migration:** move the value to the element's
+   * `dataBinding`, and delete `properties.field`.
+   *
+   * The refusal lives on the zod face alone (`safeValidateSchema`, the strict
+   * authoring face, `objectui validate`): an open bag cannot refuse one key in
+   * its TypeScript type without parting from the zod mirror, whose record is
+   * what keeps every other key open on the strict face.
+   */
   properties: Record<string, unknown>;
-  /** Data binding expression */
+  /**
+   * Data binding expression — what a field element shows (drawn as
+   * `{BINDING}`), and what any other element is bound to. The property panel
+   * edits it for every element type.
+   */
   dataBinding?: string;
-  /** Formatting options */
+  /**
+   * Formatting options — drawn on the element's content: weight, style,
+   * alignment, colours, font, border and padding as its look, and
+   * `numberFormat` / `dateFormat` beside its binding.
+   */
   format?: {
     fontFamily?: string;
     fontSize?: number;
@@ -546,11 +576,11 @@ export interface ReportDesignerSection {
   height: number;
   /** Elements in this section */
   elements: ReportDesignerElement[];
-  /** Group field (for group headers/footers) */
+  /** Group field (for group headers/footers) — drawn in the section label, as `by FIELD` */
   groupField?: string;
   /** Whether section repeats */
   repeat?: boolean;
-  /** Page break before */
+  /** Page break before — drawn as a page-break rule across the top of the section */
   pageBreakBefore?: boolean;
 }
 
@@ -565,7 +595,10 @@ export interface ReportDesignerSchema extends BaseSchema {
   pageSize?: 'A4' | 'A3' | 'Letter' | 'Legal' | 'Tabloid';
   /** Page orientation */
   orientation?: 'portrait' | 'landscape';
-  /** Page margins */
+  /**
+   * Page margins — all four drawn as a dashed guide on the page; `left` also
+   * places a newly added element.
+   */
   margins?: { top: number; right: number; bottom: number; left: number };
   /** Report sections */
   sections: ReportDesignerSection[];

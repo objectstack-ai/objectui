@@ -79,6 +79,16 @@ export type { MetadataObjectsPageProps } from './MetadataObjectsPage';
 export { MetadataFieldsPage } from './MetadataFieldsPage';
 export type { MetadataFieldsPageProps } from './MetadataFieldsPage';
 
+/*
+ * The designer registrations' `inputs` (objectui#11434's sweep). `inputs` is
+ * the published authoring surface — `sdui.manifest.json` and the parser's
+ * `unknown-prop` check read it — so every node member the component READS is
+ * listed, and an omitted one would be warned off although it works. Measured
+ * against the six node declarations in `@object-ui/types`: the rows below are
+ * exactly the read members. What no row lists is unlisted on purpose:
+ * `body` and `children` (no designer reads a content channel, and both faces
+ * refuse them), and the retired tombstones (`autoLayout`, `previewMode`).
+ */
 ComponentRegistry.register('page-designer', PageDesigner, {
   namespace: 'plugin-designer',
   label: 'Page Designer',
@@ -86,6 +96,8 @@ ComponentRegistry.register('page-designer', PageDesigner, {
   inputs: [
     { name: 'canvas', type: 'code' },
     { name: 'components', type: 'code' },
+    { name: 'palette', type: 'code' },
+    { name: 'propertyEditor', type: 'boolean' },
     { name: 'showComponentTree', type: 'boolean' },
     { name: 'undoRedo', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
@@ -99,6 +111,8 @@ ComponentRegistry.register('data-model-designer', DataModelDesigner, {
   inputs: [
     { name: 'entities', type: 'code' },
     { name: 'relationships', type: 'code' },
+    { name: 'canvas', type: 'code' },
+    { name: 'showRelationshipLabels', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
   ],
 });
@@ -109,8 +123,11 @@ ComponentRegistry.register('process-designer', ProcessDesigner, {
   category: 'Designer',
   inputs: [
     { name: 'processName', type: 'string' },
+    { name: 'version', type: 'string' },
     { name: 'nodes', type: 'code' },
     { name: 'edges', type: 'code' },
+    { name: 'lanes', type: 'code' },
+    { name: 'canvas', type: 'code' },
     { name: 'showMinimap', type: 'boolean' },
     { name: 'showToolbar', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
@@ -124,6 +141,9 @@ ComponentRegistry.register('report-designer', ReportDesigner, {
   inputs: [
     { name: 'reportName', type: 'string' },
     { name: 'objectName', type: 'string' },
+    { name: 'pageSize', type: 'enum', enum: ['A4', 'A3', 'Letter', 'Legal', 'Tabloid'] },
+    { name: 'orientation', type: 'enum', enum: ['portrait', 'landscape'] },
+    { name: 'margins', type: 'code' },
     { name: 'sections', type: 'code' },
     { name: 'showToolbar', type: 'boolean' },
     { name: 'showPropertyPanel', type: 'boolean' },

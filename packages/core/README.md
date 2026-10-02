@@ -36,6 +36,7 @@ import type {
 
 const mySchema: PageNodeSchema = {
   type: 'page',
+  pageType: 'app',
   title: 'My Page',
   children: []
 }

@@ -45,9 +45,10 @@
  *     `process-designer`, `report-designer`, `object-manager`,
  *     `field-designer`) — the TypeScript face only: none of them has a zod
  *     mirror, so that face is the only gate, as it was for `nl-query`.
- *     (A reading of objectui#9256's tree. objectui#10859 batch 7 gave all six a
- *     zod arm in `zod/designer.zod.ts`, which refuses both channels by name with
- *     the same guidance; its pin is `designer-zod-arms-10859.test.ts`.)
+ *     (⚠️ AMENDED 2026-10-02 (objectui#10859 batch 7) — a reading of
+ *     objectui#9256's tree. All six have a zod arm now in
+ *     `zod/designer.zod.ts`, which refuses both channels by name with the same
+ *     guidance; its pin is `designer-zod-arms-10859.test.ts`.)
  *
  * `body` was already refused on every one of these faces by `BaseSchema`
  * (objectui#6771); it is restated because that refusal names `children` as the

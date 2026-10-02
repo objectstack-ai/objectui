@@ -246,7 +246,7 @@ The ADR-0080 public blocks `object-metric`, `object-master-detail-form`, `object
 - `AIFormAssistSchema`, `AIRecommendationsSchema`, `NLQuerySchema`
 
 ### Designer Components (6)
-The `@object-ui/plugin-designer` nodes (objectui#10859 batch 7). Each arm mirrors its TypeScript declaration in `designer.ts` member for member, and the record types under them (`DesignerComponentSchema`, `BPMNNodeSchema`, `ReportDesignerSectionSchema`, …) are exported beside them. Four node members that no designer reads are declared on the TypeScript face and left off the arms (`autoLayout` on `data-model-designer`, `lanes` and `version` on `process-designer`, `previewMode` on `report-designer`), so the strict face refuses them by name. None of the six components reads a content channel, so every arm refuses `children` and `body` by name (objectui#9256).
+The `@object-ui/plugin-designer` nodes (objectui#10859 batch 7). Each arm mirrors its TypeScript declaration in `designer.ts` member for member, and the record types under them (`DesignerComponentSchema`, `BPMNNodeSchema`, `ReportDesignerSectionSchema`, …) are exported beside them. Four node members that no designer reads are declared on the TypeScript face and left off the arms (`autoLayout` on `data-model-designer`, `lanes` and `version` on `process-designer`, `previewMode` on `report-designer`), so the strict face refuses them as unrecognized keys. None of the six components reads a content channel, so every arm refuses `children` and `body` by name (objectui#9256).
 - `PageDesignerSchema`, `DataModelDesignerSchema`, `ProcessDesignerSchema`
 - `ReportDesignerSchema`, `ObjectManagerSchema`, `FieldDesignerSchema`
 

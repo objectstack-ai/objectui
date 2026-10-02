@@ -22,7 +22,8 @@
  * on what a user sees, on the query the adapter is handed, or on what a click
  * opened. Every positive row carries its control.
  *
- * What moved on the registration (both tags, `object-tree` and `view:tree`):
+ * What moved on the registration (`object-tree`; it was both tags until
+ * objectui#10859 batch 8 retired the `tree` / `view:tree` alias):
  *
  *   - `objectName` is no longer REQUIRED. The record source is one of `data`,
  *     `staticData` and `objectName`; a tree on inline rows never reads it, and
@@ -49,13 +50,14 @@ import {
 import { manifestFromConfigs, validateTree } from '@object-ui/sdui-parser';
 import { ComponentPropsMap } from '@objectstack/spec/ui';
 import { safeValidateSchema } from '@object-ui/types/zod';
-// Registers `object-tree` and `view:tree` through this package's own entry, at
+// Registers `object-tree` through this package's own entry, at
 // module scope (object-ui/no-dynamic-import-in-test-hook, objectui#3010).
 import '../index';
 
+// One tag since objectui#10859 batch 8 retired the `tree` alias (the row
+// below that the alias is gone is `registration.publicTier-10064.test.tsx`'s).
 const TAGS = [
   { type: 'object-tree', namespace: 'plugin-tree' },
-  { type: 'tree', namespace: 'view' },
 ] as const;
 
 /**

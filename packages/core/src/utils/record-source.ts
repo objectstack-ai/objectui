@@ -387,9 +387,10 @@ export function resolveRecordSourceConfig<Arm extends RecordSourceDataArm>(
  *  - `ObjectGantt.tsx`'s `rawDataConfig` — `'view-data'`. One block spelling
  *    only: the bare `gantt` key is retired (objectui#8008).
  *  - `ObjectCalendar.tsx`'s `dataConfig` — `'array'`.
- *  - `ObjectTree.tsx`'s `dataConfig` — `'view-data'`. Four spellings, from its
- *    two registrations (`object-tree` under the `plugin-tree` namespace, `tree`
- *    under `view`). These rows used to read `'undeclared'` and were only
+ *  - `ObjectTree.tsx`'s `dataConfig` — `'view-data'`. One block spelling only
+ *    (`object-tree` under the `plugin-tree` namespace): the bare `tree` key
+ *    (and with it `view:tree`) is retired (objectui#10859 batch 8). These rows
+ *    used to read `'undeclared'` and were only
  *    documentary, because no published face declared a `data` row for the
  *    block; `ComponentPropsMap['object-tree']` now does (objectui#8348, ruling
  *    batch #136 item 3, Q1-C), so they DECIDE: an authored `data` on a tree
@@ -408,8 +409,6 @@ const RECORD_SOURCE_DATA_ARM_BY_TYPE: Readonly<Record<string, RecordSourceDataAr
     'plugin-gantt:object-gantt': 'view-data',
     'object-tree': 'view-data',
     'plugin-tree:object-tree': 'view-data',
-    'view:tree': 'view-data',
-    tree: 'view-data',
     // — array arm: `z.array(...)`, pre-fetched records —
     'object-calendar': 'array',
     'plugin-calendar:object-calendar': 'array',

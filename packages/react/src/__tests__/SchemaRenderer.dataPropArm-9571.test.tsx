@@ -78,7 +78,8 @@ const seen = () => captured.props;
  * in `plugin-grid`, `plugin-map`, `plugin-gantt` and `plugin-tree` are what keep
  * the rows honest.
  *
- * The four tree spellings joined the object arm with objectui#8348: they read
+ * The tree spellings joined the object arm with objectui#8348 (four then; two
+ * since objectui#10859 batch 8 retired the `tree` / `view:tree` alias): they read
  * `'undeclared'` while no published face declared a `data` row for
  * `object-tree`, and `ComponentPropsMap['object-tree']` now declares the
  * `ViewData` union.
@@ -97,8 +98,6 @@ const OBJECT_ARM_TYPES = [
   'plugin-gantt:object-gantt',
   'object-tree',
   'plugin-tree:object-tree',
-  'view:tree',
-  'tree',
 ] as const;
 const ARRAY_ARM_TYPES = [
   'object-calendar',

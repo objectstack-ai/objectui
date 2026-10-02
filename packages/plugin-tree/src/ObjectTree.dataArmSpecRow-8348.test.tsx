@@ -218,7 +218,8 @@ describe('object-tree honours only the `data` arm its published row declares (ob
     );
     const declared = armDeclaredByRow('object-tree');
 
-    expect([...siblings].sort()).toEqual(['object-tree', 'plugin-tree:object-tree', 'tree', 'view:tree']);
+    // Two keys since objectui#10859 batch 8 retired the `tree` / `view:tree` alias.
+    expect([...siblings].sort()).toEqual(['object-tree', 'plugin-tree:object-tree']);
     expect(declared).toBe('view-data');
     for (const type of siblings) {
       expect([type, recordSourceDataArmForType(type)]).toEqual([type, declared]);

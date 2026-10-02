@@ -51,7 +51,6 @@ schema types:
 | Schema `type` | Namespaced key | Renderer |
 | --- | --- | --- |
 | `object-view` | `plugin-view:object-view` | `ObjectViewRenderer` |
-| `view` | `plugin-view:view` | `ObjectViewRenderer` (alias of `object-view`) |
 | `view-switcher` | `view:view-switcher` | `ViewSwitcher` |
 | `filter-ui` | `view:filter-ui` | `FilterUI` |
 | `sort-ui` | `view:sort-ui` | `SortUI` |
@@ -59,9 +58,14 @@ schema types:
 | `view:simple` | `plugin-view:view:simple` | `SimpleViewRenderer` (container) |
 
 Both spellings resolve — `register` stores the namespaced key *and* a bare-`type`
-fallback (`packages/core/src/registry/Registry.ts:195,240`). Note the namespaces
-are not uniform: `object-view` / `view` / `view:simple` register under
-`plugin-view`, the four control components under `view`.
+fallback (`ComponentRegistry.register` in `packages/core/src/registry/Registry.ts`,
+its `!meta?.skipFallback` branch). Note the namespaces are not uniform:
+`object-view` / `view:simple` register under `plugin-view`, the four control
+components under `view`.
+
+The bare `view` alias of `object-view` is RETIRED (objectui#10859 batch 8): it
+named the same renderer as `object-view`, and `objectui validate` refused it at
+`type`. Author `object-view`.
 
 `ObjectViewRenderer` is a thin internal wrapper — it pulls `dataSource` off the
 renderer context and hands the schema to `ObjectView`. It is not exported,

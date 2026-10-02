@@ -90,9 +90,11 @@
  * `### Props` table, the `<AppShell …>` opening tags in its fences, and whether
  * any fence authors an `app-shell` JSON node. The same page's `page`,
  * `page-header` and `sidebar-nav` sections are NOT audited here and must not be
- * swept in — `page` in particular declares `headerClassName` / `bodyClassName`
- * for a different component (`PageRenderer` in `@object-ui/components`), so a
- * file-wide ban on those spellings would be wrong. `packages/layout/README.md`
+ * swept in — they describe different components with pins of their own (the
+ * `page` node's are the `page-*-refusal-*` files in `@object-ui/types`), so a
+ * file-wide ban on this file's spellings would judge material it does not own.
+ * (The `page` section's Schema API block used to declare `headerClassName` /
+ * `bodyClassName`; objectui#11318 removed them as unread.) `packages/layout/README.md`
  * belongs to `readme-app-shell-example.test.ts` (objectui#4817) and
  * `content/docs/layout/app-shell.mdx` to `app-shell-docs-nav-example.test.ts`
  * (objectui#4793 / #4808); pinning the whole docs tree to source is

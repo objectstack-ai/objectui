@@ -168,6 +168,59 @@ const sidebarCookieReadPatches = [
 ];
 
 /**
+ * The sidebar optional-context patch (objectui#10859, batch 8 phase 2d).
+ *
+ * `useSidebar()` THROWS outside a `SidebarProvider`, and the context it reads
+ * is module-private, so nothing outside this file can ask the one question the
+ * SDUI `sidebar` node needs answered before it renders: "is a provider already
+ * above me?". The seat's fork ruling on objectui#10859 has the `sidebar`
+ * registration supply its own provider only when none is present, and forbids
+ * shadowing a host's provider (the app shell mounts one through
+ * `@object-ui/layout`'s `AppShell`). A thrown error is not a usable answer — a
+ * try/catch around a hook is not a React pattern, and an error boundary would
+ * render the failure before recovering.
+ *
+ * So the primitive gains a non-throwing sibling of `useSidebar`, which answers
+ * `null` exactly where `useSidebar` would throw, and exports it. The payload is
+ * one `React.useContext` line: it has to live in this file because the context
+ * does, which is the one reason this patch is not a reference into `src/lib/`
+ * like the cookie patch above. Anchors are registry bytes (the `useSidebar`
+ * body's tail and the export block's last entry), held offline by
+ * `scripts/__tests__/shadcn-local-patches.test.ts`.
+ *
+ * @type {LocalPatch[]}
+ */
+const sidebarOptionalContextPatches = [
+  {
+    id: 'sidebar-optional-context-reader',
+    issue: 'objectui#10859',
+    reason:
+      'Adds `useOptionalSidebar()`, a non-throwing read of the provider context: ' +
+      '`null` where `useSidebar()` would throw. The SDUI `sidebar` registration ' +
+      'reads it to supply a `SidebarProvider` only when no host provider is ' +
+      'above it, so a host provider is never shadowed.',
+    find: '  return context\n}\n\nconst SidebarProvider = React.forwardRef<',
+    replace:
+      '  return context\n}\n\n' +
+      'function useOptionalSidebar() {\n  return React.useContext(SidebarContext)\n}\n\n' +
+      'const SidebarProvider = React.forwardRef<',
+    marker: 'function useOptionalSidebar() {\n  return React.useContext(SidebarContext)\n}',
+    occurrences: 1,
+  },
+  {
+    id: 'sidebar-optional-context-export',
+    issue: 'objectui#10859',
+    reason:
+      'Exports `useOptionalSidebar` beside `useSidebar`, so the renderer in ' +
+      '`src/renderers/navigation/sidebar.tsx` can import it through `../../ui`.',
+    find: '  useSidebar,\n}',
+    replace: '  useSidebar,\n  useOptionalSidebar,\n}',
+    marker: '  useOptionalSidebar,\n}',
+    occurrences: 1,
+  },
+];
+
+/**
  * Upstream's thumb class list, spelled exactly once.
  *
  * The delivery patch below has to name it twice — the single-line element it
@@ -461,7 +514,7 @@ const calendarDisplayLocalePatches = [
 export const LOCAL_PATCHES = {
   sheet: [...i18nCloseLabelPatches('Sheet'), ...sheetHideOverlayPatches],
   dialog: i18nCloseLabelPatches('Dialog'),
-  sidebar: sidebarCookieReadPatches,
+  sidebar: [...sidebarCookieReadPatches, ...sidebarOptionalContextPatches],
   slider: sliderThumbPassThroughPatches,
   calendar: calendarDisplayLocalePatches,
 };

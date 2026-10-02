@@ -34,3 +34,5 @@ arity of one declared key. It does not make the page node a closed surface.
 
 Which channel `PageRenderer` reads — `body` or `children` — is a separate question and is
 not touched here (objectui#8284 remains open).
+
+⚠️ **Dated note, 2026-10-02 — the prop takes the declared-node union — objectui#11466.** At this change `SchemaRendererProps.schema` was annotated `BaseSchema`, the wider parent the root README's example type-checked through; now, later in this same release, it is `DeclaredNode | string | null | undefined`, the union of the declared node types keyed by `type`, and the README annotates its example `DeclaredNode`, so a `page` node there is judged against the declared node types its `type` names. The bound paragraph still holds until objectui#8347: `PageNodeSchema` extends `BaseSchema`, whose index signature absorbs a misspelled key on its own arm. The rest of this entry is kept as the reading of this change.

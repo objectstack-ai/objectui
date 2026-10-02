@@ -10,16 +10,14 @@
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [
-    "needs-user-decision"
-  ],
+  "labels": [],
   "assignees": [
     "os-elon-musk"
   ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-02T00:55:26Z",
-  "updated_at": "2026-10-02T01:54:49Z",
+  "updated_at": "2026-10-02T02:54:39Z",
   "closed_at": "2026-10-02T01:54:47Z",
   "closed_by": {
     "login": "os-zhuang",

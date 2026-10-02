@@ -1,0 +1,35 @@
+{
+  "number": 11436,
+  "kind": "issue",
+  "title": "docs: ten page snippets omit `pageType`, so a record page draws none of their `title` / `description`; schema-reference teaches `pageType` values the schema refuses",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "documentation",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-02T03:06:17Z",
+  "updated_at": "2026-10-02T06:41:04Z",
+  "closed_at": "2026-10-02T06:39:38Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11436",
+  "body": "Filing-gate category: ① a published teaching error, class (c), the sweep card for objectui#11423's family. `reach:` named real producers, measured: the five schema-catalog documents under `examples/schema-catalog/src/schemas/components-layout-page/` are the `SchemaExample` demos of the published `content/docs/components/layout/page.mdx`. Each, rendered through the real `SchemaRenderer`, is `data-page-type=\"record\"` with no `h1` and no description, and the same document with `pageType: \"app\"` draws both. For part B, `safeValidateSchema` (the tolerant face `objectui validate` runs) and `StrictAnyComponentSchema` both refuse the documented value `\"detail\"` (and `custom`, `dashboard`) with `invalid_value` at `pageType`. Reader who acts: triage first (grade, route, split or not), then the `domain:ui` seat that dispatches it. Filed by `domain:ui` seat 1 (`session_01YLg8XqWGJ785fwQ5v4pH37`) from the os-dev report on objectui#11423 (comment `5944820485`, `out_of_scope_findings[0]` and `[1]`; PR objectui#11435). ⛔ Not graded here.\n\n## Part A: a `page` with `title` / `description` and no `pageType` (objectui#11423's shape)\n\n`PageRenderer` reads `schema.pageType || 'record'`, and a `record` page leaves its `h1` to a `page:header` block and never draws `description` (`packages/components/src/renderers/layout/page.tsx`, `headerOwnsTitle` / `showPageDescription`). PR objectui#11435 corrects the four `content/docs/guide/layout.md` passages and pins that guide. The seat's scan of objectui `origin/main` `01f99e31e`, which covers every `json` fence in `content/docs/**` and every `.json` under `examples/**`, finds 14 nodes with `\"type\": \"page\"`, a `title` or `description`, and no `pageType`. Four are the `layout.md` sites PR objectui#11435 fixes. **The other ten:**\n\n- `examples/schema-catalog/src/schemas/components-layout-page/`: `simple-page.json`, `page-with-header.json`, `settings-layout.json`, `documentation-page.json`, `full-dashboard.json`. These are the five demos of `content/docs/components/layout/page.mdx` (`:10`, `:14`, `:46`, `:50`, `:54`), one of them under its \"With Title and Description\" section. The dev rendered all five.\n- `content/docs/utilities/runner.mdx` (fence at about `:271`), `content/docs/api/schema-reference.md` (about `:1341`), `content/docs/guide/schema-playground.md` (about `:203`), `content/docs/guide/schema-rendering.md` (about `:166`), and `examples/hello-world/schema.json`. These are static matches of the same shape, decided by the same `|| 'record'`; the seat did not render them.\n\nThe scan saw only `json` fences and `.json` files. The dev also noted that `page.mdx`'s own Schema block omits `pageType`; `ts` / `tsx` fences were not scanned. The catalog's own tests read those five files (`layout-props-conversion.test.tsx`, `grid-columns-key.test.tsx`, per the dev), which is why PR objectui#11435 did not fix them in place.\n\n## Part B: `schema-reference.md` teaches `pageType` values that are not `PageType` members\n\n`content/docs/api/schema-reference.md`'s PageNodeSchema section sets `\"pageType\": \"detail\"` in its example (about `:113`). Its property table (about `:134`) lists `\"list\"`, `\"detail\"`, `\"form\"`, `\"dashboard\"`, `\"report\"`, `\"custom\"`. The page node's `PageType` (the spec's `PageTypeSchema`) is `record | home | app | utility | list`, so five of the six are refused.\n\n## Direction (for triage, not a ruling)\n\n- Each producer names the `pageType` whose page draws the heading it shows, or moves the heading into a `page:header` block, as PR objectui#11435 did for the guide.\n- `schema-reference.md` teaches the five real members.\n- Pin, with an enumeration so the population cannot silently shrink: the corrected documents, rendered, draw the heading they show. PR objectui#11435's guide pin, `guide-layout-page-headings-11423.test.tsx`, is the model.\n\nThe dev also noted that no diagnostic speaks for `title` on a record page. A new one would be a new gate (default no), so it is not proposed here.\n\n## Dedupe\n\nThe 800 most recently updated objectui issues and PRs, open and closed (back to #3162, REST, grepped locally 2026-10-02):\n- `components-layout-page` 2 (PR objectui#11435, the source of this card; PR objectui#10879, closed, about `body`, not this);\n- the five catalog file names 0;\n- `layout/page.mdx` 1 (PR objectui#11435);\n- `schema-reference.md` near `pageType` 1 (PR objectui#11435);\n- `pageType` … `\"detail\"` 0;\n- `pageType` … `form` / `report` / `custom` 1 (PR objectui#11435);\n- page … \"no heading / title not drawn\" 2 (objectui#11423, PR objectui#11421).\n\nControls: `pageType` 9, `PageNodeSchema` 11; objectui#6152 (open, declared-but-unmirrored keys) is among them and is not this.\n\nDedupe words: `page snippet no pageType record no heading` · `components-layout-page catalog pageType` · `page.mdx With Title and Description no heading` · `schema-reference pageType detail invalid` · `PageType record home app utility list docs drift`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

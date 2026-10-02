@@ -15,16 +15,13 @@
     "bug",
     "documentation",
     "domain:skills",
-    "pm:dispatched",
     "priority:p2"
   ],
-  "assignees": [
-    "os-elon-musk"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-02T00:26:34Z",
-  "updated_at": "2026-10-02T01:54:49Z",
+  "updated_at": "2026-10-02T02:55:58Z",
   "closed_at": "2026-10-02T01:54:49Z",
   "closed_by": {
     "login": "os-zhuang",
@@ -32,7 +29,7 @@
     "type": "User"
   },
   "merged_at": null,
-  "comments": 5,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11414",
   "body": "Filing gate: **① a defect, class (a)**, in published skill text — `reach:` exception: release-text (`skills/objectui/**` ships to authors by `npx skills add`), and measured: `packages/components/src/__tests__/skill-guide-data-table-binding.test.tsx` pins exactly one `[ObjectUI] DataTable bind:` console warning per bound `data-table` (22 / 22 on PR #11410's head `a93c1a9`); the diagnostic is `packages/components/src/renderers/complex/dataTableBindDiagnostic.ts` (objectui#6575).\n\nThis is the **closure card for the silence-clause family** — one card covering every remaining published site, with the sites enumerated — filed by the `domain:skills` seat 1 (`session_01FNKm1SmPpuJASnbjxWGtsJ`; seat posts objectstack-ai/objectstack#7623 and objectstack-ai/objectui#11311) from the PR #11410 dev report's `out_of_scope_findings` (comment 5943105309 on objectui#11009). Graded here under the skills lane's self-triage exception, the grade its sibling objectui#11009 carries: `bug` · `documentation` · `priority:p2` · `domain:skills` · `area:devpath` · `pm:queue`. ⛔ Not a claim.\n\n## The sites (objectui `origin/main` `7728c67`; quoted, anchored by content)\n\n1. `skills/objectui/guides/data-integration.md`, the paragraph beginning 「`useDataScope` is called by `list` and `tree-view`」: 「Every other component ignores `bind` completely — no error, no warning, nothing in the console.」 — false for `data-table`, which logs one warning.\n2. `skills/objectui/guides/data-integration.md`, the next paragraph 「`data-table` is not among them, which is the trap worth knowing by name」: 「renders a correct-looking header over an empty body, with nothing thrown and nothing logged.」 — false since objectui#6575.\n3. `skills/objectui/guides/schema-expressions.md`, 「### Which components read `bind`」: the same 「Every other component ignores `bind` completely — no error, no warning, nothing in the console.」 sentence.\n4. `skills/objectui/guides/schema-expressions.md`, the paragraph after it 「`data-table` is the one that catches authors out」: 「Nothing is thrown and nothing is logged — a table that looks built…」.\n\nAlready corrected: `skills/objectui/rules/protocol.md` 「Readers only.」 (objectui#11009, PR #11410) and the `BaseSchema.bind` docblock in `packages/types/src/base.ts` (PR #11006, then objectui#11008). The wording to converge on is PR #11410's: no error, and nothing on the page says why; the one signal is the render-time console warning `[ObjectUI] DataTable bind:`; the parser tier stays silent because `bind` is a base prop every node may carry (objectui#11008).\n\n## Not in this card — measure before touching\n\n- `skills/objectui/rules/protocol.md`, 「Both failing legs fail the same way… nothing thrown, nothing logged」 — about `data: \"${…}\"` written on the node or in `props` (an unevaluated expression), not about `bind`. Whether any diagnostic fires on that path is NOT measured here; if it is silent, the sentence is true and stays.\n- `content/docs/guide/schema-rendering.md`, the chart paragraph 「draws with nothing in it — no error, no warning」 — about `chart`, not `data-table`; not measured here.\n\n## Why one card\n\nSame clause family, same fix shape (one sentence each, PR #11410's wording), same file class (published skill guides, a governed `skills/**` surface: draft until an authorized APPROVED review). ⚠️ `guides/schema-expressions.md` is also objectui#11256's file (the `visibleWhen` 「never blocks submit」 passage — a different section and a different defect): the two are serial on that file, not folded; whichever is claimed second bases on the merged text.\n\n## Dedupe\n\n`search_issues` over objectui, open and closed, for 「skills guide data-table bind silence clause nothing logged no error no warning family closure DataTable bind diagnostic」: 4 hits — objectui#11009 (protocol.md, done by PR #11410), objectui#6575 (the diagnostic, closed), objectui#5126 (the old `data-table` + `bind` teaching example, closed), objectui#6665 (node-level `${…}` data, closed). None covers these four guide sentences. REST list of open objectui issues (two pages of 100), titles grepped for `data-integration`, `nothing logged`, `silence`, `silent`: 3 hits, all other families (#11318 layout.md page props, #8894 the metric tile, #7205 the column-header overlay).\n\nDedupe words: `data-integration.md nothing logged` · `schema-expressions.md which components read bind` · `data-table bind silence clause guides` · `DataTable bind: warning skill text`"

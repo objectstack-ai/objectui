@@ -2,7 +2,7 @@
   "number": 11430,
   "kind": "pull_request",
   "title": "feat(app-shell): the AI usage indicator renders the reset line for the 5-hour pace window (objectui#11415)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -20,10 +20,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-02T02:09:55Z",
-  "updated_at": "2026-10-02T02:26:01Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-02T02:41:29Z",
+  "closed_at": "2026-10-02T02:41:28Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-02T02:41:28Z",
   "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/11430",

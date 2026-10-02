@@ -73,9 +73,10 @@
  *   5. DECLARED SHAPE: a TypeScript interface in a fence that declares a
  *      `type: 'page'` node with a `title` also declares `pageType`.
  *
- * The `markdown` child the generator writes renders nothing here: plugin-markdown
- * is a lazy plugin this package does not register. Whether that child would draw
- * a second `h1` is asserted on its text in the cli package's
+ * The `markdown` child the generator writes is not rendered as markdown here:
+ * plugin-markdown is a plugin this package does not register, so that node draws
+ * the unknown-type alert, which holds no heading. Whether the child would draw a
+ * second `h1` under plugin-markdown is asserted on its text in the cli package's
  * `generate-page-dialect-9847.test.ts`.
  *
  * This file subsumes objectui#11423's pin, which read the layout guide's `json`

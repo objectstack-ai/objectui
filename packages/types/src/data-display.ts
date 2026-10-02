@@ -15,7 +15,14 @@
  * @packageDocumentation
  */
 
-import type { ChartAxis as SpecChartAxis, ChartType as SpecChartType, I18nLabel } from '@objectstack/spec/ui';
+import type {
+  ChartAxis as SpecChartAxis,
+  ChartType as SpecChartType,
+  I18nLabel,
+  // The spec's report AUTHOR shape (`z.input` of `ReportSchema`; `spec-report.ts`
+  // re-exports the same type as `SpecReportInput`), for `DrillDownConfig.report`.
+  Report as SpecReportInput,
+} from '@objectstack/spec/ui';
 import type { BaseSchema, SchemaNode } from './base.js';
 import type { BreadcrumbSchema } from './navigation.js';
 
@@ -2531,30 +2538,33 @@ export interface DrillDownConfig {
   /** Drawer/dialog title. Supports `${event.*}` interpolation. */
   title?: string;
   /**
-   * Drill into an analytical Report instead of the raw record list. When
-   * provided, the drill-down drawer renders the supplied `SpecReport` (with
-   * `widget.filter ∧ report.filter` merged so the metric's scope is honoured).
+   * Drill into an analytical report instead of the raw record list.
    *
    * This is the M3 "Dashboard → Report → List → Record" path: the KPI on the
    * dashboard expands into a multi-dimensional breakdown report; the report
    * itself can drill into a list of records (via its own row-click drill),
    * which can drill into a single record.
    *
-   * Either an inline `SpecReport` JSON or a named report reference is
-   * supported. Implementations may render the named form by resolving it
-   * against an app-level report registry.
+   * The inline form is a dataset-bound report (ADR-0021), `@objectstack/spec`'s
+   * `ReportSchema` author shape by reference: the document the drawer wraps in
+   * the `report` node, whose `report` member is that same schema
+   * (objectui#11440), so its members, required keys and refusals apply
+   * unchanged. The drawer joins the block's resolved drill filter to the
+   * report's own `runtimeFilter` with `$and` and writes the result as the
+   * report's `runtimeFilter`, the one filter key the dataset renderer applies
+   * (objectui#5137, objectui#11506). The spec refuses `filter` here.
    *
-   * The shape is structural to avoid a circular import with `spec-report.ts`.
+   * ⛔ The pre-9.0 object-bound form (`objectName` plus column objects) is
+   * retired (objectui#11506), with no alias window: nothing produced it, the
+   * spec refuses it (`objectName` is an alias of `dataset`), and through the
+   * real drawer it drew an empty presentation and issued no query, so a drill
+   * filter reached nothing under either key.
+   *
+   * A named reference, `{ name }`, is declared as well. `DrillDownDrawer`
+   * resolves no named reference, so such a drill lists the records, as a drill
+   * with no `report` does.
    */
-  report?:
-    | {
-        name: string;
-        objectName: string;
-        type?: 'tabular' | 'summary' | 'matrix' | 'joined';
-        columns: Array<unknown>;
-        [k: string]: unknown;
-      }
-    | { name: string };
+  report?: SpecReportInput | { name: string };
   /**
    * Optional column whitelist for the inline drill list. When omitted the
    * data table renders all default columns.

@@ -189,11 +189,13 @@ describe('a dataset-bound dashboard widget re-reads on the data-invalidation bus
   // retired by objectui#10859 batch 8, and the component is what still ships.
   it('the same reader serves a `DashboardGridLayout` block’s dataset widget', async () => {
     const ds = makeDatasetSource();
+    // The adapter goes in as the component's own `dataSource` prop — what
+    // `SchemaRenderer` forwarded to it when it was reached by node key.
     render(
-      <SchemaRendererProvider dataSource={asAdapter(ds)}>
+      <>
         <BusControl />
-        <DashboardGridLayout schema={dashboard() as never} />
-      </SchemaRendererProvider>,
+        <DashboardGridLayout schema={dashboard() as never} dataSource={ds} />
+      </>,
     );
     await screen.findByText('Won');
     await settle();

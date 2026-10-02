@@ -258,10 +258,11 @@ takes its rows from an inline `data` array on the node, so a bound `data-table`
 renders a correct-looking header over an empty body: nothing is thrown and
 nothing on the page says why — the one signal is a `[ObjectUI] DataTable bind:`
 console warning (objectui#6575). Pointing the node's own `data` key at an
-expression (`"data": "${data.customers}"`) fails the same silent way — node
-keys are not expression-evaluated — so **the host resolves the array and puts
-it on the node**, as below. The one spelling that does carry a provider
-expression through is measured, with its open-question caveat, in
+expression (`"data": "${data.customers}"`) fails the same way, with its own
+console warning (`[ObjectUI] DataTable data:`, objectui#6665) — node keys are
+not expression-evaluated — so **the host resolves the array and puts it on the
+node**, as below. The one spelling that does carry a provider expression
+through is measured, with its open-question caveat, in
 [`../rules/protocol.md`](../rules/protocol.md).
 
 <!-- os:check -->

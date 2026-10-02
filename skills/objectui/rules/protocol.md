@@ -245,11 +245,12 @@ real `SchemaRenderer` under a host scope publishing
 | `{ "type": "data-table", "data": [ 2 literal records ], ... }` | the two rows |
 
 Both failing legs fail the same way this file keeps warning about: a correct
-header over the empty state, nothing thrown, nothing logged. **Do not read that
-empty table as "the provider has no data."** The route this skill teaches is the
-last row — the host resolves the array and puts it on the node — for the reason
-given under "Rule: Keys Live on the Node": the third row works today, but its
-channel is objectui#4795's open question, not a taught surface.
+header over the empty state, nothing thrown, and the one signal is a console
+warning, `[ObjectUI] DataTable data:` (objectui#6665). **Do not read that empty
+table as "the provider has no data."** The route this skill teaches is the last
+row — the host resolves the array and puts it on the node — for the reason given
+under "Rule: Keys Live on the Node": the third row works today, but its channel
+is objectui#4795's open question, not a taught surface.
 
 ## Rule: Actions Are Node Types, Not An Event Bag
 

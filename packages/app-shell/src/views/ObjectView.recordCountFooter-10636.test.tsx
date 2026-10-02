@@ -24,8 +24,15 @@
  * count-not-one half is a count label — a label, a colon, then the number —
  * as objectui#10024, objectui#10242 and objectui#10425 ruled. Every pack's pair
  * reads the way its `list.recordCount` pair does, so the footer and the list
- * bar count the same records in the same words. ⛔ No i18next `_one` / `_few`
- * suffixes: `all-locales-key-parity.test.ts` holds every pack to `en`'s key set.
+ * bar count the same records in the same words.
+ *
+ * ## objectui#11445 — one count family
+ *
+ * objectui#11432 let a pack hold every CLDR slot its language selects, so
+ * objectui#11445 made `console.objectView.recordCount` (and `list.recordCount`)
+ * an i18next count family: the footer passes `count` and i18next picks the slot,
+ * so `ru` reads «2 записи» and `ar` its dual at 2, and the `…One` sibling left
+ * all ten packs. The strings below are those.
  *
  * ## What this file measures
  *
@@ -184,7 +191,7 @@ type Rows = Record<Lang, Array<[number, string]>>;
 
 /**
  * Every footer string this file expects. `ru` 2 is few and 21 is one; `ar` 2
- * is two and 11 is many — the categories a single count-not-one noun got wrong.
+ * is two and 11 is many — each the family slot i18next selects (objectui#11445).
  */
 const FOOTER: Rows = {
   en: [
@@ -193,13 +200,13 @@ const FOOTER: Rows = {
   ],
   ru: [
     [1, '1 запись'],
-    [2, 'Записей: 2'],
-    [21, 'Записей: 21'],
+    [2, '2 записи'],
+    [21, '21 запись'],
   ],
   ar: [
     [1, '1 سجل'],
-    [2, 'عدد السجلات: 2'],
-    [11, 'عدد السجلات: 11'],
+    [2, 'سجلان (2)'],
+    [11, '11 سجلًا'],
   ],
 };
 
@@ -236,20 +243,22 @@ describe('ObjectView record-count footer reads right at one and at every other c
     const packs = Object.keys(builtInLocales);
     expect(packs.length).toBeGreaterThanOrEqual(10);
     for (const lang of packs) {
-      expect(at(lang, 'console.objectView.recordCount'), `${lang} recordCount`).toBe(
-        at(lang, 'list.recordCount'),
-      );
-      expect(at(lang, 'console.objectView.recordCountOne'), `${lang} recordCountOne`).toBe(
-        at(lang, 'list.recordCountOne'),
-      );
+      for (const slot of ['', ...new Intl.PluralRules(lang).resolvedOptions().pluralCategories.map((c) => `_${c}`)]) {
+        expect(at(lang, `console.objectView.recordCount${slot}`), `${lang} recordCount${slot}`).toBe(
+          at(lang, `list.recordCount${slot}`),
+        );
+      }
     }
   });
 
-  it('in ru and ar the count-not-one half is count-invariant: it ends in the number, after a colon', () => {
+  it('in ru and ar the footer is an i18next count family, and its `…One` sibling is gone', () => {
     for (const lang of ['ru', 'ar'] as const) {
-      const value = at(lang, 'console.objectView.recordCount');
-      expect(value, `${lang} console.objectView.recordCount`).toMatch(/: \{\{count\}\}$/);
-      expect(value, `${lang} equals its One half`).not.toBe(at(lang, 'console.objectView.recordCountOne'));
+      for (const category of new Intl.PluralRules(lang).resolvedOptions().pluralCategories) {
+        expect(at(lang, `console.objectView.recordCount_${category}`), `${lang} _${category}`).toEqual(
+          expect.any(String),
+        );
+      }
+      expect(at(lang, 'console.objectView.recordCountOne'), `${lang} recordCountOne`).toBeUndefined();
     }
   });
 });

@@ -7,17 +7,23 @@
  */
 
 /**
- * objectui#9664 — the browse branch of the results-count ternary must pick its
- * key on `=== 1`, exactly as the query branch beside it already does.
+ * objectui#9664 — the browse branch of the results-count line must read a
+ * singular at one searchable item.
  *
  * Before this card the browse branch asked for `search.itemsAvailable` at every
  * count, and `en` has no plural family and had no sibling key, so a viewer with
  * a single searchable nav item read `1 items available` — the shipped default
  * language.
  *
+ * objectui#9664 repaired it with a `=== 1` key switch onto a sibling
+ * (`search.itemsAvailableOne`). objectui#11445 made both branches i18next count
+ * families: the page asks ONE key with `count`, and the `_one` slot is the
+ * singular. So the selection measured below is "one key, every count".
+ *
  * ⭐ This file measures the SELECTION, through a real render of the page: which
  * key the component asks for, and what the `en` pack then renders. The `t` here
- * resolves against the real `en` catalogue rather than an inline table, so this
+ * resolves against the real `en` catalogue the way i18next does — `key_<category>`
+ * for a numeric `count`, then the base key — rather than an inline table, so this
  * cannot go green against a copy of the English that has drifted from the pack.
  * The per-pack values are `searchItemsAvailable-plural-9664.test.ts`'s, in
  * `@object-ui/i18n`.
@@ -54,8 +60,13 @@ vi.mock('@object-ui/i18n', async (importOriginal) => {
       t: (key: string, options?: Record<string, unknown>) => {
         asked.keys.push(key);
         // `actual.en` is the shipped catalogue, the same object the app resolves
-        // through `fallbackLng`. Interpolation is i18next's `{{name}}` spelling.
-        const value = at(actual.en, key);
+        // through `fallbackLng`. The lookup is i18next's: a count family's slot
+        // for a NUMERIC count first, then the base key. Interpolation is
+        // i18next's `{{name}}` spelling.
+        const count = options?.count;
+        const slot =
+          typeof count === 'number' ? at(actual.en, `${key}_${new Intl.PluralRules('en').select(count)}`) : undefined;
+        const value = typeof slot === 'string' ? slot : at(actual.en, key);
         if (typeof value !== 'string') return key;
         return value.replace(/\{\{(\w+)\}\}/g, (_m: string, name: string) =>
           String(options?.[name] ?? ''),
@@ -114,10 +125,11 @@ describe('SearchResultsPage browse count agrees with its number (objectui#9664)'
     expect(screen.getByText('1 item available')).toBeInTheDocument();
     // The defect, named as the string it shipped.
     expect(screen.queryByText('1 items available')).toBeNull();
-    // …and the selection that produces it, so a green here cannot come from a
-    // pack edit that papered over a call site still asking for one key.
-    expect(asked.keys).toContain('search.itemsAvailableOne');
-    expect(asked.keys).not.toContain('search.itemsAvailable');
+    // …and the selection that produces it: ONE key with a count, so the
+    // singular comes from the family's `_one` slot (objectui#11445), not from a
+    // `=== 1` switch onto a sibling.
+    expect(asked.keys).toContain('search.itemsAvailable');
+    expect(asked.keys).not.toContain('search.itemsAvailableOne');
   });
 
   it('reads the plural at every other count, zero included', () => {
@@ -129,10 +141,9 @@ describe('SearchResultsPage browse count agrees with its number (objectui#9664)'
     expect(asked.keys).not.toContain('search.itemsAvailableOne');
   });
 
-  it('leaves the query branch alone — it already switched at one', () => {
-    // The pattern this card copied is on the adjacent line, and the card claims
-    // nothing about it. Measured rather than assumed, so a later edit to the
-    // browse branch cannot quietly take the query branch with it.
+  it('the query branch is one count family too, and the browse branch stays unevaluated', () => {
+    // The adjacent line, converted by objectui#11445 the same way: one key with a
+    // count, no `search.resultsCountPlural` sibling.
     app.navigation = navItems(3);
     url.search = 'q=Object 0';
     render(<SearchResultsPage />);

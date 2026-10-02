@@ -31,11 +31,13 @@
  * The `ru` pack's own header comment on `perm.facet` records the device as
  * applied throughout that pack and correct at ANY number.
  *
- * ⛔ Not an i18next family with `_few`/`_many`/`_two` slots. No pack in the
- * repo defines one, and `all-locales-key-parity.test.ts` holds every pack to
- * `en`'s key set, so a `ru` `_few` is a key `en` lacks. The routes that WOULD
- * render a real few-form are recorded on objectui#10024's pull request as a
- * question for the maintainer; this file does not pick one.
+ * ## objectui#11445 — the real few-form, now
+ *
+ * The route this card left open was taken: objectui#11432 let a pack hold every
+ * CLDR slot its language selects, and objectui#11445 made `search.resultsCount`
+ * an i18next count family. The page passes `count`, i18next picks the slot, and
+ * `search.resultsCountPlural` left all ten packs — so `ru` reads «2 результата»
+ * and «21 результат», and `ar` its dual at 2. The strings below are those.
  *
  * ## What this file measures
  *
@@ -140,20 +142,20 @@ const EXPECTED: Record<Lang, Array<[number, string]>> = {
     [2, '2 results for "Object"'],
   ],
   ru: [
-    [1, '1 результат для "Object"'],
-    [2, 'Результатов по запросу "Object": 2'],
-    [5, 'Результатов по запросу "Object": 5'],
-    [21, 'Результатов по запросу "Object": 21'],
-    [22, 'Результатов по запросу "Object": 22'],
-    [25, 'Результатов по запросу "Object": 25'],
+    [1, '1 результат по запросу "Object"'],
+    [2, '2 результата по запросу "Object"'],
+    [5, '5 результатов по запросу "Object"'],
+    [21, '21 результат по запросу "Object"'],
+    [22, '22 результата по запросу "Object"'],
+    [25, '25 результатов по запросу "Object"'],
   ],
   ar: [
-    [0, 'عدد نتائج البحث عن "Object": 0'],
+    [0, '0 نتيجة لـ "Object"'],
     [1, '1 نتيجة لـ "Object"'],
-    [2, 'عدد نتائج البحث عن "Object": 2'],
-    [3, 'عدد نتائج البحث عن "Object": 3'],
-    [11, 'عدد نتائج البحث عن "Object": 11'],
-    [100, 'عدد نتائج البحث عن "Object": 100'],
+    [2, 'نتيجتان لـ "Object" (2)'],
+    [3, '3 نتائج لـ "Object"'],
+    [11, '11 نتيجة لـ "Object"'],
+    [100, '100 نتيجة لـ "Object"'],
   ],
 };
 
@@ -186,8 +188,8 @@ describe('search results count reads correctly at every CLDR category (objectui#
     expect(countLine('ru', 22)).not.toBe('22 результатов для "Object"');
   });
 
-  it('ar says something different at one than at two — the switch buys it a form', () => {
-    // Both `ar` slots used to be the same bytes, so the line read identically
+  it('ar says something different at one than at two — the family gives it the dual', () => {
+    // Both `ar` slots once were the same bytes, so the line read identically
     // at every count but for the number. Compared with the number masked, so
     // this is about the sentence, not the digit.
     const shape = (text: string) => text.replace(/\d+/g, 'N');
@@ -208,15 +210,15 @@ describe('search results count reads correctly at every CLDR category (objectui#
     }
   });
 
-  it('the ru and ar count-not-one half is count-invariant: no noun follows the number', () => {
-    // The mechanism of the repair, stated on the pack values so a later
-    // "natural-sounding" rewrite back to `{{count}} <noun>` fails here with the
-    // reason attached: two slots cannot give that noun the right form.
+  it('search.resultsCount is an i18next count family in ru and ar; the `Plural` sibling is gone', () => {
+    // The mechanism of the objectui#11445 repair, on the pack values: every CLDR
+    // slot the language selects is spelled, so i18next chooses the form.
     for (const lang of ['ru', 'ar'] as const) {
-      const { resultsCount, resultsCountPlural } = builtInLocales[lang].search;
-      expect(resultsCountPlural, `${lang} resultsCountPlural`).toMatch(/: \{\{count\}\}$/);
-      // …and the halves are two different sentences in both packs now.
-      expect(resultsCount, `${lang} halves are identical`).not.toBe(resultsCountPlural);
+      const search = builtInLocales[lang].search as Record<string, string>;
+      for (const category of new Intl.PluralRules(lang).resolvedOptions().pluralCategories) {
+        expect(search[`resultsCount_${category}`], `${lang} resultsCount_${category}`).toEqual(expect.any(String));
+      }
+      expect(search.resultsCountPlural, `${lang} resultsCountPlural`).toBeUndefined();
     }
   });
 });

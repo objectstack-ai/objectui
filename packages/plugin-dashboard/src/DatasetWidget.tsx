@@ -21,8 +21,10 @@
  *    dataset's `object` + dimension→field mapping.
  *  - bar / column / horizontal-bar / line / area / pie / donut / funnel /
  *    scatter / radar / treemap / sankey → the shared advanced `chart` renderer
- *    with its TRUE chart type and one series per measure. A type the renderer
- *    can't draw maps to its closest family (never a silent blank bar).
+ *    with its TRUE chart type and one series per measure (a pie / donut /
+ *    funnel / treemap / sankey draws the first of them, and the dropped-measure
+ *    diagnostic says so, objectui#11417). A type the renderer can't draw maps
+ *    to its closest family (never a silent blank bar).
  *
  * Errors surface instead of silently showing wrong/empty numbers.
  *
@@ -382,6 +384,37 @@ const METRIC_TYPES = new Set(['metric', 'kpi', 'gauge', 'solid-gauge', 'bullet']
 const MEASURE_AXIS_CHART_FAMILIES = new Set(['bar', 'column', 'horizontal-bar', 'line', 'area', 'combo']);
 
 /**
+ * The chart families that draw ONE series, whatever the widget declares
+ * (objectui#11417). The shared chart renderer (`AdvancedChartImpl` in
+ * `@object-ui/plugin-charts`) binds `series[0]` on its `pie` / `donut`,
+ * `funnel`, `treemap` and `sankey` arms and reads no other series there, so a
+ * chart of one of these families WITH a dimension draws its first measure and
+ * drops every other one, although this widget hands each measure on as a
+ * series. (Without a dimension these families take the tile, `isMetric`.)
+ *
+ * Read off the family a widget renders AS (`CHART_TYPE_MAP`), so a `pyramid`
+ * widget, which renders as a `funnel`, is in it too.
+ *
+ * Kept here, once, because the renderer has no declaration of it to read:
+ * those arms are `chartType === …` branches, and the one set it does declare
+ * (`SERIES_ONLY_CHART_TYPES`, the families that draw `series.map(…)` and
+ * nothing else) is not this set's complement. Two families sit outside both:
+ *  - `radar` draws every series;
+ *  - `scatter` (and `bubble`, which renders as one) refuses a second series out
+ *    loud, with a notice on the chart that names the series, so nothing is
+ *    dropped in silence and this widget has nothing to add.
+ * `DatasetWidget.singleSeriesMeasures-11417.test.tsx` ties this set to what
+ * the renderer draws: for every chart type, a second measure's values either
+ * change the drawn chart or this set names its family.
+ *
+ * Triage's ruling on objectui#11417 is that the spec refuses two or more
+ * measures on these five types with a dimension too (objectstack#21293). Until
+ * that refusal reaches objectui, every door accepts the shape, and the
+ * dropped-measure diagnostic below is what says so.
+ */
+const SINGLE_SERIES_CHART_FAMILIES = new Set(['pie', 'donut', 'funnel', 'treemap', 'sankey']);
+
+/**
  * The columns of a dimensionless chart's transposed rows (objectui#11261): the
  * measure a mark stands for, and that measure's value. A transposed row carries
  * these and nothing else, so no dataset measure name can collide with them.
@@ -506,23 +539,33 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   const rendersEveryMeasureWithoutDimension =
     values.length > 1 && (isTable || MEASURE_AXIS_CHART_FAMILIES.has(CHART_TYPE_MAP[widgetType] ?? ''));
   const isMetric = METRIC_TYPES.has(widgetType) || (dimensions.length === 0 && !rendersEveryMeasureWithoutDimension);
+  // The chart family a widget that reaches the chart branch below renders as —
+  // `bubble` → `scatter`, `pyramid` → `funnel` (CHART_TYPE_MAP). Only meaningful
+  // when neither `isMetric` nor `isTable` holds; resolved up here because what
+  // the widget renders (just below) and the query (see `compareTo`) need it,
+  // not only the chart branch.
+  const chartType = CHART_TYPE_MAP[widgetType] ?? 'bar';
+  // A chart of a single-series family draws its first measure only, with a
+  // dimension too (`SINGLE_SERIES_CHART_FAMILIES`, objectui#11417). The chart
+  // branch still hands every measure on as a series: what is drawn does not
+  // change here, only what this widget says it renders.
+  const drawsFirstMeasureOnly = !isMetric && !isTable && SINGLE_SERIES_CHART_FAMILIES.has(chartType);
   // ── What this widget RENDERS of what it declares (objectui#8894) ─────────
   // Settled here, by the branch decision just above, and read by both the tile
   // below and the dropped-measure diagnostic, so the two cannot disagree. A
-  // tile shows ONE number, the first declared measure's. Every other branch
-  // renders every declared measure: a table one column per measure, a chart
-  // one series per measure, a dimensionless chart one mark per measure.
+  // tile shows ONE number, the first declared measure's, and a chart of a
+  // single-series family draws the first declared measure's series. Every
+  // other branch renders every declared measure: a table one column per
+  // measure, a chart one series per measure, a dimensionless chart one mark
+  // per measure.
   //
-  // "Renders" is what THIS component hands on. The chart branch hands every
-  // measure to the shared chart renderer as a series; which of those series a
-  // chart family then draws is decided in that renderer, not here.
-  const renderedMeasures = isMetric ? values.slice(0, 1) : values;
+  // "Renders" is what reaches the screen. For a chart that is decided in the
+  // shared chart renderer, which this widget hands every measure to as a
+  // series; the one family of arms there that draws a single series is
+  // stated here as `SINGLE_SERIES_CHART_FAMILIES`, with the pin that ties the
+  // two named in its docblock.
+  const renderedMeasures = isMetric || drawsFirstMeasureOnly ? values.slice(0, 1) : values;
   const droppedMeasures = values.filter((m) => !renderedMeasures.includes(m));
-  // The chart family a widget that reaches the chart branch below renders as —
-  // `bubble` → `scatter`, `pyramid` → `funnel` (CHART_TYPE_MAP). Only meaningful
-  // when neither `isMetric` nor `isTable` holds; resolved up here because the
-  // query needs it (see `compareTo` just below), not only the chart branch.
-  const chartType = CHART_TYPE_MAP[widgetType] ?? 'bar';
   // `widget.compareTo` IS the executor's contract since objectstack#5011 —
   // `{ kind, dimension? }`, the same `DatasetCompareTo` the selection carries —
   // so it forwards unchanged. It used to be a three-branch union whose two
@@ -768,7 +811,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // the drop audible. It does not render the dropped measures, so the tile's
   // markup is byte-unchanged (objectui#8887 pins that, and the drop itself).
   //
-  // Two shapes reach a drop now that `@objectstack/spec` 17.5.0 judges the
+  // Three shapes reach a drop now that `@objectstack/spec` 17.5.0 judges the
   // metric family (ruling D on objectui#8894):
   //  - a metric-family tile with two or more measures. The spec refuses it at
   //    its door (`checkDashboardWidgetMetricMeasureArity`, which objectui's
@@ -777,19 +820,29 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   //    are, and the ADR-0087 entry is a semantic migration with no conversion;
   //  - a dimensionless widget whose type the spec's text gives no rendering of
   //    several measures (see `MEASURE_AXIS_CHART_FAMILIES`), which takes the
-  //    tile. Every door accepts it until the spec refuses that shape.
+  //    tile. Every door accepts it until the spec refuses that shape;
+  //  - a chart WITH a dimension whose family draws one series
+  //    (`SINGLE_SERIES_CHART_FAMILIES`, objectui#11417): the renderer draws
+  //    the first measure. Every door accepts it until the spec refuses that
+  //    shape too (objectstack#21293).
   // The condition is the set difference between what is declared and what the
   // branch renders, never a list of types, so it goes quiet by itself wherever
   // a branch starts rendering a measure (objectui#11261 took the table and the
   // bar / line / area / combo charts off it, objectui#8894 column and
   // horizontal-bar).
   //
-  // What it says: which widget, what it renders, which measures it queried and
-  // never displayed, and where the spec states what to author instead — the
-  // `replacement` of the metric-family refusal's ADR-0087 entry, which answers
-  // for a one-number tile that declares several measures. It names no widget
-  // types and gives no advice of its own: the entry is the spec's advice, and a
-  // second copy written here would drift from it.
+  // What it says: which widget, what it renders, and which measures it queried
+  // and never displayed. Then, for a tile, where the spec states what to author
+  // instead — the `replacement` of the metric-family refusal's ADR-0087 entry,
+  // which answers for a one-number tile that declares several measures. It
+  // names no widget types and gives no advice of its own: the entry is the
+  // spec's advice, and a second copy written here would drift from it.
+  //
+  // A single-series chart is not a one-number tile, so that entry does not
+  // answer for it, and the message does not point there. It states the cause
+  // instead (the chart family draws one series, the first declared measure)
+  // and names no type but that family. No spec entry answers for this shape
+  // at the spec objectui pins, and the message invents no advice in its place.
   //
   // ⚠️ "Queried … never displayed", NOT "ignored": the extra measures are not
   // inert, and a message saying they were would itself be false. They are
@@ -809,8 +862,10 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
       ? `[DatasetWidget] Widget "${String(widget?.id ?? '')}" (type "${widgetType}", dataset "${datasetName}") `
         + `renders ${renderedMeasures.length} of its ${values.length} declared measures: ${quoteMeasures(renderedMeasures)}. `
         + `Queried and then never displayed: ${quoteMeasures(droppedMeasures)}. `
-        + 'The spec states what to author instead of a one-number tile with several measures in the '
-        + 'replacement of its ADR-0087 entry "dashboard-widget-metric-family-multi-measure-refused".'
+        + (drawsFirstMeasureOnly
+          ? `Its chart family "${chartType}" draws a single series: the first declared measure.`
+          : 'The spec states what to author instead of a one-number tile with several measures in the '
+            + 'replacement of its ADR-0087 entry "dashboard-widget-metric-family-multi-measure-refused".')
       : '';
   useEffect(() => {
     if (unrenderedMeasureWarning) console.warn(unrenderedMeasureWarning);

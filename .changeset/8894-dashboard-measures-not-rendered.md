@@ -23,11 +23,10 @@ which takes the tile until the spec refuses that shape too. The warning is a dia
 it names the widget, the measures it renders and the ones it queried and never displayed,
 and points to the `replacement` of the spec's ADR-0087 entry
 `dashboard-widget-metric-family-multi-measure-refused`. It names no widget types and
-gives no advice of its own. A table, a chart with a dimension and a single-measure tile
-stay silent. A chart hands every measure to the shared chart renderer as a series, and
-what that renderer draws is outside this warning: a dimensioned `pie`, `donut`, `funnel`,
-`treemap` or `sankey` with several measures draws only the first, with no warning
-(objectui#11417).
+gives no advice of its own. A table, a chart that draws every measure and a
+single-measure tile stay silent. A dimensioned `pie`, `donut`, `funnel`, `treemap` or
+`sankey` with several measures draws only the first, and the warning names the measures
+it drops there too (objectui#11417).
 
 **`WidgetConfigPanel`'s measure picker follows the widget door.** It asks objectui's
 `DashboardWidgetSchema` (which re-attaches the spec's own measure check) instead of

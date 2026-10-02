@@ -132,6 +132,7 @@ The `Page` component provides a consistent wrapper for individual pages with opt
 ```json
 {
   "type": "page",
+  "pageType": "app",
   "title": "User Management",
   "description": "Manage users and permissions",
   "children": {
@@ -143,13 +144,22 @@ The `Page` component provides a consistent wrapper for individual pages with opt
 }
 ```
 
+`pageType` decides whether the page draws its own `title` and `description`. `app`, `list`,
+`utility` and `home` draw both, unless a titled `page:header` block in the page takes over
+the heading. A page with no `pageType` is a `record` page, which draws neither: its heading
+is a `page:header` block, as [Detail Page with Actions](#detail-page-with-actions) shows.
+So without `"pageType": "app"`, the page above renders only its children.
+[Content Width](#content-width) covers what else each type changes.
+
 ### With Action Buttons
 
-A `page` node has no action row of its own. Buttons are NODES, and they go in `children`:
+A `page` node has no action row of its own. Buttons are NODES, and they go in `children`.
+This is a list of products, so the page is a `list` page, which draws its `title` itself:
 
 ```json
 {
   "type": "page",
+  "pageType": "list",
   "title": "Products",
   "children": [
     {
@@ -212,8 +222,8 @@ and `button.tsx`, which reads `schema.label`, renders a button with no text.
   type: 'page',
   
   // Header
-  title?: string,               // Page title
-  description?: string,         // Page description/subtitle
+  title?: string,               // Page heading; not drawn on a 'record' page, whose heading is a `page:header` block
+  description?: string,         // Line under the heading; a 'record' page does not draw it
   icon?: string,               // Optional icon
   // NO `actions` — refused by name (objectui#7926); put the buttons in `children`
   // NO `breadcrumbs` — refused by name (objectui#8871); put a `breadcrumb` node in `children`
@@ -222,7 +232,7 @@ and `button.tsx`, which reads `schema.label`, renders a button with no text.
   children: SchemaNode,            // Main page content
 
   // Layout
-  pageType?: 'record' | 'home' | 'app' | 'utility' | 'list',  // default 'record'; sets the content's max width
+  pageType?: 'record' | 'home' | 'app' | 'utility' | 'list',  // default 'record'; sets the max width and who draws the heading
   // NO `maxWidth` — refused by name (objectui#11318); use `pageType`, or a `container` in `children`
   // NO `padding` — refused by name (objectui#11318); put a `container` with `padding` in `children`
 
@@ -555,10 +565,15 @@ A settings page is a `utility` page, which gives it the narrowest content width 
 Same rule as above, and it governs the trail too: the breadcrumb and the buttons are both
 **nodes in `children`** — never a `breadcrumbs` or an `actions` key on the page.
 
+A detail page is a `record` page. That is the default, and it is named below so the snippet
+says so. A record page draws no `title` and no `description` of its own: its heading is
+the [`page:header`](#page-header-pageheader) block, so the record's name goes in that
+block's `properties.title`, not on the page.
+
 ```json
 {
   "type": "page",
-  "title": "Acme Corporation",
+  "pageType": "record",
   "children": [
     {
       "type": "breadcrumb",
@@ -567,6 +582,10 @@ Same rule as above, and it governs the trail too: the breadcrumb and the buttons
         { "label": "Customers", "href": "/customers" },
         { "label": "Acme Corporation" }
       ]
+    },
+    {
+      "type": "page:header",
+      "properties": { "title": "Acme Corporation" }
     },
     {
       "type": "flex",
@@ -759,11 +778,13 @@ a **boolean** the renderer ignores rather than a list of links.
 
 ### 3. Action Buttons at the Top of the Body
 
-Place primary actions in the first `children` node, so they sit above the content:
+Place primary actions in the first `children` node, so they sit above the content. A list
+of orders is a `list` page, which draws its `title` as the heading above them:
 
 ```json
 {
   "type": "page",
+  "pageType": "list",
   "title": "Orders",
   "children": [
     {

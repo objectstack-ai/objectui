@@ -15,3 +15,5 @@ Migration, measured against `objectui validate` on both of its faces:
 - `basePath` has no app-document spelling: the strict face refuses it as an unrecognized key. It belongs to the shell, as `AppSchemaRenderer`'s `basePath` prop.
 
 **Clause-②: yes** — two registrations leave the runtime (narrowing), released as `minor` with this banner.
+
+⚠️ **Dated note, 2026-10-02 — `grid` takes one of ten `gap` steps, not any number — objectui#11474.** At this change `grid` accepted any `gap` number; now it accepts one of 0, 1, 2, 3, 4, 5, 6, 8, 10 and 12, the steps the `grid` renderer maps, and `objectui validate` refuses any other `G` at `gap` on both faces with that set named: 7, 9, 11, a number above 12, a negative number or a fraction. For such a number `grid` drew no gap anyway, because the class it built at runtime is in no compiled stylesheet. So in the migration above `G` must be one of those ten steps; each step `ResponsiveGrid`'s own class map drew (0 to 6 and 8) is one of them. `.changeset/11474-layout-spacing-sets.md` states what ships. The rest of this entry is kept as the reading of this change.

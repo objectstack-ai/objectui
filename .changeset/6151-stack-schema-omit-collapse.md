@@ -50,3 +50,17 @@ package's own tsconfig and asserts (1) `StackSchema` declares exactly what `Flex
 declares, and (2) no member of the `LayoutSchema` union has lost any of `BaseSchema`'s
 named members — so the next heritage clause that collapses under the index signature reds
 for the whole class, not just for this one interface.
+
+⚠️ **Dated note, 2026-10-02 — `StackSchema` declares its own `gap` — objectui#11474.**
+At this change `gap` was a `number` member of `FlexLayoutProps`, declared once and inherited by
+`FlexSchema` and `StackSchema` alike, and `stack.tsx` was read as feeding it to a Tailwind
+numeric scale; now each node's `gap` is the closed set of steps its renderer maps.
+`FlexLayoutProps.gap` is `0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8`, shared by `FlexSchema` and the
+authored `flex` bag. `StackSchema` extends `BaseSchema` and `Omit<FlexLayoutProps, 'gap'>` and
+declares its own `gap?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 8 | 10`, the nine steps `stack.tsx` has a
+gap class for. So `gap` is declared twice while the other members stay declared once, and `tsc`
+refuses any other number on a `stack`, as it refuses `gap: 'large'`. That `Omit` crosses no
+index signature (`FlexLayoutProps` carries none), so it erases no member name, and
+`stack-schema-emitted-members.test.ts`, which measures the emitted declaration, still passes.
+`.changeset/11474-layout-spacing-sets.md` states what ships. The rest of this entry is kept as
+the reading of this change.

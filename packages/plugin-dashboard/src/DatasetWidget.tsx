@@ -12,9 +12,10 @@
  *  - metric / kpi / gauge / solid-gauge / bullet → KPI value with the
  *    measure's display label + format. So does a widget of any other type that
  *    declares no dimensions, UNLESS it carries two or more measures and is a
- *    table / pivot or a bar / line / area / combo chart (objectui#11261): those
- *    render every measure — one row of them, or one mark per measure with the
- *    measures' labels on the category axis.
+ *    table / pivot or a chart of the bar family (bar / column / horizontal-bar)
+ *    or line / area / combo (objectui#11261, objectui#8894): those render every
+ *    measure — one row of them, or one mark per measure with the measures'
+ *    labels on the category axis.
  *  - table / pivot → a grouped table of `dimensions` + `values`. Rows drill
  *    through to the underlying records (ADR-0021 D2) when the server returns the
  *    dataset's `object` + dimension→field mapping.
@@ -356,18 +357,29 @@ const METRIC_TYPES = new Set(['metric', 'kpi', 'gauge', 'solid-gauge', 'bullet']
  * The chart families that draw a DIMENSIONLESS widget's measures: one mark per
  * measure, the measures' labels on the category axis (objectui#11261).
  *
- * Exactly the four the spec names, read off the family a widget renders AS
+ * The four families the spec names, read off the family a widget renders AS
  * (`CHART_TYPE_MAP`). The metric-family arity refusal and its ADR-0087 entry
  * (`dashboard-widget-metric-family-multi-measure-refused`) send an author who
  * wants several numbers in one widget here: "`type: 'table'` renders a row of
  * measures, and the chart families (`bar` / `line` / `area` / `combo`) render
  * one mark per measure". `table` / `pivot` are that sentence's other half
- * (`isTable`). The spec's text names no other family, so a dimensionless one
- * (pie, donut, funnel, scatter, column, horizontal-bar, radar, treemap, sankey)
- * keeps the tile it always rendered: its display semantics for several
- * measures are not invented here.
+ * (`isTable`).
+ *
+ * `column` and `horizontal-bar` are the `bar` family drawn in another
+ * orientation, so the same sentence covers them and nothing is invented by
+ * drawing them (objectui#8894, triage's answer on the card): `column` draws
+ * the measures' labels along the bottom as `bar` does, and `horizontal-bar`
+ * runs them down the left with one bar across per measure. `CHART_TYPE_MAP`
+ * keeps both under their own names, which is why they are listed here.
+ *
+ * The spec's text names no other family, so a dimensionless one (pie, donut,
+ * funnel, scatter, radar, treemap, sankey) keeps the tile it always rendered:
+ * its display semantics for several measures are not invented here, and the
+ * spec is to refuse that shape at its door instead (objectstack#20958). Until
+ * that refusal is installed, the tile says which measures it drops (see
+ * `renderedMeasures` in the component).
  */
-const MEASURE_AXIS_CHART_FAMILIES = new Set(['bar', 'line', 'area', 'combo']);
+const MEASURE_AXIS_CHART_FAMILIES = new Set(['bar', 'column', 'horizontal-bar', 'line', 'area', 'combo']);
 
 /**
  * The columns of a dimensionless chart's transposed rows (objectui#11261): the
@@ -476,8 +488,9 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // By TYPE, only the metric family. By SHAPE, a widget that declares no
   // dimension, with one exception: two or more measures on a type the spec
   // states a dimensionless rendering for. A `table` / `pivot` renders one row
-  // carrying every measure, and a `bar` / `line` / `area` / `combo` one mark per
-  // measure (`MEASURE_AXIS_CHART_FAMILIES`). Those used to become a tile as
+  // carrying every measure, and a chart of the bar family (`bar` / `column` /
+  // `horizontal-bar`) or a `line` / `area` / `combo` one mark per measure
+  // (`MEASURE_AXIS_CHART_FAMILIES`). Those used to become a tile as
   // well and render `values[0]` alone, although every door accepts them and
   // the spec's own refusal text sends authors there for "several numbers in
   // ONE widget".
@@ -493,6 +506,18 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   const rendersEveryMeasureWithoutDimension =
     values.length > 1 && (isTable || MEASURE_AXIS_CHART_FAMILIES.has(CHART_TYPE_MAP[widgetType] ?? ''));
   const isMetric = METRIC_TYPES.has(widgetType) || (dimensions.length === 0 && !rendersEveryMeasureWithoutDimension);
+  // ── What this widget RENDERS of what it declares (objectui#8894) ─────────
+  // Settled here, by the branch decision just above, and read by both the tile
+  // below and the dropped-measure diagnostic, so the two cannot disagree. A
+  // tile shows ONE number, the first declared measure's. Every other branch
+  // renders every declared measure: a table one column per measure, a chart
+  // one series per measure, a dimensionless chart one mark per measure.
+  //
+  // "Renders" is what THIS component hands on. The chart branch hands every
+  // measure to the shared chart renderer as a series; which of those series a
+  // chart family then draws is decided in that renderer, not here.
+  const renderedMeasures = isMetric ? values.slice(0, 1) : values;
+  const droppedMeasures = values.filter((m) => !renderedMeasures.includes(m));
   // The chart family a widget that reaches the chart branch below renders as —
   // `bubble` → `scatter`, `pyramid` → `funnel` (CHART_TYPE_MAP). Only meaningful
   // when neither `isMetric` nor `isTable` holds; resolved up here because the
@@ -734,21 +759,37 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature, invalidationNonce]);
 
-  // ── Declared measures this tile will never show (objectui#8894) ──────────
-  // `values` is `z.array(z.string()).min(1)` on `DashboardWidgetSchema`, so an
-  // author may legally declare three measures, and the query above runs ALL of
-  // them (`measures: values`). The metric/KPI branch below then renders
-  // `values[0]` and stops — no warning, no console message, no visual tell. A
-  // tile answering a NARROWER question than its metadata asked still reads as a
-  // finished product, and that silence is the defect (ADR-0049
-  // declared-but-unenforced), not the count of numbers on screen.
+  // ── Declared measures this widget never shows (objectui#8894) ────────────
+  // The query above runs every declared measure (`measures: values`), and the
+  // branch decision keeps some of them off the screen (`droppedMeasures`). That
+  // drop used to happen in silence: a tile answering a NARROWER question than
+  // its metadata asked still reads as a finished product, which is the
+  // declared-but-unenforced shape ADR-0049 exists to end. This diagnostic keeps
+  // the drop audible. It does not render the dropped measures, so the tile's
+  // markup is byte-unchanged (objectui#8887 pins that, and the drop itself).
   //
-  // This makes the drop AUDIBLE. It deliberately does NOT render the dropped
-  // measures: giving `values[1..]` rendering semantics they do not have today
-  // widens the authoring surface (objectui#8894 option (a), a separate card on
-  // the manual-floor route), so the markup below is byte-unchanged and the
-  // measures after the first are still dropped — objectui#8887 pins both of
-  // those facts and both stay green.
+  // Two shapes reach a drop now that `@objectstack/spec` 17.5.0 judges the
+  // metric family (ruling D on objectui#8894):
+  //  - a metric-family tile with two or more measures. The spec refuses it at
+  //    its door (`checkDashboardWidgetMetricMeasureArity`, which objectui's
+  //    `DashboardWidgetSchema` re-attaches), so it arrives here as a document
+  //    stored before that narrowing: the read path serves stored rows as they
+  //    are, and the ADR-0087 entry is a semantic migration with no conversion;
+  //  - a dimensionless widget whose type the spec's text gives no rendering of
+  //    several measures (see `MEASURE_AXIS_CHART_FAMILIES`), which takes the
+  //    tile. Every door accepts it until the spec refuses that shape.
+  // The condition is the set difference between what is declared and what the
+  // branch renders, never a list of types, so it goes quiet by itself wherever
+  // a branch starts rendering a measure (objectui#11261 took the table and the
+  // bar / line / area / combo charts off it, objectui#8894 column and
+  // horizontal-bar).
+  //
+  // What it says: which widget, what it renders, which measures it queried and
+  // never displayed, and where the spec states what to author instead — the
+  // `replacement` of the metric-family refusal's ADR-0087 entry, which answers
+  // for a one-number tile that declares several measures. It names no widget
+  // types and gives no advice of its own: the entry is the spec's advice, and a
+  // second copy written here would drift from it.
   //
   // ⚠️ "Queried … never displayed", NOT "ignored": the extra measures are not
   // inert, and a message saying they were would itself be false. They are
@@ -761,15 +802,15 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // The message itself is the effect's dependency, so it speaks once per mount
   // and again only when what it would say changes. A module-level one-shot Set
   // (`warnSuppressedListNav`'s shape) was deliberately not used: it would need
-  // an exported reset and leak across tests, and the census for this card found
-  // the multi-measure metric tile in NO authored dashboard in this tree or in
-  // `objectstack` — there is no population here to flood a console with.
+  // an exported reset and leak across tests.
+  const quoteMeasures = (measures: string[]) => measures.map((m) => `"${m}"`).join(', ');
   const unrenderedMeasureWarning =
-    isMetric && values.length > 1
+    droppedMeasures.length > 0
       ? `[DatasetWidget] Widget "${String(widget?.id ?? '')}" (type "${widgetType}", dataset "${datasetName}") `
-        + `declares ${values.length} measures, but a metric tile renders only the first ("${values[0]}"). `
-        + `Queried and then never displayed: ${values.slice(1).map((m) => `"${m}"`).join(', ')}. `
-        + `Declare one measure per metric tile, or use a widget that renders every measure (table, pivot or a chart).`
+        + `renders ${renderedMeasures.length} of its ${values.length} declared measures: ${quoteMeasures(renderedMeasures)}. `
+        + `Queried and then never displayed: ${quoteMeasures(droppedMeasures)}. `
+        + 'The spec states what to author instead of a one-number tile with several measures in the '
+        + 'replacement of its ADR-0087 entry "dashboard-widget-metric-family-multi-measure-refused".'
       : '';
   useEffect(() => {
     if (unrenderedMeasureWarning) console.warn(unrenderedMeasureWarning);
@@ -1040,13 +1081,16 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
 
   // Metric / KPI — show the single measure value of the first row, using the
   // measure's display label (not the raw name) and its format (e.g. "$616,000").
+  // The measure is the one `renderedMeasures` settled for the tile, the same
+  // derivation the dropped-measure diagnostic reads (objectui#8894).
   if (isMetric) {
-    const f = measureField(values[0]);
-    const value = state.rows[0]?.[values[0]] ?? 0;
+    const tileMeasure = renderedMeasures[0];
+    const f = measureField(tileMeasure);
+    const value = state.rows[0]?.[tileMeasure] ?? 0;
     // Period-over-period delta, computed from the SAME `computeMetricDelta` the
     // inline KPI uses so both surfaces round and sign it identically.
-    const previous = state.rows[0]?.[compareColumn(values[0])];
-    const delta = comparedValues.includes(values[0])
+    const previous = state.rows[0]?.[compareColumn(tileMeasure)];
+    const delta = comparedValues.includes(tileMeasure)
       ? computeMetricDelta(
           typeof value === 'number' ? value : null,
           typeof previous === 'number' ? previous : null,
@@ -1152,7 +1196,7 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
             <span className="min-w-0 truncate">{compareLabel}</span>
           </div>
         )}
-        <span className="text-xs text-muted-foreground">{headerLabel(values[0])}</span>
+        <span className="text-xs text-muted-foreground">{headerLabel(tileMeasure)}</span>
         {resolvedSubCaption && (
           <span className="text-xs text-muted-foreground" data-testid="dataset-metric-subcaption">{resolvedSubCaption}</span>
         )}
@@ -1708,8 +1752,9 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // and keeps its wire `label` verbatim (objectui#4106).
   //
   // ── A dimensionless chart plots its MEASURES as the categories (objectui#11261) ──
-  // Reached only by a bar / line / area / combo with two or more measures
-  // (`isMetric` keeps every other dimensionless widget a tile). The query
+  // Reached only by a chart of the bar family (bar / column / horizontal-bar)
+  // or a line / area / combo with two or more measures (`isMetric` keeps every
+  // other dimensionless widget a tile). The query
   // grouped by nothing, so it answered ONE row carrying every measure, the
   // `[]` grand-total grouping; that row is `state.rows[0]`, the same row the
   // tile reads. `buildChartSeries` would plot it as one unlabelled category

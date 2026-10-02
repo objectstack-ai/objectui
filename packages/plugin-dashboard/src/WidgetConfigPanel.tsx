@@ -20,6 +20,7 @@ import { X } from 'lucide-react';
 import { pickLocalized, setLocalized } from '@object-ui/i18n';
 import type { ConfigPanelSchema, ConfigField } from '@object-ui/components';
 import type { WidgetDatasetCatalogEntry } from './dataset-catalog';
+import { measureRefusal, NEXT_MEASURE_PROBE } from './measureRefusal';
 import {
   useConfigPanelTranslation,
   type ConfigPanelTranslate,
@@ -140,12 +141,18 @@ function DatasetNamesField({
   placeholder,
   emptyText,
   onChange,
+  canAdd = true,
+  refusal,
 }: {
   names: string[];
   options: Array<{ value: string; label: string }>;
   placeholder: string;
   emptyText: string;
   onChange: (next: string[]) => void;
+  /** `false` withholds the add control: the widget door refuses one more name. */
+  canAdd?: boolean;
+  /** The widget door's refusal of the CURRENT names, shown verbatim under them. */
+  refusal?: string;
 }) {
   // Its own hook call rather than a forwarded `t`: this is a component, and the
   // three strings below are its own chrome (chip remove button, add control),
@@ -160,7 +167,7 @@ function DatasetNamesField({
 
   const add = (name: string) => {
     const v = name.trim();
-    if (!v || used.has(v)) return;
+    if (!canAdd || !v || used.has(v)) return;
     onChange([...names, v]);
     setDraftName('');
   };
@@ -197,7 +204,17 @@ function DatasetNamesField({
         </div>
       )}
 
-      {addable.length > 0 ? (
+      {refusal && (
+        <p
+          role="alert"
+          data-testid="dataset-names-refusal"
+          className="break-words text-[11px] leading-snug text-destructive"
+        >
+          {refusal}
+        </p>
+      )}
+
+      {!canAdd ? null : addable.length > 0 ? (
         <Combobox
           options={addable}
           value=""
@@ -339,15 +356,33 @@ export function buildWidgetSchema(
         value: m.name,
         label: m.aggregate ? `${m.label ?? m.name} · ${m.aggregate}` : (m.label ?? m.name),
       }));
+      const names: string[] = Array.isArray(value) ? value : [];
+      // ── The widget door decides how many measures this widget takes
+      // (objectui#8894) ─────────────────────────────────────────────────────
+      // A metric-family tile answers ONE number, and the spec refuses a second
+      // measure on it (ruling D). The picker asks the same door rather than
+      // carrying a list of types (`measureRefusal`), judging the widget as a
+      // save would emit it (`sanitizeDraftForType` — a metric-like type sheds
+      // its dimensions there):
+      //  - one more measure would be refused → the add control is not offered;
+      //  - the measures already chosen are refused (a stored document, or a
+      //    type switched under them) → the door's own message is shown at once,
+      //    so the author meets the refusal here rather than at publish.
+      const saved = sanitizeDraftForType(draft);
+      const judged = { id: saved.id, type: saved.type, dimensions: saved.dimensions };
+      const refusal = names.length > 0 ? measureRefusal({ ...judged, values: names }) : undefined;
+      const canAdd = !measureRefusal({ ...judged, values: [...names, NEXT_MEASURE_PROBE] });
       return (
         <ConfigRow label={valuesLabel}>
           <div data-testid="config-field-values" className="w-40">
             <DatasetNamesField
-              names={Array.isArray(value) ? value : []}
+              names={names}
               options={options}
               placeholder={t('dashboard.config.placeholder.addMeasure')}
               emptyText={t('dashboard.config.empty.measures')}
               onChange={onChange}
+              canAdd={canAdd}
+              refusal={refusal}
             />
           </div>
         </ConfigRow>

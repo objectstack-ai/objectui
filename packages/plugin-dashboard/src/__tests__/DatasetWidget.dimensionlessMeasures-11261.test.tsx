@@ -18,6 +18,12 @@
  * types the spec's text does not name (measured below, and returned to the
  * maintainer as an open question rather than given invented semantics).
  *
+ * objectui#8894 answered that question for two of them, by triage's ruling on
+ * the card: `column` and `horizontal-bar` are the bar family in another
+ * orientation, so they join the transposition and their rows here are
+ * SUBJECTS of that card. The other seven keep the tile and its dropped-measure
+ * diagnostic until the spec refuses the shape at its door (objectstack#20958).
+ *
  * The chart rows draw REAL Recharts marks through the registry, with the
  * `ResponsiveContainer` sized the way `DatasetWidget.chartConfigMarks-9203`
  * explains (scoped to that one element, never blanket). No `dist/` is
@@ -58,14 +64,22 @@ afterEach(() => {
   warn.mockRestore();
 });
 
-/** objectui#8894's warning, if this render produced it. */
+/**
+ * objectui#8894's dropped-measure diagnostic, if this render produced it. Keyed
+ * on the phrase that diagnostic keeps on purpose ("Queried and then never
+ * displayed"), so a reworded message cannot turn the `toBeUndefined()` checks
+ * below into checks that pass because they match nothing.
+ */
 const droppedMeasureWarning = (): string | undefined =>
-  warn.mock.calls.map((c: unknown[]) => c.join(' ')).find((m: string) => m.includes('renders only the first'));
+  warn.mock.calls
+    .map((c: unknown[]) => c.join(' '))
+    .find((m: string) => m.startsWith('[DatasetWidget]') && m.includes('Queried and then never displayed'));
 
 const ROW = { revenue: 510000, cost: 120000, margin: 390000 };
 const FIELDS = [
   { name: 'revenue', label: 'Revenue', type: 'number' },
   { name: 'cost', label: 'Cost', type: 'number' },
+  { name: 'margin', label: 'Margin', type: 'number' },
 ];
 
 const sourceOf = (rows: Record<string, unknown>[], fields?: Record<string, unknown>[]) => ({
@@ -96,6 +110,9 @@ const renderChart = async (widget: Record<string, unknown>, rows: Record<string,
 // (see `AdvancedChartImpl.nullCategoryBucket`), so the x-axis label layer is read.
 const categoryTicks = (c: HTMLElement) =>
   Array.from(c.querySelectorAll('.recharts-xAxis-tick-labels .recharts-cartesian-axis-tick-value')).map((t) => t.textContent);
+// `horizontal-bar` runs its categories DOWN the plot, so they are the y-axis label layer's ticks.
+const yAxisTicks = (c: HTMLElement) =>
+  Array.from(c.querySelectorAll('.recharts-yAxis-tick-labels .recharts-cartesian-axis-tick-value')).map((t) => t.textContent);
 const barMarks = (c: HTMLElement) => c.querySelectorAll('.recharts-bar-rectangle').length;
 
 describe('objectui#11261 — a dimensionless table renders one row of every measure', () => {
@@ -141,6 +158,24 @@ describe('objectui#11261 — a dimensionless chart renders one mark per measure'
     expect(droppedMeasureWarning()).toBeUndefined();
   });
 
+  // objectui#8894 — triage's first pin on that card: the bar family in its two
+  // other orientations draws every measure of a dimensionless widget too.
+  it("SUBJECT (objectui#8894): a three-measure column draws three marks, the measures' labels along the bottom", async () => {
+    const container = await renderChart({ id: 'rc', type: 'column', dataset: 'sales', values: ['revenue', 'cost', 'margin'] });
+    await waitFor(() => expect(barMarks(container)).toBe(3));
+    expect(categoryTicks(container)).toEqual(['Revenue', 'Cost', 'Margin']);
+    expect(droppedMeasureWarning()).toBeUndefined();
+  });
+
+  it("SUBJECT (objectui#8894): a three-measure horizontal-bar draws three marks, the measures' labels down the side", async () => {
+    const container = await renderChart({ id: 'rc', type: 'horizontal-bar', dataset: 'sales', values: ['revenue', 'cost', 'margin'] });
+    await waitFor(() => expect(barMarks(container)).toBe(3));
+    expect(yAxisTicks(container)).toEqual(['Revenue', 'Cost', 'Margin']);
+    // The x axis carries the VALUE scale here, not the measures.
+    expect(categoryTicks(container)).not.toContain('Revenue');
+    expect(droppedMeasureWarning()).toBeUndefined();
+  });
+
   it('SUBJECT: a comparison the query fetched is drawn beside each measure, not dropped', async () => {
     // A dimensionless bar used to be a tile that showed its comparison as a
     // delta. As a chart it keeps asking for one, so the overlay has to draw.
@@ -160,7 +195,7 @@ describe('objectui#11261 — what did not move', () => {
     expect(droppedMeasureWarning()).toContain('"cost"');
   });
 
-  it.each(['table', 'pivot', 'bar', 'line', 'area', 'combo'])(
+  it.each(['table', 'pivot', 'bar', 'column', 'horizontal-bar', 'line', 'area', 'combo'])(
     'CONTROL: a ONE-measure dimensionless %s takes the metric branch and renders the tile',
     async (type) => {
       // Nothing is dropped with one measure, so the branch is unchanged.
@@ -182,13 +217,15 @@ describe('objectui#11261 — what did not move', () => {
     }
   });
 
-  it.each(['pie', 'donut', 'funnel', 'scatter', 'column', 'horizontal-bar', 'radar', 'treemap', 'sankey'])(
-    'CONTROL (measured, open question): a two-measure dimensionless %s is still a tile that drops the second',
+  it.each(['pie', 'donut', 'funnel', 'scatter', 'radar', 'treemap', 'sankey'])(
+    'CONTROL (measured, ruled): a two-measure dimensionless %s is still a tile that drops the second',
     async (type) => {
       // The spec's text names no dimensionless rendering for these, so none is
       // invented: they keep the tile, render `values[0]`, and objectui#8894's
-      // warning still names the dropped measure. The maintainer's answer is
-      // EXPECTED to change this row.
+      // diagnostic still names the dropped measure. Triage ruled these seven to
+      // the spec's door (objectstack#20958 refuses the shape); this row moves
+      // when that refusal is installed. `column` and `horizontal-bar` were on
+      // this row until objectui#8894 drew them (the SUBJECTS above).
       const container = await renderTile({ id: 'u', type, dataset: 'sales', values: ['revenue', 'cost'] });
       expect(container.innerHTML).toBe(REVENUE_TILE);
       expect(droppedMeasureWarning()).toContain('"cost"');

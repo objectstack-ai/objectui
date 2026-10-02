@@ -46,6 +46,7 @@ import {
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
+import { DashboardWidgetSchema as DashboardWidgetDoor } from '@object-ui/types/zod';
 import { pickLocalized, setLocalized } from '@object-ui/i18n';
 import { useUndoRedo } from './hooks/useUndoRedo';
 import { useDesignerTranslation } from './hooks/useDesignerTranslation';
@@ -208,6 +209,49 @@ function writeWidgetTitle(
 }
 
 // ============================================================================
+// Widget measures — what the widget door accepts (objectui#8894)
+// ============================================================================
+
+/**
+ * The widget door's refusal of `widget`'s measures under `type`, or
+ * `undefined` when it accepts them.
+ *
+ * A metric-family tile answers ONE number, and `@objectstack/spec` 17.5.0
+ * refuses a second measure on it (ruling D on objectui#8894). This editor
+ * authors no measures itself, but its type picker can turn a stored widget
+ * that carries several (a `bar` over three measures) into a tile, which the
+ * door then refuses at publish. So the picker asks the door before it offers a
+ * type, and shows the door's message when the stored widget is already refused.
+ *
+ * The door is ASKED, never restated: objectui's `DashboardWidgetSchema` mirror
+ * (`@object-ui/types/zod`) re-attaches the spec's own object-level checks, so no
+ * widget-type list lives here and a further refusal the spec adds is followed
+ * once the mirror attaches it. Only the keys a measure rule reads are probed,
+ * each kept to a shape the door accepts: zod skips object-level checks once a
+ * field-level issue aborts the parse, so an unrelated fault elsewhere in the
+ * widget (a malformed `title`, say) must not hide the measure verdict.
+ *
+ * The same probe as plugin-dashboard's `measureRefusal` (`WidgetConfigPanel`'s
+ * measure picker), which this package cannot import: it does not depend on
+ * plugin-dashboard.
+ */
+function measureRefusal(widget: DashboardWidgetSchema, type: string | undefined): string | undefined {
+  const strings = (value: unknown): string[] =>
+    Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+  const probe = {
+    ...(typeof widget.id === 'string' ? { id: widget.id } : {}),
+    ...(type ? { type } : {}),
+    values: strings(widget.values),
+    ...(Array.isArray(widget.dimensions) ? { dimensions: strings(widget.dimensions) } : {}),
+  };
+  const result = DashboardWidgetDoor.safeParse(probe);
+  if (result.success) return undefined;
+  return result.error.issues.find(
+    (issue) => issue.code === 'custom' && issue.path.length === 1 && issue.path[0] === 'values',
+  )?.message;
+}
+
+// ============================================================================
 // Widget Card
 // ============================================================================
 
@@ -334,6 +378,14 @@ function WidgetPropertyPanel({
   // What the title input SHOWS: the active locale's entry. What a keystroke
   // WRITES is `writeWidgetTitle` — never this resolved string as a whole value.
   const titleDisplay = resolveWidgetTitle(widget.title, language);
+  // The type picker offers only the types the widget door accepts this
+  // widget's measures under, and shows the door's refusal when the widget as
+  // stored is already refused — see `measureRefusal` (objectui#8894). The
+  // widget's own current type stays selectable either way, so a refused stored
+  // widget still shows what it is.
+  const currentType = widget.type ?? 'metric';
+  const refusedUnder = (type: string) => measureRefusal(widget, type) !== undefined;
+  const currentRefusal = measureRefusal(widget, widget.type);
   return (
     <div
       data-testid="widget-property-panel"
@@ -394,16 +446,26 @@ function WidgetPropertyPanel({
             // options, rather than casting it onto the closed type. No cast, no
             // tolerance: a value not in the palette writes nothing at all,
             // instead of storing a `type` the platform refuses at publish.
+            // A type the door refuses this widget's measures under writes
+            // nothing either (objectui#8894): its option is disabled, and this
+            // keeps a programmatic change from storing what publish refuses.
             const picked = WIDGET_TYPES.find((t) => t.type === e.target.value);
-            if (picked) onChange({ type: picked.type });
+            if (picked && (picked.type === currentType || !refusedUnder(picked.type))) onChange({ type: picked.type });
           }}
           disabled={readOnly}
           className="block w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
         >
           {WIDGET_TYPES.map((t) => (
-            <option key={t.type} value={t.type}>{t.label}</option>
+            <option key={t.type} value={t.type} disabled={t.type !== currentType && refusedUnder(t.type)}>
+              {t.label}
+            </option>
           ))}
         </select>
+        {currentRefusal && (
+          <p role="alert" data-testid="widget-prop-measure-refusal" className="break-words text-xs text-red-600">
+            {currentRefusal}
+          </p>
+        )}
       </div>
 
       {/* Analytics binding (data source / dimensions / measures) is authored via

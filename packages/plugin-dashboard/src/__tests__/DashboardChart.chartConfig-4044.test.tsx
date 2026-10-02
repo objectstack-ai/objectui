@@ -12,10 +12,11 @@
  *
  * ## What was measured on `origin/main` before this file
  *
- * `chartConfig` is declared as the spec's full `ChartConfigSchema` on every
- * dashboard widget (`dashboard.zod.ts`: `chartConfig: ChartConfigSchema`), and
- * the maintainer's ruling on this card is that the implementation follows the
- * protocol. The ADR-0021 dataset path already did (objectstack#7016,
+ * `chartConfig` was declared as the spec's full `ChartConfigSchema` on every
+ * dashboard widget (`dashboard.zod.ts`: `chartConfig: ChartConfigSchema`;
+ * since spec 17.5.0 it is `DashboardWidgetChartConfigSchema`, see the keys
+ * deliberately NOT here), and the maintainer's ruling on this card is that the
+ * implementation follows the protocol. The ADR-0021 dataset path already did (objectstack#7016,
  * `DatasetWidget.chartConfig.test.tsx`). The two INLINE relays did not:
  * `DashboardRenderer.tsx` contained the string `chartConfig` **0** times
  * (lit control in the same sweep: `widget`, 173 times) and
@@ -50,14 +51,20 @@
  * ## The keys deliberately NOT here
  *
  *  - `type` — the widget's own `type` already picks the chart family on this
- *    path; an authored one would shadow the dispatch.
- *  - `xAxis` / `yAxis` / `series` — whether an authored axis beats the
- *    ADR-0021 dataset derivation is an open PROTOCOL question, filed for the
- *    spec seat as objectstack#17385. The whitelist emits none of the three, and
- *    the refusal block below pins that, so this change cannot pre-empt it.
- *  - `aria` — declared by the spec and read by NOTHING on this path (measured;
- *    see the refusal block). Forwarding it would move declared-but-not-delivered
- *    one layer down, which is the failure this card exists to remove.
+ *    path; an authored one would shadow the dispatch. Spec 17.5.0 refuses it on
+ *    a dashboard widget's `chartConfig` at parse.
+ *  - `xAxis` / `yAxis` / `series` — spec 17.5.0 refuses all three on a
+ *    dashboard widget's `chartConfig` at parse
+ *    (`DashboardWidgetChartConfigSchema`, ADR-0021 · ADR-0049 D2), which
+ *    answered the precedence question objectstack#17385 carried: the derived
+ *    binding wins and the authored keys are refused. The whitelist emits none
+ *    of the three, and the refusal block below pins that for a widget that
+ *    reaches the relay still carrying them.
+ *  - `aria` — read by NOTHING on this path (measured; see the refusal block),
+ *    and no longer declared: spec 17.5.0 retired `ChartConfig.aria` as a
+ *    `retiredKey` tombstone (objectstack#17751). Forwarding it would have moved
+ *    declared-but-not-delivered one layer down, which is the failure this card
+ *    exists to remove.
  */
 
 import React from 'react';
@@ -237,9 +244,11 @@ describe.each(CASES)('$surface relay, $branch.name — chartConfig keys REFUSED 
   const compose = (chartConfig?: Record<string, unknown>) => composeVia(surface, branch.widget(chartConfig));
 
   it('emits no xAxis / yAxis / series from chartConfig, leaving the derivation alone', async () => {
-    // objectstack#17385 owns the precedence between an authored axis and the
-    // derived one. Until it answers, the three keys must not travel at all —
-    // an implementation that guessed would pre-empt the protocol decision.
+    // Spec 17.5.0 refuses `xAxis` / `yAxis` / `series` on a dashboard widget's
+    // `chartConfig` at parse, which answered the precedence question
+    // objectstack#17385 carried: the derived binding wins. A widget that
+    // reaches this relay still carrying them (stored metadata never
+    // re-validated) must therefore not have any of the three travel.
     const before = await compose();
     const node = await compose({
       xAxis: { field: 'not_a_column', title: 'Authored X' },

@@ -721,8 +721,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
 
                 // The widget's declared `chartConfig`, lowered onto the chart
                 // schema — objectui#4044. `DashboardWidget.chartConfig` is
-                // declared as the spec's full `ChartConfigSchema` on EVERY
-                // dashboard widget, but until this card only the ADR-0021
+                // declared on EVERY dashboard widget (since `@objectstack/spec`
+                // 17.5.0 as `DashboardWidgetChartConfigSchema`: the chart's
+                // appearance keys, with `type` / `xAxis` / `yAxis` / `series`
+                // refused at parse), but until this card only the ADR-0021
                 // dataset path (`DatasetWidget`) read it: this inline path
                 // mentioned `chartConfig` zero times, so an author who wrote
                 // `chartConfig.title` / `.colors` / `.height` on a widget bound
@@ -735,10 +737,12 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 // (see its docblock for the two criteria and for why `aria` is
                 // refused). Spread AFTER the derived keys so an authored
                 // `colors` / `height` overrides the defaults below, and BEFORE
-                // nothing that would shadow the dataset-derived bindings: the
-                // whitelist emits no `xAxisKey` and no `series`, which is what
-                // keeps objectstack#17385's open precedence question (authored
-                // axes vs derived) out of this change.
+                // nothing that would shadow the derived bindings: the whitelist
+                // emits no `xAxisKey` and no `series`. Nor is there an authored
+                // axis to weigh against them: spec 17.5.0 refuses
+                // `chartConfig.xAxis` / `yAxis` / `series` on a dashboard
+                // widget, which answered the precedence question (authored axes
+                // vs derived) that objectstack#17385 carried.
                 const chartPresentation = chartConfigPresentation(widget.chartConfig);
 
                 // provider: 'object' — delegate to ObjectChart for async data loading.

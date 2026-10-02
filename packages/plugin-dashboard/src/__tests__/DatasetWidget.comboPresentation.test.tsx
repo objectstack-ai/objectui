@@ -12,7 +12,8 @@
  * widget forwarded none of `series` / `xAxis` / `yAxis`. #4229 fixed both, the
  * second by merging the keys' PRESENTATION half (per-series mark and axis
  * binding, axis scale and chrome) onto the dataset-derived bindings, through
- * `@object-ui/core`'s `mergeAuthoredPresentation`. This file pinned that merge.
+ * `@object-ui/core`'s `mergeAuthoredPresentation` (since removed by
+ * objectui#11372). This file pinned that merge.
  *
  * `@objectstack/spec` 17.5.0 then gave the dashboard widget its own chart
  * config carrier, `DashboardWidgetChartConfigSchema`, which refuses `type`,

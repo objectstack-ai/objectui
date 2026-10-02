@@ -158,7 +158,10 @@ describe('DatasetWidget — chartConfig reaches the real chart DOM (objectstack#
   // could have carried the name render outside `ResponsiveContainer`: the chart
   // container (which `description` does label, above) and the SchemaRenderer
   // wrapper (which would pick up a FLATTENED `ariaLabel`). Written, still
-  // ignored — the current contract, pending objectstack#5175.
+  // ignored. The protocol has since settled the same way: spec 17.5.0 retired
+  // `ChartConfig.aria` (objectstack#17751), so an authored one is refused at
+  // parse, and this pin holds the renderer side for a widget that reaches it
+  // without that parse.
   it('ignores chartConfig.aria — no accessible name appears anywhere', async () => {
     const { container } = await renderWidget({
       type: 'bar',

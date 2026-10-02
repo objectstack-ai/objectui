@@ -74,10 +74,11 @@ import {
   // family lives (#4466 / #4497 / #4673 / #4500 / #4508), so routing through it
   // INHERITS those fixes instead of re-deriving them on a third surface.
   buildChartSeries,
-  // The authored half of objectui#4229's data/presentation split (objectui#4877).
-  // `mergeAuthoredSeries` — not `mergeAuthoredPresentation` — because a report's
-  // `chart.xAxis`/`chart.yAxis` are bare dimension/measure NAME strings, i.e.
-  // pure data on this surface; see the call site.
+  // The authored half of objectui#4229's data/presentation split (objectui#4877):
+  // the chrome and the per-series presentation. No axis is lowered, and none
+  // needs to be: a report's `chart.xAxis`/`chart.yAxis` are bare
+  // dimension/measure NAME strings, i.e. pure data on this surface; see the
+  // call site.
   chartConfigPresentation,
   mergeAuthoredSeries,
   pivotBucketId,
@@ -851,9 +852,9 @@ function useRegistryComponent(
  * no label at all, so an authored `label` was inert metadata and the measure
  * printed as its raw `name`. Declared is now enforced.
  *
- * The FIRST entry naming the measure wins, the same ruling the dashboard's
- * `mergeAuthoredPresentation` makes for its own `chartConfig.series` — a later
- * duplicate cannot silently re-label a series the author already described.
+ * The FIRST entry naming the measure wins, the same ruling `mergeAuthoredSeries`
+ * (`@object-ui/core`) makes over this same `chart.series` — a later duplicate
+ * cannot silently re-label a series the author already described.
  *
  * `label` is the spec's `I18nLabel` (`string | { en, 'zh-CN', … }`), so it goes
  * through `pickLocalized`, the repo's one resolver for that shape — a
@@ -1155,17 +1156,17 @@ function DatasetReportChart({
   //
   // objectui#4877 — `ReportChartSchema` declares per-series `color`/`stack`/
   // `type`/`yAxis`/`dashArray`/`opacity`/`variant`, and this path forwarded
-  // none of them. `mergeAuthoredSeries` is the same merge the dashboard makes
-  // over the same spec shape, matched by `series[].name` → derived `dataKey`,
-  // so membership stays with the dataset: an entry naming a measure this chart
-  // does not plot is ignored.
+  // none of them. `mergeAuthoredSeries` merges them, matched by
+  // `series[].name` → derived `dataKey`, so membership stays with the dataset:
+  // an entry naming a measure this chart does not plot is ignored. (The
+  // dashboard made the same series merge until `@objectstack/spec` 17.5.0
+  // refused `chartConfig.series` on a dashboard widget, objectui#11315.)
   //
-  // Deliberately NOT `mergeAuthoredPresentation`: that entry point also reads
-  // `xAxis`/`yAxis` as spec `ChartAxis` OBJECTS, and on THIS surface they are
-  // bare dimension/measure name strings — the selection itself. Feeding them to
-  // it would return `axes.yAxis = [{}]`, one empty entry, and the COUNT of
-  // y-axis entries is what declares a secondary axis. The series-only entry
-  // point makes that unreachable by construction rather than by a guard.
+  // No axis is lowered here, and none needs to be: on THIS surface
+  // `xAxis`/`yAxis` are bare dimension/measure name strings — the selection
+  // itself — not spec `ChartAxis` objects, so there is no axis presentation to
+  // merge. (`@object-ui/core`'s object-axis lowering, `mergeAuthoredPresentation`,
+  // was deliberately not used here and was removed by objectui#11372.)
   const authoredSeries = mergeAuthoredSeries(derivedSeries, chart.series);
   // #4020's three-level display name OUTRANKS both of the labels above: the
   // derivation's `fields[].label` (level ② without the i18n field-label

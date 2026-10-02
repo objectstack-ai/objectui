@@ -18,9 +18,10 @@
  * (`content/docs/layout/app-shell.mdx`, pinned by `app-shell-docs-nav-example.test.ts`),
  * on a THIRD surface — and this one went one level further than either. Those
  * two misspelled the keys of a real React component. This page taught a JSON
- * NODE TYPE that does not exist: `registerLayout()` registers `page-header`,
- * `page:card`, `responsive-grid`, `navigation-renderer` and
- * `app-schema-renderer`, and nothing in the repo registers `sidebar-nav`.
+ * NODE TYPE that does not exist: `registerLayout()` registers `page:card`,
+ * `responsive-grid`, `navigation-renderer` and `app-schema-renderer` (the
+ * `page-header` alias was a fifth until objectui#10859 batch 8 retired it), and
+ * nothing in the repo registers `sidebar-nav`.
  * (`app-shell` was a sixth key until objectui#4841 deregistered it — for the
  * same reason, one step less far along: it resolved to a component that a JSON
  * document could never fill. `sidebar-nav` never resolved at all, which is why
@@ -75,8 +76,8 @@
  * section: the app-shell examples compose it, and `### 5. Sidebar Organization`
  * under Best Practices was a THIRD block of the same defect, rewritten with this
  * change. The quoted-`icon` ban in particular must stay scoped that way —
- * `page-header` declares `icon` as a string (an icon NAME), and so does
- * `navigation-renderer`, whose `resolveIcon` looks names up on purpose. A
+ * `navigation-renderer` takes `icon` as a string (an icon NAME), whose
+ * `resolveIcon` looks names up on purpose. A
  * page-wide ban on `icon: '…'` would be wrong.
  *
  * `packages/layout/README.md` belongs to `readme-sidebar-nav-example.test.ts`
@@ -495,7 +496,7 @@ describe("the guide's SidebarNav examples pass only real props (objectui#4840)",
           '(SidebarNav.tsx:60 and :109) — a string reaches React as an unknown lowercase tag and',
           'renders nothing (objectui#4840, objectui#3999). Import the Lucide component and pass it.',
           '',
-          'Scope note: `page-header` and `navigation-renderer` DO take an icon NAME as a string,',
+          'Scope note: `navigation-renderer` DOES take an icon NAME as a string,',
           "so this assertion is deliberately confined to fences that mention SidebarNav.",
         ].join('\n'),
       ).toBe(false);

@@ -14,11 +14,13 @@ import { fileURLToPath } from 'node:url';
  * `SchemaThumbnail`, `LiveSplitDemo`). The Playground renders HAND-TYPED schemas
  * and was outside that acceptance surface, so it kept resolving `page-header` to
  * nothing and painting the red OBJUI-001 "Unknown component type" panel — for a
- * component the rest of the site renders fine. The placeholder net does not catch
- * it either: `page-header` lives in the opt-in `PROTOCOL_COMPONENTS` of
+ * component the rest of the site rendered fine. The placeholder net did not catch
+ * it either: `page-header` then lived in the opt-in `PROTOCOL_COMPONENTS` of
  * `packages/components/src/renderers/placeholders.tsx`, not in the eagerly
  * registered `PALETTE_PLACEHOLDER_BLOCKS`, and `registerPlaceholders()` is only
- * called by `apps/console`.
+ * called by `apps/console`. (objectui#10859 batch 8 later retired `page-header`
+ * itself; the registrar still carries `@object-ui/layout`'s other blocks, so the
+ * defect class this file pins is unchanged.)
  *
  * This is pinned by DISCOVERY, not by a hardcoded list of four: the bug was a host
  * that nobody remembered to add. A fifth host added tomorrow is caught the same
@@ -108,7 +110,7 @@ describe('objectui#3904 — every apps/site SchemaRenderer host registers the la
     expect(
       imports.test(source),
       `${host} renders <SchemaRenderer> but never imports ${REGISTRAR}, so types owned by ` +
-        '@object-ui/layout (page-header, app-shell, sidebar-nav) resolve to nothing and render ' +
+        '@object-ui/layout (responsive-grid, navigation-renderer, app-schema-renderer) resolve to nothing and render ' +
         'the red OBJUI-001 panel. Add: import ' +
         "'@/app/components/registerLayoutBlocks';"
     ).toBe(true);
@@ -120,11 +122,12 @@ describe('objectui#3904 — the registrar the hosts import actually registers th
    * The middle link of the chain. Without it the suite above is satisfied by an
    * import of a module that registers nothing.
    *
-   * The far end — `registerLayout()` really putting `page-header` into the
+   * The far end — `registerLayout()` really putting its blocks into the
    * `ComponentRegistry` — is already pinned next to the implementation, in
-   * `packages/layout/src/__tests__/page-header-authorable-keys.test.tsx`
-   * ("is registered under the bare key and its namespace"), so it is deliberately
-   * not restated here: that file owns it, and #3899 is working that package.
+   * `packages/layout/src/__tests__/page-header-authorable-keys.test.tsx`, whose
+   * lit control is `responsive-grid` under both spellings (the `page-header`
+   * key this file first cited was retired by objectui#10859 batch 8), so it is
+   * deliberately not restated here: that file owns it.
    */
   const registrar = fs.readFileSync(
     path.join(SITE_APP_DIR, 'components/registerLayoutBlocks.ts'),

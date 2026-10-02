@@ -282,13 +282,19 @@ the display locale) renders `aria-label`, `ariaDescribedBy` renders `aria-descri
 - **Actions**: up to `maxVisible` inline buttons on desktop and `mobileMaxVisible` on a
   mobile viewport; the rest fold into the `⋯` menu.
 
-## The `page-header` alias
+## The retired `page-header` key
 
-`page-header` (and its namespaced form `layout:page-header`) is still accepted: a node
-written that way renders. It is an alias, not the author key. It resolves to a different
-renderer, the `PageHeader` component in `@object-ui/layout`, and it has no
-`ComponentPropsMap` row, so props written under it are never checked against
-`PageHeaderProps`. Author `page:header`.
+`page-header` (and its namespaced form `layout:page-header`) is no longer registered
+(objectui#10859). A node written that way renders the "Unknown component type" panel, and
+`objectui validate` refuses it at `type`. Write the same header as `page:header`, with its
+secondary line as `subtitle`:
+
+```json
+{ "type": "page:header", "properties": { "title": "Accounts", "subtitle": "All active accounts" } }
+```
+
+The `PageHeader` React component in `@object-ui/layout` is still exported for hosts that
+compose it in JSX.
 
 ## Related
 

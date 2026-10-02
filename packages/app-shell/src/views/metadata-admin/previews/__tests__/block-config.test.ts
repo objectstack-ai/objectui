@@ -395,10 +395,10 @@ describe('page palette ↔ spec PageComponentType coverage', () => {
  * to drop the value silently — now rejects the whole node BY NAME. A retirement
  * that leaves its producer standing makes the failure worse, not better.
  *
- * The `layout:page-header` ALIAS keeps its own `icon` input, deliberately: that
- * is a different renderer with a real read point, and it is guarded separately
- * in `packages/layout/src/__tests__/page-header-authorable-keys.test.tsx`. The
- * two are opposite read facts about two renderers, not an inconsistency.
+ * The `layout:page-header` ALIAS kept its own `icon` input, deliberately: that
+ * was a different renderer with a real read point. objectui#10859 batch 8
+ * retired the alias, so `page:header` is the only header node, and the
+ * contract refuses its `icon` by name (the ADR-0087 D2 tombstone).
  */
 describe('page:header `icon` — the designer field retired with the spec key (#3829)', () => {
   const fieldNames = () => BLOCK_CONFIG['page:header'].map((f) => f.name);

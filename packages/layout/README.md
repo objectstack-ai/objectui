@@ -23,7 +23,7 @@ pnpm add @object-ui/layout
 
 ## Registration
 
-Importing this package registers its component keys (`page-header`, `page:card`,
+Importing this package registers its component keys (`page:card`,
 `responsive-grid`, `navigation-renderer`, `app-schema-renderer`) on the
 `ComponentRegistry` as a module load side effect, so the side-effect-only import
 is enough:
@@ -38,6 +38,10 @@ from tree-shaking a side-effect-only import away (objectui#3899 — the manifest
 used to say `"sideEffects": false`, and a bundler honouring it dropped the
 registration silently). `registerLayout()` is also exported for hosts that
 prefer to register explicitly.
+
+The `page-header` key is retired (objectui#10859): author `page:header`, which
+`@object-ui/components` registers, with the secondary line as `subtitle`. `PageHeader`
+stays an export for JSX composition.
 
 ## Components
 

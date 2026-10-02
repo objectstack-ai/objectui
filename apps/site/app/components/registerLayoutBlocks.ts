@@ -4,8 +4,11 @@
  */
 
 /**
- * Registers `@object-ui/layout`'s blocks (`page-header`, `app-shell`,
- * `sidebar-nav`, …) for the docs site's schema renderers.
+ * Registers `@object-ui/layout`'s blocks (`responsive-grid`,
+ * `navigation-renderer`, `app-schema-renderer`, `layout:page:card`) for the docs
+ * site's schema renderers. (The `page-header` alias this module was first added
+ * for was retired by objectui#10859 batch 8; authors write `page:header`, which
+ * `@object-ui/components` registers.)
  *
  * Why this exists (objectui#3787): the site renders catalog examples through
  * `SchemaRenderer`, and `ComponentRegistry` only knows a type once the package

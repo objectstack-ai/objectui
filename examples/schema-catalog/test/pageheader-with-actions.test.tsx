@@ -11,8 +11,9 @@
  * it.
  *
  * ⚠️ The file keeps its old name on purpose. Tests in `packages/layout` cite it
- * BY PATH for the alias-registration and manifest pins at the bottom (the
- * `diagnose()` helper lives here), so renaming it would silently falsify those
+ * BY PATH for the layout-registration and manifest pins at the bottom (the
+ * `diagnose()` helper lives here; the `page-header` alias they once pinned is
+ * retired, objectui#10859), so renaming it would silently falsify those
  * pointers. The demo it pins was renamed instead: it carries no actions any
  * more, for the reason the render pin below states.
  *
@@ -244,129 +245,68 @@ describe('the `page:header` registration declares every key the demo writes (obj
 });
 
 /**
- * ── The `page-header` ALIAS registration, below this line ─────────────────────
+ * ── `@object-ui/layout`'s registrations, below this line ──────────────────────
  *
  * Everything from here down is about `@object-ui/layout`'s registrations, not
- * about the docs demo. The alias stays registered (retiring it is not
- * objectui#3906's job), and `packages/layout` tests point here by path for the
- * manifest half of these facts. Until objectui#3906 these pins read the docs
- * demo; they now read `ALIAS_FIXTURE`, which is that former demo JSON verbatim,
- * so what they measure has not moved.
+ * about the docs demo. Until objectui#10859 batch 8 (phase 2c) this section
+ * pinned the `page-header` ALIAS: that a children-bearing alias node validated
+ * clean of `not-a-container` (#3900), and that its declaration face matched what
+ * its renderer read (#3972: `icon`, `actions`, the `description` cost of
+ * objectui#11044), read off `ALIAS_FIXTURE`, the former demo JSON. That phase
+ * retired the alias, so the alias half is now the retirement pin, and the
+ * `navigation-renderer` halves, which never depended on it, stay as they were.
  */
-const ALIAS_FIXTURE = {
+const RETIRED_ALIAS_NODE = {
   type: 'page-header',
   title: 'Users',
   subtitle: 'Manage your team members and permissions',
-  icon: 'users',
-  children: [
-    { type: 'button', label: 'Export', variant: 'outline' },
-    { type: 'button', label: 'Add User' },
-  ],
+  children: [{ type: 'button', label: 'Add User' }],
 };
 
-/**
- * The validator agrees with the alias's render (#3900).
- *
- * Two directions, and BOTH are load-bearing. Asserting only the first would
- * leave the suite green if someone silenced the containment check outright, or
- * flipped `isContainer` on by default — the test would then be measuring
- * nothing. The second case is the control that keeps the first one meaningful.
- */
-describe('the `page-header` alias validates clean of `not-a-container` (#3900)', () => {
-  const CONTAINMENT = 'not-a-container';
-
-  it('reports no `not-a-container` for an alias node with children', () => {
-    const diagnostics = diagnose(ALIAS_FIXTURE);
-
-    // Reachability BEFORE the absence — an empty result proves nothing if the
-    // containment branch never ran. Two ways it silently would not:
-    // `validateTree` reports `unknown-component` and returns before the
-    // containment check when the tag is missing from the manifest, and the
-    // branch is guarded by `node.children?.length`, so a fixture that lost its
-    // children would satisfy the assertion below for the wrong reason.
-    expect(diagnostics.filter((d) => d.code === 'unknown-component')).toEqual([]);
-    expect(ALIAS_FIXTURE.children.length).toBeGreaterThan(0);
-
-    // Filtered by code, not asserted against an empty diagnostic list: this test
-    // owns the CONTAINMENT fact only, so a future diagnostic on another key
-    // belongs to that key's pin, not here.
-    expect(diagnostics.filter((d) => d.code === CONTAINMENT)).toEqual([]);
+describe('the retired `page-header` alias is unknown to the manifest (objectui#10859 batch 8)', () => {
+  it('draws `unknown-component`, and the canonical `page:header` does not', () => {
+    // Lit control first: the key authors write still resolves in the same manifest.
+    expect(
+      diagnose({ type: 'page:header', title: 'Users' }).filter((d) => d.code === 'unknown-component'),
+    ).toEqual([]);
+    expect(diagnose(RETIRED_ALIAS_NODE).map((d) => d.code)).toContain('unknown-component');
   });
+});
 
-  it('still reports `not-a-container` for a component that genuinely takes none', () => {
-    // The control. `navigation-renderer` (registered in the SAME file as the
-    // #3900 change) is driven entirely by its `items` prop and never reads
-    // `schema.children`, so children under it ARE an authoring mistake and the
-    // author must still hear about it. If this component ever legitimately
-    // becomes a container, this assertion goes red — move the control to
-    // another childless registration rather than deleting it.
-    // `items: []` keeps the planted defect — children under a childless
-    // component — the only thing wrong with this node: an array-valued `items`
-    // validates clean (#3972) and omitting it draws `missing-required-prop`
-    // (#3987), both pinned below.
+/**
+ * The containment control (#3900), kept without the alias it used to stand
+ * beside: `navigation-renderer` (registered in `@object-ui/layout`) is driven
+ * entirely by its `items` prop and never reads `schema.children`, so children
+ * under it ARE an authoring mistake and the author must still hear about it.
+ */
+describe('a layout component that takes no child list still reports `not-a-container` (#3900)', () => {
+  it('reports `not-a-container` for children under `navigation-renderer`', () => {
+    // If this component ever legitimately becomes a container, this assertion
+    // goes red — move the control to another childless registration rather than
+    // deleting it. `items: []` keeps the planted defect — children under a
+    // childless component — the only thing wrong with this node: an
+    // array-valued `items` validates clean (#3972) and omitting it draws
+    // `missing-required-prop` (#3987), both pinned below.
     const codes = diagnose({
       type: 'navigation-renderer',
       items: [],
       children: [{ type: 'button', label: 'Nope' }],
     }).map((d) => d.code);
 
-    expect(codes).toContain(CONTAINMENT);
+    expect(codes).toContain('not-a-container');
   });
 });
 
 /**
- * The prop face of the same agreement (#3972).
+ * The prop face of the same agreement (#3972), through the same manifest.
  *
  * `registerLayout()`'s `inputs` lists are what `sdui-parser` validates a node's
- * top-level props against, so a key the renderer reads and `inputs` omits comes
- * back as `unknown-prop`, and a key declared with the wrong `type` comes back as
- * `type-mismatch` — on CORRECT authoring, both times. Two keys were in that
- * state: `page-header.icon` (the alias's renderer-own key, objectui#3829) and
- * `navigation-renderer.items` (declared `object`, actually `NavigationItem[]`).
- *
- * Every assertion here comes in pairs, positive then control, because "no
- * diagnostic" is exactly what a silenced check also looks like.
+ * top-level props against, so a key declared with the wrong `type` comes back as
+ * `type-mismatch` on CORRECT authoring. `navigation-renderer.items` was declared
+ * `object` while the renderer reads `NavigationItem[]`.
  */
-describe('the alias declaration face matches what the renderers read (#3972)', () => {
+describe('the layout declaration face matches what the renderer reads (#3972)', () => {
   const codesFor = (schema: unknown): string[] => diagnose(schema).map((d) => d.code);
-
-  it('draws no `unknown-prop` on the alias fixture', () => {
-    // Reachability first: the fixture must still WRITE `icon`, otherwise the
-    // absence below is satisfied by a fixture that stopped exercising the key.
-    expect(ALIAS_FIXTURE.icon).toBe('users');
-    expect(diagnose(ALIAS_FIXTURE).filter((d) => d.code === 'unknown-component')).toEqual([]);
-
-    expect(diagnose(ALIAS_FIXTURE).filter((d) => d.code === 'unknown-prop')).toEqual([]);
-  });
-
-  it('still draws `unknown-prop` for a near-miss the declaration does not carry', () => {
-    // The control: `subTitle` is a misspelling of the declared `subtitle`. If this
-    // goes green, the check stopped running, and the assertion above is then
-    // measuring nothing.
-    expect(codesFor({ ...ALIAS_FIXTURE, subTitle: 'x' })).toContain('unknown-prop');
-  });
-
-  it('draws nothing for `description`, the retired alias of `subtitle` — the named cost of objectui#11044', () => {
-    // `description` is the legacy alias of `subtitle`, which objectui#3226 removed
-    // from `inputs` on purpose so the registry stops teaching a second dialect, and
-    // which objectui#3789 removed from the renderer. It used to draw `unknown-prop`
-    // here. objectui#11044 (triage ruling) made it, as a `BaseSchema` member some
-    // registrations declare, a base prop wherever a type declares no input of that
-    // name, so the parser tier no longer reports it on `page-header`. Pinned so that
-    // restoring the warning is a deliberate change rather than a silent one.
-    const schema = { ...ALIAS_FIXTURE, description: 'x' };
-    expect(diagnose(schema).filter((d) => d.message.includes('"description"'))).toEqual([]);
-  });
-
-  it('accepts an `actions` array on the alias, and reports a non-array', () => {
-    // `actions` is declared `array` on the alias, matching the canonical
-    // `page:header`, so the array form validates clean…
-    expect(codesFor({ type: 'page-header', title: 'Users', actions: ['export'] })).toEqual([]);
-    // …and a non-array is reported instead of silently accepted.
-    expect(codesFor({ type: 'page-header', title: 'Users', actions: { export: true } })).toContain(
-      'type-mismatch',
-    );
-  });
 
   it('accepts an array-valued `navigation-renderer.items`, and reports an object', () => {
     expect(codesFor({ type: 'navigation-renderer', items: [] })).toEqual([]);
@@ -444,10 +384,11 @@ describe('the validator reports the node shape that is guaranteed to crash (#398
     expect(codes).not.toContain(REQUIRED);
 
     // …and the same for a second component in the same registration file, so the
-    // control is not one prop's accident: `page-header` renders with only a
-    // title, and every key it declares is optional.
-    expect(diagnose({ type: 'page-header', title: 'Users' }).map((d) => d.code)).not.toContain(
-      REQUIRED,
-    );
+    // control is not one prop's accident: `responsive-grid` renders with no
+    // props at all, and every key it declares is optional. (This was the
+    // `page-header` alias until objectui#10859 batch 8 retired it.)
+    const grid = diagnose({ type: 'responsive-grid' }).map((d) => d.code);
+    expect(grid).not.toContain('unknown-component');
+    expect(grid).not.toContain(REQUIRED);
   });
 });

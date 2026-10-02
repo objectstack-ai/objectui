@@ -358,19 +358,19 @@ does not render.
 > ignores it. A trail of links is a `breadcrumb` node — see
 > [Breadcrumbs for Deep Navigation](#2-breadcrumbs-for-deep-navigation).
 
-> **`page-header` is an alias, not the author key.** `page-header` (and its namespaced form
-> `layout:page-header`) is still accepted: a node written that way renders. It resolves to a
-> different renderer, the `PageHeader` component in `@object-ui/layout`, and it has no
-> `ComponentPropsMap` row, so props written under it are never checked against
-> `PageHeaderProps`. Author `page:header`.
+> **`page-header` is retired; author `page:header`.** `page-header` (and its namespaced form
+> `layout:page-header`) is no longer registered (objectui#10859): a node written that way
+> renders the "Unknown component type" panel, and `objectui validate` refuses it at `type`.
+> Write `{ "type": "page:header", "properties": { "title": "…", "subtitle": "…" } }`; the
+> secondary line is `subtitle`.
 
 ## SidebarNav Component
 
 The `SidebarNav` provides a collapsible navigation sidebar with menu items.
 
 **`SidebarNav` is a React component, and `sidebar-nav` is not a component key at all.**
-`registerLayout()` (`packages/layout/src/index.ts`) registers five keys — `page-header`,
-`page:card`, `responsive-grid`, `navigation-renderer` and `app-schema-renderer` — and
+`registerLayout()` (`packages/layout/src/index.ts`) registers four keys — `page:card`,
+`responsive-grid`, `navigation-renderer` and `app-schema-renderer` — and
 nothing in this repo registers `sidebar-nav`. What a
 `{ "type": "sidebar-nav" }` node actually does is measured under
 [There is no `sidebar-nav` node](#there-is-no-sidebar-nav-node) below. Compose the nav in

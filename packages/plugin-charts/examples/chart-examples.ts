@@ -7,13 +7,19 @@
  */
 
 /**
- * Example: Using all new chart types
- * 
- * This example demonstrates the new Pie, Donut, Radar, and Scatter chart types
+ * Example: the pie, donut and radar chart families
+ *
+ * Each example is the generic `chart` node with `chartType` naming the family,
+ * the spelling that draws (objectui#8760). Until objectui#10859 batch 8 (phase
+ * 2c) they authored the `pie-chart` / `donut-chart` / `radar-chart` keys, which
+ * that phase retired once these examples, their last producer, had moved.
+ * `__tests__/chart-family-from-type-7401.test.tsx` renders each one and asserts
+ * it draws its family and no bar (objectui#7401, ruling item 3).
  */
 
 export const pieChartExample = {
-  type: 'pie-chart',
+  type: 'chart',
+  chartType: 'pie',
   data: [
     { name: 'Chrome', value: 65 },
     { name: 'Firefox', value: 20 },
@@ -31,7 +37,8 @@ export const pieChartExample = {
 };
 
 export const donutChartExample = {
-  type: 'donut-chart',
+  type: 'chart',
+  chartType: 'donut',
   data: [
     { category: 'Electronics', revenue: 45000 },
     { category: 'Clothing', revenue: 32000 },
@@ -43,7 +50,8 @@ export const donutChartExample = {
 };
 
 export const radarChartExample = {
-  type: 'radar-chart',
+  type: 'chart',
+  chartType: 'radar',
   data: [
     { skill: 'React', score: 90 },
     { skill: 'TypeScript', score: 85 },

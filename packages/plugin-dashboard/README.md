@@ -488,6 +488,37 @@ the enum gets no accent and is not aliased to a nearby colour: it is invalid
 metadata, rejected where it is authored and published rather than reinterpreted
 here.
 
+## How many measures a widget renders
+
+A dataset-bound widget queries every measure in `values`. What it renders
+depends on its shape:
+
+- **A metric-family widget** (`metric`, `kpi`, `gauge`, `solid-gauge`,
+  `bullet`) is a one-number tile. It takes exactly one measure, and
+  `@objectstack/spec` refuses a second one at its door; several numbers is a
+  different visual.
+- **A widget with no `dimensions` and several measures** renders every one of
+  them when its type is `table` / `pivot` (one row of measures) or a chart of
+  the bar family (`bar`, `column`, `horizontal-bar`) or `line` / `area` /
+  `combo` (one mark per measure, the measures' labels on the category axis,
+  which runs down the side on a `horizontal-bar`).
+- **Any other dimensionless widget with several measures** still renders the
+  first one as a tile.
+
+When a declared measure is not rendered, `DatasetWidget` logs one console
+warning naming the widget, the measures it renders, the ones it queried and
+never displayed, and the spec's ADR-0087 entry
+`dashboard-widget-metric-family-multi-measure-refused`, whose `replacement`
+says what to author instead. Two shapes reach it: a metric tile stored before
+the spec narrowed, and a dimensionless widget of a type outside the list above.
+The widget panel (`WidgetConfigPanel`) asks the same door the spec runs: it
+offers no further measure the door would refuse, and shows the door's own
+message under measures it already refuses.
+
+The behaviour is pinned by `src/__tests__/DatasetWidget.unrenderedMeasures-8894.test.tsx`,
+`src/__tests__/DatasetWidget.dimensionlessMeasures-11261.test.tsx` and
+`src/__tests__/WidgetConfigPanel.measureDoor-8894.test.tsx`.
+
 ## TypeScript Support
 
 This package ships **components, not schema types** — its whole type export

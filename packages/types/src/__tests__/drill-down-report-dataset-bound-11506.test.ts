@@ -15,17 +15,20 @@
  * in a `report` node, whose `report` member is the same spec schema
  * (`ReportNodeSchema`, objectui#11440), and writes the drill filter into the
  * report's `runtimeFilter`. So the declaration takes the document that node
- * takes: what the spec refuses in a report is refused here too, `filter`
- * (an alias of `runtimeFilter`) and `objectName` (an alias of `dataset`) among
- * it. The retired form had no producer, and through the real drawer it drew an
- * empty presentation and issued no query; the drawer pins live in
+ * takes: what the spec refuses in a report, `filter` (an alias of
+ * `runtimeFilter`) and `objectName` (an alias of `dataset`) among it, the
+ * inline arm refuses too. The retired form had no producer, and through the
+ * real drawer it drew an empty presentation and issued no query; the drawer
+ * pins live in
  * `apps/console/src/__tests__/drillDownReport.runtimeFilter-11506.test.tsx`.
  *
- * Three doors are read: the TypeScript declaration (the `@ts-expect-error`
- * lines below are checked by `tsc -p tsconfig.test.json`, the package's
- * `type-check`), the strict authoring face (`objectui validate`'s), and the
- * tolerant mirror, whose reference arm keeps reading a value that fails the
- * inline arm as a `{ name }` reference.
+ * Three doors are read. The TypeScript declaration and the strict authoring
+ * face (`StrictAnyComponentSchema`) refuse the retired form; the
+ * `@ts-expect-error` lines below are checked by `tsc -p tsconfig.test.json`,
+ * the package's `type-check`. The tolerant face (`DrillDownConfigSchema` and
+ * `safeValidateSchema`, which is what `objectui validate` runs) does not: its
+ * reference arm keeps reading a value that fails the inline arm as a
+ * `{ name }` reference, stripped to that member, and reports it valid.
  */
 import { describe, expect, it } from 'vitest';
 import { ReportSchema as SpecReportSchema } from '@objectstack/spec/ui';

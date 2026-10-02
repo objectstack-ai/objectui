@@ -470,9 +470,13 @@ drill filter to the report's own `runtimeFilter` with `$and` and writes the
 result as the report's `runtimeFilter`, the one filter key the dataset renderer
 applies. Don't author `filter` on the report: the spec refuses it and the
 renderer does not apply it. The pre-9.0 object-bound report (`objectName` plus
-column objects) is refused, and the drawer does not draw it as a report; write
-the dataset form. A `{ "name": "…" }` reference is declared too, but the drawer
-resolves none, so such a drill lists the records.
+column objects) is refused by the TypeScript declaration, by the spec's
+`ReportSchema` and by the strict authoring face (`StrictAnyComponentSchema`),
+each naming `objectName`. `objectui validate` runs the tolerant face, which
+still accepts such a value as a `{ "name": "…" }` reference, stripped to its
+`name`. Either way the drawer does not draw it as a report; write the dataset
+form. A `{ "name": "…" }` reference is declared too, but the drawer resolves
+none, so such a drill lists the records.
 
 ## Translations — a served dashboard is translated once
 

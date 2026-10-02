@@ -5651,6 +5651,24 @@ export interface ObjectChartSchema extends BaseSchema {
    */
   yAxis?: SpecChartAxis[];
   /**
+   * HOST-COMPOSED, runtime-only (objectui#11355, the seat's ruling A: an
+   * undeclared key follows the implementation, and the docs follow it). Pass
+   * `false` for a deterministic render with no entrance animation; omitted,
+   * the chart animates.
+   *
+   * Code writes it, not documents. The dashboard renderers
+   * (`DashboardRenderer`, `DashboardGridLayout`) set it `false` on the
+   * `object-chart` nodes they build for a widget, and `DatasetWidget` and
+   * `DatasetReportRenderer` set it on the nodes they hand the `chart`
+   * registration, which renders through this same type. `ObjectChart` spreads the node into the schema it
+   * hands `ChartRenderer`, whose own `schema.isAnimationActive` it honours.
+   *
+   * ⛔ Declared on this TypeScript face only. The zod mirror has no member for
+   * it, so it is not offered as an authored key, and `zod-mirror-parity` files
+   * it as runtime-only with this reason.
+   */
+  isAnimationActive?: boolean;
+  /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-chart` reads NEITHER
    * content channel; see `children` below for the measurement.
    *

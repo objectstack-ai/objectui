@@ -352,6 +352,12 @@ const schema = {
 }
 ```
 
+## Rendering Without the Entrance Animation (host-composed)
+
+A host that builds an `object-chart` or `chart` node in code can set `isAnimationActive: false` on it for a deterministic render: the chart draws at its final geometry on the first frame, with no entrance animation. Omitted, the chart animates. `ObjectChart` spreads the node into the schema it hands `ChartRenderer`, which honours the flag. The in-repo hosts that set it are the dashboard renderers (`DashboardRenderer`, `DashboardGridLayout`, `DatasetWidget`) and the report renderer (`DatasetReportRenderer`).
+
+It is declared on the TypeScript `ObjectChartSchema` in `@object-ui/types` as a host-composed member. It is not an authoring key: the zod mirror declares no member for it, so it is not part of the `object-chart` node's `properties` vocabulary.
+
 ## Axis Tick Labels and the Host Page Font
 
 **Precondition:** the host page's `body` font family must match the font family the chart's axis tick labels render with. When the two differ, Recharts computes its tick-density and collision decisions against the wrong glyph metrics: tick labels overlap when the page font is narrower than the tick font, and labels that would have fitted are dropped from the axis when it is wider. Nothing reports the mismatch — there is no error and no warning, only a different set of visible labels.

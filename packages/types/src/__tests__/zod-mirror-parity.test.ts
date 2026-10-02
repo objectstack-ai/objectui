@@ -470,7 +470,14 @@
  *     seeded long after the 121). It is ⛔ not replaced with a fresh digit, for the
  *     reason above. The full statement is on that ledger, which owns it — read it
  *     there, and ⛔ do not copy it back.
- *   - **4 entries** in `RuntimeOnlyDeclared`, **29 keys** across them — 4 / 27
+ *   - **5 entries** in `RuntimeOnlyDeclared`, **30 keys** across them — 4 / 29
+ *     until objectui#11355 round 2 filed `objectql.zod.ts#ObjectChartSchema`'s
+ *     `isAnimationActive` here: a NEW entry, its one key a host-composed render flag
+ *     (not callback-shaped), admitted BY NAME through `RuntimeOnlyNamedAllowList` with
+ *     its reason, on the seat's ruling A on that card. ⚠️ NOT the other side of a
+ *     `UnmirroredDeclared` move, unlike every round below: the key was declared on
+ *     neither face until then, and the TS face now declares it while the mirror
+ *     deliberately does not. It was 4 / 27
  *     until objectui#6152 round 5 filed TWO more non-callback keys here BY NAME, each
  *     with its reason on `RuntimeOnlyNamedAllowList`, on the `DataTableSchema` entry that
  *     already existed: `editable` and `singleClickEdit`, the inline-edit flags `ObjectGrid`
@@ -525,8 +532,11 @@
  *     two. ⭐ The direction is the one this ledger is meant to drain in: a
  *     runtime-only key leaves by being declared on the mirror, never by being
  *     quietly refiled.
- *     **0 of the 4** are a subset of the **5** pairs above, so
- *     the union of the two unmirrored ledgers is **9** pairs, being **5** from `UnmirroredDeclared` plus **4** recorded ONLY in `RuntimeOnlyDeclared`.
+ *     **0 of the 5** are a subset of the **5** pairs above, so
+ *     the union of the two unmirrored ledgers is **10** pairs, being **5** from `UnmirroredDeclared` plus **5** recorded ONLY in `RuntimeOnlyDeclared`.
+ *     ⭐ objectui#11355 round 2 moved the difference from 4 to 5: `ObjectChartSchema`
+ *     entered `RuntimeOnlyDeclared` as a NEW pair recorded only there, and
+ *     `UnmirroredDeclared` did not move. It read `0 of the 4`, a union of `9`, until then.
  *     ⭐ objectui#6152 round 5 moved the difference from 3 to 4, and the shared count to
  *     zero: `DataTableSchema` — the last pair in BOTH ledgers — left `UnmirroredDeclared`
  *     whole (two keys filed here by name, one retired) while keeping its entry here, so
@@ -550,11 +560,12 @@
  *     is not recoverable by editing this sentence — it is a fact about the ledgers,
  *     and it returns only when some pair is again runtime-only and nothing else.
  *     ⚠️ Every live figure in these two sentences is pinned: the `0` (a quantity
- *     of its own — how many entries the two unmirrored ledgers share), the `9` (the
- *     union) and the `4` after `plus` (the pairs recorded only as runtime-only), and
- *     three RESTATEMENTS of counts already stated above — the `4` in `of the 4` and
- *     both `5`s. (This list was amended by objectui#6152 round 3, which reshaped the
- *     sentence, and re-read by rounds 4 and 5, which moved only its digits.)
+ *     of its own — how many entries the two unmirrored ledgers share), the `10` (the
+ *     union) and the `5` after `plus` (the pairs recorded only as runtime-only), and
+ *     three RESTATEMENTS of counts already stated above — the `5` in `of the 5` and
+ *     the two `5`s that restate `UnmirroredDeclared`'s entry count. (This list was
+ *     amended by objectui#6152 round 3, which reshaped the sentence, and re-read by
+ *     rounds 4 and 5 and by objectui#11355 round 2, which moved only its digits.)
  *     They were spelled as English WORDS
  *     until objectui#8222, which is why no instrument had ever read them: a figure
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
@@ -3389,6 +3400,20 @@ interface RuntimeOnlyDeclared {
   'views.zod.ts#DetailViewSchema':
     | 'onTabChange'
     | 'activities' | 'comments' | 'history' | 'recordNavigation';
+  /**
+   * ⭐ objectui#11355 round 2 — the seat's ruling A on that card: a NEW entry, and
+   * its one key is NOT callback-shaped, so it is admitted BY NAME through
+   * `RuntimeOnlyNamedAllowList` below, with its reason there.
+   *
+   * ⚠️ Unlike every other entry here, this one is NOT a reclassification out of
+   * `UnmirroredDeclared`: `isAnimationActive` was declared on NEITHER face. Code
+   * composed it onto the node and `ChartRenderer` honoured it, while the TS face
+   * admitted it only through `BaseSchema`'s index signature. The TS face now
+   * declares it as a host-composed member, and the mirror deliberately does not,
+   * so it is not offered as an authored key. ⛔ Not new mirroring debt: the ruling
+   * is that it stays unmirrored.
+   */
+  'objectql.zod.ts#ObjectChartSchema': 'isAnimationActive';
 }
 
 /**
@@ -3524,6 +3549,16 @@ interface RuntimeOnlyNamedAllowList {
     comments: 'runtime data a host fetches (comment rows), read beside the onAddComment slot; authored in no document, and no in-tree producer writes it';
     history: 'host-fetched runtime data: audit-log entries with a loading flag, built in code by RecordDetailView; authored in no document';
     recordNavigation: 'runtime result-set state whose onNavigate member is a REQUIRED function, so no JSON document can supply it';
+  };
+  /**
+   * objectui#11355 round 2 — the seat's ruling A: a render flag hosts compose in code.
+   * `DashboardRenderer` and `DashboardGridLayout` set it `false` on the `object-chart`
+   * nodes they build, `DatasetWidget` and `DatasetReportRenderer` on the nodes they
+   * hand the `chart` registration (the same `ObjectChart`), and `ChartRenderer` honours
+   * it. No tracked JSON, YAML or Markdown document authors it.
+   */
+  'objectql.zod.ts#ObjectChartSchema': {
+    isAnimationActive: 'host-composed render flag: set false in code by the dashboard and report renderers for a deterministic first paint, honoured by ChartRenderer; authored in no document';
   };
 }
 

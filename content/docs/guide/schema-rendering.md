@@ -31,6 +31,7 @@ initializeComponents()
 function App() {
   const schema: PageNodeSchema = {
     type: "page",
+    pageType: "app",
     title: "My Dashboard",
     children: [{ type: "text", content: "Hello" }]
   }
@@ -166,6 +167,7 @@ Schemas can be nested to create complex UIs:
 ```json
 {
   "type": "page",
+  "pageType": "app",
   "title": "Dashboard",
   "children": {
     "type": "grid",
@@ -476,6 +478,7 @@ const form: FormSchema = {
 
 const schema: PageNodeSchema = {
   type: "page",
+  pageType: "app",
   title: "Typed Page",
   children: [form]
 }

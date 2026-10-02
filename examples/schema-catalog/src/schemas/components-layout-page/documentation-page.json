@@ -1,5 +1,6 @@
 {
   "type": "page",
+  "pageType": "app",
   "title": "Getting Started",
   "description": "Learn how to use the platform",
   "children": [

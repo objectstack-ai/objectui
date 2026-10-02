@@ -13,6 +13,13 @@ The Page component provides a standardized full-page layout with built-in suppor
 
 <SchemaExample id="components-layout-page/page-with-header" />
 
+`pageType` decides whether the page draws its own `title` and `description`. `app`, `list`,
+`utility` and `home` draw both, unless a titled `page:header` block in the page takes over the
+heading. A page with no `pageType` is a `record` page, which draws neither: its heading is a
+[`page:header`](/docs/layout/page-header) block. So both examples above name `"pageType": "app"`.
+The [layout guide's Content Width](/docs/guide/layout#content-width) section covers the width
+each type sets.
+
 ## Schema
 
 ```ts
@@ -22,9 +29,12 @@ interface PageSchema {
   type: 'page';
   
   // Header
-  title?: string;                       // Page title
+  title?: string;                       // Page title; not drawn on a 'record' page
   icon?: string;                        // Page icon (Lucide icon name)
-  description?: string;                 // Page description
+  description?: string;                 // Page description; not drawn on a 'record' page
+
+  // Page kind. Default 'record': its heading is a `page:header` block.
+  pageType?: 'record' | 'home' | 'app' | 'utility' | 'list';
   
   // Content
   children?: SchemaNode | SchemaNode[]; // Main content — one node or a list

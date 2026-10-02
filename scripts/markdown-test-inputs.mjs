@@ -258,12 +258,17 @@ export const ADJUDICATED = new Map([
     'packages/components/src/__tests__/guide-layout-page-buttons-7926.test.tsx',
     { reads: ['content/docs/guide/layout.md'] },
   ],
-  // objectui#11423. Renders every `type: "page"` fence of the layout guide that
-  // authors a heading and asserts the heading it draws -- so an edit to that
-  // page IS an edit to this test's input.
+  // objectui#11436, which subsumes objectui#11423's layout-guide pin. Parses
+  // every fence of every page under `content/docs`, in any language, and renders
+  // each `type: "page"` node that authors a heading -- so an edit to any docs
+  // page's page fences IS an edit to this test's input. It also walks
+  // `examples` for page documents, which are not markdown.
   [
-    'packages/components/src/__tests__/guide-layout-page-headings-11423.test.tsx',
-    { reads: ['content/docs/guide/layout.md'] },
+    'packages/components/src/__tests__/page-node-headings-drawn-11436.test.tsx',
+    {
+      reads: ['content/docs/**'],
+      walker: 'markdown-tree: walks `content/docs` and parses every fence of every `.md`/`.mdx` under it; its walk of `examples` collects JSON and script sources, not markdown',
+    },
   ],
   // The four-leg render pin for objectui#8021. Leg A is READ OFF
   // `content/docs/guide/schema-rendering.md` rather than transcribed -- both the

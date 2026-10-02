@@ -110,7 +110,7 @@ Top-level page container. Defines a full page with optional regions (header, sid
   "title": "User Dashboard",
   "icon": "LayoutDashboard",
   "description": "Overview of user activity",
-  "pageType": "detail",
+  "pageType": "app",
   "object": "User",
   "variables": [
     { "name": "userId", "type": "string", "defaultValue": "current" }
@@ -129,9 +129,10 @@ Top-level page container. Defines a full page with optional regions (header, sid
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `title` | `string` | Page title displayed in the header. |
+| `title` | `string` | Page heading, drawn as the page's `h1` on every page type except `"record"`. A record page's heading is a `page:header` block. |
 | `icon` | `string` | Lucide icon name for the page. |
-| `pageType` | `PageType` | Page purpose: `"list"`, `"detail"`, `"form"`, `"dashboard"`, `"report"`, `"custom"`. |
+| `description` | `string` | Line under the heading, drawn on every page type except `"record"`. |
+| `pageType` | `PageType` | The page kind: `"record"` (the default), `"home"`, `"app"`, `"utility"` or `"list"`. See [Page types](#page-types) below. |
 | `object` | `string` | ObjectQL object name this page operates on. |
 | `template` | `string` | Template name for page layout. |
 | `variables` | `PageVariable[]` | Page-level variables with types and defaults. |
@@ -140,6 +141,26 @@ Top-level page container. Defines a full page with optional regions (header, sid
 | `isDefault` | `boolean` | Whether this is the default page for the object. |
 | `assignedProfiles` | *retired* | ⛔ Refused by name (objectui#9409). `@objectstack/spec` retired the key: ADR-0090 D2 deleted the Profile concept it was named after, and nothing ever enforced it, so a page that listed profiles stayed open to everyone who could reach it. Both published faces take the spec's tombstone: any value is a TypeScript error and a parse failure at `assignedProfiles`. Delete the key. Page audience comes from permission sets: gate the data the page shows with the object's permission sets, and grant those sets to people through positions. |
 | `aria` | `AriaProps` | ARIA attributes for the page's root element: `ariaLabel` (a plain string, or an inline locale map such as `{ "en": "Orders", "fr": "Commandes" }`, resolved for the display locale) renders `aria-label`, `ariaDescribedBy` renders `aria-describedby`, and `role` renders `role`. This is the spec's inline vocabulary, not the keyed flat `ariaLabel` described under BaseSchema. The page adds no default role. |
+
+#### Page types
+
+`pageType` takes the five members of `@objectstack/spec`'s `PageTypeSchema`. It decides who
+draws the page's heading and how wide the page's content may grow:
+
+| `pageType` | Kind | Heading |
+|------------|------|---------|
+| `"record"` | A component-based record page. The default when `pageType` is omitted. | Draws neither `title` nor `description`. Put the heading in a `page:header` block in `children` or a region. |
+| `"home"` | A landing page, laid out dashboard-style. It has the widest cap. | Draws `title` and `description`. |
+| `"app"` | An app-level page with navigation context. | Draws `title` and `description`. |
+| `"utility"` | A compact, focused page, such as settings or a form. It has the narrowest cap. | Draws `title` and `description`. |
+| `"list"` | A record list or grid surface. | Draws `title` and `description`. |
+
+On every type, a titled `page:header` block in the page takes the `h1` instead of `title`.
+The page's own `description` still draws on every type except `"record"`. Any other value,
+such as `"detail"`, `"form"`, `"dashboard"`, `"report"` or `"custom"`, is refused at
+`pageType` when the schema is validated. The layout guide's
+[Page Component](/docs/guide/layout#page-component) and
+[Content Width](/docs/guide/layout#content-width) sections show each type in a page.
 
 **Related:** [AppSchema](/docs/core/app-schema), [DivSchema](#divschema), [GridSchema](#gridschema)
 
@@ -1341,6 +1362,7 @@ Schemas are designed to compose. Nest any `SchemaNode` inside another to build c
 ```json
 {
   "type": "page",
+  "pageType": "app",
   "title": "CRM Dashboard",
   "children": [
     {

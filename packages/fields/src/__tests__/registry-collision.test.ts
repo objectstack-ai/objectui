@@ -84,8 +84,16 @@ describe('registry collision (fields ↔ components)', () => {
     // ruling retired it through `FIELD_TYPES_SKIP_FALLBACK`.
     for (const type of ['number', 'date', 'boolean', 'lookup', 'summary']) {
       expect(ComponentRegistry.get(`field:${type}`), `field:${type} must be registered`).toBeTruthy();
-      expect(ComponentRegistry.get(type), `bare "${type}" must not be registered`).toBeFalsy();
     }
+    // Each absence spelled as a literal key, one per line, so
+    // `scripts/__tests__/unit-registry-absence-collision.test.ts` can resolve
+    // it statically and check it against every registration in the `unit`
+    // project. A key read off a loop variable is a site that gate cannot see.
+    expect(ComponentRegistry.get('number'), 'bare "number" must not be registered').toBeFalsy();
+    expect(ComponentRegistry.get('date'), 'bare "date" must not be registered').toBeFalsy();
+    expect(ComponentRegistry.get('boolean'), 'bare "boolean" must not be registered').toBeFalsy();
+    expect(ComponentRegistry.get('lookup'), 'bare "lookup" must not be registered').toBeFalsy();
+    expect(ComponentRegistry.get('summary'), 'bare "summary" must not be registered').toBeFalsy();
     // Lit control: a bare key some OTHER package owns still resolves, and it is
     // not the field widget — the retirement removed the fields loop's
     // fallbacks, not the bare table.

@@ -166,7 +166,10 @@ export const CHART_TYPE_KEYWORD_FAMILIES: ReadonlyMap<string, ChartFamily> = new
   ['pie-chart', 'pie'],
   ['donut-chart', 'donut'],
   ['radar-chart', 'radar'],
-  ['scatter-chart', 'scatter'],
+  // ⛔ `scatter-chart` is RETIRED (objectui#10859 batch 8, phase 2b): its
+  // registration left `index.tsx` in the same change, and objectui#7401's
+  // pin fails on a row with no registration. Scatter is drawn by
+  // `{ type: 'chart', chartType: 'scatter' }`.
 ]);
 
 /**

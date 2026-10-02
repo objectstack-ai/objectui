@@ -41,7 +41,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
-import { classifyWidgetType, METRIC_LIKE_TYPES } from './widgetDispatch';
+import { classifyWidgetType, METRIC_LIKE_TYPES, DASHBOARD_NODE_TYPES, toDashboardNodeType } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
@@ -683,7 +683,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         const datasetBound = !!widget.dataset;
 
         const getComponentSchema = () => {
-            if (widget.component) return widget.component;
+            // The author-supplied node keeps its spelling; only a `metric` /
+            // `metric-card` node key moves onto its namespaced registration
+            // (`toDashboardNodeType`, objectui#10859 batch 8).
+            if (widget.component) return toDashboardNodeType(widget.component);
 
             // Handle Shorthand Registry Mappings
             const widgetType = widget.type;
@@ -868,7 +871,9 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 const rows = Array.isArray(widgetData) ? widgetData : widgetData?.items || [];
                 const valueField = options.yField || 'value';
                 return {
-                    type: 'metric',
+                    // The namespaced node key: the registration passes
+                    // `skipFallback: true` (objectui#10859 batch 8, M3 option A).
+                    type: DASHBOARD_NODE_TYPES.metric,
                     ...options,
                     label,
                     description: subCaption,
@@ -964,10 +969,13 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 };
             }
 
-            return {
+            // The slot-component passthrough (the 2026-08-14 `metric-card` slot
+            // ruling): the widget keeps its `type`, the node it becomes takes
+            // the namespaced key (`toDashboardNodeType`, objectui#10859 batch 8).
+            return toDashboardNodeType({
                 ...widget,
                 ...options
-            };
+            });
         };
         
         // Broadcast the dashboard filter values into this widget's inline

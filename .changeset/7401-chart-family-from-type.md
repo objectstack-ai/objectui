@@ -11,3 +11,9 @@ A schema written as `type: 'pie-chart'` (or `plugin-charts:pie-chart`, and likew
 The five inert `defaultProps: { chartType: … }` are removed with it rather than left beside a mechanism that works. Registration `defaultProps` remains unread on the SDUI path repo-wide; activating it generally is a separate, wider change and is not this one.
 
 ⚠️ `scatter-chart` now genuinely reaches the scatter arm, so a two-series `scatter-chart` now renders the `scatter-multi-series` refusal it was always supposed to.
+
+⚠️ **Dated note, 2026-10-02 — `scatter-chart` is retired — objectui#10859.**
+Later in this same release objectui#10859 batch 8 (phase 2b) unregistered `scatter-chart` and
+`plugin-charts:scatter-chart`, and its `CHART_TYPE_KEYWORD_FAMILIES` row went with it; the scatter
+family is authored as `{ type: 'chart', chartType: 'scatter' }`. `pie-chart`, `donut-chart` and
+`radar-chart` stay registered. The rest of this entry is kept as the reading of this change.

@@ -405,23 +405,30 @@ ComponentRegistry.register('embeddable-form', EmbeddableFormRenderer, {
   ]
 });
 
-// Register form-analytics component for submission dashboards
-import { FormAnalytics } from './FormAnalytics';
-
-const FormAnalyticsRenderer: React.FC<{ schema: any }> = ({ schema }) => {
-  return <FormAnalytics formId={schema.formId} formTitle={schema.formTitle} metrics={schema.metrics || { totalSubmissions: 0 }} />;
-};
-
-ComponentRegistry.register('form-analytics', FormAnalyticsRenderer, {
-  namespace: 'plugin-form',
-  label: 'Form Analytics',
-  category: 'plugin',
-  inputs: [
-    { name: 'formId', type: 'string', required: true },
-    { name: 'formTitle', type: 'string' },
-    { name: 'metrics', type: 'object' },
-  ]
-});
+/**
+ * ⛔ The `form-analytics` node type key is RETIRED (objectui#10859 batch 8, phase 2b,
+ * the seat's ruling on that card, by the objectui#10393 / objectui#8760 route).
+ * `FormAnalytics` itself stays a named export of this package; a host that
+ * wants the submission dashboard mounts the React component directly.
+ *
+ * ## What was here, and why it went
+ *
+ * `ComponentRegistry.register('form-analytics', FormAnalyticsRenderer, {
+ * namespace: 'plugin-form', ... })` — a thin renderer mapping `formId` /
+ * `formTitle` / `metrics` onto `FormAnalytics`.
+ * It stored both `plugin-form:form-analytics` and the bare `form-analytics` fallback.
+ * No `@object-ui/types` arm claims it, so `objectui validate` refused a node
+ * authored `type: 'form-analytics'` at `type` while the registry mounted it.
+ *
+ * ## Why unregistering is the whole retirement
+ *
+ * Nothing wrote the node: 0 producers in source, docs, examples, the catalog
+ * or objectstack, and 0 runtime emission, re-measured for phase 2b. The ruling's
+ * criterion ("does the mainstream have it?") answered no for a NODE: the
+ * mainstream keeps submission analytics inside the forms product, not as an
+ * authorable block. The README and `plugin-form.mdx` key-table rows went in
+ * the same change.
+ */
 
 // Register master-detail composite form (parent + child line items, entered
 // together — see ADR-0001).

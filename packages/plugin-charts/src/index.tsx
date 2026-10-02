@@ -139,7 +139,8 @@ ComponentRegistry.register(
 
 /**
  * ⭐ The chart-family registrations below (`chart:bar`, `pie-chart`,
- * `donut-chart`, `radar-chart`, `scatter-chart`) declare their family in ONE
+ * `donut-chart`, `radar-chart`; `scatter-chart` was retired by objectui#10859
+ * batch 8) declare their family in ONE
  * place, and it is not here: `CHART_TYPE_KEYWORD_FAMILIES` in
  * `normalizeChartSchema.ts`, which `ChartRenderer` resolves through on every
  * render.
@@ -206,12 +207,33 @@ ComponentRegistry.register(
   }
 );
 
-ComponentRegistry.register(
-  'scatter-chart',
-  ChartRenderer,
-  {
-    namespace: 'plugin-charts',
-    label: 'Scatter Chart',
-    category: 'plugin'
-  }
-);
+/**
+ * ⛔ The `scatter-chart` node type key is RETIRED (objectui#10859 batch 8,
+ * phase 2b, the seat's ruling on that card, by the objectui#10393 /
+ * objectui#8760 route). The scatter family is reached the way every other
+ * family is: `{ type: 'chart', chartType: 'scatter' }`, the spelling that
+ * draws ("chartType is the spelling that draws", objectui#8760).
+ *
+ * ## What was here, and why it went
+ *
+ * `ComponentRegistry.register('scatter-chart', ChartRenderer, { namespace:
+ * 'plugin-charts', ... })` — a second key on the generic renderer, which stored
+ * both `plugin-charts:scatter-chart` and the bare `scatter-chart` fallback, and
+ * whose family came from its `CHART_TYPE_KEYWORD_FAMILIES` row (objectui#7401).
+ * No `@object-ui/types` arm claims it, so `objectui validate` refused a node
+ * authored `type: 'scatter-chart'` at `type` while the registry mounted it.
+ *
+ * ## Why unregistering is the whole retirement
+ *
+ * Nothing wrote the node: 0 producers in source, docs, examples, the catalog
+ * or objectstack, and 0 runtime emission, re-measured for phase 2b. Its
+ * `CHART_TYPE_KEYWORD_FAMILIES` row and the console's lazy stub
+ * (`apps/console/src/register-plugins.ts`) went in the same change, so no table
+ * or host keeps the key alive. The `scatter` FAMILY is untouched.
+ *
+ * ⚠️ `pie-chart`, `donut-chart` and `radar-chart` above were ruled the same way
+ * and stay registered: `examples/chart-examples.ts` in this package still
+ * authors all three, and objectui#7401's "the in-repo examples draw what they
+ * say" pins that file. That is a producer, so phase 2b reported them as a fork
+ * instead of retiring them.
+ */

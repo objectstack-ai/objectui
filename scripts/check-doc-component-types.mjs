@@ -707,6 +707,23 @@ const OPEN_REGISTRATION_SITES = {
  */
 const DOC_TYPE_EXEMPTIONS = {
   'content/docs/api/schema-reference.md': {
+    metric:
+      'Dashboard widget kind under `widgets[].type` — `metric`, a member of `ChartTypeSchema` ' +
+      '(@objectstack/spec/ui) reaching this repo by reference through `DashboardWidgetTypeName`. ' +
+      'Not a node type: the node type is `dashboard`, which the enclosing snippet spells. The NODE ' +
+      'key the dashboard renders this widget through is `plugin-dashboard:metric`: objectui#10859 ' +
+      'batch 8 (phase 2b) moved both dashboard surfaces onto that key and gave the registration ' +
+      '`skipFallback: true`, which is the only reason this value used to pass here as a registered ' +
+      'key.',
+    'metric-card':
+      'Dashboard widget-slot entry directly in a `dashboard`\'s `widgets[]` — ' +
+      '`DASHBOARD_COMPONENT_WIDGET_TYPES` (`@object-ui/types`\' `complex` module; its TypeScript face ' +
+      'is `DashboardWidgetSlotComponentSchema`), the closed ' +
+      'component slot of the 2026-08-14 ruling (objectstack#8593). Not a node position: the node ' +
+      'type is `dashboard`, which the enclosing snippet spells. The dashboard hands the entry to ' +
+      'the registry as `plugin-dashboard:metric-card`: objectui#10859 batch 8 (phase 2b) gave that ' +
+      'registration `skipFallback: true`, which is the only reason this value used to pass here as ' +
+      'a registered key.',
     kanban:
       'ViewSwitcher `views[].type` — the VIEW-TYPE vocabulary (`ViewType`, ' +
       'packages/types/src/views.ts), which is what a switcher tab names, not a node type; the ' +
@@ -1086,6 +1103,14 @@ const DOC_TYPE_EXEMPTIONS = {
       'key.',
   },
   'content/docs/guide/dashboard-filters.md': {
+    metric:
+      'Dashboard widget kind under `widgets[].type` — `metric`, a member of `ChartTypeSchema` ' +
+      '(@objectstack/spec/ui) reaching this repo by reference through `DashboardWidgetTypeName`. ' +
+      'Not a node type: the node type is `dashboard`, which the enclosing snippet spells. The NODE ' +
+      'key the dashboard renders this widget through is `plugin-dashboard:metric`: objectui#10859 ' +
+      'batch 8 (phase 2b) moved both dashboard surfaces onto that key and gave the registration ' +
+      '`skipFallback: true`, which is the only reason this value used to pass here as a registered ' +
+      'key.',
     bar: 'Dashboard widget kind under `widgets[]`, alongside `line` — same vocabulary as the ' +
       'plugins/plugin-dashboard.mdx entry below. Not a node type.',
     line: 'Dashboard widget kind under `widgets[]`, alongside `bar` — same vocabulary as the ' +
@@ -1214,6 +1239,25 @@ const DOC_TYPE_EXEMPTIONS = {
       'the table above it. Nothing registers the literal string, by design.',
   },
   'content/docs/plugins/plugin-dashboard.mdx': {
+    metric:
+      'Dashboard widget kind under `widgets[].type` — `metric`, a member of `ChartTypeSchema` ' +
+      '(@objectstack/spec/ui) reaching this repo by reference through `DashboardWidgetTypeName`. ' +
+      'Not a node type: the node type is `dashboard`, which the enclosing snippet spells. The NODE ' +
+      'key the dashboard renders this widget through is `plugin-dashboard:metric`: objectui#10859 ' +
+      'batch 8 (phase 2b) moved both dashboard surfaces onto that key and gave the registration ' +
+      '`skipFallback: true`, which is the only reason this value used to pass here as a registered ' +
+      'key.',
+    'metric-card':
+      'Dashboard widget-slot entry directly in a `dashboard`\'s `widgets[]` — ' +
+      '`DASHBOARD_COMPONENT_WIDGET_TYPES` (`@object-ui/types`\' `complex` module; its TypeScript face ' +
+      'is `DashboardWidgetSlotComponentSchema`), the closed ' +
+      'component slot of the 2026-08-14 ruling (objectstack#8593). Not a node position: the node ' +
+      'type is `dashboard`, which the enclosing snippet spells. This entry also covers the page\'s ' +
+      '`metric-card` shape block, which the page introduces as that slot entry, and a ' +
+      '`DashboardWidgetSchema` literal typed `metric-card` (the slot set joins the widget type ' +
+      'enum). The dashboard hands the entry to the registry as `plugin-dashboard:metric-card`: ' +
+      'objectui#10859 batch 8 (phase 2b) gave that registration `skipFallback: true`, which is the ' +
+      'only reason this value used to pass here as a registered key.',
     bar: 'Dashboard widget kind under `widgets[]`, alongside `line`. Not a node type.',
     line: 'Dashboard widget kind under `widgets[]`, alongside `bar`. Not a node type.',
   },
@@ -1345,6 +1389,27 @@ const DOC_TYPE_EXEMPTIONS = {
       'coincidence a reader of this entry needs told about.',
   },
   'packages/plugin-dashboard/README.md': {
+    metric:
+      'Dashboard widget kind under `widgets[].type` — `metric`, a member of `ChartTypeSchema` ' +
+      '(@objectstack/spec/ui) reaching this repo by reference through `DashboardWidgetTypeName`. ' +
+      'Not a node type: each site sits in a `dashboard`\'s `widgets[]` or is a literal typed ' +
+      '`DashboardWidgetSchema` (the dataset-bound JSONC example and the typed literals). The ' +
+      'NODE key the dashboard renders this widget through is `plugin-dashboard:metric`: ' +
+      'objectui#10859 batch 8 (phase 2b) moved both dashboard surfaces onto that key and gave the ' +
+      'registration `skipFallback: true`, which is the only reason this value used to pass here as ' +
+      'a registered key.',
+    'metric-card':
+      'Dashboard widget-slot entry directly in a `dashboard`\'s `widgets[]` — ' +
+      '`DASHBOARD_COMPONENT_WIDGET_TYPES` (`@object-ui/types`\' `complex` module; its TypeScript face ' +
+      'is `DashboardWidgetSlotComponentSchema`), the closed ' +
+      'component slot of the 2026-08-14 ruling (objectstack#8593). Not a node position: the node ' +
+      'type is `dashboard`, which the enclosing snippet spells. This entry also covers the legacy ' +
+      '`{ id, component, layout }` envelope\'s `component` node, which the dashboard renders through ' +
+      'the same key move (`toDashboardNodeType` in `widgetDispatch.ts`), and the ' +
+      '`DashboardWidgetSlotComponentSchema` literal. The dashboard hands the entry to the registry ' +
+      'as `plugin-dashboard:metric-card`: objectui#10859 batch 8 (phase 2b) gave that registration ' +
+      '`skipFallback: true`, which is the only reason this value used to pass here as a registered ' +
+      'key.',
     line:
       'Dashboard widget kind under `widgets[].type` — `DashboardWidgetTypeName` (`@object-ui/types`\' ' +
       '`complex` module) declares that CLOSED vocabulary, and its spec half flows in BY REFERENCE ' +
@@ -1471,6 +1536,17 @@ const DOC_TYPE_EXEMPTIONS = {
       'in `@object-ui/types`\' `views` module, alongside the CRUD filter enum that spells ' +
       '`date-picker` / `number-range`. Not a node type. Same vocabulary as the ' +
       '`content/docs/components/complex/filter-ui.mdx` entry above.',
+  },
+  'packages/types/README.md': {
+    'metric-card':
+      'Dashboard widget-slot entry directly in a `dashboard`\'s `widgets[]` — ' +
+      '`DASHBOARD_COMPONENT_WIDGET_TYPES` (`@object-ui/types`\' `complex` module; its TypeScript face ' +
+      'is `DashboardWidgetSlotComponentSchema`), the closed ' +
+      'component slot of the 2026-08-14 ruling (objectstack#8593). Not a node position: the node ' +
+      'type is `dashboard`, which the snippet\'s `card` helper wraps the entry in. The dashboard ' +
+      'hands the entry to the registry as `plugin-dashboard:metric-card`: objectui#10859 batch 8 ' +
+      '(phase 2b) gave that registration `skipFallback: true`, which is the only reason this value ' +
+      'used to pass here as a registered key.',
   },
 };
 

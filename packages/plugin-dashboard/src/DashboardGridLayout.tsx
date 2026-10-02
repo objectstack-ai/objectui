@@ -9,7 +9,7 @@ import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema } from
 import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
 import { chartCategoryKey, chartConfigPresentation, chartMeasureKey } from '@object-ui/core';
 import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
-import { classifyWidgetType } from './widgetDispatch';
+import { classifyWidgetType, DASHBOARD_NODE_TYPES, toDashboardNodeType } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
@@ -58,8 +58,9 @@ export interface DashboardGridLayoutProps {
    * surfaces at once.
    *
    * Optional, and the omitted case is a SUPPORTED one rather than an oversight:
-   * `dashboard-grid`'s SDUI registration declares only `title` / `className`
-   * inputs, so schema-driven hosts render this component with no adapter at all.
+   * a host may mount this component with no adapter at all (until objectui#10859
+   * batch 8 retired the `dashboard-grid` node key, its SDUI registration declared
+   * only `title` / `className` inputs, so schema-driven hosts always did).
    * A dataset-bound widget arriving that way renders `DatasetWidget`'s own
    * no-capability diagnostic — a visible state, never a blank tile.
    *
@@ -248,7 +249,10 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
   }, [schema]);
 
   const getComponentSchema = React.useCallback((widget: DashboardWidgetSchema) => {
-    if (widget.component) return widget.component;
+    // Same boundary as `DashboardRenderer`: the author's node keeps its
+    // spelling except a `metric` / `metric-card` node key, which moves onto its
+    // namespaced registration (`toDashboardNodeType`, objectui#10859 batch 8).
+    if (widget.component) return toDashboardNodeType(widget.component);
 
     // Retired legacy inline-analytics widget (framework#3320) — the SAME
     // detector `DashboardRenderer` uses, imported rather than restated
@@ -371,7 +375,9 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
       const rows = Array.isArray(widgetData) ? widgetData : widgetData?.items || [];
       const valueField = options.yField || 'value';
       return {
-        type: 'metric',
+        // The namespaced node key, as `DashboardRenderer` emits it: the
+        // registration passes `skipFallback: true` (objectui#10859 batch 8).
+        type: DASHBOARD_NODE_TYPES.metric,
         ...options,
         label,
         value: options.value ?? rows[0]?.[valueField] ?? '—',
@@ -464,10 +470,12 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
       };
     }
 
-    return {
+    // The slot-component passthrough takes the namespaced node key too
+    // (`toDashboardNodeType`, objectui#10859 batch 8).
+    return toDashboardNodeType({
       ...widget,
       ...options
-    };
+    });
   }, [resolveSeriesLabel]);
 
   return (

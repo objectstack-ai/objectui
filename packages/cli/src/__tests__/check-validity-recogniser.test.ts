@@ -182,10 +182,11 @@ describe('objectui check — a broken ObjectUI schema is never filed as a foreig
 
   it('reports a registered component type the bundled schemas do not model', async () => {
     // The other half of the bucket, and why its wording says "off-spec OR not
-    // modelled". `metric-card` is a real registered type — objectui's dashboard
-    // widget-slot component, registered by `apps/console/src/register-plugins.ts`
-    // and `@object-ui/plugin-dashboard` — and `AnyComponentSchema` is a union of
-    // COMPONENT schemas that has no member for it. So the well-formed document
+    // modelled". `plugin-dashboard:metric-card` is a real registered type — the
+    // node key of objectui's dashboard widget-slot component, registered by
+    // `apps/console/src/register-plugins.ts` and `@object-ui/plugin-dashboard` —
+    // and `AnyComponentSchema` is a union of COMPONENT schemas that has no member
+    // for it. So the well-formed document
     // below fails the validity arm. Reporting it is right (a registered type the
     // shipped validator cannot validate is itself a finding) but calling it
     // INVALID would overclaim: nothing about this document is wrong.
@@ -217,6 +218,16 @@ describe('objectui check — a broken ObjectUI schema is never filed as a foreig
     // So this fixture cannot rot the way `abbr` did without a maintainer
     // reversing that ruling — which is exactly when this test SHOULD be re-read.
     //
+    // ## Why it is now the NAMESPACED key (objectui#10859 batch 8)
+    //
+    // Phase 2b of that batch gave the `metric-card` registration
+    // `skipFallback: true` (the dashboard surfaces emit the namespaced key), so
+    // the bare `metric-card` is no longer a registered type at all and `check`
+    // stopped counting it here. `plugin-dashboard:metric-card` is the same
+    // component under the key it still registers, and the same ruling keeps it
+    // out of the node union — measured: `KNOWN_SCHEMA_TYPES` carries it and
+    // `safeValidateSchema` refuses it at `type`.
+    //
     // ## Why it is no longer `kanban`
     //
     // This sample used to be a kanban board authoring `cards`, and the comment
@@ -229,23 +240,23 @@ describe('objectui check — a broken ObjectUI schema is never filed as a foreig
     // The defect this file's own subject matter exists to catch had been frozen
     // into an assertion of expected behaviour.
     writeSchema('metric-card.json', {
-      type: 'metric-card',
+      type: 'plugin-dashboard:metric-card',
       title: 'Total Revenue',
       value: '$123,456',
     });
     // The precondition, asserted rather than assumed, so that the day someone
-    // models `metric-card` this file says WHY it went red instead of reporting a
+    // models `plugin-dashboard:metric-card` this file says WHY it went red instead of reporting a
     // bare `expected +0 to be 1`. If this fires: the objectstack#8593 ruling has
     // been revisited — re-read this case, then pick another registered type with
     // no member in `AnyComponentSchema` and update the counts above.
     expect(
-      safeValidateSchema({ type: 'metric-card', title: 'Total Revenue', value: '$123,456' }).success,
-      '`metric-card` is now modelled by AnyComponentSchema — this fixture needs a type that still is not; see the comment above',
+      safeValidateSchema({ type: 'plugin-dashboard:metric-card', title: 'Total Revenue', value: '$123,456' }).success,
+      '`plugin-dashboard:metric-card` is now modelled by AnyComponentSchema — this fixture needs a type that still is not; see the comment above',
     ).toBe(false);
     await check(cwd);
     expect(candidateCount()).toBe(1);
     expect(candidateLines()).toEqual([
-      expect.stringContaining('metric-card.json (type "metric-card")'),
+      expect.stringContaining('metric-card.json (type "plugin-dashboard:metric-card")'),
     ]);
     expect(skippedCount()).toBe(0);
   });

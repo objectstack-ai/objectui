@@ -137,11 +137,20 @@ ComponentRegistry.register(
 );
 
 // Register metric widget (legacy)
+//
+// ⛔ `skipFallback: true` — the bare `metric` NODE key is RETIRED
+// (objectui#10859 batch 8, phase 2b, seat ruling M3 option A). Both dashboard
+// surfaces emit `plugin-dashboard:metric` through `DASHBOARD_NODE_TYPES`
+// (`./widgetDispatch`), so the bare fallback had no emitter left, only a
+// spelling `objectui validate` refuses at `type` while the registry mounted it.
+// The dashboard WIDGET type `metric` (the spec's `ChartTypeSchema` value) is a
+// different vocabulary and is untouched.
 ComponentRegistry.register(
   'metric',
   MetricWidget,
   {
     namespace: 'plugin-dashboard',
+    skipFallback: true,
     label: 'Metric Widget',
     category: 'Dashboard',
     inputs: [
@@ -152,11 +161,19 @@ ComponentRegistry.register(
 );
 
 // Register metric card (new standalone component)
+//
+// ⛔ `skipFallback: true` — the bare `metric-card` NODE key is RETIRED
+// (objectui#10859 batch 8, phase 2b, seat ruling M3 option A), for the reason
+// the `metric` registration above gives. The 2026-08-14 slot ruling
+// (objectstack#8593) is untouched: `{ type: 'metric-card', ... }` placed in a
+// dashboard's `widgets[]` is still the widget-slot spelling, and the surfaces
+// hand it to `SchemaRenderer` as `plugin-dashboard:metric-card`.
 ComponentRegistry.register(
   'metric-card',
   MetricCard,
   {
     namespace: 'plugin-dashboard',
+    skipFallback: true,
     label: 'Metric Card',
     category: 'Dashboard',
     inputs: [
@@ -392,25 +409,32 @@ ComponentRegistry.register(
   }
 );
 
-// Register dashboard grid layout component
-ComponentRegistry.register(
-  'dashboard-grid',
-  DashboardGridLayout,
-  {
-    namespace: 'plugin-dashboard',
-    label: 'Dashboard Grid (Editable)',
-    category: 'Complex',
-    icon: 'layout-grid',
-    inputs: [
-      { name: 'title', type: 'string' },
-      { name: 'className', type: 'string' }
-    ],
-    defaultProps: {
-        title: 'Dashboard',
-        widgets: [],
-    }
-  }
-);
+/**
+ * ⛔ The `dashboard-grid` node type key is RETIRED (objectui#10859 batch 8,
+ * phase 2b, the seat's ruling on that card, by the objectui#10393 /
+ * objectui#8760 route). `DashboardGridLayout` stays exported: a host that wants
+ * the drag/resize grid mounts the React component directly, as the README's
+ * "DashboardGridLayout — persisting drag / resize edits" section shows.
+ *
+ * ## What was here, and why it went
+ *
+ * `ComponentRegistry.register('dashboard-grid', DashboardGridLayout, {
+ * namespace: 'plugin-dashboard', ... })` — builder chrome published as a node
+ * key, storing both `plugin-dashboard:dashboard-grid` and the bare
+ * `dashboard-grid` fallback. No `@object-ui/types` arm claims it, so
+ * `objectui validate` refused a node authored `type: 'dashboard-grid'` at
+ * `type` while the registry mounted it.
+ *
+ * ## Why unregistering is the whole retirement
+ *
+ * Nothing wrote the node: 0 producers in source, docs, examples or the catalog
+ * and 0 runtime emission, re-measured for phase 2b (objectstack names it only
+ * as a host type in its own `sdui-parser` widget-options lint, a reader). The
+ * key leaves `dashboardComponents` below and the console's lazy stubs
+ * (`apps/console/src/register-plugins.ts`, `apps/console/src/preview-gallery.tsx`)
+ * in the same change, so no map or host keeps it alive. The dashboard's
+ * authorable node is `dashboard` (`DashboardRenderer`).
+ */
 
 // Register object-aware data table (async data loading)
 ComponentRegistry.register(
@@ -470,13 +494,18 @@ for (const retired of Object.keys(RETIRED_DASHBOARD_NODE_TYPES)) {
 // `*Components` maps); every value is the exact component the side-effect
 // import registers for that type, including the two internal
 // data-source-gate wrappers for the `object-*` types.
+//
+// objectui#10859 batch 8 (phase 2b): `metric` and `metric-card` register with
+// `skipFallback: true`, so the type each serves is its NAMESPACED key, and the
+// map says so — iterating it must not re-create the retired bare keys.
+// `dashboard-grid` is retired and gone from the map; `DashboardGridLayout`
+// stays a named export.
 export const dashboardComponents = {
   'dashboard': DashboardRenderer,
-  'metric': MetricWidget,
-  'metric-card': MetricCard,
+  'plugin-dashboard:metric': MetricWidget,
+  'plugin-dashboard:metric-card': MetricCard,
   'object-metric': ObjectMetricBlock,
   'pivot': PivotTable,
   'object-pivot': ObjectPivotBlock,
-  'dashboard-grid': DashboardGridLayout,
   'object-data-table': ObjectDataTable,
 };

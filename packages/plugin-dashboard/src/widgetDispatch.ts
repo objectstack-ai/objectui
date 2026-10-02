@@ -116,3 +116,43 @@ export function classifyWidgetType(widgetType: string | undefined): WidgetDispat
   if (UNSUPPORTED_CHART_TYPES.has(widgetType)) return { family: 'unsupported' };
   return { family: 'passthrough' };
 }
+
+/**
+ * The node key a dashboard surface hands `SchemaRenderer` for each component
+ * this package registers with `skipFallback: true` (objectui#10859 batch 8,
+ * phase 2b, seat ruling M3 option A).
+ *
+ * `metric` and `metric-card` are two vocabularies that happened to share one
+ * spelling: the dashboard WIDGET type (the spec's `ChartTypeSchema` value
+ * `metric`; the 2026-08-14 slot ruling's `metric-card`, objectstack#8593) and
+ * the internal NODE key the dashboard renders that widget through. The widget
+ * vocabulary is untouched. Only the node key moved: the registrations publish
+ * `plugin-dashboard:metric` / `plugin-dashboard:metric-card` and no bare
+ * fallback, so nothing authors a bare `metric` / `metric-card` NODE that the
+ * registry mounts while `objectui validate` refuses it at `type`.
+ *
+ * ⛔ Both surfaces (`DashboardRenderer`, `DashboardGridLayout`) emit through
+ * this table, so they cannot drift apart; a new `skipFallback` registration in
+ * this package that a widget can reach gets its row here in the same edit.
+ */
+export const DASHBOARD_NODE_TYPES: Readonly<Record<string, string>> = {
+  metric: 'plugin-dashboard:metric',
+  'metric-card': 'plugin-dashboard:metric-card',
+};
+
+/**
+ * `node` with its `type` moved onto the namespaced key {@link
+ * DASHBOARD_NODE_TYPES} names, or `node` itself when the type has no row.
+ *
+ * Applied where a surface forwards a node it did not build: the slot-component
+ * passthrough (`{ type: 'metric-card', ... }` directly in `widgets[]`) and an
+ * author-supplied `widget.component`. Both are widget-vocabulary positions,
+ * which keep their spelling; this is the boundary where the widget becomes a
+ * node.
+ */
+export function toDashboardNodeType<T>(node: T): T {
+  if (!node || typeof node !== 'object') return node;
+  const type = (node as { type?: unknown }).type;
+  const moved = typeof type === 'string' ? DASHBOARD_NODE_TYPES[type] : undefined;
+  return moved ? { ...node, type: moved } : node;
+}

@@ -71,6 +71,13 @@ the spec rejects it by name, so new documents author `label`. The retired
 
 ### Metric Card
 
+A `metric-card` is a dashboard widget-slot entry: it sits directly in a
+`dashboard`'s `widgets[]` (the closed component slot of the 2026-08-14 ruling),
+and the dashboard renders it as the `plugin-dashboard:metric-card` node. The
+bare `metric-card` NODE key is retired (objectui#10859), so a `metric-card`
+outside a dashboard's `widgets[]` renders nothing but the renderer's
+"Unknown component type" panel. Its keys:
+
 ```plaintext
 {
   type: 'metric-card',
@@ -95,26 +102,37 @@ import '@object-ui/plugin-dashboard';
 ### What the side-effect import registers
 
 That single import is the whole of registration — there is no components map to
-iterate over. Importing the entry runs the eight live `ComponentRegistry.register(...)`
+iterate over. Importing the entry runs the seven live `ComponentRegistry.register(...)`
 calls in `packages/plugin-dashboard/src/index.tsx`, which claim exactly these
 schema types. The keys below are read off those calls.
 
 | Namespaced key | Bare-name fallback | Renderer behind it |
 | --- | --- | --- |
 | `plugin-dashboard:dashboard` | `dashboard` | `DashboardRenderer` — the widget container |
-| `plugin-dashboard:metric` | `metric` | `MetricWidget` — one KPI value |
-| `plugin-dashboard:metric-card` | `metric-card` | `MetricCard` — KPI with trend and icon |
+| `plugin-dashboard:metric` | none — `skipFallback: true` | `MetricWidget` — one KPI value |
+| `plugin-dashboard:metric-card` | none — `skipFallback: true` | `MetricCard` — KPI with trend and icon |
 | `plugin-dashboard:object-metric` | `object-metric` | internal wrapper around `ObjectMetricWidget` — a metric aggregated over an object |
 | `plugin-dashboard:pivot` | `pivot` | `PivotTable` — pivot over rows you pass in |
 | `plugin-dashboard:object-pivot` | `object-pivot` | internal wrapper around `ObjectPivotTable` — pivot queried from an object |
-| `plugin-dashboard:dashboard-grid` | `dashboard-grid` | `DashboardGridLayout` — the drag/resize editable grid |
 | `plugin-dashboard:object-data-table` | `object-data-table` | `ObjectDataTable` — table queried from an object |
 
 `ComponentRegistry.register` publishes `namespace:type`, and — unless the call
 passes `skipFallback: true` — the bare `type` as a back-compat fallback
 (`packages/core/src/registry/Registry.ts:194`, fallback branch at `:226`). Every
-call behind the table above leaves `skipFallback` unset, so each type there
-resolves under both spellings; the schema snippets on this page use the bare one.
+call behind the table above leaves `skipFallback` unset except `metric` and
+`metric-card`, so each other type there resolves under both spellings; the schema
+snippets on this page use the bare one.
+
+`metric` and `metric-card` are two vocabularies that share a spelling: the
+dashboard WIDGET types (`widgets[].type: 'metric'`, and the `metric-card` slot
+entry above) and the internal NODE keys the dashboard renders them through. The
+widget types are unchanged. The node keys register with `skipFallback: true`
+(objectui#10859 batch 8), and both dashboard surfaces emit the namespaced keys, so
+only `plugin-dashboard:metric` / `plugin-dashboard:metric-card` resolve as nodes.
+
+`dashboard-grid` is no longer registered (objectui#10859 batch 8: builder chrome,
+with no producer and no runtime emitter). `DashboardGridLayout` is still exported;
+a host that wants the drag/resize grid mounts the component directly.
 
 ⛔ One further registration is deliberately absent from the table above. Until
 objectui#9533 the dashboard renderer was published as `view:dashboard`, while
@@ -154,11 +172,14 @@ ComponentRegistry.register('my-metric', MetricCard, {
 ```
 
 The package also exports a `dashboardComponents` object: the manual-integration
-map, keyed by the **same eight schema types** as the table above (objectui#5064
-re-keyed it from component class names). Each key maps to the exact component
+map, keyed by the **same seven schema types** as the table above (objectui#5064
+re-keyed it from component class names; since objectui#10859 batch 8 the `metric`
+and `metric-card` entries are keyed `plugin-dashboard:metric` /
+`plugin-dashboard:metric-card`, the type each serves, so iterating the map cannot
+re-create their retired bare keys). Each key maps to the exact component
 the import registers for that type — for the two `object-*` types that is the
 internal data-source-gate wrapper, not the exported widget. Iterating it with
-`ComponentRegistry.register(type, component)` therefore re-registers the eight
+`ComponentRegistry.register(type, component)` therefore re-registers the seven
 types the import has already claimed, which is still not the registration above:
 each such call passes no `meta`, so it trips the no-namespace deprecation
 warning in `register` (`packages/core/src/registry/Registry.ts:198`) and

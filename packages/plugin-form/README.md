@@ -38,7 +38,7 @@ const schema = {
 ### What the side-effect import registers
 
 There is no component map to iterate: registration is a side effect of importing
-the package entry, which makes six `ComponentRegistry.register(...)` calls. These
+the package entry, which makes five `ComponentRegistry.register(...)` calls. These
 are the schema types those calls claim, read off the calls themselves in
 `src/index.tsx`:
 
@@ -47,7 +47,6 @@ are the schema types those calls claim, read off the calls themselves in
 | `plugin-form:object-form` | `object-form` | `ObjectForm` — metadata-driven form over one record |
 | `view:form` | none | the same renderer under the view protocol |
 | `plugin-form:embeddable-form` | `embeddable-form` | `EmbeddableForm` — standalone public form |
-| `plugin-form:form-analytics` | `form-analytics` | `FormAnalytics` — submission dashboard |
 | `plugin-form:object-master-detail-form` | `object-master-detail-form` | `MasterDetailForm` — parent + child line items in one submit |
 | `record:line_items` | none | `LineItemsPanel` — child grid bound to the record on the page |
 
@@ -56,6 +55,10 @@ for backwards compatibility, unless the call passes `skipFallback: true`
 (`@object-ui/core`, `src/registry/Registry.ts`). Two calls here do: bare `form`
 stays the basic `@object-ui/components` form, and bare `line_items` is left to
 whoever else claims it.
+
+The `form-analytics` node key is RETIRED (objectui#10859 batch 8): no schema
+produced it, and `objectui validate` refused it at `type`. `FormAnalytics` is still
+exported (see below); mount the component directly.
 
 ### Public exports
 

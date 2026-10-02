@@ -7,99 +7,60 @@
  */
 
 /**
- * objectui#4614 — the same guarantee, one level out: through the SDUI registry.
+ * objectui#4614, one level out — and objectui#10859 batch 8, which removed that
+ * level.
  *
- * `DashboardGridLayout.datasetPath.test.tsx` renders the component directly.
- * This file renders it the way a schema-driven host does — as the registered
- * `dashboard-grid` component type, resolved by `SchemaRenderer` from the schema
- * (`index.tsx:271-289`) — because that registration is the surface the card was
- * filed against, and the new `dataSource` prop is only useful if it survives the
- * trip through the renderer loop.
+ * Until objectui#10859 batch 8 (phase 2b) this file rendered
+ * `DashboardGridLayout` the way a schema-driven host did: as the registered
+ * `dashboard-grid` component type, resolved by `SchemaRenderer`. That key is now
+ * RETIRED by unregistration (the seat's ruling on objectui#10859: builder
+ * chrome, 0 producers, 0 runtime emission), so there is no SDUI trip left to
+ * pin. What #4614 guarantees about the component itself — the visible dataset
+ * diagnostic, the `dataSource` prop reaching the dataset query, static-data
+ * widgets left on their path — is pinned where the component is mounted
+ * directly, in `DashboardGridLayout.datasetPath.test.tsx`.
  *
- * Two directions, both load-bearing and neither visible from the component-level
- * suite:
- *
- * 1. **No `dataSource` passed.** `dashboard-grid` declares only `title` and
- *    `className` inputs, so this is what schema-driven hosts actually render.
- *    Adding an optional prop must not break them, and a dataset-bound widget
- *    arriving this way must still say something visible rather than draw a blank
- *    tile.
- * 2. **`dataSource` passed to `SchemaRenderer`.** It reaches `DatasetWidget`
- *    only because `SchemaRenderer` forwards every prop it does not itself read
- *    to the resolved component (`...props`, spread last — `SchemaRenderer.tsx:632`).
- *    That is also why the spec's per-element `dataSource` BINDING is stripped
- *    from the schema before that spread (`SchemaRenderer.tsx:564-575`,
- *    objectstack#5576): the binding and the adapter share a name, and the
- *    adapter is the one that must win. Nothing else in this repo pins that
- *    interaction for this component.
+ * What this file pins instead is the retirement's observable half: a stored
+ * node that still says `type: 'dashboard-grid'` gets the renderer's visible
+ * "Unknown component type" refusal — never a silent grid — while the
+ * dashboard's authorable node, `dashboard`, still renders the same widget.
  *
  * The registries are imported at module scope, never in a hook (AGENTS.md
- * 测试纪律, objectui#3010). `../index` is what registers `dashboard-grid` itself.
+ * 测试纪律, objectui#3010).
  */
 
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, afterEach } from 'vitest';
 import React from 'react';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, cleanup } from '@testing-library/react';
 import { SchemaRenderer } from '@object-ui/react';
+import { ComponentRegistry } from '@object-ui/core';
 import '@object-ui/components';
 import '@object-ui/plugin-charts';
 import '../index';
 
 afterEach(cleanup);
 
-/**
- * `dataset` / `values` are ADR-0021 authoring keys the bundled
- * `DashboardComponentSchema` does not carry yet, and `dashboard-grid` is
- * resolved by type name at runtime — so the node is built as the stored
- * metadata it represents.
- */
-const gridSchema = (widget: Record<string, unknown>) =>
-  ({ type: 'dashboard-grid', widgets: [widget] }) as unknown as Parameters<typeof SchemaRenderer>[0]['schema'];
+type StoredNode = Parameters<typeof SchemaRenderer>[0]['schema'];
 
-describe('dashboard-grid via the SDUI registry (#4614)', () => {
-  it('renders the visible dataset diagnostic when the host passes no dataSource', async () => {
-    // The registration's own shape: no adapter input is declared, so this is
-    // the default schema-driven path — and it must not be a blank tile.
-    render(<SchemaRenderer schema={gridSchema({ id: 'w1', type: 'bar', dataset: 'invoices', dimensions: ['status'], values: ['count'] })} />);
-    const message = await screen.findByText('This data source does not support dataset queries.');
-    expect(message).toBeInTheDocument();
-    expect(message.closest('[role="alert"]')).not.toBeNull();
-    // The grid itself still rendered — the diagnostic is inside it, not instead
-    // of it, so schema-driven usage is intact rather than merely failing loudly.
-    expect(screen.getByTestId('grid-layout')).toBeInTheDocument();
+const STATIC_WIDGET = { id: 'w1', type: 'bar', title: 'Static bars', options: { data: [{ name: 'A', value: 1 }] } };
+
+describe('dashboard-grid is retired from the SDUI registry (objectui#10859 batch 8)', () => {
+  it('is registered under neither spelling', () => {
+    // Lit control: the authorable dashboard node is still registered.
+    expect(ComponentRegistry.has('dashboard')).toBe(true);
+    expect(ComponentRegistry.has('dashboard-grid')).toBe(false);
+    expect(ComponentRegistry.has('plugin-dashboard:dashboard-grid')).toBe(false);
   });
 
-  it('forwards a dataSource given to SchemaRenderer all the way to the dataset query', async () => {
-    const src = {
-      queryDataset: vi.fn(async () => ({
-        rows: [{ invoice_count: 42 }],
-        fields: [{ name: 'invoice_count', type: 'number', label: 'Invoices' }],
-      })),
-    };
-    render(
-      <SchemaRenderer
-        schema={gridSchema({ id: 'w1', type: 'metric', dataset: 'invoices', values: ['invoice_count'] })}
-        dataSource={src}
-      />,
-    );
-    await waitFor(() =>
-      expect(src.queryDataset).toHaveBeenCalledWith('invoices', { dimensions: [], measures: ['invoice_count'] }),
-    );
-    expect(await screen.findByText('42')).toBeInTheDocument();
+  it('a stored dashboard-grid node draws the visible unknown-type refusal, not a grid', async () => {
+    render(<SchemaRenderer schema={{ type: 'dashboard-grid', widgets: [STATIC_WIDGET] } as unknown as StoredNode} />);
+    expect(await screen.findByText(/Unknown component type/)).toBeInTheDocument();
+    expect(screen.queryByTestId('grid-layout')).toBeNull();
   });
 
-  it('leaves a static-data widget on its existing path when rendered through the registry', async () => {
-    // The registration must keep behaving exactly as it did for every widget
-    // shape that already worked.
-    const src = { queryDataset: vi.fn(async () => ({ rows: [] })) };
-    render(
-      <SchemaRenderer
-        schema={gridSchema({ id: 'w1', type: 'bar', options: { data: [{ name: 'A', value: 1 }] } })}
-        dataSource={src}
-      />,
-    );
-    expect(await screen.findByTestId('grid-layout')).toBeInTheDocument();
-    expect(src.queryDataset).not.toHaveBeenCalled();
-    expect(screen.queryByText(/does not support dataset queries/)).not.toBeInTheDocument();
+  it('control: the same widget under the authorable `dashboard` node renders', async () => {
+    render(<SchemaRenderer schema={{ type: 'dashboard', widgets: [STATIC_WIDGET] } as unknown as StoredNode} />);
+    expect(await screen.findByText('Static bars')).toBeInTheDocument();
+    expect(screen.queryByText(/Unknown component type/)).toBeNull();
   });
 });

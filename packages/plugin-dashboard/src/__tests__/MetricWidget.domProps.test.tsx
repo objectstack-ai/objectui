@@ -116,7 +116,7 @@ function attributeNames(el: HTMLElement): string[] {
 describe('MetricWidget / MetricCard — schema-shaped props stay off the DOM (#4357)', () => {
   it('(a) MetricWidget: the metric container carries no stringified schema', () => {
     const { container } = renderSchema({
-      type: 'metric',
+      type: 'plugin-dashboard:metric',
       label: 'Total Revenue',
       value: 1930000,
       ...SCHEMA_METADATA,
@@ -130,7 +130,7 @@ describe('MetricWidget / MetricCard — schema-shaped props stay off the DOM (#4
 
   it('(b) MetricCard: same, through its own registry type', () => {
     const { container } = renderSchema({
-      type: 'metric-card',
+      type: 'plugin-dashboard:metric-card',
       title: 'Total Revenue',
       value: 1930000,
       ...SCHEMA_METADATA,
@@ -142,8 +142,8 @@ describe('MetricWidget / MetricCard — schema-shaped props stay off the DOM (#4
 
   it('(c) neither component emits any of the seven measured non-DOM props', () => {
     for (const schema of [
-      { type: 'metric', label: 'Total Revenue', value: 1930000, ...SCHEMA_METADATA, props: { colorVariant: 'success' } },
-      { type: 'metric-card', title: 'Total Revenue', value: 1930000, ...SCHEMA_METADATA, props: {} },
+      { type: 'plugin-dashboard:metric', label: 'Total Revenue', value: 1930000, ...SCHEMA_METADATA, props: { colorVariant: 'success' } },
+      { type: 'plugin-dashboard:metric-card', title: 'Total Revenue', value: 1930000, ...SCHEMA_METADATA, props: {} },
     ]) {
       const { container } = renderSchema(schema);
       const names = attributeNames(card(container));
@@ -183,7 +183,8 @@ describe('MetricWidget / MetricCard — schema-shaped props stay off the DOM (#4
       </I18nProvider>,
     );
 
-    const tile = container.querySelector('[data-obj-type="metric"]');
+    // The node key the dashboard emits since objectui#10859 batch 8 (phase 2b).
+    const tile = container.querySelector('[data-obj-type="plugin-dashboard:metric"]');
     if (!tile) throw new Error('metric tile not rendered');
 
     // Case (d) renders the same dashboard with no adapter and cannot see this:
@@ -196,7 +197,7 @@ describe('MetricWidget / MetricCard — schema-shaped props stay off the DOM (#4
 
   it('(e) genuine DOM / aria passthrough survives — the spread is not removed', () => {
     const { container } = renderSchema({
-      type: 'metric',
+      type: 'plugin-dashboard:metric',
       label: 'Total Revenue',
       value: 1930000,
       ...SCHEMA_METADATA,
@@ -211,13 +212,13 @@ describe('MetricWidget / MetricCard — schema-shaped props stay off the DOM (#4
     expect(el.getAttribute('aria-label')).toBe('Revenue KPI');
     expect(el.getAttribute('aria-describedby')).toBe('desc-1');
     expect(el.getAttribute('data-obj-id')).toBe('revenue');
-    expect(el.getAttribute('data-obj-type')).toBe('metric');
+    expect(el.getAttribute('data-obj-type')).toBe('plugin-dashboard:metric');
     expect(el.className).toContain('kpi-tile');
   });
 
   it('(f) rendered output is otherwise byte-identical — label and formatted value', () => {
     const { container } = renderSchema({
-      type: 'metric',
+      type: 'plugin-dashboard:metric',
       label: 'Total Revenue',
       value: 1930000,
       ...SCHEMA_METADATA,

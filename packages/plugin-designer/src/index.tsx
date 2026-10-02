@@ -131,48 +131,31 @@ ComponentRegistry.register('report-designer', ReportDesigner, {
   ],
 });
 
-ComponentRegistry.register('app-creation-wizard', AppCreationWizard, {
-  namespace: 'plugin-designer',
-  label: 'App Creation Wizard',
-  category: 'Designer',
-  inputs: [
-    { name: 'availableObjects', type: 'code' },
-    { name: 'templates', type: 'code' },
-    { name: 'readOnly', type: 'boolean' },
-  ],
-});
-
-ComponentRegistry.register('navigation-designer', NavigationDesigner, {
-  namespace: 'plugin-designer',
-  label: 'Navigation Designer',
-  category: 'Designer',
-  inputs: [
-    { name: 'items', type: 'code' },
-    { name: 'showPreview', type: 'boolean' },
-    { name: 'readOnly', type: 'boolean' },
-  ],
-});
-
-ComponentRegistry.register('dashboard-editor', DashboardEditor, {
-  namespace: 'plugin-designer',
-  label: 'Dashboard Editor',
-  category: 'Designer',
-  inputs: [
-    { name: 'schema', type: 'code' },
-    { name: 'readOnly', type: 'boolean' },
-  ],
-});
-
-ComponentRegistry.register('branding-editor', BrandingEditor, {
-  namespace: 'plugin-designer',
-  label: 'Branding Editor',
-  category: 'Designer',
-  inputs: [
-    { name: 'branding', type: 'code' },
-    { name: 'appTitle', type: 'string' },
-    { name: 'readOnly', type: 'boolean' },
-  ],
-});
+/**
+ * ⛔ Four node type keys are RETIRED here (objectui#10859 batch 8, phase 2b,
+ * the seat's ruling on that card, by the objectui#10393 / objectui#8760
+ * route): `app-creation-wizard`, `navigation-designer`, `dashboard-editor` and
+ * `branding-editor`. `AppCreationWizard`, `NavigationDesigner`,
+ * `DashboardEditor` and `BrandingEditor` stay named exports of this package.
+ *
+ * ## What was here, and why it went
+ *
+ * One `ComponentRegistry.register(KEY, Component, { namespace:
+ * 'plugin-designer', category: 'Designer', ... })` per key — builder chrome
+ * published as node keys, each storing `plugin-designer:KEY` and the bare
+ * `KEY` fallback. No `@object-ui/types` arm claims any of them, so
+ * `objectui validate` refused a node authored with one of these types at
+ * `type` while the registry mounted it.
+ *
+ * ## Why unregistering is the whole retirement
+ *
+ * Nothing wrote the nodes: 0 occurrences of any of the four as a node type in
+ * source, docs, examples, the catalog or objectstack, and 0 runtime emission,
+ * re-measured for phase 2b. The React components are mounted directly
+ * wherever they are used, so no host loses a path. The designer registrations
+ * around this block (`page-designer`, `object-manager` and the rest) are not
+ * part of this retirement.
+ */
 
 ComponentRegistry.register('object-manager', ObjectManager, {
   namespace: 'plugin-designer',

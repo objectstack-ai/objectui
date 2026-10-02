@@ -41,3 +41,9 @@ key (the spec's `I18nLabel`) on a different receiver, and is untouched — widge
 the designer's widget-title input and its per-locale write path all behave exactly as
 before. Root and widget arms were separated by receiver, and the retirement's pins carry
 widget-level controls on every surface for that reason.
+
+⚠️ **Dated note, 2026-10-02 — the `dashboard-grid` node key is retired — objectui#10859.**
+Later in this same release objectui#10859 batch 8 (phase 2b) unregistered the `dashboard-grid`
+node key, so `DashboardGridLayout` is no longer an SDUI component; the heading rule above holds
+for it wherever a host mounts it directly. The rest of this entry is kept as the reading of this
+change.

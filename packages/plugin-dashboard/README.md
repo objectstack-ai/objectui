@@ -66,26 +66,36 @@ const schema = {
 ### What the side-effect import registers
 
 That single import is the whole of registration — there is no components map to
-iterate over. Importing the entry runs the eight live `ComponentRegistry.register(...)`
+iterate over. Importing the entry runs the seven live `ComponentRegistry.register(...)`
 calls in `src/index.tsx`, which claim exactly these schema types. The keys below
 are read off those calls:
 
 | Namespaced key | Bare-name fallback | Renderer behind it |
 | --- | --- | --- |
 | `plugin-dashboard:dashboard` | `dashboard` | `DashboardRenderer` — the widget container |
-| `plugin-dashboard:metric` | `metric` | `MetricWidget` — one KPI value |
-| `plugin-dashboard:metric-card` | `metric-card` | `MetricCard` — KPI with trend and icon |
+| `plugin-dashboard:metric` | none — `skipFallback: true` | `MetricWidget` — one KPI value |
+| `plugin-dashboard:metric-card` | none — `skipFallback: true` | `MetricCard` — KPI with trend and icon |
 | `plugin-dashboard:object-metric` | `object-metric` | internal wrapper around `ObjectMetricWidget` — aggregates over an object |
 | `plugin-dashboard:pivot` | `pivot` | `PivotTable` — pivot over rows you pass in |
 | `plugin-dashboard:object-pivot` | `object-pivot` | internal wrapper around `ObjectPivotTable` — pivot queried from an object |
-| `plugin-dashboard:dashboard-grid` | `dashboard-grid` | `DashboardGridLayout` — the drag/resize editable grid |
 | `plugin-dashboard:object-data-table` | `object-data-table` | `ObjectDataTable` — table queried from an object |
 
 `ComponentRegistry.register` publishes `namespace:type`, and — unless the call
 passes `skipFallback: true` — the bare `type` as a back-compat fallback
 (`packages/core/src/registry/Registry.ts:194`, fallback branch at `:226`). Every
-call behind the table above leaves `skipFallback` unset, so each type there
-resolves under both spellings. The two `object-*` types are served by internal wrappers that
+call behind the table above leaves `skipFallback` unset except `metric` and
+`metric-card`, so each other type there resolves under both spellings.
+
+`metric` and `metric-card` are two vocabularies that share a spelling: the
+dashboard WIDGET types (`widgets[].type: 'metric'`, and the `metric-card` slot
+entry) and the internal NODE keys the dashboard renders them through. The widget
+types are unchanged. The node keys register with `skipFallback: true`
+(objectui#10859 batch 8), and both dashboard surfaces emit the namespaced keys, so
+only `plugin-dashboard:metric` / `plugin-dashboard:metric-card` resolve as nodes.
+
+`dashboard-grid` is no longer registered (objectui#10859 batch 8: builder chrome,
+with no producer and no runtime emitter). `DashboardGridLayout` is still exported;
+mount it directly (see "DashboardGridLayout — persisting drag / resize edits"). The two `object-*` types are served by internal wrappers that
 first resolve the spec's per-element `dataSource` binding (through
 `ElementDataSourceGate` from `@object-ui/react`) and then render the exported
 component, which is why those rows name a wrapper rather than an export.
@@ -121,11 +131,14 @@ ComponentRegistry.register('my-metric', MetricCard, {
 ```
 
 There is also a `dashboardComponents` export: the manual-integration map, keyed
-by the **same eight schema types** as the table above (objectui#5064 re-keyed it
-from component class names). Each key maps to the exact component the import
+by the **same seven schema types** as the table above (objectui#5064 re-keyed it
+from component class names; since objectui#10859 batch 8 the `metric` and
+`metric-card` entries are keyed `plugin-dashboard:metric` /
+`plugin-dashboard:metric-card`, the type each serves, so iterating the map cannot
+re-create their retired bare keys). Each key maps to the exact component the import
 registers for that type — for the two `object-*` types that is the internal
 data-source-gate wrapper, not the exported widget. Iterating it with
-`ComponentRegistry.register(type, component)` therefore re-registers the eight
+`ComponentRegistry.register(type, component)` therefore re-registers the seven
 types the import has already claimed, which is still not the manual registration
 above: each such call passes no `meta`, so it trips the no-namespace deprecation
 warning in `register` (`packages/core/src/registry/Registry.ts:198`) and
@@ -157,19 +170,21 @@ const schema: DashboardComponentSchema = {
 
 ### Metric Card
 
-Display a single metric or KPI:
+Display a single metric or KPI as a dashboard widget-slot entry:
 
 ```typescript
 import type { ComponentProps } from 'react';
 import { MetricCard } from '@object-ui/plugin-dashboard';
 
-// A `metric-card` node's keys besides `type` are `MetricCard`'s own props. That
-// props interface is not on this package's export surface (see "TypeScript
-// Support" below), so they are read off the shipped component rather than
-// restated here — a renamed or retyped prop stops this block compiling.
-type MetricCardNode = { type: 'metric-card' } & ComponentProps<typeof MetricCard>;
+// A `metric-card` entry sits directly in a dashboard's `widgets[]` — the closed
+// component slot of the 2026-08-14 ruling. Its keys besides `type` are
+// `MetricCard`'s own props. That props interface is not on this package's export
+// surface (see "TypeScript Support" below), so they are read off the shipped
+// component rather than restated here — a renamed or retyped prop stops this
+// block compiling.
+type MetricCardEntry = { type: 'metric-card' } & ComponentProps<typeof MetricCard>;
 
-const card: MetricCardNode = {
+const card: MetricCardEntry = {
   type: 'metric-card',
   title: 'Total Sales',
   value: '$123,456',
@@ -179,7 +194,13 @@ const card: MetricCardNode = {
   description: 'vs last month',
   className: 'col-span-2',
 };
+
+const schema = { type: 'dashboard', widgets: [card] };
 ```
+
+The dashboard renders the entry as the `plugin-dashboard:metric-card` node. The
+bare `metric-card` NODE key is retired (objectui#10859), so a `metric-card`
+outside a dashboard's `widgets[]` renders the "Unknown component type" panel.
 
 `value` is the only required key. `title` and `description` take a plain string
 or the spec's inline per-locale map (`I18nLabel`).
@@ -656,10 +677,15 @@ All components support Tailwind CSS classes:
 
 ```typescript
 const schema = {
-  type: 'metric-card',
-  title: 'Custom Metric',
-  value: '100',
-  className: 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
+  type: 'dashboard',
+  widgets: [
+    {
+      type: 'metric-card',
+      title: 'Custom Metric',
+      value: '100',
+      className: 'bg-gradient-to-r from-blue-500 to-purple-600 text-white'
+    }
+  ]
 };
 ```
 
@@ -761,7 +787,8 @@ server does not translate them.
 
 ## DashboardGridLayout — persisting drag / resize edits
 
-`DashboardGridLayout` (registered as schema `type: 'dashboard-grid'`) has an
+`DashboardGridLayout` (a React component you mount directly; its old schema
+`type: 'dashboard-grid'` was retired by objectui#10859) has an
 inline **"Edit Layout"** mode that lets users drag and resize widgets via
 `react-grid-layout`. When the user clicks **Save Layout**, the new grid
 coordinates are merged back into `schema.widgets[].layout` and handed off

@@ -125,11 +125,6 @@ type _PublicBlocksUnchanged = Assert<
   Equal<PublicBlockNode, ShapeOnlyArmInput<(typeof PublicBlockComponentSchema)['options'][number]>>
 >;
 
-// 5. Every new node type is accepted where `SchemaRenderer` takes a schema, after the removal too.
-type _EveryCarrierFitsThePostRemovalProp = Assert<
-  ObjectQLPublicBlockNode | FlexBlockNode extends PostRemovalSchema ? true : false
->;
-
 describe('objectui#11468: the authored properties-bag carriers have a TypeScript authoring face', () => {
   it('object-map: the spec row is the bag, a misspelled bag key and a flat prop are refused, after the removal', () => {
     const spelled: PostRemovalSchema = {
@@ -157,8 +152,10 @@ describe('objectui#11468: the authored properties-bag carriers have a TypeScript
     const nodeChildren: FlexBlockNode = { type: 'flex', children: [] };
     // @ts-expect-error `body` is refused toward `properties.children`
     const body: FlexBlockNode = { type: 'flex', body: [] };
-    const asProp: PostRemovalSchema = box;
-    expect([box, misspelled, flat, nodeChildren, body, asProp]).toHaveLength(6);
+    // An inline literal where `SchemaRenderer` takes a schema compiles after the removal, through
+    // `AuthoringNode` (a typed constant like `box` would fit `BaseSchema` structurally either way).
+    const inline: PostRemovalSchema = { type: 'flex', properties: { direction: 'row', gap: 2 } };
+    expect([box, misspelled, flat, nodeChildren, body, inline]).toHaveLength(6);
   });
 
   it('object-chart: the bag is closed, though it is no spec row', () => {

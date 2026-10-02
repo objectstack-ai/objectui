@@ -38,3 +38,5 @@ does needs to narrow first. Once objectui#8347 removes the index signature,
 a key misspelled inside one of these nodes' bags is refused, and the spec's
 spelling compiles. None of these types carries an index signature, and the
 prop gains none.
+
+⚠️ **Dated note, 2026-10-02 — the prop takes the declared-node union — objectui#11466.** At this change `SchemaRendererProps.schema` was `BaseSchema | AuthoringNode | string | null | undefined`, and every value the old union accepted was still accepted; now, later in this same release, it is `DeclaredNode | string | null | undefined`. `DeclaredNode` (`@object-ui/types`) is the union, keyed by `type`, of the component schemas `AnySchema` declares (without its `BaseSchema` arm and without the app-level document `AppComponentSchema`), `AuthoringNode`, and the types an application declares in `CustomNodeRegistry`, so a value typed `BaseSchema` or a `type` nothing declares is refused. `PageDocumentNode` admits every page kind but the interface-mode `list`. The rest of this entry is kept as the reading of this change.

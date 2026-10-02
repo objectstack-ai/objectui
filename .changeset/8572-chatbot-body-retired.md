@@ -123,3 +123,5 @@ collision awaiting a ruling" and now records that the ruling landed for one of t
 chatbot faces. A third — `7655-chatbot-registration-authoring-faces.md` — says the twins
 "do not copy `ChatbotSchema`'s `body` naming collision"; that sentence's claim about the
 TWINS is still true and is left alone, and the collision it names is the one retired here.
+
+⚠️ **Dated note, 2026-10-02 — the node-recursion pin reads a measured set — objectui#11466.** At this change `ArmsNotAssignableToSchemaNode` read `never`; now, later in this same release, `SchemaNode`'s object arm is `DeclaredNode`, which has no `type: string` arm, so the pin reads the arms whose zod output no declared node type admits, written out in `node-recursion-point-8344.test.ts` as a measured set with a reason per arm, and the empty-set guard was replaced by a distributive projection. The rest of this entry is kept as the reading of this change.

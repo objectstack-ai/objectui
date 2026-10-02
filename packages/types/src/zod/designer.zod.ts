@@ -376,7 +376,7 @@ export const BPMNNodeSchema = z.object({
     'BPMNNode',
     'serviceEndpoint',
     'a service task references an implementation, not an endpoint URL, and `ProcessDesigner` never read it.',
-    'delete the key; keep implementation details in `properties`.',
+    'delete the key; there is nothing to configure in its place.',
   ),
   description: z.string().optional().describe('Description'),
 });
@@ -522,7 +522,7 @@ export const ObjectDefinitionSchema = z.object({
   relationships: retiredDesignerMember(
     'ObjectDefinition',
     'relationships',
-    "a relationship is a field, not an object-level list — `@objectstack/spec`'s `ObjectSchema` refuses this array by name — and nothing read it.",
+    "a relationship is a field, not an object-level list — `@objectstack/spec`'s `ObjectSchema` refuses this array as an unrecognized key — and nothing read it.",
     'declare the relationship on the referencing field (a `lookup` or `master_detail` field whose `referenceTo` names the related object), and delete the key.',
   ),
 });
@@ -575,7 +575,7 @@ export const DesignerFieldDefinitionSchema = z.object({
   validationRules: retiredDesignerMember(
     'DesignerFieldDefinition',
     'validationRules',
-    "`@objectstack/spec`'s `FieldSchema` refuses this spelling by name, no editor offered it and no converter carried it.",
+    "`@objectstack/spec`'s `FieldSchema` refuses this spelling as an unrecognized key, no editor offered it and no converter carried it.",
     "put bounds on the field as `min` / `max` / `minLength` / `maxLength` in the field metadata and any other rule in the object's `validations`, and delete the key.",
   ),
   isSystem: z.boolean().optional().describe('Whether this is a system field'),

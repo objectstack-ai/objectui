@@ -95,10 +95,11 @@ export interface ObjectMetadataPayload {
   fields?: Record<string, FieldMetadataPayload>;
   // No `relationships` (objectui#6223): the spec models relationships on the
   // FIELD — `reference` / `master_detail` plus object-level `indexes` — and
-  // `ObjectSchema` refuses an object-level `relationships` array by name. This
-  // shape stopped putting the key on the wire there; objectui#11434 then retired
-  // `ObjectDefinition.relationships` from the UI model too (a `?: never`
-  // tombstone), so a relationship is authored as a reference field.
+  // `ObjectSchema` refuses an object-level `relationships` array as an
+  // unrecognized key. This shape stopped putting the key on the wire there;
+  // objectui#11434 then retired `ObjectDefinition.relationships` from the UI
+  // model too (a `?: never` tombstone), so a relationship is authored as a
+  // reference field.
 }
 
 /** Shape written to the metadata API for a field definition. */
@@ -161,9 +162,9 @@ export interface FieldMetadataPayload {
  *
  * `ObjectDefinition` carries two keys that deliberately do NOT cross into the
  * payload (objectui#6223): `group` and `sortOrder` are the Object Manager's own
- * display category and display order. `ObjectSchema` refuses both BY NAME, so
- * copying them across is what turned a designer save into a 422. The UI model
- * keeps them; the wire shape does not. A third, `relationships`, has no
+ * display category and display order. `ObjectSchema` refuses both as
+ * unrecognized keys, so copying them across is what turned a designer save
+ * into a 422. The UI model keeps them; the wire shape does not. A third, `relationships`, has no
  * object-level home in the spec either: objectui#6223 kept it off the wire, and
  * objectui#11434 retired it from the UI model as well. The explicit field list
  * below is what keeps a value handed in from outside the type system off the

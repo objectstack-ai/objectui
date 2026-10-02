@@ -30,11 +30,12 @@
  *   - `BPMNNode.serviceEndpoint` — a service task references an
  *     implementation, not a URL;
  *   - `ObjectDefinition.relationships` — a relationship is a field;
- *     `@objectstack/spec`'s `ObjectSchema` refuses the array by name. Its
- *     element type `ObjectDefinitionRelationship` left the package with it;
+ *     `@objectstack/spec`'s `ObjectSchema` refuses the array as an
+ *     unrecognized key. Its element type `ObjectDefinitionRelationship` left
+ *     the package with it;
  *   - `DesignerFieldDefinition.validationRules` — a spelling the spec's
- *     `FieldSchema` refuses by name. Its element type `DesignerValidationRule`
- *     left the package with it.
+ *     `FieldSchema` refuses as an unrecognized key. Its element type
+ *     `DesignerValidationRule` left the package with it.
  *
  * Each is a `?: never` tombstone on the TypeScript face and a
  * `retirementTombstone` on the zod face, whose refusal names the key, the card

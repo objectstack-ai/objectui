@@ -385,8 +385,7 @@ export interface BPMNNode {
    * and without it), and nothing in this repository or in ObjectStack authored
    * it.
    *
-   * **Instead:** delete the key. Keep implementation details in `properties`
-   * until a spec-shaped implementation reference is decided.
+   * **Instead:** delete the key; there is nothing to configure in its place.
    *
    * A tombstone rather than a deletion so the compile-time refusal names the
    * key; the zod mirror refuses it by name (`retirementTombstone`).
@@ -946,10 +945,10 @@ export interface ObjectDefinition {
   /**
    * RETIRED (objectui#11434, ADR-0049) — a relationship is a FIELD, not an
    * object-level list. `@objectstack/spec`'s `ObjectSchema` refuses an
-   * object-level `relationships` array by name (objectui#6223 already kept it
-   * off the wire), the spec models a relationship as a `lookup` /
-   * `master_detail` field with a `reference`, and this designer's field model
-   * carries that as {@link DesignerFieldDefinition.referenceTo}. Nothing read
+   * object-level `relationships` array as an unrecognized key (objectui#6223
+   * already kept it off the wire), the spec models a relationship as a
+   * `lookup` / `master_detail` field with a `reference`, and this designer's
+   * field model carries that as {@link DesignerFieldDefinition.referenceTo}. Nothing read
    * this list — not `ObjectManager`, not `MetadataObjectsPage` (whose
    * `toObjectDefinition` never set it), not `MetadataService` — and only test
    * fixtures authored it.
@@ -1140,9 +1139,9 @@ export interface DesignerFieldDefinition {
   /**
    * RETIRED (objectui#11434, ADR-0049) — a spelling the platform refuses, with
    * no reader and no producer. `@objectstack/spec`'s `FieldSchema` refuses
-   * `validationRules` by name; the spec carries numeric and length bounds as
-   * the field's own `min` / `max` / `minLength` / `maxLength` keys and every
-   * other rule as an entry of the OBJECT's `validations` list, which is also
+   * `validationRules` as an unrecognized key; the spec carries numeric and
+   * length bounds as the field's own `min` / `max` / `minLength` /
+   * `maxLength` keys and every other rule as an entry of the OBJECT's `validations` list, which is also
    * where mainstream platforms keep validation rules. `FieldDesigner` never
    * offered an editor for it, and no converter carried it: `toDesignerField`
    * never set it, and neither `fromDesignerField` nor

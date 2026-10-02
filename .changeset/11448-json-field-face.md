@@ -18,6 +18,12 @@ number, a string, a boolean or `null`. The grid and detail-panel inline editors
 keep editing `json` in place, now with the same face. `code` is unchanged: it stays
 the raw-text editor and saves its text.
 
+The action-parameter dialogs resolve a param's widget through the same alias
+table, so a `json`-typed action parameter (or one backed by a `json` field) now
+edits with the JSON editor too and **posts the parsed value instead of the text**
+— `{ "a": 1 }` arrives as an object, no longer as the string `'{"a":1}'`. An
+endpoint that parsed the text itself receives the value already parsed.
+
 Three fixes to `ObjectField` itself come with it, so they also reach `object`,
 `composite` and `record`:
 

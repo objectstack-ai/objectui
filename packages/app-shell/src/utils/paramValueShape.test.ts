@@ -86,6 +86,9 @@ describe('expectedParamShape — pinned endpoint contracts', () => {
     ['text → string', { type: 'text' }, 'string'],
     ['color → string', { type: 'color' }, 'string'],
     ['code → string', { type: 'code' }, 'string'],
+    // objectui#11448: `json` resolves to the JSON editor and posts the PARSED
+    // value; it used to resolve to the code editor and post the text.
+    ['json → object (the parsed value, not the text)', { type: 'json' }, 'object'],
 
     // Selection
     ['select → string', { type: 'select' }, 'string'],

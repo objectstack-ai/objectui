@@ -116,7 +116,7 @@ export const PARAM_VALUE_SHAPES: Readonly<Record<string, ParamValueShapeSpec>> =
   markdown: { base: 'string', cardinality: 'scalar', note: 'Markdown source string (RichTextField).' },
   html: { base: 'string', cardinality: 'scalar', note: 'HTML source string (RichTextField).' },
   richtext: { base: 'string', cardinality: 'scalar', note: 'Rich-text source string.' },
-  code: { base: 'string', cardinality: 'scalar', note: 'Code/JSON source string (json alias resolves here).' },
+  code: { base: 'string', cardinality: 'scalar', note: 'Code source string.' },
   color: { base: 'string', cardinality: 'scalar', note: 'Hex color string (e.g. #8B5CF6).' },
   avatar: { base: 'string', cardinality: 'scalar', note: 'Data-URL / base64 image string.' },
   signature: { base: 'string', cardinality: 'scalar', note: 'Signature data-URL string.' },
@@ -160,7 +160,7 @@ export const PARAM_VALUE_SHAPES: Readonly<Record<string, ParamValueShapeSpec>> =
   image: { base: 'string', cardinality: 'scalar|array', note: 'fileId string after serialize; multiple → fileId[]. Same descriptor→id serialization as file.' },
 
   // Structured object values (stored as JSON on the row)
-  object: { base: 'object', cardinality: 'scalar', note: 'Parsed JSON object (null when empty).' },
+  object: { base: 'object', cardinality: 'scalar', note: 'Parsed JSON value (null when empty); the json alias resolves here (objectui#11448).' },
   location: { base: 'object', cardinality: 'scalar', note: '{ latitude, longitude } object.' },
   address: { base: 'object', cardinality: 'scalar', note: 'Structured address object.' },
   geolocation: { base: 'object', cardinality: 'scalar', note: '{ latitude, longitude, … } object.' },

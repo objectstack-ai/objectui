@@ -299,6 +299,32 @@ export const SeparatorSchema = BaseSchema.extend({
 });
 
 /**
+ * The `padding` steps the `container` renderer maps to a padding class
+ * (objectui#11424) — the read site's set, not a design choice made here.
+ *
+ * `ContainerSchema.padding` is not a key `@objectstack/spec` declares, so the
+ * read site is the truth (the objectui#7759 ruling, the one objectui#10286
+ * applied to `maxWidth` on this same node). `container.tsx` reads
+ * `schema.padding ?? 4` and then tests it against one `padding === N` branch
+ * per step; a number that equals none of them matches no branch and draws NO
+ * padding class at all — not even the default, which `??` supplies only for an
+ * absent key. So `z.number()` accepted `9` and `20` and the container rendered
+ * flush. The renderer neither rounds nor clamps an unmapped number, and must
+ * not start: the declaration closes to the set instead.
+ *
+ * `components/src/__tests__/container-padding-set-11424.test.tsx` re-derives
+ * the set by rendering the real `container` and compares it with this list and
+ * with the registration's `padding` enum, so the three cannot part silently.
+ */
+const CONTAINER_PADDING_STEPS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16] as const;
+
+const CONTAINER_PADDING_REFUSAL =
+  `\`padding\` on a \`container\` is one of ${CONTAINER_PADDING_STEPS.join(', ')} ` +
+  '(objectui#11424): those are the steps the renderer maps to a padding class, and `0` means ' +
+  'none. Any other number drew NO padding class at all, not even the default `4`, so it is ' +
+  'refused here rather than rendered flush. Pick the step you meant from that set.';
+
+/**
  * Container Schema - Generic container component
  */
 export const ContainerSchema = BaseSchema.extend({
@@ -314,7 +340,12 @@ export const ContainerSchema = BaseSchema.extend({
     z.literal(false),
   ]).optional().describe('Max width constraint'),
   centered: z.boolean().optional().describe('Center the container'),
-  padding: z.number().optional().describe('Padding value'),
+  // A literal union of the renderer's mapped steps, not `z.number()`
+  // (objectui#11424) — see {@link CONTAINER_PADDING_STEPS}.
+  padding: z
+    .literal(CONTAINER_PADDING_STEPS, { error: CONTAINER_PADDING_REFUSAL })
+    .optional()
+    .describe(`Padding step, one of ${CONTAINER_PADDING_STEPS.join(', ')}; 0 is none (default 4)`),
   children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional(),
   body: aliasKeyRefusal(
     'body',

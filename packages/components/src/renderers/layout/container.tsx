@@ -24,10 +24,12 @@ const ContainerRenderer = forwardRef<HTMLDivElement, { schema: ContainerSchema; 
     // path from the day it was declared (objectui#4889). Same read as `padding`
     // below, and the one `stack.tsx` / `grid.tsx` have always used.
     const maxWidth = schema.maxWidth ?? 'xl';
-    // `??`, not `||`: `padding` is a declared `number`, and `0` is a legal value
+    // `??`, not `||`: `padding` is a declared step, and `0` is a legal value
     // that `||` folds into the default — which left the `padding === 0 && 'p-0'`
     // branch below permanently unreachable, so a container asking for no padding
     // silently rendered `p-2 sm:p-3 md:p-4` (objectui#4003).
+    // ⛔ No rounding or clamping here: the branches below ARE the accept set, and
+    // `ContainerSchema` refuses every other number at the door (objectui#11424).
     const padding = schema.padding ?? 4;
     const centered = schema.centered !== false; // Default to true
     
@@ -148,12 +150,32 @@ ComponentRegistry.register('container',
           { label: 'full', value: 'full' },
           { label: 'screen', value: 'screen' },
         ]      },
-      { 
-        name: 'padding', 
-        type: 'number', 
-        
-        
-        description: 'Padding value (0, 1-8, 10, 12, 16)'
+      {
+        name: 'padding',
+        // A closed list, in `maxWidth`'s object form above, not `type: 'number'`
+        // (objectui#11424): the branches in this file map exactly these steps,
+        // and any other number drew no padding class at all. `ContainerSchema`
+        // refuses the rest on both faces; this list carries the same set into
+        // the manifest, so `validateTree` answers `padding: 9` with
+        // `invalid-enum` and the generated intrinsics type the prop as the
+        // twelve literals. `container-padding-set-11424.test.tsx` holds this
+        // list, the declaration and the rendered branches to one set.
+        type: 'enum',
+        enum: [
+          { label: '0 (none)', value: 0 },
+          { label: '1', value: 1 },
+          { label: '2', value: 2 },
+          { label: '3', value: 3 },
+          { label: '4', value: 4 },
+          { label: '5', value: 5 },
+          { label: '6', value: 6 },
+          { label: '7', value: 7 },
+          { label: '8', value: 8 },
+          { label: '10', value: 10 },
+          { label: '12', value: 12 },
+          { label: '16', value: 16 },
+        ],
+        description: 'Padding step on the container spacing scale; 0 is none. Default 4.'
       },
       {
         name: 'centered',

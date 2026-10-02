@@ -150,9 +150,18 @@ describe('objectui#11417 — a single-series chart with a dimension says which m
   it.each(SINGLE_SERIES_TYPES)('SUBJECT (triage pin): a dimensioned `%s` with two measures names the dropped one', async (type) => {
     const doc = widgetOf(type);
     // Every door accepts it, so the diagnostic is the only voice until the
-    // spec's refusal (objectstack#21293) reaches objectui.
-    expect(DashboardWidgetSchema.safeParse(doc).success, 'objectui\'s door accepts it').toBe(true);
-    expect(SpecDashboardWidgetSchema.safeParse(doc).success, 'the spec\'s door accepts it').toBe(true);
+    // spec's refusal (objectstack#21293) reaches objectui. When the pin moves
+    // past that refusal these two go red ON PURPOSE: the mirror then follows the
+    // refusal (triage's item 2 on objectui#11417), and this pin becomes one
+    // about a STORED document, as objectui#8894's stored-metric pin is.
+    expect(
+      SpecDashboardWidgetSchema.safeParse(doc).success,
+      'the spec\'s door refuses this now: objectstack#21293 has reached the pin — see the comment above',
+    ).toBe(true);
+    expect(
+      DashboardWidgetSchema.safeParse(doc).success,
+      'objectui\'s door refuses this now — see the comment above',
+    ).toBe(true);
     await renderChart(doc);
     const msg = measureWarning();
     expect(msg).toBeDefined();
@@ -246,9 +255,11 @@ describe('objectui#11417 — the TIE: the diagnostic fires exactly where the ren
     expect(again.markup, 'the same rows rendered twice must give the same markup').toBe(base.markup);
 
     if (base.refused) {
-      // The renderer refuses the shape out loud, with a notice on the chart:
-      // nothing is dropped in silence, so the console has nothing to add.
-      expect({ type, refused: base.refused, warned: base.warned }).toEqual({ type, refused: base.refused, warned: false });
+      // The renderer refuses the shape out loud, with a notice on the chart that
+      // names the series: nothing is dropped in silence, so the console has
+      // nothing to add. Only the scatter's arity refusal is expected here; any
+      // other refusal means the harness drew something this pin never measured.
+      expect({ type, refused: base.refused, warned: base.warned }).toEqual({ type, refused: 'scatter-multi-series', warned: false });
       return;
     }
     // Control: the plot painted, so "unchanged" below cannot mean "never drew".

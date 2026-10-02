@@ -154,7 +154,13 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **49 entries** in `KnownDrift`, **87 keys** across them — 49 / 86 until
+ *   - **50 entries** in `KnownDrift`, **88 keys** across them — 49 / 87 until
+ *     objectui#11515 registered the TS twins of three zod-only node arms. ONE
+ *     entry is NEW with one key: `views.zod.ts#DetailSectionNodeSchema`'s
+ *     `fields`, the EXPECTED DIVERGENCE on `views.zod.ts#DetailViewFieldSchema`'s
+ *     `options` measured one level up, as on `views.zod.ts#DetailViewSectionSchema`.
+ *     A pair born ledgered, not growth on an existing entry; the other two pairs
+ *     carry no `KnownDrift` entry. It was 49 / 86 until
  *     objectui#11483 took the component type `metric-card` out of the mirror's
  *     widget vocabulary (`DashboardWidgetTypeSchema`), so a card in the slot is read
  *     by its component arm alone and its required `value` governs. The TS
@@ -617,8 +623,13 @@
  *     spelled "six" rots exactly as fast as one spelled `6`, it is just harder to
  *     point a regex at. ⛔ Do not spell a live figure out again, and ⛔ do not
  *     restate one without checking that the pin's spelling still reaches it.
- *   - **3 entries** in `WiderThanDeclared`, **3 keys** across them, and **3 arms**
- *     under those keys — split **2** SCHEMA-NODE, **1** CONCRETE, **0** MIXED, **0** unions.
+ *   - **4 entries** in `WiderThanDeclared`, **4 keys** across them, and **4 arms**
+ *     under those keys — split **3** SCHEMA-NODE, **1** CONCRETE, **0** MIXED, **0** unions.
+ *     It read 3 / 3 / 3 — 2 / 1 / 0 / 0 — until objectui#11515 registered
+ *     `app.zod.ts#AppSchemaRendererNodeSchema`, whose `schema` member IS
+ *     `app.zod.ts#AppComponentSchema`: that pair's own SCHEMA-NODE reading is measured
+ *     one level up, so the entry, its one key and its one SCHEMA-NODE arm ENTERED
+ *     together, a pair born ledgered.
  *     It read 4 / 4 / 4 — 2 / 2 / 0 / 0 — until objectui#11168 slice 3 (objectui#7759
  *     group C) narrowed `form.zod.ts#FormSchema`'s `layout` to the `vertical` /
  *     `horizontal` its declaration states: `@objectstack/spec` 17.5.0 retired `grid`, and
@@ -848,7 +859,7 @@
  *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 49 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 50 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
@@ -895,8 +906,9 @@ import ts from 'typescript';
 import type { z } from 'zod';
 
 import { AIConfigSchema, AIFieldSuggestionSchema, AIFormAssistSchema, AIRecommendationItemSchema, AIRecommendationsSchema, NLQueryResultSchema, NLQuerySchema } from '../zod/ai.zod.js';
-import { AppComponentSchema, MenuItemSchema as AppMenuItemSchema, NavigationAreaSchema, NavigationItemSchema } from '../zod/app.zod.js';
+import { AppComponentSchema, AppSchemaRendererNodeSchema, MenuItemSchema as AppMenuItemSchema, NavigationAreaSchema, NavigationItemSchema } from '../zod/app.zod.js';
 import { BaseSchema, ComponentConfigSchema, ComponentInputSchema, ComponentMetaSchema, KeyedI18nLabelSchema, SchemaNodeSchema } from '../zod/base.zod.js';
+import { CloudPlanStatusSchema } from '../zod/cloud.zod.js';
 import { CalendarEventSchema, CalendarViewSchema, CarouselItemSchema, CarouselSchema, ChatbotSchema, ChatbotEnhancedSchema, ChatbotFloatingSchema, ChatMessageSchema, ChatMessageSourceSchema, ChatToolInvocationSchema, DashboardComponentSchema, DashboardConfigSchema, DashboardWidgetConfigSchema, DashboardWidgetLayoutSchema, DashboardWidgetSchema, FilterBuilderSchema, FilterFieldSchema, KanbanCardSchema, KanbanColumnSchema, CardTemplateSchema, FilterGroupSchema } from '../zod/complex.zod.js';
 import { ActionSchema, CRUDDialogSchema, DetailSchema } from '../zod/crud.zod.js';
 import { AlertSchema, AvatarSchema, BadgeSchema, BarChartSchema, ChartDataSeriesSchema, ChartSchema, DataTableSchema, DrillDownConfigSchema, HtmlSchema, KbdSchema, ListItemSchema, ListSchema, MarkdownSchema, PivotTableSchema, StaticTableColumnSchema, StatisticSchema, TableColumnSchema, TableSchema, TimelineEventSchema, TimelineFeedItemSchema, TimelineGanttItemBarSchema, TimelineGanttItemSchema, TimelineSchema, TreeNodeSchema, TreeViewSchema } from '../zod/data-display.zod.js';
@@ -909,11 +921,12 @@ import { BreadcrumbItemSchema, BreadcrumbSchema, ButtonGroupButtonSchema, Button
 import { ObjectCalendarSchema, ObjectChartSchema, ObjectDataTableSchema, ObjectFormSchema, ObjectGallerySchema, ObjectGanttSchema, ObjectGridSchema, ObjectKanbanSchema, ObjectMapConfigSchema, ObjectMapSchema, ObjectTreeSchema, ObjectViewSchema, SortConfigSchema } from '../zod/objectql.zod.js';
 import { AlertDialogSchema, ContextMenuSchema, DialogSchema, DrawerSchema, DropdownMenuSchema, HoverCardSchema, MenubarMenuSchema, MenubarSchema, MenuItemSchema as OverlayMenuItemSchema, PopoverSchema, SheetSchema, TooltipSchema } from '../zod/overlay.zod.js';
 import { ReportBuilderSchema, ReportComponentSchema, ReportExportConfigSchema, ReportFieldSchema, ReportFilterSchema, ReportGroupBySchema, ReportSectionSchema, ReportViewerSchema } from '../zod/reports.zod.js';
-import { DetailViewFieldSchema, DetailViewSchema, DetailViewSectionSchema, DetailViewTabSchema, FilterUISchema, SortUISchema, ViewSwitcherSchema } from '../zod/views.zod.js';
+import { DetailSectionNodeSchema, DetailViewFieldSchema, DetailViewSchema, DetailViewSectionSchema, DetailViewTabSchema, FilterUISchema, SortUISchema, ViewSwitcherSchema } from '../zod/views.zod.js';
 
 import type { AIConfig as Ts_AIConfig, AIFieldSuggestion as Ts_AIFieldSuggestion, AIFormAssistSchema as Ts_AIFormAssistSchema, AIRecommendationItem as Ts_AIRecommendationItem, AIRecommendationsSchema as Ts_AIRecommendationsSchema, NLQueryResult as Ts_NLQueryResult, NLQuerySchema as Ts_NLQuerySchema } from '../ai';
-import type { AppComponentSchema as Ts_AppComponentSchema, NavigationArea as Ts_NavigationArea } from '../app';
+import type { AppComponentSchema as Ts_AppComponentSchema, AppSchemaRendererNodeSchema as Ts_AppSchemaRendererNodeSchema, NavigationArea as Ts_NavigationArea } from '../app';
 import type { BaseSchema as Ts_BaseSchema, ComponentConfig as Ts_ComponentConfig, ComponentInput as Ts_ComponentInput, ComponentMeta as Ts_ComponentMeta, KeyedI18nLabel as Ts_KeyedI18nLabel } from '../base';
+import type { CloudPlanStatusSchema as Ts_CloudPlanStatusSchema } from '../cloud';
 import type { CalendarEvent as Ts_CalendarEvent, CalendarViewSchema as Ts_CalendarViewSchema, CarouselItem as Ts_CarouselItem, CarouselSchema as Ts_CarouselSchema, ChatbotSchema as Ts_ChatbotSchema, ChatbotEnhancedSchema as Ts_ChatbotEnhancedSchema, ChatbotFloatingSchema as Ts_ChatbotFloatingSchema, ChatMessage as Ts_ChatMessage, ChatMessageSource as Ts_ChatMessageSource, ChatToolInvocation as Ts_ChatToolInvocation, DashboardComponentSchema as Ts_DashboardComponentSchema, DashboardWidgetLayout as Ts_DashboardWidgetLayout, DashboardWidgetSchema as Ts_DashboardWidgetSchema, FilterBuilderSchema as Ts_FilterBuilderSchema, FilterField as Ts_FilterField, KanbanCard as Ts_KanbanCard, KanbanColumn as Ts_KanbanColumn, CardTemplate as Ts_CardTemplate } from '../complex';
 import type { BPMNEdge as Ts_BPMNEdge, BPMNLane as Ts_BPMNLane, BPMNNode as Ts_BPMNNode, DashboardConfig as Ts_DashboardConfig, DashboardWidgetConfig as Ts_DashboardWidgetConfig, DataModelDesignerSchema as Ts_DataModelDesignerSchema, DataModelEntity as Ts_DataModelEntity, DataModelField as Ts_DataModelField, DataModelRelationship as Ts_DataModelRelationship, DesignerCanvasConfig as Ts_DesignerCanvasConfig, DesignerFieldDefinition as Ts_DesignerFieldDefinition, DesignerFieldOption as Ts_DesignerFieldOption, DesignerPaletteCategory as Ts_DesignerPaletteCategory, DesignerPaletteItem as Ts_DesignerPaletteItem, DesignerPosition as Ts_DesignerPosition, FieldDesignerSchema as Ts_FieldDesignerSchema, ObjectDefinition as Ts_ObjectDefinition, ObjectManagerSchema as Ts_ObjectManagerSchema, PageDesignerSchema as Ts_PageDesignerSchema, ProcessDesignerSchema as Ts_ProcessDesignerSchema, ReportDesignerElement as Ts_ReportDesignerElement, ReportDesignerSchema as Ts_ReportDesignerSchema, ReportDesignerSection as Ts_ReportDesignerSection } from '../designer';
 import type { CRUDDialogSchema as Ts_CRUDDialogSchema, DetailSchema as Ts_DetailSchema } from '../crud';
@@ -926,7 +939,7 @@ import type { ButtonGroupButton as Ts_ButtonGroupButton, ButtonGroupSchema as Ts
 import type { ObjectCalendarSchema as Ts_ObjectCalendarSchema, ObjectChartSchema as Ts_ObjectChartSchema, ObjectDataTableSchema as Ts_ObjectDataTableSchema, ObjectFormSchema as Ts_ObjectFormSchema, ObjectGallerySchema as Ts_ObjectGallerySchema, ObjectGanttSchema as Ts_ObjectGanttSchema, ObjectGridSchema as Ts_ObjectGridSchema, ObjectKanbanSchema as Ts_ObjectKanbanSchema, ObjectMapConfig as Ts_ObjectMapConfig, ObjectMapSchema as Ts_ObjectMapSchema, ObjectTreeSchema as Ts_ObjectTreeSchema, ObjectViewSchema as Ts_ObjectViewSchema, SortConfig as Ts_SortConfig } from '../objectql';
 import type { AlertDialogSchema as Ts_AlertDialogSchema, ContextMenuSchema as Ts_ContextMenuSchema, DialogSchema as Ts_DialogSchema, DrawerSchema as Ts_DrawerSchema, DropdownMenuSchema as Ts_DropdownMenuSchema, HoverCardSchema as Ts_HoverCardSchema, MenubarMenu as Ts_MenubarMenu, MenubarSchema as Ts_MenubarSchema, PopoverSchema as Ts_PopoverSchema, SheetSchema as Ts_SheetSchema, TooltipSchema as Ts_TooltipSchema } from '../overlay';
 import type { ReportBuilderSchema as Ts_ReportBuilderSchema, ReportComponentSchema as Ts_ReportComponentSchema, ReportExportConfig as Ts_ReportExportConfig, ReportField as Ts_ReportField, ReportFilter as Ts_ReportFilter, ReportGroupBy as Ts_ReportGroupBy, ReportSection as Ts_ReportSection, ReportViewerSchema as Ts_ReportViewerSchema } from '../reports';
-import type { DetailViewField as Ts_DetailViewField, DetailViewSchema as Ts_DetailViewSchema, DetailViewSection as Ts_DetailViewSection, DetailViewTab as Ts_DetailViewTab, FilterUISchema as Ts_FilterUISchema, SortUISchema as Ts_SortUISchema, ViewSwitcherSchema as Ts_ViewSwitcherSchema } from '../views';
+import type { DetailSectionNodeSchema as Ts_DetailSectionNodeSchema, DetailViewField as Ts_DetailViewField, DetailViewSchema as Ts_DetailViewSchema, DetailViewSection as Ts_DetailViewSection, DetailViewTab as Ts_DetailViewTab, FilterUISchema as Ts_FilterUISchema, SortUISchema as Ts_SortUISchema, ViewSwitcherSchema as Ts_ViewSwitcherSchema } from '../views';
 
 /* ── Type-level helpers (objectui#5680) ─────────────────────────────────────── */
 
@@ -1739,12 +1752,16 @@ const MIRRORS = {
   'ai.zod.ts#NLQueryResultSchema': NLQueryResultSchema,
   'ai.zod.ts#NLQuerySchema': NLQuerySchema,
   'app.zod.ts#AppComponentSchema': AppComponentSchema,
+  // objectui#11515 — the zod-only arm's TS twin.
+  'app.zod.ts#AppSchemaRendererNodeSchema': AppSchemaRendererNodeSchema,
   'app.zod.ts#NavigationAreaSchema': NavigationAreaSchema,
   'base.zod.ts#BaseSchema': BaseSchema,
   'base.zod.ts#ComponentConfigSchema': ComponentConfigSchema,
   'base.zod.ts#ComponentInputSchema': ComponentInputSchema,
   'base.zod.ts#ComponentMetaSchema': ComponentMetaSchema,
   'base.zod.ts#KeyedI18nLabelSchema': KeyedI18nLabelSchema,
+  // objectui#11515 — the zod-only arm's TS twin.
+  'cloud.zod.ts#CloudPlanStatusSchema': CloudPlanStatusSchema,
   'complex.zod.ts#CalendarEventSchema': CalendarEventSchema,
   'complex.zod.ts#CalendarViewSchema': CalendarViewSchema,
   'complex.zod.ts#CarouselItemSchema': CarouselItemSchema,
@@ -1916,6 +1933,8 @@ const MIRRORS = {
   'reports.zod.ts#ReportGroupBySchema': ReportGroupBySchema,
   'reports.zod.ts#ReportSectionSchema': ReportSectionSchema,
   'reports.zod.ts#ReportViewerSchema': ReportViewerSchema,
+  // objectui#11515 — the zod-only arm's TS twin.
+  'views.zod.ts#DetailSectionNodeSchema': DetailSectionNodeSchema,
   'views.zod.ts#DetailViewFieldSchema': DetailViewFieldSchema,
   'views.zod.ts#DetailViewSchema': DetailViewSchema,
   'views.zod.ts#DetailViewSectionSchema': DetailViewSectionSchema,
@@ -1935,12 +1954,14 @@ interface Declared {
   'ai.zod.ts#NLQueryResultSchema': Ts_NLQueryResult;
   'ai.zod.ts#NLQuerySchema': Ts_NLQuerySchema;
   'app.zod.ts#AppComponentSchema': Ts_AppComponentSchema;
+  'app.zod.ts#AppSchemaRendererNodeSchema': Ts_AppSchemaRendererNodeSchema;
   'app.zod.ts#NavigationAreaSchema': Ts_NavigationArea;
   'base.zod.ts#BaseSchema': Ts_BaseSchema;
   'base.zod.ts#ComponentConfigSchema': Ts_ComponentConfig;
   'base.zod.ts#ComponentInputSchema': Ts_ComponentInput;
   'base.zod.ts#ComponentMetaSchema': Ts_ComponentMeta;
   'base.zod.ts#KeyedI18nLabelSchema': Ts_KeyedI18nLabel;
+  'cloud.zod.ts#CloudPlanStatusSchema': Ts_CloudPlanStatusSchema;
   'complex.zod.ts#CalendarEventSchema': Ts_CalendarEvent;
   'complex.zod.ts#CalendarViewSchema': Ts_CalendarViewSchema;
   'complex.zod.ts#CarouselItemSchema': Ts_CarouselItem;
@@ -2111,6 +2132,7 @@ interface Declared {
   'reports.zod.ts#ReportGroupBySchema': Ts_ReportGroupBy;
   'reports.zod.ts#ReportSectionSchema': Ts_ReportSection;
   'reports.zod.ts#ReportViewerSchema': Ts_ReportViewerSchema;
+  'views.zod.ts#DetailSectionNodeSchema': Ts_DetailSectionNodeSchema;
   'views.zod.ts#DetailViewFieldSchema': Ts_DetailViewField;
   'views.zod.ts#DetailViewSchema': Ts_DetailViewSchema;
   'views.zod.ts#DetailViewSectionSchema': Ts_DetailViewSection;
@@ -2681,6 +2703,16 @@ interface KnownDrift {
    * `views.zod.ts#DetailViewSchema`. Same cause, not a separate finding.
    */
   'views.zod.ts#DetailViewSectionSchema': 'fields';
+  /**
+   * objectui#11515: the pair was REGISTERED here, born ledgered. The TS twin
+   * takes each member from `DetailViewSection` by reference, as the arm
+   * `.pick`s each from `DetailViewSectionSchema`, so its `fields` carries the
+   * same `DetailViewField` elements and the EXPECTED DIVERGENCE on
+   * `views.zod.ts#DetailViewFieldSchema`'s `options` is measured here one level
+   * up, the reading the entry above records for the section. Same cause, not a
+   * separate finding.
+   */
+  'views.zod.ts#DetailSectionNodeSchema': 'fields';
 }
 
 /* ── The measured unmirrored-declared ledger (objectui#6058) ────────────────── */
@@ -3903,6 +3935,16 @@ interface WiderThanDeclared {
    * pair measures clean and this entry would be STALE if it stayed.
    */
   'app.zod.ts#AppComponentSchema': 'areas';
+  /**
+   * SCHEMA-NODE `schema` (objectui#11515: the pair was REGISTERED here, born
+   * ledgered). The mirror's member IS `app.zod.ts#AppComponentSchema`, the same
+   * schema object, and the TS twin's is that pair's declaration, so the
+   * document's own WIDER reading is measured here one level up: the
+   * `app.zod.ts#AppComponentSchema` entry above, through the
+   * `z.ZodType< any >` annotation `NavigationItemSchema` carries. Same cause,
+   * not a separate finding; it leaves when that entry does.
+   */
+  'app.zod.ts#AppSchemaRendererNodeSchema': 'schema';
   // `complex.zod.ts#ChatbotSchema` recorded `body` here (CONCRETE, and DISJOINT rather
   // than strictly wider — the pair carried a `KnownDrift` entry for the same key, one of
   // the measured cases where each face refuses something the other admits: the mirror
@@ -4130,6 +4172,9 @@ const WIDER_ARM_ROW_SEPARATOR = '::';
 
 const WIDER_ARMS: Readonly< Record< string, readonly WiderArmClass[] > > = {
   'app.zod.ts#AppComponentSchema::areas': ['SCHEMA-NODE'],
+  // objectui#11515: the one arm is the app document, read wider through the
+  // annotation the `areas` row above reaches (the ledger entry says so).
+  'app.zod.ts#AppSchemaRendererNodeSchema::schema': ['SCHEMA-NODE'],
   'layout.zod.ts#PageNodeSchema::slots': ['SCHEMA-NODE'],
   'objectql.zod.ts#ObjectGridSchema::objectName': ['CONCRETE'],
 };
@@ -4743,12 +4788,6 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // `./flat-arm-responsive-styles-10872.test.ts`.
   'public-blocks.zod.ts#NODE_ENVELOPE':
     "a shape FRAGMENT, not a schema and not a mirror — `{ responsiveStyles }`, the spec's `ResponsiveStylesSchema` by reference (the schema `PageComponentSchema.responsiveStyles` declares), spread into every public-block arm and into the `flex`, `object-grid` and `object-chart` mirrors so the one declaration is shared; no TS declaration restates the fragment itself, and each of those three pairs' TS twins declares the member as the spec's `ResponsiveStyles` type",
-  // objectui#10919 — the `cloud:plan-status` widget's arm, declared locally from
-  // the widget's read points: `@objectstack/spec` has no row for a `cloud:`
-  // widget, and the widget's props type lives beside it in `@object-ui/app-shell`,
-  // not in this package. Pinned by `./cloud-plan-status-arm-10919.test.ts`.
-  'cloud.zod.ts#CloudPlanStatusSchema':
-    "no TS declaration in this package restates it — `BaseSchema` + the `cloud:plan-status` literal + a strict `properties` bag holding the one key the widget reads (`plan`) + the two content-channel refusals; the widget's own props type is in `@object-ui/app-shell`",
   // Renamed from `StylePropsSchema` by objectui#5928. Under the old name the
   // like-named `StyleProps` (../base.ts) — the Tailwind-scale vocabulary, sharing
   // ZERO keys with this `{ className, style }` object — read as its declaration, and
@@ -4762,12 +4801,6 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "recursive; declared `z.ZodType<any>`, which exposes no `.shape` to read — and accepts `any`, so it cannot be narrower than any declaration. One of the three consts that REFUSED the objectui#7760 type argument (the mirror accepts more than the declaration states), so this reason is still literally true here",
   'app.zod.ts#MenuItemSchema':
     "recursive; a `z.lazy` exposes no `.shape` to read, so there is no key set for the per-key comparison. Since objectui#7760 it carries its TS declaration as BOTH type arguments, so the pair IS compared — as a whole type, by `tsc`, at the annotation itself",
-  // objectui#11440 — the `app-schema-renderer` whole-shell node, declared from
-  // its registration `inputs`. Pinned by `./passing-keys-arms-11440.test.ts`;
-  // its `schema` member (objectui#11494) by
-  // `./app-schema-renderer-schema-input-11494.test.ts`.
-  'app.zod.ts#AppSchemaRendererNodeSchema':
-    "registration-owned — `BaseSchema` + the `app-schema-renderer` literal + the registration's three `inputs`: `schema`, which IS `app.zod.ts#AppComponentSchema` (the same schema object, optional; `@object-ui/layout`'s registration adapter hands it to the component, objectui#11494), `basePath` and `mobileNavMode` + the objectui#9256 `body` / `children` refusals; no TS declaration in this package restates the node (`@object-ui/layout`'s `AppSchemaRendererProps` is the component's prop type)",
   'app.zod.ts#AppContextSelectorSchema':
     "spec-owned BY REFERENCE — the local `.extend(…)` adds renderer props that no TS declaration in this package restates",
   'base.zod.ts#SchemaNodeSchema':
@@ -4926,10 +4959,6 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "a bare vocabulary with no `.shape`; it is checked where a mirrored KEY declares it",
   'views.zod.ts#ViewComponentSchema':
     "a union OVER the mirrors, not an object of its own — its members are checked individually above",
-  // objectui#11440 — one field section as a node. Pinned by
-  // `./passing-keys-arms-11440.test.ts`.
-  'views.zod.ts#DetailSectionNodeSchema':
-    "mirror-owned BY REFERENCE — `BaseSchema` + the `detail-section` literal + the ten members of `views.zod.ts#DetailViewSectionSchema` the registration publishes as `inputs` (the same schema objects, `.pick`ed), flat on the node, + the objectui#9256 `body` / `children` refusals; no TS declaration in this package restates the node (`@object-ui/plugin-detail`'s `DetailSectionNodeProps` is the component's prop type)",
   'index.zod.ts#AnyComponentSchema':
     "the barrel union OVER the mirrors, not an object of its own — its members are checked individually above",
   'expression.zod.ts#ExpressionWireSchema':
@@ -5098,7 +5127,7 @@ const ZOD_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'zod');
  * MINUEND under it had moved. Nothing failed on any of those days, because nothing
  * compared the registry to a number. objectui#7433 is that absence, not the digits.
  */
-const EXPECTED_MIRROR_PAIRS = 191;
+const EXPECTED_MIRROR_PAIRS = 194;
 
 /**
  * A ledger this file can size from its own AST. `WiderThanDeclared` joined at

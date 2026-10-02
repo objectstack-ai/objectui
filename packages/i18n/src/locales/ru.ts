@@ -1666,8 +1666,6 @@ const ru = {
       referenceTo: "Ссылка на",
       options: "Параметры",
       addOption: "Добавить параметр",
-      validationRules: "Правила валидации",
-      addRule: "Добавить правило",
       systemBadge: "Система",
       ungrouped: "Общее",
       deleteConfirmTitle: "Удалить поле?",

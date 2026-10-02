@@ -5,6 +5,8 @@ description: "JSON object editor for structured data"
 
 The Object Field component provides a JSON editor for storing and editing structured data objects. It validates JSON syntax and provides a textarea interface for complex data.
 
+It is the form editor for the free-form JSON field types: `object`, `composite`, `record` and `json` all resolve to it. A `json` value need not be an object — an array, a number, a string, a boolean or `null` is shown as its JSON text and parsed back as itself. (`code` is a different field: it stays a raw-text editor and saves its text.)
+
 ## Basic Usage
 
 <SchemaExample id="fields-object/basic-object-editor" />
@@ -51,7 +53,7 @@ metadata keys — they are runtime widget props. See [Field Widget Props](/docs/
 The field validates JSON syntax in real-time:
 
 - **Valid JSON**: Updates the value immediately
-- **Invalid JSON**: Maintains current valid value, doesn't update
+- **Invalid JSON**: Refused. The text stays in the box so it can be corrected, the box says "Invalid JSON" and is marked invalid, and the value is not updated. Inside a form the box is also invalid for the browser's constraint validation, so the form will not submit until the text parses — the last valid value is never sent in its place.
 - **Empty Input**: Sets value to `null`
 
 ## Data Format
@@ -206,9 +208,9 @@ For typed object fields, you can define a schema in two formats:
 ## Backend Validation
 
 ObjectUI does not enforce `schema`. `ObjectField` checks JSON **syntax** only —
-it accepts any value `JSON.parse` accepts, and simply declines to propagate a
-draft it cannot parse — so nothing on the client rejects a well-formed object
-whose shape is wrong. Structural validation belongs on the server.
+it accepts any value `JSON.parse` accepts, and refuses a draft it cannot parse —
+so nothing on the client rejects a well-formed object whose shape is wrong.
+Structural validation belongs on the server.
 
 The `schema` you author is carried on the field metadata untouched, and in the
 JSON Schema Format above it is an ordinary JSON Schema document. That is the

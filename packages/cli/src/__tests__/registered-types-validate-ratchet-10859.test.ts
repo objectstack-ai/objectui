@@ -70,10 +70,33 @@ import { validate } from '../commands/validate.js';
  * `object-timeline`, armed from its `@objectstack/spec` 17.5.0 row; batch 7:
  * minus the six `@object-ui/plugin-designer` keys; batch 8: minus the thirty
  * (iii) keys RETIRED rather than armed — the 28 bare field-widget fallbacks
- * and the `tree` / `view` aliases, see `RETIRED_BARE_KEYS_10859_BATCH_8`).
- * LOWER it when a batch arms or retires more keys; never raise it.
+ * and the `tree` / `view` aliases, see `RETIRED_BARE_KEYS_10859_BATCH_8`;
+ * batch 8 phase 2b: minus twelve more RETIRED keys, see
+ * `RETIRED_BARE_KEYS_10859_BATCH_8_PHASE_2B`). LOWER it when a batch arms or
+ * retires more keys; never raise it.
+ *
+ * The 24 that remain are named in `STILL_REFUSED_10859`, and the row below
+ * pins the refused set to exactly that list, so this comment cannot drift from
+ * the measurement:
+ *
+ * - the ten the seat ruling left registered — `object-pivot`,
+ *   `embeddable-form`, `detail-section`, `home`, `record`, `utility`,
+ *   `spec-report` and `app-schema-renderer` (objectui#11440, which arms them),
+ *   plus `navigation-renderer` and `responsive-grid` (objectui#11441, the
+ *   maintainer's decision card);
+ * - fourteen phase 2b FORKS, ruled for retirement but kept registered because
+ *   the premise gate failed on them, and reported on objectui#10859 with the
+ *   evidence: `pie-chart`, `donut-chart` and `radar-chart` (a producer:
+ *   `@object-ui/plugin-charts`' `examples/chart-examples.ts`, which
+ *   objectui#7401 pins), `page-header` (objectstack's `page-header-subtitle-alias`
+ *   conversion and its fixtures author it), and the ten `sidebar-*` primitives
+ *   (with `sidebar-provider` gone, the armed `sidebar` mounts only under a
+ *   host-supplied provider, so the ruled teaching rewrite has no target).
+ *
+ * The ruling's target after phase 2b was 10; the difference is the fourteen
+ * forks, each waiting on its own decision.
  */
-const REFUSED_AT_TYPE = 36;
+const REFUSED_AT_TYPE = 24;
 
 /**
  * The head's refused count over the NAMESPACED keys (objectui#10872 batch 1:
@@ -82,10 +105,14 @@ const REFUSED_AT_TYPE = 36;
  * `element:number`, armed with the spec's `dataSource` waiver; batch 4: minus
  * the six blocks `@objectstack/spec` 17.5.0 gave a row; objectui#10859 batch 8:
  * minus `view:tree` and `plugin-view:view`, the namespaced twins of the `tree` /
- * `view` aliases it unregistered). LOWER it when a batch arms or retires more
- * keys; never raise it.
+ * `view` aliases it unregistered; objectui#10859 batch 8 phase 2b: minus the
+ * ten namespaced twins of the keys it unregistered — `plugin-charts:scatter-chart`,
+ * `plugin-dashboard:dashboard-grid`, `plugin-form:form-analytics`,
+ * `plugin-grid:import-wizard`, `view:shared-view-link`, the four
+ * `plugin-designer:` keys and `plugin-detail:related-list`). LOWER it when a
+ * batch arms or retires more keys; never raise it.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 389;
+const NAMESPACED_REFUSED_AT_TYPE = 379;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));
@@ -126,6 +153,47 @@ const RETIRED_FIELD_FALLBACKS_10859_BATCH_8 = [
   'signature', 'summary', 'tags', 'url', 'user', 'vector',
 ] as const;
 const RETIRED_BARE_KEYS_10859_BATCH_8 = [...RETIRED_FIELD_FALLBACKS_10859_BATCH_8, 'tree', 'view'] as const;
+
+/**
+ * The twelve bare keys objectui#10859 batch 8 phase 2b RETIRED (the seat's
+ * ruling `5945530142`, as amended by `5945583855`): ten by unregistration, each
+ * with a tombstone docblock where it was registered, and the `metric` /
+ * `metric-card` node keys through `skipFallback: true` (M3 option A — the
+ * dashboard surfaces emit the namespaced keys; the widget vocabulary is
+ * untouched).
+ */
+const UNREGISTERED_10859_BATCH_8_PHASE_2B = {
+  'scatter-chart': 'plugin-charts:scatter-chart',
+  'dashboard-grid': 'plugin-dashboard:dashboard-grid',
+  'form-analytics': 'plugin-form:form-analytics',
+  'import-wizard': 'plugin-grid:import-wizard',
+  'shared-view-link': 'view:shared-view-link',
+  'app-creation-wizard': 'plugin-designer:app-creation-wizard',
+  'branding-editor': 'plugin-designer:branding-editor',
+  'dashboard-editor': 'plugin-designer:dashboard-editor',
+  'navigation-designer': 'plugin-designer:navigation-designer',
+  'related-list': 'plugin-detail:related-list',
+} as const;
+const SKIP_FALLBACK_10859_BATCH_8_PHASE_2B = {
+  metric: 'plugin-dashboard:metric',
+  'metric-card': 'plugin-dashboard:metric-card',
+} as const;
+const RETIRED_BARE_KEYS_10859_BATCH_8_PHASE_2B = [
+  ...Object.keys(UNREGISTERED_10859_BATCH_8_PHASE_2B),
+  ...Object.keys(SKIP_FALLBACK_10859_BATCH_8_PHASE_2B),
+];
+
+/**
+ * Every bare key still refused at `type` after objectui#10859 batch 8 phase 2b
+ * — the `REFUSED_AT_TYPE` docblock says why each is still here. Alphabetical.
+ */
+const STILL_REFUSED_10859 = [
+  'app-schema-renderer', 'detail-section', 'donut-chart', 'embeddable-form', 'home',
+  'navigation-renderer', 'object-pivot', 'page-header', 'pie-chart', 'radar-chart',
+  'record', 'responsive-grid', 'sidebar-content', 'sidebar-footer', 'sidebar-group',
+  'sidebar-header', 'sidebar-inset', 'sidebar-menu', 'sidebar-menu-button',
+  'sidebar-menu-item', 'sidebar-provider', 'sidebar-trigger', 'spec-report', 'utility',
+] as const;
 
 /** Is `type` unclaimed by every arm of the validator's root union? */
 function refusedAtType(type: string): boolean {
@@ -216,6 +284,34 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
     expect(NAMESPACED_KEYS).not.toContain('plugin-view:view');
     expect(BARE_KEYS).toContain('object-tree');
     expect(BARE_KEYS).toContain('object-view');
+  });
+
+  it('counts the twelve keys batch 8 phase 2b retired as gone from the registry (objectui#10859 batch 8)', () => {
+    expect(RETIRED_BARE_KEYS_10859_BATCH_8_PHASE_2B).toHaveLength(12);
+    // Retired, not armed: each bare key left the population and is still
+    // refused at `type`, because no arm was added.
+    for (const key of RETIRED_BARE_KEYS_10859_BATCH_8_PHASE_2B) {
+      expect(BARE_KEYS, key).not.toContain(key);
+      expect(refusedAtType(key), key).toBe(true);
+    }
+    // Unregistered: the namespaced twin went too.
+    for (const twin of Object.values(UNREGISTERED_10859_BATCH_8_PHASE_2B)) {
+      expect(NAMESPACED_KEYS, twin).not.toContain(twin);
+    }
+    // `skipFallback`: the namespaced key the dashboard surfaces emit stays.
+    for (const kept of Object.values(SKIP_FALLBACK_10859_BATCH_8_PHASE_2B)) {
+      expect(NAMESPACED_KEYS, kept).toContain(kept);
+    }
+    // Lit controls: the canonical spellings the retirements point authors to.
+    expect(BARE_KEYS).toContain('chart');
+    expect(BARE_KEYS).toContain('dashboard');
+    expect(NAMESPACED_KEYS).toContain('record:related_list');
+  });
+
+  it('the refused set is exactly the named remainder — the pin comment cannot drift (objectui#10859 batch 8)', () => {
+    const refused = BARE_KEYS.filter(refusedAtType).sort();
+    expect(refused).toEqual([...STILL_REFUSED_10859]);
+    expect(STILL_REFUSED_10859).toHaveLength(REFUSED_AT_TYPE);
   });
 });
 

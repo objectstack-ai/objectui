@@ -15,7 +15,8 @@
  * `schema.title || pickLocalized(schema.label, language) || 'Dashboard'`.
  *
  * This surface is the reason the ruling refused option B (retire the console's
- * arm alone): `dashboard-grid` is separately registered as an SDUI component,
+ * arm alone): `dashboard-grid` was then separately registered as an SDUI
+ * component (retired by objectui#10859 batch 8),
  * so leaving its arm would have shown ONE stored document under two different
  * headers depending on which surface opened it.
  *

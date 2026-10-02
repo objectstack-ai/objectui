@@ -1575,8 +1575,6 @@ const de = {
       referenceTo: "Verweis auf",
       options: "Optionen",
       addOption: "Option hinzufügen",
-      validationRules: "Validierungsregeln",
-      addRule: "Regel hinzufügen",
       systemBadge: "System",
       ungrouped: "Allgemein",
       deleteConfirmTitle: "Feld löschen?",

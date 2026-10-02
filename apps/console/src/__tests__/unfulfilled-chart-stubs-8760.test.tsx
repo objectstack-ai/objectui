@@ -85,7 +85,7 @@ import { SchemaRenderer } from '@object-ui/react';
 // boundary, and paying that cost at import time puts it outside every
 // test/hook timeout. The specifier is character-identical to the one
 // `register-plugins.ts` hands `registerLazy`, so ESM hands the loader the very
-// same module instance. It cannot mask the defect it guards against: the three
+// same module instance. It cannot mask the defect it guards against: the four
 // retired keys are ones this module never registers under ANY load order.
 import '@object-ui/plugin-charts';
 import '../register-plugins';
@@ -93,8 +93,13 @@ import '../register-plugins';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REGISTER_PLUGINS = join(HERE, '..', 'register-plugins.ts');
 
-/** The three spellings objectui#8760 retired. */
-const RETIRED = ['line-chart', 'area-chart', 'advanced-chart'] as const;
+/**
+ * The three spellings objectui#8760 retired, plus `scatter-chart`, which
+ * objectui#10859 batch 8 (phase 2b) retired with its registration — the same
+ * two halves must hold for it: no stub left in this app, no key in the
+ * registry, and a loud refusal for an authored node.
+ */
+const RETIRED = ['line-chart', 'area-chart', 'advanced-chart', 'scatter-chart'] as const;
 
 /**
  * The chart stub list, read from the source it is declared in — never a copy.
@@ -153,7 +158,8 @@ describe('objectui#8760 — every chart stub this app registers is fulfilled', (
       unfulfilled,
       'a lazy stub resolves to nothing — the key renders `Loading …` forever',
     ).toEqual([]);
-    expect(list).toHaveLength(7);
+    // 6 since objectui#10859 batch 8 took `scatter-chart` out of the list.
+    expect(list).toHaveLength(6);
   }, 20000);
 });
 

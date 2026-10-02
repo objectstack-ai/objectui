@@ -72,3 +72,8 @@ than a single wrong example: the two authoring faces of one member disagreed
 about what a column is. Retiring the member closes that split at the source, and
 the page now teaches `record:related_list`, whose `columns` is
 `z.array(z.string())` on both faces.
+
+⚠️ **Dated note, 2026-10-02 — the bare `related-list` registration is retired — objectui#10859.**
+Later in this same release objectui#10859 batch 8 (phase 2b) unregistered the `related-list` node
+key (and `plugin-detail:related-list`), so `record:related_list` is now the only node entry to
+`RelatedList`. The rest of this entry is kept as the reading of this change.

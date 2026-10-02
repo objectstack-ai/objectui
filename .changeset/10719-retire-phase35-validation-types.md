@@ -34,3 +34,6 @@ object-level rule union `ObjectValidationRule` and its variants, and
 the zero-reader reading behind the ruling covers this repository and the
 ObjectStack framework only; a host application that imports any of the eight
 names stops compiling on upgrade.
+
+⚠️ **Dated note, 2026-10-02 — `DesignerValidationRule` is retired in this release too — objectui#11434.**
+Later in this same release objectui#11434 retired `DesignerFieldDefinition.validationRules` on both faces and removed its element type `DesignerValidationRule` from the exports, so the sentence above that lists it among the names that stay exported no longer holds for it. `FieldValidationRules`, `FieldValidationFunction` and `ObjectValidationRule` still stay exported. The rest of this entry is kept as the reading of this change.

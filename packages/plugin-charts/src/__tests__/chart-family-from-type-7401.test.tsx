@@ -26,6 +26,12 @@
  *   | `plugin-charts:scatter-chart`    |       0 |   2 |   0 | none    |
  *   | `pie-chart`                      |       0 |   2 |   0 | none    |
  *
+ * ⚠️ Since objectui#10859 batch 8 (phase 2b) `scatter-chart` is RETIRED: its
+ * registration and its `CHART_TYPE_KEYWORD_FAMILIES` row are gone, and the
+ * scatter family is reached as `{ type: 'chart', chartType: 'scatter' }`. The
+ * two scatter rows of the table above are the card's historical measurement;
+ * the scatter cases below pin the retirement and the spelling that draws.
+ *
  * ## Why these render through the REAL SDUI path
  *
  * The defect lived between the registry and the renderer, so a unit test on
@@ -180,29 +186,32 @@ describe('objectui#7401 — a chart-type registration renders as itself', () => 
   /**
    * ⭐ The interaction the ruling asked to be CONFIRMED, not folded in.
    *
-   * `scatter-chart` reaching the scatter arm for the first time means it also
-   * reaches PR #7400's `scatter-multi-series` refusal (objectui#7194). That
-   * refusal was unreachable through this type until now — which is how the
-   * whole defect surfaced: it *should* have reddened the two-series
-   * `scatter-chart` entry in `app-shell`'s DOM-leak sweep, and did not.
-   * ⛔ Not folded in: #7194 is ruled and landed, this only pins that the two
-   * now meet.
+   * `scatter-chart` reaching the scatter arm for the first time meant it also
+   * reached PR #7400's `scatter-multi-series` refusal (objectui#7194) — which
+   * is how the whole defect surfaced: that refusal *should* have reddened the
+   * two-series `scatter-chart` entry in `app-shell`'s DOM-leak sweep, and did
+   * not. ⛔ Not folded in: #7194 is ruled and landed.
+   *
+   * objectui#10859 batch 8 (phase 2b) retired the `scatter-chart` key, so the
+   * scatter family is pinned through the spelling that draws — the generic
+   * `chart` with `chartType: 'scatter'` — and the retired key is pinned ABSENT
+   * under both spellings, with no family derived for it.
    */
-  it('scatter-chart with one series draws scatter marks', async () => {
+  it('chart with chartType scatter and one series draws scatter marks', async () => {
     const container = await renderSchema({
-      type: 'scatter-chart', data: NUMERIC_ROWS, xAxisKey: 'xm', series: ONE_SERIES,
+      type: 'chart', chartType: 'scatter', data: NUMERIC_ROWS, xAxisKey: 'xm', series: ONE_SERIES,
     });
     expect(marks(container, 'scatter')).toBeGreaterThan(0);
     expect(marks(container, 'bar')).toBe(0);
   });
 
-  it('scatter-chart with two series now REACHES PR #7400\'s refusal', async () => {
-    const container = await renderSchema({
-      type: 'scatter-chart', data: NUMERIC_ROWS, xAxisKey: 'xm', series: TWO_SERIES,
-    });
-    // Before this card the same schema drew 2 bars and no refusal at all.
-    expect(refusal(container)).toBe('scatter-multi-series');
-    expect(marks(container, 'bar')).toBe(0);
+  it('the retired scatter-chart key is unregistered under both spellings and derives no family', () => {
+    // Lit control first: a sibling alias this package still registers.
+    expect(ComponentRegistry.get('radar-chart')).toBe(ChartRenderer);
+    expect(ComponentRegistry.get('scatter-chart')).toBeUndefined();
+    expect(ComponentRegistry.get('plugin-charts:scatter-chart')).toBeUndefined();
+    expect(familyFromComponentType('scatter-chart')).toBeUndefined();
+    expect(familyFromComponentType('plugin-charts:scatter-chart')).toBeUndefined();
   });
 
   /**

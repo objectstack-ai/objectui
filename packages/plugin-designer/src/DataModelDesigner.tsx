@@ -65,8 +65,12 @@ export interface DataModelDesignerProps {
   canvas?: DesignerCanvasConfig;
   /** Show relationship labels */
   showRelationshipLabels?: boolean;
-  /** Auto-layout enabled */
-  autoLayout?: boolean;
+  /*
+   * There is deliberately no `autoLayout` prop (objectui#11434): it was declared
+   * here and never read — the toolbar's Auto Layout button arranges the
+   * entities on demand. `DataModelDesignerSchema.autoLayout` is retired on both
+   * faces of `@object-ui/types` in the same change.
+   */
   /** Read-only mode */
   readOnly?: boolean;
   /** Callback when entities change */

@@ -84,8 +84,11 @@ const sampleFor = (input: Input): unknown => {
 
 const dashboard = (widget: Record<string, unknown>) => ({ type: 'dashboard', widgets: [widget] });
 
+// Read in the `plugin-dashboard` namespace: since objectui#10859 batch 8 the
+// slot components register with `skipFallback: true`, so the registration a
+// slot entry renders through is `plugin-dashboard:TYPE`, never a bare key.
 const registeredInputs = (type: string): Input[] =>
-  (ComponentRegistry.getConfig(type)?.inputs ?? []) as Input[];
+  (ComponentRegistry.getConfig(type, 'plugin-dashboard')?.inputs ?? []) as Input[];
 
 /** The widget slot's component-node arm: the union option whose `type` is the closed set. */
 const slotArm = (dashboardSchema: unknown): unknown => {

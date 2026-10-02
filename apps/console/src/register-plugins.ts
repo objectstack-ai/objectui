@@ -61,12 +61,26 @@ ComponentRegistry.registerLazy('object-tree', () => import('@object-ui/plugin-tr
 // STORED / host view type `tree` is a different layer and is untouched:
 // `ObjectView` and `ListView` already emit `object-tree` for it.
 
-// Dashboard plugin — only used on dashboard / home pages. Lazy-load all 8
+// Dashboard plugin — only used on dashboard / home pages. Lazy-load all 7
 // component types so the ~150 KB widget/pivot/metric tree stays out of the
 // initial bundle for users who never visit a dashboard.
-for (const variant of ['dashboard', 'metric', 'metric-card', 'object-metric', 'pivot', 'object-pivot', 'dashboard-grid', 'object-data-table']) {
+//
+// ⛔ objectui#10859 batch 8 (phase 2b): `dashboard-grid` is RETIRED (the
+// plugin no longer registers it, so a stub here would paint `Loading …`
+// forever), and `metric` / `metric-card` register with `skipFallback: true`, so
+// their stubs decline the bare key too — a stub that claimed it would keep the
+// retired spelling resolvable until the chunk loaded, and blessed by the key
+// derivation for good.
+for (const variant of ['dashboard', 'object-metric', 'pivot', 'object-pivot', 'object-data-table']) {
   ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-dashboard'), {
     namespace: 'plugin-dashboard',
+    category: 'view',
+  });
+}
+for (const variant of ['metric', 'metric-card']) {
+  ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-dashboard'), {
+    namespace: 'plugin-dashboard',
+    skipFallback: true,
     category: 'view',
   });
 }
@@ -98,7 +112,10 @@ ComponentRegistry.registerLazy('chart', () => import('@object-ui/plugin-charts')
 // in `packages/plugin-charts/src`: `unfulfilled-chart-stubs-8760.test.ts`
 // drives this very list through the real loader and fails on the first key
 // that resolves to nothing.
-for (const variant of ['object-chart', 'bar-chart', 'pie-chart', 'donut-chart', 'radar-chart', 'scatter-chart', 'chart:bar']) {
+// ⛔ `scatter-chart` is RETIRED from this list with its registration
+// (objectui#10859 batch 8, phase 2b) — scatter is `{ "type": "chart",
+// "chartType": "scatter" }`.
+for (const variant of ['object-chart', 'bar-chart', 'pie-chart', 'donut-chart', 'radar-chart', 'chart:bar']) {
   ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-charts'), {
     namespace: 'plugin-charts',
     category: 'chart',

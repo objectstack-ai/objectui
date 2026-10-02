@@ -1575,8 +1575,6 @@ const ja = {
       referenceTo: "参照先",
       options: "オプション",
       addOption: "オプションを追加",
-      validationRules: "検証ルール",
-      addRule: "ルールを追加",
       systemBadge: "システム",
       ungrouped: "一般",
       deleteConfirmTitle: "フィールドを削除しますか？",

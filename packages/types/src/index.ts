@@ -752,11 +752,9 @@ export type {
   DashboardWidgetConfig,
   DashboardConfig,
   ObjectDefinition,
-  ObjectDefinitionRelationship,
   ObjectManagerSchema,
   DesignerFieldType,
   DesignerFieldOption,
-  DesignerValidationRule,
   DesignerFieldDefinition,
   FieldDesignerSchema,
 } from './designer.js';

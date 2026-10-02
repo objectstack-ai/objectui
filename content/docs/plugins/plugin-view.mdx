@@ -243,7 +243,7 @@ import '@object-ui/plugin-view';
 ```
 
 That single import is the whole of registration — there is no components map to
-iterate over. Importing the entry runs the six `ComponentRegistry.register(...)`
+iterate over. Importing the entry runs the five `ComponentRegistry.register(...)`
 calls in `packages/plugin-view/src/index.tsx`, which claim exactly these schema
 types:
 
@@ -254,7 +254,6 @@ types:
 | `view:view-switcher` | `view-switcher` | `ViewSwitcher` |
 | `view:filter-ui` | `filter-ui` | `FilterUI` |
 | `view:sort-ui` | `sort-ui` | `SortUI` |
-| `view:shared-view-link` | `shared-view-link` | `SharedViewLink` |
 
 Both spellings resolve here: `ComponentRegistry.register` publishes
 `namespace:type` and, unless the call passes `skipFallback: true`, the bare
@@ -262,11 +261,15 @@ Both spellings resolve here: `ComponentRegistry.register` publishes
 `packages/core/src/registry/Registry.ts`, its `!meta?.skipFallback` branch). No
 call in this package sets `skipFallback`. Note the
 namespaces are not uniform — `object-view` and `view:simple` register under
-`plugin-view`, the four control components under `view`.
+`plugin-view`, the three control components under `view`.
 
 The bare `view` alias of `object-view` is RETIRED (objectui#10859 batch 8): it
 named the same renderer as `object-view`, and `objectui validate` refused it at
 `type`. Author `object-view`.
+
+The `shared-view-link` node key is RETIRED too (objectui#10859 batch 8, phase 2b):
+no schema produced it, and `objectui validate` refused it at `type`.
+`SharedViewLink` is still exported; mount the component directly.
 
 `ObjectViewRenderer` and `SimpleViewRenderer` are internal wrappers and are not
 exported: the wrapper resolves `dataSource` from the renderer context and hands

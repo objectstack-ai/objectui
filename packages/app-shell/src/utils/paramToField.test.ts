@@ -53,7 +53,8 @@ describe('param widget support ⊇ form widget support (drift guard)', () => {
 
   it('spec FieldType aliases resolve through the form mapping, unknown types fall back to text', () => {
     expect(resolveParamWidgetType('toggle')).toBe('boolean');
-    expect(resolveParamWidgetType('json')).toBe('code');
+    // objectui#11448: the JSON editor, not the raw-text code editor.
+    expect(resolveParamWidgetType('json')).toBe('object');
     expect(resolveParamWidgetType('secret')).toBe('password');
     expect(resolveParamWidgetType('tree')).toBe('lookup');
     expect(resolveParamWidgetType('no-such-type')).toBe('text');

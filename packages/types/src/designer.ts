@@ -68,8 +68,23 @@ export interface DesignerComponent {
   props: Record<string, unknown>;
   /** Child components */
   children?: DesignerComponent[];
-  /** Parent component ID */
-  parentId?: string;
+  /**
+   * RETIRED (objectui#11434, ADR-0049) — a second spelling of the component
+   * tree. `children` is the canonical one (it is what the zod mirror recurses
+   * through), and a parent pointer beside it could only disagree with it.
+   * `PageDesigner` never read it: a runtime probe through the real registry drew
+   * the same markup with and without it, and nothing in this repository or in
+   * ObjectStack authored it.
+   *
+   * **Instead:** nest the child in its parent's `children` array, and delete the
+   * key.
+   *
+   * A tombstone rather than a deletion so the compile-time refusal names the
+   * key; the zod mirror refuses it by name with the same prescription
+   * (`retirementTombstone`), so the two faces agree.
+   * @deprecated Not part of this contract — the value was inert.
+   */
+  parentId?: never;
   /** Lock state */
   locked?: boolean;
   /** Visibility */
@@ -222,8 +237,22 @@ export interface DataModelRelationship {
   label?: string;
   /** Cascade behavior on delete */
   onDelete?: 'cascade' | 'set-null' | 'restrict' | 'no-action';
-  /** Cascade behavior on update */
-  onUpdate?: 'cascade' | 'set-null' | 'restrict' | 'no-action';
+  /**
+   * RETIRED (objectui#11434, ADR-0049) — the platform's relationship contract
+   * has no update behaviour: `@objectstack/spec` models a relationship as a
+   * `lookup` / `master_detail` field whose referential action is
+   * `deleteBehavior` alone. A designer that drew this key would declare a
+   * capability no runtime delivers. `DataModelDesigner` never read it (a
+   * runtime probe drew the same markup with and without it), and nothing in
+   * this repository or in ObjectStack authored it.
+   *
+   * **Instead:** delete the key; there is nothing to configure in its place.
+   *
+   * A tombstone rather than a deletion so the compile-time refusal names the
+   * key; the zod mirror refuses it by name (`retirementTombstone`).
+   * @deprecated Not part of this contract — the value was inert.
+   */
+  onUpdate?: never;
 }
 
 /** Data model designer schema */
@@ -237,8 +266,25 @@ export interface DataModelDesignerSchema extends BaseSchema {
   canvas?: DesignerCanvasConfig;
   /** Show relationship labels */
   showRelationshipLabels?: boolean;
-  /** Auto-layout enabled */
-  autoLayout?: boolean;
+  /**
+   * RETIRED (objectui#11434, ADR-0049) — auto-layout is an ACTION, not authored
+   * state. `DataModelDesigner` never read this key: its toolbar's Auto Layout
+   * button arranges the entities on demand whatever the node says, and a
+   * runtime probe through the real registry drew the same markup with the key
+   * `true`, `false` and absent. Entity positions are required, so there is no
+   * unplaced entity for a flag to lay out. Nothing in this repository or in
+   * ObjectStack authored it.
+   *
+   * **Instead:** delete the key, and use the toolbar's Auto Layout button.
+   *
+   * A tombstone rather than a deletion on the grounds the AI declarations'
+   * retired members record: {@link BaseSchema} carries `[key: string]: any`, so a
+   * DELETED member is absorbed silently at any value, and the tombstone is what
+   * makes the compile-time refusal exist, by name. The zod mirror refuses the
+   * key by name with the same prescription (`retirementTombstone`).
+   * @deprecated Not part of this contract — the value was inert.
+   */
+  autoLayout?: never;
   /** Read-only mode */
   readOnly?: boolean;
   /**
@@ -273,8 +319,8 @@ export interface DataModelDesignerSchema extends BaseSchema {
    * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `DataModelDesigner` draws from
-   * its props; the registration declares `entities`, `relationships`,
-   * `autoLayout` and `readOnly` as its inputs.
+   * its props; the registration declares `entities`, `relationships` and
+   * `readOnly` as its inputs.
    *
    * @deprecated Not a channel `data-model-designer` reads — nothing renders
    * it.
@@ -331,8 +377,21 @@ export interface BPMNNode {
   dueDate?: string;
   /** Script content (for script tasks) */
   script?: string;
-  /** Service endpoint (for service tasks) */
-  serviceEndpoint?: string;
+  /**
+   * RETIRED (objectui#11434, ADR-0049) — the mainstream service task references
+   * an IMPLEMENTATION (a job type, a connector, a registered action), not an
+   * endpoint URL, so a URL here taught a model no BPMN engine uses.
+   * `ProcessDesigner` never read it (a runtime probe drew the same markup with
+   * and without it), and nothing in this repository or in ObjectStack authored
+   * it.
+   *
+   * **Instead:** delete the key; there is nothing to configure in its place.
+   *
+   * A tombstone rather than a deletion so the compile-time refusal names the
+   * key; the zod mirror refuses it by name (`retirementTombstone`).
+   * @deprecated Not part of this contract — the value was inert.
+   */
+  serviceEndpoint?: never;
   /** Description */
   description?: string;
 }
@@ -529,8 +588,22 @@ export interface ReportDesignerSchema extends BaseSchema {
   showToolbar?: boolean;
   /** Show property panel */
   showPropertyPanel?: boolean;
-  /** Preview mode */
-  previewMode?: boolean;
+  /**
+   * RETIRED (objectui#11434, ADR-0049) — preview is a MODE of the tool (Report
+   * Builder's Run / Design toggle), not state a report document carries.
+   * `ReportDesigner` declared it on its props and never read it: a runtime probe
+   * through the real registry drew the same markup with and without it.
+   * Nothing in this repository or in ObjectStack authored it.
+   *
+   * **Instead:** delete the key. For a chrome-free, non-editable layout, author
+   * `readOnly: true`, `showToolbar: false` and `showPropertyPanel: false`.
+   *
+   * A tombstone rather than a deletion on the grounds {@link
+   * DataModelDesignerSchema.autoLayout} records; the zod mirror refuses the key
+   * by name with the same prescription (`retirementTombstone`).
+   * @deprecated Not part of this contract — the value was inert.
+   */
+  previewMode?: never;
   /** Read-only mode */
   readOnly?: boolean;
   /**
@@ -869,21 +942,38 @@ export interface ObjectDefinition {
   isSystem?: boolean;
   /** Field count (read-only, for display) */
   fieldCount?: number;
-  /** Relationships to other objects */
-  relationships?: ObjectDefinitionRelationship[];
+  /**
+   * RETIRED (objectui#11434, ADR-0049) — a relationship is a FIELD, not an
+   * object-level list. `@objectstack/spec`'s `ObjectSchema` refuses an
+   * object-level `relationships` array as an unrecognized key (objectui#6223
+   * already kept it off the wire), the spec models a relationship as a
+   * `lookup` / `master_detail` field with a `reference`, and this designer's
+   * field model carries that as {@link DesignerFieldDefinition.referenceTo}. Nothing read
+   * this list — not `ObjectManager`, not `MetadataObjectsPage` (whose
+   * `toObjectDefinition` never set it), not `MetadataService` — and only test
+   * fixtures authored it.
+   *
+   * Its element type `ObjectDefinitionRelationship` (`relatedObject`, `type`,
+   * `label`, `foreignKey`) left the package with it.
+   *
+   * **Instead:** declare the relationship on the referencing field — in this
+   * designer, a `lookup` field whose `referenceTo` names the related object (in
+   * `@objectstack/spec` metadata, a `lookup` / `master_detail` field whose
+   * `reference` names it) — and delete the key.
+   *
+   * A tombstone rather than a deletion so the compile-time refusal names the
+   * key; the zod mirror refuses it by name with the same prescription
+   * (`retirementTombstone`).
+   * @deprecated Not part of this contract — the value was inert.
+   */
+  relationships?: never;
 }
 
-/** Relationship reference for Object Manager */
-export interface ObjectDefinitionRelationship {
-  /** Related object name */
-  relatedObject: string;
-  /** Relationship type */
-  type: 'one-to-one' | 'one-to-many' | 'many-to-one' | 'many-to-many';
-  /** Relationship label */
-  label?: string;
-  /** Foreign key field */
-  foreignKey?: string;
-}
+/*
+ * There is deliberately no `ObjectDefinitionRelationship` here any more
+ * (objectui#11434): it typed only `ObjectDefinition.relationships`, retired
+ * above. Its zod mirror left `zod/designer.zod.ts` in the same change.
+ */
 
 /** Object Manager component schema */
 export interface ObjectManagerSchema extends BaseSchema {
@@ -990,15 +1080,11 @@ export interface DesignerFieldOption {
   color?: string;
 }
 
-/** Validation rule for field designer */
-export interface DesignerValidationRule {
-  /** Rule type */
-  type: 'min' | 'max' | 'minLength' | 'maxLength' | 'pattern' | 'custom';
-  /** Rule value */
-  value: string | number;
-  /** Error message */
-  message?: string;
-}
+/*
+ * There is deliberately no `DesignerValidationRule` here any more
+ * (objectui#11434): it typed only `DesignerFieldDefinition.validationRules`,
+ * retired below. Its zod mirror left `zod/designer.zod.ts` in the same change.
+ */
 
 /** Field definition for the Field Designer */
 export interface DesignerFieldDefinition {
@@ -1051,8 +1137,30 @@ export interface DesignerFieldDefinition {
   placeholder?: string;
   /** Select options (for select type) */
   options?: DesignerFieldOption[];
-  /** Validation rules */
-  validationRules?: DesignerValidationRule[];
+  /**
+   * RETIRED (objectui#11434, ADR-0049) — a spelling the platform refuses, with
+   * no reader and no producer. `@objectstack/spec`'s `FieldSchema` refuses
+   * `validationRules` as an unrecognized key; the spec carries numeric and
+   * length bounds as the field's own `min` / `max` / `minLength` /
+   * `maxLength` keys and every other rule as an entry of the OBJECT's `validations` list, which is also
+   * where mainstream platforms keep validation rules. `FieldDesigner` never
+   * offered an editor for it, and no converter carried it: `toDesignerField`
+   * never set it, and neither `fromDesignerField` nor
+   * `MetadataService.toFieldPayload` copied it to the wire.
+   *
+   * Its element type `DesignerValidationRule` (`type`, `value`, `message`) left
+   * the package with it.
+   *
+   * **Instead:** put bounds on the field as `min` / `max` / `minLength` /
+   * `maxLength` in the field metadata, and any other rule in the object's
+   * `validations`; delete the key here.
+   *
+   * A tombstone rather than a deletion so the compile-time refusal names the
+   * key; the zod mirror refuses it by name with the same prescription
+   * (`retirementTombstone`).
+   * @deprecated Not part of this contract — the value was inert.
+   */
+  validationRules?: never;
   /** Whether this is a system field */
   isSystem?: boolean;
   /** External ID flag */

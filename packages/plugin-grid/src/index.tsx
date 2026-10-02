@@ -12,7 +12,6 @@ import {
   ElementDataSourceGate,
   noDataSourceMessage,
   useResolvedDataSource,
-  useSchemaContext,
   type ElementDataSourceMapping,
 } from '@object-ui/react';
 import type { DataSource } from '@object-ui/types';
@@ -305,29 +304,30 @@ ComponentRegistry.register('grid', ObjectGridRenderer, {
   inputs: GRID_QUERY_INPUTS.map((i) => ({ ...i })),
 });
 
-// Register import-wizard component
-const ImportWizardRenderer: React.FC<{ schema: any; [key: string]: any }> = ({ schema, ...props }) => {
-  const { dataSource } = useSchemaContext() || {};
-  return (
-    <ImportWizard
-      objectName={schema.objectName}
-      objectLabel={schema.objectLabel}
-      fields={schema.fields ?? []}
-      dataSource={dataSource}
-      {...props}
-    />
-  );
-};
-
-ComponentRegistry.register('import-wizard', ImportWizardRenderer, {
-  namespace: 'plugin-grid',
-  label: 'Import Wizard',
-  category: 'plugin',
-  inputs: [
-    { name: 'objectName', type: 'string', required: true },
-    { name: 'fields', type: 'array', required: true },
-  ]
-});
+/**
+ * ⛔ The `import-wizard` node type key is RETIRED (objectui#10859 batch 8, phase 2b,
+ * the seat's ruling on that card, by the objectui#10393 / objectui#8760 route).
+ * The React export stays (the ruling's words): `ImportWizard` is still exported
+ * from this package, and app-shell mounts it directly (`ObjectView`'s import
+ * flow, `ExcelImportBar`).
+ *
+ * ## What was here, and why it went
+ *
+ * `ComponentRegistry.register('import-wizard', ImportWizardRenderer, {
+ * namespace: 'plugin-grid', ... })` — a renderer reading `objectName` /
+ * `objectLabel` / `fields` and the context `dataSource` into `ImportWizard`.
+ * It stored both `plugin-grid:import-wizard` and the bare `import-wizard` fallback.
+ * No `@object-ui/types` arm claims it, so `objectui validate` refused a node
+ * authored `type: 'import-wizard'` at `type` while the registry mounted it.
+ *
+ * ## Why unregistering is the whole retirement
+ *
+ * Nothing wrote the node: 0 producers in source, docs, examples, the catalog
+ * or objectstack, and 0 runtime emission, re-measured for phase 2b. The ruling's
+ * criterion answered no for a NODE: the mainstream ships import as a setup
+ * tool, not an authorable block. The README and `plugin-grid.mdx` key-table
+ * rows went in the same change.
+ */
 
 // Note: 'grid' type is handled by @object-ui/components Grid layout component
 // This plugin only handles 'object-grid' which integrates with ObjectQL/ObjectStack

@@ -54,18 +54,21 @@ schema types:
 | `view-switcher` | `view:view-switcher` | `ViewSwitcher` |
 | `filter-ui` | `view:filter-ui` | `FilterUI` |
 | `sort-ui` | `view:sort-ui` | `SortUI` |
-| `shared-view-link` | `view:shared-view-link` | `SharedViewLink` |
 | `view:simple` | `plugin-view:view:simple` | `SimpleViewRenderer` (container) |
 
 Both spellings resolve — `register` stores the namespaced key *and* a bare-`type`
 fallback (`ComponentRegistry.register` in `packages/core/src/registry/Registry.ts`,
 its `!meta?.skipFallback` branch). Note the namespaces are not uniform:
-`object-view` / `view:simple` register under `plugin-view`, the four control
+`object-view` / `view:simple` register under `plugin-view`, the three control
 components under `view`.
 
 The bare `view` alias of `object-view` is RETIRED (objectui#10859 batch 8): it
 named the same renderer as `object-view`, and `objectui validate` refused it at
 `type`. Author `object-view`.
+
+The `shared-view-link` node key is RETIRED too (objectui#10859 batch 8, phase 2b):
+no schema produced it, and `objectui validate` refused it at `type`.
+`SharedViewLink` is still exported (see below); mount the component directly.
 
 `ObjectViewRenderer` is a thin internal wrapper — it pulls `dataSource` off the
 renderer context and hands the schema to `ObjectView`. It is not exported,
@@ -82,7 +85,7 @@ import {
   ViewSwitcher, // registered renderer for `view-switcher`
   FilterUI, // registered renderer for `filter-ui`
   SortUI, // registered renderer for `sort-ui`
-  SharedViewLink, // registered renderer for `shared-view-link`
+  SharedViewLink, // share-link control, mounted directly (its node key is retired)
   ViewTabBar, // horizontal strip of saved-view tabs
   ManageViewsDialog, // sortable dialog over every saved view
   deriveRecordSurface, // record schema -> drawer / modal / page surface

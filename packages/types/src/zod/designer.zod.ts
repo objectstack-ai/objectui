@@ -34,22 +34,42 @@
  * rest prop onward), so a node member is READ exactly when its component
  * destructures it and uses the binding. Measured that way, and with a runtime
  * probe through the real registry that varied only the one key, six declared
- * node members have no reader:
+ * node members had no reader:
  *
  *   - `ProcessDesignerSchema.variables` and `ReportDesignerSchema.parameters`
  *     — no reader and no producer, so both were REMOVED from the TypeScript
  *     face in the same change (see the notes where they stood in
  *     `../designer.ts`); neither face declares them now.
- *   - `ProcessDesignerSchema.version` and `.lanes`, `DataModelDesignerSchema
- *     .autoLayout`, `ReportDesignerSchema.previewMode` — declared on the
- *     TypeScript face and deliberately NOT mirrored here. Each is recorded in
- *     `zod-mirror-parity.test.ts`'s `UnmirroredDeclared` ledger for the seat to
- *     rule (retire, or implement a reader); the TypeScript face is not narrowed
- *     by this module.
+ *   - `DataModelDesignerSchema.autoLayout` and `ReportDesignerSchema
+ *     .previewMode` — RETIRED on both faces by objectui#11434: a `?: never`
+ *     tombstone on the TypeScript face and a `retirementTombstone` refused by
+ *     name here (see the next section).
+ *   - `ProcessDesignerSchema.version` and `.lanes` — declared on the
+ *     TypeScript face and deliberately NOT mirrored here yet. objectui#11434's
+ *     ruling gives each a reader; until that change lands they stay in
+ *     `zod-mirror-parity.test.ts`'s `UnmirroredDeclared` ledger.
  *
- * Every other node member is mirrored, and every one of them has a reader. The
- * record types under the nodes (`BPMNNode`, `DataModelRelationship`, …) are
- * mirrored member for member as declared.
+ * Every other node member is mirrored. The record types under the nodes
+ * (`BPMNNode`, `DataModelRelationship`, …) are mirrored member for member as
+ * declared.
+ *
+ * ## Retired members (objectui#11434)
+ *
+ * The seat's ruling on objectui#11434 settled every unread member of this
+ * family by the maintainer's criterion ("does the mainstream have it? Yes ⇒
+ * give it a reader. No ⇒ retire it on both faces"). The retired ones are
+ * refused by name below, each with the reason and what to write instead, and
+ * are `?: never` on the TypeScript face:
+ *
+ *   - `DataModelDesignerSchema.autoLayout`, `ReportDesignerSchema.previewMode`;
+ *   - `DesignerComponent.parentId`, `DataModelRelationship.onUpdate`,
+ *     `BPMNNode.serviceEndpoint`;
+ *   - `ObjectDefinition.relationships` and `DesignerFieldDefinition
+ *     .validationRules`, whose element types (`ObjectDefinitionRelationship`,
+ *     `DesignerValidationRule`) left both faces and the exports with them.
+ *
+ * The members ruled READ are still declared and mirrored as before; their
+ * readers are later changes of the same card.
  *
  * ## Content channels
  *
@@ -76,6 +96,17 @@ import { DESIGNER_FIELD_TYPES, type DesignerComponent } from '../designer.js';
  * guidance: the registration hands the node to the component as props, and
  * the component reads no `children` prop of its own.
  */
+/**
+ * The objectui#11434 retirement guidance: the refusal names the key and the
+ * record or node type it sat on, says why nothing honoured it, and prescribes
+ * what to write instead. The TypeScript face carries the same members as
+ * `?: never` tombstones with the same prescription.
+ */
+const retiredDesignerMember = (owner: string, key: string, why: string, instead: string) =>
+  retirementTombstone(
+    `RETIRED (objectui#11434, ADR-0049) — \`${key}\` on \`${owner}\` had no reader: ${why} Instead: ${instead}`,
+  );
+
 const propsRoute = (component: string) =>
   'its registration (`@object-ui/plugin-designer`) takes no `schema` prop: `SchemaRenderer` spreads the '
   + `node's other keys into \`${component}\` as props, and \`${component}\` reads no \`children\` prop of its own`;
@@ -162,7 +193,12 @@ export const DesignerComponentSchema: z.ZodType<DesignerComponent, DesignerCompo
     position: DesignerPositionSchema.describe('Position on canvas'),
     props: z.record(z.string(), z.unknown()).describe('Component properties'),
     children: z.array(DesignerComponentSchema).optional().describe('Child components'),
-    parentId: z.string().optional().describe('Parent component ID'),
+    parentId: retiredDesignerMember(
+      'DesignerComponent',
+      'parentId',
+      'it was a second spelling of the component tree, which `children` already carries, and `PageDesigner` never read it.',
+      "nest the child in its parent's `children` array, and delete the key.",
+    ),
     locked: z.boolean().optional().describe('Lock state'),
     visible: z.boolean().optional().describe('Visibility'),
     zIndex: z.number().optional().describe('Z-index for layering'),
@@ -241,14 +277,16 @@ export const DataModelEntitySchema = z.object({
   description: z.string().optional().describe('Entity description'),
 });
 
-/** The cascade vocabulary `DataModelRelationship.onDelete` / `.onUpdate` share on the TS face. */
+/** The cascade vocabulary of `DataModelRelationship.onDelete` on the TS face. */
 const CascadeBehavior = z.enum(['cascade', 'set-null', 'restrict', 'no-action']);
 
 /**
  * Data Model Relationship — mirrors `DataModelRelationship` (`../designer.ts`).
  *
- * `onDelete` / `onUpdate` are a referential-action VOCABULARY, not handler
- * keys: the TypeScript face declares the four literals, and so does this one.
+ * `onDelete` is a referential-action VOCABULARY, not a handler key: the
+ * TypeScript face declares the four literals, and so does this one. `onUpdate`
+ * is RETIRED on both faces (objectui#11434): the platform's relationship
+ * contract has no update behaviour.
  */
 export const DataModelRelationshipSchema = z.object({
   id: z.string().describe('Relationship identifier'),
@@ -259,14 +297,19 @@ export const DataModelRelationshipSchema = z.object({
   type: z.enum(['one-to-one', 'one-to-many', 'many-to-many']).describe('Relationship type'),
   label: z.string().optional().describe('Relationship label'),
   onDelete: CascadeBehavior.optional().describe('Cascade behavior on delete'),
-  onUpdate: CascadeBehavior.optional().describe('Cascade behavior on update'),
+  onUpdate: retiredDesignerMember(
+    'DataModelRelationship',
+    'onUpdate',
+    "the platform's relationship contract has no update behaviour (`@objectstack/spec` gives a relationship field `deleteBehavior` alone), so a designer that drew it would declare a capability no runtime delivers.",
+    'delete the key; there is nothing to configure in its place.',
+  ),
 });
 
 /**
  * Data Model Designer Schema — mirrors `DataModelDesignerSchema`
- * (`../designer.ts`), less `autoLayout`: `DataModelDesigner` never reads it
- * (the toolbar's "Auto Layout" button runs on demand), so it is not mirrored
- * and stands in `UnmirroredDeclared` for the seat to rule.
+ * (`../designer.ts`). `autoLayout` is RETIRED on both faces (objectui#11434):
+ * `DataModelDesigner` never read it, because the toolbar's "Auto Layout" button
+ * runs on demand.
  */
 export const DataModelDesignerSchema = BaseSchema.extend({
   type: z.literal('data-model-designer'),
@@ -274,6 +317,12 @@ export const DataModelDesignerSchema = BaseSchema.extend({
   relationships: z.array(DataModelRelationshipSchema).describe('Relationships between entities'),
   canvas: DesignerCanvasConfigSchema.optional().describe('Canvas configuration'),
   showRelationshipLabels: z.boolean().optional().describe('Show relationship labels'),
+  autoLayout: retiredDesignerMember(
+    'data-model-designer',
+    'autoLayout',
+    "auto-layout is an action, not authored state: the toolbar's Auto Layout button arranges the entities on demand whatever the node says.",
+    'use that button, and delete the key.',
+  ),
   readOnly: z.boolean().optional().describe('Read-only mode'),
   body: retirementTombstone(DATA_MODEL_DESIGNER_NEITHER_CHANNEL),
   children: retirementTombstone(DATA_MODEL_DESIGNER_NEITHER_CHANNEL),
@@ -323,7 +372,12 @@ export const BPMNNodeSchema = z.object({
   assignee: z.string().optional().describe('Assigned user/role (for user tasks)'),
   dueDate: z.string().optional().describe('Due date expression'),
   script: z.string().optional().describe('Script content (for script tasks)'),
-  serviceEndpoint: z.string().optional().describe('Service endpoint (for service tasks)'),
+  serviceEndpoint: retiredDesignerMember(
+    'BPMNNode',
+    'serviceEndpoint',
+    'a service task references an implementation, not an endpoint URL, and `ProcessDesigner` never read it.',
+    'delete the key; there is nothing to configure in its place.',
+  ),
   description: z.string().optional().describe('Description'),
 });
 
@@ -418,11 +472,10 @@ export const ReportDesignerSectionSchema = z.object({
 });
 
 /**
- * Report Designer Schema — mirrors `ReportDesignerSchema` (`../designer.ts`),
- * less `previewMode`: `ReportDesigner` declares it on its props and never
- * destructures it, so it is not mirrored and stands in `UnmirroredDeclared`
- * for the seat to rule. `parameters` left BOTH faces with objectui#10859 (no
- * reader, no producer).
+ * Report Designer Schema — mirrors `ReportDesignerSchema` (`../designer.ts`).
+ * `previewMode` is RETIRED on both faces (objectui#11434): `ReportDesigner`
+ * declared it on its props and never read it. `parameters` left BOTH faces
+ * with objectui#10859 (no reader, no producer).
  */
 export const ReportDesignerSchema = BaseSchema.extend({
   type: z.literal('report-designer'),
@@ -437,6 +490,12 @@ export const ReportDesignerSchema = BaseSchema.extend({
   sections: z.array(ReportDesignerSectionSchema).describe('Report sections'),
   showToolbar: z.boolean().optional().describe('Show designer toolbar'),
   showPropertyPanel: z.boolean().optional().describe('Show property panel'),
+  previewMode: retiredDesignerMember(
+    'report-designer',
+    'previewMode',
+    'preview is a mode of the tool, not state a report document carries, and `ReportDesigner` never read it.',
+    'for a chrome-free, non-editable layout author `readOnly: true`, `showToolbar: false` and `showPropertyPanel: false`, and delete the key.',
+  ),
   readOnly: z.boolean().optional().describe('Read-only mode'),
   body: retirementTombstone(REPORT_DESIGNER_NEITHER_CHANNEL),
   children: retirementTombstone(REPORT_DESIGNER_NEITHER_CHANNEL),
@@ -445,17 +504,6 @@ export const ReportDesignerSchema = BaseSchema.extend({
 // ============================================================================
 // Object Manager
 // ============================================================================
-
-/**
- * Object Definition Relationship — mirrors `ObjectDefinitionRelationship`
- * (`../designer.ts`).
- */
-export const ObjectDefinitionRelationshipSchema = z.object({
-  relatedObject: z.string().describe('Related object name'),
-  type: z.enum(['one-to-one', 'one-to-many', 'many-to-one', 'many-to-many']).describe('Relationship type'),
-  label: z.string().optional().describe('Relationship label'),
-  foreignKey: z.string().optional().describe('Foreign key field'),
-});
 
 /**
  * Object Definition — mirrors `ObjectDefinition` (`../designer.ts`).
@@ -471,7 +519,12 @@ export const ObjectDefinitionSchema = z.object({
   sortOrder: z.number().optional().describe('Sort order within group'),
   isSystem: z.boolean().optional().describe('Whether this is a system object (non-deletable)'),
   fieldCount: z.number().optional().describe('Field count (read-only, for display)'),
-  relationships: z.array(ObjectDefinitionRelationshipSchema).optional().describe('Relationships to other objects'),
+  relationships: retiredDesignerMember(
+    'ObjectDefinition',
+    'relationships',
+    "a relationship is a field, not an object-level list — `@objectstack/spec`'s `ObjectSchema` refuses this array as an unrecognized key — and nothing read it.",
+    'declare the relationship on the referencing field (in this designer, a `lookup` field whose `referenceTo` names the related object; in `@objectstack/spec` metadata, a `lookup` / `master_detail` field whose `reference` names it), and delete the key.',
+  ),
 });
 
 /**
@@ -500,15 +553,6 @@ export const DesignerFieldOptionSchema = z.object({
 });
 
 /**
- * Designer Validation Rule — mirrors `DesignerValidationRule` (`../designer.ts`).
- */
-export const DesignerValidationRuleSchema = z.object({
-  type: z.enum(['min', 'max', 'minLength', 'maxLength', 'pattern', 'custom']).describe('Rule type'),
-  value: z.union([z.string(), z.number()]).describe('Rule value'),
-  message: z.string().optional().describe('Error message'),
-});
-
-/**
  * Designer Field Definition — mirrors `DesignerFieldDefinition`
  * (`../designer.ts`). `type` is the designer's own vocabulary,
  * `DESIGNER_FIELD_TYPES`, read from the declaration module rather than
@@ -528,7 +572,12 @@ export const DesignerFieldDefinitionSchema = z.object({
   defaultValue: z.unknown().optional().describe('Default value'),
   placeholder: z.string().optional().describe('Placeholder text'),
   options: z.array(DesignerFieldOptionSchema).optional().describe('Select options (for select type)'),
-  validationRules: z.array(DesignerValidationRuleSchema).optional().describe('Validation rules'),
+  validationRules: retiredDesignerMember(
+    'DesignerFieldDefinition',
+    'validationRules',
+    "`@objectstack/spec`'s `FieldSchema` refuses this spelling as an unrecognized key, no editor offered it and no converter carried it.",
+    "put bounds on the field as `min` / `max` / `minLength` / `maxLength` in the field metadata and any other rule in the object's `validations`, and delete the key.",
+  ),
   isSystem: z.boolean().optional().describe('Whether this is a system field'),
   externalId: z.boolean().optional().describe('External ID flag'),
   trackHistory: z.boolean().optional().describe('Track field history'),

@@ -59,13 +59,17 @@ const schema = {
 `register(type, component, { namespace })` publishes `namespace:type`, and — unless
 `skipFallback` is set — the bare `type` as a back-compat fallback
 (`packages/core/src/registry/Registry.ts:194`, fallback at `:226-240`). So the
-three calls in `src/index.tsx` claim exactly these keys:
+two calls in `src/index.tsx` claim exactly these keys:
 
 | `register(…)` call | Namespaced key | Bare fallback |
 | --- | --- | --- |
 | `('object-grid', ObjectGridRenderer, { namespace: 'plugin-grid' })` — `src/index.tsx:202` | `plugin-grid:object-grid` | `object-grid` |
 | `('grid', ObjectGridRenderer, { namespace: 'view', skipFallback: true })` — `src/index.tsx:214` | `view:grid` | **none** — `skipFallback: true` |
-| `('import-wizard', ImportWizardRenderer, { namespace: 'plugin-grid' })` — `src/index.tsx:237` | `plugin-grid:import-wizard` | `import-wizard` |
+
+The `import-wizard` node key is RETIRED (objectui#10859 batch 8): no schema
+produced it, and `objectui validate` refused it at `type`. `ImportWizard` is still
+exported, and `@object-ui/app-shell` mounts it directly (the object view's import
+flow).
 
 **Bare `grid` is deliberately not ours.** `skipFallback: true` on the second call
 keeps this plugin from claiming it, because `grid` belongs to the CSS Grid *layout*

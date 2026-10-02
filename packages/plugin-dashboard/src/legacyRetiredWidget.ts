@@ -21,8 +21,8 @@
  * The retirement therefore came with a graceful fallback: render a VISIBLE error
  * placeholder naming the fix, never a blank widget. That fallback was applied to
  * `DashboardRenderer` and to nothing else, while `DashboardGridLayout` — a
- * separately exported surface, registered as the `dashboard-grid` SDUI component
- * — kept falling through to its static-data branch with `data: []`. Same stored
+ * separately exported surface, then also registered as the `dashboard-grid` SDUI
+ * component (retired by objectui#10859 batch 8) — kept falling through to its static-data branch with `data: []`. Same stored
  * metadata, same product: a rebind prompt on one surface and a silent blank
  * chart on the other, which is worse for the user than the pre-retirement state
  * (no chart, no diagnostic, no path to fix).

@@ -189,8 +189,6 @@ export const DESIGNER_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'appDesigner.fieldDesigner.referenceTo': 'Reference To',
   'appDesigner.fieldDesigner.options': 'Options',
   'appDesigner.fieldDesigner.addOption': 'Add Option',
-  'appDesigner.fieldDesigner.validationRules': 'Validation Rules',
-  'appDesigner.fieldDesigner.addRule': 'Add Rule',
   'appDesigner.fieldDesigner.systemBadge': 'System',
   'appDesigner.fieldDesigner.ungrouped': 'General',
   'appDesigner.fieldDesigner.deleteConfirmTitle': 'Delete Field?',

@@ -108,8 +108,9 @@ export interface SubCaptionWidget {
  *
  * Provider-safe: `useObjectLabel` and `useObjectTranslation` both degrade to a
  * no-instance stand-in when no `I18nProvider` is mounted (objectui#5564), which
- * `DashboardGridLayout` depends on — it is registered as the `dashboard-grid`
- * SDUI component and renders standalone.
+ * `DashboardGridLayout` depends on — it is a separately exported component a
+ * host mounts standalone (its `dashboard-grid` node key was retired by
+ * objectui#10859 batch 8).
  */
 export function useWidgetSubCaption(
   dashName: string | undefined,

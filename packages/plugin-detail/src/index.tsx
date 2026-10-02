@@ -408,23 +408,29 @@ ComponentRegistry.register('detail-section', DetailSectionNode, {
   ],
 });
 
-// Register RelatedList component
-ComponentRegistry.register('related-list', RelatedList, {
-  namespace: 'plugin-detail',
-  label: 'Related List',
-  category: 'Detail Components',
-  inputs: [
-    { name: 'title', type: 'string', required: true },
-    { name: 'type', type: 'enum', enum: [
-      { label: 'List', value: 'list' },
-      { label: 'Grid', value: 'grid' },
-      { label: 'Table', value: 'table' }
-    ] },
-    { name: 'api', type: 'string' },
-    { name: 'data', type: 'array' },
-    { name: 'columns', type: 'array' },
-  ],
-});
+/**
+ * ⛔ The `related-list` node type key is RETIRED (objectui#10859 batch 8,
+ * phase 2b, the seat's ruling on that card, by the objectui#10393 /
+ * objectui#8760 route). The related-list block authors write is the armed
+ * `record:related_list` (registered below as `related_list`, namespace
+ * `record`). `RelatedList` itself stays a named export of this package, and
+ * `RecordRelatedListRenderer` renders through it directly.
+ *
+ * ## What was here, and why it went
+ *
+ * `ComponentRegistry.register('related-list', RelatedList, { namespace:
+ * 'plugin-detail', ... })` — the raw component published as a node key, storing
+ * `plugin-detail:related-list` and the bare `related-list` fallback. No
+ * `@object-ui/types` arm claims it, so `objectui validate` refused a node
+ * authored `type: 'related-list'` at `type` while the registry mounted it. Its
+ * declared `type` input (`list` / `grid` / `table`) also collided with the
+ * node discriminator: a node could not carry both.
+ *
+ * ## Why unregistering is the whole retirement
+ *
+ * Nothing wrote the node: 0 producers in source, docs, examples, the catalog
+ * or objectstack, and 0 runtime emission, re-measured for phase 2b.
+ */
 
 // Alias for generic view
 ComponentRegistry.register('detail', DetailView, {

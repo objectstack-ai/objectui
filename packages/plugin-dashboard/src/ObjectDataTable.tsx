@@ -14,7 +14,7 @@ import {
   columnIdentity,
   columnHeader,
 } from '@object-ui/core';
-import type { ObjectDataTableSchema, TableColumn } from '@object-ui/types';
+import type { DataTableSchema, ObjectDataTableSchema, TableColumn } from '@object-ui/types';
 import { normalizeTableColumnType } from '@object-ui/types';
 import { Skeleton, RefreshIndicator, cn } from '@object-ui/components';
 import { isMaskedFieldType, MaskedCellRenderer } from '@object-ui/fields';
@@ -1190,7 +1190,7 @@ export const ObjectDataTable: React.FC<ObjectDataTableProps> = ({ schema, dataSo
   // key where it was spent, the same shape `DashboardGridLayout` already uses
   // for `data`. Pinned by `ObjectDataTable.bindNotForwarded-6575.test.tsx`.
   const { bind: _consumedBind, ...schemaWithoutBind } = schema;
-  const tableSchema = {
+  const tableSchema: DataTableSchema = {
     ...schemaWithoutBind,
     type: 'data-table',
     data: finalData,

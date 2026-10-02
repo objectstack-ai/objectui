@@ -129,6 +129,10 @@ describe('`collapsible` is the spec boolean, and the renderer honours it (object
   ] as const)('`collapsible: %s` → data-collapsible %s', (collapsible, expected) => {
     const node = { type: 'sidebar', children: ITEMS, ...(collapsible === undefined ? {} : { collapsible }) };
     const { container } = render(<SchemaRenderer schema={node as never} />);
+    // Drawn first: a node that rendered nothing has no `data-collapsible`
+    // either, which would read as the in-flow `null` below.
+    expect(container.textContent).toContain('Dashboard');
+    expect(providers(container)).toBe(1);
     expect(collapsibleAttr(container)).toBe(expected);
     // Never the verbatim boolean the renderer used to forward.
     expect(container.querySelector('[data-collapsible="true"], [data-collapsible="false"]')).toBeNull();

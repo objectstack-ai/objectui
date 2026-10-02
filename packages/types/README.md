@@ -407,9 +407,16 @@ import type { BaseSchema, ContainerSchema, FlexLayoutProps, SidebarSchema } from
 
 // The two leaves are annotated so the nesting below is checked against the
 // shipped types rather than absorbed by `BaseSchema`'s index signature.
+// The sidebar draws what it composes through `children` (an app's navigation
+// lives in the app's metadata, not on this node), and `collapsible: false`
+// draws it in the page flow, beside `main`.
 const sidebar: SidebarSchema = {
   type: 'sidebar',
-  nav: [{ label: 'Home', href: '/' }]
+  collapsible: false,
+  children: [
+    { type: 'text', content: 'Menu' },
+    { type: 'button', label: 'Home', variant: 'ghost' }
+  ]
 };
 
 const main: ContainerSchema = {

@@ -891,7 +891,7 @@ import { AccordionItemSchema, AccordionSchema, CollapsibleSchema, ToggleGroupIte
 import { EmptySchema, LoadingSchema, ProgressSchema, SkeletonSchema, SonnerSchema, SpinnerSchema, ToasterSchema, ToastSchema } from '../zod/feedback.zod.js';
 import { ButtonSchema, CalendarSchema, CheckboxSchema, CodeEditorSchema, ComboboxOptionSchema, ComboboxSchema, CommandGroupSchema, CommandItemSchema, CommandSchema, DatePickerSchema, FieldConditionSchema, FieldConstraintsSchema, FileUploadSchema, FormFieldSchema, FormSchema, InputOTPSchema, InputSchema, InputShorthandSchema, LabelSchema, RadioGroupSchema, RadioOptionSchema, SelectOptionSchema, SelectSchema, SliderSchema, SwitchSchema, TextareaSchema, ToggleSchema, UiCalendarSchema } from '../zod/form.zod.js';
 import { AspectRatioSchema, BoxSchema, CardSchema, ContainerSchema, DivSchema, FlexSchema, GridSchema, HtmlElementSchema, IconSchema, ImageSchema, PageNodeRegionSchema, SemanticElementSchema, PageNodeSchema, ResizablePanelSchema, ResizableSchema, ScrollAreaSchema, SeparatorSchema, StackSchema, TabItemSchema, TabsSchema, TextSchema, TextSpanSchema } from '../zod/layout.zod.js';
-import { BreadcrumbItemSchema, BreadcrumbSchema, ButtonGroupButtonSchema, ButtonGroupSchema, HeaderBarSchema, NavigationMenuItemSchema, NavigationMenuSchema, NavLinkSchema, PaginationSchema, SidebarSchema } from '../zod/navigation.zod.js';
+import { BreadcrumbItemSchema, BreadcrumbSchema, ButtonGroupButtonSchema, ButtonGroupSchema, HeaderBarSchema, NavigationMenuItemSchema, NavigationMenuSchema, PaginationSchema, SidebarSchema } from '../zod/navigation.zod.js';
 import { ObjectCalendarSchema, ObjectChartSchema, ObjectDataTableSchema, ObjectFormSchema, ObjectGallerySchema, ObjectGanttSchema, ObjectGridSchema, ObjectKanbanSchema, ObjectMapConfigSchema, ObjectMapSchema, ObjectTreeSchema, ObjectViewSchema, SortConfigSchema } from '../zod/objectql.zod.js';
 import { AlertDialogSchema, ContextMenuSchema, DialogSchema, DrawerSchema, DropdownMenuSchema, HoverCardSchema, MenubarMenuSchema, MenubarSchema, MenuItemSchema as OverlayMenuItemSchema, PopoverSchema, SheetSchema, TooltipSchema } from '../zod/overlay.zod.js';
 import { ReportBuilderSchema, ReportComponentSchema, ReportExportConfigSchema, ReportFieldSchema, ReportFilterSchema, ReportGroupBySchema, ReportSectionSchema, ReportViewerSchema } from '../zod/reports.zod.js';
@@ -6003,7 +6003,7 @@ function measureReachableLazyNodes(): Map<unknown, string> {
  * `unknown` INPUT parameter. So the exclusion is only as bounded as that population
  * is — and the population is exactly what the type level cannot report.
  *
- * ⚠️ Eight of the ten below no longer PRODUCE that face: objectui#7760 gave seven of them
+ * ⚠️ Seven of the nine below no longer PRODUCE that face: objectui#7760 gave six of them
  * their TypeScript declaration as both type arguments, and
  * `designer.zod.ts#DesignerComponentSchema` (objectui#10859 batch 7) was born carrying it,
  * so their slots are measured now. They
@@ -6018,6 +6018,8 @@ function measureReachableLazyNodes(): Map<unknown, string> {
  * tombstone), and the only path left to it runs through
  * `FilterGroupSchema`'s getter, which the walk does not enter — so it is no longer a
  * source by this leg's definition, and the no-dead-entries case below removed the row.
+ * objectui#11465 removed `navigation.zod.ts#NavLinkSchema` the same way: its one
+ * carrier, `SidebarSchema.nav`, became a tombstone, so no registered mirror reaches it.
  * That is a change in what is REACHABLE, not a filled annotation.) At the type
  * level every unconstrained face looks alike, so a NEW recursive mirror enlarges
  * the blind region without changing one character the compiler reads. At runtime
@@ -6043,7 +6045,6 @@ const RECURSION_BREAKING_MIRRORS: readonly (readonly [string, unknown])[] = [
   ['crud.zod.ts#ActionSchema', ActionSchema],
   ['data-display.zod.ts#TreeNodeSchema', TreeNodeSchema],
   ['designer.zod.ts#DesignerComponentSchema', DesignerComponentSchema],
-  ['navigation.zod.ts#NavLinkSchema', NavLinkSchema],
   ['navigation.zod.ts#NavigationMenuItemSchema', NavigationMenuItemSchema],
   ['overlay.zod.ts#MenuItemSchema', OverlayMenuItemSchema],
 ];
@@ -6160,9 +6161,11 @@ describe('the WIDER ledger is judged per ARM, not per key (objectui#8252)', () =
     // objectui#10387 retired the ledger's last two-arm key (`HeaderBarSchema::logo`),
     // and a non-vacuity check that needs the LEDGER to hold a union would have gone
     // red on a shrinking ledger rather than on a broken unwrapper. `SidebarSchema`'s
-    // `content` is the single-or-list spelling, two arms, outside the ledger.
+    // `children` is the single-or-list spelling, two arms, outside the ledger — the
+    // channel the node reads. (The control was its `content` until objectui#11465
+    // retired that key to a one-arm tombstone.)
     const measured = widerArmRows().map(({ pair, key }) => measureMirrorArms(pair, key)?.length);
-    measured.push(measureMirrorArms('navigation.zod.ts#SidebarSchema', 'content')?.length);
+    measured.push(measureMirrorArms('navigation.zod.ts#SidebarSchema', 'children')?.length);
     expect(measured.filter((n) => n === 1).length).toBeGreaterThan(0);
     expect(measured.filter((n) => n !== undefined && n > 1).length).toBeGreaterThan(0);
   });

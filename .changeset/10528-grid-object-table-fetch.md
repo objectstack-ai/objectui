@@ -27,3 +27,9 @@ a pivot is bound to a dataset, and a dataset-bound pivot still renders as
 before.
 
 Widgets bound to inline rows are unchanged, including static-data pivots.
+
+⚠️ **Dated note, 2026-10-02 — the `dashboard-grid` node key is retired — objectui#10859.**
+Later in this same release objectui#10859 batch 8 (phase 2b) unregistered the `dashboard-grid`
+node key. `DashboardGridLayout` is unchanged and stays exported, so this fix still holds wherever
+a host mounts it; it is no longer reachable as a schema `type`. The rest of this entry is kept as
+the reading of this change.

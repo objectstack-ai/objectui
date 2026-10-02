@@ -334,3 +334,70 @@ describe('`page` opens the record page through the host\'s record navigator (obj
     expect(openRecord).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * A timeline that names NO `objectName` (objectui#11168 slice 5 round 2).
+ * Since slice 5 such a timeline is a validator-clean document — it draws from
+ * `data`, `items` or a `bind` path — but the hook builds the record page from
+ * the object name, so the description's `page` and new-tab clauses do not
+ * reach it. Same records, same click; only the object name is gone.
+ */
+async function clickObjectlessEntry(
+  navigation: Navigation,
+  host?: RelatedRecordActionsValue,
+  records: Array<Record<string, unknown>> = RECORDS,
+) {
+  const open = vi.fn();
+  vi.stubGlobal('open', open);
+  const schema = {
+    type: 'timeline',
+    timeline: { startDateField: 'start_date', titleField: 'name' },
+    ...(navigation ? { navigation } : {}),
+  } satisfies ObjectTimelineProps['schema'];
+  const extra = { data: records } as Record<string, unknown>;
+  const timeline = <ObjectTimeline schema={schema} {...extra} />;
+  render(host ? <RelatedRecordActionsProvider value={host}>{timeline}</RelatedRecordActionsProvider> : timeline);
+  fireEvent.click(await screen.findByText('Kickoff'));
+  return { open };
+}
+
+describe('on a timeline that names no `objectName` there is no record page to open (objectui#11168)', () => {
+  it('LIT CONTROL: `mode: "drawer"` still opens the entry\'s record', async () => {
+    const { open } = await clickObjectlessEntry({ mode: 'drawer' });
+    await waitFor(() => expect(dialog()).not.toBeNull());
+    expect(openedRecord()).not.toBeNull();
+    expect(open).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['`mode: "page"`', { mode: 'page' }],
+    ['a block without `mode`', { size: 'lg' }],
+  ] as const)('%s opens nothing, even under a host that publishes its record navigator', async (why, navigation) => {
+    const { value, openRecord } = recordNavigatorHost();
+    const { open } = await clickObjectlessEntry(navigation, value);
+    await expectNothingOpened(open, String(why));
+    expect(openRecord).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['`mode: "new_window"`', { mode: 'new_window' }],
+    ['`openNewTab: true` beside `drawer`', { mode: 'drawer', openNewTab: true }],
+  ] as const)('%s opens a tab at the entry\'s id alone, not the record page', async (_why, navigation) => {
+    const { open } = await clickObjectlessEntry(navigation);
+    await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
+    expect(open).toHaveBeenCalledWith('/1', '_blank');
+    expect(open).not.toHaveBeenCalledWith(`/${OBJECT}/record/1`, '_blank');
+    expect(dialog()).toBeNull();
+  });
+
+  it('…the entry\'s `_id` when it has no `id`, and `/undefined` when it has neither', async () => {
+    let { open } = await clickObjectlessEntry({ mode: 'new_window' }, undefined, [{ _id: 'x9', name: 'Kickoff', start_date: '2024-01-05' }]);
+    await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
+    expect(open).toHaveBeenCalledWith('/x9', '_blank');
+    cleanup();
+    vi.unstubAllGlobals();
+    ({ open } = await clickObjectlessEntry({ mode: 'new_window' }, undefined, [{ name: 'Kickoff', start_date: '2024-01-05' }]));
+    await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
+    expect(open).toHaveBeenCalledWith('/undefined', '_blank');
+  });
+});

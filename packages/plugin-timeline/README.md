@@ -96,8 +96,8 @@ props in the `properties` bag, where `@objectstack/spec`'s
 The first record source present wins: `items` (authored entries, drawn as
 written), then `data` (pre-fetched records), then a `bind` path, then the query
 on `objectName`. So `objectName` is optional: a timeline drawn from `items`,
-`data` or a `bind` path needs none, and a node-level `dataSource` binding can
-supply the object instead. Records are composed into entries through the
+`data` or a `bind` path needs none to draw (entry-click navigation still reads
+it, below), and a node-level `dataSource` binding can supply the object instead. Records are composed into entries through the
 `timeline` block's field bindings (`startDateField`, `endDateField`,
 `titleField`, `groupByField`, `colorField`), each of which outranks the flat
 key of the same binding; `mapping` (`{ title, date, description, variant }`)
@@ -116,11 +116,15 @@ reference, `ViewNavigationConfig` in `@object-ui/types`: `mode` (`page`,
 entry's record in that overlay, `new_window` and `openNewTab: true` open the
 record page in a new tab, `preventNavigation: true` opens nothing, and `size`
 sets the overlay width. `page`, and a block written without `mode` (it takes
-the spec's `page` default), open the record page through the record navigator
-the host publishes (the console publishes one on its custom pages, record pages
-and list views); under a host that publishes none, such as an embedded renderer,
-the click opens nothing. A click handler from a parent view outranks the whole
-key. ⚠️ With the key absent a click opens nothing: this renderer supplies no
+the spec's `page` default), open the record page of the timeline's `objectName`
+through the record navigator the host publishes (the console publishes one on
+its custom pages, record pages and list views); under a host that publishes
+none, such as an embedded renderer, or on a timeline that names no
+`objectName`, the click opens nothing. On a timeline that names no
+`objectName`, `new_window` and `openNewTab: true` open no record page either:
+the tab opens at a slash and the entry's `id` alone (its `_id` when it has no
+`id`, `undefined` when it has neither). A click handler from a parent view
+outranks the whole key. ⚠️ With the key absent a click opens nothing: this renderer supplies no
 drawer default. `split` opens nothing on this block either, because the
 timeline gives the split shell no main panel.
 

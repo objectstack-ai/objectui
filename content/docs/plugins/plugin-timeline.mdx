@@ -200,8 +200,9 @@ props in the `properties` bag, where `@objectstack/spec`'s
 The first record source present wins: `items` (authored entries, drawn as
 written), then `data` (pre-fetched records), then a `bind` path, then the query
 on `objectName`. Only the query is a fetch, so `objectName` is optional: a
-timeline drawn from `items`, `data` or a `bind` path needs none, and a
-node-level `dataSource` binding can supply the object instead. Records, from
+timeline drawn from `items`, `data` or a `bind` path needs none to draw (entry-click
+navigation still reads it, below), and a node-level `dataSource` binding can
+supply the object instead. Records, from
 `data`, a `bind` path or the query, are composed into entries through the field
 bindings below; authored `items` are not.
 
@@ -226,8 +227,8 @@ reference, `ViewNavigationConfig` in `@object-ui/types`, the type
 | Member | On an entry click |
 |--------|-------------------|
 | `mode: 'drawer'` / `'modal'` / `'popover'` | Opens the entry's record in that overlay |
-| `mode: 'new_window'`, or `openNewTab: true` | Opens the record page in a new tab; `openNewTab` outranks every mode except `none` |
-| `mode: 'page'`, or a block without `mode` (the spec's `page` default) | Opens the record page through the record navigator the host publishes (the console publishes one on its custom pages, record pages and list views); under a host that publishes none, such as an embedded renderer, it opens nothing |
+| `mode: 'new_window'`, or `openNewTab: true` | Opens the record page in a new tab; `openNewTab` outranks every mode except `none`. On a timeline that names no `objectName` there is no record page: the tab opens at a slash and the entry's `id` alone (its `_id` when it has no `id`, `undefined` when it has neither) |
+| `mode: 'page'`, or a block without `mode` (the spec's `page` default) | Opens the record page of the timeline's `objectName` through the record navigator the host publishes (the console publishes one on its custom pages, record pages and list views); under a host that publishes none, such as an embedded renderer, or on a timeline that names no `objectName`, it opens nothing |
 | `preventNavigation: true`, or `mode: 'none'` | Opens nothing, whatever else the block says |
 | `size` | Sets the overlay width (`sm` … `full`, or `auto` for the default) |
 

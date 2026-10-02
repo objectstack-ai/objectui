@@ -20,3 +20,14 @@ list views. Under such a host `page` and a block without `mode` open the record
 page. They open nothing only under a host that publishes none, such as an
 embedded renderer. The input description now says so (objectui#11168). An
 absent key and `split` still open nothing.
+
+**Note, 2026-10-02 (objectui#11168 slice 5, shipping in this same release).**
+`objectName` is no longer required on `object-timeline` / `view:timeline`: a
+timeline drawn from `items`, `data` or a `bind` path names none. On such a
+timeline there is no record page. `page`, and a block without `mode`, open
+nothing even under a host that publishes its record navigator, and
+`new_window` or `openNewTab: true` open a tab at a slash and the entry's `id`
+alone, not the record page. So "opens the record page in a new tab" above, and
+"they open nothing only under a host that publishes none" in the earlier note,
+hold for a timeline that names its `objectName`. The input description says
+so.

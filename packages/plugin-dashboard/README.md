@@ -510,10 +510,12 @@ depends on its shape:
 
 When a widget keeps a declared measure off the screen, `DatasetWidget` logs
 one console warning naming the widget, the measures it renders, and the ones it
-queried and never displayed. Three shapes do that: a metric tile stored before
-the spec narrowed, a dimensionless widget of a type outside the list above
-(both take the tile), and a `pie`, `donut`, `funnel`, `treemap` or `sankey`
-with a dimension and several measures (objectui#11417). For a tile the warning
+queried and never displayed. Three shapes do that. Two take the tile: a metric
+tile stored before the spec narrowed, and a widget the third bullet above
+covers (no `dimensions`, several measures, and a type the second bullet does not
+list, so a dimensionless `pie` is one). The third is a `pie`, `donut`,
+`funnel`, `treemap` or `sankey` with a dimension and several measures
+(objectui#11417). For a tile the warning
 then names the spec's ADR-0087 entry
 `dashboard-widget-metric-family-multi-measure-refused`, whose `replacement`
 says what to author instead of a one-number tile with several measures. For

@@ -73,18 +73,21 @@ import { validate } from '../commands/validate.js';
  * and the `tree` / `view` aliases, see `RETIRED_BARE_KEYS_10859_BATCH_8`;
  * batch 8 phase 2b: minus twelve more RETIRED keys, see
  * `RETIRED_BARE_KEYS_10859_BATCH_8_PHASE_2B`; batch 8 phase 2c: minus four
- * more, see `UNREGISTERED_10859_BATCH_8_PHASE_2C`). LOWER it when a batch arms
- * or retires more keys; never raise it.
+ * more, see `UNREGISTERED_10859_BATCH_8_PHASE_2C`; objectui#11441, run as one
+ * more batch of this card: minus `navigation-renderer` and `responsive-grid`,
+ * see `UNREGISTERED_11441`). LOWER it when a batch arms or retires more keys;
+ * never raise it.
  *
- * The 20 that remain are named in `STILL_REFUSED_10859`, and the row below
+ * The 18 that remain are named in `STILL_REFUSED_10859`, and the row below
  * pins the refused set to exactly that list, so this comment cannot drift from
  * the measurement:
  *
- * - the ten the seat ruling left registered — `object-pivot`,
+ * - the eight the seat ruling left registered — `object-pivot`,
  *   `embeddable-form`, `detail-section`, `home`, `record`, `utility`,
- *   `spec-report` and `app-schema-renderer` (objectui#11440, which arms them),
- *   plus `navigation-renderer` and `responsive-grid` (objectui#11441, the
- *   maintainer's decision card);
+ *   `spec-report` and `app-schema-renderer` (objectui#11440, which arms them).
+ *   `navigation-renderer` and `responsive-grid`, the two the seat sent to the
+ *   maintainer, were ruled B / B on objectui#11441 (record `5950208338`) and
+ *   are retired;
  * - the ten `sidebar-*` primitives, phase 2b's third fork. The seat's fork
  *   ruling (`5948252391`) chose A, conditionally: the armed `sidebar` supplies
  *   its own `SidebarProvider` when no provider is above it, the teaching is
@@ -100,9 +103,11 @@ import { validate } from '../commands/validate.js';
  * registration is objectui's to retire on its own schedule; its fixtures are
  * test data, not producers.
  *
- * The ruling's target is 10 after phase 2d; objectui#11440 then takes it to 2.
+ * The seat's projection was 10 after phase 2d and 2 after objectui#11440, the
+ * last 2 waiting on objectui#11441. That card ran first, so the projection is
+ * now 8 after phase 2d and 0 after objectui#11440.
  */
-const REFUSED_AT_TYPE = 20;
+const REFUSED_AT_TYPE = 18;
 
 /**
  * The head's refused count over the NAMESPACED keys (objectui#10872 batch 1:
@@ -119,10 +124,12 @@ const REFUSED_AT_TYPE = 20;
  * batch 8 phase 2c: minus the five namespaced twins of the four keys it
  * unregistered — `plugin-charts:pie-chart`, `plugin-charts:donut-chart`,
  * `plugin-charts:radar-chart`, `layout:page-header` and
- * `protocol-placeholder:page-header`). LOWER it when a batch arms or retires
+ * `protocol-placeholder:page-header`; objectui#11441: minus
+ * `layout:navigation-renderer` and `layout:responsive-grid`, the namespaced
+ * twins of the two keys it unregistered). LOWER it when a batch arms or retires
  * more keys; never raise it.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 374;
+const NAMESPACED_REFUSED_AT_TYPE = 372;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));
@@ -207,12 +214,24 @@ const UNREGISTERED_10859_BATCH_8_PHASE_2C = {
 } as const;
 
 /**
- * Every bare key still refused at `type` after objectui#10859 batch 8 phase 2c
- * — the `REFUSED_AT_TYPE` docblock says why each is still here. Alphabetical.
+ * The two bare keys objectui#11441 RETIRED by unregistration (the maintainer's
+ * ruling `5950208338`, letters B / B, run as one more batch of this card), each
+ * mapped to the namespaced twin that went with it. Both were
+ * `@object-ui/layout` registrations; `NavigationRenderer` and `ResponsiveGrid`
+ * stay exports.
+ */
+const UNREGISTERED_11441 = {
+  'navigation-renderer': ['layout:navigation-renderer'],
+  'responsive-grid': ['layout:responsive-grid'],
+} as const;
+
+/**
+ * Every bare key still refused at `type` after objectui#11441 — the
+ * `REFUSED_AT_TYPE` docblock says why each is still here. Alphabetical.
  */
 const STILL_REFUSED_10859 = [
   'app-schema-renderer', 'detail-section', 'embeddable-form', 'home',
-  'navigation-renderer', 'object-pivot', 'record', 'responsive-grid',
+  'object-pivot', 'record',
   'sidebar-content', 'sidebar-footer', 'sidebar-group', 'sidebar-header',
   'sidebar-inset', 'sidebar-menu', 'sidebar-menu-button', 'sidebar-menu-item',
   'sidebar-provider', 'sidebar-trigger', 'spec-report', 'utility',
@@ -344,6 +363,24 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
     expect(refusedAtType('chart')).toBe(false);
     expect(NAMESPACED_KEYS).toContain('page:header');
     expect(refusedAtType('page:header')).toBe(false);
+  });
+
+  it('counts the two keys objectui#11441 retired as gone from the registry (objectui#10859)', () => {
+    expect(Object.keys(UNREGISTERED_11441)).toHaveLength(2);
+    for (const [key, twins] of Object.entries(UNREGISTERED_11441)) {
+      // Retired, not armed: out of the population, still refused at `type`.
+      expect(BARE_KEYS, key).not.toContain(key);
+      expect(refusedAtType(key), key).toBe(true);
+      for (const twin of twins) expect(NAMESPACED_KEYS, twin).not.toContain(twin);
+    }
+    // Lit controls: `grid`, the spelling the `responsive-grid` retirement
+    // points authors to, is registered and claimed; `app-schema-renderer`, the
+    // whole-shell door navigation goes through, stays registered (and refused,
+    // until objectui#11440 arms it).
+    expect(BARE_KEYS).toContain('grid');
+    expect(refusedAtType('grid')).toBe(false);
+    expect(BARE_KEYS).toContain('app-schema-renderer');
+    expect(NAMESPACED_KEYS).toContain('layout:app-schema-renderer');
   });
 
   it('the refused set is exactly the named remainder — the pin comment cannot drift (objectui#10859 batch 8)', () => {

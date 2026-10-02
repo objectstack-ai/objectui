@@ -24,7 +24,8 @@
  * What stays pinned here:
  *   - the retirement itself — `registerLayout()` publishes neither spelling, and
  *     the lit control is a layout key it still publishes under both
- *     (`responsive-grid`), the far end the docs site's registrar relies on
+ *     (`app-schema-renderer`; it was `responsive-grid` until objectui#11441
+ *     retired that key), the far end the docs site's registrar relies on
  *     (`scripts/__tests__/site-playground-layout-registration-3904.test.ts`);
  *   - the rendered half of objectui#3789, on the exported component: a lone
  *     `description` draws nothing, and `subtitle` wins when both are passed.
@@ -48,8 +49,8 @@ beforeAll(() => {
 describe('the `page-header` registration is retired (objectui#10859 batch 8)', () => {
   it('publishes neither the bare key nor its `layout` namespace', () => {
     // Lit control first: a key `registerLayout()` still publishes, both spellings.
-    expect(ComponentRegistry.getConfig('responsive-grid')).toBeTruthy();
-    expect(ComponentRegistry.getConfig('responsive-grid', 'layout')).toBeTruthy();
+    expect(ComponentRegistry.getConfig('app-schema-renderer')).toBeTruthy();
+    expect(ComponentRegistry.getConfig('app-schema-renderer', 'layout')).toBeTruthy();
     expect(ComponentRegistry.getConfig('page-header')).toBeUndefined();
     expect(ComponentRegistry.getConfig('page-header', 'layout')).toBeUndefined();
     expect(ComponentRegistry.has('layout:page-header')).toBe(false);

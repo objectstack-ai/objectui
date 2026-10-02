@@ -42,8 +42,9 @@
  * refused BY NAME.
  *
  * The refusal is measured, not asserted from the error-code table: the test
- * renders the node and reads the panel. `responsive-grid` is rendered the same
- * way as the control, because "no unknown-component panel appeared" is exactly
+ * renders the node and reads the panel. `layout:page:card` is rendered the same
+ * way as the control (it was `responsive-grid` until objectui#11441 retired that
+ * key), because "no unknown-component panel appeared" is exactly
  * the shape that passes for an empty reason — a probe that cannot tell a
  * registered key from an unregistered one would be green on both.
  *
@@ -163,12 +164,12 @@ describe('a JSON `app-shell` node is refused by name (objectui#4841)', () => {
     expect(panel?.textContent).toContain('OBJUI-001');
   });
 
-  it('and the probe can tell a registered key apart — `responsive-grid` renders', () => {
+  it('and the probe can tell a registered key apart — `layout:page:card` renders', () => {
     // The control. Without it, "an unknown-component panel appeared" would pass
     // just as happily on a renderer that panels EVERY node, and this file would
     // be green for a reason that has nothing to do with `app-shell`.
     const { container } = render(
-      <SchemaRenderer schema={{ type: 'responsive-grid', children: [] }} />,
+      <SchemaRenderer schema={{ type: 'layout:page:card', children: [] }} />,
     );
     expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(container.textContent).not.toContain('Unknown component type');

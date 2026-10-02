@@ -22,12 +22,18 @@ import { cn } from '@object-ui/components';
  *
  * objectstack#11027 retired the whole `ui/responsive` vocabulary upstream, so
  * there is no longer anything to bind to — and, unlike the four types that left
- * with the key, this one has an authorable carrier that survives the
- * retirement. `responsive-grid` is a REGISTERED SDUI component (`./index.ts`),
- * its `columns` input is authorable, and {@link resolveColumnClasses} applies
- * it on the render path. The tombstone's own return condition — the vocabulary
- * "returns if and when a renderer implements it" — is met here, which is why
- * the type is re-homed rather than deleted.
+ * with the key, this one has a renderer that implements it:
+ * {@link resolveColumnClasses} applies it on `ResponsiveGrid`'s render path.
+ * The tombstone's own return condition — the vocabulary "returns if and when a
+ * renderer implements it" — is met here, which is why the type is re-homed
+ * rather than deleted.
+ *
+ * The node that once made it authorable from JSON is gone. The
+ * `responsive-grid` registration retired under objectui#11441 (the
+ * maintainer's ruling `5950208338`, letter B), which kept this declaration and
+ * named the `grid` node with a breakpoint `columns` object as the one
+ * authorable spelling. `ResponsiveGrid` is now a React-only export, and this
+ * map is the type of its `columns` prop.
  *
  * ⚠️ Members are the retired `BreakpointColumnMapSchema`'s, verbatim: six
  * optional column counts keyed `xs`…`2xl`. The schema was `$strict`, so no

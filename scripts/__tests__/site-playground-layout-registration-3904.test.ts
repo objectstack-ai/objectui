@@ -110,7 +110,7 @@ describe('objectui#3904 — every apps/site SchemaRenderer host registers the la
     expect(
       imports.test(source),
       `${host} renders <SchemaRenderer> but never imports ${REGISTRAR}, so types owned by ` +
-        '@object-ui/layout (responsive-grid, navigation-renderer, app-schema-renderer) resolve to nothing and render ' +
+        '@object-ui/layout (app-schema-renderer, layout:page:card) resolve to nothing and render ' +
         'the red OBJUI-001 panel. Add: import ' +
         "'@/app/components/registerLayoutBlocks';"
     ).toBe(true);
@@ -125,8 +125,9 @@ describe('objectui#3904 — the registrar the hosts import actually registers th
    * The far end — `registerLayout()` really putting its blocks into the
    * `ComponentRegistry` — is already pinned next to the implementation, in
    * `packages/layout/src/__tests__/page-header-authorable-keys.test.tsx`, whose
-   * lit control is `responsive-grid` under both spellings (the `page-header`
-   * key this file first cited was retired by objectui#10859 batch 8), so it is
+   * lit control is `app-schema-renderer` under both spellings (the `page-header`
+   * key this file first cited was retired by objectui#10859 batch 8, and the
+   * `responsive-grid` control after it by objectui#11441), so it is
    * deliberately not restated here: that file owns it.
    */
   const registrar = fs.readFileSync(

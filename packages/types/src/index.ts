@@ -1448,9 +1448,12 @@ export type {
 // The layout vocabulary itself is NOT dropped: `BreakpointName` is declared
 // locally in `./mobile.ts` and re-exported unprefixed from the Mobile block
 // above, and `BreakpointColumnMap` in `@object-ui/layout`'s
-// `ResponsiveGrid.tsx` — both because `responsive-grid` is a registered SDUI
-// component whose authorable `columns` reaches a resolver on the render path,
-// which is the tombstone's own stated return condition.
+// `ResponsiveGrid.tsx` — both because a renderer implements them, which is the
+// tombstone's own stated return condition: `BreakpointName` is the key set of
+// the `grid` node's authorable breakpoint `columns`, and `BreakpointColumnMap`
+// types `ResponsiveGrid`'s `columns` prop. (The ground used to be the
+// `responsive-grid` node; objectui#11441 retired that registration under the
+// maintainer's ruling `5950208338` and kept both declarations.)
 
 // ============================================================================
 // Widget System - Runtime Widget Registration (Section 1.6)

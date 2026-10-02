@@ -2249,7 +2249,9 @@ export interface DashboardWidgetSchema
   // behind it measured `page.components[].responsive` inert), and objectui#7580
   // deleted `useResponsiveConfig` with it at zero callers. What survives the
   // retirement is the BREAKPOINT vocabulary, re-homed into `@object-ui/types`
-  // and `@object-ui/layout` because `responsive-grid` renders it — not this key.
+  // and `@object-ui/layout` because renderers implement it (the `grid` node's
+  // breakpoint `columns`, and `ResponsiveGrid` since objectui#11441 retired its
+  // `responsive-grid` node key) — not this key.
   // Pinned by `__tests__/report-chart-query-spec-parity.test.ts`.
   /** Component schema (legacy format) — objectui-only, no spec counterpart. */
   component?: SchemaNode;

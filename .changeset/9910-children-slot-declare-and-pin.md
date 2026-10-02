@@ -48,3 +48,9 @@ TRUE `not-a-container` the flag used to silence.
 Later in this same release objectui#10859 batch 8 (phase 2c) unregistered `@object-ui/layout`'s
 `page-header` (and `layout:page-header`), so its `children` slot declaration left with it; authors write
 `page:header`. The rest of this entry is kept as the reading of this change.
+
+⚠️ **Dated note, 2026-10-02 — `responsive-grid` is retired — objectui#11441.**
+Later in this same release objectui#11441 unregistered `@object-ui/layout`'s `responsive-grid` (and
+`layout:responsive-grid`), so it no longer draws `not-a-container`: a node written with it renders the "Unknown
+component type" panel. Authors write `grid` with a breakpoint `columns` object. The rest of this entry is kept as the
+reading of this change.

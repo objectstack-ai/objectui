@@ -250,15 +250,17 @@ Inside the component: `const data = useDataScope("customerNames")` resolves the
 `useDataScope` is called by `list` and `tree-view` in `@object-ui/components`,
 and by the `object-*` widgets the plugin packages register (`object-grid`,
 `object-kanban`, `object-chart`, `object-data-table`, `object-gallery`,
-`object-timeline`, `object-pivot`). Every other component ignores `bind`
-completely — no error, no warning, nothing in the console.
+`object-timeline`, `object-pivot`). Every other component ignores `bind` — no
+error, no warning, nothing in the console — except `data-table` (one warning, below).
 
 `data-table` is not among them, which is the trap worth knowing by name: it
 takes its rows from an inline `data` array on the node, so a bound `data-table`
-renders a correct-looking header over an empty body, with nothing thrown and
-nothing logged. Pointing the node's own `data` key at an expression
-(`"data": "${data.customers}"`) fails the same silent way — node keys are not
-expression-evaluated — so **the host resolves the array and puts it on the
+renders a correct-looking header over an empty body: nothing is thrown and
+nothing on the page says why — the one signal is a `[ObjectUI] DataTable bind:`
+console warning (objectui#6575). Pointing the node's own `data` key at an
+expression (`"data": "${data.customers}"`) fails the same way, with its own
+console warning (`[ObjectUI] DataTable data:`, objectui#6665) — node keys are
+not expression-evaluated — so **the host resolves the array and puts it on the
 node**, as below. The one spelling that does carry a provider expression
 through is measured, with its open-question caveat, in
 [`../rules/protocol.md`](../rules/protocol.md).

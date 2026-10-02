@@ -55,13 +55,39 @@ import { rel } from './turbo-inputs';
 /** Extensions tried, in order, when a relative specifier carries none. */
 export const RESOLVE_EXTENSIONS = ['.ts', '.tsx', '.mts', '.cts', '.js', '.jsx', '.mjs', '.cjs'];
 
-/** Resolve a relative specifier to a file on disk, trying the extensions above. */
+/**
+ * The TypeScript sources an emitted extension may name, in the order tried.
+ *
+ * TypeScript's ESM spelling writes the extension the compiled file will carry,
+ * so `import './x.js'` in a `.ts` file names `./x.ts` beside it. tsc and tsx
+ * both resolve it that way, and the sibling walker `resolveRelative` in
+ * `../side-effects-declaration-consistency.test.ts` already applies the same
+ * rule (objectui#11403).
+ */
+const TS_SOURCE_FOR_EMITTED: ReadonlyArray<readonly [string, readonly string[]]> = [
+  ['.js', ['.ts', '.tsx']],
+  ['.jsx', ['.tsx']],
+  ['.mjs', ['.mts']],
+  ['.cjs', ['.cts']],
+];
+
+/**
+ * Resolve a relative specifier to a file on disk, trying the extensions above.
+ *
+ * The TypeScript source of an emitted extension is tried AFTER every other
+ * candidate, so no specifier that resolved before changes target. A specifier
+ * that resolves to nothing still returns null, and the walk still throws.
+ */
 export function resolveRelative(fromFile: string, specifier: string): string | null {
   const base = path.resolve(path.dirname(fromFile), specifier);
+  const emitted = TS_SOURCE_FOR_EMITTED.find(([extension]) => base.endsWith(extension));
   const candidates = [
     base,
     ...RESOLVE_EXTENSIONS.map((extension) => base + extension),
     ...RESOLVE_EXTENSIONS.map((extension) => path.join(base, `index${extension}`)),
+    ...(emitted === undefined
+      ? []
+      : emitted[1].map((source) => base.slice(0, -emitted[0].length) + source)),
   ];
   for (const candidate of candidates) {
     if (fs.existsSync(candidate) && fs.statSync(candidate).isFile()) return candidate;

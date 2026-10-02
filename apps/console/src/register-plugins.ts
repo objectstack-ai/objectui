@@ -10,9 +10,11 @@
  *     only meaningful if it reads the REAL registration list rather than a
  *     hand-copied one (objectui#2953 was a public block silently missing from
  *     the contract; a duplicated list would have hidden it just as well).
- *   - `dev/manifest-dump.tsx` — imports this alongside its own eager plugin
- *     imports, so a plugin the console lazy-registers but the dump forgets to
- *     load eagerly shows up as a `lazy: true` stub and fails the build.
+ *   - `dev/manifest-registry.ts` — imports this alongside its own eager plugin
+ *     imports, so a plugin the console lazy-registers but that module forgets
+ *     to load eagerly shows up as a `lazy: true` stub and fails the build. It
+ *     is the registry both `dev/manifest-dump.tsx` and the console build's
+ *     `dist/sdui.manifest.json` step read.
  *
  * Import order note: this module's own imports are hoisted, so the eager
  * plugins below register during import and the `registerLazy` calls run in this

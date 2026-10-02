@@ -306,9 +306,12 @@ Author them in the canonical tagged-template form that skill teaches
 Renderer-side, and only here: the form renderer **re-evaluates these reactively
 as the user edits**, via `resolveFieldRuleState` in `@object-ui/core`. A static
 `required: true` / `readonly: true` is a floor a FALSE predicate cannot weaken.
-Evaluation is **fail-open** -- a broken predicate never hides content, never
-blocks submit and never locks a field -- so `visibleWhen` is never a security
-boundary on the client.
+Faults follow ADR-0137. At render a broken predicate is **fail-open**: it never
+hides content and never locks a field. At submit a faulted or stored-blank field
+rule **refuses the submit**, naming the field and the rule (the client judges
+`visibleWhen`, the server the other two). A blank triad key is refused at
+authoring; a blank gate stays "no gate", with a diagnostic. `visibleWhen` is
+still never a security boundary on the client; the server is the authority.
 
 ## CEL predicates over a row record
 
@@ -375,14 +378,15 @@ and each reader falls back to its own empty state.
 `useDataScope` is called by `list` and `tree-view` in `@object-ui/components`,
 and by the `object-*` widgets the plugin packages register (`object-grid`,
 `object-kanban`, `object-chart`, `object-data-table`, `object-gallery`,
-`object-timeline`, `object-pivot`). Every other component ignores `bind`
-completely — no error, no warning, nothing in the console.
+`object-timeline`, `object-pivot`). Every other component ignores `bind` — no
+error, no warning, nothing in the console — except `data-table` (one warning, below).
 
 `data-table` is the one that catches authors out. It takes its rows from an
 inline `data` array on the node and never calls `useDataScope`, so a `bind` on
 it resolves nothing: the table renders its header over the "No results found"
-empty state. Nothing is thrown and nothing is logged — a table that looks built
-and is blank is the whole failure.
+empty state. Nothing is thrown and nothing on the page says why — the one
+signal is a `[ObjectUI] DataTable bind:` console warning (objectui#6575); on
+the page, a table that looks built and is blank is the whole failure.
 
 <!-- os:check -->
 ```json

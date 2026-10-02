@@ -136,7 +136,7 @@ The node takes three inputs:
     "name": "crm",
     "title": "CRM",
     "navigation": [
-      { "id": "accounts", "type": "object", "objectName": "account", "label": "Accounts" }
+      { "id": "home", "type": "page", "pageName": "home", "label": "Home" }
     ]
   }
 }

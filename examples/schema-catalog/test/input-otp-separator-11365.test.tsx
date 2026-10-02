@@ -82,6 +82,16 @@ describe('objectui#11365 — the authored `separator` draws one InputOTPSeparato
     expect(groupSizes(container)).toEqual([3, 3]);
   });
 
+  it('an odd `length` puts the extra slot in the first group; one slot draws no separator', () => {
+    const five = renderNode({ type: 'input-otp', length: 5, separator: true });
+    expect(groupSizes(five)).toEqual([3, 2]);
+    expect(five.querySelectorAll('[role="separator"]')).toHaveLength(1);
+
+    const one = renderNode({ type: 'input-otp', length: 1, separator: true });
+    expect(groupSizes(one)).toEqual([1]);
+    expect(one.querySelectorAll('[role="separator"]')).toHaveLength(0);
+  });
+
   it('the control: the entry without `separator` draws none, in one group', () => {
     const container = renderNode(getExample('components-form-input-otp/6-digit-otp').schema);
     expect(container.querySelectorAll('[role="separator"]')).toHaveLength(0);

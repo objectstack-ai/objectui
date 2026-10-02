@@ -449,6 +449,7 @@ export {
   DataModelDesignerSchema,
   BPMNNodeSchema,
   BPMNEdgeSchema,
+  BPMNLaneSchema,
   ProcessDesignerSchema,
   ReportDesignerElementSchema,
   ReportDesignerSectionSchema,

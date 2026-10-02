@@ -19,6 +19,7 @@
 
 import type { BaseSchema } from './base.js';
 import type { VisualizationType } from '@objectstack/spec/ui';
+import type { Field as SpecField } from '@objectstack/spec/data';
 
 // ============================================================================
 // Page Designer (Drag-and-Drop)
@@ -199,11 +200,18 @@ export interface DataModelEntity {
   description?: string;
 }
 
-/** Data model field definition */
+/**
+ * Data model field definition.
+ *
+ * Every member is drawn on the field's row of its entity card by
+ * `DataModelDesigner` (objectui#11434): `label` beside the name, `unique` as a
+ * `UQ` badge beside the `PK` one, `defaultValue` after the type, and
+ * `description` (with the default) as the row's tooltip.
+ */
 export interface DataModelField {
-  /** Field name */
+  /** Field name — the key a relationship's `sourceField` / `targetField` names */
   name: string;
-  /** Display label */
+  /** Display label, drawn beside the name */
   label?: string;
   /** Field data type */
   type: string;
@@ -211,11 +219,11 @@ export interface DataModelField {
   primaryKey?: boolean;
   /** Whether this field is required */
   required?: boolean;
-  /** Whether this field is unique */
+  /** Whether this field is unique — drawn as a `UQ` badge */
   unique?: boolean;
-  /** Default value */
+  /** Default value — drawn after the type, as JSON */
   defaultValue?: unknown;
-  /** Field description */
+  /** Field description — the row's tooltip */
   description?: string;
 }
 
@@ -225,18 +233,48 @@ export interface DataModelRelationship {
   id: string;
   /** Source entity ID */
   sourceEntity: string;
-  /** Source field */
+  /**
+   * Source field — the `name` of a field on the source entity.
+   * `DataModelDesigner` anchors the relationship line at that field's row; a
+   * name the entity does not declare anchors at the entity header, and the
+   * line's tooltip says so.
+   */
   sourceField: string;
   /** Target entity ID */
   targetEntity: string;
-  /** Target field */
+  /** Target field — the `name` of a field on the target entity, anchored like `sourceField` */
   targetField: string;
   /** Relationship type */
   type: 'one-to-one' | 'one-to-many' | 'many-to-many';
   /** Relationship label */
   label?: string;
-  /** Cascade behavior on delete */
-  onDelete?: 'cascade' | 'set-null' | 'restrict' | 'no-action';
+  /**
+   * What happens to the referencing records when the referenced one is
+   * deleted — `@objectstack/spec`'s vocabulary for a relationship field
+   * (`FieldSchema.deleteBehavior`): `'set_null'`, `'cascade'` or `'restrict'`.
+   * The type is read off the spec, so the two cannot drift. `DataModelDesigner`
+   * draws it beside the relationship label and in the line's tooltip.
+   */
+  deleteBehavior?: NonNullable<SpecField['deleteBehavior']>;
+  /**
+   * RESPELLED (objectui#11434, ADR-0049) — this was the designer's own
+   * spelling of the referential action, with its own vocabulary
+   * (`'cascade' | 'set-null' | 'restrict' | 'no-action'`), while the platform
+   * spells it `deleteBehavior` with `'set_null' | 'cascade' | 'restrict'`.
+   * `DataModelDesigner` never read it (a runtime probe drew the same markup with
+   * and without it), and nothing outside a test fixture authored it.
+   *
+   * **Migration:** rename the key to `deleteBehavior`: `'cascade'` and
+   * `'restrict'` keep their values, `'set-null'` becomes `'set_null'`, and
+   * `'no-action'` becomes `'restrict'` (the platform has no separate no-action;
+   * both refuse the delete while a reference remains).
+   *
+   * A tombstone rather than a deletion so the compile-time refusal names the
+   * key; the zod mirror refuses it by name with the same migration
+   * (`aliasKeyRefusal`, the spec's own "Did you mean" sentence).
+   * @deprecated Renamed to `deleteBehavior`.
+   */
+  onDelete?: never;
   /**
    * RETIRED (objectui#11434, ADR-0049) — the platform's relationship contract
    * has no update behaviour: `@objectstack/spec` models a relationship as a
@@ -369,13 +407,16 @@ export interface BPMNNode {
   label: string;
   /** Position on canvas */
   position: { x: number; y: number };
-  /** Node properties */
+  /**
+   * Node properties — free-form engine settings. `ProcessDesigner`'s property
+   * panel lists each one under its key, with a control for its value's type.
+   */
   properties?: Record<string, unknown>;
-  /** Assigned user/role (for user tasks) */
+  /** Assigned user/role (for user tasks) — a property-panel field on a user task */
   assignee?: string;
-  /** Due date expression */
+  /** Due date expression — a property-panel field on a user task */
   dueDate?: string;
-  /** Script content (for script tasks) */
+  /** Script content (for script tasks) — a property-panel field on a script task */
   script?: string;
   /**
    * RETIRED (objectui#11434, ADR-0049) — the mainstream service task references
@@ -404,15 +445,15 @@ export interface BPMNEdge {
   source: string;
   /** Target node ID */
   target: string;
-  /** Condition expression (for conditional flows) */
+  /** Condition expression (for conditional flows) — drawn on the flow, in brackets */
   condition?: string;
   /** Edge label */
   label?: string;
-  /** Whether this is the default flow */
+  /** Whether this is the default flow — drawn as BPMN's slash marker at the flow's source */
   isDefault?: boolean;
 }
 
-/** BPMN lane */
+/** BPMN lane — `ProcessDesigner` draws it as a band around the nodes `nodeIds` names */
 export interface BPMNLane {
   /** Lane identifier */
   id: string;
@@ -429,13 +470,13 @@ export interface ProcessDesignerSchema extends BaseSchema {
   type: 'process-designer';
   /** Process name */
   processName: string;
-  /** Process version */
+  /** Process version — drawn beside the process name in the toolbar */
   version?: string;
   /** BPMN nodes */
   nodes: BPMNNode[];
   /** BPMN edges/flows */
   edges: BPMNEdge[];
-  /** Swim lanes */
+  /** Swim lanes — each drawn as a band around its nodes, labelled with its label and role */
   lanes?: BPMNLane[];
   /** Canvas configuration */
   canvas?: DesignerCanvasConfig;

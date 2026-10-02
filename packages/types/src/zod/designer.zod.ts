@@ -44,14 +44,14 @@
  *     .previewMode` — RETIRED on both faces by objectui#11434: a `?: never`
  *     tombstone on the TypeScript face and a `retirementTombstone` refused by
  *     name here (see the next section).
- *   - `ProcessDesignerSchema.version` and `.lanes` — declared on the
- *     TypeScript face and deliberately NOT mirrored here yet. objectui#11434's
- *     ruling gives each a reader; until that change lands they stay in
- *     `zod-mirror-parity.test.ts`'s `UnmirroredDeclared` ledger.
+ *   - `ProcessDesignerSchema.version` and `.lanes` — born unmirrored here, and
+ *     MIRRORED since objectui#11434 gave each a reader (`ProcessDesigner` draws
+ *     the version in its toolbar and each lane as a band around its nodes),
+ *     with a `BPMNLaneSchema` record mirror for the lanes.
  *
- * Every other node member is mirrored. The record types under the nodes
- * (`BPMNNode`, `DataModelRelationship`, …) are mirrored member for member as
- * declared.
+ * Every node member is mirrored now. The record types under the nodes
+ * (`BPMNNode`, `BPMNLane`, `DataModelRelationship`, …) are mirrored member for
+ * member as declared.
  *
  * ## Retired members (objectui#11434)
  *
@@ -68,8 +68,11 @@
  *     .validationRules`, whose element types (`ObjectDefinitionRelationship`,
  *     `DesignerValidationRule`) left both faces and the exports with them.
  *
- * The members ruled READ are still declared and mirrored as before; their
- * readers are later changes of the same card.
+ * The members ruled READ stay declared and mirrored. The data-model and
+ * process designers' readers landed in the card's second change, which also
+ * RESPELLED `DataModelRelationship.onDelete` as `deleteBehavior`, in the spec's
+ * vocabulary: `onDelete` is refused by name with the migration. The other
+ * designers' readers are a later change of the same card.
  *
  * ## Content channels
  *
@@ -88,7 +91,7 @@
 
 import { z } from 'zod';
 import { BaseSchema } from './base.zod.js';
-import { neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 import { DESIGNER_FIELD_TYPES, type DesignerComponent } from '../designer.js';
 
 /**
@@ -126,8 +129,8 @@ const DATA_MODEL_DESIGNER_NEITHER_CHANNEL = neitherContentChannelGuidance(
 const PROCESS_DESIGNER_NEITHER_CHANNEL = neitherContentChannelGuidance(
   'process-designer',
   propsRoute('ProcessDesigner'),
-  'the designer UI `ProcessDesigner` draws from `processName`, `nodes`, `edges`, `canvas`, `showMinimap`, '
-    + '`showToolbar` and `readOnly`',
+  'the designer UI `ProcessDesigner` draws from `processName`, `version`, `nodes`, `edges`, `lanes`, `canvas`, '
+    + '`showMinimap`, `showToolbar` and `readOnly`',
 );
 const REPORT_DESIGNER_NEITHER_CHANNEL = neitherContentChannelGuidance(
   'report-designer',
@@ -277,16 +280,22 @@ export const DataModelEntitySchema = z.object({
   description: z.string().optional().describe('Entity description'),
 });
 
-/** The cascade vocabulary of `DataModelRelationship.onDelete` on the TS face. */
-const CascadeBehavior = z.enum(['cascade', 'set-null', 'restrict', 'no-action']);
+/**
+ * The referential action on delete, in `@objectstack/spec`'s vocabulary
+ * (`FieldSchema.deleteBehavior`). The TypeScript face reads its type off the
+ * spec; `zod-mirror-parity.test.ts` compares this enum with it, so a value the
+ * spec adds or drops reddens the pair rather than drifting.
+ */
+const DeleteBehavior = z.enum(['set_null', 'cascade', 'restrict']);
 
 /**
  * Data Model Relationship — mirrors `DataModelRelationship` (`../designer.ts`).
  *
- * `onDelete` is a referential-action VOCABULARY, not a handler key: the
- * TypeScript face declares the four literals, and so does this one. `onUpdate`
- * is RETIRED on both faces (objectui#11434): the platform's relationship
- * contract has no update behaviour.
+ * `deleteBehavior` is the platform's spelling of the referential action, and
+ * `onDelete` — the designer's own spelling, with its own four-literal
+ * vocabulary — is refused by name with the migration (objectui#11434, the
+ * respelling). `onUpdate` is RETIRED on both faces (objectui#11434): the
+ * platform's relationship contract has no update behaviour.
  */
 export const DataModelRelationshipSchema = z.object({
   id: z.string().describe('Relationship identifier'),
@@ -296,7 +305,13 @@ export const DataModelRelationshipSchema = z.object({
   targetField: z.string().describe('Target field'),
   type: z.enum(['one-to-one', 'one-to-many', 'many-to-many']).describe('Relationship type'),
   label: z.string().optional().describe('Relationship label'),
-  onDelete: CascadeBehavior.optional().describe('Cascade behavior on delete'),
+  deleteBehavior: DeleteBehavior.optional().describe('What happens to the referencing records when the referenced one is deleted'),
+  onDelete: aliasKeyRefusal(
+    'onDelete',
+    'deleteBehavior',
+    'this relationship',
+    "objectui#11434 (ADR-0049) respelled it in the platform's vocabulary, `@objectstack/spec`'s `FieldSchema.deleteBehavior`, which `DataModelDesigner` draws. Migration: rename the key; `cascade` and `restrict` keep their values, `set-null` becomes `set_null`, and `no-action` becomes `restrict` (the platform has no separate no-action; both refuse the delete while a reference remains).",
+  ),
   onUpdate: retiredDesignerMember(
     'DataModelRelationship',
     'onUpdate',
@@ -394,18 +409,32 @@ export const BPMNEdgeSchema = z.object({
 });
 
 /**
+ * BPMN Lane — mirrors `BPMNLane` (`../designer.ts`), a swim lane
+ * `ProcessDesigner` draws as a band around the nodes `nodeIds` names
+ * (objectui#11434).
+ */
+export const BPMNLaneSchema = z.object({
+  id: z.string().describe('Lane identifier'),
+  label: z.string().describe('Lane label'),
+  role: z.string().optional().describe('Associated role or department'),
+  nodeIds: z.array(z.string()).describe('Nodes in this lane'),
+});
+
+/**
  * Process Designer Schema — mirrors `ProcessDesignerSchema`
- * (`../designer.ts`), less two members `ProcessDesigner` never reads:
- * `version` (declared on its props, never destructured) and `lanes`
- * (destructured into an unused binding). Neither is mirrored; both stand in
- * `UnmirroredDeclared` for the seat to rule. `variables` left BOTH faces with
- * objectui#10859 (no reader, no producer).
+ * (`../designer.ts`) member for member. `version` and `lanes` were born
+ * unmirrored (objectui#10859 batch 7: `ProcessDesigner` read neither) and are
+ * mirrored since objectui#11434 gave each a reader — the toolbar draws the
+ * version beside the process name, and each lane is a band around its nodes.
+ * `variables` left BOTH faces with objectui#10859 (no reader, no producer).
  */
 export const ProcessDesignerSchema = BaseSchema.extend({
   type: z.literal('process-designer'),
   processName: z.string().describe('Process name'),
+  version: z.string().optional().describe('Process version'),
   nodes: z.array(BPMNNodeSchema).describe('BPMN nodes'),
   edges: z.array(BPMNEdgeSchema).describe('BPMN edges/flows'),
+  lanes: z.array(BPMNLaneSchema).optional().describe('Swim lanes'),
   canvas: DesignerCanvasConfigSchema.optional().describe('Canvas configuration'),
   showMinimap: z.boolean().optional().describe('Show minimap'),
   showToolbar: z.boolean().optional().describe('Show toolbar'),

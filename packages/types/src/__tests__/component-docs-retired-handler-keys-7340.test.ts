@@ -329,18 +329,26 @@ describe('the retired population is measured off the shipped tree (objectui#7340
     // and three more literals; the platform's relationship contract has no update
     // behaviour, so the seat retired it) — but the same `on*?: never` shape this
     // name-shaped census reads, so the move is recorded here the way objectui#7068's
-    // `onSuccess` / `onFailure` were. Its sibling `onDelete` keeps its vocabulary
-    // and counts LIVE.
+    // `onSuccess` / `onFailure` were. Its sibling `onDelete` kept its vocabulary
+    // and counted LIVE until the next step.
+    //
+    // ⭐ 30 → 31, `designer.ts` 1 → 2: objectui#11434 RESPELLED
+    // `DataModelRelationship.onDelete` as `deleteBehavior`, the platform's
+    // spelling of the referential action, in the spec's vocabulary. Not a handler
+    // key either, and not retired in substance — the action lives on under the
+    // new key, which `DataModelDesigner` draws — but the old spelling is now the
+    // same `on*?: never` shape this census reads, refused by name with the
+    // migration, so it is counted here like `onUpdate` above.
     const split: Record<string, number> = {};
     for (const m of RETIRED) split[m.file] = (split[m.file] ?? 0) + 1;
     expect({ total: RETIRED.length, split }).toEqual({
-      total: 30,
+      total: 31,
       split: {
         'ai.ts': 2,
         'complex.ts': 2,
         'crud.ts': 3,
         'data-display.ts': 4,
-        'designer.ts': 1,
+        'designer.ts': 2,
         'feedback.ts': 1,
         'form.ts': 8,
         'navigation.ts': 3,
@@ -376,6 +384,10 @@ describe('the retired population is measured off the shipped tree (objectui#7340
       'onClose',
       'onCollapsedChange',
       'onConfirm',
+      // objectui#11434 — `DataModelRelationship.onDelete`, respelled
+      // `deleteBehavior`, not a handler; no shipped interface declares the name
+      // otherwise.
+      'onDelete',
       'onExpandChange',
       // objectui#7068: the legacy `ActionSchema.onFailure` callback object — no
       // shipped interface declares an `onFailure` at all any more. `onSuccess`

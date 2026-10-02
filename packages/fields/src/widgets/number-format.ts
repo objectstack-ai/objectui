@@ -22,11 +22,16 @@
  * cell rendering, the lazily loaded widget calls it for its read-only face, and
  * neither may import the other (the widget importing the barrel would be a
  * runtime cycle and would pull it out of its chunk).
+ *
+ * The same module holds the family's other members for the same reason:
+ * `formatCurrency` and `formatPercentPoints`, each called by a cell and by its
+ * widget's read-only branch (objectui#11444).
  */
 
 import type { FieldMetadata } from '@object-ui/types';
 import { resolveFieldScale } from '@objectstack/spec/data';
 import { formatDisplayNumber } from '@object-ui/i18n';
+import { currencyFractionDigits } from '../currency.js';
 
 /**
  * Format a numeric value the way the `number` field declaring it says to
@@ -93,4 +98,147 @@ export function formatNumberFieldValue(value: number, field: FieldMetadata, loca
       ? { minimumFractionDigits: 0, maximumFractionDigits: 20 }
       : { minimumFractionDigits: scale, maximumFractionDigits: scale }),
   });
+}
+
+/**
+ * The display width of a currency amount: the resolved currency's own ISO 4217
+ * minor-unit count (2 for USD / CNY, 0 for JPY, 3 for KWD), or the historical 2
+ * when no currency is resolved, since there is then no minor unit to ask about.
+ *
+ * A currency's decimal places are the CURRENCY's, not a field setting: the
+ * maintainer ruling recorded on objectstack-ai/objectstack#19910 (batch #218
+ * item 2), executed by objectui#10276. ⛔ Not the field-level `precision` (the
+ * TOTAL digit count of a decimal(p, s) column), ⛔ not `scale` (taken off the
+ * `currency` type by ruling B on objectstack-ai/objectstack#19629) and ⛔ not
+ * `currencyConfig.precision`. `CurrencyField`'s comment beside its call carries
+ * the full reasoning.
+ *
+ * One function, so the width a currency amount is DISPLAYED at
+ * ({@link formatCurrency}) and the width `CurrencyField` EDITS it at (its
+ * `step` and its blur rounding) cannot part.
+ */
+export function currencyDisplayWidth(currency: string | undefined): number {
+  return currency ? currencyFractionDigits(currency) : 2;
+}
+
+/**
+ * Format a currency amount: the ONE call every display face of a `currency`
+ * field makes. `CurrencyCellRenderer` in a table, `CurrencyField`'s read-only
+ * branch in a form, and every face that takes the cell's formatter by
+ * reference all reach it, so they agree by construction (objectui#11444).
+ *
+ * When `currency` is undefined the amount is a plain number with thousands
+ * separators and no symbol. Silently assuming USD for unconfigured currency
+ * fields was the #1 source of "why is my RMB amount showing as dollars?" bug
+ * reports.
+ *
+ * The width is the DECLARED one, {@link currencyDisplayWidth}, for every
+ * amount: `$3,456.00`, `$3,456.50`, `¥3,456`, `KWD 3,456.000`. Triage ruled
+ * that the protocol's convention is the declared width (objectui#11444, comment
+ * 5946462862), the family's one width source (ruling A′, `resolveFieldScale`),
+ * and retired the objectui#4033 whole-amount trimming this function used to
+ * apply: a whole amount dropped its fraction (`$3,456`, `KWD 3,456`) while the
+ * read-only form showed the same amount at the currency's width (`$3,456.00`),
+ * so one stored value read two ways.
+ *
+ * ONE width for both `Intl` bounds, never a range (objectui#4332). The symbol
+ * branch once passed `minimumFractionDigits: 0` against a larger maximum, and
+ * `Intl` then emits the SHORTEST representation in range, so a genuine cents
+ * value of `.50` printed as `.5` (`$1,234.5`).
+ *
+ * The width is the CURRENCY's own minor-unit count, not a literal 2
+ * (objectui#4361). Passing 2 for every currency on earth overrode what `Intl`
+ * already knows: a yen amount was printed with cents it does not have
+ * (`¥1,234.50`) and a dinar amount one digit short (`KWD 1.50`).
+ *
+ * Deliberately passes NO `scale` to `formatDisplayNumber`: `scale: 0` without a
+ * currency reads as an ordinal there and drops the grouping separators
+ * (objectui#4033), and an amount is never an ordinal.
+ */
+export function formatCurrency(value: number, currency?: string, locale?: string): string {
+  const fractionDigits = currencyDisplayWidth(currency);
+  try {
+    return formatDisplayNumber(value, {
+      locale,
+      ...(currency ? { currency } : {}),
+      minimumFractionDigits: fractionDigits,
+      maximumFractionDigits: fractionDigits,
+    });
+  } catch {
+    // A code `Intl` refuses (or a runtime with no `Intl` data): the amount at
+    // its width, with the code as given beside it when there is one.
+    return currency ? `${currency} ${value.toFixed(fractionDigits)}` : value.toFixed(fractionDigits);
+  }
+}
+
+/**
+ * Render a percent on a value ALREADY in display magnitude (`80` means 80%):
+ * the ONE rendering call every display face of a `percent` field makes.
+ * `formatPercent` (the table cell, and every face that takes the cell's
+ * formatter by reference) and `PercentField`'s read-only branch in a form both
+ * end here, so
+ * the locale's percent convention, the grouping and the width cannot part
+ * between them (objectui#11444). The read-only face printed
+ * `toDisplay(value).toFixed(scale)` plus a literal `%`: a `scale: 2` field
+ * holding `0.25` read `25.00%` in a `de` form while its cell read `25,00 %`.
+ *
+ * The SCALING is the caller's, and it is a separate statement on purpose.
+ * `formatPercent` takes its magnitude from `percentDisplayValue` in
+ * `@object-ui/core`; `PercentField` takes its own from the storage convention
+ * the field declares (a fraction unless it declares `max > 1`, the rule its
+ * edit input writes by), so that its read-only text and its input never show
+ * one stored value at two magnitudes. The two readings agree on a
+ * fraction-stored value strictly between -1 and 1 and on a whole-stored value
+ * outside that range (or zero); they part on the rest (a fraction-stored `1`,
+ * which is 100%, reads `1%` in the cell). That disagreement is in the cell's
+ * scaling, not in this rendering, and is reported on objectui#11444 rather
+ * than settled here.
+ * ⛔ Do not add a third caller with a scaling rule of its own, and ⛔ never one
+ * keyed on the column's NAME: objectui#9452 removed exactly that from
+ * `PercentCellRenderer`.
+ *
+ * @param displayValue the percentage points to render.
+ * @param precision    the decimal places, fixed at both bounds: the width the
+ *                     caller resolved (`resolveFieldScale`, ruling A′).
+ * @param locale       the display locale tag, from `useDisplayLocale()`.
+ */
+export function formatPercentPoints(displayValue: number, precision: number, locale?: string): string {
+  try {
+    // `style: 'percentPoints'` renders a value that is ALREADY in percentage
+    // points, so there is no `/ 100` here. Going through `Intl` rather than
+    // appending a literal '%' is what buys the locale's percent CONVENTION and
+    // not merely its separators: German writes `1.235 %` with a no-break space
+    // before the sign, English `1,235%` with none, Turkish puts the sign in
+    // FRONT. Both bounds are set to `precision` so the width is exactly the one
+    // the caller asked for — the same contract `toFixed` gave.
+    //
+    // ⚠️ NOT `style: 'percent'` (objectui#4590). That style wants a FRACTION, so
+    // this used to divide by 100 for `Intl` to multiply straight back — and the
+    // round trip is not value-preserving. `Intl` formats from the SHORTEST
+    // decimal representation of the double it is handed, and the quotient's is
+    // not the authored one: `1.005` is `1.005`, but `1.005 / 100` is
+    // `0.010049999999999999`, which percent-scales to `1.0049999999999999` and
+    // rounds DOWN — so a stored 1.005 rendered `1.00%` where half-up is `1.01%`.
+    // The DIVISION lost the digit, not the rounding, which is why it reproduced
+    // in every locale and why 27,577 of 1,200,003 ordinary en-US forms moved
+    // (0.005-step grid to 2,000, precisions 0/1/2), every one a last-digit
+    // off-by-one. The same artefact reached the top of the double range:
+    // `MAX_SAFE_INTEGER` points rendered `…740,990%` for `…740,991%`.
+    //
+    // The affix is unchanged by the switch: `'percentPoints'` is `Intl`'s
+    // `style: 'unit'` / `unit: 'percent'` / `unitDisplay: 'narrow'`, measured
+    // byte-identical to `style: 'percent'` across all 171 locale tags in #4576
+    // and re-measured on THIS call shape in #4590 — 720 combinations (10 locales
+    // x 18 values x 4 precisions), 0 convention diffs, 130 numeral diffs.
+    // `formatMeasure` renders through the same option, so a percentage point
+    // reads identically in a list cell and in a dashboard measure.
+    return formatDisplayNumber(displayValue, {
+      locale,
+      style: 'percentPoints',
+      minimumFractionDigits: precision,
+      maximumFractionDigits: precision,
+    });
+  } catch {
+    return `${displayValue.toFixed(precision)}%`;
+  }
 }

@@ -255,7 +255,10 @@ describe('objectui#8490 — an empty array is not a cell value, and these render
       cleanup();
 
       const cur = renderCell('currency', 0);
-      expect(within(cur.container).queryAllByText('0').length, 'currency: a real 0 must still print').toBe(1);
+      // A currency with none resolved reads at two places, a whole amount
+      // included, since objectui#11444 retired the whole-amount trimming
+      // (triage comment 5946462862): a real 0 prints `0.00`.
+      expect(within(cur.container).queryAllByText('0.00').length, 'currency: a real 0 must still print').toBe(1);
       expect(affordance(cur.container), 'currency: a real 0 must NOT render the affordance').toBeNull();
       cleanup();
 

@@ -24,13 +24,15 @@
  *
  *  1. **A fractional amount takes the currency's own width** — the defect.
  *     JPY -> 0, USD/EUR/CNY -> 2, KWD/BHD -> 3.
- *  2. **A whole amount still drops the fraction entirely** — the Salesforce
- *     convention `formatCurrency`'s doc comment states, that objectui#4033
- *     pinned and objectui#4332 / PR #4362 re-pinned. It is not retired here,
- *     it is EXTENDED consistently: `KWD 1` renders `KWD 1`, not the
- *     `KWD 1.000` a bare `Intl` default would give. Dropping both bounds and
- *     letting `Intl` decide would have fixed half 1 by breaking this half, so
- *     the whole-amount cases below are controls, not decorations.
+ *  2. **A whole amount** — this half pinned the whole-amount trimming, the
+ *     Salesforce convention objectui#4033 pinned and objectui#4332 / PR #4362
+ *     re-pinned and this card extended (`KWD 1`, not `KWD 1.000`), until
+ *     objectui#11444 retired it: triage ruled the declared width, the ISO 4217
+ *     minor unit, the protocol's convention (comment 5946462862). A whole
+ *     amount now takes the currency's width too (`KWD 1.000`, `$1,234.00`),
+ *     as the read-only form always showed it. The rows below moved on purpose
+ *     and stay as controls: a range `[0, width]` would trim them again, and
+ *     the JPY row, whose width is 0, reads the same before and after.
  *
  * The USD cases are the acceptance evidence for "byte-identical to today":
  * the #4033 and #4332/#4362 pins pass UNCHANGED, and the ones repeated here
@@ -113,20 +115,23 @@ describe('formatCurrency — a fractional amount takes the CURRENCY\'s width (ob
   });
 });
 
-describe('formatCurrency — CONTROL: the whole-number convention is extended, not retired', () => {
+describe('formatCurrency — CONTROL: a whole amount takes the currency\'s width too (objectui#11444)', () => {
   it.each([
-    // Salesforce convention, per currency: a whole amount shows no fraction.
-    ['USD', 1234, '$1,234'],
-    ['USD', 0, '$0'],
-    ['EUR', 5000000, '€5,000,000'],
-    // 3-digit currency: a bare `Intl` default would print `KWD 1.000` here.
-    // The convention survives the fix and reaches currencies it never met.
-    ['KWD', 1, 'KWD 1'],
-    ['BHD', 250, 'BHD 250'],
-    // 0-digit currency: both halves of the switch agree at 0, so a whole yen
-    // amount is the one case that was already right and must stay right.
+    // Moved on purpose by objectui#11444 (triage comment 5946462862, which
+    // retired the whole-amount trimming): each of these five read without its
+    // fraction (`$1,234`, `$0`, `€5,000,000`, `KWD 1`, `BHD 250`) while the
+    // trimming stood. The declared width is the currency's minor-unit count.
+    ['USD', 1234, '$1,234.00'],
+    ['USD', 0, '$0.00'],
+    ['EUR', 5000000, '€5,000,000.00'],
+    // 3-digit currencies: all three fils digits, whole or not.
+    ['KWD', 1, 'KWD 1.000'],
+    ['BHD', 250, 'BHD 250.000'],
+    // 0-digit currency: the width is 0, so a whole yen amount reads the same
+    // before and after the ruling. The control that the width is the
+    // currency's, never "always two".
     ['JPY', 1234, '¥1,234'],
-  ])('a whole %s amount drops the fraction: %s', (currency, value, expected) => {
+  ])('a whole %s amount keeps the currency\'s width: %s', (currency, value, expected) => {
     expect(normalizeNbsp(formatCurrency(value as number, currency as string, 'en-US'))).toBe(
       expected as string,
     );
@@ -140,9 +145,11 @@ describe('formatCurrency — CONTROL: the whole-number convention is extended, n
 describe('formatCurrency — CONTROL: the branches with no currency to derive from', () => {
   it('the no-currency branch keeps the literal 2 — there is nothing to derive', () => {
     // Deliberate: with no ISO code in hand there is no convention to follow,
-    // so this branch keeps the historical width. Unchanged by this card.
+    // so this branch keeps the historical width. Unchanged by this card. The
+    // whole amount's `.00` moved on purpose with objectui#11444, which retired
+    // the whole-amount trimming (triage comment 5946462862).
     expect(formatCurrency(1234.5, undefined, 'en-US')).toBe('1,234.50');
-    expect(formatCurrency(5000000, undefined, 'en-US')).toBe('5,000,000');
+    expect(formatCurrency(5000000, undefined, 'en-US')).toBe('5,000,000.00');
   });
 
   it('the bad-currency fallback is byte-identical to before the fix', () => {

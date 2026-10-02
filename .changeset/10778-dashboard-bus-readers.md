@@ -25,3 +25,10 @@ same release: the drawer's `drillDown.report` arm renders `spec-report` through
 bus. `drillDownReport.invalidationRefetch-10814.test.tsx` in `apps/console` pins
 that through the real drawer. The single-record drawer a table row opens still
 does not re-read. The rest of this entry is kept as the reading of this change.
+
+⚠️ **Dated note, 2026-10-02 — the drawer renders a `report` node — objectui#11440.**
+Later in this same release the drawer's `drillDown.report` arm renders `{ type: 'report', report }`
+through `SchemaRenderer`, not `spec-report`, which `@object-ui/plugin-report` retired. So "renders
+`spec-report` through `SchemaRenderer`" in the 2026-09-27 note no longer holds; the report it opens
+still re-reads on the bus, as that note says. `.changeset/11440-drill-drawer-report-node.md` states
+what ships. The rest of this entry is kept as the reading of this change.

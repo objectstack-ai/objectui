@@ -27,3 +27,11 @@ reload carries it, as for any other re-read of this panel.
 
 Before, both refreshed after such a write only when their host remounted them,
 and `PageView` is about to stop doing that (objectui#10519).
+
+⚠️ **Dated note, 2026-10-02 — `spec-report` is retired — objectui#11440.**
+Later in this same release `@object-ui/plugin-report` stopped registering `spec-report`, an alias of
+`report`, and the drill-down drawer renders `drillDown.report` as `{ type: 'report', report }`. So
+"a `report` / `spec-report` block" above now reads a `report` block, and "The `spec-report` a
+drill-down drawer opens" reads the `report` node it opens; both re-read the same way.
+`.changeset/11440-retire-spec-report.md` states what ships. The rest of this entry is kept as the
+reading of this change.

@@ -22,6 +22,8 @@
  * `view:timeline`, which is the same renderer). `objectName` is no longer
  * required: the page validator raised `missing-required-prop` on timelines
  * drawn from `items` or `data`, which the row and the renderer both accept.
+ * Two values the row refuses are now reported where they were not (an
+ * off-list `dateFormat`, a non-array `data`); the `NARROWS` row holds both.
  *
  * The guard also owes a member pin for every structured key the block
  * publishes. This file carries six of them: `timeline`, `data`, `items`,
@@ -234,6 +236,19 @@ describe('object-timeline publishes the ten spec keys its renderer honours (obje
     expect(diagnose({ type, objectName: OBJECT, bogusProp: 1 })).toEqual([
       ['unknown-prop', `<${type}> has no prop "bogusProp"`],
     ]);
+  });
+
+  it.each(TAGS)('$type — what NARROWS: an off-list `dateFormat` is now an error and a non-array `data` a warning, values the row refuses', ({ type }) => {
+    // Before this slice the first was an `unknown-prop` warning and the second
+    // drew nothing (`data` is a base prop wherever it is undeclared).
+    expect(diagnose({ type, objectName: OBJECT, dateFormat: 'medium' })).toEqual([
+      ['invalid-enum', `<${type}> prop "dateFormat"="medium" is not one of ["short","long","iso"]`],
+    ]);
+    expect(diagnose({ type, objectName: OBJECT, data: { x: 1 } })).toEqual([
+      ['type-mismatch', `<${type}> prop "data" expected an array`],
+    ]);
+    expect(specRow.safeParse({ objectName: OBJECT, dateFormat: 'medium' }).success).toBe(false);
+    expect(specRow.safeParse({ objectName: OBJECT, data: { x: 1 } }).success).toBe(false);
   });
 
   it('the installed spec row accepts every value the rows below author, and refuses a bogus key', () => {

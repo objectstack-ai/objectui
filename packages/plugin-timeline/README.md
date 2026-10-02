@@ -93,6 +93,22 @@ props in the `properties` bag, where `@objectstack/spec`'s
 }
 ```
 
+The first record source present wins: `items` (authored entries, drawn as
+written), then `data` (pre-fetched records), then a `bind` path, then the query
+on `objectName`. So `objectName` is optional: a timeline drawn from `items`,
+`data` or a `bind` path needs none, and a node-level `dataSource` binding can
+supply the object instead. Records are composed into entries through the
+`timeline` block's field bindings (`startDateField`, `endDateField`,
+`titleField`, `groupByField`, `colorField`), each of which outranks the flat
+key of the same binding; `mapping` (`{ title, date, description, variant }`)
+is read where the block leaves a binding unset, and `descriptionField` names
+the description field (`mapping.description` outranks it). `limit` caps the
+query (`$top`, default 100), and `filter` / `sort` lower to `$filter` /
+`$orderby` on it; the rail still draws composed entries by start date.
+`dateFormat` is `short`, `long` or `iso`. `rowLabel`, `minDate`, `maxDate` and
+`timeline.scale` are read by the gantt branch only, which on this block draws
+authored `items`.
+
 `navigation` is what an entry click opens — the spec's `NavigationConfig` by
 reference, `ViewNavigationConfig` in `@object-ui/types`: `mode` (`page`,
 `drawer`, `modal`, `split`, `popover`, `new_window` or `none`) with `size`,

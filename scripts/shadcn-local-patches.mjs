@@ -221,6 +221,110 @@ const sidebarOptionalContextPatches = [
 ];
 
 /**
+ * The sidebar offcanvas state-qualifier patches (objectui#11464).
+ *
+ * Upstream renders `data-collapsible={state === "collapsed" ? collapsible : ""}`:
+ * the attribute is blank while the sidebar is expanded, so a rule keyed on
+ * `group-data-[collapsible=offcanvas]:` can only ever match a COLLAPSED sidebar,
+ * and upstream writes those rules unqualified.
+ *
+ * objectui's copy keeps the attribute in every state (the undeclared
+ * systematic local edit (3) in `packages/components/shadcn-components.json`),
+ * and qualified the `icon` rules with `group-data-[state=collapsed]:` to keep
+ * upstream's result. The offcanvas rules were left unqualified, so they matched
+ * the expanded state too: an expanded offcanvas panel was pushed one
+ * sidebar-width off the edge it is anchored to, out of the viewport, its gap
+ * collapsed to `w-0`, and its rail took the collapsed styling. The SDUI `sidebar` node reaches this with `collapsible` omitted or
+ * `true`, and `@object-ui/layout`'s `SidebarNav` with `collapsible="offcanvas"`.
+ *
+ * Each patch qualifies one upstream line by the collapsed state. The
+ * `group-data-*` rules take the `group-data-[state=collapsed]:` prefix the
+ * `icon` rules already carry. The rail's two arbitrary-selector rules take
+ * `[data-state=collapsed]` inside the selector, the spelling the rail's
+ * collapsed cursor rules beside them already use. On upstream bytes, where the
+ * attribute is blank while expanded, every qualifier is redundant, so the
+ * patched registry file draws exactly what upstream draws.
+ *
+ * Declared rather than typed into `src/ui/` so that a sync that ports edit (3)
+ * onto new upstream bytes carries the qualifiers with it. The payload is inline
+ * for the reason the sheet family gives: it IS the class list, with nothing to
+ * host in `src/lib/`. Every `find` is a whole quoted class string written from
+ * `scripts/__tests__/fixtures/shadcn-registry/sidebar.registry.txt`, and every
+ * `marker` is the whole patched string, so the shipped file has to carry the
+ * payload byte for byte. Chromium measures the result in
+ * `e2e/sidebar-offcanvas-geometry.spec.ts`.
+ *
+ * @type {LocalPatch[]}
+ */
+const sidebarOffcanvasStateQualifierPatches = [
+  {
+    find: '"group-data-[collapsible=offcanvas]:w-0",',
+    replace: '"group-data-[state=collapsed]:group-data-[collapsible=offcanvas]:w-0",',
+    id: 'sidebar-offcanvas-gap-collapsed-only',
+    reason:
+      "Zeroes the gap (the in-flow spacer that reserves the panel's width beside " +
+      'the page) only when the sidebar is collapsed. Unqualified, an expanded ' +
+      'offcanvas sidebar reserved no width.',
+  },
+  {
+    find: '"left-0 group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"',
+    replace:
+      '"left-0 group-data-[state=collapsed]:group-data-[collapsible=offcanvas]:left-[calc(var(--sidebar-width)*-1)]"',
+    id: 'sidebar-offcanvas-left-offset-collapsed-only',
+    reason:
+      'Moves a `side="left"` panel off the left edge only when the sidebar is ' +
+      'collapsed. Unqualified, an expanded one was drawn off the left edge.',
+  },
+  {
+    find: '"right-0 group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]"',
+    replace:
+      '"right-0 group-data-[state=collapsed]:group-data-[collapsible=offcanvas]:right-[calc(var(--sidebar-width)*-1)]"',
+    id: 'sidebar-offcanvas-right-offset-collapsed-only',
+    reason:
+      'Moves a `side="right"` panel off the right edge only when the sidebar is ' +
+      'collapsed. Unqualified, an expanded one was drawn past the right edge.',
+  },
+  {
+    find:
+      '"group-data-[collapsible=offcanvas]:translate-x-0 group-data-[collapsible=offcanvas]:after:left-full ' +
+      'group-data-[collapsible=offcanvas]:hover:bg-sidebar",',
+    replace:
+      '"group-data-[state=collapsed]:group-data-[collapsible=offcanvas]:translate-x-0 ' +
+      'group-data-[state=collapsed]:group-data-[collapsible=offcanvas]:after:left-full ' +
+      'group-data-[state=collapsed]:group-data-[collapsible=offcanvas]:hover:bg-sidebar",',
+    id: 'sidebar-offcanvas-rail-collapsed-only',
+    reason:
+      "Gives the rail its collapsed-edge styling (no centring translate, the hover " +
+      'line at its outer edge, a hover fill) only when the sidebar is collapsed.',
+  },
+  {
+    find: '"[[data-side=left][data-collapsible=offcanvas]_&]:-right-2",',
+    replace: '"[[data-side=left][data-state=collapsed][data-collapsible=offcanvas]_&]:-right-2",',
+    id: 'sidebar-offcanvas-rail-left-edge-collapsed-only',
+    reason:
+      "Pulls a `side=\"left\"` rail in to the collapsed panel's edge only when the " +
+      'sidebar is collapsed.',
+  },
+  {
+    find: '"[[data-side=right][data-collapsible=offcanvas]_&]:-left-2",',
+    replace: '"[[data-side=right][data-state=collapsed][data-collapsible=offcanvas]_&]:-left-2",',
+    id: 'sidebar-offcanvas-rail-right-edge-collapsed-only',
+    reason:
+      "Pulls a `side=\"right\"` rail in to the collapsed panel's edge only when the " +
+      'sidebar is collapsed.',
+  },
+].map(({ find, replace, id, reason }) => ({
+  id,
+  issue: 'objectui#11464',
+  reason,
+  find,
+  replace,
+  // The whole patched string: the shipped file must carry the payload exactly.
+  marker: replace,
+  occurrences: 1,
+}));
+
+/**
  * Upstream's thumb class list, spelled exactly once.
  *
  * The delivery patch below has to name it twice — the single-line element it
@@ -514,7 +618,11 @@ const calendarDisplayLocalePatches = [
 export const LOCAL_PATCHES = {
   sheet: [...i18nCloseLabelPatches('Sheet'), ...sheetHideOverlayPatches],
   dialog: i18nCloseLabelPatches('Dialog'),
-  sidebar: [...sidebarCookieReadPatches, ...sidebarOptionalContextPatches],
+  sidebar: [
+    ...sidebarCookieReadPatches,
+    ...sidebarOptionalContextPatches,
+    ...sidebarOffcanvasStateQualifierPatches,
+  ],
   slider: sliderThumbPassThroughPatches,
   calendar: calendarDisplayLocalePatches,
 };

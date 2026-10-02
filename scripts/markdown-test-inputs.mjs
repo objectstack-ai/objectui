@@ -619,6 +619,14 @@ export const ADJUDICATED = new Map([
     'packages/types/src/__tests__/schema-reference-named-list-view-keys-7923.test.ts',
     { reads: ['content/docs/api/schema-reference.md'] },
   ],
+  // objectui#11465. Extracts the `sidebar` literal of the types README's
+  // "4. Composable" example and runs it through the strict and the tolerant
+  // face -- so an edit to that README IS an edit to this test's input, and a
+  // README-only pull request has to run the shard.
+  [
+    'packages/types/src/__tests__/sidebar-declared-surface-11465.test.ts',
+    { reads: ['packages/types/README.md'] },
+  ],
   // objectui#10824. Extracts `@object-ui/plugin-timeline`'s README "Schema-Driven
   // Usage" block and runs it through `safeValidateSchema` and the strict
   // authoring face -- so an edit to that README IS an edit to this test's input,

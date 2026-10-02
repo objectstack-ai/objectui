@@ -8,28 +8,35 @@
 
 /**
  * The strict authoring face admits the widget-slot `metric-card`'s REGISTERED
- * inputs, and still refuses a key no registration declares (objectui#11022).
+ * inputs, and still refuses a key no registration declares (objectui#11022) —
+ * since objectui#11467, because the slot arm DECLARES them.
  *
  * ## The defect
  *
  * `metric-card` sits in a dashboard's widget slot as a component node whose
  * props are its registry `inputs` (`title`, `value`, `icon`, `trend`,
- * `trendValue`, `description`), admitted on the tolerant face by `BaseSchema`'s
- * `.passthrough()` catchall, by ruling (objectstack#8593) — the private slot arm
- * in `../zod/complex.zod.ts` declares none of them. The strict walker closes
- * every object's catchall, so `StrictAnyComponentSchema` refused `value` on
- * both arms of the slot's union, as `unrecognized_keys`: every correctly
- * authored `metric-card` that carried its required input.
+ * `trendValue`, `description`). The strict walker closes every object's
+ * catchall, so while the slot arm admitted those props through `BaseSchema`'s
+ * `.passthrough()` alone, `StrictAnyComponentSchema` refused `value` on both
+ * arms of the slot's union, as `unrecognized_keys`: every correctly authored
+ * `metric-card` that carried its required input.
  *
- * ## The repair, and what each block below holds
+ * ## Two repairs, in order
  *
- * The arm records its registration's input names (`declareRegisteredInputs`),
- * and the walker admits exactly those, judged by the arm's own catchall, before
- * closing the object. The blocks pin, in order: the grade's two pins; the
- * content channels objectui#9256 refused staying refused; the admitted keys
- * being judged as the tolerant face judges them and no narrower; the tolerant
- * face not moving; and the derivation itself on a hand-built node, so the rule
- * is pinned apart from the one card that motivated it.
+ * objectui#11022 recorded the registration's input NAMES in a side table on the
+ * arm, and the walker admitted exactly those, each judged by the arm's catchall
+ * — so the strict face admitted the keys and judged no value. objectui#11467
+ * declared the five inputs `BaseSchema` lacks as MEMBERS of the arm, typed as
+ * `MetricCard`'s props (`description` is already a `BaseSchema` member), on
+ * both faces and on the TypeScript twin. Every name the side table held became
+ * a member, so the side table and the walker's arm for it were retired.
+ *
+ * ## What each block below holds
+ *
+ * The grade's pins; the content channels objectui#9256 refused staying
+ * refused; each input judged by its member on BOTH faces; and the arm's shape
+ * declaring the inputs, with the passthrough still keeping any other key on
+ * the tolerant face.
  *
  * ⚠️ Where the grade's pin sits. `metric-card` is deliberately NOT an arm of
  * `AnyComponentSchema` (the ruling keeps it a property of the widget slot), so a
@@ -37,9 +44,9 @@
  * both faces, before and after this change — the control below says so. The
  * grade's widget therefore sits in a dashboard's `widgets` slot here.
  *
- * The parity of the recorded names with the LIVE registration, both
- * directions, is measured by the registering package, which holds the
- * registry: `metricCardRegisteredInputsStrictFace-11022.test.ts` in
+ * The parity of the declared members with the LIVE registration and with
+ * `MetricCardProps` is measured by the registering package, which holds both:
+ * `metricCardRegisteredInputsStrictFace-11022.test.ts` in
  * `@object-ui/plugin-dashboard`'s `__tests__`.
  */
 
@@ -50,10 +57,9 @@ import {
   AnyComponentSchema,
   BaseSchema,
   DashboardComponentSchema,
-  deriveStrictAuthoringSchema,
   StrictAnyComponentSchema,
 } from '../zod/index.zod.js';
-import { declareRegisteredInputs, internals, registeredInputsOf } from '../zod/node-derivation.js';
+import { internals } from '../zod/node-derivation.js';
 
 /* ── Reading a refusal ───────────────────────────────────────────────────── */
 
@@ -73,8 +79,8 @@ const issuesOf = (schema: z.ZodType, doc: unknown): Issue[] | null => {
 const dashboard = (widget: Record<string, unknown>) => ({ type: 'dashboard', widgets: [widget] });
 
 /** The ONE issue a widget refusal surfaces as: an `invalid_union` at the widget. */
-const widgetUnion = (doc: unknown): Issue | undefined =>
-  issuesOf(StrictAnyComponentSchema, doc)?.find((i) => i.path.join('.') === 'widgets.0');
+const widgetUnion = (schema: z.ZodType, doc: unknown): Issue | undefined =>
+  issuesOf(schema, doc)?.find((i) => i.path.join('.') === 'widgets.0');
 
 /* ── 1. the grade's pins ─────────────────────────────────────────────────── */
 
@@ -82,18 +88,19 @@ describe('objectui#11022 — the grade\'s pins, in the widget slot', () => {
   it('`{ type: \'metric-card\', value: 42 }` parses under StrictAnyComponentSchema', () => {
     const doc = dashboard({ type: 'metric-card', value: 42 });
     expect(issuesOf(StrictAnyComponentSchema, doc)).toBeNull();
-    // Control: the tolerant face always accepted it — the two faces now agree.
+    // Control: the tolerant face always accepted it — the two faces agree.
     expect(issuesOf(AnyComponentSchema, doc)).toBeNull();
   });
 
-  it('`{ type: \'metric-card\', bogus: 1 }` is still refused, by name, on the slot arm', () => {
-    const issue = widgetUnion(dashboard({ type: 'metric-card', bogus: 1 }));
+  it('`{ type: \'metric-card\', value: 42, bogus: 1 }` is still refused, by name, on the slot arm', () => {
+    const issue = widgetUnion(StrictAnyComponentSchema, dashboard({ type: 'metric-card', value: 42, bogus: 1 }));
     expect(issue?.code).toBe('invalid_union');
     // Arm 1 is the component-node arm; its path is relative to the widget.
     const [slotArm, widgetArm] = issue?.errors ?? [];
     expect(slotArm).toEqual([expect.objectContaining({ code: 'unrecognized_keys', path: [], keys: ['bogus'] })]);
-    // The strict widget schema, which the union falls through to, refuses it too.
-    expect(widgetArm).toEqual([expect.objectContaining({ code: 'unrecognized_keys', path: [], keys: ['bogus'] })]);
+    // The strict widget schema, which the union falls through to, refuses it too
+    // — and `value` with it, which is a component input and never a widget key.
+    expect(widgetArm).toEqual([expect.objectContaining({ code: 'unrecognized_keys', path: [], keys: ['value', 'bogus'] })]);
   });
 
   it('CONTROL — `metric-card` is not a ROOT arm: refused at `type` on both faces, unchanged', () => {
@@ -108,7 +115,7 @@ describe('objectui#11022 — the grade\'s pins, in the widget slot', () => {
 
 describe('objectui#11022 — the content channels objectui#9256 refused stay refused on the strict face', () => {
   it.each(['children', 'body'])('`%s` on `metric-card` is refused with the by-name message', (key) => {
-    const issue = widgetUnion(dashboard({ type: 'metric-card', value: 42, [key]: [] }));
+    const issue = widgetUnion(StrictAnyComponentSchema, dashboard({ type: 'metric-card', value: 42, [key]: [] }));
     expect(issue?.code).toBe('invalid_union');
     const refusal = (issue?.errors ?? []).flat().find((i) => i.path.join('.') === key && i.code === 'invalid_type');
     expect(refusal?.message).toContain('`metric-card` reads NEITHER content channel');
@@ -116,9 +123,9 @@ describe('objectui#11022 — the content channels objectui#9256 refused stay ref
   });
 });
 
-/* ── 3. admitted by key, judged as the tolerant face judges ──────────────── */
+/* ── 3. each input is judged by its member, on both faces ────────────────── */
 
-describe('objectui#11022 — the registered inputs are admitted by KEY; the strict face judges no value the tolerant face does not', () => {
+describe('objectui#11467 — the registered inputs are MEMBERS: each value is judged by its declared type on both faces', () => {
   const FULL = {
     type: 'metric-card',
     title: 'Revenue',
@@ -134,27 +141,60 @@ describe('objectui#11022 — the registered inputs are admitted by KEY; the stri
     expect(issuesOf(AnyComponentSchema, dashboard(FULL))).toBeNull();
   });
 
-  it('a value the tolerant face admits unjudged is admitted unjudged — the strict face is the tolerant one minus undeclared KEYS', () => {
-    // `trend` outside the registration's enum and a numeric `title`: the
-    // catchall judges both on the tolerant face, so the strict face does too.
-    const loose = { type: 'metric-card', value: 42, trend: 'sideways', title: 7 };
-    expect(issuesOf(AnyComponentSchema, dashboard(loose))).toBeNull();
-    expect(issuesOf(StrictAnyComponentSchema, dashboard(loose))).toBeNull();
+  it('the members admit what `MetricCard` renders: a numeric `value`, an inline locale-map `title`, each `trend`', () => {
+    for (const card of [
+      { type: 'metric-card', value: 12480 },
+      { type: 'metric-card', value: '1', title: { en: 'Revenue', 'zh-CN': '收入' } },
+      ...(['up', 'down', 'neutral'] as const).map((trend) => ({ type: 'metric-card', value: '1', trend, trendValue: '1%' })),
+    ]) {
+      expect(issuesOf(StrictAnyComponentSchema, dashboard(card))).toBeNull();
+      expect(issuesOf(AnyComponentSchema, dashboard(card))).toBeNull();
+    }
+  });
+
+  // Each value is outside its member. Until objectui#11467 BOTH faces accepted
+  // every row: the tolerant face through the catchall, the strict face through
+  // the side table, which judged the value by that same catchall.
+  it.each([
+    ['trend', { trend: 'sideways' }],
+    ['title', { title: 7 }],
+    ['icon', { icon: 5 }],
+    ['trendValue', { trendValue: 3 }],
+    ['value', { value: { amount: 1 } }],
+  ] as const)('`%s` with a value outside its member is refused on both faces, at that key', (key, extra) => {
+    const doc = dashboard({ type: 'metric-card', value: 42, ...extra });
+    for (const face of [AnyComponentSchema, StrictAnyComponentSchema]) {
+      const issue = widgetUnion(face, doc);
+      expect(issue?.code).toBe('invalid_union');
+      // The COMPONENT arm's own verdict — the union's first arm.
+      const [slotArm] = issue?.errors ?? [];
+      expect(slotArm?.map((i) => i.path.join('.'))).toContain(key);
+    }
+  });
+
+  it('`value` is required — the registration\'s one `required` input — on both faces', () => {
+    const doc = dashboard({ type: 'metric-card', title: 'Revenue', icon: 'users' });
+    for (const face of [AnyComponentSchema, StrictAnyComponentSchema]) {
+      const [slotArm] = widgetUnion(face, doc)?.errors ?? [];
+      // The member is `string | number` — the same spelling as the statistic's
+      // `value` — so an absent one is refused at `value` by that union.
+      expect(slotArm?.map((i) => i.path.join('.'))).toEqual(['value']);
+    }
   });
 
   it('a registered input the base already declares keeps the base member\'s judgment', () => {
     // `description` is a `BaseSchema` member (a string or an inline locale map);
-    // its declared type still refuses a number on BOTH faces, so the record did
-    // not replace the member with the catchall.
+    // its declared type refuses a number on BOTH faces, and the arm does not
+    // restate it.
     const bad = dashboard({ type: 'metric-card', value: 1, description: 42 });
     expect(issuesOf(AnyComponentSchema, bad)).not.toBeNull();
     expect(issuesOf(StrictAnyComponentSchema, bad)).not.toBeNull();
   });
 });
 
-/* ── 4. the tolerant face does not move ──────────────────────────────────── */
+/* ── 4. the arm's shape ──────────────────────────────────────────────────── */
 
-describe('objectui#11022 — the tolerant slot arm is untouched by the record', () => {
+describe('objectui#11467 — the inputs are members of the tolerant slot arm, which is still a passthrough', () => {
   /** The slot's component-node arm, read off the exported tolerant schema. */
   const tolerantSlotArm = (): z.ZodType => {
     const widgets = internals(DashboardComponentSchema)._zod.def.shape?.widgets;
@@ -164,64 +204,23 @@ describe('objectui#11022 — the tolerant slot arm is untouched by the record', 
     return (internals(element)._zod.def.options ?? [])[0] as z.ZodType;
   };
 
-  it('its shape declares none of the registered inputs the base does not — the record is a side table', () => {
+  it('its shape is the base\'s, plus `layout` and the five registered inputs the base lacks', () => {
     const arm = tolerantSlotArm();
     // The arm overrides `type`, `body` and `children`, all three base members,
-    // and adds ONE member the base lacks: `layout`, the spec's widget position
-    // (objectui#11070 round 11), a widget key and not a registered input. So its
-    // key set IS the base's plus `layout`: no registered input became a member.
+    // and adds `layout` — the spec's widget position (objectui#11070 round 11), a
+    // widget key and not a registered input — and the five inputs.
+    const INPUTS = ['title', 'value', 'icon', 'trend', 'trendValue'];
     const baseKeys = Object.keys(internals(BaseSchema)._zod.def.shape ?? {}).sort();
     const armKeys = Object.keys(internals(arm)._zod.def.shape ?? {}).sort();
-    expect(armKeys).toEqual([...baseKeys, 'layout'].sort());
-    for (const input of ['title', 'value', 'icon', 'trend', 'trendValue']) expect(armKeys).not.toContain(input);
-    // Non-vacuity: this IS the arm that carries the record.
-    expect(registeredInputsOf(arm)).toContain('value');
+    for (const input of INPUTS) expect(baseKeys).not.toContain(input);
+    expect(armKeys).toEqual([...baseKeys, 'layout', ...INPUTS].sort());
+    // The sixth input is the base's member.
+    expect(baseKeys).toContain('description');
   });
 
   it('its catchall is still the passthrough, so an undeclared key is still accepted there', () => {
     const arm = tolerantSlotArm();
     expect(internals(internals(arm)._zod.def.catchall as z.ZodType)._zod.def.type).toBe('unknown');
-    expect(issuesOf(AnyComponentSchema, dashboard({ type: 'metric-card', bogus: 1 }))).toBeNull();
-  });
-});
-
-/* ── 5. the derivation, apart from the card ──────────────────────────────── */
-
-describe('objectui#11022 — the rule lives in the derivation: a hand-built passthrough node', () => {
-  const node = () => z.object({ type: z.literal('probe'), n: z.number().optional() }).passthrough();
-
-  it('WITHOUT a record, the strict twin refuses the would-be input — the pre-repair behaviour', () => {
-    const strict = deriveStrictAuthoringSchema(node());
-    expect(issuesOf(strict, { type: 'probe', a: 1 })).toEqual([
-      expect.objectContaining({ code: 'unrecognized_keys', keys: ['a'] }),
-    ]);
-  });
-
-  it('WITH a record, the named key is admitted with any value the catchall admits, and any other key is refused by name', () => {
-    const strict = deriveStrictAuthoringSchema(declareRegisteredInputs(node(), ['a']));
-    expect(issuesOf(strict, { type: 'probe', a: { anything: true } })).toBeNull();
-    expect(issuesOf(strict, { type: 'probe' })).toBeNull();
-    expect(issuesOf(strict, { type: 'probe', a: 1, b: 2 })).toEqual([
-      expect.objectContaining({ code: 'unrecognized_keys', keys: ['b'] }),
-    ]);
-  });
-
-  it('a recorded name the shape already declares keeps its declared member', () => {
-    const strict = deriveStrictAuthoringSchema(declareRegisteredInputs(node(), ['n']));
-    expect(issuesOf(strict, { type: 'probe', n: 'not a number' })).toEqual([
-      expect.objectContaining({ code: 'invalid_type', path: ['n'] }),
-    ]);
-  });
-
-  it('the source node is left as it was — the record moves the twin, not the tolerant node', () => {
-    const source = declareRegisteredInputs(node(), ['a']);
-    deriveStrictAuthoringSchema(source);
-    expect(Object.keys(internals(source)._zod.def.shape ?? {}).sort()).toEqual(['n', 'type']);
-    expect(issuesOf(source, { type: 'probe', a: 1, b: 2 })).toBeNull();
-  });
-
-  it('⛔ a node with no catchall cannot carry a record — there is no tolerant judgment to copy', () => {
-    expect(() => declareRegisteredInputs(z.object({ type: z.literal('probe') }), ['a'])).toThrow(TypeError);
-    expect(() => declareRegisteredInputs(z.string(), ['a'])).toThrow(TypeError);
+    expect(issuesOf(AnyComponentSchema, dashboard({ type: 'metric-card', value: 42, bogus: 1 }))).toBeNull();
   });
 });

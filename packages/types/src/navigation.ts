@@ -232,54 +232,88 @@ export interface HeaderBarSchema extends BaseSchema {
 
 /**
  * Sidebar component
+ *
+ * The node draws its `children` inside one shadcn sidebar region, and reads
+ * `collapsible` and `variant`. It composes what it draws through `children`;
+ * an app's navigation lives in the app's metadata, not on this node.
+ *
+ * Nine keys this declaration used to offer had no reader and are RETIRED
+ * (objectui#11465, ADR-0049): `title`, `nav`, `content`, `footer`,
+ * `position`, `defaultCollapsed`, `collapsed`, `width` and `collapsedWidth`.
+ * Each is a `?: never` tombstone below, so `tsc` refuses it by name, and the
+ * zod mirror refuses it with the reason and what to write instead. The
+ * renderer never named any of them: `SchemaRenderer` spreads unread keys onto
+ * shadcn's `Sidebar`, which put them on the panel element as HTML attributes
+ * (`title` as a hover tooltip, the arrays and nodes as `[object Object]`) or
+ * React dropped them with a warning.
  */
 export interface SidebarSchema extends BaseSchema {
   type: 'sidebar';
   /**
-   * Sidebar title
+   * RETIRED (objectui#11465, ADR-0049) — the node draws no title; the string
+   * reached the sidebar panel only as an HTML `title` attribute (a hover
+   * tooltip). Compose the heading as a `text` node at the start of `children`.
+   * @deprecated Nothing renders it as a title; the zod mirror refuses it by name.
    */
-  title?: string;
+  title?: never;
   /**
-   * Navigation links
+   * RETIRED (objectui#11465, ADR-0049) — the node draws no link list.
+   * Navigation lives in the app's metadata (its `navigation` tree, which the
+   * app shell's sidebar draws; objectui#11441); to draw items inside this
+   * node, compose them as `children`.
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  nav?: NavLink[];
+  nav?: never;
   /**
-   * Sidebar content (alternative to nav)
+   * RETIRED (objectui#11465, ADR-0049) — the node renders `children` and
+   * nothing else. Move the node or nodes into `children`.
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  content?: SchemaNode | SchemaNode[];
+  content?: never;
   /**
-   * Footer content
+   * RETIRED (objectui#11465, ADR-0049) — the node renders `children` and
+   * nothing else. Compose the footer as the last entries of `children`.
+   * @deprecated Nothing renders it; the zod mirror refuses it by name.
    */
-  footer?: SchemaNode | SchemaNode[];
+  footer?: never;
   /**
-   * Sidebar position
-   * @default 'left'
+   * RETIRED (objectui#11465, ADR-0049) — every value drew the sidebar at the
+   * same edge. Delete the key.
+   * @deprecated Nothing reads it; the zod mirror refuses it by name.
    */
-  position?: 'left' | 'right';
+  position?: never;
   /**
    * Whether sidebar is collapsible
    * @default true
    */
   collapsible?: boolean;
   /**
-   * Default collapsed state
-   * @default false
+   * RETIRED (objectui#11465, ADR-0049) — the open state belongs to the
+   * sidebar provider (the host's, such as the app shell's, or the one the node
+   * mounts when there is none), and the node hands it no state. Delete the key.
+   * @deprecated Nothing reads it; the zod mirror refuses it by name.
    */
-  defaultCollapsed?: boolean;
+  defaultCollapsed?: never;
   /**
-   * Controlled collapsed state
+   * RETIRED (objectui#11465, ADR-0049) — as `defaultCollapsed`: the open state
+   * is the sidebar provider's, never the node's. Delete the key.
+   * @deprecated Nothing reads it; the zod mirror refuses it by name.
    */
-  collapsed?: boolean;
+  collapsed?: never;
   /**
-   * Sidebar width when expanded
-   * @default '16rem'
+   * RETIRED (objectui#11465, ADR-0049) — every value drew the same width.
+   * Delete the key. The in-flow form (`collapsible: false`) takes a width
+   * utility in `className`, for example `w-72`.
+   * @deprecated Nothing reads it; the zod mirror refuses it by name.
    */
-  width?: string | number;
+  width?: never;
   /**
-   * Sidebar width when collapsed
-   * @default '4rem'
+   * RETIRED (objectui#11465, ADR-0049) — the node never collapses to a
+   * narrower width: its collapsible form slides out entirely, and the in-flow
+   * form (`collapsible: false`) does not collapse. Delete the key.
+   * @deprecated Nothing reads it; the zod mirror refuses it by name.
    */
-  collapsedWidth?: string | number;
+  collapsedWidth?: never;
   /**
    * RETIRED (objectui#6124, ADR-0049) — JSON has no function value, and the
    * `sidebar` renderer spreads it onto `<Sidebar>`, which has no such prop
@@ -289,10 +323,17 @@ export interface SidebarSchema extends BaseSchema {
    */
   onCollapsedChange?: never;
   /**
-   * Sidebar variant
-   * @default 'default'
+   * Sidebar variant — shadcn's three, the values the `sidebar` registration
+   * offers (objectui#11465). `sidebar` draws the edge-bordered column;
+   * `floating` a padded, rounded, bordered panel; `inset` a padded panel with
+   * no edge border. It shows on the collapsible form only: with
+   * `collapsible: false` every value draws the same in-flow column.
+   *
+   * `'default'` and `'bordered'` are RETIRED: both drew exactly what
+   * `'sidebar'` draws. Write `'sidebar'` or delete the key.
+   * @default 'sidebar'
    */
-  variant?: 'default' | 'bordered' | 'floating';
+  variant?: 'sidebar' | 'floating' | 'inset';
 }
 
 /**

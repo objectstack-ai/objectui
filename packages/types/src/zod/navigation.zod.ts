@@ -151,22 +151,80 @@ export const HeaderBarSchema = BaseSchema.extend({
 });
 
 /**
+ * The objectui#11465 retirement guidance for the `sidebar` node: the refusal
+ * names the key, says why nothing honoured it, and prescribes what to write
+ * instead. The TypeScript face carries the same keys as `?: never` tombstones.
+ */
+const retiredSidebarKey = (key: string, why: string, instead: string) =>
+  retirementTombstone(
+    `RETIRED (objectui#11465, ADR-0049) — \`${key}\` on \`sidebar\` had no reader: ${why} Instead: ${instead}`,
+  );
+
+/** The one sentence the open-state keys share: the state is the provider's, never the node's. */
+const SIDEBAR_OPEN_STATE_OWNER =
+  'the open state belongs to the sidebar provider (the host\'s, such as the app shell\'s, or the one the node '
+  + 'mounts when there is none), and the node hands it no state; React dropped the value with a warning.';
+
+/**
  * Sidebar Schema - Sidebar component
+ *
+ * The node draws its `children` inside one shadcn sidebar region, and reads
+ * `collapsible` (objectui#10859) and `variant`. Nine keys this mirror used to
+ * declare had no reader and are refused by name (objectui#11465): the node
+ * composes what it draws through `children`, and an app's navigation lives in
+ * its metadata, not on this node.
  */
 export const SidebarSchema = BaseSchema.extend({
   type: z.literal('sidebar'),
-  title: z.string().optional().describe('Sidebar title'),
-  nav: z.array(NavLinkSchema).optional().describe('Navigation links'),
-  content: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Sidebar content'),
-  footer: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Sidebar footer'),
-  position: z.enum(['left', 'right']).optional().describe('Sidebar position'),
+  title: retiredSidebarKey(
+    'title',
+    'the node draws no title; the string reached the sidebar panel only as an HTML `title` attribute (a hover tooltip), never as a heading.',
+    'compose the heading as a `text` node at the start of `children`, and delete the key.',
+  ),
+  nav: retiredSidebarKey(
+    'nav',
+    'the node draws no link list; the array reached the sidebar panel only as a meaningless attribute.',
+    'declare navigation in the app\'s metadata (its `navigation` tree, which the app shell\'s sidebar draws; objectui#11441), '
+    + 'and to draw items inside this node, compose them as `children`.',
+  ),
+  content: retiredSidebarKey(
+    'content',
+    'the node renders `children` and nothing else; the value reached the sidebar panel only as a meaningless attribute.',
+    'move the node or nodes into `children`.',
+  ),
+  footer: retiredSidebarKey(
+    'footer',
+    'the node renders `children` and nothing else; the value reached the sidebar panel only as a meaningless attribute.',
+    'compose the footer as the last entries of `children`.',
+  ),
+  position: retiredSidebarKey(
+    'position',
+    'every value drew the sidebar at the same edge; the value reached the sidebar panel only as an inert HTML attribute.',
+    'delete the key.',
+  ),
   collapsible: z.boolean().optional().describe('Whether sidebar is collapsible'),
-  defaultCollapsed: z.boolean().optional().describe('Default collapsed state'),
-  collapsed: z.boolean().optional().describe('Controlled collapsed state'),
-  width: z.union([z.string(), z.number()]).optional().describe('Sidebar width'),
-  collapsedWidth: z.union([z.string(), z.number()]).optional().describe('Collapsed width'),
+  defaultCollapsed: retiredSidebarKey('defaultCollapsed', SIDEBAR_OPEN_STATE_OWNER, 'delete the key.'),
+  collapsed: retiredSidebarKey('collapsed', SIDEBAR_OPEN_STATE_OWNER, 'delete the key.'),
+  width: retiredSidebarKey(
+    'width',
+    'every value drew the same width; the value reached the sidebar panel only as an inert HTML attribute.',
+    'delete the key. The in-flow form (`collapsible: false`) takes a width utility in `className`, for example `w-72`.',
+  ),
+  collapsedWidth: retiredSidebarKey(
+    'collapsedWidth',
+    'the node never collapses to a narrower width: its collapsible form slides out entirely, and the in-flow form '
+    + '(`collapsible: false`) does not collapse.',
+    'delete the key.',
+  ),
   onCollapsedChange: handlerKeyRefusal('onCollapsedChange', 'retired', 'Collapsed change handler'),
-  variant: z.enum(['default', 'bordered', 'floating']).optional().describe('Sidebar variant'),
+  variant: z.enum(['sidebar', 'floating', 'inset'], {
+    error: '`variant` on `sidebar` is `\'sidebar\'` (the default), `\'floating\'` or `\'inset\'`: the three shadcn '
+      + 'sidebar variants its registration offers (objectui#11465). `\'default\'` and `\'bordered\'` are RETIRED: '
+      + 'both drew exactly what `\'sidebar\'` draws, so write `\'sidebar\'` or delete the key.',
+  }).optional().describe(
+    "Sidebar variant: 'sidebar' (default), 'floating' or 'inset'. It shows on the collapsible form only; with "
+    + "collapsible: false every value draws the same in-flow column. 'default' and 'bordered' are retired (objectui#11465)",
+  ),
 });
 
 /**

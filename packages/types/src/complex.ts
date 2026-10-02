@@ -19,6 +19,7 @@ import type {
   DashboardWidget as SpecDashboardWidget,
   GlobalFilter as SpecGlobalFilter,
   Dashboard as SpecDashboard,
+  I18nLabel,
   ViewFilterOperator as SpecViewFilterOperator,
 } from '@objectstack/spec/ui';
 import type { BaseSchema, SchemaNode } from './base.js';
@@ -2130,10 +2131,11 @@ export interface FloatingChatbotConfig {
  * `trendValue` for `metric-card`, declared as registry `inputs` at
  * `plugin-dashboard/src/index.tsx`). Those props are NOT widget keys and must
  * not be added to {@link DashboardWidgetSchema}; a member of this list is
- * validated as a component node against objectui's own passthrough
- * `BaseSchema`, which is what keeps them. On the TypeScript face that node is
- * {@link DashboardWidgetSlotComponentSchema}, the component arm — first, as
- * in the Zod twin — of `DashboardComponentSchema.widgets` (objectui#7952).
+ * validated as a component node against objectui's own component schema —
+ * `BaseSchema` plus the registered inputs it declares (objectui#11467). On the
+ * TypeScript face that node is {@link DashboardWidgetSlotComponentSchema}, the
+ * component arm — first, as in the Zod twin — of
+ * `DashboardComponentSchema.widgets` (objectui#7952).
  *
  * ⛔ CLOSED on purpose. The ruling's triage block named an open
  * "extension allowed" hatch as the thing to avoid: an open hatch re-creates
@@ -2142,10 +2144,11 @@ export interface FloatingChatbotConfig {
  * with a registration behind it — `examples/schema-catalog/test/
  * plugin-dashboard-component-schema.test.ts` is the standing gate, and
  * `__tests__/report-chart-query-spec-parity.test.ts` pins the closure. The
- * member also needs its row of registered input names in the zod slot arm's
- * `DASHBOARD_WIDGET_SLOT_REGISTERED_INPUTS` (`zod/complex.zod.ts`), or the
- * strict authoring face refuses its props (objectui#11022); `tsc` refuses the
- * build without the row.
+ * member also needs an arm that declares ITS registered inputs: the one
+ * component arm declares `metric-card`'s (objectui#11467), so a second member
+ * would inherit that card's props. The Zod arm's `type` is checked against
+ * this exact one-member list (`zod/complex.zod.ts`), so `tsc` refuses the
+ * build until the arm is split per member.
  */
 export const DASHBOARD_COMPONENT_WIDGET_TYPES = ['metric-card'] as const;
 
@@ -2253,8 +2256,19 @@ export interface DashboardWidgetSchema
   // breakpoint `columns`, and `ResponsiveGrid` since objectui#11441 retired its
   // `responsive-grid` node key) — not this key.
   // Pinned by `__tests__/report-chart-query-spec-parity.test.ts`.
-  /** Component schema (legacy format) — objectui-only, no spec counterpart. */
-  component?: SchemaNode;
+  /**
+   * Component schema (legacy format) — objectui-only, no spec counterpart.
+   *
+   * Either arm of this union is a node the dashboard renders through the
+   * registry (`toDashboardNodeType`, then `SchemaRenderer`). The first arm is
+   * the widget slot's component arm, {@link DashboardWidgetSlotComponentSchema}
+   * (objectui#11467): a `metric-card` written here is the same node the slot
+   * holds directly, so its registered inputs are typed by the same members.
+   * The second is any other registered component node, which a `custom`
+   * widget's `component` carries. The Zod twin (`zod/complex.zod.ts`
+   * `DashboardWidgetSchema.component`) is the same two arms.
+   */
+  component?: DashboardWidgetSlotComponentSchema | SchemaNode;
   layout?: DashboardWidgetLayout;
   /**
    * Widget visualization type (spec shorthand format), or an objectui component
@@ -2329,14 +2343,37 @@ export interface DashboardWidgetSchema
  * the TypeScript face. Twin of `zod/complex.zod.ts`
  * `DashboardWidgetSlotComponentSchema`, spelled the same way that arm is:
  * `BaseSchema` plus a `type` narrowed to the CLOSED component set
- * ({@link DASHBOARD_COMPONENT_WIDGET_TYPES}) and the spec's widget `layout`.
+ * ({@link DASHBOARD_COMPONENT_WIDGET_TYPES}), the spec's widget `layout`, and
+ * the inputs the `metric-card` registration declares.
  *
- * `BaseSchema`'s `[key: string]: any` is the passthrough. `value` / `icon` /
- * `trend` / `trendValue` are `MetricCard`'s registry `inputs`, not widget keys:
- * they reach the compiler through the index signature here and MUST NOT be
- * declared on {@link DashboardWidgetSchema} — the compiler's own TS2561
- * suggestion ("Did you mean to write 'values'?") points at exactly that
- * forbidden repair.
+ * ## The registered inputs are declared members (objectui#11467)
+ *
+ * `title`, `value`, `icon`, `trend` and `trendValue` are `MetricCard`'s
+ * registry `inputs` (`plugin-dashboard:metric-card`), and `MetricCard` reads
+ * every one of them — measured twice: a type-checker census of the props
+ * `MetricCard` destructures and renders, and a runtime probe that removed one
+ * key at a time from a widget a real `DashboardRenderer` drew. The sixth
+ * input, `description`, is the `BaseSchema` member of the same type, so it is
+ * inherited, not restated. Until objectui#11467 the five reached the compiler
+ * only through `BaseSchema`'s `[key: string]: any`, so each was `any` here and
+ * the README's `metric-card` literals compiled on nothing but that signature,
+ * which objectui#8347 removes.
+ *
+ * Each member's type is the prop `MetricCard` declares for it, and `trend`'s
+ * vocabulary is the registration's enum. This package depends on neither, so
+ * both are held to these members by the registering package's own test,
+ * against `MetricCardProps` and the live registration:
+ * `metricCardRegisteredInputsStrictFace-11022.test.ts` in
+ * `@object-ui/plugin-dashboard`'s `__tests__`.
+ *
+ * They are component props, not widget keys, and MUST NOT be declared on
+ * {@link DashboardWidgetSchema} — the compiler's own TS2561 suggestion ("Did
+ * you mean to write 'values'?") points at exactly that forbidden repair.
+ * `title` is the one name both arms declare: the widget's heading there, the
+ * card's heading here.
+ *
+ * Every other key still reaches this arm through `BaseSchema`'s index
+ * signature while it stands; the Zod twin keeps the same `.passthrough()`.
  *
  * Until objectui#7952 this arm existed on the Zod face only:
  * `DashboardComponentSchema.widgets` was `DashboardWidgetSchema[]`, so the
@@ -2377,6 +2414,27 @@ export interface DashboardWidgetSlotComponentSchema extends BaseSchema {
    * (`zod/complex.zod.ts`) declares the same spec member.
    */
   layout?: SpecDashboardWidget['layout'];
+  /**
+   * The card's heading: a plain string or the spec's inline per-locale map
+   * (`I18nLabel`), which `MetricCard` resolves for the active language.
+   */
+  title?: string | I18nLabel;
+  /**
+   * The figure the card shows, drawn as given. The one REQUIRED input: the
+   * registration marks it `required`, and a card without it draws an empty
+   * figure.
+   */
+  value: string | number;
+  /** A Lucide icon name, drawn beside the heading. */
+  icon?: string;
+  /**
+   * The trend's direction, drawn as the arrow and colour in front of
+   * `trendValue` — the registration's enum. Drawn only together with
+   * `trendValue`.
+   */
+  trend?: 'up' | 'down' | 'neutral';
+  /** The trend's text, such as `+12%`. Drawn only together with `trend`. */
+  trendValue?: string;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `metric-card` reads NEITHER
    * content channel; see `children` below for the measurement.

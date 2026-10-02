@@ -563,7 +563,7 @@ The authored shape is typed by `@object-ui/types`:
 | --- | --- |
 | `DashboardComponentSchema` | the whole `type: 'dashboard'` node — `columns`, `gap`, `widgets`, `header`, `globalFilters`, `dateRange`, `refreshIntervalSeconds`, … |
 | `DashboardWidgetSchema` | one entry of `widgets[]` — the spec's `DashboardWidget` keys, plus objectui's own (`component`, `layout`, `options`, …) |
-| `DashboardWidgetSlotComponentSchema` | the other kind of `widgets[]` entry — a component node placed directly in the slot, `type` one of the closed component set (`metric-card`); every other key is that component's own prop, except the spec's widget `layout`, which places the node |
+| `DashboardWidgetSlotComponentSchema` | the other kind of `widgets[]` entry — a component node placed directly in the slot, `type` one of the closed component set (`metric-card`); its other keys are that component's own props, which it declares (`title`, `value`, `icon`, `trend`, `trendValue`, and `description` from `BaseSchema`), except the spec's widget `layout`, which places the node |
 | `DashboardWidgetLayout` | a widget's `{ x, y, w, h }` grid box |
 
 ```typescript
@@ -592,7 +592,8 @@ const users: DashboardWidgetSchema = {
 };
 
 // Component format: a registered component node in the widget's `component`
-// slot. Its keys are that COMPONENT's props, not widget keys.
+// slot. Its keys are that COMPONENT's props, not widget keys; a `metric-card`
+// here is typed by the same arm as `kpi` below.
 const custom: DashboardWidgetSchema = {
   id: 'kpi_custom',
   component: {
@@ -607,7 +608,8 @@ const custom: DashboardWidgetSchema = {
 
 // Component node directly in the slot — the shape every `metric-card` example
 // above uses. `type` is one of the closed component set; the other keys are
-// the component's own props, carried by `BaseSchema`'s index signature.
+// the component's own props, which `DashboardWidgetSlotComponentSchema`
+// declares.
 const kpi: DashboardWidgetSlotComponentSchema = {
   type: 'metric-card',
   title: 'Revenue',
@@ -633,13 +635,26 @@ package's export surface either. A `metric-card` node is typed as a COMPONENT
 node in both places it can appear: in a widget's `component` slot (`custom`
 above) and directly in `widgets[]` (`kpi` above, `DashboardWidgetSlotComponentSchema`
 — the component arm of `DashboardComponentSchema['widgets']`, first in the
-declaration as in the zod schema's two-arm slot). Its keys are checked as
-`BaseSchema` keys either way,
-never as widget keys.
+declaration as in the zod schema's two-arm slot). Either way its keys are
+checked against that arm, which declares the card's registered inputs, never
+as widget keys:
+
+| Key | Type |
+| --- | --- |
+| `value` | `string \| number` — required |
+| `title` | `string` or an inline per-locale map (`I18nLabel`) |
+| `icon` | `string` — a Lucide icon name |
+| `trend` | `'up' \| 'down' \| 'neutral'` — drawn with `trendValue` |
+| `trendValue` | `string` — drawn with `trend` |
+| `description` | `string` or `I18nLabel`, from `BaseSchema` |
+
+`@object-ui/types/zod` judges the same members, so `objectui validate` refuses
+a card directly in `widgets[]` whose `trend` is outside the three, or whose
+`value` is neither a string nor a number.
 
 ### Reading a widget key off `widgets[]`
 
-The widget keys (`title`, `colorVariant`, `filter`, …) are declared on the
+The widget keys (`colorVariant`, `filter`, `dataset`, …) are declared on the
 widget arm, `DashboardWidgetSchema`, which takes them from the spec's
 `DashboardWidget` row. The component arm declares none of them. Read straight
 off a `widgets[]` entry, such a key is typed `any`, supplied by the component
@@ -657,9 +672,11 @@ const widgets: DashboardWidgetSchema[] = dashboard.widgets;
 const accents = widgets.map((w) => w.colorVariant ?? 'default');
 ```
 
-`layout` is the one widget key both arms declare. The component arm takes the
-spec's widget `layout` by reference, because Save Layout writes it onto every
-entry of `widgets[]`, a `metric-card` node included (see
+`title` and `layout` are the two widget keys both arms declare. `title` is the
+card's heading on the component arm, typed as `MetricCard` reads it, so it reads
+as a string or an `I18nLabel` straight off a `widgets[]` entry. The component
+arm takes the spec's widget `layout` by reference, because Save Layout writes it
+onto every entry of `widgets[]`, a `metric-card` node included (see
 [DashboardGridLayout](#dashboardgridlayout--persisting-drag--resize-edits)). So
 `layout` reads with the spec's type straight off a `widgets[]` entry, and the
 strict authoring face accepts it on a component node. A malformed one (not

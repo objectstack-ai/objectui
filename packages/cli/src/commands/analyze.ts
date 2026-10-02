@@ -19,8 +19,7 @@ async function analyzeBundleSize() {
   const distDir = resolve(process.cwd(), 'dist');
   
   if (!existsSync(distDir)) {
-    console.log(chalk.yellow('⚠ No dist directory found. Run build first.'));
-    return;
+    throw new Error('No dist/ directory to analyze. Run `objectui build` first.');
   }
 
   const files: Array<{ path: string; size: number }> = [];

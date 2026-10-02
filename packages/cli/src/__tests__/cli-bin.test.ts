@@ -23,10 +23,12 @@ const PKG_PATH = resolve(__dirname, '../../package.json');
 
 /**
  * The commands the CLI declares. The enumeration pin below holds this list
- * equal to the built CLI's `--help`, both directions (objectui#11496). `add` is
- * deliberately absent: it was retired, and the bin refuses it as an unknown
- * command. The CLI docs give each of these a `### objectui NAME` heading; keep
- * them in step by hand, because nothing in this file reads the docs.
+ * equal to the built CLI's `--help`, both directions (objectui#11496). `add`
+ * (objectui#11496) and `create`, `lint`, `test` and `studio` (objectui#11500)
+ * are deliberately absent: they were retired, and the bin refuses each as an
+ * unknown command. The CLI docs give each of these a `### objectui NAME`
+ * heading; keep them in step by hand, because nothing in this file reads the
+ * docs.
  */
 const SUBCOMMANDS = [
   'serve',
@@ -34,14 +36,10 @@ const SUBCOMMANDS = [
   'build',
   'start',
   'init',
-  'lint',
-  'test',
   'generate',
   'doctor',
-  'studio',
   'check',
   'validate',
-  'create',
   'analyze',
 ] as const;
 
@@ -237,15 +235,26 @@ describe('@object-ui/cli bin', () => {
     });
   });
 
+  // objectui#11500. `doctor` was described as "Diagnose and fix common issues",
+  // and it fixes nothing: it reads the project and reports. Asserts the kind of
+  // claim, not the wording.
+  it('doctor --help does not claim to fix anything (objectui#11500)', () => {
+    const res = run(['doctor', '--help']);
+    expect(res.code, res.stderr || res.stdout).toBe(0);
+    // Commander prints `Usage: …`, a blank line, then the description paragraph.
+    const description = res.stdout.split(/\n\s*\n/)[1] ?? '';
+    // Lit control: the paragraph that was read is not empty.
+    expect(description.trim()).not.toBe('');
+    expect(description).not.toMatch(/\bfix/i);
+  });
+
   describe('flag contracts (locked-in by docs)', () => {
     const cases: Array<[string, RegExp[]]> = [
       ['dev',      [/-p, --port <port>/, /-h, --host <host>/, /--no-open/]],
-      ['serve',    [/-p, --port <port>/, /-h, --host <host>/]],
+      ['serve',    [/-p, --port <port>/, /-h, --host <host>/, /--no-open/]],
       ['build',    [/-o, --out-dir <dir>/, /--clean/]],
       ['start',    [/-p, --port <port>/, /-h, --host <host>/, /-d, --dir <dir>/]],
       ['init',     [/-t, --template <template>/]],
-      ['lint',     [/--fix/]],
-      ['test',     [/-w, --watch/, /-c, --coverage/, /--ui/]],
       ['generate', [/<type> <name>/]],
       ['validate', [/\[schema\]/]],
     ];
@@ -319,6 +328,50 @@ describe('@object-ui/cli bin', () => {
     });
   });
 
+  // objectui#11500. Four commands that could only fail are retired with no
+  // placeholder, so the bin must REFUSE each one the way it refuses a command it
+  // never declared:
+  //  - `create plugin NAME` resolved its generator one directory too high and
+  //    never found it. `plugin` was `create`'s only type, so `create` goes
+  //    whole; `npm create @object-ui/plugin` is the package's own initializer.
+  //  - `lint` / `test` ran ESLint / Vitest in the temp app `dev` generates,
+  //    which declares neither toolchain, so they failed by construction.
+  //  - `studio` launched this monorepo's console, not the local project, and
+  //    failed outside the monorepo.
+  // PATH is emptied for these runs. A retired command that came back would then
+  // fail at its first external tool instead of starting a dev server or a
+  // toolchain from inside this suite, and the stderr assertion still turns red.
+  // The control is the same directory answering a declared command.
+  describe('the retired create, lint, test and studio commands are refused (objectui#11500)', () => {
+    const runWithoutPath = (args: string[], cwd: string) => {
+      const res = spawnSync(process.execPath, [CLI_BIN, ...args], {
+        cwd,
+        encoding: 'utf-8',
+        env: { ...process.env, PATH: '' },
+        timeout: 60_000,
+      });
+      return { code: res.status ?? -1, stdout: res.stdout ?? '', stderr: res.stderr ?? '' };
+    };
+
+    const cases: Array<[string, string[]]> = [
+      ['create', ['create', 'plugin', 'probe-widget']],
+      ['lint', ['lint']],
+      ['test', ['test']],
+      ['studio', ['studio']],
+    ];
+    it.each(cases)('exits non-zero with the unknown-command error on `%s`, and writes nothing', (name, args) => {
+      const work = mkdtempSync(join(tmpdir(), `objectui-cli-${name}-retired-`));
+      const res = runWithoutPath(args, work);
+      expect(res.code, res.stdout + res.stderr).not.toBe(0);
+      expect(res.stderr).toContain(`unknown command '${name}'`);
+      expect(tree(work)).toEqual([]);
+
+      const control = run(['g', 'page', 'Probe'], { cwd: work });
+      expect(control.code, control.stdout + control.stderr).toBe(0);
+      expect(tree(work)).toEqual(['pages', 'pages/probe.json']);
+    });
+  });
+
   // objectui#11496, the family close-out over every command and flag. `analyze
   // --render-performance` printed the same fixed list of tips and ticks in any
   // directory, a built project or an empty one, and analysed nothing. It is
@@ -348,6 +401,18 @@ describe('@object-ui/cli bin', () => {
       expect(res.stdout).toContain('Bundle Size Analysis');
       expect(res.stdout).toContain('assets/probe-bundle.js');
       expect(res.stdout).not.toMatch(/render performance/i);
+    });
+
+    // objectui#11500. With no `dist/`, analyze printed a warning, then "Analysis
+    // complete", and exited 0, so a script read an analysis that never happened
+    // as a pass.
+    it('exits non-zero without dist/, and claims no analysis (objectui#11500)', () => {
+      const work = mkdtempSync(join(tmpdir(), 'objectui-cli-analyze-nodist-'));
+      const res = run(['analyze'], { cwd: work });
+      expect(res.code, res.stdout + res.stderr).not.toBe(0);
+      expect(res.stderr).toContain('dist/');
+      expect(res.stdout).not.toMatch(/analysis complete/i);
+      expect(tree(work)).toEqual([]);
     });
 
     it('lists neither flag in analyze --help', () => {
@@ -404,6 +469,21 @@ describe('@object-ui/cli bin', () => {
       appDir = join(work, 'sample-app');
       const res = run(['init', 'sample-app', '-t', 'simple'], { cwd: work });
       expect(res.code, res.stdout + res.stderr).toBe(0);
+    });
+
+    // objectui#11500. `init NAME -t nope` exited 1 but left an empty NAME
+    // directory behind, so the next `init NAME` was refused as "already exists".
+    // The control is the same directory scaffolding with a real template.
+    it('refuses an unknown template before creating the directory (objectui#11500)', () => {
+      const dir = mkdtempSync(join(tmpdir(), 'objectui-cli-init-unknown-template-'));
+      const res = run(['init', 'probe-app', '-t', 'nope'], { cwd: dir });
+      expect(res.code, res.stdout + res.stderr).not.toBe(0);
+      expect(res.stderr).toMatch(/unknown template/i);
+      expect(tree(dir)).toEqual([]);
+
+      const control = run(['init', 'probe-app', '-t', 'simple'], { cwd: dir });
+      expect(control.code, control.stdout + control.stderr).toBe(0);
+      expect(existsSync(join(dir, 'probe-app', 'app.json'))).toBe(true);
     });
 
     it('scaffolds a project with the simple template', () => {

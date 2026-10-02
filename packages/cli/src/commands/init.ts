@@ -650,6 +650,9 @@ export async function init(name: string, options: InitOptions) {
   }
 
   const targetDir = name === '.' ? cwd : projectDir;
+  // Built before the directory is created, so an unknown template is refused
+  // with nothing left behind (objectui#11500).
+  const files = buildInitFiles(name, options.template);
 
   // Create project directory if needed
   if (name !== '.') {
@@ -660,11 +663,8 @@ export async function init(name: string, options: InitOptions) {
   console.log(chalk.dim(`   Template: ${options.template}`));
   console.log();
 
-  // Writes the file map and nothing else — see `buildInitFiles`. Unknown
-  // templates still throw here, before the first write.
-  for (const [relativePath, contents] of Object.entries(
-    buildInitFiles(name, options.template)
-  )) {
+  // Writes the file map and nothing else — see `buildInitFiles`.
+  for (const [relativePath, contents] of Object.entries(files)) {
     const target = join(targetDir, relativePath);
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, contents);

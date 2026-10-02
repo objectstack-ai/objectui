@@ -13,14 +13,10 @@ import { init } from './commands/init.js';
 import { dev } from './commands/dev.js';
 import { buildApp } from './commands/build.js';
 import { start } from './commands/start.js';
-import { lint } from './commands/lint.js';
-import { test } from './commands/test.js';
 import { generate } from './commands/generate.js';
 import { doctor } from './commands/doctor.js';
-import { studio } from './commands/studio.js';
 import { check } from './commands/check.js';
 import { validate } from './commands/validate.js';
-import { createPlugin } from './commands/create-plugin.js';
 import { analyze } from './commands/analyze.js';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -118,34 +114,6 @@ program
   });
 
 program
-  .command('lint')
-  .description('Lint the generated application code')
-  .option('--fix', 'Automatically fix linting issues')
-  .action(async (options) => {
-    try {
-      await lint(options);
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('test')
-  .description('Run tests for the application')
-  .option('-w, --watch', 'Run tests in watch mode')
-  .option('-c, --coverage', 'Generate test coverage report')
-  .option('--ui', 'Run tests with Vitest UI')
-  .action(async (options) => {
-    try {
-      await test(options);
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
-
-program
   .command('generate')
   .alias('g')
   .description('Generate new resources (objects, pages, plugins)')
@@ -162,22 +130,10 @@ program
 
 program
   .command('doctor')
-  .description('Diagnose and fix common issues')
+  .description('Diagnose common project setup issues (reports only, changes nothing)')
   .action(async () => {
     try {
       await doctor();
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('studio')
-  .description('Start the visual designer')
-  .action(async () => {
-    try {
-      await studio();
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
       process.exit(1);
@@ -203,26 +159,6 @@ program
   .action(async (schema) => {
     try {
       await validate(schema);
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('create')
-  .description('Create new resources')
-  .argument('<type>', 'Type of resource to create (plugin)')
-  .argument('<name>', 'Name of the resource')
-  .action(async (type, name) => {
-    try {
-      if (type === 'plugin') {
-        await createPlugin(name);
-      } else {
-        console.error(chalk.red(`Unknown resource type: ${type}`));
-        console.log(chalk.gray('Available types: plugin'));
-        process.exit(1);
-      }
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
       process.exit(1);

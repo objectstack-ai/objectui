@@ -1,6 +1,6 @@
 # @object-ui/cli
 
-> Standalone CLI for **Object UI** — scaffold, develop, build, lint, test and validate
+> Standalone CLI for **Object UI** — scaffold, develop, build and validate
 > JSON/YAML schema-driven applications.
 
 ```bash
@@ -87,24 +87,6 @@ objectui start --port 8080 --dir build
 
 Legacy alias of `dev` (kept for older scripts).
 
-### `objectui lint`
-
-Lint the generated application code via ESLint.
-
-```bash
-objectui lint --fix
-```
-
-### `objectui test`
-
-Run the application's tests via Vitest.
-
-```bash
-objectui test --watch
-objectui test --coverage
-objectui test --ui
-```
-
 ### `objectui generate <type> <name>` (alias `g`)
 
 Generate new resources (`resource`/`object`, `page`, `plugin`).
@@ -120,7 +102,7 @@ type matches, the report names the nearest few of the accepted values instead of
 listing all of them. See the
 [docs](https://www.objectui.org/docs/utilities/cli) for worked output.
 
-### `objectui check`, `objectui doctor`, `objectui studio`, `objectui analyze`, `objectui create plugin <name>`
+### `objectui check`, `objectui doctor`, `objectui analyze`
 
 Utility commands — see `objectui --help`.
 

@@ -717,7 +717,8 @@ const DOC_TYPE_EXEMPTIONS = {
       'key.',
     'metric-card':
       'Dashboard widget-slot entry directly in a `dashboard`\'s `widgets[]` — ' +
-      '`DASHBOARD_COMPONENT_WIDGET_TYPES` (`@object-ui/types`\' `complex` module), the closed ' +
+      '`DASHBOARD_COMPONENT_WIDGET_TYPES` (`@object-ui/types`\' `complex` module; its TypeScript face ' +
+      'is `DashboardWidgetSlotComponentSchema`), the closed ' +
       'component slot of the 2026-08-14 ruling (objectstack#8593). Not a node position: the node ' +
       'type is `dashboard`, which the enclosing snippet spells. The dashboard hands the entry to ' +
       'the registry as `plugin-dashboard:metric-card`: objectui#10859 batch 8 (phase 2b) gave that ' +
@@ -1248,7 +1249,8 @@ const DOC_TYPE_EXEMPTIONS = {
       'key.',
     'metric-card':
       'Dashboard widget-slot entry directly in a `dashboard`\'s `widgets[]` — ' +
-      '`DASHBOARD_COMPONENT_WIDGET_TYPES` (`@object-ui/types`\' `complex` module), the closed ' +
+      '`DASHBOARD_COMPONENT_WIDGET_TYPES` (`@object-ui/types`\' `complex` module; its TypeScript face ' +
+      'is `DashboardWidgetSlotComponentSchema`), the closed ' +
       'component slot of the 2026-08-14 ruling (objectstack#8593). Not a node position: the node ' +
       'type is `dashboard`, which the enclosing snippet spells. This entry also covers the page\'s ' +
       '`metric-card` shape block, which the page introduces as that slot entry, and a ' +
@@ -1398,7 +1400,8 @@ const DOC_TYPE_EXEMPTIONS = {
       'a registered key.',
     'metric-card':
       'Dashboard widget-slot entry directly in a `dashboard`\'s `widgets[]` — ' +
-      '`DASHBOARD_COMPONENT_WIDGET_TYPES` (`@object-ui/types`\' `complex` module), the closed ' +
+      '`DASHBOARD_COMPONENT_WIDGET_TYPES` (`@object-ui/types`\' `complex` module; its TypeScript face ' +
+      'is `DashboardWidgetSlotComponentSchema`), the closed ' +
       'component slot of the 2026-08-14 ruling (objectstack#8593). Not a node position: the node ' +
       'type is `dashboard`, which the enclosing snippet spells. This entry also covers the legacy ' +
       '`{ id, component, layout }` envelope\'s `component` node, which the dashboard renders through ' +
@@ -1537,7 +1540,8 @@ const DOC_TYPE_EXEMPTIONS = {
   'packages/types/README.md': {
     'metric-card':
       'Dashboard widget-slot entry directly in a `dashboard`\'s `widgets[]` — ' +
-      '`DASHBOARD_COMPONENT_WIDGET_TYPES` (`@object-ui/types`\' `complex` module), the closed ' +
+      '`DASHBOARD_COMPONENT_WIDGET_TYPES` (`@object-ui/types`\' `complex` module; its TypeScript face ' +
+      'is `DashboardWidgetSlotComponentSchema`), the closed ' +
       'component slot of the 2026-08-14 ruling (objectstack#8593). Not a node position: the node ' +
       'type is `dashboard`, which the snippet\'s `card` helper wraps the entry in. The dashboard ' +
       'hands the entry to the registry as `plugin-dashboard:metric-card`: objectui#10859 batch 8 ' +

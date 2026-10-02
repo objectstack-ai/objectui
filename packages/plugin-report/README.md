@@ -12,7 +12,7 @@ Report components for Object UI — render, view and export reports, with schedu
 - 🧱 **Joined reports** — vertically stacked sub-reports; each block names its own `dataset`, filter and ordering
 - 🎨 **Type-aware cells** — the presentation-layer `ReportViewer` renders `select` → Badge, `lookup` → link, `boolean` → ✓/✗, `email`/`url`/`phone` → links, `image` → thumbnail
 - 🖨️ **Multi-format export** — CSV, JSON, HTML, PDF, Excel; live-data and Excel-formula variants
-- 📦 **Auto-registered** — components register with `ComponentRegistry` on import; embed via `{ "type": "spec-report", "report": {...} }`
+- 📦 **Auto-registered** — components register with `ComponentRegistry` on import; embed via `{ "type": "report", "report": {...} }`
 
 ## Installation
 
@@ -553,19 +553,23 @@ it ran.
 
 ### Schema-Driven Usage
 
-Importing the package registers three component types with `ComponentRegistry`:
+Importing the package registers two component types with `ComponentRegistry`:
 
-| `type`          | Component        | Notes                                              |
-| --------------- | ---------------- | -------------------------------------------------- |
-| `report`        | `ReportRenderer` | The dispatcher.                                    |
-| `spec-report`   | `ReportRenderer` | Spec-native alias; the report goes under `report`.  |
-| `report-viewer` | `ReportViewer`   | Presentation-layer viewer.                         |
+| `type`          | Component        | Notes                                                        |
+| --------------- | ---------------- | ------------------------------------------------------------ |
+| `report`        | `ReportRenderer` | The dispatcher. A spec report goes under its `report` key.   |
+| `report-viewer` | `ReportViewer`   | Presentation-layer viewer.                                   |
+
+To embed a report, wrap the `@objectstack/spec` report definition (`ReportSchema`)
+in a `report` node's `report` member. When `report` is present, the node renders
+that report and reads none of its own presentation keys.
 
 ```json
 {
-  "type": "spec-report",
+  "type": "report",
   "report": {
     "name": "opp_by_stage",
+    "label": "Opportunities by Stage",
     "type": "summary",
     "dataset": "opportunity_pipeline",
     "rows": ["stage"],
@@ -576,7 +580,9 @@ Importing the package registers three component types with `ComponentRegistry`:
 
 There is no `report-builder` component type — the authoring component that name
 addressed was removed in the 9.0 cutover, so a node declaring it resolves to
-nothing.
+nothing. `spec-report` is retired too (objectui#11440): it was an alias of `report`
+carrying the same wrapper, and a node declaring it now resolves to nothing. Write
+`"type": "report"` instead; the `report` member is unchanged.
 
 ### Type-aware cell rendering
 

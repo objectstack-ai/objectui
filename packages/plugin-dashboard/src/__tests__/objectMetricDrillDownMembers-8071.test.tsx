@@ -61,8 +61,8 @@
  *     then the literal "Details".
  *   - **`report`** — its own SHAPE selects the branch: a report object carrying
  *     an `objectName` (or an array `columns`) sends the drawer body to a
- *     `spec-report` schema, and anything else falls through to the inline
- *     record list. That is asserted on the observable that separates the two
+ *     `report` node wrapping it (`spec-report` until objectui#11440), and
+ *     anything else falls through to the inline record list. That is asserted on the observable that separates the two
  *     branches — whether the record list is fetched at all.
  *
  * And the invariant the whole key hangs off: the drilled record list is scoped
@@ -288,7 +288,7 @@ describe('object-metric — `drillDown.report` selects the drawer body by its SH
     await openPanel();
 
     // The record-list branch is the one that fetches; the report branch hands
-    // the body to a `spec-report` schema instead.
+    // the body to a `report` node wrapping the report instead.
     await waitFor(() => expect(adapter.aggregate).toHaveBeenCalled());
     expect(adapter.find).not.toHaveBeenCalled();
   });

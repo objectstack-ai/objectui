@@ -77,7 +77,7 @@ are read off those calls:
 | `plugin-dashboard:metric-card` | none — `skipFallback: true` | `MetricCard` — KPI with trend and icon |
 | `plugin-dashboard:object-metric` | `object-metric` | internal wrapper around `ObjectMetricWidget` — aggregates over an object |
 | `plugin-dashboard:pivot` | `pivot` | `PivotTable` — pivot over rows you pass in |
-| `plugin-dashboard:object-pivot` | `object-pivot` | internal wrapper around `ObjectPivotTable` — pivot queried from an object |
+| `plugin-dashboard:object-pivot` | `object-pivot` | `ObjectPivotTable` — a pivot queried from an object; its props go in `properties` |
 | `plugin-dashboard:object-data-table` | `object-data-table` | `ObjectDataTable` — table queried from an object |
 
 `ComponentRegistry.register` publishes `namespace:type`, and — unless the call

@@ -69,13 +69,22 @@ describe('ReportRenderer dispatcher', () => {
     expect(screen.getAllByTestId('dataset-report-block')).toHaveLength(2);
   });
 
-  it('unwraps the SchemaRenderer spec-report wrapper before dispatching', () => {
+  it('unwraps the `report` node\'s wrapper before dispatching (the shape `spec-report` carried until objectui#11440)', () => {
+    render(
+      <ReportRenderer
+        schema={{ type: 'report', report: datasetSpec } as unknown as SpecReport}
+      />,
+    );
+    expect(screen.getByTestId('dataset-report')).toBeInTheDocument();
+  });
+
+  it('does not unwrap the retired `spec-report` spelling (objectui#11440) — one spelling, no alias fallback', () => {
     render(
       <ReportRenderer
         schema={{ type: 'spec-report', report: datasetSpec } as unknown as SpecReport}
       />,
     );
-    expect(screen.getByTestId('dataset-report')).toBeInTheDocument();
+    expect(screen.queryByTestId('dataset-report')).not.toBeInTheDocument();
   });
 
   it('bridges stored pre-9.0 spec reports to the presentation viewer', () => {

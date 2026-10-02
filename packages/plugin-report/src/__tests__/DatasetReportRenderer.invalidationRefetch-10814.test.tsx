@@ -7,7 +7,9 @@
  */
 
 /**
- * objectui#10814 — a `report` / `spec-report` block over a dataset re-reads
+ * objectui#10814 — a `report` block over a dataset (flat, or wrapping the spec
+ * report in its `report` member, the spelling `spec-report` carried until
+ * objectui#11440 retired that alias) re-reads
  * when the data-invalidation bus (`notifyDataChanged` from `@object-ui/react`)
  * reports a write to the object its dataset queries, in place.
  *
@@ -31,7 +33,7 @@ import React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, act, cleanup, waitFor } from '@testing-library/react';
 import { SchemaRenderer, SchemaRendererProvider, notifyDataChanged, useDataInvalidation } from '@object-ui/react';
-// Registers `report` and `spec-report` through this package's own entry.
+// Registers `report` through this package's own entry.
 import '../index';
 
 beforeEach(() => {
@@ -117,10 +119,10 @@ const renderBlock = (schema: Record<string, unknown>, ds: ReturnType<typeof make
 
 const SUMMARY = { type: 'summary', dataset: 'deals_ds', rows: ['stage'], values: ['amount_sum'] };
 
-describe('report / spec-report over a dataset re-reads on the data-invalidation bus (objectui#10814)', () => {
-  it('`spec-report`: an unscoped change (objectName "*") re-runs its query once, keeping the table drawn', async () => {
+describe('report over a dataset re-reads on the data-invalidation bus (objectui#10814)', () => {
+  it('`report` wrapping a spec report: an unscoped change (objectName "*") re-runs its query once, keeping the table drawn', async () => {
     const ds = makeDataSource();
-    const { container, getByTestId, getByText, queryByText } = renderBlock({ type: 'spec-report', report: SUMMARY }, ds);
+    const { container, getByTestId, getByText, queryByText } = renderBlock({ type: 'report', report: SUMMARY }, ds);
     await waitFor(() => expect(ds.queryDataset).toHaveBeenCalledTimes(1));
     await answerAll(ds, 100);
     await waitFor(() => expect(getByText('100')).toBeTruthy());
@@ -167,7 +169,7 @@ describe('report / spec-report over a dataset re-reads on the data-invalidation 
     const ds = makeDataSource();
     renderBlock(
       {
-        type: 'spec-report',
+        type: 'report',
         report: {
           type: 'joined',
           blocks: [
@@ -194,7 +196,7 @@ describe('report / spec-report over a dataset re-reads on the data-invalidation 
 
     const withChart = makeDataSource();
     renderBlock(
-      { type: 'spec-report', report: { ...SUMMARY, chart: { type: 'bar', xAxis: 'stage', yAxis: 'amount_sum' } } },
+      { type: 'report', report: { ...SUMMARY, chart: { type: 'bar', xAxis: 'stage', yAxis: 'amount_sum' } } },
       withChart,
     );
     // The chart runs its own narrower query beside the table's.
@@ -209,7 +211,7 @@ describe('report / spec-report over a dataset re-reads on the data-invalidation 
 
   it('a re-read that FAILS keeps listening: the error replaces the rows, and the next change re-reads', async () => {
     const ds = makeDataSource();
-    const { container, queryByRole, getByText } = renderBlock({ type: 'spec-report', report: SUMMARY }, ds);
+    const { container, queryByRole, getByText } = renderBlock({ type: 'report', report: SUMMARY }, ds);
     await waitFor(() => expect(ds.queryDataset).toHaveBeenCalledTimes(1));
     await answerAll(ds, 100);
     await waitFor(() => expect(getByText('100')).toBeTruthy());
@@ -232,7 +234,7 @@ describe('report / spec-report over a dataset re-reads on the data-invalidation 
 
   it('control: a first load that fails, with no answer ever, subscribes to nothing', async () => {
     const ds = makeDataSource();
-    const { getByTestId, queryByRole } = renderBlock({ type: 'spec-report', report: SUMMARY }, ds);
+    const { getByTestId, queryByRole } = renderBlock({ type: 'report', report: SUMMARY }, ds);
     await waitFor(() => expect(ds.queryDataset).toHaveBeenCalledTimes(1));
     await failQuery(ds, 1, 'no such dataset');
     await waitFor(() => expect(queryByRole('alert')?.textContent).toContain('no such dataset'));
@@ -248,7 +250,7 @@ describe('report / spec-report over a dataset re-reads on the data-invalidation 
     const tree = (report: Record<string, unknown>) => (
       <SchemaRendererProvider dataSource={ds as any}>
         <BusControl />
-        <SchemaRenderer schema={{ type: 'spec-report', report } as any} />
+        <SchemaRenderer schema={{ type: 'report', report } as any} />
       </SchemaRendererProvider>
     );
     const view = render(tree(SUMMARY));

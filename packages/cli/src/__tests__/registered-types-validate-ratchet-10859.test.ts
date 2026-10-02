@@ -77,18 +77,20 @@ import { validate } from '../commands/validate.js';
  * more batch of this card: minus `navigation-renderer` and `responsive-grid`,
  * see `UNREGISTERED_11441`; batch 8 phase 2d: minus the ten `sidebar-*`
  * primitives, see `UNREGISTERED_10859_BATCH_8_PHASE_2D`; objectui#11440: minus
- * the seven keys its first pull request armed, see `ARMED_11440`). LOWER it
- * when a batch arms or retires more keys; never raise it.
+ * the seven keys its first pull request armed, see `ARMED_11440`, and then
+ * `spec-report`, which its second pull request RETIRED, see
+ * `UNREGISTERED_11440`). LOWER it when a batch arms or retires more keys;
+ * never raise it.
  *
- * The 1 that remains is named in `STILL_REFUSED_10859`, and the row below
- * pins the refused set to exactly that list, so this comment cannot drift from
- * the measurement. It is `spec-report`, the eighth key the seat ruling left
- * registered: an alias of `report`, retired there in the ruling's step order
- * (`report` declares the wrapper shape `spec-report` carries, the dashboard's
- * drill drawer moves to `report`, then the alias goes), in objectui#11440's
- * second pull request. The other seven — `object-pivot`, `embeddable-form`,
+ * None remains: `STILL_REFUSED_10859` is empty, and the row below pins the
+ * refused set to exactly that list, with a lit control that the filter still
+ * fires on an unregistered key, so an empty reading is a measurement and not
+ * an instrument that stopped running. Of the eight keys the seat ruling left
+ * registered, seven are armed — `object-pivot`, `embeddable-form`,
  * `detail-section`, `home`, `record`, `utility` and `app-schema-renderer` —
- * are armed.
+ * and `spec-report`, an alias of `report`, is retired in the ruling's step
+ * order: `report` declares the wrapper shape `spec-report` carried, the
+ * dashboard's drill drawer writes `report`, then the alias goes.
  *
  * `navigation-renderer` and `responsive-grid`, the two the seat sent to the
  * maintainer, were ruled B / B on objectui#11441 (record `5950208338`) and are
@@ -114,7 +116,7 @@ import { validate } from '../commands/validate.js';
  * last 2 waiting on objectui#11441. That card ran first, so the count is 8
  * after phase 2d, and objectui#11440 then takes it to 0.
  */
-const REFUSED_AT_TYPE = 1;
+const REFUSED_AT_TYPE = 0;
 
 /**
  * The head's refused count over the NAMESPACED keys (objectui#10872 batch 1:
@@ -137,9 +139,11 @@ const REFUSED_AT_TYPE = 1;
  * the ten `ui:sidebar-*` twins of the ten `sidebar-*` primitives it
  * unregistered). LOWER it when a batch arms or retires more keys; never raise
  * it. objectui#11440 armed seven bare keys and none of their namespaced twins
- * (`ARMED_11440` maps each to its twins), so it does not move this pin.
+ * (`ARMED_11440` maps each to its twins), so its first pull request did not
+ * move this pin; its second took it down by one, `plugin-report:spec-report`,
+ * the namespaced twin of the `spec-report` key it unregistered.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 362;
+const NAMESPACED_REFUSED_AT_TYPE = 361;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));
@@ -273,10 +277,19 @@ const ARMED_11440 = {
 } as const;
 
 /**
- * Every bare key still refused at `type` after objectui#11440's first pull
- * request — the `REFUSED_AT_TYPE` docblock says why it is still here.
+ * The bare key objectui#11440's second pull request RETIRED by unregistration
+ * (the seat ruling `5945530142`: the capability passes, the spelling is an
+ * alias of `report`), mapped to the namespaced twin that went with it.
  */
-const STILL_REFUSED_10859 = ['spec-report'] as const;
+const UNREGISTERED_11440 = {
+  'spec-report': ['plugin-report:spec-report'],
+} as const;
+
+/**
+ * Every bare key still refused at `type` after objectui#11440 — none. The
+ * `REFUSED_AT_TYPE` docblock says how each of the last eight left.
+ */
+const STILL_REFUSED_10859: readonly string[] = [];
 
 /** Is `type` unclaimed by every arm of the validator's root union? */
 function refusedAtType(type: string): boolean {
@@ -453,16 +466,37 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
         expect(refusedAtType(twin), twin).toBe(true);
       }
     }
-    // Lit control: the eighth key, `spec-report`, is still registered and
-    // still refused, until objectui#11440's second pull request retires it.
-    expect(BARE_KEYS).toContain('spec-report');
-    expect(refusedAtType('spec-report')).toBe(true);
+  });
+
+  it('counts the key objectui#11440 retired as gone from the registry (objectui#10859)', () => {
+    expect(Object.keys(UNREGISTERED_11440)).toHaveLength(1);
+    for (const [key, twins] of Object.entries(UNREGISTERED_11440)) {
+      // Retired, not armed: out of the population, still refused at `type`.
+      expect(BARE_KEYS, key).not.toContain(key);
+      expect(refusedAtType(key), key).toBe(true);
+      for (const twin of twins) expect(NAMESPACED_KEYS, twin).not.toContain(twin);
+    }
+    // Lit controls: `report`, the spelling the retirement points authors to, is
+    // registered and claimed, and its wrapper shape, the one `spec-report`
+    // carried, validates on the face `objectui validate` runs.
+    expect(BARE_KEYS).toContain('report');
+    expect(refusedAtType('report')).toBe(false);
+    const wrapper = {
+      type: 'report',
+      report: { name: 'opp_by_stage', label: 'Opportunities by Stage', type: 'summary', dataset: 'pipeline', rows: ['stage'], values: ['amount_sum'] },
+    };
+    expect(safeValidateSchema(wrapper).success).toBe(true);
   });
 
   it('the refused set is exactly the named remainder — the pin comment cannot drift (objectui#10859 batch 8)', () => {
     const refused = BARE_KEYS.filter(refusedAtType).sort();
     expect(refused).toEqual([...STILL_REFUSED_10859]);
     expect(STILL_REFUSED_10859).toHaveLength(REFUSED_AT_TYPE);
+    // Lit control (objectui#11440): the remainder is empty, so prove the same
+    // filter over the same population still fires — one unregistered key added
+    // to it is the one key it returns.
+    const probe = 'no-such-component-11440';
+    expect([...BARE_KEYS, probe].filter(refusedAtType)).toEqual([probe]);
   });
 });
 

@@ -4863,6 +4863,11 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "a bare vocabulary with no `.shape`; it is checked where a mirrored KEY declares it",
   'reports.zod.ts#ReportScheduleSchema':
     "no TS declaration in this package restates it — there is no second definition to drift from",
+  // objectui#11440 — the AUTHORED `report` node: the record's members plus the
+  // `report` wrapper the retired `spec-report` alias carried. Pinned by
+  // `./passing-keys-arms-11440.test.ts`.
+  'reports.zod.ts#ReportNodeSchema':
+    "mirror-owned BY REFERENCE — `reports.zod.ts#ReportComponentSchema`'s own members (`.extend()`), plus `report`, which IS the spec's `ReportSchema` (through the import boundary); no TS declaration in this package restates the node — the TS twin `ReportComponentSchema` is the report RECORD a `report-viewer` / `report-builder` holds, paired with `ReportComponentSchema`, which declares no wrapper",
   'reports.zod.ts#ReportUnionSchema':
     "a union OVER the mirrors, not an object of its own — its members are checked individually above",
   'views.zod.ts#ViewTypeSchema':

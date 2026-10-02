@@ -90,6 +90,8 @@ import {
   ObjectMapPropsSchema as SpecObjectMapPropsSchema,
   ObjectGanttPropsSchema as SpecObjectGanttPropsSchema,
   ObjectGridPropsSchema as SpecObjectGridPropsSchema,
+  // objectui#11440 — the report definition the authored `report` node wraps.
+  ReportSchema as SpecReportSchema,
   // objectui#10872 — the `ComponentPropsMap` rows the public-block arms read.
   PageHeaderProps as SpecPageHeaderProps,
   PageTabsProps as SpecPageTabsProps,
@@ -269,6 +271,9 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // row, crossed the same way — and unlike the two above it carries spec
   // defaults (`timeline.scale`, the `navigation` members) for the strip to remove.
   ['ObjectTimelinePropsSchema', SpecObjectTimelinePropsSchema],
+  // objectui#11440: the authored `report` node's `report` wrapper is the
+  // spec's report definition, crossed the same way (`reports.zod.ts`).
+  ['ReportSchema', SpecReportSchema],
   // objectui#10859 batch 4: the `object-form` arm's `properties` is its row,
   // crossed the same way; `objectql.zod.ts` also reads the row's key set off the
   // crossed copy to refuse each member written flat.

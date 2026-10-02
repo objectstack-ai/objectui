@@ -28,7 +28,12 @@
 
 import { describe, expect, it } from 'vitest';
 import type { z } from 'zod';
-import { ComponentPropsMap, PageSchema as SpecPageSchema, PageTypeSchema as SpecPageTypeSchema } from '@objectstack/spec/ui';
+import {
+  ComponentPropsMap,
+  PageSchema as SpecPageSchema,
+  PageTypeSchema as SpecPageTypeSchema,
+  ReportSchema as SpecReportSchema,
+} from '@objectstack/spec/ui';
 import {
   AppSchemaRendererNodeSchema,
   DetailSectionNodeSchema,
@@ -37,6 +42,8 @@ import {
   ObjectPivotBlockSchema,
   PageKindNodeSchema,
   PageNodeSchema,
+  ReportComponentSchema,
+  ReportNodeSchema,
   StrictAnyComponentSchema,
   safeValidateSchema,
 } from '../zod/index.zod';
@@ -331,6 +338,48 @@ describe('`detail-section` (objectui#11440)', () => {
   });
 });
 
+/* ── report: the wrapper `spec-report` carried (objectui#11440, second PR) ── */
+
+/** A dataset-bound spec report: the shape `plugin-report.mdx` teaches embedding. */
+const SPEC_REPORT = {
+  name: 'opp_by_stage',
+  label: 'Opportunities by Stage',
+  type: 'summary',
+  dataset: 'opportunity_pipeline',
+  rows: ['stage'],
+  values: ['amount_sum'],
+};
+
+describe('`report` declares the wrapper shape the retired `spec-report` carried (objectui#11440)', () => {
+  it.each(FACES)('%s face: FROM `spec-report` is refused at `type`; TO `report` validates', (face, judge) => {
+    // Lit control: the wrapped value IS a spec report.
+    expect(SpecReportSchema.safeParse(SPEC_REPORT).success).toBe(true);
+    expect(refusedAtType(judge({ type: 'spec-report', report: SPEC_REPORT })), face).toBe(true);
+    const to = judge({ type: 'report', report: SPEC_REPORT });
+    expect(to.success, `${face}: ${JSON.stringify(to.error?.issues)}`).toBe(true);
+  });
+
+  it('the member is the spec\'s `ReportSchema`, by reference: what the spec refuses in a report is refused here, at its path', () => {
+    const { name: _name, ...nameless } = SPEC_REPORT;
+    for (const [face, judge] of FACES) {
+      expect(at(judge({ type: 'report', report: nameless }), 'report.name').length, face).toBeGreaterThan(0);
+      // The pre-9.0 query form, which the spec refuses ("did you mean `dataset`?").
+      const pre9 = { name: 'legacy', label: 'Legacy', type: 'tabular', objectName: 'deal', columns: ['name'] };
+      expect(issuesOf(judge({ type: 'report', report: pre9 })).some((i) => i.path[0] === 'report'), face).toBe(true);
+      expect(SpecReportSchema.safeParse(pre9).success).toBe(false);
+    }
+  });
+
+  it('the wrapper is on the authored node only: the report RECORD a viewer holds does not declare it', () => {
+    expect(Object.keys(ReportNodeSchema.shape)).toContain('report');
+    expect(Object.keys(ReportComponentSchema.shape)).not.toContain('report');
+    const viewer = { type: 'report-viewer', report: { type: 'report', title: 'Q3', report: SPEC_REPORT } };
+    expect(issuesOf(StrictAnyComponentSchema.safeParse(viewer)).flatMap((i) => i.keys ?? [])).toEqual(['report']);
+    // Lit control: the legacy presentation node, with no wrapper, validates as before.
+    for (const [face, judge] of FACES) expect(judge({ type: 'report', title: 'Q3', data: [] }).success, face).toBe(true);
+  });
+});
+
 /* ── The ratchet's reading, per key ──────────────────────────────────────── */
 
 describe('none of the seven is refused at `type` any more (objectui#11440)', () => {
@@ -338,7 +387,7 @@ describe('none of the seven is refused at `type` any more (objectui#11440)', () 
     for (const [face, judge] of FACES) expect(refusedAtType(judge({ type })), face).toBe(false);
   });
 
-  it('lit control: `spec-report`, the eighth key, is still refused there', () => {
+  it('lit control: `spec-report`, the eighth key, is refused there — retired, it has no arm (objectui#11440)', () => {
     for (const [face, judge] of FACES) expect(refusedAtType(judge({ type: 'spec-report' })), face).toBe(true);
   });
 });

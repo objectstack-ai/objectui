@@ -52,8 +52,9 @@ export interface DrillDownDrawerProps {
   className?: string;
   /**
    * M3: drill into an analytical `SpecReport` instead of the raw record list.
-   * When provided the drawer body renders a `spec-report` schema via
-   * `SchemaRenderer`. The widget's `filter` is merged in as an `$and` so the
+   * When provided the drawer body renders a `report` node wrapping it
+   * (`{ type: 'report', report }`) via `SchemaRenderer` (objectui#11440; the
+   * retired `spec-report` alias carried the same wrapper). The widget's `filter` is merged in as an `$and` so the
    * metric's scope flows into the report. The report itself can drill
    * further (into a list / record) via its own row-click protocol.
    */
@@ -105,11 +106,14 @@ export const DrillDownDrawer: React.FC<DrillDownDrawerProps> = ({
             const mergedFilter = existingFilter
               ? (filter ? { $and: [existingFilter, filter] } : existingFilter)
               : filter;
+            // The `report` node's declared wrapper (objectui#11440): the report,
+            // with the drill's filter merged in, under `report`. `ReportRenderer`
+            // unwraps it first and reads nothing else off the node, so the flat
+            // copy of the report's keys and the top-level `filter` the retired
+            // `spec-report` spelling also carried are not written.
             const reportSchema = {
-              ...(report as Record<string, unknown>),
-              type: 'spec-report',
+              type: 'report',
               report: { ...(report as Record<string, unknown>), filter: mergedFilter },
-              filter: mergedFilter,
             };
             return <SchemaRenderer schema={reportSchema as any} />;
           })()

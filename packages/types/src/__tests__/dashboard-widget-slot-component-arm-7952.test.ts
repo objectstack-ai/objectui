@@ -278,6 +278,12 @@ describe('objectui#11467 — the component arm declares `MetricCard`\'s register
     expect([sideways.trend, valueless.type, doc.type]).toEqual(['sideways', 'metric-card', 'dashboard']);
   });
 
+  it('`title`, declared on both arms, reads with its declared type straight off a `widgets[]` entry — not `any`', () => {
+    // The plugin-dashboard README says so ("Reading a widget key off `widgets[]`").
+    const read: Equal< DashboardComponentSchema['widgets'][number]['title'], string | I18nLabel | undefined > = true;
+    expect(read).toBe(true);
+  });
+
   it('the widget `component` slot is typed with the arm first, then any other component node', () => {
     const slot: Equal< NonNullable< DashboardWidgetSchema['component'] >, DashboardWidgetSlotComponentSchema | NonNullable< SchemaNode > > = true;
     expect(slot).toBe(true);

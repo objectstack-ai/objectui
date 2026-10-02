@@ -76,17 +76,18 @@ A `metric-card` is a dashboard widget-slot entry: it sits directly in a
 and the dashboard renders it as the `plugin-dashboard:metric-card` node. The
 bare `metric-card` NODE key is retired (objectui#10859), so a `metric-card`
 outside a dashboard's `widgets[]` renders nothing but the renderer's
-"Unknown component type" panel. Its keys:
+"Unknown component type" panel. Its keys, as `DashboardWidgetSlotComponentSchema`
+(`@object-ui/types`) declares them and `@object-ui/types/zod` judges them:
 
 ```plaintext
 {
   type: 'metric-card',
-  title: string,
-  value: string | number,
+  title?: string | I18nLabel,     // plain string or inline per-locale map
+  value: string | number,         // required
   icon?: string,                  // Lucide icon name
-  trend?: 'up' | 'down' | 'neutral',
-  trendValue?: string,
-  description?: string,
+  trend?: 'up' | 'down' | 'neutral',  // drawn with trendValue
+  trendValue?: string,            // drawn with trend
+  description?: string | I18nLabel,
   className?: string
 }
 ```
@@ -463,7 +464,8 @@ const dashboard: DashboardComponentSchema = {
 
 An entry of `widgets[]` is either a widget (`DashboardWidgetSchema`) or a
 component node placed directly in the slot (`DashboardWidgetSlotComponentSchema`).
-The widget keys (`title`, `colorVariant`, `filter`, …) are declared on the widget
+The component arm declares the card's registered inputs — the keys above. The
+widget keys (`colorVariant`, `filter`, `dataset`, …) are declared on the widget
 arm, which takes them from the spec's `DashboardWidget` row, and on no member of
 the component arm. To read one off `widgets[]`, read it through
 `DashboardWidgetSchema`. The component arm is assignable to that type, so the
@@ -479,10 +481,12 @@ const widgets: DashboardWidgetSchema[] = dashboard.widgets;
 const accents = widgets.map((w) => w.colorVariant ?? 'default');
 ```
 
-`layout` is the exception: both arms declare it, the component arm by reference
-to the spec's widget `layout`, because the editable grid's Save Layout writes it
-onto every entry, a `metric-card` node included. It reads with the spec's type
-off any `widgets[]` entry, the strict authoring face accepts it on a component
+`title` and `layout` are the exceptions: both arms declare them. `title` is the
+card's heading on the component arm, typed as `MetricCard` reads it. The
+component arm declares `layout` by reference to the spec's widget `layout`,
+because the editable grid's Save Layout writes it onto every entry, a
+`metric-card` node included. `layout` reads with the spec's type off any
+`widgets[]` entry, the strict authoring face accepts it on a component
 node, and a malformed one (not four numbers, or a key besides `x`, `y`, `w` and
 `h`) is refused on either arm.
 

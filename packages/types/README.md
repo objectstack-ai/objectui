@@ -198,15 +198,18 @@ Opaque `custom` / `function` / `transform` validators have no shape to close;
 `deriveStrictAuthoringSchema` reports each one it meets through the optional
 `onOpaqueShape` callback.
 
-One node spells its props through the passthrough by design: a `metric-card`
-sitting directly in a dashboard's `widgets` slot, whose props are its
-registration's `inputs`. The strict face admits exactly the input names that
-registration declares on that node, each judged as the tolerant face judges it,
-and still refuses any other key by name (objectui#11022; the names are held to
-the live registration by a test in `@object-ui/plugin-dashboard`). The node also
-declares one widget key, `layout`, the spec's widget position, which the
-editable grid's Save Layout writes onto every entry; it is judged by the spec's
-shape (objectui#11070):
+A `metric-card` sitting directly in a dashboard's `widgets` slot is a
+component node whose props are its registration's `inputs`. Its node declares
+them — `title`, `value` (required), `icon`, `trend` and `trendValue`, with
+`description` from `BaseSchema` — so both faces judge each value by its member,
+and the strict face still refuses any other key by name (objectui#11022,
+objectui#11467; the members are held to the live registration and to
+`MetricCard`'s props by a test in `@object-ui/plugin-dashboard`). A widget's
+`component` slot takes the same node first; the strict face judges a card there
+by it, while the tolerant face also keeps `BaseSchema` for any other component
+node. The node also declares one widget key, `layout`, the spec's widget
+position, which the editable grid's Save Layout writes onto every entry; it is
+judged by the spec's shape (objectui#11070):
 
 ```typescript
 import { StrictAnyComponentSchema } from '@object-ui/types/zod';
@@ -216,6 +219,7 @@ const card = (widget: object) => ({ type: 'dashboard', widgets: [widget] });
 StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42 })).success; // true
 StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', bogus: 1 })).success;  // false — `bogus` is named
 StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42, layout: { x: 0, y: 0, w: 3, h: 2 } })).success; // true
+StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42, trend: 'sideways' })).success; // false — not a trend
 ```
 
 ### Writing a widget's `layout`

@@ -21,11 +21,10 @@
  * shell, and each row asserts what the click DID. Modelled on the board's
  * `kanbanNavigationMembers-8652`.
  *
- * ⚠️ The gate that will read this file does not read it yet:
- * `registry-inputs-spec-parity.test.ts` books `object-timeline` as UNJUDGED,
- * owed to objectui#11168 slice 3, which loads the lazily registered block. Its
- * member-pin check refuses an entry for a block it does not judge, so the
- * `MEMBER_PINS` line pointing here is slice 3's to add.
+ * The gate that reads this file is `registry-inputs-spec-parity.test.ts`: its
+ * `MEMBER_PINS` line for `object-timeline.navigation` points here. It was added
+ * by objectui#11168 slice 5, which loads the lazily registered block, because
+ * the gate refuses a pin for a block it does not judge.
  *
  * What the rows establish:
  *
@@ -35,7 +34,8 @@
  *   - **`none` and `preventNavigation` open nothing**, and the flag outranks an
  *     overlay mode.
  *   - **`new_window` and `openNewTab` open the record page in a new tab**,
- *     built from the block's own object name; `openNewTab` outranks `page`.
+ *     built from the block's own object name; `openNewTab` outranks `page`
+ *     and every overlay mode, but not `none`, which opens nothing beside it.
  *   - **`size` and `width` are ONE decision**: `width` (deprecated) wins over a
  *     `size` beside it, a bucket name resolves through the size table, and
  *     `auto` lands where a drawer with no size does.
@@ -193,11 +193,22 @@ describe('object-timeline `navigation` members decide the entry click (objectui#
     expect(open).toHaveBeenCalledWith(`/${OBJECT}/record/1`, '_blank');
   });
 
-  it('…and an overlay mode too: `openNewTab: true` beside `drawer` opens a tab and no drawer', async () => {
-    const { open } = await clickEntry({ mode: 'drawer', openNewTab: true });
-    await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
-    expect(open).toHaveBeenCalledWith(`/${OBJECT}/record/1`, '_blank');
-    expect(dialog()).toBeNull();
+  it.each(['drawer', 'modal', 'split', 'popover'] as const)(
+    '…and an overlay mode too: `openNewTab: true` beside `%s` opens a tab and no overlay',
+    async (mode) => {
+      const { open } = await clickEntry({ mode, openNewTab: true });
+      await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
+      expect(open).toHaveBeenCalledWith(`/${OBJECT}/record/1`, '_blank');
+      expect(dialog()).toBeNull();
+    },
+  );
+
+  it('…but NOT `mode: "none"`: `none` beside `openNewTab: true` opens nothing', async () => {
+    // objectui#11168 slice 5: the description says `openNewTab` outranks every
+    // mode except `none`, which is checked first, as `preventNavigation` is.
+    // The overlay rows just above are this row's control.
+    const { open } = await clickEntry({ mode: 'none', openNewTab: true });
+    await expectNothingOpened(open, 'none + openNewTab');
   });
 
   it('`size` reaches the overlay through the bucket table', async () => {

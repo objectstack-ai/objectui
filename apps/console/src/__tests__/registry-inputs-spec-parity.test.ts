@@ -304,10 +304,12 @@ import '@object-ui/plugin-calendar';
 // `@objectstack/spec` 17.5.0 newly carries, one block at a time: each import
 // below is what takes a block out of `UNJUDGED_SPEC_BLOCKS` (where the bump
 // booked it OWED) and puts it under both directions. `MINOR_17_5_LOADED_BLOCKS`
-// names them. Slice 4 adds `@object-ui/plugin-gantt`.
+// names them. Slice 4 adds `@object-ui/plugin-gantt`, and slice 5
+// `@object-ui/plugin-timeline`, the last of the four.
 import '@object-ui/plugin-tree';
 import '@object-ui/plugin-map';
 import '@object-ui/plugin-gantt';
+import '@object-ui/plugin-timeline';
 
 /** This block's spec props schema, or `undefined` when this pin has none. */
 const specSchema = (type: string): unknown => (ComponentPropsMap as Record<string, unknown>)[type];
@@ -605,8 +607,8 @@ const LAZY_REGISTERED_BLOCKS = [
  * entries — `object-gantt`, `object-map`, `object-timeline`, `object-tree` — are
  * registered lazily, and the bump booked them in `UNJUDGED_SPEC_BLOCKS` to
  * objectui#11168 instead (see `OWED_TO` below). That card loads them one block
- * at a time (slice 3 the tree and the map, slice 4 the gantt); each loaded
- * block moves to `MINOR_17_5_LOADED_BLOCKS`.
+ * at a time (slice 3 the tree and the map, slice 4 the gantt, slice 5 the
+ * timeline); each loaded block moves to `MINOR_17_5_LOADED_BLOCKS`.
  *
  * Same shape as `GA_ONLY_BLOCKS` / `MINOR_17_1_BLOCKS`: this repo registered all
  * six with `inputs` before the spec described them, so what moved at the bump
@@ -627,8 +629,8 @@ const specCarries175Blocks = MINOR_17_5_BLOCKS.every((type) => type in Component
 
 /**
  * The lazily registered 17.5.0 blocks this file LOADS and judges — objectui#11168
- * slices 3 and 4, which take them out of `UNJUDGED_SPEC_BLOCKS` one block at a
- * time.
+ * slices 3 to 5, which took them out of `UNJUDGED_SPEC_BLOCKS` one block at a
+ * time, all four.
  * Kept as its own group for the reason `LAZY_REGISTERED_BLOCKS` is: a reader
  * asking why the population moved without a pin bump gets the answer here. Each
  * entry is a block whose plugin package is imported at the top of this file.
@@ -636,7 +638,7 @@ const specCarries175Blocks = MINOR_17_5_BLOCKS.every((type) => type in Component
  * Pin-dependent like `MINOR_17_5_BLOCKS`: the spec carries these rows from
  * 17.5.0 on, and they are expected only when it does.
  */
-const MINOR_17_5_LOADED_BLOCKS = ['object-gantt', 'object-map', 'object-tree'];
+const MINOR_17_5_LOADED_BLOCKS = ['object-gantt', 'object-map', 'object-timeline', 'object-tree'];
 
 /** Does the installed `@objectstack/spec` carry the loaded 17.5.0 blocks? `every`, for the same reason. */
 const specCarries175LoadedBlocks = MINOR_17_5_LOADED_BLOCKS.every((type) => type in ComponentPropsMap);
@@ -788,7 +790,7 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
  * card to land sets all five to 0.
  */
 const OBJECTUI_11111_LEDGER_CAPS = {
-  unjudgedBlocks: 1, // objectui#11168: object-timeline (slice 3 loaded and judged object-map and object-tree, slice 4 object-gantt)
+  unjudgedBlocks: 0, // objectui#11168 loaded and judged all four: slice 3 object-map and object-tree, slice 4 object-gantt, slice 5 object-timeline
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
   unpublishedKeys: 3, // objectui#11168: 3 (action:button endpoint + undoable, action:icon endpoint); objectui#8652: 0 and objectui#8649: 0 (each struck by its landing)
   refusedArms: 0, // objectui#11168: slice 2 narrowed element:definition-list.columns, slice 3 object-form.layout
@@ -839,9 +841,10 @@ const OBJECTUI_11111_LEDGER_CAPS = {
  *     registered, lazily, and that this file does not load, booked to its
  *     owner card with an expiry (see `OWED_TO`). Asserted as still registered
  *     lazily and still unloaded here, so loading it — the owner card's work —
- *     forces the entry out; and CAPPED at the four listed, so a fifth lazily
+ *     forces the entry out; and CAPPED at the entries listed, so one more lazily
  *     registered block is still red in `no spec-carried block is registered
- *     but unloaded`. The last objectui#11111 owner card to land empties it.
+ *     but unloaded`. The bump booked four, and objectui#11168 slices 3 to 5
+ *     loaded all four, so this class is EMPTY now and its cap is 0.
  *
  * The first class is EXCLUSIVE, and that is what keeps a hand-written reason
  * from outliving a retirement (objectui#10033): an entry under either of the
@@ -885,19 +888,15 @@ const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   'mcp:connect-agent':
     'EMPTY SPEC SHAPE. New in `@objectstack/spec` 17.3.0, which declares it with no top-level key at all. Registered propless by `@object-ui/app-shell` (`src/console/connect/ConnectAgentWidget.tsx`), outside this file\'s import graph; the empty shape is the load-bearing half either way. objectui#7122, ledger objectui#8176.',
   // The fourth class, and the only one that is not mechanically "unjudgeable":
-  // OWED. These are new in `@objectstack/spec` 17.5.0, registered with
-  // `registerLazy` by the console (`register-plugins.ts`) and not loaded by this
-  // file, so their declarations are real and unread. The remedy the
-  // mechanism test names — an eager import — would judge them, and judging them
-  // is objectui#11168's work, not the bump's (objectui#11111 decision 3 = B).
-  // The bump booked four; `object-map` and `object-tree` were struck by
-  // objectui#11168 slice 3 and `object-gantt` by slice 4, which load them at
-  // the top of this file and published the keys their renderers honour
-  // (`MINOR_17_5_LOADED_BLOCKS`).
-  'object-timeline': OWED_TO(
-    'objectui#11168',
-    'REGISTERED LAZILY, NOT LOADED HERE: `object-timeline` is new in `@objectstack/spec` 17.5.0, and loading `@object-ui/plugin-timeline` in this file is what judges it.',
-  ),
+  // OWED. The 17.5.0 bump booked four blocks here — new in that spec, registered
+  // with `registerLazy` by the console (`register-plugins.ts`) and not loaded by
+  // this file, so their declarations were real and unread. The remedy the
+  // mechanism test names — an eager import — judges them, and judging them was
+  // objectui#11168's work, not the bump's (objectui#11111 decision 3 = B).
+  // All four are struck: `object-map` and `object-tree` by objectui#11168
+  // slice 3, `object-gantt` by slice 4 and `object-timeline` by slice 5, which
+  // load them at the top of this file and published the keys their renderers
+  // honour (`MINOR_17_5_LOADED_BLOCKS`). The class is empty, and its cap is 0.
   'user:profile':
     'RETIRED UPSTREAM. `@objectstack/spec` 17.3.0 retired it by name (objectstack#14159, landed by objectstack#15112): out of `PageComponentType`, named in `RETIRED_PAGE_COMPONENT_TYPES`, and its row `retiredComponentProps` — a `never` that refuses every props bag, `{}` included — so there is no authoring surface for either direction to judge. The same release\'s reconciliation here (objectui#7122) took it out of `PROTOCOL_COMPONENTS` in `@object-ui/components` `renderers/placeholders.tsx`, so not even the placeholder scaffold stands in for it. objectui#10033, ledger objectui#8176.',
 };
@@ -2719,7 +2718,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-calendar.navigation': {
     file: 'packages/plugin-calendar/src/__tests__/calendarNavigationMembers-8652.test.tsx',
-    pins: 'The members of the spec\'s `NavigationConfigSchema` block the calendar reads, each driven through a real event click on the real calendar and asserted on what the click DID: an ABSENT key opens a drawer (the renderer\'s own default, the lit control), `none` and `preventNavigation` open nothing with the flag outranking an overlay mode, `new_window` and `openNewTab` open the record page in a new tab with `openNewTab` outranking `page`, and `size` / `width` are one width decision (`width` wins, a bucket resolves through the size table, `auto` lands on the default). The precedence against a parent view is pinned both ways: an OVERLAY mode keeps the click from `onRowClick` / `onEventClick`, any other mode hands it to them. Since objectui#11293 the `page` rows pin the navigation the description states: under a host that publishes its record navigator, `page` and a block without `mode` open the record page through it (no overlay, no new tab), with `drawer` as the lit control and a parent `onRowClick` taking the click first; with no host navigator `page` opens nothing (objectui#8652, objectui#11293).',
+    pins: 'The members of the spec\'s `NavigationConfigSchema` block the calendar reads, each driven through a real event click on the real calendar and asserted on what the click DID: an ABSENT key opens a drawer (the renderer\'s own default, the lit control), `none` and `preventNavigation` open nothing with the flag outranking an overlay mode, `new_window` and `openNewTab` open the record page in a new tab with `openNewTab` outranking `page` and every overlay mode but not `none` (objectui#11168 slice 5), and `size` / `width` are one width decision (`width` wins, a bucket resolves through the size table, `auto` lands on the default). The precedence against a parent view is pinned both ways: an OVERLAY mode keeps the click from `onRowClick` / `onEventClick`, any other mode hands it to them. Since objectui#11293 the `page` rows pin the navigation the description states: under a host that publishes its record navigator, `page` and a block without `mode` open the record page through it (no overlay, no new tab), with `drawer` as the lit control and a parent `onRowClick` taking the click first; with no host navigator `page` opens nothing (objectui#8652, objectui#11293).',
   },
   'object-calendar.sort': {
     file: 'packages/plugin-calendar/src/__tests__/ObjectCalendar.sortMembersReachTheWire-8171.test.tsx',
@@ -2899,7 +2898,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-kanban.navigation': {
     file: 'packages/plugin-kanban/src/__tests__/kanbanNavigationMembers-8652.test.tsx',
-    pins: 'The members of the spec\'s `NavigationConfigSchema` block the board reads, each driven through a real card click on the real board and asserted on what the click DID: an ABSENT key opens a drawer (the renderer\'s own default, the lit control), `none` and `preventNavigation` open nothing with the flag outranking an overlay mode, `new_window` and `openNewTab` open the record page in a new tab with `openNewTab` outranking `page`, and `size` / `width` are one width decision (`width` wins, a bucket resolves through the size table, `auto` lands on the default). A parent view\'s click handler outranks the whole key, overlay mode included. Since objectui#11293 the `page` rows pin the navigation the description states: under a host that publishes its record navigator, `page` and a block without `mode` open the record page through it (no overlay, no new tab), with `drawer` as the lit control and a parent `onRowClick` outranking it; with no host navigator `page` opens nothing (objectui#8652, objectui#11293).',
+    pins: 'The members of the spec\'s `NavigationConfigSchema` block the board reads, each driven through a real card click on the real board and asserted on what the click DID: an ABSENT key opens a drawer (the renderer\'s own default, the lit control), `none` and `preventNavigation` open nothing with the flag outranking an overlay mode, `new_window` and `openNewTab` open the record page in a new tab with `openNewTab` outranking `page` and every overlay mode but not `none` (objectui#11168 slice 5), and `size` / `width` are one width decision (`width` wins, a bucket resolves through the size table, `auto` lands on the default). A parent view\'s click handler outranks the whole key, overlay mode included. Since objectui#11293 the `page` rows pin the navigation the description states: under a host that publishes its record navigator, `page` and a block without `mode` open the record page through it (no overlay, no new tab), with `drawer` as the lit control and a parent `onRowClick` outranking it; with no host navigator `page` opens nothing (objectui#8652, objectui#11293).',
   },
   'object-master-detail-form.cancelText': {
     file: 'packages/plugin-form/src/MasterDetailForm.i18nLabels.test.tsx',
@@ -3073,6 +3072,43 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   'object-gantt.label': {
     file: 'packages/plugin-gantt/src/__tests__/objectGanttInputs-11168.test.tsx',
     pins: 'The `object` arm is the inline locale map `{ en, "zh-CN", … }`, whose members are locale entries: the exported PNG file is named by the display locale\'s entry (`zh-CN` for a zh-CN audience, `en` for an en one), read off the real `GanttView` export\'s download anchor. The `string` arm names the file as written, a `label` written on the node itself reads the same as one in the bag, and the chain is pinned link by link: `gantt.exportFileName` outranks it, and it outranks the object\'s label, then `objectName`. The chart draws it nowhere else (objectui#11168 slice 4).',
+  },
+  // objectui#11168 slice 5 — `object-timeline`, newly judged once this file
+  // loads `@object-ui/plugin-timeline`. Six keys share ONE new file, every row
+  // through the real `SchemaRenderer` and this package's own registration;
+  // `navigation` is booking (c), the objectui#8654 pin, and `dataSource`
+  // PROMOTES a pre-existing file, each read end to end first.
+  'object-timeline.timeline': {
+    file: 'packages/plugin-timeline/src/__tests__/objectTimelineInputs-11168.test.tsx',
+    pins: 'Members are FIELD NAMES, each on the observable only it moves, on entries composed from records: `startDateField` dates an entry, `endDateField` prints the end after that date, and `titleField` titles it, with a block naming other fields moving them (the control); `groupByField` names the field whose value heads each group, and without it entries group into date buckets; `colorField` paints the marker with the option colour the named field declares for the record\'s value, or with the value itself when it is a colour literal, and without it no colour is painted. Each member outranks the flat key of the same binding (composed on the node, since the authored node cannot carry one), and `titleField` / `startDateField` outrank `mapping`\'s `title` / `date`. `scale` sets the gantt axis unit on authored rows (`week` against the renderer\'s own unit without it), which is the only place it is read (objectui#11168 slice 5).',
+  },
+  'object-timeline.data': {
+    file: 'packages/plugin-timeline/src/__tests__/objectTimelineInputs-11168.test.tsx',
+    pins: 'Members are RECORDS, each composed into an entry through the `timeline` bindings (title and date asserted), drawn with no `objectName` at all and, beside one, never querying it. The POSITION claims the description makes are pinned against live controls: it is read ahead of a `bind` path (the same bind alone draws its own rows), and `items` beside it wins. `filter` beside it narrows nothing and queries nothing (objectui#11168 slice 5).',
+  },
+  'object-timeline.items': {
+    file: 'packages/plugin-timeline/src/__tests__/objectTimelineInputs-11168.test.tsx',
+    pins: 'Members are ENTRIES, drawn as written: a feed entry\'s own title and description are drawn, and the `timeline` field bindings, `mapping` and `descriptionField` beside it do not apply; it is read ahead of `objectName`, which is never queried, and under `variant: "gantt"` a member is a row whose bars are drawn. The page validator accepts a timeline on `items` alone on both tags, where it used to raise `missing-required-prop` (objectui#11168 slice 5).',
+  },
+  'object-timeline.mapping': {
+    file: 'packages/plugin-timeline/src/__tests__/objectTimelineInputs-11168.test.tsx',
+    pins: 'Members `title`, `date`, `description` and `variant` are FIELD NAMES: `title` and `date` title and date an entry where no `timeline` block names those bindings, and outrank the flat keys of the same bindings (composed on the node); `description` outranks `descriptionField`; `variant` names the field whose value picks the marker colour, with the record\'s own `variant` field read without it. On the vertical rail a colour `timeline.colorField` resolves outranks that marker colour (objectui#11168 slice 5).',
+  },
+  'object-timeline.filter': {
+    file: 'packages/plugin-timeline/src/__tests__/objectTimelineInputs-11168.test.tsx',
+    pins: 'Members are `{ field, operator, value }` rules: a rule reaches `$filter` with its members unchanged, against a control with no `filter` whose query carries no `$filter`, and a `{current_user_id}` token in `value` is resolved to the signed-in user before the query. Beside `data` the key narrows nothing: the records are drawn whole and nothing is queried. The binding\'s filter AND-ing is `object-timeline.dataSource`\'s pin (objectui#11168 slice 5).',
+  },
+  'object-timeline.sort': {
+    file: 'packages/plugin-timeline/src/__tests__/objectTimelineInputs-11168.test.tsx',
+    pins: 'Members are `{ field, order }`: each lowers to `field -> direction` on `$orderby`, in AUTHORED order, an omitted `order` reading ascending; with no `sort` the query carries no ordering (the control). The key orders the QUERY only: the rail draws the fetched entries by start date whatever the order, measured with an adapter answering latest-first (objectui#11168 slice 5).',
+  },
+  'object-timeline.dataSource': {
+    file: 'packages/plugin-timeline/src/ObjectTimeline.elementDataSource.test.tsx',
+    pins: 'The per-element binding\'s members as this block reads them, through the REAL `ElementDataSourceGate` + renderer pair: `object` is the object queried when the node names none, a named `view`\'s `filter`, `sort` and `pagination.pageSize` reach the fetch as `$filter`, `$orderby` and `$top`, the binding\'s own `filter` AND-combines with the view\'s rather than replacing it while its `sort` and `limit` override the view\'s, the block\'s own `filter` AND-combines with both, an unresolvable `view` reports instead of fetching, and a timeline with no binding queries `objectName` with no `$filter` / `$orderby` and a `$top` of 100. Pre-existing file (objectstack#7121, objectstack#7137), promoted after being read end to end (objectui#11168 slice 5).',
+  },
+  'object-timeline.navigation': {
+    file: 'packages/plugin-timeline/src/__tests__/timelineNavigationMembers-8654.test.tsx',
+    pins: 'The members of the spec\'s `NavigationConfigSchema` block the timeline reads, each driven through a real entry click on the real `ObjectTimeline` and asserted on what the click DID: `drawer` (the LIT CONTROL), `modal` and `popover` open the entry\'s record, and `split` opens NOTHING, because the timeline hands the split shell no main panel; an ABSENT key opens nothing (this renderer supplies no drawer default), with a host record navigator mounted or not; `none` and `preventNavigation` open nothing with the flag outranking an overlay mode; `new_window` and `openNewTab` open the record page in a new tab, `openNewTab` outranking `page` and every overlay mode but not `none`; `size` / `width` are one width decision. A parent view\'s click handler outranks the whole key. Under a host that publishes its record navigator, `page` and a block without `mode` open the record page through it, with no host they open nothing. Booking (c) of objectui#11168: pre-existing file (objectui#8654), registered once slice 5 made the block judged.',
   },
   'page:accordion.items': {
     file: 'packages/components/src/__tests__/pageAccordionItemMembers-8071.test.tsx',
@@ -4336,10 +4372,12 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       // (`MINOR_17_5_LOADED_BLOCKS`). `object-tree` and `object-map`: 35 -> 37
       // judged, 13 -> 11 ledgered. 37 + 7 + 11 = 55. Slice 4 loads
       // `object-gantt`: 37 -> 38 judged, 11 -> 10 ledgered. 38 + 7 + 10 = 55.
+      // Slice 5 loads `object-timeline`, the last of the four: 38 -> 39 judged,
+      // 10 -> 9 ledgered. 39 + 7 + 9 = 55.
       specCarried: 55,
-      judged: 38,
+      judged: 39,
       registeredPropless: 7,
-      ledgeredUnjudgeable: 10,
+      ledgeredUnjudgeable: 9,
     });
     // Non-vacuity, stated rather than implied by the numbers above.
     expect(covered.length).toBeGreaterThan(0);
@@ -4366,8 +4404,9 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // 5902351047) booked the four lazily registered blocks 17.5.0 newly carries
     // OWED to objectui#11168, which loads and judges them. The expectation is
     // EXACTLY those booked entries, so a fifth unloaded block is still red, and
-    // the owner card's landing takes this back to `[]`. Slices 3 and 4 load them
-    // one block at a time, and each one loaded leaves both this set and the ledger.
+    // the owner card's landing takes this back to `[]`. Slices 3 to 5 loaded
+    // them one block at a time, each leaving both this set and the ledger, and
+    // with slice 5 the booked set is empty, so this expects `[]` again.
     const registeredButUnloaded = Object.keys(ComponentPropsMap)
       .filter((type) => ComponentRegistry.hasLazy(type))
       .filter((type) => ComponentRegistry.getConfig(type) === undefined)
@@ -4459,7 +4498,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // come back, `hasLazy` starts answering true again, and the mechanism
     // assertion above reddens by name — which is the guard this instance pin
     // does not need to duplicate.
-    // objectui#11168 slices 3 and 4's loads are the same instance, one pin later.
+    // objectui#11168 slices 3 to 5's loads are the same instance, one pin later.
     for (const type of [...LAZY_REGISTERED_BLOCKS, ...MINOR_17_5_LOADED_BLOCKS]) {
       expect(
         (declaredInputs(type) ?? []).length,
@@ -5756,6 +5795,6 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
           reasons.filter((reason) => reason.startsWith(`${OWED_PREFIX}${owner}.`)).length,
         ]),
       ),
-    ).toEqual({ 'objectui#11168': 4, 'objectui#8652': 0, 'objectui#8649': 0 });
+    ).toEqual({ 'objectui#11168': 3, 'objectui#8652': 0, 'objectui#8649': 0 });
   });
 });

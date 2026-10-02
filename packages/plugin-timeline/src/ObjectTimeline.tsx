@@ -200,10 +200,16 @@ export interface ObjectTimelineProps {
      * `NavigationConfig` rather than restated, so the vocabulary cannot fork.
      *
      * ⚠️ Unlike the board and the calendar, this renderer supplies NO default
-     * for an ABSENT key: the hook then resolves the spec's `page`, and a click
-     * opens nothing on a timeline no parent view navigates for. A parent's
-     * `onRowClick` / `onItemClick` outranks the whole key. The members are
-     * pinned in `__tests__/timelineNavigationMembers-8654.test.tsx`.
+     * for an ABSENT key, and an absent key is not a `page` block: the hook's
+     * no-config branch hands the click to an `onNavigate` alone, which this
+     * component never passes, and never reads the host's record navigator. So
+     * a click opens nothing, under a host that publishes a navigator too. A
+     * block written without `mode` (`{ size: 'lg' }`) is different: it takes
+     * the spec's `page` default and opens the record page through that
+     * navigator (objectui#11293). A parent's `onRowClick` / `onItemClick`
+     * outranks the whole key. The members are pinned in
+     * `__tests__/timelineNavigationMembers-8654.test.tsx`, and the absent key
+     * against the mode-less block in `__tests__/objectTimelineInputs-11168.test.tsx`.
      */
     navigation?: ViewNavigationConfig;
     /**
@@ -787,9 +793,12 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
 
   // `navigation` is a declared member of this component's schema since
   // objectui#8654 (see `ObjectTimelineProps`), so it is read with no cast.
-  // ⛔ No `?? { mode: 'drawer' }` here: an absent key resolving to the hook's
-  // `page` is the behaviour the published description states and the member
-  // pins hold. Changing it is objectui#11293's question, not a read-site edit.
+  // ⛔ No `?? { mode: 'drawer' }` here: an absent key opening nothing is the
+  // behaviour the published description states and the member pins hold. The
+  // hook takes its no-config branch for it, which reaches only an `onNavigate`
+  // (none is passed here), not its `page` branch and the host's record
+  // navigator (objectui#11168 slice 5). Changing it is a behaviour decision,
+  // not a read-site edit.
   const navigation = useNavigationOverlay({
     navigation: schema.navigation,
     objectName: schema.objectName,

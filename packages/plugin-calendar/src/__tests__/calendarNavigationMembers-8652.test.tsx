@@ -34,7 +34,8 @@
  *   - **`none` and `preventNavigation` open nothing**, and the flag outranks an
  *     overlay mode.
  *   - **`new_window` and `openNewTab` open the record page in a new tab**;
- *     `openNewTab` outranks `page`.
+ *     `openNewTab` outranks `page` and every overlay mode, but not `none`,
+ *     which opens nothing beside it.
  *   - **`size` and `width` are ONE decision**: `width` (deprecated) wins over a
  *     `size` beside it, a bucket name resolves through the size table, and
  *     `auto` lands on the calendar's default width.
@@ -206,6 +207,27 @@ describe('object-calendar `navigation` members decide the event click (objectui#
     const { open } = await clickEvent({ mode: 'page', openNewTab: true });
     await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
     expect(open).toHaveBeenCalledWith(`/${OBJECT}/record/1`, '_blank');
+  });
+
+  // objectui#11168 slice 5: the description says `openNewTab: true` outranks
+  // every mode except `none`. These rows hold both halves of that sentence.
+  it.each(['drawer', 'modal', 'split', 'popover'] as const)(
+    '`openNewTab: true` OUTRANKS the overlay mode `%s`: a new tab, and no overlay',
+    async (mode) => {
+      const { open } = await clickEvent({ mode, openNewTab: true });
+      await waitFor(() => expect(open).toHaveBeenCalledTimes(1));
+      expect(open).toHaveBeenCalledWith(`/${OBJECT}/record/1`, '_blank');
+      expect(dialog()).toBeNull();
+    },
+  );
+
+  it('…but NOT `mode: "none"`: `none` beside `openNewTab: true` opens nothing', async () => {
+    // `none` is checked before `openNewTab`, as `preventNavigation` is. The
+    // overlay rows just above are this row's control.
+    const { open } = await clickEvent({ mode: 'none', openNewTab: true });
+    await settle();
+    expect(dialog()).toBeNull();
+    expect(open).not.toHaveBeenCalled();
   });
 
   it('`size` reaches the overlay through the bucket table', async () => {

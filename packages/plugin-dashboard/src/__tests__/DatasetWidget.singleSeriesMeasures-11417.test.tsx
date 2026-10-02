@@ -133,6 +133,23 @@ const widgetOf = (type: string, values: string[] = ['revenue', 'cost']) => ({
  * drawn plot, or at the renderer's own refusal notice (`data-chart-error`),
  * whichever the type renders — so every reading below is taken from a chart
  * that finished drawing, never from a Suspense fallback.
+ *
+ * "Finished drawing" includes the legend (objectui#11459). Recharts registers a
+ * pie's legend items through its store's auto-batched notification, which it
+ * delivers on the next animation frame. So the surface and the sectors land one
+ * commit before the legend items do, and a read taken in between sees an empty
+ * `recharts-legend-wrapper`. The TIE below compares whole markups, so such a
+ * read differs from a settled one in the legend alone: on CI that turned the
+ * determinism control red, and it can flip `secondDrawn` the same way.
+ *
+ * The signal is positive on every path this file renders. A chart that draws a
+ * legend mounts its wrapper in the same commit as the surface and is settled
+ * once every wrapper holds its items. A chart that draws none (`funnel`,
+ * `treemap`, `sankey`, the scatter's refusal) mounts no wrapper, so it settles
+ * on the surface or the notice alone. Both facts were measured once, on
+ * objectui#11459's pull request; nothing in this file re-derives them. A
+ * settled chart whose legend stayed empty would time out here and fail loudly,
+ * never pass on a half-drawn chart.
  */
 const renderChart = async (widget: Record<string, unknown>, rows: Row[] = ROWS) => {
   const src = { queryDataset: vi.fn(async () => ({ rows })) };
@@ -140,7 +157,13 @@ const renderChart = async (widget: Record<string, unknown>, rows: Row[] = ROWS) 
   // AGENTS.md records first-`import()` latencies up to 976 ms under full
   // parallelism, past RTL's 1000 ms default once the recharts graph is cold.
   await waitFor(
-    () => expect(view.container.querySelector('.recharts-surface, [data-chart-error]')).not.toBeNull(),
+    () => {
+      expect(view.container.querySelector('.recharts-surface, [data-chart-error]')).not.toBeNull();
+      const unfilledLegends = Array.from(view.container.querySelectorAll('.recharts-legend-wrapper')).filter(
+        (wrapper) => wrapper.childElementCount === 0,
+      );
+      expect(unfilledLegends, 'a legend the chart mounted has not drawn its items yet').toHaveLength(0);
+    },
     { timeout: 15000 },
   );
   return view;

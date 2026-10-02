@@ -16,3 +16,8 @@ Migration, measured against `objectui validate` (`page:header` carries its props
 `registerLayout()` now registers four keys: `layout:page:card`, `responsive-grid`, `navigation-renderer` and `app-schema-renderer`.
 
 **Clause-②: yes** — a registration leaves the runtime (narrowing), released as `minor` with this banner.
+
+⚠️ **Dated note, 2026-10-02 — `responsive-grid` and `navigation-renderer` are retired too — objectui#11441.**
+Later in this same release objectui#11441 (the maintainer's ruling, letters B / B) unregistered both, with their
+`layout:` twins, so `registerLayout()` registers two keys: `layout:page:card` and `app-schema-renderer`. The rest of
+this entry is kept as the reading of this change.

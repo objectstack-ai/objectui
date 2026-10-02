@@ -18,9 +18,10 @@
  * (`content/docs/layout/app-shell.mdx`, pinned by `app-shell-docs-nav-example.test.ts`),
  * on a THIRD surface — and this one went one level further than either. Those
  * two misspelled the keys of a real React component. This page taught a JSON
- * NODE TYPE that does not exist: `registerLayout()` registers `page:card`,
- * `responsive-grid`, `navigation-renderer` and `app-schema-renderer` (the
- * `page-header` alias was a fifth until objectui#10859 batch 8 retired it), and
+ * NODE TYPE that does not exist: `registerLayout()` registers `page:card` and
+ * `app-schema-renderer` (the `page-header` alias was a fifth until
+ * objectui#10859 batch 8 retired it, and `responsive-grid` and
+ * `navigation-renderer` were the third and fourth until objectui#11441), and
  * nothing in the repo registers `sidebar-nav`.
  * (`app-shell` was a sixth key until objectui#4841 deregistered it — for the
  * same reason, one step less far along: it resolved to a component that a JSON
@@ -76,7 +77,7 @@
  * section: the app-shell examples compose it, and `### 5. Sidebar Organization`
  * under Best Practices was a THIRD block of the same defect, rewritten with this
  * change. The quoted-`icon` ban in particular must stay scoped that way —
- * `navigation-renderer` takes `icon` as a string (an icon NAME), whose
+ * `NavigationRenderer` takes `icon` as a string (an icon NAME), whose
  * `resolveIcon` looks names up on purpose. A
  * page-wide ban on `icon: '…'` would be wrong.
  *
@@ -362,6 +363,7 @@ function registeredKeys(): string[] {
  * the source still have to agree, but agreeing at any number is allowed.
  */
 const NUMBER_WORDS: Record<string, number> = {
+  two: 2,
   three: 3,
   four: 4,
   five: 5,
@@ -496,7 +498,7 @@ describe("the guide's SidebarNav examples pass only real props (objectui#4840)",
           '(SidebarNav.tsx:60 and :109) — a string reaches React as an unknown lowercase tag and',
           'renders nothing (objectui#4840, objectui#3999). Import the Lucide component and pass it.',
           '',
-          'Scope note: `navigation-renderer` DOES take an icon NAME as a string,',
+          'Scope note: `NavigationRenderer` DOES take an icon NAME as a string,',
           "so this assertion is deliberately confined to fences that mention SidebarNav.",
         ].join('\n'),
       ).toBe(false);
@@ -581,7 +583,7 @@ describe('the guide authors no `sidebar-nav` JSON node (objectui#4840)', () => {
         '(objectui#4840). The key is not registered anywhere in this repo, so the node does not',
         'resolve at all: the renderer replaces it with the red "Unknown component type:',
         'sidebar-nav" panel (OBJUI-001) and no sidebar renders. Teach the React composition',
-        'instead, or `navigation-renderer` when the tree must come from metadata.',
+        'instead, or put the tree in the app\'s `navigation` metadata when it must come from JSON.',
       ].join('\n'),
     ).toEqual([]);
   });

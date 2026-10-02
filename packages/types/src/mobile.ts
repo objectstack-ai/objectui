@@ -134,10 +134,14 @@
  *
  * The retirement's stated ground — that these types "had no other authorable
  * carrier" — is a claim about the whole surface, and it is measurably false on
- * this side. `responsive-grid` is a REGISTERED SDUI component (see
- * `@object-ui/layout`'s `index.ts`) whose authorable `columns` input is typed
- * by the sibling `BreakpointColumnMap` and applied by `resolveColumnClasses` on
- * the render path. This union types four live readers here: `breakpoints.ts`
+ * this side. This union is the key set of `GridSchema.columns` (`./layout.ts`),
+ * so the `grid` node's breakpoint `columns` object is an authorable carrier
+ * that `@object-ui/components`' grid renderer applies on the render path.
+ * (Until objectui#11441 this paragraph named `responsive-grid`, whose
+ * `columns` input the sibling `BreakpointColumnMap` in `@object-ui/layout`
+ * types. The maintainer's ruling `5950208338` retired that registration, kept
+ * the vocabulary, and named `grid` the one authorable breakpoint grid.)
+ * This union types four live readers here: `breakpoints.ts`
  * (`BREAKPOINTS`, `BREAKPOINT_ORDER`, `getCurrentBreakpoint`),
  * `useBreakpoint.ts`, `ResponsiveContainer.tsx`, and {@link ResponsiveValue}
  * below. The tombstone's own return condition — the vocabulary "returns if and

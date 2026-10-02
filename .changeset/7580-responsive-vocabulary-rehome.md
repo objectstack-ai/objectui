@@ -50,3 +50,10 @@ No behaviour is retired. The live per-breakpoint readers — `useBreakpoint`,
 
 **Sequencing.** objectui's next `@objectstack/spec` pin bump must carry `Blocked-by:`
 objectui#7580: the retirement is merged upstream and unreleased, so this must land first.
+
+⚠️ **Dated note, 2026-10-02 — the `responsive-grid` registration is retired — objectui#11441.**
+Later in this same release the maintainer's ruling on objectui#11441 (letter B) unregistered `responsive-grid` (and
+`layout:responsive-grid`). That ruling updates item 2 of this change's ruling: the vocabulary half stands, so
+`BreakpointName` and `BreakpointColumnMap` stay declared here, and `ResponsiveGrid` stays a React export whose
+`columns` prop `BreakpointColumnMap` types. The authorable breakpoint grid is the `grid` node with a breakpoint
+`columns` object, which `BreakpointName` keys. The rest of this entry is kept as the reading of this change.

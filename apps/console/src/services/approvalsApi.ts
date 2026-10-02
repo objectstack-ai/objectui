@@ -366,8 +366,18 @@ export const approvalsApi = {
 
 /**
  * Build the list of approver identifiers that should match the
- * signed-in user. Used to filter "My Pending" and to decide whether
- * Approve/Reject buttons are enabled.
+ * signed-in user. Used to filter "My Pending", to decide whether
+ * Approve/Reject buttons are enabled, and to pick the `actor_id` a decision
+ * names — so every entry must be spelled the way the server STORES the slot.
+ *
+ * A position is `position:<p>`: a slot routed to a position nobody held when
+ * the request opened keeps that literal (plugin-approvals'
+ * `resolveApproverSpec` `type:value` fallback), and the server's
+ * `approver-address.ts` names `position:` the canonical prefix. `role:<p>` is
+ * the framework ADR-0090 D3 deprecated spelling, kept on the server only for
+ * 15.x-era slots; an approve that names `role:<p>` on a `position:<p>` slot is
+ * refused (objectui#11455). ⛔ No `role:<p>` is emitted for a position as a
+ * fallback — the same rule `sharedUserFeeds.approverIdentities` follows.
  */
 export function buildApproverIdentities(user: {
   id?: string;
@@ -396,8 +406,12 @@ export function buildApproverIdentities(user: {
    * (possibly comma-separated for multiple roles). Still emitted at protocol
    * 17 alongside `positions` (the measured payload carries both), so it stays
    * as a second identity source; it is not what objectui#5424 is about.
-   * Both must resolve, or role-addressed approvals (`role:<r>` in
-   * `pending_approvers`) silently vanish from "My Pending".
+   *
+   * It is NOT a position, which is why it keeps its own `role:<r>` spelling
+   * rather than following `positions` to `position:` (objectui#11455): the
+   * server's session payload states that the better-auth `user.role` scalar is
+   * not a source of `positions[]` (plugin-auth's `customSession`), so naming
+   * it `position:<r>` would claim a position the session never reported.
    */
   role?: string;
 } | null | undefined): string[] {
@@ -405,12 +419,12 @@ export function buildApproverIdentities(user: {
   const ids = new Set<string>();
   if (user.id) ids.add(user.id);
   if (user.email) ids.add(user.email);
-  const roleList = [
-    ...(user.positions || []),
-    ...(typeof user.role === 'string' ? user.role.split(',') : []),
-  ];
-  for (const role of roleList) {
-    const r = String(role).trim();
+  for (const position of user.positions || []) {
+    const p = String(position).trim();
+    if (p) ids.add(`position:${p}`);
+  }
+  for (const role of typeof user.role === 'string' ? user.role.split(',') : []) {
+    const r = role.trim();
     if (r) ids.add(`role:${r}`);
   }
   return Array.from(ids);

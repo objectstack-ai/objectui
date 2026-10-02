@@ -73,17 +73,22 @@ import { validate } from '../commands/validate.js';
  * and the `tree` / `view` aliases, see `RETIRED_BARE_KEYS_10859_BATCH_8`;
  * batch 8 phase 2b: minus twelve more RETIRED keys, see
  * `RETIRED_BARE_KEYS_10859_BATCH_8_PHASE_2B`; batch 8 phase 2c: minus four
- * more, see `UNREGISTERED_10859_BATCH_8_PHASE_2C`; batch 8 phase 2d: minus the
- * ten `sidebar-*` primitives, see `UNREGISTERED_10859_BATCH_8_PHASE_2D`). LOWER
- * it when a batch arms or retires more keys; never raise it.
+ * more, see `UNREGISTERED_10859_BATCH_8_PHASE_2C`; objectui#11441, run as one
+ * more batch of this card: minus `navigation-renderer` and `responsive-grid`,
+ * see `UNREGISTERED_11441`; batch 8 phase 2d: minus the ten `sidebar-*`
+ * primitives, see `UNREGISTERED_10859_BATCH_8_PHASE_2D`). LOWER it when a batch
+ * arms or retires more keys; never raise it.
  *
- * The 10 that remain are named in `STILL_REFUSED_10859`, and the row below
+ * The 8 that remain are named in `STILL_REFUSED_10859`, and the row below
  * pins the refused set to exactly that list, so this comment cannot drift from
- * the measurement. They are the ten the seat ruling left registered —
+ * the measurement. They are the eight the seat ruling left registered —
  * `object-pivot`, `embeddable-form`, `detail-section`, `home`, `record`,
  * `utility`, `spec-report` and `app-schema-renderer` (objectui#11440, which
- * arms them), plus `navigation-renderer` and `responsive-grid` (objectui#11441,
- * the maintainer's decision card).
+ * arms them).
+ *
+ * `navigation-renderer` and `responsive-grid`, the two the seat sent to the
+ * maintainer, were ruled B / B on objectui#11441 (record `5950208338`) and are
+ * retired.
  *
  * The ten `sidebar-*` primitives were phase 2b's third fork. The seat's fork
  * ruling (`5948252391`) chose A, conditionally, and phase 2d executed it: the
@@ -101,9 +106,11 @@ import { validate } from '../commands/validate.js';
  * registration is objectui's to retire on its own schedule; its fixtures are
  * test data, not producers.
  *
- * 10 is the ruling's target after phase 2d; objectui#11440 then takes it to 2.
+ * The seat's projection was 10 after phase 2d and 2 after objectui#11440, the
+ * last 2 waiting on objectui#11441. That card ran first, so the count is 8
+ * after phase 2d, and objectui#11440 then takes it to 0.
  */
-const REFUSED_AT_TYPE = 10;
+const REFUSED_AT_TYPE = 8;
 
 /**
  * The head's refused count over the NAMESPACED keys (objectui#10872 batch 1:
@@ -120,12 +127,14 @@ const REFUSED_AT_TYPE = 10;
  * batch 8 phase 2c: minus the five namespaced twins of the four keys it
  * unregistered — `plugin-charts:pie-chart`, `plugin-charts:donut-chart`,
  * `plugin-charts:radar-chart`, `layout:page-header` and
- * `protocol-placeholder:page-header`; objectui#10859 batch 8 phase 2d: minus
+ * `protocol-placeholder:page-header`; objectui#11441: minus
+ * `layout:navigation-renderer` and `layout:responsive-grid`, the namespaced
+ * twins of the two keys it unregistered; objectui#10859 batch 8 phase 2d: minus
  * the ten `ui:sidebar-*` twins of the ten `sidebar-*` primitives it
  * unregistered). LOWER it when a batch arms or retires more keys; never raise
  * it.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 364;
+const NAMESPACED_REFUSED_AT_TYPE = 362;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));
@@ -210,6 +219,18 @@ const UNREGISTERED_10859_BATCH_8_PHASE_2C = {
 } as const;
 
 /**
+ * The two bare keys objectui#11441 RETIRED by unregistration (the maintainer's
+ * ruling `5950208338`, letters B / B, run as one more batch of this card), each
+ * mapped to the namespaced twin that went with it. Both were
+ * `@object-ui/layout` registrations; `NavigationRenderer` and `ResponsiveGrid`
+ * stay exports.
+ */
+const UNREGISTERED_11441 = {
+  'navigation-renderer': ['layout:navigation-renderer'],
+  'responsive-grid': ['layout:responsive-grid'],
+} as const;
+
+/**
  * The ten bare keys objectui#10859 batch 8 phase 2d RETIRED by unregistration
  * (the seat's fork ruling `5948252391`, "Fork 3"), each mapped to the `ui:`
  * twin that went with it. One tombstone docblock in
@@ -229,13 +250,13 @@ const UNREGISTERED_10859_BATCH_8_PHASE_2D = {
 } as const;
 
 /**
- * Every bare key still refused at `type` after objectui#10859 batch 8 phase 2d
- * — the `REFUSED_AT_TYPE` docblock says why each is still here. Alphabetical.
+ * Every bare key still refused at `type` after objectui#11441 and objectui#10859
+ * batch 8 phase 2d — the `REFUSED_AT_TYPE` docblock says why each is still
+ * here. Alphabetical.
  */
 const STILL_REFUSED_10859 = [
   'app-schema-renderer', 'detail-section', 'embeddable-form', 'home',
-  'navigation-renderer', 'object-pivot', 'record', 'responsive-grid',
-  'spec-report', 'utility',
+  'object-pivot', 'record', 'spec-report', 'utility',
 ] as const;
 
 /** Is `type` unclaimed by every arm of the validator's root union? */
@@ -364,6 +385,24 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
     expect(refusedAtType('chart')).toBe(false);
     expect(NAMESPACED_KEYS).toContain('page:header');
     expect(refusedAtType('page:header')).toBe(false);
+  });
+
+  it('counts the two keys objectui#11441 retired as gone from the registry (objectui#10859)', () => {
+    expect(Object.keys(UNREGISTERED_11441)).toHaveLength(2);
+    for (const [key, twins] of Object.entries(UNREGISTERED_11441)) {
+      // Retired, not armed: out of the population, still refused at `type`.
+      expect(BARE_KEYS, key).not.toContain(key);
+      expect(refusedAtType(key), key).toBe(true);
+      for (const twin of twins) expect(NAMESPACED_KEYS, twin).not.toContain(twin);
+    }
+    // Lit controls: `grid`, the spelling the `responsive-grid` retirement
+    // points authors to, is registered and claimed; `app-schema-renderer`, the
+    // whole-shell door navigation goes through, stays registered (and refused,
+    // until objectui#11440 arms it).
+    expect(BARE_KEYS).toContain('grid');
+    expect(refusedAtType('grid')).toBe(false);
+    expect(BARE_KEYS).toContain('app-schema-renderer');
+    expect(NAMESPACED_KEYS).toContain('layout:app-schema-renderer');
   });
 
   it('counts the ten keys batch 8 phase 2d retired as gone from the registry (objectui#10859 batch 8)', () => {

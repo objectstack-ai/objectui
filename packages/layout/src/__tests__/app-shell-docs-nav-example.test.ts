@@ -65,7 +65,7 @@
  *
  * Scope: this file scans `content/docs/layout/app-shell.mdx` and nothing else.
  * The `icon:`-as-string rejection in particular must NOT be widened to the docs
- * tree — `navigation-renderer` really does take `icon` as a string (an icon
+ * tree — `NavigationRenderer` really does take `icon` as a string (an icon
  * NAME it resolves through `resolveIcon`), so this is a fact about THIS
  * component's prop on THIS page. Pinning the whole
  * docs tree to source is objectui#3786's problem, not this one.
@@ -328,7 +328,7 @@ describe("app-shell.mdx's SidebarNav examples spell only real keys (objectui#479
           'unknown lowercase tag and renders nothing (objectui#4793). Import the Lucide',
           'component and pass it.',
           '',
-          'Scope note: `navigation-renderer` DOES take `icon` as a string (an icon name), so this',
+          'Scope note: `NavigationRenderer` DOES take `icon` as a string (an icon name), so this',
           'assertion is deliberately confined to SidebarNav fences on this one page.',
         ].join('\n'),
       ).toBe(false);

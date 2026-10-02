@@ -369,12 +369,11 @@ does not render.
 The `SidebarNav` provides a collapsible navigation sidebar with menu items.
 
 **`SidebarNav` is a React component, and `sidebar-nav` is not a component key at all.**
-`registerLayout()` (`packages/layout/src/index.ts`) registers four keys — `page:card`,
-`responsive-grid`, `navigation-renderer` and `app-schema-renderer` — and
-nothing in this repo registers `sidebar-nav`. What a
+`registerLayout()` (`packages/layout/src/index.ts`) registers two keys — `page:card` and
+`app-schema-renderer` — and nothing in this repo registers `sidebar-nav`. What a
 `{ "type": "sidebar-nav" }` node actually does is measured under
 [There is no `sidebar-nav` node](#there-is-no-sidebar-nav-node) below. Compose the nav in
-React, or use `navigation-renderer` when the tree has to come from metadata.
+React, or declare it as the app's `navigation` metadata when the tree has to come from JSON.
 
 ### Basic Usage
 
@@ -461,12 +460,14 @@ Unknown component type: sidebar-nav
 This is louder than the `app-shell` case above — nothing is silently dropped, because
 nothing is parsed as props at all. The whole sidebar is replaced by the error panel.
 
-When the navigation tree genuinely has to come from JSON, that path exists and is a
-different component: `navigation-renderer` (`NavigationRenderer`) renders a
-`NavigationItem[]` tree from AppSchema JSON, and it declares its `inputs`, so an unknown
-key there is diagnosed rather than ignored. Its items are JSON-shaped — `icon` really is
-a string name there, resolved by `resolveIcon`. `app-schema-renderer` wraps that up with
-branding for a whole-shell-from-metadata setup.
+When the navigation tree genuinely has to come from JSON, it is application metadata:
+the app document's `navigation` items (`{ "type": "app", "navigation": [...] }`, which
+`objectui validate` accepts), drawn by the shell — the console's sidebar, or
+`AppSchemaRenderer` (the whole shell from metadata, above). Both hand the items to the
+`NavigationRenderer` component, and its items are JSON-shaped: `icon` really is a string
+name there, resolved by `resolveIcon`. There is no page node for navigation:
+`navigation-renderer` was retired (objectui#11441), so a node written with that type
+renders the same "Unknown component type" panel.
 
 ### Features
 

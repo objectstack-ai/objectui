@@ -156,33 +156,44 @@ export function AiUsageIndicator({ apiBase, enabled = true, className }: AiUsage
     return t('console.ai.usage.statusOk', { defaultValue: 'Plenty left' });
   };
 
-  // `resetKind: 'weekly'` (the free plan's rolling 7-day window, cloud PR #1852):
-  // "N days" (or "N hours" inside the final day), derived from `resetsAt` and
-  // the `now` state above — PURE given those two inputs, no clock read here.
-  // Contract-first (objectui#7371) — `resetsAt` is the ONE source of the reset
-  // instant; never re-derive or guess it client-side.
+  // "N hours" until the reset, rounded UP and never below 1: a reset under an
+  // hour away reads "1 hour", never "0 hours", and the line never promises a
+  // reset earlier than the real one. The `resetsWeeklyHours` copy names no
+  // window ("Resets in N hours" in every locale pack), so the weekly arm's
+  // final day and the whole 5-hour window share it.
+  const hoursResetLabel = (diffMs: number): string => {
+    const hours = Math.max(1, Math.ceil(diffMs / ONE_HOUR_MS));
+    return t('console.ai.usage.resetsWeeklyHours', { count: hours, defaultValue: 'Resets in {{count}} hours' });
+  };
+
+  // The rolling windows (`weekly`: 7 days, cloud PR #1852; `fiveHour`: the
+  // 5-hour pace, cloud#2059) count down from `resetsAt` and the `now` state
+  // above — PURE given those two inputs, no clock read here. Contract-first
+  // (objectui#7371) — `resetsAt` is the ONE source of the reset instant;
+  // never re-derive or guess it client-side.
   const weeklyResetLabel = (resetsAt: string, nowMs: number): string => {
     const diffMs = new Date(resetsAt).getTime() - nowMs;
-    if (diffMs <= ONE_DAY_MS) {
-      const hours = Math.max(1, Math.ceil(diffMs / ONE_HOUR_MS));
-      return t('console.ai.usage.resetsWeeklyHours', { count: hours, defaultValue: 'Resets in {{count}} hours' });
-    }
+    if (diffMs <= ONE_DAY_MS) return hoursResetLabel(diffMs);
     const days = Math.ceil(diffMs / ONE_DAY_MS);
     return t('console.ai.usage.resetsWeeklyDays', { count: days, defaultValue: 'Resets in {{count}} days' });
   };
+  const fiveHourResetLabel = (resetsAt: string, nowMs: number): string =>
+    hoursResetLabel(new Date(resetsAt).getTime() - nowMs);
 
   // `null` = render nothing for this line — an unrecognized `resetKind` (a
   // future backend value this build doesn't know yet) fails soft instead of
-  // crashing or showing stale/wrong copy, a `weekly` pool with no `resetsAt`
-  // yet (nothing counted) is never guessed at (objectui#7371), and `now` not
-  // yet measured (the one frame before the mount effect above runs) is the
-  // same "nothing to show yet" as any other missing input.
+  // crashing or showing stale/wrong copy, a rolling-window pool with no
+  // `resetsAt` yet (nothing counted) is never guessed at (objectui#7371), and
+  // `now` not yet measured (the one frame before the mount effect above runs)
+  // is the same "nothing to show yet" as any other missing input.
   const resetLabel = (meter: AiMeterUsage): string | null => {
     if (meter.resetKind === 'daily') return t('console.ai.usage.resetsDaily', { defaultValue: 'Resets tonight' });
     if (meter.resetKind === 'monthly')
       return t('console.ai.usage.resetsMonthly', { defaultValue: 'Resets next cycle' });
     if (meter.resetKind === 'weekly')
       return meter.resetsAt && now !== null ? weeklyResetLabel(meter.resetsAt, now) : null;
+    if (meter.resetKind === 'fiveHour')
+      return meter.resetsAt && now !== null ? fiveHourResetLabel(meter.resetsAt, now) : null;
     return null;
   };
 

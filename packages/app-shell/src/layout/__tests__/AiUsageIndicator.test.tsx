@@ -191,6 +191,19 @@ describe('AiUsageIndicator', () => {
       expect(last?.usage).toBeNull();
       expect(container).toBeEmptyDOMElement();
     });
+
+    // objectui#11415 — cloud#2574's wire vocabulary reaches the reset line.
+    it('renders the reset line for a `resetKind: fiveHour` answer', async () => {
+      const resetsAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue(okResponse({ pool: pool({ resetKind: 'fiveHour', resetsAt }) })),
+      );
+      render(<AiUsageIndicator apiBase="/api/v1/ai" />);
+      fireEvent.click(await screen.findByTestId('ai-usage-indicator'));
+      expect(screen.getByText('Resets in 2 hours')).toBeInTheDocument();
+      expect(last?.error).toBeUndefined();
+    });
   });
 
   // objectui#7371 — the free plan's `resetKind: 'weekly'` (cloud PR #1852).
@@ -225,6 +238,39 @@ describe('AiUsageIndicator', () => {
       // Cast past the union: a future backend value this build doesn't know yet.
       setUsage({ pool: pool({ resetKind: 'quarterly' as unknown as AiMeterUsage['resetKind'] }) });
       expect(() => render(<AiUsageIndicator apiBase="/api/v1/ai" />)).not.toThrow();
+      fireEvent.click(screen.getByTestId('ai-usage-indicator'));
+      expect(screen.queryByText(/Resets/)).not.toBeInTheDocument();
+    });
+  });
+
+  // objectui#11415 — the rolling 5-hour pace window (cloud#2059, `resetKind:
+  // 'fiveHour'`). When it binds, this line is what tells a user who hit the
+  // wall when they can continue; it is read from `resetsAt` alone, like weekly.
+  describe('resetKind: fiveHour', () => {
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+
+    it('reads "Resets in 3 hours" for a reset instant 3 hours out', () => {
+      const resetsAt = new Date(Date.now() + 3 * ONE_HOUR_MS).toISOString();
+      setUsage({ pool: pool({ resetKind: 'fiveHour', resetsAt }) });
+      render(<AiUsageIndicator apiBase="/api/v1/ai" />);
+      fireEvent.click(screen.getByTestId('ai-usage-indicator'));
+      expect(screen.getByText('Resets in 3 hours')).toBeInTheDocument();
+    });
+
+    it('rounds a reset under an hour away up to 1, never "0 hours"', () => {
+      const resetsAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+      setUsage({ pool: pool({ resetKind: 'fiveHour', resetsAt }) });
+      render(<AiUsageIndicator apiBase="/api/v1/ai" />);
+      fireEvent.click(screen.getByTestId('ai-usage-indicator'));
+      // The test `t` interpolates `defaultValue` without plural selection, so
+      // the count is what is pinned here, not the plural form.
+      expect(screen.getByText(/^Resets in 1 hours?$/)).toBeInTheDocument();
+      expect(screen.queryByText(/Resets in 0\b/)).not.toBeInTheDocument();
+    });
+
+    it('shows no reset line while resetsAt is null — nothing counted yet, never guessed client-side', () => {
+      setUsage({ pool: pool({ resetKind: 'fiveHour', resetsAt: null }) });
+      render(<AiUsageIndicator apiBase="/api/v1/ai" />);
       fireEvent.click(screen.getByTestId('ai-usage-indicator'));
       expect(screen.queryByText(/Resets/)).not.toBeInTheDocument();
     });

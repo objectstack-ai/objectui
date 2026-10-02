@@ -33,7 +33,13 @@
 import * as React from 'react';
 import { AI_USAGE_REFRESH_EVENT } from '@object-ui/plugin-chatbot';
 
-export type AiUsageResetKind = 'daily' | 'weekly' | 'monthly';
+/**
+ * The binding window. `weekly` and `fiveHour` are the cloud quota policy's two
+ * rolling windows (cloud#2059: the 7-day budget and the 5-hour pace).
+ * `daily` / `monthly` are what control planes before cloud#2574 still emit, so
+ * they stay until every deployed control plane has stopped emitting them.
+ */
+export type AiUsageResetKind = 'daily' | 'weekly' | 'monthly' | 'fiveHour';
 export type AiUsagePlanType = 'free' | 'paid';
 
 /**
@@ -48,10 +54,11 @@ export interface AiMeterUsage {
   unmetered: boolean;
   resetKind: AiUsageResetKind;
   /**
-   * Best-effort reset instant (ISO); null when unknown. Weekly (the free
-   * plan's rolling 7-day window, cloud PR #1852): null while nothing is
-   * counted yet — never guessed client-side (objectui#7371). Monthly: null,
-   * the billing-cycle anchor is not known at this layer.
+   * Best-effort reset instant (ISO); null when unknown. Weekly (the rolling
+   * 7-day window, cloud PR #1852) and fiveHour (the rolling 5-hour pace
+   * window, cloud#2059): null while nothing is counted in that window yet —
+   * never guessed client-side (objectui#7371). Monthly: null, the
+   * billing-cycle anchor is not known at this layer.
    */
   resetsAt: string | null;
   /** Free-tier upgrade CTA applies. */

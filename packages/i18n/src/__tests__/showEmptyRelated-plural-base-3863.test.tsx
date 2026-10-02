@@ -31,6 +31,13 @@
  * `all-locales-key-parity.test.ts` — pack-intrinsic, so the NEXT plural family fails
  * at PR time without needing a call site to exist. This file pins the rendering.
  *
+ * ⚠️ The parity argument above is historical. objectui#11432 gave the parity rule
+ * one computed exception — a pack may hold the slot of an `en` family for a category
+ * its OWN language selects — and then required those slots: the base kept `ru` and
+ * `ar` in their own language but in one form, which cannot agree with every count.
+ * So this family now has `ru` `_few`/`_many` and `ar` `_zero`/`_two`/`_few`/`_many`,
+ * and the assertions below compute which slot answers from the pack itself.
+ *
  * ## Why these assertions are the ones that discriminate
  *
  * `en` output is identical before and after (its categories are exactly `one`/`other`,
@@ -156,15 +163,16 @@ describe('objectui#3863 — detail.showEmptyRelated carries a base key in all te
     it.each(LANGS)('%s stays in its own language at every plural category', (lang) => {
       // THE assertion. `Intl.PluralRules` is the same resolver i18next uses, so
       // `select()` predicts which slot must answer: a category the pack enumerates
-      // takes its suffixed slot, everything else falls to the base key. Computing the
-      // expectation from the pack (rather than hard-coding strings) is what makes this
-      // fail loudly if a pack's WORDING moves without its slots moving.
+      // takes its suffixed slot (every category, since objectui#11432), anything else
+      // falls to the base key. Computing the expectation from the pack (rather than
+      // hard-coding strings) is what makes this fail loudly if a pack's WORDING moves
+      // without its slots moving.
       const { result } = renderHook(() => useObjectTranslation(), { wrapper: wrapperFor(lang) });
       const rules = new Intl.PluralRules(lang);
-      const enumerated = new Set(['one', 'other']);
       for (const count of COUNTS) {
         const category = rules.select(count);
-        const slot = enumerated.has(category) ? `${KEY}_${category}` : KEY;
+        const own = `${KEY}_${category}`;
+        const slot = typeof at(builtInLocales[lang], own) === 'string' ? own : KEY;
         const expected = (at(builtInLocales[lang], slot) as string).replace(
           '{{count}}',
           String(count),
@@ -185,11 +193,13 @@ describe('objectui#3863 — detail.showEmptyRelated carries a base key in all te
       // 21 is `one` in Russian — the base key must NOT swallow it.
       expect(new Intl.PluralRules('ru').select(21)).toBe('one');
 
+      // Since objectui#11432 `few` and `many` have their own slots: the
+      // substantivised adjective takes the genitive plural after 2-4 as after 5-20.
       const { result } = renderHook(() => useObjectTranslation(), { wrapper: wrapperFor('ru') });
       const { t } = result.current;
-      expect(t(KEY, { count: 3 })).toBe('+ Пустых: 3');
-      expect(t(KEY, { count: 7 })).toBe('+ Пустых: 7');
-      expect(t(KEY, { count: 11 })).toBe('+ Пустых: 11');
+      expect(t(KEY, { count: 3 })).toBe('+ 3 пустых');
+      expect(t(KEY, { count: 7 })).toBe('+ 7 пустых');
+      expect(t(KEY, { count: 11 })).toBe('+ 11 пустых');
       expect(t(KEY, { count: 1 })).toBe('+ 1 пустое');
       expect(t(KEY, { count: 21 })).toBe('+ 21 пустое');
       // …and NOT the English the fallback chain produced before the base key existed.
@@ -204,17 +214,19 @@ describe('objectui#3863 — detail.showEmptyRelated carries a base key in all te
       expect(new Intl.PluralRules('ar').select(2)).toBe('two');
       expect(new Intl.PluralRules('ar').select(5)).toBe('few');
       expect(new Intl.PluralRules('ar').select(30)).toBe('many');
-      // 100 is `other` in Arabic and was already correct before the fix — kept so a
-      // regression that breaks the enumerated slots is visible too.
+      // 100 is `other` in Arabic: singular after a hundred, which objectui#11432
+      // corrected (it held the 3-10 agreement).
       expect(new Intl.PluralRules('ar').select(100)).toBe('other');
 
+      // Each category in its own slot since objectui#11432: dual at 2, the plural
+      // agreement at 3-10, accusative singular at 11-99, singular at 1 and 100.
       const { result } = renderHook(() => useObjectTranslation(), { wrapper: wrapperFor('ar') });
       const { t } = result.current;
-      expect(t(KEY, { count: 2 })).toBe('+ 2 فارغ(فارغة)');
-      expect(t(KEY, { count: 5 })).toBe('+ 5 فارغ(فارغة)');
-      expect(t(KEY, { count: 30 })).toBe('+ 30 فارغ(فارغة)');
+      expect(t(KEY, { count: 2 })).toBe('+ فارغان (2)');
+      expect(t(KEY, { count: 5 })).toBe('+ 5 فارغة');
+      expect(t(KEY, { count: 30 })).toBe('+ 30 فارغًا');
       expect(t(KEY, { count: 1 })).toBe('+ 1 فارغ');
-      expect(t(KEY, { count: 100 })).toBe('+ 100 فارغة');
+      expect(t(KEY, { count: 100 })).toBe('+ 100 فارغ');
       for (const count of COUNTS) {
         expect(t(KEY, { count }), `ar leaked English at ${count}`).not.toContain('empty');
       }
@@ -271,18 +283,19 @@ describe('objectui#3863 — detail.showEmptyRelated carries a base key in all te
       }
     });
 
-    it('fr, es and pt reach their base key only from a million up', () => {
-      // Their third category is `many`, and CLDR starts it at 1e6 — so their base key
-      // is real but practically unreachable, which is why it repeats `_other` instead
-      // of restructuring the way ru and ar had to.
+    it('fr, es and pt answer a million from their own `_many` slot', () => {
+      // Their third category is `many`, and CLDR uses it at exact millions. Since
+      // objectui#11432 it has its own slot; on this key it repeats `_other`, because
+      // the count governs no noun complement (the "de" of "un million de …" goes
+      // before a noun, and this label has none).
       for (const lang of ['fr', 'es', 'pt'] as const) {
         expect(new Intl.PluralRules(lang).select(100)).toBe('other');
         expect(new Intl.PluralRules(lang).select(1_000_000)).toBe('many');
         window.localStorage.clear();
         const { result } = renderHook(() => useObjectTranslation(), { wrapper: wrapperFor(lang) });
-        // Whichever slot answers, it is this pack's own words — never English.
+        // This pack's own `_many` words — never English, never the base.
         expect(result.current.t(KEY, { count: 1_000_000 }), `${lang} at 1e6`).toBe(
-          (at(builtInLocales[lang], KEY) as string).replace('{{count}}', '1000000'),
+          (at(builtInLocales[lang], `${KEY}_many`) as string).replace('{{count}}', '1000000'),
         );
       }
     });

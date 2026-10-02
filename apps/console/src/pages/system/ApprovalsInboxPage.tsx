@@ -5,8 +5,10 @@
  *
  * Tabs:
  *   • My Pending      — requests where the signed-in user is in
- *                       `pending_approvers` (matched by id, email, or
- *                       `role:<name>` for each assigned role).
+ *                       `pending_approvers` (matched by id, email,
+ *                       `position:<name>` for each assigned position, or
+ *                       `role:<name>` for the better-auth role scalar —
+ *                       see `buildApproverIdentities`).
  *   • Submitted by me — requests where `submitter_id` is the user.
  *   • All             — every request (any status).
  *
@@ -1100,8 +1102,8 @@ export function ApprovalsInboxPage() {
 
   /**
    * Pick the actor id to send with approve/reject.
-   *   1. Manual override (admin-only textbox), useful when acting as a role
-   *      like `role:sales_manager`.
+   *   1. Manual override (admin-only textbox), useful when acting as a
+   *      position like `position:sales_manager`.
    *   2. First identity that intersects `pending_approvers`.
    *   3. User id fallback.
    */

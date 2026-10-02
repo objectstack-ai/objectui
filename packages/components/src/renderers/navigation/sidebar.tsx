@@ -103,6 +103,10 @@ ComponentRegistry.register('sidebar', SidebarNode, {
     { name: 'variant', type: 'enum', enum: ['sidebar', 'floating', 'inset'] },
     CHILDREN_SLOT
   ],
+  // `collapsible` is no longer named here. Its old `'icon'` was never read at
+  // render (`SchemaRenderer` does not read a registration's `defaultProps`; an
+  // omitted `collapsible` drew shadcn's `'offcanvas'` default), and `'icon'` is
+  // not a value the spec's boolean declares.
   defaultProps: {
     side: 'left',
     variant: 'sidebar'

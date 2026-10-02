@@ -824,9 +824,10 @@ const REGISTRY: Record<string, Example> = {
   'components-basic-sidebar/collapsible-sidebar': {
     id: 'components-basic-sidebar/collapsible-sidebar',
     meta: {
-      title: "Collapsible Sidebar",
-      description: "",
+      title: "Non-Collapsible Sidebar",
+      description: "`collapsible: false` draws the sidebar in the page flow at a fixed width, whatever the host's sidebar state.",
       category: 'components-basic-sidebar',
+      tags: ["sidebar", "navigation", "collapsible"],
     },
     schema: components_basic_sidebar_collapsible_sidebar,
   },

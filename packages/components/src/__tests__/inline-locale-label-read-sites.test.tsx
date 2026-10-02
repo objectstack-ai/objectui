@@ -46,6 +46,12 @@
  * position. Three are in this package; the fourth is
  * `plugin-dashboard/src/DashboardGridLayout.tsx` and is pinned in that package.
  *
+ * ⚠️ 2026-10-02: one of the three is gone. `sidebar-group`'s read site lived in
+ * its registration, and objectui#10859 batch 8 phase 2d retired that node key
+ * (the ten `sidebar-*` parts), so its two cases below went with it. Two sites
+ * remain in this package, `filter-builder` and `dropdown-menu`. The red-first
+ * reading that follows is quoted as measured, three renderers included.
+ *
  * ## Red-first — measured BEFORE the fix, verbatim
  *
  * Each of the three renderers below was invoked with
@@ -127,20 +133,6 @@ describe('label read sites resolve the inline locale map (objectui#4580)', () =>
     it('passes a plain string through unchanged', () => {
       renderDirect('filter-builder', { type: 'filter-builder', label: 'Filters', fields: [] }, 'zh-CN');
       expect(screen.getByText('Filters')).toBeInTheDocument();
-    });
-  });
-
-  /* ── sidebar-group ───────────────────────────────────────────────────── */
-
-  describe('sidebar-group', () => {
-    it('resolves the map for the display locale', () => {
-      renderDirect('sidebar-group', { type: 'sidebar-group', label: INLINE_MAP }, 'zh-CN');
-      expect(screen.getByText('负责人')).toBeInTheDocument();
-    });
-
-    it('passes a plain string through unchanged', () => {
-      renderDirect('sidebar-group', { type: 'sidebar-group', label: 'Reports' }, 'zh-CN');
-      expect(screen.getByText('Reports')).toBeInTheDocument();
     });
   });
 

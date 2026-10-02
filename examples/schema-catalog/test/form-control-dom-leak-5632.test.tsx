@@ -86,7 +86,7 @@ import { allExamples } from '../src/index.js';
 type Node = Record<string, unknown>;
 
 /**
- * The fifteen `ui:` members of objectui#5632's group that the catalog authors,
+ * The fourteen `ui:` members of objectui#5632's group that the catalog authors,
  * plus `grid` as the control (see guard 2 above).
  *
  * Three of the group's eighteen members are absent because the catalog contains
@@ -96,11 +96,16 @@ type Node = Record<string, unknown>;
  * them at all. All three are covered by the sweep gate, which is registry-driven
  * and needs no authored node; this file is the DECLARED-PROP half only, and its
  * scope is what the catalog actually contains.
+ *
+ * A fourth, `ui:sidebar-menu-button`, left with objectui#10859 batch 8 phase 2d:
+ * its node key is retired, and the four `components-basic-sidebar` documents
+ * that authored its 15 nodes now author the `sidebar` node, with `button`
+ * children for their items.
  */
 const MEASURED_TYPES = [
   'button', 'input', 'checkbox', 'switch', 'textarea', 'combobox', 'date-picker',
   'email', 'password', 'file-upload', 'input-otp', 'radio-group', 'slider',
-  'toggle', 'sidebar-menu-button',
+  'toggle',
   'grid',
 ] as const;
 
@@ -135,7 +140,14 @@ const NODE_CENSUS: Readonly<Record<string, { rendered: number; noElement: number
   // `page:header` node, which draws no children (the contract refuses the key
   // on it), so the demo authors none. Catalog-authored, no renderer touched —
   // the case this table's header sanctions.
-  button: { rendered: 116, noElement: 0 },
+  //
+  // 116 -> 127 with objectui#10859 batch 8 phase 2d: the four
+  // `components-basic-sidebar` documents composed the retired `sidebar-*`
+  // primitives, and now author one `sidebar` node whose items are eleven
+  // `type: 'button'` nodes (basic 4, grouped 4, collapsible 3; the badge
+  // demo's items are `flex` rows). Catalog-authored — the `sidebar-menu-button`
+  // row they replace left the table with them.
+  button: { rendered: 127, noElement: 0 },
   input: { rendered: 48, noElement: 0 },
   checkbox: { rendered: 12, noElement: 0 },
   switch: { rendered: 7, noElement: 0 },
@@ -149,7 +161,6 @@ const NODE_CENSUS: Readonly<Record<string, { rendered: number; noElement: number
   'radio-group': { rendered: 8, noElement: 0 },
   slider: { rendered: 1, noElement: 0 },
   toggle: { rendered: 17, noElement: 0 },
-  'sidebar-menu-button': { rendered: 15, noElement: 0 },
   // 26 -> 27 with objectui#11070 round 10: the new `fields-grid/line-items-grid`
   // fixture's form field entry is `type: 'grid'`, which this structural walk
   // collects, as it collects the other `fields-grid` entries. Catalog
@@ -218,7 +229,7 @@ describe('schema-catalog — no form-control renderer leaks an authored prop to 
     ).toEqual(['disabled', 'inputtype', 'label', 'name']);
   });
 
-  it('every catalog node of these sixteen types renders, and none leaks', () => {
+  it('every catalog node of these fifteen types renders, and none leaks', () => {
     const leaks: string[] = [];
     const rendered = new Map<string, number>();
     const noElement = new Map<string, number>();
@@ -230,10 +241,13 @@ describe('schema-catalog — no form-control renderer leaks an authored prop to 
         const type = String(node.type);
         bump(rendered, type);
         // Children removed — see "Why each node is rendered without its
-        // children" above. `SidebarProvider` is the one React host this set
-        // needs: `ui:sidebar-menu-button` reads `useSidebar()` and THROWS
+        // children" above. `SidebarProvider` was the one React host this set
+        // needed: `ui:sidebar-menu-button` read `useSidebar()` and THREW
         // without it, and a caught throw renders attribute-clean markup that
         // reads as a clean pass (the sweep gate's trap 3, at catalog scale).
+        // That key retired with objectui#10859 batch 8 phase 2d; the host
+        // stays, so the render context of the types still measured is
+        // unchanged.
         const { children: _children, body: _body, ...own } = node;
         const { container, unmount } = render(
           <SidebarProvider>

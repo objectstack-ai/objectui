@@ -288,5 +288,14 @@
       "container",
       "nesting"
     ]
+  },
+  "components-basic-sidebar/collapsible-sidebar": {
+    "title": "Non-Collapsible Sidebar",
+    "description": "`collapsible: false` draws the sidebar in the page flow at a fixed width, whatever the host's sidebar state.",
+    "tags": [
+      "sidebar",
+      "navigation",
+      "collapsible"
+    ]
   }
 }

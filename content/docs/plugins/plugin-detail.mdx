@@ -210,7 +210,11 @@ refuses them written flat on the node):
 Three sources, in precedence order:
 
 1. **`items` on the node** — a host that already owns the feed passes it in
-   (the same convention `record:history` uses for `entries`).
+   (the same convention `record:history` uses for `entries`). The host does
+   this in code, on a node it composes and renders. `items` and its paired
+   `loading` flag are not schema keys: a JSON document that writes either one,
+   on the node or in `properties`, is refused, and on the node the refusal
+   names it as the host's feed slot.
 2. **A mounted discussion context** — the console's record page wraps the
    record body in one, carrying the merged `sys_comment` + `sys_activity` feed
    *and* the comment / reply / reaction handlers. When it is present the block

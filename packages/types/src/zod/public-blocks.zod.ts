@@ -45,16 +45,19 @@
  * producer writes — today `responsiveStyles` alone, spread from ONE fragment,
  * `NODE_ENVELOPE` (objectui#10872 batch 8; shared with three arms outside
  * this module since batch 9). The node-level members an
- * arm adds of its own are three kinds: an `on*` key a renderer reads off the
+ * arm adds of its own are four kinds: an `on*` key a renderer reads off the
  * node, declared as
  * `check:handler-key-reads` requires of every such read — refused by name with
  * `handlerKeyRefusal` where it is a runtime slot (`page:tabs`'s `onTabChange`,
  * the `action:button` / `action:icon` `onClick`), or refused with an alias
  * refusal naming its bag member where the row declares it (the same two
  * blocks' `onSuccess`, below); `element:number`'s `dataSource`, the spec's own
- * binding schema by reference (below); and the content-channel refusals (next
- * section) — the tombstones, and `record:alert`'s flat-`body` alias refusal.
- * Beneath all three, every arm whose row declares a member spreads the
+ * binding schema by reference (below); the content-channel refusals (next
+ * section) — the tombstones, and `record:alert`'s flat-`body` alias refusal;
+ * and the host feed slots of `record:activity` (`items`) and `record:history`
+ * (`entries`), each with the `loading` flag paired with it, refused by name as
+ * the host's channel (objectui#11321, `hostFeedSlotGuidance` below).
+ * Beneath all four, every arm whose row declares a member spreads the
  * flat-prop refusals (`flatPropRefusals`, objectui#10872 batch 10): each row
  * member written on the node instead of in the bag is refused by name. An
  * arm's own member of the same name, declared after the spread, wins.
@@ -717,6 +720,93 @@ export const RecordPathBlockSchema = BaseSchema.extend({
   children: retirementTombstone(RECORD_PATH_NEITHER_CHANNEL),
 });
 
+/**
+ * objectui#11321: the refusal detail for a HOST FEED SLOT written on a
+ * `record:activity` or `record:history` node — `items` / `entries`, and the
+ * `loading` flag paired with each.
+ *
+ * ## Why these keys are refused, and why by name
+ *
+ * Both renderers take a feed a host already owns: `record:activity` reads
+ * `items` (`hostItems` in its renderer) and `record:history` reads `entries`
+ * (`hostEntries`), each with a `loading` flag beside it, on the node or in
+ * `properties`. A host supplies them in code, on a node it composes: a TSX
+ * composition (the plugin-detail README hands `record:activity` its `items`
+ * inside a `DetailView` tab), or the record page's synthesizer
+ * (`buildDefaultPageSchema({ history })` writes `record:history`'s `entries`).
+ * Such a node is rendered by `SchemaRenderer` and never passes through this
+ * validator. None of the four keys is authorable metadata: a feed written into
+ * a JSON document is a snapshot that never updates, and an authored `loading:
+ * true` pins the loading state on forever, because the host flag wins over the
+ * block's own fetch state.
+ *
+ * Before this, an author who copied `items` from that composition into a JSON
+ * page met no reason at all. Written on the node it passed the tolerant face
+ * (`safeValidateSchema`) unjudged, because `BaseSchema` keeps an undeclared
+ * key, and the strict authoring face refused it only as an unnamed
+ * `unrecognized_keys`. Each arm now declares the keys as by-name refusals, so
+ * both faces refuse them at their own path with this text.
+ *
+ * ## The bag half belongs to the spec row
+ *
+ * In `properties` the keys meet the spec row, which this module takes by
+ * reference and does not restate. `ComponentPropsMap['record:history']`
+ * already names `entries` and `loading` as the host's channel in its own
+ * unrecognized-key message, and both faces carry that text unchanged.
+ * `ComponentPropsMap['record:activity']` does not name `items` or `loading`,
+ * so that refusal stays the row's generic one until the spec adds the same
+ * guidance its history row carries. Nothing here moves when it does: the arm
+ * reads the row.
+ *
+ * ## Why `retirementTombstone`, and not `handlerKeyRefusal`
+ *
+ * `handlerKeyRefusal(KEY, 'runtime-slot', …)` is the runtime-slot refusal of
+ * this package, and it was measured against these keys and does not fit. Its
+ * text says the key is a host-supplied FUNCTION and that "JSON has no function
+ * value", which is false of a feed array, and it prescribes authoring
+ * behaviour as a node type, which is not this remedy. Its `z.custom` primitive
+ * also makes `z.toJSONSchema` throw on the arm. `retirementTombstone` is the
+ * same `z.never` refusal the content-channel tombstones on these arms use:
+ * `invalid_type` at the key's own path, and ONE string feeding both the issue
+ * message and the `.describe()` metadata.
+ *
+ * No TypeScript declaration in this package restates these nodes (the
+ * `zod-mirror-parity.test.ts` ledger rows for both arms say so), so no
+ * TypeScript twin needs a `?: never`. The renderers' own props interfaces keep
+ * `items` / `entries` / `loading` typed, which is the channel a host uses.
+ *
+ * @param type   the registered `type`, spelled into the message
+ * @param key    the refused key
+ * @param what   what the key carries for the host, and why authoring it fails
+ * @param omit   what the block does when the key is omitted
+ */
+function hostFeedSlotGuidance(type: string, key: string, what: string, omit: string): string {
+  return '`' + key + '` is a HOST FEED SLOT on `' + type + '`, not authorable metadata (objectui#11321): '
+    + what + ' A host supplies it in code, on the node it composes and renders through `SchemaRenderer` '
+    + '(TSX composition), and that node never passes through this validator. Neither `@objectstack/spec`\'s '
+    + 'page component (on the node) nor its `ComponentPropsMap[\'' + type + '\']` row (in `properties`) '
+    + 'declares it. Omit it: ' + omit;
+}
+
+/** objectui#11321: the `record:activity` host feed slot, refused by name. */
+const RECORD_ACTIVITY_HOST_ITEMS = hostFeedSlotGuidance(
+  'record:activity',
+  'items',
+  'it is the feed a host that already owns one passes in, and the renderer presents it in place of its own '
+    + 'sources. Written into a JSON document it is a snapshot that never updates.',
+  'with no host `items` the block presents a mounted discussion context\'s feed, or fetches the record\'s '
+    + 'own `sys_activity` rows.',
+);
+
+/** objectui#11321: the loading flag paired with `record:activity`'s `items`, refused by name. */
+const RECORD_ACTIVITY_HOST_LOADING = hostFeedSlotGuidance(
+  'record:activity',
+  'loading',
+  'it is the host\'s fetch state, paired with the `items` feed slot, and it wins over the block\'s own '
+    + 'state, so an authored `true` pins the loading state on forever.',
+  'with `items` omitted the block manages its own loading state.',
+);
+
 /** objectui#9256 (public-block slice): ONE refusal string for both content channels of `record:activity`. */
 const RECORD_ACTIVITY_NEITHER_CHANNEL = neitherContentChannelGuidance(
   'record:activity',
@@ -733,6 +823,10 @@ export const RecordActivityBlockSchema = BaseSchema.extend({
   // objectui#10872 batch 10: a row member written flat on the node is refused by name, toward `properties.KEY`.
   ...flatPropRefusals('record:activity', stripImportedDefaults(SpecRecordActivityProps)),
   properties: propsBag('record:activity', stripImportedDefaults(SpecRecordActivityProps)),
+  // objectui#11321: the host feed slot and its loading flag, refused by name on the node
+  // (see `hostFeedSlotGuidance`).
+  items: retirementTombstone(RECORD_ACTIVITY_HOST_ITEMS),
+  loading: retirementTombstone(RECORD_ACTIVITY_HOST_LOADING),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
   body: retirementTombstone(RECORD_ACTIVITY_NEITHER_CHANNEL),
@@ -773,6 +867,25 @@ const RECORD_HISTORY_NEITHER_CHANNEL = neitherContentChannelGuidance(
   'the current record\'s field-change history, with `emptyText` when it has none',
 );
 
+/** objectui#11321: the `record:history` host feed slot, refused by name. */
+const RECORD_HISTORY_HOST_ENTRIES = hostFeedSlotGuidance(
+  'record:history',
+  'entries',
+  'it is the rows a host that already fetched them passes in, as the record page\'s synthesizer does '
+    + '(`buildDefaultPageSchema({ history })`). Written into a JSON document it is a static audit trail '
+    + 'that never updates.',
+  'with no host `entries` the block fetches the record\'s own `sys_activity` history.',
+);
+
+/** objectui#11321: the loading flag paired with `record:history`'s `entries`, refused by name. */
+const RECORD_HISTORY_HOST_LOADING = hostFeedSlotGuidance(
+  'record:history',
+  'loading',
+  'it is the host\'s fetch state, paired with the `entries` feed slot, and it wins over the block\'s own '
+    + 'state, so an authored `true` pins the loading state on forever.',
+  'with `entries` omitted the block manages its own loading state.',
+);
+
 /** `record:history` — `ComponentPropsMap['record:history']`. */
 export const RecordHistoryBlockSchema = BaseSchema.extend({
   type: z.literal('record:history'),
@@ -780,6 +893,10 @@ export const RecordHistoryBlockSchema = BaseSchema.extend({
   // objectui#10872 batch 10: a row member written flat on the node is refused by name, toward `properties.KEY`.
   ...flatPropRefusals('record:history', stripImportedDefaults(SpecRecordHistoryProps)),
   properties: propsBag('record:history', stripImportedDefaults(SpecRecordHistoryProps)),
+  // objectui#11321: the host feed slot and its loading flag, refused by name on the node
+  // (see `hostFeedSlotGuidance`).
+  entries: retirementTombstone(RECORD_HISTORY_HOST_ENTRIES),
+  loading: retirementTombstone(RECORD_HISTORY_HOST_LOADING),
   // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER (see "The content channels" above).
   body: retirementTombstone(RECORD_HISTORY_NEITHER_CHANNEL),

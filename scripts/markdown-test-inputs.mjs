@@ -561,6 +561,19 @@ export const ADJUDICATED = new Map([
     'packages/types/src/__tests__/page-breadcrumbs-refusal-8871.test.ts',
     { reads: ['content/docs/guide/layout.md'] },
   ],
+  // objectui#11321. Extracts the two `record:related_list` examples and the two
+  // `action:button` route examples and runs each through both faces and the
+  // spec -- so an edit to any of the three pages IS an edit to this test's input.
+  [
+    'packages/types/src/__tests__/public-block-doc-examples-bag-11321.test.ts',
+    {
+      reads: [
+        'content/docs/api/schema-reference.md',
+        'content/docs/guide/slotted-pages.md',
+        'packages/app-shell/README.md',
+      ],
+    },
+  ],
   // objectui#8256. Reads the root README's "Kanban Board" `json` fence and runs
   // it through `safeValidateSchema` -- so an edit to that page IS an edit to
   // this test's input, and a README-only pull request has to run the shard.

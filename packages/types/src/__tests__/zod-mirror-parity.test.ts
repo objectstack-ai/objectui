@@ -4712,6 +4712,10 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "recursive; declared `z.ZodType<any>`, which exposes no `.shape` to read — and accepts `any`, so it cannot be narrower than any declaration. One of the three consts that REFUSED the objectui#7760 type argument (the mirror accepts more than the declaration states), so this reason is still literally true here",
   'app.zod.ts#MenuItemSchema':
     "recursive; a `z.lazy` exposes no `.shape` to read, so there is no key set for the per-key comparison. Since objectui#7760 it carries its TS declaration as BOTH type arguments, so the pair IS compared — as a whole type, by `tsc`, at the annotation itself",
+  // objectui#11440 — the `app-schema-renderer` whole-shell node, declared from
+  // its registration `inputs`. Pinned by `./passing-keys-arms-11440.test.ts`.
+  'app.zod.ts#AppSchemaRendererNodeSchema':
+    "registration-owned — `BaseSchema` + the `app-schema-renderer` literal + two of the registration's three `inputs` (`basePath`, `mobileNavMode`; the third, `schema`, is stripped by `SchemaRenderer` and never reaches the component) + the objectui#9256 `body` / `children` refusals; no TS declaration in this package restates the node (`@object-ui/layout`'s `AppSchemaRendererProps` is the component's prop type)",
   'app.zod.ts#AppContextSelectorSchema':
     "spec-owned BY REFERENCE — the local `.extend(…)` adds renderer props that no TS declaration in this package restates",
   'base.zod.ts#SchemaNodeSchema':
@@ -4765,6 +4769,11 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "spec-owned BY REFERENCE — the local `.extend(…)` adds renderer props that no TS declaration in this package restates",
   'layout.zod.ts#LayoutSchema':
     "a union OVER the mirrors, not an object of its own — its members are checked individually above",
+  // objectui#11440 — the spec page kinds `record` / `home` / `utility` as node
+  // types, served by the `page` node's renderer and `pageMeta`. Pinned by
+  // `./passing-keys-arms-11440.test.ts`.
+  'layout.zod.ts#PageKindNodeSchema':
+    "mirror-owned BY REFERENCE — every member is `layout.zod.ts#PageNodeSchema`'s own (the same schema objects, the spec's `PageSchema` fields among them through `SpecPageFields`), under the spec's own `PageTypeSchema` narrowed to the three kinds `@object-ui/components` registers on `PageRenderer`; no TS declaration in this package restates the node (the `page` node's TS twin is `type: 'page'`, paired with `PageNodeSchema`)",
   // objectui#11276 (the `flex` batch, the maintainer's ruling A on
   // objectui#11300) — the authored `flex` arm, built as the `object-chart` arm
   // with NO spec row: its bag is the flat mirror's own members. Its TS twin is
@@ -4833,6 +4842,13 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   // reading and still builds the `object-view` `table` slot.
   'objectql.zod.ts#ObjectGridBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `object-grid` literal + `NODE_ENVELOPE` + `properties`, which IS `ComponentPropsMap['object-grid']`, + the node's `dataSource` binding, which IS the spec's `ElementDataSourceSchema`, + `flatPropRefusals` over the row (one `aliasKeyRefusal` per member but the node-level `label`, pointed at `properties.KEY`, and the row's own `defaultSort` retirement; the key set is read off the row), + the flat mirror's own objectui#9739 / objectui#11068 tombstones and objectui#9256 `body` / `children` refusals, by reference, + its objectui#6124 `onNavigate` runtime slot, declared as the mirror declares it; the TS declaration of the node, `ObjectGridSchema` (`../objectql.ts`), is the renderer's post-hoist reading and is paired with the flat `objectql.zod.ts#ObjectGridSchema` mirror, not with this arm",
+  // objectui#11440 — two Tier A public blocks with NO spec row and no flat
+  // mirror: each bag is built from the block's registration `inputs`. Pinned by
+  // `./passing-keys-arms-11440.test.ts`.
+  'objectql.zod.ts#ObjectPivotBlockSchema':
+    "registration-owned — `BaseSchema` + the `object-pivot` literal + `NODE_ENVELOPE` + a required `properties` bag of the registration's `inputs` (its cross-tab members ARE the `data-display.zod.ts#PivotTableSchema` mirror's own, by reference; `drillDown` is `DrillDownConfigSchema` with `mode` refused) + `flatPropRefusals` over that bag + the node's `dataSource` binding, which IS the spec's `ElementDataSourceSchema`, + the objectui#9256 `body` / `children` refusals; no TS declaration in this package restates the node (`@object-ui/plugin-dashboard`'s `ObjectPivotTableProps` is the component's prop type)",
+  'objectql.zod.ts#EmbeddableFormBlockSchema':
+    "registration-owned — `BaseSchema` + the `embeddable-form` literal + `NODE_ENVELOPE` + a required `properties` bag of exactly the registration's `inputs` + `flatPropRefusals` over that bag + the node's `dataSource` binding, which IS the spec's `ElementDataSourceSchema`, + the objectui#9256 `body` / `children` refusals; no TS declaration in this package restates the node (`@object-ui/plugin-form`'s `EmbeddableFormConfig` is the component's config type)",
   'objectql.zod.ts#ObjectQLPublicBlockComponentSchema':
     "a union OVER the public-block arms above, not an object of its own — its members are checked individually",
   'overlay.zod.ts#MenuItemSchema':
@@ -4853,6 +4869,10 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "a bare vocabulary with no `.shape`; it is checked where a mirrored KEY declares it",
   'views.zod.ts#ViewComponentSchema':
     "a union OVER the mirrors, not an object of its own — its members are checked individually above",
+  // objectui#11440 — one field section as a node. Pinned by
+  // `./passing-keys-arms-11440.test.ts`.
+  'views.zod.ts#DetailSectionNodeSchema':
+    "mirror-owned BY REFERENCE — `BaseSchema` + the `detail-section` literal + the ten members of `views.zod.ts#DetailViewSectionSchema` the registration publishes as `inputs` (the same schema objects, `.pick`ed), flat on the node, + the objectui#9256 `body` / `children` refusals; no TS declaration in this package restates the node (`@object-ui/plugin-detail`'s `DetailSectionNodeProps` is the component's prop type)",
   'index.zod.ts#AnyComponentSchema':
     "the barrel union OVER the mirrors, not an object of its own — its members are checked individually above",
   'expression.zod.ts#ExpressionWireSchema':

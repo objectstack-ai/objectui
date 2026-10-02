@@ -936,7 +936,8 @@ const CHART_Y_AXIS_IS_A_LIST_GUIDANCE =
  * `ObjectDataTableSchema` (`objectql.zod.ts`) reference it. `PivotTableSchema`
  * below referenced it from objectui#10859 (batch 2) until objectui#10932
  * retired the key on the `pivot` node, which nothing drills; `object-pivot`,
- * the block that does drill, has no zod mirror. Until this mirror existed
+ * the block that does drill, extends it with `mode` refused (`objectql.zod.ts`,
+ * objectui#11440). Until this mirror existed
  * neither declaring mirror had heard of the key, so under
  * `BaseSchema`'s `.passthrough()` a `drillDown: { enabled: 'yes' }` parsed green
  * and reached a widget that reads `enabled` as truthy — `declared !== enforced`,

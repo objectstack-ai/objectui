@@ -399,6 +399,10 @@ ComponentRegistry.register(
       { name: 'showColumnTotals', type: 'boolean' },
       { name: 'filter', type: 'array' },
       { name: 'format', type: 'string' },
+      // objectui#11440: read by `ObjectPivotTable` (`isDrillEnabled`,
+      // `computeDrillFilter`, the `DrillDownDrawer` it opens) and declared by the
+      // block's zod arm in `@object-ui/types`, so it is published here too.
+      { name: 'drillDown', type: 'object', description: 'Click-through config that opens the records behind a clicked cell, header or total — in a drawer, a dialog, the object’s list page (`target: "navigate"`), or an analytical report (`report`). The drilled list is this block’s `filter` narrowed by the clicked value. `drillDown.mode` does not apply: every click point on a pivot is an aggregated bucket, so it always drills through; `mode` belongs on `object-data-table`.' },
     ],
     defaultProps: {
       rowField: '',

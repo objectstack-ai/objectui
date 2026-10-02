@@ -66,3 +66,14 @@ node. Nothing ever drilled a `pivot` node; a pivot drill is authored on `object-
 entry says. `object-pivot` still has no zod mirror, so what this entry says of a stored
 `object-pivot` config stands. `.changeset/10932-pivot-drilldown-retired.md` (PR objectui#10972)
 states what ships; the text above is kept as the reading of this change.
+
+⚠️ **Dated note, 2026-10-02 — `object-pivot` has a zod arm now — objectui#11440.**
+Later in this same release `object-pivot` gained an arm in `@object-ui/types/zod`,
+`ObjectPivotBlockSchema`, whose `properties.drillDown` is this entry's per-block shape: the shared
+drill config with `mode` refused by name (`invalid_type` at `properties.drillDown.mode`). So "A
+stored JSON pivot config carrying `mode` is still accepted" and "neither `object-pivot` nor
+`PivotTableSchema` has a zod mirror, so no validator in this repository reads the members of a
+pivot's `drillDown`" above, and "`object-pivot` still has no zod mirror" in the 2026-09-29 note, no
+longer hold: `safeValidateSchema` and the strict face refuse that `mode`.
+`.changeset/11440-arm-passing-types.md` states what ships. The rest of this entry is kept as the
+reading of this change.

@@ -122,6 +122,10 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
   // `ObjectQLComponentSchema`, carrying the binding its flat mirror has
   // declared since objectui#11070.
   'object-grid',
+  // objectui#11440: two gate-wrapped Tier A blocks armed with the binding at
+  // node level, beside their bags.
+  'object-pivot',
+  'embeddable-form',
 ]);
 
 /**
@@ -131,15 +135,19 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
  * and 6, `requireRecordSource`), and `object-chart` keeps the flat mirror's
  * chart-family floor, read in its bag (objectui#11276,
  * `requireObjectChartFamilyInBag`). `object-grid` keeps its flat mirror's
- * record-source rule the same way (objectui#11276's `object-grid` batch). Each
- * node carries the smallest bag that satisfies its rule; every other arm takes
- * the bare node.
+ * record-source rule the same way (objectui#11276's `object-grid` batch).
+ * `object-pivot` and `embeddable-form` (objectui#11440) REQUIRE their bag: its
+ * registration-required members (the three cross-tab fields; `formId`) and a
+ * record source. Each node carries the smallest bag that satisfies its rule;
+ * every other arm takes the bare node.
  */
 const RECORD_SOURCE: Readonly<Record<string, Record<string, unknown>>> = {
   'object-map': { properties: { objectName: 'store' } },
   'object-gantt': { properties: { objectName: 'task' } },
   'object-chart': { properties: { chartType: 'bar' } },
   'object-grid': { properties: { objectName: 'task' } },
+  'object-pivot': { properties: { objectName: 'deal', rowField: 'stage', columnField: 'owner', valueField: 'amount' } },
+  'embeddable-form': { properties: { formId: 'contact-us', objectName: 'lead' } },
 };
 
 /** The five envelope keys the spec declares and this batch leaves undeclared. */

@@ -26,9 +26,12 @@
  *   (c) the validator `objectui validate` runs (`safeValidateSchema`) and the
  *       strict authoring face refuse it at the same path;
  *   (d) the TypeScript face refuses it at the authoring site;
- *   (e) the refusal does not reach an `app-schema-renderer` node: the key adds
- *       no issue there, on either face, so the node channel is not judged by
- *       this schema;
+ *   (e) the refusal does not reach an `app-schema-renderer` node: a legal
+ *       value adds no issue there, on either face, so the node channel is not
+ *       judged by this schema. Since objectui#11440 the node has an arm of its
+ *       own, which declares the key as the registration's two-value enum, so a
+ *       misspelt value is refused there by THAT enum (`invalid_value`), never by
+ *       this document's tombstone (`invalid_type`);
  *   (f) CONTROLS: the same document without the key parses on every face, and
  *       the spec refuses the key, so (a) to (c) are judged by schemas that can
  *       fail, and they match a refusal the platform already gives.
@@ -123,13 +126,22 @@ describe('objectui#11363 — the refusal does not reach an `app-schema-renderer`
     navigation: [{ id: 'accounts', type: 'url', label: 'Accounts', url: '/accounts' }],
   };
   const verdict = (issues: Issue[] | null) => issues?.map((i) => [i.code, i.path]) ?? null;
+  const LEGAL = VALUES.filter((value) => value !== 'bottom-nav');
 
-  it.each(VALUES)('the key (%j) adds no issue to the node on the validator face', (value) => {
+  it.each(LEGAL)('the key (%j) adds no issue to the node on the validator face', (value) => {
     expect(verdict(validatorIssues({ ...NODE, mobileNavMode: value }))).toEqual(verdict(validatorIssues(NODE)));
   });
 
-  it.each(VALUES)('the key (%j) adds no issue to the node on the strict face', (value) => {
+  it.each(LEGAL)('the key (%j) adds no issue to the node on the strict face', (value) => {
     expect(verdict(strictIssues({ ...NODE, mobileNavMode: value }))).toEqual(verdict(strictIssues(NODE)));
+  });
+
+  it('a misspelt value is refused by the node\'s own enum (objectui#11440), never by the app document\'s tombstone', () => {
+    for (const issues of [validatorIssues({ ...NODE, mobileNavMode: 'bottom-nav' }), strictIssues({ ...NODE, mobileNavMode: 'bottom-nav' })]) {
+      const atKey = (issues ?? []).filter((i) => i.path === 'mobileNavMode');
+      expect(atKey.map((i) => i.code)).toEqual(['invalid_value']);
+      expect(atKey[0].message).not.toContain('not a key of the app document');
+    }
   });
 
   it('no issue on the node names `mobileNavMode`', () => {

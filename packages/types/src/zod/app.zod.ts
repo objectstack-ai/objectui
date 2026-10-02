@@ -676,6 +676,73 @@ export const AppComponentSchema = BaseSchema.extend(SpecAppFields.shape).extend(
 });
 
 /**
+ * objectui#11440 — ONE refusal string for both content channels of
+ * {@link AppSchemaRendererNodeSchema}. The registration declares
+ * `isContainer: true`, but the parser tier's containment check reads the
+ * `children` INPUT, never `isContainer` (objectui#9910), and the registration
+ * declares no such input, so the `not-a-container` clause holds here too.
+ */
+const APP_SCHEMA_RENDERER_NEITHER_CHANNEL =
+  'REFUSED (objectui#9256, ADR-0049) — `app-schema-renderer` reads NEITHER content channel: `SchemaRenderer` '
+  + 'strips `children` and `body` out of the props it hands `AppSchemaRenderer`, and the component reads no '
+  + '`schema.children` / `schema.body`. Measured through the real `SchemaRenderer` and registry (objectui#11440): '
+  + 'a node carrying `children` drew none of them. An authored value therefore rendered NOTHING — no render-time '
+  + 'error or warning and no element; only the parser tier\'s `not-a-container` warning (objectui#9910) noticed it '
+  + '(the registration declares no `children` input). What it renders instead: the shell — its sidebar and, with '
+  + '`mobileNavMode: \'bottom_nav\'`, the bottom bar — around an empty main area. Page content reaches the shell '
+  + 'only as React `children`, when a host renders `AppSchemaRenderer` itself.';
+
+/**
+ * `app-schema-renderer` — the whole-shell node `@object-ui/layout` registers
+ * (objectui#11440, under the seat's amendment `5945583855` on objectui#10859:
+ * "declaring the node from its registration inputs").
+ *
+ * ## The defect this closes
+ *
+ * objectui#4841's ruling (`5307574602`) keeps `app-schema-renderer` "the one
+ * JSON door for 'render a whole shell from a schema'", and the governed guide
+ * `skills/objectui/guides/mobile.md` teaches the `mobileNavMode` key of this
+ * node (as does {@link APP_MOBILE_NAV_MODE_REFUSAL} above). No arm claimed the
+ * literal, so `objectui validate` refused that node with `invalid_union` at
+ * `type`.
+ *
+ * ## The members, and the input that is NOT one
+ *
+ * The registration declares three `inputs`: `schema` (object), `basePath`
+ * (string) and `mobileNavMode` (the enum `'drawer'` | `'bottom_nav'`). Two are
+ * declared here, each as the registration types it:
+ *  - `mobileNavMode` — the two modes the renderer implements; `'bottom_nav'`
+ *    adds the fixed bottom bar.
+ *  - `basePath` — the prefix of every href the shell generates.
+ *
+ * ⛔ `schema` is NOT declared, because no node delivers it. `SchemaRenderer`
+ * strips the `schema` key out of the props it spreads and hands the component
+ * the NODE as its `schema` prop, so `AppSchemaRenderer` reads the app document
+ * keys off the node itself and never the nested `schema` object. Measured
+ * through the real `SchemaRenderer` and registry (objectui#11440): a node with
+ * its navigation nested under `schema` drew no navigation, and the same
+ * navigation written on the node drew. Where the app document belongs on this
+ * node is left to the seat, and declaring `schema` would publish an input
+ * that renders nothing.
+ *
+ * Neither content channel is read (see
+ * {@link APP_SCHEMA_RENDERER_NEITHER_CHANNEL}), so both are refused by name.
+ */
+export const AppSchemaRendererNodeSchema = BaseSchema.extend({
+  type: z.literal('app-schema-renderer'),
+  basePath: z.string().optional().describe('URL prefix for the hrefs the shell generates (e.g. "/apps/crm")'),
+  mobileNavMode: z
+    .enum(['drawer', 'bottom_nav'])
+    .optional()
+    .describe(
+      'Mobile navigation mode: "drawer" (the default) puts the sidebar in the mobile sheet overlay; "bottom_nav" '
+      + 'additionally renders a fixed bottom bar. These are the only two modes the renderer implements.',
+    ),
+  body: retirementTombstone(APP_SCHEMA_RENDERER_NEITHER_CHANNEL),
+  children: retirementTombstone(APP_SCHEMA_RENDERER_NEITHER_CHANNEL),
+});
+
+/**
  * Export type inference helpers
  */
 export type NavigationItemSchemaType = z.infer<typeof NavigationItemSchema>;

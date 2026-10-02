@@ -103,8 +103,15 @@ const ARMS: ReadonlyMap<string, z.ZodObject> = new Map(
  */
 const EARLIER = new Set(['object-form', 'object-map', 'object-gantt', 'object-chart']);
 
-/** The row of an arm: its `properties` member with `.optional()` peeled off. */
-const rowOf = (arm: z.ZodObject): z.ZodObject => (arm.shape.properties as z.ZodOptional).unwrap() as z.ZodObject;
+/**
+ * The row of an arm: its `properties` member with `.optional()` peeled off. Two
+ * arms (objectui#11440's `object-pivot` and `embeddable-form`) require their
+ * bag, so their member is the bag itself.
+ */
+const rowOf = (arm: z.ZodObject): z.ZodObject => {
+  const member = arm.shape.properties as z.ZodOptional | z.ZodObject;
+  return (member._zod.def.type === 'optional' ? (member as z.ZodOptional).unwrap() : member) as z.ZodObject;
+};
 
 /** Does this member refuse every value — the shape of a `z.never` retirement? */
 const isNeverMember = (member: unknown): boolean => {
@@ -164,8 +171,16 @@ const VALID_BAG: Readonly<Record<string, Record<string, unknown>>> = {
   // spreads this helper over its row, so it is covered here like the three
   // ObjectQL blocks above; `data` is the base-declared row key in play.
   'object-grid': { objectName: 'task', title: 'Tasks', columns: ['subject'], data: { provider: 'object', object: 'task' } },
+  // objectui#11440: the two Tier A blocks armed with a bag of their
+  // registration inputs spread this helper over that bag; `title` and
+  // `description` are the keys a flat node shares with the node base.
+  'object-pivot': { objectName: 'deal', title: 'Pipeline', rowField: 'stage', columnField: 'owner', valueField: 'amount' },
+  'embeddable-form': { formId: 'contact-us', objectName: 'lead', title: 'Contact us', description: 'We reply within a day' },
 };
 const COVERED = Object.keys(VALID_BAG);
+
+/** The arms whose bag is REQUIRED — its registration-required members live in it (objectui#11440). */
+const REQUIRES_BAG: ReadonlySet<string> = new Set(['object-pivot', 'embeddable-form']);
 
 /** The node with its bag hoisted flat — every bag key written on the node itself. */
 const flattened = (type: string): Record<string, unknown> => ({ type, ...VALID_BAG[type] });
@@ -227,7 +242,11 @@ describe('objectui#10872 batch 10 — every arm: the flat node is refused, the b
         continue;
       }
       expect(result.success, face).toBe(false);
-      const named = namedAtNode(result);
+      // A bag-requiring arm (objectui#11440) also reports the bag itself missing,
+      // at `properties`; that is not a flat refusal, so it is held apart here.
+      const missingBag = namedAtNode(result).filter((issue) => issue.path[0] === 'properties');
+      expect(missingBag.length, face).toBe(REQUIRES_BAG.has(type) ? 1 : 0);
+      const named = namedAtNode(result).filter((issue) => issue.path[0] !== 'properties');
       expect(named.map((issue) => String(issue.path[0])).sort(), face).toEqual(owed);
       for (const issue of named) expect(issue.message, face).toContain(`\`properties.${String(issue.path[0])}\``);
       // Nothing is left to the strict face's unnamed `unrecognized_keys`.

@@ -69,9 +69,9 @@ export interface ObjectPivotTableProps {
      * `BaseSchema`, whose `[key: string]: any` would absorb a deleted member
      * silently at any value. Licensed by prong 1 of the discriminator
      * (objectui#5941, #7526, in its amended form, `5f8190c8c`): it names the live
-     * replacement, `objectName`. ⚠️ This is the ONLY refusal for this node:
-     * neither `object-pivot` nor `PivotTableSchema` has a zod mirror, so a
-     * JSON-authored value is refused by nothing at parse time.
+     * replacement, `objectName`. A JSON-authored value is refused by name at
+     * parse time too, since objectui#11440: the `object-pivot` arm of
+     * `@object-ui/types/zod` declares the same retirement in its props bag.
      *
      * @deprecated Not read by `ObjectPivotTable` — write `objectName`.
      */

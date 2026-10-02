@@ -823,7 +823,8 @@ export const PageTypeSchema = stripImportedDefaults(SpecPageTypeSchema);
  *    is the renderer half of the spec's `PageTypeSchema`, ⛔ not a component
  *    family and ⛔ not names registered without a schema. Two cards read it the
  *    second way (objectui#9263, re-ruled letter E "⛔ not a defect", and
- *    objectui#9576).
+ *    objectui#9576). Since objectui#11440 the validator answers that node too:
+ *    {@link PageKindNodeSchema} below claims `record` / `home` / `utility`.
  *
  *    ⭐ `app` is one token carrying two vocabularies: `AppComponentSchema`'s
  *    `'app'` is the APP-LEVEL DOCUMENT, read structurally by the runner /
@@ -1127,6 +1128,80 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
   .superRefine(checkPageSourceCompleteness);
 
 /**
+ * The spec page KINDS a node may carry in `type` (objectui#11440): `record`,
+ * `home` and `utility`, picked out of `@objectstack/spec`'s own
+ * `PageTypeSchema` by reference (`.extract`), so a kind the spec drops fails to
+ * compile here.
+ *
+ * Exactly the kinds `@object-ui/components` registers on `PageRenderer` and no
+ * other arm claims. The spec declares two more, and neither is armed here:
+ *  - `app` — the token `AppComponentSchema` already claims for the APP-LEVEL
+ *    document (the `app` note on {@link SpecPageFields} above). A spec page of
+ *    kind `app` is judged by that arm.
+ *  - `list` — not registered under that key (an interface-mode kind, which
+ *    `PageView` renders before the registry), and the `list` data-display
+ *    component owns the literal.
+ */
+const PAGE_KIND_NODE_TYPE = PageTypeSchema.extract(['record', 'home', 'utility']);
+
+/**
+ * The `page` node's own members, minus its `type` literal, read off
+ * {@link PageNodeSchema} by reference — the shape the page kinds below share.
+ */
+const { type: _pageNodeTypeLiteral, ...PAGE_NODE_MEMBERS } = PageNodeSchema.shape;
+
+/**
+ * Page Kind Node Schema — a stored spec page document whose `type` is its page
+ * KIND (`record` / `home` / `utility`), the spelling `@objectstack/spec`'s
+ * `PageSchema` declares (objectui#11440, under the seat ruling `5945530142` on
+ * objectui#10859: "the spec's own page kinds").
+ *
+ * ## The defect this closes
+ *
+ * `PageView` (`@object-ui/app-shell`) hands a stored page to `SchemaRenderer`
+ * with the kind written verbatim into `type`, and `@object-ui/components`
+ * registers the three kinds on `PageRenderer` for exactly that reason
+ * (objectui#9642). No arm claimed the literals, so `safeValidateSchema`, and
+ * `objectui validate` with it, refused the spec's own page document —
+ * `{ type: 'home', name, label, regions }` — with one `invalid_union` at
+ * `type`, while `{ type: 'page', pageType: 'home' }` passed.
+ *
+ * ## Why this shape
+ *
+ * The five page registrations share ONE renderer and ONE `pageMeta` (its
+ * `inputs`), so a kind node is the `page` node under a different literal: every
+ * member is {@link PageNodeSchema}'s own, by reference, and that node already
+ * takes the spec's `PageSchema` fields by reference through
+ * {@link SpecPageFields}. Its four refusals (`actions`, `breadcrumbs`,
+ * `maxWidth`, `padding`), the `body` refusal and the spec's object-level
+ * `source` check come with it. `regions` stays the node's own
+ * {@link PageNodeRegionSchema}, so each region component is judged by this
+ * union at every depth, as on `page`.
+ *
+ * ⛔ Which spelling of a page is canonical — `type: 'page'` + `pageType`, or
+ * the spec's `type: KIND` — is not decided here. Both validate, as both render.
+ */
+export const PageKindNodeSchema: PageKindNodeSchemaType = BaseSchema.extend({
+  ...PAGE_NODE_MEMBERS,
+  type: PAGE_KIND_NODE_TYPE.describe('The spec page kind — `record`, `home` or `utility` (`@objectstack/spec` `PageTypeSchema`)'),
+}).superRefine(checkPageSourceCompleteness);
+
+/**
+ * The TYPE of {@link PageKindNodeSchema}, written out BY REFERENCE to the
+ * `page` node's shape. Without it, declaration emit re-serializes the whole
+ * page shape a second time inside `AnyComponentSchema`, and `tsc` refuses that
+ * union with TS7056 ("The inferred type of this node exceeds the maximum length
+ * the compiler will serialize"), measured on objectui#11440. A named type is
+ * emitted by name.
+ */
+export type PageKindNodeSchemaType = z.ZodObject<
+  Omit<(typeof PageNodeSchema)['shape'], 'type'> & {
+    type: z.ZodEnum<{ record: 'record'; home: 'home'; utility: 'utility' }>;
+  },
+  z.core.$loose
+>;
+
+/**
  * Semantic Element Schema — the seven HTML sectioning tags
  * `packages/components/src/renderers/layout/semantic.tsx` registers
  * (objectui#8499).
@@ -1256,6 +1331,8 @@ export const LayoutSchema = z.discriminatedUnion('type', [
   ResizableSchema,
   AspectRatioSchema,
   PageNodeSchema,
+  // objectui#11440 — the spec page kinds `record` / `home` / `utility`.
+  PageKindNodeSchema,
   SemanticElementSchema,
   HtmlElementSchema,
 ]);

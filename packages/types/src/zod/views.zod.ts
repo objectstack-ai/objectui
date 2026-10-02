@@ -505,6 +505,67 @@ export const SortUISchema = BaseSchema.extend({
   ),
 });
 
+/** objectui#11440 / objectui#9256: ONE refusal string for both content channels of `DetailSectionNodeSchema`. */
+const DETAIL_SECTION_NEITHER_CHANNEL =
+  'REFUSED (objectui#9256, ADR-0049) — `detail-section` reads NEITHER content channel: its registration hands the '
+  + 'node to `DetailSectionNode`, which folds the declared inputs into the one `section` object `DetailSection` '
+  + 'draws, and neither reads `children` or `body`; `SchemaRenderer` strips both out of the props bag it spreads. '
+  + 'An authored value would render NOTHING — no render-time error or warning and no element; only the parser '
+  + 'tier\'s `not-a-container` warning (objectui#9910) noticed it (the registration declares no `children` input). '
+  + 'What it renders instead: a titled section of `fields`, laid out in '
+  + '`columns`.';
+
+/**
+ * `detail-section` — one field section as a node (objectui#11440, under the
+ * seat ruling `5945530142` on objectui#10859: "taught by the plugin-detail
+ * README, refused at `tabs.0.content` today").
+ *
+ * ## The defect this closes
+ *
+ * `@object-ui/plugin-detail` registers `detail-section` (`DetailSectionNode`),
+ * and its README teaches the node inside a `detail-view` tab's `content`. No
+ * arm claimed the literal, so `safeValidateSchema` refused that document at
+ * `tabs.0.content` with `invalid_union` at the nested `type`.
+ *
+ * ## Why a node of its own, and not `record:details` sections
+ *
+ * The card allowed folding it into `record:details`'s `properties.sections`
+ * "if measurement shows that is the same shape". It does not: the spec's
+ * `record:details` section (`ComponentPropsMap['record:details']`) names its
+ * heading `label`, takes `fields` as bare field NAMES and carries `name` /
+ * `group`, while this node names its heading `title` and takes `fields` as
+ * `DetailViewField` objects (`{ name, label, … }`). Measured: the spec's row
+ * refuses the README's section with `unrecognized_keys` on `title` and
+ * `invalid_type` on each field object.
+ *
+ * ## The members
+ *
+ * Exactly the registration's `inputs` — the ten names `DetailSectionNode`
+ * folds (`DETAIL_SECTION_NODE_INPUTS`): {@link DetailViewSectionSchema}'s own
+ * members, by reference, flat on the node as the registration publishes them.
+ * `fields` is required there, so it is required here. `name` and `visible` are
+ * not section members on this node (`DetailSection` reads neither), so they
+ * keep `BaseSchema`'s node-level meaning. Neither content channel is read, so
+ * both are refused by name (objectui#9256).
+ */
+export const DetailSectionNodeSchema = BaseSchema.extend({
+  type: z.literal('detail-section'),
+  ...DetailViewSectionSchema.pick({
+    title: true,
+    description: true,
+    icon: true,
+    fields: true,
+    collapsible: true,
+    defaultCollapsed: true,
+    columns: true,
+    showBorder: true,
+    headerColor: true,
+    hideEmpty: true,
+  }).shape,
+  body: retirementTombstone(DETAIL_SECTION_NEITHER_CHANNEL),
+  children: retirementTombstone(DETAIL_SECTION_NEITHER_CHANNEL),
+});
+
 /**
  * Union of all view schemas
  */
@@ -513,6 +574,8 @@ export const ViewComponentSchema = z.discriminatedUnion('type', [
   ViewSwitcherSchema,
   FilterUISchema,
   SortUISchema,
+  // objectui#11440 — one field section as a node.
+  DetailSectionNodeSchema,
 ]);
 
 /**

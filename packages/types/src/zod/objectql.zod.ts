@@ -67,7 +67,7 @@ import {
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
 import { aliasKeyRefusal, handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
-import { DataTableSchema, DrillDownConfigSchema } from './data-display.zod.js';
+import { DataTableSchema, DrillDownConfigSchema, PivotTableSchema } from './data-display.zod.js';
 // The kanban CARD vocabulary has one authority (`./complex.zod.ts`); the
 // `object-kanban` lane below reads it rather than restating it (objectui#8913).
 import { KanbanCardSchema } from './complex.zod.js';
@@ -2285,7 +2285,9 @@ type RecordSourceRung = 'bind' | 'data' | 'staticData' | 'objectName';
  * naming it in the message would prescribe a write the renderer drops.
  */
 function requireRecordSource(
-  type: 'object-map' | 'object-gantt' | 'object-calendar' | 'object-kanban' | 'object-grid' | 'list-view' | 'object-tree',
+  type:
+    | 'object-map' | 'object-gantt' | 'object-calendar' | 'object-kanban' | 'object-grid' | 'list-view' | 'object-tree'
+    | 'object-pivot' | 'embeddable-form',
   rungs: readonly RecordSourceRung[],
   at: 'node' | 'properties' = 'node',
   bindingRung: 'counts' | 'not-read' = 'counts',
@@ -4580,6 +4582,218 @@ export const ObjectGridBlockSchema = BaseSchema.extend({
 }).superRefine(...requireRecordSource('object-grid', ['objectName'], 'properties'));
 
 /**
+ * objectui#11440 — `object-pivot`'s drill shape, the zod twin of
+ * `ObjectPivotDrillDownConfig` (`../data-display.ts`): the shared
+ * {@link DrillDownConfigSchema} with `mode` refused by name (objectui#10685).
+ * Every click point on a pivot is an aggregated bucket, so it always drills
+ * through to the records behind the value; there is no row to open as a record.
+ */
+const ObjectPivotDrillDownSchema = DrillDownConfigSchema.extend({
+  mode: retirementTombstone(
+    'REFUSED on `object-pivot` (objectui#10685) — `drillDown.mode` chooses drill-to-record for a clicked ROW, '
+    + 'and every click point on a pivot is an aggregated bucket (a cell, a header or a total), so a pivot always '
+    + 'drills through to the records behind the clicked value. `mode` applies on `object-data-table`, whose row '
+    + 'click reads it. Delete the key.',
+  ),
+});
+
+/**
+ * objectui#11440 — the `object-pivot` props bag, built from the block's
+ * registration `inputs` (`@object-ui/plugin-dashboard`). `@objectstack/spec`
+ * has no `ComponentPropsMap['object-pivot']` row, so these are objectui's own
+ * members. The cross-tab members are the `pivot` mirror's own
+ * ({@link PivotTableSchema}), by reference; `objectName` and `filter` are the
+ * two the object block adds, and `drillDown` is this block's drill shape
+ * above, which the registration publishes as an input since the same change
+ * (the `pivot` refusal of `drillDown` names this block as where a pivot drill
+ * is authored, objectui#10932).
+ *
+ * Not declared, because the registration publishes neither: `data` (inline
+ * rows — the `pivot` node's job) and `columnColors`. `dataProvider` is declared
+ * as the retirement the block's TypeScript prop type already spells
+ * (objectui#7353).
+ *
+ * `.passthrough()` like the other bags of objectui's own members
+ * (`object-chart`, `flex`): a key the block does not declare is unjudged by the
+ * tolerant face and refused by name by the strict one.
+ */
+const ObjectPivotPropsBag = z.looseObject({
+  objectName: z.string().optional().describe(OBJECT_NAME_BINDING_WAIVER_DESCRIPTION),
+  title: PivotTableSchema.shape.title,
+  rowField: PivotTableSchema.shape.rowField,
+  columnField: PivotTableSchema.shape.columnField,
+  valueField: PivotTableSchema.shape.valueField,
+  aggregation: PivotTableSchema.shape.aggregation,
+  showRowTotals: PivotTableSchema.shape.showRowTotals,
+  showColumnTotals: PivotTableSchema.shape.showColumnTotals,
+  format: PivotTableSchema.shape.format,
+  filter: z
+    .array(z.unknown())
+    .optional()
+    .describe(
+      'Query filter, forwarded as $filter with its context tokens ({current_user_id}, {current_org_id}) resolved '
+      + 'first; a drill composes it with the clicked cell. A FilterArray — the registration publishes `filter` as an array.',
+    ),
+  drillDown: ObjectPivotDrillDownSchema.optional().describe(
+    'Click-through config that opens the records behind a cell, header or total (drawer / dialog / navigate, or an '
+    + 'analytical report). `mode` is refused: a pivot always drills through (objectui#10685)',
+  ),
+  // objectui#7353 — the twin of `ObjectPivotTable`'s `dataProvider?: never`, as
+  // `ObjectDataTableSchema` declares it: refused by name, pointing at `objectName`.
+  dataProvider: retirementTombstone(
+    'REFUSED (objectui#7353, ADR-0049) — `object-pivot` does not read `dataProvider`. The dashboard producers used '
+    + 'to copy the widget provider config onto the node beside `objectName`, and nothing read it. Write '
+    + '`objectName` — the key the block fetches through.',
+  ),
+});
+
+/**
+ * The ONE refusal detail every `object-pivot` prop written flat on the node
+ * gets (objectui#11440). `aliasKeyRefusal` puts the key and its bag member in
+ * front of it: "Did you mean `rowField` → `properties.rowField`?".
+ */
+const OBJECT_PIVOT_FLAT_PROP =
+  'An `object-pivot` node takes its props in its `properties` bag: write `{ "type": "object-pivot", '
+  + '"properties": { "objectName": "…", "rowField": "…", "columnField": "…", "valueField": "…" } }` '
+  + '(objectui#11440). `@objectstack/spec`\'s own page component refuses a prop written on the node as '
+  + 'mis-layered (ADR-0089 D3a), so this face and `os validate` agree. The spec has no '
+  + '`ComponentPropsMap[\'object-pivot\']` row, so the bag\'s members are the registration\'s own inputs. Moving '
+  + 'it changes nothing at render time: `SchemaRenderer` hoists every `properties` key onto the node before '
+  + '`ObjectPivotTable` reads it.';
+
+/** objectui#11440 / objectui#9256: ONE refusal string for both content channels of `ObjectPivotBlockSchema`. */
+const OBJECT_PIVOT_NEITHER_CHANNEL =
+  'REFUSED (objectui#9256, ADR-0049) — `object-pivot` reads NEITHER content channel: its registration hands the '
+  + 'node through `ElementDataSourceGate` to `ObjectPivotTable`, which reads no `children` or `body` (nor does '
+  + 'the `PivotTable` it renders), and `SchemaRenderer` strips both out of the props bag it spreads. An authored '
+  + 'value would render NOTHING — no render-time error or warning and no element; only the parser tier\'s '
+  + '`not-a-container` warning (objectui#9910) noticed it (the registration declares no `children` input). What '
+  + 'it renders instead: a cross-tab of the records of `properties.objectName` — '
+  + '`rowField` down, `columnField` across, `valueField` aggregated by `aggregation`.';
+
+/**
+ * `object-pivot` — the AUTHORED node (objectui#11440, under the seat ruling
+ * `5945530142` on objectui#10859: "Passes the criterion").
+ *
+ * ## The defect this closes
+ *
+ * `@object-ui/plugin-dashboard` registers `object-pivot` (`ObjectPivotBlock`),
+ * ADR-0080 curates it in `PUBLIC_BLOCKS` Tier A, and no arm claimed it, so
+ * `safeValidateSchema`, and `objectui validate` with it, refused every
+ * document naming it with `invalid_union` at `type`.
+ *
+ * ## The construct
+ *
+ * The public-block construct of this module, the one `object-chart` uses for a
+ * block with no spec row: `BaseSchema` + the `type` literal + `NODE_ENVELOPE` +
+ * `properties` through `propsBag` + `flatPropRefusals` over the bag, so a
+ * member written FLAT on the node is refused by name toward `properties.KEY`
+ * (objectui#10872's triage answer A: the bag is the contract on a public
+ * block). The bag ({@link ObjectPivotPropsBag}) is built from the
+ * registration's `inputs`. The cross-tab members `rowField`, `columnField` and
+ * `valueField` are required there, so the bag is required here; `objectName`
+ * is required unless the node's `dataSource.object` names the object, because
+ * the registration is `elementDataSourceBlock`-wrapped and the gate lands the
+ * binding's object on `objectName` (`requireRecordSource`, keyed
+ * `RECORD_SOURCE_REQUIRED`). `dataSource` is the spec's
+ * `ElementDataSourceSchema` on the node, by reference, as on the other
+ * gate-wrapped arms here.
+ *
+ * Neither content channel is read, so both are refused by name (objectui#9256).
+ */
+export const ObjectPivotBlockSchema = BaseSchema.extend({
+  type: z.literal('object-pivot'),
+  ...NODE_ENVELOPE,
+  ...flatPropRefusals('object-pivot', ObjectPivotPropsBag, OBJECT_PIVOT_FLAT_PROP),
+  properties: ObjectPivotPropsBag.describe(
+    'The `object-pivot` props bag — the block\'s registration inputs (`objectName`, `title`, `rowField`, '
+      + '`columnField`, `valueField`, `aggregation`, `showRowTotals`, `showColumnTotals`, `filter`, `format`, '
+      + '`drillDown`). `@objectstack/spec` has no `ComponentPropsMap[\'object-pivot\']` row, so these are '
+      + 'objectui\'s own members (objectui#11440).',
+  ),
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
+  body: retirementTombstone(OBJECT_PIVOT_NEITHER_CHANNEL),
+  children: retirementTombstone(OBJECT_PIVOT_NEITHER_CHANNEL),
+}).superRefine(...requireRecordSource('object-pivot', ['objectName'], 'properties'));
+
+/**
+ * objectui#11440 — the `embeddable-form` props bag: exactly the block's
+ * registration `inputs` (`@object-ui/plugin-form`). `@objectstack/spec` has no
+ * `ComponentPropsMap['embeddable-form']` row, so these are objectui's own
+ * members, each typed as `EmbeddableFormConfig` (`@object-ui/plugin-form`)
+ * types it. `formId` is required there, so the bag is required on the node;
+ * `objectName` is required unless the node's `dataSource.object` names the
+ * object (the registration is gate-wrapped).
+ *
+ * The component reads more of its config than the registration publishes
+ * (`branding`, `thankYouPage`, the anti-spam keys and others). Those are not
+ * declared: the registration is the published surface, and nothing teaches
+ * them as JSON.
+ */
+const EmbeddableFormPropsBag = z.looseObject({
+  formId: z.string().describe('The form\'s identifier — submissions are recorded against it'),
+  objectName: z.string().optional().describe(OBJECT_NAME_BINDING_WAIVER_DESCRIPTION),
+  title: z.string().optional().describe('Form title, drawn above the fields'),
+  description: z.string().optional().describe('Instructions drawn under the title'),
+  fields: z
+    .array(z.string())
+    .optional()
+    .describe('Bare field names to show, in order, each looked up in the object schema'),
+  allowMultiple: z.boolean().optional().describe('Let one visitor submit more than once'),
+});
+
+/**
+ * The ONE refusal detail every `embeddable-form` prop written flat on the node
+ * gets (objectui#11440).
+ */
+const EMBEDDABLE_FORM_FLAT_PROP =
+  'An `embeddable-form` node takes its props in its `properties` bag: write `{ "type": "embeddable-form", '
+  + '"properties": { "formId": "…", "objectName": "…" } }` (objectui#11440). `@objectstack/spec`\'s own page '
+  + 'component refuses a prop written on the node as mis-layered (ADR-0089 D3a), so this face and `os validate` '
+  + 'agree. The spec has no `ComponentPropsMap[\'embeddable-form\']` row, so the bag\'s members are the '
+  + 'registration\'s own inputs. Moving it changes nothing at render time: `SchemaRenderer` hoists every '
+  + '`properties` key onto the node before `EmbeddableForm` reads it.';
+
+/** objectui#11440 / objectui#9256: ONE refusal string for both content channels of `EmbeddableFormBlockSchema`. */
+const EMBEDDABLE_FORM_NEITHER_CHANNEL =
+  'REFUSED (objectui#9256, ADR-0049) — `embeddable-form` reads NEITHER content channel: its registration hands '
+  + 'the node through `ElementDataSourceGate` to `EmbeddableForm` as its `config`, which reads no `children` or '
+  + '`body`, and `SchemaRenderer` strips both out of the props bag it spreads. An authored value would render '
+  + 'NOTHING — no render-time error or warning and no element; only the parser tier\'s `not-a-container` warning '
+  + '(objectui#9910) noticed it (the registration declares no `children` input). What it renders instead: a '
+  + 'standalone public form over `properties.objectName`, its fields from '
+  + 'the object schema (or `properties.fields`).';
+
+/**
+ * `embeddable-form` — the AUTHORED node (objectui#11440, under the seat ruling
+ * `5945530142` on objectui#10859: "Passes the criterion").
+ *
+ * `@object-ui/plugin-form` registers it (`EmbeddableFormRenderer`), ADR-0080
+ * curates it in `PUBLIC_BLOCKS` Tier A, and no arm claimed it, so every
+ * document naming it was refused with `invalid_union` at `type`. Built as
+ * {@link ObjectPivotBlockSchema} above: the bag is the contract, a member
+ * written flat is refused by name toward `properties.KEY`, `dataSource` is the
+ * spec's binding on the node, and neither content channel is read.
+ */
+export const EmbeddableFormBlockSchema = BaseSchema.extend({
+  type: z.literal('embeddable-form'),
+  ...NODE_ENVELOPE,
+  ...flatPropRefusals('embeddable-form', EmbeddableFormPropsBag, EMBEDDABLE_FORM_FLAT_PROP),
+  properties: EmbeddableFormPropsBag.describe(
+    'The `embeddable-form` props bag — the block\'s registration inputs (`formId`, `objectName`, `title`, '
+      + '`description`, `fields`, `allowMultiple`). `@objectstack/spec` has no '
+      + '`ComponentPropsMap[\'embeddable-form\']` row, so these are objectui\'s own members (objectui#11440).',
+  ),
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(ELEMENT_DATA_SOURCE_BINDING_DESCRIPTION),
+  body: retirementTombstone(EMBEDDABLE_FORM_NEITHER_CHANNEL),
+  children: retirementTombstone(EMBEDDABLE_FORM_NEITHER_CHANNEL),
+}).superRefine(...requireRecordSource('embeddable-form', ['objectName'], 'properties'));
+
+/**
  * The public blocks above, as one arm of `AnyComponentSchema`
  * (objectui#10859, batches 2 to 6).
  *
@@ -4600,6 +4814,11 @@ export const ObjectGridBlockSchema = BaseSchema.extend({
  * `object-form`: its TypeScript twin is the node as `ObjectGrid` reads it after
  * the hoist, and its flat mirror keeps building the `object-view` `table` slot.
  *
+ * `object-pivot` and `embeddable-form` joined in objectui#11440, two more arms
+ * with NO spec row and, unlike `object-chart`, no flat mirror either: each bag
+ * is built from the block's registration `inputs`, and no TypeScript
+ * declaration in this package restates the node.
+ *
  * Each arm also spreads `NODE_ENVELOPE` from `./public-blocks.zod.ts`,
  * the node-level `responsiveStyles` every public block declares by reference to
  * the spec's `PageComponentSchema` (objectui#10872 batch 8) — the same one
@@ -4615,4 +4834,7 @@ export const ObjectQLPublicBlockComponentSchema = z.discriminatedUnion('type', [
   ObjectChartBlockSchema,
   ObjectGanttBlockSchema,
   ObjectGridBlockSchema,
+  // objectui#11440 — two Tier A public blocks with no spec row; bags from their registration inputs.
+  ObjectPivotBlockSchema,
+  EmbeddableFormBlockSchema,
 ]);

@@ -76,15 +76,19 @@ import { validate } from '../commands/validate.js';
  * more, see `UNREGISTERED_10859_BATCH_8_PHASE_2C`; objectui#11441, run as one
  * more batch of this card: minus `navigation-renderer` and `responsive-grid`,
  * see `UNREGISTERED_11441`; batch 8 phase 2d: minus the ten `sidebar-*`
- * primitives, see `UNREGISTERED_10859_BATCH_8_PHASE_2D`). LOWER it when a batch
- * arms or retires more keys; never raise it.
+ * primitives, see `UNREGISTERED_10859_BATCH_8_PHASE_2D`; objectui#11440: minus
+ * the seven keys its first pull request armed, see `ARMED_11440`). LOWER it
+ * when a batch arms or retires more keys; never raise it.
  *
- * The 8 that remain are named in `STILL_REFUSED_10859`, and the row below
+ * The 1 that remains is named in `STILL_REFUSED_10859`, and the row below
  * pins the refused set to exactly that list, so this comment cannot drift from
- * the measurement. They are the eight the seat ruling left registered —
- * `object-pivot`, `embeddable-form`, `detail-section`, `home`, `record`,
- * `utility`, `spec-report` and `app-schema-renderer` (objectui#11440, which
- * arms them).
+ * the measurement. It is `spec-report`, the eighth key the seat ruling left
+ * registered: an alias of `report`, retired there in the ruling's step order
+ * (`report` declares the wrapper shape `spec-report` carries, the dashboard's
+ * drill drawer moves to `report`, then the alias goes), in objectui#11440's
+ * second pull request. The other seven — `object-pivot`, `embeddable-form`,
+ * `detail-section`, `home`, `record`, `utility` and `app-schema-renderer` —
+ * are armed.
  *
  * `navigation-renderer` and `responsive-grid`, the two the seat sent to the
  * maintainer, were ruled B / B on objectui#11441 (record `5950208338`) and are
@@ -110,7 +114,7 @@ import { validate } from '../commands/validate.js';
  * last 2 waiting on objectui#11441. That card ran first, so the count is 8
  * after phase 2d, and objectui#11440 then takes it to 0.
  */
-const REFUSED_AT_TYPE = 8;
+const REFUSED_AT_TYPE = 1;
 
 /**
  * The head's refused count over the NAMESPACED keys (objectui#10872 batch 1:
@@ -132,7 +136,8 @@ const REFUSED_AT_TYPE = 8;
  * twins of the two keys it unregistered; objectui#10859 batch 8 phase 2d: minus
  * the ten `ui:sidebar-*` twins of the ten `sidebar-*` primitives it
  * unregistered). LOWER it when a batch arms or retires more keys; never raise
- * it.
+ * it. objectui#11440 armed seven bare keys and none of their namespaced twins
+ * (`ARMED_11440` maps each to its twins), so it does not move this pin.
  */
 const NAMESPACED_REFUSED_AT_TYPE = 362;
 
@@ -250,14 +255,28 @@ const UNREGISTERED_10859_BATCH_8_PHASE_2D = {
 } as const;
 
 /**
- * Every bare key still refused at `type` after objectui#11441 and objectui#10859
- * batch 8 phase 2d — the `REFUSED_AT_TYPE` docblock says why each is still
- * here. Alphabetical.
+ * The seven bare keys objectui#11440's first pull request ARMED (the seat
+ * ruling `5945530142`, as amended by `5945583855`), each mapped to its
+ * namespaced twins. A twin is a separate registry key with its own literal, so
+ * arming the bare key does not arm it: each twin is still refused at `type`,
+ * and `NAMESPACED_REFUSED_AT_TYPE` does not move. The three page kinds are
+ * registered in the `ui` namespace by `@object-ui/components`.
  */
-const STILL_REFUSED_10859 = [
-  'app-schema-renderer', 'detail-section', 'embeddable-form', 'home',
-  'object-pivot', 'record', 'spec-report', 'utility',
-] as const;
+const ARMED_11440 = {
+  home: ['ui:home'],
+  record: ['ui:record'],
+  utility: ['ui:utility'],
+  'app-schema-renderer': ['layout:app-schema-renderer'],
+  'object-pivot': ['plugin-dashboard:object-pivot'],
+  'embeddable-form': ['plugin-form:embeddable-form'],
+  'detail-section': ['plugin-detail:detail-section'],
+} as const;
+
+/**
+ * Every bare key still refused at `type` after objectui#11440's first pull
+ * request — the `REFUSED_AT_TYPE` docblock says why it is still here.
+ */
+const STILL_REFUSED_10859 = ['spec-report'] as const;
 
 /** Is `type` unclaimed by every arm of the validator's root union? */
 function refusedAtType(type: string): boolean {
@@ -397,8 +416,8 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
     }
     // Lit controls: `grid`, the spelling the `responsive-grid` retirement
     // points authors to, is registered and claimed; `app-schema-renderer`, the
-    // whole-shell door navigation goes through, stays registered (and refused,
-    // until objectui#11440 arms it).
+    // whole-shell door navigation goes through, stays registered (armed since
+    // objectui#11440).
     expect(BARE_KEYS).toContain('grid');
     expect(refusedAtType('grid')).toBe(false);
     expect(BARE_KEYS).toContain('app-schema-renderer');
@@ -420,6 +439,24 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
     expect(BARE_KEYS).toContain('sidebar');
     expect(refusedAtType('sidebar')).toBe(false);
     expect(NAMESPACED_KEYS).toContain('ui:sidebar');
+  });
+
+  it('counts the seven keys objectui#11440 armed, and none of their namespaced twins (objectui#10859)', () => {
+    expect(Object.keys(ARMED_11440)).toHaveLength(7);
+    for (const [key, twins] of Object.entries(ARMED_11440)) {
+      // Armed: still registered, and claimed by an arm.
+      expect(BARE_KEYS, key).toContain(key);
+      expect(refusedAtType(key), key).toBe(false);
+      // The twin is its own literal, so the bare arm does not claim it.
+      for (const twin of twins) {
+        expect(NAMESPACED_KEYS, twin).toContain(twin);
+        expect(refusedAtType(twin), twin).toBe(true);
+      }
+    }
+    // Lit control: the eighth key, `spec-report`, is still registered and
+    // still refused, until objectui#11440's second pull request retires it.
+    expect(BARE_KEYS).toContain('spec-report');
+    expect(refusedAtType('spec-report')).toBe(true);
   });
 
   it('the refused set is exactly the named remainder — the pin comment cannot drift (objectui#10859 batch 8)', () => {

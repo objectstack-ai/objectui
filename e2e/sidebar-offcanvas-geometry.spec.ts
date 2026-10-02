@@ -112,6 +112,10 @@ function fixtures(): Plugin {
     '@object-ui/react': STUB_REACT,
     '@object-ui/i18n': STUB_I18N,
     '@object-ui/components': STUB_COMPONENTS,
+    // The entry reads the registry stub under its own name, so this file holds
+    // no import statement naming a workspace package (the premise
+    // `scripts/__tests__/e2e-type-check.test.ts` pins for `e2e/`).
+    'sidebar-geometry:core': STUB_CORE,
     'sidebar-geometry:entry': ENTRY,
   };
   const at = (file: string) => JSON.stringify(file);
@@ -132,7 +136,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { MemoryRouter } from 'react-router-dom';
 import { SidebarProvider, Sidebar, SidebarRail, SidebarInset } from ${at(SIDEBAR_PRIMITIVE)};
 import ${at(SIDEBAR_NODE)};
-import { registered } from '@object-ui/core';
+import { registered } from 'sidebar-geometry:core';
 import { SidebarNav } from ${at(SIDEBAR_NAV)};
 
 const h = React.createElement;

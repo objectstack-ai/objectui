@@ -29,5 +29,6 @@ The page and report designers, and all three canvases, draw the members their no
 - `data-model-designer` adds `canvas` and `showRelationshipLabels`.
 - `process-designer` adds `version`, `lanes` and `canvas`.
 - `report-designer` adds `pageSize` and `orientation` (enumerated), and `margins`.
+- Every designer row that was typed `code` is now declared by its value's kind: `page-designer` `canvas` (object) and `components`, `data-model-designer` `entities` / `relationships`, `process-designer` `nodes` / `edges`, `report-designer` `sections`, `object-manager` `objects` and `field-designer` `fields` (each an array). A `code` row is judged as a string, so a legal value drew `type-mismatch` ("expected a string"); none does now.
 
 Each was a member the component already read. The html-tier page compiler, which builds its manifest from every known registration, warned it off as an `unknown-prop`. Each added row declares the kind its value has (`array`, `object`, `enum` or `string`), so a legal value draws no `type-mismatch` either. `object-manager` and `field-designer` already listed theirs.

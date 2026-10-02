@@ -47,32 +47,17 @@
  * already has (see {@link OptionLabelTranslator} there for why an i18n-resolved
  * string always arrives as an ARGUMENT rather than being read here).
  *
- * ## Two entry points, because the two surfaces declared axes differently
+ * ## No axis is lowered here
  *
- * A dashboard widget's `chartConfig` spelled its axes as spec `ChartAxis`
- * OBJECTS. A report's `chart.xAxis` / `chart.yAxis` are bare dimension/measure
- * NAME strings — on that surface the axes are pure DATA (they ARE the selection)
- * and carry no presentation at all. So:
- *
- *  - {@link mergeAuthoredPresentation} is the object-axis entry point: series
- *    merge + axis presentation, for a caller whose axes are `ChartAxis` objects.
- *    ⚠️ It has NO production caller since objectui#11315. Its one carrier was
- *    the dashboard widget's `chartConfig`, and spec 17.5.0 retired `xAxis`,
- *    `yAxis` and `series` there (above), so `DatasetWidget` no longer calls it.
- *    The react `ObjectChart` tier, where the spec keeps the keys authorable,
- *    never called it: an inline-data chart's axes and series ARE its bindings,
- *    and `normalizeChartSchema` in `@object-ui/plugin-charts` reads them off
- *    the chart schema directly.
- *  - {@link mergeAuthoredSeries} is the series merge ALONE, for a caller whose
- *    axes are names: `plugin-report`'s dataset report chart, whose
- *    `ReportChartSchema.series` is still live. That split is structural, not a
- *    guard: handing a bare string to {@link mergeAuthoredPresentation} would
- *    run it through
- *    `axisPresentation`, which reads nothing off a string and would synthesise a
- *    `yAxis: [{}]` entry — a y-axis declaring nothing but its own existence,
- *    which is precisely how the COUNT of entries turns on a secondary axis. A
- *    surface that cannot author axis presentation should not be able to reach
- *    the code that reads it.
+ * This module lowers series presentation ({@link mergeAuthoredSeries}) and the
+ * chart chrome ({@link chartConfigPresentation}), and no axis. A report's
+ * `chart.xAxis` / `chart.yAxis` are bare dimension/measure NAME strings — pure
+ * DATA (they ARE the selection) with no presentation to lower — and the react
+ * `ObjectChart` tier hands its own `ChartAxis` objects to `normalizeChartSchema`
+ * in `@object-ui/plugin-charts`, which reads them off the chart schema
+ * directly. The object-axis lowering that lived here served only the dashboard
+ * widget's `chartConfig`, which carries no axes since spec 17.5.0
+ * (objectui#11315); with no caller left it was removed (objectui#11372).
  */
 
 import type { I18nLabel } from '@objectstack/spec/ui';
@@ -102,10 +87,9 @@ const isRecord = (v: unknown): v is Record<string, unknown> =>
  * An i18n label is a plain string or a `{ en, zh-CN, … }` record; charts render
  * a string.
  *
- * ⚠️ Its one remaining caller is {@link seriesPresentation}'s `label`. The axis
- * `title` read this too until `061f5e829` and no longer does — a slot whose
- * value reaches the DOM unchanged cannot be served by a pick, and that one had
- * no overriding caller (see {@link axisPresentation}).
+ * ⚠️ Its one caller is {@link seriesPresentation}'s `label`. An axis `title`
+ * read this too until `061f5e829` moved it off the pick, and the axis lowering
+ * itself is gone since objectui#11372 (file header).
  *
  * **First-string-wins, deliberately, and deliberately NOT locale-aware** — this
  * package is React-free and holds no i18n provider, so it cannot know which
@@ -125,10 +109,7 @@ function labelText(v: unknown): string | undefined {
 
 /**
  * An authored `I18nLabel` that travels to the renderer **unresolved** — the
- * chart's own `title` / `subtitle` / `description` (objectui#9038), and an
- * axis's `title` (`061f5e829`, which moved that one arm off
- * {@link labelText}; see {@link axisPresentation} for why it was never covered
- * by the ledger the pick rests on).
+ * chart's own `title` / `subtitle` / `description` (objectui#9038).
  *
  * ## Why this does not resolve, and why that is not {@link labelText}'s answer
  *
@@ -220,63 +201,9 @@ export function seriesPresentation(raw: Record<string, unknown>): AuthoredSeries
 }
 
 /**
- * One authored `ChartAxis`, minus its `field` — the axis's presentation.
- *
- * `field` is the one DATA key on an axis (it names the plotted column), and
- * dropping it here is what keeps membership with the dataset **structurally**
- * rather than by a guard: `normalizeChartSchema` synthesises series out of
- * `yAxis[].field` when a chart declares no series, so a forwarded `field`
- * would be a live membership channel on an empty selection. With it gone the
- * axis carries scale and chrome only, and the count of entries — which is what
- * turns on the secondary axis (`yAxes.length > 1`) — survives, including for
- * an entry that declares nothing but its own existence.
- *
- * Which of these keys survive onto each axis is decided by
- * `normalizeChartSchema`, the ONE normalization layer (#2880 S1), and is
- * deliberately neither mirrored nor restated here: a second copy drifts from
- * the renderer's real capability the moment it moves — this paragraph's own
- * spelled-out x-axis answer did, at objectui#10516. The x-axis rule is pinned
- * in plugin-charts by `normalizeChartSchema.xAxisPresentationGate-10516.test.ts`.
- */
-export function axisPresentation(raw: unknown): Record<string, unknown> {
-  const out: Record<string, unknown> = {};
-  if (!isRecord(raw)) return out;
-  // `title` is FORWARDED, not picked (`061f5e829`). `ChartAxisSchema.title`
-  // is the spec's `I18nLabel`, and collapsing it here with `labelText` handed
-  // the axis whichever limb the author happened to type FIRST — measured both
-  // ways round on one map: English to a `zh-CN` viewer, Chinese to an `en` one.
-  // `normalizeChartSchema` already resolves an axis title through
-  // `pickLocalized` against the language `ChartRenderer` reads, so the map only
-  // has to survive this lowering to reach a resolver that was there all along;
-  // see {@link forwardedI18nLabel} for why THIS package cannot resolve it.
-  //
-  // This is the one entry of the objectui#4020 ledger that moved. Its
-  // justification — "a locale-unaware pick a caller can OVERRIDE" — holds for a
-  // series `label` (the report renderer, its one caller since objectui#11315,
-  // outranks it with objectui#4020's three-level display name) and
-  // never held here: nothing overrides an axis title, it is spread onto the
-  // chart schema and drawn. {@link seriesPresentation} keeps the pick.
-  const title = forwardedI18nLabel(raw.title);
-  if (title) out.title = title;
-  if (typeof raw.format === 'string' && raw.format) out.format = raw.format;
-  if (typeof raw.min === 'number' && Number.isFinite(raw.min)) out.min = raw.min;
-  if (typeof raw.max === 'number' && Number.isFinite(raw.max)) out.max = raw.max;
-  if (typeof raw.stepSize === 'number' && Number.isFinite(raw.stepSize) && raw.stepSize > 0) {
-    out.stepSize = raw.stepSize;
-  }
-  if (typeof raw.showGridLines === 'boolean') out.showGridLines = raw.showGridLines;
-  if (raw.position === 'left' || raw.position === 'right' || raw.position === 'top' || raw.position === 'bottom') {
-    out.position = raw.position;
-  }
-  if (typeof raw.logarithmic === 'boolean') out.logarithmic = raw.logarithmic;
-  return out;
-}
-
-/**
  * Merge an authored `series[]` array's PRESENTATION onto the bindings the
- * dataset selection derived — the series half of #4229's split, and the whole
- * of it for a surface whose axes are names rather than objects (see the file
- * header).
+ * dataset selection derived — the series half of #4229's split, and the only
+ * half this module lowers (see the file header).
  *
  * The match rule is **by name/key**: an authored `series[].name` is paired with
  * the derived binding whose `dataKey` it equals, and the pairing decides
@@ -316,50 +243,6 @@ export function mergeAuthoredSeries(
     const entry = authored.get(s.dataKey);
     return entry ? { ...s, ...seriesPresentation(entry) } : s;
   });
-}
-
-/**
- * Merge an authored chart config's PRESENTATION onto the series and axes the
- * dataset selection derived — the one place that happens for a surface whose
- * axes are spec `ChartAxis` OBJECTS (#4229).
- *
- * The series half is {@link mergeAuthoredSeries}; see it for the match rule and
- * for why membership is safe. The axes half reads `xAxis` / `yAxis` through
- * {@link axisPresentation}, which is why a surface spelling those as bare NAME
- * strings must call `mergeAuthoredSeries` directly instead (file header).
- *
- * ⚠️ Not called by `DatasetWidget` since objectui#11315. A dashboard widget's
- * `chartConfig` refuses `series` / `xAxis` / `yAxis` at parse since spec
- * 17.5.0, and the renderer no longer reads them off that carrier either, so a
- * stored widget that still carries them renders the dataset's own derivation.
- * Nothing else in this repository calls it (file header).
- *
- * @param derived the bindings {@link buildChartSeries} produced from the selection
- * @param raw the authored chart config (anything, incl. absent)
- * @returns the merged series, plus the presentation-only axes to spread onto
- *   the chart schema (absent when the author declared none)
- */
-export function mergeAuthoredPresentation(
-  derived: ChartSeriesBinding[],
-  raw: unknown,
-): { series: MergedChartSeries[]; axes: Record<string, unknown> } {
-  const config: Record<string, unknown> = isRecord(raw) ? raw : {};
-  const series = mergeAuthoredSeries(derived, config.series);
-
-  const axes: Record<string, unknown> = {};
-  const xAxis = axisPresentation(config.xAxis);
-  if (Object.keys(xAxis).length > 0) axes.xAxis = xAxis;
-  // The COUNT of y-axis entries is itself presentation — it is what declares a
-  // secondary axis — so every declared entry keeps its slot even when it
-  // carries nothing but `field` (which is data and does not travel).
-  const yAxisRaw = Array.isArray(config.yAxis)
-    ? config.yAxis
-    : config.yAxis !== undefined
-      ? [config.yAxis]
-      : [];
-  if (yAxisRaw.length > 0) axes.yAxis = yAxisRaw.map(axisPresentation);
-
-  return { series, axes };
 }
 
 /**
@@ -418,9 +301,9 @@ export function mergeAuthoredPresentation(
  * ⚠️ LEDGERED, by name, as still unresolved after objectui#9038 — not in
  * that card's scope and not reached by the change above:
  *
- *  - **A series `label` and an axis `title`** still go through
- *    {@link labelText}'s first-string-wins pick, the design objectui#4020
- *    ledgered and a caller can override. Not reopened here.
+ *  - **A series `label`** still goes through {@link labelText}'s
+ *    first-string-wins pick, the design objectui#4020 ledgered and a caller
+ *    can override. Not reopened here.
  *
  * ✓ CLEARED, objectui#9150 — **the report renderer's own heading.**
  * `DatasetReportChart` (`@object-ui/plugin-report`) still drops `title` from

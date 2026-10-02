@@ -5000,6 +5000,11 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // reference (the axis config object `ChartConfigSchema` declares), so a spec
   // bump that moves the axis vocabulary moves ONE side of this pair.
   'data-display.zod.ts#ChartSchema',
+  // objectui#11506: the inline arm of `report` is the spec's `ReportSchema` by
+  // reference (`DrillDownReportSchema`, the same member `ReportNodeSchema`
+  // declares on the `report` node the drill drawer wraps it in), so a spec bump
+  // that moves the report vocabulary moves ONE side of this pair.
+  'data-display.zod.ts#DrillDownConfigSchema',
   // objectui#11070: nine of the field-metadata members a hand-authored form
   // writes on the entry itself are the spec's `FieldSchema` members by
   // reference (`multiple`, `rows`, `accept`, `dimensions`, `reference`, `min`,

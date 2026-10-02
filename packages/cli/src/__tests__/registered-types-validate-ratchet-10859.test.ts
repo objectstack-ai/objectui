@@ -447,7 +447,8 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
 
   it('reads the whole generated namespaced population (non-vacuity)', () => {
     // The floor was 400 until objectui#10859 batch 8 phase 2d unregistered the
-    // ten `ui:sidebar-*` twins (393 namespaced keys after it).
+    // ten `ui:sidebar-*` twins (391 namespaced keys once objectui#11441 had
+    // unregistered its two `layout:` twins as well).
     expect(NAMESPACED_KEYS.length).toBeGreaterThan(350);
     // Lit control: the one namespaced key armed before objectui#10872.
     expect(NAMESPACED_KEYS).toContain('ui:calendar');

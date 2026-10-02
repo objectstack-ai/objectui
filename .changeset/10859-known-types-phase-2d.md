@@ -8,6 +8,6 @@ chore(cli)!: the generated known-types list drops the ten `sidebar-*` node type 
 
 Migration: author the `sidebar` node, which now mounts its own provider when its host has none, and put the parts' content in its `children`. `@object-ui/components`' changeset for this phase lists the move per spelling.
 
-The registered-types ratchet (`REFUSED_AT_TYPE`) falls from 20 to 10, and its namespaced twin from 374 to 364.
+objectui#11441 retired its two layout keys first, so on that base this change takes the registered-types ratchet (`REFUSED_AT_TYPE`) from 18 to 8, and its namespaced twin from 372 to 362.
 
 **Clause-②: yes**, released as `minor` with this banner.

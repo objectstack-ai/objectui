@@ -128,7 +128,14 @@ category its language has (`en` `_one`/`_other`; `ru` adds `_few`/`_many`; `ar`
 has all six), plus a count-invariant base key for a call made without a count.
 
 ```tsx
-t('detail.replyCount', { count: replies.length }); // "1 reply", "3 replies", «3 ответа»
+import { useObjectTranslation } from '@object-ui/i18n';
+
+function ReplyCount({ replies }: { replies: readonly string[] }) {
+  const { t } = useObjectTranslation();
+
+  // "1 reply", "3 replies"; Russian «3 ответа», «5 ответов»
+  return <span>{t('detail.replyCount', { count: replies.length })}</span>;
+}
 ```
 
 Pass `count` as a **number** — i18next selects a slot for nothing else — and

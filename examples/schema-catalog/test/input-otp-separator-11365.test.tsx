@@ -35,6 +35,7 @@ import { render } from '@testing-library/react';
 // Module scope, not a hook: registering the renderers is an unbounded module
 // load (AGENTS.md, test discipline — flaky tests: find the race).
 import '@object-ui/components';
+import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer, toRenderableSchema } from '@object-ui/react';
 import { safeValidateSchema, StrictAnyComponentSchema } from '@object-ui/types/zod';
 import { getExample } from '../src/index.js';
@@ -85,6 +86,16 @@ describe('objectui#11365 — the authored `separator` draws one InputOTPSeparato
     const container = renderNode(getExample('components-form-input-otp/6-digit-otp').schema);
     expect(container.querySelectorAll('[role="separator"]')).toHaveLength(0);
     expect(groupSizes(container)).toEqual([6]);
+  });
+
+  it('the registration publishes `separator` as a boolean input', () => {
+    // `inputs` is the html/jsx page tier's prop whitelist: without this row,
+    // `separator` on an `input-otp` tag draws an `unknown-prop` warning on a
+    // key the renderer honours (measured once on objectui#11365's PR).
+    const inputs = ComponentRegistry.getMeta('input-otp')?.inputs ?? [];
+    expect(inputs.filter((i) => i.name === 'separator')).toEqual([
+      expect.objectContaining({ name: 'separator', type: 'boolean' }),
+    ]);
   });
 
   it('`separator: false` renders the same markup as no `separator` at all', () => {

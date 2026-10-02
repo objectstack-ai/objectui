@@ -1172,10 +1172,10 @@ const fr = {
     highlightsLabel: "Champs clés de l'enregistrement",
     createdBy: "Créé par",
     updatedBy: "Mis à jour par",
-    // objectui#3863 — base key. fr has a third category, `many`, which CLDR uses from
-    // a million up; the plural form is correct there, so the base repeats `_other`
-    // rather than restructuring (unlike ru/ar, whose unenumerated categories cover
-    // everyday counts).
+    // objectui#3863 — base key, answering only a call made without a count. fr's
+    // third category, `many` (exact millions), has its own slot since objectui#11432;
+    // here it repeats `_other` because the count governs no noun ("de" goes before a
+    // noun complement, and this label has none).
     showEmptyRelated: "+ {{count}} vides",
     showEmptyRelated_one: "+ {{count}} vide",
     showEmptyRelated_many: "+ {{count}} vides",
@@ -3125,9 +3125,10 @@ const fr = {
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
-  //                   FAMILIES (base key + `_one`): i18next resolves every
-  //                   CLDR category a pack does not enumerate to the base key,
-  //                   which is what keeps ru/ar in their own language.
+  //                   FAMILIES: one slot per CLDR category the pack's language
+  //                   selects (objectui#11432), plus the base key for a call
+  //                   made without a count. `all-locales-key-parity.test.ts`
+  //                   derives the required slots from `Intl.PluralRules`.
   //
   // objectui#7481 — five `tool.*` entries are NEWER than the registry above:
   // `get_authoring_rules` (cloud#1837), `load_tools`, `open_record`, `test_flow`

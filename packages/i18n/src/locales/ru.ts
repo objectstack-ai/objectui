@@ -32,15 +32,14 @@ const ru = {
       other: 'Другое',
     },
   },
-  // objectui#3546 slice six — сводка шести граней авторизации в
-  // PermissionFacetLink (только чтение) плюс ссылка в Studio.
+  // objectui#3546 slice six — the read-only summary of PermissionFacetLink's six
+  // authorization facets, plus the Studio link.
   //
-  // Четыре счётных значения записаны как «Существительное: {{count}}» — этот
-  // приём в паке уже применён 25 раз (lookup.recordCount, notifications.
-  // groupCount, approvalsInbox.bulkApproved …) и он верен при ЛЮБОМ числе, так
-  // что для категорий few/many, которых в паке нет, базовый ключ даёт
-  // правильный русский, а не английский. Поэтому `_one` здесь совпадает с
-  // базовым ключом — форма не зависит от числа.
+  // The four count labels carry one slot per ru CLDR category (objectui#11432):
+  // `_one` 1/21/31… (nominative singular), `_few` 2-4/22-24… (genitive singular),
+  // `_many` 0/5-20… (genitive plural), `_other` fractions (genitive singular).
+  // The base key keeps the count-invariant «Существительное: {{count}}» form for
+  // a call made without a count.
   perm: {
     facet: {
       none: "Нет",
@@ -1193,12 +1192,11 @@ const ru = {
     deleteRowTitle: "Удалить запись",
     createdBy: "Создано",
     updatedBy: "Обновлено",
-    // objectui#3863 — base key, and in ru this is the slot users actually hit: `few`
-    // (2-4) and `many` (5-20, 25-30, …) are unenumerated, so before this key those
-    // counts rendered ENGLISH. The value therefore cannot agree with the numeral —
-    // it uses the «Существительное: {{count}}» form this pack already writes 22 times
-    // (lookup.recordCount `Записей: {{count}}`, notifications.groupCount), which is
-    // correct for EVERY Russian count. `_one` keeps the agreeing form for 1/21/31/…
+    // objectui#3863 — base key, answering only a call made without a count: since
+    // objectui#11432 every ru category has its own slot — `_one` 1/21/31…, `_few`
+    // 2-4/22-24… and `_many` 0/5-20… (genitive plural after the substantivised
+    // adjective in both), `_other` fractions (genitive singular). The base keeps the
+    // count-invariant «Существительное: {{count}}» form.
     showEmptyRelated: "+ Пустых: {{count}}",
     showEmptyRelated_one: "+ {{count}} пустое",
     showEmptyRelated_few: "+ {{count}} пустых",
@@ -3164,9 +3162,10 @@ const ru = {
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
-  //                   FAMILIES (base key + `_one`): i18next resolves every
-  //                   CLDR category a pack does not enumerate to the base key,
-  //                   which is what keeps ru/ar in their own language.
+  //                   FAMILIES: one slot per CLDR category the pack's language
+  //                   selects (objectui#11432), plus the base key for a call
+  //                   made without a count. `all-locales-key-parity.test.ts`
+  //                   derives the required slots from `Intl.PluralRules`.
   //
   // objectui#7481 — five `tool.*` entries are NEWER than the registry above:
   // `get_authoring_rules` (cloud#1837), `load_tools`, `open_record`, `test_flow`

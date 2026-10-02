@@ -32,13 +32,15 @@ const ar = {
       other: 'أخرى',
     },
   },
-  // objectui#3546 slice six — ملخص للقراءة فقط لأوجه التخويل الستة في
-  // PermissionFacetLink، مع رابط التصميم في Studio.
+  // objectui#3546 slice six — the read-only summary of PermissionFacetLink's six
+  // authorization facets, plus the Studio link.
   //
-  // صيغة العدد تتبع نمط الحزمة نفسه: «{{count}} مفرد(جمع)» كما في
-  // appDesigner.objectManager.fieldCount و table.modified. المفتاح الأساسي هو
-  // ما تلجأ إليه فئات two/few/many/zero غير المعرّفة، فيظل النص عربيًا.
-  // لا نعكس سهم روابط الإجراء: يبقى كما في en، مثل marketplace.browseLink.
+  // The four count labels carry one slot per ar CLDR category (objectui#11432):
+  // `_zero` and `_other` (100-102…) singular, `_one`, `_two` the dual with the
+  // numeral in parentheses, `_few` (3-10) plural, `_many` (11-99) accusative
+  // singular. The base key keeps the «{{count}} مفرد(جمع)» marker for a call made
+  // without a count. The action-link arrow is not mirrored: it stays as in en,
+  // like marketplace.browseLink.
   perm: {
     facet: {
       none: "لا شيء",
@@ -1204,11 +1206,11 @@ const ar = {
     highlightsLabel: "الحقول الرئيسية للسجل",
     createdBy: "أنشأه",
     updatedBy: "حدّثه",
-    // objectui#3863 — base key, and in ar this is the slot users actually hit: `zero`,
-    // `two` (2), `few` (3-10) and `many` (11-99) are unenumerated, so before this key
-    // those counts rendered ENGLISH. It uses the «{{count}} مفرد(جمع)» marker this
-    // pack writes throughout (perm.facet.objects, and the sibling toggle
-    // showEmptyFields below), which reads correctly for every count.
+    // objectui#3863 — base key, answering only a call made without a count: since
+    // objectui#11432 every ar category has its own slot — `_zero` and `_other`
+    // (100+) singular, `_two` dual with the numeral in parentheses, `_few` (3-10)
+    // the plural agreement, `_many` (11-99) accusative singular. The adjective
+    // agrees with the masculine noun it stands for, as `_one` does.
     showEmptyRelated: "+ {{count}} فارغ(فارغة)",
     showEmptyRelated_zero: "+ {{count}} فارغ",
     showEmptyRelated_one: "+ {{count}} فارغ",
@@ -3186,9 +3188,10 @@ const ar = {
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
-  //                   FAMILIES (base key + `_one`): i18next resolves every
-  //                   CLDR category a pack does not enumerate to the base key,
-  //                   which is what keeps ru/ar in their own language.
+  //                   FAMILIES: one slot per CLDR category the pack's language
+  //                   selects (objectui#11432), plus the base key for a call
+  //                   made without a count. `all-locales-key-parity.test.ts`
+  //                   derives the required slots from `Intl.PluralRules`.
   //
   // objectui#7481 — five `tool.*` entries are NEWER than the registry above:
   // `get_authoring_rules` (cloud#1837), `load_tools`, `open_record`, `test_flow`

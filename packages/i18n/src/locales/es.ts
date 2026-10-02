@@ -1176,8 +1176,9 @@ const es = {
     updatedBy: "Actualizado por",
     created: "Creado",
     updated: "Actualizado",
-    // objectui#3863 — base key. es's third category `many` starts at a million, where
-    // the plural form is correct, so the base repeats `_other`.
+    // objectui#3863 — base key, answering only a call made without a count. es's
+    // `many` (exact millions) has its own slot since objectui#11432; it repeats
+    // `_other` here because the count governs no noun complement.
     showEmptyRelated: "+ {{count}} vacíos",
     showEmptyRelated_one: "+ {{count}} vacío",
     showEmptyRelated_many: "+ {{count}} vacíos",
@@ -3127,9 +3128,10 @@ const es = {
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
-  //                   FAMILIES (base key + `_one`): i18next resolves every
-  //                   CLDR category a pack does not enumerate to the base key,
-  //                   which is what keeps ru/ar in their own language.
+  //                   FAMILIES: one slot per CLDR category the pack's language
+  //                   selects (objectui#11432), plus the base key for a call
+  //                   made without a count. `all-locales-key-parity.test.ts`
+  //                   derives the required slots from `Intl.PluralRules`.
   //
   // objectui#7481 — five `tool.*` entries are NEWER than the registry above:
   // `get_authoring_rules` (cloud#1837), `load_tools`, `open_record`, `test_flow`

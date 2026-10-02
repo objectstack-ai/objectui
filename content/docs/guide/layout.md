@@ -220,27 +220,29 @@ and `button.tsx`, which reads `schema.label`, renders a button with no text.
 
   // Content
   children: SchemaNode,            // Main page content
-  
-  // Layout options
-  maxWidth?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full',
-  padding?: boolean,           // Add padding (default: true)
-  
+
+  // Layout
+  pageType?: 'record' | 'home' | 'app' | 'utility' | 'list',  // default 'record'; sets the content's max width
+  // NO `maxWidth` — refused by name (objectui#11318); use `pageType`, or a `container` in `children`
+  // NO `padding` — refused by name (objectui#11318); put a `container` with `padding` in `children`
+
   // Styling
   className?: string,
-  headerClassName?: string,
-  bodyClassName?: string
 }
 ```
 
-### Max Width Options
+### Content Width
 
-Control page content width:
+A `page` node has no `maxWidth` key. **`pageType`** sets how wide the page's content may
+grow: `utility` is the narrowest and suits settings and forms, `record` (the default),
+`list` and `app` share a wider cap, and `home` is the widest. `getPageMaxWidth` in
+`packages/components/src/renderers/layout/page.tsx` holds the mapping.
 
 ```json
 {
   "type": "page",
+  "pageType": "utility",
   "title": "Settings",
-  "maxWidth": "lg",
   "children": {
     "type": "form",
     "fields": []
@@ -248,13 +250,35 @@ Control page content width:
 }
 ```
 
-Available values:
-- `sm` - 640px
-- `md` - 768px
-- `lg` - 1024px
-- `xl` - 1280px
-- `2xl` - 1536px
-- `full` - No maximum width (default)
+`pageType` is more than a width. A `record` page leaves its heading to a `page:header`
+block, so a `title` on a page with no `pageType` draws no heading. That is one more reason
+the settings page above says `utility`.
+
+For a column narrower than the page's cap, wrap the content in a `container` and set
+**its** `maxWidth`. That key is a `container` member, and the
+[Container reference](/docs/components/layout/container) lists its values:
+
+```json
+{
+  "type": "page",
+  "pageType": "utility",
+  "title": "Profile",
+  "children": {
+    "type": "container",
+    "maxWidth": "2xl",
+    "children": {
+      "type": "form",
+      "fields": []
+    }
+  }
+}
+```
+
+> **⛔ `maxWidth` on a `page` node is refused by name** (objectui#11318). This page used to
+> teach `"maxWidth": "lg"` beside `title`, with a list of sizes, and it changed **nothing**:
+> `PageRenderer` has no read for the key and takes its width from `pageType`, while
+> `BaseSchema`'s `.passthrough()` kept the value rather than refusing it. `PageNodeSchema`
+> now declares the key as a refusal whose message names `pageType` and the `container`.
 
 ## Page Header (`page:header`)
 
@@ -495,11 +519,14 @@ Omit `sidebar` and the content fills the width under the top bar.
 
 ### Settings Page with Tabs
 
+A settings page is a `utility` page, which gives it the narrowest content width (see
+[Content Width](#content-width)):
+
 ```json
 {
   "type": "page",
+  "pageType": "utility",
   "title": "Settings",
-  "maxWidth": "2xl",
   "children": {
     "type": "tabs",
     "items": [
@@ -664,19 +691,30 @@ the sidebar are nodes you build, so style them where you build them, as above.
 
 ### Page Padding
 
-Control page content padding:
+A `page` node has no padding switch. Its wrapper always insets the content: `p-3`, then
+`md:p-4`, then `lg:p-6`. The padding you control is a `container`'s. Its `padding` is a
+number on the container's spacing scale, and `0` means none:
 
 ```json
 {
   "type": "page",
-  "padding": false,
   "children": {
     "type": "container",
-    "className": "p-8",
+    "maxWidth": false,
+    "padding": 8,
     "children": []
   }
 }
 ```
+
+`"maxWidth": false` keeps the container as wide as the page. Leave it out and the container
+also caps its own width at its default, `xl`. The
+[Container reference](/docs/components/layout/container) lists both scales.
+
+> **⛔ `padding` on a `page` node is refused by name** (objectui#11318). This page used to
+> teach `"padding": false` here, and it removed **nothing**: the page wrapper kept its inset,
+> because `PageRenderer` has no read for the key and `BaseSchema`'s `.passthrough()` kept the
+> value rather than refusing it. The refusal's message names the `container` and its `padding`.
 
 ## Best Practices
 
@@ -747,17 +785,23 @@ Place primary actions in the first `children` node, so they sit above the conten
 are **action ids** resolved from the object's own actions metadata, not nodes
 (see the [PageHeader reference](/docs/layout/page-header)).
 
-### 4. Max Width for Forms
+### 4. Constrained Width for Forms
 
-Use constrained width for forms and reading content:
+Give forms and reading content a narrow column: a `container` with its own `maxWidth`,
+inside the page. ⛔ Not `maxWidth` on the `page` node, which is refused by name
+(objectui#11318); the page's own cap comes from `pageType` (see [Content Width](#content-width)).
 
 ```json
 {
   "type": "page",
-  "maxWidth": "lg",
+  "pageType": "utility",
   "children": {
-    "type": "form",
-    "fields": []
+    "type": "container",
+    "maxWidth": "2xl",
+    "children": {
+      "type": "form",
+      "fields": []
+    }
   }
 }
 ```

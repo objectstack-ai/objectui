@@ -979,6 +979,63 @@ const PAGE_BREADCRUMBS_REFUSAL =
   'and a BOOLEAN display toggle, not a list of links.';
 
 /**
+ * The `maxWidth` and `padding` REFUSALS on the `page` node (objectui#11318,
+ * ADR-0049 enforce-or-remove) — the third and fourth keys of the kind
+ * {@link PAGE_ACTIONS_REFUSAL} and {@link PAGE_BREADCRUMBS_REFUSAL} retired:
+ * taught by `content/docs/guide/layout.md`, declared by nothing on this node,
+ * read by nothing on the render path.
+ *
+ * ## What was measured (objectui#11318, on this branch's BASE `0858267e4`)
+ *
+ * Both keys are members of {@link ContainerSchema}, never of this node. On the
+ * tolerant face (`safeValidateSchema`) the guide's four page fences carrying them
+ * parsed GREEN with the key kept; on the strict authoring face they were
+ * refused as a bare `unrecognized_keys` (`Unrecognized key: "maxWidth"`), which
+ * names the key and not the door. Rendered through the real `SchemaRenderer`, a
+ * page carrying `maxWidth: 'lg'` drew the same `max-w-7xl` inner class as the
+ * same page without it, and a page carrying `padding: false` kept the wrapper's
+ * `p-3 md:p-4 lg:p-6` unchanged; neither key reached the DOM as an attribute
+ * (`toDomProps` drops both). `PageRenderer` takes its max-width class from
+ * `pageType` through `getPageMaxWidth`, and its wrapper padding is fixed.
+ *
+ * The four author sites were all teaching passages in that guide. A census of
+ * every git-tracked JSON file and `json` fence, plus every TS/TSX object literal
+ * through the TypeScript AST, found no other `type: 'page'` object carrying
+ * either key, so this refusal strands no authored document in the tree.
+ * `../__tests__/page-width-padding-refusal-11318.test.ts` re-derives the guide
+ * half; the census itself is a reading on that base, not a live count.
+ *
+ * ## Why a REFUSAL and not a reader
+ *
+ * Both capabilities already ship, one door each: the page's own cap is
+ * `pageType`, and a narrower column or custom spacing is a `container` node in
+ * `children`, whose `maxWidth` and `padding` are declared and rendered. A page
+ * reader would mint a rival spelling of the container's two members on a
+ * second node. The triage direction (objectui#11318) rules the same way: no new
+ * keys on the `page` node.
+ *
+ * ⛔ NOT `.strict()` on the node, for the reason {@link PAGE_ACTIONS_REFUSAL}
+ * records: `page-app-dashboard-spec-parity.test.ts` pins the node staying open
+ * to unknown renderer props. One key, by name, twice.
+ */
+const PAGE_MAX_WIDTH_REFUSAL =
+  '`maxWidth` is not a key of the `page` node and never was (objectui#11318, ADR-0049 ' +
+  'enforce-or-remove): no renderer reads it, so an authored value drew nothing and rode ' +
+  '`.passthrough()` through the validator as a silent accept. The page takes its max width ' +
+  'from `pageType` (`utility` is the narrowest, `home` the widest). For a narrower column, ' +
+  'wrap the content in a `container` node in ' +
+  '`children` and set THAT node\'s `maxWidth` — { "type": "container", "maxWidth": "2xl", ' +
+  '"children": [ … ] } — where it is a declared, rendered member.';
+
+const PAGE_PADDING_REFUSAL =
+  '`padding` is not a key of the `page` node and never was (objectui#11318, ADR-0049 ' +
+  'enforce-or-remove): no renderer reads it — the page always insets its content — so an ' +
+  'authored value, `false` included, drew nothing and rode `.passthrough()` through the ' +
+  'validator as a silent accept. Put the spacing on a `container` node in `children` instead, ' +
+  'whose `padding` is a declared, rendered NUMBER on the container\'s spacing scale (`0` for ' +
+  'none) — { "type": "container", "padding": 8, "children": [ … ] }.';
+
+/**
  * Page Schema — top-level page layout, derived from `@objectstack/spec/ui`
  * `PageSchema` (see {@link SpecPageFields}). The drift guard is
  * `__tests__/page-app-dashboard-spec-parity.test.ts`.
@@ -987,6 +1044,8 @@ export const PageNodeSchema = BaseSchema.extend(SpecPageFields.shape).extend({
   type: z.literal('page'),
   actions: retirementTombstone(PAGE_ACTIONS_REFUSAL),
   breadcrumbs: retirementTombstone(PAGE_BREADCRUMBS_REFUSAL),
+  maxWidth: retirementTombstone(PAGE_MAX_WIDTH_REFUSAL),
+  padding: retirementTombstone(PAGE_PADDING_REFUSAL),
   title: z.string().optional().describe('Page title'),
   icon: z.string().optional().describe('Page icon (Lucide icon name)'),
   description: z.string().optional().describe('Page description'),

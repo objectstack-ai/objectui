@@ -1487,6 +1487,42 @@ export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_
    */
   breadcrumbs?: never;
   /**
+   * ⛔ REFUSED BY NAME — `maxWidth` is not a member of this node and never was
+   * (objectui#11318, ADR-0049 enforce-or-remove). It is a member of
+   * {@link ContainerSchema}.
+   *
+   * `PageRenderer` takes its max-width class from {@link PageNodeSchema.pageType}
+   * through `getPageMaxWidth` and has no read for this key: through the real
+   * `SchemaRenderer` a page carrying `maxWidth: 'lg'` drew the same inner class
+   * as the same page without it. `BaseSchema` is `.passthrough()`, so the value
+   * was never refused, only KEPT.
+   *
+   * The remedy is the two doors that already ship: {@link PageNodeSchema.pageType}
+   * sets the page's cap, and a narrower column is a `container` node in
+   * {@link PageNodeSchema.children} with its own `maxWidth`.
+   *
+   * `?: never` is the twin of `layout.zod.ts`'s `retirementTombstone` arm — the
+   * pair is what `__tests__/zod-mirror-parity.test.ts` compares, and it is what
+   * makes `tsc` refuse the key at the authoring site before anything runs.
+   */
+  maxWidth?: never;
+  /**
+   * ⛔ REFUSED BY NAME — `padding` is not a member of this node and never was
+   * (objectui#11318, ADR-0049 enforce-or-remove). It is a member of
+   * {@link ContainerSchema}.
+   *
+   * The page wrapper's inset is fixed and `PageRenderer` has no read for this
+   * key: through the real `SchemaRenderer` a page carrying `padding: false`
+   * kept the same wrapper padding classes as the same page without it.
+   *
+   * The remedy is a `container` node in {@link PageNodeSchema.children}, whose
+   * `padding` is a declared, rendered number (`0` for none).
+   *
+   * `?: never` is the twin of `layout.zod.ts`'s `retirementTombstone` arm, as
+   * for `maxWidth` above.
+   */
+  padding?: never;
+  /**
    * Page title
    */
   title?: string;

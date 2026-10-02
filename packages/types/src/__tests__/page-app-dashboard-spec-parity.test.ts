@@ -90,11 +90,19 @@ const CASES: Record<string, Case> = {
     // exempted: a local REFUSAL, not a local capability.
     // `../__tests__/page-breadcrumbs-refusal-8871.test.ts` owns the behaviour.
     //
-    // ⚠️ These two are the ONLY members of this row that are refusals. Adding a
-    // third means a third undeclared key was found surviving `.passthrough()` on
+    // `maxWidth` and `padding` are the THIRD and FOURTH (objectui#11318, same
+    // gate, same helper). They are `container` members the layout guide taught
+    // on this node, and that census is the one this note asked for: no other
+    // `type: 'page'` object in the tree carried either key, and the node's open
+    // envelope stays pinned below, so the answer was two more named refusals and
+    // not a strict node. `../__tests__/page-width-padding-refusal-11318.test.ts`
+    // owns the behaviour.
+    //
+    // ⚠️ These four are the ONLY members of this row that are refusals. Adding a
+    // fifth means another undeclared key was found surviving `.passthrough()` on
     // this node — which is the census that decides between one more named refusal
     // and finally making the node strict. ⛔ Do not grow this list reflexively.
-    local: ['title', 'pageType', 'body', 'children', 'actions', 'breadcrumbs'],
+    local: ['title', 'pageType', 'body', 'children', 'actions', 'breadcrumbs', 'maxWidth', 'padding'],
   },
   App: {
     spec: SpecAppSchema,

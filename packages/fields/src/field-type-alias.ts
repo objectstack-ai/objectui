@@ -170,10 +170,10 @@ export function mapFieldTypeToFormType(
     color: 'field:color',
     code: 'field:code',
     // A JSON value is edited as JSON — shown with `JSON.stringify`, saved
-    // with `JSON.parse` — by the editor the structured types below use
-    // (objectui#11448). It used to alias `field:code`, the raw-text editor,
-    // which showed a stored object as `[object Object]` and saved an edit as
-    // a string. `code` keeps the raw-text editor.
+    // with `JSON.parse` — by the editor `object`, `composite` and `record`
+    // below use (objectui#11448). It used to alias `field:code`, the raw-text
+    // editor, which showed a stored object as `[object Object]` and saved an
+    // edit as a string. `code` keeps the raw-text editor.
     json: 'field:object',
     qrcode: 'field:qrcode',
     vector: 'field:vector',

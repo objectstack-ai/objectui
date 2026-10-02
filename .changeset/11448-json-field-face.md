@@ -11,9 +11,9 @@ silently changing the stored value's type. Unparsable text was saved as a string
 too. The same alias reached the inline editors in the grid and the detail panel.
 
 `json` now resolves to `field:object` — `ObjectField`, the JSON editor `object`,
-`composite` and `record` already used — so one editor serves every structured
-type. It shows the stored value as `JSON.stringify(value, null, 2)` and saves
-`JSON.parse(text)`, and it carries every JSON value, not only objects: an array, a
+`composite` and `record` already used — so one editor serves the four free-form
+JSON types (`object`, `composite`, `record`, `json`). It shows the stored value as
+`JSON.stringify(value, null, 2)` and saves `JSON.parse(text)`, and it carries every JSON value, not only objects: an array, a
 number, a string, a boolean or `null`. The grid and detail-panel inline editors
 keep editing `json` in place, now with the same face. `code` is unchanged: it stays
 the raw-text editor and saves its text.

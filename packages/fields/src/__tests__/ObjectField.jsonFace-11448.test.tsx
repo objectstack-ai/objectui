@@ -13,7 +13,7 @@
  * `json` used to alias `field:code`, a raw-text editor: an object rendered as
  * `[object Object]` and an edit saved as a string. It now aliases
  * `field:object` — `ObjectField`, the editor `object` / `composite` / `record`
- * already used — so ONE widget edits every structured value. The form-level
+ * already used — so ONE widget edits the four free-form JSON types. The form-level
  * measurement lives in `@object-ui/plugin-form`'s
  * `ModalForm.jsonField-11448.test.tsx`; this file pins the widget's own
  * properties that the `json` type depends on:
@@ -63,8 +63,8 @@ describe('json resolves to the JSON editor, code stays the code editor (objectui
   it('keeps json inline-editable rather than folding it into the container exclusion', () => {
     expect(hasFieldEditWidget('json')).toBe(true);
     expect(isInlineExcludedFieldType('json')).toBe(false);
-    // The aliased container spellings stay excluded — `json` is the one
-    // structured type with a direct inline entry.
+    // The aliased container spellings stay excluded — of the four types that
+    // resolve to `field:object`, `json` is the one with a direct inline entry.
     expect(isInlineExcludedFieldType('composite')).toBe(true);
   });
 

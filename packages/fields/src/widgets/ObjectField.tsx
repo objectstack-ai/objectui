@@ -30,7 +30,7 @@ function draftDenotes(text: string, value: unknown): boolean {
 /**
  * ObjectField - JSON editor for a structured value.
  *
- * The form face of every structured type: `object`, `composite`, `record`, and
+ * The form face of the free-form JSON types: `object`, `composite`, `record`, and
  * since objectui#11448 `json`, which used to alias the raw-text code editor and
  * so showed a stored object as `[object Object]` and saved an edit as a string.
  * A json value need not be an object — an array, a number, a string, a boolean

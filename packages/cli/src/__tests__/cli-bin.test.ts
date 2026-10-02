@@ -194,7 +194,7 @@ describe('@object-ui/cli bin', () => {
       const listed = helpCommandNames(res.stdout);
       // Lit control: commander lists its own `help` command last, so reading it
       // proves the parse ran to the end of the Commands section.
-      expect(listed.at(-1)).toBe('help');
+      expect(listed[listed.length - 1]).toBe('help');
       const declared = listed.filter((name) => name !== 'help');
       expect([...declared].sort()).toEqual([...SUBCOMMANDS].sort());
       expect(new Set(declared).size).toBe(declared.length);

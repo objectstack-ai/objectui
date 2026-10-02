@@ -91,23 +91,20 @@ type SemanticEntry = { id: string; replacement: string };
 type MigrationRegistry = Readonly<Record<number, { semantic: readonly SemanticEntry[] }>>;
 
 /**
- * The installed spec's ADR-0087 registry, read from wherever this spec shape
- * exports it. The pinned `@objectstack/spec` 17.5.0 exports `MIGRATIONS_BY_MAJOR`
- * from the package root and has no `./migrations` subpath; objectstack `main`
- * moved the chain to `@objectstack/spec/migrations` (its `migrations-entry-split`
- * entry: same names, new path), which is what the Spec Main Shape Gate compiles
- * this file against. No static import names a module both shapes carry, so the
- * root is asked first and the subpath only when the root no longer has it. The
- * subpath specifier is held in a variable so neither shape's type-check resolves
- * a module the other lacks. Once the pin passes the split this becomes a plain
- * static import from the subpath.
+ * The installed spec's ADR-0087 registry, read off the package ROOT, where the
+ * pinned `@objectstack/spec` 17.5.0 exports `MIGRATIONS_BY_MAJOR` (it has no
+ * `./migrations` subpath). objectstack `main` moved the chain to
+ * `@objectstack/spec/migrations` (its `migrations-entry-split` entry: same
+ * names, new path), and the Spec Main Shape Gate compiles this file against
+ * `main` — so the root is imported dynamically and read as a plain record,
+ * which type-checks against both shapes without naming a module either lacks.
+ * ⛔ No fallback to the subpath: on a spec whose root no longer carries the
+ * registry the lookup below fails by name, and the pull request that moves the
+ * pin past the split replaces this with a static import from the subpath.
  */
-async function installedMigrationRegistry(): Promise<MigrationRegistry> {
+async function installedMigrationRegistry(): Promise<MigrationRegistry | undefined> {
   const root = (await import('@objectstack/spec')) as Record<string, unknown>;
-  if (root.MIGRATIONS_BY_MAJOR) return root.MIGRATIONS_BY_MAJOR as MigrationRegistry;
-  const migrationsEntry = '@objectstack/spec/migrations';
-  const moved = (await import(/* @vite-ignore */ migrationsEntry)) as Record<string, unknown>;
-  return moved.MIGRATIONS_BY_MAJOR as MigrationRegistry;
+  return root.MIGRATIONS_BY_MAJOR as MigrationRegistry | undefined;
 }
 
 /** The duly#109 tile, verbatim from the card's repro block — a stored three-measure metric. */
@@ -176,7 +173,12 @@ describe('objectui#8894 — the dropped measures speak', () => {
     // spec's migration registry, and the entry carries the `replacement` the
     // message sends the reader to.
     const registry = await installedMigrationRegistry();
-    const entry = Object.values(registry)
+    expect(
+      registry,
+      'the installed spec no longer exports MIGRATIONS_BY_MAJOR from its root — the pin has passed the '
+        + 'migrations-entry-split: import it from the `/migrations` subpath here',
+    ).toBeDefined();
+    const entry = Object.values(registry!)
       .flatMap((step) => step.semantic)
       .find((e) => e.id === ENTRY_ID);
     expect(entry, `${ENTRY_ID} is not in the installed spec's ADR-0087 registry`).toBeDefined();

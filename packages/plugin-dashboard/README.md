@@ -205,6 +205,14 @@ outside a dashboard's `widgets[]` renders the "Unknown component type" panel.
 `value` is the only required key. `title` and `description` take a plain string
 or the spec's inline per-locale map (`I18nLabel`).
 
+A card with no `value` is refused by `@object-ui/types/zod`, on the tolerant
+face and the strict one. `metric-card` is not a widget type, so a card is never
+read through widget keys alone, and no widget key stands in for `value`: a
+`dataset` makes the dashboard draw its dataset tile in the card's place, and
+`options` is not a binding (objectui#11483). For a figure queried from a
+dataset, write a `metric` widget with `dataset` and `values` (see "TypeScript
+Support" below).
+
 #### Percent `format` patterns (`'0%'`, `'0.00%'`)
 
 A numeral pattern ending in `%` is handed whole to `formatPercent`

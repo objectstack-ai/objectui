@@ -17,7 +17,7 @@ import { ChevronLeft, ChevronRight, Monitor, Smartphone, Tablet } from 'lucide-r
 const Editor = dynamic(() => import('@monaco-editor/react'), { ssr: false });
 
 // Default example schema
-const DEFAULT_SCHEMA = {
+const DEFAULT_SCHEMA: SchemaNode = {
   type: "div",
   className: "space-y-4",
   children: [
@@ -1183,7 +1183,7 @@ const EXAMPLE_SCHEMAS = {
       }
     ]
   }
-};
+} satisfies Record<string, SchemaNode>;
 
 type ViewMode = 'desktop' | 'tablet' | 'mobile';
 

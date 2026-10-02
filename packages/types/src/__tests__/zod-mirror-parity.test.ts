@@ -154,7 +154,14 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **49 entries** in `KnownDrift`, **86 keys** across them — 49 / 87 until
+ *   - **49 entries** in `KnownDrift`, **87 keys** across them — 49 / 86 until
+ *     objectui#11483 took the component type `metric-card` out of the mirror's
+ *     widget vocabulary (`DashboardWidgetTypeSchema`), so a card in the slot is read
+ *     by its component arm alone and its required `value` governs. The TS
+ *     `DashboardWidgetSchema` keeps that type in its `type`, because it is also the
+ *     read type of every `widgets[]` entry, so `type` JOINED
+ *     `complex.zod.ts#DashboardWidgetSchema`'s existing entry: the key total rose by
+ *     one and the entry count did not move. It was 49 / 87 until
  *     objectui#11234 RETIRED `ObjectKanbanSchema.onQuickAdd` on BOTH faces
  *     (`?: never` on the declaration, `handlerKeyRefusal(…, 'retired', …)` on the
  *     mirror), completing ruling B of decision batch #91 on `object-kanban`. The
@@ -2248,8 +2255,19 @@ interface KnownDrift {
    * INSIDE this file without editing it, and `tsc -p tsconfig.json` (the BUILD project)
    * excludes every `.test.ts` under `src` and stays green while `tsconfig.test.json`
    * reddens.
+   *
+   * `type` — joined with objectui#11483, and the TS side is the WIDER one, on purpose.
+   * The mirror's widget vocabulary (`DashboardWidgetTypeSchema`) dropped the component
+   * type `metric-card`, so the slot reads a card through its component arm alone and
+   * the card's required `value` governs. The TS interface keeps
+   * `DashboardComponentWidgetType` in `type` because it is ALSO the read type of every
+   * `widgets[]` entry: the component arm is assignable to it, and `plugin-dashboard`'s
+   * renderers annotate slot entries with it. Measured on that card's branch, dropping it
+   * on this face breaks those renderers under `tsc`. The literal this lets compile, a
+   * `metric-card` with no `value`, is pinned two-faced as a measured limit in
+   * `metric-card-needs-value-11483.test.ts`.
    */
-  'complex.zod.ts#DashboardWidgetSchema': 'component' | 'options';
+  'complex.zod.ts#DashboardWidgetSchema': 'component' | 'options' | 'type';
   /**
    * `onChange` — RUNTIME SLOT (objectui#6124): the `filter-builder` renderer
    * calls it as `props.onChange` after `SchemaRenderer`'s spread. (`fields` LEFT

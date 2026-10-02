@@ -2137,6 +2137,18 @@ export interface FloatingChatbotConfig {
  * component arm — first, as in the Zod twin — of
  * `DashboardComponentSchema.widgets` (objectui#7952).
  *
+ * ⛔ Not a widget TYPE (objectui#11483). This list is the component arm's own
+ * `type` and nothing else: it is no member of {@link DashboardWidgetTypeName}
+ * or its Zod twin, so the slot reads a `metric-card` through the component arm
+ * alone, and that arm's required `value` is the one spelling of what the card
+ * draws from. While it was also a widget type, `{ type: 'metric-card', title }`
+ * parsed as a widget and `MetricCard` drew an empty figure. No widget key binds
+ * the card's figure: measured through the real `DashboardRenderer` and
+ * `DashboardGridLayout`, a `dataset` draws `DatasetWidget` in the card's place
+ * by a rule that ignores the `type`. The one place a member is still named
+ * beside the widget families is {@link DashboardWidgetSchema}'s `type`, which
+ * is the READ type of every slot entry; see that member.
+ *
  * ⛔ CLOSED on purpose. The ruling's triage block named an open
  * "extension allowed" hatch as the thing to avoid: an open hatch re-creates
  * exactly the hole the catalog gate exists to close, because a typo'd or
@@ -2178,7 +2190,13 @@ export type DashboardWidgetTypeExtension = (typeof DASHBOARD_WIDGET_TYPE_EXTENSI
  * spec's `ChartTypeSchema`) rather than being restated, so a family the spec
  * adds or retires lands here with no edit — the same discipline
  * {@link DashboardWidgetSchema} already uses for its key set. objectui's own
- * two extension sets are spelled out above, each with its own reason.
+ * extension set, {@link DASHBOARD_WIDGET_TYPE_EXTENSIONS}, is spelled out above
+ * with its reason. {@link DashboardComponentWidgetType} was a third member until
+ * objectui#11483: a component type is not a widget type, and the slot reads a
+ * `metric-card` through its component arm alone (see
+ * {@link DASHBOARD_COMPONENT_WIDGET_TYPES}). An authoring surface that offers
+ * widget types (a designer palette, an inspector's type picker) is typed by this
+ * name, so it cannot offer the card as a widget it would save without a `value`.
  *
  * This used to be bare `string`. That was the open hatch: `type: 'metrci-card'`
  * type-checked, validated, and rendered the registry's red OBJUI-001 panel —
@@ -2189,8 +2207,7 @@ export type DashboardWidgetTypeExtension = (typeof DASHBOARD_WIDGET_TYPE_EXTENSI
  */
 export type DashboardWidgetTypeName =
   | NonNullable<SpecDashboardWidget['type']>
-  | DashboardWidgetTypeExtension
-  | DashboardComponentWidgetType;
+  | DashboardWidgetTypeExtension;
 
 /**
  * Dashboard Widget Layout
@@ -2275,12 +2292,26 @@ export interface DashboardWidgetSchema
    * type the widget slot holds directly.
    *
    * CLOSED — see {@link DashboardWidgetTypeName}. The spec's families flow in by
-   * reference; objectui's additions are the two named, closed extension sets.
+   * reference; objectui's additions are the two named, closed sets.
    * It was `string` until objectui#4600, which is why a retired family, a typo,
    * or a component type nothing registers all type-checked here and only
    * surfaced as the renderer's red OBJUI-001 panel at runtime.
+   *
+   * ⚠️ WIDER than the Zod twin's `type`, on purpose (objectui#11483). The
+   * validator's widget arm no longer admits {@link DashboardComponentWidgetType}:
+   * a `metric-card` is read by the component arm alone. On this face, this
+   * interface is ALSO the read type of every `widgets[]` entry. The component
+   * arm is assignable to it, which the dashboard docs teach and
+   * `plugin-dashboard`'s renderers rely on: `DashboardRenderer` and
+   * `DashboardGridLayout` annotate slot entries with this interface. Measured on
+   * objectui#11483's branch, dropping the component type here breaks those
+   * renderers' slot-entry callbacks under `tsc`. So the type is kept here, and a
+   * `metric-card` literal with no `value` still compiles through this arm. That
+   * is a measured limit of this face, pinned two-faced in
+   * `__tests__/metric-card-needs-value-11483.test.ts`. The validator refuses
+   * the same literal on both of its faces.
    */
-  type?: DashboardWidgetTypeName;
+  type?: DashboardWidgetTypeName | DashboardComponentWidgetType;
   /** Widget-specific configuration (spec shorthand format). Kept `unknown` — objectui
    *  renderers pass widget-family-specific bags the spec's `options` object does not model. */
   options?: unknown;
@@ -2422,7 +2453,8 @@ export interface DashboardWidgetSlotComponentSchema extends BaseSchema {
   /**
    * The figure the card shows, drawn as given. The one REQUIRED input: the
    * registration marks it `required`, and a card without it draws an empty
-   * figure.
+   * figure. Since objectui#11483 the validator has no other reading of a
+   * `metric-card` in the slot, so a card without it is refused there.
    */
   value: string | number;
   /** A Lucide icon name, drawn beside the heading. */
@@ -2555,7 +2587,12 @@ export interface DashboardComponentSchema extends BaseSchema, Omit<SpecDashboard
    *    the union's excess-property check, so `{ component, bogus: 1 }`
    *    compiles here. The Zod face refuses it (`.strict()` widget schema) —
    *    the runtime is the strict face on that corner, as it already was for
-   *    every `BaseSchema` slot.
+   *    every `BaseSchema` slot;
+   *  - a `metric-card` with NO `value` (`{ type: 'metric-card', title }`)
+   *    compiles here through the widget arm, whose `type` is also the read
+   *    type of every entry (see {@link DashboardWidgetSchema}'s `type`). Both
+   *    Zod faces refuse it, since objectui#11483 dropped the component type
+   *    from the validator's widget vocabulary.
    */
   widgets: Array<DashboardWidgetSlotComponentSchema | DashboardWidgetSchema>;
   /**

@@ -294,3 +294,46 @@ describe('objectui#11070 round 11 — the slot\'s `layout`, as Save Layout write
     expect([placed.layout?.w, misplaced.type]).toEqual([3, 'metric-card']);
   });
 });
+
+/**
+ * objectui#11483 — the registration's `required` and the schema agree IN THE SLOT.
+ *
+ * The arm declared `value` required since objectui#11467, and the walk above holds
+ * that member to the registration. The slot still disagreed: its widget arm's
+ * `type` vocabulary named `metric-card`, so a card carrying no card-only input
+ * parsed as a widget and the arm's requirement governed nothing. This walk reads
+ * every REQUIRED input off the live registration and drops it from an otherwise
+ * complete node, so it measures the slot's verdict, not the arm's member.
+ */
+describe('objectui#11483 — a widget-slot registration\'s required inputs are required in the slot', () => {
+  describe.each([...DASHBOARD_COMPONENT_WIDGET_TYPES])('`%s`', (type) => {
+    const required = (): Input[] =>
+      registeredInputs(type).filter((input) => (input as Input & { required?: boolean }).required);
+
+    it('the registration declares a required input — the walk below is not empty', () => {
+      expect(required().length).toBeGreaterThan(0);
+    });
+
+    it('CONTROL — the node carrying every required input parses in the slot on both faces', () => {
+      for (const face of [AnyComponentSchema, StrictAnyComponentSchema]) {
+        expect(face.safeParse(dashboard({ ...nodeOf(type) })).success).toBe(true);
+      }
+    });
+
+    it('a node missing any required input is refused in the slot on both faces, by the component arm at that input', () => {
+      for (const input of required()) {
+        const node: Record<string, unknown> = { ...nodeOf(type), title: 'Revenue' };
+        delete node[input.name];
+        for (const face of [AnyComponentSchema, StrictAnyComponentSchema]) {
+          const result = face.safeParse(dashboard(node));
+          expect(result.success, `\`${input.name}\` is required by the registration`).toBe(false);
+          const union = (result.success ? [] : (result.error.issues as unknown as Issue[])).find(
+            (issue) => issue.code === 'invalid_union' && issue.path.join('.') === 'widgets.0',
+          );
+          const componentArm = flatIssues(union?.errors?.[0] ?? []);
+          expect(componentArm.map((issue) => issue.path.join('.'))).toContain(input.name);
+        }
+      }
+    });
+  });
+});

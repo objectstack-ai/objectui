@@ -33,7 +33,7 @@ import React from 'react';
 import { render, waitFor, act, cleanup } from '@testing-library/react';
 import { SchemaRenderer, SchemaRendererProvider, FilterScopeProvider } from '@object-ui/react';
 import { resolveFilterPlaceholders } from '@object-ui/core';
-import type { BaseSchema, DataSource } from '@object-ui/types';
+import type { DataSource, ObjectGridSchema } from '@object-ui/types';
 // Registers `object-grid`.
 import '../index';
 
@@ -62,15 +62,15 @@ type Adapter = ReturnType<typeof makeAdapter>;
 const COLUMNS = ['name'];
 
 /** A directly authored `object-grid` node — no `object-view` above it. */
-function gridNode(over: Record<string, unknown>) {
+function gridNode(over: Partial<ObjectGridSchema>): ObjectGridSchema {
   return { type: 'object-grid', objectName: 'task', columns: COLUMNS, ...over };
 }
 
-function ui(adapter: Adapter, node: Record<string, unknown>, user: string | null = USER, org: string | null = ORG) {
+function ui(adapter: Adapter, node: ObjectGridSchema, user: string | null = USER, org: string | null = ORG) {
   return (
     <FilterScopeProvider currentUserId={user} currentOrgId={org}>
       <SchemaRendererProvider dataSource={adapter as unknown as DataSource}>
-        <SchemaRenderer schema={node as unknown as BaseSchema} />
+        <SchemaRenderer schema={node} />
       </SchemaRendererProvider>
     </FilterScopeProvider>
   );

@@ -17,7 +17,6 @@ import { lint } from './commands/lint.js';
 import { test } from './commands/test.js';
 import { generate } from './commands/generate.js';
 import { doctor } from './commands/doctor.js';
-import { add } from './commands/add.js';
 import { studio } from './commands/studio.js';
 import { check } from './commands/check.js';
 import { validate } from './commands/validate.js';
@@ -174,19 +173,6 @@ program
   });
 
 program
-  .command('add')
-  .description('Add a new component renderer to your project')
-  .argument('<component>', 'Component name (e.g. Input, Grid)')
-  .action(async (component) => {
-    try {
-      await add(component);
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
-
-program
   .command('studio')
   .description('Start the visual designer')
   .action(async () => {
@@ -246,11 +232,9 @@ program
 program
   .command('analyze')
   .description('Analyze application performance')
-  .option('--bundle-size', 'Analyze bundle size')
-  .option('--render-performance', 'Analyze render performance')
-  .action(async (options) => {
+  .action(async () => {
     try {
-      await analyze(options);
+      await analyze();
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
       process.exit(1);

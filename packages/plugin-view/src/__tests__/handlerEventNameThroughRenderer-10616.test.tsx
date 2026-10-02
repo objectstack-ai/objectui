@@ -43,6 +43,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { SchemaRenderer } from '@object-ui/react';
+import type { FilterUISchema, SortUISchema, ViewSwitcherSchema } from '@object-ui/types';
 // Module scope, not a hook: this import IS the registration of
 // `filter-ui`, `sort-ui` and `view-switcher` in the real registry.
 import '../index';
@@ -88,7 +89,7 @@ function interact<D>(eventName: string, act: () => void): Reading<D> {
 }
 
 describe('filter-ui: an authored onChange event name through SchemaRenderer (objectui#10616)', () => {
-  const node = {
+  const node: FilterUISchema = {
     type: 'filter-ui',
     layout: 'inline',
     filters: [{ field: 'qty', label: 'Qty', type: 'number' }],
@@ -126,7 +127,7 @@ describe('filter-ui: an authored onChange event name through SchemaRenderer (obj
 });
 
 describe('sort-ui: an authored onChange event name through SchemaRenderer (objectui#10616)', () => {
-  const node = {
+  const node: SortUISchema = {
     type: 'sort-ui',
     variant: 'buttons',
     fields: [{ field: 'name', label: 'Name' }],
@@ -153,7 +154,7 @@ describe('sort-ui: an authored onChange event name through SchemaRenderer (objec
 });
 
 describe('view-switcher: an authored onViewChange event name through SchemaRenderer (objectui#10616)', () => {
-  const node = {
+  const node: ViewSwitcherSchema = {
     type: 'view-switcher',
     variant: 'buttons',
     views: [{ type: 'list' }, { type: 'grid' }],

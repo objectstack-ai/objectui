@@ -92,6 +92,13 @@ outside a dashboard's `widgets[]` renders nothing but the renderer's
 }
 ```
 
+A card with no `value` is refused by `@object-ui/types/zod`, on the tolerant
+face and the strict one. `metric-card` is not a widget type, so a card is never
+read through widget keys alone, and no widget key stands in for `value`: a
+`dataset` makes the dashboard draw its dataset tile in the card's place, and
+`options` is not a binding (objectui#11483). For a figure queried from a
+dataset, write a `metric` widget with `dataset` and `values`.
+
 ## Usage
 
 ### Auto-registration (Side-effect Import)
@@ -446,19 +453,33 @@ preview or a design surface (objectui#11295).
 ## TypeScript Support
 
 ```ts
-import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
+import type {
+  DashboardComponentSchema,
+  DashboardWidgetSchema,
+  DashboardWidgetSlotComponentSchema,
+} from '@object-ui/types';
 
 const widget: DashboardWidgetSchema = {
   id: 'revenue',
   title: 'Revenue',
-  type: 'metric-card',
+  type: 'metric',
+  dataset: 'invoices',
+  values: ['amount'],
   layout: { x: 0, y: 0, w: 1, h: 1 },
+};
+
+const card: DashboardWidgetSlotComponentSchema = {
+  id: 'users',
+  type: 'metric-card',
+  title: 'Users',
+  value: '1,234',
+  layout: { x: 1, y: 0, w: 1, h: 1 },
 };
 
 const dashboard: DashboardComponentSchema = {
   type: 'dashboard',
   columns: 3,
-  widgets: [widget],
+  widgets: [widget, card],
 };
 ```
 

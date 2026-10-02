@@ -24,6 +24,7 @@ import { describe, it, expect } from 'vitest';
 import { render, act, fireEvent } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, PageVariablesProvider, usePageVariables } from '@object-ui/react';
+import type { PublicBlockNodeOf } from '@object-ui/types';
 // Registers the renderers at module scope, NOT inside a `beforeAll` — there the
 // cold transform is billed to `hookTimeout`, which is why this carried a raised
 // timeout. See object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
@@ -39,7 +40,7 @@ function Writer({ name, value }: { name: string; value: any }) {
   );
 }
 
-const tabsSchema = (items: any[]) => ({ type: 'page:tabs', id: 'tabs', items });
+const tabsSchema = (items: any[]): PublicBlockNodeOf<'page:tabs'> => ({ type: 'page:tabs', id: 'tabs', properties: { items } });
 
 const textChild = (content: string) => [
   { type: 'element:text', properties: { content } },

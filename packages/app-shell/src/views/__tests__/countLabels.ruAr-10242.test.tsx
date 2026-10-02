@@ -65,6 +65,7 @@ import React from 'react';
 import { createI18n, I18nProvider } from '@object-ui/i18n';
 import { builtInLocales } from '@object-ui/i18n/locales';
 import { SchemaRenderer } from '@object-ui/react';
+import type { PublicBlockNodeOf } from '@object-ui/types';
 import type { PageTabsProps } from '@objectstack/spec/ui';
 import type { z } from 'zod';
 // Registers `page:tabs` (and every other renderer) at module scope, never in a
@@ -92,7 +93,7 @@ function tabBadge(lang: Lang, count: number): string {
   // `properties` bag, checked here against `@objectstack/spec`'s own
   // `PageTabsProps`, and `SchemaRenderer` hoists the bag onto the node before
   // the renderer reads `items` (objectui#11355).
-  const tabs = {
+  const tabs: PublicBlockNodeOf<'page:tabs'> = {
     type: 'page:tabs',
     id: 'tabs',
     properties: {

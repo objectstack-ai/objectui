@@ -10,11 +10,6 @@ import chalk from 'chalk';
 import { existsSync, statSync, readdirSync } from 'fs';
 import { resolve, join, extname } from 'path';
 
-interface AnalyzeOptions {
-  bundleSize?: boolean;
-  renderPerformance?: boolean;
-}
-
 /**
  * Analyze bundle size by scanning dist directory
  */
@@ -98,27 +93,6 @@ async function analyzeBundleSize() {
 }
 
 /**
- * Analyze render performance (placeholder for now)
- */
-async function analyzeRenderPerformance() {
-  console.log(chalk.bold('\n⚡ Render Performance Analysis\n'));
-  
-  console.log(chalk.gray('Performance analysis features:'));
-  console.log(chalk.gray('  ✓ Expression caching enabled'));
-  console.log(chalk.gray('  ✓ Component memoization available'));
-  console.log(chalk.gray('  ✓ Virtual scrolling support for large lists'));
-  
-  console.log(chalk.bold('\n💡 Performance Tips:'));
-  console.log(chalk.gray('  • Use virtual scrolling for lists > 100 items'));
-  console.log(chalk.gray('  • Cache frequently evaluated expressions'));
-  console.log(chalk.gray('  • Use React.memo for expensive components'));
-  console.log(chalk.gray('  • Implement pagination for large datasets'));
-  console.log(chalk.gray('  • Use code splitting for large apps'));
-  
-  console.log('');
-}
-
-/**
  * Format bytes to human-readable string
  */
 function formatBytes(bytes: number): string {
@@ -132,22 +106,17 @@ function formatBytes(bytes: number): string {
 }
 
 /**
- * Analyze application performance
- * 
- * @param options - Analysis options
+ * Analyze application performance: the bundle-size report over `dist/`.
+ *
+ * It used to take `--bundle-size` and `--render-performance`. The second printed
+ * a fixed list of tips in any directory and analysed nothing, so it was retired,
+ * and the first went with it, having nothing left to choose between
+ * (objectui#11496).
  */
-export async function analyze(options: AnalyzeOptions = {}) {
+export async function analyze() {
   console.log(chalk.blue('🔍 ObjectUI Performance Analyzer\n'));
 
-  const runAll = !options.bundleSize && !options.renderPerformance;
-  
-  if (options.bundleSize || runAll) {
-    await analyzeBundleSize();
-  }
-  
-  if (options.renderPerformance || runAll) {
-    await analyzeRenderPerformance();
-  }
-  
+  await analyzeBundleSize();
+
   console.log(chalk.green('✓ Analysis complete!\n'));
 }

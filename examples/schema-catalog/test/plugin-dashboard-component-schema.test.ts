@@ -135,8 +135,11 @@ function auditWidget(widget: Widget, where: string): string[] {
     // toward `z.string()`, which is precisely the regression objectui#4600
     // closed: the catalog would keep its own floor instead of going quietly
     // green with the contract.
-    const known = DashboardWidgetTypeSchema.safeParse(type);
-    if (!known.success) {
+    // A slot component type (`metric-card`) is no widget type since
+    // objectui#11483 — the slot reads it through its component arm alone — so
+    // the vocabulary is the widget types plus the slot's component set.
+    const known = COMPONENT_WIDGET_TYPES.has(type) || DashboardWidgetTypeSchema.safeParse(type).success;
+    if (!known) {
       problems.push(`${where}: \`type: '${type}'\` is outside the closed widget vocabulary`);
     }
   }

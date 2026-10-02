@@ -10,7 +10,7 @@
  */
 import { describe, it, expect, beforeAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, resolve, dirname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -21,6 +21,13 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = resolve(__dirname, '../../dist/cli.js');
 const PKG_PATH = resolve(__dirname, '../../package.json');
 
+/**
+ * The commands the CLI declares. The enumeration pin below holds this list
+ * equal to the built CLI's `--help`, both directions (objectui#11496). `add` is
+ * deliberately absent: it was retired, and the bin refuses it as an unknown
+ * command. The CLI docs give each of these a `### objectui NAME` heading; keep
+ * them in step by hand, because nothing in this file reads the docs.
+ */
 const SUBCOMMANDS = [
   'serve',
   'dev',
@@ -31,7 +38,6 @@ const SUBCOMMANDS = [
   'test',
   'generate',
   'doctor',
-  'add',
   'studio',
   'check',
   'validate',
@@ -83,6 +89,31 @@ function run(args: string[], opts: { cwd?: string } = {}) {
     stdout: res.stdout ?? '',
     stderr: res.stderr ?? '',
   };
+}
+
+/** Every path under `dir`, `/`-separated and sorted: what a run wrote there. */
+function tree(dir: string): string[] {
+  return (readdirSync(dir, { recursive: true }) as string[])
+    .map((p) => p.split(sep).join('/'))
+    .sort();
+}
+
+/**
+ * The command names commander prints under `Commands:` in the root `--help`, in
+ * order. An entry starts with exactly two spaces; a wrapped description line is
+ * indented further, so it is not an entry. `generate|g` reads as `generate`.
+ */
+function helpCommandNames(helpText: string): string[] {
+  const lines = helpText.split('\n');
+  const start = lines.findIndex((line) => line.trim() === 'Commands:');
+  if (start === -1) return [];
+  const names: string[] = [];
+  for (const line of lines.slice(start + 1)) {
+    if (line.trim() === '') break;
+    const entry = /^ {2}(\S+)/.exec(line);
+    if (entry) names.push(entry[1].split('|')[0]);
+  }
+  return names;
 }
 
 describe('@object-ui/cli bin', () => {
@@ -151,14 +182,22 @@ describe('@object-ui/cli bin', () => {
     });
   });
 
+  // objectui#11496. One enumeration over the built CLI's commands, so the next
+  // declared-but-unbuilt command cannot ship the way `add` did: a retired
+  // command that comes back, or a new one this list does not name, turns this
+  // red. It replaces a containment check that a retired command coming back
+  // would have passed.
   describe('--help', () => {
-    it('lists all 15 documented commands', () => {
+    it('lists exactly the declared commands, no more and no fewer', () => {
       const res = run(['--help']);
-      expect(res.code).toBe(0);
-      const out = res.stdout;
-      for (const cmd of SUBCOMMANDS) {
-        expect(out, `command "${cmd}" should appear in --help output`).toContain(cmd);
-      }
+      expect(res.code, res.stderr).toBe(0);
+      const listed = helpCommandNames(res.stdout);
+      // Lit control: commander lists its own `help` command last, so reading it
+      // proves the parse ran to the end of the Commands section.
+      expect(listed[listed.length - 1]).toBe('help');
+      const declared = listed.filter((name) => name !== 'help');
+      expect([...declared].sort()).toEqual([...SUBCOMMANDS].sort());
+      expect(new Set(declared).size).toBe(declared.length);
     });
 
     it('uses the "objectui" bin name (not "os ui")', () => {
@@ -208,7 +247,6 @@ describe('@object-ui/cli bin', () => {
       ['lint',     [/--fix/]],
       ['test',     [/-w, --watch/, /-c, --coverage/, /--ui/]],
       ['generate', [/<type> <name>/]],
-      ['analyze',  [/--bundle-size/, /--render-performance/]],
       ['validate', [/\[schema\]/]],
     ];
     it.each(cases)('%s exposes the documented flags', (cmd, patterns) => {
@@ -232,11 +270,6 @@ describe('@object-ui/cli bin', () => {
   // refusals are read against: same command, same empty directory, one file
   // written.
   describe('generate refuses its retired flags (objectui#11476, objectui#11488)', () => {
-    const tree = (dir: string) =>
-      (readdirSync(dir, { recursive: true }) as string[])
-        .map((p) => p.split(sep).join('/'))
-        .sort();
-
     it.each([
       ['--output', 'custom/'],
       ['--from', 'openapi.yaml'],
@@ -263,6 +296,67 @@ describe('@object-ui/cli bin', () => {
       expect(res.stdout).toMatch(/objectui generate\|g .*<type> <name>/);
       expect(res.stdout).not.toMatch(/--output\b/);
       expect(res.stdout).not.toMatch(/--from\b/);
+    });
+  });
+
+  // objectui#11496. `add <component>` was documented as adding a component
+  // renderer scaffold, but its action printed "Feature not implemented yet.",
+  // wrote nothing and exited 0, so a script read the no-op as success. The
+  // command is retired with no placeholder, so the bin must REFUSE it the way it
+  // refuses any command it never declared. The control is the same directory
+  // answering a declared command: it is writable, and the tree read sees a write.
+  describe('the retired add command is refused (objectui#11496)', () => {
+    it('exits non-zero with the unknown-command error on `add Input`, and writes nothing', () => {
+      const work = mkdtempSync(join(tmpdir(), 'objectui-cli-add-retired-'));
+      const res = run(['add', 'Input'], { cwd: work });
+      expect(res.code, res.stdout + res.stderr).not.toBe(0);
+      expect(res.stderr).toMatch(/unknown command 'add'/i);
+      expect(tree(work)).toEqual([]);
+
+      const control = run(['g', 'page', 'Probe'], { cwd: work });
+      expect(control.code, control.stdout + control.stderr).toBe(0);
+      expect(tree(work)).toEqual(['pages', 'pages/probe.json']);
+    });
+  });
+
+  // objectui#11496, the family close-out over every command and flag. `analyze
+  // --render-performance` printed the same fixed list of tips and ticks in any
+  // directory, a built project or an empty one, and analysed nothing. It is
+  // retired. `--bundle-size` only chose between that and the bundle report, so
+  // with nothing left to choose from it would be read by nothing, which is the
+  // shape `generate --output` was retired for; it is retired with it. `analyze`
+  // with no flag is the control: it still reports the bundle under `dist/`.
+  describe('analyze refuses its retired flags (objectui#11496)', () => {
+    it.each(['--render-performance', '--bundle-size'])(
+      'exits non-zero naming %s as an unknown option, and writes nothing',
+      (flag) => {
+        const work = mkdtempSync(join(tmpdir(), 'objectui-cli-analyze-retired-'));
+        const res = run(['analyze', flag], { cwd: work });
+        expect(res.code, res.stdout + res.stderr).not.toBe(0);
+        expect(res.stderr).toMatch(/unknown option/i);
+        expect(res.stderr).toContain(flag);
+        expect(tree(work)).toEqual([]);
+      },
+    );
+
+    it('still reports the bundle under dist/ without a flag, and no render section', () => {
+      const work = mkdtempSync(join(tmpdir(), 'objectui-cli-analyze-'));
+      mkdirSync(join(work, 'dist', 'assets'), { recursive: true });
+      writeFileSync(join(work, 'dist', 'assets', 'probe-bundle.js'), 'x'.repeat(2048));
+      const res = run(['analyze'], { cwd: work });
+      expect(res.code, res.stdout + res.stderr).toBe(0);
+      expect(res.stdout).toContain('Bundle Size Analysis');
+      expect(res.stdout).toContain('assets/probe-bundle.js');
+      expect(res.stdout).not.toMatch(/render performance/i);
+    });
+
+    it('lists neither flag in analyze --help', () => {
+      const res = run(['analyze', '--help']);
+      expect(res.code, res.stderr).toBe(0);
+      // Lit control: the help text that was read is analyze's own usage line.
+      expect(res.stdout).toMatch(/Usage: objectui analyze\b/);
+      expect(res.stdout).not.toMatch(/--render-performance\b/);
+      expect(res.stdout).not.toMatch(/--bundle-size\b/);
     });
   });
 

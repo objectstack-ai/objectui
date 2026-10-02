@@ -15,3 +15,5 @@ A `metric-card` in a dashboard's widget slot is checked against the props `Metri
 **Fix:** write `trend` as one of the three, give the card a `value`, and keep `title`, `icon` and `trendValue` as strings (`title` may also be a per-locale map).
 
 The internal `declareRegisteredInputs` side table (objectui#11022) and the strict walker's branch for it are removed. Every name it recorded is now a member of the arm. Neither was exported from the package.
+
+⚠️ **Dated note, 2026-10-02 — a `metric-card` with no `value` is refused, whatever else it carries — objectui#11483.** At this change, a card with no `value` was refused directly in `widgets[]` only when it carried `icon`, `trend` or `trendValue`, and the widget arm still named `metric-card` as a widget type. A card carrying only keys the widget arm also accepts (`title`, `description`, `id`, `layout`, a `dataset`, `options`) parsed there as a widget. Now `metric-card` is no widget type, so both faces refuse every card with no `value` in `widgets[]`. `.changeset/11483-metric-card-needs-value.md` states what ships. The rest of this entry is kept as the reading of this change.

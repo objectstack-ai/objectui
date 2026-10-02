@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type { BaseSchema } from '@object-ui/types';
+import type { SchemaNode } from '@object-ui/types';
 import type { SchemaRendererProps } from './SchemaRenderer.js';
 
 /**
@@ -72,7 +72,7 @@ import type { SchemaRendererProps } from './SchemaRenderer.js';
  * said the reconciliation was still pending and invited exactly that edit.
  */
 export function toRenderableSchema(
-  node: BaseSchema | string | number | boolean | null | undefined,
+  node: SchemaNode,
 ): SchemaRendererProps['schema'] {
   return typeof node === 'number' || typeof node === 'boolean'
     ? (node ? String(node) : undefined)

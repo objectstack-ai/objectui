@@ -219,7 +219,9 @@ objectui#11467; the members are held to the live registration and to
 by it, while the tolerant face also keeps `BaseSchema` for any other component
 node. The node also declares one widget key, `layout`, the spec's widget
 position, which the editable grid's Save Layout writes onto every entry; it is
-judged by the spec's shape (objectui#11070):
+judged by the spec's shape (objectui#11070). `metric-card` is not a widget
+`type`, so the slot reads such a card through this node alone, and a card with
+no `value` is refused on both faces (objectui#11483):
 
 ```typescript
 import { StrictAnyComponentSchema } from '@object-ui/types/zod';
@@ -227,7 +229,8 @@ import { StrictAnyComponentSchema } from '@object-ui/types/zod';
 const card = (widget: object) => ({ type: 'dashboard', widgets: [widget] });
 
 StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42 })).success; // true
-StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', bogus: 1 })).success;  // false — `bogus` is named
+StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42, bogus: 1 })).success; // false — `bogus` is named
+StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', title: 'Revenue' })).success; // false — no `value`
 StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42, layout: { x: 0, y: 0, w: 3, h: 2 } })).success; // true
 StrictAnyComponentSchema.safeParse(card({ type: 'metric-card', value: 42, trend: 'sideways' })).success; // false — not a trend
 ```

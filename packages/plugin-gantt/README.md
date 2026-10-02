@@ -894,9 +894,9 @@ a task array. There is no `GanttSchema`. `ObjectGanttSchema` in `@object-ui/type
 yourself.
 
 ```typescript
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGanttBlockNode } from '@object-ui/types';
 
-const gantt: BaseSchema = {
+const gantt: ObjectGanttBlockNode = {
   type: 'object-gantt',
   properties: {
     objectName: 'project_tasks',

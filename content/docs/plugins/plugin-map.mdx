@@ -61,9 +61,9 @@ the renderer reads it, and as code composes it.
 
 ```tsx
 import '@object-ui/plugin-map'
-import type { BaseSchema } from '@object-ui/types'
+import type { ObjectMapBlockNode } from '@object-ui/types'
 
-const schema: BaseSchema = {
+const schema: ObjectMapBlockNode = {
   type: 'object-map',
   properties: {
     objectName: 'locations',  // Your ObjectQL object
@@ -80,9 +80,9 @@ const schema: BaseSchema = {
 ### With Static Data
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types'
+import type { ObjectMapBlockNode } from '@object-ui/types'
 
-const schema: BaseSchema = {
+const schema: ObjectMapBlockNode = {
   type: 'object-map',
   properties: {
     staticData: [
@@ -198,9 +198,9 @@ the way in. Both are gone. Declare the binding:
 When your data has separate latitude and longitude fields:
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectMapBlockNode } from '@object-ui/types';
 
-const storeMap: BaseSchema = {
+const storeMap: ObjectMapBlockNode = {
   type: 'object-map',
   properties: {
     objectName: 'stores',
@@ -219,9 +219,9 @@ const storeMap: BaseSchema = {
 When your data has a combined location field:
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectMapBlockNode } from '@object-ui/types';
 
-const placeMap: BaseSchema = {
+const placeMap: ObjectMapBlockNode = {
   type: 'object-map',
   properties: {
     objectName: 'places',
@@ -254,9 +254,9 @@ Two cases sit outside the fit:
 Declare either one to take the camera over and opt this view out of the auto-fit:
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectMapBlockNode } from '@object-ui/types';
 
-const cameraMap: BaseSchema = {
+const cameraMap: ObjectMapBlockNode = {
   type: 'object-map',
   properties: {
     objectName: 'locations',
@@ -279,9 +279,9 @@ the centre of the records, `center` on its own at a continental zoom.
 ### Object Provider (Database)
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectMapBlockNode } from '@object-ui/types';
 
-const retailStores: BaseSchema = {
+const retailStores: ObjectMapBlockNode = {
   type: 'object-map',
   properties: {
     objectName: 'retail_stores',
@@ -609,7 +609,7 @@ code hands it to the component directly (`<ObjectMap schema={…} />`); an
 authored node writes its props in the bag.
 
 ```ts
-import type { BaseSchema, ObjectMapSchema, ObjectMapConfig } from '@object-ui/types'
+import type { ObjectMapBlockNode, ObjectMapSchema, ObjectMapConfig } from '@object-ui/types'
 
 const mapConfig: ObjectMapConfig = {
   latitudeField: 'lat',
@@ -621,7 +621,7 @@ const mapConfig: ObjectMapConfig = {
 }
 
 // The authored node: its props in the `properties` bag.
-const mapNode: BaseSchema = {
+const mapNode: ObjectMapBlockNode = {
   type: 'object-map',
   properties: {
     objectName: 'locations',

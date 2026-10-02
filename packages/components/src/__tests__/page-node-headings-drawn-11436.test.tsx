@@ -34,12 +34,23 @@
  * block in its `children` or regions. A navigation entry that targets a page
  * (`type: "page"` with a `pageName` and a `label`) authors neither and stays out.
  *
+ * objectui#11450 adds the producers under `packages/`: every fence of every
+ * `README.md` anywhere under `packages/`, read by the same fence reader, and the
+ * page `objectui generate page` writes. The generator is RUN, into a throwaway
+ * directory, and its file is read back -- the bytes a user receives, not a
+ * transcription of them.
+ *
  * Boundaries of the reader, stated so nobody reads them as coverage:
  *   - A `ts` / `tsx` fence is parsed as a module, so a fence whose whole body is
  *     a bare `{ ... }` reads as a block, not an object. That is the shape of the
  *     layout guide's Schema API excerpt, which is not a node.
- *   - Package READMEs and runtime sources under `packages/` are outside the
- *     population triage set for this card.
+ *   - The README walk is a filesystem walk, like the docs and examples walks. It
+ *     skips installs and build output by directory name, and it does not consult
+ *     `.gitignore`, so a README someone writes into an ignored directory of a
+ *     local checkout is read too. A fresh checkout, which is what CI reads, holds
+ *     only tracked READMEs.
+ *   - Runtime sources under `packages/` are outside the population, apart from
+ *     the generator's output. A runtime page literal is not a taught node.
  *
  * ## What this file asserts
  *
@@ -62,6 +73,12 @@
  *   5. DECLARED SHAPE: a TypeScript interface in a fence that declares a
  *      `type: 'page'` node with a `title` also declares `pageType`.
  *
+ * The `markdown` child the generator writes is not rendered as markdown here:
+ * plugin-markdown is a plugin this package does not register, so that node draws
+ * the unknown-type alert, which holds no heading. Whether the child would draw a
+ * second `h1` under plugin-markdown is asserted on its text in the cli package's
+ * `generate-page-dialect-9847.test.ts`.
+ *
  * This file subsumes objectui#11423's pin, which read the layout guide's `json`
  * fences alone and was retired when this one landed. Its four named passages
  * are in the floor below, and its two live controls are the general ones in (3).
@@ -75,15 +92,19 @@
  * imported at module scope, not in `beforeAll`, per AGENTS.md's flaky-test
  * discipline.
  */
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
-import { readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 import { PageTypeSchema } from '@objectstack/spec/ui';
 import '../renderers';
 import { SchemaRenderer } from '@object-ui/react';
+// The generator's source, not `@object-ui/cli`: that package publishes its
+// commands only as a bin, and the test needs `generate` itself (objectui#11450).
+import { generate } from '../../../cli/src/commands/generate';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../../../..');
@@ -101,11 +122,22 @@ const DRAWING = MEMBERS.filter((t) => t !== 'record');
 
 const SKIP_DIRS = new Set(['node_modules', 'dist', '.turbo', 'coverage', 'test', '__tests__']);
 
-function walk(dir: string, keep: (name: string) => boolean, out: string[] = []): string[] {
+/**
+ * What the README walk never enters: installs and build output. It does enter
+ * test directories, because a README there is still a tracked package README.
+ */
+const README_SKIP_DIRS = new Set(['node_modules', 'dist', '.turbo', 'coverage']);
+
+function walk(
+  dir: string,
+  keep: (name: string) => boolean,
+  skip: ReadonlySet<string> = SKIP_DIRS,
+  out: string[] = [],
+): string[] {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (!SKIP_DIRS.has(entry.name)) walk(full, keep, out);
+      if (!skip.has(entry.name)) walk(full, keep, skip, out);
     } else if (keep(entry.name)) {
       out.push(full);
     }
@@ -267,7 +299,42 @@ const EXAMPLE_UNITS: Unit[] = walk(
   text: readFileSync(file, 'utf8'),
   asExpression: file.endsWith('.json'),
 }));
-const { nodes: PAGES, declarations: DECLARATIONS } = read([...DOC_UNITS, ...EXAMPLE_UNITS]);
+const README_FILES = walk(path.join(repoRoot, 'packages'), (name) => name === 'README.md', README_SKIP_DIRS);
+const README_UNITS = README_FILES.flatMap(fencesOf);
+
+/** The producer `objectui generate page NAME` is, as this file labels it. */
+const GENERATOR = 'packages/cli/src/commands/generate.ts';
+const GENERATOR_WHERE = 'objectui generate page';
+
+/**
+ * The page `objectui generate page` writes, as one JSON unit (objectui#11450).
+ * `generate` takes its target directory from `process.cwd()`, so the cwd is
+ * stubbed for the one call and restored, the lever the cli package's
+ * `generate-page-dialect-9847.test.ts` uses. A generator that writes no file
+ * fails this module's load, loudly.
+ */
+async function generatorUnits(): Promise<Unit[]> {
+  const dir = mkdtempSync(path.join(tmpdir(), 'objectui-generate-11450-'));
+  const cwd = vi.spyOn(process, 'cwd').mockReturnValue(dir);
+  const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+  try {
+    await generate('page', 'Reports');
+    const text = readFileSync(path.join(dir, 'pages', 'reports.json'), 'utf8');
+    return [{ file: GENERATOR, where: GENERATOR_WHERE, lang: 'json', text, asExpression: true }];
+  } finally {
+    cwd.mockRestore();
+    log.mockRestore();
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+const GENERATED_UNITS = await generatorUnits();
+
+const { nodes: PAGES, declarations: DECLARATIONS } = read([
+  ...DOC_UNITS,
+  ...EXAMPLE_UNITS,
+  ...README_UNITS,
+  ...GENERATED_UNITS,
+]);
 
 // ---------------------------------------------------------------------------
 // What a page node shows, and what it draws
@@ -358,16 +425,26 @@ const CORRECTED: ReadonlyArray<readonly [file: string, where: string]> = [
   ['content/docs/guide/schema-rendering.md', 'TypeScript Support'],
   ['content/docs/core/schema-renderer.mdx', 'Simple Rendering'],
   ['content/docs/components/feedback/toaster.mdx', 'In App Layout'],
+  // objectui#11450 — the producers under `packages/`: two published READMEs,
+  // and the page the CLI generator writes.
+  ['packages/core/README.md', 'Type Definitions'],
+  ['packages/runner/README.md', 'Example Schema'],
+  [GENERATOR, GENERATOR_WHERE],
 ];
 
 describe('objectui#11436 — every taught page node draws the heading it shows', () => {
-  it('LIT CONTROL — the reader walks the docs and examples and parses their fences', () => {
+  it('LIT CONTROL — the reader walks the docs, examples and package READMEs and parses their fences', () => {
     // A broken walker or fence reader would hand every assertion below an
     // empty list. The floors are loose on purpose: they catch a reader that
     // found nothing, not a page that was deleted.
     expect(DOC_FILES.length).toBeGreaterThan(100);
     expect(DOC_UNITS.length).toBeGreaterThan(500);
     expect(EXAMPLE_UNITS.length).toBeGreaterThan(100);
+    expect(README_FILES.length).toBeGreaterThan(20);
+    expect(README_UNITS.length).toBeGreaterThan(100);
+    // The walk reached past the package roots: a README in a nested directory
+    // is a package README too.
+    expect(README_FILES.some((f) => path.relative(repoRoot, f).split(path.sep).length > 3)).toBe(true);
     // The population spans fence languages the old `json`-only reader could
     // not see. A parser that stopped reading one of them would drop it here.
     for (const lang of ['json', 'jsonc', 'tsx', 'plaintext']) {

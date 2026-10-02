@@ -722,11 +722,11 @@ steps are its `sections` — one step per section. There is no
 unknown-component placeholder and the fields inside `steps` are never read.
 
 ```typescript
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectFormBlockNode } from '@object-ui/types';
 
 // The props go in the node's `properties` bag — the members of
 // `@objectstack/spec`'s `ComponentPropsMap['object-form']` row.
-const schema: BaseSchema = {
+const schema: ObjectFormBlockNode = {
   type: 'object-form',
   properties: {
     objectName: 'contacts',        // the object whose fields the steps list
@@ -972,14 +972,14 @@ context, which `ObjectFormRenderer` reads at `src/index.tsx` before handing
 import { SchemaRendererProvider, SchemaRenderer } from '@object-ui/react';
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
 import '@object-ui/plugin-form';
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectFormBlockNode } from '@object-ui/types';
 
 const dataSource = createObjectStackAdapter({
   baseUrl: 'https://api.example.com',
   token: 'your-auth-token',
 });
 
-const schema: BaseSchema = {
+const schema: ObjectFormBlockNode = {
   type: 'object-form',
   properties: {
     objectName: 'users',

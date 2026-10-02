@@ -64,14 +64,14 @@ React wiring lives in `@object-ui/react`, not here. Wrap your tree in
 ```tsx
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridBlockNode } from '@object-ui/types';
 
 const dataSource = createObjectStackAdapter({
   baseUrl: 'https://api.example.com',
 });
 
 // The block's props go in its `properties` bag, as `@objectstack/spec` declares them.
-const mySchema: BaseSchema = { type: 'object-grid', properties: { objectName: 'user' } };
+const mySchema: ObjectGridBlockNode = { type: 'object-grid', properties: { objectName: 'user' } };
 
 function App() {
   return (

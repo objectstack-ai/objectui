@@ -66,13 +66,18 @@ function generatePage(cwd: string, name: string) {
     return;
   }
 
+  // A page with no `pageType` is a `record` page, which draws neither `title`
+  // nor `description`; `app` draws `title` as the page's one `h1`. So the
+  // markdown under it opens with prose, not a `#` heading that would draw a
+  // second `h1` (one page, one h1: objectui#3434; objectui#11450).
   const content = {
     type: "page",
+    pageType: "app",
     title: name,
     children: [
       {
         type: "markdown",
-        content: `# Welcome to ${name}`
+        content: `Welcome to ${name}`
       }
     ]
   };

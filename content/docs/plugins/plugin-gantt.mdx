@@ -71,9 +71,9 @@ renderer reads it, and as code composes it.
 
 ```tsx
 import '@object-ui/plugin-gantt'
-import type { BaseSchema } from '@object-ui/types'
+import type { ObjectGanttBlockNode } from '@object-ui/types'
 
-const schema: BaseSchema = {
+const schema: ObjectGanttBlockNode = {
   type: 'object-gantt',
   properties: {
     objectName: 'tasks',  // Your ObjectQL object
@@ -91,9 +91,9 @@ const schema: BaseSchema = {
 ### With Static Data
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGanttBlockNode } from '@object-ui/types';
 
-const schema: BaseSchema = {
+const schema: ObjectGanttBlockNode = {
   type: 'object-gantt',
   properties: {
     staticData: [
@@ -215,9 +215,9 @@ with a time part is an instant, and the bar ends exactly there. The timeline's
 Map your database fields to Gantt properties:
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGanttBlockNode } from '@object-ui/types';
 
-const fieldMappedGantt: BaseSchema = {
+const fieldMappedGantt: ObjectGanttBlockNode = {
   type: 'object-gantt',
   properties: {
     objectName: 'project_tasks',
@@ -283,9 +283,9 @@ The dependencies field should contain an array of task IDs that this task depend
 ### Object Provider (Database)
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGanttBlockNode } from '@object-ui/types';
 
-const objectProviderGantt: BaseSchema = {
+const objectProviderGantt: ObjectGanttBlockNode = {
   type: 'object-gantt',
   properties: {
     objectName: 'project_tasks',
@@ -302,9 +302,9 @@ const objectProviderGantt: BaseSchema = {
 ### Value Provider (Static)
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGanttBlockNode } from '@object-ui/types';
 
-const valueProviderGantt: BaseSchema = {
+const valueProviderGantt: ObjectGanttBlockNode = {
   type: 'object-gantt',
   properties: {
     staticData: [
@@ -323,9 +323,9 @@ const valueProviderGantt: BaseSchema = {
 ### API Provider
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGanttBlockNode } from '@object-ui/types';
 
-const apiProviderGantt: BaseSchema = {
+const apiProviderGantt: ObjectGanttBlockNode = {
   type: 'object-gantt',
   properties: {
     data: {
@@ -422,9 +422,9 @@ no object (no `objectName`, no object `data` provider), no mode opens anything.
 ### Software Project
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGanttBlockNode } from '@object-ui/types';
 
-const softwareProject: BaseSchema = {
+const softwareProject: ObjectGanttBlockNode = {
   type: 'object-gantt',
   properties: {
     objectName: 'sprint_tasks',
@@ -442,9 +442,9 @@ const softwareProject: BaseSchema = {
 ### Construction Project
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGanttBlockNode } from '@object-ui/types';
 
-const constructionGantt: BaseSchema = {
+const constructionGantt: ObjectGanttBlockNode = {
   type: 'object-gantt',
   properties: {
     objectName: 'construction_phases',
@@ -461,9 +461,9 @@ const constructionGantt: BaseSchema = {
 ### Marketing Campaign
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGanttBlockNode } from '@object-ui/types';
 
-const campaignGantt: BaseSchema = {
+const campaignGantt: ObjectGanttBlockNode = {
   type: 'object-gantt',
   properties: {
     staticData: [
@@ -544,7 +544,7 @@ const campaignGantt: BaseSchema = {
 ## TypeScript Support
 
 ```ts
-import type { BaseSchema, GanttConfig } from '@object-ui/types'
+import type { ObjectGanttBlockNode, GanttConfig } from '@object-ui/types'
 
 const ganttConfig: GanttConfig = {
   startDateField: 'startDate',
@@ -554,7 +554,7 @@ const ganttConfig: GanttConfig = {
   dependenciesField: 'dependencies'
 }
 
-const ganttSchema: BaseSchema = {
+const ganttSchema: ObjectGanttBlockNode = {
   type: 'object-gantt',
   properties: {
     objectName: 'project_tasks',

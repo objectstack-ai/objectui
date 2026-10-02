@@ -3648,9 +3648,11 @@ interface RuntimeOnlyNamedAllowList {
   /**
    * objectui#11355 round 2 — the seat's ruling A: a render flag hosts compose in code.
    * `DashboardRenderer` and `DashboardGridLayout` set it `false` on the `object-chart`
-   * nodes they build, `DatasetWidget` and `DatasetReportRenderer` on the nodes they
-   * hand the `chart` registration (the same `ObjectChart`), and `ChartRenderer` honours
-   * it. No tracked JSON, YAML or Markdown document authors it.
+   * nodes they build, and `ObjectChart` spreads the node into the schema it hands
+   * `ChartRenderer`, which honours it. `DatasetWidget` and `DatasetReportRenderer`
+   * write the same flag onto bare `chart` nodes, which `ChartRenderer` renders
+   * directly, its own `schema` prop declaring it, not through this pair's type.
+   * No tracked JSON, YAML or Markdown document authors it.
    */
   'objectql.zod.ts#ObjectChartSchema': {
     isAnimationActive: 'host-composed render flag: set false in code by the dashboard and report renderers for a deterministic first paint, honoured by ChartRenderer; authored in no document';

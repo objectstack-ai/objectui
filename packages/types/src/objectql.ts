@@ -5656,12 +5656,15 @@ export interface ObjectChartSchema extends BaseSchema {
    * `false` for a deterministic render with no entrance animation; omitted,
    * the chart animates.
    *
-   * Code writes it, not documents. The dashboard renderers
-   * (`DashboardRenderer`, `DashboardGridLayout`) set it `false` on the
-   * `object-chart` nodes they build for a widget, and `DatasetWidget` and
-   * `DatasetReportRenderer` set it on the nodes they hand the `chart`
-   * registration, which renders through this same type. `ObjectChart` spreads the node into the schema it
-   * hands `ChartRenderer`, whose own `schema.isAnimationActive` it honours.
+   * Code writes it, not documents. On this node the producers are the
+   * dashboard renderers (`DashboardRenderer`, `DashboardGridLayout`), which set
+   * it `false` on the `object-chart` nodes they build for a widget; `ObjectChart`
+   * spreads the node into the schema it hands `ChartRenderer`, which honours it.
+   * `DatasetWidget` and `DatasetReportRenderer` write the same flag onto bare
+   * `chart` nodes, which `ChartRenderer` renders directly (plugin-charts'
+   * `index.tsx` gives it the bare `chart` key and registers `ObjectChartBlock`
+   * as `view:chart` only). `ChartRenderer`'s own `schema` prop declares the
+   * flag there, so those writes do not go through this type.
    *
    * ⛔ Declared on this TypeScript face only. The zod mirror has no member for
    * it, so it is not offered as an authored key, and `zod-mirror-parity` files

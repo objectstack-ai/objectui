@@ -10,7 +10,7 @@ refactor(layout)!: retire the `navigation-renderer` and `responsive-grid` node t
 
 Migration, measured against `objectui validate` on both of its faces:
 
-- `{ "type": "responsive-grid", "columns": C, "gap": G }` → `{ "type": "grid", "columns": C, "gap": G }`. `grid` accepts the same breakpoint `columns` object (`xs` … `2xl`) and a `gap` number, and refuses an unknown breakpoint key by name (`unrecognized_keys` on `columns`). Unlike `responsive-grid`, which drew `not-a-container` and rendered no authored child list, `grid` draws its `children`;
+- `{ "type": "responsive-grid", "columns": C, "gap": G }` → `{ "type": "grid", "columns": C, "gap": G }`. `grid` accepts the same breakpoint `columns` object (`xs` … `2xl`) and a `gap` number, and refuses an unknown breakpoint key as an unrecognized key (`unrecognized_keys` on `columns`). Unlike `responsive-grid`, which drew `not-a-container` and rendered no authored child list, `grid` draws its `children`;
 - `{ "type": "navigation-renderer", "items": I }` has no page-node replacement: navigation is application metadata. Put `I` in the app document's `navigation` (`{ "type": "app", "name": N, "navigation": I }` validates on both faces), and the shell draws it: the console's sidebar, or `AppSchemaRenderer` in JSX;
 - `basePath` has no app-document spelling: the strict face refuses it as an unrecognized key. It belongs to the shell, as `AppSchemaRenderer`'s `basePath` prop.
 

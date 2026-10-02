@@ -122,8 +122,9 @@ export function registerLayout() {
   // spelling: the `grid` node from `@object-ui/components` with a breakpoint
   // `columns` object (`{ "type": "grid", "columns": { "xs": 1, "md": 2 },
   // "gap": 4 }`), which both validator faces accept and which refuses an unknown
-  // breakpoint key by name. `ResponsiveGrid` stays a named export of this
-  // package for hosts that compose it in React, and so does the
+  // breakpoint key as an unrecognized key (`unrecognized_keys` on `columns`).
+  // `ResponsiveGrid` stays a named export of this package for hosts that
+  // compose it in React, and so does the
   // `BreakpointColumnMap` it is typed by: the same ruling keeps objectui#7580's
   // vocabulary half and retires only this registration.
   //

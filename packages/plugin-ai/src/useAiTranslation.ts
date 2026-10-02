@@ -29,10 +29,9 @@ import { createSafeTranslation } from '@object-ui/i18n';
  * shows English rather than raw keys. Every row is byte-identical to its `en`
  * pack value — `aiComponents.i18n-10232.test.tsx` holds it there.
  *
- * The count rows are this repo's two-key plural convention (`*One` picked at
- * the call site at exactly one), not an i18next `_one`/`_other` family: the
- * provider-less path resolves `defaults[key]` literally and never appends a
- * plural suffix.
+ * The count rows are i18next count families (objectui#11445): the components
+ * pass `count`, and the provider-less path reads the `_one` / `_other` row for
+ * a numeric count, in the order i18next reads the `en` pack.
  */
 export const AI_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'ai.nlQuery.placeholder': 'Ask a question about your data…',
@@ -44,11 +43,13 @@ export const AI_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'ai.nlQuery.recentQueries': 'Recent Queries',
   'ai.formAssist.title': 'AI Suggestions',
   'ai.formAssist.suggestionCount': '{{count}} suggestions',
-  'ai.formAssist.suggestionCountOne': '{{count}} suggestion',
+  'ai.formAssist.suggestionCount_one': '{{count}} suggestion',
+  'ai.formAssist.suggestionCount_other': '{{count}} suggestions',
   'ai.formAssist.applyAll': 'Apply All',
   'ai.formAssist.confidence': '{{percent}} confidence',
   'ai.formAssist.appliedCount': '{{count}} suggestions applied',
-  'ai.formAssist.appliedCountOne': '{{count}} suggestion applied',
+  'ai.formAssist.appliedCount_one': '{{count}} suggestion applied',
+  'ai.formAssist.appliedCount_other': '{{count}} suggestions applied',
   'ai.recommendations.title': 'Recommendations',
   'ai.recommendations.generating': 'Generating recommendations…',
   'ai.recommendations.empty': 'No recommendations available',

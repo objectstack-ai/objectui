@@ -6,7 +6,8 @@
  * returning raw i18n keys — and, for a key the `defaults` map does not carry,
  * to the call site's own inline `t(key, { defaultValue })` (objectui#3865).
  * The lookup order is i18next's, so a provider-less host and a provider-mounted
- * one render the same string: `defaults[key]` (the pack value's stand-in here)
+ * one render the same string: `defaults[key_<category>]` for a numeric `count`
+ * (objectui#11445), then `defaults[key]` (the pack value's stand-in here)
  * -> `defaultValue` -> the key.
  *
  * @param defaults - Fallback English translations keyed by i18n key
@@ -15,6 +16,33 @@
 import { useObjectTranslation } from './provider.js';
 import { DEFAULT_VALUE_OPTION, interpolateFallback } from './fallbackInterpolation.js';
 
+/**
+ * The plural rules the defaults tables are written in. Every table is English
+ * (the `en` pack's stand-in), so English selects the slot.
+ */
+const DEFAULTS_PLURAL_RULES = new Intl.PluralRules('en');
+
+/**
+ * The `defaults` row a count family answers from, the way i18next walks a pack
+ * (objectui#11445): `key_<category>` first, then the base `key`.
+ *
+ * i18next plural-selects only for a NUMERIC `count` (`needsPluralHandling` in
+ * i18next 26 is `count !== undefined && !isString(count)`), so a string count
+ * reads the base row on both paths. `_zero` is not looked up: no English row
+ * spells one, because `en` selects no `zero` category.
+ */
+function defaultsRowFor(
+  defaults: Record<string, string>,
+  key: string,
+  options: Record<string, unknown> | undefined,
+): string | undefined {
+  const count = options?.count;
+  if (typeof count === 'number' && Number.isFinite(count)) {
+    const slot = defaults[`${key}_${DEFAULTS_PLURAL_RULES.select(count)}`];
+    if (slot) return slot;
+  }
+  return defaults[key];
+}
 
 export function createSafeTranslation(
   defaults: Record<string, string>,
@@ -45,9 +73,18 @@ export function createSafeTranslation(
     // `string`, and i18next itself declines a `null` default. `||` (not `??`)
     // keeps the whole chain consistent with the pre-existing `defaults[key] ||`
     // step: an empty string at any position falls through to the next.
+    //
+    // A count family's suffixed rows are reached here too (objectui#11445):
+    // `t('detail.replyCount', { count: 3 })` reads `detail.replyCount_other`
+    // before the base row, exactly as i18next reads the `en` pack. Before that
+    // card a family's `_one` / `_other` rows were unreachable on this path, so
+    // the code-selected `xxxCountOne` pairs were the only way a provider-less
+    // host rendered "1 reply" — the card retired those pairs.
     const inlineDefault = options?.[DEFAULT_VALUE_OPTION];
     let value =
-      defaults[key] || (typeof inlineDefault === 'string' ? inlineDefault : '') || key;
+      defaultsRowFor(defaults, key, options) ||
+      (typeof inlineDefault === 'string' ? inlineDefault : '') ||
+      key;
     // The interpolation itself lives in `fallbackInterpolation.ts` — ONE
     // function, shared with `useObjectTranslation`'s not-ready path
     // (objectui#6219). Both provider-less renderers therefore fill exactly

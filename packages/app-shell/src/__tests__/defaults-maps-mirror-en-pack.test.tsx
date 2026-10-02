@@ -99,12 +99,13 @@
  * | `detail.showEmptyRelated{,_one,_other}` suffixed rows | all three in pack, all three agree | compared, AND their key-set mirror is pinned separately (see below) |
  * | a map row whose key the pack lacks | 0 rows, all three maps | not an allowed state: it fails, naming itself a finding to file |
  *
- * The suffixed `showEmptyRelated` rows exist for a reason stated in
- * `useDetailTranslation.ts`: `fallbackT` resolves `defaults[key]` LITERALLY and
- * never appends a plural suffix, so only the BASE row is reachable through the
- * provider-less path — the two suffixed rows are kept purely so the map's key set
- * still mirrors the packs'. That rationale is a key-set claim, so the gate
- * enforces it as one, on top of comparing all three values.
+ * The suffixed `showEmptyRelated` rows were kept, before objectui#11445, purely
+ * so the map's key set mirrored the packs': `fallbackT` read `defaults[key]`
+ * literally, so only the BASE row was reachable on the provider-less path.
+ * objectui#11445 taught `fallbackT` i18next's order (`key_<category>` for a
+ * numeric `count`, then the base row), so all three rows are live now — and
+ * every converted count family's `_one` / `_other` rows ride the same path. The
+ * key-set pin below still holds them, on top of comparing all three values.
  *
  * ## Direction, predicted before running (#4118)
  *
@@ -288,11 +289,11 @@ describe('the plugin defaults maps mirror the en pack (objectui#4401)', () => {
   });
 
   it('the showEmptyRelated family keeps mirroring the packs’ key set', () => {
-    // `useDetailTranslation.ts` keeps two rows it can never serve: `fallbackT`
-    // indexes `defaults[key]` literally and never appends a plural suffix, so
-    // only the base row is reachable without a provider (objectui#3863). Their
-    // stated reason is that the map's key set still mirrors the packs' — a claim
-    // about KEYS, pinned here as one. Their values are compared by the
+    // `useDetailTranslation.ts` keeps the family's base and suffixed rows. Until
+    // objectui#11445 the suffixed two were unreachable (`fallbackT` read
+    // `defaults[key]` literally, objectui#3863) and were kept so the map's key
+    // set mirrored the packs'; `fallbackT` now reads them for a numeric `count`.
+    // The key-set claim is pinned here as one; their values are compared by the
     // byte-identity case above like every other row.
     for (const key of [
       'detail.showEmptyRelated',

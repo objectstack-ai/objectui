@@ -547,9 +547,15 @@ const VIEW_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'actionConfirm.cancel': 'Cancel',
   'objectActions.deleteConfirm': 'Are you sure you want to delete this record?',
   'console.objectView.bulkDeleteConfirm': 'Delete {{count}} selected records? This cannot be undone.',
+  // Count families (objectui#11445): `fallbackT` reads a family's `_one` /
+  // `_other` row for a numeric `count`, as i18next reads the `en` pack.
+  'console.objectView.bulkDeleteConfirm_one': 'Delete {{count}} selected record? This cannot be undone.',
+  'console.objectView.bulkDeleteConfirm_other': 'Delete {{count}} selected records? This cannot be undone.',
   'objectActions.deleteSuccess': '{{label}} deleted successfully',
   'objectActions.deleteFailed': 'Failed to delete {{label}}',
   'objectActions.bulkDeleteSuccess': 'Deleted {{count}} {{label}} records',
+  'objectActions.bulkDeleteSuccess_one': 'Deleted {{count}} {{label}} record',
+  'objectActions.bulkDeleteSuccess_other': 'Deleted {{count}} {{label}} records',
   'objectActions.bulkDeletePartial': '{{succeeded}} deleted, {{failed}} failed',
 };
 

@@ -90,11 +90,12 @@
  * needs no call site. Families are taken as the union over `en` and the pack, so a
  * new pack or a new family that misses a category goes red here at PR time.
  *
- * ⛔ Out of this rule's reach, by construction: a count label selected IN CODE
- * (`xxxCount` / `xxxCountOne`, `xxxCountPlural`) — the component, not i18next,
- * picks the key, so the pack has no category slot to judge. Those are pinned per key
- * where they were repaired (`searchItemsAvailable-plural-9664.test.ts`, and
- * `countLabels.ruAr-10242.test.tsx` in `@object-ui/app-shell`).
+ * ⛔ Out of this rule's reach, by construction: a count label that is NOT a family —
+ * one selected in code (`xxxCountOne` / `xxxCountPlural`), or one string at every
+ * count — has no category slot to judge. objectui#11445 converted every such label
+ * that agrees a word with its number into a family, and
+ * `count-families-11445.test.ts` keeps it that way: no `…Plural` key, and every
+ * `{{count}}` leaf in a family or named on its count-neutral list with a reason.
  *
  * The rendering half — that i18next really selects each slot written here, through a
  * real instance over the shipped packs — is `plural-categories-11432.test.ts`.

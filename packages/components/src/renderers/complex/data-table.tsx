@@ -128,6 +128,10 @@ const TABLE_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'table.open': 'Open',
   'table.search': 'Search…',
   'table.modified': '{{count}} row modified',
+  // A count family (objectui#11445): `fallbackT` reads the `_one` / `_other`
+  // row for a numeric `count`, as i18next reads the `en` pack.
+  'table.modified_one': '{{count}} row modified',
+  'table.modified_other': '{{count}} rows modified',
   'table.saveFailed': 'Save failed',
   'table.selected': '{{count}} selected',
   'table.edit': 'Edit',

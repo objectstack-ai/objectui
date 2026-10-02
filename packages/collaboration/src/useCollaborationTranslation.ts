@@ -27,11 +27,9 @@
  * below is therefore the authoritative English copy of this package, and it
  * must stay byte-identical to the `en` locale pack's `collaboration` namespace.
  *
- * Plural keys come in PAIRS (`…Count` / `…CountOne`) rather than i18next
- * `_one`/`_other` suffixes: zh/ja/ko have no separate singular form, so those
- * packs would legitimately omit the `_one` half and `all-locales-key-parity`
- * reads a legitimately-absent half as a lost key. Same convention as
- * `detail.reactionCount` / `common.itemCount`.
+ * Count labels are i18next count families (objectui#11445): the map carries
+ * each family's `_one` / `_other` rows exactly as the `en` pack does, and
+ * `fallbackT` reads them for a numeric `count` in i18next's own order.
  */
 import { createSafeTranslation } from '@object-ui/i18n';
 
@@ -46,7 +44,8 @@ import { createSafeTranslation } from '@object-ui/i18n';
 export const COLLAB_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // Thread header
   'collaboration.commentCount': '{{count}} comments',
-  'collaboration.commentCountOne': '{{count}} comment',
+  'collaboration.commentCount_one': '{{count}} comment',
+  'collaboration.commentCount_other': '{{count}} comments',
   'collaboration.resolvedSuffix': ' · Resolved',
   'collaboration.sortComments': 'Sort comments',
   'collaboration.sortOldest': 'Oldest',
@@ -58,15 +57,22 @@ export const COLLAB_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // library is introduced.
   'collaboration.justNow': 'just now',
   'collaboration.minutesAgo': '{{count}}m ago',
+  'collaboration.minutesAgo_one': '{{count}}m ago',
+  'collaboration.minutesAgo_other': '{{count}}m ago',
   'collaboration.hoursAgo': '{{count}}h ago',
+  'collaboration.hoursAgo_one': '{{count}}h ago',
+  'collaboration.hoursAgo_other': '{{count}}h ago',
   'collaboration.daysAgo': '{{count}}d ago',
+  'collaboration.daysAgo_one': '{{count}}d ago',
+  'collaboration.daysAgo_other': '{{count}}d ago',
   'collaboration.edited': '(edited)',
-  // Reactions. A DEDICATED pair, deliberately not `detail.reactionCount` —
+  // Reactions. A DEDICATED family, deliberately not `detail.reactionCount` —
   // that one interpolates `{{emoji}}` and this tooltip has no emoji to hand it
   // (the emoji is the button's visible content), so reuse would render a
   // stray `{{emoji}}` under every locale.
   'collaboration.reactionCount': '{{count}} reactions',
-  'collaboration.reactionCountOne': '{{count}} reaction',
+  'collaboration.reactionCount_one': '{{count}} reaction',
+  'collaboration.reactionCount_other': '{{count}} reactions',
   'collaboration.addThumbsUp': 'Add thumbs up',
   // Per-comment actions and the reply banner
   'collaboration.reply': 'Reply',
@@ -89,11 +95,13 @@ export const COLLAB_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'collaboration.send': 'Send',
   // Presence avatar stack (objectui#3440). The group's `aria-label` IS the
   // control for a screen reader — the stack itself is images and initials —
-  // so this pair is not decoration.
+  // so these labels are not decoration.
   'collaboration.presentUserCount': '{{count}} users present',
-  'collaboration.presentUserCountOne': '{{count}} user present',
+  'collaboration.presentUserCount_one': '{{count}} user present',
+  'collaboration.presentUserCount_other': '{{count}} users present',
   'collaboration.moreUserCount': '{{count}} more users',
-  'collaboration.moreUserCountOne': '{{count}} more user',
+  'collaboration.moreUserCount_one': '{{count}} more user',
+  'collaboration.moreUserCount_other': '{{count}} more users',
   // Avatar tooltip. The parentheses belong to the translation so a translator
   // owns the whole shape rather than inheriting English-shaped glue.
   'collaboration.userStatusTitle': '{{name}} ({{status}})',

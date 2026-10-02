@@ -137,7 +137,9 @@ export const CommentAttachment: React.FC<CommentAttachmentProps> = ({
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
             <Paperclip className="h-3 w-3" />
             <span>
-              {attachments.length !== 1 ? t('detail.attachmentCountPlural', { count: attachments.length }) : t('detail.attachmentCount', { count: attachments.length })}
+              {/* One count family (objectui#11445): i18next picks the CLDR slot,
+                  so `ru` 3 reads «3 вложения» and `ar` 2 reads the dual. */}
+              {t('detail.attachmentCount', { count: attachments.length })}
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">

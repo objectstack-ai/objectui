@@ -146,7 +146,9 @@ const FIXED: Array<[string, string[]]> = [
   ['console.objectView.ufShowAllRecords', ['„Alle Datensätze“']],
   ['home.gettingStarted.description', ['„Zuletzt geöffnet“']],
   ['search.resultsCount', ['„{{query}}“']],
-  ['search.resultsCountPlural', ['„{{query}}“']],
+  // objectui#11445 folded `search.resultsCountPlural` into the `resultsCount`
+  // count family: the value objectui#3876 fixed, and this span, live in `_other`.
+  ['search.resultsCount_other', ['„{{query}}“']],
   ['empty.objectNotFoundDescription', ['„{{name}}“']],
   ['empty.pageNotFoundDescription', ['„{{name}}“']],
   ['empty.dashboardNotFoundDescription', ['„{{name}}“']],
@@ -302,7 +304,9 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // 69 once objectui#11131 added `fields.grid.noItemsAddHint`, the list-mode
     // line-items grid's empty text, which quotes the Add button's label
     // („{{label}}“) — one interpolated span, runtime data.
-    expect(okSpans, 'correctly paired spans').toBe(69);
+    // 70 once objectui#11445 made `search.resultsCount` a count family — its
+    // `_one` and `_other` slots quote the query, and `resultsCountPlural` left.
+    expect(okSpans, 'correctly paired spans').toBe(70);
   });
 
   it('keeps the count identity that replaces the card’s count(„) === count(“)', () => {
@@ -338,8 +342,10 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // more matched pair. 68 / 68 / 0 after objectui#11000 added
     // `form.noPermissionToCreate` and `form.noPermissionToEdit`, one matched
     // pair each. 69 / 69 / 0 after objectui#11131 added
-    // `fields.grid.noItemsAddHint`, one more matched pair.
-    expect({ open, close, rdq }).toEqual({ open: 69, close: 69, rdq: 0 });
+    // `fields.grid.noItemsAddHint`, one more matched pair. 70 / 70 / 0 after
+    // objectui#11445 made `search.resultsCount` a count family: `_one` and
+    // `_other` carry one matched pair each and `resultsCountPlural` left.
+    expect({ open, close, rdq }).toEqual({ open: 70, close: 70, rdq: 0 });
     // The durable shape: every „ closed by a “, every surplus “ an English
     // opener answered by a ”. Survived translating the two English values.
     expect(close).toBe(open + rdq);

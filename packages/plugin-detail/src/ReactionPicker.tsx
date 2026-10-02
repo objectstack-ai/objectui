@@ -50,16 +50,10 @@ export const ReactionPicker: React.FC<ReactionPickerProps> = ({
     <div className={cn('flex items-center gap-1 flex-wrap', className)}>
       {/* Existing reactions */}
       {reactions.map((reaction) => {
-        // Two keys, NOT an i18next `_one`/`_other` pair — this repo's own
-        // plural convention (`detail.relatedRecords`/`relatedRecordOne`,
-        // `lookup.recordCount`/`recordCountOne`). A `_one` suffix would break
-        // `all-locales-key-parity`: zh/ja/ko have no separate singular form,
-        // so those packs would legitimately omit the `_one` half and the gate
-        // would read that as a missing key (objectstack#5430).
-        const countLabel = t(
-          reaction.count === 1 ? 'detail.reactionCountOne' : 'detail.reactionCount',
-          { emoji: reaction.emoji, count: reaction.count },
-        );
+        // One i18next count family (objectui#11445): i18next picks the CLDR
+        // slot from the numeric `count`, so `ru` reads «👍 3 реакции» and `ar`
+        // its dual at 2 — a `=== 1` key switch gave each pack only two slots.
+        const countLabel = t('detail.reactionCount', { emoji: reaction.emoji, count: reaction.count });
         return (
           <button
             key={reaction.emoji}

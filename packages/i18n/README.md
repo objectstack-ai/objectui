@@ -119,6 +119,26 @@ function LanguageBar() {
 }
 ```
 
+#### Count labels are i18next count families
+
+A label a word must agree with — `3 replies`, `Approve 3 requests?` — is one
+i18next count family: pass the number as `count` and let i18next pick the slot
+`Intl.PluralRules` selects for the language. Every pack spells out each
+category its language has (`en` `_one`/`_other`; `ru` adds `_few`/`_many`; `ar`
+has all six), plus a count-invariant base key for a call made without a count.
+
+```tsx
+t('detail.replyCount', { count: replies.length }); // "1 reply", "3 replies", «3 ответа»
+```
+
+Pass `count` as a **number** — i18next selects a slot for nothing else — and
+never choose the key yourself (`count === 1 ? 'xOne' : 'x'`): two keys give a
+language two forms, and Russian needs three, Arabic five. A
+`createSafeTranslation` defaults table answers the same way on a provider-less
+host: it reads a family's `_one` / `_other` row for a numeric `count`, then the
+base row. `count-families-11445.test.ts` holds every `{{count}}` value in the
+ten packs to this rule.
+
 ### createI18n
 
 Factory for creating an i18n instance outside React:

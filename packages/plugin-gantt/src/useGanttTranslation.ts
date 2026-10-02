@@ -80,11 +80,19 @@ export const GANTT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'gantt.link.rejected.cycle': 'That link would create a circular dependency.',
   'gantt.conflict.title': 'Schedule conflict',
   'gantt.conflict.body': 'This move conflicts with dependency constraints. Auto-reschedule {{count}} affected task(s)?',
+  // Count families (objectui#11445): `fallback` reads the `_one` / `_other` row
+  // for a numeric `count`, the order i18next reads the `en` pack in.
+  'gantt.conflict.body_one': 'This move conflicts with dependency constraints. Auto-reschedule {{count}} affected task?',
+  'gantt.conflict.body_other': 'This move conflicts with dependency constraints. Auto-reschedule {{count}} affected tasks?',
   'gantt.conflict.confirm': 'Auto-reschedule',
   'gantt.conflict.cancel': 'Keep as is',
   'gantt.autoScheduleDlg.title': 'Auto-schedule',
   'gantt.autoScheduleDlg.body': 'Shift {{count}} task(s) later to satisfy dependency links?',
+  'gantt.autoScheduleDlg.body_one': 'Shift {{count}} task later to satisfy dependency links?',
+  'gantt.autoScheduleDlg.body_other': 'Shift {{count}} tasks later to satisfy dependency links?',
   'gantt.autoScheduleDlg.skipped': '{{count}} locked task(s) also violate links and were skipped.',
+  'gantt.autoScheduleDlg.skipped_one': '{{count}} locked task also violates links and was skipped.',
+  'gantt.autoScheduleDlg.skipped_other': '{{count}} locked tasks also violate links and were skipped.',
   'gantt.autoScheduleDlg.confirm': 'Apply',
   'gantt.autoScheduleDlg.cancel': 'Cancel',
   'gantt.autoScheduleDlg.none': 'All dependencies satisfied — nothing to reschedule.',
@@ -110,8 +118,20 @@ export const GANTT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'gantt.writeFailed': 'Save failed — the change was rolled back',
 };
 
+/** The defaults are English, so English plural rules pick a family's row. */
+const EN_PLURAL_RULES = new Intl.PluralRules('en');
+
 function fallback(key: string, options?: Record<string, unknown>): string {
-  let v = GANTT_DEFAULT_TRANSLATIONS[key] || key;
+  // A count family's `_one` / `_other` row first, then the base row — the
+  // order i18next reads the `en` pack in, for a NUMERIC count only (i18next
+  // plural-selects nothing else). The hand-rolled copy of `createSafeTranslation`'s
+  // `defaultsRowFor` (objectui#11445), as `interpolate` below is of its interpolator.
+  const count = options?.count;
+  const slot =
+    typeof count === 'number' && Number.isFinite(count)
+      ? GANTT_DEFAULT_TRANSLATIONS[`${key}_${EN_PLURAL_RULES.select(count)}`]
+      : undefined;
+  let v = slot || GANTT_DEFAULT_TRANSLATIONS[key] || key;
   if (options) {
     for (const [k, val] of Object.entries(options)) {
       // `split(needle).join(value)` — deliberately not `replace`, and not

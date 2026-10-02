@@ -5,21 +5,23 @@
   "children": [
     {
       "type": "flex",
-      "align": "center",
-      "justify": "between",
-      "className": "mb-6",
-      "children": [
-        {
-          "type": "text",
-          "content": "Featured Products",
-          "className": "text-2xl font-bold"
-        },
-        {
-          "type": "button",
-          "label": "View All",
-          "variant": "outline"
-        }
-      ]
+      "properties": {
+        "align": "center",
+        "justify": "between",
+        "children": [
+          {
+            "type": "text",
+            "content": "Featured Products",
+            "className": "text-2xl font-bold"
+          },
+          {
+            "type": "button",
+            "label": "View All",
+            "variant": "outline"
+          }
+        ]
+      },
+      "className": "mb-6"
     },
     {
       "type": "grid",
@@ -36,17 +38,19 @@
           "children": [
             {
               "type": "flex",
-              "justify": "center",
-              "align": "center",
-              "gap": 0,
-              "className": "aspect-square bg-muted",
-              "children": [
-                {
-                  "type": "icon",
-                  "icon": "smartphone",
-                  "className": "h-16 w-16 text-muted-foreground"
-                }
-              ]
+              "properties": {
+                "justify": "center",
+                "align": "center",
+                "gap": 0,
+                "children": [
+                  {
+                    "type": "icon",
+                    "icon": "smartphone",
+                    "className": "h-16 w-16 text-muted-foreground"
+                  }
+                ]
+              },
+              "className": "aspect-square bg-muted"
             },
             {
               "type": "stack",
@@ -79,17 +83,19 @@
           "children": [
             {
               "type": "flex",
-              "justify": "center",
-              "align": "center",
-              "gap": 0,
-              "className": "aspect-square bg-muted",
-              "children": [
-                {
-                  "type": "icon",
-                  "icon": "watch",
-                  "className": "h-16 w-16 text-muted-foreground"
-                }
-              ]
+              "properties": {
+                "justify": "center",
+                "align": "center",
+                "gap": 0,
+                "children": [
+                  {
+                    "type": "icon",
+                    "icon": "watch",
+                    "className": "h-16 w-16 text-muted-foreground"
+                  }
+                ]
+              },
+              "className": "aspect-square bg-muted"
             },
             {
               "type": "stack",
@@ -122,17 +128,19 @@
           "children": [
             {
               "type": "flex",
-              "justify": "center",
-              "align": "center",
-              "gap": 0,
-              "className": "aspect-square bg-muted",
-              "children": [
-                {
-                  "type": "icon",
-                  "icon": "laptop",
-                  "className": "h-16 w-16 text-muted-foreground"
-                }
-              ]
+              "properties": {
+                "justify": "center",
+                "align": "center",
+                "gap": 0,
+                "children": [
+                  {
+                    "type": "icon",
+                    "icon": "laptop",
+                    "className": "h-16 w-16 text-muted-foreground"
+                  }
+                ]
+              },
+              "className": "aspect-square bg-muted"
             },
             {
               "type": "stack",
@@ -165,17 +173,19 @@
           "children": [
             {
               "type": "flex",
-              "justify": "center",
-              "align": "center",
-              "gap": 0,
-              "className": "aspect-square bg-muted",
-              "children": [
-                {
-                  "type": "icon",
-                  "icon": "headphones",
-                  "className": "h-16 w-16 text-muted-foreground"
-                }
-              ]
+              "properties": {
+                "justify": "center",
+                "align": "center",
+                "gap": 0,
+                "children": [
+                  {
+                    "type": "icon",
+                    "icon": "headphones",
+                    "className": "h-16 w-16 text-muted-foreground"
+                  }
+                ]
+              },
+              "className": "aspect-square bg-muted"
             },
             {
               "type": "stack",

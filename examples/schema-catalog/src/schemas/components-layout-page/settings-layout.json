@@ -34,16 +34,18 @@
         },
         {
           "type": "flex",
-          "justify": "between",
-          "children": [
-            {
-              "type": "text",
-              "content": "Email notifications"
-            },
-            {
-              "type": "switch"
-            }
-          ]
+          "properties": {
+            "justify": "between",
+            "children": [
+              {
+                "type": "text",
+                "content": "Email notifications"
+              },
+              {
+                "type": "switch"
+              }
+            ]
+          }
         }
       ]
     }

@@ -136,26 +136,32 @@ const MEMBER_ENTRIES: Record<string, string> = {
     'Parent ComponentNestedComponentsSibling ComponentAll rendered from a single schema tree',
 };
 
-/** The seven node locations arm A re-authored — the former exact ledger. */
+/**
+ * The seven node locations arm A re-authored — the former exact ledger. A
+ * `flex` takes its child list in its `properties` bag since objectui#11276, so
+ * a badge under one sits at `….properties.children[i]`.
+ */
 const REAUTHORED_NODES = [
   'components-basic-span/default-badge',
   'components-basic-span/secondary-badge',
-  'components-basic-span/status-badges.children[0]',
-  'components-basic-span/status-badges.children[1]',
-  'components-basic-span/status-badges.children[2]',
-  'core-schema-renderer/nested-schema-example.children[0].children[0].children[0]',
-  'core-schema-renderer/nested-schema-example.children[0].children[0].children[1]',
+  'components-basic-span/status-badges.properties.children[0]',
+  'components-basic-span/status-badges.properties.children[1]',
+  'components-basic-span/status-badges.properties.children[2]',
+  'core-schema-renderer/nested-schema-example.children[0].children[0].properties.children[0]',
+  'core-schema-renderer/nested-schema-example.children[0].children[0].properties.children[1]',
 ];
 
 /**
  * The container nodes inside the touched entries that legitimately author
- * `children` and must go on doing so — the nodes a blind sweep would break.
+ * `children` and must go on doing so — the nodes a blind sweep would break. A
+ * `flex` authors its child list in its `properties` bag (objectui#11276), so
+ * for the two `flex` containers the location is that bag, `….properties`.
  */
 const TOUCHED_CONTAINERS = [
-  'components-basic-span/status-badges',
+  'components-basic-span/status-badges.properties',
   'core-schema-renderer/nested-schema-example',
   'core-schema-renderer/nested-schema-example.children[0]',
-  'core-schema-renderer/nested-schema-example.children[0].children[0]',
+  'core-schema-renderer/nested-schema-example.children[0].children[0].properties',
   'core-schema-renderer/nested-schema-example.children[1]',
 ];
 

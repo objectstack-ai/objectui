@@ -49,22 +49,24 @@
         },
         {
           "type": "flex",
-          "align": "start",
-          "gap": 2,
-          "children": [
-            {
-              "type": "checkbox",
-              "id": "terms",
-              "name": "terms",
-              "required": true
-            },
-            {
-              "type": "label",
-              "htmlFor": "terms",
-              "label": "I agree to receive marketing emails and accept the Privacy Policy",
-              "className": "text-sm font-normal leading-none"
-            }
-          ]
+          "properties": {
+            "align": "start",
+            "gap": 2,
+            "children": [
+              {
+                "type": "checkbox",
+                "id": "terms",
+                "name": "terms",
+                "required": true
+              },
+              {
+                "type": "label",
+                "htmlFor": "terms",
+                "label": "I agree to receive marketing emails and accept the Privacy Policy",
+                "className": "text-sm font-normal leading-none"
+              }
+            ]
+          }
         },
         {
           "type": "button",

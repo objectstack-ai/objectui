@@ -36,17 +36,19 @@
               "children": [
                 {
                   "type": "flex",
-                  "justify": "center",
-                  "align": "center",
-                  "gap": 0,
-                  "className": "h-12 w-12 rounded-lg bg-primary/10",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "icon": "zap",
-                      "className": "h-6 w-6 text-primary"
-                    }
-                  ]
+                  "properties": {
+                    "justify": "center",
+                    "align": "center",
+                    "gap": 0,
+                    "children": [
+                      {
+                        "type": "icon",
+                        "icon": "zap",
+                        "className": "h-6 w-6 text-primary"
+                      }
+                    ]
+                  },
+                  "className": "h-12 w-12 rounded-lg bg-primary/10"
                 },
                 {
                   "type": "text",
@@ -71,17 +73,19 @@
               "children": [
                 {
                   "type": "flex",
-                  "justify": "center",
-                  "align": "center",
-                  "gap": 0,
-                  "className": "h-12 w-12 rounded-lg bg-primary/10",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "icon": "shield",
-                      "className": "h-6 w-6 text-primary"
-                    }
-                  ]
+                  "properties": {
+                    "justify": "center",
+                    "align": "center",
+                    "gap": 0,
+                    "children": [
+                      {
+                        "type": "icon",
+                        "icon": "shield",
+                        "className": "h-6 w-6 text-primary"
+                      }
+                    ]
+                  },
+                  "className": "h-12 w-12 rounded-lg bg-primary/10"
                 },
                 {
                   "type": "text",
@@ -106,17 +110,19 @@
               "children": [
                 {
                   "type": "flex",
-                  "justify": "center",
-                  "align": "center",
-                  "gap": 0,
-                  "className": "h-12 w-12 rounded-lg bg-primary/10",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "icon": "smartphone",
-                      "className": "h-6 w-6 text-primary"
-                    }
-                  ]
+                  "properties": {
+                    "justify": "center",
+                    "align": "center",
+                    "gap": 0,
+                    "children": [
+                      {
+                        "type": "icon",
+                        "icon": "smartphone",
+                        "className": "h-6 w-6 text-primary"
+                      }
+                    ]
+                  },
+                  "className": "h-12 w-12 rounded-lg bg-primary/10"
                 },
                 {
                   "type": "text",
@@ -141,17 +147,19 @@
               "children": [
                 {
                   "type": "flex",
-                  "justify": "center",
-                  "align": "center",
-                  "gap": 0,
-                  "className": "h-12 w-12 rounded-lg bg-primary/10",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "icon": "palette",
-                      "className": "h-6 w-6 text-primary"
-                    }
-                  ]
+                  "properties": {
+                    "justify": "center",
+                    "align": "center",
+                    "gap": 0,
+                    "children": [
+                      {
+                        "type": "icon",
+                        "icon": "palette",
+                        "className": "h-6 w-6 text-primary"
+                      }
+                    ]
+                  },
+                  "className": "h-12 w-12 rounded-lg bg-primary/10"
                 },
                 {
                   "type": "text",
@@ -176,17 +184,19 @@
               "children": [
                 {
                   "type": "flex",
-                  "justify": "center",
-                  "align": "center",
-                  "gap": 0,
-                  "className": "h-12 w-12 rounded-lg bg-primary/10",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "icon": "settings",
-                      "className": "h-6 w-6 text-primary"
-                    }
-                  ]
+                  "properties": {
+                    "justify": "center",
+                    "align": "center",
+                    "gap": 0,
+                    "children": [
+                      {
+                        "type": "icon",
+                        "icon": "settings",
+                        "className": "h-6 w-6 text-primary"
+                      }
+                    ]
+                  },
+                  "className": "h-12 w-12 rounded-lg bg-primary/10"
                 },
                 {
                   "type": "text",
@@ -211,17 +221,19 @@
               "children": [
                 {
                   "type": "flex",
-                  "justify": "center",
-                  "align": "center",
-                  "gap": 0,
-                  "className": "h-12 w-12 rounded-lg bg-primary/10",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "icon": "headphones",
-                      "className": "h-6 w-6 text-primary"
-                    }
-                  ]
+                  "properties": {
+                    "justify": "center",
+                    "align": "center",
+                    "gap": 0,
+                    "children": [
+                      {
+                        "type": "icon",
+                        "icon": "headphones",
+                        "className": "h-6 w-6 text-primary"
+                      }
+                    ]
+                  },
+                  "className": "h-12 w-12 rounded-lg bg-primary/10"
                 },
                 {
                   "type": "text",

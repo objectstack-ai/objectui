@@ -18,81 +18,91 @@
         },
         {
           "type": "flex",
-          "align": "center",
-          "justify": "center",
-          "gap": 4,
-          "children": [
-            {
-              "type": "button",
-              "label": "Start Free Trial",
-              "variant": "secondary",
-              "size": "lg"
-            },
-            {
-              "type": "button",
-              "label": "Schedule Demo",
-              "variant": "outline",
-              "size": "lg",
-              "className": "border-white text-white hover:bg-white/10"
-            }
-          ]
+          "properties": {
+            "align": "center",
+            "justify": "center",
+            "gap": 4,
+            "children": [
+              {
+                "type": "button",
+                "label": "Start Free Trial",
+                "variant": "secondary",
+                "size": "lg"
+              },
+              {
+                "type": "button",
+                "label": "Schedule Demo",
+                "variant": "outline",
+                "size": "lg",
+                "className": "border-white text-white hover:bg-white/10"
+              }
+            ]
+          }
         },
         {
           "type": "flex",
-          "align": "center",
-          "justify": "center",
-          "gap": 8,
-          "className": "text-white/80 text-sm",
-          "children": [
-            {
-              "type": "flex",
-              "align": "center",
-              "gap": 2,
-              "children": [
-                {
-                  "type": "icon",
-                  "icon": "circle-check-big",
-                  "className": "h-4 w-4"
-                },
-                {
-                  "type": "text",
-                  "content": "No credit card required"
+          "properties": {
+            "align": "center",
+            "justify": "center",
+            "gap": 8,
+            "children": [
+              {
+                "type": "flex",
+                "properties": {
+                  "align": "center",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "icon",
+                      "icon": "circle-check-big",
+                      "className": "h-4 w-4"
+                    },
+                    {
+                      "type": "text",
+                      "content": "No credit card required"
+                    }
+                  ]
                 }
-              ]
-            },
-            {
-              "type": "flex",
-              "align": "center",
-              "gap": 2,
-              "children": [
-                {
-                  "type": "icon",
-                  "icon": "circle-check-big",
-                  "className": "h-4 w-4"
-                },
-                {
-                  "type": "text",
-                  "content": "Cancel anytime"
+              },
+              {
+                "type": "flex",
+                "properties": {
+                  "align": "center",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "icon",
+                      "icon": "circle-check-big",
+                      "className": "h-4 w-4"
+                    },
+                    {
+                      "type": "text",
+                      "content": "Cancel anytime"
+                    }
+                  ]
                 }
-              ]
-            },
-            {
-              "type": "flex",
-              "align": "center",
-              "gap": 2,
-              "children": [
-                {
-                  "type": "icon",
-                  "icon": "circle-check-big",
-                  "className": "h-4 w-4"
-                },
-                {
-                  "type": "text",
-                  "content": "24/7 support"
+              },
+              {
+                "type": "flex",
+                "properties": {
+                  "align": "center",
+                  "gap": 2,
+                  "children": [
+                    {
+                      "type": "icon",
+                      "icon": "circle-check-big",
+                      "className": "h-4 w-4"
+                    },
+                    {
+                      "type": "text",
+                      "content": "24/7 support"
+                    }
+                  ]
                 }
-              ]
-            }
-          ]
+              }
+            ]
+          },
+          "className": "text-white/80 text-sm"
         }
       ]
     }

@@ -10,20 +10,22 @@
   "footer": [
     {
       "type": "flex",
-      "gap": 2,
-      "justify": "end",
-      "children": [
-        {
-          "type": "button",
-          "label": "Cancel",
-          "variant": "outline"
-        },
-        {
-          "type": "button",
-          "label": "Save",
-          "variant": "default"
-        }
-      ]
+      "properties": {
+        "gap": 2,
+        "justify": "end",
+        "children": [
+          {
+            "type": "button",
+            "label": "Cancel",
+            "variant": "outline"
+          },
+          {
+            "type": "button",
+            "label": "Save",
+            "variant": "default"
+          }
+        ]
+      }
     }
   ]
 }

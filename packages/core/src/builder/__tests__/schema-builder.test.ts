@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import * as builder from '../../builder/schema-builder';
 import { form, button, input, card, grid, flex } from '../../builder/schema-builder';
+import { StrictAnyComponentSchema, safeValidateSchema } from '@object-ui/types/zod';
 
 describe('SchemaBuilder', () => {
   describe('form()', () => {
@@ -144,7 +145,45 @@ describe('SchemaBuilder', () => {
       const schema = flex()
         .direction('row')
         .build();
-      expect(schema.direction).toBe('row');
+      expect(schema.properties.direction).toBe('row');
+    });
+
+    // objectui#11276 (the maintainer's ruling A on objectui#11300): the builder
+    // emits the AUTHORED spelling — every `flex` prop, the child list included,
+    // in the `properties` bag — so what it builds passes the authoring faces,
+    // which refuse those props written flat on the node by name.
+    it('emits its props in the properties bag, which both authoring faces accept (objectui#11276)', () => {
+      const schema = flex()
+        .id('row')
+        .className('p-4')
+        .direction('col')
+        .justify('between')
+        .align('center')
+        .gap(4)
+        .child({ type: 'text', content: 'a' })
+        .child({ type: 'text', content: 'b' })
+        .build();
+
+      expect(schema).toEqual({
+        type: 'flex',
+        id: 'row',
+        className: 'p-4',
+        properties: {
+          direction: 'col',
+          justify: 'between',
+          align: 'center',
+          gap: 4,
+          children: [
+            { type: 'text', content: 'a' },
+            { type: 'text', content: 'b' },
+          ],
+        },
+      });
+      for (const key of ['direction', 'justify', 'align', 'gap', 'children']) {
+        expect(schema, key).not.toHaveProperty(key);
+      }
+      expect(safeValidateSchema(schema).success).toBe(true);
+      expect(StrictAnyComponentSchema.safeParse(schema).success).toBe(true);
     });
   });
 

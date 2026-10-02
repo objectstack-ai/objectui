@@ -53,19 +53,21 @@
                 },
                 {
                   "type": "flex",
-                  "align": "baseline",
-                  "children": [
-                    {
-                      "type": "text",
-                      "content": "$9",
-                      "className": "text-4xl font-bold"
-                    },
-                    {
-                      "type": "text",
-                      "content": "/month",
-                      "className": "text-muted-foreground ml-1"
-                    }
-                  ]
+                  "properties": {
+                    "align": "baseline",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "$9",
+                        "className": "text-4xl font-bold"
+                      },
+                      {
+                        "type": "text",
+                        "content": "/month",
+                        "className": "text-muted-foreground ml-1"
+                      }
+                    ]
+                  }
                 },
                 {
                   "type": "button",
@@ -82,51 +84,57 @@
                   "children": [
                     {
                       "type": "flex",
-                      "align": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "icon": "check",
-                          "className": "h-4 w-4 text-primary mr-2"
-                        },
-                        {
-                          "type": "text",
-                          "content": "Up to 10 projects",
-                          "className": "text-sm"
-                        }
-                      ]
+                      "properties": {
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "icon",
+                            "icon": "check",
+                            "className": "h-4 w-4 text-primary mr-2"
+                          },
+                          {
+                            "type": "text",
+                            "content": "Up to 10 projects",
+                            "className": "text-sm"
+                          }
+                        ]
+                      }
                     },
                     {
                       "type": "flex",
-                      "align": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "icon": "check",
-                          "className": "h-4 w-4 text-primary mr-2"
-                        },
-                        {
-                          "type": "text",
-                          "content": "5GB storage",
-                          "className": "text-sm"
-                        }
-                      ]
+                      "properties": {
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "icon",
+                            "icon": "check",
+                            "className": "h-4 w-4 text-primary mr-2"
+                          },
+                          {
+                            "type": "text",
+                            "content": "5GB storage",
+                            "className": "text-sm"
+                          }
+                        ]
+                      }
                     },
                     {
                       "type": "flex",
-                      "align": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "icon": "check",
-                          "className": "h-4 w-4 text-primary mr-2"
-                        },
-                        {
-                          "type": "text",
-                          "content": "Email support",
-                          "className": "text-sm"
-                        }
-                      ]
+                      "properties": {
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "icon",
+                            "icon": "check",
+                            "className": "h-4 w-4 text-primary mr-2"
+                          },
+                          {
+                            "type": "text",
+                            "content": "Email support",
+                            "className": "text-sm"
+                          }
+                        ]
+                      }
                     }
                   ]
                 }
@@ -148,21 +156,23 @@
                   "children": [
                     {
                       "type": "flex",
-                      "align": "center",
-                      "justify": "between",
-                      "className": "mb-1",
-                      "children": [
-                        {
-                          "type": "text",
-                          "content": "Pro",
-                          "className": "text-xl font-semibold"
-                        },
-                        {
-                          "type": "badge",
-                          "label": "Popular",
-                          "variant": "default"
-                        }
-                      ]
+                      "properties": {
+                        "align": "center",
+                        "justify": "between",
+                        "children": [
+                          {
+                            "type": "text",
+                            "content": "Pro",
+                            "className": "text-xl font-semibold"
+                          },
+                          {
+                            "type": "badge",
+                            "label": "Popular",
+                            "variant": "default"
+                          }
+                        ]
+                      },
+                      "className": "mb-1"
                     },
                     {
                       "type": "text",
@@ -173,19 +183,21 @@
                 },
                 {
                   "type": "flex",
-                  "align": "baseline",
-                  "children": [
-                    {
-                      "type": "text",
-                      "content": "$29",
-                      "className": "text-4xl font-bold"
-                    },
-                    {
-                      "type": "text",
-                      "content": "/month",
-                      "className": "text-muted-foreground ml-1"
-                    }
-                  ]
+                  "properties": {
+                    "align": "baseline",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "$29",
+                        "className": "text-4xl font-bold"
+                      },
+                      {
+                        "type": "text",
+                        "content": "/month",
+                        "className": "text-muted-foreground ml-1"
+                      }
+                    ]
+                  }
                 },
                 {
                   "type": "button",
@@ -202,67 +214,75 @@
                   "children": [
                     {
                       "type": "flex",
-                      "align": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "icon": "check",
-                          "className": "h-4 w-4 text-primary mr-2"
-                        },
-                        {
-                          "type": "text",
-                          "content": "Unlimited projects",
-                          "className": "text-sm"
-                        }
-                      ]
+                      "properties": {
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "icon",
+                            "icon": "check",
+                            "className": "h-4 w-4 text-primary mr-2"
+                          },
+                          {
+                            "type": "text",
+                            "content": "Unlimited projects",
+                            "className": "text-sm"
+                          }
+                        ]
+                      }
                     },
                     {
                       "type": "flex",
-                      "align": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "icon": "check",
-                          "className": "h-4 w-4 text-primary mr-2"
-                        },
-                        {
-                          "type": "text",
-                          "content": "50GB storage",
-                          "className": "text-sm"
-                        }
-                      ]
+                      "properties": {
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "icon",
+                            "icon": "check",
+                            "className": "h-4 w-4 text-primary mr-2"
+                          },
+                          {
+                            "type": "text",
+                            "content": "50GB storage",
+                            "className": "text-sm"
+                          }
+                        ]
+                      }
                     },
                     {
                       "type": "flex",
-                      "align": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "icon": "check",
-                          "className": "h-4 w-4 text-primary mr-2"
-                        },
-                        {
-                          "type": "text",
-                          "content": "Priority support",
-                          "className": "text-sm"
-                        }
-                      ]
+                      "properties": {
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "icon",
+                            "icon": "check",
+                            "className": "h-4 w-4 text-primary mr-2"
+                          },
+                          {
+                            "type": "text",
+                            "content": "Priority support",
+                            "className": "text-sm"
+                          }
+                        ]
+                      }
                     },
                     {
                       "type": "flex",
-                      "align": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "icon": "check",
-                          "className": "h-4 w-4 text-primary mr-2"
-                        },
-                        {
-                          "type": "text",
-                          "content": "Advanced analytics",
-                          "className": "text-sm"
-                        }
-                      ]
+                      "properties": {
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "icon",
+                            "icon": "check",
+                            "className": "h-4 w-4 text-primary mr-2"
+                          },
+                          {
+                            "type": "text",
+                            "content": "Advanced analytics",
+                            "className": "text-sm"
+                          }
+                        ]
+                      }
                     }
                   ]
                 }
@@ -296,19 +316,21 @@
                 },
                 {
                   "type": "flex",
-                  "align": "baseline",
-                  "children": [
-                    {
-                      "type": "text",
-                      "content": "$99",
-                      "className": "text-4xl font-bold"
-                    },
-                    {
-                      "type": "text",
-                      "content": "/month",
-                      "className": "text-muted-foreground ml-1"
-                    }
-                  ]
+                  "properties": {
+                    "align": "baseline",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "$99",
+                        "className": "text-4xl font-bold"
+                      },
+                      {
+                        "type": "text",
+                        "content": "/month",
+                        "className": "text-muted-foreground ml-1"
+                      }
+                    ]
+                  }
                 },
                 {
                   "type": "button",
@@ -325,67 +347,75 @@
                   "children": [
                     {
                       "type": "flex",
-                      "align": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "icon": "check",
-                          "className": "h-4 w-4 text-primary mr-2"
-                        },
-                        {
-                          "type": "text",
-                          "content": "Unlimited everything",
-                          "className": "text-sm"
-                        }
-                      ]
+                      "properties": {
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "icon",
+                            "icon": "check",
+                            "className": "h-4 w-4 text-primary mr-2"
+                          },
+                          {
+                            "type": "text",
+                            "content": "Unlimited everything",
+                            "className": "text-sm"
+                          }
+                        ]
+                      }
                     },
                     {
                       "type": "flex",
-                      "align": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "icon": "check",
-                          "className": "h-4 w-4 text-primary mr-2"
-                        },
-                        {
-                          "type": "text",
-                          "content": "500GB storage",
-                          "className": "text-sm"
-                        }
-                      ]
+                      "properties": {
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "icon",
+                            "icon": "check",
+                            "className": "h-4 w-4 text-primary mr-2"
+                          },
+                          {
+                            "type": "text",
+                            "content": "500GB storage",
+                            "className": "text-sm"
+                          }
+                        ]
+                      }
                     },
                     {
                       "type": "flex",
-                      "align": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "icon": "check",
-                          "className": "h-4 w-4 text-primary mr-2"
-                        },
-                        {
-                          "type": "text",
-                          "content": "24/7 phone support",
-                          "className": "text-sm"
-                        }
-                      ]
+                      "properties": {
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "icon",
+                            "icon": "check",
+                            "className": "h-4 w-4 text-primary mr-2"
+                          },
+                          {
+                            "type": "text",
+                            "content": "24/7 phone support",
+                            "className": "text-sm"
+                          }
+                        ]
+                      }
                     },
                     {
                       "type": "flex",
-                      "align": "center",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "icon": "check",
-                          "className": "h-4 w-4 text-primary mr-2"
-                        },
-                        {
-                          "type": "text",
-                          "content": "Custom integrations",
-                          "className": "text-sm"
-                        }
-                      ]
+                      "properties": {
+                        "align": "center",
+                        "children": [
+                          {
+                            "type": "icon",
+                            "icon": "check",
+                            "className": "h-4 w-4 text-primary mr-2"
+                          },
+                          {
+                            "type": "text",
+                            "content": "Custom integrations",
+                            "className": "text-sm"
+                          }
+                        ]
+                      }
                     }
                   ]
                 }

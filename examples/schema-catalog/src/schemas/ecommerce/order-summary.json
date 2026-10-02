@@ -78,40 +78,44 @@
                 },
                 {
                   "type": "flex",
-                  "align": "center",
-                  "gap": 3,
-                  "children": [
-                    {
-                      "type": "flex",
-                      "justify": "center",
-                      "align": "center",
-                      "gap": 0,
-                      "className": "h-10 w-16 rounded bg-muted",
-                      "children": [
-                        {
-                          "type": "icon",
-                          "icon": "credit-card",
-                          "className": "h-6 w-6"
-                        }
-                      ]
-                    },
-                    {
-                      "type": "box",
-                      "className": "text-sm",
-                      "children": [
-                        {
-                          "type": "text",
-                          "content": "Visa ending in 4242",
-                          "className": "font-medium"
+                  "properties": {
+                    "align": "center",
+                    "gap": 3,
+                    "children": [
+                      {
+                        "type": "flex",
+                        "properties": {
+                          "justify": "center",
+                          "align": "center",
+                          "gap": 0,
+                          "children": [
+                            {
+                              "type": "icon",
+                              "icon": "credit-card",
+                              "className": "h-6 w-6"
+                            }
+                          ]
                         },
-                        {
-                          "type": "text",
-                          "content": "Expires 12/24",
-                          "className": "text-muted-foreground"
-                        }
-                      ]
-                    }
-                  ]
+                        "className": "h-10 w-16 rounded bg-muted"
+                      },
+                      {
+                        "type": "box",
+                        "className": "text-sm",
+                        "children": [
+                          {
+                            "type": "text",
+                            "content": "Visa ending in 4242",
+                            "className": "font-medium"
+                          },
+                          {
+                            "type": "text",
+                            "content": "Expires 12/24",
+                            "className": "text-muted-foreground"
+                          }
+                        ]
+                      }
+                    ]
+                  }
                 },
                 {
                   "type": "button",
@@ -143,35 +147,39 @@
               "children": [
                 {
                   "type": "flex",
-                  "justify": "between",
-                  "className": "text-sm",
-                  "children": [
-                    {
-                      "type": "text",
-                      "content": "Smartphone Pro × 1"
-                    },
-                    {
-                      "type": "text",
-                      "content": "$899.00",
-                      "className": "font-medium"
-                    }
-                  ]
+                  "properties": {
+                    "justify": "between",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Smartphone Pro × 1"
+                      },
+                      {
+                        "type": "text",
+                        "content": "$899.00",
+                        "className": "font-medium"
+                      }
+                    ]
+                  },
+                  "className": "text-sm"
                 },
                 {
                   "type": "flex",
-                  "justify": "between",
-                  "className": "text-sm",
-                  "children": [
-                    {
-                      "type": "text",
-                      "content": "Wireless Headphones × 2"
-                    },
-                    {
-                      "type": "text",
-                      "content": "$598.00",
-                      "className": "font-medium"
-                    }
-                  ]
+                  "properties": {
+                    "justify": "between",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Wireless Headphones × 2"
+                      },
+                      {
+                        "type": "text",
+                        "content": "$598.00",
+                        "className": "font-medium"
+                      }
+                    ]
+                  },
+                  "className": "text-sm"
                 }
               ]
             },
@@ -184,66 +192,74 @@
               "children": [
                 {
                   "type": "flex",
-                  "justify": "between",
-                  "className": "text-sm",
-                  "children": [
-                    {
-                      "type": "text",
-                      "content": "Subtotal"
-                    },
-                    {
-                      "type": "text",
-                      "content": "$1,497.00"
-                    }
-                  ]
+                  "properties": {
+                    "justify": "between",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Subtotal"
+                      },
+                      {
+                        "type": "text",
+                        "content": "$1,497.00"
+                      }
+                    ]
+                  },
+                  "className": "text-sm"
                 },
                 {
                   "type": "flex",
-                  "justify": "between",
-                  "className": "text-sm",
-                  "children": [
-                    {
-                      "type": "text",
-                      "content": "Shipping"
-                    },
-                    {
-                      "type": "text",
-                      "content": "$15.00"
-                    }
-                  ]
+                  "properties": {
+                    "justify": "between",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Shipping"
+                      },
+                      {
+                        "type": "text",
+                        "content": "$15.00"
+                      }
+                    ]
+                  },
+                  "className": "text-sm"
                 },
                 {
                   "type": "flex",
-                  "justify": "between",
-                  "className": "text-sm",
-                  "children": [
-                    {
-                      "type": "text",
-                      "content": "Tax"
-                    },
-                    {
-                      "type": "text",
-                      "content": "$149.70"
-                    }
-                  ]
+                  "properties": {
+                    "justify": "between",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Tax"
+                      },
+                      {
+                        "type": "text",
+                        "content": "$149.70"
+                      }
+                    ]
+                  },
+                  "className": "text-sm"
                 },
                 {
                   "type": "separator"
                 },
                 {
                   "type": "flex",
-                  "justify": "between",
-                  "className": "font-bold text-lg",
-                  "children": [
-                    {
-                      "type": "text",
-                      "content": "Total"
-                    },
-                    {
-                      "type": "text",
-                      "content": "$1,661.70"
-                    }
-                  ]
+                  "properties": {
+                    "justify": "between",
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Total"
+                      },
+                      {
+                        "type": "text",
+                        "content": "$1,661.70"
+                      }
+                    ]
+                  },
+                  "className": "font-bold text-lg"
                 }
               ]
             }
@@ -253,21 +269,23 @@
     },
     {
       "type": "flex",
-      "gap": 3,
-      "children": [
-        {
-          "type": "button",
-          "label": "Back to Cart",
-          "variant": "outline",
-          "className": "flex-1"
-        },
-        {
-          "type": "button",
-          "label": "Place Order",
-          "variant": "default",
-          "className": "flex-1"
-        }
-      ]
+      "properties": {
+        "gap": 3,
+        "children": [
+          {
+            "type": "button",
+            "label": "Back to Cart",
+            "variant": "outline",
+            "className": "flex-1"
+          },
+          {
+            "type": "button",
+            "label": "Place Order",
+            "variant": "default",
+            "className": "flex-1"
+          }
+        ]
+      }
     }
   ]
 }

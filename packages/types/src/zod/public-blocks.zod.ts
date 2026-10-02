@@ -241,11 +241,11 @@ import {
  * restate it (objectui#10872). Internal to this package's zod modules — deliberately NOT
  * re-exported from `index.zod.ts`, like the helpers in `./tombstone.zod.ts`.
  *
- * `description` replaces the provenance text for the one bag that is NOT a spec
- * row: `object-chart` (objectui#11276) has no `ComponentPropsMap` row, so its
- * bag is the flat mirror's own members, and its description says that rather
- * than naming a row that does not exist. Every other caller omits it, and its
- * description is unchanged.
+ * `description` replaces the provenance text for a bag that is NOT a spec row:
+ * `object-chart` and `flex` (objectui#11276) have no `ComponentPropsMap` row,
+ * so each bag is its flat mirror's own members, and its description says that
+ * rather than naming a row that does not exist. Every other caller omits it,
+ * and its description is unchanged.
  */
 export function propsBag<T extends z.ZodType>(type: string, row: T, description?: string) {
   return row
@@ -413,17 +413,27 @@ type FlatPropRefusals<S> = {
  * and a node composed in code (an action bar's menu, a dashboard's metric
  * tile, a form's master-detail node) never passes through this face.
  *
- * The ONE copy: every public-block arm here, and `./objectql.zod.ts`'s
+ * The ONE copy: every public-block arm here, `./objectql.zod.ts`'s
  * `object-metric`, `object-master-detail-form`, `object-timeline` and
- * `object-grid` (objectui#11276) arms, spread it. Internal to this package's zod modules, like `propsBag`:
+ * `object-grid` (objectui#11276) arms, and `./layout.zod.ts`'s `flex` arm
+ * (objectui#11276) spread it. Internal to this package's zod modules, like `propsBag`:
  * deliberately NOT re-exported from `index.zod.ts`.
  *
- * @param type the registered `type`, spelled into every message
- * @param row  the spec row, already through the import boundary
+ * `guidance` replaces the refusal detail for a bag that is NOT a spec row, as
+ * `propsBag`'s `description` does: `flex` (objectui#11276) has no
+ * `ComponentPropsMap` row, so the default detail, which names the row, would
+ * point the author at a declaration that does not exist. Every other caller
+ * omits it, and its messages are unchanged.
+ *
+ * @param type     the registered `type`, spelled into every message
+ * @param row      the spec row, already through the import boundary (or, with
+ *                 `guidance`, the bag the arm declares in its place)
+ * @param guidance the refusal detail for a bag with no spec row
  */
 export function flatPropRefusals<S extends Record<string, z.ZodType>>(
   type: string,
   row: { readonly shape: S },
+  guidance?: string,
 ): FlatPropRefusals<S> {
   return Object.fromEntries(
     Object.entries(row.shape)
@@ -432,7 +442,7 @@ export function flatPropRefusals<S extends Record<string, z.ZodType>>(
         key,
         isRetiredRowMember(member)
           ? member
-          : aliasKeyRefusal(key, `properties.${key}`, `this \`${type}\` node`, flatPropGuidance(type, key)),
+          : aliasKeyRefusal(key, `properties.${key}`, `this \`${type}\` node`, guidance ?? flatPropGuidance(type, key)),
       ]),
   ) as FlatPropRefusals<S>;
 }

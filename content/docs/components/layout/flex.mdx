@@ -9,17 +9,46 @@ description: "Flexible box layout container"
 
 ## Schema
 
+A `flex` node takes its props — the child list included — in its `properties` bag, the
+spelling `@objectstack/spec`'s page component declares. `objectui validate` refuses a `flex`
+prop written on the node itself, by name, and points at its bag member
+(`properties.direction`, `properties.children`, …). `className` and the other base props stay
+on the node.
+
+```json
+{
+  "type": "flex",
+  "className": "p-4",
+  "properties": {
+    "direction": "col",
+    "gap": 4,
+    "children": [
+      { "type": "text", "content": "First" },
+      { "type": "text", "content": "Second" }
+    ]
+  }
+}
+```
+
+The bag's members are `FlexLayoutProps` from `@object-ui/types`:
+
 ```ts
 import type { SchemaNode } from '@object-ui/types';
 
-interface FlexSchema {
+interface FlexNode {
   type: 'flex';
-  direction?: 'row' | 'col' | 'row-reverse' | 'col-reverse';
-  gap?: number;
-  align?: 'start' | 'center' | 'end';
-  justify?: 'start' | 'center' | 'end' | 'between';
-  wrap?: boolean;
-  children: SchemaNode[];
   className?: string;
+  properties?: {
+    direction?: 'row' | 'col' | 'row-reverse' | 'col-reverse';
+    gap?: number;
+    align?: 'start' | 'end' | 'center' | 'baseline' | 'stretch';
+    justify?: 'start' | 'end' | 'center' | 'between' | 'around' | 'evenly';
+    wrap?: boolean;
+    children?: SchemaNode[];
+  };
 }
 ```
+
+Nothing changes at render time: `SchemaRenderer` hoists every `properties` key onto the node
+before the `flex` renderer reads it, so a stored node that still writes these props flat keeps
+rendering.

@@ -72,9 +72,12 @@ import { Drawer, Sheet } from '@object-ui/components';   // the actual overlays
 ```
 
 Props: `minBreakpoint` / `maxBreakpoint` / `showOn` / `hideOn` / `fallback`.
-Mobile navigation is an **app-shell** concern, not a package export: set
-`mobileNavMode` (`'drawer'` | `'bottom_nav'`) on the app schema that
-`AppSchemaRenderer` (`@object-ui/layout`) renders.
+Mobile navigation is an **app-shell** concern, not a package export, and it is
+set where it is read: `AppSchemaRenderer` reads only its prop, and the app schema
+never carries the key (`@objectstack/spec`'s strict `AppSchema` refuses it). Set
+the `mobileNavMode` prop (`'drawer'` | `'bottom_nav'`) of `AppSchemaRenderer`
+(`@object-ui/layout`), or the `mobileNavMode` key of the `app-schema-renderer`
+SDUI node, which `sdui-parser` enum-checks (`invalid-enum` on a misspelling).
 
 ## Responsive schema layouts
 

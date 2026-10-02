@@ -4,20 +4,22 @@
   "header": [
     {
       "type": "flex",
-      "align": "center",
-      "gap": 2,
-      "children": [
-        {
-          "type": "icon",
-          "icon": "clock",
-          "className": "h-5 w-5 text-primary"
-        },
-        {
-          "type": "text",
-          "content": "Schedule Settings",
-          "className": "font-semibold"
-        }
-      ]
+      "properties": {
+        "align": "center",
+        "gap": 2,
+        "children": [
+          {
+            "type": "icon",
+            "icon": "clock",
+            "className": "h-5 w-5 text-primary"
+          },
+          {
+            "type": "text",
+            "content": "Schedule Settings",
+            "className": "font-semibold"
+          }
+        ]
+      }
     }
   ],
   "children": [
@@ -85,59 +87,63 @@
         },
         {
           "type": "flex",
-          "gap": 2,
-          "children": [
-            {
-              "type": "checkbox",
-              "id": "pdf",
-              "name": "pdf",
-              "defaultChecked": true
-            },
-            {
-              "type": "label",
-              "htmlFor": "pdf",
-              "label": "PDF"
-            },
-            {
-              "type": "checkbox",
-              "id": "excel",
-              "name": "excel"
-            },
-            {
-              "type": "label",
-              "htmlFor": "excel",
-              "label": "Excel"
-            },
-            {
-              "type": "checkbox",
-              "id": "csv",
-              "name": "csv"
-            },
-            {
-              "type": "label",
-              "htmlFor": "csv",
-              "label": "CSV"
-            }
-          ]
+          "properties": {
+            "gap": 2,
+            "children": [
+              {
+                "type": "checkbox",
+                "id": "pdf",
+                "name": "pdf",
+                "defaultChecked": true
+              },
+              {
+                "type": "label",
+                "htmlFor": "pdf",
+                "label": "PDF"
+              },
+              {
+                "type": "checkbox",
+                "id": "excel",
+                "name": "excel"
+              },
+              {
+                "type": "label",
+                "htmlFor": "excel",
+                "label": "Excel"
+              },
+              {
+                "type": "checkbox",
+                "id": "csv",
+                "name": "csv"
+              },
+              {
+                "type": "label",
+                "htmlFor": "csv",
+                "label": "CSV"
+              }
+            ]
+          }
         },
         {
           "type": "flex",
-          "justify": "end",
-          "gap": 2,
-          "className": "pt-2",
-          "children": [
-            {
-              "type": "button",
-              "label": "Cancel",
-              "variant": "outline"
-            },
-            {
-              "type": "button",
-              "label": "Save Schedule",
-              "variant": "default",
-              "icon": "save"
-            }
-          ]
+          "properties": {
+            "justify": "end",
+            "gap": 2,
+            "children": [
+              {
+                "type": "button",
+                "label": "Cancel",
+                "variant": "outline"
+              },
+              {
+                "type": "button",
+                "label": "Save Schedule",
+                "variant": "default",
+                "icon": "save"
+              }
+            ]
+          },
+          "className": "pt-2"
         }
       ]
     }

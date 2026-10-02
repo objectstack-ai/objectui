@@ -181,13 +181,52 @@ export const ListItemSchema = z.object({
 });
 
 /**
+ * A `list` draws its entries from `bind` or from `items`, so it needs at least
+ * one of the two (objectui#11405).
+ *
+ * `list.tsx` reads `useDataScope(schema.bind)` FIRST and falls back to
+ * `schema.items` when the bound value is not an array, so both keys are live
+ * inputs and `items` is the real fallback beside `bind`. That is why the rule is
+ * AT LEAST one and ⛔ not exactly one: a node carrying both is the fallback
+ * shape, and refusing it would refuse a document the renderer draws. Until
+ * objectui#11405 `items` was REQUIRED here, so a bind-only `list` — the shape the
+ * renderer and this arm's own tombstone text name, and the one the published
+ * `skills/objectui` guides author — was refused with `invalid_type` at `items`.
+ *
+ * Presence is `!== undefined`, the wording `requireRecordSource` in
+ * `./objectql.zod.ts` uses for its own at-least-one rule, so `bind: ''` and
+ * `items: []` each count. The issue sits at the ROOT, because no single key is
+ * at fault when both are missing, and it carries `params.code` so a consumer
+ * can tell this refusal from the others without parsing the message.
+ *
+ * Installed with `when: () => true`, for the reason `requireRecordSource`
+ * gives: zod skips a refinement once an earlier issue aborts the parse, and the
+ * required member this replaces was reported BESIDE every other issue on the
+ * node. So the body reads the raw input defensively.
+ */
+function listHasAnEntrySource(node: unknown, ctx: z.core.$RefinementCtx): void {
+  if (!node || typeof node !== 'object' || Array.isArray(node)) return;
+  // Read as a plain record: `bind` stays declared once, on `BaseSchema` (objectui#6357).
+  const keys = node as Record<string, unknown>;
+  if (keys.bind !== undefined || keys.items !== undefined) return;
+  ctx.addIssue({
+    code: 'custom',
+    path: [],
+    params: { code: 'LIST_ENTRIES_REQUIRED' },
+    message: '`list` has no entries to draw: declare `items`, or `bind` a path to an array in the host scope',
+  });
+}
+
+/**
  * List Schema - List component
  */
 export const ListSchema = BaseSchema.extend({
   type: z.literal('list'),
   title: z.string().optional()
     .describe('Heading drawn above the list (objectui#11347)'),
-  items: z.array(ListItemSchema).describe('List items'),
+  // Optional since objectui#11405: a bind-only `list` draws its entries from the
+  // host scope. The at-least-one rule is `listHasAnEntrySource` above.
+  items: z.array(ListItemSchema).optional().describe('List items'),
   ordered: z.boolean().optional().describe('Whether list is ordered'),
   dividers: z.boolean().optional().describe('Show dividers between items'),
   dense: z.boolean().optional().describe('Dense spacing'),
@@ -217,7 +256,7 @@ export const ListSchema = BaseSchema.extend({
     + '`ui:list` is the measured SOLE owner of the bare `list` key (`view:list` passes `skipFallback: true`); '
     + 're-derive with `pnpm check:registry-bare-names --table` (objectui#9264).',
   ),
-});
+}).superRefine(listHasAnEntrySource, { when: () => true });
 
 /**
  * Table Column Schema

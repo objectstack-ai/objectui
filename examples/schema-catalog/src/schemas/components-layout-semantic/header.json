@@ -4,20 +4,22 @@
   "children": [
     {
       "type": "flex",
-      "justify": "between",
-      "align": "center",
-      "children": [
-        {
-          "type": "text",
-          "content": "Site Title",
-          "className": "text-xl font-bold"
-        },
-        {
-          "type": "text",
-          "content": "Navigation",
-          "className": "text-sm text-muted-foreground"
-        }
-      ]
+      "properties": {
+        "justify": "between",
+        "align": "center",
+        "children": [
+          {
+            "type": "text",
+            "content": "Site Title",
+            "className": "text-xl font-bold"
+          },
+          {
+            "type": "text",
+            "content": "Navigation",
+            "className": "text-sm text-muted-foreground"
+          }
+        ]
+      }
     }
   ]
 }

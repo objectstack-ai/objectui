@@ -1,17 +1,19 @@
 {
   "type": "flex",
-  "direction": "col",
-  "gap": 2,
-  "children": [
-    {
-      "type": "label",
-      "text": "Password",
-      "required": true,
-      "htmlFor": "password"
-    },
-    {
-      "type": "password",
-      "id": "password"
-    }
-  ]
+  "properties": {
+    "direction": "col",
+    "gap": 2,
+    "children": [
+      {
+        "type": "label",
+        "text": "Password",
+        "required": true,
+        "htmlFor": "password"
+      },
+      {
+        "type": "password",
+        "id": "password"
+      }
+    ]
+  }
 }

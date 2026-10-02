@@ -8,20 +8,22 @@
       "children": [
         {
           "type": "flex",
-          "align": "center",
-          "justify": "between",
-          "children": [
-            {
-              "type": "text",
-              "content": "Shopping Cart",
-              "className": "text-2xl font-bold"
-            },
-            {
-              "type": "badge",
-              "label": "3 items",
-              "variant": "secondary"
-            }
-          ]
+          "properties": {
+            "align": "center",
+            "justify": "between",
+            "children": [
+              {
+                "type": "text",
+                "content": "Shopping Cart",
+                "className": "text-2xl font-bold"
+              },
+              {
+                "type": "badge",
+                "label": "3 items",
+                "variant": "secondary"
+              }
+            ]
+          }
         },
         {
           "type": "separator"
@@ -32,168 +34,180 @@
           "children": [
             {
               "type": "flex",
-              "gap": 4,
-              "children": [
-                {
-                  "type": "flex",
-                  "justify": "center",
-                  "align": "center",
-                  "gap": 0,
-                  "className": "h-24 w-24 rounded-lg bg-muted flex-shrink-0",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "icon": "smartphone",
-                      "className": "h-8 w-8 text-muted-foreground"
-                    }
-                  ]
-                },
-                {
-                  "type": "stack",
-                  "gap": 1,
-                  "children": [
-                    {
-                      "type": "text",
-                      "content": "Smartphone Pro",
-                      "className": "font-semibold"
-                    },
-                    {
-                      "type": "text",
-                      "content": "Color: Black, Storage: 256GB",
-                      "className": "text-sm text-muted-foreground"
-                    },
-                    {
-                      "type": "flex",
+              "properties": {
+                "gap": 4,
+                "children": [
+                  {
+                    "type": "flex",
+                    "properties": {
+                      "justify": "center",
                       "align": "center",
-                      "gap": 2,
-                      "className": "mt-2",
+                      "gap": 0,
                       "children": [
                         {
-                          "type": "button",
-                          "label": "-",
-                          "variant": "outline",
-                          "size": "sm",
-                          "className": "h-8 w-8 p-0"
-                        },
-                        {
-                          "type": "text",
-                          "content": "1",
-                          "className": "w-8 text-center"
-                        },
-                        {
-                          "type": "button",
-                          "label": "+",
-                          "variant": "outline",
-                          "size": "sm",
-                          "className": "h-8 w-8 p-0"
+                          "type": "icon",
+                          "icon": "smartphone",
+                          "className": "h-8 w-8 text-muted-foreground"
                         }
                       ]
-                    }
-                  ]
-                },
-                {
-                  "type": "stack",
-                  "gap": 2,
-                  "children": [
-                    {
-                      "type": "text",
-                      "content": "$899.00",
-                      "className": "font-bold"
                     },
-                    {
-                      "type": "button",
-                      "label": "Remove",
-                      "variant": "ghost",
-                      "size": "sm",
-                      "className": "text-destructive"
-                    }
-                  ]
-                }
-              ]
+                    "className": "h-24 w-24 rounded-lg bg-muted flex-shrink-0"
+                  },
+                  {
+                    "type": "stack",
+                    "gap": 1,
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Smartphone Pro",
+                        "className": "font-semibold"
+                      },
+                      {
+                        "type": "text",
+                        "content": "Color: Black, Storage: 256GB",
+                        "className": "text-sm text-muted-foreground"
+                      },
+                      {
+                        "type": "flex",
+                        "properties": {
+                          "align": "center",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "button",
+                              "label": "-",
+                              "variant": "outline",
+                              "size": "sm",
+                              "className": "h-8 w-8 p-0"
+                            },
+                            {
+                              "type": "text",
+                              "content": "1",
+                              "className": "w-8 text-center"
+                            },
+                            {
+                              "type": "button",
+                              "label": "+",
+                              "variant": "outline",
+                              "size": "sm",
+                              "className": "h-8 w-8 p-0"
+                            }
+                          ]
+                        },
+                        "className": "mt-2"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "stack",
+                    "gap": 2,
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "$899.00",
+                        "className": "font-bold"
+                      },
+                      {
+                        "type": "button",
+                        "label": "Remove",
+                        "variant": "ghost",
+                        "size": "sm",
+                        "className": "text-destructive"
+                      }
+                    ]
+                  }
+                ]
+              }
             },
             {
               "type": "separator"
             },
             {
               "type": "flex",
-              "gap": 4,
-              "children": [
-                {
-                  "type": "flex",
-                  "justify": "center",
-                  "align": "center",
-                  "gap": 0,
-                  "className": "h-24 w-24 rounded-lg bg-muted flex-shrink-0",
-                  "children": [
-                    {
-                      "type": "icon",
-                      "icon": "headphones",
-                      "className": "h-8 w-8 text-muted-foreground"
-                    }
-                  ]
-                },
-                {
-                  "type": "stack",
-                  "gap": 1,
-                  "children": [
-                    {
-                      "type": "text",
-                      "content": "Wireless Headphones",
-                      "className": "font-semibold"
-                    },
-                    {
-                      "type": "text",
-                      "content": "Color: Silver",
-                      "className": "text-sm text-muted-foreground"
-                    },
-                    {
-                      "type": "flex",
+              "properties": {
+                "gap": 4,
+                "children": [
+                  {
+                    "type": "flex",
+                    "properties": {
+                      "justify": "center",
                       "align": "center",
-                      "gap": 2,
-                      "className": "mt-2",
+                      "gap": 0,
                       "children": [
                         {
-                          "type": "button",
-                          "label": "-",
-                          "variant": "outline",
-                          "size": "sm",
-                          "className": "h-8 w-8 p-0"
-                        },
-                        {
-                          "type": "text",
-                          "content": "2",
-                          "className": "w-8 text-center"
-                        },
-                        {
-                          "type": "button",
-                          "label": "+",
-                          "variant": "outline",
-                          "size": "sm",
-                          "className": "h-8 w-8 p-0"
+                          "type": "icon",
+                          "icon": "headphones",
+                          "className": "h-8 w-8 text-muted-foreground"
                         }
                       ]
-                    }
-                  ]
-                },
-                {
-                  "type": "stack",
-                  "gap": 2,
-                  "children": [
-                    {
-                      "type": "text",
-                      "content": "$598.00",
-                      "className": "font-bold"
                     },
-                    {
-                      "type": "button",
-                      "label": "Remove",
-                      "variant": "ghost",
-                      "size": "sm",
-                      "className": "text-destructive"
-                    }
-                  ]
-                }
-              ]
+                    "className": "h-24 w-24 rounded-lg bg-muted flex-shrink-0"
+                  },
+                  {
+                    "type": "stack",
+                    "gap": 1,
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "Wireless Headphones",
+                        "className": "font-semibold"
+                      },
+                      {
+                        "type": "text",
+                        "content": "Color: Silver",
+                        "className": "text-sm text-muted-foreground"
+                      },
+                      {
+                        "type": "flex",
+                        "properties": {
+                          "align": "center",
+                          "gap": 2,
+                          "children": [
+                            {
+                              "type": "button",
+                              "label": "-",
+                              "variant": "outline",
+                              "size": "sm",
+                              "className": "h-8 w-8 p-0"
+                            },
+                            {
+                              "type": "text",
+                              "content": "2",
+                              "className": "w-8 text-center"
+                            },
+                            {
+                              "type": "button",
+                              "label": "+",
+                              "variant": "outline",
+                              "size": "sm",
+                              "className": "h-8 w-8 p-0"
+                            }
+                          ]
+                        },
+                        "className": "mt-2"
+                      }
+                    ]
+                  },
+                  {
+                    "type": "stack",
+                    "gap": 2,
+                    "children": [
+                      {
+                        "type": "text",
+                        "content": "$598.00",
+                        "className": "font-bold"
+                      },
+                      {
+                        "type": "button",
+                        "label": "Remove",
+                        "variant": "ghost",
+                        "size": "sm",
+                        "className": "text-destructive"
+                      }
+                    ]
+                  }
+                ]
+              }
             }
           ]
         },
@@ -206,66 +220,74 @@
           "children": [
             {
               "type": "flex",
-              "justify": "between",
-              "className": "text-sm",
-              "children": [
-                {
-                  "type": "text",
-                  "content": "Subtotal"
-                },
-                {
-                  "type": "text",
-                  "content": "$1,497.00"
-                }
-              ]
+              "properties": {
+                "justify": "between",
+                "children": [
+                  {
+                    "type": "text",
+                    "content": "Subtotal"
+                  },
+                  {
+                    "type": "text",
+                    "content": "$1,497.00"
+                  }
+                ]
+              },
+              "className": "text-sm"
             },
             {
               "type": "flex",
-              "justify": "between",
-              "className": "text-sm",
-              "children": [
-                {
-                  "type": "text",
-                  "content": "Shipping"
-                },
-                {
-                  "type": "text",
-                  "content": "$15.00"
-                }
-              ]
+              "properties": {
+                "justify": "between",
+                "children": [
+                  {
+                    "type": "text",
+                    "content": "Shipping"
+                  },
+                  {
+                    "type": "text",
+                    "content": "$15.00"
+                  }
+                ]
+              },
+              "className": "text-sm"
             },
             {
               "type": "flex",
-              "justify": "between",
-              "className": "text-sm",
-              "children": [
-                {
-                  "type": "text",
-                  "content": "Tax"
-                },
-                {
-                  "type": "text",
-                  "content": "$149.70"
-                }
-              ]
+              "properties": {
+                "justify": "between",
+                "children": [
+                  {
+                    "type": "text",
+                    "content": "Tax"
+                  },
+                  {
+                    "type": "text",
+                    "content": "$149.70"
+                  }
+                ]
+              },
+              "className": "text-sm"
             },
             {
               "type": "separator"
             },
             {
               "type": "flex",
-              "justify": "between",
-              "className": "text-lg font-bold",
-              "children": [
-                {
-                  "type": "text",
-                  "content": "Total"
-                },
-                {
-                  "type": "text",
-                  "content": "$1,661.70"
-                }
-              ]
+              "properties": {
+                "justify": "between",
+                "children": [
+                  {
+                    "type": "text",
+                    "content": "Total"
+                  },
+                  {
+                    "type": "text",
+                    "content": "$1,661.70"
+                  }
+                ]
+              },
+              "className": "text-lg font-bold"
             }
           ]
         },

@@ -1,0 +1,17 @@
+---
+'@object-ui/types': minor
+---
+
+A `metric-card` in a dashboard's widget slot is checked against the props `MetricCard` renders, on the TypeScript face and in the validator (objectui#11467). This narrows a published accept set on both faces and widens the strict authoring face in one place. Both changes are stated below. `minor`, per this repository's version alignment; the narrowing is the breaking part.
+
+`DashboardWidgetSlotComponentSchema` is the widget slot's component arm. It used to type the card's props only through `BaseSchema`'s `[key: string]: any`, and its zod twin admitted them through `.passthrough()` and judged nothing. The strict face (`StrictAnyComponentSchema`) admitted their names from a side table and judged their values by that same catchall.
+
+- **What changed.** The arm declares `metric-card`'s registered inputs as members, with the types of the props `MetricCard` reads: `title` (a string or an inline per-locale map, `I18nLabel`), `value` (`string | number`, required, as the registration marks it), `icon` (`string`), `trend` (`'up' | 'down' | 'neutral'`, the registration's enum) and `trendValue` (`string`). The sixth input, `description`, was already a `BaseSchema` member. The zod twin declares the same members, so every face judges each value by its member. The widget's legacy `component` slot now takes the arm first and then any other node, on both faces: `component?: DashboardWidgetSlotComponentSchema | SchemaNode`. The zod twin is `z.union([arm, BaseSchema])`.
+- **What now refuses that did not.** Directly in `widgets[]`, `AnyComponentSchema` / `DashboardComponentSchema` and `StrictAnyComponentSchema` now refuse a card with any of these: a `trend` outside the three; a `title`, `icon` or `trendValue` that is not a string (`title` may also be a per-locale map); a `value` that is neither a string nor a number; or `icon`, `trend` or `trendValue` with no `value`. On the TypeScript face each of these literals is now a compile error, and so is a card annotated `DashboardWidgetSlotComponentSchema` with no `value`. All of them used to pass through the index signature and the passthrough. Every `metric-card` in the schema catalog, the docs fences and the apps' authored documents still parses on both faces. This was re-measured with `scripts/measure-strict-authoring-face.mjs` at this change's base and on this change, and no document moved on the tolerant face.
+- **What now parses that did not.** On the strict face, a `metric-card` in a widget's `component` slot carrying its inputs. `BaseSchema` alone in that slot refused them as unrecognized, including in the plugin-dashboard README's own legacy-envelope example.
+- **What does not move.** Any key the arm does not declare is still kept by the tolerant face's passthrough and refused by name on the strict face. The widget arm, `DashboardWidgetSchema`, still declares none of `value`, `icon`, `trend` and `trendValue`. Any other component node in the `component` slot is judged by `BaseSchema` as before.
+- **Read types.** `title` now reads as `string | I18nLabel` straight off a `widgets[]` entry instead of `any`, because both arms declare it.
+
+**Fix:** write `trend` as one of the three, give the card a `value`, and keep `title`, `icon` and `trendValue` as strings (`title` may also be a per-locale map).
+
+The internal `declareRegisteredInputs` side table (objectui#11022) and the strict walker's branch for it are removed. Every name it recorded is now a member of the arm. Neither was exported from the package.

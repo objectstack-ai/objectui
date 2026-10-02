@@ -820,10 +820,26 @@ import type { FeedbackSchema } from './feedback.js';
 import type { DisclosureSchema } from './disclosure.js';
 import type { OverlaySchema } from './overlay.js';
 import type { NavigationSchema } from './navigation.js';
-import type { ComplexSchema, DashboardComponentSchema } from './complex.js';
+import type {
+  ComplexSchema,
+  DashboardComponentSchema,
+  DashboardWidgetSlotComponentSchema,
+} from './complex.js';
 import type { CRUDComponentSchema } from './crud.js';
 import type { ObjectQLComponentSchema, ListViewSchema } from './objectql.js';
 import type { AppComponentSchema } from './app.js';
+import type {
+  PageDesignerSchema,
+  DataModelDesignerSchema,
+  ProcessDesignerSchema,
+  ReportDesignerSchema,
+  ObjectManagerSchema,
+  FieldDesignerSchema,
+} from './designer.js';
+import type { ReportComponentSchema, ReportBuilderSchema, ReportViewerSchema } from './reports.js';
+import type { AIFormAssistSchema, AIRecommendationsSchema, NLQuerySchema } from './ai.js';
+import type { ViewComponentSchema } from './views.js';
+import type { ActionBarSchema } from './ui-action.js';
 
 // ============================================================================
 // Phase 2 Schemas - New Additions
@@ -980,9 +996,22 @@ export type {
 /**
  * Union of all component schemas.
  * Use this for generic component rendering where the type is determined at runtime.
+ *
+ * "All" is re-derived by a test, not stated here (objectui#11478):
+ * `./__tests__/anyschema-declared-node-types-11478.test.ts` enumerates every
+ * object type this package publishes whose `extends` chain reaches
+ * `BaseSchema` and whose `type` is a string literal, and fails naming each one
+ * that is not a member. The same file checks that `SchemaByType` resolves
+ * every single-literal member to itself. `ActionBarSchema` is a node type that
+ * does not extend `BaseSchema`, so the enumeration cannot see it; that file
+ * holds it by name, and nothing finds the next node type of its kind.
+ *
+ * The `BaseSchema` arm admits any `type` string, so membership here decides
+ * what `SchemaByType` and narrowing on `type` return. The spec-row authoring
+ * faces are a separate list, `AuthoringNode`, and are not members.
  */
 export type AnySchema =
-  | AppComponentSchema 
+  | AppComponentSchema
   | BaseSchema
   | LayoutSchema
   | PageNodeSchema
@@ -994,9 +1023,24 @@ export type AnySchema =
   | NavigationSchema
   | ComplexSchema
   | DashboardComponentSchema
+  | DashboardWidgetSlotComponentSchema
   | CRUDComponentSchema
   | ObjectQLComponentSchema
-  | ListViewSchema;
+  | ListViewSchema
+  | PageDesignerSchema
+  | DataModelDesignerSchema
+  | ProcessDesignerSchema
+  | ReportDesignerSchema
+  | ObjectManagerSchema
+  | FieldDesignerSchema
+  | ReportComponentSchema
+  | ReportBuilderSchema
+  | ReportViewerSchema
+  | AIFormAssistSchema
+  | AIRecommendationsSchema
+  | NLQuerySchema
+  | ViewComponentSchema
+  | ActionBarSchema;
 
 /**
  * Utility type to extract the schema type from a type string.

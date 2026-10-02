@@ -43,7 +43,14 @@
  *   5. shape identity: the slot's element type IS the two-arm union, the arm's
  *      `type` IS `DashboardComponentWidgetType`, and the arm is assignable to
  *      `DashboardWidgetSchema` — which is why every `(w: DashboardWidgetSchema)`
- *      callback in `plugin-dashboard` compiled unchanged.
+ *      callback in `plugin-dashboard` compiled unchanged;
+ *   6. objectui#11467: the arm DECLARES `MetricCard`'s registered inputs, so the
+ *      README's `metric-card` literals compile against members rather than
+ *      against `BaseSchema`'s index signature (which objectui#8347 removes);
+ *      the Zod twin declares the same members; and the widget's `component`
+ *      slot takes the arm first, on both faces. The members' parity with the
+ *      live registration and `MetricCardProps` is pinned in
+ *      `@object-ui/plugin-dashboard` (`metricCardRegisteredInputsStrictFace-11022.test.ts`).
  *
  * Type-level lines are erased at runtime and enforced because
  * `packages/types/tsconfig.test.json` is chained from this package's
@@ -53,6 +60,9 @@
  */
 
 import { describe, it, expect } from 'vitest';
+import type { z } from 'zod';
+import type { I18nLabel } from '@objectstack/spec/ui';
+import type { SchemaNode } from '../base.js';
 import type {
   DashboardComponentSchema,
   DashboardComponentWidgetType,
@@ -61,6 +71,7 @@ import type {
 } from '../complex.js';
 import { DASHBOARD_COMPONENT_WIDGET_TYPES } from '../complex.js';
 import { DashboardComponentSchema as DashboardComponentZod } from '../zod/complex.zod.js';
+import { StrictAnyComponentSchema } from '../zod/index.zod.js';
 
 type Equal< A, B > =
   (< T >() => T extends A ? 1 : 2) extends (< T >() => T extends B ? 1 : 2) ? true : false;
@@ -124,7 +135,7 @@ describe('the forbidden repair did not happen — DashboardWidgetSchema is not w
 
   it('the arm\'s `type` is closed', () => {
     // @ts-expect-error — TS2322: a spec family is not a component type.
-    const open: DashboardWidgetSlotComponentSchema = { type: 'bar' };
+    const open: DashboardWidgetSlotComponentSchema = { type: 'bar', value: '1' };
     expect(open.type).toBe('bar');
   });
 });
@@ -162,7 +173,8 @@ describe('NOT A HATCH — what the union still refuses, on both faces', () => {
   it('a component node with an undeclared key is kept whole — that is the passthrough, by ruling', () => {
     const doc: DashboardComponentSchema = {
       type: 'dashboard',
-      widgets: [{ type: 'metric-card', title: 'x', someProp: 1 }],
+      // `value` is the card's required input since objectui#11467; `someProp` is the undeclared key.
+      widgets: [{ type: 'metric-card', title: 'x', value: '1', someProp: 1 }],
     };
     const result = DashboardComponentZod.safeParse(doc);
     expect(result.success).toBe(true);
@@ -197,5 +209,115 @@ describe('MEASURED LIMIT of a TypeScript union with a passthrough arm — record
       widgets: [{ id: 'w', component: { type: 'metric-card', value: '1' }, layout: { x: 0, y: 0, w: 1, h: 1 } }],
     };
     expect(DashboardComponentZod.safeParse(envelope).success).toBe(true);
+  });
+});
+
+/* ── objectui#11467 — the arm declares MetricCard's registered inputs ─────── */
+
+type MetricCardInput = 'title' | 'value' | 'icon' | 'trend' | 'trendValue';
+
+/** The zod arm is private; its input type is read off the slot's element union. */
+type ZodSlotArm = Extract< z.input< typeof DashboardComponentZod >['widgets'][number], { type: 'metric-card' } >;
+
+/**
+ * `plugin-dashboard/README.md`'s "TypeScript Support" block, the two
+ * `metric-card` literals, byte-for-byte, with their annotations: the card in a
+ * widget's `component` slot, and the card directly in `widgets[]`. Read off the
+ * page by `check:doc-snippets`; copied here because a type-level pin cannot
+ * read a file. Both compiled before objectui#11467 only through `BaseSchema`'s
+ * index signature (the objectui#8347 census: `value`, three times in this file).
+ */
+const custom: DashboardWidgetSchema = {
+  id: 'kpi_custom',
+  component: {
+    type: 'metric-card',
+    title: 'Revenue',
+    value: '$123,456',
+    trend: 'up',
+    trendValue: '+12%',
+  },
+  layout: { x: 0, y: 0, w: 3, h: 2 },
+};
+
+const kpi: DashboardWidgetSlotComponentSchema = {
+  type: 'metric-card',
+  title: 'Revenue',
+  value: '$123,456',
+  trend: 'up',
+  trendValue: '+12%',
+};
+
+describe('objectui#11467 — the component arm declares `MetricCard`\'s registered inputs, on both faces', () => {
+  it('each input is a DECLARED member with `MetricCard`\'s prop type — not the index signature\'s `any`', () => {
+    // Through the index signature each of these was `any`, and `Equal< any, X >` is `false`.
+    const title: Equal< DashboardWidgetSlotComponentSchema['title'], string | I18nLabel | undefined > = true;
+    const value: Equal< DashboardWidgetSlotComponentSchema['value'], string | number > = true;
+    const icon: Equal< DashboardWidgetSlotComponentSchema['icon'], string | undefined > = true;
+    const trend: Equal< DashboardWidgetSlotComponentSchema['trend'], 'up' | 'down' | 'neutral' | undefined > = true;
+    const trendValue: Equal< DashboardWidgetSlotComponentSchema['trendValue'], string | undefined > = true;
+    // `description`, the sixth input, is the base's member, not restated.
+    const description: Equal< DashboardWidgetSlotComponentSchema['description'], string | I18nLabel | undefined > = true;
+    expect([title, value, icon, trend, trendValue, description]).toEqual([true, true, true, true, true, true]);
+  });
+
+  it('the Zod twin declares the same five members with the same types', () => {
+    const twins: Equal< Required< Pick< ZodSlotArm, MetricCardInput > >, Required< Pick< DashboardWidgetSlotComponentSchema, MetricCardInput > > > = true;
+    expect(twins).toBe(true);
+  });
+
+  it('the TypeScript face judges each value by its member, while the index signature still stands', () => {
+    // @ts-expect-error — TS2322: `trend` is the registration's enum.
+    const sideways: DashboardWidgetSlotComponentSchema = { type: 'metric-card', value: '1', trend: 'sideways' };
+    // @ts-expect-error — TS2741: `value` is the card's one required input.
+    const valueless: DashboardWidgetSlotComponentSchema = { type: 'metric-card', title: 'Revenue', icon: 'users' };
+    const doc: DashboardComponentSchema = {
+      type: 'dashboard',
+      // @ts-expect-error — TS2322: no arm admits it: the component arm judges `trend`, and `value` is no widget key.
+      widgets: [{ type: 'metric-card', value: '1', trend: 'sideways' }],
+    };
+    expect([sideways.trend, valueless.type, doc.type]).toEqual(['sideways', 'metric-card', 'dashboard']);
+  });
+
+  it('`title`, declared on both arms, reads with its declared type straight off a `widgets[]` entry — not `any`', () => {
+    // The plugin-dashboard README says so ("Reading a widget key off `widgets[]`").
+    const read: Equal< DashboardComponentSchema['widgets'][number]['title'], string | I18nLabel | undefined > = true;
+    expect(read).toBe(true);
+  });
+
+  it('the widget `component` slot is typed with the arm first, then any other component node', () => {
+    const slot: Equal< NonNullable< DashboardWidgetSchema['component'] >, DashboardWidgetSlotComponentSchema | NonNullable< SchemaNode > > = true;
+    expect(slot).toBe(true);
+  });
+
+  it('the README\'s two `metric-card` literals parse on both faces, every key kept', () => {
+    const doc = { type: 'dashboard', widgets: [custom, kpi] };
+    const result = DashboardComponentZod.safeParse(doc);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    const [parsedCustom, parsedKpi] = (result.data as { widgets: Record<string, Record<string, unknown>>[] }).widgets;
+    for (const key of Object.keys(custom.component as object)) expect(parsedCustom.component).toHaveProperty(key);
+    for (const key of Object.keys(kpi)) expect(parsedKpi).toHaveProperty(key);
+    // The strict authoring face: before objectui#11467 it refused the `component`
+    // card's five inputs as unrecognized (`BaseSchema` alone in that slot).
+    expect(StrictAnyComponentSchema.safeParse(doc).success).toBe(true);
+  });
+
+  it('in the `component` slot the strict face judges a card by the arm, and still admits any other node', () => {
+    const issues = (doc: unknown): string => {
+      const result = StrictAnyComponentSchema.safeParse(doc);
+      return result.success ? '' : JSON.stringify(result.error.issues);
+    };
+    const envelope = (component: Record<string, unknown>) => ({ type: 'dashboard', widgets: [{ id: 'w', component }] });
+    const sideways = issues(envelope({ type: 'metric-card', value: '1', trend: 'sideways' }));
+    expect(sideways).toContain('"trend"');
+    // MEASURED LIMIT, recorded rather than ruled: the tolerant face keeps its
+    // `BaseSchema` fallback for any component node a `custom` widget carries, so
+    // a card that fails the arm still parses through it. The TypeScript union
+    // has the same corner (the fallback arm has no closed `type` to exclude it).
+    // Directly in `widgets[]` there is no such fallback, and both faces refuse.
+    expect(DashboardComponentZod.safeParse(envelope({ type: 'metric-card', value: '1', trend: 'sideways' })).success).toBe(true);
+    // CONTROL — a non-card node in the slot is judged by `BaseSchema`, unchanged.
+    expect(issues(envelope({ type: 'chart' }))).toBe('');
+    expect(DashboardComponentZod.safeParse(envelope({ type: 'chart' })).success).toBe(true);
   });
 });

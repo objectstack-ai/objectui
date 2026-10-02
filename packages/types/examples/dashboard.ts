@@ -47,14 +47,15 @@ export const dashboardSchema: FlexBlockNode = {
         properties: {
           direction: 'row',
           children: [
-            // Sidebar
+            // Sidebar: it draws what it composes through `children`; an app's
+            // navigation lives in the app's metadata, not on this node.
             {
               type: 'sidebar',
               collapsible: true,
-              nav: [
-                { label: 'Dashboard', href: '/', icon: 'Home', active: true },
-                { label: 'Users', href: '/users', icon: 'Users' },
-                { label: 'Settings', href: '/settings', icon: 'Settings' }
+              children: [
+                { type: 'button', label: 'Dashboard', variant: 'ghost', icon: 'Home' },
+                { type: 'button', label: 'Users', variant: 'ghost', icon: 'Users' },
+                { type: 'button', label: 'Settings', variant: 'ghost', icon: 'Settings' }
               ]
             } as SidebarSchema,
 

@@ -1,24 +1,28 @@
 /**
  * objectui#11022 — the strict authoring face admits what the widget slot's
- * REGISTRATIONS declare, measured against the live `ComponentRegistry`.
+ * REGISTRATIONS declare, measured against the live `ComponentRegistry`; and
+ * objectui#11467 — the slot arm declares them as MEMBERS, typed as the props
+ * `MetricCard` reads.
  *
- * `@object-ui/types` records, on its private widget-slot arm, the input names
- * of each component type in the closed `DASHBOARD_COMPONENT_WIDGET_TYPES`, and
- * the strict walker admits exactly those (see `strict-authoring-face.ts`,
- * "Registered inputs"). That package depends on no registry, so the names are
+ * `@object-ui/types` declares, on its private widget-slot arm (and on the
+ * TypeScript twin, `DashboardWidgetSlotComponentSchema`), the inputs of each
+ * component type in the closed `DASHBOARD_COMPONENT_WIDGET_TYPES`. That package
+ * depends on no registry and cannot import `MetricCard`, so the members are
  * transcribed there — and a transcription is only as good as the check that
- * re-reads its source. The source is here: this package's barrel runs the
- * registration. So this file holds the record to the registration in BOTH
- * directions, and holds no copy of either list:
+ * re-reads its source. The sources are here: this package's barrel runs the
+ * registration, and `MetricCard` is the component it renders. So this file
+ * holds the arm to both, and holds no copy of either:
  *
  *   1. UNDER-admission — every input a widget-slot type's registration
  *      declares parses on `StrictAnyComponentSchema` in the widget slot, with
  *      no `unrecognized_keys` naming it. The population is every member of the
  *      closed set, read from the set, so a member added later is walked too.
- *   2. OVER-admission — every key the strict slot arm admits beyond the
- *      tolerant arm's own members is a key some widget-slot registration
- *      declares. Read off the derived arm's shape, so a name added to the
- *      record that no registration declares turns this red.
+ *   2. DECLARED, both directions — every registered input is a member of the
+ *      slot arm on both faces, and every member the arm adds to `BaseSchema`
+ *      besides `layout` is a registered input. Read off each face's arm, so a
+ *      member no registration declares turns this red. Each member is typed as
+ *      the registration declares it (`value` required, `trend` its enum), and
+ *      the TypeScript arm's members are the types of `MetricCardProps`.
  *
  * The instrument's controls: a key no registration declares is refused by
  * name (so walk 1 can fail), and the population is non-empty and holds the
@@ -43,6 +47,7 @@ import {
 } from '@object-ui/types';
 import {
   AnyComponentSchema,
+  BaseSchema,
   DashboardComponentSchema,
   deriveStrictAuthoringSchema,
   StrictAnyComponentSchema,
@@ -51,6 +56,7 @@ import {
 // calls, `metric-card`'s among them.
 import '../index';
 import { mergeLayoutIntoSchema } from '../DashboardGridLayout';
+import type { MetricCardProps } from '../MetricCard';
 
 type Issue = { code: string; path: PropertyKey[]; keys?: string[]; errors?: Issue[][] };
 type Def = {
@@ -59,8 +65,11 @@ type Def = {
   innerType?: unknown;
   element?: unknown;
   options?: unknown[];
+  entries?: Record<string, unknown>;
 };
 type Input = { name: string; type?: unknown; enum?: Array<{ value: unknown } | string> };
+type Equal< A, B > =
+  (< T >() => T extends A ? 1 : 2) extends (< T >() => T extends B ? 1 : 2) ? true : false;
 
 const defOf = (schema: unknown): Def => (schema as { _zod: { def: Def } })._zod.def;
 
@@ -117,7 +126,9 @@ describe('objectui#11022 — widget-slot registrations vs the strict authoring f
     it.each(registeredInputs(type).map((input) => [input.name, input] as const))(
       'UNDER-admission: its registered input `%s` parses in the widget slot on the strict face',
       (name, input) => {
-        const result = StrictAnyComponentSchema.safeParse(dashboard({ type, [name]: sampleFor(input) }));
+        // On a node that carries the REQUIRED inputs (`value`, since objectui#11467), so
+        // each optional input is measured on a card the arm otherwise accepts.
+        const result = StrictAnyComponentSchema.safeParse(dashboard({ ...nodeOf(type), [name]: sampleFor(input) }));
         const issues = result.success ? [] : (result.error.issues as unknown as Issue[]);
         expect(unrecognized(issues), `the strict face refuses the registered input \`${name}\``).not.toContain(name);
         expect(result.success).toBe(true);
@@ -133,23 +144,53 @@ describe('objectui#11022 — widget-slot registrations vs the strict authoring f
     });
   });
 
-  it('OVER-admission: every key the strict slot arm admits beyond the tolerant arm is a registered input', () => {
-    const tolerantKeys = new Set(Object.keys(defOf(slotArm(DashboardComponentSchema)).shape ?? {}));
-    const strictKeys = Object.keys(defOf(slotArm(deriveStrictAuthoringSchema(DashboardComponentSchema))).shape ?? {});
-    const admitted = strictKeys.filter((key) => !tolerantKeys.has(key)).sort();
+  it('DECLARED, both directions, on both faces: every registered input is a member of the slot arm, and every member it adds beyond the base and `layout` is a registered input', () => {
+    // objectui#11467: the inputs are the arm's MEMBERS, so the strict face admits
+    // them by its ordinary rule (a member is declared) and both faces judge each
+    // value by its member. Until then the arm declared none of them and the
+    // strict face admitted their names from a side table in `@object-ui/types`.
+    const baseKeys = new Set(Object.keys(defOf(BaseSchema).shape ?? {}));
     const registered = new Set(
       DASHBOARD_COMPONENT_WIDGET_TYPES.flatMap((type) => registeredInputs(type).map((input) => input.name)),
     );
-    // Non-vacuity: the derived arm does admit something the tolerant arm does not declare.
-    expect(admitted).toContain('value');
-    expect(
-      admitted.filter((key) => !registered.has(key)),
-      'the strict slot arm admits a key no widget-slot registration declares — remove it from '
-        + '`DASHBOARD_WIDGET_SLOT_REGISTERED_INPUTS` in `@object-ui/types`, or register it first',
-    ).toEqual([]);
-    // And the other half, read the same way: nothing registered is left out.
-    const missing = [...registered].filter((key) => !tolerantKeys.has(key) && !admitted.includes(key));
-    expect(missing).toEqual([]);
+    for (const face of [DashboardComponentSchema, deriveStrictAuthoringSchema(DashboardComponentSchema)]) {
+      const armKeys = Object.keys(defOf(slotArm(face)).shape ?? {});
+      // UNDER: nothing registered is left to the passthrough (the base's own
+      // `description` counts — it is a member the arm inherits).
+      expect([...registered].filter((name) => !armKeys.includes(name))).toEqual([]);
+      // OVER: what the arm adds to the base is the slot's `layout` and registered inputs only.
+      const added = armKeys.filter((key) => !baseKeys.has(key) && key !== 'layout').sort();
+      // Non-vacuity: the arm does declare an input the base lacks.
+      expect(added).toContain('value');
+      expect(
+        added.filter((key) => !registered.has(key)),
+        'the slot arm declares a member no widget-slot registration declares — remove it from '
+          + '`DashboardWidgetSlotComponentSchema` in `@object-ui/types`, or register it first',
+      ).toEqual([]);
+    }
+  });
+
+  it('each member is typed as the registration declares it: `value` required, and `trend` exactly the registered enum', () => {
+    const shape = defOf(slotArm(DashboardComponentSchema)).shape ?? {};
+    const value = registeredInputs('metric-card').find((input) => input.name === 'value') as Input & { required?: boolean };
+    expect(value.required).toBe(true);
+    expect(defOf(shape.value).type, '`value` is required on the arm, as on the registration').not.toBe('optional');
+    const trend = registeredInputs('metric-card').find((input) => input.name === 'trend');
+    const enumValues = (trend?.enum ?? []).map((entry) => (typeof entry === 'string' ? entry : entry.value)).sort();
+    // Non-vacuity: the registration does declare an enum.
+    expect(enumValues.length).toBeGreaterThan(0);
+    let member = shape.trend;
+    while (defOf(member).innerType) member = defOf(member).innerType;
+    expect(Object.values(defOf(member).entries ?? {}).sort()).toEqual(enumValues);
+  });
+
+  it('the TypeScript arm declares each input as the type of the prop `MetricCard` reads it as', () => {
+    // `MetricCard` is what `plugin-dashboard:metric-card` renders. The arm in
+    // `@object-ui/types` cannot import it, so the parity is pinned here, where
+    // both are visible; `tsc -p tsconfig.test.json` is the reader of this line.
+    type Inputs = 'title' | 'value' | 'icon' | 'trend' | 'trendValue' | 'description';
+    const sameTypes: Equal< Pick<DashboardWidgetSlotComponentSchema, Inputs>, Pick<MetricCardProps, Inputs> > = true;
+    expect(sameTypes).toBe(true);
   });
 });
 
@@ -160,15 +201,21 @@ const flatIssues = (issues: readonly Issue[], prefix: PropertyKey[] = []): Issue
     ...(issue.errors ?? []).flatMap((group) => flatIssues(group, [...prefix, ...issue.path])),
   ]);
 
-/** A node of `type` carrying each REQUIRED registered input, so only `layout` is under test. */
+/**
+ * A node of `type` carrying each REQUIRED registered input, so only `layout` is under test.
+ * The inputs are read from the live registration, which the compiler cannot see, so the
+ * cast names what they supply: the arm's required `value` (objectui#11467), which the
+ * population test above pins as the registration's `required` input. Both faces then
+ * judge the node at runtime.
+ */
 const nodeOf = (type: string): DashboardWidgetSlotComponentSchema => ({
   type: type as DashboardWidgetSlotComponentSchema['type'],
   id: `kpi-${type}`,
-  ...Object.fromEntries(
+  ...(Object.fromEntries(
     registeredInputs(type)
       .filter((input) => (input as Input & { required?: boolean }).required)
       .map((input) => [input.name, sampleFor(input)]),
-  ),
+  ) as Pick<DashboardWidgetSlotComponentSchema, 'value'>),
 });
 
 /** What Save Layout persists: the producer's merge of grid coordinates into the dashboard. */
@@ -241,9 +288,9 @@ describe('objectui#11070 round 11 — the slot\'s `layout`, as Save Layout write
   });
 
   it('the TypeScript face: the arm types `layout` by the spec\'s shape, not the index signature\'s `any`', () => {
-    const placed: DashboardWidgetSlotComponentSchema = { type: 'metric-card', layout: { x: 0, y: 0, w: 3, h: 2 } };
+    const placed: DashboardWidgetSlotComponentSchema = { type: 'metric-card', value: '1', layout: { x: 0, y: 0, w: 3, h: 2 } };
     // @ts-expect-error -- `x` is a number in the spec's widget `layout`.
-    const misplaced: DashboardWidgetSlotComponentSchema = { type: 'metric-card', layout: { x: 'left', y: 0, w: 3, h: 2 } };
+    const misplaced: DashboardWidgetSlotComponentSchema = { type: 'metric-card', value: '1', layout: { x: 'left', y: 0, w: 3, h: 2 } };
     expect([placed.layout?.w, misplaced.type]).toEqual([3, 'metric-card']);
   });
 });

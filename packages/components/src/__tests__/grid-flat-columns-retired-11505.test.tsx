@@ -34,6 +34,9 @@
  * - The migration the zod refusal prescribes draws what the flat document drew
  *   on the base, row by row: a bare `columns: C` beside a flat key becomes the
  *   object's `xs: C`, and with no `columns` the object takes `xs: 2`.
+ * - The SDUI manifest built from the live registry answers a flat key the way
+ *   it answers any prop the node does not declare, `unknown-prop`; it answered
+ *   `smColumns: 13` with `invalid-enum` while the input was registered.
  *
  * Module-scope import of the renderers, not `beforeAll` (AGENTS.md §测试纪律).
  */
@@ -42,6 +45,8 @@ import { render } from '@testing-library/react';
 import '../renderers';
 import { SchemaRenderer } from '@object-ui/react';
 import { ComponentRegistry } from '@object-ui/core';
+import { manifestFromConfigs, validateTree } from '@object-ui/sdui-parser';
+import type { Diagnostic, SchemaElement } from '@object-ui/sdui-parser';
 
 const FLAT_KEYS = ['smColumns', 'mdColumns', 'lgColumns', 'xlColumns'] as const;
 
@@ -57,6 +62,21 @@ const withoutFlatKeys = (doc: Record<string, unknown>) =>
   Object.fromEntries(Object.entries(doc).filter(([key]) => !(FLAT_KEYS as readonly string[]).includes(key)));
 
 const config = ComponentRegistry.getConfig('grid');
+
+/**
+ * The manifest the running app validates against, keyed by every known
+ * registry tag, the way `layout-containers-declare-containment.test.tsx`
+ * builds it (the app's own builder in `renderers/layout/page.tsx` is
+ * module-private).
+ */
+const diagnose = (schema: Record<string, unknown>): Diagnostic[] => {
+  const configs = ComponentRegistry.getKnownTypes().map((t) => {
+    const meta = ComponentRegistry.getMeta(t);
+    return { type: t, namespace: meta?.namespace, isContainer: meta?.isContainer, inputs: meta?.inputs };
+  });
+  const manifest = manifestFromConfigs(configs as unknown as Parameters<typeof manifestFromConfigs>[0]);
+  return validateTree(schema as SchemaElement, manifest).diagnostics;
+};
 
 /**
  * The class list the registration's flat seed (`columns: 1`, `mdColumns: 2`,
@@ -129,6 +149,17 @@ describe('`grid` reads and publishes no flat column key (objectui#11505)', () =>
 
   it.each(MIGRATIONS)('%s — the prescribed object draws what the flat document drew', (_label, _flat, migrated, drew) => {
     expect(classesOf(migrated)).toBe(drew);
+  });
+
+  it.each(FLAT_KEYS)('the SDUI manifest answers `%s` as a prop `grid` does not have', (key) => {
+    expect(diagnose({ type: 'grid', [key]: 2 }).map((d) => [d.severity, d.code, d.message])).toEqual([
+      ['warning', 'unknown-prop', `<grid> has no prop "${key}"`],
+    ]);
+  });
+
+  it('the SDUI manifest takes the breakpoint object those keys spelled a second time', () => {
+    // Lit control for the row above: the same node, in the one spelling.
+    expect(diagnose({ type: 'grid', columns: { xs: 1, sm: 2, md: 2, lg: 4, xl: 6 } })).toEqual([]);
   });
 
   it('a flat key no longer switches the bare count\'s ramp off', () => {

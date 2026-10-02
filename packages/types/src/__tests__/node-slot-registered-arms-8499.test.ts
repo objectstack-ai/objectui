@@ -272,13 +272,15 @@ describe('objectui#8499 — `line-chart` stays unarmed, and the reason stays che
     ].map((m) => m[1]);
     // Non-vacuity: the reader must actually find the console's registrations.
     expect(stubbed.length, 'the console stub read went vacuous').toBeGreaterThanOrEqual(20);
-    expect(stubbed, 'the reader is looking at the chart stubs').toContain('pie-chart');
+    // `chart:bar` since objectui#10859 batch 8 retired the `pie-chart` stub.
+    expect(stubbed, 'the reader is looking at the chart stubs').toContain('chart:bar');
 
     const pluginSource = read(CHARTS_PLUGIN);
     const registered = [...pluginSource.matchAll(/register\(\s*\n?\s*'([^']+)'/g)].map((m) => m[1]);
     // Non-vacuity: the reader must actually find this module's registrations.
-    expect(registered.length, 'the registration read went vacuous').toBeGreaterThanOrEqual(6);
-    expect(registered).toContain('pie-chart');
+    // Four since objectui#10859 batch 8 retired four chart-family keys.
+    expect(registered.length, 'the registration read went vacuous').toBeGreaterThanOrEqual(4);
+    expect(registered).toContain('chart:bar');
 
     for (const type of RETIRED_8760) {
       expect(stubbed, `${type} is stubbed in the console again`).not.toContain(type);

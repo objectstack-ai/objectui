@@ -52,8 +52,10 @@ for (const variant of ['metric', 'metric-card']) {
 // `register-plugins.ts` alone would have left both keys blessed by
 // `check:doc-types` from THIS file, so the retirement would have changed
 // nothing an author can observe. Chart families are reached as
-// `{ "type": "chart", "chartType": "line" | "area" }`.
-for (const variant of ['chart', 'bar-chart', 'pie-chart']) {
+// `{ "type": "chart", "chartType": "line" | "area" }`. `pie-chart` left this list
+// with its registration (objectui#10859 batch 8, phase 2c), for the same reason:
+// author `{ "type": "chart", "chartType": "pie" }`.
+for (const variant of ['chart', 'bar-chart']) {
   ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-charts'), {
     namespace: 'plugin-charts',
     category: 'chart',

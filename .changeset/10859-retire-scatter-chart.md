@@ -15,3 +15,6 @@ A legacy report section whose `chart.type` says `scatter-chart` now reaches the 
 `pie-chart`, `donut-chart` and `radar-chart` were ruled the same way but stay registered: this package's `examples/chart-examples.ts` still authors them, so they wait on their own decision.
 
 **Clause-②: yes** — a registration leaves the runtime (narrowing), released as `minor` with this banner.
+
+⚠️ **Dated note, 2026-10-02 — the three chart aliases are retired too — objectui#10859.**
+The decision this entry said `pie-chart`, `donut-chart` and `radar-chart` wait on is made (the seat's fork ruling on objectui#10859): later in this same release, phase 2c moved `examples/chart-examples.ts` to `{ type: 'chart', chartType: 'pie' | 'donut' | 'radar' }` and then unregistered all three keys, with their `plugin-charts:` twins and `CHART_TYPE_KEYWORD_FAMILIES` rows. The rest of this entry is kept as the reading of this change.

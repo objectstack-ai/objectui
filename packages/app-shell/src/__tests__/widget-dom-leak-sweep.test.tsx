@@ -33,13 +33,13 @@
  *
  *   | package          | targets | targets leaking | leaked attributes |
  *   |------------------|---------|-----------------|-------------------|
- *   | plugin-charts    |       8 |               0 |                 0 |
+ *   | plugin-charts    |       5 |               0 |                 0 |
  *   | plugin-calendar  |       3 |               0 |                 0 |
  *   | plugin-chatbot   |       3 |               0 |                 0 |
  *   | plugin-dashboard |       7 |               2 |             7 / 9 |
  *   | components       |     160 |              90 |          12 .. 15 |
  *
- * **92 of 181 targets leak.** The `components` row is objectui#5574 and is
+ * **92 of 178 targets leak.** The `components` row is objectui#5574 and is
  * covered in its own section below; the two `plugin-dashboard` rows are the
  * older tail. Both are in {@link LEAK_LEDGER}:
  * `plugin-dashboard:metric` and `plugin-dashboard:metric-card`, the open tail
@@ -505,7 +505,10 @@ const CHART_SERIES = [{ dataKey: 'sales' }, { dataKey: 'revenue' }];
  *
  * Since objectui#10859 batch 8 (phase 2b) retired the `scatter-chart` key, the
  * scatter target is `plugin-charts:chart` with `chartType: 'scatter'` — the
- * spelling that draws — and the history below is about the retired key.
+ * spelling that draws — and the history below is about the retired key. Phase
+ * 2c retired `pie-chart`, `donut-chart` and `radar-chart` too, so their three
+ * targets left with their registrations (this sweep has one target per
+ * registered type).
  *
  * ⭐ Until objectui#7401 this target was NOT SWEPT AT ALL. Its registration
  * declared its family as `defaultProps: { chartType: 'scatter' }`, nothing on
@@ -540,7 +543,7 @@ const SCATTER_SERIES = [{ dataKey: 'y' }];
 /**
  * The two OBJECT-BOUND chart targets (`plugin-charts:object-chart`,
  * `view:chart`). They stay object-bound — `objectName` is what makes them a
- * different registry path from the six inline chart targets above, which reach
+ * different registry path from the three inline chart targets above, which reach
  * `ObjectChart` through `ObjectChartBlock` and its `ElementDataSourceGate`.
  *
  * `data` / `series` are authored on TOP of that binding (`data` is a declared
@@ -858,9 +861,6 @@ const TARGETS: Readonly<Record<string, readonly Target[]>> = {
     // the scatter arm swept (see SCATTER_DATA).
     { type: 'plugin-charts:chart', schemaExtras: { chartType: 'scatter', data: SCATTER_DATA, xAxisKey: 'x', series: SCATTER_SERIES }, ready: '[data-slot="chart"]' },
     { type: 'plugin-charts:chart:bar', schemaExtras: { data: CHART_DATA, series: CHART_SERIES }, ready: '[data-slot="chart"]' },
-    { type: 'plugin-charts:pie-chart', schemaExtras: { data: CHART_DATA, series: CHART_SERIES }, ready: '[data-slot="chart"]' },
-    { type: 'plugin-charts:donut-chart', schemaExtras: { data: CHART_DATA, series: CHART_SERIES }, ready: '[data-slot="chart"]' },
-    { type: 'plugin-charts:radar-chart', schemaExtras: { data: CHART_DATA, series: CHART_SERIES }, ready: '[data-slot="chart"]' },
     { type: 'plugin-charts:object-chart', schemaExtras: OBJECT_CHART_EXTRAS, ready: '[data-slot="chart"]' },
     { type: 'view:chart', schemaExtras: OBJECT_CHART_EXTRAS, ready: '[data-slot="chart"]' },
   ],
@@ -1828,7 +1828,7 @@ const DOCBLOCK_COUNTS = {
   /** Attributes leaked by the shape with the most members. */
   commonestShapeAttributes: 14,
   /** Every target this sweep renders, all five packages. */
-  allTargets: 181,
+  allTargets: 178,
   /** Every ledgered row, `plugin-dashboard`'s open tail included. */
   allLedgered: 92,
 } as const;

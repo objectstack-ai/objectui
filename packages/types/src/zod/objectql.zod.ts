@@ -654,10 +654,10 @@ export const ObjectGridSchema = BaseSchema.extend({
   grouping: stripImportedDefaults(SpecGroupingConfigSchema).optional().describe('Row grouping: the spec GroupingConfig, by reference'),
   navigation: stripImportedDefaults(SpecNavigationConfigSchema).optional().describe('Row-click navigation: the spec NavigationConfig, by reference'),
   operations: ObjectGridOperationsSchema.optional().describe('Built-in operation toggles { create, read, update, delete, export, import }; a declared block replaces the default'),
-  reorderableColumns: stripImportedDefaults(SpecObjectGridPropsSchema.shape.reorderableColumns),
+  reorderableColumns: stripImportedDefaults(SpecObjectGridPropsSchema).shape.reorderableColumns,
   rowColor: stripImportedDefaults(SpecRowColorConfigSchema).optional().describe('Row colour rules: the spec RowColorConfig, by reference'),
   rowHeight: stripImportedDefaults(SpecRowHeightSchema).optional().describe('Row height preset: the spec RowHeight, by reference'),
-  singleClickEdit: stripImportedDefaults(SpecObjectGridPropsSchema.shape.singleClickEdit),
+  singleClickEdit: stripImportedDefaults(SpecObjectGridPropsSchema).shape.singleClickEdit,
   // ⭐ `8d50bc2bf` — one key the REGISTERED `object-grid` renderer reads off
   // the authored document while this arm declared none. `BaseSchema` is
   // `.passthrough()`, so an undeclared key is NOT refused: it stops being

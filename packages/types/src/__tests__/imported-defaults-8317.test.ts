@@ -90,6 +90,11 @@ import {
   ObjectMapPropsSchema as SpecObjectMapPropsSchema,
   ObjectGanttPropsSchema as SpecObjectGanttPropsSchema,
   ObjectGridPropsSchema as SpecObjectGridPropsSchema,
+  // objectui#6152 round 6 — the spec schemas `ObjectGridSchema`'s mirror reads.
+  RowColorConfigSchema as SpecRowColorConfigSchema,
+  RowHeightSchema as SpecRowHeightSchema,
+  BulkActionDefSchema as SpecBulkActionDefSchema,
+  BulkActionOperationSchema as SpecBulkActionOperationSchema,
   // objectui#10872 — the `ComponentPropsMap` rows the public-block arms read.
   PageHeaderProps as SpecPageHeaderProps,
   PageTabsProps as SpecPageTabsProps,
@@ -286,6 +291,13 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // the row's key set off the crossed copy. This row carries defaults too
   // (`data`'s `api` provider), so the boundary returns a rebuilt copy.
   ['ObjectGridPropsSchema', SpecObjectGridPropsSchema],
+  // objectui#6152 round 6: the flat `ObjectGridSchema` mirror reads `rowColor` /
+  // `rowHeight` as the spec schemas its twin names, and one `bulkActionDefs`
+  // entry's `operation` and `visible` slot, each crossed through this boundary.
+  ['RowColorConfigSchema', SpecRowColorConfigSchema],
+  ['RowHeightSchema', SpecRowHeightSchema],
+  ['BulkActionDefSchema', SpecBulkActionDefSchema],
+  ['BulkActionOperationSchema', SpecBulkActionOperationSchema],
   // objectui#10872: each ADR-0080 public-block arm's `properties` is the
   // block's `ComponentPropsMap` row, crossed through this boundary, so every
   // row is measured here like every other crossing (`page:section`,

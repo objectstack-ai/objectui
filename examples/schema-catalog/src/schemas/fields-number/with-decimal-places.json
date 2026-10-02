@@ -8,7 +8,7 @@
       "label": "Price",
       "type": "number",
       "placeholder": "0.00",
-      "precision": 2
+      "scale": 2
     }
   ]
 }

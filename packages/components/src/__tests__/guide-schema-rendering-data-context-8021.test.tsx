@@ -78,7 +78,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import '../renderers';
 import { SchemaRenderer, SchemaRendererProvider, PredicateScopeProvider } from '@object-ui/react';
-import type { DataSource } from '@object-ui/types';
+import type { DataSource, TextSchema } from '@object-ui/types';
 
 /**
  * Anchored on this file's own naked `import.meta.url`, never on
@@ -105,7 +105,7 @@ const readDoc = (rel: string): string => readFileSync(join(ROOT, rel), 'utf8');
  */
 const SCOPE = { user: { name: 'John', role: 'admin' }, stats: { totalUsers: 1234 } };
 
-const textNode = (content: string) => ({ type: 'text', content });
+const textNode = (content: string): TextSchema => ({ type: 'text', content });
 
 /**
  * Leg B wiring: the prop written on the element, with no provider above it.

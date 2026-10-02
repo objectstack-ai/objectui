@@ -7,7 +7,7 @@ import { ComponentRegistry, chartMeasureKey, isStructuredGroupBy, objectAggregat
 import { Sheet, SheetContent, SheetHeader, SheetTitle, Dialog, DialogContent, DialogHeader, DialogTitle, RefreshIndicator, Button, ChartSkeleton, DataEmptyState } from '@object-ui/components';
 import { AlertCircle, ArrowUpRight, Inbox } from 'lucide-react';
 import { builtinAggregateLabels, useSafeFieldLabel, useSafeTranslate, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
-import type { BaseSchema, DrillDownConfig, ObjectChartSchema } from '@object-ui/types';
+import type { BaseSchema, DrillDownConfig, ObjectChartSchema, ObjectDataTableSchema } from '@object-ui/types';
 
 /**
  * Humanize a snake_case or kebab-case string into Title Case.
@@ -1542,7 +1542,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
     // read sites that agree. ⛔ Do not reintroduce a local pick at either end.
     const title = resolveDrillTitle(drillDown, drillEvent, pickLocalized(schema.title, language) || 'Details');
     const target = drillDown?.target ?? 'drawer';
-    const tableSchema = {
+    const tableSchema: ObjectDataTableSchema = {
       type: 'object-data-table',
       objectName: schema.objectName,
       filter: merged,

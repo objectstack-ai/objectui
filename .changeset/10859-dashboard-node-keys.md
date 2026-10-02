@@ -20,3 +20,5 @@ Migration:
 - a selector `[data-obj-type="metric"]` / `[data-obj-type="metric-card"]` → `[data-obj-type="plugin-dashboard:metric"]` / `[data-obj-type="plugin-dashboard:metric-card"]`.
 
 **Clause-②: yes** — registrations leave the runtime (narrowing), released as `minor` with this banner.
+
+⚠️ **Dated note, 2026-10-02 — `metric-card` leaves the widget vocabulary — objectui#11483.** At this change, "The dashboard WIDGET vocabulary is unchanged" held, and that vocabulary named `metric-card`. Now the widget `type` vocabulary (`DashboardWidgetTypeSchema` / `DashboardWidgetTypeName`) names no component type. The `metric-card` slot entry is still authored as before when it carries its `value`; without one it is refused. `.changeset/11483-metric-card-needs-value.md` states what ships. The rest of this entry is kept as the reading of this change.

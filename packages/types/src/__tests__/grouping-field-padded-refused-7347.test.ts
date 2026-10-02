@@ -86,6 +86,11 @@ const PADDED = ['  business_unit  ', ' business_unit', 'business_unit '] as cons
 type Entry = { field: string };
 
 interface DeclaringArm {
+  /**
+   * The component `type` of the arm, when the row's key is not that type: one arm
+   * can declare `grouping` at more than one path, and each path is its own row.
+   */
+  readonly type?: string;
   /** Where the census finds `grouping` on this arm, `*` standing for a record key. */
   readonly declaredAt: string;
   /** The exported mirror, parsed directly as well as through the union. */
@@ -118,6 +123,17 @@ const DECLARING: Readonly<Record<string, DeclaringArm>> = {
       listViews: { all: { label: 'All', columns: ['name', CLEAN], grouping: { fields } } },
     }),
     fieldPath: (i) => ['listViews', 'all', 'grouping', 'fields', i, 'field'],
+  },
+  // objectui#6152 round 6: the `object-view` `table` slot is built from the flat
+  // `ObjectGridSchema` mirror, which now declares `grouping` as the spec's
+  // `GroupingConfigSchema` by reference, so the slot judges it — the second
+  // path on that arm, and `ObjectView` hands it to the grid it draws.
+  'object-view table': {
+    type: 'object-view',
+    declaredAt: 'table.grouping',
+    arm: ObjectViewSchema,
+    doc: (fields) => ({ type: 'object-view', objectName: 'account', table: { grouping: { fields } } }),
+    fieldPath: (i) => ['table', 'grouping', 'fields', i, 'field'],
   },
 };
 
@@ -255,10 +271,9 @@ describe('objectui#7347 — census: the table above is every arm that declares `
       // skipping it would be a silent hole in the census.
       if (at.length) found[componentTypeOf(arm) ?? '?'] = at;
     }
-    const expected = {
-      ...Object.fromEntries(Object.entries(DECLARING).map(([type, spec]) => [type, [spec.declaredAt]])),
-      ...NOT_COVERED,
-    };
+    const expected: Record<string, string[]> = Object.fromEntries(Object.entries(NOT_COVERED).map(([type, paths]) => [type, [...paths]]));
+    for (const [key, spec] of Object.entries(DECLARING)) (expected[spec.type ?? key] ??= []).push(spec.declaredAt);
+    for (const type of Object.keys(expected)) expected[type] = [...expected[type]].sort();
     expect(found).toEqual(expected);
   });
 

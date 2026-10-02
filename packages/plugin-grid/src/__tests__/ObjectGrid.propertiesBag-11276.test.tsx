@@ -35,22 +35,22 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor, cleanup } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import type { BaseSchema, DataSource } from '@object-ui/types';
+import type { DataSource, ObjectGridBlockNode, ObjectGridSchema } from '@object-ui/types';
 import { safeValidateSchema } from '@object-ui/types/zod';
 // Module scope, not a hook: this import IS the registration (AGENTS.md
 // test-discipline section).
 import '../index';
 
-const FILTER = [{ field: 'status', operator: 'equals', value: 'open' }];
-const SORT = [{ field: 'title', order: 'desc' }];
+const FILTER = [{ field: 'status', operator: 'equals' as const, value: 'open' }];
+const SORT = [{ field: 'title', order: 'desc' as const }];
 const ROW = { id: 't1', title: 'Write the bag pin', status: 'open' };
 
 /** The authored spelling, spec-valid. */
-const BAG = { type: 'object-grid', properties: { objectName: 'task', columns: ['title', 'status'], filter: FILTER, sort: SORT } };
+const BAG: ObjectGridBlockNode = { type: 'object-grid', properties: { objectName: 'task', columns: ['title', 'status'], filter: FILTER, sort: SORT } };
 /** The same props written flat — what a stored document or a code composer hands the renderer. */
-const FLAT = { type: 'object-grid', objectName: 'task', columns: ['title', 'status'], filter: FILTER, sort: SORT };
+const FLAT: ObjectGridSchema = { type: 'object-grid', objectName: 'task', columns: ['title', 'status'], filter: FILTER, sort: SORT };
 /** The bag with its object supplied by the node's binding instead. */
-const BOUND_BAG = { type: 'object-grid', dataSource: { object: 'task' }, properties: { columns: ['title', 'status'] } };
+const BOUND_BAG: ObjectGridBlockNode = { type: 'object-grid', dataSource: { object: 'task' }, properties: { columns: ['title', 'status'] } };
 
 function makeAdapter() {
   return {
@@ -66,11 +66,11 @@ function makeAdapter() {
   };
 }
 
-function renderNode(schema: Record<string, unknown>) {
+function renderNode(schema: ObjectGridBlockNode | ObjectGridSchema) {
   const adapter = makeAdapter();
   const view = render(
     <SchemaRendererProvider dataSource={adapter as unknown as DataSource}>
-      <SchemaRenderer schema={schema as BaseSchema} />
+      <SchemaRenderer schema={schema} />
     </SchemaRendererProvider>,
   );
   return { adapter, ...view };

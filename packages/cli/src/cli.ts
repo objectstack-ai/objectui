@@ -17,7 +17,6 @@ import { lint } from './commands/lint.js';
 import { test } from './commands/test.js';
 import { generate } from './commands/generate.js';
 import { doctor } from './commands/doctor.js';
-import { add } from './commands/add.js';
 import { studio } from './commands/studio.js';
 import { check } from './commands/check.js';
 import { validate } from './commands/validate.js';
@@ -152,16 +151,8 @@ program
   .description('Generate new resources (objects, pages, plugins)')
   .argument('<type>', 'Type of resource to generate (resource/object, page, plugin)')
   .argument('<name>', 'Name of the resource')
-  .option('--from <source>', 'Generate schema from external source (openapi.yaml, prisma.schema)')
-  .action(async (type, name, options) => {
+  .action(async (type, name) => {
     try {
-      // Handle schema generation from external sources
-      if (options.from) {
-        console.log(chalk.yellow('\n⚠ Schema generation from external sources (OpenAPI/Prisma) is not yet implemented.'));
-        console.log(chalk.gray('This feature will be available in a future release.\n'));
-        process.exit(0);
-      }
-      
       await generate(type, name);
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
@@ -175,19 +166,6 @@ program
   .action(async () => {
     try {
       await doctor();
-    } catch (error) {
-      console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
-      process.exit(1);
-    }
-  });
-
-program
-  .command('add')
-  .description('Add a new component renderer to your project')
-  .argument('<component>', 'Component name (e.g. Input, Grid)')
-  .action(async (component) => {
-    try {
-      await add(component);
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
       process.exit(1);
@@ -254,11 +232,9 @@ program
 program
   .command('analyze')
   .description('Analyze application performance')
-  .option('--bundle-size', 'Analyze bundle size')
-  .option('--render-performance', 'Analyze render performance')
-  .action(async (options) => {
+  .action(async () => {
     try {
-      await analyze(options);
+      await analyze();
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);
       process.exit(1);

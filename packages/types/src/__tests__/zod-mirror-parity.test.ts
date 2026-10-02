@@ -154,7 +154,14 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **49 entries** in `KnownDrift`, **86 keys** across them — 49 / 87 until
+ *   - **49 entries** in `KnownDrift`, **87 keys** across them — 49 / 86 until
+ *     objectui#11483 took the component type `metric-card` out of the mirror's
+ *     widget vocabulary (`DashboardWidgetTypeSchema`), so a card in the slot is read
+ *     by its component arm alone and its required `value` governs. The TS
+ *     `DashboardWidgetSchema` keeps that type in its `type`, because it is also the
+ *     read type of every `widgets[]` entry, so `type` JOINED
+ *     `complex.zod.ts#DashboardWidgetSchema`'s existing entry: the key total rose by
+ *     one and the entry count did not move. It was 49 / 87 until
  *     objectui#11234 RETIRED `ObjectKanbanSchema.onQuickAdd` on BOTH faces
  *     (`?: never` on the declaration, `handlerKeyRefusal(…, 'retired', …)` on the
  *     mirror), completing ruling B of decision batch #91 on `object-kanban`. The
@@ -372,7 +379,14 @@
  *     and 37 / 53 until objectui#7344 swept the string / `z.any()` handler mirrors:
  *     `DetailSchema` and `DetailViewSchema` entered (one `onBack` each) and
  *     `CalendarViewSchema` grew by `onEventClick`.
- *   - **5 entries** in `UnmirroredDeclared`, **16 keys** across them — 6 / 18 until
+ *   - **5 entries** in `UnmirroredDeclared`, **6 keys** across them — 5 / 16 until
+ *     objectui#6152 round 6 MIRRORED ten of `ObjectGridSchema`'s eleven keys, each
+ *     measured READ by `ObjectGrid` (a type-checker census and a runtime probe through the
+ *     real registry) and each a member of the spec's `object-grid` row — four as the spec
+ *     schemas the twin names, two as the row's own members, four as restatements of the
+ *     twin's local shapes. A shrink by REPAIR off an entry that kept ONE key
+ *     (`resizableColumns`, its route open on that round's report), so only the key figure
+ *     moved; 6 / 18 until
  *     objectui#11434's reader change gave `ProcessDesignerSchema`'s `lanes` and `version`
  *     their reader (the toolbar draws the version; each lane is a band around its nodes)
  *     and MIRRORED both, with a `BPMNLaneSchema` record mirror — a shrink by REPAIR, the
@@ -2241,8 +2255,19 @@ interface KnownDrift {
    * INSIDE this file without editing it, and `tsc -p tsconfig.json` (the BUILD project)
    * excludes every `.test.ts` under `src` and stays green while `tsconfig.test.json`
    * reddens.
+   *
+   * `type` — joined with objectui#11483, and the TS side is the WIDER one, on purpose.
+   * The mirror's widget vocabulary (`DashboardWidgetTypeSchema`) dropped the component
+   * type `metric-card`, so the slot reads a card through its component arm alone and
+   * the card's required `value` governs. The TS interface keeps
+   * `DashboardComponentWidgetType` in `type` because it is ALSO the read type of every
+   * `widgets[]` entry: the component arm is assignable to it, and `plugin-dashboard`'s
+   * renderers annotate slot entries with it. Measured on that card's branch, dropping it
+   * on this face breaks those renderers under `tsc`. The literal this lets compile, a
+   * `metric-card` with no `value`, is pinned two-faced as a measured limit in
+   * `metric-card-needs-value-11483.test.ts`.
    */
-  'complex.zod.ts#DashboardWidgetSchema': 'component' | 'options';
+  'complex.zod.ts#DashboardWidgetSchema': 'component' | 'options' | 'type';
   /**
    * `onChange` — RUNTIME SLOT (objectui#6124): the `filter-builder` renderer
    * calls it as `props.onChange` after `SchemaRenderer`'s spread. (`fields` LEFT
@@ -2675,7 +2700,7 @@ interface KnownDrift {
  *
  * objectui#6058 seeded this ledger at **121 keys**, and — on ONE line, because the
  * pin below reads this sentence off disk —
- * **16 keys** is what this ledger records today.
+ * **6 keys** is what this ledger records today.
  * The movements between the two are different facts. objectui#6152 measured the 23
  * callback-shaped (`on*`) keys and ruled that mirroring is the wrong remedy for every
  * one of them;
@@ -2712,7 +2737,10 @@ interface KnownDrift {
  * repair. Then objectui#6152 round 5 moved four keys by two routes: two RETIRED on both
  * faces (`DataTableSchema.selectionStyle`, `ChatbotSchema.floatingConfig`) and two
  * RECLASSIFIED into `RuntimeOnlyDeclared` by NAME (`DataTableSchema`'s `editable` and
- * `singleClickEdit`) — ⛔ none of the four a repair, and none mirrored.
+ * `singleClickEdit`) — ⛔ none of the four a repair, and none mirrored. Then objectui#6152
+ * round 6 MIRRORED ten of `ObjectGridSchema`'s eleven keys, each measured READ — all of it
+ * by REPAIR — and stopped at the eleventh, `resizableColumns`, whose ruled retirement
+ * objectui#11276's move of the authored node into the spec's `properties` bag left open.
  *
  * ## The decomposition of "121" — a reading at NAMED REVISIONS, so it cannot rot
  *
@@ -2798,7 +2826,10 @@ interface KnownDrift {
  * explicit that forcing the 121 per-key decisions now would be wrong. Two splits
  * are recorded here so whoever works them off does not re-derive them:
  *
- *   - **SPEC-DERIVED (3 entries, 14 keys)** — it was 4 / 16 until objectui#6152 round 3
+ *   - **SPEC-DERIVED (3 entries, 4 keys)** — it was 3 / 14 until objectui#6152 round 6
+ *     MIRRORED ten of `ObjectGridSchema`'s eleven keys: the entry kept `resizableColumns`,
+ *     so it stayed in this half and only the keys moved, all ten by REPAIR. It was 4 / 16
+ *     until objectui#6152 round 3
  *     moved `ObjectFormSchema`'s last two keys (`open`, `submitHandler`) to
  *     `RuntimeOnlyDeclared` by NAME: the entry emptied, so the half lost an entry and two
  *     keys, and ⛔ neither key was mirrored. It was 4 / 35 until objectui#6152 round 1
@@ -2985,9 +3016,12 @@ interface KnownDrift {
  * `previewMode` on both faces, each a tombstone and so a mirrored member — two entries
  * and two keys gone, `ProcessDesignerSchema`'s left standing for its reader. Its reader
  * change then moved only the LOCAL half again, by the REPAIR route: `lanes` and
- * `version` got their reader and were MIRRORED — one entry and two keys gone. The ledger
+ * `version` got their reader and were MIRRORED — one entry and two keys gone. objectui#6152
+ * round 6 then moved only the SPEC-DERIVED half, by the REPAIR route: ten of
+ * `ObjectGridSchema`'s eleven keys MIRRORED, the entry kept `resizableColumns`, so no entry
+ * left and the LOCAL half did not move. The ledger
  * now totals — on ONE line, because the pin below reads this sentence off disk —
- * **5 entries / 16 keys** — 3 / 14 spec-derived, 2 / 2 local.
+ * **5 entries / 6 keys** — 3 / 4 spec-derived, 2 / 2 local.
  *
  * ⛔ The four split figures above and this totals line are PINNED: 'objectui#7279'
  * at the bottom of this file derives every one of them from the `UnmirroredDeclared`
@@ -3188,12 +3222,32 @@ interface UnmirroredDeclared {
    * mechanism that moved `ObjectViewSchema` at objectui#7779, and the second pair to reach
    * this half by a single mirrored member.
    *
-   * ⚠️ Read the half as MEMBERSHIP, not as a remedy: the eleven keys below are still
-   * plain hand-written omissions on a `BaseSchema.extend({…})` mirror — the ordinary local
+   * ⚠️ Read the half as MEMBERSHIP, not as a remedy: the key below is a plain
+   * hand-written omission on a `BaseSchema.extend({…})` mirror — the ordinary local
    * route (objectui#6152's worklist), NOT objectui#2231's unification question, which is
    * what the SPEC-DERIVED half means for a mirror that IS the spec schema by reference.
    * This is the per-key reading objectui#7279 recorded on `ObjectViewSchema` for the same
    * reason, kept here so whoever works these off does not re-derive it.
+   *
+   * ⚠️ `resizableColumns` is NOT mirroring debt in waiting, and ⛔ it is not mirrored: the
+   * seat's answer A on objectui#6152 retires it (`resizable` is canonical; the spec half
+   * forks to objectstack). objectui#6152 round 6 STOPPED at it rather than execute that
+   * answer, because objectui#11276 moved the AUTHORED `object-grid` node to the spec's
+   * `properties` bag after the answer was given: the bag is `ComponentPropsMap['object-grid']`
+   * by reference, which still declares `resizableColumns` ("Alternate spelling of
+   * `resizable`"), so retiring the key here and dropping `ObjectGrid`'s read would leave
+   * the authored bag accepting a key nothing reads. Its route is the open question on that
+   * round's report; the key stays here until it is answered.
+   *
+   * It was 11 until objectui#6152 round 6 MIRRORED ten keys, each measured READ by
+   * `ObjectGrid` (a type-checker census, and a runtime probe through the real registry
+   * that varied one key at a time) and each a member of the spec's `object-grid` row:
+   * `grouping`, `navigation`, `rowColor` and `rowHeight` as the spec schemas the twin
+   * names, BY REFERENCE; `reorderableColumns` and `singleClickEdit` as the row's own
+   * members, BY REFERENCE; `aggregations`, `bulkActionDefs`, `conditionalFormatting` and
+   * `operations` as restatements of the twin's local shapes (the conditional-formatting
+   * rule shared with `ListViewSchema`'s mirror). A shrink by REPAIR, the objectui#6639
+   * route; the entry kept one key, so only the key total moved.
    *
    * It was 14 until objectui#11068 MIRRORED `emptyState` (read by `ObjectGrid` from that
    * card on) and TOMBSTONED `rowSpecActions` / `bulkSpecActions` (second spellings of
@@ -3206,11 +3260,7 @@ interface UnmirroredDeclared {
    * 2026-08-29, declare branch) — the ledger's first shrink by REPAIR rather than
    * reclassification.
    */
-  'objectql.zod.ts#ObjectGridSchema':
-    | 'aggregations' | 'bulkActionDefs' | 'conditionalFormatting'
-    | 'grouping' | 'navigation' | 'operations'
-    | 'reorderableColumns' | 'resizableColumns' | 'rowColor' | 'rowHeight'
-    | 'singleClickEdit';
+  'objectql.zod.ts#ObjectGridSchema': 'resizableColumns';
   // `reports.zod.ts#ReportComponentSchema` recorded three keys here (LOCAL). objectui#6152
   // round 3 MIRRORED `conditionalFormatting`, which `ReportViewer` reads per cell, and
   // round 4 RETIRED the other two on both faces under ADR-0049 enforce-or-remove:
@@ -3246,7 +3296,7 @@ interface UnmirroredDeclared {
  *
  * `UnmirroredDeclared` above was seeded at **121 keys** by objectui#6058, and — on
  * ONE line, because the pin below reads this sentence off disk —
- * `UnmirroredDeclared` records **16 keys** today.
+ * `UnmirroredDeclared` records **6 keys** today.
  * These 23 moved here whole. Keys have since left that ledger by MIRRORING and by
  * RETIREMENT, but the move recorded HERE is neither and repaired nothing. ⛔ Nothing
  * was mirrored by it, no declaration was removed, no defect was repaired and nothing was

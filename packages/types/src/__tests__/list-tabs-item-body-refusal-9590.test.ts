@@ -41,11 +41,11 @@
 
 import { describe, it, expect } from 'vitest';
 import type { ListItem } from '../data-display';
-import type { TabItem } from '../layout';
+import type { TabItem, TextSchema } from '../layout';
 import { ListItemSchema, ListSchema } from '../zod/data-display.zod';
 import { TabItemSchema, TabsSchema } from '../zod/layout.zod';
 
-const NODE = { type: 'text', content: 'x' };
+const NODE: TextSchema = { type: 'text', content: 'x' };
 
 type Issue = { code: string; path: PropertyKey[]; message: string };
 function issuesOf(r: { success: boolean; error?: { issues: Issue[] } }): Issue[] {

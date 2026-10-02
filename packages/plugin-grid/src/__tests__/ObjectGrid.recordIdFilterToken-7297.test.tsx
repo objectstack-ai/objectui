@@ -19,7 +19,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import React from 'react';
 import { render, waitFor, act, cleanup } from '@testing-library/react';
 import { SchemaRenderer, SchemaRendererProvider, FilterScopeProvider, RecordContextProvider } from '@object-ui/react';
-import type { BaseSchema, DataSource } from '@object-ui/types';
+import type { DataSource, ObjectGridSchema } from '@object-ui/types';
 
 import '../index';
 
@@ -39,12 +39,12 @@ function makeAdapter() {
 
 type Adapter = ReturnType<typeof makeAdapter>;
 
-const NODE = { type: 'object-grid', objectName: 'task', columns: ['name'], filter: [['assignee', '=', '{record_id}']] };
+const NODE: ObjectGridSchema = { type: 'object-grid', objectName: 'task', columns: ['name'], filter: [['assignee', '=', '{record_id}']] };
 
 function ui(adapter: Adapter, recordId?: string) {
   const grid = (
     <SchemaRendererProvider dataSource={adapter as unknown as DataSource}>
-      <SchemaRenderer schema={NODE as unknown as BaseSchema} />
+      <SchemaRenderer schema={NODE} />
     </SchemaRendererProvider>
   );
   return (

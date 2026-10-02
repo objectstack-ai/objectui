@@ -72,7 +72,7 @@ vi.mock('@object-ui/components/ui/sonner', async (importOriginal) => {
 
 import { I18nProvider } from '@object-ui/i18n';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import type { BaseSchema, DataSource } from '@object-ui/types';
+import type { DataSource, ObjectFormBlockNode } from '@object-ui/types';
 import { registerAllFields } from '@object-ui/fields';
 // Registers `object-form` — the block under test.
 import './index';
@@ -116,7 +116,9 @@ function makeDataSource() {
 }
 
 /** A JSON document: the node and its `properties` bag, nothing a host adds. */
-const doc = (properties: Record<string, unknown>) => ({
+type FormBag = NonNullable<ObjectFormBlockNode['properties']>;
+
+const doc = (properties: Partial<FormBag>): ObjectFormBlockNode => ({
   type: 'object-form',
   properties: { objectName: 'order', mode: 'create', ...properties },
 });
@@ -128,14 +130,14 @@ const doc = (properties: Record<string, unknown>) => ({
  * the schema read the form starts on mount has committed before the row reads
  * the DOM.
  */
-async function mount(properties: Record<string, unknown>) {
+async function mount(properties: Partial<FormBag>) {
   const ds = makeDataSource();
   let view!: ReturnType<typeof render>;
   await act(async () => {
     view = render(
       <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false, resources: {} }}>
         <SchemaRendererProvider dataSource={ds as unknown as DataSource}>
-          <SchemaRenderer schema={doc(properties) as BaseSchema} />
+          <SchemaRenderer schema={doc(properties)} />
         </SchemaRendererProvider>
       </I18nProvider>,
     );

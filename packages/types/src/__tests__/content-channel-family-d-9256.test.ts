@@ -360,7 +360,7 @@ const ROWS: ReadonlyArray<readonly [
   ['timeline', TimelineMirror as unknown as Mirror, ['body', 'children'], {}],
 ];
 
-const CONTENT = [{ type: 'text', content: 'measured' }];
+const CONTENT: TextSchema[] = [{ type: 'text', content: 'measured' }];
 const issues = (m: Mirror, doc: unknown) => {
   const r = m.safeParse(doc);
   return r.success ? null : r.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message }));

@@ -47,6 +47,7 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, cleanup } from '@testing-library/react';
 import { SchemaRenderer } from '@object-ui/react';
+import type { PublicBlockNodeOf } from '@object-ui/types';
 // Registers the renderers at module scope, NOT inside a `beforeAll` — there the
 // cold transform is billed to `hookTimeout`. See
 // object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
@@ -60,7 +61,7 @@ vi.mock('../lib/lazy-icon', () => ({
 
 const textChild = (content: string) => [{ type: 'element:text', properties: { content } }];
 
-const accordionSchema = (items: any[]) => ({ type: 'page:accordion', id: 'acc', items });
+const accordionSchema = (items: any[]): PublicBlockNodeOf<'page:accordion'> => ({ type: 'page:accordion', id: 'acc', properties: { items } });
 
 function renderAccordion(items: any[]) {
   return render(<SchemaRenderer schema={accordionSchema(items)} />);

@@ -73,6 +73,8 @@ import { stripComments as strip } from '../../../../scripts/js-comment-mask.mjs'
 
 import type { BaseSchema, SchemaNode } from '../base';
 import type { CollapsibleSchema } from '../disclosure';
+import type { ButtonSchema } from '../form';
+import type { TextSchema } from '../layout';
 import type {
   AlertDialogSchema,
   ContextMenuSchema,
@@ -197,15 +199,15 @@ export type _StringSchemaNodeCollapses = Expect<Equal<string | SchemaNode, Schem
  * compiles against the declarations.
  */
 const SHIPPED = {
-  dialog: [{ type: 'button', label: 'Open Dialog' }],
-  'alert-dialog': [{ type: 'button', label: 'Open Alert', variant: 'destructive' }],
-  sheet: [{ type: 'button', label: 'Open Sheet' }],
-  drawer: [{ type: 'button', label: 'Open Drawer' }],
-  popover: [{ type: 'button', label: 'Open Popover', variant: 'outline' }],
-  'hover-card': [{ type: 'button', label: 'Hover me', variant: 'link' }],
-  'dropdown-menu': [{ type: 'button', label: 'Menu', variant: 'outline' }],
-  tooltip: [{ type: 'button', label: 'Hover me', variant: 'outline' }],
-  'context-menu': [{ type: 'text', content: 'Right click here' }],
+  dialog: [{ type: 'button', label: 'Open Dialog' }] satisfies ButtonSchema[],
+  'alert-dialog': [{ type: 'button', label: 'Open Alert', variant: 'destructive' }] satisfies ButtonSchema[],
+  sheet: [{ type: 'button', label: 'Open Sheet' }] satisfies ButtonSchema[],
+  drawer: [{ type: 'button', label: 'Open Drawer' }] satisfies ButtonSchema[],
+  popover: [{ type: 'button', label: 'Open Popover', variant: 'outline' }] satisfies ButtonSchema[],
+  'hover-card': [{ type: 'button', label: 'Hover me', variant: 'link' }] satisfies ButtonSchema[],
+  'dropdown-menu': [{ type: 'button', label: 'Menu', variant: 'outline' }] satisfies ButtonSchema[],
+  tooltip: [{ type: 'button', label: 'Hover me', variant: 'outline' }] satisfies ButtonSchema[],
+  'context-menu': [{ type: 'text', content: 'Right click here' }] satisfies TextSchema[],
 };
 
 // The card's complaint, as a compile: the renderer's own shipped default,
@@ -233,7 +235,7 @@ export const shippedCollapsible: CollapsibleSchema = {
 };
 
 // A widening, not a replacement: every singular `trigger` keeps type-checking.
-const SINGLE = { type: 'button', label: 'Open' };
+const SINGLE: ButtonSchema = { type: 'button', label: 'Open' };
 export const singleDialog: DialogSchema = { type: 'dialog', trigger: SINGLE };
 export const singleAlertDialog: AlertDialogSchema = { type: 'alert-dialog', trigger: SINGLE };
 export const singleSheet: SheetSchema = { type: 'sheet', trigger: SINGLE };

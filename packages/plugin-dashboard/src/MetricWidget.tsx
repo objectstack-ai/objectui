@@ -4,8 +4,8 @@ import { cn } from '@object-ui/components';
 // The percent display path, read from the same package `renderFieldValue` in
 // this file's own package already reads it from (objectui#5607).
 // `@object-ui/fields` publishes one implementation, whose scaling half is
-// `percentDisplayValue` in `@object-ui/core` — so this adds no dependency edge,
-// and no second percent rule.
+// `percentDisplayValue` in `@object-ui/core` at a STATED storage — so this adds
+// no dependency edge, and no second percent rule.
 import { formatPercent } from '@object-ui/fields';
 import {
   createSafeTranslation,
@@ -68,14 +68,28 @@ function trendLabelKey(label: string): string | undefined {
  * - `'0,0'` / `'0,0.00'` → thousands separators with explicit decimals
  * - leading `$/¥/€/£` or `currency` prop → currency formatting
  * - trailing `%` → percent, handed WHOLE to `formatPercent`
- *   (`@object-ui/fields`), which owns both the fraction-vs-points scaling and
- *   the locale's percent convention. This function makes neither decision —
- *   see the branch's own note (objectui#9165).
+ *   (`@object-ui/fields`) at the storage the PATTERN states: numeral's `%`
+ *   multiplies by 100, so the value is a fraction. `formatPercent` owns the
+ *   scaling and the locale's percent convention — see the branch's own note
+ *   (objectui#9165, objectui#11475). A host that holds the field the value was
+ *   aggregated from renders the percent itself at that field's storage
+ *   (`ObjectMetricWidget`), the way it renders a currency.
  *
  * When no format is given but the value is a finite number, defaults to
  * thousands separators with no decimals — that's what users expect for
  * KPI cards (`1,930,000` not `1930000`).
  */
+/**
+ * The decimal places a numeral.js-style pattern fixes (`'0,0.00'` → 2,
+ * `'0.0%'` → 1, `'0,0'` → 0) — the one parse this tile's formatter makes, read
+ * by `ObjectMetricWidget` too when it renders a percent aggregate itself, so the
+ * two never read one authored pattern at two widths.
+ */
+export function metricPatternDecimals(format: string | undefined): number {
+  const decimalsMatch = (format || '').trim().match(/0\.(0+)/);
+  return decimalsMatch ? decimalsMatch[1].length : 0;
+}
+
 function formatMetricValue(
   value: string | number,
   format?: string,
@@ -97,8 +111,7 @@ function formatMetricValue(
   const isPercent = trimmed.endsWith('%');
 
   // Determine decimals from the format pattern (e.g. '0,0.00' → 2)
-  const decimalsMatch = trimmed.match(/0\.(0+)/);
-  const decimals = decimalsMatch ? decimalsMatch[1].length : 0;
+  const decimals = metricPatternDecimals(trimmed);
 
   // Compact / abbreviated notation (numeral.js 'a' convention, e.g. '0.0a' →
   // "1.1M", '$0a' → "$1M"). Keeps big KPI numbers from overflowing a tile.
@@ -157,9 +170,16 @@ function formatMetricValue(
     //    conventions.
     //
     // `decimals` still comes from this surface's numeral PATTERN (`'0.00%'` →
-    // 2), which is the one percent decision that genuinely belongs here — it is
-    // an author declaration on the widget, not a magnitude heuristic.
-    return formatPercent(value as number, decimals, locale);
+    // 2), an author declaration on the widget, not a magnitude heuristic.
+    //
+    // objectui#11475 — and so does the STORAGE. This tile holds no field, only
+    // a value and a pattern, and numeral's `%` multiplies by 100: the pattern
+    // states a fraction. `formatPercent` used to guess the storage from the
+    // value's magnitude, so a ratio of exactly 1 read `1%` here (objectui#3136
+    // was the same guess on the dataset measure). An aggregate over a
+    // `percent` field never reaches this branch with its own storage lost:
+    // `ObjectMetricWidget` renders that tile itself, at the field's storage.
+    return formatPercent(value as number, 'fraction', decimals, locale);
   }
 
   // MEASURED EXCEPTION to objectui#4033's ordinal no-grouping default, and the

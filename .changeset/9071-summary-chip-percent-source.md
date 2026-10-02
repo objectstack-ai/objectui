@@ -25,3 +25,13 @@ Everything inside the band the two rules always agreed on is byte-identical: a
 stored `0.25` still reads `25%`, `0.123` still reads `12.3%`, `12.3` still reads
 `12.3%`, `250` still reads `250%`, and the float-residue trim that keeps `0.07`
 reading `7%` rather than `7.000000000000001%` is unchanged.
+
+⚠️ **Dated note, 2026-10-02 — the magnitude guess is retired in this same release — objectui#11475.**
+Later in this same release `percentDisplayValue` (`@object-ui/core`) stopped
+inferring a percentage's storage from the value: it takes the storage as a
+required argument, and every percent face passes the storage the field
+declares (`percentScaleOf` in `@objectstack/spec/data`: a fraction unless the
+field declares a `max` above 1). So the chip reads its field's storage: a stored `1` on a field that declares
+no `max` reads `100%` beside a bar at 100%, a stored `1` on a field declaring
+`max: 100` reads `1%`, and the rows above that read a value by its magnitude no
+longer describe the chip. The rest of this entry is kept as the reading of this change.

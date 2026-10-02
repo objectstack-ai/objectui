@@ -109,7 +109,8 @@ describe('the footer and the list cell above it move together (objectui#9295)', 
     [0.12345, {}, 0],
   ])('agrees with formatPercent for %p declaring %p', (stored, column, width) => {
     expect(summaryLabel(stored as number, 'en', column as Record<string, unknown>)).toBe(
-      `${PREFIX}${formatPercent(stored as number, width as number, 'en')}`,
+      // Every row's column declares no `max`: a fraction (objectui#11475).
+      `${PREFIX}${formatPercent(stored as number, 'fraction', width as number, 'en')}`,
     );
   });
 
@@ -117,10 +118,10 @@ describe('the footer and the list cell above it move together (objectui#9295)', 
     // de-DE writes a no-break space before the sign; tr-TR puts the sign in
     // front. The width and the convention have to survive together.
     expect(summaryLabel(0.25, 'de-DE', { precision: 10, scale: 2 })).toBe(
-      `${PREFIX}${formatPercent(0.25, 2, 'de-DE')}`,
+      `${PREFIX}${formatPercent(0.25, 'fraction', 2, 'de-DE')}`,
     );
     expect(summaryLabel(0.25, 'tr-TR', { precision: 10, scale: 2 })).toBe(
-      `${PREFIX}${formatPercent(0.25, 2, 'tr-TR')}`,
+      `${PREFIX}${formatPercent(0.25, 'fraction', 2, 'tr-TR')}`,
     );
   });
 

@@ -198,7 +198,8 @@ describe('every percent face reads its width through resolveFieldScale (objectui
   it('an undeclared percent reads the protocol’s width on all five faces', () => {
     const width = resolveFieldScale({ type: 'percent' });
     expect(typeof width, 'the protocol answers a width for an undeclared percent').toBe('number');
-    const expected = collapse(formatPercent(STORED, width, 'en'));
+    // The faces' field declares no `max`, so it stores a fraction (objectui#11475).
+    const expected = collapse(formatPercent(STORED, 'fraction', width, 'en'));
 
     const faces = readFaces({});
     expect(faces).toEqual({ cell: expected, chip: expected, footer: expected, widgetReadonly: expected });

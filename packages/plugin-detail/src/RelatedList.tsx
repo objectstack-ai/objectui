@@ -1579,6 +1579,11 @@ export const RelatedList: React.FC<RelatedListProps> = ({
         // Beside `scale`, whose scale-0 grouping heuristic it overrides in the
         // number cell (objectui#11026).
         ...(def.useGrouping !== undefined && { useGrouping: def.useGrouping }),
+        // A percent field's declared `max` is its STORAGE statement: the cell
+        // reads it through the spec's `percentScaleOf` (a fraction unless `max`
+        // is above 1). Dropped here, a whole-stored `50` (`max: 100`) would
+        // read `5000%` in this list (objectui#11475).
+        ...((def as any).max !== undefined && { max: (def as any).max }),
         ...(def.format && { format: def.format }),
         // objectui#6837 half 2 narrowed the READ to `reference` (the only
         // spelling the protocol declares — `FieldSchema` refuses `reference_to`

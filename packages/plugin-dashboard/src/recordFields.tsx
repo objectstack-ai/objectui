@@ -27,6 +27,7 @@ import {
   resolveCellRendererType,
   formatCurrency,
   formatPercent,
+  percentCellScale,
   formatDate,
   // THE GATE the maintainer ruled onto this package's surface (objectui#4914,
   // ruling B). Read from `@object-ui/fields` here — the spelling the ruling
@@ -280,6 +281,17 @@ export interface FieldMeta {
   format?: string;
   currency?: string;
   /**
+   * The field def's declared upper bound, which on a `percent` field is its
+   * STORAGE statement: the spec's `percentScaleOf` reads a fraction unless
+   * `max` is above 1 (objectui#11475). Copied from the SCHEMA field def by
+   * {@link buildFieldMeta} so the percent cell and the `%` branch of
+   * {@link renderFieldValue} read the field's storage rather than guess it
+   * from the value. Never an authored column override: as a `FieldMeta`
+   * member it lands in `ObjectDataTable`'s read-side refusal band, which is
+   * the intended verdict — a column may not restate how its field stores.
+   */
+  max?: number;
+  /**
    * Lookup target object — the spelling `@objectstack/spec`'s `FieldSchema`
    * declares and the only one `LookupCellRenderer` reads. Its snake_case twin
    * `reference_to` was RETIRED from this type by objectui#11070 round 4.
@@ -383,6 +395,9 @@ export function buildFieldMeta(params: BuildFieldMetaParams): FieldMeta {
     options,
     format: overrides.format ?? meta?.format,
     currency: overrides.currency ?? resolveFieldCurrency(meta),
+    // The storage statement of a `percent` field (objectui#11475), from the
+    // schema def only — see `FieldMeta.max`.
+    ...(typeof meta?.max === 'number' && { max: meta.max }),
     // ⛔ No `decimals` — RETIRED by objectui#6625. It resolved
     // `meta?.decimals ?? meta?.scale` on every call and reached no reader; the
     // `overrides.decimals ??` head of that chain had already lost its only
@@ -448,12 +463,21 @@ export function renderFieldValue(
   if (typeof fmt === 'string' && /%/.test(fmt) && typeof value === 'number') {
     const decimals = (fmt.match(/0\.(0+)%/) || [undefined, ''] as any)[1].length;
     // The RAW stored value goes to `formatPercent`, which applies
-    // `percentDisplayValue` — the single source of truth for percent display
-    // scaling (`@object-ui/core`), whose doc comment says so in those words.
+    // `percentDisplayValue` (`@object-ui/core`) at the storage stated here.
     // This is the same call the list-view percent cell makes for an ordinary
     // percent column (`PercentCellRenderer` in `@object-ui/fields`), so a
     // percent now reads identically as a record field, as a grid cell and as a
     // dashboard measure.
+    //
+    // The STORAGE is stated, never read off the value (objectui#11475). A
+    // `percent` (or `progress`) field states it in its declaration, read by
+    // `percentCellScale` — the answer the cell reads, the spec's
+    // `percentScaleOf` over `FieldMeta.max`. Any other field carries no
+    // percent storage at all (the spec: "a plain `number` carries no percent
+    // semantics"), so the only statement left is the `%` pattern itself, and
+    // numeral's `%` multiplies by 100: a fraction. The magnitude guess this
+    // replaced read a fraction-stored `1` as `1%` and a whole-stored `0.5` as
+    // `50%`.
     //
     // ⚠️ This call site used to make the fraction/points decision AGAIN, with a
     // local copy that had drifted from the one it duplicated (objectui#5607):
@@ -476,7 +500,11 @@ export function renderFieldValue(
     //    so a negative already in points was treated as a fraction: `-5`
     //    rendered `-500.00%`.
     // Deleting the branch fixes all three, because they were never three bugs.
-    return formatPercent(value, decimals, displayLocale);
+    const percentScale =
+      fieldMeta.type === 'percent' || fieldMeta.type === 'progress'
+        ? percentCellScale(fieldMeta)
+        : 'fraction';
+    return formatPercent(value, percentScale, decimals, displayLocale);
   }
   // A date pattern only on a date field (objectui#10220) — see
   // `DATE_PATTERN_FIELD_TYPES` for why the gate is the type. A date field's

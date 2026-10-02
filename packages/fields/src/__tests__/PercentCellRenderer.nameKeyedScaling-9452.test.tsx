@@ -75,8 +75,8 @@ function renderCell(value: unknown, field: Record<string, unknown>) {
 }
 
 /** The two things a reader of this cell actually sees. */
-function readCell(value: unknown, name: string) {
-  const { unmount } = renderCell(value, { name });
+function readCell(value: unknown, name: string, declared: Record<string, unknown> = {}) {
+  const { unmount } = renderCell(value, { name, ...declared });
   const reading = {
     text: document.body.textContent ?? '',
     bar: screen.getByRole('progressbar').getAttribute('aria-valuenow'),
@@ -129,7 +129,9 @@ describe('objectui#9452 — a percent cell takes its magnitude from the value, n
    * text `1%`. Both halves now read the one source of truth.
    */
   it.each(MATCHED_NAMES)('the bar in a %s column reports the display magnitude', (name) => {
-    expect(readCell(0.5, name).bar).toBe(String(percentDisplayValue(0.5)));
+    // These fields declare no `max`, so they store a fraction (objectui#11475:
+    // the storage is the field's statement, read through `percentScaleOf`).
+    expect(readCell(0.5, name).bar).toBe(String(percentDisplayValue(0.5, 'fraction')));
   });
 
   /**
@@ -137,13 +139,19 @@ describe('objectui#9452 — a percent cell takes its magnitude from the value, n
    * The filing card established that every value at or above 1 agrees by
    * construction; these are its own `12.3` and `57` rows, driven through the
    * rendered cell on both the matched and the unmatched name.
+   *
+   * objectui#11475 — the rows are percentage POINTS, and they now say so: they
+   * declare `max: 100`, the whole-points storage. Without it a field stores a
+   * fraction (the spec's `percentScaleOf`), and the cell no longer guesses
+   * points from a value's size. The control's subject is unchanged: the name
+   * moves no magnitude.
    */
   it.each([
     [12.3, '12%', '12.3'],
     [57, '57%', '57'],
   ] as const)('a stored %p is unmoved by this change (control)', (stored, text, bar) => {
     for (const name of [...MATCHED_NAMES, ORDINARY_NAME]) {
-      const reading = readCell(stored, name);
+      const reading = readCell(stored, name, { max: 100 });
       expect(reading.text).toContain(text);
       expect(reading.bar).toBe(bar);
     }

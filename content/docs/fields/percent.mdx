@@ -3,7 +3,7 @@ title: "Percent Field"
 description: "Percentage input with automatic conversion and formatting"
 ---
 
-The Percent Field component provides a percentage input that automatically converts between stored decimal values (0-1) and displayed percentage values (0-100).
+The Percent Field component provides a percentage input that automatically converts between the stored value and the displayed percentage (0-100). How a value is stored is declared by the field: a fraction (0-1) by default, or whole percentage points when the field declares a `max` above 1.
 
 ## Basic Usage
 
@@ -71,12 +71,24 @@ rewrites](/docs/guide/fields#what-a-number-field-silently-rewrites).
 
 ## Value Conversion
 
-The percent field handles automatic conversion:
+The percent field handles automatic conversion, at the storage the field
+declares. `@objectstack/spec` states the rule as `percentScaleOf`: a percent
+field stores a **fraction** unless it declares a `max` above 1, in which case
+it stores **whole percentage points**.
 
-- **Stored Value**: Decimal between 0 and 1 (e.g., `0.75`)
-- **Display Value**: Percentage between 0 and 100 (e.g., `75%`)
+- **Fraction (the default, no `max` or `max: 1`)**: the stored value is a
+  decimal between 0 and 1 (e.g., `0.75`), displayed as `75%`. A stored `1` is
+  `100%`.
+- **Whole points (`max: 100`, or any `max` above 1)**: the stored value is
+  already the percentage (e.g., `75`), displayed as `75%`. A stored `1` is
+  `1%`.
 
-Example:
+Every face reads the same declaration — the input, its read-only text, the
+table cell, the grid footer, the record header chip, the gantt tooltip, the
+gallery card and the dashboard tile — so one stored value shows one percentage
+everywhere. None of them guesses the storage from the value's size.
+
+Example, for a field with no `max`:
 ```plaintext
 // Stored in database: 0.85
 // Displayed to user: 85%

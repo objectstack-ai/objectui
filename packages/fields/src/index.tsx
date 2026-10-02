@@ -8,7 +8,7 @@
 
 import React from 'react';
 import type { DateFieldMetadata, DateTimeFieldMetadata, FieldMetadata, SelectOptionMetadata } from '@object-ui/types';
-import { ComponentRegistry, percentDisplayValue, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, toDisplayDate, extractRecords, withoutDeniedFields, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
+import { ComponentRegistry, percentDisplayValue, type PercentScale, getRecordDisplayName, humanizeLabel, isEmptyValue, isMissingForRequired, formatDate, formatDateTime, formatDateTimeCompactParts, formatRelativeDate, toDisplayDate, extractRecords, withoutDeniedFields, type ComponentMeta, type DateDisplayOptions } from '@object-ui/core';
 // The platform's own value-shape contract, asked rather than restated
 // (objectui#6744). See `locationStoredValueSchemaFor` below for why this is a
 // runtime import in the barrel and not a hand-written coordinate range.
@@ -29,7 +29,7 @@ import { formatAddress, type AddressValue } from './widgets/address-format.js';
 // The same arrangement for numbers: one formatting call shared with
 // `NumberField`'s read-only branch (objectui#11431), and likewise for currency
 // (`CurrencyField`) and percent (`PercentField`) (objectui#11444).
-import { formatNumberFieldValue, formatCurrency, formatPercentPoints } from './widgets/number-format.js';
+import { formatNumberFieldValue, formatCurrency, formatPercentPoints, percentCellScale } from './widgets/number-format.js';
 
 // Module-level cache so multiple renderers fetching the same lookup ID
 // only trigger one network call. Keyed by `${objectName}:${id}`. It holds the
@@ -552,12 +552,30 @@ export function formatNumber(value: number, decimals: number = 2, locale?: strin
 }
 
 /**
- * Format percent value.
- * Handles both decimal (0.8 = 80%) and whole number (80 = 80%) inputs.
+ * `percentCellScale` lives beside `formatPercentPoints` in
+ * `./widgets/number-format.ts` and is re-exported here: the storage scale the
+ * percent cell reads a field at, so every face rendering the cell's number for
+ * the same field reads the same answer by reference (objectui#11475).
+ */
+export { percentCellScale };
+
+/**
+ * Format a stored percentage at the storage the caller STATES.
  *
- * `locale` is the third positional parameter, matching {@link formatNumber} and
- * {@link formatCurrency} — the shape the sibling formatters already use.
- * Callers should pass the tag from `useDisplayLocale()`.
+ * `percentScale` is REQUIRED (objectui#11475): `'fraction'` (0.8 means 80%) or
+ * `'whole'` (80 means 80%), the spec's `PercentScale`. A face holding a field
+ * reads it with {@link percentCellScale} (the spec's `percentScaleOf`, a
+ * fraction unless the field declares a `max` above 1); a face without one
+ * states what it knows. A value outside the union throws. This used to guess
+ * from the value's magnitude (`percentDisplayValue`'s old body), so a
+ * fraction-stored `1` read `1%` here and `100%` in the read-only form.
+ *
+ * FROM `formatPercent(value, precision, locale)` TO
+ * `formatPercent(value, percentScale, precision, locale)`.
+ *
+ * `locale` is the last positional parameter, matching {@link formatNumber} and
+ * {@link formatCurrency}. Callers should pass the tag from
+ * `useDisplayLocale()`.
  *
  * Before objectui#4553 this function took no locale and never touched `Intl`:
  * its whole body was `${percentDisplayValue(value).toFixed(precision)}%`, so it
@@ -567,10 +585,16 @@ export function formatNumber(value: number, decimals: number = 2, locale?: strin
  * so the grouping and the locale are fixed together: en output MOVES from
  * `1235%` to `1,235%` at four digits and up, and that move is the fix.
  */
-export function formatPercent(value: number, precision: number = 0, locale?: string): string {
-  // Scale a fraction-stored percent (0.8 → 80%) via the shared core helper, so
-  // the list cell and the dashboard measure formatter (`formatMeasure`) agree.
-  const displayValue = percentDisplayValue(value);
+export function formatPercent(
+  value: number,
+  percentScale: PercentScale,
+  precision: number = 0,
+  locale?: string,
+): string {
+  // The magnitude at the STATED storage, through the shared core helper, so
+  // the list cell and the dashboard measure formatter (`formatMeasure`) scale
+  // by one rule.
+  const displayValue = percentDisplayValue(value, percentScale);
   // The objectui#9808 clamp that stood here was retired at its own SUNSET
   // (objectui#11073): `@objectstack/spec` 17.5.0 refuses a `scale` above 100 at
   // the declaration, so the width the engine cannot render no longer arrives.
@@ -749,8 +773,9 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   //
   // For `percent` the answer is a NUMBER — the type has a row — and ⛔ never
   // the `undefined` (min 0 / max 20) `NumberCellRenderer` above renders for a
-  // `number` that declares nothing. The row is load-bearing HERE because this
-  // path multiplies by 100 first (`percentDisplayValue`), and `Intl` renders
+  // `number` that declares nothing. The row is load-bearing HERE because a
+  // fraction-stored value is multiplied by 100 first (`percentDisplayValue`),
+  // and `Intl` renders
   // from the shortest decimal representation of the resulting double:
   // measured, a stored `0.07` becomes `7.000000000000001` and `0.29` becomes
   // `28.999999999999996`, so an unbounded maximum prints binary residue
@@ -771,11 +796,20 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   if (isNaN(numValue)) {
     return <span className="tabular-nums whitespace-nowrap">{String(safe)}</span>;
   }
-  // ONE scaling rule, and it is the declared one (objectui#9452). Both halves
-  // of this cell — the number and the bar's fill — take their display
-  // magnitude from `percentDisplayValue` in `@object-ui/core`, which its own
-  // doc comment names as the single source of truth for percent display and
-  // which `formatPercent` just below applies for the number.
+  // ONE scaling rule, and it is the DECLARED storage (objectui#9452, then
+  // objectui#11475). Both halves of this cell — the number and the bar's fill —
+  // take their display magnitude from `percentDisplayValue` in
+  // `@object-ui/core`, at the storage `percentCellScale` reads off this field:
+  // the spec's `percentScaleOf` (a fraction unless the field declares a `max`
+  // above 1), and `whole` for a `progress` field, whose reason is on that
+  // helper. `formatPercent` just below applies the same pair for the number.
+  //
+  // ⛔ NOT from the value's MAGNITUDE, which is what stood here until
+  // objectui#11475: `value > -1 && value < 1 ? value * 100 : value` read
+  // neither the field nor its `max`, so a fraction-stored `1` (100%) read `1%`
+  // in this cell and `100%` in the read-only form, and a whole-stored `0.5`
+  // read `50%` here and `0.5%` there. The read-only form reads the
+  // declaration, so the two faces now agree by reading the same thing.
   //
   // ⛔ NOT from the column's NAME, which is what stood here. A
   // `/progress|completion/` test against `field.name` decided the magnitude
@@ -801,11 +835,12 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   // construction. So the name test had no producer that needed it and two that
   // it misread.
   //
-  // ⚠️ The price, stated rather than papered over: a value strictly between 0
-  // and 1 stored on a `type: 'progress'` column now reads as a fraction, as it
-  // does everywhere else. Nothing first-party stores one.
-  const barValue = percentDisplayValue(numValue);
-  const formatted = formatPercent(numValue, scale, locale);
+  // The name test's own price (a value strictly between 0 and 1 on a
+  // `type: 'progress'` column read as a fraction) went with the magnitude
+  // guess: a `progress` value is percentage points at every magnitude now.
+  const percentScale = percentCellScale(percentField);
+  const barValue = percentDisplayValue(numValue, percentScale);
+  const formatted = formatPercent(numValue, percentScale, scale, locale);
   const clampedBar = Math.max(0, Math.min(100, barValue));
   
   // Layout contract (objectstack#5066): THE NUMBER IS THE CONTENT, THE BAR IS

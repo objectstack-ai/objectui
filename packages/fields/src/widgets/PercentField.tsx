@@ -1,5 +1,5 @@
 import React from 'react';
-import { resolveFieldScale } from '@objectstack/spec/data';
+import { resolveFieldScale, percentScaleOf } from '@objectstack/spec/data';
 import { Input, Slider, EmptyValue, cn } from '@object-ui/components';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { FieldWidgetComponentProps } from './types.js';
@@ -129,14 +129,23 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
   const { refusal, readBadInput } = useBadInputRefusal('12.5');
   const locale = useDisplayLocale();
 
-  // Convention detection. A field declaring `max > 1` (e.g. `max: 100`) stores
-  // WHOLE-NUMBER percents (0–100); otherwise values are FRACTIONS (0–1) shown
-  // as 0–100%. This matches the read-side formatter so the edit widget agrees
-  // with display — and, crucially, keeps the rendered <input> within its `max`
-  // (a whole-number 50 must show "50", not "5000", or HTML5 constraint
-  // validation marks the field `:invalid` and blocks the whole form's submit).
+  // The storage convention, read through the spec's `percentScaleOf` BY
+  // REFERENCE (objectui#11475): a field declaring a `max` above 1 (e.g.
+  // `max: 100`) stores WHOLE-NUMBER percents (0–100); otherwise values are
+  // FRACTIONS (0–1) shown as 0–100%. This widget used to restate that rule
+  // locally; the restatement agreed with the spec by construction, and one
+  // convention read by reference cannot drift where two equal copies could.
+  // The list cell reads the same function (`percentCellScale`), so the edit
+  // widget, its read-only face and the cell agree — and, crucially, the
+  // rendered input stays within its `max` (a whole-number 50 must show "50",
+  // not "5000", or HTML5 constraint validation marks the field `:invalid` and
+  // blocks the whole form's submit).
+  //
+  // The type asked about is `percent`, this widget's own, for the reason the
+  // width read above gives: a bag without a `type` must still get the percent
+  // answer, never `percentScaleOf`'s `undefined` for a non-percent type.
   const maxAttr = typeof percentField?.max === 'number' ? (percentField.max as number) : undefined;
-  const whole = maxAttr != null && maxAttr > 1;
+  const whole = percentScaleOf({ type: 'percent', max: maxAttr }) === 'whole';
   const toDisplay = (v: number) => (whole ? v : v * 100);
   // ⛔ NOT `n / 100` — see `storedFraction` above: the quotient's binary
   // residue overflows the `scale + 2` stored width ruling B derives, for 27.6%

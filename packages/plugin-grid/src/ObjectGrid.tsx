@@ -35,7 +35,7 @@ import { createSafeTranslation } from '@object-ui/i18n';
 // what stops a seventh site picking a convention of its own.
 import { resolveGridCellRendering, gridCellRendererForFixedKey, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
 import { isMaskedGridColumn, isWithheldGridColumn } from './maskedColumn';
-import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer } from '@object-ui/fields';
+import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, percentCellScale, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer } from '@object-ui/fields';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
 // Two resolvers, two vocabularies — the repo spells the distinction into the
 // NAMES (objectui#4167). `resolveInlineI18nLabel` is the spec's own
@@ -3505,6 +3505,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
               // `scale`, its heuristic fallback: dropped here, the cell never
               // sees it and a `useGrouping: false` year still reads `2,026`.
               if (objectDefField.useGrouping !== undefined) fieldMeta.useGrouping = objectDefField.useGrouping;
+              // objectui#11475 — a percent field's declared `max` is its STORAGE
+              // statement (`percentScaleOf`: a fraction unless `max` is above
+              // 1), which the percent cell now reads instead of guessing from
+              // the value. Dropped here, a whole-stored `50` (`max: 100`) would
+              // read `5000%` in this cell.
+              if (objectDefField.max !== undefined) fieldMeta.max = objectDefField.max;
               if (objectDefField.format) fieldMeta.format = objectDefField.format;
               if (objectDefField.options) fieldMeta.options = translateOptions(schema.objectName, col.field, objectDefField.options);
             }
@@ -3734,6 +3740,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             if ((fieldDef as any).scale !== undefined) fieldMeta.scale = (fieldDef as any).scale;
             // Beside `scale`, as path A copies it (objectui#11026).
             if (fieldDef.useGrouping !== undefined) fieldMeta.useGrouping = fieldDef.useGrouping;
+            // The percent storage statement, as path A copies it (objectui#11475).
+            if (fieldDef.max !== undefined) fieldMeta.max = fieldDef.max;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
             if (fieldDef.options) fieldMeta.options = translateOptions(schema.objectName, fieldName, fieldDef.options);
           }
@@ -3909,6 +3917,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             if ((fieldDef as any).scale !== undefined) fieldMeta.scale = (fieldDef as any).scale;
             // Beside `scale`, as path A copies it (objectui#11026).
             if (fieldDef.useGrouping !== undefined) fieldMeta.useGrouping = fieldDef.useGrouping;
+            // The percent storage statement, as path A copies it (objectui#11475).
+            if (fieldDef.max !== undefined) fieldMeta.max = fieldDef.max;
             if (fieldDef.format) fieldMeta.format = fieldDef.format;
             if (fieldDef.options) fieldMeta.options = translateOptions(schema.objectName, fieldName, fieldDef.options);
           }
@@ -6048,16 +6058,42 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
                       // `number` named like a rate counts its `scale` in the
                       // stored value's decimals, not in the percentage points
                       // printed here, so its scale is not read.
+                      //
+                      // objectui#11475 — nor is a non-percent field printed as a
+                      // percent at all. A percent face reads the field's declared
+                      // STORAGE (`percentCellScale`, the spec's `percentScaleOf`),
+                      // and a field that is not a `percent` declares none: the
+                      // spec's words are "a plain `number` carries no percent
+                      // semantics". Choosing a percent face by the column's NAME
+                      // was a consumer-side guess (`lead_score` and `tax_rate`,
+                      // both `Field.number` in the showcase, printed with a
+                      // percent sign), so
+                      // such a field prints through its own cell, as the desktop
+                      // row prints it, with no percent affix.
                       const percentDef = objectSchema?.fields?.[percentCols[0].accessorKey];
-                      const width = percentDef?.type === 'percent'
-                        ? resolveFieldScale({ type: percentDef.type, scale: percentDef.scale })
-                        : undefined;
+                      if (percentDef?.type !== 'percent') {
+                        const { Renderer: SlotRenderer } = resolveGridCellRendering(percentDef);
+                        return (
+                          <span className="tabular-nums">
+                            <SlotRenderer
+                              value={row[percentCols[0].accessorKey]}
+                              field={percentDef ?? { name: percentCols[0].accessorKey }}
+                            />
+                          </span>
+                        );
+                      }
+                      const width = resolveFieldScale({ type: percentDef.type, scale: percentDef.scale });
                       return (
                         <span className="tabular-nums">
                           {/* objectui#4553: the mobile card's percent cell takes
                               the same `displayLocale` its date sibling above
                               already does (objectui#4272). */}
-                          {formatPercent(Number(row[percentCols[0].accessorKey]), width, displayLocale)}
+                          {formatPercent(
+                            Number(row[percentCols[0].accessorKey]),
+                            percentCellScale(percentDef),
+                            width,
+                            displayLocale,
+                          )}
                         </span>
                       );
                     })()}

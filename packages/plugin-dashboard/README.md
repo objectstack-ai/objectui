@@ -213,13 +213,17 @@ package's own record-field renderer already make. Two consequences, both of
 them shared with every other percent surface in the console rather than decided
 by the tile:
 
-- **Magnitude** follows `percentDisplayValue` in `@object-ui/core` — a stored
-  value strictly between `-1` and `1` is a fraction and is scaled (`0.25` reads
-  `25%`); anything at or outside that band is already in percentage points and
-  passes through (`1` reads `1%`, `-5` reads `-5%`, `12.3` reads `12%`).
+- **Magnitude** is read at a STATED storage, never guessed from the value. A
+  `metric` tile holds no field, only a value and a pattern, and numeral's `%`
+  multiplies by 100, so the pattern states a fraction: `0.25` reads `25%`, `1`
+  reads `100%`, `-0.05` reads `-5%`. An `object-metric` tile over a `percent`
+  field renders at that field's own storage instead, the one the list cell
+  reads (`percentScaleOf` in `@objectstack/spec/data`: a fraction unless the
+  field declares a `max` above 1), so a field declaring `max: 100` that
+  averages `50` reads `50%`.
 - **The percent sign is the locale's**, not a literal `%`: a `de-DE` session
   gets the no-break space German writes before the sign, and grouping follows
-  the locale (`1234.5` reads `1,235%` in `en`).
+  the locale (a fraction of `12.5` reads `1,250%` in `en`).
 
 The pattern's decimal count still belongs to the tile — `'0.00%'` renders two
 decimals — because that is an author declaration on the widget rather than a

@@ -82,13 +82,26 @@ function wrapper(locale: string) {
 }
 
 /** The footer label the hook itself produces for a one-row percent column. */
-function summaryLabel(stored: number, locale: string, column: Record<string, unknown> = {}): string {
+function summaryLabel(
+  stored: number,
+  locale: string,
+  column: Record<string, unknown> = {},
+  fieldMetadata?: Record<string, Record<string, unknown>>,
+): string {
   const cols: any[] = [{ field: 'rate', summary: 'sum', type: 'percent', ...column }];
-  const { result } = renderHook(() => useColumnSummary(cols, [{ rate: stored }]), {
+  const { result } = renderHook(() => useColumnSummary(cols, [{ rate: stored }], fieldMetadata as never), {
     wrapper: wrapper(locale),
   });
   return result.current.summaries.get('rate')?.label ?? '';
 }
+
+/**
+ * objectui#11475 — the column above declares no field, so it reads the spec's
+ * answer for a percent that declares nothing: a FRACTION. A row that means
+ * percentage POINTS says so the way a field does, with `max: 100`, read off the
+ * field metadata (the footer reads `max` from the field only).
+ */
+const WHOLE = { rate: { type: 'percent', max: 100 } };
 
 /**
  * The prefix is MEASURED, not assumed.
@@ -127,7 +140,8 @@ describe('the grid summary percent arm takes BOTH halves from the declared sourc
     ['tr-TR', 0.25],
     ['tr-TR', 1234.5],
   ])('%s / stored %p reads the same in the footer as at the declared source', (locale, stored) => {
-    expect(summaryLabel(stored, locale)).toBe(`${PREFIX}${formatPercent(stored, 0, locale)}`);
+    expect(summaryLabel(stored, locale)).toBe(`${PREFIX}${formatPercent(stored, 'fraction', 0, locale)}`);
+    expect(summaryLabel(stored, locale, {}, WHOLE)).toBe(`${PREFIX}${formatPercent(stored, 'whole', 0, locale)}`);
   });
 
   /**
@@ -149,7 +163,7 @@ describe('the grid summary percent arm takes BOTH halves from the declared sourc
     ['tr-TR', 0.25],
     ['tr-TR', 1234.5],
   ])('%s / stored %p no longer reads as the inlined expression plus a literal sign', (locale, stored) => {
-    const retired = `${PREFIX}${percentDisplayValue(stored).toFixed(0)}%`;
+    const retired = `${PREFIX}${percentDisplayValue(stored, 'fraction').toFixed(0)}%`;
     expect(summaryLabel(stored, locale)).not.toBe(retired);
   });
 
@@ -163,7 +177,7 @@ describe('the grid summary percent arm takes BOTH halves from the declared sourc
    */
   it('tr-TR puts the percent sign in FRONT, as the declared source does', () => {
     expect(summaryLabel(0.25, 'tr-TR')).toBe(`${PREFIX}%25`);
-    expect(summaryLabel(1234.5, 'tr-TR')).toBe(`${PREFIX}%1.235`);
+    expect(summaryLabel(1234.5, 'tr-TR', {}, WHOLE)).toBe(`${PREFIX}%1.235`);
   });
 
   /**
@@ -171,14 +185,23 @@ describe('the grid summary percent arm takes BOTH halves from the declared sourc
    * SAME bytes afterwards — the `it.each` agreement table above cannot see a
    * move that drags both sides together.
    */
+  //
+  // objectui#11475 split this table by STORAGE. The `0.25` row is unmoved. The
+  // `1` / `-5` / `12.3` rows were percentage points to the magnitude guess; on
+  // a column that declares nothing they are a fraction now, and they keep
+  // their old bytes only where the field declares whole points (`WHOLE`).
   it.each([
-    [0.25, '25%'],
-    [1, '1%'],
-    [-5, '-5%'],
-    [12.3, '12%'],
-  ])('leaves the already-agreeing en row %p at exactly %p', (stored, unmoved) => {
-    expect(summaryLabel(stored, 'en')).toBe(`${PREFIX}${unmoved}`);
-    expect(summaryLabel(stored, 'en')).toBe(`${PREFIX}${formatPercent(stored, 0, 'en')}`);
+    [0.25, undefined, '25%'],
+    [1, undefined, '100%'],
+    [-5, undefined, '-500%'],
+    [12.3, undefined, '1,230%'],
+    [1, WHOLE, '1%'],
+    [-5, WHOLE, '-5%'],
+    [12.3, WHOLE, '12%'],
+  ] as const)('en row %p (field %j) reads exactly %p', (stored, field, bytes) => {
+    const storage = field ? 'whole' : 'fraction';
+    expect(summaryLabel(stored, 'en', {}, field as never)).toBe(`${PREFIX}${bytes}`);
+    expect(summaryLabel(stored, 'en', {}, field as never)).toBe(`${PREFIX}${formatPercent(stored, storage, 0, 'en')}`);
   });
 
   /**
@@ -194,7 +217,7 @@ describe('the grid summary percent arm takes BOTH halves from the declared sourc
     'takes its magnitude for %p from percentDisplayValue, not from a local predicate',
     (stored) => {
       const numerals = summaryLabel(stored, 'en').slice(PREFIX.length).replace(/[^\d.-]/g, '');
-      expect(Number(numerals)).toBe(Number(percentDisplayValue(stored).toFixed(0)));
+      expect(Number(numerals)).toBe(Number(percentDisplayValue(stored, 'fraction').toFixed(0)));
     },
   );
 
@@ -213,10 +236,10 @@ describe('the grid summary percent arm takes BOTH halves from the declared sourc
    */
   it('still honours the width declared by the column scale', () => {
     expect(summaryLabel(0.12345, 'en', { scale: 2 })).toBe(
-      `${PREFIX}${formatPercent(0.12345, 2, 'en')}`,
+      `${PREFIX}${formatPercent(0.12345, 'fraction', 2, 'en')}`,
     );
     expect(summaryLabel(0.12345, 'de-DE', { scale: 2 })).toBe(
-      `${PREFIX}${formatPercent(0.12345, 2, 'de-DE')}`,
+      `${PREFIX}${formatPercent(0.12345, 'fraction', 2, 'de-DE')}`,
     );
   });
 });

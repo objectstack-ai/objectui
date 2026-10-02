@@ -89,6 +89,7 @@ import {
   formatDate,
   formatDateTime,
   formatPercent,
+  percentCellScale,
   formatCurrency,
 } from '@object-ui/fields';
 import { GanttView, type GanttTask, type GanttDependency, type GanttLinkType, type GanttTaskType } from './GanttView';
@@ -1415,9 +1416,16 @@ export const ObjectGantt: React.FC<ObjectGanttProps> = ({
         // declaring `scale: 2` read whole percents here beside a list cell
         // reading two decimals. The cell asks the same function, so the two
         // agree by reference.
+        //
+        // objectui#11475 — and the STORAGE is the field's: `percentCellScale`
+        // is the spec's `percentScaleOf` over this def (a fraction unless it
+        // declares a `max` above 1), the answer the list cell reads. The shared
+        // scaling used to guess from the value's magnitude, so a
+        // fraction-stored `1` (100%) read `1%` in this tooltip.
         case 'percent':
           return formatPercent(
             Number(value),
+            percentCellScale(def),
             resolveFieldScale({ type: def?.type, scale: def?.scale }),
             displayLocale,
           );

@@ -230,6 +230,6 @@ describe('the percent arm still reads `scale` (control)', () => {
   it('a percent column with `scale: 2` keeps two decimals', () => {
     expect(
       footer({ field: 'rate', type: 'percent', scale: 2 }, [{ rate: 0.12345 }], { locale: 'en' }),
-    ).toBe(`Sum: ${formatPercent(0.12345, 2, 'en')}`);
+    ).toBe(`Sum: ${formatPercent(0.12345, 'fraction', 2, 'en')}`);
   });
 });

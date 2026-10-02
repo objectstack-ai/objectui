@@ -29,7 +29,7 @@
  */
 
 import type { FieldMetadata } from '@object-ui/types';
-import { resolveFieldScale } from '@objectstack/spec/data';
+import { resolveFieldScale, percentScaleOf, type PercentScale } from '@objectstack/spec/data';
 import { formatDisplayNumber } from '@object-ui/i18n';
 import { currencyFractionDigits } from '../currency.js';
 
@@ -172,6 +172,48 @@ export function formatCurrency(value: number, currency?: string, locale?: string
 }
 
 /**
+ * The storage scale a percent FACE reads a field's stored number at: the
+ * spec's `percentScaleOf` (`@objectstack/spec/data`) by reference, plus the
+ * one type the percent cell draws that the spec does not answer for
+ * (objectui#11475).
+ *
+ * `PercentCellRenderer` reads it, and so does every face that renders the
+ * cell's number for the same field (the grid footer, the record detail chip,
+ * the gantt tooltip, the mobile card, the object metric tile), so one stored
+ * value reads one magnitude on all of them. ⛔ None of them reads the storage
+ * off the VALUE: a magnitude guess cannot tell a fraction-stored `1` (100%)
+ * from one percentage point.
+ *
+ * - **`percent`, and a textual field the `format: 'percent'` hint promotes to
+ *   the percent cell:** `percentScaleOf` asked about `percent`, the face's own
+ *   type, with the field's declared `max`. A percent field stores a fraction
+ *   unless it declares a `max` above 1. Asking about `percent` rather than the
+ *   bag's own `type` is what lets a promoted textual field, or a bag whose
+ *   `type` was rewritten to the renderer key, read by the percent convention
+ *   too; it is the same reason `PercentField` asks `resolveFieldScale` about
+ *   `percent`. `percentScaleOf` answers every percent field, so the result is
+ *   never `undefined`.
+ * - **`progress`: `whole`, stated here.** The spec's `percentScaleOf` answers
+ *   `undefined` for it (it keys on `percent` alone), so the spec states no
+ *   percent storage for a `progress` field, and an undeclared key follows the
+ *   implementation: the one editor a `progress` field has, `SliderField`,
+ *   stores the slider's position on a `0`–`100` range unless the field
+ *   declares other bounds, and every first-party `progress` field declares
+ *   `min: 0, max: 100`. So its number IS percentage points.
+ *
+ * @param field the field definition the face holds. Only `type` and `max`
+ *              are read, and a `max` that is not a number is not a
+ *              declaration.
+ */
+export function percentCellScale(
+  field: { type?: string; max?: unknown } | null | undefined,
+): PercentScale {
+  if (field?.type === 'progress') return 'whole';
+  const max = typeof field?.max === 'number' ? field.max : undefined;
+  return percentScaleOf({ type: 'percent', max }) as PercentScale;
+}
+
+/**
  * Render a percent on a value ALREADY in display magnitude (`80` means 80%):
  * the ONE rendering call every display face of a `percent` field makes.
  * `formatPercent` (the table cell, and every face that takes the cell's
@@ -182,19 +224,19 @@ export function formatCurrency(value: number, currency?: string, locale?: string
  * `toDisplay(value).toFixed(scale)` plus a literal `%`: a `scale: 2` field
  * holding `0.25` read `25.00%` in a `de` form while its cell read `25,00 %`.
  *
- * The SCALING is the caller's, and it is a separate statement on purpose.
- * `formatPercent` takes its magnitude from `percentDisplayValue` in
- * `@object-ui/core`; `PercentField` takes its own from the storage convention
- * the field declares (a fraction unless it declares `max > 1`, the rule its
- * edit input writes by), so that its read-only text and its input never show
- * one stored value at two magnitudes. The two readings agree on a
- * fraction-stored value strictly between -1 and 1 and on a whole-stored value
- * outside that range (or zero); they part on the rest (a fraction-stored `1`,
- * which is 100%, reads `1%` in the cell). That disagreement is in the cell's
- * scaling, not in this rendering, and is reported on objectui#11444 rather
- * than settled here.
- * ⛔ Do not add a third caller with a scaling rule of its own, and ⛔ never one
- * keyed on the column's NAME: objectui#9452 removed exactly that from
+ * The SCALING is the caller's, and it is a separate statement on purpose:
+ * both callers scale at the storage the field DECLARES, read through the
+ * spec's `percentScaleOf` (a fraction unless the field declares a `max` above
+ * 1, the rule the edit input writes by). `formatPercent` takes it as its
+ * `percentScale` argument, which the cell answers with
+ * {@link percentCellScale}; `PercentField` asks `percentScaleOf` itself, so
+ * its read-only text and its input never show one stored value at two
+ * magnitudes. Until objectui#11475 the cell guessed the storage from the
+ * value's magnitude instead, so a fraction-stored `1` (100%) read `100%` in a
+ * read-only form and `1%` in its cell, and a whole-stored `0.5` read `0.5%`
+ * and `50%`.
+ * ⛔ Do not add a caller with a scaling rule of its own, and ⛔ never one keyed
+ * on the column's NAME: objectui#9452 removed exactly that from
  * `PercentCellRenderer`.
  *
  * @param displayValue the percentage points to render.

@@ -374,6 +374,12 @@ export const ObjectGallery: React.FC<ObjectGalleryProps> = (props) => {
         // The author's digit-grouping hint rides beside `scale`, whose scale-0
         // heuristic it overrides in the number cell (objectui#11026).
         if (def.useGrouping !== undefined) enriched.useGrouping = def.useGrouping;
+        // A percent field's declared `max` is its STORAGE statement: the percent
+        // cell reads it through the spec's `percentScaleOf` (a fraction unless
+        // `max` is above 1) instead of guessing from the value. Dropped here, a
+        // whole-stored `50` (`max: 100`) would read `5000%` on a card beside
+        // `50%` in the grid (objectui#11475). Same presence test as `scale`.
+        if (def.max !== undefined) enriched.max = def.max;
         if (def.format) enriched.format = def.format;
         // objectui#6837 half 2 — maintainer 2026-08-31: protocol normalization
         // belongs on the SERVER, the front end just executes the protocol.

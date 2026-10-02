@@ -12,7 +12,7 @@ import type { ColumnSummary } from '@objectstack/spec/ui';
 import type { CurrencyConfig } from '@objectstack/spec/data';
 import { resolveFieldScale } from '@objectstack/spec/data';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency, createSafeTranslation } from '@object-ui/i18n';
-import { formatCurrency, formatPercent } from '@object-ui/fields';
+import { formatCurrency, formatPercent, percentCellScale } from '@object-ui/fields';
 
 /**
  * Aggregation functions for the column footer — the spec's `ColumnSummary`
@@ -347,7 +347,7 @@ function formatSummaryLabel(
   type: string,
   value: number | null,
   t: SummaryTranslate,
-  column: { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: { defaultCurrency?: string }; precision?: number | null; scale?: number | null } | undefined,
+  column: { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: { defaultCurrency?: string }; precision?: number | null; scale?: number | null; max?: number } | undefined,
   tenantDefault: string | undefined,
   // The BCP-47 tag from `useDisplayLocale()` — tenant locale, then UI
   // language, then a concrete `'en'`, never `undefined`.
@@ -460,8 +460,15 @@ function formatSummaryLabel(
     // reference, ⛔ not by each spelling a matching `?? 0`. (The currency arm
     // above no longer reads `scale` at all — objectui#10221 — which is a
     // currency-only retirement; `scale` stays the percent width.)
+    //
+    // objectui#11475 — and the STORAGE is the field's. A `sum` / `avg` /
+    // `min` / `max` of a percent column is stored the way its field stores,
+    // so the footer reads `percentCellScale` (the spec's `percentScaleOf`
+    // over the field's `max`), the answer the cell above reads. The shared
+    // scaling used to guess from the magnitude, so a fraction-stored column
+    // summing to `1` (100%) read `Sum: 1%` under cells reading the same rows.
     const decimals = resolveFieldScale(column);
-    formatted = formatPercent(value, decimals, displayLocale);
+    formatted = formatPercent(value, percentCellScale(column), decimals, displayLocale);
   } else if (colType === 'number') {
     // objectstack#19628, ruled A′ and carried to this footer by objectui#9843:
     // a `number` column's width is `resolveFieldScale`'s answer too, and for a
@@ -497,7 +504,8 @@ function formatSummaryLabel(
  * @param data - Row data array
  * @param fieldMetadata - Optional `objectSchema.fields` map; when present
  *   the hook reads `type`/`currency`/`currencyConfig`/`defaultCurrency` and,
- *   for a percent or number column, `scale` (through `resolveFieldScale`) to
+ *   for a percent or number column, `scale` (through `resolveFieldScale`) and,
+ *   for a percent column, the storage its `max` declares, to
  *   format the summary in the column's native unit (currency → `$1,234.56`,
  *   percent → `12%`).
  * @returns Map of field name to summary result, and a flag if any summaries exist
@@ -507,7 +515,7 @@ export function useColumnSummary(
   data: any[],
   // `currencyConfig` is the spec's own type, not a restated subset, so a field
   // def written in the spec's shape (`currencyMode` included) is accepted as is.
-  fieldMetadata?: Record<string, { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: CurrencyConfig; precision?: number | null; scale?: number | null }>
+  fieldMetadata?: Record<string, { type?: string; currency?: string; defaultCurrency?: string; currencyConfig?: CurrencyConfig; precision?: number | null; scale?: number | null; max?: number }>
 ): { summaries: Map<string, ColumnSummaryResult>; hasSummary: boolean } {
   // Tenant default currency (ADR-0053) backstops a currency column that
   // declares no explicit code, so the footer agrees with the cells above it.
@@ -558,6 +566,12 @@ export function useColumnSummary(
         currencyConfig: meta?.currencyConfig,
         precision: (col as any).precision ?? meta?.precision,
         scale: (col as any).scale ?? meta?.scale,
+        // objectui#11475 — a percent field's declared `max`, its STORAGE
+        // statement (`percentScaleOf`: a fraction unless `max` is above 1),
+        // read off the FIELD only, as `currencyConfig` is: `ListColumnSchema`
+        // declares no `max`, and a column-level read would be a second,
+        // undeclared spelling.
+        max: meta?.max,
       };
 
       // The widest decimal count among the numeric values this aggregation

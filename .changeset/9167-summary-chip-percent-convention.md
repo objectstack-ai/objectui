@@ -42,3 +42,12 @@ Values already spelled the same in both places do not move: `0.25`, `0`, `1`,
 
 The chip's BAR is untouched: it keeps drawing the unrounded magnitude, because
 the list cell's bar does too.
+
+⚠️ **Dated note, 2026-10-02 — the magnitude guess is retired in this same release — objectui#11475.**
+Later in this same release `percentDisplayValue` (`@object-ui/core`) stopped
+inferring a percentage's storage from the value: it takes the storage as a
+required argument, and every percent face passes the storage the field
+declares (`percentScaleOf` in `@objectstack/spec/data`: a fraction unless the
+field declares a `max` above 1). So the chip scales at its field's declared storage, and a stored value in the
+table above reads as written only on a field whose storage matches the
+magnitude the old guess assumed for it. The rest of this entry is kept as the reading of this change.

@@ -45,3 +45,13 @@ in such a column will see those cells move by two orders of magnitude; the fix
 is at the producer, by storing the fraction the column's other surfaces already
 assume. Values of `0`, and every value at or above `1`, are byte-identical
 before and after.
+
+⚠️ **Dated note, 2026-10-02 — the magnitude guess is retired in this same release — objectui#11475.**
+Later in this same release `percentDisplayValue` (`@object-ui/core`) stopped
+inferring a percentage's storage from the value: it takes the storage as a
+required argument, and every percent face passes the storage the field
+declares (`percentScaleOf` in `@objectstack/spec/data`: a fraction unless the
+field declares a `max` above 1). So the cell's magnitude comes from neither the column's name nor the value:
+a fraction-stored `1` reads `100%`, a `progress` column is percentage points at
+every magnitude, and the closing sentence above about values at or above `1`
+holds only for a field declaring a `max` above 1. The rest of this entry is kept as the reading of this change.

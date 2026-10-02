@@ -17,9 +17,9 @@ import {
   useObjectTranslation,
   pickLocalized,
 } from '@object-ui/i18n';
-import { formatCurrency } from '@object-ui/fields';
+import { formatCurrency, formatPercent, percentCellScale } from '@object-ui/fields';
 import { resolveFieldScale } from '@objectstack/spec/data';
-import { MetricWidget } from './MetricWidget';
+import { MetricWidget, metricPatternDecimals } from './MetricWidget';
 import { DrillDownDrawer } from './DrillDownDrawer';
 import {
   resolveFilterPlaceholders,
@@ -567,6 +567,43 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
       } else {
         tileFormat = '0,0.00';
       }
+    }
+  }
+
+  // The percent face (objectui#11475): the aggregated field is a `percent`,
+  // and the aggregate answers in its unit, so the value is stored the way the
+  // FIELD stores it — a `sum` / `avg` / `min` / `max` of fractions is a
+  // fraction, of percentage points is points. `MetricWidget` holds no field,
+  // only a value and a pattern, and reads a `%` pattern by numeral's own
+  // convention (a fraction), so a whole-stored field (`max: 100`, as every
+  // shipped percent field declares) averaging `50` would read `5000%` there.
+  // The tile is therefore rendered HERE, the way the currency face above is:
+  // through the list cell's formatter, at the storage the cell reads
+  // (`percentCellScale`, the spec's `percentScaleOf`), and the finished string
+  // is not a number, so `MetricWidget` shows it as given.
+  //
+  // The width is the one the tile would have read: an authored `%` pattern's
+  // decimals (`metricPatternDecimals`, `MetricWidget`'s own parse), otherwise
+  // the field's width as `inferredFormat` resolved it. An authored pattern that
+  // is not a percent pattern asked for a plain number and keeps that face.
+  // ⚠️ `invert` above stays the magnitude-gated `1 - v` it was; it is not this
+  // card's subject.
+  if (
+    fieldUnitApplies
+    && valueFieldDef?.type === 'percent'
+    && (!format || format.trim().endsWith('%'))
+  ) {
+    const stored =
+      typeof displayValue === 'number'
+        ? displayValue
+        : displayValue.trim() === ''
+          ? NaN
+          : Number(displayValue);
+    if (Number.isFinite(stored)) {
+      const width = format
+        ? metricPatternDecimals(format)
+        : (resolveFieldScale({ type: 'percent', scale: valueFieldDef.scale }) as number);
+      tileValue = formatPercent(stored, percentCellScale(valueFieldDef), width, displayLocale);
     }
   }
 

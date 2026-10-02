@@ -336,12 +336,16 @@ unit. Counts stay plain cardinalities and percentages carry their own `%`, so
 `count_unique` on a currency column reads `Unique: 3`, not `$3.00`.
 
 A `percent` column's aggregate takes both halves of the percent rule from the
-same place the list cell above it does — `percentDisplayValue` in
-`@object-ui/core` for the fraction-vs-points scaling, and the session locale's
+same place the list cell above it does — the storage its field declares for
+the fraction-vs-points scaling (the spec's `percentScaleOf`: a fraction unless
+the field declares a `max` above 1, read through `percentCellScale` in
+`@object-ui/fields`, never guessed from the value), and the session locale's
 own percent convention for the sign — so the footer and the cells never read
-under two conventions. A stored `1234.5` renders `Sum: 1,235%` in `en`,
-`Sum: 1.235 %` in `de-DE` (no-break space before the sign) and `Sum: %1.235` in
-`tr-TR`, where the sign goes in front of the number (objectui#9269). The width
+under two conventions. On a column whose field declares `max: 100`, a sum of
+`1234.5` renders `Sum: 1,235%` in `en`, `Sum: 1.235 %` in `de-DE` (no-break
+space before the sign) and `Sum: %1.235` in `tr-TR`, where the sign goes in
+front of the number (objectui#9269); on a fraction-stored column a sum of `1`
+renders `Sum: 100%`. The width
 is what `resolveFieldScale` in `@objectstack/spec/data` resolves for the column:
 its declared `scale`, or, when it declares none, the protocol's own width for a
 percent — the answer the list cell, the record header's summary chip and the

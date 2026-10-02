@@ -210,7 +210,7 @@ const CONTROL: Arm = {
   prefix: 'Sum: ',
   column: { field: 'rate', summary: 'sum', type: 'percent' },
   rows: [{ rate: 0.25 }],
-  declared: (locale) => formatPercent(0.25, 0, locale),
+  declared: (locale) => formatPercent(0.25, 'fraction', 0, locale),
 };
 
 describe('the grid summary footer formats in the tenant locale, not the machine (objectui#9294)', () => {

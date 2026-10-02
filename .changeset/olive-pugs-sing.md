@@ -33,3 +33,12 @@ lost a digit, fractions below `0.01`, negatives at or below `-1`, and exactly
 `1`, which is one percentage point by core's convention and now renders
 `1.00%` at two decimals, where the local `value > 1` test had made it
 `100.00%`.
+
+⚠️ **Dated note, 2026-10-02 — the magnitude guess is retired in this same release — objectui#11475.**
+Later in this same release `percentDisplayValue` (`@object-ui/core`) stopped
+inferring a percentage's storage from the value: it takes the storage as a
+required argument, and every percent face passes the storage the field
+declares (`percentScaleOf` in `@objectstack/spec/data`: a fraction unless the
+field declares a `max` above 1). So exactly `1` on a `percent` field that declares no `max` renders `100.00%`,
+one on a field declaring `max: 100` renders `1.00%`, and a non-percent field
+with a `%` pattern reads its value as a fraction, numeral's own reading. The rest of this entry is kept as the reading of this change.

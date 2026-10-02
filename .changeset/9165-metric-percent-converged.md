@@ -55,3 +55,13 @@ render differently afterwards.
 relied on the tile's old scaling to print them (a stored `1` shown as `100%`), it
 was already disagreeing with every other percent surface in the console; store the
 fraction (`0.01`) or the points (`1`) consistently and both surfaces now agree.
+
+⚠️ **Dated note, 2026-10-02 — the magnitude guess is retired in this same release — objectui#11475.**
+Later in this same release `percentDisplayValue` (`@object-ui/core`) stopped
+inferring a percentage's storage from the value: it takes the storage as a
+required argument, and every percent face passes the storage the field
+declares (`percentScaleOf` in `@objectstack/spec/data`: a fraction unless the
+field declares a `max` above 1). So a `metric` tile's `%` pattern states a fraction, numeral's own reading, and
+a stored `1` reads `100%` on that tile again; an `object-metric` tile over a
+`percent` field renders at that field's storage. The `1` → `1%` row above no
+longer describes the tile. The rest of this entry is kept as the reading of this change.

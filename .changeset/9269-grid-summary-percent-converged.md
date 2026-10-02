@@ -61,3 +61,12 @@ above the other.
 than carried by the level. No exported signature changes: `useColumnSummary`'s
 parameters and return shape are untouched, and `formatSummaryLabel` is private
 to the module.
+
+⚠️ **Dated note, 2026-10-02 — the magnitude guess is retired in this same release — objectui#11475.**
+Later in this same release `percentDisplayValue` (`@object-ui/core`) stopped
+inferring a percentage's storage from the value: it takes the storage as a
+required argument, and every percent face passes the storage the field
+declares (`percentScaleOf` in `@objectstack/spec/data`: a fraction unless the
+field declares a `max` above 1). So the footer scales at its column's field storage: a fraction-stored column
+summing to `1` reads `Sum: 100%`, and the `1` → `1%` row above holds only for a
+field declaring a `max` above 1. The rest of this entry is kept as the reading of this change.

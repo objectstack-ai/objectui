@@ -138,9 +138,25 @@ describe('the mobile card percent cell reads the resolved width (objectui#11254)
     expect(container.textContent).not.toContain('12.34%');
   });
 
-  it("a `number` filed under percent by its NAME does not have its scale read as a percent width", async () => {
+  // objectui#11475 replaced this case's subject. It pinned that a `number`
+  // filed under percent by its NAME kept its `scale` off the percent width,
+  // which presumed the slot printed it as a percent at all (`25%` for a stored
+  // `0.25`). A non-percent field declares no percent storage, so the slot now
+  // prints it through its own cell, the way the desktop row does, and its
+  // `scale` is a NUMBER width again.
+  it("a `number` filed under percent by its NAME prints through its own cell, with no percent affix (objectui#11475)", async () => {
     const { container } = await renderCard({ type: 'number', scale: 2 }, 0.25);
-    await waitFor(() => expect(container.textContent).toContain('25%'));
-    expect(container.textContent).not.toContain('25.00%');
+    await waitFor(() => expect(container.textContent).toContain('0.25'));
+    expect(container.textContent).not.toContain('25%');
+    expect(container.textContent).not.toContain('%');
+  });
+
+  it('a whole-stored percent (`max: 100`) reads its declared storage, as the desktop cell does (objectui#11475)', async () => {
+    const field = { type: 'percent', max: 100 };
+    const expected = cellText(50, field);
+    expect(expected).toBe('50%');
+    const { container } = await renderCard(field, 50);
+    await waitFor(() => expect(container.textContent).toContain(expected));
+    expect(container.textContent).not.toContain('5000%');
   });
 });

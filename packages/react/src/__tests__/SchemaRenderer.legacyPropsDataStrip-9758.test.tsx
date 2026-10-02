@@ -83,7 +83,8 @@ function seenFor(schema: object, hostProps: Record<string, unknown> = {}): Recor
  * in `plugin-grid`, `plugin-map`, `plugin-gantt` and `plugin-tree`; row 14
  * re-reads them through the predicate itself so this file cannot drift from
  * the table. The tree spellings joined the object arm with objectui#8348, when
- * `ComponentPropsMap['object-tree']` began to declare the `ViewData` union.
+ * `ComponentPropsMap['object-tree']` began to declare the `ViewData` union
+ * (`view:tree` / `tree` left with objectui#10859 batch 8's retirement of the alias).
  */
 const OBJECT_ARM_TYPES = [
   'object-grid',
@@ -94,8 +95,6 @@ const OBJECT_ARM_TYPES = [
   'object-gantt',
   'plugin-gantt:object-gantt',
   'object-tree',
-  'view:tree',
-  'tree',
 ] as const;
 const ARRAY_ARM_TYPES = ['object-calendar', 'view:calendar', 'calendar'] as const;
 

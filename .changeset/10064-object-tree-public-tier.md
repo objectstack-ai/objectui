@@ -37,3 +37,8 @@ registration. Both routes reach `getPublicConfigs()`; the siblings
 (`object-grid`, `object-map`, `object-gantt`, …) all take the roster, no
 published registration in this repo declares the flag, and the roster's own
 header asks callers to prefer the list over scattered flags.
+
+⚠️ **Dated note, 2026-10-02 — the `tree` alias is no longer registered at all — objectui#10859.**
+Later in this same release objectui#10859 batch 8 unregistered the bare `tree` alias outright
+(`objectui validate` refused it at `type`, and nothing authored it), so the "second time" the
+paragraph above describes is gone too. The rest of this entry is kept as the reading of this change.

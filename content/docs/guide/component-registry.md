@@ -44,7 +44,7 @@ the package does.
 
 This registers all built-in components like:
 - Forms: `input`, `textarea`, `select`, `checkbox`, etc.
-- Data: `table`, `list`, `card`, `tree`, etc.
+- Data: `table`, `list`, `card`, `tree-view`, etc.
 - Layout: `page`, `grid`, `flex`, `container`, etc.
 - Feedback: `alert`, `dialog`, `toast`, etc.
 
@@ -192,7 +192,7 @@ Default components are organized by category:
 - `table`
 - `list`
 - `card`
-- `tree`
+- `tree-view`
 - `timeline`
 - `calendar`
 - `kanban`

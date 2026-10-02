@@ -478,12 +478,14 @@ const CHART_TYPE_MAP: Record<string, string> = {
  * the same spec keys, and a second copy of the split beside this one is
  * precisely the duplication objectui#4389 filed as a defect. The doctrine — the
  * two admission criteria, the data/presentation ruling, why `aria` stays
- * unforwarded — travelled with the code; see that module's header.
+ * unforwarded — travelled with the code; see that module's header and
+ * `chartConfigPresentation`'s docblock.
  *
  * Re-exported under its original name. The series/axis presentation merge
  * (`mergeAuthoredPresentation`) was re-exported here too until objectui#11315:
  * a dashboard widget's `chartConfig` no longer carries the `series` / `xAxis` /
- * `yAxis` it read (spec 17.5.0), so this widget no longer calls it.
+ * `yAxis` it read (spec 17.5.0), so this widget stopped calling it, and
+ * objectui#11372 then removed it from `@object-ui/core`.
  */
 export { chartConfigPresentation } from '@object-ui/core';
 
@@ -1845,7 +1847,8 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // The chart's STRUCTURE is the dataset's: the series and the category axis
   // above are emitted as derived, and nothing authored is merged onto them.
   // `chartConfig.series` / `xAxis` / `yAxis` used to merge their presentation
-  // half here (#4229, through `@object-ui/core`'s `mergeAuthoredPresentation`).
+  // half here (#4229, through `mergeAuthoredPresentation`, which objectui#11372
+  // has since removed from `@object-ui/core`).
   // `@objectstack/spec` 17.5.0 retired all three on a dashboard widget
   // (`DashboardWidgetChartConfigSchema`, ADR-0021 · ADR-0049 D2), so they are
   // refused at parse, and a stored widget that still carries them renders the

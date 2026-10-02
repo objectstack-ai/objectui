@@ -350,10 +350,14 @@ describe('the fence reads the named view first for every protocol member it rela
 describe("the registered renderer cannot reach the delegation branch — the ruling's basis (objectui#5097)", () => {
   const registered = ComponentRegistry.get('object-view') as React.FC<{ schema: unknown }>;
 
-  it('is registered, and the `view` alias is the same renderer', () => {
+  it('is registered, under one tag only', () => {
     expect(registered).toBeTypeOf('function');
-    // One renderer under two tags is two chances to disagree with itself.
-    expect(ComponentRegistry.get('view')).toBe(registered);
+    // One renderer under two tags was two chances to disagree with itself, so
+    // this row used to pin the `view` alias to it. objectui#10859 batch 8
+    // retired the alias (`objectui validate` refused it at `type`, and nothing
+    // authored it): `object-view` is the one tag that reaches this renderer.
+    expect(ComponentRegistry.get('view')).toBeUndefined();
+    expect(ComponentRegistry.get('plugin-view:view')).toBeUndefined();
   });
 
   it('passes ObjectView no `renderListView`, so the branch never runs', () => {

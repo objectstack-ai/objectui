@@ -1054,9 +1054,12 @@ export const ChartSchema = BaseSchema.extend({
   // object of nine keys, is the type of `ChartConfigSchema.xAxis` (one object)
   // and of each entry of `ChartConfigSchema.yAxis` (an ARRAY). This node renders
   // that shape — `normalizeAxis` in `plugin-charts/src/normalizeChartSchema.ts`
-  // reads exactly those nine keys — and a dashboard's dataset-bound chart hands
-  // it this node's `xAxis` / `yAxis` straight from the widget's `chartConfig`
-  // (`DatasetWidget` → `mergeAuthoredPresentation`). Until this declaration both
+  // reads exactly those nine keys — and the react `ObjectChart` tier, where the
+  // spec keeps both keys authorable, hands `ChartRenderer` the author's own
+  // `xAxis` / `yAxis` on the chart schema it builds. A dashboard widget no
+  // longer does: spec 17.5.0 refuses `chartConfig.xAxis` / `yAxis` on that
+  // carrier, so `DatasetWidget` emits the derived binding alone
+  // (objectui#11315). Until this declaration both
   // keys rode `BaseSchema`'s `.passthrough()`: kept, read, and UNCHECKED, so
   // `xAxis: { field: 'month', min: 'zero' }` parsed green and drew an unpinned
   // axis. The per-key liveness read with lit controls is on the card and the PR.

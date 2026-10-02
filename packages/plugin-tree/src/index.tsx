@@ -37,8 +37,6 @@ export const ObjectTreeRenderer: React.FC<any> = ({ schema, ...props }) => {
 // declaration with a boolean `required`, so it states the rule in the
 // description rather than growing a one-of form — the `object-map` /
 // `object-gantt` precedent (objectui#7470).
-//
-// `view:tree` is the same renderer under a second tag, so it shares the list.
 const treeInputs = [
   {
     name: 'objectName',
@@ -85,9 +83,29 @@ ComponentRegistry.register('object-tree', ObjectTreeRenderer, {
   inputs: treeInputs,
 });
 
-ComponentRegistry.register('tree', ObjectTreeRenderer, {
-  namespace: 'view',
-  label: 'Tree View',
-  category: 'view',
-  inputs: treeInputs,
-});
+/**
+ * ⛔ The bare `tree` node type key is RETIRED (objectui#10859 batch 8, the
+ * seat's ruling on that card, by the objectui#10393 / objectui#8760 route).
+ * `object-tree` is the one spelling this plugin serves.
+ *
+ * ## What was here, and why it went
+ *
+ * `ComponentRegistry.register('tree', ObjectTreeRenderer, { namespace: 'view',
+ * ... })` — a second key on the SAME renderer with the SAME `inputs`, which
+ * stored both `view:tree` and the bare `tree` fallback. Only `object-tree` has
+ * a declaration: `@objectstack/spec`'s `ComponentPropsMap` row, which
+ * `AnyComponentSchema` arms, while no arm claims `tree`. So `objectui validate`
+ * refused a node authored `type: 'tree'` at `type` while the registry mounted
+ * it. `PUBLIC_BLOCKS` already declined to curate it as "a second spelling of
+ * this one block".
+ *
+ * ## Why unregistering is the whole retirement
+ *
+ * Nothing wrote the node: 0 producers in source, docs, examples or the
+ * catalog, measured for the card. The other `tree` spellings in the stack are
+ * different layers and stay untouched — the FIELD type `tree` (a self-reference
+ * that `@object-ui/fields` renders as `field:lookup`) and a STORED list-view
+ * type, which `@object-ui/plugin-list`'s `ListView` already composes into an
+ * `object-tree` node. The console's lazy `tree` stub (`apps/console/src/register-plugins.ts`)
+ * went in the same change, so no host keeps the key alive.
+ */

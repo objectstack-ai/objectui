@@ -13,3 +13,8 @@ Decision batch #83, maintainer verbatim 「8348 以协议为准」: a view block
 - The `data` **prop** a host hands down (`ListView`'s tree) is untouched.
 
 Two carriers had to close for this to be observable. `@object-ui/core`'s `recordSourceDataArmForType` now answers `'view-data'` for all four spellings the tree registers under (`object-tree`, `plugin-tree:object-tree`, `tree`, `view:tree`), so `SchemaRenderer` no longer spreads an authored `data` on a tree node as a React prop (objectui#9571). And `ObjectTree`'s own fetch effect no longer reads `schema.data` beside the host prop — that second reader bypassed the shared ladder, so an arm change alone would have removed nothing end to end.
+
+⚠️ **Dated note, 2026-10-02 — two of the four spellings are retired — objectui#10859.**
+Later in this same release objectui#10859 batch 8 unregistered the bare `tree` alias, and with it
+`view:tree`; `recordSourceDataArmForType` answers `'view-data'` for `object-tree` and
+`plugin-tree:object-tree` only. The rest of this entry is kept as the reading of this change.

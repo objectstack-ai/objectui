@@ -4082,16 +4082,32 @@ export function getLazyFieldWidget(fieldType: string): React.ComponentType<any> 
  * // Register only the text field
  * registerField('text');
  */
-// Field types whose short name collides with a display/ui/view/plugin component
-// registered elsewhere (e.g. the display widgets and form-input primitives in
-// @object-ui/components, or the markdown display plugin). These remain
-// accessible via the namespaced `field:<type>` key — which is how forms resolve
-// them (see form.tsx renderFieldComponent + mapFieldTypeToFormType) — but must
-// not overwrite the bare `<type>` fallback, which the display/ui primitive owns
-// and which page schemas expect (e.g. `{ type: 'markdown', content }` → the
-// markdown renderer, not the RichText editor). Without skipFallback each of
-// these logged a "bare-name fallback is being overwritten" warning at boot.
+// The field widgets that register ONLY their namespaced `field:<type>` key and
+// no bare `<type>` fallback. Since objectui#10859 batch 8 this is EVERY key of
+// `fieldWidgetMap`: a field widget is reached as a form field, which resolves
+// `field:<type>` and nothing else (form.tsx `renderFieldComponent`, ruling B of
+// objectui#5254), never as a node `type`. The groups below say why each key
+// first came off the bare table.
+//
+// ⛔ Do not take a key back out of this set. A bare fallback makes the key a
+// registered node type that `objectui validate` refuses at `type` (no arm in
+// `AnyComponentSchema` claims it): the known-types derivation pin forces
+// `packages/cli/src/utils/known-schema-types.ts` to be regenerated, and the
+// regenerated list turns the `REFUSED_AT_TYPE` ratchet
+// (`packages/cli/src/__tests__/registered-types-validate-ratchet-10859.test.ts`)
+// red, naming the key. A NEW widget added to `fieldWidgetMap` is added here in
+// the same change, for the same reason.
+//
+// `scripts/check-doc-component-types.mjs` reads this set by name (the
+// `fieldWidgetMap` entry's `skipFallbackSet`), so it stays a literal list.
 const FIELD_TYPES_SKIP_FALLBACK = new Set([
+  // ── Bare-name collisions ──────────────────────────────────────────────────
+  // The short name is owned by a display/ui/view/plugin component registered
+  // elsewhere (e.g. the display widgets and form-input primitives in
+  // @object-ui/components, or the markdown display plugin), which page schemas
+  // expect (e.g. `{ type: 'markdown', content }` → the markdown renderer, not
+  // the RichText editor). Without skipFallback each of these logged a
+  // "bare-name fallback is being overwritten" warning at boot.
   // Display widgets (text/html/image/avatar/grid live in @object-ui/components
   // or @object-ui/layout as the bare-name owners).
   'text',
@@ -4123,6 +4139,41 @@ const FIELD_TYPES_SKIP_FALLBACK = new Set([
   'object-ref',
   'filter-condition',
   'recipient-picker',
+  // ── Retired bare node keys (objectui#10859 batch 8) ───────────────────────
+  // Each was registered bare only as this loop's fallback: no other package
+  // owns the name, no form path reads it, and no document authors it as a
+  // node — every occurrence in the catalog and the docs sits at a field
+  // position (`fields[]`, `columns[]`, `filters[]`) — and `objectui validate`
+  // refused the bare key at `type`. Retired by the seat's batch-8 ruling on
+  // the card, through this set — the route its mechanism answer names.
+  'auto_number',
+  'boolean',
+  'checkboxes',
+  'color',
+  'currency',
+  'date',
+  'datetime',
+  'file',
+  'formula',
+  'geolocation',
+  'location',
+  'lookup',
+  'master_detail',
+  'multiselect',
+  'number',
+  'object',
+  'percent',
+  'phone',
+  'qrcode',
+  'radio',
+  'rating',
+  'richtext',
+  'signature',
+  'summary',
+  'tags',
+  'url',
+  'user',
+  'vector',
 ]);
 
 /**

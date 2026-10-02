@@ -99,12 +99,29 @@ ComponentRegistry.register('object-view', ObjectViewRenderer, {
   },
 });
 
-// Register alias 'view' → same renderer
-ComponentRegistry.register('view', ObjectViewRenderer, {
-  namespace: 'plugin-view',
-  label: 'View',
-  category: 'view',
-});
+/**
+ * ⛔ The bare `view` node type key is RETIRED (objectui#10859 batch 8, the
+ * seat's ruling on that card, by the objectui#10393 / objectui#8760 route).
+ * `object-view` is the one spelling this plugin serves for this renderer.
+ *
+ * ## What was here, and why it went
+ *
+ * `ComponentRegistry.register('view', ObjectViewRenderer, { namespace:
+ * 'plugin-view', ... })` — an alias on the SAME renderer, which stored both
+ * `plugin-view:view` and the bare `view` fallback. It declared no `inputs`, and
+ * no arm of `AnyComponentSchema` claims `view`, so `objectui validate` refused
+ * a node authored `type: 'view'` at `type` while the registry mounted it —
+ * while `object-view`, the same renderer, validates.
+ *
+ * ## Why unregistering is the whole retirement
+ *
+ * Nothing wrote the node: 0 producers in source, docs, examples or the
+ * catalog, measured for the card. The `type: 'view'` spellings elsewhere in the
+ * stack are the METADATA namespace (saved views, `client.meta.getItems('view')`),
+ * a different layer that stays untouched. The package README's and
+ * `content/docs/plugins/plugin-view.mdx`'s registration tables lost the row in
+ * the same change.
+ */
 
 ComponentRegistry.register('view-switcher', ViewSwitcher, {
   namespace: 'view',

@@ -606,7 +606,10 @@ export const INDIRECT_REGISTRATIONS = [
     reason:
       '`registerField(fieldType)` registers each key of fieldWidgetMap as `field:<type>` (plus the ' +
       'bare key unless FIELD_TYPES_SKIP_FALLBACK holds it), and `registerAllFields()` runs it for ' +
-      'every key at module load. Field pages teach these bare keys.',
+      'every key at module load. Since objectui#10859 batch 8 the set holds EVERY key, so this ' +
+      'entry contributes `field:<type>` keys only. A field page\'s `type: \'boolean\'` is the FIELD ' +
+      'vocabulary, not a node type, and each such page declares it in DOC_TYPE_EXEMPTIONS — those ' +
+      'values used to pass here only because the bare fallback shared their spelling.',
   },
   {
     site: 'packages/fields/src/index.tsx',
@@ -735,6 +738,11 @@ const DOC_TYPE_EXEMPTIONS = {
       'snippet spells. Needed from objectui#11070 round 6, which moved that example\'s `component` ' +
       'chart to the dataset-bound widget form under objectui#11228 ruling C. Same vocabulary as the ' +
       '`packages/plugin-dashboard/README.md` entries below.',
+    date:
+      'Detail-view field type in a `groups[].fields[]` entry, next to `text` / `email` — ' +
+      '`DetailViewField.type` (packages/types/src/views.ts), the field vocabulary a detail value is ' +
+      'formatted by. Not a node type. objectui#10859 batch 8 retired the bare `date` field-widget ' +
+      'fallback, which is the only reason this value used to pass here as a registered key.',
   },
   'content/docs/blocks/authentication.mdx': {
     submit:
@@ -800,6 +808,16 @@ const DOC_TYPE_EXEMPTIONS = {
     action:
       'ActionSchema discriminant. This page documents the action vocabulary end to end, so every ' +
       '`type: \'action\'` here is an action definition rather than a node.',
+    boolean:
+      'Action parameter type in an action\'s `params[]` — `ActionParam` ' +
+      '(packages/types/src/ui-action.ts), whose `type` is the field vocabulary the parameter dialog ' +
+      'renders. Not a node type. objectui#10859 batch 8 retired the bare `boolean` field-widget ' +
+      'fallback, which is the only reason this value used to pass here as a registered key.',
+    file:
+      'Action parameter type in an action\'s `params[]` — `ActionParam` ' +
+      '(packages/types/src/ui-action.ts), whose `type` is the field vocabulary the parameter dialog ' +
+      'renders. Not a node type. objectui#10859 batch 8 retired the bare `file` field-widget ' +
+      'fallback, which is the only reason this value used to pass here as a registered key.',
   },
   'content/docs/core/report-schema.mdx': {
     line: 'Chart series kind under a report section\'s `chart.series`, not a node type.',
@@ -809,15 +827,206 @@ const DOC_TYPE_EXEMPTIONS = {
     'report-builder':
       'ReportBuilderSchema discriminant — packages/types/src/reports.ts:464, zod/reports.zod.ts:154.',
     string: 'Report field data type in a `fields` declaration, not a node type.',
+    number:
+      'Report field data type in a `fields` / `availableFields` declaration — `ReportField.type` ' +
+      '(packages/types/src/reports.ts), the vocabulary this file\'s `string` entry names. Not a ' +
+      'node type. objectui#10859 batch 8 retired the bare `number` field-widget fallback, which is ' +
+      'the only reason this value used to pass here as a registered key.',
+    summary:
+      'ReportSection kind under a report\'s `sections[]`, sibling of `header` — ' +
+      '`ReportSection.type` (packages/types/src/reports.ts), the enum this file\'s `page-break` ' +
+      'entry names. Not a node type. objectui#10859 batch 8 retired the bare `summary` field-widget ' +
+      'fallback, which is the only reason this value used to pass here as a registered key.',
   },
   'content/docs/core/schema-renderer.mdx': {
     'my-widget':
       'Deliberate placeholder in the "register your own component" walkthrough — the page teaches ' +
       'the reader to register this key, so it is unregistered here by design.',
   },
+  'content/docs/fields/auto-number.mdx': {
+    auto_number:
+      'FIELD type documented by this page: `AutoNumberFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:auto_number`. Not a node type. objectui#10859 batch 8 retired the bare `auto_number` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key.',
+  },
+  'content/docs/fields/boolean.mdx': {
+    boolean:
+      'FIELD type documented by this page: `BooleanFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:boolean`. Not a node type. objectui#10859 batch 8 retired the bare `boolean` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key.',
+  },
+  'content/docs/fields/currency.mdx': {
+    currency:
+      'FIELD type documented by this page: `CurrencyFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:currency`. Not a node type. objectui#10859 batch 8 retired the bare `currency` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key.',
+  },
+  'content/docs/fields/date.mdx': {
+    date:
+      'FIELD type documented by this page: `DateFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:date`. Not a node type. objectui#10859 batch 8 retired the bare `date` field-widget ' +
+      'fallback, which is the only reason this value used to pass here as a registered key.',
+    datetime:
+      'FIELD type documented by this page: `DateTimeFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:datetime`. Not a node type. objectui#10859 batch 8 retired the bare `datetime` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key. (The page\'s "DateTime Variant" section.)',
+  },
+  'content/docs/fields/datetime.mdx': {
+    datetime:
+      'FIELD type documented by this page: `DateTimeFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:datetime`. Not a node type. objectui#10859 batch 8 retired the bare `datetime` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key.',
+  },
+  'content/docs/fields/file.mdx': {
+    file:
+      'FIELD type documented by this page: `FileFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:file`. Not a node type. objectui#10859 batch 8 retired the bare `file` field-widget ' +
+      'fallback, which is the only reason this value used to pass here as a registered key.',
+  },
+  'content/docs/fields/formula.mdx': {
+    formula:
+      'FIELD type documented by this page: `FormulaFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:formula`. Not a node type. objectui#10859 batch 8 retired the bare `formula` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key.',
+  },
+  'content/docs/fields/grid.mdx': {
+    currency:
+      'Column type inside a `grid` FIELD\'s `columns[]` — `GridFieldMetadata.columns`, typed by ' +
+      'reference to @objectstack/spec\'s `FieldSchema.inlineColumns`. A sub-field\'s data type, not ' +
+      'a node type. objectui#10859 batch 8 retired the bare `currency` field-widget fallback, which ' +
+      'is the only reason this value used to pass here as a registered key.',
+    date:
+      'Column type inside a `grid` FIELD\'s `columns[]` — `GridFieldMetadata.columns`, typed by ' +
+      'reference to @objectstack/spec\'s `FieldSchema.inlineColumns`. A sub-field\'s data type, not ' +
+      'a node type. objectui#10859 batch 8 retired the bare `date` field-widget fallback, which is ' +
+      'the only reason this value used to pass here as a registered key.',
+    file:
+      'Column type inside a `grid` FIELD\'s `columns[]` — `GridFieldMetadata.columns`, typed by ' +
+      'reference to @objectstack/spec\'s `FieldSchema.inlineColumns`. A sub-field\'s data type, not ' +
+      'a node type. objectui#10859 batch 8 retired the bare `file` field-widget fallback, which is ' +
+      'the only reason this value used to pass here as a registered key.',
+    lookup:
+      'Column type inside a `grid` FIELD\'s `columns[]` — `GridFieldMetadata.columns`, typed by ' +
+      'reference to @objectstack/spec\'s `FieldSchema.inlineColumns`. A sub-field\'s data type, not ' +
+      'a node type. objectui#10859 batch 8 retired the bare `lookup` field-widget fallback, which ' +
+      'is the only reason this value used to pass here as a registered key.',
+    number:
+      'Column type inside a `grid` FIELD\'s `columns[]` — `GridFieldMetadata.columns`, typed by ' +
+      'reference to @objectstack/spec\'s `FieldSchema.inlineColumns`. A sub-field\'s data type, not ' +
+      'a node type. objectui#10859 batch 8 retired the bare `number` field-widget fallback, which ' +
+      'is the only reason this value used to pass here as a registered key.',
+  },
+  'content/docs/fields/location.mdx': {
+    location:
+      'FIELD type documented by this page: `LocationFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:location`. Not a node type. objectui#10859 batch 8 retired the bare `location` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key.',
+  },
+  'content/docs/fields/lookup.mdx': {
+    lookup:
+      'FIELD type documented by this page: `LookupFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:lookup`. Not a node type. objectui#10859 batch 8 retired the bare `lookup` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key.',
+  },
+  'content/docs/fields/number.mdx': {
+    number:
+      'FIELD type documented by this page: `NumberFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:number`. Not a node type. objectui#10859 batch 8 retired the bare `number` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key.',
+  },
   'content/docs/fields/object.mdx': {
     array: 'JSON Schema property type inside a field\'s `schema.properties`, not a node type.',
     string: 'JSON Schema property type inside a field\'s `schema.properties`, not a node type.',
+    boolean:
+      'JSON Schema property type inside an `object` field\'s `schema.properties`, the vocabulary ' +
+      'the `array` / `string` entries of this file already name. Not a node type. objectui#10859 ' +
+      'batch 8 retired the bare `boolean` field-widget fallback, which is the only reason this ' +
+      'value used to pass here as a registered key.',
+    number:
+      'JSON Schema property type inside an `object` field\'s `schema.properties`, the vocabulary ' +
+      'the `array` / `string` entries of this file already name. Not a node type. objectui#10859 ' +
+      'batch 8 retired the bare `number` field-widget fallback, which is the only reason this value ' +
+      'used to pass here as a registered key.',
+    object:
+      'FIELD type documented by this page: `ObjectFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:object`. Not a node type. objectui#10859 batch 8 retired the bare `object` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key. The same spelling is also the JSON Schema `type` of a nested property inside ' +
+      '`schema.properties` on this page — two vocabularies, neither a node.',
+  },
+  'content/docs/fields/percent.mdx': {
+    percent:
+      'FIELD type documented by this page: `PercentFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:percent`. Not a node type. objectui#10859 batch 8 retired the bare `percent` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key.',
+  },
+  'content/docs/fields/phone.mdx': {
+    phone:
+      'FIELD type documented by this page: `PhoneFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:phone`. Not a node type. objectui#10859 batch 8 retired the bare `phone` field-widget ' +
+      'fallback, which is the only reason this value used to pass here as a registered key.',
+  },
+  'content/docs/fields/rich-text.mdx': {
+    richtext:
+      'FIELD type documented by this page: `RichtextFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:richtext`. Not a node type. objectui#10859 batch 8 retired the bare `richtext` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key.',
+  },
+  'content/docs/fields/summary.mdx': {
+    summary:
+      'FIELD type documented by this page: `SummaryFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:summary`. Not a node type. objectui#10859 batch 8 retired the bare `summary` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key.',
+  },
+  'content/docs/fields/url.mdx': {
+    url:
+      'FIELD type documented by this page: `UrlFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:url`. Not a node type. objectui#10859 batch 8 retired the bare `url` field-widget ' +
+      'fallback, which is the only reason this value used to pass here as a registered key.',
+  },
+  'content/docs/fields/user.mdx': {
+    user:
+      'FIELD type documented by this page: `UserFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:user`. Not a node type. objectui#10859 batch 8 retired the bare `user` field-widget ' +
+      'fallback, which is the only reason this value used to pass here as a registered key.',
+  },
+  'content/docs/fields/vector.mdx': {
+    vector:
+      'FIELD type documented by this page: `VectorFieldMetadata` (`FieldMetadata`, ' +
+      'packages/types/src/field-types.ts) declares the literal, and the form renders it through ' +
+      '`field:vector`. Not a node type. objectui#10859 batch 8 retired the bare `vector` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key.',
   },
   'content/docs/guide/architecture.md': {
     'my-grid':
@@ -828,6 +1037,13 @@ const DOC_TYPE_EXEMPTIONS = {
       '`ComponentInput.type` in a `register(...)` call\'s `inputs[]` — a DESIGNER input\'s coarse ' +
       'control kind (packages/types/src/base.ts:386), sibling of `number` / `boolean` / `enum`. ' +
       'Not a node type.',
+  },
+  'content/docs/guide/building-crud-app.md': {
+    date:
+      'Object-metadata FIELD type of a field in an object definition\'s `fields` map — a member of ' +
+      '`FieldType` (@objectstack/spec/data, `FieldSchema.type`). A field\'s data type, not a node ' +
+      'type. objectui#10859 batch 8 retired the bare `date` field-widget fallback, which is the ' +
+      'only reason this value used to pass here as a registered key.',
   },
   'content/docs/guide/component-registry.md': {
     custom:
@@ -841,12 +1057,33 @@ const DOC_TYPE_EXEMPTIONS = {
     string:
       '`ComponentInput.type` in a `register(...)` call\'s `inputs[]` — a designer input\'s coarse ' +
       'control kind (packages/types/src/base.ts:386), not a node type.',
+    boolean:
+      '`ComponentInput.type` in the walkthrough\'s `register(...)` call\'s `inputs[]` — a designer ' +
+      'input\'s coarse control kind, the vocabulary this file\'s `string` entry names. Not a node ' +
+      'type. objectui#10859 batch 8 retired the bare `boolean` field-widget fallback, which is the ' +
+      'only reason this value used to pass here as a registered key.',
+    number:
+      '`ComponentInput.type` in the walkthrough\'s `register(...)` call\'s `inputs[]` — a designer ' +
+      'input\'s coarse control kind, the vocabulary this file\'s `string` entry names. Not a node ' +
+      'type. objectui#10859 batch 8 retired the bare `number` field-widget fallback, which is the ' +
+      'only reason this value used to pass here as a registered key.',
+    rating:
+      'Deliberate example key: the walkthrough declares its own `RatingSchema` and registers it ' +
+      'itself (`ComponentRegistry.register(\'rating\', RatingComponent, …)`), so the reader owns ' +
+      'this key. Until objectui#10859 batch 8 it collided with the fields package\'s bare `rating` ' +
+      'fallback, now retired; the form\'s rating widget stays `field:rating`.',
   },
   'content/docs/guide/console-architecture.md': {
     delete:
       '`ActionDef.type` passed to `useActionRunner().execute(...)` — a RunnableActionType, the ' +
       'action vocabulary declared at packages/core/src/actions/ActionRunner.ts:112. An action being ' +
       'run, not a node being rendered.',
+    object:
+      'Navigation item kind under an app\'s `navigation[]` — `NavigationItemType` ' +
+      '(packages/types/src/app.ts, from @objectstack/spec\'s `NavigationItemSchema`). An app ' +
+      'navigation entry, not a node type. objectui#10859 batch 8 retired the bare `object` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key.',
   },
   'content/docs/guide/dashboard-filters.md': {
     bar: 'Dashboard widget kind under `widgets[]`, alongside `line` — same vocabulary as the ' +
@@ -854,10 +1091,41 @@ const DOC_TYPE_EXEMPTIONS = {
     line: 'Dashboard widget kind under `widgets[]`, alongside `bar` — same vocabulary as the ' +
       'plugins/plugin-dashboard.mdx entry below. Not a node type.',
   },
+  'content/docs/guide/designing-app-navigation.md': {
+    object:
+      'Navigation item kind under an app\'s `navigation[]` — `NavigationItemType` ' +
+      '(packages/types/src/app.ts, from @objectstack/spec\'s `NavigationItemSchema`). An app ' +
+      'navigation entry, not a node type. objectui#10859 batch 8 retired the bare `object` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key.',
+    url:
+      'Navigation item kind under an app\'s `navigation[]` — `NavigationItemType` ' +
+      '(packages/types/src/app.ts, from @objectstack/spec\'s `NavigationItemSchema`). An app ' +
+      'navigation entry, not a node type. objectui#10859 batch 8 retired the bare `url` ' +
+      'field-widget fallback, which is the only reason this value used to pass here as a registered ' +
+      'key.',
+  },
+  'content/docs/guide/fields.md': {
+    rating:
+      'Form field type in a `form` node\'s `fields[]` — the field vocabulary, which the form ' +
+      'resolves through `field:rating`. Not a node type. objectui#10859 batch 8 retired the bare ' +
+      '`rating` field-widget fallback, which is the only reason this value used to pass here as a ' +
+      'registered key.',
+    user:
+      'Field metadata handed to a cell renderer (`getCellRenderer(\'user\')`, `field={{ type: ' +
+      '\'user\' }}`) — `UserFieldMetadata` (`FieldMetadata`). Not a node type. objectui#10859 batch ' +
+      '8 retired the bare `user` field-widget fallback, which is the only reason this value used to ' +
+      'pass here as a registered key.',
+  },
   'content/docs/guide/objectos-integration.mdx': {
     'my-custom-widget':
       'Deliberate placeholder in the "register a lazy custom widget" walkthrough — the reader ' +
       'supplies this key.',
+    currency:
+      'Object-metadata FIELD type of a field in an object definition\'s `fields` map — a member of ' +
+      '`FieldType` (@objectstack/spec/data, `FieldSchema.type`). A field\'s data type, not a node ' +
+      'type. objectui#10859 batch 8 retired the bare `currency` field-widget fallback, which is the ' +
+      'only reason this value used to pass here as a registered key.',
   },
   'content/docs/guide/plugin-development.md': {
     array:
@@ -889,6 +1157,11 @@ const DOC_TYPE_EXEMPTIONS = {
       'ObjectStack object-metadata FIELD type inside a `fields` record, alongside `text` and ' +
       '`lookup` — the picker/lookup family spelling packages/core/src/utils/record-title.ts:101 ' +
       'names explicitly. A field\'s data type, not a node type.',
+    lookup:
+      'Object-metadata FIELD type of a field in a `fields` record, alongside `text` and `picklist` ' +
+      '— a member of `FieldType` (@objectstack/spec/data, `FieldSchema.type`). A field\'s data ' +
+      'type, not a node type. objectui#10859 batch 8 retired the bare `lookup` field-widget ' +
+      'fallback, which is the only reason this value used to pass here as a registered key.',
   },
   'content/docs/guide/schema-overview.md': {
     action:
@@ -911,6 +1184,11 @@ const DOC_TYPE_EXEMPTIONS = {
     submit:
       'ActionSchema discriminant under a form\'s `actions[]`, alongside `reset` — an action ' +
       'definition in a list, not a rendered child. Same vocabulary as blocks/authentication.mdx.',
+    date:
+      'Column type under a `grid` node\'s `columns[]` — the field type a column renders its cells ' +
+      'by (`ListColumnSchema.type`, @objectstack/spec/ui). Not a node type. objectui#10859 batch 8 ' +
+      'retired the bare `date` field-widget fallback, which is the only reason this value used to ' +
+      'pass here as a registered key.',
   },
   'content/docs/guide/schema-rendering.md': {
     'admin-panel':
@@ -955,10 +1233,30 @@ const DOC_TYPE_EXEMPTIONS = {
     multiple:
       'SelectionConfig mode under `selection` — the spec\'s `none` / `single` / `multiple` ' +
       'vocabulary (`SelectionConfigSchema`, @objectstack/spec/ui), not a node type.',
+    currency:
+      'Column type under an `object-grid` node\'s `columns[]` — the field type a column renders its ' +
+      'cells by (`ListColumnSchema.type`, @objectstack/spec/ui). Not a node type. objectui#10859 ' +
+      'batch 8 retired the bare `currency` field-widget fallback, which is the only reason this ' +
+      'value used to pass here as a registered key.',
+    datetime:
+      'Column type under an `object-grid` node\'s `columns[]` — the field type a column renders its ' +
+      'cells by (`ListColumnSchema.type`, @objectstack/spec/ui). Not a node type. objectui#10859 ' +
+      'batch 8 retired the bare `datetime` field-widget fallback, which is the only reason this ' +
+      'value used to pass here as a registered key.',
+    number:
+      'Column type under an `object-grid` node\'s `columns[]` — the field type a column renders its ' +
+      'cells by (`ListColumnSchema.type`, @objectstack/spec/ui). Not a node type. objectui#10859 ' +
+      'batch 8 retired the bare `number` field-widget fallback, which is the only reason this value ' +
+      'used to pass here as a registered key.',
   },
   'content/docs/plugins/plugin-report.mdx': {
     matrix: 'ReportSchema.type kind — a report definition\'s shape, sibling of `joined` / `summary`.',
     joined: 'ReportSchema.type kind — a report definition\'s shape, sibling of `matrix` / `summary`.',
+    summary:
+      'ReportSchema.type kind — a report definition\'s shape, sibling of `matrix` / `joined` ' +
+      '(`ReportSchema`, @objectstack/spec/ui: `tabular` | `summary` | `matrix` | `joined`). Not a ' +
+      'node type. objectui#10859 batch 8 retired the bare `summary` field-widget fallback, which is ' +
+      'the only reason this value used to pass here as a registered key.',
   },
   'content/docs/utilities/runner.mdx': {
     'my-component':
@@ -1019,6 +1317,13 @@ const DOC_TYPE_EXEMPTIONS = {
       'Flow-graph node kind under `nodes[].type` — a member of `FlowNodeAction` (@objectstack/spec\'s ' +
       'automation flow schema) and the second of the two STRUCTURAL kinds (`FLOW_STRUCTURAL_NODE_TYPES`), ' +
       'the terminator `start` above is the sentinel for. Same vocabulary as `decision` above.',
+  },
+  'packages/data-objectstack/README.md': {
+    lookup:
+      'Object-metadata FIELD type of a field in a `client.save(\'object\', …)` call\'s `fields` map ' +
+      '— a member of `FieldType` (@objectstack/spec/data, `FieldSchema.type`). A field\'s data ' +
+      'type, not a node type. objectui#10859 batch 8 retired the bare `lookup` field-widget ' +
+      'fallback, which is the only reason this value used to pass here as a registered key.',
   },
   'packages/mobile/README.md': {
     'swipe-left':
@@ -1086,6 +1391,24 @@ const DOC_TYPE_EXEMPTIONS = {
       '(@objectstack/spec/ui), which `ColumnSummaryConfigSchema` REUSES for the object form so the ' +
       'shorthand (`summary: \'sum\'`) and the object form cannot drift into two vocabularies. This ' +
       'plugin dispatches the value in its `useColumnSummary` hook. Not a node type.',
+    currency:
+      'Column type under an `object-grid` node\'s `columns[]` — the field type a column renders its ' +
+      'cells by (`ListColumnSchema.type`, @objectstack/spec/ui). Not a node type. objectui#10859 ' +
+      'batch 8 retired the bare `currency` field-widget fallback, which is the only reason this ' +
+      'value used to pass here as a registered key. Same vocabulary as the ' +
+      '`content/docs/plugins/plugin-grid.mdx` entry above.',
+    datetime:
+      'Column type under an `object-grid` node\'s `columns[]` — the field type a column renders its ' +
+      'cells by (`ListColumnSchema.type`, @objectstack/spec/ui). Not a node type. objectui#10859 ' +
+      'batch 8 retired the bare `datetime` field-widget fallback, which is the only reason this ' +
+      'value used to pass here as a registered key. Same vocabulary as the ' +
+      '`content/docs/plugins/plugin-grid.mdx` entry above.',
+    number:
+      'Column type under an `object-grid` node\'s `columns[]` — the field type a column renders its ' +
+      'cells by (`ListColumnSchema.type`, @objectstack/spec/ui). Not a node type. objectui#10859 ' +
+      'batch 8 retired the bare `number` field-widget fallback, which is the only reason this value ' +
+      'used to pass here as a registered key. Same vocabulary as the ' +
+      '`content/docs/plugins/plugin-grid.mdx` entry above.',
   },
   'packages/plugin-kanban/README.md': {
     kanban:
@@ -1115,6 +1438,17 @@ const DOC_TYPE_EXEMPTIONS = {
       'rendering plan by `planReportChart` in this plugin\'s `DatasetReportRenderer`. Recorded as a ' +
       'correction rather than inherited: an entry that mis-names its vocabulary sends the next reader ' +
       'to the wrong declaration and cannot be re-checked.',
+    currency:
+      'Report field data type in a `ReportComponentSchema` `fields[]` entry — `ReportField.type` ' +
+      '(packages/types/src/reports.ts). Not a node type. objectui#10859 batch 8 retired the bare ' +
+      '`currency` field-widget fallback, which is the only reason this value used to pass here as a ' +
+      'registered key.',
+    summary:
+      'ReportSchema.type kind — a report definition\'s shape (`ReportSchema`, @objectstack/spec/ui: ' +
+      '`tabular` | `summary` | `matrix` | `joined`), which `ReportRenderer` dispatches on. Not a ' +
+      'node type. Same vocabulary as the `content/docs/plugins/plugin-report.mdx` entry above. ' +
+      'objectui#10859 batch 8 retired the bare `summary` field-widget fallback, which is the only ' +
+      'reason this value used to pass here as a registered key.',
   },
   'packages/plugin-view/README.md': {
     share:

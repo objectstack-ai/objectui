@@ -243,14 +243,13 @@ import '@object-ui/plugin-view';
 ```
 
 That single import is the whole of registration — there is no components map to
-iterate over. Importing the entry runs the seven `ComponentRegistry.register(...)`
+iterate over. Importing the entry runs the six `ComponentRegistry.register(...)`
 calls in `packages/plugin-view/src/index.tsx`, which claim exactly these schema
 types:
 
 | Namespaced key | Bare-name fallback | Renderer behind it |
 | --- | --- | --- |
 | `plugin-view:object-view` | `object-view` | `ObjectViewRenderer` — list plus integrated create / edit |
-| `plugin-view:view` | `view` | the same renderer, registered as an alias |
 | `plugin-view:view:simple` | `view:simple` | `SimpleViewRenderer` — container-only view |
 | `view:view-switcher` | `view-switcher` | `ViewSwitcher` |
 | `view:filter-ui` | `filter-ui` | `FilterUI` |
@@ -262,8 +261,12 @@ Both spellings resolve here: `ComponentRegistry.register` publishes
 `type` as a back-compat fallback (`ComponentRegistry.register` in
 `packages/core/src/registry/Registry.ts`, its `!meta?.skipFallback` branch). No
 call in this package sets `skipFallback`. Note the
-namespaces are not uniform — `object-view`, `view` and `view:simple` register
-under `plugin-view`, the four control components under `view`.
+namespaces are not uniform — `object-view` and `view:simple` register under
+`plugin-view`, the four control components under `view`.
+
+The bare `view` alias of `object-view` is RETIRED (objectui#10859 batch 8): it
+named the same renderer as `object-view`, and `objectui validate` refused it at
+`type`. Author `object-view`.
 
 `ObjectViewRenderer` and `SimpleViewRenderer` are internal wrappers and are not
 exported: the wrapper resolves `dataSource` from the renderer context and hands

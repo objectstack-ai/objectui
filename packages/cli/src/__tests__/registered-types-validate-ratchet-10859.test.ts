@@ -68,20 +68,24 @@ import { validate } from '../commands/validate.js';
  * minus the three `@object-ui/plugin-ai` arms; batch 2: minus `pivot`,
  * `object-metric` and `object-master-detail-form`; batch 3: minus
  * `object-timeline`, armed from its `@objectstack/spec` 17.5.0 row; batch 7:
- * minus the six `@object-ui/plugin-designer` keys). LOWER it when a batch arms
- * more keys; never raise it.
+ * minus the six `@object-ui/plugin-designer` keys; batch 8: minus the thirty
+ * (iii) keys RETIRED rather than armed — the 28 bare field-widget fallbacks
+ * and the `tree` / `view` aliases, see `RETIRED_BARE_KEYS_10859_BATCH_8`).
+ * LOWER it when a batch arms or retires more keys; never raise it.
  */
-const REFUSED_AT_TYPE = 66;
+const REFUSED_AT_TYPE = 36;
 
 /**
  * The head's refused count over the NAMESPACED keys (objectui#10872 batch 1:
  * 418 on `main` before it, minus the twenty ADR-0080 public blocks armed from
  * their `@objectstack/spec` `ComponentPropsMap` rows; batch 2: minus
  * `element:number`, armed with the spec's `dataSource` waiver; batch 4: minus
- * the six blocks `@objectstack/spec` 17.5.0 gave a row). LOWER it when a batch
- * arms more keys; never raise it.
+ * the six blocks `@objectstack/spec` 17.5.0 gave a row; objectui#10859 batch 8:
+ * minus `view:tree` and `plugin-view:view`, the namespaced twins of the `tree` /
+ * `view` aliases it unregistered). LOWER it when a batch arms or retires more
+ * keys; never raise it.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 391;
+const NAMESPACED_REFUSED_AT_TYPE = 389;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));
@@ -107,6 +111,21 @@ const ARMED_PUBLIC_BLOCKS_10872_BATCH_2 = ['element:number'] as const;
 const ARMED_PUBLIC_BLOCKS_10872_BATCH_4 = [
   'action:button', 'action:icon', 'action:group', 'action:menu', 'element:definition-list', 'element:repeater',
 ] as const;
+
+/**
+ * The thirty bare keys objectui#10859 batch 8 RETIRED (the seat's ruling on the
+ * card), named so the row below says which keys left the population and how:
+ * the 28 field-widget fallbacks through `FIELD_TYPES_SKIP_FALLBACK` in
+ * `@object-ui/fields` (their `field:TYPE` keys stay), and the `tree` / `view`
+ * aliases by unregistration.
+ */
+const RETIRED_FIELD_FALLBACKS_10859_BATCH_8 = [
+  'auto_number', 'boolean', 'checkboxes', 'color', 'currency', 'date', 'datetime',
+  'file', 'formula', 'geolocation', 'location', 'lookup', 'master_detail', 'multiselect',
+  'number', 'object', 'percent', 'phone', 'qrcode', 'radio', 'rating', 'richtext',
+  'signature', 'summary', 'tags', 'url', 'user', 'vector',
+] as const;
+const RETIRED_BARE_KEYS_10859_BATCH_8 = [...RETIRED_FIELD_FALLBACKS_10859_BATCH_8, 'tree', 'view'] as const;
 
 /** Is `type` unclaimed by every arm of the validator's root union? */
 function refusedAtType(type: string): boolean {
@@ -135,8 +154,9 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
 
   it('reads the whole generated population, not a fragment of it (non-vacuity)', () => {
     // The card's measurement was over this same population; a filter that
-    // matched nothing would make the count above trivially small.
-    expect(BARE_KEYS.length).toBeGreaterThan(200);
+    // matched nothing would make the count above trivially small. (The floor
+    // was 200 until objectui#10859 batch 8 unregistered thirty bare keys.)
+    expect(BARE_KEYS.length).toBeGreaterThan(150);
     expect(BARE_KEYS).toContain('timeline');
     expect(BARE_KEYS).toContain('ai-form-assist');
   });
@@ -178,6 +198,24 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
       expect(BARE_KEYS, key).toContain(key);
       expect(refusedAtType(key), key).toBe(false);
     }
+  });
+
+  it('counts the thirty keys batch 8 retired as gone from the registry (objectui#10859 batch 8)', () => {
+    // Retired, not armed: each key left the generated population, so it can
+    // neither be refused nor pass. Still refused at `type` — no arm was added.
+    for (const key of RETIRED_BARE_KEYS_10859_BATCH_8) {
+      expect(BARE_KEYS, key).not.toContain(key);
+      expect(refusedAtType(key), key).toBe(true);
+    }
+    // The field widgets themselves stay registered, under `field:TYPE` only.
+    for (const key of RETIRED_FIELD_FALLBACKS_10859_BATCH_8) {
+      expect(NAMESPACED_KEYS, `field:${key}`).toContain(`field:${key}`);
+    }
+    // The aliases' namespaced twins went with them; the canonical blocks stay.
+    expect(NAMESPACED_KEYS).not.toContain('view:tree');
+    expect(NAMESPACED_KEYS).not.toContain('plugin-view:view');
+    expect(BARE_KEYS).toContain('object-tree');
+    expect(BARE_KEYS).toContain('object-view');
   });
 });
 

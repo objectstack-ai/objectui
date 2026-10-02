@@ -7,10 +7,14 @@ the right view for hierarchies of unbounded depth such as **business unit /
 org chart**, category trees, menu trees, BOMs, or nested comments. (Grouping
 handles *fixed-depth* hierarchies; a tree handles arbitrary depth.)
 
-It registers two component types via the `ComponentRegistry`:
+It registers one component type via the `ComponentRegistry`:
 
 - `object-tree` — the object-bound renderer, and the one an author selects
-- `tree` — a view-type alias reached only by host composition (see below)
+
+The bare `tree` registry key (`view:tree`), a second key on the same renderer,
+is RETIRED (objectui#10859 batch 8): `objectui validate` refused it at `type`,
+and nothing authored it. `tree` survives as a host-composition VIEW type (see
+below), which `ObjectView` and `ListView` compose into an `object-tree` node.
 
 ## Usage
 

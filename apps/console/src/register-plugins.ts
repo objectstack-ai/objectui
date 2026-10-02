@@ -56,10 +56,10 @@ ComponentRegistry.registerLazy('object-tree', () => import('@object-ui/plugin-tr
   namespace: 'plugin-tree',
   category: 'view',
 });
-ComponentRegistry.registerLazy('tree', () => import('@object-ui/plugin-tree'), {
-  namespace: 'view',
-  category: 'view',
-});
+// ⛔ The bare `tree` node type key is RETIRED (objectui#10859 batch 8, the
+// objectui#10393 route) — `object-tree` above is the surviving spelling. The
+// STORED / host view type `tree` is a different layer and is untouched:
+// `ObjectView` and `ListView` already emit `object-tree` for it.
 
 // Dashboard plugin — only used on dashboard / home pages. Lazy-load all 8
 // component types so the ~150 KB widget/pivot/metric tree stays out of the

@@ -141,17 +141,16 @@ describe('objectui check — foreign root-`type` vocabularies are never judged',
   });
 
   it('says nothing about a JSON Schema document', async () => {
-    // Two documents, and the SECOND one is the load-bearing half. `object` is
-    // itself a registered component key, so a JSON Schema whose root type is
-    // `object` was silent before this change too — it would pass here for a
-    // reason that has nothing to do with the marker. `array` is not registered,
-    // so the array document is one that genuinely warned before.
+    // Two documents. `array` is not registered, so the array document is one
+    // that genuinely warned before the marker landed.
     //
-    // objectui#6075 split what used to be one bucket. Because `object` IS a
-    // registered key, the draft-07 document lands in the unvalidated-candidate
+    // objectui#6075 split what used to be one bucket, and while `object` was a
+    // registered key the draft-07 document landed in the unvalidated-candidate
     // report rather than the skipped count — the ONE false positive that
-    // discriminator has, pinned here so it stays a known, one-line cost and
-    // never silently grows. Neither document is JUDGED, which is what this
+    // discriminator had, pinned here as a known, one-line cost. objectui#10859
+    // batch 8 retired the bare `object` key (a `@object-ui/fields` fallback that
+    // no document authored as a node), so that false positive is gone: both
+    // documents are now skipped. Neither document is JUDGED, which is what this
     // suite is about.
     //
     // Note the array document carries `items`, which is why `items` is absent
@@ -173,14 +172,11 @@ describe('objectui check — foreign root-`type` vocabularies are never judged',
     });
     await check(cwd);
     expect(unknownTypeWarnings()).toEqual([]);
-    // The array document is unrecognisable by every arm: skipped.
-    expect(skippedCount()).toBe(1);
-    // The `object` document is refused by both recogniser arms but its root
-    // type is registered, so it is reported by name instead of counted.
-    expect(candidateCount()).toBe(1);
-    expect(candidateLines()).toEqual([
-      expect.stringContaining('thing.schema.json (type "object")'),
-    ]);
+    // Both documents are unrecognisable by every arm, and neither root type is
+    // registered: both skipped, none reported as a candidate.
+    expect(skippedCount()).toBe(2);
+    expect(candidateCount()).toBe(0);
+    expect(candidateLines()).toEqual([]);
   });
 
   it('says nothing about a deployment resource descriptor', async () => {

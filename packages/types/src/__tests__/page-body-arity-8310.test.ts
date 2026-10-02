@@ -282,14 +282,16 @@ describe('`body` is refused by name on the page node (objectui#6771)', () => {
 /* -------------------------------------------------------------------------- */
 
 /**
- * The `const schema = {` object literal inside the README's "Basic Usage"
- * fence, returned as source text. Scanned with brace-depth tracking rather
- * than a regex so a nested `children[]` cannot end the span early.
+ * The `const schema: DeclaredNode = {` object literal inside the README's
+ * "Basic Usage" fence, returned as source text. Scanned with brace-depth
+ * tracking rather than a regex so a nested `children[]` cannot end the span
+ * early. The annotation is part of the anchor since objectui#11466, which
+ * typed the example as the node the `schema` prop takes.
  */
 function basicUsageSchemaLiteral(): string {
   const heading = README.indexOf('#### Basic Usage');
   expect(heading).toBeGreaterThan(-1);
-  const start = README.indexOf('const schema = {', heading);
+  const start = README.indexOf('const schema: DeclaredNode = {', heading);
   expect(start).toBeGreaterThan(-1);
 
   let depth = 0;

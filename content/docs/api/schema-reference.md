@@ -51,22 +51,11 @@ authoring nodes) and every type your application declares in
 `CustomNodeRegistry`. Every node slot (`children`, `trigger`, `content`, a
 view's `schema`) and `SchemaRenderer`'s `schema` prop take it, so an inline
 child is checked against its own type's keys, and a `type` nothing declares is
-refused. A type you register with `ComponentRegistry` is declared like this:
-
-```typescript
-import type { BaseSchema } from '@object-ui/types';
-
-interface MyWidgetSchema extends BaseSchema {
-  type: 'my-widget';
-  customProp?: string;
-}
-
-declare module '@object-ui/types' {
-  interface CustomNodeRegistry {
-    'my-widget': MyWidgetSchema;
-  }
-}
-```
+refused. A type you register with `ComponentRegistry` joins it through
+`CustomNodeRegistry`, an interface your application augments with
+`declare module '@object-ui/types'`, one entry per registered type, keyed by
+the type's name. The SchemaRenderer page's "Component Registry" section walks
+through a registration and its entry.
 
 ### BaseSchema
 

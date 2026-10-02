@@ -352,9 +352,10 @@ describe('six overlay/feedback pages name node slots at the declared type (objec
     // Control: the file is still there and still readable, so the absence above
     // is a reading about its CONTENT and not about a failed read.
     expect(blocks).toContain('@module blocks');
-    // And `SchemaNode` is the slot type these keys actually carry.
+    // And `SchemaNode` is the slot type these keys actually carry. Its object arm
+    // is `DeclaredNode`, the declared-node union, since objectui#11466.
     expect(read('packages/types/src/base.ts')).toContain(
-      'export type SchemaNode = BaseSchema | string | number | boolean | null | undefined;',
+      'export type SchemaNode = DeclaredNode | string | number | boolean | null | undefined;',
     );
   });
 });

@@ -20,13 +20,13 @@ import { buildInitFiles } from '../commands/init.js';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_BIN = resolve(__dirname, '../../dist/cli.js');
 const PKG_PATH = resolve(__dirname, '../../package.json');
-const CLI_DOCS = resolve(__dirname, '../../../../content/docs/utilities/cli.mdx');
 
 /**
  * The commands the CLI declares. The enumeration pin below holds this list
- * equal to the built CLI's `--help` and to the `### objectui NAME` headings of
- * the CLI docs, both directions (objectui#11496). `add` is deliberately absent:
- * it was retired, and the bin refuses it as an unknown command.
+ * equal to the built CLI's `--help`, both directions (objectui#11496). `add` is
+ * deliberately absent: it was retired, and the bin refuses it as an unknown
+ * command. The CLI docs give each of these a `### objectui NAME` heading; keep
+ * them in step by hand, because nothing in this file reads the docs.
  */
 const SUBCOMMANDS = [
   'serve',
@@ -116,15 +116,6 @@ function helpCommandNames(helpText: string): string[] {
   return names;
 }
 
-/**
- * The command names the CLI docs give a `### objectui NAME` heading, read from
- * the `## Commands` section only.
- */
-function documentedCommandNames(docs: string): string[] {
-  const section = docs.split(/^## /m).find((chunk) => chunk.startsWith('Commands\n')) ?? '';
-  return [...section.matchAll(/^### `objectui ([a-z-]+)/gm)].map((m) => m[1]);
-}
-
 describe('@object-ui/cli bin', () => {
   beforeAll(() => {
     // The CLI bin imports @object-ui/types/zod at runtime (validate command),
@@ -192,11 +183,12 @@ describe('@object-ui/cli bin', () => {
   });
 
   // objectui#11496. One enumeration over the built CLI's commands, so the next
-  // declared-but-unbuilt command cannot ship the way `add` did: a command that
-  // comes back, or a new one nobody documented, turns this red. It replaces a
-  // containment check that a retired command coming back would have passed.
+  // declared-but-unbuilt command cannot ship the way `add` did: a retired
+  // command that comes back, or a new one this list does not name, turns this
+  // red. It replaces a containment check that a retired command coming back
+  // would have passed.
   describe('--help', () => {
-    it('lists exactly the declared commands, and the CLI docs document exactly those', () => {
+    it('lists exactly the declared commands, no more and no fewer', () => {
       const res = run(['--help']);
       expect(res.code, res.stderr).toBe(0);
       const listed = helpCommandNames(res.stdout);
@@ -206,9 +198,6 @@ describe('@object-ui/cli bin', () => {
       const declared = listed.filter((name) => name !== 'help');
       expect([...declared].sort()).toEqual([...SUBCOMMANDS].sort());
       expect(new Set(declared).size).toBe(declared.length);
-
-      const documented = documentedCommandNames(readFileSync(CLI_DOCS, 'utf-8'));
-      expect([...documented].sort()).toEqual([...SUBCOMMANDS].sort());
     });
 
     it('uses the "objectui" bin name (not "os ui")', () => {

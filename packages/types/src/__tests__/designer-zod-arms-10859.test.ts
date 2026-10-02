@@ -30,14 +30,21 @@
  * ## What the parity half asserts
  *
  * Every arm and record mirror declares exactly its declaration's key set, and
- * each member accepts exactly the declared type, with ONE named exception: the
- * four node members the card's ruling keeps off a second face because nothing
- * reads them (`DataModelDesignerSchema.autoLayout`, `ProcessDesignerSchema`'s
- * `lanes` and `version`, `ReportDesignerSchema.previewMode`). Those four stay
- * declared on the TypeScript face and are absent from the arm, and that
- * asymmetry is pinned both ways so a change to either face reddens a row.
- * The two members the ruling settled first, `ProcessDesignerSchema.variables`
- * and `ReportDesignerSchema.parameters`, are absent from BOTH faces.
+ * each member accepts exactly the declared type, with ONE named exception:
+ * `ProcessDesignerSchema`'s `lanes` and `version`, which stay declared on the
+ * TypeScript face and absent from the arm until the reader objectui#11434's
+ * ruling gives them lands. That asymmetry is pinned both ways so a change to
+ * either face reddens a row. The two members the batch-7 ruling settled first,
+ * `ProcessDesignerSchema.variables` and `ReportDesignerSchema.parameters`, are
+ * absent from BOTH faces.
+ *
+ * The other two batch-7 exceptions, `DataModelDesignerSchema.autoLayout` and
+ * `ReportDesignerSchema.previewMode`, are RETIRED on both faces since
+ * objectui#11434 — a `?: never` tombstone on the TypeScript face and a
+ * retirement tombstone on the arm, so the arm declares them again and the
+ * key-set rows below hold without an exception. Those tombstones, and the
+ * other members objectui#11434 retired, are pinned by
+ * `designer-members-retired-11434.test.ts` beside this file.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -58,9 +65,7 @@ import {
   DesignerPaletteItemSchema,
   DesignerPositionSchema,
   DesignerUnionSchema,
-  DesignerValidationRuleSchema,
   FieldDesignerSchema,
-  ObjectDefinitionRelationshipSchema,
   ObjectDefinitionSchema,
   ObjectManagerSchema,
   PageDesignerSchema,
@@ -85,10 +90,8 @@ import type {
   DesignerPaletteCategory as Ts_DesignerPaletteCategory,
   DesignerPaletteItem as Ts_DesignerPaletteItem,
   DesignerPosition as Ts_DesignerPosition,
-  DesignerValidationRule as Ts_DesignerValidationRule,
   FieldDesignerSchema as Ts_FieldDesignerSchema,
   ObjectDefinition as Ts_ObjectDefinition,
-  ObjectDefinitionRelationship as Ts_ObjectDefinitionRelationship,
   ObjectManagerSchema as Ts_ObjectManagerSchema,
   PageDesignerSchema as Ts_PageDesignerSchema,
   ProcessDesignerSchema as Ts_ProcessDesignerSchema,
@@ -123,8 +126,9 @@ type MismatchedKeys<M, D> = {
 
 /**
  * Every record mirror declares exactly the declaration's key set, and every arm
- * declares it minus exactly the zero-read members the ruling keeps off a second
- * face — named per arm, so a fifth one cannot slip in unseen.
+ * declares it too, except `process-designer`, which omits exactly the two
+ * members still waiting for their reader — named, so a third cannot slip in
+ * unseen.
  */
 export type assertionKeySetsAgree = [
   Expect<Equal<MirroredKeys<typeof DesignerPositionSchema>, DeclaredKeys<Ts_DesignerPosition>>>,
@@ -138,17 +142,15 @@ export type assertionKeySetsAgree = [
   Expect<Equal<MirroredKeys<typeof BPMNEdgeSchema>, DeclaredKeys<Ts_BPMNEdge>>>,
   Expect<Equal<MirroredKeys<typeof ReportDesignerElementSchema>, DeclaredKeys<Ts_ReportDesignerElement>>>,
   Expect<Equal<MirroredKeys<typeof ReportDesignerSectionSchema>, DeclaredKeys<Ts_ReportDesignerSection>>>,
-  Expect<Equal<MirroredKeys<typeof ObjectDefinitionRelationshipSchema>, DeclaredKeys<Ts_ObjectDefinitionRelationship>>>,
   Expect<Equal<MirroredKeys<typeof ObjectDefinitionSchema>, DeclaredKeys<Ts_ObjectDefinition>>>,
   Expect<Equal<MirroredKeys<typeof DesignerFieldOptionSchema>, DeclaredKeys<Ts_DesignerFieldOption>>>,
-  Expect<Equal<MirroredKeys<typeof DesignerValidationRuleSchema>, DeclaredKeys<Ts_DesignerValidationRule>>>,
   Expect<Equal<MirroredKeys<typeof DesignerFieldDefinitionSchema>, DeclaredKeys<Ts_DesignerFieldDefinition>>>,
   Expect<Equal<MirroredKeys<typeof PageDesignerSchema>, DeclaredKeys<Ts_PageDesignerSchema>>>,
   Expect<Equal<MirroredKeys<typeof ObjectManagerSchema>, DeclaredKeys<Ts_ObjectManagerSchema>>>,
   Expect<Equal<MirroredKeys<typeof FieldDesignerSchema>, DeclaredKeys<Ts_FieldDesignerSchema>>>,
-  Expect<Equal<MirroredKeys<typeof DataModelDesignerSchema>, Exclude<DeclaredKeys<Ts_DataModelDesignerSchema>, 'autoLayout'>>>,
+  Expect<Equal<MirroredKeys<typeof DataModelDesignerSchema>, DeclaredKeys<Ts_DataModelDesignerSchema>>>,
   Expect<Equal<MirroredKeys<typeof ProcessDesignerSchema>, Exclude<DeclaredKeys<Ts_ProcessDesignerSchema>, 'lanes' | 'version'>>>,
-  Expect<Equal<MirroredKeys<typeof ReportDesignerSchema>, Exclude<DeclaredKeys<Ts_ReportDesignerSchema>, 'previewMode'>>>,
+  Expect<Equal<MirroredKeys<typeof ReportDesignerSchema>, DeclaredKeys<Ts_ReportDesignerSchema>>>,
 ];
 
 /** Every mirrored member's accepted type equals the declaration's, on every arm and record mirror. */
@@ -164,10 +166,8 @@ export type assertionMemberTypesAgree = [
   Expect<Equal<MismatchedKeys<typeof BPMNEdgeSchema, Ts_BPMNEdge>, never>>,
   Expect<Equal<MismatchedKeys<typeof ReportDesignerElementSchema, Ts_ReportDesignerElement>, never>>,
   Expect<Equal<MismatchedKeys<typeof ReportDesignerSectionSchema, Ts_ReportDesignerSection>, never>>,
-  Expect<Equal<MismatchedKeys<typeof ObjectDefinitionRelationshipSchema, Ts_ObjectDefinitionRelationship>, never>>,
   Expect<Equal<MismatchedKeys<typeof ObjectDefinitionSchema, Ts_ObjectDefinition>, never>>,
   Expect<Equal<MismatchedKeys<typeof DesignerFieldOptionSchema, Ts_DesignerFieldOption>, never>>,
-  Expect<Equal<MismatchedKeys<typeof DesignerValidationRuleSchema, Ts_DesignerValidationRule>, never>>,
   Expect<Equal<MismatchedKeys<typeof DesignerFieldDefinitionSchema, Ts_DesignerFieldDefinition>, never>>,
   Expect<Equal<MismatchedKeys<typeof PageDesignerSchema, Ts_PageDesignerSchema>, never>>,
   Expect<Equal<MismatchedKeys<typeof DataModelDesignerSchema, Ts_DataModelDesignerSchema>, never>>,
@@ -188,18 +188,17 @@ export type assertionCanvasComponentIsTheDeclaration = [
 
 /**
  * The ruling's settlement, both faces: `variables` and `parameters` are
- * declared by NEITHER, and the four zero-read members that are NOT settled
- * here stay declared on the TypeScript face (⛔ not retired in this change)
- * while the arm omits them.
+ * declared by NEITHER, and the two members objectui#11434 ruled READ but has
+ * not yet given a reader stay declared on the TypeScript face while the arm
+ * omits them. (`autoLayout` and `previewMode`, the other two batch-7 open
+ * members, are tombstones on both faces now — pinned beside this file.)
  */
 export type assertionSettlementFaces = [
   Expect<Equal<'variables' extends DeclaredKeys<Ts_ProcessDesignerSchema> ? true : false, false>>,
   Expect<Equal<'variables' extends MirroredKeys<typeof ProcessDesignerSchema> ? true : false, false>>,
   Expect<Equal<'parameters' extends DeclaredKeys<Ts_ReportDesignerSchema> ? true : false, false>>,
   Expect<Equal<'parameters' extends MirroredKeys<typeof ReportDesignerSchema> ? true : false, false>>,
-  Expect<Equal<Extract<DeclaredKeys<Ts_DataModelDesignerSchema>, 'autoLayout'>, 'autoLayout'>>,
   Expect<Equal<Extract<DeclaredKeys<Ts_ProcessDesignerSchema>, 'lanes' | 'version'>, 'lanes' | 'version'>>,
-  Expect<Equal<Extract<DeclaredKeys<Ts_ReportDesignerSchema>, 'previewMode'>, 'previewMode'>>,
 ];
 
 /**
@@ -216,7 +215,11 @@ export type assertionInstrumentFires = [
 const POSITION = { x: 0, y: 0, width: 200, height: '4rem' };
 const CANVAS = { width: 1200, height: 800, gridSize: 8, showGrid: true, snapToGrid: true, zoom: 1, backgroundColor: '#fff' };
 
-/** One document per armed key, every mirrored member written. */
+/**
+ * One document per armed key, every live mirrored member written. The members
+ * objectui#11434 retired are absent: their tombstones accept nothing but
+ * absence, and `designer-members-retired-11434.test.ts` pins the refusals.
+ */
 const FULL = [
   {
     type: 'page-designer',
@@ -228,7 +231,7 @@ const FULL = [
         label: 'Hero',
         position: POSITION,
         props: { title: 'Welcome' },
-        children: [{ id: 'cta', type: 'button', position: POSITION, props: {}, parentId: 'hero', locked: false, visible: true, zIndex: 2 }],
+        children: [{ id: 'cta', type: 'button', position: POSITION, props: {}, locked: false, visible: true, zIndex: 2 }],
       },
     ],
     palette: [{ name: 'basic', label: 'Basic', icon: 'box', items: [{ type: 'text', label: 'Text', icon: 'type', defaultProps: { value: '' }, defaultSize: { width: 200, height: 40 }, preview: '/text.png' }] }],
@@ -246,7 +249,7 @@ const FULL = [
       },
     ],
     relationships: [
-      { id: 'r1', sourceEntity: 'e1', sourceField: 'id', targetEntity: 'e2', targetField: 'account_id', type: 'one-to-many', label: 'has', onDelete: 'cascade', onUpdate: 'no-action' },
+      { id: 'r1', sourceEntity: 'e1', sourceField: 'id', targetEntity: 'e2', targetField: 'account_id', type: 'one-to-many', label: 'has', onDelete: 'cascade' },
     ],
     canvas: CANVAS,
     showRelationshipLabels: true,
@@ -257,7 +260,7 @@ const FULL = [
     processName: 'Order Approval',
     nodes: [
       { id: 'n1', type: 'start-event', label: 'Start', position: { x: 0, y: 0 } },
-      { id: 'n2', type: 'user-task', label: 'Approve', position: { x: 200, y: 0 }, properties: { sla: 2 }, assignee: 'manager', dueDate: 'P2D', script: '', serviceEndpoint: '', description: 'Manager approves' },
+      { id: 'n2', type: 'user-task', label: 'Approve', position: { x: 200, y: 0 }, properties: { sla: 2 }, assignee: 'manager', dueDate: 'P2D', script: '', description: 'Manager approves' },
     ],
     edges: [{ id: 'f1', source: 'n1', target: 'n2', condition: 'amount > 0', label: 'go', isDefault: true }],
     canvas: CANVAS,
@@ -288,7 +291,6 @@ const FULL = [
       {
         id: 'o1', name: 'account', label: 'Account', pluralLabel: 'Accounts', description: 'Customers', icon: 'Building',
         group: 'Custom Objects', sortOrder: 1, isSystem: false, fieldCount: 12,
-        relationships: [{ relatedObject: 'contact', type: 'one-to-many', label: 'Contacts', foreignKey: 'account_id' }],
       },
     ],
     readOnly: false,
@@ -302,7 +304,6 @@ const FULL = [
         id: 'f1', name: 'rating', label: 'Rating', type: 'select', group: 'General', description: 'How hot',
         required: false, unique: false, readonly: false, hidden: false, defaultValue: 'warm', placeholder: 'Pick',
         options: [{ label: 'Warm', value: 'warm', color: 'orange' }],
-        validationRules: [{ type: 'maxLength', value: 10, message: 'Too long' }],
         isSystem: false, externalId: false, trackHistory: true, referenceTo: 'account',
       },
     ],
@@ -410,7 +411,7 @@ describe('the arms are closed where the declaration is (objectui#10859 batch 7)'
   });
 });
 
-describe('the ruling\'s settlement and its four open members (objectui#10859 batch 7)', () => {
+describe('the ruling\'s settlement and its two members still waiting for a reader (objectui#10859 batch 7, objectui#11434)', () => {
   it.each([
     ['process-designer', 'variables', [{ name: 'amount', type: 'number' }]],
     ['report-designer', 'parameters', [{ name: 'from', type: 'date', label: 'From' }]],
@@ -424,11 +425,9 @@ describe('the ruling\'s settlement and its four open members (objectui#10859 bat
   });
 
   it.each([
-    ['autoLayout', DataModelDesignerSchema],
     ['lanes', ProcessDesignerSchema],
     ['version', ProcessDesignerSchema],
-    ['previewMode', ReportDesignerSchema],
-  ] as const)('the arm omits the zero-read member `%s` (unmirrored by the ruling, for the seat to rule)', (key, arm) => {
+  ] as const)('the arm omits the zero-read member `%s` (ruled READ on objectui#11434; unmirrored until its reader lands)', (key, arm) => {
     expect(Object.keys(arm.shape)).not.toContain(key);
     // Lit control: the arm's shape is readable and carries its read members.
     expect(Object.keys(arm.shape)).toContain('readOnly');

@@ -99,7 +99,6 @@ ComponentRegistry.register('data-model-designer', DataModelDesigner, {
   inputs: [
     { name: 'entities', type: 'code' },
     { name: 'relationships', type: 'code' },
-    { name: 'autoLayout', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
   ],
 });

@@ -372,7 +372,13 @@
  *     and 37 / 53 until objectui#7344 swept the string / `z.any()` handler mirrors:
  *     `DetailSchema` and `DetailViewSchema` entered (one `onBack` each) and
  *     `CalendarViewSchema` grew by `onEventClick`.
- *   - **8 entries** in `UnmirroredDeclared`, **20 keys** across them — 5 / 16 until
+ *   - **6 entries** in `UnmirroredDeclared`, **18 keys** across them — 8 / 20 until
+ *     objectui#11434 RETIRED two of the three designer entries' keys on both faces under
+ *     ADR-0049 enforce-or-remove, each a tombstone and so a mirrored member:
+ *     `DataModelDesignerSchema.autoLayout` (auto-layout is an action the toolbar already
+ *     runs) and `ReportDesignerSchema.previewMode` (preview is a tool mode, not authored
+ *     state). Both entries closed; `ProcessDesignerSchema`'s `lanes` and `version` stay,
+ *     ruled READ, until that card's reader change mirrors them; 5 / 16 until
  *     objectui#10859 batch 7 armed the six `@object-ui/plugin-designer` node types in
  *     `designer.zod.ts`: THREE entries are NEW, LOCAL, one per pair born ledgered, and
  *     together they carry four keys — `DataModelDesignerSchema.autoLayout`,
@@ -543,8 +549,12 @@
  *     two. ⭐ The direction is the one this ledger is meant to drain in: a
  *     runtime-only key leaves by being declared on the mirror, never by being
  *     quietly refiled.
- *     **0 of the 5** are a subset of the **8** pairs above, so
- *     the union of the two unmirrored ledgers is **13** pairs, being **8** from `UnmirroredDeclared` plus **5** recorded ONLY in `RuntimeOnlyDeclared`.
+ *     **0 of the 5** are a subset of the **6** pairs above, so
+ *     the union of the two unmirrored ledgers is **11** pairs, being **6** from `UnmirroredDeclared` plus **5** recorded ONLY in `RuntimeOnlyDeclared`.
+ *     ⭐ objectui#11434 moved the union from 13 to 11 and nothing else: the two designer
+ *     entries it closed (`DataModelDesignerSchema`, `ReportDesignerSchema`, whose keys it
+ *     retired on both faces) were in `UnmirroredDeclared` alone, so the shared count
+ *     stays zero. It read `0 of the 8`, a union of `13`, until then.
  *     ⭐ objectui#11355 round 2 moved the difference from 4 to 5 and the union from 12 to
  *     13: `ObjectChartSchema` entered `RuntimeOnlyDeclared` as a NEW pair recorded only
  *     there, and `UnmirroredDeclared` did not move. It read `0 of the 4`, a union of `12`,
@@ -868,7 +878,7 @@ import { BaseSchema, ComponentConfigSchema, ComponentInputSchema, ComponentMetaS
 import { CalendarEventSchema, CalendarViewSchema, CarouselItemSchema, CarouselSchema, ChatbotSchema, ChatbotEnhancedSchema, ChatbotFloatingSchema, ChatMessageSchema, ChatMessageSourceSchema, ChatToolInvocationSchema, DashboardComponentSchema, DashboardConfigSchema, DashboardWidgetConfigSchema, DashboardWidgetLayoutSchema, DashboardWidgetSchema, FilterBuilderSchema, FilterFieldSchema, KanbanCardSchema, KanbanColumnSchema, CardTemplateSchema, FilterGroupSchema } from '../zod/complex.zod.js';
 import { ActionSchema, CRUDDialogSchema, DetailSchema } from '../zod/crud.zod.js';
 import { AlertSchema, AvatarSchema, BadgeSchema, BarChartSchema, ChartDataSeriesSchema, ChartSchema, DataTableSchema, DrillDownConfigSchema, HtmlSchema, KbdSchema, ListItemSchema, ListSchema, MarkdownSchema, PivotTableSchema, StaticTableColumnSchema, StatisticSchema, TableColumnSchema, TableSchema, TimelineEventSchema, TimelineFeedItemSchema, TimelineGanttItemBarSchema, TimelineGanttItemSchema, TimelineSchema, TreeNodeSchema, TreeViewSchema } from '../zod/data-display.zod.js';
-import { BPMNEdgeSchema, BPMNNodeSchema, DataModelDesignerSchema, DataModelEntitySchema, DataModelFieldSchema, DataModelRelationshipSchema, DesignerCanvasConfigSchema, DesignerComponentSchema, DesignerFieldDefinitionSchema, DesignerFieldOptionSchema, DesignerPaletteCategorySchema, DesignerPaletteItemSchema, DesignerPositionSchema, DesignerValidationRuleSchema, FieldDesignerSchema, ObjectDefinitionRelationshipSchema, ObjectDefinitionSchema, ObjectManagerSchema, PageDesignerSchema, ProcessDesignerSchema, ReportDesignerElementSchema, ReportDesignerSchema, ReportDesignerSectionSchema } from '../zod/designer.zod.js';
+import { BPMNEdgeSchema, BPMNNodeSchema, DataModelDesignerSchema, DataModelEntitySchema, DataModelFieldSchema, DataModelRelationshipSchema, DesignerCanvasConfigSchema, DesignerComponentSchema, DesignerFieldDefinitionSchema, DesignerFieldOptionSchema, DesignerPaletteCategorySchema, DesignerPaletteItemSchema, DesignerPositionSchema, FieldDesignerSchema, ObjectDefinitionSchema, ObjectManagerSchema, PageDesignerSchema, ProcessDesignerSchema, ReportDesignerElementSchema, ReportDesignerSchema, ReportDesignerSectionSchema } from '../zod/designer.zod.js';
 import { AccordionItemSchema, AccordionSchema, CollapsibleSchema, ToggleGroupItemSchema, ToggleGroupSchema } from '../zod/disclosure.zod.js';
 import { EmptySchema, LoadingSchema, ProgressSchema, SkeletonSchema, SonnerSchema, SpinnerSchema, ToasterSchema, ToastSchema } from '../zod/feedback.zod.js';
 import { ButtonSchema, CalendarSchema, CheckboxSchema, CodeEditorSchema, ComboboxOptionSchema, ComboboxSchema, CommandGroupSchema, CommandItemSchema, CommandSchema, DatePickerSchema, FieldConditionSchema, FieldConstraintsSchema, FileUploadSchema, FormFieldSchema, FormSchema, InputOTPSchema, InputSchema, InputShorthandSchema, LabelSchema, RadioGroupSchema, RadioOptionSchema, SelectOptionSchema, SelectSchema, SliderSchema, SwitchSchema, TextareaSchema, ToggleSchema, UiCalendarSchema } from '../zod/form.zod.js';
@@ -883,7 +893,7 @@ import type { AIConfig as Ts_AIConfig, AIFieldSuggestion as Ts_AIFieldSuggestion
 import type { AppComponentSchema as Ts_AppComponentSchema, NavigationArea as Ts_NavigationArea } from '../app';
 import type { BaseSchema as Ts_BaseSchema, ComponentConfig as Ts_ComponentConfig, ComponentInput as Ts_ComponentInput, ComponentMeta as Ts_ComponentMeta, KeyedI18nLabel as Ts_KeyedI18nLabel } from '../base';
 import type { CalendarEvent as Ts_CalendarEvent, CalendarViewSchema as Ts_CalendarViewSchema, CarouselItem as Ts_CarouselItem, CarouselSchema as Ts_CarouselSchema, ChatbotSchema as Ts_ChatbotSchema, ChatbotEnhancedSchema as Ts_ChatbotEnhancedSchema, ChatbotFloatingSchema as Ts_ChatbotFloatingSchema, ChatMessage as Ts_ChatMessage, ChatMessageSource as Ts_ChatMessageSource, ChatToolInvocation as Ts_ChatToolInvocation, DashboardComponentSchema as Ts_DashboardComponentSchema, DashboardWidgetLayout as Ts_DashboardWidgetLayout, DashboardWidgetSchema as Ts_DashboardWidgetSchema, FilterBuilderSchema as Ts_FilterBuilderSchema, FilterField as Ts_FilterField, KanbanCard as Ts_KanbanCard, KanbanColumn as Ts_KanbanColumn, CardTemplate as Ts_CardTemplate } from '../complex';
-import type { BPMNEdge as Ts_BPMNEdge, BPMNNode as Ts_BPMNNode, DashboardConfig as Ts_DashboardConfig, DashboardWidgetConfig as Ts_DashboardWidgetConfig, DataModelDesignerSchema as Ts_DataModelDesignerSchema, DataModelEntity as Ts_DataModelEntity, DataModelField as Ts_DataModelField, DataModelRelationship as Ts_DataModelRelationship, DesignerCanvasConfig as Ts_DesignerCanvasConfig, DesignerFieldDefinition as Ts_DesignerFieldDefinition, DesignerFieldOption as Ts_DesignerFieldOption, DesignerPaletteCategory as Ts_DesignerPaletteCategory, DesignerPaletteItem as Ts_DesignerPaletteItem, DesignerPosition as Ts_DesignerPosition, DesignerValidationRule as Ts_DesignerValidationRule, FieldDesignerSchema as Ts_FieldDesignerSchema, ObjectDefinition as Ts_ObjectDefinition, ObjectDefinitionRelationship as Ts_ObjectDefinitionRelationship, ObjectManagerSchema as Ts_ObjectManagerSchema, PageDesignerSchema as Ts_PageDesignerSchema, ProcessDesignerSchema as Ts_ProcessDesignerSchema, ReportDesignerElement as Ts_ReportDesignerElement, ReportDesignerSchema as Ts_ReportDesignerSchema, ReportDesignerSection as Ts_ReportDesignerSection } from '../designer';
+import type { BPMNEdge as Ts_BPMNEdge, BPMNNode as Ts_BPMNNode, DashboardConfig as Ts_DashboardConfig, DashboardWidgetConfig as Ts_DashboardWidgetConfig, DataModelDesignerSchema as Ts_DataModelDesignerSchema, DataModelEntity as Ts_DataModelEntity, DataModelField as Ts_DataModelField, DataModelRelationship as Ts_DataModelRelationship, DesignerCanvasConfig as Ts_DesignerCanvasConfig, DesignerFieldDefinition as Ts_DesignerFieldDefinition, DesignerFieldOption as Ts_DesignerFieldOption, DesignerPaletteCategory as Ts_DesignerPaletteCategory, DesignerPaletteItem as Ts_DesignerPaletteItem, DesignerPosition as Ts_DesignerPosition, FieldDesignerSchema as Ts_FieldDesignerSchema, ObjectDefinition as Ts_ObjectDefinition, ObjectManagerSchema as Ts_ObjectManagerSchema, PageDesignerSchema as Ts_PageDesignerSchema, ProcessDesignerSchema as Ts_ProcessDesignerSchema, ReportDesignerElement as Ts_ReportDesignerElement, ReportDesignerSchema as Ts_ReportDesignerSchema, ReportDesignerSection as Ts_ReportDesignerSection } from '../designer';
 import type { CRUDDialogSchema as Ts_CRUDDialogSchema, DetailSchema as Ts_DetailSchema } from '../crud';
 import type { AlertSchema as Ts_AlertSchema, AvatarSchema as Ts_AvatarSchema, BadgeSchema as Ts_BadgeSchema, BarChartSchema as Ts_BarChartSchema, ChartDataSeries as Ts_ChartDataSeries, ChartSchema as Ts_ChartSchema, DataTableSchema as Ts_DataTableSchema, DrillDownConfig as Ts_DrillDownConfig, HtmlSchema as Ts_HtmlSchema, KbdSchema as Ts_KbdSchema, ListItem as Ts_ListItem, ListSchema as Ts_ListSchema, MarkdownSchema as Ts_MarkdownSchema, PivotTableSchema as Ts_PivotTableSchema, StaticTableColumn as Ts_StaticTableColumn, StatisticSchema as Ts_StatisticSchema, TableColumn as Ts_TableColumn, TableSchema as Ts_TableSchema, TimelineEvent as Ts_TimelineEvent, TimelineFeedItem as Ts_TimelineFeedItem, TimelineGanttItem as Ts_TimelineGanttItem, TimelineGanttItemBar as Ts_TimelineGanttItemBar, TimelineSchema as Ts_TimelineSchema, TreeViewSchema as Ts_TreeViewSchema, BreadcrumbItem as Ts_BreadcrumbItem, BreadcrumbSchema as Ts_BreadcrumbSchema } from '../data-display';
 import type { AccordionItem as Ts_AccordionItem, AccordionSchema as Ts_AccordionSchema, CollapsibleSchema as Ts_CollapsibleSchema, ToggleGroupItem as Ts_ToggleGroupItem, ToggleGroupSchema as Ts_ToggleGroupSchema } from '../disclosure';
@@ -1772,9 +1782,7 @@ const MIRRORS = {
   'designer.zod.ts#DesignerPaletteCategorySchema': DesignerPaletteCategorySchema,
   'designer.zod.ts#DesignerPaletteItemSchema': DesignerPaletteItemSchema,
   'designer.zod.ts#DesignerPositionSchema': DesignerPositionSchema,
-  'designer.zod.ts#DesignerValidationRuleSchema': DesignerValidationRuleSchema,
   'designer.zod.ts#FieldDesignerSchema': FieldDesignerSchema,
-  'designer.zod.ts#ObjectDefinitionRelationshipSchema': ObjectDefinitionRelationshipSchema,
   'designer.zod.ts#ObjectDefinitionSchema': ObjectDefinitionSchema,
   'designer.zod.ts#ObjectManagerSchema': ObjectManagerSchema,
   'designer.zod.ts#PageDesignerSchema': PageDesignerSchema,
@@ -1968,9 +1976,7 @@ interface Declared {
   'designer.zod.ts#DesignerPaletteCategorySchema': Ts_DesignerPaletteCategory;
   'designer.zod.ts#DesignerPaletteItemSchema': Ts_DesignerPaletteItem;
   'designer.zod.ts#DesignerPositionSchema': Ts_DesignerPosition;
-  'designer.zod.ts#DesignerValidationRuleSchema': Ts_DesignerValidationRule;
   'designer.zod.ts#FieldDesignerSchema': Ts_FieldDesignerSchema;
-  'designer.zod.ts#ObjectDefinitionRelationshipSchema': Ts_ObjectDefinitionRelationship;
   'designer.zod.ts#ObjectDefinitionSchema': Ts_ObjectDefinition;
   'designer.zod.ts#ObjectManagerSchema': Ts_ObjectManagerSchema;
   'designer.zod.ts#PageDesignerSchema': Ts_PageDesignerSchema;
@@ -2659,7 +2665,7 @@ interface KnownDrift {
  *
  * objectui#6058 seeded this ledger at **121 keys**, and — on ONE line, because the
  * pin below reads this sentence off disk —
- * **20 keys** is what this ledger records today.
+ * **18 keys** is what this ledger records today.
  * The movements between the two are different facts. objectui#6152 measured the 23
  * callback-shaped (`on*`) keys and ruled that mirroring is the wrong remedy for every
  * one of them;
@@ -2860,16 +2866,21 @@ interface KnownDrift {
  *     spec schema does not model, which is objectui#2231's unification question and
  *     NOT a local mirror edit. They are marked, not exempted: exempting them in the
  *     instrument would re-blind exactly the pairs objectui#5927 leaned on hardest.
- *   - **LOCAL (5 entries, 6 keys)** — omissions from a hand-written mirror. ⚠️ None of
- *     the five is a plain omission. Two are `displayMode`, on the two chatbot twins, a
+ *   - **LOCAL (3 entries, 4 keys)** — omissions from a hand-written mirror. ⚠️ None of
+ *     the three is a plain omission. Two are `displayMode`, on the two chatbot twins, a
  *     tombstone whose refusal stays TypeScript-only BY DECISION (objectui#7654 ruling B,
  *     kept by objectui#6152 round 4) — so this half does not drain to zero by mirroring.
- *     The other three are the designer pairs objectui#10859 batch 7 armed, each born
- *     ledgered with the zero-read members its ruling keeps off a second face (four keys:
- *     `autoLayout`, `lanes`, `version`, `previewMode`), unmirrored BY DECISION for the
- *     seat to rule. It was 2 / 2 until that batch, which added three entries and four
- *     keys here and nothing to the SPEC-DERIVED half (no designer pair references the
- *     spec).
+ *     The third is `ProcessDesignerSchema`, a designer pair objectui#10859 batch 7 armed
+ *     and born ledgered with two zero-read members (`lanes`, `version`); objectui#11434
+ *     ruled both READ, and its reader change closes the entry.
+ *     It was 5 / 6 until objectui#11434 RETIRED `DataModelDesignerSchema.autoLayout` and
+ *     `ReportDesignerSchema.previewMode` on both faces — each a tombstone and so a
+ *     mirrored member — closing those two entries. No entry crossed between the halves,
+ *     so the SPEC-DERIVED half did not move.
+ *     It was 2 / 2 until objectui#10859 batch 7, which added three designer entries and
+ *     four keys here (`autoLayout`, `lanes`, `version`, `previewMode`, each unmirrored BY
+ *     DECISION for the seat to rule) and nothing to the SPEC-DERIVED half (no designer
+ *     pair references the spec).
  *     It was 3 / 6 until objectui#6152 round 5 closed `DataTableSchema`'s entry (two keys
  *     RECLASSIFIED by name, one RETIRED) and shrank `ChatbotSchema`'s (`floatingConfig`
  *     RETIRED). No entry crossed between the halves, so the SPEC-DERIVED half did not move.
@@ -2957,9 +2968,12 @@ interface KnownDrift {
  * is `displayMode` on the two chatbot twins, by decision rather than as debt. The seeded
  * pair is no longer among them. objectui#10859 batch 7 then moved only the LOCAL half, by
  * one route: three designer pairs were BORN ledgered with four zero-read keys, unmirrored
- * by the card's ruling — three entries and four keys added, none emptied. The ledger now
- * totals — on ONE line, because the pin below reads this sentence off disk —
- * **8 entries / 20 keys** — 3 / 14 spec-derived, 5 / 6 local.
+ * by the card's ruling — three entries and four keys added, none emptied. objectui#11434
+ * then moved only the LOCAL half, by one route: it RETIRED `autoLayout` and
+ * `previewMode` on both faces, each a tombstone and so a mirrored member — two entries
+ * and two keys gone, `ProcessDesignerSchema`'s left standing for its reader. The ledger
+ * now totals — on ONE line, because the pin below reads this sentence off disk —
+ * **6 entries / 18 keys** — 3 / 14 spec-derived, 3 / 4 local.
  *
  * ⛔ The four split figures above and this totals line are PINNED: 'objectui#7279'
  * at the bottom of this file derives every one of them from the `UnmirroredDeclared`
@@ -3049,34 +3063,26 @@ interface UnmirroredDeclared {
    * routes the same way.
    */
   'complex.zod.ts#DashboardWidgetSchema': 'pagination' | 'searchable';
+  // `designer.zod.ts#DataModelDesignerSchema` recorded `autoLayout` here (LOCAL) from
+  // objectui#10859 batch 7 until objectui#11434 RETIRED it on both faces: auto-layout
+  // is an action (the toolbar runs it on demand), so the key is a `?: never` tombstone
+  // on the interface and a `retirementTombstone()` on this mirror — a tombstone is a
+  // mirrored member — and the entry closed. `designer.zod.ts#ReportDesignerSchema`'s
+  // `previewMode` left by the same route in the same change (preview is a tool mode,
+  // not authored state). Both are pinned by `designer-members-retired-11434.test.ts`.
   /**
-   * LOCAL — a pair born ledgered (objectui#10859 batch 7). `autoLayout` is declared on
-   * the TypeScript face and READ nowhere: `DataModelDesigner` declares it on its props
-   * and never destructures it (the toolbar's "Auto Layout" button runs on demand,
-   * whatever the key says), and a runtime probe through the real registry drew the
-   * same markup with and without it. The card's ruling keeps an unread declared member
-   * off a second face, so the mirror omits it BY DECISION — ⛔ not mirroring debt: the
-   * remedy is the seat's ruling (retire it from the TypeScript face, or implement the
-   * read), and mirroring it is the one route the ruling closes.
-   */
-  'designer.zod.ts#DataModelDesignerSchema': 'autoLayout';
-  /**
-   * LOCAL — a pair born ledgered (objectui#10859 batch 7), on the terms the
-   * `DataModelDesignerSchema` entry above states. `version` is declared on
+   * LOCAL — a pair born ledgered (objectui#10859 batch 7). `version` is declared on
    * `ProcessDesigner`'s props and never destructured; `lanes` is destructured into an
-   * unused binding. Neither changed the drawn markup in the runtime probe. The third
-   * zero-read member, `variables`, LEFT the TypeScript face in the same change (no
-   * reader and no producer), so it is in neither face and in no ledger.
+   * unused binding. Neither changed the drawn markup in the runtime probe through the
+   * real registry. The batch-7 ruling kept an unread declared member off a second
+   * face, so the mirror omits both BY DECISION — ⛔ not mirroring debt. objectui#11434's
+   * seat ruling settled them as READ (BPMN versions and swimlanes are mainstream): a
+   * later change of that card gives each a reader, mirrors both (with a `BPMNLane`
+   * record mirror) and closes this entry. The third zero-read member, `variables`,
+   * LEFT the TypeScript face in batch 7 (no reader and no producer), so it is in
+   * neither face and in no ledger.
    */
   'designer.zod.ts#ProcessDesignerSchema': 'lanes' | 'version';
-  /**
-   * LOCAL — a pair born ledgered (objectui#10859 batch 7), on the terms the
-   * `DataModelDesignerSchema` entry above states. `previewMode` is declared on
-   * `ReportDesigner`'s props and never destructured, and did not change the drawn
-   * markup in the runtime probe. `parameters` LEFT the TypeScript face in the same
-   * change (no reader and no producer), so it is in neither face and in no ledger.
-   */
-  'designer.zod.ts#ReportDesignerSchema': 'previewMode';
   // `data-display.zod.ts#ChartSchema` recorded `drillDown` here (LOCAL) from
   // objectui#6058's seeding until objectui#7352 MIRRORED it: `DrillDownConfigSchema`
   // (`data-display.zod.ts`, a registered pair of its own above) now restates
@@ -3231,7 +3237,7 @@ interface UnmirroredDeclared {
  *
  * `UnmirroredDeclared` above was seeded at **121 keys** by objectui#6058, and — on
  * ONE line, because the pin below reads this sentence off disk —
- * `UnmirroredDeclared` records **20 keys** today.
+ * `UnmirroredDeclared` records **18 keys** today.
  * These 23 moved here whole. Keys have since left that ledger by MIRRORING and by
  * RETIREMENT, but the move recorded HERE is neither and repaired nothing. ⛔ Nothing
  * was mirrored by it, no declaration was removed, no defect was repaired and nothing was
@@ -5006,7 +5012,7 @@ const ZOD_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', 'zod');
  * MINUEND under it had moved. Nothing failed on any of those days, because nothing
  * compared the registry to a number. objectui#7433 is that absence, not the digits.
  */
-const EXPECTED_MIRROR_PAIRS = 192;
+const EXPECTED_MIRROR_PAIRS = 190;
 
 /**
  * A ledger this file can size from its own AST. `WiderThanDeclared` joined at

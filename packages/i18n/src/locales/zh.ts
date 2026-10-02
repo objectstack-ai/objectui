@@ -1589,8 +1589,6 @@ const zh = {
       referenceTo: '引用对象',
       options: '选项',
       addOption: '添加选项',
-      validationRules: '验证规则',
-      addRule: '添加规则',
       systemBadge: '系统',
       ungrouped: '通用',
       deleteConfirmTitle: '删除字段？',

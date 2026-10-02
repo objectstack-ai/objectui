@@ -109,8 +109,11 @@ export interface ReportDesignerProps {
   showToolbar?: boolean;
   /** Show property panel */
   showPropertyPanel?: boolean;
-  /** Preview mode */
-  previewMode?: boolean;
+  /*
+   * There is deliberately no `previewMode` prop (objectui#11434): it was
+   * declared here and never read. `ReportDesignerSchema.previewMode` is retired
+   * on both faces of `@object-ui/types` in the same change.
+   */
   /** Read-only mode */
   readOnly?: boolean;
   /** Callback when sections change */

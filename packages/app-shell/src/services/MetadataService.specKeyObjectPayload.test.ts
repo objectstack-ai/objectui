@@ -86,8 +86,11 @@ const unrecognizedKeys = (result: ReturnType<typeof ObjectSchema.safeParse>): st
 const BASE = { name: 'account', label: 'Account', fields: { n: { type: 'text', label: 'N' } } };
 
 /**
- * An object as the Object Manager holds it, with all three UI-only keys
- * populated — the state a designer save actually starts from.
+ * An object as the Object Manager holds it, with both UI-only keys populated —
+ * the state a designer save actually starts from. The third key objectui#6223
+ * kept off the wire, `relationships`, is no longer an `ObjectDefinition` member
+ * at all (objectui#11434 retired it, a `?: never` tombstone); {@link LEGACY}
+ * below hands one in from outside the type system.
  */
 const MANAGED: ObjectDefinition = {
   id: 'account',
@@ -100,10 +103,19 @@ const MANAGED: ObjectDefinition = {
   sortOrder: 3,
   isSystem: false,
   fieldCount: 1,
-  relationships: [
-    { relatedObject: 'contact', type: 'one-to-many', label: 'Contacts', foreignKey: 'account_id' },
-  ],
 };
+
+/**
+ * {@link MANAGED} plus an object-level `relationships` array, the way a caller
+ * outside the type system (a JavaScript host, state saved before objectui#11434
+ * retired the member) can still hand one to `saveObject`. The cast is the point:
+ * `tsc` now refuses the key on `ObjectDefinition`, and this value is what proves
+ * the converter's explicit field list, not the type, keeps it off the wire.
+ */
+const LEGACY = {
+  ...MANAGED,
+  relationships: [{ relatedObject: 'contact', type: 'one-to-many', label: 'Contacts', foreignKey: 'account_id' }],
+} as unknown as ObjectDefinition;
 
 async function putFor(obj: ObjectDefinition = MANAGED): Promise<Record<string, unknown>> {
   const { adapter, puts } = makeCapturingAdapter();
@@ -207,21 +219,24 @@ describe('objectui#6223 · `sortOrder` — list order, not object metadata', () 
 
 describe('objectui#6223 · `relationships` — the spec models these on the FIELD', () => {
   it('does not put `relationships` on the wire even when the object carries them', async () => {
-    const put = await putFor();
+    // Non-vacuity: the input really carries the key, through the cast LEGACY documents.
+    expect('relationships' in LEGACY).toBe(true);
+    const put = await putFor(LEGACY);
     expect('relationships' in put).toBe(false);
     expect(put.name).toBe('account');
   });
 
   it('and `ObjectSchema` reports no `relationships` among the refused keys of that body', async () => {
-    expect(unrecognizedKeys(ObjectSchema.safeParse(await putFor()))).not.toContain('relationships');
+    expect(unrecognizedKeys(ObjectSchema.safeParse(await putFor(LEGACY)))).not.toContain('relationships');
   });
 });
 
 describe('objectui#6223 · the whole body, and the honest limit of this fix', () => {
   it('carries NO key `ObjectSchema` refuses by name', async () => {
     // The claim of this card, stated once over the whole document rather than
-    // key by key. Before the fix this was ["group", "sortOrder", "relationships"].
-    expect(unrecognizedKeys(ObjectSchema.safeParse(await putFor()))).toEqual([]);
+    // key by key. Before the fix this was ["group", "sortOrder", "relationships"];
+    // LEGACY carries all three.
+    expect(unrecognizedKeys(ObjectSchema.safeParse(await putFor(LEGACY)))).toEqual([]);
   });
 
   it('still carries everything the spec DOES accept — the fix removed keys, it did not empty the payload', async () => {

@@ -1225,7 +1225,12 @@ export interface ObjectGridSchema extends BaseSchema {
   /**
    * Enable single-click editing mode
    * When true with editable, clicking a cell enters edit mode (instead of double-click)
-   * @default false
+   *
+   * `ObjectGrid` reads it as `schema.singleClickEdit ?? true`, so an absent key
+   * means single-click editing, as the spec's `object-grid` row says ("default true
+   * when editable"). This comment read `@default false` until objectui#6152 round 6,
+   * which mirrored the key and measured the default through the real registry.
+   * @default true
    */
   singleClickEdit?: boolean;
   

@@ -60,6 +60,14 @@ import {
   // objectui#11276 — the `object-grid` row, read as the authored arm's
   // `properties` bag, by reference (`ObjectGridBlockSchema` below).
   ObjectGridPropsSchema as SpecObjectGridPropsSchema,
+  // objectui#6152 round 6 — the spec schemas `ObjectGridSchema`'s TypeScript twin
+  // declares itself aligned with, read by reference for the members it mirrors
+  // (`rowColor`, `rowHeight`, and the `operation` / `visible` members of one
+  // `bulkActionDefs` entry).
+  RowColorConfigSchema as SpecRowColorConfigSchema,
+  RowHeightSchema as SpecRowHeightSchema,
+  BulkActionDefSchema as SpecBulkActionDefSchema,
+  BulkActionOperationSchema as SpecBulkActionOperationSchema,
   // objectui#11070 — the per-element data binding (`PageComponentSchema.dataSource`)
   // the object-bound arms below declare as `dataSource`, by reference.
   ElementDataSourceSchema as SpecElementDataSourceSchema,
@@ -73,6 +81,7 @@ import { DataTableSchema, DrillDownConfigSchema, PivotTableSchema } from './data
 import { KanbanCardSchema } from './complex.zod.js';
 import { ViewSwitcherSchema } from './views.zod.js';
 import { stripImportedDefaults } from './imported-defaults.js';
+import { ExpressionWireSchema } from './expression.zod.js';
 import { dataSourceSuppliesObject, flatPropRefusals, NODE_ENVELOPE, propsBag } from './public-blocks.zod.js';
 
 /**
@@ -313,6 +322,148 @@ const OBJECT_NAME_BINDING_WAIVER_DESCRIPTION =
   + 'here, keyed `RECORD_SOURCE_REQUIRED`.';
 
 /**
+ * The `condition` of a spec-shape conditional-formatting rule, `{ condition, style }`:
+ * the zod twin of `SpecConditionalFormattingRule.condition` (`../objectql.ts`), read by
+ * both rule unions in this module (`ConditionalFormattingRuleSchema` right below, which
+ * the grid's and the list view's `conditionalFormatting` share, and
+ * `KanbanConditionalFormattingRuleSchema`), objectui#10946. It sits above the grid's
+ * mirror because that mirror reads it at module load (objectui#6152 round 6).
+ *
+ * Two arms, and their ORDER is the point:
+ *
+ *  - `z.string()` FIRST, the member's pre-existing declaration. A string condition
+ *    parses exactly as it always did. It is not canonicalized into an envelope, and
+ *    `''` is still accepted. The spec's own slot does both of those things to a string
+ *    (its string arm is a `min(1)` pipe into `{ dialect: 'cel', source }`), so reading
+ *    the slot alone would have narrowed this validator and rewritten its parse output.
+ *  - The protocol's own slot schema, `ListViewSchema.conditionalFormatting[].condition`,
+ *    BY REFERENCE, for everything that is not a string: the `{ dialect, source }`
+ *    envelope `objectstack build` emits, judged by the spec's rule for it. The installed
+ *    spec takes `source` or `ast`; spec `main` requires a non-blank `source`. Whichever
+ *    line is installed is what this arm enforces, with no local copy to drift.
+ *
+ * The union's `z.input` is the TS member's type, `string` plus the spec slot's input,
+ * so the two faces admit the same values by construction.
+ */
+const SpecRuleConditionSchema = z.union([
+  z.string(),
+  stripImportedDefaults(SpecListViewSchema).shape.conditionalFormatting.unwrap().element.shape.condition,
+]);
+
+/**
+ * One `conditionalFormatting` rule in either dialect `ConditionalFormattingRule`
+ * (`../objectql.ts`) declares: the objectui-native `{ field, operator, value, … }`
+ * comparison, or the spec-shape `{ condition, style }` rule. Module-private and
+ * shared, so the list view's member and the grid's member are one declaration:
+ * objectui#6152 round 6 hoisted it, unchanged, out of `ListViewSchema` when the
+ * grid's mirror took the same member.
+ */
+const ConditionalFormattingRuleSchema = z.union([
+  z.object({
+    field: z.string(),
+    operator: z.enum(['equals', 'not_equals', 'contains', 'greater_than', 'less_than', 'in']),
+    value: z.any(),
+    backgroundColor: z.string().optional(),
+    textColor: z.string().optional(),
+    borderColor: z.string().optional(),
+    expression: z.string().optional(),
+  }),
+  z.object({
+    condition: SpecRuleConditionSchema,
+    style: z.record(z.string(), z.string()),
+  }),
+]);
+
+/**
+ * objectui#6152 round 6 — one entry of `ObjectGridSchema.aggregations`, restating
+ * the interface's inline entry member for member: the field and the function the
+ * grouped grid's header query compiles (`summaryColumnsOf` in
+ * `@object-ui/plugin-grid`'s `useServerGrouping.ts`). ⚠️ Not the spec's
+ * `ChartAggregateFunctionSchema`, which has no `count_distinct`. Strict, so a
+ * misspelt member is named instead of the header number silently not drawing.
+ */
+const ObjectGridAggregationSchema = z.strictObject({
+  field: z.string().describe('Field the group header aggregates'),
+  type: z.enum(['sum', 'count', 'avg', 'min', 'max', 'count_distinct']).describe('Aggregate function'),
+});
+
+/**
+ * objectui#6152 round 6 — `ObjectGridSchema.operations`, restating the interface's
+ * six toggles member for member. Strict, as `emptyState` is: an unknown member is
+ * named rather than dropped, so a misspelt `creat: false` cannot leave the add-record
+ * row on in silence.
+ */
+const ObjectGridOperationsSchema = z.strictObject({
+  create: z.boolean().optional().describe('Offer the add-record row (it also needs the create permission)'),
+  read: z.boolean().optional(),
+  update: z.boolean().optional().describe('Ceiling over `rowActions`: `false` withholds the generic Edit entry'),
+  delete: z.boolean().optional().describe('Ceiling over `rowActions`: `false` withholds the generic Delete entry'),
+  export: z.boolean().optional().describe('`false` withholds the export button even when `exportOptions` is set'),
+  import: z.boolean().optional(),
+});
+
+/**
+ * objectui#6152 round 6 — one entry of a `bulkActionDefs` entry's `params`,
+ * restating `BulkActionParam` (`../objectql.ts`) member for member. LOOSE, because
+ * the interface is: its catch-all forwards widget configuration to the field
+ * renderer as-is, and each `options` entry is open for the same reason.
+ *
+ * ⚠️ Wider than the protocol's `BulkActionParamSchema`, which is strict and takes
+ * `type` from a closed vocabulary. The mirror follows its TypeScript twin, which
+ * is the parity this file's ledgers hold; a narrowing of the twin is its own
+ * question.
+ */
+const ObjectGridBulkActionParamSchema = z.looseObject({
+  name: z.string(),
+  label: z.string().optional(),
+  help: z.string().optional(),
+  type: z.string(),
+  required: z.boolean().optional(),
+  default: z.unknown().optional(),
+  options: z.array(z.looseObject({
+    label: z.string(),
+    value: z.union([z.string(), z.number(), z.boolean()]),
+  })).optional(),
+  object: z.string().optional(),
+  multiple: z.boolean().optional(),
+  labelField: z.string().optional(),
+  placeholder: z.string().optional(),
+});
+
+/**
+ * objectui#6152 round 6 — one entry of `ObjectGridSchema.bulkActionDefs`,
+ * restating `BulkActionDef` (`../objectql.ts`) member for member. Strict: the
+ * interface declares no catch-all.
+ *
+ * Two members are the protocol's own, BY REFERENCE, as the interface takes them:
+ * `operation` is the spec's `BulkActionOperationSchema`, and `visible`'s second arm
+ * is the spec's `bulkActionDefs[].visible` slot beside objectui's
+ * `ExpressionWireSchema`. ⚠️ The entry is NOT the spec's `BulkActionDefSchema` by
+ * reference: measured against the twin, that schema is narrower on `params` (a
+ * strict entry with a closed `type`) and on `visible` (no `ExpressionWire` arm), so
+ * binding it would refuse values the twin declares — a `KnownDrift` row this ledger
+ * does not take. `actionDef` is the member `resolveBulkActions` fills when a def is
+ * promoted from an object action; the twin declares it, so the mirror does.
+ */
+const ObjectGridBulkActionDefSchema = z.strictObject({
+  name: z.string(),
+  label: z.string().optional(),
+  icon: z.string().optional(),
+  variant: z.enum(['primary', 'secondary', 'danger', 'ghost', 'outline']).optional(),
+  operation: stripImportedDefaults(SpecBulkActionOperationSchema),
+  patch: z.record(z.string(), z.unknown()).optional(),
+  params: z.array(ObjectGridBulkActionParamSchema).optional(),
+  confirmText: z.string().optional(),
+  confirmLabel: z.string().optional(),
+  visible: z.union([ExpressionWireSchema, stripImportedDefaults(SpecBulkActionDefSchema).shape.visible]).optional(),
+  requiredPermissions: z.array(z.string()).optional(),
+  maxRecords: z.number().optional(),
+  batchSize: z.number().optional(),
+  execution: z.enum(['perRecord', 'aggregate']).optional(),
+  actionDef: z.record(z.string(), z.unknown()).optional(),
+});
+
+/**
  * ObjectGrid Schema
  *
  * ## No longer an authoring arm (objectui#11276)
@@ -484,6 +635,29 @@ export const ObjectGridSchema = BaseSchema.extend({
   editable: z.boolean().optional(),
   keyboardNavigation: z.boolean().optional(),
   frozenColumns: z.number().optional(),
+  // ⭐ objectui#6152 round 6 — ten members the TypeScript twin declared and this
+  // mirror never did, each measured READ by `ObjectGrid` (a type-checker census of
+  // the reads, and a runtime probe through the real registry that varied one key at
+  // a time) and each a member of the spec's `ComponentPropsMap['object-grid']` row.
+  // That row now judges the AUTHORED node's `properties` bag
+  // (`ObjectGridBlockSchema` below, objectui#11276), where it types seven of the ten
+  // as `unknown`; this mirror is the node `ObjectGrid` reads after the hoist and
+  // the source of the `object-view` `table` slot, so each member takes the type the
+  // twin declares. Where the twin takes a spec schema by name, the member is that
+  // schema BY REFERENCE (`grouping`, `navigation`, `rowColor`, `rowHeight`) or the
+  // row's own member (`reorderableColumns`, `singleClickEdit`); the rest restate the
+  // twin's local shapes. ⛔ `resizableColumns`, the eleventh, is NOT here: its route
+  // is open on objectui#6152 (the entry in `zod-mirror-parity.test.ts` says why).
+  aggregations: z.array(ObjectGridAggregationSchema).optional().describe('Per-group aggregations drawn in each group header, e.g. [{ field: "amount", type: "sum" }]'),
+  bulkActionDefs: z.array(ObjectGridBulkActionDefSchema).optional().describe('Rich bulk action definitions; each opens the bulk action dialog (params, confirm, progress) for the selected rows'),
+  conditionalFormatting: z.array(ConditionalFormattingRuleSchema).optional().describe('Conditional formatting rules for row styling: { field, operator, value, … } or { condition, style }'),
+  grouping: stripImportedDefaults(SpecGroupingConfigSchema).optional().describe('Row grouping: the spec GroupingConfig, by reference'),
+  navigation: stripImportedDefaults(SpecNavigationConfigSchema).optional().describe('Row-click navigation: the spec NavigationConfig, by reference'),
+  operations: ObjectGridOperationsSchema.optional().describe('Built-in operation toggles { create, read, update, delete, export, import }; a declared block replaces the default'),
+  reorderableColumns: stripImportedDefaults(SpecObjectGridPropsSchema).shape.reorderableColumns,
+  rowColor: stripImportedDefaults(SpecRowColorConfigSchema).optional().describe('Row colour rules: the spec RowColorConfig, by reference'),
+  rowHeight: stripImportedDefaults(SpecRowHeightSchema).optional().describe('Row height preset: the spec RowHeight, by reference'),
+  singleClickEdit: stripImportedDefaults(SpecObjectGridPropsSchema).shape.singleClickEdit,
   // ⭐ `8d50bc2bf` — one key the REGISTERED `object-grid` renderer reads off
   // the authored document while this arm declared none. `BaseSchema` is
   // `.passthrough()`, so an undeclared key is NOT refused: it stops being
@@ -1752,33 +1926,6 @@ function checkListViewDatasetChartFilter(
   }
 }
 
-/**
- * The `condition` of a spec-shape conditional-formatting rule, `{ condition, style }`:
- * the zod twin of `SpecConditionalFormattingRule.condition` (`../objectql.ts`), read by
- * both rule unions below (the list view's `conditionalFormatting` and
- * `KanbanConditionalFormattingRuleSchema`), objectui#10946.
- *
- * Two arms, and their ORDER is the point:
- *
- *  - `z.string()` FIRST, the member's pre-existing declaration. A string condition
- *    parses exactly as it always did. It is not canonicalized into an envelope, and
- *    `''` is still accepted. The spec's own slot does both of those things to a string
- *    (its string arm is a `min(1)` pipe into `{ dialect: 'cel', source }`), so reading
- *    the slot alone would have narrowed this validator and rewritten its parse output.
- *  - The protocol's own slot schema, `ListViewSchema.conditionalFormatting[].condition`,
- *    BY REFERENCE, for everything that is not a string: the `{ dialect, source }`
- *    envelope `objectstack build` emits, judged by the spec's rule for it. The installed
- *    spec takes `source` or `ast`; spec `main` requires a non-blank `source`. Whichever
- *    line is installed is what this arm enforces, with no local copy to drift.
- *
- * The union's `z.input` is the TS member's type, `string` plus the spec slot's input,
- * so the two faces admit the same values by construction.
- */
-const SpecRuleConditionSchema = z.union([
-  z.string(),
-  stripImportedDefaults(SpecListViewSchema).shape.conditionalFormatting.unwrap().element.shape.condition,
-]);
-
 /** objectui#9256 (family-D re-measure): ONE refusal string for both content channels of `ListViewSchema`. */
 const LIST_VIEW_NEITHER_CHANNEL = neitherContentChannelGuidance(
   'list-view',
@@ -1951,21 +2098,8 @@ export const ListViewSchema = BaseSchema
       live: z.enum(['polite', 'assertive', 'off']).optional()
         .describe('aria-live politeness for the list region (objectui-only — promote rather than grow this extension)'),
     }).optional().describe('ARIA attributes'),
-    conditionalFormatting: z.array(z.union([
-      z.object({
-        field: z.string(),
-        operator: z.enum(['equals', 'not_equals', 'contains', 'greater_than', 'less_than', 'in']),
-        value: z.any(),
-        backgroundColor: z.string().optional(),
-        textColor: z.string().optional(),
-        borderColor: z.string().optional(),
-        expression: z.string().optional(),
-      }),
-      z.object({
-        condition: SpecRuleConditionSchema,
-        style: z.record(z.string(), z.string()),
-      }),
-    ])).optional().describe('Conditional formatting rules'),
+    // The two-dialect rule, shared with `ObjectGridSchema` (objectui#6152 round 6).
+    conditionalFormatting: z.array(ConditionalFormattingRuleSchema).optional().describe('Conditional formatting rules'),
     // `exportOptions` — the spec's own field, BY REFERENCE (objectui#6956).
     //
     // `ListViewExportOptionsSchema` is internal to the spec bundle (not a public

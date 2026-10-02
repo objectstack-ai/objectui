@@ -207,7 +207,7 @@ describe('@object-ui/cli bin', () => {
       ['init',     [/-t, --template <template>/]],
       ['lint',     [/--fix/]],
       ['test',     [/-w, --watch/, /-c, --coverage/, /--ui/]],
-      ['generate', [/--from <source>/]],
+      ['generate', [/<type> <name>/]],
       ['analyze',  [/--bundle-size/, /--render-performance/]],
       ['validate', [/\[schema\]/]],
     ];
@@ -222,23 +222,30 @@ describe('@object-ui/cli bin', () => {
 
   // objectui#11476. `generate` used to declare `--output <dir>` (documented
   // default `schemas/`), but the action never read it: `generate(type, name)`
-  // writes in the generator's own per-type layout whatever the flag said. The
-  // flag is retired with no alias window, so the bin must REFUSE it rather than
-  // accept it and do nothing. Asserted through the built bin, which is where
-  // the card measured the defect. The flag-free run is the control the refusal
-  // is read against: same command, same empty directory, one file written.
-  describe('generate refuses the retired --output flag (objectui#11476)', () => {
+  // writes in the generator's own per-type layout whatever the flag said.
+  // objectui#11488. It also declared `--from <source>` ("Generate schema from
+  // external source"), whose branch printed "not yet implemented" and exited 0
+  // having written nothing, so a script read the no-op as success. Both flags
+  // are retired with no alias window, so the bin must REFUSE each one rather
+  // than accept it and do nothing. Asserted through the built bin, which is
+  // where both cards measured the defect. The flag-free run is the control the
+  // refusals are read against: same command, same empty directory, one file
+  // written.
+  describe('generate refuses its retired flags (objectui#11476, objectui#11488)', () => {
     const tree = (dir: string) =>
       (readdirSync(dir, { recursive: true }) as string[])
         .map((p) => p.split(sep).join('/'))
         .sort();
 
-    it('exits non-zero naming --output as an unknown option, and writes nothing', () => {
-      const work = mkdtempSync(join(tmpdir(), 'objectui-cli-generate-output-'));
-      const res = run(['g', 'page', 'Probe', '--output', 'custom/'], { cwd: work });
+    it.each([
+      ['--output', 'custom/'],
+      ['--from', 'openapi.yaml'],
+    ])('exits non-zero naming %s as an unknown option, and writes nothing', (flag, value) => {
+      const work = mkdtempSync(join(tmpdir(), 'objectui-cli-generate-retired-'));
+      const res = run(['g', 'page', 'Probe', flag, value], { cwd: work });
       expect(res.code, res.stdout + res.stderr).not.toBe(0);
       expect(res.stderr).toMatch(/unknown option/i);
-      expect(res.stderr).toContain('--output');
+      expect(res.stderr).toContain(flag);
       expect(tree(work)).toEqual([]);
     });
 
@@ -249,12 +256,13 @@ describe('@object-ui/cli bin', () => {
       expect(tree(work)).toEqual(['pages', 'pages/probe.json']);
     });
 
-    it('does not list --output in generate --help', () => {
+    it('lists neither --output nor --from in generate --help', () => {
       const res = run(['generate', '--help']);
       expect(res.code, res.stderr).toBe(0);
-      // Lit control: the help text that was read is generate's own.
-      expect(res.stdout).toMatch(/--from <source>/);
+      // Lit control: the help text that was read is generate's own usage line.
+      expect(res.stdout).toMatch(/objectui generate\|g .*<type> <name>/);
       expect(res.stdout).not.toMatch(/--output\b/);
+      expect(res.stdout).not.toMatch(/--from\b/);
     });
   });
 

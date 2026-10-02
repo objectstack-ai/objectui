@@ -573,13 +573,17 @@ describe('DashboardWidgetSchema pinned divergences', () => {
     }
   });
 
-  it('admits `metric-card` as objectui\'s own COMPONENT extension (ruling 2026-08-14)', () => {
+  it('does NOT admit `metric-card`: it is objectui\'s own COMPONENT extension, read by the slot\'s component arm (ruling 2026-08-14, objectui#11483)', () => {
     // objectstack#8593, maintainer, verbatim: `metric-card` joins objectui's own
     // CLOSED component enum as an explicitly allowed objectui extension, NOT the
-    // spec widget enum. Both halves are asserted — the second is what keeps this
-    // an objectui-local extension instead of a quiet spec change.
+    // spec widget enum. That component enum is the slot's component arm's `type`;
+    // since objectui#11483 it is no widget type either, because a `metric-card`
+    // parsing here as a widget skipped the card's required `value`. Both halves
+    // are asserted: the spec refuses it too, so this stays an objectui-local
+    // extension instead of a quiet spec change.
+    expect(DASHBOARD_COMPONENT_WIDGET_TYPES.length).toBeGreaterThan(0);
     for (const type of DASHBOARD_COMPONENT_WIDGET_TYPES) {
-      expect(DashboardWidgetSchema.safeParse({ id: 'w', type }).success).toBe(true);
+      expect(DashboardWidgetSchema.safeParse({ id: 'w', type }).success).toBe(false);
       expect(SpecDashboardWidgetSchema.safeParse({ id: 'w', type }).success).toBe(false);
     }
   });
@@ -604,12 +608,12 @@ describe('DashboardWidgetSchema pinned divergences', () => {
     for (const type of SpecChartTypeSchema.options) {
       expect(DashboardWidgetSchema.safeParse({ id: 'w', type }).success, `spec family '${type}'`).toBe(true);
     }
-    // And the closed enum is EXACTLY the spec's families plus the two declared
-    // objectui sets — no third, undocumented member has crept in.
+    // And the closed enum is EXACTLY the spec's families plus the declared
+    // objectui extension set — no undocumented member has crept in, and the
+    // component set left it with objectui#11483.
     expect(new Set(DashboardWidgetTypeSchema.options)).toEqual(new Set([
       ...SpecChartTypeSchema.options,
       ...DASHBOARD_WIDGET_TYPE_EXTENSIONS,
-      ...DASHBOARD_COMPONENT_WIDGET_TYPES,
     ]));
   });
 

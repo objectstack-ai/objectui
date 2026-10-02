@@ -100,7 +100,12 @@ describe('objectui#11022 — the grade\'s pins, in the widget slot', () => {
     expect(slotArm).toEqual([expect.objectContaining({ code: 'unrecognized_keys', path: [], keys: ['bogus'] })]);
     // The strict widget schema, which the union falls through to, refuses it too
     // — and `value` with it, which is a component input and never a widget key.
-    expect(widgetArm).toEqual([expect.objectContaining({ code: 'unrecognized_keys', path: [], keys: ['value', 'bogus'] })]);
+    // Since objectui#11483 it refuses the `type` as well: `metric-card` is no widget type.
+    expect(widgetArm).toHaveLength(2);
+    expect(widgetArm).toEqual(expect.arrayContaining([
+      expect.objectContaining({ code: 'unrecognized_keys', path: [], keys: ['value', 'bogus'] }),
+      expect.objectContaining({ code: 'invalid_value', path: ['type'] }),
+    ]));
   });
 
   it('CONTROL — `metric-card` is not a ROOT arm: refused at `type` on both faces, unchanged', () => {

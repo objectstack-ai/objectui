@@ -1165,7 +1165,7 @@ export const DashboardWidgetLayoutSchema = z.object({
  * `../complex.ts` {@link DashboardWidgetTypeName}, and the enforcement half of
  * the 2026-08-14 maintainer ruling on objectstack#8593.
  *
- * Composed of three sets, each reached the way its own provenance demands:
+ * Composed of two sets, each reached the way its own provenance demands:
  *
  *  - the spec's 20 visualization families, BY REFERENCE off
  *    `ChartTypeSchema.options` — the same enum the spec's own
@@ -1176,10 +1176,23 @@ export const DashboardWidgetLayoutSchema = z.object({
  *  - `DASHBOARD_WIDGET_TYPE_EXTENSIONS` — objectui-only widget FAMILIES
  *    (`list`, `custom`). The pre-existing divergence, until objectui#4600
  *    carried only as the prose "widened to `z.string()`" and enforced nowhere.
- *  - `DASHBOARD_COMPONENT_WIDGET_TYPES` — objectui COMPONENT types the widget
- *    slot holds directly (`metric-card`). The ruling puts it HERE and
- *    explicitly not in the spec widget enum, which is a different repo and a
- *    different contract.
+ *
+ * `DASHBOARD_COMPONENT_WIDGET_TYPES` (`metric-card`) was a third set here
+ * until objectui#11483, and it is ⛔ not a widget type. The slot holds such a
+ * node directly, and the slot's component arm,
+ * {@link DashboardWidgetSlotComponentSchema}, reads it with the registered
+ * inputs it declares. While the type was also in this vocabulary, a
+ * `metric-card` carrying only widget keys (`{ type: 'metric-card', title }`)
+ * parsed as a WIDGET, so the arm's required `value` governed only when a
+ * card-only input happened to be present, and `MetricCard` drew an empty
+ * figure. objectui#11483 measured, through the real `DashboardRenderer` and
+ * `DashboardGridLayout`, that no widget key binds the card's figure. A
+ * `dataset` makes the dashboard draw `DatasetWidget` in the card's place, by a
+ * rule that ignores the `type`. The `options` bag is spread onto the node as
+ * literal props, which is not a binding. So the type left this vocabulary, and
+ * the component arm's required `value` is the one reading of a `metric-card`
+ * in the slot. A dataset-bound single figure is the `metric` widget
+ * (`type: 'metric'` with `dataset` and `values`).
  *
  * ⛔ Closed, not `z.string()`. The open form is what let the catalog ship
  * widgets naming types nothing registers: measured on this tree before the
@@ -1188,7 +1201,7 @@ export const DashboardWidgetLayoutSchema = z.object({
  * built on it would have passed by validating nothing.
  *
  * ⚠️ A member of `DASHBOARD_COMPONENT_WIDGET_TYPES` is a component node, and
- * this schema is NOT the schema for its body: `metric-card`'s own props
+ * this schema is NOT the schema for its `type` or its body: `metric-card`'s own props
  * (`value`, `icon`, `trend`, `trendValue` — registry `inputs`, not widget
  * keys) belong to objectui's own component schema — passthrough `BaseSchema`
  * plus those inputs as members (objectui#11467) — which is the schema the
@@ -1203,7 +1216,6 @@ export const DashboardWidgetLayoutSchema = z.object({
 export const DashboardWidgetTypeSchema = z.enum([
   ...stripImportedDefaults(SpecChartTypeSchema).options,
   ...DASHBOARD_WIDGET_TYPE_EXTENSIONS,
-  ...DASHBOARD_COMPONENT_WIDGET_TYPES,
 ]);
 
 /**
@@ -1240,7 +1252,13 @@ const METRIC_CARD_NEITHER_CHANNEL =
  * every other widget (any spec family, `list`/`custom`, the legacy
  * `component` envelope with no `type` at all) the required closed enum fails
  * fast and the union falls through to the strict widget schema — so this arm
- * cannot become a passthrough hatch around #6002's refusal. Deliberately NOT
+ * cannot become a passthrough hatch around #6002's refusal. The converse holds
+ * since objectui#11483: the widget schema's `type` vocabulary names no
+ * component type, so a `metric-card` in the slot is read by this arm ALONE, and
+ * a card this arm refuses, one with no `value` among them, has no other reading.
+ * Before that, a card carrying only keys both arms accept (`title`,
+ * `description`, `layout`, `id`) parsed as a widget, and the required `value`
+ * below governed nothing. Deliberately NOT
  * exported: the routing is an internal property of the widget slot, not new
  * authoring surface.
  *
@@ -1249,7 +1267,8 @@ const METRIC_CARD_NEITHER_CHANNEL =
  * states. ⚠️ A refusal here does not surface on its own: this is the first arm
  * of the slot's `z.union`, so a document it refuses falls through to the
  * strict {@link DashboardWidgetSchema}, which refuses the same key as
- * unrecognized, and the author gets one `invalid_union` at the widget's path
+ * unrecognized and the `metric-card` type as no widget type (objectui#11483),
+ * and the author gets one `invalid_union` at the widget's path
  * with each arm's issues under `errors` — this arm's message among them, which
  * `objectui validate` prints as one arm of two.
  *
@@ -1264,7 +1283,8 @@ const METRIC_CARD_NEITHER_CHANNEL =
  * strict authoring face admitted their NAMES only, from a side table of the
  * registration's input names (objectui#11022), and judged each value by the
  * same catchall. Declared, both faces judge each value by its member, and
- * `value` — the registration's one `required` input — is required. The side
+ * `value` — the registration's one `required` input — is required, and since
+ * objectui#11483 the slot has no other reading of the card to escape it. The side
  * table went with the repair, because every name it held is now a member.
  * This package depends on no registry, so the members are held to the live
  * registration and to `MetricCardProps` by the registering package's own
@@ -1323,11 +1343,12 @@ const DashboardWidgetSlotComponentSchema = BaseSchema.extend({
  *  - `id` relaxed to optional — the spec requires it, but stored objectui
  *    dashboards (and the legacy `component` format below) omit it.
  *  - `type` re-pointed at {@link DashboardWidgetTypeSchema} — the spec's own
- *    enum plus objectui's two CLOSED extension sets. It was `z.string()` until
- *    objectui#4600; the widening was real (objectui renders `list` / `custom`,
- *    and the 2026-08-14 ruling admits the `metric-card` component type) but it
- *    was spent as an unbounded hatch rather than a named set, so every typo and
- *    every retired family validated too.
+ *    enum plus objectui's CLOSED `list` / `custom` extension. It was `z.string()` until
+ *    objectui#4600; the widening was real (objectui renders `list` / `custom`)
+ *    but it was spent as an unbounded hatch rather than a named set, so every typo and
+ *    every retired family validated too. The vocabulary also named the
+ *    `metric-card` component type until objectui#11483, which made a card with
+ *    no `value` parse here as a widget; see that schema's docblock.
  *  - `component` — the legacy `{ id, component: <SDUI node>, layout }` envelope,
  *    which the spec has no room for. Migration to the shorthand form is deferred.
  *
@@ -1352,7 +1373,8 @@ const DashboardWidgetSlotComponentSchema = BaseSchema.extend({
  * {@link DashboardWidgetSlotComponentSchema} — passthrough `BaseSchema` plus
  * the component's registered inputs — before this schema is consulted: its
  * props are component inputs, not widget keys, and MUST NOT be refused here
- * (2026-08-14 ruling, objectstack#8593).
+ * (2026-08-14 ruling, objectstack#8593). Since objectui#11483 this schema
+ * refuses that `type` too, so it is never a second reading of the card.
  *
  * Drift guard: `__tests__/report-chart-query-spec-parity.test.ts`.
  */
@@ -1362,7 +1384,7 @@ export const DashboardWidgetSchema = specFieldsExcept(stripImportedDefaults(Spec
 ] as const).extend({
   id: z.string().optional().describe('Widget ID'),
   type: DashboardWidgetTypeSchema.optional()
-    .describe('Widget visualization type — the spec families plus objectui\'s closed `list`/`custom` and `metric-card` extensions'),
+    .describe('Widget visualization type — the spec families plus objectui\'s closed `list`/`custom` extension'),
   // ⚠️ `BaseSchema`, ⛔ NOT `SchemaNodeSchema` (objectui#8344). The two were the
   // same accept set until #8344 redirected the node recursion point at
   // `AnyComponentSchema`, and this slot is the one place in the package where they
@@ -1524,7 +1546,9 @@ export const DashboardComponentSchema = BaseSchema.extend(SpecDashboardFields.sh
   // BaseSchema plus the component's registered inputs (objectui#11467); every
   // other widget is the `.strict()` spec-derived schema. Component arm first — it matches
   // exclusively on the closed component-type enum, so a spec-family widget
-  // can never be captured by it.
+  // can never be captured by it. The other way round, the widget arm's vocabulary names no
+  // component type (objectui#11483), so a `metric-card` is read by the component arm alone.
+  // That arm's required `value` is the one spelling of what the card draws from.
   // objectui#11073: the strict spec-derived arm is closed where it meets this union, so a
   // widget the component arm refuses by name is not answered by this arm's unknown keys alone
   // (see `closeStrictUnionArms` in `./node-derivation.ts`).

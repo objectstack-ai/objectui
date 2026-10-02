@@ -2,27 +2,29 @@
   "number": 11397,
   "kind": "pull_request",
   "title": "docs(skills): the mobile guide teaches mobileNavMode where it is read, not on the app schema (objectui#11363)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
-  "draft": true,
+  "draft": false,
   "author": {
     "login": "objectstack-fleet[bot]",
     "id": 332303061,
     "type": "Bot"
   },
-  "labels": [
-    "needs-user-decision"
-  ],
+  "labels": [],
   "assignees": [
     "os-sales"
   ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-01T18:26:27Z",
-  "updated_at": "2026-10-01T18:46:20Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-02T00:16:54Z",
+  "closed_at": "2026-10-02T00:05:54Z",
+  "closed_by": {
+    "login": "os-zhuang",
+    "id": 277994282,
+    "type": "User"
+  },
+  "merged_at": "2026-10-02T00:05:54Z",
   "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/11397",

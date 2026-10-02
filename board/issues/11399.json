@@ -2,7 +2,7 @@
   "number": 11399,
   "kind": "pull_request",
   "title": "feat(types)!: an authored object-grid takes its props in the spec's properties bag; the flat spelling is refused by name (objectui#11276)",
-  "state": "open",
+  "state": "closed",
   "state_reason": null,
   "draft": false,
   "author": {
@@ -24,10 +24,14 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-01T19:26:38Z",
-  "updated_at": "2026-10-01T20:18:33Z",
-  "closed_at": null,
-  "closed_by": null,
-  "merged_at": null,
+  "updated_at": "2026-10-01T20:34:50Z",
+  "closed_at": "2026-10-01T20:34:48Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-01T20:34:48Z",
   "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/pull/11399",

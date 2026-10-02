@@ -2,8 +2,8 @@
   "number": 11254,
   "kind": "issue",
   "title": "plugin-dashboard: ObjectMetricWidget formats a number or percent aggregate with an inferred `0,0` / `0,0%` pattern and never reads the resolved width, the metric half of ruling A′ (objectstack#19628) left open by objectui#9843",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,21 @@
     "area:reports",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p3"
   ],
   "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-30T18:48:14Z",
-  "updated_at": "2026-10-01T14:15:28Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-02T00:54:38Z",
+  "closed_at": "2026-10-02T00:52:12Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 7,
+  "comments": 11,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11254",
   "body": "Ruled: 5933283974 · letter A (deferred) · 2026-10-01T14:14Z\n\nFiling-gate category: ① a derived item of the in-flight card objectui#9843, filed by its claiming seat, `domain:ui` seat 2 (`session_011p7ikEivgXefNDaE5S5Uec`). It is the unexecuted remainder of a recorded ruling, so it is not lost when objectui#9843 closes. Reader who acts: triage first. It grades and routes the card, and decides whether the design question below needs a ruling. Then the `domain:ui` seat that dispatches it. ⛔ Not graded here.\n\nDedup: the 1,000 most recently updated objectui issues and PRs (open and closed, down to #10467), read through REST and grepped locally.\n- `ObjectMetricWidget` gives 18 hits. None is about width: they are the I18nLabel family, refresh and arm cards, and PR objectui#11246 itself.\n- A metric tile or widget within 80 characters of `scale` gives 0 hits.\n- `19628` gives 1 hit, PR objectui#11246.\n\n## The ruling it completes\n\nobjectstack-ai/objectstack#19628 was ruled **A′** (ruling `5791809146`, batch #215 item 2, maintainer 「215 同意」). The pointer on objectui#9843 (`5791883815`) states what it asks of objectui's consumers:\n- `number` has no absent-`scale` row, so absent means no fixed width, and every consumer deletes its private `?? 0` and reads through `resolveFieldScale`;\n- **computed results** (the summary footer and the metric widget) round to \"the widest decimal count among the values that entered the computation — derived from the data, ⛔ never a constant\".\n\nPR objectui#11246 (objectui#9843) executes this for the percent faces and the grid's summary footer. Its dev reported the metric-widget half as outside that claim (report `5916318159`, `open_questions[1]`). Contract review `5916522120` ③ agreed that the half should be filed on its own.\n\n## What is there today (read at objectui `origin/main`, `packages/plugin-dashboard/src/ObjectMetricWidget.tsx`)\n\n- The tile infers a pattern from the field type: `'0,0%'` for `percent`, `'0,0'` for `number` / `integer`. Elsewhere it picks `'0,0'` or `'0,0.00'` by whether the amount is an integer.\n- A comment in the file says it no longer builds a pattern from `valueFieldDef.scale ?? 0`. So the pointer's `?? 0` reference has drifted: the tile now reads no width at all, declared or resolved.\n- Read at source, not measured: a percent field that declares `scale: 2` gets a whole-percent pattern on the tile, while the list cell, the detail chip, the footer and the widget read its declared width after PR objectui#11246. A `number` field with no declared width gets a constant pattern, not the width the ruling derives from the data.\n\n## Why it needs its own design (not dispatchable on the ruling text alone)\n\nThe tile renders a **server aggregate** (sum, avg, count and so on). The ruling's \"widest decimal count among the values that entered the computation\" needs those values' widths, and the tile never sees the input rows. Whoever acts must decide where that width comes from, from options such as:\n- the declared `scale` when declared, and otherwise a width the aggregate query reports;\n- the aggregate's own natural precision;\n- an explicit tile format on the widget.\n\nSome of these touch the query or the spec. ⛔ Not a constant, per the ruling.\n\n## Reach\n\nNo first-party producer was found: no `object-metric` over a `number` or `percent` field. The examples' metrics are dataset-backed and go through `formatMeasure`. It is a ruled item, not a measured defect, so a low grade fits. It is filed so the recorded ruling is tracked.\n\n## The rest of ruling A′'s \"no `?? N` in any consumer\", tracked here in one place\n\nFrom report `5916318159`, confirmed as carrier notes by review `5916522120` ③. Percent faces outside objectui#9843's claim:\n- the `ObjectGantt` `percent` case and the `ObjectGrid` mobile card. Both pass `undefined` to `formatPercent`, whose `precision = 0` default coincides with the protocol's percent row today. The mobile card also classifies percent by a column-name substring.\n- `GroupRow` group-header aggregates: a type-blind `toFixed(2)`, with no unit.\n- `formatPercent`'s own `precision = 0` parameter default, still reached for `progress`, for fields promoted by `format: 'percent'`, and by the two callers above. Retiring it needs those callers on the resolver, and a protocol answer for `progress`.\n\nDedupe words: `ObjectMetricWidget scale width` · `metric tile widest decimal computed result` · `ruling A prime 19628 metric half` · `formatPercent precision default callers`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_\n"

@@ -1,0 +1,37 @@
+{
+  "number": 11402,
+  "kind": "issue",
+  "title": "app-shell(DatasetDefaultInspector): new dataset rows are seeded with `field: ''`, which objectstack's narrowed dataset schema refuses at save; write no `field` when the box is blank",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:reports",
+    "bug",
+    "domain:ui",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-01T20:52:21Z",
+  "updated_at": "2026-10-02T00:34:46Z",
+  "closed_at": "2026-10-02T00:33:28Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11402",
+  "body": "Filing gate: **an out-of-scope finding of class a with measured reach**. It is filed by the objectstack `domain:spec` seat 1 (`session_01UtnxvdiN376GF3sgXwAw4d`, seat post objectstack-ai/objectstack#6017), from the dev report on objectstack-ai/objectstack#21220 (comment `5940231654`). The landing repo is objectui, because the producer lives here. Reader: objectui triage first, then the `domain:ui` seat. The same priority as objectstack-ai/objectstack#21220 (`priority:p2`) is suggested; the grade is triage's.\n\n## What changes upstream\n\nobjectstack PR objectstack-ai/objectstack#21240 (open at filing, ACCEPT pending) narrows `DatasetDimensionSchema.field` and `DatasetMeasureSchema.field` to a column reference: a bare identifier or a `relationship[.relationship].field` path, plus `*` on a measure. Anything else is refused at parse, at `dimensions.N.field` / `measures.N.field`. That includes the empty string `''`. For a measure, \"no field\" has one spelling: omit the key. A dimension's `field` stays required.\n\n## The producer here\n\n`packages/app-shell/src/views/metadata-admin/inspectors/DatasetDefaultInspector.tsx`, read at objectstack's pin `31971ff1e` and on objectui `main` `6aa029b63`; both read the same:\n\n- line 551: a new dimension row is `{ name: '', field: '', type: 'string' }`\n- line 601: a new measure row is `{ name: '', aggregate: 'sum', field: '' }`\n\nSo a Studio author who adds a plain row-count measure and leaves the Field box blank saves `field: ''`.\n\n## Reach, measured by the objectstack dev before the narrowing\n\nAt `POST /api/v1/analytics/dataset/query`, a `count` measure with `field: ''` answered 200 on the native SQL strategy and 500 `DATABASE_ERROR` on the ObjectQL strategy. Once objectstack-ai/objectstack#21240 lands and a console carries that spec, the save refuses the row at `measures.N.field`, and the refusal names its repair (omit the key). The UI cannot omit the key today. The interim workaround is to pick a never-null column such as `id`.\n\n## Ask\n\n- Seed new rows without a `field` key (no `field: ''`).\n- When the Field box is cleared or left blank, write no `field` key on a measure. A dimension needs a field: show the row as incomplete instead of writing `''`.\n- A pin test: a measure row added and saved with a blank Field box carries no `field` key, and an objectstack `DatasetSchema` parse of the saved dataset succeeds.\n\n## Sequencing\n\nThe objectstack seat answered on objectstack-ai/objectstack#21220 (comment `5940285278`) that objectstack-ai/objectstack#21240 lands on its own, ahead of this fix. The `.objectui-sha` bump that brings this fix to the console also crosses objectui `0a3e5409f`. That bump owes the spec's `sortField` retirement recorded in #11396, so whoever bumps the pin reads both.\n\nDedupe: 74 open objectui issues and PRs were scanned at filing for `DatasetDefaultInspector`, `dataset inspector`, `field: ''`, `blank field`, `empty string field`, `count measure` and `dataset … measure`. No hit covers this producer; the hits were #11256, #11254, #11095, #9771 and #8894, all unrelated. The `sortField` control returned 1 hit, so the scan was live."
+}

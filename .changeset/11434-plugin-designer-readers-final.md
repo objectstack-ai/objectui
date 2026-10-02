@@ -11,7 +11,7 @@ The page and report designers, and all three canvases, draw the members their no
 **Page designer.**
 
 - A component's `children` are drawn inside it, positioned within it, and indented under it in the component tree. Selecting, editing, moving, copying and deleting all reach nested components.
-- A `locked` component cannot be dragged or deleted on the canvas, and shows a lock.
+- A `locked` component cannot be dragged or deleted on the canvas, and shows a lock. No delete path removes it: its own delete button is withheld, and Delete / Backspace and the toolbar's **Delete selected** delete only the unlocked rest of a selection. A parent that holds a locked component anywhere inside it is kept too, because deleting it would take the locked one with it.
 - A component with `visible: false` is drawn faded, with a dashed edge and a hidden marker, so it can still be found.
 - `zIndex` orders overlapping components.
 - The property panel offers **Visible**, **Locked** and **Z-index**.

@@ -93,7 +93,14 @@ export interface DesignerComponent {
    * @deprecated Not part of this contract — the value was inert.
    */
   parentId?: never;
-  /** Lock state — a locked component cannot be dragged or deleted on the canvas, and shows a lock */
+  /**
+   * Lock state — a locked component cannot be dragged or deleted on the
+   * canvas, and shows a lock. No delete path removes it: not its own delete
+   * button (withheld), not Delete / Backspace, not the toolbar's "Delete
+   * selected", which delete only the unlocked rest of a selection. A parent
+   * that holds a locked component anywhere inside it is kept as well, because
+   * deleting it would take the locked one with it.
+   */
   locked?: boolean;
   /** Visibility — `false` draws the component faded, with a dashed edge and a hidden marker */
   visible?: boolean;

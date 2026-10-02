@@ -68,6 +68,15 @@ function mapTree(list: DesignerComponent[], fn: (comp: DesignerComponent) => Des
   });
 }
 
+/**
+ * Whether deleting this component would remove a locked one — itself, or any
+ * component nested in it. A lock is never removed by a delete
+ * (objectui#11434), so such a component is kept, parent included.
+ */
+function holdsLock(comp: DesignerComponent): boolean {
+  return comp.locked === true || (comp.children ?? []).some(holdsLock);
+}
+
 /** The tree without the components `keep` rejects, at every depth (a removed parent takes its children). */
 function filterTree(list: DesignerComponent[], keep: (comp: DesignerComponent) => boolean): DesignerComponent[] {
   return list
@@ -217,6 +226,8 @@ export function PageDesigner({
   const handleDeleteComponent = useCallback(
     (id: string) => {
       if (readOnly) return;
+      const target = flattenTree(components).find((entry) => entry.comp.id === id)?.comp;
+      if (!target || holdsLock(target)) return;
       const updated = filterTree(components, (c) => c.id !== id);
       pushComponents(updated);
       if (multiSelect.isSelected(id)) multiSelect.clearSelection();
@@ -227,12 +238,20 @@ export function PageDesigner({
 
   const handleDeleteSelected = useCallback(async () => {
     if (readOnly || multiSelect.count === 0) return;
+    // A locked component, and a parent that holds one, is not deleted
+    // (objectui#11434): only the rest of the selection is.
+    const ids = new Set(
+      flattenTree(components)
+        .map((entry) => entry.comp)
+        .filter((c) => multiSelect.selectedIds.has(c.id) && !holdsLock(c))
+        .map((c) => c.id),
+    );
+    if (ids.size === 0) return;
     const confirmed = await confirmDialog.confirm(
       'Delete components',
-      `Are you sure you want to delete ${multiSelect.count} component${multiSelect.count > 1 ? 's' : ''}?`,
+      `Are you sure you want to delete ${ids.size} component${ids.size > 1 ? 's' : ''}?`,
     );
     if (!confirmed) return;
-    const ids = multiSelect.selectedIds;
     const updated = filterTree(components, (c) => !ids.has(c.id));
     pushComponents(updated);
     multiSelect.clearSelection();
@@ -470,7 +489,7 @@ export function PageDesigner({
           <span className="truncate">{comp.label ?? comp.type}</span>
           {hidden && <EyeOff className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Hidden" />}
           {comp.locked && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Locked" />}
-          {!readOnly && !comp.locked && (
+          {!readOnly && !holdsLock(comp) && (
             <button type="button"
               onClick={(e) => {
                 e.stopPropagation();

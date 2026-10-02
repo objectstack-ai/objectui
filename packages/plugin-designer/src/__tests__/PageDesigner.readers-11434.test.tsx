@@ -25,7 +25,7 @@
 
 import React from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
-import { render, cleanup } from '@testing-library/react';
+import { render, cleanup, fireEvent, act } from '@testing-library/react';
 import { SchemaRenderer } from '@object-ui/react';
 import '../index';
 
@@ -129,5 +129,75 @@ describe('the palette draws its icons and previews (objectui#11434)', () => {
     expect(byTestId(mount(doc({ root: { palette } })), 'palette-item-preview-button')?.getAttribute('src')).toBe(preview);
     cleanup();
     expect(byTestId(mount(doc()), 'palette-item-preview-button')).toBeNull();
+  });
+});
+
+describe('a lock is never removed by a delete (objectui#11434)', () => {
+  const LOCKED = { id: 'locked', type: 'card', label: 'Pinned', locked: true, position: { x: 10, y: 10, width: 120, height: 80 }, props: {} };
+  const FREE = { id: 'free', type: 'card', label: 'Loose', position: { x: 200, y: 10, width: 120, height: 80 }, props: {} };
+
+  function page(components: Doc[]): HTMLElement {
+    return mount({ type: 'page-designer', canvas: CANVAS, components, palette: PALETTE });
+  }
+
+  /** Select a component the way a user does: a click on its box, shift for each one after the first. */
+  function select(container: HTMLElement, id: string, extend = false) {
+    act(() => {
+      fireEvent.click(byTestId(container, `page-component-${id}`) as Element, { shiftKey: extend });
+    });
+  }
+
+  /** Run a delete path, and confirm the dialog if it opens — the user who means it. */
+  async function deleteVia(container: HTMLElement, how: 'key' | 'toolbar') {
+    await act(async () => {
+      if (how === 'key') {
+        fireEvent.keyDown(container.querySelector('[tabindex="0"]') as Element, { key: 'Delete' });
+      } else {
+        fireEvent.click(container.querySelector('[aria-label="Delete selected"]') as Element);
+      }
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    const confirm = Array.from(container.querySelectorAll('dialog button')).find((b) => b.textContent === 'Delete');
+    if (confirm) {
+      await act(async () => {
+        fireEvent.click(confirm);
+        await new Promise((r) => setTimeout(r, 0));
+      });
+    }
+  }
+
+  it.each(['key', 'toolbar'] as const)('a selected locked component survives a delete by %s', async (how) => {
+    const container = page([LOCKED]);
+    select(container, 'locked');
+    await deleteVia(container, how);
+    expect(byTestId(container, 'page-component-locked')).toBeTruthy();
+  });
+
+  it('the unlocked rest of the same selection IS deleted — the control', async () => {
+    const container = page([LOCKED, FREE]);
+    select(container, 'locked');
+    select(container, 'free', true);
+    await act(async () => {
+      fireEvent.click(container.querySelector('[aria-label="Delete selected"]') as Element);
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    // The dialog counts only what it will delete.
+    expect(container.querySelector('dialog')?.textContent).toContain('delete 1 component?');
+    await act(async () => {
+      fireEvent.click(Array.from(container.querySelectorAll('dialog button')).find((b) => b.textContent === 'Delete') as Element);
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    expect(byTestId(container, 'page-component-free')).toBeNull();
+    expect(byTestId(container, 'page-component-locked')).toBeTruthy();
+  });
+
+  it('a parent holding a locked component is kept, and offers no delete button', async () => {
+    const container = page([{ ...PARENT, children: [{ ...CHILD, locked: true }] }]);
+    const parent = byTestId(container, 'page-component-parent');
+    expect(parent?.querySelector('[aria-label="Delete Box"]')).toBeNull();
+    select(container, 'parent');
+    await deleteVia(container, 'toolbar');
+    expect(byTestId(container, 'page-component-parent')).toBeTruthy();
+    expect(byTestId(container, 'page-component-child')).toBeTruthy();
   });
 });

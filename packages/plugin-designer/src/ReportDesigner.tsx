@@ -85,7 +85,9 @@ const LABELS = {
   propWidth: 'Width',
   propHeight: 'Height',
   propText: 'Text',
-  propField: 'Field',
+  propDataBinding: 'Data binding',
+  groupBy: 'by',
+  pageBreakBefore: 'Page break before',
   groupPosition: 'Position',
   groupSize: 'Size',
   groupContent: 'Content',
@@ -130,6 +132,62 @@ const PAGE_SIZES = {
   Tabloid: { width: 792, height: 1224 },
 };
 
+type ElementFormat = NonNullable<ReportDesignerElement['format']>;
+
+/**
+ * How an element's `format` is drawn on the canvas (objectui#11434). Every
+ * value is the AUTHOR's, so none is written straight into `style`: each is
+ * published as a CSS custom property and painted by a STATIC utility, the
+ * shape the styling rule's author-declared-colour carve-out prescribes — the
+ * stylesheet keeps the rules, and a theme can still override them. The
+ * keyword members map onto utilities directly.
+ */
+function formatPresentation(format: ElementFormat | undefined): { className: string; style: React.CSSProperties } {
+  if (!format) return { className: '', style: {} };
+  const classes: string[] = [];
+  const vars: Record<string, string> = {};
+  if (format.fontWeight === 'bold') classes.push('font-bold');
+  if (format.fontWeight === 'normal') classes.push('font-normal');
+  if (format.fontStyle === 'italic') classes.push('italic');
+  if (format.fontStyle === 'normal') classes.push('not-italic');
+  if (format.alignment === 'left') classes.push('justify-start text-left');
+  if (format.alignment === 'center') classes.push('justify-center text-center');
+  if (format.alignment === 'right') classes.push('justify-end text-right');
+  if (format.verticalAlignment === 'top') classes.push('items-start');
+  if (format.verticalAlignment === 'middle') classes.push('items-center');
+  if (format.verticalAlignment === 'bottom') classes.push('items-end');
+  if (format.color) {
+    classes.push('text-[color:var(--report-el-color)]');
+    vars['--report-el-color'] = format.color;
+  }
+  if (format.backgroundColor) {
+    classes.push('bg-[color:var(--report-el-bg)]');
+    vars['--report-el-bg'] = format.backgroundColor;
+  }
+  if (format.fontSize !== undefined) {
+    classes.push('text-[length:var(--report-el-font-size)]');
+    vars['--report-el-font-size'] = `${format.fontSize}px`;
+  }
+  if (format.fontFamily) {
+    classes.push('font-[family-name:var(--report-el-font-family)]');
+    vars['--report-el-font-family'] = format.fontFamily;
+  }
+  if (format.border) {
+    classes.push('[border:var(--report-el-border)]');
+    vars['--report-el-border'] = format.border;
+  }
+  if (format.padding) {
+    classes.push('p-[var(--report-el-padding)]');
+    vars['--report-el-padding'] = format.padding;
+  }
+  return { className: classes.join(' '), style: vars as React.CSSProperties };
+}
+
+/** The display formats a field element declares, as the canvas draws them beside its binding. */
+function displayFormats(format: ElementFormat | undefined): string {
+  return [format?.numberFormat, format?.dateFormat].filter(Boolean).join(' · ');
+}
+
 const DEFAULT_SECTIONS: ReportDesignerSection[] = [
   { type: 'header', height: 80, elements: [] },
   { type: 'detail', height: 400, elements: [], repeat: true },
@@ -138,7 +196,12 @@ const DEFAULT_SECTIONS: ReportDesignerSection[] = [
 
 /**
  * Report designer for creating printable report layouts.
- * Supports sections (header, detail, footer) with drag-and-drop elements.
+ * Supports sections (header, detail, footer) with drag-and-drop elements. The
+ * page draws its four `margins` as a guide; a section draws its `groupField`
+ * and a `pageBreakBefore` marker; an element draws its `dataBinding` and its
+ * `format` (objectui#11434). A field element reads its binding from
+ * `dataBinding` alone: the undeclared `properties.field` it used to read is
+ * refused on both faces of `@object-ui/types`.
  */
 export function ReportDesigner({
   reportName = LABELS.untitledReport,
@@ -241,10 +304,8 @@ export function ReportDesigner({
         id: `elem-${Date.now()}`,
         type: elementType,
         position: { x: margins.left, y: 10, width: 200, height: 30 },
-        properties: {
-          text: elementType === 'text' ? 'New Text' : undefined,
-          field: elementType === 'field' ? 'field_name' : undefined,
-        },
+        properties: elementType === 'text' ? { text: 'New Text' } : {},
+        ...(elementType === 'field' ? { dataBinding: 'field_name' } : {}),
       };
       const updated = sections.map((section, i) =>
         i === sectionIndex
@@ -305,6 +366,14 @@ export function ReportDesigner({
           if (name === 'y') return { ...e, position: { ...e.position, y: Number(value) } };
           if (name === 'width') return { ...e, position: { ...e.position, width: Number(value) } };
           if (name === 'height') return { ...e, position: { ...e.position, height: Number(value) } };
+          if (name === 'dataBinding') {
+            // A member of the element, not of its `properties` bag; an emptied
+            // binding leaves the element unbound.
+            const binding = String(value ?? '');
+            if (binding !== '') return { ...e, dataBinding: binding };
+            const { dataBinding: _cleared, ...unbound } = e;
+            return unbound;
+          }
           return { ...e, properties: { ...e.properties, [name]: value } };
         }),
       }));
@@ -445,15 +514,15 @@ export function ReportDesigner({
         group: LABELS.groupContent,
       });
     }
-    if (selectedElementData.type === 'field') {
-      fields.push({
-        name: 'field',
-        label: LABELS.propField,
-        type: 'text' as const,
-        value: selectedElementData.properties.field ?? '',
-        group: LABELS.groupContent,
-      });
-    }
+    // Every element type declares `dataBinding`; a field element is unbound
+    // without it.
+    fields.push({
+      name: 'dataBinding',
+      label: LABELS.propDataBinding,
+      type: 'text' as const,
+      value: selectedElementData.dataBinding ?? '',
+      group: LABELS.groupContent,
+    });
     return fields;
   }, [selectedElementData]);
 
@@ -622,12 +691,24 @@ export function ReportDesigner({
         {/* Report Canvas */}
         <div role="region" aria-label={LABELS.reportCanvas} className="flex-1 overflow-auto bg-muted/10 p-4 flex justify-center">
           <div
-            className="bg-white shadow-lg border"
+            className="relative bg-white shadow-lg border"
             style={{
               width: pageWidth,
               minHeight: pageHeight,
             }}
           >
+            {/* The page's four margins, drawn as a guide over the sections */}
+            <div
+              aria-hidden="true"
+              data-testid="report-margin-guide"
+              className="pointer-events-none absolute border border-dashed border-primary/30 top-[var(--report-margin-top)] right-[var(--report-margin-right)] bottom-[var(--report-margin-bottom)] left-[var(--report-margin-left)]"
+              style={{
+                '--report-margin-top': `${margins.top}px`,
+                '--report-margin-right': `${margins.right}px`,
+                '--report-margin-bottom': `${margins.bottom}px`,
+                '--report-margin-left': `${margins.left}px`,
+              } as React.CSSProperties}
+            />
             {sections.map((section, sectionIndex) => (
               <div
                 key={`${section.type}-${sectionIndex}`}
@@ -636,9 +717,25 @@ export function ReportDesigner({
                 onDragOver={handleDragOver}
                 onDrop={(e) => handleDrop(e, sectionIndex)}
               >
+                {/* A page break before this section */}
+                {section.pageBreakBefore && (
+                  <div
+                    role="separator"
+                    aria-label={LABELS.pageBreakBefore}
+                    title={LABELS.pageBreakBefore}
+                    className="pointer-events-none absolute inset-x-0 top-0 border-t-2 border-dashed border-primary"
+                    data-testid={`report-section-page-break-${sectionIndex}`}
+                  />
+                )}
+
                 {/* Section label */}
                 <div className="absolute left-0 top-0 px-2 py-0.5 bg-muted text-xs text-muted-foreground border-r border-b rounded-br">
                   {getSectionLabel(section.type)}
+                  {section.groupField && (
+                    <span data-testid={`report-section-group-${sectionIndex}`}>
+                      {` · ${LABELS.groupBy} ${section.groupField}`}
+                    </span>
+                  )}
                   {section.repeat && ' ↻'}
                 </div>
 
@@ -697,6 +794,8 @@ export function ReportDesigner({
                   )}
                   {section.elements.map((element: ReportDesignerElement) => {
                     const isSelected = multiSelect.isSelected(element.id);
+                    const presentation = formatPresentation(element.format);
+                    const formats = displayFormats(element.format);
                     return (
                       <div
                         key={element.id}
@@ -716,13 +815,26 @@ export function ReportDesigner({
                         }}
                         onClick={(e) => multiSelect.toggle(element.id, e.shiftKey)}
                       >
-                        <span className="text-muted-foreground">
+                        <div
+                          className={cn('flex h-full w-full gap-1 text-muted-foreground', presentation.className)}
+                          style={presentation.style}
+                          data-testid={`report-element-content-${element.id}`}
+                        >
                           {element.type === 'text' && (element.properties.text as string ?? LABELS.elementText)}
-                          {element.type === 'field' && `{${element.properties.field as string ?? 'field'}}`}
                           {element.type === 'image' && LABELS.elementImage}
                           {element.type === 'chart' && LABELS.elementChart}
                           {element.type === 'table' && LABELS.elementTable}
-                        </span>
+                          {(element.type === 'field' || element.dataBinding) && (
+                            <span data-testid={`report-element-binding-${element.id}`}>
+                              {`{${element.dataBinding ?? 'field'}}`}
+                            </span>
+                          )}
+                          {formats && (
+                            <span className="opacity-70" data-testid={`report-element-format-${element.id}`}>
+                              {formats}
+                            </span>
+                          )}
+                        </div>
                         {!readOnly && isSelected && (
                           <button type="button"
                             onClick={(e) => {

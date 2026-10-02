@@ -79,13 +79,32 @@ export type { MetadataObjectsPageProps } from './MetadataObjectsPage';
 export { MetadataFieldsPage } from './MetadataFieldsPage';
 export type { MetadataFieldsPageProps } from './MetadataFieldsPage';
 
+/*
+ * The designer registrations' `inputs` (objectui#11434's sweep). `inputs` is
+ * an authoring surface: the html-tier page compiler builds its manifest from
+ * every known registration and its `validateTree` answers `unknown-prop` for a
+ * node key no input names — so a member the component READS but no row lists
+ * is warned off although it works. Measured against the six node declarations
+ * in `@object-ui/types`, the rows below are exactly the read members. What no
+ * row lists is unlisted on purpose: `body` and `children` (no designer reads a
+ * content channel, and both faces refuse them), and the retired tombstones
+ * (`autoLayout`, `previewMode`). Every row declares the kind its value has
+ * (`array` / `object` / `enum` / `string` / `boolean`): a `code` row answered
+ * `type-mismatch` ("expected a string") on every legal array or object value,
+ * the shape objectui#10993 settled on the registration row by declaring the
+ * `object` arm. Nothing else reads these rows' kinds: the published
+ * `sdui.manifest.json` and the `kind:'react'` scope carry the public tier
+ * alone, which no designer is in.
+ */
 ComponentRegistry.register('page-designer', PageDesigner, {
   namespace: 'plugin-designer',
   label: 'Page Designer',
   category: 'Designer',
   inputs: [
-    { name: 'canvas', type: 'code' },
-    { name: 'components', type: 'code' },
+    { name: 'canvas', type: 'object' },
+    { name: 'components', type: 'array' },
+    { name: 'palette', type: 'array' },
+    { name: 'propertyEditor', type: 'boolean' },
     { name: 'showComponentTree', type: 'boolean' },
     { name: 'undoRedo', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
@@ -97,8 +116,10 @@ ComponentRegistry.register('data-model-designer', DataModelDesigner, {
   label: 'Data Model Designer',
   category: 'Designer',
   inputs: [
-    { name: 'entities', type: 'code' },
-    { name: 'relationships', type: 'code' },
+    { name: 'entities', type: 'array' },
+    { name: 'relationships', type: 'array' },
+    { name: 'canvas', type: 'object' },
+    { name: 'showRelationshipLabels', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
   ],
 });
@@ -109,8 +130,11 @@ ComponentRegistry.register('process-designer', ProcessDesigner, {
   category: 'Designer',
   inputs: [
     { name: 'processName', type: 'string' },
-    { name: 'nodes', type: 'code' },
-    { name: 'edges', type: 'code' },
+    { name: 'version', type: 'string' },
+    { name: 'nodes', type: 'array' },
+    { name: 'edges', type: 'array' },
+    { name: 'lanes', type: 'array' },
+    { name: 'canvas', type: 'object' },
     { name: 'showMinimap', type: 'boolean' },
     { name: 'showToolbar', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
@@ -124,7 +148,10 @@ ComponentRegistry.register('report-designer', ReportDesigner, {
   inputs: [
     { name: 'reportName', type: 'string' },
     { name: 'objectName', type: 'string' },
-    { name: 'sections', type: 'code' },
+    { name: 'pageSize', type: 'enum', enum: ['A4', 'A3', 'Letter', 'Legal', 'Tabloid'] },
+    { name: 'orientation', type: 'enum', enum: ['portrait', 'landscape'] },
+    { name: 'margins', type: 'object' },
+    { name: 'sections', type: 'array' },
     { name: 'showToolbar', type: 'boolean' },
     { name: 'showPropertyPanel', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
@@ -162,7 +189,7 @@ ComponentRegistry.register('object-manager', ObjectManager, {
   label: 'Object Manager',
   category: 'Designer',
   inputs: [
-    { name: 'objects', type: 'code' },
+    { name: 'objects', type: 'array' },
     { name: 'showSystemObjects', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
   ],
@@ -174,7 +201,7 @@ ComponentRegistry.register('field-designer', FieldDesigner, {
   category: 'Designer',
   inputs: [
     { name: 'objectName', type: 'string' },
-    { name: 'fields', type: 'code' },
+    { name: 'fields', type: 'array' },
     { name: 'readOnly', type: 'boolean' },
   ],
 });

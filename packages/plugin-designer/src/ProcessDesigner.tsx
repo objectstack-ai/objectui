@@ -24,6 +24,7 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import { PropertyEditor, type PropertyField } from './components/PropertyEditor';
 import { Minimap } from './components/Minimap';
 import { useCollaboration } from './CollaborationProvider';
+import { CANVAS_BACKGROUND_CLASS, canvasBackgroundStyle } from './canvasBackground';
 
 function cn(...inputs: (string | undefined | false)[]) {
   return twMerge(clsx(inputs));
@@ -843,8 +844,10 @@ export function ProcessDesigner({
           onMouseDown={panZoom.startPan}
         >
           <div
-            className="relative"
+            className={cn('relative', canvas.backgroundColor && CANVAS_BACKGROUND_CLASS)}
+            data-testid="process-canvas"
             style={{
+              ...canvasBackgroundStyle(canvas.backgroundColor),
               ...panZoom.transformStyle,
               width: canvas.width,
               minHeight: canvas.height,

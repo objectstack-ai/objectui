@@ -68,11 +68,15 @@
  *     .validationRules`, whose element types (`ObjectDefinitionRelationship`,
  *     `DesignerValidationRule`) left both faces and the exports with them.
  *
- * The members ruled READ stay declared and mirrored. The data-model and
- * process designers' readers landed in the card's second change, which also
- * RESPELLED `DataModelRelationship.onDelete` as `deleteBehavior`, in the spec's
- * vocabulary: `onDelete` is refused by name with the migration. The other
- * designers' readers are a later change of the same card.
+ * The members ruled READ stay declared and mirrored, and every one is drawn
+ * now: the data-model and process designers' since the card's second change,
+ * which also RESPELLED `DataModelRelationship.onDelete` as `deleteBehavior`,
+ * in the spec's vocabulary (`onDelete` is refused by name with the migration);
+ * the page designer's, the shared canvas's `backgroundColor` and the report
+ * designer's since its third. That change also moved a report field element
+ * onto its declared `dataBinding`: the undeclared `properties.field` it used
+ * to read is refused by name, with the migration, by the check on the element's
+ * `properties` record. No member of this family is declared and unread.
  *
  * ## Content channels
  *
@@ -459,7 +463,36 @@ const ReportSectionTypeSchema = z.enum([
 ]);
 
 /**
+ * The refusal `properties.field` meets on a report element (objectui#11434):
+ * the binding is the element's declared `dataBinding`, which `ReportDesigner`
+ * reads alone. The TypeScript face documents the same migration on
+ * `properties`.
+ */
+const REPORT_ELEMENT_FIELD_RESPELLED =
+  'RESPELLED (objectui#11434, ADR-0049) — `properties.field` on a report element is the element\'s own `dataBinding` now: '
+  + 'a declared member replaces the undeclared bag key, and `ReportDesigner` reads `dataBinding` alone. '
+  + 'Migration: move the value to the element\'s `dataBinding`, and delete `properties.field`.';
+
+/**
+ * The open `properties` bag of a report element, refusing ONE key by name.
+ *
+ * A RECORD with a check, not an object with a catchall: the strict authoring
+ * face closes every object it reaches (`catchall: z.never()`) but keeps a
+ * record's keys open, so only a record leaves a text element's `text` — and
+ * every other type's own settings — authorable there. The check reports
+ * `field` at its own path with the migration.
+ */
+const ReportElementPropertiesSchema = z.record(z.string(), z.unknown()).superRefine((bag, ctx) => {
+  if (Object.prototype.hasOwnProperty.call(bag, 'field')) {
+    ctx.addIssue({ code: 'custom', path: ['field'], message: REPORT_ELEMENT_FIELD_RESPELLED });
+  }
+});
+
+/**
  * Report Designer Element — mirrors `ReportDesignerElement` (`../designer.ts`).
+ *
+ * `properties` stays an open bag (a text element keeps its `text` there), with
+ * ONE key refused by name: `field`, respelled as the element's `dataBinding`.
  */
 export const ReportDesignerElementSchema = z.object({
   id: z.string().describe('Element identifier'),
@@ -467,7 +500,7 @@ export const ReportDesignerElementSchema = z.object({
     .enum(['text', 'field', 'image', 'chart', 'table', 'barcode', 'line', 'rectangle', 'expression'])
     .describe('Element type'),
   position: DesignerPositionSchema.describe('Position within section'),
-  properties: z.record(z.string(), z.unknown()).describe('Element properties'),
+  properties: ReportElementPropertiesSchema.describe('Element properties'),
   dataBinding: z.string().optional().describe('Data binding expression'),
   format: z
     .object({

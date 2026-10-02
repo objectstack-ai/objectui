@@ -282,7 +282,7 @@ const FULL = [
     sections: [
       {
         type: 'group-header', height: 80, groupField: 'stage', repeat: true, pageBreakBefore: false,
-        elements: [{ id: 'el1', type: 'field', position: POSITION, properties: { field: 'name' }, dataBinding: 'name', format: { fontWeight: 'bold', alignment: 'right', verticalAlignment: 'middle', fontSize: 12 } }],
+        elements: [{ id: 'el1', type: 'field', position: POSITION, properties: {}, dataBinding: 'name', format: { fontWeight: 'bold', alignment: 'right', verticalAlignment: 'middle', fontSize: 12 } }],
       },
     ],
     showToolbar: true,

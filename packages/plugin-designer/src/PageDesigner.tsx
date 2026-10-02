@@ -28,7 +28,10 @@ import {
   PanelLeftClose,
   PanelRightClose,
   Map,
+  Lock,
+  EyeOff,
 } from 'lucide-react';
+import { resolveIcon } from '@object-ui/components';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import { useUndoRedo } from './hooks/useUndoRedo';
@@ -40,9 +43,45 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import { PropertyEditor, type PropertyField } from './components/PropertyEditor';
 import { Minimap, type MinimapItem } from './components/Minimap';
 import { useCollaboration } from './CollaborationProvider';
+import { CANVAS_BACKGROUND_CLASS, canvasBackgroundStyle } from './canvasBackground';
 
 function cn(...inputs: (string | undefined | false)[]) {
   return twMerge(clsx(inputs));
+}
+
+/*
+ * The component TREE (objectui#11434). `DesignerComponent.children` nests a
+ * component inside its parent, so every lookup and every edit below walks the
+ * whole tree rather than the top level alone.
+ */
+
+/** Every component of the tree, depth first, with its nesting depth. */
+function flattenTree(list: DesignerComponent[], depth = 0): { comp: DesignerComponent; depth: number }[] {
+  return list.flatMap((comp) => [{ comp, depth }, ...flattenTree(comp.children ?? [], depth + 1)]);
+}
+
+/** The tree with `fn` applied to every component, at every depth. */
+function mapTree(list: DesignerComponent[], fn: (comp: DesignerComponent) => DesignerComponent): DesignerComponent[] {
+  return list.map((comp) => {
+    const next = fn(comp);
+    return next.children ? { ...next, children: mapTree(next.children, fn) } : next;
+  });
+}
+
+/**
+ * Whether deleting this component would remove a locked one — itself, or any
+ * component nested in it. A lock is never removed by a delete
+ * (objectui#11434), so such a component is kept, parent included.
+ */
+function holdsLock(comp: DesignerComponent): boolean {
+  return comp.locked === true || (comp.children ?? []).some(holdsLock);
+}
+
+/** The tree without the components `keep` rejects, at every depth (a removed parent takes its children). */
+function filterTree(list: DesignerComponent[], keep: (comp: DesignerComponent) => boolean): DesignerComponent[] {
+  return list
+    .filter(keep)
+    .map((comp) => (comp.children ? { ...comp, children: filterTree(comp.children, keep) } : comp));
 }
 
 export interface PageDesignerProps {
@@ -70,7 +109,11 @@ export interface PageDesignerProps {
 
 /**
  * Drag-and-drop page designer component.
- * Allows visual composition of UI components on a canvas.
+ * Allows visual composition of UI components on a canvas. The canvas draws its
+ * declared `backgroundColor`; a component draws its `children` inside it, is
+ * held in place when `locked`, drawn faded when not `visible`, and stacked by
+ * `zIndex`; the palette draws each category's and item's `icon` and an item's
+ * `preview` (objectui#11434).
  */
 export function PageDesigner({
   canvas = { width: 1200, height: 800, gridSize: 8, showGrid: true, snapToGrid: true },
@@ -112,7 +155,7 @@ export function PageDesigner({
   }, [multiSelect.selectedIds]);
 
   const selectedComponent = useMemo(
-    () => components.find((c) => c.id === selectedId),
+    () => flattenTree(components).find((entry) => entry.comp.id === selectedId)?.comp,
     [components, selectedId],
   );
 
@@ -183,7 +226,9 @@ export function PageDesigner({
   const handleDeleteComponent = useCallback(
     (id: string) => {
       if (readOnly) return;
-      const updated = components.filter((c) => c.id !== id);
+      const target = flattenTree(components).find((entry) => entry.comp.id === id)?.comp;
+      if (!target || holdsLock(target)) return;
+      const updated = filterTree(components, (c) => c.id !== id);
       pushComponents(updated);
       if (multiSelect.isSelected(id)) multiSelect.clearSelection();
       broadcastOp({ type: 'delete', elementId: id, data: {} });
@@ -193,13 +238,21 @@ export function PageDesigner({
 
   const handleDeleteSelected = useCallback(async () => {
     if (readOnly || multiSelect.count === 0) return;
+    // A locked component, and a parent that holds one, is not deleted
+    // (objectui#11434): only the rest of the selection is.
+    const ids = new Set(
+      flattenTree(components)
+        .map((entry) => entry.comp)
+        .filter((c) => multiSelect.selectedIds.has(c.id) && !holdsLock(c))
+        .map((c) => c.id),
+    );
+    if (ids.size === 0) return;
     const confirmed = await confirmDialog.confirm(
       'Delete components',
-      `Are you sure you want to delete ${multiSelect.count} component${multiSelect.count > 1 ? 's' : ''}?`,
+      `Are you sure you want to delete ${ids.size} component${ids.size > 1 ? 's' : ''}?`,
     );
     if (!confirmed) return;
-    const ids = multiSelect.selectedIds;
-    const updated = components.filter((c) => !ids.has(c.id));
+    const updated = filterTree(components, (c) => !ids.has(c.id));
     pushComponents(updated);
     multiSelect.clearSelection();
     ids.forEach((id) => {
@@ -210,9 +263,11 @@ export function PageDesigner({
   const handleUpdateProperty = useCallback(
     (name: string, value: unknown) => {
       if (readOnly || !selectedId) return;
-      const updated = components.map((c) => {
+      const updated = mapTree(components, (c) => {
         if (c.id !== selectedId) return c;
         if (name === 'label') return { ...c, label: String(value) };
+        if (name === 'locked' || name === 'visible') return { ...c, [name]: Boolean(value) };
+        if (name === 'zIndex') return { ...c, zIndex: Number(value) };
         if (name === 'x') return { ...c, position: { ...c.position, x: Number(value) } };
         if (name === 'y') return { ...c, position: { ...c.position, y: Number(value) } };
         if (name === 'width') return { ...c, position: { ...c.position, width: Number(value) } };
@@ -229,7 +284,9 @@ export function PageDesigner({
   const handleCopy = useCallback(() => {
     const ids = multiSelect.selectedIds;
     if (ids.size === 0) return;
-    const selected = components.filter((c) => ids.has(c.id));
+    const selected = flattenTree(components)
+      .map((entry) => entry.comp)
+      .filter((c) => ids.has(c.id));
     clipboard.copy(selected);
   }, [multiSelect, components, clipboard]);
 
@@ -274,7 +331,7 @@ export function PageDesigner({
       if (!drag || readOnly) return;
       const dx = (e.clientX - drag.startX) / zoom;
       const dy = (e.clientY - drag.startY) / zoom;
-      const updated = components.map((c) => {
+      const updated = mapTree(components, (c) => {
         if (c.id !== drag.id) return c;
         return {
           ...c,
@@ -301,6 +358,9 @@ export function PageDesigner({
       { name: 'y', label: 'Y', type: 'number' as const, value: selectedComponent.position.y, group: 'Position' },
       { name: 'width', label: 'Width', type: 'number' as const, value: selectedComponent.position.width, group: 'Size' },
       { name: 'height', label: 'Height', type: 'number' as const, value: selectedComponent.position.height, group: 'Size' },
+      { name: 'visible', label: 'Visible', type: 'boolean' as const, value: selectedComponent.visible !== false, group: 'Layer' },
+      { name: 'locked', label: 'Locked', type: 'boolean' as const, value: selectedComponent.locked === true, group: 'Layer' },
+      { name: 'zIndex', label: 'Z-index', type: 'number' as const, value: selectedComponent.zIndex ?? 0, group: 'Layer' },
     ];
   }, [selectedComponent]);
 
@@ -382,6 +442,74 @@ export function PageDesigner({
     components,
   ]);
 
+  // -- One component on the canvas, and its children inside it -------------
+  // `locked` holds it in place (no drag, no canvas delete), `visible: false`
+  // draws it faded with a dashed edge so it can still be found and selected,
+  // and `zIndex` orders overlapping siblings (objectui#11434).
+  const renderComponent = (comp: DesignerComponent): React.ReactNode => {
+    const isSelected = multiSelect.isSelected(comp.id);
+    const hidden = comp.visible === false;
+    return (
+      <div
+        key={comp.id}
+        draggable={!readOnly && !comp.locked}
+        onDragStart={(e) => {
+          e.stopPropagation();
+          handleDragStart(e, comp);
+        }}
+        className={cn(
+          'absolute border rounded select-none transition-shadow',
+          comp.locked ? 'cursor-default' : 'cursor-move',
+          isSelected
+            ? 'border-primary ring-2 ring-primary/20 shadow-md'
+            : 'border-border hover:border-primary/50',
+          hidden && 'opacity-40 border-dashed',
+        )}
+        style={{
+          left: comp.position.x * zoom,
+          top: comp.position.y * zoom,
+          width:
+            typeof comp.position.width === 'number'
+              ? comp.position.width * zoom
+              : comp.position.width,
+          height:
+            typeof comp.position.height === 'number'
+              ? comp.position.height * zoom
+              : comp.position.height,
+          zIndex: comp.zIndex,
+        }}
+        data-testid={`page-component-${comp.id}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          multiSelect.toggle(comp.id, e.shiftKey);
+        }}
+      >
+        <div className="flex items-center gap-1 px-2 py-1 bg-muted/50 text-xs border-b">
+          <GripVertical className="h-3 w-3 text-muted-foreground" />
+          <span className="truncate">{comp.label ?? comp.type}</span>
+          {hidden && <EyeOff className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Hidden" />}
+          {comp.locked && <Lock className="h-3 w-3 shrink-0 text-muted-foreground" aria-label="Locked" />}
+          {!readOnly && !holdsLock(comp) && (
+            <button type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleDeleteComponent(comp.id);
+              }}
+              className="ml-auto p-0.5 rounded hover:bg-destructive/10"
+              aria-label={`Delete ${comp.label ?? comp.type}`}
+            >
+              <Trash2 className="h-3 w-3 text-destructive" />
+            </button>
+          )}
+        </div>
+        <div className="relative p-2 text-xs text-muted-foreground">
+          {comp.type}
+          {comp.children?.map((child) => renderComponent(child))}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div
       ref={containerRef}
@@ -405,23 +533,44 @@ export function PageDesigner({
             <>
               <div className="p-3 border-b font-medium text-sm">Components</div>
               <div className="flex-1 overflow-y-auto p-2">
-                {palette.map((category) => (
-                  <div key={category.name} className="mb-3">
-                    <div className="text-xs font-medium text-muted-foreground px-2 py-1 uppercase">
-                      {category.label}
+                {palette.map((category) => {
+                  const CategoryIcon = resolveIcon(category.icon);
+                  return (
+                    <div key={category.name} className="mb-3">
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground px-2 py-1 uppercase">
+                        {CategoryIcon && (
+                          <CategoryIcon className="h-3 w-3" aria-hidden="true" data-testid={`palette-category-icon-${category.name}`} />
+                        )}
+                        {category.label}
+                      </div>
+                      {category.items.map((item: DesignerPaletteItem) => {
+                        // The declared icon when it names a Lucide glyph; the
+                        // generic "add" glyph otherwise, as before.
+                        const ItemIcon = resolveIcon(item.icon) ?? Plus;
+                        return (
+                          <button type="button"
+                            key={item.type}
+                            onClick={() => handleAddComponent(item.type, item.label)}
+                            className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-accent text-left"
+                            data-testid={`palette-item-${item.type}`}
+                          >
+                            <ItemIcon className="h-3 w-3 shrink-0" aria-hidden="true" />
+                            <span className="truncate">{item.label}</span>
+                            {item.preview && (
+                              <img
+                                src={item.preview}
+                                alt=""
+                                loading="lazy"
+                                className="ml-auto h-6 w-10 shrink-0 rounded border object-cover"
+                                data-testid={`palette-item-preview-${item.type}`}
+                              />
+                            )}
+                          </button>
+                        );
+                      })}
                     </div>
-                    {category.items.map((item: DesignerPaletteItem) => (
-                      <button type="button"
-                        key={item.type}
-                        onClick={() => handleAddComponent(item.type, item.label)}
-                        className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-accent text-left"
-                      >
-                        <Plus className="h-3 w-3" />
-                        {item.label}
-                      </button>
-                    ))}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </>
           )}
@@ -580,8 +729,13 @@ export function PageDesigner({
           onDrop={handleDrop}
         >
           <div
-            className="relative bg-background border rounded shadow-sm mx-auto"
+            className={cn(
+              'relative bg-background border rounded shadow-sm mx-auto',
+              canvas.backgroundColor && CANVAS_BACKGROUND_CLASS,
+            )}
+            data-testid="page-canvas"
             style={{
+              ...canvasBackgroundStyle(canvas.backgroundColor),
               width: canvas.width * zoom,
               height: canvas.height * zoom,
               transform: `translate(${panZoom.panOffset.x}px, ${panZoom.panOffset.y}px)`,
@@ -594,53 +748,7 @@ export function PageDesigner({
                   : undefined,
             }}
           >
-            {components.map((comp) => {
-              const isSelected = multiSelect.isSelected(comp.id);
-              return (
-                <div
-                  key={comp.id}
-                  draggable={!readOnly}
-                  onDragStart={(e) => handleDragStart(e, comp)}
-                  className={cn(
-                    'absolute border rounded cursor-move select-none transition-shadow',
-                    isSelected
-                      ? 'border-primary ring-2 ring-primary/20 shadow-md'
-                      : 'border-border hover:border-primary/50',
-                  )}
-                  style={{
-                    left: comp.position.x * zoom,
-                    top: comp.position.y * zoom,
-                    width:
-                      typeof comp.position.width === 'number'
-                        ? comp.position.width * zoom
-                        : comp.position.width,
-                    height:
-                      typeof comp.position.height === 'number'
-                        ? comp.position.height * zoom
-                        : comp.position.height,
-                  }}
-                  onClick={(e) => multiSelect.toggle(comp.id, e.shiftKey)}
-                >
-                  <div className="flex items-center gap-1 px-2 py-1 bg-muted/50 text-xs border-b">
-                    <GripVertical className="h-3 w-3 text-muted-foreground" />
-                    <span className="truncate">{comp.label ?? comp.type}</span>
-                    {!readOnly && (
-                      <button type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteComponent(comp.id);
-                        }}
-                        className="ml-auto p-0.5 rounded hover:bg-destructive/10"
-                        aria-label={`Delete ${comp.label ?? comp.type}`}
-                      >
-                        <Trash2 className="h-3 w-3 text-destructive" />
-                      </button>
-                    )}
-                  </div>
-                  <div className="p-2 text-xs text-muted-foreground">{comp.type}</div>
-                </div>
-              );
-            })}
+            {components.map((comp) => renderComponent(comp))}
 
             {/* Minimap */}
             {minimapVisible && (
@@ -677,16 +785,24 @@ export function PageDesigner({
                     canvas.
                   </div>
                 ) : (
-                  components.map((comp) => (
+                  flattenTree(components).map(({ comp, depth }) => (
                     <button type="button"
                       key={comp.id}
                       onClick={(e) => multiSelect.toggle(comp.id, e.shiftKey)}
                       className={cn(
-                        'w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded text-left',
+                        'w-full flex items-center gap-2 py-1.5 pr-2 pl-[calc(0.5rem+var(--tree-depth)*0.75rem)] text-sm rounded text-left',
                         multiSelect.isSelected(comp.id) ? 'bg-accent' : 'hover:bg-accent/50',
+                        comp.visible === false && 'text-muted-foreground',
                       )}
+                      style={{ '--tree-depth': depth } as React.CSSProperties}
+                      data-testid={`page-tree-item-${comp.id}`}
+                      data-depth={depth}
                     >
                       <span className="truncate">{comp.label ?? comp.type}</span>
+                      {comp.visible === false && <EyeOff className="ml-auto h-3 w-3 shrink-0" aria-label="Hidden" />}
+                      {comp.locked && (
+                        <Lock className={cn('h-3 w-3 shrink-0', comp.visible !== false && 'ml-auto')} aria-label="Locked" />
+                      )}
                     </button>
                   ))
                 )}

@@ -504,19 +504,25 @@ depends on its shape:
   which runs down the side on a `horizontal-bar`).
 - **Any other dimensionless widget with several measures** still renders the
   first one as a tile.
+- **A `pie`, `donut`, `funnel`, `treemap` or `sankey` with a dimension** draws
+  one series, the first measure, however many it declares: the shared chart
+  renderer reads the first series only on those families.
 
-When `DatasetWidget`'s own branch decision keeps a declared measure off the
-screen (a tile renders the first measure only), it logs one console warning
-naming the widget, the measures it renders, the ones it queried and never
-displayed, and the spec's ADR-0087 entry
+When a widget keeps a declared measure off the screen, `DatasetWidget` logs
+one console warning naming the widget, the measures it renders, and the ones it
+queried and never displayed. Three shapes do that. Two take the tile: a metric
+tile stored before the spec narrowed, and a widget the third bullet above
+covers (no `dimensions`, several measures, and a type the second bullet does not
+list, so a dimensionless `pie` is one). The third is a `pie`, `donut`,
+`funnel`, `treemap` or `sankey` with a dimension and several measures
+(objectui#11417). For a tile the warning
+then names the spec's ADR-0087 entry
 `dashboard-widget-metric-family-multi-measure-refused`, whose `replacement`
-says what to author instead. Two shapes take the tile with several measures: a
-metric tile stored before the spec narrowed, and a dimensionless widget of a
-type outside the list above. The warning reads that branch decision only. A
-chart branch hands every measure to the shared chart renderer as a series, and
-what the renderer then draws is not covered: a dimensioned `pie`, `donut`,
-`funnel`, `treemap` or `sankey` with several measures draws only the first,
-with no warning (objectui#11417).
+says what to author instead of a one-number tile with several measures. For
+one of those five charts it says that the chart family draws a single series,
+the first declared measure, and points to no entry: that one answers for a
+tile. Nothing about what is drawn changes. Every door accepts the chart shape
+today; the spec is to refuse it (objectstack#21293).
 The widget panel (`WidgetConfigPanel`) asks the same door the spec runs: it
 offers no further measure the door would refuse, and shows the door's own
 message under measures it already refuses.

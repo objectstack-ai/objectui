@@ -306,9 +306,12 @@ Author them in the canonical tagged-template form that skill teaches
 Renderer-side, and only here: the form renderer **re-evaluates these reactively
 as the user edits**, via `resolveFieldRuleState` in `@object-ui/core`. A static
 `required: true` / `readonly: true` is a floor a FALSE predicate cannot weaken.
-Evaluation is **fail-open** -- a broken predicate never hides content, never
-blocks submit and never locks a field -- so `visibleWhen` is never a security
-boundary on the client.
+Faults follow ADR-0137. At render a broken predicate is **fail-open**: it never
+hides content and never locks a field. At submit a faulted or stored-blank field
+rule **refuses the submit**, naming the field and the rule (the client judges
+`visibleWhen`, the server the other two). A blank triad key is refused at
+authoring; a blank gate stays "no gate", with a diagnostic. `visibleWhen` is
+still never a security boundary on the client; the server is the authority.
 
 ## CEL predicates over a row record
 

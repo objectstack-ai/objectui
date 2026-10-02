@@ -1129,6 +1129,7 @@ export type {
   ResolvableParamFieldType,
   ActionParam,
   UIActionSchema,
+  ActionBarSchema,
   DeclaredActionsRefusal,
   DeclaredActionsResolution,
   ActionContext,

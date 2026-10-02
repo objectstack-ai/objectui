@@ -560,9 +560,10 @@ const warnedShadowedFlatGanttKeys = new Set<string>();
 function warnOnShadowedFlatGanttKeys(schema: ObjectGanttSchema): void {
   if (!isDev()) return;
 
-  const shadowed = FLAT_GANTT_CONFIG_KEYS.filter(
-    (key) => (schema as Record<string, unknown>)[key] !== undefined,
-  );
+  // `key` is a `GanttConfigSchema` key or the legacy `dependencyField`, and
+  // `ObjectGanttSchema` declares every one of those, so the read is typed as it
+  // stands; no conversion is needed (objectui#11355).
+  const shadowed = FLAT_GANTT_CONFIG_KEYS.filter((key) => schema[key] !== undefined);
   if (shadowed.length === 0) return;
 
   const memo = `${schema.type ?? 'gantt'}::${schema.objectName ?? ''}::${shadowed.join(',')}`;

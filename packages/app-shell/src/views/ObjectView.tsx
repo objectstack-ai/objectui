@@ -43,7 +43,7 @@ import { useFavorites } from '../hooks/useFavorites.js';
 import { useTenancyPosture } from '../hooks/useTenancyPosture.js';
 import { useServedViewItems, isServedView } from '../hooks/useServedViewItems.js';
 import { getIcon } from '../utils/getIcon.js';
-import type { DataSource, ListViewSchema, TreeViewConfig, ViewNavigationConfig } from '@object-ui/types';
+import type { ActionBarSchema, DataSource, ListViewSchema, TreeViewConfig, ViewNavigationConfig } from '@object-ui/types';
 import { detectStatusField, isSystemManagedField } from '@object-ui/types';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { ViewConfigPanel } from './ViewConfigPanel.js';
@@ -1706,6 +1706,20 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                   ),
         [localizedToolbarActions, navRunAction],
     );
+    // The schema-driven toolbar, typed as the `action:bar` node it is
+    // (objectui#11355), not as the `BaseSchema` the `schema` prop accepts: a key
+    // `ActionBarSchema` does not declare is refused here. On mobile it collapses
+    // all schema-driven toolbar actions into a single overflow menu, so the
+    // icon-only New / Import buttons stay visible without pushing the page title
+    // off-screen.
+    const toolbarBar: ActionBarSchema = {
+        type: 'action:bar',
+        location: 'list_toolbar',
+        actions: toolbarActionsWithDeepLink,
+        size: 'sm',
+        variant: 'outline',
+        mobileMaxVisible: 0,
+    };
 
     // Resolve which generic CRUD affordances belong in the toolbar for
     // this object's lifecycle bucket (`managedBy`).  config tables show
@@ -3392,18 +3406,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                           onUpgrade={actionRuntime.openEntitlementDialog}
                         />
                       ) : (
-                      <SchemaRenderer schema={{
-                        type: 'action:bar',
-                        location: 'list_toolbar',
-                        actions: toolbarActionsWithDeepLink,
-                        size: 'sm',
-                        variant: 'outline',
-                        // On mobile, collapse all schema-driven toolbar actions
-                        // into a single overflow menu so the icon-only New /
-                        // Import buttons stay visible without pushing the page
-                        // title off-screen.
-                        mobileMaxVisible: 0,
-                      }} />
+                      <SchemaRenderer schema={toolbarBar} />
                       )
                     )}
 

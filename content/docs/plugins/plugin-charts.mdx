@@ -352,6 +352,15 @@ const schema = {
 }
 ```
 
+## Rendering Without the Entrance Animation (host-composed)
+
+A host that builds an `object-chart` or `chart` node in code can set `isAnimationActive: false` on it for a deterministic render: the chart draws at its final geometry on the first frame, with no entrance animation. Omitted, the chart animates. `ChartRenderer` honours the flag, and the flag reaches it by one of two routes:
+
+- **An `object-chart` node.** `ObjectChart` spreads the node into the schema it hands `ChartRenderer`. `DashboardRenderer` and `DashboardGridLayout` set the flag this way on the `object-chart` nodes they build for an object-bound widget. For this node it is declared on the TypeScript `ObjectChartSchema` in `@object-ui/types`, as a host-composed member.
+- **A bare `chart` node.** `ChartRenderer` renders it directly: it owns the bare `chart` key, and `ObjectChart`'s block is registered as `view:chart` only. `ChartRenderer`'s own `schema` prop declares the flag. `DatasetWidget` and `DatasetReportRenderer` set it this way, and so do the two dashboard renderers for a widget on inline data. These nodes do not go through `ObjectChartSchema`.
+
+It is not an authoring key: the zod mirror of `ObjectChartSchema` declares no member for it, so it is not part of the `object-chart` node's `properties` vocabulary.
+
 ## Axis Tick Labels and the Host Page Font
 
 **Precondition:** the host page's `body` font family must match the font family the chart's axis tick labels render with. When the two differ, Recharts computes its tick-density and collision decisions against the wrong glyph metrics: tick labels overlap when the page font is narrower than the tick font, and labels that would have fitted are dropped from the axis when it is wider. Nothing reports the mismatch — there is no error and no warning, only a different set of visible labels.

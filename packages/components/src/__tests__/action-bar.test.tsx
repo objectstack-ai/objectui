@@ -7,7 +7,7 @@ import { render } from '@testing-library/react';
 import { ComponentRegistry } from '@object-ui/core';
 import { ActionProvider } from '@object-ui/react';
 import { renderComponent, validateComponentRegistration } from './test-utils';
-import type { ActionBarSchema } from '../renderers/action/action-bar';
+import type { ActionBarSchema } from '@object-ui/types';
 
 /**
  * Types each literal below as the `action:bar` node it is rather than as the

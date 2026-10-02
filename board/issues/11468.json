@@ -1,0 +1,32 @@
+{
+  "number": 11468,
+  "kind": "issue",
+  "title": "spec(types): the spec's authored properties-bag carriers (flex and the eight object-* public blocks) have zod arms but no TypeScript node type; extend AuthoringNode by reference, as objectui#11364 did for the 27 public blocks",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-tesla"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-02T13:45:32Z",
+  "updated_at": "2026-10-02T14:11:45Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11468",
+  "body": "This card carries objectui#8347's **F3** half: TypeScript node types for the authored `properties`-bag carriers. objectui#8347 keeps the removal itself and everything its fork ACCEPT lists for the last PR.\n\nFiling-gate category: ① — a named landing point (`AuthoringNode` in `packages/types/src/authoring-nodes.ts`), measured reach, and named producers. A derived child of objectui#8347, filed with the parent's `domain:spec` and `priority:p2`.\nReader: the `domain:spec @ objectui` seat (objectui#10217) dispatches it, and an os-dev executes it.\nParent: objectui#8347, which is `pm:blocked` until this card and its two siblings land.\n\n## What was measured (objectui#8347's P1 report `5953663875`, at `main` `5988b6b53`)\n\n`FlexBlockSchema` (in `packages/types/src/zod/layout.zod.ts`) and the eight `ObjectQLPublicBlockComponentSchema` arms (`object-metric`, `object-master-detail-form`, `object-timeline`, `object-form`, `object-map`, `object-chart`, `object-gantt`, `object-grid`) have zod arms, which `objectui validate` already enforces, but no TypeScript node type. `AuthoringNode` covers the 27 `PublicBlockComponentSchema` arms, `element:text_input`, `element:record_picker` and page documents only. With `BaseSchema`'s index signature deleted alone:\n- **46 doc diagnostics** in `check:doc-snippets`: `plugin-map.mdx` 12, the plugin-grid README 11, `plugin-gantt.mdx` 10, `objectos-integration.mdx` 3, the plugin-form README 2, the plugin-map README 2, the types README 2, utilities 2, the plugin-gantt README 1, and the root README 1. Each types one of these carriers as `BaseSchema`;\n- the types example `dashboard.ts`: a `flex` node with its `properties` bag, annotated `BaseSchema`, ×2;\n- an inline `SchemaRenderer` literal of any of these nodes.\n\n`reach:` the published `@object-ui/types` face. The named producers are the docs and READMEs above.\n\n## Seat answer: A (non-escalation; it extends a ruled direction)\n\n**Governing text:** objectui#11364's direction A, \"TS node types by reference to the spec rows\", which PR objectui#11385 executed for the 27 public blocks under an at-tier contract review, and 协议为基准.\n\n- **A:** a node type for each of these arms, BY REFERENCE (the arm's closed input type, the same mechanism `AuthoringNode` uses for the 27 public blocks; ⛔ not hand-written twins), joined into `AuthoringNode`. Docs then annotate the declared node type instead of `BaseSchema`.\n- B (drop the annotation, untyped JSON) leaves TypeScript authors with no node type, and the docs stop compiling against any contract.\n\n## Constraints\n\n- Every edit here must compile WITH the signature still present, so this card lands on its own and `main` stays green.\n- The listed doc blocks and the types example move with the types.\n- objectui#8347's F1 sibling may type node slots and `SchemaRenderer`'s prop as a union that includes `AuthoringNode`. Whichever lands second merges `main`, and the arms added here then flow into that union.\n- `Clause-②` is stated at claim from the actual change: a new exported type is public-face growth.\n\n## Dedupe\n\nThe same REST read as objectui#8347's siblings (600 most recently updated objectui issues and PRs, open and closed, back to 2026-09-28T12:31Z, 2026-10-02): `FlexBlockSchema` / `ObjectQLPublicBlockComponent` / `AuthoringNode` 10 hits, all closed PRs. Control `objectui` 589.\n\nDedupe words: `AuthoringNode properties bag carriers` · `FlexBlockSchema TypeScript node type` · `object-map object-gantt TS node type`"
+}

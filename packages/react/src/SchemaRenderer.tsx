@@ -7,7 +7,7 @@
  */
 
 import React, { forwardRef, useContext, useMemo, useEffect, useReducer, useState, Component, type ForwardRefExoticComponent, type RefAttributes } from 'react';
-import type { AuthoringNode, BaseSchema } from '@object-ui/types';
+import type { BaseSchema, DeclaredNode } from '@object-ui/types';
 import {
   ComponentRegistry,
   ExpressionEvaluator,
@@ -1025,9 +1025,9 @@ function withoutAuthoredObjectFields<T extends object>(bag: T): T {
  *
  * ## Why `schema` is spelled as this union and not as a `SchemaNode`
  *
- * The repo carries two competing `SchemaNode` types: `@object-ui/core`'s
- * interface (which requires `type: string`) and `@object-ui/types`' union
- * (`BaseSchema | string | number | boolean | null | undefined`). This component
+ * The repo carried two competing `SchemaNode` types: `@object-ui/core`'s
+ * interface (which requires `type: string`) and `@object-ui/types`' union (then
+ * `BaseSchema | string | number | boolean | null | undefined`). This component
  * matched NEITHER. It declared core's — narrower than what it accepts, so every
  * caller holding the types union was wrong and could not be told — while its
  * runtime returns early for strings and nullish, which core's interface forbids.
@@ -1038,24 +1038,25 @@ function withoutAuthoredObjectFields<T extends object>(bag: T): T {
  * handles: an object schema, a bare string (rendered as text), or nothing at
  * all. `number` / `boolean` are deliberately excluded — the runtime tolerates
  * them defensively (see the primitive guard in the evaluation memo) but no
- * author should be invited to pass them. Reconciling the two repo-wide
- * `SchemaNode` spellings is a separate concern and deliberately not done here.
+ * author should be invited to pass them; `toRenderableSchema` (`./schema-input`)
+ * is the bridge from a `SchemaNode` that may hold one.
  *
- * ## `AuthoringNode`: the spec-declared nodes, by reference (objectui#11364)
+ * ## The object member is `DeclaredNode` (objectui#11466)
  *
- * The object member is `BaseSchema` OR an `AuthoringNode` from
- * `@object-ui/types`: a public block (its zod arm's input), an
- * `element:text_input` / `element:record_picker` (its spec row), or a stored
- * page document under its page kind. Each is derived from the zod arm or the
- * spec row, and none carries an index signature. Inside this union TypeScript
- * discriminates on the literal `type`, so those nodes' own keys are judged:
- * once objectui#8347 removes `BaseSchema`'s index signature, a misspelled key in
- * an `element:text` bag is refused while the spec's spelling compiles. ⛔ The
- * widening is by those referenced types only, never by an index signature or a
- * `Record` on this prop.
+ * The object member is `DeclaredNode` from `@object-ui/types`, the same type a
+ * node slot takes: the discriminated union, keyed by the literal `type`, of the
+ * component schemas that package declares, the spec-declared `AuthoringNode`s
+ * (objectui#11364: public blocks, `element:text_input` /
+ * `element:record_picker`, a stored page document under its page kind), and
+ * the types an application declares in `CustomNodeRegistry`. It has no
+ * `type: string` arm, so a node whose `type` no declaration names is refused
+ * here, and each node's own keys are judged: once objectui#8347 removes
+ * `BaseSchema`'s index signature, a misspelled key is refused while the
+ * declared spelling compiles. ⛔ The prop is widened by declared types only,
+ * never by an index signature, a `Record` or a `type: string` arm.
  */
 export interface SchemaRendererProps {
-  schema: BaseSchema | AuthoringNode | string | null | undefined;
+  schema: DeclaredNode | string | null | undefined;
 }
 
 /**

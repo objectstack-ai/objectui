@@ -740,7 +740,7 @@ const APP_SCHEMA_RENDERER_NEITHER_CHANNEL =
  * Neither content channel is read (see
  * {@link APP_SCHEMA_RENDERER_NEITHER_CHANNEL}), so both are refused by name.
  */
-export const AppSchemaRendererNodeSchema = BaseSchema.extend({
+export const AppSchemaRendererNodeSchema: AppSchemaRendererNodeSchemaType = BaseSchema.extend({
   type: z.literal('app-schema-renderer'),
   schema: AppComponentSchema.optional().describe(
     'The app document the shell draws (branding, `navigation`, `areas`), nested: `{ "type": "app", ... }`',
@@ -756,6 +756,30 @@ export const AppSchemaRendererNodeSchema = BaseSchema.extend({
   body: retirementTombstone(APP_SCHEMA_RENDERER_NEITHER_CHANNEL),
   children: retirementTombstone(APP_SCHEMA_RENDERER_NEITHER_CHANNEL),
 });
+
+/**
+ * The TYPE of {@link AppSchemaRendererNodeSchema}, written out BY REFERENCE to
+ * {@link AppComponentSchema} for its `schema` member, on the precedent of
+ * `PageKindNodeSchemaType` in `layout.zod.ts` (objectui#11440). Without it,
+ * declaration emit re-serializes the whole app document a second time inside
+ * `AnyComponentSchema`, beside the `app` arm, and `tsc` refuses that union with
+ * TS7056 ("The inferred type of this node exceeds the maximum length the
+ * compiler will serialize"), measured on objectui#11494 against
+ * `@objectstack/spec` built from objectstack `main` (the `Spec Main Shape
+ * Gate`). A named type is emitted by name. It is a type only: the schema above
+ * and what it accepts are unchanged.
+ */
+export type AppSchemaRendererNodeSchemaType = z.ZodObject<
+  Omit<(typeof BaseSchema)['shape'], 'type' | 'body' | 'children'> & {
+    type: z.ZodLiteral<'app-schema-renderer'>;
+    schema: z.ZodOptional<typeof AppComponentSchema>;
+    basePath: z.ZodOptional<z.ZodString>;
+    mobileNavMode: z.ZodOptional<z.ZodEnum<{ drawer: 'drawer'; bottom_nav: 'bottom_nav' }>>;
+    body: ReturnType<typeof retirementTombstone>;
+    children: ReturnType<typeof retirementTombstone>;
+  },
+  z.core.$loose
+>;
 
 /**
  * Export type inference helpers

@@ -1209,12 +1209,18 @@ An enhanced detail view for a single record with sections, tabs and navigation.
 > ```json
 > {
 >   "type": "record:related_list",
->   "objectName": "order",
->   "relationshipField": "contact_id",
->   "title": "Recent Orders",
->   "columns": ["id", "total", "status"]
+>   "properties": {
+>     "objectName": "order",
+>     "relationshipField": "contact_id",
+>     "title": "Recent Orders",
+>     "columns": ["id", "total", "status"]
+>   }
 > }
 > ```
+>
+> The block's props go in its `properties` bag, the spec's
+> `ComponentPropsMap['record:related_list']` row: `objectui validate` and the
+> spec's page component both refuse them written flat on the node.
 >
 > ⚠️ `columns` here is an array of **field-name strings**, not column objects —
 > that is what the protocol declares (`RecordRelatedListProps.columns`), and the

@@ -30,11 +30,11 @@
  * ## What the parity half asserts
  *
  * Every arm and record mirror declares exactly its declaration's key set, and
- * each member accepts exactly the declared type, with ONE named exception:
- * `ProcessDesignerSchema`'s `lanes` and `version`, which stay declared on the
- * TypeScript face and absent from the arm until the reader objectui#11434's
- * ruling gives them lands. That asymmetry is pinned both ways so a change to
- * either face reddens a row. The two members the batch-7 ruling settled first,
+ * each member accepts exactly the declared type — with no exception since
+ * objectui#11434 gave `ProcessDesignerSchema`'s `lanes` and `version` their
+ * reader and mirrored both (with a `BPMNLaneSchema` record mirror). Until then
+ * they were declared on the TypeScript face alone, the one asymmetry these
+ * rows named. The two members the batch-7 ruling settled first,
  * `ProcessDesignerSchema.variables` and `ReportDesignerSchema.parameters`, are
  * absent from BOTH faces.
  *
@@ -52,6 +52,7 @@ import { z } from 'zod';
 
 import {
   BPMNEdgeSchema,
+  BPMNLaneSchema,
   BPMNNodeSchema,
   DataModelDesignerSchema,
   DataModelEntitySchema,
@@ -78,6 +79,7 @@ import {
 } from '../zod/index.zod.js';
 import type {
   BPMNEdge as Ts_BPMNEdge,
+  BPMNLane as Ts_BPMNLane,
   BPMNNode as Ts_BPMNNode,
   DataModelDesignerSchema as Ts_DataModelDesignerSchema,
   DataModelEntity as Ts_DataModelEntity,
@@ -126,9 +128,8 @@ type MismatchedKeys<M, D> = {
 
 /**
  * Every record mirror declares exactly the declaration's key set, and every arm
- * declares it too, except `process-designer`, which omits exactly the two
- * members still waiting for their reader — named, so a third cannot slip in
- * unseen.
+ * declares it too. `process-designer` omitted `lanes` and `version` until
+ * objectui#11434 gave them a reader; its row names no exception now.
  */
 export type assertionKeySetsAgree = [
   Expect<Equal<MirroredKeys<typeof DesignerPositionSchema>, DeclaredKeys<Ts_DesignerPosition>>>,
@@ -140,6 +141,7 @@ export type assertionKeySetsAgree = [
   Expect<Equal<MirroredKeys<typeof DataModelRelationshipSchema>, DeclaredKeys<Ts_DataModelRelationship>>>,
   Expect<Equal<MirroredKeys<typeof BPMNNodeSchema>, DeclaredKeys<Ts_BPMNNode>>>,
   Expect<Equal<MirroredKeys<typeof BPMNEdgeSchema>, DeclaredKeys<Ts_BPMNEdge>>>,
+  Expect<Equal<MirroredKeys<typeof BPMNLaneSchema>, DeclaredKeys<Ts_BPMNLane>>>,
   Expect<Equal<MirroredKeys<typeof ReportDesignerElementSchema>, DeclaredKeys<Ts_ReportDesignerElement>>>,
   Expect<Equal<MirroredKeys<typeof ReportDesignerSectionSchema>, DeclaredKeys<Ts_ReportDesignerSection>>>,
   Expect<Equal<MirroredKeys<typeof ObjectDefinitionSchema>, DeclaredKeys<Ts_ObjectDefinition>>>,
@@ -149,7 +151,7 @@ export type assertionKeySetsAgree = [
   Expect<Equal<MirroredKeys<typeof ObjectManagerSchema>, DeclaredKeys<Ts_ObjectManagerSchema>>>,
   Expect<Equal<MirroredKeys<typeof FieldDesignerSchema>, DeclaredKeys<Ts_FieldDesignerSchema>>>,
   Expect<Equal<MirroredKeys<typeof DataModelDesignerSchema>, DeclaredKeys<Ts_DataModelDesignerSchema>>>,
-  Expect<Equal<MirroredKeys<typeof ProcessDesignerSchema>, Exclude<DeclaredKeys<Ts_ProcessDesignerSchema>, 'lanes' | 'version'>>>,
+  Expect<Equal<MirroredKeys<typeof ProcessDesignerSchema>, DeclaredKeys<Ts_ProcessDesignerSchema>>>,
   Expect<Equal<MirroredKeys<typeof ReportDesignerSchema>, DeclaredKeys<Ts_ReportDesignerSchema>>>,
 ];
 
@@ -164,6 +166,7 @@ export type assertionMemberTypesAgree = [
   Expect<Equal<MismatchedKeys<typeof DataModelRelationshipSchema, Ts_DataModelRelationship>, never>>,
   Expect<Equal<MismatchedKeys<typeof BPMNNodeSchema, Ts_BPMNNode>, never>>,
   Expect<Equal<MismatchedKeys<typeof BPMNEdgeSchema, Ts_BPMNEdge>, never>>,
+  Expect<Equal<MismatchedKeys<typeof BPMNLaneSchema, Ts_BPMNLane>, never>>,
   Expect<Equal<MismatchedKeys<typeof ReportDesignerElementSchema, Ts_ReportDesignerElement>, never>>,
   Expect<Equal<MismatchedKeys<typeof ReportDesignerSectionSchema, Ts_ReportDesignerSection>, never>>,
   Expect<Equal<MismatchedKeys<typeof ObjectDefinitionSchema, Ts_ObjectDefinition>, never>>,
@@ -188,17 +191,16 @@ export type assertionCanvasComponentIsTheDeclaration = [
 
 /**
  * The ruling's settlement, both faces: `variables` and `parameters` are
- * declared by NEITHER, and the two members objectui#11434 ruled READ but has
- * not yet given a reader stay declared on the TypeScript face while the arm
- * omits them. (`autoLayout` and `previewMode`, the other two batch-7 open
- * members, are tombstones on both faces now — pinned beside this file.)
+ * declared by NEITHER. (`autoLayout` and `previewMode`, two of the other four
+ * batch-7 open members, are tombstones on both faces now — pinned beside this
+ * file; `lanes` and `version` are read and mirrored, so the key-set rows above
+ * hold them.)
  */
 export type assertionSettlementFaces = [
   Expect<Equal<'variables' extends DeclaredKeys<Ts_ProcessDesignerSchema> ? true : false, false>>,
   Expect<Equal<'variables' extends MirroredKeys<typeof ProcessDesignerSchema> ? true : false, false>>,
   Expect<Equal<'parameters' extends DeclaredKeys<Ts_ReportDesignerSchema> ? true : false, false>>,
   Expect<Equal<'parameters' extends MirroredKeys<typeof ReportDesignerSchema> ? true : false, false>>,
-  Expect<Equal<Extract<DeclaredKeys<Ts_ProcessDesignerSchema>, 'lanes' | 'version'>, 'lanes' | 'version'>>,
 ];
 
 /**
@@ -249,7 +251,7 @@ const FULL = [
       },
     ],
     relationships: [
-      { id: 'r1', sourceEntity: 'e1', sourceField: 'id', targetEntity: 'e2', targetField: 'account_id', type: 'one-to-many', label: 'has', onDelete: 'cascade' },
+      { id: 'r1', sourceEntity: 'e1', sourceField: 'id', targetEntity: 'e2', targetField: 'account_id', type: 'one-to-many', label: 'has', deleteBehavior: 'cascade' },
     ],
     canvas: CANVAS,
     showRelationshipLabels: true,
@@ -258,11 +260,13 @@ const FULL = [
   {
     type: 'process-designer',
     processName: 'Order Approval',
+    version: '1.2',
     nodes: [
       { id: 'n1', type: 'start-event', label: 'Start', position: { x: 0, y: 0 } },
       { id: 'n2', type: 'user-task', label: 'Approve', position: { x: 200, y: 0 }, properties: { sla: 2 }, assignee: 'manager', dueDate: 'P2D', script: '', description: 'Manager approves' },
     ],
     edges: [{ id: 'f1', source: 'n1', target: 'n2', condition: 'amount > 0', label: 'go', isDefault: true }],
+    lanes: [{ id: 'l1', label: 'Sales', role: 'Account executive', nodeIds: ['n1', 'n2'] }],
     canvas: CANVAS,
     showMinimap: true,
     showToolbar: true,
@@ -411,7 +415,7 @@ describe('the arms are closed where the declaration is (objectui#10859 batch 7)'
   });
 });
 
-describe('the ruling\'s settlement and its two members still waiting for a reader (objectui#10859 batch 7, objectui#11434)', () => {
+describe('the ruling\'s settlement (objectui#10859 batch 7, objectui#11434)', () => {
   it.each([
     ['process-designer', 'variables', [{ name: 'amount', type: 'number' }]],
     ['report-designer', 'parameters', [{ name: 'from', type: 'date', label: 'From' }]],
@@ -424,12 +428,13 @@ describe('the ruling\'s settlement and its two members still waiting for a reade
     expect((issue as { keys?: string[] } | undefined)?.keys).toEqual([key]);
   });
 
-  it.each([
-    ['lanes', ProcessDesignerSchema],
-    ['version', ProcessDesignerSchema],
-  ] as const)('the arm omits the zero-read member `%s` (ruled READ on objectui#11434; unmirrored until its reader lands)', (key, arm) => {
-    expect(Object.keys(arm.shape)).not.toContain(key);
-    // Lit control: the arm's shape is readable and carries its read members.
-    expect(Object.keys(arm.shape)).toContain('readOnly');
+  it('`lanes` and `version` are mirrored since objectui#11434 gave each a reader: a malformed lane is refused at its path', () => {
+    const base = REQUIRED_ONLY.find((doc) => doc.type === 'process-designer') as Record<string, unknown>;
+    const result = safeValidateSchema({ ...base, version: '1.2', lanes: [{ id: 'l1', label: 'Sales', nodeIds: 'n1' }] });
+    expect(result.success).toBe(false);
+    if (result.success) return;
+    expect(result.error.issues.map((i) => i.path.join('.'))).toContain('lanes.0.nodeIds');
+    // Lit control: the same lane with its `nodeIds` list is accepted.
+    expect(safeValidateSchema({ ...base, version: '1.2', lanes: [{ id: 'l1', label: 'Sales', nodeIds: ['n1'] }] }).success).toBe(true);
   });
 });

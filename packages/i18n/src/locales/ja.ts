@@ -41,12 +41,16 @@ const ja = {
       more: "+{{count}} 件",
       objects: "{{count}} オブジェクト",
       objects_one: "{{count}} オブジェクト",
+      objects_other: "{{count}} オブジェクト",
       fields: "{{count}} フィールドルール",
       fields_one: "{{count}} フィールドルール",
+      fields_other: "{{count}} フィールドルール",
       rls: "{{count}} RLS ポリシー",
       rls_one: "{{count}} RLS ポリシー",
+      rls_other: "{{count}} RLS ポリシー",
       tabs: "{{count}} タブルール",
       tabs_one: "{{count}} タブルール",
+      tabs_other: "{{count}} タブルール",
       adminScope: "委任管理を設定済み",
       designInStudio: "Studio でデザイン →",
       designInStudioHint: "Studio でデザイン",
@@ -3110,9 +3114,10 @@ const ja = {
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
-  //                   FAMILIES (base key + `_one`): i18next resolves every
-  //                   CLDR category a pack does not enumerate to the base key,
-  //                   which is what keeps ru/ar in their own language.
+  //                   FAMILIES: one slot per CLDR category the pack's language
+  //                   selects (objectui#11432), plus the base key for a call
+  //                   made without a count. `all-locales-key-parity.test.ts`
+  //                   derives the required slots from `Intl.PluralRules`.
   //
   // objectui#7481 — five `tool.*` entries are NEWER than the registry above:
   // `get_authoring_rules` (cloud#1837), `load_tools`, `open_record`, `test_flow`
@@ -3173,10 +3178,13 @@ const ja = {
     plan: {
       countObjects: "{{count}} 件のオブジェクト",
       countObjects_one: "{{count}} 件のオブジェクト",
+      countObjects_other: "{{count}} 件のオブジェクト",
       countViews: "{{count}} 件のビュー",
       countViews_one: "{{count}} 件のビュー",
+      countViews_other: "{{count}} 件のビュー",
       countDashboards: "{{count}} 件のダッシュボード",
       countDashboards_one: "{{count}} 件のダッシュボード",
+      countDashboards_other: "{{count}} 件のダッシュボード",
       countSeedData: "サンプルデータ",
     },
     build: {

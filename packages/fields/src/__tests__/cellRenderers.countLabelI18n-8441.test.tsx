@@ -47,10 +47,10 @@
  *   through THIS file's `useFieldTranslate` before this card — under `ru`, and
  *   asserts the Russian value. If it fails, nothing else here means anything.
  * - **`ru` is the non-English leg, not `zh`, and that is load-bearing.**
- *   `Intl.PluralRules('ru').select(2)` is `few`, a category no pack in this
- *   repo enumerates, so count 2 can only be answered by the BASE key — in
- *   Russian, from the `ru` pack. A leg that renders English there is
- *   objectui#3863 reopened. `zh` is asserted too, because the same Chinese
+ *   `Intl.PluralRules('ru').select(2)` is `few`, a category `en` does not
+ *   have, so count 2 is answered by the `ru` pack's own `_few` slot (since
+ *   objectui#11432; the BASE key before it) — in Russian. A leg that renders
+ *   English there is objectui#3863 reopened. `zh` is asserted too, because the same Chinese
  *   string that was the DEFECT as a source literal is the CORRECT rendering as
  *   a pack value, and only a locale-varying assertion can tell those apart.
  * - **The provider-less English fallback is pinned byte-equal to the `en`
@@ -207,22 +207,23 @@ describe('objectui#8441 — the `repeater` count varies by locale', () => {
     expect(textOf(container)).toBe((ru as any).detail.repeaterItemCount_one.replace('{{count}}', '1'));
   });
 
-  it('`ru` at count 2 falls to the BASE key IN RUSSIAN — objectui#3863, not English', () => {
-    // `Intl.PluralRules('ru').select(2)` is `few`, and no pack here enumerates
-    // `_few`. Without the base key i18next walks `fallbackLng` to `en` and a
-    // Russian reader gets English at counts 2-20. This is the pin that says the
-    // base key is doing its job.
+  it('`ru` at count 2 reads the `_few` slot IN RUSSIAN — objectui#11432, not English', () => {
+    // `Intl.PluralRules('ru').select(2)` is `few`. Since objectui#11432 the ru
+    // pack spells out `_few` (before it, the base key answered; before THAT,
+    // i18next walked `fallbackLng` to `en` and a Russian reader got English at
+    // counts 2-20 — objectui#3863). This is the pin that says the channel reaches
+    // the category's own slot.
     expect(new Intl.PluralRules('ru').select(2)).toBe('few');
     const { container } = renderCell('repeater', rows(2), repeaterField, 'ru');
     const rendered = textOf(container);
     // ⚠️ The RENDER-side assertion runs FIRST, deliberately. Reading the pack for
-    // the oracle throws when the base key is absent, and a pin that dies on its
-    // own oracle reddens without ever saying what the reader saw. Measured: with
-    // the ru base key deleted this leg reported a `TypeError` on the oracle and
+    // the oracle throws when the slot is absent, and a pin that dies on its own
+    // oracle reddens without ever saying what the reader saw. Measured: with the
+    // ru base key deleted this leg reported a `TypeError` on the oracle and
     // nothing about the DOM — so the order is the difference between "red" and
     // "red for the stated reason".
     expect(rendered, 'a Russian reader must not be handed English').not.toBe('2 items');
-    expect(rendered).toBe((ru as any).detail.repeaterItemCount.replace('{{count}}', '2'));
+    expect(rendered).toBe((ru as any).detail.repeaterItemCount_few.replace('{{count}}', '2'));
   });
 });
 
@@ -277,19 +278,18 @@ describe('objectui#8441 — the `file` count reads the same channel', () => {
     expect(container.querySelector('a')?.getAttribute('href')).toBe(RESOLVABLE.url);
   });
 
-  it('`ru` at count 0 uses the base key IN RUSSIAN, and the per-file name is the `ru` word', () => {
-    // `Intl.PluralRules('ru').select(0)` is `many`, and no pack here enumerates
-    // `_many` — so count 0 lands on the BASE key for the same reason count 2
-    // did before objectui#9161 moved the call. Without the base key i18next
-    // walks `fallbackLng` to `en` and a Russian reader gets English
-    // (objectui#3863).
+  it('`ru` at count 0 reads the `_many` slot IN RUSSIAN, and the per-file name is the `ru` word', () => {
+    // `Intl.PluralRules('ru').select(0)` is `many`. Since objectui#11432 the ru
+    // pack spells out `_many`, so count 0 reads it — before that it landed on the
+    // BASE key, and before the base key i18next walked `fallbackLng` to `en` and
+    // a Russian reader got English (objectui#3863).
     expect(new Intl.PluralRules('ru').select(0)).toBe('many');
     const zero = textOf(renderCell('file', [], fileField, 'ru').container);
     // ⚠️ RENDER-side first, deliberately: reading the pack for the oracle throws
-    // when the base key is absent, and a pin that dies on its own oracle
-    // reddens without ever saying what the reader saw.
+    // when the slot is absent, and a pin that dies on its own oracle reddens
+    // without ever saying what the reader saw.
     expect(zero, 'a Russian reader must not be handed English').not.toBe('0 files');
-    expect(zero).toBe((ru as any).detail.fileCount.replace('{{count}}', '0'));
+    expect(zero).toBe((ru as any).detail.fileCount_many.replace('{{count}}', '0'));
     cleanup();
     // The per-item fallback name rides the same channel: a bare value with no
     // name of its own is named by the `ru` pack, never by a source literal.

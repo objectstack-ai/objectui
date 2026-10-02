@@ -41,12 +41,20 @@ const fr = {
       more: "+{{count}} de plus",
       objects: "{{count}} objets",
       objects_one: "{{count}} objet",
+      objects_many: "{{count}} d'objets",
+      objects_other: "{{count}} objets",
       fields: "{{count}} règles de champ",
       fields_one: "{{count}} règle de champ",
+      fields_many: "{{count}} de règles de champ",
+      fields_other: "{{count}} règles de champ",
       rls: "{{count}} politiques RLS",
       rls_one: "{{count}} politique RLS",
+      rls_many: "{{count}} de politiques RLS",
+      rls_other: "{{count}} politiques RLS",
       tabs: "{{count}} règles d'onglet",
       tabs_one: "{{count}} règle d'onglet",
+      tabs_many: "{{count}} de règles d'onglet",
+      tabs_other: "{{count}} règles d'onglet",
       adminScope: "Administration déléguée configurée",
       designInStudio: "Concevoir dans Studio →",
       designInStudioHint: "Concevoir dans Studio",
@@ -656,6 +664,7 @@ const fr = {
       currentDate: "Date actuelle : {{date}}",
       dayCell: "{{date}}, {{count}} événements",
       dayCell_one: "{{date}}, {{count}} événement",
+      dayCell_many: "{{date}}, {{count}} d'événements",
       dayCell_other: "{{date}}, {{count}} événements",
       resizeEventEnd: "Modifier la fin de l'événement",
       resizeEventEndHint: "Faites glisser pour modifier la date de fin",
@@ -1163,12 +1172,13 @@ const fr = {
     highlightsLabel: "Champs clés de l'enregistrement",
     createdBy: "Créé par",
     updatedBy: "Mis à jour par",
-    // objectui#3863 — base key. fr has a third category, `many`, which CLDR uses from
-    // a million up; the plural form is correct there, so the base repeats `_other`
-    // rather than restructuring (unlike ru/ar, whose unenumerated categories cover
-    // everyday counts).
+    // objectui#3863 — base key, answering only a call made without a count. fr's
+    // third category, `many` (exact millions), has its own slot since objectui#11432;
+    // here it repeats `_other` because the count governs no noun ("de" goes before a
+    // noun complement, and this label has none).
     showEmptyRelated: "+ {{count}} vides",
     showEmptyRelated_one: "+ {{count}} vide",
+    showEmptyRelated_many: "+ {{count}} vides",
     showEmptyRelated_other: "+ {{count}} vides",
     copyEmail: "Copier l'e-mail",
     copyPhone: "Copier le téléphone",
@@ -1180,9 +1190,11 @@ const fr = {
     unresolvedLookupReference: "Référence non résolue : {{value}} n'a pas été résolue en enregistrement sur cet écran",
     repeaterItemCount: "{{count}} éléments",
     repeaterItemCount_one: "{{count}} élément",
+    repeaterItemCount_many: "{{count}} d'éléments",
     repeaterItemCount_other: "{{count}} éléments",
     fileCount: "{{count}} fichiers",
     fileCount_one: "{{count}} fichier",
+    fileCount_many: "{{count}} de fichiers",
     fileCount_other: "{{count}} fichiers",
   },
   chart: {
@@ -1614,9 +1626,11 @@ const fr = {
         resetsMonthly: "Réinitialisation au prochain cycle",
         resetsWeeklyDays: "Réinitialisation dans {{count}} jours",
         resetsWeeklyDays_one: "Réinitialisation dans {{count}} jour",
+        resetsWeeklyDays_many: "Réinitialisation dans {{count}} de jours",
         resetsWeeklyDays_other: "Réinitialisation dans {{count}} jours",
         resetsWeeklyHours: "Réinitialisation dans {{count}} heures",
         resetsWeeklyHours_one: "Réinitialisation dans {{count}} heure",
+        resetsWeeklyHours_many: "Réinitialisation dans {{count}} d'heures",
         resetsWeeklyHours_other: "Réinitialisation dans {{count}} heures",
         ctaUpgrade: "Passer à l'offre supérieure pour continuer",
         ctaTopUp: "Ajouter des crédits pour continuer",
@@ -1889,6 +1903,7 @@ const fr = {
       saveChanges: "Enregistrer les modifications",
       unsavedCount: "{{count}} modifications non enregistrées",
       unsavedCount_one: "{{count}} modification non enregistrée",
+      unsavedCount_many: "{{count}} de modifications non enregistrées",
       unsavedCount_other: "{{count}} modifications non enregistrées",
       cryptoRefusalTitle: "Ce déploiement ne peut pas chiffrer les secrets",
       cryptoRefusalSubjectSuffix: "est déclaré chiffré, aucune écriture n'a donc eu lieu.",
@@ -3110,9 +3125,10 @@ const fr = {
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
-  //                   FAMILIES (base key + `_one`): i18next resolves every
-  //                   CLDR category a pack does not enumerate to the base key,
-  //                   which is what keeps ru/ar in their own language.
+  //                   FAMILIES: one slot per CLDR category the pack's language
+  //                   selects (objectui#11432), plus the base key for a call
+  //                   made without a count. `all-locales-key-parity.test.ts`
+  //                   derives the required slots from `Intl.PluralRules`.
   //
   // objectui#7481 — five `tool.*` entries are NEWER than the registry above:
   // `get_authoring_rules` (cloud#1837), `load_tools`, `open_record`, `test_flow`
@@ -3173,10 +3189,16 @@ const fr = {
     plan: {
       countObjects: "{{count}} objets",
       countObjects_one: "{{count}} objet",
+      countObjects_many: "{{count}} d'objets",
+      countObjects_other: "{{count}} objets",
       countViews: "{{count}} vues",
       countViews_one: "{{count}} vue",
+      countViews_many: "{{count}} de vues",
+      countViews_other: "{{count}} vues",
       countDashboards: "{{count}} tableaux de bord",
       countDashboards_one: "{{count}} tableau de bord",
+      countDashboards_many: "{{count}} de tableaux de bord",
+      countDashboards_other: "{{count}} tableaux de bord",
       countSeedData: "données d’exemple",
     },
     build: {

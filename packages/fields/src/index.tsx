@@ -26,6 +26,9 @@ import { withFieldCarrier } from './withFieldCarrier.js';
 // Pure formatting rule shared with `AddressField`'s readonly branch — no React,
 // so this does not pull the widget out of its lazy chunk (objectui#4037).
 import { formatAddress, type AddressValue } from './widgets/address-format.js';
+// The same arrangement for numbers: one formatting call shared with
+// `NumberField`'s read-only branch (objectui#11431).
+import { formatNumberFieldValue } from './widgets/number-format.js';
 
 // Module-level cache so multiple renderers fetching the same lookup ID
 // only trigger one network call. Keyed by `${objectName}:${id}`. It holds the
@@ -765,64 +768,14 @@ export function NumberCellRenderer({ value, field }: CellRendererProps): React.R
   // never held, indistinguishable from a real stored zero.
   if (isBlankCellText(safe)) return <EmptyValue />;
 
-  const numField = field as any;
-  // Decimal places come from `scale` (the `s` in a `decimal(p, s)` column),
-  // NOT `precision` — `precision` is the TOTAL digit count (`p`), and reading
-  // it here padded every value out to that width (e.g. `1` from a
-  // decimal(10, 0) column rendered as "1.0000000000"). When `scale` is
-  // declared we pad to it so a fixed display is honoured (e.g. an amount with
-  // scale 2 → "16.00", a field with scale 3 → "3.140"); when it is absent we
-  // keep the minimum at 0 so trailing zeros are trimmed and only cap the
-  // maximum (20 = Intl max) to preserve the value's natural precision.
-  //
-  // `scale` is also the grouping POLICY input (objectui#4033): a declared
-  // `scale: 0` with no currency is a discrete integer — a year, a fiscal
-  // period, an ordinal — and those are rendered ungrouped, so a `Field.number`
-  // year finally shows `2026` instead of `2,026`. An ABSENT scale keeps
-  // grouping: absent means "decimals unknown", not "integer". The policy and
-  // its interim status live in `formatDisplayNumber`, not here.
-  //
-  // No clamp: the objectui#10071 one retired at the objectui#9808 SUNSET
-  // (objectui#11073) — `@objectstack/spec` 17.5.0 refuses a `scale` above 100.
-  //
-  // objectui#11254 — the width is read through `resolveFieldScale` (ruling A′
-  // on objectstack-ai/objectstack#19628), the function the percent cell, the
-  // detail chip, the grid footer and the gantt tooltip ask. For `number` the
-  // protocol has no absent-`scale` row, so an undeclared field answers
-  // `undefined`, no fixed width, exactly as before. The read changed only for a
-  // malformed declaration that is still a JS number: `typeof === 'number'`
-  // let `1.5` through for `Intl` to floor to one place (a width nobody
-  // declared) and `-1` through for `Intl` to throw on, taking the row down.
-  // The resolver's door is the record validator's own (`Number.isInteger` and
-  // `>= 0`), and it answers "no declaration" for both. The resolved value feeds
-  // the grouping policy exactly as the raw one did: a declared `0` stays `0`.
-  // ⛔ No `?? N` beside this call: `undefined` is the protocol's answer.
-  const scale = resolveFieldScale({ type: numField.type, scale: numField.scale });
-  // The author's digit-grouping hint (objectui#11026): `FieldSchema.useGrouping`,
-  // declared on `NumberFieldMetadata`, so it is read off the typed `field` and
-  // not through `numField`. An authored boolean overrides the `scale` heuristic
-  // above in either direction; the decision is `formatDisplayNumber`'s, this
-  // only hands the declaration over. Booleans only — the spec's door refuses
-  // anything else, and a value that is not one is not a declaration.
-  const useGrouping =
-    'useGrouping' in field && typeof field.useGrouping === 'boolean'
-      ? field.useGrouping
-      : undefined;
   const num = Number(safe);
-  // Two arms, spelled out: a resolved width is fixed at both bounds; no width
-  // is the value's natural precision (the minimum 0 / maximum 20 described
-  // above), which is not a width of its own.
-  const formatted = !isNaN(num)
-    ? formatDisplayNumber(num, {
-        locale,
-        scale,
-        useGrouping,
-        ...(scale === undefined
-          ? { minimumFractionDigits: 0, maximumFractionDigits: 20 }
-          : { minimumFractionDigits: scale, maximumFractionDigits: scale }),
-      })
-    : String(safe);
-  
+  // The width (`scale` through `resolveFieldScale`), the grouping policy
+  // (`scale` / `useGrouping`) and the two fraction-digit arms are assembled in
+  // `formatNumberFieldValue`, the one call `NumberField`'s read-only branch
+  // makes too, so a table cell and a read-only form show one field's value
+  // identically (objectui#11431). The reasoning behind each input lives there.
+  const formatted = !isNaN(num) ? formatNumberFieldValue(num, field, locale) : String(safe);
+
   return <span className="tabular-nums">{formatted}</span>;
 }
 

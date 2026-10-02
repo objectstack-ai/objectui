@@ -42,25 +42,30 @@ const en = {
   // `sys_permission_set` record shows for its six authorization facets
   // (ADR-0056 P1, plugin-detail's PermissionFacetLink).
   //
-  // The four count labels are plural families. `_one` is the singular; the BASE
-  // key (no suffix) is the form every OTHER CLDR plural category resolves to,
-  // which is what keeps `ru` (few/many) and `ar` (two/few/many/zero) in their own
-  // language instead of falling through to English — i18next only looks up the
-  // one suffix a language's rules ask for, and falls back to the base key when
-  // that suffix is absent. `perm-home-namespace-3546.test.tsx` renders every
-  // language at counts 1/2/3/5/11/21/100 to hold this.
+  // The four count labels are plural families. i18next looks up the ONE suffix
+  // a language's rules ask for, so every pack spells out every CLDR category its
+  // language selects (`en`: `_one`/`_other`; `ru` adds `_few`/`_many`, `ar`
+  // `_zero`/`_two`/`_few`/`_many` — objectui#11432); the BASE key (no suffix)
+  // answers a call made without a count. `all-locales-key-parity.test.ts`
+  // derives the required slots from `Intl.PluralRules`, and
+  // `perm-home-namespace-3546.test.tsx` renders every language at counts
+  // 1/2/3/5/11/21/100.
   perm: {
     facet: {
       none: 'None',
       more: '+{{count}} more',
       objects: '{{count}} objects',
       objects_one: '{{count}} object',
+      objects_other: '{{count}} objects',
       fields: '{{count}} field rules',
       fields_one: '{{count}} field rule',
+      fields_other: '{{count}} field rules',
       rls: '{{count}} RLS policies',
       rls_one: '{{count}} RLS policy',
+      rls_other: '{{count}} RLS policies',
       tabs: '{{count}} tab rules',
       tabs_one: '{{count}} tab rule',
+      tabs_other: '{{count}} tab rules',
       adminScope: 'Delegated admin configured',
       designInStudio: 'Design in Studio →',
       designInStudioHint: 'Design in Studio',
@@ -1387,12 +1392,11 @@ const en = {
     unsubscribedTooltip: 'Subscribe to notifications',
     // The reference rail's empty related-record list
     noRecords: 'No records',
-    // objectui#3863 — the BASE key is the slot every plural category a pack did not
-    // enumerate resolves to, keeping that pack in its own language instead of falling
-    // through `fallbackLng` to English. `en` itself can never reach it (its categories
-    // are exactly `one`/`other`), so this value is parity ballast — and it must stay
-    // byte-identical to the call site's inline `defaultValue` in
-    // `record-reference-rail.tsx`, which `check:i18n-keys` now judges as class 3.
+    // objectui#3863 — the BASE key; since objectui#11432 every pack also spells out
+    // each CLDR category its language selects, so with a count no pack reaches the
+    // base. In `en` this value is parity ballast — and it must stay byte-identical to
+    // the call site's inline `defaultValue` in `record-reference-rail.tsx`, which
+    // `check:i18n-keys` now judges as class 3.
     showEmptyRelated: '+ {{count}} empty',
     showEmptyRelated_one: '+ {{count}} empty',
     showEmptyRelated_other: '+ {{count}} empty',
@@ -1448,12 +1452,12 @@ const en = {
     // `count === 1 ? 'file' : 'files'`, which is not plural-safe anywhere else.
     // One channel, two call sites.
     //
-    // REAL i18next plural families (base + `_one` + `_other`), NOT the
-    // two-sibling-key `xxxCountOne` shape used by `common.itemCount` above: the
-    // BASE key is load-bearing (objectui#3863). i18next asks `Intl.PluralRules`
-    // for the ONE suffix a number needs and, finding no such slot, walks
-    // `fallbackLng` to `en` — so without it `ru` renders English at counts 2-20
-    // and `ar` at 2-99. `all-locales-key-parity.test.ts` owns that rule.
+    // REAL i18next plural families, NOT the two-sibling-key `xxxCountOne` shape
+    // used by `common.itemCount` above. i18next asks `Intl.PluralRules` for the
+    // ONE suffix a number needs, so each pack carries every category its language
+    // selects (`ru` `_few`/`_many`, `ar` `_zero`/`_two`/`_few`/`_many` —
+    // objectui#11432) plus the base key (objectui#3863).
+    // `all-locales-key-parity.test.ts` owns both rules.
     repeaterItemCount: '{{count}} items',
     repeaterItemCount_one: '{{count}} item',
     repeaterItemCount_other: '{{count}} items',
@@ -1964,12 +1968,10 @@ const en = {
       // `change(s)` and not the two-sibling-key `xxxCountOne` shape used
       // elsewhere in this file.
       //
-      // The BASE key is load-bearing (objectui#3863): i18next asks
-      // `Intl.PluralRules` for the one suffix a language needs and, finding no
-      // such slot, walks `fallbackLng` to `en`. `ru` has four categories and
-      // `ar` six; no pack here enumerates `_few`/`_many`/`_two`/`_zero`, so
-      // without this base key `ru` would render ENGLISH at counts 2-20.
-      // `all-locales-key-parity.test.ts` owns that rule.
+      // i18next asks `Intl.PluralRules` for the one suffix a language needs, so
+      // each pack spells out every category its language selects — `ru` has
+      // four, `ar` six (objectui#11432) — and keeps the base key
+      // (objectui#3863). `all-locales-key-parity.test.ts` owns both rules.
       unsavedCount: '{{count}} unsaved changes',
       unsavedCount_one: '{{count}} unsaved change',
       unsavedCount_other: '{{count}} unsaved changes',
@@ -3686,9 +3688,10 @@ const en = {
   //                   build has no app label, so each pack must keep BOTH
   //                   frames in the one case/gender that noun phrase is in.
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
-  //                   FAMILIES (base key + `_one`): i18next resolves every
-  //                   CLDR category a pack does not enumerate to the base key,
-  //                   which is what keeps ru/ar in their own language.
+  //                   FAMILIES: one slot per CLDR category the pack's language
+  //                   selects (objectui#11432), plus the base key for a call
+  //                   made without a count. `all-locales-key-parity.test.ts`
+  //                   derives the required slots from `Intl.PluralRules`.
   //
   // objectui#7481 — five `tool.*` entries are NEWER than the registry above:
   // `get_authoring_rules` (cloud#1837), `load_tools`, `open_record`, `test_flow`
@@ -3749,10 +3752,13 @@ const en = {
     plan: {
       countObjects: '{{count}} objects',
       countObjects_one: '{{count}} object',
+      countObjects_other: '{{count}} objects',
       countViews: '{{count}} views',
       countViews_one: '{{count}} view',
+      countViews_other: '{{count}} views',
       countDashboards: '{{count}} dashboards',
       countDashboards_one: '{{count}} dashboard',
+      countDashboards_other: '{{count}} dashboards',
       countSeedData: 'sample data',
     },
     build: {

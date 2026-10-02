@@ -32,27 +32,38 @@ const ru = {
       other: 'Другое',
     },
   },
-  // objectui#3546 slice six — сводка шести граней авторизации в
-  // PermissionFacetLink (только чтение) плюс ссылка в Studio.
+  // objectui#3546 slice six — the read-only summary of PermissionFacetLink's six
+  // authorization facets, plus the Studio link.
   //
-  // Четыре счётных значения записаны как «Существительное: {{count}}» — этот
-  // приём в паке уже применён 25 раз (lookup.recordCount, notifications.
-  // groupCount, approvalsInbox.bulkApproved …) и он верен при ЛЮБОМ числе, так
-  // что для категорий few/many, которых в паке нет, базовый ключ даёт
-  // правильный русский, а не английский. Поэтому `_one` здесь совпадает с
-  // базовым ключом — форма не зависит от числа.
+  // The four count labels carry one slot per ru CLDR category (objectui#11432):
+  // `_one` 1/21/31… (nominative singular), `_few` 2-4/22-24… (genitive singular),
+  // `_many` 0/5-20… (genitive plural), `_other` fractions (genitive singular).
+  // The base key keeps the count-invariant «Существительное: {{count}}» form for
+  // a call made without a count.
   perm: {
     facet: {
       none: "Нет",
       more: "+{{count}} ещё",
       objects: "Объектов: {{count}}",
-      objects_one: "Объектов: {{count}}",
+      objects_one: "{{count}} объект",
+      objects_few: "{{count}} объекта",
+      objects_many: "{{count}} объектов",
+      objects_other: "{{count}} объекта",
       fields: "Правил для полей: {{count}}",
-      fields_one: "Правил для полей: {{count}}",
+      fields_one: "{{count}} правило для полей",
+      fields_few: "{{count}} правила для полей",
+      fields_many: "{{count}} правил для полей",
+      fields_other: "{{count}} правила для полей",
       rls: "Политик RLS: {{count}}",
-      rls_one: "Политик RLS: {{count}}",
+      rls_one: "{{count}} политика RLS",
+      rls_few: "{{count}} политики RLS",
+      rls_many: "{{count}} политик RLS",
+      rls_other: "{{count}} политики RLS",
       tabs: "Правил для вкладок: {{count}}",
-      tabs_one: "Правил для вкладок: {{count}}",
+      tabs_one: "{{count}} правило для вкладок",
+      tabs_few: "{{count}} правила для вкладок",
+      tabs_many: "{{count}} правил для вкладок",
+      tabs_other: "{{count}} правила для вкладок",
       adminScope: "Делегированное администрирование настроено",
       designInStudio: "Дизайн в Studio →",
       designInStudioHint: "Дизайн в Studio",
@@ -666,6 +677,8 @@ const ru = {
       currentDate: "Текущая дата: {{date}}",
       dayCell: "{{date}}, событий: {{count}}",
       dayCell_one: "{{date}}, {{count}} событие",
+      dayCell_few: "{{date}}, {{count}} события",
+      dayCell_many: "{{date}}, {{count}} событий",
       dayCell_other: "{{date}}, событий: {{count}}",
       resizeEventEnd: "Изменить окончание события",
       resizeEventEndHint: "Перетащите, чтобы изменить дату окончания",
@@ -1179,15 +1192,16 @@ const ru = {
     deleteRowTitle: "Удалить запись",
     createdBy: "Создано",
     updatedBy: "Обновлено",
-    // objectui#3863 — base key, and in ru this is the slot users actually hit: `few`
-    // (2-4) and `many` (5-20, 25-30, …) are unenumerated, so before this key those
-    // counts rendered ENGLISH. The value therefore cannot agree with the numeral —
-    // it uses the «Существительное: {{count}}» form this pack already writes 22 times
-    // (lookup.recordCount `Записей: {{count}}`, notifications.groupCount), which is
-    // correct for EVERY Russian count. `_one` keeps the agreeing form for 1/21/31/…
+    // objectui#3863 — base key, answering only a call made without a count: since
+    // objectui#11432 every ru category has its own slot — `_one` 1/21/31…, `_few`
+    // 2-4/22-24… and `_many` 0/5-20… (genitive plural after the substantivised
+    // adjective in both), `_other` fractions (genitive singular). The base keeps the
+    // count-invariant «Существительное: {{count}}» form.
     showEmptyRelated: "+ Пустых: {{count}}",
     showEmptyRelated_one: "+ {{count}} пустое",
-    showEmptyRelated_other: "+ {{count}} пустых",
+    showEmptyRelated_few: "+ {{count}} пустых",
+    showEmptyRelated_many: "+ {{count}} пустых",
+    showEmptyRelated_other: "+ {{count}} пустого",
     copyEmail: "Копировать email",
     copyPhone: "Копировать телефон",
     copyRecordId: "Копировать ID записи",
@@ -1198,10 +1212,14 @@ const ru = {
     unresolvedLookupReference: "Неразрешённая ссылка: {{value}} не удалось сопоставить с записью на этом экране",
     repeaterItemCount: "Элементов: {{count}}",
     repeaterItemCount_one: "{{count}} элемент",
-    repeaterItemCount_other: "{{count}} элементов",
+    repeaterItemCount_few: "{{count}} элемента",
+    repeaterItemCount_many: "{{count}} элементов",
+    repeaterItemCount_other: "{{count}} элемента",
     fileCount: "Файлов: {{count}}",
     fileCount_one: "{{count}} файл",
-    fileCount_other: "{{count}} файлов",
+    fileCount_few: "{{count}} файла",
+    fileCount_many: "{{count}} файлов",
+    fileCount_other: "{{count}} файла",
   },
   chart: {
     loading: "Загрузка графика…",
@@ -1634,10 +1652,14 @@ const ru = {
         resetsMonthly: "Сбросится в следующем цикле",
         resetsWeeklyDays: "Сброс через {{count}} дней",
         resetsWeeklyDays_one: "Сброс через {{count}} день",
-        resetsWeeklyDays_other: "Сброс через {{count}} дней",
+        resetsWeeklyDays_few: "Сброс через {{count}} дня",
+        resetsWeeklyDays_many: "Сброс через {{count}} дней",
+        resetsWeeklyDays_other: "Сброс через {{count}} дня",
         resetsWeeklyHours: "Сброс через {{count}} часов",
         resetsWeeklyHours_one: "Сброс через {{count}} час",
-        resetsWeeklyHours_other: "Сброс через {{count}} часов",
+        resetsWeeklyHours_few: "Сброс через {{count}} часа",
+        resetsWeeklyHours_many: "Сброс через {{count}} часов",
+        resetsWeeklyHours_other: "Сброс через {{count}} часа",
         ctaUpgrade: "Повысьте тариф, чтобы продолжить",
         ctaTopUp: "Добавьте кредиты, чтобы продолжить",
         ariaLabel: "Использование ИИ: {{status}}",
@@ -1909,7 +1931,9 @@ const ru = {
       saveChanges: "Сохранить изменения",
       unsavedCount: "Несохранённых изменений: {{count}}",
       unsavedCount_one: "{{count}} несохранённое изменение",
-      unsavedCount_other: "{{count}} несохранённых изменений",
+      unsavedCount_few: "{{count}} несохранённых изменения",
+      unsavedCount_many: "{{count}} несохранённых изменений",
+      unsavedCount_other: "{{count}} несохранённого изменения",
       cryptoRefusalTitle: "Эта установка не может шифровать секреты",
       cryptoRefusalSubjectSuffix: "объявлен зашифрованным, поэтому ничего не было записано.",
       cryptoRefusalNoSubject: "Значение, объявленное зашифрованным, было отклонено, поэтому ничего не было записано.",
@@ -3138,9 +3162,10 @@ const ru = {
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
-  //                   FAMILIES (base key + `_one`): i18next resolves every
-  //                   CLDR category a pack does not enumerate to the base key,
-  //                   which is what keeps ru/ar in their own language.
+  //                   FAMILIES: one slot per CLDR category the pack's language
+  //                   selects (objectui#11432), plus the base key for a call
+  //                   made without a count. `all-locales-key-parity.test.ts`
+  //                   derives the required slots from `Intl.PluralRules`.
   //
   // objectui#7481 — five `tool.*` entries are NEWER than the registry above:
   // `get_authoring_rules` (cloud#1837), `load_tools`, `open_record`, `test_flow`
@@ -3201,10 +3226,19 @@ const ru = {
     plan: {
       countObjects: "объектов: {{count}}",
       countObjects_one: "{{count}} объект",
+      countObjects_few: "{{count}} объекта",
+      countObjects_many: "{{count}} объектов",
+      countObjects_other: "{{count}} объекта",
       countViews: "представлений: {{count}}",
       countViews_one: "{{count}} представление",
+      countViews_few: "{{count}} представления",
+      countViews_many: "{{count}} представлений",
+      countViews_other: "{{count}} представления",
       countDashboards: "дашбордов: {{count}}",
       countDashboards_one: "{{count}} дашборд",
+      countDashboards_few: "{{count}} дашборда",
+      countDashboards_many: "{{count}} дашбордов",
+      countDashboards_other: "{{count}} дашборда",
       countSeedData: "демоданные",
     },
     build: {

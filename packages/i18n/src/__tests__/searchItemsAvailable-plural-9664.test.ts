@@ -24,13 +24,15 @@
  * `detail.reactionCount`/`reactionCountOne` and
  * `collaboration.commentCount`/`commentCountOne` already use, and the same
  * device (in its other spelling) as the `search.resultsCount` pair on the
- * adjacent branch. ⛔ NOT an i18next `_one`/`_other` family: full key parity
- * across ten packs caps a family at base + `_one` + `_other`, so every CLDR
- * category a pack does not spell out falls through to the BASE key — here the
- * plural — which `ar` meets at 2, 3-10 and 11-99 and `ru` at 2-4. Selecting the
- * key in the component keeps `Intl.PluralRules` and `fallbackLng` out of the
- * path: both halves exist in all ten packs, so no count in any language can
- * reach English.
+ * adjacent branch. ⛔ NOT an i18next `_one`/`_other` family: when this landed,
+ * full key parity across ten packs capped a family at base + `_one` + `_other`,
+ * so every CLDR category a pack did not spell out fell through to the BASE key —
+ * here the plural — which `ar` meets at 2, 3-10 and 11-99 and `ru` at 2-4.
+ * Selecting the key in the component keeps `Intl.PluralRules` and `fallbackLng`
+ * out of the path: both halves exist in all ten packs, so no count in any
+ * language can reach English. (objectui#11432 lifted that cap — a family is now
+ * held to every category its language selects — but this key is selected in
+ * code, so converting it is a call-site change as well as a pack change.)
  *
  * ## What this file does NOT own
  *
@@ -185,11 +187,11 @@ describe('search.itemsAvailable carries a singular half in every pack (objectui#
   });
 
   it('⛔ is NOT an i18next plural family — no pack may grow a suffixed half', () => {
-    // Key parity caps a family at base + `_one` + `_other`; every other category
-    // falls through to the base key, which here is the PLURAL. `ru` would then
-    // read the plural at 2-4 and `ar` at 2, 3-10 and 11-99 — the counts they meet
-    // first. An "upgrade" of this key to a family reintroduces exactly that, so
-    // it fails here instead.
+    // The call site passes `count`, so i18next WOULD select a suffixed half of
+    // this key — and with only some categories spelled out, the rest fall to the
+    // base key, the PLURAL: `ru` 2-4, `ar` 2, 3-10 and 11-99. A conversion to a
+    // family has to carry every category (objectui#11432) and retire the
+    // code-side `One` selection with it, so a lone suffixed half fails here.
     for (const lang of LANGS) {
       for (const suffix of ['_zero', '_one', '_two', '_few', '_many', '_other']) {
         expect(at(builtInLocales[lang], `${KEY}${suffix}`), `${lang} ${KEY}${suffix}`).toBeUndefined();

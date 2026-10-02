@@ -38,8 +38,8 @@
  * **the template's own output, count by count, equals what the pack renders.**
  *
  * That needs two English forms, so these four keys are i18next plural families.
- * The shape used is `key` + `key_one`, NOT the conventional `key_one` +
- * `key_other`, and the reason is measured behaviour rather than taste:
+ * The shape this slice landed was `key` + `key_one`, NOT the conventional
+ * `key_one` + `key_other`, and the reason was measured behaviour rather than taste:
  *
  *   i18next asks `Intl.PluralRules` for the ONE suffix a language needs for that
  *   count, and if the pack lacks it, moves down the fallback chain to `en` —
@@ -47,6 +47,13 @@
  *   5-20) and `ar` (two, few: 3-10, many: 11-99) would show English at exactly
  *   the counts a user meets first. A pack that also defines the BASE key gets
  *   that key for every category it did not enumerate — in its own language.
+ *
+ * objectui#11432 went the rest of the way: the base kept those packs in their
+ * own language but in ONE form, so every pack now spells out every category its
+ * language selects (`_other` everywhere, `ru` `_few`/`_many`, `ar`
+ * `_zero`/`_two`/`_few`/`_many`), held by `all-locales-key-parity.test.ts`. The
+ * assertions below compute the answering slot from the pack, so they read the
+ * slot i18next selects whichever shape a family has.
  *
  * `detail.showEmptyRelated_one`/`_other` (the repo's one older plural family)
  * has no base key and therefore has that leak today; it is filed, not fixed
@@ -276,10 +283,10 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
 
   describe('the four plural families', () => {
     it('every pack defines the base key and its _one companion', () => {
-      // The base key is the form every plural category the pack did NOT
-      // enumerate resolves to. A pack that ships only `_one` would render the
-      // singular for everything; one that ships only the base key would lose the
-      // English singular. Both halves, all ten packs.
+      // A pack that ships only `_one` would render the singular for everything;
+      // one that ships only the base key would lose the English singular. Both
+      // halves, all ten packs. (The other category slots are the parity file's
+      // computed rule, objectui#11432.)
       for (const lang of LANGS) {
         for (const key of COUNT_KEYS) {
           expect(typeof at(builtInLocales[lang], key), `${lang}.${key}`).toBe('string');
@@ -318,28 +325,28 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
     });
 
     it.each(LANGS)('%s stays in its own language at every plural category', (lang) => {
-      // The assertion the base key exists for. `Intl.PluralRules` is the same
-      // resolver i18next uses, so `select()` predicts which slot answers: `one`
-      // takes `_one`, everything else falls to the base key. A pack missing the
-      // base key would resolve NOTHING for few/many and i18next would walk the
-      // fallback chain to `en` — English, silently, at counts 2-20 in `ru` and
-      // 2-99 in `ar`.
+      // `Intl.PluralRules` is the same resolver i18next uses, so `select()`
+      // predicts which slot answers: the category's own slot where the pack has
+      // it (every category, since objectui#11432), the base key otherwise. A pack
+      // with neither would resolve NOTHING and i18next would walk the fallback
+      // chain to `en` — English, silently, at counts 2-20 in `ru` and 2-99 in `ar`.
       const { result } = renderHook(() => useObjectTranslation(), { wrapper: wrapperFor(lang) });
       const rules = new Intl.PluralRules(lang);
       for (const key of COUNT_KEYS) {
         for (const count of [1, 2, 3, 5, 11, 21, 100]) {
-          const slot = rules.select(count) === 'one' ? `${key}_one` : key;
+          const own = `${key}_${rules.select(count)}`;
+          const slot = typeof at(builtInLocales[lang], own) === 'string' ? own : key;
           const expected = (at(builtInLocales[lang], slot) as string).replace('{{count}}', String(count));
           expect(result.current.t(key, { count }), `${lang} ${key} at count=${count}`).toBe(expected);
         }
       }
     });
 
-    it('ru and ar render their own language at the categories they do not enumerate', () => {
-      // Named, not just covered by the loop above, because this is the exact
-      // regression the shape exists to prevent and the numbers matter: ru 3 is
-      // `few`, ru 7 is `many`, ar 2 is `two`, ar 5 is `few`, ar 30 is `many` —
-      // five slots no pack in this repo defines.
+    it('ru and ar render their own form at the categories beyond one/other', () => {
+      // Named, not just covered by the loop above, because the numbers matter: ru 3
+      // is `few`, ru 7 is `many`, ar 2 is `two`, ar 5 is `few`, ar 30 is `many`.
+      // Before objectui#11432 no pack defined these slots and the base key answered
+      // them in one count-invariant form; now each has its own grammatical form.
       expect(new Intl.PluralRules('ru').select(3)).toBe('few');
       expect(new Intl.PluralRules('ru').select(7)).toBe('many');
       expect(new Intl.PluralRules('ar').select(2)).toBe('two');
@@ -347,27 +354,29 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
       expect(new Intl.PluralRules('ar').select(30)).toBe('many');
 
       const ru = renderHook(() => useObjectTranslation(), { wrapper: wrapperFor('ru') });
-      expect(ru.result.current.t('perm.facet.objects', { count: 3 })).toBe('Объектов: 3');
-      expect(ru.result.current.t('perm.facet.rls', { count: 7 })).toBe('Политик RLS: 7');
+      expect(ru.result.current.t('perm.facet.objects', { count: 3 })).toBe('3 объекта');
+      expect(ru.result.current.t('perm.facet.rls', { count: 7 })).toBe('7 политик RLS');
       // and NOT the English the fallback chain would have produced
       expect(ru.result.current.t('perm.facet.objects', { count: 3 })).not.toBe('3 objects');
 
       window.localStorage.clear();
       const ar = renderHook(() => useObjectTranslation(), { wrapper: wrapperFor('ar') });
-      expect(ar.result.current.t('perm.facet.objects', { count: 2 })).toBe('2 كائن(كائنات)');
-      expect(ar.result.current.t('perm.facet.fields', { count: 5 })).toBe('5 قاعدة(قواعد) حقول');
+      expect(ar.result.current.t('perm.facet.objects', { count: 2 })).toBe('كائنان (2)');
+      expect(ar.result.current.t('perm.facet.fields', { count: 5 })).toBe('5 قواعد حقول');
       expect(ar.result.current.t('perm.facet.tabs', { count: 30 })).not.toBe('30 tab rules');
     });
 
     it('the languages with no singular slot say so by repeating the base form', () => {
       // zh/ja/ko have ONE plural category (`other`), so `_one` is unreachable
-      // there; ru is invariant under the phrasing chosen for it. Equal values are
-      // therefore correct, not a copy-paste slip — pinned so review reads it that
-      // way, and so a language that DOES inflect cannot quietly join the list.
+      // there. Equal values are therefore correct, not a copy-paste slip — pinned
+      // so review reads it that way, and so a language that DOES inflect cannot
+      // quietly join the list. (`ru` left it in objectui#11432: its `_one` now
+      // agrees with the numeral, like its new `_few`/`_many`, while the base keeps
+      // the count-invariant label for a call made without a count.)
       const collapsed = LANGS.filter((l) =>
         COUNT_KEYS.every((k) => at(builtInLocales[l], k) === at(builtInLocales[l], `${k}_one`)),
       );
-      expect(collapsed.sort()).toEqual(['ja', 'ko', 'ru', 'zh']);
+      expect(collapsed.sort()).toEqual(['ja', 'ko', 'zh']);
       for (const lang of ['zh', 'ja', 'ko'] as const) {
         expect(new Intl.PluralRules(lang).resolvedOptions().pluralCategories).toEqual(['other']);
       }
@@ -689,7 +698,7 @@ describe('objectui#3546 slice six — the perm and home namespaces', () => {
         const value = result.current.t(key, { count: 3 });
         expect(/^[A-Za-z]/.test(value), `${key} starts with a Latin token: ${value}`).toBe(false);
       }
-      expect(result.current.t('perm.facet.rls', { count: 3 })).toBe('3 سياسة(سياسات) RLS');
+      expect(result.current.t('perm.facet.rls', { count: 3 })).toBe('3 سياسات RLS');
       expect(result.current.t('perm.facet.designInStudio')).toBe('التصميم في Studio →');
     });
   });

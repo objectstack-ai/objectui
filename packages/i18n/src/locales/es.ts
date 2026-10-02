@@ -40,12 +40,20 @@ const es = {
       more: "+{{count}} más",
       objects: "{{count}} objetos",
       objects_one: "{{count}} objeto",
+      objects_many: "{{count}} de objetos",
+      objects_other: "{{count}} objetos",
       fields: "{{count}} reglas de campo",
       fields_one: "{{count}} regla de campo",
+      fields_many: "{{count}} de reglas de campo",
+      fields_other: "{{count}} reglas de campo",
       rls: "{{count}} políticas RLS",
       rls_one: "{{count}} política RLS",
+      rls_many: "{{count}} de políticas RLS",
+      rls_other: "{{count}} políticas RLS",
       tabs: "{{count}} reglas de pestaña",
       tabs_one: "{{count}} regla de pestaña",
+      tabs_many: "{{count}} de reglas de pestaña",
+      tabs_other: "{{count}} reglas de pestaña",
       adminScope: "Administración delegada configurada",
       designInStudio: "Diseñar en Studio →",
       designInStudioHint: "Diseñar en Studio",
@@ -660,6 +668,7 @@ const es = {
       currentDate: "Fecha actual: {{date}}",
       dayCell: "{{date}}, {{count}} eventos",
       dayCell_one: "{{date}}, {{count}} evento",
+      dayCell_many: "{{date}}, {{count}} de eventos",
       dayCell_other: "{{date}}, {{count}} eventos",
       resizeEventEnd: "Cambiar el fin del evento",
       resizeEventEndHint: "Arrastra para cambiar la fecha de fin",
@@ -1167,10 +1176,12 @@ const es = {
     updatedBy: "Actualizado por",
     created: "Creado",
     updated: "Actualizado",
-    // objectui#3863 — base key. es's third category `many` starts at a million, where
-    // the plural form is correct, so the base repeats `_other`.
+    // objectui#3863 — base key, answering only a call made without a count. es's
+    // `many` (exact millions) has its own slot since objectui#11432; it repeats
+    // `_other` here because the count governs no noun complement.
     showEmptyRelated: "+ {{count}} vacíos",
     showEmptyRelated_one: "+ {{count}} vacío",
+    showEmptyRelated_many: "+ {{count}} vacíos",
     showEmptyRelated_other: "+ {{count}} vacíos",
     copyEmail: "Copiar correo",
     copyPhone: "Copiar teléfono",
@@ -1182,9 +1193,11 @@ const es = {
     unresolvedLookupReference: "Referencia sin resolver: {{value}} no se resolvió como un registro en esta pantalla",
     repeaterItemCount: "{{count}} elementos",
     repeaterItemCount_one: "{{count}} elemento",
+    repeaterItemCount_many: "{{count}} de elementos",
     repeaterItemCount_other: "{{count}} elementos",
     fileCount: "{{count}} archivos",
     fileCount_one: "{{count}} archivo",
+    fileCount_many: "{{count}} de archivos",
     fileCount_other: "{{count}} archivos",
   },
   chart: {
@@ -1616,9 +1629,11 @@ const es = {
         resetsMonthly: "Se restablece en el próximo ciclo",
         resetsWeeklyDays: "Se restablece en {{count}} días",
         resetsWeeklyDays_one: "Se restablece en {{count}} día",
+        resetsWeeklyDays_many: "Se restablece en {{count}} de días",
         resetsWeeklyDays_other: "Se restablece en {{count}} días",
         resetsWeeklyHours: "Se restablece en {{count}} horas",
         resetsWeeklyHours_one: "Se restablece en {{count}} hora",
+        resetsWeeklyHours_many: "Se restablece en {{count}} de horas",
         resetsWeeklyHours_other: "Se restablece en {{count}} horas",
         ctaUpgrade: "Mejore el plan para continuar",
         ctaTopUp: "Añada créditos para continuar",
@@ -1891,6 +1906,7 @@ const es = {
       saveChanges: "Guardar cambios",
       unsavedCount: "{{count}} cambios sin guardar",
       unsavedCount_one: "{{count}} cambio sin guardar",
+      unsavedCount_many: "{{count}} de cambios sin guardar",
       unsavedCount_other: "{{count}} cambios sin guardar",
       cryptoRefusalTitle: "Esta instalación no puede cifrar secretos",
       cryptoRefusalSubjectSuffix: "está declarado como cifrado, por lo que no se escribió nada.",
@@ -3112,9 +3128,10 @@ const es = {
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
-  //                   FAMILIES (base key + `_one`): i18next resolves every
-  //                   CLDR category a pack does not enumerate to the base key,
-  //                   which is what keeps ru/ar in their own language.
+  //                   FAMILIES: one slot per CLDR category the pack's language
+  //                   selects (objectui#11432), plus the base key for a call
+  //                   made without a count. `all-locales-key-parity.test.ts`
+  //                   derives the required slots from `Intl.PluralRules`.
   //
   // objectui#7481 — five `tool.*` entries are NEWER than the registry above:
   // `get_authoring_rules` (cloud#1837), `load_tools`, `open_record`, `test_flow`
@@ -3175,10 +3192,16 @@ const es = {
     plan: {
       countObjects: "{{count}} objetos",
       countObjects_one: "{{count}} objeto",
+      countObjects_many: "{{count}} de objetos",
+      countObjects_other: "{{count}} objetos",
       countViews: "{{count}} vistas",
       countViews_one: "{{count}} vista",
+      countViews_many: "{{count}} de vistas",
+      countViews_other: "{{count}} vistas",
       countDashboards: "{{count}} paneles",
       countDashboards_one: "{{count}} panel",
+      countDashboards_many: "{{count}} de paneles",
+      countDashboards_other: "{{count}} paneles",
       countSeedData: "datos de ejemplo",
     },
     build: {

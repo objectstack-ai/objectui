@@ -32,25 +32,47 @@ const ar = {
       other: 'أخرى',
     },
   },
-  // objectui#3546 slice six — ملخص للقراءة فقط لأوجه التخويل الستة في
-  // PermissionFacetLink، مع رابط التصميم في Studio.
+  // objectui#3546 slice six — the read-only summary of PermissionFacetLink's six
+  // authorization facets, plus the Studio link.
   //
-  // صيغة العدد تتبع نمط الحزمة نفسه: «{{count}} مفرد(جمع)» كما في
-  // appDesigner.objectManager.fieldCount و table.modified. المفتاح الأساسي هو
-  // ما تلجأ إليه فئات two/few/many/zero غير المعرّفة، فيظل النص عربيًا.
-  // لا نعكس سهم روابط الإجراء: يبقى كما في en، مثل marketplace.browseLink.
+  // The four count labels carry one slot per ar CLDR category (objectui#11432):
+  // `_zero` and `_other` (100-102…) singular, `_one`, `_two` the dual with the
+  // numeral in parentheses, `_few` (3-10) plural, `_many` (11-99) accusative
+  // singular. The base key keeps the «{{count}} مفرد(جمع)» marker for a call made
+  // without a count. The action-link arrow is not mirrored: it stays as in en,
+  // like marketplace.browseLink.
   perm: {
     facet: {
       none: "لا شيء",
       more: "+{{count}} المزيد",
       objects: "{{count}} كائن(كائنات)",
+      objects_zero: "{{count}} كائن",
       objects_one: "{{count}} كائن",
+      objects_two: "كائنان ({{count}})",
+      objects_few: "{{count}} كائنات",
+      objects_many: "{{count}} كائنًا",
+      objects_other: "{{count}} كائن",
       fields: "{{count}} قاعدة(قواعد) حقول",
+      fields_zero: "{{count}} قاعدة حقول",
       fields_one: "{{count}} قاعدة حقول",
+      fields_two: "قاعدتا حقول ({{count}})",
+      fields_few: "{{count}} قواعد حقول",
+      fields_many: "{{count}} قاعدة حقول",
+      fields_other: "{{count}} قاعدة حقول",
       rls: "{{count}} سياسة(سياسات) RLS",
+      rls_zero: "{{count}} سياسة RLS",
       rls_one: "{{count}} سياسة RLS",
+      rls_two: "سياستا RLS ({{count}})",
+      rls_few: "{{count}} سياسات RLS",
+      rls_many: "{{count}} سياسة RLS",
+      rls_other: "{{count}} سياسة RLS",
       tabs: "{{count}} قاعدة(قواعد) تبويب",
+      tabs_zero: "{{count}} قاعدة تبويب",
       tabs_one: "{{count}} قاعدة تبويب",
+      tabs_two: "قاعدتا تبويب ({{count}})",
+      tabs_few: "{{count}} قواعد تبويب",
+      tabs_many: "{{count}} قاعدة تبويب",
+      tabs_other: "{{count}} قاعدة تبويب",
       adminScope: "تم تكوين الإدارة المفوَّضة",
       designInStudio: "التصميم في Studio →",
       designInStudioHint: "التصميم في Studio",
@@ -666,7 +688,11 @@ const ar = {
       nextPeriod: "الفترة التالية",
       currentDate: "التاريخ الحالي: {{date}}",
       dayCell: "{{date}}، عدد الأحداث: {{count}}",
+      dayCell_zero: "{{date}}، {{count}} حدث",
       dayCell_one: "{{date}}، {{count}} حدث",
+      dayCell_two: "{{date}}، حدثان ({{count}})",
+      dayCell_few: "{{date}}، {{count}} أحداث",
+      dayCell_many: "{{date}}، {{count}} حدثًا",
       dayCell_other: "{{date}}، عدد الأحداث: {{count}}",
       resizeEventEnd: "تغيير نهاية الحدث",
       resizeEventEndHint: "اسحب لتغيير تاريخ الانتهاء",
@@ -1180,14 +1206,18 @@ const ar = {
     highlightsLabel: "الحقول الرئيسية للسجل",
     createdBy: "أنشأه",
     updatedBy: "حدّثه",
-    // objectui#3863 — base key, and in ar this is the slot users actually hit: `zero`,
-    // `two` (2), `few` (3-10) and `many` (11-99) are unenumerated, so before this key
-    // those counts rendered ENGLISH. It uses the «{{count}} مفرد(جمع)» marker this
-    // pack writes throughout (perm.facet.objects, and the sibling toggle
-    // showEmptyFields below), which reads correctly for every count.
+    // objectui#3863 — base key, answering only a call made without a count: since
+    // objectui#11432 every ar category has its own slot — `_zero` and `_other`
+    // (100+) singular, `_two` dual with the numeral in parentheses, `_few` (3-10)
+    // the plural agreement, `_many` (11-99) accusative singular. The adjective
+    // agrees with the masculine noun it stands for, as `_one` does.
     showEmptyRelated: "+ {{count}} فارغ(فارغة)",
+    showEmptyRelated_zero: "+ {{count}} فارغ",
     showEmptyRelated_one: "+ {{count}} فارغ",
-    showEmptyRelated_other: "+ {{count}} فارغة",
+    showEmptyRelated_two: "+ فارغان ({{count}})",
+    showEmptyRelated_few: "+ {{count}} فارغة",
+    showEmptyRelated_many: "+ {{count}} فارغًا",
+    showEmptyRelated_other: "+ {{count}} فارغ",
     copyEmail: "نسخ البريد الإلكتروني",
     copyPhone: "نسخ الهاتف",
     copyRecordId: "نسخ معرف السجل",
@@ -1197,11 +1227,19 @@ const ar = {
     unresolvedReference: "مرجع غير مُحلّل: لم يتم تحويل {{value}} إلى مستخدم",
     unresolvedLookupReference: "مرجع غير مُحلّل: لم يتم تحويل {{value}} إلى سجل في هذه الشاشة",
     repeaterItemCount: "{{count}} عنصر (عناصر)",
+    repeaterItemCount_zero: "{{count}} عنصر",
     repeaterItemCount_one: "{{count}} عنصر",
-    repeaterItemCount_other: "{{count}} عناصر",
+    repeaterItemCount_two: "عنصران ({{count}})",
+    repeaterItemCount_few: "{{count}} عناصر",
+    repeaterItemCount_many: "{{count}} عنصرًا",
+    repeaterItemCount_other: "{{count}} عنصر",
     fileCount: "{{count}} ملف (ملفات)",
+    fileCount_zero: "{{count}} ملف",
     fileCount_one: "{{count}} ملف",
-    fileCount_other: "{{count}} ملفات",
+    fileCount_two: "ملفان ({{count}})",
+    fileCount_few: "{{count}} ملفات",
+    fileCount_many: "{{count}} ملفًا",
+    fileCount_other: "{{count}} ملف",
   },
   chart: {
     loading: "جارٍ تحميل الرسم البياني…",
@@ -1631,11 +1669,19 @@ const ar = {
         resetsDaily: "تُعاد التهيئة الليلة",
         resetsMonthly: "تُعاد التهيئة في الدورة القادمة",
         resetsWeeklyDays: "{{count}} يوم(أيام) حتى إعادة التعيين",
+        resetsWeeklyDays_zero: "{{count}} يوم حتى إعادة التعيين",
         resetsWeeklyDays_one: "{{count}} يوم حتى إعادة التعيين",
-        resetsWeeklyDays_other: "{{count}} أيام حتى إعادة التعيين",
+        resetsWeeklyDays_two: "يومان ({{count}}) حتى إعادة التعيين",
+        resetsWeeklyDays_few: "{{count}} أيام حتى إعادة التعيين",
+        resetsWeeklyDays_many: "{{count}} يومًا حتى إعادة التعيين",
+        resetsWeeklyDays_other: "{{count}} يوم حتى إعادة التعيين",
         resetsWeeklyHours: "{{count}} ساعة(ساعات) حتى إعادة التعيين",
+        resetsWeeklyHours_zero: "{{count}} ساعة حتى إعادة التعيين",
         resetsWeeklyHours_one: "{{count}} ساعة حتى إعادة التعيين",
-        resetsWeeklyHours_other: "{{count}} ساعات حتى إعادة التعيين",
+        resetsWeeklyHours_two: "ساعتان ({{count}}) حتى إعادة التعيين",
+        resetsWeeklyHours_few: "{{count}} ساعات حتى إعادة التعيين",
+        resetsWeeklyHours_many: "{{count}} ساعة حتى إعادة التعيين",
+        resetsWeeklyHours_other: "{{count}} ساعة حتى إعادة التعيين",
         ctaUpgrade: "قم بالترقية للمتابعة",
         ctaTopUp: "أضف أرصدة للمتابعة",
         ariaLabel: "استخدام الذكاء الاصطناعي: {{status}}",
@@ -1906,8 +1952,12 @@ const ar = {
       discard: "تجاهل",
       saveChanges: "حفظ التغييرات",
       unsavedCount: "{{count}} تغيير(تغييرات) غير محفوظ",
+      unsavedCount_zero: "{{count}} تغيير غير محفوظ",
       unsavedCount_one: "{{count}} تغيير غير محفوظ",
-      unsavedCount_other: "{{count}} تغييرات غير محفوظة",
+      unsavedCount_two: "تغييران غير محفوظين ({{count}})",
+      unsavedCount_few: "{{count}} تغييرات غير محفوظة",
+      unsavedCount_many: "{{count}} تغييرًا غير محفوظ",
+      unsavedCount_other: "{{count}} تغيير غير محفوظ",
       cryptoRefusalTitle: "لا يمكن لهذا النشر تشفير الأسرار",
       cryptoRefusalSubjectSuffix: "معلن كمشفَّر، لذلك لم تتم كتابة أي شيء.",
       cryptoRefusalNoSubject: "تم رفض القيمة المعلنة كمشفَّرة، لذلك لم تتم كتابة أي شيء.",
@@ -3138,9 +3188,10 @@ const ar = {
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
-  //                   FAMILIES (base key + `_one`): i18next resolves every
-  //                   CLDR category a pack does not enumerate to the base key,
-  //                   which is what keeps ru/ar in their own language.
+  //                   FAMILIES: one slot per CLDR category the pack's language
+  //                   selects (objectui#11432), plus the base key for a call
+  //                   made without a count. `all-locales-key-parity.test.ts`
+  //                   derives the required slots from `Intl.PluralRules`.
   //
   // objectui#7481 — five `tool.*` entries are NEWER than the registry above:
   // `get_authoring_rules` (cloud#1837), `load_tools`, `open_record`, `test_flow`
@@ -3200,11 +3251,26 @@ const ar = {
     },
     plan: {
       countObjects: "{{count}} كائنات",
+      countObjects_zero: "{{count}} كائن",
       countObjects_one: "{{count}} كائن",
+      countObjects_two: "كائنان ({{count}})",
+      countObjects_few: "{{count}} كائنات",
+      countObjects_many: "{{count}} كائنًا",
+      countObjects_other: "{{count}} كائن",
       countViews: "{{count}} طرق عرض",
+      countViews_zero: "{{count}} طريقة عرض",
       countViews_one: "{{count}} طريقة عرض",
+      countViews_two: "طريقتا عرض ({{count}})",
+      countViews_few: "{{count}} طرق عرض",
+      countViews_many: "{{count}} طريقة عرض",
+      countViews_other: "{{count}} طريقة عرض",
       countDashboards: "{{count}} لوحات معلومات",
+      countDashboards_zero: "{{count}} لوحة معلومات",
       countDashboards_one: "{{count}} لوحة معلومات",
+      countDashboards_two: "لوحتا معلومات ({{count}})",
+      countDashboards_few: "{{count}} لوحات معلومات",
+      countDashboards_many: "{{count}} لوحة معلومات",
+      countDashboards_other: "{{count}} لوحة معلومات",
       countSeedData: "بيانات تجريبية",
     },
     build: {

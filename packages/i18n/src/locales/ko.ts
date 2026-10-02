@@ -41,12 +41,16 @@ const ko = {
       more: "+{{count}} 더보기",
       objects: "{{count}}개 오브젝트",
       objects_one: "{{count}}개 오브젝트",
+      objects_other: "{{count}}개 오브젝트",
       fields: "{{count}}개 필드 규칙",
       fields_one: "{{count}}개 필드 규칙",
+      fields_other: "{{count}}개 필드 규칙",
       rls: "{{count}}개 RLS 정책",
       rls_one: "{{count}}개 RLS 정책",
+      rls_other: "{{count}}개 RLS 정책",
       tabs: "{{count}}개 탭 규칙",
       tabs_one: "{{count}}개 탭 규칙",
+      tabs_other: "{{count}}개 탭 규칙",
       adminScope: "위임 관리가 구성됨",
       designInStudio: "Studio에서 디자인 →",
       designInStudioHint: "Studio에서 디자인",
@@ -3107,9 +3111,10 @@ const ko = {
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
-  //                   FAMILIES (base key + `_one`): i18next resolves every
-  //                   CLDR category a pack does not enumerate to the base key,
-  //                   which is what keeps ru/ar in their own language.
+  //                   FAMILIES: one slot per CLDR category the pack's language
+  //                   selects (objectui#11432), plus the base key for a call
+  //                   made without a count. `all-locales-key-parity.test.ts`
+  //                   derives the required slots from `Intl.PluralRules`.
   //
   // objectui#7481 — five `tool.*` entries are NEWER than the registry above:
   // `get_authoring_rules` (cloud#1837), `load_tools`, `open_record`, `test_flow`
@@ -3170,10 +3175,13 @@ const ko = {
     plan: {
       countObjects: "오브젝트 {{count}}개",
       countObjects_one: "오브젝트 {{count}}개",
+      countObjects_other: "오브젝트 {{count}}개",
       countViews: "뷰 {{count}}개",
       countViews_one: "뷰 {{count}}개",
+      countViews_other: "뷰 {{count}}개",
       countDashboards: "대시보드 {{count}}개",
       countDashboards_one: "대시보드 {{count}}개",
+      countDashboards_other: "대시보드 {{count}}개",
       countSeedData: "샘플 데이터",
     },
     build: {

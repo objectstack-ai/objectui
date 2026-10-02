@@ -41,12 +41,16 @@ const de = {
       more: "+{{count}} weitere",
       objects: "{{count}} Objekte",
       objects_one: "{{count}} Objekt",
+      objects_other: "{{count}} Objekte",
       fields: "{{count}} Feldregeln",
       fields_one: "{{count}} Feldregel",
+      fields_other: "{{count}} Feldregeln",
       rls: "{{count}} RLS-Richtlinien",
       rls_one: "{{count}} RLS-Richtlinie",
+      rls_other: "{{count}} RLS-Richtlinien",
       tabs: "{{count}} Registerkarten-Regeln",
       tabs_one: "{{count}} Registerkarten-Regel",
+      tabs_other: "{{count}} Registerkarten-Regeln",
       adminScope: "Delegierte Administration konfiguriert",
       designInStudio: "Im Studio gestalten →",
       designInStudioHint: "Im Studio gestalten",
@@ -3108,9 +3112,10 @@ const de = {
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
-  //                   FAMILIES (base key + `_one`): i18next resolves every
-  //                   CLDR category a pack does not enumerate to the base key,
-  //                   which is what keeps ru/ar in their own language.
+  //                   FAMILIES: one slot per CLDR category the pack's language
+  //                   selects (objectui#11432), plus the base key for a call
+  //                   made without a count. `all-locales-key-parity.test.ts`
+  //                   derives the required slots from `Intl.PluralRules`.
   //
   // objectui#7481 — five `tool.*` entries are NEWER than the registry above:
   // `get_authoring_rules` (cloud#1837), `load_tools`, `open_record`, `test_flow`
@@ -3171,10 +3176,13 @@ const de = {
     plan: {
       countObjects: "{{count}} Objekte",
       countObjects_one: "{{count}} Objekt",
+      countObjects_other: "{{count}} Objekte",
       countViews: "{{count}} Ansichten",
       countViews_one: "{{count}} Ansicht",
+      countViews_other: "{{count}} Ansichten",
       countDashboards: "{{count}} Dashboards",
       countDashboards_one: "{{count}} Dashboard",
+      countDashboards_other: "{{count}} Dashboards",
       countSeedData: "Beispieldaten",
     },
     build: {

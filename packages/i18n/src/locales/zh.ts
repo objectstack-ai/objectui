@@ -48,12 +48,16 @@ const zh = {
       more: '+{{count}} 更多',
       objects: '{{count}} 个对象',
       objects_one: '{{count}} 个对象',
+      objects_other: '{{count}} 个对象',
       fields: '{{count}} 条字段规则',
       fields_one: '{{count}} 条字段规则',
+      fields_other: '{{count}} 条字段规则',
       rls: '{{count}} 条 RLS 策略',
       rls_one: '{{count}} 条 RLS 策略',
+      rls_other: '{{count}} 条 RLS 策略',
       tabs: '{{count}} 条标签页规则',
       tabs_one: '{{count}} 条标签页规则',
+      tabs_other: '{{count}} 条标签页规则',
       adminScope: '已配置委派管理范围',
       designInStudio: '在 Studio 中设计 →',
       designInStudioHint: '在 Studio 中设计',
@@ -3246,9 +3250,10 @@ const zh = {
   //                   set for both surfaces (they used to carry separate
   //                   tables and disagreed on casing).
   //   `plan.*`      — the "N objects · N views · N dashboards" strip. Plural
-  //                   FAMILIES (base key + `_one`): i18next resolves every
-  //                   CLDR category a pack does not enumerate to the base key,
-  //                   which is what keeps ru/ar in their own language.
+  //                   FAMILIES: one slot per CLDR category the pack's language
+  //                   selects (objectui#11432), plus the base key for a call
+  //                   made without a count. `all-locales-key-parity.test.ts`
+  //                   derives the required slots from `Intl.PluralRules`.
   //
   // objectui#7481 — five `tool.*` entries are NEWER than the registry above:
   // `get_authoring_rules` (cloud#1837), `load_tools`, `open_record`, `test_flow`
@@ -3309,10 +3314,13 @@ const zh = {
     plan: {
       countObjects: '{{count}} 个对象',
       countObjects_one: '{{count}} 个对象',
+      countObjects_other: '{{count}} 个对象',
       countViews: '{{count}} 个视图',
       countViews_one: '{{count}} 个视图',
+      countViews_other: '{{count}} 个视图',
       countDashboards: '{{count}} 个仪表板',
       countDashboards_one: '{{count}} 个仪表板',
+      countDashboards_other: '{{count}} 个仪表板',
       countSeedData: '示例数据',
     },
     build: {

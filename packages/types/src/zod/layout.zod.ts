@@ -299,52 +299,85 @@ export const SeparatorSchema = BaseSchema.extend({
 });
 
 /**
- * A layout spacing key closed to the steps its renderer maps, with a refusal
- * that names them (objectui#11424, generalised by objectui#11474).
+ * A numeric layout key closed to the set its renderer maps, with a refusal that
+ * names it (objectui#11424; generalised by objectui#11474 to every spacing key,
+ * and by objectui#11491 to `grid.columns`, a count, under the name this helper
+ * now has — it was `rendererSpacingSteps`).
  *
- * `container.padding`, `stack.gap`, `flex.gap` and `grid.gap` are not keys
- * `@objectstack/spec` declares, so each read site is the truth (the
- * objectui#7759 ruling, the one objectui#10286 applied to `container.maxWidth`).
- * Each renderer reads `schema.KEY ?? DEFAULT` and maps a closed set of steps to
- * utility classes. A number outside the set reaches no rule in the compiled
+ * `container.padding`, `stack.gap`, `flex.gap`, `grid.gap` and `grid.columns`
+ * are not keys `@objectstack/spec` declares, so each read site is the truth
+ * (the objectui#7759 ruling, the one objectui#10286 applied to
+ * `container.maxWidth`). Each renderer maps a closed set of numbers to utility
+ * classes. A spacing step outside its set reaches no rule in the compiled
  * stylesheet, so the node renders without that spacing at all — not even the
- * default, which `??` supplies only for an absent key. `z.number()` accepted
- * such numbers. ⛔ The renderers neither round nor clamp an unmapped number,
- * and must not start: the declaration closes to the set instead.
+ * default, which `??` supplies only for an absent key. A column count outside
+ * `grid`'s set drew no column class where it was authored. `z.number()`
+ * accepted such numbers. ⛔ The renderers neither round, clamp nor substitute
+ * an unmapped number, and must not start: the declaration closes to the set
+ * instead.
  *
  * The literal union is the refusal's carrier: zod's `invalid_value` issue
- * lists the accepted values, and the message spells the same list out.
+ * lists the accepted values, and the message spells the same list out. A key
+ * that also takes an object of the same set keyed by breakpoint
+ * (`grid.columns`) passes `shape`, which builds that union from the ONE closed
+ * literal and gives the union the same refusal, so the set is named whichever
+ * arm the authored value missed.
  *
  * `components/src/__tests__/layout-spacing-sets-11474.test.tsx` enumerates
- * every registered layout renderer's numeric spacing input, re-derives each
- * set by rendering the real node and reading which values draw a class the
- * package's compiled stylesheet defines, and holds this declaration and the
+ * every registered layout renderer's numeric input, re-derives each set by
+ * rendering the real node and reading which values draw a class the package's
+ * compiled stylesheet defines, and holds this declaration and the
  * registration's closed `enum` to it, so the three cannot part silently.
  */
-function rendererSpacingSteps<const Steps extends readonly [number, ...number[]]>(spec: {
+interface RendererMappedSetSpec<Steps extends readonly [number, ...number[]]> {
   /** The node type, as authored. */
   node: string;
-  /** The spacing key on that node. */
-  key: 'gap' | 'padding';
-  /** The steps the renderer maps, in ascending order. */
+  /** The numeric key on that node. */
+  key: keyof typeof MAPPED_SET_WORDING;
+  /** The values the renderer maps, in ascending order. */
   steps: Steps;
-  /** The step the renderer applies when the key is absent. */
+  /** The value the renderer applies when the key is absent. */
   fallback: Steps[number];
   /** The card that closed this key. */
   card: string;
   /** What an unmapped number did, measured, ending with the refusal's reason. */
   unmapped: string;
-}) {
+}
+
+/** How each closed key's set is spoken of, in its refusal and its describe. */
+const MAPPED_SET_WORDING = {
+  gap: { noun: 'Gap step', unit: 'step', maps: 'a gap class', zero: true, forms: '' },
+  padding: { noun: 'Padding step', unit: 'step', maps: 'a padding class', zero: true, forms: '' },
+  columns: {
+    noun: 'Column count',
+    unit: 'count',
+    maps: 'a column class, as the bare number and at every breakpoint of the object form',
+    zero: false,
+    forms: ', bare or per breakpoint',
+  },
+} as const;
+
+function rendererMappedSet<const Steps extends readonly [number, ...number[]]>(
+  spec: RendererMappedSetSpec<Steps>,
+): z.ZodOptional<z.ZodLiteral<Steps[number]>>;
+function rendererMappedSet<const Steps extends readonly [number, ...number[]], Shape extends z.ZodType>(
+  spec: RendererMappedSetSpec<Steps>,
+  shape: (closed: z.ZodLiteral<Steps[number]>, refusal: string) => Shape,
+): z.ZodOptional<Shape>;
+function rendererMappedSet(
+  spec: RendererMappedSetSpec<readonly [number, ...number[]]>,
+  shape?: (closed: z.ZodLiteral<number>, refusal: string) => z.ZodType,
+): z.ZodOptional<z.ZodType> {
   const set = spec.steps.join(', ');
+  const words = MAPPED_SET_WORDING[spec.key];
   const refusal =
-    `\`${spec.key}\` on a \`${spec.node}\` is one of ${set} (${spec.card}): those are the steps the ` +
-    `renderer maps to a ${spec.key} class, and \`0\` means none. ${spec.unmapped} ` +
-    'Pick the step you meant from that set.';
-  const noun = spec.key === 'gap' ? 'Gap' : 'Padding';
-  return z
-    .literal(spec.steps, { error: refusal })
+    `\`${spec.key}\` on a \`${spec.node}\` is one of ${set} (${spec.card}): those are the ${words.unit}s the ` +
+    `renderer maps to ${words.maps}${words.zero ? ', and `0` means none' : ''}. ${spec.unmapped} ` +
+    `Pick the ${words.unit} you meant from that set.`;
+  const closed = z.literal(spec.steps, { error: refusal });
+  return (shape ? shape(closed, refusal) : closed)
     .optional()
-    .describe(`${noun} step, one of ${set}; 0 is none (default ${spec.fallback})`);
+    .describe(`${words.noun}, one of ${set}${words.zero ? '; 0 is none' : ''}${words.forms} (default ${spec.fallback})`);
 }
 
 /**
@@ -372,8 +405,8 @@ export const ContainerSchema = BaseSchema.extend({
   ]).optional().describe('Max width constraint'),
   centered: z.boolean().optional().describe('Center the container'),
   // A literal union of the renderer's mapped steps, not `z.number()`
-  // (objectui#11424) — see {@link rendererSpacingSteps}.
-  padding: rendererSpacingSteps({
+  // (objectui#11424) — see {@link rendererMappedSet}.
+  padding: rendererMappedSet({
     node: 'container',
     key: 'padding',
     steps: CONTAINER_PADDING_STEPS,
@@ -434,7 +467,7 @@ export const FlexSchema = BaseSchema.extend({
   // A literal union of the renderer's mapped steps, not `z.number()`
   // (objectui#11474). The authored bag holds this member BY REFERENCE
   // (`FlexPropsBag` below), so `properties.gap` refuses the same numbers.
-  gap: rendererSpacingSteps({
+  gap: rendererMappedSet({
     node: 'flex',
     key: 'gap',
     steps: FLEX_GAP_STEPS,
@@ -617,7 +650,7 @@ export const StackSchema = BaseSchema.extend({
   align: z.enum(['start', 'end', 'center', 'baseline', 'stretch']).optional(),
   // A literal union of the renderer's mapped steps, not `z.number()`
   // (objectui#11474) — see {@link STACK_GAP_STEPS}.
-  gap: rendererSpacingSteps({
+  gap: rendererMappedSet({
     node: 'stack',
     key: 'gap',
     steps: STACK_GAP_STEPS,
@@ -646,7 +679,7 @@ export const StackSchema = BaseSchema.extend({
  * (`gap-[2.25rem]` for `9`). Tailwind compiles only the class names it finds
  * in scanned source text, and a class assembled from a template at runtime is
  * not one of them, so an unmapped number reached no gap rule. The pin named in
- * {@link rendererSpacingSteps} re-derives this against the package's own
+ * {@link rendererMappedSet} re-derives this against the package's own
  * compiled stylesheet on every run; the console's stylesheet was read the same
  * way once, on objectui#11474, and nothing re-derives that reading. The
  * describe's "Tailwind scale 0-8" was not this set either.
@@ -654,12 +687,31 @@ export const StackSchema = BaseSchema.extend({
 const GRID_GAP_STEPS = [0, 1, 2, 3, 4, 5, 6, 8, 10, 12] as const;
 
 /**
+ * The column counts the `grid` renderer maps to a column class
+ * (objectui#11491): `grid.tsx` spells `grid-cols-1` to `grid-cols-12` once per
+ * breakpoint, in `GRID_COLS` and its five breakpoint twins, and nothing else.
+ * Every one of those 72 classes is a rule in the package's compiled stylesheet;
+ * the pin named in {@link rendererMappedSet} re-derives that on every run.
+ *
+ * A count outside the set drew no column class where it was authored, and was
+ * still `z.number()` here. Measured through the real `SchemaRenderer`: a bare
+ * `13` drew `grid-cols-1 sm:grid-cols-2` and lost its `md` count; `{ md: 13 }`
+ * drew nothing at `md`; `{ xs: 13 }`, `0` and `-1` drew `grid-cols-2`, a count
+ * nobody authored, through a fallback the renderer no longer has.
+ */
+const GRID_COLUMN_COUNTS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+
+/**
  * Grid Schema - CSS Grid layout component
  */
 export const GridSchema = BaseSchema.extend({
   type: z.literal('grid'),
   /**
-   * Keyed by the BREAKPOINT VOCABULARY, not by `string` (objectui#8516).
+   * One of the counts the renderer maps (objectui#11491, see
+   * {@link GRID_COLUMN_COUNTS}): the bare number, or an object of such counts
+   * keyed by the BREAKPOINT VOCABULARY, not by `string` (objectui#8516). The
+   * one closed literal is both arms' value, so a count is judged the same way
+   * as the bare number and at every breakpoint.
    *
    * `z.partialRecord`, ⛔ never `z.record(z.enum([…]), …)`: measured on zod
    * 4.4.3, the plain `z.record` over an enum key REQUIRES every member, so
@@ -672,14 +724,33 @@ export const GridSchema = BaseSchema.extend({
    * derive from; the equality is held by a type-level pin in
    * `__tests__/mirror-partial-record-narrowing-8516.test.ts`, so adding or
    * dropping a breakpoint on either face fails to compile.
+   *
+   * The union carries the refusal as well as each arm: a count that misses
+   * both arms is reported as one `invalid_union` at `columns` whose message
+   * names the set, and the arms' own issues, under `errors`, carry it as
+   * `values`. A key outside the six is still reported on its own, as
+   * `unrecognized_keys` at `columns` (objectui#8516).
    */
-  columns: z.union([
-    z.number(),
-    z.partialRecord(z.enum(['xs', 'sm', 'md', 'lg', 'xl', '2xl']), z.number()),
-  ]).optional().describe('Number of columns (responsive)'),
+  columns: rendererMappedSet(
+    {
+      node: 'grid',
+      key: 'columns',
+      steps: GRID_COLUMN_COUNTS,
+      fallback: 2,
+      card: 'objectui#11491',
+      unmapped:
+        'Any other count drew no column class where it was authored: a bare `13` lost its `md` '
+        + 'count, `{ md: 13 }` drew nothing at `md`, and `{ xs: 13 }`, `0` and `-1` drew two '
+        + 'columns nobody authored; so it is refused here instead.',
+    },
+    (count, refusal) =>
+      z.union([count, z.partialRecord(z.enum(['xs', 'sm', 'md', 'lg', 'xl', '2xl']), count)], {
+        error: (issue) => (issue.code === 'invalid_union' ? refusal : undefined),
+      }),
+  ),
   // A literal union of the renderer's mapped steps, not `z.number()`
   // (objectui#11474) — see {@link GRID_GAP_STEPS}.
-  gap: rendererSpacingSteps({
+  gap: rendererMappedSet({
     node: 'grid',
     key: 'gap',
     steps: GRID_GAP_STEPS,

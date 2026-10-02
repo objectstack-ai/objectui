@@ -131,6 +131,16 @@ describe('SchemaBuilder', () => {
       expect(schema.type).toBe('grid');
       expect(schema.id).toBe('my-grid');
     });
+
+    it('takes a column count the grid renderer maps, and nothing else (objectui#11491)', () => {
+      const schema = grid().columns(12).build();
+      expect(schema.columns).toBe(12);
+      expect(safeValidateSchema(schema).success).toBe(true);
+      expect(StrictAnyComponentSchema.safeParse(schema).success).toBe(true);
+      // @ts-expect-error — `grid` maps no 13th column; `tsc` refuses it at the builder.
+      const thirteen = grid().columns(13).build();
+      expect(safeValidateSchema(thirteen).success).toBe(false);
+    });
   });
 
   describe('flex()', () => {

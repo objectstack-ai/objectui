@@ -110,10 +110,42 @@ Two doors remain, one per capability:
 
 - **Compose in React** — `<AppShell>` as shown above, with your JSON pages rendered
   *inside* it through `SchemaRenderer`.
-- **The whole shell from metadata** — `AppSchemaRenderer`, registered as
-  `app-schema-renderer` and declaring its `inputs`, which builds branding and sidebar
-  navigation from an `AppSchema` JSON document and takes the page content as its
-  `children`.
+- **The whole shell from metadata** — the `app-schema-renderer` node, which renders
+  `AppSchemaRenderer`. It builds the branding and the sidebar navigation from the app
+  document it carries under `schema`, below. It draws no page content: the node's
+  `children` are not rendered, and `objectui validate` refuses them on this node. Page
+  content reaches the shell only as React `children`, when a host renders
+  `AppSchemaRenderer` in JSX.
+
+The node takes three inputs:
+
+- `schema`: the app document, nested, with its own `"type": "app"`. It is validated as
+  the app document, so the document's own refusals apply inside it: `mobileNavMode`
+  there is refused, because the mode belongs on the node.
+- `basePath`: the prefix of every href the shell generates.
+- `mobileNavMode`: `"drawer"` (the default) or `"bottom_nav"`, which adds a fixed
+  bottom bar.
+
+```json
+{
+  "type": "app-schema-renderer",
+  "basePath": "/apps/crm",
+  "mobileNavMode": "bottom_nav",
+  "schema": {
+    "type": "app",
+    "name": "crm",
+    "title": "CRM",
+    "navigation": [
+      { "id": "home", "type": "page", "pageName": "home", "label": "Home" }
+    ]
+  }
+}
+```
+
+The document has one spelling. Its keys written flat on the node (`"navigation"`,
+`"title"` beside `"type": "app-schema-renderer"`) are not drawn, and the strict authoring
+face (`StrictAnyComponentSchema` in `@object-ui/types/zod`) refuses them as unrecognized
+keys. A node without `schema` draws the shell with no branding and no navigation.
 
 ### Features
 

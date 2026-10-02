@@ -7,22 +7,33 @@
  */
 
 /**
- * Every layout spacing key is ONE set in three places (objectui#11474, which
- * generalised objectui#11424's `container.padding` pin into this file): the
- * steps the renderer maps to a class the stylesheet defines, the set the zod
- * declaration accepts at the authoring doors, and the closed `enum` the
- * registration publishes into the SDUI manifest.
+ * Every numeric layout input is ONE set in three places: the values the
+ * renderer maps to a class the stylesheet defines, the set the zod declaration
+ * accepts at the authoring doors, and the closed `enum` the registration
+ * publishes into the SDUI manifest.
+ *
+ * objectui#11474 generalised objectui#11424's `container.padding` pin into this
+ * file for the SPACING keys and classified the rest as "not spacing", holding
+ * them to nothing. objectui#11491 extended it in place to EVERY numeric layout
+ * input, the `grid` column counts among them. The file name is the family's
+ * (objectui#11474's), kept so the pointers to it stay true; its scope is this
+ * header's.
  *
  * ## What is enumerated — derived, not listed
  *
  * Every registration this package makes that declares LAYOUT containment
- * (`isContainer`), and every input on it whose values are numbers (`type:
- * 'number'`, or an `enum` of numbers). Each such input is rendered through the
- * real `SchemaRenderer` across a range of candidates; it is a SPACING key when
- * its value moves a spacing utility (`gap-*`, `p-*`, `m-*`, `space-*`) on the
- * element. Inputs that move none (`aspect-ratio.ratio`, `grid.columns`) are
- * classified here and held to nothing else. A new layout node with a numeric
- * spacing input joins the enumeration the day it is registered.
+ * (`isContainer`), and every input on it whose value can be a number: a
+ * `number` arm, or an `enum` arm of numbers (an input may declare several
+ * arms). Each such input is one POSITION; an input that also publishes an
+ * `object` arm takes an object keyed by breakpoint (`grid.columns`), and adds
+ * one position per breakpoint. Each position is rendered through the real
+ * `SchemaRenderer` across a range of candidates and classified by the classes
+ * its value moves: SPACING (`gap-*`, `p-*`, `m-*`, `space-*`), COUNT
+ * (`grid-cols-*`), or OTHER when it moves no class at all
+ * (`aspect-ratio.ratio`, which sizes through style); OTHER is held to nothing
+ * else. A position whose value moves a class of neither family fails as
+ * unclassified, so a new family is decided rather than skipped. A new layout
+ * node with a numeric input joins the enumeration the day it is registered.
  *
  * ## What "mapped" means — the compiled stylesheet decides
  *
@@ -32,23 +43,34 @@
  * source text. `grid` builds `gap-[N*0.25rem]` at runtime for a number outside
  * its map, and no stylesheet carries that rule (measured on objectui#11474), so
  * a class string on the element is not the test. A candidate is MAPPED when the
- * spacing utilities its value draws are all rules in this package's own
- * compiled stylesheet (`src/index.css`, the sheet it ships as `style.css`,
- * compiled here exactly as `scripts/build-css.mjs` compiles it). This file
- * lives under `__tests__/`, which that sheet does not scan, so the class names
- * written below cannot create the rules they look for.
+ * classes its value draws are all rules in this package's own compiled
+ * stylesheet (`src/index.css`, the sheet it ships as `style.css`, compiled here
+ * exactly as `scripts/build-css.mjs` compiles it) AND one of them spells the
+ * value (`gap-2`, `md:grid-cols-12`). A value that draws only classes other
+ * values spell is not mapped: a bare `13` draws `grid`'s mobile-first ramp,
+ * `grid-cols-1 sm:grid-cols-2`, and no count of its own. This file lives under
+ * `__tests__/`, which that sheet does not scan, so the class names written
+ * below cannot create the rules they look for.
  *
- * ⛔ An unmapped number draws no spacing at all — the renderers neither round
- * nor clamp it, on purpose; the declaration refuses it instead.
+ * ⛔ An unmapped number draws no class of its own — the renderers neither
+ * round, clamp nor substitute it, on purpose; the declaration refuses it
+ * instead. What it may still draw is a class several mapped values share (the
+ * ramp), never one that only some other single value draws.
  *
- * ## What each spacing key is held to
+ * ## What each mapped-set position is held to
  *
  * - its zod declaration, at the authored spelling (flat on the node, or in the
- *   `properties` bag when the node refuses it flat, as `flex` does), accepts
- *   exactly the mapped set on the tolerant face (`safeValidateSchema`, what
- *   `objectui validate` runs) and on the strict authoring face;
- * - its registration input is a closed `enum` of exactly the mapped set;
- * - an absent key draws exactly what the registration's default step draws.
+ *   `properties` bag when the node refuses it flat, as `flex` does; the
+ *   breakpoint object for a breakpoint position), accepts exactly the mapped
+ *   set on the tolerant face (`safeValidateSchema`, what `objectui validate`
+ *   runs) and on the strict authoring face — except an input in
+ *   {@link REGISTERED_NOT_DECLARED}, whose reading is held instead;
+ * - its registration input publishes a closed `enum` of exactly the mapped
+ *   set, and a breakpoint position's input publishes an `object` arm whose
+ *   members (`of`) are that `enum`;
+ * - an absent value draws no utility of its family the stylesheet lacks; a
+ *   spacing key's absent value draws exactly what the registration's default
+ *   step draws.
  *
  * Module-scope import of the renderers, not `beforeAll` (AGENTS.md §测试纪律).
  */
@@ -62,16 +84,53 @@ import { render } from '@testing-library/react';
 import '../renderers';
 import { SchemaRenderer } from '@object-ui/react';
 import { ComponentRegistry } from '@object-ui/core';
+import type { BreakpointName } from '@object-ui/types';
 import { safeValidateSchema, StrictAnyComponentSchema } from '@object-ui/types/zod';
 
-/** Every candidate the derivation renders: a range past the widest step, plus fractions and a negative. */
+/** Every candidate the derivation renders: a range past the widest set, plus fractions and a negative. */
 const CANDIDATES = [...Array.from({ length: 33 }, (_, i) => i), -1, 0.5, 1.5, 2.5, 9.5];
 
 /** A spacing utility at any variant: `gap-2`, `sm:gap-3`, `md:p-0.5`, `mx-auto`, `gap-[2.25rem]`. */
 const isSpacingUtility = (token: string) =>
   /^(?:[\w-]+:)*-?(?:gap(?:-[xy])?|p[xytrblse]?|m[xytrblse]?|space-[xy])-/.test(token);
 
+/** A column-count utility at any variant: `grid-cols-3`, `2xl:grid-cols-12`. */
+const isColumnUtility = (token: string) => /^(?:[\w-]+:)*grid-cols-/.test(token);
+
+/** Does the utility spell this value? `md:grid-cols-12` spells 12, `gap-1.5` spells 1.5. */
+const spells = (token: string, n: number) => {
+  const utility = token.replace(/^(?:[\w-]+:)*/, '');
+  return utility.slice(utility.lastIndexOf('-') + 1) === String(n);
+};
+
 const sortNumbers = (values: Iterable<unknown>) => [...values].map(Number).sort((a, b) => a - b);
+
+/**
+ * The breakpoint vocabulary an object-arm position is keyed by. `satisfies`
+ * makes it exhaustive both ways at compile time: a missing or an extra name
+ * fails `tsc -p tsconfig.test.json`.
+ */
+const BREAKPOINTS = Object.keys({
+  xs: 0,
+  sm: 0,
+  md: 0,
+  lg: 0,
+  xl: 0,
+  '2xl': 0,
+} satisfies Record<BreakpointName, 0>) as BreakpointName[];
+
+/**
+ * Registration inputs the renderer reads and NEITHER face of the node's
+ * declaration declares (objectui#11491, measured): the tolerant face passes
+ * any value through (`BaseSchema` is `.passthrough()`), and the strict face
+ * refuses the key at every value (`unrecognized_keys`). Their lists are
+ * closed and held here like any other; their declaration is an open question
+ * on objectui#11491 (declare them on `GridSchema`, or retire the flat channel
+ * for the breakpoint object), so the reading is held instead, both ways: a key
+ * that gets declared turns its row red, and an undeclared input missing here
+ * turns the population row red.
+ */
+const REGISTERED_NOT_DECLARED = ['grid.lgColumns', 'grid.mdColumns', 'grid.smColumns', 'grid.xlColumns'];
 
 /* ── The compiled stylesheet ─────────────────────────────────────────────── */
 
@@ -107,14 +166,17 @@ interface LayoutInput {
   /** The authored type: the registry key without its namespace. */
   type: string;
   key: string;
-  input: { type?: unknown; enum?: unknown[] };
+  input: { type?: unknown; enum?: unknown[]; of?: unknown };
   defaultValue: unknown;
 }
 
 const enumValues = (input: LayoutInput['input']) =>
   (input.enum ?? []).map((e) => (typeof e === 'object' && e !== null ? (e as { value: unknown }).value : e));
 
-/** Every numeric input on every registered layout container, once per registration. */
+/** The arms an input declares: one, or an array of them. */
+const armsOf = (declared: unknown): unknown[] => (Array.isArray(declared) ? declared : [declared]);
+
+/** Every input with a numeric arm on every registered layout container, once per registration. */
 const NUMERIC_LAYOUT_INPUTS: LayoutInput[] = (() => {
   const seen = new Set<unknown>();
   const out: LayoutInput[] = [];
@@ -125,9 +187,11 @@ const NUMERIC_LAYOUT_INPUTS: LayoutInput[] = (() => {
     const prefix = config.namespace ? `${config.namespace}:` : '';
     const type = prefix && config.type.startsWith(prefix) ? config.type.slice(prefix.length) : config.type;
     for (const input of config.inputs ?? []) {
+      const arms = armsOf(input.type);
       const values = enumValues(input as LayoutInput['input']);
       const numeric =
-        input.type === 'number' || (input.type === 'enum' && values.length > 0 && values.every((v) => typeof v === 'number'));
+        arms.includes('number') ||
+        (arms.includes('enum') && values.length > 0 && values.every((v) => typeof v === 'number'));
       if (!numeric) continue;
       out.push({
         type,
@@ -140,36 +204,92 @@ const NUMERIC_LAYOUT_INPUTS: LayoutInput[] = (() => {
   return out.sort((a, b) => `${a.type}.${a.key}`.localeCompare(`${b.type}.${b.key}`));
 })();
 
+/** One place a numeric input's value is authored: the input itself, or one breakpoint of its object arm. */
+interface Position {
+  entry: LayoutInput;
+  name: string;
+  breakpoint?: BreakpointName;
+  /** The node props carrying `n` at this position, as rendered. */
+  at: (n: unknown) => Record<string, unknown>;
+  /** The node props with no value at this position. */
+  absent: Record<string, unknown>;
+}
+
+const positionsOf = (entry: LayoutInput): Position[] => {
+  const own: Position = {
+    entry,
+    name: `${entry.type}.${entry.key}`,
+    at: (n) => ({ [entry.key]: n }),
+    absent: {},
+  };
+  if (!armsOf(entry.input.type).includes('object')) return [own];
+  return [
+    own,
+    ...BREAKPOINTS.map((bp) => ({
+      entry,
+      name: `${entry.type}.${entry.key}.${bp}`,
+      breakpoint: bp,
+      at: (n: unknown) => ({ [entry.key]: { [bp]: n } }),
+      absent: { [entry.key]: {} },
+    })),
+  ];
+};
+
+const POSITIONS: Position[] = NUMERIC_LAYOUT_INPUTS.flatMap(positionsOf);
+
 /* ── Rendering ───────────────────────────────────────────────────────────── */
 
-function spacingOf(type: string, extra: Record<string, unknown>): string[] {
+function classesOf(type: string, extra: Record<string, unknown>): string[] {
   const { container, unmount } = render(<SchemaRenderer schema={{ type, children: [], ...extra } as never} />);
-  const tokens = ((container.firstElementChild as HTMLElement | null)?.className ?? '')
-    .split(/\s+/)
-    .filter(isSpacingUtility);
+  const tokens = ((container.firstElementChild as HTMLElement | null)?.className ?? '').split(/\s+/).filter(Boolean);
   unmount();
   return tokens;
 }
 
+type Family = 'spacing' | 'count' | 'other' | 'unclassified';
+
 interface Derivation {
-  /** The spacing utilities each candidate's value draws, beyond those every candidate draws. */
+  /** The classes each candidate's value draws, beyond those every candidate draws. */
   drawn: Map<number, string[]>;
-  /** Candidates whose drawn utilities exist and are all rules in the compiled sheet. */
+  /** Candidates whose drawn classes are all rules in the compiled sheet, one of them spelling the candidate. */
   mapped: number[];
-  /** Spacing utilities every candidate draws (`mx-auto` on a centred container) — not the key's. */
-  constant: string[];
+  /** Drawn classes at least two mapped candidates share (`grid`'s ramp) — not any one value's. */
+  shared: string[];
+  family: Family;
 }
 
-async function derive({ type, key }: LayoutInput): Promise<Derivation> {
-  const defined = await definedClasses();
-  const raw = new Map(CANDIDATES.map((n) => [n, spacingOf(type, { [key]: n })]));
-  const constant = [...raw.values()].reduce((acc, tokens) => acc.filter((t) => tokens.includes(t)));
-  const drawn = new Map([...raw].map(([n, tokens]) => [n, tokens.filter((t) => !constant.includes(t))]));
-  const mapped = CANDIDATES.filter((n) => {
-    const tokens = drawn.get(n)!;
-    return tokens.length > 0 && tokens.every((t) => defined.has(t));
-  });
-  return { drawn, mapped, constant };
+const derivations = new Map<string, Promise<Derivation>>();
+
+function derive(position: Position): Promise<Derivation> {
+  let derivation = derivations.get(position.name);
+  if (!derivation) {
+    derivation = (async () => {
+      const defined = await definedClasses();
+      const { type } = position.entry;
+      const raw = new Map(CANDIDATES.map((n) => [n, classesOf(type, position.at(n))]));
+      const constant = [...raw.values()].reduce((acc, tokens) => acc.filter((t) => tokens.includes(t)));
+      const drawn = new Map([...raw].map(([n, tokens]) => [n, tokens.filter((t) => !constant.includes(t))]));
+      const mapped = CANDIDATES.filter((n) => {
+        const tokens = drawn.get(n)!;
+        return tokens.length > 0 && tokens.every((t) => defined.has(t)) && tokens.some((t) => spells(t, n));
+      });
+      const uses = new Map<string, number>();
+      for (const n of mapped) for (const t of drawn.get(n)!) uses.set(t, (uses.get(t) ?? 0) + 1);
+      const shared = [...uses].filter(([, count]) => count > 1).map(([t]) => t);
+      const moved = [...new Set([...drawn.values()].flat())];
+      const family: Family =
+        moved.length === 0
+          ? 'other'
+          : moved.every(isSpacingUtility)
+            ? 'spacing'
+            : moved.every(isColumnUtility)
+              ? 'count'
+              : 'unclassified';
+      return { drawn, mapped, shared, family };
+    })();
+    derivations.set(position.name, derivation);
+  }
+  return derivation;
 }
 
 /* ── The authoring doors ─────────────────────────────────────────────────── */
@@ -180,80 +300,122 @@ const FACES = {
 } as const;
 
 /**
- * The spelling the node is authored in: flat on the node when the tolerant
- * face takes the registration's default step there, otherwise in the
- * `properties` bag (`flex`, objectui#11276). Derived from the declaration.
+ * The spelling the input is authored in: flat on the node when the tolerant
+ * face takes the registration's default there, otherwise in the `properties`
+ * bag (`flex`, objectui#11276). Derived from the declaration.
  */
-function authoredSpelling({ type, key, defaultValue }: LayoutInput): (n: unknown) => Record<string, unknown> {
-  const flat = (n: unknown) => ({ type, [key]: n });
-  const bag = (n: unknown) => ({ type, properties: { [key]: n } });
-  if (FACES.tolerant(flat(defaultValue))) return flat;
-  expect(FACES.tolerant(bag(defaultValue)), `${type}.${key}: no authored spelling takes the default ${String(defaultValue)}`).toBe(true);
+function authoredSpelling({ type, key, defaultValue }: LayoutInput): (props: Record<string, unknown>) => Record<string, unknown> {
+  const flat = (props: Record<string, unknown>) => ({ type, ...props });
+  const bag = (props: Record<string, unknown>) => ({ type, properties: props });
+  if (FACES.tolerant(flat({ [key]: defaultValue }))) return flat;
+  expect(FACES.tolerant(bag({ [key]: defaultValue })), `${type}.${key}: no authored spelling takes the default ${String(defaultValue)}`).toBe(true);
   return bag;
+}
+
+/** The strict face refuses the input's key itself, at a mapped value: no face declares it. */
+function undeclared(position: Position, mapped: number[]): boolean {
+  const result = StrictAnyComponentSchema.safeParse(authoredSpelling(position.entry)(position.at(mapped[0])));
+  if (result.success) return false;
+  return result.error.issues.every(
+    (issue) => issue.code === 'unrecognized_keys' && issue.keys.includes(position.entry.key),
+  );
 }
 
 /* ── The pins ────────────────────────────────────────────────────────────── */
 
-describe('layout spacing keys: the rendered set, the declared set and the registered set are one (objectui#11474)', () => {
+describe('numeric layout inputs: the rendered set, the declared set and the registered set are one (objectui#11474, objectui#11491)', () => {
   it('the instrument sees the stylesheet: mapped utilities, variants and arbitrary values are all readable', async () => {
     const defined = await definedClasses();
     expect(defined.size).toBeGreaterThan(800);
     // A variant and an escaped dot read back unescaped …
     expect(defined.has('sm:gap-2')).toBe(true);
     expect(defined.has('gap-1.5')).toBe(true);
+    // … a digit-led variant does too (`\32 xl\:` in the sheet) …
+    expect(defined.has('2xl:grid-cols-12')).toBe(true);
     // … and an arbitrary value is readable at all, so an absent `gap-[…]` is a real absence.
     expect([...defined].some((c) => /^[\w-]+-\[[^\]]+\]$/.test(c))).toBe(true);
   }, 60_000);
 
-  it('the enumeration is not vacuous: it finds numeric layout inputs, spacing keys among them', async () => {
+  it('the enumeration is not vacuous: it finds numeric layout inputs of every family, and the object arm is expanded', async () => {
     expect(NUMERIC_LAYOUT_INPUTS.length).toBeGreaterThan(0);
-    const spacing: string[] = [];
-    for (const entry of NUMERIC_LAYOUT_INPUTS) {
-      const { drawn } = await derive(entry);
-      if ([...drawn.values()].some((tokens) => tokens.length > 0)) spacing.push(`${entry.type}.${entry.key}`);
+    const byFamily: Record<Family, string[]> = { spacing: [], count: [], other: [], unclassified: [] };
+    for (const position of POSITIONS) byFamily[(await derive(position)).family].push(position.name);
+    // Lit controls: the key objectui#11424 closed first, and the count objectui#11491 closed.
+    expect(byFamily.spacing).toContain('container.padding');
+    expect(byFamily.spacing.length).toBeGreaterThan(1);
+    expect(byFamily.count).toContain('grid.columns');
+    for (const bp of BREAKPOINTS) expect(byFamily.count).toContain(`grid.columns.${bp}`);
+    expect(byFamily.unclassified, 'a numeric layout input moves a class of no known family').toEqual([]);
+  }, 120_000);
+
+  it('the registered-but-undeclared ledger is exactly the inputs no face declares', async () => {
+    const found: string[] = [];
+    for (const position of POSITIONS.filter((p) => !p.breakpoint)) {
+      const { mapped } = await derive(position);
+      if (mapped.length > 0 && undeclared(position, mapped)) found.push(position.name);
     }
-    // Lit control: the key objectui#11424 closed first is still found by the derivation.
-    expect(spacing).toContain('container.padding');
-    expect(spacing.length).toBeGreaterThan(1);
-  }, 60_000);
+    expect(found.sort()).toEqual([...REGISTERED_NOT_DECLARED].sort());
+  }, 120_000);
 
-  for (const entry of NUMERIC_LAYOUT_INPUTS) {
-    const name = `${entry.type}.${entry.key}`;
+  for (const position of POSITIONS) {
+    const { entry, name } = position;
 
-    it(`${name}: when it moves a spacing utility, its declaration and registration are its mapped set`, async () => {
-      const { drawn, mapped } = await derive(entry);
-      if (![...drawn.values()].some((tokens) => tokens.length > 0)) {
-        // Not a spacing key: no candidate moves a spacing utility. Nothing else is held here.
+    it(`${name}: when it moves a class, its declaration and registration are its mapped set`, async () => {
+      const { drawn, mapped, shared, family } = await derive(position);
+      expect(family, `${name} moves a class of no known family`).not.toBe('unclassified');
+      if (family === 'other') {
+        // Moves no class: nothing else is held here.
         expect(mapped).toEqual([]);
         return;
       }
 
-      // The derivation reads the defect itself: mapped steps AND unmapped numbers.
+      // The derivation reads the defect itself: mapped values AND unmapped numbers.
       expect(mapped.length, `${name}: no candidate is mapped`).toBeGreaterThan(0);
       expect(mapped.length, `${name}: every candidate is mapped — an open scale is not a closed set`).toBeLessThan(
         CANDIDATES.length,
       );
 
-      // An unmapped number draws no spacing the stylesheet defines: not rounded, not clamped.
+      // An unmapped number draws no class of its own the stylesheet defines: not
+      // rounded, not clamped, not substituted. A shared class (the ramp) may stay.
       const defined = await definedClasses();
       for (const n of CANDIDATES.filter((c) => !mapped.includes(c))) {
-        expect(drawn.get(n)!.filter((t) => defined.has(t)), `${name} ${n}`).toEqual([]);
+        expect(
+          drawn.get(n)!.filter((t) => defined.has(t) && !shared.includes(t)),
+          `${name} ${n}`,
+        ).toEqual([]);
       }
 
       // The declaration, at both authoring doors.
       const spelling = authoredSpelling(entry);
-      for (const [face, parse] of Object.entries(FACES)) {
-        const declared = CANDIDATES.filter((n) => parse(spelling(n)));
-        expect(sortNumbers(declared), `${name} on the ${face} face`).toEqual(sortNumbers(mapped));
+      if (REGISTERED_NOT_DECLARED.includes(name)) {
+        // Held as read: the tolerant face takes every candidate through, the strict face none.
+        expect(CANDIDATES.filter((n) => !FACES.tolerant(spelling(position.at(n)))), `${name} on the tolerant face`).toEqual([]);
+        expect(CANDIDATES.filter((n) => FACES.strict(spelling(position.at(n)))), `${name} on the strict face`).toEqual([]);
+      } else {
+        for (const [face, parse] of Object.entries(FACES)) {
+          const declared = CANDIDATES.filter((n) => parse(spelling(position.at(n))));
+          expect(sortNumbers(declared), `${name} on the ${face} face`).toEqual(sortNumbers(mapped));
+        }
       }
 
-      // The registration, as a closed enum.
-      expect(entry.input.type, `${name} registration input`).toBe('enum');
+      // The registration, as a closed enum; a breakpoint's members, through `of`.
+      const arms = armsOf(entry.input.type);
+      expect(arms, `${name} registration input`).toContain('enum');
       expect(sortNumbers(enumValues(entry.input)), `${name} registration enum`).toEqual(sortNumbers(mapped));
+      if (position.breakpoint) {
+        expect(arms, `${name}: the breakpoint object is published`).toContain('object');
+        expect(armsOf(entry.input.of), `${name}: its members are the enum`).toContain('enum');
+      }
 
-      // Control: an absent key draws exactly what the registration's default step draws.
-      expect(mapped).toContain(entry.defaultValue);
-      expect(spacingOf(entry.type, {})).toEqual(spacingOf(entry.type, { [entry.key]: entry.defaultValue }));
+      // Control: an absent value draws no utility of its family the stylesheet lacks …
+      const ofFamily = family === 'spacing' ? isSpacingUtility : isColumnUtility;
+      const absent = classesOf(entry.type, position.absent).filter(ofFamily);
+      expect(absent.filter((t) => !defined.has(t)), `${name} absent`).toEqual([]);
+      // … and a spacing key's absent value draws exactly the registration's default step.
+      if (family === 'spacing') {
+        expect(mapped).toContain(entry.defaultValue);
+        expect(absent).toEqual(classesOf(entry.type, { [entry.key]: entry.defaultValue }).filter(ofFamily));
+      }
     }, 60_000);
   }
 });

@@ -4763,9 +4763,11 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
   'app.zod.ts#MenuItemSchema':
     "recursive; a `z.lazy` exposes no `.shape` to read, so there is no key set for the per-key comparison. Since objectui#7760 it carries its TS declaration as BOTH type arguments, so the pair IS compared — as a whole type, by `tsc`, at the annotation itself",
   // objectui#11440 — the `app-schema-renderer` whole-shell node, declared from
-  // its registration `inputs`. Pinned by `./passing-keys-arms-11440.test.ts`.
+  // its registration `inputs`. Pinned by `./passing-keys-arms-11440.test.ts`;
+  // its `schema` member (objectui#11494) by
+  // `./app-schema-renderer-schema-input-11494.test.ts`.
   'app.zod.ts#AppSchemaRendererNodeSchema':
-    "registration-owned — `BaseSchema` + the `app-schema-renderer` literal + two of the registration's three `inputs` (`basePath`, `mobileNavMode`; the third, `schema`, is stripped by `SchemaRenderer` and never reaches the component) + the objectui#9256 `body` / `children` refusals; no TS declaration in this package restates the node (`@object-ui/layout`'s `AppSchemaRendererProps` is the component's prop type)",
+    "registration-owned — `BaseSchema` + the `app-schema-renderer` literal + the registration's three `inputs`: `schema`, which IS `app.zod.ts#AppComponentSchema` (the same schema object, optional; `@object-ui/layout`'s registration adapter hands it to the component, objectui#11494), `basePath` and `mobileNavMode` + the objectui#9256 `body` / `children` refusals; no TS declaration in this package restates the node (`@object-ui/layout`'s `AppSchemaRendererProps` is the component's prop type)",
   'app.zod.ts#AppContextSelectorSchema':
     "spec-owned BY REFERENCE — the local `.extend(…)` adds renderer props that no TS declaration in this package restates",
   'base.zod.ts#SchemaNodeSchema':

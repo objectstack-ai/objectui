@@ -9,23 +9,23 @@
 /**
  * objectui#11440 — the `app-schema-renderer` registration and its zod arm.
  *
- * `@object-ui/types/zod`'s `AppSchemaRendererNodeSchema` declares two of the
- * registration's three inputs, each as the registration types it:
- * `mobileNavMode` (the same two-value enum) and `basePath` (a string). The
- * third input, `schema`, is NOT declared, because no node delivers it:
- * `SchemaRenderer` strips the `schema` key and hands the component the NODE as
- * its `schema` prop. The last row measures that through the real
- * `SchemaRenderer` and registry, so the arm's omission is a reading, not an
- * assumption: navigation nested under `schema` draws nothing, and the same
- * navigation on the node draws.
+ * `@object-ui/types/zod`'s `AppSchemaRendererNodeSchema` declares
+ * `mobileNavMode` (the same two-value enum) and `basePath` (a string), each as
+ * the registration types it.
+ *
+ * The third input, `schema`, moved out of this file ON PURPOSE (objectui#11494,
+ * triage ruling A `5958227972`). This file measured that no node delivered it:
+ * `SchemaRenderer` hands a registered component the NODE as its `schema` prop,
+ * so navigation nested under `schema` drew nothing, and the same navigation on
+ * the node drew. The registration now goes through an adapter that hands
+ * `node.schema` to `AppSchemaRenderer`, and the arm declares `schema` as the
+ * app document by reference, so that row inverted: the nested document draws
+ * and the flat one does not. Its rows are
+ * `app-schema-renderer-schema-input-11494.test.tsx`.
  */
 
 import { describe, it, expect, beforeAll } from 'vitest';
-import React from 'react';
-import { render } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
 import { ComponentRegistry } from '@object-ui/core';
-import { SchemaRenderer } from '@object-ui/react';
 import { AppSchemaRendererNodeSchema } from '@object-ui/types/zod';
 import { registerLayout } from '../index';
 
@@ -50,18 +50,5 @@ describe('app-schema-renderer — registration inputs and the arm (objectui#1144
     expect(inputs().find((input) => input.name === 'basePath')?.type).toBe('string');
     expect(AppSchemaRendererNodeSchema.shape.basePath.safeParse('/apps/crm').success).toBe(true);
     expect(AppSchemaRendererNodeSchema.shape.basePath.safeParse(7).success).toBe(false);
-  });
-
-  it('`schema` is an input the arm does not declare — and a node never delivers it to the component', () => {
-    expect(inputs().map((input) => input.name)).toContain('schema');
-    expect(Object.keys(AppSchemaRendererNodeSchema.shape)).not.toContain('schema');
-
-    const nested = { type: 'app-schema-renderer', schema: { name: 'crm', navigation: [{ id: 'n1', type: 'url', label: 'NestedNav11440', url: '/x' }] } };
-    const onNode = { type: 'app-schema-renderer', name: 'crm', navigation: [{ id: 'n2', type: 'url', label: 'NodeNav11440', url: '/y' }] };
-    const drawn = (node: unknown) =>
-      render(<MemoryRouter><SchemaRenderer schema={node as never} /></MemoryRouter>).container.innerHTML;
-    expect(drawn(nested)).not.toContain('NestedNav11440');
-    // Lit control: the same navigation written on the node is drawn.
-    expect(drawn(onNode)).toContain('NodeNav11440');
   });
 });

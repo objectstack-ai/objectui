@@ -829,13 +829,27 @@ export interface StackSchema extends BaseSchema, Omit<FlexLayoutProps, 'gap'> {
 }
 
 /**
+ * The column counts the `grid` renderer maps to a column class
+ * (objectui#11491): {@link GridSchema.columns} takes one, as the bare number
+ * and at every breakpoint. Module-local: the member is the published face.
+ */
+type GridColumnCount = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12;
+
+/**
  * CSS Grid layout component
  */
 export interface GridSchema extends BaseSchema {
   type: 'grid';
   /**
-   * Number of columns (responsive).
-   * Can be number or object: { xs: 1, sm: 2, md: 3, lg: 4 }
+   * Number of columns (responsive): a count from 1 to 12, or an object of such
+   * counts keyed by breakpoint: { xs: 1, sm: 2, md: 3, lg: 4 }
+   *
+   * The counts are the ones `grid.tsx` maps to a column class, and only those
+   * (objectui#11491): it spells `grid-cols-1` to `grid-cols-12` once per
+   * breakpoint and nothing else, so any other count drew no column class where
+   * it was authored. This was `number`, at the bare number and at every
+   * breakpoint; the zod mirror (`zod/layout.zod.ts`) refuses the rest with the
+   * set named.
    *
    * `grid.tsx` opens with `let baseCols = 2` and only overwrites it from an
    * authored `columns`, so a `grid` that omits the key renders `grid-cols-2`.
@@ -844,7 +858,7 @@ export interface GridSchema extends BaseSchema {
    * `maxWidth`).
    * @default 2
    */
-  columns?: number | Partial<Record<BreakpointName, number>>;
+  columns?: GridColumnCount | Partial<Record<BreakpointName, GridColumnCount>>;
   /**
    * Gap step between items; `0` means none.
    *

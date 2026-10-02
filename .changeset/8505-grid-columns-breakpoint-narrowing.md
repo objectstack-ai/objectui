@@ -52,3 +52,5 @@ The command is `objectui validate`, and `check` does not refuse `{ xxl: 6 }`: it
 an advisory sweep that never parses against the schema a file whose root carries a structural key
 (`children`, `className`, `body`, …), lists a file with none of those keys by name
 when the file does not validate, and exits non-zero on unreadable JSON only.
+
+⚠️ **Dated note, 2026-10-02 — the column counts are closed too — objectui#11491.** At this change `GridSchema.columns` was `number | Partial<Record<BreakpointName, number>>`. Now each count, the bare number and every breakpoint's, is one of 1 to 12, the counts the `grid` renderer maps to a column class, on the TypeScript face and in the zod mirror, so a literal `{ md: 13 }` stops compiling as `{ xxl: 6 }` did. The escape described above still holds, for values as well as keys: a computed `Record<string, number>` still assigns, and the zod mirror is what judges its counts. `.changeset/11491-grid-columns-set.md` states what ships. The rest of this entry is kept as the reading of this change.

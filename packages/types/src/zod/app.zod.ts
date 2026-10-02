@@ -706,30 +706,45 @@ const APP_SCHEMA_RENDERER_NEITHER_CHANNEL =
  * literal, so `objectui validate` refused that node with `invalid_union` at
  * `type`.
  *
- * ## The members, and the input that is NOT one
+ * ## The members
  *
  * The registration declares three `inputs`: `schema` (object), `basePath`
- * (string) and `mobileNavMode` (the enum `'drawer'` | `'bottom_nav'`). Two are
- * declared here, each as the registration types it:
+ * (string) and `mobileNavMode` (the enum `'drawer'` | `'bottom_nav'`). All
+ * three are declared here:
+ *  - `schema` — the app document the shell draws, as {@link AppComponentSchema}
+ *    itself, by reference (objectui#11494, triage ruling A `5958227972`).
  *  - `mobileNavMode` — the two modes the renderer implements; `'bottom_nav'`
  *    adds the fixed bottom bar.
  *  - `basePath` — the prefix of every href the shell generates.
  *
- * ⛔ `schema` is NOT declared, because no node delivers it. `SchemaRenderer`
- * strips the `schema` key out of the props it spreads and hands the component
- * the NODE as its `schema` prop, so `AppSchemaRenderer` reads the app document
- * keys off the node itself and never the nested `schema` object. Measured
- * through the real `SchemaRenderer` and registry (objectui#11440): a node with
- * its navigation nested under `schema` drew no navigation, and the same
- * navigation written on the node drew. Where the app document belongs on this
- * node is left to the seat, and declaring `schema` would publish an input
- * that renders nothing.
+ * ## `schema` is the document, nested: one spelling (objectui#11494)
+ *
+ * `SchemaRenderer` strips the `schema` key out of the props it spreads and
+ * hands every registered component the NODE as its `schema` prop. Registered
+ * directly, `AppSchemaRenderer` therefore read the document's keys off the node
+ * itself, and objectui#11440 measured through the real `SchemaRenderer` and
+ * registry that a node with its navigation nested under `schema` drew none of
+ * it. `@object-ui/layout` now registers the node through an adapter that hands
+ * `node.schema` to `AppSchemaRenderer`, so the nested document is what draws.
+ *
+ * The member is `AppComponentSchema` and not a copy of its members, so the
+ * document keeps its own refusals here: `mobileNavMode` inside `schema` is
+ * refused by {@link APP_MOBILE_NAV_MODE_REFUSAL}, while the same key on the node
+ * is the mode. The document is the `app` document, so its `type` is `'app'`.
+ * The document's keys written flat on the node are not declared, so the strict
+ * face refuses them as unrecognized keys, and the adapter does not read them:
+ * the document has one spelling. The member is optional, as the registration's
+ * input is: a node without it draws the shell with no document (no branding,
+ * no navigation), which is what the mobile guide's node draws.
  *
  * Neither content channel is read (see
  * {@link APP_SCHEMA_RENDERER_NEITHER_CHANNEL}), so both are refused by name.
  */
-export const AppSchemaRendererNodeSchema = BaseSchema.extend({
+export const AppSchemaRendererNodeSchema: AppSchemaRendererNodeSchemaType = BaseSchema.extend({
   type: z.literal('app-schema-renderer'),
+  schema: AppComponentSchema.optional().describe(
+    'The app document the shell draws (branding, `navigation`, `areas`), nested: `{ "type": "app", ... }`',
+  ),
   basePath: z.string().optional().describe('URL prefix for the hrefs the shell generates (e.g. "/apps/crm")'),
   mobileNavMode: z
     .enum(['drawer', 'bottom_nav'])
@@ -741,6 +756,30 @@ export const AppSchemaRendererNodeSchema = BaseSchema.extend({
   body: retirementTombstone(APP_SCHEMA_RENDERER_NEITHER_CHANNEL),
   children: retirementTombstone(APP_SCHEMA_RENDERER_NEITHER_CHANNEL),
 });
+
+/**
+ * The TYPE of {@link AppSchemaRendererNodeSchema}, written out BY REFERENCE to
+ * {@link AppComponentSchema} for its `schema` member, on the precedent of
+ * `PageKindNodeSchemaType` in `layout.zod.ts` (objectui#11440). Without it,
+ * declaration emit re-serializes the whole app document a second time inside
+ * `AnyComponentSchema`, beside the `app` arm, and `tsc` refuses that union with
+ * TS7056 ("The inferred type of this node exceeds the maximum length the
+ * compiler will serialize"), measured on objectui#11494 against
+ * `@objectstack/spec` built from objectstack `main` (the `Spec Main Shape
+ * Gate`). A named type is emitted by name. It is a type only: the schema above
+ * and what it accepts are unchanged.
+ */
+export type AppSchemaRendererNodeSchemaType = z.ZodObject<
+  Omit<(typeof BaseSchema)['shape'], 'type' | 'body' | 'children'> & {
+    type: z.ZodLiteral<'app-schema-renderer'>;
+    schema: z.ZodOptional<typeof AppComponentSchema>;
+    basePath: z.ZodOptional<z.ZodString>;
+    mobileNavMode: z.ZodOptional<z.ZodEnum<{ drawer: 'drawer'; bottom_nav: 'bottom_nav' }>>;
+    body: ReturnType<typeof retirementTombstone>;
+    children: ReturnType<typeof retirementTombstone>;
+  },
+  z.core.$loose
+>;
 
 /**
  * Export type inference helpers

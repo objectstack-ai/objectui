@@ -1,5 +1,6 @@
 ---
 '@object-ui/fields': patch
+'@object-ui/plugin-dashboard': patch
 ---
 
 fix(fields): a read-only percent or currency field shows its value the way its table cell does, and a whole currency amount keeps its minor units (objectui#11444)
@@ -26,7 +27,9 @@ tile and table widget, and the gantt tooltip. A whole USD amount reads `$3,456.0
 instead of `$3,456`, a whole KWD amount `KWD 3,456.000` instead of `KWD 3,456`, and an
 amount with no currency resolved `3,456.00` instead of `3,456`. A currency with no
 minor unit is unchanged: a whole JPY amount still reads `¥3,456`. Fractional amounts
-render exactly as before.
+render exactly as before. The dashboard metric tile restated the cell's no-currency
+width for a field with no currency resolved (no decimals for a whole amount); it now
+restates two decimals, so a whole amount reads `3,456.00` on the tile as in the cell.
 
 `formatCurrency` keeps its name, its signature and its `@object-ui/fields` export.
 Nothing changes in the editable inputs.

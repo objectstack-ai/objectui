@@ -169,12 +169,15 @@ describe('the ruled widths as absolute bytes — the guard against a joint move'
     ).toBe('Sum: ¥1,235');
   });
 
-  it('a whole USD total drops its fraction the way the cell does, whatever `scale` says', () => {
+  it('a whole USD total keeps its cents the way the cell does, whatever `scale` says (objectui#11444)', () => {
+    // Moved on purpose from `Sum: $1,234` when objectui#11444 retired the
+    // whole-amount trimming (triage comment 5946462862): the declared width,
+    // the currency's minor-unit count, is the protocol's.
     expect(
       footer({ field: 'amount', type: 'currency', currency: 'USD', scale: 2 }, WHOLE.rows, en),
-    ).toBe('Sum: $1,234');
+    ).toBe('Sum: $1,234.00');
     expect(footer({ field: 'amount', type: 'currency', currency: 'USD' }, WHOLE.rows, en)).toBe(
-      'Sum: $1,234',
+      'Sum: $1,234.00',
     );
   });
 

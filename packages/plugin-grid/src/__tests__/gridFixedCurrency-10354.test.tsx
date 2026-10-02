@@ -175,7 +175,9 @@ describe('a JPY-fixed field reads `¥` on the grid cell under a USD tenant (obje
 
   it.each(PATHS)('%s: control, a field with no currencyConfig reads the tenant $', async (_path, schemaExtra) => {
     const { container } = await renderGrid(schemaExtra);
-    expect(cellTexts(container)).toContain('$5,678');
+    // The `.00` moved on purpose when objectui#11444 retired the whole-amount
+    // trimming (triage comment 5946462862).
+    expect(cellTexts(container)).toContain('$5,678.00');
   });
 
   it.each(PATHS)('%s: every currency cell reads what the whole-def cell reads', async (_path, schemaExtra) => {
@@ -213,7 +215,9 @@ describe('the summary footer resolves the same currency as the cell above it (ob
 
   it('through ObjectGrid: control, a footer with no currencyConfig reads the tenant $', async () => {
     await renderGrid(PATHS[0][1]);
-    expect(screen.getByTestId('summary-plain').textContent).toBe('Plain Amount: Sum: $5,678');
+    // The `.00` moved on purpose when objectui#11444 retired the whole-amount
+    // trimming (triage comment 5946462862).
+    expect(screen.getByTestId('summary-plain').textContent).toBe('Plain Amount: Sum: $5,678.00');
   });
 
   it('through ObjectGrid: every currency footer reads `Sum: ` plus the whole-def cell', async () => {
@@ -245,6 +249,8 @@ describe('the summary footer resolves the same currency as the cell above it (ob
   });
 
   it('through the public hook: control, a field with no currencyConfig reads the tenant $', () => {
-    expect(hookLabel('plain')).toBe('Sum: $5,678');
+    // The `.00` moved on purpose when objectui#11444 retired the whole-amount
+    // trimming (triage comment 5946462862).
+    expect(hookLabel('plain')).toBe('Sum: $5,678.00');
   });
 });

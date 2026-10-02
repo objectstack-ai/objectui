@@ -141,12 +141,15 @@ describe('a fixed-currency field renders its own code in the dashboard (objectui
       expect(await tableCell(FIXED_JPY())).toBe('¥1,234');
     });
 
+    // The two-digit currencies' `.00` below moved on purpose when
+    // objectui#11444 retired the whole-amount trimming (triage comment
+    // 5946462862); the yen rows have no minor unit and did not move.
     it('control: a dynamic field reads the tenant $, never its defaultCurrency', async () => {
-      expect(await tableCell(DYNAMIC_EUR())).toBe('$1,234');
+      expect(await tableCell(DYNAMIC_EUR())).toBe('$1,234.00');
     });
 
     it('control: a column-level currency still wins over the fixed code', async () => {
-      expect(await tableCell(FIXED_JPY(), { currency: 'GBP' })).toBe('£1,234');
+      expect(await tableCell(FIXED_JPY(), { currency: 'GBP' })).toBe('£1,234.00');
     });
 
     it('control: a symbol format on a field with no code of its own beats the tenant $', async () => {
@@ -161,7 +164,9 @@ describe('a fixed-currency field renders its own code in the dashboard (objectui
     });
 
     it('control: a dynamic field reads the tenant $, never its defaultCurrency', () => {
-      expect(drawerValue(DYNAMIC_EUR())).toBe('$1,234');
+      // The `.00` moved on purpose when objectui#11444 retired the whole-amount
+      // trimming (triage comment 5946462862).
+      expect(drawerValue(DYNAMIC_EUR())).toBe('$1,234.00');
     });
   });
 });

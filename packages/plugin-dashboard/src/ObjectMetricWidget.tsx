@@ -537,15 +537,18 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
   // the amount now goes to `formatCurrency` — the list cell's own formatter
   // (`CurrencyCellRenderer`), the same one the grid footer takes — so tile,
   // footer and cell agree by reference: the currency's ISO 4217 minor-unit
-  // count, a whole amount without its fraction. The finished string is not a
-  // number, so `MetricWidget` shows it as given.
+  // count, a whole amount included (objectui#11444 retired the whole-amount
+  // trimming). The finished string is not a number, so `MetricWidget` shows it
+  // as given.
   //
   // With NO code resolved the cell renders a plain number, and that one case
   // is restated rather than referenced: `MetricWidget` re-parses a string that
   // reads as a number (`12.50`) and re-formats it at its pattern's width, so a
   // pre-formatted plain amount would be rounded again. The pattern therefore
-  // carries the cell's own no-currency width — none for a whole amount, two
-  // otherwise — and the tile's pin compares it against the cell in one run.
+  // carries the cell's own no-currency width, two decimals, and the tile's pin
+  // compares it against the cell in one run. It was `0,0` for a whole amount
+  // while the cell trimmed one; that trimming retired with objectui#11444
+  // (triage comment 5946462862), so the restated width moved with it.
   //
   // The face is for an aggregate that answers in the field's unit; a count
   // over a currency field is a plain number (objectui#10356).
@@ -562,7 +565,7 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
       if (inferredCurrency) {
         tileValue = formatCurrency(amount, inferredCurrency, displayLocale);
       } else {
-        tileFormat = Number.isInteger(amount) ? '0,0' : '0,0.00';
+        tileFormat = '0,0.00';
       }
     }
   }

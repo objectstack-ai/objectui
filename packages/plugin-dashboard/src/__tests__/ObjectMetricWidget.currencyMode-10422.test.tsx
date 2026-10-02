@@ -87,7 +87,9 @@ const PLAIN = { type: 'currency' };
 describe('the metric tile agrees with the resolver on currencyMode (objectui#10422)', () => {
   it('dynamic: shows what a field with no currencyConfig shows, the tenant $', async () => {
     const reference = cellText(3456, PLAIN);
-    expect(reference).toBe('$3,456');
+    // The `.00` moved on purpose when objectui#11444 retired the whole-amount
+    // trimming (triage comment 5946462862).
+    expect(reference).toBe('$3,456.00');
     await mountTile({ type: 'currency', currencyConfig: { currencyMode: 'dynamic', defaultCurrency: 'EUR' } }, 3456);
     expect(tileShows(reference)).toBeInTheDocument();
     expect(screen.queryByText('€3,456')).toBeNull();

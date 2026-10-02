@@ -280,8 +280,13 @@ describe('the retired `page-header` alias is unknown to the manifest (objectui#1
   });
 });
 
-/** The layout key the same manifest still resolves — the lit control below. */
-const APP_SCHEMA_NODE = { type: 'app-schema-renderer', schema: { name: 'crm', navigation: [] } };
+/**
+ * The layout key the same manifest still resolves — the lit control below. Its
+ * app document is nested under `schema` with its own `type: 'app'`, the one
+ * spelling `AppSchemaRendererNodeSchema` accepts since objectui#11494, so the
+ * node is clean on every face, not only in this manifest.
+ */
+const APP_SCHEMA_NODE = { type: 'app-schema-renderer', schema: { type: 'app', name: 'crm', navigation: [] } };
 
 describe('the retired `navigation-renderer` and `responsive-grid` keys are unknown to the manifest (objectui#11441)', () => {
   it('draws `unknown-component` for both spellings of `navigation-renderer`', () => {

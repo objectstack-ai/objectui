@@ -60,9 +60,17 @@ import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync } 
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
 
+import { PageTypeSchema } from '@objectstack/spec/ui';
 import { describe, expect, it, vi } from 'vitest';
 
 import { generate } from '../commands/generate.js';
+
+/** The spec's page kinds. `PageTypeSchema` is lazy; `.options` is the member list. */
+const PAGE_TYPES: readonly string[] = (PageTypeSchema as unknown as { options: readonly string[] }).options;
+/** The kinds that draw the page's own `title`: every member except `record`. */
+const DRAWING_PAGE_TYPES = PAGE_TYPES.filter((type) => type !== 'record');
+/** A markdown ATX level-1 heading line, which plugin-markdown draws as an `h1`. */
+const ATX_H1 = /^#\s/m;
 
 /** Run `body` in a throwaway directory that `generate` sees as its cwd. */
 async function generatingInto(run: (dir: string) => Promise<void>): Promise<void> {
@@ -163,8 +171,9 @@ describe('objectui#9847 — `objectui generate` scaffolds the `children` spellin
       // every key in it is one they inherit.
       expect(JSON.parse(readFileSync(written, 'utf8'))).toEqual({
         type: 'page',
+        pageType: 'app',
         title: 'Reports',
-        children: [{ type: 'markdown', content: '# Welcome to Reports' }]
+        children: [{ type: 'markdown', content: 'Welcome to Reports' }]
       });
     });
   });
@@ -216,5 +225,37 @@ describe('objectui#9847 — `objectui generate` scaffolds the `children` spellin
       sweep.children,
       'no scaffold spells `children` — every `body` absence above would be vacuous'
     ).toBeGreaterThan(0);
+  });
+});
+
+// objectui#11450. The shape half of the heading rule. The RENDER half -- the
+// page draws exactly one `h1`, with `title`, and draws none without its
+// `pageType` -- is asserted on this generator's real output by
+// `packages/components/src/__tests__/page-node-headings-drawn-11436.test.tsx`,
+// which renders every taught page node. This package's `.test.ts` files run in
+// the node-environment `unit` project, which renders nothing.
+describe('objectui#11450 — `objectui generate page` scaffolds a page that draws its title', () => {
+  it('names a page type that draws `title`, and opens its body with no second h1', async () => {
+    await generatingInto(async (dir) => {
+      await generate('page', 'Reports');
+      const page = JSON.parse(readFileSync(join(dir, 'pages', 'reports.json'), 'utf8'));
+
+      // A page with no `pageType` is a `record` page, which leaves its `h1` to
+      // a `page:header` block and never draws `title`. Every other member of
+      // the spec's `PageTypeSchema` draws it.
+      expect(page.title).toBe('Reports');
+      expect(DRAWING_PAGE_TYPES).toContain(page.pageType);
+
+      // The page draws `title` as its one `h1`, so no markdown child may open
+      // a `#` (ATX level-1) heading: under plugin-markdown it would draw a
+      // second `h1` beneath the first. Lit controls first, so the absence below
+      // is read over real markdown with a probe that does match an h1.
+      const markdown = (page.children as Array<{ type: string; content?: string }>).filter(
+        (node) => node.type === 'markdown'
+      );
+      expect(markdown.length, '`generate page` wrote no markdown child to read').toBeGreaterThan(0);
+      expect(ATX_H1.test('# Welcome to Reports'), 'the ATX h1 probe no longer matches an h1').toBe(true);
+      for (const node of markdown) expect(ATX_H1.test(node.content ?? '')).toBe(false);
+    });
   });
 });

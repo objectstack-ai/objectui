@@ -132,10 +132,22 @@ export type { ExpressionWire } from './expression.js';
 // `element:text_input` / `element:record_picker` rows, and a stored page
 // document under its page kind. Each is derived by reference from its zod arm
 // or spec row; `@object-ui/react`'s `SchemaRendererProps.schema` accepts them.
+// objectui#11468 adds the other authored `properties`-bag carriers: the eight
+// ObjectQL public blocks and `flex`, each its zod arm's input.
 export type {
   AuthoringNode,
   PublicBlockNode,
   PublicBlockNodeOf,
+  ObjectQLPublicBlockNode,
+  ObjectMetricBlockNode,
+  ObjectMasterDetailFormBlockNode,
+  ObjectTimelineBlockNode,
+  ObjectFormBlockNode,
+  ObjectMapBlockNode,
+  ObjectChartBlockNode,
+  ObjectGanttBlockNode,
+  ObjectGridBlockNode,
+  FlexBlockNode,
   ElementTextInputNode,
   ElementRecordPickerNode,
   PageDocumentNode,

@@ -136,17 +136,10 @@ export default function RunnerApp() {
         if (schema) {
           setPageSchema(schema);
         } else {
-          // If 404
+          // No document for this route, `/` included: the error branch below
+          // renders the 404 block.
           setError(`Page not found: ${currentPath}`);
-          if (currentPath === '/') {
-             setPageSchema({
-               type: 'page',
-               title: 'Welcome to Object UI',
-               children: [{ type: 'div', className: "p-10 text-center text-muted-foreground", children: 'No index page found.' }]
-             } as any);
-          } else {
-             setPageSchema(null);
-          }
+          setPageSchema(null);
         }
       } catch (err) {
         console.error(err);

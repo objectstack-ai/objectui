@@ -62,8 +62,7 @@ The Runner ships **no** metadata of its own: the package contains no `.json` sch
 files, so a fresh checkout renders nothing until you give it something to render. The
 two ways to do that are covered under [Metadata Loading](#metadata-loading) — drop JSON
 into `src/app-data/` (git-ignored, yours to create), or point the Runner at a backend
-with `?api=<base>`. With neither in place, `/` shows the built-in `No index page found.`
-placeholder.
+with `?api=<base>`. With neither in place, `/` renders the 404 block, `Page not found: /`.
 
 ### Development Tools
 
@@ -156,7 +155,7 @@ route by trying, in order:
 `src/app-data/` is git-ignored (see `packages/runner/.gitignore`) and is **not** part
 of a fresh checkout — you supply it, by copying or symlinking your own metadata
 directory there. With that directory absent, the three globs compile to `{}`, every
-load returns `null`, and `/` renders the built-in `No index page found.` placeholder.
+load returns `null`, and `/` renders the 404 block, `Page not found: /`.
 
 ### `vite.config.ts`
 

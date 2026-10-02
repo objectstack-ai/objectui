@@ -259,7 +259,7 @@ const sysUserView: ObjectViewSchema = {
 
 ```typescript
 import { ObjectStackAdapter } from '@object-ui/data-objectstack';
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridBlockNode } from '@object-ui/types';
 import type { ObjectGridProps } from '@objectstack/spec/ui';
 
 const dataSource = new ObjectStackAdapter({
@@ -272,7 +272,7 @@ const dataSource = new ObjectStackAdapter({
 // (`{ object, view?, filter?, sort?, limit? }`), not the adapter, and
 // `SchemaRenderer` strips it from the props it spreads. The grid's own props go
 // in its `properties` bag — the spec's `ComponentPropsMap['object-grid']` row.
-const schema: BaseSchema = {
+const schema: ObjectGridBlockNode = {
   type: 'object-grid',
   properties: {
     objectName: 'contact',

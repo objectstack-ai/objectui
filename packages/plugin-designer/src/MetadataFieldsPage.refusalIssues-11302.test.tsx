@@ -204,12 +204,13 @@ describe('the instrument — what the installed spec says about each probe name'
     expect(issues[0].message).toMatch(/Rename the key/);
   });
 
-  it('`constructor`: refused today with a FIELD-LESS issue (objectstack#20997 names the key)', () => {
-    // The upstream pair: until objectstack#20997 lands, the reserved-name
-    // refusal is raised on the map, not on the key. The page renders whatever
-    // path it is given, so only this reading moves when that lands.
+  it('`constructor`: refused at its key since objectstack#20997', () => {
+    // The upstream pair: through 17.5.0 the reserved-name refusal was raised on
+    // the map, not on the key (`custom @ fields`). objectstack#20997 names the
+    // key, and `@objectstack/spec` 17.6.0 carries it, so this reading moved at
+    // that bump (objectui#11438). The page renders whatever path it is given.
     const issues = specIssuesFor('constructor');
-    expect(issues.map((i) => `${i.code} @ ${i.path}`)).toEqual(['custom @ fields']);
+    expect(issues.map((i) => `${i.code} @ ${i.path}`)).toEqual(['custom @ fields.constructor']);
   });
 });
 
@@ -235,13 +236,13 @@ describe('objectui#11302 · a spec-refused save shows the per-field prescription
     expect(shown).toMatch(/^• fields\.__proto__ — .*Rename the key\.$/);
   });
 
-  it('`constructor`: today\'s field-less issue shows at the map, with its prescription', async () => {
+  it('`constructor`: the banner names the key, with its prescription', async () => {
     await addFieldThroughDrawer('constructor');
     const shown = await banner();
 
     expect(refusal).not.toBeNull();
     expect(shown).toBe(refusal!.issues.map(formatMetadataIssue).join('\n'));
-    expect(shown).toMatch(/^• fields — .*constructor/);
+    expect(shown).toMatch(/^• fields\.constructor — .*constructor/);
   });
 
   it('the multi-line list keeps its newlines on screen', async () => {

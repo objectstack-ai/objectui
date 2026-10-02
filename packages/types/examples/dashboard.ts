@@ -13,11 +13,14 @@
  * sidebar, header, and data table.
  */
 
-import type { BaseSchema, FlexLayoutProps, SidebarSchema, HeaderBarSchema, CardSchema, DataTableSchema } from '../src/index';
+import type { FlexBlockNode, SidebarSchema, HeaderBarSchema, CardSchema, DataTableSchema } from '../src/index';
 
 // An authored `flex` node takes its props, the child list included, in its
-// `properties` bag (objectui#11276); `satisfies FlexLayoutProps` checks each bag.
-export const dashboardSchema: BaseSchema = {
+// `properties` bag (objectui#11276). `FlexBlockNode` is that node, its bag
+// closed (objectui#11468). The bag's child list is `unknown[]`, as the zod arm
+// declares it (the page walk judges each entry), so the nested `flex` node is
+// checked with `satisfies FlexBlockNode`.
+export const dashboardSchema: FlexBlockNode = {
   type: 'flex',
   className: 'h-screen',
   properties: {
@@ -92,8 +95,8 @@ export const dashboardSchema: BaseSchema = {
               ]
             }
           ]
-        } satisfies FlexLayoutProps
-      }
+        }
+      } satisfies FlexBlockNode
     ]
-  } satisfies FlexLayoutProps
+  }
 };

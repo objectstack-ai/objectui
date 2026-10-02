@@ -171,10 +171,9 @@ overriding the token values: [`rules/styling.md`](../rules/styling.md).
 | `objectui lint` | Lint generated app code (ESLint) |
 | `objectui test` | Run app tests (Vitest) |
 | `objectui generate` | Code/schema generation (`object`, `page`, `plugin`) |
-| `objectui add` | Add a component renderer scaffold |
 | `objectui create plugin` | Scaffold a new plugin |
 | `objectui doctor` | Diagnostics (Node version, deps, etc.) |
-| `objectui analyze` | Analyze bundle size / render performance |
+| `objectui analyze` | Bundle-size report over the built `dist/` output |
 
 ### Dev server modes
 

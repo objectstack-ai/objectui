@@ -271,7 +271,7 @@ describe('objectui#7347 — census: the table above is every arm that declares `
       // skipping it would be a silent hole in the census.
       if (at.length) found[componentTypeOf(arm) ?? '?'] = at;
     }
-    const expected: Record<string, string[]> = { ...NOT_COVERED };
+    const expected: Record<string, string[]> = Object.fromEntries(Object.entries(NOT_COVERED).map(([type, paths]) => [type, [...paths]]));
     for (const [key, spec] of Object.entries(DECLARING)) (expected[spec.type ?? key] ??= []).push(spec.declaredAt);
     for (const type of Object.keys(expected)) expected[type] = [...expected[type]].sort();
     expect(found).toEqual(expected);

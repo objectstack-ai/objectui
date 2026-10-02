@@ -10,12 +10,12 @@
  * Every designer registration lists, as `inputs`, exactly the node members its
  * component reads (objectui#11434's sweep).
  *
- * `inputs` is the published authoring surface: `sdui.manifest.json` carries it,
- * and the parser's `unknown-prop` check warns about a node key it does not
- * list. A member the component reads but `inputs` omits is therefore warned off
- * although it works — which the sweep found on four of the six registrations
- * (`process-designer` listed neither `version` nor `lanes`, and only
- * `page-designer` listed `canvas`).
+ * `inputs` is an authoring surface: the html-tier page compiler builds its
+ * manifest from every known registration, and its `validateTree` answers
+ * `unknown-prop` for a node key no input names. A member the component reads
+ * but `inputs` omits is therefore warned off although it works — which the
+ * sweep measured on four of the six registrations (`process-designer` listed
+ * neither `version` nor `lanes`, and only `page-designer` listed `canvas`).
  *
  * The expected set per type is the node declaration's members less what no
  * input should name: `type`, the two content channels every designer refuses
@@ -42,6 +42,19 @@ describe('designer registrations list the members their components read (objectu
     expect(config, `no registration for ${type}`).toBeDefined();
     const names = (config?.inputs ?? []).map((input) => input.name);
     expect([...names].sort()).toEqual([...EXPECTED[type]].sort());
+  });
+
+  it('each row the sweep added declares the kind its value has', () => {
+    const kind = (type: string, name: string) =>
+      ComponentRegistry.getConfig(type)?.inputs?.find((input) => input.name === name)?.type;
+    expect(kind('page-designer', 'palette')).toBe('array');
+    expect(kind('page-designer', 'propertyEditor')).toBe('boolean');
+    expect(kind('data-model-designer', 'canvas')).toBe('object');
+    expect(kind('data-model-designer', 'showRelationshipLabels')).toBe('boolean');
+    expect(kind('process-designer', 'version')).toBe('string');
+    expect(kind('process-designer', 'lanes')).toBe('array');
+    expect(kind('process-designer', 'canvas')).toBe('object');
+    expect(kind('report-designer', 'margins')).toBe('object');
   });
 
   it('the two enumerated report inputs offer the declared vocabularies', () => {

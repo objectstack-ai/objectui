@@ -81,13 +81,15 @@ export type { MetadataFieldsPageProps } from './MetadataFieldsPage';
 
 /*
  * The designer registrations' `inputs` (objectui#11434's sweep). `inputs` is
- * the published authoring surface — `sdui.manifest.json` and the parser's
- * `unknown-prop` check read it — so every node member the component READS is
- * listed, and an omitted one would be warned off although it works. Measured
- * against the six node declarations in `@object-ui/types`: the rows below are
- * exactly the read members. What no row lists is unlisted on purpose:
- * `body` and `children` (no designer reads a content channel, and both faces
- * refuse them), and the retired tombstones (`autoLayout`, `previewMode`).
+ * an authoring surface: the html-tier page compiler builds its manifest from
+ * every known registration and its `validateTree` answers `unknown-prop` for a
+ * node key no input names — so a member the component READS but no row lists
+ * is warned off although it works. Measured against the six node declarations
+ * in `@object-ui/types`, the rows below are exactly the read members. What no
+ * row lists is unlisted on purpose: `body` and `children` (no designer reads a
+ * content channel, and both faces refuse them), and the retired tombstones
+ * (`autoLayout`, `previewMode`). The rows this sweep added declare the kind
+ * the value has (`array` / `object` / `enum` / `string`).
  */
 ComponentRegistry.register('page-designer', PageDesigner, {
   namespace: 'plugin-designer',
@@ -96,7 +98,7 @@ ComponentRegistry.register('page-designer', PageDesigner, {
   inputs: [
     { name: 'canvas', type: 'code' },
     { name: 'components', type: 'code' },
-    { name: 'palette', type: 'code' },
+    { name: 'palette', type: 'array' },
     { name: 'propertyEditor', type: 'boolean' },
     { name: 'showComponentTree', type: 'boolean' },
     { name: 'undoRedo', type: 'boolean' },
@@ -111,7 +113,7 @@ ComponentRegistry.register('data-model-designer', DataModelDesigner, {
   inputs: [
     { name: 'entities', type: 'code' },
     { name: 'relationships', type: 'code' },
-    { name: 'canvas', type: 'code' },
+    { name: 'canvas', type: 'object' },
     { name: 'showRelationshipLabels', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
   ],
@@ -126,8 +128,8 @@ ComponentRegistry.register('process-designer', ProcessDesigner, {
     { name: 'version', type: 'string' },
     { name: 'nodes', type: 'code' },
     { name: 'edges', type: 'code' },
-    { name: 'lanes', type: 'code' },
-    { name: 'canvas', type: 'code' },
+    { name: 'lanes', type: 'array' },
+    { name: 'canvas', type: 'object' },
     { name: 'showMinimap', type: 'boolean' },
     { name: 'showToolbar', type: 'boolean' },
     { name: 'readOnly', type: 'boolean' },
@@ -143,7 +145,7 @@ ComponentRegistry.register('report-designer', ReportDesigner, {
     { name: 'objectName', type: 'string' },
     { name: 'pageSize', type: 'enum', enum: ['A4', 'A3', 'Letter', 'Legal', 'Tabloid'] },
     { name: 'orientation', type: 'enum', enum: ['portrait', 'landscape'] },
-    { name: 'margins', type: 'code' },
+    { name: 'margins', type: 'object' },
     { name: 'sections', type: 'code' },
     { name: 'showToolbar', type: 'boolean' },
     { name: 'showPropertyPanel', type: 'boolean' },

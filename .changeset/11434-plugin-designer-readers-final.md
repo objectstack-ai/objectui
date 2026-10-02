@@ -30,4 +30,4 @@ The page and report designers, and all three canvases, draw the members their no
 - `process-designer` adds `version`, `lanes` and `canvas`.
 - `report-designer` adds `pageSize` and `orientation` (enumerated), and `margins`.
 
-Each was a member the component already read. The parser warned it off as an `unknown-prop`, and the manifest left it out of the designer panel. `object-manager` and `field-designer` already listed theirs.
+Each was a member the component already read. The html-tier page compiler, which builds its manifest from every known registration, warned it off as an `unknown-prop`. Each added row declares the kind its value has (`array`, `object`, `enum` or `string`), so a legal value draws no `type-mismatch` either. `object-manager` and `field-designer` already listed theirs.

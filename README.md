@@ -327,7 +327,7 @@ declare class MyCustomDataSource<T = unknown> implements DataSource<T> {
 **Stop writing repetitive UI code.** A form is a schema, not a component:
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectFormBlockNode } from '@object-ui/types';
 
 // Traditional React: useState, validation, handlers, JSX — per form
 function UserForm() {
@@ -336,7 +336,7 @@ function UserForm() {
 
 // Object UI: declare it — the block's props go in its `properties` bag,
 // as `@objectstack/spec` declares them
-const schema: BaseSchema = {
+const schema: ObjectFormBlockNode = {
   type: "object-form",
   properties: {
     objectName: "user",

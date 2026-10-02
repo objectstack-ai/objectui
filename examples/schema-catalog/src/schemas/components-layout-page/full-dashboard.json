@@ -1,5 +1,6 @@
 {
   "type": "page",
+  "pageType": "home",
   "title": "Dashboard",
   "description": "Monitor your business metrics in real-time",
   "children": [

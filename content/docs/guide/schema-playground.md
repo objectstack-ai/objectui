@@ -203,6 +203,7 @@ Schemas can be nested to build complex layouts. Here is a dashboard that combine
 ```json
 {
   "type": "page",
+  "pageType": "app",
   "title": "Project Dashboard",
   "children": {
     "type": "grid",

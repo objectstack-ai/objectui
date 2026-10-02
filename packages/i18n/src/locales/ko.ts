@@ -1523,8 +1523,6 @@ const ko = {
       referenceTo: "참조 대상",
       options: "옵션",
       addOption: "옵션 추가",
-      validationRules: "유효성 검사 규칙",
-      addRule: "규칙 추가",
       systemBadge: "시스템",
       ungrouped: "일반",
       deleteConfirmTitle: "필드를 삭제하시겠습니까?",

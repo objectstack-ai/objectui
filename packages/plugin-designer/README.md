@@ -95,7 +95,7 @@ import type { DataModelEntity, DataModelRelationship } from '@object-ui/types';
 declare const entities: DataModelEntity[];
 declare const relationships: DataModelRelationship[];
 
-<DataModelDesigner entities={entities} relationships={relationships} autoLayout />;
+<DataModelDesigner entities={entities} relationships={relationships} />;
 ```
 
 ### ProcessDesigner

@@ -1531,8 +1531,6 @@ const pt = {
       referenceTo: "Referência a",
       options: "Opções",
       addOption: "Adicionar opção",
-      validationRules: "Regras de validação",
-      addRule: "Adicionar regra",
       systemBadge: "Sistema",
       ungrouped: "Geral",
       deleteConfirmTitle: "Excluir campo?",

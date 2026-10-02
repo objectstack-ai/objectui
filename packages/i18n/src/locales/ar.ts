@@ -1577,8 +1577,6 @@ const ar = {
       referenceTo: "مرجع إلى",
       options: "خيارات",
       addOption: "إضافة خيار",
-      validationRules: "قواعد التحقق",
-      addRule: "إضافة قاعدة",
       systemBadge: "النظام",
       ungrouped: "عام",
       deleteConfirmTitle: "حذف الحقل؟",

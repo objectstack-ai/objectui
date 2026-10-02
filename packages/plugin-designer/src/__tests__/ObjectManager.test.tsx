@@ -33,9 +33,6 @@ const MOCK_OBJECTS: ObjectDefinition[] = [
     sortOrder: 1,
     isSystem: false,
     fieldCount: 12,
-    relationships: [
-      { relatedObject: 'contacts', type: 'one-to-many', label: 'Contacts' },
-    ],
   },
   {
     id: 'obj-2',

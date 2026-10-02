@@ -20,9 +20,11 @@
  * is not re-derived here.
  *
  * ⛔ Not this retirement: `FieldValidationRules` (the type of the live field
- * `validation` key), `FieldValidationFunction`, `ObjectValidationRule` and
- * `DesignerValidationRule`. Two of them are firing controls below, so this file
- * also fails if the retirement ever takes one of them along.
+ * `validation` key), `FieldValidationFunction` and `ObjectValidationRule`. Two of
+ * them are firing controls below, so this file also fails if the retirement ever
+ * takes one of them along. (`DesignerValidationRule` was not this retirement
+ * either; objectui#11434 retired it later, with `DesignerFieldDefinition
+ * .validationRules`, and pins that itself.)
  *
  * What this pins, both halves of the objectui#7659 shape:
  *

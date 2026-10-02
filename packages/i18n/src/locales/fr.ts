@@ -1533,8 +1533,6 @@ const fr = {
       referenceTo: "Référence à",
       options: "Options",
       addOption: "Ajouter une option",
-      validationRules: "Règles de validation",
-      addRule: "Ajouter une règle",
       systemBadge: "Système",
       ungrouped: "Général",
       deleteConfirmTitle: "Supprimer le champ ?",

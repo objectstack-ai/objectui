@@ -2527,7 +2527,7 @@ describe('objectui#5118 — the plugin-form page teaches the real `validation` s
       'export interface AdvancedValidationRule {}',
       "export type ValidationRuleType = 'required';",
       'export type ObjectValidationRule = { name: string };', // packages/types/src/data-protocol.ts
-      'export interface DesignerValidationRule {}', //           packages/types/src/designer.ts
+      'export interface DesignerValidationRule {}', //           SYNTHETIC since objectui#11434 retired it from types/src/designer.ts
       'export interface FieldValidationRules {}', //             packages/types/src/form.ts
       'interface ValidationRuleDraft {}', //                     app-shell studio-design/ObjectValidationsPanel.tsx
       'interface BaseValidationRuleShape {}', //                 a spec type, quoted in the `ConditionalValidation` docblock of types/src/data-protocol.ts

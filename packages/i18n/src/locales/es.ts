@@ -1536,8 +1536,6 @@ const es = {
       referenceTo: "Referencia a",
       options: "Opciones",
       addOption: "Agregar opción",
-      validationRules: "Reglas de validación",
-      addRule: "Agregar regla",
       systemBadge: "Sistema",
       ungrouped: "General",
       deleteConfirmTitle: "¿Eliminar campo?",

@@ -1858,8 +1858,6 @@ const en = {
       referenceTo: 'Reference To',
       options: 'Options',
       addOption: 'Add Option',
-      validationRules: 'Validation Rules',
-      addRule: 'Add Rule',
       systemBadge: 'System',
       ungrouped: 'General',
       deleteConfirmTitle: 'Delete Field?',

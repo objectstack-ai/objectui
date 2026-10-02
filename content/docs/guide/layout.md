@@ -712,7 +712,8 @@ the sidebar are nodes you build, so style them where you build them, as above.
 
 A `page` node has no padding switch. Its wrapper always insets the content: `p-3`, then
 `md:p-4`, then `lg:p-6`. The padding you control is a `container`'s. Its `padding` is a
-number on the container's spacing scale, and `0` means none:
+step on the container's spacing scale: one of 0 to 8, 10, 12 or 16, and `0` means none.
+Any other number is refused:
 
 ```json
 {

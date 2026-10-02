@@ -33,6 +33,83 @@ function cn(...inputs: (string | undefined | false)[]) {
 const NODE_WIDTH = 120;
 const NODE_HEIGHT = 50;
 
+/** The space a lane band keeps around its nodes, and the height of a lane none of whose nodes is on the canvas. */
+const LANE_PADDING = 24;
+const EMPTY_LANE_HEIGHT = 80;
+
+/** The `lanes` default, one array so the lane bands are not recomputed on every render. */
+const NO_LANES: BPMNLane[] = [];
+
+/** The property-panel field name prefix that routes an edit into a node's `properties` record. */
+const NODE_PROPERTY_PREFIX = 'properties.';
+
+interface LaneBand {
+  lane: BPMNLane;
+  top: number;
+  height: number;
+  members: number;
+}
+
+/**
+ * One band per lane, spanning the canvas width and the vertical extent of the
+ * nodes `nodeIds` names, padded. A lane none of whose nodes is on the canvas
+ * still draws, below the bands drawn before it.
+ */
+function laneBands(lanes: BPMNLane[], nodes: BPMNNode[]): LaneBand[] {
+  const byId = new Map(nodes.map((n) => [n.id, n] as const));
+  let bottom = 0;
+  return lanes.map((lane) => {
+    const members = lane.nodeIds
+      .map((id) => byId.get(id))
+      .filter((n): n is BPMNNode => n !== undefined);
+    if (members.length === 0) {
+      const band = { lane, top: bottom, height: EMPTY_LANE_HEIGHT, members: 0 };
+      bottom += EMPTY_LANE_HEIGHT;
+      return band;
+    }
+    const top = Math.max(0, Math.min(...members.map((n) => n.position.y)) - LANE_PADDING);
+    const end = Math.max(...members.map((n) => n.position.y + NODE_HEIGHT)) + LANE_PADDING;
+    bottom = Math.max(bottom, end);
+    return { lane, top, height: end - top, members: members.length };
+  });
+}
+
+/** A version as the toolbar draws it: `1.2` reads `v1.2`, and a version already spelled `v2` is left alone. */
+function versionLabel(version: string): string {
+  return /^v/i.test(version) ? version : `v${version}`;
+}
+
+/**
+ * The property-panel field for one entry of a node's `properties` record, with
+ * a control for the value's type. A value that is not a string, number or
+ * boolean is edited as JSON, and an edit is committed only when it parses.
+ */
+function nodePropertyField(key: string, value: unknown): PropertyField {
+  const base = { name: `${NODE_PROPERTY_PREFIX}${key}`, label: key, group: 'Properties' };
+  if (typeof value === 'boolean') return { ...base, type: 'boolean', value };
+  if (typeof value === 'number') return { ...base, type: 'number', value };
+  if (typeof value === 'string') return { ...base, type: 'text', value };
+  let json: string;
+  try {
+    json = JSON.stringify(value, null, 2) ?? String(value);
+  } catch {
+    json = String(value);
+  }
+  return { ...base, type: 'textarea', value: json, description: 'JSON — an edit is kept once it parses' };
+}
+
+/** The value a property-panel edit commits for a `properties` entry, or `undefined` when it does not parse. */
+function nodePropertyValue(previous: unknown, input: unknown): { value: unknown } | undefined {
+  if (typeof previous === 'string' || typeof previous === 'number' || typeof previous === 'boolean') {
+    return { value: input };
+  }
+  try {
+    return { value: JSON.parse(String(input)) };
+  } catch {
+    return undefined;
+  }
+}
+
 export interface ProcessDesignerProps {
   /** Process name */
   processName?: string;
@@ -130,7 +207,11 @@ function autoLayoutNodes(nodes: BPMNNode[], edges: BPMNEdge[]): BPMNNode[] {
 
 /**
  * Process designer for creating BPMN 2.0 workflows.
- * Supports nodes, edges, lanes, and conditional flows.
+ * Supports nodes, edges, lanes, and conditional flows: the toolbar draws the
+ * `version` beside the process name, each lane is a band around the nodes it
+ * names, a flow draws its `condition` in brackets and BPMN's slash marker when
+ * it `isDefault`, and the property panel offers a node's task members
+ * (`assignee`, `dueDate`, `script`) and each of its `properties` (objectui#11434).
  *
  * Phase 2-4 features: undo/redo, confirm dialogs, multi-select,
  * copy/paste, pan/zoom, minimap, edge creation UI, auto-layout,
@@ -139,9 +220,10 @@ function autoLayoutNodes(nodes: BPMNNode[], edges: BPMNEdge[]): BPMNNode[] {
  */
 export function ProcessDesigner({
   processName = 'New Process',
+  version,
   nodes: initialNodes = [],
   edges: initialEdges = [],
-  lanes: _lanes,
+  lanes = NO_LANES,
   canvas = { width: 1400, height: 800, showGrid: true },
   showMinimap: showMinimapProp = true,
   showToolbar = true,
@@ -374,7 +456,7 @@ export function ProcessDesigner({
 
   const propertyFields: PropertyField[] = useMemo(() => {
     if (!selectedNode) return [];
-    return [
+    const fields: PropertyField[] = [
       { name: 'label', label: 'Name', type: 'text' as const, value: selectedNode.label, group: 'General' },
       {
         name: 'type', label: 'Type', type: 'select' as const, value: selectedNode.type,
@@ -392,18 +474,52 @@ export function ProcessDesigner({
       },
       { name: 'description', label: 'Description', type: 'textarea' as const, value: selectedNode.description ?? '', group: 'General' },
     ];
+    // The task members: offered on the task type they belong to, and on any
+    // node that already carries a value, so an authored value is never hidden.
+    const isUserTask = selectedNode.type === 'user-task';
+    if (isUserTask || selectedNode.assignee !== undefined) {
+      fields.push({ name: 'assignee', label: 'Assignee', type: 'text', value: selectedNode.assignee ?? '', group: 'Task' });
+    }
+    if (isUserTask || selectedNode.dueDate !== undefined) {
+      fields.push({
+        name: 'dueDate', label: 'Due date', type: 'text', value: selectedNode.dueDate ?? '', group: 'Task',
+        description: 'A date or duration expression',
+      });
+    }
+    if (selectedNode.type === 'script-task' || selectedNode.script !== undefined) {
+      fields.push({ name: 'script', label: 'Script', type: 'textarea', value: selectedNode.script ?? '', group: 'Task' });
+    }
+    for (const [key, value] of Object.entries(selectedNode.properties ?? {})) {
+      fields.push(nodePropertyField(key, value));
+    }
+    return fields;
   }, [selectedNode]);
 
   const handlePropertyChange = useCallback(
     (name: string, value: unknown) => {
       if (readOnly || !selectedNodeId) return;
-      const updatedNodes = nodes.map((n) =>
-        n.id === selectedNodeId ? { ...n, [name]: value } : n,
-      );
+      let committed = true;
+      const updatedNodes = nodes.map((n) => {
+        if (n.id !== selectedNodeId) return n;
+        if (name.startsWith(NODE_PROPERTY_PREFIX)) {
+          const key = name.slice(NODE_PROPERTY_PREFIX.length);
+          const next = nodePropertyValue(n.properties?.[key], value);
+          if (!next) {
+            committed = false;
+            return n;
+          }
+          return { ...n, properties: { ...n.properties, [key]: next.value } };
+        }
+        return { ...n, [name]: value };
+      });
+      if (!committed) return;
       pushSnapshot(updatedNodes, edges);
     },
     [readOnly, selectedNodeId, nodes, edges, pushSnapshot],
   );
+
+  // ---- Swim lanes ----
+  const bands = useMemo(() => laneBands(lanes, nodes), [lanes, nodes]);
 
   // ---- Node styling (preserved from original) ----
   const getNodeStyle = (type: BPMNNode['type']) => {
@@ -542,6 +658,15 @@ export function ProcessDesigner({
         <div className="flex items-center gap-2 p-2 border-b bg-muted/20" role="toolbar" aria-label="Process toolbar">
           <GitBranch className="h-4 w-4" />
           <span className="font-medium text-sm" aria-label="Process name">{processName}</span>
+          {version && (
+            <span
+              className="rounded border px-1.5 text-[10px] tabular-nums text-muted-foreground"
+              aria-label="Process version"
+              data-testid="process-version"
+            >
+              {versionLabel(version)}
+            </span>
+          )}
 
           {/* Collaboration indicator */}
           {collaboration?.isConnected && (
@@ -750,6 +875,30 @@ export function ProcessDesigner({
                   <polygon points="0 0, 10 3.5, 0 7" fill="hsl(var(--foreground))" />
                 </marker>
               </defs>
+              {/* Swim lanes, under the flows and the nodes */}
+              {bands.map(({ lane, top, height, members }) => (
+                <g key={lane.id} data-testid={`process-lane-${lane.id}`}>
+                  <title>
+                    {`${lane.label}${lane.role ? ` (${lane.role})` : ''} · ${members} node${members === 1 ? '' : 's'}`}
+                  </title>
+                  <rect
+                    x={0}
+                    y={top}
+                    width={canvas.width}
+                    height={height}
+                    className="fill-muted/40 stroke-border"
+                    strokeDasharray="4,4"
+                  />
+                  <text x={8} y={top + 14} className="text-[10px] font-medium fill-muted-foreground">
+                    {lane.label}
+                    {lane.role && (
+                      <tspan className="font-normal" data-testid={`process-lane-role-${lane.id}`}>
+                        {` · ${lane.role}`}
+                      </tspan>
+                    )}
+                  </text>
+                </g>
+              ))}
               {edges.map((edge) => {
                 const source = nodes.find((n) => n.id === edge.source);
                 const target = nodes.find((n) => n.id === edge.target);
@@ -771,7 +920,14 @@ export function ProcessDesigner({
                 const d = `M ${x1} ${y1} Q ${cx} ${y1}, ${(x1 + x2) / 2} ${(y1 + y2) / 2} T ${x2} ${y2}`;
 
                 return (
-                  <g key={edge.id}>
+                  <g key={edge.id} data-testid={`process-edge-${edge.id}`}>
+                    {(edge.isDefault || edge.condition) && (
+                      <title>
+                        {[edge.isDefault ? 'Default flow' : '', edge.condition ? `Condition: ${edge.condition}` : '']
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </title>
+                    )}
                     <path
                       d={d}
                       fill="none"
@@ -779,6 +935,18 @@ export function ProcessDesigner({
                       strokeWidth="2"
                       markerEnd="url(#arrowhead)"
                     />
+                    {/* BPMN's default-flow marker: a slash across the flow near its source */}
+                    {edge.isDefault && (
+                      <line
+                        x1={x1 + 8}
+                        y1={y1 + 6}
+                        x2={x1 + 16}
+                        y2={y1 - 6}
+                        stroke="hsl(var(--foreground) / 0.5)"
+                        strokeWidth="2"
+                        data-testid={`process-edge-default-${edge.id}`}
+                      />
+                    )}
                     {edge.label && (
                       <text
                         x={(x1 + x2) / 2}
@@ -787,6 +955,17 @@ export function ProcessDesigner({
                         className="text-[10px] fill-muted-foreground"
                       >
                         {edge.label}
+                      </text>
+                    )}
+                    {edge.condition && (
+                      <text
+                        x={(x1 + x2) / 2}
+                        y={(y1 + y2) / 2 + 14}
+                        textAnchor="middle"
+                        className="text-[10px] font-mono fill-muted-foreground"
+                        data-testid={`process-edge-condition-${edge.id}`}
+                      >
+                        [{edge.condition}]
                       </text>
                     )}
                   </g>

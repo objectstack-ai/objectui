@@ -56,6 +56,106 @@ interface DesignerState {
   relationships: DataModelRelationship[];
 }
 
+/*
+ * Entity-card geometry, in pixels. The relationship lines are anchored at
+ * field rows (objectui#11434), so the card's header and rows have FIXED heights
+ * and these constants restate the classes that size them — change both
+ * together: `w-60`, `border-2`, the header's `h-9`, the field list's `py-1` and
+ * each row's `h-6`.
+ */
+const ENTITY_WIDTH = 240;
+const ENTITY_BORDER = 2;
+const ENTITY_HEADER_HEIGHT = 36;
+const FIELD_LIST_PADDING = 4;
+const FIELD_ROW_HEIGHT = 24;
+/** How far a line between two cards in the same column bows out to their right. */
+const SAME_COLUMN_BOW = 40;
+
+/**
+ * The vertical centre of the row of the field named `fieldName` — or of the
+ * entity header when the entity declares no field by that name.
+ */
+function anchorY(entity: DataModelEntity, fieldName: string): { y: number; found: boolean } {
+  const index = entity.fields.findIndex((f) => f.name === fieldName);
+  if (index === -1) {
+    return { y: entity.position.y + ENTITY_BORDER + ENTITY_HEADER_HEIGHT / 2, found: false };
+  }
+  return {
+    y:
+      entity.position.y + ENTITY_BORDER + ENTITY_HEADER_HEIGHT + FIELD_LIST_PADDING
+      + index * FIELD_ROW_HEIGHT + FIELD_ROW_HEIGHT / 2,
+    found: true,
+  };
+}
+
+/**
+ * The line of one relationship, from the `sourceField` row of the source card
+ * to the `targetField` row of the target card. Cards side by side are joined
+ * edge to edge; cards whose columns overlap (a self-relationship among them)
+ * are joined on their right edges by a curve that bows outward.
+ */
+function relationshipGeometry(source: DataModelEntity, target: DataModelEntity, rel: DataModelRelationship) {
+  const from = anchorY(source, rel.sourceField);
+  const to = anchorY(target, rel.targetField);
+  const sourceLeft = source.position.x;
+  const targetLeft = target.position.x;
+  if (sourceLeft + ENTITY_WIDTH <= targetLeft || targetLeft + ENTITY_WIDTH <= sourceLeft) {
+    const rightward = sourceLeft < targetLeft;
+    const x1 = rightward ? sourceLeft + ENTITY_WIDTH : sourceLeft;
+    const x2 = rightward ? targetLeft : targetLeft + ENTITY_WIDTH;
+    return {
+      d: `M ${x1} ${from.y} L ${x2} ${to.y}`,
+      labelX: (x1 + x2) / 2,
+      labelY: (from.y + to.y) / 2,
+      sourceFound: from.found,
+      targetFound: to.found,
+    };
+  }
+  const x1 = sourceLeft + ENTITY_WIDTH;
+  const x2 = targetLeft + ENTITY_WIDTH;
+  const bow = Math.max(x1, x2) + SAME_COLUMN_BOW;
+  return {
+    d: `M ${x1} ${from.y} C ${bow} ${from.y}, ${bow} ${to.y}, ${x2} ${to.y}`,
+    labelX: bow,
+    labelY: (from.y + to.y) / 2,
+    sourceFound: from.found,
+    targetFound: to.found,
+  };
+}
+
+/** The relationship line's tooltip: both anchored fields, the delete behaviour, and any field it could not find. */
+function relationshipTitle(
+  source: DataModelEntity,
+  target: DataModelEntity,
+  rel: DataModelRelationship,
+  geometry: { sourceFound: boolean; targetFound: boolean },
+): string {
+  const parts = [`${source.label}.${rel.sourceField} → ${target.label}.${rel.targetField}`];
+  if (rel.deleteBehavior) parts.push(`on delete: ${rel.deleteBehavior}`);
+  const missing: string[] = [];
+  if (!geometry.sourceFound) missing.push(`${source.label} has no field "${rel.sourceField}"`);
+  if (!geometry.targetFound) missing.push(`${target.label} has no field "${rel.targetField}"`);
+  if (missing.length > 0) parts.push(`${missing.join('; ')}, so the line meets its header`);
+  return parts.join(' · ');
+}
+
+/** A field's default value as it is drawn on its row: JSON, so a string is quoted and `null` is visible. */
+function formatDefaultValue(value: unknown): string {
+  try {
+    return JSON.stringify(value) ?? String(value);
+  } catch {
+    return String(value);
+  }
+}
+
+/** A field row's tooltip: its description, then its default value. */
+function fieldTooltip(field: DataModelField): string | undefined {
+  const lines: string[] = [];
+  if (field.description) lines.push(field.description);
+  if (field.defaultValue !== undefined) lines.push(`Default: ${formatDefaultValue(field.defaultValue)}`);
+  return lines.length > 0 ? lines.join('\n') : undefined;
+}
+
 export interface DataModelDesignerProps {
   /** Entities in the model */
   entities?: DataModelEntity[];
@@ -83,7 +183,11 @@ export interface DataModelDesignerProps {
 
 /**
  * Data model designer for creating ER diagrams.
- * Allows visual design of entities, fields, and relationships.
+ * Allows visual design of entities, fields, and relationships. Each field row
+ * draws its label, a `UQ` badge for `unique` and its default value, with the
+ * description as the row's tooltip; each relationship line runs between the
+ * rows of its `sourceField` and `targetField`, with its `deleteBehavior` beside
+ * the label (objectui#11434).
  * Supports undo/redo, multi-select, copy/paste, pan/zoom, drag-to-reposition,
  * inline field editing, property editor, minimap, auto-layout, and collaboration.
  */
@@ -303,15 +407,32 @@ export function DataModelDesigner({
       return;
     }
     const current = undoRedo.current;
+    const { entityId, fieldIndex } = editingField;
+    const oldName = current.entities.find((e) => e.id === entityId)?.fields[fieldIndex]?.name;
+    // A relationship names its fields, and its line is anchored at their rows:
+    // renaming a field renames it in every relationship that names it on this
+    // entity, so the line stays on the row.
+    const followRename = (r: DataModelRelationship): DataModelRelationship => {
+      const renamesSource = r.sourceEntity === entityId && r.sourceField === oldName;
+      const renamesTarget = r.targetEntity === entityId && r.targetField === oldName;
+      if (!renamesSource && !renamesTarget) return r;
+      return {
+        ...r,
+        ...(renamesSource ? { sourceField: trimmed } : {}),
+        ...(renamesTarget ? { targetField: trimmed } : {}),
+      };
+    };
     const next: DesignerState = {
       entities: current.entities.map((e) => {
-        if (e.id !== editingField.entityId) return e;
+        if (e.id !== entityId) return e;
         const fields = e.fields.map((f, i) =>
-          i === editingField.fieldIndex ? { ...f, name: trimmed } : f,
+          i === fieldIndex ? { ...f, name: trimmed } : f,
         );
         return { ...e, fields };
       }),
-      relationships: current.relationships,
+      relationships: oldName === undefined || oldName === trimmed
+        ? current.relationships
+        : current.relationships.map(followRename),
     };
     pushState(next);
     setEditingField(null);
@@ -665,26 +786,37 @@ export function DataModelDesigner({
                 const source = entities.find((e) => e.id === rel.sourceEntity);
                 const target = entities.find((e) => e.id === rel.targetEntity);
                 if (!source || !target) return null;
+                const geometry = relationshipGeometry(source, target, rel);
 
                 return (
-                  <g key={rel.id}>
-                    <line
-                      x1={source.position.x + 120}
-                      y1={source.position.y + 50}
-                      x2={target.position.x + 120}
-                      y2={target.position.y + 50}
+                  <g key={rel.id} className="pointer-events-auto" data-testid={`relationship-${rel.id}`}>
+                    <title>{relationshipTitle(source, target, rel, geometry)}</title>
+                    <path
+                      d={geometry.d}
+                      fill="none"
                       stroke="hsl(var(--primary))"
                       strokeWidth="2"
                       strokeDasharray={rel.type === 'many-to-many' ? '5,5' : undefined}
                     />
                     {showRelationshipLabels && rel.label && (
                       <text
-                        x={(source.position.x + target.position.x) / 2 + 120}
-                        y={(source.position.y + target.position.y) / 2 + 50 - 8}
+                        x={geometry.labelX}
+                        y={geometry.labelY - 8}
                         textAnchor="middle"
                         className="text-xs fill-muted-foreground"
                       >
                         {rel.label}
+                      </text>
+                    )}
+                    {showRelationshipLabels && rel.deleteBehavior && (
+                      <text
+                        x={geometry.labelX}
+                        y={geometry.labelY + 14}
+                        textAnchor="middle"
+                        className="text-[10px] fill-muted-foreground"
+                        data-testid={`relationship-delete-behavior-${rel.id}`}
+                      >
+                        on delete: {rel.deleteBehavior}
                       </text>
                     )}
                   </g>
@@ -719,7 +851,7 @@ export function DataModelDesigner({
               >
                 {/* Entity header */}
                 <div
-                  className="flex items-center gap-2 px-3 py-2 rounded-t-lg font-medium text-sm"
+                  className="flex h-9 items-center gap-2 px-3 rounded-t-lg font-medium text-sm"
                   style={{ backgroundColor: entity.color ?? 'hsl(var(--primary) / 0.1)' }}
                 >
                   <Database className="h-3.5 w-3.5" />
@@ -769,7 +901,9 @@ export function DataModelDesigner({
                   {entity.fields.map((field: DataModelField, fieldIndex: number) => (
                     <div
                       key={`${field.name}-${fieldIndex}`}
-                      className="flex items-center gap-2 py-1 text-xs"
+                      className="flex h-6 items-center gap-2 text-xs"
+                      title={fieldTooltip(field)}
+                      data-testid={`field-row-${entity.id}-${fieldIndex}`}
                     >
                       {editingField &&
                       editingField.entityId === entity.id &&
@@ -790,7 +924,7 @@ export function DataModelDesigner({
                       ) : (
                         <span
                           className={cn(
-                            'font-mono cursor-text',
+                            'font-mono cursor-text shrink-0',
                             field.primaryKey && 'font-bold text-primary',
                           )}
                           onClick={(e) => {
@@ -802,7 +936,24 @@ export function DataModelDesigner({
                           {field.primaryKey && (
                             <span className="text-[0.65rem] font-semibold text-primary mr-0.5">PK</span>
                           )}
+                          {field.unique && (
+                            <span
+                              className="text-[0.65rem] font-semibold text-muted-foreground mr-0.5"
+                              title="Unique"
+                              data-testid={`field-unique-${entity.id}-${fieldIndex}`}
+                            >
+                              UQ
+                            </span>
+                          )}
                           {field.name}
+                        </span>
+                      )}
+                      {field.label && (
+                        <span
+                          className="truncate min-w-0 text-muted-foreground"
+                          data-testid={`field-label-${entity.id}-${fieldIndex}`}
+                        >
+                          {field.label}
                         </span>
                       )}
                       {!readOnly ? (
@@ -822,6 +973,14 @@ export function DataModelDesigner({
                         </select>
                       ) : (
                         <span className="text-muted-foreground ml-auto">{field.type}</span>
+                      )}
+                      {field.defaultValue !== undefined && (
+                        <span
+                          className="truncate max-w-16 shrink-0 font-mono text-muted-foreground"
+                          data-testid={`field-default-${entity.id}-${fieldIndex}`}
+                        >
+                          = {formatDefaultValue(field.defaultValue)}
+                        </span>
                       )}
                       {field.required && <span className="text-destructive">*</span>}
                     </div>

@@ -39,7 +39,10 @@
  *
  * Each is a `?: never` tombstone on the TypeScript face and a
  * `retirementTombstone` on the zod face, whose refusal names the key, the card
- * and what to write instead.
+ * and what to write instead. (`DataModelRelationship.onDelete` is a tombstone
+ * of the same shape, but a RESPELLING, not a retirement — its key has a live
+ * successor, `deleteBehavior` — so it is pinned on its own, in
+ * `designer-ondelete-respelled-11434.test.ts`.)
  *
  * ## Two instruments, and which half each one reads
  *
@@ -127,11 +130,11 @@ export type assertionLiveNeighboursKeepTheirTypes = [
   Expect<Equal<Ts_DataModelDesignerSchema['showRelationshipLabels'], boolean | undefined>>,
   Expect<Equal<Ts_ReportDesignerSchema['showPropertyPanel'], boolean | undefined>>,
   Expect<Equal<DesignerComponent['zIndex'], number | undefined>>,
-  Expect<Equal<DataModelRelationship['onDelete'], 'cascade' | 'set-null' | 'restrict' | 'no-action' | undefined>>,
+  Expect<Equal<DataModelRelationship['label'], string | undefined>>,
   Expect<Equal<BPMNNode['script'], string | undefined>>,
   Expect<Equal<ObjectDefinition['fieldCount'], number | undefined>>,
   Expect<Equal<DesignerFieldDefinition['referenceTo'], string | undefined>>,
-  Expect<Equal<InputOf<ShapeOf<typeof DataModelRelationshipSchema>['onDelete']>, 'cascade' | 'set-null' | 'restrict' | 'no-action' | undefined>>,
+  Expect<Equal<InputOf<ShapeOf<typeof DataModelRelationshipSchema>['label']>, string | undefined>>,
 ];
 
 /* ── The two element types left both faces and the exports ────────────────── */

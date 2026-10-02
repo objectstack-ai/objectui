@@ -63,6 +63,24 @@ const GRID_COLS_2XL: Record<number, string> = {
   9: '2xl:grid-cols-9', 10: '2xl:grid-cols-10', 11: '2xl:grid-cols-11', 12: '2xl:grid-cols-12'
 };
 
+// The counts the six maps above spell, as the registration's closed list
+// (objectui#11491), in `container.padding`'s `{ label, value }` form. One list,
+// shared by the five column inputs below.
+const COLUMN_COUNT_OPTIONS = [
+  { label: '1', value: 1 },
+  { label: '2', value: 2 },
+  { label: '3', value: 3 },
+  { label: '4', value: 4 },
+  { label: '5', value: 5 },
+  { label: '6', value: 6 },
+  { label: '7', value: 7 },
+  { label: '8', value: 8 },
+  { label: '9', value: 9 },
+  { label: '10', value: 10 },
+  { label: '11', value: 11 },
+  { label: '12', value: 12 },
+];
+
 const GAPS: Record<number, string> = {
   0: 'gap-0', 1: 'gap-1', 2: 'gap-2', 3: 'gap-3', 4: 'gap-4', 
   5: 'gap-5', 6: 'gap-6', 8: 'gap-8', 10: 'gap-10', 12: 'gap-12'
@@ -120,8 +138,16 @@ ComponentRegistry.register('grid',
     // Generate Tailwind grid classes
     const gridClass = cn(
       'grid',
-      // Base columns
-      GRID_COLS[baseCols] || 'grid-cols-2',
+      // Base columns. No fallback class (objectui#11491): this read once ended
+      // `|| 'grid-cols-2'`, which drew two columns for a base count the map
+      // lacks (`0`, `-1`, `{ xs: 13 }`). `GridSchema.columns` now refuses every
+      // count outside 1–12, and each path a validated document takes lands
+      // `baseCols` in this map: an absent `columns` keeps the `2` above, an
+      // object without `xs` takes `?? 1`, and a bare count above 1 is ramped
+      // to `1`. An unmapped count that reaches here unvalidated draws no base
+      // column class, the same as an unmapped count at any other breakpoint;
+      // nothing is substituted.
+      GRID_COLS[baseCols],
       // Responsive columns
       smCols && GRID_COLS_SM[smCols],
       mdCols && GRID_COLS_MD[mdCols],
@@ -179,31 +205,52 @@ ComponentRegistry.register('grid',
   {
     namespace: 'ui',
     label: 'Grid Layout',
+    // The five column inputs are closed lists of the counts the `GRID_COLS*`
+    // maps above spell, not `type: 'number'` (objectui#11491): any other count
+    // drew no column class where it was authored. `GridSchema.columns` refuses
+    // the rest on both faces; these lists carry the same set into the SDUI
+    // manifest, so `validateTree` answers `smColumns: 13` with `invalid-enum`.
+    // `columns` also takes the breakpoint object `GridSchema` declares, so it
+    // publishes an `object` arm whose members are the same list (`of`):
+    // `columns: 13` is an error-level `type-mismatch` naming the list, and
+    // `columns: { md: 13 }` a `member-type-mismatch`.
+    // `layout-spacing-sets-11474.test.tsx` holds these lists, the declaration
+    // and the rendered classes the compiled stylesheet defines to one set.
+    // ⚠️ `smColumns` … `xlColumns` are read above but declared by NEITHER
+    // face of `GridSchema` (that pin's `REGISTERED_NOT_DECLARED` ledger names
+    // them): only their lists are closed here.
     inputs: [
-      { 
-        name: 'columns', 
-        type: 'number', 
-        description: 'Number of columns on mobile devices'
+      {
+        name: 'columns',
+        type: ['enum', 'object'],
+        enum: COLUMN_COUNT_OPTIONS,
+        of: 'enum',
+        description:
+          'Column count, 1 to 12, or an object of such counts keyed by breakpoint (xs, sm, md, lg, xl, 2xl). Default 2.'
       },
-      { 
-        name: 'smColumns', 
-        type: 'number', 
-        description: 'Columns at sm breakpoint (>640px)'
+      {
+        name: 'smColumns',
+        type: 'enum',
+        enum: COLUMN_COUNT_OPTIONS,
+        description: 'Column count, 1 to 12, at the sm breakpoint (>640px)'
       },
-      { 
-        name: 'mdColumns', 
-        type: 'number', 
-        description: 'Columns at md breakpoint (>768px)'
+      {
+        name: 'mdColumns',
+        type: 'enum',
+        enum: COLUMN_COUNT_OPTIONS,
+        description: 'Column count, 1 to 12, at the md breakpoint (>768px)'
       },
-      { 
-        name: 'lgColumns', 
-        type: 'number', 
-        description: 'Columns at lg breakpoint (>1024px)'
+      {
+        name: 'lgColumns',
+        type: 'enum',
+        enum: COLUMN_COUNT_OPTIONS,
+        description: 'Column count, 1 to 12, at the lg breakpoint (>1024px)'
       },
-      { 
-        name: 'xlColumns', 
-        type: 'number', 
-        description: 'Columns at xl breakpoint (>1280px)'
+      {
+        name: 'xlColumns',
+        type: 'enum',
+        enum: COLUMN_COUNT_OPTIONS,
+        description: 'Column count, 1 to 12, at the xl breakpoint (>1280px)'
       },
       {
         name: 'gap',

@@ -332,9 +332,11 @@ export class GridBuilder extends SchemaBuilder<GridSchema> {
   }
 
   /**
-   * Set number of columns
+   * Set number of columns — one of the counts the `grid` renderer maps
+   * (objectui#11491); the parameter is the declaration's own bare-count arm,
+   * so `tsc` refuses any other number.
    */
-  columns(columns: number): this {
+  columns(columns: Extract<NonNullable<GridSchema['columns']>, number>): this {
     this.schema.columns = columns;
     return this;
   }

@@ -155,14 +155,15 @@ describe('`grid` reads `children` and nothing else — the defect shape (objectu
 /* -------------------------------------------------------------------------- */
 
 /**
- * The `const schema = {` object literal inside the README's "Basic Usage"
+ * The `const schema: DeclaredNode = {` object literal inside the README's "Basic Usage"
  * fence, returned as source text. Scanned with brace-depth tracking rather than
  * a regex so a nested array cannot end the span early.
  */
 function basicUsageSchemaLiteral(): string {
   const heading = README.indexOf('#### Basic Usage');
   expect(heading).toBeGreaterThan(-1);
-  const start = README.indexOf('const schema = {', heading);
+  // The example is typed as the node the `schema` prop takes since objectui#11466.
+  const start = README.indexOf('const schema: DeclaredNode = {', heading);
   expect(start).toBeGreaterThan(-1);
 
   let depth = 0;

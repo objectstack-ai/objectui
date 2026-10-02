@@ -61,12 +61,18 @@ const MATRIX = {
 
 /** Mount the drawer open and settle the report's first query. */
 async function drill(report: Record<string, unknown>, filter?: Record<string, unknown>) {
+  // Typed with the parameters the adapter is called with, so `mock.calls[i]`
+  // is a typed tuple: `find(resource, params)` and `queryDataset(dataset, selection)`.
   const ds = {
-    find: vi.fn(async () => ({ data: [], total: 0 })),
-    queryDataset: vi.fn(async () => ({ rows: [], fields: [], object: 'deal' })),
+    find: vi.fn(async (_resource: string, _params?: Record<string, unknown>) => ({ data: [], total: 0 })),
+    queryDataset: vi.fn(
+      async (_dataset: string | Record<string, unknown>, _selection: Record<string, unknown>) =>
+        ({ rows: [], fields: [], object: 'deal' }),
+    ),
   };
   render(
-    <SchemaRendererProvider dataSource={ds as any}>
+    // A two-method fake, not a whole `DataSource`; the console's fake-adapter spelling.
+    <SchemaRendererProvider dataSource={ds as never}>
       <DrillDownDrawer open onClose={() => {}} title="Deals" objectName="deal" filter={filter} report={report} />
     </SchemaRendererProvider>,
   );
@@ -77,8 +83,7 @@ async function drill(report: Record<string, unknown>, filter?: Record<string, un
 }
 
 /** The selection of the `n`-th `queryDataset` call (1-based). */
-const selectionOf = (ds: Awaited<ReturnType<typeof drill>>, n = 1) =>
-  (ds.queryDataset.mock.calls as unknown as Array<[string, Record<string, unknown>]>)[n - 1]?.[1];
+const selectionOf = (ds: Awaited<ReturnType<typeof drill>>, n = 1) => ds.queryDataset.mock.calls[n - 1]?.[1];
 
 const filterWarnings = () =>
   warn.mock.calls.map((call: unknown[]) => String(call[0])).filter((message: string) => message.includes('carries `filter`'));

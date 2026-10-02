@@ -8,7 +8,7 @@
 
 import { ComponentRegistry } from '@object-ui/core';
 import type { InputOTPSchema } from '@object-ui/types';
-import { InputOTP, InputOTPGroup, InputOTPSlot } from '../../ui';
+import { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from '../../ui';
 import { toFormControlDomProps } from '../../lib/form-control-dom-props';
 
 ComponentRegistry.register('input-otp', 
@@ -22,7 +22,15 @@ ComponentRegistry.register('input-otp',
     // published 4- and 8-digit examples drew six slots (objectui#11347). One
     // spelling, no alias.
     const length = schema.length || 6;
-    const slots = Array.from({ length });
+    // `separator` (`InputOTPSchema.separator`, objectui#11365) splits the slots
+    // into two groups at the midpoint and draws the primitive's separator
+    // between them, the shadcn "with separator" layout. An odd `length` puts
+    // the extra slot in the first group; a single slot has nothing to separate.
+    // Absent or `false`, `split === length` and the markup is the one group
+    // it always was.
+    const split = schema.separator === true && length > 1 ? Math.ceil(length / 2) : length;
+    const slotsFrom = (from: number, to: number) =>
+      Array.from({ length: to - from }, (_, k) => <InputOTPSlot key={from + k} index={from + k} />);
 
     const handleChange = (val: string) => {
       if (onChange) {
@@ -39,11 +47,13 @@ ComponentRegistry.register('input-otp',
         {...toFormControlDomProps(otpProps)}
         style={style}
       >
-        <InputOTPGroup>
-          {slots.map((_, i) => (
-             <InputOTPSlot key={i} index={i} />
-          ))}
-        </InputOTPGroup>
+        <InputOTPGroup>{slotsFrom(0, split)}</InputOTPGroup>
+        {split < length && (
+          <>
+            <InputOTPSeparator />
+            <InputOTPGroup>{slotsFrom(split, length)}</InputOTPGroup>
+          </>
+        )}
       </InputOTP>
     );
   },
@@ -52,6 +62,7 @@ ComponentRegistry.register('input-otp',
     label: 'Input OTP',
     inputs: [
       { name: 'length', type: 'number' },
+      { name: 'separator', type: 'boolean' },
       { name: 'className', type: 'string' }
     ],
     defaultProps: {

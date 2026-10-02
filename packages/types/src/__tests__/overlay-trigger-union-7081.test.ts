@@ -71,7 +71,7 @@ import { fileURLToPath } from 'node:url';
 // @ts-expect-error -- plain-JS shared helper, intentionally untyped (`allowJs: false`)
 import { stripComments as strip } from '../../../../scripts/js-comment-mask.mjs';
 
-import type { BaseSchema, DeclaredNode, SchemaNode } from '../base';
+import type { DeclaredNode, SchemaNode } from '../base';
 import type { CollapsibleSchema } from '../disclosure';
 import type { ButtonSchema } from '../form';
 import type { TextSchema } from '../layout';
@@ -186,7 +186,8 @@ export const singularStaysSingular: SingularSlot = {
 // and so does `shippedCollapsible` below (TS2322).
 //
 // The redundant `string |` half went with the widening. `_SchemaNodeUntouched`
-// above pins `SchemaNode` as `BaseSchema | string | ...`, and the leg below
+// above pins `SchemaNode` as `DeclaredNode | string | ...` (its object arm was
+// `BaseSchema` until objectui#11466), and the leg below
 // spells the consequence out: `string | SchemaNode` denoted `SchemaNode` all
 // along, so dropping it moved nothing.
 export type _CollapsibleTrigger = Expect<Equal<CollapsibleSchema['trigger'], Union>>;

@@ -3355,6 +3355,44 @@ const OBJECT_CHART_NEITHER_CHANNEL = neitherContentChannelGuidance(
 );
 
 /**
+ * The chart families `ObjectChartSchema.chartType` declares (objectui#11513):
+ * the installed `@objectstack/spec` `ChartTypeSchema`'s families that
+ * plugin-charts draws as a chart, in the spec's own order.
+ *
+ * Picked out of the spec's enum BY REFERENCE (`.extract`), so a family the
+ * spec drops fails here when the module loads, and a family the spec adds is
+ * not declared until something draws it. The spec's other families stay
+ * undeclared because this block draws no chart of them: the single-value
+ * families (`gauge`, `solid-gauge`, `metric`, `kpi`, `bullet`) render one
+ * row's number, and the tabular ones (`table`, `pivot`) a notice.
+ * `object-metric`, `object-data-table` and `object-pivot` are the blocks that
+ * draw those.
+ *
+ * The TS twin (`../objectql.ts`) is the same set, `Extract`ed from the spec's
+ * `ChartType`. `../__tests__/object-chart-families-11513.test.ts` holds both
+ * faces to this set and to the spec, and plugin-charts'
+ * `object-chart-declared-families-11513.test.tsx` renders every spec family
+ * through the real `SchemaRenderer` and holds the declared set to the families
+ * that draw a chart.
+ */
+const OBJECT_CHART_FAMILIES = [
+  'bar', 'horizontal-bar', 'column',
+  'line', 'area',
+  'pie', 'donut', 'funnel',
+  'scatter',
+  'treemap', 'sankey',
+  'combo',
+  'radar',
+] as const;
+
+/** The refusal an undeclared `chartType` meets; it names the declared set. */
+const OBJECT_CHART_FAMILY_REFUSAL =
+  `\`chartType\` on an \`object-chart\` is one of ${OBJECT_CHART_FAMILIES.join(', ')} (objectui#11513): `
+  + 'the `@objectstack/spec` chart families this chart block draws. The spec\'s single-value and tabular '
+  + 'families draw no chart here: write a single number as an `object-metric`, rows as an '
+  + '`object-data-table`, a cross-tab as an `object-pivot`.';
+
+/**
  * ObjectChart Schema
  */
 export const ObjectChartSchema = BaseSchema.extend({
@@ -3383,8 +3421,15 @@ export const ObjectChartSchema = BaseSchema.extend({
   // `ChartConfigSchema.type` declares. Both are optional, and
   // `requireObjectChartFamily` (the `.superRefine` at the end) requires one of
   // them. The TS twin in `../objectql.ts` carries the ground.
-  chartType: z.enum(['bar', 'column', 'horizontal-bar', 'line', 'area', 'pie', 'donut', 'scatter']).optional()
-    .describe('Chart type — the metadata tier\'s spelling of the chart family. One of chartType or specType is required'),
+  //
+  // objectui#11513: `chartType` takes the spec's families plugin-charts draws,
+  // `OBJECT_CHART_FAMILIES` above, out of the spec's own enum. It declared
+  // eight until then, while the dashboard composes this node with every series
+  // family the renderer draws.
+  chartType: stripImportedDefaults(SpecChartTypeSchema)
+    .extract(OBJECT_CHART_FAMILIES, { error: OBJECT_CHART_FAMILY_REFUSAL })
+    .optional()
+    .describe(`Chart type — the metadata tier's spelling of the chart family: one of ${OBJECT_CHART_FAMILIES.join(', ')}, the @objectstack/spec ChartType families plugin-charts draws. One of chartType or specType is required`),
   specType: stripImportedDefaults(SpecChartTypeSchema).optional()
     .describe('The react tier\'s chart family: the author\'s `type` on <ObjectChart>, parked here by the react-page wrapper because `type` is this node\'s discriminator. @objectstack/spec ChartType, by reference. chartType wins when a node writes both'),
   // ── objectui#10608: three list-view spellings, RETIRED on this node ──

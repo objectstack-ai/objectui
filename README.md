@@ -73,11 +73,12 @@ npm install @object-ui/react @object-ui/components
 ```tsx
 import React from 'react'
 import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react'
+import type { DeclaredNode } from '@object-ui/types'
 // Importing the package registers every default renderer as a side effect —
 // there is no separate registration call.
 import '@object-ui/components'
 
-const schema = {
+const schema: DeclaredNode = {
   type: "page",
   title: "Dashboard",
   children: {
@@ -278,10 +279,10 @@ npm install @object-ui/data-objectstack
 ```tsx
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import type { BaseSchema } from '@object-ui/types';
+import type { DeclaredNode } from '@object-ui/types';
 
 // Your page schema — "Render a schema" above writes one out in full.
-declare const schema: BaseSchema;
+declare const schema: DeclaredNode;
 
 const dataSource = createObjectStackAdapter({
   baseUrl: 'https://api.example.com',

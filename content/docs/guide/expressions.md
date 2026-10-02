@@ -166,10 +166,10 @@ a root:
 
 ```tsx
 import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react'
-import type { BaseSchema } from '@object-ui/types'
+import type { DeclaredNode } from '@object-ui/types'
 
 // The page schema — your own document.
-declare const schema: BaseSchema
+declare const schema: DeclaredNode
 
 // Every name here becomes a root the schema's expressions can read.
 const scope = {

@@ -23,9 +23,9 @@ npm install @object-ui/data-objectstack
 ```typescript
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
 import { SchemaRenderer } from '@object-ui/react';
-import type { BaseSchema } from '@object-ui/types';
+import type { DeclaredNode } from '@object-ui/types';
 
-declare const mySchema: BaseSchema;
+declare const mySchema: DeclaredNode;
 
 // 1. Create the adapter
 const dataSource = createObjectStackAdapter({

@@ -57,6 +57,7 @@ The SchemaRenderer uses the Component Registry to resolve component types:
 ```tsx
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '@object-ui/react';
+import type { BaseSchema } from '@object-ui/types';
 
 function MyWidgetComponent() {
   return <div>My widget</div>;
@@ -64,6 +65,20 @@ function MyWidgetComponent() {
 
 // Register a custom component
 ComponentRegistry.register('my-widget', MyWidgetComponent);
+
+// Declare its node type. A node slot and the `schema` prop take the node types
+// `@object-ui/types` declares, plus each type an application adds to
+// `CustomNodeRegistry`, so the node below is checked against `MyWidgetSchema`.
+interface MyWidgetSchema extends BaseSchema {
+  type: 'my-widget';
+  customProp?: string;
+}
+
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'my-widget': MyWidgetSchema;
+  }
+}
 
 // Now you can use it in schemas
 <SchemaRenderer schema={{

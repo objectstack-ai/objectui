@@ -86,10 +86,10 @@ publishes each name you give it as an expression root:
 
 ```tsx
 import { SchemaRenderer, PredicateScopeProvider } from '@object-ui/react'
-import type { BaseSchema } from '@object-ui/types'
+import type { DeclaredNode } from '@object-ui/types'
 
 // The page schema from the first example on this page.
-declare const schema: BaseSchema
+declare const schema: DeclaredNode
 
 // Every name here becomes a root the schema's expressions can read.
 const scope = {
@@ -531,10 +531,10 @@ the renderer, which does not read it:
 
 ```tsx
 import { SchemaRenderer, PredicateScopeProvider } from '@object-ui/react'
-import type { BaseSchema } from '@object-ui/types'
+import type { DeclaredNode } from '@object-ui/types'
 
 // The reader's own values.
-declare const schema: BaseSchema
+declare const schema: DeclaredNode
 declare const userData: { name: string }
 declare const userSettings: { theme: string }
 declare const dashboardStats: { totalUsers: number }

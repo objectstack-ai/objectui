@@ -145,10 +145,10 @@ written on the element is neither read nor refused. The host publishes its value
 
 ```tsx
 import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react'
-import type { BaseSchema } from '@object-ui/types'
+import type { DeclaredNode } from '@object-ui/types'
 
 // The schema from step 1, as the object the renderer receives.
-const schema: BaseSchema = {
+const schema: DeclaredNode = {
   type: 'card',
   title: 'Welcome',
   children: {

@@ -86,10 +86,11 @@ tree-shake that import away.
 ```tsx
 import { SchemaRenderer } from '@object-ui/react'
 import { initializeComponents } from '@object-ui/components'
+import type { DeclaredNode } from '@object-ui/types'
 
 initializeComponents()
 
-const schema = {
+const schema: DeclaredNode = {
   type: 'card',
   title: 'Welcome',
   children: {

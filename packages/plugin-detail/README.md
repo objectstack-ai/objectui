@@ -411,10 +411,12 @@ Displays related records in list, grid, or table format.
 >   <SchemaRenderer
 >     schema={{
 >       type: 'record:related_list',
->       objectName: 'contact',
->       relationshipField: 'account_id',
->       title: 'Contacts',
->       columns: ['name', 'email', 'phone'],
+>       properties: {
+>         objectName: 'contact',
+>         relationshipField: 'account_id',
+>         title: 'Contacts',
+>         columns: ['name', 'email', 'phone'],
+>       },
 >     }}
 >   />
 > );

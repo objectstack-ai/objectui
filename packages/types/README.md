@@ -269,7 +269,9 @@ default.
 Foundation types that all components build upon:
 
 - `BaseSchema` - The base interface for all components
-- `SchemaNode` - Union type for schema nodes (objects, strings, numbers, etc.)
+- `SchemaNode` - What a node slot holds: a `DeclaredNode`, or a primitive rendered as text
+- `DeclaredNode` - The discriminated union, keyed by `type`, of every declared node type; every node slot and `SchemaRenderer`'s `schema` prop take it, so an inline child is checked against its own type and an undeclared `type` is refused
+- `CustomNodeRegistry` - The interface an application augments (`declare module '@object-ui/types'`) to declare a node type it registers, which then joins `DeclaredNode`
 - `AuthoringNode` - The spec-declared nodes with a typed `properties` bag (see "Authoring the spec's blocks in TypeScript")
 - `ComponentMeta` - Metadata for component registration
 - `ComponentInput` - Input field definitions for designers/editors
@@ -438,7 +440,7 @@ const sidebar: SidebarSchema = {
 
 const main: ContainerSchema = {
   type: 'container',
-  children: [{ type: 'data-table', data: [] }]
+  children: [{ type: 'data-table', data: [], columns: [] }]
 };
 
 // An authored `flex` node takes its props, the child list included, in its

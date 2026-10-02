@@ -120,10 +120,16 @@ describe('objectui#11363 — the TypeScript face refuses `mobileNavMode` on the 
 });
 
 describe('objectui#11363 — the refusal does not reach an `app-schema-renderer` node', () => {
+  // The app document is nested under `schema`, its one spelling on this node
+  // since objectui#11494; written flat, its keys are unrecognized on the strict
+  // face, which would make every comparison below one against a red baseline.
   const NODE = {
     type: 'app-schema-renderer',
-    title: 'Acme CRM',
-    navigation: [{ id: 'accounts', type: 'url', label: 'Accounts', url: '/accounts' }],
+    schema: {
+      type: 'app',
+      title: 'Acme CRM',
+      navigation: [{ id: 'accounts', type: 'url', label: 'Accounts', url: '/accounts' }],
+    },
   };
   const verdict = (issues: Issue[] | null) => issues?.map((i) => [i.code, i.path]) ?? null;
   const LEGAL = VALUES.filter((value) => value !== 'bottom-nav');

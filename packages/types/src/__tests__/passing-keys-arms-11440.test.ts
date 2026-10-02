@@ -154,12 +154,13 @@ describe('`app-schema-renderer` (objectui#11440)', () => {
     }
   });
 
-  it('the registration\'s `schema` input is not declared: no node delivers it (measured on objectui#11440)', () => {
-    expect(Object.keys(AppSchemaRendererNodeSchema.shape)).not.toContain('schema');
-    const node = { type: 'app-schema-renderer', schema: { name: 'crm' } };
-    // Tolerant face: unjudged, as every undeclared key. Strict face: refused as an unrecognized key.
-    expect(safeValidateSchema(node).success).toBe(true);
-    expect(issuesOf(StrictAnyComponentSchema.safeParse(node)).flatMap((i) => i.keys ?? [])).toEqual(['schema']);
+  // The registration's third input, `schema`, was not declared here because no
+  // node delivered it (measured on objectui#11440). objectui#11494 (triage
+  // ruling A `5958227972`) made it true through a registration adapter and
+  // declared it as the app document by reference, so this row moved, inverted,
+  // to `./app-schema-renderer-schema-input-11494.test.ts`.
+  it('the registration\'s `schema` input is declared since objectui#11494 (its rows moved there)', () => {
+    expect(Object.keys(AppSchemaRendererNodeSchema.shape)).toContain('schema');
   });
 });
 

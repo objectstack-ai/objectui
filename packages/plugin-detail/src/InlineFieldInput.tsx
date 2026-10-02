@@ -489,7 +489,7 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
   //   boolean / number / one-of-`options`, all of which came back as strings.
   //
   // Plus every type the fields package edits inline that this switch simply had
-  // no branch for (`json` → the code editor, `color`, `qrcode`, `time`, `code`).
+  // no branch for (`json` → the JSON editor, `color`, `qrcode`, `time`, `code`).
   //
   // The design calls INSIDE class A — what an options-less `checkboxes` offers,
   // how a chip row renders — are `FieldEditWidget`'s to make, and it already

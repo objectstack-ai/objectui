@@ -46,11 +46,26 @@ import { renderFieldValue, type FieldMeta } from '../recordFields';
  * One percent-formatted record field, rendered exactly as the dashboard table
  * and the record-detail drawer render it. `'0.00%'` is what drives the branch's
  * own `decimals` extraction to 2 — the precision every value below is quoted at.
+ *
+ * objectui#11475 — the branch reads the field's DECLARED storage now (the
+ * spec's `percentScaleOf`, through `percentCellScale`) instead of guessing it
+ * from the value's size, so each row names the storage its value is in: a
+ * `percent` field declaring `max: 100` stores whole points, one declaring no
+ * `max` stores a fraction. What this file measures, that the branch does not
+ * re-decide the scaling and does not round-trip the value, is unchanged.
  */
-const pct = (value: number, format = '0.00%'): string =>
+const WHOLE = 'whole' as const;
+const FRACTION = 'fraction' as const;
+const pct = (value: number, storage: 'whole' | 'fraction', format = '0.00%'): string =>
   renderFieldValue(
     value,
-    { name: 'rate', label: 'Rate', type: 'number', format } satisfies FieldMeta,
+    {
+      name: 'rate',
+      label: 'Rate',
+      type: 'percent',
+      format,
+      ...(storage === WHOLE ? { max: 100 } : {}),
+    } satisfies FieldMeta,
     undefined,
     'en-US',
   ) as string;
@@ -75,7 +90,7 @@ describe('renderFieldValue percent branch — core owns the scaling (objectui#56
     [1.785, '1.79%'],
     [1.835, '1.84%'],
   ])('renders %p half-up at 2 decimals as %p, not the round trip\'s last-digit-down', (value, expected) => {
-    expect(pct(value as number)).toBe(expected);
+    expect(pct(value as number, WHOLE)).toBe(expected);
   });
 
   /**
@@ -91,12 +106,12 @@ describe('renderFieldValue percent branch — core owns the scaling (objectui#56
    * tautology.
    */
   it.each([
-    [0.75, '75.00%'],
-    [2.5, '2.50%'],
-    [12.25, '12.25%'],
-    [57, '57.00%'],
-  ])('CONTROL: %p renders %p under both the round trip and the repair', (value, expected) => {
-    expect(pct(value as number)).toBe(expected);
+    [0.75, FRACTION, '75.00%'],
+    [2.5, WHOLE, '2.50%'],
+    [12.25, WHOLE, '12.25%'],
+    [57, WHOLE, '57.00%'],
+  ] as const)('CONTROL: %p (%s) renders %p under both the round trip and the repair', (value, storage, expected) => {
+    expect(pct(value, storage)).toBe(expected);
   });
 
   /**
@@ -107,29 +122,49 @@ describe('renderFieldValue percent branch — core owns the scaling (objectui#56
    * is a factor of 100, not a last digit.
    */
   it('does not double-scale a stored fraction below 0.01', () => {
-    expect(pct(0.005)).toBe('0.50%');
-    expect(pct(0.0075)).toBe('0.75%');
+    expect(pct(0.005, FRACTION)).toBe('0.50%');
+    expect(pct(0.0075, FRACTION)).toBe('0.75%');
   });
 
   /**
-   * The local test was `value > 1`; core's is the symmetric `|value| < 1`. A
-   * negative already in percentage points therefore took the fraction arm.
+   * The local test was `value > 1`; core's was then the symmetric
+   * `|value| < 1`. A negative already in percentage points therefore took the
+   * fraction arm. Since objectui#11475 neither test exists: the field's
+   * storage decides, at every sign and magnitude.
    */
   it('treats a negative already in percentage points as points, like core does', () => {
-    expect(pct(-5)).toBe('-5.00%');
-    expect(pct(-0.5)).toBe('-50.00%');
+    expect(pct(-5, WHOLE)).toBe('-5.00%');
+    expect(pct(-0.5, FRACTION)).toBe('-50.00%');
   });
 
   /**
-   * The boundary itself. `percentDisplayValue` is `value > -1 && value < 1`, so
-   * exactly 1 is percentage points and renders `1%` — the convention
-   * `PercentScale` states in those words (`whole` is `1 => "1%"`). The local
-   * branch's `value > 1` put exactly 1 on the fraction side and rendered
-   * `100.00%`, which is the drift this card removes.
+   * The boundary itself, which objectui#11475 removed. `percentDisplayValue`
+   * was `value > -1 && value < 1`, so exactly 1 was percentage points. Now
+   * exactly 1 is what the field's storage says, in the `PercentScale` words:
+   * `whole` is `1 => "1%"`, `fraction` is `1 => "100%"`.
    */
   it('puts exactly 1 on core\'s side of the boundary', () => {
-    expect(pct(1)).toBe('1.00%');
-    expect(pct(0.999)).toBe('99.90%');
+    expect(pct(1, WHOLE)).toBe('1.00%');
+    expect(pct(1, FRACTION)).toBe('100.00%');
+    expect(pct(0.999, FRACTION)).toBe('99.90%');
+  });
+
+  /**
+   * objectui#11475 — a field that is not a `percent` declares no percent
+   * storage (the spec: "a plain `number` carries no percent semantics"), so the
+   * `%` pattern is the only statement left, and numeral's `%` multiplies by
+   * 100: a fraction.
+   */
+  it('reads a non-percent field\'s `%` pattern as a fraction, numeral\'s reading', () => {
+    const asNumber = (value: number) =>
+      renderFieldValue(
+        value,
+        { name: 'rate', label: 'Rate', type: 'number', format: '0.00%' } satisfies FieldMeta,
+        undefined,
+        'en-US',
+      ) as string;
+    expect(asNumber(0.75)).toBe('75.00%');
+    expect(asNumber(1)).toBe('100.00%');
   });
 
   /**
@@ -138,7 +173,7 @@ describe('renderFieldValue percent branch — core owns the scaling (objectui#56
    * and is 0.
    */
   it('still reads the precision out of the format string', () => {
-    expect(pct(1.605, '0.0%')).toBe('1.6%');
-    expect(pct(1.605, '%')).toBe('2%');
+    expect(pct(1.605, WHOLE, '0.0%')).toBe('1.6%');
+    expect(pct(1.605, WHOLE, '%')).toBe('2%');
   });
 });

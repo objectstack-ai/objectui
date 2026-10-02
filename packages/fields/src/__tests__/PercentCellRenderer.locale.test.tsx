@@ -90,9 +90,17 @@ function cellText(): string {
 
 afterEach(() => cleanup());
 
+/*
+ * objectui#11475 — the cell reads the field's DECLARED storage (the spec's
+ * `percentScaleOf`: a fraction unless the field declares a `max` above 1). The
+ * whole-point values below (`1234.5`, `33.33`) therefore declare a `max` above
+ * 1, which is what a whole-stored field does; the magnitude used to be guessed
+ * from their size. Nothing this file measures (the locale, the convention, the
+ * width) moved.
+ */
 describe('PercentCellRenderer follows the display locale (objectui#4553)', () => {
   it('de renders the German percent form', () => {
-    renderCell(1234.5, { name: 'win_rate' }, 'de');
+    renderCell(1234.5, { name: 'win_rate', max: 10000 }, 'de');
     expect(cellText()).toContain(`1.235${NBSP}%`);
   });
 
@@ -101,21 +109,21 @@ describe('PercentCellRenderer follows the display locale (objectui#4553)', () =>
    * value skips fraction scaling and used to skip `formatPercent` entirely.
    */
   it('de renders the German form on the whole-percent path too', () => {
-    renderCell(1234.5, { name: 'progress' }, 'de');
+    renderCell(1234.5, { name: 'progress', max: 10000 }, 'de');
     expect(cellText()).toContain(`1.235${NBSP}%`);
   });
 
   it('en groups at four digits on both paths — the deliberate output move', () => {
-    const { unmount } = renderCell(1234.5, { name: 'win_rate' }, 'en');
+    const { unmount } = renderCell(1234.5, { name: 'win_rate', max: 10000 }, 'en');
     expect(cellText()).toContain('1,235%');
     unmount();
 
-    renderCell(1234.5, { name: 'progress' }, 'en');
+    renderCell(1234.5, { name: 'progress', max: 10000 }, 'en');
     expect(cellText()).toContain('1,235%');
   });
 
   it('an explicit tenant locale outranks the active UI language', () => {
-    renderCell(1234.5, { name: 'win_rate' }, 'en', 'de');
+    renderCell(1234.5, { name: 'win_rate', max: 10000 }, 'en', 'de');
     expect(cellText()).toContain(`1.235${NBSP}%`);
     expect(cellText()).not.toContain('1,235%');
   });
@@ -158,13 +166,13 @@ describe('PercentCellRenderer keeps its scaling contract (objectui#4553 must-not
    * renderer no longer reads it.
    */
   it('en small-value output is unchanged (must-not-change)', () => {
-    renderCell(33.33, { name: 'win_rate', scale: 2 }, 'en');
+    renderCell(33.33, { name: 'win_rate', scale: 2, max: 100 }, 'en');
     expect(cellText()).toContain('33.33%');
   });
 
   /** PIN: the decorative bar still reports the un-formatted magnitude. */
   it('the progressbar still carries the numeric value', () => {
-    renderCell(33.33, { name: 'win_rate' }, 'en');
+    renderCell(33.33, { name: 'win_rate', max: 100 }, 'en');
     expect(screen.getByRole('progressbar')).toHaveAttribute('aria-valuenow', '33.33');
   });
 

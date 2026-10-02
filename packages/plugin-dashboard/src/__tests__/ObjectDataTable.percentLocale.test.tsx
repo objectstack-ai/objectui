@@ -88,8 +88,12 @@ const OBJECT_SCHEMA = {
     name: { type: 'text', label: 'Name' },
     // `format` carrying a '%' is what routes a column through the percent
     // branch of `renderFieldValue`.
-    win_rate: { type: 'percent', label: 'Win Rate', format: '0%' },
-    small_rate: { type: 'percent', label: 'Small Rate', format: '0.00%' },
+    // objectui#11475 — both values are percentage POINTS, so both fields
+    // declare whole-point storage (a `max` above 1, the spec's
+    // `percentScaleOf`). The cell reads the declaration now; it used to guess
+    // points from the value's size. The locale this file measures is unmoved.
+    win_rate: { type: 'percent', label: 'Win Rate', format: '0%', max: 10000 },
+    small_rate: { type: 'percent', label: 'Small Rate', format: '0.00%', max: 100 },
   },
 };
 

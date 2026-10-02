@@ -36,6 +36,14 @@ const renderPercent = (value: unknown, field: Record<string, unknown> = {}) =>
     <PercentCellRenderer value={value as any} field={{ type: 'percent', ...field } as any} />,
   );
 
+/**
+ * objectui#11475 — `33.33` is percentage POINTS, so the field says so the way
+ * a whole-stored field does: a `max` above 1 (the spec's `percentScaleOf`). The
+ * cell reads that declaration now; it used to guess points from the value's
+ * size. The layout contract this file pins is unchanged.
+ */
+const WHOLE = { max: 100 };
+
 /** The decorative bar: `role="progressbar"` wrapper the renderer emits. */
 const bar = () => screen.getByRole('progressbar');
 /** The row that holds bar + value. */
@@ -43,7 +51,7 @@ const row = () => bar().parentElement!;
 
 describe('PercentCellRenderer — value beats the decorative bar (issue #5066)', () => {
   it('renders BOTH the bar and the value at normal width', () => {
-    renderPercent(33.33);
+    renderPercent(33.33, WHOLE);
 
     expect(bar()).toBeInTheDocument();
     expect(bar()).toHaveAttribute('aria-valuenow', '33.33');
@@ -54,7 +62,7 @@ describe('PercentCellRenderer — value beats the decorative bar (issue #5066)',
   });
 
   it('gives the value span shrink priority so a narrow chip cannot clip it', () => {
-    renderPercent(33.33);
+    renderPercent(33.33, WHOLE);
 
     const value = screen.getByText('33%');
     // The number never shrinks — it is the content of the cell.
@@ -63,7 +71,7 @@ describe('PercentCellRenderer — value beats the decorative bar (issue #5066)',
   });
 
   it('lets the bar shrink away instead of pushing the value out of the clip box', () => {
-    renderPercent(33.33);
+    renderPercent(33.33, WHOLE);
 
     // The bar keeps `w-16` as its PREFERRED width but is shrinkable, and
     // `min-w-0` stops the automatic minimum size from pinning it at 64px.
@@ -76,7 +84,7 @@ describe('PercentCellRenderer — value beats the decorative bar (issue #5066)',
   });
 
   it('does not let the bar GROW in a wide cell (no flex-1 / grow)', () => {
-    renderPercent(33.33);
+    renderPercent(33.33, WHOLE);
 
     // `flex-1` would also make the bar stretch to fill every wide grid cell —
     // `w-16` stays the upper bound, only the shrink direction changed.
@@ -84,14 +92,14 @@ describe('PercentCellRenderer — value beats the decorative bar (issue #5066)',
   });
 
   it('keeps the full formatted value in the DOM (fraction, whole, precision)', () => {
-    const first = renderPercent(33.33);
+    const first = renderPercent(33.33, WHOLE);
     expect(screen.getByText('33%')).toBeInTheDocument();
     first.unmount();
 
     // A declared `scale` keeps the decimals — the widest text, worst overflow.
     // ⛔ NOT `precision` (objectui#9295): that is the column's TOTAL digit
     // count, and reading it here is the defect that card removed.
-    renderPercent(33.33, { scale: 2 });
+    renderPercent(33.33, { ...WHOLE, scale: 2 });
     const wide = screen.getByText('33.33%');
     expect(wide).toBeInTheDocument();
     expect(wide).toHaveClass('shrink-0');

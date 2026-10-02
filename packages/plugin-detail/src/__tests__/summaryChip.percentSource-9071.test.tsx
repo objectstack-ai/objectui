@@ -85,6 +85,16 @@ afterEach(() => {
  */
 const FIELD: FieldMetadata = { name: 'ratio', label: 'Ratio', type: 'percent' };
 
+/**
+ * objectui#11475 — both places read the field's DECLARED storage now (the
+ * spec's `percentScaleOf`: a fraction unless the field declares a `max` above
+ * 1), not a storage guessed from the value's size. `FIELD` stores a fraction;
+ * a row whose stored value is percentage POINTS reads on `WHOLE`, which
+ * declares whole-point storage the way a whole-stored field does. Each row's
+ * reading, and the chip-against-cell pin, are as before.
+ */
+const WHOLE: FieldMetadata = { ...FIELD, max: 100 } as FieldMetadata;
+
 interface Rendered {
   /** What the surface SAYS, whitespace-collapsed. */
   text: string;
@@ -93,7 +103,7 @@ interface Rendered {
 }
 
 /** Place one: the `summaryFields` chip beside the record H1. */
-function renderChip(stored: number): Rendered {
+function renderChip(stored: number, field: FieldMetadata = FIELD): Rendered {
   const container = render(
     <DetailView
       schema={
@@ -101,7 +111,7 @@ function renderChip(stored: number): Rendered {
           type: 'record:details',
           objectName: 'account',
           summaryFields: ['ratio'],
-          fields: [{ ...FIELD }],
+          fields: [{ ...field }],
           data: { id: 'A9', name: 'Acme', ratio: stored },
         } as unknown as DetailViewSchema
       }
@@ -120,11 +130,11 @@ function renderChip(stored: number): Rendered {
  * `en` session so the comparison is a property of the SCALING and not of
  * whatever locale the runner happens to carry.
  */
-function renderCell(stored: number): Rendered {
+function renderCell(stored: number, field: FieldMetadata = FIELD): Rendered {
   const container = render(
     <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }} persistLanguage={false}>
       <LocalizationProvider value={{ locale: 'en' }}>
-        <PercentCellRenderer value={stored} field={{ ...FIELD }} />
+        <PercentCellRenderer value={stored} field={{ ...field }} />
       </LocalizationProvider>
     </I18nProvider>,
   ).container;
@@ -147,6 +157,8 @@ interface Row {
   text: string;
   /** The one magnitude BOTH surfaces draw, after each clamps to its track. */
   bar: number;
+  /** The field the value is stored on; `FIELD` (a fraction) when absent. */
+  field?: FieldMetadata;
 }
 
 const ROWS: Row[] = [
@@ -157,20 +169,20 @@ const ROWS: Row[] = [
   // THE FORK objectui#8728 pinned and handed here. The chip read a stored 1 as
   // a ratio and said `100%` beside a full bar; every other band reads it as one
   // percentage point.
-  { what: 'EXACTLY 1 — one percentage point, not one hundred', stored: 1, text: '1%', bar: 1 },
+  { what: 'EXACTLY 1 — one percentage point, not one hundred', stored: 1, text: '1%', bar: 1, field: WHOLE },
   // The far edge of the same boundary. `percentDisplayValue` passes -1 through;
   // the chip's rule scaled it to -100.
-  { what: 'EXACTLY -1 — the symmetric edge the chip did not have', stored: -1, text: '-1%', bar: 0 },
+  { what: 'EXACTLY -1 — the symmetric edge the chip did not have', stored: -1, text: '-1%', bar: 0, field: WHOLE },
   // Below -1. Bars are useless here (both clamp to an empty track), which is
   // why the text instrument exists.
-  { what: 'below -1 — the half the bar cannot see', stored: -5, text: '-5%', bar: 0 },
+  { what: 'below -1 — the half the bar cannot see', stored: -5, text: '-5%', bar: 0, field: WHOLE },
 ];
 
 describe('the summary chip reads the declared percent source (objectui#9071)', () => {
-  it.each(ROWS)('$what: a stored $stored reads $text in BOTH places', ({ stored, text, bar }) => {
-    const chip = renderChip(stored);
+  it.each(ROWS)('$what: a stored $stored reads $text in BOTH places', ({ stored, text, bar, field }) => {
+    const chip = renderChip(stored, field);
     cleanup();
-    const cell = renderCell(stored);
+    const cell = renderCell(stored, field);
 
     expect(
       chip.text,
@@ -187,10 +199,10 @@ describe('the summary chip reads the declared percent source (objectui#9071)', (
    * edited that row's expected string to match.
    */
   it('never states one percentage in the chip and another in the cell', () => {
-    const disagreements = ROWS.filter(({ stored }) => {
-      const chip = renderChip(stored);
+    const disagreements = ROWS.filter(({ stored, field }) => {
+      const chip = renderChip(stored, field);
       cleanup();
-      const cell = renderCell(stored);
+      const cell = renderCell(stored, field);
       cleanup();
       return chip.text !== cell.text || chip.bar !== cell.bar;
     });
@@ -220,9 +232,9 @@ describe('the summary chip reads the declared percent source (objectui#9071)', (
    * `summaryChip.percentConvention-9167.test.tsx`.
    */
   it('agrees on the magnitude, and since objectui#9167 on the spelling too', () => {
-    const chip = renderChip(12.3);
+    const chip = renderChip(12.3, WHOLE);
     cleanup();
-    const cell = renderCell(12.3);
+    const cell = renderCell(12.3, WHOLE);
 
     expect(chip.bar, 'the scaling agrees — this is what objectui#9071 repaired').toBe(cell.bar);
     expect(chip.bar, 'both draw 12.3 points').toBe(12.3);

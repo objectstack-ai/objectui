@@ -93,6 +93,18 @@ afterEach(() => {
  */
 const FIELD: FieldMetadata = { name: 'ratio', label: 'Ratio', type: 'percent' };
 
+/**
+ * objectui#11475 — both places read the field's DECLARED storage now (the
+ * spec's `percentScaleOf`: a fraction unless the field declares a `max` above
+ * 1), not a storage guessed from the value's size. `FIELD` declares no `max`,
+ * so it stores a fraction. The rows below whose stored value is percentage
+ * POINTS (`1`, `1.5`, `12.3`, `250`, `-5`, `1234.5`) are read on this field,
+ * which declares whole-point storage the way a whole-stored field does. Each
+ * row's text, and the chip-against-cell agreement this file pins, are as
+ * before.
+ */
+const WHOLE: FieldMetadata = { ...FIELD, max: 10000 } as FieldMetadata;
+
 interface Rendered {
   /** Exactly what the surface put in the DOM, byte for byte. */
   raw: string;
@@ -187,6 +199,8 @@ interface Row {
   text: string;
   /** What the chip printed BEFORE this card — a bare `%` on the full number. */
   was?: string;
+  /** The field the row's value is stored on; `FIELD` (a fraction) when absent. */
+  field?: FieldMetadata;
 }
 
 /**
@@ -197,16 +211,16 @@ interface Row {
  */
 const MOVED_ROWS: Row[] = [
   { what: 'width — a stored ratio rounds to the field default of 0', locale: 'en', stored: 0.123, text: '12%', was: '12.3%' },
-  { what: 'width — already in points, still rounded', locale: 'en', stored: 12.3, text: '12%', was: '12.3%' },
-  { what: 'width — rounding is half-expand, as the cell has always been', locale: 'en', stored: 1.5, text: '2%', was: '1.5%' },
-  { what: 'width — three decimals collapse to the declared 0', locale: 'en', stored: 1.005, text: '1%', was: '1.005%' },
+  { what: 'width — already in points, still rounded', locale: 'en', stored: 12.3, text: '12%', was: '12.3%', field: WHOLE },
+  { what: 'width — rounding is half-expand, as the cell has always been', locale: 'en', stored: 1.5, text: '2%', was: '1.5%', field: WHOLE },
+  { what: 'width — three decimals collapse to the declared 0', locale: 'en', stored: 1.005, text: '1%', was: '1.005%', field: WHOLE },
   // ⭐ THE FOUR-DIGIT ROW. `1234.5%` is wrong in en-US as well as in German,
   // which is the reasoning objectui#4553 recorded when it made this same move
   // for the list cell.
-  { what: 'grouping — four digits, the row a same-locale pair cannot reach', locale: 'en', stored: 1234.5, text: '1,235%', was: '1234.5%' },
+  { what: 'grouping — four digits, the row a same-locale pair cannot reach', locale: 'en', stored: 1234.5, text: '1,235%', was: '1234.5%', field: WHOLE },
   // ⭐ THE NON-`en` ROWS. The affix and the marks are the locale's own.
   { what: 'affix — de-DE separates the sign with its own space', locale: 'de-DE', stored: 0.25, text: '25 %', was: '25%' },
-  { what: 'affix + marks — de-DE swaps the grouping and decimal marks', locale: 'de-DE', stored: 1234.5, text: '1.235 %', was: '1234.5%' },
+  { what: 'affix + marks — de-DE swaps the grouping and decimal marks', locale: 'de-DE', stored: 1234.5, text: '1.235 %', was: '1234.5%', field: WHOLE },
   // ⭐ The row no bare-append implementation can produce, at any width.
   { what: 'affix — tr-TR puts the sign in FRONT', locale: 'tr-TR', stored: 0.25, text: '%25', was: '25%' },
 ];
@@ -219,16 +233,16 @@ const MOVED_ROWS: Row[] = [
 const UNMOVED_ROWS: Row[] = [
   { what: 'CONTROL — the band the two places already agreed on', locale: 'en', stored: 0.25, text: '25%' },
   { what: 'CONTROL — zero', locale: 'en', stored: 0, text: '0%' },
-  { what: 'CONTROL — exactly 1, the fork objectui#9071 settled', locale: 'en', stored: 1, text: '1%' },
-  { what: 'CONTROL — a large value, above the bar track', locale: 'en', stored: 250, text: '250%' },
-  { what: 'CONTROL — a negative below -1, passed through by the shared scaling', locale: 'en', stored: -5, text: '-5%' },
+  { what: 'CONTROL — exactly 1, the fork objectui#9071 settled', locale: 'en', stored: 1, text: '1%', field: WHOLE },
+  { what: 'CONTROL — a large value, above the bar track', locale: 'en', stored: 250, text: '250%', field: WHOLE },
+  { what: 'CONTROL — a negative below -1, passed through by the shared scaling', locale: 'en', stored: -5, text: '-5%', field: WHOLE },
 ];
 
 describe('the summary chip takes the percent CONVENTION from the declared source (objectui#9167)', () => {
   it.each(MOVED_ROWS)(
     '$what [$locale]: a stored $stored moves from $was to $text, which is what the cell already said',
-    ({ locale, stored, text, was }) => {
-      const { chip, cell } = bothPlaces(stored, locale);
+    ({ locale, stored, text, was, field }) => {
+      const { chip, cell } = bothPlaces(stored, locale, field ?? FIELD);
 
       expect(
         chip.text,
@@ -242,8 +256,8 @@ describe('the summary chip takes the percent CONVENTION from the declared source
     },
   );
 
-  it.each(UNMOVED_ROWS)('$what [$locale]: a stored $stored still reads $text in BOTH places', ({ locale, stored, text }) => {
-    const { chip, cell } = bothPlaces(stored, locale);
+  it.each(UNMOVED_ROWS)('$what [$locale]: a stored $stored still reads $text in BOTH places', ({ locale, stored, text, field }) => {
+    const { chip, cell } = bothPlaces(stored, locale, field ?? FIELD);
 
     expect(chip.text, 'the chip and the cell agree, as they did before this card').toBe(cell.text);
     expect(chip.text, 'and nothing about this value moved').toBe(text);
@@ -255,8 +269,8 @@ describe('the summary chip takes the percent CONVENTION from the declared source
    * edited that row's expected string to match.
    */
   it('never states one percentage in the chip and another in the cell, for any row above', () => {
-    const disagreements = [...MOVED_ROWS, ...UNMOVED_ROWS].filter(({ stored, locale }) => {
-      const { chip, cell } = bothPlaces(stored, locale);
+    const disagreements = [...MOVED_ROWS, ...UNMOVED_ROWS].filter(({ stored, locale, field }) => {
+      const { chip, cell } = bothPlaces(stored, locale, field ?? FIELD);
       return chip.text !== cell.text;
     });
     expect(
@@ -301,12 +315,12 @@ describe('the summary chip takes the percent CONVENTION from the declared source
    * it did: it is how objectui#9295 found this third surface.
    */
   it.each([
-    { stored: 0.25, text: '25.00%' },
-    { stored: 12.3, text: '12.30%' },
-    { stored: 1234.5, text: '1,234.50%' },
-    { stored: 1.005, text: '1.01%' },
-  ])('reads the field\'s declared width: a stored $stored at scale 2 reads $text', ({ stored, text }) => {
-    const field = { ...FIELD, scale: 2 } as FieldMetadata;
+    { stored: 0.25, text: '25.00%', base: FIELD },
+    { stored: 12.3, text: '12.30%', base: WHOLE },
+    { stored: 1234.5, text: '1,234.50%', base: WHOLE },
+    { stored: 1.005, text: '1.01%', base: WHOLE },
+  ])('reads the field\'s declared width: a stored $stored at scale 2 reads $text', ({ stored, text, base }) => {
+    const field = { ...base, scale: 2 } as FieldMetadata;
     const { chip, cell } = bothPlaces(stored, 'en', field);
 
     expect(chip.text, 'the chip honours the declared width').toBe(text);
@@ -320,10 +334,10 @@ describe('the summary chip takes the percent CONVENTION from the declared source
    * read the decimal-places one.
    */
   it.each([
-    { stored: 0.25, text: '25.00%' },
-    { stored: 12.3, text: '12.30%' },
-  ])('ignores `precision` beside a declared `scale`: $stored reads $text', ({ stored, text }) => {
-    const field = { ...FIELD, precision: 10, scale: 2 } as FieldMetadata;
+    { stored: 0.25, text: '25.00%', base: FIELD },
+    { stored: 12.3, text: '12.30%', base: WHOLE },
+  ])('ignores `precision` beside a declared `scale`: $stored reads $text', ({ stored, text, base }) => {
+    const field = { ...base, precision: 10, scale: 2 } as FieldMetadata;
     const { chip, cell } = bothPlaces(stored, 'en', field);
 
     expect(chip.text, 'the chip pads to `scale`, never to `precision`').toBe(text);
@@ -347,8 +361,11 @@ describe('the summary chip takes the percent CONVENTION from the declared source
    * would make it disagree with the cell's bar, which rounds nothing.
    */
   it('draws the same unrounded magnitude it always did, on both moved and unmoved rows', () => {
-    for (const stored of [0.123, 12.3, 1.5, 1234.5, 0.25, 1, 250, -5]) {
-      const { chip, cell } = bothPlaces(stored, 'en');
+    for (const [stored, field] of [
+      [0.123, FIELD], [12.3, WHOLE], [1.5, WHOLE], [1234.5, WHOLE],
+      [0.25, FIELD], [1, WHOLE], [250, WHOLE], [-5, WHOLE],
+    ] as const) {
+      const { chip, cell } = bothPlaces(stored, 'en', field);
       expect(chip.bar, `the chip draws what the cell draws for ${stored}`).toBe(cell.bar);
     }
   });
@@ -368,7 +385,7 @@ describe('the summary chip takes the percent CONVENTION from the declared source
               type: 'record:details',
               objectName: 'account',
               summaryFields: ['ratio'],
-              fields: [{ ...FIELD }],
+              fields: [{ ...WHOLE }],
               data: { id: 'A9', name: 'Acme', ratio: 1234.5 },
             } as unknown as DetailViewSchema
           }

@@ -119,7 +119,13 @@ describe('ObjectDataTable type-aware cells', () => {
       {
         fields: {
           amount: { type: 'number' },
-          probability: { type: 'number' },
+          // objectui#11475 — `60` means 60%, so the field is declared the way
+          // CRM declares `probability`: a percent storing whole points
+          // (`max: 100`). A plain `number` carries no percent storage, and a
+          // `%` pattern alone states a fraction (numeral's reading), so this
+          // fixture used to pass only because the storage was guessed from the
+          // value's size.
+          probability: { type: 'percent', min: 0, max: 100 },
         },
       },
     );

@@ -322,15 +322,25 @@ describe('the retired population is measured off the shipped tree (objectui#7340
     // decision batch #91 on `object-kanban`. The Quick Add pair stays on
     // `KanbanRenderer`'s props, which are not a `@object-ui/types` document
     // interface, so they are not in this census's population.
+    //
+    // ⭐ 29 → 30, and `designer.ts` enters this census for the first time:
+    // objectui#11434 tombstoned `DataModelRelationship.onUpdate` on both faces.
+    // NOT a handler key — it carried a referential-action VOCABULARY (`'cascade'`
+    // and three more literals; the platform's relationship contract has no update
+    // behaviour, so the seat retired it) — but the same `on*?: never` shape this
+    // name-shaped census reads, so the move is recorded here the way objectui#7068's
+    // `onSuccess` / `onFailure` were. Its sibling `onDelete` keeps its vocabulary
+    // and counts LIVE.
     const split: Record<string, number> = {};
     for (const m of RETIRED) split[m.file] = (split[m.file] ?? 0) + 1;
     expect({ total: RETIRED.length, split }).toEqual({
-      total: 29,
+      total: 30,
       split: {
         'ai.ts': 2,
         'complex.ts': 2,
         'crud.ts': 3,
         'data-display.ts': 4,
+        'designer.ts': 1,
         'feedback.ts': 1,
         'form.ts': 8,
         'navigation.ts': 3,
@@ -384,6 +394,9 @@ describe('the retired population is measured off the shipped tree (objectui#7340
       'onSelectChange',
       'onSendMessage',
       'onSlideChange',
+      // objectui#11434 — `DataModelRelationship.onUpdate`, a retired referential
+      // action, not a handler; no shipped interface declares the name otherwise.
+      'onUpdate',
     ]);
   });
 });

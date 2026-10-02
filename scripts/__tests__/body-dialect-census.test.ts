@@ -310,7 +310,7 @@ describe('the `body` consumers the ruling does not enumerate', () => {
       'packages/components/src/renderers/complex/carousel.tsx',
       'packages/components/src/renderers/complex/resizable.tsx',
       'packages/components/src/renderers/complex/scroll-area.tsx',
-      'packages/runner/src/App.tsx',
+      // packages/runner/src/App.tsx left this list: objectui#11450 deleted the runner's fallback page, so that producer is gone.
     ];
 
     for (const producer of migrated) {

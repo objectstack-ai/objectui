@@ -179,10 +179,10 @@ before the grid runs, so `ObjectGridSchema` (`@object-ui/types`) is the node as 
 grid reads it — and the type of `<ObjectGrid>`'s `schema` prop.
 
 ```typescript
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridBlockNode } from '@object-ui/types';
 import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const grid: BaseSchema = {
+const grid: ObjectGridBlockNode = {
   type: 'object-grid',
   properties: {
     objectName: 'users',
@@ -377,10 +377,10 @@ up leaking `columns="[object Object]"` into the DOM instead of drawing a table
 ### Basic Grid
 
 ```typescript
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridBlockNode } from '@object-ui/types';
 import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: BaseSchema = {
+const schema: ObjectGridBlockNode = {
   type: 'object-grid',
   properties: {
     objectName: 'users',
@@ -407,10 +407,10 @@ fixtures, tests — give it a `ViewData` with the `value` provider. The rows go
 under `items`; a bare array is the deprecated `staticData` spelling.
 
 ```typescript
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridBlockNode } from '@object-ui/types';
 import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: BaseSchema = {
+const schema: ObjectGridBlockNode = {
   type: 'object-grid',
   properties: {
     objectName: 'users',
@@ -491,10 +491,10 @@ Not covered:
 ### Selectable Grid
 
 ```typescript
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridBlockNode } from '@object-ui/types';
 import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: BaseSchema = {
+const schema: ObjectGridBlockNode = {
   type: 'object-grid',
   properties: {
     objectName: 'users',
@@ -515,10 +515,10 @@ see [Row callbacks are component props](#row-callbacks-are-component-props).
 ### Grid with Pagination
 
 ```typescript
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridBlockNode } from '@object-ui/types';
 import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: BaseSchema = {
+const schema: ObjectGridBlockNode = {
   type: 'object-grid',
   properties: {
     objectName: 'users',
@@ -609,7 +609,7 @@ host installs once, above the whole tree:
 import { SchemaRendererProvider, SchemaRenderer } from '@object-ui/react';
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
 import '@object-ui/plugin-grid';
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridBlockNode } from '@object-ui/types';
 import type { ObjectGridProps } from '@objectstack/spec/ui';
 
 const dataSource = createObjectStackAdapter({
@@ -617,7 +617,7 @@ const dataSource = createObjectStackAdapter({
   token: 'your-auth-token',
 });
 
-const schema: BaseSchema = {
+const schema: ObjectGridBlockNode = {
   type: 'object-grid',
   properties: {
     objectName: 'users',
@@ -662,10 +662,10 @@ Columns sort by default. `sortable` is a **per-column** key, used to turn a colu
 off; the grid-level `sort` declares the order the grid opens with.
 
 ```typescript
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridBlockNode } from '@object-ui/types';
 import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: BaseSchema = {
+const schema: ObjectGridBlockNode = {
   type: 'object-grid',
   properties: {
     objectName: 'users',
@@ -685,10 +685,10 @@ baked into the metadata, and a toolbar search over the fields named in
 `searchableFields`.
 
 ```typescript
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridBlockNode } from '@object-ui/types';
 import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: BaseSchema = {
+const schema: ObjectGridBlockNode = {
   type: 'object-grid',
   properties: {
     objectName: 'users',
@@ -709,10 +709,10 @@ themselves live in the object's action set, so the same action behaves identical
 wherever it is offered. They are `string[]`, not inline definitions with callbacks.
 
 ```typescript
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridBlockNode } from '@object-ui/types';
 import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: BaseSchema = {
+const schema: ObjectGridBlockNode = {
   type: 'object-grid',
   properties: {
     objectName: 'users',
@@ -805,10 +805,10 @@ indistinguishable from a broken build (objectui#8674).
 Enable inline cell editing for quick updates:
 
 ```typescript
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridBlockNode } from '@object-ui/types';
 import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: BaseSchema = {
+const schema: ObjectGridBlockNode = {
   type: 'object-grid',
   properties: {
     objectName: 'users',
@@ -856,10 +856,10 @@ The schema half is just `editable` — the save/cancel affordances appear on the
 own once a row has pending changes:
 
 ```typescript
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridBlockNode } from '@object-ui/types';
 import type { ObjectGridProps } from '@objectstack/spec/ui';
 
-const schema: BaseSchema = {
+const schema: ObjectGridBlockNode = {
   type: 'object-grid',
   properties: {
     objectName: 'products',

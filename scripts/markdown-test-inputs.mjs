@@ -262,12 +262,18 @@ export const ADJUDICATED = new Map([
   // every fence of every page under `content/docs`, in any language, and renders
   // each `type: "page"` node that authors a heading -- so an edit to any docs
   // page's page fences IS an edit to this test's input. It also walks
-  // `examples` for page documents, which are not markdown.
+  // `examples` for page documents, which are not markdown. objectui#11450 adds
+  // every `README.md` under `packages/`, at any depth, read the same way; the
+  // tree is declared rather than its READMEs, so a README added tomorrow is on
+  // the trigger the day it lands. It does not read the root `README.md`: the
+  // scanner offers it because a bare `README.md` literal resolves against every
+  // ancestor directory.
   [
     'packages/components/src/__tests__/page-node-headings-drawn-11436.test.tsx',
     {
-      reads: ['content/docs/**'],
-      walker: 'markdown-tree: walks `content/docs` and parses every fence of every `.md`/`.mdx` under it; its walk of `examples` collects JSON and script sources, not markdown',
+      reads: ['content/docs/**', 'packages/**'],
+      notRead: ['README.md'],
+      walker: 'markdown-tree: walks `content/docs` and parses every fence of every `.md`/`.mdx` under it, and walks `packages` for every `README.md` and parses its fences; its walk of `examples` collects JSON and script sources, not markdown',
     },
   ],
   // The four-leg render pin for objectui#8021. Leg A is READ OFF

@@ -68,10 +68,10 @@ bag member, as the spec's own page component does (objectui#10859).
 
 ```ts
 import '@object-ui/plugin-map';
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectMapBlockNode } from '@object-ui/types';
 
 // Object-bound: the markers are the records the query returns.
-const schema: BaseSchema = {
+const schema: ObjectMapBlockNode = {
   type: 'object-map',
   properties: {
     objectName: 'stores',
@@ -88,9 +88,9 @@ const schema: BaseSchema = {
 A literal record array instead of a query, with the same `map` block:
 
 ```ts
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectMapBlockNode } from '@object-ui/types';
 
-const schema: BaseSchema = {
+const schema: ObjectMapBlockNode = {
   type: 'object-map',
   properties: {
     staticData: [

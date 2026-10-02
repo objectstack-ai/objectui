@@ -127,6 +127,7 @@ that do configure it are:
 ```json
 {
   "type": "page",
+  "pageType": "home",
   "title": "Dashboard",
   "children": {
     "type": "grid",

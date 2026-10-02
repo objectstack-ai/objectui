@@ -131,6 +131,16 @@ restated by hand:
 - `PublicBlockNode`: every public block the zod face arms (`element:text`,
   `page:tabs`, `action:button`, ...), each the arm's own input.
   `PublicBlockNodeOf<'element:text'>` picks one.
+- `ObjectQLPublicBlockNode`: every ObjectQL block the zod face arms in
+  `ObjectQLPublicBlockComponentSchema`, each the arm's own input. Each is also
+  exported by name: `ObjectGridBlockNode`, `ObjectFormBlockNode`,
+  `ObjectMapBlockNode`, `ObjectGanttBlockNode`, `ObjectChartBlockNode`,
+  `ObjectMetricBlockNode`, `ObjectTimelineBlockNode` and
+  `ObjectMasterDetailFormBlockNode`.
+- `FlexBlockNode`: an authored `flex` node, its layout props and its child
+  list in the bag. `flex` and `object-chart` have no `ComponentPropsMap` row,
+  so each bag is the flat type's own members (`FlexSchema`,
+  `ObjectChartSchema`), closed like a row.
 - `ElementTextInputNode` and `ElementRecordPickerNode`: the spec rows of
   `element:text_input` and `element:record_picker`.
 - `PageDocumentNode`: a stored page document under its page kind
@@ -403,7 +413,7 @@ function render(schema: AnySchema) {
 Components can nest indefinitely:
 
 ```typescript
-import type { BaseSchema, ContainerSchema, FlexLayoutProps, SidebarSchema } from '@object-ui/types';
+import type { ContainerSchema, FlexBlockNode, HeaderBarSchema, SidebarSchema } from '@object-ui/types';
 
 // The two leaves are annotated so the nesting below is checked against the
 // shipped types rather than absorbed by `BaseSchema`'s index signature.
@@ -418,22 +428,24 @@ const main: ContainerSchema = {
 };
 
 // An authored `flex` node takes its props, the child list included, in its
-// `properties` bag; `satisfies FlexLayoutProps` checks each bag.
-const page: BaseSchema = {
+// `properties` bag. `FlexBlockNode` is that node, its bag closed. The bag's
+// child list is `unknown[]`, as `FlexBlockSchema` declares it, so each child
+// written inline names its own type with `satisfies`.
+const page: FlexBlockNode = {
   type: 'flex',
   properties: {
     direction: 'col',
     children: [
-      { type: 'header-bar', crumbs: [{ label: 'My App' }] },
+      { type: 'header-bar', crumbs: [{ label: 'My App' }] } satisfies HeaderBarSchema,
       {
         type: 'flex',
         properties: {
           direction: 'row',
           children: [sidebar, main]
-        } satisfies FlexLayoutProps
-      }
+        }
+      } satisfies FlexBlockNode
     ]
-  } satisfies FlexLayoutProps
+  }
 };
 ```
 

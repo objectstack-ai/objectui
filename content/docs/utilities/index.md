@@ -165,7 +165,7 @@ through `@object-ui/react`'s `SchemaRendererProvider`:
 ```tsx
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectGridBlockNode } from '@object-ui/types';
 
 const dataSource = createObjectStackAdapter({
   baseUrl: 'https://api.example.com',
@@ -173,7 +173,7 @@ const dataSource = createObjectStackAdapter({
 });
 
 // The block's props go in its `properties` bag, as `@objectstack/spec` declares them.
-const schema: BaseSchema = {
+const schema: ObjectGridBlockNode = {
   type: 'object-grid',
   properties: {
     objectName: 'account',

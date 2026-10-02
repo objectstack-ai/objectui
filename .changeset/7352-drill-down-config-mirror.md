@@ -68,3 +68,13 @@ change's reading, not the release's, and that mirror's `drillDown` member refuse
 the key rather than mirroring it. `.changeset/10932-pivot-drilldown-retired.md`
 (PR objectui#10972) states what ships; the text above is kept as the reading of
 this change.
+
+⚠️ **Dated note, 2026-10-02 — `object-pivot`'s arm references this mirror — objectui#11440.**
+Later in this same release `object-pivot` gained an arm in `@object-ui/types/zod`
+(`ObjectPivotBlockSchema`), whose `properties.drillDown` extends this entry's
+`DrillDownConfigSchema` per block, with `mode` refused by name (objectui#10685). So "for the
+release the referencing declarations are the opening paragraph's two" in the 2026-09-29 note
+above no longer holds: they are three, `ChartSchema`, `ObjectDataTableSchema` and the
+`object-pivot` arm, the last two each extending the mirror per block.
+`.changeset/11440-arm-passing-types.md` states what ships. The rest of this entry is kept as the
+reading of this change.

@@ -14,28 +14,24 @@
  *     objectstack's example apps author with `definePage`;
  *   - the `app-schema-renderer` node the governed mobile guide teaches, its
  *     `mobileNavMode` key (`skills/objectui/guides/mobile.md`);
- *   - the plugin-detail README's `detail-view` document, whose first tab's
- *     content is a `detail-section` node.
+ *   - the plugin-detail package's own `detail-view` example, whose first tab's
+ *     content is a `detail-section` node (its "With Tabs" section).
  *
- * The README document is TSX, and its second tab hands `record:activity` a
+ * That example is TSX, and its second tab hands `record:activity` a
  * host feed (`items: activityData`), which objectui#11321 refuses by name in a
- * JSON document — that refusal names this README as the TSX composition it
- * stays legal in. So the row below validates the README's first tab as
- * written, and the second row holds the host-feed refusal as the ONLY issue
+ * JSON document — that refusal names this example as the TSX composition it
+ * stays legal in. So the row below validates the example's first tab as
+ * written (restated here, not read from the page, so this file reads no
+ * markdown), and the second row holds the host-feed refusal as the ONLY issue
  * left on the full document.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { fileURLToPath } from 'node:url';
 
 import { validate } from '../commands/validate.js';
-
-/** Rooted on this file, never on `process.cwd()`. */
-const HERE = dirname(fileURLToPath(import.meta.url));
-const PLUGIN_DETAIL_README = join(HERE, '..', '..', '..', 'plugin-detail', 'README.md');
 
 /** See `validate-root-path-line.test.ts` — the escape byte is never spelled. */
 const ANSI = new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'g');
@@ -79,7 +75,7 @@ async function run(name: string, document: unknown): Promise<string> {
   return out.join('\n').replace(ANSI, '');
 }
 
-const README_DETAIL_SECTION = {
+const EXAMPLE_DETAIL_SECTION = {
   type: 'detail-section',
   fields: [
     { name: 'description', label: 'Description' },
@@ -118,18 +114,14 @@ describe('objectui validate — the documents objectui#11440 arms', () => {
     expect(exitCodes).toEqual([1]);
   });
 
-  it('validates the plugin-detail README\'s `detail-view` with its `detail-section` tab', async () => {
-    // Lit control on the source: the README still teaches this node, in this shape.
-    const readme = readFileSync(PLUGIN_DETAIL_README, 'utf8');
-    expect(readme).toContain("type: 'detail-section'");
-    expect(readme).toContain("{ name: 'employees', label: 'Employee Count' }");
+  it('validates the plugin-detail example\'s `detail-view` with its `detail-section` tab', async () => {
     const text = await run('detail-view-section', {
       type: 'detail-view',
       title: 'Account: Acme Corp',
       objectName: 'accounts',
       resourceId: '12345',
       fields: [{ name: 'name', label: 'Account Name' }, { name: 'industry', label: 'Industry' }],
-      tabs: [{ key: 'details', label: 'Details', content: README_DETAIL_SECTION }],
+      tabs: [{ key: 'details', label: 'Details', content: EXAMPLE_DETAIL_SECTION }],
       showEdit: true,
       showDelete: true,
     });
@@ -138,14 +130,14 @@ describe('objectui validate — the documents objectui#11440 arms', () => {
     expect(exitCodes).toEqual([0]);
   });
 
-  it('on the README\'s full document, the only issue left is the host feed on `record:activity` (objectui#11321)', async () => {
+  it('on the example\'s full document, the only issue left is the host feed on `record:activity` (objectui#11321)', async () => {
     const text = await run('detail-view-full', {
       type: 'detail-view',
       title: 'Account: Acme Corp',
       objectName: 'accounts',
       resourceId: '12345',
       tabs: [
-        { key: 'details', label: 'Details', content: README_DETAIL_SECTION },
+        { key: 'details', label: 'Details', content: EXAMPLE_DETAIL_SECTION },
         { key: 'activity', label: 'Activity', badge: '12', content: { type: 'record:activity', items: [] } },
       ],
     });

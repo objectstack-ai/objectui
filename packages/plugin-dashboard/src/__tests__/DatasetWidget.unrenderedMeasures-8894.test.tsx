@@ -54,7 +54,6 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
-import { MIGRATIONS_BY_MAJOR } from '@objectstack/spec';
 import { ChartTypeSchema as SpecChartTypeSchema } from '@objectstack/spec/ui';
 import { DashboardWidgetSchema } from '@object-ui/types/zod';
 import { DatasetWidget } from '../DatasetWidget';
@@ -87,6 +86,29 @@ const source = (rows: Record<string, unknown>[]) => ({
 
 /** The ADR-0087 entry the diagnostic points to, as the message spells it. */
 const ENTRY_ID = 'dashboard-widget-metric-family-multi-measure-refused';
+
+type SemanticEntry = { id: string; replacement: string };
+type MigrationRegistry = Readonly<Record<number, { semantic: readonly SemanticEntry[] }>>;
+
+/**
+ * The installed spec's ADR-0087 registry, read from wherever this spec shape
+ * exports it. The pinned `@objectstack/spec` 17.5.0 exports `MIGRATIONS_BY_MAJOR`
+ * from the package root and has no `./migrations` subpath; objectstack `main`
+ * moved the chain to `@objectstack/spec/migrations` (its `migrations-entry-split`
+ * entry: same names, new path), which is what the Spec Main Shape Gate compiles
+ * this file against. No static import names a module both shapes carry, so the
+ * root is asked first and the subpath only when the root no longer has it. The
+ * subpath specifier is held in a variable so neither shape's type-check resolves
+ * a module the other lacks. Once the pin passes the split this becomes a plain
+ * static import from the subpath.
+ */
+async function installedMigrationRegistry(): Promise<MigrationRegistry> {
+  const root = (await import('@objectstack/spec')) as Record<string, unknown>;
+  if (root.MIGRATIONS_BY_MAJOR) return root.MIGRATIONS_BY_MAJOR as MigrationRegistry;
+  const migrationsEntry = '@objectstack/spec/migrations';
+  const moved = (await import(/* @vite-ignore */ migrationsEntry)) as Record<string, unknown>;
+  return moved.MIGRATIONS_BY_MAJOR as MigrationRegistry;
+}
 
 /** The duly#109 tile, verbatim from the card's repro block — a stored three-measure metric. */
 const THREE_MEASURE_TILE = {
@@ -153,7 +175,8 @@ describe('objectui#8894 — the dropped measures speak', () => {
     // The pointer cannot dangle: the id is read back out of the installed
     // spec's migration registry, and the entry carries the `replacement` the
     // message sends the reader to.
-    const entry = Object.values(MIGRATIONS_BY_MAJOR)
+    const registry = await installedMigrationRegistry();
+    const entry = Object.values(registry)
       .flatMap((step) => step.semantic)
       .find((e) => e.id === ENTRY_ID);
     expect(entry, `${ENTRY_ID} is not in the installed spec's ADR-0087 registry`).toBeDefined();

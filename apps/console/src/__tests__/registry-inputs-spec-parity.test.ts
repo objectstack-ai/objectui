@@ -792,7 +792,7 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
 const OBJECTUI_11111_LEDGER_CAPS = {
   unjudgedBlocks: 0, // objectui#11168 loaded and judged all four: slice 3 object-map and object-tree, slice 4 object-gantt, slice 5 object-timeline
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
-  unpublishedKeys: 3, // objectui#11168: 3 (action:button endpoint + undoable, action:icon endpoint); objectui#8652: 0 and objectui#8649: 0 (each struck by its landing)
+  unpublishedKeys: 1, // objectui#11168: 1 (action:button undoable; the two `endpoint` entries left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0 and objectui#8649: 0 (each struck by its landing)
   refusedArms: 0, // objectui#11168: slice 2 narrowed element:definition-list.columns, slice 3 object-form.layout
   memberPins: 0, // objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3
 } as const;
@@ -1408,27 +1408,19 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
    */
   // objectui#11168 slice 1 measured every `action:button` / `action:icon` key
   // below through the real `SchemaRenderer` and `ActionRunner` and DECLARED the
-  // ones honoured on the block path — all but the three still listed here,
-  // which the slice held back with its measurement and a question for the
-  // card. The pins are
+  // ones honoured on the block path — all but three, which the slice held
+  // back with its measurement and a question for the card. The pins are
   // `packages/components/src/renderers/action/__tests__/action-button-icon-inputs-11168.test.tsx`.
-  ...owedEntries(
-    'action:button',
-    ['endpoint'],
-    'objectui#11168',
-    'A SPEC KEY HELD UNPUBLISHED AFTER MEASUREMENT (slice 1): the block forwards `endpoint` and the runner\'s built-in `api` executor reads it, but the console registers its own `api` handler, which reads `target` and never `endpoint` — so on the console an `api` action with an `endpoint` sends nothing there.',
-  ),
+  // Two of the three, `endpoint` on `action:button` and on `action:icon`, left
+  // at the 17.6.0 bump (objectui#11438): 17.6.0 refuses `endpoint` on both
+  // blocks (objectstack `b3917d90`, the rename to `target`), so the entries no
+  // longer named a key the spec declares and `every unpublished-key exemption
+  // names a key the spec really declares` went red on them. One is left.
   ...owedEntries(
     'action:button',
     ['undoable'],
     'objectui#11168',
     'A SPEC KEY HELD UNPUBLISHED AFTER MEASUREMENT (slice 1): the block forwards `undoable`, but the runner\'s `operation: update` path and the console runtime offer Undo only with a host `_rowRecord` stash this block never writes; only the record page\'s own `api` handler honours it.',
-  ),
-  ...owedEntries(
-    'action:icon',
-    ['endpoint'],
-    'objectui#11168',
-    'A SPEC KEY HELD UNPUBLISHED AFTER MEASUREMENT (slice 1): the block forwards `endpoint` and the runner\'s built-in `api` executor reads it, but the console registers its own `api` handler, which reads `target` and never `endpoint` — so on the console an `api` action with an `endpoint` sends nothing there.',
   ),
   // `action:group`'s `location` / `visible` and `action:menu`'s `size` /
   // `visible` stood here until objectui#11168 slice 1 measured each against its

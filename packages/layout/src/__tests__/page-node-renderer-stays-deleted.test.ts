@@ -72,7 +72,8 @@ describe('the layout page-node renderer stays deleted (objectui#3223)', () => {
 
   it('does not register the `page` key — that owner is @object-ui/components', () => {
     const barrel = readFileSync(join(SRC, 'index.ts'), 'utf8');
-    // `page:card` / `page-header` are this package's own keys and stay.
+    // `page:card` is this package's own key and stays (the `page-header` alias
+    // was retired by objectui#10859 batch 8).
     expect(barrel).not.toMatch(/ComponentRegistry\.register\(\s*['"]page['"]/);
   });
 

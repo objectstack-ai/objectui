@@ -79,7 +79,11 @@ const PROTOCOL_COMPONENTS = [
   'field:json', 'field:address', 'field:location',
 
   // 12. Page Components
-  'page:header', 'page-header', // Added headers
+  // `page-header` left with its `@object-ui/layout` registration (objectui#10859
+  // batch 8, phase 2c): it was never a protocol page block — the spec's
+  // `PageComponentType` member is `page:header` — and a placeholder here would
+  // have kept the retired bare key registered in every host that opts in.
+  'page:header',
   'page:footer', 'page:tabs', 'page:accordion', 'page:card', 'page:sidebar',
   'record:details', 'record:highlights', 'record:related_list', 'record:activity', 
   'record:chatter', 'record:path',

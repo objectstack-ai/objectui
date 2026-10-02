@@ -33,7 +33,8 @@
  *
  * Silence is the pre-repair reading, so a test that only asserts warnings could
  * pass against a command that warns about everything. Two fulfilled variants
- * from the SAME stub sweep — `bar-chart` and `pie-chart` — must stay silent,
+ * from the SAME stub sweep — `bar-chart` and `chart:bar` (the `pie-chart`
+ * control until objectui#10859 batch 8 retired that key) — must stay silent,
  * and so must the spelling the corrected documentation now teaches,
  * `{ "type": "chart", "chartType": "line" }`. Each is checked on its own: all
  * three are non-zero readings (a real registered key, judged), not an absence
@@ -118,7 +119,7 @@ describe('objectui#8760 — `objectui check` names the retired chart keys', () =
 });
 
 describe('objectui#8760 — CONTROL: what still passes, each verified on its own', () => {
-  it.each(['bar-chart', 'pie-chart'])(
+  it.each(['bar-chart', 'chart:bar'])(
     '`%s` — a fulfilled variant from the same sweep — stays silent',
     async (type) => {
       // Individually non-zero on both sides: each is a key the charts plugin

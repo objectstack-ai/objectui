@@ -127,8 +127,14 @@ const CHART_TYPES = new Set<string>([
  * `CHART_TYPES` answers "is this bare `type` a chart FAMILY" — `'pie'`,
  * `'scatter'`, the spec's own vocabulary. These are something else: they are
  * SDUI component discriminators, the keys `index.tsx` hands
- * `ComponentRegistry.register`. `type: 'pie-chart'` does not name a family in
+ * `ComponentRegistry.register`. `type: 'chart:bar'` does not name a family in
  * any spec; it names a registration whose whole purpose is to draw one.
+ *
+ * Since objectui#10859 batch 8 the table holds that one row: the
+ * `pie-chart`, `donut-chart`, `radar-chart` (phase 2c) and `scatter-chart`
+ * (phase 2b) keys were retired with their rows, and those families are reached
+ * as `{ type: 'chart', chartType: … }`. The history below is why the table
+ * exists at all.
  *
  * ## Why the derivation exists at all (objectui#7401)
  *
@@ -163,19 +169,18 @@ const CHART_TYPES = new Set<string>([
  */
 export const CHART_TYPE_KEYWORD_FAMILIES: ReadonlyMap<string, ChartFamily> = new Map<string, ChartFamily>([
   ['chart:bar', 'bar'],
-  ['pie-chart', 'pie'],
-  ['donut-chart', 'donut'],
-  ['radar-chart', 'radar'],
-  // ⛔ `scatter-chart` is RETIRED (objectui#10859 batch 8, phase 2b): its
-  // registration left `index.tsx` in the same change, and objectui#7401's
-  // pin fails on a row with no registration. Scatter is drawn by
-  // `{ type: 'chart', chartType: 'scatter' }`.
+  // ⛔ `pie-chart`, `donut-chart`, `radar-chart` (objectui#10859 batch 8,
+  // phase 2c) and `scatter-chart` (phase 2b) are RETIRED: each registration
+  // left `index.tsx` with its row, and objectui#7401's pin fails on a row with
+  // no registration. Those families are drawn by
+  // `{ type: 'chart', chartType: 'pie' | 'donut' | 'radar' | 'scatter' }`.
 ]);
 
 /**
  * The namespace `index.tsx` registers every keyword above under. The SDUI path
- * reaches a registration by either spelling — bare (`pie-chart`) or namespaced
- * (`plugin-charts:pie-chart`) — and objectui#7401 measured BOTH drawing a bar,
+ * reaches a registration by either spelling — bare (`chart:bar`) or namespaced
+ * (`plugin-charts:chart:bar`; objectui#7401 measured the retired `pie-chart` /
+ * `plugin-charts:pie-chart` pair) — and objectui#7401 measured BOTH drawing a bar,
  * so both are resolved here.
  */
 const PLUGIN_CHARTS_NAMESPACE = 'plugin-charts:';
@@ -601,9 +606,9 @@ export function normalizeChartSchema(
   // `chartType` (internal) → `specType` (an author `type` rescued from the
   // envelope collision) → `type` (only when it is unambiguously a chart family
   // and not a component discriminator).
-  // A registered chart-type keyword (`pie-chart`) is read LAST, after both
+  // A registered chart-type keyword (`chart:bar`) is read LAST, after both
   // explicit spellings: an author who writes `chartType: 'line'` on a
-  // `pie-chart` node still gets a line, exactly as objectui#7401's ruling
+  // `chart:bar` node still gets a line, exactly as objectui#7401's ruling
   // requires, and `plugin-charts:chart` with an explicit `chartType` — the
   // card's control row — is untouched.
   const rawType = str(schema.type);

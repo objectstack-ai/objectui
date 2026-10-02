@@ -19,7 +19,7 @@ import React, {
 import { SchemaRenderer, SchemaRendererContext, toRenderableSchema } from '@object-ui/react';
 import { SidebarProvider } from '@object-ui/components';
 import type { SchemaNode } from '@object-ui/core';
-// Registers `page-header` & friends — see the module header (objectui#3787).
+// Registers `@object-ui/layout`'s blocks — see the module header (objectui#3787).
 // Named directly, not reached through the module below: `scripts/__tests__/
 // site-playground-layout-registration-3904.test.ts` discovers every
 // `SchemaRenderer` host and requires it to import THIS module, and a host that

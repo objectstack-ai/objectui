@@ -32,6 +32,13 @@
  * two scatter rows of the table above are the card's historical measurement;
  * the scatter cases below pin the retirement and the spelling that draws.
  *
+ * ⚠️ Since phase 2c, `pie-chart`, `donut-chart` and `radar-chart` are RETIRED
+ * the same way, after `examples/chart-examples.ts` (their last producer) moved
+ * to `{ type: 'chart', chartType: 'pie' | 'donut' | 'radar' }`. Of the keywords
+ * the card fixed, `chart:bar` alone stays registered, so the "renders as
+ * itself" rows now run on it and on the spelling that draws, and the retired
+ * keys are pinned absent under both spellings with no family derived.
+ *
  * ## Why these render through the REAL SDUI path
  *
  * The defect lived between the registry and the renderer, so a unit test on
@@ -144,22 +151,29 @@ const refusal = (c: HTMLElement) =>
 
 describe('objectui#7401 — a chart-type registration renders as itself', () => {
   /**
-   * Both spellings, because the SDUI path reaches one registration by either
-   * and the card measured BOTH drawing a bar. A fix that handled only the
-   * namespaced key would leave `type: 'pie-chart'` — the spelling the docs and
-   * `examples/chart-examples.ts` actually use — still broken.
+   * Both spellings of the surviving keyword, because the SDUI path reaches one
+   * registration by either and the card measured BOTH drawing the default bar.
+   * `chart:bar` names the bar family, so this row pins the derivation through
+   * the registry; the next row pins the families the retired keywords named,
+   * through the spelling that draws them.
    */
   it.each([
-    ['pie-chart', 'pie'],
-    ['plugin-charts:pie-chart', 'pie'],
-    ['donut-chart', 'pie'],
-    ['plugin-charts:donut-chart', 'pie'],
-    ['radar-chart', 'radar'],
-    ['plugin-charts:radar-chart', 'radar'],
-  ])('%s draws %s marks and no bars', async (type, family) => {
+    ['chart:bar'],
+    ['plugin-charts:chart:bar'],
+  ])('%s draws bar marks through the derived family', async (type) => {
     const container = await renderSchema({ type, data: ROWS, xAxisKey: 'xm', series: ONE_SERIES });
-    expect(marks(container, family), `${type} drew no ${family}`).toBeGreaterThan(0);
-    expect(marks(container, 'bar'), `${type} still drew bars`).toBe(0);
+    expect(marks(container, 'bar'), `${type} drew no bar`).toBeGreaterThan(0);
+    expect(refusal(container)).toBeNull();
+  });
+
+  it.each([
+    ['pie', 'pie'],
+    ['donut', 'pie'],
+    ['radar', 'radar'],
+  ])('chart with chartType %s draws %s marks and no bars', async (chartType, family) => {
+    const container = await renderSchema({ type: 'chart', chartType, data: ROWS, xAxisKey: 'xm', series: ONE_SERIES });
+    expect(marks(container, family), `chartType ${chartType} drew no ${family}`).toBeGreaterThan(0);
+    expect(marks(container, 'bar'), `chartType ${chartType} still drew bars`).toBe(0);
     expect(refusal(container)).toBeNull();
   });
 
@@ -176,11 +190,11 @@ describe('objectui#7401 — a chart-type registration renders as itself', () => 
    * that carries it. Both halves are needed: the row above proves the marks
    * reach the DOM, this proves which of the two families they were drawn as.
    */
-  it('donut-chart and pie-chart resolve to DIFFERENT families', () => {
-    expect(normalizeChartSchema({ type: 'donut-chart' }).chartType).toBe('donut');
-    expect(normalizeChartSchema({ type: 'plugin-charts:donut-chart' }).chartType).toBe('donut');
-    expect(normalizeChartSchema({ type: 'pie-chart' }).chartType).toBe('pie');
-    expect(normalizeChartSchema({ type: 'plugin-charts:pie-chart' }).chartType).toBe('pie');
+  it('chartType donut and chartType pie resolve to DIFFERENT families', () => {
+    expect(normalizeChartSchema({ type: 'chart', chartType: 'donut' }).chartType).toBe('donut');
+    expect(normalizeChartSchema({ type: 'plugin-charts:chart', chartType: 'donut' }).chartType).toBe('donut');
+    expect(normalizeChartSchema({ type: 'chart', chartType: 'pie' }).chartType).toBe('pie');
+    expect(normalizeChartSchema({ type: 'plugin-charts:chart', chartType: 'pie' }).chartType).toBe('pie');
   });
 
   /**
@@ -206,12 +220,26 @@ describe('objectui#7401 — a chart-type registration renders as itself', () => 
   });
 
   it('the retired scatter-chart key is unregistered under both spellings and derives no family', () => {
-    // Lit control first: a sibling alias this package still registers.
-    expect(ComponentRegistry.get('radar-chart')).toBe(ChartRenderer);
+    // Lit control first: the keyword this package still registers.
+    expect(ComponentRegistry.get('chart:bar')).toBe(ChartRenderer);
     expect(ComponentRegistry.get('scatter-chart')).toBeUndefined();
     expect(ComponentRegistry.get('plugin-charts:scatter-chart')).toBeUndefined();
     expect(familyFromComponentType('scatter-chart')).toBeUndefined();
     expect(familyFromComponentType('plugin-charts:scatter-chart')).toBeUndefined();
+  });
+
+  it('the retired pie-chart, donut-chart and radar-chart keys are unregistered under both spellings and derive no family', () => {
+    // Lit control first, as above. Literal keys, one per assertion.
+    expect(ComponentRegistry.get('plugin-charts:chart:bar')).toBe(ChartRenderer);
+    expect(ComponentRegistry.get('pie-chart')).toBeUndefined();
+    expect(ComponentRegistry.get('plugin-charts:pie-chart')).toBeUndefined();
+    expect(ComponentRegistry.get('donut-chart')).toBeUndefined();
+    expect(ComponentRegistry.get('plugin-charts:donut-chart')).toBeUndefined();
+    expect(ComponentRegistry.get('radar-chart')).toBeUndefined();
+    expect(ComponentRegistry.get('plugin-charts:radar-chart')).toBeUndefined();
+    expect(familyFromComponentType('pie-chart')).toBeUndefined();
+    expect(familyFromComponentType('donut-chart')).toBeUndefined();
+    expect(familyFromComponentType('radar-chart')).toBeUndefined();
   });
 
   /**
@@ -227,11 +255,12 @@ describe('objectui#7401 — a chart-type registration renders as itself', () => 
   });
 
   it('an explicit chartType wins over the type-derived family', async () => {
+    // `chart:bar` derives `bar`; the explicit `line` still wins.
     const container = await renderSchema({
-      type: 'pie-chart', chartType: 'line', data: ROWS, xAxisKey: 'xm', series: ONE_SERIES,
+      type: 'chart:bar', chartType: 'line', data: ROWS, xAxisKey: 'xm', series: ONE_SERIES,
     });
     expect(marks(container, 'line')).toBeGreaterThan(0);
-    expect(marks(container, 'pie')).toBe(0);
+    expect(marks(container, 'bar')).toBe(0);
   });
 });
 
@@ -239,13 +268,21 @@ describe('objectui#7401 — a chart-type registration renders as itself', () => 
  * Ruling item 3 — `packages/plugin-charts/examples/chart-examples.ts` is the
  * in-repo victim the card named (`type: 'pie-chart'`, drawing a bar). It is
  * confirmed here rather than argued: the example object itself is rendered.
+ *
+ * objectui#10859 batch 8 (phase 2c, the seat's fork ruling) moved the three
+ * examples to the spelling that draws — `{ type: 'chart', chartType }` — before
+ * retiring the keys they used to author. The intent of this pin survives the
+ * move: each example still draws the family it names and no bar. The spelling
+ * is pinned too, so an example cannot drift back onto a retired key.
  */
 describe('objectui#7401 — the in-repo examples draw what they say', () => {
   it.each([
-    ['pieChartExample', pieChartExample, 'pie'],
-    ['donutChartExample', donutChartExample, 'pie'],
-    ['radarChartExample', radarChartExample, 'radar'],
-  ])('%s draws %s', async (_name, example, family) => {
+    ['pieChartExample', 'pie', 'pie', pieChartExample],
+    ['donutChartExample', 'donut', 'pie', donutChartExample],
+    ['radarChartExample', 'radar', 'radar', radarChartExample],
+  ])('%s (chartType %s) draws %s marks and no bars', async (_name, chartType, family, example) => {
+    expect((example as Record<string, unknown>).type).toBe('chart');
+    expect((example as Record<string, unknown>).chartType).toBe(chartType);
     const container = await renderSchema(example as Record<string, unknown>);
     expect(marks(container, family)).toBeGreaterThan(0);
     expect(marks(container, 'bar')).toBe(0);

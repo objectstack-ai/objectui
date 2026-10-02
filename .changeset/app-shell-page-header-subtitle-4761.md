@@ -44,3 +44,9 @@ pin the card asked for. It asserts the subtitle on the DOM a reader gets (a
 nothing and is rejected by the compiler, and — the assertion that actually goes
 red if either side drifts again — that both packages' `PageHeaderComponentProps`
 declare `subtitle`.
+
+⚠️ **Dated note, 2026-10-02 — the `page-header` node is retired — objectui#10859.**
+Later in this same release objectui#10859 batch 8 (phase 2c) unregistered the `page-header` node key.
+`@object-ui/layout`'s `PageHeader` stays an exported component (still spelling its secondary line
+`subtitle`), and the authored header node is `page:header`. The rest of this entry is kept as the reading
+of this change.

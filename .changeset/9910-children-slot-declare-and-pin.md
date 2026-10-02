@@ -43,3 +43,8 @@ provider-scoped and portal renderers), `scripts/container-declaration-baseline.j
 is at zero, and a registration that is a layout container but renders no
 authored list (`page:tabs`, `page:accordion`, `responsive-grid`) now draws the
 TRUE `not-a-container` the flag used to silence.
+
+⚠️ **Dated note, 2026-10-02 — `page-header` is retired — objectui#10859.**
+Later in this same release objectui#10859 batch 8 (phase 2c) unregistered `@object-ui/layout`'s
+`page-header` (and `layout:page-header`), so its `children` slot declaration left with it; authors write
+`page:header`. The rest of this entry is kept as the reading of this change.

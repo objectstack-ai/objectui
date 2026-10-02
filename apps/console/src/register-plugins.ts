@@ -112,10 +112,11 @@ ComponentRegistry.registerLazy('chart', () => import('@object-ui/plugin-charts')
 // in `packages/plugin-charts/src`: `unfulfilled-chart-stubs-8760.test.ts`
 // drives this very list through the real loader and fails on the first key
 // that resolves to nothing.
-// ⛔ `scatter-chart` is RETIRED from this list with its registration
-// (objectui#10859 batch 8, phase 2b) — scatter is `{ "type": "chart",
-// "chartType": "scatter" }`.
-for (const variant of ['object-chart', 'bar-chart', 'pie-chart', 'donut-chart', 'radar-chart', 'chart:bar']) {
+// ⛔ `scatter-chart` (objectui#10859 batch 8, phase 2b) and `pie-chart`,
+// `donut-chart`, `radar-chart` (phase 2c) are RETIRED from this list with their
+// registrations — those families are `{ "type": "chart", "chartType": "scatter"
+// | "pie" | "donut" | "radar" }`.
+for (const variant of ['object-chart', 'bar-chart', 'chart:bar']) {
   ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-charts'), {
     namespace: 'plugin-charts',
     category: 'chart',

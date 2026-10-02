@@ -17,3 +17,9 @@ Later in this same release objectui#10859 batch 8 (phase 2b) unregistered `scatt
 `plugin-charts:scatter-chart`, and its `CHART_TYPE_KEYWORD_FAMILIES` row went with it; the scatter
 family is authored as `{ type: 'chart', chartType: 'scatter' }`. `pie-chart`, `donut-chart` and
 `radar-chart` stay registered. The rest of this entry is kept as the reading of this change.
+
+⚠️ **Dated note, 2026-10-02 — `pie-chart`, `donut-chart` and `radar-chart` are retired too — objectui#10859.**
+Later in this same release objectui#10859 batch 8 (phase 2c) unregistered the three keys, with their
+`plugin-charts:` twins and `CHART_TYPE_KEYWORD_FAMILIES` rows, after moving `examples/chart-examples.ts`
+to `{ type: 'chart', chartType: 'pie' | 'donut' | 'radar' }`. `chart:bar` is the one family keyword left.
+The rest of this entry is kept as the reading of this change.

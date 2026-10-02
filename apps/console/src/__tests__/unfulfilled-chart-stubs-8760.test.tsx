@@ -55,8 +55,9 @@
  *      fails HERE, on the first render nobody has done yet.
  *   2. THE RETIREMENT, as a render outcome. An authored node of a retired type
  *      now paints the loud OBJUI-001 refusal instead of the eternal skeleton.
- *   3. THE CONTROL. `pie-chart` and `bar-chart` — fulfilled variants in the
- *      same sweep — are unchanged end to end: same registry identity, same
+ *   3. THE CONTROL. `chart:bar` and `bar-chart` — fulfilled variants in the
+ *      same sweep (`chart:bar` since objectui#10859 batch 8 retired the
+ *      `pie-chart` control) — are unchanged end to end: same registry identity, same
  *      drawn output, no alert and no placeholder. Each is asserted
  *      individually; neither reads zero on both sides of the change.
  *
@@ -85,7 +86,7 @@ import { SchemaRenderer } from '@object-ui/react';
 // boundary, and paying that cost at import time puts it outside every
 // test/hook timeout. The specifier is character-identical to the one
 // `register-plugins.ts` hands `registerLazy`, so ESM hands the loader the very
-// same module instance. It cannot mask the defect it guards against: the four
+// same module instance. It cannot mask the defect it guards against: the seven
 // retired keys are ones this module never registers under ANY load order.
 import '@object-ui/plugin-charts';
 import '../register-plugins';
@@ -94,12 +95,15 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REGISTER_PLUGINS = join(HERE, '..', 'register-plugins.ts');
 
 /**
- * The three spellings objectui#8760 retired, plus `scatter-chart`, which
- * objectui#10859 batch 8 (phase 2b) retired with its registration — the same
- * two halves must hold for it: no stub left in this app, no key in the
- * registry, and a loud refusal for an authored node.
+ * The three spellings objectui#8760 retired, plus the four objectui#10859
+ * batch 8 retired with their registrations — `scatter-chart` (phase 2b) and
+ * `pie-chart`, `donut-chart`, `radar-chart` (phase 2c). The same two halves
+ * must hold for each: no stub left in this app, no key in the registry, and a
+ * loud refusal for an authored node.
  */
-const RETIRED = ['line-chart', 'area-chart', 'advanced-chart', 'scatter-chart'] as const;
+const RETIRED = [
+  'line-chart', 'area-chart', 'advanced-chart', 'scatter-chart', 'pie-chart', 'donut-chart', 'radar-chart',
+] as const;
 
 /**
  * The chart stub list, read from the source it is declared in — never a copy.
@@ -140,8 +144,8 @@ describe('objectui#8760 — every chart stub this app registers is fulfilled', (
     // Non-vacuity for every assertion below: a reader that has stopped reading
     // must throw or come back empty, never yield a silently passing zero.
     const list = chartStubList();
-    expect(list.length, 'the stub-list read went vacuous').toBeGreaterThanOrEqual(5);
-    expect(list, 'the reader is looking at the chart loop').toContain('pie-chart');
+    expect(list.length, 'the stub-list read went vacuous').toBeGreaterThanOrEqual(3);
+    expect(list, 'the reader is looking at the chart loop').toContain('chart:bar');
     for (const retired of RETIRED) expect(list).not.toContain(retired);
   });
 
@@ -158,8 +162,9 @@ describe('objectui#8760 — every chart stub this app registers is fulfilled', (
       unfulfilled,
       'a lazy stub resolves to nothing — the key renders `Loading …` forever',
     ).toEqual([]);
-    // 6 since objectui#10859 batch 8 took `scatter-chart` out of the list.
-    expect(list).toHaveLength(6);
+    // 3 since objectui#10859 batch 8 took `scatter-chart` (phase 2b) and
+    // `pie-chart` / `donut-chart` / `radar-chart` (phase 2c) out of the list.
+    expect(list).toHaveLength(3);
   }, 20000);
 });
 
@@ -188,7 +193,7 @@ describe('objectui#8760 — CONTROL: the fulfilled variants are unmoved, each on
   // a DIFFERENT renderer, and each is non-zero on both sides of the change, so
   // neither can be the "reads 0 either way" kind that proves nothing.
   it.each([
-    ['pie-chart', 'ChartRenderer'],
+    ['chart:bar', 'ChartRenderer'],
     ['bar-chart', 'ChartBarRenderer'],
   ])('`%s` still resolves to `%s`', async (type, renderer) => {
     await ComponentRegistry.loadLazy(type);
@@ -198,7 +203,7 @@ describe('objectui#8760 — CONTROL: the fulfilled variants are unmoved, each on
     expect(ComponentRegistry.getKnownTypes()).toContain(type);
   });
 
-  it.each(['pie-chart', 'bar-chart'])('`%s` still draws — no alert, no placeholder', async (type) => {
+  it.each(['chart:bar', 'bar-chart'])('`%s` still draws — no alert, no placeholder', async (type) => {
     await ComponentRegistry.loadLazy(type);
     const shot = paint(type, { chartType: 'pie', data: ROWS, xAxisKey: 'm', dataKey: 'v', series: [{ dataKey: 'v' }] });
     expect(shot.alerts, `${type} started refusing — the control moved`).toBe(0);

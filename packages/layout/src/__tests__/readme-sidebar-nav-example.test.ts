@@ -47,10 +47,11 @@
  *    keys accept are half 1's job.
  *
  * The scan in half 3's last test is deliberately narrow: it re-reads the fenced
- * blocks that mention `SidebarNav` and rejects a quoted `icon:`. `page-header`
- * really does take an icon NAME as a string (`src/index.ts`, `type: 'string'`),
- * so this must never become a README-wide ban on `icon: '…'` — it is a fact
- * about THIS component's prop, scoped to THIS component's examples.
+ * blocks that mention `SidebarNav` and rejects a quoted `icon:`.
+ * `navigation-renderer` really does take an icon NAME as a string (its
+ * `resolveIcon`), so this must never become a README-wide ban on `icon: '…'` —
+ * it is a fact about THIS component's prop, scoped to THIS component's
+ * examples.
  *
  * Not covered, on purpose: `content/docs/layout/sidebar-nav.mdx` already spelled
  * these examples correctly, and pinning the whole docs tree to source is
@@ -270,7 +271,7 @@ describe("the README's SidebarNav props tables name exactly the real keys (objec
           'unknown lowercase tag and renders nothing (objectui#3999). Import the Lucide',
           'component and pass it.',
           '',
-          'Scope note: `page-header` DOES declare `icon` as a string (an icon name), so this',
+          'Scope note: `navigation-renderer` DOES take `icon` as a string (an icon name), so this',
           'assertion is deliberately confined to fences that mention SidebarNav.',
         ].join('\n'),
       ).toBe(false);

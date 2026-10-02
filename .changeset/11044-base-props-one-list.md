@@ -13,3 +13,9 @@ Three changes to what is accepted come with it:
 - **The cost is named.** On a type that does not declare one of the six keys, the parser tier no longer reports it, whether or not the renderer reads it. For example, `description` on `page-header` is the retired alias of `subtitle` (objectui#3226), and it used to draw `unknown-prop`. It now draws nothing.
 
 `SDUI_BASE_PROPS` and its `SduiBaseProp` / `SduiBasePropScope` types are new exports. Each entry names a `BaseSchema` member, the scope it is a base prop in (`'every-node'` or `'where-undeclared'`), and its type in the generated JSX surface.
+
+⚠️ **Dated note, 2026-10-02 — the `page-header` example no longer applies — objectui#10859.**
+Later in this same release objectui#10859 batch 8 (phase 2c) unregistered `page-header`, so a
+`page-header` node now draws `unknown-component` before any prop check runs. The cost this entry names
+is unchanged for every type that is still registered. The rest of this entry is kept as the reading of
+this change.

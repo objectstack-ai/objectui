@@ -122,6 +122,8 @@ describe('objectui#11321 — a host feed slot written on the node is refused by 
 
   it.each(CASES)('%s — ONE string feeds both author-facing channels: the issue message IS the `.describe()` metadata', (_label, type, key, value, arm) => {
     const message = at(safeValidateSchema({ type, [key]: value }) as Parse, key)?.message;
+    // Both sides absent would compare equal: the refusal must exist first.
+    expect(message, 'no issue at the key — the refusal is not installed').toBeDefined();
     expect(arm.shape[key]?.description).toBe(message);
   });
 

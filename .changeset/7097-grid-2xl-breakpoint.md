@@ -31,3 +31,5 @@ compiled stylesheet, with the twelve `xl:grid-cols-*` rules unchanged as the con
 Nothing that rendered before renders differently: the other five tiers, the bare-number
 mobile-first ramp, and the designer's flat `smColumns`…`xlColumns` channel are
 unchanged.
+
+⚠️ **Dated note, 2026-10-02 — the flat column channel is retired — objectui#11505.** At this change the designer's flat `smColumns`…`xlColumns` channel was unchanged, as the last paragraph says. Now it is gone: the `grid` registration no longer offers the four keys, the renderer no longer reads them, and both zod faces refuse them by name. A per-breakpoint count, `2xl` included, is a member of the `columns` object. `.changeset/11505-grid-flat-columns-retired.md` states what ships. The rest of this entry is kept as the reading of this change.

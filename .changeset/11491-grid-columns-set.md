@@ -40,3 +40,5 @@ nobody authored.
 
 Migration: replace the count with the one you meant, from 1 to 12. For a grid with no columns
 at a breakpoint, leave that breakpoint out; for a single column, write `1`.
+
+⚠️ **Dated note, 2026-10-02 — `grid` has no flat column inputs any more — objectui#11505.** At this change the `grid` registration published `smColumns`, `mdColumns`, `lgColumns` and `xlColumns` as closed enums of the twelve counts, and `validateTree` answered `smColumns: 13` with `invalid-enum`. Now the registration publishes `columns` as its only column input, the renderer no longer reads the four keys, both zod faces refuse them by name, and `validateTree` answers each with an `unknown-prop` warning. A per-breakpoint count is a member of the `columns` object, which this entry's closed set still governs. `.changeset/11505-grid-flat-columns-retired.md` states what ships. The rest of this entry is kept as the reading of this change.

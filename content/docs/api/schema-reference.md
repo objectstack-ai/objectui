@@ -246,7 +246,7 @@ A responsive grid layout. Columns can be a fixed number or responsive breakpoint
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `columns` | `ColumnCount \| Partial<Record<BreakpointName, ColumnCount>>` | A column count from 1 to 12 (`ColumnCount`), or a responsive map of such counts keyed by breakpoint (`xs`, `sm`, `md`, `lg`, `xl`, `2xl`), e.g. `{ sm: 1, md: 2, lg: 3 }`. Any other count is refused with the set named (objectui#11491). |
+| `columns` | `ColumnCount \| Partial<Record<BreakpointName, ColumnCount>>` | A column count from 1 to 12 (`ColumnCount`), or a responsive map of such counts keyed by breakpoint (`xs`, `sm`, `md`, `lg`, `xl`, `2xl`), e.g. `{ sm: 1, md: 2, lg: 3 }`. Any other count is refused with the set named (objectui#11491). The flat `smColumns` / `mdColumns` / `lgColumns` / `xlColumns` keys are retired and refused by name; the breakpoint map is the one spelling (objectui#11505). |
 | `gap` | `0 \| 1 \| 2 \| 3 \| 4 \| 5 \| 6 \| 8 \| 10 \| 12` | Gap step between grid items; `0` is none (default `4`). Any other number is refused with the set named (objectui#11474). |
 | `children` | `SchemaNode \| SchemaNode[]` | Grid items. |
 

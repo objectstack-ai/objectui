@@ -62,3 +62,5 @@ measurement is pinned executably in
 `__tests__/mirror-partial-record-narrowing-8516.test.ts`, at compile time (the
 inferred map is `Partial<Record<…>>`, not `Record<…>`) and at run time (one
 accepting row per member), so it cannot rot into folklore.
+
+⚠️ **Dated note, 2026-10-02 — the CLI reports `{ xxl: 6 }` as `unrecognized_keys` at `columns` — objectui#11073.** The Migration paragraph says the refusal reads `Path: columns → xxl`, `Code: invalid_key`, through `@object-ui/cli`'s union-arm expansion. Measured through `objectui validate`'s printer on objectui#11505's branch, it now reads `1. Unrecognized key: "xxl"`, `Path: columns`, `Code: unrecognized_keys`, as a top-level issue with no union-arm line under it. The verdict is unchanged: `{ xxl: 6 }` is refused, and the message still names `xxl`. The change of code is attributed to objectui#11073's zod 4.6 resolution (the rider on objectui#11505 names it); this note measured the present answer, not the transition. The rest of this entry is kept as the reading of this change.

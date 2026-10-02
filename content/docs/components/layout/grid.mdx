@@ -15,8 +15,14 @@ import type { SchemaNode } from '@object-ui/types';
 interface GridSchema {
   type: 'grid';
   columns?: number;
-  gap?: number;
+  gap?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 8 | 10 | 12;  // default: 4
   children: SchemaNode[];
   className?: string;
 }
 ```
+
+`gap` is a step on the grid's spacing scale, and `0` means none. The ten steps are the ones
+the renderer maps to a gap class, so they are the only values validation accepts: `"gap": 9`
+or `"gap": 16` is refused with the set named (objectui#11474). For such a number the renderer
+used to build a gap class at runtime that no compiled stylesheet defines, so the grid rendered
+with no gap at all.

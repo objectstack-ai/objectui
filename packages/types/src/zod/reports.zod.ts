@@ -310,7 +310,7 @@ export const ReportViewerSchema = BaseSchema.extend({
  * twin's mirror. When `report` is present, `ReportRenderer` renders the wrapped
  * report alone and reads none of the node's presentation members.
  */
-export const ReportNodeSchema = ReportComponentSchema.extend({
+export const ReportNodeSchema: ReportNodeZodType = ReportComponentSchema.extend({
   report: stripImportedDefaults(SpecReportSchema)
     .optional()
     .describe(
@@ -319,6 +319,27 @@ export const ReportNodeSchema = ReportComponentSchema.extend({
       + '(objectui#11440; the wrapper the retired `spec-report` alias carried).',
     ),
 });
+
+/**
+ * The TYPE of {@link ReportNodeSchema}, written out BY REFERENCE: the record's
+ * shape plus the spec's `ReportSchema` by name. Without it, declaration emit
+ * re-serializes the whole spec report shape inside `AnyComponentSchema`, and
+ * against `@objectstack/spec` built from objectstack `main` `tsc` refuses that
+ * union with TS7056 ("The inferred type of this node exceeds the maximum length
+ * the compiler will serialize"), measured by the `Spec Main Shape Gate` on
+ * objectui#11440's second pull request. A named type is emitted by name, as
+ * `PageKindNodeSchemaType` is (`layout.zod.ts`). It is a type only: the schema
+ * accepts exactly what it accepted before.
+ *
+ * Named `…ZodType` because this file's `…SchemaType` names are `z.infer`
+ * aliases (`ReportNodeSchemaType` among them, below).
+ */
+export type ReportNodeZodType = z.ZodObject<
+  (typeof ReportComponentSchema)['shape'] & {
+    report: z.ZodOptional<typeof SpecReportSchema>;
+  },
+  z.core.$loose
+>;
 
 /**
  * Union of all report schemas

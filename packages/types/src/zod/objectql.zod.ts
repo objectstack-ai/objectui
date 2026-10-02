@@ -1511,8 +1511,9 @@ const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().ext
  * alias table points this spelling at the END of the event" and that was WRONG
  * about the protocol; the corrected mechanism, re-derived by RUNNING
  * `@objectstack/spec` 17.4.0 (the version in the lockfile then) rather than
- * reading it — and RE-RUN on the installed 17.5.0 (objectui#11073), whose
- * answer moved, as the last bullet says:
+ * reading it — RE-RUN on 17.5.0 (objectui#11073), whose answer moved, as the
+ * last bullet says, and RE-RUN again on the installed 17.6.0 (objectui#11438),
+ * which answers every bullet below as 17.5.0 did:
  *
  *   - `CalendarConfigSchema`'s `strictObject` options carry `surface` and
  *     `history` and NOTHING ELSE. There is no `aliases` entry, so upstream holds
@@ -1535,7 +1536,8 @@ const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().ext
  *     not say which end of the range it binds … Write the one you mean") and
  *     prescribes neither. `endField` still draws no hint, and a one-char typo
  *     still resolves by distance (`titleFeld` → `titleField`) — all three
- *     measured on the installed 17.5.0.
+ *     measured on 17.5.0, and again on the
+ *     installed 17.6.0 (objectui#11438).
  *
  * ⇒ through 17.4.0 a generic typo-distance suggester picked the wrong sibling.
  * It was not a declaration, it contradicted no declaration, and ⛔ no upstream
@@ -1732,8 +1734,8 @@ const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial()
  *     gate's own failure mode one layer in.
  *
  * ⚠️ THE MEMBER LIST IS objectui's OWN, and the spec does NOT supply it.
- * MEASURED on the installed `@objectstack/spec` 17.5.0 (the same answer
- * 17.4.0 gave):
+ * MEASURED on the installed `@objectstack/spec` 17.6.0 (the same answer
+ * 17.5.0 and 17.4.0 gave):
  * `ComponentPropsMap['object-calendar'].calendar` is NOT `CalendarConfigSchema`
  * — it is `z.unknown().optional()` (wrapper chain `["optional","unknown"]`, and
  * not the same object reference), so at THIS position the protocol accepts

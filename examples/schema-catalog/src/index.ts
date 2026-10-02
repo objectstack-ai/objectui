@@ -346,8 +346,8 @@ import fields_location_san_francisco_coordinates from './schemas/fields-location
 import fields_lookup_basic_lookup from './schemas/fields-lookup/basic-lookup.json' with { type: 'json' };
 import fields_lookup_multi_select_lookup from './schemas/fields-lookup/multi-select-lookup.json' with { type: 'json' };
 import fields_number_basic_number_field from './schemas/fields-number/basic-number-field.json' with { type: 'json' };
-import fields_number_decimal_numbers from './schemas/fields-number/decimal-numbers.json' with { type: 'json' };
 import fields_number_range_validation from './schemas/fields-number/range-validation.json' with { type: 'json' };
+import fields_number_with_decimal_places from './schemas/fields-number/with-decimal-places.json' with { type: 'json' };
 import fields_object_basic_object_editor from './schemas/fields-object/basic-object-editor.json' with { type: 'json' };
 import fields_object_nested_object_data from './schemas/fields-object/nested-object-data.json' with { type: 'json' };
 import fields_object_read_only_json_display from './schemas/fields-object/read-only-json-display.json' with { type: 'json' };
@@ -3483,15 +3483,6 @@ const REGISTRY: Record<string, Example> = {
     },
     schema: fields_number_basic_number_field,
   },
-  'fields-number/decimal-numbers': {
-    id: 'fields-number/decimal-numbers',
-    meta: {
-      title: "Decimal Numbers",
-      description: "",
-      category: 'fields-number',
-    },
-    schema: fields_number_decimal_numbers,
-  },
   'fields-number/range-validation': {
     id: 'fields-number/range-validation',
     meta: {
@@ -3500,6 +3491,15 @@ const REGISTRY: Record<string, Example> = {
       category: 'fields-number',
     },
     schema: fields_number_range_validation,
+  },
+  'fields-number/with-decimal-places': {
+    id: 'fields-number/with-decimal-places',
+    meta: {
+      title: "With Decimal Places",
+      description: "",
+      category: 'fields-number',
+    },
+    schema: fields_number_with_decimal_places,
   },
   'fields-object/basic-object-editor': {
     id: 'fields-object/basic-object-editor',

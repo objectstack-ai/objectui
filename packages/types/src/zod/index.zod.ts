@@ -434,6 +434,36 @@ export {
 } from './ai.zod.js';
 
 // ============================================================================
+// Designer Components - `@object-ui/plugin-designer` (objectui#10859)
+// ============================================================================
+export {
+  DesignerPositionSchema,
+  DesignerCanvasConfigSchema,
+  DesignerComponentSchema,
+  DesignerPaletteItemSchema,
+  DesignerPaletteCategorySchema,
+  PageDesignerSchema,
+  DataModelFieldSchema,
+  DataModelEntitySchema,
+  DataModelRelationshipSchema,
+  DataModelDesignerSchema,
+  BPMNNodeSchema,
+  BPMNEdgeSchema,
+  ProcessDesignerSchema,
+  ReportDesignerElementSchema,
+  ReportDesignerSectionSchema,
+  ReportDesignerSchema,
+  ObjectDefinitionRelationshipSchema,
+  ObjectDefinitionSchema,
+  ObjectManagerSchema,
+  DesignerFieldOptionSchema,
+  DesignerValidationRuleSchema,
+  DesignerFieldDefinitionSchema,
+  FieldDesignerSchema,
+  DesignerUnionSchema,
+} from './designer.zod.js';
+
+// ============================================================================
 // ADR-0080 Public Blocks - the spec-row `page:` / `record:` / `element:` /
 // `action:` blocks (objectui#10872)
 // ============================================================================
@@ -493,6 +523,7 @@ import { CRUDComponentSchema } from './crud.zod.js';
 import { ReportUnionSchema } from './reports.zod.js';
 import { ViewComponentSchema } from './views.zod.js';
 import { AIComponentSchema } from './ai.zod.js';
+import { DesignerUnionSchema } from './designer.zod.js';
 import { PublicBlockComponentSchema } from './public-blocks.zod.js';
 import { CloudPlanStatusSchema } from './cloud.zod.js';
 import { nestedComponentJudgment } from './nested-component-walk.js';
@@ -563,6 +594,7 @@ export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion(
   ReportUnionSchema,
   ViewComponentSchema,
   AIComponentSchema,
+  DesignerUnionSchema,
   PublicBlockComponentSchema,
   CloudPlanStatusSchema,
 ], {

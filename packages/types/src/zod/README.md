@@ -245,6 +245,11 @@ The ADR-0080 public blocks `object-metric`, `object-master-detail-form`, `object
 ### AI Components (3)
 - `AIFormAssistSchema`, `AIRecommendationsSchema`, `NLQuerySchema`
 
+### Designer Components (6)
+The `@object-ui/plugin-designer` nodes (objectui#10859 batch 7). Each arm mirrors its TypeScript declaration in `designer.ts` member for member, and the record types under them (`DesignerComponentSchema`, `BPMNNodeSchema`, `ReportDesignerSectionSchema`, …) are exported beside them. Four node members that no designer reads are declared on the TypeScript face and left off the arms (`autoLayout` on `data-model-designer`, `lanes` and `version` on `process-designer`, `previewMode` on `report-designer`), so the strict face refuses them as unrecognized keys. None of the six components reads a content channel, so every arm refuses `children` and `body` by name (objectui#9256).
+- `PageDesignerSchema`, `DataModelDesignerSchema`, `ProcessDesignerSchema`
+- `ReportDesignerSchema`, `ObjectManagerSchema`, `FieldDesignerSchema`
+
 ### ADR-0080 Public Blocks (27)
 Each arm's `properties` is the block's `@objectstack/spec` `ComponentPropsMap` row, by reference. `ElementNumberBlockSchema` also declares the spec's `dataSource` binding, and mirrors the spec gate's one waiver: its bag may omit `object` when `dataSource.object` names the object.
 A member of an arm's row written flat on the node instead of in `properties` is refused by name on both faces, at its own path, with a message naming `properties.KEY`, as `@objectstack/spec`'s `PageComponentSchema` refuses it as mis-layered (objectui#10872 batch 10; one shared helper, `flatPropRefusals`, spread into every arm whose row declares a member). That includes the row members `BaseSchema` also declares (`visible`, `disabled`, `name`, `description`), which the base used to accept flat. Two kinds stay as they were: a member the spec's page component declares on the node itself (`label`, `aria`), and one the row retires, which keeps the row's own retirement message when written flat. An arm's own refusal of a row key (`record:alert`'s `body`, the `action:` controls' `onSuccess`, the content-channel refusals) keeps its message.

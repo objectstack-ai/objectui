@@ -1,0 +1,4 @@
+---
+---
+
+Docs-only, in the published objectui skill: the "Contract Reminders" bullet of `skills/objectui/guides/app-composition.md` said every nav item needs a `label`, "both required by `NavigationItemSchema`" (objectui#11198). That has been false since `@objectstack/spec` 17.5.0 made a nav entry's `label` optional and objectui#9868 relaxed the validator to match: an absent label makes the entry show its target's current label at render time, so a label the guide told an AI author to write forfeited that inheritance and a renamed target no longer renamed its nav entry. The bullet now says the `id` is required, the `label` is optional and inherited when absent, and names the two cases that still want one (a deliberate nav-only name; a target with no label of its own). One bullet changes; every other sentence, table row and example of the guide is unchanged, and no published package source moves.

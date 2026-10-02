@@ -122,7 +122,8 @@ export interface PageDesignerSchema extends BaseSchema {
    * bag it spreads, so neither reaches the component by another route, and
    * the registration declares no `children` slot (objectui#9910).
    *
-   * This declaration has no zod mirror, so this face is the only gate.
+   * The zod arm (`zod/designer.zod.ts`, objectui#10859) refuses both
+   * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `PageDesigner` draws from its
    * props; the registration declares `canvas`, `components`,
@@ -268,7 +269,8 @@ export interface DataModelDesignerSchema extends BaseSchema {
    * props bag it spreads, so neither reaches the component by another route,
    * and the registration declares no `children` slot (objectui#9910).
    *
-   * This declaration has no zod mirror, so this face is the only gate.
+   * The zod arm (`zod/designer.zod.ts`, objectui#10859) refuses both
+   * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `DataModelDesigner` draws from
    * its props; the registration declares `entities`, `relationships`,
@@ -378,8 +380,24 @@ export interface ProcessDesignerSchema extends BaseSchema {
   lanes?: BPMNLane[];
   /** Canvas configuration */
   canvas?: DesignerCanvasConfig;
-  /** Process variables */
-  variables?: Array<{ name: string; type: string; defaultValue?: unknown }>;
+  /*
+   * There is deliberately no `variables` here (objectui#10859, ruling on that
+   * card: the two zero-read designer members are settled before their zod
+   * arms mirror them). It was declared as "Process variables", an array of
+   * `{ name, type, defaultValue? }`, and nothing read it: `ProcessDesigner`'s
+   * props do not declare the key and its body never names it, and no other
+   * package's source reads it off a `process-designer` node. Nothing produced
+   * it either — no doc, example, catalog document, generator or fixture
+   * authored it. A runtime probe through the real registry drew the same
+   * markup with and without an authored `variables` array.
+   *
+   * Removed outright rather than kept as a `?: never` tombstone: neither prong
+   * of the retire-vs-remove discriminator `./complex.ts` states holds — there
+   * is no live replacement key, and nothing taught the key as working. The zod
+   * arm (`zod/designer.zod.ts`) does not declare it either. The index
+   * signature `BaseSchema` carries still admits the key at any value, and the
+   * strict authoring face refuses it as an unrecognized key.
+   */
   /** Show minimap */
   showMinimap?: boolean;
   /** Show toolbar */
@@ -413,7 +431,8 @@ export interface ProcessDesignerSchema extends BaseSchema {
    * props bag it spreads, so neither reaches the component by another route,
    * and the registration declares no `children` slot (objectui#9910).
    *
-   * This declaration has no zod mirror, so this face is the only gate.
+   * The zod arm (`zod/designer.zod.ts`, objectui#10859) refuses both
+   * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `ProcessDesigner` draws from its
    * props; the registration declares `processName`, `nodes`, `edges`,
@@ -491,8 +510,21 @@ export interface ReportDesignerSchema extends BaseSchema {
   margins?: { top: number; right: number; bottom: number; left: number };
   /** Report sections */
   sections: ReportDesignerSection[];
-  /** Report parameters */
-  parameters?: Array<{ name: string; type: string; label: string; defaultValue?: unknown }>;
+  /*
+   * There is deliberately no `parameters` here (objectui#10859, ruling on that
+   * card: the two zero-read designer members are settled before their zod
+   * arms mirror them). It was declared as "Report parameters", an array of
+   * `{ name, type, label, defaultValue? }`, and nothing read it:
+   * `ReportDesigner`'s props do not declare the key and its body never names
+   * it, and no other package's source reads it off a `report-designer` node.
+   * Nothing produced it either — no doc, example, catalog document, generator
+   * or fixture authored it. A runtime probe through the real registry drew the
+   * same markup with and without an authored `parameters` array.
+   *
+   * Removed outright rather than kept as a `?: never` tombstone, for the
+   * reasons the `variables` note on `ProcessDesignerSchema` above gives; the
+   * zod arm does not declare it either.
+   */
   /** Show designer toolbar */
   showToolbar?: boolean;
   /** Show property panel */
@@ -528,7 +560,8 @@ export interface ReportDesignerSchema extends BaseSchema {
    * props bag it spreads, so neither reaches the component by another route,
    * and the registration declares no `children` slot (objectui#9910).
    *
-   * This declaration has no zod mirror, so this face is the only gate.
+   * The zod arm (`zod/designer.zod.ts`, objectui#10859) refuses both
+   * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `ReportDesigner` draws from its
    * props; the registration declares `reportName`, `objectName`, `sections`,
@@ -888,7 +921,8 @@ export interface ObjectManagerSchema extends BaseSchema {
    * bag it spreads, so neither reaches the component by another route, and
    * the registration declares no `children` slot (objectui#9910).
    *
-   * This declaration has no zod mirror, so this face is the only gate.
+   * The zod arm (`zod/designer.zod.ts`, objectui#10859) refuses both
+   * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `ObjectManager` draws from its
    * props; the registration declares `objects`, `showSystemObjects` and
@@ -1096,7 +1130,8 @@ export interface FieldDesignerSchema extends BaseSchema {
    * bag it spreads, so neither reaches the component by another route, and
    * the registration declares no `children` slot (objectui#9910).
    *
-   * This declaration has no zod mirror, so this face is the only gate.
+   * The zod arm (`zod/designer.zod.ts`, objectui#10859) refuses both
+   * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `FieldDesigner` draws from its
    * props; the registration declares `objectName`, `fields` and `readOnly` as

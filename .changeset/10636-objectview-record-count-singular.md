@@ -20,3 +20,11 @@ value held one noun form: Russian read `2 записей` at two and `21 зап�
 twenty-one, and Arabic used the singular noun at every count. Both now use the
 count label their list bar already uses, `Записей: N` and `عدد السجلات: N`,
 which is right at any number. At one record they read `1 запись` and `1 سجل`.
+
+⚠️ **Dated note, 2026-10-02 — superseded in this release — objectui#11445.**
+Later in this same release the `console.objectView.recordCountOne` /
+`console.objectView.recordCount` switch gave way to a
+`console.objectView.recordCount` count family in all ten packs, worded like
+`list.recordCount`'s: the footer calls the family key with `{ count }`,
+`console.objectView.recordCountOne` left every pack, and `ru` and `ar` read a
+noun form at each count (`2 записи`, `3 سجلات`) where the count label stood. The rest of this entry is kept as the reading of this change.

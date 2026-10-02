@@ -28,3 +28,12 @@ That is the device objectui#10024 used for `search.resultsCountPlural`, and the 
 Russian's `collaboration.commentCount` and `collaboration.reactionCount` already
 use. The singular halves, the key set, the call sites and the other eight packs are
 unchanged.
+
+⚠️ **Dated note, 2026-10-02 — superseded in this release — objectui#11445.**
+Later in this same release the `…One` / plain-key switch on `common.itemCount`,
+`detail.reactionCount`, `collaboration.commentCount` and
+`collaboration.reactionCount` gave way to one count family per key in all ten
+packs: a numeric count picks the noun form its CLDR category needs (`ru`
+`2 элемента`, `21 элемент`), the `…One` siblings left every pack, and the count
+labels above remain only on the base key, which answers a call made without a
+count. The rest of this entry is kept as the reading of this change.

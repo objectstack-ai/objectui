@@ -12,6 +12,6 @@ Count labels read the right noun form in every language at every count: each lab
 
 **Provider-less fallback.** `createSafeTranslation` now reads a count family's `_one` / `_other` row for a numeric `count` before the base row, in the order i18next reads the `en` pack, so a host with no `I18nProvider` keeps rendering "1 reply" / "3 replies". A string `count` still reads the base row, as it does in i18next.
 
-**Supersedes, in this release.** The notes for objectui#9664, objectui#10024, objectui#10242, objectui#10425 and objectui#10636 describe the step before this one for these same keys: a `…One` / `…Plural` sibling picked on `=== 1`, with a `ru` / `ar` count label (`Записей: N`, `عدد السجلات: N`) on the plural half. Those siblings are gone, and the families above give each count its own noun form instead of the label.
+**Supersedes, in this release.** The notes for objectui#9664, objectui#10024, objectui#10242, objectui#10425 and objectui#10636 describe the `…One` / `…Plural` switch these families replace; each now carries a dated note saying so. Their `ru` / `ar` count labels (`Записей: N`, `عدد السجلات: N`) stay only on the base key, which answers a call made without a count.
 
 **Pinned.** `count-families-11445.test.ts` fails on any `…Plural` key in a pack and on any `{{count}}` value outside a family unless its count-neutral list names the key with the reason no word agrees with the number.

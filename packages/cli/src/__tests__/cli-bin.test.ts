@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdtempSync, readdirSync, writeFileSync, readFileSync } from 'node:fs';
-import { join, resolve, dirname } from 'node:path';
+import { join, resolve, dirname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 
@@ -207,7 +207,7 @@ describe('@object-ui/cli bin', () => {
       ['init',     [/-t, --template <template>/]],
       ['lint',     [/--fix/]],
       ['test',     [/-w, --watch/, /-c, --coverage/, /--ui/]],
-      ['generate', [/--from <source>/, /--output <dir>/]],
+      ['generate', [/--from <source>/]],
       ['analyze',  [/--bundle-size/, /--render-performance/]],
       ['validate', [/\[schema\]/]],
     ];
@@ -217,6 +217,44 @@ describe('@object-ui/cli bin', () => {
       for (const re of patterns) {
         expect(res.stdout).toMatch(re);
       }
+    });
+  });
+
+  // objectui#11476. `generate` used to declare `--output <dir>` (documented
+  // default `schemas/`), but the action never read it: `generate(type, name)`
+  // writes in the generator's own per-type layout whatever the flag said. The
+  // flag is retired with no alias window, so the bin must REFUSE it rather than
+  // accept it and do nothing. Asserted through the built bin, which is where
+  // the card measured the defect. The flag-free run is the control the refusal
+  // is read against: same command, same empty directory, one file written.
+  describe('generate refuses the retired --output flag (objectui#11476)', () => {
+    const tree = (dir: string) =>
+      (readdirSync(dir, { recursive: true }) as string[])
+        .map((p) => p.split(sep).join('/'))
+        .sort();
+
+    it('exits non-zero naming --output as an unknown option, and writes nothing', () => {
+      const work = mkdtempSync(join(tmpdir(), 'objectui-cli-generate-output-'));
+      const res = run(['g', 'page', 'Probe', '--output', 'custom/'], { cwd: work });
+      expect(res.code, res.stdout + res.stderr).not.toBe(0);
+      expect(res.stderr).toMatch(/unknown option/i);
+      expect(res.stderr).toContain('--output');
+      expect(tree(work)).toEqual([]);
+    });
+
+    it('still writes pages/NAME.json when the flag is absent', () => {
+      const work = mkdtempSync(join(tmpdir(), 'objectui-cli-generate-page-'));
+      const res = run(['g', 'page', 'Probe'], { cwd: work });
+      expect(res.code, res.stdout + res.stderr).toBe(0);
+      expect(tree(work)).toEqual(['pages', 'pages/probe.json']);
+    });
+
+    it('does not list --output in generate --help', () => {
+      const res = run(['generate', '--help']);
+      expect(res.code, res.stderr).toBe(0);
+      // Lit control: the help text that was read is generate's own.
+      expect(res.stdout).toMatch(/--from <source>/);
+      expect(res.stdout).not.toMatch(/--output\b/);
     });
   });
 

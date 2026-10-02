@@ -153,7 +153,6 @@ program
   .argument('<type>', 'Type of resource to generate (resource/object, page, plugin)')
   .argument('<name>', 'Name of the resource')
   .option('--from <source>', 'Generate schema from external source (openapi.yaml, prisma.schema)')
-  .option('--output <dir>', 'Output directory for generated schemas', 'schemas/')
   .action(async (type, name, options) => {
     try {
       // Handle schema generation from external sources

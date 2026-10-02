@@ -152,16 +152,8 @@ program
   .description('Generate new resources (objects, pages, plugins)')
   .argument('<type>', 'Type of resource to generate (resource/object, page, plugin)')
   .argument('<name>', 'Name of the resource')
-  .option('--from <source>', 'Generate schema from external source (openapi.yaml, prisma.schema)')
-  .action(async (type, name, options) => {
+  .action(async (type, name) => {
     try {
-      // Handle schema generation from external sources
-      if (options.from) {
-        console.log(chalk.yellow('\n⚠ Schema generation from external sources (OpenAPI/Prisma) is not yet implemented.'));
-        console.log(chalk.gray('This feature will be available in a future release.\n'));
-        process.exit(0);
-      }
-      
       await generate(type, name);
     } catch (error) {
       console.error(chalk.red('Error:'), error instanceof Error ? error.message : error);

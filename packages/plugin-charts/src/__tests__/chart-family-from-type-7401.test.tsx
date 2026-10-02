@@ -277,10 +277,10 @@ describe('objectui#7401 — a chart-type registration renders as itself', () => 
  */
 describe('objectui#7401 — the in-repo examples draw what they say', () => {
   it.each([
-    ['pieChartExample', pieChartExample, 'pie', 'pie'],
-    ['donutChartExample', donutChartExample, 'donut', 'pie'],
-    ['radarChartExample', radarChartExample, 'radar', 'radar'],
-  ])('%s (chartType %s) draws %s marks and no bars', async (_name, example, chartType, family) => {
+    ['pieChartExample', 'pie', 'pie', pieChartExample],
+    ['donutChartExample', 'donut', 'pie', donutChartExample],
+    ['radarChartExample', 'radar', 'radar', radarChartExample],
+  ])('%s (chartType %s) draws %s marks and no bars', async (_name, chartType, family, example) => {
     expect((example as Record<string, unknown>).type).toBe('chart');
     expect((example as Record<string, unknown>).chartType).toBe(chartType);
     const container = await renderSchema(example as Record<string, unknown>);

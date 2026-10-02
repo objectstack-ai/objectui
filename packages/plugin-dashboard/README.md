@@ -505,12 +505,18 @@ depends on its shape:
 - **Any other dimensionless widget with several measures** still renders the
   first one as a tile.
 
-When a declared measure is not rendered, `DatasetWidget` logs one console
-warning naming the widget, the measures it renders, the ones it queried and
-never displayed, and the spec's ADR-0087 entry
+When `DatasetWidget`'s own branch decision keeps a declared measure off the
+screen (a tile renders the first measure only), it logs one console warning
+naming the widget, the measures it renders, the ones it queried and never
+displayed, and the spec's ADR-0087 entry
 `dashboard-widget-metric-family-multi-measure-refused`, whose `replacement`
-says what to author instead. Two shapes reach it: a metric tile stored before
-the spec narrowed, and a dimensionless widget of a type outside the list above.
+says what to author instead. Two shapes take the tile with several measures: a
+metric tile stored before the spec narrowed, and a dimensionless widget of a
+type outside the list above. The warning reads that branch decision only. A
+chart branch hands every measure to the shared chart renderer as a series, and
+what the renderer then draws is not covered: a dimensioned `pie`, `donut`,
+`funnel`, `treemap` or `sankey` with several measures draws only the first,
+with no warning (objectui#11417).
 The widget panel (`WidgetConfigPanel`) asks the same door the spec runs: it
 offers no further measure the door would refuse, and shows the door's own
 message under measures it already refuses.

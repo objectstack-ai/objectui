@@ -25,16 +25,24 @@ import '@object-ui/plugin-list';
 import '@object-ui/plugin-detail';
 
 // Lazy renderers used by the dashboard / report designers.
+// objectui#10859 batch 8 (phase 2b): `dashboard-grid` is retired, and the
+// `metric` / `metric-card` stubs decline the bare key like their registrations
+// (`skipFallback: true`) — this is a second `registerLazy` site for the same
+// plugin, and the doc gate's key universe is the UNION of every such loop.
 for (const variant of [
   'dashboard',
-  'metric',
-  'metric-card',
   'object-metric',
   'pivot',
-  'dashboard-grid',
 ]) {
   ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-dashboard'), {
     namespace: 'plugin-dashboard',
+    category: 'view',
+  });
+}
+for (const variant of ['metric', 'metric-card']) {
+  ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-dashboard'), {
+    namespace: 'plugin-dashboard',
+    skipFallback: true,
     category: 'view',
   });
 }

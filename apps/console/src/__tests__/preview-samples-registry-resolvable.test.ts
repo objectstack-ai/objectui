@@ -56,7 +56,7 @@
  * name under ADR-0089 D3a).
  *
  * Dashboard `widgets[]` are deliberately NOT walked. Those types are component
- * types too, but half of them (`metric`, `dashboard-grid`, `pivot`, …) are
+ * types too, but half of them (`metric`, `pivot`, …) are
  * registered only by `preview-gallery.tsx`'s own `registerLazy` block, and
  * that module mounts React at import time so a test cannot import it. Walking
  * them against this bootstrap would report unresolved types that resolve

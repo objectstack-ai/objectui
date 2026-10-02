@@ -16,7 +16,7 @@
  * assertion cannot tell a honoured prop from an ignored one — forwarding a prop
  * nobody reads would only move declared-but-not-delivered one layer down. So
  * this file renders the REAL chain with no renderer stub at all —
- * `DashboardRenderer` / `dashboard-grid` → `SchemaRenderer` → the registry's
+ * `DashboardRenderer` / `DashboardGridLayout` → `SchemaRenderer` → the registry's
  * `chart` (`ChartRenderer`) → `AdvancedChartImpl` — and reads the resulting DOM.
  *
  * Scope of this file: everything the chart draws OUTSIDE Recharts'
@@ -46,7 +46,7 @@
 import React from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
 import { render, cleanup, screen, waitFor } from '@testing-library/react';
-import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
+import { SchemaRendererProvider } from '@object-ui/react';
 import '@object-ui/components';
 // Registers `chart` in the ComponentRegistry, which is what `SchemaRenderer`
 // resolves the relay's `{ type: 'chart' }` node through. Production reaches
@@ -57,6 +57,9 @@ import '@object-ui/components';
 import '@object-ui/plugin-charts';
 import '../index';
 import { DashboardRenderer } from '../DashboardRenderer';
+// Mounted directly: its `dashboard-grid` node key was retired by objectui#10859
+// batch 8, so the component, not a registry lookup, is the surface under test.
+import { DashboardGridLayout } from '../DashboardGridLayout';
 import type { DataSource } from '@object-ui/types';
 
 /**
@@ -105,7 +108,7 @@ const renderWidget = async (surface: (typeof SURFACES)[number], chartConfig?: Re
   const view = render(
     <SchemaRendererProvider dataSource={dataSource as unknown as DataSource}>
       {surface === 'grid' ? (
-        <SchemaRenderer schema={{ type: 'dashboard-grid', widgets: [widget] } as any} />
+        <DashboardGridLayout schema={{ widgets: [widget] } as any} />
       ) : (
         <DashboardRenderer schema={{ widgets: [widget] } as any} />
       )}

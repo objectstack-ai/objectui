@@ -13,7 +13,8 @@
  * retirement: a widget still holding the pre-ADR-0021 inline-analytics shape
  * (top-level `object`, no `dataset`, no inline `options.data`) renders a VISIBLE
  * error placeholder prompting a rebind. `DashboardGridLayout` — separately
- * exported, and registered as the `dashboard-grid` SDUI component — had none, so
+ * exported, and then registered as the `dashboard-grid` SDUI component (retired
+ * by objectui#10859 batch 8) — had none, so
  * the very same stored metadata fell through to its static-data branch with
  * `data: []`: a silent blank chart, no diagnostic, no path to fix. That is the
  * exact outcome `DashboardRenderer.legacyRetired.test.tsx`'s header says must not

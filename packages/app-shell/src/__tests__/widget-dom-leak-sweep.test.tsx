@@ -33,13 +33,13 @@
  *
  *   | package          | targets | targets leaking | leaked attributes |
  *   |------------------|---------|-----------------|-------------------|
- *   | plugin-charts    |       9 |               0 |                 0 |
+ *   | plugin-charts    |       8 |               0 |                 0 |
  *   | plugin-calendar  |       3 |               0 |                 0 |
  *   | plugin-chatbot   |       3 |               0 |                 0 |
- *   | plugin-dashboard |       8 |               2 |             7 / 9 |
+ *   | plugin-dashboard |       7 |               2 |             7 / 9 |
  *   | components       |     160 |              90 |          12 .. 15 |
  *
- * **92 of 183 targets leak.** The `components` row is objectui#5574 and is
+ * **92 of 181 targets leak.** The `components` row is objectui#5574 and is
  * covered in its own section below; the two `plugin-dashboard` rows are the
  * older tail. Both are in {@link LEAK_LEDGER}:
  * `plugin-dashboard:metric` and `plugin-dashboard:metric-card`, the open tail
@@ -503,6 +503,10 @@ const CHART_SERIES = [{ dataKey: 'sales' }, { dataKey: 'revenue' }];
  * The scatter target's own rows and series, because scatter is the one family
  * here that {@link CHART_DATA} / {@link CHART_SERIES} cannot reach (objectui#7401).
  *
+ * Since objectui#10859 batch 8 (phase 2b) retired the `scatter-chart` key, the
+ * scatter target is `plugin-charts:chart` with `chartType: 'scatter'` — the
+ * spelling that draws — and the history below is about the retired key.
+ *
  * ⭐ Until objectui#7401 this target was NOT SWEPT AT ALL. Its registration
  * declared its family as `defaultProps: { chartType: 'scatter' }`, nothing on
  * the SDUI path read that, and so `plugin-charts:scatter-chart` rendered — and
@@ -849,12 +853,14 @@ const COMPONENTS_TARGETS: readonly Target[] = [
 const TARGETS: Readonly<Record<string, readonly Target[]>> = {
   'plugin-charts': [
     { type: 'plugin-charts:bar-chart', schemaExtras: { data: CHART_DATA }, ready: '.recharts-responsive-container' },
-    { type: 'plugin-charts:chart', schemaExtras: { chartType: 'bar', data: CHART_DATA, series: CHART_SERIES }, ready: '[data-slot="chart"]' },
+    // The scatter carrier since objectui#10859 batch 8 retired `scatter-chart`:
+    // bar stays swept through `chart:bar` and `bar-chart`, and this target keeps
+    // the scatter arm swept (see SCATTER_DATA).
+    { type: 'plugin-charts:chart', schemaExtras: { chartType: 'scatter', data: SCATTER_DATA, xAxisKey: 'x', series: SCATTER_SERIES }, ready: '[data-slot="chart"]' },
     { type: 'plugin-charts:chart:bar', schemaExtras: { data: CHART_DATA, series: CHART_SERIES }, ready: '[data-slot="chart"]' },
     { type: 'plugin-charts:pie-chart', schemaExtras: { data: CHART_DATA, series: CHART_SERIES }, ready: '[data-slot="chart"]' },
     { type: 'plugin-charts:donut-chart', schemaExtras: { data: CHART_DATA, series: CHART_SERIES }, ready: '[data-slot="chart"]' },
     { type: 'plugin-charts:radar-chart', schemaExtras: { data: CHART_DATA, series: CHART_SERIES }, ready: '[data-slot="chart"]' },
-    { type: 'plugin-charts:scatter-chart', schemaExtras: { data: SCATTER_DATA, xAxisKey: 'x', series: SCATTER_SERIES }, ready: '[data-slot="chart"]' },
     { type: 'plugin-charts:object-chart', schemaExtras: OBJECT_CHART_EXTRAS, ready: '[data-slot="chart"]' },
     { type: 'view:chart', schemaExtras: OBJECT_CHART_EXTRAS, ready: '[data-slot="chart"]' },
   ],
@@ -872,7 +878,6 @@ const TARGETS: Readonly<Record<string, readonly Target[]>> = {
     { type: 'plugin-chatbot:chatbot-floating', ready: '#floating-chatbot-portal' },
   ],
   'plugin-dashboard': [
-    { type: 'plugin-dashboard:dashboard-grid', ready: '[data-testid="grid-layout"]' },
     { type: 'plugin-dashboard:metric', schemaExtras: { label: 'Revenue', value: 42 }, ready: '.rounded-lg.border' },
     { type: 'plugin-dashboard:metric-card', schemaExtras: { label: 'Revenue', value: 42 }, ready: '.rounded-lg.border' },
     { type: 'plugin-dashboard:object-metric', schemaExtras: { objectName: 'accounts' }, ready: '.rounded-lg.border' },
@@ -1823,7 +1828,7 @@ const DOCBLOCK_COUNTS = {
   /** Attributes leaked by the shape with the most members. */
   commonestShapeAttributes: 14,
   /** Every target this sweep renders, all five packages. */
-  allTargets: 183,
+  allTargets: 181,
   /** Every ledgered row, `plugin-dashboard`'s open tail included. */
   allLedgered: 92,
 } as const;

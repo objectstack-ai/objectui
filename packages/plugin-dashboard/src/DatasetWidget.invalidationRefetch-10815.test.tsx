@@ -35,6 +35,7 @@ import { SchemaRenderer, SchemaRendererProvider, notifyDataChanged, useDataInval
 // Side-effect imports at MODULE scope (AGENTS.md's flaky-test rule).
 import '@object-ui/components';
 import './index';
+import { DashboardGridLayout } from './DashboardGridLayout';
 import type { DataSource } from '@object-ui/types';
 
 /**
@@ -184,13 +185,15 @@ describe('a dataset-bound dashboard widget re-reads on the data-invalidation bus
     expect(screen.queryByTestId('refresh-indicator')).toBeNull();
   });
 
-  it('the same reader serves a `dashboard-grid` block’s dataset widget', async () => {
+  // `DashboardGridLayout` is mounted directly: its `dashboard-grid` node key was
+  // retired by objectui#10859 batch 8, and the component is what still ships.
+  it('the same reader serves a `DashboardGridLayout` block’s dataset widget', async () => {
     const ds = makeDatasetSource();
     render(
-      <>
+      <SchemaRendererProvider dataSource={asAdapter(ds)}>
         <BusControl />
-        <SchemaRenderer schema={dashboard('dashboard-grid') as unknown as StoredNode} dataSource={ds} />
-      </>,
+        <DashboardGridLayout schema={dashboard() as never} />
+      </SchemaRendererProvider>,
     );
     await screen.findByText('Won');
     await settle();

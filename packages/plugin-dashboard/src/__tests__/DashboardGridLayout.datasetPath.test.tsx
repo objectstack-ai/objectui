@@ -11,7 +11,8 @@
  *
  * `DashboardRenderer` has routed a dataset-bound widget through `DatasetWidget`
  * — the governed `queryDataset` path — since ADR-0021. `DashboardGridLayout`,
- * separately exported and registered as the `dashboard-grid` SDUI component,
+ * separately exported (and, until objectui#10859 batch 8, registered as the
+ * `dashboard-grid` SDUI component),
  * never read `widget.dataset` at all and took no `dataSource` prop, so a widget
  * authored in the CURRENT shape fell through to the static-data branch. Measured
  * on `origin/main` (8640cec19) by spying on the node handed to `SchemaRenderer`,
@@ -47,8 +48,9 @@
  * does not support dataset queries." (`DatasetWidget.tsx:766-771` sets the error
  * state BEFORE the measures check; `:929-934` renders it). It is visible in this
  * context, so routing through `DatasetWidget` UNCONDITIONALLY is the whole fix
- * and no third diagnostic surface is declared. `dashboard-grid`'s SDUI
- * registration passes no `dataSource`, so that path IS this case — pinned below.
+ * and no third diagnostic surface is declared. A host that mounts the component
+ * with no `dataSource` (as the retired `dashboard-grid` SDUI registration always
+ * did) hits exactly this case — pinned below.
  *
  * The negative controls are the binding half: static-data, `options.data`
  * provider, and the #4613 legacy-retired widget must all keep rendering exactly
@@ -250,11 +252,10 @@ describe('DashboardGridLayout dataset-bound widgets (#4614)', () => {
   });
 
   it('says so VISIBLY when a dataset-bound widget arrives with NO dataSource — never a blank (the SDUI registration path)', async () => {
-    // `dashboard-grid` is registered with inputs `title` / `className` only and
-    // is rendered by hosts that pass no adapter, so this is the shape the SDUI
-    // component type actually renders in. It must state the problem rather than
-    // draw nothing — measured pre-fix, the tile held no alert, no chart and no
-    // text at all.
+    // A host that mounts the grid with no adapter — the shape the retired
+    // `dashboard-grid` SDUI type (objectui#10859 batch 8) always rendered in.
+    // It must state the problem rather than draw nothing — measured pre-fix,
+    // the tile held no alert, no chart and no text at all.
     render(<DashboardGridLayout schema={dash({ id: 'w1', type: 'bar', dataset: 'invoices', dimensions: ['status'], values: ['count'] })} />);
     // Wording pinned verbatim — the message IS the diagnostic, and it is
     // DatasetWidget's own (one condition, one wording, no third surface).

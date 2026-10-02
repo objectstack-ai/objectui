@@ -106,11 +106,16 @@ import type { retirementTombstone } from './zod/tombstone.zod.js';
  * for it. A bag built from a flat `.passthrough()` mirror (`flex`'s
  * `FlexPropsBag`, `object-chart`'s `ObjectChartPropsBag`, objectui#11276) keeps
  * the mirror's tolerant posture, which the strict authoring face closes, and
- * this type closes it the same way. Any other member is left as it is.
+ * this type closes it the same way. So does a REQUIRED bag built from a
+ * block's registration inputs (`object-pivot`, `embeddable-form`,
+ * objectui#11440), which is a zod object rather than an optional one. Any
+ * other member is left as it is.
  */
 type ClosedBag<Member> = Member extends z.ZodOptional<infer Bag extends z.ZodObject>
   ? z.ZodOptional<z.ZodObject<Bag['shape']>>
-  : Member;
+  : Member extends z.ZodObject
+    ? z.ZodObject<Member['shape']>
+    : Member;
 
 /**
  * A zod object arm's authoring input, read off its shape with the object
@@ -179,10 +184,12 @@ export type PublicBlockNodeOf<T extends PublicBlockNode['type']> = Extract<Publi
  * and objectui#11276): `object-metric`, `object-master-detail-form`,
  * `object-timeline`, `object-form`, `object-map`, `object-chart`,
  * `object-gantt` and `object-grid`, each the arm's own authoring input
- * (objectui#11468), derived exactly as {@link PublicBlockNode} is. The block's
- * props are its `properties` bag: the spec's `ComponentPropsMap` row, or, for
- * `object-chart`, which has no row, the `ObjectChartSchema` mirror's own
- * members, closed ({@link ClosedBag}).
+ * (objectui#11468), derived exactly as {@link PublicBlockNode} is, and
+ * `object-pivot` and `embeddable-form` (objectui#11440). The block's props are
+ * its `properties` bag: the spec's `ComponentPropsMap` row, or, for a block
+ * with no row, objectui's own members, closed ({@link ClosedBag}) — the
+ * `ObjectChartSchema` mirror's for `object-chart`, the registration's inputs
+ * for `object-pivot` and `embeddable-form`, whose bags are required.
  *
  * ⚠️ Not the TypeScript twins in `./objectql.ts` (`ObjectFormSchema`,
  * `ObjectMapSchema`, `ObjectGanttSchema`, `ObjectChartSchema`,
@@ -218,6 +225,12 @@ export type ObjectGanttBlockNode = ObjectQLPublicBlockNodeOf<'object-gantt'>;
 
 /** An authored `object-grid` node: the `ObjectGridBlockSchema` arm's input. */
 export type ObjectGridBlockNode = ObjectQLPublicBlockNodeOf<'object-grid'>;
+
+/** An authored `object-pivot` node: the `ObjectPivotBlockSchema` arm's input (objectui#11440). */
+export type ObjectPivotBlockNode = ObjectQLPublicBlockNodeOf<'object-pivot'>;
+
+/** An authored `embeddable-form` node: the `EmbeddableFormBlockSchema` arm's input (objectui#11440). */
+export type EmbeddableFormBlockNode = ObjectQLPublicBlockNodeOf<'embeddable-form'>;
 
 /**
  * An authored `flex` node: the `FlexBlockSchema` arm's input (objectui#11468),

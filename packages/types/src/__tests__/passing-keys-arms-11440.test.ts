@@ -40,6 +40,7 @@ import {
   StrictAnyComponentSchema,
   safeValidateSchema,
 } from '../zod/index.zod';
+import type { EmbeddableFormBlockNode, ObjectPivotBlockNode } from '../authoring-nodes';
 
 type Issue = { code: string; path: PropertyKey[]; message: string; keys?: string[]; errors?: Issue[][] };
 type Result = { success: boolean; error?: { issues: unknown[] } };
@@ -254,6 +255,22 @@ describe('`embeddable-form` — its required member (objectui#11440)', () => {
       .toEqual(['invalid_type']);
     expect(at(judge({ type: 'embeddable-form', properties: { ...FORM_BAG, fields: [{ field: 'name' }] } }), 'properties.fields.0')
       .map((i) => i.code), face).toEqual(['invalid_type']);
+  });
+});
+
+describe('`object-pivot` and `embeddable-form` — the TypeScript authoring face (objectui#11440)', () => {
+  // TYPE-level rows: judged by this package's `type-check` (`tsc -p
+  // tsconfig.test.json`), never by vitest, which strips types.
+  it('the bag is closed and required, and a flat prop is refused', () => {
+    const pivot: ObjectPivotBlockNode = { type: 'object-pivot', properties: { rowField: 'stage', columnField: 'owner', valueField: 'amount' } };
+    // @ts-expect-error `rowFeild` is not a member of the object-pivot bag (the registration inputs, closed)
+    const misspelled: ObjectPivotBlockNode = { type: 'object-pivot', properties: { rowFeild: 'stage', columnField: 'owner', valueField: 'amount' } };
+    // @ts-expect-error the bag is required: `rowField`, `columnField` and `valueField` live in it
+    const bagless: ObjectPivotBlockNode = { type: 'object-pivot' };
+    // @ts-expect-error `formId` is a member of the bag, refused flat on the node by name
+    const flat: EmbeddableFormBlockNode = { type: 'embeddable-form', formId: 'contact-us', properties: { formId: 'contact-us' } };
+    const form: EmbeddableFormBlockNode = { type: 'embeddable-form', properties: { formId: 'contact-us', objectName: 'lead' } };
+    expect([pivot, misspelled, bagless, flat, form]).toHaveLength(5);
   });
 });
 

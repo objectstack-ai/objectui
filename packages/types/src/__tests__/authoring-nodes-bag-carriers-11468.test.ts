@@ -33,6 +33,8 @@ import type {
   ObjectMapBlockNode,
   ObjectMasterDetailFormBlockNode,
   ObjectMetricBlockNode,
+  ObjectPivotBlockNode,
+  EmbeddableFormBlockNode,
   ObjectQLPublicBlockNode,
   ObjectTimelineBlockNode,
   PublicBlockNode,
@@ -89,6 +91,8 @@ type _EachAliasIsItsArm = Assert<
       ObjectChartBlockNode['type'],
       ObjectGanttBlockNode['type'],
       ObjectGridBlockNode['type'],
+      ObjectPivotBlockNode['type'],
+      EmbeddableFormBlockNode['type'],
     ],
     [
       'object-metric',
@@ -99,6 +103,8 @@ type _EachAliasIsItsArm = Assert<
       'object-chart',
       'object-gantt',
       'object-grid',
+      'object-pivot',
+      'embeddable-form',
     ]
   >
 >;
@@ -109,13 +115,15 @@ type _JoinedIntoAuthoringNode = Assert<
 // 3. No member of `AuthoringNode` carries an open bag. `flex` and `object-chart`
 //    have no spec row: their bags are the flat mirrors' own members, kept
 //    `.passthrough()` for the tolerant face, so reading the arm's shape alone
-//    leaves each bag with `[k: string]: unknown`. The control shows that, which
-//    is why the derivation reads the bag's shape too.
+//    leaves each bag with `[k: string]: unknown`. `object-pivot` and
+//    `embeddable-form` (objectui#11440) have no row either: their required bags
+//    are built from the registration inputs, kept `.passthrough()` the same way.
+//    The control shows that, which is why the derivation reads the bag's shape too.
 type _NoAuthoringNodeBagIsOpen = Assert<Equal<OpenBagTypes<AuthoringNode>, never>>;
-type _ControlShapeOnlyLeavesTwoBagsOpen = Assert<
+type _ControlShapeOnlyLeavesTheOwnMemberBagsOpen = Assert<
   Equal<
     OpenBagTypes<ShapeOnlyArmInput<(typeof ObjectQLPublicBlockComponentSchema)['options'][number] | typeof FlexBlockSchema>>,
-    'object-chart' | 'flex'
+    'object-chart' | 'flex' | 'object-pivot' | 'embeddable-form'
   >
 >;
 

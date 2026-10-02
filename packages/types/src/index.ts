@@ -147,6 +147,8 @@ export type {
   ObjectChartBlockNode,
   ObjectGanttBlockNode,
   ObjectGridBlockNode,
+  ObjectPivotBlockNode,
+  EmbeddableFormBlockNode,
   FlexBlockNode,
   ElementTextInputNode,
   ElementRecordPickerNode,

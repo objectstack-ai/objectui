@@ -649,7 +649,8 @@ as widget keys:
 | `description` | `string` or `I18nLabel`, from `BaseSchema` |
 
 `@object-ui/types/zod` judges the same members, so `objectui validate` refuses
-a `trend` outside the three, or a `value` that is neither a string nor a number.
+a card directly in `widgets[]` whose `trend` is outside the three, or whose
+`value` is neither a string nor a number.
 
 ### Reading a widget key off `widgets[]`
 

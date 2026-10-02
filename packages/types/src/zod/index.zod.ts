@@ -519,7 +519,7 @@ export { CloudPlanStatusSchema } from './cloud.zod.js';
 import { z } from 'zod';
 import { defineNodeComponentUnion } from './base.zod.js';
 import { AppComponentSchema, AppSchemaRendererNodeSchema } from './app.zod.js';
-import { LayoutSchema } from './layout.zod.js';
+import { LayoutSchema, PageKindNodeSchema } from './layout.zod.js';
 import { FormComponentSchema } from './form.zod.js';
 import { DataDisplaySchema } from './data-display.zod.js';
 import { FeedbackSchema } from './feedback.zod.js';
@@ -591,6 +591,11 @@ export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion(
   AppComponentSchema,
   AppSchemaRendererNodeSchema,
   LayoutSchema,
+  // objectui#11440 — the spec page kinds `record` / `home` / `utility`. An arm
+  // of its own rather than a member of `LayoutSchema`, whose enum-keyed arms are
+  // the two html-tag families that `@object-ui/core`'s html-tier roster pin
+  // (`html-tier-intrinsics.test.ts`) finds by that shape.
+  PageKindNodeSchema,
   FormComponentSchema,
   DataDisplaySchema,
   FeedbackSchema,

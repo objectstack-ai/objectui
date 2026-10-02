@@ -1331,8 +1331,6 @@ export const LayoutSchema = z.discriminatedUnion('type', [
   ResizableSchema,
   AspectRatioSchema,
   PageNodeSchema,
-  // objectui#11440 — the spec page kinds `record` / `home` / `utility`.
-  PageKindNodeSchema,
   SemanticElementSchema,
   HtmlElementSchema,
 ]);

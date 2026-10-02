@@ -784,7 +784,20 @@ export function NumberCellRenderer({ value, field }: CellRendererProps): React.R
   //
   // No clamp: the objectui#10071 one retired at the objectui#9808 SUNSET
   // (objectui#11073) — `@objectstack/spec` 17.5.0 refuses a `scale` above 100.
-  const scale = typeof numField.scale === 'number' ? numField.scale : undefined;
+  //
+  // objectui#11254 — the width is read through `resolveFieldScale` (ruling A′
+  // on objectstack-ai/objectstack#19628), the function the percent cell, the
+  // detail chip, the grid footer and the gantt tooltip ask. For `number` the
+  // protocol has no absent-`scale` row, so an undeclared field answers
+  // `undefined`, no fixed width, exactly as before. The read changed only for a
+  // malformed declaration that is still a JS number: `typeof === 'number'`
+  // let `1.5` through for `Intl` to floor to one place (a width nobody
+  // declared) and `-1` through for `Intl` to throw on, taking the row down.
+  // The resolver's door is the record validator's own (`Number.isInteger` and
+  // `>= 0`), and it answers "no declaration" for both. The resolved value feeds
+  // the grouping policy exactly as the raw one did: a declared `0` stays `0`.
+  // ⛔ No `?? N` beside this call: `undefined` is the protocol's answer.
+  const scale = resolveFieldScale({ type: numField.type, scale: numField.scale });
   // The author's digit-grouping hint (objectui#11026): `FieldSchema.useGrouping`,
   // declared on `NumberFieldMetadata`, so it is read off the typed `field` and
   // not through `numField`. An authored boolean overrides the `scale` heuristic
@@ -796,13 +809,17 @@ export function NumberCellRenderer({ value, field }: CellRendererProps): React.R
       ? field.useGrouping
       : undefined;
   const num = Number(safe);
+  // Two arms, spelled out: a resolved width is fixed at both bounds; no width
+  // is the value's natural precision (the minimum 0 / maximum 20 described
+  // above), which is not a width of its own.
   const formatted = !isNaN(num)
     ? formatDisplayNumber(num, {
         locale,
         scale,
         useGrouping,
-        minimumFractionDigits: scale ?? 0,
-        maximumFractionDigits: scale ?? 20,
+        ...(scale === undefined
+          ? { minimumFractionDigits: 0, maximumFractionDigits: 20 }
+          : { minimumFractionDigits: scale, maximumFractionDigits: scale }),
       })
     : String(safe);
   

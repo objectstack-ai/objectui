@@ -149,8 +149,9 @@ export interface PageDesignerSchema extends BaseSchema {
    * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `PageDesigner` draws from its
-   * props; the registration declares `canvas`, `components`,
-   * `showComponentTree`, `undoRedo` and `readOnly` as its inputs.
+   * props; the registration declares `canvas`, `components`, `palette`,
+   * `propertyEditor`, `showComponentTree`, `undoRedo` and `readOnly` as its
+   * inputs.
    *
    * @deprecated Not a channel `page-designer` reads — nothing renders it.
    */
@@ -364,8 +365,8 @@ export interface DataModelDesignerSchema extends BaseSchema {
    * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `DataModelDesigner` draws from
-   * its props; the registration declares `entities`, `relationships` and
-   * `readOnly` as its inputs.
+   * its props; the registration declares `entities`, `relationships`,
+   * `canvas`, `showRelationshipLabels` and `readOnly` as its inputs.
    *
    * @deprecated Not a channel `data-model-designer` reads — nothing renders
    * it.
@@ -542,8 +543,9 @@ export interface ProcessDesignerSchema extends BaseSchema {
    * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `ProcessDesigner` draws from its
-   * props; the registration declares `processName`, `nodes`, `edges`,
-   * `showMinimap`, `showToolbar` and `readOnly` as its inputs.
+   * props; the registration declares `processName`, `version`, `nodes`,
+   * `edges`, `lanes`, `canvas`, `showMinimap`, `showToolbar` and `readOnly` as
+   * its inputs.
    *
    * @deprecated Not a channel `process-designer` reads — nothing renders it.
    */
@@ -711,8 +713,9 @@ export interface ReportDesignerSchema extends BaseSchema {
    * channels by name with the same measurement, so both faces gate it.
    *
    * What it renders instead: the designer UI `ReportDesigner` draws from its
-   * props; the registration declares `reportName`, `objectName`, `sections`,
-   * `showToolbar`, `showPropertyPanel` and `readOnly` as its inputs.
+   * props; the registration declares `reportName`, `objectName`, `pageSize`,
+   * `orientation`, `margins`, `sections`, `showToolbar`, `showPropertyPanel`
+   * and `readOnly` as its inputs.
    *
    * @deprecated Not a channel `report-designer` reads — nothing renders it.
    */

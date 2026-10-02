@@ -68,11 +68,15 @@
  *     .validationRules`, whose element types (`ObjectDefinitionRelationship`,
  *     `DesignerValidationRule`) left both faces and the exports with them.
  *
- * The members ruled READ stay declared and mirrored. The data-model and
- * process designers' readers landed in the card's second change, which also
- * RESPELLED `DataModelRelationship.onDelete` as `deleteBehavior`, in the spec's
- * vocabulary: `onDelete` is refused by name with the migration. The other
- * designers' readers are a later change of the same card.
+ * The members ruled READ stay declared and mirrored, and every one is drawn
+ * now: the data-model and process designers' since the card's second change,
+ * which also RESPELLED `DataModelRelationship.onDelete` as `deleteBehavior`,
+ * in the spec's vocabulary (`onDelete` is refused by name with the migration);
+ * the page designer's, the shared canvas's `backgroundColor` and the report
+ * designer's since its third. That change also moved a report field element
+ * onto its declared `dataBinding`: the undeclared `properties.field` it used
+ * to read is refused by name, with the migration, by the check on the element's
+ * `properties` record. No member of this family is declared and unread.
  *
  * ## Content channels
  *

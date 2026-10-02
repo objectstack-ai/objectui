@@ -176,9 +176,9 @@ describe('objectui#11467 — the registered inputs are MEMBERS: each value is ju
     const doc = dashboard({ type: 'metric-card', title: 'Revenue', icon: 'users' });
     for (const face of [AnyComponentSchema, StrictAnyComponentSchema]) {
       const [slotArm] = widgetUnion(face, doc)?.errors ?? [];
-      expect(slotArm).toEqual(
-        expect.arrayContaining([expect.objectContaining({ code: 'invalid_type', path: ['value'] })]),
-      );
+      // The member is `string | number` — the same spelling as the statistic's
+      // `value` — so an absent one is refused at `value` by that union.
+      expect(slotArm?.map((i) => i.path.join('.'))).toEqual(['value']);
     }
   });
 

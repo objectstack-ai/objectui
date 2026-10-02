@@ -126,7 +126,9 @@ describe('objectui#11022 — widget-slot registrations vs the strict authoring f
     it.each(registeredInputs(type).map((input) => [input.name, input] as const))(
       'UNDER-admission: its registered input `%s` parses in the widget slot on the strict face',
       (name, input) => {
-        const result = StrictAnyComponentSchema.safeParse(dashboard({ type, [name]: sampleFor(input) }));
+        // On a node that carries the REQUIRED inputs (`value`, since objectui#11467), so
+        // each optional input is measured on a card the arm otherwise accepts.
+        const result = StrictAnyComponentSchema.safeParse(dashboard({ ...nodeOf(type), [name]: sampleFor(input) }));
         const issues = result.success ? [] : (result.error.issues as unknown as Issue[]);
         expect(unrecognized(issues), `the strict face refuses the registered input \`${name}\``).not.toContain(name);
         expect(result.success).toBe(true);
@@ -191,7 +193,6 @@ describe('objectui#11022 — widget-slot registrations vs the strict authoring f
     expect(sameTypes).toBe(true);
   });
 });
-});
 
 /** Every issue in the refusal, union arms flattened, each path made absolute to the widget. */
 const flatIssues = (issues: readonly Issue[], prefix: PropertyKey[] = []): Issue[] =>
@@ -200,15 +201,21 @@ const flatIssues = (issues: readonly Issue[], prefix: PropertyKey[] = []): Issue
     ...(issue.errors ?? []).flatMap((group) => flatIssues(group, [...prefix, ...issue.path])),
   ]);
 
-/** A node of `type` carrying each REQUIRED registered input, so only `layout` is under test. */
+/**
+ * A node of `type` carrying each REQUIRED registered input, so only `layout` is under test.
+ * The inputs are read from the live registration, which the compiler cannot see, so the
+ * cast names what they supply: the arm's required `value` (objectui#11467), which the
+ * population test above pins as the registration's `required` input. Both faces then
+ * judge the node at runtime.
+ */
 const nodeOf = (type: string): DashboardWidgetSlotComponentSchema => ({
   type: type as DashboardWidgetSlotComponentSchema['type'],
   id: `kpi-${type}`,
-  ...Object.fromEntries(
+  ...(Object.fromEntries(
     registeredInputs(type)
       .filter((input) => (input as Input & { required?: boolean }).required)
       .map((input) => [input.name, sampleFor(input)]),
-  ),
+  ) as Pick<DashboardWidgetSlotComponentSchema, 'value'>),
 });
 
 /** What Save Layout persists: the producer's merge of grid coordinates into the dashboard. */

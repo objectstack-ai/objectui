@@ -220,7 +220,7 @@ describe('objectui#8505 — a key outside the vocabulary no longer compiles', ()
 /* ── (d) the boundary: what this narrowing does NOT catch, measured ───────── */
 
 describe('objectui#8505 — the narrowing broke no producer, and this is why', () => {
-  it('a computed record of counts still assigns — index signatures satisfy optional members', () => {
+  it('a computed `Record<string, number>` still assigns — index signatures satisfy optional members', () => {
     // The blast-radius question this card was dispatched with: does something
     // assign into `columns` from a COMPUTED record rather than a literal, and
     // would that go red at the call site? Measured two ways and they agree.
@@ -236,19 +236,16 @@ describe('objectui#8505 — the narrowing broke no producer, and this is why', (
     // package's source, test and example programs — was green with the
     // narrowing applied and zero call sites edited.
     //
-    // ⚠️ Re-judged by objectui#11491, which closed the VALUES to the counts the
-    // renderer maps. The escape this row pins is the KEY one and it stands: the
-    // record below is computed, keyed by `string`, and still assigns. What no
-    // longer assigns is a `Record<string, number>`, on purpose — its values may
-    // be any number, and `grid` maps 1 to 12 only — so the row's record is typed
-    // by the counts, and the refusal is pinned beside it.
-    const computed: Record<string, ColumnCount> = { xs: 1, sm: 2 };
+    // ⚠️ Re-read by objectui#11491, which closed the VALUES to the counts the
+    // renderer maps, and measured with `tsc -p tsconfig.test.json`: this row
+    // still compiles, `Record<string, number>` and all. TypeScript does not
+    // judge an index signature's VALUE type against optional target members
+    // either, so the escape covers values as well as keys. The TypeScript face
+    // closes what an author writes as a literal; the zod mirror judges the
+    // values a computed record carries (`grid-columns-set-11491.test.ts`).
+    const computed: Record<string, number> = { xs: 1, sm: 2 };
     const fromComputed: GridSchema = { type: 'grid', columns: computed };
     expect(fromComputed.columns).toEqual({ xs: 1, sm: 2 });
-    const anyNumber: Record<string, number> = { xs: 1, sm: 2 };
-    // @ts-expect-error — a `number` value may be a count `grid` does not map (objectui#11491)
-    const fromAnyNumber: GridSchema = { type: 'grid', columns: anyNumber };
-    expect(fromAnyNumber).toBeDefined();
   });
 
   it('a NON-fresh object with at least one valid key also still assigns', () => {

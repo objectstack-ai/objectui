@@ -17,8 +17,9 @@ and `{ "columns": { "xs": 13 } }`, `"columns": 0` and `"columns": -1` drew two c
 nobody authored.
 
 - `@object-ui/types`: `GridSchema.columns` is the literal union of 1 to 12, or a partial
-  breakpoint map of that union, on the TypeScript face, so `tsc` refuses any other count, and a
-  computed `Record<string, number>` no longer assigns to it. The zod mirror refuses one at
+  breakpoint map of that union, on the TypeScript face, so `tsc` refuses any other count written
+  as a literal (a computed `Record<string, number>` still assigns, as it did for keys since
+  objectui#8505; the mirror judges its counts). The zod mirror refuses one at
   `columns` as an `invalid_union` whose message lists the set; its arms carry the set as
   `values`, at the breakpoint's own path for the object form. `safeValidateSchema` (what
   `objectui validate` runs) and the strict authoring face both give that refusal. An unknown

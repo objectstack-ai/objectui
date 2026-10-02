@@ -375,14 +375,15 @@ and each reader falls back to its own empty state.
 `useDataScope` is called by `list` and `tree-view` in `@object-ui/components`,
 and by the `object-*` widgets the plugin packages register (`object-grid`,
 `object-kanban`, `object-chart`, `object-data-table`, `object-gallery`,
-`object-timeline`, `object-pivot`). Every other component ignores `bind`
-completely — no error, no warning, nothing in the console.
+`object-timeline`, `object-pivot`). Every other component ignores `bind` — no
+error, no warning, nothing in the console — except `data-table` (one warning, below).
 
 `data-table` is the one that catches authors out. It takes its rows from an
 inline `data` array on the node and never calls `useDataScope`, so a `bind` on
 it resolves nothing: the table renders its header over the "No results found"
-empty state. Nothing is thrown and nothing is logged — a table that looks built
-and is blank is the whole failure.
+empty state. Nothing is thrown and nothing on the page says why — the one
+signal is a `[ObjectUI] DataTable bind:` console warning (objectui#6575); on
+the page, a table that looks built and is blank is the whole failure.
 
 <!-- os:check -->
 ```json

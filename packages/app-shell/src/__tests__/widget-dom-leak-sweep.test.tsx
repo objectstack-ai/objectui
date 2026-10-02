@@ -37,9 +37,9 @@
  *   | plugin-calendar  |       3 |               0 |                 0 |
  *   | plugin-chatbot   |       3 |               0 |                 0 |
  *   | plugin-dashboard |       7 |               2 |             7 / 9 |
- *   | components       |     160 |              90 |          12 .. 15 |
+ *   | components       |     150 |              82 |          12 .. 15 |
  *
- * **92 of 178 targets leak.** The `components` row is objectui#5574 and is
+ * **84 of 168 targets leak.** The `components` row is objectui#5574 and is
  * covered in its own section below; the two `plugin-dashboard` rows are the
  * older tail. Both are in {@link LEAK_LEDGER}:
  * `plugin-dashboard:metric` and `plugin-dashboard:metric-card`, the open tail
@@ -122,7 +122,7 @@
  * have failed. These two differ in exactly one thing: which namespace the extra
  * widget went into.
  *
- * ### The reading — 119 of 158 ON ARRIVAL, in seven shapes; 90 today
+ * ### The reading — 119 of 158 ON ARRIVAL, in seven shapes; 82 today
  *
  * The card named four candidates (`flex`, `stack`, `container`, `text`) and was
  * careful to call them candidates. All four leaked. So did 115 others, and the
@@ -139,8 +139,9 @@
  * so their rows had to go for the gate to pass — the two-way expiry below,
  * working exactly once it had something to expire. Later slices took more,
  * and objectui#5632's `ui:sidebar-trigger` took the last shape that named a
- * single renderer: **90 rows in FOUR shapes** remain, on a target set that has
- * itself grown to 160. What the arrival reading measured is preserved here in prose and in
+ * single renderer: **82 rows in FOUR shapes** remain, on a target set of 150
+ * today (it grew past 158, and objectui#10859 batch 8 phase 2d took the ten
+ * retired `ui:sidebar-*` part keys out of it). What the arrival reading measured is preserved here in prose and in
  * the burn-down note on {@link COMPONENTS_LEAK_GROUPS}; what the gate asserts
  * is always current truth, which is the whole point of not writing dates into
  * a ledger.
@@ -364,12 +365,17 @@ import { ComponentRegistry } from '@object-ui/core';
 // 测试纪律 / objectui#3010).
 import '@object-ui/components';
 // The one HOST this sweep needs beyond `SchemaRendererProvider` (trap 4). Four
-// `packages/components` targets read `useSidebar()` and throw
+// `packages/components` targets read `useSidebar()` and threw
 // `useSidebar must be used within a SidebarProvider` without it — measured, and
 // a throw renders attribute-clean error-boundary markup that reads as a clean
-// pass. It is a REACT host, deliberately not a `ui:sidebar-provider` SCHEMA
-// node: that node is itself a swept target carrying the full canary set, so
-// wrapping in it would attribute the wrapper's own leaks to the target inside.
+// pass. Two are left under it: `ui:header-bar`, which still throws bare, and
+// `ui:sidebar`, which since objectui#10859 batch 8 phase 2d mounts its own
+// provider only when none is above it, and so uses this one. The other two,
+// `ui:sidebar-trigger` and `ui:sidebar-menu-button`, retired with that phase.
+// It is a REACT host, deliberately not a `ui:sidebar-provider` SCHEMA node:
+// that node was itself a swept target carrying the full canary set, so
+// wrapping in it would have attributed the wrapper's own leaks to the target
+// inside (and that key retired with the same phase).
 import { SidebarProvider } from '@object-ui/components';
 // Two more HOSTS, added by objectui#5630 to deepen `element:repeater` and
 // `element:metadata_viewer` past their empty-state branch (see the section
@@ -602,7 +608,7 @@ const CALENDAR_OBJECT_EXTRAS = {
  * an ordinary authored prop while doing it.
  *
  * Measured on the tree this landed on: 152 of 158 targets matched it.
- * Today 157 of 160 targets match it; the other three are in
+ * Today 147 of 150 targets match it; the other three are in
  * {@link READY_OVERRIDE_REASONS}, each with the reason it cannot —
  * a recorded limitation with its own two-way assertion below, never a quiet
  * exemption (the `omitCanaries` discipline, applied to readiness).
@@ -765,9 +771,7 @@ const COMPONENTS_PLAIN_TYPES: readonly string[] = [
   'ui:main', 'ui:mark', 'ui:menubar', 'ui:nav', 'ui:navigation-menu', 'ui:ol', 'ui:p',
   'ui:page', 'ui:pagination', 'ui:password', 'ui:pre', 'ui:progress', 'ui:q',
   'ui:radio-group', 'ui:record', 'ui:resizable', 'ui:scroll-area', 'ui:section', 'ui:select',
-  'ui:separator', 'ui:sidebar-content', 'ui:sidebar-footer', 'ui:sidebar-group',
-  'ui:sidebar-header', 'ui:sidebar-inset', 'ui:sidebar-menu', 'ui:sidebar-menu-item',
-  'ui:sidebar-provider', 'ui:skeleton', 'ui:slider', 'ui:small', 'ui:sonner', 'ui:span',
+  'ui:separator', 'ui:skeleton', 'ui:slider', 'ui:small', 'ui:sonner', 'ui:span',
   'ui:spinner', 'ui:stack', 'ui:statistic', 'ui:strong', 'ui:sub', 'ui:sup', 'ui:switch',
   'ui:table', 'ui:tabs', 'ui:text', 'ui:textarea', 'ui:time', 'ui:toast', 'ui:toggle',
   'ui:toggle-group', 'ui:tree-view', 'ui:u', 'ui:ul', 'ui:utility',
@@ -789,10 +793,12 @@ const COMPONENTS_SPECIAL_TARGETS: readonly Target[] = [
   componentsTarget('action:group', { actions: CANARY_ACTIONS }),
   componentsTarget('action:menu', { actions: CANARY_ACTIONS }),
   // `useSidebar()` throws without the host — trap 4, and a caught throw is
-  // attribute-clean markup that passes.
+  // attribute-clean markup that passes. `ui:header-bar` still reads it.
+  // `ui:sidebar` no longer throws bare (it mounts its own provider when none is
+  // above it, objectui#10859 batch 8 phase 2d); it stays under the host, the
+  // app-shell context where it uses the host's provider. `ui:sidebar-trigger`
+  // and `ui:sidebar-menu-button` left the sweep with their retired keys.
   componentsTarget('ui:sidebar', {}, COMPONENTS_READY, 'sidebar'),
-  componentsTarget('ui:sidebar-trigger', {}, COMPONENTS_READY, 'sidebar'),
-  componentsTarget('ui:sidebar-menu-button', {}, COMPONENTS_READY, 'sidebar'),
   componentsTarget('ui:header-bar', {}, COMPONENTS_READY, 'sidebar'),
   componentsTarget('ui:toaster', {}, 'section[aria-label="Notifications alt+T"]'),
   // objectui#5630 — deepened past the empty-state placeholder. `items`
@@ -889,8 +895,8 @@ const TARGETS: Readonly<Record<string, readonly Target[]>> = {
     // key onto this package's own namespace; the renderer is the same one.
     { type: 'plugin-dashboard:dashboard', ready: '.grid.auto-rows-min' },
   ],
-  // objectui#5574 — 160 targets, built above rather than spelled here because
-  // 141 of them need nothing but the shared readiness class.
+  // objectui#5574 — 150 targets, built above rather than spelled here because
+  // 133 of them need nothing but the shared readiness class.
   components: COMPONENTS_TARGETS,
 };
 
@@ -983,7 +989,7 @@ interface LedgerEntry {
 /* ── objectui#5574: the `packages/components` reading, as a LEDGER ─────────── */
 
 /**
- * 90 of the 160 `packages/components` targets leak, and they do it in exactly
+ * 82 of the 150 `packages/components` targets leak, and they do it in exactly
  * FOUR shapes (119 targets in seven shapes did on arrival; see the burn-down
  * note below — and note the arrival count of shapes read `eight` here until
  * objectui#5632 counted them: the groups were seven, and the card's own table
@@ -1075,8 +1081,10 @@ interface LedgerEntry {
  *     `id`, `class`, the resolved `aria-*`, `data-obj-*` and the primitive's own
  *     `data-sidebar="trigger"` — eight attributes, measured IDENTICAL before and
  *     after. That reading, plus the fact that the trigger still toggles and
- *     still carries its "Toggle Sidebar" accessible name, is pinned in
- *     `examples/schema-catalog/test/sidebar-trigger-dom-leak-5632.test.tsx`.
+ *     still carries its "Toggle Sidebar" accessible name, was pinned in
+ *     `examples/schema-catalog/test/sidebar-trigger-dom-leak-5632.test.tsx`
+ *     until objectui#10859 batch 8 phase 2d retired the `ui:sidebar-trigger`
+ *     key, and that file with it (2026-10-02).
  *
  * ## This is a ledger, not an allowlist — the difference, stated once
  *
@@ -1086,8 +1094,8 @@ interface LedgerEntry {
  * leaking a NINTH attribute the gate fails, because the measured set no longer
  * equals the recorded one; if it stops leaking, the gate ALSO fails until the
  * row goes. An allowlist has neither property. Nothing below is skipped,
- * `it.skip`-ed, quarantined or excluded from the sweep — all 160 targets render
- * and all 160 are scanned on every run, the 70 clean ones included.
+ * `it.skip`-ed, quarantined or excluded from the sweep — all 150 targets render
+ * and all 150 are scanned on every run, the 68 clean ones included.
  */
 
 /**
@@ -1160,9 +1168,7 @@ const COMPONENTS_LEAK_GROUPS: readonly LedgerGroup[] = [
       'ui:label', 'ui:li', 'ui:list', 'ui:loading', 'ui:main', 'ui:mark', 'ui:menubar',
       'ui:nav', 'ui:navigation-menu', 'ui:ol', 'ui:p', 'ui:pagination', 'ui:pre',
       'ui:progress', 'ui:q', 'ui:resizable', 'ui:scroll-area', 'ui:section',
-      'ui:separator', 'ui:sidebar', 'ui:sidebar-content', 'ui:sidebar-footer',
-      'ui:sidebar-group', 'ui:sidebar-header', 'ui:sidebar-inset', 'ui:sidebar-menu',
-      'ui:sidebar-menu-item', 'ui:sidebar-provider', 'ui:skeleton', 'ui:small', 'ui:span',
+      'ui:separator', 'ui:sidebar', 'ui:skeleton', 'ui:small', 'ui:span',
       'ui:strong', 'ui:sub', 'ui:sup', 'ui:table', 'ui:tabs',
       'ui:time', 'ui:toggle-group', 'ui:tree-view', 'ui:u', 'ui:ul',
     ],
@@ -1230,7 +1236,7 @@ const LEAK_LEDGER: Readonly<Record<string, LedgerEntry>> = {
     issue: 'objectui#4425',
   },
 
-  /* ── packages/components: 90 of 160 targets, in four measured shapes ───── */
+  /* ── packages/components: 82 of 150 targets, in four measured shapes ───── */
   ...Object.fromEntries(
     COMPONENTS_LEAK_GROUPS.flatMap((group) =>
       group.targets.map((type) => [
@@ -1575,8 +1581,10 @@ describe('the sweep covers a real, non-empty target set (objectui#4425)', () => 
     const converged = [
       'action:button', 'action:icon', 'ui:button', 'ui:checkbox', 'ui:combobox',
       'ui:date-picker', 'ui:email', 'ui:file-upload', 'ui:input', 'ui:input-otp',
-      'ui:password', 'ui:radio-group', 'ui:sidebar-menu-button', 'ui:slider', 'ui:sonner',
+      'ui:password', 'ui:radio-group', 'ui:slider', 'ui:sonner',
       'ui:switch', 'ui:textarea', 'ui:toggle',
+      // `ui:sidebar-menu-button`, the eighteenth, retired with objectui#10859
+      // batch 8 phase 2d: no row and no target, because no registration.
     ];
     expect(
       converged.filter((type) => LEAK_LEDGER[type]),
@@ -1589,30 +1597,10 @@ describe('the sweep covers a real, non-empty target set (objectui#4425)', () => 
     expect(converged.filter((type) => !sweptTypes.has(type))).toEqual([]);
   });
 
-  it('`ui:sidebar-trigger` is CLEAN — the `schema` row may not be re-absorbed', () => {
-    // objectui#5632's slice: the one-member group that leaked FOURTEEN — the
-    // thirteen of `BARE_SPREAD_MINUS_NAME` plus `schema` itself. Its group is
-    // DELETED, and this is the inverted case that keeps it deleted, same
-    // treatment and same reason as the two families directly above.
-    //
-    // What this one adds over both is the SECOND mechanism. `schema` did not
-    // leak here because of the shape the group records; it leaked because this
-    // registration alone never destructured it (it renders no children, so it
-    // had no reason to name `schema` at all) and the injected node rode the
-    // spread. Re-ledgering that is the repair to refuse: the filter drops
-    // `schema` without anyone enumerating it, and a row here would say the
-    // opposite.
-    const converged = ['ui:sidebar-trigger'];
-    expect(
-      converged.filter((type) => LEAK_LEDGER[type]),
-      '`ui:sidebar-trigger` is converged on the form-control DOM declaration ' +
-        '(objectui#5632) and measures clean. A row here means a regression was ' +
-        're-ledgered instead of fixed.',
-    ).toEqual([]);
-    // …and it is still SWEPT, so "no row" cannot mean "no longer looked at".
-    const sweptTypes = new Set(ALL_TARGETS.map((target) => target.type));
-    expect(converged.filter((type) => !sweptTypes.has(type))).toEqual([]);
-  });
+  // `ui:sidebar-trigger` is CLEAN was pinned here (objectui#5632's one-member
+  // group that leaked `schema` itself). Its node key retired with objectui#10859
+  // batch 8 phase 2d, so there is no registration left to sweep or to
+  // re-ledger; `packages/cli`'s registered-types ratchet pins the absence.
 
   it('the ledger is well formed — every row names a swept target, a reason and an issue', () => {
     const sweptTypes = new Set(ALL_TARGETS.map((target) => target.type));
@@ -1810,27 +1798,27 @@ const wordForCount = (count: number): string => COUNT_WORDS[count] ?? String(cou
  */
 const DOCBLOCK_COUNTS = {
   /** `packages/components` targets swept: the plain types plus the specials. */
-  componentsTargets: 160,
+  componentsTargets: 150,
   /** Of those, the ones needing nothing but the shared readiness class. */
-  componentsPlainTypes: 141,
+  componentsPlainTypes: 133,
   /** Ledgered `packages/components` rows — targets with a recorded leak. */
-  componentsLedgered: 90,
+  componentsLedgered: 82,
   /** The complement: swept, scanned and clean. */
-  componentsClean: 70,
+  componentsClean: 68,
   /** Measured shapes the ledgered rows fall into. */
   componentsShapes: 4,
   /** Registry prefixes `packages/components` owns. */
   componentsPrefixes: 5,
   /** Targets the shared readiness selector reaches. */
-  componentsReadyMatched: 157,
+  componentsReadyMatched: 147,
   /** The rest, each with a recorded reason it cannot. */
   componentsReadyOverrides: 3,
   /** Attributes leaked by the shape with the most members. */
   commonestShapeAttributes: 14,
   /** Every target this sweep renders, all five packages. */
-  allTargets: 178,
+  allTargets: 168,
   /** Every ledgered row, `plugin-dashboard`'s open tail included. */
-  allLedgered: 92,
+  allLedgered: 84,
 } as const;
 
 type CountName = keyof typeof DOCBLOCK_COUNTS;
@@ -1905,7 +1893,7 @@ const QUOTED_COUNTS: readonly QuotedCount[] = [
   {
     where: 'the burn-down sentence under that heading',
     pattern:
-      /\*\*(\d+) rows in ([A-Z]+) shapes\*\* remain, on a target set that has itself grown to (\d+)\./,
+      /\*\*(\d+) rows in ([A-Z]+) shapes\*\* remain, on a target set of (\d+) today/,
     expected: [
       DOCBLOCK_COUNTS.componentsLedgered,
       wordForCount(DOCBLOCK_COUNTS.componentsShapes).toUpperCase(),

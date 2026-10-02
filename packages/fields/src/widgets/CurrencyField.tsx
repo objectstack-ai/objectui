@@ -2,50 +2,10 @@ import React from 'react';
 import { Input, EmptyValue, cn } from '@object-ui/components';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
-import { useLocalization, useDisplayLocale, formatDisplayNumber } from '@object-ui/i18n';
-import { resolveFieldCurrency, currencyFractionDigits, currencySymbol } from '../currency.js';
+import { useLocalization, useDisplayLocale } from '@object-ui/i18n';
+import { resolveFieldCurrency, currencySymbol } from '../currency.js';
 import { useBadInputRefusal, BadInputMessage, BAD_INPUT_BORDER } from './numberBadInput.js';
-
-/**
- * Format currency value for display. When `currency` is undefined the value
- * is rendered as a plain number with thousands separators (no symbol),
- * because silently assuming USD is misleading for non-USD businesses.
- *
- * `fractionDigits` is the display width the caller resolved — the currency's
- * own ISO 4217 minor-unit count, or 2 when no currency is known (see the
- * derivation at the call site, objectui#10276).
- */
-function formatAmount(
-  value: number,
-  currency: string | undefined,
-  fractionDigits: number,
-  locale?: string,
-): string {
-  if (currency) {
-    try {
-      return formatDisplayNumber(value, {
-        locale,
-        currency,
-        minimumFractionDigits: fractionDigits,
-        maximumFractionDigits: fractionDigits,
-      });
-    } catch {
-      return `${currency} ${value.toFixed(fractionDigits)}`;
-    }
-  }
-  try {
-    // No `scale` passed: `formatDisplayNumber` reads `scale: 0` without a
-    // currency as an ordinal and drops the grouping separators
-    // (objectui#4033), and an amount is never an ordinal.
-    return formatDisplayNumber(value, {
-      locale,
-      minimumFractionDigits: fractionDigits,
-      maximumFractionDigits: fractionDigits,
-    });
-  } catch {
-    return value.toFixed(fractionDigits);
-  }
-}
+import { formatCurrency, currencyDisplayWidth } from './number-format.js';
 
 export function CurrencyField({ value, onChange, field, readonly, error, className, ...props }: FieldWidgetComponentProps<number>) {
   const currencyField = field as any;
@@ -58,8 +18,10 @@ export function CurrencyField({ value, onChange, field, readonly, error, classNa
   // item 2), executed here by objectui#10276. The width is the ISO 4217
   // minor-unit count of the resolved currency: 2 for USD / CNY, 0 for JPY,
   // 3 for KWD. With no currency resolved there is no minor unit to ask about,
-  // so the historical 2 stays — the same no-currency fallback `formatCurrency`
-  // uses for the grid cell.
+  // so the historical 2 stays. `currencyDisplayWidth` is that derivation, and
+  // `formatCurrency` (the grid cell's formatter, and this widget's read-only
+  // face below) reads the same function, so the width an amount is shown at
+  // and the width it is edited at cannot part (objectui#11444).
   //
   // ⛔ NOT the field-level `precision`. `@objectstack/spec` declares it as
   // "Total digits (non-negative integer)" — the `p` of a decimal(p, s) column,
@@ -79,16 +41,22 @@ export function CurrencyField({ value, onChange, field, readonly, error, classNa
   // affordances below. Deliberate: leaving `step`/blur-rounding at 2 would give
   // a JPY field that displays whole yen while offering a 0.01 spinner step and
   // rounding typed input to 1234.56 yen.
-  const fractionDigits = currency ? currencyFractionDigits(currency) : 2;
+  const fractionDigits = currencyDisplayWidth(currency);
 
   // Before the readonly return: hooks are unconditional (objectui#6780).
   const { refusal, readBadInput } = useBadInputRefusal('1234.56');
 
   if (readonly) {
     if (value == null) return <EmptyValue />;
+    // The call `CurrencyCellRenderer` makes, so a read-only form and a table
+    // cell show one amount identically (objectui#11444). This used to be a
+    // private `formatAmount` beside the cell's `formatCurrency`; the two drew
+    // apart on a whole amount (`$3,456.00` here, `$3,456` in the cell) until
+    // triage ruled the declared width the protocol's convention and the cell's
+    // whole-amount trimming retired.
     return (
       <span className="text-sm font-medium tabular-nums">
-        {formatAmount(Number(value), currency, fractionDigits, locale)}
+        {formatCurrency(Number(value), currency, locale)}
       </span>
     );
   }

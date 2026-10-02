@@ -31,3 +31,9 @@ and `tabIndex` still reach the DOM — `style` forwarded by name, the two others
 on the shared pass-through list. The leak set went from 14 to 0 underneath an
 unchanged 8-attribute legitimate set, and clicking the trigger still toggles the
 sidebar.
+
+⚠️ **Dated note, 2026-10-02 — `ui:sidebar-trigger` is retired — objectui#10859.**
+Later in this same release objectui#10859 batch 8 (phase 2d) unregistered the ten `sidebar-*` node type keys,
+`sidebar-trigger` and `ui:sidebar-trigger` among them, so the registration this entry describes leaves the
+runtime. `SidebarTrigger` stays exported for JSX hosts. The rest of this entry is kept as the reading of this
+change.

@@ -62,7 +62,9 @@ function footer(field: keyof typeof ROW): string | undefined {
 
 describe('the grid summary footer agrees with the resolver on currencyMode (objectui#10422)', () => {
   it('dynamic: sums to what a field with no currencyConfig sums to, the tenant $', () => {
-    expect(footer('plain')).toBe('Sum: $3,456');
+    // The `.00` moved on purpose when objectui#11444 retired the whole-amount
+    // trimming (triage comment 5946462862).
+    expect(footer('plain')).toBe('Sum: $3,456.00');
     expect(footer('dyn')).toBe(footer('plain'));
   });
 

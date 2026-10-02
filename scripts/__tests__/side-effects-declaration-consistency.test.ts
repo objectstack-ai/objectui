@@ -1519,8 +1519,9 @@ describe('objectui#3899 specimen: @object-ui/layout registers through the source
       'Bundling `import "@object-ui/layout";` through the workspace src alias dropped the component ' +
         'registrations. This is objectui#3899 exactly: a bundler took the manifest at its word. Check ' +
         'that `sideEffects` names "./src/index.ts".',
-      // `responsive-grid` since objectui#10859 batch 8 retired `page-header`.
-    ).toContain('responsive-grid');
+      // `app-schema-renderer` since objectui#11441 retired `responsive-grid`,
+      // which stood in after objectui#10859 batch 8 retired `page-header`.
+    ).toContain('app-schema-renderer');
 
     // Every key the barrel registers, so losing all but one cannot pass on the
     // strength of that one. Read out of the source rather than listed here:
@@ -1587,7 +1588,7 @@ describe('objectui#3899 specimen: @object-ui/layout registers through the source
         code,
         'A copy of this package declaring `sideEffects: false` kept its registrations, so the source-alias ' +
           'probe above is not measuring the manifest at all.',
-      ).not.toContain('responsive-grid');
+      ).not.toContain('app-schema-renderer');
     } finally {
       rmSync(path.resolve(mirrored, '..'), { recursive: true, force: true });
     }

@@ -721,11 +721,14 @@ describe('renamed local dialects do not collide with a spec export (objectui#307
    * The bump did exactly that; these rows are where the names landed.
    *
    * `BreakpointName` is `@object-ui/types`'; `BreakpointColumnMap` is
-   * `@object-ui/layout`'s. Both are kept because `responsive-grid` is a
-   * REGISTERED SDUI component whose authorable `columns` reaches
-   * `resolveColumnClasses` on the render path — the tombstone's own stated
-   * return condition, met on the renderer side. The exports are live in this
-   * workspace, so a spec re-publish is a live collision, not a latent one.
+   * `@object-ui/layout`'s. Both are kept because a renderer implements them —
+   * the tombstone's own stated return condition, met on the renderer side:
+   * `BreakpointName` keys the `grid` node's authorable breakpoint `columns`,
+   * and `BreakpointColumnMap` types `ResponsiveGrid`'s `columns` prop, which
+   * `resolveColumnClasses` applies. (objectui#11441 retired the
+   * `responsive-grid` registration that was the original ground and kept both
+   * names.) The exports are live in this workspace, so a spec re-publish is a
+   * live collision, not a latent one.
    */
   it.each([['BreakpointName'], ['BreakpointColumnMap']])(
     'the spec no longer owns `%s`, re-homed under the objectui#7580 ruling',

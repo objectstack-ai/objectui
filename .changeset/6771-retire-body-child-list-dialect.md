@@ -131,3 +131,8 @@ Those are the two tab-subtree walkers in `renderers/layout/containers.tsx`,
 CLI's `OBJECTUI_STRUCTURAL_KEYS` — a file-IDENTIFICATION marker, where keeping `body` is
 what lets an old file still be recognised as an ObjectUI node and therefore refused,
 instead of silently not judged.
+
+⚠️ **Dated note, 2026-10-02 — the `sidebar-*` parts are retired — objectui#10859.**
+Later in this same release objectui#10859 batch 8 (phase 2d) unregistered the ten `sidebar-*` part keys. Of the
+family the **Renderers** line names, only `sidebar` remains, and it reads `children`. The rest of this entry is
+kept as the reading of this change.

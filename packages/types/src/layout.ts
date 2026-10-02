@@ -566,9 +566,17 @@ export interface ContainerSchema extends BaseSchema {
    */
   centered?: boolean;
   /**
-   * Padding
+   * Padding step on the container's spacing scale; `0` means none.
+   *
+   * The steps are the ones `container.tsx` maps to a padding class, and only
+   * those (objectui#11424): it reads `schema.padding ?? 4` and tests it against
+   * one branch per step, so any other number matched no branch and drew no
+   * padding class at all — not even the default. This was `number`, which let
+   * `9` and `20` through; the zod mirror (`zod/layout.zod.ts`) refuses them
+   * with the set named.
+   * @default 4
    */
-  padding?: number;
+  padding?: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 10 | 12 | 16;
   /**
    * Child components
    */

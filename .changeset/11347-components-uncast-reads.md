@@ -29,3 +29,9 @@ Where a registration published a retired key as an input, the input goes too: `a
 Apart from `ListSchema.title`, no member is added or removed and no accept set changes.
 
 **minor, not patch — the published face gains a member.** `ListSchema.title` is a new member of the shipped `.d.ts` and of the mirror's `.shape`, and the mirror refuses a non-string `title` by name, the class objectui#7722 graded `minor` on this same schema.
+
+⚠️ **Dated note, 2026-10-02 — `sidebar-menu-button` is retired — objectui#10859.**
+Later in this same release objectui#10859 batch 8 (phase 2d) unregistered the ten `sidebar-*` node type keys,
+`sidebar-menu-button` among them, so the `active` read and input this entry removes leave with the whole
+registration; a sidebar item is authored as a child of the `sidebar` node. The rest of this entry is kept as
+the reading of this change.

@@ -5,8 +5,6 @@
 
 import { ComponentRegistry } from '@object-ui/core';
 import { PageCard } from './PageCard';
-import { ResponsiveGrid } from './ResponsiveGrid';
-import { NavigationRenderer } from './NavigationRenderer';
 import { AppSchemaRenderer } from './AppSchemaRenderer';
 
 export * from './PageHeader';
@@ -118,58 +116,56 @@ export function registerLayout() {
   // `app-schema-renderer`. `__tests__/app-shell-not-a-component-key.test.tsx`
   // pins the current state and says the same thing where it fails.
 
-  ComponentRegistry.register('responsive-grid', ResponsiveGrid, {
-    namespace: 'layout',
-    label: 'Responsive Grid',
-    category: 'Layout',
-    isContainer: true,
-    inputs: [
-      { name: 'columns', type: 'object' },
-      { name: 'gap', type: 'number' },
-    ],
-  });
+  // ⛔ The `responsive-grid` node type key is RETIRED (objectui#11441, the
+  // maintainer's ruling `5950208338`, letter B, executed as an objectui#10859
+  // batch by the objectui#10393 / objectui#8760 route). A breakpoint grid has one
+  // spelling: the `grid` node from `@object-ui/components` with a breakpoint
+  // `columns` object (`{ "type": "grid", "columns": { "xs": 1, "md": 2 },
+  // "gap": 4 }`), which both validator faces accept and which refuses an unknown
+  // breakpoint key as an unrecognized key (`unrecognized_keys` on `columns`).
+  // `ResponsiveGrid` stays a named export of this package for hosts that
+  // compose it in React, and so does the
+  // `BreakpointColumnMap` it is typed by: the same ruling keeps objectui#7580's
+  // vocabulary half and retires only this registration.
+  //
+  // What was here: a registration of `ResponsiveGrid` under the kebab key
+  // `responsive-grid` in the `layout` namespace, so it stored
+  // `layout:responsive-grid` and the bare `responsive-grid` fallback, with
+  // `isContainer: true` and two declared inputs (`columns` as an object, `gap`
+  // as a number). (Described rather than quoted, for the reason the `app-shell`
+  // note above gives.) No `@object-ui/types` arm claimed the key, so
+  // `objectui validate` refused a `responsive-grid` node at `type` while the
+  // registry mounted it.
+  //
+  // Why unregistering is the whole retirement: no source, doc, example or
+  // catalog document in this repository or in objectstack authors the node, and
+  // nothing emits it. A node written with this type now renders the OBJUI-001
+  // "Unknown component type" panel.
 
-  // `items` is `NavigationItem[]` (`NavigationRenderer.tsx:108`) — an ARRAY, and
-  // it used to be declared `type: 'object'` (objectui#3972). Those are not two
-  // spellings of one check: `sdui-parser`'s `checkType` accepts `'object'` only
-  // for `typeof value === 'object' && !Array.isArray(value)` and `'array'` only
-  // for `Array.isArray(value)` (`validate.ts:124-129`), so the declaration made
-  // the manifest gate report `type-mismatch: <navigation-renderer> prop "items"
-  // expected an object` on the ONLY value this renderer can render — and stay
-  // silent on the object that would crash it.
+  // ⛔ The `navigation-renderer` node type key is RETIRED (objectui#11441, the
+  // same ruling, letter B, by the same route). Navigation has one home:
+  // application metadata, the app's `navigation` items plus what plugins
+  // contribute (ADR-0029 D7), drawn by the shell. In this package that is
+  // `AppSchemaRenderer`, the whole-shell door below (objectui#4841); in the
+  // console it is `UnifiedSidebar`, which mounts `NavigationRenderer` itself.
+  // `NavigationRenderer` stays a named export of this package; only the page
+  // node spelling goes.
   //
-  // This is not objectui#3832 (a key whose contract is a UNION, which the
-  // declaration could not spell before that card and now spells as an array of
-  // arms): `items` has ONE contract type, `ManifestInputType` has `'array'`, so
-  // the declaration was simply wrong about a type it could express exactly.
+  // What was here: a registration of `NavigationRenderer` under the kebab key
+  // `navigation-renderer` in the `layout` namespace, so it stored
+  // `layout:navigation-renderer` and the bare `navigation-renderer` fallback,
+  // with two declared inputs: `items`, a required array (objectui#3972 corrected
+  // its type from `object`; objectui#3987 made it required, because the
+  // renderer has no default and a node without it crashed on render), and
+  // `basePath`, an optional string. (Described rather than quoted, as above.)
+  // No `@object-ui/types` arm claimed the key, so `objectui validate` refused a
+  // `navigation-renderer` node at `type` while the registry mounted it.
   //
-  // `required: true` is the fourth face of the same agreement (objectui#3987).
-  // #3972 aligned the key's EXISTENCE and TYPE; optionality was still declared
-  // the opposite of what the component enforces. `NavigationRendererProps.items`
-  // has no `?` and the renderer supplies no default (`NavigationRenderer.tsx:1204`),
-  // so `{ "type": "navigation-renderer" }` — a node the validator passed in
-  // silence, because `validate.ts:55-64` only reports `missing-required-prop`
-  // when `input.required` is set — crashes on the first thing the render does
-  // with the prop: `collectPinnedItems(filteredItems)` at `:1242` does
-  // `for (const item of items)` (`:1410`) and throws
-  // `TypeError: items is not iterable`. (The `resolveActiveNavItem` memo above
-  // it survives, its `visit` guards `if (!nodes) return`; `filteredItems.slice()`
-  // at `:1247` would throw too but is never reached.)
-  //
-  // So this is not a stylistic "document it as required" — it is the one
-  // diagnostic that exists precisely to stop a node whose render is a
-  // guaranteed crash from shipping. `basePath` below stays optional because the
-  // renderer really does default it (`basePath = ''`); the two are declared
-  // differently because the component treats them differently.
-  ComponentRegistry.register('navigation-renderer', NavigationRenderer, {
-    namespace: 'layout',
-    label: 'Navigation Renderer',
-    category: 'Layout',
-    inputs: [
-      { name: 'items', type: 'array', required: true },
-      { name: 'basePath', type: 'string' },
-    ],
-  });
+  // Why unregistering is the whole retirement: no source, doc example or
+  // catalog document in this repository or in objectstack authors the node, and
+  // nothing emits it; every host that draws navigation mounts the component. A
+  // node written with this type now renders the OBJUI-001 "Unknown component
+  // type" panel: a loud refusal, not a second source of navigation.
 
   ComponentRegistry.register('app-schema-renderer', AppSchemaRenderer, {
     namespace: 'layout',

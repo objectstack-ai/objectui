@@ -1454,6 +1454,19 @@ export interface InputOTPSchema extends BaseSchema {
    */
   length?: number;
   /**
+   * Draw a visual separator between two halves of the slots
+   *
+   * READ SITE: `packages/components/src/renderers/form/input-otp.tsx`. `true`
+   * splits the {@link InputOTPSchema.length} slots into two groups at the
+   * midpoint and draws one separator (`role="separator"`) between them; an odd
+   * `length` puts the extra slot in the first group, and a single slot has
+   * nothing to separate. Absent or `false` draws one group. Declared by
+   * objectui#11365: the docs page and two catalog entries authored it while no
+   * type declared it and the renderer read nothing for it.
+   * @default false
+   */
+  separator?: boolean;
+  /**
    * Default value
    */
   defaultValue?: string;
@@ -1501,7 +1514,8 @@ export interface InputOTPSchema extends BaseSchema {
    * `maxLength`, `value` (in
    * `packages/components/src/renderers/form/input-otp.tsx`). The undeclared
    * `maxLength` read has since moved to the declared {@link InputOTPSchema.length}
-   * (objectui#11347).
+   * (objectui#11347), and objectui#11365 added a read of the declared
+   * {@link InputOTPSchema.separator}.
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here
@@ -1530,7 +1544,8 @@ export interface InputOTPSchema extends BaseSchema {
    * `maxLength`, `value` (in
    * `packages/components/src/renderers/form/input-otp.tsx`). The undeclared
    * `maxLength` read has since moved to the declared {@link InputOTPSchema.length}
-   * (objectui#11347).
+   * (objectui#11347), and objectui#11365 added a read of the declared
+   * {@link InputOTPSchema.separator}.
    *
    * Before objectui#9256 tombstoned them here, `body` and `children` were both
    * inherited-and-optional from {@link BaseSchema} — so authoring either here

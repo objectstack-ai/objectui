@@ -268,8 +268,29 @@ describe('shadcn local patches — application to fresh upstream (objectstack#55
 
   /** The other declared family: the sidebar collapse-persistence patch. */
   it('sidebar declares the cookie-read patch', () => {
-    const ids = LOCAL_PATCHES.sidebar.map((p: { id: string }) => p.id);
+    const ids = LOCAL_PATCHES.sidebar
+      .filter((p: { issue: string }) => p.issue === 'objectui#4234')
+      .map((p: { id: string }) => p.id);
     expect(ids).toEqual(['sidebar-cookie-read-import', 'sidebar-cookie-read-initial-state']);
+  });
+
+  /**
+   * The sixth family: the sidebar's non-throwing context read (objectui#10859,
+   * batch 8 phase 2d). Both halves are listed because the reader alone compiles
+   * and is unreachable — the SDUI `sidebar` registration imports the EXPORTED
+   * name, so without the export it fails to build, and without the reader the
+   * export names nothing.
+   */
+  it('sidebar declares the optional-context patches', () => {
+    const ids = LOCAL_PATCHES.sidebar
+      .filter((p: { issue: string }) => p.issue === 'objectui#10859')
+      .map((p: { id: string }) => p.id);
+    expect(ids).toEqual(['sidebar-optional-context-reader', 'sidebar-optional-context-export']);
+  });
+
+  it('sidebar declares no patch outside those two families', () => {
+    const issues = [...new Set(LOCAL_PATCHES.sidebar.map((p: { issue: string }) => p.issue))].sort();
+    expect(issues).toEqual(['objectui#10859', 'objectui#4234']);
   });
 
   /**

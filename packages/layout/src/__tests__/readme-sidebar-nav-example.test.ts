@@ -48,7 +48,7 @@
  *
  * The scan in half 3's last test is deliberately narrow: it re-reads the fenced
  * blocks that mention `SidebarNav` and rejects a quoted `icon:`.
- * `navigation-renderer` really does take an icon NAME as a string (its
+ * `NavigationRenderer` really does take an icon NAME as a string (its
  * `resolveIcon`), so this must never become a README-wide ban on `icon: '…'` —
  * it is a fact about THIS component's prop, scoped to THIS component's
  * examples.
@@ -271,7 +271,7 @@ describe("the README's SidebarNav props tables name exactly the real keys (objec
           'unknown lowercase tag and renders nothing (objectui#3999). Import the Lucide',
           'component and pass it.',
           '',
-          'Scope note: `navigation-renderer` DOES take `icon` as a string (an icon name), so this',
+          'Scope note: `NavigationRenderer` DOES take `icon` as a string (an icon name), so this',
           'assertion is deliberately confined to fences that mention SidebarNav.',
         ].join('\n'),
       ).toBe(false);

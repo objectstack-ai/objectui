@@ -179,7 +179,7 @@ describe('currencySymbol() — neither a bad code nor a bad locale may escape as
   it('an invalid currency code falls back to the code as given', () => {
     // `Intl` throws `RangeError: Invalid currency code` for these. The fallback
     // is the code itself, which is both what the ternary produced and what
-    // `formatAmount`'s own bad-code branch renders beside it.
+    // `formatCurrency`'s own bad-code branch renders beside it.
     expect(currencySymbol('not-a-code', 'en')).toBe('not-a-code');
     expect(currencySymbol('USDD', 'en')).toBe('USDD');
   });

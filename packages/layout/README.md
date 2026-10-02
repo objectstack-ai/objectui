@@ -24,9 +24,8 @@ pnpm add @object-ui/layout
 ## Registration
 
 Importing this package registers its component keys (`page:card`,
-`responsive-grid`, `navigation-renderer`, `app-schema-renderer`) on the
-`ComponentRegistry` as a module load side effect, so the side-effect-only import
-is enough:
+`app-schema-renderer`) on the `ComponentRegistry` as a module load side effect,
+so the side-effect-only import is enough:
 
 ```typescript
 import '@object-ui/layout';
@@ -42,6 +41,12 @@ prefer to register explicitly.
 The `page-header` key is retired (objectui#10859): author `page:header`, which
 `@object-ui/components` registers, with the secondary line as `subtitle`. `PageHeader`
 stays an export for JSX composition.
+
+The `responsive-grid` and `navigation-renderer` keys are retired too (objectui#11441).
+A breakpoint grid is the `grid` node with a breakpoint `columns` object
+(`{ "type": "grid", "columns": { "xs": 1, "md": 2 }, "gap": 4 }`), and navigation is
+application metadata: the app's `navigation` items, drawn by the shell.
+`ResponsiveGrid` and `NavigationRenderer` stay exports for JSX composition.
 
 ## Components
 

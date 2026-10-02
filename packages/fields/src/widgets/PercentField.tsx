@@ -1,9 +1,11 @@
 import React from 'react';
 import { resolveFieldScale } from '@objectstack/spec/data';
 import { Input, Slider, EmptyValue, cn } from '@object-ui/components';
+import { useDisplayLocale } from '@object-ui/i18n';
 import { FieldWidgetComponentProps } from './types.js';
 import { toDomProps } from './toDomProps.js';
 import { useBadInputRefusal, BadInputMessage, BAD_INPUT_BORDER } from './numberBadInput.js';
+import { formatPercentPoints } from './number-format.js';
 
 /**
  * The stored fraction a typed percentage-point value becomes — computed by
@@ -125,6 +127,7 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
 
   // Before the readonly return below: hooks are unconditional (objectui#6780).
   const { refusal, readBadInput } = useBadInputRefusal('12.5');
+  const locale = useDisplayLocale();
 
   // Convention detection. A field declaring `max > 1` (e.g. `max: 100`) stores
   // WHOLE-NUMBER percents (0–100); otherwise values are FRACTIONS (0–1) shown
@@ -143,9 +146,17 @@ export function PercentField({ value, onChange, field, readonly, error, classNam
 
   if (readonly) {
     if (value == null) return <EmptyValue />;
+    // The rendering call `PercentCellRenderer` makes through `formatPercent`:
+    // the display locale's percent convention, its grouping and the width
+    // `resolveFieldScale` answered above (objectui#11444). This printed
+    // `toDisplay(value).toFixed(scale)` and a literal `%`, so a `scale: 2`
+    // field holding `0.25` read `25.00%` in a `de` form and `25,00 %` in its
+    // table cell. The magnitude stays this widget's own `toDisplay`, the
+    // storage convention its input writes by, so the read-only text and the
+    // input never show one stored value at two magnitudes.
     return (
       <span className="text-sm font-medium tabular-nums">
-        {toDisplay(value).toFixed(scale)}%
+        {formatPercentPoints(toDisplay(value), scale, locale)}
       </span>
     );
   }

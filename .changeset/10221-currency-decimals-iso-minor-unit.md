@@ -51,3 +51,6 @@ Percent columns and fields still take their width from `scale`.
 **Migration.** Nothing to restate: a currency amount's decimal places follow its
 currency. Delete `scale` from currency fields. A dashboard that wants a fixed
 pattern on a metric tile declares it with `format`.
+
+⚠️ **Dated note, 2026-10-02 — the whole-amount sentences above were made false in this same release — objectui#11444.**
+The sentences saying a whole amount shows no fraction (`$1,234`, "as the cell does"), that an amount with no currency resolved has no decimals when it is whole, and the bullet saying a whole USD amount under `scale: 2` now shows `$1,234`, no longer hold. Later in this release triage ruled that a currency's declared width, its ISO 4217 minor-unit count, is the protocol's convention, and `formatCurrency` stopped dropping the fraction of a whole amount (objectui#11444, comment 5946462862). The footer and the tile still take `formatCurrency` by reference, so they move with the cell: a whole USD amount reads `$1,234.00`, a whole amount with no currency resolved reads `1,234.00`, and a whole JPY amount still reads `¥1,234`. The rest of this entry is kept as the reading of this change.

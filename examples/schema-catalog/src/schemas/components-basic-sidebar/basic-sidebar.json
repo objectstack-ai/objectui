@@ -1,97 +1,36 @@
 {
-  "type": "sidebar-provider",
+  "type": "sidebar",
+  "collapsible": false,
+  "className": "gap-1 border-r p-2",
   "children": [
     {
-      "type": "sidebar",
-      "children": [
-        {
-          "type": "sidebar-content",
-          "children": [
-            {
-              "type": "sidebar-group",
-              "label": "Menu",
-              "children": [
-                {
-                  "type": "sidebar-menu",
-                  "children": [
-                    {
-                      "type": "sidebar-menu-item",
-                      "children": [
-                        {
-                          "type": "sidebar-menu-button",
-                          "children": [
-                            {
-                              "type": "text",
-                              "content": "Dashboard"
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "sidebar-menu-item",
-                      "children": [
-                        {
-                          "type": "sidebar-menu-button",
-                          "children": [
-                            {
-                              "type": "text",
-                              "content": "Projects"
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "sidebar-menu-item",
-                      "children": [
-                        {
-                          "type": "sidebar-menu-button",
-                          "children": [
-                            {
-                              "type": "text",
-                              "content": "Team"
-                            }
-                          ]
-                        }
-                      ]
-                    },
-                    {
-                      "type": "sidebar-menu-item",
-                      "children": [
-                        {
-                          "type": "sidebar-menu-button",
-                          "children": [
-                            {
-                              "type": "text",
-                              "content": "Settings"
-                            }
-                          ]
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
+      "type": "text",
+      "content": "Menu",
+      "className": "px-2 py-1.5 text-xs font-medium text-muted-foreground"
     },
     {
-      "type": "sidebar-inset",
-      "children": [
-        {
-          "type": "box",
-          "className": "p-4",
-          "children": [
-            {
-              "type": "text",
-              "content": "Main content area"
-            }
-          ]
-        }
-      ]
+      "type": "button",
+      "label": "Dashboard",
+      "variant": "ghost",
+      "className": "w-full justify-start"
+    },
+    {
+      "type": "button",
+      "label": "Projects",
+      "variant": "ghost",
+      "className": "w-full justify-start"
+    },
+    {
+      "type": "button",
+      "label": "Team",
+      "variant": "ghost",
+      "className": "w-full justify-start"
+    },
+    {
+      "type": "button",
+      "label": "Settings",
+      "variant": "ghost",
+      "className": "w-full justify-start"
     }
   ]
 }

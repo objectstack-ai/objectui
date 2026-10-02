@@ -404,9 +404,10 @@ function formatSummaryLabel(
     // (`CurrencyCellRenderer`), the same way the percent arm below takes
     // `formatPercent` — so footer and cell agree by reference, not by a copy
     // of the rule. It reads neither `scale` nor `precision`: the width is the
-    // currency's ISO 4217 minor-unit count, a whole amount drops its fraction
-    // (`$1,234`, not `$1,234.00`), and with no code resolved it is a plain
-    // number at two decimals, as the cell renders it.
+    // currency's ISO 4217 minor-unit count, a whole amount included
+    // (`$1,234.00`; objectui#11444 retired the whole-amount trimming), and with
+    // no code resolved it is a plain number at two decimals, as the cell
+    // renders it.
     const currency = resolveFieldCurrency(column, tenantDefault);
     formatted =
       currency && !WELL_FORMED_CURRENCY_CODE.test(currency)

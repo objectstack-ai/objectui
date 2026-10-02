@@ -79,13 +79,15 @@ describe('useColumnSummary tenant-default currency', () => {
       wrapper: wrapper('USD'),
     });
     expect(fractional.result.current.summaries.get('amount')?.label).toMatch(/1,234\.50/);
-    // … and a whole total drops the fraction, as the cell above it does.
+    // … and a whole total keeps its cents too, as the cell above it does: the
+    // currency's width, never the stale `scale: 0`. Moved on purpose from
+    // "drops the fraction" when objectui#11444 retired the whole-amount
+    // trimming (triage comment 5946462862).
     const whole = renderHook(() => useColumnSummary(cols, [{ amount: 1000 }, { amount: 234 }]), {
       wrapper: wrapper('USD'),
     });
     const label = whole.result.current.summaries.get('amount')?.label ?? '';
-    expect(label).toMatch(/1,234/);
-    expect(label).not.toMatch(/1,234\./);
+    expect(label).toMatch(/1,234\.00/);
   });
 });
 

@@ -184,20 +184,20 @@ describe('the measured population is read off the renderers, not off the card bo
 
   it('`sidebar-trigger` is ruled but reads NO child list, so retirement costs it nothing', () => {
     expect(RULED_BUT_NOT_A_READER).toEqual(['sidebar-trigger']);
+    // ⚠️ 2026-10-02: the source half of this pin read a family that no longer
+    // exists. It held that `sidebar-trigger` was registered, that the file
+    // carried 11 `sidebar*` registrations, and that ten of them read the child
+    // list. objectui#10859 batch 8 phase 2d retired the ten `sidebar-*` part
+    // keys (`sidebar-trigger` among them), so the population above stays what
+    // the census LOOKS AT — past tense, see the census script — and what is
+    // pinned today is the one registration left: `sidebar`, which reads
+    // `children` and never `body`.
     const src = sidebarSrc();
-    // It is registered…
-    expect(src).toContain("ComponentRegistry.register('sidebar-trigger'");
-    // …and there are exactly 10 `renderChildren(schema.body)` reads across the
-    // 11 `sidebar-*` registrations. The one without is `sidebar-trigger`, whose
-    // renderer never receives `schema` at all.
-    expect(src.match(/ComponentRegistry\.register\('sidebar/g)?.length).toBe(11);
-    // Spelled `children` since objectui#6771; the COUNT is the load-bearing
-    // half and it did not move — ten reads across eleven registrations.
-    expect(src.match(/renderChildren\(schema\.children\)/g)?.length).toBe(10);
+    expect(src.match(/ComponentRegistry\.register\('sidebar/g)?.length).toBe(1);
+    expect(src).toContain("ComponentRegistry.register('sidebar', ");
+    expect(src).not.toContain("register('sidebar-");
+    expect(src.match(/renderChildren\(schema\.children\)/g)?.length).toBe(1);
     expect(src.match(/renderChildren\(schema\.body\)/g)?.length ?? 0).toBe(0);
-    const trigger = src.slice(src.indexOf("register('sidebar-trigger'"));
-    expect(trigger).not.toContain('schema.body');
-    expect(trigger).not.toContain('schema.children');
   });
 
   it('⚠️ `tooltip` was the `body`-only reader the ruled 13 omitted — and it converged with the rest', () => {

@@ -46,3 +46,6 @@ amount's fraction digits, and pins the plain/average arms to a fixed decimal wid
 in `en` too, which no locale repair should do. The `colType === 'percent'` arm is untouched;
 objectui#9269 landed it and it serves here as the control that proves the test fixture really
 moves the tenant locale.
+
+⚠️ **Dated note, 2026-10-02 — one clause above was made false in this same release — objectui#11444.**
+The clause saying `formatCurrency` "fires a wholeness switch that drops a whole amount's fraction digits" no longer holds. Later in this release triage ruled that a currency's declared width, its ISO 4217 minor-unit count, is the protocol's convention, and `formatCurrency` stopped dropping the fraction of a whole amount (objectui#11444, comment 5946462862). It was a true reason for this card's choice when the card was written. The rest of this entry is kept as the reading of this change.

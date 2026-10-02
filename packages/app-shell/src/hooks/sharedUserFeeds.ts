@@ -481,20 +481,33 @@ const approvalsFeed = new SharedFeed<number>(0, APPROVALS_POLL_MS);
 
 /**
  * The identities the endpoint matches a pending approver against: the user id,
- * their email, and `role:<p>` for each POSITION the session carries. Sent as
- * one comma-separated `approverId` so this is ONE request rather than one per
- * identity.
+ * their email, and `position:<p>` for each POSITION the session carries. Sent
+ * as one comma-separated `approverId` so this is ONE request rather than one
+ * per identity.
  *
- * The `role:` prefix is the SERVER's addressing scheme for `pending_approvers`
- * and stays as it is; what changed is which client key supplies the names.
- * This read was `user.roles` until objectui#5424, and the protocol-17 session
- * face emits no `roles` key at all (framework ADR-0090 D3 renamed it to
- * `positions` with no deprecation window; measured on a live 17.1.0 server in
- * objectui#5389). So the loop ran over an always-empty array and NO `role:`
- * identity was ever sent: approvals addressed to a position rather than to a
- * person vanished from the bell badge, the Approvals tab and Home's To-do card,
- * with no error anywhere. Business position names (`manager`, and every other
- * name an approval can be addressed to) survive only in `positions`.
+ * `position:<p>` is the spelling the SERVER stores: a `pending_approvers` slot
+ * routed to a position nobody held when the request opened keeps the literal
+ * `position:<p>` (the `type:value` fallback of plugin-approvals'
+ * `resolveApproverSpec`). `role:<p>` is the framework ADR-0090 D3 deprecated
+ * spelling of the same address, which the server keeps only for 15.x-era
+ * slots; its `approver-address.ts` names `position:` the canonical prefix.
+ * Deciding needs the stored spelling — an approve that names `role:<p>` on a
+ * `position:<p>` slot is refused — so the console sends the canonical one
+ * (objectui#11455).
+ *
+ * ⛔ No `role:<p>` is sent beside it as a fallback: the console names the
+ * position once, in the spelling the server stores, and the server retires
+ * its `role:` arm once a console that does this is pinned (objectstack#21387).
+ *
+ * The names come from `positions`. This read was `user.roles` until
+ * objectui#5424, and the protocol-17 session face emits no `roles` key at all
+ * (framework ADR-0090 D3 renamed it to `positions` with no deprecation window;
+ * measured on a live 17.1.0 server in objectui#5389). So the loop ran over an
+ * always-empty array and NO position identity was ever sent: approvals
+ * addressed to a position rather than to a person vanished from the bell
+ * badge, the Approvals tab and Home's To-do card, with no error anywhere.
+ * Business position names (`manager`, and every other name an approval can be
+ * addressed to) survive only in `positions`.
  *
  * Deliberately NOT paired with `roles` as a fallback — reviving the retired
  * spelling as an alias is what ADR-0090 D3 forbids, and `packages/auth/src/
@@ -505,7 +518,7 @@ function approverIdentities(user: unknown): string[] {
   const identities: string[] = [];
   if (u?.id) identities.push(u.id);
   if (u?.email) identities.push(u.email);
-  for (const position of u?.positions ?? []) if (position) identities.push(`role:${position}`);
+  for (const position of u?.positions ?? []) if (position) identities.push(`position:${position}`);
   return identities;
 }
 

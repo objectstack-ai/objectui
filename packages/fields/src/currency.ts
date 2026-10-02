@@ -113,7 +113,7 @@ const symbolByLocaleAndCurrency = new Map<string, string>();
  * Falls back to `currency` itself — the code as given — in the three cases
  * where ICU cannot answer, because a bare code is a legitimate adornment (it is
  * what ICU itself returns for KWD/BHD/CHF/ISK, and what
- * `formatAmount`'s own bad-code branch renders beside it):
+ * `formatCurrency`'s own bad-code branch renders beside it):
  *
  *  1. an invalid currency code — `Intl` throws `RangeError: Invalid currency
  *     code`;

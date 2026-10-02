@@ -58,6 +58,22 @@
  * The fixture user is the exact payload objectui#5424 measured off the running
  * server, so a green here is a claim about a real session and not about a shape
  * invented to suit the fix.
+ *
+ * ## objectui#11455 — the spelling the server stores
+ *
+ * The identities above were `role:<p>`. The server stores a slot routed to a
+ * position as `position:<p>`; `role:` is the framework ADR-0090 D3 deprecated
+ * spelling, kept only for 15.x-era slots, and an approve that names it on a
+ * `position:<p>` slot is refused. The builder now sends `position:<p>` and no
+ * `role:` entry at all, so the pins read both halves off the wire: the
+ * position-addressed subset is exactly the session's positions, and the
+ * `role:`-prefixed subset is empty. The person-addressed case stays the
+ * control: id and email are not positions and must not move.
+ *
+ * Reverse verification (predicted before running; the measured run is quoted
+ * in the PR, not here): restore the `role:` prefix and the first case goes RED
+ * — the position-addressed subset reads `[]` — while the person-addressed
+ * control stays GREEN.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act, renderHook } from '@testing-library/react';
@@ -92,7 +108,15 @@ function sentIdentities(): string[] {
   return (last.searchParams.get('approverId') ?? '').split(',').filter(Boolean);
 }
 
-/** Just the role-addressed subset — the population that was always empty. */
+/** Just the position-addressed subset — the population that was always empty. */
+function sentPositionIdentities(): string[] {
+  return sentIdentities().filter((i) => i.startsWith('position:'));
+}
+
+/**
+ * Anything spelled with the ADR-0090 D3 deprecated `role:` prefix. The builder
+ * reads no role scalar, so for it this must always be empty (objectui#11455).
+ */
 function sentRoleIdentities(): string[] {
   return sentIdentities().filter((i) => i.startsWith('role:'));
 }
@@ -132,7 +156,7 @@ afterEach(() => {
 });
 
 describe('objectui#5424 — approver identities come from `positions`, the published spelling', () => {
-  it('sends a `role:` identity for every position the session carries', async () => {
+  it('sends a `position:` identity for every position the session carries, and no `role:` one', async () => {
     // The measured protocol-17 payload, verbatim (objectui#5424): a
     // permission-set-derived platform admin on a single-tenant 17.1.0 server.
     // Note `role` is the scalar `'user'` — which is precisely why falling back
@@ -148,13 +172,16 @@ describe('objectui#5424 — approver identities come from `positions`, the publi
     await mount();
 
     // The quantity the defect zeroed out. On the broken read this is `[]`.
-    expect(sentRoleIdentities()).toEqual(['role:manager', 'role:platform_admin']);
+    expect(sentPositionIdentities()).toEqual(['position:manager', 'position:platform_admin']);
+    // objectui#11455: the stored spelling only — no deprecated `role:` twin,
+    // and the `role: 'user'` scalar is not read here at all.
+    expect(sentRoleIdentities()).toEqual([]);
     // …and this is the whole `approverId` the server receives, in order.
     expect(sentIdentities()).toEqual([
       'u_1',
       'admin@example.com',
-      'role:manager',
-      'role:platform_admin',
+      'position:manager',
+      'position:platform_admin',
     ]);
   });
 
@@ -167,9 +194,12 @@ describe('objectui#5424 — approver identities come from `positions`, the publi
 
     await mount();
 
-    // Deliberately blind to the role-addressed subset: this case must be green
-    // on the broken read too, or it is not a control.
-    expect(sentIdentities().filter((i) => !i.startsWith('role:'))).toEqual([
+    // Deliberately blind to the position-addressed subset under BOTH prefixes:
+    // this case must be green on the broken read and on the `role:` spelling
+    // too, or it is not a control.
+    expect(
+      sentIdentities().filter((i) => !i.startsWith('position:') && !i.startsWith('role:')),
+    ).toEqual([
       'u_1',
       'admin@example.com',
     ]);
@@ -186,6 +216,7 @@ describe('objectui#5424 — approver identities come from `positions`, the publi
 
     await mount();
 
+    expect(sentPositionIdentities()).toEqual([]);
     expect(sentRoleIdentities()).toEqual([]);
     expect(sentIdentities()).toEqual(['u_1', 'a@b.c']);
   });

@@ -100,7 +100,11 @@ const MEASURED_TYPES = ['flex', 'stack', 'container', 'grid', 'text', 'box'] as 
  * guard is for.
  */
 const NODE_CENSUS: Readonly<Record<string, { rendered: number; noElement: number }>> = {
-  flex: { rendered: 248, noElement: 0 },
+  // 248 -> 252 with objectui#10859 batch 8 phase 2d: the four
+  // `components-basic-sidebar` documents now author one `sidebar` node, and
+  // `sidebar-with-badges`' four items are `flex` rows (`properties.children`).
+  // Catalog authoring, not a renderer change.
+  flex: { rendered: 252, noElement: 0 },
   stack: { rendered: 153, noElement: 0 },
   container: { rendered: 15, noElement: 0 },
   // 26 -> 27 with objectui#11070 round 10: the new `fields-grid/line-items-grid`
@@ -138,7 +142,15 @@ const NODE_CENSUS: Readonly<Record<string, { rendered: number; noElement: number
   // `type: 'text'`, which this structural walk collects as a `text` node;
   // rendered on its own it draws no element. Catalog authoring, not a
   // renderer change.
-  text: { rendered: 699, noElement: 155 },
+  // 699 -> 687 and 155 -> 140 with objectui#10859 batch 8 phase 2d: the four
+  // `components-basic-sidebar` documents authored 19 bare `text` nodes (the
+  // menu-button labels and four "Main content area" strings), none carrying a
+  // className, so all 19 sat in the no-element class. They now author 7: three
+  // group headings with a className (basic 1, grouped 2), which need an
+  // element, and the badge demo's four bare item labels, which do not — so
+  // rendered moves by 12 and no-element by 15. The other items are `button`
+  // labels. Catalog authoring, not a renderer change.
+  text: { rendered: 687, noElement: 140 },
   // The objectui#3965 migration population (80 nodes retyped from `div`) plus
   // the 4 nodes of the components-layout-box exemplars. `box` is born on
   // `toDomProps` and class-transparency, so it joins the measured set as a
@@ -147,7 +159,11 @@ const NODE_CENSUS: Readonly<Record<string, { rendered: number; noElement: number
   // 84 -> 86 with objectui#6877: the same new fixture is two `box` nodes (an
   // outer wrapper and an inner padding box), mirroring the `div` exemplar it
   // teaches the conversion away from.
-  box: { rendered: 86, noElement: 0 },
+  // 86 -> 82 with objectui#10859 batch 8 phase 2d: the four
+  // `components-basic-sidebar` documents each wrapped their main-content text
+  // in a padding `box` inside the retired `sidebar-inset`; the rewritten
+  // documents author the `sidebar` node alone. Catalog authoring.
+  box: { rendered: 82, noElement: 0 },
 };
 
 /**

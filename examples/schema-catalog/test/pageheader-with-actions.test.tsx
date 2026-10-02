@@ -253,8 +253,15 @@ describe('the `page:header` registration declares every key the demo writes (obj
  * clean of `not-a-container` (#3900), and that its declaration face matched what
  * its renderer read (#3972: `icon`, `actions`, the `description` cost of
  * objectui#11044), read off `ALIAS_FIXTURE`, the former demo JSON. That phase
- * retired the alias, so the alias half is now the retirement pin, and the
- * `navigation-renderer` halves, which never depended on it, stay as they were.
+ * retired the alias, so the alias half is now the retirement pin.
+ *
+ * Until objectui#11441 the section also pinned the `navigation-renderer`
+ * declaration through this manifest: `items` declared as an array (#3972) and
+ * as required (#3987), with `responsive-grid` as the all-optional control. The
+ * maintainer's ruling on that card retired both registrations, so those
+ * describes ended with the declaration they read. The retirement pin below
+ * replaces them, and the containment control (#3900) moved to
+ * `app-schema-renderer`.
  */
 const RETIRED_ALIAS_NODE = {
   type: 'page-header',
@@ -273,122 +280,57 @@ describe('the retired `page-header` alias is unknown to the manifest (objectui#1
   });
 });
 
-/**
- * The containment control (#3900), kept without the alias it used to stand
- * beside: `navigation-renderer` (registered in `@object-ui/layout`) is driven
- * entirely by its `items` prop and never reads `schema.children`, so children
- * under it ARE an authoring mistake and the author must still hear about it.
- */
-describe('a layout component that takes no child list still reports `not-a-container` (#3900)', () => {
-  it('reports `not-a-container` for children under `navigation-renderer`', () => {
-    // If this component ever legitimately becomes a container, this assertion
-    // goes red — move the control to another childless registration rather than
-    // deleting it. `items: []` keeps the planted defect — children under a
-    // childless component — the only thing wrong with this node: an
-    // array-valued `items` validates clean (#3972) and omitting it draws
-    // `missing-required-prop` (#3987), both pinned below.
-    const codes = diagnose({
-      type: 'navigation-renderer',
-      items: [],
-      children: [{ type: 'button', label: 'Nope' }],
-    }).map((d) => d.code);
+/** The layout key the same manifest still resolves — the lit control below. */
+const APP_SCHEMA_NODE = { type: 'app-schema-renderer', schema: { name: 'crm', navigation: [] } };
 
-    expect(codes).toContain('not-a-container');
+describe('the retired `navigation-renderer` and `responsive-grid` keys are unknown to the manifest (objectui#11441)', () => {
+  it('draws `unknown-component` for both spellings of `navigation-renderer`', () => {
+    // Lit control first: a layout key the same manifest still resolves.
+    expect(diagnose(APP_SCHEMA_NODE).filter((d) => d.code === 'unknown-component')).toEqual([]);
+    // The keys are literals on purpose, one assertion each, so a reader
+    // grepping for either spelling lands here.
+    expect(diagnose({ type: 'navigation-renderer', items: [] }).map((d) => d.code)).toContain('unknown-component');
+    expect(diagnose({ type: 'layout:navigation-renderer', items: [] }).map((d) => d.code)).toContain(
+      'unknown-component',
+    );
   });
-});
 
-/**
- * The prop face of the same agreement (#3972), through the same manifest.
- *
- * `registerLayout()`'s `inputs` lists are what `sdui-parser` validates a node's
- * top-level props against, so a key declared with the wrong `type` comes back as
- * `type-mismatch` on CORRECT authoring. `navigation-renderer.items` was declared
- * `object` while the renderer reads `NavigationItem[]`.
- */
-describe('the layout declaration face matches what the renderer reads (#3972)', () => {
-  const codesFor = (schema: unknown): string[] => diagnose(schema).map((d) => d.code);
-
-  it('accepts an array-valued `navigation-renderer.items`, and reports an object', () => {
-    expect(codesFor({ type: 'navigation-renderer', items: [] })).toEqual([]);
+  it('draws `unknown-component` for both spellings of `responsive-grid`, and `grid` resolves', () => {
+    // Lit control: the spelling the retirement points authors to.
     expect(
-      codesFor({
-        type: 'navigation-renderer',
-        items: [{ id: 'home', type: 'object', label: 'Home', objectName: 'home' }],
-      }),
+      diagnose({ type: 'grid', columns: { xs: 1, md: 2 } }).filter((d) => d.code === 'unknown-component'),
     ).toEqual([]);
-
-    // The control, and the direction is inverted rather than absent: this exact
-    // object shape was the ONLY one that validated clean before #3972, so the pin
-    // is not "a diagnostic disappeared" but "the two shapes swapped verdicts".
-    // The message is asserted too — a `type-mismatch` still saying "expected an
-    // object" would mean the declaration never moved.
-    const objectValued = diagnose({ type: 'navigation-renderer', items: { home: {} } });
-    expect(objectValued.map((d) => d.code)).toContain('type-mismatch');
-    expect(objectValued.find((d) => d.code === 'type-mismatch')?.message).toContain(
-      'expected an array',
+    expect(diagnose({ type: 'responsive-grid', columns: { xs: 1, md: 2 } }).map((d) => d.code)).toContain(
+      'unknown-component',
+    );
+    expect(diagnose({ type: 'layout:responsive-grid', columns: { xs: 1, md: 2 } }).map((d) => d.code)).toContain(
+      'unknown-component',
     );
   });
 });
 
 /**
- * The optionality face of the same key (#3987), through the same manifest.
- *
- * `navigation-renderer.items` is non-optional in TS and has no default, so a node
- * that omits it throws `TypeError: items is not iterable` on the first thing the
- * render does with it (measured in
- * `packages/layout/src/__tests__/navigation-renderer-items-declaration.test.tsx`).
- * The declaration used to leave `required` unset, and `validateTree` reports
- * `missing-required-prop` only when it is set — so the ONE node shape guaranteed
- * to crash was also the one shape the validator had nothing to say about.
- *
- * This is a TIGHTENING, not a false-diagnostic fix like #3900/#3972: it adds an
- * error-level diagnostic to schemas that validated clean before. That is the
- * point — the schemas it newly rejects are exactly the ones that cannot render —
- * but it is also why the control below matters more than usual. "Required" has to
- * stay a per-prop fact read off the component.
+ * The containment control (#3900), kept without the alias it used to stand
+ * beside: a layout registration that takes no child list must still report
+ * `not-a-container`, because children under it are an authoring mistake the
+ * author has to hear about. Its subject was `navigation-renderer` until
+ * objectui#11441 retired that key. `app-schema-renderer` builds its whole shell
+ * from `schema` and draws no authored child list either;
+ * `packages/layout/src/__tests__/containment-declared-slot-9910.test.tsx`
+ * renders that fact.
  */
-describe('the validator reports the node shape that is guaranteed to crash (#3987)', () => {
-  const REQUIRED = 'missing-required-prop';
-
-  it('reports `missing-required-prop` for a `navigation-renderer` without `items`', () => {
-    const diagnostics = diagnose({ type: 'navigation-renderer' });
-
-    // Reachability before the presence assertion: an `unknown-component` return
-    // never reaches the required-prop loop at all, so this would otherwise pass
-    // on a manifest that lost the tag.
-    expect(diagnostics.filter((d) => d.code === 'unknown-component')).toEqual([]);
-
-    const missing = diagnostics.find((d) => d.code === REQUIRED);
-    expect(missing, 'omitting `items` drew no `missing-required-prop`').toBeTruthy();
-    // Error, not warning — the render cannot recover, so neither should the gate.
-    expect(missing?.severity).toBe('error');
-    expect(missing?.message).toContain('"items"');
-  });
-
-  it('reports nothing once `items` is supplied', () => {
-    expect(diagnose({ type: 'navigation-renderer', items: [] }).map((d) => d.code)).toEqual([]);
-    expect(
-      diagnose({
-        type: 'navigation-renderer',
-        items: [{ id: 'home', type: 'object', label: 'Home', objectName: 'home' }],
-        basePath: '/apps/crm',
-      }).map((d) => d.code),
-    ).toEqual([]);
-  });
-
-  it('does not report the optional props the renderer defaults', () => {
-    // The control that keeps `required` a per-prop fact. `basePath` is omitted
-    // here: the renderer defaults it (`basePath = ''`), the declaration leaves
-    // `required` unset, and the gate must stay silent about it.
-    const codes = diagnose({ type: 'navigation-renderer', items: [] }).map((d) => d.code);
-    expect(codes).not.toContain(REQUIRED);
-
-    // …and the same for a second component in the same registration file, so the
-    // control is not one prop's accident: `responsive-grid` renders with no
-    // props at all, and every key it declares is optional. (This was the
-    // `page-header` alias until objectui#10859 batch 8 retired it.)
-    const grid = diagnose({ type: 'responsive-grid' }).map((d) => d.code);
-    expect(grid).not.toContain('unknown-component');
-    expect(grid).not.toContain(REQUIRED);
+describe('a layout component that takes no child list still reports `not-a-container` (#3900)', () => {
+  it('reports `not-a-container` for children under `app-schema-renderer`', () => {
+    // If this component ever legitimately becomes a container, this assertion
+    // goes red — move the control to another childless registration rather than
+    // deleting it. The node is otherwise clean (reachability below), so the
+    // planted defect — children under a childless component — is the only
+    // thing wrong with it.
+    const codes = diagnose({ ...APP_SCHEMA_NODE, children: [{ type: 'button', label: 'Nope' }] }).map(
+      (d) => d.code,
+    );
+    expect(codes).not.toContain('unknown-component');
+    expect(codes).toContain('not-a-container');
+    expect(diagnose(APP_SCHEMA_NODE).map((d) => d.code)).toEqual([]);
   });
 });

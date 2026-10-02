@@ -196,9 +196,12 @@ describe('the ruled widths as absolute bytes — the guard against a joint move'
     expect(tileShows('¥1,235')).toBeInTheDocument();
   });
 
-  it('a whole USD amount drops its fraction, whatever `scale` says', async () => {
+  it('a whole USD amount keeps its cents, whatever `scale` says (objectui#11444)', async () => {
+    // Moved on purpose from `$1,234` when objectui#11444 retired the
+    // whole-amount trimming (triage comment 5946462862): the declared width,
+    // the currency's minor-unit count, is the protocol's.
     await mountTile({ type: 'currency', currency: 'USD', scale: 2 }, 1234, en);
-    expect(tileShows('$1,234')).toBeInTheDocument();
+    expect(tileShows('$1,234.00')).toBeInTheDocument();
   });
 
   it('with no code resolved, a fractional amount is a plain number at two decimals', async () => {

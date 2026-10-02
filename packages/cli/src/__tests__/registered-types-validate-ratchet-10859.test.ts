@@ -67,10 +67,11 @@ import { validate } from '../commands/validate.js';
  * The head's refused count (objectui#10859 batch 1: 79 on `main` before it,
  * minus the three `@object-ui/plugin-ai` arms; batch 2: minus `pivot`,
  * `object-metric` and `object-master-detail-form`; batch 3: minus
- * `object-timeline`, armed from its `@objectstack/spec` 17.5.0 row). LOWER it
- * when a batch arms more keys; never raise it.
+ * `object-timeline`, armed from its `@objectstack/spec` 17.5.0 row; batch 7:
+ * minus the six `@object-ui/plugin-designer` keys). LOWER it when a batch arms
+ * more keys; never raise it.
  */
-const REFUSED_AT_TYPE = 72;
+const REFUSED_AT_TYPE = 66;
 
 /**
  * The head's refused count over the NAMESPACED keys (objectui#10872 batch 1:
@@ -167,6 +168,16 @@ describe('registered component types refused at `type` — a ratchet (objectui#1
   it('counts the key batch 3 armed (objectui#10859 batch 3)', () => {
     expect(BARE_KEYS).toContain('object-timeline');
     expect(refusedAtType('object-timeline')).toBe(false);
+  });
+
+  it('counts the six designer keys batch 7 armed (objectui#10859 batch 7)', () => {
+    for (const key of [
+      'page-designer', 'data-model-designer', 'process-designer',
+      'report-designer', 'object-manager', 'field-designer',
+    ]) {
+      expect(BARE_KEYS, key).toContain(key);
+      expect(refusedAtType(key), key).toBe(false);
+    }
   });
 });
 

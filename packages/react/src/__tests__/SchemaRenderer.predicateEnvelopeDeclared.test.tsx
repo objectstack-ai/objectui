@@ -68,6 +68,17 @@ import { SchemaRendererContext } from '../context/SchemaRendererContext';
 import { PredicateScopeProvider } from '../hooks/useExpression';
 
 /**
+ * This file's registered probe, declared to `@object-ui/types` the way an
+ * application declares a type it registers (objectui#11466): a node slot and
+ * the `schema` prop take the declared node types only.
+ */
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'probe-7530': BaseSchema;
+  }
+}
+
+/**
  * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
  * it feeds — declare the published `DataSource` adapter contract. The values
  * this file injects are deliberately NOT adapters —
@@ -93,7 +104,7 @@ const Probe = (props: { disabled?: unknown }) => (
 const DATA = { status: 'draft', published: false };
 
 /** The DECLARED path -- `BaseSchema`, nothing wider, no cast. */
-function mount(schema: BaseSchema) {
+function mount(schema: BaseSchema & { type: 'probe-7530' }) {
   return render(
     <PredicateScopeProvider scope={{ data: DATA }}>
         <SchemaRendererContext.Provider value={{ dataSource: DATA as unknown as DataSource }}>

@@ -66,6 +66,11 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '@object-ui/react';
+// Both node types below are ones no `@object-ui/types` declaration names: the
+// probe is unregistered on purpose, and the control is `@object-ui/layout`'s own
+// namespaced registration. The registry's runtime answer is the point, so each
+// crosses through the one test helper for undeclared input (objectui#11466).
+import { undeclaredNode } from '@object-ui/test-support';
 
 // The shared registration reader (objectui#4894). Plain JS, and this package's
 // test program sets `allowJs: false`, so the import is untyped here — the local
@@ -141,7 +146,7 @@ describe('`app-shell` is not registered (objectui#4841)', () => {
 
 describe('a JSON `app-shell` node is refused by name (objectui#4841)', () => {
   it('renders the OBJUI-001 unknown-component panel, not an empty shell', () => {
-    const { container } = render(<SchemaRenderer schema={{ type: 'app-shell' }} />);
+    const { container } = render(<SchemaRenderer schema={undeclaredNode({ type: 'app-shell' })} />);
 
     const panel = container.querySelector('[role="alert"]');
     expect(
@@ -169,7 +174,7 @@ describe('a JSON `app-shell` node is refused by name (objectui#4841)', () => {
     // just as happily on a renderer that panels EVERY node, and this file would
     // be green for a reason that has nothing to do with `app-shell`.
     const { container } = render(
-      <SchemaRenderer schema={{ type: 'layout:page:card', children: [] }} />,
+      <SchemaRenderer schema={undeclaredNode({ type: 'layout:page:card', children: [] })} />,
     );
     expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(container.textContent).not.toContain('Unknown component type');

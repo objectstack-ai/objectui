@@ -42,6 +42,19 @@ import { SchemaRenderer } from '../SchemaRenderer';
 import { PageVariablesProvider, usePageVariables } from '../hooks/usePageVariables';
 import type { BaseSchema } from '@object-ui/types';
 import type { PageComponent } from '@objectstack/spec/ui';
+import { undeclaredNode } from '@object-ui/test-support';
+
+/**
+ * This file's registered probes, declared to `@object-ui/types` the way an
+ * application declares a type it registers (objectui#11466): a node slot and
+ * the `schema` prop take the declared node types only.
+ */
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'identity-probe': ScopedStyleNode;
+    'self-updating-probe': ScopedStyleNode;
+  }
+}
 
 /**
  * A node authoring `responsiveStyles` inline (objectui#11349), typed by
@@ -51,8 +64,12 @@ import type { PageComponent } from '@objectstack/spec/ui';
  * prop accepts, so the key stays checked once objectui#8347 removes
  * `BaseSchema`'s index signature.
  */
-type ScopedStyleNode = BaseSchema & Pick<PageComponent, 'responsiveStyles'>;
-const scopedStyleNode = (schema: ScopedStyleNode): ScopedStyleNode => schema;
+type ScopedStyleNode = BaseSchema & Pick<PageComponent, 'responsiveStyles'> & { content?: string };
+/** The registered `IdentityProbe`'s node: every fixture below is one (objectui#11466). */
+type IdentityProbeNode = ScopedStyleNode & { type: 'identity-probe' };
+/** The registered `SelfUpdatingProbe`'s node. */
+type SelfUpdatingProbeNode = ScopedStyleNode & { type: 'self-updating-probe' };
+const scopedStyleNode = (schema: SelfUpdatingProbeNode): SelfUpdatingProbeNode => schema;
 
 /** One capture per probe render: the exact `schema` object it was handed. */
 interface Capture {
@@ -89,21 +106,23 @@ const distinctIdentities = (id: string): number =>
 // Module-level fixtures: a stable `schema` prop identity is the precondition
 // for the `evaluatedSchema` memo to hold, which is what makes this a test of
 // the spread branch rather than of the memo above it.
-const PLAIN = { type: 'identity-probe', id: 'plain', content: 'plain' };
-const SCOPED = {
+const PLAIN: IdentityProbeNode = { type: 'identity-probe', id: 'plain', content: 'plain' };
+const SCOPED: IdentityProbeNode = {
   type: 'identity-probe',
   id: 'scoped',
   content: 'scoped',
   responsiveStyles: { large: { padding: '8px' } },
 };
 // The trap fixture: `base` is NOT one of the four sized keys, so this node
-// does not take the scope-class branch at all.
-const BASE_ONLY = {
+// does not take the scope-class branch at all. The spec's `responsiveStyles`
+// declares no `base` either, so the fixture is deliberately undeclared and
+// crosses through the one test helper for that (objectui#11466).
+const BASE_ONLY: IdentityProbeNode = undeclaredNode({
   type: 'identity-probe',
   id: 'baseonly',
   content: 'base-only',
   responsiveStyles: { base: { padding: '8px' } },
-};
+});
 
 /**
  * A real parent re-render: parent state changes, every child re-renders, and
@@ -294,13 +313,13 @@ describe('SchemaRenderer scoped-style schema identity (objectui#6270)', () => {
 
   describe('delivers a NEW identity when something really changed (anti-staleness)', () => {
     it('a changed `className` on a scoped node', () => {
-      const before = {
+      const before: IdentityProbeNode = {
         type: 'identity-probe',
         id: 'scoped',
         className: 'text-sm',
         responsiveStyles: { large: { padding: '8px' } },
       };
-      const after = {
+      const after: IdentityProbeNode = {
         type: 'identity-probe',
         id: 'scoped',
         className: 'text-lg',
@@ -318,13 +337,13 @@ describe('SchemaRenderer scoped-style schema identity (objectui#6270)', () => {
     });
 
     it('a changed value on a scoped node', () => {
-      const before = {
+      const before: IdentityProbeNode = {
         type: 'identity-probe',
         id: 'scoped',
         content: 'first',
         responsiveStyles: { large: { padding: '8px' } },
       };
-      const after = {
+      const after: IdentityProbeNode = {
         type: 'identity-probe',
         id: 'scoped',
         content: 'second',
@@ -342,12 +361,12 @@ describe('SchemaRenderer scoped-style schema identity (objectui#6270)', () => {
     });
 
     it('a changed responsiveStyles value re-compiles and re-identifies', () => {
-      const before = {
+      const before: IdentityProbeNode = {
         type: 'identity-probe',
         id: 'scoped',
         responsiveStyles: { large: { padding: '8px' } },
       };
-      const after = {
+      const after: IdentityProbeNode = {
         type: 'identity-probe',
         id: 'scoped',
         responsiveStyles: { large: { padding: '24px' } },
@@ -366,7 +385,7 @@ describe('SchemaRenderer scoped-style schema identity (objectui#6270)', () => {
       // The strongest anti-staleness pin: the `schema` PROP identity never
       // changes here, so only a genuinely reactive evaluation can move the
       // delivered identity. A memo that froze on the prop would go stale.
-      const REACTIVE = {
+      const REACTIVE: IdentityProbeNode = {
         type: 'identity-probe',
         id: 'reactive',
         content: '${page.tick}',

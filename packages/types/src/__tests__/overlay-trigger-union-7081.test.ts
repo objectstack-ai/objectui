@@ -71,7 +71,7 @@ import { fileURLToPath } from 'node:url';
 // @ts-expect-error -- plain-JS shared helper, intentionally untyped (`allowJs: false`)
 import { stripComments as strip } from '../../../../scripts/js-comment-mask.mjs';
 
-import type { BaseSchema, SchemaNode } from '../base';
+import type { BaseSchema, DeclaredNode, SchemaNode } from '../base';
 import type { CollapsibleSchema } from '../disclosure';
 import type { ButtonSchema } from '../form';
 import type { TextSchema } from '../layout';
@@ -153,10 +153,12 @@ export type _DropdownMenuRequired = Expect<Equal<IsOptionalKey<DropdownMenuSchem
 export type _TooltipTrigger = Expect<Equal<TooltipSchema['trigger'], Union>>;
 export type _ContextMenuTrigger = Expect<Equal<ContextMenuSchema['trigger'], Union>>;
 
-// Counter-control: `AdmitsArray` can say `false`, and `SchemaNode` itself did
-// not move -- the widening is per member, not on the node type.
+// Counter-control: `AdmitsArray` can say `false`, and the widening is per member,
+// not on the node type: `SchemaNode` is one node or a primitive, never a list.
+// (Its object arm became `DeclaredNode`, the declared-node union, under
+// objectui#11466; that change is not this widening.)
 export type _SchemaNodeUntouched = Expect<
-  Equal<SchemaNode, BaseSchema | string | number | boolean | null | undefined>
+  Equal<SchemaNode, DeclaredNode | string | number | boolean | null | undefined>
 >;
 interface SingularSlot {
   trigger: SchemaNode;

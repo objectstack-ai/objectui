@@ -13,6 +13,18 @@ import { ComponentRegistry } from '@object-ui/core';
 import type { BaseSchema } from '@object-ui/types';
 import { SchemaRenderer, SchemaErrorBoundary } from '../SchemaRenderer';
 
+/**
+ * This file's registered widgets, declared to `@object-ui/types` the way an
+ * application declares a type it registers (objectui#11466): a node slot and
+ * the `schema` prop take the declared node types only.
+ */
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'crashing-widget': BaseSchema;
+    'stable-widget': StableWidgetNode;
+  }
+}
+
 // Suppress console.error from React error boundary during tests
 const originalConsoleError = console.error;
 beforeEach(() => {
@@ -37,7 +49,7 @@ const StableWidget: React.FC<any> = (props) => (
  * `content` stays checked once objectui#8347 removes `BaseSchema`'s index
  * signature.
  */
-type StableWidgetNode = BaseSchema & { content?: string };
+type StableWidgetNode = BaseSchema & { type: 'stable-widget'; content?: string };
 const stableWidget = (schema: StableWidgetNode): StableWidgetNode => schema;
 
 describe('SchemaErrorBoundary', () => {

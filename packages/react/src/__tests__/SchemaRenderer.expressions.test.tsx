@@ -34,9 +34,21 @@ import type { PageComponent } from '@objectstack/spec/ui';
  * that row. It is checked against this node, not against `BaseSchema`, so the
  * key stays checked once objectui#8347 removes `BaseSchema`'s index signature.
  */
-type DeprecatedVisibilityNode = BaseSchema & Pick<PageComponent, 'visibility'>;
+type DeprecatedVisibilityNode = BaseSchema & Pick<PageComponent, 'visibility'> & { type: 'test-component' };
 const deprecatedVisibilityNode = (schema: DeprecatedVisibilityNode): DeprecatedVisibilityNode => schema;
 import { PredicateScopeProvider } from '../hooks/useExpression';
+
+/**
+ * This file's registered `TestComponent`, typed by its probe node, declared to
+ * `@object-ui/types` the way an application declares a type it registers
+ * (objectui#11466): a node slot and the `schema` prop take the declared node
+ * types only.
+ */
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'test-component': DeprecatedVisibilityNode;
+  }
+}
 
 /**
  * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context

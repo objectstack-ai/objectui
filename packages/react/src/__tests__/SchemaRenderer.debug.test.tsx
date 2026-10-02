@@ -12,7 +12,18 @@ import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererProvider } from '../context/SchemaRendererContext';
-import type { DataSource } from '@object-ui/types';
+import type { BaseSchema, DataSource } from '@object-ui/types';
+
+/**
+ * This file's registered `TestDiv`, declared to `@object-ui/types` the way an
+ * application declares a type it registers (objectui#11466): a node slot and
+ * the `schema` prop take the declared node types only.
+ */
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'test-debug-div': BaseSchema;
+  }
+}
 
 /**
  * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context

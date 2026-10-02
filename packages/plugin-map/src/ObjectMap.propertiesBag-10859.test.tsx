@@ -33,7 +33,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import type { BaseSchema, DataSource } from '@object-ui/types';
+import type { DataSource, DeclaredNode } from '@object-ui/types';
 import { safeValidateSchema } from '@object-ui/types/zod';
 
 type StandInProps = { children?: React.ReactNode; latitude?: number; longitude?: number };
@@ -57,18 +57,18 @@ import './index';
 
 const MAP = { latitudeField: 'lat', longitudeField: 'lng', titleField: 'name' };
 const FILTER = [{ field: 'region', operator: 'equals', value: 'west' }];
-const SORT = [{ field: 'name', order: 'desc' }];
+const SORT: Array<{ field: string; order: 'asc' | 'desc' }> = [{ field: 'name', order: 'desc' }];
 const ROWS = [
   { id: 's1', name: 'North Store', lat: 37.8044, lng: -122.2711, region: 'west' },
   { id: 's2', name: 'South Store', lat: 37.3382, lng: -121.8863, region: 'west' },
 ];
 
 /** The authored spelling, spec-valid. */
-const BAG = { type: 'object-map', properties: { objectName: 'store', map: MAP, filter: FILTER, sort: SORT } };
+const BAG: DeclaredNode = { type: 'object-map', properties: { objectName: 'store', map: MAP, filter: FILTER, sort: SORT } };
 /** The same props written flat — what a code composer builds. */
-const FLAT = { type: 'object-map', objectName: 'store', map: MAP, filter: FILTER, sort: SORT };
+const FLAT: DeclaredNode = { type: 'object-map', objectName: 'store', map: MAP, filter: FILTER, sort: SORT };
 /** The bag with its object supplied by the node's binding instead. */
-const BOUND_BAG = { type: 'object-map', dataSource: { object: 'store' }, properties: { map: MAP } };
+const BOUND_BAG: DeclaredNode = { type: 'object-map', dataSource: { object: 'store' }, properties: { map: MAP } };
 
 function makeAdapter() {
   return {
@@ -84,15 +84,16 @@ function makeAdapter() {
   };
 }
 
-async function renderNode(schema: Record<string, unknown>) {
+async function renderNode(schema: DeclaredNode) {
   const adapter = makeAdapter();
   const view = render(
     <SchemaRendererProvider dataSource={adapter as unknown as DataSource}>
-      {/* Through `unknown`, deliberately: these fixtures are unjudged document
-          JSON, one of them a spelling the validator refuses (`FLAT`), handed to
-          the renderer the way a stored document reaches it. No node type
-          declares all three, and none should (objectui#11355). */}
-      <SchemaRenderer schema={schema as unknown as BaseSchema} />
+      {/* No cast (objectui#11466): each fixture is a `DeclaredNode`. The bag
+          spellings are the authored `object-map` node; `FLAT` is the
+          `ObjectMapSchema` twin, the node as code composes it, which the
+          validator refuses as authored metadata and the renderer reads all
+          the same (objectui#11355). */}
+      <SchemaRenderer schema={schema} />
     </SchemaRendererProvider>,
   );
   await waitFor(() => expect(adapter.find).toHaveBeenCalled());

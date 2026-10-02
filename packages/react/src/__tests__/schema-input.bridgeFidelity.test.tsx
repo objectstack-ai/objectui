@@ -58,10 +58,21 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
 import React from 'react';
-import type { BaseSchema, SchemaNode } from '@object-ui/types';
+import type { BaseSchema, DeclaredNode, SchemaNode } from '@object-ui/types';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { toRenderableSchema } from '../schema-input';
+
+/**
+ * This file's registered probe (`PROBE_TYPE`), declared to `@object-ui/types`
+ * the way an application declares a type it registers (objectui#11466): a node
+ * slot and the `schema` prop take the declared node types only.
+ */
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'test:schema-input-bridge-8908': BaseSchema;
+  }
+}
 
 /* The `Assert< … >` alias below IS the assertion — it is deliberately never
  * referenced, and a violation is a COMPILE error rather than a use site. */
@@ -72,21 +83,21 @@ const PROBE_TYPE = 'test:schema-input-bridge-8908';
 ComponentRegistry.register(PROBE_TYPE, () => <span>probe-node</span>);
 
 /** One arm per member of the `SchemaNode` union, by name. */
-type MemberName = 'BaseSchema' | 'string' | 'number' | 'boolean' | 'null' | 'undefined';
+type MemberName = 'DeclaredNode' | 'string' | 'number' | 'boolean' | 'null' | 'undefined';
 
 /**
  * The completeness pin. `MemberName` above is a hand-written list; this ties it
  * to the DECLARATION, so the list cannot go stale silently.
  */
 type _MembersAreExactlyCovered = Assert<
-  Equal<SchemaNode, BaseSchema | string | number | boolean | null | undefined>
+  Equal<SchemaNode, DeclaredNode | string | number | boolean | null | undefined>
 >;
 
 /** `renders` is the text `SchemaRenderer` puts in the DOM for this value. */
 type Case = { label: string; value: SchemaNode; renders: string };
 
 const MEMBER_CASES: Record<MemberName, Case[]> = {
-  BaseSchema: [{ label: 'an object node', value: { type: PROBE_TYPE }, renders: 'probe-node' }],
+  DeclaredNode: [{ label: 'an object node', value: { type: PROBE_TYPE }, renders: 'probe-node' }],
   string: [
     { label: "'' (empty)", value: '', renders: '' },
     { label: "'txt'", value: 'txt', renders: 'txt' },
@@ -186,7 +197,7 @@ describe('objectui#8908 — the two legs of the mapping, at the bridge itself', 
   });
 
   it('returns every other member by identity — it converts nothing else', () => {
-    const node: BaseSchema = { type: PROBE_TYPE };
+    const node: DeclaredNode = { type: PROBE_TYPE };
     expect(toRenderableSchema(node)).toBe(node);
     expect(toRenderableSchema('txt')).toBe('txt');
     expect(toRenderableSchema('')).toBe('');

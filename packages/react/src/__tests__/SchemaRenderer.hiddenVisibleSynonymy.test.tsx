@@ -44,6 +44,18 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
+import type { BaseSchema } from '@object-ui/types';
+
+/**
+ * This file's registered probe, declared to `@object-ui/types` the way an
+ * application declares a type it registers (objectui#11466): a node slot and
+ * the `schema` prop take the declared node types only.
+ */
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'probe-7088': BaseSchema;
+  }
+}
 
 const Probe = () => <div data-testid="probe-7088" />;
 

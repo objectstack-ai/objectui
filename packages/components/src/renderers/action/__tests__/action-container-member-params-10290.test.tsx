@@ -32,7 +32,11 @@ import { render, screen, fireEvent, waitFor, within } from '@testing-library/rea
 import '@testing-library/jest-dom';
 import React from 'react';
 import type { ActionContext, ActionDef, ActionResult } from '@object-ui/core';
-import type { BaseSchema } from '@object-ui/types';
+// These nodes are written the way the runtime reads them, flat on the node,
+// which the closed `action:*` node types refuse: measured on objectui#11466,
+// typing the fixtures as `DeclaredNode` refuses them line by line. So each
+// crosses through the one test helper for undeclared input.
+import { undeclaredNode } from '@object-ui/test-support';
 import { ActionProvider, RecordContextProvider, SchemaRenderer } from '@object-ui/react';
 // Module-scope side-effect imports: `action:bar` resolves its members and its
 // overflow menu through the ComponentRegistry at render time, and the light
@@ -82,7 +86,7 @@ function renderOnRecordPage(schema: Record<string, unknown>) {
   return render(
     <ActionProvider handlers={{ navigate_edit: navigateEdit }}>
       <RecordContextProvider objectName="account" recordId={ROW.id} data={ROW}>
-        <SchemaRenderer schema={schema as unknown as BaseSchema} />
+        <SchemaRenderer schema={undeclaredNode(schema)} />
       </RecordContextProvider>
     </ActionProvider>,
   );

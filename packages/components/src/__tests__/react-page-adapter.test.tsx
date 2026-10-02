@@ -31,6 +31,7 @@ import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer, AdapterCtx, SchemaRendererContext } from '@object-ui/react';
+import type { PageDocumentNode } from '@object-ui/types';
 import '../renderers';
 
 /** The adapter each render of the stand-in block resolved from its context. */
@@ -51,7 +52,7 @@ function Page() {
   );
 }`;
 
-const SCHEMA = { type: 'home', kind: 'react', name: 'adapter_page', source: SOURCE };
+const SCHEMA: PageDocumentNode = { type: 'home', kind: 'react', name: 'adapter_page', label: 'Adapter page', source: SOURCE };
 
 // The barrel import moved to module scope (see the `import '../renderers'`
 // above): inside the hook its cold transform was billed to `hookTimeout`, which

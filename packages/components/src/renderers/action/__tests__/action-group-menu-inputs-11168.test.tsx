@@ -43,7 +43,12 @@ import '@testing-library/jest-dom';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import type { ActionContext, ActionDef, ActionResult } from '@object-ui/core';
-import type { BaseSchema, DataSource } from '@object-ui/types';
+import type { DataSource } from '@object-ui/types';
+// These nodes are written the way the runtime reads them, flat on the node,
+// which the closed `action:*` node types refuse: measured on objectui#11466,
+// typing the fixtures as `DeclaredNode` refuses them line by line. So each
+// crosses through the one test helper for undeclared input.
+import { undeclaredNode } from '@object-ui/test-support';
 import {
   ActionProvider,
   PredicateScopeProvider,
@@ -94,7 +99,7 @@ function mount(schema: Record<string, unknown>) {
     <ActionProvider handlers={{ run }} onToast={vi.fn()}>
       <SchemaRendererProvider dataSource={DATA as unknown as DataSource}>
         <PredicateScopeProvider scope={{ data: DATA }}>
-          <SchemaRenderer schema={schema as unknown as BaseSchema} />
+          <SchemaRenderer schema={undeclaredNode(schema)} />
         </PredicateScopeProvider>
       </SchemaRendererProvider>
     </ActionProvider>,

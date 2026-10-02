@@ -34,7 +34,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import type { BaseSchema, DataSource } from '@object-ui/types';
+import type { DataSource, DeclaredNode } from '@object-ui/types';
 import { safeValidateSchema } from '@object-ui/types/zod';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
@@ -74,22 +74,22 @@ import './index';
 
 const GANTT = { startDateField: 'start_date', endDateField: 'end_date', titleField: 'name', progressField: 'progress' };
 const FILTER = [{ field: 'status', operator: 'equals', value: 'open' }];
-const SORT = [{ field: 'name', order: 'desc' }];
+const SORT: Array<{ field: string; order: 'asc' | 'desc' }> = [{ field: 'name', order: 'desc' }];
 const ROWS = [
   { id: 't1', name: 'Design', start_date: '2026-03-02', end_date: '2026-03-06', progress: 100, status: 'open' },
   { id: 't2', name: 'Build', start_date: '2026-03-09', end_date: '2026-03-20', progress: 40, status: 'open' },
 ];
 
 /** The authored spelling, spec-valid. */
-const BAG = { type: 'object-gantt', properties: { objectName: 'task', gantt: GANTT, filter: FILTER, sort: SORT } };
+const BAG: DeclaredNode = { type: 'object-gantt', properties: { objectName: 'task', gantt: GANTT, filter: FILTER, sort: SORT } };
 /** The same props written flat, with the `gantt` block — what a code composer can build. */
-const FLAT = { type: 'object-gantt', objectName: 'task', gantt: GANTT, filter: FILTER, sort: SORT };
+const FLAT: DeclaredNode = { type: 'object-gantt', objectName: 'task', gantt: GANTT, filter: FILTER, sort: SORT };
 /** The flattened `GanttConfig` keys `ObjectView` writes onto the node it composes. */
-const FLAT_CONFIG = { type: 'object-gantt', objectName: 'task', ...GANTT, filter: FILTER, sort: SORT };
+const FLAT_CONFIG: DeclaredNode = { type: 'object-gantt', objectName: 'task', ...GANTT, filter: FILTER, sort: SORT };
 /** The bag with its object supplied by the node's binding instead. */
-const BOUND_BAG = { type: 'object-gantt', dataSource: { object: 'task' }, properties: { gantt: GANTT } };
+const BOUND_BAG: DeclaredNode = { type: 'object-gantt', dataSource: { object: 'task' }, properties: { gantt: GANTT } };
 /** The bag on inline rows. */
-const INLINE_BAG = { type: 'object-gantt', properties: { staticData: ROWS, gantt: GANTT } };
+const INLINE_BAG: DeclaredNode = { type: 'object-gantt', properties: { staticData: ROWS, gantt: GANTT } };
 
 function makeAdapter() {
   return {
@@ -111,16 +111,16 @@ function makeAdapter() {
   };
 }
 
-function renderNode(schema: Record<string, unknown>) {
+function renderNode(schema: DeclaredNode) {
   const adapter = makeAdapter();
   const view = render(
     <SchemaRendererProvider dataSource={adapter as unknown as DataSource}>
-      {/* Through `unknown`, deliberately: these fixtures are unjudged document
-          JSON, two of them spellings the validator refuses (`FLAT`,
-          `FLAT_CONFIG`), handed to the renderer the way a stored document
-          reaches it. No node type declares all of them, and none should
-          (objectui#11355). */}
-      <SchemaRenderer schema={schema as unknown as BaseSchema} />
+      {/* No cast (objectui#11466): each fixture is a `DeclaredNode`. The bag
+          spellings are the authored `object-gantt` node; `FLAT` and
+          `FLAT_CONFIG` are the `ObjectGanttSchema` twin, the node as code
+          composes it, which the validator refuses as authored metadata and
+          the renderer reads all the same (objectui#11355). */}
+      <SchemaRenderer schema={schema} />
     </SchemaRendererProvider>,
   );
   return { adapter, ...view };

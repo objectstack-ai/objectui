@@ -48,7 +48,7 @@ const adapter = { find: async () => [], getObjectSchema: async () => ({ name: 's
 function renderReactPage(source: string, hostAdapter: typeof adapter | null = adapter) {
   return render(
     <AdapterCtx.Provider value={hostAdapter}>
-      <SchemaRenderer schema={{ type: 'home', kind: 'react', name: 'test_page', source }} />
+      <SchemaRenderer schema={{ type: 'home', kind: 'react', name: 'test_page', label: 'Test page', source }} />
     </AdapterCtx.Provider>,
   );
 }

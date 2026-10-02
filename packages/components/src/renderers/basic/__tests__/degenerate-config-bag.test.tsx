@@ -68,6 +68,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '@object-ui/react';
+// A degenerate `properties` value on a test-registered type is the point: it
+// crosses through the one test helper for undeclared input (objectui#11466).
+import { undeclaredNode } from '@object-ui/test-support';
 import { readProps } from '../readProps';
 // Registers every `element:*` renderer at module scope, not in a hook
 // (object-ui/no-dynamic-import-in-test-hook, objectui#3010).
@@ -149,7 +152,7 @@ describe('objectui#6783 — the three channels are in series, measured end to en
   it('the authored degenerate value still REACHES the renderer through SchemaRenderer', () => {
     registerProbe();
     const { getByTestId } = render(
-      <SchemaRenderer schema={{ type: PROBE, properties: 'not-a-bag' }} />
+      <SchemaRenderer schema={undeclaredNode({ type: PROBE, properties: 'not-a-bag' })} />
     );
 
     // Neither objectui#6752's evaluation guard nor objectui#6760's hoist
@@ -163,7 +166,7 @@ describe('objectui#6783 — the three channels are in series, measured end to en
   it('and the bag that renderer computes from it now carries nothing', () => {
     registerProbe();
     const { getByTestId } = render(
-      <SchemaRenderer schema={{ type: PROBE, properties: 'not-a-bag' }} />
+      <SchemaRenderer schema={undeclaredNode({ type: PROBE, properties: 'not-a-bag' })} />
     );
 
     // BASE_READING through the same path: "0,1,2,3,4,5,6,7,8".

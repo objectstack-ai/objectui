@@ -46,6 +46,11 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '@object-ui/react';
+// The two retired keys are refused on purpose, and the control is
+// `@object-ui/layout`'s own namespaced registration; no `@object-ui/types`
+// declaration names any of them, so each crosses through the one test helper for
+// undeclared input (objectui#11466).
+import { undeclaredNode } from '@object-ui/test-support';
 
 // The shared registration reader (objectui#4894). Plain JS, and this package's
 // test program sets `allowJs: false`, so the import is untyped here.
@@ -91,7 +96,7 @@ describe('the `navigation-renderer` and `responsive-grid` registrations are reti
 
 describe('a node of either retired key renders the "Unknown component type" panel (objectui#11441)', () => {
   it('`navigation-renderer` is refused by name', () => {
-    const { container } = render(<SchemaRenderer schema={{ type: 'navigation-renderer', items: [] }} />);
+    const { container } = render(<SchemaRenderer schema={undeclaredNode({ type: 'navigation-renderer', items: [] })} />);
     const panel = container.querySelector('[role="alert"]');
     expect(panel, 'a `navigation-renderer` node rendered something other than the unknown-type panel').not.toBeNull();
     expect(panel?.textContent).toContain('Unknown component type: navigation-renderer');
@@ -100,7 +105,7 @@ describe('a node of either retired key renders the "Unknown component type" pane
 
   it('`responsive-grid` is refused by name', () => {
     const { container } = render(
-      <SchemaRenderer schema={{ type: 'responsive-grid', columns: { xs: 1, md: 2 }, children: [] }} />,
+      <SchemaRenderer schema={undeclaredNode({ type: 'responsive-grid', columns: { xs: 1, md: 2 }, children: [] })} />,
     );
     const panel = container.querySelector('[role="alert"]');
     expect(panel, 'a `responsive-grid` node rendered something other than the unknown-type panel').not.toBeNull();
@@ -111,7 +116,7 @@ describe('a node of either retired key renders the "Unknown component type" pane
   it('and the probe can tell a registered layout key apart — `layout:page:card` renders', () => {
     // The control: without it, the two rows above would pass on a renderer that
     // panels EVERY node.
-    const { container } = render(<SchemaRenderer schema={{ type: 'layout:page:card' }} />);
+    const { container } = render(<SchemaRenderer schema={undeclaredNode({ type: 'layout:page:card' })} />);
     expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(container.textContent).not.toContain('Unknown component type');
   });

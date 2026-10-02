@@ -117,7 +117,9 @@ describe('must-not-change: en output and the non-locale forms are byte-identical
    */
   it('en output is unchanged at every site', () => {
     expect(formatMeasure(1234, '0,0', undefined, undefined, 'en-US')).toBe('1,234');
-    expect(formatMeasure(50, '0%', undefined, undefined, 'en-US')).toBe('50%');
+    // Whole points, annotated as the server annotates them (objectui#11475: an
+    // unannotated `%` pattern reads a fraction).
+    expect(formatMeasure(50, '0%', undefined, 'whole', 'en-US')).toBe('50%');
     expect(formatMeasure(0.75, '0%', undefined, undefined, 'en-US')).toBe('75%');
     expect(formatMeasure(12.5, '0.0', undefined, undefined, 'en-US')).toBe('12.5');
     expect(formatMeasure(1000, '$0,0', undefined, undefined, 'en-US')).toBe('$1,000');

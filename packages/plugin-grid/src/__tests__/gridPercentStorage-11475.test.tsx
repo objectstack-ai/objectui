@@ -51,7 +51,7 @@ const FIELDS: Record<string, Record<string, unknown>> = {
   // Fraction-stored (no `max`): a stored `1` is 100%.
   won_share: { type: 'percent', label: 'Won Share' },
   // Whole-stored, as CRM `probability` declares it: a stored `50` is 50%.
-  probability: { type: 'percent', label: 'Probability', min: 0, max: 100 },
+  probability: { type: 'percent', label: 'Win Probability', min: 0, max: 100 },
 };
 
 const ROW = { id: 'd1', name: 'Tower', won_share: 1, probability: 50 };
@@ -92,7 +92,9 @@ async function renderGrid(schemaExtra: Record<string, unknown>) {
       </ActionProvider>
     </Providers>,
   );
-  await waitFor(() => expect(screen.getAllByText('Probability').length).toBeGreaterThan(0));
+  // The schema's label, not the humanized key, so the wait ends only once the
+  // object's field types have arrived (until then the cells are withheld).
+  await waitFor(() => expect(screen.getAllByText('Win Probability').length).toBeGreaterThan(0));
   return utils;
 }
 

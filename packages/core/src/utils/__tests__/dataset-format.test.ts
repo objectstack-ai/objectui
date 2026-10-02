@@ -31,8 +31,10 @@ describe('formatMeasure', () => {
   });
 
   it('applies percent and decimal hints', () => {
-    // Whole-percent storage (magnitude ≥ 1) passes through unchanged.
-    expect(formatMeasure(50, '0%')).toBe('50%');
+    // Whole-percent storage passes through unchanged. It is the server's
+    // annotation that says so (objectui#11475): an unannotated `%` pattern
+    // reads a fraction, numeral's reading, and no longer guesses from size.
+    expect(formatMeasure(50, '0%', undefined, 'whole')).toBe('50%');
     expect(formatMeasure(12.5, '0.0')).toBe('12.5');
   });
 
@@ -42,12 +44,12 @@ describe('formatMeasure', () => {
     // metric card shows "0.6%" for an avg of 0.608 instead of "60.8%" (the bug).
     expect(formatMeasure(0.75, '0%')).toBe('75%');
     expect(formatMeasure(0.608_333_333, '0.0%')).toBe('60.8%');
-    // Boundary: exactly 0 and exactly 1 (100% stored as 1.0) — with no declared
-    // scale, 1.0 passes through, mirroring the list renderer's strict `< 1`
-    // heuristic so the two unannotated surfaces stay in lockstep. This is the
-    // ambiguity `percentScale` exists to remove (see below).
+    // Boundary: exactly 0 and exactly 1 (100% stored as 1.0). Until
+    // objectui#11475 an unannotated 1.0 passed through as "1%", mirroring the
+    // list renderer's strict `< 1` guess. Neither guesses now: the `%` pattern
+    // states a fraction, so 1.0 is 100%.
     expect(formatMeasure(0, '0%')).toBe('0%');
-    expect(formatMeasure(1, '0%')).toBe('1%');
+    expect(formatMeasure(1, '0%')).toBe('100%');
   });
 
   it('honors a DECLARED percent scale over the value-magnitude heuristic (#3136)', () => {

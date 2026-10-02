@@ -130,11 +130,14 @@ describe('formatMeasure percent — the locale\'s convention, not a literal sign
   // so English must not move at all.
 
   it('MUST NOT CHANGE: ordinary-magnitude en-US is byte-identical', () => {
-    expect(formatMeasure(50, '0%')).toBe('50%');
+    // objectui#11475: a column the server does not annotate reads its `%`
+    // pattern as a fraction (numeral's reading), so the whole-points rows say
+    // `whole` the way the server annotates them; their bytes are unchanged.
+    expect(formatMeasure(50, '0%', undefined, 'whole')).toBe('50%');
     expect(formatMeasure(0.75, '0%')).toBe('75%');
     expect(formatMeasure(0.608_333_333, '0.0%')).toBe('60.8%');
     expect(formatMeasure(0, '0%')).toBe('0%');
-    expect(formatMeasure(1, '0%')).toBe('1%');
+    expect(formatMeasure(1, '0%', undefined, 'whole')).toBe('1%');
     expect(formatMeasure(1, '0.0%', undefined, 'fraction')).toBe('100.0%');
     expect(formatMeasure(0.6667, '0.0%', undefined, 'fraction')).toBe('66.7%');
     expect(formatMeasure(0, '0.0%', undefined, 'fraction')).toBe('0.0%');

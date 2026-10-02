@@ -10,3 +10,8 @@
 - `ObjectTree` reads `navigation` without a cast, because the node type declares it.
 
 What the tree draws and what a click opens are unchanged.
+
+⚠️ **Dated note, 2026-10-02 — the `view:tree` tag is retired — objectui#10859.**
+Later in this same release objectui#10859 batch 8 unregistered the bare `tree` alias (and with it
+`view:tree`), so these inputs ship on one tag, `object-tree`. Author `object-tree`. The rest of this
+entry is kept as the reading of this change.

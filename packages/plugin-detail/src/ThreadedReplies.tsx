@@ -111,7 +111,8 @@ export const ThreadedReplies: React.FC<ThreadedRepliesProps> = ({
             <ChevronRight className="h-3 w-3" />
           )}
           <MessageSquare className="h-3 w-3" />
-          <span>{replies.length === 1 ? t('detail.replyCount', { count: replies.length }) : t('detail.replyCountPlural', { count: replies.length })}</span>
+          {/* One count family (objectui#11445) — no `=== 1` switch here. */}
+          <span>{t('detail.replyCount', { count: replies.length })}</span>
         </button>
       )}
 

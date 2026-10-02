@@ -1338,7 +1338,7 @@ export function RecordPickerDialog({
                 data-testid="record-picker-pagination"
               >
                 <span>
-                  {totalCount === 1 ? t('lookup.recordCountOne') : t('lookup.recordCount', { count: totalCount })}
+                  {t('lookup.recordCount', { count: totalCount })}
                   {totalPages > 1 && ` · ${t('lookup.pageOf', { current: currentPage, total: totalPages })}`}
                 </span>
                 {totalPages > 1 && (

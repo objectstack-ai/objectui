@@ -807,7 +807,8 @@ export function evaluateConditionalFormatting(
 // reads this map from downstream instead of parsing this file's text.
 export const LIST_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'list.recordCount': '{{count}} records',
-  'list.recordCountOne': '{{count}} record',
+  'list.recordCount_one': '{{count}} record',
+  'list.recordCount_other': '{{count}} records',
   'list.noItems': 'No items found',
   'list.noItemsMessage': 'There are no records to display. Try adjusting your filters or adding new data.',
   // First-run (truly empty, no filter/search) vs filtered-to-empty. Showing
@@ -5397,12 +5398,8 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
                 honest record count is the server's grand total (#586). When the
                 whole result set is in memory, serverTotal is null and data.length
                 already IS the total. */}
-            {(() => {
-              const totalCount = serverTotal ?? data.length;
-              return totalCount === 1
-                ? t('list.recordCountOne', { count: totalCount })
-                : t('list.recordCount', { count: totalCount });
-            })()}
+            {/* One count family (objectui#11445): i18next picks the CLDR slot. */}
+            {t('list.recordCount', { count: serverTotal ?? data.length })}
           </span>
           {/* The cap warning is about rows the user CANNOT REACH. A paged grid
               with a known total can reach them all through its pager, so the

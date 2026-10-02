@@ -289,7 +289,7 @@ describe('COLLAB_DEFAULT_TRANSLATIONS is the package-wide English source', () =>
 
     expect(keys.length).toBeGreaterThanOrEqual(25);
     expect(keys).toContain('collaboration.reactionCount');
-    expect(keys).toContain('collaboration.reactionCountOne');
+    expect(keys).toContain('collaboration.reactionCount_one');
     // The shared action words are borrowed from `common`, not re-spelled.
     expect(keys).toContain('common.save');
     expect(keys.some((k) => k.startsWith('collaboration.save'))).toBe(false);
@@ -306,7 +306,8 @@ describe('COLLAB_DEFAULT_TRANSLATIONS is the package-wide English source', () =>
    */
   it('keeps the reaction tooltip free of an {{emoji}} placeholder', () => {
     expect(COLLAB_DEFAULT_TRANSLATIONS['collaboration.reactionCount']).toBe('{{count}} reactions');
-    expect(COLLAB_DEFAULT_TRANSLATIONS['collaboration.reactionCountOne']).toBe('{{count}} reaction');
+    expect(COLLAB_DEFAULT_TRANSLATIONS['collaboration.reactionCount_one']).toBe('{{count}} reaction');
+    expect(COLLAB_DEFAULT_TRANSLATIONS['collaboration.reactionCount_other']).toBe('{{count}} reactions');
   });
 
   /**

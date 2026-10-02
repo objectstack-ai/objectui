@@ -21,3 +21,10 @@ the device both packs already use where two slots are all there are — Russian'
 two-key convention. The singular half, the call site, the key set and the other
 eight packs are unchanged; `zh`, `ja` and `ko` keep one string in both halves
 because their languages have a single plural category.
+
+⚠️ **Dated note, 2026-10-02 — superseded in this release — objectui#11445.**
+Later in this same release the `search.resultsCount` / `search.resultsCountPlural`
+switch gave way to a `search.resultsCount` count family in all ten packs:
+`ru` and `ar` now write a noun form for each CLDR category instead of the count
+label above (`2 результата`, `21 результат`), and `search.resultsCountPlural` left
+every pack. The rest of this entry is kept as the reading of this change.

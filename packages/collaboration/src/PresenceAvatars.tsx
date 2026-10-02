@@ -158,29 +158,18 @@ export function PresenceAvatars({
     style: containerStyle,
     className,
     role: 'group',
-    // Two keys instead of an English `s` glued on at render time. The old
-    // `` `${n} user${n !== 1 ? 's' : ''} present` `` produced correct *English*
-    // — the defect is that the plural RULE was compiled into the component, so
-    // no locale could apply its own (ru needs three forms, ja needs none, and
-    // neither could ever be expressed). Same treatment as the comment count in
-    // objectui#3424.
-    'aria-label': t(
-      users.length === 1
-        ? 'collaboration.presentUserCountOne'
-        : 'collaboration.presentUserCount',
-      { count: String(users.length) },
-    ),
+    // An i18next count family, not an English `s` glued on at render time:
+    // the old `` `${n} user${n !== 1 ? 's' : ''} present` `` compiled the
+    // plural RULE into the component. The count goes in as a NUMBER, because
+    // i18next plural-selects only for a number (objectui#11445) — then each
+    // pack's own CLDR categories apply (ru three forms, ar six, ja none).
+    'aria-label': t('collaboration.presentUserCount', { count: users.length }),
   },
     // Overflow badge (rendered first because of row-reverse)
     overflowCount > 0 && React.createElement('div', {
       key: 'overflow',
       style: overflowStyle,
-      title: t(
-        overflowCount === 1
-          ? 'collaboration.moreUserCountOne'
-          : 'collaboration.moreUserCount',
-        { count: String(overflowCount) },
-      ),
+      title: t('collaboration.moreUserCount', { count: overflowCount }),
     }, `+${overflowCount}`),
     // Avatars
     reversedVisible.map((user, idx) =>

@@ -293,11 +293,13 @@ describe('DetailSection — an empty array is not a cell value (#8474)', () => {
 
     // 4 fields with exactly ONE empty row (`close_date`), so auto-hide fires and
     // hides it: `0` and `false` are on the FILLED side of the count.
-    const toggle = screen.getByRole('button', { name: /empty fields/i });
+    // `detail.showEmptyFields` is a count family since objectui#11445, so ONE
+    // empty row reads the singular — the `$` anchor keeps the plural out.
+    const toggle = screen.getByRole('button', { name: /empty fields?$/i });
     expect(
       toggle.textContent,
       '`0` and `false` are values: exactly one field (`close_date`) is empty',
-    ).toContain('Show 1 empty fields');
+    ).toMatch(/Show 1 empty field$/);
     expect(affordances(), 'no visible row draws the affordance').toHaveLength(0);
     expect(shown('amount'), '`0` keeps its row and is not hidden as empty').toBe(true);
     expect(shown('stage'), '`false` keeps its row and is not hidden as empty').toBe(true);

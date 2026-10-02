@@ -68,7 +68,11 @@ function renderIn(language: string) {
 /** Pack values read out of the pack objects, not transcribed from the card. */
 const EN = { just: 'just now', min: '5m ago', hour: '3h ago', day: '2d ago' };
 const ZH = { just: '刚刚', min: '5分钟前', hour: '3小时前', day: '2天前' };
-const AR = { just: 'الآن', min: 'منذ 5 دقيقة', hour: 'منذ 3 ساعة', day: 'منذ 2 يوم' };
+// The three counts are three `ar` CLDR categories since objectui#11445 made the
+// `detail.*Ago` keys count families: 5 and 3 are `few` (plural noun), 2 is
+// `two` (the dual). The single forms they replaced read «منذ 5 دقيقة»,
+// «منذ 3 ساعة» and «منذ 2 يوم».
+const AR = { just: 'الآن', min: 'منذ 5 دقائق', hour: 'منذ 3 ساعات', day: 'منذ يومين (2)' };
 
 describe('RecordComments relative timestamps — locale resolution (objectui#7163)', () => {
   it('reads all four branches from the zh pack under a zh session', () => {

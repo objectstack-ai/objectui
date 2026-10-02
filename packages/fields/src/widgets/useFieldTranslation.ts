@@ -28,7 +28,10 @@ const FIELD_DEFAULTS: Record<string, string> = {
   'lookup.selectFirst': 'Select {{fields}} first',
   'lookup.selectRecord': 'Select record',
   'lookup.recordCount': '{{count}} records',
-  'lookup.recordCountOne': '1 record',
+  // A count family (objectui#11445): `fallbackT` reads the `_one` / `_other`
+  // row for a numeric `count`, as i18next reads the `en` pack.
+  'lookup.recordCount_one': '{{count}} record',
+  'lookup.recordCount_other': '{{count}} records',
   'lookup.pageOf': 'Page {{current}} of {{total}}',
   'lookup.filters': 'Filters',
   'lookup.clear': 'Clear',
@@ -124,9 +127,9 @@ const FIELD_DEFAULTS: Record<string, string> = {
   // bilingual rather than one screen.
   //
   // Two SIBLING keys, not an i18next `_one`/`_other` family: the verb is
-  // English grammar and cannot be a hole, and this repo's plural convention is
-  // the `X`/`XOne` pair branched at the call site (`lookup.recordCount` /
-  // `recordCountOne` above is the same map's own instance). The coordinate
+  // English grammar and cannot be a hole, and the two arities interpolate
+  // different holes — a structural pair selected by which halves the residue
+  // holds, not a count (see `refusedResidueMessage`). The coordinate
   // NOUNS are keyed once each and interpolated into both, so a locale spells
   // `latitude` in exactly one place. `{{text}}`/`{{otherText}}` are what the
   // person typed and stay untouched by every pack.

@@ -36,3 +36,10 @@ the singular half of that marker was dead weight while the parentheses still
 rendered at every count the key does serve. It now reads as a singular noun at one
 item and as a count label at every other count, the shape `ar`'s
 `common.itemCount`/`itemCountOne` uses (objectui#10425).
+
+⚠️ **Dated note, 2026-10-02 — superseded in this release — objectui#11445.**
+Later in this same release the `search.itemsAvailable` / `search.itemsAvailableOne`
+switch gave way to a `search.itemsAvailable` count family in all ten packs: the
+browse branch calls the family key with `{ count }`, each pack spells every CLDR
+category its language selects (so the base-key fall-through described above no
+longer arises), and `search.itemsAvailableOne` left every pack. The rest of this entry is kept as the reading of this change.

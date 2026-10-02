@@ -120,11 +120,13 @@ function formatTimestamp(iso: string, t: CollaborationTranslate, locale: string)
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / 60000);
     if (minutes < 1) return t('collaboration.justNow');
-    if (minutes < 60) return t('collaboration.minutesAgo', { count: String(minutes) });
+    // NUMBER counts: these are count families (objectui#11445), and i18next
+    // plural-selects only for a number — `ar` needs its own noun form at 3-10.
+    if (minutes < 60) return t('collaboration.minutesAgo', { count: minutes });
     const hours = Math.floor(minutes / 60);
-    if (hours < 24) return t('collaboration.hoursAgo', { count: String(hours) });
+    if (hours < 24) return t('collaboration.hoursAgo', { count: hours });
     const days = Math.floor(hours / 24);
-    if (days < 7) return t('collaboration.daysAgo', { count: String(days) });
+    if (days < 7) return t('collaboration.daysAgo', { count: days });
     return formatAbsoluteDate(date, locale);
   } catch {
     return iso;
@@ -596,16 +598,12 @@ export function CommentThread({
                 ...(userIds.includes(currentUser.id) ? styles.reactionBtnActive : {}),
               },
               onClick: () => onReaction?.(comment.id, emoji),
-              // Dedicated key pair — `detail.reactionCount` interpolates an
-              // `{{emoji}}` this tooltip has no value for (the emoji is the
+              // A dedicated count family — `detail.reactionCount` interpolates
+              // an `{{emoji}}` this tooltip has no value for (the emoji is the
               // button's visible label), so reusing it would leave a literal
-              // `{{emoji}}` in the accessible name under every locale.
-              title: t(
-                userIds.length === 1
-                  ? 'collaboration.reactionCountOne'
-                  : 'collaboration.reactionCount',
-                { count: String(userIds.length) },
-              ),
+              // `{{emoji}}` in the accessible name under every locale. The
+              // count is a NUMBER so i18next plural-selects (objectui#11445).
+              title: t('collaboration.reactionCount', { count: userIds.length }),
             }, `${emoji} ${userIds.length}`),
           ),
           // The reaction-bar picker (objectui#3478). Its content is the literal
@@ -687,17 +685,11 @@ export function CommentThread({
     // Header
     React.createElement('div', { style: styles.header },
       React.createElement('span', null,
-        // Two keys instead of an English `s` glued on at render time. The old
-        // `` `${n} comment${n !== 1 ? 's' : ''}` `` produced correct *English*
-        // — the bug is that the plural RULE was compiled into the component,
-        // so no locale could apply its own (ru needs three forms, ja needs
-        // none, and neither could ever be expressed).
-        t(
-          comments.length === 1
-            ? 'collaboration.commentCountOne'
-            : 'collaboration.commentCount',
-          { count: String(comments.length) },
-        ),
+        // An i18next count family instead of an English `s` glued on at
+        // render time: the old `` `${n} comment${n !== 1 ? 's' : ''}` ``
+        // compiled the plural RULE into the component. A NUMBER count, so
+        // i18next selects each pack's own CLDR slot (objectui#11445).
+        t('collaboration.commentCount', { count: comments.length }),
         resolved ? t('collaboration.resolvedSuffix') : '',
       ),
       React.createElement('div', { style: { display: 'flex', gap: '6px', alignItems: 'center' } },

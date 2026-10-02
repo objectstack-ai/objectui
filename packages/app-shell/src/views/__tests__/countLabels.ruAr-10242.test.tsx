@@ -30,9 +30,17 @@
  * (`Комментариев: {{count}}`) and `collaboration.reactionCount`
  * (`Реакций: {{count}}`). The `ar` values use the `عدد …: {{count}}` shape of
  * `search.resultsCountPlural` and `calendar.a11y.dayCell`. The singular halves,
- * the key set and the call sites are unchanged. ⛔ Not an i18next `_few` /
- * `_two` family: `all-locales-key-parity.test.ts` holds every pack to `en`'s
- * key set, so a `ru` `_few` is a key `en` lacks.
+ * the key set and the call sites were unchanged then.
+ *
+ * ## objectui#11445 — the repair this file pins now
+ *
+ * A count label reads right at any number, but it is not the noun form the
+ * language uses. objectui#11432 let a pack hold every CLDR slot its language
+ * selects, so objectui#11445 made each of these keys an i18next count family:
+ * the components pass `count`, i18next picks the slot, and `ru` reads
+ * «2 элемента», «5 элементов», «21 элемент» while `ar` reads the dual at 2, the
+ * plural at 3-10 and the accusative singular at 11-99. The `…One` siblings
+ * left all ten packs. The strings below are those, read from a real render.
  *
  * ## Why this file sits beside the objectui#10024 pin
  *
@@ -166,9 +174,10 @@ function commentThread(lang: Lang, count: number): { header: string; tooltip: st
 type Row = [count: number, badge: string, header: string, tooltip: string];
 
 /**
- * Every string this file expects. `1` is the untouched singular half. The
- * other counts are the triage's representative numbers: `ru` 2 (few), 5 (many)
- * and 21 (one); `ar` 2 (two), 3 (few) and 11 (many).
+ * Every string this file expects. The counts are the triage's representative
+ * numbers: `ru` 2 (few), 5 (many) and 21 (one); `ar` 2 (two), 3 (few) and 11
+ * (many). Since objectui#11445 each is the family slot i18next selects — before
+ * it, every count but 1 read the count label («Элементов: 2», «عدد العناصر: 2»).
  */
 const EXPECTED: Record<Lang, Row[]> = {
   en: [
@@ -177,15 +186,15 @@ const EXPECTED: Record<Lang, Row[]> = {
   ],
   ru: [
     [1, '1 элемент', '1 комментарий', '1 реакция'],
-    [2, 'Элементов: 2', 'Комментариев: 2', 'Реакций: 2'],
-    [5, 'Элементов: 5', 'Комментариев: 5', 'Реакций: 5'],
-    [21, 'Элементов: 21', 'Комментариев: 21', 'Реакций: 21'],
+    [2, '2 элемента', '2 комментария', '2 реакции'],
+    [5, '5 элементов', '5 комментариев', '5 реакций'],
+    [21, '21 элемент', '21 комментарий', '21 реакция'],
   ],
   ar: [
     [1, '1 عنصر', '1 تعليق', '1 تفاعل'],
-    [2, 'عدد العناصر: 2', 'عدد التعليقات: 2', 'عدد التفاعلات: 2'],
-    [3, 'عدد العناصر: 3', 'عدد التعليقات: 3', 'عدد التفاعلات: 3'],
-    [11, 'عدد العناصر: 11', 'عدد التعليقات: 11', 'عدد التفاعلات: 11'],
+    [2, 'عنصران (2)', 'تعليقان (2)', 'تفاعلان (2)'],
+    [3, '3 عناصر', '3 تعليقات', '3 تفاعلات'],
+    [11, '11 عنصرًا', '11 تعليقًا', '11 تفاعلًا'],
   ],
 };
 
@@ -200,9 +209,9 @@ const CHIP: Record<'en' | 'ru', Array<[number, string]>> = {
   ],
   ru: [
     [1, '👍 1 реакция'],
-    [2, '👍 Реакций: 2'],
-    [5, '👍 Реакций: 5'],
-    [21, '👍 Реакций: 21'],
+    [2, '👍 2 реакции'],
+    [5, '👍 5 реакций'],
+    [21, '👍 21 реакция'],
   ],
 };
 
@@ -247,24 +256,21 @@ describe('count labels read correctly at every CLDR category in ru and ar (objec
     expect(commentThread('ar', 11).tooltip).not.toBe('11 تفاعلات');
   });
 
-  it('the count-not-one half is count-invariant: it ends in the number, after a colon', () => {
-    // The mechanism of the repair, stated on the pack values, so a later
-    // "natural-sounding" rewrite back to a number-then-noun form fails here
-    // with the reason attached: two slots cannot give that noun the right form.
+  it('each label is an i18next count family in ru and ar, and its `…One` sibling is gone', () => {
+    // The mechanism of the objectui#11445 repair, stated on the pack values: every
+    // CLDR slot the language selects is spelled, so i18next — not a `=== 1` key
+    // switch in the component — chooses the form.
     const at = (lang: 'ru' | 'ar', dotted: string) =>
       dotted
         .split('.')
         .reduce<unknown>((node, part) => (node as Record<string, unknown>)?.[part], builtInLocales[lang]);
-    const KEYS: Record<'ru' | 'ar', string[]> = {
-      ru: ['common.itemCount', 'detail.reactionCount'],
-      ar: ['common.itemCount', 'collaboration.commentCount', 'collaboration.reactionCount'],
-    };
+    const KEYS = ['common.itemCount', 'detail.reactionCount', 'collaboration.commentCount', 'collaboration.reactionCount'];
     for (const lang of ['ru', 'ar'] as const) {
-      for (const key of KEYS[lang]) {
-        const value = at(lang, key);
-        expect(value, `${lang} ${key}`).toMatch(/: \{\{count\}\}$/);
-        // …and the two halves are two different sentences.
-        expect(value, `${lang} ${key} equals its One half`).not.toBe(at(lang, `${key}One`));
+      for (const key of KEYS) {
+        for (const category of new Intl.PluralRules(lang).resolvedOptions().pluralCategories) {
+          expect(at(lang, `${key}_${category}`), `${lang} ${key}_${category}`).toEqual(expect.any(String));
+        }
+        expect(at(lang, `${key}One`), `${lang} ${key}One`).toBeUndefined();
       }
     }
   });

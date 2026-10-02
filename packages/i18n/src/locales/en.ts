@@ -87,7 +87,8 @@ const en = {
     selectFirst: 'Select {{fields}} first',
     selectRecord: 'Select record',
     recordCount: '{{count}} records',
-    recordCountOne: '1 record',
+    recordCount_one: '{{count}} record',
+    recordCount_other: '{{count}} records',
     pageOf: 'Page {{current}} of {{total}}',
     filters: 'Filters',
     clear: 'Clear',
@@ -144,10 +145,12 @@ const en = {
     closeChat: 'Close chat',
     closePanel: 'Close panel',
     resizeDrawer: 'Resize drawer',
-    // Count badge on a tab / section header. Two keys, NOT an i18next
-    // `_one`/`_other` pair — see the `reactionCount` note under `detail`.
+    // Count badge on a tab / section header. An i18next count family
+    // (objectui#11445): the badge passes `count` and i18next picks the slot
+    // each pack's CLDR rules select.
     itemCount: '{{count}} items',
-    itemCountOne: '{{count}} item',
+    itemCount_one: '{{count}} item',
+    itemCount_other: '{{count}} items',
     toggleSidebar: 'Toggle sidebar',
     package: 'Package',
     done: 'Done',
@@ -356,6 +359,8 @@ const en = {
   fields: {
     relativeDate: {
       overdue: 'Overdue {{count}}d',
+      overdue_one: 'Overdue {{count}}d',
+      overdue_other: 'Overdue {{count}}d',
     },
     file: {
       dragDropHere: 'Drag & drop files here',
@@ -611,8 +616,12 @@ const en = {
     open: 'Open',
     search: 'Search…',
     modified: '{{count}} row modified',
+    modified_one: '{{count}} row modified',
+    modified_other: '{{count}} rows modified',
     saveFailed: 'Save failed',
     selected: '{{count}} selected',
+    selected_one: '{{count}} selected',
+    selected_other: '{{count}} selected',
     edit: 'Edit',
     delete: 'Delete',
   },
@@ -629,9 +638,13 @@ const en = {
     openRecord: 'Open record',
     openMenu: 'Open menu',
     bulkSelected: '{{count}} selected',
+    bulkSelected_one: '{{count}} selected',
+    bulkSelected_other: '{{count}} selected',
     bulkSelectedAllMatches: '{{count}} selected (all matches)',
     bulkClear: 'Clear',
     bulkAllOnPage: 'All {{count}} on this page are selected.',
+    bulkAllOnPage_one: '{{count}} record on this page is selected.',
+    bulkAllOnPage_other: 'All {{count}} on this page are selected.',
     bulkSelectAllMatching: 'Select all {{count}} matching',
     bulkAllMatchingSelected: 'All {{count}} matching records are selected.',
     rowHeight: 'Row height: {{mode}}',
@@ -721,6 +734,8 @@ const en = {
       typeMismatch: 'Looks like {{type}}',
       autoMatched: 'Auto-matched',
       autoMatchedSummary: 'Auto-matched {{count}} column(s) — review and adjust below.',
+      autoMatchedSummary_one: 'Auto-matched {{count}} column — review and adjust below.',
+      autoMatchedSummary_other: 'Auto-matched {{count}} columns — review and adjust below.',
       confidence: {
         high: 'High confidence',
         medium: 'Medium confidence',
@@ -739,7 +754,11 @@ const en = {
       mapped: 'Mapped',
       skipped: 'Skipped',
       rowsWithErrors: '{{count}} row(s) with errors',
+      rowsWithErrors_one: '{{count}} row with errors',
+      rowsWithErrors_other: '{{count}} rows with errors',
       rowsCorrected: '{{count}} row(s) corrected',
+      rowsCorrected_one: '{{count}} row corrected',
+      rowsCorrected_other: '{{count}} rows corrected',
       clickToFix: '— click a highlighted cell to fix it inline.',
       showingRows: 'Showing {{shown}} of {{total}} rows',
       importing: 'Importing… {{progress}}%',
@@ -750,12 +769,20 @@ const en = {
       cancelImport: 'Cancel import',
       importCancelled: 'Import cancelled',
       resultsTruncated: 'Showing the first {{count}} row results (of {{total}}).',
+      resultsTruncated_one: 'Showing the first {{count}} row result (of {{total}}).',
+      resultsTruncated_other: 'Showing the first {{count}} row results (of {{total}}).',
       importComplete: 'Import Complete',
       imported: '{{count}} imported',
       createdCount: '{{count}} created',
+      createdCount_one: '{{count}} created',
+      createdCount_other: '{{count}} created',
       updatedCount: '{{count}} updated',
+      updatedCount_one: '{{count}} updated',
+      updatedCount_other: '{{count}} updated',
       skippedCount: '{{count}} skipped',
       moreErrors: '…and {{count}} more errors',
+      moreErrors_one: '…and {{count}} more error',
+      moreErrors_other: '…and {{count}} more errors',
       downloadFailed: 'Download failed rows',
       options: 'Import options',
       writeMode: 'When a row matches an existing record',
@@ -803,6 +830,8 @@ const en = {
       historyColResult: 'Result',
       historyColTime: 'When',
       errorCount: '{{count}} errors',
+      errorCount_one: '{{count}} error',
+      errorCount_other: '{{count}} errors',
       undoImport: 'Undo import',
       undoing: 'Undoing…',
       undoConfirm: 'Undo this import? Records it created will be deleted and records it updated will be restored to their previous values.',
@@ -819,6 +848,8 @@ const en = {
       next: 'Next',
       close: 'Close',
       importNRows: 'Import {{count}} Rows',
+      importNRows_one: 'Import {{count}} Row',
+      importNRows_other: 'Import {{count}} Rows',
       importingProgress: 'Importing…',
       required: 'Required',
       invalidType: 'Invalid {{type}}',
@@ -830,9 +861,13 @@ const en = {
     },
     bulk: {
       confirmDefault: 'This will apply to {{count}} record(s).',
+      confirmDefault_one: 'This will apply to {{count}} record.',
+      confirmDefault_other: 'This will apply to {{count}} records.',
       overLimit: 'Selection ({{count}}) exceeds the action limit ({{limit}}). Reduce the selection to proceed.',
       affectedRecords: 'Affected records ({{count}}):',
       skippedIneligible: '{{count}} selected record(s) are not eligible for this action and will be skipped.',
+      skippedIneligible_one: '{{count}} selected record is not eligible for this action and will be skipped.',
+      skippedIneligible_other: '{{count}} selected records are not eligible for this action and will be skipped.',
       rowFallback: 'Row {{index}}',
       andMore: '\u2026 and {{count}} more',
       processed: '{{count}} / {{total}} processed',
@@ -893,7 +928,8 @@ const en = {
   list: {
     loading: 'Loading records…',
     recordCount: '{{count}} records',
-    recordCountOne: '{{count}} record',
+    recordCount_one: '{{count}} record',
+    recordCount_other: '{{count}} records',
     addRecord: 'Add record',
     tabs: 'Tabs',
     allRecords: 'All Records',
@@ -1139,13 +1175,19 @@ const en = {
     conflict: {
       title: 'Schedule conflict',
       body: 'This move conflicts with dependency constraints. Auto-reschedule {{count}} affected task(s)?',
+      body_one: 'This move conflicts with dependency constraints. Auto-reschedule {{count}} affected task?',
+      body_other: 'This move conflicts with dependency constraints. Auto-reschedule {{count}} affected tasks?',
       confirm: 'Auto-reschedule',
       cancel: 'Keep as is',
     },
     autoScheduleDlg: {
       title: 'Auto-schedule',
       body: 'Shift {{count}} task(s) later to satisfy dependency links?',
+      body_one: 'Shift {{count}} task later to satisfy dependency links?',
+      body_other: 'Shift {{count}} tasks later to satisfy dependency links?',
       skipped: '{{count}} locked task(s) also violate links and were skipped.',
+      skipped_one: '{{count}} locked task also violates links and was skipped.',
+      skipped_other: '{{count}} locked tasks also violate links and were skipped.',
       confirm: 'Apply',
       cancel: 'Cancel',
       none: 'All dependencies satisfied — nothing to reschedule.',
@@ -1274,7 +1316,8 @@ const en = {
     pageHeaderActions: 'Page header actions',
     emojiPicker: 'Emoji picker',
     reactionCount: '{{emoji}} {{count}} reactions',
-    reactionCountOne: '{{emoji}} {{count}} reaction',
+    reactionCount_one: '{{emoji}} {{count}} reaction',
+    reactionCount_other: '{{emoji}} {{count}} reactions',
     // Record-overlay chrome (objectstack#5506). `recordDetail` is the VISIBLE
     // heading the overlay falls back to when the host passes no title;
     // `openAsFullPage` is the icon-only expand button's default accessible
@@ -1340,8 +1383,14 @@ const en = {
     unpin: 'Unpin',
     justNow: 'just now',
     minutesAgo: '{{count}}m ago',
+    minutesAgo_one: '{{count}}m ago',
+    minutesAgo_other: '{{count}}m ago',
     hoursAgo: '{{count}}h ago',
+    hoursAgo_one: '{{count}}h ago',
+    hoursAgo_other: '{{count}}h ago',
     daysAgo: '{{count}}d ago',
+    daysAgo_one: '{{count}}d ago',
+    daysAgo_other: '{{count}}d ago',
     // Activity feed actors
     systemActor: 'System',
     unknownUser: 'Unknown',
@@ -1355,7 +1404,8 @@ const en = {
     // Attachments
     dropFilesToUpload: 'Drop files here or click to upload',
     attachmentCount: '{{count}} attachment',
-    attachmentCountPlural: '{{count}} attachments',
+    attachmentCount_one: '{{count}} attachment',
+    attachmentCount_other: '{{count}} attachments',
     removeAttachment: 'Remove attachment',
     // Record Attachments panel (enable.files, objectstack#4358)
     attachments: 'Attachments',
@@ -1428,7 +1478,8 @@ const en = {
     viewSource: 'View source',
     // Replies
     replyCount: '{{count}} reply',
-    replyCountPlural: '{{count}} replies',
+    replyCount_one: '{{count}} reply',
+    replyCount_other: '{{count}} replies',
     replyPlaceholder: 'Reply…',
     // Aria labels
     filterActivity: 'Filter activity',
@@ -1441,6 +1492,8 @@ const en = {
     copyPhone: 'Copy phone number',
     copyRecordId: 'Copy record ID',
     showEmptyFields: 'Show {{count}} empty fields',
+    showEmptyFields_one: 'Show {{count}} empty field',
+    showEmptyFields_other: 'Show {{count}} empty fields',
     hideEmptyFields: 'Hide empty fields',
     noValue: 'No value',
     unresolvedReference: 'Unresolved reference: {{value}} was not resolved to a user',
@@ -1452,8 +1505,9 @@ const en = {
     // `count === 1 ? 'file' : 'files'`, which is not plural-safe anywhere else.
     // One channel, two call sites.
     //
-    // REAL i18next plural families, NOT the two-sibling-key `xxxCountOne` shape
-    // used by `common.itemCount` above. i18next asks `Intl.PluralRules` for the
+    // REAL i18next plural families — the one count shape this repo uses since
+    // objectui#11445 retired the code-selected `xxxCountOne` / `xxxCountPlural`
+    // sibling keys. i18next asks `Intl.PluralRules` for the
     // ONE suffix a number needs, so each pack carries every category its language
     // selects (`ru` `_few`/`_many`, `ar` `_zero`/`_two`/`_few`/`_many` —
     // objectui#11432) plus the base key (objectui#3863).
@@ -1883,7 +1937,11 @@ const en = {
       backToHome: 'Back to home',
     },
     saveAdvisoryTitle: 'Saved — the authoring check raised {{count}} advisory finding(s)',
+    saveAdvisoryTitle_one: 'Saved — the authoring check raised {{count}} advisory finding',
+    saveAdvisoryTitle_other: 'Saved — the authoring check raised {{count}} advisory findings',
     publishAdvisoryTitle: 'Published — the authoring check raised {{count}} advisory finding(s)',
+    publishAdvisoryTitle_one: 'Published — the authoring check raised {{count}} advisory finding',
+    publishAdvisoryTitle_other: 'Published — the authoring check raised {{count}} advisory findings',
     importMappingsUnavailable: 'Saved import mappings for {{object}} could not be loaded',
     importMappingsRefused: 'The server refused this request, so this list is empty because it could not be read — not because nothing is registered. Sign in again, or ask an administrator for access.',
     importMappingsUnreadable: 'This list is empty because it could not be read, not because nothing is registered. Try again, and report this if it keeps happening.',
@@ -1963,8 +2021,7 @@ const en = {
       discard: 'Discard',
       saveChanges: 'Save changes',
       // Save-bar counter. A REAL i18next plural family, not an English-only
-      // `change(s)` and not the two-sibling-key `xxxCountOne` shape used
-      // elsewhere in this file.
+      // `change(s)`.
       //
       // i18next asks `Intl.PluralRules` for the one suffix a language needs, so
       // each pack spells out every category its language selects — `ru` has
@@ -2457,6 +2514,8 @@ const en = {
       import: 'Import',
       importTitle: 'Import from CSV',
       importedToast: 'Imported {{count}} row(s).',
+      importedToast_one: 'Imported {{count}} row.',
+      importedToast_other: 'Imported {{count}} rows.',
       importedWithSkipped: 'Imported {{ok}} row(s); skipped {{skipped}}.',
       configureView: 'Configure View',
       toolbarEnabledCount: '{{count}} of {{total}} enabled',
@@ -2464,7 +2523,8 @@ const en = {
       title: 'Title',
       viewType: 'View type',
       recordCount: '{{count}} records',
-      recordCountOne: '{{count}} record',
+      recordCount_one: '{{count}} record',
+      recordCount_other: '{{count}} records',
       save: 'Save',
       discard: 'Discard',
       createView: 'Create View',
@@ -2475,6 +2535,8 @@ const en = {
       deleteViewTitle: 'Delete view',
       deleteViewConfirm: 'Are you sure you want to delete the view "{{name}}"? This cannot be undone.',
       bulkDeleteConfirm: 'Delete {{count}} selected records? This cannot be undone.',
+      bulkDeleteConfirm_one: 'Delete {{count}} selected record? This cannot be undone.',
+      bulkDeleteConfirm_other: 'Delete {{count}} selected records? This cannot be undone.',
       duplicateViewName: 'A view with this name already exists.',
       viewTypeGrid: 'Grid',
       viewTypeGridDesc: 'A spreadsheet-style table of records.',
@@ -2988,6 +3050,8 @@ const en = {
     },
     pendingDrafts: {
       message: 'You have {{count}} unpublished change(s) — publish to make them live.',
+      message_one: 'You have {{count}} unpublished change — publish to make it live.',
+      message_other: 'You have {{count}} unpublished changes — publish to make them live.',
       cta: 'Publish',
       publishing: 'Publishing…',
       published: 'Published! Your changes are live.',
@@ -3093,9 +3157,11 @@ const en = {
     placeholder: 'Search objects, dashboards, pages, reports…',
     inputAriaLabel: 'Search objects, dashboards, pages, reports',
     resultsCount: '{{count}} result for "{{query}}"',
-    resultsCountPlural: '{{count}} results for "{{query}}"',
+    resultsCount_one: '{{count}} result for "{{query}}"',
+    resultsCount_other: '{{count}} results for "{{query}}"',
     itemsAvailable: '{{count}} items available',
-    itemsAvailableOne: '{{count}} item available',
+    itemsAvailable_one: '{{count}} item available',
+    itemsAvailable_other: '{{count}} items available',
     noResults: 'No results found',
     noResultsHint: 'Try adjusting your search terms',
     typeObjects: 'Objects',
@@ -3171,11 +3237,15 @@ const en = {
       detailNone: 'No differences detected — the draft matches the published version.',
       detailChangedKeys: 'Also changed:',
       confirmNote: 'Publishing releases all {{count}} pending drafts of this package atomically.',
+      confirmNote_one: 'Publishing releases the {{count}} pending draft of this package atomically.',
+      confirmNote_other: 'Publishing releases all {{count}} pending drafts of this package atomically.',
       publishConfirm: 'Publish all',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE
       // the click rather than as a toast after the batch rolled back.
       securityBlockTitle: 'Publishing will be refused — {{count}} item(s) need a decision first',
+      securityBlockTitle_one: 'Publishing will be refused — {{count}} item needs a decision first',
+      securityBlockTitle_other: 'Publishing will be refused — {{count}} items need a decision first',
       securityBlockWhere: 'Fix it on the object under Settings → Record sharing, then publish again.',
     },
     // ADR-0045 — the materialized-but-unlisted app banner
@@ -3213,10 +3283,9 @@ const en = {
       // grammar needs no plural for, and `de`/`fr`/`es`/`pt`/`ru`/`ar` use the
       // label-colon form (`Elemente: 3`, `Элементов: 3`), which is the shape
       // `fields.textarea.charactersRemaining` already uses for this exact
-      // reason. ⛔ Do not "upgrade" this to a `_one`/`_other` family: identical
-      // key sets across ten packs (all-locales-key-parity) leave `ru` without
-      // `_few` and `ar` without `_two`/`_many`, so those categories land on the
-      // base key and `ru` goes back to reading `2 элементов`.
+      // reason. It needs no family: every pack's form reads at any number,
+      // which is why `count-families-11445.test.ts` names it on its
+      // count-neutral list rather than holding it to the family rule.
       items: '{{count}} item(s)',
       revertAction: 'Revert',
       reverted: 'Reverted — the change has been undone.',
@@ -3267,6 +3336,8 @@ const en = {
       'Deleting resets it to the shipped baseline and discards your environment customization. Continue?',
     resetPackageSetSuccess: 'Permission set reset to its shipped baseline',
     bulkDeleteSuccess: 'Deleted {{count}} {{label}} records',
+    bulkDeleteSuccess_one: 'Deleted {{count}} {{label}} record',
+    bulkDeleteSuccess_other: 'Deleted {{count}} {{label}} records',
     bulkDeletePartial: '{{succeeded}} deleted, {{failed}} failed',
   },
   objectViewActions: {
@@ -3456,9 +3527,13 @@ const en = {
     viewAll: 'View all notifications',
     groupCount: '{{count}} notifications',
     groupUnread: '{{count}} unread',
+    groupUnread_one: '{{count}} unread',
+    groupUnread_other: '{{count}} unread',
     groupMarkRead: 'Mark read',
     groupMarkReadTitle: 'Mark all of this type read',
     approvalsPending: '{{count}} pending approvals',
+    approvalsPending_one: '{{count}} pending approval',
+    approvalsPending_other: '{{count}} pending approvals',
     viewApprovals: 'View approvals',
     noPendingApprovals: 'No pending approvals',
     openApprovalsInbox: 'Open Approvals Inbox',
@@ -3471,7 +3546,11 @@ const en = {
     // objectui#7011 — the arrival announcement (toast / desktop notification)
     // and the two switches that govern it.
     arrivalMany: '{{count}} new messages',
+    arrivalMany_one: '{{count}} new message',
+    arrivalMany_other: '{{count}} new messages',
     arrivalRepeats: '{{count}} new messages on this topic',
+    arrivalRepeats_one: '{{count}} new message on this topic',
+    arrivalRepeats_other: '{{count}} new messages on this topic',
     arrivalOpen: 'View',
     toastEnabled: 'In-app alerts',
     desktopEnabled: 'Desktop notifications',
@@ -3552,6 +3631,8 @@ const en = {
     noImportableFields: 'That object has no importable fields.',
     schemaReadFailed: 'Could not read the object schema.',
     imported: 'Imported {{count}} row(s) into {{object}}.',
+    imported_one: 'Imported {{count}} row into {{object}}.',
+    imported_other: 'Imported {{count}} rows into {{object}}.',
     importFrom: 'Import the real rows from',
     into: 'into',
     opening: 'Opening…',
@@ -3570,9 +3651,9 @@ const en = {
     current: 'Current plan',
   },
   // `@object-ui/plugin-ai` — the `nl-query`, `ai-form-assist` and
-  // `ai-recommendations` components (objectui#10232). The `*One` rows are this
-  // repo's two-key plural convention (see `search.itemsAvailableOne`): the
-  // component picks the key at exactly one, so no CLDR category falls to `en`.
+  // `ai-recommendations` components (objectui#10232). The two count labels are
+  // i18next count families (objectui#11445): the component passes `count` and
+  // each pack carries every CLDR category its language selects.
   ai: {
     nlQuery: {
       placeholder: 'Ask a question about your data…',
@@ -3586,11 +3667,13 @@ const en = {
     formAssist: {
       title: 'AI Suggestions',
       suggestionCount: '{{count}} suggestions',
-      suggestionCountOne: '{{count}} suggestion',
+      suggestionCount_one: '{{count}} suggestion',
+      suggestionCount_other: '{{count}} suggestions',
       applyAll: 'Apply All',
       confidence: '{{percent}} confidence',
       appliedCount: '{{count}} suggestions applied',
-      appliedCountOne: '{{count}} suggestion applied',
+      appliedCount_one: '{{count}} suggestion applied',
+      appliedCount_other: '{{count}} suggestions applied',
     },
     recommendations: {
       title: 'Recommendations',
@@ -3898,10 +3981,14 @@ const en = {
         purgeSampleData: 'Purge sample data',
         purgeConfirm: 'Delete all sample records seeded by this package? User-added records will NOT be touched.',
         purgeSuccess: 'Removed {{count}} sample record(s).',
+        purgeSuccess_one: 'Removed {{count}} sample record.',
+        purgeSuccess_other: 'Removed {{count}} sample records.',
         purgeNoData: 'No sample records found to purge.',
         reseedQueued: 'Sample data will be re-seeded on next environment access.',
         reseedLocalSuccess: 'Re-seeded sample data: {{inserted}} inserted, {{updated}} updated.',
         reseedPartialErrors: '({{count}} record(s) failed to write)',
+        reseedPartialErrors_one: '({{count}} record failed to write)',
+        reseedPartialErrors_other: '({{count}} records failed to write)',
         sampleDataKernelUnavailable: 'This control plane has no environment kernel, so sample data cannot be re-seeded or purged from here. Do it from the environment\'s own runtime.',
         updateAvailable: 'Update available',
       },
@@ -4011,7 +4098,11 @@ const en = {
         today: 'today',
         daysAgo: '{{count}}d ago',
         monthsAgo: '{{count}}mo ago',
+        monthsAgo_one: '{{count}}mo ago',
+        monthsAgo_other: '{{count}}mo ago',
         yearsAgo: '{{count}}y ago',
+        yearsAgo_one: '{{count}}y ago',
+        yearsAgo_other: '{{count}}y ago',
       },
     },
   approvalsInbox: {
@@ -4034,6 +4125,8 @@ const en = {
     requestInfoSent: 'Sent back to the requester for more information',
     remindBtn: 'Send reminder',
     remindSuccess: 'Reminder sent to {{count}} approver(s)',
+    remindSuccess_one: 'Reminder sent to {{count}} approver',
+    remindSuccess_other: 'Reminder sent to {{count}} approvers',
     remindThrottled: 'A reminder was sent recently — try again later.',
     replyPlaceholder: 'Reply on this request…',
     slaRemaining: 'SLA {{dur}} left',
@@ -4050,6 +4143,8 @@ const en = {
     progressApprovals: 'Approvals — {{got}} of {{need}}',
     progressGroups: 'Sign-off progress — {{got}} of {{need}} groups',
     progressEligible: '{{count}} eligible approver(s)',
+    progressEligible_one: '{{count}} eligible approver',
+    progressEligible_other: '{{count}} eligible approvers',
     progressBar: 'Decision progress',
     declaredActions: 'Actions',
     attachmentChip: 'Attachment',
@@ -4081,6 +4176,8 @@ const en = {
     filterCount: '{{shown}} of {{total}}',
     selected: 'selected',
     actionableCount: '({{count}} actionable)',
+    actionableCount_one: '({{count}} actionable)',
+    actionableCount_other: '({{count}} actionable)',
     selectAll: 'Select all',
     selectRow: 'Select request',
     colRequest: 'Request',
@@ -4154,11 +4251,19 @@ const en = {
     approveN: 'Approve {{count}}',
     rejectN: 'Reject {{count}}',
     bulkApproveTitle: 'Approve {{count}} requests?',
+    bulkApproveTitle_one: 'Approve {{count}} request?',
+    bulkApproveTitle_other: 'Approve {{count}} requests?',
     bulkApproveBody: 'Each request is approved with your identity and its flow continues down the approve branch.',
     bulkRejectTitle: 'Reject {{count}} requests?',
+    bulkRejectTitle_one: 'Reject {{count}} request?',
+    bulkRejectTitle_other: 'Reject {{count}} requests?',
     bulkRejectBody: 'This rejects the selected requests and notifies their submitters.',
     bulkApproved: 'Approved {{count}} requests',
+    bulkApproved_one: 'Approved {{count}} request',
+    bulkApproved_other: 'Approved {{count}} requests',
     bulkRejected: 'Rejected {{count}} requests',
+    bulkRejected_one: 'Rejected {{count}} request',
+    bulkRejected_other: 'Rejected {{count}} requests',
     bulkPartial: '{{ok}} succeeded, {{fail}} failed: {{which}}',
     rejectOneTitle: 'Reject "{{title}}"?',
     rejectOneBody: 'This rejects the request and notifies the submitter.',
@@ -4183,8 +4288,14 @@ const en = {
     alreadyDecided: 'This request was already decided. Refresh the list.',
     justNow: 'just now',
     minutesAgo: '{{count}}m ago',
+    minutesAgo_one: '{{count}}m ago',
+    minutesAgo_other: '{{count}}m ago',
     hoursAgo: '{{count}}h ago',
+    hoursAgo_one: '{{count}}h ago',
+    hoursAgo_other: '{{count}}h ago',
     daysAgo: '{{count}}d ago',
+    daysAgo_one: '{{count}}d ago',
+    daysAgo_other: '{{count}}d ago',
   },
   filterBuilder: {
     where: 'Where',
@@ -4249,13 +4360,11 @@ const en = {
   // The generic action words (Save / Cancel / Edit / Delete) are NOT repeated
   // here — the thread reads them from `common`.
   collaboration: {
-    // Thread header. `commentCount`/`commentCountOne` are two keys, NOT an
-    // i18next `_one`/`_other` pair — see the `reactionCount` note under
-    // `detail`: zh/ja/ko have no separate singular form, so those packs would
-    // legitimately omit the `_one` half and `all-locales-key-parity` reads a
-    // legitimately-absent half as a lost key.
+    // Thread header. An i18next count family (objectui#11445): the component
+    // passes `count` and i18next picks the slot each pack's CLDR rules select.
     commentCount: '{{count}} comments',
-    commentCountOne: '{{count}} comment',
+    commentCount_one: '{{count}} comment',
+    commentCount_other: '{{count}} comments',
     // Appended to the count, separator included, so a translator owns the
     // whole phrase rather than inheriting an English-shaped ` · ` glue.
     resolvedSuffix: ' · Resolved',
@@ -4268,14 +4377,21 @@ const en = {
     // existing minute/hour/day buckets and no date library was introduced.
     justNow: 'just now',
     minutesAgo: '{{count}}m ago',
+    minutesAgo_one: '{{count}}m ago',
+    minutesAgo_other: '{{count}}m ago',
     hoursAgo: '{{count}}h ago',
+    hoursAgo_one: '{{count}}h ago',
+    hoursAgo_other: '{{count}}h ago',
     daysAgo: '{{count}}d ago',
+    daysAgo_one: '{{count}}d ago',
+    daysAgo_other: '{{count}}d ago',
     edited: '(edited)',
     // Reaction-chip tooltip. A DEDICATED pair rather than `detail.reactionCount`:
     // that one interpolates `{{emoji}}`, and here the emoji is the chip's
     // visible label with nothing to hand the placeholder.
     reactionCount: '{{count}} reactions',
-    reactionCountOne: '{{count}} reaction',
+    reactionCount_one: '{{count}} reaction',
+    reactionCount_other: '{{count}} reactions',
     addThumbsUp: 'Add thumbs up',
     reply: 'Reply',
     // Accessible names for the three emoji-only controls (objectui#3441).
@@ -4301,12 +4417,14 @@ const en = {
     send: 'Send',
     // Presence avatar stack (objectui#3440). `presentUserCount*` is the avatar
     // group's `aria-label` — with only images and initials inside, that label
-    // IS the control for a screen reader. Two keys, same reason as
-    // `commentCount` above.
+    // IS the control for a screen reader. Count families, like `commentCount`
+    // above.
     presentUserCount: '{{count}} users present',
-    presentUserCountOne: '{{count}} user present',
+    presentUserCount_one: '{{count}} user present',
+    presentUserCount_other: '{{count}} users present',
     moreUserCount: '{{count}} more users',
-    moreUserCountOne: '{{count}} more user',
+    moreUserCount_one: '{{count}} more user',
+    moreUserCount_other: '{{count}} more users',
     // Avatar tooltip. The parentheses are part of the translation, spacing
     // included, so the CJK packs can drop the space English puts before `(`.
     userStatusTitle: '{{name}} ({{status}})',

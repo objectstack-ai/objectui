@@ -168,10 +168,14 @@ const AR = {
   reject: 'رفض',
   emptyTitle: 'لا توجد إجراءات في الانتظار',
   justNow: 'الآن',
+  // `detail.*Ago` are count families since objectui#11445, so each count reads
+  // its own `ar` category: 1 `one`, 2 `two` (the dual), 3 `few` (the plural),
+  // 20 `many` (accusative singular). The single forms they replaced read
+  // «منذ 2 دقيقة», «منذ 3 ساعة» and «منذ 20 يوم».
   oneMinute: 'منذ 1 دقيقة',
-  twoMinutes: 'منذ 2 دقيقة',
-  threeHours: 'منذ 3 ساعة',
-  twentyDays: 'منذ 20 يوم',
+  twoMinutes: 'منذ دقيقتين (2)',
+  threeHours: 'منذ 3 ساعات',
+  twentyDays: 'منذ 20 يومًا',
 };
 
 describe('AiPendingActionsInbox — relative times resolve from the packs (objectui#7173)', () => {

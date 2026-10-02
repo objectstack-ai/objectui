@@ -83,6 +83,10 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.typeMismatch': 'Looks like {{type}}',
   'grid.import.autoMatched': 'Auto-matched',
   'grid.import.autoMatchedSummary': 'Auto-matched {{count}} column(s) — review and adjust below.',
+  // The `_one` / `_other` rows below are count families (objectui#11445):
+  // `useImportTranslation`'s fallback reads them for a numeric `count`.
+  'grid.import.autoMatchedSummary_one': 'Auto-matched {{count}} column — review and adjust below.',
+  'grid.import.autoMatchedSummary_other': 'Auto-matched {{count}} columns — review and adjust below.',
   'grid.import.confidence.high': 'High confidence',
   'grid.import.confidence.medium': 'Medium confidence',
   'grid.import.confidence.low': 'Low confidence',
@@ -97,7 +101,11 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.mapped': 'Mapped',
   'grid.import.skipped': 'Skipped',
   'grid.import.rowsWithErrors': '{{count}} row(s) with errors',
+  'grid.import.rowsWithErrors_one': '{{count}} row with errors',
+  'grid.import.rowsWithErrors_other': '{{count}} rows with errors',
   'grid.import.rowsCorrected': '{{count}} row(s) corrected',
+  'grid.import.rowsCorrected_one': '{{count}} row corrected',
+  'grid.import.rowsCorrected_other': '{{count}} rows corrected',
   'grid.import.clickToFix': '— click a highlighted cell to fix it inline.',
   'grid.import.showingRows': 'Showing {{shown}} of {{total}} rows',
   'grid.import.importing': 'Importing… {{progress}}%',
@@ -109,12 +117,20 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.cancelImport': 'Cancel import',
   'grid.import.importCancelled': 'Import cancelled',
   'grid.import.resultsTruncated': 'Showing the first {{count}} row results (of {{total}}).',
+  'grid.import.resultsTruncated_one': 'Showing the first {{count}} row result (of {{total}}).',
+  'grid.import.resultsTruncated_other': 'Showing the first {{count}} row results (of {{total}}).',
   'grid.import.importComplete': 'Import Complete',
   'grid.import.imported': '{{count}} imported',
   'grid.import.createdCount': '{{count}} created',
+  'grid.import.createdCount_one': '{{count}} created',
+  'grid.import.createdCount_other': '{{count}} created',
   'grid.import.updatedCount': '{{count}} updated',
+  'grid.import.updatedCount_one': '{{count}} updated',
+  'grid.import.updatedCount_other': '{{count}} updated',
   'grid.import.skippedCount': '{{count}} skipped',
   'grid.import.moreErrors': '…and {{count}} more errors',
+  'grid.import.moreErrors_one': '…and {{count}} more error',
+  'grid.import.moreErrors_other': '…and {{count}} more errors',
   'grid.import.downloadFailed': 'Download failed rows',
   // Write-mode / options (preview step)
   'grid.import.options': 'Import options',
@@ -166,6 +182,8 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.historyColResult': 'Result',
   'grid.import.historyColTime': 'When',
   'grid.import.errorCount': '{{count}} errors',
+  'grid.import.errorCount_one': '{{count}} error',
+  'grid.import.errorCount_other': '{{count}} errors',
   // Undo / logical rollback
   'grid.import.undoImport': 'Undo import',
   'grid.import.undoing': 'Undoing…',
@@ -181,6 +199,8 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.next': 'Next',
   'grid.import.close': 'Close',
   'grid.import.importNRows': 'Import {{count}} Rows',
+  'grid.import.importNRows_one': 'Import {{count}} Row',
+  'grid.import.importNRows_other': 'Import {{count}} Rows',
   'grid.import.importingProgress': 'Importing…',
   'grid.import.required': 'Required',
   'grid.import.invalidType': 'Invalid {{type}}',
@@ -228,9 +248,27 @@ function interpolate(template: string, vars?: Record<string, unknown>): string {
 /** Translation hook with safe English fallback for standalone usage.
  *  When no I18nProvider is mounted (e.g. unit tests) the hook still resolves
  *  `grid.import.*` keys via the embedded defaults so the wizard stays usable. */
+/** The defaults are English, so English plural rules pick a family's row. */
+const EN_PLURAL_RULES = new Intl.PluralRules('en');
+
+/**
+ * A count family's `_one` / `_other` row for a NUMERIC count, else the base row
+ * — the order i18next reads the `en` pack in (i18next plural-selects nothing
+ * but a number). The hand-rolled copy of `createSafeTranslation`'s
+ * `defaultsRowFor` (objectui#11445), as `interpolate` above is of its interpolator.
+ */
+function defaultsRow(key: string, vars?: Record<string, unknown>): string | undefined {
+  const count = vars?.count;
+  if (typeof count === 'number' && Number.isFinite(count)) {
+    const slot = IMPORT_DEFAULT_TRANSLATIONS[`${key}_${EN_PLURAL_RULES.select(count)}`];
+    if (slot !== undefined) return slot;
+  }
+  return IMPORT_DEFAULT_TRANSLATIONS[key];
+}
+
 function useImportTranslation(): { t: (key: string, vars?: Record<string, unknown>) => string } {
   const fallback = (key: string, vars?: Record<string, unknown>) =>
-    interpolate(IMPORT_DEFAULT_TRANSLATIONS[key] ?? key, vars);
+    interpolate(defaultsRow(key, vars) ?? key, vars);
   // Deliberately NOT `createSafeTranslation`: that probes one testKey and then
   // serves defaults for everything, whereas the wizard falls back per key so a
   // host dictionary that covers the common keys but lags on newer ones still
@@ -1110,7 +1148,8 @@ const StepMapping: React.FC<{
       {autoMatchedCount > 0 && (
         <p className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground" data-testid="import-automatch-summary">
           <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-          {t('grid.import.autoMatchedSummary', { count: String(autoMatchedCount) })}
+          {/* A NUMBER count: a count family (objectui#11445) plural-selects only on one. */}
+          {t('grid.import.autoMatchedSummary', { count: autoMatchedCount })}
         </p>
       )}
       <div className="max-h-[420px] overflow-auto">

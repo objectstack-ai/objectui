@@ -302,6 +302,25 @@ const DECLARED: Exemption[] = [
       "`tzOffsetMs`'s machine-read PARSER: `formatToParts` is read back through `Number()`, so the tag must " +
       'guarantee Latin digits and the 24-hour cycle the arithmetic assumes; nothing is shown to a reader.',
   },
+  {
+    file: 'packages/plugin-gantt/src/useGanttTranslation.ts',
+    expression: "const EN_PLURAL_RULES = new Intl.PluralRules('en');",
+    count: 1,
+    verdict: 'not applicable',
+    reason:
+      'picks the `_one` / `_other` row of the provider-less ENGLISH defaults table for a count family ' +
+      '(objectui#11445): the rows are English, so English plural rules select among them; nothing is formatted, ' +
+      'and a provider-mounted host reads the pack through i18next instead.',
+  },
+  {
+    file: 'packages/plugin-grid/src/ImportWizard.tsx',
+    expression: "const EN_PLURAL_RULES = new Intl.PluralRules('en');",
+    count: 1,
+    verdict: 'not applicable',
+    reason:
+      "the same English-row selector in the import wizard's hand-rolled defaults table (objectui#11445): it picks " +
+      'which English string a count family answers with on a provider-less host; no number or date is formatted.',
+  },
 ];
 
 const matches = (e: Exemption, s: Site): boolean => s.file === e.file && s.text.includes(e.expression);

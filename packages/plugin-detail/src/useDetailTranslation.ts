@@ -73,11 +73,12 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // objectstack#5430 — the rest of the reaction chrome. The picker popup is
   // `role="listbox"` with no visible label, and each reaction chip is an
   // emoji + a bare number, so these labels ARE those controls to a screen
-  // reader. The count pair follows the repo's two-key plural convention
-  // (`relatedRecords`/`relatedRecordOne`), never an i18next `_one` suffix.
+  // reader. The count label is an i18next count family (objectui#11445):
+  // `fallbackT` reads its `_one` / `_other` row for a numeric `count`.
   'detail.emojiPicker': 'Emoji picker',
   'detail.reactionCount': '{{emoji}} {{count}} reactions',
-  'detail.reactionCountOne': '{{emoji}} {{count}} reaction',
+  'detail.reactionCount_one': '{{emoji}} {{count}} reaction',
+  'detail.reactionCount_other': '{{emoji}} {{count}} reactions',
   'detail.addToFavorites': 'Add to favorites',
   'detail.removeFromFavorites': 'Remove from favorites',
   'detail.previousRecord': 'Previous record',
@@ -101,6 +102,8 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.activity': 'Activity',
   'detail.copyRecordId': 'Copy record ID',
   'detail.showEmptyFields': 'Show {{count}} empty fields',
+  'detail.showEmptyFields_one': 'Show {{count}} empty field',
+  'detail.showEmptyFields_other': 'Show {{count}} empty fields',
   'detail.hideEmptyFields': 'Hide empty fields',
   'detail.editRow': 'Edit',
   'detail.deleteRow': 'Delete',
@@ -140,7 +143,8 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // Attachments
   'detail.dropFilesToUpload': 'Drop files here or click to upload',
   'detail.attachmentCount': '{{count}} attachment',
-  'detail.attachmentCountPlural': '{{count}} attachments',
+  'detail.attachmentCount_one': '{{count}} attachment',
+  'detail.attachmentCount_other': '{{count}} attachments',
   'detail.removeAttachment': 'Remove attachment',
   // Discussion
   'detail.discussion': 'Discussion',
@@ -161,12 +165,10 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.unsubscribedTooltip': 'Subscribe to notifications',
   // The reference rail's empty related-record list
   'detail.noRecords': 'No records',
-  // objectui#3863 — the packs grew a BASE key for this family, and this map has to
-  // mirror it for a reason of its own: `fallbackT` (createSafeTranslation) resolves
-  // `defaults[key]` LITERALLY and never appends a plural suffix, so with only the two
-  // suffixed rows below the provider-less path answered `t('detail.showEmptyRelated',
-  // { count })` with the raw key. The base row is the only one that path can reach;
-  // the suffixed rows are kept so the map's key set still mirrors the packs'.
+  // objectui#3863 — the packs grew a BASE key for this family, and this map mirrors
+  // it: `fallbackT` (createSafeTranslation) reads the `_one` / `_other` row for a
+  // numeric `count` (objectui#11445) and the base row for a call made without one,
+  // the order i18next reads the `en` pack in.
   'detail.showEmptyRelated': '+ {{count}} empty',
   'detail.showEmptyRelated_one': '+ {{count}} empty',
   'detail.showEmptyRelated_other': '+ {{count}} empty',
@@ -202,7 +204,8 @@ export const DETAIL_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'detail.viewSource': 'View source',
   // Replies
   'detail.replyCount': '{{count}} reply',
-  'detail.replyCountPlural': '{{count}} replies',
+  'detail.replyCount_one': '{{count}} reply',
+  'detail.replyCount_other': '{{count}} replies',
   'detail.replyPlaceholder': 'Reply…',
   // Aria labels
   'detail.filterActivity': 'Filter activity',

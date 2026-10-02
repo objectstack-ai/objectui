@@ -131,9 +131,11 @@ describe('COLLAB_DEFAULT_TRANSLATIONS covers the presence stack', () => {
   it('has real English copy for every presence key, never the key itself', () => {
     for (const key of [
       'collaboration.presentUserCount',
-      'collaboration.presentUserCountOne',
+      'collaboration.presentUserCount_one',
+      'collaboration.presentUserCount_other',
       'collaboration.moreUserCount',
-      'collaboration.moreUserCountOne',
+      'collaboration.moreUserCount_one',
+      'collaboration.moreUserCount_other',
       'collaboration.userStatusTitle',
       'collaboration.statusActive',
       'collaboration.statusIdle',
@@ -145,11 +147,12 @@ describe('COLLAB_DEFAULT_TRANSLATIONS covers the presence stack', () => {
     }
   });
 
-  it('keeps the count placeholder in both halves of each plural pair', () => {
-    expect(COLLAB_DEFAULT_TRANSLATIONS['collaboration.presentUserCount']).toContain('{{count}}');
-    expect(COLLAB_DEFAULT_TRANSLATIONS['collaboration.presentUserCountOne']).toContain('{{count}}');
-    expect(COLLAB_DEFAULT_TRANSLATIONS['collaboration.moreUserCount']).toContain('{{count}}');
-    expect(COLLAB_DEFAULT_TRANSLATIONS['collaboration.moreUserCountOne']).toContain('{{count}}');
+  it('keeps the count placeholder in every row of each count family (objectui#11445)', () => {
+    for (const base of ['collaboration.presentUserCount', 'collaboration.moreUserCount']) {
+      for (const key of [base, `${base}_one`, `${base}_other`]) {
+        expect(COLLAB_DEFAULT_TRANSLATIONS[key], key).toContain('{{count}}');
+      }
+    }
   });
 
   it('gives the tooltip both of its placeholders', () => {

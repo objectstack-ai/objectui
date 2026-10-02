@@ -29,3 +29,12 @@ correctly at any number:
 That is the device objectui#10024 and objectui#10242 used, and the one Russian's
 `lookup.recordCount` already uses. The singular halves, the key set, the call sites
 and the other eight packs are unchanged.
+
+⚠️ **Dated note, 2026-10-02 — superseded in this release — objectui#11445.**
+Later in this same release the `…One` / plain-key switch on `list.recordCount`,
+`lookup.recordCount`, `detail.reactionCount`, `collaboration.presentUserCount`,
+`collaboration.moreUserCount` and `search.itemsAvailable` gave way to one count
+family per key in all ten packs: a numeric count picks the noun form its CLDR
+category needs (`ru` `2 записи`, `ar` `3 سجلات`), the `…One` siblings left every
+pack, and the count labels above remain only on the base key, which answers a
+call made without a count. The rest of this entry is kept as the reading of this change.

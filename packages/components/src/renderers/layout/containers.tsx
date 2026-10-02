@@ -111,11 +111,9 @@ const MANUAL_REFRESH_SPIN_MS = 650;
  * screen reader is concerned — and it used to be built by a template literal
  * that hardcoded both the English word and English pluralization.
  *
- * Two keys, NOT an i18next `_one`/`_other` pair: zh/ja/ko have no separate
- * singular form, so those packs would legitimately omit the `_one` half and
- * `all-locales-key-parity` would read that as a missing key. Same convention as
- * `detail.reactionCount`/`reactionCountOne` and `detail.relatedRecords`/
- * `relatedRecordOne`.
+ * An i18next count family (objectui#11445): every pack spells out each CLDR
+ * category its language selects, and the `_one` / `_other` rows below are what
+ * `fallbackT` reads for a numeric `count` when no provider is mounted.
  *
  * `createSafeTranslation` rather than the per-call `useSafeTranslate` used
  * elsewhere in this file because these keys interpolate `{{count}}` and
@@ -123,7 +121,8 @@ const MANUAL_REFRESH_SPIN_MS = 650;
  */
 const TABS_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'common.itemCount': '{{count}} items',
-  'common.itemCountOne': '{{count}} item',
+  'common.itemCount_one': '{{count}} item',
+  'common.itemCount_other': '{{count}} items',
 };
 const useTabsTranslation = createSafeTranslation(TABS_DEFAULT_TRANSLATIONS, 'common.itemCount');
 
@@ -954,16 +953,16 @@ const PageTabsRenderer: React.FC<any> = ({ schema, className, ...props }) => {
               {item.count !== undefined && item.count !== null && item.count !== '' && Number(item.count) > 0 && (
                 <span
                   className="ml-1.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-muted px-1 text-[10px] font-medium leading-none text-muted-foreground"
-                  // Interpolate the FORMATTED count so the accessible name and
-                  // the visible digits never disagree (`1.2k`, not `1200`);
-                  // plurality is chosen from the raw numeric value. Passing a
-                  // STRING as `count` is deliberate: i18next only runs its own
-                  // plural resolution when `count` is not a string, so the
-                  // repo's two-key scheme stays in charge of the choice.
-                  aria-label={tTabs(
-                    Number(item.count) === 1 ? 'common.itemCountOne' : 'common.itemCount',
-                    { count: formatTabCount(item.count) },
-                  )}
+                  // The accessible name and the visible digits never disagree.
+                  // Below 1000 the badge shows the number itself, so it goes in
+                  // as a NUMBER and i18next selects the CLDR slot from it
+                  // (objectui#11445). A shortened `1.2k` goes in as the STRING
+                  // the badge shows: i18next plural-selects only for a number,
+                  // so the base key answers, and every pack writes it in a
+                  // count-invariant form (`Элементов: 1.2k`).
+                  aria-label={tTabs('common.itemCount', {
+                    count: Number(item.count) < 1000 ? Number(item.count) : formatTabCount(item.count),
+                  })}
                 >
                   {formatTabCount(item.count)}
                 </span>

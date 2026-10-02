@@ -13,7 +13,7 @@
  */
 
 import React, { useMemo } from 'react';
-import type { BaseSchema, PageNodeSchema, PageNodeRegion, SchemaNode } from '@object-ui/types';
+import type { DeclaredNode, PageNodeSchema, PageNodeRegion, SchemaNode } from '@object-ui/types';
 import {
   SchemaRenderer,
   toRenderableSchema,
@@ -619,7 +619,22 @@ export const PageRenderer: React.FC<{
           </div>
         );
       }
-      return tree ? <SchemaRenderer schema={tree as unknown as BaseSchema} /> : null;
+      if (!tree) return null;
+      /**
+       * ⭐ THE ONE BOUNDARY CAST (objectui#11466). `tree` is author source
+       * parsed at runtime (`@object-ui/sdui-parser`'s `SchemaElement`: a
+       * `type: string` plus unknown props), so the compiler cannot know which
+       * declared node type each element is. Its validator is what judges it:
+       * `compile` runs `validateTree` against the registry manifest (an
+       * unknown component, an unknown or missing prop, a wrong coarse type, an
+       * illegal enum value), and this line is reached only when that reported
+       * no error (the `errors` early return above). So the tree crosses into
+       * `DeclaredNode` here, once, on that validator's word, which is shallower
+       * than the declarations. ⛔ No second cast of this kind: a node built in
+       * code names its declared type instead.
+       */
+      const validatedTree = tree as unknown as DeclaredNode;
+      return <SchemaRenderer schema={validatedTree} />;
     }
     const TemplateLayout = resolveTemplate(schema);
     if (TemplateLayout) {

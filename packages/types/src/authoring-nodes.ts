@@ -67,8 +67,9 @@
  *   - {@link PageDocumentNode}: the spec's `PageSchema` input. `PageView`
  *     hands a stored page to `SchemaRenderer` with its page KIND written into
  *     `type` (objectui#9642), so `type` is required here, while the spec
- *     defaults it. `PageNodeSchema` is the separate `type: 'page'` node, and
- *     stays as it is.
+ *     defaults it; every kind but the interface-mode `list`, which never
+ *     reaches `SchemaRenderer`. `PageNodeSchema` is the separate
+ *     `type: 'page'` node, and stays as it is.
  *
  * ## What these types do
  *
@@ -286,8 +287,19 @@ type SpecPageInput = z.input<typeof SpecPageSchema>;
  * input, whose `type` is the page kind (`PageTypeSchema`) and whose `kind` is
  * the override mode. `type` is required, because it is the discriminator the
  * registry dispatches on.
+ *
+ * ⛔ Every page kind but `list` (objectui#11466). A `list` page is ADR-0047
+ * interface mode: `PageView` (`@object-ui/app-shell`) renders it through
+ * `InterfaceListPage`, never through `SchemaRenderer`, and `ComponentRegistry`'s
+ * `list` key is the `list` node's renderer (`ListSchema`, `./data-display.ts`). A page
+ * document under `type: 'list'` handed to `SchemaRenderer` would be drawn by
+ * that renderer, so this type does not admit one. That also leaves `list` one
+ * arm in `DeclaredNode` (`./base.ts`), where the page kind and the node type
+ * would otherwise share the discriminant and let each other's keys through.
+ * `page-kind-node-type-channel-9642` in `@object-ui/components` re-derives
+ * which kinds reach the registry.
  */
-export type PageDocumentNode = SpecPageInput & { type: NonNullable<SpecPageInput['type']> };
+export type PageDocumentNode = SpecPageInput & { type: Exclude<NonNullable<SpecPageInput['type']>, 'list'> };
 
 /**
  * Every node this module types, named as one type for `DeclaredNode`

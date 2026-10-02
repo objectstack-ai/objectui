@@ -17,6 +17,7 @@
  */
 
 import type { I18nLabel } from '@objectstack/spec/ui';
+import type { AppComponentSchema } from './app.js';
 import type { AuthoringNode } from './authoring-nodes.js';
 import type { ExpressionWire } from './expression.js';
 import type { AnySchema } from './index.js';
@@ -659,7 +660,8 @@ type LiteralTypedArm<T> = T extends { type: infer K } ? (string extends K ? neve
  * It is the discriminated union, keyed by the literal `type`, of
  *
  *   - every component schema this package declares (`AnySchema` without its
- *     `BaseSchema` arm, whose `type` is `string`);
+ *     `BaseSchema` arm, whose `type` is `string`, and without
+ *     `AppComponentSchema`, below);
  *   - every spec-declared node `AuthoringNode` types by reference;
  *   - every custom type an application declares in {@link CustomNodeRegistry}.
  *
@@ -669,8 +671,21 @@ type LiteralTypedArm<T> = T extends { type: infer K } ? (string extends K ? neve
  * `type: string` arm here. A node built at runtime whose `type` is not known
  * to the compiler is not a `DeclaredNode`; narrow it to one, or declare its
  * type in {@link CustomNodeRegistry}.
+ *
+ * ⛔ `AppComponentSchema` is not a node. It is the app-level document
+ * (`app.json`: navigation, areas), which `AppSchemaRenderer`
+ * (`@object-ui/layout`) reads structurally and `ComponentRegistry` never
+ * dispatches. The registry's `app` key serves the page KIND `app`, so as a
+ * node `type: 'app'` is a stored page document, `AuthoringNode`'s
+ * `PageDocumentNode`. Kept out, `app` is one arm here, not two that would let
+ * each other's keys through (`./registry.ts` names the two vocabularies at its
+ * `'page'` entry). The node that renders an app through the registry is
+ * `app-schema-renderer`.
  */
-export type DeclaredNode = LiteralTypedArm<AnySchema> | AuthoringNode | RegisteredCustomNode;
+export type DeclaredNode =
+  | LiteralTypedArm<Exclude<AnySchema, AppComponentSchema>>
+  | AuthoringNode
+  | RegisteredCustomNode;
 
 /**
  * A schema node: a node of a declared type, or a primitive rendered as

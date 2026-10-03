@@ -5437,6 +5437,16 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
         }
       : undefined,
     singleClickEdit: schema.singleClickEdit ?? true,
+    // objectui#11068 — arrow-key cell navigation on the WAI-ARIA grid pattern:
+    // the data cells become ONE roving Tab stop that the arrows move (the
+    // behaviour is `data-table`'s, documented on `DataTableSchema`). The
+    // declared default is "on when `editable`", and the `editable` that counts
+    // is the one this grid renders — `inlineEditable`, the authored key AND the
+    // viewer's write verdict (#5143), the same value handed down above. So a
+    // grid that renders read-only keeps every cell its own Tab stop unless the
+    // author writes `true`, and an explicit `false` turns it off on an editable
+    // grid. Not an alias fallback: the right side is the key's own default.
+    keyboardNavigation: schema.keyboardNavigation ?? inlineEditable,
     className: schema.className,
     cellClassName: rowHeightMode === 'compact'
       ? 'px-3 py-1 text-[13px] leading-tight'

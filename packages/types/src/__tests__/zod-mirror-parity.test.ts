@@ -3486,12 +3486,20 @@ interface RuntimeOnlyDeclared {
    * reason on `RuntimeOnlyNamedAllowList` below. Both came from `UnmirroredDeclared`
    * above, emptying its `DataTableSchema` entry together with `selectionStyle`'s
    * retirement. ⛔ Neither was mirrored and no declaration moved.
+   *
+   * ⭐ GREW by one more with objectui#11068's `keyboardNavigation` build:
+   * `keyboardNavigation`, DECLARED on the TypeScript interface in the same change
+   * (it is new there, not reclassified), because `ObjectGrid` resolves the
+   * `object-grid` node's own key and sets the answer in code on the `data-table`
+   * node it builds, beside `editable`, whose value its default follows. Filed BY
+   * NAME with its reason on `RuntimeOnlyNamedAllowList` below; ⛔ not mirrored,
+   * since no document authors it on a `data-table` node.
    */
   'data-display.zod.ts#DataTableSchema':
     | 'onColumnReorder'
     | 'onPageChange' | 'onPageSizeChange'
     | 'onSearchChange' | 'onSortChange'
-    | 'disableInnerScroll' | 'editable' | 'manualPagination' | 'manualSearch' | 'manualSorting'
+    | 'disableInnerScroll' | 'editable' | 'keyboardNavigation' | 'manualPagination' | 'manualSearch' | 'manualSorting'
     | 'page' | 'rowActionDefs' | 'rowClassName' | 'rowCount' | 'rowStyle'
     | 'search' | 'selectionResetKey' | 'showAddRow' | 'showSelectionCount' | 'singleClickEdit' | 'sort';
   /**
@@ -3715,6 +3723,7 @@ interface RuntimeOnlyNamedAllowList {
   'data-display.zod.ts#DataTableSchema': {
     disableInnerScroll: 'host-composition flag: set in code by ObjectGrid on each grouped sub-table so all groups share one scroll container; authored in no document';
     editable: 'host-paired flag: set in code by ObjectGrid beside the onRowSave / onBatchSave save path it supplies; an authored value stages edits that nothing persists, and no document authors it';
+    keyboardNavigation: 'host-resolved flag: set in code by ObjectGrid from the keyboardNavigation key of the object-grid node, defaulting to the editable it hands down beside it; authored in no document';
     manualPagination: 'host-driven server paging: set in code by ObjectGrid with rowCount, page and the onPageChange slot; authored in no document';
     manualSearch: 'host-driven server search: set in code by ObjectGrid with search and the onSearchChange slot; authored in no document';
     manualSorting: 'host-driven server sort: set in code by ObjectGrid and RelatedList with sort and the onSortChange slot; authored in no document';

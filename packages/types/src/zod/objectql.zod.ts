@@ -1053,7 +1053,8 @@ const tableKeyRefusal = (key: string, why: string) =>
   );
 const TABLE_KEY_UNREAD = '`ObjectGrid` has no read of it.';
 // objectui#11068 — `ObjectGrid` honours these on its own node, and the view does
-// not hand them on: that card enforced them without widening this slot.
+// not hand them on: that card enforced them without widening this slot
+// (`description` and `emptyState` first, `keyboardNavigation` with its build).
 const TABLE_KEY_NOT_RELAYED =
   '`ObjectGrid` honours it on an `object-grid` node, but the view does not hand it to the grid it draws.';
 const TABLE_KEY_RECORD_SOURCE =
@@ -1081,7 +1082,7 @@ const OBJECT_VIEW_TABLE_WITHHELD = {
   hidden: tableKeyRefusal('hidden', TABLE_KEY_NODE_LEVEL),
   hiddenOn: tableKeyRefusal('hiddenOn', TABLE_KEY_NODE_LEVEL),
   id: tableKeyRefusal('id', 'the view fixes its grid\'s identity, as it fixes `type` and `objectName`.'),
-  keyboardNavigation: tableKeyRefusal('keyboardNavigation', TABLE_KEY_UNREAD),
+  keyboardNavigation: tableKeyRefusal('keyboardNavigation', TABLE_KEY_NOT_RELAYED),
   name: tableKeyRefusal('name', TABLE_KEY_UNREAD),
   navigation: tableKeyRefusal('navigation', TABLE_KEY_ROW_CLICK),
   onNavigate: tableKeyRefusal('onNavigate', TABLE_KEY_ROW_CLICK),

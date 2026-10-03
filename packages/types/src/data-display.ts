@@ -1462,6 +1462,28 @@ export interface DataTableSchema extends BaseSchema {
    */
   singleClickEdit?: boolean;
   /**
+   * Arrow-key cell navigation on the WAI-ARIA grid pattern (objectui#11068).
+   *
+   * When `true` the table is exposed as a `grid` and its data cells take ONE
+   * place in the Tab sequence between them — a roving tab stop that starts on
+   * the first cell and stays on the cell that last held focus — instead of one
+   * stop per cell. Arrow keys move focus one cell; Home / End go to the first /
+   * last cell of the row, and Ctrl+Home / Ctrl+End to the first / last cell of
+   * the page. A cell being edited keeps every key for its editor, and an edit
+   * ended from the keyboard (Enter / Escape) hands focus back to its cell, so
+   * the arrows carry on from there. A widget a cell renders (a link, a button)
+   * keeps its own Tab stop.
+   *
+   * SET IN CODE, not authored on this node (the class of
+   * {@link DataTableSchema.editable}): `ObjectGrid` resolves the `object-grid`
+   * node's own `keyboardNavigation` — the key the spec's `object-grid` row
+   * declares, defaulting to on when the grid is inline-editable — and hands the
+   * answer to the table it builds. Absent here means off: every data cell stays
+   * its own Tab stop, as it always was.
+   * @default false
+   */
+  keyboardNavigation?: boolean;
+  /**
    * Host-supplied cell editor for inline editing (`bf97b98c8`).
    *
    * RUNTIME SLOT (objectui#7759 group E, objectui#6124 shape) — a host-supplied

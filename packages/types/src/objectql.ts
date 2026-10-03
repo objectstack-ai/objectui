@@ -1290,10 +1290,24 @@ export interface ObjectGridSchema extends BaseSchema {
   rowColor?: RowColorConfig;
 
   /**
-   * Enable keyboard navigation (Grid mode)
-   * Arrow keys, Tab, Enter for cell navigation
-   * NOTE: This is ObjectUI-specific and not part of @objectstack/spec
-   * @default true when editable is true
+   * Arrow-key cell navigation on the WAI-ARIA grid pattern (objectui#11068).
+   * A member of the spec's `object-grid` row (`ComponentPropsMap['object-grid']`)
+   * since `@objectstack/spec` 17.6.0 (objectstack#20694).
+   *
+   * On, the grid's data cells are ONE Tab stop between them, a roving focus:
+   * arrow keys move it one cell, Home / End to the ends of the row, Ctrl+Home /
+   * Ctrl+End to the ends of the page, Enter still opens an editable cell, and an
+   * edit ended with Enter or Escape hands focus back to its cell. Off, every data
+   * cell is its own Tab stop, as it always was. A widget a cell renders (the
+   * record link, a row's action menu, a selection checkbox) keeps its own stop
+   * either way.
+   *
+   * `ObjectGrid` reads it as `schema.keyboardNavigation ?? inlineEditable`, where
+   * `inlineEditable` is the authored `editable` AND the viewer's write verdict on
+   * the object — the one value the grid's inline editing itself obeys. So a grid
+   * that renders editable has it on, a grid that renders read-only keeps its Tab
+   * behaviour unless this is `true`, and `false` turns it off on an editable grid.
+   * @default true when the grid renders editable
    */
   keyboardNavigation?: boolean;
   
@@ -2245,11 +2259,13 @@ export interface ObjectFormSchema extends BaseSchema {
  *     below — the slot refuses each of them by name either way.
  *
  * ⛔ Every other `ObjectGridSchema` member is WITHHELD, because on the view's
- * grid it reached nothing: `ObjectGrid` has no read of it
- * (`keyboardNavigation`, and the five tombstones just named); `ObjectGrid`
- * reads it on its own node but the view does not hand it on (`emptyState`,
- * `description` — honoured by the grid since objectui#11068, and kept off
- * this slot by that card's ruling, which enforced them without widening it);
+ * grid it reached nothing: `ObjectGrid` has no read of it (the five
+ * tombstones just named); `ObjectGrid` reads it on its own node but the view
+ * does not hand it on (`emptyState`, `description` — honoured by the grid
+ * since objectui#11068, and kept off this slot by that card's ruling, which
+ * enforced them without widening it — and `keyboardNavigation`, read since
+ * that card's build; a view's grid takes the key's default, on exactly when
+ * it renders editable);
  * the view owns it (the record source
  * `data` / `staticData` / `bind`, and since objectui#11070 the binding
  * `dataSource`; the row click `navigation` / `onNavigate`;

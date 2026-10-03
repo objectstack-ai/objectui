@@ -46,3 +46,8 @@ optional strings. It is the spec's `EmptyStateSchema` by reference, which `@obje
 17.6.0 declares on its `object-grid` row: `title` and `message` are `string | I18nLabel` (a
 plain string or an inline locale map, which the grid resolves against the display locale), and
 an unknown member is still refused by name (`.changeset/11227-object-grid-17-6-keys.md`).
+
+**Correction, 2026-10-03 (objectui#11068, the `keyboardNavigation` build).** `keyboardNavigation`
+is no longer unread. The grid honours it, with arrow-key cell navigation that is on by default
+when the grid renders editable, and it is in the grid's declared inputs
+(`.changeset/11068-keyboard-navigation.md`).

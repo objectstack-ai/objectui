@@ -28,7 +28,7 @@
  */
 import React from 'react';
 import { describe, it, expect, afterEach } from 'vitest';
-import { render, fireEvent, cleanup, waitFor } from '@testing-library/react';
+import { render, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import '@testing-library/jest-dom';
 import { ComponentRegistry } from '@object-ui/core';
@@ -194,14 +194,16 @@ describe('data-table `keyboardNavigation` ON — one roving Tab stop the arrows 
     press('ArrowDown');
     expect(tabStops(container)).toEqual([cellAt(container, 1, 0)]);
 
-    // A click (or any focus) on another cell moves the stop there.
-    cellAt(container, 2, 1).focus();
+    // A click (or any focus) on another cell moves the stop there. Inside
+    // `act`, so the state the focus wrote is flushed before it is read.
+    act(() => cellAt(container, 2, 1).focus());
+    expect(document.activeElement).toBe(cellAt(container, 2, 1));
     expect(tabStops(container)).toEqual([cellAt(container, 2, 1)]);
   });
 
   it('a shorter page never leaves the grid without a Tab stop', () => {
     const { container, rerenderTable } = renderTable({ keyboardNavigation: true });
-    cellAt(container, 2, 2).focus();
+    act(() => cellAt(container, 2, 2).focus());
     expect(tabStops(container)).toEqual([cellAt(container, 2, 2)]);
 
     rerenderTable({ keyboardNavigation: true }, ROWS.slice(0, 1));

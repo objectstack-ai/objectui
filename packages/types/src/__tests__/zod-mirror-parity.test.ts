@@ -516,7 +516,14 @@
  *     seeded long after the 121). It is ⛔ not replaced with a fresh digit, for the
  *     reason above. The full statement is on that ledger, which owns it — read it
  *     there, and ⛔ do not copy it back.
- *   - **5 entries** in `RuntimeOnlyDeclared`, **30 keys** across them — 4 / 29
+ *   - **5 entries** in `RuntimeOnlyDeclared`, **31 keys** across them — 5 / 30
+ *     until objectui#11068's `keyboardNavigation` build filed `DataTableSchema`'s
+ *     `keyboardNavigation` here, on the entry that already existed, BY NAME with its
+ *     reason on `RuntimeOnlyNamedAllowList`: the flag `ObjectGrid` resolves from the
+ *     `object-grid` node's own key and sets in code on the `data-table` it builds.
+ *     ⚠️ NOT the other side of a `UnmirroredDeclared` move: the key was declared on
+ *     neither face of `DataTableSchema` until then, and the TS face now declares it
+ *     while the mirror deliberately does not. The entry count held; it was 4 / 29
  *     until objectui#11355 round 2 filed `objectql.zod.ts#ObjectChartSchema`'s
  *     `isAnimationActive` here: a NEW entry, its one key a host-composed render flag
  *     (not callback-shaped), admitted BY NAME through `RuntimeOnlyNamedAllowList` with

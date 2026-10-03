@@ -48,3 +48,8 @@ doc or builder in this repository writes one.
 The slot's key list and the withheld set are pinned against drift by
 `packages/types/src/__tests__/object-view-slot-key-lists.test.ts`, which also requires the
 validator to refuse every withheld key by name, so the two faces refuse the same keys.
+
+**Correction, 2026-10-03 (objectui#11068).** `keyboardNavigation` moved from the first group to
+the second: `ObjectGrid` honours it on an `object-grid` node since objectui#11068's build, and
+the view still does not hand it on, so the slot still refuses it, now with that reason
+(`.changeset/11068-keyboard-navigation.md`).

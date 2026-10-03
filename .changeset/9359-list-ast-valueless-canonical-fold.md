@@ -75,3 +75,9 @@ objectui#9306's census), every pair emits the same node except
 folds onto `icontains` before a row leaves it. The vocabulary
 question this entry calls open is answered: the dropdown speaks the protocol's
 ids, and camelCase is the deprecated alias form.
+
+**Correction, 2026-10-03 (objectui#10813).** The two `isEmpty` / `isNotEmpty` arms that
+"resolve to a null comparison ahead of `mapOperator`" are gone in this release. The empty pair
+now takes the same value-less path as `is_null`, and `mapOperator` emits the spec's `isempty` /
+`isnotempty`, which the spec lowers to `$empty`; every spelling of the pair still emits one node
+(`.changeset/10813-list-view-empty-operator.md`).

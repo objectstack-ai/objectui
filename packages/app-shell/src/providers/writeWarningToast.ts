@@ -116,23 +116,15 @@ type StrippedLine = (t: TranslateFn, fields: string) => string;
  * `DROPPED_REASON_LABEL`), and the shape the spec's own schema comment asks every
  * consumer that branches on `reason` to use.
  *
- * ⭐ Keyed by the spec union WIDENED BY `'computed'`, and the widening is what
- * lets one spelling compile against both specs this repository is checked
- * against (objectui#11206). objectstack `b2805465` added the `computed` arm (a
- * `formula` field's caller-supplied value, stripped on every write path); the
- * published pin, `@objectstack/spec` 17.5.0, predates it, while the
- * `Spec Main Shape Gate` compiles against objectstack `main`, which carries it.
- * A bare `Record<DroppedFieldsEvent['reason'], …>` is exact in both directions,
- * so the row is a missing key against `main` and an excess key (TS2353) against
- * the pin; `satisfies` does not help, because it runs the same excess-property
- * check on an object literal. The union with the one literal instead makes the
- * required key set IDENTICAL on both sides — the pin's three plus `computed` —
- * and still names the spec's union as the thing being covered, so the promise
- * above holds on both: the NEXT arm upstream adds is a missing key here. When
- * the pin reaches a release carrying `computed`, the `| 'computed'` is a no-op
- * and is deleted; `writeWarningToast.test.ts` fails on that bump to say so.
+ * The `computed` row (a `formula` field's caller-supplied value, stripped on
+ * every write path) was added by objectui#11206 ahead of the published pin:
+ * objectstack `b2805465` declared the arm while the pin of the day predated it,
+ * so the key type was widened by `| 'computed'` to compile against both. Since
+ * `@objectstack/spec` 17.6.0 the pin's own union carries `computed`, so the
+ * widening was a no-op and was deleted at that bump (objectui#11438), as its
+ * tripwire asked. The key type is the spec union again, exact in both directions.
  */
-const STRIPPED_LINE: Record<DroppedFieldsEvent['reason'] | 'computed', StrippedLine> = {
+const STRIPPED_LINE: Record<DroppedFieldsEvent['reason'], StrippedLine> = {
   readonly: (t: TranslateFn, fields: string) =>
     t('detail.writeStrippedReadonly', {
       fields,

@@ -1507,9 +1507,10 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // `breadcrumb` is deliberately NOT read (objectui#11166, ruling RETIRE). All
   // it ever drew was an empty `data-page-breadcrumb-slot` div that nothing
   // filled, and the console's app header already draws the trail. The spec
-  // still accepts `PageHeaderProps.breadcrumb` until objectstack#20758 retires
-  // it, so an authored value renders exactly as an absent one: ignored, no
-  // error. ⛔ Do not add a trail here; that is an ENFORCE ruling, not a fix.
+  // refuses `PageHeaderProps.breadcrumb` by name since 17.6.0
+  // (objectstack#20758); a value that still reaches this renderer renders
+  // exactly as an absent one: ignored, no error. ⛔ Do not add a trail here;
+  // that is an ENFORCE ruling, not a fix.
 
   // Schema-level opt-outs let authors keep the historic "bare h1" header
   // when they don't want a record chip (e.g. a non-record landing page).
@@ -2419,14 +2420,10 @@ ComponentRegistry.register('header', PageHeaderRenderer, {
     { name: 'title', type: ['string', 'object'], description: 'Supports {field} interpolation and inline translation maps; falls back to the record title' },
     { name: 'subtitle', type: ['string', 'object'], description: 'Same interpolation as Title' },
     { name: 'actions', type: 'array', of: 'string', description: "Action IDS — the names of actions declared on the object's own metadata — rendered in the header before any host-injected system actions. An id whose action declares neither record_header nor record_more in its locations renders nowhere." },
-    // Declared but NOT read (objectui#11166). It stays in `inputs` only while
-    // the installed spec still accepts the key: the reverse direction of
-    // `registry-inputs-spec-parity.test.ts` asks for every accepted spec key,
-    // and the manifest would otherwise warn `unknown-prop` on a value the
-    // contract accepts. It leaves with the spec retirement (objectstack#20758):
-    // once the pin carries the tombstone, this entry fails the forward
-    // direction. The description tells an author reading the manifest it is inert.
-    { name: 'breadcrumb', type: 'boolean', description: 'Ignored: the header draws no breadcrumb, and the key is being retired from the contract. Leave it out.' },
+    // No `breadcrumb`: it was declared but NOT read (objectui#11166), and stayed
+    // here only while the spec accepted the key. `@objectstack/spec` 17.6.0
+    // carries the retirement (objectstack#20758, a tombstone refused by name),
+    // so the entry left at that bump (objectui#11438), as this comment asked.
     { name: 'recordChrome', type: 'boolean', description: 'Set false for the bare h1 header on non-record pages' },
     { name: 'showStar', type: 'boolean' },
     { name: 'showCopyId', type: 'boolean' },

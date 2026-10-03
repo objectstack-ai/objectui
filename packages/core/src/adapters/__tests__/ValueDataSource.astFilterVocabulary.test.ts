@@ -33,10 +33,28 @@
  *    never read the value slot, in every spelling the spec folds onto them.
  * 3. An operator or shape the matcher cannot execute excludes the row and says
  *    so, instead of passing every row silently.
+ *
+ * ## The fold moved under §2 (objectui#11094)
+ *
+ * Until `@objectstack/spec` 17.6.0, `canonicalAstOperator` folded `is_empty` /
+ * `isempty` onto `is_null` and their negatives onto `is_not_null`, and §2 pinned
+ * all eight spellings as null tests. objectstack#20570 gave the empty pair its
+ * own names and lowers them to the `$empty` operator, whose meaning is an
+ * emptiness test: `''` and `[]` count as empty beside null. On that release this
+ * matcher had no arm for them and refused every stored `is_empty` rule, which
+ * selected no row. §2 is rewritten to the new fold: the null pair stays a null
+ * test, and the empty pair is pinned in §2b over text, multi-value and number
+ * columns, `''` and `[]` included.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { VIEW_FILTER_OPERATORS } from '@objectstack/spec/ui';
+import {
+  canonicalAstOperator,
+  EMPTY_OPERATOR_ARMS,
+  isEmptyFilterValue,
+  parseFilterAST,
+} from '@objectstack/spec/data';
 import { ValueDataSource } from '../ValueDataSource';
 import { mergeFilterNodes, toFilterNode } from '../../utils/filter-converter';
 
@@ -127,9 +145,34 @@ const NULL_ROWS = [
 ];
 
 /** Every spelling the spec's `canonicalAstOperator` folds onto `is_null`. */
-const IS_NULL_SPELLINGS = ['is_null', 'isnull', 'is_empty', 'isempty'];
-/** …and onto `is_not_null`. `is_empty` folds to `$null` in the spec too. */
-const IS_NOT_NULL_SPELLINGS = ['is_not_null', 'isnotnull', 'is_not_empty', 'isnotempty'];
+const IS_NULL_SPELLINGS = ['is_null', 'isnull'];
+/** …and onto `is_not_null`. */
+const IS_NOT_NULL_SPELLINGS = ['is_not_null', 'isnotnull'];
+/**
+ * The two spellings it folds onto `is_empty`, and the two onto `is_not_empty`.
+ * They folded onto the null pair above until `@objectstack/spec` 17.6.0.
+ */
+const IS_EMPTY_SPELLINGS = ['is_empty', 'isempty'];
+const IS_NOT_EMPTY_SPELLINGS = ['is_not_empty', 'isnotempty'];
+
+describe('objectui#11094 — the fold this file is written against', () => {
+  it('the null pair and the empty pair are four canonical operators, not two', () => {
+    // The spec's answer, read rather than restated, so a release that moves the
+    // fold again reddens HERE first, beside the reason, instead of only in the
+    // row sets below.
+    for (const op of IS_NULL_SPELLINGS) expect(canonicalAstOperator(op)).toBe('is_null');
+    for (const op of IS_NOT_NULL_SPELLINGS) expect(canonicalAstOperator(op)).toBe('is_not_null');
+    for (const op of IS_EMPTY_SPELLINGS) expect(canonicalAstOperator(op)).toBe('is_empty');
+    for (const op of IS_NOT_EMPTY_SPELLINGS) expect(canonicalAstOperator(op)).toBe('is_not_empty');
+  });
+
+  it('and the spec lowers the empty pair to `$empty`, not to `$null`', () => {
+    expect(parseFilterAST(['x', 'is_empty'])).toEqual({ x: { $empty: true } });
+    expect(parseFilterAST(['x', 'is_not_empty'])).toEqual({ x: { $empty: false } });
+    // Lit control: the null pair still lowers to `$null`.
+    expect(parseFilterAST(['x', 'is_null'])).toEqual({ x: { $null: true } });
+  });
+});
 
 describe('objectui#7349 — null-ness takes direction from the operator NAME', () => {
   it.each(IS_NULL_SPELLINGS)('`%s` selects null, undefined and the absent key', async (op) => {
@@ -161,6 +204,111 @@ describe('objectui#7349 — null-ness takes direction from the operator NAME', (
     const wrapped = ['and', ['visible_from', 'isnotnull', null], ['due_date', 'isnotnull', null]];
     expect(await selectedIds(flat, rows)).toEqual(['both']);
     expect(await selectedIds(wrapped, rows)).toEqual(['both']);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 2b. Emptiness — the empty pair is its own test since spec 17.6.0
+// ---------------------------------------------------------------------------
+
+/**
+ * A text column (`name`), a multi-value column (`tags`) and a number column
+ * (`score`), each holding a value, its type's "blank" (`''`, `[]`, `0`), null,
+ * and no key at all. The spec's ruled table makes `''` empty on a text field and
+ * `[]` empty on a multi-value field, and leaves `0` a value, so the three
+ * columns give three different answers to one operator — and the text column's
+ * answer differs from `is_null`'s, which is the flip itself.
+ */
+const EMPTY_ROWS = [
+  { id: 'full', name: 'ada', tags: ['x'], score: 7 },
+  { id: 'blank', name: '', tags: [], score: 0 },
+  { id: 'null', name: null, tags: null, score: null },
+  { id: 'missing' },
+];
+const EMPTY_ROW_IDS = EMPTY_ROWS.map((r) => r.id);
+
+/** Per column: the rows `is_empty` selects. `is_not_empty` selects the rest. */
+const EMPTY_BY_COLUMN: Record<string, string[]> = {
+  name: ['blank', 'null', 'missing'],
+  tags: ['blank', 'null', 'missing'],
+  score: ['null', 'missing'],
+};
+
+const complementOf = (ids: string[]) => EMPTY_ROW_IDS.filter((id) => !ids.includes(id));
+
+describe('objectui#11094 — `is_empty` / `is_not_empty` are an emptiness test', () => {
+  describe.each(Object.entries(EMPTY_BY_COLUMN))('on the `%s` column', (column, empty) => {
+    it.each(IS_EMPTY_SPELLINGS)('`%s` selects the empty rows', async (op) => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      expect(await selectedIds([[column, op]], EMPTY_ROWS)).toEqual(empty);
+      // Executed, not refused: on 17.6.0 without the arm this was `[]` plus
+      // one logged refusal.
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it.each(IS_NOT_EMPTY_SPELLINGS)('`%s` selects exactly the rest', async (op) => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      expect(await selectedIds([[column, op]], EMPTY_ROWS)).toEqual(complementOf(empty));
+      expect(warn).not.toHaveBeenCalled();
+    });
+
+    it('answers what the spec\'s own `isEmptyFilterValue` answers, row by row', async () => {
+      // The by-value reading, called with no declared row: the function itself
+      // is the reference, so this table cannot drift into a second copy of it.
+      const expected = EMPTY_ROWS
+        .filter((row) => isEmptyFilterValue((row as Record<string, unknown>)[column]))
+        .map((row) => row.id);
+      expect(await selectedIds([column, 'is_empty'], EMPTY_ROWS)).toEqual(expected);
+    });
+
+    it('the object dialect\'s `$empty` gives the same rows, both directions', async () => {
+      expect(await selectedIds({ [column]: { $empty: true } }, EMPTY_ROWS)).toEqual(empty);
+      expect(await selectedIds({ [column]: { $empty: false } }, EMPTY_ROWS))
+        .toEqual(complementOf(empty));
+    });
+  });
+
+  it('is not a null test any more — the flip, on the text column', async () => {
+    // `''` is the row that moves. Before 17.6.0 both operators were one arm.
+    expect(await selectedIds([['name', 'is_null']], EMPTY_ROWS)).toEqual(['null', 'missing']);
+    expect(await selectedIds([['name', 'is_empty']], EMPTY_ROWS)).toEqual(['blank', 'null', 'missing']);
+    expect(await selectedIds([['name', 'is_not_null']], EMPTY_ROWS)).toEqual(['full', 'blank']);
+    expect(await selectedIds([['name', 'is_not_empty']], EMPTY_ROWS)).toEqual(['full']);
+  });
+
+  it('with no declared type, a value is judged by value — `\'\'` in a number column is empty', async () => {
+    // This adapter holds no field declarations (its config is rows and an id
+    // field), so it takes the by-value reading the spec gives such faces. That
+    // differs from a face that holds the declaration on exactly this kind of
+    // value: a number field is the `null_only` row of the ruled table, which
+    // would leave `''` (and `[]`) a value. The control below is the spec's own
+    // function asked both ways, so the divergence this case pins is the
+    // spec's, not this file's.
+    expect(isEmptyFilterValue('')).toBe(true);
+    expect(isEmptyFilterValue('', EMPTY_OPERATOR_ARMS.null_only)).toBe(false);
+    expect(isEmptyFilterValue([], EMPTY_OPERATOR_ARMS.null_only)).toBe(false);
+    const rows = [
+      { id: 'number', score: 3 },
+      { id: 'zero', score: 0 },
+      { id: 'blank-string', score: '' },
+      { id: 'blank-list', score: [] },
+    ];
+    expect(await selectedIds([['score', 'is_empty']], rows)).toEqual(['blank-string', 'blank-list']);
+    expect(await selectedIds([['score', 'is_not_empty']], rows)).toEqual(['number', 'zero']);
+  });
+
+  it('never reads the value slot — filler, null, or a stray array', async () => {
+    // Same rule as the null pair: direction from the NAME. An array in the slot
+    // is not an array comparand here (the spec discards it), so it is neither
+    // refused nor read.
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const empty = EMPTY_BY_COLUMN.tags;
+    expect(await selectedIds(['tags', 'is_empty'], EMPTY_ROWS)).toEqual(empty);
+    expect(await selectedIds(['tags', 'is_empty', null], EMPTY_ROWS)).toEqual(empty);
+    expect(await selectedIds(['tags', 'is_empty', true], EMPTY_ROWS)).toEqual(empty);
+    expect(await selectedIds(['tags', 'isempty', ['x']], EMPTY_ROWS)).toEqual(empty);
+    expect(await selectedIds(['tags', 'is_not_empty', 'FILLER'], EMPTY_ROWS)).toEqual(complementOf(empty));
+    expect(warn).not.toHaveBeenCalled();
   });
 });
 

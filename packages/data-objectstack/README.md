@@ -160,11 +160,23 @@ of going unnoticed.
 | `$icontains` | `icontains` | `{ name: { $icontains: 'john' } }` → `['name', 'icontains', 'john']` |
 | `$null` | `is_null` / `is_not_null` | `{ email: { $null: true } }` → `['email', 'is_null', true]` |
 | `$exists` | `is_not_null` / `is_null` | `{ email: { $exists: true } }` → `['email', 'is_not_null', true]` |
+| `$empty` | `is_empty` / `is_not_empty` | `{ email: { $empty: true } }` → `['email', 'is_empty', true]` |
 
-`$null` and `$exists` read their boolean: `$null: false` lowers to
-`is_not_null` and `$exists: false` to `is_null`. The lowered node's value slot
-is always `true` — the direction comes from the operator name, which is how the
-spec's `data/filter.zod.ts` reads it.
+`$null`, `$exists` and `$empty` read their boolean: `$null: false` lowers to
+`is_not_null`, `$exists: false` to `is_null` and `$empty: false` to
+`is_not_empty`. The lowered node's value slot is always `true` — the direction
+comes from the operator name, which is how the spec's `data/filter.zod.ts`
+reads it. `$empty` takes ONLY a boolean: any other flag throws `INVALID_FILTER`
+/ 400 at lowering time, which is how the spec's own doors treat it.
+
+`$empty` is not `$null`. objectstack#20446 admitted it to the spec's
+`FILTER_OPERATORS` and flipped the view operators `is_empty` / `is_not_empty`
+to lower to it; they lowered to `$null` before. Its meaning is the spec's ruled
+per-type table: a text-like field is empty when null or `''`, a multi-value
+field when null or `[]`, and any other field when null. Which backend applies
+that table, and how, is listed in the docblock of the spec's
+`FILTER_OPERATORS`, not here. Until objectui#11094 `convertFiltersToAST`
+refused `$empty` as an unknown operator.
 
 `$icontains` constrains its **comparand**, which no other row in this table
 does: `@objectstack/spec`'s `FILTER_TEXT_CASES` declares an empty or non-string

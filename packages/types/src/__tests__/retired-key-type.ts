@@ -12,13 +12,15 @@
  * package's build, and nothing re-exports this module.
  *
  * `@objectstack/spec` declares a removed key with `retiredKey()`, and the type
- * that tombstone gives the key has two spellings, both of which these pins
- * must compile against — the pinned spec in every ordinary job, and the spec
- * built from objectstack `main` in `Spec Main Shape Gate`:
+ * that tombstone gives the key has had two spellings. These pins were written
+ * to compile against both — the pinned spec in every ordinary job, and the
+ * spec built from objectstack `main` in `Spec Main Shape Gate` — while the two
+ * disagreed:
  *
- *  - **The pinned 17.5.0 spelling: bare `undefined`** — the input type of
+ *  - **Through 17.5.0: bare `undefined`** — the input type of
  *    `z.never().optional()`. The key admits nothing but absence.
- *  - **objectstack `main` since `d830d71f` (objectstack#21023): a branded
+ *  - **objectstack `main` since `d830d71f` (objectstack#21023), and the pinned
+ *    17.6.0 (objectui#11438): a branded
  *    mark** — an inline, anonymous object type whose ONE property is named by
  *    the retirement sentence and typed `never`, under the optional wrapper:
  *    MARK or `undefined`, where MARK reads
@@ -38,8 +40,10 @@
  * prefix). The direction proofs at the foot of this module are what hold that
  * line: loosen the helper toward "anything" and one of them stops compiling.
  *
- * When the pin moves past a release that carries the mark, the `undefined`
- * arm describes no installed spec any more and can be dropped.
+ * The pin moved past a release that carries the mark at 17.6.0, so the bare
+ * `undefined` arm describes no installed spec any more and can be dropped. The
+ * bump that moved the pin (objectui#11438) kept it: dropping it tightens the
+ * helper every retirement pin reads, which is a change of its own.
  */
 
 /** Invariant type equality. `A extends B` is NOT this: `never` and `any` pass that. */

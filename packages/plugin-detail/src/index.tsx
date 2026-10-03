@@ -942,7 +942,7 @@ ComponentRegistry.register('alert', RecordAlertRenderer, {
     // through `pickLocalized`, which is exactly what these descriptions teach.
     // Declaring the map arm therefore adds no shape the block does not already
     // honour; it stops the manifest gate warning `type-mismatch` on the
-    // recommended write. (The row DOES exist as of the installed 17.5.0 — read
+    // recommended write. (The row DOES exist as of the installed 17.6.0 — read
     // for `visible` below, objectui#9100 — so the "no entry" reading is stale;
     // these two arms are unaffected either way.)
     { name: 'title', type: ['string', 'object'], description: 'Accepts an inline translation map ({ en, "zh-CN", … })' },
@@ -950,7 +950,7 @@ ComponentRegistry.register('alert', RecordAlertRenderer, {
     // objectui#9100 — the spec accepts three arms here and the renderer now
     // resolves all three, so a single `'string'` was the declaration-narrower-
     // than-the-contract family of objectui#4581, one layer up. Measured on the
-    // INSTALLED `@objectstack/spec` 17.5.0 (`dist/ui/index.d.ts`, the
+    // INSTALLED `@objectstack/spec` 17.6.0 (`dist/ui/index.d.ts`, the
     // `ComponentPropsMap['record:alert']` row): `visible` is
     // `boolean | string | { dialect: 'cel'|'cron'|'template', source?, … }`,
     // and `renderers/record-alert.tsx` hands whichever arrives to

@@ -200,6 +200,15 @@ const EXECUTED_CASES: Record<
     ast: ['nickname', 'is_not_null'],
     expected: ['a'],
   },
+  // objectui#11094 — admitted to `FILTER_OPERATORS` by `@objectstack/spec`
+  // 17.6.0, which lowers `is_empty` to it. On these rows (no `''`, no `[]`)
+  // it selects what `$null: true` selects; the case that tells them apart is
+  // below, and the per-type cases are in `ValueDataSource.astFilterVocabulary`.
+  $empty: {
+    filter: { nickname: { $empty: true } },
+    ast: ['nickname', 'is_empty'],
+    expected: ['b', 'c'],
+  },
 };
 
 /**
@@ -234,6 +243,37 @@ describe('objectui#8447 — every executed operator constrains', () => {
     expect(await selectedIds({ nickname: { $exists: false } })).toEqual(['b', 'c']);
     expect(warn).not.toHaveBeenCalled();
   });
+
+  it('`$empty: false` is the other direction of ITS operator', async () => {
+    const warn = spyWarn();
+    expect(await selectedIds({ nickname: { $empty: false } })).toEqual(['a']);
+    expect(warn).not.toHaveBeenCalled();
+  });
+
+  it('`$empty` is not `$null`: `\'\'` and `[]` are empty, not values (objectui#11094)', async () => {
+    // The row set that separates the two operators the fixture above cannot.
+    const rows = [
+      { id: 'a', nickname: 'ace' },
+      { id: 'blank', nickname: '' },
+      { id: 'list', nickname: [] },
+      { id: 'null', nickname: null },
+    ];
+    expect(await selectedIds({ nickname: { $null: true } }, rows)).toEqual(['null']);
+    expect(await selectedIds({ nickname: { $empty: true } }, rows)).toEqual(['blank', 'list', 'null']);
+    expect(await selectedIds({ nickname: { $empty: false } }, rows)).toEqual(['a']);
+  });
+
+  it.each([['yes'], [1], [0], [null]])(
+    '`$empty: %j` — a flag that is not a boolean — is refused, not read for truthiness',
+    async (flag) => {
+      // `SpecialOperatorSchema` declares the flag `boolean`. Reading `'yes'` as
+      // true and `0` as false would answer a filter the spec refuses.
+      const warn = spyWarn();
+      expect(await selectedIds({ nickname: { $empty: flag } })).toEqual([]);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(String(warn.mock.calls[0]?.[0])).toContain('$empty');
+    },
+  );
 
   it('`$exists` and `$null` are one predicate read from opposite ends', async () => {
     // Not a restatement of the two cases above: it pins the INVERSION, so an

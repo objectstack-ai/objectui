@@ -71,6 +71,10 @@ import {
   // objectui#11070 — the per-element data binding (`PageComponentSchema.dataSource`)
   // the object-bound arms below declare as `dataSource`, by reference.
   ElementDataSourceSchema as SpecElementDataSourceSchema,
+  // objectui#11227 — the list view's empty-state shape, which the spec's
+  // `object-grid` row holds by reference since 17.6.0; `ObjectGridSchema.emptyState`
+  // below takes it by reference too.
+  EmptyStateSchema as SpecEmptyStateSchema,
   checkListViewCalendarVisualization,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
@@ -698,17 +702,16 @@ export const ObjectGridSchema = BaseSchema.extend({
   placeholder: retirementTombstone(OBJECT_GRID_PLACEHOLDER_RETIRED),
   showFilters: retirementTombstone(OBJECT_GRID_SHOW_FILTERS_RETIRED),
   // objectui#11068 — read by `ObjectGrid`, which draws it in place of an empty
-  // table. Mirrored member for member with the interface: three optional
-  // strings, and an unknown member refused rather than kept, so a misspelt
-  // `description` / `text` for `message` is named instead of drawing nothing.
-  emptyState: z
-    .strictObject({
-      title: z.string().optional().describe('Heading of the empty state; absent, the table’s own "No results found"'),
-      message: z.string().optional().describe('Line of text below the heading; absent, no line'),
-      icon: z.string().optional().describe('Lucide icon name; absent or unknown, the shared empty-state glyph'),
-    })
+  // table. objectui#11227 — the spec's `EmptyStateSchema` BY REFERENCE, ⛔ not a
+  // second shape: the spec's `object-grid` row (17.6.0) declares this member as
+  // that very schema, so the twin follows the spec. It is strict, so a misspelt
+  // `description` / `text` for `message` is still named instead of drawing
+  // nothing; `title` and `message` are `I18nLabel` (a plain string or an inline
+  // locale map, which `ObjectGrid` resolves against the display locale), and
+  // `icon` is a string. Mirrored by the interface's `SpecEmptyState`.
+  emptyState: stripImportedDefaults(SpecEmptyStateSchema)
     .optional()
-    .describe('What the grid draws instead of an empty table: `{ title, message, icon }`'),
+    .describe('What the grid draws instead of an empty table: `{ title, message, icon }`, the spec EmptyState by reference'),
   editable: z.boolean().optional(),
   keyboardNavigation: z.boolean().optional(),
   frozenColumns: z.number().optional(),
@@ -1592,8 +1595,9 @@ const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().ext
  * alias table points this spelling at the END of the event" and that was WRONG
  * about the protocol; the corrected mechanism, re-derived by RUNNING
  * `@objectstack/spec` 17.4.0 (the version in the lockfile then) rather than
- * reading it — and RE-RUN on the installed 17.5.0 (objectui#11073), whose
- * answer moved, as the last bullet says:
+ * reading it — RE-RUN on 17.5.0 (objectui#11073), whose answer moved, as the
+ * last bullet says, and RE-RUN again on the installed 17.6.0 (objectui#11438),
+ * which answers every bullet below as 17.5.0 did:
  *
  *   - `CalendarConfigSchema`'s `strictObject` options carry `surface` and
  *     `history` and NOTHING ELSE. There is no `aliases` entry, so upstream holds
@@ -1616,7 +1620,8 @@ const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().ext
  *     not say which end of the range it binds … Write the one you mean") and
  *     prescribes neither. `endField` still draws no hint, and a one-char typo
  *     still resolves by distance (`titleFeld` → `titleField`) — all three
- *     measured on the installed 17.5.0.
+ *     measured on 17.5.0, and again on the
+ *     installed 17.6.0 (objectui#11438).
  *
  * ⇒ through 17.4.0 a generic typo-distance suggester picked the wrong sibling.
  * It was not a declaration, it contradicted no declaration, and ⛔ no upstream
@@ -1813,8 +1818,8 @@ const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial()
  *     gate's own failure mode one layer in.
  *
  * ⚠️ THE MEMBER LIST IS objectui's OWN, and the spec does NOT supply it.
- * MEASURED on the installed `@objectstack/spec` 17.5.0 (the same answer
- * 17.4.0 gave):
+ * MEASURED on the installed `@objectstack/spec` 17.6.0 (the same answer
+ * 17.5.0 and 17.4.0 gave):
  * `ComponentPropsMap['object-calendar'].calendar` is NOT `CalendarConfigSchema`
  * — it is `z.unknown().optional()` (wrapper chain `["optional","unknown"]`, and
  * not the same object reference), so at THIS position the protocol accepts

@@ -471,6 +471,14 @@ export const LEDGER = [
     why: "\"MEASURED on the installed @objectstack/spec 17.3.0 artifact\" \u2014 re-parse `record:activity.types` against the resolved artifact before moving the stamp.",
   },
   {
+    file: "apps/console/src/__tests__/registry-inputs-spec-parity.test.ts",
+    package: "@objectstack/spec",
+    version: "17.5.0",
+    sites: 4,
+    class: "historical",
+    why: "Four lines about the release, not the install. Two ask whether the installed spec carries \"the 17.5.0 set\" / \"the loaded 17.5.0 blocks\" (the version names a record SET, as the 17.1.0 entry above does). Two are `pins` prose whose `pinned` is an unrelated verb (\"pinned narrowly\", \"pinned as THE RESIDUAL LEG\") beside a WHEN sentence (`allDayField` \"since `@objectstack/spec` 17.5.0\"; `redactFields` \"until `@objectstack/spec` 17.5.0 declared it\"). None restamps (objectui#11438).",
+  },
+  {
     file: "apps/console/src/components/FormPage.tsx",
     package: "@objectstack/spec",
     version: "17.0.0",
@@ -573,6 +581,14 @@ export const LEDGER = [
     sites: 1,
     class: "historical",
     why: "Same line, the other version: a verbatim quotation of the justification this code REPLACED \u2014 \"`I18nLabel` was plain `string` through 17.0.0-rc.5\". Quoting a retired justification is history.",
+  },
+  {
+    file: "packages/app-shell/src/views/metadata-admin/inspectors/FlowNodeInspector.declaredDefault.test.tsx",
+    package: "@objectstack/spec",
+    version: "17.5.0",
+    sites: 1,
+    class: "historical",
+    why: "\"the nine the installed spec applied; `@objectstack/spec` 17.5.0 began applying `screen.mode`'s\" says WHEN the tenth declaration returned (objectui#11073). The installed-spec reading on the same line has no version. Never restamp (objectui#11438).",
   },
   {
     file: "packages/app-shell/src/views/metadata-admin/inspectors/PageBlockInspector.sectionName.test.tsx",
@@ -749,6 +765,22 @@ export const LEDGER = [
     sites: 1,
     class: "historical",
     why: "\"`publicPicker` arrives in @objectstack/spec 17.0.0 GA\" \u2014 the arrival release. \u26a0\ufe0f The stale claim in the SAME docblock (\"this repo is pinned to `^17.0.0-rc.6`\") is a RANGE and therefore outside this gate's predicate by construction; it is recorded in objectui#8924 rather than silently covered here.",
+  },
+  {
+    file: "packages/plugin-grid/src/__tests__/gridNavigationMembers-8071.test.tsx",
+    package: "@objectstack/spec",
+    version: "17.5.0",
+    sites: 1,
+    class: "historical",
+    why: "\"the row that pinned this**: `@objectstack/spec` 17.5.0 retired `view.list.navigation.view`\" names the release that DID the retirement (objectui#9874); `pinned` is the row's verb, not a claim about the install. Never restamp (objectui#11438).",
+  },
+  {
+    file: "packages/plugin-tree/src/ObjectTree.schemaTyped-8655.test.ts",
+    package: "@objectstack/spec",
+    version: "17.5.0",
+    sites: 1,
+    class: "historical",
+    why: "\"Re-measured on the installed 17.5.0:\" sits under the dated heading \"UPDATE at `@objectstack/spec` 17.5.0 (objectui#11073)\" and records that bump's re-measurement; the rows below it re-derive the readings from the installed spec at run time. Never restamp (objectui#11438).",
   },
   {
     file: "packages/react/src/hooks/__tests__/offline-nav-performance-spec-parity.test.ts",

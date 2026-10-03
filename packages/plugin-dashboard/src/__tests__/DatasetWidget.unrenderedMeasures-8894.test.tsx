@@ -54,6 +54,7 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import { MIGRATIONS_BY_MAJOR } from '@objectstack/spec/migrations';
 import { ChartTypeSchema as SpecChartTypeSchema } from '@objectstack/spec/ui';
 import { DashboardWidgetSchema } from '@object-ui/types/zod';
 import { DatasetWidget } from '../DatasetWidget';
@@ -91,20 +92,17 @@ type SemanticEntry = { id: string; replacement: string };
 type MigrationRegistry = Readonly<Record<number, { semantic: readonly SemanticEntry[] }>>;
 
 /**
- * The installed spec's ADR-0087 registry, read off the package ROOT, where the
- * pinned `@objectstack/spec` 17.5.0 exports `MIGRATIONS_BY_MAJOR` (it has no
- * `./migrations` subpath). objectstack `main` moved the chain to
- * `@objectstack/spec/migrations` (its `migrations-entry-split` entry: same
- * names, new path), and the Spec Main Shape Gate compiles this file against
- * `main` — so the root is imported dynamically and read as a plain record,
- * which type-checks against both shapes without naming a module either lacks.
- * ⛔ No fallback to the subpath: on a spec whose root no longer carries the
- * registry the lookup below fails by name, and the pull request that moves the
- * pin past the split replaces this with a static import from the subpath.
+ * The installed spec's ADR-0087 registry, read off the `./migrations` subpath.
+ * Through 17.5.0 the chain was exported from the package ROOT and this file
+ * read it there dynamically, so it would compile against both that and
+ * objectstack `main`, which had moved it (its `migrations-entry-split` entry:
+ * same names, new path). `@objectstack/spec` 17.6.0 carries the split and its
+ * root no longer exports the registry, so the bump that moved the pin past it
+ * (objectui#11438) replaced the dynamic root read with this static import, as
+ * the previous docblock asked. ⛔ No fallback to the root.
  */
-async function installedMigrationRegistry(): Promise<MigrationRegistry | undefined> {
-  const root = (await import('@objectstack/spec')) as Record<string, unknown>;
-  return root.MIGRATIONS_BY_MAJOR as MigrationRegistry | undefined;
+function installedMigrationRegistry(): MigrationRegistry {
+  return MIGRATIONS_BY_MAJOR;
 }
 
 /** The duly#109 tile, verbatim from the card's repro block — a stored three-measure metric. */
@@ -172,13 +170,8 @@ describe('objectui#8894 — the dropped measures speak', () => {
     // The pointer cannot dangle: the id is read back out of the installed
     // spec's migration registry, and the entry carries the `replacement` the
     // message sends the reader to.
-    const registry = await installedMigrationRegistry();
-    expect(
-      registry,
-      'the installed spec no longer exports MIGRATIONS_BY_MAJOR from its root — the pin has passed the '
-        + 'migrations-entry-split: import it from the `/migrations` subpath here',
-    ).toBeDefined();
-    const entry = Object.values(registry!)
+    const registry = installedMigrationRegistry();
+    const entry = Object.values(registry)
       .flatMap((step) => step.semantic)
       .find((e) => e.id === ENTRY_ID);
     expect(entry, `${ENTRY_ID} is not in the installed spec's ADR-0087 registry`).toBeDefined();

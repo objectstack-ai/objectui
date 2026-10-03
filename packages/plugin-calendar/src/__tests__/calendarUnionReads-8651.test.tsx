@@ -177,7 +177,7 @@ const LEDGERED_OTHER_CARD_READS: readonly string[] = [];
  * `ObjectCalendarSchema` and must stay so.
  *
  * ⚠️ The ground is NOT that the spec singles these two out. MEASURED on
- * installed `@objectstack/spec` 17.5.0: `ComponentPropsMap['object-calendar']`
+ * installed `@objectstack/spec` 17.6.0: `ComponentPropsMap['object-calendar']`
  * is STRICT and declares exactly ten flat members — `calendar` `data`
  * `defaultView` `filter` `loading` `locale` `navigation` `objectName` `sort`
  * `staticData` (nine through 17.4.0; 17.5.0 added `navigation`) —

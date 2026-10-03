@@ -90,13 +90,23 @@ const noTypes = () => undefined;
  * not a run.
  */
 /*
- * `$empty` arrived with `@objectstack/spec` 17.5.0 (objectui#11073) and is a
- * different kind of entry: a STAGED operator, not a builder decision. The spec
- * declares it "ahead of its backends and absent from FILTER_OPERATORS. Until
- * each face has its arm, the query executors refuse it … the view operators
- * is_empty / is_not_empty still lower to $null." A dropdown row emitting it
- * would therefore author a filter every executor refuses. It leaves this set
- * the day `FILTER_OPERATORS` admits it — the row below the ratchet reddens then.
+ * `$empty` arrived with `@objectstack/spec` 17.5.0 (objectui#11073) as a STAGED
+ * operator: declared, absent from `FILTER_OPERATORS`, refused by every query
+ * executor, so a dropdown row emitting it would have authored a filter nothing
+ * could run. The entry was to leave this set the day `FILTER_OPERATORS` admitted
+ * it, and the expiry row below reddened on `@objectstack/spec` 17.6.0
+ * (objectstack#20446), which admitted it and lowers `is_empty` / `is_not_empty`
+ * to it.
+ *
+ * ⚠️ It has NOT left, and the reason changed rather than expired. The staging
+ * reason is gone; what remains is which builder row should author `$empty`.
+ * This widget's `is_empty` writes "no value OR `''`" on every field type
+ * (objectui#10790), one of the three meanings of 「is empty」 objectui#10813
+ * reconciles. Moving that row onto `$empty` changes what a stored sharing rule
+ * or roll-up filter selects, so it is that card's decision, not the 17.6.0
+ * bump's (objectui#11094 executed the operator and left the builders alone).
+ * The entry now leaves the day a builder operator emits `$empty`: the second
+ * row below the ratchet reddens then.
  */
 const KNOWN_UNREACHABLE = new Set(['$eq', '$between', '$like', '$ilike', '$empty']);
 
@@ -179,10 +189,29 @@ describe('every spec field operator is reachable from the builder (#2942)', () =
     ).toEqual([]);
   });
 
-  it('the staged `$empty` exclusion expires when FILTER_OPERATORS admits it', () => {
-    // Lit control: a flag operator that IS in the list.
-    expect(FILTER_OPERATORS as readonly string[]).not.toContain('$empty');
+  it('the staged `$empty` exclusion expired: FILTER_OPERATORS admits it', () => {
+    // The objectui#11073 expiry row, flipped. It read "not in" and reddened on
+    // `@objectstack/spec` 17.6.0 (objectstack#20446). Lit control: a flag
+    // operator that was always in the list.
+    expect(FILTER_OPERATORS as readonly string[]).toContain('$empty');
     expect(FILTER_OPERATORS as readonly string[]).toContain('$null');
+  });
+
+  it('the `$empty` exclusion now expires when a builder operator emits it (objectui#10813)', () => {
+    // The entry's remaining reason, held mechanically: no drawable builder id
+    // writes `$empty` today. The day objectui#10813 moves a row onto it, this
+    // reddens and `$empty` leaves KNOWN_UNREACHABLE, so the sweep above starts
+    // holding that row to the spec like every other. Derived from the same
+    // drawable vocabulary the sweep feeds `condToMongo`.
+    const emitted = new Set<string>();
+    for (const operator of FILTER_BUILDER_OPERATORS) {
+      const value = operator === 'in' || operator === 'not_in' ? ['a'] : operator === 'between' ? [1, 5] : 'a';
+      const frag = condToMongo({ id: 'c1', field: 'f', operator, value }, noTypes);
+      for (const op of operatorsOf(frag)) emitted.add(op);
+    }
+    // Lit control: the sweep really reads emitted operators.
+    expect(emitted.has('$null')).toBe(true);
+    expect(emitted.has('$empty')).toBe(false);
   });
 
   it('every KNOWN_UNREACHABLE token is still a spec operator (the exclusion ratchet)', () => {

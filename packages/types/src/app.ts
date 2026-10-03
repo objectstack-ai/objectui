@@ -734,6 +734,59 @@ export interface AppComponentSchema extends BaseSchema, Omit<SpecApp, (typeof AP
   requiredPermissions?: string[];
 }
 
+/**
+ * `app-schema-renderer` — the whole-shell node `@object-ui/layout` registers:
+ * the TypeScript twin of `zod/app.zod.ts`'s `AppSchemaRendererNodeSchema`
+ * (objectui#11515).
+ *
+ * The zod arm landed first (objectui#11440, `schema` by objectui#11494) with
+ * no declaration here, so no TypeScript type named the node. This interface
+ * declares the registration's three `inputs`, member for member with the arm:
+ *
+ *  - `schema` — the app document the shell draws, nested, as
+ *    {@link AppComponentSchema} itself: the arm's member IS
+ *    `AppComponentSchema`, the same schema object, so this one is its twin
+ *    declaration. Its `type` is `'app'`, and its own refusals hold inside it
+ *    (`mobileNavMode` there is refused, objectui#11363).
+ *  - `basePath` — the prefix of every href the shell generates.
+ *  - `mobileNavMode` — `'drawer'` (the default) or `'bottom_nav'`, the two
+ *    modes the renderer implements. On this node it is the mode; on the app
+ *    document it is refused.
+ *
+ * Neither content channel is read, so both are refused by name, the twin of
+ * the arm's two `retirementTombstone` members (objectui#9256).
+ *
+ * The parity pair is `app.zod.ts#AppSchemaRendererNodeSchema` in
+ * `__tests__/zod-mirror-parity.test.ts`. `@object-ui/layout`'s
+ * `AppSchemaRendererProps` stays the component's prop type.
+ */
+export interface AppSchemaRendererNodeSchema extends BaseSchema {
+  type: 'app-schema-renderer';
+  /** The app document the shell draws (branding, `navigation`, `areas`), nested. */
+  schema?: AppComponentSchema;
+  /** URL prefix for the hrefs the shell generates (for example `/apps/crm`). */
+  basePath?: string;
+  /**
+   * Mobile navigation mode: `'drawer'` (the default) puts the sidebar in the
+   * mobile sheet overlay; `'bottom_nav'` also renders a fixed bottom bar.
+   */
+  mobileNavMode?: 'drawer' | 'bottom_nav';
+  /**
+   * REFUSED BY NAME (objectui#9256) — `app-schema-renderer` reads neither
+   * content channel: `SchemaRenderer` strips both out of the props it hands
+   * `AppSchemaRenderer`, and the component reads neither off the node.
+   *
+   * @deprecated Not a channel `app-schema-renderer` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256), for the reason `body` gives.
+   *
+   * @deprecated Not a channel `app-schema-renderer` reads — nothing renders it.
+   */
+  children?: never;
+}
+
 // ============================================================================
 // Legacy AppMenuItem (backward compat — prefer NavigationItem)
 // ============================================================================

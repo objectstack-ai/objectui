@@ -3,9 +3,11 @@
  * Copyright (c) 2024-present ObjectStack Inc.
  */
 
+import { createElement, type FC, type ReactNode } from 'react';
 import { ComponentRegistry } from '@object-ui/core';
+import type { AppComponentSchema } from '@object-ui/types';
 import { PageCard } from './PageCard';
-import { AppSchemaRenderer } from './AppSchemaRenderer';
+import { AppSchemaRenderer, type AppSchemaRendererProps } from './AppSchemaRenderer';
 
 export * from './PageHeader';
 export * from './AppShell';
@@ -14,6 +16,49 @@ export * from './SidebarNav';
 export * from './ResponsiveGrid';
 export * from './NavigationRenderer';
 export * from './AppSchemaRenderer';
+
+/**
+ * The component the `app-schema-renderer` TAG is registered against: the seam
+ * that makes the registration's `schema` input true (objectui#11494, triage
+ * ruling A `5958227972`), in the shape of `@object-ui/plugin-detail`'s
+ * `DetailSectionNode`.
+ *
+ * `SchemaRenderer` strips a node's `schema` key out of the props it spreads,
+ * and hands every registered component the NODE itself as its `schema` prop.
+ * Registered directly, `AppSchemaRenderer` therefore took the node for its app
+ * document: a document nested under `schema` drew an empty shell, and only app
+ * keys written flat on the node, which nothing declares, drew (measured by
+ * objectui#11440). This adapter reads the nested document off the node it is
+ * handed and gives `AppSchemaRenderer` that, so the published input is the one
+ * spelling that draws.
+ *
+ * Why HERE and not in `SchemaRenderer` or `AppSchemaRenderer`: the strip is
+ * every node's, and `SchemaRenderer` already delivers the node, so reading
+ * `node.schema` needs no change to it. `AppSchemaRenderer` is a published
+ * component whose hosts pass `schema={appJson}` in JSX, and none goes through
+ * the registry; teaching it a node shape would put a second dialect in front of
+ * them (AGENTS.md #0.1).
+ *
+ * ⛔ No fallback to the node's own keys: a node's flat `navigation` / `title` is
+ * the second spelling the ruling refuses (the strict face refuses it as an
+ * unrecognized key), so it is not read. A node without `schema` hands the
+ * component an empty `app` document: the input is optional, as the
+ * registration declares it, and an omitted document draws the shell with no
+ * branding and no navigation, which is what such a node drew before.
+ * `mobileNavMode`, `basePath` and every other prop reach `AppSchemaRenderer`
+ * unchanged.
+ */
+type AppSchemaRendererNodeProps = Omit<AppSchemaRendererProps, 'schema' | 'children'> & {
+  /** The node, as `SchemaRenderer` hands it to every registered component. */
+  schema?: { schema?: AppComponentSchema };
+  children?: ReactNode;
+};
+
+/** The document an `app-schema-renderer` node without `schema` draws. */
+const NO_APP_DOCUMENT: AppComponentSchema = { type: 'app' };
+
+const AppSchemaRendererNode: FC<AppSchemaRendererNodeProps> = ({ schema: node, children, ...shellProps }) =>
+  createElement(AppSchemaRenderer, { ...shellProps, schema: node?.schema ?? NO_APP_DOCUMENT, children });
 
 export function registerLayout() {
   // ⛔ The `page-header` node type key is RETIRED (objectui#10859 batch 8,
@@ -167,12 +212,17 @@ export function registerLayout() {
   // node written with this type now renders the OBJUI-001 "Unknown component
   // type" panel: a loud refusal, not a second source of navigation.
 
-  ComponentRegistry.register('app-schema-renderer', AppSchemaRenderer, {
+  // Registered against `AppSchemaRendererNode` (above), NOT `AppSchemaRenderer`:
+  // the adapter is what hands the component the `schema` input (objectui#11494).
+  ComponentRegistry.register('app-schema-renderer', AppSchemaRendererNode, {
     namespace: 'layout',
     label: 'App Schema Renderer',
     category: 'Layout',
     isContainer: true,
     inputs: [
+      // The app document the shell draws (`@object-ui/types/zod`'s
+      // `AppComponentSchema`, which `AppSchemaRendererNodeSchema` declares by
+      // reference). Optional: a node without it draws the shell with no document.
       { name: 'schema', type: 'object' },
       { name: 'basePath', type: 'string' },
       // Declared as the vocabulary the renderer implements, not as free text

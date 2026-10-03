@@ -1,5 +1,5 @@
 /**
- * objectui#6416 — the three `plugin-report` component keys must be DECLARED and
+ * objectui#6416 — the `plugin-report` component keys must be DECLARED and
  * REGISTERED under the same namespace.
  *
  * `packages/plugin-report/src/index.tsx` registered `report`, `spec-report` and
@@ -38,8 +38,15 @@ const derived = deriveRegistryKeys(repoRoot);
 
 /** The namespace the console stubs and the CLI whitelist name. */
 const NS = 'plugin-report';
-/** The three short names this plugin owns. */
-const SHORT_NAMES = ['report', 'report-viewer', 'spec-report'] as const;
+/**
+ * The short names this plugin owns: two since objectui#11440 retired the
+ * `spec-report` alias of `report` (the third row below holds it gone from both
+ * sites).
+ */
+const SHORT_NAMES = ['report', 'report-viewer'] as const;
+
+/** The short name objectui#11440 retired from both sites. */
+const RETIRED_SHORT_NAME = 'spec-report';
 
 const PLUGIN_SITE = 'packages/plugin-report/src/index.tsx';
 const CONSOLE_SITE = 'apps/console/src/register-plugins.ts';
@@ -97,5 +104,15 @@ describe('plugin-report keys are registered under the namespace their consumers 
 
   it('the `report:*` namespace is retired entirely', () => {
     expect([...derived.keys.keys()].filter((k: string) => k.startsWith('report:')).sort()).toEqual([]);
+  });
+});
+
+describe('the retired `spec-report` spelling (objectui#11440)', () => {
+  it('no site claims it, bare or namespaced — the plugin and the console stub retired it together', () => {
+    expect(filesClaiming(RETIRED_SHORT_NAME)).toEqual([]);
+    expect(filesClaiming(`${NS}:${RETIRED_SHORT_NAME}`)).toEqual([]);
+    expect(namespacedSpellingsOf(RETIRED_SHORT_NAME)).toEqual([]);
+    // Lit control: the spelling it points authors to is still claimed by both sites.
+    expect(filesClaiming(`${NS}:report`)).toEqual([CONSOLE_SITE, PLUGIN_SITE].sort());
   });
 });

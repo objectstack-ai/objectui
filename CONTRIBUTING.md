@@ -20,7 +20,7 @@ Thank you for your interest in contributing to Object UI! This document provides
 
 ### Prerequisites
 
-- **Node.js** 22.11 or higher (the floor root `package.json` declares in `engines.node`)
+- **Node.js** 22.13 or higher (the floor root `package.json` declares in `engines.node`)
 - **pnpm** 10 or higher (the required package manager — the workspace pins `pnpm@10.31.0` via `packageManager`)
 - **Git** for version control
 - Basic knowledge of React, TypeScript, and Tailwind CSS

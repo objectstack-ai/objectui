@@ -204,7 +204,10 @@ describe('the zod mirror declares the same three keys (objectui#8885)', () => {
     // (`data-display.zod.ts`) is a different widget's contract and would accept
     // both keys — so this is the assertion that fails if the binding is ever
     // re-pointed at it.
-    for (const drillDown of [{ enabled: true, mode: 'record' }, { enabled: true, report: { name: 'pipeline' } }]) {
+    // `report` as the dataset-bound report the wider type declares (its `{ name }` arm is
+    // retired, objectui#11517), so the refusal is of the member and not of its value.
+    const report = { name: 'pipeline', label: 'Pipeline', type: 'summary', dataset: 'deals_ds', rows: ['stage'], values: ['amount_sum'] };
+    for (const drillDown of [{ enabled: true, mode: 'record' }, { enabled: true, report }]) {
       const parsed = ObjectChartMirror.safeParse({ type: 'object-chart', chartType: 'bar', drillDown });
       expect(parsed.success).toBe(false);
       expect(JSON.stringify(parsed.error?.issues)).toContain('unrecognized_keys');

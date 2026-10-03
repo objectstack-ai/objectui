@@ -7,6 +7,7 @@
  */
 
 import { pickLocalized } from '@object-ui/i18n';
+import type { ObjectChartSchema } from '@object-ui/types';
 
 /**
  * The ONE place the spec's author-facing chart shape is translated into the
@@ -73,6 +74,24 @@ export type ChartFamily =
   | 'radar' | 'scatter'
   | 'treemap' | 'sankey'
   | 'combo';
+
+/**
+ * Every chart family a schema can name on this renderer's family channels, as
+ * the faces DECLARE them (objectui#11520): the union of `object-chart`'s two
+ * family keys, read off `ObjectChartSchema` by reference and ⛔ never restated.
+ *
+ * - `specType` is the spec's whole `ChartType` (the react tier's family; a bare
+ *   `chart` node's `chartType` declares the same domain).
+ * - `chartType` is the node's own union, the families this block draws
+ *   (objectui#11513). It sits inside the spec's today, and is named anyway so
+ *   the type says which two channels it covers.
+ *
+ * Wider than {@link ChartFamily} on purpose: it includes the single-value and
+ * tabular families, which `AdvancedChartImpl`'s dispatch routes to the number
+ * card and the tabular notice. Narrower than `string` on purpose: a misspelled
+ * family is a compile error, not a runtime notice.
+ */
+export type DeclaredChartFamily = NonNullable<ObjectChartSchema['chartType'] | ObjectChartSchema['specType']>;
 
 export const RENDERABLE = new Set<string>([
   'bar', 'column', 'horizontal-bar',
@@ -246,7 +265,20 @@ export interface NormalizedSeries {
 }
 
 export interface NormalizedChartSchema {
-  chartType?: ChartFamily;
+  /**
+   * The chart family the schema names, as named: `chartType`, else `specType`,
+   * else a bare `type` that is a spec family, else a registered keyword's family
+   * (objectui#11520). It is NOT narrowed to the families this renderer draws:
+   * `AdvancedChartImpl`'s family dispatch decides the form (a chart, the number
+   * card, the tabular notice, or a notice naming the value), so a family this
+   * module dropped could only ever reach that dispatch as no family at all.
+   *
+   * Typed as the vocabulary the faces DECLARE ({@link DeclaredChartFamily}),
+   * not as `string`, so a misspelled family is a compile error for every
+   * producer. A value outside it can still arrive in unvalidated JSON; see the
+   * JSON-boundary cast in {@link normalizeChartSchema}.
+   */
+  chartType?: DeclaredChartFamily;
   xAxisKey?: string;
   series?: NormalizedSeries[];
   /** X-axis presentation config (its `field` is hoisted to `xAxisKey`). */
@@ -617,10 +649,26 @@ export function normalizeChartSchema(
     str(schema.specType) ??
     (rawType && CHART_TYPES.has(rawType) ? rawType : undefined) ??
     familyFromComponentType(rawType);
-  // A family this renderer does not draw (`metric`, `table`, …) is left unset
-  // rather than mapped onto a bar chart — the caller's own default is a more
-  // honest answer than silently drawing the wrong picture.
-  if (chartType && RENDERABLE.has(chartType)) out.chartType = chartType as ChartFamily;
+  // The named family goes to `AdvancedChartImpl`'s family dispatch AS NAMED,
+  // drawn or not (objectui#11520). That dispatch is the one place a family
+  // becomes a form: a chart for `RENDERABLE`, the number card for
+  // `SINGLE_VALUE_CHART_TYPES`, the tabular notice for `TABULAR_CHART_TYPES`,
+  // and a notice naming anything else. This used to keep only `RENDERABLE`
+  // families, on the theory that the caller's own default was the more honest
+  // answer; the caller's default was `'bar'`, so a `specType: 'gauge'` chart
+  // (the react tier's `<ObjectChart type="gauge">`) drew a bar with no note,
+  // while the same family on `chartType`, which `ChartRenderer` hands over
+  // without this module, drew the number card. Both channels now reach the
+  // same branch with the same value.
+  //
+  // ⚠️ The JSON-boundary cast (the one place the family is asserted rather than
+  // proven). `schema` is unvalidated JSON, so the string read above is a
+  // `DeclaredChartFamily` only when a face validated the document. The cast
+  // states the declared vocabulary for every typed consumer downstream; a value
+  // outside it (an off-spec `specType`, a stale stored node) still reaches the
+  // dispatch as named, and the dispatch's unknown-type notice is the runtime
+  // guard for it.
+  if (chartType) out.chartType = chartType as DeclaredChartFamily;
 
   // ── axes ────────────────────────────────────────────────────────────────
   // Spec `xAxis` is an object; the report surface narrows it to a bare string.
@@ -758,10 +806,11 @@ export function comboBaseFamily(chartType: string | undefined): SeriesFamily | u
  * same family keeps its own family, so nothing that renders correctly today
  * changes; and an explicit `combo` is returned untouched.
  *
- * Pass the chart's EFFECTIVE family (defaults already applied) — the answer
- * depends on what an un-annotated series would otherwise have drawn.
+ * Pass the chart's EFFECTIVE family — the answer depends on what an
+ * un-annotated series would otherwise have drawn. A chart that names no family
+ * gets `undefined` back: there is no default family to widen (objectui#11520).
  */
-export function effectiveChartFamily<T extends ChartFamily | undefined>(
+export function effectiveChartFamily<T extends DeclaredChartFamily | undefined>(
   chartType: T,
   series: readonly Pick<NormalizedSeries, 'chartType'>[] | undefined,
 ): T | 'combo' {

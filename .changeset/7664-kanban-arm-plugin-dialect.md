@@ -88,3 +88,20 @@ This is a breaking change shipped as `minor`: this repository's
 version-alignment rule keeps objectui's major pinned to `@objectstack`'s and
 ships objectui's own breaking changes as `minor` with the break spelled out in
 the changeset body, which is what the bullets above are.
+
+⚠️ **Dated note, 2026-10-03 — `KanbanConditionalFormattingRuleSchema` is no longer a union — objectui#11522.**
+At this change `KanbanConditionalFormattingRuleSchema` was "the rule union the
+`'object-kanban'` arm already applied": the native `{ field, operator, value }`
+comparison or `{ condition, style }`. Now it is one object, the spec list view's
+`{ condition, style }` rule by reference, and the native rule and a top-level
+colour key (`backgroundColor`, `borderColor`, `textColor`) are refused by name;
+the `'kanban'` arm it was shared with has itself retired in this release
+(objectui#8802). It keeps its name, and it is a module export of
+`src/zod/objectql.zod.ts` inside `@object-ui/types`, NOT an export of the
+`@object-ui/types/zod` barrel. Measured at objectui#11522's change: that barrel
+re-exports `KanbanCardSchema`, `KanbanColumnSchema` and `ObjectKanbanSchema` from
+the kanban family and not this schema, and no entry of the package's `exports`
+map carries it. So the bullet above that calls it "newly exported from
+`@object-ui/types/zod`" does not hold in this release either; whether it held at
+objectui#7664's own commit was not measured. The rest of this entry is kept as
+the reading of this change.

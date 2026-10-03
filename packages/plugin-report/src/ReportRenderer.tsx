@@ -64,7 +64,7 @@ export const ReportRenderer: React.FC<ReportRendererProps> = (props) => {
   } = props;
   // Fall back to the SchemaRenderer context when no dataSource prop is
   // supplied. This happens when ReportRenderer is dispatched through
-  // <SchemaRenderer schema={{ type: 'spec-report', ... }} /> (e.g. from
+  // <SchemaRenderer schema={{ type: 'report', report: { ... } }} /> (e.g. from
   // the dashboard drill-down drawer), which does not forward runtime
   // context as props. Without this fallback the report cannot fetch
   // data and renders empty.
@@ -74,12 +74,14 @@ export const ReportRenderer: React.FC<ReportRendererProps> = (props) => {
     | Record<string, unknown>
     | undefined;
   let schema = props.schema;
-  // Unwrap SchemaRenderer wrapper: { type: 'spec-report', report: {...real spec report...} }.
+  // Unwrap the node's wrapper: { type: 'report', report: {...real spec report...} }.
   // SchemaRenderer registry dispatches on the outer `type`; the actual spec
   // report (with its own `type: 'matrix' | 'joined' | ...`) lives under `report`.
+  // `report` is the one spelling since objectui#11440 retired the `spec-report`
+  // alias, which carried the same wrapper; `ReportNodeSchema` declares it.
   if (
     schema && typeof schema === 'object'
-    && (schema as Record<string, unknown>).type === 'spec-report'
+    && (schema as Record<string, unknown>).type === 'report'
     && (schema as Record<string, unknown>).report
     && typeof (schema as Record<string, unknown>).report === 'object'
   ) {

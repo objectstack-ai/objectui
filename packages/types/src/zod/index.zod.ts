@@ -399,6 +399,8 @@ export {
   ReportScheduleSchema,
   ReportExportConfigSchema,
   ReportComponentSchema,
+  // objectui#11440 — the authored `report` node: the record plus the `report` wrapper.
+  ReportNodeSchema,
   ReportBuilderSchema,
   ReportViewerSchema,
   ReportUnionSchema,

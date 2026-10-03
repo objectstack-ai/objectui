@@ -731,9 +731,11 @@ export const RecordPathBlockSchema = BaseSchema.extend({
  * `items` (`hostItems` in its renderer) and `record:history` reads `entries`
  * (`hostEntries`), each with a `loading` flag beside it, on the node or in
  * `properties`. A host supplies them in code, on a node it composes: a TSX
- * composition (the plugin-detail README hands `record:activity` its `items`
- * inside a `DetailView` tab), or the record page's synthesizer
+ * composition, or the record page's synthesizer
  * (`buildDefaultPageSchema({ history })` writes `record:history`'s `entries`).
+ * (The plugin-detail README handed `record:activity` its `items` inside a
+ * `DetailView` tab until objectui#11515 re-authored that tab to the node's
+ * declared `properties`.)
  * Such a node is rendered by `SchemaRenderer` and never passes through this
  * validator. None of the four keys is authorable metadata: a feed written into
  * a JSON document is a snapshot that never updates, and an authored `loading:

@@ -174,9 +174,11 @@ ComponentRegistry.registerLazy('report', () => import('@object-ui/plugin-report'
   namespace: 'plugin-report',
   category: 'view',
 });
-for (const variant of ['report-viewer', 'spec-report']) {
-  ComponentRegistry.registerLazy(variant, () => import('@object-ui/plugin-report'), {
-    namespace: 'plugin-report',
-    category: 'view',
-  });
-}
+ComponentRegistry.registerLazy('report-viewer', () => import('@object-ui/plugin-report'), {
+  namespace: 'plugin-report',
+  category: 'view',
+});
+// ⛔ No lazy stub for `spec-report`: the key is RETIRED (objectui#11440), so
+// `@object-ui/plugin-report` no longer registers it and a stub here would never
+// be satisfied. A report embedded in JSON is the `report` node, its report in
+// the node's `report` member.

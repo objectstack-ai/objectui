@@ -118,7 +118,8 @@ export type assertionEveryBagKeyIsRefusedFlat = [
 export type assertionTwinStaysPublished = [
   Expect<Equal<TsObjectChartSchema['type'], 'object-chart'>>,
   Expect<Equal<TsObjectChartSchema['dataset'], string | undefined>>,
-  Expect<Equal<TsObjectChartSchema['chartType'], 'bar' | 'column' | 'horizontal-bar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter' | undefined>>,
+  // objectui#11513 widened the family set; `object-chart-families-11513.test.ts` holds its members.
+  Expect<Equal<TsObjectChartSchema['chartType'], z.input<typeof ObjectChartSchema>['chartType']>>,
   Expect<Equal<Extract<TsObjectQLComponentSchema, { type: 'object-chart' }>, TsObjectChartSchema>>,
 ];
 
@@ -273,7 +274,9 @@ describe('the bag is the flat mirror\'s own members, by reference (objectui#1127
   });
 
   it.each([
-    ['a chart family outside the vocabulary', { chartType: 'radar' }, ['properties', 'chartType'], 'invalid_value'],
+    // `gauge` since objectui#11513: `radar` joined the declared families then, and `gauge` is a spec
+    // family this block draws no chart of, so it stays outside.
+    ['a chart family outside the vocabulary', { chartType: 'gauge' }, ['properties', 'chartType'], 'invalid_value'],
     ['a bare column name as `xAxis` (objectui#10518)', { chartType: 'bar', xAxis: 'stage' }, ['properties', 'xAxis'], 'invalid_union'],
     ['a single axis object as `yAxis` (objectui#10518)', { chartType: 'bar', yAxis: { field: 'n' } }, ['properties', 'yAxis'], 'invalid_type'],
     ['an `aggregate` with no `groupBy` (the spec\'s strict schema)', { chartType: 'bar', aggregate: { function: 'count' } }, ['properties', 'aggregate', 'groupBy'], 'invalid_union'],
@@ -421,6 +424,6 @@ describe('the arm moved; the post-hoist mirror stayed (objectui#11276)', () => {
     // build — neither is an authored `object-chart` node.
     expect(ObjectChartSchema.safeParse(FLAT).success).toBe(true);
     expect(ObjectChartSchema.safeParse({ ...FLAT, xAxisKey: 'stage', series: [{ dataKey: 'amount' }] }).success).toBe(true);
-    expect(ObjectChartSchema.safeParse({ ...FLAT, chartType: 'radar' }).success).toBe(false);
+    expect(ObjectChartSchema.safeParse({ ...FLAT, chartType: 'gauge' }).success).toBe(false);
   });
 });

@@ -17,8 +17,12 @@
  */
 
 import { z } from 'zod';
+// objectui#11440 — the spec's report definition, by reference: what the
+// authored `report` node wraps in its `report` member (`ReportNodeSchema` below).
+import { ReportSchema as SpecReportSchema } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 import { ChartSchema } from './data-display.zod.js';
+import { stripImportedDefaults } from './imported-defaults.js';
 import { handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 
 /**
@@ -271,10 +275,79 @@ export const ReportViewerSchema = BaseSchema.extend({
 });
 
 /**
+ * Report Node Schema — the AUTHORED `report` node (objectui#11440): every
+ * member of {@link ReportComponentSchema}, plus `report`, the wrapper shape the
+ * retired `spec-report` alias carried.
+ *
+ * ## Why the wrapper is declared here
+ *
+ * The seat ruling `5945530142` on objectui#10859 retires `spec-report` as an
+ * alias of `report`, in a fixed order: `report` first declares the shape
+ * `spec-report` carried, `{ "type": "report", "report": { … } }`, then the
+ * emitter moves, then the alias goes. Both keys were registered on the one
+ * dispatcher, `ReportRenderer` (`@object-ui/plugin-report`), whose first step
+ * unwraps a node whose `report` member is an object and renders THAT: the
+ * spec's report definition, dataset-bound (ADR-0021) or a stored pre-9.0 one it
+ * bridges. Before this arm the strict face refused `report` on a `report` node
+ * as an unrecognized key, and the tolerant face passed it unjudged.
+ *
+ * ## The member, by reference
+ *
+ * `report` is `@objectstack/spec/ui`'s `ReportSchema` through the import
+ * boundary, the shape `defineReport` validates and `json-schema/ui/Report.json`
+ * publishes, so the spec's members, required keys and refusals apply unchanged.
+ * ⚠️ That includes the spec's own refusal of the pre-9.0 query form
+ * (`objectName` / `columns` objects, "did you mean `dataset`?"): the renderer
+ * still bridges such a stored report at runtime, but it is not authorable here.
+ *
+ * ## Why a node of its own, and not a member of `ReportComponentSchema`
+ *
+ * `ReportComponentSchema` is also the report RECORD that a `report-viewer` and a
+ * `report-builder` hold in their own `report` member, and `ReportViewer` reads
+ * no wrapper there. A wrapper declared on the record would accept, unread, a
+ * report nested inside a viewer's report. So the union arms the node with this
+ * schema, and `ReportComponentSchema` stays the record and its TypeScript
+ * twin's mirror. When `report` is present, `ReportRenderer` renders the wrapped
+ * report alone and reads none of the node's presentation members.
+ */
+export const ReportNodeSchema: ReportNodeZodType = ReportComponentSchema.extend({
+  report: stripImportedDefaults(SpecReportSchema)
+    .optional()
+    .describe(
+      'The report to render: `@objectstack/spec` `ReportSchema`, by reference (a dataset-bound report, ADR-0021). '
+      + 'When present, `ReportRenderer` renders it and reads none of the node\'s presentation members '
+      + '(objectui#11440; the wrapper the retired `spec-report` alias carried).',
+    ),
+});
+
+/**
+ * The TYPE of {@link ReportNodeSchema}, written out BY REFERENCE: the record's
+ * shape plus the spec's `ReportSchema` by name. Without it, declaration emit
+ * re-serializes the whole spec report shape inside `AnyComponentSchema`, and
+ * against `@objectstack/spec` built from objectstack `main` `tsc` refuses that
+ * union with TS7056 ("The inferred type of this node exceeds the maximum length
+ * the compiler will serialize"), measured by the `Spec Main Shape Gate` on
+ * objectui#11440's second pull request. A named type is emitted by name, as
+ * `PageKindNodeSchemaType` is (`layout.zod.ts`). It is a type only: the schema
+ * accepts exactly what it accepted before.
+ *
+ * Named `…ZodType` because this file's `…SchemaType` names are `z.infer`
+ * aliases (`ReportNodeSchemaType` among them, below).
+ */
+export type ReportNodeZodType = z.ZodObject<
+  (typeof ReportComponentSchema)['shape'] & {
+    report: z.ZodOptional<typeof SpecReportSchema>;
+  },
+  z.core.$loose
+>;
+
+/**
  * Union of all report schemas
  */
 export const ReportUnionSchema = z.discriminatedUnion('type', [
-  ReportComponentSchema,
+  // objectui#11440 — the authored `report` node is `ReportNodeSchema` (the
+  // record plus the `report` wrapper); `ReportComponentSchema` stays the record.
+  ReportNodeSchema,
   ReportBuilderSchema,
   ReportViewerSchema,
 ]);
@@ -292,5 +365,6 @@ export type ReportSectionSchemaType = z.infer<typeof ReportSectionSchema>;
 export type ReportScheduleSchemaType = z.infer<typeof ReportScheduleSchema>;
 export type ReportExportConfigSchemaType = z.infer<typeof ReportExportConfigSchema>;
 export type ReportComponentSchemaType = z.infer<typeof ReportComponentSchema>;
+export type ReportNodeSchemaType = z.infer<typeof ReportNodeSchema>;
 export type ReportBuilderSchemaType = z.infer<typeof ReportBuilderSchema>;
 export type ReportViewerSchemaType = z.infer<typeof ReportViewerSchema>;

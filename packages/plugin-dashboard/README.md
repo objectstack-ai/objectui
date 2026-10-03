@@ -77,7 +77,7 @@ are read off those calls:
 | `plugin-dashboard:metric-card` | none — `skipFallback: true` | `MetricCard` — KPI with trend and icon |
 | `plugin-dashboard:object-metric` | `object-metric` | internal wrapper around `ObjectMetricWidget` — aggregates over an object |
 | `plugin-dashboard:pivot` | `pivot` | `PivotTable` — pivot over rows you pass in |
-| `plugin-dashboard:object-pivot` | `object-pivot` | internal wrapper around `ObjectPivotTable` — pivot queried from an object |
+| `plugin-dashboard:object-pivot` | `object-pivot` | `ObjectPivotTable` — a pivot queried from an object; its props go in `properties` |
 | `plugin-dashboard:object-data-table` | `object-data-table` | `ObjectDataTable` — table queried from an object |
 
 `ComponentRegistry.register` publishes `namespace:type`, and — unless the call
@@ -443,7 +443,10 @@ into each bound widget's inline query (`AND`-combined with the widget's own
     // Edit it to bind a dataset." instead of a chart. Inline widget data
     // (`options.data`, `options.xField` / `options.yField`) is not an
     // authoring surface either: the strict authoring face refuses those keys
-    // by name (objectui#11228).
+    // by name (objectui#11228). A stored single-value widget (`metric`,
+    // `gauge`, `solid-gauge`, `kpi`, `bullet`, or one with no `type`) whose
+    // `options.data` is a `{ "provider": "object", … }` query draws that same
+    // retired-format prompt instead of its number (objectui#11525).
     //
     // Default binding: the filter's own `field` (dateRange → created_at).
     { "id": "w1", "type": "bar", "dataset": "invoices", "dimensions": ["status"], "values": ["count"] },
@@ -511,7 +514,7 @@ Where the accent lands depends on the layout, not on the token:
 
 | Layout | Accent |
 | --- | --- |
-| Card chrome (`MetricWidget`, inline `object-metric`) | the icon chip's background + foreground |
+| Card chrome (`MetricWidget`, an `object-metric` block) | the icon chip's background + foreground |
 | Chrome-less (`MetricWidget variant: 'bare'`, and every dataset-bound `metric`) | the big number's text colour |
 
 Both read one shared table (`src/colorVariants.ts`), so the same declaration
@@ -520,6 +523,26 @@ accent"; the widget renders in the ambient foreground colour. A token outside
 the enum gets no accent and is not aliased to a nearby colour: it is invalid
 metadata, rejected where it is authored and published rather than reinterpreted
 here.
+
+## A widget with no `type`, or a `type` that names no family
+
+A widget that declares no `type` is a `metric` widget. `@objectstack/spec`'s
+`DashboardWidget.type` defaults to `metric`, and both dashboard surfaces
+(`DashboardRenderer` and `DashboardGridLayout`) read that default from the spec,
+so the widget draws exactly as the same widget with `type: 'metric'` does,
+inline or bound to a dataset (objectui#11514). objectui's validator accepts the
+widget without a `type` and does not write the default in, so the surfaces are
+where it resolves.
+
+objectui's legacy `component` envelope (`{ id, component, layout }`) is not the
+spec's widget, and the default is not applied to it: an envelope with no `type`
+draws its `component` under its card heading, as it always did.
+
+A `type` that names no widget family and no component type (a typo, or a family
+the spec no longer has) is refused by both validator faces at `type`. A stored
+one draws the labelled placeholder "「type」chart type is not supported yet", as
+a known family with no renderer (`heatmap`) does, instead of the renderer's red
+"Unknown component type" panel.
 
 ## How many measures a widget renders
 
@@ -670,18 +693,21 @@ The widget keys (`colorVariant`, `filter`, `dataset`, …) are declared on the
 widget arm, `DashboardWidgetSchema`, which takes them from the spec's
 `DashboardWidget` row. The component arm declares none of them. Read straight
 off a `widgets[]` entry, such a key is typed `any`, supplied by the component
-arm's passthrough. Read it through `DashboardWidgetSchema` instead, which is how
-this package's own readers do it. The component arm is assignable to that type,
-so the annotation is checked by the compiler, not asserted, and the key gets its
-declared type:
+arm's passthrough. This package's own readers take an entry by the slot's
+element type, `DashboardComponentSchema['widgets'][number]`. The component arm
+is not assignable to `DashboardWidgetSchema`, whose `type` names no component
+type, so narrow an entry on `type` first: `metric-card` is the one component
+type the slot holds, and any other entry is the widget arm. The compiler checks
+the narrowing, not an annotation, and the key gets its declared type:
 
 ```typescript
-import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
+import type { DashboardComponentSchema } from '@object-ui/types';
 
 declare const dashboard: DashboardComponentSchema;
 
-const widgets: DashboardWidgetSchema[] = dashboard.widgets;
-const accents = widgets.map((w) => w.colorVariant ?? 'default');
+const accents = dashboard.widgets.map((w) =>
+  w.type === 'metric-card' ? 'default' : (w.colorVariant ?? 'default'),
+);
 ```
 
 `title` and `layout` are the two widget keys both arms declare. `title` is the

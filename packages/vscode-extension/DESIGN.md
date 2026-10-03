@@ -271,12 +271,14 @@ if (currentType === 'input') {
 // what a new Vite or Next project is configured with) nothing here reads that
 // identifier, so it compiles as an unused local. Add the import back only if
 // this file is built with the classic "jsx": "react" transform.
-import { SchemaRenderer } from '@object-ui/react';
+import { SchemaRenderer, type SchemaRendererProps } from '@object-ui/react';
 // Importing the package registers every default renderer as a side effect —
 // there is no separate registration call.
 import '@object-ui/components';
 
-const schema = { /* 用户的schema */ };
+// Typed as the schema SchemaRenderer takes, so each "type" below stays a literal
+// and the compiler checks the schema against the node types it accepts.
+const schema: SchemaRendererProps['schema'] = { /* 用户的schema */ };
 
 export default function GeneratedComponent() {
   return <SchemaRenderer schema={schema} />;

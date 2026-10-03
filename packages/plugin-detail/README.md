@@ -134,9 +134,7 @@ const accountDetail = <DetailView
 
 ```tsx
 import { DetailView } from '@object-ui/plugin-detail';
-import type { FeedItem } from '@object-ui/types';
 
-declare const activityData: FeedItem[];
 declare const navigate: (url: string) => void;
 declare const deleteAccount: (id: string) => void;
 
@@ -169,9 +167,10 @@ const accountDetail = <DetailView
         badge: '12',
         // `record:activity` — the registered Activity Timeline block. Reachable
         // under that exact key and no other; see the note below the block.
+        // Its inputs go in `properties`, as the spec declares them.
         content: {
           type: 'record:activity',
-          items: activityData,
+          properties: { limit: 20, showCompleted: false },
         },
       },
     ],
@@ -200,12 +199,15 @@ nothing registers):
   stops the bare name from also being claimed globally — so `record:activity`
   resolves and `activity` resolves to nothing. `activity` is additionally a tab
   **key** in the example above; the two are unrelated.
-- **The feed arrives as `items`, not `data`.** `record:activity` takes its feed
-  from three sources, in precedence order: `items` on the node, a mounted
-  discussion context, or a self-fetch from `sys_activity` scoped off
-  `useRecordContext`. The last two need a record host; a bare `<DetailView>`
-  like the one above mounts neither, so a caller that already owns the feed
-  passes it in as `items` (the convention `record:history` uses for `entries`).
+- **The node declares the feed's filters, not the feed.** Its inputs (`limit`,
+  `showCompleted`, `types`, `filterMode`, …) go in its `properties` bag, and
+  the block finds its own feed: a mounted discussion context, or a self-fetch
+  from `sys_activity` scoped to the record `useRecordContext` binds. Both need
+  a record host; a bare `<DetailView>` like the one above mounts neither, so
+  there the tab draws the block's empty state ("No activity recorded"). Under
+  a record host, such as the console's record page, the same node draws that
+  record's activity. `items` (with its `loading` flag) is the host's feed
+  slot, not a key of this node: `@object-ui/types` refuses it by name, and
   `data` is not a key this block reads.
 
 See **The `record:activity` block** in the plugin-detail guide for its declared

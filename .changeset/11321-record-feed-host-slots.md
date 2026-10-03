@@ -17,3 +17,10 @@ A host feed slot written on a `record:activity` or `record:history` node is refu
 **Across the release.** The `record:activity` and `record:history` arms have not shipped yet: `@object-ui/types` 17.6.0 has no public-block arm, and its `safeValidateSchema` refuses both types at `type`. So this narrows what earlier entries of this same release accept, and nothing a published consumer could validate before.
 
 **Docs.** The `record:related_list` example in the schema reference's retired-`related` note now writes its props in the `properties` bag, the last of the flat public-block examples objectui#11321 named. The plugin-detail page says `items` is passed in code and refused when a document writes it.
+
+⚠️ **Dated note, 2026-10-02 — the plugin-detail README no longer passes `items` — objectui#11515.**
+At this change the plugin-detail README handed `record:activity` its `items`
+inside a `DetailView` tab, the TSX composition the paragraph above names; now
+that tab authors the block's declared `properties`, and no example in this
+repository composes a `record:activity` node with `items`. The refusal and
+what a host may still do in code are unchanged. The rest of this entry is kept as the reading of this change.

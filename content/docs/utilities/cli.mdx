@@ -6,8 +6,7 @@ description: "Standalone command-line interface for building ObjectUI applicatio
 # ObjectUI CLI
 
 `@object-ui/cli` is a standalone command-line tool for scaffolding, developing,
-building, linting, testing, and validating ObjectUI applications driven by
-JSON or YAML schemas.
+building, and validating ObjectUI applications driven by JSON or YAML schemas.
 
 It is **not** an oclif plugin — it ships its own `objectui` binary just like
 `vite`, `next`, or `astro`.
@@ -34,8 +33,8 @@ Your app runs at `http://localhost:3000`.
 
 ## Commands
 
-The CLI exposes 15 commands. Run `objectui <command> --help` for the full
-flag list.
+Run `objectui --help` for the command list, and `objectui <command> --help`
+for a command's full flag list.
 
 ### `objectui init [name]`
 
@@ -73,7 +72,7 @@ objectui dev --port 8080 --no-open
 ### `objectui serve [schema]`
 
 Legacy alias of `dev`, kept for older scripts. Same positional argument and
-`-p`/`-h` flags as `dev` (no `--no-open`).
+flags as `dev`, `--no-open` included.
 
 ### `objectui build [schema]`
 
@@ -104,34 +103,6 @@ objectui start --port 8080 --dir build
 | `-p, --port <port>` | `3000` | Port to bind |
 | `-h, --host <host>` | `0.0.0.0` | Host to bind |
 | `-d, --dir <dir>` | `dist` | Directory to serve |
-
-### `objectui lint`
-
-Lint the generated application code with ESLint.
-
-```bash
-objectui lint --fix
-```
-
-| Flag | Description |
-|---|---|
-| `--fix` | Automatically fix issues |
-
-### `objectui test`
-
-Run the application's tests with Vitest.
-
-```bash
-objectui test --watch
-objectui test --coverage
-objectui test --ui
-```
-
-| Flag | Description |
-|---|---|
-| `-w, --watch` | Watch mode |
-| `-c, --coverage` | Generate a coverage report |
-| `--ui` | Vitest UI |
 
 ### `objectui generate <type> <name>` (alias `g`)
 
@@ -278,37 +249,28 @@ failing exit code on a document that does not validate.
 
 ### `objectui doctor`
 
-Diagnose common environment issues (Node version, deps, config sanity).
-
-### `objectui add <component>`
-
-Add a new component renderer scaffold to your project.
-
-```bash
-objectui add Input
-```
-
-### `objectui studio`
-
-Launch the visual designer (`@object-ui/plugin-designer`) against the local
-project.
-
-### `objectui create plugin <name>`
-
-Scaffold a new ObjectUI plugin via `@object-ui/create-plugin`.
-
-```bash
-objectui create plugin my-awesome-widget
-```
+Diagnose common project setup issues: `package.json` and its React and
+Tailwind dependencies, the Tailwind PostCSS plugin and CSS entry, and
+`tsconfig.json`. It reports only and changes no file.
 
 ### `objectui analyze`
 
-Analyze the built application.
+Analyze the built application's bundle: the total, JavaScript and CSS sizes of
+`dist/` in the current directory (where `objectui build` writes by default),
+and its ten largest files. No flags. With no `dist/` to analyze, it exits
+non-zero.
 
-| Flag | Description |
-|---|---|
-| `--bundle-size` | Inspect bundle size |
-| `--render-performance` | Inspect render performance |
+## Scaffolding a plugin
+
+A plugin is scaffolded by its own initializer, `@object-ui/create-plugin`, not
+by this CLI:
+
+```bash
+npm create @object-ui/plugin my-awesome-widget
+```
+
+See [Create Plugin](/docs/utilities/create-plugin) for where to run it and what
+it writes.
 
 ## Schema file format
 

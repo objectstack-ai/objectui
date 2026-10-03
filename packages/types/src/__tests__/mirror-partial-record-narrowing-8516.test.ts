@@ -102,7 +102,12 @@ describe('objectui#8516 — the grid mirror states the declaration, at compile t
     // `z.record(z.enum(SIX), z.number())` infers the TOTAL `Record`, so this
     // constant is the compile-time half of the overshoot guard: it reddens on
     // the forbidden spelling without anyone having to run a parse.
-    const _columnsIsPartial: Eq<MirrorColumnMap, Partial<Record<BreakpointName, number>>> = true;
+    // The values are the counts the renderer maps since objectui#11491; this
+    // row's subject is the map's partiality and its keys.
+    const _columnsIsPartial: Eq<
+      MirrorColumnMap,
+      Partial<Record<BreakpointName, 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | 11 | 12>>
+    > = true;
     expect(_columnsIsPartial).toBe(true);
   });
 });

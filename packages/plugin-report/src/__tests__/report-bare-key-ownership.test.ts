@@ -56,7 +56,7 @@
  */
 import { describe, it, expect, vi } from 'vitest';
 import { ComponentRegistry, Registry, type ComponentMeta } from '@object-ui/core';
-// Importing the package entry is what performs all three registrations, exactly
+// Importing the package entry is what performs every registration, exactly
 // as a host does. The renderers are compared by IDENTITY below, so these pins
 // cannot be satisfied by a look-alike.
 import { ReportRenderer, ReportViewer } from '../index';
@@ -69,11 +69,13 @@ import { ReportRenderer, ReportViewer } from '../index';
  */
 const NS = 'plugin-report';
 
-/** The three short names this package registers, and the renderer each owns. */
+/**
+ * The short names this package registers, and the renderer each owns. Two since
+ * objectui#11440 retired the `spec-report` alias of `report`, which the row at
+ * the foot of this file holds unregistered.
+ */
 const REGISTRATIONS: Array<[short: string, renderer: unknown]> = [
   ['report', ReportRenderer],
-  // Spec-native alias — same dispatcher, explicit name for spec-driven hosts.
-  ['spec-report', ReportRenderer],
   ['report-viewer', ReportViewer],
 ];
 
@@ -221,3 +223,12 @@ describe.each(REGISTRATIONS)(
     });
   },
 );
+
+describe('the retired `spec-report` spelling is not registered (objectui#11440)', () => {
+  it('neither the bare key nor its namespaced twin resolves, while `report` does', () => {
+    expect(ComponentRegistry.get('spec-report')).toBeUndefined();
+    expect(ComponentRegistry.getAllTypes()).not.toContain('plugin-report:spec-report');
+    // Lit control: the spelling the retirement points authors to.
+    expect(ComponentRegistry.get('report')).toBe(ReportRenderer);
+  });
+});

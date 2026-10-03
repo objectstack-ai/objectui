@@ -337,7 +337,8 @@ spelled out.
 **`2xl` is the sixth key.** Six keys — `xs` … `xl` **plus `2xl`** — are
 objectui's own breakpoint vocabulary: `BreakpointName` in `@object-ui/types` is
 the key set of `GridSchema.columns`, and `BreakpointColumnMap` in
-`@object-ui/layout` (`responsive-grid`) spells the same six. Since objectui#7097
+`@object-ui/layout` (the type of the `ResponsiveGrid` React component's
+`columns` prop) spells the same six. Since objectui#7097
 the `grid` renderer reads all six. Measured on main: `{xs:1, xl:5}` →
 `grid grid-cols-1 xl:grid-cols-5 gap-4`; `{xs:1, "2xl":6}` →
 `grid grid-cols-1 2xl:grid-cols-6 gap-4`. On an `@object-ui/components` release

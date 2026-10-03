@@ -30,3 +30,10 @@ scope injects (objectui#10887), and a read keyed on `useAdapter` alone is not
 re-run by a page action. The page node's `context` is `{ params }` alone:
 nothing read the `refreshKey` it also carried. No prop, export or schema key
 changes.
+
+⚠️ **Dated note, 2026-10-02 — `spec-report` is retired — objectui#11440.**
+Later in this same release `@object-ui/plugin-report` stopped registering `spec-report`, an alias of
+`report`; a node of that type now resolves to nothing. So "`report` / `spec-report` over a dataset"
+above now reads `report` over a dataset, the report embedded as `{ "type": "report", "report": { … } }`,
+which re-reads in place as this entry says. `.changeset/11440-retire-spec-report.md` states what
+ships. The rest of this entry is kept as the reading of this change.

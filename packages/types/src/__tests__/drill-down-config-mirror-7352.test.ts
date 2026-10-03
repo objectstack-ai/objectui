@@ -81,7 +81,9 @@ const table = (drillDown: unknown) => ({ type: 'object-data-table', objectName: 
  * for object-backed tables; `ObjectMetricWidget.tsx` writes
  * `{ enabled: true, mode: 'record', target: 'dialog' }`; the drill tests author
  * `{ enabled: false }` and `{ enabled: true, mode: 'filter' }`. `report` takes the
- * two structural forms `DrillDownConfig` declares.
+ * one form `DrillDownConfig` declares, a dataset-bound report; the `{ name }`
+ * reference it declared beside that is retired (objectui#11517) and sits in the
+ * refusal table below.
  */
 const ACCEPTED: Array<[string, DrillDownConfig]> = [
   ['the empty block', {}],
@@ -98,30 +100,13 @@ const ACCEPTED: Array<[string, DrillDownConfig]> = [
     columns: ['name', 'amount'],
     maxRows: 50,
   }],
-  ['an inline report', { report: { name: 'pipeline', objectName: 'opportunity', type: 'summary', columns: [] } }],
-  ['an inline report carrying extra report keys', {
-    report: { name: 'pipeline', objectName: 'opportunity', columns: [{ field: 'amount' }], groupBy: ['stage'] },
+  // objectui#11506 — the inline arm is the spec's dataset-bound `ReportSchema`; the
+  // pre-9.0 `objectName` form it used to take is retired, and its refusal is pinned in
+  // `drill-down-report-dataset-bound-11506.test.ts`.
+  ['an inline report', { report: { name: 'pipeline', label: 'Pipeline', type: 'summary', dataset: 'opportunity_ds', rows: ['stage'], values: ['amount_sum'] } }],
+  ['an inline report carrying more report keys', {
+    report: { name: 'pipeline', label: 'Pipeline', type: 'matrix', dataset: 'opportunity_ds', rows: ['stage'], columns: ['owner'], values: ['amount_sum'], runtimeFilter: { region: 'emea' } },
   }],
-  ['a named report reference', { report: { name: 'pipeline' } }],
-  // ⚠️ MEASURED, not assumed, and it moved here from the refusal table below. The
-  // declaration's second arm is `{ name: string }`, and THIS value reaches it: the
-  // inline arm wants `objectName`, so the value falls through to the reference arm,
-  // which a string `name` satisfies. TypeScript agrees for the same structural
-  // reason, and its excess-property check passes on this literal because `columns`
-  // is a member of the OTHER arm — ⚠️ that last part is what makes the acceptance
-  // shape-specific rather than universal: it is not "any extra key rides along".
-  // This entry is annotated `DrillDownConfig`, so `tsc -p tsconfig.test.json` is the
-  // witness — if the declaration ever refused it, this line stops compiling. A mirror
-  // that refused it would be NARROWER than the declaration, the drift class this
-  // ledger exists to stop, in the direction that hurts authors.
-  //
-  // ⚠️ ACCEPTED is not "unchanged": the reference arm is a plain `z.object`, so it
-  // STRIPS what it does not declare, and the parsed output here is `{ name }` — the
-  // `columns` is gone (measured: `{ name, columns: [] }` parses to `{ name }`, while
-  // the full inline shape below keeps every extra key through `.catchall`). The test
-  // right below this table pins that surviving half. Consumers read `report` after
-  // parsing, so the two arms differ in output, not only in acceptance.
-  ['an inline report missing objectName, which the reference arm accepts', { report: { name: 'pipeline', columns: [] } }],
 ];
 
 /**
@@ -147,7 +132,15 @@ const REFUSED: Array<[string, unknown, string]> = [
   ['columns as a string', { columns: 'name' }, 'columns'],
   ['maxRows as a string', { maxRows: '50' }, 'maxRows'],
   ['report as a bare string', { report: 'pipeline' }, 'report'],
-  ['a report reference with a non-string name', { report: { name: 42 } }, 'report'],
+  // objectui#11517 — the `{ name }` reference arm is retired, so the two values below
+  // left the acceptance table. Each used to reach that arm: the inline arm wanted
+  // `label` and a `dataset`, and a string `name` satisfied the reference, which
+  // STRIPPED the parsed copy to `{ name }`. Now nothing catches them: the spec report
+  // refuses both, and a bare `{ name }` is refused by name too
+  // (`drill-down-report-name-retired-11517.test.ts` pins the messages and the faces).
+  ['a named report reference, retired (objectui#11517)', { report: { name: 'pipeline' } }, 'report'],
+  ['a `name` and an empty `columns`, which the retired reference arm read as `{ name }`', { report: { name: 'pipeline', columns: [] } }, 'report'],
+  ['a `{ name }` value with a non-string name', { report: { name: 42 } }, 'report'],
 ];
 
 describe('objectui#7352 — DrillDownConfigSchema is the zod mirror of DrillDownConfig', () => {
@@ -163,12 +156,12 @@ describe('objectui#7352 — DrillDownConfigSchema is the zod mirror of DrillDown
     expect(r.success, r.success ? '' : JSON.stringify(r.error.issues, null, 2)).toBe(true);
   });
 
-  it('keeps an inline report\'s extra keys — the declaration has an index signature', () => {
+  it('keeps an inline report\'s keys — the inline arm is the spec\'s `ReportSchema` (objectui#11506)', () => {
     const r = DrillDownConfigSchema.safeParse({
-      report: { name: 'pipeline', objectName: 'opportunity', columns: [], groupBy: ['stage'] },
+      report: { name: 'pipeline', label: 'Pipeline', dataset: 'opportunity_ds', rows: ['stage'], values: ['amount_sum'], runtimeFilter: { region: 'emea' } },
     });
     expect(r.success).toBe(true);
-    expect(r.success && (r.data.report as Record<string, unknown>).groupBy).toEqual(['stage']);
+    expect(r.success && (r.data.report as Record<string, unknown>).runtimeFilter).toEqual({ region: 'emea' });
   });
 
   it.each(REFUSED)('refuses %s, naming the key', (_label, value, key) => {

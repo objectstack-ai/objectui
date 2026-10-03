@@ -18,3 +18,12 @@
 The strict authoring face (`StrictAnyComponentSchema`) derives from these arms and accepts the same documents, closed to undeclared keys.
 
 **The TypeScript face.** `@object-ui/types` exports `ObjectPivotBlockNode` and `EmbeddableFormBlockNode`, the two arms' authoring inputs, derived by reference as the other `ObjectQLPublicBlockNode` members are, so they are in `AuthoringNode` and `SchemaRenderer`'s `schema` prop accepts them. Each bag is required and closed: a misspelled bag key, a missing bag and a prop written flat do not compile. The page kinds were already typed (`PageDocumentNode`, the spec's own page input).
+
+⚠️ **Dated note, 2026-10-02 — `schema` is now declared — objectui#11494.**
+Later in this same release the registration's third input, `schema`, is
+declared on `AppSchemaRendererNodeSchema` as the app document, by reference
+(`AppComponentSchema` itself, optional), and `@object-ui/layout`'s
+registration adapter delivers it: an `app-schema-renderer` node draws the
+document nested under `schema`, and the strict face accepts it there. The
+sentence above that says `schema` is not declared, and that the strict face
+refuses it as an unrecognized key, no longer describes the node. The rest of this entry is kept as the reading of this change.

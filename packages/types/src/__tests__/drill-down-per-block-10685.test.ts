@@ -66,7 +66,8 @@ describe('object-pivot refuses drillDown.mode (objectui#10685)', () => {
     // @ts-expect-error a shared config that may carry `mode` is not a pivot drill config.
     const handedAcross: ObjectPivotDrillDownConfig = shared;
 
-    // Control: every member the pivot reads still compiles, `report` included.
+    // Control: every member the pivot reads still compiles, `report` included, as
+    // the dataset-bound report it declares (its `{ name }` arm is retired, objectui#11517).
     const live: ObjectPivotDrillDownConfig = {
       enabled: true,
       filter: { stage: '${event.rowKey}' },
@@ -74,7 +75,7 @@ describe('object-pivot refuses drillDown.mode (objectui#10685)', () => {
       target: 'navigate',
       columns: ['name', 'amount'],
       maxRows: 25,
-      report: { name: 'won_deals_by_owner' },
+      report: { name: 'won_deals_by_owner', label: 'Won Deals by Owner', type: 'summary', dataset: 'deals_ds', rows: ['owner'], values: ['amount_sum'] },
     };
     // Still a `DrillDownConfig`, so `computeDrillFilter` and friends take it.
     const liveAsShared: DrillDownConfig = live;
@@ -94,8 +95,9 @@ describe('object-chart refuses drillDown.mode and drillDown.report (objectui#106
 
     // @ts-expect-error `mode` is not a chart drill member: a segment always drills through.
     const withMode: ObjectChartSchema = { ...base, drillDown: { enabled: true, mode: 'record' } };
+    // A valid report, so the one error is the member, not its value.
     // @ts-expect-error `report` is not a chart drill member: the chart's drawer lists records.
-    const withReport: ObjectChartSchema = { ...base, drillDown: { enabled: true, report: { name: 'pipeline' } } };
+    const withReport: ObjectChartSchema = { ...base, drillDown: { enabled: true, report: { name: 'pipeline', label: 'Pipeline', type: 'summary', dataset: 'deals_ds', rows: ['stage'], values: ['amount_sum'] } } };
 
     // Control: every member the chart reads still compiles.
     const live: ObjectChartSchema = {
@@ -128,7 +130,7 @@ describe('object-data-table refuses drillDown.filter, .maxRows, .report and targ
     // @ts-expect-error `maxRows` is refused on `object-data-table` (objectui#10685).
     const withMaxRows: ObjectDataTableDrillDownConfig = { enabled: true, maxRows: 25 };
     // @ts-expect-error `report` is refused on `object-data-table` (objectui#10685).
-    const withReport: ObjectDataTableDrillDownConfig = { enabled: true, report: { name: 'pipeline' } };
+    const withReport: ObjectDataTableDrillDownConfig = { enabled: true, report: { name: 'pipeline', label: 'Pipeline', type: 'summary', dataset: 'deals_ds', rows: ['stage'], values: ['amount_sum'] } };
     // @ts-expect-error `target: 'navigate'` is refused on `object-data-table` (objectui#10685).
     const withNavigate: ObjectDataTableDrillDownConfig = { enabled: true, target: 'navigate' };
     const shared: DrillDownConfig = { enabled: true, mode: 'record' };
@@ -177,7 +179,7 @@ describe('object-data-table: the zod door refuses the same members by name (obje
   it.each([
     ['filter', { filter: { stage: 'won' } }, 'invalid_type'],
     ['maxRows', { maxRows: 25 }, 'invalid_type'],
-    ['report', { report: { name: 'pipeline' } }, 'invalid_type'],
+    ['report', { report: { name: 'pipeline', label: 'Pipeline', type: 'summary', dataset: 'deals_ds', rows: ['stage'], values: ['amount_sum'] } }, 'invalid_type'],
     ['target', { target: 'navigate' }, 'invalid_value'],
   ] as const)('refuses drillDown.%s, and the issue names the key', (key, member, code) => {
     const r = safeValidateSchema(table({ enabled: true, ...member }));

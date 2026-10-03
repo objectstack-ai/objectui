@@ -2916,30 +2916,77 @@ export const ObjectCalendarSchema = BaseSchema.extend({
 /**
  * ObjectKanban Schema
  */
-// Since #1584, kanban card styling runs on the shared CEL evaluator, so a
-// kanban rule accepts BOTH the native `{ field, operator, value }` shape and the
-// spec `{ condition, style }` shape (a CEL predicate + style map) — matching
-// list/grid `conditionalFormatting`. The type/schema now match the runtime.
+/**
+ * The guidance a retired kanban rule key is refused with (objectui#11522).
+ *
+ * `native` keys belong to the native `{ field, operator, value }` comparison;
+ * `colour` keys are a colour written at the TOP LEVEL of a rule — beside a CEL
+ * `condition` (the "flat CEL" rule) or on the native comparison. Each message
+ * names the key, the retirement and the one spelling that replaces it.
+ */
+function kanbanRuleKeyRetired(key: string, kind: 'native' | 'colour'): string {
+  const lead =
+    kind === 'native'
+      ? `\`${key}\` belongs to the native kanban rule dialect \`{ field, operator, value, backgroundColor, borderColor }\`, `
+      : `\`${key}\` is a colour written at the top level of the rule, `;
+  const into = key === 'textColor' ? '`style: { color }`' : `\`style: { ${key} }\``;
+  return (
+    lead
+    + 'which `object-kanban`\'s `conditionalFormatting` no longer accepts: RETIRED (objectui#11522), with no alias window. '
+    + 'A rule is `{ condition, style }` — a CEL `condition` over `record.*` and a CSS `style` map, the rule '
+    + '`@objectstack/spec`\'s `ListViewSchema.conditionalFormatting` declares. '
+    + (kind === 'native'
+      ? 'Respell `{ field: \'priority\', operator: \'equals\', value: \'high\', backgroundColor: \'#fee2e2\' }` as '
+        + '`{ condition: "record.priority == \'high\'", style: { backgroundColor: \'#fee2e2\' } }` '
+        + '(`not_equals` is `!=`, `contains` is `.contains(…)`, `in` is `record.f in [ … ]`).'
+      : `Move the colour into the rule's CSS map: ${into}.`)
+  );
+}
+
+// objectui#11522 — `object-kanban`'s `conditionalFormatting` speaks ONE rule
+// dialect, the spec list view's `{ condition, style }`, and refuses the two it
+// used to take BY NAME (triage ruling 5963861071: retire, not widen).
 //
-// Exported since objectui#7664 so `complex.zod.ts`'s `KanbanSchema` (the
-// `'kanban'` arm) mirrors `conditionalFormatting` with the SAME rule union as
-// this `'object-kanban'` arm — one declaration of the rule, two arms. It is a
-// union of two rule dialects with no `.shape` of its own, so the parity census
-// EXCLUDES it rather than pairing it; its TS twin is the type union
-// `KanbanConditionalFormattingRule` (`../objectql.ts`).
-export const KanbanConditionalFormattingRuleSchema = z.union([
-  z.object({
-    field: z.string().describe('Field name to check'),
-    operator: z.enum(['equals', 'not_equals', 'contains', 'in']).describe('Comparison operator'),
-    value: z.union([z.string(), z.array(z.string())]).describe('Value to compare against'),
-    backgroundColor: z.string().optional().describe('Background color'),
-    borderColor: z.string().optional().describe('Border color'),
-  }),
-  z.object({
-    condition: SpecRuleConditionSchema.describe('CEL predicate evaluated against the card record'),
-    style: z.record(z.string(), z.string()).describe('CSS styles applied when the condition is true'),
-  }),
-]);
+// The rule is the protocol's own: `ListViewSchema.conditionalFormatting[]`'s
+// element, read BY REFERENCE through the import boundary and `.extend()`-ed —
+// so it inherits that element's strictness (an undeclared key is refused with
+// the spec's own "Unrecognized key(s) on this conditional formatting rule"
+// message) and its `style` map, and moves with the installed spec. Two things
+// are layered on top, and only two:
+//
+//   - `condition` is `SpecRuleConditionSchema`, the list view's and the grid's
+//     own condition (objectui#10946): the spec slot by reference behind a
+//     `z.string()` arm, so a string condition is not canonicalized into an
+//     envelope and `''` is still accepted — the kanban rule judges a condition
+//     exactly as the list view's `{ condition, style }` arm does.
+//   - the retired keys are DECLARED and unwritable (`retirementTombstone()`),
+//     so each is refused at its own path with the remedy instead of being one
+//     more unrecognized key: the native comparison's `field` / `operator` /
+//     `value`, and the three top-level colour keys the shared resolver
+//     (`resolveConditionalFormatting`) would otherwise still paint with —
+//     `backgroundColor` and `borderColor` (the native rule's, and the flat CEL
+//     rule's), and `textColor`. `z.input` of each is `undefined`, which is the
+//     TS twin's `?: never`.
+//
+// Before this, the member was a union of the native comparison and the spec
+// shape (#1584), exported by objectui#7664 for the since-retired `'kanban'`
+// arm. ⚠️ The shared resolver is NOT narrowed: the grid's and the list view's
+// rule union (`ConditionalFormattingRuleSchema` above) still declares every
+// arm it reads, so the board itself still paints whatever a relay hands it.
+// What retired is the AUTHORED kanban member. Its TS twin is
+// `KanbanConditionalFormattingRule` (`../objectql.ts`); the two faces are
+// pinned equal in `../__tests__/kanban-conditional-formatting.test.ts`.
+const SpecListViewRuleSchema = stripImportedDefaults(SpecListViewSchema).shape.conditionalFormatting.unwrap().element;
+
+export const KanbanConditionalFormattingRuleSchema = SpecListViewRuleSchema.extend({
+  condition: SpecRuleConditionSchema.describe('CEL predicate evaluated against the card record'),
+  field: retirementTombstone(kanbanRuleKeyRetired('field', 'native')),
+  operator: retirementTombstone(kanbanRuleKeyRetired('operator', 'native')),
+  value: retirementTombstone(kanbanRuleKeyRetired('value', 'native')),
+  backgroundColor: retirementTombstone(kanbanRuleKeyRetired('backgroundColor', 'colour')),
+  borderColor: retirementTombstone(kanbanRuleKeyRetired('borderColor', 'colour')),
+  textColor: retirementTombstone(kanbanRuleKeyRetired('textColor', 'colour')),
+});
 
 /**
  * The `object-kanban` board has a record source — at least one of `bind`,
@@ -3355,6 +3402,44 @@ const OBJECT_CHART_NEITHER_CHANNEL = neitherContentChannelGuidance(
 );
 
 /**
+ * The chart families `ObjectChartSchema.chartType` declares (objectui#11513):
+ * the installed `@objectstack/spec` `ChartTypeSchema`'s families that
+ * plugin-charts draws as a chart, in the spec's own order.
+ *
+ * Picked out of the spec's enum BY REFERENCE (`.extract`), so a family the
+ * spec drops fails here when the module loads, and a family the spec adds is
+ * not declared until something draws it. The spec's other families stay
+ * undeclared because this block draws no chart of them: the single-value
+ * families (`gauge`, `solid-gauge`, `metric`, `kpi`, `bullet`) render one
+ * row's number, and the tabular ones (`table`, `pivot`) a notice.
+ * `object-metric`, `object-data-table` and `object-pivot` are the blocks that
+ * draw those.
+ *
+ * The TS twin (`../objectql.ts`) is the same set, `Extract`ed from the spec's
+ * `ChartType`. `../__tests__/object-chart-families-11513.test.ts` holds both
+ * faces to this set and to the spec, and plugin-charts'
+ * `object-chart-declared-families-11513.test.tsx` renders every spec family
+ * through the real `SchemaRenderer` and holds the declared set to the families
+ * that draw a chart.
+ */
+const OBJECT_CHART_FAMILIES = [
+  'bar', 'horizontal-bar', 'column',
+  'line', 'area',
+  'pie', 'donut', 'funnel',
+  'scatter',
+  'treemap', 'sankey',
+  'combo',
+  'radar',
+] as const;
+
+/** The refusal an undeclared `chartType` meets; it names the declared set. */
+const OBJECT_CHART_FAMILY_REFUSAL =
+  `\`chartType\` on an \`object-chart\` is one of ${OBJECT_CHART_FAMILIES.join(', ')} (objectui#11513): `
+  + 'the `@objectstack/spec` chart families this chart block draws. The spec\'s single-value and tabular '
+  + 'families draw no chart here: write a single number as an `object-metric`, rows as an '
+  + '`object-data-table`, a cross-tab as an `object-pivot`.';
+
+/**
  * ObjectChart Schema
  */
 export const ObjectChartSchema = BaseSchema.extend({
@@ -3383,8 +3468,15 @@ export const ObjectChartSchema = BaseSchema.extend({
   // `ChartConfigSchema.type` declares. Both are optional, and
   // `requireObjectChartFamily` (the `.superRefine` at the end) requires one of
   // them. The TS twin in `../objectql.ts` carries the ground.
-  chartType: z.enum(['bar', 'column', 'horizontal-bar', 'line', 'area', 'pie', 'donut', 'scatter']).optional()
-    .describe('Chart type — the metadata tier\'s spelling of the chart family. One of chartType or specType is required'),
+  //
+  // objectui#11513: `chartType` takes the spec's families plugin-charts draws,
+  // `OBJECT_CHART_FAMILIES` above, out of the spec's own enum. It declared
+  // eight until then, while the dashboard composes this node with every series
+  // family the renderer draws.
+  chartType: stripImportedDefaults(SpecChartTypeSchema)
+    .extract(OBJECT_CHART_FAMILIES, { error: OBJECT_CHART_FAMILY_REFUSAL })
+    .optional()
+    .describe(`Chart type — the metadata tier's spelling of the chart family: one of ${OBJECT_CHART_FAMILIES.join(', ')}, the @objectstack/spec ChartType families plugin-charts draws. One of chartType or specType is required`),
   specType: stripImportedDefaults(SpecChartTypeSchema).optional()
     .describe('The react tier\'s chart family: the author\'s `type` on <ObjectChart>, parked here by the react-page wrapper because `type` is this node\'s discriminator. @objectstack/spec ChartType, by reference. chartType wins when a node writes both'),
   // ── objectui#10608: three list-view spellings, RETIRED on this node ──

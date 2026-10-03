@@ -89,7 +89,7 @@ It extends `BaseSchema`, so the shared component properties are available on a
 
 ## Chart Types
 
-The plugin provides two different chart components:
+The plugin provides three chart components: `bar-chart` and `chart` draw the rows they are given, and `object-chart` fetches its own:
 
 ### Simple Bar Chart (bar-chart)
 
@@ -263,6 +263,37 @@ const schema: ChartSchema = {
     { name: 'revenue' },
     { name: 'margin', yAxis: 'right' }
   ]
+}
+```
+
+### Object Charts (object-chart)
+
+An `object-chart` node charts an object's records (`objectName` with an `aggregate`) or a dataset (`dataset` with `dimensions` and `values`), and fetches the rows itself. An authored node takes its props in the `properties` bag. Its family is `chartType`, one of the `@objectstack/spec` chart families this package draws as a chart: `bar`, `horizontal-bar`, `column`, `line`, `area`, `pie`, `donut`, `funnel`, `scatter`, `treemap`, `sankey`, `combo` and `radar` (objectui#11513).
+
+```json
+{
+  "type": "object-chart",
+  "properties": {
+    "chartType": "funnel",
+    "objectName": "opportunity",
+    "aggregate": { "field": "amount", "function": "sum", "groupBy": "stage" },
+    "xAxis": { "field": "stage" },
+    "series": [{ "name": "amount" }]
+  }
+}
+```
+
+The spec's single-value families (`gauge`, `solid-gauge`, `metric`, `kpi`, `bullet`) and tabular ones (`table`, `pivot`) are refused on `chartType`, and the refusal names the set above: this node draws no chart of them. Write a single number as an `object-metric`, rows as an `object-data-table`, and a cross-tab as an `object-pivot`. The TypeScript `ObjectChartSchema` in `@object-ui/types` declares the same set, taken from the spec's `ChartType`:
+
+```ts
+import type { ObjectChartSchema } from '@object-ui/types'
+
+const pipeline: ObjectChartSchema = {
+  type: 'object-chart',
+  chartType: 'funnel',
+  objectName: 'opportunity',
+  aggregate: { field: 'amount', function: 'sum', groupBy: 'stage' },
+  series: [{ name: 'amount' }]
 }
 ```
 

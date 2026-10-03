@@ -144,7 +144,8 @@ declare module 'react' {
 }
 declare module '@object-ui/react' {
   import type { JSX } from 'react/jsx-runtime';
-  export function SchemaRenderer(props: { schema: unknown }): JSX.Element;
+  export interface SchemaRendererProps { schema: unknown }
+  export function SchemaRenderer(props: SchemaRendererProps): JSX.Element;
 }
 declare module '@object-ui/components' {}
 `;
@@ -152,8 +153,20 @@ declare module '@object-ui/components' {}
 const GENERATED_PATH = '/objectui-7862/Generated.tsx';
 const STUB_PATH = '/objectui-7862/stubs.d.ts';
 
-/** Compile one candidate file and return its diagnostics, formatted. */
-function compile(source: string, overrides: ts.CompilerOptions = {}): string[] {
+/**
+ * Compile one candidate file and return its diagnostics, formatted.
+ *
+ * `stubs` replaces the module declarations above (objectui#11515's real-type
+ * leg below passes its own). `onlyGenerated` reports the generated file's
+ * diagnostics alone: that leg reads real source trees, whose own diagnostics
+ * under these options are not this pin's question.
+ */
+function compile(
+  source: string,
+  overrides: ts.CompilerOptions = {},
+  stubs: string = STUB_DECLARATIONS,
+  onlyGenerated = false
+): string[] {
   const options: ts.CompilerOptions = {
     target: ts.ScriptTarget.ES2020,
     module: ts.ModuleKind.ESNext,
@@ -174,7 +187,7 @@ function compile(source: string, overrides: ts.CompilerOptions = {}): string[] {
 
   const virtual = new Map<string, string>([
     [GENERATED_PATH, source],
-    [STUB_PATH, STUB_DECLARATIONS],
+    [STUB_PATH, stubs],
   ]);
   const read = (fileName: string): string | undefined =>
     virtual.get(fileName) ??
@@ -200,7 +213,16 @@ function compile(source: string, overrides: ts.CompilerOptions = {}): string[] {
   };
 
   const program = ts.createProgram([STUB_PATH, GENERATED_PATH], options, host);
-  return ts.getPreEmitDiagnostics(program).map((diagnostic) => {
+  const generated = program.getSourceFile(GENERATED_PATH);
+  const diagnostics =
+    onlyGenerated && generated
+      ? [
+          ...program.getOptionsDiagnostics(),
+          ...program.getSyntacticDiagnostics(generated),
+          ...program.getSemanticDiagnostics(generated),
+        ]
+      : ts.getPreEmitDiagnostics(program);
+  return diagnostics.map((diagnostic) => {
     const message = ts.flattenDiagnosticMessageText(diagnostic.messageText, ' ');
     if (diagnostic.file && diagnostic.start !== undefined) {
       const { line, character } = diagnostic.file.getLineAndCharacterOfPosition(
@@ -313,13 +335,18 @@ const DOCUMENTED_MIRRORS = [
   },
 ] as const;
 
-/** The part shape B binds: everything above the schema assignment. */
+/**
+ * The part shape B binds: everything above the schema assignment. The line is
+ * found by its binding, `const schema`, annotated or not: objectui#11515 typed
+ * it, so it reads `const schema: SchemaRendererProps['schema'] =` in the
+ * product, while a document may still print the binding bare.
+ */
 function preambleOf(source: string, what: string): string {
   const lines = source.split('\n');
-  const end = lines.findIndex((line) => line.startsWith('const schema ='));
+  const end = lines.findIndex((line) => /^const schema\b/.test(line));
   if (end < 0) {
     throw new Error(
-      `no \`const schema =\` line in ${what} — this pin needs rewriting, not deleting.`
+      `no \`const schema\` line in ${what} — this pin needs rewriting, not deleting.`
     );
   }
   return lines.slice(0, end).join('\n').trimEnd();
@@ -410,5 +437,120 @@ describe('Export to React — the documented mirrors of the preamble (objectui#7
     // Positive: an accurate document is accepted, so the check above is not
     // simply rejecting everything the extractor hands it.
     expect(documentedPreambleFrom(asDocument(product), mirror)).toBe(product);
+  });
+});
+
+/**
+ * objectui#11515 — the emitted `schema` constant compiles against the REAL
+ * `SchemaRendererProps['schema']`, not against a stub of it.
+ *
+ * WHY THE PIN ABOVE CANNOT SEE THIS. Its stub types the prop as `unknown`,
+ * which accepts every schema, so an annotation, a missing annotation or a wrong
+ * one all compile there. objectui#11466 types the prop as the declared-node
+ * union, which discriminates on the literal `type`: an unannotated constant
+ * widens every `type` to `string` and is refused, and `SchemaNode`, the first
+ * candidate annotation, is refused today and under that change alike, because
+ * it admits `number` and `boolean`, which the prop leaves out.
+ *
+ * HOW THE REAL TYPE IS REACHED WITHOUT A BUILD (the header's CI constraint
+ * stands). `@object-ui/types` resolves to its SOURCE entry, which is in the tree
+ * when no `dist/` is. The `@object-ui/react` module is still declared here, but
+ * its `SchemaRendererProps` is read out of `packages/react/src/SchemaRenderer.tsx`
+ * at test time: the interface body and the `@object-ui/types` names it imports,
+ * verbatim. So when the prop's type moves, this program moves with it, and a
+ * restated copy of the prop never exists to drift.
+ */
+const REACT_SCHEMA_RENDERER = join(REPO_ROOT, 'packages/react/src/SchemaRenderer.tsx');
+const TYPES_SOURCE_ENTRY = join(REPO_ROOT, 'packages/types/src/index.ts');
+
+/**
+ * The documented sample (`content/docs/utilities/vscode-extension.mdx`). Both
+ * of its types are declared: `div`, and `h1`, one of the HTML passthrough tags
+ * `HtmlElementSchema` declares (objectui#8499).
+ */
+const DOC_SAMPLE_SCHEMA = JSON.stringify(
+  {
+    type: 'div',
+    className: 'p-4',
+    children: [{ type: 'h1', children: 'Hello World' }],
+  },
+  null,
+  2
+);
+
+/** The real `SchemaRendererProps` declaration, as module text for the stub. */
+function realSchemaRendererProps(): { imports: string; body: string } {
+  if (!existsSync(REACT_SCHEMA_RENDERER)) {
+    throw new Error('packages/react/src/SchemaRenderer.tsx is gone — this pin needs rewriting, not deleting.');
+  }
+  const source = readFileSync(REACT_SCHEMA_RENDERER, 'utf8');
+  const imports = source.match(/^import type \{([^}]*)\} from '@object-ui\/types';$/m);
+  const body = source.match(/^export interface SchemaRendererProps \{\n([^}]*)\n\}$/m);
+  if (!imports || !body) {
+    throw new Error(
+      'SchemaRenderer.tsx no longer spells its `@object-ui/types` type import or `SchemaRendererProps` the way this extractor reads them — this pin needs rewriting, not deleting.'
+    );
+  }
+  if (!/^\s*schema:/m.test(body[1])) {
+    throw new Error('`SchemaRendererProps` has no `schema` member — this pin needs rewriting, not deleting.');
+  }
+  return { imports: imports[1].trim(), body: body[1] };
+}
+
+/** The stubs above, with `@object-ui/react` carrying the real prop type. */
+function realPropStubs(): string {
+  const { imports, body } = realSchemaRendererProps();
+  const react = `declare module '@object-ui/react' {
+  import type { JSX } from 'react/jsx-runtime';
+  import type { ${imports} } from '@object-ui/types';
+  export interface SchemaRendererProps {
+${body}
+  }
+  export function SchemaRenderer(props: SchemaRendererProps): JSX.Element;
+}`;
+  const stubbed = STUB_DECLARATIONS.replace(
+    /declare module '@object-ui\/react' \{[\s\S]*?\n\}/,
+    react
+  );
+  if (stubbed === STUB_DECLARATIONS) {
+    throw new Error('the `@object-ui/react` stub was not replaced — this pin needs rewriting, not deleting.');
+  }
+  return stubbed;
+}
+
+function compileAgainstRealProp(schemaJson: string): string[] {
+  return compile(
+    generatedFile().replace(SAMPLE_SCHEMA, schemaJson),
+    {
+      lib: ['lib.es2022.d.ts', 'lib.dom.d.ts'],
+      paths: { '@object-ui/types': [TYPES_SOURCE_ENTRY] },
+    },
+    realPropStubs(),
+    true
+  );
+}
+
+describe('Export to React — the schema constant against the real prop type (objectui#11515)', () => {
+  it('compiles the documented sample, annotated, against SchemaRendererProps[\'schema\']', () => {
+    expect(compileAgainstRealProp(DOC_SAMPLE_SCHEMA)).toEqual([]);
+  });
+
+  it('is a harness that can fail — a schema that is no node is refused AT the constant', () => {
+    // The positive control: if `@object-ui/types` stopped resolving, the prop
+    // would read as an error type and this would compile. The refusal lands on
+    // the annotated line, which is what the annotation buys: the error is
+    // reported where the schema is written, not at the JSX element.
+    const product = generatedFile().replace(SAMPLE_SCHEMA, JSON.stringify({ className: 'p-4' }, null, 2));
+    const constLine = product.split('\n').findIndex((line) => /^const schema\b/.test(line)) + 1;
+    const diagnostics = compileAgainstRealProp(JSON.stringify({ className: 'p-4' }, null, 2));
+    expect(diagnostics).toHaveLength(1);
+    expect(diagnostics[0]).toContain(`${GENERATED_PATH}(${constLine},`);
+    expect(diagnostics[0]).toContain('error TS2322');
+  });
+
+  it('reads the prop from the source it names, not from a copy', () => {
+    const stubs = realPropStubs();
+    expect(stubs).toContain(realSchemaRendererProps().body);
+    expect(stubs).not.toContain('export interface SchemaRendererProps { schema: unknown }');
   });
 });

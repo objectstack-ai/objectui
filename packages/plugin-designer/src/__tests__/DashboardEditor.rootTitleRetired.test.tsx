@@ -29,7 +29,7 @@
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup, within } from '@testing-library/react';
-import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
+import type { DashboardComponentSchema } from '@object-ui/types';
 import { DashboardEditor } from '../DashboardEditor';
 
 vi.mock('@object-ui/plugin-grid', async (importOriginal) => ({
@@ -122,9 +122,9 @@ describe('DashboardEditor — the root `title` read arm is retired (objectui#750
     // false (objectui#9513).
     const calls = onChange.mock.calls;
     const next = calls[calls.length - 1][0] as DashboardComponentSchema;
-    // Read through `DashboardWidgetSchema`, the `widgets[]` arm that declares
-    // the widget `title` (objectui#11348); the component arm is assignable to it.
-    const widgets: DashboardWidgetSchema[] = next.widgets ?? [];
+    // Read through the slot's element type (objectui#11514): both arms of the
+    // `widgets[]` union declare `title`.
+    const widgets: DashboardComponentSchema['widgets'] = next.widgets ?? [];
     expect(widgets[0].title).toBe('Net Revenue');
   });
 });

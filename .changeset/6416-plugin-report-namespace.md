@@ -46,3 +46,12 @@ properties under test rather than properties of the file the test imports.
 `scripts/__tests__/report-namespace-agreement-6416.test.ts` re-derives both
 sites from source and fails if the plugin, the console stubs and the generated
 whitelist ever disagree again.
+
+⚠️ **Dated note, 2026-10-02 — `spec-report` is retired — objectui#11440.**
+Later in this same release `@object-ui/plugin-report` stopped registering `spec-report`, and with it
+`plugin-report:spec-report`; the console dropped its lazy stub, and `known-schema-types.ts` no longer
+lists either key. So the package registers two components under `plugin-report`, not three, and
+"`type: 'spec-report'` … resolve exactly as before" and "the three `plugin-report:*` keys now name
+real components" above no longer hold for `spec-report`: a node of that type resolves to nothing.
+`report` and `report-viewer` resolve as this entry says. `.changeset/11440-retire-spec-report.md`
+states what ships. The rest of this entry is kept as the reading of this change.

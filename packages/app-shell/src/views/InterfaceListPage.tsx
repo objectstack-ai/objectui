@@ -16,6 +16,12 @@
  *     (a single entry renders no switcher);
  *   • `userActions` toggles map onto the toolbar — advanced filtering and
  *     view management are absent by default.
+ *
+ * Every member `ListView` reads is either relayed by the `schema` memo below
+ * or answered as deliberately not relayed, with its reason, in
+ * `InterfaceListPage.relayCensus-11572.test.ts`. That census re-derives the
+ * members from `ListView`'s source and fails by name on a newly read member
+ * that is neither.
  */
 
 import * as React from 'react';
@@ -503,6 +509,19 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
       // The spec's view-level `map` block (`ListMapConfigSchema`), forwarded
       // verbatim so `ListView` can merge it over the `options.map` bag below.
       ...((view as any).map ? { map: (view as any).map } : {}),
+      // objectui#11572 — the view's declared `tree` and `chart` blocks, carried
+      // as the per-kind blocks above are. `appearance.allowedVisualizations`
+      // may whitelist either kind, and without its block `ListView`'s tree
+      // branch had no `parentField` and its chart branch no binding, while the
+      // object page relayed both. No page-derived default exists for either
+      // kind (nothing here can guess a parent pointer or a measure), so
+      // `derives` has nothing to gate: the declared block alone is relayed, and
+      // a whitelisted kind with no block reaches `ListView` with none. Each is
+      // forwarded whole, a pointer rather than a projection of its keys, as the
+      // object page forwards the chart block (objectui#7823). `ListView` reads
+      // the top-level block first and the `options` bag below only without it.
+      ...(view.tree !== undefined ? { tree: view.tree } : {}),
+      ...(view.chart !== undefined ? { chart: view.chart } : {}),
       ...((mapCfg || (view.options as any)) ? { options: { ...((view.options as any) ?? {}), ...(mapCfg ? { map: mapCfg } : {}) } } : {}),
 
       // Presentation policy — the page layer (ADR-0047).
@@ -514,6 +533,13 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
       // page's twin — the whitelist is not the offer.
       showViewSwitcher: allowed.length > 1,
       showRecordCount: cfg.showRecordCount,
+      // The page config's own "Allow users to print the page"
+      // (`InterfacePageConfigSchema`, Advanced). `ListView` draws its print
+      // button off `schema.allowPrinting`, and nothing on this page wrote it,
+      // so the declared toggle did nothing (objectui#11572). The page's value
+      // only, like `showRecordCount` beside it: the page config declares the
+      // key, so the source view's copy does not stand in for it.
+      allowPrinting: cfg.allowPrinting,
       // Add-record entry point (ListView gates the button on addRecord.enabled,
       // independent of the active visualization). Without forwarding this, the
       // panel's "Add Record" config silently did nothing at runtime.

@@ -47,7 +47,7 @@ import {
   ChartContainerConfig
 } from './ChartContainerImpl';
 import { mapScatterClick, mapTreemapClick, mapSankeyClick } from './chartDrillEvents';
-import { formatterFor, domainFor, ticksFor, RENDERABLE, SINGLE_VALUE_CHART_TYPES, TABULAR_CHART_TYPES, effectiveChartFamily, comboBaseFamily, placeYAxes, type NormalizedAxis, type NormalizedSeries, type ValueAxisSlot, type YAxisPlacement } from './normalizeChartSchema';
+import { formatterFor, domainFor, ticksFor, RENDERABLE, SINGLE_VALUE_CHART_TYPES, TABULAR_CHART_TYPES, effectiveChartFamily, comboBaseFamily, placeYAxes, type DeclaredChartFamily, type NormalizedAxis, type NormalizedSeries, type ValueAxisSlot, type YAxisPlacement } from './normalizeChartSchema';
 import { buildCategoryRank, chartRowBucketId, isRealCalendarDate, toDateInputValue, toDisplayDate, type ChartSegmentClickEvent } from '@object-ui/core';
 import { useDisplayLocale, useSafeTranslate } from '@object-ui/i18n';
 
@@ -243,14 +243,17 @@ export interface AdvancedChartImplProps {
    * (`effectiveChartFamily`), which is how `@objectstack/spec` expresses a
    * combo chart.
    *
-   * Any string reaches the family dispatch below, which is the one place a
-   * family becomes a form: a chart for `RENDERABLE`, the number card for the
-   * single-value families, the tabular notice for the tabular ones, and a
-   * notice for anything else. ⛔ There is no default family (objectui#11520):
-   * an absent family is that notice too, never a bar. A caller that means a
-   * bar passes `'bar'`.
+   * Typed as the declared chart families ({@link DeclaredChartFamily}: the
+   * spec's `ChartType` and the `object-chart` node's own union, by reference),
+   * so a misspelled family does not compile. The family dispatch below is the
+   * one place a family becomes a form: a chart for `RENDERABLE`, the number
+   * card for the single-value families, the tabular notice for the tabular
+   * ones, and a notice for anything else, which is how a value from unvalidated
+   * JSON outside the type is answered at runtime. ⛔ There is no default family
+   * (objectui#11520): an absent family is that notice too, never a bar. A
+   * caller that means a bar passes `'bar'`.
    */
-  chartType?: string;
+  chartType?: DeclaredChartFamily;
   data?: Array<Record<string, any>>;
   config?: ChartContainerConfig;
   xAxisKey?: string;
@@ -2949,7 +2952,7 @@ function AdvancedChartImplInner({
  * bar here before it was drawn as one. It now names no family to them either:
  * none of them refuses it, and the component draws the unknown-type notice.
  */
-function guardFamily(props: AdvancedChartImplProps): string | undefined {
+function guardFamily(props: AdvancedChartImplProps): DeclaredChartFamily | undefined {
   return props.chartType === 'column' ? 'bar' : props.chartType;
 }
 

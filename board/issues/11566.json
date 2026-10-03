@@ -1,0 +1,32 @@
+{
+  "number": 11566,
+  "kind": "pull_request",
+  "title": "fix(plugin-form): the top-level `fields` descriptions and the unresolved-member warning stop teaching `{ name }` as tolerated (objectui#11550)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "plugin"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-03T16:38:39Z",
+  "updated_at": "2026-10-03T17:12:02Z",
+  "closed_at": "2026-10-03T17:12:01Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-03T17:12:01Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11566",
+  "body": "Part of #11550\n\nClause-②: no\n\nThe patch round of objectui#11550: the seat's decision A (comment `5970513384`) under triage ruling `5969880008` item 1, \"the authoring faces stop teaching it\". The card stays open after this merges: its governed guide PR objectui#11561 is still in flight, and the seat ends the card when both are in.\n\n## What changes\n\n- `packages/plugin-form/src/index.tsx`: the `fields` input description of `object-form`, `view:form` and `embeddable-form` drops \"; `{ name }` is tolerated\" from \"Bare field names to show, in order (each looked up in the object schema; …)\". The `object-master-detail-form` one drops \"(`{ name }` tolerated)\" after \"Members are bare field names\". Every other sentence is unchanged.\n- `packages/plugin-form/src/sectionFields.ts`: the `warnUnresolvedTopLevelField` message drops \"(`{ name }` is tolerated)\". It still says \"Top-level `fields` takes bare field-name strings\", still names `sections[].fields` and `FormFieldSchema`, and still tells the author to use a bare field-name string or a `sections[].fields` entry. Its docblock now says the top level takes only bare field-name strings, and that a STORED `{ name }` entry still reads but is no authoring spelling.\n- `.changeset/11550-fields-tolerated-teaching-dropped.md`: `@object-ui/plugin-form` `patch`, because the text ships (measured in `dist/` below).\n- Not touched: the stored read (`SimpleObjectForm`'s `fieldsToShow` loop in `ObjectForm.tsx`, `buildFlatFields` in `flatFields.ts`), the section shape-3 entry, and `ObjectFormSchema`.\n\n## Premise check, on `main` `072b7e8`\n\n- Re-grep of `is tolerated` and `tolerated)` over `packages/plugin-form/src`: 6 hits, exactly the claimed sites (three identical descriptions, the master-detail one, the warning, its docblock). After this change: 0 hits.\n- Repo-wide, no test, snapshot, README or docs page quotes either the description sentence or the warning sentence. The claim's lead \"any test that pins that exact text\" found none. The three warning pins (`objectFormFieldsMembers-8071`, `topLevelFieldsWarnCoverage-8847`, `flatFields.test.ts`) assert the substrings `{ field: 'note' }`, `sections[].fields`, `FormFieldSchema` and \"top-level `fields`\", and all four are kept.\n\n## Verification, head `701ada6`\n\n- Build closure, `pnpm --workspace-concurrency=2 --filter '@object-ui/plugin-form^...' build`: 11 packages built, exit 0.\n- `pnpm exec vitest run --maxWorkers=2 packages/plugin-form/` (repo-root form): `Test Files 163 passed (163)`, `Tests 1889 passed, 1 skipped (1890)`.\n- `pnpm --filter @object-ui/plugin-form type-check`: exit 0, with the script name echoed.\n- `eslint .` in `packages/plugin-form` (the package's own `lint` script), JSON output: 203 files, 0 errors. The two edited files carry 22 and 10 warnings, the same counts as their `072b7e8` copies linted through stdin. The root config extends `tseslint.configs.recommended` and enables no type-aware linting, so this diff cannot move an untouched file's verdict. Repo-wide `pnpm lint` is CI's.\n- Shipped text: after `pnpm --filter @object-ui/plugin-form build`, no file in `dist/` contains `is tolerated`. The new warning sentence is in `dist/index.js` and `dist/index.umd.cjs`, and the new description sentence appears 3 times in `dist/index.js`.\n- Gates, all exit 0: `check:control-bytes` OK; `check:new-line-citations` 0 new; `check:pending-changeset-literals` OK; `check-changeset-presence` (2 source files of 1 released package, 1 changeset); `check-changeset-no-major`; `check-changeset-overwrite` (0 modified); `check-changeset-fixed`; `check:element-data-source-declaration`; `check-governed-queue-guard --test` answers NOT GOVERNED.\n- `check:changeset-claims` (report-only) asked for three pending paragraphs that name `sectionFields.ts` to be re-read. `9884-master-detail-fields-intersection.md` and `console-formpage-visible-predicates-5594.md` stay true. `8738-fields-warn-route1.md` stays true of the read but still says \"`{ name }` tolerated\": see the first acceptance note.\n\n## Acceptance notes\n\n- `.changeset/8738-fields-warn-route1.md` is still pending, so it publishes into the same CHANGELOG release as this patch. It says \"Top-level `fields` reads only bare field-name strings (`{ name }` tolerated)\". That is still true of the runtime read, but it is the one remaining shipped text that calls `{ name }` tolerated. It is not edited here. It is a changeset this change does not own (`check-changeset-overwrite` reports exactly that kind of edit), and it is outside the claimed file surface. The seat decides.\n- `FlatFieldsContext.fields`' docblock in `flatFields.ts` still says \"objects carrying one (`{ name }`)\". It describes the kept read and is not exported; the seat already recorded it in `5970513384`. Not touched.\n- The console ledger row `object-form.fields` in `registry-inputs-spec-parity.test.ts` still calls the `{ name }` spelling \"the read site's tolerance rather than a second contract\". That is test prose about the pinned stored read, not an authoring face. Not touched.\n\n## Left to CI\n\nRepo-wide `pnpm lint`, the `pnpm test` shards (the console suites included; `registry-inputs-spec-parity` only asserts each description is non-empty), e2e and the performance budget.\n\nSession: `https://claude.ai/code/session_01FjqrwXPfSMkSfkKYDSRkN2`\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01FjqrwXPfSMkSfkKYDSRkN2)_\n"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 11561,
+  "kind": "pull_request",
+  "title": "docs(skills): the page-builder guide's object-form example names its fields; a per-form override goes on a section entry (objectui#11550)",
+  "state": "open",
+  "state_reason": null,
+  "draft": true,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "needs-user-decision"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-03T15:12:52Z",
+  "updated_at": "2026-10-03T15:46:35Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11561",
+  "body": "Part of #11550\nClause-②: no\n\n**Governed (`skills/**`).** This PR stays DRAFT until an account in `GOVERNED_APPROVERS` approves it. An agent seat never submits that approval. The code half is objectui#11560; the two land independently, in either order.\n\nExecutes item 1 of triage ruling `5969880008` on the governed half: the published page-builder guide stops teaching the `{ name }` entry in `object-form` `fields`.\n\nSession: `https://claude.ai/code/session_01FjqrwXPfSMkSfkKYDSRkN2` (os-dev, `mode:subagent` of the PM seat; identity = this branch).\n\n## What changes\n\nOne file, `skills/objectui/guides/page-builder.md`: the `object-form` example under \"Form plugin example\" (the `os:check`-marked `json` fence) and the note directly above it.\n\n| | Before | After |\n|---|---|---|\n| example `fields` | `[{ \"name\": \"name\", \"label\": \"Name\", \"type\": \"text\", \"required\": true }, { \"name\": \"email\", \"label\": \"Email\", \"type\": \"text\" }]` | `[\"name\", \"email\"]` |\n| note heading | \"Grid columns key off `field`; form fields key off `name`.\" | \"Grid columns are `{ \"field\" }` objects; `object-form` `fields` are names.\" |\n| note body | pairs `ListColumn.field` with `FormField.name` as one pair of words for opposite things | keeps the grid half (a `{ \"name\": ... }` column names no field and `ObjectGrid` drops it), and says that form labels, types and `required` come from the object fields, and that a per-form override goes on a `sections[].fields` entry, `{ \"field\": \"email\", \"required\": true }` |\n\n**Why.** The form draws each entry by `name` and silently drops `label`, `type` and `required`; the declared member (`ObjectFormSchema.fields`) is `string[]`. The old note was written against the old example (\"the two layers sit next to each other here\"), so it would no longer be true of the respelled one. Where the override goes is the ruling's own sentence: \"A `label` or `required` override goes on a section entry or on the object field. `type` is always the object field's.\" The section-entry override (`label`, `required`, `visibleWhen` on a `{ field }` entry, on all six arms) is pinned by `sectionEntryOverrides-10475.test.tsx`.\n\n## Line budget (`skills/**` net at most 0)\n\n- The file: 352 lines before, 349 after (6 added, 9 removed, net -3).\n- The whole package, every tracked file under `skills/objectui/` (which is all of `skills/**`): 5418 before, 5415 after.\n- Every `SKILL.md` (one file): 142 before, 142 after, untouched.\n- No line was bought by re-wrapping. The note stays five lines, and the -3 is the two `fields` entries collapsing into one line of names.\n\n## What the `os:check` gate judges, and the other doors\n\n- `pnpm check:skill-examples` at `6ce28b7` (packages built with `pnpm turbo run build --concurrency=2` over the gate's own `--build-filter`): exit 0. It printed `JSON phase:     70 fence(s) parsed, 0 failed.`, and `--list` shows the example's fence as `[json]  marked  pass`.\n- That gate parses a `json` fence and does not validate it. Its header says: \"It is parsed, not validated against `@object-ui/types`' schemas.\" The validation doors were measured on objectui#11560's base with a throwaway probe. The authored node with names only is accepted by `safeValidateSchema` and by `StrictAnyComponentSchema`, and so was the old example. The node's `properties` bag is the spec's `ComponentPropsMap['object-form']` row by reference, and that row types `fields` members as unknown until objectstack-ai/objectstack#21464 types them.\n- Each exit 0: `check:skills-paths`, `check:skill-eval-tokens`, `check:control-bytes`, `check:new-line-citations` (0 new), `check:doc-fences`, and `check-changeset-presence` (no released package changed, so no changeset is owed).\n- `check:changeset-claims` names one pending changeset, `.changeset/6475-gantt-block-face-declared.md`, because it mentions this file. I read the paragraph: it is a census of the guide's `gantt` blocks, which this PR does not touch, so it is still true.\n- `check-governed-queue-guard.mjs --test skills/objectui/guides/page-builder.md`: GOVERNED (exit 3), as expected.\n\n## Order\n\nThe two PRs land independently. objectui#11560 changes `plugin-form` test fixtures and a pin, and does not read this file. This file's example passes every door measured above, with or without objectui#11560.\n\n## 维护者速读(草稿)\n\n**改了什么**:对外发布的 page-builder 技能指南里,`object-form` 示例的 `fields` 从「带 name、label、type、required 的对象」改成「字段名字符串」(`[\"name\", \"email\"]`);示例上方那段说明同步改写,讲清楚标签、类型、必填来自对象字段,单个表单要覆盖时写在 `sections[].fields` 的条目上。只动这一个文件,净减 3 行。\n\n**为什么改**:AI 和开发者照着这份指南写表单。旧示例教的写法,表单只认 name,另外三个键被静默丢掉。作者以为设了必填,实际没有生效。本仓声明的类型本来就是字符串数组,triage 裁定退役这种写法(裁决评论 5969880008 第 1 条)。\n\n**风险与代价(含回滚)**:风险低。只改文档文本,运行时零变化;已经按旧写法存下的元数据照样能显示(代码侧的读取保留,由 objectui#11560 的测试钉住)。回滚就是 revert 这一个提交。\n\n**席位意见**:\n\n**你要做的**:审读这一处示例与说明的改写;同意就在本 PR 留一条 APPROVED review,之后由认领席翻 ready 并入合并队列。\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01FjqrwXPfSMkSfkKYDSRkN2)_\n"
+}

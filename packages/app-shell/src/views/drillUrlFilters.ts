@@ -16,11 +16,15 @@
  * Contract:
  *   - equality      `filter[field]=value`              → `[field, '=', value]`
  *   - range / cmp   `filter[field][gte|lte|gt|lt]=v`   → `[field, '>=' | … , v]`
- *   - emptiness     `filter[field][null]=true|false`   → `[field, 'is_null', true]`
+ *   - is null       `filter[field][null]=true|false`   → `[field, 'is_null', true]`
  *                                                     / `[field, 'is_not_null', true]`
+ *   - is empty      `filter[field][empty]=true|false`  → `[field, 'is_empty', true]`
+ *                                                     / `[field, 'is_not_empty', true]`
  * A date-bucket drill emits `gte` + `lt` to scope a list to a time bucket; an
- * EMPTY-bucket drill emits `[null]=true` (objectui#9159), and a widget filter
- * asking for "this field is set" emits `[null]=false` (objectui#9508).
+ * EMPTY-bucket drill emits `[null]=true` (objectui#9159), a widget filter
+ * asking for "this field is set" emits `[null]=false` (objectui#9508), and a
+ * widget filter saying "is empty" / "is not empty" emits `[empty]=true|false`
+ * (objectui#11547).
  */
 
 /** Filter triple shape shared with view metadata: [field, operator, value]. */
@@ -101,10 +105,17 @@ export const RANGE_OP_PARAM: Record<string, string> = { $gte: 'gte', $lte: 'lte'
  * inverse. Both are read here, because the two drill routes deliver different
  * ones — measured, not assumed:
  *
- *   - a COMPOSED drill filter only ever arrives spelled `$null`.
+ *   - a COMPOSED drill filter's is-null condition only ever arrives spelled
+ *     `$null`.
  *     `composeDrillFilter` lowers through the spec's `parseFilterAST`, which
  *     canonicalises `is_not_null` back to `{ $null: false }`, so an authored
  *     `$exists` is already gone by the time it reaches this function.
+ *     ⚠️ Its is-EMPTY condition does not arrive as `$null` any more: from
+ *     `@objectstack/spec` 17.6.0 that lowering spells `is_empty` /
+ *     `is_not_empty` as `$empty`, a different question on a text or
+ *     multi-value field, carried by its own pair, {@link EMPTY_FILTER}
+ *     (objectui#11547). Before 17.6.0 all four empty spellings lowered to
+ *     `$null` and reached this pair.
  *   - an UNCOMPOSED one arrives spelled however the author wrote it. A widget
  *     that hands its own resolved filter straight to the escape hatch
  *     (`ObjectMetricWidget`, whose drawer renders `OpenInListButton`) passes
@@ -168,6 +179,58 @@ export const NULL_FILTER = {
 } as const;
 
 /**
+ * The "is empty" operator pair (objectui#11547): {@link NULL_FILTER}'s shape,
+ * for the spec's `$empty` predicate rather than `$null`.
+ *
+ * ## Why it is a pair of its own and not another spelling of is-null
+ *
+ * `$empty` judges a field by its DECLARED type — on a text field it also finds
+ * `''`, on a multi-value field also `[]` — so it is not `$null` under another
+ * name, and folding it onto `[null]` would answer a narrower question than the
+ * widget asked. From `@objectstack/spec` 17.6.0, `parseFilterAST` lowers the
+ * view operators `is_empty` / `is_not_empty` to it, so a COMPOSED drill of a
+ * widget filter saying "is empty" arrives here as `{ $empty: true | false }`.
+ * Without this pair that object hit no arm below and wrote NO param: the list
+ * opened unscoped by the condition, a superset of what the widget counted.
+ *
+ * Everything {@link NULL_FILTER} documents about the VALUE holds here
+ * unchanged: one param whose value is the direction, only its two exact
+ * spellings are conditions, the comparand is the literal `true` in both
+ * triples, and a non-boolean under the producer key writes nothing.
+ *
+ * ⚠️ When `$empty` and `$null` sit on ONE field they are two params, not one
+ * param asked for two directions, so nothing has to win: both are written, both
+ * read back, and the list ANDs them exactly as `convertFiltersToAST` does for
+ * the same object. That conjunction is the narrowest answer, not a superset.
+ *
+ * ⚠️ Kept OUT of {@link URL_FILTER_OPS} for the reason {@link NULL_FILTER}
+ * gives: `is_empty` / `is_not_empty` are already canonical `ViewFilterRule`
+ * words, and bridging them through that range map is what would lose the
+ * condition from "Save as view".
+ */
+export const EMPTY_FILTER = {
+  /** URL param suffix, shared by both directions: `filter[<field>][empty]`. */
+  param: 'empty',
+  /** The ONLY param value that spells IS EMPTY. */
+  flag: 'true',
+  /** The ONLY param value that spells IS NOT EMPTY. */
+  notFlag: 'false',
+  /** ObjectQL operator `flag` reads back as — what `convertFiltersToAST` emits for `{ $empty: true }`. */
+  op: 'is_empty',
+  /** ObjectQL operator `notFlag` reads back as — what it emits for `{ $empty: false }`. */
+  notOp: 'is_not_empty',
+  /** ObjectQL operator-object key whose BOOLEAN is the direction verbatim. */
+  key: '$empty',
+  /**
+   * The filter builder's existing operator labels, reused rather than forked,
+   * exactly as {@link NULL_FILTER} reuses its pair: present and translated in
+   * all ten packs and already inside that family's locale-parity pin.
+   */
+  labelKey: 'filterBuilder.operators.is_empty',
+  notLabelKey: 'filterBuilder.operators.is_not_empty',
+} as const;
+
+/**
  * The ONE grammar for a key in this family, so the two arms below cannot drift
  * apart on what a field name is: `filter[<field>]`, with an OPTIONAL
  * `[<suffix>]`. The field slot excludes both brackets, so a suffix can never be
@@ -179,10 +242,11 @@ const FILTER_KEY = /^filter\[([^[\]]+)\](?:\[([^[\]]+)\])?$/;
 
 /**
  * Parse `filter[<field>]=<value>` (equality), `filter[<field>][<op>]=<value>`
- * (range/comparison) and `filter[<field>][null]=true|false` ({@link
- * NULL_FILTER}, the emptiness pair) search params into ObjectQL triples. An
+ * (range/comparison), `filter[<field>][null]=true|false` ({@link NULL_FILTER},
+ * the is-null pair) and `filter[<field>][empty]=true|false` ({@link
+ * EMPTY_FILTER}, the is-empty pair) search params into ObjectQL triples. An
  * unknown operator suffix is ignored (never silently downgraded to equality),
- * and so is an unknown value in the emptiness slot.
+ * and so is an unknown value in either flag slot.
  */
 export function parseUrlFilterTriples(searchParams: URLSearchParams): FilterTriple[] {
   const out: FilterTriple[] = [];
@@ -203,6 +267,12 @@ export function parseUrlFilterTriples(searchParams: URLSearchParams): FilterTrip
       // take no comparand, and their direction is in the operator WORD.
       if (value === NULL_FILTER.flag) out.push([field, NULL_FILTER.op, true]);
       else if (value === NULL_FILTER.notFlag) out.push([field, NULL_FILTER.notOp, true]);
+      return;
+    }
+    if (suffix === EMPTY_FILTER.param) {
+      // Same two-spelling rule as the is-null slot above (objectui#11547).
+      if (value === EMPTY_FILTER.flag) out.push([field, EMPTY_FILTER.op, true]);
+      else if (value === EMPTY_FILTER.notFlag) out.push([field, EMPTY_FILTER.notOp, true]);
       return;
     }
     const op = URL_FILTER_OPS[suffix];
@@ -251,7 +321,9 @@ export function parseUrlEqualityFilterTriples(searchParams: URLSearchParams): Fi
  * emptiness pair ({@link NULL_FILTER}) — `{ $null: true }`, what an EMPTY-bucket
  * drill carries, and its three synonyms `{ $exists: false }`, `{ $null: false }`
  * and `{ $exists: true }` (objectui#9508) — becomes `filter[field][null]` with
- * the direction as its value; a plain value becomes `filter[field]`.
+ * the direction as its value; `{ $empty: true | false }` ({@link EMPTY_FILTER},
+ * objectui#11547) becomes `filter[field][empty]` the same way; a plain value
+ * becomes `filter[field]`.
  * `null`/`undefined` values and objects with no recognized operator are skipped
  * (drill degrades to a superset) rather than stringified to
  * `"[object Object]"`.
@@ -337,6 +409,18 @@ function collectFilterParams(filter: Record<string, unknown>, params: URLSearchP
           direction ? NULL_FILTER.flag : NULL_FILTER.notFlag,
         );
       }
+      // The "is empty" pair (objectui#11547) — what a composed drill carries
+      // for an `is_empty` / `is_not_empty` widget filter from spec 17.6.0. Its
+      // own param, so it is written beside the is-null param and any range
+      // bound, never instead of them; `typeof` gates it as `nullDirection` gates
+      // its keys, so a non-boolean writes nothing.
+      const empty = ops[EMPTY_FILTER.key];
+      if (typeof empty === 'boolean') {
+        params.set(
+          `filter[${field}][${EMPTY_FILTER.param}]`,
+          empty ? EMPTY_FILTER.flag : EMPTY_FILTER.notFlag,
+        );
+      }
       for (const [op, suffix] of Object.entries(RANGE_OP_PARAM)) {
         const bound = ops[op];
         if (bound != null) params.set(`filter[${field}][${suffix}]`, String(bound));
@@ -402,6 +486,9 @@ export interface FilterChip {
  * the answer objectui#9159 shipped; the URL cannot produce that pair (one param
  * key, one direction), so this only fixes the order for a hand-built list.
  *
+ * The "is empty" pair ({@link EMPTY_FILTER}, objectui#11547) gets the same two
+ * arms, checked after these.
+ *
  * These arms are the only ones that yield `textKey` rather than `text`, for the
  * reason on {@link FilterChip}. The keys are the filter builder's existing
  * operator keys, already present and already translated in all ten packs, and
@@ -426,6 +513,16 @@ export function groupFilterChips(triples: FilterTriple[]): FilterChip[] {
     }
     if (list.some(([, op]) => op === NULL_FILTER.notOp)) {
       return { field, textKey: NULL_FILTER.notLabelKey };
+    }
+    // objectui#11547 — the "is empty" pair, same posture and same carrier.
+    // After the is-null arms, so every list those arms already answered keeps
+    // its answer; a field carrying both params shows the is-null label while
+    // the list still applies both (one chip per field, as for a range bound).
+    if (list.some(([, op]) => op === EMPTY_FILTER.op)) {
+      return { field, textKey: EMPTY_FILTER.labelKey };
+    }
+    if (list.some(([, op]) => op === EMPTY_FILTER.notOp)) {
+      return { field, textKey: EMPTY_FILTER.notLabelKey };
     }
     const gte = list.find(([, op]) => op === '>=' || op === '>');
     const lt = list.find(([, op]) => op === '<' || op === '<=');

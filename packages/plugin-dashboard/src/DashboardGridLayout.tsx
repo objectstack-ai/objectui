@@ -19,7 +19,7 @@ import {
   unsupportedWidgetSchema,
   type DashboardWidgetSlotEntry,
 } from './widgetDispatch';
-import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
+import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget, isRetiredEnvelopeNode } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
 import { useDashboardAutoRefresh } from './useDashboardAutoRefresh';
@@ -262,6 +262,10 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
     // spelling except a `metric` / `metric-card` node key, which moves onto its
     // namespaced registration (`toDashboardNodeType`, objectui#10859 batch 8).
     const authoredComponent = entryComponent(widget);
+    // An `object-metric` node in the envelope is the last inline metric form,
+    // retired with the rest (objectui#11466, ruling A extending ruling C on
+    // objectui#11525): it draws the rebind prompt, as `DashboardRenderer` does.
+    if (isRetiredEnvelopeNode(authoredComponent)) return LEGACY_RETIRED_WIDGET_SCHEMA;
     // `toRenderableSchema` (objectui#4622) bridges the envelope's `SchemaNode`
     // to what `SchemaRenderer` takes: a number or boolean draws the same text
     // (or nothing, when falsy) it drew when handed to the renderer bare.

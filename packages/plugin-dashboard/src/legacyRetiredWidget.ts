@@ -124,3 +124,38 @@ export function isLegacyRetiredWidget(widget: DashboardWidgetSlotEntry | null | 
   const widgetData = w.data || w.options?.data;
   return !widgetData && !!w.object;
 }
+
+/**
+ * The node types a widget's legacy `component` envelope no longer draws:
+ * `object-metric`, under its bare key and its registration's full name
+ * (objectui#11466, the maintainer's ruling A, which extends ruling C on
+ * objectui#11525 to this form).
+ *
+ * Ruling C put a dashboard metric's number on the semantic layer only: a
+ * metric binds a `dataset` (ADR-0021). It retired the dataset-less inline path
+ * the two surfaces built; an `object-metric` node an author placed in the
+ * envelope (`{ id, component, layout }`, objectui's own format, which the
+ * spec's widget has no member for) was the one inline metric form left. Both
+ * surfaces now answer it with {@link LEGACY_RETIRED_WIDGET_SCHEMA}, the same
+ * imported object their metric and pivot arms return, so the tile draws the
+ * rebind prompt and sends no query.
+ *
+ * ⛔ Every other envelope node draws as before, `object-chart` and
+ * `object-data-table` included, and so does an `object-metric` block authored
+ * on a page: this set is read only at the envelope.
+ */
+const RETIRED_ENVELOPE_NODE_TYPES: ReadonlySet<string> = new Set([
+  'object-metric',
+  'plugin-dashboard:object-metric',
+]);
+
+/** Is `node`, read from a widget's `component` envelope, a retired node type? */
+export function isRetiredEnvelopeNode(node: unknown): boolean {
+  return (
+    typeof node === 'object' &&
+    node !== null &&
+    'type' in node &&
+    typeof node.type === 'string' &&
+    RETIRED_ENVELOPE_NODE_TYPES.has(node.type)
+  );
+}

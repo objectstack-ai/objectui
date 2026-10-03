@@ -42,12 +42,11 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
 import { classifyWidgetType, METRIC_LIKE_TYPES, DASHBOARD_NODE_TYPES, toDashboardNodeType, resolveWidgetType, isSlotComponentEntry, unsupportedWidgetSchema, entryComponent, type DashboardWidgetSlotEntry } from './widgetDispatch';
-import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
+import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget, isRetiredEnvelopeNode } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
 import { useDashboardAutoRefresh } from './useDashboardAutoRefresh';
 import { DashboardFilterBar } from './DashboardFilterBar';
-import type { ObjectMetricWidgetProps } from './ObjectMetricWidget';
 
 /**
  * One `header.actions[]` entry, as the node's declaration types it: the spec's
@@ -148,10 +147,9 @@ function defaultChartDrill(chartType: string): { enabled: true } | undefined {
  * (`chart`, `data-table` with inline `data`) have no query to scope and are
  * intentionally not filtered.
  */
-type FilterableComponentType = 'object-chart' | 'object-metric' | 'object-data-table';
+type FilterableComponentType = 'object-chart' | 'object-data-table';
 const FILTERABLE_COMPONENT_TYPES: ReadonlySet<string> = new Set<FilterableComponentType>([
   'object-chart',
-  'object-metric',
   'object-data-table',
 ]);
 
@@ -162,30 +160,26 @@ const FILTERABLE_COMPONENT_TYPES: ReadonlySet<string> = new Set<FilterableCompon
  * that key where it is declared instead of off `BaseSchema`, which declares no
  * `filter` and only reached it through its index signature.
  *
- * `object-chart` and `object-data-table` are the `@object-ui/types` node
- * schemas, by reference. `object-metric` has no TypeScript declaration there
- * (the spec's `ComponentPropsMap` row is its only published one, and it types
- * the `properties` bag); the node carries `filter` flat, and
- * `ObjectMetricBlock` hands that key to the widget's `filter` prop, so it is
- * typed by that prop.
+ * Both are the `@object-ui/types` node schemas, by reference, each declaring
+ * `filter`. The broadcast covers the `object-chart` and `object-data-table`
+ * nodes this renderer builds for a `provider: 'object'` series or table
+ * widget, and the same two types when an author places one in a widget's
+ * legacy `component` envelope.
  *
- * Since objectui#11525 this renderer builds no `object-metric` node: the
- * dataset-less `provider: 'object'` metric draws the retired-format
- * placeholder. The member stays because an `object-metric` node still reaches
- * the merge from the author: a widget's legacy `component` envelope holding
- * one is handed through as written, and the filter bar scopes it today.
- * Dropping the member would stop that silently, which the ruling did not ask
- * for.
+ * `object-metric` LEFT the set under objectui#11466 (the maintainer's ruling A,
+ * extending ruling C on objectui#11525). objectui#11525 had kept it for one
+ * input, an `object-metric` node in that envelope, after this renderer stopped
+ * building one; it wrote a flat `filter` that the declared `object-metric`
+ * node (the spec's `properties` bag) refuses by name. That envelope node now
+ * draws the retired-format placeholder (`isRetiredEnvelopeNode`), so no
+ * `object-metric` node reaches the merge.
  *
  * The value is not host state: the renderer wrote it from the widget's own
  * spec-declared `filter` (or the provider's), or the author wrote it on the
  * envelope's node, and the dashboard's filter-bar values arrive separately, as
  * the `scopedFilter` merged into it.
  */
-type FilterableComponentSchema =
-  | ObjectChartSchema
-  | ObjectDataTableSchema
-  | (BaseSchema & { type: 'object-metric'; filter?: ObjectMetricWidgetProps['filter'] });
+type FilterableComponentSchema = ObjectChartSchema | ObjectDataTableSchema;
 
 /** Narrows a child node to {@link FilterableComponentSchema} by its `type`. */
 function isFilterableComponentSchema(cs: BaseSchema): cs is FilterableComponentSchema {
@@ -709,6 +703,11 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             // `metric-card` node key moves onto its namespaced registration
             // (`toDashboardNodeType`, objectui#10859 batch 8).
             const authoredComponent = entryComponent(widget);
+            // An `object-metric` node in the envelope is the last inline metric
+            // form, retired with the rest (objectui#11466, ruling A extending
+            // ruling C on objectui#11525): it draws the rebind prompt, the object
+            // the metric and pivot arms below return, and sends no query.
+            if (isRetiredEnvelopeNode(authoredComponent)) return LEGACY_RETIRED_WIDGET_SCHEMA;
             // `toRenderableSchema` (objectui#4622) bridges the envelope's `SchemaNode`
             // to what `SchemaRenderer` takes: a number or boolean draws the same text
             // (or nothing, when falsy) it drew when handed to the renderer bare.

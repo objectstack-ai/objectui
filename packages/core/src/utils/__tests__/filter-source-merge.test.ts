@@ -101,7 +101,12 @@ describe('lowering a ViewFilterRule — the operator vocabulary (objectui#3431)'
     const node = toFilterNode([{ field: 'a', operator: 'is_empty' }]);
     expect(node).toEqual([['a', 'is_empty']]);
     expect(isFilterAST(node)).toBe(true);
-    expect(parseFilterAST(node)).toEqual({ a: { $null: true } });
+    // What the server reads the 2-tuple AS. It read `$null: true` until
+    // `@objectstack/spec` 17.6.0, whose `parseFilterAST` lowers `is_empty` to
+    // the emptiness operator instead (objectstack#20570, objectui#11094). The
+    // assertion's job is unchanged: the server reads the rule's own predicate,
+    // keyed on the operator NAME, and not an equality on a `null` nobody wrote.
+    expect(parseFilterAST(node)).toEqual({ a: { $empty: true } });
   });
 
   it('passes an operator the spec does not know through VERBATIM', () => {

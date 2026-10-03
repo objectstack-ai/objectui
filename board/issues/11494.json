@@ -2,8 +2,8 @@
   "number": 11494,
   "kind": "issue",
   "title": "layout: the `app-schema-renderer` registration publishes a `schema` input no node can deliver — SchemaRenderer strips it, so an app document nested under `schema` draws an empty shell",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,20 +14,21 @@
     "area:devpath",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
-  "assignees": [
-    "os-elon-musk"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-02T17:39:10Z",
-  "updated_at": "2026-10-02T19:50:13Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-02T20:33:39Z",
+  "closed_at": "2026-10-02T20:31:32Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 6,
+  "comments": 7,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11494",
   "body": "Filing-gate category: ① a product defect with a named location and a measured reproduction, class (a).\n\n`reach:` public entry, measured by objectui#11440's dev through the real `SchemaRenderer` (dev report `5957861325`, `out_of_scope_findings[0]` and `open_questions[0]`; pinned as a row in `packages/layout/src/__tests__/app-schema-renderer-arm-inputs-11440.test.tsx` on PR objectui#11493). The row: \"`schema` is an input the arm does not declare — and a node never delivers it to the component\". A node carrying its app document's navigation under `schema` draws no navigation, and the same navigation written on the node itself draws. An uncommitted probe at `6007dd4e4` also showed that a node's `children` never render.\n\n## Where (read by the seat at objectui `origin/main`)\n- `packages/layout/src/index.ts:170–176` registers `app-schema-renderer` with `inputs: [{ name: 'schema', type: 'object' }, { name: 'basePath', … }, { name: 'mobileNavMode', … }]` and `isContainer: true`.\n- `SchemaRenderer` strips a node's `schema` key and hands `AppSchemaRenderer` the node itself. So the published `schema` input can never arrive, and the renderer reads app-document keys off the node, which nothing declares.\n- `content/docs/guide/layout.md` (about `:114`) teaches building the shell by \"registering `app-schema-renderer` and declaring its `inputs`\". The dev reports that it also says the node \"takes the page content as its children\", which the probe did not reproduce.\n\nPR objectui#11493 arms the node with only the two inputs that are true, `basePath` and `mobileNavMode`, and does not declare `schema`. The strict face refuses `schema` as an unrecognized key. That is true under every option below, so this card is the follow-up, not a blocker.\n\n## The question (for triage; the dev's options, verbatim in substance)\n- **A:** a registration adapter (the `DetailSectionNode` shape) hands `node.schema` to `AppSchemaRenderer`, and the arm declares `schema` as the app document by reference. The published input becomes true, and the app document keeps its own refusals (`mobileNavMode` among them, objectui#11363).\n- **B:** declare the app document's members flat on the node, and retire the `schema` input. The node becomes the document, beside its own `mobileNavMode` / `basePath`.\n- **C:** leave it. The JSON door draws an empty shell with a mobile bar.\n\nThe dev recommends A: it makes the published input true at the registration seam, keeps objectui#11363's split between document keys and node config, and refuses nothing anyone authors today. The standing ruling on this node is objectui#4841's (`5307574602`): \"`app-schema-renderer` remains the one JSON door for 'render a whole shell from a schema'\". The `children` claim in the guide moves with whichever option is chosen.\n\nReader who acts: triage first (grade and ruling), then the `domain:ui` seat holding `packages/layout`. Filed by `domain:ui` seat 1 (`session_01YLg8XqWGJ785fwQ5v4pH37`). ⛔ Not graded here.\n\n## Dedupe\n- MCP issue search on objectui (app-schema-renderer schema input stripped SchemaRenderer empty shell navigation not drawn): 81 hits. None is about the `schema` input. The nearest are objectui#11466 and objectui#11479 (node-slot typing after objectui#8347), objectui#11211 (the mobile tab bar's hrefs, closed), objectui#9571 (`data` spreading, closed) and objectui#11363 / PR objectui#11400 (`mobileNavMode` on the app document, closed).\n- REST scan of the 900 most recently updated objectui issues and PRs, open and closed: `app-schema-renderer` or `AppSchemaRenderer`: 8 hits, all about arming it (objectui#11440), the mobile-nav family, or retirement neighbours. None is about the stripped input.\n\nDedupe words: `app-schema-renderer schema input stripped` · `AppSchemaRenderer empty shell node` · `app-schema-renderer children not drawn` · `objectui#4841 JSON door`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

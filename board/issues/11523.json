@@ -1,0 +1,34 @@
+{
+  "number": 11523,
+  "kind": "pull_request",
+  "title": "docs(plugin-dashboard): the charts example authors a line widget bound to a dataset; the card widget with nested children retires (objectui#11484)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [
+    "os-sales"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-03T00:59:00Z",
+  "updated_at": "2026-10-03T01:33:24Z",
+  "closed_at": "2026-10-03T01:33:22Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-03T01:33:22Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11523",
+  "body": "Fixes #11484\n\n`content/docs/plugins/plugin-dashboard.mdx`, section \"Dashboard with Charts\": the json fence's \"Sales Trend\" widget was a `card` with a nested `chart` node in `children`. It now takes the widget shape the package README teaches since objectui#7035: `\"type\": \"line\"` names the chart family, and the widget binds `\"dataset\": \"sales\"` with `dimensions` and `values`. The lead-in and the callout are rewritten with it. They taught `type: \"chart\"` + `chartType` for a dashboard chart, and the widget slot refuses that spelling too (probe: a widget `{ type: \"chart\", chartType: \"line\", dataset, dimensions, values }` and a widget `{ type: \"line\", chartType: \"line\", ... }` are both refused by `DashboardComponentSchema`, tolerant and strict).\n\nThe schema is not the wrong side here: `card` is outside the closed widget-type vocabulary (`DashboardWidgetTypeSchema`: the spec's chart families plus `list` / `custom`), the widget-slot component arm admits `metric-card` only, and a widget declares no `children` slot.\n\n## Validator verdicts, before and after\n\n**1. The card's own instrument**, `scripts/measure-strict-authoring-face.mjs --json`, after `pnpm --filter @object-ui/types build`. These are readings at the two commits named, not live counts:\n\n| reading | before, `8366accd13` | after, `6e925b98ab` |\n|---|---|---|\n| `dashboard` nodes refused by the strict twin | 1 | 0 |\n| `dashboard` nodes red under the face as shipped | 1 | 0 |\n| docs corpus, nodes red today | 16 | 15 |\n| `dashboard:` rows in `redTodayReasons` | `type invalid_value`, `children invalid_type`, `(root) unrecognized_keys`, `(root) invalid_type` | none |\n\n**2. A direct probe**: the fence is extracted from the page and parsed with `@object-ui/types/zod` from the built `dist/`.\n\n| face | before | after |\n|---|---|---|\n| `DashboardComponentSchema` (tolerant) | REFUSED: `invalid_value` at `widgets.1.type`, `unrecognized_keys` `children` at `widgets.1` | ACCEPTED |\n| `deriveStrictAuthoringSchema(DashboardComponentSchema)` | REFUSED, same issues | ACCEPTED |\n| `StrictAnyComponentSchema` | REFUSED, same issues | ACCEPTED |\n| TypeScript face: `DashboardComponentSchema` from built `dist/index.d.ts`, `tsc --strict` | TS2322 on `type: \"card\"` and on `children` | compiles clean |\n\n## C3: which docs gate judges json fences on this page\n\nNone judges a json fence's schema validity, so the fixed fence has no gate pin. Per the ruling, no gate is added.\n\n- `check:doc-types` (`scripts/check-doc-component-types.mjs`) reads the `type` literals in every code block under `content/docs/**`, json fences included. It only asks whether each type names a registered component; its header says it \"answers one question only — does the type exist\". `card` and `chart` are registered, so the refused fence passed it. Measured: I put the old fence back on this branch's tree (an ablation through `ablation-replace.mjs`, restored to HEAD's blob). The probe refuses it and `check:doc-types` exits 0.\n- `check:doc-snippets` compiles ts / tsx fences only.\n- `check:doc-examples` and `check:doc-example-readers` read JSDoc `@example` blocks under `packages/NAME/src`, not `content/docs/**`.\n\nThe one instrument that sees this class is the report-only measurement script above.\n\n## Why the README twin's `pie` widget is not copied\n\nThe README example also carries a `pie` widget, and `check:doc-types` refuses `pie` on this page. `pie` names no registered component, and the gate's `DOC_TYPE_EXEMPTIONS` row for this page covers `metric`, `metric-card`, `bar` and `line` only. Measured by ablation: with the pie widget added, all three schema faces accept the fence and `check:doc-types` exits 1 with `[unregistered-doc-type] type 'pie' (json)`. The exemption lives in `scripts/check-doc-component-types.mjs`, outside this claim's file surface. So the fence keeps the metric card and the line widget.\n\n## Local verification, at `6e925b9`\n\n- `node scripts/check-control-bytes.mjs`, `check:doc-types`, `node scripts/check-prompt-component-keys.mjs`, `check:doc-example-ids`, `check:doc-fences` (with `--self-test`), `node scripts/check-doc-links.mjs` and `check:new-line-citations` all exit 0.\n- `node scripts/check-changeset-presence.mjs` exits 0: \"No source or published contract of a released package changed in this range, so no changeset is owed.\" This PR has no changeset file.\n- `node scripts/markdown-test-inputs.mjs --changed` names this page as a test input, so CI runs the full suite.\n- Locally I ran a narrowed set: `pnpm exec vitest run scripts/__tests__/unconsumed-widget-option-claim-6186.test.ts scripts/__tests__/check-doc-component-types.test.ts` passed 2 files and 131 tests. The first reads this page. The second covers the gate whose exemptions and key-table scan read it.\n- NOT MEASURED locally: the other tests that read `content/docs/**` as data, because the shared verification lock timed out three times behind a sibling's full-suite run. CI runs them.\n- NOT MEASURED locally: `check:doc-snippets`, because the diff touches no ts / tsx fence. The `doc-snippet-types` workflow runs it.\n\n## Acceptance notes\n\n- `packages/cli/src/__tests__/unfulfilled-chart-stubs-retired-8760.test.ts` has a case named \"the spelling the corrected dashboard doc teaches is accepted\". Its comment says this page teaches `{ type: 'chart', chartType: 'line' }`. After this PR the page no longer teaches that spelling. The case still pins a true fact (the CLI accepts a `chart` node), and only its name and comment point at this page. Not filed; carrier: none.\n\nThe dispatch session is `session_01HRYqpqGcWpJuJkDmbRF75w` (domain:devx seat 2 PM, claim comment 5963526230).\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01HRYqpqGcWpJuJkDmbRF75w)_\n"
+}

@@ -2,8 +2,8 @@
   "number": 11440,
   "kind": "issue",
   "title": "types: arm the registered types that pass the criterion or a standing ruling (object-pivot, embeddable-form, detail-section, app-schema-renderer, page kinds home/record/utility); fold spec-report into report — objectui#10859 follow-up",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,20 +14,21 @@
     "area:devpath",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
-  "assignees": [
-    "os-elon-musk"
-  ],
+  "assignees": [],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-02T04:21:36Z",
-  "updated_at": "2026-10-02T20:13:06Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-02T21:29:05Z",
+  "closed_at": "2026-10-02T21:27:14Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 10,
+  "comments": 12,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11440",
   "body": "This card carries the eight keys that pass the criterion, per the seat ruling `5945530142` and its amendment `5945583855` on objectui#10859. The parent objectui#10859 keeps the `REFUSED_AT_TYPE` ratchet, the retirements (batch 8, phases 2a and 2b) and the three box keys.\n\nFiling-gate category: ① a defect family with named sites, class (a), a sub-issue of in-flight objectui#10859. It carries the parent's `domain:ui` and `priority:p2` (triage `5860727647` item 3: \"Keys that pass it become one follow-up card listing them\"). `reach:` public door, measured by the batch-8 dev at objectui `d8edfe257` (report `5945491717`):\n- `objectui validate` refuses `{ type: 'home', name, regions }` at `type`, the spec's own page shape (`{ type: 'page', pageType: 'home' }` passes);\n- it refuses the plugin-detail README's `detail-view` document at `tabs.0.content`, because the README teaches a `detail-section` node there.\n\nReader who acts: `domain:ui` seat 1 (`session_01YLg8XqWGJ785fwQ5v4pH37`), dispatched after objectui#10859 batch 8 phase 2b lands. That ordering is serial on the ratchet pin and `known-schema-types.ts`.\n\n## The keys (registration, producers and readings are the dev's measurement in `5945491717`)\n\n| key | registration | why it passes (mainstream reading cited in `5945491717`) | what this card does |\n|:--|:--|:--|:--|\n| `object-pivot` | `plugin-dashboard` `register('object-pivot', ObjectPivotBlock)`; `PUBLIC_BLOCKS` Tier A | object-bound pivot (`pbiMatrix`) | declare it locally from its registration inputs (spec 17.5.0 `ComponentPropsMap` has no row), then arm it |\n| `embeddable-form` | `plugin-form` `register('embeddable-form', …)`, `formId` + `objectName` required; Tier A | embeddable public form (`airtableForm`) | declare and arm it |\n| `detail-section` | `plugin-detail` `register('detail-section', DetailSectionNode)` | field section on a record page (`sfFieldSection`); taught by the plugin-detail README inside `detail-view` `tabs[].content`, refused today | declare and arm it, or fold it into `record:details` sections if measurement shows that is the same shape (the dev's note) |\n| `home`, `record`, `utility` | `page.tsx` registers each as `PageRenderer` (objectui#9642: \"THESE KEYS ARE PAGE KINDS\") | spec 17.5.0 `PageSchema.type` is `record \\| home \\| app \\| utility \\| list`; app-shell `PageView` writes a stored page's kind into `type`; objectui#9576 closed not_planned on exactly this (`sfPageTypes`) | arm the spec's spelling by reference, so a spec page document validates |\n| `app-schema-renderer` | `layout` `register('app-schema-renderer', AppSchemaRenderer)`; it declares `inputs` | standing maintainer decisions, not the mainstream reading: objectui#4841's ruling (`5307574602`) keeps it \"the one JSON door for 'render a whole shell from a schema'\", and the maintainer-approved governed guide `skills/objectui/guides/mobile.md` (PR objectui#11397) teaches its SDUI node key as a `mobileNavMode` channel, which `objectui validate` refuses today | declare it from its registration inputs, then arm it, so the node the published guide teaches validates |\n| `spec-report` | `plugin-report` `register('spec-report', ReportRenderer)`, the same dispatcher as the armed `report`; `DrillDownDrawer` emits it | embed a saved report (`sfStdComponents`), but the spelling is an alias | `report` declares the wrapper shape `spec-report` carries (today the strict face refuses `{ type: 'report', report }` as `unrecognized_keys`); move `DrillDownDrawer` and the docs to `report`; then unregister `spec-report` with a tombstone (the objectui#8760 one-spelling route) |\n\n## Premises (re-check at claim)\n- `REFUSED_AT_TYPE` after batch 8 is 10: these 7 keys plus the 3 box keys. Re-check with `pnpm exec vitest run packages/cli/src/__tests__/registered-types-validate-ratchet-10859.test.ts` and the pin's own count. This card takes it to 2 (the two box keys, `navigation-renderer` and `responsive-grid`).\n- Which page spelling is canonical (objectui's `type: 'page'` + `pageType`, or the spec's `type: <kind>`) is not this card's to change. It arms the spec's spelling because the spec declares it; any retirement of a spelling is a separate question for triage.\n- `Clause-②: yes` (arms widen the accept set), so the at-tier contract review is owed before ACCEPT, as objectui#10859 batch 7's was.\n\n## Dedupe\nThe 804 most recently updated objectui issues and PRs, open and closed (back to #3162, REST, grepped locally 2026-10-02):\n- `object-pivot` 11, all closed: drill-down and data-invalidation findings, and PRs that list it;\n- `embeddable-form` 2 (closed PRs objectui#11113, objectui#10870);\n- `detail-section` 1 (closed PR objectui#10870, batch 1, which only lists it);\n- `spec-report` 11, all closed: JoinedReportBlock derivation, data reads;\n- `app-schema-renderer` 7, all closed: the objectui#11363 / objectui#11211 / objectui#11362 / objectui#11395 mobile-nav family and their PRs, none about arming it;\n- a bare `type: 'home'` / `'utility'` literal 5, none about arming the kinds (objectui#11423's pages and the PRs around it);\n- control: `known-schema-types` / `KNOWN_SCHEMA_TYPES` 19, objectui#10859 among them.\n\nNone carries this follow-up.\n\nDedupe words: `arm object-pivot embeddable-form detail-section` · `page kinds home record utility refused at type` · `spec-report alias of report` · `10859 follow-up passing keys`\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_\n"

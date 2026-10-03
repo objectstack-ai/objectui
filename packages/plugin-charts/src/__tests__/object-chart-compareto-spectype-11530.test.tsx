@@ -310,6 +310,31 @@ describe('an object-chart reads the family it draws for compareTo, on either cha
     });
   });
 
+  it('moving the `specType` family from bar to pie re-runs the fetch under pie\'s gate: 2 calls, then 1 more', async () => {
+    // The fetch is keyed on the family its gate reads, so a family change on
+    // `specType` alone (every other key equal) re-runs it with the new answer.
+    const { source, calls } = sourceFor('bar');
+    const nodeFor = (family: string) => ({
+      ...OBJECT_SHAPES['properties bag, object path'](family, 'specType'),
+      isAnimationActive: false,
+    });
+    const { container: c, rerender } = render(
+      <SchemaRendererProvider dataSource={source as never}>
+        <SchemaRenderer schema={nodeFor('bar') as never} />
+      </SchemaRendererProvider>,
+    );
+    await waitFor(() => expect(c.querySelectorAll('.recharts-bar').length).toBe(2), { timeout: 10_000 });
+    expect(calls.aggregate).toBe(2);
+    rerender(
+      <SchemaRendererProvider dataSource={source as never}>
+        <SchemaRenderer schema={nodeFor('pie') as never} />
+      </SchemaRendererProvider>,
+    );
+    await waitFor(() => expect(c.querySelectorAll('.recharts-pie').length).toBe(1), { timeout: 10_000 });
+    await waitFor(() => expect(calls.aggregate).toBe(3));
+    expect(c.querySelector('[data-chart-error]')).toBeNull();
+  });
+
   describe('flat node, inline rows carrying the comparison column (the overlay gate alone)', () => {
     it('`specType: scatter` synthesises no overlay series, so it draws instead of refusing', async () => {
       const drawn = await renderNode(inlineNode('scatter', 'specType'), 'scatter');

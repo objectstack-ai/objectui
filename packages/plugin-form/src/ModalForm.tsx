@@ -14,7 +14,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useId, useRef } from 'react';
-import type { FormField, FormSchema, DataSource, ObjectFormSchema } from '@object-ui/types';
+import type { FormField, FormSchema, DataSource, ObjectFormSchema, ObjectFormSection } from '@object-ui/types';
 import {
   Dialog,
   MobileDialogContent,
@@ -340,11 +340,11 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   // member still goes through `gateFields` below, like an enumerated one.
   const resolvedSections = useMemo(
     () =>
-      resolveSectionGroupReferences(schema.sections as any, {
+      resolveSectionGroupReferences(schema.sections as ObjectFormSection[] | undefined, {
         objectName: schema.objectName,
         formType: schema.formType,
         objectDef: objectSchema,
-        resolvable: typeof (dataSource as any)?.getObjectSchema === 'function',
+        resolvable: typeof dataSource?.getObjectSchema === 'function',
       }) as ModalFormSectionConfig[] | undefined,
     [schema.sections, schema.objectName, schema.formType, objectSchema, dataSource],
   );

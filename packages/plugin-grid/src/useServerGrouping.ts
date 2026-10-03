@@ -57,6 +57,24 @@
  * `ObjectChart` applies to a grouped series); a failed resolution keeps the id
  * rather than failing the grid. Ordering the groups is the consumer's too:
  * `useGroupedData` applies `GroupingField.order` over the header set.
+ *
+ * ## An answer is held against the question it answers (objectui#11574)
+ *
+ * Both hooks record what they hold WITH the question it answers — the object,
+ * the grouping fields, and the query they compile with (the composed filter,
+ * the search pair and, for the headers, the summary columns) — and read a
+ * held answer only under that same question, at once, in the render the
+ * question changes. A header row carries only the fields it was grouped by,
+ * so the previous field's header set read under the next field's name is
+ * every row keyed `null`: one `(empty)` group per old header, all on the same
+ * composite key, which React cannot reconcile (the stale duplicates outlive
+ * the real answer as phantom headers stuck on "Loading grid…"). A group row
+ * page is held by composite key, and two fields can share a key (`0:high`
+ * under `priority` and under `impact`), so the previous field's page — one
+ * answered after the switch included — would render under the next field's
+ * group. A refresh (`reloadKey`) re-asks the SAME question, so it keeps the
+ * answer in hand on screen while it reloads; any other change starts with
+ * none.
  */
 
 import { useCallback, useEffect, useState } from 'react';
@@ -133,6 +151,17 @@ export interface ServerGroupHeaders {
 
 const IDLE: ServerGroupHeaders = { headers: undefined, keyLabels: {}, loading: false, error: null };
 
+/** Asked, with no answer to THIS question in hand yet. */
+const PENDING: ServerGroupHeaders = { headers: undefined, keyLabels: IDLE.keyLabels, loading: true, error: null };
+
+/** The header state, recorded against the question it answers. */
+interface HeldHeaders extends ServerGroupHeaders {
+  /** The `question` this state answers; `''` when idle. */
+  question: string;
+}
+
+const IDLE_HELD: HeldHeaders = { ...IDLE, question: '' };
+
 /**
  * The search pair of a group row query, as the header query takes it.
  *
@@ -159,7 +188,7 @@ export function groupSearchOf(
  */
 export function useServerGroupHeaders(input: ServerGroupHeadersInput): ServerGroupHeaders {
   const { enabled, dataSource, objectName, fields, where, search, searchFields, aggregations, objectFields, reloadKey } = input;
-  const [state, setState] = useState<ServerGroupHeaders>(IDLE);
+  const [state, setState] = useState<HeldHeaders>(IDLE_HELD);
 
   // Keyed on CONTENT, never on the identity of an object a host may rebuild
   // every render (AGENTS.md #10).
@@ -180,16 +209,25 @@ export function useServerGroupHeaders(input: ServerGroupHeadersInput): ServerGro
     }),
   );
   const canAsk = enabled && !!objectName && typeof dataSource?.queryGroupHeaders === 'function' && fields.length > 0;
+  // What the header set answers: the grouping fields and the header query
+  // they compile with. `reloadKey` is not in it — a refresh asks the same
+  // question again — and neither is `referenceKey`, which labels the keys of
+  // the same answer.
+  const question = JSON.stringify([objectName ?? null, fieldsKey, whereKey, searchKey, aggregationsKey]);
 
   useEffect(() => {
     if (!canAsk || !dataSource || !objectName) {
       // Leaving server grouping drops the last answer rather than keeping a
       // group set that no longer describes the view.
-      setState((prev) => (prev === IDLE ? prev : IDLE));
+      setState((prev) => (prev === IDLE_HELD ? prev : IDLE_HELD));
       return;
     }
     let cancelled = false;
-    setState((prev) => ({ ...prev, loading: true, error: null }));
+    // Re-asking the question in hand keeps its answer on screen while it
+    // reloads; a different question starts with none (objectui#11574).
+    setState((prev) => (prev.question === question
+      ? { ...prev, loading: true, error: null }
+      : { ...PENDING, question }));
     const fieldNames: string[] = JSON.parse(fieldsKey);
     const references: Array<[string, string | null] | null> = JSON.parse(referenceKey);
     const grouping = groupingOf(fieldNames.map((field) => ({ field })));
@@ -242,18 +280,22 @@ export function useServerGroupHeaders(input: ServerGroupHeadersInput): ServerGro
           }),
         );
 
-        if (!cancelled) setState({ headers, keyLabels, loading: false, error: null });
+        if (!cancelled) setState({ question, headers, keyLabels, loading: false, error: null });
       } catch (err) {
         if (!cancelled) {
-          setState({ headers: undefined, keyLabels: {}, loading: false, error: err instanceof Error ? err : new Error(String(err)) });
+          setState({ question, headers: undefined, keyLabels: {}, loading: false, error: err instanceof Error ? err : new Error(String(err)) });
         }
       }
     })();
 
     return () => { cancelled = true; };
-  }, [canAsk, dataSource, objectName, fieldsKey, whereKey, searchKey, aggregationsKey, referenceKey, reloadKey]);
+  }, [canAsk, dataSource, objectName, question, fieldsKey, whereKey, searchKey, aggregationsKey, referenceKey, reloadKey]);
 
-  return state;
+  // Read in the render the question changes, not one render late: the
+  // state still holds the previous question's answer until the effect
+  // above has run, and that answer is never this question's.
+  if (!canAsk) return IDLE;
+  return state.question === question ? state : PENDING;
 }
 
 /** One leaf group whose rows the grid wants on screen. */
@@ -302,19 +344,35 @@ interface HeldPage extends ServerGroupRowsPage {
   signature: string;
 }
 
+/** The pages held, recorded against the question they answer. */
+interface HeldPages {
+  question: string;
+  pages: Record<string, HeldPage>;
+}
+
+const NO_PAGES: Readonly<Record<string, HeldPage>> = {};
+
 /**
  * Page the rows INSIDE each visible, expanded leaf group — one compiled row
  * query per group, `limit` / `offset` per group.
  */
 export function useServerGroupRows(input: ServerGroupRowsInput): ServerGroupRows {
   const { enabled, dataSource, objectName, fields, where, baseParams, pageSize, leaves, reloadKey } = input;
-  const [held, setHeld] = useState<Record<string, HeldPage>>({});
 
   const fieldsKey = JSON.stringify(fields.map((f) => f.field));
   const whereKey = JSON.stringify(where ?? null);
   const paramsKey = JSON.stringify(baseParams ?? null);
   const leavesKey = JSON.stringify(leaves.map((l) => [l.key, l.keyValues]));
   const queryKey = JSON.stringify([fieldsKey, whereKey, paramsKey, pageSize, reloadKey]);
+  // The question the group set answers, as far as a group's rows share it:
+  // the grouping fields, the composed filter and the search pair. A group's
+  // composite key means a different group under a different question (two
+  // fields can share one), so a page held under one is never read under
+  // another (objectui#11574). Order, projection, page size and a refresh are
+  // the same groups asked again: the page in hand stays on screen meanwhile.
+  const question = JSON.stringify([objectName ?? null, fieldsKey, whereKey, groupSearchOf(baseParams)]);
+  const [held, setHeld] = useState<HeldPages>({ question, pages: {} });
+  const heldPages = held.question === question ? held.pages : NO_PAGES;
 
   // The page each group is on, recorded AGAINST the question it was turned
   // under: a different question (filter, sort, page size, a refresh) makes
@@ -339,12 +397,16 @@ export function useServerGroupRows(input: ServerGroupRowsInput): ServerGroupRows
       // Already asked (answered or in flight) for exactly the page on screen.
       // A response to any OTHER request for this group is dropped on arrival
       // by the same signature, so paging back and forth never shows a stale
-      // page under the pager's number.
-      if (held[key]?.signature === signature) continue;
-      setHeld((prev) => ({
-        ...prev,
-        [key]: { rows: prev[key]?.rows ?? [], page, loading: true, error: null, signature },
-      }));
+      // page under the pager's number — and one asked under another question
+      // by the question too, so it never lands in this question's pages.
+      if (heldPages[key]?.signature === signature) continue;
+      setHeld((prev) => {
+        const pages = prev.question === question ? prev.pages : {};
+        return {
+          question,
+          pages: { ...pages, [key]: { rows: pages[key]?.rows ?? [], page, loading: true, error: null, signature } },
+        };
+      });
 
       const compiled = compileListViewGroupRowsQuery({ grouping }, keyValues, {
         ...(composedWhere ? { where: composedWhere } : {}),
@@ -364,23 +426,24 @@ export function useServerGroupRows(input: ServerGroupRowsInput): ServerGroupRows
         $skip: compiled.offset,
       };
 
+      const answers = (prev: HeldPages) => prev.question === question && prev.pages[key]?.signature === signature;
       dataSource
         .find(objectName, params as QueryParams)
         .then((result) => {
-          setHeld((prev) => (prev[key]?.signature === signature
-            ? { ...prev, [key]: { rows: result?.data ?? [], page, loading: false, error: null, signature } }
+          setHeld((prev) => (answers(prev)
+            ? { question, pages: { ...prev.pages, [key]: { rows: result?.data ?? [], page, loading: false, error: null, signature } } }
             : prev));
         })
         .catch((err) => {
-          setHeld((prev) => (prev[key]?.signature === signature
-            ? { ...prev, [key]: { rows: [], page, loading: false, error: err instanceof Error ? err : new Error(String(err)), signature } }
+          setHeld((prev) => (answers(prev)
+            ? { question, pages: { ...prev.pages, [key]: { rows: [], page, loading: false, error: err instanceof Error ? err : new Error(String(err)), signature } } }
             : prev));
         });
     }
-    // `held` is read to skip a request already answered; naming it would
+    // `heldPages` is read to skip a request already answered; naming it would
     // re-run this effect on every answer, which asks nothing new.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canAsk, dataSource, objectName, fieldsKey, whereKey, leavesKey, pagesKey, queryKey, pageSize]);
+  }, [canAsk, dataSource, objectName, question, fieldsKey, whereKey, leavesKey, pagesKey, queryKey, pageSize]);
 
   const setPage = useCallback((key: string, page: number) => {
     setTurned((prev) => {
@@ -391,8 +454,8 @@ export function useServerGroupRows(input: ServerGroupRowsInput): ServerGroupRows
     });
   }, [queryKey]);
 
-  // The held STATE itself, not a projection memoised over it: a consumer
-  // keys an effect on it, and a state value's identity is a promise React
-  // keeps where a memo's is not (AGENTS.md #10).
-  return { pages: held, setPage };
+  // The held STATE itself (or the one empty constant), not a projection
+  // memoised over it: a consumer keys an effect on it, and a state value's
+  // identity is a promise React keeps where a memo's is not (AGENTS.md #10).
+  return { pages: heldPages, setPage };
 }

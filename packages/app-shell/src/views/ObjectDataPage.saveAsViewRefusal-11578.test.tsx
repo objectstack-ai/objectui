@@ -174,7 +174,7 @@ async function saveAsView() {
 beforeEach(() => {
   cleanup();
   puts.length = 0;
-  client = new MetadataClient({ baseUrl: 'http://localhost', fetch: wire() as any });
+  client = new MetadataClient({ baseUrl: 'http://localhost', fetch: wire() as unknown as typeof fetch });
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });
 afterEach(() => {

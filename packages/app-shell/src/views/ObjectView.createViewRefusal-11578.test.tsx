@@ -129,7 +129,7 @@ vi.mock('./metadata-admin/useMetadata', async (importOriginal) => ({
   useMetadataClient: () => client,
 }));
 
-import { ObjectView } from './ObjectView';
+import { ObjectView, type ConsoleObjectViewProps } from './ObjectView';
 import { ExpressionProvider } from '../providers/ExpressionProvider';
 
 const OBJECT_NAME = 'crm_deal';
@@ -148,7 +148,7 @@ function makeDataSource() {
     update: vi.fn(async () => ({})),
     delete: vi.fn(async () => ({})),
     getObjectSchema: vi.fn(async () => ({ name: OBJECT_NAME, fields: {} })),
-  } as any;
+  } as unknown as ConsoleObjectViewProps['dataSource'];
 }
 
 function Where() {
@@ -203,7 +203,7 @@ async function createViewThroughTheTabBar() {
 beforeEach(() => {
   cleanup();
   puts.length = 0;
-  client = new MetadataClient({ baseUrl: 'http://localhost', fetch: wire() as any });
+  client = new MetadataClient({ baseUrl: 'http://localhost', fetch: wire() as unknown as typeof fetch });
   vi.stubGlobal('fetch', vi.fn(async () => json({ data: [] }, 200)));
   vi.spyOn(console, 'error').mockImplementation(() => {});
 });

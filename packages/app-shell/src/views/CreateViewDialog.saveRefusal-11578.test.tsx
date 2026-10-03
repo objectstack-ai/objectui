@@ -58,7 +58,7 @@ const labelInput = () => screen.getByTestId('create-view-name-input') as HTMLInp
 const nameInput = () => screen.getByTestId('create-view-machine-name-input') as HTMLInputElement;
 
 /** Mount the open dialog, type a label, and wait for Create to enable. */
-async function openWithLabel(onCreate: (cfg: any) => boolean | Promise<boolean>) {
+async function openWithLabel(onCreate: (cfg: Record<string, unknown>) => boolean | Promise<boolean>) {
   const onOpenChange = vi.fn();
   render(<CreateViewDialog open onOpenChange={onOpenChange} onCreate={onCreate} objectDef={DEAL} />);
   fireEvent.change(labelInput(), { target: { value: 'Pipeline board' } });

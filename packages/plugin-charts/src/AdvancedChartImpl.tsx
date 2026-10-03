@@ -1687,22 +1687,6 @@ function AdvancedChartImplInner({
     window.addEventListener('resize', checkMobile);
     return () => window.removeEventListener('resize', checkMobile);
   }, []);
-  const ChartComponent = {
-    bar: BarChart,
-    'horizontal-bar': BarChart,
-    line: LineChart,
-    area: AreaChart,
-    pie: PieChart,
-    donut: PieChart,
-    radar: RadarChart,
-    scatter: ScatterChart,
-    funnel: FunnelChart as any,
-    // combo/treemap/sankey return from their own branches above; mapped here
-    // only so the index type stays exhaustive.
-    combo: ComposedChart,
-    treemap: BarChart,
-    sankey: BarChart,
-  }[chartType] || BarChart;
 
   // Format ISO date strings into compact "MMM D" / "MMM YYYY" labels for X-axis ticks.
   // Falls back to the raw value when not parseable as a date.
@@ -2102,6 +2086,26 @@ function AdvancedChartImplInner({
       </div>
     );
   }
+
+  // The recharts root the cartesian tail at the end draws in. It is read
+  // only past the dispatch above, which returns for every family outside
+  // `RENDERABLE` and for none (objectui#11520), so `chartType` is a drawn
+  // family here. combo/treemap/sankey return from their own branches below;
+  // they are mapped only so every drawn family has a row.
+  const ChartComponent = ({
+    bar: BarChart,
+    'horizontal-bar': BarChart,
+    line: LineChart,
+    area: AreaChart,
+    pie: PieChart,
+    donut: PieChart,
+    radar: RadarChart,
+    scatter: ScatterChart,
+    funnel: FunnelChart as any,
+    combo: ComposedChart,
+    treemap: BarChart,
+    sankey: BarChart,
+  } as Record<string, React.ComponentType<any>>)[chartType] || BarChart;
 
   // Pie and Donut charts
   if (chartType === 'pie' || chartType === 'donut') {

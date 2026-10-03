@@ -37,7 +37,9 @@ describe('convertFilterGroupToAST', () => {
       // `isEmpty` is a deprecated stored spelling, not a builder id: since
       // objectui#9306 the row type says so, hence the `unknown` hop.
     } as unknown as FilterGroup;
-    expect(convertFilterGroupToAST(group)).toEqual(['x', '=', null]);
+    // The spec's `isempty`, lowered to `$empty` (objectui#10813) — it was an
+    // equality to `null` before, a null-only test.
+    expect(convertFilterGroupToAST(group)).toEqual(['x', 'isempty', null]);
   });
 
   it('keeps a fresh `Is null` row — no value is that row’s finished state', () => {
@@ -94,10 +96,11 @@ describe('convertFilterGroupToAST — every value-less operator emits a real nod
   // Keyed by the builder's own ids, which are the protocol's canonical
   // spellings since objectui#9306 (camelCase when this table was written).
   const EMITTED: Record<string, unknown[]> = {
-    // Resolved to a null comparison before `mapOperator` is consulted — these
-    // two already worked, and are pinned so the fix cannot regress them.
-    is_empty: ['f', '=', null],
-    is_not_empty: ['f', '!=', null],
+    // The spec's empty pair, lowered to `$empty` (objectui#10813). They were
+    // resolved to a null comparison (`'=' | '!=', null`) before `mapOperator`
+    // was consulted, a null-only test the spec's `is_empty` no longer means.
+    is_empty: ['f', 'isempty', null],
+    is_not_empty: ['f', 'isnotempty', null],
     // The defect. `mapOperator` has had these rows all along and both spellings
     // are members of `VALID_AST_OPERATORS`; the row simply never reached it.
     is_null: ['f', 'isnull', null],

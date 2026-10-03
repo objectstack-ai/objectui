@@ -62,7 +62,7 @@
  * gives this file its teeth.
  */
 import { describe, it, expect } from 'vitest';
-import { VALID_AST_OPERATORS, isFilterAST } from '@objectstack/spec/data';
+import { VALID_AST_OPERATORS, isFilterAST, parseFilterAST } from '@objectstack/spec/data';
 import { VIEW_FILTER_OPERATORS, VIEW_FILTER_OPERATOR_ALIASES } from '@objectstack/spec/ui';
 import { mapOperator, normalizeFilterCondition } from '../ListView';
 
@@ -96,73 +96,21 @@ const EXPECTED_AST_TARGET: Record<string, string> = {
   before: '<', //                 case 'before'  ─┬ the pair that regressed
   after: '>', //                  case 'after'   ─┘
   between: 'between', //          case 'between'
-
-  // The only two rows with no arm of their own: they fall through to
-  // `default: return op`, so the expected target IS the view spelling. Pinned
-  // as identity rather than omitted, so that a future branch claiming to
-  // "handle" either of them has to come and say so here.
-  //
-  // Why identity is right for these two and was wrong for `before`/`after`:
-  // the FilterBuilder path never reaches `mapOperator` with them at all —
-  // `convertFilterGroupToAST` rewrites its own camelCase spellings
-  // (`isEmpty` / `isNotEmpty`) to `[field, '=' | '!=', null]` first — and the
-  // canonical snake_case spellings are themselves accepted by the AST gate, so
-  // passing them through unchanged is not a silent drop. That second half is a
-  // fact about the AST vocabulary, i.e. exactly the kind of fact that moved
-  // under this file before, so it is asserted rather than assumed: see
-  // 'the identity rows are ones the AST gate accepts unchanged' below.
-  is_empty: 'is_empty',
-  is_not_empty: 'is_not_empty',
+  // objectui#10813. These two were the only rows with no arm of their own —
+  // pinned as identity, because `convertFilterGroupToAST` resolved the pair
+  // to `[field, '=' | '!=', null]` before `mapOperator` was consulted. That
+  // null test is not what the spec's `is_empty` means since `$empty` (ruling B
+  // on objectstack#20311, lowered from the pair by objectstack#20446), so the
+  // pair now takes the value-less path like `is_null`, through real arms.
+  is_empty: 'isempty', //         case 'isempty'
+  is_not_empty: 'isnotempty', //  case 'isnotempty'
 };
-
-/**
- * Operators this bridge deliberately resolves without reaching the AST gate.
- *
- * Every token here must still be a member of `VIEW_FILTER_OPERATORS` — the
- * ratchet below enforces it. Subtracting a name the spec has retired excuses
- * nothing and must be deleted rather than left as a dead subtraction (#3628).
- *
- * This set narrows the two secondary sweeps only. `EXPECTED_AST_TARGET` above
- * subtracts nothing: it is total over the vocabulary, so no exclusion set can
- * quietly hollow out the file's primary guarantee.
- */
-const HANDLED_BEFORE_MAPPING = new Set([
-  // convertFilterGroupToAST rewrites these to `[field, '=' | '!=', null]`
-  // before mapOperator is consulted, so they never need an AST spelling.
-  'is_empty', 'is_not_empty',
-]);
 
 describe('mapOperator bridges the spec view vocabulary onto the AST vocabulary', () => {
   it('reads both vocabularies from the spec', () => {
     // Guards every assertion below against silently passing on an empty list.
     expect(VIEW_FILTER_OPERATORS.length).toBeGreaterThan(0);
     expect(VALID_AST_OPERATORS.size).toBeGreaterThan(0);
-  });
-
-  // The exclusion ratchet (#3628). The two secondary sweeps below subtract a
-  // hand-written set from a spec-derived vocabulary, and that subtraction only
-  // excuses something while the spec still lists the subtracted tokens. Once
-  // upstream retires or renames one, the sweep stays green (it is still total
-  // over what remains) but the row becomes dead weight, and its comment goes on
-  // telling the next reader that "the view layer rewrites this first" about an
-  // operator no author can declare any more. That is the shape that rotted 37 of
-  // 82 deny-list entries in #3601 with nothing to report it — a hand-written
-  // list beside a spec-derived vocabulary and no assertion that its members
-  // still exist in that vocabulary.
-  //
-  // Collected rather than asserted per entry on purpose (same call as PR #3623):
-  // vocabulary retirements land as whole families, and failing on the first entry
-  // would hide the rest.
-  it('every HANDLED_BEFORE_MAPPING token is still in the spec view vocabulary', () => {
-    const vocabulary = new Set<string>(VIEW_FILTER_OPERATORS);
-    const retired = [...HANDLED_BEFORE_MAPPING].filter((op) => !vocabulary.has(op));
-    expect(
-      retired,
-      `VIEW_FILTER_OPERATORS no longer lists these HANDLED_BEFORE_MAPPING tokens: `
-        + `${retired.join(', ')}. The spec has retired them, so subtracting them from `
-        + 'the sweeps below excuses nothing — delete each from the set (with the comment '
-        + 'claiming the view layer rewrites it) rather than leaving a dead subtraction',
-    ).toEqual([]);
   });
 
   // The totality ratchet for the pin table (#3641). Both directions matter and
@@ -212,25 +160,23 @@ describe('mapOperator bridges the spec view vocabulary onto the AST vocabulary',
     },
   );
 
-  it('the identity rows are ones the AST gate accepts unchanged', () => {
-    // `is_empty` / `is_not_empty` are pinned to themselves above, which is only
-    // safe while the AST gate accepts those spellings verbatim. Asserting a
-    // fixed pair of literals here cannot be cancelled by vocabulary growth — it
-    // can only go red, which is the point: if upstream ever retires these
-    // spellings from the AST vocabulary, the identity stops being a pass-through
-    // and starts being a silent drop, and mapOperator needs real branches.
-    for (const op of ['is_empty', 'is_not_empty']) {
-      expect(EXPECTED_AST_TARGET[op], `${op} is expected to be pinned as identity`).toBe(op);
-      expect(
-        VALID_AST_OPERATORS.has(op),
-        `VALID_AST_OPERATORS no longer accepts '${op}', so mapOperator passing it `
-          + 'through unchanged is now a silently dropped filter. Give it a real branch '
-          + 'in mapOperator and pin the new target in EXPECTED_AST_TARGET',
-      ).toBe(true);
-    }
+  it('the empty pair reaches the wire as the spec\'s `$empty`, not as a null test (objectui#10813)', () => {
+    // The meaning, asked of the spec's own lowering rather than assumed: the
+    // node the live grid emits for each row of the pair lowers to `$empty`,
+    // which every evaluator expands by the column's declared type. The null
+    // pair is the control — a different operator, still lowered to `$null`.
+    expect(parseFilterAST(['f', mapOperator('is_empty'), null] as never)).toEqual({ f: { $empty: true } });
+    expect(parseFilterAST(['f', mapOperator('is_not_empty'), null] as never)).toEqual({ f: { $empty: false } });
+    expect(parseFilterAST(['f', mapOperator('isEmpty'), null] as never)).toEqual({ f: { $empty: true } });
+    expect(parseFilterAST(['f', mapOperator('is_null'), null] as never)).toEqual({ f: { $null: true } });
   });
 
-  const bridged = VIEW_FILTER_OPERATORS.filter((op) => !HANDLED_BEFORE_MAPPING.has(op));
+  // Every canonical view operator. A `HANDLED_BEFORE_MAPPING` set subtracted
+  // `is_empty` / `is_not_empty` here until objectui#10813, while
+  // `convertFilterGroupToAST` resolved the pair before mapOperator was asked;
+  // with no operator left in it, the set and its exclusion ratchet (#3628) were
+  // deleted rather than kept as a subtraction of nothing.
+  const bridged = [...VIEW_FILTER_OPERATORS];
 
   // Secondary (#3641): this is why a wrong target matters, not what detects one.
   // On its own it does not discriminate — the AST vocabulary already spells the
@@ -272,7 +218,6 @@ describe('mapOperator bridges the spec view vocabulary onto the AST vocabulary',
     // membership form an identity mapOperator passed this too, since the AST
     // vocabulary spells most of these aliases verbatim as well.
     const mismatched = Object.keys(VIEW_FILTER_OPERATOR_ALIASES)
-      .filter((alias) => !HANDLED_BEFORE_MAPPING.has(VIEW_FILTER_OPERATOR_ALIASES[alias]))
       .map((alias) => {
         const canonical = VIEW_FILTER_OPERATOR_ALIASES[alias];
         return { alias, canonical, expected: EXPECTED_AST_TARGET[canonical], actual: mapOperator(alias) };

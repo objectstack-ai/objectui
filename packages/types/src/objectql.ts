@@ -410,29 +410,8 @@ export interface SortConfig {
 
 
 // ============================================================================
-// ConditionalFormatting Types — Dual-format support
+// ConditionalFormatting Types — ONE dialect, the spec list view's { condition, style }
 // ============================================================================
-
-/**
- * ObjectUI-native ConditionalFormatting rule.
- * Uses field/operator/value for declarative comparisons.
- */
-export interface ObjectUIConditionalFormattingRule {
-  /** Field name to evaluate */
-  field: string;
-  /** Comparison operator */
-  operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'in';
-  /** Value to compare against */
-  value: unknown;
-  /** CSS-compatible background color */
-  backgroundColor?: string;
-  /** CSS-compatible text color */
-  textColor?: string;
-  /** CSS-compatible border color */
-  borderColor?: string;
-  /** Template expression override (e.g., '${data.amount > 1000}') */
-  expression?: string;
-}
 
 /**
  * One entry of a named view's `conditionalFormatting`, as the protocol declares
@@ -481,10 +460,56 @@ export interface SpecConditionalFormattingRule {
 }
 
 /**
- * Union type for ConditionalFormatting rules — accepts both ObjectUI and Spec formats.
- * Rules are evaluated in order; first matching rule wins.
+ * One `conditionalFormatting` rule on `object-grid` ({@link ObjectGridSchema}) and
+ * `list-view` — ONE dialect, the spec list view's `{ condition, style }`: a CEL
+ * `condition` over the row's `record.*` and a CSS `style` map, first matching rule
+ * wins (objectui#11533).
+ *
+ * It IS {@link SpecConditionalFormattingRule}, the protocol's rule by reference (its
+ * `condition` indexes `ObjectListViewSchema`'s own slot, objectui#10946), plus the
+ * retired keys declared `?: never`, so each is refused BY NAME:
+ *
+ *   - the native comparison `{ field, operator, value }` and its template predicate
+ *     `expression` (the `ObjectUIConditionalFormattingRule` interface that declared
+ *     them is gone), and
+ *   - a colour written at the TOP LEVEL of a rule — `backgroundColor`, `borderColor`,
+ *     `textColor`. A colour belongs inside `style` (`textColor` is `style.color`).
+ *
+ * Retired, not widened, with no alias window (triage ruling 5965301211 on
+ * objectui#11533, as objectui#11522 ruled for {@link KanbanConditionalFormattingRule}).
+ * `@objectstack/spec` declares the list view's member as this rule and types the
+ * `object-grid` row's member by reference to it.
+ *
+ * Respelling: `{ field: 'priority', operator: 'equals', value: 'high',
+ * backgroundColor: '#fee2e2' }` is `{ condition: "record.priority == 'high'",
+ * style: { backgroundColor: '#fee2e2' } }`.
+ *
+ * ⚠️ What did NOT narrow: the shared evaluator. `@object-ui/core`'s
+ * `resolveConditionalFormatting` types its own input (`ConditionalFormattingRuleLike`)
+ * and still reads every arm, as a compatibility read for rules already STORED in the
+ * native dialect; nothing on the render path parses a stored view against this type's
+ * zod twin, so such a view still paints. A `{ condition, style }` rule paints exactly
+ * as it did before.
+ *
+ * The zod twin is the module-private `ConditionalFormattingRuleSchema` in
+ * `./zod/objectql.zod.ts`, each retired key a `retirementTombstone()` there.
  */
-export type ConditionalFormattingRule = ObjectUIConditionalFormattingRule | SpecConditionalFormattingRule;
+export interface ConditionalFormattingRule extends SpecConditionalFormattingRule {
+  /** @deprecated RETIRED (objectui#11533) — the native rule dialect. Write `condition` as CEL over `record.*`. */
+  field?: never;
+  /** @deprecated RETIRED (objectui#11533) — the native rule dialect. Write `condition` as CEL over `record.*`. */
+  operator?: never;
+  /** @deprecated RETIRED (objectui#11533) — the native rule dialect. Write `condition` as CEL over `record.*`. */
+  value?: never;
+  /** @deprecated RETIRED (objectui#11533) — the native template predicate. Write it as `condition`, CEL over `record.*`. */
+  expression?: never;
+  /** @deprecated RETIRED (objectui#11533) — a top-level colour. Write `style: { backgroundColor }`. */
+  backgroundColor?: never;
+  /** @deprecated RETIRED (objectui#11533) — a top-level colour. Write `style: { borderColor }`. */
+  borderColor?: never;
+  /** @deprecated RETIRED (objectui#11533) — a top-level colour. Write `style: { color }`. */
+  textColor?: never;
+}
 
 /**
  * Parameter declaration for a bulk action. Rendered as a single field in the
@@ -1344,9 +1369,11 @@ export interface ObjectGridSchema extends BaseSchema {
   onNavigate?: (recordId: string | number, action: RecordNavigateAction) => void;
 
   /**
-   * Conditional formatting rules for row/cell styling.
-   * Aligned with @objectstack/spec ListViewSchema.conditionalFormatting.
-   * Supports both ObjectUI field/operator/value rules and Spec expression-based { condition, style } rules.
+   * Conditional formatting rules for row styling — `[{ condition, style }]`, the rule
+   * @objectstack/spec's `ListViewSchema.conditionalFormatting` declares: the first rule
+   * whose CEL `condition` holds applies its CSS `style` map to the row. The native
+   * `{ field, operator, value }` rule, its `expression` and a top-level colour are
+   * retired and refused by name (objectui#11533); see {@link ConditionalFormattingRule}.
    */
   conditionalFormatting?: ConditionalFormattingRule[];
 
@@ -2858,8 +2885,8 @@ export interface NamedListView {
     formView?: string;
   };
 
-  /** Conditional formatting rules.
-   * Supports both ObjectUI field/operator/value rules and Spec expression-based { condition, style } rules. */
+  /** Conditional formatting rules — `{ condition, style }` only since objectui#11533
+   * (see {@link ConditionalFormattingRule}); the native rule dialect is refused by name. */
   conditionalFormatting?: ConditionalFormattingRule[];
 
   /**
@@ -3145,9 +3172,12 @@ export type RecordNavigateAction = 'view' | 'new_window';
  * zod/JSON-schema.
  *
  * Legacy objectui vocabulary (`viewType`/`fields`/`filters`/`show*`/`densityMode`/…) and
- * the broader-than-spec configs (`userFilters`/`sharing`/`aria`/`conditionalFormatting`/
+ * the broader-than-spec configs (`userFilters`/`sharing`/`aria`/
  * `exportOptions`/`kanban`/`calendar`/`gantt`/`gallery`/`timeline`) remain as sanctioned
  * local `.extend()`s on the schema; migration to the spec-canonical keys is deferred (#2231).
+ * `conditionalFormatting` is a local `.extend()` too but no longer broader than spec: it is
+ * the spec list view's own `{ condition, style }` rule, the native dialect refused by name
+ * (objectui#11533, {@link ConditionalFormattingRule}).
  */
 export type ListViewSchema = ListViewAuthored & ListViewRuntimeProps;
 
@@ -5100,10 +5130,11 @@ export interface ObjectKanbanSchema extends BaseSchema {
  * style: { backgroundColor: '#fee2e2' } }`.
  *
  * ⚠️ What did NOT narrow: the shared evaluator. `@object-ui/core`'s
- * `resolveConditionalFormatting` still reads every arm, because the grid's and
- * the list view's {@link ConditionalFormattingRule} still declares them; the
- * board paints whatever a relay hands it. A `{ condition, style }` rule paints
- * a card exactly as it did before.
+ * `resolveConditionalFormatting` still reads every arm, as a compatibility read
+ * for rules already STORED in the native dialect — since objectui#11533 the
+ * grid's and the list view's {@link ConditionalFormattingRule} retires them on
+ * the authoring face too; the board paints whatever a relay hands it. A
+ * `{ condition, style }` rule paints a card exactly as it did before.
  *
  * The zod twin is `KanbanConditionalFormattingRuleSchema` in
  * `./zod/objectql.zod.ts`, each retired key a `retirementTombstone()` there.

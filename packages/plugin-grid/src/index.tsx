@@ -265,7 +265,7 @@ const GRID_QUERY_INPUTS: ComponentInput[] = [
   { name: 'reorderableColumns', type: 'boolean', description: 'Let users drag columns into a different order.' },
   { name: 'showColumnTypeIcons', type: 'boolean', description: 'Show a field-type icon in each column header. Off by default — the type is usually obvious from the cell content, and the icons compete with the column labels.' },
   { name: 'rowColor', type: 'object', description: 'Rules that colour whole rows from a field value.' },
-  { name: 'conditionalFormatting', type: 'array', description: 'Row/cell styling rules. Accepts both the ObjectUI `{ field, operator, value }` form and the spec expression form `{ condition, style }`.' },
+  { name: 'conditionalFormatting', type: 'array', description: 'Row style rules, each `{ condition, style }` — a CEL `condition` over the row’s own `record.*` and a CSS `style` map, the rule a list view declares. The first matching rule styles that row. The native `{ field, operator, value }` rule, its `expression`, and a colour written beside `condition` instead of inside `style` are retired (objectui#11533).' },
   // ── grouping and roll-ups ─────────────────────────────────────────────────
   { name: 'grouping', type: 'object', description: 'Group rows by one or more fields into collapsible sections.' },
   { name: 'aggregations', type: 'array', description: 'Per-group roll-ups shown in group headers, `[{ field, type: "sum" | "count" | "avg" | "min" | "max" | "count_distinct" }]`. Needs `grouping` to have anything to roll up.' },

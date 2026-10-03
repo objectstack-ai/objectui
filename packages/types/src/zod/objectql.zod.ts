@@ -322,10 +322,21 @@ const OBJECT_NAME_BINDING_WAIVER_DESCRIPTION =
   + 'here, keyed `RECORD_SOURCE_REQUIRED`.';
 
 /**
+ * The protocol's own conditional-formatting rule: `ListViewSchema.conditionalFormatting[]`'s
+ * element, read BY REFERENCE through the import boundary — a strict `{ condition, style }`
+ * object. Both rules this module declares `.extend()` it: `ConditionalFormattingRuleSchema`
+ * below (the grid's and the list view's, objectui#11533) and
+ * `KanbanConditionalFormattingRuleSchema` (objectui#11522). Declared here, above the grid's
+ * mirror, because that mirror reads it at module load (objectui#6152 round 6). The boundary
+ * walker is memoised, so every read of this element is the same object.
+ */
+const SpecListViewRuleSchema = stripImportedDefaults(SpecListViewSchema).shape.conditionalFormatting.unwrap().element;
+
+/**
  * The `condition` of a spec-shape conditional-formatting rule, `{ condition, style }`:
  * the zod twin of `SpecConditionalFormattingRule.condition` (`../objectql.ts`), read by
- * both rule unions in this module (`ConditionalFormattingRuleSchema` right below, which
- * the grid's and the list view's `conditionalFormatting` share, and
+ * both rules in this module (`ConditionalFormattingRuleSchema` right below, which the
+ * grid's and the list view's `conditionalFormatting` share, and
  * `KanbanConditionalFormattingRuleSchema`), objectui#10946. It sits above the grid's
  * mirror because that mirror reads it at module load (objectui#6152 round 6).
  *
@@ -347,32 +358,98 @@ const OBJECT_NAME_BINDING_WAIVER_DESCRIPTION =
  */
 const SpecRuleConditionSchema = z.union([
   z.string(),
-  stripImportedDefaults(SpecListViewSchema).shape.conditionalFormatting.unwrap().element.shape.condition,
+  SpecListViewRuleSchema.shape.condition,
 ]);
 
 /**
- * One `conditionalFormatting` rule in either dialect `ConditionalFormattingRule`
- * (`../objectql.ts`) declares: the objectui-native `{ field, operator, value, … }`
- * comparison, or the spec-shape `{ condition, style }` rule. Module-private and
- * shared, so the list view's member and the grid's member are one declaration:
- * objectui#6152 round 6 hoisted it, unchanged, out of `ListViewSchema` when the
- * grid's mirror took the same member.
+ * The guidance a retired `object-grid` / `list-view` rule key is refused with
+ * (objectui#11533), as `kanbanRuleKeyRetired` below does for `object-kanban`
+ * (objectui#11522).
+ *
+ * `native` keys are the native `{ field, operator, value }` comparison;
+ * `expression` is that dialect's template predicate; `colour` keys are a colour
+ * written at the TOP LEVEL of a rule — on the native comparison, beside an
+ * `expression`, or beside a CEL `condition` (the "flat CEL" rule). Each message
+ * names the key, the retirement and the one spelling that replaces it.
  */
-const ConditionalFormattingRuleSchema = z.union([
-  z.object({
-    field: z.string(),
-    operator: z.enum(['equals', 'not_equals', 'contains', 'greater_than', 'less_than', 'in']),
-    value: z.any(),
-    backgroundColor: z.string().optional(),
-    textColor: z.string().optional(),
-    borderColor: z.string().optional(),
-    expression: z.string().optional(),
-  }),
-  z.object({
-    condition: SpecRuleConditionSchema,
-    style: z.record(z.string(), z.string()),
-  }),
-]);
+function gridRuleKeyRetired(key: string, kind: 'native' | 'expression' | 'colour'): string {
+  const lead =
+    kind === 'native'
+      ? `\`${key}\` belongs to the native rule dialect \`{ field, operator, value }\`, `
+      : kind === 'expression'
+        ? '`expression` is the template predicate of the native rule dialect, '
+        : `\`${key}\` is a colour written at the top level of the rule, `;
+  const into = key === 'textColor' ? '`style: { color }`' : `\`style: { ${key} }\``;
+  const respell =
+    kind === 'native'
+      ? 'Respell `{ field: \'priority\', operator: \'equals\', value: \'high\', backgroundColor: \'#fee2e2\' }` as '
+        + '`{ condition: "record.priority == \'high\'", style: { backgroundColor: \'#fee2e2\' } }` '
+        + '(`not_equals` is `!=`, `greater_than` is `>`, `less_than` is `<`, `contains` is `.contains(…)`, '
+        + '`in` is `record.f in [ … ]`).'
+      : kind === 'expression'
+        ? 'Write the predicate as the rule\'s `condition`, in CEL over `record.*` with no `${…}` wrapper: '
+          + '`{ expression: \'${record.amount > 1000}\', backgroundColor: \'#fee2e2\' }` is '
+          + '`{ condition: \'record.amount > 1000\', style: { backgroundColor: \'#fee2e2\' } }`.'
+        : `Move the colour into the rule's CSS map: ${into}.`;
+  return (
+    lead
+    + 'which `conditionalFormatting` on `object-grid` and `list-view` no longer accepts: RETIRED (objectui#11533), '
+    + 'with no alias window. A rule is `{ condition, style }` — a CEL `condition` over `record.*` and a CSS '
+    + '`style` map, the rule `@objectstack/spec`\'s `ListViewSchema.conditionalFormatting` declares. '
+    + respell
+  );
+}
+
+/**
+ * objectui#11533 — ONE `conditionalFormatting` rule dialect for the grid and the
+ * list view, the spec list view's `{ condition, style }`; the native dialect is
+ * refused BY NAME (triage ruling 5965301211: retire, as objectui#11522 ruled for
+ * the kanban board, not widen).
+ *
+ * Module-private and shared, so the list view's member and the grid's member are
+ * one declaration (objectui#6152 round 6 hoisted it out of `ListViewSchema` when
+ * the grid's mirror took the same member). Through the grid's mirror it also
+ * judges the `object-view` `table` slot.
+ *
+ * The rule is the protocol's own element ({@link SpecListViewRuleSchema}),
+ * `.extend()`-ed, so it inherits that element's strictness (an undeclared key is
+ * refused with the spec's own "Unrecognized key(s) on this conditional formatting
+ * rule" message) and its `style` map, and moves with the installed spec. Two
+ * things are layered on top, and only two:
+ *
+ *   - `condition` is `SpecRuleConditionSchema`, so a string condition is not
+ *     canonicalized into an envelope and `''` is still accepted, exactly as
+ *     before (objectui#10946);
+ *   - the retired keys are DECLARED and unwritable (`retirementTombstone()`), so
+ *     each is refused at its own path with the remedy instead of being one more
+ *     unrecognized key: the native comparison's `field` / `operator` / `value`,
+ *     its template predicate `expression`, and the three top-level colour keys
+ *     the shared resolver would otherwise still paint with — `backgroundColor`,
+ *     `borderColor`, `textColor`. `z.input` of each is `undefined`, which is the
+ *     TS twin's `?: never`.
+ *
+ * Before this, the member was a union of the native comparison
+ * (`{ field, operator, value, backgroundColor?, textColor?, borderColor?,
+ * expression? }`) and a loose `{ condition, style }` object, under a "broader
+ * than spec, migration deferred" note on the list view.
+ *
+ * ⚠️ Stored stock is not authoring: `resolveConditionalFormatting`
+ * (`@object-ui/core`) keeps every arm as a compatibility read, so a grid or list
+ * view STORED with a native rule still paints — nothing on the render path parses
+ * against this schema. The TS twin is `ConditionalFormattingRule`
+ * (`../objectql.ts`); the two faces are pinned equal in
+ * `../__tests__/grid-list-view-conditional-formatting-11533.test.ts`.
+ */
+const ConditionalFormattingRuleSchema = SpecListViewRuleSchema.extend({
+  condition: SpecRuleConditionSchema,
+  field: retirementTombstone(gridRuleKeyRetired('field', 'native')),
+  operator: retirementTombstone(gridRuleKeyRetired('operator', 'native')),
+  value: retirementTombstone(gridRuleKeyRetired('value', 'native')),
+  expression: retirementTombstone(gridRuleKeyRetired('expression', 'expression')),
+  backgroundColor: retirementTombstone(gridRuleKeyRetired('backgroundColor', 'colour')),
+  borderColor: retirementTombstone(gridRuleKeyRetired('borderColor', 'colour')),
+  textColor: retirementTombstone(gridRuleKeyRetired('textColor', 'colour')),
+});
 
 /**
  * objectui#6152 round 6 — one entry of `ObjectGridSchema.aggregations`, restating
@@ -645,12 +722,14 @@ export const ObjectGridSchema = BaseSchema.extend({
   // the source of the `object-view` `table` slot, so each member takes the type the
   // twin declares. Where the twin takes a spec schema by name, the member is that
   // schema BY REFERENCE (`grouping`, `navigation`, `rowColor`, `rowHeight`) or the
-  // row's own member (`reorderableColumns`, `singleClickEdit`); the rest restate the
+  // row's own member (`reorderableColumns`, `singleClickEdit`), and
+  // `conditionalFormatting` is the spec list view's own rule BY REFERENCE (the shared
+  // `ConditionalFormattingRuleSchema` above, objectui#11533); the rest restate the
   // twin's local shapes. ⛔ `resizableColumns`, the eleventh, is NOT here: its route
   // is open on objectui#6152 (the entry in `zod-mirror-parity.test.ts` says why).
   aggregations: z.array(ObjectGridAggregationSchema).optional().describe('Per-group aggregations drawn in each group header, e.g. [{ field: "amount", type: "sum" }]'),
   bulkActionDefs: z.array(ObjectGridBulkActionDefSchema).optional().describe('Rich bulk action definitions; each opens the bulk action dialog (params, confirm, progress) for the selected rows'),
-  conditionalFormatting: z.array(ConditionalFormattingRuleSchema).optional().describe('Conditional formatting rules for row styling: { field, operator, value, … } or { condition, style }'),
+  conditionalFormatting: z.array(ConditionalFormattingRuleSchema).optional().describe('Conditional formatting rules for row styling — `[{ condition, style }]`, the rules a list view declares: the first rule whose CEL `condition` holds applies its CSS `style` map to the row'),
   grouping: stripImportedDefaults(SpecGroupingConfigSchema).optional().describe('Row grouping: the spec GroupingConfig, by reference'),
   navigation: stripImportedDefaults(SpecNavigationConfigSchema).optional().describe('Row-click navigation: the spec NavigationConfig, by reference'),
   operations: ObjectGridOperationsSchema.optional().describe('Built-in operation toggles { create, read, update, delete, export, import }; a declared block replaces the default'),
@@ -1317,8 +1396,10 @@ const UserFiltersSchema = z.object({
  *   - legacy vocabulary kept for back-compat: `viewType` (renamed spec `type`),
  *     `fields`/`columns`, `filters`, the `show*` toolbar flags, `densityMode`, `color`, …;
  *   - configs whose objectui shape is intentionally broader than spec's (migration
- *     deferred): `userFilters`, `sharing`, `aria`, `conditionalFormatting`
- *     (`exportOptions` left this list with objectui#6956 — it is the spec field by reference).
+ *     deferred): `userFilters`, `sharing`, `aria`
+ *     (`exportOptions` left this list with objectui#6956 — it is the spec field by reference;
+ *     `conditionalFormatting` left it with objectui#11533 — it is the spec list view's own
+ *     `{ condition, style }` rule by reference, with the native dialect refused by name).
  *
  * The per-view-type configs (`kanban`/`calendar`/`gantt`/`gallery`/`timeline`) are no
  * longer forks: they derive from the spec configs below, keeping only `calendar.defaultView`
@@ -2098,7 +2179,11 @@ export const ListViewSchema = BaseSchema
       live: z.enum(['polite', 'assertive', 'off']).optional()
         .describe('aria-live politeness for the list region (objectui-only — promote rather than grow this extension)'),
     }).optional().describe('ARIA attributes'),
-    // The two-dialect rule, shared with `ObjectGridSchema` (objectui#6152 round 6).
+    // NOT broader than spec since objectui#11533: the spec list view's own
+    // `{ condition, style }` rule, by reference, with the native dialect's keys
+    // refused by name — the one rule declaration `ObjectGridSchema` shares
+    // (objectui#6152 round 6). Still a local override because the rule keeps
+    // objectui's string `condition` arm and names the retired keys.
     conditionalFormatting: z.array(ConditionalFormattingRuleSchema).optional().describe('Conditional formatting rules'),
     // `exportOptions` — the spec's own field, BY REFERENCE (objectui#6956).
     //
@@ -2958,7 +3043,7 @@ function kanbanRuleKeyRetired(key: string, kind: 'native' | 'colour'): string {
 //     own condition (objectui#10946): the spec slot by reference behind a
 //     `z.string()` arm, so a string condition is not canonicalized into an
 //     envelope and `''` is still accepted — the kanban rule judges a condition
-//     exactly as the list view's `{ condition, style }` arm does.
+//     exactly as the list view's `{ condition, style }` rule does.
 //   - the retired keys are DECLARED and unwritable (`retirementTombstone()`),
 //     so each is refused at its own path with the remedy instead of being one
 //     more unrecognized key: the native comparison's `field` / `operator` /
@@ -2970,14 +3055,16 @@ function kanbanRuleKeyRetired(key: string, kind: 'native' | 'colour'): string {
 //
 // Before this, the member was a union of the native comparison and the spec
 // shape (#1584), exported by objectui#7664 for the since-retired `'kanban'`
-// arm. ⚠️ The shared resolver is NOT narrowed: the grid's and the list view's
-// rule union (`ConditionalFormattingRuleSchema` above) still declares every
-// arm it reads, so the board itself still paints whatever a relay hands it.
-// What retired is the AUTHORED kanban member. Its TS twin is
+// arm. ⚠️ The shared resolver is NOT narrowed: since objectui#11533 no authored
+// rule declares the native arms (the grid's and the list view's rule,
+// `ConditionalFormattingRuleSchema` above, retired them too), but a rule STORED
+// in that dialect still reaches the resolver, which keeps every arm as a
+// compatibility read — so the board itself still paints whatever a relay hands
+// it. What retired is the AUTHORED kanban member. Its TS twin is
 // `KanbanConditionalFormattingRule` (`../objectql.ts`); the two faces are
-// pinned equal in `../__tests__/kanban-conditional-formatting.test.ts`.
-const SpecListViewRuleSchema = stripImportedDefaults(SpecListViewSchema).shape.conditionalFormatting.unwrap().element;
-
+// pinned equal in `../__tests__/kanban-conditional-formatting.test.ts`. The
+// element it extends, `SpecListViewRuleSchema`, is declared above the grid's
+// mirror, which reads it first.
 export const KanbanConditionalFormattingRuleSchema = SpecListViewRuleSchema.extend({
   condition: SpecRuleConditionSchema.describe('CEL predicate evaluated against the card record'),
   field: retirementTombstone(kanbanRuleKeyRetired('field', 'native')),

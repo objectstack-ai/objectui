@@ -65,7 +65,7 @@ function makeDataSource() {
       name,
       fields: { id: { name: 'id', type: 'text' }, name: { name: 'name', type: 'text' }, status: { name: 'status', type: 'text' } },
     })),
-  } as any;
+  } as never;
 }
 
 const storedView = (rules: unknown[]) => ({

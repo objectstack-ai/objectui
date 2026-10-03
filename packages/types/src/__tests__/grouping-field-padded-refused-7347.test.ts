@@ -66,6 +66,7 @@ import { GroupingFieldSchema as SpecGroupingFieldSchema } from '@objectstack/spe
 import {
   AnyComponentSchema,
   ListViewSchema,
+  ObjectGridBlockSchema,
   ObjectGallerySchema,
   ObjectViewSchema,
   StrictAnyComponentSchema,
@@ -135,6 +136,18 @@ const DECLARING: Readonly<Record<string, DeclaringArm>> = {
     doc: (fields) => ({ type: 'object-view', objectName: 'account', table: { grouping: { fields } } }),
     fieldPath: (i) => ['table', 'grouping', 'fields', i, 'field'],
   },
+  // `@objectstack/spec` 17.6.0 types `ComponentPropsMap['object-grid'].grouping` as
+  // the grouping config instead of `z.unknown()`, and the authored arm's `properties`
+  // is that row by reference, so the bag now judges the shape: a padded name is
+  // refused at its entry on every face. It moved here from `NOT_COVERED` at that
+  // bump (objectui#11438), when the row below stopped holding.
+  'object-grid properties': {
+    type: 'object-grid',
+    declaredAt: 'properties.grouping',
+    arm: ObjectGridBlockSchema,
+    doc: (fields) => ({ type: 'object-grid', properties: { objectName: 'account', grouping: { fields } } }),
+    fieldPath: (i) => ['properties', 'grouping', 'fields', i, 'field'],
+  },
 };
 
 /**
@@ -142,16 +155,15 @@ const DECLARING: Readonly<Record<string, DeclaringArm>> = {
  * with the reason and the paths the census records — so an arm cannot slip in
  * here silently, and a reason that stops holding turns the rows below red.
  *
- * `object-grid` (objectui#11276's `object-grid` batch): the authored arm's
- * `properties` is `@objectstack/spec`'s `ComponentPropsMap['object-grid']` row
- * by reference, and the row types its `grouping` member as `z.unknown()`, so no
- * grouping shape is judged in the bag and a padded field name is not refused
- * there — the row's own reading, recorded rather than restated here. The
- * node-level `grouping` is no declaration at all: it is the flat spelling's
- * by-name refusal (`flatPropRefusals`), pointing at `properties.grouping`.
+ * `object-grid` (objectui#11276's `object-grid` batch): the node-level `grouping`
+ * is no declaration at all: it is the flat spelling's by-name refusal
+ * (`flatPropRefusals`), pointing at `properties.grouping`. The bag member
+ * `properties.grouping` stood here too while the spec row typed it `z.unknown()`;
+ * since `@objectstack/spec` 17.6.0 the row judges it, so it is a `DECLARING` row
+ * above (objectui#11438).
  */
 const NOT_COVERED: Readonly<Record<string, readonly string[]>> = {
-  'object-grid': ['grouping', 'properties.grouping'],
+  'object-grid': ['grouping'],
 };
 
 /** The faces an authored document meets. `objectui validate` runs `safeValidateSchema`. */
@@ -277,16 +289,10 @@ describe('objectui#7347 — census: the table above is every arm that declares `
     expect(found).toEqual(expected);
   });
 
-  it('`object-grid` is not covered for the recorded reasons: a flat refusal on the node, the row\'s `unknown` in the bag', () => {
-    const doc = (grouping: unknown, at: 'node' | 'bag') => (at === 'node'
-      ? { type: 'object-grid', properties: { objectName: 'account' }, grouping }
-      : { type: 'object-grid', properties: { objectName: 'account', grouping } });
-    const padded = { fields: [{ field: PADDED[0], order: 'asc' }] };
+  it('`object-grid` node-level `grouping` is not covered for the recorded reason: a flat refusal on the node', () => {
+    const node = { type: 'object-grid', properties: { objectName: 'account' }, grouping: { fields: [{ field: CLEAN, order: 'asc' }] } };
     // On the node, every value is refused by name, toward the bag member.
-    const flat = issuesOf(safeValidateSchema(doc({ fields: [{ field: CLEAN, order: 'asc' }] }, 'node')));
+    const flat = issuesOf(safeValidateSchema(node));
     expect(flat.map((i) => i.path.join('.'))).toEqual(['grouping']);
-    // In the bag the row judges nothing about the shape: a padded name parses.
-    expect(safeValidateSchema(doc(padded, 'bag')).success).toBe(true);
-    expect(StrictAnyComponentSchema.safeParse(doc(padded, 'bag')).success).toBe(true);
   });
 });

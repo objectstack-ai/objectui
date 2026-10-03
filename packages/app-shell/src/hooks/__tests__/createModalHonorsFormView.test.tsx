@@ -27,6 +27,7 @@ import React from 'react';
 import { registerAllFields } from '@object-ui/fields';
 import { ModalForm } from '@object-ui/plugin-form';
 import { resolveFormViewLayout } from '../../utils/recordFormNavigation';
+import { mergeViewsIntoObjects } from '../../providers/MetadataProvider';
 
 registerAllFields();
 
@@ -115,5 +116,43 @@ describe('create modal honors the object form view (sections + field selection)'
     await waitFor(() => expect(screen.getByText('Title')).toBeTruthy());
     expect(screen.getByText('Summary')).toBeTruthy();
     expect(screen.getByText('Secret Internal')).toBeTruthy();
+  });
+
+  it('takes that same path when the object serves only NAMED forms, never the first named one (objectui#11539)', async () => {
+    // A container with no `form` serves its named forms with no `isDefault`
+    // (the `showcase_inquiry` shape: one named, public contact-us form). The
+    // merge leaves `.form` unset, so the create modal renders the object's own
+    // fields, not the named form's curated section.
+    const [merged] = mergeViewsIntoObjects([{ name: 'project', fields: {} }], [{
+      name: 'project.contact',
+      object: 'project',
+      viewKind: 'form',
+      config: {
+        type: 'simple',
+        sections: [{ name: 'contact_us', label: 'Contact us', fields: [{ field: 'title' }] }],
+        sharing: { enabled: true, allowAnonymous: true, publicLink: '/forms/contact-us' },
+      },
+    }]);
+    const layout = resolveFormViewLayout(merged);
+    expect(layout).toEqual({});
+
+    render(
+      <ModalForm
+        schema={{
+          objectName: 'project',
+          mode: 'create',
+          title: 'New Project',
+          open: true,
+          onOpenChange: vi.fn(),
+          ...layout,
+        } as any}
+        dataSource={makeDataSource()}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByText('Title')).toBeTruthy());
+    expect(screen.getByText('Summary')).toBeTruthy();
+    expect(screen.getByText('Secret Internal')).toBeTruthy();
+    expect(screen.queryByText('Contact us')).toBeNull();
   });
 });

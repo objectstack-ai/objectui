@@ -2,6 +2,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { mergeViewsIntoObjects } from './MetadataProvider';
+import { resolveFormViewLayout } from '../utils/recordFormNavigation';
 
 /**
  * `mergeViewsIntoObjects` folds the `view` metadata type into object
@@ -147,6 +148,137 @@ describe('mergeViewsIntoObjects', () => {
       // …and the list family is untouched by the form entry.
       expect(Object.keys(obj.listViews)).toEqual(['crm_activity.default']);
     });
+
+    it('takes a container\'s declared `form` as `.form`, never a named form beside it', () => {
+      // The default form is expanded AFTER the named ones, so arrival order
+      // cannot be what picks it.
+      const container = {
+        name: 'crm_activity',
+        list: { type: 'grid', columns: [{ field: 'subject' }] },
+        form: { type: 'simple', label: 'Activity', sections: [{ name: 'details', label: 'Details', fields: [{ field: 'subject' }] }] },
+        formViews: { quick: { type: 'simple', label: 'Quick log', sections: [{ name: 'quick', label: 'Quick', fields: [{ field: 'subject' }] }] } },
+      };
+      const [obj] = mergeViewsIntoObjects(objects, [container]);
+      expect(obj.form.name).toBe('crm_activity.form');
+      expect(obj.form.sections.map((s: any) => s.name)).toEqual(['details']);
+      expect(obj.formViews['crm_activity.quick'].isDefault).toBe(false);
+    });
+  });
+});
+
+/**
+ * `.form` is the served DEFAULT form only (objectui#11539).
+ *
+ * `@objectstack/spec` `ViewSchema`: `form` is a container's "Default form
+ * view", `formViews` are "Additional named form views". The served rows carry
+ * that: the container's own `form` arrives as `OBJECT.form` with `isDefault`,
+ * and a container with no `form` serves its named forms with no `isDefault`
+ * key at all (objectstack#21500). The console used to make the FIRST form item
+ * to arrive its create/edit `.form` whenever none was default, so a named-only
+ * container rendered its first named form — in the `showcase_inquiry` case the
+ * public, anonymous contact-us form — as the create and edit form.
+ *
+ * Fixtures are served `view` rows in the shape the expansion emits
+ * (`{ name, object, viewKind, label, config, order, scope, isDefault? }`), in
+ * the order it emits them: named entries first, the container's own default
+ * after them.
+ */
+describe('mergeViewsIntoObjects — `.form` is the served default form only (objectui#11539)', () => {
+  const row = (object: string, key: string, viewKind: 'list' | 'form', config: Record<string, any>, extra: Record<string, any> = {}) => ({
+    name: `${object}.${key}`,
+    object,
+    viewKind,
+    label: config.label,
+    config,
+    scope: 'package',
+    ...extra,
+  });
+
+  // examples/app-showcase `showcase_inquiry`: a default list, a named list, and
+  // ONE named form — the public contact-us form. No `form`, so no form row is
+  // default.
+  const inquiryData = { provider: 'object', object: 'showcase_inquiry' };
+  const inquiryRows = [
+    row('showcase_inquiry', 'triage', 'list', { type: 'grid', label: 'Inquiry Triage', data: inquiryData, columns: [{ field: 'name' }] }, { order: 0 }),
+    row('showcase_inquiry', 'default', 'list', { type: 'grid', label: 'Inquiries', data: inquiryData, columns: [{ field: 'name' }] }, { order: 1, isDefault: true }),
+    row('showcase_inquiry', 'contact', 'form', {
+      type: 'simple',
+      data: inquiryData,
+      sections: [{ name: 'tell_us_about_yourself', label: 'Tell us about yourself', fields: [{ field: 'name' }, { field: 'email' }] }],
+      sharing: { enabled: true, allowAnonymous: true, publicLink: '/forms/contact-us' },
+    }, { order: 2 }),
+  ];
+
+  // examples/app-crm `crm_lead`: the named Web-to-Lead form, then the
+  // container's own `form`, the one default.
+  const leadData = { provider: 'object', object: 'crm_lead' };
+  const leadWebToLead = row('crm_lead', 'web_to_lead', 'form', {
+    type: 'simple',
+    data: leadData,
+    sections: [{ name: 'contact_us', label: 'Contact us', fields: [{ field: 'name' }] }],
+    sharing: { enabled: true, allowAnonymous: true, publicLink: '/forms/contact-us' },
+  }, { order: 2 });
+  const leadForm = row('crm_lead', 'form', 'form', {
+    type: 'simple',
+    sections: [{ name: 'lead_information', label: 'Lead Information', fields: [{ field: 'name' }] }],
+  }, { order: 3, isDefault: true });
+
+  // examples/app-showcase `showcase_contact`: a named `create` form, then the
+  // container's own `form`, the one default.
+  const contactCreate = row('showcase_contact', 'create', 'form', {
+    type: 'simple',
+    sections: [{ name: 'quick', label: 'Quick add', fields: [{ field: 'first_name' }] }],
+  }, { order: 1 });
+  const contactForm = row('showcase_contact', 'form', 'form', {
+    type: 'simple',
+    sections: [{ name: 'identity', label: 'Identity', fields: [{ field: 'first_name' }] }],
+  }, { order: 2, isDefault: true });
+
+  const objects = [
+    { name: 'showcase_inquiry', fields: {} },
+    { name: 'crm_lead', fields: {} },
+    { name: 'showcase_contact', fields: {} },
+  ];
+  const byName = (merged: any[], name: string) => merged.find((o) => o.name === name);
+
+  it('a container with only named forms (`showcase_inquiry`) gets no `.form`; its named form stays reachable by name', () => {
+    const inquiry = byName(mergeViewsIntoObjects(objects, inquiryRows), 'showcase_inquiry');
+    expect(inquiry).not.toHaveProperty('form');
+    expect(Object.keys(inquiry.formViews)).toEqual(['showcase_inquiry.contact']);
+    expect(inquiry.formViews['showcase_inquiry.contact'].isDefault).toBe(false);
+    // The list family keeps its own default.
+    expect(inquiry.list.name).toBe('showcase_inquiry.default');
+  });
+
+  it('create and edit take the no-default-form path for `showcase_inquiry`: no layout comes from the named form', () => {
+    const inquiry = byName(mergeViewsIntoObjects(objects, inquiryRows), 'showcase_inquiry');
+    // The read `RecordFormPage`, `ScreenView` and `resolveFormViewLayout` share
+    // (`.form`, then `formViews.default`) finds nothing…
+    expect(inquiry.form ?? inquiry.formViews?.default).toBeUndefined();
+    // …so the New/Edit dialog (AppContent, `useActionModal`) gets no sections,
+    // the same answer as an object that declares no form view at all.
+    expect(resolveFormViewLayout(inquiry)).toEqual({});
+    expect(resolveFormViewLayout(inquiry)).toEqual(resolveFormViewLayout({ name: 'showcase_inquiry' } as any));
+  });
+
+  it('`crm_lead` keeps its default when the default arrives AFTER the named Web-to-Lead form', () => {
+    const lead = byName(mergeViewsIntoObjects(objects, [leadWebToLead, leadForm]), 'crm_lead');
+    expect(lead.form.name).toBe('crm_lead.form');
+    expect(resolveFormViewLayout(lead).sections?.map((s: any) => s.name)).toEqual(['lead_information']);
+    expect(lead.formViews['crm_lead.web_to_lead'].isDefault).toBe(false);
+  });
+
+  it('`showcase_contact` keeps its default whichever order its two forms arrive in', () => {
+    for (const rows of [[contactCreate, contactForm], [contactForm, contactCreate]]) {
+      const contact = byName(mergeViewsIntoObjects(objects, rows), 'showcase_contact');
+      expect(contact.form.name).toBe('showcase_contact.form');
+      expect(Object.keys(contact.formViews).sort()).toEqual(['showcase_contact.create', 'showcase_contact.form']);
+    }
+  });
+
+  it('a named form arriving AFTER the default does not displace it', () => {
+    const lead = byName(mergeViewsIntoObjects(objects, [leadForm, leadWebToLead]), 'crm_lead');
+    expect(lead.form.name).toBe('crm_lead.form');
   });
 });
 

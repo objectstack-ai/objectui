@@ -566,8 +566,10 @@ const ar = {
     },
     import: {
       downloadTemplate: "تنزيل القالب",
-      downloadTemplateHint: "احصل على ملف CSV بالأعمدة الصحيحة (الحقول المطلوبة معلَّمة بـ *).",
+      downloadTemplateHint: "احصل على ملف Excel بالأعمدة التي يمكنك استيرادها (الحقول المطلوبة معلَّمة بـ *) مع تعليمات التعبئة.",
       templateFileName: "{{object}}-import-template",
+      templateDownloadFailed: "تعذّر تنزيل القالب. يرجى المحاولة مرة أخرى.",
+      templateNotPermitted: "ليست لديك صلاحية إنشاء سجلات لهذا الكائن، لذا فإن قالب الاستيراد غير متاح.",
       autoMatched: "تمت المطابقة تلقائيًا",
       autoMatchedSummary: "تمت مطابقة {{count}} عمودًا تلقائيًا — راجعها وعدّلها أدناه.",
       autoMatchedSummary_zero: "تمت مطابقة {{count}} عمود تلقائيًا — راجِع وعدِّل أدناه.",

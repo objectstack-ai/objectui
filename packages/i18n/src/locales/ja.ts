@@ -502,8 +502,10 @@ const ja = {
     },
     import: {
       downloadTemplate: "テンプレートをダウンロード",
-      downloadTemplateHint: "正しい列を備えた CSV を取得します（必須項目には * が付きます）。",
+      downloadTemplateHint: "インポートできる列だけを含む Excel ファイルを取得します（必須項目には * が付き、記入方法の説明が付きます）。",
       templateFileName: "{{object}}-import-template",
+      templateDownloadFailed: "テンプレートをダウンロードできませんでした。もう一度お試しください。",
+      templateNotPermitted: "このオブジェクトのレコードを作成する権限がないため、インポートテンプレートは利用できません。",
       autoMatched: "自動マッピング済み",
       autoMatchedSummary: "{{count}} 列を自動マッピングしました — 下で確認・調整してください。",
       autoMatchedSummary_one: "{{count}} 列を自動マッピングしました — 下で確認・調整してください。",

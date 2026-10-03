@@ -502,8 +502,10 @@ const de = {
     },
     import: {
       downloadTemplate: "Vorlage herunterladen",
-      downloadTemplateHint: "Laden Sie eine CSV mit den richtigen Spalten herunter (Pflichtfelder sind mit * markiert).",
+      downloadTemplateHint: "Laden Sie eine Excel-Datei mit den importierbaren Spalten herunter (Pflichtfelder sind mit * markiert), samt Ausfüllhinweisen.",
       templateFileName: "{{object}}-import-template",
+      templateDownloadFailed: "Die Vorlage konnte nicht heruntergeladen werden. Bitte versuchen Sie es erneut.",
+      templateNotPermitted: "Sie sind nicht berechtigt, Datensätze dieses Objekts zu erstellen, daher ist die Importvorlage nicht verfügbar.",
       autoMatched: "Automatisch zugeordnet",
       autoMatchedSummary: "{{count}} Spalte(n) automatisch zugeordnet — unten prüfen und anpassen.",
       autoMatchedSummary_one: "{{count}} Spalte automatisch zugeordnet — unten prüfen und anpassen.",

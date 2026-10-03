@@ -515,8 +515,10 @@ const fr = {
     },
     import: {
       downloadTemplate: "Télécharger le modèle",
-      downloadTemplateHint: "Obtenez un CSV avec les bonnes colonnes (les champs obligatoires sont marqués d'un *).",
+      downloadTemplateHint: "Obtenez un fichier Excel des colonnes importables (les champs obligatoires sont marqués d'un *), avec des instructions de saisie.",
       templateFileName: "{{object}}-import-template",
+      templateDownloadFailed: "Impossible de télécharger le modèle. Veuillez réessayer.",
+      templateNotPermitted: "Vous n'êtes pas autorisé à créer des enregistrements de cet objet, son modèle d'import n'est donc pas disponible.",
       autoMatched: "Associé automatiquement",
       autoMatchedSummary: "{{count}} colonne(s) associée(s) automatiquement — vérifiez et ajustez ci-dessous.",
       autoMatchedSummary_one: "{{count}} colonne associée automatiquement — vérifiez et ajustez ci-dessous.",

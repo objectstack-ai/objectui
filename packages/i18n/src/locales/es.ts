@@ -519,8 +519,10 @@ const es = {
     },
     import: {
       downloadTemplate: "Descargar plantilla",
-      downloadTemplateHint: "Obtenga un CSV con las columnas correctas (los campos obligatorios llevan *).",
+      downloadTemplateHint: "Obtenga un archivo de Excel con las columnas que puede importar (los campos obligatorios llevan *) e instrucciones para rellenarlo.",
       templateFileName: "{{object}}-import-template",
+      templateDownloadFailed: "No se pudo descargar la plantilla. Inténtelo de nuevo.",
+      templateNotPermitted: "No tiene permiso para crear registros de este objeto, por lo que su plantilla de importación no está disponible.",
       autoMatched: "Emparejado automáticamente",
       autoMatchedSummary: "{{count}} columna(s) emparejada(s) automáticamente: revise y ajuste abajo.",
       autoMatchedSummary_one: "{{count}} columna emparejada automáticamente: revise y ajuste abajo.",

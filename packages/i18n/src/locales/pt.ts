@@ -514,8 +514,10 @@ const pt = {
     },
     import: {
       downloadTemplate: "Baixar modelo",
-      downloadTemplateHint: "Obtenha um CSV com as colunas corretas (campos obrigatórios marcados com *).",
+      downloadTemplateHint: "Obtenha um arquivo Excel com as colunas que você pode importar (campos obrigatórios marcados com *) e instruções de preenchimento.",
       templateFileName: "{{object}}-import-template",
+      templateDownloadFailed: "Não foi possível baixar o modelo. Tente novamente.",
+      templateNotPermitted: "Você não tem permissão para criar registros deste objeto, portanto o modelo de importação não está disponível.",
       autoMatched: "Correspondência automática",
       autoMatchedSummary: "{{count}} coluna(s) com correspondência automática — revise e ajuste abaixo.",
       autoMatchedSummary_one: "{{count}} coluna com correspondência automática — revise e ajuste abaixo.",

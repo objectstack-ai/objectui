@@ -572,8 +572,10 @@ const zh = {
       },
       // 下载模板
       downloadTemplate: '下载模板',
-      downloadTemplateHint: '获取带正确列的 CSV（必填字段标 *）。',
+      downloadTemplateHint: '获取 Excel 模板：仅含可导入的列（必填字段标 *），并附填写说明。',
       templateFileName: '{{object}}-导入模板',
+      templateDownloadFailed: '模板下载失败，请重试。',
+      templateNotPermitted: '您没有新建该对象记录的权限，无法获取其导入模板。',
       // 校验（服务端 dryRun 预检）
       validate: '校验数据',
       validateHint: '导入前在服务端逐行校验。',

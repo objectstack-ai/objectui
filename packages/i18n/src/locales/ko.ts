@@ -502,8 +502,10 @@ const ko = {
     },
     import: {
       downloadTemplate: "템플릿 다운로드",
-      downloadTemplateHint: "올바른 열이 포함된 CSV를 받습니다(필수 필드에는 * 표시).",
+      downloadTemplateHint: "가져올 수 있는 열만 담은 Excel 파일을 받습니다(필수 필드에는 * 표시, 작성 안내 포함).",
       templateFileName: "{{object}}-import-template",
+      templateDownloadFailed: "템플릿을 다운로드할 수 없습니다. 다시 시도하세요.",
+      templateNotPermitted: "이 객체의 레코드를 생성할 권한이 없어 가져오기 템플릿을 사용할 수 없습니다.",
       autoMatched: "자동 매핑됨",
       autoMatchedSummary: "{{count}}개 열을 자동 매핑했습니다 — 아래에서 확인하고 조정하세요.",
       autoMatchedSummary_one: "{{count}}개 열을 자동 매핑했습니다 — 아래에서 확인하고 조정하세요.",

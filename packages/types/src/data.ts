@@ -878,6 +878,35 @@ export interface DataSource<T = any> {
   ): Promise<ImportRecordsResult>;
 
   /**
+   * Download the server's import template for a resource: the spreadsheet a
+   * user fills in and uploads back through {@link importRecords}.
+   *
+   * The server owns the template (objectui#9600). It lists only the columns an
+   * import can write for this caller, marks the required ones, and adds
+   * dropdowns and fill-in instructions. A client-built copy would be a second
+   * definition of those column rules. It resolves to the file (an xlsx
+   * workbook) as a `Blob`; the caller triggers the browser download.
+   *
+   * The server judges this request like the import itself. The object must be
+   * open for import, else it answers 405. The caller must be allowed to create
+   * records of it, else it answers 403. Offer the template only to a user who
+   * can create records of the object.
+   *
+   * The template's labels and dropdown values are written in the request's
+   * locale, and the import accepts a translated label only in its own request's
+   * locale. So an adapter sends this request in the same locale its
+   * {@link importRecords} request uses.
+   *
+   * Optional, and there is no client-side fallback: when it is absent, no
+   * template is offered. Feature-detect with
+   * `typeof dataSource.downloadImportTemplate === 'function'`.
+   *
+   * @param resource - Object/table name
+   * @returns Promise resolving to the template file as a Blob.
+   */
+  downloadImportTemplate?(resource: string): Promise<Blob>;
+
+  /**
    * Initiate an **asynchronous** import job — the large-file counterpart to
    * {@link importRecords}. The whole payload is posted once; the server persists
    * a job, returns immediately with a `jobId`, and processes rows in the

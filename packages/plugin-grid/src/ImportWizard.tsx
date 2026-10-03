@@ -304,7 +304,6 @@ export const __testables = {
   get isImportNotAllowed() { return isImportNotAllowed; },
   get jobResultToImportResult() { return jobResultToImportResult; },
   get buildFailedRowsCsv() { return buildFailedRowsCsv; },
-  get templateDownloadErrorKey() { return templateDownloadErrorKey; },
   get assembleImportRequest() { return assembleImportRequest; },
   get isImportJobActive() { return isImportJobActive; },
   get isImportJobUndoable() { return isImportJobUndoable; },
@@ -764,18 +763,18 @@ function downloadBlob(filename: string, blob: Blob): void {
   setTimeout(() => URL.revokeObjectURL(url), 0);
 }
 
-/** The message key for a failed import-template download (objectui#9600). The
+/** The message for a failed import-template download (objectui#9600). The
  *  server judges the template like the import: 405 when the object is not open
  *  for import (the same answer the import itself gets, so the same message),
  *  403 when the caller may not create its records. There is no client-side
  *  template to fall back to. */
-function templateDownloadErrorKey(err: unknown): string {
-  if (isImportNotAllowed(err)) return 'grid.import.notAllowed';
+function templateDownloadErrorMessage(err: unknown, t: (k: string, v?: Record<string, unknown>) => string): string {
+  if (isImportNotAllowed(err)) return t('grid.import.notAllowed');
   const e = err as { code?: unknown; status?: unknown; httpStatus?: unknown } | undefined;
   if (e?.code === 'PERMISSION_DENIED' || e?.status === 403 || e?.httpStatus === 403) {
-    return 'grid.import.templateNotPermitted';
+    return t('grid.import.templateNotPermitted');
   }
-  return 'grid.import.templateDownloadFailed';
+  return t('grid.import.templateDownloadFailed');
 }
 
 /** Map a thrown import-parse error code to a translated, user-facing message. */
@@ -813,7 +812,7 @@ const StepUpload: React.FC<{
       );
       downloadBlob(`${base || 'import-template'}.xlsx`, blob);
     } catch (err) {
-      setError(t(templateDownloadErrorKey(err)));
+      setError(templateDownloadErrorMessage(err, t));
     } finally {
       setTemplateBusy(false);
     }

@@ -12,6 +12,7 @@ import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from '
 import {
   classifyWidgetType,
   DASHBOARD_NODE_TYPES,
+  entryComponent,
   isSlotComponentEntry,
   resolveWidgetType,
   toDashboardNodeType,
@@ -257,7 +258,8 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
     // Same boundary as `DashboardRenderer`: the author's node keeps its
     // spelling except a `metric` / `metric-card` node key, which moves onto its
     // namespaced registration (`toDashboardNodeType`, objectui#10859 batch 8).
-    if (widget.component) return toDashboardNodeType(widget.component);
+    const authoredComponent = entryComponent(widget);
+    if (authoredComponent) return toDashboardNodeType(authoredComponent);
 
     // Retired legacy inline-analytics widget (framework#3320) — the SAME
     // detector `DashboardRenderer` uses, imported rather than restated
@@ -579,14 +581,13 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
           {schema.widgets?.map((widget: DashboardWidgetSlotEntry, index: number) => {
             const widgetId = widget.id || `widget-${index}`;
             // `getComponentSchema` builds a node for `SchemaRenderer` in every
-            // branch, but its inferred union is wider than the renderer's
-            // declared input: the passthrough fallback spreads a
-            // `DashboardWidgetSchema` whose `type` is OPTIONAL, and the metric
-            // branches carry `widget.title`'s `I18nLabel` where `BaseSchema`
-            // declares a plain `string`. Both are pre-existing looseness in the
-            // widget types rather than anything this call site can state
-            // truthfully, so the narrowing is named here once (objectui#4548)
-            // instead of being spread across the two render sites below.
+            // branch, but not every branch's node is a declared type yet: the
+            // flat `object-metric` node has none (objectui#11525), the
+            // `plugin-dashboard:metric` key is typed `string`
+            // (`DASHBOARD_NODE_TYPES`, objectui#11466), and the static `pivot`
+            // does not state `PivotTableSchema`'s required axes. So the
+            // narrowing is named here once (objectui#4548) instead of being
+            // spread across the two render sites below.
             const componentSchema = getComponentSchema(widget) as BaseSchema | string | null | undefined;
             // ADR-0021 — a widget bound to a semantic-layer dataset renders
             // through the governed queryDataset path (DatasetWidget) instead of

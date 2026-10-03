@@ -41,7 +41,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
-import { classifyWidgetType, METRIC_LIKE_TYPES, DASHBOARD_NODE_TYPES, toDashboardNodeType, resolveWidgetType, isSlotComponentEntry, unsupportedWidgetSchema, type DashboardWidgetSlotEntry } from './widgetDispatch';
+import { classifyWidgetType, METRIC_LIKE_TYPES, DASHBOARD_NODE_TYPES, toDashboardNodeType, resolveWidgetType, isSlotComponentEntry, unsupportedWidgetSchema, entryComponent, type DashboardWidgetSlotEntry } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
@@ -695,7 +695,8 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             // The author-supplied node keeps its spelling; only a `metric` /
             // `metric-card` node key moves onto its namespaced registration
             // (`toDashboardNodeType`, objectui#10859 batch 8).
-            if (widget.component) return toDashboardNodeType(widget.component);
+            const authoredComponent = entryComponent(widget);
+            if (authoredComponent) return toDashboardNodeType(authoredComponent);
 
             // Handle Shorthand Registry Mappings
             const widgetType = entryType;

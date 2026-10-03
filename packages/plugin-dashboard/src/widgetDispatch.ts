@@ -26,6 +26,7 @@
 import { DASHBOARD_COMPONENT_WIDGET_TYPES } from '@object-ui/types';
 import type {
   DashboardComponentSchema,
+  DashboardWidgetSchema,
   DashboardWidgetSlotComponentSchema,
   DashboardWidgetTypeName,
   TextSchema,
@@ -76,6 +77,18 @@ export function specDefaultWidgetType(): DashboardWidgetTypeName {
  */
 export function resolveWidgetType(entry: DashboardWidgetSlotEntry): NonNullable<DashboardWidgetSlotEntry['type']> {
   return entry.type ?? specDefaultWidgetType();
+}
+
+/**
+ * The node an entry's legacy `component` envelope holds, typed as the widget
+ * arm declares that member (`DashboardWidgetSchema['component']`). Read off the
+ * entry whichever arm it is, as the surfaces always read it. The component arm
+ * declares no `component`, so a bare `entry.component` on the slot entry reads
+ * through `BaseSchema`'s index signature and is `any` — which made each
+ * surface's whole `getComponentSchema` return `any` (objectui#11514).
+ */
+export function entryComponent(entry: DashboardWidgetSlotEntry): DashboardWidgetSchema['component'] {
+  return entry.component;
 }
 
 /**

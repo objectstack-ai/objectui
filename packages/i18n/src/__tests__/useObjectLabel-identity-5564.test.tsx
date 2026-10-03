@@ -165,13 +165,15 @@ describe('useObjectLabel identity (objectui#5564)', () => {
     );
 
     expect(Object.keys(unbound.seen[0]).sort()).toEqual(Object.keys(bound.seen[0]).sort());
-    // 26 is the surface measured on the card, minus `viewDescription`: the
+    // 26 was the surface measured on the card, minus `viewDescription`: the
     // member and its `_views.<view>.description` catalog convention were retired
-    // by objectui#7219 (ruled 2026-09-02), taking the count from 27 to 26. A new
-    // resolver must land on both paths at once, because there is only one path
-    // — and a retired one leaves both at once for the same reason, which is what
-    // the equality above measures and this count anchors to an absolute.
-    expect(Object.keys(unbound.seen[0])).toHaveLength(26);
+    // by objectui#7219 (ruled 2026-09-02), taking the count from 27 to 26.
+    // objectui#11344 added `actionOutcome` (an action's per-outcome success
+    // copy), taking it back to 27. A new resolver must land on both paths at
+    // once, because there is only one path — and a retired one leaves both at
+    // once for the same reason, which is what the equality above measures and
+    // this count anchors to an absolute.
+    expect(Object.keys(unbound.seen[0])).toHaveLength(27);
     expect(typeof unbound.seen[0].objectLabel).toBe('function');
     expect(unbound.seen[0].objectLabel({ name: 'lead', label: 'Lead' })).toBe('Lead');
   });

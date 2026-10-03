@@ -68,6 +68,7 @@
 
 import { useMemo } from 'react';
 import { useObjectLabel, useObjectTranslation, pickLocalized } from '@object-ui/i18n';
+import { isConfigBag } from '../utils/configBag.js';
 
 export interface ActionTextLocalizerOptions {
   /**
@@ -130,10 +131,12 @@ export function useActionTextLocalizer(): ActionTextLocalizer {
           pickLocalized((action as any).successMessage, language),
         );
       }
+      // The map is an authored bag (outcome → copy), so the one "is this a
+      // real bag?" predicate in this package answers whether to read it.
       const authoredOutcomes: unknown = action.outcomeMessages;
-      if (authoredOutcomes && typeof authoredOutcomes === 'object' && !Array.isArray(authoredOutcomes)) {
+      if (isConfigBag(authoredOutcomes)) {
         const outcomeMessages: Record<string, string> = {};
-        for (const [outcome, copy] of Object.entries(authoredOutcomes as Record<string, unknown>)) {
+        for (const [outcome, copy] of Object.entries(authoredOutcomes)) {
           const text = actionOutcome(objectName, name, outcome, pickLocalized(copy, language));
           if (text !== undefined) outcomeMessages[outcome] = text;
         }

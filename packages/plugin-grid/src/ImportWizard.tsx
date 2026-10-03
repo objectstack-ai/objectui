@@ -14,6 +14,7 @@ import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, ArrowRight, Arro
 import { useObjectTranslation } from '@object-ui/react';
 import { sanitizeFileNameBase } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
+import { usePermissions } from '@object-ui/permissions';
 import { BOOLEAN_IMPORT_TOKENS, REFERENCE_IMPORT_TYPES } from './importCoercionContract';
 import type {
   DataSource,
@@ -56,8 +57,10 @@ export const IMPORT_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'grid.import.dragDrop': 'Drag & drop a CSV or Excel file here, or click to browse',
   'grid.import.browseFiles': 'Browse Files',
   'grid.import.downloadTemplate': 'Download template',
-  'grid.import.downloadTemplateHint': 'Get a CSV with the right columns (required fields marked *).',
+  'grid.import.downloadTemplateHint': 'Get an Excel file of the columns you can import (required fields marked *), with instructions for filling it in.',
   'grid.import.templateFileName': '{{object}}-import-template',
+  'grid.import.templateDownloadFailed': 'Could not download the template. Please try again.',
+  'grid.import.templateNotPermitted': 'You do not have permission to create records of this object, so its import template is not available.',
   'grid.import.parsing': 'Parsing…',
   'grid.import.pasteHint': 'or paste (Ctrl/⌘+V) rows copied from Excel or Google Sheets',
   'grid.import.legacyXls': "Legacy .xls files aren't supported — please re-save as .xlsx.",
@@ -301,7 +304,6 @@ export const __testables = {
   get isImportNotAllowed() { return isImportNotAllowed; },
   get jobResultToImportResult() { return jobResultToImportResult; },
   get buildFailedRowsCsv() { return buildFailedRowsCsv; },
-  get buildImportTemplateCsv() { return buildImportTemplateCsv; },
   get assembleImportRequest() { return assembleImportRequest; },
   get isImportJobActive() { return isImportJobActive; },
   get isImportJobUndoable() { return isImportJobUndoable; },
@@ -340,8 +342,8 @@ export interface ImportWizardProps {
     label: string;
     type: string;
     required?: boolean;
-    /** Allowed values for select/enum fields — used to seed the downloadable
-     *  template's example row. Accepts option objects or bare strings. */
+    /** Allowed values for select/enum fields. Accepts option objects or bare
+     *  strings. */
     options?: Array<{ label?: string; value?: string | number } | string>;
     /** Storage-backed but non-writable target (autonumber / readonly): mappable
      *  so update/upsert can MATCH rows on it (e.g. "update the row whose record
@@ -747,74 +749,32 @@ function buildFailedRowsCsv(
   return lines.join('\n');
 }
 
-/** Pick a representative allowed value from a select field's options, for the
- *  template example row. Prefers the display label over the stored value: the
- *  server's import coercion accepts either (it matches value OR label,
- *  case-insensitively), and the label is what a localized user recognizes —
- *  an ASCII slug like `prepare` reads as English leakage in a zh template. */
-function firstOptionValue(
-  options: ImportWizardProps['fields'][number]['options'],
-): string | undefined {
-  const first = options?.[0];
-  if (first === undefined || first === null) return undefined;
-  if (typeof first === 'string') return first;
-  if (first.label) return first.label;
-  if (first.value !== undefined && first.value !== null) return String(first.value);
-  return undefined;
-}
-
-/** A type-appropriate example cell for the downloadable import template. Kept
- *  format-oriented (dates, emails) rather than prose so it reads the same in
- *  any locale; text-ish fields are left blank so the row is obviously a sample. */
-function exampleForField(field: ImportWizardProps['fields'][number]): string {
-  switch (field.type) {
-    case 'number':
-    case 'currency':
-    case 'percent':
-      return '0';
-    case 'date':
-      return '2024-01-31';
-    case 'datetime':
-      return '2024-01-31 09:00';
-    case 'time':
-      return '09:00';
-    case 'boolean':
-      return 'true';
-    case 'email':
-      return 'name@example.com';
-    case 'url':
-      return 'https://example.com';
-    case 'select':
-    case 'multiselect':
-    case 'lookup':
-    case 'reference':
-      return firstOptionValue(field.options) ?? '';
-    default:
-      return '';
-  }
-}
-
-/** Build a downloadable CSV import template for the given fields: a header row
- *  of field labels (required fields marked with `*`, which re-import tolerates)
- *  plus a single example row. Not persisted — a convenience starting point. */
-function buildImportTemplateCsv(fields: ImportWizardProps['fields']): string {
-  const esc = (v: string) => (/[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v);
-  const header = fields.map((f) => `${f.label}${f.required ? ' *' : ''}`);
-  const example = fields.map((f) => exampleForField(f));
-  return [header.map(esc).join(','), example.map(esc).join(',')].join('\n');
-}
-
-/** Trigger a client-side text file download (prepends a UTF-8 BOM so Excel
- *  reads non-ASCII correctly). No-op in non-DOM environments. */
-function downloadTextFile(filename: string, text: string, mime = 'text/csv;charset=utf-8'): void {
+/** Hand a fetched file to the browser as a download. No-op in non-DOM
+ *  environments. */
+function downloadBlob(filename: string, blob: Blob): void {
   if (typeof document === 'undefined' || typeof URL?.createObjectURL !== 'function') return;
-  const blob = new Blob([`\uFEFF${text}`], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
   a.download = filename;
+  document.body.appendChild(a);
   a.click();
-  URL.revokeObjectURL(url);
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 0);
+}
+
+/** The message for a failed import-template download (objectui#9600). The
+ *  server judges the template like the import: 405 when the object is not open
+ *  for import (the same answer the import itself gets, so the same message),
+ *  403 when the caller may not create its records. There is no client-side
+ *  template to fall back to. */
+function templateDownloadErrorMessage(err: unknown, t: (k: string, v?: Record<string, unknown>) => string): string {
+  if (isImportNotAllowed(err)) return t('grid.import.notAllowed');
+  const e = err as { code?: unknown; status?: unknown; httpStatus?: unknown } | undefined;
+  if (e?.code === 'PERMISSION_DENIED' || e?.status === 403 || e?.httpStatus === 403) {
+    return t('grid.import.templateNotPermitted');
+  }
+  return t('grid.import.templateDownloadFailed');
 }
 
 /** Map a thrown import-parse error code to a translated, user-facing message. */
@@ -828,16 +788,35 @@ function parseErrorMessage(err: unknown, t: (k: string, v?: Record<string, unkno
 // Step 1: File Upload (CSV / Excel / paste)
 const StepUpload: React.FC<{
   onFileLoaded: (headers: string[], rows: string[][]) => void;
-  fields: ImportWizardProps['fields'];
+  /** Fetches the server's import template (objectui#9600). Absent ⇒ the
+   *  template is not offered: there is no client-built fallback. */
+  downloadTemplate?: () => Promise<Blob>;
   objectName: string;
   /** Localized display label — used for the template filename so a zh user
-   *  downloads `合同-导入模板.csv` rather than `contracts-template.csv`. */
+   *  downloads `合同-导入模板.xlsx` rather than `contracts-template.xlsx`. */
   objectLabel?: string;
-}> = ({ onFileLoaded, fields, objectName, objectLabel }) => {
+}> = ({ onFileLoaded, downloadTemplate, objectName, objectLabel }) => {
   const { t } = useImportTranslation();
   const [dragOver, setDragOver] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [templateBusy, setTemplateBusy] = useState(false);
+
+  const handleDownloadTemplate = async () => {
+    if (!downloadTemplate) return;
+    setError(null); setTemplateBusy(true);
+    try {
+      const blob = await downloadTemplate();
+      const base = sanitizeFileNameBase(
+        t('grid.import.templateFileName', { object: objectLabel || objectName || 'import' }),
+      );
+      downloadBlob(`${base || 'import-template'}.xlsx`, blob);
+    } catch (err) {
+      setError(templateDownloadErrorMessage(err, t));
+    } finally {
+      setTemplateBusy(false);
+    }
+  };
 
   /** Validate a freshly-parsed grid and hand it to the wizard, or report why not. */
   const acceptParsed = useCallback((parsed: string[][]) => {
@@ -899,18 +878,14 @@ const StepUpload: React.FC<{
           <ClipboardPaste className="h-3.5 w-3.5" /> {t('grid.import.pasteHint')}
         </p>
       </div>
-      {fields.length > 0 && (
+      {downloadTemplate && (
         <div className="flex flex-col items-center gap-1">
           <Button
             type="button"
             variant="ghost"
             size="sm"
-            onClick={() => {
-              const base = sanitizeFileNameBase(
-                t('grid.import.templateFileName', { object: objectLabel || objectName || 'import' }),
-              );
-              downloadTextFile(`${base || 'import-template'}.csv`, buildImportTemplateCsv(fields));
-            }}
+            disabled={templateBusy}
+            onClick={() => { void handleDownloadTemplate(); }}
             data-testid="import-download-template"
           >
             <Download className="mr-1 h-4 w-4" /> {t('grid.import.downloadTemplate')}
@@ -1717,6 +1692,19 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
       && typeof ds?.getImportJobResults === 'function';
   }, [dataSource]);
 
+  // The import template is the SERVER's (objectui#9600): it lists only the
+  // columns this caller can import, so the wizard builds none of its own. It is
+  // offered when the data source can fetch it and the user can create records
+  // of the object, the server's own gate on it (it answers 403 otherwise). Same
+  // permission source as the toolbar that opens this wizard; with no
+  // PermissionProvider mounted `can()` answers true and the server decides.
+  const { can } = usePermissions();
+  const templateSource = dataSource as Partial<DataSource> | undefined;
+  const fetchTemplate = templateSource?.downloadImportTemplate;
+  const downloadTemplate = typeof fetchTemplate === 'function' && can(objectName, 'create')
+    ? () => fetchTemplate.call(templateSource, objectName)
+    : undefined;
+
   const toggleMatchField = useCallback((name: string) => {
     setMatchFields((prev) => (prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name]));
   }, []);
@@ -2306,7 +2294,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
           <ImportHistoryPanel objectName={objectName} dataSource={dataSource} t={t} />
         ) : !result ? (
           <>
-            {step === 'upload' && <StepUpload onFileLoaded={handleFileLoaded} fields={fields} objectName={objectName} objectLabel={label} />}
+            {step === 'upload' && <StepUpload onFileLoaded={handleFileLoaded} downloadTemplate={downloadTemplate} objectName={objectName} objectLabel={label} />}
             {step === 'mapping' && (
               <StepMapping
                 headers={headers}

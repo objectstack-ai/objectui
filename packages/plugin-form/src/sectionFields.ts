@@ -186,9 +186,11 @@ function warnOnMixedVocabulary(fd: Record<string, any>, objectName: string): voi
  * `field`, normalized by `normalizeSectionField` above. TOP-LEVEL `fields` —
  * `SimpleObjectForm`'s `fieldsToShow` loop in `ObjectForm.tsx`, and
  * `buildFlatFields` below in `flatFields.ts` for the drawer/modal
- * presentations — does NOT: it reads only bare field-name strings (`{ name }`
- * tolerated). The exact same `{ field: 'x', ... }` object `normalizeSectionField`
- * treats as canonical resolves to no `name` at the top level, and both read
+ * presentations — does NOT: it takes only bare field-name strings. (A STORED
+ * `{ name }` entry still reads, but it is no authoring spelling and neither
+ * this warning nor the registrations teach it: objectui#11550.) The exact same
+ * `{ field: 'x', ... }` object `normalizeSectionField` treats as canonical
+ * resolves to no `name` at the top level, and both read
  * sites used to drop it in total silence — no throw, no warning, no
  * empty-state. This is the same voice and the same once-per-occurrence
  * discipline as `warnOnMixedVocabulary`, for the sibling mistake where a
@@ -209,7 +211,7 @@ export function warnUnresolvedTopLevelField(entry: unknown, objectName: string):
   warnedUnresolvedTopLevelField.add(key);
   console.warn(
     `[object-ui] top-level \`fields\` entry ${shape} resolved to no field name and was skipped. ` +
-      `Top-level \`fields\` takes bare field-name strings (\`{ name }\` is tolerated) — it is NOT the ` +
+      `Top-level \`fields\` takes bare field-name strings — it is NOT the ` +
       `same vocabulary as \`sections[].fields\`, which also accepts the spec \`FormFieldSchema\` object ` +
       `(identity key \`field\`, e.g. \`{ field: 'note', colSpan: 2 }\`). That shape has no \`name\` here ` +
       `and is silently dropped; use a bare field-name string, or move the entry into a ` +

@@ -15,7 +15,7 @@
  */
 
 import * as React from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link, Navigate } from 'react-router-dom';
 import { useAdapter, SchemaRendererProvider } from '@object-ui/react';
 // The ONE draft-envelope reader (objectui#8181): unwrap AND strip the
 // framework's read decorations in one place. This file used to carry its own
@@ -50,6 +50,7 @@ import {
   AlertTriangle,
   Ban,
   Boxes,
+  Building2,
   FileText,
   Database,
   LayoutDashboard,
@@ -102,11 +103,17 @@ import {
 } from '../metadata-admin/nav-selection.js';
 import { useNavSelDeepLink } from '../metadata-admin/useNavSelDeepLink.js';
 import { SourcePageEditor } from '../metadata-admin/previews/SourcePageEditor.js';
-import { usePendingDrafts } from '../../preview/usePendingDrafts.js';
+import { fetchPendingDrafts, usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { emitMetadataRefresh, subscribeMetadataRefresh } from '../../assistant/assistantBus.js';
 import { formatPublishFailures, type PublishFailure } from './metadataError.js';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
-import { loadPackageSurfaces } from './packageSurfaces.js';
+import { loadPackageLessSurfaces, loadPackageSurfaces } from './packageSurfaces.js';
+import {
+  STUDIO_ORG_SCOPE_PILLAR,
+  isOrgScopeDraft,
+  isStudioOrgScope,
+  studioOrgScopePath,
+} from './studioScope.js';
 import { useMetadataRefreshNonce } from './useMetadataRefreshNonce.js';
 import { useHomePath } from '../../hooks/useHomePath.js';
 import { resolveSurface, findSurfaceInTree, type NavNode, type Surface } from './navSurface.js';
@@ -407,7 +414,8 @@ function PackageSwitcher({
   tab,
   beforeNavigate,
 }: {
-  packageId: string;
+  /** The open package, or `null` in the package-less scope (objectui#11553). */
+  packageId: string | null;
   tab: string;
   /** objectui#2600 — veto hook for package-switch navigation: return false to
    * stay put (the surface prompts about unsaved pillar edits). Not consulted
@@ -791,7 +799,17 @@ function PackageSwitcher({
           className="flex items-center gap-1.5 whitespace-nowrap rounded-md px-1.5 py-0.5 text-[13px] font-medium hover:bg-muted"
           title={t('engine.studio.pkg.switchTitle', locale)}
         >
-          <Boxes className="h-4 w-4" /> {current?.name ?? packageId}
+          {/* objectui#11553 — the package-less scope names itself; there is
+              no package id to show as the diagnostic handle. */}
+          {packageId === null ? (
+            <>
+              <Building2 className="h-4 w-4" /> {t('engine.studio.org.name', locale)}
+            </>
+          ) : (
+            <>
+              <Boxes className="h-4 w-4" /> {current?.name ?? packageId}
+            </>
+          )}
           {/* ⛔ Not a replacement for the id (objectui#7368): the id is the one
               diagnostic handle the author has, so the states are told apart by
               what stands NEXT to it, never by swapping it for prose. */}
@@ -877,11 +895,39 @@ function PackageSwitcher({
               ))}
             </div>
 
+            {/* objectui#11553 — the package-less scope, reachable from every
+                package as it is from the Studio home. It lands on its one
+                pillar whatever pillar is open here. */}
+            <div className="mt-1 border-t pt-1.5">
+              <button
+                type="button"
+                data-testid="studio-org-scope-entry"
+                onClick={() => {
+                  setOpen(false);
+                  if (packageId === null) return;
+                  if (beforeNavigate && !beforeNavigate()) return;
+                  navigate(studioOrgScopePath());
+                }}
+                className={
+                  'flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs ' +
+                  (packageId === null ? 'bg-muted font-medium' : 'hover:bg-muted/60')
+                }
+              >
+                <Building2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{t('engine.studio.org.name', locale)}</span>
+                  <span className="block truncate text-[10px] text-muted-foreground">
+                    {t('engine.studio.org.hint', locale)}
+                  </span>
+                </span>
+              </button>
+            </div>
+
             <div className="mt-1 space-y-0.5 border-t pt-1.5">
               {current && (
                 <button
                   type="button"
-                  onClick={() => void openManage(packageId)}
+                  onClick={() => void openManage(current.id)}
                   disabled={manageBusy}
                   className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-xs text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
                 >
@@ -930,7 +976,13 @@ export interface StudioDesignSurfaceProps {
 
 export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React.ReactElement {
   const params = useParams<{ packageId?: string; tab?: string }>();
-  const packageId = params.packageId ?? 'com.example.showcase';
+  // The route segment: a package id, or the package-less scope's reserved
+  // segment (objectui#11553, `studioScope.ts`). URLs are built from it.
+  const scopeSegment = params.packageId ?? 'com.example.showcase';
+  // `null` in the package-less scope. Every package-scoped read, write and
+  // publish below keys on this value, so none of them can be handed the
+  // reserved segment as though it named a package.
+  const packageId: string | null = isStudioOrgScope(scopeSegment) ? null : scopeSegment;
   const tab = params.tab ?? 'interfaces';
   const locale = useMetadataLocale();
 
@@ -945,6 +997,9 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // on a write state nobody has answered yet (objectui#11153).
   const [pkgWritable, setPkgWritable] = React.useState<boolean | null | undefined>(undefined);
   React.useEffect(() => {
+    // objectui#11553 — the package-less scope has no package to look up; its
+    // writability is decided below, not fetched.
+    if (packageId === null) return;
     let cancelled = false;
     setPkgWritable(undefined);
     fetchPackages()
@@ -965,7 +1020,10 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       cancelled = true;
     };
   }, [packageId]);
-  const readOnly = pkgWritable === false;
+  // objectui#11553 — the package-less scope's flows are the organization's
+  // own, so they open editable whatever the last package answered. The
+  // server's write gate stays the authority, exactly as for a writable package.
+  const readOnly = packageId !== null && pkgWritable === false;
 
   // objectui#2600 — the header's pillar links, Home button and PackageSwitcher
   // are pure SPA client navigation, so the editors' `beforeunload` guard never
@@ -1015,7 +1073,17 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // and the assistant bus's metadata-refresh pulse keeps this topbar in step
   // with every OTHER surface's publishes (chat bar, home banner) — previously
   // a publish from the right dock never updated this count.
-  const { count: pendingCount, refresh: refreshPending } = usePendingDrafts({ packageId });
+  //
+  // objectui#11553 — the package-less scope reads the env-wide feed and counts
+  // only what it shows and publishes: package-less FLOW drafts. Still `null`
+  // while the feed is unknown, so the header keeps telling unknown from zero.
+  const {
+    count: feedCount,
+    entries: pendingEntries,
+    refresh: refreshPending,
+  } = usePendingDrafts({ packageId });
+  const pendingCount =
+    packageId !== null ? feedCount : feedCount === null ? null : pendingEntries.filter(isOrgScopeDraft).length;
 
   React.useEffect(() => {
     void refreshPending();
@@ -1024,6 +1092,38 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   const doPublish = React.useCallback(async () => {
     setPublishing(true);
     try {
+      if (packageId === null) {
+        // objectui#11553 — the package-less scope has no package to publish
+        // as a batch: `POST /packages/:id/publish-drafts` cannot reach a draft
+        // bound to none. Each package-less flow draft is promoted BY REFERENCE
+        // instead, through the single-item door the client documents for
+        // exactly that case (`publishDraft`), as Home's publish-all does for
+        // its package-less drafts. Read fresh, never from the header's count,
+        // and narrowed to what this scope reviewed: package-less flows.
+        const pending = (await fetchPendingDrafts(null)).filter(isOrgScopeDraft);
+        const failed: PublishFailure[] = [];
+        for (const d of pending) {
+          try {
+            await shellClient.publishDraft('flow', d.name);
+          } catch (e) {
+            failed.push({ type: 'flow', name: d.name, error: formatMetadataError(e) });
+          }
+        }
+        if (failed.length > 0) {
+          // Not all-or-nothing: the drafts that went live stay live, and the
+          // ones that did not are named with the server's own reason.
+          toast.error(formatPublishFailures(failed));
+        } else {
+          toast.success(t('engine.studio.org.published', locale));
+          setChangesOpen(false);
+        }
+        setPublishNonce((n) => n + 1);
+        emitMetadataRefresh();
+        // The tail below the `finally` is the package path's; this one
+        // re-reads the count itself before leaving.
+        await refreshPending();
+        return;
+      }
       // objectui#10039 — through `MetadataClient`, not a bare `fetch`. The
       // route answers the runtime authoring gate's per-draft advisories on
       // each `published[]` element (objectstack#9343), and the client is the
@@ -1117,6 +1217,8 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
     // Names only (objectui#11201): a seeded entry carries no label, so nothing
     // here reads one. This used to hand `buildAppSkeleton` each object's label,
     // and a draft's or unlabelled object's machine name in its place.
+    // The package-less scope creates no app (objectui#11553): nothing to seed.
+    if (packageId === null) return [];
     const [list, draftHeaders] = await Promise.all([
       shellClient.list('object', { packageId }) as Promise<Array<Record<string, unknown>>>,
       shellClient.listDrafts({ packageId, type: 'object' }).catch(() => [] as Array<{ name?: string }>),
@@ -1133,6 +1235,8 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
 
   const doCreateApp = React.useCallback(
     async (label: string, name: string) => {
+      // The package-less scope offers no Create app (objectui#11553).
+      if (packageId === null) return;
       setAppBusy(true);
       setAppErr(null);
       try {
@@ -1164,6 +1268,11 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // same moment. Same resolution as the pillar now: published first, DRAFT app
   // fallback, re-resolved on draft saves and on the metadata-refresh pulse.
   const resolvePackageApp = React.useCallback(async (): Promise<void> => {
+    // objectui#11553 — no package, so no package app to resolve.
+    if (packageId === null) {
+      setPackageApp(null);
+      return;
+    }
     try {
       const apps = (await shellClient.list('app', { packageId })) as Array<Record<string, unknown>>;
       let first = (apps || [])
@@ -1218,15 +1327,18 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   const requestSurface = React.useCallback(
     (target: SurfaceTarget): boolean | void => {
       const pillar = PILLAR_FOR_SURFACE_TYPE[target.type];
-      if (pillar && pillar !== tab) {
+      // objectui#11553 — the package-less scope has one pillar; a surface
+      // owned by another is not in this scope, so nothing to navigate to.
+      const reachable = packageId !== null || pillar === STUDIO_ORG_SCOPE_PILLAR;
+      if (pillar && pillar !== tab && reachable) {
         if (!confirmLeavePillar()) return false;
         shellNavigate(
-          `/studio/${packageId}/${pillar}?${DESIGNER_SURFACE_PARAM}=${encodeURIComponent(formatSurfaceParam(target))}`,
+          `/studio/${scopeSegment}/${pillar}?${DESIGNER_SURFACE_PARAM}=${encodeURIComponent(formatSurfaceParam(target))}`,
         );
       }
       setChangesOpen(false);
     },
-    [tab, packageId, confirmLeavePillar, shellNavigate],
+    [tab, packageId, scopeSegment, confirmLeavePillar, shellNavigate],
   );
 
   return (
@@ -1263,10 +1375,11 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
             </div>
             <span className="shrink-0 text-muted-foreground">·</span>
             <nav className="flex shrink-0 gap-1">
-              {PILLARS.map((p) => (
+              {/* objectui#11553 — the package-less scope offers its one pillar. */}
+              {(packageId === null ? PILLARS.filter((p) => p.key === STUDIO_ORG_SCOPE_PILLAR) : PILLARS).map((p) => (
                 <Link
                   key={p.key}
-                  to={`/studio/${packageId}/${p.key}`}
+                  to={`/studio/${scopeSegment}/${p.key}`}
                   onClick={(e) => {
                     // Re-clicking the open pillar re-navigates to the same URL —
                     // nothing unmounts. Modified/aux clicks open a new tab and
@@ -1292,7 +1405,9 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   open, so the demotion never hides WHERE you are. Each item is
                   a real router Link carrying the SAME dirty-guard as the
                   primary pillars — an overflow entry must not become the one
-                  door that silently discards edits. */}
+                  door that silently discards edits. None of them is in the
+                  package-less scope (objectui#11553). */}
+              {packageId !== null && (
               <Popover>
                 <PopoverTrigger asChild>
                   <button
@@ -1315,7 +1430,7 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   {OVERFLOW_PILLARS.map((p) => (
                     <Link
                       key={p.key}
-                      to={`/studio/${packageId}/${p.key}`}
+                      to={`/studio/${scopeSegment}/${p.key}`}
                       onClick={(e) => {
                         if (tab === p.key) return;
                         if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
@@ -1334,14 +1449,16 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                   ))}
                 </PopoverContent>
               </Popover>
+              )}
             </nav>
 
             {/* Package-level draft review + one atomic publish (replaces per-item Publish) */}
             <div className="ml-auto flex shrink-0 items-center gap-2">
               {/* objectui#5800 — the Open app teleport is retired: the canvas's
                   Run mode IS the way to try the app without leaving the
-                  workbench. The published-app state needs no chrome at all. */}
-              {packageApp ? null : appDraftPending ? (
+                  workbench. The published-app state needs no chrome at all.
+                  objectui#11553 — the package-less scope has no app to create. */}
+              {packageId === null || packageApp ? null : appDraftPending ? (
                 <span
                   title={t('engine.studio.app.willOpenAfterPublish', locale)}
                   className="rounded bg-amber-400/15 px-2 py-0.5 text-[11px] text-amber-600 dark:text-amber-300"
@@ -1418,8 +1535,24 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
                 each list effect kept the open item (it keeps the current one
                 on a re-read of the same package, a publish or a copilot
                 pulse, as it must), its load did not re-run, and an edit saved
-                the previous package's item into the next package. */}
-            {tab === 'data' ? (
+                the previous package's item into the next package.
+                objectui#11553 — the package-less scope is keyed the same way,
+                by its segment, and serves its one pillar: another pillar's
+                URL lands on it rather than on a package pillar with no
+                package under it. */}
+            {packageId === null ? (
+              tab === STUDIO_ORG_SCOPE_PILLAR ? (
+                <AutomationsPillar
+                  key={scopeSegment}
+                  packageId={null}
+                  publishNonce={publishNonce}
+                  onDraftSaved={onDraftSaved}
+                  readOnly={readOnly}
+                />
+              ) : (
+                <Navigate to={studioOrgScopePath()} replace />
+              )
+            ) : tab === 'data' ? (
               <DataPillar
                 key={packageId}
                 packageId={packageId}
@@ -1474,14 +1607,20 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
         {/* ADR-0057 P3c — the copilot as the shared right dock (same package-
           * scoped build thread as the left panel it replaces; self-gates on the
           * agent catalog like the copilot always has). */}
-        {chatDockMode && (
+        {/* objectui#11553 — not in the package-less scope: its build thread
+          * is a PACKAGE's, and there is no package here to build into. */}
+        {chatDockMode && packageId !== null && (
           <StudioChatDock packageId={packageId} locale={locale} surfaceLabel={surfaceLabel} />
         )}
 
+        {/* objectui#11553 — the package-less scope reviews exactly what its
+          * Publish ships: package-less flow drafts, read off the env-wide
+          * feed (`packageId` null) and narrowed by `include`. */}
         <DraftChangesPanel
           open={changesOpen}
           onOpenChange={setChangesOpen}
           packageId={packageId}
+          include={packageId === null ? isOrgScopeDraft : undefined}
           onPublish={readOnly ? undefined : doPublish}
           publishing={publishing}
         />
@@ -4391,7 +4530,12 @@ export function AutomationsPillar({
   onDraftSaved,
   readOnly = false,
 }: {
-  packageId: string;
+  /**
+   * The package whose flows the rail lists, or `null` for the package-less
+   * scope (objectui#11553, `studioScope.ts`): every flow that belongs to no
+   * package, saved as package-less drafts.
+   */
+  packageId: string | null;
   publishNonce?: number;
   onDraftSaved?: () => void;
   /** Courtesy gate: hide/disable flow-authoring affordances. */
@@ -4399,6 +4543,11 @@ export function AutomationsPillar({
 }): React.ReactElement {
   const client = useMetadataClient();
   const locale = useMetadataLocale();
+  const navigate = useNavigate();
+  // The draft writes' package binding (objectui#11553): none in the
+  // package-less scope, so the draft row stays as package-less as the flow it
+  // edits. The client sends no `package=` for an absent id.
+  const draftPackageId = packageId ?? undefined;
   // See DataPillar's rail — same mobile-overlay treatment for the flow list.
   const isMobile = useIsMobile();
   const [railOpen, setRailOpen] = React.useState(false);
@@ -4411,6 +4560,9 @@ export function AutomationsPillar({
   // useSurfaceDeepLink). No producer emits this link yet; honoring it keeps
   // the pillars uniform so a future "design this flow" bridge just works.
   const initialSurface = useSurfaceDeepLink(current);
+  // objectui#11553 — the package-less probe for a deep-linked flow this
+  // package does not hold runs once per mount, not on every list re-read.
+  const deepLinkProbedRef = React.useRef(false);
   const [draft, setDraft] = React.useState<Record<string, unknown>>({});
   // objectui#11272 — the flow `draft` was loaded for, `flow:NAME`: written
   // where the load below installs it, and nowhere else.
@@ -4423,6 +4575,11 @@ export function AutomationsPillar({
   // Tells "still fetching the list" apart from "fetched, package has no flows"
   // — without it the empty rail showed an endless "Loading…" for a fresh package.
   const [listed, setListed] = React.useState(false);
+  // The flow a deep link named that this rail, once listed, does not hold.
+  const missingFlow =
+    listed && initialSurface?.type === 'flow' && !flows.some((f) => f.name === initialSurface.name)
+      ? initialSurface.name
+      : null;
   // Inline create — a fresh package starts with zero flows, so the pillar must
   // offer a way to author the first one (mirrors the object/app creators).
   const [creating, setCreating] = React.useState(false);
@@ -4477,11 +4634,29 @@ export function AutomationsPillar({
         // draft exists. Mirrors the Data / Interfaces / Access pillars, which all
         // merge their drafts. Keyed on `publishNonce` too so drafts that go live
         // collapse back into the published rail after a package publish.
-        const items = await loadPackageSurfaces(client, 'flow', packageId);
+        const items =
+          packageId === null
+            ? await loadPackageLessSurfaces(client, 'flow')
+            : await loadPackageSurfaces(client, 'flow', packageId);
         if (cancelled) return;
         setFlows(items);
         const deepLinked = resolveSurfaceDeepLink(items, initialSurface, 'flow');
-        setCurrent((c) => c ?? deepLinked ?? items[0] ?? null);
+        // objectui#11553 — a deep link that NAMES a flow this rail does not
+        // hold opens no other flow in its place: the first flow under the name
+        // of the one asked for is how the clone's link "redirected to another
+        // flow". A package-less flow named from a package's pillar is found in
+        // the package-less scope and opened there, once per mount.
+        const named = initialSurface?.type === 'flow' ? initialSurface.name : null;
+        if (named && !deepLinked && packageId !== null && !deepLinkProbedRef.current) {
+          deepLinkProbedRef.current = true;
+          const packageLess = await loadPackageLessSurfaces(client, 'flow').catch(() => []);
+          if (cancelled) return;
+          if (packageLess.some((f) => f.name === named)) {
+            navigate(studioOrgScopePath({ type: 'flow', name: named }), { replace: true });
+            return;
+          }
+        }
+        setCurrent((c) => c ?? deepLinked ?? (named ? null : items[0]) ?? null);
       } catch (e) {
         if (!cancelled) setError(formatMetadataError(e));
       } finally {
@@ -4506,7 +4681,7 @@ export function AutomationsPillar({
           t('engine.studio.auto.nodeStart', locale),
           t('engine.studio.auto.nodeEnd', locale),
         );
-        await client.save('flow', name, skeleton, { mode: 'draft', packageId });
+        await client.save('flow', name, skeleton, { mode: 'draft', packageId: draftPackageId });
         const item: Surface = { type: 'flow', name, label };
         setFlows((fs) => [...fs.filter((f) => f.name !== name), item]);
         setCurrent(item);
@@ -4520,7 +4695,7 @@ export function AutomationsPillar({
         setCreateBusy(false);
       }
     },
-    [client, packageId, onDraftSaved, locale],
+    [client, draftPackageId, onDraftSaved, locale],
   );
 
   React.useEffect(() => {
@@ -4577,7 +4752,7 @@ export function AutomationsPillar({
     setSaving('draft');
     setError(null);
     try {
-      await client.save('flow', current.name, draft, { mode: 'draft', packageId });
+      await client.save('flow', current.name, draft, { mode: 'draft', packageId: draftPackageId });
       setHasDraft(true);
       // objectui#11204 — clean only if nothing was edited while it was in flight.
       if (sent.unmoved()) setAutoDirty(false);
@@ -4587,7 +4762,7 @@ export function AutomationsPillar({
     } finally {
       setSaving(false);
     }
-  }, [client, current, draft, onDraftSaved]);
+  }, [client, current, draft, draftPackageId, onDraftSaved]);
   const { sending: sendingFlowDraft, loaded: flowLoaded } = useDraftAutoSave({
     // objectui#11232 — the flow `doSave` addresses.
     target: `flow:${current?.name ?? ''}`,
@@ -4626,7 +4801,7 @@ export function AutomationsPillar({
     setSaving('draft');
     setError(null);
     try {
-      await client.save('flow', flowName, nextDraft, { mode: 'draft', packageId });
+      await client.save('flow', flowName, nextDraft, { mode: 'draft', packageId: draftPackageId });
       setHasDraft(true);
       onDraftSaved?.();
       toast.success(next ? t('engine.studio.auto.enabledToast', locale) : t('engine.studio.auto.disabledToast', locale));
@@ -4645,7 +4820,7 @@ export function AutomationsPillar({
     } finally {
       setSaving(false);
     }
-  }, [client, current, draft, packageId, onDraftSaved, locale, readOnly, sendingFlowDraft]);
+  }, [client, current, draft, draftPackageId, onDraftSaved, locale, readOnly, sendingFlowDraft]);
 
   return (
     <div className="flex h-full flex-col">
@@ -4716,7 +4891,10 @@ export function AutomationsPillar({
         >
           <div className="flex items-center gap-1 px-2 pb-1 pt-1">
             <p className="flex-1 text-[11px] font-medium text-muted-foreground">{t('engine.studio.auto.heading', locale)}</p>
-            {!readOnly && (
+            {/* objectui#11553 — no "New" in the package-less scope: new
+                authoring stays package-first, and this scope reaches flows
+                that already exist without a package. */}
+            {!readOnly && packageId !== null && (
               <button
                 type="button"
                 onClick={() => {
@@ -4750,7 +4928,13 @@ export function AutomationsPillar({
             ))}
           {flows.length === 0 && !creating && (
             <p className="px-2 py-3 text-[11px] text-muted-foreground">
-              {error ? t('engine.studio.loadFailed', locale) : !listed ? t('engine.studio.loading', locale) : t('engine.studio.auto.none', locale)}
+              {error
+                ? t('engine.studio.loadFailed', locale)
+                : !listed
+                  ? t('engine.studio.loading', locale)
+                  : packageId === null
+                    ? t('engine.studio.org.none', locale)
+                    : t('engine.studio.auto.none', locale)}
             </p>
           )}
         </nav>
@@ -4775,7 +4959,13 @@ export function AutomationsPillar({
             * height and leaving a dead band below the bordered frame. */}
           <div className="min-h-0 flex-1 rounded-lg border bg-background p-4">
             {!current ? (
-              <div className="py-16 text-center text-sm text-muted-foreground">{t('engine.studio.auto.pick', locale)}</div>
+              <div className="py-16 text-center text-sm text-muted-foreground">
+                {/* objectui#11553 — a deep link that named a flow this rail
+                    does not hold says so, instead of opening another. */}
+                {missingFlow
+                  ? tFormat('engine.studio.auto.deepLinkMissing', locale, { name: missingFlow })
+                  : t('engine.studio.auto.pick', locale)}
+              </div>
             ) : loading || !flowLoaded ? (
               // objectui#11272 — nothing of another flow's buffer under this
               // one; after a failed load, the error above says why.

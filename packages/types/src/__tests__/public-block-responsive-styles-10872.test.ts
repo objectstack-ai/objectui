@@ -126,6 +126,10 @@ const DECLARES_DATA_SOURCE: ReadonlySet<string> = new Set([
   // node level, beside their bags.
   'object-pivot',
   'embeddable-form',
+  // objectui#10872: the gate-wrapped `record:line_items`, armed with the binding
+  // at node level beside its bag — `ElementDataSourceGate` lands
+  // `dataSource.object` on the row's optional `childObject`.
+  'record:line_items',
 ]);
 
 /**

@@ -117,18 +117,29 @@ const at = (pack: unknown, path: string): unknown =>
  * `toolbar` was not — a split with no reason behind it, which is the shape a
  * substring false-positive leaves.
  *
- * ⚠️ The total below is 217 and that is deliberate: 217 is the count of keys
+ * ⚠️ The total below is 225 and that is deliberate: 225 is the count of keys
  * that ever EXISTED in this namespace, split into a retired half that only
  * grows and a surviving half that shrinks to match. A retirement moves the
  * split; only a genuinely new key moves the total (objectui#10636's
  * `recordCountOne` moved it from 210; objectui#11445 retired that key and
  * added six count-family slots, `_one` / `_other` on `recordCount`,
- * `importedToast` and `bulkDeleteConfirm`).
+ * `importedToast` and `bulkDeleteConfirm`, making 217; objectui#11576 added
+ * eight dataset-binding keys, making 225).
  *
  * ## The objectui#11445 change — 118 retired become 119
  *
  * `recordCountOne` was the singular half of a code-selected pair; the footer
  * now asks the `recordCount` count family, so the sibling left all ten packs.
+ *
+ * ## The objectui#11576 change — 119 retired become 123, 217 total become 225
+ *
+ * The create-view dialog's chart picks were the pre-ADR-0021 inline axes, which
+ * the spec's list chart block refuses by name. The dialog now binds a dataset
+ * of the object, so the four axis labels it alone read (`xAxisField`,
+ * `xAxisFieldHelp`, `yAxisField`, `yAxisFieldHelp`) left all ten packs, and
+ * eight new keys label the dataset, measure and dimension picks (`dataset`,
+ * `datasetHelp`, `chartMeasure`, `chartMeasureHelp`, `chartDimension`,
+ * `chartDimensionHelp`, `viewTypeUnavailableDataset`, `noDatasetMeasure`).
  */
 const RETIRED_OBJECT_VIEW_KEYS = [
   'accessibility',
@@ -252,28 +263,36 @@ const RETIRED_OBJECT_VIEW_KEYS = [
   // objectui#11445 — the record-count footer's code-selected singular, folded
   // into the `recordCount` count family.
   'recordCountOne',
+  // objectui#11576 — the create-view dialog's pre-ADR-0021 chart axes, replaced
+  // by the dataset binding; the dialog was their only reader.
+  'xAxisField',
+  'xAxisFieldHelp',
+  'yAxisField',
+  'yAxisFieldHelp',
 ] as const;
 
 /** How many keys the namespace keeps — the live + indirect-reference remainder. */
-const SURVIVING_KEY_COUNT = 98;
+const SURVIVING_KEY_COUNT = 102;
 
 describe('console.objectView config-panel keys are retired (objectui#4730)', () => {
   it('the retired list is the measured set', () => {
     // Guards the premise the rest of the file rests on. If this arithmetic ever
     // stops holding, the assertions below are checking a set nobody chose.
-    expect(RETIRED_OBJECT_VIEW_KEYS).toHaveLength(119);
-    expect(new Set(RETIRED_OBJECT_VIEW_KEYS).size).toBe(119);
+    expect(RETIRED_OBJECT_VIEW_KEYS).toHaveLength(123);
+    expect(new Set(RETIRED_OBJECT_VIEW_KEYS).size).toBe(123);
     // 209 at objectui#4730's landing; 210 since objectui#5232 added
     // `viewConfigPermissionDenied`; 211 since objectui#10636 added
     // `recordCountOne`, the record-count footer's singular; 217 since
     // objectui#11445 added six count-family slots (and retired `recordCountOne`,
-    // which moved the split, not the total). The RETIRED half is a ratchet that never
+    // which moved the split, not the total); 225 since objectui#11576 added the
+    // create-view dialog's eight dataset-binding keys (and retired its four axis
+    // keys). The RETIRED half is a ratchet that never
     // runs BACKWARDS — it is pinned twice above, and objectui#8754 advanced it
     // 116 -> 118 — while the surviving half is a live namespace that grows on a
     // new key and shrinks by exactly what the retired half gains. Splitting
     // them is the point: folding a new key into the total would be
     // indistinguishable from a retired key coming back.
-    expect(RETIRED_OBJECT_VIEW_KEYS.length + SURVIVING_KEY_COUNT).toBe(217);
+    expect(RETIRED_OBJECT_VIEW_KEYS.length + SURVIVING_KEY_COUNT).toBe(225);
     expect(LANGS).toHaveLength(10);
   });
 

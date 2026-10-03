@@ -115,6 +115,8 @@ import {
   RecordQuickActionsProps as SpecRecordQuickActionsProps,
   RecordReferenceRailProps as SpecRecordReferenceRailProps,
   RecordAlertProps as SpecRecordAlertProps,
+  // objectui#10872 — the row `@objectstack/spec` 17.6.0 carries.
+  RecordLineItemsProps as SpecRecordLineItemsProps,
   ElementTextPropsSchema as SpecElementTextPropsSchema,
   ElementButtonPropsSchema as SpecElementButtonPropsSchema,
   // objectui#10872 batch 4 — the six rows `@objectstack/spec` 17.5.0 carries.
@@ -329,6 +331,9 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   ['RecordQuickActionsProps', SpecRecordQuickActionsProps],
   ['RecordReferenceRailProps', SpecRecordReferenceRailProps],
   ['RecordAlertProps', SpecRecordAlertProps],
+  // objectui#10872: the `record:line_items` arm reads its row as its
+  // `properties` bag, crossed through this boundary like every other row.
+  ['RecordLineItemsProps', SpecRecordLineItemsProps],
   ['ElementTextPropsSchema', SpecElementTextPropsSchema],
   ['ElementButtonPropsSchema', SpecElementButtonPropsSchema],
   // objectui#10872 batch 4: the six held blocks' arms read their rows as their

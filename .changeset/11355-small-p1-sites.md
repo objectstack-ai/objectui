@@ -17,3 +17,12 @@ Small reader sites stop riding `BaseSchema`'s index signature (objectui#11355, p
 - `@object-ui/plugin-map`: the dev warning about flat map keys that a `map` block shadows reads those keys through their own type, not through a `Record` conversion.
 
 **minor, not patch, for `@object-ui/types`.** Both members are new in the shipped `.d.ts` and in the zod mirror's `.shape`, and the mirror now refuses a wrongly typed value for each, where it used to keep one unjudged.
+
+⚠️ **Dated note, 2026-10-03 — `ObjectKanbanSchema.grouping` is now declared — objectui#11216.**
+At this change `grouping`, the fallback `ObjectKanban` reads for `swimlaneField`,
+was undeclared on both faces, as the first bullet above says. objectui#11216
+declares it on both faces in this release, by reference: the TypeScript member is
+the spec's `GroupingConfig`, and the zod mirror takes the spec's
+`GroupingConfigSchema`, the type the `object-kanban` row gives the key. So the
+sentence above that calls `grouping` "still undeclared" does not hold in this
+release. The rest of this entry is kept as the reading of this change.

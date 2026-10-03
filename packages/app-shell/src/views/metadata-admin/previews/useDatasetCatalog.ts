@@ -64,6 +64,14 @@ export interface DatasetMeasureInfo {
 export interface DatasetCatalogEntry {
   /** Dataset unique name (what `report.dataset` stores). */
   name: string;
+  /**
+   * The dataset's base object (the spec's `DatasetSchema.object`, the FROM), as
+   * served. Absent when the served document carries none, e.g. a list endpoint
+   * that answers names only. The console's Create View dialog offers a chart
+   * view only the datasets whose base object is the view's own object
+   * (objectui#11576); an entry without one is therefore never offered there.
+   */
+  object?: string;
   /** Human label, resolved in the designer locale (falls back to the name). */
   label: string;
   /**
@@ -122,6 +130,7 @@ export function toCatalogEntry(doc: Record<string, unknown>, locale: string): Da
     : [];
   return {
     name,
+    ...(typeof doc.object === 'string' && doc.object ? { object: doc.object } : {}),
     label: authoredText(doc.label, locale) ?? name,
     description: authoredText(doc.description, locale),
     dimensions,

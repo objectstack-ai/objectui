@@ -336,6 +336,25 @@ describe('/studio/* — the entry decision, both ways', () => {
     );
   });
 
+  it('the package-less scope\'s bare leg lands on its one pillar, the builder mounted (objectui#11553)', async () => {
+    // `~org` is the reserved segment for the organization's own, package-less
+    // flows. Without its own leg it falls to `:packageId`, whose redirect
+    // targets a Data pillar that scope does not have.
+    answerWith(OPERATOR_CAPS);
+    renderStudioDeepLink('/studio/~org');
+
+    await waitFor(() => expect(pathname()).toBe('/studio/~org/automations'));
+    await waitFor(() => expect(screen.getByTestId('studio-pillar-builder')).toBeInTheDocument());
+    expect(designSurface).toHaveBeenCalled();
+  });
+
+  it('the package-less scope is behind the same entry gate (objectui#11553)', async () => {
+    renderStudioDeepLink('/studio/~org/automations');
+
+    await waitFor(() => expect(pathname()).toBe('/home'));
+    expect(designSurface).not.toHaveBeenCalled();
+  });
+
   it('NEGATIVE CONTROL: the holder is answered ONCE for the whole subtree', async () => {
     answerWith(OPERATOR_CAPS);
     renderStudioDeepLink('/studio/hotcrm/data');

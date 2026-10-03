@@ -286,6 +286,15 @@ const SAMPLE_BY_INPUT: Readonly<Record<string, unknown>> = {
   align: 'end',
   variant: 'default',
   size: 'sm',
+  // `record:line_items` declares three keys that OUTRANK the bound record
+  // (objectui#11536): `parentId` and `recordId` name the parent record and
+  // `parentObject` the parent object, each in place of the record the page
+  // shows. Any value here detaches the panel from that record, and the probe
+  // could not ask its question. The renderer default is the key ABSENT, so
+  // that is what is restated.
+  parentId: undefined,
+  recordId: undefined,
+  parentObject: undefined,
 };
 
 /** Fill one declared input. */
@@ -549,7 +558,10 @@ const NO_RECORD_REACH: Readonly<Record<string, string>> = {
  * the repo are on `view:detail` and `detail-view`, neither of which is in the
  * curated public set). That is the same result objectstack#4472's direction (d)
  * hit — a slice proposed from the declarations, unavailable once you look at
- * what is actually declared.
+ * what is actually declared. (Read when written. objectui#11536 has since
+ * declared `recordId` and `parentId` on `record:line_items`, but as OVERRIDES
+ * of the bound record rather than a binding to it, so this probe leaves both
+ * unset: see `SAMPLE_BY_INPUT`.)
  *
  * What IS available is stronger anyway: two blocks whose REQUIRED
  * `relationshipField` / `childObject` must land in the query, mechanically

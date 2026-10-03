@@ -50,7 +50,10 @@
  *     untyped stub. A DETAIL column name is the case this composition invites,
  *     because one node declares two field vocabularies. It renders nothing in
  *     the parent, while the line grid keeps that column;
- *   - `{ name }` is tolerated as the same member as the bare name;
+ *   - a STORED `{ name }` member still draws as its bare name. It is not an
+ *     authoring shape: objectui#11550 retired it from every authoring face, and
+ *     `objectFormFieldsMembers-8071.test.tsx` row 6 pins the declared refusal.
+ *     This row pins only that the hand-off keeps the stored read;
  *   - ⚠️ the key bounds what is DRAWN, not what the PARENT leg of the atomic
  *     batch WRITES: a seeded parent field it does not list is still written.
  *     That is the ruled behaviour (objectui#11114), not a defect: the
@@ -251,7 +254,7 @@ describe('object-master-detail-form `fields` — the member shape (objectui#8071
     ).toBeGreaterThan(0);
   });
 
-  it('`{ name }` is tolerated as the same member as the bare name', async () => {
+  it('a STORED `{ name }` member still draws as its bare name — read only, not authoring (objectui#11550)', async () => {
     const { container } = await mountMembers({ fields: [{ name: 'note' }, 'status'] });
     expect(parentFields(container)).toEqual(['note', 'status']);
   });

@@ -22,12 +22,14 @@
  * the sibling pillars.
  */
 
+import { isPackageLessDraft, isPackageLessItem } from './studioScope.js';
+
 /** Minimal structural view of the metadata client this helper needs. */
 export interface PackageSurfaceClient {
   list(type: string, options?: { packageId?: string }): Promise<unknown>;
   listDrafts(
     options?: { packageId?: string; type?: string },
-  ): Promise<Array<{ name?: string | null }>>;
+  ): Promise<Array<{ name?: string | null; packageId?: string | null }>>;
 }
 
 /** One rail entry — mirrors the `Surface` shape used by the pillars. */
@@ -57,7 +59,45 @@ export async function loadPackageSurfaces(
       .listDrafts({ packageId, type })
       .catch(() => [] as Array<{ name?: string | null }>),
   ]);
+  return mergeSurfaces(type, published, draftHeaders);
+}
 
+/**
+ * The rail entries for one metadata type in the PACKAGE-LESS scope
+ * (objectui#11553): the published items that belong to no package, unioned
+ * with the pending drafts that belong to no package, by the same merge.
+ *
+ * Both reads are UNSCOPED, which is the only way to see such an item: a
+ * package-scoped list keeps exactly the items whose `_packageId` names that
+ * package, so an item with none is in no package's list. The unscoped list
+ * also carries every PACKAGED item, so each half is narrowed by its own
+ * declared binding (`isPackageLessItem` on the served `_packageId`,
+ * `isPackageLessDraft` on the draft header's `packageId`). Drafts fail soft
+ * here exactly as in {@link loadPackageSurfaces}.
+ */
+export async function loadPackageLessSurfaces(
+  client: PackageSurfaceClient,
+  type: string,
+): Promise<PackageSurface[]> {
+  const [published, draftHeaders] = await Promise.all([
+    client.list(type) as Promise<Array<Record<string, unknown>> | null | undefined>,
+    client
+      .listDrafts({ type })
+      .catch(() => [] as Array<{ name?: string | null; packageId?: string | null }>),
+  ]);
+  return mergeSurfaces(
+    type,
+    (published || []).filter((o) => isPackageLessItem(o)),
+    (draftHeaders || []).filter((d) => isPackageLessDraft(d)),
+  );
+}
+
+/** The published-wins union both loaders above share. */
+function mergeSurfaces(
+  type: string,
+  published: Array<Record<string, unknown>> | null | undefined,
+  draftHeaders: Array<{ name?: string | null }> | null | undefined,
+): PackageSurface[] {
   const items: PackageSurface[] = (published || [])
     .map((o) => ({
       type,

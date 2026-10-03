@@ -59,12 +59,19 @@
  *
  * Read off `ComponentPropsMap['object-kanban']` on the installed spec: `data`
  * is `z.array(z.unknown()).optional()`, `cardFields` is
- * `z.array(z.string()).optional()`, and `grouping` and `conditionalFormatting`
- * are BOTH `z.unknown().optional()` — exactly like `filter` and `sort`. So for
- * two of the four the contract fixes the container kind and nothing about a
- * member, and for the other two it constrains nothing at all. That is why row 4
- * is a key verdict and why the member file exists: on these keys the read site
- * is the whole of the member contract.
+ * `z.array(z.string()).optional()` and `conditionalFormatting` is
+ * `z.unknown().optional()`. `grouping` is TYPED: the row holds the list view's
+ * own `GroupingConfigSchema` by reference (`{ fields: [{ field, order?,
+ * collapsed? }] }`, closed, at least one entry), and both faces of
+ * `@object-ui/types` judge the key by that same schema since objectui#11216 —
+ * re-derived per run by `object-kanban-grouping-typed-11216.test.ts` in that
+ * package rather than by this sentence. So the contract fixes the container
+ * kind of `data` and `cardFields`, constrains `conditionalFormatting` not at
+ * all, and fixes the SHAPE of `grouping` — but for none of the four does it say
+ * which member this board reads (`grouping`'s schema is the list view's, whose
+ * grid reads every entry; this board reads `fields[0].field` only). That is why
+ * row 4 is a key verdict and why the member file exists: what the board does
+ * with a member is the read site's alone.
  */
 
 import { describe, it, expect } from 'vitest';

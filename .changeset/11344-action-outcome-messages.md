@@ -20,3 +20,5 @@ The action success toast is composed from the action's `outcomeMessages`, then i
 - `@object-ui/i18n`: `useObjectLabel()` adds `actionOutcome(objectName, actionName, outcome, fallback)`, the resolver for that address.
 - `@object-ui/components`: `action:button`, `action:icon`, `action:group` and `action:menu` now forward `outcomeMessages` to the runner. Before, a registered action rendered through `action:bar` lost the map one hop before the toast. The `action:button` and `action:icon` registrations do not publish it as an input, because their own spec rows do not declare it at 17.6.0.
 - `@object-ui/types`: `UIActionSchema` declares `outcomeMessages`, derived from the spec.
+
+`@object-ui/core` and `@object-ui/types` raise their `@objectstack/spec` floor from `^17.5.0` to `^17.6.0`, because their published types now read `ActionSchema.outcomeMessages`, a member the spec first declares in 17.6.0.

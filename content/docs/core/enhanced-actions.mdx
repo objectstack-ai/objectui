@@ -328,7 +328,7 @@ What to write instead:
   toast handler for an undoable success toast's Undo button
   (`options.undo.label`). Those are the strings it translates; an author's
   `outcomeMessages` / `successMessage` / `errorMessage` never go through the
-  runner's translator. On a named action, the console's `useActionTextLocalizer`
+  runner's translator. On a named action, `@object-ui/react`'s `useActionTextLocalizer`
   resolves `successMessage` and each `outcomeMessages` entry (its bundle entry,
   else the inline locale map) before the action runs.
   `<ActionProvider>` and `useActionRunner` install the session's translator on

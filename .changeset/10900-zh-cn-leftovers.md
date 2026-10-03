@@ -16,7 +16,7 @@ language (objectui#10900). English stays the default.
   new in `@object-ui/core`, and `<ActionProvider>` and `useActionRunner` in
   `@object-ui/react` install the session's `t` on the runner they build. The pack key is
   `actions.completedSuccessfully`. An author's `successMessage` still reaches the toast
-  verbatim, and a runner with no translator installed still toasts the English sentence.
+  untranslated, and a runner with no translator installed still toasts the English sentence.
 - **The social sign-in buttons on the login and sign-up pages.** `SocialSignInButtons`
   takes a new `buttonText` prop, a template whose `{provider}` is replaced with the
   provider's display name; unset, the buttons keep "Continue with {provider}" and

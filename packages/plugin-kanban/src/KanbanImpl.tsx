@@ -160,9 +160,10 @@ export interface KanbanBoardProps {
 // Card conditional formatting delegates to the shared CEL evaluator
 // (issue #1584 / ADR-0058) so kanban cards, list rows, and grid rows reach the
 // identical verdict. The kanban schema declares the spec `{ condition, style }`
-// rule only (objectui#11522); the evaluator is shared with the grid and the list
-// view, whose rule union still declares the native and colour-key arms, so it
-// still reads them — a rule a relay hands this board is painted as it was.
+// rule only (objectui#11522), as the grid and the list view do since
+// objectui#11533; the shared evaluator still reads the native and colour-key
+// arms as a compatibility read for rules STORED in that dialect — a rule a relay
+// hands this board is painted as it was.
 // The host predicate scope is bound alongside the card so `features.*` /
 // `current_user.*` conditions resolve here exactly as they do on grid rows.
 function getCardStyles(

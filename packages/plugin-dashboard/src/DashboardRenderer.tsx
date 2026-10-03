@@ -7,7 +7,7 @@
  */
 
 import type { BaseSchema, DashboardComponentSchema, DataSource, ObjectChartSchema, ObjectDataTableSchema } from '@object-ui/types';
-import { SchemaRenderer, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables, useResolvedDataSource } from '@object-ui/react';
+import { SchemaRenderer, toRenderableSchema, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables, useResolvedDataSource } from '@object-ui/react';
 import { useObjectTranslation, useSafeTranslate, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import type { ActionDef, ActionResult, ActionContext, ModalHandler, SduiDomPassThroughKey } from '@object-ui/core';
 import {
@@ -672,7 +672,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         // The type this entry draws as: the authored `type`, or the spec's
         // default (`metric`) when it names none (objectui#11514, Q2 A).
         const entryType = resolveWidgetType(widget);
-        const isMetricSpan = entryType === 'metric' || METRIC_LIKE_TYPES.has(entryType);
+        const isMetricSpan = entryType === 'metric' || METRIC_LIKE_TYPES.has(entryType || '');
         const fallbackSpan = hasExplicitColumns
           ? { w: Math.min(isMetricSpan ? 3 : 6, columns), h: isMetricSpan ? 2 : 4 }
           : undefined;
@@ -696,7 +696,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             // `metric-card` node key moves onto its namespaced registration
             // (`toDashboardNodeType`, objectui#10859 batch 8).
             const authoredComponent = entryComponent(widget);
-            if (authoredComponent) return toDashboardNodeType(authoredComponent);
+            // `toRenderableSchema` (objectui#4622) bridges the envelope's `SchemaNode`
+            // to what `SchemaRenderer` takes: a number or boolean draws the same text
+            // (or nothing, when falsy) it drew when handed to the renderer bare.
+            if (authoredComponent) return toRenderableSchema(toDashboardNodeType(authoredComponent));
 
             // Handle Shorthand Registry Mappings
             const widgetType = entryType;

@@ -3,7 +3,7 @@ import { ResponsiveGridLayout, useContainerWidth, type LayoutItem as RGLLayout, 
 import 'react-grid-layout/css/styles.css';
 import { cn, Card, CardHeader, CardTitle, CardContent, Button } from '@object-ui/components';
 import { Edit, GripVertical, Save, X, RefreshCw } from 'lucide-react';
-import { SchemaRenderer, useHasDndProvider, useDnd } from '@object-ui/react';
+import { SchemaRenderer, toRenderableSchema, useHasDndProvider, useDnd } from '@object-ui/react';
 import { useObjectTranslation, useObjectLabel, useSafeTranslate, pickLocalized } from '@object-ui/i18n';
 import type { BaseSchema, DashboardComponentSchema, ObjectChartSchema } from '@object-ui/types';
 import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
@@ -259,7 +259,10 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
     // spelling except a `metric` / `metric-card` node key, which moves onto its
     // namespaced registration (`toDashboardNodeType`, objectui#10859 batch 8).
     const authoredComponent = entryComponent(widget);
-    if (authoredComponent) return toDashboardNodeType(authoredComponent);
+    // `toRenderableSchema` (objectui#4622) bridges the envelope's `SchemaNode`
+    // to what `SchemaRenderer` takes: a number or boolean draws the same text
+    // (or nothing, when falsy) it drew when handed to the renderer bare.
+    if (authoredComponent) return toRenderableSchema(toDashboardNodeType(authoredComponent));
 
     // Retired legacy inline-analytics widget (framework#3320) — the SAME
     // detector `DashboardRenderer` uses, imported rather than restated

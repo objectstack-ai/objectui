@@ -74,9 +74,16 @@ export function specDefaultWidgetType(): DashboardWidgetTypeName {
  * metric row — so a typeless widget draws exactly as the same widget with
  * `type: 'metric'` does. It used to reach the slot-component passthrough and
  * draw the registry's red OBJUI-001 panel.
+ *
+ * ⛔ Not for the legacy `component` envelope (`{ id, component, layout }`,
+ * objectui's own format, which the spec's widget has no member for). It draws
+ * its node, never a family, so the spec's default `type` says nothing about it:
+ * an envelope that names no `type` keeps `undefined` here and draws, chrome
+ * included, as it always did.
  */
-export function resolveWidgetType(entry: DashboardWidgetSlotEntry): NonNullable<DashboardWidgetSlotEntry['type']> {
-  return entry.type ?? specDefaultWidgetType();
+export function resolveWidgetType(entry: DashboardWidgetSlotEntry): DashboardWidgetSlotEntry['type'] {
+  if (entry.type !== undefined) return entry.type;
+  return entryComponent(entry) ? undefined : specDefaultWidgetType();
 }
 
 /**
@@ -110,7 +117,7 @@ export function isSlotComponentEntry(entry: DashboardWidgetSlotEntry): entry is 
  * draw the registry's red OBJUI-001 panel dumping the widget. One declaration
  * for both surfaces, which each spelled it out before.
  */
-export function unsupportedWidgetSchema(widgetType: string) {
+export function unsupportedWidgetSchema(widgetType: string | undefined) {
   return {
     type: 'text',
     content: `「${widgetType}」chart type is not supported yet`,

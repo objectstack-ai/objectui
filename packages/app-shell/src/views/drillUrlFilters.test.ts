@@ -459,3 +459,142 @@ describe('the is-not-null operator and its synonyms (objectui#9508)', () => {
     ).toBe('filter[stage]=won&filter[owner][null]=true&filter[close_date][gte]=2026-04-01&filter[close_date][lt]=2026-07-01');
   });
 });
+
+/**
+ * objectui#11547 — the "is empty" pair, `filter[<field>][empty]=true|false`.
+ *
+ * From `@objectstack/spec` 17.6.0, `parseFilterAST` lowers the view operators
+ * `is_empty` / `is_not_empty` to `{ $empty: true | false }` instead of `$null`,
+ * so a composed drill of a widget filter saying "is empty" reached this
+ * serializer as an operator object with no arm and wrote NO param. The
+ * end-to-end obligation (real `composeDrillFilter`, real escape hatch, the
+ * destination scope and the sink's lowering) is pinned in
+ * `drillEmptyDialect-11547.test.tsx`; these are the module's own write, read,
+ * chip and delete obligations for the pair.
+ */
+describe('the is-empty operator pair: `filter[<field>][empty]=true|false` (objectui#11547)', () => {
+  it.each([
+    ['{ $empty: true }', 'true', 'is_empty', { $empty: true }],
+    ['{ $empty: false }', 'false', 'is_not_empty', { $empty: false }],
+  ] as const)('writes %s as `[empty]=%s` and reads it back as `%s`', (_label, flag, op, ops) => {
+    const qs = serializeDrillFilterParams({ owner: ops });
+    expect(qs.get('filter[owner][empty]')).toBe(flag);
+    // The round trip, not the write alone.
+    expect(parseUrlFilterTriples(qs)).toEqual<FilterTriple[]>([['owner', op, true]]);
+  });
+
+  it('agrees with `convertFiltersToAST` on both directions, read from the converter itself', () => {
+    for (const ops of [{ $empty: true }, { $empty: false }]) {
+      expect(parseUrlFilterTriples(serializeDrillFilterParams({ owner: ops })))
+        .toEqual([convertFiltersToAST({ owner: ops })]);
+    }
+  });
+
+  it('writes nothing for a NON-boolean `$empty`, as the is-null keys never did', () => {
+    for (const v of ['yes', 1, 0, 'true', null, {}]) {
+      expect(serializeDrillFilterParams({ owner: { $empty: v } }).toString()).toBe('');
+    }
+    // LIT CONTROL: the boolean forms of the same key do write.
+    expect(serializeDrillFilterParams({ owner: { $empty: true } }).toString()).not.toBe('');
+    expect(serializeDrillFilterParams({ owner: { $empty: false } }).toString()).not.toBe('');
+  });
+
+  it('reads only the two exact spellings, comparand `true` in both directions', () => {
+    expect(parse('filter[owner][empty]=true')).toEqual([['owner', 'is_empty', true]]);
+    expect(parse('filter[owner][empty]=false')).toEqual([['owner', 'is_not_empty', true]]);
+    // Never an equality against the string "false", never `is_not_empty false`.
+    expect(parse('filter[owner][empty]=false')[0][2]).toBe(true);
+    for (const v of ['1', '0', 'yes', 'TRUE', 'False', 'null', 'empty']) {
+      expect(parse(`filter[owner][empty]=${v}`)).toEqual([]);
+    }
+    expect(parse('filter[owner][empty]=')).toEqual([]);
+  });
+
+  it('carries the flag alongside range bounds on the same field, as the AST converter does', () => {
+    const qs = serializeDrillFilterParams({ score: { $empty: false, $gte: '5' } });
+    expect(parseUrlFilterTriples(qs)).toEqual<FilterTriple[]>([
+      ['score', 'is_not_empty', true],
+      ['score', '>=', '5'],
+    ]);
+  });
+
+  it('writes `$empty` BESIDE a `$null` on the same field — two params, so nothing has to win', () => {
+    // Unlike `$null` vs `$exists` (one param, one direction), these are two
+    // different params, so the conjunction is expressible as written and the
+    // URL carries exactly what `convertFiltersToAST` emits for the object.
+    for (const ops of [
+      { $null: true, $empty: false },
+      { $null: false, $empty: true },
+      { $exists: true, $empty: true },
+    ]) {
+      const triples = parseUrlFilterTriples(serializeDrillFilterParams({ owner: ops }));
+      // The converter ANDs two conditions on one field under one `and` head;
+      // the URL's conjunction is implicit, so the triples are that head's body.
+      expect(triples).toHaveLength(2);
+      expect(['and', ...triples]).toEqual(convertFiltersToAST({ owner: ops }));
+    }
+    expect(decodeURIComponent(serializeDrillFilterParams({ owner: { $null: true, $empty: false } }).toString()))
+      .toBe('filter[owner][null]=true&filter[owner][empty]=false');
+  });
+
+  it('survives a COMPOSED `$and` round-trip beside an equality condition', () => {
+    const composed = { $and: [{ owner: { $empty: true } }, { stage: 'won' }] };
+    expect(parseUrlFilterTriples(serializeDrillFilterParams(composed))).toEqual<FilterTriple[]>([
+      ['owner', 'is_empty', true],
+      ['stage', '=', 'won'],
+    ]);
+  });
+
+  it('renders a chip carrying each direction\'s operator KEY, not `= true`', () => {
+    expect(groupFilterChips([['owner', 'is_empty', true]])).toEqual([
+      { field: 'owner', textKey: 'filterBuilder.operators.is_empty' },
+    ]);
+    expect(groupFilterChips([['owner', 'is_not_empty', true]])).toEqual([
+      { field: 'owner', textKey: 'filterBuilder.operators.is_not_empty' },
+    ]);
+  });
+
+  it('keeps the is-null label first on a field that carries both pairs', () => {
+    // One chip per field. The is-null arms answer first, so every list they
+    // answered before this pair existed keeps its answer; the list itself still
+    // applies both conditions, as it does for a range bound beside a flag.
+    expect(groupFilterChips([
+      ['owner', 'is_empty', true],
+      ['owner', 'is_not_null', true],
+    ])).toEqual([{ field: 'owner', textKey: 'filterBuilder.operators.is_not_null' }]);
+  });
+
+  it('removing the chip clears the `[empty]` param with the same prefix delete', () => {
+    const params = new URLSearchParams(
+      'filter[owner][empty]=false&filter[owner][null]=true&filter[stage]=won',
+    );
+    deleteFieldFilterParams(params, 'owner');
+    expect(params.toString()).toBe('filter%5Bstage%5D=won');
+  });
+
+  it('CONTROL: the equality-only route still executes NO operator suffix', () => {
+    // objectui#9196's boundary, untouched: `[empty]` is a suffixed form.
+    expect(parseUrlEqualityFilterTriples(new URLSearchParams('filter[owner][empty]=true')))
+      .toEqual([]);
+  });
+
+  it('CONTROL: the `$null` and `$exists` pairs write exactly what they wrote before', () => {
+    expect(
+      decodeURIComponent(
+        serializeDrillFilterParams({
+          a: { $null: true },
+          b: { $null: false },
+          c: { $exists: false },
+          d: { $exists: true },
+        }).toString(),
+      ),
+    ).toBe('filter[a][null]=true&filter[b][null]=false&filter[c][null]=true&filter[d][null]=false');
+  });
+
+  it('CONTROL: the range vocabulary did not grow — `empty` is not a range suffix', () => {
+    // `ObjectDataPage` inverts this map to bridge a triple to the spec's alias
+    // spelling; an `empty` entry would hand "Save as view" an alias the rule
+    // schema refuses.
+    expect({ ...URL_FILTER_OPS }).toEqual({ gte: '>=', lte: '<=', gt: '>', lt: '<' });
+  });
+});

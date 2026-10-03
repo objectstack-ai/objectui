@@ -165,9 +165,9 @@ as an ambient **scope** instead — that is the channel `bind` and `${…}` read
 <!-- os:check -->
 ```tsx
 import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react'
-import type { BaseSchema } from '@object-ui/types'
+import type { SchemaRendererProps } from '@object-ui/react'
 
-declare const schema: BaseSchema
+declare const schema: SchemaRendererProps['schema']
 
 const staticData = {
   customers: [

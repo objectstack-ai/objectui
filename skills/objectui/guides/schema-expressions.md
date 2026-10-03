@@ -111,9 +111,9 @@ Every key of the `scope` you hand it becomes a root the evaluator can read:
 <!-- os:check -->
 ```tsx
 import { PredicateScopeProvider, SchemaRenderer } from '@object-ui/react'
-import type { BaseSchema } from '@object-ui/types'
+import type { SchemaRendererProps } from '@object-ui/react'
 
-declare const schema: BaseSchema
+declare const schema: SchemaRendererProps['schema']
 
 // Every name here becomes a root this page's expressions can read — `data`
 // included, which is now a name YOU publish rather than one the renderer binds.

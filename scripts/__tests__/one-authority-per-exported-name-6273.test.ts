@@ -55,9 +55,10 @@ import { blank, scanSource } from '../js-comment-mask.mjs';
  *
  * ⛔ **Near-spellings and derived names are NOT collisions.** The matcher
  * anchors the name on both ends, so `ConditionalFormattingRule` does not match
- * `KanbanConditionalFormattingRule` (`packages/types/src/objectql.ts:2202`) or
- * `KanbanNativeConditionalFormattingRule` (same file, :2181) — both of which
- * this repository really writes, next to the contested name.
+ * `KanbanConditionalFormattingRule` (declared in `packages/types/src/objectql.ts`,
+ * next to the contested name) or `KanbanNativeConditionalFormattingRule` — a
+ * derived name this repository declared there until objectui#11522 retired it,
+ * kept below as a synthetic near-spelling.
  *
  * ## Two stated bounds, because a claim must be bounded or derivable
  *
@@ -647,8 +648,9 @@ describe('objectui#6273 — the matcher discriminates', () => {
         { rel: 'packages/types/src/app.ts', source: 'export interface MenuItem { id: string }' },
         { rel: 'packages/types/src/index.ts', source: "export type { MenuItem as AppMenuItem } from './app';" },
       ],
-      // Derived names next to the contested one — both real, both in
-      // packages/types/src/objectql.ts.
+      // Derived names next to the contested one. `KanbanConditionalFormattingRule`
+      // is real (packages/types/src/objectql.ts); the `KanbanNative…` spelling
+      // was, until objectui#11522 retired it, and stays as a synthetic one.
       [
         { rel: 'packages/types/src/objectql.ts', source: 'export interface KanbanNativeConditionalFormattingRule { a: 1 }' },
         { rel: 'packages/plugin-kanban/src/x.tsx', source: 'export type ConditionalFormattingRule = { a: 1 };' },

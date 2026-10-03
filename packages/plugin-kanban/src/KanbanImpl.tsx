@@ -127,8 +127,8 @@ const SWIMLANE_AXIS_X_PADDING = 'px-2 pl-36 sm:pl-44'
 // was for any importer. A re-export is not a second declaration.
 export type { KanbanCard, KanbanColumn } from './types'
 
-// Card formatting accepts the native `{ field, operator, value }` shape and the
-// spec `{ condition, style }` CEL shape (issue #1584) — see @object-ui/types.
+// Card formatting is the spec `{ condition, style }` CEL rule — the one dialect
+// `object-kanban` declares since objectui#11522 — see @object-ui/types.
 export type ConditionalFormattingRule = KanbanConditionalFormattingRule
 
 export interface KanbanBoardProps {
@@ -157,10 +157,12 @@ export interface KanbanBoardProps {
  * Evaluate conditional formatting rules for a card.
  * Returns CSS style overrides for backgroundColor and borderColor.
  */
-// Card conditional formatting now delegates to the shared CEL evaluator
+// Card conditional formatting delegates to the shared CEL evaluator
 // (issue #1584 / ADR-0058) so kanban cards, list rows, and grid rows reach the
-// identical verdict. Beyond the native `{ field, operator, value }` rules the
-// kanban schema declares, this also accepts spec `{ condition, style }` rules.
+// identical verdict. The kanban schema declares the spec `{ condition, style }`
+// rule only (objectui#11522); the evaluator is shared with the grid and the list
+// view, whose rule union still declares the native and colour-key arms, so it
+// still reads them — a rule a relay hands this board is painted as it was.
 // The host predicate scope is bound alongside the card so `features.*` /
 // `current_user.*` conditions resolve here exactly as they do on grid rows.
 function getCardStyles(

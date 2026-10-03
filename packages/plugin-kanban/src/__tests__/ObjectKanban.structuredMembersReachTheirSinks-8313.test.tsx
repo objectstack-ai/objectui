@@ -45,8 +45,9 @@
  *   - `grouping` — WHICH SINGLE NESTED POSITION is read, and under what
  *     precedence. One position (`fields[0].field`), one role (the fallback for
  *     `swimlaneField`), everything else inert.
- *   - `conditionalFormatting` — WHICH MEMBER DIALECTS are evaluated, and
- *     against what. Two dialects, per card, on the card's own record.
+ *   - `conditionalFormatting` — WHICH MEMBER DIALECT is evaluated, and
+ *     against what. One dialect since objectui#11522, `{ condition, style }`,
+ *     per card, on the card's own record.
  *
  * ## The spec supplies none of it
  *
@@ -447,21 +448,29 @@ describe('objectui#8313 — `object-kanban`.`grouping`: one nested position and 
 });
 
 /* -------------------------------------------------------------------------- */
-/* `conditionalFormatting` — two member dialects, per card.                    */
+/* `conditionalFormatting` — the `{ condition, style }` member, per card.      */
 /* -------------------------------------------------------------------------- */
 
-describe('objectui#8313 — `object-kanban`.`conditionalFormatting`: two member dialects', () => {
+describe('objectui#8313 — `object-kanban`.`conditionalFormatting`: the `{ condition, style }` member', () => {
   const ROWS = [
     { id: 'a', name: 'Alpha deal', status: 'open', owner: 'ann' },
     { id: 'b', name: 'Beta deal', status: 'open', owner: 'bob' },
   ];
 
-  it('the NATIVE `{ field, operator, value }` member colours the matching card, and only it', async () => {
+  // ⚠️ RESPELLED, not rewritten (objectui#11522). The two rows below used to
+  // author the two dialects the member then accepted: the native
+  // `{ field: 'owner', operator: 'equals', value: 'ann', backgroundColor }` and
+  // the flat CEL `{ condition: "record.owner == 'bob'", backgroundColor }`.
+  // Both are retired and refused by name on every zod face; each row now writes
+  // the SAME predicate and the SAME paint as `{ condition, style }`, and asserts
+  // the SAME card is painted and its neighbour is not — so a respelling that
+  // changed which card the rule reaches would turn the row red.
+  it('a `{ condition, style }` member colours the matching card, and only it', async () => {
     const adapter = makeAdapter();
     const { container } = renderBoard(adapter, {
       data: ROWS,
       conditionalFormatting: [
-        { field: 'owner', operator: 'equals', value: 'ann', backgroundColor: 'rgb(1, 2, 3)' },
+        { condition: "record.owner == 'ann'", style: { backgroundColor: 'rgb(1, 2, 3)' } },
       ],
     });
 
@@ -474,14 +483,14 @@ describe('objectui#8313 — `object-kanban`.`conditionalFormatting`: two member 
     expect(stylesOnCard(container, 'Beta deal')).not.toContain('background-color');
   });
 
-  it('the SPEC CEL `{ condition }` member does the same, against the card’s own record', async () => {
-    // The second dialect (#1584 / ADR-0058). Aimed at the OTHER card on
-    // purpose, so a shared fixture cannot make the two dialects look alike.
+  it('a second rule aimed at the OTHER card does the same, against that card’s own record', async () => {
+    // Aimed at the other card on purpose, so one shared fixture cannot make two
+    // rules look alike (#1584 / ADR-0058).
     const adapter = makeAdapter();
     const { container } = renderBoard(adapter, {
       data: ROWS,
       conditionalFormatting: [
-        { condition: "record.owner == 'bob'", backgroundColor: 'rgb(4, 5, 6)' },
+        { condition: "record.owner == 'bob'", style: { backgroundColor: 'rgb(4, 5, 6)' } },
       ],
     });
 
@@ -489,6 +498,23 @@ describe('objectui#8313 — `object-kanban`.`conditionalFormatting`: two member 
     expect(stylesOnCard(container, 'Beta deal')).toContain('background-color: rgb(4, 5, 6)');
     expect(container.textContent).toContain('Alpha deal');
     expect(stylesOnCard(container, 'Alpha deal')).not.toContain('background-color');
+  });
+
+  it('the WHOLE `style` map reaches the card — `style` is the only colour channel now', async () => {
+    // With the top-level colour keys retired (objectui#11522), every paint
+    // rides `style`, so the map must arrive whole and not as one picked key.
+    const adapter = makeAdapter();
+    const { container } = renderBoard(adapter, {
+      data: ROWS,
+      conditionalFormatting: [
+        { condition: "record.owner == 'ann'", style: { backgroundColor: 'rgb(1, 2, 3)', borderColor: 'rgb(7, 8, 9)' } },
+      ],
+    });
+
+    await waitFor(() => expect(container.textContent).toContain('Alpha deal'));
+    expect(stylesOnCard(container, 'Alpha deal')).toContain('background-color: rgb(1, 2, 3)');
+    expect(stylesOnCard(container, 'Alpha deal')).toContain('border-color: rgb(7, 8, 9)');
+    expect(stylesOnCard(container, 'Beta deal')).not.toContain('border-color');
   });
 
   it('⚠️ `ObjectKanban.tsx` never NAMES this key — it rides the `{ ...schema }` spread', () => {

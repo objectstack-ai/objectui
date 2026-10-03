@@ -76,7 +76,10 @@ import '../KanbanImpl';
 /** The paint the matching rule applies — a colour no other element uses. */
 const PAINT = 'rgb(255, 0, 0)';
 
-const RULE = [{ field: 'owner', operator: 'equals', value: 'u1', backgroundColor: PAINT }];
+// `{ condition, style }`: RESPELLED (objectui#11522) from the retired native
+// `{ field: 'owner', operator: 'equals', value: 'u1', backgroundColor }` — the
+// same comparison on the same relation field, the same paint.
+const RULE = [{ condition: "record.owner == 'u1'", style: { backgroundColor: PAINT } }];
 
 /** `owner` arrives EXPANDED, the way the board's own `$expand` delivers it. */
 const CARD = { id: 'c1', title: 'Painted card', owner: { _id: 'u1', name: 'Ann' } };

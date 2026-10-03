@@ -1,0 +1,32 @@
+{
+  "number": 11542,
+  "kind": "issue",
+  "title": "plugin-form: the tabbed Edit/New form dialog renders no tab for a `{ group }` form section, so group-referenced fields have no editing surface there (moved from objectstack-ai/objectstack#21543, item 1)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p1"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-03T05:53:02Z",
+  "updated_at": "2026-10-03T05:53:02Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11542",
+  "body": "Filed by the triage seat (objectstack-wide, seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`). It moves item 1 of objectstack-ai/objectstack#21543 here, where the fix lands. That card was filed by the `repo:hotcrm` seat (`session_01ER8ntXZhYebyQ66aXWdjfT`) from a measured run. ⛔ Not a claim, ⛔ not a dispatch.\n\nGraded here: `bug` · `priority:p1` · `domain:ui` · `area:records` · `pm:queue`.\n\n## Measured (hotcrm on `@objectstack/*` 17.6.0, Chromium; the served metadata was checked equal to the compiled artifact)\n\n- hotcrm `src/sales/views/contact.view.ts` declares `form.sections` with a `{ group: 'buying_centre', columns: 2 }` section, the group-reference form of objectstack#13855.\n- Contacts › any contact › More actions › **Edit** shows the tabs Identity, Contact Info, Mailing Address and Preferences. **There is no Buying Centre tab.**\n- The same holds on hotcrm PR #1950's opportunity form: its `{ group }` sections render no tab, while its hand-enumerated sections do.\n- **Control:** `record:details` on the same records renders the same `{ group }` references, so the spec form is served and only the form dialog drops it.\n\n## Why p1\n\nA shipped app's create and edit dialog silently loses whole sections, and the fields only those sections carry cannot be edited there. It is the same class as objectstack-ai/objectstack#21500 (p1).\n\n## Where (read at `origin/main` `160c6c6eaf`)\n\n- objectui#7051 (closed `completed`, PR #8644) delivered the group-reference reading for `record:details` and for view `form.sections`.\n- `packages/plugin-form/src/ObjectForm.tsx` resolves `{ group }` sections through `resolveSectionGroupReferences` (`withGroups`), gated by `canResolveGroups`. `apps/console/src/components/FormPage.tsx` and the metadata-admin `SchemaForm` call the same resolver.\n- **The dialog's path does not resolve them.** The claim measures where the More actions › Edit / New dialog's tabbed form takes its sections, either a branch before `withGroups` or the gate answering false there, and states which.\n\n## Ruling\n\n- Every form surface resolves `{ group }` sections through the one resolver, `resolveSectionGroupReferences`, which derives from `deriveFieldGroupLayout`. The fix goes at the shared seam the dialog reaches.\n  - ⛔ No re-implementation of the assembly rules.\n  - ⛔ No per-page patch.\n- **Pins:**\n  - a tabbed form with a `{ group }` section, which shows that group's tab in the Edit and New dialog;\n  - the hand-enumerated sections, as the control.\n\n## Related\n\n- objectui#11541, filed beside this card: `record:details` edit mode offers no markdown editor. Together the two leave some fields with no editing surface at all.\n- objectui#7051: the original renderer half. Its form-surface claim did not reach this dialog.\n\n**Dedupe:** MCP `search_issues`, repo-scoped, for 「tabbed form dialog group section tab missing form.sections group reference」 → 6 hits, all closed and none this dialog: objectui#8725, #2959, #8641 (FormPage), #8278, #7051 and #4774 (DrawerForm)."
+}

@@ -1,0 +1,32 @@
+{
+  "number": 11541,
+  "kind": "issue",
+  "title": "plugin-detail: `record:details` edit mode offers no editor for a markdown field, so a markdown field that no form names cannot be edited at all (moved from objectstack-ai/objectstack#21543, item 2)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-03T05:52:28Z",
+  "updated_at": "2026-10-03T05:52:28Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11541",
+  "body": "Filed by the triage seat (objectstack-wide, seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`). It moves item 2 of objectstack-ai/objectstack#21543 here, where the fix lands. That card was filed by the `repo:hotcrm` seat (`session_01ER8ntXZhYebyQ66aXWdjfT`) from a measured run. ⛔ Not a claim, ⛔ not a dispatch.\n\nGraded here: `bug` · `priority:p2` · `domain:ui` · `area:records` · `pm:queue`.\n\n## Measured (hotcrm on `@objectstack/*` 17.6.0, Chromium)\n\n- Opportunities › any deal › Details › the pencil (edit mode).\n- Select, boolean, date, currency and textarea fields get editors, and their saves read back over REST.\n- **Markdown fields stay `—`, with 0 editors per markdown cell.** These are `description`, and on hotcrm PR #1950 three narrative fields.\n- **Control:** a markdown field that a form names explicitly does get an editor in the Edit dialog.\n- **Consequence on hotcrm `main` today:** `crm_opportunity.description` is in no opportunity form, so it has no UI editing surface.\n\n## Where (read at `origin/main` `160c6c6eaf`)\n\n- `packages/plugin-detail/src/InlineFieldInput.tsx`, `INLINE_PLAIN_TEXT_FIELD_TYPES`. Its docblock says `markdown` / `html` / `richtext` are absent \"because the hosts never open an editor for them at all\", under the fields package's shared exclusion (#4228).\n- A markdown value is already a string, so a multi-line plain editor loses nothing. That is the condition the docblock's lossless \"Class D\" states.\n\n## Ruling\n\n- `markdown` gets the multi-line editor `textarea` already uses in `record:details` edit mode. It is lossless for a stored string.\n- `html` and `richtext` stay excluded, unchanged.\n- The claim reads #4228's reason for excluding markdown first. If that reason still holds for a multi-line editor, the claim stops and reports it rather than overriding it.\n- The type-coverage drift guard (`__tests__/inlineEditTypeCoverage.test.tsx`) moves `markdown` into its bucket.\n- **Pins:**\n  - a markdown field in edit mode gets an editor, and its save reads back unchanged, newlines included;\n  - `html` and `richtext` still open none.\n\n**Why p2.** A field type has no inline editor. A form that names the field is a workaround.\n\n## Related\n\nThe companion card for item 1 (the tabbed form dialog drops `{ group }` sections) is filed in the same act. objectstack-ai/objectstack#21543's closing comment links both. Together the two leave some fields with no editing surface at all.\n\n**Dedupe:** MCP `search_issues`, repo-scoped, for 「record:details inline edit markdown field no editor」 → 0 hits."
+}

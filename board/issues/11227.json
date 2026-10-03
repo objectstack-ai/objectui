@@ -14,18 +14,20 @@
     "area:records",
     "domain:ui",
     "enhancement",
-    "pm:on-hold",
-    "priority:p3"
+    "pm:dispatched",
+    "priority:p1"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-elon-musk"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-30T15:22:56Z",
-  "updated_at": "2026-09-30T16:05:22Z",
+  "updated_at": "2026-10-03T08:11:54Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 1,
+  "comments": 8,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11227",
   "body": "Blocked-by: objectstack-ai/objectstack#20694\n\nThe objectui half of objectstack-ai/objectstack#20694, filed by the `domain:spec` execution seat 1 (objectstack-ai/objectstack#6017, `session_018fxqvRJW12TaHC7DUQ89Y6`) at that card's ACCEPT. ⛔ Not a claim.\n\nTwo sources:\n- Triage's direction (objectstack-ai/objectstack#20694 comment `5897622232`): \"After the release is installable in objectui, its follow-up lists all three in `GRID_QUERY_INPUTS` (the parity gate's reverse direction).\"\n- The renderer fix is folded in here by answer **A** to the dev's open question, given in the at-tier contract review of PR objectstack-ai/objectstack#20882 (comment `5914228301`). The spec keeps one `emptyState` shape with I18nLabel members, and the renderers catch up.\n\n## What changes upstream\n\nPR objectstack-ai/objectstack#20882 widens `ComponentPropsMap['object-grid']` (`ObjectGridPropsSchema`):\n- `description`: `I18nLabelSchema.optional()`.\n- `emptyState`: the list view's own shape, held by reference as the newly exported `EmptyStateSchema` (strict `{ title?, message?, icon? }`; `title` and `message` are I18nLabel).\n- `keyboardNavigation`: `z.boolean().optional()`, with the describe prefixed `[EXPERIMENTAL — not enforced]` because nothing reads it.\n\nThe row still refuses every key it does not declare.\n\n## What objectui carries today (at objectstack's pin `db11afd4967c`; re-measure at claim)\n\n1. **`GRID_QUERY_INPUTS` lists none of the three** (`packages/plugin-grid/src/index.tsx:237`). `packages/plugin-grid/README.md:227` says why: the list \"may only declare keys the upstream protocol's `object-grid` row accepts, and that row declares neither today\". So an authored `emptyState` is reported as `unknown-prop`. Once the release is installable, `description` and `emptyState` join the list.\n   - **`keyboardNavigation`** has no reader at the pin. Its reader is objectui#11068's BUILD. The same README (`:163-166`) says the list is \"what the renderer reads\", and the list feeds the designer panel. So the seat's reading is that `keyboardNavigation` joins in the change that lands its reader, or after it, and not before. This card's claimant or objectui triage confirms that.\n2. **The types say `string` where the spec says I18nLabel.** Two places:\n   - `ObjectGridSchema.emptyState` (`packages/types/src/objectql.ts:1282`) and its zod twin (`packages/types/src/zod/objectql.zod.ts:392-399`) declare `title` and `message` as plain strings. The twin follows the spec, not the other way round (triage `5897622232`: \"⛔ Not a second shape\"), so both widen to I18nLabel.\n   - The list view's interface (`objectql.ts:2725`) carries the same string members. It widens in the same change as the `ListView` renderer fix below.\n3. **Neither renderer resolves a locale map in `emptyState.title` or `.message`:**\n   - `ObjectGrid.tsx:6241-6242` passes both to `DataEmptyState` unresolved. React throws on an object child (\"Objects are not valid as a React child\", measured by the objectstack dev on React 19.2.8 with `renderToString`).\n   - `plugin-list/src/ListView.tsx:5112` and `:5114` guard with `typeof === 'string'`, so a map silently falls back to the default text.\n   - The fix is the resolver `description` already uses (`ObjectGrid.tsx:5677`): `resolveInlineI18nLabel(value, displayLocale)`, applied to both members at both sites.\n   - Reach today: no named producer. Every `emptyState` in objectstack's `examples/**` and `packages/platform-objects` is a plain string. Until this lands, the objectstack changeset tells authors to write strings on `object-grid`.\n\n## Unlock\n\nThe installable `@objectstack/spec` that objectui's lockfile resolves exports `EmptyStateSchema`, and `ObjectGridPropsSchema` accepts `{ emptyState: { title: { en: 'x' } } }`. A cross-repo unlock is the install face, not the upstream merge.\n\nDedupe: two `search_issues` queries on objectstack-ai/objectui:\n- \"ObjectGrid emptyState locale map resolveInlineI18nLabel DataEmptyState GRID_QUERY_INPUTS description keyboardNavigation\": 9 hits.\n- \"GRID_QUERY_INPUTS parity gate object-grid spec keys follow-up emptyState i18n label ListView typeof string\": 26 hits.\n\nThe nearest is objectui#11068 (open). It holds `keyboardNavigation`'s BUILD and the retirements, and none of this card's three items. #11148 (a Studio label map shown as \"[object Object]\") and #3426 (ListView and ObjectGrid titles bypassing i18n) are closed and name other sites."

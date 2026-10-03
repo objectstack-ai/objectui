@@ -229,7 +229,7 @@ ComponentRegistry.register('object-form', ObjectFormRenderer, {
   category: 'plugin',
   inputs: [
     { name: 'objectName', type: 'string', required: true },
-    { name: 'fields', type: 'array', description: 'Bare field names to show, in order (each looked up in the object schema; `{ name }` is tolerated). NOT the same vocabulary as `sections[].fields`, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: "note", colSpan: 2 }`) — that shape resolves to no name HERE and is silently skipped (SimpleObjectForm in ObjectForm.tsx; buildFlatFields in flatFields.ts for the drawer/modal presentations).' },
+    { name: 'fields', type: 'array', description: 'Bare field names to show, in order (each looked up in the object schema). NOT the same vocabulary as `sections[].fields`, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: "note", colSpan: 2 }`) — that shape resolves to no name HERE and is silently skipped (SimpleObjectForm in ObjectForm.tsx; buildFlatFields in flatFields.ts for the drawer/modal presentations).' },
     { name: 'mode', type: 'enum', enum: ['create', 'edit', 'view'] },
     { name: 'formType', type: 'enum', enum: ['simple', 'tabbed', 'wizard', 'split', 'drawer', 'modal'] },
     { name: 'sections', type: 'array' },
@@ -338,7 +338,7 @@ ComponentRegistry.register('form', ObjectFormRenderer, {
   category: 'view',
   inputs: [
     { name: 'objectName', type: 'string', required: true },
-    { name: 'fields', type: 'array', description: 'Bare field names to show, in order (each looked up in the object schema; `{ name }` is tolerated). NOT the same vocabulary as `sections[].fields`, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: "note", colSpan: 2 }`) — that shape resolves to no name HERE and is silently skipped (this renders through the same `ObjectFormRenderer` / `SimpleObjectForm` as `object-form` above — see its `fields` description).' },
+    { name: 'fields', type: 'array', description: 'Bare field names to show, in order (each looked up in the object schema). NOT the same vocabulary as `sections[].fields`, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: "note", colSpan: 2 }`) — that shape resolves to no name HERE and is silently skipped (this renders through the same `ObjectFormRenderer` / `SimpleObjectForm` as `object-form` above — see its `fields` description).' },
     { name: 'mode', type: 'enum', enum: ['create', 'edit', 'view'] },
   ]
 });
@@ -400,7 +400,7 @@ ComponentRegistry.register('embeddable-form', EmbeddableFormRenderer, {
     { name: 'objectName', type: 'string', required: true },
     { name: 'title', type: 'string' },
     { name: 'description', type: 'string' },
-    { name: 'fields', type: 'array', description: 'Bare field names to show, in order (each looked up in the object schema; `{ name }` is tolerated). NOT the same vocabulary as `sections[].fields`, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: "note", colSpan: 2 }`) — that shape resolves to no name HERE and is silently skipped (`EmbeddableForm` passes this array straight through to `<ObjectForm>` with no `sections`, so it renders through the same `SimpleObjectForm` as `object-form` above — see its `fields` description).' },
+    { name: 'fields', type: 'array', description: 'Bare field names to show, in order (each looked up in the object schema). NOT the same vocabulary as `sections[].fields`, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: "note", colSpan: 2 }`) — that shape resolves to no name HERE and is silently skipped (`EmbeddableForm` passes this array straight through to `<ObjectForm>` with no `sections`, so it renders through the same `SimpleObjectForm` as `object-form` above — see its `fields` description).' },
     { name: 'allowMultiple', type: 'boolean' },
   ]
 });
@@ -491,7 +491,7 @@ ComponentRegistry.register('object-master-detail-form', MasterDetailFormRenderer
     // Declaring them would mint choices an authoring UI offers and this block
     // cannot honour.
     { name: 'formType', type: 'enum', enum: ['simple', 'tabbed'], description: 'How the PARENT half of the form is presented. The detail grids below it are unaffected.' },
-    { name: 'fields', type: 'array', description: 'Which parent fields to show, in order — and it is NOT ignored when `sections` is given: the two INTERSECT. The parent field pool is built from this key first and every section then resolves its own members against that pool, so a section member this key does not list is dropped from the rendered form, and a section that loses EVERY member that way disappears with its heading. Each such drop is reported once via `console.warn` (objectui#9884); it is not repaired, because this key bounds what the form DRAWS and edits, not what Save writes: on a create, the submitted set is the drawn fields plus any parent value seeded through `initialValues` (or its alternate spelling `initialData`), drawn or not. A seed for an undeclared, server-owned, computed or read-only field is still stripped, as on any save. Author one or the other, or list every section member here too. Members are bare field names (`{ name }` tolerated); NOT the spec `FormFieldSchema` object `sections[].fields` accepts (identity key `field`) — that shape resolves to no name here and is silently skipped (the parent form renders through the same `ObjectForm` / `SimpleObjectForm` as `object-form` — see its `fields` description).' },
+    { name: 'fields', type: 'array', description: 'Which parent fields to show, in order — and it is NOT ignored when `sections` is given: the two INTERSECT. The parent field pool is built from this key first and every section then resolves its own members against that pool, so a section member this key does not list is dropped from the rendered form, and a section that loses EVERY member that way disappears with its heading. Each such drop is reported once via `console.warn` (objectui#9884); it is not repaired, because this key bounds what the form DRAWS and edits, not what Save writes: on a create, the submitted set is the drawn fields plus any parent value seeded through `initialValues` (or its alternate spelling `initialData`), drawn or not. A seed for an undeclared, server-owned, computed or read-only field is still stripped, as on any save. Author one or the other, or list every section member here too. Members are bare field names; NOT the spec `FormFieldSchema` object `sections[].fields` accepts (identity key `field`) — that shape resolves to no name here and is silently skipped (the parent form renders through the same `ObjectForm` / `SimpleObjectForm` as `object-form` — see its `fields` description).' },
     // The three labels are the spec's `I18nLabel` (`ComponentPropsMap
     // ['object-master-detail-form']`), and `MasterDetailForm` resolves a map
     // with `pickLocalized` against the active UI language (objectui#10935). So

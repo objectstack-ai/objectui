@@ -251,11 +251,11 @@ When pages need heavy widgets (grids, forms, kanbans, charts), import the plugin
 }
 ```
 
-> **Grid columns key off `field`; form fields key off `name`.** The two layers sit
-> next to each other here and use the same pair of words for opposite things:
-> `ListColumn.field` names the object field a column shows, while `FormField.name`
-> names the field a form input writes. A grid column written as `{ "name": ... }`
-> names no field, so `ObjectGrid` drops it.
+> **Grid columns are `{ "field" }` objects; `object-form` `fields` are names.**
+> `ListColumn.field` names the object field a column shows, so a grid column
+> written as `{ "name": ... }` names no field and `ObjectGrid` drops it. Form
+> labels, types and `required` come from the object fields; a per-form override
+> goes on a `sections[].fields` entry, `{ "field": "email", "required": true }`.
 
 **Form plugin example:**
 <!-- os:check -->
@@ -265,10 +265,7 @@ When pages need heavy widgets (grids, forms, kanbans, charts), import the plugin
   "properties": {
     "objectName": "customer",
     "mode": "edit",
-    "fields": [
-      { "name": "name", "label": "Name", "type": "text", "required": true },
-      { "name": "email", "label": "Email", "type": "text" }
-    ]
+    "fields": ["name", "email"]
   }
 }
 ```

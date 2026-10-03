@@ -169,12 +169,12 @@ comes from the operator name, which is how the spec's `data/filter.zod.ts`
 reads it. `$empty` takes ONLY a boolean: any other flag throws `INVALID_FILTER`
 / 400 at lowering time, which is how the spec's own doors treat it.
 
-`$empty` is not `$null`. `@objectstack/spec` 17.6.0 admitted it to
-`FILTER_OPERATORS` and lowers the view operators `is_empty` / `is_not_empty` to
-it (objectstack#20446); they lowered to `$null` before. Its meaning is the
-spec's ruled per-type table: a text-like field is empty when null or `''`, a
-multi-value field when null or `[]`, and any other field when null. Which
-backend applies that table, and how, is listed in the docblock of the spec's
+`$empty` is not `$null`. objectstack#20446 admitted it to the spec's
+`FILTER_OPERATORS` and flipped the view operators `is_empty` / `is_not_empty`
+to lower to it; they lowered to `$null` before. Its meaning is the spec's ruled
+per-type table: a text-like field is empty when null or `''`, a multi-value
+field when null or `[]`, and any other field when null. Which backend applies
+that table, and how, is listed in the docblock of the spec's
 `FILTER_OPERATORS`, not here. Until objectui#11094 `convertFiltersToAST`
 refused `$empty` as an unknown operator.
 

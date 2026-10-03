@@ -135,8 +135,8 @@ is the lowering `convertFiltersToAST` already performs, not a reading invented h
 
 `$empty` (objectui#11094) is not a null test. `$empty: true` selects a row whose value
 is null, absent, `''` or `[]`, and `$empty: false` is its exact complement; a flag that
-is not a boolean is refused. The AST twins are `is_empty` / `is_not_empty`, which
-`@objectstack/spec` 17.6.0 stopped folding onto `is_null` / `is_not_null`. The answer is
+is not a boolean is refused. The AST twins are `is_empty` / `is_not_empty`, which the
+spec stopped folding onto `is_null` / `is_not_null` (objectstack#20570). The answer is
 the spec's own `isEmptyFilterValue`, called without a field declaration, because this
 adapter holds none: the spec's ruled table is keyed on a field's declared type (a
 text-like field is empty when null or `''`, a multi-value field when null or `[]`,

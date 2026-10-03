@@ -183,9 +183,10 @@ const en = {
     // `visible` gate outranks (objectui#4191) — the deep link or host asked
     // for it, but the author hid it on this surface.
     notAvailableHere: '"{{action}}" is not available on the current page.',
-    // The success toast the action runner shows when an action declares no
-    // `successMessage` and the server returned no message — the one toast
-    // text the runner writes itself (objectui#10900).
+    // The success toast the action runner shows when no `outcomeMessages`
+    // entry applies to the answer and the action declares no `successMessage`;
+    // the server's message plays no part (objectui#11344). It is the one
+    // success-toast text the runner writes itself (objectui#10900).
     completedSuccessfully: 'Action completed successfully',
     // The runner's other own text (objectui#10969): the error fallbacks when no
     // readable error message reached it, and the Undo label it hands the toast

@@ -263,7 +263,8 @@ export interface ActionDef {
   redirect?: string;
   /** Toast configuration */
   toast?: { showOnSuccess?: boolean; showOnError?: boolean; duration?: number };
-  /** Success message (from UIActionSchema) */
+  /** Success message (from UIActionSchema). The success toast's second rung,
+   *  after {@link outcomeMessages}; may interpolate `${result.*}`. */
   successMessage?: string;
   /** Error message (from UIActionSchema) */
   errorMessage?: string;
@@ -461,6 +462,21 @@ export interface ActionDef {
    */
   onSuccess?: SpecActionInput['onSuccess'];
   /**
+   * Success copy per handler outcome (`ActionSchema.outcomeMessages`, ruling A
+   * on objectstack-ai/cloud#2315): the server answers with a closed `outcome`
+   * fact and this map holds the sentence for each, keyed by the snake_case
+   * outcome name. Read by `handlePostExecution` → `composeSuccessMessage`, the
+   * success toast's FIRST rung: the entry named by the payload's top-level
+   * `outcome` (the payload `${result.*}` reads), then {@link successMessage},
+   * then the runner's own default text.
+   *
+   * Derived, so an entry is an `I18nLabel` — a string or an inline per-locale
+   * map. The runner composes from strings only: the host's localizer
+   * (`useActionTextLocalizer` in `@object-ui/react`) resolves each entry to the
+   * active language before dispatch, because the runner has no language.
+   */
+  outcomeMessages?: SpecActionInput['outcomeMessages'];
+  /**
    * @deprecated Retired in `@objectstack/spec` 17 as a `retiredKey()` tombstone —
    * authoring it is a hard parse rejection, so this resolves to `undefined` and
    * assigning a value is a compile error. A HOST may still pass a shortcut
@@ -545,9 +561,9 @@ export type ToastHandler = (message: string, options?: {
  * `defaultValue` is the English source, which is also what shows when no
  * translator is installed.
  *
- * - `completedSuccessfully` — the success toast when neither the server (a
- *   `data.message` on the result) nor the author (`successMessage`) supplied
- *   one (objectui#10900).
+ * - `completedSuccessfully` — the success toast when the author supplied no
+ *   copy for it: no `outcomeMessages` entry for the answer's `outcome` and no
+ *   `successMessage` (objectui#10900, objectui#11344).
  * - `failed` — the error toast when the error that reached the toast carries
  *   no readable message, and a parallel chain's result when its last action
  *   rejected (objectui#10969).
@@ -556,8 +572,9 @@ export type ToastHandler = (message: string, options?: {
  * - `undo` — the label the runner hands the toast handler for an undoable
  *   success toast's Undo affordance (objectui#10969).
  *
- * An author's `successMessage` / `errorMessage`, a server message and an
- * action's own error are never in this table: they reach the toast verbatim.
+ * An author's `outcomeMessages` / `successMessage` / `errorMessage` and an
+ * action's own error are never in this table: the host localizes authored copy
+ * before dispatch, and the runner only fills in its `${result.*}` tokens.
  */
 const RUNNER_TEXT = {
   completedSuccessfully: {
@@ -1138,12 +1155,12 @@ export class ActionRunner {
    * Set the translator for the text the runner supplies itself — the host's
    * `t`, injected so this package takes no i18n dependency. That text is the
    * `RUNNER_TEXT` table in this file: the generic success toast shown when an
-   * action declares no `successMessage` and the server returned no message,
-   * the error fallbacks when no readable error message reached the runner, and
-   * the Undo label of an undoable success toast. An author's `successMessage`
-   * / `errorMessage`, a server message and an action's own error reach the
-   * toast verbatim, translator or not. With no translator the text stays
-   * English.
+   * action declares neither an `outcomeMessages` entry for the answer nor a
+   * `successMessage`, the error fallbacks when no readable error message
+   * reached the runner, and the Undo label of an undoable success toast. An
+   * author's `outcomeMessages` / `successMessage` / `errorMessage` and an
+   * action's own error never go through this translator: the host localizes
+   * authored copy before dispatch. With no translator the text stays English.
    */
   setTranslator(translate: (key: string, options: { defaultValue: string }) => string): void {
     this.translate = translate;
@@ -1449,6 +1466,54 @@ export class ActionRunner {
   }
 
   /**
+   * The success toast's text, by the contract's three rungs
+   * (`ActionSchema.outcomeMessages`, objectui#11344):
+   *
+   * 1. `outcomeMessages[outcome]`, where `outcome` is the top-level `outcome`
+   *    of the handler's return value — the payload `${result.*}` reads, so it
+   *    is the same fact an author writes as `${result.outcome}`;
+   * 2. `successMessage`;
+   * 3. the runner's own default text, in its translator's language.
+   *
+   * Rungs 1 and 2 are the author's copy. Both arrive already localized — the
+   * host's localizer resolves the bundle entry or the inline `I18nLabel` map
+   * before dispatch — and both have their `${result.*}` tokens filled in here,
+   * through the one token grammar and scope `onSuccess.navigate` reads
+   * (`substituteScopeTokens` over `readActionPayload(result.data)`). Only the
+   * sink differs: a toast is text, so a value is inserted as-is, where a URL
+   * position percent-encodes it.
+   *
+   * ⛔ `result.data.message` is not a rung. It used to outrank both rungs of
+   * author copy, which put whatever language the server happened to write in
+   * front of the user's locale; the contract names no server-message rung, and
+   * an author who wants the server's sentence can still write
+   * `${result.message}` as the copy.
+   *
+   * A rung counts only when it is a non-empty string. An `I18nLabel` map that
+   * reached the runner without passing through a localizer has no language to
+   * resolve against here, so it is skipped rather than handed to the toast as
+   * an object — the React #31 crash the error branch below guards against.
+   */
+  private composeSuccessMessage(action: ActionDef, result: ActionResult): string {
+    const payload = readActionPayload(result.data);
+    const outcome = payload && typeof payload === 'object'
+      ? (payload as { outcome?: unknown }).outcome
+      : undefined;
+    const outcomeMessages = action.outcomeMessages;
+    const outcomeCopy = typeof outcome === 'string'
+      && outcomeMessages && typeof outcomeMessages === 'object'
+      && Object.prototype.hasOwnProperty.call(outcomeMessages, outcome)
+      ? (outcomeMessages as Record<string, unknown>)[outcome]
+      : undefined;
+    for (const copy of [outcomeCopy, action.successMessage]) {
+      if (typeof copy === 'string' && copy.trim() !== '') {
+        return substituteScopeTokens(copy, { result: payload }, (value) => value);
+      }
+    }
+    return this.runnerText(RUNNER_TEXT.completedSuccessfully);
+  }
+
+  /**
    * Post-execution: emit toast notifications, handle chaining, callbacks.
    */
   private async handlePostExecution(action: ActionDef, result: ActionResult): Promise<void> {
@@ -1465,19 +1530,9 @@ export class ActionRunner {
       const duration = action.toast?.duration;
 
       if (result.success && !hasResultDialog && !result.silent && showToast.showOnSuccess !== false) {
-        // Prefer a DYNAMIC message the server returned (result.data.message)
-        // over the static action.successMessage. Server-driven actions like
-        // check_app_updates / publish / install compute a real outcome
-        // ("2 app updates available: CRM 1.0.0→1.0.1", "Published v1.2.0")
-        // that the static label can't express; without this the user only ever
-        // sees a generic "Done". Falls back to the static label, then a default
-        // — text the runner writes itself, so its translator is asked for it
-        // (see `setTranslator`).
-        const dyn = (result.data && typeof result.data === 'object'
-          && typeof (result.data as { message?: unknown }).message === 'string')
-          ? String((result.data as { message?: unknown }).message).trim()
-          : '';
-        const message = dyn || action.successMessage || this.runnerText(RUNNER_TEXT.completedSuccessfully);
+        // The server returns FACTS and the console writes the sentence
+        // (ruling A on objectstack-ai/cloud#2315) — see `composeSuccessMessage`.
+        const message = this.composeSuccessMessage(action, result);
         // Undoable action: register the captured operation on the global
         // UndoManager and surface an "Undo" affordance on the toast (the
         // consumer's toast handler wires the button to UndoManager). The
@@ -2359,14 +2414,14 @@ export class ActionRunner {
     // BEFORE the request, so there is no result to read; admitting `${result.*}`
     // there would widen the authorable surface with nothing behind it and
     // silently blank the token instead of leaving the author's mistake visible.
+    //
+    // The success toast's copy is the one other caller of the grammar, through
+    // `substituteScopeTokens` directly (`composeSuccessMessage`): `result` only,
+    // because that is the one scope the contract declares for the copy, and no
+    // encoding, because a toast is text.
     const scopes: Record<string, unknown> = { param: params, ctx: this.buildInterpolationContext() };
     if (resultScope !== undefined) scopes.result = resultScope;
-    const pattern = new RegExp(`\\$\\{(${Object.keys(scopes).join('|')})\\.([\\w.]+)\\}`, 'g');
-    return target.replace(pattern, (_match, scope: string, path: string) => {
-      const value = readPath(scopes[scope], path);
-      if (value == null) return '';
-      return encodeURIComponent(String(value));
-    });
+    return substituteScopeTokens(target, scopes, encodeURIComponent);
   }
 
   /**
@@ -2462,6 +2517,31 @@ export function readOnSuccessNavigation(value: unknown): OnSuccessNavigation | n
   const navigate = (value as { navigate?: unknown }).navigate;
   if (typeof navigate !== 'string' || navigate === '') return null;
   return value as OnSuccessNavigation;
+}
+
+/**
+ * The runner's ONE `${scope.path}` token grammar — the substitution behind
+ * `interpolateTarget` (url / api targets and the `onSuccess.navigate` hop) and
+ * behind the success toast's `${result.*}` copy (`composeSuccessMessage`).
+ *
+ * The scope MAP defines the vocabulary: the pattern is built from its keys, so
+ * a token naming a scope the caller did not pass is left in the text exactly as
+ * written. A path that resolves to nothing becomes `''`. `encode` is the only
+ * thing a caller varies, and it belongs to the SINK, not to the dialect: a URL
+ * position percent-encodes each value, a toast inserts it as text.
+ */
+function substituteScopeTokens(
+  template: string,
+  scopes: Record<string, unknown>,
+  encode: (value: string) => string,
+): string {
+  if (typeof template !== 'string' || template.indexOf('${') === -1) return template;
+  const pattern = new RegExp(`\\$\\{(${Object.keys(scopes).join('|')})\\.([\\w.]+)\\}`, 'g');
+  return template.replace(pattern, (_match, scope: string, path: string) => {
+    const value = readPath(scopes[scope], path);
+    if (value == null) return '';
+    return encode(String(value));
+  });
 }
 
 /**

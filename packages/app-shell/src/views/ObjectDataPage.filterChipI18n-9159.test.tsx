@@ -87,7 +87,7 @@ import { I18nProvider } from '@object-ui/i18n';
 import { builtInLocales } from '@object-ui/i18n/locales';
 import { ObjectDataPage } from './ObjectDataPage';
 import { ExpressionProvider } from '../providers/ExpressionProvider';
-import { NULL_FILTER } from './drillUrlFilters';
+import { NULL_FILTER, EMPTY_FILTER } from './drillUrlFilters';
 
 const h = React.createElement;
 const OBJECT_NAME = 'showcase_invoice';
@@ -218,5 +218,41 @@ describe('the is-null filter chip is translated (objectui#9159)', () => {
     // through `t` would turn this red.
     renderAt('zh', `filter[${FIELD}]=alice`);
     expect(chipOperatorText()).toBe('= alice');
+  });
+});
+
+/**
+ * objectui#11547 — the "is empty" pair's chips, through the same real page and
+ * the same real packs. The arm hands out the filter builder's existing
+ * `is_empty` / `is_not_empty` keys; a key that did not resolve would render as
+ * itself, and a shared key would draw both directions with one label.
+ */
+describe('the is-empty filter chips are translated (objectui#11547)', () => {
+  /** What the pack itself calls one operator, in one language. */
+  const packLabelOf = (language: string, key: string): unknown =>
+    key.split('.').reduce<unknown>(
+      (node, part) => (node as Record<string, unknown> | undefined)?.[part],
+      (builtInLocales as Record<string, unknown>)[language],
+    );
+
+  it.each([
+    [EMPTY_FILTER.flag, EMPTY_FILTER.labelKey],
+    [EMPTY_FILTER.notFlag, EMPTY_FILTER.notLabelKey],
+  ])('`[empty]=%s` renders the zh pack copy of `%s`', (flag, key) => {
+    renderAt('zh', `filter[${FIELD}][${EMPTY_FILTER.param}]=${flag}`);
+    const rendered = chipOperatorText();
+    expect(rendered).toBe(packLabelOf('zh', key));
+    expect(rendered).not.toContain('filterBuilder.operators');
+    expect(rendered).not.toContain('true');
+    expect(rendered).not.toContain('false');
+  });
+
+  it('CONTROL: the en pack renders too, the packs differ, and the two directions differ', () => {
+    renderAt('en', `filter[${FIELD}][${EMPTY_FILTER.param}]=${EMPTY_FILTER.flag}`);
+    expect(chipOperatorText()).toBe(packLabelOf('en', EMPTY_FILTER.labelKey));
+    expect(packLabelOf('zh', EMPTY_FILTER.labelKey)).not.toBe(packLabelOf('en', EMPTY_FILTER.labelKey));
+    expect(packLabelOf('zh', EMPTY_FILTER.notLabelKey)).not.toBe(packLabelOf('zh', EMPTY_FILTER.labelKey));
+    // And neither is the is-null label: "is empty" is a different question.
+    expect(packLabelOf('zh', EMPTY_FILTER.labelKey)).not.toBe(packLabelOf('zh', NULL_FILTER.labelKey));
   });
 });

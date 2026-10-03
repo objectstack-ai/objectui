@@ -129,16 +129,17 @@ const FORM_IDENTITY_KEYS = ['type', 'objectName', 'mode'] as const;
  */
 const TABLE_WITHHELD_BY_REASON = {
   /**
-   * `ObjectGrid` has no read of it, so nothing could draw it. Five of these are
-   * retirement tombstones on `ObjectGridSchema` itself since objectui#11068
+   * `ObjectGrid` has no read of it, so nothing could draw it. Each is a
+   * retirement tombstone on `ObjectGridSchema` itself since objectui#11068
    * (`bulkSpecActions`, `name`, `placeholder`, `rowSpecActions`, `showFilters`).
    */
-  unread: ['bulkSpecActions', 'keyboardNavigation', 'name', 'placeholder', 'rowSpecActions', 'showFilters'],
+  unread: ['bulkSpecActions', 'name', 'placeholder', 'rowSpecActions', 'showFilters'],
   /**
    * `ObjectGrid` honours it on its own node since objectui#11068, and the view
-   * does not hand it on: that card enforced both without widening this slot.
+   * does not hand it on: that card enforced these without widening this slot —
+   * `description` and `emptyState` first, `keyboardNavigation` with its build.
    */
-  notRelayed: ['description', 'emptyState'],
+  notRelayed: ['description', 'emptyState', 'keyboardNavigation'],
   /** The view owns it: its own record source, its own row click, its grid's identity. */
   viewOwned: ['bind', 'data', 'dataSource', 'id', 'navigation', 'onNavigate', 'staticData'],
   /**

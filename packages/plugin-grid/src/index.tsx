@@ -212,16 +212,18 @@ export const ObjectGridRenderer: React.FC<{ schema: any; [key: string]: any }> =
  * objectui#5861 removed every renderer read of it (ADR-0049 enforce-or-remove).
  * It stays off this list because the contract refuses it, not by exemption.
  *
- * ## `description`, `emptyState`, and the one 17.6.0 key that is not here
+ * ## `description`, `emptyState` and `keyboardNavigation`: the 17.6.0 keys
  *
  * `@objectstack/spec` 17.6.0 adds three keys to the `object-grid` row
  * (objectstack#20694). `description` and `emptyState` are published below
  * (objectui#11227): `ObjectGrid` has read both since objectui#11068, and until
- * the row declared them this list could not. `keyboardNavigation` is NOT here.
- * The row marks it `[EXPERIMENTAL — not enforced]`, nothing in this repo reads it
- * yet, and this list is what the renderer reads: the key joins it with its
- * reader (objectui#11068's build). Until then the console parity gate's reverse
- * direction reports it as the one unpublished `object-grid` key.
+ * the row declared them this list could not. `keyboardNavigation` joined the
+ * list WITH its reader, objectui#11068's build: `ObjectGrid` resolves it
+ * (default: on when the grid renders editable) and `data-table` moves a roving
+ * focus across its cells with the arrow keys. It was held off this list until
+ * then, because this list is what the renderer reads, not what the row allows.
+ * The row still marks it `[EXPERIMENTAL — not enforced]`; that marker is the
+ * spec's to drop, and no reader here depends on it.
  *
  * ## `data` declares the CONTRACT's shape, not the shortcut's (objectui#5090)
  *
@@ -307,6 +309,11 @@ const GRID_QUERY_INPUTS: ComponentInput[] = [
   // ── behaviour ─────────────────────────────────────────────────────────────
   { name: 'editable', type: 'boolean', description: 'Enable inline cell editing (double-click or Enter opens a cell).' },
   { name: 'singleClickEdit', type: 'boolean', description: 'With `editable`, a single click opens the cell instead of a double-click. Has no effect on a non-editable grid.' },
+  // `keyboardNavigation` (objectui#11068's build; the row declares it since
+  // 17.6.0). The behaviour is `data-table`'s and is pinned there
+  // (`data-table-keyboard-navigation-11068.test.tsx`); the default and the
+  // relay are `ObjectGrid`'s (`ObjectGrid.keyboardNavigation-11068.test.tsx`).
+  { name: 'keyboardNavigation', type: 'boolean', description: 'Arrow-key cell navigation on the WAI-ARIA grid pattern: the grid\'s data cells take one place in the Tab order instead of one each (a link or button inside a cell keeps its own), and the arrow keys move focus between them (Home / End to the ends of the row, Ctrl+Home / Ctrl+End to the ends of the page). Enter still opens an editable cell, and an edit ended with Enter or Escape returns focus to its cell. Defaults to on when the grid renders editable; a read-only grid keeps every cell its own Tab stop unless this is `true`, and `false` turns it off on an editable grid.' },
   { name: 'navigation', type: 'object', description: 'What a row click does, `{ mode: "page" | "drawer" | "modal" | "split" | "none", … }`.' },
   { name: 'operations', type: 'object', description: 'Toggles for the built-in create/read/update/delete/export/import affordances, e.g. `{ delete: false }`.' },
   { name: 'exportOptions', type: 'object', description: 'Export config, `{ formats, maxRecords, includeHeaders, fileNamePrefix, streaming }`. `streaming` (default true) picks server-side streaming vs browser-side assembly for the export — a behaviour fork, not decoration; set it to `false` to force browser-side assembly. Needs `operations.export` to be reachable from the toolbar.' },

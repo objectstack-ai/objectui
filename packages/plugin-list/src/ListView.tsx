@@ -454,6 +454,15 @@ export function mapOperator(op: string) {
     case 'between': return 'between';
     case 'isnull': return 'isnull';
     case 'isnotnull': return 'isnotnull';
+    // objectui#10813 — the empty pair, which the spec lowers to its ONE
+    // 「is empty」 operator, `$empty` (objectstack#20446), expanded by the
+    // column's declared type on the server. It used to be answered by two arms
+    // in `convertFilterGroupToAST` as an equality to `null` — a null-only test
+    // that never counted `''` or `[]`, while the SAME rule saved into the view
+    // (`foldFilterGroupToSpecRules` persists `is_empty`) ran as `$empty`: one
+    // panel, two record sets, depending on whether the view had been saved.
+    case 'isempty': return 'isempty';
+    case 'isnotempty': return 'isnotempty';
     default: return op;
   }
 }
@@ -729,14 +738,16 @@ export function convertFilterGroupToAST(group: FilterGroup): any[] {
       return isFilterValueComplete(c.operator, c.value);
     })
     .map(c => {
-      // Folded, not compared raw (objectui#9359). These two arms resolve to a
-      // null comparison BEFORE `mapOperator` is consulted, so leaving them on
-      // literal camelCase ids would have made the repair below reach `is_null`
-      // and not `is_empty` — trading one spelling-dependent answer for another,
-      // which is the defect this card is about rather than a fix for it.
-      const canonicalOperator = String(normalizeFilterOperator(c.operator));
-      if (canonicalOperator === 'is_empty') return [c.field, '=', null];
-      if (canonicalOperator === 'is_not_empty') return [c.field, '!=', null];
+      // objectui#10813 — `is_empty` / `is_not_empty` no longer have arms of
+      // their own here. They were answered as `[field, '=' | '!=', null]`, a
+      // null test; they now take the value-less path below like `is_null`, and
+      // `mapOperator` emits the spec's `isempty` / `isnotempty`, which the
+      // spec lowers to `$empty` — the same operator a saved view's `is_empty`
+      // rule already ran as. The fold objectui#9359 added for those two arms
+      // lives on in `isValuelessFilterOperator` and in `mapOperator`'s
+      // case- and underscore-insensitive match, so every spelling of the pair
+      // still lands on one node.
+      //
       // A value-less row's third slot is emitted as `null` rather than as
       // whatever `c.value` still holds: the operator dropdown PRESERVES the
       // previous operator's value, so an `Is null` row can carry a leftover
@@ -744,7 +755,9 @@ export function convertFilterGroupToAST(group: FilterGroup): any[] {
       // (`convertComparison`, `@objectstack/spec/data`) ignores the third slot
       // for `isnull`/`isnotnull` — it emits `{ [field]: { $null: true|false } }`
       // — so `null` is inert on the wire and keeps the emission a function of
-      // the operator alone. Same shape the `isEmpty` arms above already use.
+      // the operator alone. The spec discards the slot for `isempty` /
+      // `isnotempty` too (`parseFilterAST(['x', 'isempty', null])` is
+      // `{ x: { $empty: true } }`).
       // The same fold as the short-circuit above (objectui#9359): a row kept
       // BECAUSE it is value-less must also be EMITTED as value-less, or the
       // canonical spelling would carry its stale `value` into the third slot

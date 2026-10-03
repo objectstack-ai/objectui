@@ -37,3 +37,10 @@ string is drawn as before.
 - TypeScript code that reads `emptyState.title` or `.message` as a `string` no longer
   type-checks. Resolve the value first, for example with `resolveI18nLabel` from
   `@objectstack/spec/ui`.
+
+**Correction, 2026-10-03 (objectui#11068, the `keyboardNavigation` build).** The bullet above
+that says `keyboardNavigation` "is not published" and that "nothing in the grid reads it yet" is
+superseded. The grid honours the key, with arrow-key cell navigation that is on by default when
+the grid renders editable, and it is in the grid's declared inputs, so the designer panel, the
+component manifest and the generated `sdui-intrinsics.d.ts` offer it
+(`.changeset/11068-keyboard-navigation.md`).

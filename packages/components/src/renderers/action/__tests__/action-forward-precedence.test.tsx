@@ -105,12 +105,16 @@ const CONTEXT = { target: 'contextWins', extraFromHost: 'present' };
  * exactly the added names against a sequence of pre-existing keys whose
  * relative order did not move. An insertion that DID reorder the neighbours
  * would show up here as several moved names, not two added ones.
+ *
+ * `outcomeMessages` (objectui#11344) is the next middle insertion, beside
+ * `successMessage`, the copy it outranks in the success toast. Same reading:
+ * one added name, no neighbour moved.
  */
 const BUTTON_ORDER = [
   'type', 'name', 'label', 'description', 'target', 'openIn', 'endpoint', 'method',
   'params',
-  'bodyExtra', 'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
-  'undoable', 'recordIdField', 'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
+  'bodyExtra', 'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'outcomeMessages', 'errorMessage',
+  'refreshAfter', 'undoable', 'recordIdField', 'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
 ];
 
 /**
@@ -121,8 +125,8 @@ const BUTTON_ORDER = [
 const ICON_ORDER = [
   'type', 'name', 'label', 'description', 'target', 'openIn', 'endpoint', 'method',
   'params',
-  'bodyExtra', 'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'errorMessage', 'refreshAfter',
-  'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
+  'bodyExtra', 'bodyShape', 'operation', 'patch', 'confirmText', 'successMessage', 'outcomeMessages', 'errorMessage',
+  'refreshAfter', 'locations', 'toast', 'resultDialog', 'onSuccess', 'objectName',
 ];
 
 // See action-bodyExtra-forward.test.tsx for why this is not

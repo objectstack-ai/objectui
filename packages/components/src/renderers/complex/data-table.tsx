@@ -784,6 +784,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     reorderableColumns = true,
     editable = false,
     singleClickEdit = false,
+    keyboardNavigation = false,
     rowClassName,
     rowStyle,
     className,
@@ -1900,7 +1901,114 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     setSaveError(null);
   };
 
-  const handleCellKeyDown = (e: React.KeyboardEvent, rowIndex: number, columnKey: string) => {
+  // ── Keyboard navigation (objectui#11068) ──────────────────────────────────
+  //
+  // Arrow-key cell navigation on the WAI-ARIA grid pattern, behind
+  // `keyboardNavigation`. Off — the default, and every host but `ObjectGrid`
+  // leaves it off — nothing below changes the table: every data cell is its own
+  // Tab stop (`tabIndex={0}`), the markup carries no grid role, and the arrows
+  // do what the browser does with them.
+  //
+  // On, the table is a `grid` and its data cells are a ROVING tab stop: exactly
+  // one of them is in the Tab sequence (`tabIndex` 0, the rest -1), so Tab
+  // reaches the cells once instead of once per cell. That cell is the one that
+  // last held focus — a click, a Tab, an arrow — and the first cell of the first
+  // row until one has. Its position is clamped to the page on every render, so a
+  // shorter page, a filter or a removed column never leaves the grid with NO
+  // cell in the Tab sequence.
+  //
+  // Only the data cells rove. A widget a cell renders (a record link, a row's
+  // action menu, a selection checkbox) keeps its own Tab stop: it is the cell
+  // renderer's markup, not this table's, and taking it out of the sequence
+  // would leave it with no keyboard path at all.
+  const tableRef = useRef<HTMLTableElement | null>(null);
+  const [rovingCell, setRovingCell] = useState<{ rowIndex: number; colIndex: number }>({ rowIndex: 0, colIndex: 0 });
+  const rovingRowIndex = Math.max(0, Math.min(rovingCell.rowIndex, paginatedData.length - 1));
+  const rovingColIndex = Math.max(0, Math.min(rovingCell.colIndex, columns.length - 1));
+  // A cell whose edit was just ended from the keyboard, to be focused once the
+  // editor has unmounted (the effect below). A ref, not state: it is consumed
+  // by the commit that follows, and must not cause a render of its own.
+  const pendingCellFocusRef = useRef<{ rowIndex: number; colIndex: number } | null>(null);
+
+  const rove = (rowIndex: number, colIndex: number) => {
+    setRovingCell((prev) =>
+      prev.rowIndex === rowIndex && prev.colIndex === colIndex ? prev : { rowIndex, colIndex });
+  };
+
+  const focusGridCell = (rowIndex: number, colIndex: number) => {
+    const cell = tableRef.current?.querySelector<HTMLElement>(`[data-grid-cell="${rowIndex}:${colIndex}"]`);
+    if (!cell) return;
+    rove(rowIndex, colIndex);
+    cell.focus();
+  };
+
+  // The edit's editor is gone once this runs, so focus has nowhere to land but
+  // `<body>` — hand it back to the cell, where the arrows carry on. Only an edit
+  // ended by a key that bubbled through its cell arms this (see
+  // `handleCellKeyDown`): one committed by a pointer press elsewhere leaves
+  // focus where that press put it.
+  useEffect(() => {
+    const target = pendingCellFocusRef.current;
+    if (!target || editingCell) return;
+    pendingCellFocusRef.current = null;
+    if (!keyboardNavigation) return;
+    focusGridCell(target.rowIndex, target.colIndex);
+  });
+
+  /**
+   * The cell an arrow / Home / End press moves to, or `null` when the key is
+   * not a navigation key. At an edge the answer is the cell itself: the key is
+   * still the grid's (the page must not scroll under a focused cell), and focus
+   * stays put, as the pattern asks.
+   */
+  const navigationTarget = (
+    e: React.KeyboardEvent,
+    rowIndex: number,
+    colIndex: number,
+  ): { rowIndex: number; colIndex: number } | null => {
+    // Shift / Alt / Meta combinations belong to the browser and the OS (text
+    // selection, history, app shortcuts); Ctrl only qualifies Home / End.
+    if (e.shiftKey || e.altKey || e.metaKey) return null;
+    const lastRow = paginatedData.length - 1;
+    const lastCol = columns.length - 1;
+    if (e.ctrlKey) {
+      if (e.key === 'Home') return { rowIndex: 0, colIndex: 0 };
+      if (e.key === 'End') return { rowIndex: lastRow, colIndex: lastCol };
+      return null;
+    }
+    switch (e.key) {
+      case 'ArrowUp': return { rowIndex: Math.max(0, rowIndex - 1), colIndex };
+      case 'ArrowDown': return { rowIndex: Math.min(lastRow, rowIndex + 1), colIndex };
+      case 'ArrowLeft': return { rowIndex, colIndex: Math.max(0, colIndex - 1) };
+      case 'ArrowRight': return { rowIndex, colIndex: Math.min(lastCol, colIndex + 1) };
+      case 'Home': return { rowIndex, colIndex: 0 };
+      case 'End': return { rowIndex, colIndex: lastCol };
+      default: return null;
+    }
+  };
+
+  const handleCellKeyDown = (e: React.KeyboardEvent, rowIndex: number, colIndex: number, columnKey: string) => {
+    if (keyboardNavigation) {
+      // An edit in this cell that the key now bubbling through it just ended
+      // (Enter committed it, Escape cancelled it): `editingCellRef` is cleared
+      // synchronously by the editor's own handler, while `editingCell` is still
+      // this render's value. Focus goes back to the cell after the commit.
+      if (editingCell && editingCellRef.current === null && (e.key === 'Enter' || e.key === 'Escape')) {
+        pendingCellFocusRef.current = { rowIndex, colIndex };
+        return;
+      }
+      // The cell itself, not a widget inside it: a link, a picker or an editor
+      // keeps the keys it handles.
+      if (!editingCell && e.target === e.currentTarget) {
+        const next = navigationTarget(e, rowIndex, colIndex);
+        if (next) {
+          e.preventDefault();
+          focusGridCell(next.rowIndex, next.colIndex);
+          return;
+        }
+      }
+    }
+
     // Copy cell value with Ctrl+C / Cmd+C
     if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !editingCell) {
       e.preventDefault();
@@ -2118,7 +2226,14 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
             wrapper must NOT create a second, height-unbounded scroll context;
             otherwise the horizontal scrollbar drops to the bottom of all rows
             and is only reachable after scrolling to the last row. */}
-        <Table containerClassName="overflow-visible">
+        <Table
+          ref={tableRef}
+          containerClassName="overflow-visible"
+          // objectui#11068 — the WAI-ARIA grid pattern's container role, which
+          // tells assistive tech the arrow keys move between cells. Only when
+          // the table really does that; otherwise it stays a plain table.
+          role={keyboardNavigation ? 'grid' : undefined}
+        >
           {caption && <TableCaption>{caption}</TableCaption>}
           <TableHeader className="sticky top-0 bg-background z-10">
             <TableRow ref={headerRowRef}>
@@ -2576,8 +2691,15 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                 startEdit(rowIndex, col.accessorKey);
                               }
                             }}
-                            onKeyDown={(e) => handleCellKeyDown(e, rowIndex, col.accessorKey)}
-                            tabIndex={0}
+                            onKeyDown={(e) => handleCellKeyDown(e, rowIndex, colIndex, col.accessorKey)}
+                            // objectui#11068 — one roving Tab stop across the
+                            // data cells when `keyboardNavigation` is on (see
+                            // `handleCellKeyDown`); every cell its own stop when
+                            // it is off, exactly as before. The address and the
+                            // focus tracking exist only in the first case.
+                            tabIndex={keyboardNavigation ? (rowIndex === rovingRowIndex && colIndex === rovingColIndex ? 0 : -1) : 0}
+                            data-grid-cell={keyboardNavigation ? `${rowIndex}:${colIndex}` : undefined}
+                            onFocus={keyboardNavigation ? () => rove(rowIndex, colIndex) : undefined}
                           >
                             {isEditing ? (
                               (() => {

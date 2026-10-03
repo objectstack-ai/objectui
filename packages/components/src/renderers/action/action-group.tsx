@@ -358,6 +358,9 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
           patch: action.patch,
           confirmText: action.confirmText,
           successMessage: action.successMessage,
+          // See action-button.tsx — success copy per handler outcome, the
+          // toast's first rung (objectui#11344).
+          outcomeMessages: action.outcomeMessages,
           errorMessage: action.errorMessage,
           refreshAfter: action.refreshAfter,
           // Placement declaration — see action-button.tsx (#2210).

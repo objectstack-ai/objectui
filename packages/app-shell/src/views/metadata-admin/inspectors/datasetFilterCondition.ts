@@ -16,8 +16,8 @@
  *
  * The value-less operators are the exception to "field op value": the builder
  * draws no input for them, so the row is complete without one. Both pairs the
- * spec's vocabulary carries — `$exists` (is empty) and `$null` (is null) — are
- * bridged here, in {@link VALUELESS_TO_MONGO}.
+ * builder offers — `$empty` (is empty) and `$null` (is null) — are bridged
+ * here, in {@link VALUELESS_TO_MONGO}.
  *
  * An operator that is NOT bridged is dropped, and dropping is where the danger
  * used to be: see {@link isClearedGroup} for why an unmapped operator is now
@@ -102,10 +102,10 @@ const MONGO_TO_OP: Record<string, string> = {
  * is exactly how the two halves drift apart.
  *
  * Measured over the whole domain the dropdown can build (objectui#9382): four
- * tokens have two operators writing them — `$exists`, `$null`, `$gt`, `$lt`.
- * The first two are disambiguated by their PAYLOAD, in the `$exists` / `$null`
- * arms of {@link conditionToGroup}, because the stored value is the boolean
- * that picks the operator. `$gt` / `$lt` carry the author's comparand instead,
+ * tokens have two operators writing them — `$empty` (`$exists` until
+ * objectui#10813), `$null`, `$gt`, `$lt`. The first two are disambiguated by
+ * their PAYLOAD, in the `$empty` / `$null` arms of {@link conditionToGroup},
+ * because the stored value is the boolean that picks the operator. `$gt` / `$lt` carry the author's comparand instead,
  * so no bit of the stored condition tells `after` from `greater_than` — which
  * is why the field's declared type has to.
  */
@@ -174,9 +174,21 @@ function readBackOperator(mop: string, fieldType: string | undefined): string | 
  *
  * `is_null` / `is_not_null` are not a spelling of `is_empty` / `is_not_empty`. The
  * dropdown offers both pairs as their own rows and the spec's filter vocabulary
- * carries both `$null` and `$exists`, so they stay distinct in both directions;
+ * carries both `$null` and `$empty`, so they stay distinct in both directions;
  * collapsing them would draw two labels for one wire predicate and rewrite the
  * author's choice when the filter is read back.
+ *
+ * objectui#10813: the empty pair writes the spec's ONE 「is empty」 operator,
+ * `$empty` (ruling B on objectstack#20311; in `FILTER_OPERATORS` and the
+ * lowering of the view operators `is_empty` / `is_not_empty` since
+ * objectstack#20446). What counts as empty is the column's DECLARED row of the
+ * spec's per-type table — `''` on a text-like column, `[]` on a multi-value
+ * one, null alone on every other type — expanded by each evaluator
+ * (`expandEmptyOperator`), so ⛔ no copy of that table lives here. It wrote
+ * `$exists` before — the spec's has-a-value test (`!= null`), which never
+ * counts `''` or `[]` — so one operator name, offered in three builders,
+ * matched three record sets. A stored `$exists` is no longer read back as this pair —
+ * see the note in {@link conditionToGroup}.
  *
  * objectui#9363: the null pair was missing here, so an `Is null` row — an
  * ordinary entry in this inspector's menu, drawn as a finished row — fell
@@ -187,7 +199,7 @@ function readBackOperator(mop: string, fieldType: string | undefined): string | 
  * with no error and the condition still on screen.
  */
 const VALUELESS_TO_MONGO: Record<string, Record<string, boolean>> = {
-  is_empty: { $exists: false }, is_not_empty: { $exists: true },
+  is_empty: { $empty: true }, is_not_empty: { $empty: false },
   is_null: { $null: true }, is_not_null: { $null: false },
 };
 
@@ -334,7 +346,7 @@ export function groupToCondition(group: BuilderGroup | undefined): FilterConditi
  *
  *  2. DOES THE COLUMN'S BUCKET OFFER ITS OPERATOR? Read back as an operator the
  *     dropdown does not list — `$in` on a date or number column, `$gt` on a
- *     text one, `$exists` on a boolean one — the panel draws a BLANK operator
+ *     text one, `$empty` on a boolean one — the panel draws a BLANK operator
  *     trigger (objectui#4768 / #7561), and one touch of the row's field picker
  *     reconciles it to `equals` and reshapes the value, committing a different
  *     filter than the one stored (the objectui#9382 defect). The bucket is
@@ -394,8 +406,24 @@ export function conditionToGroup(
       const opKeys = Object.keys(v);
       if (opKeys.length !== 1) return { group: empty, representable: false };
       const mop = opKeys[0];
-      if (mop === '$exists') {
-        row = { id: `c${i}`, field, operator: v.$exists ? 'is_not_empty' : 'is_empty', value: '' };
+      if (mop === '$empty') {
+        // The inverse of the write half, as for `$null` below — but only a
+        // BOOLEAN flag: the spec declares `$empty: z.boolean()` and every
+        // evaluator refuses any other, so a non-boolean one goes to the Source
+        // tab rather than opening as a row the next commit would make runnable.
+        //
+        // ⛔ A stored `$exists` no longer reads back as `is_empty` /
+        // `is_not_empty` (objectui#10813). It is what this pair WROTE before,
+        // but it is the has-a-value test (`!= null`) and `$empty` is not: read
+        // back as the pair, a sibling edit would rewrite it to `$empty` and
+        // move `''` / `[]` across the line — a stored filter changed by an
+        // edit to a DIFFERENT row, which the invariant pinned for
+        // {@link builderHolds} (objectui#10257) forbids.
+        // This inspector offers no `exists` row either, so `$exists` falls to
+        // the unmapped-token arm below and the filter opens in the Source tab,
+        // stored bytes untouched.
+        if (typeof v.$empty !== 'boolean') return { group: empty, representable: false };
+        row = { id: `c${i}`, field, operator: v.$empty ? 'is_empty' : 'is_not_empty', value: '' };
       } else if (mop === '$null') {
         // The inverse of the write half: `$null: false` is "is not null", so
         // the boolean picks the operator rather than becoming the row's value.

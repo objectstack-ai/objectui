@@ -209,6 +209,7 @@ const grid: ObjectGridBlockNode = {
 | `selection` | `SelectionConfig` | `{ type: 'none' \| 'single' \| 'multiple' }`. |
 | `rowActions` / `bulkActions` | `string[]` | **Names** of actions, not definitions. |
 | `editable` / `singleClickEdit` | `boolean` | Inline editing — see [Inline Editing](#inline-editing). |
+| `keyboardNavigation` | `boolean` | Arrow keys move focus between cells, and the cells are one Tab stop — see [Keyboard navigation](#keyboard-navigation). On by default when the grid renders editable. |
 | `navigation` | `NavigationConfig` | What a row click does, `{ mode: 'page' \| 'drawer' \| 'modal' \| 'split' \| 'none', … }`. |
 | `operations` | `object` | Toggles the built-in CRUD/export/import affordances, e.g. `{ delete: false }`. |
 | `rowHeight`, `frozenColumns`, `resizable`, `reorderableColumns`, `showColumnTypeIcons`, `rowColor`, `conditionalFormatting`, `aggregations`, `exportOptions` | | The rest of the declared surface. (`className` is a base prop: it stays on the node, beside the bag.) |
@@ -258,10 +259,12 @@ Written flat on the node, either key is refused by name and pointed at the bag
 refuses it. Until the row declared `description`, this page told you to write it
 on the node; that is now the refused spelling.
 
-`keyboardNavigation`, the third key objectstack#20694 added to the row, is marked
-`[EXPERIMENTAL — not enforced]` there, and nothing in this package reads it yet,
-so it is not in `GRID_QUERY_INPUTS`. The bag accepts it, as the spec row does,
-and it changes nothing.
+`keyboardNavigation`, the third key objectstack#20694 added to the row, is
+honoured too (objectui#11068) and is in `GRID_QUERY_INPUTS` — see
+[Keyboard navigation](#keyboard-navigation). The row's own description may still
+carry the `[EXPERIMENTAL — not enforced]` marker it was published with before this
+build; the installed row (`ComponentPropsMap['object-grid']`) is the place to read
+its current text.
 
 `name`, `placeholder`, `rowSpecActions` and `bulkSpecActions` are **retired** on
 this node (objectui#11068): nothing ever read them, and both faces of
@@ -860,6 +863,40 @@ the host's data source (`dataSource.update`) with no callback to wire.
 - Batch data entry
 - Spreadsheet-like editing experience
 - Real-time updates with backend synchronization
+
+### Keyboard navigation
+
+`keyboardNavigation` turns the grid's data cells into one roving Tab stop, on the
+WAI-ARIA grid pattern (objectui#11068):
+
+```json
+{
+  "type": "object-grid",
+  "properties": {
+    "objectName": "users",
+    "columns": ["name", "email", "status"],
+    "keyboardNavigation": true
+  }
+}
+```
+
+- **One Tab stop.** Tab reaches the cells once — on the cell that last held
+  focus, or the first cell of the first row — and the next Tab moves past them.
+  A widget a cell renders (the record link, a row's action menu, a selection
+  checkbox) keeps its own Tab stop.
+- **Arrow keys** move focus one cell; **Home** / **End** go to the first / last
+  cell of the row, and **Ctrl+Home** / **Ctrl+End** to the first / last cell of
+  the page. At an edge, focus stays put.
+- **Editing.** On an editable grid, Enter still opens the focused cell, and an
+  open cell's editor keeps every key. An edit ended with Enter or Escape hands
+  focus back to its cell, so the arrows carry on from there.
+- **Default.** On when the grid renders editable — the authored `editable` *and*
+  the viewer's permission to update the object, the same value inline editing
+  obeys. A read-only grid keeps every cell its own Tab stop unless you write
+  `true`, and `false` turns it off on an editable grid.
+- While it is on, the table is exposed to assistive technology as a `grid`. A
+  grouped grid navigates within each group's table; the mobile card layout has
+  no cells and is unaffected.
 
 ### Batch Editing & Multi-Row Save
 

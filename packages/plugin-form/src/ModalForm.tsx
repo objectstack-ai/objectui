@@ -14,7 +14,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useId, useRef } from 'react';
-import type { FormField, FormSchema, DataSource, ObjectFormSchema } from '@object-ui/types';
+import type { FormField, FormSchema, DataSource, ObjectFormSchema, ObjectFormSection } from '@object-ui/types';
 import {
   Dialog,
   MobileDialogContent,
@@ -51,6 +51,7 @@ import {
   CONTAINER_GRID_COLS,
 } from './autoLayout';
 import { deriveFieldGroupSections, projectSectionDivider, resolveSectionCollapse } from './fieldGroups';
+import { resolveSectionGroupReferences } from './sectionGroups';
 import {
   sanitizeFormData,
   dirtyEditPayload,
@@ -325,6 +326,29 @@ export const ModalForm: React.FC<ModalFormProps> = ({
   // Stable form id for linking the external submit button to the form element
   const formId = useId();
 
+  // `form.sections[].group` (objectui#11542): a section that points `group` at
+  // one of the object's `fieldGroups` becomes the section that group declares,
+  // through the ONE resolver `ObjectForm`'s `withGroups` uses, so no assembly
+  // rule lives here. `ObjectForm` resolves above its routing fork, but the
+  // console's record dialog and an action-opened modal mount THIS component
+  // directly with the form view's sections as authored, so the dialog resolves
+  // its own. Resolved once, above both content layouts (tabbed and stacked),
+  // against the object schema this form already loads; while it loads the
+  // form shows its skeleton. Returns `schema.sections` itself when no section
+  // uses `group` — which includes every section list `ObjectForm` hands over,
+  // already resolved — so no other modal takes a new path. Every resolved
+  // member still goes through `gateFields` below, like an enumerated one.
+  const resolvedSections = useMemo(
+    () =>
+      resolveSectionGroupReferences(schema.sections as ObjectFormSection[] | undefined, {
+        objectName: schema.objectName,
+        formType: schema.formType,
+        objectDef: objectSchema,
+        resolvable: typeof dataSource?.getObjectSchema === 'function',
+      }) as ModalFormSectionConfig[] | undefined,
+    [schema.sections, schema.objectName, schema.formType, objectSchema, dataSource],
+  );
+
   // Field-group fallback (object-designer metadata): when the caller passes no
   // explicit sections, honor the object's declared `fieldGroups` the same way
   // ObjectForm's simple path does — one section per group, with flat-path
@@ -348,7 +372,7 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     return sections.map((s) => ({ ...s, columns })) as ModalFormSectionConfig[];
   }, [schema.sections, schema.columns, schema.mode, formFields, objectSchema]);
 
-  const effectiveSections = schema.sections?.length ? schema.sections : (derivedSections ?? undefined);
+  const effectiveSections = resolvedSections?.length ? resolvedSections : (derivedSections ?? undefined);
 
   // Compute auto-layout for flat fields (no sections) to determine inferred columns
   // (`customFields` does not switch it off: the members are merged into
@@ -785,8 +809,8 @@ export const ModalForm: React.FC<ModalFormProps> = ({
     // 2+ silently dropped everything the user typed; and in the tabbed variant
     // Radix unmounted the inactive panel, destroying that tab's form state
     // outright. Same single-form pattern as ObjectForm / DrawerForm.
-    if (schema.sections?.length) {
-      const sections = schema.sections;
+    if (resolvedSections?.length) {
+      const sections = resolvedSections;
       const sectionKey = (sec: ModalFormSectionConfig, i: number) => sec.name || sec.label || String(i);
       // Section headers go through the same i18n hook ObjectForm uses, so a
       // translated group label wins over the raw metadata label.

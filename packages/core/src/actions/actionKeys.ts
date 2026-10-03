@@ -196,6 +196,9 @@ export const ACTION_DEF_KEYS = [
   // chained-callback meaning is retired and the key's type now derives the
   // spec's `{ navigate, openIn }` block.
   'onSuccess',
+  // Spec 17.6.0's success copy per handler outcome (objectui#11344), declared
+  // when the runner learned to read it: the success toast's first rung.
+  'outcomeMessages',
   'shortcut',
   'bulkEnabled',
 ] as const;
@@ -283,6 +286,12 @@ export const SPEC_ACTION_KEYS = [
   // is what `check:action-forward-parity` now requires rather than excuses.
   'operation',
   'order',
+  // Added to `ActionSchema` in @objectstack/spec 17.6.0 (objectstack#21095,
+  // objectui#11344): success copy per handler outcome, keyed by the snake_case
+  // `outcome` the handler returns. `ActionDef` declares it (derived) and the
+  // runner reads it as the success toast's first rung, ahead of
+  // `successMessage`.
+  'outcomeMessages',
   'params',
   'patch',
   'recordIdField',

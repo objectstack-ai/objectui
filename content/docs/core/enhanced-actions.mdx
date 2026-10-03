@@ -312,18 +312,28 @@ authored callback fails at the authoring site with the migration in the message.
 What to write instead:
 
 - **A notice** — `successMessage` / `errorMessage`, plain strings (the runner
-  surfaces `successMessage` as a toast after a successful action). The runner
-  shows `successMessage` as written. Without one, and without a message from
-  the server, it falls back to a generic "Action completed successfully".
+  surfaces `successMessage` as a toast after a successful action). An action
+  whose handler can succeed in more than one way can also carry the spec's
+  `outcomeMessages` (on `UIActionSchema`, for `type: 'api'` and `type: 'script'`):
+  one message per snake_case `outcome` the handler returns in its answer. The
+  success toast shows the `outcomeMessages` entry the answer's `outcome` names,
+  else `successMessage` (objectui#11344). Both may read the handler's answer as
+  `${result.*}` — `'Environment ${result.name} archived'` — the same scope
+  `onSuccess.navigate` reads. A `message` in the server's answer is not shown
+  unless the copy asks for it as `${result.message}`. Without either, the
+  runner falls back to a generic "Action completed successfully".
   That fallback is text the runner writes itself, and so are the "Action
   failed" error toast for an error with no readable message, a parallel
   chain's "One or more parallel actions failed", and the label it hands your
   toast handler for an undoable success toast's Undo button
   (`options.undo.label`). Those are the strings it translates; an author's
-  `successMessage` / `errorMessage` and a server message are never
-  translated. `<ActionProvider>` and `useActionRunner` install the session's
-  translator on their runner, and a runner you build yourself takes one
-  through `runner.setTranslator(t)`.
+  `outcomeMessages` / `successMessage` / `errorMessage` never go through the
+  runner's translator. On a named action, `@object-ui/react`'s `useActionTextLocalizer`
+  resolves `successMessage` and each `outcomeMessages` entry (its bundle entry,
+  else the inline locale map) before the action runs.
+  `<ActionProvider>` and `useActionRunner` install the session's translator on
+  their runner, and a runner you build yourself takes one through
+  `runner.setTranslator(t)`.
 - **Post-success navigation** — the spec's `onSuccess` block, `{ navigate, openIn }`,
   declared on `UIActionSchema` and forwarded to the runner (objectui#5934). It is
   a spec key, not a member of this legacy type, so it is not shown in a fence here.

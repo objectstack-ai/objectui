@@ -238,11 +238,19 @@ const seriesLabelForKey = (
 
 export interface AdvancedChartImplProps {
   /**
-   * Chart family. `combo` is renderer-local and rarely needs to be passed:
-   * series declaring different families derive it (`effectiveChartFamily`),
-   * which is how `@objectstack/spec` expresses a combo chart.
+   * Chart family, as the schema names it. `combo` is renderer-local and rarely
+   * needs to be passed: series declaring different families derive it
+   * (`effectiveChartFamily`), which is how `@objectstack/spec` expresses a
+   * combo chart.
+   *
+   * Any string reaches the family dispatch below, which is the one place a
+   * family becomes a form: a chart for `RENDERABLE`, the number card for the
+   * single-value families, the tabular notice for the tabular ones, and a
+   * notice for anything else. ⛔ There is no default family (objectui#11520):
+   * an absent family is that notice too, never a bar. A caller that means a
+   * bar passes `'bar'`.
    */
-  chartType?: 'bar' | 'column' | 'horizontal-bar' | 'line' | 'area' | 'pie' | 'donut' | 'radar' | 'scatter' | 'funnel' | 'combo' | 'treemap' | 'sankey';
+  chartType?: string;
   data?: Array<Record<string, any>>;
   config?: ChartContainerConfig;
   xAxisKey?: string;
@@ -1426,7 +1434,10 @@ function unplottedPointsNote(
  * This component is lazy-loaded to avoid including Recharts in the initial bundle
  */
 function AdvancedChartImplInner({
-  chartType: rawChartType = 'bar',
+  // ⛔ No `= 'bar'` default (objectui#11520): it drew a bar for every family
+  // that arrived unset, which is how a `specType: 'gauge'` chart became a bar
+  // chart with no note. An absent family is the notice in the dispatch below.
+  chartType: rawChartType,
   data: rawData = [],
   config = {},
   xAxisKey = 'name',
@@ -2038,12 +2049,17 @@ function AdvancedChartImplInner({
   // #2942 — the non-series spec families used to fall through the component
   // map's `|| BarChart` into a bar shell whose series marks all returned
   // null: grid, axes, tooltip and legend rendered with NO data marks,
-  // indistinguishable from an empty dataset. Reachable because ChartRenderer
-  // resolves `schema.chartType ?? spec.chartType` without going through
-  // `normalizeChartSchema`'s RENDERABLE gate. Single-value families render
+  // indistinguishable from an empty dataset. Single-value families render
   // the measure as a number (the spec's own framing for them); tabular ones
   // say which component owns the rendering; unknown values are named instead
   // of guessed at.
+  //
+  // objectui#11520 — this is the ONE family → form dispatch, and every channel
+  // reaches it with the family as named: `chartType` straight from
+  // `ChartRenderer`, and `specType` (the react tier's family) through
+  // `normalizeChartSchema`, which no longer drops the families this block
+  // draws no chart of. A chart that arrives with no family at all is the
+  // unknown-type notice below, not a bar.
   if (chartType && SINGLE_VALUE_CHART_TYPES.has(chartType)) {
     const dataKey = series[0]?.dataKey || 'value';
     const raw = data[0]?.[dataKey];
@@ -2071,14 +2087,18 @@ function AdvancedChartImplInner({
       </div>
     );
   }
-  if (chartType && !RENDERABLE.has(chartType)) {
+  if (!chartType || !RENDERABLE.has(chartType)) {
     return (
       <div
         className={`rounded-md border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground ${className ?? ''}`}
         data-testid="advanced-chart-unknown-type"
         role="note"
       >
-        Chart type &ldquo;{chartType}&rdquo; is not a spec chart type — nothing was drawn.
+        {chartType ? (
+          <>Chart type &ldquo;{chartType}&rdquo; is not a spec chart type — nothing was drawn.</>
+        ) : (
+          <>This chart names no chart type — nothing was drawn.</>
+        )}
       </div>
     );
   }
@@ -2916,11 +2936,24 @@ function AdvancedChartImplInner({
  * it (see `bucketNullCategories` in `@object-ui/core`), which is what keeps this
  * predicate meaning what it says.
  */
+/**
+ * The family the refusal guards below judge, `column` read as the bar it draws.
+ *
+ * ⛔ No `'bar'` default (objectui#11520). Each guard used to restate the
+ * component's own `= 'bar'`, so a chart that named no family was judged as a
+ * bar here before it was drawn as one. It now names no family to them either:
+ * none of them refuses it, and the component draws the unknown-type notice.
+ */
+function guardFamily(props: AdvancedChartImplProps): string | undefined {
+  return props.chartType === 'column' ? 'bar' : props.chartType;
+}
+
 function hasNoCategoryKey(props: AdvancedChartImplProps): boolean {
-  const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
+  const chartType = guardFamily(props);
   const rows = Array.isArray(props.data) ? props.data : [];
   const key = props.xAxisKey ?? 'name';
   return (
+    chartType !== undefined &&
     CATEGORY_AXIS_CHART_TYPES.has(chartType) &&
     rows.length > 0 &&
     !rows.some((row) => row != null && typeof row === 'object' && key in row)
@@ -3019,9 +3052,9 @@ const SERIES_ONLY_CHART_TYPES: ReadonlySet<string> = new Set([
 type NoPlottableSeries = 'empty' | 'undeclared';
 
 function hasNoPlottableSeries(props: AdvancedChartImplProps): NoPlottableSeries | null {
-  const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
+  const chartType = guardFamily(props);
   const rows = Array.isArray(props.data) ? props.data : [];
-  if (!SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0) return null;
+  if (chartType === undefined || !SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0) return null;
   if (props.series === undefined) return 'undeclared';
   if (Array.isArray(props.series) && props.series.length === 0) return 'empty';
   return null;
@@ -3079,10 +3112,10 @@ function hasNoPlottableSeries(props: AdvancedChartImplProps): NoPlottableSeries 
  * counts.
  */
 function hasNoNumericSeriesValue(props: AdvancedChartImplProps): string[] | null {
-  const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
+  const chartType = guardFamily(props);
   const rows = Array.isArray(props.data) ? props.data : [];
   const series = Array.isArray(props.series) ? props.series : [];
-  if (!SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0 || series.length === 0) return null;
+  if (chartType === undefined || !SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0 || series.length === 0) return null;
   const keys = Array.from(new Set(series.map((s) => String(s.dataKey))));
   const resolved = keys.every((key) =>
     rows.some(
@@ -3145,10 +3178,10 @@ function hasNoNumericSeriesValue(props: AdvancedChartImplProps): string[] | null
  * at all". Scatter's absent key is already refused by `no-plottable-points`.
  */
 function hasNoCarriedSeriesKey(props: AdvancedChartImplProps): string[] | null {
-  const chartType = props.chartType === 'column' ? 'bar' : (props.chartType ?? 'bar');
+  const chartType = guardFamily(props);
   const rows = Array.isArray(props.data) ? props.data : [];
   const series = Array.isArray(props.series) ? props.series : [];
-  if (!SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0 || series.length === 0) return null;
+  if (chartType === undefined || !SERIES_ONLY_CHART_TYPES.has(chartType) || rows.length === 0 || series.length === 0) return null;
   const keys: unknown[] = Array.from(new Set(series.map((s) => s.dataKey)));
   const absent = keys.every(
     (key) =>

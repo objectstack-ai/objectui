@@ -246,7 +246,15 @@ export interface NormalizedSeries {
 }
 
 export interface NormalizedChartSchema {
-  chartType?: ChartFamily;
+  /**
+   * The chart family the schema names, as named: `chartType`, else `specType`,
+   * else a bare `type` that is a spec family, else a registered keyword's family
+   * (objectui#11520). It is NOT narrowed to the families this renderer draws:
+   * `AdvancedChartImpl`'s family dispatch decides the form (a chart, the number
+   * card, the tabular notice, or a notice naming the value), so a family this
+   * module dropped could only ever reach that dispatch as no family at all.
+   */
+  chartType?: string;
   xAxisKey?: string;
   series?: NormalizedSeries[];
   /** X-axis presentation config (its `field` is hoisted to `xAxisKey`). */
@@ -617,10 +625,18 @@ export function normalizeChartSchema(
     str(schema.specType) ??
     (rawType && CHART_TYPES.has(rawType) ? rawType : undefined) ??
     familyFromComponentType(rawType);
-  // A family this renderer does not draw (`metric`, `table`, …) is left unset
-  // rather than mapped onto a bar chart — the caller's own default is a more
-  // honest answer than silently drawing the wrong picture.
-  if (chartType && RENDERABLE.has(chartType)) out.chartType = chartType as ChartFamily;
+  // The named family goes to `AdvancedChartImpl`'s family dispatch AS NAMED,
+  // drawn or not (objectui#11520). That dispatch is the one place a family
+  // becomes a form: a chart for `RENDERABLE`, the number card for
+  // `SINGLE_VALUE_CHART_TYPES`, the tabular notice for `TABULAR_CHART_TYPES`,
+  // and a notice naming anything else. This used to keep only `RENDERABLE`
+  // families, on the theory that the caller's own default was the more honest
+  // answer; the caller's default was `'bar'`, so a `specType: 'gauge'` chart
+  // (the react tier's `<ObjectChart type="gauge">`) drew a bar with no note,
+  // while the same family on `chartType`, which `ChartRenderer` hands over
+  // without this module, drew the number card. Both channels now reach the
+  // same branch with the same value.
+  if (chartType) out.chartType = chartType;
 
   // ── axes ────────────────────────────────────────────────────────────────
   // Spec `xAxis` is an object; the report surface narrows it to a bare string.
@@ -758,10 +774,11 @@ export function comboBaseFamily(chartType: string | undefined): SeriesFamily | u
  * same family keeps its own family, so nothing that renders correctly today
  * changes; and an explicit `combo` is returned untouched.
  *
- * Pass the chart's EFFECTIVE family (defaults already applied) — the answer
- * depends on what an un-annotated series would otherwise have drawn.
+ * Pass the chart's EFFECTIVE family — the answer depends on what an
+ * un-annotated series would otherwise have drawn. A chart that names no family
+ * gets `undefined` back: there is no default family to widen (objectui#11520).
  */
-export function effectiveChartFamily<T extends ChartFamily | undefined>(
+export function effectiveChartFamily<T extends string | undefined>(
   chartType: T,
   series: readonly Pick<NormalizedSeries, 'chartType'>[] | undefined,
 ): T | 'combo' {

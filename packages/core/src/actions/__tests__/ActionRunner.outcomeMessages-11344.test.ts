@@ -23,9 +23,9 @@
  * the user sees. The handler's answer in most rows also carries a `message`, so
  * a row can only go green when that message is NOT what was shown.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { ActionRunner } from '../ActionRunner';
-import type { ActionDef, ActionResult } from '../ActionRunner';
+import type { ActionDef, ActionResult, ToastHandler } from '../ActionRunner';
 
 /** What cloud's `delete_environment` answers with: facts, plus a legacy sentence. */
 const ARCHIVED = {
@@ -47,7 +47,7 @@ const DELETE_ENVIRONMENT: ActionDef = {
 
 describe('ActionRunner success toast — outcomeMessages, then successMessage, then the default (objectui#11344)', () => {
   let runner: ActionRunner;
-  let toast: ReturnType<typeof vi.fn>;
+  let toast: Mock<ToastHandler>;
   let answer: ActionResult;
 
   beforeEach(() => {

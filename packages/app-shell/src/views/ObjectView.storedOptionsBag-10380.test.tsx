@@ -38,14 +38,29 @@
  * with a spy renderer registered for the kind, and compares what the renderer
  * receives. That is what reaches the screen.
  *
- * ## Direction, written before the run
+ * ## Direction, written before the run, and what was observed
  *
- * On `origin/main` (before the fix), the four bag rows are predicted RED and
- * the no-bag control GREEN. The two collision cases are predicted GREEN there
+ * On `origin/main` (before the fix), the four bag rows were predicted RED and
+ * the no-bag control GREEN. The two collision cases were predicted GREEN there
  * too: the object page ignored the bag and the interface page let the
- * top-level block win, so both answered with the top-level value. They guard
- * the fix's layering, and an ablation that puts the bag OVER the declared block
- * is what turns them red. Both runs are quoted in the PR body.
+ * top-level block win, so both answered with the top-level value.
+ *
+ * Observed on `origin/main`: the four bag rows RED, the control GREEN and the
+ * timeline collision GREEN, as predicted. The kanban collision went RED, which
+ * was not predicted. Its lane agreed ('region' on both pages). It failed on the
+ * card title: the object page floored `titleField: 'name'` in
+ * `kanbanViewOptions`, and the interface page sent no title for a row whose
+ * bag carries a kanban block. With the fix, a kind the bag carries takes the
+ * bag's block in place of the synthesized one, so that floor no longer applies.
+ *
+ * Ablation on the fixed tree: the declared block was merged UNDER the bag in
+ * app-shell (`{ ...viewDef.KIND, ...legacyOptions.KIND }` at the top level, for
+ * timeline and kanban). That is the second merge, with the wrong precedence,
+ * that this fix must not write. Predicted: the two collision cases RED.
+ * Observed: those two RED, and the `options.timeline.groupByField` row RED as
+ * well. `ListView` reads `groupByField` as a flat timeline key off the
+ * top-level block only, so the merged block exposed the bag's key on the object
+ * page alone. Both runs are quoted in the PR body.
  */
 
 import * as React from 'react';

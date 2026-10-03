@@ -33,3 +33,5 @@ Later in this same release objectui#10859 batch 8 (phase 2b) unregistered the `d
 node key. `DashboardGridLayout` is unchanged and stays exported, so this fix still holds wherever
 a host mounts it; it is no longer reachable as a schema `type`. The rest of this entry is kept as
 the reading of this change.
+
+⚠️ **Dated note, 2026-10-03 — the grid's static pivot node states its keys — objectui#11466.** At this change, "Widgets bound to inline rows are unchanged, including static-data pivots" held, and the grid's static-data pivot node spread the widget's `options` whole. Now that node states the keys `PivotTableSchema` declares and `PivotTable` draws, read from `options`, and no other option key reaches it. `.changeset/11466-dashboard-metric-node.md` states what ships. The rest of this entry is kept as the reading of this change.

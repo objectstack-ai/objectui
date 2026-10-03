@@ -67,23 +67,28 @@
  *   - {@link PageDocumentNode}: the spec's `PageSchema` input. `PageView`
  *     hands a stored page to `SchemaRenderer` with its page KIND written into
  *     `type` (objectui#9642), so `type` is required here, while the spec
- *     defaults it. `PageNodeSchema` is the separate `type: 'page'` node, and
- *     stays as it is.
+ *     defaults it; every kind but the interface-mode `list`, which never
+ *     reaches `SchemaRenderer`. `PageNodeSchema` is the separate
+ *     `type: 'page'` node, and stays as it is.
  *
- * ## What these types do, and what they do NOT do
+ * ## What these types do
  *
- * `SchemaRendererProps.schema` (`@object-ui/react`) accepts {@link AuthoringNode}
- * beside `BaseSchema`. In that union, TypeScript discriminates on the literal
- * `type`, so a node of one of these types has its own keys judged: a misspelled
- * key inside an `element:text` bag, or a bag on a node type that declares none,
- * is refused once objectui#8347 lands (`authoring-nodes-11364.test.ts` pins it).
- * The union does not make a member's REQUIRED keys required, because
- * `BaseSchema` (`type: string`) still accepts the same node structurally.
- * Requiredness is the validator's to judge.
+ * {@link AuthoringNode} is one of the three parts of `DeclaredNode`
+ * (`./base.ts`, objectui#11466), beside the component schemas this package
+ * declares and the types an application declares in `CustomNodeRegistry`.
+ * `DeclaredNode` is the object arm of `SchemaNode`, so every node slot takes
+ * these types, and it is what `SchemaRendererProps.schema` (`@object-ui/react`)
+ * takes beside a string. The union has no `type: string` arm, so TypeScript
+ * discriminates on the literal `type`: a node of one of these types has its own
+ * keys judged wherever it is written, nested in a slot or at the prop, and its
+ * required keys are required. A misspelled key inside an `element:text` bag, or
+ * a bag on a node type that declares none, is refused once objectui#8347
+ * removes `BaseSchema`'s index signature (`authoring-nodes-11364.test.ts` and
+ * `node-slot-union-11466.test.ts` pin it).
  *
- * ⛔ `SchemaNode` is not widened here. Every reader of a `SchemaNode` that
- * reads an undeclared key compiles today only through `BaseSchema`'s index
- * signature, and a closed member in the union turns that read into TS2339.
+ * Until that removal, the component-schema members that extend `BaseSchema`
+ * still carry its index signature, so a misspelled key on one of THEM still
+ * compiles. These members carry none.
  */
 
 import type { z } from 'zod';
@@ -240,8 +245,19 @@ export type EmbeddableFormBlockNode = ObjectQLPublicBlockNodeOf<'embeddable-form
  * ({@link ClosedBag}), because `@objectstack/spec` has no `flex` row
  * (objectui#11276). The TypeScript `FlexSchema` (`./layout.ts`) stays the node
  * as the `flex` renderer reads it after the hoist.
+ *
+ * ⚠️ An interface, not a type alias, for one reason (objectui#11466). The bag
+ * holds node slots, so `FlexBlockSchema`'s inferred type names
+ * `SchemaNodeSchema`, whose type names `SchemaNode`; and `SchemaNode` names
+ * this type back, through `DeclaredNode` and {@link AuthoringNode}. A type
+ * alias is resolved eagerly when `SchemaNode` is, so that loop is a circular
+ * reference (TS2456 on this type, `AuthoringNode`, `DeclaredNode` and
+ * `SchemaNode`). An interface's members are resolved only when they are read,
+ * so the loop is never walked while `SchemaNode` is being resolved. The
+ * interface declares nothing of its own: every member is the arm's, as above.
  */
-export type FlexBlockNode = ClosedArmInput<typeof FlexBlockSchema>;
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- an interface on purpose, to break the SchemaNode cycle its docblock names; it declares no member of its own.
+export interface FlexBlockNode extends ClosedArmInput<typeof FlexBlockSchema> {}
 
 /**
  * `element:text_input`: `ComponentPropsMap['element:text_input']`
@@ -271,12 +287,24 @@ type SpecPageInput = z.input<typeof SpecPageSchema>;
  * input, whose `type` is the page kind (`PageTypeSchema`) and whose `kind` is
  * the override mode. `type` is required, because it is the discriminator the
  * registry dispatches on.
+ *
+ * ⛔ Every page kind but `list` (objectui#11466). A `list` page is ADR-0047
+ * interface mode: `PageView` (`@object-ui/app-shell`) renders it through
+ * `InterfaceListPage`, never through `SchemaRenderer`, and `ComponentRegistry`'s
+ * `list` key is the `list` node's renderer (`ListSchema`, `./data-display.ts`). A page
+ * document under `type: 'list'` handed to `SchemaRenderer` would be drawn by
+ * that renderer, so this type does not admit one. That also leaves `list` one
+ * arm in `DeclaredNode` (`./base.ts`), where the page kind and the node type
+ * would otherwise share the discriminant and let each other's keys through.
+ * `page-kind-node-type-channel-9642` in `@object-ui/components` re-derives
+ * which kinds reach the registry.
  */
-export type PageDocumentNode = SpecPageInput & { type: NonNullable<SpecPageInput['type']> };
+export type PageDocumentNode = SpecPageInput & { type: Exclude<NonNullable<SpecPageInput['type']>, 'list'> };
 
 /**
- * Every node this module types, so the one place that accepts them all
- * (`SchemaRendererProps.schema`) names one type.
+ * Every node this module types, named as one type for `DeclaredNode`
+ * (`./base.ts`), the union every node slot and `SchemaRendererProps.schema`
+ * take (objectui#11466).
  */
 export type AuthoringNode =
   | PublicBlockNode

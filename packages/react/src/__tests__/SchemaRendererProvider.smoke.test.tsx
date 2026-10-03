@@ -21,7 +21,19 @@ import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
 import { SchemaRendererProvider, useSchemaContext } from '../context/SchemaRendererContext';
-import type { DataSource } from '@object-ui/types';
+import type { BaseSchema, DataSource } from '@object-ui/types';
+import { undeclaredNode } from '@object-ui/test-support';
+
+/**
+ * This file's registered context consumer, declared to `@object-ui/types` the
+ * way an application declares a type it registers (objectui#11466): a node
+ * slot and the `schema` prop take the declared node types only.
+ */
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'test-ctx-consumer': BaseSchema;
+  }
+}
 
 /**
  * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
@@ -170,10 +182,12 @@ describe('Plugin component types render inside provider', () => {
         return;
       }
 
-      // Render via SchemaRenderer inside provider
+      // Render via SchemaRenderer inside provider. A bare `{ type }` on purpose:
+      // the node carries none of its type's required props, so it crosses
+      // through the one test helper for undeclared input (objectui#11466).
       const { container } = render(
         <SchemaRendererProvider dataSource={{} as unknown as DataSource}>
-          <SchemaRenderer schema={{ type }} />
+          <SchemaRenderer schema={undeclaredNode({ type })} />
         </SchemaRendererProvider>
       );
 

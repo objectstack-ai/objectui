@@ -36,6 +36,19 @@
  * the dataset-bound metric for "a metric still draws its number", the static
  * metric and the inline chart and table arms for what this card did not
  * touch, and the envelope case for the filter-broadcast member this card kept.
+ *
+ * ⚠️ Dated note, 2026-10-03 — the envelope case flipped — objectui#11466. This
+ * file pinned that an `object-metric` node in a widget's legacy `component`
+ * envelope still drew its number, scoped by the filter bar, because this card
+ * kept `object-metric` in the broadcast's filterable set for it. That flat
+ * `filter` write is refused by the declared `object-metric` node, and the
+ * maintainer's ruling A on objectui#11466 extended ruling C to this last
+ * inline metric form: on both surfaces the envelope node now draws
+ * `LEGACY_RETIRED_WIDGET_SCHEMA` and sends no query, and `object-metric` left
+ * the filterable set. The last two blocks below pin that, and keep the
+ * broadcast's control on the envelope's `object-chart` and
+ * `object-data-table`, which still receive the filter bar's value. The rest of
+ * this header is kept as the reading of objectui#11525.
  */
 
 import * as React from 'react';
@@ -211,21 +224,41 @@ describe.each(SURFACES)('%s surface — controls (objectui#11525)', (surface) =>
   });
 });
 
-describe('renderer surface — the filter broadcast still scopes an authored object-metric (objectui#11525)', () => {
-  it('a `component` envelope holding an object-metric node receives the filter bar value', async () => {
-    // Why `object-metric` stays a member of the broadcast's filterable set: the
-    // producer is gone, but an author's envelope node still reaches the merge.
+/** The dashboard filter bar, with a default value, so the broadcast applies on first render. */
+const REGION_FILTER = {
+  globalFilters: [{ name: 'region', field: 'region', type: 'select', options: [{ value: 'EMEA', label: 'EMEA' }], defaultValue: 'EMEA' }],
+};
+
+/** The envelope node objectui#11525 kept in the broadcast, written as its pin wrote it. */
+const ENVELOPE_OBJECT_METRIC = { objectName: 'deal', aggregate: { field: 'amount', function: 'sum' } };
+
+describe.each(SURFACES)('%s surface — an object-metric in a component envelope is retired (objectui#11466, ruling A)', (surface) => {
+  it.each([
+    ['its bare key', 'object-metric'],
+    ["its registration's full name", 'plugin-dashboard:object-metric'],
+  ])('under %s it draws the placeholder object and sends no query', async (_label, type) => {
     const adapter = makeAdapter();
-    mount(
-      'renderer',
-      [{ id: 'w1', title: 'Envelope', component: { type: 'object-metric', objectName: 'deal', aggregate: { field: 'amount', function: 'sum' } } }],
-      adapter,
-      { globalFilters: [{ name: 'region', field: 'region', type: 'select', options: [{ value: 'EMEA', label: 'EMEA' }], defaultValue: 'EMEA' }] },
-    );
-    await waitFor(() => expect(nodesOfType('object-metric').length).toBeGreaterThan(0));
-    const node = nodesOfType('object-metric')[nodesOfType('object-metric').length - 1];
+    mount(surface, [{ id: 'w1', title: 'Envelope', component: { type, ...ENVELOPE_OBJECT_METRIC } }], adapter, REGION_FILTER);
+
+    await waitFor(() => expect(received).toContain(LEGACY_RETIRED_WIDGET_SCHEMA));
+    expect(screen.getByText(PLACEHOLDER)).toBeInTheDocument();
+    expect(nodesOfType(type)).toHaveLength(0);
+    expect(adapter.aggregate).not.toHaveBeenCalled();
+    expect(adapter.find).not.toHaveBeenCalled();
+  });
+});
+
+describe('renderer surface — the filter broadcast still scopes the envelope\'s other object-backed nodes (objectui#11466)', () => {
+  it.each([
+    ['object-chart', { type: 'object-chart', objectName: 'deal', chartType: 'bar', aggregate: { field: 'amount', function: 'sum', groupBy: 'name' }, xAxisKey: 'name', series: [{ dataKey: 'amount' }] }],
+    ['object-data-table', { type: 'object-data-table', objectName: 'deal' }],
+  ])('a `component` envelope holding an %s node receives the filter bar value', async (type, component) => {
+    const adapter = makeAdapter();
+    mount('renderer', [{ id: 'w1', title: 'Envelope', component }], adapter, REGION_FILTER);
+
+    await waitFor(() => expect(nodesOfType(type).length).toBeGreaterThan(0));
+    const node = nodesOfType(type)[nodesOfType(type).length - 1];
     expect(node.filter).toEqual({ region: 'EMEA' });
-    await waitFor(() => expect(adapter.aggregate).toHaveBeenCalled());
     expect(received).not.toContain(LEGACY_RETIRED_WIDGET_SCHEMA);
   });
 });

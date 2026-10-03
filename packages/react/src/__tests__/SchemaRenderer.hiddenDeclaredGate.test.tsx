@@ -100,6 +100,17 @@ import { PredicateScopeProvider } from '../hooks/useExpression';
 import { __resetVisibilityPredicateWarnings } from '../utils/visibilityDiagnostic';
 
 /**
+ * This file's registered probe, declared to `@object-ui/types` the way an
+ * application declares a type it registers (objectui#11466): a node slot and
+ * the `schema` prop take the declared node types only.
+ */
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'probe-3955': BaseSchema;
+  }
+}
+
+/**
  * NOTE (objectui#7912): `SchemaRendererProvider.dataSource` — and the context
  * it feeds — declare the published `DataSource` adapter contract. The values
  * this file injects are deliberately NOT adapters —
@@ -157,7 +168,7 @@ function renderNode(schema: Record<string, unknown>) {
  * well. That its verdict is IDENTICAL to the string form's, on all three keys
  * and in both polarities, is `SchemaRenderer.predicateEnvelopeDeclared.test.tsx`.
  */
-function renderDeclaredNode(schema: BaseSchema) {
+function renderDeclaredNode(schema: BaseSchema & { type: 'probe-3955' }) {
   return render(
     <PredicateScopeProvider scope={{ data: DATA }}>
         <SchemaRendererContext.Provider value={{ dataSource: DATA as unknown as DataSource }}>

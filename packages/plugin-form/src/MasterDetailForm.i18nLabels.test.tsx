@@ -66,7 +66,8 @@ vi.mock('@object-ui/components/ui/sonner', async (importOriginal) => {
 
 import { I18nProvider } from '@object-ui/i18n';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import type { BaseSchema, DataSource, I18nLabel } from '@object-ui/types';
+import type { DataSource, I18nLabel } from '@object-ui/types';
+import { undeclaredNode } from '@object-ui/test-support';
 import { safeValidateSchema } from '@object-ui/types/zod';
 import { registerAllFields } from '@object-ui/fields';
 // Registers `object-master-detail-form` — the block under test.
@@ -143,7 +144,10 @@ function mount(properties: Record<string, unknown>, host: Record<string, unknown
   const view = render(
     <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false, resources: {} }}>
       <SchemaRendererProvider dataSource={ds as unknown as DataSource}>
-        <SchemaRenderer schema={{ ...doc(properties), ...host } as BaseSchema} />
+        {/* `host` merges runtime slots (`onCancel`, a function) into the node, which
+            no node type declares; it crosses through the one test helper for
+            undeclared input (objectui#11466). */}
+        <SchemaRenderer schema={undeclaredNode({ ...doc(properties), ...host })} />
       </SchemaRendererProvider>
     </I18nProvider>,
   );

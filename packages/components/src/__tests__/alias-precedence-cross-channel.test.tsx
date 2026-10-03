@@ -42,6 +42,7 @@
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
 import { SchemaRenderer } from '@object-ui/react';
+import { undeclaredNode } from '@object-ui/test-support';
 // Registers the renderers at module scope, NOT inside a `beforeAll` — there the
 // cold transform is billed to `hookTimeout`. See
 // object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
@@ -55,12 +56,15 @@ describe('alias precedence across the two renderer families (objectui#5123)', ()
     // opposite of what was ruled.
     const { container } = render(
       <SchemaRenderer
-        schema={{
+        // The legacy `props` alias on `element:text` is deliberately the thing
+        // under test, and the `element:text` node declares no `props`, so the
+        // node crosses through the one test helper for that (objectui#11466).
+        schema={undeclaredNode({
           type: 'element:text',
           className: 'xchan-text',
           props: { content: 'FROM_PROPS' },
           properties: { content: 'FROM_PROPERTIES' },
-        }}
+        })}
       />
     );
 
@@ -123,11 +127,11 @@ describe('alias precedence across the two renderer families (objectui#5123)', ()
     // pending ②, and is NOT decided here).
     const text = render(
       <SchemaRenderer
-        schema={{
+        schema={undeclaredNode({
           type: 'element:text',
           className: 'xchan-legacy',
           props: { content: 'ONLY_PROPS' },
-        }}
+        })}
       />
     );
     expect(text.container.querySelector('.xchan-legacy')?.textContent).toBe('ONLY_PROPS');

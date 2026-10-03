@@ -28,6 +28,13 @@
  * keeps running after the removal lands. `@object-ui/react` pins the prop's
  * union exactly (`SchemaRenderer.propsResolution.test.ts`, assertion 1), and
  * this file substitutes only its `BaseSchema` member.
+ *
+ * ⚠️ Dated note, 2026-10-02 (objectui#11466): the prop's object member is now
+ * `DeclaredNode`, which has no `BaseSchema` arm, so `PostRemovalSchema` is no
+ * longer the prop with one member substituted. It is kept as the model this
+ * file's assertions were written against: every `AuthoringNode` still fits it,
+ * and its refusals still hold. The current prop and slot are pinned in
+ * `node-slot-union-11466.test.ts`.
  */
 
 import { describe, expect, it } from 'vitest';

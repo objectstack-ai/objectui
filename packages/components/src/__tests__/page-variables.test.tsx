@@ -24,6 +24,7 @@ import {
   usePageVariableBinding,
   AdapterCtx,
 } from '@object-ui/react';
+import { undeclaredNode } from '@object-ui/test-support';
 // Registers the renderers at module scope, NOT inside a `beforeAll` — there the
 // cold transform is billed to `hookTimeout`, which is why this carried a raised
 // timeout. See object-ui/no-dynamic-import-in-test-hook (objectui#3010/#3021).
@@ -127,12 +128,15 @@ describe('SchemaRenderer page-variable visibility', () => {
       <PageVariablesProvider definitions={[{ name: 'sel', type: 'record_id', source: 'w' }]}>
         <Writer name="sel" value="rec_1" />
         <SchemaRenderer
-          schema={{
+          // `visibility` is the spec's deprecated alias, which objectui's node
+          // types do not declare; the runtime reading of it is the point, so the
+          // node crosses through the one test helper for that (objectui#11466).
+          schema={undeclaredNode({
             type: 'element:text',
             id: 'gated',
             properties: { content: 'NOW VISIBLE' },
             visibility: { dialect: 'cel', source: "page.sel != ''" },
-          }}
+          })}
         />
       </PageVariablesProvider>,
     );
@@ -147,12 +151,12 @@ describe('SchemaRenderer page-variable visibility', () => {
     const { container } = render(
       <PageVariablesProvider definitions={[{ name: 'sel', type: 'string' }]}>
         <SchemaRenderer
-          schema={{
+          schema={undeclaredNode({
             type: 'element:text',
             id: 'always',
             properties: { content: 'shown' },
             visibility: "page.sel == ''", // truthy initially → visible
-          }}
+          })}
         />
       </PageVariablesProvider>,
     );

@@ -17,14 +17,17 @@ This reference documents every ObjectUI schema type with annotated JSON examples
 
 ## Base Schema
 
-**"A component node" is named `BaseSchema`.** That is the object half a renderer
-receives: it carries the required `type` — the registry key that selects the renderer —
-plus the shared keys tabled below, and every schema type in this reference extends it.
-Use `BaseSchema` for any position that holds a node object: a slot's declared type, a
-prop, a type annotation in an example.
+**"A component node" is named `DeclaredNode`.** That is the object half a renderer
+receives: a node of a declared type, keyed by the required `type` — the registry key that
+selects the renderer. Every schema type in this reference extends `BaseSchema`, which
+carries `type` and the shared keys tabled below. Use `DeclaredNode` for any position that
+holds a node object: a slot's declared type, a prop, a type annotation in an example. A
+value typed `BaseSchema` names no declared type (its `type` is any string), so it does not
+fit a node slot or `SchemaRenderer`'s `schema` prop.
 
 Reach for `SchemaNode` only where the wider union is genuinely correct. `SchemaNode` is
-`BaseSchema` **plus** the primitive members that render as text, so it is the right word
+`DeclaredNode` (a node of a declared type) **plus** the primitive members that render as
+text, so it is the right word
 for a slot that also accepts a bare string (`children`) and the wrong word for a
 position that must be an object: a renderer that narrows a slot with
 `typeof node === 'object'` before reading its keys drops those primitive members on the
@@ -33,14 +36,26 @@ objectui#7082 had to correct nine times.
 
 ### SchemaNode
 
-The foundational building block of ObjectUI. Every component in the system is described by a `SchemaNode`. It can be a full schema object, or a primitive value rendered as text.
+The foundational building block of ObjectUI. Every component in the system is described by a `SchemaNode`. It can be a node of a declared type, or a primitive value rendered as text.
 
 ```typescript
-import type { BaseSchema } from '@object-ui/types';
+import type { DeclaredNode } from '@object-ui/types';
 
 // The definition `@object-ui/types` declares
-type SchemaNode = BaseSchema | string | number | boolean | null | undefined;
+type SchemaNode = DeclaredNode | string | number | boolean | null | undefined;
 ```
+
+`DeclaredNode` is the discriminated union, keyed by `type`, of every node type
+`@object-ui/types` declares (the component schemas and the spec-declared
+authoring nodes) and every type your application declares in
+`CustomNodeRegistry`. Every node slot (`children`, `trigger`, `content`, a
+view's `schema`) and `SchemaRenderer`'s `schema` prop take it, so an inline
+child is checked against its own type's keys, and a `type` nothing declares is
+refused. A type you register with `ComponentRegistry` joins it through
+`CustomNodeRegistry`, an interface your application augments with
+`declare module '@object-ui/types'`, one entry per registered type, keyed by
+the type's name. The SchemaRenderer page's "Component Registry" section walks
+through a registration and its entry.
 
 ### BaseSchema
 

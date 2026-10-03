@@ -55,7 +55,7 @@
 
 import { describe, it, expect } from 'vitest';
 import type { ComponentProps } from 'react';
-import type { AuthoringNode, BaseSchema } from '@object-ui/types';
+import type { BaseSchema, DeclaredNode } from '@object-ui/types';
 import { SchemaRenderer, type SchemaRendererProps } from '../SchemaRenderer';
 import { toRenderableSchema } from '../schema-input';
 
@@ -69,10 +69,15 @@ type CallSiteProps = ComponentProps<typeof SchemaRenderer>;
 // 1. THE assertion. `schema` survives to the call site with its declared type.
 //    Before the fix this was `any`, so every schema — and any prop typo next to
 //    it — passed silently. objectui#11364 widened the object member by the
-//    referenced `AuthoringNode` types only (no index signature, no `Record`).
+//    referenced `AuthoringNode` types only (no index signature, no `Record`);
+//    objectui#11466 made it `DeclaredNode`, the union of the declared node
+//    types, with no `BaseSchema` (`type: string`) arm.
 type _SchemaIsDeclared = Assert<
-  Equal<CallSiteProps['schema'], BaseSchema | AuthoringNode | string | null | undefined>
+  Equal<CallSiteProps['schema'], DeclaredNode | string | null | undefined>
 >;
+// 1b. …and `BaseSchema` is no longer an arm of it (objectui#11466): a value typed
+//     `BaseSchema` names no declared type, so it does not reach the prop.
+type _BaseSchemaIsNotAnArm = Assert<Equal<BaseSchema extends CallSiteProps['schema'] ? true : false, false>>;
 
 // 2. …and that is not vacuously true because the whole thing is `any`. On the
 //    pre-fix shape assertion 1 would have "passed" against `any` for any type

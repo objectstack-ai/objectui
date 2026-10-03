@@ -18,6 +18,7 @@
 
 import type {
   BaseSchema,
+  DeclaredNode,
   FormSchema,
   FormField,
   ButtonSchema,
@@ -298,9 +299,10 @@ export class CardBuilder extends SchemaBuilder<CardSchema> {
   }
 
   /**
-   * Set card content
+   * Set card content: a node of a declared type, or a list of them
+   * (objectui#11466). Each node is checked against its own type's keys.
    */
-  content(content: BaseSchema | BaseSchema[]): this {
+  content(content: DeclaredNode | DeclaredNode[]): this {
     this.schema.content = content;
     return this;
   }
@@ -351,18 +353,19 @@ export class GridBuilder extends SchemaBuilder<GridSchema> {
   }
 
   /**
-   * Add a child
+   * Add a child: a node of a declared type (`DeclaredNode`, objectui#11466),
+   * checked against its own type's keys like a child written inline.
    */
-  child(child: BaseSchema): this {
+  child(child: DeclaredNode): this {
     const children = Array.isArray(this.schema.children) ? this.schema.children : [];
     this.schema.children = [...children, child];
     return this;
   }
 
   /**
-   * Set all children
+   * Set all children: nodes of declared types (objectui#11466).
    */
-  children(children: BaseSchema[]): this {
+  children(children: DeclaredNode[]): this {
     this.schema.children = children;
     return this;
   }
@@ -421,18 +424,19 @@ export class FlexBuilder extends SchemaBuilder<BaseSchema & { type: 'flex'; prop
   }
 
   /**
-   * Add a child
+   * Add a child: a node of a declared type (`DeclaredNode`, objectui#11466),
+   * checked against its own type's keys like a child written inline.
    */
-  child(child: BaseSchema): this {
+  child(child: DeclaredNode): this {
     const children = Array.isArray(this.schema.properties.children) ? this.schema.properties.children : [];
     this.schema.properties.children = [...children, child];
     return this;
   }
 
   /**
-   * Set all children
+   * Set all children: nodes of declared types (objectui#11466).
    */
-  children(children: BaseSchema[]): this {
+  children(children: DeclaredNode[]): this {
     this.schema.properties.children = children;
     return this;
   }

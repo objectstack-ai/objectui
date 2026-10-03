@@ -82,13 +82,15 @@ import '@object-ui/components';
 import '@object-ui/fields';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 import { createObjectStackAdapter } from '@object-ui/data-objectstack';
-import type { BaseSchema } from '@object-ui/types';
+import type { DeclaredNode } from '@object-ui/types';
 
 const dataSource = createObjectStackAdapter({
   baseUrl: 'https://api.example.com'
 });
 
-const mySchema: BaseSchema = { type: 'table', objectName: 'users' };
+// `object-grid` is a data-bound node: it reads `objectName` from its
+// `properties` bag and queries the injected data source for the rows.
+const mySchema: DeclaredNode = { type: 'object-grid', properties: { objectName: 'users' } };
 
 function App() {
   return (

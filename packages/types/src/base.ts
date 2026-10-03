@@ -17,7 +17,9 @@
  */
 
 import type { I18nLabel } from '@objectstack/spec/ui';
+import type { AuthoringNode } from './authoring-nodes.js';
 import type { ExpressionWire } from './expression.js';
+import type { AnySchema } from './index.js';
 
 /**
  * A KEYED i18n label — a reference INTO a translation bundle (objectui#4581).
@@ -599,9 +601,100 @@ export interface BaseSchema {
 }
 
 /**
- * A schema node can be a full schema object or a primitive value.
- * This union type supports both structured components and simple content.
- * 
+ * The registry an application augments to declare its OWN node types: the
+ * types it registers with `ComponentRegistry` that this package does not
+ * declare (objectui#11466).
+ *
+ * Each entry's key is the node's `type` string and its value is the node's
+ * schema type. An entry joins {@link DeclaredNode}, so a node of that type is
+ * authorable in every node slot and at `SchemaRenderer`'s `schema` prop:
+ *
+ * ```typescript
+ * interface MyWidgetSchema extends BaseSchema {
+ *   type: 'my-widget';
+ *   customProp?: string;
+ * }
+ *
+ * declare module '@object-ui/types' {
+ *   interface CustomNodeRegistry {
+ *     'my-widget': MyWidgetSchema;
+ *   }
+ * }
+ * ```
+ *
+ * ## Why a custom type must be declared here
+ *
+ * A node slot takes the union of the declared node types, discriminated by
+ * the literal `type`, so each inline child is checked against its own type's
+ * keys and a misspelled key is refused where it is written. An undeclared
+ * `type` string has no arm, so it is refused too, the same way the strict zod
+ * face refuses an unregistered type. The entry is what declares it.
+ *
+ * ⛔ An entry is joined under its KEY: the arm is the entry's type intersected
+ * with `{ type: KEY }`. So an entry cannot add a `type: string` arm, which
+ * would make every declared type's literal a candidate for that arm and let
+ * the arm's keys through on every node. An entry whose own `type` is a
+ * different literal than its key intersects to `never` and adds nothing.
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- empty by design: applications fill it by declaration merging.
+export interface CustomNodeRegistry {}
+
+/** One arm per {@link CustomNodeRegistry} entry, discriminated by the entry's key. */
+type RegisteredCustomNode = {
+  [K in keyof CustomNodeRegistry & string]: CustomNodeRegistry[K] & { type: K };
+}[keyof CustomNodeRegistry & string];
+
+/**
+ * The arms of a union whose `type` is a literal (or a union of literals). An
+ * arm whose `type` is `string` matches every discriminant, so it is dropped:
+ * from `AnySchema`, that is `BaseSchema` alone, which
+ * `__tests__/node-slot-union-11466.test.ts` pins.
+ */
+type LiteralTypedArm<T> = T extends { type: infer K } ? (string extends K ? never : T) : never;
+
+/**
+ * A node of a declared type: the object arm of {@link SchemaNode}, and what
+ * `SchemaRenderer`'s `schema` prop takes beside a string (objectui#11466).
+ *
+ * It is the discriminated union, keyed by the literal `type`, of
+ *
+ *   - every component schema this package declares (`AnySchema` without its
+ *     `BaseSchema` arm, whose `type` is `string`, and without the app-level
+ *     document, below);
+ *   - every spec-declared node `AuthoringNode` types by reference;
+ *   - every custom type an application declares in {@link CustomNodeRegistry}.
+ *
+ * Inside the union TypeScript discriminates on `type`, so an inline child
+ * literal is checked against its own type's keys and value types, wherever
+ * it is nested. ⛔ No arm is open: there is no index signature and no
+ * `type: string` arm here. A node built at runtime whose `type` is not known
+ * to the compiler is not a `DeclaredNode`; narrow it to one, or declare its
+ * type in {@link CustomNodeRegistry}.
+ *
+ * ⛔ The app-level document (`./app.ts`, the `app.json` shape: navigation,
+ * areas, the `AnySchema` member whose `type` is `'app'`) is not a node:
+ * `AppSchemaRenderer` (`@object-ui/layout`) reads it structurally and
+ * `ComponentRegistry` never dispatches it. It is left out by that `type`
+ * (`Exclude<AnySchema, { type: 'app' }>`), which removes it alone, because
+ * no other `AnySchema` member's `type` is `'app'` (the `'app'` pin in
+ * `__tests__/node-slot-union-11466.test.ts` holds that). The registry's
+ * `app` key serves the page KIND `app`, so as a
+ * node `type: 'app'` is a stored page document, `AuthoringNode`'s
+ * `PageDocumentNode`. Kept out, `app` is one arm here, not two that would let
+ * each other's keys through (`./registry.ts` names the two vocabularies at its
+ * `'page'` entry). The node that renders an app through the registry is
+ * `app-schema-renderer`.
+ */
+export type DeclaredNode =
+  | LiteralTypedArm<Exclude<AnySchema, { type: 'app' }>>
+  | AuthoringNode
+  | RegisteredCustomNode;
+
+/**
+ * A schema node: a node of a declared type, or a primitive rendered as
+ * content. Every node slot (`children`, `trigger`, `content`, a view's
+ * `schema`) takes it, so an inline child is checked against its own type.
+ *
  * @example
  * ```typescript
  * const nodes: SchemaNode[] = [
@@ -611,7 +704,7 @@ export interface BaseSchema {
  * ]
  * ```
  */
-export type SchemaNode = BaseSchema | string | number | boolean | null | undefined;
+export type SchemaNode = DeclaredNode | string | number | boolean | null | undefined;
 
 /**
  * Component renderer function type.

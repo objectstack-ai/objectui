@@ -34,6 +34,19 @@ import { render } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '../SchemaRenderer';
+import { undeclaredNode } from '@object-ui/test-support';
+import type { BaseSchema } from '@object-ui/types';
+
+/**
+ * This file's registered probe, declared to `@object-ui/types` the way an
+ * application declares a type it registers (objectui#11466): a node slot and
+ * the `schema` prop take the declared node types only.
+ */
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'test-4548-div': BaseSchema;
+  }
+}
 
 const originalWarn = console.warn;
 beforeEach(() => {
@@ -87,7 +100,8 @@ describe('objectui#4548 — non-object schema values', () => {
     it('still shows the error box for an OBJECT whose type is unregistered', () => {
       // The unknown-component box is correct HERE — an object that names a type
       // nothing implements. Only the primitive case stopped producing it.
-      const { container } = render(<SchemaRenderer schema={{ type: 'no-such-component-4548' }} />);
+      // Deliberately undeclared: the type is the point (objectui#11466).
+      const { container } = render(<SchemaRenderer schema={undeclaredNode({ type: 'no-such-component-4548' })} />);
       expect(container.textContent).toContain('Unknown component type');
       expect(container.textContent).toContain('no-such-component-4548');
     });

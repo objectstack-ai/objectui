@@ -50,7 +50,7 @@ function lazyKanban() {
 function renderHtmlPage(source: string) {
   return render(
     <AdapterCtx.Provider value={adapter}>
-      <SchemaRenderer schema={{ type: 'home', kind: 'html', name: 'test_page', source }} />
+      <SchemaRenderer schema={{ type: 'home', kind: 'html', name: 'test_page', label: 'Test page', source }} />
     </AdapterCtx.Provider>,
   );
 }

@@ -34,6 +34,18 @@ import {
   UNEVALUATED_EXPRESSION_PREFIX,
 } from '../utils/unevaluatedExpression';
 
+/**
+ * This file's registered `TextKeyProbe` (namespace `test`), declared to
+ * `@object-ui/types` the way an application declares a type it registers
+ * (objectui#11466): a node slot and the `schema` prop take the declared node
+ * types only.
+ */
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'test:probe-4795': TextKeyProbeNode;
+  }
+}
+
 const DATA = { n: 99, total: 99, label: 'Widgets' };
 
 /**
@@ -55,7 +67,7 @@ const TextKeyProbe = ({ schema }: any) => (
  * the prop accepts, so its keys stay checked once objectui#8347 removes
  * `BaseSchema`'s index signature.
  */
-type TextKeyProbeNode = BaseSchema & { value?: string; title?: string };
+type TextKeyProbeNode = BaseSchema & { type: 'test:probe-4795'; value?: string; title?: string };
 const textKeyProbeNode = (schema: TextKeyProbeNode): TextKeyProbeNode => schema;
 
 /** Reads only what it is spread, like a plain component. */
@@ -126,7 +138,7 @@ describe('SchemaRenderer — unevaluated `${…}` diagnostic (objectui#4795)', (
     });
 
     it('reports once per schema object, however many times it re-renders', () => {
-      const schema = { type: 'test:probe-4795', value: '${data.n}' };
+      const schema: TextKeyProbeNode = { type: 'test:probe-4795', value: '${data.n}' };
       const { rerender } = renderWithData(schema);
       rerender(
         <PredicateScopeProvider scope={{ data: DATA }}>

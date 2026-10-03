@@ -192,6 +192,24 @@ export function defineNodeComponentUnion<T extends z.ZodType>(union: T): T {
 }
 
 /**
+ * The type of {@link SchemaNodeSchema}, named by a type alias rather than spelled in
+ * the annotation (objectui#11466). `SchemaNode` (`../base.ts`) is the declared-node
+ * union, and resolving it walks back into this module's consts: through
+ * `AuthoringNode`, whose public-block members are the `z.input` of arms built on
+ * `BaseSchema` below. Type arguments spelled in a const's annotation are resolved
+ * eagerly, so they would reference themselves (TS4109); inside a type alias they are
+ * resolved when they are read. Typing only: the schema object does not change.
+ */
+type SchemaNodeZodType = z.ZodType<SchemaNode, SchemaNode>;
+
+/**
+ * The type of {@link NodeSlotSchema}, the single-or-list node slot, written out for
+ * the same reason as {@link SchemaNodeZodType}: inferring it from the `z.union` call
+ * would resolve `SchemaNode` while `SchemaNode` is being resolved.
+ */
+type NodeSlotZodType = z.ZodOptional<z.ZodUnion<readonly [SchemaNodeZodType, z.ZodArray<SchemaNodeZodType>]>>;
+
+/**
  * Schema Node — what a child slot holds: a COMPONENT document, or a primitive.
  *
  * ## The component arm is `AnyComponentSchema` (objectui#8344)
@@ -266,9 +284,14 @@ export function defineNodeComponentUnion<T extends z.ZodType>(union: T): T {
  * what this schema accepts at runtime.
  *
  * ⛔ `SchemaNode` in `../base.ts` did NOT move under #8344 either: the TS face still
- * says `BaseSchema | primitive`, and `BaseSchema` carries an index signature, so the
- * runtime accept set is now NARROWER than the declaration rather than wider. The
- * declaration repair is its own worklist and ⛔ not this const's to make.
+ * said `BaseSchema | primitive`, and `BaseSchema` carries an index signature, so the
+ * runtime accept set was NARROWER than the declaration rather than wider. The
+ * declaration repair was its own worklist and ⛔ not this const's to make.
+ * ⚠️ Dated note, 2026-10-02 (objectui#11466): that repair has landed. `SchemaNode`'s
+ * object arm is `DeclaredNode`, the union of the declared node types with no
+ * `type: string` arm, so an undeclared `type` is refused on the TS face too. The
+ * members that extend `BaseSchema` keep its index signature until objectui#8347
+ * removes it. The two sentences above are kept as the reading at #8344.
  *
  * ⭐ What #7760 bought: `__tests__/zod-mirror-parity.test.ts` can now compare the
  * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])` single-or-list slots that
@@ -285,7 +308,7 @@ export function defineNodeComponentUnion<T extends z.ZodType>(union: T): T {
  * a declaration or narrowing a mirror to make the annotation fit: either is a
  * contract change wearing a type-annotation's clothes, and both are ruled elsewhere.
  */
-export const SchemaNodeSchema: z.ZodType<SchemaNode, SchemaNode> = z.lazy(() => {
+export const SchemaNodeSchema: SchemaNodeZodType = z.lazy(() => {
   // `z.lazy` memoises this getter, and that is FINE — because what it returns is the
   // one live union, whose option slot 0 IS the recursion point and is written by
   // {@link defineNodeComponentUnion}. ⛔ Do not move the union's CONSTRUCTION in here:
@@ -293,6 +316,17 @@ export const SchemaNodeSchema: z.ZodType<SchemaNode, SchemaNode> = z.lazy(() => 
   // wrong, and it would put the accept set back at the mercy of import order.
   return nodeUnion;
 });
+
+/**
+ * `BaseSchemaCore`'s `children` slot: one node or a list of nodes. It is the same
+ * schema it always was, `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])`,
+ * held in a const only so its type can be written out ({@link NodeSlotZodType},
+ * objectui#11466). Typing only: the accept set does not change.
+ */
+const NodeSlotSchema: NodeSlotZodType = z
+  .union([SchemaNodeSchema, z.array(SchemaNodeSchema)])
+  .optional()
+  .describe('Child components (React-style)');
 
 /**
  * Base Schema - Core validation schema that all components extend
@@ -388,7 +422,7 @@ const BaseSchemaCore = z.object({
   /**
    * Child components or content — the one child-list spelling (objectui#6771)
    */
-  children: z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)]).optional().describe('Child components (React-style)'),
+  children: NodeSlotSchema,
 
   /**
    * Visibility control — a boolean, or the predicate STRING the renderer
@@ -523,7 +557,7 @@ const nodeUnionOptions: [z.ZodType, ...z.ZodType[]] = [
   z.undefined(),
 ];
 
-const nodeUnion = z.union(nodeUnionOptions) as unknown as z.ZodType<SchemaNode, SchemaNode>;
+const nodeUnion = z.union(nodeUnionOptions) as unknown as SchemaNodeZodType;
 
 /**
  * A spec schema's fields, minus the keys objectui declares locally, as an

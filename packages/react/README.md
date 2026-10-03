@@ -25,8 +25,9 @@ npm install @object-ui/react @object-ui/core
 
 ```tsx
 import { SchemaRenderer } from '@object-ui/react'
+import type { DeclaredNode } from '@object-ui/types'
 
-const schema = {
+const schema: DeclaredNode = {
   type: 'text',
   content: 'Hello, Object UI!'
 }
@@ -36,9 +37,12 @@ function App() {
 }
 ```
 
-`schema` takes a `BaseSchema` node, an `AuthoringNode` from `@object-ui/types` (a spec page
-block such as `element:text` with its typed `properties` bag, or a stored page document under
-its page kind), a bare string, or nothing.
+`schema` takes a `DeclaredNode` from `@object-ui/types`, a bare string, or nothing. A
+`DeclaredNode` is a node of a declared type, keyed by its `type`: a component schema that
+package declares, a spec page block such as `element:text` with its typed `properties` bag, a
+stored page document under its page kind, or a type your application registers and declares
+in `CustomNodeRegistry`. Each node, nested ones included, is checked against its own type; a
+`type` nothing declares is refused.
 
 ### With Data
 
@@ -54,8 +58,9 @@ for every conformant host.
 
 ```tsx
 import { SchemaRenderer, PredicateScopeProvider } from '@object-ui/react'
+import type { DeclaredNode } from '@object-ui/types'
 
-const schema = {
+const schema: DeclaredNode = {
   type: 'form',
   children: [
     {
@@ -90,9 +95,9 @@ function App() {
 
 ```tsx
 import { SchemaRenderer } from '@object-ui/react'
-import type { BaseSchema } from '@object-ui/types'
+import type { DeclaredNode } from '@object-ui/types'
 
-declare const formSchema: BaseSchema
+declare const formSchema: DeclaredNode
 
 function App() {
   const handleSubmit = (data: Record<string, unknown>) => {
@@ -118,11 +123,11 @@ below it:
 ```tsx
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react'
 import type { ApiFetch } from '@object-ui/react'
-import type { BaseSchema, DataSource } from '@object-ui/types'
+import type { DataSource, DeclaredNode } from '@object-ui/types'
 
 declare const adapter: DataSource
 declare const authenticatedFetch: ApiFetch
-declare const schema: BaseSchema
+declare const schema: DeclaredNode
 
 <SchemaRendererProvider
   dataSource={adapter}

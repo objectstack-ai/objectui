@@ -109,3 +109,10 @@ export type { LocaleCall } from './locale-tripwire';
  * one is declared in `exports`, so `tsc` (moduleResolution `bundler`) resolves it
  * exactly as it resolves `.`.
  */
+
+/**
+ * The one crossing for deliberately undeclared node input in a test
+ * (objectui#11466): see the module's docblock for what may, and may not, go
+ * through it.
+ */
+export { undeclaredNode } from './undeclared-node';

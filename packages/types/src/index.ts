@@ -109,6 +109,11 @@ export type {
   // half of what stops them being mixed up (#4581).
   KeyedI18nLabel,
   SchemaNode,
+  // The object arm of `SchemaNode`: the discriminated union of the declared
+  // node types, plus the custom types an application declares in
+  // `CustomNodeRegistry` by declaration merging (objectui#11466).
+  DeclaredNode,
+  CustomNodeRegistry,
   ComponentRendererProps,
   ComponentInput,
   // The input the FRAMEWORK injects (`binding: 'object'`, `9e37d9b39`) —

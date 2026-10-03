@@ -42,3 +42,5 @@ whose `String` mapping would otherwise turn them into the text `"0"` and `"false
 **Migration.** Nothing has to change. Metadata that already authored an object node in
 this slot is unaffected. Metadata that authored a bare string was rendering nothing and
 now renders that string — which is what the declaration always promised.
+
+⚠️ **Dated note, 2026-10-02 — `SchemaNode`'s object arm — objectui#11466.** At this change `SchemaNode` was `BaseSchema | string | number | boolean | null | undefined`; now, later in this same release, its object arm is `DeclaredNode`, the union of the declared node types, so it reads `DeclaredNode | string | number | boolean | null | undefined`. The primitive members this entry is about are unchanged, and so is the slot's behaviour. The rest of this entry is kept as the reading of this change.

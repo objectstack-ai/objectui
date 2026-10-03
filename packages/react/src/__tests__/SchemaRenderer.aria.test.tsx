@@ -24,13 +24,22 @@ import { SchemaRenderer } from '../SchemaRenderer';
  * `@objectstack/spec`'s `AriaProps`, the vocabulary that reader documents. The
  * node also carries the `content` that `TestWidget` renders.
  *
- * Each literal is checked against this node, not against the `BaseSchema`
- * that the `schema` prop accepts, so its keys stay checked once objectui#8347
- * removes `BaseSchema`'s index signature.
+ * Each literal is checked against this node, so its keys stay checked once
+ * objectui#8347 removes `BaseSchema`'s index signature. It is declared to
+ * `@object-ui/types` through `CustomNodeRegistry` below, the way an
+ * application declares a type it registers (objectui#11466): the `schema`
+ * prop takes the declared node types only.
  */
 type FlatAriaProbe = BaseSchema &
-  Pick<AriaProps, 'ariaDescribedBy' | 'role'> & { content?: string };
+  Pick<AriaProps, 'ariaDescribedBy' | 'role'> & { type: 'test-widget'; content?: string };
 const flatAriaProbe = (schema: FlatAriaProbe): FlatAriaProbe => schema;
+
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    /** This file's registered `TestWidget`. */
+    'test-widget': FlatAriaProbe;
+  }
+}
 
 // A simple test component that forwards ARIA attributes
 const TestWidget: React.FC<any> = (props) => (

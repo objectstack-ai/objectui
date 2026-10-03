@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema, DataSource, ObjectChartSchema, ObjectDataTableSchema } from '@object-ui/types';
+import type { BaseSchema, DashboardComponentSchema, DataSource, ObjectChartSchema, ObjectDataTableSchema } from '@object-ui/types';
 import { SchemaRenderer, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables, useResolvedDataSource } from '@object-ui/react';
 import { useObjectTranslation, useSafeTranslate, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import type { ActionDef, ActionResult, ActionContext, ModalHandler, SduiDomPassThroughKey } from '@object-ui/core';
@@ -41,7 +41,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
-import { classifyWidgetType, METRIC_LIKE_TYPES, DASHBOARD_NODE_TYPES, toDashboardNodeType } from './widgetDispatch';
+import { classifyWidgetType, METRIC_LIKE_TYPES, DASHBOARD_NODE_TYPES, toDashboardNodeType, type DashboardWidgetSlotEntry } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
@@ -261,8 +261,13 @@ export interface DashboardRendererProps
    * Receives the next widgets array (with positions swapped). The parent
    * is expected to persist via its data adapter. When omitted, drag-and-
    * drop affordances are disabled even in design mode.
+   *
+   * Typed by the slot itself, `DashboardComponentSchema['widgets']`: the array
+   * is `schema.widgets` reordered, so each entry is a widget or a component node
+   * placed directly in the slot (objectui#11514; it read `DashboardWidgetSchema[]`
+   * while the component arm was assignable to the widget arm).
    */
-  onWidgetsReorder?: (widgets: DashboardWidgetSchema[]) => void;
+  onWidgetsReorder?: (widgets: DashboardComponentSchema['widgets']) => void;
   /** Optional handler for actionType="modal" header actions. Receives a schema and ActionContext. */
   modalHandler?: ModalHandler;
   /** Optional named handlers for actionType="script" header actions, keyed by action name (actionUrl). */
@@ -322,13 +327,12 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     // collapse into a vertical stack. Expand to fit the largest widget span.
     const inferredColumns = (() => {
       if (schema.columns != null) return schema.columns;
-      // Typed `DashboardWidgetSchema[]`, the type `renderWidget` below already
-      // takes (objectui#11348). Both arms of the `widgets[]` union declare
-      // `layout` as the spec's `DashboardWidget` member — the component arm
+      // Typed by the slot's element type, the type `renderWidget` below takes
+      // (objectui#11514). Both arms of the `widgets[]` union declare `layout` as
+      // the spec's `DashboardWidget` member — the component arm
       // (`DashboardWidgetSlotComponentSchema`) by reference since objectui#11070
-      // round 11 — and that arm is assignable to the widget arm, so this is a
-      // checked widening, not a cast.
-      const widgets: DashboardWidgetSchema[] = schema.widgets ?? [];
+      // round 11 — so `layout` reads with the spec's type off either arm.
+      const widgets: DashboardWidgetSlotEntry[] = schema.widgets ?? [];
       let maxSpan = 0;
       for (const w of widgets) {
         const span = (w.layout?.x ?? 0) + (w.layout?.w ?? 0);
@@ -477,7 +481,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
      * it, and a published edit would draw as the packaged string again.
      */
     const tWidgetTitle = useCallback(
-      (widget: DashboardWidgetSchema): string | undefined => {
+      (widget: DashboardWidgetSlotEntry): string | undefined => {
         const fallback = resolveLabel(widget.title);
         if (localized || !dashName || !widget.id || fallback === undefined) return fallback;
         return widgetTitle(dashName, widget.id, fallback);
@@ -486,7 +490,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     );
 
     const tWidgetDescription = useCallback(
-      (widget: DashboardWidgetSchema): string | undefined => {
+      (widget: DashboardWidgetSlotEntry): string | undefined => {
         const fallback = resolveLabel(widget.description);
         if (localized || !dashName || !widget.id) return fallback;
         return widgetDescription(dashName, widget.id, fallback);
@@ -647,15 +651,15 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         const { active, over } = event;
         if (!over || active.id === over.id) return;
         const widgets = schema.widgets ?? [];
-        const oldIndex = widgets.findIndex((w: DashboardWidgetSchema) => w.id === active.id);
-        const newIndex = widgets.findIndex((w: DashboardWidgetSchema) => w.id === over.id);
+        const oldIndex = widgets.findIndex((w: DashboardWidgetSlotEntry) => w.id === active.id);
+        const newIndex = widgets.findIndex((w: DashboardWidgetSlotEntry) => w.id === over.id);
         if (oldIndex < 0 || newIndex < 0) return;
         onWidgetsReorder?.(arrayMove(widgets, oldIndex, newIndex));
       },
       [dragEnabled, schema.widgets, onWidgetsReorder]
     );
 
-    const renderWidget = (widget: DashboardWidgetSchema, index: number, forceMobileFullWidth?: boolean) => {
+    const renderWidget = (widget: DashboardWidgetSlotEntry, index: number, forceMobileFullWidth?: boolean) => {
         // Clamp widget span to grid columns to prevent overflow. A widget
         // with NO layout (e.g. authored in the Studio designer, which omits
         // it) would otherwise get a single column in the positioned grid and
@@ -676,10 +680,12 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
 
         // ADR-0021 — a widget bound to a semantic-layer dataset renders through
         // the governed queryDataset path (DatasetWidget) instead of the inline
-        // object-aggregate schema. No cast needed: `dataset` flows onto
-        // `DashboardWidgetSchema` from `@objectstack/spec`'s `DashboardWidget`
-        // (`packages/types/src/complex.ts`), so `widget.dataset` type-checks
-        // directly.
+        // object-aggregate schema. No cast needed: `dataset` flows onto the
+        // widget arm, `DashboardWidgetSchema`, from `@objectstack/spec`'s
+        // `DashboardWidget` (`packages/types/src/complex.ts`), and the component
+        // arm's passthrough reads it too, so `widget.dataset` type-checks on the
+        // slot entry directly. The fork ignores the entry's `type` on purpose: a
+        // `dataset` draws `DatasetWidget` on either arm.
         const datasetBound = !!widget.dataset;
 
         const getComponentSchema = () => {
@@ -771,9 +777,12 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                     // `name`: a wrong-CAUSE diagnostic, since nothing on screen
                     // named the `groupBy` that was actually ignored.
                     const effectiveXAxisKey = chartCategoryKey(effectiveAggregate, xAxisKey);
+                    // The declared node type, `ObjectChartSchema` (objectui#11514):
+                    // `chartType` is the dispatch's `SeriesChartFamily`, one of the
+                    // families that type declares (objectui#11513), with no cast.
                     return {
                         type: 'object-chart',
-                        chartType: resolvedWidgetType,
+                        chartType: dispatch.chartType,
                         objectName: widgetData.object,
                         aggregate: effectiveAggregate,
                         filter: widgetData.filter || widget.filter,
@@ -794,7 +803,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                         compareTo: widget.compareTo,
                         className: "h-[200px] sm:h-[250px] md:h-[300px]",
                         ...chartPresentation,
-                    };
+                    } satisfies ObjectChartSchema;
                 }
 
                 // Static inline data array.
@@ -1288,24 +1297,24 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     );
 
     const widgetIds = useMemo(
-      () => (schema.widgets ?? []).map((w: DashboardWidgetSchema) => w.id).filter((id: string | undefined): id is string => !!id),
+      () => (schema.widgets ?? []).map((w: DashboardWidgetSlotEntry) => w.id).filter((id: string | undefined): id is string => !!id),
       [schema.widgets]
     );
 
     const metricIds = useMemo(
-      () => (schema.widgets ?? []).filter((w: DashboardWidgetSchema) => w.type === 'metric').map((w: DashboardWidgetSchema) => w.id).filter((id: string | undefined): id is string => !!id),
+      () => (schema.widgets ?? []).filter((w: DashboardWidgetSlotEntry) => w.type === 'metric').map((w: DashboardWidgetSlotEntry) => w.id).filter((id: string | undefined): id is string => !!id),
       [schema.widgets]
     );
 
     const otherIds = useMemo(
-      () => (schema.widgets ?? []).filter((w: DashboardWidgetSchema) => w.type !== 'metric').map((w: DashboardWidgetSchema) => w.id).filter((id: string | undefined): id is string => !!id),
+      () => (schema.widgets ?? []).filter((w: DashboardWidgetSlotEntry) => w.type !== 'metric').map((w: DashboardWidgetSlotEntry) => w.id).filter((id: string | undefined): id is string => !!id),
       [schema.widgets]
     );
 
     if (isMobile) {
       // Separate metric widgets from other widgets for better mobile layout
-      const metricWidgets = schema.widgets?.filter((w: DashboardWidgetSchema) => w.type === 'metric') || [];
-      const otherWidgets = schema.widgets?.filter((w: DashboardWidgetSchema) => w.type !== 'metric') || [];
+      const metricWidgets = schema.widgets?.filter((w: DashboardWidgetSlotEntry) => w.type === 'metric') || [];
+      const otherWidgets = schema.widgets?.filter((w: DashboardWidgetSlotEntry) => w.type !== 'metric') || [];
 
       const mobileBody = (
         <div ref={ref} {...hostDomProps} className={cn("flex flex-col gap-4 px-4", className)} data-user-actions={userActionsAttr} onClick={handleHostClick}>
@@ -1317,7 +1326,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
           {metricWidgets.length > 0 && (
             <div className="grid grid-cols-2 gap-3" onClick={handleBackgroundClick}>
               <SortableContext items={metricIds} strategy={rectSortingStrategy} disabled={!dragEnabled}>
-                {metricWidgets.map((widget: DashboardWidgetSchema, index: number) => renderWidget(widget, index))}
+                {metricWidgets.map((widget: DashboardWidgetSlotEntry, index: number) => renderWidget(widget, index))}
               </SortableContext>
             </div>
           )}
@@ -1326,7 +1335,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
           {otherWidgets.length > 0 && (
             <div className="flex flex-col gap-4" onClick={handleBackgroundClick}>
               <SortableContext items={otherIds} strategy={verticalListSortingStrategy} disabled={!dragEnabled}>
-                {otherWidgets.map((widget: DashboardWidgetSchema, index: number) => renderWidget(widget, index, true))}
+                {otherWidgets.map((widget: DashboardWidgetSlotEntry, index: number) => renderWidget(widget, index, true))}
               </SortableContext>
             </div>
           )}
@@ -1371,7 +1380,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         {filterBar}
         {refreshButton}
         <SortableContext items={widgetIds} strategy={rectSortingStrategy} disabled={!dragEnabled}>
-          {schema.widgets?.map((widget: DashboardWidgetSchema, index: number) => renderWidget(widget, index))}
+          {schema.widgets?.map((widget: DashboardWidgetSlotEntry, index: number) => renderWidget(widget, index))}
         </SortableContext>
       </div>
     );

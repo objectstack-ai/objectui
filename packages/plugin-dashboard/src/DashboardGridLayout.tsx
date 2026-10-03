@@ -5,11 +5,11 @@ import { cn, Card, CardHeader, CardTitle, CardContent, Button } from '@object-ui
 import { Edit, GripVertical, Save, X, RefreshCw } from 'lucide-react';
 import { SchemaRenderer, useHasDndProvider, useDnd } from '@object-ui/react';
 import { useObjectTranslation, useObjectLabel, useSafeTranslate, pickLocalized } from '@object-ui/i18n';
-import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
+import type { BaseSchema, DashboardComponentSchema, ObjectChartSchema } from '@object-ui/types';
 import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
 import { chartCategoryKey, chartConfigPresentation, chartMeasureKey } from '@object-ui/core';
 import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
-import { classifyWidgetType, DASHBOARD_NODE_TYPES, toDashboardNodeType } from './widgetDispatch';
+import { classifyWidgetType, DASHBOARD_NODE_TYPES, toDashboardNodeType, type DashboardWidgetSlotEntry } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
@@ -117,7 +117,7 @@ export function mergeLayoutIntoSchema(
  */
 function buildDefaultLayouts(schema: DashboardComponentSchema): { lg: RGLLayout[] } {
   return {
-    lg: schema.widgets?.map((widget: DashboardWidgetSchema, index: number) => ({
+    lg: schema.widgets?.map((widget: DashboardWidgetSlotEntry, index: number) => ({
       i: widget.id || `widget-${index}`,
       ...completeWidgetLayout(widget.layout, {}, defaultWidgetPlacement(index)),
     })) || [],
@@ -193,18 +193,15 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
   // re-fetches after a save, widgets are added/removed). Previously the
   // useState initializer ran once and the grid drifted from the schema.
   //
-  // `w` is annotated `DashboardWidgetSchema`, as `buildDefaultLayouts` above
-  // already is (objectui#11348). A `widgets[]` entry is either arm of a union,
-  // and both arms declare `layout` as the spec's `DashboardWidget` member: the
-  // widget arm through the spec row, the component arm
-  // (`DashboardWidgetSlotComponentSchema`) by reference to it, because
-  // `mergeLayoutIntoSchema` below writes it onto every entry, a component node
-  // included (objectui#11070 round 11). That arm is assignable to
-  // `DashboardWidgetSchema` (pinned by `@object-ui/types`'
-  // `dashboard-widget-slot-component-arm-7952.test.ts`), so the annotation is
-  // checked by the compiler rather than asserted.
+  // `w` is annotated by the slot's element type, as `buildDefaultLayouts` above
+  // is (objectui#11514). A `widgets[]` entry is either arm of a union, and both
+  // arms declare `layout` as the spec's `DashboardWidget` member: the widget arm
+  // through the spec row, the component arm (`DashboardWidgetSlotComponentSchema`)
+  // by reference to it, because `mergeLayoutIntoSchema` below writes it onto
+  // every entry, a component node included (objectui#11070 round 11). So
+  // `layout` reads with the spec's type off either arm.
   const widgetsSignature = React.useMemo(
-    () => JSON.stringify(schema.widgets?.map((w: DashboardWidgetSchema, i: number) => ({
+    () => JSON.stringify(schema.widgets?.map((w: DashboardWidgetSlotEntry, i: number) => ({
       i: w.id || `widget-${i}`,
       x: w.layout?.x, y: w.layout?.y, w: w.layout?.w, h: w.layout?.h,
     })) ?? []),
@@ -248,7 +245,7 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
     setLayouts(buildDefaultLayouts(schema));
   }, [schema]);
 
-  const getComponentSchema = React.useCallback((widget: DashboardWidgetSchema) => {
+  const getComponentSchema = React.useCallback((widget: DashboardWidgetSlotEntry) => {
     // Same boundary as `DashboardRenderer`: the author's node keeps its
     // spelling except a `metric` / `metric-card` node key, which moves onto its
     // namespaced registration (`toDashboardNodeType`, objectui#10859 batch 8).
@@ -316,6 +313,10 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
         // (rows are raw records) and an UNGROUPED one (a single row with no
         // category column at all).
         const effectiveXAxisKey = chartCategoryKey(effectiveAggregate, xAxisKey);
+        // The declared node type, `ObjectChartSchema` (objectui#11514), as
+        // `DashboardRenderer` builds it: `chartType` is the dispatch's
+        // `SeriesChartFamily`, one of the families that type declares
+        // (objectui#11513), with no cast.
         return {
           type: 'object-chart',
           chartType: dispatch.chartType,
@@ -331,7 +332,7 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
           isAnimationActive: false,
           className: "h-full",
           ...chartPresentation,
-        };
+        } satisfies ObjectChartSchema;
       }
 
       const dataItems = Array.isArray(widgetData) ? widgetData : widgetData?.items || [];
@@ -562,9 +563,10 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
           resizeConfig={{ enabled: editMode }}
           onLayoutChange={handleLayoutChange}
         >
-          {/* `DashboardWidgetSchema`, for the reason `widgetsSignature` states:
-              `title` below is declared on the widget arm only (objectui#11348). */}
-          {schema.widgets?.map((widget: DashboardWidgetSchema, index: number) => {
+          {/* The slot's element type, for the reason `widgetsSignature` states
+              (objectui#11514). `title` below is declared on both arms: the
+              widget's spec row, and the card's heading on the component arm. */}
+          {schema.widgets?.map((widget: DashboardWidgetSlotEntry, index: number) => {
             const widgetId = widget.id || `widget-${index}`;
             // `getComponentSchema` builds a node for `SchemaRenderer` in every
             // branch, but its inferred union is wider than the renderer's

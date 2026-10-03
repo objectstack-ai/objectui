@@ -23,6 +23,21 @@
  * widget was never routed.
  */
 
+import type { DashboardComponentSchema } from '@object-ui/types';
+
+/**
+ * One entry of a dashboard's `widgets[]`: the slot's element type, a widget or
+ * a component node placed directly in the slot (the 2026-08-14 `metric-card`
+ * slot ruling, objectstack#8593). Read off `DashboardComponentSchema.widgets`,
+ * so it is the slot's own declaration, not a restatement.
+ *
+ * Every dashboard surface reads `widgets[]` entries by this type
+ * (objectui#11514). The widget arm, `DashboardWidgetSchema`, is not a read type
+ * for an entry: since objectui#11483's closure its `type` names the widget
+ * vocabulary only, so the component arm is not assignable to it.
+ */
+export type DashboardWidgetSlotEntry = DashboardComponentSchema['widgets'][number];
+
 /**
  * Spec chart families that only render as another family. Normalizing them
  * here is what lets one branch serve `column` and `bar` (the spec's own
@@ -41,7 +56,7 @@ export const CHART_TYPE_ALIASES: Record<string, string> = {
 };
 
 /** Cartesian / categorical / flow families the chart renderer draws. */
-export const SERIES_CHART_TYPES: ReadonlySet<string> = new Set([
+const SERIES_CHART_FAMILIES = [
   'bar', 'horizontal-bar', 'line', 'area', 'pie', 'donut',
   'scatter', 'funnel', 'radar', 'treemap', 'sankey',
   // `combo` joined `ChartTypeSchema` in spec 17.0.0-rc.1. The chart renderer
@@ -50,7 +65,24 @@ export const SERIES_CHART_TYPES: ReadonlySet<string> = new Set([
   // stored `combo` widget fell through to the red "Unknown component type"
   // panel the moment the spec started accepting it.
   'combo',
-]);
+] as const;
+
+/**
+ * A family {@link SERIES_CHART_TYPES} names, as a literal union: the
+ * `chartType` a `series` dispatch carries. Each member is one of the families
+ * `ObjectChartSchema.chartType` declares (objectui#11513), so the `object-chart`
+ * node a surface builds from a dispatch names its family with no cast
+ * (objectui#11514). Pinned by `__tests__/dashboard-producer-node-types-11514.test.ts`.
+ */
+export type SeriesChartFamily = (typeof SERIES_CHART_FAMILIES)[number];
+
+/** Cartesian / categorical / flow families the chart renderer draws. */
+export const SERIES_CHART_TYPES: ReadonlySet<string> = new Set<string>(SERIES_CHART_FAMILIES);
+
+/** Whether `family` is a {@link SeriesChartFamily}. */
+function isSeriesChartFamily(family: string): family is SeriesChartFamily {
+  return SERIES_CHART_TYPES.has(family);
+}
 
 /**
  * Single-value "performance" families — one number, optionally against a
@@ -97,7 +129,7 @@ export type WidgetDispatchFamily =
 export interface WidgetDispatch {
   family: WidgetDispatchFamily;
   /** For `series`: the alias-resolved base family to draw. */
-  chartType?: string;
+  chartType?: SeriesChartFamily;
 }
 
 /**
@@ -108,7 +140,7 @@ export interface WidgetDispatch {
 export function classifyWidgetType(widgetType: string | undefined): WidgetDispatch {
   if (!widgetType) return { family: 'passthrough' };
   const resolved = CHART_TYPE_ALIASES[widgetType] ?? widgetType;
-  if (SERIES_CHART_TYPES.has(resolved)) return { family: 'series', chartType: resolved };
+  if (isSeriesChartFamily(resolved)) return { family: 'series', chartType: resolved };
   if (METRIC_LIKE_TYPES.has(widgetType)) return { family: 'metric' };
   if (TABLE_LIKE_TYPES.has(widgetType)) return { family: 'table' };
   if (widgetType === 'pivot') return { family: 'pivot' };

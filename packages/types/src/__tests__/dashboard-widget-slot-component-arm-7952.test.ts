@@ -41,9 +41,12 @@
  *      index signature satisfies the excess-property check) while the Zod face
  *      refuses it by name;
  *   5. shape identity: the slot's element type IS the two-arm union, the arm's
- *      `type` IS `DashboardComponentWidgetType`, and the arm is assignable to
- *      `DashboardWidgetSchema` — which is why every `(w: DashboardWidgetSchema)`
- *      callback in `plugin-dashboard` compiled unchanged;
+ *      `type` IS `DashboardComponentWidgetType`, and the arm is NOT assignable
+ *      to `DashboardWidgetSchema` (objectui#11514). It was until that card,
+ *      which is why every `(w: DashboardWidgetSchema)` callback in
+ *      `plugin-dashboard` compiled unchanged; those callbacks now read an entry
+ *      by this element type, and the widget arm's `type` names no component
+ *      type, so a `metric-card` with no `value` is refused on this face too;
  *   6. objectui#11467: the arm DECLARES `MetricCard`'s registered inputs, so the
  *      README's `metric-card` literals compile against members rather than
  *      against `BaseSchema`'s index signature (which objectui#8347 removes);
@@ -112,10 +115,11 @@ describe('the component-node arm is declared on the TypeScript face (objectui#79
     const twoArm: Equal< Element, DashboardWidgetSlotComponentSchema | DashboardWidgetSchema > = true;
     // The arm's `type` is the closed component set, by reference — not a copy.
     const closedByReference: Equal< DashboardWidgetSlotComponentSchema['type'], DashboardComponentWidgetType > = true;
-    // The arm is assignable to the widget type: consumers annotating a widget
-    // callback `(w: DashboardWidgetSchema)` keep compiling on the union.
-    const armAssignable: DashboardWidgetSlotComponentSchema extends DashboardWidgetSchema ? true : false = true;
-    expect(twoArm && closedByReference && armAssignable).toBe(true);
+    // objectui#11514: the arm is NOT assignable to the widget type, whose `type`
+    // names no component type. A consumer reads an entry by `Element` and narrows
+    // on `type` to reach a widget key.
+    const armDisjoint: DashboardWidgetSlotComponentSchema extends DashboardWidgetSchema ? false : true = true;
+    expect(twoArm && closedByReference && armDisjoint).toBe(true);
     // The runtime side of "by reference": the set the arm keys on is the one
     // export, and it is the set the Zod arm reads.
     expect(DASHBOARD_COMPONENT_WIDGET_TYPES).toContain(usage.widgets[0].type);
@@ -128,9 +132,11 @@ describe('the forbidden repair did not happen — DashboardWidgetSchema is not w
     // inputs. The compiler's own suggestion for this line ("Did you mean to
     // write 'values'?") is the repair both declarations forbid; if anyone
     // makes it, this directive goes unused (TS2578) and `type-check` fails.
+    // A widget family, so `value` is the one refused key (since objectui#11514 a
+    // `type: 'metric-card'` is refused on this interface as well).
     // @ts-expect-error — TS2561: 'value' does not exist in type 'DashboardWidgetSchema'.
-    const widened: DashboardWidgetSchema = { type: 'metric-card', value: '1' };
-    expect(widened.type).toBe('metric-card');
+    const widened: DashboardWidgetSchema = { type: 'metric', value: '1' };
+    expect(widened.type).toBe('metric');
   });
 
   it('the arm\'s `type` is closed', () => {

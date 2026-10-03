@@ -75,11 +75,11 @@ import { METRIC_LIKE_TYPES, DASHBOARD_NODE_TYPES } from '../widgetDispatch';
 
 // The chart arm is a control here, read off the recorded node. A stub keeps the
 // real `object-chart` (and its metadata probe) out of this file.
-ComponentRegistry.register('object-chart', (() => null) as any, {
+ComponentRegistry.register('object-chart', () => null, {
   namespace: 'test',
   label: 'object-chart stub',
   category: 'plugin',
-} as any);
+});
 
 afterEach(() => {
   cleanup();

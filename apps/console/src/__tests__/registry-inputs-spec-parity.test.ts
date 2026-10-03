@@ -657,7 +657,7 @@ const specCarries175LoadedBlocks = MINOR_17_5_LOADED_BLOCKS.every((type) => type
  */
 const MINOR_17_6_BLOCKS = ['record:line_items'];
 
-/** Does the installed `@objectstack/spec` carry the 17.6.0 set? `every`, for the reason `specCarriesGaBlocks` gives. */
+/** Does the spec this tree resolves carry the 17.6.0 set? `every`, for the reason `specCarriesGaBlocks` gives. */
 const specCarries176Blocks = MINOR_17_6_BLOCKS.every((type) => type in ComponentPropsMap);
 
 const EXPECTED_COVERED = [
@@ -865,9 +865,9 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
 const OBJECTUI_11111_LEDGER_CAPS = {
   unjudgedBlocks: 0, // objectui#11168 loaded and judged all four: slice 3 object-map and object-tree, slice 4 object-gantt, slice 5 object-timeline
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
-  unpublishedKeys: 11, // objectui#11168: 1 (action:button undoable; the two `endpoint` entries left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0 and objectui#8649: 0 (each struck by its landing); objectui#11536: 10 (record:line_items, booked at the 17.6.0 bump)
+  unpublishedKeys: 11, // objectui#11168: 1 (action:button undoable; the two `endpoint` entries left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0 and objectui#8649: 0 (each struck by its landing); objectui#11536: 10 (record:line_items, booked by objectui#11438 ruling A′)
   refusedArms: 0, // objectui#11168: slice 2 narrowed element:definition-list.columns, slice 3 object-form.layout
-  memberPins: 2, // objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3; objectui#11536: 2 (record:line_items columns and dataSource, booked at the 17.6.0 bump)
+  memberPins: 2, // objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3; objectui#11536: 2 (record:line_items columns and dataSource, booked by objectui#11438 ruling A′)
 } as const;
 
 /**

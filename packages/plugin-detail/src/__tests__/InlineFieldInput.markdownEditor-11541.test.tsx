@@ -129,7 +129,7 @@ describe('objectui#11541 — both detail hosts offer the markdown editor', () =>
     }
     const { container } = render(
       <InlineEditProvider canEdit>
-        <HeaderHighlight fields={[{ name: 'notes', label: 'Notes' }] as any} data={{ notes: STORED }} objectSchema={markdownSchema} />
+        <HeaderHighlight fields={[{ name: 'notes', label: 'Notes' }]} data={{ notes: STORED }} objectSchema={markdownSchema} />
         <EnterEdit />
       </InlineEditProvider>,
     );
@@ -232,7 +232,7 @@ describe('objectui#11541 — `html` and `richtext` still open no editor', () => 
       const { container } = render(
         <InlineEditProvider canEdit>
           <HeaderHighlight
-            fields={[{ name: 'body', label: 'Body' }] as any}
+            fields={[{ name: 'body', label: 'Body' }]}
             data={{ body: MARKUP[type] }}
             objectSchema={{ fields: { body: { type, label: 'Body' } } }}
           />

@@ -422,7 +422,7 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
   // `html` / `richtext` never reach this component: the hosts' gate still
   // excludes them.
   if (editType === 'markdown') {
-    return <TextAreaField field={field as any} value={value} onChange={(v: any) => onChange(v)} autoFocus={autoFocus} error={error} />;
+    return <TextAreaField field={field as any} value={value} onChange={(v) => onChange(v)} autoFocus={autoFocus} error={error} />;
   }
   // Reference fields (lookup / master_detail / tree / user / owner) store an id
   // but may arrive `$expand`-ed as a record object. A plain text input would

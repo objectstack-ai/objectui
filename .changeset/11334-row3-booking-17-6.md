@@ -1,4 +1,4 @@
 ---
 ---
 
-Test-only change in `@object-ui/types`; no published behaviour changes. The spec-object refinement census in `spec-object-refinements-7715.test.ts` books `checkDashboardWidgetDimensionlessMeasureArity` on its `DashboardWidgetSchema (complex.zod.ts)` row as owed to objectui#11334, with an expiry, under objectui#11438 ruling A″. The test sits under `src/__tests__/`, which the package's `tsconfig.json` excludes from the published `dist`.
+Test-only change in `@object-ui/types` and `@object-ui/plugin-dashboard`; no published behaviour changes. Under objectui#11438 ruling A″, the spec's dimensionless measure-arity check is booked as owed to objectui#11334, with an expiry, in three tests. In `spec-object-refinements-7715.test.ts` it goes on the census's `DashboardWidgetSchema (complex.zod.ts)` row. In the two objectui#8894 measure-door tests, it is a bounded ledger of the seven types objectui's door does not refuse yet, and a cap row requires that set to equal the ledger. All three files sit under `__tests__/`, which each package's `tsconfig.json` excludes from the published `dist`.

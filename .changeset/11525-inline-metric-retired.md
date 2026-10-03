@@ -38,3 +38,5 @@ measured emitting the form (the measurements are on objectui#11525).
 
 The flat `object-metric` node the two surfaces used to build carried an
 ObjectQL-dialect `filter` that no node type declares; it is gone.
+
+⚠️ **Dated note, 2026-10-03 — the envelope's `object-metric` is retired too — objectui#11466.** At this change, "An `object-metric` node an author places in a widget's legacy `component` envelope still receives the dashboard filter bar's values" held, because `object-metric` stayed in the filter broadcast's filterable set for that node. Now, by the maintainer's ruling A on objectui#11466 (extending this change's ruling C), that envelope node draws the same retired-format placeholder on both surfaces and sends no query, and `object-metric` left the filterable set. `.changeset/11466-envelope-object-metric-retired.md` states what ships. The rest of this entry is kept as the reading of this change.

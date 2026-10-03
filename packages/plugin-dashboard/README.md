@@ -536,7 +536,12 @@ where it resolves.
 
 objectui's legacy `component` envelope (`{ id, component, layout }`) is not the
 spec's widget, and the default is not applied to it: an envelope with no `type`
-draws its `component` under its card heading, as it always did.
+draws its `component` under its card heading, as it always did. One node is
+retired there: an `object-metric` (under `object-metric` or
+`plugin-dashboard:object-metric`) draws the same retired-format prompt as a
+dataset-less metric widget and sends no query (objectui#11466). Bind a metric
+widget to a dataset instead. Every other envelope node draws as written, and the
+filter bar still scopes an envelope's `object-chart` and `object-data-table`.
 
 A `type` that names no widget family and no component type (a typo, or a family
 the spec no longer has) is refused by both validator faces at `type`. A stored

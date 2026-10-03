@@ -274,9 +274,9 @@ describe('the chart payload is the spec ListView chart block (objectui#11576)', 
   it('omits `dimensions` when the chosen dataset declares none', async () => {
     servedDatasets = [DEAL_TOTALS];
     const payload = await submitWithMeasure(await openChartPicker(), 'pipeline_value');
+    expectAccepted(ListViewSchema, buildSaveAsViewSpec(payload, COLUMNS, []));
     expect(screen.queryByTestId('create-view-required-dimensions')).toBeNull();
     expect(payload.chart).toEqual({ chartType: 'bar', dataset: 'deal_totals', values: ['pipeline_value'] });
-    expectAccepted(ListViewSchema, buildSaveAsViewSpec(payload, COLUMNS, []));
   });
 
   it('DOOR 1, ObjectDataPage.buildSaveAsViewSpec: the spec ListViewSchema and the ViewItem gate accept it', async () => {
@@ -310,13 +310,14 @@ describe('the save door answers 2xx for a chart view created through "Save as vi
     fireEvent.click(screen.getByTestId('create-view-type-chart'));
     await pickMeasureAndCreate('total_amount');
     await waitFor(() => expect(puts).toHaveLength(1));
+    // The door's verdict first: before this card it answered 422 here.
+    expect(puts[0].status).toBe(200);
     expect(puts[0].body.config.chart).toEqual({
       chartType: 'bar',
       dataset: 'deal_metrics',
       values: ['total_amount'],
       dimensions: ['stage'],
     });
-    expect(puts[0].status).toBe(200);
     await waitFor(() => expect(screen.getByTestId('where').textContent).toMatch(/\/view\/crm_deal\.[a-z0-9_]+\?preview=draft$/));
   });
 });

@@ -207,16 +207,17 @@ afterEach(() => {
 describe('ObjectView.handleViewCreate saves the ADR-0021 chart block the dialog wrote (objectui#11576)', () => {
   it('DOOR 2: the saved config passes the spec ListViewSchema, the envelope the ViewItem gate, and no legacy key rides', async () => {
     const body = await createChartViewThroughTheTabBar();
+    // The spec's verdict first: it is the claim this pin exists for.
+    const listView = ListViewSchema.safeParse(body.config);
+    expect(listView.success, JSON.stringify(listView.error?.issues)).toBe(true);
+    const item = ViewItemSchema.safeParse(body);
+    expect(item.success, JSON.stringify(item.error?.issues)).toBe(true);
     expect(body.config.chart).toEqual({
       chartType: 'bar',
       dataset: 'deal_metrics',
       values: ['total_amount'],
       dimensions: ['stage'],
     });
-    const listView = ListViewSchema.safeParse(body.config);
-    expect(listView.success, JSON.stringify(listView.error?.issues)).toBe(true);
-    const item = ViewItemSchema.safeParse(body);
-    expect(item.success, JSON.stringify(item.error?.issues)).toBe(true);
     expect(Object.keys(body.config.chart)).not.toContain('xAxisField');
     expect(Object.keys(body.config.chart)).not.toContain('yAxisFields');
   });

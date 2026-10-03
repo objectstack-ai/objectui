@@ -1084,13 +1084,14 @@ type RecordLineItemsBlockArmType = typeof RecordLineItemsBlockArm;
  * `tsc` prints an inferred type in full wherever a declaration uses it. So
  * `AnyComponentSchema`'s declaration in `index.zod.d.ts` spells out every
  * arm of every union it lists. That declaration sits close to the compiler's
- * serialization ceiling. Against `@objectstack/spec` built from objectstack
- * `main`, this block's row is larger (the `columns[].readonlyWhen` /
- * `requiredWhen` expression types carry their `ast`). With this arm printed
- * inline, `@object-ui/types` stopped compiling with TS7056 at
- * `AnyComponentSchema` and emitted no declarations; the Spec Main Shape Gate
- * caught it. An interface is printed by name, so the arm's body is printed
- * once, here, and `AnyComponentSchema` refers to it.
+ * serialization ceiling. Measured on objectstack main 5c9138b, this arm's own
+ * serialized size is the same as against 17.6.0; what grew is the rest of
+ * `AnyComponentSchema`, which left too little room under the ceiling for the
+ * arm inline. Printed inline, it made `@object-ui/types` fail with TS7056 at
+ * `AnyComponentSchema` and emit no declarations; the Spec Main Shape Gate
+ * caught it. An interface is printed by name, so naming the arm's type takes
+ * its body out of the union's print: it is printed once, here. The family and
+ * the remaining headroom are tracked in objectui#11573.
  *
  * ## Why the TYPE is unchanged
  *

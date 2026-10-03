@@ -287,7 +287,7 @@ const mapConfig = (node: any) => ({
   center: node.center,
 });
 
-const RENDERERS: Record<string, { rendererType: string; project: (node: any) => Record<string, unknown> }> = {
+const RENDERERS: Record<string, { rendererType: string; project: (node: any) => Record<string, any> }> = {
   timeline: { rendererType: 'object-timeline', project: timelineConfig },
   kanban: { rendererType: 'object-kanban', project: kanbanConfig },
   map: { rendererType: 'object-map', project: mapConfig },

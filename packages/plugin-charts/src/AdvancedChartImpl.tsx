@@ -2092,7 +2092,7 @@ function AdvancedChartImplInner({
   // `RENDERABLE` and for none (objectui#11520), so `chartType` is a drawn
   // family here. combo/treemap/sankey return from their own branches below;
   // they are mapped only so every drawn family has a row.
-  const ChartComponent = ({
+  const cartesianRoots = {
     bar: BarChart,
     'horizontal-bar': BarChart,
     line: LineChart,
@@ -2105,7 +2105,8 @@ function AdvancedChartImplInner({
     combo: ComposedChart,
     treemap: BarChart,
     sankey: BarChart,
-  } as Record<string, React.ComponentType<any>>)[chartType] || BarChart;
+  };
+  const ChartComponent = cartesianRoots[chartType as keyof typeof cartesianRoots] || BarChart;
 
   // Pie and Donut charts
   if (chartType === 'pie' || chartType === 'donut') {

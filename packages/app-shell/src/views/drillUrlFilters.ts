@@ -123,7 +123,8 @@ export const RANGE_OP_PARAM: Record<string, string> = { $gte: 'gte', $lte: 'lte'
  *     verbatim. The dataset filter inspector's "is not empty" row wrote
  *     exactly that pair until objectui#10813, so a filter stored before then
  *     still carries it; that row now writes `{ $empty: false }`, which is not
- *     one of these two keys (objectui#11547).
+ *     one of these two keys: it reaches this function verbatim too, and the
+ *     `[empty]` arm, {@link EMPTY_FILTER}, carries it (objectui#11547).
  *
  * ⚠️ A NON-boolean under either key says nothing about emptiness and writes
  * nothing, which is what it did before this pair existed.

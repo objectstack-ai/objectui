@@ -9,7 +9,15 @@ import type { BaseSchema, DashboardComponentSchema, ObjectChartSchema } from '@o
 import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
 import { chartCategoryKey, chartConfigPresentation, chartMeasureKey } from '@object-ui/core';
 import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
-import { classifyWidgetType, DASHBOARD_NODE_TYPES, toDashboardNodeType, type DashboardWidgetSlotEntry } from './widgetDispatch';
+import {
+  classifyWidgetType,
+  DASHBOARD_NODE_TYPES,
+  isSlotComponentEntry,
+  resolveWidgetType,
+  toDashboardNodeType,
+  unsupportedWidgetSchema,
+  type DashboardWidgetSlotEntry,
+} from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
@@ -261,7 +269,9 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
     // branches are what swallow it.
     if (isLegacyRetiredWidget(widget)) return LEGACY_RETIRED_WIDGET_SCHEMA;
 
-    const widgetType = widget.type;
+    // The authored `type`, or the spec's default (`metric`) when the entry
+    // names none (objectui#11514, Q2 A), as `DashboardRenderer` resolves it.
+    const widgetType = resolveWidgetType(widget);
     const options = (widget.options || {}) as Record<string, any>;
     // One shared classification (./widgetDispatch) — this surface used to name
     // 8 chart families by hand while DatasetWidget covered all 19, so radar /
@@ -462,21 +472,21 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
     }
 
     if (dispatch.family === 'unsupported') {
-      return {
-        type: 'text',
-        content: `「${widgetType}」chart type is not supported yet`,
-        variant: 'caption',
-        align: 'center',
-        className: 'flex h-full w-full items-center justify-center rounded border border-dashed bg-muted/20 p-4 text-muted-foreground',
-      };
+      return unsupportedWidgetSchema(widgetType);
     }
 
-    // The slot-component passthrough takes the namespaced node key too
-    // (`toDashboardNodeType`, objectui#10859 batch 8).
-    return toDashboardNodeType({
-      ...widget,
-      ...options
-    });
+    // The slot-component passthrough serves the slot's component arm alone and
+    // takes the namespaced node key too (`toDashboardNodeType`, objectui#10859
+    // batch 8; objectui#11514, Q2 A). Any other entry here names no family:
+    // stale metadata, drawn as the labelled placeholder, as `DashboardRenderer`
+    // draws it.
+    if (isSlotComponentEntry(widget)) {
+      return toDashboardNodeType({
+        ...widget,
+        ...options
+      });
+    }
+    return unsupportedWidgetSchema(widgetType);
   }, [resolveSeriesLabel]);
 
   return (
@@ -613,7 +623,7 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
             // the value — so it must take the shared Card wrapper to get a title
             // and border like its neighbours, instead of showing as bare text
             // (`DashboardRenderer.tsx:777-782`, same rule, same reason).
-            const isSelfContained = widget.type === 'metric' && !datasetBound;
+            const isSelfContained = resolveWidgetType(widget) === 'metric' && !datasetBound;
             // `DashboardWidget.title` is the spec's `I18nLabel`: since
             // 17.0.0-rc.6 an author may inline a per-locale map
             // (`{ en: 'Pipeline', 'zh-CN': '销售漏斗' }`) instead of a string.

@@ -41,7 +41,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
-import { classifyWidgetType, METRIC_LIKE_TYPES, DASHBOARD_NODE_TYPES, toDashboardNodeType, type DashboardWidgetSlotEntry } from './widgetDispatch';
+import { classifyWidgetType, METRIC_LIKE_TYPES, DASHBOARD_NODE_TYPES, toDashboardNodeType, resolveWidgetType, isSlotComponentEntry, unsupportedWidgetSchema, type DashboardWidgetSlotEntry } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
@@ -669,7 +669,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         // matching the editable DashboardGridLayout's auto-placement. Only the
         // positioned grid needs this; the responsive flow layout sizes each
         // widget as one cell.
-        const isMetricSpan = widget.type === 'metric' || METRIC_LIKE_TYPES.has(widget.type || '');
+        // The type this entry draws as: the authored `type`, or the spec's
+        // default (`metric`) when it names none (objectui#11514, Q2 A).
+        const entryType = resolveWidgetType(widget);
+        const isMetricSpan = entryType === 'metric' || METRIC_LIKE_TYPES.has(entryType);
         const fallbackSpan = hasExplicitColumns
           ? { w: Math.min(isMetricSpan ? 3 : 6, columns), h: isMetricSpan ? 2 : 4 }
           : undefined;
@@ -695,7 +698,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             if (widget.component) return toDashboardNodeType(widget.component);
 
             // Handle Shorthand Registry Mappings
-            const widgetType = widget.type;
+            const widgetType = entryType;
             const options = (widget.options || {}) as Record<string, any>;
             // Renderer-internal data sources only (ADR-0021): the inline
             // `options.data` / `widget.data` array, or the `provider: 'object'`
@@ -971,22 +974,25 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             // placeholder instead of falling through to a raw "Unknown component
             // type" error box that dumps the widget JSON.
             if (dispatch.family === 'unsupported') {
-                return {
-                    type: 'text',
-                    content: `「${widgetType}」chart type is not supported yet`,
-                    variant: 'caption',
-                    align: 'center',
-                    className: 'flex h-full w-full items-center justify-center rounded border border-dashed bg-muted/20 p-4 text-muted-foreground',
-                };
+                return unsupportedWidgetSchema(widgetType);
             }
 
             // The slot-component passthrough (the 2026-08-14 `metric-card` slot
-            // ruling): the widget keeps its `type`, the node it becomes takes
-            // the namespaced key (`toDashboardNodeType`, objectui#10859 batch 8).
-            return toDashboardNodeType({
-                ...widget,
-                ...options
-            });
+            // ruling) serves the slot's component arm alone (objectui#11514,
+            // Q2 A): the entry keeps its `type`, the node it becomes takes the
+            // namespaced key (`toDashboardNodeType`, objectui#10859 batch 8).
+            if (isSlotComponentEntry(widget)) {
+                return toDashboardNodeType({
+                    ...widget,
+                    ...options
+                });
+            }
+            // A widget whose `type` names no family and no component type is
+            // stale metadata both validator faces refuse at `type`. It draws the
+            // labelled placeholder an unsupported family draws, not the
+            // registry's red OBJUI-001 panel dumping the widget (objectui#11514,
+            // Q2 A). A typeless widget never gets here: it resolved to `metric`.
+            return unsupportedWidgetSchema(widgetType);
         };
         
         // Broadcast the dashboard filter values into this widget's inline
@@ -1022,7 +1028,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         // renders just the value — so it must take the shared Card wrapper to get
         // a title + border like the kpi/gauge widgets (otherwise it shows as bare
         // text with no title, inconsistent with its neighbours).
-        const isSelfContained = widget.type === 'metric' && !datasetBound;
+        const isSelfContained = entryType === 'metric' && !datasetBound;
         const resolvedTitle = tWidgetTitle(widget);
         const resolvedDescription = tWidgetDescription(widget);
         const widgetKey = widget.id || resolvedTitle || `widget-${index}`;
@@ -1304,19 +1310,20 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     );
 
     const metricIds = useMemo(
-      () => (schema.widgets ?? []).filter((w: DashboardWidgetSlotEntry) => w.type === 'metric').map((w: DashboardWidgetSlotEntry) => w.id).filter((id: string | undefined): id is string => !!id),
+      () => (schema.widgets ?? []).filter((w: DashboardWidgetSlotEntry) => resolveWidgetType(w) === 'metric').map((w: DashboardWidgetSlotEntry) => w.id).filter((id: string | undefined): id is string => !!id),
       [schema.widgets]
     );
 
     const otherIds = useMemo(
-      () => (schema.widgets ?? []).filter((w: DashboardWidgetSlotEntry) => w.type !== 'metric').map((w: DashboardWidgetSlotEntry) => w.id).filter((id: string | undefined): id is string => !!id),
+      () => (schema.widgets ?? []).filter((w: DashboardWidgetSlotEntry) => resolveWidgetType(w) !== 'metric').map((w: DashboardWidgetSlotEntry) => w.id).filter((id: string | undefined): id is string => !!id),
       [schema.widgets]
     );
 
     if (isMobile) {
       // Separate metric widgets from other widgets for better mobile layout
-      const metricWidgets = schema.widgets?.filter((w: DashboardWidgetSlotEntry) => w.type === 'metric') || [];
-      const otherWidgets = schema.widgets?.filter((w: DashboardWidgetSlotEntry) => w.type !== 'metric') || [];
+      // A typeless widget is a `metric` (the spec's default, objectui#11514).
+      const metricWidgets = schema.widgets?.filter((w: DashboardWidgetSlotEntry) => resolveWidgetType(w) === 'metric') || [];
+      const otherWidgets = schema.widgets?.filter((w: DashboardWidgetSlotEntry) => resolveWidgetType(w) !== 'metric') || [];
 
       const mobileBody = (
         <div ref={ref} {...hostDomProps} className={cn("flex flex-col gap-4 px-4", className)} data-user-actions={userActionsAttr} onClick={handleHostClick}>

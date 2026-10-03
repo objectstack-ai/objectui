@@ -23,7 +23,14 @@
  * widget was never routed.
  */
 
-import type { DashboardComponentSchema } from '@object-ui/types';
+import { DASHBOARD_COMPONENT_WIDGET_TYPES } from '@object-ui/types';
+import type {
+  DashboardComponentSchema,
+  DashboardWidgetSlotComponentSchema,
+  DashboardWidgetTypeName,
+  TextSchema,
+} from '@object-ui/types';
+import { DashboardWidgetSchema as SpecDashboardWidgetSchema } from '@objectstack/spec/ui';
 
 /**
  * One entry of a dashboard's `widgets[]`: the slot's element type, a widget or
@@ -37,6 +44,68 @@ import type { DashboardComponentSchema } from '@object-ui/types';
  * vocabulary only, so the component arm is not assignable to it.
  */
 export type DashboardWidgetSlotEntry = DashboardComponentSchema['widgets'][number];
+
+/**
+ * The widget `type` the spec resolves an ABSENT one to — READ FROM THE SPEC,
+ * never restated: `@objectstack/spec`'s `DashboardWidget.type` is
+ * `ChartTypeSchema.default(...)`, so parsing an absent `type` through that
+ * member returns the spec's own answer (`metric` at 17.5.0). The same reading
+ * `@object-ui/core`'s dashboard filters take of the spec's `dateRange` default.
+ *
+ * objectui's zod mirror strips imported defaults, so a typeless widget reaches
+ * the dashboard surfaces unresolved; this is where they resolve it
+ * (objectui#11514, Q2 A, 「协议为基准」). Computed on first use: the spec's
+ * schemas are lazy.
+ */
+let specWidgetTypeDefault: DashboardWidgetTypeName | undefined;
+export function specDefaultWidgetType(): DashboardWidgetTypeName {
+  if (specWidgetTypeDefault === undefined) {
+    specWidgetTypeDefault = SpecDashboardWidgetSchema.shape.type.parse(undefined);
+  }
+  return specWidgetTypeDefault;
+}
+
+/**
+ * The `type` a dashboard surface draws a `widgets[]` entry as: the authored
+ * `type`, or {@link specDefaultWidgetType} when the entry names none
+ * (objectui#11514, Q2 A). Every read of an entry's `type` on the two surfaces
+ * goes through it — the dispatch, the metric span and chrome, the mobile
+ * metric row — so a typeless widget draws exactly as the same widget with
+ * `type: 'metric'` does. It used to reach the slot-component passthrough and
+ * draw the registry's red OBJUI-001 panel.
+ */
+export function resolveWidgetType(entry: DashboardWidgetSlotEntry): NonNullable<DashboardWidgetSlotEntry['type']> {
+  return entry.type ?? specDefaultWidgetType();
+}
+
+/**
+ * Whether a slot entry is the component arm, `DashboardWidgetSlotComponentSchema`:
+ * its `type` is a member of the closed `DASHBOARD_COMPONENT_WIDGET_TYPES`, which
+ * no widget `type` names (objectui#11483). Read at runtime, so a stored entry
+ * whose `type` is a string outside every vocabulary is NOT the component arm.
+ */
+export function isSlotComponentEntry(entry: DashboardWidgetSlotEntry): entry is DashboardWidgetSlotComponentSchema {
+  return (DASHBOARD_COMPONENT_WIDGET_TYPES as readonly unknown[]).includes(entry.type);
+}
+
+/**
+ * The labelled placeholder a dashboard surface draws for a widget `type` it
+ * has no renderer for: a known family with no renderer yet
+ * (`UNSUPPORTED_CHART_TYPES`), and, since objectui#11514 (Q2 A), a `type` that
+ * names no family at all — stale metadata both validator faces refuse at
+ * `type`, which used to fall through to the slot-component passthrough and
+ * draw the registry's red OBJUI-001 panel dumping the widget. One declaration
+ * for both surfaces, which each spelled it out before.
+ */
+export function unsupportedWidgetSchema(widgetType: string) {
+  return {
+    type: 'text',
+    content: `「${widgetType}」chart type is not supported yet`,
+    variant: 'caption',
+    align: 'center',
+    className: 'flex h-full w-full items-center justify-center rounded border border-dashed bg-muted/20 p-4 text-muted-foreground',
+  } as const satisfies TextSchema;
+}
 
 /**
  * Spec chart families that only render as another family. Normalizing them

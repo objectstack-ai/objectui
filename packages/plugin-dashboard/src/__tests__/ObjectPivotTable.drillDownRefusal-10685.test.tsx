@@ -64,7 +64,8 @@ describe('object-pivot: drillDown.mode is refused on the prop type (objectui#106
             target: 'dialog',
             columns: ['name'],
             maxRows: 5,
-            report: { name: 'won_deals_by_owner' },
+            // The dataset-bound report the shape declares; its `{ name }` arm is retired (objectui#11517).
+            report: { name: 'won_deals_by_owner', label: 'Won Deals by Owner', type: 'summary', dataset: 'deals_ds', rows: ['owner'], values: ['amount_sum'] },
           },
         }}
       />

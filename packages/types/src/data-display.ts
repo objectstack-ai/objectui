@@ -2545,10 +2545,10 @@ export interface DrillDownConfig {
    * itself can drill into a list of records (via its own row-click drill),
    * which can drill into a single record.
    *
-   * The inline form is a dataset-bound report (ADR-0021), `@objectstack/spec`'s
-   * `ReportSchema` author shape by reference: the document the drawer wraps in
-   * the `report` node, whose `report` member is that same schema
-   * (objectui#11440), so its members, required keys and refusals apply
+   * The report is written inline and is dataset-bound (ADR-0021),
+   * `@objectstack/spec`'s `ReportSchema` author shape by reference: the document
+   * the drawer wraps in the `report` node, whose `report` member is that same
+   * schema (objectui#11440), so its members, required keys and refusals apply
    * unchanged. The drawer joins the block's resolved drill filter to the
    * report's own `runtimeFilter` with `$and` and writes the result as the
    * report's `runtimeFilter`, the one filter key the dataset renderer applies
@@ -2560,11 +2560,14 @@ export interface DrillDownConfig {
    * real drawer it drew an empty presentation and issued no query, so a drill
    * filter reached nothing under either key.
    *
-   * A named reference, `{ name }`, is declared as well. `DrillDownDrawer`
-   * resolves no named reference, so such a drill lists the records, as a drill
-   * with no `report` does.
+   * ⛔ The named reference, `{ name }`, is retired too (objectui#11517), with no
+   * alias window: no renderer resolved a report name against any registry, so
+   * `DrillDownDrawer` listed the records for it, as for a drill with no
+   * `report`, and nothing produced it. A bare `{ name }` is not a report: this
+   * type refuses it for the members the spec requires, and both zod faces refuse
+   * it by name.
    */
-  report?: SpecReportInput | { name: string };
+  report?: SpecReportInput;
   /**
    * Optional column whitelist for the inline drill list. When omitted the
    * data table renders all default columns.

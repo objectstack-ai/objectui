@@ -127,18 +127,24 @@ const nodesOfType = (type: string) => received.filter((n) => n.type === type);
 /** The single-value family, read off the dispatch rather than restated. */
 const METRIC_FAMILY = [...METRIC_LIKE_TYPES];
 
+/** Each retired input, labelled. */
+const RETIRED_CASES: Array<[string, Record<string, unknown>]> = [
+  ...METRIC_FAMILY.map((type): [string, Record<string, unknown>] => [
+    `\`${type}\` with options.data`,
+    { id: 'w1', type, title: 'Pipeline', options: { data: PROVIDER } },
+  ]),
+  ['`metric` with widget-level data', { id: 'w1', type: 'metric', title: 'Pipeline', data: PROVIDER }],
+  // objectui#11514: a typeless widget resolves to `metric`, so it answers too.
+  ['a typeless widget with options.data', { id: 'w1', title: 'Pipeline', options: { data: PROVIDER } }],
+];
+
 describe.each(SURFACES)('%s surface — the retired path (objectui#11525)', (surface) => {
   it('reads a non-empty single-value family (non-vacuity)', () => {
     expect(METRIC_FAMILY).toContain('metric');
     expect(METRIC_FAMILY.length).toBeGreaterThan(1);
   });
 
-  it.each([
-    ...METRIC_FAMILY.map((type) => [`\`${type}\` with options.data`, { id: 'w1', type, title: 'Pipeline', options: { data: PROVIDER } }] as const),
-    ['`metric` with widget-level data', { id: 'w1', type: 'metric', title: 'Pipeline', data: PROVIDER }],
-    // objectui#11514: a typeless widget resolves to `metric`, so it answers too.
-    ['a typeless widget with options.data', { id: 'w1', title: 'Pipeline', options: { data: PROVIDER } }],
-  ])('%s draws the placeholder object and sends no query', async (_label, widget) => {
+  it.each(RETIRED_CASES)('%s draws the placeholder object and sends no query', async (_label, widget) => {
     const adapter = makeAdapter();
     mount(surface, [widget], adapter);
 

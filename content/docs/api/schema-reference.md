@@ -524,7 +524,7 @@ numbers of its own: `ChartDataSeries.data` is a retirement tombstone
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `chartType` | `ChartType` | **Required.** `"bar"`, `"line"`, `"area"`, `"pie"`, `"donut"`, `"radar"`, `"scatter"`, `"heatmap"`. |
+| `chartType` | `ChartType` | **Required.** One of the `@objectstack/spec` `ChartType` families: `"bar"`, `"horizontal-bar"`, `"column"`, `"line"`, `"area"`, `"pie"`, `"donut"`, `"funnel"`, `"scatter"`, `"treemap"`, `"sankey"`, `"combo"`, `"gauge"`, `"solid-gauge"`, `"metric"`, `"kpi"`, `"bullet"`, `"radar"`, `"table"`, `"pivot"`. Any other value is refused with the set named (objectui#11521). The single-value families draw the first series' value in the first row as one number, and the tabular families draw a notice that points at the data-table and pivot components; the others plot the series. |
 | `title` | `string` | Chart title. |
 | `description` | `string` | Chart description / subtitle. |
 | `categories` | `string[]` | An **alternative series list** — column names to plot, read only when `series` is absent, and ignored outright when it is present. Not axis labels: the category axis comes from `xAxisKey`. |
@@ -1012,7 +1012,7 @@ A drag-and-drop Kanban board. The `object-kanban` type key validates the shape t
 | `filter` | `any[]` | Query filter, forwarded verbatim as `$filter`. |
 | `limit` | `number` | Fetch window for the board (default 100). |
 | `coverImageField` | `string` | Field whose URL renders as the card cover image. |
-| `conditionalFormatting` | `KanbanConditionalFormattingRule[]` | Card colouring rules — native `{ field, operator, value }` or spec `{ condition, style }`. |
+| `conditionalFormatting` | `KanbanConditionalFormattingRule[]` | Card colouring rules, each `{ condition, style }` — a CEL `condition` over the card's `record.*` and a CSS `style` map, the rule a list view declares; the first matching rule styles the card. The native `{ field, operator, value }` rule and a colour written beside `condition` (rather than inside `style`) are retired and refused by name (objectui#11522): `{ field: 'priority', operator: 'equals', value: 'high', backgroundColor: '#fee2e2' }` is `{ condition: "record.priority == 'high'", style: { backgroundColor: '#fee2e2' } }`. |
 | `navigation` | `ViewNavigationConfig` | What a card click opens — the spec's `NavigationConfig` by reference, the type `ObjectGridSchema.navigation` uses: `mode` (`page`, `drawer`, `modal`, `split`, `popover`, `new_window` or `none`) with `size`, `openNewTab` and `preventNavigation`. With the key absent a click opens the record in a drawer. `page` — and a block written without `mode`, which takes the spec's `page` default — opens the record page through the record navigator the host publishes (objectui#11293); the console publishes one on its custom pages, record pages and list views, and under a host that publishes none the click opens nothing. |
 
 > `groupField` is refused by name (objectui#7322): the renderer reads `groupBy`.

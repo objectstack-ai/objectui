@@ -41,11 +41,10 @@
  *   3. no widget key stands in for `value`: a dataset-bound card and a card
  *      whose figure sits in `options` are refused. CONTROL: the dataset-bound
  *      single figure's own spelling, a `metric` widget, parses;
- *   4. the vocabulary on both faces: no component type is a widget type, while
- *      the TypeScript widget interface still READS one (it is the read type of
- *      every slot entry);
- *   5. MEASURED LIMIT of the TypeScript face, recorded two-faced: a `metric-card`
- *      literal with no `value` still compiles through that read type.
+ *   4. the vocabulary on both faces: no component type is a widget type, and
+ *      the TypeScript widget interface's `type` names none either
+ *      (objectui#11514): a slot entry is read by the slot's element type, so a
+ *      `metric-card` literal with no `value` is refused by `tsc` too.
  *
  * The registration's `required` against the slot is pinned where the live
  * registration is: `metricCardRegisteredInputsStrictFace-11022.test.ts` in
@@ -167,28 +166,26 @@ describe('objectui#11483 — no component type is a widget type', () => {
     }
   });
 
-  it('the TypeScript twin agrees, while the widget interface still READS the component type', () => {
+  it('the TypeScript twin agrees, and the widget interface names no component type either', () => {
     // `DashboardWidgetTypeName` is the twin of `DashboardWidgetTypeSchema`: the two are disjoint
     // from the component set. An authoring surface typed by it cannot offer the card as a widget.
     const disjoint: Equal< Extract< DashboardWidgetTypeName, DashboardComponentWidgetType >, never > = true;
-    // `DashboardWidgetSchema['type']` is the read type of every slot entry, the component arm's
-    // included: the renderers annotate slot entries with that interface.
-    const reads: Equal< NonNullable< DashboardWidgetSchema['type'] >, DashboardWidgetTypeName | DashboardComponentWidgetType > = true;
-    expect([disjoint, reads]).toEqual([true, true]);
+    // objectui#11514: `DashboardWidgetSchema['type']` is the widget vocabulary and nothing else.
+    // A slot entry is read by the slot's element type, which `plugin-dashboard`'s renderers
+    // annotate entries with, so the widget arm no longer has to admit the component type.
+    const widgetArm: Equal< NonNullable< DashboardWidgetSchema['type'] >, DashboardWidgetTypeName > = true;
+    // The slot's element type still reads a card: its component arm names the component set.
+    const element: Equal<
+      Extract< DashboardComponentSchema['widgets'][number]['type'], DashboardComponentWidgetType >,
+      DashboardComponentWidgetType
+    > = true;
+    expect([disjoint, widgetArm, element]).toEqual([true, true, true]);
   });
-});
 
-/* ── 5. the TypeScript face's measured limit ─────────────────────────────── */
-
-describe('MEASURED LIMIT of the TypeScript face — recorded, not a contract', () => {
-  it('a `metric-card` literal with no `value` compiles through the widget read type, and both Zod faces refuse it', () => {
-    // It matches the widget arm, whose `type` must keep the component type because
-    // `DashboardWidgetSchema` is also the read type of every slot entry. If tsc ever
-    // refuses this literal, the corner has closed: delete this constant and the notes
-    // on `DashboardWidgetSchema.type` and `DashboardComponentSchema.widgets` in
-    // `complex.ts`. ⛔ Do not add an `@ts-expect-error` to keep the file green.
+  it('`tsc` refuses a `metric-card` literal with no `value`, as both Zod faces do (objectui#11514)', () => {
     const valuelessCard: DashboardComponentSchema = {
       type: 'dashboard',
+      // @ts-expect-error -- the component arm requires `value`, and no other arm names `metric-card`.
       widgets: [{ type: 'metric-card', title: 'Revenue' }],
     };
     for (const [, face] of FACES) expect(face.safeParse(valuelessCard).success).toBe(false);

@@ -85,10 +85,10 @@ function stepUp(fieldKey: 'layoutW' | 'layoutH') {
   fireEvent.keyDown(thumb, { key: 'ArrowRight' });
 }
 
-/** One widget from the schema the dashboard was last rendered with. */
-function liveWidget(id: string): DashboardWidgetSchema {
+/** One widget from the schema the dashboard was last rendered with, read by the slot's element type (objectui#11514). */
+function liveWidget(id: string): DashboardComponentSchema['widgets'][number] {
   const schema = rendered.schema as DashboardComponentSchema;
-  const widgets: DashboardWidgetSchema[] = schema.widgets ?? [];
+  const widgets: DashboardComponentSchema['widgets'] = schema.widgets ?? [];
   return widgets.find((w) => w.id === id)!;
 }
 

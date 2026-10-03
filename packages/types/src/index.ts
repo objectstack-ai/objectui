@@ -494,7 +494,6 @@ export type {
   ObjectCalendarSchema,
   ObjectKanbanSchema,
   KanbanConditionalFormattingRule,
-  KanbanNativeConditionalFormattingRule,
   ObjectChartSchema,
   ObjectGallerySchema,
   ObjectDataTableSchema,

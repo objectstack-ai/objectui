@@ -10,7 +10,8 @@ import * as React from 'react';
 import { useState, useCallback, useEffect } from 'react';
 import { Settings } from 'lucide-react';
 import { cn, Button } from '@object-ui/components';
-import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
+import type { DashboardComponentSchema } from '@object-ui/types';
+import type { DashboardWidgetSlotEntry } from './widgetDispatch';
 import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
 
 import { DashboardRenderer } from './DashboardRenderer';
@@ -95,16 +96,15 @@ export function DashboardWithConfig({
   // field change. This prevents useConfigDraft from resetting the draft.
   const selectedWidgetConfig = React.useMemo(() => {
     if (!selectedWidgetId || !liveSchema.widgets) return null;
-    // Read through `DashboardWidgetSchema` (objectui#11348). `title` and
-    // `colorVariant` below are declared on the widget arm of the `widgets[]`
-    // union only — the spec's `DashboardWidget` row declares both — and
-    // `layout` on both arms (the component arm takes the spec's member by
-    // reference, objectui#11070 round 11). The component arm
-    // (`DashboardWidgetSlotComponentSchema`) is assignable to the widget arm
-    // (pinned by `@object-ui/types`'
-    // `dashboard-widget-slot-component-arm-7952.test.ts`), so the annotation is
-    // checked by the compiler rather than asserted.
-    const widgets: DashboardWidgetSchema[] = liveSchema.widgets;
+    // Read through the slot's element type (objectui#11514), as every
+    // dashboard surface reads a `widgets[]` entry. `title` and `layout` below
+    // are declared on both arms: the widget arm's spec `DashboardWidget` row,
+    // and the component arm's card heading and the spec's `layout` by reference
+    // (objectui#11070 round 11). `colorVariant` is the widget arm's member; on
+    // the component arm the passthrough reads it. The component arm
+    // (`DashboardWidgetSlotComponentSchema`) is no longer assignable to the
+    // widget arm, whose `type` names no component type since objectui#11514.
+    const widgets: DashboardWidgetSlotEntry[] = liveSchema.widgets;
     const index = widgets.findIndex(
       (w) => (w.id || w.title) === selectedWidgetId,
     );
@@ -168,8 +168,8 @@ export function DashboardWithConfig({
         if (!prev.widgets) return prev;
         return {
           ...prev,
-          // `DashboardWidgetSchema`, for the reason `selectedWidgetConfig`
-          // states: `title` is a widget-arm key (objectui#11348).
+          // The slot's element type, for the reason `selectedWidgetConfig`
+          // states (objectui#11514).
           //
           // A slider edits ONE dimension of the spec's four-number `layout`,
           // so it goes through `completeWidgetLayout` (objectui#11388): on a
@@ -178,7 +178,7 @@ export function DashboardWithConfig({
           // Spreading the one number onto an absent box stored `{ w }`, which
           // the spec refuses. `DashboardRenderer` computes no `x` / `y` this
           // component can read, so it seeds from `defaultWidgetPlacement`.
-          widgets: prev.widgets.map((w: DashboardWidgetSchema, index: number) => {
+          widgets: prev.widgets.map((w: DashboardWidgetSlotEntry, index: number) => {
             if ((w.id || w.title) !== selectedWidgetId) return w;
             if (field === 'layoutW' || field === 'layoutH') {
               const patch = field === 'layoutW' ? { w: value } : { h: value };

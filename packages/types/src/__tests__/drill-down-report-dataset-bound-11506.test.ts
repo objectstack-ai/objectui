@@ -26,9 +26,11 @@
  * face (`StrictAnyComponentSchema`) refuse the retired form; the
  * `@ts-expect-error` lines below are checked by `tsc -p tsconfig.test.json`,
  * the package's `type-check`. The tolerant face (`DrillDownConfigSchema` and
- * `safeValidateSchema`, which is what `objectui validate` runs) does not: its
- * reference arm keeps reading a value that fails the inline arm as a
- * `{ name }` reference, stripped to that member, and reports it valid.
+ * `safeValidateSchema`, which is what `objectui validate` runs) refuses it too
+ * since objectui#11517, by name: until then its `{ name }` reference arm read a
+ * value that failed the inline arm as a reference, stripped to that member, and
+ * reported it valid. That arm is retired, and its own refusal is pinned in
+ * `drill-down-report-name-retired-11517.test.ts`.
  */
 import { describe, expect, it } from 'vitest';
 import { ReportSchema as SpecReportSchema } from '@objectstack/spec/ui';
@@ -67,15 +69,16 @@ const pivotDrill = (report: unknown) => ({
 });
 
 describe('DrillDownConfig.report is the spec report, by reference (objectui#11506)', () => {
-  it('the TypeScript face takes a dataset-bound report and refuses the retired form and `filter`', () => {
+  it('the TypeScript face takes a dataset-bound report and refuses both retired forms and `filter`', () => {
     const summary: DrillDownConfig = {
       report: { name: 'deals_by_stage', label: 'Deals by Stage', type: 'summary', dataset: 'deals_ds', rows: ['stage'], values: ['amount_sum'] },
     };
     const matrix: DrillDownConfig = {
       report: { name: 'deals_matrix', label: 'Deals', type: 'matrix', dataset: 'deals_ds', rows: ['stage'], columns: ['owner'], values: ['amount_sum'], runtimeFilter: { region: 'emea' } },
     };
+    // @ts-expect-error the `{ name }` reference arm is retired: a name alone is no report (objectui#11517).
     const reference: DrillDownConfig = { report: { name: 'deals_by_stage' } };
-    // @ts-expect-error the pre-9.0 object-bound form is retired: `objectName` is no member of either arm (objectui#11506).
+    // @ts-expect-error the pre-9.0 object-bound form is retired: `objectName` is no report member (objectui#11506).
     const pre9: DrillDownConfig = { report: { name: 'pipeline', objectName: 'deal', type: 'summary', columns: [] } };
     const withFilter: DrillDownConfig = {
       // @ts-expect-error `filter` is not a report member: the drill filter is the report's `runtimeFilter`.
@@ -101,15 +104,20 @@ describe('DrillDownConfig.report is the spec report, by reference (objectui#1150
       issuesOf(result).filter((issue) => issue.path.join('.').startsWith('properties.drillDown.report'));
     const pre9 = StrictAnyComponentSchema.safeParse(pivotDrill(PRE_9_REPORT));
     expect(pre9.success).toBe(false);
-    expect(atReport(pre9).flatMap((issue) => issue.keys ?? [])).toContain('objectName');
+    // Named at the key: since objectui#11517 `objectName` is a declared refusal on the
+    // drill report, so it is no longer an unrecognized key.
+    expect(atReport(pre9).filter((issue) => issue.path.join('.') === 'properties.drillDown.report.objectName')
+      .map((issue) => issue.code)).toContain('invalid_type');
     const withFilter = StrictAnyComponentSchema.safeParse(pivotDrill({ ...DATASET_REPORT, filter: { stage: 'Won' } }));
     expect(withFilter.success).toBe(false);
     expect(atReport(withFilter).flatMap((issue) => issue.keys ?? [])).toContain('filter');
   });
 
-  it('the tolerant mirror no longer reads the retired form as an inline report: it falls to the reference arm, `{ name }` alone', () => {
+  it('the tolerant face refuses the retired form by name, where its retired reference arm read it as `{ name }` (objectui#11517)', () => {
     const parsed = DrillDownConfigSchema.safeParse({ report: PRE_9_REPORT });
-    expect(parsed.success).toBe(true);
-    expect(parsed.data?.report).toEqual({ name: 'pipeline' });
+    expect(parsed.success).toBe(false);
+    const named = issuesOf(parsed).filter((issue) => issue.path.join('.') === 'report.objectName');
+    expect(named.map((issue) => issue.code), JSON.stringify(parsed.error?.issues)).toEqual(['invalid_type']);
+    expect(safeValidateSchema(pivotDrill(PRE_9_REPORT)).success).toBe(false);
   });
 });

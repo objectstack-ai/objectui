@@ -42,7 +42,7 @@
  * used.
  */
 
-import type { DashboardWidgetSchema } from '@object-ui/types';
+import type { DashboardWidgetSlotEntry } from './widgetDispatch';
 
 /**
  * The placeholder schema rendered in place of a retired inline-analytics widget.
@@ -101,7 +101,7 @@ type LegacyRetiredReadKeys = {
  * surface no observable behavior, and it keeps the predicate true on its own
  * terms for any surface that has no such fork.
  */
-export function isLegacyRetiredWidget(widget: DashboardWidgetSchema | null | undefined): boolean {
+export function isLegacyRetiredWidget(widget: DashboardWidgetSlotEntry | null | undefined): boolean {
   if (!widget) return false;
   const w = widget as LegacyRetiredReadKeys;
   if (w.dataset) return false;

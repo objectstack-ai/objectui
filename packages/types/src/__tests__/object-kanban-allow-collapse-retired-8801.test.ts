@@ -193,7 +193,9 @@ describe('the positive direction — the declared members still parse', () => {
     ['cardFields', ['owner']],
     // `quickAdd` left this list when objectui#8285 retired it on this arm.
     ['coverImageField', 'cover'],
-    ['conditionalFormatting', [{ field: 'status', operator: 'equals', value: 'open' }]],
+    // `{ condition, style }`: respelled (objectui#11522) from the retired native
+    // `{ field: 'status', operator: 'equals', value: 'open' }`, now refused by name.
+    ['conditionalFormatting', [{ condition: "record.status == 'open'", style: { backgroundColor: '#fee2e2' } }]],
   ])('still accepts the live member `%s`', (key, value) => {
     expect(refusals({ ...NODE, [key]: value })).toEqual([]);
   });

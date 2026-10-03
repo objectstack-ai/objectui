@@ -482,6 +482,13 @@ export const ADJUDICATED = new Map([
     'packages/types/src/__tests__/calendar-flat-color-allday-8466.test.ts',
     { reads: ['packages/plugin-calendar/README.md'] },
   ],
+  // objectui#11521. Parses the `chartType` row of the page's `ChartSchema`
+  // table and holds its quoted values equal to the node's declared set -- so an
+  // edit to that page IS an edit to this test's input.
+  [
+    'packages/types/src/__tests__/chart-type-doc-row-11521.test.ts',
+    { reads: ['content/docs/api/schema-reference.md'] },
+  ],
   [
     'packages/types/src/__tests__/chat-message-avatar-keys-7295.test.ts',
     { reads: ['content/docs/plugins/plugin-chatbot.mdx'] },

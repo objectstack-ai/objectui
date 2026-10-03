@@ -3,13 +3,22 @@ import { ResponsiveGridLayout, useContainerWidth, type LayoutItem as RGLLayout, 
 import 'react-grid-layout/css/styles.css';
 import { cn, Card, CardHeader, CardTitle, CardContent, Button } from '@object-ui/components';
 import { Edit, GripVertical, Save, X, RefreshCw } from 'lucide-react';
-import { SchemaRenderer, useHasDndProvider, useDnd } from '@object-ui/react';
+import { SchemaRenderer, toRenderableSchema, useHasDndProvider, useDnd } from '@object-ui/react';
 import { useObjectTranslation, useObjectLabel, useSafeTranslate, pickLocalized } from '@object-ui/i18n';
-import type { BaseSchema, DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
+import type { BaseSchema, DashboardComponentSchema, ObjectChartSchema } from '@object-ui/types';
 import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
 import { chartCategoryKey, chartConfigPresentation, chartMeasureKey } from '@object-ui/core';
 import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from './utils';
-import { classifyWidgetType, DASHBOARD_NODE_TYPES, toDashboardNodeType } from './widgetDispatch';
+import {
+  classifyWidgetType,
+  DASHBOARD_NODE_TYPES,
+  entryComponent,
+  isSlotComponentEntry,
+  resolveWidgetType,
+  toDashboardNodeType,
+  unsupportedWidgetSchema,
+  type DashboardWidgetSlotEntry,
+} from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
 import { useWidgetSubCaption } from './widgetSubCaption';
@@ -117,7 +126,7 @@ export function mergeLayoutIntoSchema(
  */
 function buildDefaultLayouts(schema: DashboardComponentSchema): { lg: RGLLayout[] } {
   return {
-    lg: schema.widgets?.map((widget: DashboardWidgetSchema, index: number) => ({
+    lg: schema.widgets?.map((widget: DashboardWidgetSlotEntry, index: number) => ({
       i: widget.id || `widget-${index}`,
       ...completeWidgetLayout(widget.layout, {}, defaultWidgetPlacement(index)),
     })) || [],
@@ -193,18 +202,15 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
   // re-fetches after a save, widgets are added/removed). Previously the
   // useState initializer ran once and the grid drifted from the schema.
   //
-  // `w` is annotated `DashboardWidgetSchema`, as `buildDefaultLayouts` above
-  // already is (objectui#11348). A `widgets[]` entry is either arm of a union,
-  // and both arms declare `layout` as the spec's `DashboardWidget` member: the
-  // widget arm through the spec row, the component arm
-  // (`DashboardWidgetSlotComponentSchema`) by reference to it, because
-  // `mergeLayoutIntoSchema` below writes it onto every entry, a component node
-  // included (objectui#11070 round 11). That arm is assignable to
-  // `DashboardWidgetSchema` (pinned by `@object-ui/types`'
-  // `dashboard-widget-slot-component-arm-7952.test.ts`), so the annotation is
-  // checked by the compiler rather than asserted.
+  // `w` is annotated by the slot's element type, as `buildDefaultLayouts` above
+  // is (objectui#11514). A `widgets[]` entry is either arm of a union, and both
+  // arms declare `layout` as the spec's `DashboardWidget` member: the widget arm
+  // through the spec row, the component arm (`DashboardWidgetSlotComponentSchema`)
+  // by reference to it, because `mergeLayoutIntoSchema` below writes it onto
+  // every entry, a component node included (objectui#11070 round 11). So
+  // `layout` reads with the spec's type off either arm.
   const widgetsSignature = React.useMemo(
-    () => JSON.stringify(schema.widgets?.map((w: DashboardWidgetSchema, i: number) => ({
+    () => JSON.stringify(schema.widgets?.map((w: DashboardWidgetSlotEntry, i: number) => ({
       i: w.id || `widget-${i}`,
       x: w.layout?.x, y: w.layout?.y, w: w.layout?.w, h: w.layout?.h,
     })) ?? []),
@@ -248,11 +254,15 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
     setLayouts(buildDefaultLayouts(schema));
   }, [schema]);
 
-  const getComponentSchema = React.useCallback((widget: DashboardWidgetSchema) => {
+  const getComponentSchema = React.useCallback((widget: DashboardWidgetSlotEntry) => {
     // Same boundary as `DashboardRenderer`: the author's node keeps its
     // spelling except a `metric` / `metric-card` node key, which moves onto its
     // namespaced registration (`toDashboardNodeType`, objectui#10859 batch 8).
-    if (widget.component) return toDashboardNodeType(widget.component);
+    const authoredComponent = entryComponent(widget);
+    // `toRenderableSchema` (objectui#4622) bridges the envelope's `SchemaNode`
+    // to what `SchemaRenderer` takes: a number or boolean draws the same text
+    // (or nothing, when falsy) it drew when handed to the renderer bare.
+    if (authoredComponent) return toRenderableSchema(toDashboardNodeType(authoredComponent));
 
     // Retired legacy inline-analytics widget (framework#3320) — the SAME
     // detector `DashboardRenderer` uses, imported rather than restated
@@ -264,7 +274,9 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
     // branches are what swallow it.
     if (isLegacyRetiredWidget(widget)) return LEGACY_RETIRED_WIDGET_SCHEMA;
 
-    const widgetType = widget.type;
+    // The authored `type`, or the spec's default (`metric`) when the entry
+    // names none (objectui#11514, Q2 A), as `DashboardRenderer` resolves it.
+    const widgetType = resolveWidgetType(widget);
     const options = (widget.options || {}) as Record<string, any>;
     // One shared classification (./widgetDispatch) — this surface used to name
     // 8 chart families by hand while DatasetWidget covered all 19, so radar /
@@ -316,6 +328,10 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
         // (rows are raw records) and an UNGROUPED one (a single row with no
         // category column at all).
         const effectiveXAxisKey = chartCategoryKey(effectiveAggregate, xAxisKey);
+        // The declared node type, `ObjectChartSchema` (objectui#11514), as
+        // `DashboardRenderer` builds it: `chartType` is the dispatch's
+        // `SeriesChartFamily`, one of the families that type declares
+        // (objectui#11513), with no cast.
         return {
           type: 'object-chart',
           chartType: dispatch.chartType,
@@ -331,7 +347,7 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
           isAnimationActive: false,
           className: "h-full",
           ...chartPresentation,
-        };
+        } satisfies ObjectChartSchema;
       }
 
       const dataItems = Array.isArray(widgetData) ? widgetData : widgetData?.items || [];
@@ -461,21 +477,21 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
     }
 
     if (dispatch.family === 'unsupported') {
-      return {
-        type: 'text',
-        content: `「${widgetType}」chart type is not supported yet`,
-        variant: 'caption',
-        align: 'center',
-        className: 'flex h-full w-full items-center justify-center rounded border border-dashed bg-muted/20 p-4 text-muted-foreground',
-      };
+      return unsupportedWidgetSchema(widgetType);
     }
 
-    // The slot-component passthrough takes the namespaced node key too
-    // (`toDashboardNodeType`, objectui#10859 batch 8).
-    return toDashboardNodeType({
-      ...widget,
-      ...options
-    });
+    // The slot-component passthrough serves the slot's component arm alone and
+    // takes the namespaced node key too (`toDashboardNodeType`, objectui#10859
+    // batch 8; objectui#11514, Q2 A). Any other entry here names no family:
+    // stale metadata, drawn as the labelled placeholder, as `DashboardRenderer`
+    // draws it.
+    if (isSlotComponentEntry(widget)) {
+      return toDashboardNodeType({
+        ...widget,
+        ...options
+      });
+    }
+    return unsupportedWidgetSchema(widgetType);
   }, [resolveSeriesLabel]);
 
   return (
@@ -562,19 +578,19 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
           resizeConfig={{ enabled: editMode }}
           onLayoutChange={handleLayoutChange}
         >
-          {/* `DashboardWidgetSchema`, for the reason `widgetsSignature` states:
-              `title` below is declared on the widget arm only (objectui#11348). */}
-          {schema.widgets?.map((widget: DashboardWidgetSchema, index: number) => {
+          {/* The slot's element type, for the reason `widgetsSignature` states
+              (objectui#11514). `title` below is declared on both arms: the
+              widget's spec row, and the card's heading on the component arm. */}
+          {schema.widgets?.map((widget: DashboardWidgetSlotEntry, index: number) => {
             const widgetId = widget.id || `widget-${index}`;
             // `getComponentSchema` builds a node for `SchemaRenderer` in every
-            // branch, but its inferred union is wider than the renderer's
-            // declared input: the passthrough fallback spreads a
-            // `DashboardWidgetSchema` whose `type` is OPTIONAL, and the metric
-            // branches carry `widget.title`'s `I18nLabel` where `BaseSchema`
-            // declares a plain `string`. Both are pre-existing looseness in the
-            // widget types rather than anything this call site can state
-            // truthfully, so the narrowing is named here once (objectui#4548)
-            // instead of being spread across the two render sites below.
+            // branch, but not every branch's node is a declared type yet: the
+            // flat `object-metric` node has none (objectui#11525), the
+            // `plugin-dashboard:metric` key is typed `string`
+            // (`DASHBOARD_NODE_TYPES`, objectui#11466), and the static `pivot`
+            // does not state `PivotTableSchema`'s required axes. So the
+            // narrowing is named here once (objectui#4548) instead of being
+            // spread across the two render sites below.
             const componentSchema = getComponentSchema(widget) as BaseSchema | string | null | undefined;
             // ADR-0021 — a widget bound to a semantic-layer dataset renders
             // through the governed queryDataset path (DatasetWidget) instead of
@@ -611,7 +627,7 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
             // the value — so it must take the shared Card wrapper to get a title
             // and border like its neighbours, instead of showing as bare text
             // (`DashboardRenderer.tsx:777-782`, same rule, same reason).
-            const isSelfContained = widget.type === 'metric' && !datasetBound;
+            const isSelfContained = resolveWidgetType(widget) === 'metric' && !datasetBound;
             // `DashboardWidget.title` is the spec's `I18nLabel`: since
             // 17.0.0-rc.6 an author may inline a per-locale map
             // (`{ en: 'Pipeline', 'zh-CN': '销售漏斗' }`) instead of a string.

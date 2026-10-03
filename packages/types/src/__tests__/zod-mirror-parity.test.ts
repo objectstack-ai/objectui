@@ -154,7 +154,12 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **50 entries** in `KnownDrift`, **88 keys** across them — 49 / 87 until
+ *   - **50 entries** in `KnownDrift`, **87 keys** across them — 50 / 88 until
+ *     objectui#11514 dropped the component type from the TS
+ *     `DashboardWidgetSchema`'s `type`, once `plugin-dashboard` read slot entries
+ *     by the slot's element type: both faces name the same widget vocabulary, so
+ *     `type` LEFT `complex.zod.ts#DashboardWidgetSchema`'s entry and the entry
+ *     stays on `component` and `options`. It was 49 / 87 until
  *     objectui#11515 registered the TS twins of three zod-only node arms. ONE
  *     entry is NEW with one key: `views.zod.ts#DetailSectionNodeSchema`'s
  *     `fields`, the EXPECTED DIVERGENCE on `views.zod.ts#DetailViewFieldSchema`'s
@@ -2278,18 +2283,14 @@ interface KnownDrift {
    * excludes every `.test.ts` under `src` and stays green while `tsconfig.test.json`
    * reddens.
    *
-   * `type` — joined with objectui#11483, and the TS side is the WIDER one, on purpose.
-   * The mirror's widget vocabulary (`DashboardWidgetTypeSchema`) dropped the component
-   * type `metric-card`, so the slot reads a card through its component arm alone and
-   * the card's required `value` governs. The TS interface keeps
-   * `DashboardComponentWidgetType` in `type` because it is ALSO the read type of every
-   * `widgets[]` entry: the component arm is assignable to it, and `plugin-dashboard`'s
-   * renderers annotate slot entries with it. Measured on that card's branch, dropping it
-   * on this face breaks those renderers under `tsc`. The literal this lets compile, a
-   * `metric-card` with no `value`, is pinned two-faced as a measured limit in
-   * `metric-card-needs-value-11483.test.ts`.
+   * `type` LEFT under objectui#11514. It joined with objectui#11483, which dropped the
+   * component type `metric-card` from the mirror's widget vocabulary while the TS
+   * interface kept it, because the interface was also the read type of every
+   * `widgets[]` entry. objectui#11514 moved `plugin-dashboard`'s slot-entry reads onto
+   * the slot's element type and dropped the component type on this face too, so both
+   * faces name the same widget vocabulary and the key measures clean.
    */
-  'complex.zod.ts#DashboardWidgetSchema': 'component' | 'options' | 'type';
+  'complex.zod.ts#DashboardWidgetSchema': 'component' | 'options';
   /**
    * `onChange` — RUNTIME SLOT (objectui#6124): the `filter-builder` renderer
    * calls it as `props.onChange` after `SchemaRenderer`'s spread. (`fields` LEFT
@@ -4977,8 +4978,11 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "a key-name tuple, not a schema — the exclusion list `SpecDashboardFields` and the `DashboardComponentSchema` twin both read (objectui#9736)",
   'layout.zod.ts#PAGE_SPEC_EXCLUDED':
     "a key-name tuple, not a schema — the exclusion list `SpecPageFields` and the `PageNodeSchema` twin both read (objectui#9736)",
+  // objectui#11522 — no longer a union of two dialects: the spec list view's own
+  // rule, by reference, plus the retired keys as tombstones. The TS twin is
+  // compared where it is pinned, the way `ExpressionWireSchema` above is.
   'objectql.zod.ts#KanbanConditionalFormattingRuleSchema':
-    "a union of two rule dialects (native `{ field, operator, value }` | spec `{ condition, style }`) with no `.shape` of its own — exported by objectui#7664 so the `'kanban'` arm (`complex.zod.ts#KanbanSchema`) and the `'object-kanban'` arm mirror `conditionalFormatting` from ONE rule declaration; its TS twin `KanbanConditionalFormattingRule` (`../objectql.ts`) is a type union, not a key set, and both arms' `conditionalFormatting` keys are compared where they are declared",
+    "the spec list view's `{ condition, style }` rule BY REFERENCE (`ListViewSchema.conditionalFormatting`'s element, `.extend()`-ed), with the condition the list view's own arm reads and the six retired keys of the native and flat-colour dialects as tombstones (objectui#11522) — not a hand-written key set; its TS twin `KanbanConditionalFormattingRule` (`../objectql.ts`) extends `SpecConditionalFormattingRule`, the same reference, and the two faces' key sets and values are pinned equal in `kanban-conditional-formatting.test.ts`; `ObjectKanbanSchema`'s `conditionalFormatting` key is compared where it is declared",
 };
 
 /* ── Which pairs depend on @objectstack/spec ────────────────────────────────── */

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { mergeLayoutIntoSchema } from '../DashboardGridLayout';
-import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
+import type { DashboardComponentSchema } from '@object-ui/types';
 
 // No dashboard-root `title`: that key was retired (objectui#7509), so it was
 // inert here and compiled only through `BaseSchema`'s index signature
@@ -53,9 +53,9 @@ describe('mergeLayoutIntoSchema', () => {
     const next = mergeLayoutIntoSchema(schema, [
       { i: 'widget-0', x: 2, y: 3, w: 4, h: 5 },
     ]);
-    // Read through `DashboardWidgetSchema`, the `widgets[]` arm that declares
-    // `layout` (objectui#11348); the component arm is assignable to it.
-    const first: DashboardWidgetSchema | undefined = next.widgets?.[0];
+    // Read through the slot's element type (objectui#11514): both arms declare
+    // `layout`, the component arm by reference to the spec's widget member.
+    const first: DashboardComponentSchema['widgets'][number] | undefined = next.widgets?.[0];
     expect(first?.layout).toEqual({ x: 2, y: 3, w: 4, h: 5 });
   });
 });

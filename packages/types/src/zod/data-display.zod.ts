@@ -930,37 +930,104 @@ const CHART_Y_AXIS_IS_A_LIST_GUIDANCE =
   + 'column name is not a member of the protocol.';
 
 /**
- * `DrillDownConfig.report`'s mirror (objectui#11506): an inline dataset-bound
- * report OR a named reference `{ name }`, tried in that order.
+ * The refusal of a drill `report` written as a named reference, `{ name }`
+ * (objectui#11517). One string, so the message and the docs that quote it
+ * cannot drift apart.
+ */
+const DRILL_REPORT_REFERENCE_RETIRED =
+  '`drillDown.report` as a named reference, `{ name }`, is RETIRED (objectui#11517): no renderer resolves a '
+  + 'report name, so such a drill listed the records and drew no report. Write the report inline, '
+  + 'dataset-bound: `@objectstack/spec`\'s `ReportSchema`, `{ name, label, dataset, values, … }` (`values` are '
+  + 'measure names; `rows`, and `columns` on a matrix, are dimension names), or a `joined` report whose '
+  + '`blocks` bind a dataset.';
+
+/**
+ * Names the retired `{ name }` reference (objectui#11517) where the spec's
+ * `ReportSchema` alone refuses it only in its own words: for the members it
+ * lacks, `label` first, which says nothing about why a name is not enough or
+ * what to write instead.
  *
- * The inline arm is `@objectstack/spec`'s `ReportSchema` by reference, the
- * member `ReportNodeSchema` (`reports.zod.ts`) declares on the `report` node the
- * drawer wraps this report in. A drill report that validates here therefore
- * becomes a `report` node that validates there, with the drill filter in the
- * `runtimeFilter` the spec declares. The spec's own refusals apply: `filter`
- * (an alias of `runtimeFilter`), and the pre-9.0 object-bound form, `objectName`
- * (an alias of `dataset`) with column objects. That form was this arm's shape
- * until objectui#11506 retired it with no alias window: it had no producer, and
- * through the real drawer it drew an empty presentation and issued no query.
+ * The predicate is a value that carries no report member but `name`: the shape
+ * of the arm objectui#11517 retired. It reads the PARSED value, whose keys are
+ * the report members the input carried, because zod hands a check the object it
+ * built, not the input. A key that is no report member is refused beside this
+ * issue by the spec's own `unrecognized_keys`. A value with any other report
+ * member is an inline report attempt, and the spec's own refusals name what it
+ * lacks.
  *
- * The reference arm is unchanged, a plain `z.object`: on this tolerant face a
- * value that fails the inline arm and carries a string `name` parses as a
- * reference, stripped to `{ name }`, as it did before; the strict authoring face
- * closes that arm and refuses the extra keys.
+ * Installed with `when: () => true`, for the reason `requireRecordSource`
+ * (`./objectql.zod.ts`) gives: zod skips a refinement once an earlier issue
+ * aborts the parse, and a bare `{ name }` always fails the spec's shape first.
+ * So the body reads its value defensively. A refusal, never an accept: it adds
+ * an issue and changes no value, and the spec already refuses every value it
+ * fires on. `params.code` lets a consumer tell it from the spec's issues
+ * without parsing the message.
+ */
+function refuseRetiredDrillReportReference(report: unknown, ctx: z.core.$RefinementCtx): void {
+  if (!report || typeof report !== 'object' || Array.isArray(report)) return;
+  const keys = Object.keys(report);
+  if (keys.length !== 1 || keys[0] !== 'name') return;
+  ctx.addIssue({
+    code: 'custom',
+    path: [],
+    params: { code: 'DRILL_REPORT_REFERENCE_RETIRED' },
+    message: DRILL_REPORT_REFERENCE_RETIRED,
+  });
+}
+
+/**
+ * `DrillDownConfig.report`'s mirror: a dataset-bound report, `@objectstack/spec`'s
+ * `ReportSchema` by reference (objectui#11506), the member `ReportNodeSchema`
+ * (`reports.zod.ts`) declares on the `report` node the drawer wraps this report
+ * in. A drill report that validates here therefore becomes a `report` node that
+ * validates there, with the drill filter in the `runtimeFilter` the spec
+ * declares. The spec's own refusals apply: `filter` (an alias of
+ * `runtimeFilter`) among them.
+ *
+ * Two retired forms are refused BY NAME, on this tolerant face and on the strict
+ * one derived from it. Each was already outside the spec's accept set, so the
+ * accept set is the spec's own; what the two add is the retirement and the
+ * remedy, in the issue an author reads.
+ *
+ * - **`objectName`**, the pre-9.0 object-bound form (`objectName` plus column
+ *   objects), retired by objectui#11506 with no alias window: it had no
+ *   producer, and through the real drawer it drew an empty presentation and
+ *   issued no query. The spec refuses `objectName` as its alias of `dataset`;
+ *   this member says so in the spec's lead sentence and adds the retirement.
+ *   It is declared rather than left to the spec's refusal because until
+ *   objectui#11517 this tolerant face reported such a value VALID: the
+ *   reference arm read it, stripped to `{ name }`, so the retirement had a named
+ *   refusal on the strict face only.
+ * - **A bare `{ name }`**, the reference arm, retired by objectui#11517 with no
+ *   alias window: no renderer resolved a report name against any registry, so
+ *   the drawer listed the records for it, and nothing produced it.
+ *   {@link refuseRetiredDrillReportReference} names it.
  *
  * Typed BY REFERENCE ({@link DrillDownReportZodType}) so declaration emit names
  * the spec's schema instead of re-serializing the whole report shape into every
  * declaration that carries `drillDown`, the TS7056 failure `ReportNodeZodType`
  * exists to avoid. Not exported: the type is, for that emit.
  */
-const DrillDownReportSchema: DrillDownReportZodType = z.union([
-  stripImportedDefaults(SpecReportSchema),
-  z.object({ name: z.string() }),
-]);
+const DrillDownReportSchema: DrillDownReportZodType = stripImportedDefaults(SpecReportSchema)
+  .extend({
+    objectName: aliasKeyRefusal(
+      'objectName',
+      'dataset',
+      'this drill report',
+      'The pre-9.0 object-bound drill report, `objectName` plus column objects, is RETIRED (objectui#11506): '
+      + 'it had no producer, and the drawer drew no report for it. Write the dataset-bound form: `dataset`, '
+      + '`values` (measure names), and `rows`, and `columns` on a matrix, as dimension names.',
+    ),
+  })
+  .superRefine(refuseRetiredDrillReportReference, { when: () => true });
 
-/** The TYPE of {@link DrillDownReportSchema}, written out by reference (see there). */
-export type DrillDownReportZodType = z.ZodUnion<
-  readonly [typeof SpecReportSchema, z.ZodObject<{ name: z.ZodString }, z.core.$strip>]
+/**
+ * The TYPE of {@link DrillDownReportSchema}, written out by reference (see
+ * there): the spec's `ReportSchema` shape by name, plus the `objectName` refusal.
+ */
+export type DrillDownReportZodType = z.ZodObject<
+  (typeof SpecReportSchema)['shape'] & { objectName: z.ZodOptional<z.ZodNever> },
+  z.core.$strict
 >;
 
 /**
@@ -994,9 +1061,9 @@ export type DrillDownReportZodType = z.ZodUnion<
  * spec's chart subset is a separate ruling — the declaration says
  * `DrillDownConfig`, and this mirror says the same.
  *
- * `report` is {@link DrillDownReportSchema}: the declaration's union of an
- * inline dataset-bound report (the spec's `ReportSchema`, by reference) OR a
- * named reference `{ name }`.
+ * `report` is {@link DrillDownReportSchema}: a dataset-bound report, the spec's
+ * `ReportSchema` by reference. The `{ name }` reference arm the declaration used
+ * to carry beside it is retired and refused by name (objectui#11517).
  */
 export const DrillDownConfigSchema = z.object({
   enabled: z.boolean().optional().describe('Master switch — true, or any other key present, turns the drill on'),
@@ -1012,8 +1079,8 @@ export const DrillDownConfigSchema = z.object({
     .optional()
     .describe(
       'Drill into an analytical report instead of the record list: an inline dataset-bound report '
-      + '(`@objectstack/spec` `ReportSchema`, by reference; the drawer writes the drill filter into its `runtimeFilter`), '
-      + 'or a named report reference. The pre-9.0 `objectName` form is retired (objectui#11506)',
+      + '(`@objectstack/spec` `ReportSchema`, by reference; the drawer writes the drill filter into its `runtimeFilter`). '
+      + 'The pre-9.0 `objectName` form (objectui#11506) and the `{ name }` reference (objectui#11517) are retired',
     ),
   columns: z.array(z.string()).optional().describe('Column whitelist for the inline drill list'),
   maxRows: z.number().optional().describe('Hard cap on rows fetched'),

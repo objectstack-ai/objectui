@@ -104,7 +104,9 @@ const DECLARED_STRUCTURED_KEYS = [
   {
     key: 'conditionalFormatting',
     arm: 'array',
-    value: [{ field: 'owner', operator: 'equals', value: 'ann', backgroundColor: '#eef' }],
+    // `{ condition, style }`: respelled (objectui#11522) from the retired native
+    // `{ field: 'owner', operator: 'equals', value: 'ann', backgroundColor }`.
+    value: [{ condition: "record.owner == 'ann'", style: { backgroundColor: '#eef' } }],
   },
 ] as const;
 

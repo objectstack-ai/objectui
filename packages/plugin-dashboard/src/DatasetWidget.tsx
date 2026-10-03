@@ -95,6 +95,7 @@ import { useFilterScope } from '@object-ui/react';
 import { resolveFilterPlaceholders, computeMetricDelta } from './utils';
 import { metricAccentTextClass } from './colorVariants';
 import { DrillDownDrawer } from './DrillDownDrawer';
+import { specDefaultWidgetType } from './widgetDispatch';
 
 type Row = Record<string, unknown>;
 // One RESULT-side totals grouping (the response's `totals[]`), named apart from
@@ -517,7 +518,9 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   const datasetName = String(widget?.dataset ?? '');
   const dimensions: string[] = useMemo(() => (Array.isArray(widget?.dimensions) ? widget.dimensions.filter(Boolean) : []), [widget]);
   const values: string[] = useMemo(() => (Array.isArray(widget?.values) ? widget.values.filter(Boolean) : []), [widget]);
-  const widgetType = String(widget?.type ?? '');
+  // An absent `type` is the spec's default, `metric` (objectui#11514, Q2 A),
+  // as the two dashboard surfaces resolve it before they reach this widget.
+  const widgetType = String(widget?.type ?? specDefaultWidgetType());
   const isTable = widgetType === 'table' || widgetType === 'pivot';
   // ── Which widgets are a one-number tile (objectui#11261) ─────────────────
   // By TYPE, only the metric family. By SHAPE, a widget that declares no
@@ -536,8 +539,8 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // `MEASURE_AXIS_CHART_FAMILIES` for why.
   //
   // Read off `CHART_TYPE_MAP` directly, never through `chartType`'s `?? 'bar'`
-  // default: a widget with no `type` resolves to `metric` in the spec, and the
-  // default would route it to a bar chart.
+  // default: that default belongs to a type the map does not name. A widget with
+  // no `type` is already `metric` here (above), so it is a tile by type.
   const rendersEveryMeasureWithoutDimension =
     values.length > 1 && (isTable || MEASURE_AXIS_CHART_FAMILIES.has(CHART_TYPE_MAP[widgetType] ?? ''));
   const isMetric = METRIC_TYPES.has(widgetType) || (dimensions.length === 0 && !rendersEveryMeasureWithoutDimension);

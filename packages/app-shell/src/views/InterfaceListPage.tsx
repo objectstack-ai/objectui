@@ -409,16 +409,28 @@ export function InterfaceListPage({ page, className, onConfigChange, reserveEdit
     // the author whitelisted a viz, derive a sensible default binding from the
     // object so the switcher actually offers (and renders) it. Only derive for
     // whitelisted types — an un-whitelisted viz is never reachable.
+    //
+    // objectui#10380 — nor for a kind the stored row's legacy `options` bag
+    // carries. That bag is declared metadata: the view write door judges it
+    // key by key and stores it, and `ListView` lays the top-level block over it
+    // per key. A derived default placed at the top level would therefore
+    // OUTRANK the row's own declaration, and the object page, which derives
+    // nothing, would render the row differently. So a derived default fills a
+    // kind only when the row declares that kind nowhere. That is the rule
+    // `mapCfg` below already follows (`view.options.map ?? derived`).
+    const legacyOptions: Record<string, unknown> =
+      view.options && typeof view.options === 'object' && !Array.isArray(view.options) ? view.options : {};
+    const derives = (kind: string): boolean => allowedSet.has(kind) && legacyOptions[kind] === undefined;
     const kanban =
-      view.kanban ?? (allowedSet.has('kanban') ? defaultKanbanFromObject(objectDef) : undefined);
+      view.kanban ?? (derives('kanban') ? defaultKanbanFromObject(objectDef) : undefined);
     const calendar =
-      view.calendar ?? (allowedSet.has('calendar') ? defaultCalendarFromObject(objectDef) : undefined);
+      view.calendar ?? (derives('calendar') ? defaultCalendarFromObject(objectDef) : undefined);
     const timeline =
-      view.timeline ?? (allowedSet.has('timeline') ? defaultCalendarFromObject(objectDef) : undefined);
+      view.timeline ?? (derives('timeline') ? defaultCalendarFromObject(objectDef) : undefined);
     const gallery =
-      view.gallery ?? (allowedSet.has('gallery') ? defaultGalleryFromObject(objectDef) : undefined);
+      view.gallery ?? (derives('gallery') ? defaultGalleryFromObject(objectDef) : undefined);
     const gantt =
-      view.gantt ?? (allowedSet.has('gantt') ? defaultGanttFromObject(objectDef) : undefined);
+      view.gantt ?? (derives('gantt') ? defaultGanttFromObject(objectDef) : undefined);
     // Map binding lives under options.map (locationField); auto-derive when
     // whitelisted so a map interface page renders without hand-wiring.
     //

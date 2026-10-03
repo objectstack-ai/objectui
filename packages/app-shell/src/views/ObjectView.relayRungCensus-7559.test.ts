@@ -395,18 +395,16 @@ type Absence =
   | { kind: 'host-runtime'; reason: string };
 
 const ABSENCES: Record<string, Absence> = {
-  // ── Relayed one level down, inside `options` ──────────────────────────────
-  // These are the per-view-type configuration blocks. `ListView` reads them off
-  // `schema.options.*`, which is why the rung is nested rather than top-level;
-  // the view's own value does reach the renderer.
-  kanban: { kind: 'relayed-nested', path: 'options.kanban', reason: 'Per-view-type block; relayed through `kanbanViewOptions(viewDef, objectDef)` into `options.kanban`, where ListView reads it.' },
-  calendar: { kind: 'relayed-nested', path: 'options.calendar', reason: 'Per-view-type block; relayed into `options.calendar` — and only when the view declared one (objectui#7029), which is why the property is written through a conditional spread.' },
-  gallery: { kind: 'relayed-nested', path: 'options.gallery', reason: 'Per-view-type block; relayed through `galleryViewOptions(viewDef)` into `options.gallery` (objectui#7547).' },
-  gantt: { kind: 'relayed-nested', path: 'options.gantt', reason: 'Per-view-type block; relayed through `ganttViewOptions(viewDef)` into `options.gantt` (objectui#7070).' },
-  timeline: { kind: 'relayed-nested', path: 'options.timeline', reason: 'Per-view-type block; relayed through `timelineViewOptions(viewDef)` into `options.timeline` (objectui#3129, objectui#6557).' },
-  tree: { kind: 'relayed-nested', path: 'options.tree', reason: "Per-view-type block; the view's whole `tree` block is spread into `options.tree`, with `labelField` floored at the legacy `titleField` rung and then `name` (objectui#8253, objectui#6557)." },
-  map: { kind: 'relayed-nested', path: 'options.map', reason: "Per-view-type block; the view's `map` keys are projected into `options.map`. ⚠️ A projection, not a forward — its key set is hand-listed and is the shape objectui#7823 retired for `chart`." },
-  chart: { kind: 'relayed-nested', path: 'options.chart', reason: 'Per-view-type block; forwarded WHOLE into `options.chart` (objectui#7823) rather than projected, so the block cannot lose keys as the chart vocabulary grows.' },
+  // ── The per-view-type blocks: no entry, they have top-level rungs ─────────
+  // `kanban`, `calendar`, `gallery`, `gantt`, `timeline`, `tree`, `map` and
+  // `chart` used to sit here as `relayed-nested`: the relay writes each one into
+  // `options.KIND`, where `ListView` reads it. objectui#10380 gave each of them a
+  // conditional TOP-LEVEL rung as well. When the stored row's legacy `options`
+  // bag carries a kind, the view's own block for that kind is written at the top
+  // level, so `ListView` lays it over the bag per key. The census therefore
+  // counts all eight as relayed, and an entry here would contradict it. Their
+  // nested paths are still written for every row and still asserted, by name,
+  // in the derivation checks below (`options.kanban`, `options.chart`).
 
   // ── Supplied by the caller, from the active view, via `...listSchema` ─────
   // `plugin-view`'s ObjectView composes the list schema this relay spreads. For

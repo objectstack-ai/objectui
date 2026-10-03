@@ -206,7 +206,7 @@ describe('every spec field operator is reachable from the builder (#2942)', () =
     const emitted = new Set<string>();
     for (const operator of FILTER_BUILDER_OPERATORS) {
       const value = operator === 'in' || operator === 'not_in' ? ['a'] : operator === 'between' ? [1, 5] : 'a';
-      const frag = condToMongo({ id: 'c1', field: 'f', operator, value } as any, noTypes);
+      const frag = condToMongo({ id: 'c1', field: 'f', operator, value }, noTypes);
       for (const op of operatorsOf(frag)) emitted.add(op);
     }
     // Lit control: the sweep really reads emitted operators.

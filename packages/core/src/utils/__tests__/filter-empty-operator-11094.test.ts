@@ -32,6 +32,7 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { isFilterAST, parseFilterAST } from '@objectstack/spec/data';
+import type { QueryParams } from '@object-ui/types';
 import { convertFiltersToAST, toFilterNode, FilterOperatorError } from '../filter-converter';
 import { ValueDataSource } from '../../adapters/ValueDataSource';
 
@@ -110,7 +111,7 @@ const ROWS = [
 
 async function selectedIds(filter: unknown): Promise<string[]> {
   const ds = new ValueDataSource({ items: ROWS });
-  const result = await ds.find('rows', { $filter: filter as any });
+  const result = await ds.find('rows', { $filter: filter as QueryParams['$filter'] });
   return result.data.map((r) => r.id as string);
 }
 

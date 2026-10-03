@@ -2975,6 +2975,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // Build a per-field value formatter so group headers display the human
   // readable label for select/boolean fields rather than the raw value
   // (e.g. "In Progress" instead of "in_progress", "Yes" instead of "true").
+  // A select value's label is the OBJECT FIELD's option label (objectui#11544).
   const groupValueFormatter = React.useMemo(() => {
     // [objectui#7217] ONE normalized entry list, shared with the
     // `useGroupedData` call below. Reading `grouping.fields` raw here threw
@@ -2993,12 +2994,20 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     for (const gf of groupingFields) {
       const fieldName = gf.field;
       const objectDefField = objectFields?.[fieldName];
-      // Try to find a column override matching this field for type/options
-      const cols = normalizeColumns(schema.columns) as any[] | undefined;
-      const colOverride = cols?.find?.((c) => typeof c === 'object' && c?.field === fieldName);
+      // The authored column for this field may respell its TYPE — `type` is a
+      // declared `ListColumn` member, and it is how a `"true"` / `"false"` text
+      // value reads Yes / No. It never supplies the value LABELS
+      // (objectui#11544): `options` is not a `ListColumn` member, and the
+      // strict `ListColumnSchema` refuses it at publish, so the labels come
+      // from the object field's `options` only. The lookup is typed as
+      // `ListColumn` so a read of an undeclared column member does not compile.
+      const cols: ReadonlyArray<string | ListColumn> = normalizeColumns(schema.columns) ?? [];
+      const colOverride = cols.find(
+        (c): c is ListColumn => typeof c === 'object' && c !== null && c.field === fieldName,
+      );
 
       const type = colOverride?.type || objectDefField?.type;
-      const rawOptions = colOverride?.options || objectDefField?.options;
+      const rawOptions = objectDefField?.options;
 
       const optionsMap = new Map<string, string>();
       if (Array.isArray(rawOptions) && rawOptions.length > 0) {

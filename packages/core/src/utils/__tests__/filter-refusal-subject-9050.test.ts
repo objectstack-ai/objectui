@@ -32,6 +32,8 @@
  * ⚠️ UPDATED. It did: objectui#9164 added the empty-operator-map refusal
  * (`{ a: {} }`), and that case went red until its row was added below. Like
  * the two comparand arms it names no operator, so `field` is its subject.
+ * objectui#11094 added the `$empty` flag refusal (a flag that is not a
+ * boolean) the same way; it names its operator, so `$empty` is its subject.
  *
  * ⚠️ Each input is driven through `toFilterNodeSafely` — the RENDER-time entry,
  * not `convertFiltersToAST` directly — because the question is what a renderer
@@ -73,6 +75,7 @@ const REFUSALS: Array<{
   { site: 'bare array equality comparand', input: { tags: ['a', 'b'] }, operator: undefined, field: 'tags', subject: 'tags' },
   { site: 'exotic comparand', input: { created: /abc/ }, operator: undefined, field: 'created', subject: 'created' },
   { site: '$regex operator', input: { name: { $regex: 'a.c' } }, operator: '$regex', field: 'name', subject: '$regex' },
+  { site: '$empty flag is not a boolean', input: { a: { $empty: 'yes' } }, operator: '$empty', field: 'a', subject: '$empty' },
   { site: 'retired lowercase alias', input: { name: { $startswith: 'x' } }, operator: '$startswith', field: 'name', subject: '$startswith' },
   { site: 'unknown operator', input: { name: { $bogus: 1 } }, operator: '$bogus', field: 'name', subject: '$bogus' },
   { site: 'view rule: array on a single-value operator', input: [{ field: 'tags', operator: 'equals', value: ['a'] }], operator: 'equals', field: 'tags', subject: 'equals' },

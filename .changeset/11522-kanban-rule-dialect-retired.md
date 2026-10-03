@@ -28,3 +28,18 @@ Each refusal message names the key, objectui#11522 and the `{ condition, style }
 **Not changed: what the board paints.** The shared evaluator, `resolveConditionalFormatting` in `@object-ui/core`, keeps every arm, because the grid's and the list view's rule union still declares them. A `{ condition, style }` rule styles a card exactly as before. A rule that a relay hands the board, for example a list view's, is painted as before too. Only the authored `object-kanban` member narrowed.
 
 Pins: `packages/types/src/__tests__/kanban-conditional-formatting.test.ts` (turned around) pins both refusals on all three zod faces, the spec rule's identity and strictness, and the TS face. `ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx` and `objectFieldsIsAPropNotASchemaKey-7742.test.tsx` in `@object-ui/plugin-kanban` draw the respelled rules through the real board and assert the same cards are painted.
+
+⚠️ **Dated note, 2026-10-03 — the grid and the list view retired the same dialect — objectui#11533.**
+At this change the grid's and the list view's rule was still a union that
+declared the native `{ field, operator, value }` comparison and the top-level
+colour keys, and the "Not changed" paragraph above gives that as the reason the
+shared evaluator keeps every arm. Now that rule retires them too: `object-grid`
+and `list-view` take the spec list view's `{ condition, style }` rule only, and
+the native rule, its `expression` and a top-level colour are refused by name.
+`resolveConditionalFormatting` still keeps every arm, for a different reason: it
+is a compatibility read for rules already STORED in the native dialect, so a
+board, grid or list view a relay or a stored view hands such a rule still paints
+it. The `condition` the kanban rule shares with the grid's and the list view's
+rule (called their "`{ condition, style }` arm" above) is still the same schema;
+it is now their whole rule rather than one arm of it. The rest of this entry is
+kept as the reading of this change.

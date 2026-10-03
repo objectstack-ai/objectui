@@ -117,10 +117,13 @@ The object dialect executes one arm per member of the spec's `FILTER_OPERATORS`:
 
 ```text
 $eq  $ne  $gt  $gte  $lt  $lte  $in  $nin  $between
-$contains  $icontains  $notContains  $startsWith  $endsWith  $null  $exists
+$contains  $icontains  $notContains  $startsWith  $endsWith  $null  $exists  $empty
 ```
 
-That is **all sixteen** — nothing the spec declares is refused by name.
+That is **every member** — nothing the spec declares is refused by name. What is held
+to the spec is the matcher's case table, not this list:
+`ValueDataSource.dollarFilterVocabulary.test.ts` reddens when a release adds an
+operator it has no case for. Nothing re-checks the list above.
 
 `$contains`, `$notContains`, `$startsWith` and `$endsWith` are **case-sensitive**;
 `$icontains` is the one case-insensitive member, its fold is **ASCII-only**, and its
@@ -129,6 +132,17 @@ table below rather than folded (objectui#8748).
 `$null` takes its direction from the value: `$null: true` is IS NULL, `$null: false`
 is IS NOT NULL. `$exists` is its exact inverse — `$exists: true` is IS NOT NULL — which
 is the lowering `convertFiltersToAST` already performs, not a reading invented here.
+
+`$empty` (objectui#11094) is not a null test. `$empty: true` selects a row whose value
+is null, absent, `''` or `[]`, and `$empty: false` is its exact complement; a flag that
+is not a boolean is refused. The AST twins are `is_empty` / `is_not_empty`, which the
+spec stopped folding onto `is_null` / `is_not_null` (objectstack#20570). The answer is
+the spec's own `isEmptyFilterValue`, called without a field declaration, because this
+adapter holds none: the spec's ruled table is keyed on a field's declared type (a
+text-like field is empty when null or `''`, a multi-value field when null or `[]`,
+every other type when null), and a face with no declarations judges by value, as
+`@objectstack/formula`'s matcher does. The two readings differ only on a value the
+declared type does not predict, such as `''` stored in a number column.
 
 A stored value that is **not a string** never satisfies `$contains`, `$icontains`,
 `$startsWith` or `$endsWith`, and always satisfies `$notContains` — the number `5`

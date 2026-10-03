@@ -22,6 +22,7 @@ import {
   asciiCaseInsensitiveContains,
   canonicalAstOperator,
   isAcceptedFilterComparand,
+  isEmptyFilterValue,
   RETIRED_FILTER_OPERATORS,
 } from '@objectstack/spec/data';
 import { emulateBatchTransaction } from './batchTransaction.js';
@@ -111,11 +112,44 @@ const AST_LIST_COMPARAND_OPERATORS = new Set(['in', 'nin', 'between']);
 
 /**
  * The AST operators that never read the value slot at all, so nothing sitting
- * there is a comparand. `matchesComparisonNode`'s null arms take their
- * direction from the operator NAME and the ObjectUI client sends a truthy
+ * there is a comparand. `matchesComparisonNode`'s null and emptiness arms take
+ * their direction from the operator NAME and the ObjectUI client sends a truthy
  * placeholder in the third position, so the array guard must not judge it.
+ * The spec discards that slot on all four: `parseFilterAST(['x', 'is_empty',
+ * ['a']])` is `{ x: { $empty: true } }`.
  */
-const AST_NO_COMPARAND_OPERATORS = new Set(['is_null', 'is_not_null']);
+const AST_NO_COMPARAND_OPERATORS = new Set(['is_null', 'is_not_null', 'is_empty', 'is_not_empty']);
+
+/**
+ * Is this stored value EMPTY, in the sense the spec's `$empty` operator gives
+ * the word (objectui#11094)?
+ *
+ * The answer is the spec's own `isEmptyFilterValue` (`@objectstack/spec/data`),
+ * called WITHOUT an expansion. That is the by-value reading: null, `undefined`
+ * (an absent key reads as `undefined` here), `''` and `[]` are empty, and
+ * nothing else is.
+ *
+ * ## Why no field type is read
+ *
+ * The spec's ruled 「is empty」 table (ruling B on objectstack#20311) is keyed
+ * on a field's DECLARED type and `multiple`: a text-like field is empty when
+ * null or `''`, a multi-value field when null or `[]`, every other type when
+ * null. A face that holds the declaration turns it into a row with
+ * `expandEmptyOperator` and passes that row to `isEmptyFilterValue`. This face
+ * holds none. `ValueDataSourceConfig` carries rows and an id field, and the
+ * spec's `value` data source declares only `items`. So this face judges by
+ * value, as ruling A on objectstack#20399 gives the faces with no field
+ * declarations. `@objectstack/formula`'s matcher and `driver-memory`'s
+ * reference matcher make the same call to the same function.
+ *
+ * ⛔ No per-type table is kept here, and none is inferred from the rows. The
+ * by-value reading differs from a declared face only on a stored state the
+ * declaration does not predict: `''` in a non-text column, or `[]` in a scalar
+ * one. The spec calls the first a write-door defect rather than a stored state.
+ */
+function isEmptyStoredValue(value: unknown): boolean {
+  return isEmptyFilterValue(value);
+}
 
 /**
  * An ARRAY where a single-value comparand belongs — `{ tags: ['a', 'b'] }`,
@@ -503,13 +537,27 @@ function matchesComparisonNode(
     // -- Null-ness. Direction comes from the operator NAME; the value slot is
     // never read, so the 2-tuple `['x', 'is_not_null']` and the 3-tuple
     // `['x', 'isnotnull', null]` are the same predicate. `canonicalAstOperator`
-    // folds all eight spellings (`is_null` / `isnull` / `is_empty` / `isempty`
-    // and their four negatives) onto these two arms — including `is_empty`,
-    // which the spec lowers to `$null` rather than to an emptiness test.
+    // folds `is_null` / `isnull` onto the first arm and their two negatives
+    // onto the second.
     case 'is_null':
       return value === null || value === undefined;
     case 'is_not_null':
       return value !== null && value !== undefined;
+
+    // -- Emptiness (objectui#11094). The spec stopped folding `is_empty` /
+    // `isempty` onto `is_null` (objectstack#20570, in `@objectstack/spec`
+    // 17.6.0): `canonicalAstOperator` now answers `is_empty` for those two
+    // spellings and `is_not_empty` for their two negatives, and the spec
+    // lowers them to `$empty: true` / `$empty: false`. So they get their own
+    // arms, the twins of the `$empty` arm in `matchesDollarOperator`. Without
+    // these arms, on that release a stored `is_empty` rule reached the refusal
+    // below and selected no row. Direction comes from the operator NAME, as
+    // for null-ness, and the meaning is the spec's emptiness test, not a null
+    // test: see {@link isEmptyStoredValue}.
+    case 'is_empty':
+      return isEmptyStoredValue(value);
+    case 'is_not_empty':
+      return !isEmptyStoredValue(value);
 
     // objectui#10829 — equality and membership through `comparandEquals`, so
     // two `Date`s compare their instant; the ordering arms below are untouched.
@@ -686,8 +734,11 @@ function matchesASTFilter(record: any, filterNode: any, refusals: Set<string>): 
  * The vocabulary is the spec's own `FILTER_OPERATORS` (`@objectstack/spec/data`)
  * and each arm answers the same question its AST twin answers in
  * {@link matchesComparisonNode} — `$eq`/`=`, `$nin`/`nin`, `$startsWith`/
- * `starts_with`, and so on, one-to-one across ALL SIXTEEN: every declared
- * operator is executed here, none is refused by name. That pairing IS the
+ * `starts_with`, `$empty`/`is_empty`, and so on, one-to-one across EVERY
+ * member: every declared operator is executed here, none is refused by name.
+ * How many members there are is not written here: the case table in
+ * `ValueDataSource.dollarFilterVocabulary.test.ts` is held equal to
+ * `FILTER_OPERATORS`, and it is what re-derives that. That pairing IS the
  * fix for objectui#8447: `find()` picks between the two matchers on nothing
  * more than whether `$filter` arrived as an array or an object, so any operator
  * one of them executes and the other waves through is a result that changes
@@ -828,6 +879,25 @@ function matchesDollarOperator(
       return target
         ? value !== null && value !== undefined
         : value === null || value === undefined;
+
+    // objectui#11094 — `$empty`, which `@objectstack/spec` 17.6.0 admitted to
+    // `FILTER_OPERATORS` (objectstack#20446) and to which it lowers `is_empty` /
+    // `is_not_empty`. `true` selects the empty rows and `false` is the exact
+    // complement, by value (see {@link isEmptyStoredValue}); the AST twins are
+    // the `is_empty` / `is_not_empty` arms in `matchesComparisonNode`.
+    //
+    // The flag is a BOOLEAN by declaration (`SpecialOperatorSchema`), so
+    // anything else is refused here rather than read for its truthiness. That
+    // is the answer the spec gives at its save door and on every query face,
+    // and `@objectstack/formula`'s matcher denies a non-boolean flag too.
+    case '$empty':
+      if (target === true) return isEmptyStoredValue(value);
+      if (target === false) return !isEmptyStoredValue(value);
+      return refuseFilterNode(
+        refusals,
+        `filter operator '$empty' on field '${field}' takes a boolean flag (true or false); `
+        + `received ${describeComparand(target)}`,
+      );
 
     // objectui#8515 — the hand-authored IMPLICIT form `{ amount: { $field: 'x' } }`.
     // It is not a reference comparand: an object whose only key starts with `$`

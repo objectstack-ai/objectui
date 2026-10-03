@@ -6439,7 +6439,15 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // (an icon name that resolves to nothing is the same as none), the table's
   // "No results found" heading, and no message line. Text only, as the table's
   // empty row is — an empty table draws no add-record row either.
+  //
+  // objectui#11227 — `title` and `message` are the spec's `I18nLabel`: a plain
+  // string or an inline locale map. Each is resolved against the display locale
+  // the way `description` above is, so a map draws its locale's entry instead of
+  // reaching `DataEmptyState` as an object (React refuses an object child). A map
+  // with no usable entry resolves to nothing and keeps that member's default.
   const authoredEmptyState = schema.emptyState;
+  const authoredEmptyTitle = resolveInlineI18nLabel(authoredEmptyState?.title, displayLocale);
+  const authoredEmptyMessage = resolveInlineI18nLabel(authoredEmptyState?.message, displayLocale);
   const searchEmptiedRows = manualSearchOn && manualSearch.trim() !== '';
   const drawsAuthoredEmptyState = authoredEmptyState != null
     && !loading
@@ -6455,8 +6463,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       // render. The rule cannot see that through a call.
       // eslint-disable-next-line react-hooks/static-components
       icon={AuthoredEmptyIcon ? <AuthoredEmptyIcon className="size-5 text-muted-foreground" /> : undefined}
-      title={authoredEmptyState?.title || t('table.noResults')}
-      description={authoredEmptyState?.message || undefined}
+      title={authoredEmptyTitle || t('table.noResults')}
+      description={authoredEmptyMessage || undefined}
     />
   ) : gridContent;
 

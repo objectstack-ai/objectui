@@ -74,6 +74,11 @@ into it as `runtimeFilter`.
 > `@objectstack/spec` requires `dataset` on every widget. The renderer still
 > draws a stored widget that carries them, but that path is renderer-internal
 > (ADR-0021), not something to author against: bind the widget to a dataset.
+> One stored form no longer draws at all: a single-value widget (`metric`,
+> `gauge`, `solid-gauge`, `kpi`, `bullet`, or a widget with no `type`) whose
+> `options.data` is a `{ "provider": "object", … }` query shows the
+> retired-format prompt below instead of its number (objectui#11525), as a
+> `pivot` widget with that query already did.
 
 > **Retired: the top-level inline analytics shape.** `object` +
 > `categoryField` / `valueField` / `aggregate` on the widget itself (and the

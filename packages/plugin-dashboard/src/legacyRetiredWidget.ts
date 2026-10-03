@@ -40,6 +40,22 @@
  * feature, so the detector requires the absence of any widget-level data before
  * it looks at `object` at all — the same order `DashboardRenderer` has always
  * used.
+ *
+ * ⚠️ **Dated note, 2026-10-03 — the metric family's nested config is retired —
+ * objectui#11525.** When this paragraph was written the nested
+ * `provider: 'object'` config was live for every family; it no longer is for the
+ * single-value family (`metric`, `gauge`, `solid-gauge`, `kpi`, `bullet`, and a
+ * typeless widget, which resolves to `metric` since objectui#11514). By the
+ * maintainer's ruling C on objectui#11525, both surfaces' metric arms answer a
+ * dataset-less widget whose `options.data` (or widget-level `data`) is
+ * `{ provider: 'object', … }` with {@link LEGACY_RETIRED_WIDGET_SCHEMA}, as
+ * their pivot arms already did (objectui#10528). The chart and table families
+ * stay live. The retirement sits in those family arms, not in this detector: it
+ * says what a family may bind, not that a widget carries the retired top-level
+ * shape, so {@link isLegacyRetiredWidget} is unchanged and still steps aside
+ * for any widget-level data. The rest of this paragraph, and step 2's "live
+ * `provider: 'object'` nested config" below, are kept as the reading of
+ * objectui#4612.
  */
 
 import type { DashboardWidgetSlotEntry } from './widgetDispatch';

@@ -438,7 +438,7 @@ const SENTINELS: Record<string, unknown> = {
   collapseAllByDefault: true,
   color: '#112233',
   compactToolbar: true,
-  conditionalFormatting: [{ field: 'stage', operator: 'eq', value: 'won', color: '#ff0000' }],
+  conditionalFormatting: [{ condition: "record.stage == 'won'", style: { color: '#ff0000' } }],
   emptyState: { title: 'Nothing here yet' },
   fieldTextColor: { name: '#0000ff' },
   hiddenFields: ['secret'],

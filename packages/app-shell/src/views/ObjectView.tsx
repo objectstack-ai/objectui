@@ -489,8 +489,8 @@ export function kanbanViewOptions(viewDef: any, objectDef: any): Record<string, 
  *
  * Exported for the pin test.
  */
-export function storedLegacyOptions(viewDef: { options?: unknown } | null | undefined): Record<string, any> {
-    const bag = viewDef?.options;
+export function storedLegacyOptions(viewDef: unknown): Record<string, any> {
+    const bag = viewDef && typeof viewDef === 'object' ? (viewDef as { options?: unknown }).options : undefined;
     return bag && typeof bag === 'object' && !Array.isArray(bag) ? (bag as Record<string, unknown>) : {};
 }
 

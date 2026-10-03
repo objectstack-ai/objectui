@@ -242,15 +242,21 @@ rewrites each bare-name registry entry without its `label`/`category` metadata
 
 ### Dashboard with Charts
 
-Charts are authored as `type: "chart"` with a `chartType` — `line`, `area`,
-`bar`, `pie`, `donut`, `radar` or `scatter`. `chartType` is what selects the
-family; there is no per-family node key for `line` or `area`.
+A chart on a dashboard is a widget, and the widget names its chart family in
+`type` — one of the spec's chart families (`line`, `area`, `bar`, `pie`,
+`donut` and the rest of the closed vocabulary `DashboardWidgetTypeName`
+declares). It binds a `dataset` (ADR-0021), selecting the dimension it plots in
+`dimensions` and its measures in `values`; it carries no rows. There is no
+`card` widget family, and a widget has no `children` slot to nest a node in.
 
 <Callout type="warn">
-This snippet used to teach `"type": "line-chart"`. That key was registered as a
-lazy stub the charts plugin never fulfilled, so a document copied from here
-resolved in the registry and then sat on `Loading line-chart…` forever
-(objectui#8760). The key is retired; `chartType` is the spelling that draws.
+This snippet used to teach `"type": "line-chart"`, a key registered as a lazy
+stub the charts plugin never fulfilled, so a document copied from here sat on
+`Loading line-chart…` forever (objectui#8760; the key is retired). It then
+taught a `card` widget wrapping a `chart` node in `children`, which
+`@object-ui/types/zod`'s `DashboardComponentSchema` refuses on the tolerant face
+and the strict one (objectui#11484). The widget below is the shape the package
+README teaches.
 </Callout>
 
 ```json
@@ -263,20 +269,12 @@ resolved in the registry and then sat on `Loading line-chart…` forever
       "value": "$123,456"
     },
     {
-      "type": "card",
+      "id": "sales_trend",
+      "type": "line",
       "title": "Sales Trend",
-      "children": {
-        "type": "chart",
-        "chartType": "line",
-        "data": [
-          { "month": "Jan", "revenue": 4000 },
-          { "month": "Feb", "revenue": 3000 },
-          { "month": "Mar", "revenue": 6000 }
-        ],
-        "xAxisKey": "month",
-        "series": [{ "dataKey": "revenue" }],
-        "height": 300
-      }
+      "dataset": "sales",
+      "dimensions": ["month"],
+      "values": ["revenue"]
     }
   ]
 }

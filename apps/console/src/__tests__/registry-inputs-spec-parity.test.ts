@@ -758,11 +758,11 @@ function isRetiredUpstream(type: string): boolean {
  * same way, to their own cards". Row 1 is such a row:
  *
  *   - objectui#11068 — `object-grid.keyboardNavigation`, the one key on a GA
- *     block that 17.6.0's row declares and `inputs` does not publish. That card
- *     is BUILDING the key's reader and publishes the key with it; this is the
- *     only OWED entry on any of the four GA blocks, pinned by name in `the four
- *     GA blocks resolve their ruled split`, because objectui#4648's split
- *     otherwise refuses any exemption on them (see THE FOUR GA BLOCKS below).
+ *     block that 17.6.0's row declares and `inputs` did not publish. STRUCK by
+ *     that card's build, which publishes the key in `GRID_QUERY_INPUTS` together
+ *     with its reader (arrow-key cell navigation on the WAI-ARIA grid pattern),
+ *     so the card owns no entry now and the four GA blocks carry no OWED entry
+ *     again (see THE FOUR GA BLOCKS below).
  *
  * Each owner card decides every key by its own measurement: declare what the
  * renderer honours, refuse or retire what it does not. ⛔ Batch-declaring an
@@ -786,8 +786,9 @@ function isRetiredUpstream(type: string): boolean {
  * their ruling as the 17.5.0 date is from its own: record 5902351047 was ruled
  * 2026-09-30 and its entries expire 2026-10-30; record 5965062249 was ruled
  * 2026-10-03, so objectui#11536's entries expire 2026-11-02. Record 5968177777
- * (ruling A″) was ruled the same day, so objectui#11068's entry shares that
- * date: it expires 2026-11-02, or when that card's build lands.
+ * (ruling A″) was ruled the same day, so objectui#11068's entry shared that
+ * date: it expired 2026-11-02, or when that card's build landed — the build
+ * landed first and struck it.
  */
 const OBJECTUI_11111_EXPIRES = '2026-10-30';
 
@@ -889,7 +890,7 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
 const OBJECTUI_11111_LEDGER_CAPS = {
   unjudgedBlocks: 0, // objectui#11168 loaded and judged all four: slice 3 object-map and object-tree, slice 4 object-gantt, slice 5 object-timeline
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
-  unpublishedKeys: 12, // objectui#11168: 1 (action:button undoable; the two `endpoint` entries left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0 and objectui#8649: 0 (each struck by its landing); objectui#11536: 10 (record:line_items, booked by objectui#11438 ruling A′); objectui#11068: 1 (object-grid keyboardNavigation, booked by objectui#11438 ruling A″)
+  unpublishedKeys: 11, // objectui#11168: 1 (action:button undoable; the two `endpoint` entries left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0 and objectui#8649: 0 (each struck by its landing); objectui#11536: 10 (record:line_items, booked by objectui#11438 ruling A′); objectui#11068: 0 (object-grid keyboardNavigation, booked by objectui#11438 ruling A″, struck by that card's build)
   refusedArms: 0, // objectui#11168: slice 2 narrowed element:definition-list.columns, slice 3 object-form.layout
   memberPins: 2, // objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3; objectui#11536: 2 (record:line_items columns and dataSource, booked by objectui#11438 ruling A′)
 } as const;
@@ -1555,27 +1556,11 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
     'A SPEC KEY NOT PUBLISHED: `record:line_items` entered `covered` with 17.6.0 and its `inputs` omit this key its spec row declares.',
   ),
 
-  /*
-   * ⚠️ ROW 1 OF THE 17.6.0 BUMP — objectui#11438 ruling A″ (record 5968177777),
-   * which books a row whose owner card's slice is not accepted when the row-3
-   * booking is pushed, "the same way, to their own cards".
-   *
-   * `object-grid.keyboardNavigation`: the 17.6.0 row declares it and the
-   * grid's `inputs` do not publish it. objectui#11068 is building its reader
-   * (arrow-key cell navigation on the WAI-ARIA grid pattern) and publishes the
-   * key in `GRID_QUERY_INPUTS` together with that reader, never ahead of it.
-   * `object-grid` is a GA block, where objectui#4648's split admits no
-   * exemption but the ruled carve-out, so this entry is the one exception and
-   * `the four GA blocks resolve their ruled split` pins it by name. Capped
-   * with the entries above at `OBJECTUI_11111_LEDGER_CAPS.unpublishedKeys`;
-   * the build's landing makes it stale, and strikes it and lowers the cap.
-   */
-  ...owedEntries(
-    'object-grid',
-    ['keyboardNavigation'],
-    'objectui#11068',
-    'A SPEC KEY NOT PUBLISHED, ITS READER IN FLIGHT: `object-grid`\'s 17.6.0 row declares `keyboardNavigation` and its `inputs` omit it; objectui#11068 publishes it with the reader it is building.',
-  ),
+  // objectui#11068's one entry — row 1 of the 17.6.0 bump,
+  // `object-grid.keyboardNavigation`, booked by objectui#11438 ruling A″
+  // (record 5968177777) — is STRUCK: that card's build published the key in
+  // `GRID_QUERY_INPUTS` together with its reader, so the entry went stale and
+  // `carries no stale unpublished-key exemption` would refuse it.
 };
 
 /**
@@ -1756,14 +1741,13 @@ const isDormantOnThisPin = (exemptionKey: string): boolean => {
  * these blocks gain is a plain A-class defect: declare it at the registration
  * site. Do not add an entry here to silence one.
  *
- * ⚠️ ONE BOOKED EXCEPTION, BY RULING AND WITH AN EXPIRY — not a silenced key.
- * objectui#11438 ruling A″ (record 5968177777) books row 1 of the 17.6.0 bump,
- * `object-grid.keyboardNavigation`, OWED TO objectui#11068, which declares it
- * at the registration site together with the reader it is building. The entry
- * expires 2026-11-02 or at that card's landing, whichever is first.
- * `the four GA blocks resolve their ruled split` admits exactly that id and no
- * other OWED entry on these four blocks, so the rule above still holds for
- * every other key.
+ * ⚠️ ONE BOOKED EXCEPTION STOOD HERE, BY RULING AND WITH AN EXPIRY, and is
+ * STRUCK. objectui#11438 ruling A″ (record 5968177777) booked row 1 of the
+ * 17.6.0 bump, `object-grid.keyboardNavigation`, OWED TO objectui#11068, until
+ * that card declared it at the registration site together with its reader. Its
+ * build did, and struck the entry. `the four GA blocks resolve their ruled
+ * split` now admits no OWED entry on these four blocks, so the rule above holds
+ * for every key again.
  */
 
 const exemptedFor = (type: string): string[] =>
@@ -4959,16 +4943,14 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       ).toContain(`object-grid.${key}`);
     }
 
-    // ⚠️ THE ONE BOOKED KEY — objectui#11438 ruling A″ (record 5968177777).
-    // Row 1 of the 17.6.0 bump, `object-grid.keyboardNavigation`, is OWED TO
-    // objectui#11068, which publishes it together with the reader it is
-    // building. It is neither declared nor carved out, so it is admitted BY
-    // NAME: the OWED entries on the four blocks must be exactly this list, and a
-    // second one is red here whatever the ledger cap says. It expires 2026-11-02
-    // or at that card's landing; the landing declares the key, which turns the
-    // first assertion in the loop below red until this list and the entry are
-    // struck together.
-    const BOOKED_GA_KEYS = ['object-grid.keyboardNavigation'];
+    // ⚠️ THE BOOKED KEYS — objectui#11438 ruling A″ (record 5968177777) booked
+    // one, row 1 of the 17.6.0 bump, `object-grid.keyboardNavigation`, OWED TO
+    // objectui#11068. That card's build published the key together with its
+    // reader and struck the booking and this list together, as the booking
+    // prescribed. The list stays, EMPTY, so an OWED entry on a GA block is
+    // still red here whatever the ledger cap says: a booking admitted here is a
+    // ruling's, by name, and none stands.
+    const BOOKED_GA_KEYS: string[] = [];
     expect(
       owedIdsOf(UNPUBLISHED_EXEMPTIONS).filter((id) => GA_ONLY_BLOCKS.includes(splitExemptionKey(id)[0])),
       'an OWED entry on a GA block that objectui#11438 ruling A″ did not book — declare the key instead',
@@ -6011,7 +5993,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       'objectui#8652': 0,
       'objectui#8649': 0,
       'objectui#11536': 12,
-      'objectui#11068': 1,
+      'objectui#11068': 0,
     });
   });
 });

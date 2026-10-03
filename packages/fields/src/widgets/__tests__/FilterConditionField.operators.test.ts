@@ -211,9 +211,9 @@ describe('every spec field operator is reachable from the builder (#2942)', () =
     expect(emitted.has('$empty')).toBe(true);
     expect(FILTER_BUILDER_OPERATORS).toContain('is_empty');
     expect(FILTER_BUILDER_OPERATORS).toContain('is_not_empty');
-    expect(operatorsOf(condToMongo({ id: 'c1', field: 'f', operator: 'is_empty', value: '' } as any, noTypes)))
+    expect(operatorsOf(condToMongo({ id: 'c1', field: 'f', operator: 'is_empty', value: '' }, noTypes)))
       .toEqual(['$empty']);
-    expect(operatorsOf(condToMongo({ id: 'c1', field: 'f', operator: 'is_not_empty', value: '' } as any, noTypes)))
+    expect(operatorsOf(condToMongo({ id: 'c1', field: 'f', operator: 'is_not_empty', value: '' }, noTypes)))
       .toEqual(['$empty']);
   });
 

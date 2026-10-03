@@ -102,9 +102,13 @@ describe('groupToCondition — the null predicates this inspector offers (object
     ).toEqual({ stage: { $null: true } });
   });
 
-  it('leaves the $exists pair exactly as it was', () => {
-    expect(groupToCondition(row('is_empty'))).toEqual({ closed_at: { $exists: false } });
-    expect(groupToCondition(row('is_not_empty'))).toEqual({ closed_at: { $exists: true } });
+  it('keeps the empty pair a predicate of its own — `$empty`, not `$null` (objectui#10813)', () => {
+    // This file's repair left the empty pair on `$exists`; objectui#10813 moved
+    // it to the spec's one 「is empty」 operator. Either way it is NOT the null
+    // pair: `$empty` also counts `''` on a text column and `[]` on a
+    // multi-value one, so folding the two would rewrite the author's choice.
+    expect(groupToCondition(row('is_empty'))).toEqual({ closed_at: { $empty: true } });
+    expect(groupToCondition(row('is_not_empty'))).toEqual({ closed_at: { $empty: false } });
   });
 
   it('still drops an operator it does not map, rather than emitting a wrong filter', () => {

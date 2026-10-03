@@ -130,7 +130,7 @@ export function useActionTextLocalizer(): ActionTextLocalizer {
           pickLocalized((action as any).successMessage, language),
         );
       }
-      const authoredOutcomes: unknown = (action as any).outcomeMessages;
+      const authoredOutcomes: unknown = action.outcomeMessages;
       if (authoredOutcomes && typeof authoredOutcomes === 'object' && !Array.isArray(authoredOutcomes)) {
         const outcomeMessages: Record<string, string> = {};
         for (const [outcome, copy] of Object.entries(authoredOutcomes as Record<string, unknown>)) {

@@ -27,7 +27,7 @@ import { describe, it, expect, vi, afterEach } from 'vitest';
 import { act, cleanup, renderHook } from '@testing-library/react';
 import React from 'react';
 import { I18nProvider, useObjectTranslation } from '@object-ui/i18n';
-import type { ActionResult, ToastHandler } from '@object-ui/core';
+import type { ActionDef, ActionResult, ToastHandler } from '@object-ui/core';
 import { ActionProvider, useAction } from '../../context/ActionContext';
 import { useActionTextLocalizer } from '../useActionTextLocalizer';
 
@@ -74,6 +74,15 @@ function harness(language: 'zh-CN' | 'ja-JP' | 'en', onToast: ToastHandler) {
   );
 }
 
+/**
+ * What a host hands the runner: the localizer's output. The localizer is
+ * generic over the action's shape (it returns the type it was given), while its
+ * work is a RUNTIME change of shape — an `I18nLabel` map in, a string out — so
+ * the static type cannot say so. The hosts type the same hop as `any`
+ * (`RecordDetailView`'s `(a: any) => localizeActionTexts(…)`); this names it.
+ */
+const dispatched = (localized: Record<string, unknown>) => localized as ActionDef;
+
 /** The text of the one success toast a run raised. */
 function successToast(onToast: ReturnType<typeof vi.fn<ToastHandler>>): string {
   const calls = onToast.mock.calls.filter(([, options]) => options?.type === 'success');
@@ -96,7 +105,7 @@ describe('outcome copy reaches the toast in the user\'s locale (objectui#11344)'
     });
 
     await act(async () => {
-      await result.current.action.execute(localized);
+      await result.current.action.execute(dispatched(localized));
     });
 
     expect(successToast(onToast)).toBe('环境 prod 已归档');
@@ -133,7 +142,7 @@ describe('outcome copy reaches the toast in the user\'s locale (objectui#11344)'
     expect(localized.outcomeMessages).toEqual({ archived: '環境 ${result.name} をアーカイブしました' });
 
     await act(async () => {
-      await result.current.action.execute(localized);
+      await result.current.action.execute(dispatched(localized));
     });
 
     expect(successToast(onToast)).toBe('環境 prod をアーカイブしました');
@@ -179,7 +188,7 @@ describe('outcome copy reaches the toast in the user\'s locale (objectui#11344)'
     expect(localized.successMessage).toBe('环境 ${result.name} 已更新');
 
     await act(async () => {
-      await result.current.action.execute(localized);
+      await result.current.action.execute(dispatched(localized));
     });
 
     // `archived` has no entry, so the second rung is shown — in zh-CN, not the

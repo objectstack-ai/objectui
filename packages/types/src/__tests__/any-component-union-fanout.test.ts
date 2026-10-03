@@ -27,6 +27,18 @@
  *     unknown `type` refusal     14,855 -> 2,178 chars
  *     refused node 4 deep        19,311 -> 4,330 chars
  *
+ * ⚠️ objectui#10872 moved the unknown-`type` bound, and its reading is added here
+ * rather than written over the one above. The discriminated refusal's message
+ * carries the discriminator's `options` list, which names every `type` literal
+ * the union claims, so the whole message grows by one literal per arm that
+ * lands: 2,178 chars when the row above was taken, 4,007 at 204 literals, past
+ * the 4,000 bound. So that bound now reads the message LESS its `options` list.
+ * The flat union carries no `options` at all. Same document, zod 4.6.5, a flat
+ * `z.union` over the 20 members `AnyComponentSchema` discriminates today (with
+ * its `Invalid input` message map) -> the discriminated union:
+ *
+ *     unknown `type` refusal, less `options`   14,126 -> 193 chars   (20 arm lists -> none)
+ *
  * A bound that also passed on the flat union would assert nothing, which is the
  * failure mode this card was most exposed to. ⚠️ The reason it was exposed has
  * since changed and this paragraph is corrected in place rather than deleted:
@@ -73,6 +85,28 @@ function issueNodeCount(issues: readonly { errors?: readonly (readonly unknown[]
     const arms = Array.isArray(issue.errors) ? issue.errors : [];
     return n + 1 + arms.reduce((m, arm) => m + issueNodeCount(arm as never), 0);
   }, 0);
+}
+
+/**
+ * A refusal's message with the discriminator's `options` list taken out
+ * (objectui#10872). Zod builds the message as the issue list printed as JSON
+ * with a two-space indent, so it is parsed back, each issue's `options` is
+ * dropped, and the rest is printed the same way. The round trip is asserted
+ * first, so the reading is of the message itself and not of a re-serialisation
+ * that drifted from it.
+ */
+function messageLessOptions(message: string): string {
+  const issues = JSON.parse(message) as Record<string, unknown>[];
+  expect(JSON.stringify(issues, null, 2)).toBe(message);
+  return JSON.stringify(
+    issues.map((issue) => {
+      const rest = { ...issue };
+      delete rest.options;
+      return rest;
+    }),
+    null,
+    2,
+  );
 }
 
 /** The `type` literals a schema declares to Zod's discriminator dispatch. */
@@ -153,7 +187,12 @@ describe('AnyComponentSchema — a refusal costs one arm, not every arm', () => 
     const result = AnyComponentSchema.safeParse(FOREIGN_DOCUMENT);
     expect(result.success).toBe(false);
     if (result.success) return;
-    expect(result.error.message.length).toBeLessThanOrEqual(4_000);
+    // objectui#10872: the bound is on the message LESS the discriminator's
+    // `options` list. That list grows by one literal with every arm that lands,
+    // by design, while the rest of the message does not; the flat union carries
+    // no `options` and reads far above the bound (the docblock's readings), so
+    // the assertion still tells the two shapes apart.
+    expect(messageLessOptions(result.error.message).length).toBeLessThanOrEqual(4_000);
     // The literals stay ON the issue, which is where `@object-ui/cli`'s
     // `union-arm-diagnostics` reads them to build the CAPPED candidate list the
     // 2026-09-02 maintainer ruling requires. Only the default MESSAGE — which

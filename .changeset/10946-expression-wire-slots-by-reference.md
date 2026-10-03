@@ -46,3 +46,19 @@ reference identity of the spec arm) still holds on `object-kanban`, and
 `spec-expression-wire-slots-10946.test.ts` still pins it there, now reading
 `condition` straight off the rule's shape. The rest of this entry is kept as
 the reading of this change.
+
+⚠️ **Dated note, 2026-10-03 — the list view's (and the grid's) rule is no longer a union either — objectui#11533.**
+At this change the list view's rule, which `ObjectGridSchema` shares, was also a
+union of two dialects (the native `{ field, operator, value, … }` comparison and
+`{ condition, style }`), so the sentence above about "the list view's and the
+kanban board's rule unions" described two unions. Now neither is one: the grid's
+and the list view's rule is ONE object, the spec list view's `{ condition, style }`
+rule by reference, with the native rule, its `expression` and a top-level colour
+refused by name. It reads the same `condition` schema, so everything this entry says
+about the condition (the `z.string()` first arm, the envelope, the `''` control,
+the reference identity of the spec arm) still holds on `list-view` and
+`object-grid`, and `spec-expression-wire-slots-10946.test.ts` now reads
+`condition` straight off the list view's rule as well. `ConditionalFormattingRule`
+is still built on `SpecConditionalFormattingRule`, so the widening this entry
+describes still reaches it. The rest of this entry is kept as the reading of this
+change.

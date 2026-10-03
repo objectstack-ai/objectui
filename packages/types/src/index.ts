@@ -482,8 +482,8 @@ export type {
   ListViewGalleryConfig,
   ListViewTimelineConfig,
   SortConfig,
-  // ConditionalFormatting dual-format types
-  ObjectUIConditionalFormattingRule,
+  // ConditionalFormatting: the spec rule, and the grid / list-view rule built on it
+  // (one dialect since objectui#11533; the native rule's interface is gone)
   SpecConditionalFormattingRule,
   ConditionalFormattingRule,
   // Component schemas

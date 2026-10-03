@@ -288,7 +288,7 @@ const GRID_QUERY_INPUTS: ComponentInput[] = [
   { name: 'reorderableColumns', type: 'boolean', description: 'Let users drag columns into a different order.' },
   { name: 'showColumnTypeIcons', type: 'boolean', description: 'Show a field-type icon in each column header. Off by default — the type is usually obvious from the cell content, and the icons compete with the column labels.' },
   { name: 'rowColor', type: 'object', description: 'Rules that colour whole rows from a field value.' },
-  { name: 'conditionalFormatting', type: 'array', description: 'Row/cell styling rules. Accepts both the ObjectUI `{ field, operator, value }` form and the spec expression form `{ condition, style }`.' },
+  { name: 'conditionalFormatting', type: 'array', description: 'Row style rules, each `{ condition, style }` — a CEL `condition` over the row’s own `record.*` and a CSS `style` map, the rule a list view declares. The first matching rule styles that row. The native `{ field, operator, value }` rule, its `expression`, and a colour written beside `condition` instead of inside `style` are retired (objectui#11533).' },
   // `emptyState` (objectui#11068 honoured it; objectui#11227 publishes it now
   // that the spec row declares it, at 17.6.0, as the list view's own
   // `EmptyStateSchema`). Its `title` and `message` are `I18nLabel` members that

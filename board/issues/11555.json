@@ -1,0 +1,36 @@
+{
+  "number": 11555,
+  "kind": "pull_request",
+  "title": "feat(fields,app-shell,plugin-list): 「is empty」 / 「is not empty」 builders write the spec's one operator `$empty`; fields and app-shell floor at @objectstack/spec ^17.6.0 (objectui#10813)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "package: app-shell",
+    "package: fields",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-03T14:07:16Z",
+  "updated_at": "2026-10-03T14:37:05Z",
+  "closed_at": "2026-10-03T14:37:03Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-03T14:37:03Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11555",
+  "body": "Fixes #10813\n\nClause-②: yes\n\n## What this PR is\n\nThe builders that offer 「is empty」 / 「is not empty」 now write the spec's one operator, `$empty`, and keep no per-type table. The spec's `expandEmptyOperator` does the expansion by the column's declared type.\n\n| Builder | Before | After |\n|:--|:--|:--|\n| `@object-ui/fields` `FilterConditionField` | objectui#10790's `$or` of `$in: ['']` and `$null` | `{ F: { $empty: true \\| false } }` |\n| `@object-ui/app-shell` dataset bridge | `$exists` | `{ F: { $empty: true \\| false } }` |\n| `@object-ui/plugin-list` `ListView.convertFilterGroupToAST` | a null test | the value-less `isempty` / `isnotempty` node, so the live query and the saved view agree |\n\n**How stored rules read:**\n- Reading writes nothing, so an un-edited stored rule keeps its bytes.\n- `FilterConditionField` opens both earlier shapes as the same row, and writes `$empty` on the next edit. The re-scope per column class is stated in the changeset.\n- The dataset bridge opens a stored `$exists` in the Source tab, bytes untouched (Q1 = A, by objectui#10257's invariant and objectui#9559 ruling B).\n\n**Floors:** `@object-ui/fields` and `@object-ui/app-shell` raise their `@objectstack/spec` floor to `^17.6.0`, because they write `$empty`, which 17.5.0 declares staged and refuses. plugin-list's peer `^17.0.0` stays: it writes `isempty`, which every spec in that range accepts.\n\n**Drill:** the dataset inspector's `{ $empty: false }` drills through objectui#11547's `[empty]` arm, which is already on `main`. This PR changes prose only in `drillUrlFilters.ts`.\n\n## Reviews\n\n- Seat ACCEPT `5969017543`, with Q1 = A ruled in the seat.\n- Contract review FAIL `5969173746` (② floors), then REWORK `5969287928`, then the delta contract review **PASS** `5969468192` on `20770e4e9`.\n- **This head** merges `main` (objectui#11531, objectui#11547). It drops one stale clause from the dataset changeset: `driver-memory` 17.6.0 compiles `$null` on the cube face. It also reconciles the two drill sentences with objectui#11547's `[empty]` arm, prose only. No contract surface moved beyond the reviewed head.\n\n## Tests (dev reports `5968977150`, the rework report, and the landing report)\n\n- 16 files and 592 tests green, covering the slice's 10 files and 6 drill files;\n- type-check passes for fields and app-shell;\n- `check:spec-floors` is green, with no `types` finding now;\n- the lockfile integrity check is clean;\n- the changeset gates and citations (0 new) pass;\n- the ablations from the build round were 25, 13 and 7 red.\n\n## Changeset\n\nThree `minor` changesets: `10813-filter-condition-empty-operator`, `10813-dataset-filter-empty-operator` and `10813-list-view-empty-operator`. There are dated corrections on the pending `10790` and `9359` changesets.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_016tKoy8NJa35Yih1FdzrVmn\n"
+}

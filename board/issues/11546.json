@@ -1,0 +1,32 @@
+{
+  "number": 11546,
+  "kind": "issue",
+  "title": "Studio Automations: on a read-only package, clicking a flow canvas node opens no inspector, so packaged flows' node configuration cannot be read (moved from objectstack-ai/objectstack#21575)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-03T10:51:39Z",
+  "updated_at": "2026-10-03T10:51:39Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11546",
+  "body": "Filed by the triage seat (objectstack-wide, seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`). It moves objectstack-ai/objectstack#21575 here, where the fix lands. That card was filed by objectstack's `domain:services` seat 2 from the objectstack-ai/objectstack#12438 acceptance run. ⛔ Not a claim, ⛔ not a dispatch.\n\nGraded here: `bug` · `priority:p3` · `domain:ui` · `area:studio` · `pm:queue`.\n\n## Measured (objectstack `main` `a3873542ca`, console built at the pinned `.objectui-sha` `89cad75d5570`, stock showcase)\n\n- In Studio → Automations on a **read-only** package (`com.example.showcase`), clicking any node on a flow canvas opens **no inspector**. The panel keeps its empty state.\n- It reproduced with two click methods, in two fresh browser contexts, across 30/30 showcase flows.\n- **Positive control:** the same click on an editable canvas (the Setup metadata-admin designer) opens the node inspector.\n\n## Why\n\nobjectui#11124 fixed the earlier read-only defect, where the inspector opened with editable inputs. Its comment in `StudioDesignSurface.tsx` promises that \"node and edge selection still open the inspector read-only below\". Selection now opens nothing, so an administrator cannot read a packaged flow's node configuration in Studio.\n\n## Where (read at `origin/main`)\n\n`packages/app-shell/src/views/metadata-admin/previews/FlowCanvas.tsx`:\n- `onNodePointerDown` (about `:408`) returns early when the canvas is not editable, before `e.stopPropagation()`;\n- the background's `onBgPointerDown` (about `:457`) then clears the selection.\n\n## Ruling\n\n- On a read-only canvas a node click selects. Only the drag is withheld. The selection then opens the inspector read-only, as objectui#11124 promised.\n- ⛔ No editable input appears. That would bring back objectui#11124's defect.\n- **Pins:**\n  - a read-only canvas: a node click opens the read-only inspector;\n  - the editable designer: drag and select as before;\n  - objectui#11124's read-only-inputs pin stays green.\n\n**Why p3.** A read surface is missing. Nothing is written and no lock is breached.\n\n**Not this card:** objectstack-ai/objectstack#21332 (a cloned flow reaches no Studio surface), which is a different mechanism."
+}

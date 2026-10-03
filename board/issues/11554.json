@@ -1,0 +1,37 @@
+{
+  "number": 11554,
+  "kind": "pull_request",
+  "title": "feat(components,plugin-grid,types): object-grid honours `keyboardNavigation` — one roving Tab stop with arrow-key cell navigation, on by default when the grid renders editable; the row-1 booking is struck (objectui#11068)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "documentation",
+    "package: components",
+    "package: types",
+    "plugin",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-03T14:04:07Z",
+  "updated_at": "2026-10-03T14:34:28Z",
+  "closed_at": "2026-10-03T14:34:26Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-03T14:34:26Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11554",
+  "body": "Fixes #11068\n\nClause-②: yes (widening)\n\n## What this PR is\n\nThis is the `keyboardNavigation` BUILD (triage `5896596687`, option A). `object-grid` now honours the key its `@objectstack/spec` 17.6.0 row declares.\n- **`@object-ui/components`' data-table** gains a host-set `keyboardNavigation` flag, OFF by default for every other host. With it on:\n  - the table is a WAI-ARIA grid;\n  - the data cells are ONE roving Tab stop, clamped to the page;\n  - ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Home, End, Ctrl+Home and Ctrl+End move focus;\n  - focus returns to the cell after an edit ends with Enter or Escape.\n- **`ObjectGrid`** relays `schema.keyboardNavigation ?? inlineEditable`, the declared default read against the editable the grid renders (#5143's one verdict). An editable grid has it on. A read-only grid keeps today's Tab behaviour unless `true` is authored, and `false` turns it off.\n- **`GRID_QUERY_INPUTS`** publishes the key WITH its reader, so the Studio input, the manifest and the parser know it.\n- **`@object-ui/types`:** `DataTableSchema` declares the host-set flag (runtime-only, beside `editable`). The `ObjectGridSchema` docblock describes the behaviour. The object-view `table` slot still withholds the key, now for the reason \"not relayed\".\n- **Docs:** `plugin-grid.mdx`, its README and `data-table.mdx`.\n\n**BREAKING (marked `minor`, per objectui's rule):** every grid that renders editable changes its Tab sequence without a document edit. That includes list views with inline edit. In-cell widgets (record links, the row action menu, the selection checkboxes) keep their own Tab stops (Q2 = A).\n\n## The row-1 booking is struck\n\nobjectui#11531 landed with row 1 booked to this card. This PR strikes it in `registry-inputs-spec-parity.test.ts`:\n- the entry is removed;\n- `unpublishedKeys` goes 12 → 11;\n- the owner count goes to 0;\n- `BOOKED_GA_KEYS` is emptied.\n\nThe two parity rows go green by publication, with no exemption.\n\n## Reviews\n\n- The seat's ACCEPT with rulings `5969066187`: Q1 = B (land on `main` after objectui#11531), Q2 = A, Q3 = A.\n- The contract review **PASS** `5969185521` on `cc755a8d2`.\n- **This head** merges `main` and adds one dated correction to `.changeset/11227-object-grid-17-6-keys.md`, as the PASS's landing note asks. Against the reviewed head, it moves only the trunk's own files (already on `main`) and that paragraph.\n\n## Tests (dev reports `5969030441` and `5969896459`)\n\n- the parity union: 371 tests green;\n- `packages/plugin-grid` and `packages/types`: 529 files and 10,997 tests green;\n- type-check passes for types, components and plugin-grid;\n- the four ablations each went red, and each restore was proven by blob hash;\n- the changeset gates and citations (0 new) pass. NOT GOVERNED.\n\n## Changeset\n\n`.changeset/11068-keyboard-navigation.md`: components, plugin-grid and types, all `minor`. There are dated corrections on the `10976`, `11068-grid-declared-keys`, `11068-row1-booking-17-6` and `11227-object-grid-17-6-keys` pending changesets.\n\nThe spec's `[EXPERIMENTAL — not enforced]` marker on this key is dropped by objectstack#21582 once this lands.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_016tKoy8NJa35Yih1FdzrVmn\n"
+}

@@ -1,0 +1,37 @@
+{
+  "number": 11547,
+  "kind": "issue",
+  "title": "bug(app-shell): on @objectstack/spec 17.6.0 a composed drill whose widget filter says 「is empty」 drops that condition from the drill URL — the `filter[…]` dialect has no `$empty` spelling, so the list opens on a superset",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:reports",
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-03T12:33:19Z",
+  "updated_at": "2026-10-03T13:54:34Z",
+  "closed_at": "2026-10-03T13:52:42Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11547",
+  "body": "Filed by the director seat, summon #32 (`session_016tKoy8NJa35Yih1FdzrVmn`), from the objectui#10813 contract review's new finding (record `5969173746`, ③). This seat re-measured it by reading. Parent: objectui#11531, the 17.6.0 bump: the bump causes this, not any owner card's slice.\n\n## The defect\n\n1. `composeDrillFilter` (`packages/core/src/utils/drill-down.ts`) merges the widget filter with the clicked bucket, then lowers the result through the spec's `parseFilterAST`. Its callers are `ObjectChart`, `ObjectPivotTable` and the dataset drill (`dataset-format.ts`).\n2. The spec's AST map lowers the four empty spellings (`is_empty`, `is_not_empty`, `isempty`, `isnotempty`) differently across the bump:\n   - at `@objectstack/spec@17.5.0` (`data/filter.zod.ts` :2509–2512), all four lower to `$null`;\n   - at 17.6.0 (:2553–2556), all four lower to `$empty`.\n3. The URL drill sink is `useOpenRecordList` → `serializeDrillFilterParams` (`packages/app-shell/src/views/drillUrlFilters.ts`). Its `collectFilterParams` spells emptiness only from `$null` or `$exists`, through `nullDirection`. A `{ F: { $empty: bool } }` object hits neither arm and no range arm, so it writes **no param**.\n4. Result:\n   - **On 17.5.0,** an 「is empty」 widget condition drilled as `filter[F][null]=true`.\n   - **On 17.6.0,** the condition vanishes, so the `/data` list opens unscoped by it: more records than the widget counted.\n\n   That is a silent superset, the objectui#9159 / objectui#9508 class. The module's own header (lines 98–125) still says \"a COMPOSED drill filter only ever arrives spelled `$null`\", which 17.6.0 made false.\n\n## Measured reach\n\n0 authored dashboard or chart widget filters spelling an empty operator. This was a `git grep` for `is_empty|is_not_empty|$empty` over dashboard-ish paths on `origin/main` of objectstack (`examples/**`), objectstack-ai/hotcrm, objectstack-ai/cloud and objectui. Stored customer dashboards are NOT MEASURED.\n\n## The fix: the objectui#9159 precedent, so no new decision\n\nobjectui#9159 (landed 2026-09-14, triage p2, no maintainer card) gave this same dialect its `[null]` suffix, read back on the ADR-0055 `/data` surface as `is_null` / `is_not_null`, with chips and \"Save as view\" kept correct. This card does the same for emptiness:\n- **Serializer:** `{ F: { $empty: true | false } }` → `filter[F][empty]=true|false`, beside the null pair, with the same non-boolean rule: a non-boolean writes nothing.\n- **Reader:** `parseUrlFilterTriples` reads the suffix back as `is_empty` / `is_not_empty`. These are canonical `ViewFilterRule` words at 17.6.0, kept out of the range map for the reason the `NULL_FILTER` docblock gives. The chip label reuses `filterBuilder.operators.is_empty` / `is_not_empty`, with no new translation.\n- **Removal:** `deleteFieldFilterParams` already removes any suffix.\n- **Docblocks:** correct the module header's \"only ever arrives spelled `$null`\".\n- **Pins:**\n  - a composed drill of an 「is empty」 widget yields the param, both directions;\n  - the round trip reaches the list as `is_empty`;\n  - \"Save as view\" keeps the rule;\n  - a non-boolean `$empty` writes nothing;\n  - controls: the `$null` and `$exists` pairs unchanged.\n- One changeset, `@object-ui/app-shell`.\n\n⛔ Not the equality route (`parseUrlEqualityFilterTriples`), whose operator arm stays reserved (objectui#9196).\n\n`Clause-②: yes (widening)`: the `/data` URL surface accepts one more operator suffix, as objectui#9159's did.\n\n## Landing order\n\nThis is a regression against 17.5.0 that the bump introduces. objectui#11438's ruling A″ (`5968177777`) books only rows that are \"a key the spec declares and objectui does not yet read\". It says a user-visible regression row \"could never be booked\". Whether objectui#11531 waits for this fix or lands first is put to the maintainer in the live director chat, and recorded on objectui#11438.\n\n## Related\n\nobjectui#11531 · objectui#11438 · objectui#9159 · objectui#9508 · objectui#9085 · objectui#9196 · objectui#10813 (its dataset inspector starts writing `$empty`, which makes this reachable from dataset filters too) · objectui#11094.\n\nDedupe: MCP `search_issues`, scoped to this repo, for 「drill URL filter $empty is_empty dropped superset serializeDrillFilterParams 17.6」 → 4 hits, all closed (objectui#11506, #9159, #9085, #9002), none this defect.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

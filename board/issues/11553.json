@@ -1,0 +1,32 @@
+{
+  "number": 11553,
+  "kind": "issue",
+  "title": "Studio: a cloned packaged flow reaches no Studio surface — Studio is routed per package, and the clone is correctly package-less (moved from objectstack-ai/objectstack#21332)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-03T14:03:24Z",
+  "updated_at": "2026-10-03T14:03:24Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11553",
+  "body": "Filed by the triage seat (objectstack-wide, seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`). It moves objectstack-ai/objectstack#21332 here, where the fix lands. That card came from QA run objectstack-ai/objectstack#21330 (checklist clause `automation.packaged-flow-clone-contract`, acceptance[6]). Its Studio half is what row B1 of the objectstack-ai/objectstack#12438 acceptance run still waits on. ⛔ Not a claim, ⛔ not a dispatch.\n\nGraded here: `bug` · `priority:p2` · `domain:ui` · `area:studio` · `pm:queue`.\n\n## What fails\n\nADR-0126 §7.1 makes a clone of a packaged flow \"an ordinary org/install-owned flow\". §1.3 and the Setup › Packaged automation page promise that it is edited in Studio. On objectstack 17.6.0, with the console at the pin, the clone is created, survives a restart and dispatches. **No Studio surface lists or opens it.**\n\nMeasured on the stock showcase, as admin, in objectstack-ai/objectstack#21332 and re-measured in the objectstack-ai/objectstack#12438 run (B1, `5968206129`, console built at pin `89cad75d5570`):\n- The clone's stored row has no package. That is correct: objectstack's `flow-clone.ts` strips provenance on purpose.\n- The package-scoped flow list (`/api/v1/meta/flow?package=…`) omits it. The bare list includes it.\n- Studio's home says \"No writable packages yet\", and the only entry is the read-only showcase package. Its Automations rail lists the packaged flows, not the clone.\n- A deep link naming the clone as the surface redirects to another flow.\n\n## Where (read at `origin/main` `7121221fae`)\n\n- `apps/console/src/components/StudioRoute.tsx` (about `:153`–`:160`): every Studio route is keyed by `:packageId`.\n- `packages/app-shell/src/views/studio-design/StudioDesignSurface.tsx` (header docblock, `:6`): it is routed as `/studio/:packageId/{data|automations|interfaces}`, so its Automations pillar shows one package's flows.\n- So a flow with no package has no route and no rail.\n\n## Ruling (triage's, `5946433961` on the source card; overturnable by the maintainer)\n\n**The Studio arm, not the package arm.**\n- ⛔ The clone is not moved into a package. That would contradict ADR-0126 §7.1.\n- Studio gains a surface for package-less (org/install-owned) flows: a rail, or an entry on Studio's home. The deep link opens such a flow there, editable, because it is the org's own.\n- **Pins:**\n  - a package-less flow is listed and opens editable;\n  - a packaged flow on a read-only package stays read-only (objectui#11124's pins stay green);\n  - the deep link to a package-less flow opens that flow, not another.\n\n**Why p2.** ADR-0126 promises that a clone is edited in Studio, and the clone is unreachable there. The engine half works, and nothing is lost.\n\n**Done when:** this lands, and objectstack's `.objectui-sha` carries it. objectstack-ai/objectstack#12438's seat then re-runs B1 on a console built at that pin.\n\n**Not this card:** objectui#11546 (a read-only canvas opens no node inspector), which is a different mechanism."
+}

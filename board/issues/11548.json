@@ -1,0 +1,33 @@
+{
+  "number": 11548,
+  "kind": "pull_request",
+  "title": "fix(app-shell): the drill URL spells `$empty` as `filter[F][empty]`, so a composed 「is empty」 drill no longer opens on a superset on spec 17.6.0 (objectui#11547)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "package: app-shell",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-03T13:22:16Z",
+  "updated_at": "2026-10-03T13:52:42Z",
+  "closed_at": "2026-10-03T13:52:40Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-03T13:52:40Z",
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11548",
+  "body": "Fixes #11547\n\nClause-②: yes (widening)\n\n## What this PR is\n\nOn `@objectstack/spec` 17.6.0, a composed drill whose widget filter says 「is empty」 dropped that condition from the drill URL. The spec now lowers `is_empty` / `is_not_empty` to `$empty`, and the `filter[…]` dialect spelled emptiness only from `$null` / `$exists`. So the `/data` list opened on a superset. This is a regression the 17.6.0 bump (objectui#11531) introduced, against 17.5.0's `filter[F][null]=true`.\n\nThe fix follows objectui#9159's precedent for `[null]`:\n- **Serializer:** `{ F: { $empty: true | false } }` → `filter[F][empty]=true|false`, beside any `[null]` param and range bound. A non-boolean `$empty` writes nothing.\n- **Reader (`parseUrlFilterTriples`, the ADR-0055 `/data` surface):** `[empty]=true|false` → `[F, 'is_empty' | 'is_not_empty', true]`, the triples `convertFiltersToAST` emits. Any other value is dropped. The pair stays out of `URL_FILTER_OPS`, for the reason the `NULL_FILTER` docblock gives (\"Save as view\" correctness).\n- **Chips:** the existing `filterBuilder.operators.is_empty` / `is_not_empty` keys. No new string.\n- **`$empty` and `$null` on one field** are two params, both written and both read back. That matches `convertFiltersToAST`'s `['and', …]` for the same object, so nothing degrades.\n- The `NULL_FILTER` docblock's \"a COMPOSED drill filter only ever arrives spelled `$null`\" is corrected for 17.6.0.\n\n⛔ The equality route's operator arm (`parseUrlEqualityFilterTriples`, objectui#9196) is untouched, as are `composeDrillFilter`, the dataset inspector and the i18n packs.\n\n## Tests\n\n- **Red first** on the trunk tip `13f07dd0f`: 10 of 12 new cases failed (for example `'?filter[stage]=won'` with no emptiness param). The 2 `[null]` controls passed.\n- **Green:** the module's import radius, 14 files and 213 tests; the 40 `ObjectView.*` importers, 394 tests; app-shell type-check exit 0.\n- **Ablations** (each restored by blob hash):\n  - the serializer arm → 17 red;\n  - the reader arm → 21 red (Save-as-view and the zh/en chip pins included).\n- **Gates:** changeset presence and no-major, citations (0 new), control bytes, `check:i18n-keys`, the vi-mock family, `check:spec-symbols`. Governed-queue guard: NOT GOVERNED.\n\n## Changeset\n\n`.changeset/11547-drill-url-is-empty-operator.md`: `@object-ui/app-shell` `minor`. That is the level objectui#9159 and objectui#9508 used for a URL-dialect widening.\n\nMeasured reach: 0 authored dashboard or chart widget filters with an empty operator across objectstack examples, hotcrm, cloud and objectui. Stored customer dashboards are not measured. This lands before the next objectui release, which is held on #5400 until it does.\n\nClaim `5969214761` · dev report `5969555930` · the at-tier contract review follows on this PR.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_016tKoy8NJa35Yih1FdzrVmn\n"
+}

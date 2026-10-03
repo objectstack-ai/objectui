@@ -1,0 +1,40 @@
+{
+  "number": 11552,
+  "kind": "pull_request",
+  "title": "feat(core,react,components,i18n,types): actions honour the spec's `outcomeMessages`; core and types floor at @objectstack/spec ^17.6.0; the row-5 booking is struck (objectui#11344)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "dependencies",
+    "documentation",
+    "package: app-shell",
+    "package: components",
+    "package: core",
+    "package: i18n",
+    "package: react",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-03T13:54:37Z",
+  "updated_at": "2026-10-03T14:23:17Z",
+  "closed_at": "2026-10-03T14:23:16Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-03T14:23:16Z",
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11552",
+  "body": "Fixes #11344\n\nClause-②: yes\n\n## What this PR is\n\nThe renderers now honour the spec's `ActionSchema.outcomeMessages` (`@objectstack/spec` 17.6.0).\n- **`@object-ui/core`** (`ActionRunner`, `actionKeys`) composes the success toast in this order: an own-property `outcomeMessages` entry, then `successMessage`, then the runner's default. The server's message no longer shows. `SPEC_ACTION_KEYS` and `ACTION_DEF_KEYS` list the key.\n- **`@object-ui/react`'s `useActionTextLocalizer`** resolves `outcomeMessages` along the spec resolver's address: the object's `_actions` entry, then `globalActions`.\n- **`@object-ui/components`'** four action renderers forward the key.\n- **`@object-ui/i18n`** supplies `actionOutcome`.\n- **`@object-ui/types`** derives the member from the spec.\n- **Floors:** `@object-ui/core` and `@object-ui/types` raise their `@objectstack/spec` floor to `^17.6.0`, because their published types read `ActionSchema.outcomeMessages`, which 17.6.0 first declares. `types` already reads `^17.6.0` on `main` (objectui#11227's floor commit), so only the `core` importer's specifier differs from `main` in the lockfile.\n\n## The row-5 booking is struck\n\nobjectui#11531 landed with row 5 booked to this card (`OWED_TO_OBJECTUI_11344` in `actionKeys.pin.test.ts`). This PR removes it in full, together with `.changeset/11344-row5-booking-17-6.md`. The pin file's blob is byte-identical to its pre-booking state (`3445b86f1`), and the spec-inventory row is back to `missing: []`, `stale: []`.\n\n## Reviews\n\n- Contract review FAIL `5968432379` (floors), then REWORK `5968446861`, then the delta contract review **PASS** `5969179064` on `89b21dafd`.\n- The director's takeover claim is `5969091930`.\n- **This head** merges `main` and strikes the booking, as the PASS's landing condition ③.1 requires. It also carries the PASS's two wording notes: objectui#10969's pending changeset, and the `completedSuccessfully` comment in `packages/i18n/src/locales/en.ts`. No contract surface moved beyond the reviewed head.\n\n## Tests (dev report `5969817428`)\n\n- 8 files, 140 tests green;\n- type-check passes for core, types, react, i18n and components after a full build;\n- `check:spec-floors --cross-check` is green (21 of 39 packages, 435 pairs);\n- the lockfile integrity and dedupe checks are clean;\n- the changeset gates and citations (0 new) pass.\n\n## Changeset\n\n`.changeset/11344-action-outcome-messages.md`: five `minor` entries, no `major`, with the floor sentence.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_016tKoy8NJa35Yih1FdzrVmn\n"
+}

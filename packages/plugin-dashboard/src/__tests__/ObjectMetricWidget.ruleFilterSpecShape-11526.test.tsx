@@ -96,8 +96,8 @@ describe('object-metric — a structured `groupBy` with a rule-list `filter` dra
 
   it('lowers a multi-rule list to one condition, on the count shape the showcase tiles author', async () => {
     // `app-showcase`'s My Work tiles count by `id` under a rule list; this is
-    // one of them with a structured `groupBy` added. A count is summed across
-    // the buckets under the `count` alias.
+    // its Open Tasks tile with a structured `groupBy` and a second rule added.
+    // A count is summed across the buckets under the `count` alias.
     const doc = node({
       label: 'Open Tasks',
       objectName: 'showcase_task',

@@ -127,9 +127,11 @@ function ownFractionDigits(value: number): number {
  * is core's sink for a `ViewFilterRule[]` (the one `object-grid` lowers its own
  * rule-list `filter` through, via `toFilterNodeSafely`), and `parseFilterAST`
  * is the spec's single sink, the call the adapter makes. The result is the
- * `FilterCondition` that `QuerySchema.where` declares, and the pin
- * `ObjectMetricWidget.ruleFilterSpecShape-11526` compares it with the legacy
- * wire's `where` for every operator the spec's rule vocabulary declares.
+ * `FilterCondition` that `QuerySchema.where` declares; the pin
+ * `ObjectMetricWidget.ruleFilterSpecShape-11526` checks that every operator the
+ * spec's rule vocabulary declares lowers to one. That it equals the legacy
+ * wire's `where` was measured once, on objectui#11526's pull request, against
+ * the real adapter; nothing in this repo re-derives that equality.
  *
  * Three inputs keep what they had:
  *

@@ -34,7 +34,7 @@
  * | **excluded** | the hosts' gates (`isInlineExcludedDetailFieldType` / `isComputedFieldType`) | no inline editor at all — containers, credentials, computed |
  * | **routed** | `InlineFieldInput`'s own switch (`INLINE_ROUTED_FIELD_TYPES`) | the dedicated editor that type already had |
  * | **delegated** | `FieldEditWidget` | the SAME widget the form uses |
- * | **benign** | `INLINE_PLAIN_TEXT_FIELD_TYPES` | the terminal text input, losslessly (the value is already a string) |
+ * | **benign** | `INLINE_PLAIN_TEXT_FIELD_TYPES` | the terminal text input, losslessly (the value is already a single-line string) |
  *
  * A type in NONE of the four is red — that is a new type nobody decided about,
  * and the default it would otherwise inherit is the value-destroying one. A
@@ -197,7 +197,8 @@ describe('inline-edit type coverage — every type has exactly one decision (#42
     // Decide it: give it a branch (INLINE_ROUTED_FIELD_TYPES), let it delegate
     // (a widget in the fields package's EDIT_WIDGETS), gate it out (the shared
     // INLINE_EXCLUDED_FIELD_TYPES), or declare it benign
-    // (INLINE_PLAIN_TEXT_FIELD_TYPES — only if its stored value is a string).
+    // (INLINE_PLAIN_TEXT_FIELD_TYPES — only if its stored value is a string
+    // that cannot span lines: the terminal input is one line, objectui#11562).
     expect(undecided).toEqual([]);
   });
 
@@ -210,11 +211,13 @@ describe('inline-edit type coverage — every type has exactly one decision (#42
 
   it('the benign list is explicit, and every member really is string-valued', () => {
     // Enumerated, never "everything else" — an open tail is the drift itself.
+    // `textarea` left this list in objectui#11562: its value is a string, but
+    // a MULTI-line one, and the terminal input is one line, so a stored value
+    // with line breaks was saved flattened. It is routed now (see below).
     expect([...INLINE_PLAIN_TEXT_FIELD_TYPES].sort()).toEqual([
       'email',
       'phone',
       'text',
-      'textarea',
       'url',
     ]);
   });
@@ -249,14 +252,16 @@ describe('inline-edit type coverage — every type has exactly one decision (#42
       // `markdown` sat in `excluded` until objectui#11541: the detail row now
       // routes it to the multi-line `TextAreaField`, and the grid cell keeps
       // the shared exclusion. `html` / `richtext` stay excluded, unchanged.
+      // `textarea` sat in `benign` until objectui#11562 and is routed to the
+      // same `TextAreaField`; the grid cell already edited it with that widget.
       routed: [
         'address', 'audio', 'avatar', 'boolean', 'currency', 'date', 'datetime',
         'file', 'geolocation', 'image', 'location', 'lookup', 'markdown',
         'master_detail', 'multiselect', 'number', 'percent', 'select',
-        'signature', 'tree', 'user', 'video',
+        'signature', 'textarea', 'tree', 'user', 'video',
       ],
       delegated: ['checkboxes', 'code', 'color', 'json', 'progress', 'qrcode', 'radio', 'rating', 'slider', 'tags', 'time', 'toggle'],
-      benign: ['email', 'phone', 'text', 'textarea', 'url'],
+      benign: ['email', 'phone', 'text', 'url'],
     });
   });
 });

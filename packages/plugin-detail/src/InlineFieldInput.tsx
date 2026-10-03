@@ -75,21 +75,18 @@ export const INLINE_PLAIN_TEXT_INPUT_TESTID = 'inline-plain-text-input';
  * only its degenerate options-less SINGLE-value form reaches the terminal
  * input — see {@link usesInlinePlainTextInput}.
  *
- * `markdown` is absent although its value is a string (objectui#11541): it is
- * ROUTED, to the multi-line `TextAreaField`, because this terminal input is a
- * single-line `<input type="text">` and the browser strips line breaks from the
- * value it is seeded with — one keystroke and the flattened text is what gets
- * written. `html` / `richtext` are absent because the hosts never open an
- * editor for them at all (they are in the fields package's shared exclusion,
- * consulted since #4228).
- *
- * ⚠️ That line-break loss holds for `textarea`, which IS a member, whenever its
- * stored value spans lines. Recorded here so the "nothing is lost" above is not
- * read as covering it; objectui#11541 does not change `textarea`.
+ * `markdown` (objectui#11541) and `textarea` (objectui#11562) are absent
+ * although their values are strings: they are multi-line by type, so they are
+ * ROUTED, to the multi-line `TextAreaField`. This terminal input is a
+ * single-line `<input type="text">`, and the browser strips line breaks from
+ * the value it is seeded with — one keystroke and the flattened text is what
+ * gets written. The members left here are single-line types, which is what
+ * makes "nothing is lost" true of them. `html` / `richtext` are absent because
+ * the hosts never open an editor for them at all (they are in the fields
+ * package's shared exclusion, consulted since #4228).
  */
 export const INLINE_PLAIN_TEXT_FIELD_TYPES = new Set<string>([
   'text',
-  'textarea',
   'email',
   'phone',
   'url',
@@ -145,6 +142,10 @@ export const INLINE_ROUTED_FIELD_TYPES = new Set<string>([
   // Long-form markup source — the same exemption (objectui#11541): a row can
   // host a multi-line editor, and the terminal input is one line.
   'markdown',
+  // Multi-line plain text (objectui#11562). Not in the shared exclusion, so
+  // the hosts always opened an editor for it; it was class D until the
+  // terminal input's one line was measured to drop its line breaks.
+  'textarea',
 ]);
 
 /**
@@ -412,16 +413,18 @@ export const InlineFieldInput: React.FC<InlineFieldInputProps> = ({
   if (editType === 'file' || editType === 'video' || editType === 'audio') {
     return <FileField field={field as any} value={value} onChange={(v: any) => onChange(v)} error={error} />;
   }
-  // Markdown → `TextAreaField`, the fields package's multi-line widget, the one
-  // a `textarea` field edits with in the record form and in a grid cell
-  // (objectui#11541). The value is the markdown SOURCE, a plain string, and the
-  // textarea hands it back exactly as typed, blank lines and trailing newline
-  // included. The terminal input below cannot: it is one line, and the browser
-  // strips line breaks from the value it is seeded with — "a one-line text box
-  // is lossy", the reason #4228 recorded for keeping markdown out of this row.
-  // `html` / `richtext` never reach this component: the hosts' gate still
-  // excludes them.
-  if (editType === 'markdown') {
+  // Markdown and textarea → `TextAreaField`, the fields package's multi-line
+  // widget, the one a `textarea` field edits with in the record form and in a
+  // grid cell (objectui#11541 for markdown, objectui#11562 for textarea). The
+  // value is a plain string — for markdown, its SOURCE — and the textarea hands
+  // it back exactly as typed, blank lines and trailing newline included. The
+  // terminal input below cannot: it is one line, and the browser strips line
+  // breaks from the value it is seeded with — "a one-line text box is lossy",
+  // the reason #4228 recorded for keeping markdown out of this row, and the
+  // reason a stored multi-line note lost its line breaks on the first keystroke
+  // while `textarea` still edited there. `html` / `richtext` never reach this
+  // component: the hosts' gate still excludes them.
+  if (editType === 'markdown' || editType === 'textarea') {
     return <TextAreaField field={field as any} value={value} onChange={(v) => onChange(v)} autoFocus={autoFocus} error={error} />;
   }
   // Reference fields (lookup / master_detail / tree / user / owner) store an id

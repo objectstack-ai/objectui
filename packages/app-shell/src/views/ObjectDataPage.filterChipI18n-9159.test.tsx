@@ -230,9 +230,9 @@ describe('the is-null filter chip is translated (objectui#9159)', () => {
 describe('the is-empty filter chips are translated (objectui#11547)', () => {
   /** What the pack itself calls one operator, in one language. */
   const packLabelOf = (language: string, key: string): unknown =>
-    key.split('.').reduce<any>(
-      (node, part) => node?.[part],
-      (builtInLocales as Record<string, any>)[language],
+    key.split('.').reduce<unknown>(
+      (node, part) => (node as Record<string, unknown> | undefined)?.[part],
+      (builtInLocales as Record<string, unknown>)[language],
     );
 
   it.each([

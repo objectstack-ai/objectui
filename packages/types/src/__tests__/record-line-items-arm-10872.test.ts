@@ -33,9 +33,21 @@
 
 import { describe, expect, it } from 'vitest';
 import type { z } from 'zod';
-import { ComponentPropsMap, ElementDataSourceSchema, PageComponentSchema } from '@objectstack/spec/ui';
+import {
+  ComponentPropsMap,
+  ElementDataSourceSchema,
+  PageComponentSchema,
+  type RecordDetailsProps,
+  type RecordLineItemsProps,
+} from '@objectstack/spec/ui';
 
-import { RecordLineItemsBlockSchema, StrictAnyComponentSchema, safeValidateSchema } from '../zod/index.zod.js';
+import {
+  PublicBlockComponentSchema,
+  RecordLineItemsBlockSchema,
+  StrictAnyComponentSchema,
+  safeValidateSchema,
+} from '../zod/index.zod.js';
+import type { RecordLineItemsBlockSchemaType } from '../zod/public-blocks.zod.js';
 import { stripImportedDefaults } from '../zod/imported-defaults.js';
 
 type Issue = { code: string; path: PropertyKey[]; message: string; keys?: string[] };
@@ -174,5 +186,41 @@ describe('`record:line_items` refuses both content channels, by name (objectui#1
     const spec = PageComponentSchema.safeParse({ type: TYPE, properties: { ...MINIMAL_BAG }, children: CONTENT });
     expect(spec.success).toBe(false);
     expect(issuesOf(spec as Result).flatMap((issue) => issue.keys ?? [])).toContain('children');
+  });
+});
+
+/*
+ * The arm's TYPE is named (`RecordLineItemsBlockSchemaType`) so declaration
+ * emit prints it by reference; inlined, it tipped `AnyComponentSchema` past
+ * TypeScript's serialization ceiling (TS7056) against `@objectstack/spec` built
+ * from objectstack `main`. These compile-time rows pin that the naming changed
+ * no type a consumer reads: the arm's input and output are the spec row's and
+ * the spec binding's, read by reference. `tsc -p tsconfig.test.json` (the
+ * package's `type-check`) is what evaluates them.
+ */
+type Assert<T extends true> = T;
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+
+type ArmIn = z.input<typeof RecordLineItemsBlockSchema>;
+type ArmOut = z.output<typeof RecordLineItemsBlockSchema>;
+
+type _TypeLiteral = Assert<Equal<ArmIn['type'], 'record:line_items'>>;
+type _BagInputIsTheRow = Assert<Equal<ArmIn['properties'], z.input<typeof RecordLineItemsProps> | undefined>>;
+type _BagOutputIsTheRow = Assert<Equal<ArmOut['properties'], z.output<typeof RecordLineItemsProps> | undefined>>;
+type _BindingInputIsTheSpecs = Assert<Equal<ArmIn['dataSource'], z.input<typeof ElementDataSourceSchema> | undefined>>;
+type _BindingOutputIsTheSpecs = Assert<Equal<ArmOut['dataSource'], z.output<typeof ElementDataSourceSchema> | undefined>>;
+// The union carries the named type, so the derived node types read it.
+type _UnionMemberIsTheNamedType = Assert<
+  Equal<Extract<(typeof PublicBlockComponentSchema)['options'][number], RecordLineItemsBlockSchemaType>, RecordLineItemsBlockSchemaType>
+>;
+// Lit control: the equality distinguishes two rows, so the rows above can fail.
+type _ControlAnotherRowIsNotEqual = Assert<
+  Equal<ArmIn['properties'], z.input<typeof RecordDetailsProps> | undefined> extends true ? false : true
+>;
+
+describe('`record:line_items` — the named arm type is the arm (objectui#10872)', () => {
+  it('the export is the very object the union carries', () => {
+    const options = (PublicBlockComponentSchema as unknown as { options: unknown[] }).options;
+    expect(options).toContain(RecordLineItemsBlockSchema);
   });
 });

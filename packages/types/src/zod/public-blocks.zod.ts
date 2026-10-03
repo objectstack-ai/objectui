@@ -1049,8 +1049,11 @@ const RECORD_LINE_ITEMS_NEITHER_CHANNEL = neitherContentChannelGuidance(
  *
  * Its content is the grid of child records; the node's own `children` and
  * `body` are refused (the objectui#9256 method).
+ *
+ * The arm's TYPE is named (`RecordLineItemsBlockSchemaType`, below) so
+ * declaration emit prints it by name; the arm itself is built here.
  */
-export const RecordLineItemsBlockSchema = BaseSchema.extend({
+const RecordLineItemsBlockArm = BaseSchema.extend({
   type: z.literal('record:line_items'),
   ...NODE_ENVELOPE,
   // objectui#10872 batch 10: a row member written flat on the node is refused by name, toward `properties.KEY`.
@@ -1068,6 +1071,43 @@ export const RecordLineItemsBlockSchema = BaseSchema.extend({
   body: retirementTombstone(RECORD_LINE_ITEMS_NEITHER_CHANNEL),
   children: retirementTombstone(RECORD_LINE_ITEMS_NEITHER_CHANNEL),
 });
+
+/** The inferred type of the `record:line_items` arm: what `RecordLineItemsBlockSchemaType` extends. */
+type RecordLineItemsBlockArmType = typeof RecordLineItemsBlockArm;
+
+/**
+ * The type of `RecordLineItemsBlockSchema`, NAMED so that declaration emit
+ * prints a reference to it instead of the arm's whole inferred type.
+ *
+ * ## Why (objectui#10872)
+ *
+ * `tsc` prints an inferred type in full wherever a declaration uses it. So
+ * `AnyComponentSchema`'s declaration in `index.zod.d.ts` spells out every
+ * arm of every union it lists. That declaration sits close to the compiler's
+ * serialization ceiling. Against `@objectstack/spec` built from objectstack
+ * `main`, this block's row is larger (the `columns[].readonlyWhen` /
+ * `requiredWhen` expression types carry their `ast`). With this arm printed
+ * inline, `@object-ui/types` stopped compiling with TS7056 at
+ * `AnyComponentSchema` and emitted no declarations; the Spec Main Shape Gate
+ * caught it. An interface is printed by name, so the arm's body is printed
+ * once, here, and `AnyComponentSchema` refers to it.
+ *
+ * ## Why the TYPE is unchanged
+ *
+ * It extends the arm's own inferred type and adds no member. `shape` is
+ * restated as that type's own `shape`, read by reference, only because
+ * `@typescript-eslint/no-empty-object-type` refuses an empty interface. The
+ * value is the arm itself, so the runtime object, its parse results and the
+ * strict face derived from it are the arm's.
+ * `../__tests__/record-line-items-arm-10872.test.ts` pins the input and
+ * output types against the spec row and binding they are read from.
+ */
+export interface RecordLineItemsBlockSchemaType extends RecordLineItemsBlockArmType {
+  shape: RecordLineItemsBlockArmType['shape'];
+}
+
+/** `record:line_items` — `ComponentPropsMap['record:line_items']`; see the arm's docblock above. */
+export const RecordLineItemsBlockSchema: RecordLineItemsBlockSchemaType = RecordLineItemsBlockArm;
 
 /* ── element: — content blocks ──────────────────────────────────────────── */
 

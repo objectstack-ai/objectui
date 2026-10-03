@@ -13,11 +13,11 @@
  * item still appears in its rail.
  */
 import { describe, expect, it, vi } from 'vitest';
-import { loadPackageSurfaces, type PackageSurfaceClient } from './packageSurfaces';
+import { loadPackageLessSurfaces, loadPackageSurfaces, type PackageSurfaceClient } from './packageSurfaces';
 
 function makeClient(
   published: Array<Record<string, unknown>>,
-  drafts: Array<{ name?: string | null }> | Error,
+  drafts: Array<{ name?: string | null; packageId?: string | null }> | Error,
 ): PackageSurfaceClient {
   return {
     list: vi.fn(async () => published),
@@ -86,5 +86,64 @@ describe('loadPackageSurfaces', () => {
 
     // Nameless published/draft rows are dropped; a labelless row shows its name.
     expect(items).toEqual([{ type: 'flow', name: 'no_label', label: 'no_label' }]);
+  });
+});
+
+/**
+ * objectui#11553 — the package-less scope's rail. Measured on objectstack
+ * 17.6.0: the package-scoped flow list omits a clone (its row names no
+ * package), the bare list includes it beside every packaged flow. So this
+ * loader reads unscoped and keeps only what names no package, on both halves.
+ */
+describe('loadPackageLessSurfaces (objectui#11553)', () => {
+  it('lists the package-less flow from the unscoped list and drops every packaged one', async () => {
+    const client = makeClient(
+      [
+        { name: 'showcase_urgent_task_alert', label: 'Urgent task alert', _packageId: 'com.example.showcase' },
+        { name: 'qa_urgent_alert_clone', label: 'QA urgent alert clone' },
+      ],
+      [],
+    );
+
+    const items = await loadPackageLessSurfaces(client, 'flow');
+
+    expect(items).toEqual([{ type: 'flow', name: 'qa_urgent_alert_clone', label: 'QA urgent alert clone' }]);
+  });
+
+  it('reads both halves UNSCOPED — a package-scoped read cannot see a package-less item', async () => {
+    const client = makeClient([], []);
+    await loadPackageLessSurfaces(client, 'flow');
+
+    expect(client.list).toHaveBeenCalledWith('flow');
+    expect(client.listDrafts).toHaveBeenCalledWith({ type: 'flow' });
+  });
+
+  it('keeps a package-less draft-only flow and drops a packaged draft', async () => {
+    const client = makeClient(
+      [{ name: 'qa_urgent_alert_clone', label: 'QA urgent alert clone' }],
+      [
+        { name: 'qa_urgent_alert_clone', packageId: null },
+        { name: 'org_draft_only', packageId: null },
+        { name: 'pkg_draft', packageId: 'com.acme.app' },
+      ],
+    );
+
+    const items = await loadPackageLessSurfaces(client, 'flow');
+
+    expect(items).toEqual([
+      { type: 'flow', name: 'qa_urgent_alert_clone', label: 'QA urgent alert clone' },
+      { type: 'flow', name: 'org_draft_only', label: 'org_draft_only' },
+    ]);
+  });
+
+  it('tolerates a listDrafts failure like the package loader does', async () => {
+    const client = makeClient(
+      [{ name: 'qa_urgent_alert_clone', label: 'QA urgent alert clone' }],
+      new Error('drafts endpoint unavailable'),
+    );
+
+    const items = await loadPackageLessSurfaces(client, 'flow');
+
+    expect(items).toEqual([{ type: 'flow', name: 'qa_urgent_alert_clone', label: 'QA urgent alert clone' }]);
   });
 });

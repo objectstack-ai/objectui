@@ -361,7 +361,10 @@ describe('types the fields package edits inline but the switch had no branch for
 // ---------------------------------------------------------------------------
 
 describe('class D — benign string types keep the terminal text input (#4220)', () => {
-  for (const type of ['text', 'textarea', 'email', 'url', 'phone']) {
+  // `textarea` stood in this list until objectui#11562 routed it to the
+  // multi-line `TextAreaField`; its pins are
+  // `InlineFieldInput.textareaEditor-11562.test.tsx`.
+  for (const type of ['text', 'email', 'url', 'phone']) {
     it(`\`${type}\` still edits in the plain input, and emits the typed string`, () => {
       const onChange = vi.fn();
       render(

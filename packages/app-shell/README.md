@@ -374,6 +374,22 @@ enable, or disable packages; direct `/metadata/package` links redirect there.
 The Studio sidebar also flattens the root Overview group so Home and package
 navigation sit directly under the package selector.
 
+### Package-less flows (`/studio/~org/automations`)
+
+A flow that belongs to no package — a clone of a packaged flow is one, by
+ADR-0126 §7.1 — matches no package scope, so Studio gives it one scope of its
+own: `/studio/~org/automations` (`studioOrgScopePath()`, segment
+`STUDIO_ORG_SCOPE_SEGMENT`). It is the same `StudioDesignSurface` with no
+package under it, reached from the Studio home and from the package switcher.
+Its Automations rail lists every flow whose served `_packageId` names no
+package, opens each one editable, and saves package-less drafts; its Publish
+promotes those drafts one by one through the single-item publish door, because
+the package batch publish cannot reach a draft bound to no package. It offers
+no other pillar and no "New" flow. `~` is outside every package-id alphabet,
+so the segment can never name a package. A `?surface=flow:` deep link that
+names a flow the open rail does not hold opens no other flow in its place;
+from a package's pillar, a package-less flow is opened in this scope instead.
+
 ### Access matrix (package-scoped)
 
 The Access pillar's permission matrix follows the active package (ADR-0086 P0).

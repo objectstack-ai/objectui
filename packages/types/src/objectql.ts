@@ -4798,11 +4798,24 @@ export interface ObjectKanbanSchema extends BaseSchema {
    *
    * Undeclared on both faces of this package until objectui#11355, so the read
    * reached it only through {@link BaseSchema}'s index signature. The same read
-   * falls back to `grouping.fields[0].field` when this key is absent. `grouping`
-   * is still undeclared here: aligning it with the spec's typed row is
-   * objectui#11216's.
+   * falls back to `grouping.fields[0].field` when this key is absent; see
+   * {@link ObjectKanbanSchema.grouping}.
    */
   swimlaneField?: SpecObjectKanbanProps['swimlaneField'];
+  /**
+   * The FALLBACK source of {@link ObjectKanbanSchema.swimlaneField}:
+   * `ObjectKanban` reads `grouping.fields[0].field` when no `swimlaneField` is
+   * authored, and reads nothing else inside the block.
+   *
+   * `@objectstack/spec` types this key on the `object-kanban` row as the list
+   * view's own `GroupingConfigSchema`, by reference, so the type is the spec's
+   * `GroupingConfig` — the one `ObjectGridSchema.grouping` takes — and the zod
+   * mirror takes the same schema by reference (objectui#11216). Undeclared on
+   * both faces until then, so the read reached it only through
+   * {@link BaseSchema}'s index signature, and the strict authoring face refused
+   * a well-formed config by name.
+   */
+  grouping?: GroupingConfig;
 
   /**
    * RETIRED (objectui#8285, ruling B of the director seat's decision batch #91,

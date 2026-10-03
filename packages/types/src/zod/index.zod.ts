@@ -496,6 +496,7 @@ export {
   RecordQuickActionsBlockSchema,
   RecordReferenceRailBlockSchema,
   RecordAlertBlockSchema,
+  RecordLineItemsBlockSchema,
   ElementTextBlockSchema,
   ElementNumberBlockSchema,
   ElementButtonBlockSchema,

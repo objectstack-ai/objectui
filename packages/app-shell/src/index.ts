@@ -451,6 +451,14 @@ export type {
 // The builder's front door: pick/create a writable package → pillar builder.
 // Standalone at `/studio` and embedded via the `studio:builder` component ref.
 export { BuilderLanding } from './views/studio-design/BuilderLanding.js';
+// The one Studio scope that is not a package (objectui#11553): the
+// organization's own package-less flows, at `/studio/~org/automations`. A host
+// that declares the `/studio` routes reads the reserved segment from here.
+export {
+  STUDIO_ORG_SCOPE_SEGMENT,
+  STUDIO_ORG_SCOPE_PILLAR,
+  studioOrgScopePath,
+} from './views/studio-design/studioScope.js';
 
 // Setup › Packaged automation (ADR-0126 §7.4) — on/off + clone for the flows
 // installed packages ship. Reached through the `automation:packaged` component

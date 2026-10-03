@@ -49,21 +49,29 @@
  * site changed — the ablation objectui#8071 ran on this file removed the
  * `typeof fieldName === 'string'` name resolution and reddened rows 1, 3 and 5.
  *
- * The `{ name }` spelling in row 5 is recorded as the renderer's tolerance, not
- * as a second contract (AGENTS.md #0.1): it is what `buildFlatFields` documents
- * ("field names or objects carrying one") and what the loop's
- * `(fieldName as any).name` fallback does. Pinned so that a future edit removing
- * it is a decision rather than an accident, and so the contrast with the
- * REJECTED `{ field }` spelling above it cannot quietly invert.
+ * Row 6 is the `{ name }` entry, and objectui#11550 TURNED IT AROUND (triage
+ * ruling 5969880008). It used to be pinned as a tolerated spelling, which every
+ * authoring face then taught. It is retired from authoring: the declared member
+ * is `string[]` (`ObjectFormSchema.fields`, whose zod mirror refuses the entry
+ * at `fields.0`), and the guide and the fixtures name fields as strings. What
+ * stays is the READ: the loop's `(fieldName as any).name` and `buildFlatFields`
+ * still draw an entry STORED that way, as objectui#11533 kept stored rules
+ * readable. So the row pins both halves, and the `{ field }` contrast above it
+ * stays exactly as it was.
  */
 
 import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { registerAllFields } from '@object-ui/fields';
+import { ObjectFormSchema as ObjectFormMirror } from '@object-ui/types/zod';
 import { ObjectForm } from '../ObjectForm';
 
 registerAllFields();
+
+/** `{ code, path }` of what a parse refused, so row 6 names WHICH entry was refused and HOW. */
+const refusal = (result: { success: boolean; error?: { issues: Array<{ code: string; path: PropertyKey[] }> } }) =>
+  result.success ? [] : result.error!.issues.map((issue) => ({ code: issue.code, path: issue.path.join('.') }));
 
 const OBJECT_SCHEMA = {
   name: 'invoice',
@@ -162,7 +170,15 @@ describe('object-form `fields` members are BARE FIELD NAMES (objectui#8071)', ()
     ).toEqual(['Note']);
   });
 
-  it('6. tolerates the `{ name }` spelling — recorded as drift, not a second contract', async () => {
+  it('6. a STORED `{ name }` entry still draws, but the declared member refuses it (objectui#11550)', async () => {
+    // The authoring half: the mirror of the declared `string[]` refuses the
+    // entry, and ONLY the entry. The bare name beside it is the control.
+    const node = { type: 'object-form', objectName: 'invoice', mode: 'create' } as const;
+    expect(refusal(ObjectFormMirror.safeParse({ ...node, fields: [{ name: 'note' }] }))).toEqual([
+      { code: 'invalid_type', path: 'fields.0' },
+    ]);
+    expect(ObjectFormMirror.safeParse({ ...node, fields: ['note'] }).success).toBe(true);
+    // The read half: metadata already stored with the entry keeps drawing.
     expect(await renderedFieldLabels({ fields: [{ name: 'note' }] })).toEqual(['Note']);
   });
 });

@@ -208,7 +208,7 @@ describe('class 1 — an incomplete stored value is not opened as a row the next
   });
 
   it('CONTROL: the value-less tokens carry no value to be incomplete, and stay opened', () => {
-    for (const other of [{ name: { $exists: false } }, { name: { $null: true } }]) {
+    for (const other of [{ name: { $empty: true } }, { name: { $null: true } }]) {
       const { group, representable } = conditionToGroup(beside(other), FIELDS);
       expect(representable, JSON.stringify(other)).toBe(true);
       expect(editStage(group, 'lost')).toEqual({ $and: [{ stage: { $eq: 'lost' } }, other] });
@@ -224,7 +224,7 @@ describe('class 2 — a stored token is not opened as an operator the column\'s 
     { stored: { amount: { $in: [1, 2] } }, type: 'number', readAs: 'in' },
     // "Every token" includes the value-less arms: the boolean bucket offers
     // only `equals` / `notEquals`.
-    { stored: { flag: { $exists: true } }, type: 'boolean', readAs: 'is_not_empty' },
+    { stored: { flag: { $empty: false } }, type: 'boolean', readAs: 'is_not_empty' },
     { stored: { flag: { $null: false } }, type: 'boolean', readAs: 'is_not_null' },
   ];
 
@@ -262,7 +262,7 @@ describe('class 2 — a stored token is not opened as an operator the column\'s 
   });
 
   it('CONTROL: the value-less tokens on a column whose bucket offers them still open', () => {
-    for (const stored of [{ name: { $exists: true } }, { closed_at: { $null: false } }, { region: { $exists: false } }]) {
+    for (const stored of [{ name: { $empty: false } }, { closed_at: { $null: false } }, { region: { $empty: true } }]) {
       const { group, representable } = conditionToGroup(stored, FIELDS);
       expect(representable, JSON.stringify(stored)).toBe(true);
       expect(groupToCondition(group)).toEqual(stored);
@@ -315,7 +315,16 @@ describe('the invariant, swept: every row the read half opens, the panel draws a
       .flatMap((t) => SCALARS.map((v) => ({ stored: { [t]: v }, implicit: false }))),
     ...['$in', '$nin'].flatMap((t) => LISTS.map((v) => ({ stored: { [t]: v }, implicit: false }))),
     ...PAIRS.map((v) => ({ stored: { $between: v }, implicit: false })),
-    ...[true, false].flatMap((b) => [{ stored: { $exists: b }, implicit: false }, { stored: { $null: b }, implicit: false }]),
+    // `$empty` is what the empty pair writes since objectui#10813; `$exists`,
+    // what it wrote before, stays in the domain — it is now REFUSED (no
+    // operator this inspector offers reads it back), which the invariant
+    // accepts, and a read that still opened it would be named by the
+    // byte-identical check below.
+    ...[true, false].flatMap((b) => [
+      { stored: { $empty: b }, implicit: false },
+      { stored: { $exists: b }, implicit: false },
+      { stored: { $null: b }, implicit: false },
+    ]),
     ...[...SCALARS, ...LISTS].map((v) => ({ stored: v, implicit: true })),
   ];
 

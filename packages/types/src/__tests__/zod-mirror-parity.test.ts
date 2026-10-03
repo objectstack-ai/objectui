@@ -4761,6 +4761,8 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "spec-owned BY REFERENCE — `BaseSchema` + the `record:reference_rail` literal + `properties`, which IS `ComponentPropsMap['record:reference_rail']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#RecordAlertBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `record:alert` literal + `properties`, which IS `ComponentPropsMap['record:alert']`, + the objectui#9256 `children` refusal, + the objectui#10872 `body` alias refusal naming `properties.body` (its `body` is a text prop, so no neither-channel tombstone); no TS declaration in this package restates the node",
+  'public-blocks.zod.ts#RecordLineItemsBlockSchema':
+    "spec-owned BY REFERENCE — `BaseSchema` + the `record:line_items` literal + `properties`, which IS `ComponentPropsMap['record:line_items']`, + `dataSource`, which IS the spec's `ElementDataSourceSchema`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   'public-blocks.zod.ts#ElementTextBlockSchema':
     "spec-owned BY REFERENCE — `BaseSchema` + the `element:text` literal + `properties`, which IS `ComponentPropsMap['element:text']`, + the objectui#9256 `body` / `children` refusals (its renderer reads neither channel); no TS declaration in this package restates the node",
   // objectui#10872 batch 2 — the one arm with a node-level refinement: the

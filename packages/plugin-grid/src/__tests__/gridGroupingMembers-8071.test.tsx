@@ -26,26 +26,26 @@
  * ⭐ **`grouping` and `columns` ARE NOT DISJOINT, and this file is where that
  * shows.** `groupValueFormatter` derives the group-header labels from
  * `schema.grouping` AND `schema.columns` in one memo: the column override for a
- * grouped field decides how its value is SPELLED in the header. Slice 16
- * measured the four `object-grid` keys as separable and recorded exactly this
- * qualification; the two cases below are it, in behaviour.
+ * grouped field decides, through its declared `type`, how its value is SPELLED
+ * in the header. Slice 16 measured the four `object-grid` keys as separable
+ * and recorded exactly this qualification; the `columns[].type` case below is
+ * it, in behaviour.
  *
- * ⚠️ **One of those two reads a member `ListColumnSchema` REFUSES.** The memo
- * reads `columns[].options`, which is not among `ListColumn`'s fourteen
- * declared members — a strict object, so an author who writes it is refused at
- * publish with `unrecognized_keys` while this renderer honours it. That is the
- * `declared != enforced` split AGENTS.md #0.1 exists to stop, and it is the
- * same family objectui#6458 retired from `generateColumns()`'s cell branch;
- * `columnReadBoundary-6458` bounds THAT branch to the empty set and this memo
- * is outside it. ⛔ It is pinned below AS BEHAVIOUR and reported as a finding —
- * ⛔ not repaired here, because the repair is a retirement decision with its own
- * authors measurement, not a member pin.
+ * ⭐ **A select value's header LABEL comes from the OBJECT FIELD's `options`,
+ * and from nothing a column authors (objectui#11544).** The memo used to read
+ * `columns[].options` first, which is not among `ListColumn`'s fourteen
+ * declared members: the strict `ListColumnSchema` refuses it at publish with
+ * `unrecognized_keys`, while this renderer honoured it. That read is retired,
+ * not declared upstream; the authors measurement behind the ruling found no
+ * view that writes a column-level `options`. The label cases below pin the
+ * field's labels, and the column `options` beside them is the off-contract
+ * input whose labels must not appear.
  *
  * ⛔ What a declaration can never publish:
  *
  *   - **`order` sorts the group HEADERS by their rendered LABEL, not by the
- *     stored value.** So the same member produces a different order once a
- *     column override renames the values it sorts.
+ *     stored value.** So the same member produces a different order once the
+ *     object field's options rename the values it sorts.
  *   - **`collapsed` is a DEFAULT, not a state.** It decides what an untouched
  *     group looks like, and the first click inverts that default rather than
  *     setting it.
@@ -78,10 +78,16 @@ const ROWS = [
   { id: '3', name: 'Alan', stage: 'won', flag: 'false' },
 ];
 
-/** Render a grouped `object-grid` over inline rows — no host, no dataSource. */
+/**
+ * Render a grouped `object-grid` over inline rows — no dataSource. An
+ * `objectFields` catalogue is handed down the way a host hands one down (the
+ * runtime prop, never authored metadata), which is how the object field's
+ * `options` reach the grid without a schema read.
+ */
 function renderGrouped(
   grouping: unknown,
   columns: unknown[] = [{ field: 'name', label: 'Name' }],
+  objectFields?: Record<string, unknown>,
 ) {
   return render(
     <ActionProvider>
@@ -92,10 +98,22 @@ function renderGrouped(
           columns,
           grouping,
         } as any}
+        objectFields={objectFields}
       />
     </ActionProvider>,
   );
 }
+
+/** The object field `stage` as a select whose options relabel both values. */
+const stageField = (labels: { won: string; lost: string }) => ({
+  stage: {
+    type: 'select',
+    options: [
+      { value: 'won', label: labels.won },
+      { value: 'lost', label: labels.lost },
+    ],
+  },
+});
 
 /** Every group header label, in render order. */
 const groupLabels = (): string[] =>
@@ -256,47 +274,71 @@ describe('object-grid `grouping` × `columns` — the SHARED memo (objectui#8071
     await settled();
     expect(groupLabels()).toEqual(['No', 'Yes']);
   });
+});
 
-  it('⚠️ an UNDECLARED `columns[].options` decides the header label too — pinned as behaviour', async () => {
-    // `options` is NOT a member of `ListColumnSchema`, which is strict: an
-    // author who writes it is refused at publish. This memo reads it anyway,
-    // and the header is where it shows. Pinned as the behaviour that is there,
-    // reported as a finding, ⛔ not repaired here.
+describe('object-grid group-header LABELS come from the object field (objectui#11544)', () => {
+  it('the object field\'s `options` decide the header label, and a column `options` beside them is not read', async () => {
+    // The field's labels reach the header.
+    renderGrouped(
+      { fields: [{ field: 'stage' }] },
+      [{ field: 'stage', label: 'Stage' }],
+      stageField({ won: 'Closed Won', lost: 'Closed Lost' }),
+    );
+    await settled();
+    expect(groupLabels()).toEqual(['Closed Lost', 'Closed Won']);
+    cleanup();
+    // The retirement: `options` is not a `ListColumn` member and the strict
+    // `ListColumnSchema` refuses it at publish, so a column carrying it is
+    // off-contract input. Its labels never reach the header; the field's do.
+    renderGrouped(
+      { fields: [{ field: 'stage' }] },
+      [
+        {
+          field: 'stage',
+          label: 'Stage',
+          options: [
+            { value: 'won', label: 'Column Won' },
+            { value: 'lost', label: 'Column Lost' },
+          ],
+        },
+      ],
+      stageField({ won: 'Closed Won', lost: 'Closed Lost' }),
+    );
+    await settled();
+    expect(groupLabels()).toEqual(['Closed Lost', 'Closed Won']);
+    cleanup();
+    // With no field options, the same column `options` relabels nothing: the
+    // header shows the stored values.
     renderGrouped({ fields: [{ field: 'stage' }] }, [
       {
         field: 'stage',
         label: 'Stage',
         options: [
-          { value: 'won', label: 'Closed Won' },
-          { value: 'lost', label: 'Closed Lost' },
+          { value: 'won', label: 'Column Won' },
+          { value: 'lost', label: 'Column Lost' },
         ],
       },
     ]);
-    await settled();
-    expect(groupLabels()).toEqual(['Closed Lost', 'Closed Won']);
-    cleanup();
-    // The control that makes the row above a reading of the MEMBER rather than
-    // of the values: the same grouping, the same column, no `options`.
-    renderGrouped({ fields: [{ field: 'stage' }] }, [{ field: 'stage', label: 'Stage' }]);
     await settled();
     expect(groupLabels()).toEqual(['lost', 'won']);
   });
 
-  it('`order` sorts the RENDERED labels, so a column override moves the groups', async () => {
+  it('`order` sorts the RENDERED labels, so the field\'s options move the groups', async () => {
     // `lost` < `won` on the stored values; `Closed Won` < `Zeta` on the
     // rendered ones. Same `order: 'asc'`, different order — which is only
-    // visible because the two members are read in one memo.
-    renderGrouped({ fields: [{ field: 'stage', order: 'asc' }] }, [
-      {
-        field: 'stage',
-        label: 'Stage',
-        options: [
-          { value: 'won', label: 'Closed Won' },
-          { value: 'lost', label: 'Zeta' },
-        ],
-      },
-    ]);
+    // visible because `order` sorts what the label memo produced.
+    renderGrouped(
+      { fields: [{ field: 'stage', order: 'asc' }] },
+      [{ field: 'name', label: 'Name' }],
+      stageField({ won: 'Closed Won', lost: 'Zeta' }),
+    );
     await settled();
     expect(groupLabels()).toEqual(['Closed Won', 'Zeta']);
+    cleanup();
+    // Control: the same `order` without the field's labels sorts the stored
+    // values, so the row above is a reading of the labels, not of `order`.
+    renderGrouped({ fields: [{ field: 'stage', order: 'asc' }] });
+    await settled();
+    expect(groupLabels()).toEqual(['lost', 'won']);
   });
 });

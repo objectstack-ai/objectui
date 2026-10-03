@@ -131,14 +131,14 @@ const ROWS: ReadonlyArray<{
   { operator: 'is_null', emitted: ['title', 'isnull', null], dialect: 'dropdown' },
   { operator: 'isNotNull', emitted: ['title', 'isnotnull', null], dialect: 'deprecated' },
   { operator: 'is_not_null', emitted: ['title', 'isnotnull', null], dialect: 'dropdown' },
-  // `isEmpty` / `isNotEmpty` are resolved to a null comparison BEFORE
-  // `mapOperator` is consulted, so their canonical twins must land on the same
-  // arm — otherwise the repair would trade one spelling-dependent answer for
-  // another, which is the defect this card is about.
-  { operator: 'isEmpty', emitted: ['title', '=', null], dialect: 'deprecated' },
-  { operator: 'is_empty', emitted: ['title', '=', null], dialect: 'dropdown' },
-  { operator: 'isNotEmpty', emitted: ['title', '!=', null], dialect: 'deprecated' },
-  { operator: 'is_not_empty', emitted: ['title', '!=', null], dialect: 'dropdown' },
+  // The empty pair, on the spec's `isempty` / `isnotempty` since
+  // objectui#10813 (lowered to `$empty`). It was resolved to a null comparison
+  // (`'=' | '!=', null`) before `mapOperator` was consulted; both spellings
+  // must still land on ONE node, now through `mapOperator`'s fold.
+  { operator: 'isEmpty', emitted: ['title', 'isempty', null], dialect: 'deprecated' },
+  { operator: 'is_empty', emitted: ['title', 'isempty', null], dialect: 'dropdown' },
+  { operator: 'isNotEmpty', emitted: ['title', 'isnotempty', null], dialect: 'deprecated' },
+  { operator: 'is_not_empty', emitted: ['title', 'isnotempty', null], dialect: 'dropdown' },
   // No canonical twin exists for these two.
   { operator: 'exists', emitted: ['title', 'exists', null], dialect: 'dropdown' },
   { operator: 'notExists', emitted: ['title', 'notExists', null], dialect: 'dropdown' },

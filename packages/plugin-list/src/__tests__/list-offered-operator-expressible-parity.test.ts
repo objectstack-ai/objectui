@@ -146,9 +146,9 @@ function probeValue(operator: string): unknown {
 
 /**
  * Leg 1 — the live grid. Drives the REAL production path rather than reasoning
- * about `mapOperator` alone, because `convertFilterGroupToAST` resolves some
- * ids (`isEmpty` / `isNotEmpty`) to a null comparison before the bridge is ever
- * consulted, and those are legitimately expressible without an AST spelling.
+ * about `mapOperator` alone: what reaches the wire is `convertFilterGroupToAST`'s
+ * node, and that function has resolved some ids before the bridge was ever
+ * consulted (the empty pair did, as a null comparison, until objectui#10813).
  *
  * The emitted node is required to be NON-EMPTY. Without that, the assertion is
  * a tautology waiting to happen: a condition dropped as incomplete yields `[]`,

@@ -780,7 +780,7 @@ importers:
         specifier: ^17.0.0
         version: 17.6.0(ai@7.0.65(zod@4.6.5))
       '@objectstack/spec':
-        specifier: ^17.5.0
+        specifier: ^17.6.0
         version: 17.6.0(ai@7.0.65(zod@4.6.5))
       '@sentry/react':
         specifier: ^10.70.0
@@ -1292,7 +1292,7 @@ importers:
         specifier: workspace:*
         version: link:../types
       '@objectstack/spec':
-        specifier: ^17.5.0
+        specifier: ^17.6.0
         version: 17.6.0(ai@7.0.65(zod@4.6.5))
       lucide-react:
         specifier: ^1.43.0

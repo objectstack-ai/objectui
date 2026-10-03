@@ -3292,9 +3292,19 @@ export const ObjectKanbanSchema = BaseSchema.extend({
   cardFields: z.array(z.string()).optional().describe('Card fields'),
   // objectui#11355 — declared on both faces, as `@objectstack/spec`'s
   // `ComponentPropsMap['object-kanban']` row declares it (an optional string).
-  // Until then `.passthrough()` kept an authored value unjudged. `grouping`, the
-  // read's fallback, stays undeclared here: that is objectui#11216's.
+  // Until then `.passthrough()` kept an authored value unjudged.
   swimlaneField: z.string().optional().describe('Record field that splits the board into horizontal swimlanes, across the groupBy columns; when absent the board falls back to grouping.fields[0].field'),
+  // objectui#11216 — `swimlaneField`'s fallback, declared as the spec's
+  // `ComponentPropsMap['object-kanban']` row declares it: the list view's own
+  // `GroupingConfigSchema`, BY REFERENCE, spelled as `ObjectGridSchema.grouping`
+  // spells it. Until this card the key was undeclared here, so the strict face
+  // refused a well-formed config by name while the tolerant face kept any value
+  // unjudged — including the padded field name, bare string, empty `fields`
+  // list and undeclared inner key the spec row refuses. The import-boundary
+  // strip keeps the spec's `order` / `collapsed` defaults out of a parsed
+  // document. `ObjectKanban` reads `fields[0].field` and nothing else, which the
+  // registration's input description states.
+  grouping: stripImportedDefaults(SpecGroupingConfigSchema).optional().describe('Swimlane fallback: the spec GroupingConfig, by reference. The board reads grouping.fields[0].field as the swimlane field when swimlaneField is absent; every other position is inert on this board'),
   // objectui#8285 — RETIRED on this arm (ruling B, director seat decision batch
   // #91, 2026-09-08), aligned with `@objectstack/spec` 17.5.0, whose
   // `ComponentPropsMap['object-kanban']` tombstones the same key. A tombstone

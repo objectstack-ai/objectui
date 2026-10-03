@@ -21,7 +21,7 @@
  * ## Why this module exists (objectui#10872)
  *
  * Every one of these types is REGISTERED (`@object-ui/components`,
- * `@object-ui/plugin-detail`), CURATED as platform contract by ADR-0080 and
+ * `@object-ui/plugin-detail`, `@object-ui/plugin-form`), CURATED as platform contract by ADR-0080 and
  * DECLARED by the spec, while `AnyComponentSchema` carried no arm for any of
  * them — so `safeValidateSchema` and `objectui validate` refused every document
  * naming one with `invalid_union` at `type`, and a page built from the public
@@ -51,8 +51,9 @@
  * `handlerKeyRefusal` where it is a runtime slot (`page:tabs`'s `onTabChange`,
  * the `action:button` / `action:icon` `onClick`), or refused with an alias
  * refusal naming its bag member where the row declares it (the same two
- * blocks' `onSuccess`, below); `element:number`'s `dataSource`, the spec's own
- * binding schema by reference (below); the content-channel refusals (next
+ * blocks' `onSuccess`, below); the `dataSource` of `element:number` and
+ * `record:line_items`, the spec's own binding schema by reference (below); the
+ * content-channel refusals (next
  * section) — the tombstones, and `record:alert`'s flat-`body` alias refusal;
  * and the host feed slots of `record:activity` (`items`) and `record:history`
  * (`entries`), each with the `loading` flag paired with it, refused by name as
@@ -167,14 +168,13 @@
  * spec's `ElementDataSourceSchema` read by reference — the same schema
  * `PageComponentSchema.dataSource` is.
  *
- * ## The public blocks NOT armed here, and why
+ * ## The public blocks once held, and why they are armed now
  *
- * Held by objectui#10872 with the evidence on that card — each is a reading,
- * not an oversight:
- *
- *   - `record:line_items` — the spec carries no row, on purpose: its
- *     `STRING_ARM_REGISTERED_TYPES` ledger records the row as still to be
- *     measured from the renderer's read points.
+ * `record:line_items` was held until `@objectstack/spec` 17.6.0 carried its
+ * row: before that the spec's `STRING_ARM_REGISTERED_TYPES` ledger recorded the
+ * row as still to be measured from the renderer's read points. It is armed
+ * below from that row (objectui#10872), with the node's `dataSource` binding
+ * beside it; its arm's docblock says why.
  *
  * The six held until `@objectstack/spec` 17.5.0 — `action:button`,
  * `action:group`, `action:menu`, `action:icon`, `element:definition-list` and
@@ -210,6 +210,7 @@ import {
   RecordQuickActionsProps as SpecRecordQuickActionsProps,
   RecordReferenceRailProps as SpecRecordReferenceRailProps,
   RecordAlertProps as SpecRecordAlertProps,
+  RecordLineItemsProps as SpecRecordLineItemsProps,
   ElementTextPropsSchema as SpecElementTextPropsSchema,
   ElementNumberPropsSchema as SpecElementNumberPropsSchema,
   ElementButtonPropsSchema as SpecElementButtonPropsSchema,
@@ -297,8 +298,8 @@ export function propsBag<T extends z.ZodType>(type: string, row: T, description?
  *
  * ⛔ The other five stay undeclared (no producer; release condition "additive,
  * when a producer needs them", objectui#10872). `dataSource` is declared per
- * arm where a renderer reads the binding (`element:number`, and the ObjectQL
- * blocks), not here. ⛔ Not on `BaseSchema`: that widens every arm of
+ * arm where a renderer reads the binding (`element:number`,
+ * `record:line_items`, and the ObjectQL blocks), not here. ⛔ Not on `BaseSchema`: that widens every arm of
  * `AnyComponentSchema`, a different accept-set change from the arms above,
  * each of which has a measured producer.
  *
@@ -1012,6 +1013,103 @@ export const RecordAlertBlockSchema = BaseSchema.extend({
   children: retirementTombstone(RECORD_ALERT_NO_CHILD_LIST),
 });
 
+/** objectui#10872 (the objectui#9256 method): ONE refusal string for both content channels of `record:line_items`. */
+const RECORD_LINE_ITEMS_NEITHER_CHANNEL = neitherContentChannelGuidance(
+  'record:line_items',
+  'its registration (`record:line_items`, `@object-ui/plugin-form`) hands the node to `LineItemsPanelRenderer`, '
+    + 'which passes it through `ElementDataSourceGate` (the node\'s `dataSource` binding) to `LineItemsPanel`, '
+    + 'which reads the line-items keys (`childObject`, `relationshipField`, `columns`, `parentObject`, '
+    + '`parentId`, `recordId`, `amountField`, `totalField`, `title`, `readonly`, `minRows`, `maxRows`, '
+    + '`filter`, `sort`, `limit`)',
+  'an editable grid of the `childObject` records that point at the parent record through '
+    + '`relationshipField`, drawn in `columns`',
+);
+
+/**
+ * `record:line_items` — `ComponentPropsMap['record:line_items']`
+ * (objectui#10872), plus the node's `dataSource` binding.
+ *
+ * `@objectstack/spec` 17.6.0 carries the row, measured at `LineItemsPanel`'s
+ * reads, and its `STRING_ARM_REGISTERED_TYPES` ledger no longer holds the
+ * block. The row requires `relationshipField` and `columns`, because nothing
+ * derives them, and leaves `childObject` optional, because the node's
+ * `dataSource` binding can supply it: the registration is gate-wrapped, and
+ * `ElementDataSourceGate` lands `dataSource.object` on `childObject` before the
+ * panel reads the node. So the arm declares `dataSource` as the spec's
+ * `ElementDataSourceSchema`, by reference, as `element:number` and the
+ * gate-wrapped ObjectQL blocks do. Left undeclared, it would be refused by the
+ * strict face as an unrecognized key, which is the binding the row makes
+ * `childObject` optional for.
+ *
+ * No refinement puts `childObject`'s requiredness back. The row leaves it
+ * optional outright, and the spec's props gate waives no member of this row
+ * (its one `dataSource` waiver is `element:number`'s `object`), so a bag with
+ * neither `childObject` nor a binding is the spec's verdict to change, not this
+ * arm's.
+ *
+ * Its content is the grid of child records; the node's own `children` and
+ * `body` are refused (the objectui#9256 method).
+ *
+ * The arm's TYPE is named (`RecordLineItemsBlockSchemaType`, below) so
+ * declaration emit prints it by name; the arm itself is built here.
+ */
+const RecordLineItemsBlockArm = BaseSchema.extend({
+  type: z.literal('record:line_items'),
+  ...NODE_ENVELOPE,
+  // objectui#10872 batch 10: a row member written flat on the node is refused by name, toward `properties.KEY`.
+  ...flatPropRefusals('record:line_items', stripImportedDefaults(SpecRecordLineItemsProps)),
+  properties: propsBag('record:line_items', stripImportedDefaults(SpecRecordLineItemsProps)),
+  dataSource: stripImportedDefaults(SpecElementDataSourceSchema)
+    .optional()
+    .describe(
+      'Per-element data binding — `@objectstack/spec` `ElementDataSourceSchema`, the schema '
+      + '`PageComponentSchema.dataSource` declares, by reference. `ElementDataSourceGate` lands its `object` '
+      + 'on `childObject`, which is why the row leaves `childObject` optional.',
+    ),
+  // objectui#9256: the renderer reads NEITHER content channel, so both are refused by name, each
+  // kept a MEMBER (see "The content channels" above).
+  body: retirementTombstone(RECORD_LINE_ITEMS_NEITHER_CHANNEL),
+  children: retirementTombstone(RECORD_LINE_ITEMS_NEITHER_CHANNEL),
+});
+
+/** The inferred type of the `record:line_items` arm: what `RecordLineItemsBlockSchemaType` extends. */
+type RecordLineItemsBlockArmType = typeof RecordLineItemsBlockArm;
+
+/**
+ * The type of `RecordLineItemsBlockSchema`, NAMED so that declaration emit
+ * prints a reference to it instead of the arm's whole inferred type.
+ *
+ * ## Why (objectui#10872)
+ *
+ * `tsc` prints an inferred type in full wherever a declaration uses it. So
+ * `AnyComponentSchema`'s declaration in `index.zod.d.ts` spells out every
+ * arm of every union it lists. That declaration sits close to the compiler's
+ * serialization ceiling. Measured on objectstack main 5c9138b, this arm's own
+ * serialized size is the same as against 17.6.0; what grew is the rest of
+ * `AnyComponentSchema`, which left too little room under the ceiling for the
+ * arm inline. Printed inline, it made `@object-ui/types` fail with TS7056 at
+ * `AnyComponentSchema` and emit no declarations; the Spec Main Shape Gate
+ * caught it. An interface is printed by name, so naming the arm's type takes
+ * its body out of the union's print: it is printed once, here. The family and
+ * the remaining headroom are tracked in objectui#11573.
+ *
+ * ## Why the TYPE is unchanged
+ *
+ * It extends the arm's own inferred type and adds no member. `shape` is
+ * restated as that type's own `shape`, read by reference, only because
+ * `@typescript-eslint/no-empty-object-type` refuses an empty interface. The
+ * value is the arm itself, so the runtime object, its parse results and the
+ * strict face derived from it are the arm's.
+ * `../__tests__/record-line-items-arm-10872.test.ts` pins the input and
+ * output types against the spec row and binding they are read from.
+ */
+export interface RecordLineItemsBlockSchemaType extends RecordLineItemsBlockArmType {
+  shape: RecordLineItemsBlockArmType['shape'];
+}
+
+/** `record:line_items` — `ComponentPropsMap['record:line_items']`; see the arm's docblock above. */
+export const RecordLineItemsBlockSchema: RecordLineItemsBlockSchemaType = RecordLineItemsBlockArm;
+
 /* ── element: — content blocks ──────────────────────────────────────────── */
 
 /** objectui#9256 (public-block slice): ONE refusal string for both content channels of `element:text`. */
@@ -1474,6 +1572,7 @@ export const PublicBlockComponentSchema = z.discriminatedUnion('type', [
   RecordQuickActionsBlockSchema,
   RecordReferenceRailBlockSchema,
   RecordAlertBlockSchema,
+  RecordLineItemsBlockSchema,
   ElementTextBlockSchema,
   ElementNumberBlockSchema,
   ElementButtonBlockSchema,

@@ -92,6 +92,20 @@ export function isComputedFieldType(
  * widgets the record form uses, added deliberately so inline edit could preview,
  * replace and remove files instead of showing a bare storage URL.
  *
+ * `markdown` is exempt on the same footing (objectui#11541). The shared set
+ * excludes it among the "Heavy / full editors — better in the record form than
+ * a cell", which is again an argument about a CELL. #4228 kept it out of the
+ * detail row for the reason it recorded there: "a one-line text box is lossy".
+ * That box was the only editor the row then had for it — the terminal text
+ * input, which is one line, so the browser strips every line break from the
+ * value it is seeded with and the next keystroke writes the flattened text
+ * back. A markdown value is a plain string, so a MULTI-line editor loses
+ * nothing, and `InlineFieldInput` routes it to `TextAreaField`, the fields
+ * package's multi-line widget (the one a `textarea` field edits with in the
+ * record form and in a grid cell), never to that terminal input. The grid
+ * keeps the exclusion for `markdown`. `html` and
+ * `richtext` are not exempt: they stay excluded, unchanged.
+ *
  * The credential and container members are excluded for a VALUE reason — masked
  * on read, or object-shaped — and that argument transfers to the detail page
  * verbatim, because the detail fallback is the same plain text input the grid's
@@ -110,6 +124,7 @@ export const DETAIL_ROUTED_INLINE_TYPES = new Set<string>([
   'file',
   'video',
   'audio',
+  'markdown',
 ]);
 
 /**

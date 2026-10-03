@@ -92,6 +92,12 @@ describe('isFieldInlineEditable', () => {
     }
   });
 
+  it('keeps a markdown cell read-only — the detail row editor (objectui#11541) is not a grid one', () => {
+    // The detail page routes `markdown` to a multi-line textarea through its own
+    // carve-out from the shared exclusion; the cell has no room for one.
+    expect(isFieldInlineEditable({ type: 'markdown' })).toBe(false);
+  });
+
   it('blocks an explicitly readonly field regardless of type', () => {
     expect(isFieldInlineEditable({ type: 'text', readonly: true })).toBe(false);
     expect(isFieldInlineEditable({ type: 'select', readonly: true })).toBe(false);

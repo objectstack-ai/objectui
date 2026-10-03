@@ -228,7 +228,7 @@ describe('inline-edit type coverage — every type has exactly one decision (#42
     expect(byBucket).toEqual({
       excluded: [
         'auto_number', 'autonumber', 'composite', 'filter-condition', 'formula',
-        'grid', 'html', 'markdown', 'object', 'object-ref', 'password',
+        'grid', 'html', 'object', 'object-ref', 'password',
         'recipient-picker', 'record', 'repeater', 'richtext', 'secret',
         'summary', 'vector',
       ],
@@ -246,11 +246,14 @@ describe('inline-edit type coverage — every type has exactly one decision (#42
       // loud refusal the form gives; that disposition is pinned by
       // `InlineFieldInput.retiredFieldType.test.tsx`, which also asserts no
       // retired spelling can re-enter this set.
+      // `markdown` sat in `excluded` until objectui#11541: the detail row now
+      // routes it to the multi-line `TextAreaField`, and the grid cell keeps
+      // the shared exclusion. `html` / `richtext` stay excluded, unchanged.
       routed: [
         'address', 'audio', 'avatar', 'boolean', 'currency', 'date', 'datetime',
-        'file', 'geolocation', 'image', 'location', 'lookup', 'master_detail',
-        'multiselect', 'number', 'percent', 'select', 'signature',
-        'tree', 'user', 'video',
+        'file', 'geolocation', 'image', 'location', 'lookup', 'markdown',
+        'master_detail', 'multiselect', 'number', 'percent', 'select',
+        'signature', 'tree', 'user', 'video',
       ],
       delegated: ['checkboxes', 'code', 'color', 'json', 'progress', 'qrcode', 'radio', 'rating', 'slider', 'tags', 'time', 'toggle'],
       benign: ['email', 'phone', 'text', 'textarea', 'url'],

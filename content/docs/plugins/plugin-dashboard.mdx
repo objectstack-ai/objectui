@@ -400,6 +400,10 @@ inline or bound to a dataset (objectui#11514). objectui's validator accepts the
 widget without a `type` and does not write the default in, so the surfaces are
 where it resolves.
 
+objectui's legacy `component` envelope (`{ id, component, layout }`) is not the
+spec's widget, and the default is not applied to it: an envelope with no `type`
+draws its `component` under its card heading, as it always did.
+
 A `type` that names no widget family and no component type (a typo, or a family
 the spec no longer has) is refused by both validator faces at `type`. A stored
 one draws the labelled placeholder "「type」chart type is not supported yet", as

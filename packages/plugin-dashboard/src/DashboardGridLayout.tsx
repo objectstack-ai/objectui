@@ -475,8 +475,8 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
       // spread `options` whole, which named no declared type: the required
       // `rowField` / `columnField` / `valueField` were not stated, so the node
       // reached `SchemaRenderer` only through a cast. The node now states each
-      // key the `pivot` node declares and `PivotTable` draws, read from
-      // `options`; an option key the node does not declare no longer rides along.
+      // key `PivotTable` draws (its `PivotTableSchema` keys, and `className`),
+      // read from `options`; no other option key rides along.
       return {
         type: 'pivot',
         title: options.title,

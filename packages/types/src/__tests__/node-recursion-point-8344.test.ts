@@ -244,7 +244,10 @@ type ArmsNotAssignableToSchemaNode = Exclude< z.output< typeof AnyComponentSchem
  *   - the arm typed `string`: the retired `kanban` tombstone (`RetiredKanbanNodeSchema`),
  *     which parses nothing; its output type is not a node.
  *
- * Each is reported on objectui#11466 for its own card. The list is written out so this stays a
+ * Of these, only `detail-section`, `app-schema-renderer` and `cloud:plan-status` got a card of
+ * their own, objectui#11515 (the dated note below). `app`, `record`, `home`, `utility`, `page`
+ * and `dashboard` have none: they are recorded for objectui#8347's family, which reads them
+ * before the signature removal. The list is written out so this stays a
  * ratchet in BOTH directions: a new arm drifting turns it red, and so does a listed one being
  * reconciled, which then deletes its name here. ⛔ Do not add a name to make a red go away.
  * The `[…] extends [never]` guard the paragraph above describes belonged to the

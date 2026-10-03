@@ -30,7 +30,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import { ObjectMetricBlockSchema } from '@object-ui/types/zod';
+import { ObjectMetricBlockSchema, StrictAnyComponentSchema, safeValidateSchema } from '@object-ui/types/zod';
 import { FilterConditionSchema } from '@objectstack/spec/data';
 import { VIEW_FILTER_OPERATORS } from '@objectstack/spec/ui';
 // Registers `object-metric` at MODULE scope, never inside a hook —
@@ -47,7 +47,13 @@ const aggregatingAdapter = (rows: Record<string, unknown>[]) => ({
   find: vi.fn(async (_object: string, _params: Params) => ({ data: [] as unknown[] })),
 });
 
-/** The authored node, in the `properties` form the strict face validates. */
+/**
+ * The authored node, in the `properties` form. The card's document, the
+ * showcase-shaped one and each per-operator document are checked on the
+ * block's own arm (`ObjectMetricBlockSchema`) and on both authoring faces:
+ * `safeValidateSchema` (the tolerant `AnyComponentSchema`, which
+ * `objectui validate` runs) and `StrictAnyComponentSchema`.
+ */
 const node = (properties: Record<string, unknown>) => ({ type: 'object-metric', properties });
 
 const mount = (schema: Record<string, unknown>, adapter: unknown) =>
@@ -69,8 +75,8 @@ const WON = [{ field: 'stage', operator: 'equals', value: 'won' }];
 
 describe('object-metric — a structured `groupBy` with a rule-list `filter` draws its number (objectui#11526)', () => {
   it('posts the rule list lowered to a FilterCondition as `where`, and draws the number', async () => {
-    // The card's document, as authored. The strict face accepts it, which is
-    // what makes the refusal a defect rather than an authoring error.
+    // The card's document, as authored. Both authoring faces accept it, which
+    // is what makes the refusal a defect rather than an authoring error.
     const doc = node({
       label: 'Won',
       objectName: 'opportunity',
@@ -78,6 +84,8 @@ describe('object-metric — a structured `groupBy` with a rule-list `filter` dra
       filter: WON,
     });
     expect(ObjectMetricBlockSchema.safeParse(doc).success).toBe(true);
+    expect(safeValidateSchema(doc).success).toBe(true);
+    expect(StrictAnyComponentSchema.safeParse(doc).success).toBe(true);
 
     const adapter = aggregatingAdapter([{ close_date: '2026-01', amount: 42 }]);
     mount(doc, adapter);
@@ -108,6 +116,8 @@ describe('object-metric — a structured `groupBy` with a rule-list `filter` dra
       ],
     });
     expect(ObjectMetricBlockSchema.safeParse(doc).success).toBe(true);
+    expect(safeValidateSchema(doc).success).toBe(true);
+    expect(StrictAnyComponentSchema.safeParse(doc).success).toBe(true);
 
     const adapter = aggregatingAdapter([
       { created_at: '2026-01', count: 3 },
@@ -147,6 +157,8 @@ describe('object-metric — a structured `groupBy` with a rule-list `filter` dra
         filter: [rule],
       });
       expect(ObjectMetricBlockSchema.safeParse(doc).success, operator).toBe(true);
+      expect(safeValidateSchema(doc).success, operator).toBe(true);
+      expect(StrictAnyComponentSchema.safeParse(doc).success, operator).toBe(true);
 
       const adapter = aggregatingAdapter([{ close_date: '2026-01', amount: 1 }]);
       mount(doc, adapter);

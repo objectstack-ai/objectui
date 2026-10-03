@@ -17,7 +17,8 @@ An authored node such as
 }
 ```
 
-passes the strict authoring face, and on `ObjectStackAdapter` it drew the adapter's refusal
+passes both authoring faces (`safeValidateSchema`, which `objectui validate` runs, and
+`StrictAnyComponentSchema`), and on `ObjectStackAdapter` it drew the adapter's refusal
 ("the spec-shape branch received a `where` array that is not a filter") instead of its number
 (objectui#11526).
 

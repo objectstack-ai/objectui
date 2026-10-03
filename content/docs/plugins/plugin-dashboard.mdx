@@ -469,14 +469,22 @@ The drawer scopes the report by what was clicked: it joins the block's resolved
 drill filter to the report's own `runtimeFilter` with `$and` and writes the
 result as the report's `runtimeFilter`, the one filter key the dataset renderer
 applies. Don't author `filter` on the report: the spec refuses it and the
-renderer does not apply it. The pre-9.0 object-bound report (`objectName` plus
-column objects) is refused by the TypeScript declaration, by the spec's
-`ReportSchema` and by the strict authoring face (`StrictAnyComponentSchema`),
-each naming `objectName`. `objectui validate` runs the tolerant face, which
-still accepts such a value as a `{ "name": "…" }` reference, stripped to its
-`name`. Either way the drawer does not draw it as a report; write the dataset
-form. A `{ "name": "…" }` reference is declared too, but the drawer resolves
-none, so such a drill lists the records.
+renderer does not apply it.
+
+Two other drill-report forms are retired, with no alias window. The TypeScript
+declaration refuses both, and so do both validators, each naming the
+retirement: `objectui validate` (the tolerant face) and the strict authoring
+face (`StrictAnyComponentSchema`).
+
+- The pre-9.0 object-bound report, `objectName` plus column objects
+  (objectui#11506). Write `dataset` where it had `objectName`, and dimension
+  names where it had column objects.
+- A named reference, `{ "name": "…" }` (objectui#11517). Nothing resolves a
+  report name, so such a drill listed the records. Write the report inline, as
+  above.
+
+A stored value that never went through a validator still reaches the drawer,
+which lists the records for either form and draws no report.
 
 ## Translations — a served dashboard is translated once
 

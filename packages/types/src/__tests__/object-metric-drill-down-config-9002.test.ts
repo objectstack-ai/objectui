@@ -63,7 +63,8 @@ describe('ObjectMetricDrillDownConfig refuses drillDown.filter and drillDown.mod
       columns: ['name', 'amount'],
       maxRows: 25,
       title: 'Won deals',
-      report: { name: 'won_deals_by_owner' },
+      // The dataset-bound report the shape declares; its `{ name }` arm is retired (objectui#11517).
+      report: { name: 'won_deals_by_owner', label: 'Won Deals by Owner', type: 'summary', dataset: 'deals_ds', rows: ['owner'], values: ['amount_sum'] },
     };
     // Still a `DrillDownConfig`, so `isDrillEnabled` / `resolveDrillTitle` take it.
     const liveAsShared: DrillDownConfig = live;

@@ -61,8 +61,10 @@ export interface DrillDownDrawerProps {
    * written as the report's `runtimeFilter`, the one filter key the dataset
    * renderer applies (objectui#5137, objectui#11506), so the metric's scope
    * flows into the report. The report itself can drill further (into a list /
-   * record) via its own row-click protocol. Any other value (a `{ name }`
-   * reference, or the retired pre-9.0 `objectName` form) lists the records.
+   * record) via its own row-click protocol. Any other value lists the records,
+   * the two retired forms the authoring faces refuse by name among them: a
+   * `{ name }` reference (objectui#11517) and the pre-9.0 `objectName` form
+   * (objectui#11506).
    */
   report?: Record<string, unknown>;
 }

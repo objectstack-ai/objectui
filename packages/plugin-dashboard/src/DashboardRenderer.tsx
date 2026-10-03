@@ -165,13 +165,22 @@ const FILTERABLE_COMPONENT_TYPES: ReadonlySet<string> = new Set<FilterableCompon
  * `object-chart` and `object-data-table` are the `@object-ui/types` node
  * schemas, by reference. `object-metric` has no TypeScript declaration there
  * (the spec's `ComponentPropsMap` row is its only published one, and it types
- * the `properties` bag); the node this renderer builds carries `filter` flat,
- * and `ObjectMetricBlock` hands that key to the widget's `filter` prop, so it is
+ * the `properties` bag); the node carries `filter` flat, and
+ * `ObjectMetricBlock` hands that key to the widget's `filter` prop, so it is
  * typed by that prop.
  *
+ * Since objectui#11525 this renderer builds no `object-metric` node: the
+ * dataset-less `provider: 'object'` metric draws the retired-format
+ * placeholder. The member stays because an `object-metric` node still reaches
+ * the merge from the author: a widget's legacy `component` envelope holding
+ * one is handed through as written, and the filter bar scopes it today.
+ * Dropping the member would stop that silently, which the ruling did not ask
+ * for.
+ *
  * The value is not host state: the renderer wrote it from the widget's own
- * spec-declared `filter` (or the provider's), and the dashboard's filter-bar
- * values arrive separately, as the `scopedFilter` merged into it.
+ * spec-declared `filter` (or the provider's), or the author wrote it on the
+ * envelope's node, and the dashboard's filter-bar values arrive separately, as
+ * the `scopedFilter` merged into it.
  */
 type FilterableComponentSchema =
   | ObjectChartSchema
@@ -841,6 +850,23 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             // and never routed the widget, so four spec chart types fell through
             // to a red error box (#2943).
             if (dispatch.family === 'metric') {
+                // provider: 'object' — RETIRED for the single-value family
+                // (objectui#11525, maintainer ruling C), with the same
+                // placeholder object the pivot arm below returns
+                // (objectui#10528), imported rather than restated. A metric
+                // binds a semantic-layer `dataset` (ADR-0021), which both
+                // validator faces require on every widget; a stored
+                // dataset-less widget whose `options.data` (or widget-level
+                // `data`) is `{ provider: 'object', … }` is stale metadata. This
+                // branch used to build a flat `object-metric` node carrying an
+                // ObjectQL-dialect `filter` that no node type declares, so the
+                // tile drew a number through a second filter dialect beside the
+                // dataset path. It now draws the visible rebind prompt instead.
+                // A typeless widget resolves to `metric` (objectui#11514), so it
+                // answers here too. The chart and table arms keep their
+                // `provider: 'object'` branches. `DashboardGridLayout`'s metric
+                // arm answers the same way.
+                if (isObjectProvider(widgetData)) return LEGACY_RETIRED_WIDGET_SCHEMA;
                 // objectui#4032 — the KPI card's heading comes from the SAME
                 // convention channel every other widget's header uses
                 // (`{ns}.dashboards.{dash}.widgets.{id}.title`), not from the
@@ -861,29 +887,12 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 // its own key, `…widgets.{id}.subCaption`, because it is a
                 // different authored field (`options.description`) from the
                 // shared header's `widget.description`. Assigned AFTER the
-                // `...options` spread in both branches below: the spread is
+                // `...options` spread in the branch below: the spread is
                 // what carries the raw authored `options.description` through,
                 // and this is the resolved value that replaces it. When nothing
                 // translates it, `tWidgetSubCaption` hands back exactly what the
                 // spread would have — so an untranslated dashboard is byte-identical.
                 const subCaption = tWidgetSubCaption(widget);
-                // provider: 'object' — ObjectMetricWidget aggregates server-side.
-                if (isObjectProvider(widgetData)) {
-                    const providerAgg = widgetData.aggregate;
-                    return {
-                        type: 'object-metric',
-                        ...options,
-                        objectName: widgetData.object,
-                        label,
-                        description: subCaption,
-                        aggregate: providerAgg ? {
-                            field: providerAgg.field,
-                            function: providerAgg.function,
-                            groupBy: providerAgg.groupBy,
-                        } : undefined,
-                        filter: widgetData.filter || widget.filter,
-                    };
-                }
                 // Static value: an inline `options.value`, else the first row's
                 // measure from an inline data array.
                 const rows = Array.isArray(widgetData) ? widgetData : widgetData?.items || [];
@@ -1028,7 +1037,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             ? { ...widget, filter: mergeFilters(widget.filter, scopedFilter) }
             : widget;
         // A `metric` widget renders its own card chrome ONLY in the inline
-        // (object-metric) path. A dataset-bound metric uses DatasetWidget, which
+        // path: the `plugin-dashboard:metric` card, or, for a retired
+        // `provider: 'object'` metric (objectui#11525), the placeholder, which
+        // draws its own border, as the legacy metric shape's placeholder always
+        // has here. A dataset-bound metric uses DatasetWidget, which
         // renders just the value — so it must take the shared Card wrapper to get
         // a title + border like the kpi/gauge widgets (otherwise it shows as bare
         // text with no title, inconsistent with its neighbours).

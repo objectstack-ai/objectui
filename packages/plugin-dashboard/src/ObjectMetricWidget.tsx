@@ -129,10 +129,11 @@ export interface ObjectMetricWidgetProps {
    * `groupBy` is the contract's own union — BY REFERENCE through
    * `ObjectChartSchema['aggregate']`, which holds `ChartAggregate` from
    * `@objectstack/spec/ui` by reference in turn, never a local near-copy of it
-   * (`check:spec-symbols`). It is the same authored key both dashboard relays
-   * compose for the `object-metric` and the `object-chart` node out of one
-   * provider block, so a second spelling here could only be a way for the two
-   * to disagree.
+   * (`check:spec-symbols`). It is the same authored key the `object-chart` node
+   * carries, so a second spelling here could only be a way for the two to
+   * disagree. (Both dashboard relays used to compose this node and the chart's
+   * out of one `provider: 'object'` block; since objectui#11525 a dataset-less
+   * metric draws the retired-format placeholder, and this node is authored.)
    *
    * It used to say `string`, which was a claim about the AUTHOR that nothing
    * upstream backed: the value crosses two `any` seams on its way in

@@ -443,7 +443,10 @@ into each bound widget's inline query (`AND`-combined with the widget's own
     // Edit it to bind a dataset." instead of a chart. Inline widget data
     // (`options.data`, `options.xField` / `options.yField`) is not an
     // authoring surface either: the strict authoring face refuses those keys
-    // by name (objectui#11228).
+    // by name (objectui#11228). A stored single-value widget (`metric`,
+    // `gauge`, `solid-gauge`, `kpi`, `bullet`, or one with no `type`) whose
+    // `options.data` is a `{ "provider": "object", … }` query draws that same
+    // retired-format prompt instead of its number (objectui#11525).
     //
     // Default binding: the filter's own `field` (dateRange → created_at).
     { "id": "w1", "type": "bar", "dataset": "invoices", "dimensions": ["status"], "values": ["count"] },
@@ -511,7 +514,7 @@ Where the accent lands depends on the layout, not on the token:
 
 | Layout | Accent |
 | --- | --- |
-| Card chrome (`MetricWidget`, inline `object-metric`) | the icon chip's background + foreground |
+| Card chrome (`MetricWidget`, an `object-metric` block) | the icon chip's background + foreground |
 | Chrome-less (`MetricWidget variant: 'bare'`, and every dataset-bound `metric`) | the big number's text colour |
 
 Both read one shared table (`src/colorVariants.ts`), so the same declaration

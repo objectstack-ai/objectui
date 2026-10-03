@@ -524,7 +524,7 @@ numbers of its own: `ChartDataSeries.data` is a retirement tombstone
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `chartType` | `ChartType` | **Required.** `"bar"`, `"line"`, `"area"`, `"pie"`, `"donut"`, `"radar"`, `"scatter"`, `"heatmap"`. |
+| `chartType` | `ChartType` | **Required.** One of the `@objectstack/spec` `ChartType` families: `"bar"`, `"horizontal-bar"`, `"column"`, `"line"`, `"area"`, `"pie"`, `"donut"`, `"funnel"`, `"scatter"`, `"treemap"`, `"sankey"`, `"combo"`, `"gauge"`, `"solid-gauge"`, `"metric"`, `"kpi"`, `"bullet"`, `"radar"`, `"table"`, `"pivot"`. Any other value is refused with the set named (objectui#11521). The single-value families draw the first series' value in the first row as one number, and the tabular families draw a notice that points at the data-table and pivot components; the others plot the series. |
 | `title` | `string` | Chart title. |
 | `description` | `string` | Chart description / subtitle. |
 | `categories` | `string[]` | An **alternative series list** — column names to plot, read only when `series` is absent, and ignored outright when it is present. Not axis labels: the category axis comes from `xAxisKey`. |

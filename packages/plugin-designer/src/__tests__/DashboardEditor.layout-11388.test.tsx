@@ -46,11 +46,11 @@ function openPanelFor(widgets: DashboardWidgetSchema[], id: string) {
   return onChange;
 }
 
-/** One widget from the schema of the most recent `onChange` call. */
-function changedWidget(onChange: ReturnType<typeof vi.fn>, id: string): DashboardWidgetSchema {
+/** One widget from the schema of the most recent `onChange` call, read by the slot's element type (objectui#11514). */
+function changedWidget(onChange: ReturnType<typeof vi.fn>, id: string): DashboardComponentSchema['widgets'][number] {
   const calls = onChange.mock.calls;
   const schema = calls[calls.length - 1][0] as DashboardComponentSchema;
-  const widgets: DashboardWidgetSchema[] = schema.widgets ?? [];
+  const widgets: DashboardComponentSchema['widgets'] = schema.widgets ?? [];
   return widgets.find((w) => w.id === id)!;
 }
 

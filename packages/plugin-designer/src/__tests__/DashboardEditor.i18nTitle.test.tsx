@@ -42,7 +42,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
+import type { DashboardComponentSchema } from '@object-ui/types';
 import { DashboardEditor } from '../DashboardEditor';
 
 const MAP_TITLE = { en: 'Pipeline', 'zh-CN': '销售漏斗' };
@@ -108,14 +108,13 @@ function lastSchema(onChange: ReturnType<typeof vi.fn>): DashboardComponentSchem
 }
 
 /**
- * One widget by id, read through `DashboardWidgetSchema` (objectui#11348): a
- * `widgets[]` entry is either arm of a union and `title` is declared on the
- * widget arm only, which the component arm is assignable to — so the
- * annotation is checked, where `.title` straight off the union element was
- * reached only through `BaseSchema`'s index signature.
+ * One widget by id, read through the slot's element type (objectui#11514): a
+ * `widgets[]` entry is either arm of a union, and `title` is declared on both
+ * (the widget arm's spec row, and the component arm's card heading), so
+ * `.title` reads with a declared type off either arm.
  */
-function widgetById(schema: DashboardComponentSchema, id: string): DashboardWidgetSchema | undefined {
-  const widgets: DashboardWidgetSchema[] = schema.widgets ?? [];
+function widgetById(schema: DashboardComponentSchema, id: string): DashboardComponentSchema['widgets'][number] | undefined {
+  const widgets: DashboardComponentSchema['widgets'] = schema.widgets ?? [];
   return widgets.find((w) => w.id === id);
 }
 

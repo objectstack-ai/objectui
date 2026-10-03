@@ -78,6 +78,14 @@ export interface DashboardEditorProps {
   onWidgetSelect?: (widgetId: string | null) => void;
 }
 
+/**
+ * One entry of `widgets[]`: the slot's element type, a widget or a component
+ * node placed directly in the slot. Every read of an entry goes through it
+ * (objectui#11514): the widget arm, `DashboardWidgetSchema`, names no component
+ * type, so the component arm is not assignable to it.
+ */
+type DashboardWidgetEntry = DashboardComponentSchema['widgets'][number];
+
 // ============================================================================
 // Constants
 // ============================================================================
@@ -235,7 +243,7 @@ function writeWidgetTitle(
  * measure picker), which this package cannot import: it does not depend on
  * plugin-dashboard.
  */
-function measureRefusal(widget: DashboardWidgetSchema, type: string | undefined): string | undefined {
+function measureRefusal(widget: DashboardWidgetEntry, type: string | undefined): string | undefined {
   const strings = (value: unknown): string[] =>
     Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
   const probe = {
@@ -256,7 +264,7 @@ function measureRefusal(widget: DashboardWidgetSchema, type: string | undefined)
 // ============================================================================
 
 interface WidgetCardProps {
-  widget: DashboardWidgetSchema;
+  widget: DashboardWidgetEntry;
   index: number;
   total: number;
   selected: boolean;
@@ -349,7 +357,7 @@ function WidgetCard({
 // ============================================================================
 
 interface WidgetPropertyPanelProps {
-  widget: DashboardWidgetSchema;
+  widget: DashboardWidgetEntry;
   /** The widget's position in `widgets[]`, which the grid auto-places it by. */
   index: number;
   readOnly: boolean;
@@ -537,12 +545,11 @@ function WidgetPropertyPanel({
 
 function DashboardPreview({ schema }: { schema: DashboardComponentSchema }) {
   const { t, language } = useDesignerTranslation();
-  // Typed `DashboardWidgetSchema[]` (objectui#11348): the card below reads
-  // `title`, which is declared on the widget arm of the `widgets[]` union only
-  // (the spec's `DashboardWidget` row declares it). The component arm
-  // (`DashboardWidgetSlotComponentSchema`) is assignable to that arm, so this is
-  // a checked widening, not a cast — the same type `WidgetCard` already takes.
-  const widgets: DashboardWidgetSchema[] = schema.widgets || [];
+  // Typed by the slot's element type, `DashboardWidgetEntry` (objectui#11514),
+  // the same type `WidgetCard` takes: the card below reads `title`, which both
+  // arms of the `widgets[]` union declare (the widget arm's spec row, and the
+  // component arm's card heading).
+  const widgets: DashboardWidgetEntry[] = schema.widgets || [];
   return (
     <div data-testid="dashboard-preview" className="rounded-lg border border-gray-200 bg-gray-50 p-4">
       {/*

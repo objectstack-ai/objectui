@@ -68,6 +68,7 @@ import {
   ListViewSchema,
   ObjectGridBlockSchema,
   ObjectGallerySchema,
+  ObjectKanbanSchema,
   ObjectViewSchema,
   StrictAnyComponentSchema,
   safeValidateSchema,
@@ -147,6 +148,15 @@ const DECLARING: Readonly<Record<string, DeclaringArm>> = {
     arm: ObjectGridBlockSchema,
     doc: (fields) => ({ type: 'object-grid', properties: { objectName: 'account', grouping: { fields } } }),
     fieldPath: (i) => ['properties', 'grouping', 'fields', i, 'field'],
+  },
+  // objectui#11216: the `object-kanban` arm declares `grouping` (the fallback
+  // `ObjectKanban` reads for `swimlaneField`) as the spec's
+  // `GroupingConfigSchema` by reference, the type its spec row gives the key.
+  'object-kanban': {
+    declaredAt: 'grouping',
+    arm: ObjectKanbanSchema,
+    doc: (fields) => ({ type: 'object-kanban', objectName: 'account', groupBy: 'status', grouping: { fields } }),
+    fieldPath: (i) => ['grouping', 'fields', i, 'field'],
   },
 };
 

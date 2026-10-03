@@ -49,15 +49,20 @@
  *     against what. One dialect since objectui#11522, `{ condition, style }`,
  *     per card, on the card's own record.
  *
- * ## The spec supplies none of it
+ * ## What the spec supplies, and what it cannot
  *
- * On the installed spec, `grouping` and `conditionalFormatting` are
- * `z.unknown().optional()` — exactly like `filter` and `sort` — so the contract
- * constrains the value not at all and cannot be the thing a member pin compares
- * against. `data` is `z.array(z.unknown())` and `cardFields` is
- * `z.array(z.string())`: those fix the CONTAINER kind and, for `cardFields`,
- * the member kind, but neither says anything about what the board does with a
- * member. For all four the read site is the whole of the member contract.
+ * On the installed spec, `conditionalFormatting` is `z.unknown().optional()`,
+ * so the contract constrains its value not at all. `grouping` is TYPED: the
+ * row holds the list view's own `GroupingConfigSchema` by reference, which
+ * fixes the SHAPE of the block (`{ fields: [{ field, order?, collapsed? }] }`,
+ * closed, at least one entry) and which both faces of `@object-ui/types` judge
+ * the key by since objectui#11216. It does not say WHICH position this board
+ * reads — the schema is the list view's, whose grid reads every entry — so the
+ * `[0]` rows below are still the only statement of that. `data` is
+ * `z.array(z.unknown())` and `cardFields` is `z.array(z.string())`: those fix
+ * the CONTAINER kind and, for `cardFields`, the member kind, but neither says
+ * anything about what the board does with a member. For all four, what the
+ * board does with a member is the read site's alone.
  *
  * ## Non-vacuity
  *

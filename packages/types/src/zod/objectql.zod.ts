@@ -71,6 +71,10 @@ import {
   // objectui#11070 — the per-element data binding (`PageComponentSchema.dataSource`)
   // the object-bound arms below declare as `dataSource`, by reference.
   ElementDataSourceSchema as SpecElementDataSourceSchema,
+  // objectui#11227 — the list view's empty-state shape, which the spec's
+  // `object-grid` row holds by reference since 17.6.0; `ObjectGridSchema.emptyState`
+  // below takes it by reference too.
+  EmptyStateSchema as SpecEmptyStateSchema,
   checkListViewCalendarVisualization,
 } from '@objectstack/spec/ui';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
@@ -621,17 +625,16 @@ export const ObjectGridSchema = BaseSchema.extend({
   placeholder: retirementTombstone(OBJECT_GRID_PLACEHOLDER_RETIRED),
   showFilters: retirementTombstone(OBJECT_GRID_SHOW_FILTERS_RETIRED),
   // objectui#11068 — read by `ObjectGrid`, which draws it in place of an empty
-  // table. Mirrored member for member with the interface: three optional
-  // strings, and an unknown member refused rather than kept, so a misspelt
-  // `description` / `text` for `message` is named instead of drawing nothing.
-  emptyState: z
-    .strictObject({
-      title: z.string().optional().describe('Heading of the empty state; absent, the table’s own "No results found"'),
-      message: z.string().optional().describe('Line of text below the heading; absent, no line'),
-      icon: z.string().optional().describe('Lucide icon name; absent or unknown, the shared empty-state glyph'),
-    })
+  // table. objectui#11227 — the spec's `EmptyStateSchema` BY REFERENCE, ⛔ not a
+  // second shape: the spec's `object-grid` row (17.6.0) declares this member as
+  // that very schema, so the twin follows the spec. It is strict, so a misspelt
+  // `description` / `text` for `message` is still named instead of drawing
+  // nothing; `title` and `message` are `I18nLabel` (a plain string or an inline
+  // locale map, which `ObjectGrid` resolves against the display locale), and
+  // `icon` is a string. Mirrored by the interface's `SpecEmptyState`.
+  emptyState: stripImportedDefaults(SpecEmptyStateSchema)
     .optional()
-    .describe('What the grid draws instead of an empty table: `{ title, message, icon }`'),
+    .describe('What the grid draws instead of an empty table: `{ title, message, icon }`, the spec EmptyState by reference'),
   editable: z.boolean().optional(),
   keyboardNavigation: z.boolean().optional(),
   frozenColumns: z.number().optional(),

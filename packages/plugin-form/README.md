@@ -385,7 +385,11 @@ it points `group` at one of the object's declared `fieldGroups` and inherits tha
 group's members **and** its presentation (objectstack#13855, ADR-0085 §5 — the
 spec range that carries it is the `@objectstack/spec` entry in this package's own
 `package.json`). `ObjectForm` resolves the reference once, above its routing
-fork, so all six layouts inherit it.
+fork, so all six layouts inherit it. `ModalForm` resolves its own `sections`
+through the same call as well, because hosts mount it directly rather than
+through `ObjectForm` — the console's record create / edit dialog and
+action-opened modals do (objectui#11542). `DrawerForm` mounted directly does
+not resolve them; reach it through `ObjectForm` with `formType: 'drawer'`.
 
 A host with its **own** section builder resolves it with the same function
 instead of deriving sections itself (objectui#8641):

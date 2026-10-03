@@ -32,3 +32,17 @@ So the sentences above that say the bulk def qualifies no record, and that the
 test file pins the `ast`-only fault "on both", describe the tree at
 objectui#10946, not the code in this release. See objectui#11322's changesets
 for `@object-ui/plugin-grid` and `@object-ui/types`.
+
+⚠️ **Dated note, 2026-10-03 — the kanban rule is no longer a union — objectui#11522.**
+At this change the kanban board's rule was a union of two dialects (the native
+`{ field, operator, value }` comparison and `{ condition, style }`), and the
+sentence above that says "the list view's and the kanban board's rule unions
+share one `condition` schema" describes that union. Now the kanban rule is ONE
+object, the spec list view's `{ condition, style }` rule by reference, and the
+native and flat-colour dialects are refused by name on `object-kanban`. It still
+reads the same `condition` schema, so everything this entry says about the
+condition (the `z.string()` first arm, the envelope, the `''` control, the
+reference identity of the spec arm) still holds on `object-kanban`, and
+`spec-expression-wire-slots-10946.test.ts` still pins it there, now reading
+`condition` straight off the rule's shape. The rest of this entry is kept as
+the reading of this change.

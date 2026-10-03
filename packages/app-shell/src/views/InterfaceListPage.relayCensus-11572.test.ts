@@ -46,10 +46,11 @@
  * visualization binding the page whitelists and has no slot for (`kanban`,
  * `tree`, `chart`, …). A spec view key outside both, with no page slot, is
  * `not-inherited`: the page does not take it from a reference the spec
- * deprecates. ⚠️ Five members are relayed from the view outside that line
- * (`grouping`, `rowColor`, `pagination`, `searchableFields`, `emptyState`).
- * They predate this census, which records them as relayed and neither retires
- * nor extends them.
+ * deprecates. ⚠️ The literal also relays view members outside that line:
+ * `grouping`, `rowColor`, `pagination`, `searchableFields` and `emptyState`,
+ * and the view's `appearance` as the page's fallback. They predate this
+ * census, which counts them as relayed and neither retires nor extends them;
+ * the census below, not this sentence, is what says which members are relayed.
  *
  * ## The fold is a boundary, not a second population
  *
@@ -58,7 +59,7 @@
  * `densityMode`, `filters`, the bare `show*` flags, …) and writes the
  * canonical members `ListView.tsx` then reads, which are in the population. A
  * relay writes canonical members only (AGENTS.md #0.1), so the fold's
- * legacy-only inputs are not relay targets. The write-direction check in §6
+ * legacy-only inputs are not relay targets. The write-direction check in §5
  * keeps the literal from writing one.
  *
  * ## What this file does NOT do
@@ -134,14 +135,14 @@ const climb = (node: ts.Node): ts.Node => {
 //     `schema['X']`, or a destructuring `const { X } = schema`;
 //   - an ESCAPE of the whole value. An escape is where a read could hide, so
 //     each must be accounted for, and only three shapes are:
-//       · an argument to a function declared in this file whose parameter in
-//         that position is itself named `schema` — its reads are then already
+//       · an argument to a function declared in `ListView.tsx` whose parameter
+//         in that position is itself named `schema` — its reads are then already
 //         in this scan (`resolveListChartBinding`, `resolveListMapConfig`,
 //         `resolveTimelineDateBinding`);
 //       · the fold, `normalizeListViewSchema(propSchema)` (see the header);
 //       · a hook dependency list, which reads identity only.
 //     Any other escape — a child `schema={schema}`, `const s = schema`, a
-//     spread, a helper with a differently named parameter — fails §2 by name,
+//     spread, a helper with a differently named parameter — fails §5 by name,
 //     because the members read behind it would be invisible to this census.
 //
 // Over-inclusion fails loud, never silent: a future `schema` binding that is

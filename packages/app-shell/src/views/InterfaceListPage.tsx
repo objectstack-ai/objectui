@@ -16,6 +16,12 @@
  *     (a single entry renders no switcher);
  *   • `userActions` toggles map onto the toolbar — advanced filtering and
  *     view management are absent by default.
+ *
+ * Every member `ListView` reads is either relayed by the `schema` memo below
+ * or answered as deliberately not relayed, with its reason, in
+ * `InterfaceListPage.relayCensus-11572.test.ts`. That census re-derives the
+ * members from `ListView`'s source and fails by name on a newly read member
+ * that is neither.
  */
 
 import * as React from 'react';

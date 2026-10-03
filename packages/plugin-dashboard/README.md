@@ -670,18 +670,21 @@ The widget keys (`colorVariant`, `filter`, `dataset`, …) are declared on the
 widget arm, `DashboardWidgetSchema`, which takes them from the spec's
 `DashboardWidget` row. The component arm declares none of them. Read straight
 off a `widgets[]` entry, such a key is typed `any`, supplied by the component
-arm's passthrough. Read it through `DashboardWidgetSchema` instead, which is how
-this package's own readers do it. The component arm is assignable to that type,
-so the annotation is checked by the compiler, not asserted, and the key gets its
-declared type:
+arm's passthrough. This package's own readers take an entry by the slot's
+element type, `DashboardComponentSchema['widgets'][number]`. The component arm
+is not assignable to `DashboardWidgetSchema`, whose `type` names no component
+type, so narrow an entry on `type` first: `metric-card` is the one component
+type the slot holds, and any other entry is the widget arm. The compiler checks
+the narrowing, not an annotation, and the key gets its declared type:
 
 ```typescript
-import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
+import type { DashboardComponentSchema } from '@object-ui/types';
 
 declare const dashboard: DashboardComponentSchema;
 
-const widgets: DashboardWidgetSchema[] = dashboard.widgets;
-const accents = widgets.map((w) => w.colorVariant ?? 'default');
+const accents = dashboard.widgets.map((w) =>
+  w.type === 'metric-card' ? 'default' : (w.colorVariant ?? 'default'),
+);
 ```
 
 `title` and `layout` are the two widget keys both arms declare. `title` is the

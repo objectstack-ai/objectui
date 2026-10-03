@@ -488,18 +488,22 @@ component node placed directly in the slot (`DashboardWidgetSlotComponentSchema`
 The component arm declares the card's registered inputs — the keys above. The
 widget keys (`colorVariant`, `filter`, `dataset`, …) are declared on the widget
 arm, which takes them from the spec's `DashboardWidget` row, and on no member of
-the component arm. To read one off `widgets[]`, read it through
-`DashboardWidgetSchema`. The component arm is assignable to that type, so the
-annotation is checked rather than asserted, and the key gets its declared type
-instead of the `any` the component arm's passthrough supplies:
+the component arm. An entry's own type is the slot's element type,
+`DashboardComponentSchema['widgets'][number]`. The component arm is not
+assignable to `DashboardWidgetSchema`, whose `type` names no component type, so
+narrow an entry on `type` before reading a widget key. `metric-card` is the one
+component type the slot holds; any other entry is the widget arm, the compiler
+checks the narrowing, and the key gets its declared type instead of the `any`
+the component arm's passthrough supplies:
 
 ```ts
-import type { DashboardComponentSchema, DashboardWidgetSchema } from '@object-ui/types';
+import type { DashboardComponentSchema } from '@object-ui/types';
 
 declare const dashboard: DashboardComponentSchema;
 
-const widgets: DashboardWidgetSchema[] = dashboard.widgets;
-const accents = widgets.map((w) => w.colorVariant ?? 'default');
+const accents = dashboard.widgets.map((w) =>
+  w.type === 'metric-card' ? 'default' : (w.colorVariant ?? 'default'),
+);
 ```
 
 `title` and `layout` are the exceptions: both arms declare them. `title` is the

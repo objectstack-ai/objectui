@@ -91,6 +91,8 @@ const mockClient = vi.hoisted(() => ({
 
 /** What the surface handed the pending-changes sheet, last render. */
 const panel = vi.hoisted(() => ({ props: null as null | Record<string, unknown> }));
+/** Read through a call, so a reset between renders does not narrow it away. */
+const panelProps = (): Record<string, unknown> | null => panel.props;
 const chatDock = vi.hoisted(() => ({ mounts: 0 }));
 
 vi.mock('../metadata-admin/useMetadata', async (importOriginal) => {
@@ -339,7 +341,7 @@ describe('the package-less scope reviews and publishes exactly its own drafts (o
     renderAt('/studio/~org/automations');
     await openedFlow('qa_urgent_alert_clone');
 
-    const include = panel.props?.include as ((e: { type: string; name: string; packageId: string | null }) => boolean) | undefined;
+    const include = panelProps()?.include as ((e: { type: string; name: string; packageId: string | null }) => boolean) | undefined;
     expect(include).toBeTypeOf('function');
     expect(server.drafts.filter((d) => include!(d)).map((d) => d.name)).toEqual(['qa_urgent_alert_clone']);
     // Control: a package's sheet is not narrowed.
@@ -347,14 +349,14 @@ describe('the package-less scope reviews and publishes exactly its own drafts (o
     panel.props = null;
     renderAt(`/studio/${SHOWCASE}/automations`);
     await openedFlow('showcase_urgent_task_alert');
-    expect(panel.props?.include).toBeUndefined();
+    expect(panelProps()?.include).toBeUndefined();
   });
 
   it('publishes each package-less flow draft by reference, and nothing through the package batch door', async () => {
     renderAt('/studio/~org/automations');
     await openedFlow('qa_urgent_alert_clone');
 
-    const onPublish = panel.props?.onPublish as (() => Promise<void>) | undefined;
+    const onPublish = panelProps()?.onPublish as (() => Promise<void>) | undefined;
     expect(onPublish).toBeTypeOf('function');
     await onPublish!();
 

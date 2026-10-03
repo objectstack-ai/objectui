@@ -60,14 +60,17 @@ describe('studioOrgScopePath', () => {
 });
 
 describe('package-less predicates', () => {
+  /** A served list row, typed as the loaders hold one. */
+  const row = (r: Record<string, unknown>): Record<string, unknown> => r;
+
   it('a served item with no owning package is package-less; a packaged one is not', () => {
-    expect(isPackageLessItem({ name: 'clone' })).toBe(true);
-    expect(isPackageLessItem({ name: 'clone', _packageId: '' })).toBe(true);
-    expect(isPackageLessItem({ name: 'base', _packageId: 'com.example.showcase' })).toBe(false);
+    expect(isPackageLessItem(row({ name: 'clone' }))).toBe(true);
+    expect(isPackageLessItem(row({ name: 'clone', _packageId: '' }))).toBe(true);
+    expect(isPackageLessItem(row({ name: 'base', _packageId: 'com.example.showcase' }))).toBe(false);
   });
 
   it('the DB-authored pseudo-package names no package Studio can open', () => {
-    expect(isPackageLessItem({ name: 'x', _packageId: 'sys_metadata' })).toBe(true);
+    expect(isPackageLessItem(row({ name: 'x', _packageId: 'sys_metadata' }))).toBe(true);
   });
 
   it('a draft header bound to no package is package-less', () => {

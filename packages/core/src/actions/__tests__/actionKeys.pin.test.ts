@@ -13,6 +13,15 @@
  * Discrimination proof for the guard below: with `ACTION_DEF_KEYS` complete these
  * pass; dropping any single entry (e.g. `target`) fails with
  * "ActionDef declares keys the inventory is missing: target".
+ *
+ * ## OWED TO objectui#11344 — a bounded ledger, not a skip
+ *
+ * `@objectstack/spec` 17.6.0's `ActionSchema` declares `outcomeMessages`, and
+ * objectui does not read it yet: objectui#11344 builds the reader and lists the
+ * key with it. Until then the key is booked in `OWED_TO_OBJECTUI_11344` below.
+ * Its row asserts today's difference, and "lists every key the spec
+ * ActionSchema declares" requires `missing` to EQUAL the ledger exactly, so a
+ * new spec key is red, and so is the booked key once objectui lists it.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -87,6 +96,38 @@ function specActionKeys(): string[] {
   return keys;
 }
 
+/**
+ * ⚠️ OWED TO objectui#11344 — the spec `ActionSchema` keys objectui's inventory
+ * does NOT list yet, booked rather than skipped.
+ *
+ * `@objectstack/spec` 17.6.0 declares `outcomeMessages` on `ActionSchema`
+ * (objectstack#21095): success copy per handler outcome, and the spec's own
+ * landing order names objectui#11344 as its console reader. objectui does not
+ * read it yet, so `SPEC_ACTION_KEYS` does not list it and the runner's
+ * unknown-key warning still names it. objectui#11344 owns the reader, and lists
+ * the key in the same change.
+ *
+ * Booked by objectui#11438 ruling A″ (record 5968177777), which applies
+ * objectui#11111 decision 3 = B (record 5902351047) to the bump. The listed
+ * key's row asserts TODAY's difference (the spec declares it; objectui's
+ * inventory does not know it), and "lists every key the spec ActionSchema
+ * declares" requires `missing` to EQUAL this list, with `stale` still empty. A
+ * new spec key is red, and so is a listed key objectui starts knowing: the
+ * entry goes stale, by name, when objectui#11344's reader lands, and that change
+ * strikes it.
+ *
+ * EXPIRES when objectui#11344's slice lands, or 2026-11-02, whichever is first.
+ * The landing is caught by the rows below going red; the date is read by
+ * objectui#11344, not by a clock.
+ */
+const OWED_TO_OBJECTUI_11344 = ['outcomeMessages'];
+
+/** The reason every owed row prints when it fails. */
+const OWED_REASON =
+  'OWED TO objectui#11344: objectui does not read the spec ActionSchema key yet, so the inventory does not list it. ' +
+  'Booked by objectui#11438 ruling A″ (record 5968177777), applying objectui#11111 decision 3 = B ' +
+  '(record 5902351047). Expires when objectui#11344\'s slice lands, or 2026-11-02, whichever is first.';
+
 describe('action key inventory (objectstack#4075 step 1)', () => {
   it('ActionDef has NO index signature, and ActionContext still does', () => {
     // The successor to step 1's inverted pin. That one asserted the index
@@ -124,8 +165,13 @@ describe('action key inventory (objectstack#4075 step 1)', () => {
     const stale = (SPEC_ACTION_KEYS as readonly string[]).filter((k) => !spec.includes(k));
     // `missing` means the spec grew a key objectui does not know about; `stale`
     // means it dropped one. Either way the inventory has to be re-derived, and
-    // the diff names exactly which key moved.
-    expect({ missing, stale }).toEqual({ missing: [], stale: [] });
+    // the diff names exactly which key moved. The one exception is the booked
+    // ledger: `missing` must EQUAL `OWED_TO_OBJECTUI_11344`, not merely contain
+    // it, so the booking cannot outlive the reader that strikes it.
+    expect({ missing: [...missing].sort(), stale }, OWED_REASON).toEqual({
+      missing: [...OWED_TO_OBJECTUI_11344].sort(),
+      stale: [],
+    });
   });
 
   it('`execute` is still a live spec tombstone, so it must not count as known', () => {
@@ -178,6 +224,24 @@ describe('action key inventory (objectstack#4075 step 1)', () => {
     // `ObjectUiLocalActionType`.
     const spec = specActionKeys();
     expect(NAVIGATION_ALIAS_KEYS.filter((k) => spec.includes(k))).toEqual([]);
+  });
+});
+
+describe('objectui#11344 — OWED: the spec ActionSchema declares these keys and objectui does not know them today', () => {
+  it.each(OWED_TO_OBJECTUI_11344)('OWED TO objectui#11344: `%s` is declared by the spec ActionSchema, and neither the inventory nor the runner knows it', (key) => {
+    // All three halves are asserted together. The first keeps the ledger
+    // honest: a key the spec does not declare is not owed to anyone. The other
+    // two are the difference: `SPEC_ACTION_KEYS` is the inventory the cap row
+    // reads, and `KNOWN_ACTION_KEYS` is what the unknown-key warning reads, so a
+    // reader that lists the key on either side turns this row red.
+    expect(
+      {
+        declaredBySpec: specActionKeys().includes(key),
+        inSpecActionKeys: (SPEC_ACTION_KEYS as readonly string[]).includes(key),
+        knownToTheRunner: KNOWN_ACTION_KEYS.has(key),
+      },
+      OWED_REASON,
+    ).toEqual({ declaredBySpec: true, inSpecActionKeys: false, knownToTheRunner: false });
   });
 });
 

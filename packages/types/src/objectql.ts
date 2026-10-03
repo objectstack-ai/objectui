@@ -161,6 +161,11 @@ import type {
   // objectui#11355 — `ComponentPropsMap['object-kanban']`'s author state, so
   // `ObjectKanbanSchema.swimlaneField` takes the row's own type by reference.
   ObjectKanbanProps as SpecObjectKanbanProps,
+  // objectui#11227 — the list view's empty-state shape, which the spec's
+  // `object-grid` row holds by reference since 17.6.0 (`EmptyStateSchema`):
+  // `ObjectGridSchema.emptyState` below takes the protocol's own authored type.
+  // Aliased for the reason `SpecObjectCalendarProps` above is.
+  EmptyState as SpecEmptyState,
   ChartDrillDown,
   I18nLabel,
   DashboardWidget as SpecDashboardWidget,
@@ -1424,18 +1429,17 @@ export interface ObjectGridSchema extends BaseSchema {
    * own "no results" row, so the search box that emptied it stays reachable.
    * Leave the key out and nothing changes — the table draws its own empty row.
    *
-   * The same three members, with the same meanings, as `ListViewSchema`'s
-   * `emptyState`. Mirrored member for member by the Zod twin, which refuses an
-   * unknown member.
+   * The protocol's own empty-state type, ⛔ not a second shape (objectui#11227):
+   * `@objectstack/spec` 17.6.0 declares `emptyState` on its `object-grid` row
+   * by reference to the list view's `EmptyStateSchema`, so the grid and
+   * `ListViewSchema` share one shape. `title` and `message` are `I18nLabel` —
+   * a plain string or an inline locale map — and `ObjectGrid` resolves each
+   * against the display locale, as it resolves `label` and `description`; a
+   * map with no usable entry keeps that member's default. `icon` stays a
+   * string. The Zod twin takes the same schema by reference, so it refuses an
+   * unknown member as the spec does.
    */
-  emptyState?: {
-    /** Title text for the empty state */
-    title?: string;
-    /** Message/description for the empty state */
-    message?: string;
-    /** Icon name (Lucide icon identifier) */
-    icon?: string;
-  };
+  emptyState?: SpecEmptyState;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-grid` reads NEITHER
    * content channel; see `children` below for the measurement.
@@ -2905,12 +2909,16 @@ export interface NamedListView {
   /** Allow printing the view @default false */
   allowPrinting?: boolean;
 
-  /** Empty state configuration */
-  emptyState?: {
-    title?: string;
-    message?: string;
-    icon?: string;
-  };
+  /**
+   * Empty state configuration — the type of {@link ListViewSchema}'s own
+   * `emptyState`, indexed rather than restated, as the objectui#8980 members
+   * below are (objectui#11227). That member is the protocol's `EmptyStateSchema`
+   * by reference, so `title` and `message` are `I18nLabel` — a plain string or
+   * an inline locale map — and `ListView`, which this view is forwarded into,
+   * resolves each against the display locale. This member said plain `string`
+   * until then, narrower than the protocol on both.
+   */
+  emptyState?: ListViewSchema['emptyState'];
 
   /** ARIA attributes for accessibility */
   aria?: {
@@ -4058,7 +4066,7 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * (the spec's own `ObjectCalendarPropsSchema`) declares
    * `z.array(z.unknown()).optional()`, described *"Pre-fetched records — skips
    * the internal fetch"*.
-   * MEASURED on the installed artifact at `@objectstack/spec` 17.5.0 — the
+   * MEASURED on the installed artifact at `@objectstack/spec` 17.6.0 — the
    * version this repository's `pnpm-lock.yaml` resolves — through the published
    * `@objectstack/spec/ui` entry point: the provider block returns
    * `success=false` with `expected: 'array'` at `path: ['data']`, the array

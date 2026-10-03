@@ -2,7 +2,7 @@
 
 /**
  * objectui#10948 — what the designer's live `FlowSchema` pass says about a node
- * the author has ADDED but not yet configured, on the installed spec (17.5.0).
+ * the author has ADDED but not yet configured, on the installed spec (17.6.0).
  *
  * Spec 17.5.0 carries objectstack#20316 (a node config key its executor
  * contract requires, left out, and a decision branch with no `label`, are

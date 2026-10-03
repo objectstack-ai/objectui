@@ -111,7 +111,6 @@ export const AccountDetailPage: Page = {
       properties: {
         title: '{name}',
         subtitle: '{industry} · {type}',
-        breadcrumb: true,
       },
     },
   },

@@ -15,9 +15,11 @@
  *     (`ObjectMetric.i18nLabel-10993.test.tsx` in `plugin-dashboard` pins the
  *     render);
  *   - `object-grid`: `label` (`ObjectGrid.labelI18nLabel-10993.test.tsx` in
- *     `plugin-grid`). `view:grid` registers the same inputs, so its declaration
- *     carries the same two arms, but it is not in the public manifest, so it has
- *     no row here: this door does not reach it;
+ *     `plugin-grid`), and `description` since objectui#11227 published it at
+ *     `@objectstack/spec` 17.6.0 (`ObjectGrid.declaredKeys-11068.test.tsx`).
+ *     `view:grid` registers the same inputs, so its declaration carries the same
+ *     two arms, but it is not in the public manifest, so it has no row here: this
+ *     door does not reach it;
  *   - `record:related_list`: `title`
  *     (`record-related-list.titleI18nLabel-10993.test.tsx` in `plugin-detail`).
  *
@@ -45,7 +47,7 @@ const manifest = manifestFromConfigs(
 /** Each block, a minimal node the gate reads as clean, and its `I18nLabel` inputs. */
 const BLOCKS: ReadonlyArray<{ block: string; base: Record<string, unknown>; keys: readonly string[] }> = [
   { block: 'object-metric', base: { objectName: 'deal' }, keys: ['label', 'description', 'title'] },
-  { block: 'object-grid', base: { objectName: 'account' }, keys: ['label'] },
+  { block: 'object-grid', base: { objectName: 'account' }, keys: ['label', 'description'] },
   {
     block: 'record:related_list',
     base: { objectName: 'task', relationshipField: 'account_id', columns: ['name'] },

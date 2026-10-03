@@ -337,7 +337,7 @@ const NAMED_VIEW_ABSENT_CONTROL = 'stickyHeader';
 
 /**
  * The protocol's own member set for a named list view — `ObjectListViewSchema`'s
- * shape, off `@objectstack/spec` as installed (17.5.0). ⛔ Not a copy of the
+ * shape, off `@objectstack/spec` as installed (17.6.0). ⛔ Not a copy of the
  * objectui face and ⛔ not a hand list: it is read off the schema object, so a
  * spec bump that moves a key moves this.
  */
@@ -1379,13 +1379,16 @@ describe('objectui#7924 — the per-member liveness census on `NamedListView`, r
     // replacing the regex without re-opening the number.
     expect(ast).toBe(64);
     expect(namedListViewMemberCount()).toBe(ast);
-    // …and the loose regex does NOT, by 12, because it also counts nested
-    // object-literal lines. The gap is still exactly 12 after objectui#8980:
+    // …and the loose regex does NOT, by 9, because it also counts nested
+    // object-literal lines. The gap stayed exactly 12 through objectui#8980:
     // every one of the seventeen new members is a single-line type reference,
     // so none of them adds a nested object literal for the loose instrument to
-    // over-count. Pinned so "a figure between two instruments is neither" stays
-    // a reading rather than a remembered sentence.
-    expect(namedListViewLooseMemberCount()).toBe(76);
+    // over-count. objectui#11227 took it from 12 to 9: `emptyState` stopped
+    // restating `{ title, message, icon }` as a nested literal and indexes
+    // `ListViewSchema['emptyState']` instead, so its three nested lines left
+    // and the member count did not move. Pinned so "a figure between two
+    // instruments is neither" stays a reading rather than a remembered sentence.
+    expect(namedListViewLooseMemberCount()).toBe(73);
     expect(namedListViewLooseMemberCount()).toBeGreaterThan(ast);
   });
 

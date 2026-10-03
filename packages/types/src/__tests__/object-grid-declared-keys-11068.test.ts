@@ -113,10 +113,24 @@ describe('objectql.zod.ts#ObjectGridSchema — `emptyState` is mirrored member f
     if (result.success) expect(result.data.emptyState).toEqual(emptyState);
   });
 
-  it('refuses a non-string member AT that member', () => {
+  it('refuses a member that is neither a string nor a locale map AT that member', () => {
+    // objectui#11227 — the member is the spec's `EmptyStateSchema` by reference
+    // since 17.6.0, so `title` is `I18nLabel`: a union of a string and an inline
+    // locale map. A number fails both arms, so the refusal at the member is the
+    // union's (`invalid_union`); it read `invalid_type` while the twin restated
+    // `title` as a plain string.
     const result = ObjectGridSchema.safeParse({ ...NODE, emptyState: { title: 42 } });
     expect(result.success).toBe(false);
-    expect(issueAt(result, 'emptyState.title')?.code).toBe('invalid_type');
+    expect(issueAt(result, 'emptyState.title')?.code).toBe('invalid_union');
+  });
+
+  it('accepts an inline locale map on `title` and `message`, as the spec row does (objectui#11227)', () => {
+    const emptyState = { title: { en: 'No contacts yet', fr: 'Aucun contact' }, message: { en: 'Add one' } };
+    const result = ObjectGridSchema.safeParse({ ...NODE, emptyState });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.emptyState).toEqual(emptyState);
+    // The twin follows the spec, ⛔ not a second shape: the member IS the spec's schema.
+    expect(SpecObjectGridPropsSchema.safeParse({ objectName: 'probe', emptyState }).success).toBe(true);
   });
 
   it('refuses an unknown member by name instead of keeping it — `description` is not `message`', () => {

@@ -476,6 +476,19 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 //
 // Key format: "<package>:<symbol>".
 const ALLOW = {
+  "@object-ui/components:EmptyState": {
+    reason:
+      "Two LAYERS under one name, measured when `@objectstack/spec` 17.6.0 began exporting " +
+      "`EmptyState` from `@objectstack/spec/ui` (objectui#11438). The spec's type is a list " +
+      "view's AUTHORED empty-state config (`z.input` of `EmptyStateSchema`: title, message, icon); " +
+      "this one is a React COMPONENT, the published alias `DataEmptyState as EmptyState` in " +
+      "`view-states.tsx`, which draws an empty state from host props (title, description, icon, " +
+      "illustration, action). A component is not a config shape, so neither import nor derivation fits. " +
+      "It is a PUBLISHED export of the package, so retiring or renaming the alias changes a public " +
+      "name and belongs to its own card, not to the dependency bump that surfaced the collision " +
+      "(the same disposition objectui#11073 gave the four `Object*Props` collisions below).",
+    issue: 11438,
+  },
   "@object-ui/plugin-gantt:ObjectGanttProps": {
     reason:
       "Two LAYERS under one name, measured when `@objectstack/spec` 17.5.0 began exporting " +

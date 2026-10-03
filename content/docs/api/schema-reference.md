@@ -751,14 +751,14 @@ These schemas integrate with [ObjectStack](https://objectstack.ai) for automatic
 
 A data grid that auto-fetches from an ObjectQL object definition. Includes search, filters, pagination, grouping, and inline editing.
 
-An authored `object-grid` node takes its props in its `properties` bag, whose members are `@objectstack/spec`'s `ComponentPropsMap['object-grid']` row. `objectui validate` judges the bag against that row and refuses a prop written flat on the node by name, naming its bag member, as the spec's own page component does (objectui#11276). `SchemaRenderer` hoists the bag onto the node before `ObjectGrid` runs, so `ObjectGridSchema` is the node as the renderer reads it, and the table below lists its members. Base props such as `description` and `className` stay on the node, beside the bag.
+An authored `object-grid` node takes its props in its `properties` bag, whose members are `@objectstack/spec`'s `ComponentPropsMap['object-grid']` row. `objectui validate` judges the bag against that row and refuses a prop written flat on the node by name, naming its bag member, as the spec's own page component does (objectui#11276). `SchemaRenderer` hoists the bag onto the node before `ObjectGrid` runs, so `ObjectGridSchema` is the node as the renderer reads it, and the table below lists its members. Base props such as `className` stay on the node, beside the bag. `description` is a bag member: the spec's row declares it (objectstack#20694), so written on the node it is refused by name and pointed at `properties.description` (objectui#11227).
 
 ```json
 {
   "type": "object-grid",
-  "description": "Manage your contacts",
   "properties": {
     "objectName": "Contact",
+    "description": "Manage your contacts",
     "title": "All Contacts",
     "searchableFields": ["name", "email", "company"],
     "resizable": true,
@@ -791,8 +791,8 @@ also author `showFilters` (now retired on this node, below), `striped` and
 `pagination.enabled`, which the validator refuses: selection is spelled `selection: { type: 'multiple' }` (`'none'`,
 `'single'` or `'multiple'`), and `pagination` declares no on switch — its
 presence enables paging. It also authored `emptyState`, which the grid reads but
-the spec's row does not declare, so it is not authorable in a document today (see
-its row below).
+the spec's row did not declare until objectstack#20694; it is authorable in the
+`properties` bag now (see its row below).
 
 | Property | Type | Description |
 |----------|------|-------------|
@@ -801,7 +801,7 @@ its row below).
 | `columns` | `string[] \| ListColumn[]` | Columns to display. Either a plain array of field names (`["name", "email"]`), which auto-resolve from object metadata, or an array of `ListColumn` objects whose identity key is `field` (`{ "field": "status", "label": "Status" }`) — never `name`. **Do not mix the two forms in one array:** the array is dispatched on its first entry, so column objects sitting behind a bare string are dropped. |
 | `filter` | `any[]` | Pre-applied filter conditions. |
 | `sort` | `SortConfig[]` | Default sort configuration. The string clause (`"name desc"`) was retired in objectui#8221 and now fails validation. |
-| `description` | `string \| I18nLabel` | One line of help text drawn above the grid; a per-locale map resolves like `label` (objectui#11068). |
+| `description` | `string \| I18nLabel` | One line of help text drawn above the grid; a per-locale map resolves like `label` (objectui#11068). Authored in the `properties` bag: the spec's row declares it (objectstack#20694, objectui#11227). |
 | `searchableFields` | `string[]` | Fields included in search. |
 | `selection` | `SelectionConfig` | Row selection configuration. |
 | `pagination` | `PaginationConfig` | Pagination settings. |
@@ -812,7 +812,7 @@ its row below).
 | `frozenColumns` | `number` | Number of columns frozen on scroll. |
 | `conditionalFormatting` | `ConditionalFormattingRule[]` | Row styling rules, each `{ condition, style }` — a CEL `condition` over the row's `record.*` and a CSS `style` map, the rule a list view declares; the first matching rule styles the row. The native `{ field, operator, value }` rule, its `expression`, and a colour written beside `condition` (rather than inside `style`) are retired (objectui#11533): `@object-ui/types` refuses them by name on `ObjectGridSchema`, the `object-view` `table` slot and `list-view`. `{ field: 'priority', operator: 'equals', value: 'high', backgroundColor: '#fee2e2' }` is `{ condition: "record.priority == 'high'", style: { backgroundColor: '#fee2e2' } }`. In an authored node's `properties` bag the member is `@objectstack/spec`'s row member, judged by the installed spec. A grid stored with a retired rule still paints it. |
 | `navigation` | `ViewNavigationConfig` | SPA navigation configuration. |
-| `emptyState` | `{ title?, message?, icon? }` | Drawn in place of an empty table: a Lucide `icon`, a `title` (default: the table's "No results found") and a `message` (default: none). Not drawn when a term in the grid's own server-side search box emptied it — the table and its search box stay (objectui#11068). **Not authorable in a document today:** the spec's `object-grid` row does not declare it, so `objectui validate` refuses it in the `properties` bag, and the strict face refuses it on the node; a host mounting `<ObjectGrid schema={…}>` or composing the node in code can set it. |
+| `emptyState` | `EmptyState` — `{ title?, message?, icon? }` | Drawn in place of an empty table: a Lucide `icon`, a `title` (default: the table's "No results found") and a `message` (default: none). `title` and `message` are `string \| I18nLabel`, each resolved against the display locale; a map with no usable entry keeps that member's default. Not drawn when a term in the grid's own server-side search box emptied it — the table and its search box stay (objectui#11068). Authored in the `properties` bag: the spec's row declares it as the list view's own `EmptyStateSchema` (objectstack#20694, objectui#11227). |
 
 > **`name`, `placeholder`, `rowSpecActions` and `bulkSpecActions` are retired on
 > this node (objectui#11068).** Nothing ever read them: `rowSpecActions` /

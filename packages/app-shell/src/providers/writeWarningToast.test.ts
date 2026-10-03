@@ -179,10 +179,6 @@ describe('emitWriteWarning (#3484)', () => {
   });
 
   it('uses the formula wording for reason `computed`, which is NOT read-only (objectui#11206)', async () => {
-    // Spelled through `string`: the pinned spec (17.5.0) does not name this arm
-    // yet, while objectstack `main` does (`b2805465`), and this file compiles
-    // against both.
-    const computed: string = 'computed';
     const keys: string[] = [];
     const recordingT = (key: string, opts?: Record<string, unknown>) => {
       keys.push(key);
@@ -194,7 +190,7 @@ describe('emitWriteWarning (#3484)', () => {
       {
         ...EVENT,
         droppedFields: [
-          { object: 'andon', fields: ['type'], reason: computed as DroppedFieldsEvent['reason'] },
+          { object: 'andon', fields: ['type'], reason: 'computed' },
         ],
       },
       recordingT,
@@ -207,21 +203,6 @@ describe('emitWriteWarning (#3484)', () => {
     expect(calls[0].description).toMatch(/^Calculated by the server from a formula/);
     expect(calls[0].description).not.toMatch(/Read-only/);
     expect(calls[0].description).not.toMatch(/^Not applied by the server/);
-  });
-
-  /**
-   * The tripwire for the `| 'computed'` widening on `STRIPPED_LINE`
-   * (objectui#11206). That widening exists only because the published pin
-   * predates objectstack `b2805465`; on the bump to a release that carries the
-   * arm it becomes a silent no-op, which no compiler reports. This makes that
-   * bump say so instead, in the suite a bump is run through.
-   */
-  it('reminds the pin bump that carries `computed` to retire the widening (objectui#11206)', () => {
-    expect(
-      DroppedFieldsEventSchema.shape.reason.options,
-      "the spec pin now declares `computed`: delete `| 'computed'` from STRIPPED_LINE's key type " +
-        "and make spec-symbol-batch6.test.ts's `_ReasonIsTheEnum` pin the four-member union",
-    ).not.toContain('computed');
   });
 
   it('keeps one line per reason when a save was stripped for several', async () => {
@@ -252,8 +233,8 @@ describe('emitWriteWarning (#3484)', () => {
   /**
    * The exhaustiveness pin (objectui#3935), read off the SPEC rather than a hand
    * list that would drift: `STRIPPED_LINE` is keyed by
-   * `DroppedFieldsEvent['reason']` (widened by `'computed'` until the pin
-   * carries it, objectui#11206), so a missing key is a type error — but
+   * `DroppedFieldsEvent['reason']` (widened by `'computed'` from objectui#11206
+   * until the 17.6.0 bump, objectui#11438), so a missing key is a type error — but
    * `type-check` and `vitest` are different gates,
    * and the reason the ternary this replaced survived so long is that nothing in
    * the test suite could see the gap at all.

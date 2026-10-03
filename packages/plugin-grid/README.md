@@ -63,8 +63,8 @@ two calls in `src/index.tsx` claim exactly these keys:
 
 | `register(…)` call | Namespaced key | Bare fallback |
 | --- | --- | --- |
-| `('object-grid', ObjectGridRenderer, { namespace: 'plugin-grid' })` — `src/index.tsx:202` | `plugin-grid:object-grid` | `object-grid` |
-| `('grid', ObjectGridRenderer, { namespace: 'view', skipFallback: true })` — `src/index.tsx:214` | `view:grid` | **none** — `skipFallback: true` |
+| `('object-grid', ObjectGridRenderer, { namespace: 'plugin-grid' })` | `plugin-grid:object-grid` | `object-grid` |
+| `('grid', ObjectGridRenderer, { namespace: 'view', skipFallback: true })` | `view:grid` | **none** — `skipFallback: true` |
 
 The `import-wizard` node key is RETIRED (objectui#10859 batch 8): no schema
 produced it, and `objectui validate` refused it at `type`. `ImportWizard` is still
@@ -169,7 +169,7 @@ An authored grid node takes its props in its `properties` bag, whose members are
 `@objectstack/spec`'s `ComponentPropsMap['object-grid']` row (`ObjectGridProps`):
 one required `objectName` — or the node's `dataSource` binding naming the object —
 and keys drawn from the list this package **declares** as its authoring surface
-(`GRID_QUERY_INPUTS`, `src/index.tsx:166`) — the same list that feeds the designer
+(`GRID_QUERY_INPUTS` in `src/index.tsx`) — the same list that feeds the designer
 panel and the generated `sdui-intrinsics.d.ts`, so what is authorable here is what
 the renderer reads. `objectui validate` judges the bag against that row and
 refuses a prop written flat on the node by name, naming where it goes
@@ -199,6 +199,8 @@ const grid: ObjectGridBlockNode = {
 | `objectName` | `string` (**required**) | The object queried. There is no `object`. |
 | `columns` | `string[] \| ListColumn[]` | Field names or column objects — see below. |
 | `label` | `I18nLabel` | Table caption and export title. |
+| `description` | `I18nLabel` | One line of help text above the grid — see `description` and `emptyState` below. |
+| `emptyState` | `EmptyState` (`@objectstack/spec/ui`) | `{ title?, message?, icon? }`, drawn in place of an empty table — see below. |
 | `filter` | `ViewFilterRule[]` | Lowered to `$filter`. |
 | `sort` | `[{ field, order }]` | Initial order; a header click replaces it. |
 | `pagination` | `PaginationConfig` | `{ pageSize?, pageSizeOptions? }` — **strict**, and its presence is what enables paging. |
@@ -220,35 +222,46 @@ booleans do not exist at all; the five `on*` names are **component props**
 
 #### `description` and `emptyState`
 
-Two more keys the grid honours on the node it reads (objectui#11068):
+Two keys the grid honours (objectui#11068). The upstream protocol's `object-grid`
+row declares both (objectstack#20694), so both are bag members and both are in
+`GRID_QUERY_INPUTS` (objectui#11227):
 
 - `description` — one line of help text drawn above the grid. A string, or an
   inline locale map resolved against the display locale the way `label` is.
-- `emptyState: { title?, message?, icon? }` — drawn **in place of** an empty
-  table: a Lucide `icon`, a `title` (default: the table's own "No results found")
-  and a `message` (default: none). It is not drawn when a term typed into the
-  grid's own server-side search box is what emptied it — the table and its
-  search box stay, so the term can be cleared. Leave the key out and an empty
-  grid draws the table's own empty row, as before.
-
-`description` is a base prop, so it sits on the node beside the bag:
+- `emptyState: { title?, message?, icon? }` — the list view's own empty-state
+  shape (`EmptyState`), drawn **in place of** an empty table: a Lucide `icon`, a
+  `title` (default: the table's own "No results found") and a `message`
+  (default: none). `title` and `message` each take a string or an inline locale
+  map, resolved against the display locale; a map with no usable entry keeps
+  that member's default. It is not drawn when a term typed into the grid's own
+  server-side search box is what emptied it — the table and its search box stay,
+  so the term can be cleared. Leave the key out and an empty grid draws the
+  table's own empty row, as before.
 
 ```json
 {
   "type": "object-grid",
-  "description": "Everyone you work with",
-  "properties": { "objectName": "contacts" }
+  "properties": {
+    "objectName": "contacts",
+    "description": "Everyone you work with",
+    "emptyState": {
+      "title": { "en": "No contacts yet", "fr": "Aucun contact" },
+      "message": "Add one to get started",
+      "icon": "users"
+    }
+  }
 }
 ```
 
-`emptyState` is **not authorable in a document today**. The upstream protocol's
-`object-grid` row does not declare it, so `objectui validate` refuses it inside
-the `properties` bag (the row's own refusal) and, on the node, its strict face
-refuses it as an unknown key — as `os validate` does. It stays a key of the node
-the grid reads: a host that mounts `<ObjectGrid schema={…}>` itself, or composes
-the node in code, can set it. For the same reason it is not in
-`GRID_QUERY_INPUTS` yet: that list may only declare keys the row accepts, so the
-SDUI parser reports an authored `emptyState` as `unknown-prop` (a warning).
+Written flat on the node, either key is refused by name and pointed at the bag
+(`description` → `properties.description`), as the spec's own page component
+refuses it. Until the row declared `description`, this page told you to write it
+on the node; that is now the refused spelling.
+
+`keyboardNavigation`, the third key objectstack#20694 added to the row, is marked
+`[EXPERIMENTAL — not enforced]` there, and nothing in this package reads it yet,
+so it is not in `GRID_QUERY_INPUTS`. The bag accepts it, as the spec row does,
+and it changes nothing.
 
 `name`, `placeholder`, `rowSpecActions` and `bulkSpecActions` are **retired** on
 this node (objectui#11068): nothing ever read them, and both faces of

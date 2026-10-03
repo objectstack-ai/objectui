@@ -73,7 +73,7 @@ function heldRead() {
 }
 
 const SHAPES = [
-  ['flat fields', { fields: [{ name: 'title' }, { name: 'note' }] }],
+  ['flat fields', { fields: ['title', 'note'] }],
   ['sections', { sections: [{ name: 'basics', label: 'Basics', fields: ['title', 'note'] }] }],
 ] as const;
 

@@ -40,6 +40,8 @@ import {
   BuilderLanding,
   LoadingFallback,
   LoadingScreen,
+  STUDIO_ORG_SCOPE_PILLAR,
+  STUDIO_ORG_SCOPE_SEGMENT,
   StudioDesignSurface,
   getProductName,
   useHomePath,
@@ -102,7 +104,8 @@ export function StudioRoute() {
 }
 
 /**
- * The `/studio` front door: pick or create a writable package.
+ * The `/studio` front door: pick or create a writable package, or open the
+ * organization's package-less flows.
  *
  * Standalone frame — the landing must never be a navigation dead end, so the
  * wordmark walks back to the platform Home.
@@ -150,12 +153,25 @@ function StudioLanding() {
  * agree with itself while `App.tsx` quietly mounted the builder ungated.
  *
  *   `/studio`                    front door (pick / create a writable package)
+ *   `/studio/~org`               the package-less scope lands on its one pillar
  *   `/studio/:packageId`         a package lands on its Data pillar
  *   `/studio/:packageId/:tab`    the pillar builder
+ *
+ * `~org` is the reserved segment for the organization's own, package-less
+ * flows (objectui#11553; `studioScope.ts` in app-shell says why `~` can never
+ * name a package). Its pillar URL is served by the generic `:packageId/:tab`
+ * route — the SAME `StudioDesignSurface`, which reads the segment as "no
+ * package" — so only its bare leg needs a route of its own: a static segment
+ * outranks `:packageId`, and the generic leg would send it to a Data pillar the
+ * scope does not have.
  */
 export const studioRoutes = (
   <Route path="/studio" element={<StudioRoute />}>
     <Route index element={<StudioLanding />} />
+    <Route
+      path={STUDIO_ORG_SCOPE_SEGMENT}
+      element={<Navigate to={STUDIO_ORG_SCOPE_PILLAR} replace />}
+    />
     <Route path=":packageId" element={<Navigate to="data" replace />} />
     <Route path=":packageId/:tab" element={<StudioDesignSurface />} />
   </Route>

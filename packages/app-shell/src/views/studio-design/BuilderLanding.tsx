@@ -9,19 +9,21 @@
  * (`/studio/:packageId/:tab`). Also served standalone at bare `/studio` so the
  * builder is bookmarkable.
  *
- * Writable bases (where authoring happens) lead; read-only code packages are
- * listed secondary for browsing. Writability is the shared display heuristic
+ * Writable bases (where authoring happens) lead; the organization's own
+ * package-less flows have one entry of their own (objectui#11553); read-only
+ * code packages are listed secondary for browsing. Writability is the shared display heuristic
  * from packages-io — the ADR-0070 D4 gate stays the server-side authority.
  */
 
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Boxes, Hammer, Lock, Plus, Loader2, Copy } from 'lucide-react';
+import { Boxes, Building2, Hammer, Lock, Plus, Loader2, Copy } from 'lucide-react';
 import { toast } from 'sonner';
 import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
 import { PackageFormDialog } from '../metadata-admin/PackageFormDialog.js';
 import { fetchPackages, duplicatePackage, PACKAGE_ID_RE, type PkgEntry } from './packages-io.js';
 import { PackageIdInput } from './PackageIdInput.js';
+import { studioOrgScopePath } from './studioScope.js';
 
 export function BuilderLanding(): React.ReactElement {
   const navigate = useNavigate();
@@ -202,6 +204,32 @@ export function BuilderLanding(): React.ReactElement {
         onOpenChange={setCreateOpen}
         onSaved={(r) => open(r.id)}
       />
+
+      {/* objectui#11553 — the organization's own flows, which belong to no
+        * package (a clone of a packaged flow is one, by ADR-0126 §7.1). They
+        * match no package card above, so they get their own entry, shown
+        * whether or not any writable package exists. */}
+      <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+        {t('engine.studio.landing.orgHeading', locale)}
+      </h2>
+      <div className="mb-6 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        <button
+          type="button"
+          data-testid="studio-landing-org-scope"
+          onClick={() => navigate(studioOrgScopePath())}
+          className="flex items-center gap-2.5 rounded-lg border bg-background px-3 py-2.5 text-left hover:bg-muted/40"
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+            <Building2 className="h-4 w-4" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] font-medium">{t('engine.studio.org.name', locale)}</span>
+            <span className="block text-[10px] leading-4 text-muted-foreground">
+              {t('engine.studio.org.description', locale)}
+            </span>
+          </span>
+        </button>
+      </div>
 
       {readonly.length > 0 && (
         <>

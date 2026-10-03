@@ -255,6 +255,14 @@ describe('createIdentityImportDataSource — saved mappings are expressed, not i
       expect(typeof ds[withheld]).not.toBe('function');
     }
   });
+
+  it('withholds the generic import template even when the base carries it as an own property (objectui#9600)', () => {
+    // A plain-object base: the spread WOULD copy an own method across, so this
+    // arm is the one that fails without the explicit `undefined`. The template
+    // describes the object's generic import door, not the identity pipeline.
+    const ds = wrap({ downloadImportTemplate: async () => new Blob(['x']) });
+    expect(typeof ds.downloadImportTemplate).not.toBe('function');
+  });
 });
 
 /**

@@ -461,6 +461,40 @@ export function kanbanViewOptions(viewDef: any, objectDef: any): Record<string, 
 }
 
 /**
+ * objectui#10380 — the stored row's legacy `options` bag, as this page hands it
+ * to `ListView`. A row with no bag (or a bag that is not an object) gives `{}`.
+ *
+ * `@objectstack/spec`'s flattened list overlay declares this bag
+ * (`ListViewOverlayOptionsSchema`). The view write door judges each
+ * `options.KIND` block key by key with that kind's own block schema, refuses
+ * an out-of-contract key by name, and stores what it accepts. The spec
+ * describes the bag as an underlay: the top-level `KIND` block "wins per key
+ * where both set one". The interface page has always forwarded the bag, so one
+ * stored row rendered two ways. Ruling A on objectui#10380 (comment
+ * 5824043998) keeps that forward ("what passes the door is legal"), so the
+ * object page now forwards the bag too.
+ *
+ * The relay below does three things with it, and none of them merges keys:
+ *   - `options` carries the bag. For each kind the bag carries, the bag's block
+ *     REPLACES this page's synthesized block (`kanbanViewOptions` and its
+ *     siblings). This is the rule `InterfaceListPage` applies to its `mapCfg`
+ *     (`view.options.map ?? derived`). A synthesized block stands in only for a
+ *     kind the bag does not carry, so a row with no bag is relayed exactly as
+ *     before.
+ *   - For each kind the bag carries, the view's own top-level block also goes
+ *     out at the top level, where `InterfaceListPage` puts it as well.
+ *   - `ListView` then lays the top-level block over the bag per key. That merge
+ *     already exists in each render branch (`{ ...options.KIND, ...KIND }`),
+ *     and it is the spec's precedence. ⛔ No second merge is written here.
+ *
+ * Exported for the pin test.
+ */
+export function storedLegacyOptions(viewDef: unknown): Record<string, any> {
+    const bag = viewDef && typeof viewDef === 'object' ? (viewDef as { options?: unknown }).options : undefined;
+    return bag && typeof bag === 'object' && !Array.isArray(bag) ? (bag as Record<string, unknown>) : {};
+}
+
+/**
  * objectui#10046 — is `a` the same `options` bag as `b`, compared by VALUE?
  * (objectui#7237 holds the resolved `filter` through the same comparison.)
  *
@@ -2752,6 +2786,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
 
         // objectui#7029: present only when the view actually declared one.
         const calendarOptions = calendarViewOptions(viewDef);
+        // objectui#10380: the stored row's judged legacy `options` bag. See
+        // `storedLegacyOptions` for how the relay below layers it.
+        const legacyOptions = storedLegacyOptions(viewDef);
 
         /**
          * objectui#10694, ruling 5839344270 (B) — where the hide-column
@@ -3062,21 +3099,44 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             // (the legacy `filters` twin of the `filter` above lived here until
             // #2890 — see the note at its single remaining computation)
             ...(viewDef.sort?.length ? { sort: viewDef.sort } : {}),
+            // objectui#10380 — for each kind the stored row's legacy `options`
+            // bag carries, the view's own top-level block goes out at the top
+            // level, as `InterfaceListPage` sends it. `ListView` then lays it
+            // over the bag per key: the top-level block wins where both set a
+            // key, which is the precedence the spec declares for the bag. A kind
+            // the bag does not carry is relayed only through `options` below,
+            // exactly as before. See `storedLegacyOptions`.
+            ...(legacyOptions.kanban !== undefined ? { kanban: viewDef.kanban } : {}),
+            ...(legacyOptions.calendar !== undefined ? { calendar: viewDef.calendar } : {}),
+            ...(legacyOptions.timeline !== undefined ? { timeline: viewDef.timeline } : {}),
+            ...(legacyOptions.map !== undefined ? { map: viewDef.map } : {}),
+            ...(legacyOptions.gallery !== undefined ? { gallery: viewDef.gallery } : {}),
+            ...(legacyOptions.gantt !== undefined ? { gantt: viewDef.gantt } : {}),
+            ...(legacyOptions.tree !== undefined ? { tree: viewDef.tree } : {}),
+            ...(legacyOptions.chart !== undefined ? { chart: viewDef.chart } : {}),
             options: {
+                // objectui#10380 — the stored row's judged legacy bag, forwarded
+                // as the interface page forwards it. For each kind the bag
+                // carries, its block REPLACES this page's synthesized block below
+                // (the `mapCfg` rule of `InterfaceListPage`). Each synthesized
+                // block stands in only for a kind the bag does not carry.
+                ...legacyOptions,
                 // The lane key is the spec's `groupByField`, not the legacy
                 // `groupField` this used to write. See `kanbanViewOptions`.
-                kanban: kanbanViewOptions(viewDef, objectDef),
+                kanban: legacyOptions.kanban ?? kanbanViewOptions(viewDef, objectDef),
                 // The calendar config the view DECLARED, or no calendar key at
                 // all — never an invented field name (objectui#7029). With the
                 // key absent, ListView's capability gate stops offering the
                 // Calendar toggle for a view that configured none, and a view
                 // forced onto the calendar renderer reaches its refusal screen.
-                ...(calendarOptions ? { calendar: calendarOptions } : {}),
+                ...((legacyOptions.calendar ?? calendarOptions)
+                    ? { calendar: legacyOptions.calendar ?? calendarOptions }
+                    : {}),
                 // The date axis is resolved once, in ListView — this face only
                 // forwards what the view declared, floored at 'name'
                 // (objectui#3129, objectui#6557). See `timelineViewOptions`.
-                timeline: timelineViewOptions(viewDef),
-                map: {
+                timeline: legacyOptions.timeline ?? timelineViewOptions(viewDef),
+                map: legacyOptions.map ?? {
                     locationField: viewDef.map?.locationField,
                     titleField: viewDef.map?.titleField || 'name',
                     latitudeField: viewDef.map?.latitudeField,
@@ -3089,15 +3149,15 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 // cover binding to forward, ListView's capability gate stops
                 // offering the Gallery toggle to a view that configured none.
                 // See `galleryViewOptions`.
-                gallery: galleryViewOptions(viewDef),
+                gallery: legacyOptions.gallery ?? galleryViewOptions(viewDef),
                 // The gantt config the view DECLARED, title floored at 'name' —
                 // never an invented date field (`5f4514f7b`). With no date
                 // binding to forward, ListView's capability gate stops offering
                 // the Gantt toggle to a view that configured none, and a view
                 // forced onto the gantt renderer reaches its refusal screen.
                 // See `ganttViewOptions`.
-                gantt: ganttViewOptions(viewDef),
-                tree: {
+                gantt: legacyOptions.gantt ?? ganttViewOptions(viewDef),
+                tree: legacyOptions.tree ?? {
                     // Self-referencing tree-grid config (plugin-tree). Spread the
                     // full view-defined tree first so parentField/fields/
                     // defaultExpandedDepth survive; labelField falls back to the
@@ -3162,7 +3222,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 // which are already relayed whole. Undeclared stays `undefined`
                 // rather than the old permanently-truthy husk, which is what
                 // keeps the gate from offering a chart nobody configured.
-                chart: viewDef.chart,
+                chart: legacyOptions.chart ?? viewDef.chart,
             },
         };
         // objectui#10046 — equal content keeps the identity `ListView`'s fetch

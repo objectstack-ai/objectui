@@ -4913,13 +4913,52 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       }
     }
 
+    return this.fetchExportBlob(resource, queryParams);
+  }
+
+  /**
+   * Download the server's import template:
+   * `GET /api/v1/data/:object/export?template=true` (objectui#9600).
+   *
+   * Same route as {@link exportDownload}, with the server's template switch. It
+   * sends only `template=true`: the server refuses the export's row parameters
+   * on a template request, and its answer is always an xlsx workbook.
+   *
+   * The server writes the template's labels in the request's locale, and the
+   * import accepts a translated label only in its own request's locale. The
+   * import request goes through `@objectstack/client`, which stamps
+   * `Accept-Language` with the client's locale when one is set (and the host's
+   * `fetch` stamps its own otherwise). This request bypasses the client, so it
+   * stamps the client's locale the same way. Both requests then carry the same
+   * locale.
+   */
+  async downloadImportTemplate(resource: string): Promise<Blob> {
+    const locale = this.client.getLocale();
+    return this.fetchExportBlob(
+      resource,
+      new URLSearchParams({ template: 'true' }),
+      locale ? { 'Accept-Language': locale } : undefined,
+    );
+  }
+
+  /**
+   * GET `/api/v1/data/:object/export` with the given query and answer the body
+   * as a Blob. A failure throws an `Error` that carries the server's `status`
+   * and its ADR-0112 `code`. The one request path {@link exportDownload} and
+   * {@link downloadImportTemplate} share.
+   */
+  private async fetchExportBlob(
+    resource: string,
+    queryParams: URLSearchParams,
+    extraHeaders?: Record<string, string>,
+  ): Promise<Blob> {
     const baseUrl = this.baseUrl.replace(/\/$/, '');
     // Avoid doubling /api/v1 if baseUrl already includes the version suffix.
     const hasApiVersionSuffix = /\/api\/v\d+$/i.test(baseUrl);
     const dataPath = hasApiVersionSuffix ? '/data' : '/api/v1/data';
     const url = `${baseUrl}${dataPath}/${encodeURIComponent(resource)}/export?${queryParams.toString()}`;
 
-    const headers: Record<string, string> = { ...this.getAuthHeaders() };
+    const headers: Record<string, string> = { ...this.getAuthHeaders(), ...extraHeaders };
     // `credentials: 'include'` carries the session cookie for the browser
     // console (which authenticates by cookie, not a bearer token).
     const res = await this.fetchImpl(url, { method: 'GET', headers, credentials: 'include' });

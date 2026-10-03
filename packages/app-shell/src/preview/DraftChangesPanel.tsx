@@ -338,6 +338,14 @@ export interface DraftChangesPanelProps {
   /** When set, list only pending drafts belonging to this package (Studio is package-scoped). */
   packageId?: string | null;
   /**
+   * Narrows the listed drafts further, for a host whose scope the `_drafts`
+   * query cannot express on its own. Studio's package-less scope passes its
+   * own predicate (package-less FLOW drafts, objectui#11553) so the sheet
+   * reviews exactly what that scope's Publish ships. Applied to the folded
+   * entries, before anything is classified or linted.
+   */
+  include?: (entry: DraftChangeEntry) => boolean;
+  /**
    * When provided, the panel renders a confirm footer whose button invokes
    * this — turning the panel into the review-then-publish step. The caller
    * still owns the actual publish request and closing the panel on success.
@@ -351,6 +359,7 @@ export function DraftChangesPanel({
   open,
   onOpenChange,
   packageId,
+  include,
   onPublish,
   publishing = false,
 }: DraftChangesPanelProps) {
@@ -386,7 +395,8 @@ export function DraftChangesPanel({
     setError(null);
     setProblems([]);
     try {
-      const drafts = await listPendingDrafts(packageId);
+      const listed = await listPendingDrafts(packageId);
+      const drafts = include ? listed.filter(include) : listed;
       setEntries(drafts);
       // Mirror the publish door's own security-posture rule over these drafts.
       // Deliberately not awaited with the classification below: a finding is
@@ -428,7 +438,7 @@ export function DraftChangesPanel({
     } catch (e) {
       setError((e as Error).message);
     }
-  }, [packageId]);
+  }, [packageId, include]);
 
   useEffect(() => {
     if (open) void load();

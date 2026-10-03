@@ -65,6 +65,9 @@ const VALID_BAG: Readonly<Record<string, Record<string, unknown>>> = {
   'record:quick_actions': { actionNames: ['edit'] },
   'record:reference_rail': { entries: [{ objectName: 'contact', relationshipField: 'account' }] },
   'record:alert': { severity: 'warning', title: 'Overdue' },
+  // objectui#10872 — the row `@objectstack/spec` 17.6.0 carries; its own
+  // readings are pinned in `./record-line-items-arm-10872.test.ts`.
+  'record:line_items': { childObject: 'order_line', relationshipField: 'order', columns: [{ name: 'qty' }] },
   'element:text': { content: 'Hello' },
   // objectui#10872 batch 2 — the bag that names its own `object`; the
   // `dataSource` waiver is pinned in `./element-number-arm-10872.test.ts`.

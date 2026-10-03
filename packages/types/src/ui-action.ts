@@ -753,7 +753,23 @@ export interface UIActionSchema {
   
   /** Success message to show after execution */
   successMessage?: string;
-  
+
+  /**
+   * Success copy per handler outcome (`ActionSchema.outcomeMessages`,
+   * `@objectstack/spec` 17.6.0): keys are the snake_case `outcome` values a
+   * `type: 'api'` or `type: 'script'` handler returns in its success payload,
+   * values the message shown for that outcome. `@object-ui/core`'s runner
+   * reads the entry named by the payload's `outcome` ahead of
+   * {@link successMessage}, so the declared action renderers forward the map
+   * (objectui#11344).
+   *
+   * DERIVED from the spec, never hand-copied: each value is an `I18nLabel`, a
+   * string or an inline per-locale map, and the spec's own refusals (the map
+   * beside `resultDialog`, beside `operation: 'update'`, or on a type with no
+   * server response) stay the spec's to enforce.
+   */
+  outcomeMessages?: SpecAction['outcomeMessages'];
+
   /** Error message to show on failure */
   errorMessage?: string;
   

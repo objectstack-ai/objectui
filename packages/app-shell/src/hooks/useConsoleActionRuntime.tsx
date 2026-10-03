@@ -481,8 +481,9 @@ export function useConsoleActionRuntime(opts: ConsoleActionRuntimeOptions): Cons
         // Unwrap the ObjectStack `{ success, data }` envelope so `result.data`
         // is the inner payload — the contract every `result.data` consumer
         // expects. The action `resultDialog` field paths (e.g. `user.email`,
-        // `temporaryPassword`) and the dynamic-toast `result.data.message` are
-        // all written relative to the inner `data`. flowHandler and
+        // `temporaryPassword`) and the success toast's `outcome` and
+        // `${result.*}` reads (objectui#11344) are all written relative to the
+        // inner `data`. flowHandler and
         // serverActionHandler already unwrap `json.data`; apiHandler was the
         // lone handler that leaked the whole envelope, which blanked every
         // resultDialog whose paths didn't redundantly prefix `data.` (the

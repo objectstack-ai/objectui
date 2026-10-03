@@ -184,6 +184,9 @@ const ActionIconRenderer = forwardRef<
           patch: schema.patch,
           confirmText: schema.confirmText,
           successMessage: schema.successMessage,
+          // See action-button.tsx — success copy per handler outcome, the
+          // toast's first rung (objectui#11344).
+          outcomeMessages: schema.outcomeMessages,
           errorMessage: schema.errorMessage,
           refreshAfter: schema.refreshAfter,
           // Placement declaration — see action-button.tsx (#2210).
@@ -319,7 +322,9 @@ ComponentRegistry.register('icon', ActionIconRenderer, {
   // (see its registration). The pins live in
   // `__tests__/action-button-icon-inputs-11168.test.tsx`. `endpoint` stays
   // unpublished for the reason recorded there: the console's own `api`
-  // handler reads `target` and never `endpoint`.
+  // handler reads `target` and never `endpoint`. `outcomeMessages` is
+  // forwarded but unpublished, for the reason `action:button` records
+  // (objectui#11344).
   inputs: [
     { name: 'name', type: 'string' },
     { name: 'label', type: 'string' },
@@ -405,7 +410,7 @@ ComponentRegistry.register('icon', ActionIconRenderer, {
     {
       name: 'successMessage',
       type: 'string',
-      description: 'Toast text when the action succeeds (a message the server returns takes precedence)',
+      description: 'Toast text when the action succeeds; a `${result.*}` token reads the handler\'s answer (e.g. `${result.id}`)',
     },
     {
       name: 'errorMessage',

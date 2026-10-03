@@ -35,6 +35,7 @@ import React from 'react';
 
 import { ObjectGrid } from '../ObjectGrid';
 import { ActionProvider } from '@object-ui/react';
+import type { DataSource, ObjectGridSchema } from '@object-ui/types';
 import { registerAllFields } from '@object-ui/fields';
 
 beforeAll(() => {
@@ -51,7 +52,7 @@ const OBJECT_FIELDS = {
   impact: { type: 'text', label: 'Impact' },
 };
 
-interface Task { id: string; title: string; priority: string; status: string; impact: string }
+interface Task { [field: string]: string; id: string; title: string; priority: string; status: string; impact: string }
 
 /** The card's shape: 10 titles, 4 priorities, 5 statuses. */
 const TASKS: Task[] = [
@@ -111,8 +112,8 @@ const makeServerDataSource = (rows: Task[]) => {
       const groupBy = query.groupBy ?? [];
       if (hold.headers?.(groupBy)) await wait(`headers ${groupBy.join(',')}`);
       const buckets = new Map<string, number>();
-      for (const row of rows.filter((r) => matches(r as any, query.where))) {
-        const key = JSON.stringify(groupBy.map((f) => (row as any)[f] ?? null));
+      for (const row of rows.filter((r) => matches(r, query.where))) {
+        const key = JSON.stringify(groupBy.map((f) => row[f] ?? null));
         buckets.set(key, (buckets.get(key) ?? 0) + 1);
       }
       return [...buckets.entries()].map(([key, count]) => {
@@ -123,7 +124,7 @@ const makeServerDataSource = (rows: Task[]) => {
     find: vi.fn(async (_object: string, params: Record<string, unknown>) => {
       const predicates = groupPredicatesOf(params.$filter);
       if (hold.rows?.(predicates)) await wait(`rows ${JSON.stringify(predicates)}`);
-      const matching = rows.filter((r) => matches(r as any, params.$filter));
+      const matching = rows.filter((r) => matches(r, params.$filter));
       const skip = (params.$skip as number | undefined) ?? 0;
       const top = (params.$top as number | undefined) ?? matching.length;
       return { data: matching.slice(skip, skip + top), total: matching.length };
@@ -147,9 +148,9 @@ async function openGate(ds: ServerDataSource, what: string) {
 }
 
 /** The server's group set for one field: its distinct values, as labels. */
-const serverGroupsOf = (field: keyof Task) => [...new Set(TASKS.map((t) => String(t[field])))].sort();
+const serverGroupsOf = (field: string) => [...new Set(TASKS.map((t) => String(t[field])))].sort();
 
-const grid = (ds: ServerDataSource, field: keyof Task) => (
+const grid = (ds: ServerDataSource, field: string) => (
   <ActionProvider>
     <ObjectGrid
       schema={{
@@ -158,8 +159,8 @@ const grid = (ds: ServerDataSource, field: keyof Task) => (
         columns: ['title'],
         grouping: { fields: [{ field }] },
         pagination: { pageSize: 100 },
-      } as any}
-      dataSource={ds as any}
+      } as ObjectGridSchema}
+      dataSource={ds as unknown as DataSource}
     />
   </ActionProvider>
 );
@@ -184,7 +185,7 @@ function recordPaintedHeaders() {
  * The grid paints exactly the server's groups for `field` — `expected` of
  * them, the card's number — and every open group's rows arrive.
  */
-async function expectServerGroups(field: keyof Task, expected: number) {
+async function expectServerGroups(field: string, expected: number) {
   const answer = serverGroupsOf(field);
   expect(answer).toHaveLength(expected);
   await vi.waitFor(() => expect(headerLabels()).toEqual(expect.arrayContaining(answer)));
@@ -230,7 +231,7 @@ describe('switching the grouping field paints the server\'s groups for the new f
     // group predicate names a value the server grouped by.
     for (const [, params] of ds.find.mock.calls) {
       for (const [field, value] of groupPredicatesOf(params.$filter)) {
-        expect(serverGroupsOf(field as keyof Task)).toContain(value);
+        expect(serverGroupsOf(field)).toContain(value);
       }
     }
   });

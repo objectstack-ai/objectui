@@ -17,13 +17,15 @@
  *   - the plugin-detail package's own `detail-view` example, whose first tab's
  *     content is a `detail-section` node (its "With Tabs" section).
  *
- * That example is TSX, and its second tab hands `record:activity` a
- * host feed (`items: activityData`), which objectui#11321 refuses by name in a
- * JSON document — that refusal names this example as the TSX composition it
- * stays legal in. So the row below validates the example's first tab as
- * written (restated here, not read from the page, so this file reads no
- * markdown), and the second row holds the host-feed refusal as the ONLY issue
- * left on the full document.
+ * That example is TSX. Its second tab handed `record:activity` a host feed
+ * (`items: activityData`), which objectui#11321 refuses by name in a JSON
+ * document, so the rows below validated the first tab alone and held the
+ * host-feed refusal as the ONLY issue left on the full document.
+ * objectui#11515 re-authored that tab to the block's declared `properties`, so
+ * the full document as the page now writes it validates (the third row). The
+ * host-feed row stays, as the refusal's control on the old spelling. Each
+ * document is restated here, not read from the page, so this file reads no
+ * markdown.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -130,7 +132,26 @@ describe('objectui validate — the documents objectui#11440 arms', () => {
     expect(exitCodes).toEqual([0]);
   });
 
-  it('on the example\'s full document, the only issue left is the host feed on `record:activity` (objectui#11321)', async () => {
+  it('validates the example\'s full document as the page writes it since objectui#11515: the Activity tab authors `properties`', async () => {
+    const text = await run('detail-view-full-declared', {
+      type: 'detail-view',
+      title: 'Account: Acme Corp',
+      objectName: 'accounts',
+      resourceId: '12345',
+      fields: [{ name: 'name', label: 'Account Name' }, { name: 'industry', label: 'Industry' }],
+      tabs: [
+        { key: 'details', label: 'Details', icon: '📄', content: EXAMPLE_DETAIL_SECTION },
+        { key: 'activity', label: 'Activity', badge: '12', content: { type: 'record:activity', properties: { limit: 20, showCompleted: false } } },
+      ],
+      showEdit: true,
+      showDelete: true,
+    });
+    expect(text).not.toContain('Schema validation failed');
+    expect(text).toContain('Schema is valid');
+    expect(exitCodes).toEqual([0]);
+  });
+
+  it('on the example\'s old full document, the only issue left is the host feed on `record:activity` (objectui#11321)', async () => {
     const text = await run('detail-view-full', {
       type: 'detail-view',
       title: 'Account: Acme Corp',

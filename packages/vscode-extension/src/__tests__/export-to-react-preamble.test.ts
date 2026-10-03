@@ -96,7 +96,10 @@ describe('Export to React — the generated file preamble (objectui#7837)', () =
 
   it('still imports SchemaRenderer from @object-ui/react — the renderer it calls', () => {
     const template = generatedFileTemplate();
-    expect(template).toContain("import { SchemaRenderer } from '@object-ui/react';");
+    // objectui#11515: the same import also names the prop type the schema
+    // constant is annotated with, type-only, so it adds no runtime binding.
+    expect(template).toContain("import { SchemaRenderer, type SchemaRendererProps } from '@object-ui/react';");
+    expect(template).toContain("const schema: SchemaRendererProps['schema'] = ");
     expect(template).toContain('<SchemaRenderer schema={schema} />');
   });
 });

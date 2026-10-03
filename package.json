@@ -6,7 +6,7 @@
   "homepage": "https://www.objectui.org",
   "packageManager": "pnpm@10.31.0",
   "engines": {
-    "node": ">=22.11",
+    "node": ">=22.13",
     "pnpm": ">=10"
   },
   "workspaces": [
@@ -161,7 +161,7 @@
     "eslint-plugin-react-refresh": "^0.5.4",
     "globals": "^17.11.0",
     "happy-dom": "^20.11.2",
-    "jsdom": "^30.0.1",
+    "jsdom": "^29.1.1",
     "msw": "^2.15.0",
     "playwright": "^1.62.1",
     "react": "19.2.8",

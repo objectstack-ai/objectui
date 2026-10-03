@@ -59,10 +59,11 @@
  *   - **`title`** — through `resolveDrillTitle`, which OUTRANKS the tile's own
  *     `title` and `label`. The fallback chain below it is `title` then `label`
  *     then the literal "Details".
- *   - **`report`** — its own SHAPE selects the branch: a report object carrying
- *     an `objectName` (or an array `columns`) sends the drawer body to a
- *     `report` node wrapping it (`spec-report` until objectui#11440), and
- *     anything else falls through to the inline record list. That is asserted on the observable that separates the two
+ *   - **`report`** — its own SHAPE selects the branch: a dataset-bound report
+ *     (a `dataset`; objectui#11506 retired the pre-9.0 `objectName` / `columns`
+ *     markers) sends the drawer body to a `report` node wrapping it
+ *     (`spec-report` until objectui#11440), and anything else falls through to
+ *     the inline record list. That is asserted on the observable that separates the two
  *     branches — whether the record list is fetched at all.
  *
  * And the invariant the whole key hangs off: the drilled record list is scoped
@@ -274,13 +275,13 @@ describe('object-metric — the drilled list agrees with the number', () => {
 });
 
 describe('object-metric — `drillDown.report` selects the drawer body by its SHAPE', () => {
-  it('sends an `objectName`-bearing report to the report body, not the record list', async () => {
+  it('sends a dataset-bound report to the report body, not the record list', async () => {
     const adapter = drillAdapter();
     mount(
       {
         drillDown: {
           enabled: true,
-          report: { name: 'pipeline', objectName: 'deal', columns: [] },
+          report: { name: 'pipeline', label: 'Pipeline', type: 'summary', dataset: 'deals_ds', rows: ['stage'], values: ['amount_sum'] },
         },
       },
       adapter,
@@ -293,11 +294,15 @@ describe('object-metric — `drillDown.report` selects the drawer body by its SH
     expect(adapter.find).not.toHaveBeenCalled();
   });
 
-  it('falls through to the record list when `report` matches neither limb', async () => {
+  it.each([
+    ['a value that is no report', { note: 'not a report' }],
+    // objectui#11506 — the retired pre-9.0 object-bound form is no longer a report drill.
+    ['the retired `objectName` report', { name: 'pipeline', objectName: 'deal', columns: [] }],
+  ])('falls through to the record list for %s', async (_label, report) => {
     // The control that makes the row above a reading of `report`'s SHAPE
     // rather than of its mere presence.
     const adapter = drillAdapter();
-    mount({ drillDown: { enabled: true, report: { note: 'not a report' } } }, adapter);
+    mount({ drillDown: { enabled: true, report } }, adapter);
     await openPanel();
 
     await waitFor(() => expect(adapter.find).toHaveBeenCalled());

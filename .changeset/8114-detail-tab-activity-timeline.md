@@ -52,3 +52,12 @@ does not walk `packages/NAME/README.md` — that widening is objectui#7896's, an
 objectui#7896 is blocked by this card. Measured rather than assumed: with an
 unregistered type substituted back into this very block, `check:doc-snippets`
 and `check:doc-types` both still exit 0.
+
+⚠️ **Dated note, 2026-10-02 — the Activity tab authors `properties`, not `items` — objectui#11515.**
+At this change the README's Activity tab handed `record:activity` a feed it
+already owned as `items: activityData`, typed `FeedItem[]`; now the tab authors
+the block's declared inputs in `properties` (`{ limit: 20, showCompleted: false }`),
+`activityData` and its `FeedItem` import are gone, and in a bare `<DetailView>`
+the tab draws the block's empty state, because `items` is the host's feed slot
+the node refuses by name (objectui#11321). The `items, not data` bullet above
+and the sentence on `activityData` no longer describe the README. The rest of this entry is kept as the reading of this change.

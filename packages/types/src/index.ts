@@ -52,6 +52,8 @@
 // ============================================================================
 export type {
   AppComponentSchema,
+  // The `app-schema-renderer` node's TS twin (objectui#11515).
+  AppSchemaRendererNodeSchema,
   NavigationItem,
   NavigationEntryItem,
   NavigationSeparatorItem,
@@ -829,7 +831,8 @@ import type {
 } from './complex.js';
 import type { CRUDComponentSchema } from './crud.js';
 import type { ObjectQLComponentSchema, ListViewSchema } from './objectql.js';
-import type { AppComponentSchema } from './app.js';
+import type { AppComponentSchema, AppSchemaRendererNodeSchema } from './app.js';
+import type { CloudPlanStatusSchema } from './cloud.js';
 import type {
   PageDesignerSchema,
   DataModelDesignerSchema,
@@ -952,6 +955,11 @@ export type {
   // is `./__tests__/ai-insights-retired-8800.test.ts`.
 } from './ai.js';
 
+export type {
+  // Cloud widgets — the `cloud:plan-status` node's TS twin (objectui#11515).
+  CloudPlanStatusSchema,
+} from './cloud.js';
+
 // The Block System re-export block is GONE, not emptied: `BlockSchema`,
 // `BlockMetadata`, `BlockVariable`, `BlockSlot`, `BlockLibraryItem`,
 // `BlockLibrarySchema`, `BlockEditorSchema`, `BlockInstanceSchema` and
@@ -976,6 +984,8 @@ export type {
   ViewSwitcherSchema,
   FilterUISchema,
   SortUISchema,
+  // The `detail-section` node's TS twin (objectui#11515).
+  DetailSectionNodeSchema,
   ViewComponentSchema,
   CommentEntry,
   MentionNotification,
@@ -1042,7 +1052,11 @@ export type AnySchema =
   | AIRecommendationsSchema
   | NLQuerySchema
   | ViewComponentSchema
-  | ActionBarSchema;
+  | ActionBarSchema
+  // objectui#11515 — the TS twins of two zod-only arms; the third,
+  // `DetailSectionNodeSchema`, is a member through `ViewComponentSchema`.
+  | AppSchemaRendererNodeSchema
+  | CloudPlanStatusSchema;
 
 /**
  * Utility type to extract the schema type from a type string.

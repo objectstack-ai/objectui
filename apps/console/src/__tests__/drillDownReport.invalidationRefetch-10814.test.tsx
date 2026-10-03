@@ -20,7 +20,7 @@
  * console depends on both, which is the pairing a real drill runs in.
  *
  * The drawer is mounted open with a dataset-bound matrix report (the shape the
- * drawer's report arm takes: a report carrying a `columns` array), under a
+ * drawer's report arm takes: a report bound to a `dataset`, objectui#11506), under a
  * provider whose adapter counts `queryDataset` calls. The bare
  * `useDataInvalidation` reader beside it is the positive control.
  *

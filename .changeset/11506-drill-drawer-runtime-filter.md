@@ -1,0 +1,19 @@
+---
+'@object-ui/plugin-dashboard': minor
+'@object-ui/types': minor
+---
+
+The drill-down drawer scopes a dataset-bound drill report by `runtimeFilter`, and the pre-9.0 object-bound drill report is retired (objectui#11506).
+
+**Fixed (`@object-ui/plugin-dashboard`) — a drilled report showed the whole dataset.** The drawer opened by an `object-pivot` or `object-metric` `drillDown.report` wrote the widget's resolved filter into the report as `filter`. `ReportSchema` refuses that key and `DatasetReportRenderer` does not apply it (objectui#5137; it only warns in development), so a drill from a filtered widget queried the dataset unscoped. The drawer now writes the filter as the report's `runtimeFilter`, joined to the report's own `runtimeFilter` with `$and` when it has one, the same single join the `filter` write used. A `filter` that an unvalidated stored report still carries is not read as a scope, and it is not removed: the renderer still says in development that it was not applied.
+
+**Changed (`@object-ui/plugin-dashboard`) — which value the drawer draws as a report.** The drawer used to treat a `report` as a report when it carried a `columns` array or an `objectName` key, both markers of the pre-9.0 object-bound form. It now treats it as a report when it is dataset-bound: a non-empty `dataset`, or a `joined` report with a block that binds one (the reading `@object-ui/plugin-report`'s `isDatasetReport` uses). A tabular, summary or joined dataset report, which carries no `columns`, is now drawn as a report; it used to list the records. A `{ name }` reference and the retired object-bound form list the records, scoped by the drill filter, as a drill with no `report` does.
+
+BREAKING (`@object-ui/types`): `DrillDownConfig.report` narrows to the dataset-bound report. (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+
+- FROM: `report?: { name: string; objectName: string; type?: 'tabular' | 'summary' | 'matrix' | 'joined'; columns: Array of unknown; [k: string]: unknown } | { name: string }`
+- TO: `report?: SpecReportInput | { name: string }`, where the inline arm is `@objectstack/spec`'s `ReportSchema` author shape by reference, the same schema the `report` node's `report` member declares (objectui#11440).
+
+The zod mirror, `DrillDownConfigSchema.report`, takes the spec's `ReportSchema` the same way, ahead of the unchanged `{ name }` reference arm, so the spec's required keys and refusals apply to an inline drill report: `name` and `label` are required, a report that is not `joined` needs a `dataset` and a non-empty `values` (measure names), a `joined` one needs non-empty `blocks`, and the inline arm refuses `filter` and `objectName`, each naming its replacement. The retired form had no producer when this change was measured (this repository, and `@objectstack`'s examples and docs), and through the real drawer it drew an empty presentation and issued no query, so it applied no filter under either key. There is no alias window. Migration: rewrite an object-bound drill report as a dataset-bound one, a `dataset` with `rows`, `values` and, for a matrix, `columns` as dimension names, and put a fixed scope in `runtimeFilter`.
+
+Which face refuses the retired form: the TypeScript declaration does (`objectName` is a member of neither arm), and so does the strict authoring face, `StrictAnyComponentSchema`, which refuses it at the report, naming `objectName`. `objectui validate` does not: it runs `safeValidateSchema`, the tolerant face, where a value that fails the inline arm and carries a string `name` still parses as a `{ name }` reference, stripped to that member, as before, and the document is reported valid. At runtime the drawer then lists the records, as for any `{ name }` reference.

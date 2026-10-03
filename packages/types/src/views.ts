@@ -1416,10 +1416,77 @@ export interface SortUISchema extends BaseSchema {
 }
 
 /**
+ * `detail-section` — one field section of `@object-ui/plugin-detail` as a
+ * node: the TypeScript twin of `zod/views.zod.ts`'s `DetailSectionNodeSchema`
+ * (objectui#11515).
+ *
+ * The zod arm landed first (objectui#11440) with no declaration here, so no
+ * TypeScript type named the node, while the plugin-detail README authors it as
+ * a `detail-view` tab's `content`. This interface declares the same members.
+ *
+ * ## The members
+ *
+ * The arm `.pick`s ten members of `DetailViewSectionSchema`, the ones the
+ * registration publishes as `inputs` (`DETAIL_SECTION_NODE_INPUTS` in
+ * `@object-ui/plugin-detail`), and writes them flat on the node. Each member
+ * below is the matching member of {@link DetailViewSection}, by reference, so
+ * the two faces pick the same ten keys from twin declarations. `fields` is
+ * required there, so it is required here. `name` and `visible` are not
+ * section members on this node: they keep their `BaseSchema` meaning.
+ *
+ * Neither content channel is read, so both are refused by name, the twin of
+ * the arm's two `retirementTombstone` members (objectui#9256).
+ *
+ * The parity pair is `views.zod.ts#DetailSectionNodeSchema` in
+ * `__tests__/zod-mirror-parity.test.ts`. `@object-ui/plugin-detail`'s
+ * `DetailSectionNodeProps` stays the component's prop type.
+ */
+export interface DetailSectionNodeSchema extends BaseSchema {
+  type: 'detail-section';
+  /** Section heading. {@link DetailViewSection.title}. */
+  title?: DetailViewSection['title'];
+  /** Text under the heading. {@link DetailViewSection.description}. */
+  description?: DetailViewSection['description'];
+  /** Heading icon. {@link DetailViewSection.icon}. */
+  icon?: DetailViewSection['icon'];
+  /** The fields the section draws. Required. {@link DetailViewSection.fields}. */
+  fields: DetailViewSection['fields'];
+  /** {@link DetailViewSection.collapsible}. */
+  collapsible?: DetailViewSection['collapsible'];
+  /** {@link DetailViewSection.defaultCollapsed}. */
+  defaultCollapsed?: DetailViewSection['defaultCollapsed'];
+  /** Grid columns for the field layout. {@link DetailViewSection.columns}. */
+  columns?: DetailViewSection['columns'];
+  /** {@link DetailViewSection.showBorder}. */
+  showBorder?: DetailViewSection['showBorder'];
+  /** One of six design-system tint tokens. {@link DetailViewSection.headerColor}. */
+  headerColor?: DetailViewSection['headerColor'];
+  /** {@link DetailViewSection.hideEmpty}. */
+  hideEmpty?: DetailViewSection['hideEmpty'];
+  /**
+   * REFUSED BY NAME (objectui#9256) — `detail-section` reads neither content
+   * channel: `DetailSectionNode` folds the declared members into the one
+   * section `DetailSection` draws, and `SchemaRenderer` strips both channels
+   * out of the props it spreads.
+   *
+   * @deprecated Not a channel `detail-section` reads — nothing renders it.
+   */
+  body?: never;
+  /**
+   * REFUSED BY NAME (objectui#9256), for the reason `body` gives.
+   *
+   * @deprecated Not a channel `detail-section` reads — nothing renders it.
+   */
+  children?: never;
+}
+
+/**
  * Union type of all view schemas
  */
 export type ViewComponentSchema =
   | DetailViewSchema
   | ViewSwitcherSchema
   | FilterUISchema
-  | SortUISchema;
+  | SortUISchema
+  // objectui#11515 — one field section as a node.
+  | DetailSectionNodeSchema;

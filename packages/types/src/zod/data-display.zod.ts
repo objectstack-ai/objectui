@@ -21,6 +21,7 @@ import {
   ChartAxisSchema as SpecChartAxisSchema,
   ChartTypeSchema as SpecChartTypeSchema,
   I18nLabelSchema,
+  ReportSchema as SpecReportSchema,
 } from '@objectstack/spec/ui';
 import { BaseSchema, SchemaNodeSchema } from './base.zod.js';
 import { aliasKeyRefusal, handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
@@ -929,6 +930,40 @@ const CHART_Y_AXIS_IS_A_LIST_GUIDANCE =
   + 'column name is not a member of the protocol.';
 
 /**
+ * `DrillDownConfig.report`'s mirror (objectui#11506): an inline dataset-bound
+ * report OR a named reference `{ name }`, tried in that order.
+ *
+ * The inline arm is `@objectstack/spec`'s `ReportSchema` by reference, the
+ * member `ReportNodeSchema` (`reports.zod.ts`) declares on the `report` node the
+ * drawer wraps this report in. A drill report that validates here therefore
+ * becomes a `report` node that validates there, with the drill filter in the
+ * `runtimeFilter` the spec declares. The spec's own refusals apply: `filter`
+ * (an alias of `runtimeFilter`), and the pre-9.0 object-bound form, `objectName`
+ * (an alias of `dataset`) with column objects. That form was this arm's shape
+ * until objectui#11506 retired it with no alias window: it had no producer, and
+ * through the real drawer it drew an empty presentation and issued no query.
+ *
+ * The reference arm is unchanged, a plain `z.object`: on this tolerant face a
+ * value that fails the inline arm and carries a string `name` parses as a
+ * reference, stripped to `{ name }`, as it did before; the strict authoring face
+ * closes that arm and refuses the extra keys.
+ *
+ * Typed BY REFERENCE ({@link DrillDownReportZodType}) so declaration emit names
+ * the spec's schema instead of re-serializing the whole report shape into every
+ * declaration that carries `drillDown`, the TS7056 failure `ReportNodeZodType`
+ * exists to avoid. Not exported: the type is, for that emit.
+ */
+const DrillDownReportSchema: DrillDownReportZodType = z.union([
+  stripImportedDefaults(SpecReportSchema),
+  z.object({ name: z.string() }),
+]);
+
+/** The TYPE of {@link DrillDownReportSchema}, written out by reference (see there). */
+export type DrillDownReportZodType = z.ZodUnion<
+  readonly [typeof SpecReportSchema, z.ZodObject<{ name: z.ZodString }, z.core.$strip>]
+>;
+
+/**
  * Drill-down configuration — the zod mirror of `DrillDownConfig`
  * (`../data-display.ts`), key for key (objectui#7352).
  *
@@ -959,13 +994,9 @@ const CHART_Y_AXIS_IS_A_LIST_GUIDANCE =
  * spec's chart subset is a separate ruling — the declaration says
  * `DrillDownConfig`, and this mirror says the same.
  *
- * `report` keeps the declaration's structural union: an inline report shape
- * (`name` + `objectName` + `columns`, `type` optional, every other report key
- * riding through on the index signature — `.catchall(z.unknown())` is what
- * `[k: string]: unknown` spells) OR a named reference `{ name }`. Arm order
- * matters to `z.union`: the inline arm is tried first, so a value satisfying it
- * keeps its extra keys; only a value that fails it falls through to the
- * reference arm.
+ * `report` is {@link DrillDownReportSchema}: the declaration's union of an
+ * inline dataset-bound report (the spec's `ReportSchema`, by reference) OR a
+ * named reference `{ name }`.
  */
 export const DrillDownConfigSchema = z.object({
   enabled: z.boolean().optional().describe('Master switch — true, or any other key present, turns the drill on'),
@@ -977,20 +1008,13 @@ export const DrillDownConfigSchema = z.object({
   ),
   filter: z.record(z.string(), z.unknown()).optional().describe('Filter applied to the drilled list; values support ${event.*} interpolation'),
   title: z.string().optional().describe('Drawer / dialog title; supports ${event.*} interpolation'),
-  report: z
-    .union([
-      z
-        .object({
-          name: z.string(),
-          objectName: z.string(),
-          type: z.enum(['tabular', 'summary', 'matrix', 'joined']).optional(),
-          columns: z.array(z.unknown()),
-        })
-        .catchall(z.unknown()),
-      z.object({ name: z.string() }),
-    ])
+  report: DrillDownReportSchema
     .optional()
-    .describe('Drill into an analytical report instead of the record list: an inline SpecReport shape, or a named report reference'),
+    .describe(
+      'Drill into an analytical report instead of the record list: an inline dataset-bound report '
+      + '(`@objectstack/spec` `ReportSchema`, by reference; the drawer writes the drill filter into its `runtimeFilter`), '
+      + 'or a named report reference. The pre-9.0 `objectName` form is retired (objectui#11506)',
+    ),
   columns: z.array(z.string()).optional().describe('Column whitelist for the inline drill list'),
   maxRows: z.number().optional().describe('Hard cap on rows fetched'),
 });

@@ -24,3 +24,10 @@ admitted every one of these nodes.
 enumerates every exported object type that extends `BaseSchema` with a literal
 `type` and fails on any that is not a member. `ActionBarSchema` does not extend
 `BaseSchema`, so it is held by name.
+
+⚠️ **Dated note, 2026-10-02 — three more members — objectui#11515.**
+At this change `ViewComponentSchema` was the four schemas named above; now it
+also holds `DetailSectionNodeSchema` (`detail-section`), and `AnySchema` also
+holds `AppSchemaRendererNodeSchema` (`app-schema-renderer`) and
+`CloudPlanStatusSchema` (`cloud:plan-status`), the TypeScript twins of three
+zod arms that had none. The rest of this entry is kept as the reading of this change.

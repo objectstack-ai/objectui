@@ -5291,14 +5291,29 @@ export interface ObjectChartSchema extends BaseSchema {
   dataSource?: ElementDataSource;
   /** ObjectQL object name (legacy inline path; optional under ADR-0021 dataset binding) */
   objectName?: string;
-  /** Chart type. Includes donut / horizontal-bar / column — all rendered by
-   *  AdvancedChartImpl (previously only reachable by passing an untyped string).
+  /** Chart type: the `@objectstack/spec` chart families plugin-charts draws
+   *  (objectui#11513), `Extract`ed from the spec's `ChartType` by reference.
+   *  The spec's single-value families (`gauge`, `solid-gauge`, `metric`,
+   *  `kpi`, `bullet`) and tabular ones (`table`, `pivot`) are not declared:
+   *  this block renders one row's number or a notice for them, not a chart.
+   *  The zod mirror picks the same set out of the spec's enum
+   *  (`OBJECT_CHART_FAMILIES`), and the objectui#11513 pins hold the two faces
+   *  to each other and to what renders.
    *
    *  The metadata tier's spelling of the chart family. OPTIONAL since
    *  objectui#10770, because a react-tier node carries the family as
    *  {@link specType} instead. The zod mirror requires one of the two, and
    *  `normalizeChartSchema` reads this one first when a node writes both. */
-  chartType?: 'bar' | 'column' | 'horizontal-bar' | 'line' | 'area' | 'pie' | 'donut' | 'scatter';
+  chartType?: Extract<
+    SpecChartType,
+    | 'bar' | 'horizontal-bar' | 'column'
+    | 'line' | 'area'
+    | 'pie' | 'donut' | 'funnel'
+    | 'scatter'
+    | 'treemap' | 'sankey'
+    | 'combo'
+    | 'radar'
+  >;
   /**
    * The react tier's chart family: the author's `type` on `<ObjectChart>`,
    * parked here by the react-page wrapper because `type` is this node's

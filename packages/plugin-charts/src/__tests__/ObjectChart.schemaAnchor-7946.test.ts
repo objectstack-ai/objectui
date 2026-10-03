@@ -188,9 +188,9 @@ describe('ObjectChartProps.schema — anchored to ObjectChartSchema (objectui#79
     const missing: ObjectChartProps['schema'] = { objectName: 'account', chartType: 'bar' };
     // @ts-expect-error — the only spelling is the key `ObjectChart.tsx` registers.
     const wrong: ObjectChartProps['schema'] = { type: 'chart', objectName: 'account', chartType: 'bar' };
-    // @ts-expect-error — `radar` is rendered by AdvancedChartImpl but is not on THIS node's declared union; widening it is a contract change, not a cast.
-    const family: ObjectChartProps['schema'] = { type: 'object-chart', chartType: 'radar' };
-    expect([missing.objectName, wrong.objectName, family.chartType]).toEqual(['account', 'account', 'radar']);
+    // @ts-expect-error — `gauge` is a spec chart family this block draws no chart of (one row's number), so it is not on THIS node's declared union (objectui#11513); widening it is a contract change, not a cast.
+    const family: ObjectChartProps['schema'] = { type: 'object-chart', chartType: 'gauge' };
+    expect([missing.objectName, wrong.objectName, family.chartType]).toEqual(['account', 'account', 'gauge']);
   });
 
   it('refuses a wrong-typed inherited base member for the DECLARED reason', () => {

@@ -221,6 +221,13 @@ async function exportToReact(editor: vscode.TextEditor) {
 
 /**
  * Generate React component from schema
+ *
+ * The emitted `schema` constant is annotated with `SchemaRendererProps['schema']`
+ * (objectui#11515). Unannotated, every `type` in it widens to `string`, which a
+ * prop that discriminates on the literal `type` refuses. `SchemaNode` was the
+ * first candidate and does not fit: it also admits `number` and `boolean`, which
+ * the prop leaves out, and the narrowing at the initializer does not reach the
+ * component's body, so the one JSX line was refused for every schema.
  */
 function generateReactComponent(schema: any): string {
   const schemaJson = JSON.stringify(schema, null, 2);
@@ -229,12 +236,14 @@ function generateReactComponent(schema: any): string {
 // what a new Vite or Next project is configured with) nothing here reads that
 // identifier, so it compiles as an unused local. Add the import back only if
 // this file is built with the classic "jsx": "react" transform.
-import { SchemaRenderer } from '@object-ui/react';
+import { SchemaRenderer, type SchemaRendererProps } from '@object-ui/react';
 // Importing the package registers every default renderer as a side effect —
 // there is no separate registration call.
 import '@object-ui/components';
 
-const schema = ${schemaJson};
+// Typed as the schema SchemaRenderer takes, so each "type" below stays a literal
+// and the compiler checks the schema against the node types it accepts.
+const schema: SchemaRendererProps['schema'] = ${schemaJson};
 
 export default function GeneratedComponent() {
   return <SchemaRenderer schema={schema} />;

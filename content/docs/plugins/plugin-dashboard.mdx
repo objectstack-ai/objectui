@@ -435,6 +435,49 @@ The behaviour is pinned by `packages/plugin-dashboard/src/__tests__/DatasetWidge
 `packages/plugin-dashboard/src/__tests__/DatasetWidget.dimensionlessMeasures-11261.test.tsx` and
 `packages/plugin-dashboard/src/__tests__/WidgetConfigPanel.measureDoor-8894.test.tsx`.
 
+## Drilling into a report
+
+An `object-pivot` or `object-metric` block whose `drillDown` carries a `report`
+opens that report in the drill drawer instead of the record list. The report is
+dataset-bound, `@objectstack/spec`'s `ReportSchema`: the same document a
+`report` node draws.
+
+```json
+{
+  "type": "object-pivot",
+  "properties": {
+    "objectName": "deal",
+    "rowField": "stage",
+    "columnField": "owner",
+    "valueField": "amount",
+    "aggregation": "sum",
+    "drillDown": {
+      "enabled": true,
+      "report": {
+        "name": "deals_by_stage",
+        "label": "Deals by Stage",
+        "dataset": "deals_ds",
+        "rows": ["stage"],
+        "values": ["amount_sum"]
+      }
+    }
+  }
+}
+```
+
+The drawer scopes the report by what was clicked: it joins the block's resolved
+drill filter to the report's own `runtimeFilter` with `$and` and writes the
+result as the report's `runtimeFilter`, the one filter key the dataset renderer
+applies. Don't author `filter` on the report: the spec refuses it and the
+renderer does not apply it. The pre-9.0 object-bound report (`objectName` plus
+column objects) is refused by the TypeScript declaration, by the spec's
+`ReportSchema` and by the strict authoring face (`StrictAnyComponentSchema`),
+each naming `objectName`. `objectui validate` runs the tolerant face, which
+still accepts such a value as a `{ "name": "…" }` reference, stripped to its
+`name`. Either way the drawer does not draw it as a report; write the dataset
+form. A `{ "name": "…" }` reference is declared too, but the drawer resolves
+none, so such a drill lists the records.
+
 ## Translations — a served dashboard is translated once
 
 Widget texts have a client translation channel: bundle keys under

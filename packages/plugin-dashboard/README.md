@@ -521,6 +521,22 @@ the enum gets no accent and is not aliased to a nearby colour: it is invalid
 metadata, rejected where it is authored and published rather than reinterpreted
 here.
 
+## A widget with no `type`, or a `type` that names no family
+
+A widget that declares no `type` is a `metric` widget. `@objectstack/spec`'s
+`DashboardWidget.type` defaults to `metric`, and both dashboard surfaces
+(`DashboardRenderer` and `DashboardGridLayout`) read that default from the spec,
+so the widget draws exactly as the same widget with `type: 'metric'` does,
+inline or bound to a dataset (objectui#11514). objectui's validator accepts the
+widget without a `type` and does not write the default in, so the surfaces are
+where it resolves.
+
+A `type` that names no widget family and no component type (a typo, or a family
+the spec no longer has) is refused by both validator faces at `type`. A stored
+one draws the labelled placeholder "「type」chart type is not supported yet", as
+a known family with no renderer (`heatmap`) does, instead of the renderer's red
+"Unknown component type" panel.
+
 ## How many measures a widget renders
 
 A dataset-bound widget queries every measure in `values`. What it renders

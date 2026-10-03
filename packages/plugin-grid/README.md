@@ -261,9 +261,10 @@ on the node; that is now the refused spelling.
 
 `keyboardNavigation`, the third key objectstack#20694 added to the row, is
 honoured too (objectui#11068) and is in `GRID_QUERY_INPUTS` — see
-[Keyboard navigation](#keyboard-navigation). At `@objectstack/spec` 17.6.0 the
-row's own text still marks it `[EXPERIMENTAL — not enforced]`, written before
-this build.
+[Keyboard navigation](#keyboard-navigation). The row's own description may still
+carry the `[EXPERIMENTAL — not enforced]` marker it was published with before this
+build; the installed row (`ComponentPropsMap['object-grid']`) is the place to read
+its current text.
 
 `name`, `placeholder`, `rowSpecActions` and `bulkSpecActions` are **retired** on
 this node (objectui#11068): nothing ever read them, and both faces of

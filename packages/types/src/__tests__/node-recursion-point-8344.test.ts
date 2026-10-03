@@ -250,6 +250,12 @@ type ArmsNotAssignableToSchemaNode = Exclude< z.output< typeof AnyComponentSchem
  * The `[…] extends [never]` guard the paragraph above describes belonged to the
  * non-distributive projection this replaced: `LiteralArmType` and `WideArm` distribute over
  * the arms, so an empty exclusion set answers `never` by construction.
+ *
+ * ⚠️ Dated note, 2026-10-03 (objectui#11466, on merging objectui#11515). Reconciled, so their
+ * names left the list below: `detail-section`, `app-schema-renderer` and `cloud:plan-status`.
+ * objectui#11515 gave each its TypeScript twin and joined it to `AnySchema`, so a node slot
+ * admits them and their zod output is assignable. The bullet above that names them is kept as
+ * the reading at objectui#11466's first measurement.
  */
 type LiteralArmType< Arm > = Arm extends { type: infer K } ? (string extends K ? never : K) : never;
 type WideArm< Arm > = Arm extends { type: infer K } ? (string extends K ? Arm : never) : never;
@@ -259,10 +265,7 @@ type MeasuredArmDrift11466 =
   | 'home'
   | 'utility'
   | 'page'
-  | 'dashboard'
-  | 'detail-section'
-  | 'app-schema-renderer'
-  | 'cloud:plan-status';
+  | 'dashboard';
 
 export type NodeRecursionPointDeclarationDrift = [
   Expect< Equal< LiteralArmType< ArmsNotAssignableToSchemaNode >, MeasuredArmDrift11466 > >,

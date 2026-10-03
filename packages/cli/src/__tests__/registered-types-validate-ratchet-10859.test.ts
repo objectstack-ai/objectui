@@ -141,9 +141,11 @@ const REFUSED_AT_TYPE = 0;
  * it. objectui#11440 armed seven bare keys and none of their namespaced twins
  * (`ARMED_11440` maps each to its twins), so its first pull request did not
  * move this pin; its second took it down by one, `plugin-report:spec-report`,
- * the namespaced twin of the `spec-report` key it unregistered.
+ * the namespaced twin of the `spec-report` key it unregistered. objectui#10872:
+ * minus `record:line_items`, armed from the row `@objectstack/spec` 17.6.0
+ * gave it, the last public block held.
  */
-const NAMESPACED_REFUSED_AT_TYPE = 361;
+const NAMESPACED_REFUSED_AT_TYPE = 360;
 
 /** The bare registry keys — the population the card measured. */
 const BARE_KEYS = KNOWN_SCHEMA_TYPES.filter((key) => !key.includes(':'));
@@ -169,6 +171,9 @@ const ARMED_PUBLIC_BLOCKS_10872_BATCH_2 = ['element:number'] as const;
 const ARMED_PUBLIC_BLOCKS_10872_BATCH_4 = [
   'action:button', 'action:icon', 'action:group', 'action:menu', 'element:definition-list', 'element:repeater',
 ] as const;
+
+/** The last public block objectui#10872 held, armed once `@objectstack/spec` 17.6.0 carried its row. */
+const ARMED_PUBLIC_BLOCKS_10872_LINE_ITEMS = ['record:line_items'] as const;
 
 /**
  * The thirty bare keys objectui#10859 batch 8 RETIRED (the seat's ruling on the
@@ -547,6 +552,16 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
       expect(NAMESPACED_KEYS, key).toContain(key);
       expect(refusedAtType(key), key).toBe(false);
     }
+  });
+
+  it('counts `record:line_items` armed — the last public block held (objectui#10872)', () => {
+    for (const key of ARMED_PUBLIC_BLOCKS_10872_LINE_ITEMS) {
+      expect(NAMESPACED_KEYS, key).toContain(key);
+      expect(refusedAtType(key), key).toBe(false);
+    }
+    // Registered with `skipFallback: true`, so the namespaced key is its only
+    // spelling: it left the namespaced count and no bare twin moved.
+    expect(BARE_KEYS).not.toContain('line_items');
   });
 
   it('counts `cloud:plan-status` armed — it registered WITH its arm (objectui#10919)', () => {

@@ -78,3 +78,5 @@ above no longer holds: they are three, `ChartSchema`, `ObjectDataTableSchema` an
 `object-pivot` arm, the last two each extending the mirror per block.
 `.changeset/11440-arm-passing-types.md` states what ships. The rest of this entry is kept as the
 reading of this change.
+
+⚠️ **Dated note, 2026-10-02 — the inline arm is the spec report — objectui#11506.** Later in this same release the inline arm of `DrillDownConfig.report`, and of its mirror, narrows to the dataset-bound report: `@objectstack/spec`'s `ReportSchema` by reference, with no index signature and no `.catchall`. The pre-9.0 `objectName` form is refused by the TypeScript face and the strict face. The sentences above that say an inline report keeps its extra keys through `.catchall(z.unknown())` no longer describe the member; the `{ name }` reference arm is unchanged. The rest of this entry is kept as the reading of this change.

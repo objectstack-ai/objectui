@@ -222,8 +222,8 @@ booleans do not exist at all; the five `on*` names are **component props**
 
 #### `description` and `emptyState`
 
-Two keys the grid honours (objectui#11068). `@objectstack/spec` 17.6.0 declares
-both on its `object-grid` row, so both are bag members and both are in
+Two keys the grid honours (objectui#11068). The upstream protocol's `object-grid`
+row declares both (objectstack#20694), so both are bag members and both are in
 `GRID_QUERY_INPUTS` (objectui#11227):
 
 - `description` — one line of help text drawn above the grid. A string, or an
@@ -255,10 +255,10 @@ both on its `object-grid` row, so both are bag members and both are in
 
 Written flat on the node, either key is refused by name and pointed at the bag
 (`description` → `properties.description`), as the spec's own page component
-refuses it. Before 17.6.0 the row did not declare `description`, and this page
-told you to write it on the node; that is now the refused spelling.
+refuses it. Until the row declared `description`, this page told you to write it
+on the node; that is now the refused spelling.
 
-`keyboardNavigation`, the row's third 17.6.0 key, is marked
+`keyboardNavigation`, the third key objectstack#20694 added to the row, is marked
 `[EXPERIMENTAL — not enforced]` there, and nothing in this package reads it yet,
 so it is not in `GRID_QUERY_INPUTS`. The bag accepts it, as the spec row does,
 and it changes nothing.

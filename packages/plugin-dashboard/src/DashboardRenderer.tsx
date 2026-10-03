@@ -722,7 +722,6 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             // families explicitly, so no widget type reaches the passthrough
             // return below and renders a red "Unknown component type" (#2943).
             const dispatch = classifyWidgetType(widgetType);
-            const resolvedWidgetType = dispatch.chartType ?? widgetType;
 
             if (dispatch.family === 'series' && dispatch.chartType) {
                 const xAxisKey = options.xField || 'name';
@@ -809,9 +808,12 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 // Static inline data array.
                 const dataItems = Array.isArray(widgetData) ? widgetData : widgetData?.items || [];
 
+                // `chartType` is the dispatch's resolved family, as on the
+                // `object-chart` node above: a `SeriesChartFamily`, which
+                // `ChartSchema.chartType` (the spec's `ChartType`) declares.
                 return {
                     type: 'chart',
-                    chartType: resolvedWidgetType,
+                    chartType: dispatch.chartType,
                     data: dataItems,
                     xAxisKey: xAxisKey,
                     series: [{

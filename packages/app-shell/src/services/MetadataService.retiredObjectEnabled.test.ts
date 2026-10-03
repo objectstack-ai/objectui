@@ -143,8 +143,11 @@ describe('objectui#6238 · the schema oracle — both tombstone keys are refused
     // `packages/types/src/__tests__/object-schema-metadata-spec-derivation.test.ts`;
     // the count rides here only as the corpus guard for the membership claims
     // below, so it is re-pointed, not weakened.
+    // 44 at `@objectstack/spec` 17.6.0, which adopted `imageField` (measured against
+    // a 17.5.0 control: gained set exactly `['imageField']`, lost set empty;
+    // objectui#11438). Re-pointed as the 17.3.0 adoption was, not weakened.
     const accept = new Set(Object.keys(ObjectSchema.shape as Record<string, unknown>));
-    expect(accept.size).toBe(43);
+    expect(accept.size).toBe(44);
     expect(accept.has('enable')).toBe(true);
     expect(accept.has('enabled')).toBe(false);
     expect(accept.has('_deleted')).toBe(false);

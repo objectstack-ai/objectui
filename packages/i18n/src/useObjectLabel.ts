@@ -568,6 +568,30 @@ export function useObjectLabel() {
     },
 
     /**
+     * Resolve the translated success copy for ONE handler outcome — an entry of
+     * the action's `outcomeMessages` (`@objectstack/spec` 17.6.0, objectui#11344).
+     * Convention: `{ns}.objects.{objectName}._actions.{actionName}.outcomeMessages.{outcome}`,
+     * falling back to `{ns}.globalActions.{actionName}.outcomeMessages.{outcome}`
+     * — the address the spec's translation bundle declares for the key.
+     * Returns undefined when no translation and no fallback exist.
+     *
+     * Like `actionSuccess`, the answer is a TEMPLATE: a `${result.*}` token in a
+     * bundle entry passes through untouched (i18next interpolates its own
+     * `{{…}}` form, never `${…}`), and the action runner fills it in from the
+     * handler's answer once the action has run.
+     */
+    actionOutcome: (
+      objectName: string | undefined,
+      actionName: string,
+      outcome: string,
+      fallback?: string,
+    ) => {
+      const fb = fallback ?? '';
+      const resolved = resolve(actionSuffixes(objectName, actionName, `outcomeMessages.${outcome}`), fb);
+      return resolved || undefined;
+    },
+
+    /**
      * Resolve translated action description (the explanatory line shown in the
      * action's param dialog / sheet / drawer header).
      * Convention: `{ns}.objects.{objectName}._actions.{actionName}.description`.

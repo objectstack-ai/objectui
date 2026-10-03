@@ -862,20 +862,22 @@ describe('ActionRunner', () => {
       expect(toastHandler).toHaveBeenCalledWith('Saved!', { type: 'success', duration: undefined });
     });
 
-    it('should prefer a dynamic server message (result.data.message) over successMessage', async () => {
+    it('does not let a server message (result.data.message) override successMessage', async () => {
       const toastHandler = vi.fn();
       runner.setToastHandler(toastHandler);
-      // Server-driven actions (check_app_updates / publish / install) return a
-      // computed outcome the static label cannot express.
+      // This row pinned the opposite until objectui#11344: the server's
+      // sentence outranked the author's copy. Ruling A on
+      // objectstack-ai/cloud#2315 retired that rung \u2014 the server returns facts
+      // and the author's copy (here, `${result.*}`-interpolated) is the toast.
       runner.registerHandler('check-updates', vi.fn().mockResolvedValue({
         success: true,
         data: { message: '2 app update(s) available: CRM 1.0.0\u21921.0.1', update_count: 2 },
       }));
 
-      await runner.execute({ type: 'check-updates', successMessage: 'Checked.' });
+      await runner.execute({ type: 'check-updates', successMessage: 'Checked: ${result.update_count} update(s).' });
 
       expect(toastHandler).toHaveBeenCalledWith(
-        '2 app update(s) available: CRM 1.0.0\u21921.0.1',
+        'Checked: 2 update(s).',
         { type: 'success', duration: undefined },
       );
     });

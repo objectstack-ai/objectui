@@ -409,6 +409,20 @@ function viewItemBody(view: any): Record<string, any> {
  * with the id so primary-view promotion (which matches on `list.name`) finds
  * this entry by its listViews key.
  * FORM-family views land in `formViews` only, never in the list-view switcher.
+ *
+ * `bucket.form` — what create and edit render — is set ONLY from a form item
+ * that carries `isDefault` (objectui#11539). `@objectstack/spec` `ViewSchema`
+ * calls a container's `form` its "Default form view" and `formViews`
+ * "Additional named form views", and the served rows say which one is default:
+ * `OBJECT.form` alone carries `isDefault`. There is no "first form wins"
+ * fallback, so arrival order decides nothing: a default arriving after a named
+ * form still takes `.form`, and a named form arriving after the default does
+ * not displace it. A container with no `form` serves its named forms with no
+ * `isDefault`, and `.form` stays unset. Create and edit then take the path an
+ * object with no default form view takes: `resolveFormViewLayout` returns no
+ * sections, and the dialog lays out the object's own fields. A named form —
+ * which can be a public anonymous intake form or a wizard — is reached only by
+ * its name, through `formViews`.
  */
 function applyViewItem(bucket: ViewBucket, view: any): void {
   const key = view.name || `${view.object}.${view.viewKind}`;
@@ -421,7 +435,7 @@ function applyViewItem(bucket: ViewBucket, view: any): void {
   };
   if (view.viewKind === 'form') {
     bucket.formViews[key] = entry;
-    if (view.isDefault || !bucket.form) bucket.form = entry;
+    if (view.isDefault) bucket.form = entry;
   } else {
     bucket.listViews[key] = entry;
     if (view.isDefault) bucket.primary = entry;

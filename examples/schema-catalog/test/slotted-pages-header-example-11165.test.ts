@@ -46,9 +46,10 @@
  *      exactly those two keys. Without it, a judge that stopped judging would
  *      pass 1 and 2 as well.
  *
- * `breadcrumb: true` stays in the example: its fate is a separate card, and
- * this file only asks that every key the example writes is one the contract
- * accepts today.
+ * The example carried `breadcrumb: true` until the `@objectstack/spec` 17.6.0
+ * bump (objectui#11438), when the contract began refusing it by name
+ * (objectstack#20758); it left the example then. This file only asks that
+ * every key the example writes is one the contract accepts today.
  */
 
 import { describe, it, expect } from 'vitest';

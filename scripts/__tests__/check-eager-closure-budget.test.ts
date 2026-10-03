@@ -807,9 +807,11 @@ describe('ceiling sensitivity, judged live (objectui#5924)', () => {
     // to 3104.5 on the authorised re-pin over `main`'s own drift, objectui#11073
     // UP to 3563.2 on the ruled raise for `@objectstack/*` 17.5.0,
     // objectui#11088 decision 1 = A, objectui#11101 down to 3552.8 on the first
-    // payback of that raise) — a rendering derived in the test would agree with
-    // the renderer by construction and pin nothing.
-    expect(result.message).toContain('3552.8');
+    // payback of that raise, objectui#11438 down to 3306.8 on the second, when
+    // `@objectstack/*` 17.6.0's spec root shed its migration chain) — a rendering
+    // derived in the test would agree with the renderer by construction and pin
+    // nothing.
+    expect(result.message).toContain('3306.8');
   });
 
   it('is exactly one regression wide, from either side of the line', () => {
@@ -1639,7 +1641,7 @@ describe('main', () => {
     // about the FIXTURE while the gate under test behaved correctly. The number
     // this case is actually about is "the report's chunk count, echoed".
     expect(outputs.closure_chunks).toBe(String(fixture.files.length));
-    expect(outputs.closure_gzip_kb).toBe('3552.8');
+    expect(outputs.closure_gzip_kb).toBe('3306.8');
   });
 
   it('exits 1 — a verdict about the BUNDLE — when over budget', () => {
@@ -2617,8 +2619,8 @@ describe('the prose attached to the baselines (objectui#7046)', () => {
    *
    * objectui#10996 is the first re-baseline to meet it, and re-pinned it to the
    * shape it left: `squashMerge` null, one commit carried. objectui#11073 and
-   * objectui#11101 each re-pinned the constant onto a branch tip of their own
-   * and left the same shape. ⛔ Still exact and positional — a back-fill of the
+   * objectui#11101, and objectui#11438 after them, each re-pinned the constant
+   * onto a branch tip of their own and left the same shape. ⛔ Still exact and positional — a back-fill of the
    * squash reds here again, and is re-pinned to two strings the same way.
    */
   it('records what each baseline carries as data, so the pin cannot go vacuous', () => {

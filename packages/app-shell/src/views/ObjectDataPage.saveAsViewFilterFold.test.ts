@@ -25,7 +25,13 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { ViewItemSchema } from '@objectstack/spec/ui';
-import { URL_FILTER_OPS, NULL_FILTER, type FilterTriple } from './drillUrlFilters';
+import {
+  URL_FILTER_OPS,
+  NULL_FILTER,
+  EMPTY_FILTER,
+  parseUrlFilterTriples,
+  type FilterTriple,
+} from './drillUrlFilters';
 import { viewEnvelope } from './runtime-metadata-persistence';
 import { buildSaveAsViewSpec } from './ObjectDataPage';
 
@@ -103,8 +109,20 @@ describe('Save as view folds URL drill triples to spec rules (objectui#3419)', (
     // `op` would have left this pin GREEN while the contract grew an operator
     // it does not cover — the set is computed from the constants, so a missing
     // member is invisible here rather than red.
-    const emittable = ['=', ...Object.values(URL_FILTER_OPS), NULL_FILTER.op, NULL_FILTER.notOp];
-    expect(emittable).toEqual(['=', '>=', '<=', '>', '<', 'is_null', 'is_not_null']);
+    //
+    // ⚠️ objectui#11547 added the "is empty" pair (`EMPTY_FILTER`) for the same
+    // reason and with the same obligation: both of its operators are listed.
+    const emittable = [
+      '=',
+      ...Object.values(URL_FILTER_OPS),
+      NULL_FILTER.op,
+      NULL_FILTER.notOp,
+      EMPTY_FILTER.op,
+      EMPTY_FILTER.notOp,
+    ];
+    expect(emittable).toEqual([
+      '=', '>=', '<=', '>', '<', 'is_null', 'is_not_null', 'is_empty', 'is_not_empty',
+    ]);
 
     const { spec, gate } = saveAsView(
       emittable.map((op, i) => ['f' + i, op, String(i)] as FilterTriple),
@@ -124,6 +142,10 @@ describe('Save as view folds URL drill triples to spec rules (objectui#3419)', (
       'is_null',
       // objectui#9508 — the inverse direction, canonical for the same reason.
       'is_not_null',
+      // objectui#11547 — the "is empty" pair, canonical words too, so it also
+      // reaches `normalizeFilterOperator` unbridged.
+      'is_empty',
+      'is_not_empty',
     ]);
     expect(gate.success).toBe(true);
   });
@@ -138,6 +160,27 @@ describe('Save as view folds URL drill triples to spec rules (objectui#3419)', (
       `ViewItem rejected by spec: ${JSON.stringify(gate.error?.issues)}`,
     ).toBe(true);
   });
+
+  it.each([
+    [EMPTY_FILTER.flag, EMPTY_FILTER.op],
+    [EMPTY_FILTER.notFlag, EMPTY_FILTER.notOp],
+  ])(
+    'keeps `filter[owner][empty]=%s` through the fold as `%s` (objectui#11547)',
+    (flag, op) => {
+      // A drill that the URL can now carry must also be savable, or the user
+      // reads a chip the saved view then silently does not carry. Read from the
+      // URL itself, so the reader and the fold are judged together.
+      const triples = parseUrlFilterTriples(
+        new URLSearchParams(`filter[owner][${EMPTY_FILTER.param}]=${flag}`),
+      );
+      const { spec, gate } = saveAsView(triples);
+      expect(spec.filter).toEqual([{ field: 'owner', operator: op, value: true }]);
+      expect(
+        gate.success,
+        `ViewItem rejected by spec: ${JSON.stringify(gate.error?.issues)}`,
+      ).toBe(true);
+    },
+  );
 
   it('keeps the is-null flag intact through the fold, value and all', () => {
     // The escape hatch's empty-bucket drill (objectui#9159) is savable as a

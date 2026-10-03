@@ -123,8 +123,9 @@ describe('spec tombstones surface on the twin as a refusal — the verdict the m
     // (ADR-0090 D2 deleted the Profile concept). Both faces take it by
     // reference, so the twin's member IS the spec's, and it admits no value.
     const isSpecMember: Equal<PageNodeSchema['assignedProfiles'], Page['assignedProfiles']> = true;
-    // The spec's retired-key type: `undefined` at the pinned 17.5.0, the branded
-    // `[REMOVED]` mark on objectstack `main` (objectui#11330).
+    // The spec's retired-key type: the branded `[REMOVED]` mark at the pinned
+    // 17.6.0 and on objectstack `main`, bare `undefined` through 17.5.0
+    // (objectui#11330).
     const admitsNoValue: Equal<IsRetiredKeyType<PageNodeSchema['assignedProfiles']>, true> = true;
     // The control for the line above, through the same helper: an admitted
     // spec key on the same twin is NOT a retired-key type.

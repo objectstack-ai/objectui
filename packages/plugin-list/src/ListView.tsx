@@ -5198,9 +5198,17 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
               hasBaseFilter ||
               (Array.isArray(appliedUserFilterConditions) && appliedUserFilterConditions.length > 0) ||
               (Array.isArray(appliedFilters?.conditions) && appliedFilters.conditions.length > 0);
-            const title = (typeof schema.emptyState?.title === 'string' ? schema.emptyState.title : undefined)
+            // objectui#11227 — `title` and `message` are the spec's `I18nLabel`
+            // (`EmptyStateSchema`): a plain string or an inline locale map. They
+            // are RESOLVED against the display locale, as the view's `label`
+            // is. A `typeof === 'string'` test stood here, which is not a
+            // resolution: it answered "absent" for every map an author may write,
+            // so a localised empty state silently drew the default copy in every
+            // locale. A string still passes through unchanged, and a map with no
+            // usable entry still falls to the default.
+            const title = resolveInlineI18nLabel(schema.emptyState?.title, displayLocale)
               ?? (hasActiveQuery ? t('list.noMatches') : t('list.firstRunTitle'));
-            const description = (typeof schema.emptyState?.message === 'string' ? schema.emptyState.message : undefined)
+            const description = resolveInlineI18nLabel(schema.emptyState?.message, displayLocale)
               ?? (hasActiveQuery ? t('list.noMatchesMessage') : t('list.firstRunMessage'));
             return (
               <DataEmptyState

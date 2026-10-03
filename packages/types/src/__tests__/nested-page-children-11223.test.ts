@@ -33,8 +33,9 @@
  *   (d) parity: the positions are read off the installed spec's walk, here,
  *       without naming one; objectui's walk reaches every one of them, and
  *       each is a position a row of (a) judges on both faces;
- *   (e) the one slot the walks disagree on (`page:card`'s `footer`), held as a
- *       row that turns red the day the exported walk descends it;
+ *   (e) retired: it held `page:card`'s `footer`, the one slot the walks
+ *       disagreed on, until `@objectstack/spec` 17.6.0's walk descended it
+ *       (objectui#11438); the footer is a row of (a) since;
  *   (f) a JavaScript value that nests a component inside itself still gets a
  *       verdict.
  *
@@ -45,7 +46,6 @@
 
 import { describe, expect, it } from 'vitest';
 import { walkAddressedPageComponents } from '@objectstack/spec/system';
-import { PageCardProps } from '@objectstack/spec/ui';
 
 import { safeValidateSchema, StrictAnyComponentSchema } from '../zod/index.zod.js';
 import { nestedComponentsOf } from '../zod/nested-component-walk.js';
@@ -92,6 +92,14 @@ const CONTAINERS: ReadonlyArray<readonly [type: string, position: string, place:
     }),
     ['properties', 'items', 1, 'children', 1],
   ] as const),
+  // The card's footer, a row since the spec's walk descends it (17.6.0,
+  // objectui#11438); until then (e) held it as the one slot the walks disagreed on.
+  [
+    'page:card',
+    'properties.footer[]',
+    (child: unknown) => ({ type: 'page:card', properties: { footer: [text('first'), child] } }),
+    ['properties', 'footer', 1],
+  ] as const,
 ];
 
 const ROWS = CONTAINERS.flatMap(([type, , place, path]) =>
@@ -100,11 +108,13 @@ const ROWS = CONTAINERS.flatMap(([type, , place, path]) =>
 /* ── (a) the refusals ───────────────────────────────────────────────────── */
 
 describe('objectui#11223 (a) — a bag child is judged by the node union, at its real path', () => {
-  it('the population is the six containers on both faces — a row dropped from the table fails here', () => {
-    expect(CONTAINERS.map(([type]) => type)).toEqual([
-      'page:card', 'page:section', 'page:footer', 'page:sidebar', 'page:tabs', 'page:accordion',
+  it('the population is the seven child positions on both faces — a row dropped from the table fails here', () => {
+    expect(CONTAINERS.map(([type, position]) => `${type} ${position}`)).toEqual([
+      'page:card properties.children[]', 'page:section properties.children[]', 'page:footer properties.children[]',
+      'page:sidebar properties.children[]', 'page:tabs properties.items[].children[]',
+      'page:accordion properties.items[].children[]', 'page:card properties.footer[]',
     ]);
-    expect(ROWS).toHaveLength(12);
+    expect(ROWS).toHaveLength(14);
   });
 
   it.each(ROWS)('%s refuses a malformed child, each issue under the child', (label, place, path, judge) => {
@@ -290,23 +300,6 @@ describe('objectui#11223 (d) — objectui walks every position the spec\'s walk 
     expect(found.map(({ path }) => at(path))).toEqual([
       'properties.children.2', 'properties.children.3', 'properties.items.1.children.0',
     ]);
-  });
-});
-
-/* ── (e) the slot the walks disagree on ─────────────────────────────────── */
-
-describe('objectui#11223 (e) — `page:card`\'s `properties.footer`: declared, drawn, and not yet walked', () => {
-  it('the row declares it and the exported walk does not descend it — turn this red, and the gap closes itself', () => {
-    expect(Object.keys(PageCardProps.shape)).toContain('footer');
-    // ⚠️ When this goes red, the spec's walk has started descending the card's
-    // footer, and every row of (d) now judges it: delete this block and record
-    // the close on objectui#11223, with the `page:card` footer note in
-    // `content/docs/utilities/cli.mdx`. Nothing else needs to change.
-    expect(POSITIONS).not.toContain('properties.footer[]');
-  });
-
-  it.each(FACES)('so a malformed footer child still parses on the %s face', (_face, judge) => {
-    expect(judge({ type: 'page:card', properties: { footer: [MALFORMED] } }).success).toBe(true);
   });
 });
 

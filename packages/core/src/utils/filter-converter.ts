@@ -578,7 +578,9 @@ function refuseEmptyOperatorMap(field: string): never {
  * `ValueDataSource` has refused since objectui#8748; see
  * {@link refuseTextComparand} (objectui#9001), or if a field is an EMPTY
  * operator map (`{ a: {} }`) — alone (objectui#9164) or
- * beside a key that lowers (objectui#10788): see {@link refuseEmptyOperatorMap}.
+ * beside a key that lowers (objectui#10788): see {@link refuseEmptyOperatorMap},
+ * or if a `$empty` flag is not a boolean (`{ a: { $empty: 'yes' } }`,
+ * objectui#11094).
  *
  * @example
  * // A field with NO operator (objectui#9164)
@@ -852,6 +854,32 @@ export function convertFiltersToAST(
           conditions.push([field, operatorValue ? 'is_not_null' : 'is_null', true]);
           continue;
         }
+        // objectui#11094 — `$empty`, admitted to the spec's `FILTER_OPERATORS`
+        // in `@objectstack/spec` 17.6.0 (objectstack#20446). The spec's own
+        // `parseFilterAST` reads `is_empty` as `$empty: true` and `is_not_empty`
+        // as `$empty: false`, so this is the inverse of that lowering, written
+        // the way `$null` is written above: direction from the flag, a `true`
+        // placeholder in the value slot, which the spec discards.
+        //
+        // The flag is a BOOLEAN by declaration (`SpecialOperatorSchema`), so a
+        // non-boolean is refused rather than read for its truthiness. That is
+        // the answer the spec's save door and every query face give, and
+        // `ValueDataSource`'s `$empty` arm refuses the same values, so one
+        // authored filter gets one answer whichever data source is behind it.
+        // Until this arm the operator reached the unknown-operator throw below.
+        if (operator === '$empty') {
+          if (operatorValue !== true && operatorValue !== false) {
+            throw new FilterOperatorError(
+              `[ObjectUI] The '$empty' filter operator on field '${field}' takes a boolean flag ` +
+              `(true or false); received ${JSON.stringify(operatorValue) ?? String(operatorValue)}. ` +
+              `Write { ${field}: { $empty: true } } for an empty value, or ` +
+              `{ ${field}: { $empty: false } } for a non-empty one.`,
+              { operator: '$empty', field },
+            );
+          }
+          conditions.push([field, operatorValue ? 'is_empty' : 'is_not_empty', true]);
+          continue;
+        }
 
         const astOperator = convertOperatorToAST(operator);
         
@@ -892,7 +920,7 @@ export function convertFiltersToAST(
           throw new FilterOperatorError(
             `[ObjectUI] Unknown filter operator '${operator}' for field '${field}'. ` +
             `Supported operators: $eq, $ne, $gt, $gte, $lt, $lte, $in, $nin, $between, ` +
-            `$contains, $notContains, $startsWith, $endsWith, $icontains, $null, $exists. ` +
+            `$contains, $notContains, $startsWith, $endsWith, $icontains, $null, $exists, $empty. ` +
             `If you need exact object matching, use the value directly without an operator.`,
             { operator, field },
           );

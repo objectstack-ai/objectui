@@ -67,8 +67,9 @@ renders none of them and says so once per id in the console. That is why the dem
 carries no actions. Placement (`locations: ['record_header']` or `record_more`), ordering and
 the overflow menu are covered in [Slotted pages](/docs/guide/slotted-pages).
 
-**`breadcrumb` draws nothing:** the contract accepts it until objectstack#20758 retires it,
-and the renderer ignores it, so `true`, `false` and an absent key render the same header.
+**`breadcrumb` is not a key of this node.** The contract retired it (objectstack#20758) and
+refuses it by name. It never drew anything: the renderer
+ignores it, so a stored `true` or `false` renders the same header as an absent key.
 
 **`maxVisible` / `mobileMaxVisible`** must be positive integers: the contract rejects `0`
 and fractional values, and the renderer falls back to its default for a value the contract

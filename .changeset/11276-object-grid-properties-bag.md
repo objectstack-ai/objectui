@@ -29,3 +29,10 @@ Nothing changes at render time: `SchemaRenderer` hoists every `properties` key o
 **What did not move.** The TypeScript `ObjectGridSchema` and its zod mirror `ObjectGridSchema` stay published and unchanged in shape. They are the node as `ObjectGrid` reads it after the hoist, and as code composes it, and the `object-view` `table` slot is still built from the mirror.
 
 **Correction, 2026-10-02 (objectui#6152, round 6).** The list above of keys "the row declares and the flat mirror does not" is no longer true for ten of them: the flat `ObjectGridSchema` mirror now declares `rowHeight`, `grouping`, `aggregations`, `conditionalFormatting`, `rowColor`, `bulkActionDefs`, `navigation`, `singleClickEdit`, `reorderableColumns` and `operations`, each typed as its TypeScript twin types it (`.changeset/6152-objectgrid-round6-mirrored.md`). `resizableColumns` is still the row's alone. The bag is unchanged: the spec row still judges these keys inside `properties`.
+
+**Correction, 2026-10-03 (objectui#11227).** At `@objectstack/spec` 17.6.0 the row declares
+`description`, `emptyState` and `keyboardNavigation`, so the sentence above saying it does not
+declare `emptyState` or `keyboardNavigation` no longer holds. All three parse in the bag, and
+each written flat on the node is refused by name toward its bag member, like the row's other
+members. `emptyState` is authorable in a document, and so is `description`, which no longer
+stays on the node beside the bag (`.changeset/11227-object-grid-17-6-keys.md`).

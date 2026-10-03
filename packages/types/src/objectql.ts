@@ -161,6 +161,11 @@ import type {
   // objectui#11355 — `ComponentPropsMap['object-kanban']`'s author state, so
   // `ObjectKanbanSchema.swimlaneField` takes the row's own type by reference.
   ObjectKanbanProps as SpecObjectKanbanProps,
+  // objectui#11227 — the list view's empty-state shape, which the spec's
+  // `object-grid` row holds by reference since 17.6.0 (`EmptyStateSchema`):
+  // `ObjectGridSchema.emptyState` below takes the protocol's own authored type.
+  // Aliased for the reason `SpecObjectCalendarProps` above is.
+  EmptyState as SpecEmptyState,
   ChartDrillDown,
   I18nLabel,
   DashboardWidget as SpecDashboardWidget,
@@ -410,29 +415,8 @@ export interface SortConfig {
 
 
 // ============================================================================
-// ConditionalFormatting Types — Dual-format support
+// ConditionalFormatting Types — ONE dialect, the spec list view's { condition, style }
 // ============================================================================
-
-/**
- * ObjectUI-native ConditionalFormatting rule.
- * Uses field/operator/value for declarative comparisons.
- */
-export interface ObjectUIConditionalFormattingRule {
-  /** Field name to evaluate */
-  field: string;
-  /** Comparison operator */
-  operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than' | 'in';
-  /** Value to compare against */
-  value: unknown;
-  /** CSS-compatible background color */
-  backgroundColor?: string;
-  /** CSS-compatible text color */
-  textColor?: string;
-  /** CSS-compatible border color */
-  borderColor?: string;
-  /** Template expression override (e.g., '${data.amount > 1000}') */
-  expression?: string;
-}
 
 /**
  * One entry of a named view's `conditionalFormatting`, as the protocol declares
@@ -481,10 +465,56 @@ export interface SpecConditionalFormattingRule {
 }
 
 /**
- * Union type for ConditionalFormatting rules — accepts both ObjectUI and Spec formats.
- * Rules are evaluated in order; first matching rule wins.
+ * One `conditionalFormatting` rule on `object-grid` ({@link ObjectGridSchema}) and
+ * `list-view` — ONE dialect, the spec list view's `{ condition, style }`: a CEL
+ * `condition` over the row's `record.*` and a CSS `style` map, first matching rule
+ * wins (objectui#11533).
+ *
+ * It IS {@link SpecConditionalFormattingRule}, the protocol's rule by reference (its
+ * `condition` indexes `ObjectListViewSchema`'s own slot, objectui#10946), plus the
+ * retired keys declared `?: never`, so each is refused BY NAME:
+ *
+ *   - the native comparison `{ field, operator, value }` and its template predicate
+ *     `expression` (the `ObjectUIConditionalFormattingRule` interface that declared
+ *     them is gone), and
+ *   - a colour written at the TOP LEVEL of a rule — `backgroundColor`, `borderColor`,
+ *     `textColor`. A colour belongs inside `style` (`textColor` is `style.color`).
+ *
+ * Retired, not widened, with no alias window (triage ruling 5965301211 on
+ * objectui#11533, as objectui#11522 ruled for {@link KanbanConditionalFormattingRule}).
+ * `@objectstack/spec` declares the list view's member as this rule and types the
+ * `object-grid` row's member by reference to it.
+ *
+ * Respelling: `{ field: 'priority', operator: 'equals', value: 'high',
+ * backgroundColor: '#fee2e2' }` is `{ condition: "record.priority == 'high'",
+ * style: { backgroundColor: '#fee2e2' } }`.
+ *
+ * ⚠️ What did NOT narrow: the shared evaluator. `@object-ui/core`'s
+ * `resolveConditionalFormatting` types its own input (`ConditionalFormattingRuleLike`)
+ * and still reads every arm, as a compatibility read for rules already STORED in the
+ * native dialect; nothing on the render path parses a stored view against this type's
+ * zod twin, so such a view still paints. A `{ condition, style }` rule paints exactly
+ * as it did before.
+ *
+ * The zod twin is the module-private `ConditionalFormattingRuleSchema` in
+ * `./zod/objectql.zod.ts`, each retired key a `retirementTombstone()` there.
  */
-export type ConditionalFormattingRule = ObjectUIConditionalFormattingRule | SpecConditionalFormattingRule;
+export interface ConditionalFormattingRule extends SpecConditionalFormattingRule {
+  /** @deprecated RETIRED (objectui#11533) — the native rule dialect. Write `condition` as CEL over `record.*`. */
+  field?: never;
+  /** @deprecated RETIRED (objectui#11533) — the native rule dialect. Write `condition` as CEL over `record.*`. */
+  operator?: never;
+  /** @deprecated RETIRED (objectui#11533) — the native rule dialect. Write `condition` as CEL over `record.*`. */
+  value?: never;
+  /** @deprecated RETIRED (objectui#11533) — the native template predicate. Write it as `condition`, CEL over `record.*`. */
+  expression?: never;
+  /** @deprecated RETIRED (objectui#11533) — a top-level colour. Write `style: { backgroundColor }`. */
+  backgroundColor?: never;
+  /** @deprecated RETIRED (objectui#11533) — a top-level colour. Write `style: { borderColor }`. */
+  borderColor?: never;
+  /** @deprecated RETIRED (objectui#11533) — a top-level colour. Write `style: { color }`. */
+  textColor?: never;
+}
 
 /**
  * Parameter declaration for a bulk action. Rendered as a single field in the
@@ -1260,10 +1290,24 @@ export interface ObjectGridSchema extends BaseSchema {
   rowColor?: RowColorConfig;
 
   /**
-   * Enable keyboard navigation (Grid mode)
-   * Arrow keys, Tab, Enter for cell navigation
-   * NOTE: This is ObjectUI-specific and not part of @objectstack/spec
-   * @default true when editable is true
+   * Arrow-key cell navigation on the WAI-ARIA grid pattern (objectui#11068).
+   * A member of the spec's `object-grid` row (`ComponentPropsMap['object-grid']`)
+   * since `@objectstack/spec` 17.6.0 (objectstack#20694).
+   *
+   * On, the grid's data cells are ONE Tab stop between them, a roving focus:
+   * arrow keys move it one cell, Home / End to the ends of the row, Ctrl+Home /
+   * Ctrl+End to the ends of the page, Enter still opens an editable cell, and an
+   * edit ended with Enter or Escape hands focus back to its cell. Off, every data
+   * cell is its own Tab stop, as it always was. A widget a cell renders (the
+   * record link, a row's action menu, a selection checkbox) keeps its own stop
+   * either way.
+   *
+   * `ObjectGrid` reads it as `schema.keyboardNavigation ?? inlineEditable`, where
+   * `inlineEditable` is the authored `editable` AND the viewer's write verdict on
+   * the object — the one value the grid's inline editing itself obeys. So a grid
+   * that renders editable has it on, a grid that renders read-only keeps its Tab
+   * behaviour unless this is `true`, and `false` turns it off on an editable grid.
+   * @default true when the grid renders editable
    */
   keyboardNavigation?: boolean;
   
@@ -1344,9 +1388,11 @@ export interface ObjectGridSchema extends BaseSchema {
   onNavigate?: (recordId: string | number, action: RecordNavigateAction) => void;
 
   /**
-   * Conditional formatting rules for row/cell styling.
-   * Aligned with @objectstack/spec ListViewSchema.conditionalFormatting.
-   * Supports both ObjectUI field/operator/value rules and Spec expression-based { condition, style } rules.
+   * Conditional formatting rules for row styling — `[{ condition, style }]`, the rule
+   * @objectstack/spec's `ListViewSchema.conditionalFormatting` declares: the first rule
+   * whose CEL `condition` holds applies its CSS `style` map to the row. The native
+   * `{ field, operator, value }` rule, its `expression` and a top-level colour are
+   * retired and refused by name (objectui#11533); see {@link ConditionalFormattingRule}.
    */
   conditionalFormatting?: ConditionalFormattingRule[];
 
@@ -1397,18 +1443,17 @@ export interface ObjectGridSchema extends BaseSchema {
    * own "no results" row, so the search box that emptied it stays reachable.
    * Leave the key out and nothing changes — the table draws its own empty row.
    *
-   * The same three members, with the same meanings, as `ListViewSchema`'s
-   * `emptyState`. Mirrored member for member by the Zod twin, which refuses an
-   * unknown member.
+   * The protocol's own empty-state type, ⛔ not a second shape (objectui#11227):
+   * `@objectstack/spec` 17.6.0 declares `emptyState` on its `object-grid` row
+   * by reference to the list view's `EmptyStateSchema`, so the grid and
+   * `ListViewSchema` share one shape. `title` and `message` are `I18nLabel` —
+   * a plain string or an inline locale map — and `ObjectGrid` resolves each
+   * against the display locale, as it resolves `label` and `description`; a
+   * map with no usable entry keeps that member's default. `icon` stays a
+   * string. The Zod twin takes the same schema by reference, so it refuses an
+   * unknown member as the spec does.
    */
-  emptyState?: {
-    /** Title text for the empty state */
-    title?: string;
-    /** Message/description for the empty state */
-    message?: string;
-    /** Icon name (Lucide icon identifier) */
-    icon?: string;
-  };
+  emptyState?: SpecEmptyState;
   /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `object-grid` reads NEITHER
    * content channel; see `children` below for the measurement.
@@ -2214,11 +2259,13 @@ export interface ObjectFormSchema extends BaseSchema {
  *     below — the slot refuses each of them by name either way.
  *
  * ⛔ Every other `ObjectGridSchema` member is WITHHELD, because on the view's
- * grid it reached nothing: `ObjectGrid` has no read of it
- * (`keyboardNavigation`, and the five tombstones just named); `ObjectGrid`
- * reads it on its own node but the view does not hand it on (`emptyState`,
- * `description` — honoured by the grid since objectui#11068, and kept off
- * this slot by that card's ruling, which enforced them without widening it);
+ * grid it reached nothing: `ObjectGrid` has no read of it (the five
+ * tombstones just named); `ObjectGrid` reads it on its own node but the view
+ * does not hand it on (`emptyState`, `description` — honoured by the grid
+ * since objectui#11068, and kept off this slot by that card's ruling, which
+ * enforced them without widening it — and `keyboardNavigation`, read since
+ * that card's build; a view's grid takes the key's default, on exactly when
+ * it renders editable);
  * the view owns it (the record source
  * `data` / `staticData` / `bind`, and since objectui#11070 the binding
  * `dataSource`; the row click `navigation` / `onNavigate`;
@@ -2858,8 +2905,8 @@ export interface NamedListView {
     formView?: string;
   };
 
-  /** Conditional formatting rules.
-   * Supports both ObjectUI field/operator/value rules and Spec expression-based { condition, style } rules. */
+  /** Conditional formatting rules — `{ condition, style }` only since objectui#11533
+   * (see {@link ConditionalFormattingRule}); the native rule dialect is refused by name. */
   conditionalFormatting?: ConditionalFormattingRule[];
 
   /**
@@ -2878,12 +2925,16 @@ export interface NamedListView {
   /** Allow printing the view @default false */
   allowPrinting?: boolean;
 
-  /** Empty state configuration */
-  emptyState?: {
-    title?: string;
-    message?: string;
-    icon?: string;
-  };
+  /**
+   * Empty state configuration — the type of {@link ListViewSchema}'s own
+   * `emptyState`, indexed rather than restated, as the objectui#8980 members
+   * below are (objectui#11227). That member is the protocol's `EmptyStateSchema`
+   * by reference, so `title` and `message` are `I18nLabel` — a plain string or
+   * an inline locale map — and `ListView`, which this view is forwarded into,
+   * resolves each against the display locale. This member said plain `string`
+   * until then, narrower than the protocol on both.
+   */
+  emptyState?: ListViewSchema['emptyState'];
 
   /** ARIA attributes for accessibility */
   aria?: {
@@ -3145,9 +3196,12 @@ export type RecordNavigateAction = 'view' | 'new_window';
  * zod/JSON-schema.
  *
  * Legacy objectui vocabulary (`viewType`/`fields`/`filters`/`show*`/`densityMode`/…) and
- * the broader-than-spec configs (`userFilters`/`sharing`/`aria`/`conditionalFormatting`/
+ * the broader-than-spec configs (`userFilters`/`sharing`/`aria`/
  * `exportOptions`/`kanban`/`calendar`/`gantt`/`gallery`/`timeline`) remain as sanctioned
  * local `.extend()`s on the schema; migration to the spec-canonical keys is deferred (#2231).
+ * `conditionalFormatting` is a local `.extend()` too but no longer broader than spec: it is
+ * the spec list view's own `{ condition, style }` rule, the native dialect refused by name
+ * (objectui#11533, {@link ConditionalFormattingRule}).
  */
 export type ListViewSchema = ListViewAuthored & ListViewRuntimeProps;
 
@@ -4028,7 +4082,7 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * (the spec's own `ObjectCalendarPropsSchema`) declares
    * `z.array(z.unknown()).optional()`, described *"Pre-fetched records — skips
    * the internal fetch"*.
-   * MEASURED on the installed artifact at `@objectstack/spec` 17.5.0 — the
+   * MEASURED on the installed artifact at `@objectstack/spec` 17.6.0 — the
    * version this repository's `pnpm-lock.yaml` resolves — through the published
    * `@objectstack/spec/ui` entry point: the provider block returns
    * `success=false` with `expected: 'array'` at `path: ['data']`, the array
@@ -5100,10 +5154,11 @@ export interface ObjectKanbanSchema extends BaseSchema {
  * style: { backgroundColor: '#fee2e2' } }`.
  *
  * ⚠️ What did NOT narrow: the shared evaluator. `@object-ui/core`'s
- * `resolveConditionalFormatting` still reads every arm, because the grid's and
- * the list view's {@link ConditionalFormattingRule} still declares them; the
- * board paints whatever a relay hands it. A `{ condition, style }` rule paints
- * a card exactly as it did before.
+ * `resolveConditionalFormatting` still reads every arm, as a compatibility read
+ * for rules already STORED in the native dialect — since objectui#11533 the
+ * grid's and the list view's {@link ConditionalFormattingRule} retires them on
+ * the authoring face too; the board paints whatever a relay hands it. A
+ * `{ condition, style }` rule paints a card exactly as it did before.
  *
  * The zod twin is `KanbanConditionalFormattingRuleSchema` in
  * `./zod/objectql.zod.ts`, each retired key a `retirementTombstone()` there.

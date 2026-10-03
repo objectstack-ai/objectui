@@ -146,6 +146,22 @@ a sibling field — a `dependsOn` lookup — should read `pendingRow`, so a pare
 edited in the same row re-scopes the child before anything is saved; `row` stays
 the place to read what the data source last returned.
 
+## Keyboard navigation
+
+`keyboardNavigation` is set by the host in code too, beside `editable`, and is off
+unless a host turns it on. `object-grid` is that host: it resolves its own
+`keyboardNavigation` key (on by default when the grid renders editable) and sets
+the answer on its table — see
+[Keyboard navigation](/docs/plugins/plugin-grid#keyboard-navigation) in the grid
+plugin (objectui#11068).
+
+On, the table follows the WAI-ARIA grid pattern: it is exposed as a `grid`, its
+data cells take one place in the Tab order instead of one each (the cell that last
+held focus), the arrow keys move focus one cell, Home / End go to the ends of the
+row and Ctrl+Home / Ctrl+End to the ends of the page, and an edit ended with Enter
+or Escape hands focus back to its cell. A widget a cell renders keeps its own Tab
+stop. Off, every data cell is its own Tab stop, as before.
+
 ## Masked columns
 
 A column with `masked: true` holds a credential. The table withholds its raw value on

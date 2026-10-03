@@ -19,8 +19,13 @@ This directory contains runtime validation schemas using [Zod](https://github.co
 Only the component envelope (`type: 'list-view'` + `objectName`), the legacy objectui
 vocabulary (`viewType`/`fields`/`filters`/`show*`/`densityMode`/…), and the handful of
 configs whose objectui shape is intentionally broader than spec's (`userFilters`,
-`sharing`, `aria`, `conditionalFormatting`, and the per-view-type
-`kanban`/`calendar`/`gantt`/`gallery`/`timeline`) are declared locally on top. The TS type
+`sharing`, `aria`, and the per-view-type
+`kanban`/`calendar`/`gantt`/`gallery`/`timeline`) are declared locally on top.
+`conditionalFormatting` is declared locally too, but it is no longer broader than spec
+(objectui#11533): it is the spec list view's own `{ condition, style }` rule, by
+reference, with objectui's string `condition` arm and the retired native dialect
+(`field`/`operator`/`value`, `expression`, top-level colours) refused by name. The grid's
+`ObjectGridSchema` shares the same rule. The TS type
 is `z.infer<typeof ListViewSchema> & ListViewRuntimeProps`. A drift-guard test
 (`__tests__/list-view-spec-parity.test.ts`) fails if the spec grows a field objectui
 hasn't triaged. **Do not hand-add spec-owned fields here** — import them from the spec.

@@ -252,6 +252,13 @@ const ActionButtonRenderer = forwardRef<
           patch: schema.patch,
           confirmText: schema.confirmText,
           successMessage: schema.successMessage,
+          // Success copy per handler outcome (spec 17.6.0, objectui#11344): the
+          // runner's success toast reads the entry named by the answer's
+          // `outcome` ahead of `successMessage`. An action-bar member is spread
+          // onto this node whole, so a registered action's map arrives here
+          // and, dropped, would never reach the toast — the objectstack#6837
+          // shape on the copy instead of the payload.
+          outcomeMessages: schema.outcomeMessages,
           errorMessage: schema.errorMessage,
           refreshAfter: schema.refreshAfter,
           // Forward `undoable` (and the row id field) so update actions can
@@ -411,6 +418,12 @@ ComponentRegistry.register('button', ActionButtonRenderer, {
   // registers its own `api` handler, which reads `target` and never `endpoint`)
   // and `undoable` (the runner's update path offers Undo only with a host row
   // stash this block never writes).
+  //
+  // `outcomeMessages` is FORWARDED above but not published here
+  // (objectui#11344): it is an `ActionSchema` key, which reaches this renderer
+  // on the `action:bar` member path, and this block's own row does not accept
+  // it at the installed spec — `registry-inputs-spec-parity.test.ts` refuses an
+  // input the row does not declare. The input follows the row, upstream.
   inputs: [
     { name: 'name', type: 'string' },
     { name: 'label', type: 'string' },
@@ -508,7 +521,7 @@ ComponentRegistry.register('button', ActionButtonRenderer, {
     {
       name: 'successMessage',
       type: 'string',
-      description: 'Toast text when the action succeeds (a message the server returns takes precedence)',
+      description: 'Toast text when the action succeeds; a `${result.*}` token reads the handler\'s answer (e.g. `${result.id}`)',
     },
     {
       name: 'errorMessage',

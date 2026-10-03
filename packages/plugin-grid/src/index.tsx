@@ -212,6 +212,19 @@ export const ObjectGridRenderer: React.FC<{ schema: any; [key: string]: any }> =
  * objectui#5861 removed every renderer read of it (ADR-0049 enforce-or-remove).
  * It stays off this list because the contract refuses it, not by exemption.
  *
+ * ## `description`, `emptyState` and `keyboardNavigation`: the 17.6.0 keys
+ *
+ * `@objectstack/spec` 17.6.0 adds three keys to the `object-grid` row
+ * (objectstack#20694). `description` and `emptyState` are published below
+ * (objectui#11227): `ObjectGrid` has read both since objectui#11068, and until
+ * the row declared them this list could not. `keyboardNavigation` joined the
+ * list WITH its reader, objectui#11068's build: `ObjectGrid` resolves it
+ * (default: on when the grid renders editable) and `data-table` moves a roving
+ * focus across its cells with the arrow keys. It was held off this list until
+ * then, because this list is what the renderer reads, not what the row allows.
+ * The row still marks it `[EXPERIMENTAL — not enforced]`; that marker is the
+ * spec's to drop, and no reader here depends on it.
+ *
  * ## `data` declares the CONTRACT's shape, not the shortcut's (objectui#5090)
  *
  * The key landed above with `type: 'array'`, labelled "Static Data" and described
@@ -253,6 +266,18 @@ const GRID_QUERY_INPUTS: ComponentInput[] = [
     description:
       'Grid label, used as the table caption, as the export file title and in the record-detail overlay heading. The canonical spelling — the deprecated `title` is only read when this is absent. Accepts either a plain string or an inline per-locale map (`{ en: "Accounts", "zh-CN": "客户" }`) — the `I18nLabel` union the contract admits on this key — and the grid resolves the map against the display locale (the workspace\'s regional default when one is configured, otherwise the active UI language), falling back through base language, a region-qualified sibling, `default`, then `en`, and finally to any remaining entry.',
   },
+  // `description` (objectui#11068 honoured it; objectui#11227 publishes it now
+  // that the spec row declares it, at 17.6.0) is an `I18nLabel` in the row too,
+  // and `ObjectGrid` resolves it with the same resolver as `label`, so both arms
+  // are declared for the same reason. The render is pinned by
+  // `ObjectGrid.declaredKeys-11068.test.tsx`, the manifest by the console's
+  // `i18nLabelInputsManifest-10993.test.ts`.
+  {
+    name: 'description',
+    type: ['string', 'object'],
+    description:
+      'One line of help text drawn above the grid\'s rows, in muted type. Accepts either a plain string or an inline per-locale map (`{ en: "Everyone you work with", "zh-CN": "你的所有联系人" }`) — the `I18nLabel` union the contract admits on this key — resolved against the display locale the way `label` is. A map with no usable entry draws no line.',
+  },
   // ── query shaping ─────────────────────────────────────────────────────────
   { name: 'sort', type: 'array', description: 'Initial sort order, `[{ field, order }]`. The only sort spelling this block reads — the retired single-sort `defaultSort` is refused by the protocol and ignored by the renderer.' },
   { name: 'pagination', type: 'object', description: 'Pagination config, `{ pageSize, pageSizeOptions, … }`. Presence enables paging with the object\'s settings, and an explicit off wins — the deprecated flat `showPagination: false` turns paging off even beside this object, because this object declares no off switch of its own. Prefer it over the deprecated flat `pageSize` / `showPagination` pair.' },
@@ -265,7 +290,13 @@ const GRID_QUERY_INPUTS: ComponentInput[] = [
   { name: 'reorderableColumns', type: 'boolean', description: 'Let users drag columns into a different order.' },
   { name: 'showColumnTypeIcons', type: 'boolean', description: 'Show a field-type icon in each column header. Off by default — the type is usually obvious from the cell content, and the icons compete with the column labels.' },
   { name: 'rowColor', type: 'object', description: 'Rules that colour whole rows from a field value.' },
-  { name: 'conditionalFormatting', type: 'array', description: 'Row/cell styling rules. Accepts both the ObjectUI `{ field, operator, value }` form and the spec expression form `{ condition, style }`.' },
+  { name: 'conditionalFormatting', type: 'array', description: 'Row style rules, each `{ condition, style }` — a CEL `condition` over the row’s own `record.*` and a CSS `style` map, the rule a list view declares. The first matching rule styles that row. The native `{ field, operator, value }` rule, its `expression`, and a colour written beside `condition` instead of inside `style` are retired (objectui#11533).' },
+  // `emptyState` (objectui#11068 honoured it; objectui#11227 publishes it now
+  // that the spec row declares it, at 17.6.0, as the list view's own
+  // `EmptyStateSchema`). Its `title` and `message` are `I18nLabel` members that
+  // `ObjectGrid` resolves against the display locale. The members are pinned by
+  // `ObjectGrid.emptyStateI18nLabel-11227.test.tsx`.
+  { name: 'emptyState', type: 'object', description: 'What the grid draws in place of an empty table, `{ title, message, icon }`: a Lucide `icon` name, a `title` (default: the table\'s own "No results found") and a `message` (default: none). `title` and `message` each accept a plain string or an inline per-locale map, resolved against the display locale. Not drawn when a term typed into the grid\'s own server-side search box is what emptied it — the table and its search box stay, so the term can be cleared. Leave it out and an empty grid draws the table\'s own empty row.' },
   // ── grouping and roll-ups ─────────────────────────────────────────────────
   { name: 'grouping', type: 'object', description: 'Group rows by one or more fields into collapsible sections.' },
   { name: 'aggregations', type: 'array', description: 'Per-group roll-ups shown in group headers, `[{ field, type: "sum" | "count" | "avg" | "min" | "max" | "count_distinct" }]`. Needs `grouping` to have anything to roll up.' },
@@ -278,6 +309,11 @@ const GRID_QUERY_INPUTS: ComponentInput[] = [
   // ── behaviour ─────────────────────────────────────────────────────────────
   { name: 'editable', type: 'boolean', description: 'Enable inline cell editing (double-click or Enter opens a cell).' },
   { name: 'singleClickEdit', type: 'boolean', description: 'With `editable`, a single click opens the cell instead of a double-click. Has no effect on a non-editable grid.' },
+  // `keyboardNavigation` (objectui#11068's build; the row declares it since
+  // 17.6.0). The behaviour is `data-table`'s and is pinned there
+  // (`data-table-keyboard-navigation-11068.test.tsx`); the default and the
+  // relay are `ObjectGrid`'s (`ObjectGrid.keyboardNavigation-11068.test.tsx`).
+  { name: 'keyboardNavigation', type: 'boolean', description: 'Arrow-key cell navigation on the WAI-ARIA grid pattern: the grid\'s data cells take one place in the Tab order instead of one each (a link or button inside a cell keeps its own), and the arrow keys move focus between them (Home / End to the ends of the row, Ctrl+Home / Ctrl+End to the ends of the page). Enter still opens an editable cell, and an edit ended with Enter or Escape returns focus to its cell. Defaults to on when the grid renders editable; a read-only grid keeps every cell its own Tab stop unless this is `true`, and `false` turns it off on an editable grid.' },
   { name: 'navigation', type: 'object', description: 'What a row click does, `{ mode: "page" | "drawer" | "modal" | "split" | "none", … }`.' },
   { name: 'operations', type: 'object', description: 'Toggles for the built-in create/read/update/delete/export/import affordances, e.g. `{ delete: false }`.' },
   { name: 'exportOptions', type: 'object', description: 'Export config, `{ formats, maxRecords, includeHeaders, fileNamePrefix, streaming }`. `streaming` (default true) picks server-side streaming vs browser-side assembly for the export — a behaviour fork, not decoration; set it to `false` to force browser-side assembly. Needs `operations.export` to be reachable from the toolbar.' },

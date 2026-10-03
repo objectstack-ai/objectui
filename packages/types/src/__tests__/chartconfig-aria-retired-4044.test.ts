@@ -29,8 +29,9 @@
  *    copied here.
  *  - **TypeScript.** `complex.ts` re-typed `chartConfig` as `any`, so an
  *    authored `aria` compiled. The member now takes `aria` from the spec's own
- *    input type, which is the spec's retired-key type (`undefined` at the
- *    pinned 17.5.0, the branded `[REMOVED]` mark on objectstack `main`; both
+ *    input type, which is the spec's retired-key type (the branded `[REMOVED]`
+ *    mark at the pinned 17.6.0 and on objectstack `main`, bare `undefined`
+ *    through 17.5.0; both
  *    spellings are `retired-key-type.ts`'s), so an authored value is a compile
  *    error.
  *    The `@ts-expect-error` below is the real enforcement: this package's

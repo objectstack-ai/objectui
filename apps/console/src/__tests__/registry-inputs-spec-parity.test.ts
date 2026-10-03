@@ -753,9 +753,9 @@ function isRetiredUpstream(type: string): boolean {
  *     array/object-armed inputs owe.
  *
  * A fifth owner, under the same bump: objectui#11438 ruling A″ (record
- * 5968177777, the maintainer's 「objectui应该尽快升级到17.6这个是第一优先」)
- * books a row whose owner card's slice is not accepted when the row-3 booking
- * is pushed "the same way, to their own cards". Row 1 is such a row:
+ * 5968177777, the maintainer's order to land 17.6.0 first) books a row whose
+ * owner card's slice is not accepted when the row-3 booking is pushed "the
+ * same way, to their own cards". Row 1 is such a row:
  *
  *   - objectui#11068 — `object-grid.keyboardNavigation`, the one key on a GA
  *     block that 17.6.0's row declares and `inputs` does not publish. That card

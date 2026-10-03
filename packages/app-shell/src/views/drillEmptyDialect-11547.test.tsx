@@ -134,7 +134,7 @@ describe('a composed "is empty" widget filter reaches the drill URL (objectui#11
 });
 
 describe('the drilled list filters the way the widget counted (objectui#11547)', () => {
-  it.each(DIRECTIONS)('agrees with `convertFiltersToAST` on `$empty: %s`', (_op, flag) => {
+  it.each(DIRECTIONS)('agrees with `convertFiltersToAST` for %s (`$empty: %s`)', (_op, flag) => {
     // Agreement with the converter the other two drill sinks use, read from the
     // converter itself rather than transcribed from it.
     const { search } = drillTo('opportunity', { owner: { $empty: flag } });

@@ -474,9 +474,9 @@ describe('the is-not-null operator and its synonyms (objectui#9508)', () => {
  */
 describe('the is-empty operator pair: `filter[<field>][empty]=true|false` (objectui#11547)', () => {
   it.each([
-    ['{ $empty: true }', { $empty: true }, 'true', 'is_empty'],
-    ['{ $empty: false }', { $empty: false }, 'false', 'is_not_empty'],
-  ] as const)('writes %s as `[empty]=%s` and reads it back as `%s`', (_label, ops, flag, op) => {
+    ['{ $empty: true }', 'true', 'is_empty', { $empty: true }],
+    ['{ $empty: false }', 'false', 'is_not_empty', { $empty: false }],
+  ] as const)('writes %s as `[empty]=%s` and reads it back as `%s`', (_label, flag, op, ops) => {
     const qs = serializeDrillFilterParams({ owner: ops });
     expect(qs.get('filter[owner][empty]')).toBe(flag);
     // The round trip, not the write alone.

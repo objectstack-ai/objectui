@@ -133,7 +133,27 @@ const SITES = [
     // Both added to the spec object at 17.5.0 and attached by objectui#11073: each reads only
     // `type`, `options.stageOrder` / `values` and `id`, the spec's own fields on this node.
     attached: ['checkDashboardWidgetStageOrder', 'checkDashboardWidgetMetricMeasureArity'],
-    notAttachable: [],
+    // OWED TO objectui#11334. A BOOKING, not a measured structural refusal like the
+    // `checkListViewPageMount` entry the `ListViewSchema` row once held: objectstack
+    // `11d28c17` (#21053) added this check to the spec object, and objectui's mirror
+    // does not re-attach it yet. A static import of it compiles against the spec this
+    // repository resolves and fails the `Spec Main Shape Gate`, because objectstack
+    // `main` renamed the export (`32d57690`, #21293 / #21425) and no longer exports
+    // this name; objectui#11531 measured that attach on the bump's trunk and reverted
+    // it (its row 3). Nothing in this file measures that reason, for the Shape Gate
+    // compiles against objectstack `main`, which no run of this file sees.
+    // Booked by objectui#11438 ruling A″ (record 5968177777), which applies
+    // objectui#11111 decision 3 = B (record 5902351047) to the bump; group 5's
+    // booking of objectui#11536 has the same shape.
+    // Expires when objectui resolves an `@objectstack/spec` carrying `32d57690`, or
+    // 2026-11-02, whichever is first. The condition is enforced here and the date
+    // is read by objectui#11334, not by a clock: that resolution drops this export
+    // name, so the census test that matches every exported `check*` name against
+    // these lists turns red by name, and objectui#11334 strikes this entry as it
+    // re-attaches the renamed check. Capped by this row's own count equality and
+    // that census's exact name match: no check beyond the entries listed here is
+    // admitted.
+    notAttachable: ['checkDashboardWidgetDimensionlessMeasureArity'],
   },
   { site: 'SpecDashboardFields → DashboardComponentSchema (complex.zod.ts)', spec: SpecDashboardSchema, attached: [], notAttachable: [] },
   { site: 'SpecPageFields → PageNodeSchema (layout.zod.ts)', spec: SpecPageSchema, attached: ['checkPageSourceCompleteness'], notAttachable: [] },

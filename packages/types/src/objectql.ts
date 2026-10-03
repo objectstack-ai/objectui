@@ -4882,8 +4882,11 @@ export interface ObjectKanbanSchema extends BaseSchema {
   allowCollapse?: never;
 
   /**
-   * Conditional formatting rules for card coloring.
-   * Cards are colored based on field values matching conditions.
+   * Conditional formatting rules for card colouring, each `{ condition, style }`
+   * evaluated against the card's own record; the first matching rule styles
+   * the card. The native `{ field, operator, value }` rule and a top-level
+   * colour key are refused by name (objectui#11522) — see
+   * {@link KanbanConditionalFormattingRule}.
    */
   conditionalFormatting?: KanbanConditionalFormattingRule[];
 
@@ -5070,32 +5073,55 @@ export interface ObjectKanbanSchema extends BaseSchema {
 }
 
 /**
- * Native (field/operator/value) conditional formatting rule for Kanban cards.
- */
-export interface KanbanNativeConditionalFormattingRule {
-  /** Field name to check */
-  field: string;
-  /** Operator for comparison */
-  operator: 'equals' | 'not_equals' | 'contains' | 'in';
-  /** Value to compare against */
-  value: string | string[];
-  /** Background color to apply (Tailwind class or CSS color) */
-  backgroundColor?: string;
-  /** Border color to apply (Tailwind class or CSS color) */
-  borderColor?: string;
-}
-
-/**
- * Conditional formatting rule for Kanban cards.
+ * Conditional formatting rule for Kanban cards — ONE dialect, the spec list
+ * view's `{ condition, style }`: a CEL `condition` over the card's `record.*`
+ * and a CSS `style` map, first matching rule wins (objectui#11522).
  *
- * Since #1584, kanban card styling runs on the shared CEL evaluator, so a rule
- * accepts BOTH the native `{ field, operator, value }` shape and the spec
- * `{ condition, style }` shape (a CEL predicate + style map) — the same
- * `record.*` predicates authors use on list/grid rows.
+ * It IS {@link SpecConditionalFormattingRule}, the protocol's rule by reference
+ * (its `condition` indexes `ObjectListViewSchema`'s own slot, objectui#10946),
+ * plus the retired keys declared `?: never`, so each is refused BY NAME:
+ *
+ *   - the native comparison `{ field, operator, value, backgroundColor,
+ *     borderColor }` (#1584 accepted it beside the spec shape; the
+ *     `KanbanNativeConditionalFormattingRule` interface that declared it is
+ *     gone), and
+ *   - a colour written at the TOP LEVEL of a rule — `backgroundColor`,
+ *     `borderColor`, `textColor` — including the "flat CEL" rule
+ *     `{ condition, backgroundColor }`. A colour belongs inside `style`
+ *     (`textColor` is `style.color`).
+ *
+ * Retired, not widened, with no alias window (triage ruling 5963861071 on
+ * objectui#11522; the producer census it rests on is recorded on that card and
+ * its pull request, not here). `@objectstack/spec` types `object-kanban`'s
+ * member by reference to the list view's, which refuses both.
+ *
+ * Respelling: `{ field: 'priority', operator: 'equals', value: 'high',
+ * backgroundColor: '#fee2e2' }` is `{ condition: "record.priority == 'high'",
+ * style: { backgroundColor: '#fee2e2' } }`.
+ *
+ * ⚠️ What did NOT narrow: the shared evaluator. `@object-ui/core`'s
+ * `resolveConditionalFormatting` still reads every arm, because the grid's and
+ * the list view's {@link ConditionalFormattingRule} still declares them; the
+ * board paints whatever a relay hands it. A `{ condition, style }` rule paints
+ * a card exactly as it did before.
+ *
+ * The zod twin is `KanbanConditionalFormattingRuleSchema` in
+ * `./zod/objectql.zod.ts`, each retired key a `retirementTombstone()` there.
  */
-export type KanbanConditionalFormattingRule =
-  | KanbanNativeConditionalFormattingRule
-  | SpecConditionalFormattingRule;
+export interface KanbanConditionalFormattingRule extends SpecConditionalFormattingRule {
+  /** @deprecated RETIRED (objectui#11522) — the native rule dialect. Write `condition` as CEL over `record.*`. */
+  field?: never;
+  /** @deprecated RETIRED (objectui#11522) — the native rule dialect. Write `condition` as CEL over `record.*`. */
+  operator?: never;
+  /** @deprecated RETIRED (objectui#11522) — the native rule dialect. Write `condition` as CEL over `record.*`. */
+  value?: never;
+  /** @deprecated RETIRED (objectui#11522) — a top-level colour. Write `style: { backgroundColor }`. */
+  backgroundColor?: never;
+  /** @deprecated RETIRED (objectui#11522) — a top-level colour. Write `style: { borderColor }`. */
+  borderColor?: never;
+  /** @deprecated RETIRED (objectui#11522) — a top-level colour. Write `style: { color }`. */
+  textColor?: never;
+}
 
 /**
  * Object Chart Component Schema — the node `plugin-charts`' `ObjectChart`

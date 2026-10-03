@@ -4977,8 +4977,11 @@ const EXCLUSIONS: Readonly<Record<string, string>> = {
     "a key-name tuple, not a schema — the exclusion list `SpecDashboardFields` and the `DashboardComponentSchema` twin both read (objectui#9736)",
   'layout.zod.ts#PAGE_SPEC_EXCLUDED':
     "a key-name tuple, not a schema — the exclusion list `SpecPageFields` and the `PageNodeSchema` twin both read (objectui#9736)",
+  // objectui#11522 — no longer a union of two dialects: the spec list view's own
+  // rule, by reference, plus the retired keys as tombstones. The TS twin is
+  // compared where it is pinned, the way `ExpressionWireSchema` above is.
   'objectql.zod.ts#KanbanConditionalFormattingRuleSchema':
-    "a union of two rule dialects (native `{ field, operator, value }` | spec `{ condition, style }`) with no `.shape` of its own — exported by objectui#7664 so the `'kanban'` arm (`complex.zod.ts#KanbanSchema`) and the `'object-kanban'` arm mirror `conditionalFormatting` from ONE rule declaration; its TS twin `KanbanConditionalFormattingRule` (`../objectql.ts`) is a type union, not a key set, and both arms' `conditionalFormatting` keys are compared where they are declared",
+    "the spec list view's `{ condition, style }` rule BY REFERENCE (`ListViewSchema.conditionalFormatting`'s element, `.extend()`-ed), with the condition the list view's own arm reads and the six retired keys of the native and flat-colour dialects as tombstones (objectui#11522) — not a hand-written key set; its TS twin `KanbanConditionalFormattingRule` (`../objectql.ts`) extends `SpecConditionalFormattingRule`, the same reference, and the two faces' key sets and values are pinned equal in `kanban-conditional-formatting.test.ts`; `ObjectKanbanSchema`'s `conditionalFormatting` key is compared where it is declared",
 };
 
 /* ── Which pairs depend on @objectstack/spec ────────────────────────────────── */

@@ -588,11 +588,85 @@ ComponentRegistry.register('line_items', LineItemsPanelRenderer, {
   skipFallback: true,
   label: 'Line Items',
   category: 'record',
+  // Mirrors `@objectstack/spec` `RecordLineItemsProps` (17.6.0), key for key.
+  //
+  // The ten keys after `amountField` were DECLARED by objectui#11536, each by
+  // measurement rather than by copying the row: every one is authored in the
+  // spec's `{ type, properties }` form through the real `SchemaRenderer` and
+  // this registration, beside a control without it, and every one moves the
+  // panel (`__tests__/lineItemsDeclaredInputs-11536.test.tsx`). `filter` /
+  // `sort` / `limit` are read as TOP-LEVEL keys, not only as `dataSource`
+  // members: with no binding the gate hands the schema through untouched and
+  // `LineItemsPanel` reads them itself; with one, the gate composes them with
+  // the binding before the panel reads them. A key the panel does not read is
+  // not declared here, and none of the row's fifteen is such a key.
   inputs: [
     { name: 'childObject', type: 'string', required: true },
     { name: 'relationshipField', type: 'string', required: true },
     { name: 'columns', type: 'array', required: true },
     { name: 'totalField', type: 'string' },
     { name: 'amountField', type: 'string' },
+    {
+      name: 'parentObject',
+      type: 'string',
+      description:
+        'The PARENT object the line total is written to on Save, together with `totalField`. Defaults to the object of the record the page shows, and outranks it when set. With neither, Save writes the lines alone and no parent field.',
+    },
+    {
+      name: 'parentId',
+      type: 'string',
+      description:
+        'The parent record whose lines the panel lists and saves: it loads `childObject` rows whose `relationshipField` equals this id, and a line added in the grid is saved with this id in `relationshipField`. Outranks `recordId` and the record the page shows; leave it unset on a record page, where the record shown is the parent. With no parent id at all the panel asks the user to save the record first and loads nothing.',
+    },
+    {
+      name: 'recordId',
+      type: 'string',
+      description:
+        'The parent record id, read only when `parentId` is unset. It outranks the record the page shows.',
+    },
+    {
+      name: 'title',
+      type: 'string',
+      description:
+        'Heading of the panel. Defaults to "Line Items" in the active UI language. A plain string, drawn as authored.',
+    },
+    {
+      name: 'readonly',
+      type: 'boolean',
+      description:
+        'Shows the lines without editing: no Save button, no Add line / Duplicate row / Remove row actions, and the grid draws a read-only table.',
+    },
+    {
+      name: 'minRows',
+      type: 'number',
+      description:
+        'Fewest lines the user can leave: every line\'s Remove row action is disabled while the grid holds this many lines or fewer. It adds no blank lines to reach the number.',
+    },
+    {
+      name: 'maxRows',
+      type: 'number',
+      description:
+        'Most lines the user can hold: at this many lines Add line and Duplicate row are disabled and the trailing blank entry row is not drawn.',
+    },
+    {
+      name: 'filter',
+      type: 'array',
+      of: 'object',
+      description:
+        'Additional criteria for the lines, as spec `ViewFilterRule` entries (`[{ field, operator, value }]`). AND-combined with the parent relationship condition, never a replacement for it: it can only narrow this record\'s lines. Also the key a per-element `dataSource` binding\'s composed filter lands on.',
+    },
+    {
+      name: 'sort',
+      type: 'array',
+      of: 'object',
+      description:
+        'Load order for the lines, as `[{ field, order }]` entries applied in list order; `order` is `asc` or `desc`. Without it the lines arrive in storage order.',
+    },
+    {
+      name: 'limit',
+      type: 'number',
+      description:
+        'Most lines loaded (default 500). The grid has no pagination: every loaded line is editable and saved as one batch, and lines past the cap are not loaded. Must be a positive integer: any other value is ignored, with a console warning.',
+    },
   ],
 });

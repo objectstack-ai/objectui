@@ -648,8 +648,9 @@ const specCarries175LoadedBlocks = MINOR_17_5_LOADED_BLOCKS.every((type) => type
  * map went from 55 entries to 56 when `record:line_items` gained its row
  * (objectstack `24c554da`, #21142 / #21244). `@object-ui/plugin-form`
  * registers it eagerly with `inputs`, so this file JUDGES it from that pin on.
- * Its differences are booked to objectui#11536 under objectui#11438 ruling A′
- * (see `OWED_TO` above), not declared in the bump.
+ * Its differences were booked to objectui#11536 under objectui#11438 ruling A′
+ * (see `OWED_TO` above), not declared in the bump; that card's landing declared
+ * the ten keys and pinned the member shapes, and struck every entry.
  *
  * Same shape as `MINOR_17_5_BLOCKS`: this repo registered the block with
  * `inputs` before the spec described it, so what moved at the bump is the
@@ -750,7 +751,8 @@ function isRetiredUpstream(type: string): boolean {
  *
  *   - objectui#11536 — every entry on `record:line_items`: the keys its spec
  *     row declares that `inputs` does not publish, and the member pins its
- *     array/object-armed inputs owe.
+ *     array/object-armed inputs owe. STRUCK by that card's landing, which
+ *     declared all ten keys and registered the pins.
  *
  * A fifth owner, under the same bump: objectui#11438 ruling A″ (record
  * 5968177777, the maintainer's order to land 17.6.0 first) books a row whose
@@ -889,9 +891,9 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
 const OBJECTUI_11111_LEDGER_CAPS = {
   unjudgedBlocks: 0, // objectui#11168 loaded and judged all four: slice 3 object-map and object-tree, slice 4 object-gantt, slice 5 object-timeline
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
-  unpublishedKeys: 12, // objectui#11168: 1 (action:button undoable; the two `endpoint` entries left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0 and objectui#8649: 0 (each struck by its landing); objectui#11536: 10 (record:line_items, booked by objectui#11438 ruling A′); objectui#11068: 1 (object-grid keyboardNavigation, booked by objectui#11438 ruling A″)
+  unpublishedKeys: 2, // objectui#11168: 1 (action:button undoable; the two `endpoint` entries left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0, objectui#8649: 0 and objectui#11536: 0 (each struck by its landing; objectui#11536 declared all ten record:line_items keys); objectui#11068: 1 (object-grid keyboardNavigation, booked by objectui#11438 ruling A″)
   refusedArms: 0, // objectui#11168: slice 2 narrowed element:definition-list.columns, slice 3 object-form.layout
-  memberPins: 2, // objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3; objectui#11536: 2 (record:line_items columns and dataSource, booked by objectui#11438 ruling A′)
+  memberPins: 0, // objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3; objectui#11536 pinned record:line_items columns and dataSource
 } as const;
 
 /**
@@ -1534,26 +1536,15 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   // types and describe text, so each entry went stale and `carries no stale
   // unpublished-key exemption` would refuse it.
 
-  /*
-   * ⚠️ THE 17.6.0 BOOKINGS — objectui#11438 ruling A′ (record 5965062249),
-   * which applies objectui#11111 decision 3 = B to the 17.6.0 bump.
-   *
-   * The spec keys `record:line_items` declares from 17.6.0 on that its
-   * `inputs` do not publish. The same bar and the same ruling as the 17.5.0
-   * bookings above: the bump declares nothing, and objectui#11536 measures
-   * each key against the line-items renderer, declares what is honoured and
-   * leaves the rest out. Capped with the 17.5.0 entries at
-   * `OBJECTUI_11111_LEDGER_CAPS.unpublishedKeys`.
-   */
-  ...owedEntries(
-    'record:line_items',
-    [
-      'parentObject', 'parentId', 'recordId', 'title', 'readonly', 'minRows', 'maxRows', 'filter',
-      'sort', 'limit',
-    ],
-    'objectui#11536',
-    'A SPEC KEY NOT PUBLISHED: `record:line_items` entered `covered` with 17.6.0 and its `inputs` omit this key its spec row declares.',
-  ),
+  // ⚠️ THE 17.6.0 BOOKINGS — objectui#11438 ruling A′ (record 5965062249).
+  // objectui#11536's ten entries — `parentObject`, `parentId`, `recordId`,
+  // `title`, `readonly`, `minRows`, `maxRows`, `filter`, `sort` and `limit` on
+  // `record:line_items` — are STRUCK: that card measured each key through the
+  // real `SchemaRenderer` and this block's registration, found every one moving
+  // the panel, and DECLARED all ten on the block's `inputs`
+  // (`packages/plugin-form/src/__tests__/lineItemsDeclaredInputs-11536.test.tsx`),
+  // so each entry went stale and `carries no stale unpublished-key exemption`
+  // would refuse it.
 
   /*
    * ⚠️ ROW 1 OF THE 17.6.0 BUMP — objectui#11438 ruling A″ (record 5968177777),
@@ -3343,6 +3334,22 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-detail/src/renderers/__tests__/record-blocks.requiredPermissions-gate.test.tsx',
     pins: 'Members are ADR-0066 CAPABILITY names and the block needs ALL of them, driven through the real renderer under a REAL stock `MePermissionsProvider` (not a mocked `usePermissions`, which cannot discriminate the two reading paths): an unheld capability and an unrecognised one each put the insufficient-permissions notice in place of the block, a held one renders it, an EMPTY array and an ABSENT key are no gate at all, and the discriminating row is a PARTIAL grant on a two-entry array — gated only when the members are read as `.every` over the WHOLE array. Two discriminators pin that a member is a capability and not an object action (`allowRead` on the object does not open the gate; the enum member `manage` is gated rather than resolved to the read bit), and the role-based `PermissionProvider` pins the unreported-capabilities fail-open. One file runs every row against all three record blocks (objectui#10155); promoted to a member pin by objectui#8649, which published the key.',
   },
+  'record:line_items.columns': {
+    file: 'packages/plugin-form/src/__tests__/lineItemsDeclaredInputs-11536.test.tsx',
+    pins: 'Members are inline grid column objects, driven through the real `SchemaRenderer` in the `{ type, properties }` form and asserted on the drawn grid and on the batch Save sends. Each member is one column in AUTHORED order, headed by its `label` or, without one, by its `name`. A member draws exactly what it declares: the panel hands `columns` to the grid through the field-security pass only, with no hydration from the child object, so the same value is a `number` cell under `type: \'number\'` and a text cell under a typeless member. `defaultHidden` keeps a member out of the drawn columns while `required` outranks it and marks the header. `name` is the field the cell edits, and Save writes the edit under it. The spec row is `InlineGridColumnSchema`; the registration declares a bare array, so the read site is the whole member contract (objectui#11536).',
+  },
+  'record:line_items.dataSource': {
+    file: 'packages/plugin-form/src/__tests__/lineItemsDeclaredInputs-11536.test.tsx',
+    pins: 'The per-element binding\'s members as this block reads them through `RECORD_LINE_ITEMS_DATA_SOURCE`, asserted at the query the adapter receives. `object` lands on `childObject` and OUTRANKS an authored one. A named `view` contributes its filter (ANDed BEHIND the parent scope), its sort and its page size; an unresolvable `view` REPORTS and loads nothing. The panel\'s own `sort` / `limit` outrank the view\'s, the binding\'s own outrank the panel\'s, and the binding\'s `filter` is ANDed with the panel\'s with the parent scope first. A view\'s `columns` are NOT read: the grid keeps the authored columns. The key is INJECTED by `Registry.register` (`ELEMENT_DATA_SOURCE_INPUT`) and is absent from `ComponentPropsMap[\'record:line_items\']`, so the per-block half is what this pin carries; `LineItemsPanel.elementDataSource.test.tsx` in the same package holds the older top-level-form rows (objectui#11536).',
+  },
+  'record:line_items.filter': {
+    file: 'packages/plugin-form/src/__tests__/lineItemsDeclaredInputs-11536.test.tsx',
+    pins: 'Members are spec `ViewFilterRule` objects `{ field, operator, value }`, authored in the node\'s `properties` bag and asserted at the query: they reach `$filter` in order as `[field, operator, value]` triples in ONE group ANDed BEHIND the parent relationship condition, with the spec operator word unchanged (the adapter lowers it). A member naming the relationship field itself does not replace the parent scope, and an empty list is no criterion (the query stays the parent scope object). The registration declares `of: \'object\'`, the contract\'s single member kind (objectui#11536).',
+  },
+  'record:line_items.sort': {
+    file: 'packages/plugin-form/src/__tests__/lineItemsDeclaredInputs-11536.test.tsx',
+    pins: 'Members are `{ field, order }` objects, authored in the node\'s `properties` bag and asserted at the query: they reach `$orderby` in AUTHORED order; a member with no `field` is dropped while its siblings survive, an `order` other than `desc` reads ascending, and a list with no usable member sends no `$orderby` at all. The registration declares `of: \'object\'`, the contract\'s single member kind (objectui#11536).',
+  },
   'record:path.stages': {
     file: 'packages/plugin-detail/src/renderers/__tests__/recordPathStagesMembers-8071.test.tsx',
     pins: 'The stage member set `{ value, label, terminal? }`, read through the real renderer. `value` is stage IDENTITY — compared against the record\'s `statusField` to choose the current stage, controlled by moving the RECORD rather than the array, by an unmatched value leaving NO stage current, and by a record carrying some stage\'s LABEL still matching nothing. `label` is the rendered text and the `value` behind it never appears. `terminal` OUTRANKS the `WON_TOKENS`/`LOST_TOKENS` heuristic, pinned only on fixtures where the member CONTRADICTS the heuristic and each paired with the identical stage minus `terminal` to show which way the heuristic was pointing, plus an unclassified control. Deliberately the DESKTOP row only: `record-path.crossRowClassification.test.tsx` owns the cross-row agreement invariant, which is a different claim (objectui#8071 slice 6). The `label` member is an `I18nLabel`: its locale-map arm, resolved before the stages are classified or rendered, is pinned through the real `SchemaRenderer` under `zh` and `en` by `record-path.stageLabelI18nLabel-10993.test.tsx` (objectui#10993).',
@@ -3542,18 +3549,12 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // `fields`, `filter` and `sort` by slice 2, each registered in
   // `MEMBER_PINS`. Header kept as a landmark for a future grep.
 
-  // ⚠️ 17.6.0 BOOKINGS — objectui#11438 ruling A′ (record 5965062249), which
-  // applies objectui#11111 decision 3 = B to the 17.6.0 bump. The
-  // array/object-armed inputs of `record:line_items`, the block 17.6.0 newly
-  // judges, owed a member pin by objectui#11536. Counted into
-  // `MEMBER_PIN_EXEMPTION_CEILING` (0 -> 2) and capped at these two; that
-  // card's pins strike them.
-  ...owedEntries(
-    'record:line_items',
-    ['columns', 'dataSource'],
-    'objectui#11536',
-    'A MEMBER PIN OWED: this `record:line_items` input is array/object-armed on a block 17.6.0 newly judges, and no pin states its members.',
-  ),
+  // ⚠️ 17.6.0 BOOKINGS — objectui#11438 ruling A′ (record 5965062249). The
+  // two array/object-armed inputs of `record:line_items` owed a member pin by
+  // objectui#11536, `columns` and `dataSource`, stood here. That card pinned
+  // both, and the two array keys it declared (`filter`, `sort`) with them,
+  // each registered in `MEMBER_PINS`, so no booking is left. Header kept as a
+  // landmark for a future grep.
 };
 
 /**
@@ -4379,8 +4380,16 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * = 2, the exact count, and `the objectui#11111 ledger is capped at exactly the
  * entries it lists` caps the two and routes each to objectui#11536.
  * objectui#11536's pins take this back to 0.
+ *
+ * ## 2 -> 0 (objectui#11536) — the 17.6.0 ruling paid off
+ *
+ * The card registered member pins for `record:line_items.columns` and
+ * `record:line_items.dataSource`, measured through the real renderer, and
+ * deleted their two booked entries. The two array keys it declared beside them
+ * (`filter`, `sort`) entered the population already pinned, so nothing stands
+ * in the list and the ceiling follows it back to 0.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 2;
+const MEMBER_PIN_EXEMPTION_CEILING = 0;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.
@@ -6010,7 +6019,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       'objectui#11168': 1,
       'objectui#8652': 0,
       'objectui#8649': 0,
-      'objectui#11536': 12,
+      'objectui#11536': 0,
       'objectui#11068': 1,
     });
   });

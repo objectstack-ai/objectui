@@ -367,9 +367,6 @@ describe('the flat spelling is refused by name, with the bag member as the remed
 
   it.each([
     ['an invented key', 'inventedKey11276'],
-    // Mirror members the row does not declare: not authored keys of this node.
-    ['the mirror\'s `emptyState`', 'emptyState'],
-    ['the mirror\'s `keyboardNavigation`', 'keyboardNavigation'],
   ] as const)('%s written flat stays unjudged on the tolerant face and is refused on the strict face', (_label, key) => {
     // The strictness control: this arm is `BaseSchema`, whose `.passthrough()`
     // every arm keeps, so a key the arm does not declare is not refused by the
@@ -382,6 +379,28 @@ describe('the flat spelling is refused by name, with the bag member as the remed
     const issue = strict.error.issues.find((i) => i.code === 'unrecognized_keys');
     expect((issue as { keys?: string[] } | undefined)?.keys).toEqual([key]);
   });
+  // ⭐ THE READING FLIPPED at `@objectstack/spec` 17.6.0 (objectstack#20694, read
+  // on objectui#11227). These two mirror members used to sit in the table above,
+  // as keys the row did not declare: written flat, the tolerant face kept them
+  // unjudged and only the strict face refused them as unknown. The row now
+  // declares both, so each is a row member like any other: written flat, it is
+  // refused on BOTH faces, by name, toward the bag. Recorded by name here, not
+  // left to the derived `REFUSED_TO_BAG` loop, so the flip itself stays visible.
+  it.each(['emptyState', 'keyboardNavigation'] as const)(
+    'the mirror\'s `%s`, which the row declares since 17.6.0, written flat is refused on both faces toward the bag (objectui#11227)',
+    (key) => {
+      // The spec's reading first: the installed row lists the key and does not retire it.
+      expect(ROW_KEYS).toContain(key);
+      expect(isNeverMember(ROW_SHAPE[key])).toBe(false);
+      expect(REFUSED_TO_BAG).toContain(key);
+      const doc = { ...SHOWCASE_MY_WORK, [key]: { title: 'x' } };
+      for (const [face, parse] of FACES) {
+        const issue = issuesOf(parse(doc)).find((i) => i.path.join('.') === key);
+        expect(issue, face).toBeDefined();
+        expect(issue!.message, face).toContain(`\`${key}\` → \`properties.${key}\``);
+      }
+    },
+  );
 });
 
 describe('the bag is judged by the spec row (objectui#11276)', () => {
@@ -414,13 +433,44 @@ describe('the bag is judged by the spec row (objectui#11276)', () => {
     expect(issue.path).toEqual(path);
   });
 
-  it.each(['emptyState', 'keyboardNavigation', 'showFilters', 'name'] as const)(
+  it.each(['showFilters', 'name'] as const)(
     'the row does not declare `%s`, so the bag refuses it on both faces (the spec\'s reading, recorded)',
     (key) => {
       for (const [face, parse] of FACES) {
         const issues = issuesOf(parse(bag({ [key]: { title: 'x' } })));
         expect(issues.some((i) => i.code === 'unrecognized_keys' && (i as { keys?: string[] }).keys?.includes(key)), face)
           .toBe(true);
+      }
+    },
+  );
+
+  // ⭐ THE READING FLIPPED at `@objectstack/spec` 17.6.0 (objectstack#20694, read
+  // on objectui#11227). `emptyState` and `keyboardNavigation` used to be rows of
+  // the table above: the row did not declare them, so the bag refused each as an
+  // unknown key. The row now declares both, so the bag ACCEPTS each on both faces
+  // and judges its value — `emptyState` as the list view's `EmptyStateSchema`,
+  // whose `title` and `message` take an inline locale map, and
+  // `keyboardNavigation` as a boolean. Accepting `keyboardNavigation` here is the
+  // spec row's reading on the authoring face, nothing more: the row marks it
+  // `[EXPERIMENTAL — not enforced]`, and whether `object-grid` PUBLISHES it in
+  // `GRID_QUERY_INPUTS` is the console parity gate's question, not this file's.
+  it.each([
+    ['emptyState', { title: { en: 'No tasks yet', 'zh-CN': '暂无任务' }, message: 'Create one to start', icon: 'inbox' }, { title: 7 }],
+    ['keyboardNavigation', true, 'yes'],
+  ] as const)(
+    'the row declares `%s` since 17.6.0, so the bag accepts it on both faces and judges its value (objectui#11227)',
+    (key, valid, invalid) => {
+      // The spec's own reading of the same values, so the recorded flip is the row's.
+      expect(SpecObjectGridPropsSchema.safeParse({ objectName: 'task', [key]: valid }).success).toBe(true);
+      expect(SpecObjectGridPropsSchema.safeParse({ objectName: 'task', [key]: invalid }).success).toBe(false);
+      for (const [face, parse] of FACES) {
+        const accepted = parse(bag({ [key]: valid }));
+        expect(accepted.success, `${face}: ${JSON.stringify(accepted.success ? null : accepted.error.issues)}`).toBe(true);
+        // Lit control: the member is JUDGED, not merely admitted — a wrong value
+        // is refused at the member, and never as an unknown key.
+        const issues = issuesOf(parse(bag({ [key]: invalid })));
+        expect(issues.some((i) => i.path[0] === 'properties' && i.path[1] === key), `${face}: ${JSON.stringify(issues)}`).toBe(true);
+        expect(issues.some((i) => i.code === 'unrecognized_keys'), face).toBe(false);
       }
     },
   );

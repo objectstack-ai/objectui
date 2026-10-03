@@ -97,6 +97,8 @@ import {
   RowHeightSchema as SpecRowHeightSchema,
   BulkActionDefSchema as SpecBulkActionDefSchema,
   BulkActionOperationSchema as SpecBulkActionOperationSchema,
+  // objectui#11227 — the list view's empty-state shape `ObjectGridSchema.emptyState` reads.
+  EmptyStateSchema as SpecEmptyStateSchema,
   // objectui#10872 — the `ComponentPropsMap` rows the public-block arms read.
   PageHeaderProps as SpecPageHeaderProps,
   PageTabsProps as SpecPageTabsProps,
@@ -303,6 +305,10 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   ['RowHeightSchema', SpecRowHeightSchema],
   ['BulkActionDefSchema', SpecBulkActionDefSchema],
   ['BulkActionOperationSchema', SpecBulkActionOperationSchema],
+  // objectui#11227: the flat mirror's `emptyState` is the spec's `EmptyStateSchema`
+  // by reference (the same schema the `object-grid` row holds since 17.6.0),
+  // crossed through this boundary.
+  ['EmptyStateSchema', SpecEmptyStateSchema],
   // objectui#10872: each ADR-0080 public-block arm's `properties` is the
   // block's `ComponentPropsMap` row, crossed through this boundary, so every
   // row is measured here like every other crossing (`page:section`,

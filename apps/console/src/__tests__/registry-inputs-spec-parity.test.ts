@@ -643,6 +643,23 @@ const MINOR_17_5_LOADED_BLOCKS = ['object-gantt', 'object-map', 'object-timeline
 /** Does the installed `@objectstack/spec` carry the loaded 17.5.0 blocks? `every`, for the same reason. */
 const specCarries175LoadedBlocks = MINOR_17_5_LOADED_BLOCKS.every((type) => type in ComponentPropsMap);
 
+/**
+ * The one block `@objectstack/spec` 17.6.0 newly carries (objectui#11438): the
+ * map went from 55 entries to 56 when `record:line_items` gained its row
+ * (objectstack `24c554da`, #21142 / #21244). `@object-ui/plugin-form`
+ * registers it eagerly with `inputs`, so this file JUDGES it from that pin on.
+ * Its differences are booked to objectui#11536 under objectui#11438 ruling A′
+ * (see `OWED_TO` above), not declared in the bump.
+ *
+ * Same shape as `MINOR_17_5_BLOCKS`: this repo registered the block with
+ * `inputs` before the spec described it, so what moved at the bump is the
+ * SPEC's side. It enters `covered` the moment the installed spec carries it.
+ */
+const MINOR_17_6_BLOCKS = ['record:line_items'];
+
+/** Does the spec this tree resolves carry the 17.6.0 set? `every`, for the reason `specCarriesGaBlocks` gives. */
+const specCarries176Blocks = MINOR_17_6_BLOCKS.every((type) => type in ComponentPropsMap);
+
 const EXPECTED_COVERED = [
   ...PINNED_EXPECTED_COVERED,
   ...LAZY_REGISTERED_BLOCKS,
@@ -650,6 +667,7 @@ const EXPECTED_COVERED = [
   ...(specCarries171Blocks ? MINOR_17_1_BLOCKS : []),
   ...(specCarries175Blocks ? MINOR_17_5_BLOCKS : []),
   ...(specCarries175LoadedBlocks ? MINOR_17_5_LOADED_BLOCKS : []),
+  ...(specCarries176Blocks ? MINOR_17_6_BLOCKS : []),
 ].sort();
 
 /**
@@ -722,6 +740,30 @@ function isRetiredUpstream(type: string): boolean {
  *   - objectui#8649 — `enforceFieldSecurity`, `redactFields` and
  *     `requiredPermissions` on the three `record:*` blocks.
  *
+ * The 17.6.0 bump (objectui#11438) books under the same decision, with a
+ * fourth owner. objectui#11438 was ruled A′ (record 5965062249): its one group
+ * with no owner card, `record:line_items` — which 17.6.0 gives a
+ * `ComponentPropsMap` row (objectstack `24c554da`, #21142 / #21244), so this
+ * file judges it from that pin on — "follows objectui#11111 decision three B
+ * (5902351047): an owner card is filed and ledgered on the trunk with an
+ * expiry". The card filed for it is:
+ *
+ *   - objectui#11536 — every entry on `record:line_items`: the keys its spec
+ *     row declares that `inputs` does not publish, and the member pins its
+ *     array/object-armed inputs owe.
+ *
+ * A fifth owner, under the same bump: objectui#11438 ruling A″ (record
+ * 5968177777, the maintainer's order to land 17.6.0 first) books a row whose
+ * owner card's slice is not accepted when the row-3 booking is pushed "the
+ * same way, to their own cards". Row 1 is such a row:
+ *
+ *   - objectui#11068 — `object-grid.keyboardNavigation`, the one key on a GA
+ *     block that 17.6.0's row declares and `inputs` does not publish. That card
+ *     is BUILDING the key's reader and publishes the key with it; this is the
+ *     only OWED entry on any of the four GA blocks, pinned by name in `the four
+ *     GA blocks resolve their ruled split`, because objectui#4648's split
+ *     otherwise refuses any exemption on them (see THE FOUR GA BLOCKS below).
+ *
  * Each owner card decides every key by its own measurement: declare what the
  * renderer honours, refuse or retire what it does not. ⛔ Batch-declaring an
  * input a renderer does not honour is the failure decision 3 = B exists to
@@ -733,20 +775,67 @@ function isRetiredUpstream(type: string): boolean {
  * new difference beyond the listed entries is still red: every direction below
  * subtracts exact ids, never a block or a prefix. Each owner card's landing
  * strikes its entries and lowers the matching cap in the same change; the last
- * of the three to land restores the empty ledgers and the zero caps this file
- * held before the bump.
+ * of the five to land restores the empty ledgers and the zero caps this file
+ * held before the 17.5.0 bump.
  *
  * EXPIRY. None of these ledgers has a date field, and this repo's SUNSET
  * convention is a condition re-derived from the installed spec, not a date, so
  * nothing here can enforce a calendar deadline. The date is stated in every
  * entry's reason and asserted PRESENT; it is read by the owner cards, not by a
- * clock.
+ * clock. The 17.6.0 entries carry their own date, set the same distance from
+ * their ruling as the 17.5.0 date is from its own: record 5902351047 was ruled
+ * 2026-09-30 and its entries expire 2026-10-30; record 5965062249 was ruled
+ * 2026-10-03, so objectui#11536's entries expire 2026-11-02. Record 5968177777
+ * (ruling A″) was ruled the same day, so objectui#11068's entry shares that
+ * date: it expires 2026-11-02, or when that card's build lands.
  */
 const OBJECTUI_11111_EXPIRES = '2026-10-30';
 
-/** The three owner cards the ruling names, and nothing else may own an entry. */
-const OBJECTUI_11111_OWNERS = ['objectui#11168', 'objectui#8652', 'objectui#8649'] as const;
+/** The 17.6.0 bookings' date: objectui#11438 ruling A′ (record 5965062249), plus thirty days; ruling A″ (record 5968177777) is of the same day. */
+const OBJECTUI_11438_EXPIRES = '2026-11-02';
+
+/**
+ * The owner cards, and nothing else may own an entry: the three decision 3 = B
+ * names, objectui#11536, which objectui#11438 ruling A′ filed for the 17.6.0
+ * bump's one group with no owner, and objectui#11068, whose row ruling A″
+ * booked to it.
+ */
+const OBJECTUI_11111_OWNERS = [
+  'objectui#11168',
+  'objectui#8652',
+  'objectui#8649',
+  'objectui#11536',
+  'objectui#11068',
+] as const;
 type Objectui11111Owner = (typeof OBJECTUI_11111_OWNERS)[number];
+
+/** The ruling every entry cites, whichever bump booked it. */
+const DECISION_3_B = 'objectui#11111 decision 3 = B (record 5902351047)';
+
+/**
+ * Where each owner's entries were booked: the bump that surfaced them, the
+ * record that booked them, and their expiry. The 17.5.0 owners were booked by
+ * decision 3 = B itself; objectui#11536 by the ruling that applies it to 17.6.0;
+ * objectui#11068 by the amendment of that ruling that books row 1.
+ */
+const OBJECTUI_11111_BOOKINGS: Record<
+  Objectui11111Owner,
+  { bump: string; bookedBy: string; expires: string }
+> = {
+  'objectui#11168': { bump: '17.5.0', bookedBy: DECISION_3_B, expires: OBJECTUI_11111_EXPIRES },
+  'objectui#8652': { bump: '17.5.0', bookedBy: DECISION_3_B, expires: OBJECTUI_11111_EXPIRES },
+  'objectui#8649': { bump: '17.5.0', bookedBy: DECISION_3_B, expires: OBJECTUI_11111_EXPIRES },
+  'objectui#11536': {
+    bump: '17.6.0',
+    bookedBy: `objectui#11438 ruling A′ (record 5965062249), which applies ${DECISION_3_B} to the 17.6.0 bump`,
+    expires: OBJECTUI_11438_EXPIRES,
+  },
+  'objectui#11068': {
+    bump: '17.6.0',
+    bookedBy: `objectui#11438 ruling A″ (record 5968177777), which books row 1 of the 17.6.0 bump in the shape of ${DECISION_3_B}`,
+    expires: OBJECTUI_11438_EXPIRES,
+  },
+};
 
 /** The security triple 17.5.0 declares on exactly the three record blocks (objectui#8649's). */
 const FIELD_SECURITY_TRIPLE = ['enforceFieldSecurity', 'redactFields', 'requiredPermissions'];
@@ -755,10 +844,14 @@ const FIELD_SECURITY_TRIPLE = ['enforceFieldSecurity', 'redactFields', 'required
 const OWED_PREFIX = 'OWED TO ';
 
 /** One ruled entry's reason: owner first, then what is owed, then the ruling and the expiry. */
-const OWED_TO = (owner: Objectui11111Owner, what: string): string =>
-  `${OWED_PREFIX}${owner}. ${what} Booked by objectui#11111 decision 3 = B (record 5902351047): ` +
-  `the 17.5.0 bump re-pins and declares nothing; ${owner} decides it by its own measurement. ` +
-  `Expires ${OBJECTUI_11111_EXPIRES}, or when ${owner} lands, whichever is first.`;
+const OWED_TO = (owner: Objectui11111Owner, what: string): string => {
+  const { bump, bookedBy, expires } = OBJECTUI_11111_BOOKINGS[owner];
+  return (
+    `${OWED_PREFIX}${owner}. ${what} Booked by ${bookedBy}: ` +
+    `the ${bump} bump re-pins and declares nothing; ${owner} decides it by its own measurement. ` +
+    `Expires ${expires}, or when ${owner} lands, whichever is first.`
+  );
+};
 
 /** `BLOCK.KEY` entries for every listed key of one block, all with the same owner and reason. */
 const owedEntries = (
@@ -771,6 +864,10 @@ const owedEntries = (
 
 /** Which owner the ruling routes an entry id to — asserted against every entry's reason. */
 function objectui11111OwnerOf(id: string): Objectui11111Owner {
+  // objectui#11438 ruling A′ routes by BLOCK: every entry on `record:line_items` is objectui#11536's.
+  if (id.slice(0, id.indexOf('.')) === 'record:line_items') return 'objectui#11536';
+  // Ruling A″ routes by exact ID: row 1 is this one key, and objectui#11068 owns nothing else.
+  if (id === 'object-grid.keyboardNavigation') return 'objectui#11068';
   const key = id.slice(id.indexOf('.') + 1).split(':')[0];
   if (FIELD_SECURITY_TRIPLE.includes(key)) return 'objectui#8649';
   if (key === 'navigation') return 'objectui#8652';
@@ -792,9 +889,9 @@ const owedIdsOf = (ledger: Record<string, string>): string[] =>
 const OBJECTUI_11111_LEDGER_CAPS = {
   unjudgedBlocks: 0, // objectui#11168 loaded and judged all four: slice 3 object-map and object-tree, slice 4 object-gantt, slice 5 object-timeline
   offSpecInputs: 0, // objectui#11168 slice 1 retired action:group.name
-  unpublishedKeys: 3, // objectui#11168: 3 (action:button endpoint + undoable, action:icon endpoint); objectui#8652: 0 and objectui#8649: 0 (each struck by its landing)
+  unpublishedKeys: 12, // objectui#11168: 1 (action:button undoable; the two `endpoint` entries left at the 17.6.0 bump, objectui#11438, when the spec stopped declaring the key); objectui#8652: 0 and objectui#8649: 0 (each struck by its landing); objectui#11536: 10 (record:line_items, booked by objectui#11438 ruling A′); objectui#11068: 1 (object-grid keyboardNavigation, booked by objectui#11438 ruling A″)
   refusedArms: 0, // objectui#11168: slice 2 narrowed element:definition-list.columns, slice 3 object-form.layout
-  memberPins: 0, // objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3
+  memberPins: 2, // objectui#11168 slice 2 pinned element:definition-list.items and element:repeater ×3; objectui#11536: 2 (record:line_items columns and dataSource, booked by objectui#11438 ruling A′)
 } as const;
 
 /**
@@ -1408,27 +1505,19 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
    */
   // objectui#11168 slice 1 measured every `action:button` / `action:icon` key
   // below through the real `SchemaRenderer` and `ActionRunner` and DECLARED the
-  // ones honoured on the block path — all but the three still listed here,
-  // which the slice held back with its measurement and a question for the
-  // card. The pins are
+  // ones honoured on the block path — all but three, which the slice held
+  // back with its measurement and a question for the card. The pins are
   // `packages/components/src/renderers/action/__tests__/action-button-icon-inputs-11168.test.tsx`.
-  ...owedEntries(
-    'action:button',
-    ['endpoint'],
-    'objectui#11168',
-    'A SPEC KEY HELD UNPUBLISHED AFTER MEASUREMENT (slice 1): the block forwards `endpoint` and the runner\'s built-in `api` executor reads it, but the console registers its own `api` handler, which reads `target` and never `endpoint` — so on the console an `api` action with an `endpoint` sends nothing there.',
-  ),
+  // Two of the three, `endpoint` on `action:button` and on `action:icon`, left
+  // at the 17.6.0 bump (objectui#11438): 17.6.0 refuses `endpoint` on both
+  // blocks (objectstack `b3917d90`, the rename to `target`), so the entries no
+  // longer named a key the spec declares and `every unpublished-key exemption
+  // names a key the spec really declares` went red on them. One is left.
   ...owedEntries(
     'action:button',
     ['undoable'],
     'objectui#11168',
     'A SPEC KEY HELD UNPUBLISHED AFTER MEASUREMENT (slice 1): the block forwards `undoable`, but the runner\'s `operation: update` path and the console runtime offer Undo only with a host `_rowRecord` stash this block never writes; only the record page\'s own `api` handler honours it.',
-  ),
-  ...owedEntries(
-    'action:icon',
-    ['endpoint'],
-    'objectui#11168',
-    'A SPEC KEY HELD UNPUBLISHED AFTER MEASUREMENT (slice 1): the block forwards `endpoint` and the runner\'s built-in `api` executor reads it, but the console registers its own `api` handler, which reads `target` and never `endpoint` — so on the console an `api` action with an `endpoint` sends nothing there.',
   ),
   // `action:group`'s `location` / `visible` and `action:menu`'s `size` /
   // `visible` stood here until objectui#11168 slice 1 measured each against its
@@ -1444,6 +1533,49 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   // declared all three keys on the three blocks' `inputs`, with the contract's
   // types and describe text, so each entry went stale and `carries no stale
   // unpublished-key exemption` would refuse it.
+
+  /*
+   * ⚠️ THE 17.6.0 BOOKINGS — objectui#11438 ruling A′ (record 5965062249),
+   * which applies objectui#11111 decision 3 = B to the 17.6.0 bump.
+   *
+   * The spec keys `record:line_items` declares from 17.6.0 on that its
+   * `inputs` do not publish. The same bar and the same ruling as the 17.5.0
+   * bookings above: the bump declares nothing, and objectui#11536 measures
+   * each key against the line-items renderer, declares what is honoured and
+   * leaves the rest out. Capped with the 17.5.0 entries at
+   * `OBJECTUI_11111_LEDGER_CAPS.unpublishedKeys`.
+   */
+  ...owedEntries(
+    'record:line_items',
+    [
+      'parentObject', 'parentId', 'recordId', 'title', 'readonly', 'minRows', 'maxRows', 'filter',
+      'sort', 'limit',
+    ],
+    'objectui#11536',
+    'A SPEC KEY NOT PUBLISHED: `record:line_items` entered `covered` with 17.6.0 and its `inputs` omit this key its spec row declares.',
+  ),
+
+  /*
+   * ⚠️ ROW 1 OF THE 17.6.0 BUMP — objectui#11438 ruling A″ (record 5968177777),
+   * which books a row whose owner card's slice is not accepted when the row-3
+   * booking is pushed, "the same way, to their own cards".
+   *
+   * `object-grid.keyboardNavigation`: the 17.6.0 row declares it and the
+   * grid's `inputs` do not publish it. objectui#11068 is building its reader
+   * (arrow-key cell navigation on the WAI-ARIA grid pattern) and publishes the
+   * key in `GRID_QUERY_INPUTS` together with that reader, never ahead of it.
+   * `object-grid` is a GA block, where objectui#4648's split admits no
+   * exemption but the ruled carve-out, so this entry is the one exception and
+   * `the four GA blocks resolve their ruled split` pins it by name. Capped
+   * with the entries above at `OBJECTUI_11111_LEDGER_CAPS.unpublishedKeys`;
+   * the build's landing makes it stale, and strikes it and lowers the cap.
+   */
+  ...owedEntries(
+    'object-grid',
+    ['keyboardNavigation'],
+    'objectui#11068',
+    'A SPEC KEY NOT PUBLISHED, ITS READER IN FLIGHT: `object-grid`\'s 17.6.0 row declares `keyboardNavigation` and its `inputs` omit it; objectui#11068 publishes it with the reader it is building.',
+  ),
 };
 
 /**
@@ -1623,6 +1755,15 @@ const isDormantOnThisPin = (exemptionKey: string): boolean => {
  * The exemption list is therefore the carve-out and nothing else. A future key
  * these blocks gain is a plain A-class defect: declare it at the registration
  * site. Do not add an entry here to silence one.
+ *
+ * ⚠️ ONE BOOKED EXCEPTION, BY RULING AND WITH AN EXPIRY — not a silenced key.
+ * objectui#11438 ruling A″ (record 5968177777) books row 1 of the 17.6.0 bump,
+ * `object-grid.keyboardNavigation`, OWED TO objectui#11068, which declares it
+ * at the registration site together with the reader it is building. The entry
+ * expires 2026-11-02 or at that card's landing, whichever is first.
+ * `the four GA blocks resolve their ruled split` admits exactly that id and no
+ * other OWED entry on these four blocks, so the rule above still holds for
+ * every other key.
  */
 
 const exemptedFor = (type: string): string[] =>
@@ -2868,6 +3009,14 @@ const MEMBER_PINS: Record<string, MemberPin> = {
     file: 'packages/plugin-grid/src/__tests__/ObjectGrid.labelI18nLabel-10993.test.tsx',
     pins: 'The I18nLabel object arm on the grid\'s identity key: through the real `SchemaRenderer`, the `{ type, properties }` document, and the table caption `ObjectGrid` builds from `resolveI18nLabel(schema.label, displayLocale)`. With no regional locale mounted the display locale is the UI language, so a `properties.label` map paints its `zh-CN` entry under `zh` and its `en` entry under `en`, every map listing `en` FIRST so an `en` or first-entry fallback fails the `zh` row; a plain-string control renders as authored. The record-detail overlay heading, the third read, is `ObjectGrid.overlayTitleInlineLocale-9092.test.tsx`\'s pin; the manifest half (a map is not a `type-mismatch`) is `i18nLabelInputsManifest-10993.test.ts` in this directory. ⛔ Not the deprecated `title`, whose caption fallback still reads a map raw and is held to a later batch (objectui#10993).',
   },
+  'object-grid.description': {
+    file: 'packages/plugin-grid/src/__tests__/ObjectGrid.declaredKeys-11068.test.tsx',
+    pins: 'The I18nLabel object arm on the grid\'s help-text line, published at `@objectstack/spec` 17.6.0 once the row declared it (objectui#11227): through the real `SchemaRenderer` and the `{ type, properties }` document, a `properties.description` map paints its `fr` entry under a `fr` UI language, with `en` listed FIRST so an `en` or first-entry fallback fails the row; a plain string draws as authored; and a map with no usable entry draws no strip at all, the same as an absent key, because the guard reads the RESOLVED text. Pre-existing file (objectui#11068), read end to end before being cited; the manifest half (a map is not a `type-mismatch`) is `i18nLabelInputsManifest-10993.test.ts` in this directory.',
+  },
+  'object-grid.emptyState': {
+    file: 'packages/plugin-grid/src/__tests__/ObjectGrid.emptyStateI18nLabel-11227.test.tsx',
+    pins: 'All three members the spec\'s strict `EmptyStateSchema` declares, at the empty state the grid draws in place of an empty table, through the real `SchemaRenderer` and the `{ type, properties }` document (objectui#11227). `title` and `message` are I18nLabel: a map paints its `zh-CN` entry under `zh` and its `en` entry under `en`, with `en` listed FIRST so a fallback fails the `zh` row, and the two members resolve independently (a map title beside a string message). A map with no usable entry keeps that member\'s default: the table\'s own "No results found" heading, and no message line. `icon` is a plain Lucide name, read off the same object. The render-failure signature is asserted absent on every row, because the pre-fix renderer handed a map to `DataEmptyState` as an object child, which React refuses. The string arm, the empty-search case and the not-drawn-with-rows case are `ObjectGrid.declaredKeys-11068.test.tsx`\'s rows. New file.',
+  },
   'object-kanban.cardFields': {
     file: 'packages/plugin-kanban/src/__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx',
     pins: 'Members are BARE FIELD NAMES, and the pin is explicit about WHICH question it answers (the objectui#8269 trap): `resolveKanbanCardFields` answers which names the AUTHOR chose — authored order preserved, and NOT filtered against the object definition, which is the one behaviour that separates the explicit list from the `highlightFields` fallback it overrides (that fallback IS filtered). Which cells a card ends up carrying is a SECOND and narrower question, measured separately at the render, because the card loop further drops a name duplicating the title and one whose value is empty. An empty array reading as omitted is the control that keeps the fallback rows from being vacuous. The spec side is `z.array(z.string())`, so it constrains the member KIND but says nothing about either read — the sinks are the whole of the member contract (objectui#8313).',
@@ -3392,6 +3541,19 @@ const MEMBER_PIN_EXEMPTIONS: Record<string, string> = {
   // slice 1, and `element:definition-list.items` and `element:repeater`'s
   // `fields`, `filter` and `sort` by slice 2, each registered in
   // `MEMBER_PINS`. Header kept as a landmark for a future grep.
+
+  // ⚠️ 17.6.0 BOOKINGS — objectui#11438 ruling A′ (record 5965062249), which
+  // applies objectui#11111 decision 3 = B to the 17.6.0 bump. The
+  // array/object-armed inputs of `record:line_items`, the block 17.6.0 newly
+  // judges, owed a member pin by objectui#11536. Counted into
+  // `MEMBER_PIN_EXEMPTION_CEILING` (0 -> 2) and capped at these two; that
+  // card's pins strike them.
+  ...owedEntries(
+    'record:line_items',
+    ['columns', 'dataSource'],
+    'objectui#11536',
+    'A MEMBER PIN OWED: this `record:line_items` input is array/object-armed on a block 17.6.0 newly judges, and no pin states its members.',
+  ),
 };
 
 /**
@@ -4206,8 +4368,19 @@ const NEWLY_JUDGED_UNPINNED_MEMBERS: string[] = [];
  * real renderer, and deleted their four booked entries. Nothing else stood in
  * the list, so the ceiling follows it to 0 and this direction now runs with no
  * exemption at all. A new array/object-armed key is answered with a pin.
+ *
+ * ## 0 -> 2 (objectui#11438, the @objectstack/spec 17.6.0 bump) — a RULING,
+ * not room, the same rise the 17.5.0 bump took
+ *
+ * 17.6.0 newly judges `record:line_items`, which brings two array/object-armed
+ * inputs with no pin: `columns` and `dataSource`. objectui#11438 ruling A′
+ * (record 5965062249) applies objectui#11111 decision 3 = B to the bump, so
+ * both are booked OWED to objectui#11536 rather than pinned in it. 0 + 2 booked
+ * = 2, the exact count, and `the objectui#11111 ledger is capped at exactly the
+ * entries it lists` caps the two and routes each to objectui#11536.
+ * objectui#11536's pins take this back to 0.
  */
-const MEMBER_PIN_EXEMPTION_CEILING = 0;
+const MEMBER_PIN_EXEMPTION_CEILING = 2;
 
 /**
  * Every test file a member pin can live in, as LAZY `?raw` loaders.
@@ -4374,8 +4547,15 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       // `object-gantt`: 37 -> 38 judged, 11 -> 10 ledgered. 38 + 7 + 10 = 55.
       // Slice 5 loads `object-timeline`, the last of the four: 38 -> 39 judged,
       // 10 -> 9 ledgered. 39 + 7 + 9 = 55.
-      specCarried: 55,
-      judged: 39,
+      //
+      // 55 -> 56 on the `@objectstack/spec` 17.6.0 pin (objectui#11438): one
+      // new block, `record:line_items`, registered eagerly with `inputs`, so it
+      // is judged (`MINOR_17_6_BLOCKS`, 39 -> 40) and its differences are
+      // booked to objectui#11536 under objectui#11438 ruling A′.
+      // `registeredPropless` and `ledgeredUnjudgeable` do not move.
+      // 40 + 7 + 9 = 56.
+      specCarried: 56,
+      judged: 40,
       registeredPropless: 7,
       ledgeredUnjudgeable: 9,
     });
@@ -4779,21 +4959,42 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       ).toContain(`object-grid.${key}`);
     }
 
+    // ⚠️ THE ONE BOOKED KEY — objectui#11438 ruling A″ (record 5968177777).
+    // Row 1 of the 17.6.0 bump, `object-grid.keyboardNavigation`, is OWED TO
+    // objectui#11068, which publishes it together with the reader it is
+    // building. It is neither declared nor carved out, so it is admitted BY
+    // NAME: the OWED entries on the four blocks must be exactly this list, and a
+    // second one is red here whatever the ledger cap says. It expires 2026-11-02
+    // or at that card's landing; the landing declares the key, which turns the
+    // first assertion in the loop below red until this list and the entry are
+    // struck together.
+    const BOOKED_GA_KEYS = ['object-grid.keyboardNavigation'];
+    expect(
+      owedIdsOf(UNPUBLISHED_EXEMPTIONS).filter((id) => GA_ONLY_BLOCKS.includes(splitExemptionKey(id)[0])),
+      'an OWED entry on a GA block that objectui#11438 ruling A″ did not book — declare the key instead',
+    ).toEqual(BOOKED_GA_KEYS);
+
     // Everything else the four blocks' spec schemas declare is DECLARED, and
     // carries no exemption. Stated as an exact set difference rather than a
     // spot-check so a key added by a later GA cannot slip through as neither.
     for (const type of GA_ONLY_BLOCKS) {
       const carved = type === 'object-grid' ? CARVED_OUT_GRID_KEYS : [];
+      const booked = BOOKED_GA_KEYS.filter((id) => splitExemptionKey(id)[0] === type).map(
+        (id) => splitExemptionKey(id)[1],
+      );
       const shouldPublish = specTopLevelKeys(type)
         .filter((key) => !(key in GLOBALLY_UNPUBLISHED_SPEC_KEYS))
         .filter((key) => !carved.includes(key));
       const declared = new Set(declaredInputs(type) ?? []);
       expect(
         shouldPublish.filter((key) => !declared.has(key)),
-        `${type} does not publish these spec keys, and they are not the ruled carve-out`,
-      ).toEqual([]);
+        `${type} does not publish these spec keys, and they are not the ruled carve-out or the ` +
+          'booked key — or a booked key is declared now, so strike its booking',
+      ).toEqual(booked);
       expect(
-        shouldPublish.filter((key) => Object.keys(UNPUBLISHED_EXEMPTIONS).includes(`${type}.${key}`)),
+        shouldPublish
+          .filter((key) => !booked.includes(key))
+          .filter((key) => Object.keys(UNPUBLISHED_EXEMPTIONS).includes(`${type}.${key}`)),
         `${type} exempts a key it declares — an exemption may not stand in for a declaration here`,
       ).toEqual([]);
     }
@@ -5756,6 +5957,10 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // entries must number EXACTLY its cap (so one more is red, and a struck one
     // demands the cap come down with it), each must be routed to the card the
     // ruling names for it, and each must carry the ruling and its expiry.
+    // objectui#11438 ruling A′ (record 5965062249) books the 17.6.0 bump's
+    // `record:line_items` entries the same way, to objectui#11536, and ruling
+    // A″ (record 5968177777) books row 1, `object-grid.keyboardNavigation`, to
+    // objectui#11068.
     const ledgers: Array<[keyof typeof OBJECTUI_11111_LEDGER_CAPS, Record<string, string>]> = [
       ['unjudgedBlocks', UNJUDGED_SPEC_BLOCKS],
       ['offSpecInputs', OFF_SPEC_EXEMPTIONS],
@@ -5781,8 +5986,14 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
         expect(reason, `${id} does not cite the ruling`).toContain(
           'objectui#11111 decision 3 = B (record 5902351047)',
         );
+        // The record that booked it: decision 3 = B itself for the 17.5.0
+        // owners, objectui#11438 ruling A′ for objectui#11536, ruling A″ for
+        // objectui#11068.
+        expect(reason, `${id} does not cite the record that booked it`).toContain(
+          `Booked by ${OBJECTUI_11111_BOOKINGS[owner].bookedBy}: `,
+        );
         expect(reason, `${id} carries no expiry`).toContain(
-          `Expires ${OBJECTUI_11111_EXPIRES}, or when ${owner} lands`,
+          `Expires ${OBJECTUI_11111_BOOKINGS[owner].expires}, or when ${owner} lands`,
         );
         reasons.push(reason);
       }
@@ -5795,6 +6006,12 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
           reasons.filter((reason) => reason.startsWith(`${OWED_PREFIX}${owner}.`)).length,
         ]),
       ),
-    ).toEqual({ 'objectui#11168': 3, 'objectui#8652': 0, 'objectui#8649': 0 });
+    ).toEqual({
+      'objectui#11168': 1,
+      'objectui#8652': 0,
+      'objectui#8649': 0,
+      'objectui#11536': 12,
+      'objectui#11068': 1,
+    });
   });
 });

@@ -107,7 +107,7 @@ export interface RecordDetailsComponentProps {
    * It was `number` here until objectui#8604, which is the wrong PRIMITIVE
    * TYPE, not merely a wider range: `{ columns: 2 }` compiled locally and the
    * contract refused it at publish with `invalid_value` at `columns` (measured
-   * on the installed pin, 17.5.0, against a control — `columns: '2'` — that
+   * on the installed pin, 17.6.0, against a control — `columns: '2'` — that
    * parses green on the same instrument). Contract-first (Commandment #0.1):
    * the code moves to the contract's spelling, and today's `columns: 2`
    * authors are the defect surfacing rather than collateral damage.
@@ -334,7 +334,7 @@ export interface RecordHighlightsComponentProps {
    * `RecordHighlightsProps.fields[]`'s object arm declares exactly
    * `name`/`label`/`type`/`readonly` and carries a `never` catchall, i.e. it is
    * `$strict`: an unlisted key is REFUSED, not stripped, and the refusal takes
-   * the WHOLE document with it. Measured on the installed pin, 17.5.0,
+   * the WHOLE document with it. Measured on the installed pin, 17.6.0,
    * `RecordHighlightsProps.safeParse({ fields: [{ name: 'x', icon: 'star' }] })`
    * is RED with `invalid_union` at `fields.0`. So `{ name: 'amount', icon:
    * 'dollar-sign' }` type-checked here and was refused at the door — a green
@@ -366,7 +366,7 @@ export interface RecordHighlightsComponentProps {
    * `z.enum(['horizontal','vertical'])` behind a `.default('horizontal')`).
    *
    * It offered a third value, `grid`, until objectui#9187, and the contract
-   * never accepted it: measured on the installed pin, 17.5.0,
+   * never accepted it: measured on the installed pin, 17.6.0,
    * `RecordHighlightsProps.safeParse({ fields: ['name'], layout: 'grid' })` is
    * RED with `invalid_value` at `layout`. So `{ layout: 'grid' }` type-checked
    * here and was refused at the door — a green local build and a rejection at

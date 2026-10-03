@@ -25,6 +25,7 @@
 
 import { DASHBOARD_COMPONENT_WIDGET_TYPES } from '@object-ui/types';
 import type {
+  BaseSchema,
   DashboardComponentSchema,
   DashboardWidgetSchema,
   DashboardWidgetSlotComponentSchema,
@@ -32,6 +33,7 @@ import type {
   TextSchema,
 } from '@object-ui/types';
 import { DashboardWidgetSchema as SpecDashboardWidgetSchema } from '@objectstack/spec/ui';
+import type { MetricWidgetProps } from './MetricWidget';
 
 /**
  * One entry of a dashboard's `widgets[]`: the slot's element type, a widget or
@@ -255,11 +257,58 @@ export function classifyWidgetType(widgetType: string | undefined): WidgetDispat
  * ⛔ Both surfaces (`DashboardRenderer`, `DashboardGridLayout`) emit through
  * this table, so they cannot drift apart; a new `skipFallback` registration in
  * this package that a widget can reach gets its row here in the same edit.
+ *
+ * The values are literal types (objectui#11466), so a node a surface builds
+ * under `DASHBOARD_NODE_TYPES.metric` is discriminated by its key and checked
+ * against {@link DashboardMetricNodeSchema}, the `CustomNodeRegistry` entry
+ * below. A lookup by an authored `type` string goes through the string-keyed
+ * view {@link toDashboardNodeType} reads.
  */
-export const DASHBOARD_NODE_TYPES: Readonly<Record<string, string>> = {
+export const DASHBOARD_NODE_TYPES = {
   metric: 'plugin-dashboard:metric',
   'metric-card': 'plugin-dashboard:metric-card',
-};
+} as const;
+
+/** {@link DASHBOARD_NODE_TYPES} read by an arbitrary `type` string. */
+const NODE_TYPE_BY_WIDGET_TYPE: Readonly<Record<string, string>> = DASHBOARD_NODE_TYPES;
+
+/**
+ * The `plugin-dashboard:metric` node: what both dashboard surfaces hand
+ * `SchemaRenderer` for a `metric` widget drawn inline, and what the `metric`
+ * registration (`skipFallback: true`) mounts as `MetricWidget`.
+ *
+ * Declared in `@object-ui/types`' `CustomNodeRegistry` (objectui#11466, as
+ * objectui#11479's Q1 A ruled), the registry an application augments for the
+ * node types it registers that `@object-ui/types` does not declare. So the
+ * producers name a declared node type, and `SchemaRenderer` takes the node
+ * with no cast. The key is this package's: `@object-ui/types` cannot name a
+ * plugin's namespace.
+ *
+ * Its keys are the ones `MetricWidget` reads off the node, typed by that
+ * component's props so the two cannot disagree. Host state (`loading`,
+ * `error`) and the `onClick` handler are props, ⛔ not node keys.
+ */
+export interface DashboardMetricNodeSchema extends BaseSchema {
+  type: typeof DASHBOARD_NODE_TYPES.metric;
+  label: MetricWidgetProps['label'];
+  value: MetricWidgetProps['value'];
+  description?: MetricWidgetProps['description'];
+  trend?: MetricWidgetProps['trend'];
+  /** A Lucide icon name. A React element is a host prop, never a node key. */
+  icon?: string;
+  colorVariant?: MetricWidgetProps['colorVariant'];
+  format?: MetricWidgetProps['format'];
+  currency?: MetricWidgetProps['currency'];
+  prefix?: MetricWidgetProps['prefix'];
+  suffix?: MetricWidgetProps['suffix'];
+  variant?: MetricWidgetProps['variant'];
+}
+
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'plugin-dashboard:metric': DashboardMetricNodeSchema;
+  }
+}
 
 /**
  * `node` with its `type` moved onto the namespaced key {@link
@@ -274,6 +323,6 @@ export const DASHBOARD_NODE_TYPES: Readonly<Record<string, string>> = {
 export function toDashboardNodeType<T>(node: T): T {
   if (!node || typeof node !== 'object') return node;
   const type = (node as { type?: unknown }).type;
-  const moved = typeof type === 'string' ? DASHBOARD_NODE_TYPES[type] : undefined;
+  const moved = typeof type === 'string' ? NODE_TYPE_BY_WIDGET_TYPE[type] : undefined;
   return moved ? { ...node, type: moved } : node;
 }

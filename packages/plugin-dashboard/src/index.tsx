@@ -42,6 +42,11 @@ export type {
   WidgetDatasetDimension,
   WidgetDatasetMeasure,
 } from './dataset-catalog';
+// objectui#11466 — the `plugin-dashboard:metric` node type, which
+// `./widgetDispatch` declares in `@object-ui/types`' `CustomNodeRegistry`.
+// Exported from the entry so the published typings load that declaration for
+// every consumer of this package, not only for this package's own program.
+export type { DashboardMetricNodeSchema } from './widgetDispatch';
 // objectui#9533 — the retirement table and the widget it renders. Exported for
 // the same reason the sibling packages export their tombstones: the assertion
 // that an authored `view:dashboard` is refused BY NAME, with the migration in
@@ -145,6 +150,11 @@ ComponentRegistry.register(
 // spelling `objectui validate` refuses at `type` while the registry mounted it.
 // The dashboard WIDGET type `metric` (the spec's `ChartTypeSchema` value) is a
 // different vocabulary and is untouched.
+//
+// The NODE key is a declared node type (objectui#11466):
+// `DashboardMetricNodeSchema` in `./widgetDispatch`, entered in
+// `CustomNodeRegistry` under `plugin-dashboard:metric`, so both surfaces hand
+// `SchemaRenderer` a declared node with no cast.
 ComponentRegistry.register(
   'metric',
   MetricWidget,
@@ -219,7 +229,9 @@ const OBJECT_METRIC_DATA_SOURCE: ElementDataSourceMapping = {
  * The props keep their standing when there is no binding: `bound` IS the schema
  * by reference in that case, so `bound?.x ?? props.x` resolves to what the
  * spread already provided, and a host that renders this component with explicit
- * props and no schema at all (the dashboard grid path) is untouched.
+ * props and no schema at all is untouched. (This sentence named "the dashboard
+ * grid path" as such a host until objectui#11525 retired the dashboards'
+ * inline `object-metric` node; that path builds none now.)
  */
 const ObjectMetricBlock: React.FC<{ schema?: any; [key: string]: any }> = elementDataSourceBlock(({ schema, ...props }) => (
   <ElementDataSourceGate

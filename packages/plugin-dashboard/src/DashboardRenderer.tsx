@@ -7,7 +7,7 @@
  */
 
 import type { BaseSchema, DashboardComponentSchema, DataSource, ObjectChartSchema, ObjectDataTableSchema } from '@object-ui/types';
-import { SchemaRenderer, toRenderableSchema, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables, useResolvedDataSource } from '@object-ui/react';
+import { SchemaRenderer, toRenderableSchema, useActionEngine, useObjectLabel, PageVariablesProvider, usePageVariables, useResolvedDataSource, type SchemaRendererProps } from '@object-ui/react';
 import { useObjectTranslation, useSafeTranslate, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import type { ActionDef, ActionResult, ActionContext, ModalHandler, SduiDomPassThroughKey } from '@object-ui/core';
 import {
@@ -700,7 +700,11 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         // `dataset` draws `DatasetWidget` on either arm.
         const datasetBound = !!widget.dataset;
 
-        const getComponentSchema = () => {
+        // Every branch returns a node `SchemaRenderer` takes, so the return type
+        // is that prop's (objectui#11466): each node is checked against its
+        // declared type where it is built, and the render sites take it with no
+        // cast.
+        const getComponentSchema = (): SchemaRendererProps['schema'] => {
             // The author-supplied node keeps its spelling; only a `metric` /
             // `metric-card` node key moves onto its namespaced registration
             // (`toDashboardNodeType`, objectui#10859 batch 8).
@@ -849,7 +853,12 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             // was already here as METRIC_LIKE_TYPES — it just picked a grid span
             // and never routed the widget, so four spec chart types fell through
             // to a red error box (#2943).
-            if (dispatch.family === 'metric') {
+            //
+            // `classifyWidgetType` answers `metric` only for a named type, so
+            // the `widgetType` test narrows for the compiler and changes no
+            // verdict: the card's label falls back to that type, and the node's
+            // declared type requires a label (objectui#11466).
+            if (dispatch.family === 'metric' && widgetType !== undefined) {
                 // provider: 'object' — RETIRED for the single-value family
                 // (objectui#11525, maintainer ruling C), with the same
                 // placeholder object the pivot arm below returns
@@ -900,6 +909,9 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 return {
                     // The namespaced node key: the registration passes
                     // `skipFallback: true` (objectui#10859 batch 8, M3 option A).
+                    // Its declared type is `DashboardMetricNodeSchema`, the
+                    // `CustomNodeRegistry` entry `./widgetDispatch` adds
+                    // (objectui#11466).
                     type: DASHBOARD_NODE_TYPES.metric,
                     ...options,
                     label,
@@ -1016,17 +1028,16 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         const scopedFilter = filterDefs.length > 0
             ? buildWidgetScopedFilter(widget, filterDefs, filterValues)
             : undefined;
-        const componentSchema = (() => {
-            // `as BaseSchema`, not `as Record< string, any >` (objectui#4548):
-            // the old cast dropped the `type` every branch of
-            // `getComponentSchema` actually sets, so what reached
-            // `SchemaRenderer` was a bag with no component descriptor as far as
-            // the type system knew. The `filter` read below does not lean on
-            // `BaseSchema`'s index signature for arbitrary key access: it
-            // narrows to the node schema that declares `filter` first
-            // (`isFilterableComponentSchema`, objectui#11348).
-            const cs = getComponentSchema() as BaseSchema;
-            if (scopedFilter && cs && isFilterableComponentSchema(cs)) {
+        const componentSchema = ((): SchemaRendererProps['schema'] => {
+            // No cast (objectui#11466): `getComponentSchema` returns
+            // `SchemaRenderer`'s own prop type, and every branch builds a
+            // declared node. It was `as BaseSchema` (objectui#4548, which
+            // replaced an `as Record< string, any >` that dropped the `type`).
+            // The `filter` read below does not lean on an index signature for
+            // arbitrary key access: it narrows to the node schema that declares
+            // `filter` first (`isFilterableComponentSchema`, objectui#11348).
+            const cs = getComponentSchema();
+            if (scopedFilter && cs && typeof cs === 'object' && isFilterableComponentSchema(cs)) {
                 return { ...cs, filter: mergeFilters(cs.filter, scopedFilter) };
             }
             return cs;

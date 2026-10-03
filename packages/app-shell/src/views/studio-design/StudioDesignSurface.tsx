@@ -997,13 +997,9 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
   // on a write state nobody has answered yet (objectui#11153).
   const [pkgWritable, setPkgWritable] = React.useState<boolean | null | undefined>(undefined);
   React.useEffect(() => {
-    // objectui#11553 — the package-less scope has no package to look up: its
-    // flows are the organization's own, so they open editable. The server's
-    // write gate stays the authority, exactly as for a writable package.
-    if (packageId === null) {
-      setPkgWritable(true);
-      return;
-    }
+    // objectui#11553 — the package-less scope has no package to look up; its
+    // writability is decided below, not fetched.
+    if (packageId === null) return;
     let cancelled = false;
     setPkgWritable(undefined);
     fetchPackages()
@@ -1024,7 +1020,10 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
       cancelled = true;
     };
   }, [packageId]);
-  const readOnly = pkgWritable === false;
+  // objectui#11553 — the package-less scope's flows are the organization's
+  // own, so they open editable whatever the last package answered. The
+  // server's write gate stays the authority, exactly as for a writable package.
+  const readOnly = packageId !== null && pkgWritable === false;
 
   // objectui#2600 — the header's pillar links, Home button and PackageSwitcher
   // are pure SPA client navigation, so the editors' `beforeunload` guard never

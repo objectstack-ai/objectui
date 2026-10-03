@@ -320,6 +320,21 @@ describe('the packaged control: a read-only package stays read-only (objectui#11
     await waitFor(() => expect(screen.getByRole('switch')).toBeDisabled());
     expect(screen.queryAllByRole('button', { name: 'Add connected node' })).toHaveLength(0);
   });
+
+  it('from that read-only package, the switcher’s entry opens the package-less scope editable', async () => {
+    // The surface stays mounted across the switch, so the read-only answer the
+    // showcase got is still in hand when the package-less scope renders.
+    renderAt(`/studio/${SHOWCASE}/automations`);
+    await openedFlow('showcase_urgent_task_alert');
+    await waitFor(() => expect(screen.getByRole('switch')).toBeDisabled());
+
+    fireEvent.click(screen.getByTitle('Switch / create package'));
+    fireEvent.click(await screen.findByTestId('studio-org-scope-entry'));
+
+    await waitFor(() => expect(location()).toBe('/studio/~org/automations'));
+    await openedFlow('qa_urgent_alert_clone');
+    expect(screen.getByRole('switch')).toBeEnabled();
+  });
 });
 
 describe('the package-less scope reviews and publishes exactly its own drafts (objectui#11553)', () => {

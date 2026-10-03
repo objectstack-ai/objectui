@@ -6,6 +6,8 @@
 
 The widget behind sharing-rule `criteria_json`, `relatedListFilter` and `summaryOperations.filter` used to write its own meaning of 「is empty」: `{ $or: [{ FIELD: { $in: [''] } }, { FIELD: { $null: true } }] }` and its complement `{ FIELD: { $nin: [''], $null: false } }`, i.e. "no value OR `''`" on every field type. The `''` member reached a number or date column as `IN ('')`, and a multi-value column (stored as JSON by the SQL driver) as an `$in` that driver refuses. `@objectstack/spec` 17.6.0 admits `$empty` to `FILTER_OPERATORS` (objectstack#20446), and its meaning is the field's DECLARED row of the spec's per-type table (ruling B on objectstack#20311): null or `''` on a text-like field, null or `[]` on a multi-value field, null alone on every other type. Every evaluator expands it itself (`expandEmptyOperator`), so the widget now writes the same token on every column type and keeps no copy of the table.
 
+The `@objectstack/spec` dependency floor rises from `^17.5.0` to `^17.6.0`, because this package now writes `$empty`, which `@objectstack/spec` 17.5.0 declares staged and refuses.
+
 `kvToCondition` reads `$empty` back as the pair, with a boolean flag only: any other flag stays the raw criteria it is, as every evaluator refuses it.
 
 **What moves for a stored rule.** Reading alone rewrites nothing: a criteria saved in either earlier shape (the objectui#10790 `$or` entry and `$nin` + `$null` pair, or the older `$in: [null, '']` / `$nin: [null, '']`) still opens as the same "Is empty" / "Is not empty" row, and an un-edited rule keeps its stored bytes and keeps matching as before. The next time the criteria is edited, those rows are written as `$empty`, which re-scopes the rule:

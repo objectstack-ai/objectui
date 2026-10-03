@@ -554,6 +554,29 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // only source of it.
   const { t, language } = useObjectTranslation();
 
+  /**
+   * The chart family this block DRAWS, for the two `compareTo` gates below:
+   * the comparison fetch in `fetchData` and the overlay series
+   * (`enableComparisonSeries`), objectui#11530.
+   *
+   * Read through `normalizeChartSchema`, the translation `ChartRenderer`
+   * dispatches on, so it is `chartType`, else `specType` (objectui#11520): a
+   * family on either channel meets `chartTypeIgnoresCompareTo` as the value the
+   * chart is drawn as. Both gates used to read `schema.chartType` alone, so a
+   * family on `specType` (the react tier's channel) was invisible to them. A
+   * `specType: scatter` then fetched the comparison window, got the overlay
+   * series and refused its own two series; a `specType: pie` paid for a fetch
+   * it never drew. ⛔ No compare decision in this file reads `schema.chartType`
+   * or `schema.specType` directly: one family reader here, one family list in
+   * `chartTypeIgnoresCompareTo`.
+   *
+   * `language` is passed although no label is read off the result, so the call
+   * in `resolveChartCategoryField` stays the package's one call without it. The
+   * memo is a cost hint only: the answer is a string, so nothing keys on an
+   * identity (AGENTS.md #10).
+   */
+  const chartFamily = useMemo(() => normalizeChartSchema(schema, language).chartType, [schema, language]);
+
   // Stable JSON keys for aggregate/filter so that callers passing a fresh
   // object literal on each render (e.g. DashboardRenderer.getComponentSchema)
   // do not trigger infinite refetch loops.
@@ -809,8 +832,10 @@ export const ObjectChart = (props: ObjectChartProps) => {
           // #7194's two-or-more-series scatter refusal. WHICH families is
           // `chartTypeIgnoresCompareTo` in `@object-ui/core`'s chart-presentation:
           // the one declaration the dashboard's DatasetWidget reads too
-          // (objectui#7495). This file keeps no list of its own.
-          const wantsComparison = !!compareTo && !chartTypeIgnoresCompareTo(schema.chartType);
+          // (objectui#7495). This file keeps no list of its own. WHICH family
+          // this chart is, is `chartFamily`: the one it draws, on either family
+          // channel (objectui#11530).
+          const wantsComparison = !!compareTo && !chartTypeIgnoresCompareTo(chartFamily);
           // shiftFilterByCompareTo expects the raw filter (with date macros)
           // so it can substitute `{current_*}` tokens or re-resolve macros
           // against a shifted `now`. It only understands the date vocabulary,
@@ -944,7 +969,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
       // this list (`schema.aggregate`, `schema.dataset`, ...), which predate
       // this change.
       // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [schema.objectName, datasetKey, aggregateKey, filterKey, compareToKey, schema.xAxisKey, schema.chartType, runAggregate, filterScope, fieldOptionLabel]);
+  }, [schema.objectName, datasetKey, aggregateKey, filterKey, compareToKey, schema.xAxisKey, chartFamily, runAggregate, filterScope, fieldOptionLabel]);
 
   // objectui#10035 — the refresh input this chart had none of, so a host could
   // show it a write only by remounting it (AGENTS.md #8's corollary: refresh
@@ -1153,6 +1178,8 @@ export const ObjectChart = (props: ObjectChartProps) => {
   // Merge data if not provided in schema. When `compareTo` is configured
   // for a supported chart type, also synthesize a second series so the
   // chart implementation renders the comparison overlay (dashed / muted).
+  // "Supported" is asked of the family the chart draws (`chartFamily`, either
+  // family channel), exactly as the comparison fetch asks it (objectui#11530).
   const compareToConfig: CompareToConfig | undefined = schema.compareTo;
   // The result column this aggregate projects its value under, and the column
   // the comparison overlay arrives in (framework#3701).
@@ -1160,7 +1187,7 @@ export const ObjectChart = (props: ObjectChartProps) => {
   const comparisonKey = valueKey ? `${valueKey}${COMPARISON_SUFFIX}` : undefined;
   const enableComparisonSeries =
     !!compareToConfig &&
-    !chartTypeIgnoresCompareTo(schema.chartType) &&
+    !chartTypeIgnoresCompareTo(chartFamily) &&
     !!comparisonKey &&
     finalData.some((row: Record<string, any>) => row[comparisonKey] != null);
 

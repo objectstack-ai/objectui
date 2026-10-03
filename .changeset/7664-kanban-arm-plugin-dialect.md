@@ -96,5 +96,12 @@ comparison or `{ condition, style }`. Now it is one object, the spec list view's
 `{ condition, style }` rule by reference, and the native rule and a top-level
 colour key (`backgroundColor`, `borderColor`, `textColor`) are refused by name;
 the `'kanban'` arm it was shared with has itself retired in this release
-(objectui#8802). It is still exported from `@object-ui/types/zod` under the same
-name. The rest of this entry is kept as the reading of this change.
+(objectui#8802). It keeps its name, and it is a module export of
+`src/zod/objectql.zod.ts` inside `@object-ui/types`, NOT an export of the
+`@object-ui/types/zod` barrel. Measured at objectui#11522's change: that barrel
+re-exports `KanbanCardSchema`, `KanbanColumnSchema` and `ObjectKanbanSchema` from
+the kanban family and not this schema, and no entry of the package's `exports`
+map carries it. So the bullet above that calls it "newly exported from
+`@object-ui/types/zod`" does not hold in this release either; whether it held at
+objectui#7664's own commit was not measured. The rest of this entry is kept as
+the reading of this change.

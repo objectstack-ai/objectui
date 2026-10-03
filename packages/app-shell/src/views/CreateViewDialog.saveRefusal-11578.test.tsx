@@ -85,7 +85,7 @@ describe('the Create View dialog closes only on a saved view (objectui#11578)', 
     });
 
     expect(onCreate).toHaveBeenCalledTimes(1);
-    expect(onCreate.mock.calls[0][0]).toMatchObject({ type: 'grid', label: 'Pipeline board', name: 'pipeline_board' });
+    expect(onCreate).toHaveBeenCalledWith(expect.objectContaining({ type: 'grid', label: 'Pipeline board', name: 'pipeline_board' }));
     await waitFor(() => expect(submit().disabled).toBe(false));
     expect(closes(onOpenChange)).toBe(0);
     expect(labelInput().value).toBe('Pipeline board');

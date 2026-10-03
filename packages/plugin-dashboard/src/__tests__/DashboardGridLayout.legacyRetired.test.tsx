@@ -29,6 +29,14 @@
  * still-live authoring surface (the #4600 measurement's do-not-conflate note);
  * dataset widgets and static-data widgets are live too. None of them may acquire
  * the placeholder — on either surface.
+ *
+ * ⚠️ Dated note, 2026-10-03 — objectui#11525. When this header was written the
+ * nested `provider: 'object'` config was live for every family. The
+ * single-value family's is now retired: a dataset-less provider metric draws
+ * this placeholder through each surface's metric arm, not through the shared
+ * detector (`inlineObjectMetricRetired-11525.test.tsx`). The provider control
+ * below is a `bar`, whose family stays live, so it holds as written. The rest
+ * of this header is kept as the reading of objectui#4612.
  */
 
 import { describe, it, expect, afterEach } from 'vitest';

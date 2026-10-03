@@ -8,7 +8,7 @@
 
 import React, { useState, useEffect, useContext, useCallback, useMemo } from 'react';
 import { SchemaRendererContext, useFilterScope, useDataInvalidation } from '@object-ui/react';
-import { isDrillEnabled, resolveDrillTitle, isStructuredGroupBy, objectAggregateSpecQuery } from '@object-ui/core';
+import { isDrillEnabled, resolveDrillTitle, isStructuredGroupBy, objectAggregateSpecQuery, toFilterNode } from '@object-ui/core';
 import type { I18nLabel, ObjectChartSchema, ObjectMetricDrillDownConfig } from '@object-ui/types';
 import {
   useLocalization,
@@ -18,7 +18,7 @@ import {
   pickLocalized,
 } from '@object-ui/i18n';
 import { formatCurrency, formatPercent, percentCellScale } from '@object-ui/fields';
-import { resolveFieldScale } from '@objectstack/spec/data';
+import { isFilterAST, parseFilterAST, resolveFieldScale } from '@objectstack/spec/data';
 import { MetricWidget, metricPatternDecimals } from './MetricWidget';
 import { DrillDownDrawer } from './DrillDownDrawer';
 import {
@@ -106,6 +106,54 @@ function ownFractionDigits(value: number): number {
 }
 
 /**
+ * The spec-shape query's `where`, lowered from the tile's filter
+ * (objectui#11526).
+ *
+ * The authored bag's `filter` is a `ViewFilterRule[]`: `ObjectMetricPropsSchema`
+ * in `@objectstack/spec/ui` declares it so. The two wires take it differently:
+ *
+ *   - the legacy bag carries it raw as `filter`, and `ObjectStackAdapter`
+ *     lowers it there (`lowerAnalyticsFilterForWire`: the rule list becomes
+ *     filter AST through `translateFilterArray`, then a `FilterCondition`
+ *     through `parseFilterAST`);
+ *   - the spec-shape query posts `where` VERBATIM, and the adapter refuses a
+ *     rule list there with `UnloweredAggregateWhereError` (objectui#6825,
+ *     ruling A: refuse, never lower). The producer lowers it.
+ *
+ * The adapter's lowering is module-private to `@object-ui/data-objectstack`,
+ * which this plugin does not depend on (it reads any `DataSource`), and
+ * `@object-ui/core` cannot re-export it: the adapter package depends on core.
+ * So the same two stages are taken from where they are public. `toFilterNode`
+ * is core's sink for a `ViewFilterRule[]` (the one `object-grid` lowers its own
+ * rule-list `filter` through, via `toFilterNodeSafely`), and `parseFilterAST`
+ * is the spec's single sink, the call the adapter makes. The result is the
+ * `FilterCondition` that `QuerySchema.where` declares; the pin
+ * `ObjectMetricWidget.ruleFilterSpecShape-11526` checks that every operator the
+ * spec's rule vocabulary declares lowers to one. That it equals the legacy
+ * wire's `where` was measured once, on objectui#11526's pull request, against
+ * the real adapter; nothing in this repo re-derives that equality.
+ *
+ * Three inputs keep what they had:
+ *
+ *   - a NON-array filter is already a `FilterCondition` (the flat record form),
+ *     so it is returned untouched;
+ *   - an EMPTY array lowers to `undefined`, so no `where` is posted, as the
+ *     legacy wire posts none;
+ *   - an array the lowering could not turn into a filter (`isFilterAST` says
+ *     no) is returned unparsed. `parseFilterAST` answers `undefined` for such
+ *     an array, which would post an UNFILTERED aggregate under a filtered
+ *     question; handed on, it meets the adapter's refusal and nothing is sent.
+ *
+ * A rule either sink refuses throws here, and `fetchMetric` shows it as the
+ * tile's error.
+ */
+function specShapeWhere(filter: unknown): unknown {
+  if (!Array.isArray(filter)) return filter;
+  const node = toFilterNode(filter);
+  return node !== undefined && isFilterAST(node) ? parseFilterAST(node) : node;
+}
+
+/**
  * ObjectMetricWidget — Data-bound metric widget.
  *
  * When a metric widget has an `object` binding and a `dataSource` is available,
@@ -129,10 +177,11 @@ export interface ObjectMetricWidgetProps {
    * `groupBy` is the contract's own union — BY REFERENCE through
    * `ObjectChartSchema['aggregate']`, which holds `ChartAggregate` from
    * `@objectstack/spec/ui` by reference in turn, never a local near-copy of it
-   * (`check:spec-symbols`). It is the same authored key both dashboard relays
-   * compose for the `object-metric` and the `object-chart` node out of one
-   * provider block, so a second spelling here could only be a way for the two
-   * to disagree.
+   * (`check:spec-symbols`). It is the same authored key the `object-chart` node
+   * carries, so a second spelling here could only be a way for the two to
+   * disagree. (Both dashboard relays used to compose this node and the chart's
+   * out of one `provider: 'object'` block; since objectui#11525 a dataset-less
+   * metric draws the retired-format placeholder, and this node is authored.)
    *
    * It used to say `string`, which was a claim about the AUTHOR that nothing
    * upstream backed: the value crosses two `any` seams on its way in
@@ -419,8 +468,13 @@ export const ObjectMetricWidget: React.FC<ObjectMetricWidgetProps> = ({
       // measure is projected under `chartMeasureKey`'s alias — the raw `field`,
       // or the literal `'count'` for a fieldless count — and both are limbs the
       // two chains already try (`row[field]`, `r.count`).
+      //
+      // The filter is lowered for the spec-shape query only (`specShapeWhere`,
+      // objectui#11526): its `where` is posted verbatim, while the legacy bag's
+      // `filter` is lowered by the adapter. The drill drawer below still gets
+      // `resolvedFilter` as it was.
       const results = isStructuredGroupBy(groupBy)
-        ? await ds.aggregate(objectName, objectAggregateSpecQuery(aggregate, groupBy, filterForRun))
+        ? await ds.aggregate(objectName, objectAggregateSpecQuery(aggregate, groupBy, specShapeWhere(filterForRun)))
         : await ds.aggregate(objectName, {
             field: aggregate.field,
             function: aggregate.function,

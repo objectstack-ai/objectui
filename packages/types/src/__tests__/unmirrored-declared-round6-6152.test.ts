@@ -52,8 +52,13 @@ const MIRRORED: ReadonlyArray<{ key: string; valid: unknown; invalid: unknown; s
   },
   {
     key: 'conditionalFormatting',
-    valid: [{ field: 'status', operator: 'equals', value: 'open', backgroundColor: '#fee2e2' }, { condition: "record.status == 'late'", style: { color: 'red' } }],
-    invalid: [{ field: 'status', operator: 'matches', value: 'open' }],
+    // One rule dialect since objectui#11533, the spec list view's `{ condition, style }`:
+    // the native `{ field, operator, value }` row this used to carry is refused by name
+    // now (`grid-list-view-conditional-formatting-11533.test.ts`), and its wrong value —
+    // an operator outside the native enum — has no member left to be wrong in. The
+    // wrong value is a `style` written as a CSS string instead of a map.
+    valid: [{ condition: "record.status == 'open'", style: { backgroundColor: '#fee2e2' } }, { condition: "record.status == 'late'", style: { color: 'red' } }],
+    invalid: [{ condition: "record.status == 'late'", style: 'color: red' }],
     slot: true,
   },
   { key: 'grouping', valid: { fields: [{ field: 'region' }] }, invalid: { fields: [] }, slot: true },

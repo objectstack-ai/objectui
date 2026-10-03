@@ -372,22 +372,15 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
     // Single-value families render as a metric card, not a chart (#2943).
     if (dispatch.family === 'metric') {
       const widgetData = (widget as any).data || options.data;
+      // provider: 'object' — RETIRED (objectui#11525, maintainer ruling C), with
+      // the same placeholder object this surface's pivot arm and
+      // `DashboardRenderer`'s metric arm return, imported rather than restated.
+      // A metric binds a `dataset` (ADR-0021); this branch used to build a flat
+      // `object-metric` node in a filter dialect no node type declares. A
+      // typeless widget resolves to `metric` (objectui#11514) and answers here
+      // too. The chart and table arms keep their `provider: 'object'` branches.
+      if (isObjectProvider(widgetData)) return LEGACY_RETIRED_WIDGET_SCHEMA;
       const label = widget.title || widgetType;
-      if (isObjectProvider(widgetData)) {
-        const providerAgg = widgetData.aggregate;
-        return {
-          type: 'object-metric',
-          ...options,
-          objectName: widgetData.object,
-          label,
-          aggregate: providerAgg ? {
-            field: providerAgg.field,
-            function: providerAgg.function,
-            groupBy: providerAgg.groupBy,
-          } : undefined,
-          filter: widgetData.filter || widget.filter,
-        };
-      }
       const rows = Array.isArray(widgetData) ? widgetData : widgetData?.items || [];
       const valueField = options.yField || 'value';
       return {
@@ -585,7 +578,6 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
             const widgetId = widget.id || `widget-${index}`;
             // `getComponentSchema` builds a node for `SchemaRenderer` in every
             // branch, but not every branch's node is a declared type yet: the
-            // flat `object-metric` node has none (objectui#11525), the
             // `plugin-dashboard:metric` key is typed `string`
             // (`DASHBOARD_NODE_TYPES`, objectui#11466), and the static `pivot`
             // does not state `PivotTableSchema`'s required axes. So the
@@ -623,10 +615,12 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
             // from a caller's fork (`legacyRetiredWidget.ts:97-102`).
             const datasetBound = !!(widget as { dataset?: unknown }).dataset;
             // A `metric` widget renders its own card chrome ONLY in the inline
-            // path. A dataset-bound metric uses DatasetWidget, which renders just
+            // path (the `plugin-dashboard:metric` card, or a retired
+            // `provider: 'object'` metric's placeholder, objectui#11525). A
+            // dataset-bound metric uses DatasetWidget, which renders just
             // the value — so it must take the shared Card wrapper to get a title
             // and border like its neighbours, instead of showing as bare text
-            // (`DashboardRenderer.tsx:777-782`, same rule, same reason).
+            // (`DashboardRenderer`'s `isSelfContained`, same rule, same reason).
             const isSelfContained = resolveWidgetType(widget) === 'metric' && !datasetBound;
             // `DashboardWidget.title` is the spec's `I18nLabel`: since
             // 17.0.0-rc.6 an author may inline a per-locale map

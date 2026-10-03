@@ -324,7 +324,11 @@ data format. Edit it to bind a dataset."* prompt instead of a chart. Inline
 widget data is not an authoring surface either: `options.data` (an array of
 rows or a `{ "provider": "object", … }` query) and `options.xField` /
 `options.yField` are refused by name by `@object-ui/types`' strict authoring
-face (objectui#11228), and every widget binds a dataset.
+face (objectui#11228), and every widget binds a dataset. A stored single-value
+widget (`metric`, `gauge`, `solid-gauge`, `kpi`, `bullet`, or one with no
+`type`) whose `options.data` is a `{ "provider": "object", … }` query shows the
+same retired-format prompt instead of its number (objectui#11525), as a `pivot`
+widget with that query already did.
 
 Binding rules, in precedence order:
 

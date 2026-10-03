@@ -328,10 +328,11 @@ describe('the zod mirror binds exportOptions to the spec field (objectui#6956)',
 
   it('control: neighbouring members keep their accept sets', () => {
     // `conditionalFormatting` sits next to `exportOptions` in the same
-    // `.extend()` block and is untouched by objectui#6956: both of its shapes
-    // still parse and a non-array is still refused.
+    // `.extend()` block and is untouched by objectui#6956: its `{ condition, style }`
+    // rule still parses and a non-array is still refused. (The native
+    // `{ field, operator, value }` shape it also took then is retired since
+    // objectui#11533 and pinned in `grid-list-view-conditional-formatting-11533.test.ts`.)
     const cf = MirrorListViewSchema.shape.conditionalFormatting;
-    expect(cf.safeParse([{ field: 'status', operator: 'equals', value: 'open' }]).success).toBe(true);
     expect(cf.safeParse([{ condition: '${record.amount > 100}', style: { color: 'red' } }]).success).toBe(true);
     expect(cf.safeParse('nope').success).toBe(false);
     // `allowExport`, the local boolean the export menu is gated on.

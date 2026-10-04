@@ -31,11 +31,13 @@
  * installed spec's view gate replayed at the network boundary. The add-view
  * door's page is pinned next door, in `ObjectView.createKanbanView-11581.test.tsx`.
  *
- * Direction, written before the run: on the unmodified tree the kanban row and
- * the "Save as view" page case go RED (refused at `kanban.columns`, a 422 at
- * the door); the gallery row goes RED on the doors' disagreement (only one
- * mirrors `visibleFields`); every other row, the enumeration rows and the
- * builder pins stay GREEN in both worlds.
+ * Direction, written before the first run (on the tree before the builder,
+ * with the add-view door's body moved unchanged into `buildAddViewSpec`): the
+ * kanban row and the "Save as view" page case go RED (refused at
+ * `kanban.columns`, a 422 at the door); the gallery row goes RED on the doors'
+ * disagreement (only one mirrors `visibleFields`); every other type row and the
+ * enumeration rows stay GREEN in both worlds. The builder's own pins (the
+ * mirrors, read straight off `buildNewViewSpec`) arrived with the builder.
  */
 
 import * as React from 'react';
@@ -129,6 +131,7 @@ import { CreateViewDialog, offeredViewTypes } from './CreateViewDialog';
 import { ObjectDataPage, buildSaveAsViewSpec } from './ObjectDataPage';
 import { buildAddViewSpec, defaultListColumnsFromObject } from './ObjectView';
 import { viewEnvelope } from './runtime-metadata-persistence';
+import { buildNewViewSpec } from './newViewSpec';
 import { ExpressionProvider } from '../providers/ExpressionProvider';
 
 /** An object with an eligible field for every pick the dialog offers. */
@@ -283,6 +286,33 @@ describe('each offered type: both doors persist ONE body from the dialog payload
     }
     const [door1, door2] = Object.values(doors);
     expect(door1, `${type}: the two doors built different bodies from one payload`).toEqual(door2);
+  });
+});
+
+describe('the one builder owns the type-specific mirrors (objectui#11581)', () => {
+  it('writes the resolved columns into `kanban.columns`, which the spec requires', () => {
+    const spec = buildNewViewSpec({ type: 'kanban', kanban: { groupByField: 'stage' } }, { fallbackColumns: ['name', 'amount'] });
+    expect(spec.kanban).toEqual({ groupByField: 'stage', columns: ['name', 'amount'] });
+  });
+
+  it('mirrors the payload\'s own columns over the door\'s fallback', () => {
+    const spec = buildNewViewSpec({ type: 'kanban', columns: ['stage'], kanban: { groupByField: 'stage' } }, { fallbackColumns: ['name'] });
+    expect(spec.columns).toEqual(['stage']);
+    expect(spec.kanban.columns).toEqual(['stage']);
+  });
+
+  it('writes them into `gallery.visibleFields` only when the payload carries none', () => {
+    const fallbackColumns = ['name', 'amount'];
+    expect(buildNewViewSpec({ type: 'gallery', gallery: { coverField: 'photo' } }, { fallbackColumns }).gallery)
+      .toEqual({ coverField: 'photo', visibleFields: ['name', 'amount'] });
+    expect(buildNewViewSpec({ type: 'gallery', gallery: { visibleFields: ['stage'] } }, { fallbackColumns }).gallery)
+      .toEqual({ visibleFields: ['stage'] });
+  });
+
+  it('mirrors nothing for a type with no field list of its own, nor for a name off the prototype chain', () => {
+    expect(buildNewViewSpec({ type: 'calendar', calendar: { startDateField: 'start_date' } }, { fallbackColumns: ['name'] }))
+      .toEqual({ type: 'calendar', calendar: { startDateField: 'start_date' }, columns: ['name'] });
+    expect(buildNewViewSpec({ type: 'toString' }, { fallbackColumns: ['name'] })).toEqual({ type: 'toString', columns: ['name'] });
   });
 });
 

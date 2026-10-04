@@ -305,8 +305,9 @@ export function viewEnvelope(
 
 /**
  * Create a NEW runtime artifact as a per-item draft. Returns its name (for the
- * caller's auto-activation). UI-layer concerns (default columns, kanban/gallery
- * sub-config, auto-activation) stay in the call site.
+ * caller's auto-activation). A new view's spec (default columns, the
+ * kanban/gallery sub-config) is built before it gets here, by `buildNewViewSpec`
+ * (`newViewSpec.ts`), and the auto-activation stays in the call site.
  */
 export async function createRuntimeMetadata(
   type: RuntimeArtifactType,

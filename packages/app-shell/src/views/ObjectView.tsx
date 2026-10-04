@@ -49,6 +49,7 @@ import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { ViewConfigPanel } from './ViewConfigPanel.js';
 import { useMetadataClient } from './metadata-admin/useMetadata.js';
 import { persistRuntimeMetadata, createRuntimeMetadata, viewEnvelope, type ViewEnvelope } from './runtime-metadata-persistence.js';
+import { buildNewViewSpec } from './newViewSpec.js';
 import { ListViewSchema as SpecListViewSchema, normalizeFilterOperator, VIEW_CONSOLE_ROUND_TRIP_KEYS } from '@objectstack/spec/ui';
 import { CreateViewDialog } from './CreateViewDialog.js';
 import {
@@ -653,25 +654,18 @@ export function defaultListColumnsFromObject(
  * Create View dialog from the view tab bar, and the view-config panel's create
  * mode) hands to `viewEnvelope`.
  *
- * The door resolves its own fallback columns: the object's default business
- * columns (`defaultListColumnsFromObject`, so a new view never opens on a raw
- * id). Exported for `CreateViewDialog.viewTypeParse-11581.test.tsx`. @internal
+ * This door resolves only its own fallback columns: the object's default
+ * business columns (`defaultListColumnsFromObject` keeps the framework-injected
+ * `owner_id` / audit columns out of the lead, #2702 / #2777, so a new view
+ * never opens on a raw id). The spec itself, with every type-specific rule
+ * (the columns mirrored into `kanban.columns` and `gallery.visibleFields`), is
+ * built by `buildNewViewSpec`, the one builder this door shares with "Save as
+ * view" (objectui#11581).
+ *
+ * Exported for `CreateViewDialog.viewTypeParse-11581.test.tsx`. @internal
  */
 export function buildAddViewSpec(config: Record<string, any>, objectDef: any): Record<string, any> {
-    const defaultColumns = defaultListColumnsFromObject(objectDef, 5);
-    const incomingColumns = Array.isArray(config.columns) && config.columns.length > 0
-        ? config.columns
-        : defaultColumns;
-    const spec: Record<string, any> = { ...config, columns: incomingColumns };
-    if (config.type === 'kanban') {
-        spec.kanban = { ...(spec.kanban || {}), columns: incomingColumns };
-    } else if (config.type === 'gallery') {
-        const existing = spec.gallery || {};
-        if (!Array.isArray(existing.visibleFields) || existing.visibleFields.length === 0) {
-            spec.gallery = { ...existing, visibleFields: incomingColumns };
-        }
-    }
-    return spec;
+    return buildNewViewSpec(config, { fallbackColumns: defaultListColumnsFromObject(objectDef, 5) });
 }
 
 /**
@@ -1549,20 +1543,19 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         try {
             let createdId: string | undefined;
             if (metadataClient) {
-                // Prefill business columns only — the shared helper keeps the
-                // framework-injected `owner_id` / audit columns out of the lead
-                // (#2702, #2777), so a newly created view never opens on a raw id.
                 // ADR-0005 overlay path — write the full spec under a unique
                 // `name` via the metadata customization API instead of into
                 // the physical `sys_view` table (whose columns no longer
                 // accommodate the spec shape: arrays, nested objects, etc.).
+                // The spec comes from the builder "Save as view" also uses
+                // (`buildAddViewSpec` → `buildNewViewSpec`, objectui#11581):
+                // this door supplies only its default business columns.
                 const objectDef = objects?.find?.((o: any) => o.name === objectName);
                 const spec = buildAddViewSpec(config, objectDef);
                 // ADR-0034: a new view is created as an invisible per-item
                 // draft via the metadata seam; an explicit Publish promotes it.
-                // UI-layer concerns (default columns, kanban/gallery massaging
-                // above, and the auto-activation below) stay here; the canonical
-                // ViewItem envelope + qualified-name identity live in the seam.
+                // The auto-activation below stays here; the canonical ViewItem
+                // envelope + qualified-name identity live in the seam.
                 //
                 // #2767 P1: the qualified name `<object>.<key>` is used as BOTH
                 // the URL segment and `body.name`, so the sys_metadata row key,

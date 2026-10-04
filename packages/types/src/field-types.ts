@@ -1025,48 +1025,52 @@ export interface GridFieldMetadata extends BaseFieldMetadata {
    */
   columns?: SpecField['inlineColumns'];
   /**
-   * Minimum number of rows
+   * Minimum number of rows. The grid's Remove action is disabled at this many
+   * rows.
    */
-  min_rows?: number;
+  minRows?: number;
   /**
-   * Maximum number of rows
+   * Maximum number of rows. The grid's Add and Duplicate actions are disabled,
+   * and no blank entry row is drawn, at this many rows.
    */
-  max_rows?: number;
+  maxRows?: number;
   /**
-   * Whether to allow adding rows
+   * Whether to allow adding rows. On unless set `false`; each row's Duplicate
+   * action follows it.
    */
-  allow_add?: boolean;
+  allowAdd?: boolean;
   /**
-   * Whether to allow deleting rows
+   * Whether to allow deleting rows. On unless set `false`.
    */
-  allow_delete?: boolean;
+  allowDelete?: boolean;
   /**
    * Whether rows can be reordered by dragging. On unless set `false`; a
    * read-only or disabled grid never offers it. The one reorder key the grid
    * reads (objectui#11070 round 8 retired the undeclared `reorderable` it used
    * to read instead, which left this member taught and ignored).
    */
-  allow_reorder?: boolean;
+  allowReorder?: boolean;
   /**
    * The CHILD column whose values are summed into the grid's footer total —
    * the `name` of one of {@link columns}. No total shows when it is unset.
    *
-   * It is the spec's `amountField` (`FieldSchema.inlineAmountField` on a
+   * It carries the spec's `amountField` (`FieldSchema.inlineAmountField` on a
    * `master_detail` field, `subforms[].amountField` on a form view): the
    * master-detail and line-items adapters in `@object-ui/plugin-form` write
-   * that key here. ⛔ It is NOT the spec's `totalField`, the PARENT field that
-   * receives the rolled-up sum on save; the grid never writes the parent. The
-   * one spelling the grid reads (objectui#11070 round 8 retired its
-   * `amount_field` / `amountField` reads, which nothing produced).
+   * that value here. ⚠️ Same name, different meaning: on those spec surfaces
+   * `totalField` is the PARENT field that receives the rolled-up sum on save,
+   * and the grid never writes the parent. Here it names the child column
+   * summed. The one spelling the grid reads (objectui#11070 round 8 retired
+   * its `amount_field` / `amountField` reads, which nothing produced).
    */
-  total_field?: string;
+  totalField?: string;
   /**
    * Label of the grid's Add button, and the label its empty state names. The
    * locale's own wording shows when it is unset. It is the spec's
    * `subforms[].addLabel`, which the master-detail adapter in
    * `@object-ui/plugin-form` writes here.
    */
-  add_label?: string;
+  addLabel?: string;
   /**
    * The CHILD field the grid stamps with each row's index (0, 1, 2, …) on
    * every change, so the order a drag-reorder leaves survives a save and a
@@ -1081,8 +1085,90 @@ export interface GridFieldMetadata extends BaseFieldMetadata {
    * retired the detail's `sortField` override, which nothing wrote), and the
    * spec declares no inline sort-field key.
    */
-  sort_field?: string;
+  sortField?: string;
+
+  // ── The retired snake_case spellings (objectui#11610) ───────────────────
+  //
+  // These eight keys were the grid's field-level keys until objectui#11610
+  // renamed each to the camelCase member above, so that `@objectstack/spec`'s
+  // runtime form field can declare them under its camelCase rule for config
+  // keys. They retired at once, with no alias window: no reader reads them,
+  // and each is REFUSED BY NAME on every face: here, as a `?: never`
+  // tombstone; on the form-field zod mirror, as an alias refusal naming the
+  // camelCase key; and in the `grid` widget, which draws a named refusal
+  // instead of the grid. {@link GRID_FIELD_RETIRED_KEYS} maps each to its
+  // replacement.
+
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link minRows}.
+   * @deprecated Write `minRows`. Nothing reads this spelling.
+   */
+  min_rows?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link maxRows}.
+   * @deprecated Write `maxRows`. Nothing reads this spelling.
+   */
+  max_rows?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link allowAdd}.
+   * @deprecated Write `allowAdd`. Nothing reads this spelling.
+   */
+  allow_add?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link allowDelete}.
+   * @deprecated Write `allowDelete`. Nothing reads this spelling.
+   */
+  allow_delete?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link allowReorder}.
+   * @deprecated Write `allowReorder`. Nothing reads this spelling.
+   */
+  allow_reorder?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link totalField}.
+   * @deprecated Write `totalField`. Nothing reads this spelling.
+   */
+  total_field?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link addLabel}.
+   * @deprecated Write `addLabel`. Nothing reads this spelling.
+   */
+  add_label?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link sortField}.
+   * @deprecated Write `sortField`. Nothing reads this spelling.
+   */
+  sort_field?: never;
 }
+
+/** A member `GridFieldMetadata` declares beyond `BaseFieldMetadata`. */
+type GridFieldOwnKey = Exclude<keyof GridFieldMetadata, keyof BaseFieldMetadata>;
+
+/**
+ * The `grid` field's retired snake_case field-level keys, each mapped to the
+ * camelCase {@link GridFieldMetadata} member that replaced it (objectui#11610).
+ *
+ * The one list every face of the retirement reads: the form-field zod mirror
+ * declares an alias refusal per entry, naming the value as the key to write,
+ * and the `grid` widget refuses a field carrying any entry, naming the same
+ * replacement. A key or a value that is not one of `GridFieldMetadata`'s own
+ * members fails to compile here; that the keys are exactly its `?: never`
+ * tombstones, and the values exactly its camelCase keys, is pinned in
+ * `__tests__/grid-field-keys-camelcase-11610.test.ts`.
+ */
+export const GRID_FIELD_RETIRED_KEYS = {
+  min_rows: 'minRows',
+  max_rows: 'maxRows',
+  allow_add: 'allowAdd',
+  allow_delete: 'allowDelete',
+  allow_reorder: 'allowReorder',
+  total_field: 'totalField',
+  add_label: 'addLabel',
+  sort_field: 'sortField',
+} as const satisfies { readonly [K in GridFieldOwnKey]?: GridFieldOwnKey };
+
+/** A retired snake_case spelling of a `grid` field-level key: a key of {@link GRID_FIELD_RETIRED_KEYS}. */
+export type GridFieldRetiredKey = keyof typeof GRID_FIELD_RETIRED_KEYS;
 
 export interface ColorFieldMetadata extends BaseFieldMetadata {
   type: 'color';

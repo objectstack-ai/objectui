@@ -57,7 +57,7 @@ const editableGrid = (language: 'zh' | 'en') =>
     <GridField
       value={rows}
       onChange={() => {}}
-      field={{ columns, total_field: 'amount' } as never}
+      field={{ columns, totalField: 'amount' } as never}
       onRowExpand={() => {}}
     />,
   );
@@ -117,7 +117,7 @@ describe('GridField chrome resolves through the i18n catalogue (objectui#11145)'
   it('zh: the read-only grid\'s footer reads 合计 too', async () => {
     inLanguage(
       'zh',
-      <GridField value={rows} onChange={() => {}} field={{ columns, total_field: 'amount' } as never} readonly />,
+      <GridField value={rows} onChange={() => {}} field={{ columns, totalField: 'amount' } as never} readonly />,
     );
 
     const table = await screen.findByTestId('line-items-readonly');

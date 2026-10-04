@@ -5147,10 +5147,12 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // Round 3 added `returnType` / `summaryOperations`, and round 7 the `grid`
   // widget's `columns` (the spec's `inlineColumns` list, so a spec bump that
   // moves the inline grid column moves ONE side too). Round 10 added the `grid`
-  // widget's eight field-level keys (`min_rows` … `sort_field`); those are
-  // LOCAL on both sides (the TS twin is `GridFieldMetadata`'s member by
-  // reference, and the spec declares none of them), so they add no spec
-  // crossing and leave this membership resting on the members above.
+  // widget's eight field-level keys (`minRows` … `sortField` since
+  // objectui#11610, whose snake_case spellings stay as alias refusals paired
+  // with `?: never` tombstones); those are LOCAL on both sides (the TS twin is
+  // `GridFieldMetadata`'s member by reference, and the spec declares none of
+  // them), so they add no spec crossing and leave this membership resting on
+  // the members above.
   'form.zod.ts#FormFieldSchema',
   'form.zod.ts#SelectOptionSchema',
   'layout.zod.ts#PageNodeSchema',

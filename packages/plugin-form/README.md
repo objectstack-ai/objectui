@@ -66,7 +66,9 @@ The package entry exports these — components, their prop/schema types, the
 layout helpers, the two create-payload rules a second form renderer needs
 (see [`required` + a runtime default](#required-or-requiredwhen--a-runtime-default))
 and the section-group resolver a third one needs
-(see [Resolving `sections[].group` outside this package](#resolving-sectionsgroup-outside-this-package)).
+(see [Resolving `sections[].group` outside this package](#resolving-sectionsgroup-outside-this-package)),
+with `sectionEntryName` to read the entries it returns
+(see [What a section's `fields` entries draw](#what-a-sections-fields-entries-draw)).
 There is no aggregate map among them:
 
 ```typescript
@@ -100,6 +102,7 @@ import {
   omitServerResolvedDefaults,
   isRequiredInForm,
   resolveSectionGroupReferences,
+  sectionEntryName,
 } from '@object-ui/plugin-form';
 
 import type {
@@ -450,6 +453,14 @@ the pool holds, exactly as the other five layouts draw it (objectui#11615). A
 `simple` form whose sections list only inline entries is therefore a
 self-contained collector, like the inline wizard below — see
 [What a form submits to](#what-a-form-submits-to).
+
+Code that reads a section's entries — a host holding the sections
+`resolveSectionGroupReferences` returns, say — names each one with
+`sectionEntryName(entry)`: the string itself, the `{ field }` entry's `field`,
+the inline entry's `name` (`undefined` when the entry names nothing). Narrowing
+by hand and reading `.name` off every object entry reads `undefined` off a
+`{ field }` entry, and `ObjectFormSection.fields` now types that read as an
+error.
 
 ### Column width of a sectioned form
 

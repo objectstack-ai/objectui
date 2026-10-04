@@ -44,7 +44,7 @@
 
 import { describe, it, expect, afterEach, beforeEach, vi } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
-import { resolveSectionGroupReferences } from '@object-ui/plugin-form';
+import { resolveSectionGroupReferences, sectionEntryName } from '@object-ui/plugin-form';
 import { SchemaForm } from './SchemaForm';
 import type { FormSectionSpec, FormViewSpec } from './form-spec';
 import type { RichMetadataTypeEntry } from './useMetadata';
@@ -136,13 +136,20 @@ function renderForm(form: FormViewSpec): { error: Error | undefined; ids: string
  * The field names the shared resolver assigns to each section, given exactly
  * the inputs `SchemaForm` hands it — the answer `FormPage` gives for the same
  * section over an object that does not declare the group.
+ *
+ * Each entry is named by its OWN arm through `sectionEntryName`, the form
+ * package's one spelling of the identity rule (objectui#11615): a bare string
+ * is the name, the form view's `{ field }` entry names its field by `field`,
+ * and an inline `FormField` by `name`. Reading `.name` off every object entry
+ * typed only while the section type claimed every object entry was an inline
+ * `FormField`; on a `{ field }` entry it read `undefined`.
  */
-function resolverFieldNames(form: FormViewSpec): string[][] {
+function resolverFieldNames(form: FormViewSpec): Array<Array<string | undefined>> {
   const resolved = resolveSectionGroupReferences(
     form.sections as unknown as Parameters<typeof resolveSectionGroupReferences>[0],
     { objectName: SCHEMA_ID, formType: form.type, objectDef: null, resolvable: false },
   ) ?? [];
-  return resolved.map((s) => (s.fields ?? []).map((f) => (typeof f === 'string' ? f : f.name)));
+  return resolved.map((s) => (s.fields ?? []).map(sectionEntryName));
 }
 
 let consoleError: ReturnType<typeof vi.spyOn>;

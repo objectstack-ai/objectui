@@ -162,6 +162,12 @@ the pool holds, exactly as the other five layouts draw it (objectui#11615). A
 self-contained collector: with no data source and no `submitHandler`, its
 `onSuccess` receives the collected values, as an inline wizard's does.
 
+Code that reads a section's entries names each one with `sectionEntryName(entry)`
+from `@object-ui/plugin-form`: the string itself, the `{ field }` entry's
+`field`, the inline entry's `name` (`undefined` when the entry names nothing).
+Reading `.name` off every object entry reads `undefined` off a `{ field }`
+entry, and `ObjectFormSection.fields` types that read as an error.
+
 ### Column width of a sectioned form
 
 A sectioned form renders as ONE grid. The form view's `columns` (spec

@@ -407,8 +407,17 @@ export function FlowCanvas({
 
   const onNodePointerDown = React.useCallback(
     (id: string) => (e: React.PointerEvent) => {
-      if (!editable || e.button !== 0) return;
+      if (e.button !== 0) return;
+      // objectui#11546 — a press on a node that answers it (a drag when
+      // editable, a select in design mode) is the node's, never the
+      // background's. Reaching `onBgPointerDown` clears the selection and takes
+      // pointer capture on the viewport, so the browser fires the click at the
+      // viewport and the node's own select never runs. A read-only design
+      // canvas withholds only the drag; a press on a node that answers neither
+      // still pans.
+      if (!editable && !designMode) return;
       e.stopPropagation();
+      if (!editable) return;
       const origin = positionOf(id);
       dragRef.current = {
         nodeId: id,
@@ -420,7 +429,7 @@ export function FlowCanvas({
       };
       (e.currentTarget as HTMLElement).setPointerCapture?.(e.pointerId);
     },
-    [editable, positionOf],
+    [designMode, editable, positionOf],
   );
 
   const onNodePointerMove = React.useCallback(

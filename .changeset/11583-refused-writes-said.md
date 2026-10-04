@@ -20,7 +20,13 @@ change:
 Each now raises the refusal through the console's error toast, with the save door's own
 message: the field-anchored issues of a validation refusal, one per line, or the refusal's text.
 The draft bar's toasts lead with "Publish failed" or "Discard failed", two new strings in all
-ten language packs; the others lead with "Failed to save".
+ten language packs; the others lead with "Failed to save". Set as default, which already raised
+an untranslated "Failed to set default view" with no reason, now does the same.
+
+The report editor waits for its save. It closes once the report is saved; a refused save leaves
+it open with the edit in place, so Save can be pressed again (it used to close at once, and
+reopening it showed the stored report). Save is disabled, and the editor read-only, while the
+save is in flight.
 
 The view-config panel waits for the save before it reports the edit as saved. A refused save
 leaves the panel dirty, so Save stays enabled for a retry, and the "unpublished changes"

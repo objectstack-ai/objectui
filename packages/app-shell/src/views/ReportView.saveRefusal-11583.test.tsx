@@ -25,8 +25,19 @@
  * `MetadataClient` does. The panel's spec inspector is reduced to one edit
  * button, and the draft bar (its own reads) to nothing.
  *
+ * ## The patch round: the editor waits for the save (objectui#11583)
+ *
+ * `ReportConfigPanel.handleSave` called `onSave`, cleared its dirty flag and
+ * closed before the save settled, so after a refused save the panel was gone
+ * and a reopen showed the stored report: the edit was lost. Now
+ * `ReportView.saveSchema` resolves whether it saved, and the panel closes
+ * only when the save lands. A refused save leaves it open, with the edit in
+ * the inspector and Save live.
+ *
  * Direction, written before the run: on the unmodified tree the refused case
- * goes RED (no `toast.error`), and the control stays GREEN.
+ * goes RED (no `toast.error`), and the control stays GREEN. The patch round's
+ * assertions went RED on the first round's head for their own reason (the
+ * panel closed), and its control stays GREEN.
  */
 
 import * as React from 'react';
@@ -51,8 +62,13 @@ vi.mock('@object-ui/plugin-dashboard', async (importOriginal) => ({
 }));
 // The panel's spec inspector, reduced to one edit: a new title.
 vi.mock('./metadata-admin/inspectors/ReportDefaultInspector', () => ({
-  ReportDefaultInspector: ({ onPatch }: any) => (
-    <button type="button" data-testid="stub-report-edit" onClick={() => onPatch({ label: 'Revenue EDITED' })}>
+  ReportDefaultInspector: ({ onPatch, draft }: any) => (
+    <button
+      type="button"
+      data-testid="stub-report-edit"
+      data-label={String(draft?.label)}
+      onClick={() => onPatch({ label: 'Revenue EDITED' })}
+    >
       edit
     </button>
   ),
@@ -148,6 +164,12 @@ describe('the report editor\'s Save says a refused save (objectui#11583, ReportV
     expect([type, name, opts]).toEqual(['report', 'revenue_by_month', { mode: 'draft' }]);
     expect(body).toMatchObject({ label: 'Revenue EDITED' });
     expect(refresh).not.toHaveBeenCalled();
+    // The patch round: the editor stays open with the edit intact, and Save
+    // is live for a retry (it used to close before the save settled, and a
+    // reopen showed the stored report).
+    expect(screen.getByTestId('report-config-panel')).toBeTruthy();
+    expect(screen.getByTestId('stub-report-edit').getAttribute('data-label')).toBe('Revenue EDITED');
+    await waitFor(() => expect((screen.getByTestId('report-config-save') as HTMLButtonElement).disabled).toBe(false));
   });
 
   it('a save that lands raises nothing and refreshes the read (control)', async () => {
@@ -157,5 +179,7 @@ describe('the report editor\'s Save says a refused save (objectui#11583, ReportV
 
     await waitFor(() => expect(refresh).toHaveBeenCalled());
     expect(toast.error).not.toHaveBeenCalled();
+    // A landed save closes the editor, as it always did.
+    await waitFor(() => expect(screen.queryByTestId('report-config-panel')).toBeNull());
   });
 });

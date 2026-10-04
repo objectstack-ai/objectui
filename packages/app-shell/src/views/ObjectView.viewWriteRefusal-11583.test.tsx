@@ -23,9 +23,13 @@
  *   client-side permission gate's refusal; every other refusal, a server 403
  *   included, was `console.error` only.
  *
- * Rename, set-as-default and delete already said a refusal; they are pinned
- * here as controls, so the census in `writeRefusalCensus-11583.test.ts` can
- * name a pin for every surfaced row.
+ * - `handleSetDefaultView` raised the untranslated literal
+ *   'Failed to set default view', with no description, so the refusal's own
+ *   reason never reached the user (the objectui#11583 patch round).
+ *
+ * Rename and delete already said a refusal; they are pinned here as
+ * controls, so the census in `writeRefusalCensus-11583.test.ts` can name a
+ * pin for every surfaced row.
  *
  * ## What runs
  *
@@ -42,7 +46,9 @@
  * Direction, written before the run: on the unmodified tree the refused cases
  * of the panel, pin, reorder and toolbar toggle go RED (no `toast.error`; the
  * panel's Save disables and the indicator shows), and every control stays
- * GREEN, since it pins behaviour this change does not move.
+ * GREEN, since it pins behaviour this change does not move. The
+ * set-as-default case was added in the patch round and went RED on the first
+ * round's head for its own reason: a toast, but no description.
  */
 
 import * as React from 'react';
@@ -411,7 +417,34 @@ describe('a toolbar toggle says a refused write (objectui#11583, persistViewPatc
   });
 });
 
-describe('rename, set-as-default and delete already said a refusal (controls, objectui#11583: handleRenameView, handleSetDefaultView, handleDeleteView)', () => {
+describe('set-as-default says a refused write with the door\'s message (objectui#11583, handleSetDefaultView)', () => {
+  it('a refused set-as-default raises the door\'s message, not a bare literal', async () => {
+    const dataSource = makeDataSource({
+      updateView: vi.fn(async () => { throw refusal('Setting a default view requires the Manage Metadata permission'); }),
+    });
+    await mountOnSavedView(dataSource);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('stub-set-default'));
+    });
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
+    expect(errorDescription()).toContain('Setting a default view requires the Manage Metadata permission');
+    expect(vi.mocked(toast.error).mock.calls[0][0]).not.toBe('Failed to set default view');
+    expect((dataSource as any).updateView).toHaveBeenCalledWith(OBJECT_NAME, SAVED_ID, { isDefault: true });
+  });
+
+  it('a set-as-default that lands raises nothing (control)', async () => {
+    const dataSource = makeDataSource();
+    await mountOnSavedView(dataSource);
+    await act(async () => {
+      fireEvent.click(screen.getByTestId('stub-set-default'));
+    });
+    await waitFor(() => expect((dataSource as any).updateView).toHaveBeenCalledWith(OBJECT_NAME, SAVED_ID, { isDefault: true }));
+    await settle();
+    expect(toast.error).not.toHaveBeenCalled();
+  });
+});
+
+describe('rename and delete already said a refusal (controls, objectui#11583: handleRenameView, handleDeleteView)', () => {
   it('a refused rename raises a toast', async () => {
     const dataSource = makeDataSource({
       updateView: vi.fn(async () => { throw refusal('Renaming refused'); }),
@@ -422,18 +455,6 @@ describe('rename, set-as-default and delete already said a refusal (controls, ob
     });
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
     expect((dataSource as any).updateView).toHaveBeenCalledWith(OBJECT_NAME, SAVED_ID, { label: 'Renamed' });
-  });
-
-  it('a refused set-as-default raises a toast', async () => {
-    const dataSource = makeDataSource({
-      updateView: vi.fn(async () => { throw refusal('Default refused'); }),
-    });
-    await mountOnSavedView(dataSource);
-    await act(async () => {
-      fireEvent.click(screen.getByTestId('stub-set-default'));
-    });
-    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1));
-    expect((dataSource as any).updateView).toHaveBeenCalledWith(OBJECT_NAME, SAVED_ID, { isDefault: true });
   });
 
   it('a refused delete raises a toast', async () => {

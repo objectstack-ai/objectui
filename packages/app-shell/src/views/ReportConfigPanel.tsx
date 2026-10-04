@@ -47,8 +47,14 @@ export interface ReportConfigPanelProps {
   onClose: () => void;
   /** The current report definition (flat spec Report document). */
   config: Record<string, any> | null;
-  /** Persist all draft changes. */
-  onSave: (config: Record<string, any>) => void;
+  /**
+   * Persist all draft changes. Return a promise of the outcome to have the
+   * panel wait for it (objectui#11583): it clears its dirty state and closes
+   * only when the promise resolves to anything but `false`. `false` or a
+   * rejection leaves it open and dirty, with the edit in place, so it can be
+   * saved again. A host that returns nothing is read as saved at once.
+   */
+  onSave: (config: Record<string, any>) => void | Promise<boolean>;
   /** Called on every field change so the host can drive a live preview. */
   onFieldChange?: (key: string, value: any, draft?: Record<string, any>) => void;
   /**
@@ -84,6 +90,9 @@ export function ReportConfigPanel({
   const locale = useMetadataLocale();
   // Unsaved-edits flag — gates Publish (mirrors studio's "save first").
   const [dirty, setDirty] = useState(false);
+  // A save is in flight: Save is disabled and the inspector read-only until it
+  // settles, so no edit lands in a window the save does not carry.
+  const [saving, setSaving] = useState(false);
 
   // Draft state seeded from `config`. Rebuilt only when the source identity
   // changes (the host stabilizes `config` and bumps it on open / save) — never
@@ -113,8 +122,20 @@ export function ReportConfigPanel({
     }
   }, [onFieldChange]);
 
-  const handleSave = useCallback(() => {
-    onSave(draftRef.current);
+  const handleSave = useCallback(async () => {
+    // objectui#11583: the edit is reported as saved, and the panel closed,
+    // only once the host says the save landed. A refused save keeps the panel
+    // open and dirty with the edit in place, so Save can be pressed again.
+    setSaving(true);
+    let landed: boolean;
+    try {
+      landed = (await onSave(draftRef.current)) !== false;
+    } catch {
+      landed = false;
+    } finally {
+      setSaving(false);
+    }
+    if (!landed) return;
     setDirty(false);
     onClose();
   }, [onSave, onClose]);
@@ -173,7 +194,7 @@ export function ReportConfigPanel({
           type="report"
           name={typeof draft.name === 'string' ? draft.name : ''}
           draft={draft}
-          readOnly={false}
+          readOnly={saving}
           locale={locale}
           onPatch={handlePatch}
         />
@@ -194,7 +215,7 @@ export function ReportConfigPanel({
         <Button variant="ghost" size="sm" onClick={handleDiscard} data-testid="report-config-discard">
           {t('common.cancel', { defaultValue: 'Cancel' })}
         </Button>
-        <Button size="sm" onClick={handleSave} data-testid="report-config-save">
+        <Button size="sm" onClick={handleSave} disabled={saving} data-testid="report-config-save">
           {t('common.save', { defaultValue: 'Save' })}
         </Button>
       </div>

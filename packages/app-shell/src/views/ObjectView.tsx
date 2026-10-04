@@ -2332,7 +2332,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             setRefreshKey(k => k + 1);
         } catch (err) {
             console.error('[ViewTabBar] Failed to set default view:', err);
-            toast.error('Failed to set default view');
+            // objectui#11583: said like its siblings, with the door's message.
+            toast.error(t('form.saveError'), {
+                description: formatMetadataError(err),
+                classNames: { description: 'whitespace-pre-line' },
+            });
         }
     }, [dataSource, objectName, savedViews, isSavedView, t]);
 

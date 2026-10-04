@@ -118,7 +118,7 @@ const LEDGER: Row[] = [
   {
     file: 'ObjectView.tsx', symbol: 'handleSetDefaultView', callee: 'dispatchViewPatches', calls: 1,
     kind: 'surfaces', pin: 'ObjectView.viewWriteRefusal-11583.test.tsx',
-    reason: 'Set as default: says a refusal with a toast; predates this census.',
+    reason: 'Set as default: a toast with the door\'s message; it was a bare untranslated literal with no description until the objectui#11583 patch round.',
   },
   {
     file: 'ObjectView.tsx', symbol: 'handleReorderViews', callee: 'dispatchViewPatches', calls: 1,
@@ -128,7 +128,7 @@ const LEDGER: Row[] = [
   {
     file: 'ReportView.tsx', symbol: 'saveSchema', callee: 'persistRuntimeMetadata', calls: 1,
     kind: 'surfaces', pin: 'ReportView.saveRefusal-11583.test.tsx',
-    reason: 'The report editor\'s Save (once per press, not per edit): a toast with the door\'s message (objectui#11583).',
+    reason: 'The report editor\'s Save (once per press, not per edit): a toast with the door\'s message, and the editor is told the save failed, so it stays open with the edit (objectui#11583).',
   },
   {
     file: 'RuntimeDraftBar.tsx', symbol: 'handlePublish', callee: 'publishRuntimeMetadata', calls: 1,

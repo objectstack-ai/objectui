@@ -2,8 +2,8 @@
   "number": 11601,
   "kind": "issue",
   "title": "Studio report inspector: a `joined` report's `blocks` repeater saves a block with no `dataset`, which objectstack's ReportSchema now refuses at `blocks.N.dataset`",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:reports",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-zhuang"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-04T08:54:39Z",
-  "updated_at": "2026-10-04T09:55:17Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-04T11:53:36Z",
+  "closed_at": "2026-10-04T11:52:09Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11601",
   "body": "Category ① — a product defect with a named producer (`reach:` named producer, Studio's report inspector). ⛔ Not a claim.\n\nFiled by the `domain:spec#1` dev on objectstack-ai/objectstack#21702 (`session_01T9u38rswFp5Rw8DswRUReJ`), as that card's triage direction requires: the producer of a joined-report block with no `dataset` is carded, not left to fail at the next spec bump.\n\n## What changes on the objectstack side\n\nobjectstack-ai/objectstack#21702 (its PR is on branch `claude/issue-21702-joined-block-dataset`) makes the joined arm of `ReportSchema`'s refinement refuse every block of a `joined` report that binds no `dataset`: one `custom` issue per such block at `blocks.N.dataset`, naming the block, with the prescription \"Bind the block to a dataset: set its `dataset` to the dataset whose measures (`values`) and dimensions (`rows`) it shows.\" `JoinedReportBlockSchema.dataset` stays optional on the block shape, so the block's JSON Schema `required` is still `[\"name\"]` alone, and no TypeScript type changes.\n\n## The producer\n\nRead at objectui `2e818d0b51`; the same code sits at objectstack's `.objectui-sha` pin `ab18797215`.\n\n- `ReportDefaultInspector.tsx` renders a joined report's blocks through `SchemaForm` with the spec's `reportForm` \"Joined blocks\" repeater. `getReportForm()` prunes only top-level section fields, so the block row's `dataset` column survives.\n- `SchemaForm.tsx` `RepeaterField`'s `add()` seeds a blank row with every column `undefined`. The block row's `dataset` column is a free-text input: the row spec is `{ field: 'dataset', label: 'Dataset' }`, with no `ref:dataset` widget and no `required`, while the top-level binding gets a dataset picker.\n- So an author who adds a block and fills only its name can save it. The bundled `ReportSchema` (`clientValidation.ts`) and the save door both accept it today, and the report then draws nothing for that block: `DatasetReportRenderer` hands an empty name to the block's table, whose query hook goes idle, and a report whose blocks all lack one fails `isDatasetReport` and falls through to the presentation bridge.\n\n## What happens at the spec bump that carries the refusal\n\nLive client validation flags the block at `blocks.N.dataset`, and `PUT /api/v1/meta/report/NAME` answers `422 INVALID_METADATA` at the same path. The author can fix it in the Properties tab, because the `dataset` column is there, but the form neither offers the dataset catalog for it nor marks it required, so a freshly added block is invalid by construction.\n\n## Fix direction, for the acting seat to measure first\n\n- Offer the block row's `dataset` as the dataset picker and mark it required, so a block is bound in the form before save.\n- The row spec comes from objectstack's `reportForm` (`packages/spec/src/ui/report.form.ts`, the \"Joined blocks\" repeater). If `RepeaterField` honours a row field's `widget` and `required`, the fix may be that row spec in objectstack (`widget: 'ref:dataset'`, `required: true`) rather than objectui code. Measure which before editing.\n- The objectui fixtures that parse `ReportSchema` with a joined report bind every block (`ReportDefaultInspector.joinedClearsBinding-10746.test.tsx`, `packages/types/src/__tests__/spec-report.test.ts`), so the bump should turn none of them red through this refusal. That is a reading of the files, not a run.\n\n## Acting reader\n\nThe objectui seat that takes the `@objectstack/spec` bump carrying the objectstack-ai/objectstack#21702 refusal (app-shell, metadata-admin, the report inspector).\n\n## Dedupe\n\nMCP `search_issues`, scoped to objectstack-ai/objectui:\n\n- 「joined report block dataset repeater Studio report inspector」: 5 hits, all closed (#10964, #10746, #10940, #10814, #1966). None names a block saved with no `dataset`. #10746 (the type-switch clear) is the known-hit control; #1966 asked for a curated joined-block inspector and is closed.\n- 「joined block dataset」: 0 hits.\n\nDedupe words: `joined block dataset required repeater`, `ReportDefaultInspector blocks repeater dataset`, `blank block row no dataset`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

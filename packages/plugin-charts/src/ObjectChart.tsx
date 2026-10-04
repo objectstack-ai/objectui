@@ -1657,6 +1657,19 @@ const OBJECT_CHART_DATA_SOURCE: ElementDataSourceMapping = {
 };
 
 /**
+ * Whether a chart node has no record source but its object (objectui#11605):
+ * no inline `data`, no `dataset`, no `bind` path. `ObjectChart` fetches only by
+ * `objectName` or `dataset`, and draws inline or bound rows without either.
+ *
+ * `data` and `bind` are read as the `BaseSchema` members they are. `dataset` is
+ * this block's own key and no `BaseSchema` member, so it is read by name with
+ * `Reflect.get` rather than through a second type literal that would re-declare
+ * the base members beside it.
+ */
+const chartNeedsObject = (node: BaseSchema): boolean =>
+  node.data == null && node.bind == null && Reflect.get(node, 'dataset') == null;
+
+/**
  * Registry shell for `object-chart` — maps the spec's
  * `PageComponentSchema.dataSource` binding onto the keys {@link ObjectChart}
  * reads (objectstack#6953).
@@ -1684,19 +1697,6 @@ const OBJECT_CHART_DATA_SOURCE: ElementDataSourceMapping = {
  * no new type is minted. Pinned by
  * `__tests__/ObjectChartBlock.props-8885.test.tsx`.
  */
-/**
- * Whether a chart node has no record source but its object (objectui#11605):
- * no inline `data`, no `dataset`, no `bind` path. `ObjectChart` fetches only by
- * `objectName` or `dataset`, and draws inline or bound rows without either.
- *
- * Read through a weak type rather than off `BaseSchema` by name: `dataset` is
- * this block's key, not a `BaseSchema` member.
- */
-const chartNeedsObject = (node: BaseSchema): boolean => {
-  const sources = node as { data?: unknown; dataset?: unknown; bind?: unknown };
-  return sources.data == null && sources.dataset == null && sources.bind == null;
-};
-
 export const ObjectChartBlock = elementDataSourceBlock(
   (props: Omit<ObjectChartProps, 'schema'> & { schema: BaseSchema }) => (
     <ElementDataSourceGate

@@ -109,7 +109,7 @@ const comparisonFromOf = (src: { aggregate: any }) =>
  * What it buys: objectui#8885 (PR objectui#8895) declares `compareTo` on
  * `ObjectChartSchema` bound to that same symbol. With `unknown` here, the
  * literal below stops compiling the moment the two PRs are UNIONISED — a defect
- * neither branch can see alone, because on this branch the key still rides
+ * neither branch could see alone, because on this branch the key still rode
  * `BaseSchema`'s index signature. Measured on the merge of the two heads: the
  * union's `tsc -p tsconfig.test.json` reported this line, and it was masked in
  * the obvious reading because `type-check` is `tsc --noEmit && tsc -p

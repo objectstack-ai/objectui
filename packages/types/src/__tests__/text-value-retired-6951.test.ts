@@ -28,8 +28,9 @@
  *
  * ## Why a tombstone and not a deletion
  *
- * `BaseSchema` is `.passthrough()` on the Zod side and carries a
- * `[key: string]: any` index signature on the TS side, and the renderer no
+ * `BaseSchema` is `.passthrough()` on the Zod side and carried a
+ * `[key: string]: any` index signature on the TS side until objectui#8347 (a
+ * widened value still skips the excess-property check), and the renderer no
  * longer reads `value` at all. Deleting the member would therefore hand an
  * authored `value` the WORST outcome available: accepted, unvalidated, and
  * rendered as a blank. `?: never` / `retirementTombstone()` is this package's
@@ -309,9 +310,10 @@ describe('TextSchema.value is RETIRED — the TS half of the tombstone (objectui
   });
 
   it('refuses the retired key in the form authors actually write', () => {
-    // The leg that proves the tombstone survives `BaseSchema`'s
-    // `[key: string]: any`: if the index signature won, `value` would widen
-    // back to `any` here and the directive would go unused (TS2578).
+    // The leg that proved the tombstone survives `BaseSchema`'s
+    // `[key: string]: any` while it stood (objectui#8347 removed it): if the
+    // index signature had won, `value` would have widened back to `any`
+    // here and the directive would have gone unused (TS2578).
     const retiredDocument: TextSchemaTS = {
       type: 'text',
       // @ts-expect-error — `value` is RETIRED (objectui#6951); write `content`.

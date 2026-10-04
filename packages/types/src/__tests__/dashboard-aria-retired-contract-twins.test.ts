@@ -22,7 +22,7 @@
  * of #4631's "declared surfaces disagree".
  *
  * What the deletion changed at the type level, stated honestly: `BaseSchema`
- * carries `[key: string]: any`, so after the removal an authored `aria:` on a
+ * carried `[key: string]: any` then, so after the removal an authored `aria:` on a
  * dashboard literal still COMPILED — it fell to the index signature, and a
  * `@ts-expect-error` pin on an authored literal could not stick.
  *

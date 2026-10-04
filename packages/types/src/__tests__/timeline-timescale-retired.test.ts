@@ -31,12 +31,14 @@
  *
  * ## Why the tombstone, and not simply deleting the key
  *
- * `BaseSchema` is `.passthrough()` on the Zod side and carries a
- * `[key: string]: any` index signature on the TS side (objectui#5155 /
- * objectui#6269 own that ceiling). An UNDECLARED key is therefore accepted by
- * both halves, unvalidated. Deleting `timeScale` outright would hand the old
- * spelling exactly the silent no-op this card exists to prevent: it would parse
- * green, type-check green, and do nothing.
+ * `BaseSchema` is `.passthrough()` on the Zod side and carried a
+ * `[key: string]: any` index signature on the TS side until objectui#8347
+ * (objectui#5155 / objectui#6269 owned that ceiling). An UNDECLARED key is
+ * therefore accepted by the Zod half, unvalidated (and was by the TS half; since
+ * objectui#8347 only through a widened value). Deleting `timeScale` outright
+ * would hand the old spelling exactly the silent no-op this card exists to
+ * prevent: it would parse green, type-check green through a widened value, and
+ * do nothing.
  *
  * Keeping the key declared as `?: never` / `z.never().optional()` is what makes
  * the retirement audible. That is this package's tombstone convention —
@@ -151,9 +153,10 @@ describe('timeScale is RETIRED — the TS half of the tombstone (objectui#6355)'
   it('refuses the retired spelling in the form authors actually write', () => {
     // The assertion above reads the MEMBER's type. This one writes a DOCUMENT,
     // which is the shape an author (or an AI generating metadata) produces, and
-    // it is the leg that proves the tombstone survives `BaseSchema`'s
-    // `[key: string]: any`: if the index signature won, `timeScale` would widen
-    // back to `any` here and the directive would go unused (TS2578).
+    // it is the leg that proved the tombstone survives `BaseSchema`'s
+    // `[key: string]: any` while it stood (objectui#8347 removed it): if the
+    // index signature had won, `timeScale` would have widened back to `any`
+    // here and the directive would have gone unused (TS2578).
 
     const retiredDocument: TimelineSchemaTS = {
       type: 'timeline',

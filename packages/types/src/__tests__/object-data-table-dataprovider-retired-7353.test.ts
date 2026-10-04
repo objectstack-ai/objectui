@@ -20,8 +20,9 @@
  * ## Why a tombstone and not a deletion — the carrier decides
  *
  * `ObjectDataTableSchema` survives the retirement and extends `BaseSchema`:
- * `[key: string]: any` on the TS face, `.passthrough()` on the zod face. On
- * such a carrier a DELETED optional member is absorbed silently at any value —
+ * `.passthrough()` on the zod face, and `[key: string]: any` on the TS face
+ * until objectui#8347. On such a carrier a DELETED optional member was absorbed
+ * silently at any value (the zod face still keeps one) —
  * measured on this branch before the tombstone: an authored `dataProvider`
  * parsed green and was KEPT on the parsed value, and a malformed one that the
  * typed member used to refuse parsed green too. That is the silent no-op the
@@ -88,14 +89,17 @@ describe('objectui#7353 — the TS face refuses an authored dataProvider', () =>
       // @ts-expect-error `dataProvider` is a retirement tombstone (objectui#7353) — write `objectName`
       dataProvider: MALFORMED,
     };
-    // The contrast, pinned LIVE rather than in prose: an undeclared key carries
-    // no directive, because `BaseSchema`'s index signature absorbs it. That is
-    // what a deletion would have left `dataProvider` as.
+    // The contrast, pinned LIVE rather than in prose: an undeclared key carried
+    // no directive while `BaseSchema`'s index signature absorbed it — what a
+    // deletion would have left `dataProvider` as. objectui#8347 removed the
+    // signature, so it is refused too now, but as an undeclared key with no
+    // remedy named; the tombstone above is what names `objectName`.
+    // @ts-expect-error — `ObjectDataTableSchema` declares no `zzUndeclared7353` (objectui#8347)
     const undeclared: ObjectDataTableSchema = { type: 'object-data-table', zzUndeclared7353: 1 };
-    expect([wellFormed.type, malformed.type, undeclared.zzUndeclared7353]).toEqual([
+    expect([wellFormed.type, malformed.type, undeclared.type]).toEqual([
       'object-data-table',
       'object-data-table',
-      1,
+      'object-data-table',
     ]);
   });
 });

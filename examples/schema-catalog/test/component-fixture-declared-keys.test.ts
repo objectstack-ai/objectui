@@ -37,8 +37,9 @@
  *      is therefore round-trip equality, not `.success`.
  *   3. **Declared-elsewhere, refused by neither** — `direction` on a
  *      `radio-group`. `BaseSchema` is `.passthrough()` (`zod/base.zod.js:171`)
- *      AND carries `[key: string]: any` (`base.d.ts`), so zod and tsc both
- *      ACCEPT the key. The authority is that `RadioGroupSchema` declares
+ *      AND carried `[key: string]: any` (`base.d.ts`) until objectui#8347, so
+ *      zod and tsc both ACCEPTED the key (tsc refuses it in a typed literal
+ *      now). The authority is that `RadioGroupSchema` declares
  *      `orientation` (`form.d.ts:377`, `zod/form.zod.js:263`) and nothing reads
  *      `direction`. The probe must be structural — asserting `.success` here
  *      would assert nothing at all.

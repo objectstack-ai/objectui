@@ -619,8 +619,8 @@ export interface ContainerSchema extends BaseSchema {
  * erased every named member from the SHIPPED declaration, silently:
  * `Omit<T, K>` is `Pick<T, Exclude<keyof T, K>>`, and `keyof T` on a type
  * carrying a string index signature is `string | number` — the literal member
- * names are absorbed. `FlexSchema` inherits `BaseSchema`'s `[key: string]: any`
- * (objectui#5155), so `Exclude<string | number, 'type'>` is still
+ * names are absorbed. `FlexSchema` inherited `BaseSchema`'s `[key: string]: any`
+ * (objectui#5155) until objectui#8347, so `Exclude<string | number, 'type'>` is still
  * `string | number`, and the `Pick` reconstructed a type with the index
  * signature and NONE of the named members. Measured against the emitted
  * `dist/layout.d.ts`: `FlexSchema` declared 25 properties, `StackSchema`
@@ -783,7 +783,8 @@ export interface FlexSchema extends BaseSchema, FlexLayoutProps {
  * different set of steps (objectui#11474). The `Omit` here crosses
  * {@link FlexLayoutProps}, which carries no index signature, so it keeps every
  * other member's name; the objectui#6151 hazard is an `Omit` over a type that
- * inherits `BaseSchema`'s. `__tests__/stack-schema-emitted-members.test.ts`
+ * carries a string index signature, as every `BaseSchema` extender did until
+ * objectui#8347. `__tests__/stack-schema-emitted-members.test.ts`
  * measures the emitted declaration and holds the two member sets equal.
  */
 export interface StackSchema extends BaseSchema, Omit<FlexLayoutProps, 'gap'> {
@@ -957,9 +958,10 @@ export interface CardSchema extends BaseSchema {
    * one of the fallback readers whose `body` arm the ruling drops in the
    * same change as the `body`-only registrations converge.
    *
-   * Refused by name rather than deleted: `BaseSchema` carries
-   * `[key: string]: any` and the zod twin ends `.passthrough()`, so a
-   * deleted member is ACCEPTED silently and rendered by nothing. The
+   * Refused by name rather than deleted: the zod twin ends `.passthrough()`
+   * (and `BaseSchema` carried `[key: string]: any` until objectui#8347; a
+   * widened value still skips the excess-property check), so a deleted member
+   * is ACCEPTED silently and rendered by nothing. The
    * `?: never` is what makes `tsc` answer at the authoring site, and the
    * mirror's `aliasKeyRefusal` names `children` at parse time.
    *
@@ -1349,9 +1351,10 @@ export interface AspectRatioSchema extends BaseSchema {
    * whenever no `image` was set, so it is one of the fallback readers whose
    * `body` arm drops in the same change.
    *
-   * Refused by name rather than deleted: `BaseSchema` carries
-   * `[key: string]: any` and the zod twin ends `.passthrough()`, so a
-   * deleted member is ACCEPTED silently and rendered by nothing. The
+   * Refused by name rather than deleted: the zod twin ends `.passthrough()`
+   * (and `BaseSchema` carried `[key: string]: any` until objectui#8347; a
+   * widened value still skips the excess-property check), so a deleted member
+   * is ACCEPTED silently and rendered by nothing. The
    * `?: never` is what makes `tsc` answer at the authoring site, and the
    * mirror's `aliasKeyRefusal` names `children` at parse time.
    *
@@ -1664,9 +1667,10 @@ export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_
    * this key carried (objectui#8310 — one node OR a list) moved with it and
    * is restated on `children` below, because that is now the key it governs.
    *
-   * Refused by name rather than deleted: `BaseSchema` carries
-   * `[key: string]: any` and the zod twin ends `.passthrough()`, so a deleted
-   * member is ACCEPTED silently and rendered by nothing.
+   * Refused by name rather than deleted: the zod twin ends `.passthrough()`
+   * (and `BaseSchema` carried `[key: string]: any` until objectui#8347; a
+   * widened value still skips the excess-property check), so a deleted member
+   * is ACCEPTED silently and rendered by nothing.
    *
    * @deprecated Retired spelling of `children` — author `children`.
    */
@@ -1694,11 +1698,12 @@ export interface PageNodeSchema extends BaseSchema, Omit<SpecPage, (typeof PAGE_
    * WIDER parent — so nothing on the authoring path ever asked this key about
    * its arity. Pinned by `__tests__/page-body-arity-8310.test.ts`.
    *
-   * ⚠️ Bounded, and the bound was measured: `BaseSchema` carries
-   * `[key: string]: any`, so annotating an authored page catches a value of the
-   * WRONG TYPE (TS2322) and never a MISSPELLED key (an undeclared key is
+   * ⚠️ Bounded when written, and the bound was measured: `BaseSchema` carried
+   * `[key: string]: any`, so annotating an authored page caught a value of the
+   * WRONG TYPE (TS2322) and never a MISSPELLED key (an undeclared key was
    * absorbed by the index signature, zero diagnostics). This union repairs the
-   * first case only.
+   * first case only; objectui#8347 removed the signature, which closed the
+   * second on a fresh literal.
    */
   children?: SchemaNode | SchemaNode[];
   /**
@@ -1875,9 +1880,9 @@ export interface SemanticElementSchema extends BaseSchema {
  * a document carrying `h1`, and that document rendered and was refused.
  *
  * ⚠️ The per-tag keys below are declared on the WHOLE set, not per tag, so
- * `{ type: 'p', href: '…' }` type-checks. {@link BaseSchema} carries an index
- * signature, so it type-checked before this declaration existed too — this
- * narrows nothing and gains the author a named surface. `width` / `height` are
+ * `{ type: 'p', href: '…' }` type-checks. {@link BaseSchema} carried an index
+ * signature when this was declared, so it type-checked before this declaration
+ * existed too — this narrowed nothing and gained the author a named surface. `width` / `height` are
  * `string | number` rather than the registration's `number`, because the
  * renderer forwards them verbatim to the DOM attribute, which takes both.
  */

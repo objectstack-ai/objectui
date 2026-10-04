@@ -29,9 +29,10 @@
  *
  * ## Why the tombstone, and not simply deleting the key
  *
- * `BaseSchema` is `.passthrough()` on the Zod side and carries a
- * `[key: string]: any` index signature on the TS side. An UNDECLARED key is
- * accepted by both halves, unvalidated — deleting `toolbar` outright would
+ * `BaseSchema` is `.passthrough()` on the Zod side and carried a
+ * `[key: string]: any` index signature on the TS side until objectui#8347. An
+ * UNDECLARED key is accepted by the Zod half, unvalidated (and was by the TS
+ * half; since objectui#8347 only through a widened value) — deleting `toolbar` outright would
  * hand the authored spelling exactly the silent no-op this card exists to
  * close. `?: never` / `retirementTombstone()` is this package's convention —
  * {@link StaticTableColumn} (objectui#5474), `crud.ts` `confirm`
@@ -167,9 +168,10 @@ describe('DataTableSchema.toolbar is RETIRED — the TS half of the tombstone (o
   });
 
   it('refuses the retired key in the form authors actually write', () => {
-    // The leg that proves the tombstone survives `BaseSchema`'s
-    // `[key: string]: any`: if the index signature won, `toolbar` would widen
-    // back to `any` here and the directive would go unused (TS2578).
+    // The leg that proved the tombstone survives `BaseSchema`'s
+    // `[key: string]: any` while it stood (objectui#8347 removed it): if the
+    // index signature had won, `toolbar` would have widened back to `any`
+    // here and the directive would have gone unused (TS2578).
     const columns: TableColumn[] = [{ header: 'Name', accessorKey: 'name' }];
 
     const retiredDocument: DataTableSchemaTS = {

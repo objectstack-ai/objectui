@@ -64,7 +64,7 @@ const TextKeyProbe = ({ schema }: any) => (
  * The node a `TextKeyProbe` case authors directly as a `schema` prop
  * (objectui#11349): `BaseSchema` plus the two text keys the probe reads. The
  * literal is checked against this node rather than against the `BaseSchema`
- * the prop accepts, so its keys stay checked once objectui#8347 removes
+ * the prop accepts, so its keys stay checked now that objectui#8347 has removed
  * `BaseSchema`'s index signature.
  */
 type TextKeyProbeNode = BaseSchema & { type: 'test:probe-4795'; value?: string; title?: string };

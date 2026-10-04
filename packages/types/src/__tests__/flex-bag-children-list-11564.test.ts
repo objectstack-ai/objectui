@@ -21,8 +21,9 @@
  * TypeScript face the same member read `unknown[]`, so the list, the form a
  * `flex` node is authored in, took any entry while a single child was judged
  * as a node. With `BaseSchema`'s index signature present nothing showed, since
- * the signature absorbs a misspelled key either way; once objectui#8347
- * removes it, the list would have been the one unchecked node slot.
+ * the signature absorbed a misspelled key either way; once objectui#8347
+ * removed it, the list would have been the one unchecked node slot, which is
+ * why this card landed first.
  *
  * ## What is pinned here
  *
@@ -31,10 +32,11 @@
  *
  *   - the bag's `children` is one node or a list of nodes, the flat mirror's
  *     own member, and it is the only member that differs from the arm;
- *   - a closed node's misspelling inside the list is refused today. A
- *     spec-derived node carries no index signature, so it is the shape every
- *     node has after objectui#8347; the control is the same document typed
- *     the way the arm reads it, which compiles;
+ *   - a closed node's misspelling inside the list is refused. A spec-derived
+ *     node carries no index signature, which is the shape every node has had
+ *     since objectui#8347, so a node type that extends `BaseSchema` is refused
+ *     there too (the `text` row); the control is the same document typed the
+ *     way the arm reads it, which compiles;
  *   - an undeclared `type` and a nested array inside the list are refused,
  *     and a primitive entry compiles, as in every node slot.
  *
@@ -110,7 +112,11 @@ describe('objectui#11564: the flex bag\'s child list is typed as nodes', () => {
     // Control: the same misspelling as a single child was refused before this card too.
     // @ts-expect-error `contnt` is not a member of `element:text`'s bag
     const single: FlexBlockNode = { type: 'flex', properties: { children: { type: 'element:text', properties: { contnt: 'x' } } } };
-    expect([inList, armReading, single]).toHaveLength(3);
+    // Since objectui#8347 a node type that extends `BaseSchema` refuses a misspelling in the list
+    // too: `text` declares `content` (the well-formed list below writes it and compiles).
+    // @ts-expect-error `contnt` is no member of the `text` node
+    const extendsBase: FlexBlockNode = { type: 'flex', properties: { children: [{ type: 'text', contnt: 'x' }] } };
+    expect([inList, armReading, single, extendsBase]).toHaveLength(4);
   });
 
   it('a well-formed list compiles: declared nodes, primitives, a nested flex', () => {

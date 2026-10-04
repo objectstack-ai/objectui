@@ -16,8 +16,9 @@
  *
  * ## Why a REFUSAL and not a bare deletion
  *
- * `BaseSchemaCore` ends `.passthrough()` and the TS `BaseSchema` closes with an
- * index signature, so a dropped MEMBER key is KEPT, not refused. Deleting the
+ * `BaseSchemaCore` ends `.passthrough()` (and the TS `BaseSchema` closed with an
+ * index signature until objectui#8347), so a dropped MEMBER key is KEPT, not
+ * refused, on the zod face. Deleting the
  * two declarations would have left the silent accept exactly as it was and
  * thrown the diagnostic away with it. `retirementTombstone()` keeps the key
  * DECLARED and unwritable, which is what makes the refusal loud — and it keeps

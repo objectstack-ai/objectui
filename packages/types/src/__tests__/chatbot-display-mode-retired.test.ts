@@ -29,11 +29,12 @@
  *
  * ## Why a tombstone, and what it buys on THIS carrier
  *
- * `ChatbotSchema` extends `BaseSchema`, which carries `[key: string]: any`.
- * On such a carrier deleting an optional member is SILENT in every value shape
- * — the index signature defeats both excess-property checking and the
- * weak-type check — so the usual "a fresh literal would at least trip TS2353"
- * comfort does not exist here. Measured on this member with
+ * `ChatbotSchema` extends `BaseSchema`, which carried `[key: string]: any`
+ * when this was written. On such a carrier deleting an optional member was
+ * SILENT in every value shape — the index signature defeated both
+ * excess-property checking and the weak-type check — so the usual "a fresh
+ * literal would at least trip TS2353" comfort did not exist. Measured on this
+ * member then with
  * `tsc -p tsconfig.test.json`, `FloatingChatbotConfig` (no index signature)
  * lit as the control carrier in the same run:
  *
@@ -44,10 +45,11 @@
  *   | TOMBSTONED | TS2322             | TS2322          | TS2322               | clean          |
  *   | control    | —                  | —               | —                    | TS2353 / TS2559|
  *
- * Deleted, the member reads as `any` and even a wrong-typed value goes quiet.
- * Tombstoned, PRESENCE with any value is a compile error — a channel deletion
- * cannot produce on this carrier at all. The routes are loud-vs-silent, not
- * louder-vs-quieter, which is the discriminator's carrier branch as corrected
+ * Deleted, the member read as `any` and even a wrong-typed value went quiet.
+ * objectui#8347 removed the signature, so a deletion now trips TS2353 on a
+ * fresh literal, unnamed, and still rides a widened value clean. Tombstoned,
+ * PRESENCE with any value is a compile error in every shape, by name. The
+ * routes were loud-vs-silent, and through a widened value they still are, which is the discriminator's carrier branch as corrected
  * on objectui#7678. Prong 2 licenses the tombstone: the key was advertised in
  * the 3.3.0 release record (`CHANGELOG.md:578`) and its comment taught it as
  * the presentation switch.
@@ -56,8 +58,9 @@
  * type-checks its tests through `tsconfig.test.json`, so re-widening the
  * declaration fails the build on the unused directive. A green `vitest` run is
  * NOT evidence about them — type assertions are erased before it runs. The
- * "deleted" row is pinned LIVE below, as an undeclared key that carries no
- * directive, so the contrast cannot rot into prose.
+ * "deleted" row is pinned LIVE below, as an undeclared key (refused on the
+ * fresh literal, carried by the widened value), so the contrast cannot rot
+ * into prose.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -148,11 +151,14 @@ describe('the `displayMode` tombstone makes authoring a `tsc` error on both face
     expect(onChatbot.processVisibility).toBe('debug');
   });
 
-  it('an UNDECLARED key rides a fresh literal AND a widened value on this carrier — the DELETED row, live', () => {
-    // No directive on purpose: this is where `displayMode` would sit had it
-    // been deleted instead of tombstoned. `BaseSchema`'s `[key: string]: any`
-    // absorbs the key at any value in every shape, so a deletion here is not
-    // "quieter" than a tombstone — it produces no diagnostic at all.
+  it('an UNDECLARED key is refused on a fresh literal and still rides a widened value — the DELETED row, live', () => {
+    // This is where `displayMode` would sit had it been deleted instead of
+    // tombstoned. Until objectui#8347 `BaseSchema`'s `[key: string]: any`
+    // absorbed the key at any value in every shape, so a deletion produced no
+    // diagnostic at all. The signature is gone: a fresh literal is refused,
+    // with no name for the remedy, while a widened value is still not
+    // re-checked (no excess-property check on a non-fresh object).
+    // @ts-expect-error — `ChatbotSchema` declares no `bogusUndeclared` (objectui#8347)
     const fresh: TsChatbotSchema = { type: 'chatbot', messages, bogusUndeclared: 1 };
     const raw = { type: 'chatbot' as const, messages, bogusUndeclared: 1 };
     const widened: TsChatbotSchema = raw;

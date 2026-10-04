@@ -135,7 +135,7 @@ export type {
 // the `./zod` entry.
 export type { ExpressionWire } from './expression.js';
 // TypeScript authoring types for the spec-declared nodes `BaseSchema` gives no
-// face once its index signature goes (objectui#11364): the public blocks, the
+// face now that objectui#8347 removed its index signature (objectui#11364): the public blocks, the
 // `element:text_input` / `element:record_picker` rows, and a stored page
 // document under its page kind. Each is derived by reference from its zod arm
 // or spec row; `@object-ui/react`'s `SchemaRendererProps.schema` accepts them.
@@ -1076,58 +1076,27 @@ export type AnySchema =
 export type SchemaByType<T extends string> = Extract<AnySchema, { type: T }>;
 
 /**
- * Utility type INTENDED to make all properties optional except the type.
+ * Utility type to make all properties optional except the type.
  * Useful for partial schema definitions in editors.
  *
- * ⚠️ MEASURED READING — it does not currently deliver that (objectui#6397).
- * Every instantiation declares exactly ONE property, `type`, and carries a live
- * `[key: string]: any`, so it accepts any key at `any`. Measured through the
- * TypeScript checker against the emitted `index.d.ts`:
- *
- *   PartialSchema<ObjectGridSchema>  -> 1 declared property: type   (source: 61)
- *   PartialSchema<ObjectFormSchema>  -> 1 declared property: type   (source: 67)
- *   PartialSchema<ObjectViewSchema>  -> 1 declared property: type   (source: 42)
- *   PartialSchema<ButtonSchema>      -> 1 declared property: type   (source: 27)
- *
+ * ⚠️ It did NOT deliver that until objectui#8347 (objectui#6397 measured it):
  * `Omit<T, K>` is `Pick<T, Exclude<keyof T, K>>`, and `keyof T` on a type
- * carrying a string index signature is `string | number` — the literal member
- * names are ABSORBED. Every `T extends BaseSchema` inherits `BaseSchema`'s
- * `[key: string]: any` (objectui#5155), so `Partial<Omit<T, 'type'>>` rebuilds a
- * type holding the index signature and none of the named members; the explicit
- * `{ type: T['type'] }` half is the only reason the count is 1 and not 0. Same
- * mechanism as objectui#6151 (heritage clause) and objectui#6269 (property
- * position) — this is its generic mapped-type-alias position.
+ * carrying a string index signature is `string | number`, so while every
+ * `T extends BaseSchema` inherited `BaseSchema`'s `[key: string]: any`, the
+ * literal member names were absorbed and every instantiation declared exactly
+ * one property, `type`, beside a live index signature. objectui#8347 removed
+ * that signature, so `keyof T` is the literal member union again and the
+ * alias works as written, with no edit here. The collapse pin that recorded
+ * the old reading (`partial-schema-collapse-pin.test.ts`) asked to be deleted
+ * on that day, and was; `__tests__/base-schema-closed-face-8347.test.ts` pins
+ * the working reading.
  *
- * ⭐ SEQUENCING (objectui#6397 triage, 2026-08-25) — this declaration is
- * deliberately left AS WRITTEN. The triage also held that it was not
- * repairable in place: `T` is generic, so there is no literal key list to
- * `Pick` the way objectui#6269 could for its two concrete schemas, and it read
- * every generic re-spelling as collapsing for the same `keyof T` reason.
- *
- * ⚠️ That last reading is FALSE, and objectui#9256 is the counter-example. A
- * key-remapping mapped type (`{ [P in keyof T as P extends K ? never : P]: … }`)
- * iterates the named members and the index signature separately, so it drops
- * exactly `K` and keeps every other named member — generic in `T` and all.
- * `OmitDeclared` in `./form.ts` is that spelling; the E3 slice of objectui#9256
- * re-spelled `InputShorthandSchema` and `UiCalendarSchema` with it, and
- * `__tests__/content-channel-e3-residual-9256.test.ts` pins inherited members
- * on both faces. So the obstacle to a repair here is not the type system.
- * Re-spelling this alias would NARROW what every instantiation accepts (a
- * declared member would stop accepting a value of the wrong type), which is a
- * contract change and is not made in a comment correction; objectui#6397, the
- * card that triaged it, is closed.
- *
- * It is also not removable here — dropping a published export
- * of `@object-ui/types` is a breaking removal of published capability and sits
- * on the human floor. Once objectui#5155 removes the root index signature,
- * `keyof T` resolves to the literal member union again and this alias starts
- * working exactly as its first line promises, with no edit here at all.
- *
- * Until then, do not adopt it as protection it does not provide: name the
- * concrete schema type, or write `Partial<Pick<T, 'a' | 'b'>>` over literal keys
- * (objectui#6269's repair shape), when you need a real partial. The reading
- * above is pinned by `src/__tests__/partial-schema-collapse-pin.test.ts`, which
- * goes red — by design — the day objectui#5155 lands.
+ * ⚠️ A `T` that declares its OWN index signature still collapses the same way;
+ * reach for `OmitDeclared` (`./form.ts`) there, the key-remapping spelling
+ * objectui#9256 used. It had no in-repo consumer at the removal (a reading
+ * taken then, which nothing re-derives); whether to keep or retire it is a
+ * published-export question for the maintainer (the pin's own removal
+ * condition asked for that card), ⛔ not something to settle here.
  */
 export type PartialSchema<T extends BaseSchema> = {
   type: T['type'];

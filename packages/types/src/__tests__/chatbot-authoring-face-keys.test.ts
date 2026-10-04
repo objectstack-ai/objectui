@@ -29,7 +29,8 @@
  *
  * ## Why the TS half is real enforcement, not decoration
  *
- * `BaseSchema` carries `[key: string]: any` (objectui#5155). Before this
+ * `BaseSchema` carried `[key: string]: any` (objectui#5155) until
+ * objectui#8347. Before this
  * change, `autoResponseDelay: 'not-a-number'` on a `ChatbotSchema`-typed
  * object type-checked FINE — the index signature swallowed the unlisted key
  * as `any`. Declaring the field with its real type is what makes a wrong

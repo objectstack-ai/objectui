@@ -253,8 +253,8 @@ export interface AlertDialogSchema extends BaseSchema {
    * that root renders a context provider, not an element, so the prop was
    * dropped before any DOM node
    * (`packages/components/src/__tests__/alert-dialog-footer-keys-liveness-7963.test.tsx`).
-   * `BaseSchema` closes with `[key: string]: any`, so the value was never
-   * refused, only KEPT.
+   * `BaseSchema` closed with `[key: string]: any` (until objectui#8347), so the
+   * value was never refused, only KEPT.
    *
    * Write {@link cancelText} instead — the key the renderer reads.
    *

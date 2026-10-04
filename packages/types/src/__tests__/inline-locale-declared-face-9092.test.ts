@@ -13,10 +13,10 @@
  * `WiderThanDeclared` ledger is the instrument that saw it, and its entries for
  * these keys retired with this card.
  *
- * A one-sided pin would go green for the wrong reason. `BaseSchema` carries
- * `[key: string]: any`, so a key REMOVED from a declaration type-checks exactly
- * like a key WIDENED — the assignment below would keep compiling if someone
- * deleted the member outright. So each positive case is paired with a
+ * A one-sided pin would have gone green for the wrong reason while `BaseSchema`
+ * carried `[key: string]: any` (until objectui#8347): a key REMOVED from a
+ * declaration type-checked exactly like a key WIDENED — the assignment below
+ * would have kept compiling if someone deleted the member outright. So each positive case is paired with a
  * `@ts-expect-error` negative on a key that is genuinely a plain `string`: a
  * `@ts-expect-error` whose error stops occurring is itself a compile error, so
  * that half fails loudly if the narrow face ever becomes uncheckable.

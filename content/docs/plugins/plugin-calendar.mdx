@@ -431,10 +431,16 @@ anywhere in the package.
 
 ## Event Handling
 
+A click handler is a function, so it is a prop of the `ObjectCalendar`
+component a React host renders, never a key on the node:
+`ObjectCalendarSchema` declares no `onEventClick` or `onDateClick`, and
+authored JSON can never carry a function anyway.
+
 ### Event Click
 
 ```tsx
-import type { ObjectCalendarSchema } from '@object-ui/types';
+import { ObjectCalendar } from '@object-ui/plugin-calendar';
+import type { DataSource, ObjectCalendarSchema } from '@object-ui/types';
 
 const eventClickCalendar: ObjectCalendarSchema = {
   type: 'object-calendar',
@@ -442,19 +448,28 @@ const eventClickCalendar: ObjectCalendarSchema = {
   calendar: {
     startDateField: 'start',
     titleField: 'title'
-  },
-  onEventClick: (record: any) => {
-    console.log('Event clicked:', record);
-    // Open event details
-    // Navigate to event page
   }
 };
+
+export function EventClickCalendar({ dataSource }: { dataSource: DataSource }) {
+  return (
+    <ObjectCalendar
+      schema={eventClickCalendar}
+      dataSource={dataSource}
+      onEventClick={(record) => {
+        console.log('Event clicked:', record);
+        // Open event details, or navigate to the event page
+      }}
+    />
+  );
+}
 ```
 
 ### Date Click
 
 ```tsx
-import type { ObjectCalendarSchema } from '@object-ui/types';
+import { ObjectCalendar } from '@object-ui/plugin-calendar';
+import type { DataSource, ObjectCalendarSchema } from '@object-ui/types';
 
 const dateClickCalendar: ObjectCalendarSchema = {
   type: 'object-calendar',
@@ -462,12 +477,21 @@ const dateClickCalendar: ObjectCalendarSchema = {
   calendar: {
     startDateField: 'start',
     titleField: 'title'
-  },
-  onDateClick: (date: Date) => {
-    console.log('Date clicked:', date);
-    // Create new event on this date
   }
 };
+
+export function DateClickCalendar({ dataSource }: { dataSource: DataSource }) {
+  return (
+    <ObjectCalendar
+      schema={dateClickCalendar}
+      dataSource={dataSource}
+      onDateClick={(date) => {
+        console.log('Date clicked:', date);
+        // Create a new event on this date
+      }}
+    />
+  );
+}
 ```
 
 ## Examples
@@ -485,11 +509,9 @@ const appointmentCalendar: ObjectCalendarSchema = {
     endDateField: 'appointmentEnd',
     titleField: 'patientName',
     colorField: 'appointmentType'
-  },
-  onEventClick: (appointment: any) => {
-    // Show appointment details
   }
 };
+// Show appointment details from the component's `onEventClick` prop (see Event Handling).
 ```
 
 ### Event Management
@@ -505,14 +527,9 @@ const eventCalendar: ObjectCalendarSchema = {
     endDateField: 'eventEnd',
     titleField: 'eventTitle',
     colorField: 'eventCategory'
-  },
-  onEventClick: (event: any) => {
-    // Navigate to event details
-  },
-  onDateClick: (date: Date) => {
-    // Create new event
   }
 };
+// Navigate from `onEventClick` and create from `onDateClick`, both component props (see Event Handling).
 ```
 
 ### Task Deadlines
@@ -527,11 +544,9 @@ const taskCalendar: ObjectCalendarSchema = {
     startDateField: 'dueDate',
     titleField: 'taskTitle',
     colorField: 'priority'
-  },
-  onEventClick: (task: any) => {
-    // Open task details
   }
 };
+// Open task details from the component's `onEventClick` prop (see Event Handling).
 ```
 
 ## Direct Component Usage

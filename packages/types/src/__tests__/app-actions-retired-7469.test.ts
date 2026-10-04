@@ -26,8 +26,9 @@
  *
  * ## Why a tombstone and not a deletion
  *
- * `BaseSchema` is `.passthrough()` on the zod side and carries an index
- * signature on the TS side, so an UNDECLARED key is not refused, it is KEPT.
+ * `BaseSchema` is `.passthrough()` on the zod side (and carried an index
+ * signature on the TS side until objectui#8347), so an UNDECLARED key is not
+ * refused there, it is KEPT.
  * Block (d) takes that reading on this very mirror, so the reason is a
  * measurement and not prose.
  *
@@ -167,10 +168,12 @@ type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 type Expect<T extends true> = T;
 
-/** `Equal`, not `extends`: an UNDECLARED member reads `any` through the index signature. */
+/** `Equal`, not `extends`: an UNDECLARED member read `any` through the index signature until objectui#8347. */
 export type assertionActionsRetired = Expect<Equal<AppComponentSchema['actions'], undefined>>;
-/** The helper can FAIL — synthetic control (an undeclared key reads `any`). */
-export type assertionEqualCanFail = Expect<Equal<Equal<AppComponentSchema['actionz'], undefined>, false>>;
+/** The helper can FAIL — synthetic control (a declared member is not `undefined`). */
+export type assertionEqualCanFail = Expect<Equal<Equal<AppComponentSchema['type'], undefined>, false>>;
+/** An undeclared key is not a member at all since objectui#8347 — it read `any` before. */
+export type assertionUndeclaredKeyIsNoMember = Expect<Equal<'actionz' extends keyof AppComponentSchema ? true : false, false>>;
 /** Keeps the retired-import directive above honest: the name is USED, so a
  *  re-exported `AppAction` cannot leave the directive satisfied by an
  *  unused-import diagnostic instead of the missing-export one. */

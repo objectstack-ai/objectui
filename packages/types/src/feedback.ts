@@ -577,7 +577,7 @@ export interface EmptySchema extends BaseSchema {
    * while FOUR surfaces disagreed about it: the renderer read it, the docs row
    * described it, and neither this interface nor the zod mirror nor the
    * designer's `registrationMeta.inputs` mentioned it. The read compiled only
-   * because `BaseSchema` ends in `[key: string]: any`, so
+   * because `BaseSchema` ended in `[key: string]: any`, so
    * `(schema as any).action` resolved to `any` instead of erroring — which is
    * also why objectui#6150's census missed it. That census scanned for
    * `schema.KEY`, and this renderer spelled the read with a cast.

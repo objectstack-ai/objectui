@@ -55,8 +55,9 @@
  *
  * ## Direction
  *
- * Declaring a key on a face that already carries `.passthrough()` /
- * `[key: string]: any` can only NARROW what that face accepts, and it narrows
+ * Declaring a key on a face that already carries `.passthrough()` can only
+ * NARROW what that face accepts (the TS face carried `[key: string]: any` too
+ * when this was written; objectui#8347 removed it), and it narrows
  * to the SPEC's own accepted set rather than below it — `Clause-②`. The
  * direction check is asserted in the first block below rather than argued in
  * prose.
@@ -174,22 +175,27 @@ export const BOTH_SPELLINGS_BOARD: TsObjectKanbanSchema = {
 /**
  * ⭐ The TS twin's OWN failing instrument, and the reason this file needs one.
  *
- * The zod declaration is pinned by the runtime rows above. The TypeScript twin is
- * NOT: measured by ablation on this tree, deleting `cardTitle?: string` from the
- * `ObjectKanbanSchema` interface leaves `pnpm --filter @object-ui/types type-check`
- * at EXIT 0, the zod-mirror-parity ratchet included — and it is structural, not a
- * threshold. Filed and re-derived from the ratchet's own source as objectui#9711;
- * its three operators are blind here for three DIFFERENT reasons, which is worth
+ * The zod declaration is pinned by the runtime rows above. The TypeScript twin was
+ * NOT, when this was written: measured by ablation on that tree, deleting
+ * `cardTitle?: string` from the `ObjectKanbanSchema` interface left
+ * `pnpm --filter @object-ui/types type-check` at EXIT 0, the zod-mirror-parity
+ * ratchet included — structural, not a threshold. (Re-measured with objectui#8347:
+ * the same deletion now reddens the fresh literals above, the `_CardTitle…` row
+ * below, and the ratchet's mirrored-undeclared ledger, which gained that direction
+ * since.) Filed and re-derived from the ratchet's own source as objectui#9711;
+ * its three operators were blind here for three DIFFERENT reasons, which is worth
  * stating because the obvious single explanation is wrong:
  *
  *   - `WiderThanDeclaredKeys` maps over `MirroredKeys` intersected with
  *     `DeclaredKeys`, so a key the twin does not declare simply LEAVES the key
  *     set — blind by omission.
  *   - `NarrowerThanDeclared` maps over `MirroredKeys` intersected with `keyof D`
- *     — `keyof D`, not `DeclaredKeys` — and `keyof D` is absorbed by
- *     {@link BaseSchema}'s `[key: string]: any`, so the compared type is `any`
- *     and every mirror fits it. This is the ONLY operator the index signature
- *     explains; ⛔ it does not explain the other two, and `DeclaredKeys` itself
+ *     — `keyof D`, not `DeclaredKeys` — and `keyof D` was absorbed by
+ *     {@link BaseSchema}'s `[key: string]: any` when this was measured, so the
+ *     compared type was `any` and every mirror fit it. This was the ONLY
+ *     operator the index signature explained (since objectui#8347 `keyof D` is
+ *     literal, so it leaves an undeclared key out, blind by omission like the
+ *     first); ⛔ it did not explain the other two, and `DeclaredKeys` itself
  *     is index-signature-free by construction (`WithoutIndexSignature`).
  *   - `UnmirroredDeclaredKeys` measures the OPPOSITE subtraction,
  *     declared-but-unmirrored.
@@ -202,10 +208,16 @@ export const BOTH_SPELLINGS_BOARD: TsObjectKanbanSchema = {
  * author's editor reads, and this directive is what makes that declaration
  * measurable.
  *
- * The directive is REAL enforcement: with the member declared, `42` is not
- * assignable to `string | undefined` and the error it expects exists. Delete the
- * member and the index signature admits the `42`, the expected error disappears,
- * and `tsc` reddens with TS2578 — an unused `@ts-expect-error`. Measured both ways.
+ * The directive is REAL enforcement of the member's TYPE: with the member
+ * declared, `42` is not assignable to `string | undefined` and the error it
+ * expects exists. When written, deleting the member let the index signature
+ * admit the `42`, the expected error disappeared, and `tsc` reddened with TS2578
+ * — measured both ways. Since objectui#8347 a deleted member's `42` is refused
+ * as an undeclared key, so the directive stays used and no longer sees a
+ * deletion. The deletion guard is the `_CardTitleIsADeclaredString` row below:
+ * an indexed access on a member that does not exist is itself a compile error,
+ * and the row also pins the member's declared type. (The fresh literals above
+ * refuse an undeclared `cardTitle` too, by the same excess-property check.)
  */
 export const NON_STRING_CARD_TITLE_IS_REFUSED_AT_COMPILE_TIME: TsObjectKanbanSchema = {
   type: 'object-kanban',
@@ -222,6 +234,25 @@ export const NEITHER_SPELLING_BOARD: TsObjectKanbanSchema = {
   objectName: 'tasks',
   groupBy: 'status',
 };
+
+/* ── Type-level: the members EXIST, with their declared type ───────────────── */
+
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+
+/**
+ * The deletion guard on the TS twin (objectui#8347 silenced the TS2578 one):
+ * `TsObjectKanbanSchema['cardTitle']` stops compiling the moment the member is
+ * deleted, and `Equal` fails the moment it is re-typed. Measured by ablation on
+ * this tree: deleting `cardTitle?: string` from the interface turns this row
+ * red (beside the two fresh literals above and the `zod-mirror-parity` ledger,
+ * since the zod twin still declares the member); restored, it is green. The
+ * alias row is the type-level half of the third pin: reddening it means
+ * `titleField` was retired, which the ruling forbids.
+ */
+export type _CardTitleIsADeclaredString = Expect<Equal<TsObjectKanbanSchema['cardTitle'], string | undefined>>;
+export type _TitleFieldAliasIsStillDeclared = Expect<Equal<TsObjectKanbanSchema['titleField'], string | undefined>>;
 
 describe('the TS face admits what the zod face admits (objectui#9606)', () => {
   it.each([

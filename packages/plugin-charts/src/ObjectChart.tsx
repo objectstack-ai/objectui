@@ -452,11 +452,12 @@ export { extractRecords } from '@object-ui/core';
  *
  * With the anchor, a wrong VALUE TYPE on a declared key is a compile error at
  * the producer (`xAxisKey: 42`, `series: 'x'`, `type: 'chart'`, and every
- * `BaseSchema` member — `visible: 42`). ⚠️ A MISSPELLED key is still accepted:
- * `BaseSchema` carries `[key: string]: any` (objectui#5155), the same ceiling
- * objectui#6576 accepted knowingly. `__tests__/ObjectChart.schemaAnchor-7946.test.ts`
- * pins both halves, the ceiling included, so the anchor is not read as more
- * than it is.
+ * `BaseSchema` member — `visible: 42`). ⚠️ A MISSPELLED key was still accepted
+ * while `BaseSchema` carried `[key: string]: any` (objectui#5155), the same
+ * ceiling objectui#6576 accepted knowingly; objectui#8347 removed it, so a
+ * misspelled key in a fresh literal is refused now.
+ * `__tests__/ObjectChart.schemaAnchor-7946.test.ts` pins both halves, the
+ * flipped ceiling row included, so the anchor is not read as more than it is.
  */
 export interface ObjectChartProps {
   /**

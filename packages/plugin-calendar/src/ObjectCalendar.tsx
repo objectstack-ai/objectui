@@ -94,8 +94,8 @@ import {
  * fifteen.
  *
  * ⚠️ But the cast count is NOT twelve, and an earlier cut of this comment said
- * it was. `ObjectGridSchema` carries `BaseSchema`'s `[key: string]: any`, so on
- * the UNION the five `CalendarSchema`-only keys resolved through that index
+ * it was. `ObjectGridSchema` carried `BaseSchema`'s `[key: string]: any` (until
+ * objectui#8347), so on the UNION the five `CalendarSchema`-only keys resolved through that index
  * signature and compiled with no cast at all. The checker on the union itself:
  * DECLARED 8 of 15 (`colorField` `dateField` `defaultView` `endField` `filter`
  * `objectName` `sort` `titleField`), NOT declared 7 (`allDayField` `calendar`

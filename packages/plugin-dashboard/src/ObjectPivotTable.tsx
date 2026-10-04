@@ -44,10 +44,11 @@ const EMPTY_ROWS = Object.freeze([]) as unknown as any[];
  * below, and intersecting it with the tombstone would collapse that member to
  * `never`: the one pivot that drills could not be authored with a drill.
  *
- * Key remapping, not `Omit`: `PivotTableSchema` extends `BaseSchema`, whose
- * `[key: string]: any` widens `keyof` to all of `string`, so
- * `Omit<PivotTableSchema, 'drillDown'>` would keep the index signature and drop
- * every declared member.
+ * Key remapping, not `Omit`: written while `PivotTableSchema` inherited
+ * `BaseSchema`'s `[key: string]: any`, which widened `keyof` to all of
+ * `string`, so `Omit<PivotTableSchema, 'drillDown'>` would have kept the index
+ * signature and dropped every declared member. objectui#8347 removed the
+ * signature.
  */
 type PivotTableSchemaWithoutDrillDown = {
   [K in keyof PivotTableSchema as K extends 'drillDown' ? never : K]: PivotTableSchema[K];
@@ -66,8 +67,8 @@ export interface ObjectPivotTableProps {
      * writes it and no reader was added.
      *
      * A `?: never` tombstone, not a plain deletion: `PivotTableSchema` extends
-     * `BaseSchema`, whose `[key: string]: any` would absorb a deleted member
-     * silently at any value. Licensed by prong 1 of the discriminator
+     * `BaseSchema`, whose `[key: string]: any` absorbed a deleted member
+     * silently at any value until objectui#8347 (a widened value still would). Licensed by prong 1 of the discriminator
      * (objectui#5941, #7526, in its amended form, `5f8190c8c`): it names the live
      * replacement, `objectName`. A JSON-authored value is refused by name at
      * parse time too, since objectui#11440: the `object-pivot` arm of

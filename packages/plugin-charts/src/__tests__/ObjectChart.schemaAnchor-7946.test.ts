@@ -37,12 +37,13 @@
  *
  * ## The ceiling, stated rather than assumed (objectui#5155)
  *
- * Anchoring buys DECLARED members their declared types. It does NOT buy
- * rejection of a MISSPELLING: `BaseSchema` carries `[key: string]: any`, which
- * `ObjectChartSchema` inherits, so `xAxisKy` compiles. objectui#6576 accepted
- * that cost knowingly for the gallery; the counter-probe at the bottom keeps it
- * visible so nobody reads this anchor as more than it is. Closing it is
- * objectui#5155, not this card.
+ * Anchoring buys DECLARED members their declared types. It did NOT buy
+ * rejection of a MISSPELLING while `BaseSchema` carried `[key: string]: any`,
+ * which `ObjectChartSchema` inherited, so `xAxisKy` compiled. objectui#6576
+ * accepted that cost knowingly for the gallery; the counter-probe at the bottom
+ * kept it visible so nobody read this anchor as more than it was. Closing it was
+ * objectui#5155's, not this card's: objectui#8347 closed it, and the
+ * counter-probe is flipped.
  *
  * The schema type's own members, the read census and the source-level pins are
  * in `packages/types/src/__tests__/widget-schema-anchors-7946.test.ts`.
@@ -210,11 +211,12 @@ describe('ObjectChartProps.schema — anchored to ObjectChartSchema (objectui#79
     expect(node.visibleWhen).toBe('${data.ready}');
   });
 
-  it('the ceiling, stated: an UNKNOWN key still compiles (inherited index signature, objectui#5155)', () => {
-    // Counter-probe against reading the anchor as more than it is. The ruling's
-    // acceptance is a wrong VALUE TYPE being refused loudly; a misspelled KEY
-    // is not reachable from here, exactly as on `ObjectGallerySchema`.
+  it('an UNKNOWN key is refused — the ceiling this row stated is gone (objectui#8347)', () => {
+    // This row was the counter-probe against reading the anchor as more than it
+    // was: the inherited index signature let a misspelled KEY compile. objectui#8347
+    // removed it, so the misspelling is refused like a wrong value type.
+    // @ts-expect-error — `xAxisKy` is no member; the key is `xAxisKey`
     const node: ObjectChartProps['schema'] = { type: 'object-chart', chartType: 'bar', xAxisKy: 'stage' };
-    expect(node.xAxisKy).toBe('stage');
+    expect(node.type).toBe('object-chart');
   });
 });

@@ -31,8 +31,9 @@
  * membership is asserted on the mirror's OWN `.shape`, never on parse
  * acceptance — under `.passthrough()` acceptance cannot tell "declared" from
  * "admitted unexamined". The type-level pin uses invariant equality, so an
- * undeclared key (which resolves to `any` through the index signature) reads
- * as a failure rather than as a match.
+ * undeclared key (which resolved to `any` through the index signature until
+ * objectui#8347, and fails to compile at an indexed access now) reads as a
+ * failure rather than as a match.
  *
  * The CONTROL is a key the renderer does NOT read — derived from the renderer
  * source, not asserted from memory — and it must stay undeclared on both
@@ -70,18 +71,20 @@ type Expect<T extends true> = T;
 /** The canonical `any` detector: only `any` absorbs `1 &` down to something `0` extends. */
 type IsAny<T> = 0 extends (1 & T) ? true : false;
 
-// Declared as `string`. Were the member removed, the read would fall back to
-// the index signature and resolve to `any`, and `Equal<any, string>` is false.
+// Declared as `string`. Were the member removed, the read would not compile
+// (objectui#8347 took away the index signature it used to fall back to as `any`).
 export type _WrapperClassIsString = Expect<Equal<NonNullable<TsCheckboxSchema['wrapperClass']>, string>>;
 export type _WrapperClassIsNotAny = Expect<Equal<IsAny<TsCheckboxSchema['wrapperClass']>, false>>;
-// The control key is NOT declared: it resolves to `any` through the index
-// signature, exactly as `wrapperClass` did before this card. Declaring it turns
-// this red — which is the point.
-export type _ControlKeyFallsThroughToIndexSignature = Expect<IsAny<TsCheckboxSchema['labelClass']>>;
+// Lit control for the detector: `IsAny` does answer `true`, so the line above is a reading.
+export type _IsAnyCanAnswerTrue = Expect<IsAny<any>>;
+// The control key is NOT declared: it resolved to `any` through the index
+// signature, exactly as `wrapperClass` did before this card, until objectui#8347
+// removed the signature. It is no member now. Declaring it turns this red.
+export type _ControlKeyIsNoMember = Expect<Equal<'labelClass' extends keyof TsCheckboxSchema ? true : false, false>>;
 
-// The TS face accepts the key on a literal. ⚠️ This is the WEAK half: the index
-// signature would accept it undeclared too. The invariant pins above are the
-// guard; this line only shows the declared spelling in use.
+// The TS face accepts the key on a literal. Since objectui#8347 this is no
+// longer the weak half: without the index signature an undeclared key is
+// refused on a fresh literal, so the acceptance reads the declaration.
 const literal: TsCheckboxSchema = { type: 'checkbox', label: 'Accept', wrapperClass: 'gap-4' };
 
 /** Every `schema.KEY` read in the renderer, off disk. */

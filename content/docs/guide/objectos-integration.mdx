@@ -95,7 +95,7 @@ objects, views and apps that the server exposes.
 
 ```typescript
 // src/App.tsx
-import { SchemaRenderer } from '@object-ui/react';
+import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
 import { ObjectStackAdapter } from '@object-ui/data-objectstack';
 
 // Import required plugins
@@ -110,32 +110,42 @@ const dataSource = new ObjectStackAdapter({
 });
 
 export function App() {
+  // The adapter is installed ONCE, by `SchemaRendererProvider` above the
+  // renderer: every node in the tree, the nested `object-view` included, reads
+  // it from that context. A `dataSource` prop on `SchemaRenderer` itself would
+  // only be forwarded to the root component.
   return (
-    <div className="min-h-screen bg-background">
-      <SchemaRenderer
-        schema={{
-          type: 'page',
-          template: 'header-sidebar-main',
-          header: {
-            type: 'header-bar',
-            crumbs: [{ label: 'My App' }]
-          },
-          sidebar: {
-            type: 'navigation-menu',
-            items: [
-              { label: 'Dashboard', path: '/', icon: 'home' },
-              { label: 'Contacts', path: '/contacts', icon: 'users' }
+    <SchemaRendererProvider dataSource={dataSource}>
+      <div className="min-h-screen bg-background">
+        <SchemaRenderer
+          schema={{
+            type: 'page',
+            template: 'header-sidebar-main',
+            // The template draws the regions it names: `header`, `sidebar`, `main`.
+            regions: [
+              {
+                name: 'header',
+                components: [{ type: 'header-bar', crumbs: [{ label: 'My App' }] }]
+              },
+              {
+                name: 'sidebar',
+                components: [{
+                  type: 'navigation-menu',
+                  items: [
+                    { label: 'Dashboard', href: '/', icon: 'home' },
+                    { label: 'Contacts', href: '/contacts', icon: 'users' }
+                  ]
+                }]
+              },
+              {
+                name: 'main',
+                components: [{ type: 'object-view', objectName: 'contact', defaultViewType: 'grid' }]
+              }
             ]
-          },
-          main: {
-            type: 'object-view',
-            objectName: 'contact',
-            dataSource,
-            viewTypes: ['grid', 'kanban']
-          }
-        }}
-      />
-    </div>
+          }}
+        />
+      </div>
+    </SchemaRendererProvider>
   );
 }
 ```
@@ -214,12 +224,15 @@ const objectStackAdapter = new ObjectStackAdapter({
   baseUrl: 'http://localhost:3000/api'
 });
 
+// The adapter is installed above the renderer by `SchemaRendererProvider`
+// (`dataSource={objectStackAdapter}`, from `@object-ui/react`), never written on
+// the node: a node's `dataSource` is the spec's per-element binding, not an adapter.
 const sysUserView: ObjectViewSchema = {
   type: 'object-view',
   objectName: 'sys_user',
-  dataSource: objectStackAdapter,
   defaultViewType: 'grid',
-  columns: ['username', 'email', 'role', 'status', 'last_login']
+  // The grid's own configuration rides the `table` slot.
+  table: { columns: ['username', 'email', 'role', 'status', 'last_login'] }
 };
 ```
 

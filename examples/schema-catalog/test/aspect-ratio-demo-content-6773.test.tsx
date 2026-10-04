@@ -38,9 +38,9 @@
  * and an empty ratio box clears it on the wrapper Radix draws for the ratio
  * itself. Its stronger control — the entry's own authored strings on screen —
  * is scoped to `NEWLY_REGISTERED_CATEGORIES`, which this family is not in.
- * Nor could a parse have caught it: `BaseSchema` is `.passthrough()` and
- * carries `[key: string]: any`, so `content` is accepted by zod and by tsc
- * alike (the objectui#6157 class-3 shape). `check-doc-component-types.mjs`
+ * Nor could a parse have caught it: `BaseSchema` is `.passthrough()`, so
+ * `content` is accepted by zod (and was by tsc, through `[key: string]: any`,
+ * until objectui#8347) (the objectui#6157 class-3 shape). `check-doc-component-types.mjs`
  * rules the question out by name — "NOT in scope, deliberately: whether the
  * snippet's OTHER keys are read by the renderer the type resolves to".
  *

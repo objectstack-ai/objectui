@@ -61,8 +61,9 @@ export const DialogSchema = BaseSchema.extend({
  *
  * ## Why a REFUSAL and not a deletion
  *
- * `BaseSchemaCore` ends `.passthrough()` and the TS `BaseSchema` closes with
- * `[key: string]: any`, so a dropped MEMBER key is KEPT, not refused — deleting
+ * `BaseSchemaCore` ends `.passthrough()` (and the TS `BaseSchema` closed with
+ * `[key: string]: any` until objectui#8347), so a dropped MEMBER key is KEPT,
+ * not refused, on this face — deleting
  * these three declarations would have left the silent accept exactly as it was
  * and thrown away the diagnostic with it. {@link retirementTombstone} keeps the
  * key DECLARED and unwritable, which is what makes the refusal loud. Same

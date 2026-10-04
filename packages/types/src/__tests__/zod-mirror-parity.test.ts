@@ -154,7 +154,13 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **50 entries** in `KnownDrift`, **87 keys** across them — 50 / 88 until
+ *   - **55 entries** in `KnownDrift`, **92 keys** across them — 50 / 87 until
+ *     objectui#8347 removed `BaseSchema`'s index signature, which ledgered FIVE
+ *     new entries of one key each, all the INTERFACE-TO-PASSTHROUGH artifact
+ *     (`app.zod.ts#AppSchemaRendererNodeSchema` and four `reports.zod.ts`
+ *     pairs: a member typed with an `interface` against a `.passthrough()`
+ *     mirror input, which an interface is never implicitly assignable to). It
+ *     was 50 / 88 until
  *     objectui#11514 dropped the component type from the TS
  *     `DashboardWidgetSchema`'s `type`, once `plugin-dashboard` read slot entries
  *     by the slot's element type: both faces name the same widget vocabulary, so
@@ -841,9 +847,10 @@
  * Each of the three was blind for a DIFFERENT structural reason, which is why the
  * gap survived the card that closed its mirror image:
  *
- *   - `WithoutIndexSignature` strips `BaseSchema`'s `[key: string]: any`, so a key
- *     the declaration never states has nothing to be stripped FROM and
- *     `DeclaredKeys< D >` cannot enumerate it;
+ *   - `WithoutIndexSignature` strips any index signature (`BaseSchema`'s
+ *     `[key: string]: any` until objectui#8347), so a key the declaration never
+ *     states has nothing to be stripped FROM and `DeclaredKeys< D >` cannot
+ *     enumerate it;
  *   - `UnmirroredDeclaredKeys` is declared-minus-mirrored — the other subtraction;
  *   - `WiderThanDeclaredKeys` maps over the INTERSECTION, so the key is outside its
  *     domain and LEAVES THE COMPARISON — the same shape objectui#6058 measured in
@@ -876,7 +883,7 @@
  *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 50 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 55 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
@@ -994,10 +1001,11 @@ export type NarrowerThanDeclared< M, D > = {
 /**
  * A declaration's OWN declared members, with any index signature stripped.
  *
- * `keyof D` is unusable on this population: most component declarations extend
- * `BaseSchema`, which carries `[key: string]: any` (objectui#5155), and a string
- * index signature ABSORBS every literal name — `keyof ObjectGanttSchema` resolves
- * to bare `string`. Measured, not assumed:
+ * `keyof D` was unusable on this population while most component declarations
+ * extended `BaseSchema`'s `[key: string]: any` (objectui#5155, removed by
+ * objectui#8347): a string index signature ABSORBS every literal name —
+ * `keyof ObjectGanttSchema` resolved to bare `string` — and a declaration that
+ * carries its own signature still does. Measured, not assumed, at the time:
  *
  *     declare const bare: keyof ObjectGanttSchema;
  *     const _: never = bare;
@@ -1050,9 +1058,9 @@ export type UnmirroredDeclaredKeys< M, D > = Exclude< DeclaredKeys< D >, Mirrore
  * stood before it are each blind to it, for three DIFFERENT structural reasons —
  * which is why the gap survived the card that closed its mirror image:
  *
- *   - `WithoutIndexSignature` strips `BaseSchema`'s `[key: string]: any`, so a key
- *     the declaration never states has nothing to be stripped FROM — it is simply
- *     not a member, and `DeclaredKeys< D >` cannot enumerate it;
+ *   - `WithoutIndexSignature` strips any index signature (`BaseSchema`'s
+ *     `[key: string]: any` until objectui#8347), so a key the declaration never
+ *     states has nothing to be stripped FROM — it is simply not a member, and `DeclaredKeys< D >` cannot enumerate it;
  *   - `UnmirroredDeclaredKeys` is `Exclude< DeclaredKeys< D >, MirroredKeys< M > >`,
  *     declared-minus-mirrored — the other subtraction by construction;
  *   - `WiderThanDeclaredKeys` maps over `MirroredKeys< M > & DeclaredKeys< D >`, the
@@ -1295,9 +1303,9 @@ type MirrorAdmitsOpenRecord< MirrorIn, DeclaredType > =
  * reader receives input the published types say cannot exist.
  *
  * `DeclaredKeys` and not `keyof D` supplies the declared half, for the reason
- * `WithoutIndexSignature` gives: most declarations carry `BaseSchema`'s string
- * index signature, which resolves `D[K]` to `any` for a key the declaration does
- * not really state — and `any` absorbs the comparison in this direction exactly as
+ * `WithoutIndexSignature` gives: a declaration carrying a string index signature
+ * (as most did through `BaseSchema` until objectui#8347) resolves `D[K]` to `any`
+ * for a key it does not really state — and `any` absorbs the comparison in this direction exactly as
  * silently as in the other one.
  */
 export type WiderThanDeclaredKeys< M, D > = {
@@ -1644,7 +1652,8 @@ export type assertionUnmirroredOperatorIsBlindToAnOpenRecord =
  * and SILENT on this pair, so its silence is a measurement and not a broken instrument.
  *
  * The declaration carries `[key: string]: any`, which is what `BaseSchema` really
- * carries and what makes the fourth direction hard to measure at all: `keyof D`
+ * carried until objectui#8347 (and what a declaration with its own signature
+ * still carries), and what makes the fourth direction hard to measure at all: `keyof D`
  * resolves to bare `string`, so the obvious spelling of "mirrored but undeclared"
  * subtracts every key and reads `never` for every pair forever.
  * `assertionNaiveMirroredUndeclaredIsAbsorbedByTheIndexSignature` below pins that
@@ -1669,7 +1678,7 @@ interface SyntheticFourWayDeclaration {
   wide: 'a' | 'b';
   narrow: number | string;
   missing: number;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the shape `BaseSchema` really has; the whole point of this pair
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- the shape `BaseSchema` really had until objectui#8347; the whole point of this pair
   [key: string]: any;
 }
 
@@ -2210,6 +2219,21 @@ interface KnownDrift {
    */
   'ai.zod.ts#NLQuerySchema': 'onSubmit';
   /**
+   * INTERFACE-TO-PASSTHROUGH (objectui#8347), an artifact of this ratchet's
+   * assignability test and ⛔ not a narrowing a document can hit. The member is a
+   * node type declared as an `interface`; its mirror is a `.passthrough()` object,
+   * whose `z.input` carries `[k: string]: unknown`. TypeScript grants an IMPLICIT
+   * index signature to anonymous and mapped object types and never to an
+   * interface, so an interface is not assignable to it. While `BaseSchema`
+   * carried `[key: string]: any` the declared member had an explicit signature
+   * and fit; objectui#8347 removed it. Measured at removal: a one-level anonymous
+   * copy of the declared type (`{ [P in keyof D]: D[P] }`) IS assignable to the
+   * same mirror input, so the residue is exactly the interface rule. The four
+   * `reports.zod.ts` entries below are the same cause. They leave if the
+   * operator learns the rule, or if the member stops being an interface.
+   */
+  'app.zod.ts#AppSchemaRendererNodeSchema': 'schema';
+  /**
    * RUNTIME SLOT (objectui#6124): `calendar-view`'s `pickHostCallbacks` reads
    * `onViewChange` off the spread props (function values only) and hands it to
    * `CalendarView`. `onEventClick` joined with objectui#7344 — the same channel;
@@ -2676,6 +2700,22 @@ interface KnownDrift {
   'overlay.zod.ts#PopoverSchema': 'onOpenChange';
   /** RUNTIME SLOT (objectui#6124): the `sheet` renderer spreads leftover props onto the Radix `Sheet` (Dialog) root. */
   'overlay.zod.ts#SheetSchema': 'onOpenChange';
+  /**
+   * INTERFACE-TO-PASSTHROUGH (objectui#8347): the same artifact as
+   * `app.zod.ts#AppSchemaRendererNodeSchema` above — each member is, or holds,
+   * a declared `interface` (`report` is `ReportComponentSchema`, `chart` is
+   * `ChartSchema`, and `sections` holds `ReportSection`s, whose `chart` is)
+   * against a `.passthrough()` mirror whose input demands a string index
+   * signature an interface never implicitly has. Measured at removal for
+   * `chart`: the declared type is refused, a one-level anonymous copy fits.
+   */
+  'reports.zod.ts#ReportBuilderSchema': 'report';
+  /** INTERFACE-TO-PASSTHROUGH (objectui#8347): see `ReportBuilderSchema` above; `sections` carries the element. */
+  'reports.zod.ts#ReportComponentSchema': 'sections';
+  /** INTERFACE-TO-PASSTHROUGH (objectui#8347): see `ReportBuilderSchema` above. */
+  'reports.zod.ts#ReportSectionSchema': 'chart';
+  /** INTERFACE-TO-PASSTHROUGH (objectui#8347): see `ReportBuilderSchema` above. */
+  'reports.zod.ts#ReportViewerSchema': 'report';
   /**
    * RUNTIME SLOT (objectui#7344): `detail-view` spreads the node's keys onto
    * `DetailView`, whose `handleBack` calls `onBack()`. The TS twin declared the
@@ -3980,10 +4020,13 @@ interface WiderThanDeclared {
    * `SchemaNode`'s object arm became `DeclaredNode`, the union of the declared node types
    * with no `type: string` arm. The mirror's slot still ends in the `BaseSchema` fallback
    * (`z.union([DashboardWidgetSlotComponentSchema, BaseSchema])`), which admits any `type`
-   * string, so it accepts a `component` node the declaration now refuses. That fallback is
-   * objectui#8347's to retire with the index signature, ⛔ not this ledger's: narrowing it
-   * here is the mirror change that card reserves. When it goes, this entry and the
-   * `widgets` one above measure clean and are deleted (clause 4 above).
+   * string, so it accepts a `component` node the declaration refuses. That fallback STAYS,
+   * by objectui#8344's decision: the card that added the slot chose that arm on purpose,
+   * and objectui#8347's Q3 = A (the seat's ACCEPT `5977022487`) put the zod face out of
+   * that card's scope, so the TS index-signature removal left it untouched. ⛔ Not this
+   * ledger's to narrow: that is a mirror change, and no open card retires the arm. When a
+   * card does retire it, this entry and the `widgets` one above measure clean and are
+   * deleted (clause 4 above).
    */
   'complex.zod.ts#DashboardWidgetSchema': 'component';
   // `complex.zod.ts#ChatbotSchema` recorded `body` here (CONCRETE, and DISJOINT rather
@@ -4483,7 +4526,7 @@ export const assertionWiderLedgerRecordsEveryKey: never = 0 as unknown as WiderL
  *     is the same one objectstack#4115 opened when it made the keys flow in at all,
  *     and it is a spec-alignment decision, not a typo.
  *   - **`Omit` COLLAPSE — EMPTIED by objectui#9256.** The declaration was
- *     `Omit< Base, K >` over an interface that carries `BaseSchema`'s index
+ *     `Omit< Base, K >` over an interface that carried `BaseSchema`'s index
  *     signature, so `Exclude< keyof Base, K >` resolved through `string` and the
  *     `Pick` collapsed EVERY member into the index signature; the mirror propagated
  *     because zod `.extend()` carries the shape. Both instances (the `email` /
@@ -4556,8 +4599,9 @@ interface MirroredUndeclared {
    * `@objectstack/spec` declares on `object-grid` — `operations`, re-derived
    * against the installed pin by `object-grid-operators-tombstone-9739.test.ts`,
    * not copied from prose. The twin is deliberately untouched (declaring the key
-   * was the refused option), so `BaseSchema`'s index signature still absorbs an
-   * authored `operators` as `any`.
+   * was the refused option); `BaseSchema`'s index signature absorbed an authored
+   * `operators` as `any` until objectui#8347, and the twin refuses it as an
+   * undeclared key now.
    *
    * ⚠️ WHY THE ROW DOES NOT LEAVE THIS LEDGER. This direction measures "the zod
    * mirror STATES a key the TypeScript twin does not", and a retirement tombstone
@@ -5075,6 +5119,11 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // to the split's LOCAL half (its `UnmirroredDeclared` docblock carries the
   // per-key reading). The split's counts now derive from THIS list's membership
   // and are pinned against the header by 'objectui#7279' below.
+  // objectui#8347: `BaseSchema` is back, for a real reference this time —
+  // `visibleWhen` is the spec's `EvaluatedExpressionSchema` (the envelope arm)
+  // with `EvaluatedExpressionInputSchema`'s verdict, so a spec bump that moves
+  // the evaluated-slot input moves ONE side of this pair.
+  'base.zod.ts#BaseSchema',
   'complex.zod.ts#DashboardComponentSchema',
   'complex.zod.ts#DashboardWidgetSchema',
   // ⛔ `complex.zod.ts#KanbanSchema` removed with the retired `kanban` arm

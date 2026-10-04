@@ -20,6 +20,10 @@ import { z } from 'zod';
 import { I18nLabelSchema } from '@objectstack/spec/ui';
 import { aliasKeyRefusal, retirementTombstone } from './tombstone.zod.js';
 import { ExpressionWireSchema } from './expression.zod.js';
+import {
+  EvaluatedExpressionInputSchema as SpecEvaluatedExpressionInputSchema,
+  EvaluatedExpressionSchema as SpecEvaluatedExpressionSchema,
+} from '@objectstack/spec/shared';
 import type { SchemaNode } from '../base.js';
 import { stripImportedDefaults } from './imported-defaults.js';
 
@@ -284,14 +288,15 @@ type NodeSlotZodType = z.ZodOptional<z.ZodUnion<readonly [SchemaNodeZodType, z.Z
  * what this schema accepts at runtime.
  *
  * ⛔ `SchemaNode` in `../base.ts` did NOT move under #8344 either: the TS face still
- * said `BaseSchema | primitive`, and `BaseSchema` carries an index signature, so the
+ * said `BaseSchema | primitive`, and `BaseSchema` carried an index signature, so the
  * runtime accept set was NARROWER than the declaration rather than wider. The
  * declaration repair was its own worklist and ⛔ not this const's to make.
  * ⚠️ Dated note, 2026-10-02 (objectui#11466): that repair has landed. `SchemaNode`'s
  * object arm is `DeclaredNode`, the union of the declared node types with no
  * `type: string` arm, so an undeclared `type` is refused on the TS face too. The
- * members that extend `BaseSchema` keep its index signature until objectui#8347
- * removes it. The two sentences above are kept as the reading at #8344.
+ * members that extend `BaseSchema` kept its index signature until objectui#8347
+ * removed it; a key they do not declare is refused on the TS face now as well.
+ * The two sentences above are kept as the reading at #8344.
  *
  * ⭐ What #7760 bought: `__tests__/zod-mirror-parity.test.ts` can now compare the
  * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])` single-or-list slots that
@@ -327,6 +332,30 @@ const NodeSlotSchema: NodeSlotZodType = z
   .union([SchemaNodeSchema, z.array(SchemaNodeSchema)])
   .optional()
   .describe('Child components (React-style)');
+
+/**
+ * `visibleWhen`'s wire: the spec's `EvaluatedExpressionInputSchema`, by
+ * reference, WITHOUT its string transform (objectui#8347, ruled Q6 = B).
+ *
+ * The TypeScript twin is the spec's input type, `EvaluatedExpressionInput`
+ * (`../base.ts`). The accept set here is that type's: a predicate string, or
+ * the envelope arm, which is the spec's own `EvaluatedExpressionSchema` read by
+ * reference. Every verdict is the spec's: the value is handed to
+ * `EvaluatedExpressionInputSchema` and its issues are the refusal, so a blank
+ * predicate string is refused with the spec's sentence. What is NOT taken is
+ * the spec's transform, which rewrites a bare string into
+ * `{ dialect: 'cel', source }` at parse: this mirror authors nothing into a
+ * parsed document, so a string stays a string.
+ * `../__tests__/visible-when-spec-input-8347.test.ts` pins both halves.
+ */
+const VisibleWhenInputSchema = z
+  .union([z.string(), stripImportedDefaults(SpecEvaluatedExpressionSchema)])
+  .superRefine((predicate, ctx) => {
+    const verdict = stripImportedDefaults(SpecEvaluatedExpressionInputSchema).safeParse(predicate);
+    if (!verdict.success) {
+      for (const issue of verdict.error.issues) ctx.addIssue({ code: 'custom', message: issue.message });
+    }
+  });
 
 /**
  * Base Schema - Core validation schema that all components extend
@@ -448,8 +477,10 @@ const BaseSchemaCore = z.object({
   /**
    * Canonical conditional-visibility predicate (ADR-0089) — shown when truthy.
    * The spec folds the deprecated `visibleOn` / `visibility` aliases into this.
+   * The spec's evaluated-slot input, by reference and untransformed — see
+   * `VisibleWhenInputSchema` above (objectui#8347).
    */
-  visibleWhen: z.string().optional().describe('Canonical conditional-visibility predicate (ADR-0089)'),
+  visibleWhen: VisibleWhenInputSchema.optional().describe('Canonical conditional-visibility predicate (ADR-0089)'),
 
   /**
    * Conditional visibility expression

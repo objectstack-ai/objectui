@@ -4077,6 +4077,15 @@ const ar = {
       confirmNote_few: 'النشر يُصدر كل المسودات المعلقة ({{count}}) لهذه الحزمة دفعة واحدة.',
       confirmNote_many: 'النشر يُصدر كل المسودات المعلقة ({{count}}) لهذه الحزمة دفعة واحدة.',
       confirmNote_other: 'النشر يُصدر كل المسودات المعلقة ({{count}}) لهذه الحزمة دفعة واحدة.',
+      // objectui#11591 — the package-less sheet: no package to batch, so each
+      // draft publishes by itself and one that fails stays pending.
+      confirmNoteSeparate: 'النشر يُصدر المسودات المعلقة ({{count}}) كلًّا على حدة: المسودة التي يتعذّر نشرها تبقى معلقة، وتُنشر البقية.',
+      confirmNoteSeparate_zero: 'النشر يُصدر المسودات المعلقة ({{count}}) كلًّا على حدة: المسودة التي يتعذّر نشرها تبقى معلقة، وتُنشر البقية.',
+      confirmNoteSeparate_one: 'النشر يُصدر المسودات المعلقة ({{count}}) كلًّا على حدة: المسودة التي يتعذّر نشرها تبقى معلقة، وتُنشر البقية.',
+      confirmNoteSeparate_two: 'النشر يُصدر المسودات المعلقة ({{count}}) كلًّا على حدة: المسودة التي يتعذّر نشرها تبقى معلقة، وتُنشر البقية.',
+      confirmNoteSeparate_few: 'النشر يُصدر المسودات المعلقة ({{count}}) كلًّا على حدة: المسودة التي يتعذّر نشرها تبقى معلقة، وتُنشر البقية.',
+      confirmNoteSeparate_many: 'النشر يُصدر المسودات المعلقة ({{count}}) كلًّا على حدة: المسودة التي يتعذّر نشرها تبقى معلقة، وتُنشر البقية.',
+      confirmNoteSeparate_other: 'النشر يُصدر المسودات المعلقة ({{count}}) كلًّا على حدة: المسودة التي يتعذّر نشرها تبقى معلقة، وتُنشر البقية.',
       publishConfirm: 'نشر الكل',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE

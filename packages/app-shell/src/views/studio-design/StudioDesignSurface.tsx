@@ -4584,7 +4584,12 @@ export function AutomationsPillar({
   // offer a way to author the first one (mirrors the object/app creators).
   const [creating, setCreating] = React.useState(false);
   const [createBusy, setCreateBusy] = React.useState(false);
-  const Preview = getMetadataPreview(current?.type ?? '');
+  // objectui#11591 — keyed on the pillar's one type, as the inspector beside
+  // it is, never on the open flow's: with no flow open (a deep link naming one
+  // this rail does not hold, or an empty rail) a selection-keyed read found no
+  // designer and the canvas chip below said none were registered, on a page
+  // whose designers are.
+  const Preview = getMetadataPreview('flow');
   const inspector = getMetadataInspector('flow');
   const isEditable = !!Preview;
   // objectui#6795 part C — the FOURTH site, found by sweeping past the three the

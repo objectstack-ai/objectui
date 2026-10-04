@@ -3830,6 +3830,12 @@ const fr = {
       confirmNote_one: 'La publication libère atomiquement {{count}} brouillon en attente de ce paquet.',
       confirmNote_many: 'La publication libère atomiquement les {{count}} de brouillons en attente de ce paquet.',
       confirmNote_other: 'La publication libère atomiquement les {{count}} brouillons en attente de ce paquet.',
+      // objectui#11591 — the package-less sheet: no package to batch, so each
+      // draft publishes by itself and one that fails stays pending.
+      confirmNoteSeparate: 'La publication libère les {{count}} brouillons en attente un par un : celui qui échoue reste en attente, les autres sont publiés quand même.',
+      confirmNoteSeparate_one: 'La publication libère isolément {{count}} brouillon en attente : s’il échoue, il reste en attente.',
+      confirmNoteSeparate_many: 'La publication libère les {{count}} de brouillons en attente un par un : celui qui échoue reste en attente, les autres sont publiés quand même.',
+      confirmNoteSeparate_other: 'La publication libère les {{count}} brouillons en attente un par un : celui qui échoue reste en attente, les autres sont publiés quand même.',
       publishConfirm: 'Tout publier',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE

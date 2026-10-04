@@ -3754,6 +3754,11 @@ const de = {
       confirmNote: 'Beim Veröffentlichen werden alle {{count}} ausstehenden Entwürfe dieses Pakets atomar freigegeben.',
       confirmNote_one: 'Beim Veröffentlichen wird der {{count}} ausstehende Entwurf dieses Pakets atomar freigegeben.',
       confirmNote_other: 'Beim Veröffentlichen werden alle {{count}} ausstehenden Entwürfe dieses Pakets atomar freigegeben.',
+      // objectui#11591 — the package-less sheet: no package to batch, so each
+      // draft publishes by itself and one that fails stays pending.
+      confirmNoteSeparate: 'Beim Veröffentlichen werden die {{count}} ausstehenden Entwürfe einzeln freigegeben: Ein Entwurf, der dabei scheitert, bleibt ausstehend, die übrigen werden trotzdem freigegeben.',
+      confirmNoteSeparate_one: 'Beim Veröffentlichen wird der {{count}} ausstehende Entwurf für sich allein freigegeben: Scheitert er, bleibt er ausstehend.',
+      confirmNoteSeparate_other: 'Beim Veröffentlichen werden die {{count}} ausstehenden Entwürfe einzeln freigegeben: Ein Entwurf, der dabei scheitert, bleibt ausstehend, die übrigen werden trotzdem freigegeben.',
       publishConfirm: 'Alle veröffentlichen',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE

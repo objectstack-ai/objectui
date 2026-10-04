@@ -3828,6 +3828,12 @@ const pt = {
       confirmNote_one: 'Publicar libera atomicamente {{count}} rascunho pendente deste pacote.',
       confirmNote_many: 'Publicar libera atomicamente todos os {{count}} de rascunhos pendentes deste pacote.',
       confirmNote_other: 'Publicar libera atomicamente todos os {{count}} rascunhos pendentes deste pacote.',
+      // objectui#11591 — the package-less sheet: no package to batch, so each
+      // draft publishes by itself and one that fails stays pending.
+      confirmNoteSeparate: 'Publicar libera os {{count}} rascunhos pendentes um a um: o que falhar continua pendente e os demais são publicados mesmo assim.',
+      confirmNoteSeparate_one: 'Publicar libera {{count}} rascunho pendente isoladamente: se falhar, continua pendente.',
+      confirmNoteSeparate_many: 'Publicar libera os {{count}} de rascunhos pendentes um a um: o que falhar continua pendente e os demais são publicados mesmo assim.',
+      confirmNoteSeparate_other: 'Publicar libera os {{count}} rascunhos pendentes um a um: o que falhar continua pendente e os demais são publicados mesmo assim.',
       publishConfirm: 'Publicar tudo',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE

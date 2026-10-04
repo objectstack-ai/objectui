@@ -3756,6 +3756,11 @@ const ja = {
       confirmNote: '公開すると、このパッケージの保留中ドラフト {{count}} 件がまとめて（アトミックに）公開されます。',
       confirmNote_one: '公開すると、このパッケージの保留中ドラフト {{count}} 件がまとめて（アトミックに）公開されます。',
       confirmNote_other: '公開すると、このパッケージの保留中ドラフト {{count}} 件がまとめて（アトミックに）公開されます。',
+      // objectui#11591 — the package-less sheet: no package to batch, so each
+      // draft publishes by itself and one that fails stays pending.
+      confirmNoteSeparate: '公開すると、保留中のドラフト {{count}} 件がそれぞれ個別に公開されます。公開に失敗したドラフトは保留中のまま残り、ほかのドラフトは公開されます。',
+      confirmNoteSeparate_one: '公開すると、保留中のドラフト {{count}} 件がそれぞれ個別に公開されます。公開に失敗したドラフトは保留中のまま残り、ほかのドラフトは公開されます。',
+      confirmNoteSeparate_other: '公開すると、保留中のドラフト {{count}} 件がそれぞれ個別に公開されます。公開に失敗したドラフトは保留中のまま残り、ほかのドラフトは公開されます。',
       publishConfirm: 'すべて公開',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE

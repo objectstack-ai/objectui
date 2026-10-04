@@ -205,6 +205,13 @@ const SKIP_DIRS = new Set(['node_modules', 'dist', '.git', '.turbo', 'coverage',
  *              something else, and says what.
  */
 export const ADJUDICATED = new Map([
+  // objectui#11605. `bindingDocRows()` parses the binding doc's "which keys each
+  // one honours" table to learn what the `dataSource` binding supplies on each
+  // bound block -- so an edit to that table is an edit to this pin's input.
+  [
+    'apps/console/src/__tests__/objectname-binding-required-11605.test.ts',
+    { reads: ['content/docs/guide/data-source.md'] },
+  ],
   // objectui#11403. The console's SDUI manifest pin lists the files the
   // generator writes into a temp directory; no markdown in this tree is read.
   [

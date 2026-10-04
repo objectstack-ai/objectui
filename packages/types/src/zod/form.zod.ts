@@ -1389,7 +1389,7 @@ export const CodeEditorSchema = BaseSchema.extend({
   children: retirementTombstone(CODE_EDITOR_NEITHER_CHANNEL),
 });
 
-export const FormComponentSchema = z.discriminatedUnion('type', [
+const FormComponentSchemaInferred = z.discriminatedUnion('type', [
   ButtonSchema,
   InputSchema,
   TextareaSchema,
@@ -1411,3 +1411,16 @@ export const FormComponentSchema = z.discriminatedUnion('type', [
   InputShorthandSchema,
   UiCalendarSchema,
 ]);
+
+/**
+ * The TYPE of {@link FormComponentSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface FormComponentZodType extends FormComponentSchemaInferredType {
+  options: FormComponentSchemaInferredType['options'];
+}
+type FormComponentSchemaInferredType = typeof FormComponentSchemaInferred;
+
+/** The union above, typed by its named {@link FormComponentZodType}. */
+export const FormComponentSchema: FormComponentZodType = FormComponentSchemaInferred;

@@ -562,7 +562,7 @@ export const MenubarSchema = BaseSchema.extend({
 /**
  * Overlay Schema Union - All overlay component schemas
  */
-export const OverlaySchema = z.discriminatedUnion('type', [
+const OverlaySchemaInferred = z.discriminatedUnion('type', [
   DialogSchema,
   AlertDialogSchema,
   SheetSchema,
@@ -574,3 +574,16 @@ export const OverlaySchema = z.discriminatedUnion('type', [
   ContextMenuSchema,
   MenubarSchema,
 ]);
+
+/**
+ * The TYPE of {@link OverlaySchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface OverlayZodType extends OverlaySchemaInferredType {
+  options: OverlaySchemaInferredType['options'];
+}
+type OverlaySchemaInferredType = typeof OverlaySchemaInferred;
+
+/** The union above, typed by its named {@link OverlayZodType}. */
+export const OverlaySchema: OverlayZodType = OverlaySchemaInferred;

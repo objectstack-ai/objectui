@@ -138,8 +138,21 @@ export const ToggleGroupSchema = BaseSchema.extend({
 /**
  * Disclosure Schema Union - All disclosure component schemas
  */
-export const DisclosureSchema = z.discriminatedUnion('type', [
+const DisclosureSchemaInferred = z.discriminatedUnion('type', [
   AccordionSchema,
   CollapsibleSchema,
   ToggleGroupSchema,
 ]);
+
+/**
+ * The TYPE of {@link DisclosureSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface DisclosureZodType extends DisclosureSchemaInferredType {
+  options: DisclosureSchemaInferredType['options'];
+}
+type DisclosureSchemaInferredType = typeof DisclosureSchemaInferred;
+
+/** The union above, typed by its named {@link DisclosureZodType}. */
+export const DisclosureSchema: DisclosureZodType = DisclosureSchemaInferred;

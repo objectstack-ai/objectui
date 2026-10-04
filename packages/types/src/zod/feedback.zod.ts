@@ -301,7 +301,7 @@ export const SonnerSchema = BaseSchema.extend({
 /**
  * Feedback Schema Union - All feedback component schemas
  */
-export const FeedbackSchema = z.discriminatedUnion('type', [
+const FeedbackSchemaInferred = z.discriminatedUnion('type', [
   LoadingSchema,
   ProgressSchema,
   SkeletonSchema,
@@ -311,3 +311,16 @@ export const FeedbackSchema = z.discriminatedUnion('type', [
   EmptySchema,
   SonnerSchema,
 ]);
+
+/**
+ * The TYPE of {@link FeedbackSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface FeedbackZodType extends FeedbackSchemaInferredType {
+  options: FeedbackSchemaInferredType['options'];
+}
+type FeedbackSchemaInferredType = typeof FeedbackSchemaInferred;
+
+/** The union above, typed by its named {@link FeedbackZodType}. */
+export const FeedbackSchema: FeedbackZodType = FeedbackSchemaInferred;

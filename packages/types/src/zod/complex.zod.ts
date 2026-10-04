@@ -1643,7 +1643,7 @@ export const DashboardConfigSchema = z.object({
 /**
  * Complex Schema Union - All complex component schemas
  */
-export const ComplexSchema = z.discriminatedUnion('type', [
+const ComplexSchemaInferred = z.discriminatedUnion('type', [
   RetiredKanbanNodeSchema,
   CalendarViewSchema,
   FilterBuilderSchema,
@@ -1653,3 +1653,16 @@ export const ComplexSchema = z.discriminatedUnion('type', [
   ChatbotFloatingSchema,
   DashboardComponentSchema,
 ]);
+
+/**
+ * The TYPE of {@link ComplexSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface ComplexZodType extends ComplexSchemaInferredType {
+  options: ComplexSchemaInferredType['options'];
+}
+type ComplexSchemaInferredType = typeof ComplexSchemaInferred;
+
+/** The union above, typed by its named {@link ComplexZodType}. */
+export const ComplexSchema: ComplexZodType = ComplexSchemaInferred;

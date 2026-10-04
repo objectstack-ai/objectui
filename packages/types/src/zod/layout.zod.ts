@@ -1518,7 +1518,7 @@ export const HtmlElementSchema = BaseSchema.extend({
 /**
  * Layout Schema Union - All layout component schemas
  */
-export const LayoutSchema = z.discriminatedUnion('type', [
+const LayoutSchemaInferred = z.discriminatedUnion('type', [
   DivSchema,
   BoxSchema,
   TextSpanSchema,
@@ -1542,3 +1542,16 @@ export const LayoutSchema = z.discriminatedUnion('type', [
   SemanticElementSchema,
   HtmlElementSchema,
 ]);
+
+/**
+ * The TYPE of {@link LayoutSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface LayoutZodType extends LayoutSchemaInferredType {
+  options: LayoutSchemaInferredType['options'];
+}
+type LayoutSchemaInferredType = typeof LayoutSchemaInferred;
+
+/** The union above, typed by its named {@link LayoutZodType}. */
+export const LayoutSchema: LayoutZodType = LayoutSchemaInferred;

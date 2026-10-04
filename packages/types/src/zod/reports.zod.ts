@@ -344,13 +344,26 @@ export type ReportNodeZodType = z.ZodObject<
 /**
  * Union of all report schemas
  */
-export const ReportUnionSchema = z.discriminatedUnion('type', [
+const ReportUnionSchemaInferred = z.discriminatedUnion('type', [
   // objectui#11440 — the authored `report` node is `ReportNodeSchema` (the
   // record plus the `report` wrapper); `ReportComponentSchema` stays the record.
   ReportNodeSchema,
   ReportBuilderSchema,
   ReportViewerSchema,
 ]);
+
+/**
+ * The TYPE of {@link ReportUnionSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface ReportUnionZodType extends ReportUnionSchemaInferredType {
+  options: ReportUnionSchemaInferredType['options'];
+}
+type ReportUnionSchemaInferredType = typeof ReportUnionSchemaInferred;
+
+/** The union above, typed by its named {@link ReportUnionZodType}. */
+export const ReportUnionSchema: ReportUnionZodType = ReportUnionSchemaInferred;
 
 /**
  * Export type inference helpers

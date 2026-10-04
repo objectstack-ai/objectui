@@ -4020,11 +4020,13 @@ interface WiderThanDeclared {
    * `SchemaNode`'s object arm became `DeclaredNode`, the union of the declared node types
    * with no `type: string` arm. The mirror's slot still ends in the `BaseSchema` fallback
    * (`z.union([DashboardWidgetSlotComponentSchema, BaseSchema])`), which admits any `type`
-   * string, so it accepts a `component` node the declaration now refuses. That fallback was
-   * left for objectui#8347 to retire with the index signature, ⛔ not this ledger's:
-   * narrowing it here is a mirror change. objectui#8347 removed the TS signature and left
-   * the zod faces unchanged, so the fallback still stands. When it goes, this entry and the
-   * `widgets` one above measure clean and are deleted (clause 4 above).
+   * string, so it accepts a `component` node the declaration refuses. That fallback STAYS,
+   * by objectui#8344's decision: the card that added the slot chose that arm on purpose,
+   * and objectui#8347's Q3 = A (the seat's ACCEPT `5977022487`) put the zod face out of
+   * that card's scope, so the TS index-signature removal left it untouched. ⛔ Not this
+   * ledger's to narrow: that is a mirror change, and no open card retires the arm. When a
+   * card does retire it, this entry and the `widgets` one above measure clean and are
+   * deleted (clause 4 above).
    */
   'complex.zod.ts#DashboardWidgetSchema': 'component';
   // `complex.zod.ts#ChatbotSchema` recorded `body` here (CONCRETE, and DISJOINT rather

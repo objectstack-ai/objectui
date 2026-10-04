@@ -399,7 +399,7 @@ const SCAN_ROOTS = ['packages', 'apps', 'examples'] as const;
  *  commit itself reads as five new readers of the array, which is what turned
  *  the 17.7.0 release head red (objectui#11586). A CHANGELOG is history, not
  *  code. The sibling censuses exclude it with the same spelling
- *  (`ai-insights-retired-8800.test.ts`). */
+ *  (`eventable-schema-retired-6497.test.ts`). */
 const SCAN_EXCLUDES = [':!*CHANGELOG.md'] as const;
 
 /** The engine, for the diagnostics below: a failure that says "the anchor is

@@ -297,8 +297,10 @@ describe('objectui#11605 — each member compiles a bound node, and leaves the n
 
   it('control: the gate still judges requiredness on a moved tag', () => {
     // The bound node above names `formId`; without it the same tag is refused,
-    // so the empty list there is a reading of this entry.
-    const source = nodeOf('embeddable-form', 'dataSource={{ object: "account" }}');
+    // so the empty list there is a reading of this entry. The node names
+    // `objectName`, so this row reads the same before and after the fix: it is
+    // a control on the gate, not a second pin.
+    const source = nodeOf('embeddable-form', 'objectName="lead"');
     expect(diagnosticsOf(source)).toEqual([
       ['error', 'missing-required-prop', '<embeddable-form> is missing required prop "formId"'],
     ]);

@@ -1,5 +1,5 @@
 ---
-'@object-ui/plugin-form': patch
+'@object-ui/plugin-form': minor
 ---
 
 The `record:line_items` registration no longer declares `childObject` required,
@@ -13,7 +13,7 @@ registration still declared `required: true`, and the page compile reads the
 registration, so a bound node with no `childObject` of its own was refused with
 `missing-required-prop` and the save failed.
 
-**Behaviour change.** A `record:line_items` node that names its child object
+**Clause-②: yes (widening)** — a `record:line_items` node that names its child object
 through `dataSource.object` and sets no `childObject` now compiles and saves. A
 node that names its child object in neither place also compiles now: the panel
 shows its configuration hint naming `childObject` and loads nothing, as it did

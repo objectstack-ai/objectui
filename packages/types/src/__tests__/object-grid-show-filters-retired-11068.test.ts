@@ -172,14 +172,32 @@ describe('the UPSTREAM half, re-derived from the installed pin', () => {
  * `tsc -p tsconfig.test.json` leg as an UNUSED directive if the member is
  * re-typed as a live value. A deletion failed it too while the key fell back to
  * `BaseSchema`'s index signature; since objectui#8347 a deleted member's key is
- * refused as undeclared, which keeps the directive used, so this file no longer
- * sees a deletion on the TS face.
+ * refused as undeclared, which keeps the directive used, so the directive no
+ * longer sees a deletion. The deletion guard is the `_ShowFiltersIsATombstone`
+ * row below: an indexed access on a member that does not exist is itself a
+ * compile error, and the row pins the tombstone type (`?: never` reads as
+ * `undefined`), so a re-typing to a live value reddens it as well.
  */
 export const authoredShowFiltersRefused: ObjectGridSchemaType = {
   ...GRID_POST_HOIST,
   // @ts-expect-error — `showFilters` is RETIRED on `object-grid` (objectui#11068): a list view's `userActions.filter`.
   showFilters: true,
 };
+
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+
+/**
+ * The tombstone is a MEMBER on the TS face too. Measured by ablation on this
+ * tree: deleting `showFilters?: never` from `ObjectGridSchema` turns this row
+ * red (the directive above stays green); restored, it is green. The two
+ * controls below it pin that the spellings a renderer still reads stay LIVE,
+ * not tombstoned.
+ */
+export type _ShowFiltersIsATombstone = Expect<Equal<ObjectGridSchemaType['showFilters'], undefined>>;
+export type _ListViewShowFiltersIsLive = Expect<Equal<ListViewSchemaType['showFilters'], boolean | undefined>>;
+export type _ObjectViewShowFiltersIsLive = Expect<Equal<ObjectViewSchemaType['showFilters'], boolean | undefined>>;
 
 /** LIT CONTROL: the spellings that stay live are declared, writable members. */
 export const listViewFilterToggleIsDeclared: ListViewSchemaType = {

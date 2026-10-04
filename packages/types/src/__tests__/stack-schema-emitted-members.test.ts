@@ -202,7 +202,7 @@ describe('StackSchema ships the members it declares (objectui#6151)', () => {
   });
 
   it.each(['gap', 'children', 'align', 'justify', 'direction', 'wrap', 'className'])(
-    'declares `%s` in the emitted declaration, not merely via the index signature',
+    'declares `%s` as a named member of the emitted declaration, not a key a mapped type dropped',
     (member) => {
       // `getPropertyOfType` returned undefined for every one of these before the
       // fix, while `StackSchema['gap']` in SOURCE resolved to `any` and hid it.

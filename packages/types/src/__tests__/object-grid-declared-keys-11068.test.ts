@@ -168,7 +168,9 @@ describe('the UPSTREAM half — the canonical action spellings, re-derived from 
  * as a live value, or if `name` / `placeholder` is deleted (each would fall back
  * to `BaseSchema`'s `string`). Deleting either of the other two fell to the
  * index signature until objectui#8347; it is refused as an undeclared key now,
- * which keeps its directive used, so this file no longer sees that deletion.
+ * which keeps its directive used, so the directives no longer see that
+ * deletion. The deletion guards for those two are the `_RowSpecActions…` and
+ * `_BulkSpecActions…` rows at the bottom of this file.
  */
 export const authoredRowSpecActionsRefused: ObjectGridSchemaType = {
   ...NODE,
@@ -213,3 +215,20 @@ describe('the TypeScript twin', () => {
     ]).toHaveLength(5);
   });
 });
+
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+
+/**
+ * The two tombstones `BaseSchema` does not declare are MEMBERS on the TS face:
+ * an indexed access on a member that does not exist is itself a compile error,
+ * and each row pins the tombstone type (`?: never` reads as `undefined`), so a
+ * re-typing to a live value reddens it as well. Measured by ablation on this
+ * tree: deleting either member from `ObjectGridSchema` turns its row red while
+ * its directive above stays green; restored, both are green. `name` and
+ * `placeholder` need no row: deleting either falls back to `BaseSchema`'s
+ * `string`, and the directive above goes unused (TS2578).
+ */
+export type _RowSpecActionsIsATombstone = Expect<Equal<ObjectGridSchemaType['rowSpecActions'], undefined>>;
+export type _BulkSpecActionsIsATombstone = Expect<Equal<ObjectGridSchemaType['bulkSpecActions'], undefined>>;

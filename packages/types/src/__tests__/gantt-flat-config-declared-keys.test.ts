@@ -99,7 +99,7 @@
 
 import { describe, it, expect } from 'vitest';
 import { ObjectGanttSchema } from '../zod/objectql.zod.js';
-import type { GanttConfig, ObjectGanttSchema as ObjectGanttSchemaTS } from '../objectql.js';
+import type { GanttConfig, ObjectGanttSchema as ObjectGanttSchemaTS, SortConfig } from '../objectql.js';
 
 const MINIMAL = {
   type: 'object-gantt',
@@ -342,9 +342,13 @@ describe('ObjectGanttSchema (TS) — compile-time pin on every declared key', ()
     // the moment its key stopped being declared, while the member resolved to
     // `any` through `BaseSchema`'s index signature. Since objectui#8347 a removal
     // makes the indexed access itself an error, which its directive swallows, so
-    // these directives guard each member's TYPE only; the derived invariant above
-    // catches a deletion of any `GanttConfig` key. `tsconfig.test.json` compiles
-    // this file, so it is real enforcement (#3009).
+    // these directives guard each member's TYPE only. The deletion guards are
+    // elsewhere in this file: the derived invariant above catches a deletion of
+    // any `GanttConfig` key (measured by ablation: deleting `colorField` from
+    // the interface reddens `noGaps`, naming the key), and the three query keys,
+    // which `GanttConfig` does not carry, have the `_StaticData…` / `_Filter…` /
+    // `_Sort…` rows after this block. `tsconfig.test.json` compiles this file, so
+    // it is real enforcement (#3009).
 
     // @ts-expect-error — `colorField` is declared `string | undefined`.
     const colorField: ObjectGanttSchemaTS['colorField'] = 5;
@@ -420,3 +424,22 @@ describe('ObjectGanttSchema (TS) — compile-time pin on every declared key', ()
     expect(ok.interactions?.resize).toBe(false);
   });
 });
+
+/* ── The three query keys EXIST on the flat face, with their declared type ─── */
+
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+
+/**
+ * `staticData` / `filter` / `sort` are not `GanttConfig` keys, so the derived
+ * invariant above is blind to their deletion, and the counter-probe literal
+ * spreads `GOOD`, which excess-property checking does not reach. These rows are
+ * their deletion guard: an indexed access on a member that does not exist is
+ * itself a compile error, and `Equal` pins each declared type. Measured by
+ * ablation on this tree: deleting any one of the three from `ObjectGanttSchema`
+ * turns its row red while its directive above stays green; restored, green.
+ */
+export type _StaticDataIsDeclared = Expect<Equal<ObjectGanttSchemaTS['staticData'], any[] | undefined>>;
+export type _FilterIsDeclared = Expect<Equal<ObjectGanttSchemaTS['filter'], any[] | undefined>>;
+export type _SortIsDeclared = Expect<Equal<ObjectGanttSchemaTS['sort'], SortConfig[] | undefined>>;

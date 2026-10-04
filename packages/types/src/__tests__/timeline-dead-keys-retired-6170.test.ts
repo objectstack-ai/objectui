@@ -230,7 +230,7 @@ describe('events / orientation / position are RETIRED — the TS half of the tom
     expect([events, orientation, position, items, variant]).toHaveLength(5);
   });
 
-  it('refuses them in the form authors actually write — survives the index signature', () => {
+  it('refuses them in the form authors actually write — by name, as `never` tombstones on a fresh literal', () => {
     // The member reads above could pass through a mapped or indexed type; this
     // leg writes a DOCUMENT, the shape an author (or an AI generating metadata)
     // produces. If `BaseSchema`'s `[key: string]: any` had won (it stood until

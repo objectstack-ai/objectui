@@ -190,7 +190,7 @@ describe(`objectui#7923 — ${DOC}'s object-view example against \`${INTERFACE}\
       `${DOC}'s object-view example authors \`listViews\` key(s) that \`${INTERFACE}\` ` +
         '(packages/types/src/objectql.ts) does not declare. An undeclared key here is not ' +
         'caught by anything else: the fence is JSON so no snippet gate compiles it, and ' +
-        '`BaseSchema`\'s index signature would swallow an annotation anyway (objectui#7927). ' +
+        'the typed-literal refusal objectui#7927 ruled (executed by objectui#8347) never sees a JSON fence. ' +
         'Fix the doc — or declare the key AND give it a read site.',
     ).toEqual([]);
   });

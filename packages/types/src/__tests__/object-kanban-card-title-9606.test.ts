@@ -210,8 +210,11 @@ export const BOTH_SPELLINGS_BOARD: TsObjectKanbanSchema = {
  * expects exists. When written, deleting the member let the index signature
  * admit the `42`, the expected error disappeared, and `tsc` reddened with TS2578
  * — measured both ways. Since objectui#8347 a deleted member's `42` is refused
- * as an undeclared key, so the directive stays used and a deletion of
- * `cardTitle` no longer turns this file red.
+ * as an undeclared key, so the directive stays used and no longer sees a
+ * deletion. The deletion guard is the `_CardTitleIsADeclaredString` row below:
+ * an indexed access on a member that does not exist is itself a compile error,
+ * and the row also pins the member's declared type. (The fresh literals above
+ * refuse an undeclared `cardTitle` too, by the same excess-property check.)
  */
 export const NON_STRING_CARD_TITLE_IS_REFUSED_AT_COMPILE_TIME: TsObjectKanbanSchema = {
   type: 'object-kanban',
@@ -228,6 +231,23 @@ export const NEITHER_SPELLING_BOARD: TsObjectKanbanSchema = {
   objectName: 'tasks',
   groupBy: 'status',
 };
+
+/* ── Type-level: the members EXIST, with their declared type ───────────────── */
+
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+
+/**
+ * The deletion guard on the TS twin (objectui#8347 silenced the TS2578 one):
+ * `TsObjectKanbanSchema['cardTitle']` stops compiling the moment the member is
+ * deleted, and `Equal` fails the moment it is re-typed. Measured by ablation on
+ * this tree: deleting `cardTitle?: string` from the interface turns this row
+ * red; restored, it is green. The alias row is the type-level half of the third
+ * pin: reddening it means `titleField` was retired, which the ruling forbids.
+ */
+export type _CardTitleIsADeclaredString = Expect<Equal<TsObjectKanbanSchema['cardTitle'], string | undefined>>;
+export type _TitleFieldAliasIsStillDeclared = Expect<Equal<TsObjectKanbanSchema['titleField'], string | undefined>>;
 
 describe('the TS face admits what the zod face admits (objectui#9606)', () => {
   it.each([

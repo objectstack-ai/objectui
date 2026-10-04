@@ -314,7 +314,7 @@ describe('no docs fence authors the retired callback shape any more (objectui#70
 /* ── the TS half ────────────────────────────────────────────────────────── */
 
 describe('legacy ActionSchema.onSuccess / onFailure are RETIRED — the TS half of the tombstone (objectui#7068)', () => {
-  it('refuses both retired keys at compile time, in the form authors actually write — and beats the inherited index signature', () => {
+  it('refuses both retired keys at compile time, in the form authors actually write — by name, as `never` tombstones, not as undeclared keys', () => {
     // On the pre-fix tree both assignments were LEGAL (`ActionCallback | undefined`),
     // so each directive would be unused and `tsc -p tsconfig.test.json` fails the
     // build with TS2578 naming the line — red before the fix in `type-check`, not

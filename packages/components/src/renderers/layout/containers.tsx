@@ -1450,8 +1450,10 @@ const RECORD_PICTURE_FILE_PATH = '/api/v1/storage/files/';
  * depends on this package, so the import would close a cycle, and moving that
  * resolver down into `@object-ui/core` adds a public export, which this change
  * does not make. The two agree on every form above; `readFileValue` also
- * accepts an id-only object, which this does not. Nothing pins the two
- * together (AGENTS.md #9): a change to either has to be made in both.
+ * accepts an id-only object, which this does not.
+ * `packages/fields/src/widgets/file-value.recordChromeParity-11383.test.tsx`
+ * keeps the two resolutions together (seat ruling 5981856796, option C), and
+ * a change to either still has to be made in both.
  */
 function recordPictureUrl(value: unknown): string | undefined {
   for (const entry of Array.isArray(value) ? value : [value]) {

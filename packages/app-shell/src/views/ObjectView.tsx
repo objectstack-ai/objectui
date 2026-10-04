@@ -1482,6 +1482,14 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                         return;
                     }
                     console.error('[ObjectView] Failed to persist view config:', err);
+                    // objectui#11583: every other refusal is said too, with the
+                    // door's message. The client gate above answers only for a
+                    // session whose capabilities were reported; an unreported
+                    // one passes it, and the server's 403 lands here.
+                    toast.error(t('form.saveError'), {
+                        description: formatMetadataError(err),
+                        classNames: { description: 'whitespace-pre-line' },
+                    });
                 });
             }, 300);
         },
@@ -1512,27 +1520,42 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
      * folds through it. What is gone is the automatic write, not the fold.
      */
 
-    const handleViewConfigSave = useCallback((draft: Record<string, any>) => {
+    /**
+     * The view-config panel's edit Save. Resolves whether the draft was staged,
+     * so the panel stays dirty, and announces no draft, on anything but `true`
+     * (objectui#11583).
+     */
+    const handleViewConfigSave = useCallback(async (draft: Record<string, any>): Promise<boolean> => {
         setViewDraft(draft);
         setRefreshKey(k => k + 1);
 
         // ADR-0034: stage a per-item draft via the metadata seam; an explicit
         // Publish (RuntimeDraftBar) promotes it + records a version.
         const vid = draft.id;
-        if (metadataClient && vid) {
+        if (!metadataClient || !vid) {
+            console.warn('[ViewConfigPanel] Cannot persist view config: missing metadataClient or viewId.');
+            return false;
+        }
+        try {
             // `dataSource` + `objectName` let the seam drop this object's view
             // cache keys (#4373) — the adapter owns which keys those are.
-            persistRuntimeMetadata('view', vid, buildViewConfigSaveBody(objectName, draft), {
+            await persistRuntimeMetadata('view', vid, buildViewConfigSaveBody(objectName, draft), {
                 metadataClient,
                 dataSource,
                 objectName,
-            }).catch((err: any) => {
-                console.error('[ViewConfigPanel] Failed to persist view config:', err);
             });
-        } else {
-            console.warn('[ViewConfigPanel] Cannot persist view config: missing metadataClient or viewId.');
+            return true;
+        } catch (err) {
+            console.error('[ViewConfigPanel] Failed to persist view config:', err);
+            // objectui#11583: a refused save is SAID, with the door's own
+            // message, as the Create View doors do (objectui#11578).
+            toast.error(t('form.saveError'), {
+                description: formatMetadataError(err),
+                classNames: { description: 'whitespace-pre-line' },
+            });
+            return false;
         }
-    }, [metadataClient, dataSource, objectName]);
+    }, [metadataClient, dataSource, objectName, t]);
 
     /**
      * Create a new view: the Create View dialog's door and the view-config
@@ -2278,6 +2301,11 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             setRefreshKey(k => k + 1);
         } catch (err) {
             console.error('[ViewTabBar] Failed to pin view:', err);
+            // objectui#11583: a refused pin is said, with the door's message.
+            toast.error(t('form.saveError'), {
+                description: formatMetadataError(err),
+                classNames: { description: 'whitespace-pre-line' },
+            });
         }
     }, [dataSource, objectName, isSavedView, t]);
 
@@ -2331,10 +2359,17 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 await Promise.all(updates);
             } catch (err) {
                 console.error('[ViewTabBar] Failed to reorder views:', err);
+                // objectui#11583: the new order still shows from this
+                // browser's copy, but other sessions read the server's, so a
+                // refused write is said, with the door's message.
+                toast.error(t('form.saveError'), {
+                    description: formatMetadataError(err),
+                    classNames: { description: 'whitespace-pre-line' },
+                });
             }
         }
         setRefreshKey(k => k + 1);
-    }, [dataSource, savedViews, objectName]);
+    }, [dataSource, savedViews, objectName, t]);
 
     const handleConfigView = useCallback((vid: string) => {
         // System (metadata-defined) views are read-only — opening the

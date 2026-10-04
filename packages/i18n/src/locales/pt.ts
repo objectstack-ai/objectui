@@ -2202,6 +2202,10 @@ const pt = {
       ufAddField: "+ Adicionar campo de filtro…",
       ufShowAllRecords: "Mostrar aba \"Todos os registros\"",
     },
+    runtimeDraft: {
+      publishFailed: "Falha ao publicar",
+      discardFailed: "Falha ao descartar o rascunho",
+    },
     localeSwitcher: {
       label: "Idioma",
     },

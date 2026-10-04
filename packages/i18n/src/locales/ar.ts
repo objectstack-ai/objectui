@@ -2361,6 +2361,10 @@ const ar = {
       ufAddField: "+ إضافة حقل فلتر…",
       ufShowAllRecords: "إظهار علامة \"جميع السجلات\"",
     },
+    runtimeDraft: {
+      publishFailed: "فشل النشر",
+      discardFailed: "فشل تجاهل المسودة",
+    },
     localeSwitcher: {
       label: "اللغة",
     },

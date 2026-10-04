@@ -2207,6 +2207,10 @@ const es = {
       ufAddField: "+ Agregar campo de filtro…",
       ufShowAllRecords: "Mostrar pestaña \"Todos los registros\"",
     },
+    runtimeDraft: {
+      publishFailed: "Error al publicar",
+      discardFailed: "Error al descartar el borrador",
+    },
     localeSwitcher: {
       label: "Idioma",
     },

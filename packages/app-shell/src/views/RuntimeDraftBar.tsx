@@ -22,6 +22,9 @@ import {
   type RuntimeArtifactType,
 } from './runtime-metadata-persistence.js';
 import { useMetadataLocale, t, tFormat } from './metadata-admin/i18n.js';
+import { useObjectTranslation } from '@object-ui/i18n';
+import { formatMetadataError } from '@object-ui/data-objectstack';
+import { toast } from 'sonner';
 
 export interface RuntimeDraftBarProps {
   /** Artifact type — the `:type` in `/meta/:type/:name`. */
@@ -75,6 +78,9 @@ export function RuntimeDraftBar({
   savedSignal,
 }: RuntimeDraftBarProps) {
   const locale = useMetadataLocale();
+  // The console packs, for the refusal toasts: the engine table above has no
+  // failure keys, and its two languages are not the console's ten.
+  const { t: tConsole } = useObjectTranslation();
   const [hasDraft, setHasDraft] = useState(false);
   const [busy, setBusy] = useState(false);
   // Track the `name` we've already resumed so reopening the same item doesn't
@@ -133,10 +139,16 @@ export function RuntimeDraftBar({
       onAfterChange?.();
     } catch (err) {
       console.error('[RuntimeDraftBar] Publish failed:', err);
+      // objectui#11583: a refused publish is said, with the door's message.
+      // The draft is still pending, so the indicator stays.
+      toast.error(tConsole('console.runtimeDraft.publishFailed'), {
+        description: formatMetadataError(err),
+        classNames: { description: 'whitespace-pre-line' },
+      });
     } finally {
       setBusy(false);
     }
-  }, [type, name, metadataClient, dataSource, objectName, onAfterChange]);
+  }, [type, name, metadataClient, dataSource, objectName, onAfterChange, tConsole]);
 
   const handleDiscard = useCallback(async () => {
     if (!name) return;
@@ -153,10 +165,16 @@ export function RuntimeDraftBar({
       onAfterChange?.();
     } catch (err) {
       console.error('[RuntimeDraftBar] Discard draft failed:', err);
+      // objectui#11583: a refused discard is said, with the door's message.
+      // The draft is still pending, so the indicator stays.
+      toast.error(tConsole('console.runtimeDraft.discardFailed'), {
+        description: formatMetadataError(err),
+        classNames: { description: 'whitespace-pre-line' },
+      });
     } finally {
       setBusy(false);
     }
-  }, [type, name, metadataClient, dataSource, objectName, onAfterChange, locale]);
+  }, [type, name, metadataClient, dataSource, objectName, onAfterChange, locale, tConsole]);
 
   // flag OFF, or nothing pending → render nothing (zero DOM, zero layout shift).
   // Nothing pending → render nothing (no indicator, no buttons).

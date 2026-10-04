@@ -2605,6 +2605,12 @@ const en = {
       ufAddField: '+ Add filter field…',
       ufShowAllRecords: 'Show "All records" tab',
     },
+    // The runtime draft bar's Publish / Discard refusals (RuntimeDraftBar,
+    // objectui#11583). The toast's description is the refusal itself.
+    runtimeDraft: {
+      publishFailed: 'Publish failed',
+      discardFailed: 'Discard failed',
+    },
     localeSwitcher: {
       label: 'Language',
     },

@@ -68,8 +68,15 @@ export interface ViewConfigPanelProps {
     recordCount?: number;
     /** Called when any view config field changes (local draft update) */
     onViewUpdate?: (field: string, value: any) => void;
-    /** Called to persist all draft changes */
-    onSave?: (draft: Record<string, any>) => void;
+    /**
+     * Called to persist all draft changes. Return a promise of the outcome to
+     * have the panel wait for it (objectui#11583): it reports the edit as
+     * saved (clears the dirty state and raises the draft indicator) only when
+     * the promise resolves to anything but `false`. `false` or a rejection
+     * leaves the panel dirty, so the edit can be saved again. A host that
+     * returns nothing is read as saved at once, as before.
+     */
+    onSave?: (draft: Record<string, any>) => void | Promise<boolean>;
     /** Called when create-mode view is created */
     onCreate?: (config: Record<string, any>) => void;
     /**
@@ -141,9 +148,12 @@ export function ViewConfigPanel({ open, onClose, mode = 'edit', activeView, obje
     );
     const [draft, setDraft] = useState<InspectorViewDraft>(initialDraft);
     const [isDirty, setIsDirty] = useState(false);
-    // Bumped on each edit-mode save so the draft/publish chrome surfaces the
-    // "unpublished changes" indicator immediately (the save writes a draft).
+    // Bumped on each edit-mode save that lands, so the draft/publish chrome
+    // surfaces the "unpublished changes" indicator immediately (the save
+    // wrote a draft). Never on a refused one (objectui#11583).
     const [savedSignal, setSavedSignal] = useState(0);
+    // An edit-mode save is in flight: Save is disabled until it settles.
+    const [saving, setSaving] = useState(false);
     // Mirror the committed draft into a ref so `handlePatch` can compute the
     // next draft synchronously without a side-effecting state updater.
     const draftRef = useRef(draft);
@@ -189,15 +199,30 @@ export function ViewConfigPanel({ open, onClose, mode = 'edit', activeView, obje
         }
     }, [onViewUpdate]);
 
-    const handleSave = useCallback(() => {
+    const handleSave = useCallback(async () => {
         const flat = inspectorDraftToRuntimeView(draft);
         if (mode === 'create') {
             onCreate?.(flat);
-        } else {
-            onSave?.(flat);
-            setSavedSignal((s) => s + 1);
+            setIsDirty(false);
+            return;
         }
-        setIsDirty(false);
+        // objectui#11583: the edit is reported as saved only once the host
+        // says it landed. A refused save keeps the panel dirty, so Save stays
+        // live and no draft is announced. An edit made while the save is in
+        // flight is not in it, so it keeps the panel dirty either way.
+        const savedDraft = draftRef.current;
+        setSaving(true);
+        let landed: boolean;
+        try {
+            landed = (await onSave?.(flat)) !== false;
+        } catch {
+            landed = false;
+        } finally {
+            setSaving(false);
+        }
+        if (!landed) return;
+        setSavedSignal((s) => s + 1);
+        if (draftRef.current === savedDraft) setIsDirty(false);
     }, [draft, onSave, onCreate, mode]);
 
     // Discard = revert any unsaved edits AND close the panel, in both modes
@@ -298,7 +323,7 @@ export function ViewConfigPanel({ open, onClose, mode = 'edit', activeView, obje
                 <Button
                     size="sm"
                     onClick={handleSave}
-                    disabled={mode === 'edit' && !isDirty}
+                    disabled={saving || (mode === 'edit' && !isDirty)}
                     data-testid="view-config-save"
                 >
                     {t('console.objectView.save')}

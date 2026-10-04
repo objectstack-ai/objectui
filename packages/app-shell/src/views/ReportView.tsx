@@ -16,6 +16,8 @@ import { preferLocal } from '../utils/preferLocal.js';
 import { useAdapter } from '../providers/AdapterProvider.js';
 import { useMetadataClient } from './metadata-admin/useMetadata.js';
 import { persistRuntimeMetadata } from './runtime-metadata-persistence.js';
+import { formatMetadataError } from '@object-ui/data-objectstack';
+import { toast } from 'sonner';
 import { useWorkspaceAdminStatus } from '@object-ui/auth';
 import type { DataSource } from '@object-ui/types';
 import type { DatasetDrillArgs } from '@object-ui/plugin-report';
@@ -186,9 +188,16 @@ export function ReportView({ dataSource }: { dataSource?: DataSource }) {
         }
       } catch (err) {
         console.warn('[ReportView] Auto-save failed:', err);
+        // objectui#11583: a refused save is said, with the door's message.
+        // It fires once per press of the editor's Save (an edit only drives
+        // the live preview), so one refusal is one toast.
+        toast.error(t('form.saveError'), {
+          description: formatMetadataError(err),
+          classNames: { description: 'whitespace-pre-line' },
+        });
       }
     },
-    [metadataClient, reportName, refresh],
+    [metadataClient, reportName, refresh, t],
   );
 
   // ---- Open / close config panel ------------------------------------------

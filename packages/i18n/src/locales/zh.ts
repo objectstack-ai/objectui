@@ -2258,6 +2258,10 @@ const zh = {
       ufAddField: '+ 添加筛选字段…',
       ufShowAllRecords: '显示"全部记录"标签页',
     },
+    runtimeDraft: {
+      publishFailed: '发布失败',
+      discardFailed: '放弃草稿失败',
+    },
     localeSwitcher: {
       label: '语言',
     },

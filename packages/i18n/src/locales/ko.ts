@@ -2157,6 +2157,10 @@ const ko = {
       ufAddField: "+ 필터 필드 추가…",
       ufShowAllRecords: "\"모든 레코드\" 탭 표시",
     },
+    runtimeDraft: {
+      publishFailed: "게시에 실패했습니다",
+      discardFailed: "초안 버리기에 실패했습니다",
+    },
     localeSwitcher: {
       label: "언어",
     },

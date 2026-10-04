@@ -2159,6 +2159,10 @@ const ja = {
       ufAddField: "+ フィルターフィールドを追加…",
       ufShowAllRecords: "「すべてのレコード」タブを表示",
     },
+    runtimeDraft: {
+      publishFailed: "公開に失敗しました",
+      discardFailed: "下書きの破棄に失敗しました",
+    },
     localeSwitcher: {
       label: "言語",
     },

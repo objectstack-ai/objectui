@@ -2157,6 +2157,10 @@ const de = {
       ufAddField: "+ Filterfeld hinzufügen…",
       ufShowAllRecords: "Registerkarte „Alle Datensätze“ anzeigen",
     },
+    runtimeDraft: {
+      publishFailed: "Veröffentlichen fehlgeschlagen",
+      discardFailed: "Verwerfen fehlgeschlagen",
+    },
     localeSwitcher: {
       label: "Sprache",
     },

@@ -2204,6 +2204,10 @@ const fr = {
       ufAddField: "+ Ajouter un champ de filtre…",
       ufShowAllRecords: "Afficher l'onglet \"Tous les enregistrements\"",
     },
+    runtimeDraft: {
+      publishFailed: "Échec de la publication",
+      discardFailed: "Échec de l'abandon du brouillon",
+    },
     localeSwitcher: {
       label: "Langue",
     },

@@ -2269,6 +2269,10 @@ const ru = {
       ufAddField: "+ Добавить поле фильтра…",
       ufShowAllRecords: "Показать вкладку \"Все записи\"",
     },
+    runtimeDraft: {
+      publishFailed: "Не удалось опубликовать",
+      discardFailed: "Не удалось отменить черновик",
+    },
     localeSwitcher: {
       label: "Язык",
     },

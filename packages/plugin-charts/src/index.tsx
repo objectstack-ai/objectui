@@ -82,7 +82,14 @@ ComponentRegistry.register('chart', ObjectChartBlock, {
   label: 'Chart',
   skipFallback: true,
   inputs: [
-    { name: 'objectName', type: 'string', required: true },
+    // NOT required, for `object-chart`'s reason (objectui#11605): the same
+    // `ObjectChartBlock` lands `dataSource.object` here.
+    {
+      name: 'objectName',
+      type: 'string',
+      description:
+        'Object this chart aggregates. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no inline `data`, the chart shows a hint naming this key instead of an empty frame.',
+    },
     { name: 'type', type: 'string' },
     { name: 'categoryField', type: 'string' },
     { name: 'valueField', type: 'string' },

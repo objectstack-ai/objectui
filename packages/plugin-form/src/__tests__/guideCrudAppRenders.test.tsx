@@ -12,7 +12,7 @@
  * it as a React prop and never as context: measured `getObjectSchema` **0**,
  * `findOne` **0**, a card with no fields and no error. The key axis compounded
  * it — the page named the object with `object`, and this block declares
- * `objectName` as required.
+ * `objectName` (as required then; not since objectui#11605).
  *
  * ## The correction this file exists to keep
  *

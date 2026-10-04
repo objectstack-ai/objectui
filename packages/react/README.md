@@ -216,6 +216,15 @@ const ObjectGridRenderer = elementDataSourceBlock<FC<{ schema: BaseSchema }>>(({
 ))
 ```
 
+**Say when the placement cannot draw anything.** Two boolean props let the call
+site, which knows its block's other record sources, ask the gate to answer instead
+of mounting an empty block. `requiresDataSource` draws a "no data source" panel
+when no adapter resolves. `requiresObject` draws a short "No object named: set
+objectName or dataSource.object." hint when the node names its object in neither
+place, read after the binding lands on the mapping's object key, so a node bound
+by `dataSource.object` never sees it (objectui#11605). Leave either one false for
+a placement that draws from inline rows or another source the block reads.
+
 **Wrap the registered renderer in `elementDataSourceBlock`.** It is what makes
 `ComponentRegistry.register` emit the `dataSource` input on that block's
 authoring surface, so the key the gate READS is also the key the manifest, the

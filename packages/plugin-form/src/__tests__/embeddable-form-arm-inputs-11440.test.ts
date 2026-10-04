@@ -12,9 +12,11 @@
  *
  * `@object-ui/types/zod`'s `EmbeddableFormBlockSchema` builds its `properties`
  * bag from exactly this registration's `inputs` (the spec has no
- * `ComponentPropsMap` row for the block), and requires what the registration
- * requires: `formId` always, and `objectName` unless the node's
- * `dataSource.object` names the object (the registration is gate-wrapped).
+ * `ComponentPropsMap` row for the block). The arm requires `formId` always,
+ * and `objectName` unless the node's `dataSource.object` names the object
+ * (the registration is gate-wrapped). The registration requires `formId` only
+ * (objectui#11605): its `required` is what the page compile reads, and the
+ * compile has no "this key or that binding" form.
  * This file holds the two lists equal in both directions. The one input that
  * is not a bag member is `dataSource`, the binding the gate-wrapped
  * registration publishes (objectui#6678), which the arm declares on the NODE.
@@ -47,9 +49,12 @@ describe('embeddable-form — registration inputs and the arm\'s bag agree (obje
     expect(Object.keys(EmbeddableFormBlockSchema.shape)).toContain('dataSource');
   });
 
-  it('`formId` is required on both; `objectName` is required by the registration and waived by the binding in the arm', () => {
+  it('`formId` is required on both; `objectName` is required on neither, because the binding can supply it', () => {
     const required = inputs().filter((input) => input.required).map((input) => input.name).sort();
-    expect(required).toEqual(['formId', 'objectName']);
+    // `objectName` left this list with objectui#11605: the page compile reads
+    // it, and `required: true` refused a node whose `dataSource.object` names
+    // the object.
+    expect(required).toEqual(['formId']);
     expect(bag().formId.isOptional()).toBe(false);
     // The arm keeps `objectName` omissible as a member and enforces it with
     // `requireRecordSource` unless `dataSource.object` is present.

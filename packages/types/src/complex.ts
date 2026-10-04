@@ -2143,9 +2143,13 @@ export interface FloatingChatbotConfig {
  * alone, and that arm's required `value` is the one spelling of what the card
  * draws from. While it was also a widget type, `{ type: 'metric-card', title }`
  * parsed as a widget and `MetricCard` drew an empty figure. No widget key binds
- * the card's figure: measured through the real `DashboardRenderer` and
- * `DashboardGridLayout`, a `dataset` draws `DatasetWidget` in the card's place
- * by a rule that ignores the `type`. Since objectui#11514 the TypeScript widget
+ * the card's figure. objectui#11483 measured, through the real
+ * `DashboardRenderer` and `DashboardGridLayout`, that a `dataset` then drew
+ * `DatasetWidget` in the card's place by a rule that ignored the `type`. Since
+ * objectui#11598 (2026-10-04) both surfaces read a widget key on the widget arm
+ * alone: a `metric-card` carrying one (`dataset`, `options`, `component`, …) is
+ * refused by the strict face and is not drawn as a widget — the card draws its
+ * own keys. Since objectui#11514 the TypeScript widget
  * arm, {@link DashboardWidgetSchema}'s `type`, names no member either: a slot
  * entry is read by the slot's element type, not by the widget arm.
  *

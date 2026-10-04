@@ -26,10 +26,12 @@
  * carries what the card draws from, which is its `value`, or the widget arm's
  * own data binding if that arm declares one. With neither, it is refused.
  * Measured through the real `DashboardRenderer` and `DashboardGridLayout`, no
- * widget key binds the card's figure. A `dataset` makes the dashboard draw
- * `DatasetWidget` in the card's place, by a rule that ignores the `type`. The
- * `options` bag is spread onto the node as literal props, which is not a
- * binding. So `metric-card` left the widget vocabulary, and the component
+ * widget key binds the card's figure: a `dataset` then drew `DatasetWidget` in
+ * the card's place, by a rule that ignored the `type`, and the `options` bag
+ * was spread onto the node as literal props, which is not a binding. Since
+ * objectui#11598 (2026-10-04) both surfaces read a widget key on the widget
+ * arm alone, so a card carrying one draws its own keys and is not drawn as a
+ * widget. So `metric-card` left the widget vocabulary, and the component
  * arm's required `value` governs alone. The probe's readings are in that
  * card's pull request; this file pins the contract, not the probe.
  *
@@ -129,8 +131,9 @@ describe('objectui#11483 — a card with its `value` passes on every face', () =
 
 describe('objectui#11483 — no widget key stands in for the card\'s `value`', () => {
   it.each(FACES)('%s: a dataset-bound card is refused at `value`', (_name, face) => {
-    // The dashboard draws `DatasetWidget` for any widget with a `dataset`, in the
-    // card's place: the card is never mounted, so `dataset` is not its binding.
+    // `dataset` is not the card's binding. The dashboard used to draw
+    // `DatasetWidget` in the card's place for it; since objectui#11598 it reads
+    // `dataset` on the widget arm alone, so the card draws its own keys.
     const refusal = slotRefusal(face, dashboard({ type: 'metric-card', title: 'Revenue', dataset: 'sales', values: ['revenue'] }));
     expect(refusal?.code).toBe('invalid_union');
     expect(paths(refusal?.errors?.[0])).toContain('invalid_union@value');
@@ -138,9 +141,10 @@ describe('objectui#11483 — no widget key stands in for the card\'s `value`', (
   });
 
   it.each(FACES)('%s: a card whose figure sits in `options` is refused at `value`', (_name, face) => {
-    // The surfaces spread `options` onto the node, so `options.value` reached the
-    // card as its prop: a second spelling of `value`, which the tolerant face
-    // accepted until this change.
+    // The surfaces used to spread `options` onto the node, so `options.value`
+    // reached the card as its prop: a second spelling of `value`, which the
+    // tolerant face accepted until this change. Since objectui#11598 no surface
+    // reads `options` off a card.
     const refusal = slotRefusal(face, dashboard({ type: 'metric-card', title: 'Revenue', options: { value: '$24k' } }));
     expect(refusal?.code).toBe('invalid_union');
     expect(paths(refusal?.errors?.[0])).toContain('invalid_union@value');

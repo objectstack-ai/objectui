@@ -1186,10 +1186,14 @@ export const DashboardWidgetLayoutSchema = z.object({
  * parsed as a WIDGET, so the arm's required `value` governed only when a
  * card-only input happened to be present, and `MetricCard` drew an empty
  * figure. objectui#11483 measured, through the real `DashboardRenderer` and
- * `DashboardGridLayout`, that no widget key binds the card's figure. A
- * `dataset` makes the dashboard draw `DatasetWidget` in the card's place, by a
- * rule that ignores the `type`. The `options` bag is spread onto the node as
- * literal props, which is not a binding. So the type left this vocabulary, and
+ * `DashboardGridLayout`, that no widget key binds the card's figure: a
+ * `dataset` then drew `DatasetWidget` in the card's place, by a rule that
+ * ignored the `type`, and the `options` bag was spread onto the node as
+ * literal props, which is not a binding. Since objectui#11598 (2026-10-04)
+ * both surfaces read a widget key on the widget arm alone: a `metric-card`
+ * carrying one (`dataset`, `options`, `component`, …) is refused by the strict
+ * face and is not drawn as a widget — the card draws its own keys, and no
+ * `options` bag is spread onto it. So the type left this vocabulary, and
  * the component arm's required `value` is the one reading of a `metric-card`
  * in the slot. A dataset-bound single figure is the `metric` widget
  * (`type: 'metric'` with `dataset` and `values`).

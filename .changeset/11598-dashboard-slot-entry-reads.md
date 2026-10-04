@@ -1,6 +1,7 @@
 ---
 '@object-ui/plugin-dashboard': patch
 '@object-ui/plugin-designer': patch
+'@object-ui/types': patch
 ---
 
 The dashboard surfaces read every `widgets[]` entry without leaning on `BaseSchema`'s index signature: a widget key is read on the widget arm alone, and the `chart` node is built as a private hand-off type (objectui#11598).
@@ -13,4 +14,4 @@ The dashboard surfaces read every `widgets[]` entry without leaning on `BaseSche
 - a `metric-card` carrying `options` draws its own keys; `options` used to be spread over them, so `options.value` replaced `value`;
 - a `metric-card` carrying a `component` draws its card; the envelope's node used to be drawn instead.
 
-A document the strict face accepts draws exactly as before. In `DashboardEditor`, a `metric-card` entry is no longer offered the Color Variant select: the card declares no `colorVariant`, `MetricCard` draws nothing from it, and a pick stored a key publish refuses. A widget is offered it as before.
+A document the strict face accepts draws exactly as before. `@object-ui/types`' docblocks on `DASHBOARD_COMPONENT_WIDGET_TYPES` and the Zod widget vocabulary, which described the dataset tile in the card's place and the `options` spread as live, were corrected to match; no type in it changes. In `DashboardEditor`, a `metric-card` entry is no longer offered the Color Variant select: the card declares no `colorVariant`, `MetricCard` draws nothing from it, and a pick stored a key publish refuses. A widget is offered it as before.

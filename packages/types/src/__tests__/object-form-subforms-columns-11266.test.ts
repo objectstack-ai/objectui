@@ -119,19 +119,15 @@ const FACES: ReadonlyArray<Face> = [
   { name: 'strict authoring face', parse: (doc) => StrictAnyComponentSchema.safeParse(doc) as ReturnType<typeof safeValidateSchema> },
 ];
 
-/** The one item schema of `subforms`, unwrapped from its `optional` / `array`. */
-function subformItemShape(): Record<string, unknown> {
-  const subforms = (ObjectFormMirror.shape as Record<string, any>).subforms;
-  return subforms.unwrap().element.shape;
-}
+/** One column's schema on the mirror, unwrapped from `subforms`' and `columns`' `optional` / `array`. */
+const mirrorColumnSchema = () => ObjectFormMirror.shape.subforms.unwrap().element.shape.columns.unwrap().element;
 
 describe('objectui#11266 — `subforms[].columns` is the spec\'s `InlineGridColumnSchema`, by reference', () => {
   it('a column\'s schema IS the spec schema as it crosses the import boundary', () => {
-    const columns = subformItemShape().columns as any;
-    expect(columns.unwrap().element).toBe(stripImportedDefaults(SpecInlineGridColumnSchema));
+    expect(mirrorColumnSchema()).toBe(stripImportedDefaults(SpecInlineGridColumnSchema));
     // The crossing is the identity here (the column schema carries no default),
     // so the member is the spec's own object.
-    expect(columns.unwrap().element).toBe(SpecInlineGridColumnSchema);
+    expect(mirrorColumnSchema()).toBe(SpecInlineGridColumnSchema);
   });
 
   describe.each(FACES)('on the $name', ({ parse }) => {

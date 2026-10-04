@@ -329,13 +329,14 @@ Three renderer-side facts that live nowhere else:
   closed** (a broken predicate hides the action and warns), matching the
   record-header `ActionEngine`; `disabled` fails soft (not disabled, warns);
   a field-level `visibleWhen` fails open. Do not generalise from one to another.
-- **Legacy shapes are translated, with a one-time warning.** The native
-  `{ field, operator, value }` form (`operator` in `equals` / `not_equals` /
-  `greater_than` / `less_than` / `contains` / `in`) and the
-  `{ expression: "${…}" }` template form still work and are rewritten to CEL
-  transparently. A string carrying legacy-only syntax (`${…}`, `===`, `?.`,
-  `.includes()`) is routed to the old engine with a **one-time deprecation
-  warning** -- rewrite it as CEL (`==`, `record.x`, `.contains()`).
+- **Authoring takes `{ condition, style }` only.** On every list carrier (grid,
+  list view, kanban) a rule is `{ condition, style }`; the native `{ field,
+  operator, value }` form and the `{ expression: "${…}" }` template form are
+  retired, refused at the schema door by name with the respelling. A STORED
+  legacy rule still renders through the shared evaluator (a compatibility read,
+  not an authoring form); a `condition` in legacy-only syntax (`${…}`, `===`,
+  `.includes()`) still routes to the old engine with a one-time deprecation
+  warning -- write CEL.
 - **`data.*` is the trap in a row predicate.** A row predicate binds ONE root,
   `record.*`; a bare `status` or `data.status` is retired there and faults on
   the runtime engine (`Unknown variable`), under each surface's existing error

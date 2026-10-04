@@ -21,18 +21,23 @@
  *    reading).
  *
  * Now the view is matched by `resolveViewId` (the matcher the object page opens
- * it with), and a view the `/meta/view` read served is drawn as given. A view
- * embedded in the OBJECT document is not translated by the server, so it keeps
- * the bundle — the control below. The dashboard crumb gets the same rule for a
- * dashboard the `/meta` read served.
+ * it with), and a view the `/meta/view` read served is drawn as given. Since
+ * objectstack#21072 (`@objectstack/spec` 17.6.0) the server also translates the
+ * `listViews` an OBJECT document embeds, so a view the served `/meta/object`
+ * document carries is drawn as given too (objectui#11336). A view only the
+ * client derived — a stack container's expansion — was translated by no server,
+ * so it keeps the bundle — the control below. The dashboard crumb gets the same
+ * rule for a dashboard the `/meta` read served.
  *
  * Harness: `AppHeader.systemBreadcrumbs-10969`'s mocks, except that
  * `useObjectLabel` is REAL here — the bundle lookup is the subject.
  *
  * Directions, written before the run: the served-edit cells RED before the
  * change (bare URL: the slug in `en`, the bundle in `zh-CN`; qualified URL and
- * dashboard: the bundle in both), GREEN after; the unedited-served and the
- * object-embedded cells GREEN on both sides.
+ * dashboard: the bundle in both) — for objectui#11336, the embedded-edit cell
+ * RED with the object-document branch of `isServedView` removed — GREEN after;
+ * the unedited-served, the no-catalogue and the container cells GREEN on both
+ * sides.
  */
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -162,7 +167,7 @@ const BUNDLE = {
   en: {
     showcase: {
       objects: {
-        showcase_task: { label: 'Task', _views: { in_progress: { label: 'In Progress' }, mine: { label: 'My Tasks' } } },
+        showcase_task: { label: 'Task', _views: { in_progress: { label: 'In Progress' }, mine: { label: 'My Tasks' }, board: { label: 'Board View' } } },
       },
       dashboards: { ops_board: { label: 'Operations' } },
     },
@@ -170,7 +175,7 @@ const BUNDLE = {
   'zh-CN': {
     showcase: {
       objects: {
-        showcase_task: { label: '任务', _views: { in_progress: { label: '进行中' }, mine: { label: '我的任务' } } },
+        showcase_task: { label: '任务', _views: { in_progress: { label: '进行中' }, mine: { label: '我的任务' }, board: { label: '看板' } } },
       },
       dashboards: { ops_board: { label: '运营看板' } },
     },
@@ -185,22 +190,34 @@ const PACKAGED_DASHBOARD = { en: 'Operations', 'zh-CN': '运营看板' } as cons
 
 /**
  * One language's world: the `/meta/view` answer (one served view item), the
- * object as `MetadataProvider` merges it (that view under its qualified id,
- * plus `mine`, a view the OBJECT document embeds), and the `/meta/dashboard`
- * answer.
+ * `/meta/object` answer (the object document as served, BEFORE the merge: its
+ * own `listViews` — `mine` with the label the server put in, and `other`, which
+ * no catalogue entry translates), the object as `MetadataProvider` merges the
+ * two (the view item under its qualified id beside the document's own views),
+ * and the `/meta/dashboard` answer.
+ *
+ * `source: 'container'` serves a stack container on `/meta/view` instead of the
+ * view item; the console expands its `board` itself (`<object>.board`), and
+ * neither read served it translated.
  */
-function world(viewLabel: string, dashboardLabel: string) {
+function world(viewLabel: string, dashboardLabel: string, mineLabel = 'My Tasks', source: 'viewItem' | 'container' = 'viewItem') {
   const viewItem = { name: VIEW_ID, object: 'showcase_task', viewKind: 'list', label: viewLabel, config: { type: 'grid' } };
-  const objects = [
-    {
-      name: 'showcase_task',
-      label: 'Task',
-      listViews: {
-        [VIEW_ID]: { type: 'grid', name: VIEW_ID, label: viewLabel },
-        mine: { type: 'grid', name: 'mine', label: 'Mine' },
-      },
+  const container = { name: 'showcase_task', listViews: { board: { type: 'grid', label: 'Board' } } };
+  const doc = {
+    name: 'showcase_task',
+    label: 'Task',
+    listViews: {
+      mine: { type: 'grid', label: mineLabel },
+      other: { type: 'grid', label: 'Everything else' },
     },
-  ];
+  };
+  const fromViews = source === 'viewItem'
+    ? { [VIEW_ID]: { type: 'grid', name: VIEW_ID, label: viewLabel } }
+    : { 'showcase_task.board': { type: 'grid', name: 'showcase_task.board', label: 'Board' } };
+  const objects = [{ ...doc, listViews: { ...fromViews, ...doc.listViews } }];
+  // One array per read, as the provider's cache holds it.
+  const viewAnswer = [source === 'viewItem' ? viewItem : container];
+  const objectAnswer = [doc];
   meta.value = {
     apps: [],
     objects,
@@ -213,7 +230,7 @@ function world(viewLabel: string, dashboardLabel: string) {
     invalidate: () => {},
     ensureType: async () => [],
     getItem: async () => null,
-    getItemsByType: (type: string) => (type === 'view' ? [viewItem] : []),
+    getItemsByType: (type: string) => (type === 'view' ? viewAnswer : type === 'object' ? objectAnswer : []),
     getTypeStatus: () => 'ready',
   };
   return objects;
@@ -254,11 +271,34 @@ describe('AppHeader — a served view is named as served (objectui#11295)', () =
     expect(screen.getAllByText(PACKAGED_VIEW[language]).length).toBeGreaterThan(0);
   });
 
-  it('control — a view the OBJECT document embeds is not served translated, so the bundle names it', () => {
-    renderAt('/apps/showcase_app/showcase_task/view/mine', 'zh-CN', world(EDITED_VIEW, EDITED_DASHBOARD));
+  it.each(LANGUAGES)('%s: control — a view only the client derived (a container expansion) is named by the bundle', (language) => {
+    renderAt('/apps/showcase_app/showcase_task/view/board', language, world(EDITED_VIEW, EDITED_DASHBOARD, undefined, 'container'));
+
+    expect(screen.getAllByText(language === 'en' ? 'Board View' : '看板').length).toBeGreaterThan(0);
+    expect(screen.queryAllByText('Board')).toHaveLength(0);
+  });
+});
+
+describe('AppHeader — a view the object document embeds is named as served (objectui#11336)', () => {
+  it('zh-CN: the crumb draws the string the object read served', () => {
+    renderAt('/apps/showcase_app/showcase_task/view/mine', 'zh-CN', world(EDITED_VIEW, EDITED_DASHBOARD, '我的任务'));
 
     expect(screen.getAllByText('我的任务').length).toBeGreaterThan(0);
-    expect(screen.queryAllByText('Mine')).toHaveLength(0);
+    expect(screen.queryAllByText('My Tasks')).toHaveLength(0);
+  });
+
+  it.each(LANGUAGES)('%s: a published edit the object read served, not the packaged string', (language) => {
+    renderAt('/apps/showcase_app/showcase_task/view/mine', language, world(EDITED_VIEW, EDITED_DASHBOARD, 'My Tasks (edited-11336)'));
+
+    expect(screen.getAllByText('My Tasks (edited-11336)').length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(language === 'en' ? 'My Tasks' : '我的任务')).toHaveLength(0);
+  });
+
+  it('zh-CN: control — an embedded view with no catalogue entry keeps its authored label', () => {
+    renderAt('/apps/showcase_app/showcase_task/view/other', 'zh-CN', world(EDITED_VIEW, EDITED_DASHBOARD, '我的任务'));
+
+    // Not the humanized slug (`Other`): the view was found, and drawn as authored.
+    expect(screen.getAllByText('Everything else').length).toBeGreaterThan(0);
   });
 });
 

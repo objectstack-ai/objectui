@@ -52,8 +52,11 @@ import {
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
+  Avatar,
+  AvatarImage,
 } from '../../ui';
 import { RecordTitleChip } from '../../custom/RecordTitleChip';
+import { isFileIdToken } from '@objectstack/spec/data';
 import { readActionEntryParamValues } from '../action/static-params';
 import { useObjectLabel, useSafeFieldLabel, useObjectTranslation, useSafeTranslate, createSafeTranslation, pickLocalized, useDisplayLocale } from '@object-ui/i18n';
 import { MoreHorizontal, RefreshCw } from 'lucide-react';
@@ -1419,6 +1422,55 @@ function reportRefusedHeaderActions(
   );
 }
 
+/**
+ * The download path a bare `sys_file` id resolves to. A private copy of
+ * `@object-ui/fields`' `fileUrlFromId` rule; `recordPictureUrl` below says why
+ * it is a copy.
+ */
+const RECORD_PICTURE_FILE_PATH = '/api/v1/storage/files/';
+
+/**
+ * The URL the record chrome draws the record's picture from, or `undefined`
+ * when the value holds nothing to draw (objectui#11383).
+ *
+ * `value` is the served row's value of the field the object names in its
+ * `imageField`. `@objectstack/spec` refuses at parse an `imageField` that
+ * names an undeclared field or a field of any type but `image` / `avatar`, so
+ * the type is not checked again here. The value takes the spec's read forms
+ * for those types: the expanded `{ url, … }` the server hydrates a stored
+ * reference into, or the bare `sys_file` id when it did not (the stable
+ * download path serves it), a URL string on a row written before references,
+ * and a list of these on a `multiple` field. The first entry that resolves
+ * wins. Nothing else resolves: an object without a `url` is not a read form
+ * the spec admits, so it is not drawn.
+ *
+ * ⚠️ A SECOND RESOLUTION, and it says so. `readFileValue` in `@object-ui/fields`
+ * (its file-value module) resolves the same forms for the image cell
+ * (`ImageCellRenderer`). It is not imported because `@object-ui/fields`
+ * depends on this package, so the import would close a cycle, and moving that
+ * resolver down into `@object-ui/core` adds a public export, which this change
+ * does not make. The two agree on every form above; `readFileValue` also
+ * accepts an id-only object, which this does not.
+ * `packages/fields/src/widgets/file-value.recordChromeParity-11383.test.tsx`
+ * keeps the two resolutions together (seat ruling 5981856796, option C), and
+ * a change to either still has to be made in both.
+ */
+function recordPictureUrl(value: unknown): string | undefined {
+  for (const entry of Array.isArray(value) ? value : [value]) {
+    if (typeof entry === 'string') {
+      if (!entry) continue;
+      return isFileIdToken(entry)
+        ? `${RECORD_PICTURE_FILE_PATH}${encodeURIComponent(entry)}`
+        : entry;
+    }
+    if (entry !== null && typeof entry === 'object') {
+      const url = (entry as { url?: unknown }).url;
+      if (typeof url === 'string' && url) return url;
+    }
+  }
+  return undefined;
+}
+
 const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   const { designer } = splitDesignerProps(props);
   // The block's `aria` bag, on the `header` root of both layouts below (see
@@ -2321,6 +2373,42 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         ? (titleCandidate.trim() ? titleCandidate : '')
         : (recordDisplayValueAt({ value: titleCandidate }, 'value') ?? '')) ||
       placeholderTitle;
+    // The record's picture (objectui#11383, ruling A on hotcrm#1199). The
+    // object names the field in its object-level `imageField`, and that
+    // declaration is the ONLY channel: ⛔ no `page:header` prop, and no field
+    // read by a conventional name (`logo`, `avatar`, `image`, …). The value is
+    // the served row's. A field the reader may not see arrives absent, so
+    // nothing is drawn: the server already masked it, and it is not decided
+    // again here. No declaration, or no drawable value, draws nothing at all,
+    // ⛔ never initials or a placeholder. That is also why this is a Radix
+    // `Avatar` with no `AvatarFallback`: its image renders once it has loaded,
+    // so a URL that fails to load leaves no broken-image icon behind.
+    //
+    // It goes in the chip's `icon` slot, which the chip marks `aria-hidden`:
+    // the H1 beside it already names the record, so the picture is
+    // decorative and its `alt` is empty. An `avatar` field is a person's photo
+    // and is drawn round and cropped; an `image` field (a logo) is drawn whole
+    // in a rounded square.
+    const pictureFieldName: unknown = objSchema?.imageField;
+    const pictureUrl =
+      typeof pictureFieldName === 'string' && pictureFieldName
+        ? recordPictureUrl(data?.[pictureFieldName])
+        : undefined;
+    const pictureIsAvatar =
+      pictureUrl !== undefined &&
+      objSchema?.fields?.[pictureFieldName as string]?.type === 'avatar';
+    const recordPicture = pictureUrl ? (
+      <Avatar
+        data-record-picture=""
+        className={cn('h-8 w-8', pictureIsAvatar ? 'rounded-full' : 'rounded-md')}
+      >
+        <AvatarImage
+          src={pictureUrl}
+          alt=""
+          className={pictureIsAvatar ? 'object-cover' : 'object-contain'}
+        />
+      </Avatar>
+    ) : undefined;
     // Width arbitration between the title column and the action tail
     // (objectui#7244). The tail is `shrink-0` — correct, buttons must not be
     // squeezed into unreadable slivers — so in a `nowrap` row it takes what it
@@ -2358,6 +2446,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
         <div className="flex flex-col min-w-0 sm:min-w-48 flex-1">
           <RecordTitleChip
             title={resolvedTitle}
+            icon={recordPicture}
             objectLabel={objectLabel}
             resourceId={data?.id ? String(data.id) : undefined}
             showStar={showStar}

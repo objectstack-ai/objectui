@@ -47,27 +47,28 @@ Every UI component node MUST follow this shape:
 
 ⚠️ A deliberately SIMPLIFIED teaching copy of the published `BaseSchema`
 (`import type { BaseSchema } from '@object-ui/types';`), KEPT rather than
-replaced by an import: the published interface declares **21** members plus an
-index signature, and this rule is about the SHAPE, not the full member list.
-Nothing checks the copy against the real type. `properties`, `props` and
-`events` are **not declared members** — they reach a node through
-`BaseSchema`'s `[key: string]: any` index signature, which is exactly why the
-two rules below have to state who reads each of them.
+replaced by an import: it teaches the SHAPE, not the full member list, and
+nothing checks the copy against the real type. `BaseSchema` has **no index
+signature** (objectui#8347): on the TypeScript authoring face a key no member
+declares is a compile error in a fresh typed literal (TypeScript excess-checks
+only a FRESH object literal, so a value that reached its annotation through a
+wider variable is not re-checked); on the tolerant zod / JSON face
+(`.passthrough()`) it is kept, and the named reader decides. So `properties`,
+`props` and `events` are **absent** from the fence: `properties` is declared per
+block on the authoring node types (`AuthoringNode`), not on `BaseSchema`; `props`
+is the `element:*` envelope the runtime reads and the TypeScript face does not
+declare; `events` is read by nothing. The two rules below state who reads each.
 
 ```typescript
 interface BaseSchema {       // abridged — full member list: packages/types/src/base.ts
   type: string;              // Required: component type identifier
   id?: string;               // Optional: unique identifier
-  properties?: Record<string, any>; // Optional: spec config bag, hoisted onto
-                                    // the node. See "Rule: Keys Live on the Node".
-  props?: Record<string, any>; // Optional: element:* config envelope — NOT a
-                               // general bag. See "Rule: Keys Live on the Node".
   bind?: string;             // Optional: data binding path
   className?: string;        // Optional: Tailwind CSS classes
   hidden?: boolean | ExpressionWire;   // Optional: visibility predicate
   disabled?: boolean | ExpressionWire; // Optional: disabled predicate
-  events?: Record<string, ActionSchema[]>; // Optional: event handlers
   children?: BaseSchema[];   // Optional: object nodes; real slot is wider
+  // no index signature: a key no member declares is a compile error in a fresh typed literal
 }
 ```
 
@@ -276,9 +277,9 @@ component refuses a node-level `actionType` / `target` as mis-layered
 
 **❌ DO NOT** use function references or inline callbacks in JSON schemas, and
 **❌ DO NOT** author an `events` bag. `BaseSchema` declares no `events` member and no
-renderer reads `schema.events`; "Rule: Component Schema Structure" above lists it
-only because the node accepts any key — `.passthrough()` keeps such a node, judges
-it by nothing and runs it by nothing (objectui#6497). `ButtonSchema.onClick` is a
+renderer reads `schema.events`: a typed literal refuses it (objectui#8347), and the
+tolerant zod face is `.passthrough()`, so one that arrives as data is kept, judged
+by nothing and run by nothing (objectui#6497). `ButtonSchema.onClick` is a
 runtime slot for a host-supplied function and is refused by name for the same reason.
 
 ## Rule: Action Params Use Field Types (Shared Widget Renderer)

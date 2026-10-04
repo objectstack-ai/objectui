@@ -440,6 +440,10 @@ type Expect<T extends true> = T;
  * ablation on this tree: deleting any one of the three from `ObjectGanttSchema`
  * turns its row red while its directive above stays green; restored, green.
  */
+// The two `any[]` below restate the members' own declared type (`staticData?: any[]`,
+// `filter?: any[]` in `objectql.ts`); `Equal` is strict, so a narrower spelling would be red.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type _StaticDataIsDeclared = Expect<Equal<ObjectGanttSchemaTS['staticData'], any[] | undefined>>;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type _FilterIsDeclared = Expect<Equal<ObjectGanttSchemaTS['filter'], any[] | undefined>>;
 export type _SortIsDeclared = Expect<Equal<ObjectGanttSchemaTS['sort'], SortConfig[] | undefined>>;

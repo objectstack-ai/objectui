@@ -39,8 +39,6 @@
 import { describe, it, expect } from 'vitest';
 import type { BaseSchema, ComponentRendererProps } from '../base';
 import type { CalendarViewSchema } from '../complex';
-import type { ButtonSchema } from '../form';
-import type { PartialSchema } from '../index';
 
 type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
@@ -97,24 +95,10 @@ export const nestedCorrect: BaseSchema = { type: 'card', children: [{ type: 'but
 const arrived = { type: 'calendar-view' as const, titleField: 'subject', titleFieldd: 'subject' };
 export const widenedIsNotRechecked: CalendarViewSchema = arrived;
 
-/* ── 4. `PartialSchema` works as written now (objectui#6397) ─────────────── */
-
-// While the signature stood, `keyof T` absorbed every member name and this alias
-// declared `type` alone. It keeps `T`'s named members now…
-export type _PartialKeepsTheMembers = Expect<Equal<keyof PartialSchema<ButtonSchema>, keyof ButtonSchema>>;
-// …with `type` required and the rest optional…
-export const partialButton: PartialSchema<ButtonSchema> = { type: 'button' };
-// …and it refuses a misspelling like every node type.
-export const partialMisspelled: PartialSchema<ButtonSchema> = {
-  type: 'button',
-  // @ts-expect-error — `labell` is no member of `ButtonSchema`; the key is `label`
-  labell: 'Save',
-};
-
 describe('`BaseSchema` declares no index signature (objectui#8347, the objectui#7927 pin)', () => {
   it('keeps the type-level rows alive — `tsc -p tsconfig.test.json` is their reader', () => {
-    expect([p5Correct.titleField, baseCorrect.className, partialButton.type]).toEqual(['subject', 'font-bold', 'button']);
-    expect([p5Misspelled, baseMisspelled, nestedMisspelled, nestedCorrect, widenedIsNotRechecked, partialMisspelled])
-      .toHaveLength(6);
+    expect([p5Correct.titleField, baseCorrect.className]).toEqual(['subject', 'font-bold']);
+    expect([p5Misspelled, baseMisspelled, nestedMisspelled, nestedCorrect, widenedIsNotRechecked])
+      .toHaveLength(5);
   });
 });

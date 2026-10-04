@@ -21,6 +21,7 @@ import {
 } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget, isRetiredEnvelopeNode } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
+import type { DashboardChartRenderSchema } from './chartRenderHandoff';
 import { useWidgetSubCaption } from './widgetSubCaption';
 import { useDashboardAutoRefresh } from './useDashboardAutoRefresh';
 
@@ -359,7 +360,11 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
 
       const dataItems = Array.isArray(widgetData) ? widgetData : widgetData?.items || [];
 
-      return {
+      // Checked against the dashboard's chart hand-off, `ChartSchema` plus the
+      // two render keys this producer composes (`./chartRenderHandoff`,
+      // objectui#11598), as `DashboardRenderer` builds it; handed on with no
+      // cast.
+      const chartNode: DashboardChartRenderSchema = {
         type: 'chart',
         chartType: dispatch.chartType,
         data: dataItems,
@@ -374,6 +379,7 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
         className: "h-full",
         ...chartPresentation,
       };
+      return chartNode;
     }
 
     // Single-value families render as a metric card, not a chart (#2943).

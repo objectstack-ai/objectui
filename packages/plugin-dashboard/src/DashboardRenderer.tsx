@@ -44,6 +44,7 @@ import { isObjectProvider, deriveStaticTableColumns, composeSeriesLabel } from '
 import { classifyWidgetType, METRIC_LIKE_TYPES, DASHBOARD_NODE_TYPES, toDashboardNodeType, resolveWidgetType, isSlotComponentEntry, unsupportedWidgetSchema, entryComponent, type DashboardWidgetSlotEntry } from './widgetDispatch';
 import { LEGACY_RETIRED_WIDGET_SCHEMA, isLegacyRetiredWidget, isRetiredEnvelopeNode } from './legacyRetiredWidget';
 import { DatasetWidget } from './DatasetWidget';
+import type { DashboardChartRenderSchema } from './chartRenderHandoff';
 import { useWidgetSubCaption } from './widgetSubCaption';
 import { useDashboardAutoRefresh } from './useDashboardAutoRefresh';
 import { DashboardFilterBar } from './DashboardFilterBar';
@@ -830,7 +831,11 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 // `chartType` is the dispatch's resolved family, as on the
                 // `object-chart` node above: a `SeriesChartFamily`, which
                 // `ChartSchema.chartType` (the spec's `ChartType`) declares.
-                return {
+                // The literal is checked against the dashboard's chart
+                // hand-off, `ChartSchema` plus the two render keys this
+                // producer composes (`./chartRenderHandoff`, objectui#11598),
+                // and handed on with no cast.
+                const chartNode: DashboardChartRenderSchema = {
                     type: 'chart',
                     chartType: dispatch.chartType,
                     data: dataItems,
@@ -845,6 +850,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                     className: "h-[200px] sm:h-[250px] md:h-[300px]",
                     ...chartPresentation,
                 };
+                return chartNode;
             }
 
             // Single-value families (gauge / solid-gauge / kpi / bullet, and the

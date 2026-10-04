@@ -147,16 +147,18 @@ const CALLEES = new Set([...WRITE_NAMES, ...LEDGER.filter((r) => r.kind === 'rel
 const isTestFile = (name: string) => /\.test\.tsx?$/.test(name) || name.endsWith('.d.ts');
 
 /** Every non-test `.ts` / `.tsx` source under `VIEWS_DIR`, relative to it. */
-function sourceFiles(dir = path.join(repoRoot, VIEWS_DIR), prefix = ''): string[] {
+function sourceFiles(): string[] {
   const out: string[] = [];
-  for (const entry of readdirSync(dir).sort()) {
-    const abs = path.join(dir, entry);
-    const rel = prefix ? `${prefix}/${entry}` : entry;
-    if (statSync(abs).isDirectory()) {
-      if (entry === '__tests__' || entry === 'node_modules') continue;
-      out.push(...sourceFiles(abs, rel));
-    } else if (/\.tsx?$/.test(entry) && !isTestFile(entry)) {
-      out.push(rel);
+  const pending = [''];
+  while (pending.length > 0) {
+    const relDir = pending.shift()!;
+    for (const entry of readdirSync(path.join(repoRoot, VIEWS_DIR, relDir)).sort()) {
+      const rel = relDir ? `${relDir}/${entry}` : entry;
+      if (statSync(path.join(repoRoot, VIEWS_DIR, rel)).isDirectory()) {
+        if (entry !== '__tests__' && entry !== 'node_modules') pending.push(rel);
+      } else if (/\.tsx?$/.test(entry) && !isTestFile(entry)) {
+        out.push(rel);
+      }
     }
   }
   return out;

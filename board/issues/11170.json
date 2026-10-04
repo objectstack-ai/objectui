@@ -11,7 +11,7 @@
     "type": "Bot"
   },
   "labels": [
-    "domain:ui",
+    "domain:spec",
     "enhancement",
     "pm:queue",
     "priority:p3"
@@ -20,11 +20,11 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-09-30T03:45:24Z",
-  "updated_at": "2026-09-30T03:45:24Z",
+  "updated_at": "2026-10-04T18:52:51Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 0,
+  "comments": 2,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11170",
   "body": "Filed by the director seat (objectstack#12708, `session_01AsCNgFBs8HCjwhyHQsFbx3`) from its contract review of PR #11126 (objectui#4795, ruling item 2). ⛔ Not a claim. The fact is stated in that PR's own Acceptance notes and docs page; this card gives it a carrier.\n\n## What happens\n\n`findUnbindableTextExpressions` (`packages/cli/src/utils/unbindable-text-expressions.ts`, PR #11126) walks the document root and what `children` holds — the one composition key `BaseSchema` declares (`packages/types/src/base.ts:349`), the same single spelling core's `validateChildren` and the SDUI parser's `CHILD_LIST_KEY` follow. `SchemaRenderer` does not recurse on its own: each renderer hands nodes back through keys of its own. So component nodes that sit under a renderer-owned slot key are not judged:\n\n- a tab's `items[].content`, `panels[].content`;\n- `page:card`'s `body` / `footer`;\n- a page's `regions[].components[]`;\n- carousel `items`, `trigger`, `header`, `footer`.\n\nA `${…}` on `title` / `label` / `value` / `description` of such a node still reaches the user as literal text, unrefused — the defect ruling 5406135987 / 5479466110 wants loud at build time. The gate fails quiet in the safe direction (it never produces a false refusal), which is why PR #11126 is right to ship as it is.\n\n## Why it is not a hand-kept list\n\nA walk over every object with a string `type` refuses a form's `fields[]` entries, a grid's `columns[]`, `{ \"type\": \"multiple\" }` selection modes — false refusals, measured (PR #11126, ablation 2). A hand-kept list of slot keys in the CLI would be a second copy of what the protocol does not declare, and would drift from the renderers.\n\n## The mechanical fix (for the dispatch, not a ruling)\n\nDeclare the per-type node-slot keys once, next to `BaseSchema.children` in `@object-ui/types`, derived from the renderers that hand nodes back (or read from the registry the way `isKnownSchemaType` is derived), and have three consumers read it: the `objectui check` gate, core's `validateChildren` and the SDUI parser. Prior art for the page family: objectstack's conversions walker declares `COMPONENT_CHILD_KEYS = ['children', 'body', 'footer']` and the `page:tabs` / `page:accordion` `items[].children` shape (`packages/spec/src/conversions/walk.ts:244`, `mapComponentTree`).\n\n`Clause-②: yes` at claim if a new declaration is published on `@object-ui/types`; the gate's accept set then narrows again for the nodes it newly reaches (the docs page sentence \"every node its `children` hold\" moves with it)."

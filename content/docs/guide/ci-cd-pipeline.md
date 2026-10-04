@@ -2121,9 +2121,9 @@ registry cannot be read: 200 is published, 404 is not, and anything else fails t
 `changesets/action@v1` chooses publish-vs-version from repository state rather than from an input,
 so the predicate cannot reach it on its own — with changesets present it would take its version
 branch and publish nothing. The publish lane therefore clears the pending `.changeset/*.md` from
-the **runner's working tree** before invoking it. Nothing is committed and nothing is pushed
-(`runPublish` pushes tags and creates releases; it never commits), so `.changeset/` on `main` is
-untouched and those changesets are still owed to the next version PR.
+the **runner's working tree** before invoking it. Nothing is committed and no branch is pushed
+(`runPublish` never commits), so `.changeset/` on `main` is untouched and those changesets are
+still owed to the next version PR.
 
 #### The loud check
 
@@ -2131,6 +2131,34 @@ untouched and those changesets are still owed to the next version PR.
 `success` having published nothing, and only a CHANGELOG-against-registry audit noticed, 16
 versions later. So the publish lane now reads the registry back afterwards and **fails** if the
 version it exists to ship is still absent. A repo/npm divergence is a failing run, not a finding.
+
+#### Tags and GitHub Releases
+
+`changesets/action@v1` pushes a package's git tag and creates its GitHub Release only for the
+packages whose `New tag: <pkg>@<version>` line it parses out of the publish script's stdout. Since
+[#5296](https://github.com/objectstack-ai/objectui/issues/5296) moved this repository to
+`@changesets/cli` v3, `changeset publish` prints no such line, so the action pushed nothing and
+created nothing: **17.6.0 and 17.7.0 reached npm with no tag and no Release**, while every step
+stayed green ([#11596](https://github.com/objectstack-ai/objectui/issues/11596)). `changeset
+publish` still creates the tags on the runner, so the publish lane now finishes the job itself,
+after the npm check:
+
+| Step | What it does |
+|---|---|
+| Push the release tags | Pushes exactly the `<pkg>@<version>` tags the release owes — the list `--print-tags` prints — in **one** push, and fails naming any tag `changeset publish` did not create. |
+| Create GitHub Releases | `node scripts/release-github-releases.mjs`, ported from objectstack: one Release per public package from its CHANGELOG entry, idempotent (an existing Release is updated, never re-created), and every body **truncated to the Releases API's 125,000-character limit** with a link to the complete entry. |
+
+The truncation is not hypothetical here: `@object-ui/app-shell@17.5.0` has a tag but no Release,
+because its entry was over that limit when the action tried to post it, and many 17.7.0 entries
+are larger still. Run the script with `--dry-run` to see the planned tag → Release list and each
+body's size without calling the API.
+
+Both steps run on the **publish lane only** — `push`, gated on the publish step and the npm check
+having succeeded, so a `schedule` or `workflow_dispatch` run can never reach them — and under
+`!cancelled()`, so a version that is already public still gets its record if a step between them
+fails. The tags go first because a Release created for a tag the remote does not have makes the
+API create that tag itself, as a lightweight tag. `scripts/__tests__/release-github-releases.test.ts`
+runs the script's `--self-test` and pins both steps' lane scoping and order.
 
 The refresh lane is invoked **without** a `publish:` script and **without** npm credentials, so
 it cannot publish by construction rather than by a condition — the release act in this

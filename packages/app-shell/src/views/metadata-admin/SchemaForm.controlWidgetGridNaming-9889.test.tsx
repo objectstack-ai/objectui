@@ -66,6 +66,7 @@ const ctx: WidgetContext = {
   objectNames: loaded(['account', 'contact']),
   objectFields: loaded([{ name: 'status', label: 'Status' }]),
   objectViews: loaded([{ name: 'account.all', label: 'All' }]),
+  datasets: loaded([{ name: 'sales_metrics', label: 'Sales metrics', dimensions: [], measures: [] }]),
 };
 
 /**
@@ -90,10 +91,11 @@ interface WidgetCase {
   faceName: string;
 }
 
-/** The eleven `labelling: 'control'` widgets. Checked against the registry below. */
+/** The `labelling: 'control'` widgets. Checked against the registry below. */
 const CONTROL_CASES: WidgetCase[] = [
   { widget: 'ref:object', control: (c) => c.querySelector('[role="combobox"]'), faceName: 'the object picker' },
   { widget: 'ref:component', control: (c) => c.querySelector('input'), faceName: 'the free-text component id box' },
+  { widget: 'ref:dataset', control: (c) => c.querySelector('[role="combobox"]'), faceName: 'the dataset picker' },
   { widget: 'object-selector', control: (c) => c.querySelector('[role="combobox"]'), faceName: 'the object picker' },
   { widget: 'field-selector', control: (c) => c.querySelector('input'), faceName: 'the "select an object first" box' },
   { widget: 'field-ref', control: (c) => c.querySelector('[role="combobox"]'), faceName: 'the object-field picker' },

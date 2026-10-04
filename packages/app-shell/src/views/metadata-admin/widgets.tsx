@@ -56,6 +56,8 @@ import type { ConditionScope } from './conditionScope.js';
 import { ConditionBuilder } from './inspectors/ConditionBuilder.js';
 import { expressionSource, writeExpressionSource } from './inspectors/expression-envelope.js';
 import { humanizeKey } from './inspectors/json-schema-to-fields.js';
+import { datasetSelectOptions } from './inspectors/dataset-picker-options.js';
+import type { DatasetCatalogEntry } from './previews/useDatasetCatalog.js';
 import {
   type LoadState,
   isLoading,
@@ -244,6 +246,20 @@ export interface WidgetContext {
    * free-text id the author can typo.
    */
   componentIds?: Array<{ id: string; type?: string; label?: string }>;
+  /**
+   * The analytics dataset catalog (objectui#11601). Drives the `ref:dataset`
+   * picker, so a spec-form field that declares that hint — a joined report's
+   * block `dataset` — is chosen from the real datasets, with the author's
+   * label and description beside each name, instead of a free-text name the
+   * author can typo. The value the picker writes is the dataset's name.
+   *
+   * The report inspector feeds the same `useDatasetCatalog` result its own
+   * top-level dataset picker reads. A host that never fetches the catalog
+   * omits this member; absence is {@link NOT_ASKED}, and the widget then
+   * renders a labelled text input, as it does for a completed load that found
+   * no datasets.
+   */
+  datasets?: LoadState<DatasetCatalogEntry[]>;
 }
 
 /* Stable empties for the arms that have no catalog to offer yet — `idle` and
@@ -254,6 +270,7 @@ const NO_OBJECT_NAMES: string[] = [];
 const NO_OBJECT_FIELDS: ObjectFieldOption[] = [];
 const NO_OBJECT_VIEWS: ObjectViewOption[] = [];
 const NO_OBJECT_ACTIONS: ObjectActionOption[] = [];
+const NO_DATASETS: DatasetCatalogEntry[] = [];
 
 export interface WidgetProps {
   /**
@@ -632,6 +649,87 @@ function RefComponentWidget({ id, ariaLabelledBy, required, value, onChange, rea
                 <span className="text-xs text-muted-foreground">{c.label || c.type}</span>
               )}
             </span>
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* ref:dataset — pick an analytics dataset by name                            */
+/* -------------------------------------------------------------------------- */
+
+/**
+ * Single dataset picker for a field that declares `widget: 'ref:dataset'`
+ * (objectui#11601) — a report's `dataset`, and a joined report's block
+ * `dataset` once its row declares the hint. The datasets come from
+ * `context.datasets`; each option reads the author's label beside the name and
+ * the description after it (`datasetSelectOptions`, objectui#11161), and the
+ * value written is the dataset's NAME.
+ *
+ * The four arms of the catalog, as {@link RefObjectWidget} reads them:
+ *
+ *  - FAILED — the shared failure notice beside a freeform box that stays
+ *    enabled, so a failed catalog does not also block authoring (objectui#5170);
+ *  - LOADING — the stored name in a disabled box;
+ *  - `idle` (no host feeds a catalog) or a completed load with no datasets — a
+ *    labelled text input that writes the typed name. ⛔ Never the raw-JSON
+ *    face an unregistered hint falls back to;
+ *  - LOADED — the picker. A stored name the catalog does not offer is kept as
+ *    its own option, flagged `(not found)`, so it neither blanks the trigger
+ *    nor reads like an offered dataset (objectui#8488).
+ */
+function RefDatasetWidget({ id, ariaLabelledBy, required, value, onChange, readOnly, context }: WidgetProps) {
+  const locale = useMetadataLocale();
+  const datasetsState = context?.datasets ?? NOT_ASKED;
+  const current = value == null ? '' : String(value);
+  const freeform = (
+    <Input
+      {...controlNaming({ id, ariaLabelledBy, required })}
+      value={current}
+      disabled={readOnly}
+      onChange={(e) => onChange(e.target.value || undefined)}
+    />
+  );
+  if (datasetsState.status === 'error') {
+    return (
+      <div className="space-y-1.5">
+        <PickerLoadFailure message={datasetsState.message} testId="ref-dataset-load-failed" />
+        {freeform}
+      </div>
+    );
+  }
+  if (isLoading(datasetsState)) {
+    return (
+      <Input
+        {...controlNaming({ id, ariaLabelledBy, required })}
+        value={current}
+        disabled
+        placeholder={t('engine.form.loadingOptions', locale)}
+      />
+    );
+  }
+  const options = datasetSelectOptions(offeredOptions(datasetsState, NO_DATASETS));
+  if (options.length === 0) return freeform;
+  const offered = !current || options.some((o) => o.value === current);
+  return (
+    <Select value={current} onValueChange={(next) => onChange(next || undefined)} disabled={readOnly}>
+      <SelectTrigger {...controlNaming({ id, ariaLabelledBy, required })}>
+        <SelectValue placeholder={t('engine.form.selectEllipsis', locale)} />
+      </SelectTrigger>
+      <SelectContent>
+        {!offered && (
+          <SelectItem value={current}>
+            {tFormat('engine.form.flaggedValue', locale, {
+              value: current,
+              flag: t('engine.form.notFound', locale),
+            })}
+          </SelectItem>
+        )}
+        {options.map((o) => (
+          <SelectItem key={o.value} value={o.value}>
+            {o.label}
           </SelectItem>
         ))}
       </SelectContent>
@@ -2934,6 +3032,7 @@ function DynamicConfigWidget({ value, onChange, readOnly, fieldSpec, formData, c
 export const WIDGETS = {
   'ref:object': RefObjectWidget,
   'ref:component': RefComponentWidget,
+  'ref:dataset': RefDatasetWidget,
   'filter-mode': FilterModeWidget,
   'object-selector': ObjectSelectorWidget,
   'field-selector': FieldSelectorWidget,
@@ -3042,6 +3141,7 @@ export type WidgetLabelling = Exclude<NonNullable<ComponentMeta['labelling']>, '
 export const WIDGET_LABELLING: Record<RegisteredWidgetKey, WidgetLabelling> = {
   'ref:object': 'control',
   'ref:component': 'control',
+  'ref:dataset': 'control',
   'filter-mode': 'group',
   'object-selector': 'control',
   'field-selector': 'control',

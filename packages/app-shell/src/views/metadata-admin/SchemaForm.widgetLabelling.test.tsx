@@ -133,6 +133,9 @@ const CASES: Case[] = [
   { key: 'ref:object', variant: 'no-objects', schema: { type: 'string', title: TITLE }, ctx: {}, value: 'x' },
   { key: 'ref:component', schema: { type: 'string', title: TITLE }, ctx: { componentIds: [{ id: 'c1' }] }, value: 'c1' },
   { key: 'ref:component', variant: 'no-components', schema: { type: 'string', title: TITLE }, ctx: {}, value: 'c1' },
+  { key: 'ref:dataset', schema: { type: 'string', title: TITLE }, ctx: { datasets: loaded([{ name: 'sales_metrics', label: 'Sales metrics', dimensions: [], measures: [] }]) }, value: 'sales_metrics' },
+  // No `ctx` at all: the hosts that feed no catalog get the labelled text input (objectui#11601).
+  { key: 'ref:dataset', variant: 'no-catalog', schema: { type: 'string', title: TITLE }, value: 'sales_metrics' },
   { key: 'filter-mode', schema: { type: 'object', title: TITLE }, ctx: { objectFields: loaded([{ name: 'status' }]) }, value: { element: 'dropdown' } },
   { key: 'object-selector', schema: { type: 'string', title: TITLE }, ctx: { objectNames: loaded(['account']) }, value: 'account' },
   { key: 'object-selector', variant: 'multiple', schema: { type: 'array', title: TITLE }, spec: { multiple: true }, ctx: { objectNames: loaded(['account', 'contact']) }, value: ['account'] },

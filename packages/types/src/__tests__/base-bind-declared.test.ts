@@ -209,12 +209,18 @@ describe('`bind` is declared in exactly one place (objectui#6357)', () => {
     // have been the wrong repair — it puts a permanent hole in the scan at the
     // one path most likely to grow a copy of the pattern.
     const PATTERN = 'bind' + '?:';
+    // Every `CHANGELOG.md` is excluded. `pnpm changeset:version` writes changeset
+    // prose into them, and a changeset that reports a local declaration being
+    // REMOVED quotes the pattern. On the 17.7.0 release head that made the
+    // plugin-dashboard and types CHANGELOGs read as two new declarations
+    // (objectui#11586). A CHANGELOG declares nothing.
+    const EXCLUDE_CHANGELOGS = ':!*CHANGELOG.md';
 
     let out: string;
     try {
       out = execFileSync(
         'git',
-        ['grep', '-n', '-F', '--', PATTERN, 'packages'],
+        ['grep', '-n', '-F', '--', PATTERN, 'packages', EXCLUDE_CHANGELOGS],
         { cwd: REPO_ROOT, encoding: 'utf8' },
       );
     } catch (err: any) {

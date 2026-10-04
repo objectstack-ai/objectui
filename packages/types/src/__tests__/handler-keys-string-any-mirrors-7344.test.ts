@@ -393,6 +393,14 @@ const GREP_ENGINE_FLAG = '-P';
 /** The scanned tree. `examples/` is in it because an example app is exactly
  *  where a fourth reader would plausibly appear. */
 const SCAN_ROOTS = ['packages', 'apps', 'examples'] as const;
+/** Every `CHANGELOG.md` is outside the scanned tree. `pnpm changeset:version`
+ *  writes each pending changeset body into one, and the changeset for a
+ *  retirement names the key it retires. Without this exclusion the release
+ *  commit itself reads as five new readers of the array, which is what turned
+ *  the 17.7.0 release head red (objectui#11586). A CHANGELOG is history, not
+ *  code. The sibling censuses exclude it with the same spelling
+ *  (`ai-insights-retired-8800.test.ts`). */
+const SCAN_EXCLUDES = [':!*CHANGELOG.md'] as const;
 
 /** The engine, for the diagnostics below: a failure that says "the anchor is
  *  dead" is only actionable if it also says WHICH git read it. */
@@ -414,7 +422,7 @@ const gitGrepFiles = (args: readonly string[]): string[] => {
   let out: string;
   let failure: Failure | undefined;
   try {
-    out = execFileSync('git', ['grep', ...args, '--', ...SCAN_ROOTS], {
+    out = execFileSync('git', ['grep', ...args, '--', ...SCAN_ROOTS, ...SCAN_EXCLUDES], {
       cwd: REPO_ROOT,
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],

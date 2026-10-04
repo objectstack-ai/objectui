@@ -51,16 +51,24 @@
  *
  * ## Why `base` is passed explicitly
  *
- * This entry opens with a bare `@import 'tailwindcss'`, so Tailwind's automatic
- * source detection is ON and rooted at the PROCESS CWD -- vitest runs from the
- * repo root while `pnpm --filter @object-ui/console build` runs from this app's
- * directory. Passing `base` pins this reading to the directory the build runs
- * in, so the test measures the stylesheet users are served rather than the one
- * the test runner's CWD happens to produce. `base` governs only the automatic
- * root; the `@source` lines always resolve against the entry's own directory.
+ * `base` is the root of Tailwind's AUTOMATIC source detection, and it defaults
+ * to the PROCESS CWD. vitest runs from the repo root, while
+ * `pnpm --filter @object-ui/console build` runs from this app's directory.
+ * Passing `base` pins this reading to the directory the build runs in. `base`
+ * governs only the automatic root; the `@source` lines always resolve against
+ * the entry's own directory.
+ *
+ * The entry now opens with `source(none)` (objectui#11586), so detection is off
+ * and `base` should change nothing. The third test below asserts exactly that:
+ * it compiles once from this app's directory and once from an empty one and
+ * requires the same rules. Before the switch, detection scanned this app's
+ * prose. On the 17.7.0 release head it compiled 11 rules out of the
+ * `CHANGELOG.md` that `pnpm changeset:version` writes, and one of them was
+ * components' sentinel, which turned the second test red.
  */
-import { readFile } from 'node:fs/promises';
-import { dirname, resolve } from 'node:path';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postcss from 'postcss';
 import tailwindPostcss from '@tailwindcss/postcss';
@@ -90,9 +98,11 @@ const SENTINEL_OTHER_TREE_VALUE = '3.7331px';
 const SENTINEL_OTHER_TREE_HOST =
   'packages/components/src/__tests__/index-css-scan-excludes-tests.test.ts';
 
-async function compileConsoleStylesheet(): Promise<{ css: string; selectors: Set<string> }> {
+async function compileConsoleStylesheet(
+  base: string = appRoot,
+): Promise<{ css: string; selectors: Set<string> }> {
   const source = await readFile(entry, 'utf8');
-  const result = await postcss([tailwindPostcss({ base: appRoot })]).process(source, {
+  const result = await postcss([tailwindPostcss({ base })]).process(source, {
     from: entry,
   });
   const selectors = new Set<string>();
@@ -129,5 +139,31 @@ describe('apps/console/src/index.css @source scan', () => {
     const { css, selectors } = await compileConsoleStylesheet();
     expect(selectors.has('.bg-background')).toBe(true);
     expect(css).not.toContain(SENTINEL_OTHER_TREE_VALUE);
+  }, 60_000);
+
+  it('compiles the same rules from this app\'s directory as from an empty one — no rule comes from prose beside the source (objectui#11586)', async () => {
+    // Automatic detection is the only input that depends on `base`. If every
+    // rule survives a compile rooted at an empty directory, the `@source` lines
+    // supply all of them, so neither `CHANGELOG.md` nor `docs/` can add a rule.
+    // A negative test names one token. This one covers any file a future
+    // release writes.
+    const empty = await mkdtemp(join(tmpdir(), 'objectui-11586-'));
+    try {
+      const { selectors: fromApp } = await compileConsoleStylesheet(appRoot);
+      const { selectors: fromEmpty } = await compileConsoleStylesheet(empty);
+
+      // CONTROL: comparing two empty compiles proves nothing.
+      expect(fromEmpty.size).toBeGreaterThan(2500);
+
+      const onlyFromApp = [...fromApp].filter((s) => !fromEmpty.has(s)).sort();
+      expect(
+        onlyFromApp,
+        'these rules come from Tailwind\'s automatic detection scanning apps/console '
+          + '(prose such as CHANGELOG.md or docs/) — keep `source(none)` on the entry',
+      ).toEqual([]);
+      expect([...fromEmpty].filter((s) => !fromApp.has(s))).toEqual([]);
+    } finally {
+      await rm(empty, { recursive: true, force: true });
+    }
   }, 60_000);
 });

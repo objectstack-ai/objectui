@@ -45,8 +45,9 @@
  * uses no matter which directory the suite was launched from.
  */
 import { describe, expect, it } from 'vitest';
-import { existsSync, readFileSync } from 'node:fs';
-import { dirname, resolve } from 'node:path';
+import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import postcss from 'postcss';
 import tailwindPostcss from '@tailwindcss/postcss';
@@ -87,8 +88,8 @@ function classesIn(selector: string): string[] {
  * package root is what makes this reading independent of where vitest started
  * (from the repo root the same bytes scan the whole monorepo instead).
  */
-async function compileClasses(css: string): Promise<Set<string>> {
-  const result = await postcss([tailwindPostcss({ base: PACKAGE_ROOT })]).process(css, {
+async function compileClasses(css: string, base: string = PACKAGE_ROOT): Promise<Set<string>> {
+  const result = await postcss([tailwindPostcss({ base })]).process(css, {
     from: ENTRY,
   });
   const classes = new Set<string>();
@@ -176,5 +177,35 @@ describe('@object-ui/runner published stylesheet — source set', () => {
     const removed = [...withTestSources].filter((cls) => !shipped.has(cls));
     expect(removed.length).toBeGreaterThan(0);
     expect([...shipped].filter((cls) => !withTestSources.has(cls))).toEqual([]);
+  });
+
+  it('compiles the same classes from the package root as from an empty directory — no class comes from prose (objectui#11586)', async () => {
+    // `base` only changes what Tailwind's automatic detection scans. If the
+    // sheet is the same when detection would root at an empty directory, the
+    // `@source` lines supply every class, and this package's `CHANGELOG.md`,
+    // which `pnpm changeset:version` writes changeset prose into, adds none.
+    // Before `source(none)` it added `flex-shrink-0` and `isolate` on `main`,
+    // and on the 17.7.0 release head also `paused`, `invert` and `flex-nowrap`.
+    const empty = mkdtempSync(join(tmpdir(), 'objectui-11586-'));
+    try {
+      const fromEmpty = await compileClasses(entryCss, empty);
+      // CONTROL: comparing two empty compiles proves nothing.
+      expect(fromEmpty.has('bg-popover')).toBe(true);
+      expect([...shipped].filter((cls) => !fromEmpty.has(cls)).sort()).toEqual([]);
+      expect([...fromEmpty].filter((cls) => !shipped.has(cls)).sort()).toEqual([]);
+    } finally {
+      rmSync(empty, { recursive: true, force: true });
+    }
+  });
+
+  it("does not compile a class that only this package's CHANGELOG names", () => {
+    // CONTROL: the door must still exist. `CHANGELOG.md` is append-only, so the
+    // entry announcing the `flex-shrink-0` → `shrink-0` rename keeps naming it.
+    // If this goes red, re-point the probe at a token the file still carries.
+    // Do not delete it.
+    expect(readFileSync(resolve(PACKAGE_ROOT, 'CHANGELOG.md'), 'utf8')).toContain('flex-shrink-0');
+    // The deprecated Tailwind v3 alias. No shipped source emits it, and it was
+    // in this sheet only because detection read that changelog entry.
+    expect(shipped.has('flex-shrink-0')).toBe(false);
   });
 });

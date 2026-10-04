@@ -375,7 +375,7 @@ export const ButtonGroupSchema = BaseSchema.extend({
 /**
  * Navigation Schema Union - All navigation component schemas
  */
-export const NavigationSchema = z.discriminatedUnion('type', [
+const NavigationSchemaInferred = z.discriminatedUnion('type', [
   HeaderBarSchema,
   SidebarSchema,
   BreadcrumbSchema,
@@ -383,3 +383,16 @@ export const NavigationSchema = z.discriminatedUnion('type', [
   NavigationMenuSchema,
   ButtonGroupSchema,
 ]);
+
+/**
+ * The TYPE of {@link NavigationSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface NavigationZodType extends NavigationSchemaInferredType {
+  options: NavigationSchemaInferredType['options'];
+}
+type NavigationSchemaInferredType = typeof NavigationSchemaInferred;
+
+/** The union above, typed by its named {@link NavigationZodType}. */
+export const NavigationSchema: NavigationZodType = NavigationSchemaInferred;

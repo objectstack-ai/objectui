@@ -4189,7 +4189,7 @@ export const ObjectDataTableSchema = BaseSchema.extend({
  * `object-grid` node is armed by `ObjectGridBlockSchema` below, from its spec
  * row.
  */
-export const ObjectQLComponentSchema = z.discriminatedUnion('type', [
+const ObjectQLComponentSchemaInferred = z.discriminatedUnion('type', [
   ObjectViewSchema,
   ObjectTreeSchema,
   ObjectCalendarSchema,
@@ -4198,6 +4198,19 @@ export const ObjectQLComponentSchema = z.discriminatedUnion('type', [
   ObjectDataTableSchema,
   ListViewSchema,
 ]);
+
+/**
+ * The TYPE of {@link ObjectQLComponentSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface ObjectQLComponentZodType extends ObjectQLComponentSchemaInferredType {
+  options: ObjectQLComponentSchemaInferredType['options'];
+}
+type ObjectQLComponentSchemaInferredType = typeof ObjectQLComponentSchemaInferred;
+
+/** The union above, typed by its named {@link ObjectQLComponentZodType}. */
+export const ObjectQLComponentSchema: ObjectQLComponentZodType = ObjectQLComponentSchemaInferred;
 
 /* ── ADR-0080 public blocks of this family, armed from their spec rows ───── */
 
@@ -5154,7 +5167,7 @@ export const EmbeddableFormBlockSchema = BaseSchema.extend({
  * declaration, not a copy of it. `ObjectGridSchema` and `ObjectChartSchema`
  * above spread it too (objectui#10872 batch 9).
  */
-export const ObjectQLPublicBlockComponentSchema = z.discriminatedUnion('type', [
+const ObjectQLPublicBlockComponentSchemaInferred = z.discriminatedUnion('type', [
   ObjectMetricBlockSchema,
   ObjectMasterDetailFormBlockSchema,
   ObjectTimelineBlockSchema,
@@ -5167,3 +5180,16 @@ export const ObjectQLPublicBlockComponentSchema = z.discriminatedUnion('type', [
   ObjectPivotBlockSchema,
   EmbeddableFormBlockSchema,
 ]);
+
+/**
+ * The TYPE of {@link ObjectQLPublicBlockComponentSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface ObjectQLPublicBlockComponentZodType extends ObjectQLPublicBlockComponentSchemaInferredType {
+  options: ObjectQLPublicBlockComponentSchemaInferredType['options'];
+}
+type ObjectQLPublicBlockComponentSchemaInferredType = typeof ObjectQLPublicBlockComponentSchemaInferred;
+
+/** The union above, typed by its named {@link ObjectQLPublicBlockComponentZodType}. */
+export const ObjectQLPublicBlockComponentSchema: ObjectQLPublicBlockComponentZodType = ObjectQLPublicBlockComponentSchemaInferred;

@@ -1,5 +1,6615 @@
 # @object-ui/core
 
+## 17.7.0
+
+### Minor Changes
+
+- 97abedc: A `dataSource` binding's own `limit` that the contract refuses is now treated as **not
+  authored**: the row cap falls through to the named saved view's usable cap, and only when
+  that is absent too to the consumer's own default (objectui#10016).
+  
+  **Behaviour change.** `composeElementDataSource` resolved the cap as
+  `config.limit ?? savedViewLimit(view)`. objectui#9928 put a positivity check on the view's
+  operand only, so a binding `limit` of `0`, `-10`, `25.5` or a non-number went through
+  unchecked:
+  
+  - through `ViewDataProvider.resolveElementDataSource` it reached `DataFetcher.fetchRecords`
+    verbatim, and nothing said so;
+  - through `ElementDataSourceGate` it was written over everything, a usable component cap
+    included, and the consuming block then dropped it and drew its own default, so the read
+    went wider than either the view or the component asked for.
+  
+  Both operands now pass the same check, and a refused cap from either is not authored. The
+  chain is: a usable binding cap, else a usable view cap, else none. This is the rule
+  objectui#10009 set one layer up (a value the contract refuses is not authored, so the other
+  source wins), applied to the two operands of one resolver. On the renderer path the view's
+  cap that takes the binding's place is a baseline like any other view-sourced value, so a
+  usable component cap still wins over it. A usable binding `limit` still beats both, exactly
+  as before.
+  
+  **Diagnostics.** `elementDataSourceRefusedLimitMessage` takes two optional trailing
+  parameters, the binding and the operand (`'view'`, the default, or `'binding'`). The binding
+  operand has its own sentence, naming the binding, so a binding refusal and a view refusal
+  are told apart when both fire. `ViewDataProvider` and `ElementDataSourceGate` report it once
+  per declaration on the existing `console.warn` channel; the gate reports it only for a block
+  that reads a row cap. Called with three arguments the builder answers exactly as before.
+  
+  **Fixed with it.** `ViewDataProvider` reported a saved view's refused cap even when the
+  binding's own usable `limit` was the cap actually used, and that warning's claim that the
+  fetch falls back to a default was false. The view's refusal is now reported only when the
+  binding's `limit` is absent or refused. The builder applies that condition itself, so both
+  callers share one copy of it.
+- ad694ac: fix(core): the shared date path refuses a calendar day that does not exist, with the marker it already renders for an unparsable value
+  
+  A date-only value naming a day its month does not have — `2026-02-30`, `2024-02-31`, `2025-02-29` — used to render as a real, different day on every date face: the engine's parse accepts a day of `01`-`31` for any month and rolls the surplus forward, so `2026-02-30` showed as `Mar 2`, with nothing to say the stored value was wrong. The filter builder already refused the same value at the authoring boundary, so the repo gave one concept two answers.
+  
+  - **New export `isRealCalendarDate(dateOnly)` from `@object-ui/core`.** It moved from `@object-ui/components`' filter builder, which now imports it — one implementation, shared by the authoring boundary and the display path. It answers `true` only for a `YYYY-MM-DD` string whose year, month and day exist. It now also reads a year below 100 as that year (it used to answer `false` for `0026-08-01`), so the filter builder keeps such a date instead of clearing it.
+  - **`toDisplayDate` returns an Invalid Date for such a value**, so `formatDate` (every face: default, `short`, `relative`), `formatRelativeDate` and `formatDateTime` render `—`, and `formatDateTimeCompactParts` returns `null` — each function's existing answer for an unparsable value. A caller that reads `toDisplayDate` directly gets the same refusal and shows its own unparsable face: the History tab and the record summary chip now show the stored string instead of a rolled date.
+  - **A dataset measure agrees with the list cell on the refusal.** A date-only measure value of `2024-02-30` renders `—`, the same as the `date` cell beside it. The measure takes that answer from the shared path and makes no judgement of its own.
+  - **`@object-ui/fields`:** the `date` and `datetime` cells, the readonly `DateField` and a date-returning `FormulaField` show the shared "No value" placeholder for such a day, exactly as for an unparsable value, instead of a bare dash.
+  
+  This change covers date-only values only. (A value that carries a time, such as `2026-02-30T10:00:00Z`, is refused by the same path too — objectui#10301, a separate entry in this release.)
+- c131d9e: feat(core): `object-tree` joins the curated public tier — the spec declared the block, the roster withheld it
+  
+  `@objectstack/spec` declares `object-tree` on `ComponentPropsMap`, and
+  `@object-ui/plugin-tree` has registered the renderer all along. The curated
+  `PUBLIC_BLOCKS` roster — the one face that decides the ADR-0080 public tier —
+  carried no tree name, so `getPublicConfigs()` reported the block as outside the
+  contract. The tier was NARROWER than the declaration.
+  
+  That absence reached everything downstream, and nothing downstream could repair
+  it. `getPublicConfigs()` is the read both manifest producers serialize through
+  `manifestFromConfigs` (`apps/console/dev/manifest-dump.tsx`, and the framework's
+  node generator for its tracked `sdui.manifest.json`), so the published manifest
+  and the generated JSX intrinsics could not carry a block the contract says
+  exists — regenerating them was a no-op, and moving the objectui pin could not
+  help while the pinned source had nothing to carry.
+  
+  **What moves for a user.** `object-tree` is now part of the AI-authoring
+  vocabulary and of the generated manifest and intrinsics, and it joins the
+  `kind:'react'` page scope as `ObjectTree` (that scope is built from the same
+  public configs, minus declared containers; this block declares no containment).
+  The renderer, its props and every existing schema are untouched: nothing that
+  rendered before renders differently, and no key changes meaning.
+  
+  **What deliberately does not move.** The same module registers this renderer a
+  second time under the bare `tree` alias, and that spelling stays out: the spec
+  declares no such key, so curating it would widen the vocabulary past the
+  declaration rather than pull the tier back to it, and two names for one block is
+  ambiguity an authoring model cannot resolve — the ground `record:chatter` is
+  held out on.
+  
+  The admission is a roster entry, not a `tier: 'public'` flag on the
+  registration. Both routes reach `getPublicConfigs()`; the siblings
+  (`object-grid`, `object-map`, `object-gantt`, …) all take the roster, no
+  published registration in this repo declares the flag, and the roster's own
+  header asks callers to prefer the list over scattered flags.
+  
+  ⚠️ **Dated note, 2026-10-02 — the `tree` alias is no longer registered at all — objectui#10859.**
+  Later in this same release objectui#10859 batch 8 unregistered the bare `tree` alias outright
+  (`objectui validate` refused it at `type`, and nothing authored it), so the "second time" the
+  paragraph above describes is gone too. The rest of this entry is kept as the reading of this change.
+- 7b395d8: **BREAKING** — three more record ids that the objectui#9511 ruling's enumeration left out are
+  strings now (objectui#10078). `CommentSearchResult.recordId`, `RecordSubscription.recordId`
+  and `DataSourceMutationEvent.id` narrow **FROM** `string | number` **TO** `string`. ⚠️ Other
+  record ids in `@object-ui/types` still admit a number and are not touched here, among them
+  `DetailViewSchema.recordNavigation` (`recordIds`, `onNavigate`), `FeedItem.sourceId`, and the
+  `onNavigate` slots on `ObjectGridSchema`, `ObjectViewSchema` and `ListViewRuntimeProps`.
+  
+  ```ts
+  // before — compiled
+  const bell: RecordSubscription = { recordId: 42, subscribed: true };
+  // after — refused by the compiler; write the id the protocol carries
+  const bell: RecordSubscription = { recordId: '42', subscribed: true };
+  ```
+  
+  **Why.** objectui#9511 (director batch #195 item 1, letter A) ruled that a record id is a
+  string wherever **metadata** names one, and extended that, as 「the same principle」, to
+  `CommentEntry.recordId` and `MentionNotification.recordId`. It did not name these three, which
+  are runtime and API shapes rather than metadata. Carrying the rule to them is the `domain:spec`
+  seat's inheritance decision, recorded in the claim on objectui#10078: they hold the same id and
+  were left with the old spelling. `CommentSearchResult.recordId` is copied straight from
+  `CommentEntry.recordId`, `RecordSubscription.recordId` names the record a notification bell is
+  for, and `DataSourceMutationEvent.id` is the id the `update` / `delete` doors already take as a
+  string.
+  
+  **What changes at runtime.** `ValueDataSource` and `ObjectStackAdapter` now emit
+  `onMutation` events whose `id` is always a string. Both methods still accept a numeric id
+  through their own wider parameter, and each converts it at its own boundary before emitting —
+  the one place the rule says the conversion lives. An in-memory `value` source whose items
+  carry numeric keys therefore announces `'42'`, not `42`. A subscriber that compared
+  `event.id` against a number must compare against the string. The two in-repo subscribers
+  that read `event.id` already pass it through `String(...)`, so they see no difference.
+  
+  **Packages that narrow without a source change.** `@object-ui/collaboration` (`useCommentSearch`
+  returns `CommentSearchResult[]`) and `@object-ui/plugin-detail` (`SubscriptionToggleProps`
+  carries a `RecordSubscription`) publish the narrower type through their own `.d.ts`.
+  
+  **What a host has to do.** Code that builds a `RecordSubscription`, reads
+  `CommentSearchResult.recordId`, or implements `DataSource.onMutation` with numeric keys
+  converts once, where the number enters (its own adapter or data boundary), and passes the
+  string from there on. ⛔ Nothing converts silently on the reading side.
+  
+  **Disposition: ADR-0087 D7 — a published runtime TypeScript interface with no metadata
+  surface is carried by the compiler and needs no ledger entry; ⛔ no conversion entry, ⛔ not
+  a tombstone, ⛔ not an npm `major`.** None of the three has a zod mirror, none is authored into JSON, and no schema
+  references them, so there is no parse-time door and nothing for a conversion table to
+  rewrite: the compiler error at the numeric site is the delivery channel. The level is `minor`
+  because objectui marks its own breaking changes `minor` with this banner (AGENTS.md, version
+  alignment); `major` is refused outright because every publishable package sits in one `fixed`
+  group pinned to the `@objectstack` major (`scripts/check-changeset-no-major.mjs`).
+  
+  **Pin.** `record-id-string-survivors-10078.test.ts` in `@object-ui/types` asserts all three
+  members read `string` (not `any`), refuses a numeric literal at each, and keeps a
+  source-text census of the three declarations with controls that prove the census can fire.
+- 6cc910b: A field-backed action param reaches its record picker, and a param whose backing
+  field cannot be read is refused instead of rendered as an empty text box.
+  
+  An action declaring a `params` entry backed by a `lookup` field rendered as a bare
+  text input: no options, no typeahead, and no request for the referenced object on
+  the wire at all, because no picker was ever built. With the param `required`, the
+  action could not be launched from the UI — while the same field rendered a working
+  picker on a record form in the same build, off the same metadata.
+  
+  `resolveActionParams()` resolves a field-backed param against the `objects` list
+  its caller holds, and two of the console's own callers cannot hold the right one:
+  `ConsoleShell`'s root action runtime — the provider that exists so a `type: 'flow'`
+  `action:button` works outside the four object views — passes no objects at all, and
+  `DeclaredActionsBar` passes exactly one (none when driven by an `actions` prop).
+  With the owner object absent the param took the resolver's last-resort shape, and
+  for a field-backed param that shape is `text`: it declares no inline `type`, so
+  there is nothing else to fall back to. The object binding was never missing from
+  the client — this seam never asked the metadata store for it.
+  
+  - `useConsoleActionRuntime` now resolves field-backed params against the caller's
+    objects UNIONED with the console metadata store's, caller first (`withKnownObjects`),
+    after awaiting the object type so "this field does not exist" is an answer rather
+    than a boot race. A draft/preview overlay the caller carries still wins.
+  - The degradation is no longer anonymous. `resolveActionParams()` stamps
+    `unresolvedField: '<object>.<field>'` on a param whose backing field it could not
+    find and says so in dev. This is the half that made the defect invisible for a
+    whole version: by the time `paramToField()` sees such a param it IS a `text`
+    param, so `paramDegradesWithoutTarget()` answered false, no "no reference target"
+    warning fired, and even the "paste a record id" placeholder and help text did not
+    apply.
+  - `ActionParamDialog` refuses such a param: it renders an alert naming the
+    `<object>.<field>` pair in place of the control, logs one line per dialog opening
+    in every build, and disables Confirm so the action cannot be launched with a value
+    the dialog had no contract to collect.
+  
+  New localized string `actionDialog.unresolvedParam` in all ten locale bundles. The
+  `<object>.<field>` locator renders as its own node rather than an interpolation, so
+  an identifier is never re-ordered by a translation.
+- 061f5e8: fix(dashboard): a dashboard filter declaring `object` now resolves its translated labels; the axis-title half reaches no surface
+  
+  `@objectstack/spec` declares two dashboard surfaces translatable — a filter's `object` and an
+  axis `title` — and the Console resolved neither, so an author could set a key the contract
+  documents and nothing happened. They turned out to be **two defects, not one** — a key never
+  read, and a value that bypassed a resolver already in the tree — and they were fixed
+  separately. Only the first reaches an author in this release: see the note at the end.
+  
+  **1. `GlobalFilterSchema.object` was never read.** The spec's describe text for the key is
+  "Object whose `fields.<object>.<field>` translation-bundle entry resolves this filter's field
+  label and option labels". `resolveDashboardFilterDefs` names the keys it copies onto a
+  `DashboardFilterDef` and this one was not among them, so the authored value could not reach a
+  renderer even in principle: a dashboard filter declaring `object` and no `label`, viewed on a
+  translated console, painted the RAW FIELD NAME and left its option labels in the authored
+  English. The definition now carries `object` through, and `DashboardFilterBar` resolves the
+  field label through `useSafeFieldLabel().fieldLabel` and the option labels through the same
+  object's `translateOptions` — the convention resolver every list and form already calls, which
+  is the "one resolver path" the key's own spec text asks for. No second resolver was written.
+  Precedence follows that resolver's signature: the translator's bundle wins, the authored label
+  is the fallback. A filter that names no `object` never reaches it and renders exactly as
+  before.
+  
+  **2. `ChartAxisSchema.title` bypassed a resolver two modules downstream.** The key is
+  `I18nLabel`, so an inline locale map parses, builds and validates — and `axisPresentation`
+  collapsed it with `labelText`, a first-string-in-KEY-ORDER pick. Measured both ways round on
+  one map: English to a `zh-CN` viewer and Chinese to an `en` viewer, decided by nothing but
+  which key the author typed first. `normalizeChartSchema` already resolves an axis title
+  through `pickLocalized` against the viewer's language, so the map only had to survive the
+  lowering. The fix forwarded it verbatim through `forwardedI18nLabel` — the neighbour in the
+  same module that already carries a chart's own `title` / `subtitle` / `description` for
+  exactly this reason — and that lowering was then removed in the same release (the note at the
+  end).
+  
+  This moves one entry of the objectui#4020 first-string-wins ledger. That ledger's
+  justification is "a locale-unaware pick a caller can OVERRIDE", which holds for a series
+  `label` — the report renderer outranks it with objectui#4020's three-level display name — and
+  never held for an axis title, which is spread onto the chart schema and drawn. `seriesPresentation` keeps the pick and
+  is still pinned.
+  
+  What an author sees change: a filter that opted in with `object` now shows its translated
+  field and option labels instead of the raw field name and English options. Nothing that omits
+  `object` renders differently, and point 2 changes nothing an author sees (below).
+  
+  ⚠️ Point 2 reaches no surface in this release, which also carries objectui#11315 and
+  objectui#11372. `@objectstack/spec` 17.5.0 refuses `chartConfig.xAxis` / `yAxis` / `series` on
+  a dashboard widget, and the dashboard's dataset widget no longer reads them (objectui#11315), so
+  a dashboard draws no authored axis title at all, in any language. That widget was the only
+  caller of `axisPresentation` and `mergeAuthoredPresentation`, and objectui#11372 removes both
+  from `@object-ui/core` in the same release, so the fixed lowering never ships. The react
+  `ObjectChart` tier, which still authors its own axes, never went through that lowering: it hands
+  `xAxis` / `yAxis` to `normalizeChartSchema`, which resolves a locale-map axis title against the
+  viewer's language since objectui#8943 (released alongside this, under its own changeset).
+  `ObjectChart.axisTitleLocale-10132.test.tsx` in `@object-ui/plugin-charts` pins that surface at
+  two languages.
+- 4ab4f1b: A date-only value now renders the calendar day it names, west of UTC, at four more places (objectui#10183).
+  
+  **Clause-②: yes** — `@object-ui/core` gains one export, `toDisplayDate(value)`: the parse step every date formatter in `utils/date-display.ts` already went through, now reachable by a caller that formats with its own `Intl` options or compares a value with today. Nothing else is added, removed, renamed or retyped, and `@object-ui/fields` does not re-export it.
+  
+  **What it was.** objectui#10110 repaired the shared date path: a date-only value such as `2026-08-01` is UTC midnight to the JavaScript engine, so reading it back in the viewer's zone lost a day west of UTC. The repair rebuilt such a value at local midnight inside the shared formatters, but four places never reached it. `data-table`'s default cell face parsed the string into a `Date` first, and the shared step leaves a `Date` alone. The record summary chip, the record History tab and the `date` cell's overdue colouring each parsed the value themselves. Measured in `America/Los_Angeles`: `2026-08-01` rendered `Jul 31` in a table cell, `2026年7月31日` on a zh-CN summary chip and `7/31/2026` in History, and a deadline falling today read `Today` in red.
+  
+  **What changed, in observable terms.**
+  
+  - A `data-table` cell with no cell renderer hands the string to `formatDate` / `formatDateTime`. This also covers a related list whose child object schema is unavailable, since its cells fall back to that face.
+  - The summary chip and the History tab take their `Date` from `toDisplayDate`. Their faces are unchanged: the chip keeps `dateStyle: 'medium'`, History keeps the locale's default numeric date.
+  - The `date` cell's overdue colouring compares the day `toDisplayDate` names, so a deadline falling today is no longer red west of UTC. The cell's text was already right, and its hover title is unchanged.
+  - ⚠️ The summary chip's and History's `datetime` arms share that parse, so they follow the shared path's rule: the value's shape decides, never the field's type. An instant still converts into the viewer's zone. A date-only value stored on a `datetime` field now reads as local midnight of its day, as `formatDateTime` already rendered it; before, it read as the previous evening west of UTC and as a morning hour east of it.
+  
+  In UTC every face is byte-identical to before. East of UTC every date face and the overdue colouring are too; only that `datetime`-arm reading of a date-only value moves there.
+- 86982ac: fix(core): a dashboard `dateRange` that omits `defaultRange` now takes the spec's declared default preset (objectui#10339).
+  
+  `@objectstack/spec` declares `DashboardSchema.dateRange.defaultRange` with `.default('this_month')`, but
+  `resolveDashboardFilterDefs` treated an omitted `defaultRange` as "no filter", so a dashboard authored as
+  `dateRange: { field: 'created_at' }` rendered unfiltered while the platform's parse of the same document said
+  `this_month`. The read site now applies the spec default, read from the spec's own `dateRange` schema rather
+  than a copied string.
+  
+  **Behaviour note:** an authored `dateRange` with no `defaultRange` now opens filtered to `this_month`, matching
+  the spec. An explicit `defaultRange` — `custom` included — is unchanged, and a dashboard with no `dateRange` at
+  all still gets no built-in date filter.
+- ff14e29: New export `recordDelete` — the one record-delete core that list hosts bind to, so a Delete behaves the same wherever it is offered (objectui#10383).
+  
+  `recordDelete.confirmText({ objectName, t }, record?)` returns the question to ask before deleting one record. `recordDelete.run(deps, request)` performs the delete and reports it: one record, or several deleted one call each and settled together, then a refresh and the success, failure or "N deleted, M failed" toast. `deps` carries the host's `objectName`, `label`, `t`, `toast`, `dataSource` and optional `onRefresh`, so `@object-ui/core` takes no i18n or toast dependency. `request` is the action runner's `delete` shape (`params.records`, or `params.recordId` with an optional `params.record`), and the result is what a runner `delete` handler returns: the toasts are the feedback, so no path returns an `error` except a request with no record id.
+  
+  ADR-0094 lives here: a `sys_permission_set` row whose `managed_by` is `'package'` is reset to its shipped baseline, not removed, so it is asked the reset question and gets the reset toast. The row passed in is read first, with a best-effort `findOne` when only the id is known.
+  
+  The console's object list (`@object-ui/app-shell` `useObjectActions`) and the registered `object-view` grid (`@object-ui/plugin-view`) both call it. The console's behaviour is unchanged: its handler code moved here with no behaviour change, including the returns that keep the runner from showing a second toast.
+- 8acc51b: fix(core): Undo of an `undoable` update no longer writes `null` over a field the row did not carry
+  
+  An `undoable` update records the prior value of every field it writes, read off
+  the row it ran on, so the success toast can offer Undo. On a list row projected
+  by `$select` (`ListView`, `ObjectGrid`, `RelatedList`), a written field that no
+  column shows was absent from the row. It was recorded as `null`, and Undo then
+  wrote `null` over the value it existed to restore: close a task from a grid that
+  shows only its name, press Undo, and its status became empty instead of `open`.
+  
+  Two changes:
+  
+  - The list harvest (`listViewPredicates`) now also names the fields an
+    `undoable` action writes: its `patch` keys, the key each param's value is
+    collected under (`name`, else `field`), and its `bodyExtra` keys. So a
+    projected row carries them, through the same gates as every harvested name:
+    a bare identifier, a field the object declares (or a platform column), and
+    field-level security once the permission answer has loaded. `recordId` is
+    not harvested; both writers strip it as the record's address.
+  - The capture never records an absent field as `null`, in `ActionRunner`'s
+    `operation: 'update'` path and in the console `api` handler's data-source
+    branch alike. When the row does not carry every written field (for example a
+    field the principal may write but not read), the action still runs, but it
+    offers no Undo: the success toast has no Undo button, nothing is pushed onto
+    the undo stack, and a console warning names the missing fields. A `null` the
+    row does carry is a real empty value and is still restored as `null`.
+  
+  Behaviour to know about: on a backend that leaves null-valued fields out of a
+  full record, an `undoable` update of such a field now offers no Undo instead of
+  one that restores it to empty. Absent and empty cannot be told apart there, and
+  no Undo is the side that cannot overwrite stored data.
+- 9a5f998: `@object-ui/core` exports `withoutDeniedFields(record, policy, objectName, extraKeep?)`, the field-read rule for one record: the record as the viewer may read it on `objectName` (objectui#10594).
+  
+  Every field the loaded `policy` denies is removed, which leaves the row ObjectStack's `FieldMasker` already serves. `id`, `_id` and any key in `extraKeep` (a declared id field) are never judged. Before a policy loads, with no policy, with no object name, or for a value that is not an object, the record comes back as it is; when nothing is withheld the SAME object comes back. `policy` is structural (`isLoaded` and `checkField`), so `usePermissions()` from `@object-ui/permissions` satisfies it and `@object-ui/core` gains no dependency.
+  
+  The renderer's display surfaces that each carried a module-private copy of this rule now call the export, with no change in what they draw:
+  
+  - `@object-ui/fields`: the lookup cell's name and the user cell's name and avatar (the package entry), and the lookup editor's option label and search chip avatar (`LookupField`).
+  - `@object-ui/react`: `useRecordSearch`'s hit label under `fieldReadPolicy`.
+  - `@object-ui/app-shell`: the record page's title and the row its blocks read (`RecordDetailView`).
+  - `@object-ui/plugin-detail`: `DetailView`'s header title and `record:details`' title dedupe. The package-internal `withoutDeniedFields` module is removed; it was never a package export.
+- baac95a: feat(core,sdui-parser): the published manifest declares the html tier's registered intrinsic elements, marked `tier: 'html'` — `div` stays out
+  
+  A `kind:'html'` page may author the everyday HTML tags its renderer registers —
+  the flow/inline set of `html-elements.tsx` (h1–h6, p, a, lists, emphasis,
+  figure/img/hr/br, time, address, cite, q), `span`, `table`, `label` and the seven
+  sectioning tags — and the console has rendered such pages all along. The
+  published `sdui.manifest.json` never said so: it was the curated `PUBLIC_BLOCKS`
+  vocabulary alone, so the objectstack CLI gate, which whitelists an html page's
+  tags from that manifest, refused every plain HTML tag as `forbidden-tag` on
+  pages the renderer accepts (200 ledgered findings over the three shipped showcase
+  pages). The maintainer ruled A on objectstack#20112: the producer declares the
+  set, exactly as the registry declares it, and `div` stays deprecated.
+  
+  **What moves for a consumer.** `ComponentRegistry.getPublicConfigs()` — the
+  read both manifest producers serialise — now returns the curated tier AND the
+  html tier's intrinsic elements, the latter from the new `HTML_TIER_INTRINSICS`
+  roster (`@object-ui/core`) and each stamped `tier: 'html'` in the projection.
+  `manifestFromConfigs` carries that one value into a new optional
+  `ManifestComponent.tier` (`@object-ui/sdui-parser`), so the regenerated
+  `sdui.manifest.json` grows by the roster (47 entries, each with its registered
+  `inputs` and its child slot declared exactly where the registration renders a
+  child list — the void tags `img` / `hr` / `br` declare none) and
+  `sdui-intrinsics.d.ts` types them. A reader that whitelists tags by key — the
+  objectstack gate — needs no change and accepts the tags. A reader that means the
+  CURATED vocabulary filters on the stamp: `generateBlockList` now sections the
+  html tier under its own count, and the `kind:'react'` JSX scope skips stamped
+  entries (`@object-ui/components`, `react-page.tsx`), so no `P` / `A` / `Img`
+  wrapper is injected into react pages — on that tier a lowercase `<p>` is React's
+  own element.
+  
+  **What does not move.** `PUBLIC_BLOCKS` is unchanged and the two rosters are
+  pinned disjoint; every curated manifest entry serialises byte-identically
+  (`tier` is written as exactly `'html'` or omitted). `div` is not declared: the
+  gate keeps refusing `<div>` on an html page, and `box` remains the JSON
+  surface's replacement. `code` is not declared either — the bare `code` key is
+  the `field:code` widget's namespace fallback, not an element renderer — nor is
+  `kbd`; both are recorded, with reasons, in the console's exclusion ledger.
+  No registration changes; `html-elements.tsx` is untouched.
+  
+  ⚠️ **Dated note, 2026-09-27 — `code` has since joined the roster — objectui#10756.** At this change the roster held 47 tags and `code` was undeclared because the bare key was the `field:code` widget's fallback; `html-elements.tsx` now registers `code` as a sanitised passthrough (`ui:code`), `@object-ui/fields` registers the widget with `skipFallback` so it keeps only `field:code`, and the manifest declares `code` with `tier: 'html'` — 48 html-tier entries. `div` and `kbd` are still out. The rest of this entry is kept as the reading of this change.
+  
+  The manifest the framework ships regenerates from objectui's built tree at the
+  pin (its `gen-sdui-manifest-node.mjs`); its lockstep copy of `manifestFromConfigs`
+  must take this port for the stamp to reach that file — until then the tags are
+  declared there without the marker, which the gate treats identically.
+- 29b45f6: feat(core,components): the html tier registers and declares `code` — `<code>inline</code>` on a `kind:'html'` page renders its text instead of the `field:code` editor
+  
+  `renderers/basic/html-elements.tsx` called `code` "registered elsewhere", but the
+  only bare `code` registration was the `field:code` widget's namespace fallback: a
+  code editor reading `value`, with no declared inputs and no child slot. The
+  console's html-tier compile whitelists `ComponentRegistry.getKnownTypes()`, so
+  `<code>inline</code>` on an html page compiled, resolved to the editor, and the
+  authored text was dropped — while `pre`, `strong` and `em` rendered their
+  children through the passthrough, and `span` through its own renderer. The
+  published manifest (objectui#10735) left `code` undeclared for the same reason,
+  so the objectstack gate refused the tag the renderer mis-drew.
+  
+  **What moves for a consumer.**
+  
+  - `@object-ui/components` — `code` joins the `TAGS` loop of `html-elements.tsx`:
+    registered `ui:code`, sanitised like its siblings, declaring `className` and the
+    `children` slot. An html author's `<code>` now renders a real `code` element with
+    its text.
+  - `@object-ui/fields` — **BREAKING (authoring): the bare `code` key no longer
+    resolves to the code-editor widget.** `code` joins `FIELD_TYPES_SKIP_FALLBACK`,
+    so the widget is registered `field:code` only. A node authored as bare
+    `{ "type": "code", "value": … }` now renders the html tier's `code` element (it
+    draws `children`, not `value`); in a registry without `@object-ui/components`
+    the bare key resolves to nothing. Migration: `{ "type": "code" }` becomes
+    `{ "type": "field:code" }`. Form fields of type `code` resolve through the
+    `field:` namespace and render the same editor as before. Released as `minor`
+    under objectui's version policy; a breaking change never declares `major`.
+  - `@object-ui/core` — `code` joins `HTML_TIER_INTRINSICS`, so `getPublicConfigs()`
+    projects it stamped `tier: 'html'` and the regenerated `sdui.manifest.json`
+    grows by one entry (the html tier declares 48 tags where objectui#10735
+    declared 47); `div` and `kbd` stay undeclared.
+  - `@object-ui/types` — `HtmlElementSchema` (zod and TS) names `code`, keeping the
+    JSON-surface declaration equal to the registration, as the objectui#8499 pin
+    requires — so `AnyComponentSchema` (and `objectui validate`) now accepts
+    `{ "type": "code" }`, which it refused before.
+  - `@object-ui/cli` — `packages/cli/src/utils/known-schema-types.ts` regenerates
+    from the registrations and gains `ui:code`, so `objectui validate` and
+    `objectui check` recognise it as a known schema type (the objectui#9533 and
+    objectui#6416 precedent).
+  
+  The `kind:'react'` scope skips stamped entries, so no `Code` wrapper is injected
+  on react pages. The framework's tracked manifest regenerates at its next
+  `.objectui-sha` bump (objectstack#20112's port list); nothing there changes here.
+- 990a2d6: chore(core)!: the record-source `data` arm table drops `tree` and `view:tree` (objectui#10859, batch 8)
+  
+  **BREAKING (authoring):** `recordSourceDataArmForType('tree')` and `recordSourceDataArmForType('view:tree')` now answer `'undeclared'`, because `@object-ui/plugin-tree` no longer registers either key. The table names `object-tree` / `plugin-tree:object-tree` alone, which still answer `'view-data'`.
+  
+  Migration:
+  
+  - `tree` → `object-tree`; nothing else reads these rows.
+  
+  **Clause-②: yes**, released as `minor` with this banner.
+- 328abeb: Four Console surfaces that read English under a zh-CN session now read the session's
+  language (objectui#10900). English stays the default.
+  
+  - **The generic action success toast.** When an action declares no `successMessage`, the
+    runner falls back to "Action completed successfully".
+    That fallback now goes through a translator: `ActionRunner.setTranslator(translate)` is
+    new in `@object-ui/core`, and `<ActionProvider>` and `useActionRunner` in
+    `@object-ui/react` install the session's `t` on the runner they build. The pack key is
+    `actions.completedSuccessfully`. An author's `successMessage` still reaches the toast
+    untranslated, and a runner with no translator installed still toasts the English sentence.
+  - **The social sign-in buttons on the login and sign-up pages.** `SocialSignInButtons`
+    takes a new `buttonText` prop, a template whose `{provider}` is replaced with the
+    provider's display name; unset, the buttons keep "Continue with {provider}" and
+    "Sign up with {provider}". `LoginForm` and `RegisterForm` take a new `socialButton`
+    label and pass it, with their existing `orText` label, to the buttons. `orText` was
+    documented as the divider label but rendered nowhere; it now sets the divider under the
+    buttons, and its documented default is corrected from "or" to "or continue with email",
+    the text that divider has always shown. The console's login and sign-up pages and
+    `@object-ui/app-shell`'s `DefaultLoginPage` / `DefaultRegisterPage` pass the new
+    `auth.login.*` and `auth.register.*` `socialButton` / `orText` keys. The provider's display
+    name is inserted as-is: the component's own label for the branded providers it knows,
+    otherwise the name the server reports.
+  - **Build Doctor.** The build conversation's Build Doctor button (its accessible name and
+    both tooltips) and the title of the drawer it opens read `console.ai.buildDoctor`,
+    `console.ai.buildDoctorTitle` and `console.ai.buildDoctorDisabledTitle`.
+  - **Setup → marketplace.** On `system/marketplace` and the pages under it, the breadcrumb
+    segment after System reads `console.breadcrumb.marketplace` instead of the humanized URL
+    slug; other `system/*` segments are unchanged. The zh marketplace search placeholder
+    reads 「按名称或标识搜索应用…」 instead of 「按名称或 manifest ID 搜索应用…」. The search
+    itself is unchanged: it matches the display name, the identifier and the description.
+  
+  All ten locale packs carry the nine new keys; no existing `en` value changes.
+  
+  **Clause-②: yes** — besides the nine pack keys, the public surface widens by four optional
+  members: `ActionRunner.setTranslator`, `SocialSignInButtonsProps.buttonText`,
+  `LoginFormLabels.socialButton` and `RegisterFormLabels.socialButton`. Nothing is removed,
+  renamed or narrowed, no accept set changes, and `@object-ui/react` exports nothing new.
+- e227156: fix(core): `ActionDef` no longer declares `aria`, which `@objectstack/spec` 17.5.0 retired on an action
+  
+  `@objectstack/spec` 17.5.0 retired `action.aria` as a `retiredKey()` tombstone:
+  authoring it is a parse rejection, because no action surface ever applied it.
+  The accessible name an action gets is its `label`. To name the region that
+  places the actions, use the `aria` block of the placing node.
+  
+  `ActionDef` (`@object-ui/core`) mirrored the key as `aria?: SpecActionInput['aria']`.
+  After the 17.5.0 bump that type resolved to `undefined`, so the field mirrored
+  nothing. It is removed, and so is its entry in the exported `ACTION_DEF_KEYS`
+  inventory. `aria` stays in `SPEC_ACTION_KEYS`, because the spec still declares
+  the tombstone, so the dev-mode unknown-key warning does not change for an action
+  that still carries it.
+  
+  **Breaking, at the type level only.** Two names on the package root narrow:
+  
+  - the `ActionDef` interface loses its `aria` member;
+  - the exported `ACTION_DEF_KEYS` constant loses its `'aria'` element, both in
+    the runtime array and in its `as const` element union.
+  
+  Code that compiled before and does not now:
+  
+  - an explicit `aria: undefined` in an `ActionDef` object literal (an
+    excess-property error);
+  - a read of `.aria` on an `ActionDef`;
+  - `'aria'` used as a `keyof ActionDef`, or as a `typeof ACTION_DEF_KEYS[number]`.
+  
+  Every other `aria` value in an `ActionDef` literal was already a compile error,
+  because the member's type was `undefined`. The runtime accept set does not move:
+  nothing validates an `ActionDef` at runtime, and `KNOWN_ACTION_KEYS` still holds
+  `aria` through `SPEC_ACTION_KEYS`. Measured reach: this repository had no reader
+  of an action's `aria`, and CI `Type Check`, which compiles every workspace
+  consumer of `@object-ui/core`, is green with the member removed. The level is
+  `minor`, which is how this repository ships its own breaking changes.
+  
+  The Studio action editor did not need a change: the served `action` schema from
+  17.5.0 on does not carry `aria`, so its "More fields" form offers no `aria`
+  control. A test in `@object-ui/app-shell` now pins that.
+- ae582b7: A number field's authored `useGrouping` now decides whether its value renders with thousands
+  separators (objectui#11026). This is the renderer half of `FieldSchema.useGrouping`, the
+  digit-grouping hint `@objectstack/spec` declares on a field.
+  
+  **What an author now controls.** Write `useGrouping` on a `number` field:
+  
+  - `useGrouping: false` renders the value with no separators, whatever its `scale`: a
+    `scale: 2` code field reads `12345.50`, not `12,345.50`.
+  - `useGrouping: true` groups it, even at `scale: 0`: a scale-0 headcount reads `2,026`, not
+    `2026`. An authored `true` reaches `Intl.NumberFormat` as `useGrouping: true`, which means
+    "always". So in a locale that leaves a four-digit number alone by default (es-ES, pl-PL),
+    `1234` renders `1.234` / `1 234`.
+  - Leave it out and nothing changes: a declared `scale: 0` still reads as an ordinal and renders
+    ungrouped (a year reads `2026`), and any other number is grouped the locale's way.
+  
+  Before this change nothing in the console read the key, so the only way to drop the separators
+  was `scale: 0`, and there was no way to keep them on a scale-0 count.
+  
+  **Where it applies.** List and grid cells, record detail sections and highlights, the record
+  quick-look panel, related-record tables and gallery cards. Each of these builds a cell's field
+  from the object's field definition key by key, and each now copies `useGrouping` next to
+  `scale`. Kanban cards and the grid's auto-generated columns hand the cell the whole field
+  definition, so they follow it too. The form's number input and the dashboard's record table
+  read neither `scale` nor `useGrouping` for grouping, and are unchanged.
+  
+  **API (additive).**
+  
+  - `@object-ui/core`: `DisplayNumberFormatOptions` gains `useGrouping?: boolean`, and
+    `shouldGroupDisplayNumber` takes it as an optional third parameter. An authored boolean
+    answers first; with it unset, the existing `scale`/`currency` rules decide as before.
+    `@object-ui/i18n` re-exports both names, so the same options reach it too.
+  - `@object-ui/types`: `NumberFieldMetadata` declares `useGrouping`, typed from the spec's
+    `FieldSchema.useGrouping`.
+- f61dab1: `reference` is now the only spelling ObjectUI writes or reads for a relational field's target object (objectui#11070, round 4, under the objectui#6837 ruling: 「objectui不是前端的项目吗？后端的元数据只要对，前端按协议执行就行了呀」).
+  
+  - **Types.** `LookupFieldMetadata`, `MasterDetailFieldMetadata` and `DetailViewField` (with its zod mirror `DetailViewFieldSchema`) declare `reference` and no longer declare `reference_to`. On the two field metadata types the member is typed by reference to `@objectstack/spec`'s `FieldSchema.reference`. `@object-ui/plugin-form`'s `FieldDefaultsSchemaLike` drops its `reference_to` member the same way.
+  - **Readers.** `LookupField`, `UserField`, `LookupCellRenderer`, `UserCellRenderer`, the inline editor's reference fallback, the form's `current_user` seeding and the inline-subform parent lookup read `reference` alone.
+  - **Emitters.** Every in-repo producer that builds a field definition or a widget `field` prop writes `reference`: the action-param dialog (`paramToField`), the bulk-action dialog, the record detail page, drawer, footer, related list and synthesised page, the gallery card, the form's section-field override and the flow designer's reference picker. The grid's and the dashboard's relational copy sets carry `reference` and no longer copy `reference_to`.
+  - **Ingestion.** `normalizeFieldReferenceKeys` (behind `ObjectStackAdapter.getObjectSchema` and `MetadataProvider`) still folds a legacy `reference_to` / `referenceTo` onto `reference` when `reference` is absent, and still warns in dev. It no longer stamps `reference_to` onto every relational definition, and it still never drops or overwrites a key.
+  
+  `@objectstack/spec`'s `FieldSchema` refuses `reference_to` by name, and objectstack#13847 rewrites stored ones on the serve path and in `os migrate meta`, so a definition served by an ObjectStack backend is unaffected.
+  
+  ## ⚠️ BREAKING for a host that hands `reference_to` to the widgets directly
+  
+  The type change is a compile error for TypeScript that writes `reference_to` on `LookupFieldMetadata`, `MasterDetailFieldMetadata` or `DetailViewField`: rename it to `reference`.
+  
+  At runtime the break reaches exactly one kind of host: one that serves object definitions spelling the target only as `reference_to` through a `DataSource` other than `ObjectStackAdapter`, or that passes such a definition straight into `LookupField`, `UserField` or a cell renderer. Those definitions never pass the ingestion fold. Measured with an object-bound lookup field on `ObjectForm` and a lookup column on `ObjectGrid`, both fed by a hand-written `DataSource` whose `getObjectSchema` returns `{ type: 'lookup', reference_to: 'account' }`:
+  
+  - before this change, opening the picker queried `account` and the cell resolved the record's name;
+  - after it, the picker has no object to query (no `find` call is made) and the cell shows the raw id beside the unresolved-reference marker.
+  
+  The same definition served through `ObjectStackAdapter.getObjectSchema` still works, before and after: the fold adds `reference`, the picker queries `account`, the cell resolves the name, and the dev warning names the field. **Fix:** spell the target `reference` in the definition your `DataSource` serves.
+  
+  ⚠️ **Dated note, 2026-09-30 — the break reaches more than the paragraph above states — objectui#11070.** Two corrections from the contract review of this change, appended rather than edited in; neither changes what ships.
+  
+  - "The break reaches exactly one kind of host" above is too narrow. Host code that read `reference_to` off a definition after ingestion — from `ObjectStackAdapter.getObjectSchema()` or `useMetadata().objects` — also loses that key, because the ingestion pass no longer stamps it (the **Ingestion** bullet above states the fact, and `reference_to` was never a declared member of those definitions). **Fix:** read `reference`.
+  - The measured break above is a `lookup` field's. A `user` field handed a `reference_to`-only definition directly does not end at "no query": `UserField` falls back to `sys_user`, so its picker queries `sys_user` rather than the object `reference_to` named. **Fix:** spell the target `reference` there too.
+  
+  The text above is kept as the reading of this change.
+- 81f8498: objectui now resolves `@objectstack/*` 17.5.0 and `zod` 4.6.5, and follows every contract move that release makes (objectui#11073). `@objectstack/spec` 17.5.0 and `@objectstack/core` 17.5.0 require `zod ^4.6.1`, so objectui's own `zod` resolves to the same 4.6.5: two zod minors do not type-check against each other.
+  
+  ⚠️ Breaking in places, marked `minor` under this repo's version-alignment rule (a `major` in the fixed group would move all of it off the `@objectstack` major). Every narrowing below is the spec's own, and already reaches any consumer that resolves `@objectstack/spec ^17.5`.
+  
+  - `@object-ui/types`: declares `@objectstack/spec ^17.5.0` and `zod ^4.6.1`. A named list view's `pageName` and `tabs` are retired, as the spec retired them: typed `never` and refused by name at parse. `DashboardWidgetSchema` attaches the spec's two new checks (`checkDashboardWidgetStageOrder`, `checkDashboardWidgetMetricMeasureArity`), so a widget the spec refuses is refused here too. Where a strict object is an arm of a plain union, its unknown-key refusal is terminal again (the spec's own mechanism, needed under zod 4.6): the union answers with every arm instead of the one that failed only on unknown keys. That changes the error shape, never the verdict (measured on every objectui union). Two by-name named-view checks that can no longer run are retired; the spec's refusal answers those documents.
+  - `@object-ui/core`: declares `@objectstack/spec ^17.5.0`. `page` leaves the list-view kinds the normalizer knows, as the spec removed `type: 'page'`. `isRefusedTextComparand` and `textComparandRefusalReason` are re-exported from `@objectstack/spec/data`, whose copies are byte-identical. `SPEC_ACTION_KEYS` lists `execution`, which `ActionSchema` now declares.
+  - `@object-ui/data-objectstack`: declares `@objectstack/spec ^17.5.0`, up from `^17.4.0`. Its bundle carries `@object-ui/core`'s filter converter, which now takes `isRefusedTextComparand` and `textComparandRefusalReason` from `@objectstack/spec/data`. `@objectstack/spec` 17.4.0 exports neither, so the old range admitted a spec under which the shipped module names exports that are not there (objectui#5793's floor gate). Nothing moves at runtime in this repository, because the lockfile already resolves 17.5.0. `patch`, as the floor raise of objectui#10864 was.
+  - `@object-ui/fields`: the percent and number `scale` clamp is gone, at the sunset its own test named. The spec now refuses a `scale` above 100 at the declaration, so the width a formatter cannot render no longer arrives, and every face passes the declared width through as it did before the clamp.
+  - `@object-ui/components`: two module-local prop interfaces of the action renderers are renamed (`ActionButtonRendererProps`, `ActionIconRendererProps`), because the spec now exports the old names for its authored props. Neither is reachable through the package's exports map; only the shipped per-file declarations change.
+  - `@object-ui/plugin-list`: the README's view-type example no longer lists the retired `page` kind.
+  - `@object-ui/app-shell`: the flow designer follows 17.5.0 (maintainer ruling on objectui#11088, decision 2). A new `wait` node is seeded `waitEventConfig: { eventType: 'timer', timerDuration: 'PT1H' }`, because the spec now refuses a timer wait with no duration; the inspector shows the Duration at once and it can be changed. The decision form offers the spec's new `mode` (exclusive or inclusive), with no default declared because the spec applies none. The screen form's `mode` states `create` again, because the spec now applies that default. `minor` because the decision form gains a control.
+  - `@object-ui/app-shell`: declares `@objectstack/spec ^17.5.0`, up from `^17.4.0`, and `zod ^4.6.1`, up from `^4.4.3`. The designer now states 17.5.0 behaviour. The screen form's declared `create` default equals a default the spec applies only since 17.5.0, and objectui#9109 requires the two to be equal, so a range that admitted 17.4.0 claimed more than the designer holds to. The resolved versions do not move.
+  - `@object-ui/console`: the bundle inlines the 17.5.0 packages, so its client-side validation answers as the published 17.5.0 contract does. The flow preview sample's script nodes use the 17.5.0 script contract. The eager-closure budget is re-baselined for the release's growth, under the maintainer ruling on objectui#11088 (decision 1).
+- 76e9df0: fix(app-shell,core): the record page's Undo captures only what the record carries, through core's one capture rule (objectui#11082)
+  
+  **Clause-②: yes** — `captureUpdateUndoData` becomes a named export of `@object-ui/core`, a new published symbol. Its answers do not change. No declared type or accepted key moves.
+  
+  - **`@object-ui/core` exports `captureUpdateUndoData(writtenFields, rowRecord)`.** It is the rule `ActionRunner` already used for an `undoable` update's Undo snapshot (objectui#10404): it answers each written field's stored value when the row carries every written field, and `undefined` when any one is missing, so the caller offers no Undo at all. A `null` the row carries is captured as `null`. "Carries" means an own key whose value is not `undefined`.
+  - **The record page's own `api` handler calls it.** `RecordDetailView` read each written field's prior value off the loaded page record as `pageRecord[k] ?? null`. The page record is read with no column list, but the server removes every field the reader may not read, so an undoable action that writes such a field found it absent and captured `null`. Pressing Undo then wrote `null` over the stored value. Now that action offers no Undo button, logs a warning naming the missing fields, and still performs the write. A carried value, `null` included, is restored as before.
+  - **The console runtime's `api` handler calls it too**, in place of its inline copy of the same rule. Its behaviour does not change.
+  
+  Pinned in `packages/app-shell/src/views/RecordDetailView.undoCapture-11082.test.tsx` and `packages/core/src/actions/__tests__/captureUpdateUndoData.export-11082.test.ts`.
+- 6158e4c: `ValueDataSource` executes the empty pair `is_empty` / `is_not_empty` and the `$empty` operator, and `convertFiltersToAST` lowers `$empty` (objectui#11094).
+  
+  `@objectstack/spec` 17.6.0 admits `$empty` to `FILTER_OPERATORS` (objectstack#20446). It also stops folding `is_empty` / `isempty` onto `is_null`, and `is_not_empty` / `isnotempty` onto `is_not_null`, and lowers them to `$empty: true` / `$empty: false` instead (objectstack#20570). `ValueDataSource` canonicalises AST operators through the spec's `canonicalAstOperator` and had arms only for the null pair. So on 17.6.0 a stored `is_empty` or `is_not_empty` rule on a `provider: 'value'` source reached the refusal arm: it selected no row and logged one refusal per `find()`.
+  
+  **After.** `is_empty` and `$empty: true` select a row whose value is null, absent, `''` or `[]`. `is_not_empty` and `$empty: false` select exactly the other rows. The answer is the spec's own `isEmptyFilterValue`, called without a field declaration, because this adapter holds none. That is the by-value reading the spec gives a face with no declarations, the same call `@objectstack/formula`'s matcher makes. A `$empty` flag that is not `true` or `false` is refused like every other refusal in this adapter: the row is excluded and the reason is logged once.
+  
+  **What moves for a stored rule.** On 17.5.0 the empty pair was a null test here. A row whose value is `''` or `[]` is now selected by `is_empty` and no longer by `is_not_empty`. Rows holding a value, null or no key answer as before.
+  
+  `convertFiltersToAST` lowers `{ f: { $empty: true } }` to `['f', 'is_empty', true]` and `$empty: false` to `['f', 'is_not_empty', true]`, the inverse of the spec's `parseFilterAST`. A flag that is not a boolean throws a `FilterOperatorError` (`code: 'INVALID_FILTER'`, `httpStatus: 400`). Before this, the operator reached the unknown-operator throw. The unknown-operator message now lists `$empty` among the supported operators. `@object-ui/data-objectstack`'s `find()` lowers an object `$filter` through this function, so an object filter carrying `$empty` reaches the wire there instead of throwing.
+- 858eafb: fix(plugin-gantt,core,plugin-timeline): both gantt surfaces read a date-only end inclusively through one core rule, and a drag writes the same day back (objectui#11141)
+  
+  **A widening: `@object-ui/core` gains two exports**, `toDisplayEndDate(value)` and `toInclusiveEndDay(end)`, on its published entry beside `toDisplayDate` (the same file, `utils/date-display.ts`, re-exported by `export *`). Nothing else in `@object-ui/core` is added, removed, renamed or retyped.
+  
+  - **A date-only end is inclusive on the object gantt too.** `ObjectGantt` read a stored end like a start, as the named day's local midnight, so every bar was drawn one day short and a successor starting the next day stood one day after its predecessor. The schema catalog's own plans drew that way. A task from `2024-01-01` to `2024-01-15` now runs through January 15th, and a successor starting `2024-01-16` begins exactly where it ends, as the timeline's gantt already drew it (objectui#11112). A task whose date-only start and end name the same day is now one day long, where it was a zero-length milestone. An end with a time part is still an instant, and the bar ends exactly there. Baseline ends read the same way.
+  - **One rule, in `@object-ui/core`.** `toDisplayEndDate` reads an end: a date-only value becomes the start of the next day (a calendar day, so 23 or 25 hours across a DST change), and anything else is read as `toDisplayDate` reads it. `toInclusiveEndDay` is its exact inverse: it names the last day a span ending at an instant runs through. The timeline's gantt and `ObjectGantt` both read their ends through the first, so they cannot drift apart again. A day whose OWN midnight does not exist in the viewer's zone (`America/Santiago` on 2026-09-06, which starts at 01:00) now ends at the next day's midnight; the timeline used to end it at 01:00 of that next day. A day whose NEXT midnight does not exist (2026-09-05 there) still ends at the next day's first hour, as it did.
+  - **A drag writes the day the bar runs through.** A dragged or resized bar whose end lands on a day's midnight writes the day before it into a date-only end field, so reading, dragging and writing a stored `2024-01-15` leaves `2024-01-15`. This also holds under a business `timeZone` whose clock skips a midnight. A `datetime` end still writes its instant.
+  - **The view names that day.** `GanttView`'s End column, row date line, tooltip, drag preview and inline editor now name the last day a bar runs through, and the tooltip's day count includes it. Pressing Enter on an untouched row in the inline editor commits the end it started with. An end inside a day still names that day, and a zero-length task still names its own day. An embedder that passes `GanttView` a `Date` end directly now sees that end named as the last day the bar covers. A local-midnight end is named as the day before, which is where its bar already stopped.
+  - With `autoZoomToFilter: false`, the pinned range ends on the last day any task runs through, and no longer adds an empty day column after it.
+- 138ad45: feat(core): the `flex()` builder emits its props in the `properties` bag (objectui#11276)
+  
+  **BREAKING (output shape):** `flex()` now builds `{ type: 'flex', properties: { direction, justify, align, gap, children } }` instead of writing those keys on the node. That is the spelling `@object-ui/types`' authoring faces accept for an authored `flex` node, which now refuse the flat keys by name (objectui#11276, the maintainer's ruling A on objectui#11300); without this change, `objectui validate` would refuse what the builder builds. The base setters (`id`, `className`, `visible`, `disabled`, `testId`, `visibleOn`) still write on the node. Code that reads a built node's props reads them from `properties` (`flex().direction('col').build().properties.direction`); `build()` is typed `BaseSchema & { type: 'flex'; properties: FlexLayoutProps }`. Rendering is unchanged: `SchemaRenderer` hoists the bag onto the node before the `flex` renderer reads it.
+- c476be0: The action success toast is composed from the action's `outcomeMessages`, then its `successMessage`, then the runner's default text. A `message` in the server's answer is no longer shown (objectui#11344).
+  
+  `@objectstack/spec` 17.6.0 declares `ActionSchema.outcomeMessages`, the success copy for each handler outcome. Its keys are the snake_case `outcome` values that a `type: 'api'` or `type: 'script'` handler returns in its success payload. This follows ruling A on objectstack-ai/cloud#2315: the server returns facts, and the console writes the sentence in the user's locale.
+  
+  - `@object-ui/core`: the `ActionRunner` success toast now picks its text in this order:
+    1. the `outcomeMessages` entry named by the top-level `outcome` of the handler's answer;
+    2. `successMessage`;
+    3. the runner's default text, in the language of the translator set with `setTranslator`.
+  
+    Rungs 1 and 2 fill in `${result.*}` tokens from the handler's answer. That is the same scope `onSuccess.navigate` reads, and the values go in as text, not percent-encoded. **Behaviour change:** `result.data.message` used to take precedence over both. The runner no longer reads it at all. To show the server's sentence, write `${result.message}` as the copy. `ActionDef` now declares `outcomeMessages`.
+  - `@object-ui/react`: `useActionTextLocalizer` resolves each `outcomeMessages` entry that a named action declares. It looks in `_actions.NAME.outcomeMessages.OUTCOME`, then `globalActions.NAME.outcomeMessages.OUTCOME`, then falls back to the authored text. On a named action, an inline `I18nLabel` map on an entry, or on `successMessage`, is collapsed to the active language first. `${result.*}` tokens pass through unchanged, and the runner fills them in after the action runs.
+  - `@object-ui/i18n`: `useObjectLabel()` adds `actionOutcome(objectName, actionName, outcome, fallback)`, the resolver for that address.
+  - `@object-ui/components`: `action:button`, `action:icon`, `action:group` and `action:menu` now forward `outcomeMessages` to the runner. Before, a registered action rendered through `action:bar` lost the map one hop before the toast. The `action:button` and `action:icon` registrations do not publish it as an input, because their own spec rows do not declare it at 17.6.0.
+  - `@object-ui/types`: `UIActionSchema` declares `outcomeMessages`, derived from the spec.
+  
+  `@object-ui/core` and `@object-ui/types` raise their `@objectstack/spec` floor from `^17.5.0` to `^17.6.0`, because their published types now read `ActionSchema.outcomeMessages`, a member the spec first declares in 17.6.0.
+- 063119f: A gate that is declared but cannot be evaluated is a fault, not "no gate" (objectui#11358)
+  
+  A `visible` / `hidden` / `disabled` / `enabled` / `condition` value that is present but carries
+  no evaluable `source` — an `ast`-only envelope (`{ dialect: 'cel', ast }`), a number (`0`), an
+  object with no `source` (`{}`), an array — used to be folded into "no gate" in silence. So a
+  bulk action gated that way was offered on the selection bar and ran over every selected record,
+  and the row menu and the toolbars showed it to everyone (ADR-0137 D4: a gate predicate that is
+  blank or faulting is "diagnosed, never a silent `true`").
+  
+  It is now a declared gate that faults:
+  
+  - `toPredicateInput` keeps the state instead of folding it: it returns a frozen `cel` envelope
+    with no `source` (a new member of `EvaluatorPredicateInput`), so `hasDeclaredPredicate` — and
+    `@object-ui/components`' re-export `hasDeclaredVisibilityGate` — answers "declared".
+    `null`, `undefined`, `''` and blank predicate text are still "not declared", as before.
+  - `ExpressionEvaluator.evaluateCondition` treats it as a fault: a `throwOnError` caller gets a
+    throw, any other caller gets the fail-soft `true` and one report with the `[unevaluable]`
+    reason (or the caller's `onFault`). `evalFieldPredicate` tags the same reason instead of
+    sending the value to the engine.
+  - Each reader therefore answers with the fail direction its key already has for a predicate
+    that cannot be evaluated: an action's `visible` is hidden on the toolbars, the row menu and
+    the selection bar (where no selected record qualifies); a `disabled` is greyed out and
+    `ActionRunner` refuses the action; `SchemaRenderer`'s `hidden` hides the node. A `condition`
+    still lets the action run, a legacy `enabled` leaves the control enabled and an action
+    param's `visible` still shows the param — the directions those keys take on any fault — now
+    reported instead of silent.
+  - The dev-mode schema validator still refuses these values on `visible` / `disabled`.
+  
+  Breaking for metadata that wrote such a value into a gate: the action it gated now hides (or
+  greys out) where it used to show.
+- f9c8c4e: BREAKING (`@object-ui/core`): `mergeAuthoredPresentation` and `axisPresentation` are no longer exported (objectui#11372).
+  
+  (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  Both lowered an authored chart config's `xAxis` / `yAxis` (spec `ChartAxis` objects) onto the chart schema a dataset-bound surface builds. Their one caller was the dashboard's dataset widget, which stopped reading `chartConfig.xAxis` / `yAxis` / `series` when `@objectstack/spec` 17.5.0 refused them on a dashboard widget (objectui#11315). Nothing else in this repository called them, and a published export with no consumer is not kept, so both are removed.
+  
+  What stays, unchanged: `mergeAuthoredSeries` (the series-presentation merge the report renderer calls), `seriesPresentation`, `chartConfigPresentation` and `chartTypeIgnoresCompareTo`. The react `ObjectChart` tier never used the removed pair: it hands its own `xAxis` / `yAxis` to `ChartRenderer`, whose `normalizeChartSchema` (`@object-ui/plugin-charts`) reads them off the chart schema directly.
+  
+  Migration: none inside this repository. An out-of-repo caller of either function stops compiling, and there is no replacement export, because no surface left lowers authored axis presentation. The effect on out-of-repo callers was not measured.
+- 83e3f83: A node slot and `SchemaRenderer`'s `schema` prop take the union of the declared node types, `DeclaredNode` (objectui#11466).
+  
+  **BREAKING (TypeScript authoring face only), shipped as `minor` per this repository's version policy.** `SchemaNode` was `BaseSchema | string | number | boolean | null | undefined`, and the prop was `BaseSchema | AuthoringNode | string | null | undefined`. Both object members are now `DeclaredNode`, a new export of `@object-ui/types`: the discriminated union, keyed by the literal `type`, of
+  
+  - every component schema `AnySchema` declares, without its `BaseSchema` arm (whose `type` is `string`) and without `AppComponentSchema` (the app-level document, which `AppSchemaRenderer` reads structurally and `ComponentRegistry` never dispatches: as a node, `type: 'app'` is the stored page of that kind);
+  - every spec-declared `AuthoringNode`;
+  - every type an application declares in the new `CustomNodeRegistry` interface.
+  
+  There is no `type: string` arm and no index signature. What moves:
+  
+  - A node whose `type` no declaration names is refused, nested or at the prop: `{ type: 'card', children: [{ type: 'txt' }] }` no longer compiles. So is a value typed `BaseSchema`, which names no declared type.
+  - An inline child is checked against its own type's arm wherever it is nested, so a misspelled key on a node type without an index signature (the `AuthoringNode`s, a closed `CustomNodeRegistry` entry) is refused at the slot. Node types that extend `BaseSchema` keep its index signature until objectui#8347 removes it.
+  - A node's REQUIRED keys are required (a stored `home` page document needs its `label`, a `data-table` its `columns`), because no `BaseSchema` arm accepts the same literal structurally any more.
+  - `app` and `list` are one arm each: `PageDocumentNode` admits every page kind but the interface-mode `list`, which `PageView` renders through `InterfaceListPage` and never hands to `SchemaRenderer`. Narrowing a `DeclaredNode` on `type === 'app'` gives `PageDocumentNode`, and on `'list'` gives `ListSchema`. `SchemaByType` reads `AnySchema` and does not move.
+  - `@object-ui/core`'s schema builder takes `DeclaredNode` where it took `BaseSchema`: `.child()` / `.children()` on the grid and flex builders and the card builder's `.content()`.
+  - `toRenderableSchema` (`@object-ui/react`) follows `SchemaNode` and the prop by reference.
+  
+  What does NOT move: every zod face (`AnyComponentSchema`, `SchemaNodeSchema`, the strict authoring face) and every runtime path. `zod/base.zod.ts` writes the node slot's zod type out through type aliases so the declared-node union can name the zod-derived `AuthoringNode`s without a circular reference; the schema objects are unchanged. `FlexBlockNode` is now an interface for the same reason, with the same members. `@object-ui/components`' `kind: 'html'` page crosses its runtime-parsed tree into `DeclaredNode` at one documented boundary, after `validateTree` reports no error; it renders exactly what it rendered.
+  
+  **Migration.** Annotate a node with its declared type, or with `DeclaredNode` where any node goes. Declare each type you register with `ComponentRegistry` in `CustomNodeRegistry`:
+  
+  ```ts
+  import type { BaseSchema } from '@object-ui/types';
+  
+  interface MyWidgetSchema extends BaseSchema {
+    type: 'my-widget';
+    customProp?: string;
+  }
+  
+  declare module '@object-ui/types' {
+    interface CustomNodeRegistry {
+      'my-widget': MyWidgetSchema;
+    }
+  }
+  ```
+  
+  An entry joins the union under its KEY (the arm is the entry intersected with `{ type: KEY }`), so it never adds a `type: string` arm. A value built at runtime whose `type` the compiler cannot know is narrowed to a declared type, or crosses at one validated boundary, as the html-tier page does.
+- 4abc0aa: The `gap` of a `stack`, a `flex` and a `grid` node is one of the steps its renderer maps.
+  Any other number is refused at validation, with the set named (objectui#11474).
+  
+  | node | accepted `gap` steps | default |
+  |---|---|---|
+  | `stack` | 0, 1, 2, 3, 4, 5, 6, 8, 10 | 2 |
+  | `flex` | 0, 1, 2, 3, 4, 5, 6, 7, 8 | 2 |
+  | `grid` | 0, 1, 2, 3, 4, 5, 6, 8, 10, 12 | 4 |
+  
+  **Breaking for a `stack`, `flex` or `grid` that carries any other `gap` number.** The key
+  was declared as any number, and the `flex` and `grid` descriptions advertised "Tailwind
+  scale 0-8". But each renderer has one gap class per step and nothing for the rest:
+  `{ "type": "stack", "gap": 7 }` and `{ "type": "flex", "properties": { "gap": 9 } }` parsed
+  clean and rendered with no gap class at all, not even the default, because the default
+  applies only when the key is absent. A `grid` built a gap class at runtime for such a
+  number, and no compiled stylesheet defines a class built that way, so it rendered with no
+  gap either.
+  
+  - `@object-ui/types`: `StackSchema.gap`, `FlexLayoutProps.gap` (which `FlexSchema` and the
+    authored `flex` bag share) and `GridSchema.gap` are literal unions of the steps above on
+    the TypeScript face, so `tsc` refuses any other number. The zod mirrors refuse one at the
+    key (`invalid_value`, with the steps in the issue), with a message that lists the set. For
+    `flex` that is `properties.gap`, and the flat spelling stays refused by name.
+    `safeValidateSchema` (what `objectui validate` runs) and the strict authoring face both
+    give that refusal. A `gap` that is not a number at all is now reported as `invalid_value`
+    rather than `invalid_type`.
+  - `@object-ui/components`: the `gap` input of the `stack`, `flex` and `grid` registrations
+    changes from `type: 'number'` to a closed `enum` of the same steps, in the object form the
+    `container` registration's `padding` already uses. In the SDUI manifest, `validateTree`
+    now answers an unlisted number with `invalid-enum`. The renderers are unchanged: they do
+    not round or clamp, and an absent key still renders the default step.
+  - `@object-ui/core`: `GridBuilder.gap()` and `FlexBuilder.gap()` take the declared steps
+    instead of any number.
+  
+  Migration: replace the number with the step you meant from that node's set. `0` means no
+  gap.
+- f560ded: **BREAKING: a percentage is scaled at the storage its field declares, never at a storage guessed from the value (objectui#11475)**
+  
+  `percentDisplayValue` (`@object-ui/core`) and `formatPercent`
+  (`@object-ui/fields`) now take the storage as a required argument, the spec's
+  `PercentScale` (`'fraction'` or `'whole'`):
+  
+  - FROM `percentDisplayValue(value)` TO `percentDisplayValue(value, percentScale)`.
+  - FROM `formatPercent(value, precision, locale)` TO
+    `formatPercent(value, percentScale, precision, locale)`.
+  
+  A value outside `'fraction' | 'whole'` throws a `TypeError` instead of falling
+  to a branch silently.
+  
+  Why: the old body, `value > -1 && value < 1 ? value * 100 : value`, read neither
+  the field nor its `max`. The read-only form reads the declaration, so one
+  stored value read two percentages on two faces of the same record. A
+  fraction-stored `1` (100%) read `100%` in the form and `1%` in the list cell. A
+  whole-stored `0.5` (`max: 100`) read `0.5%` in the form and `50%` in the cell.
+  
+  What callers pass now:
+  
+  - A face holding a field reads the spec's `percentScaleOf`
+    (`@objectstack/spec/data`): a `percent` field stores a fraction unless it
+    declares a `max` above 1. `@object-ui/fields` adds `percentCellScale(field)`,
+    the answer the percent cell reads, so every face that renders the cell's
+    number for the same field reads it by reference. `PercentField` asks
+    `percentScaleOf` itself instead of restating the rule, so there is one
+    convention, not two equal copies.
+  - A `progress` field is read as `'whole'`, and the reason is written at the
+    call site. The spec's `percentScaleOf` gives no answer for `progress`, and
+    its only editor, `SliderField`, stores the slider position on a `0`–`100`
+    range. So a value strictly between 0 and 1 on a `progress` column now reads as
+    a fraction of one percent, where the old guess multiplied it by 100.
+  - A dataset measure keeps the server's `percentScale` annotation. A column the
+    server does not annotate is, in the contract's words, "not a percentage". Its
+    `%` pattern is then read the way numeral reads it, as a fraction. Before, it
+    fell to the magnitude guess, so an unannotated `57` read `57%` and now reads
+    `5700%`. Every first-party `%` measure is a ratio the server annotates, so
+    none of them moves.
+  
+  ⚠️ The loss, stated: the legacy `ReportViewer` (`@object-ui/plugin-report`)
+  draws a report column of `type: 'percent'` through the percent cell. That
+  column is the report's own `ReportField`, which declares no `max`, and the
+  viewer does not hydrate it from the bound object's field. So the column reads
+  the spec's answer for a percent that declares nothing: a fraction. A legacy
+  report over a whole-stored field now reads `50` as `5000%`. Measured at
+  `6007dd4e4`: no producer in objectui or objectstack writes a `percent` column
+  into a legacy report. The pre-9.0 spec bridge (`specReportToPresentation`)
+  writes columns with no `type` at all, so its columns never reach the percent
+  cell.
+  
+  Migration: pass the storage your value is in. With a field definition in hand,
+  pass `percentCellScale(field)` from `@object-ui/fields` (or the spec's
+  `percentScaleOf(field)` for a `percent` field). For a computed ratio, pass
+  `'fraction'`. For a value already in percentage points, pass `'whole'`.
+  
+  `minor`, not `major`: a `major` in the fixed group would move the whole group
+  off `@objectstack`'s major (AGENTS.md, version alignment). The breaking
+  semantics are stated here instead of carried by the level.
+- aea682a: The `columns` of a `grid` node is one of the counts its renderer maps, 1 to 12, as the bare
+  number and at every breakpoint of the object form. Any other count is refused at validation,
+  with the set named (objectui#11491).
+  
+  **Breaking for a `grid` that carries any other column count.** The key was declared as any
+  number, at the bare number and at every breakpoint. But the renderer has one column class per
+  count from 1 to 12 at each breakpoint and nothing for the rest, so such a count drew no column
+  class where it was authored: `{ "type": "grid", "columns": 13 }` drew one column on a phone and
+  two from `sm` up, and never its `md` count; `{ "columns": { "md": 13 } }` drew nothing at `md`;
+  and `{ "columns": { "xs": 13 } }`, `"columns": 0` and `"columns": -1` drew two columns, a count
+  nobody authored.
+  
+  - `@object-ui/types`: `GridSchema.columns` is the literal union of 1 to 12, or a partial
+    breakpoint map of that union, on the TypeScript face, so `tsc` refuses any other count written
+    as a literal (a computed `Record<string, number>` still assigns, as it did for keys since
+    objectui#8505; the mirror judges its counts). The zod mirror refuses one at
+    `columns` as an `invalid_union` whose message lists the set; its arms carry the set as
+    `values`, at the breakpoint's own path for the object form. `safeValidateSchema` (what
+    `objectui validate` runs) and the strict authoring face both give that refusal. An unknown
+    breakpoint key is still reported on its own, as `unrecognized_keys`.
+  - `@object-ui/components`: the `grid` registration's `columns`, `smColumns`, `mdColumns`,
+    `lgColumns` and `xlColumns` inputs change from `type: 'number'` to a closed `enum` of the
+    twelve counts, in the object form the `container` registration's `padding` uses. `columns`
+    also publishes the breakpoint object the declaration takes, as an `object` arm whose members
+    (`of`) are the same list. In the SDUI manifest, `validateTree` now answers `smColumns: 13` with
+    `invalid-enum`, `columns: 13` with an error-level `type-mismatch` that lists the counts, and
+    `columns: { md: 13 }` with `member-type-mismatch`. A breakpoint object of mapped counts, which
+    drew a `type-mismatch` warning there, is now accepted, as both declaration faces already
+    accepted it. The renderer no longer draws `grid-cols-2` for a base count it does not map:
+    every count a validated document can carry is mapped, and an unmapped one that reaches it
+    unvalidated draws no base column class, as at every other breakpoint. Nothing rounds or
+    clamps.
+  - `@object-ui/core`: `GridBuilder.columns()` takes the declared counts instead of any number.
+  
+  Migration: replace the count with the one you meant, from 1 to 12. For a grid with no columns
+  at a breakpoint, leave that breakpoint out; for a single column, write `1`.
+  
+  ⚠️ **Dated note, 2026-10-02 — `grid` has no flat column inputs any more — objectui#11505.** At this change the `grid` registration published `smColumns`, `mdColumns`, `lgColumns` and `xlColumns` as closed enums of the twelve counts, and `validateTree` answered `smColumns: 13` with `invalid-enum`. Now the registration publishes `columns` as its only column input, the renderer no longer reads the four keys, both zod faces refuse them by name, and `validateTree` answers each with an `unknown-prop` warning. A per-breakpoint count is a member of the `columns` object, which this entry's closed set still governs. `.changeset/11505-grid-flat-columns-retired.md` states what ships. The rest of this entry is kept as the reading of this change.
+- 64dae8e: Six user-visible fixes across the maker surface, the assistant rail and the
+  dataset captions.
+  
+  **The maker's start chips now promise only what ADR-0112 v1 builds
+  (cloud#1984).** Two of the five asked for automation the first version has no
+  flows or actions for — the ticket chip said 「状态流转」, the inventory chip said
+  「低库存预警」 — and the measured behaviour was not a refusal but a silent
+  degrade: a status kanban and a low-stock view. The chip promised an alert and
+  delivered a page. All five are reworded in all ten packs (and in the call-site
+  `defaultValue` fallbacks, which are a second copy of the same strings) to ask
+  for objects, fields, views, pages, dashboards and sample data, keeping each a
+  real business scenario — the ticket chip now asks for a status field and a board
+  grouped by it, the inventory chip for a view that filters below the reorder
+  point. A note beside the keys says to revert when v2 re-adds flows.
+  
+  **Five newer AI tools get their step labels (objectui#7481).** A zh conversation
+  read `✓ Get authoring rules 已完成` between 「读取元数据结构」 and 「列出对象」:
+  `get_authoring_rules` (cloud#1837), plus `load_tools`, `open_record`,
+  `test_flow` and `toggle_flow`, are registered by the cloud AI runtime but are
+  newer than the pinned spec's tool registry, so they had no `chatbot.tool.*`
+  entry in any pack and fell through to the English title-caser.
+  
+  **The assistant rail follows the thread when you send (objectui#7480).** The
+  rail and the full-page maker are the same component; what differs is width. A
+  reply that still ends on screen in the wide column runs two or three times
+  taller in a ~360px rail, so `StickToBottom`'s lock is escaped by the time the
+  user types and the new bubble, the tool steps and the streaming answer all land
+  below the fold. Every send path now re-arms the lock — including the plan-card
+  "Build it" and 确认修改 approvals, whose own code comments already named this
+  miss. Message APPENDS deliberately do not, so a user reading back through the
+  thread mid-answer is never yanked to the bottom.
+  
+  **Console toasts move off the assistant composer (objectui#7482).** 「客户更新
+  成功」 sat on the ChatDock composer's send button and stayed there. One defect,
+  two symptoms: `apps/console` pinned the toaster to `bottom-right` — an override
+  that predates ADR-0057 P3a — so a toast both covered the button and, because
+  sonner pauses a toast's dismiss timer while the pointer is inside the toaster
+  region, never got to run its 4s timer with a pointer resting on the composer
+  underneath. The override is gone; the console takes `ConsoleToaster`'s own
+  documented top-right anchor, and the 4s success duration is now pinned.
+  
+  **Built-in aggregate captions follow the locale everywhere (objectui#7534).**
+  objectui#7258 taught `buildChartSeries()` to resolve a server-minted default
+  measure through the locale map, so a chart legend read `计数` while the table
+  beneath it, the KPI caption, the pivot header and the dataset preview still
+  printed the server's hard-coded English `Count`. `buildDatasetFieldHelpers()`
+  takes the same optional `builtinAggregateLabels`, resolving through the one
+  `resolveMeasureLabel` order, and the five call sites pass it. Omitting the
+  argument reproduces the previous output byte for byte, and an author-declared
+  measure still keeps its own label verbatim (objectui#4106).
+  
+  **The activity feed stops asking for an object the environment does not have
+  (objectui#7476).** A tenant environment has no `sys_activity`, so every page
+  load issued a request that 404'd. Everything downstream was already correct —
+  the adapter memoizes the missing collection, its logger demotes the failure, the
+  feed retires as an ANSWER and the panel renders its earned empty state — so what
+  is left is the request itself, and `data-objectstack` states the rule for it:
+  the cure for a doomed request is not issuing it. New `useObjectPresence` reads
+  the object registry the shell loads for the nav anyway; only a registry that has
+  ANSWERED and lists other objects without this one skips the read. Every
+  uncertainty — no provider, empty registry, still loading, errored — reads as
+  before, because a wrong skip would cost a real deployment its feed.
+- 9cebfca: feat: an action's `visible` / `disabled` predicate can ask `current_user.can(object, verb)` — the caller's object permissions, from the payload the built-in Edit / Delete buttons are already gated by
+  
+  A custom action that replaces a built-in CRUD button — a logical delete that archives
+  instead of deleting, say — can now carry the same gate the built-in button had:
+  
+  ```yaml
+  visible: current_user.can('account', 'delete')
+  ```
+  
+  It answers from the signed-in user's `/auth/me/permissions` payload once that payload
+  has loaded, on the record header and the row menu alike. Until then it gives no answer:
+  the predicate faults, and a surface that evaluates `visible` fail-closed does not render
+  the action. The `user` / `ctx.user` / `os.user` aliases are the same call.
+  
+  This is client-side UI gating only. It decides whether the button is shown; the server
+  still enforces object permissions on the request the action sends and answers 403 when
+  they are not held.
+  
+  - `@object-ui/permissions`: the permission context carries `effectiveObjects`, the
+    response's `objects` map verbatim (`undefined` when the provider holds no such
+    response — the role-based `PermissionProvider`, or no provider at all).
+  - `@object-ui/core`: `evalFieldPredicate` hands the acting subject's permissions to the
+    CEL engine as `EvalContext.permissions`; `bindSubjectPermissions` /
+    `subjectPermissionsOf` are the carrier. `@objectstack/formula` is now required at
+    `^17.5.0`, the first release that answers `can`.
+  - `@object-ui/app-shell`: `ExpressionProvider` binds the map into the predicate scope it
+    publishes only while `usePermissions().isLoaded` is true, and the record-form field
+    evaluators take the same input, so one predicate answers the same everywhere.
+- 053fdc8: Console half of `ActionSchema.onSuccess` post-success navigation.
+  
+  `@objectstack/spec` declares `onSuccess` as a closed strict object
+  `{ navigate: string, openIn: 'self' | 'newTab' }`, refine-scoped to `type: 'api'` and
+  `type: 'script'` — the two action types whose success event carries a server response.
+  Nothing in this renderer read it, so an action declaring the hop navigated nowhere: the
+  block fell into `ActionRunner`'s older `ActionDef.onSuccess` chained-callback channel,
+  was dispatched as an action, and failed inside `executeNavigation` with "No URL provided
+  for navigation action" — a red toast and no jump. The motivating report is a clone action
+  that leaves the user sitting on the record they cloned from.
+  
+  `ActionRunner.handlePostExecution` now performs the declared hop through
+  `navigationHandler` — the same SPA seam every other navigator in that file uses, which
+  the console wires to react-router's `navigate`, so `openIn: 'self'` is a real in-place
+  route hop rather than a full-page load. `interpolateTarget` gains a `${result.*}` scope
+  alongside `${param.*}` and `${ctx.*}`, resolved against the handler's own return value
+  (the level `readActionPayload` reads, one below the action envelope) and supplied only by
+  this call site, so a target interpolated before its request still has no `result` to
+  name. `openIn` is read as the one member that changes the branch and no default is
+  written here — the spec materialises `.default('self')`, so parse output always carries a
+  resolved member — and the two `openIn` spellings stay apart: this reads
+  `onSuccess.openIn` (`'self' | 'newTab'`), never the top-level `type: 'url'` switch
+  (`'self' | 'new-tab'`), each of which spec refuses in the other's position.
+  
+  The console's server-action wrapper gains the matching handler-return half: a handler may
+  now return `openIn: 'self'` next to its `redirectUrl` to ask for the same-tab jump, while
+  a `redirectUrl` **without** `openIn` keeps its shipped new-tab behaviour unchanged. When
+  an action declares an `onSuccess` block, the wrapper defers to the runner and only tidies
+  its pre-opened tab, so one navigation happens rather than two.
+  
+  The pre-existing `ActionDef.onSuccess` chained-callback channel is unchanged. It is told
+  apart by the spec's own declaration — a non-array object whose `navigate` is a string —
+  and keeps running for every other shape.
+- 490d9a9: Grid headers offer a sort click only on columns the PLATFORM says it will order by
+  (objectui#5729 — the consumer leg of objectstack#10235, maintainer ruling A, 2026-08-23:
+  the platform serves an explicit per-column sortability signal and the grid reads it,
+  rather than re-deriving "virtual ⇒ unsortable" from field type).
+  
+  `GET /api/v1/meta/object/:name` now answers with a `sortability` projection on its
+  ENVELOPE — `{ fields: { [name]: { sortable, reason?, caveat? } } }`, computed at serve
+  time from the platform's own storage predicates, deliberately beside `item` rather than
+  inside it so the key stays un-authorable. The signal was reaching the browser and being
+  discarded one line before its only consumer: `ObjectStackAdapter.getObjectSchema` unwraps
+  the envelope to `item`, so every UI reader saw a document with no signal on it. It now
+  survives that unwrap, carried on the schema under a symbol key — invisible to
+  `JSON.stringify`, to `Object.keys` and to a spread, so a schema handed back at a metadata
+  write endpoint can never take it into a body the server parses strictly.
+  
+  `@object-ui/core` gains the one spelling of the consumer contract:
+  `isPlatformSortableField(projection, name)` is `true` iff an entry EXISTS for the name and
+  says `sortable: true`. Absence is a refusal — it is how the platform encodes an unknown
+  name, a dotted path and an unprovisioned audit column, all three of which the runtime
+  doors reject — so the `!== false` spelling every other optional flag in this repo uses
+  would get exactly that family backwards. A projection that is absent ALTOGETHER is a
+  different question with a different answer (`undefined`: no signal was served) and is
+  typed apart from an empty one, so a deployment older than the upstream change keeps the
+  behaviour it had rather than being told, falsely, that nothing on the object is sortable.
+  
+  Three things follow in the grid. The header click on a refused column ceases to exist, so
+  neither the old silent-unordered result nor the `400 INVALID_SORT` that replaced it is
+  reachable from it. A sort PERSISTED before the signal existed is filtered out of both what
+  the grid renders and what it emits, so a restored personalization cannot ride back into
+  the next `persistViewPatch({ sort })` — the half-fix where the affordance is gone and the
+  PUT still fires. And the relational carve-out is untouched and deliberately not delegated
+  to this signal: the platform answers `sortable: true` for a `lookup` (it has a stored
+  foreign key and both runtime doors accept ordering by it), while the grid withholds that
+  header for a different reason — a column of names ordered by an invisible id.
+  
+  Columns carrying `caveat: 'unprovisioned-anchor'` keep their click. The runtime accepts
+  those sorts; refusing what the platform does not refuse would recreate declared-≠-enforced
+  drift in mirror image.
+- 2c3cd1b: BREAKING (`@object-ui/core`): `ActionRunner`'s legacy `ActionDef.onSuccess`
+  chained-callback channel is retired — `onSuccess` now has exactly the meaning the
+  contract declares (objectui#5934, maintainer ruling 2026-08-31).
+  
+  (The bump is `minor` by this repo's release model — objectui's major is pinned to
+  the `@objectstack` family major, and its own breaking changes ship as `minor` with
+  the break spelled out here, per `scripts/check-changeset-no-major.mjs`. This
+  paragraph is that spelling-out: the break below is real and consumer-visible.)
+  
+  - **What breaks, by specifier**: `import type { ActionDef } from '@object-ui/core'` —
+    `ActionDef['onSuccess']` was `ActionDef | ActionDef[]` (chained callbacks the runner
+    dispatched through `executeChain` after a success). It is now derived from the pinned
+    spec: `ActionSchema.onSuccess`'s closed strict `{ navigate: string, openIn?: 'self' |
+    'newTab' }` block. Code that assigned a callback `ActionDef` (or an array of them) to
+    `onSuccess` no longer compiles, and at runtime a callback-shaped value gets NO reading —
+    no handler dispatch, no navigation, the action's own result untouched. `onFailure` is NOT
+    changed: the spec declares no such key, so it keeps its one runner-native meaning.
+  - **Why this is safe to take**: the channel was unreachable from validated metadata —
+    `@objectstack/spec` (17.2.0 pin) strict-refuses a callback shape inside `onSuccess` at
+    parse (`invalid_type` on `navigate` + `unrecognized_keys`), so no published/saved
+    metadata could ever carry one — and a producer census with a positive control found zero
+    producers outside the channel's own test pins. Migration for an out-of-repo consumer that
+    drove the channel programmatically: put the follow-up actions in `chain` (the runner's
+    declared chaining key, unchanged), or author the spec's `onSuccess` navigation block.
+  - `@object-ui/types` (minor): `UIActionSchema` now declares `onSuccess`, derived from the
+    spec's `ActionSchema.onSuccess` — the renderer view spells the key the four action
+    surfaces forward, so the forwards type-check.
+  - `@object-ui/components` (patch): the four action renderers forward `onSuccess` without
+    the `as any` casts (no behavior change — same key, same value, now typed).
+- 44d075b: `ComponentMeta` at the registry is now DERIVED from the one declaration in
+  `@object-ui/types` instead of restating it, and `tags` / `description` reach the
+  registration surface (objectui#6067).
+  
+  ## The convergence
+  
+  `packages/core/src/registry/Registry.ts` declared its own `ComponentMeta`: thirteen
+  keys, of which nine were restated from `@object-ui/types`' `base.ts`, four were
+  registry-only (`tier`, `namespace`, `skipFallback`, `labelling`), and `tags` /
+  `description` were **absent** — although both are declared on the canonical type and on
+  the `ComponentMetaSchema` zod mirror. Two of the three authorities agreed and the
+  registration surface did not, so those two keys were unwritable at exactly the
+  declaration most component registrations import. That is the same two-key delta
+  objectui#5893 had just closed inside `@object-ui/types`, arriving a third time on a
+  third declaration, and objectui#5671 had already made the identical move for the sibling
+  type `ComponentInput` in this very file.
+  
+  It is now:
+  
+  ```ts
+  export type RegistryComponentMetaExtras = {
+    tier?: 'public' | 'internal';
+    namespace?: string;
+    skipFallback?: boolean;
+    labelling?: 'control' | 'group' | 'display';
+  };
+  
+  export type ComponentMeta = CanonicalComponentMeta & RegistryComponentMetaExtras;
+  ```
+  
+  `RegistryComponentMetaExtras` is newly exported from `@object-ui/core`.
+  
+  **What changes for a consumer: `tags` and `description` become writable on the registry's
+  `ComponentMeta`. Nothing narrows.** No key is removed, no key is renamed, and no key's
+  type changes, so no existing registration stops compiling — verified by type-checking all
+  37 workspace consumers of `@object-ui/core` (`pnpm --filter '...@object-ui/core'`), which
+  is why this is a widening rather than the contract break a rename would have been. All
+  four registry-only keys have live consumers, and they are still declared here.
+  
+  This is `minor` under this repository's policy that its own breaking changes never declare
+  `major` (`scripts/check-changeset-no-major.mjs`); nothing here is breaking in any case.
+  
+  ## Converge rather than rename, and why the four keys did not move
+  
+  The alternative dispositions were to rename the type so the name stops claiming a mirror,
+  or to move the four registry keys onto `@object-ui/types`' `ComponentMeta` and re-export
+  it outright the way objectui#5671 handled `ComponentInput`.
+  
+  Renaming was rejected because it cannot be done without a break: `@object-ui/core` is
+  published, `ComponentMeta` is exported from it, and dropping the name would break every
+  external consumer — while keeping it as an alias would leave the mirror claim standing
+  under a second spelling, which fixes nothing.
+  
+  Moving the four keys was rejected because `skipFallback` and `namespace` are registration
+  mechanics — they describe how the registry keys an entry, not what a component is — and
+  `@object-ui/types`' `ComponentMeta` is the general, plugin-facing, AI-facing type. The
+  extension keeps them where they are read, under their own named type, while the eleven
+  shared members exist in exactly one place and can no longer drift.
+  
+  ## Pinned by key set, not by assignability
+  
+  Every member of both shapes is optional, so `extends` is mutually **true** across the
+  diverged pair — an assignability assertion is green on the defect and would not have
+  caught it. Measured on the emitted `.d.ts` of both packages, before and after:
+  
+  | reading | before | after |
+  |---|---|---|
+  | `Core extends Canonical` | `true` | `true` |
+  | `Canonical extends Core` | `true` | `true` |
+  | `Exclude<keyof Canonical, keyof Core>` | `"tags" \| "description"` | `never` |
+  | `Exclude<keyof Core, keyof Canonical>` | the four registry keys | the four registry keys |
+  
+  The new pin asserts the third row and names the fourth explicitly; the assignability pair
+  is kept beside it, labelled, as the control that shows what it cannot see. A source-level
+  assertion that the canonical members are not restated locally covers the remaining failure
+  mode — a member-identical copy, which every `keyof` comparison stays green on and which is
+  how the copy this replaces began.
+- 06b82b8: An action param that declares the spec's `carryOver` is shown read-only and submitted verbatim (objectui#6246)
+  
+  `@objectstack/spec`'s `ActionParamSchema.carryOver` says a param's value is
+  carried through the action dialog rather than collected: seeded from the row
+  (`defaultFromRow: true` is required beside it), shown as a non-editable summary,
+  and submitted unchanged. The console dropped the key: `resolveActionParam()`
+  builds its output key by key and never copied it, so the dialog rendered every
+  such param as an ordinary editable field. The permission-set Clone action
+  declares it on its five JSON permission facets, so each of them — row-level
+  security among them — was a prefilled JSON textarea, and a hand edit that was
+  still valid JSON produced a clone granting more than its base.
+  
+  - `@object-ui/core`: `ActionParamDef` gains `carryOver?: boolean`.
+  - `@object-ui/app-shell`: the resolver copies `carryOver` on all three of its
+    branches; `ActionParamDialog` renders a declared carry-over as a collapsed
+    read-only summary and builds no field widget for it at all; and
+    `serializeParamValues` leaves a carry-over value untouched, even on an upload
+    field. The action designer's dialog preview draws a carry-over param as the
+    same read-only line instead of its field's input.
+  - `@object-ui/i18n`: one new key, `actionDialog.carryOverHint`, in all ten packs.
+  
+  Params that do not declare the key render and submit exactly as before.
+- 8f1d995: `ComponentConfig` now has one authority: `@object-ui/types` declares it, `@object-ui/core` re-exports it
+  
+  `@object-ui/types` and `@object-ui/core` each published a declaration of
+  `ComponentConfig`, so an auto-import picked between two different types by
+  alphabetical order. After the `ComponentMeta` convergence the remaining
+  difference was genericity and the `component` slot: `@object-ui/types`' was
+  non-generic with `component: any`, core's was `<T = any>` with
+  `component: ComponentRenderer<T>`.
+  
+  `@object-ui/types`' declaration gains that type parameter, **defaulted**, so
+  every existing spelling keeps its meaning exactly — bare `ComponentConfig` is
+  `ComponentConfig<any>`, whose `component` is `any`, as before. `@object-ui/core`
+  re-exports it instead of declaring its own.
+  
+  The registry-only keys (`tier`, `namespace`, `skipFallback`, `labelling`,
+  `deprecated`) were not dropped: they moved to a named extension,
+  `RegistryComponentConfig`, which is what `Registry.getConfig`,
+  `getAllConfigs` and `getNamespaceComponents` return. Those return values are
+  type-identical to what they returned before, so every read path is unchanged.
+  
+  **Breaking:** a consumer that imports `ComponentConfig` from `@object-ui/core`
+  *and* touches one of those five registry-only keys through that annotation must
+  switch the annotation to `RegistryComponentConfig` — the name `ComponentConfig`
+  no longer carries them there. Filed `minor` rather than `major` per AGENTS.md's
+  versioning policy: objectui's own breaking changes ship as `minor` with the break
+  spelled out here, because the whole publishable set is one changeset `fixed` group
+  pinned to `@objectstack`'s major.
+- 7977ff9: Component deprecation is now DECLARED, not just warned about (objectui#6674).
+  
+  A deprecated component type used to be stated in exactly two places, neither of
+  which a gate, a test or a type can consult: a `console.warn` string literal
+  inside the renderer, and the word "(Deprecated)" inside a human-readable
+  `label`. Both gates that touch component types ask a different question —
+  whether the type RESOLVES — and a deprecated type resolves, which is how one
+  could be authored 85 times across 27 shipped exemplars with every check green.
+  
+  - `@object-ui/core` gains `ComponentDeprecation` / `AuthoringSurface` and the
+    `deprecated` key on the registration metadata, plus
+    `ComponentRegistry.deprecationFor(type, surface)` to read it back. The
+    declaration carries the SURFACES it applies to rather than being a boolean:
+    `div` and `span` are deprecated on the JSON authoring surface and are at the
+    same time permanent vocabulary of the `kind:'html'` tier, so a bare flag would
+    be false for one of its two readers.
+  - `@object-ui/components` marks `div` and `span` with the declaration their
+    console notices already state. Nothing new is deprecated and no build starts
+    failing: the catalog ratchet keeps the existing stock frozen, and draining it
+    stays objectui#3965's worklist.
+- 3beef6d: The spec's `dataSource` element binding is now DECLARED by the blocks that read
+  it, so the html tier stops reporting the one working saved-view spelling as
+  `unknown-prop` (objectui#6678).
+  
+  `PageComponentSchema.dataSource` — `{ object, view, filter, sort, limit }` — is
+  the one spelling that resolves a saved view for an object-bound block. It works,
+  and it drew the identical `unknown-prop` warning as the two spellings that do
+  nothing (`viewName`, `view`), because `validateTree` looks a prop up in the
+  block's declared `inputs` and no registration declared this key. On the tier
+  built to accept AI-authored pages, where the diagnostic IS the contract, the
+  only signal pointed away from the key that works.
+  
+  Adopting the maintainer ruling of 2026-08-29 — option B **in the injection
+  form**:
+  
+  - `ELEMENT_DATA_SOURCE_INPUT` is the single declaration, in `@object-ui/core`
+    beside the binding's own semantics; `Registry.register` emits it for any
+    registration whose renderer passed through the new `elementDataSourceBlock()`
+    seam. One mechanism, one copy — not a hand-kept declaration per block, which is
+    the shape that drifts and that a new block forgets. The seam lives in
+    `@object-ui/core` and is re-exported by `@object-ui/react` beside
+    `ElementDataSourceGate` for discoverability; call sites take the core import,
+    because a registration runs at module scope and this repo's suites partially
+    mock `@object-ui/react`.
+  - Seventeen renderers, in thirteen files across twelve packages, reach the seam
+    and now publish the key to the save gate, the parser whitelist, the generated
+    JSX authoring types and the block list. The card named nine blocks; the tree
+    also has `plugin-grid`, `plugin-timeline`, two further `plugin-form` blocks and
+    `element:record_picker` — nothing was hand-listed, so the mechanism covered
+    them. `element:record_picker` consumes the gate's HOOK and status panels rather
+    than the wrapper tag (its object lives under `properties`), and was found by a
+    render probe rather than by reading sources.
+  - `dataSource` on a block that does NOT read it (`flex`, `card`) still reports
+    `unknown-prop`. Adding the key to `sdui-parser`'s `BASE_PROPS` was refused for
+    exactly this reason — that set mirrors `BaseSchema`, and silencing the key
+    everywhere would make the diagnostic lie in the other direction.
+  - New `check:element-data-source-declaration` fails any source that consumes the
+    gate without reaching the seam, so a block added tomorrow cannot forget.
+  
+  Behaviour of the binding itself is unchanged — this is a declaration, not a
+  resolution change. The saved view still resolves its columns, and an
+  unresolvable `view` still fails loudly rather than widening to the object's full
+  scope.
+  
+  The spec/registry parity gates (repo-wide and the `record:related_list` per-block
+  pin) now derive their accepted set from the WHOLE node contract rather than from
+  `ComponentPropsMap[type]` alone. `PageComponentSchema` accepts and keeps
+  `dataSource` on a page-component node — it is a node-level key, a sibling of
+  `type` and `className`, not a per-block prop — so the gates' previous complaint
+  was measurably wrong. Derived from the spec, not exempted, and both still
+  discriminate against an invented key.
+- 2acd8e1: **BREAKING (authoring surface): `body` is no longer a child-list key. Author `children`.**
+  
+  `BaseSchema` declared two spellings of one concept — `body` and `children` — and left the
+  choice per component. **Thirteen** registrations read `body` and nothing else, so it was
+  their ONLY door — the twelve the ruling enumerated plus `tooltip`, which it did not, and
+  which is the count the committed instrument carries (`BODY_ONLY` plus
+  `BODY_ONLY_UNRULED` in `scripts/body-dialect-census.mjs`). `div`, `card`, `page`,
+  `button`, `aspect-ratio`, the seven sectioning tags and the safe-HTML tag factory read
+  `children || body` and took either. The authoring tier only ever knew `children`, so
+  an author writing the one spelling that resolved got `unknown-prop` — the same warning a
+  typo draws, on the tier built to accept AI-authored pages, where the diagnostic **is** the
+  contract (objectui#6771).
+  
+  Ruled 2026-09-01: one concept, one spelling, and the spelling is `children`.
+  
+  ## What changed
+  
+  - **Renderers.** `alert`, `badge`, `tooltip` and the `sidebar-*` family read `children`.
+    Every `children || body` fallback drops its `body` arm **except the four `page:*`
+    reads named below** — `div`, `card`, `button`, `aspect-ratio`, the sectioning tags,
+    the safe-HTML tag factory behind ~36 tags, `page`'s flat content list, and
+    `@object-ui/core`'s recursive `validateSchema`.
+  - **Item-level `body` is a DIFFERENT key and is untouched.** At this change, `list`
+    draws each entry as `item.content || renderChildren(item.body)` and `tabs` as
+    `item.content || item.body`, both filed under the ITEM type rather than the node,
+    and `tabs` still ships `body` inside its own `defaultProps`. ⛔ Neither is this
+    spelling and neither is refused here: the node-level retirement does not reach a
+    member of a declared `items` array. Retiring the item-level dialect is
+    objectui#9590's card, and the two named above are recorded on it.
+    ⚠️ **Dated note, 2026-09-25 — neither half of this bullet holds any longer — objectui#9590.**
+    objectui#9941 respelled the `tabs` `defaultProps` items to `content`, and
+    objectui#9590 retired both item-level reads: a `list` item and a `tabs` item draw
+    `content` and nothing else, and both item faces now refuse `body` by name,
+    pointing at `content`. The rest of this bullet is kept as the reading of this change.
+  - **What still reads `body` at NODE level, and why.** Four renderer reads, all `page:*`: `page:card`
+    (renderer and Studio canvas) and the three thin `page:section` / `page:footer` /
+    `page:sidebar` containers. ⛔ Authoring the key is refused on them as it is
+    everywhere else; only the READ survives, for documents already STORED under it.
+    `@objectstack/spec` states the ground on `PageContainerProps` itself: «The renderers
+    keep reading `body` as a back-compat fallback for stored documents; that fallback is
+    objectui's to retire on its own schedule, and it is not a second authorable
+    spelling.» ⚠️ What separates the two halves is a CONVERSION, not a ground: the spec's
+    registry carries `page-card-body-to-children` (`toMajor: 17`, surface
+    `page.component.page:card.body`, shipped `retiredFromLoadPath: true` in spec 17.0.0)
+    and carries none for the other three — so a stored row under their key has no
+    migration path at all. Nothing in this repository authors any of them, and the
+    committed census over those keys is how to see that rather than take it on trust:
+    `node scripts/body-dialect-census.mjs --keys page:section,page:footer,page:sidebar,page:card,card`.
+    ⚠️ This sentence used to restate that table's answer instead of pointing at it, and
+    the very commit that edited the sentence moved the figure — a count copied into prose
+    is what AGENTS.md #9 forbids, so the instrument replaces the number. Read the table
+    for three things: `card` + `body` is a control that FIRES on the head that ships (so
+    a zero elsewhere is a reading, not a blind spot), every node still carrying `body`
+    under these keys falls in the `test` bucket, and `page:section` is a LIT zero — 6
+    nodes resolved, 0 `body`, 4 `children` — rather than a key nobody asked about.
+    Retiring the THREE THIN reads is objectui#9916,
+    which asks for the stored-corpus reading they turn on; `page:card`'s read is not
+    that card's either — it is objectui's own, grounded by objectstack#5775 /
+    ADR-0087 D2 rather than owned by it, and it ends when the stored rows have been
+    replayed through the conversion that already shipped for it.
+  - **The published type.** `BaseSchema.body` is `never` on the TypeScript face and an
+    alias refusal naming `children` on the Zod mirror, as are the four per-component
+    redeclarations (`CardSchema`, `AspectRatioSchema`, `PageNodeSchema`, `TooltipSchema`).
+    ⚠️ Refused **by name**, not deleted: `BaseSchema` carries an index signature and the
+    mirror ends `.passthrough()`, so a deleted member would be accepted silently and
+    rendered by nothing — the exact silence this retirement ends.
+  - **The VS Code extension (`object-ui`) changes behaviour, not just teaching.** Its
+    preview no longer draws a `body`-spelled document — the node renders empty, the way
+    the runtime renders it — and its validator now emits a warning naming `children` at
+    the key's own position. That warning is skipped for node types that declare their
+    own `body` input (`record:alert`), so a declared translation-map `body` is not
+    reported as the retired spelling.
+  - **Two new `@object-ui/sdui-parser` exports.** `RETIRED_CHILD_LIST_KEY` (the retired
+    spelling, so a consumer names it once) and `checkRetiredBodyDialect` (the diagnostic
+    the tier substitutes for `unknown-prop` on that key).
+  - **The authoring tier.** `sdui-parser` answers an authored `body` with the replacement
+    named, instead of the bare "has no prop" every typo gets — and a `body` child list
+    under a non-container draws the same containment code the `children` spelling draws.
+  - **Corpus and teaching, in the same change.** 114 authored nodes across the docs site,
+    the schema catalog, five package READMEs and the VS Code extension's snippets, JSON
+    schema, syntax map, hovers and completions. The platform does not refuse a spelling it
+    still ships.
+  
+  ## Migrating
+  
+  Rename the key. `{ "type": "card", "body": [...] }` becomes
+  `{ "type": "card", "children": [...] }`; both faces now name `children` in the refusal,
+  and `pnpm census:body-dialect` reports where the dialect still lives in a tree.
+  
+  ⚠️ **Four renderer reads are deliberately untouched, all in the `page:*` namespace** —
+  `page:card` and the three thin `page:section` / `page:footer` / `page:sidebar`
+  containers. They are read-only back-compat paths for STORED documents, not a second
+  authoring face: `@objectstack/spec`'s `PageContainerProps` says so itself — `children`
+  is canonical, `body` is deliberately not declared, and «the renderers keep reading
+  `body` as a back-compat fallback for stored documents; that fallback is objectui's to
+  retire on its own schedule».
+  
+  ⛔ **Authoring `body` on them is still refused**, on both published faces and at the
+  authoring tier, exactly as everywhere else. What survives is the READ.
+  
+  ⚠️ The two halves are not in the same state. `page:card` has a migration path — the
+  spec's conversions registry carries `page-card-body-to-children` (`toMajor: 17`,
+  surface `page.component.page:card.body`), which shipped with `retiredFromLoadPath: true`
+  in spec 17.0.0. The other three have **no conversion at all**, so a stored row under
+  their key has nowhere to be migrated to. ⇒ the two halves are tracked separately, and
+  the pointer is not one card: retiring the three thin reads is objectui#9916, whose
+  question is the stored corpus; retiring `page:card`'s read was **grounded by**
+  objectstack#5775 / ADR-0087 D2, whose conversion has already shipped and whose
+  remaining condition is replayed rows. ⚠️ Grounded by, not owned by — the distinction
+  is the point. objectstack#5775 is CLOSED and its body is a props-declaration audit
+  that carries no such step, so a reader sent there for the action finds none. The
+  action is objectui's, on the spec's own terms quoted above: «that fallback is
+  objectui's to retire on its own schedule.»
+  
+  **Non-rendering readers keep their arm on the same rule**, and none of them renders
+  anything: while a renderer still reaches stored `body` content, a reader that must see
+  the SAME content keeps its arm, or the renderer draws what the reader cannot find.
+  Those are the two tab-subtree walkers in `renderers/layout/containers.tsx`,
+  `app-shell`'s `pageSchemaIntrospect` (`CONTAINER_KEYS`) and `PageBlockInspector`
+  (`STRUCTURAL_PROP_KEYS`, the inspector half of a stored `properties.body`), and the
+  CLI's `OBJECTUI_STRUCTURAL_KEYS` — a file-IDENTIFICATION marker, where keeping `body` is
+  what lets an old file still be recognised as an ObjectUI node and therefore refused,
+  instead of silently not judged.
+  
+  ⚠️ **Dated note, 2026-10-02 — the `sidebar-*` parts are retired — objectui#10859.**
+  Later in this same release objectui#10859 batch 8 (phase 2d) unregistered the ten `sidebar-*` part keys. Of the
+  family the **Renderers** line names, only `sidebar` remains, and it reads `children`. The rest of this entry is
+  kept as the reading of this change.
+- 045d20b: Relationship-target readers resolve a lookup's target from `reference` alone,
+  dropping the `reference_to` fallback arm (objectui#6837, half 2).
+  
+  Maintainer ruling, 2026-08-31, 原文照录: 「objectui不是前端的项目吗?后端的元数据只要
+  对,前端按协议执行就行了呀」. Protocol normalization belongs on the SERVER; the front
+  end just executes the protocol. objectstack#13847 landed the server half — a
+  `field-reference-to-alias` conversion rewrites stored `reference_to` to
+  `reference` on the serve path and in `os migrate meta`.
+  
+  `reference` is the only target spelling `@objectstack/spec`'s `FieldSchema`
+  declares. Measured on the installed 17.2.0: it refuses `reference_to`,
+  `referenceTo` and `target` with `unrecognized_keys`, each carrying its own
+  "Did you mean -> `reference`?" rename, while a nonsense key gets the same
+  refusal with NO rename hint and `reference` parses clean.
+  
+  ## ⚠️ BREAKING for a hand-written schema that spells `reference_to` — read this
+  
+  **This is a behaviour change for BYO consumers, and it is being stated rather
+  than shipped silently.** ObjectUI is usable without an ObjectStack backend
+  (`examples/byo-backend-console`), and a hand-written TypeScript schema passes
+  through no zod door, so nothing rejects the legacy spelling at authoring time.
+  
+  **The break surface is narrower than "all BYO consumers", and this is the
+  measurement rather than a blanket claim.** Two ingestion choke points stamp both
+  snake_case keys from whichever spelling arrived — `MetadataProvider`'s type
+  cache for metadata type `object`, and `ObjectStackAdapter.getObjectSchema`. Any
+  def that passed either one already carries `reference` and is **completely
+  unaffected**. What is affected is exactly:
+  
+  - **A `DataSource` implementation other than `ObjectStackAdapter`.**
+    `getObjectSchema` is a required member of the published `DataSource`
+    interface, and the readers call it on the generic `dataSource` (through
+    `useSettledSchema` and directly), so a host adapter's object schema reaches
+    them raw. Every in-repo example of one is on this path:
+    `ApiDataSource`, `ValueDataSource`, `packages/types/examples/rest-data-source.ts`,
+    `examples/byo-backend-console/src/mockDataSource.ts`,
+    `packages/runner/src/lib/mockDataSource.ts`,
+    `apps/site/app/components/galleryDataSource.ts`,
+    `apps/console/src/sdui-workbench-preview.tsx`,
+    `packages/plugin-grid/demo/bulk-actions.tsx`.
+  
+  **Measured on this tree, none of those eight emits a relationship target at all** —
+  `reference_to` and `reference` are both zero in each, and
+  `examples/byo-backend-console` carries no lookup or master_detail field
+  anywhere (its only `reference` hits are a vite triple-slash directive and a
+  tsconfig `references` array). The single in-repo producer that WAS on this
+  surface, `packages/plugin-gantt/demo/main.tsx`, is fixed here at the producer.
+  
+  ⇒ **If you author object metadata by hand and spell a lookup's target
+  `reference_to`, rename that key to `reference`.** Symptom if you do not: the
+  target silently fails to resolve, and the affected surface degrades rather than
+  erroring — a related list is not derived, a gantt quick filter falls back to the
+  distinct values in the loaded rows instead of the referenced object's full
+  domain, a tree stops auto-detecting its parent pointer, a lookup cell shows a
+  raw id, a chart's group-by labels stay unresolved.
+  
+  The ingestion choke point now emits a **dev-mode warning** when a def arrives
+  carrying only `reference_to` or `referenceTo` and no `reference`. It names the
+  object, the field and the offending key, and points at this ruling. Stamping is
+  deliberately unchanged, so nothing that worked stops working. It is memoised
+  once per **(object name, field name, spelling, target value)** — every segment
+  of that key is pinned, in both directions, in
+  `reference-keys.legacyWarning-6837.test.ts`.
+  
+  ⛔ **This warning does NOT cover the break described above, and it is worth being
+  exact about that rather than letting it read as mitigation.** It lives in
+  `normalizeFieldReferenceKeys`, reachable only through
+  `normalizeSchemaReferenceKeys`, which has exactly two production call sites —
+  `MetadataProvider` (metadata type `object`) and
+  `ObjectStackAdapter.getObjectSchema`. Both of those also STAMP the def, so the
+  warning fires precisely where the def still resolves and nothing is broken. A
+  hand-written schema served through any OTHER `DataSource` — the break surface —
+  reaches a reader raw: it never passes through this code and produces **no
+  warning at all**. On that path the failure is exactly as silent as before.
+  A reader-side or shared-resolver diagnostic, which would cover it, remains open
+  on objectui#6837.
+  
+  ⚠️ **Dated note, 2026-09-29 — the call-site count above has since moved —
+  objectui#7650.** "exactly two production call sites" above held when this change landed
+  (`045d20ba8`). Later in this same release objectui#7650 (PR objectui#8868) added a call
+  on `MetadataProvider`'s by-name object-schema serve path. Re-measured for objectui#10979
+  on `main` at `2eaf5be27`, `normalizeSchemaReferenceKeys` had three production call sites:
+  two in `MetadataProvider`, on its list path and on its by-name path, and one in
+  `ObjectStackAdapter.getObjectSchema`.
+  `.changeset/7650-metadata-item-reference-canonicalisation.md` (PR objectui#8868) states
+  what ships; the text above is kept as the reading of this change.
+  
+  ## What did NOT change
+  
+  **Every key these readers EMIT is byte-identical**, and that was verified
+  mechanically over the whole diff rather than asserted. Eleven of the sixteen
+  sites write a target onto a bag whose own contract spells it `reference_to` (or
+  camelCase `referenceTo`): the six whose read and write share a line —
+  `RecordDetailDrawer`, `RelatedList`, `buildDefaultPageSchema`, `ListView`,
+  `FilterConditionField`, `resolveActionParams` — plus five more that read on one
+  line and emit on another, and so are just as much emitters: `RecordDetailView`,
+  `RecordMetaFooter`, `ObjectGallery`, `fieldEnrichment` (all `reference_to`) and
+  `UserFilters` (`referenceTo`). Only the right-hand read narrowed anywhere; the
+  emitted key is what its target contract declares, and renaming it would be a
+  separate change.
+  
+  **Three readers were deliberately left alone.** `LookupCellRenderer`
+  (`fields/src/index.tsx`), `LookupField` and `UserField` read `FieldMetadata` —
+  ObjectUI's OWN contract, whose `LookupFieldMetadata` declares `reference_to` and
+  never declares `reference`. They are fed by the emitters above and by published
+  example schemas (`examples/schema-catalog/src/schemas/fields-lookup/*.json`), so
+  narrowing them would break in-repo producers, and `plugin-grid`'s
+  `relationalMetaCopySet.derivation.test.ts` re-derives its read set from exactly
+  those three sources — where `reference_to` is recorded with verdict
+  `adapter-stamped`. `DetailViewFieldSchema` is likewise untouched.
+  
+  ⚠️ **Dated note, 2026-09-30 — the stamp, the three readers and the emitted key have since moved — objectui#11070.** Later in this same release objectui#11070 (round 4) retired `reference_to` inside ObjectUI as well. `normalizeFieldReferenceKeys` now FOLDS a legacy `reference_to` / `referenceTo` onto `reference` and no longer stamps `reference_to`, so "Stamping is deliberately unchanged" and "stamp both snake_case keys" above no longer describe what ships. `LookupCellRenderer`, `LookupField` and `UserField` read `reference` only; `LookupFieldMetadata`, `MasterDetailFieldMetadata` and `DetailViewField` (with `DetailViewFieldSchema`) declare `reference`; and the emitters listed under "What did NOT change" write `reference`. A hand-written schema served through a `DataSource` other than `ObjectStackAdapter` that spells only `reference_to` therefore also loses the lookup picker's target and the read cell's name. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.
+- a2d2515: `extractRecords` reads a `find()` answer as `QueryResult` declares it: the
+  `records` arm is gone (objectui#6839, following objectui#5945 / #6726 / #6840).
+  
+  `QueryResult` (`@object-ui/types`) declares exactly one rows member, `data`.
+  This shared normaliser's ladder was `array -> records -> data -> value`, i.e.
+  the undeclared spelling AHEAD of the contract's own member — the same
+  precedence inversion objectui#5945 was filed about and objectui#6726 repaired by
+  hand at seven other seams. The ladder is now `array -> data -> value`.
+  
+  `records` is the below-the-adapter spelling: `ObjectStackAdapter
+  .normalizeQueryResult` and `ApiDataSource.normalizeQueryResult` (its
+  `['data','items','results','records','value']` envelope loop) both CONSUME the
+  server/SDK `records` envelope and return `data` before an answer reaches this
+  helper, and every consumer calls it strictly above that fold. So no producer
+  changes behaviour, because there is no producer; what changes is that a
+  non-conforming one is refused instead of silently absorbed — and, being first,
+  the arm used to outrank `data` when a producer emitted both.
+  
+  Reach, re-derived on this tree rather than taken from the card (which was
+  measured six days before filing and is stale in three places): ten call sites in
+  nine packages. Seven call `extractRecords` directly — `ObjectChart` (x2: the
+  chart rows, and the group-by lookup label domain inside the exported
+  `resolveGroupByLabels`), `ObjectDataTable`, `ObjectPivotTable`, `ObjectGantt`
+  (the quick-filter option domain), `ObjectKanban`, `ObjectTimeline`. Four more
+  reach it through `applyNonGridRowCeiling` (`@object-ui/react`), which is itself
+  a published export and a sink in its own right: `ObjectCalendar`, `ObjectGantt`
+  (its rows), `ObjectMap`, `ObjectTree`.
+  
+  Producer measurement, per consumer rather than once for all of them: no `find()`
+  in any of those nine packages, nor in the apps and examples that mount them,
+  emits a `records` envelope. CONTROL, so the zero is a reading rather than a
+  miss — the same sweep finds `records` envelopes elsewhere: `ViewDataProvider`'s
+  own `ResolvedData` (served by that module's own private reader of the same
+  name), the raw Cloud HTTP payloads, the client-SDK doubles below
+  `normalizeQueryResult`, the record-visibility batch route stubs, and one live
+  `find()` double at `plugin-list`'s ObjectGallery — a consumer with its OWN
+  unwrap ladder, which does not come through here and is untouched.
+  
+  The `value` arm STAYS. objectui#6840 removed `value` from `ObjectView`'s ladder
+  on a measured zero at that seam and stated that its zero must not transfer here;
+  it does not. Five `find()` doubles emit `{ value: [...] }` into this helper
+  today (three in `plugin-kanban`, two in `plugin-calendar`), so the arm is live
+  and its removal is a separate card with its own measurement.
+  
+  `QueryResult` is NOT widened to bless `records` — that is a published-type
+  change and the maintainer's call, the same floor objectui#6726 and #6840
+  respected.
+  
+  One refusal pin per module (`*.contractEnvelope-6839.*`), each keeping the live
+  arms green alongside the deleted one, because live and dead is the whole
+  distinction — plus a direct pin on the helper for the precedence question a
+  per-module render pin cannot ask ("when BOTH keys are present, which wins").
+- 3619792: Curate `box` in `PUBLIC_BLOCKS` Tier B, so `getPublicConfigs()` offers the neutral block container the catalog already teaches.
+  
+  `box` was minted as the JSON authoring surface's class-transparent replacement for the deprecated `div` and landed on every declaration face — the `BoxSchema` interface, its zod mirror, `SchemaRegistry`, the registration in `@object-ui/components`, a docs page and 27 catalog fixtures. The curated contract was the one face it missed, so the published `sdui.manifest.json` and `sdui-intrinsics.d.ts` (both generated from `getPublicConfigs()`) omitted a type the vocabulary teaches. Authoring `box` still validated — `page.tsx` builds the JSX-page compiler's manifest from the registry, not from this roster — but a model reading the curated vocabulary could not learn it.
+  
+  No spec entry was needed: `@objectstack/spec` describes no Tier B layout primitive, so `box` joins `flex` / `grid` / `stack` / `card` / `container` in a population the `registry-inputs-spec-parity` gate has never judged. Measured before the roster was touched, and pinned in `apps/console` over a population derived from the zod layout union rather than restated as a list, so the next minted layout container fails by absence instead of repeating this.
+- 47547d0: Localize the server's built-in aggregate measure titles on dataset charts
+  (objectui#7258 — consumer half of the objectstack#14492 contract; maintainer
+  ruling B, 2026-09-02).
+  
+  A dataset-bound chart's aggregate axis / legend title read the analytics
+  service's hard-coded English `Count` on a zh console whose category labels were
+  already Chinese. The renderer was passing `fields[].label` through verbatim —
+  correctly, for an author-declared measure (objectui#4106) — and had no way to
+  tell the server's built-in default apart from an author's label.
+  
+  The wire now can: `AnalyticsResult.fields[]` gains an OPTIONAL structural
+  discriminator, `builtinAggregate?: 'count' | 'sum' | 'avg' | 'min' | 'max' |
+  'count_distinct'`, populated only on the server-side built-in defaults
+  (objectstack#14492). This change is the consumer side of that contract:
+  
+  - `@object-ui/core`: `buildChartSeries` now accepts `ChartMeasureField[]` —
+    `ChartResultField` plus the optional `builtinAggregate` carrier
+    (`BuiltinAggregateCarrier`), declared beside the renderer shape rather than
+    on it because the spec this release is built against does not carry the key
+    yet; new `BUILTIN_AGGREGATES` / `BuiltinAggregate` / `isBuiltinAggregate` /
+    `resolveMeasureLabel`; `ChartSeriesOptions.builtinAggregateLabels` carries
+    the locale strings in (core stays React-free and i18n-free — the same
+    division as `nullCategoryLabel`). A field carrying a recognised
+    discriminator resolves through that map; every other field keeps its wire
+    `label` verbatim — never by matching the label's text or the field's name
+    (the rejected option A).
+  - `@object-ui/i18n`: `builtinAggregateLabels(tt)` resolves the six strings
+    through the existing `report.aggregate.*` keys (zh already carried 计数 /
+    求和 / 平均 / …; all ten packs are pinned to cover the vocabulary).
+  - `plugin-charts` (`ObjectChart`), `plugin-dashboard` (`DatasetWidget`),
+    `plugin-report` (`DatasetReportRenderer`): pass the resolved map to
+    `buildChartSeries`.
+  
+  Before: 合作中 / 已流失 / 潜在 under an axis titled `Count`. After: the same
+  chart titled `计数`; an `en` session still reads `Count`; an author-labelled
+  measure (`Tasks`) and a measure literally named `count` without the
+  discriminator are byte-for-byte unchanged. Until the upstream field is
+  populated the wire carries no discriminator and every chart renders exactly as
+  before.
+- cfc9b6d: A filter on a record page can now be scoped to the record the page shows (objectui#7297). Write `{record_id}` as a filter value, for example `{ "assignee": "{record_id}" }` on an `element:number` counting tasks, and on a `type: 'record'` page it resolves to the id of the record in view: on one person's page the number is that person's count, and on the next person's page it is theirs. It works in a component's own `filter` and in its component-level `dataSource.filter`, on every data component that resolves its filter through `@object-ui/react`'s `useFilterScope()`. The token is declared by `@objectstack/spec` 17.5.0 (`RECORD_CONTEXT_TOKENS`, objectstack-ai/objectstack#20003).
+  
+  The id comes from the record page's mounted record context, never from a URL parameter or a page variable. `@object-ui/react`'s `useFilterScope()` adds it to the scope it returns (as the new optional `recordId` member of `@object-ui/core`'s `FilterTokenScope`) whenever a `RecordContextProvider` is mounted above the component; `FilterScopeProvider` is unchanged and still carries only the session values. The held filters in `useResolvedFilter`, `object-grid` and `object-view` resolve again when the record changes, so moving to another record queries again without a remount.
+  
+  Anywhere with no record in context (a list view, a dashboard, a report, or a page that is not a record page) `{record_id}` is refused by name: `resolveContextTokens` reports it through `onUnresolved` (a console warning by default), the way an unresolved `{current_user_id}` is reported, and leaves it as written. It never becomes `null` and its condition is never dropped, so a number can never silently count every record; the ObjectStack server refuses the leftover token by name (`FILTER_TOKEN_UNRESOLVED`). Like the session tokens, `{record_id}` only scopes what a component shows. It is not access control: which rows a user may read is still decided by the server's row-level security.
+  
+  **Correction, 2026-09-30 (objectui#8945).** The example in the first paragraph, `{ "assignee": "{record_id}" }`, is the retired MongoDB-style record form. `@objectstack/spec` 17.5.0 refuses it at an `element:number` `filter`, because that key takes an array and a record is refused by kind. Write the same condition as a `ViewFilterRule` array, which the spec accepts: `[{ "field": "assignee", "operator": "equals", "value": "{record_id}" }]`. A component-level `dataSource.filter` takes the same array. The `{record_id}` token itself, and the rest of this entry, are unaffected.
+- 81a2eb1: One home for the `datetime` display convention (objectui#7443).
+  
+  `formatDateTime` gains a named `'compact'` style, selected through
+  `options.style` — the dense grid face, `7/4/2024 7:00 am` in `en-US` — which
+  `DateTimeCellRenderer` used to build from its own inlined `Intl` option bags.
+  The cell now reads `field.format` (it destructured `value` only, so a
+  `datetime` field could not reach the style vocabulary a `date` field has) and
+  renders through the shared function, and `data-table`'s `formatCellValue`
+  calls `formatDateTime` instead of a third, independently authored option bag.
+  Every existing cell without an authored `format`, and every cell authoring
+  `'compact'`, renders byte-identically; `'compact'` is today's face named and
+  rehoused, not a new one. A `datetime` field that authors any OTHER non-empty
+  `format` does change: the cell previously ignored `field` altogether and always
+  painted the compact face, and now anything other than `'compact'` selects the
+  verbose `formatDateTime` default — measured as `Jul 4, 2024, 07:00 AM` in
+  `en-US` for the instant whose compact face is `7/4/2024 7:00 am`. An
+  unrecognised value is neither rejected nor passed through; it silently lands on
+  that verbose face. No `datetime` field in this repository authors a `format`, so
+  no cell here moves — a consumer that authored one is the case this sentence is
+  for. Note that `format` has no declared value vocabulary to check a value
+  against: `@object-ui/types` types it `format?: string`, and `@objectstack/spec`
+  carries one free-form `format?: string` on its shared field schema, described
+  "Format string (e.g. email, phone)" and accepting any string. `'compact'` is
+  therefore the only value with a defined `datetime` meaning, and every other
+  value means "the verbose face" by fallthrough rather than by design.
+  
+  Additive, no signature change: `formatDateTime(value, options?)` is unchanged
+  and `formatDateTime(v, { locale })` keeps meaning what it meant.
+  `DateDisplayOptions` gains an optional `style` key (read by `formatDateTime`
+  only; `formatDate` still takes its style positionally), and
+  `formatDateTimeCompactParts` is a new export of `@object-ui/core`, re-exported
+  by `@object-ui/fields`, returning the compact face as the two halves a grid
+  cell paints separately. `@object-ui/components` changes no rendered output —
+  the table's datetime cell is measured identical before and after in `en-US`,
+  `zh` and `de-DE`.
+- 00d2fa6: ListView: fold `data={{ provider: 'object', object }}` onto `objectName`, and read the
+  author's view kind from `specType` / `type` (objectui#7477 — step 6 of #2890, released
+  by the maintainer's ruling B on objectstack#14791, 2026-09-03).
+  
+  **What was broken.** A react page bound the way the published `react-blocks` contract
+  recommends —
+  
+  ```jsx
+  <ListView data={{ provider: 'object', object: 'crm_task' }} type="kanban" />
+  ```
+  
+  — validated green against `@objectstack/spec` and then rendered an **empty grid** with no
+  diagnostic. Both halves of that binding were inert in the renderer: `ListView` read
+  `data.provider === 'object'` at zero sites (`'value'` and `'api'` are both live there, so
+  the gap was real and not a dead instrument), and it read `specType` — the slot the react
+  page tier parks an author's `type` in, because the SDUI envelope claims the `type` key
+  (ADR-0078) — at zero sites, so an absent `viewType` forced the view to `grid`.
+  
+  **What changed.** `normalizeListViewSchema` (`@object-ui/core`) gains two folds. Per
+  AGENTS.md #0.1 they live in the one documented normalizer — not as a seventh per-block
+  copy of the six sibling `data.object` reads, and not as a renderer-side `??` dual-read.
+  
+  - `data: { provider: 'object', object }` → `objectName`. The `object` provider is a
+    `strictObject` carrying exactly `{ provider, object }`, so `objectName` captures all of
+    it. Two deliberate departures from the folds around it, both narrowing: an
+    already-present `objectName` **wins** (the fold only fills a gap and can never re-point
+    a binding that already resolves), and `data` is **not** deleted — it has four
+    providers, `api`/`value` are read live, and the block is forwarded to child views whose
+    own `getDataConfig` reads `data` before `objectName`.
+  - the author's view kind is read from `specType`, then from a bare `type` when it names a
+    kind ListView draws (the component discriminator `'list-view'` never does) — the same
+    two legs, in the same order, as `normalizeChartSchema`'s chart-family read. An explicit
+    `viewType` still wins; this only fills the gap that used to resolve to `grid`, and a
+    kind ListView does not draw is left to that `grid` default rather than written through.
+  
+  **Accept behaviour widens.** Metadata that previously had no effect now binds a view: a
+  list view carrying an `object` data source, or an author `type`, renders differently
+  after this change than before. Nothing that renders today renders differently. No
+  authored spelling is removed here — `objectName` / `viewType` remain accepted; their
+  retirement is objectstack's, after this ships.
+- 721d1e0: One declaration of which chart families ignore `compareTo` (objectui#7495).
+  
+  **New in `@object-ui/core`:** `chartTypeIgnoresCompareTo(chartType)`, exported from
+  `chart-presentation`. It answers `true` for `pie`, `donut`, `funnel` and `scatter` and
+  `false` for every other chart family, an unknown string, and `undefined` — the answers
+  `@object-ui/plugin-charts`' ObjectChart already gave through its own local predicate.
+  ObjectChart now reads the core predicate instead of keeping that list, so the inline chart
+  path behaves exactly as before.
+  
+  **Behaviour change in `@object-ui/plugin-dashboard`:** a dataset chart widget whose chart
+  family ignores `compareTo` no longer asks the executor for a comparison. That covers the
+  widget types `pie`, `donut`, `funnel`, `pyramid` (renders as a funnel), `scatter` and
+  `bubble` (renders as a scatter). The dashboard used to carry its own, narrower copy of the
+  list (scatter only), and it gated only the overlay series, never the query: every one of
+  these widgets still forwarded `compareTo`, still had its date window lowered into
+  `timeDimensions`, and so made the executor run the comparison pass and attach
+  `MEASURE__compare` columns. A pie, donut or funnel then appended an overlay series the
+  renderer dropped; a scatter discarded the columns. Those widgets now send the same selection as the same
+  widget without `compareTo`: one pass on the server instead of two, and nothing on screen
+  changes for a widget whose filter carries one bounded date window. One case does change on
+  screen, for the better: the dataset executor refuses a `compareTo` it has no single dated
+  window to shift, and the widget showed that refusal in place of the chart — a compare-to
+  pie, donut, funnel or scatter widget with no dated window now draws its chart, since no
+  comparison is asked for.
+  
+  Unchanged: line / area / bar / horizontal-bar / combo chart widgets keep their comparison
+  overlay, and metric, gauge, table and pivot widgets keep their comparison. The gate is the
+  chart branch, not the widget type, so a `pie` widget with no dimensions — which renders as
+  a metric tile and shows the comparison as a delta — keeps it too.
+  
+  Reachability at the time of the change: `compareTo` appears in no example app metadata in
+  this repository; incidence in deployed tenant metadata is not measurable from here.
+- 1237ae4: The non-grid row ceiling's mechanism moves to `@object-ui/core`, its probe row
+  lives in one query helper, and its footnote takes the result and nothing else
+  (objectui#7508, maintainer ruling A′ — follow-up to objectui#7210).
+  
+  **`@object-ui/core` — new exports**, beside the `extractRecords` they wrap:
+  
+  - `NON_GRID_ROW_CEILING` (moved from `@object-ui/react`, value unchanged);
+  - `applyNonGridRowCeiling` and the type `NonGridCeilingResult` (moved from
+    `@object-ui/react`, behaviour unchanged);
+  - `nonGridRowCeilingQuery()` (new) — returns `{ $top }`, the ceiling plus ONE
+    probe row. It is the only place that `+ 1` is written; spread it into the
+    `find()` query.
+  
+  **`@object-ui/react`**:
+  
+  - still exports `NON_GRID_ROW_CEILING`, `applyNonGridRowCeiling` and the type
+    `NonGridCeilingResult`, now re-exported from `@object-ui/core` — the same
+    bindings, so no import of these three changes;
+  - **removed**: `NON_GRID_ROW_CEILING_TOP`. Replace `$top: NON_GRID_ROW_CEILING_TOP`
+    with `...nonGridRowCeilingQuery()` from `@object-ui/core`. This supersedes the
+    export list in objectui#7210's entry, which names it;
+  - **breaking prop change**: `NonGridRowCeilingNote` takes `result`
+    (a `NonGridCeilingResult`) and no other prop. `drawn`, `total`, `truncated`
+    and `className` are gone, with no deprecated path. Pass the object
+    `applyNonGridRowCeiling` returned: the note prints `result.rows.length` and
+    `result.total`, so a footnote whose numbers disagree with the rows drawn can
+    no longer be written. It now carries `shrink-0` itself, which the gantt used
+    to pass in through `className`.
+  
+  `ObjectCalendar`, `ObjectGantt`, `ObjectMap` and `ObjectTree` take the helpers
+  from `@object-ui/core` and hand the note their result; what they fetch, draw and
+  print is unchanged.
+- feac439: Execute the declarative row-level `operation: 'update'` action (objectui#7551, the
+  objectui half of objectstack#14092; consumes `@objectstack/spec` 17.3.0's
+  `ActionSchema.operation` / `patch`).
+  
+  An action authored as `operation: 'update'` with a `patch` of static field values now
+  runs. Before this change the two keys parsed, published, and read as honoured while no
+  runner branch consulted them: the action reached the platform action route with its
+  field values never merged into the request, so the route was asked to write nothing and
+  answered success for having done so.
+  
+  **`operation` is read before `type`, and that order is the feature.** The spec
+  materializes `type: 'script'` on an update action and refuses every other explicit
+  spelling, so `ActionType` gained no member — which is exactly why `ActionRunner`'s
+  dispatch table, a `Record<RunnableActionType, …>`, still compiles unchanged across the
+  spec bump. The cost of that design is paid at dispatch: by the time `type` is consulted
+  an update action is indistinguishable from any other script action. `ActionRunner`
+  therefore branches on `operation` first, ahead of both the registered-handler lookup and
+  the built-in table.
+  
+  **The write is performed by the platform action route, never client-side.** The runner
+  composes `{ recordId, params }` and hands it to the registered `script` dispatch, which
+  POSTs `/api/v1/actions/{object}/{action}` — the write runs as the caller, so the
+  permission floor, the object's hooks and its validations all fire as for a user edit. A
+  consumer with no such dispatch registered gets a loud refusal naming the remedy rather
+  than a client-side `dataSource.update()`, and rather than the silent fall-through to
+  `executeActionSchema` that reports on an action which never ran. A route refusal — a
+  4xx/5xx, or the HTTP-200-with-`success:false` business rejection — surfaces with its own
+  code and message instead of a green success toast.
+  
+  `patch` is merged **under** the collected `params`, per the spec's own wording, so a
+  declared fixed value can be overridden by an input the user actually answered. With
+  `undoable: true` the Undo affordance captures the prior values of exactly the fields the
+  action wrote — a param-collected field included, since restoring only some of an edit
+  while reporting a full undo is worse than offering none.
+  
+  The four declared action renderer surfaces (`action:button`, `action:icon`,
+  `action:group`, `action:menu`) forward both keys; `check:action-forward-parity` is what
+  enumerates them and what fails if one is missed. `element:button` is excluded by its
+  inline `InlineActionSchema` contract, and the spread-based hosts carry the keys through
+  by construction. The Studio action inspector authors the pair on a second axis beside
+  `type`, mirroring the spec's refusal set: switching into an update action clears the
+  keys it refuses, the type control pins to `script`, and `list_toolbar` placement is not
+  offered (that bar's home for the same intent is a list view's `bulkActionDefs`).
+- e62c44e: Re-home the breakpoint layout vocabulary and delete the two dead responsive
+  implementations (objectui#7580, maintainer ruling 2026-09-04, option A).
+  
+  **Breaking, deliberately, in one direction only.** `@objectstack/spec` retired its whole
+  `ui/responsive` vocabulary in objectstack#11027 — `ResponsiveConfigSchema`,
+  `BreakpointName`, `BreakpointColumnMapSchema` and `BreakpointOrderMapSchema` — on the
+  stated ground that the four types "had no other authorable carrier". That ground is
+  measurably false on the renderer side: `responsive-grid` is a REGISTERED SDUI component
+  whose authorable `columns` input is typed by `BreakpointColumnMap` and applied by
+  `resolveColumnClasses` on the render path, and `BreakpointName` types four live readers in
+  `@object-ui/mobile`. The tombstone's own return condition — the vocabulary "returns if and
+  when a renderer implements it" — is already met here, so the two types a renderer reads
+  are re-homed rather than retired.
+  
+  What survives, under the same names and the same members:
+  
+  - `BreakpointName` (`xs`…`2xl`) is now declared in `@object-ui/types` (`mobile.ts`) instead
+    of re-exported from the spec. **No consumer change**: same name, same six members, same
+    export sites on `@object-ui/types` and `@object-ui/mobile`. Only its provenance moved.
+  - `BreakpointColumnMap` is now declared in `@object-ui/layout` (`ResponsiveGrid.tsx`),
+    verbatim from the retired `$strict` schema: six optional column counts, no index
+    signature. `responsive-grid`'s `columns` input and its resolver are unchanged.
+  
+  What is removed:
+  
+  - `BreakpointOrderMap` (`@object-ui/layout`) — retired with the key, not re-homed. It had
+    no read point in the package; it was published only because the retired
+    `ResponsiveConfigSchema` paired it with the column map, so an author configuring `order`
+    needed the type. With the schema gone there is no order vocabulary for it to be the type
+    of, and re-declaring it would be the declare-without-enforce shape ADR-0049 removes.
+  - `useResponsiveConfig` (`@object-ui/mobile`), with its `SpecResponsiveConfig` and
+    `ResolvedResponsiveState` exports, and `ResponsiveProtocol` (`@object-ui/core`), with
+    `resolveResponsiveConfig` / `getVisibilityClasses` / `getColumnClasses` /
+    `getOrderClasses` / `shouldHideAtBreakpoint`. Both read the retired
+    `ResponsiveConfigSchema` and both were measured at zero callers (objectui#4773).
+  - `SpecResponsiveConfig` / `SpecBreakpointName` (`@object-ui/types`) — dead re-exports once
+    the two implementations above went, dropped rather than re-declared locally, the same
+    disposition the retired i18n names in that file already carry.
+  
+  No behaviour is retired. The live per-breakpoint readers — `useBreakpoint`,
+  `ResponsiveContainer`, `BREAKPOINTS` / `BREAKPOINT_ORDER` / `getCurrentBreakpoint`, and
+  `responsive-grid` itself — are untouched.
+  
+  **Sequencing.** objectui's next `@objectstack/spec` pin bump must carry `Blocked-by:`
+  objectui#7580: the retirement is merged upstream and unreleased, so this must land first.
+  
+  ⚠️ **Dated note, 2026-10-02 — the `responsive-grid` registration is retired — objectui#11441.**
+  Later in this same release the maintainer's ruling on objectui#11441 (letter B) unregistered `responsive-grid` (and
+  `layout:responsive-grid`). That ruling updates item 2 of this change's ruling: the vocabulary half stands, so
+  `BreakpointName` and `BreakpointColumnMap` stay declared here, and `ResponsiveGrid` stays a React export whose
+  `columns` prop `BreakpointColumnMap` types. The authorable breakpoint grid is the `grid` node with a breakpoint
+  `columns` object, which `BreakpointName` keys. The rest of this entry is kept as the reading of this change.
+- b041b9c: `@object-ui/core` publishes `resolveRecordSourceObjectName`, the ONE reader for "which
+  object is this block bound to".
+  
+  Six view plugins each spelled that resolution locally — `ObjectCalendar` twice,
+  `ObjectGantt`, `ObjectTree` twice, `ObjectMap`, `ObjectGrid` — and had drifted: three
+  wrote `?? schema.objectName`, one `|| ''`, one `: undefined`, one an `'object' in
+  dataConfig` test. They now delegate to one function that states the published
+  record-source ladder `77cb489b4` declared (`data`, then `staticData`, then `objectName`) once.
+  
+  **No behaviour changes.** Each site's pre-collapse expression is transcribed verbatim
+  into `record-source.behaviourNeutrality-7627.test.ts` and asserted equal to its
+  post-collapse spelling across the whole contract-valid input matrix — both bindings
+  present, data only, `objectName` only, empty `objectName`, empty `data.object`, the
+  `api` / `value` / `staticData` / array-shorthand providers, and nothing bound.
+  
+  **Two questions stay two questions.** `normalizeListViewSchema`'s gap-fill (#7477,
+  ruling B, landed as `00d2fa682`) is untouched and is NOT re-pointed at the new reader: it answers
+  how `objectName` gets POPULATED when absent, where an already-present `objectName` wins.
+  The new reader answers which object a block RESOLVES, where the `data` block wins — the
+  order declared on both published faces in `@object-ui/types` and pinned by
+  `objectql-record-source-refinement-6939.test.ts`. Merging them would silently override
+  one standing ruling or the other.
+  
+  **`ObjectGantt`'s `persistLayoutKey` is deliberately excluded** and keeps its inverted
+  order, with an in-place comment saying why: its receiver is a localStorage key
+  (`gantt-layout:KEY:filters`), not a record source, so re-pointing it would orphan every
+  saved layout and filter-chip set of a view carrying both bindings. Two more sites the
+  finding listed are not object-name readers at all and were struck: `ObjectGantt`'s
+  refresh-handler predicate (`object` OR `api`) and `plugin-dashboard`'s `isObjectProvider`
+  type-guard over a widget's `data`.
+  
+  `useSettledSchema`'s doc comment stops prescribing the hand-written ladder at all four
+  lines that taught it, so the copies cannot re-seed from the hook that replaced them.
+- ce2aaef: One shared record-source ladder, five plugins delegate.
+  
+  `@object-ui/core` publishes `resolveRecordSourceConfig(schema)` — the ONE implementation
+  of the ruled three-rung record source ladder: `data` first, then `staticData` wrapped as
+  `{ provider: 'value', items }`, then `objectName` folded to `{ provider: 'object' }`, and
+  `null` when nothing is bound. It is the PRODUCER whose output the reader
+  `resolveRecordSourceObjectName` (`b041b9c0c`) consumes, and it now sits beside it in the same module.
+  
+  That ladder is published contract on both faces — `packages/types/src/objectql.ts` and its
+  zod mirror both ship `.describe()` strings naming `getDataConfig`'s order (`77cb489b4`,
+  maintainer ruling 2026-09-02), pinned by `objectql-record-source-refinement-6939.test.ts` —
+  and it was hand-copied into five plugin components with no gate holding them together. A
+  change to the ruled order had five edit sites and nothing that noticed a missed one; that
+  is the AGENTS.md #0.1 drift class.
+  
+  **No behaviour changes.** `ObjectCalendar`, `ObjectGantt` and `ObjectTree` now call the
+  shared reader directly. `ObjectGrid` and `ObjectMap` keep their own bare-array `data`
+  shorthand as a documented head above the shared call and are otherwise unchanged.
+  `record-source-config.behaviourNeutrality-7632.test.ts` transcribes all five pre-collapse
+  bodies verbatim and asserts the post-collapse spelling agrees with each across the whole
+  input matrix, so a later edit to the shared reader that moves any site turns red.
+  
+  **Two divergences were measured rather than assumed, and both are preserved.**
+  
+  `ObjectCalendar`'s `'data' in schema && schema.data` guards existed because its parameter was
+  at that time the union `ObjectGridSchema | CalendarSchema`, whose `CalendarSchema` arm declared
+  neither key. (objectui#8651 has since re-pointed that parameter at the published
+  `ObjectCalendarSchema`, so the union is gone; the CONCLUSION below — that the guard had no
+  runtime effect and removing it is behaviour-neutral — is unaffected.)
+  That is a TypeScript narrowing device with no runtime effect — an absent property reads
+  `undefined`, falsy either way — so the guard could never change which rung is taken. The
+  shared reader's optional-property parameter accepts the union directly, and the
+  equivalence is pinned on a fixture that really lacks both keys rather than argued.
+  
+  `ObjectGrid` and `ObjectMap` normalize a bare-array `data` to `{ provider: 'value', items }`;
+  `ObjectCalendar`, `ObjectGantt` and `ObjectTree` do not, and return the array verbatim. That
+  is a real divergence on off-contract input — `ViewData` is a discriminated union over object
+  variants, so an array under `data` cannot be published. It is NOT unified here: the shared
+  rung stays contract-strict and the two sites keep the head locally, the same way `b041b9c0c`
+  left the off-contract `{ provider: 'object' }` tails at their sites. Both sides of the fork are
+  pinned, so neither folding the head in nor deleting it as redundant can happen silently.
+  
+  `ObjectTree`'s copy took `schema: any`; it now goes through the shared reader's typed
+  parameter. Types are erased at runtime, so nothing it resolves moves.
+- da6e191: Canonicalize the retired object-schema dialect once, at the ingestion choke point
+  (objectui#7650).
+  
+  `normalizeSchemaReferenceKeys` now has two arms. The `reference` / `reference_to` pair
+  is unchanged. The new arm folds any key a served field def carries that
+  `@objectstack/spec`'s `FieldSchema` does **not** declare, but whose snake/camel twin it
+  does — `display_field` onto `displayField`, `lookup_filters` onto `lookupFilters`, and so
+  on.
+  
+  **The accepted set is MEASURED, not enumerated — and it grows with the linked spec**
+  (corrected on objectui#8938; this paragraph previously read as though the keys the cards
+  in this family happened to name were the whole of it). One spelling rule is applied to
+  `FieldSchema`'s **entire** declared key set at run time, so the accepted set is a property
+  of the installed `@objectstack/spec` and widens the moment the spec grows a camel key.
+  Besides the four above, today's spec puts the gate keys `visible_when` / `readonly_when` /
+  `required_when`, `default_value`, `required_permissions`, `masking_rule`, `track_history`,
+  `delete_behavior`, `external_id`, `depends_on`, `lookup_page_size`, the `related_list*` and
+  `inline_*` families, and the managed-by lock keys `_lock_reason` / `_lock_source` /
+  `_lock_docs_url` / `_package_id` / `_package_version` inside it — and case / kebab variants
+  of every one of them fold too. A stored legacy spelling of any of these is therefore
+  **active** on the client where consumers previously ignored it.
+  
+  No count of that surface is written here on purpose: it is derived from the installed spec,
+  and a number in this paragraph would be derived once and never again. The instrument that
+  re-derives it on every run is the pin named `the width IS the spec's declared key set, not
+  a list anyone typed`, beside the classes above as a live membership assertion.
+  
+  **Why this is needed at all.** The object-schema serve path never parses:
+  `ObjectStackAdapter.getObjectSchema` fetches the document, applies two mutations and
+  returns it, with no `ObjectSchema.parse` anywhere. `FieldSchema` strictness therefore
+  gates the metadata **write** door only. A document stored before a key was tightened is
+  served back verbatim, forever — it cannot be re-saved through the strict door, but nothing
+  ever asks it to be. objectui#7155, #7166 and #7435 narrowed the consumer reads to the
+  camelCase spelling on the strength of "no spec-compliant producer can emit this key",
+  which is a claim about authoring, not about serving. This restores the other half, the
+  same way objectui#6837 restored it for `reference_to`.
+  
+  **How the fold is derived.** By the spec's own alias-probe rule — lowercase, strip `_`,
+  `-` and space — matched exactly against `FieldSchema`'s declared key set, read at runtime
+  off `FieldSchema.shape`. Not a hand-written table: a table has to be edited every time the
+  spec grows a camel key whose snake twin is still in stored documents, and the edit that
+  does not happen is the bug.
+  
+  **What it deliberately does not do.** It never removes a key or a value — the legacy
+  spelling stays on the document exactly as served, because dropping it would make a stored
+  legacy document lose the value instead of arriving canonical. It never overwrites a
+  canonical key the producer already set. It folds nothing onto a probe two declared keys
+  share. And it does not "correct" anything: a key that probes onto no declared key is left
+  alone, so a typo (`sortible`) stays a typo and `id_field` — which has no declared
+  successor — stays as it is.
+  
+  **Not covered.** `id_field` and `title_format` are not folded — `id_field` has no declared
+  successor and `title_format` is out of scope pending a separate maintainer ruling. Both land
+  in the leave arm by the same rule, with no special case. What still waits on a
+  `@objectstack/spec` release carrying the `FIELD_KEY_GUIDANCE.id_field` row is the
+  **successor guidance** for `id_field`, which no published version carries; the leave arm
+  itself is no longer silent (objectui#8938 — the diagnostic states what it measured against
+  the linked spec rather than quoting a copy of contract prose).
+- aef97e5: ⚠️ **BREAKING — `@object-ui/core` no longer exports `ValidationEngine`,
+  `defaultValidationEngine`, `validate` or `validateFields` (objectui#7659).**
+  
+  Those four names were the whole public surface of `validation-engine.js`, a
+  client-side field-rule engine with a snake_case rule vocabulary of its own
+  (`min_length`, `max_length`, `email`, `url`, `phone`, `date_min`, `min_items`,
+  `field_match`, `field_compare`, …). It was a second vocabulary for a job
+  `buildValidationRules` already does, and no renderer in this repository ever
+  consumed it: a `validateFields` call compiled, ran, and changed nothing about a
+  form. It is retired under ADR-0049 enforce-or-remove (maintainer ruling A on
+  objectui#7659), with no deprecation window, and the module is deleted.
+  
+  **Replacement:** client-side field validation is `buildValidationRules(field)`
+  from `@object-ui/fields`. It compiles a field's metadata (`required`, length and
+  value bounds, `pattern`, and the checks its type implies) into react-hook-form
+  rules, which the object form renderers apply. There is no one-to-one port of an
+  `AdvancedValidationSchema` object: a host that called `validate` or
+  `validateFields` declares those constraints on the field metadata instead, or
+  keeps its own check.
+  
+  Not affected: the deprecated object-level engine (`ObjectValidationEngine`,
+  `defaultObjectValidationEngine`, `validateRecord`, #3110) and the schema-tree
+  validator (`validateSchema`, `assertValidSchema`) stay exported. The rule and
+  result types in `@object-ui/types` (`AdvancedValidationSchema`,
+  `ValidationRuleType`, `ValidationContext`, …) keep their shapes; only the doc
+  comment on `ValidationContext.locale` changed, because the engine it described
+  is gone.
+  
+  ⚠️ **Dated note, 2026-09-27 — those types no longer keep their shapes: all
+  eight (`AdvancedValidationSchema`, `AdvancedValidationRule`,
+  `ValidationRuleType`, `ValidationFunction`, `AsyncValidationFunction`,
+  `ValidationContext`, `AdvancedValidationResult`, `AdvancedValidationError`) are
+  removed from `@object-ui/types` by a later change, on this same ruling —
+  objectui#10719.**
+  
+  ⚠️ Out-of-repository consumers are NOT MEASURED. This package is published, and
+  the zero-consumer reading behind the ruling covers this repository only; a host
+  application that imports any of the four names stops compiling on upgrade.
+- 93fea2e: **BREAKING:** `@object-ui/core` no longer exports `DataScopeManager` or the
+  row-level filter vocabulary that came with it (objectui#7750). This narrows the
+  package's published surface. It is declared `minor`, not `major`, because this
+  fixed release group follows the `@objectstack` major (AGENTS.md §9); the
+  breaking change is stated here instead.
+  
+  Removed, with no replacement and no deprecated alias:
+  
+  - `DataScopeManager`, the class
+  - `defaultDataScopeManager`, its shared instance
+  - `RowLevelFilter`, the type of one row-level rule
+  - `DataScopeConfig`, the type `registerScopeWithConfig` took; nothing else in
+    the package read it
+  
+  Why they went: `DataScopeManager` carried a third hand-written row-level
+  security evaluator, beside `evaluateCondition` in `@object-ui/permissions` and
+  the platform's own. The platform keeps one row-level security language: the CEL
+  predicate a `RowLevelSecurityPolicySchema` policy declares in its `using`
+  clause (`@objectstack/spec`), which the server lowers to an ObjectQL filter and
+  which fails closed when it does not lower. Aligning this class's operator
+  vocabulary with the spec's instead was considered and refused: on a permission
+  boundary it would have turned refused operators into evaluated ones, three of
+  them with silently different meanings. On this change's base, no code in this
+  repository constructed a `DataScopeManager` or a `RowLevelFilter` outside the
+  class's own tests and its documentation examples, and the downstream readings
+  recorded on objectui#7750 found no consumer in `objectstack`, `hotcrm` or
+  `cloud`. The maintainer ruled to retire it; the ruling is on objectui#7750.
+  
+  Not affected: the rest of `data-scope/` stays exported, `ViewDataProvider` and
+  the element data-source helpers (`composeElementDataSource`,
+  `resolveSavedView` and their types) included. The `DataScope` and `DataContext`
+  interfaces in `@object-ui/types` are unchanged.
+  
+  Other entries in this same release describe work on `DataScopeManager`: the
+  `@object-ui/core` entries for objectui#7378 (an unknown operator denies the
+  row) and objectui#7751 (the own-member field read and the same-kind ordered
+  comparison). That work shipped in a class this entry removes. The
+  `@object-ui/permissions` entry for objectui#8044 says `evaluateCondition` now
+  gives the same answer as `DataScopeManager` for a prototype-named field; the
+  guard it describes stays in `@object-ui/permissions`, and after this release it
+  is the only one of the two evaluators left.
+  
+  **Migration:** there is no replacement in `@object-ui/core`. Declare row-level
+  security on the server, as a `RowLevelSecurityPolicySchema` policy whose
+  `using` clause is a CEL predicate; the platform lowers it to an ObjectQL filter
+  and enforces it fail-closed. If you used `DataScopeManager` only as a registry
+  of named scopes, copy `packages/core/src/data-scope/DataScopeManager.ts` from a
+  release tag that still ships it, for example `@object-ui/core@17.5.0`, into
+  your own code.
+- 335abea: **BREAKING** (declared `minor` — this repo pins its major to `@objectstack`, so a
+  breaking change ships as a minor with this banner; AGENTS.md §版本号策略):
+  `WidgetInput.label`, `WidgetInput.defaultValue` and `WidgetInput.advanced` are
+  now ADR-0049 retirement tombstones (`?: never`). The published `.d.ts` member
+  set of `@object-ui/types` changes: all three keys stay DECLARED and become
+  UNWRITABLE, so TypeScript code that authors one on a widget-manifest input now
+  fails to compile.
+  
+  The same three keys were retired on `ComponentInput` first (objectui#7493 /
+  objectui#7781). `WidgetRegistry.load()` — the only consumer of a manifest's
+  `inputs` in this repository — forwards `name`, `type`, `required`, `options`
+  (as `enum`) and `description`, and never these three; the seam copy that used to
+  carry them across went with that earlier retirement, leaving them declared and
+  unread on their own face. Maintainer ruling A of 2026-09-15 (objectui#7911)
+  carried the retirement to this second face, so the two input faces now agree.
+  
+  **What to write instead:** nothing. An input is identified by its `name` on
+  every path that reaches it; `description` is the published place to tell an
+  author anything about it, including what the renderer's own fallback default is.
+  
+  **The limit, stated because it is the whole cost of the change:** `WidgetInput`
+  has no zod mirror, so unlike the `ComponentInput` retirement this one has no
+  runtime face — it is a compile-time refusal and nothing else. A widget manifest
+  that arrives as JSON is not parsed through this type by anything in this
+  repository, so an author outside it who writes `label` gets what they got
+  before: the key is ignored, silently. Widget manifests are authored outside this
+  repository by design, and that population was never measured.
+- 1bd79c8: A field-rule predicate the author **declared and left blank** is no longer silent, and the
+  three fault directions in `resolveFieldRuleState` are now named and documented instead of
+  being bare positional booleans (objectui#8069). **No fallback value moves.**
+  
+  **The blank hole.** `''` and `'   '` are authorable — `ExpressionWireSchema` is a bare
+  `z.string()` with no `.min(1)`, and `resolveFieldRuleState`'s own guard is `!= null`, so a
+  blank predicate passes both. `evalFieldPredicate` then returned the caller's fallback on its
+  first line, *before* `warnPredicateFailure` or `onFault` could fire. That is a third state,
+  not a spelling of either neighbour: the key is present (so it is not "the author wrote no
+  rule") and nothing evaluates (so no engine fault is raised). The one state an author reaches
+  by *starting* a rule and not finishing it was the one state that said nothing at all — which
+  is exactly what objectui#4051 / objectstack#5149 ruled out for every other fault.
+  
+  Both spellings now report `[blank] the predicate is declared but empty — nothing to evaluate`
+  through the same single reporting site as every other fault, on both channels (the built-in
+  `console.warn` and the `onFault` passback, so the fault-probing callers that pass
+  `warn: false` are not silenced either). **Every verdict is unchanged**, including the
+  envelope spelling: `{ source: '' }` used to reach the engine and come back
+  "AST-only evaluation not yet supported; persist `source`" and `{ source: '   ' }`
+  "Unexpected token: EOF" — two misleading reasons for one author mistake, both already
+  resolving to the same fallback this change keeps. Blankness is decided by
+  `isBlankPredicateText` (`evaluator/declaredPredicate.ts`), the repo's one definition of that
+  question since objectui#3960, now exported for this second consumer rather than copied.
+  
+  For this one fault class the once-per-predicate dedupe key joins the caller's **locator**: a
+  blank predicate has no distinguishing text, so every blank rule in an app shares the key
+  `""` and the first one would silence every other author's. Non-blank keys are unchanged.
+  
+  **The named directions.** `resolveFieldRuleState` passed `true` / `false` / `false` as bare
+  third arguments and answered the adjacent "no rule declared" case with the *same* literal —
+  so every permissive value was written twice, and the "the rule broke" answer was chosen by
+  aligning it with the "the rule is absent" answer beside it. Six module-private constants now
+  spell the two questions apart (`*_WHEN_FAULTED` / `*_WHEN_ABSENT`), with one docblock
+  recording the direction, the fact that all three point the permissive way so a single
+  mistyped column yields a form that shows more, locks less and demands less at once, and what
+  the history does and does not record about why (objectui#1578 and ADR-0036 both carry a
+  per-key "a fault is safe" rationale; no commit puts the case where all three faults arrive
+  from one typo). `evalFieldPredicate`'s docblock gains the call-site policy table — five
+  distinct fault policies share this one helper, two of which detect a fault by calling it
+  twice with *opposite* fallbacks and therefore depend on `fallback` staying freely
+  specifiable.
+  
+  Whether the direction belongs in the authored contract, and whether a loud-but-safe middle
+  should exist, remain open on objectui#8069.
+- af9e957: fix(types,components,plugin-form,console,core): a faulted `visibleWhen` refuses the submit, naming the field and the rule; a blank field rule is refused; blank gates are diagnosed (objectui#8069)
+  
+  ⚠️ **User-visible, and a narrowing.** A form whose field `visibleWhen` cannot be
+  evaluated — a typo in a column name, a syntax error, an unbound root — used to
+  render the field (fail-open) and submit as if the rule had said "show". It now
+  still renders the field, and **refuses the submit** with a message that names
+  the field and the rule (`form.visibleWhenFaulted`). This is ADR-0137 D2 as
+  ruled for objectui#8069 (Q1 = B, one judge per rule): no server evaluates a
+  field's `visibleWhen`, so its fail-open render direction (D3) was a silent grant
+  — a field the working rule would have hidden, drawn, edited and written. The
+  refusal applies on the record form renderer (`form.tsx`, every `ObjectForm`
+  layout), the console's `/forms/:name` and `/f/:slug` page, and the wizard's
+  cross-step gate at final submit.
+  
+  - `requiredWhen` / `readonlyWhen` are **unchanged on the client**: the server
+    evaluates both and refuses a faulted one itself (ADR-0137 D2), and the form
+    renderer shows that field-attributed refusal beside the input.
+  - **Accepted residuals:** a `visibleWhen` reading `previous` cannot be
+    evaluated on a CREATE form, so such a form is refused on every submit; and
+    the wizard's cross-step gate binds no `previous` in either mode, so the same
+    rule is refused at the final submit of an EDIT wizard too.
+  - A **blank** field rule (`''`, whitespace, an envelope whose `source` is
+    blank) is a fault, not "no rule" (ADR-0137 D2). A STORED blank `visibleWhen`
+    is refused at submit on the same three paths; a stored blank `requiredWhen` /
+    `readonlyWhen` is the server's to refuse.
+  
+  ⚠️ **Narrowing (`@object-ui/types`): `FormFieldSchema` refuses a blank field
+  rule at parse.** `visibleWhen`, `readonlyWhen` and `requiredWhen` on a form
+  field now refuse a predicate that is blank after trimming, with the spec's own
+  sentence (`EVALUATED_EXPRESSION_SOURCE_REQUIRED`) — ADR-0137 D1, the same
+  refusal `@objectstack/spec` makes on `FieldSchema`. The accepted SHAPE is
+  unchanged (a string or `{ dialect?, source }`, `ExpressionWireSchema`'s own
+  arms): only the blank value is taken out. A blank GATE — `BaseSchema`'s
+  `visible` / `hidden` / `disabled`, a form field's view-level `visibleOn`, an
+  option's `visibleWhen` — still parses and is still read as "no gate".
+  
+  **Added (`@object-ui/core`):** `resolveFieldRuleState` returns `faults` beside
+  its three verdicts — the per-rule fault report the submit paths read, filled
+  from the same evaluation — and its type, `FieldRuleFaults`, is exported.
+  **Added (`@object-ui/i18n`):** the `form.visibleWhenFaulted` key in all ten
+  packs.
+  
+  **Diagnosed, no verdict changed (ADR-0137 D4):** a blank CEL gate reaching
+  `ExpressionEvaluator.evaluateCondition`, and a blank gate folded to "no gate" by
+  `hasDeclaredPredicate`, now each report once through the same `[blank]` channel
+  field-rule faults use. Both verdicts (objectui#3850 / #3960) are unchanged,
+  `throwOnError` included.
+- 0ea7054: Remove 37 runtime dependencies that no file in the declaring package consumes, and gate
+  the direction so the next one cannot land (objectui#8198).
+  
+  `check:phantom-deps` judges imports that are not declared; nothing judged the reverse,
+  so a declaration could outlive its last consumer indefinitely. That is what happened to
+  `recharts` in `@object-ui/components` after objectui#7397 deleted its only importer — it
+  was removed by hand on objectui#7625, and nothing would have reported the next one. The
+  new `pnpm check:unused-deps` asks the reverse question over `dependencies` and
+  `optionalDependencies` of every released package.
+  
+  **Potentially breaking, for consumers relying on hoisting.** Nothing these packages ship
+  changes: their Vite `external` predicates are path-based and never read `dependencies`,
+  so no built artifact moves. What changes is the install graph — a project that imports
+  one of the removed packages while depending only on the ObjectUI package that used to
+  drag it in will no longer resolve it. Declare it directly; that is the correct
+  dependency edge in either case. The removals, by package:
+  
+  - `@object-ui/plugin-designer`: `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `@object-ui/fields`
+  - `@object-ui/plugin-chatbot`: `react-markdown`, `react-syntax-highlighter`, `remark-gfm` (and the orphaned `@types/react-syntax-highlighter`)
+  - `@object-ui/plugin-report`: `@object-ui/plugin-grid`, `clsx`, `react-i18next`, `tailwind-merge`
+  - `@object-ui/plugin-map`: `@objectstack/spec`, `lucide-react`, `zod`
+  - `@object-ui/runner`: `class-variance-authority`, `clsx`, `tailwind-merge`
+  - `@object-ui/core`: `lodash`, `zod`
+  - `@object-ui/layout`: `clsx`, `tailwind-merge`, and `react-dom` — which it pinned at an exact version in `dependencies` while also declaring it as a peer range, i.e. a library hard-depending on the renderer it asks its host to supply
+  - `@object-ui/plugin-dashboard`: `clsx`, `tailwind-merge`, and the same `react-dom` defect
+  - `@object-ui/plugin-ai`: `@object-ui/react`, `clsx`, `tailwind-merge`
+  - `@object-ui/fields`: `clsx`, `tailwind-merge`
+  - `@object-ui/console`: `@object-ui/react-runtime`, `sucrase`
+  - `@object-ui/auth`: `@object-ui/types`
+  - `@object-ui/plugin-calendar`: `@object-ui/fields`
+  - `@object-ui/plugin-editor`, `@object-ui/plugin-markdown`: `@object-ui/react`
+  - `@object-ui/react`: `react-hook-form`
+  
+  Every one was verified by a whole-package grep before removal — the name appeared nowhere
+  under the package but its own manifest and CHANGELOG — and the whole workspace builds,
+  type-checks and tests green afterwards.
+- 9a853f2: Retire the legacy string `sort` clause: one spelling, the array
+  (objectui#8221) — `convertSortToQueryParams` now REFUSES `"name desc"` with a
+  diagnostic naming `[{ field: 'name', order: 'desc' }]`, instead of lowering it.
+  
+  **BREAKING for `@object-ui/core` consumers — scored `minor`, not `major`, per
+  AGENTS.md 版本号策略** (every package is in one fixed group, so a `major` here
+  would carry all 39 off the `@objectstack` major this repo is pinned to). The
+  breaking semantics are stated below rather than encoded in the version.
+  
+  Director ruling, decision batch #77 (2026-09-07), option B. Three faces
+  disagreed about one key: `@object-ui/core` implemented the string clause
+  on purpose (`sort-query.ts`, docblock and all), `content/docs/plugins/plugin-map.mdx`
+  taught it as `sort?: string | SortConfig[]`, and the html tier answered
+  `type-mismatch` for it because all seven `sort` registrations publish
+  `type: 'array'` alone — while `@objectstack/spec` refuses the string outright on
+  `element-record-picker`. Option A (per-block string arms) was rejected by name:
+  it would make one key mean different things on different blocks.
+  
+  **What moves.** `convertSortToQueryParams(sort)` narrows from
+  `string | QuerySortEntry[]` to `QuerySortEntry[]`, and the three declarations
+  that published a string arm narrow with it — `ObjectGridSchema.sort`,
+  `ObjectMapSchema.sort` and `ObjectGanttSchema.sort`, in the TypeScript face AND
+  in the zod mirror, together, because a narrowing that left `z.string()` in the
+  mirror is the declared-vs-enforced split this change exists to close. The local
+  `sort` declarations on `LineItemsPanel`, `ObjectTimeline` and
+  `deriveRelatedLists`'s ListView input narrow the same way.
+  
+  **What a string does now.** Types are erased, so the signature stops a string
+  only at compile time; authored JSON and stored `sys_metadata` rows still reach
+  the sink carrying `"name desc"`. Such a value is REFUSED — the query carries no
+  `$orderby` — and `console.error` names the array form, quotes what arrived and
+  states the consequence, once per spelling. A silent `undefined` was the one
+  outcome the ruling ruled out.
+  
+  **Measured consequences you may see.** A related list that inherited its child
+  object's default list-view sort in the legacy spelling stops inheriting it (the
+  console says so). `@objectstack/spec@17.3.0` still ACCEPTS the string on
+  `ListViewSchema.sort` and on `RecordRelatedListProps.sort`, so such metadata is
+  still spec-legal today; the spec-side pull-back is its own card. Two surfaces
+  are deliberately untouched, because they are a DIFFERENT string dialect that
+  never reaches this sink: `record:related_list`'s `'field'` / `'-field'` form,
+  normalized by `RelatedList.normalizeSortSpec`, and `ListView.parseSortConfig`,
+  which reads the platform view record the spec still blesses.
+  
+  Docs teach the array only: `content/docs/plugins/plugin-map.mdx`,
+  `content/docs/plugins/plugin-view.mdx` and `packages/plugin-view/README.md`.
+- 846cec0: **Breaking behaviour change — `object-tree` now honours only the `data` spelling its published row declares.**
+  
+  Decision batch #83, maintainer verbatim 「8348 以协议为准」: a view block honours the `data` spelling its block's published row declares, and no other. `object-tree` was the one ladder block that ruling could not reach, because no published face declared a `data` row for it, so it honoured ANY truthy `data`. Ruling batch #136 item 3 (Q1-C) had the protocol gain the row, and `ComponentPropsMap['object-tree']` in the installed `@objectstack/spec` declares `data` as the `ViewData` union and `staticData` as an array. The ruling's 「协议没有的能力删」 clause did not fire — the row does declare `data` — so the tree keeps the object form and loses only the bare-array spelling.
+  
+  - `data: { provider: 'value', items: [...] }`, `{ provider: 'object', object }` and `{ provider: 'api', … }` — **unchanged**, still the tree's first record source.
+  - `staticData: [...]` — **unchanged**; the same row declares it, and it is still the second rung.
+  - ⚠️ `data: [...]` (a bare array) — **no longer a record source.** The ladder falls through to `staticData`, then `objectName`: such a tree queries its object instead, or draws `No records` when it names neither. In a development build `SchemaRenderer` says so once, naming the key and the spelling that works; in production it is quiet. This is the same outcome `object-map` and `object-gantt` already give for the same spelling. Stored documents authored that way stop drawing those rows — accepted by the ruling, with no transition window. Move inline rows to `staticData` or to `data: { provider: 'value', items }`.
+  - The `data` **prop** a host hands down (`ListView`'s tree) is untouched.
+  
+  Two carriers had to close for this to be observable. `@object-ui/core`'s `recordSourceDataArmForType` now answers `'view-data'` for all four spellings the tree registers under (`object-tree`, `plugin-tree:object-tree`, `tree`, `view:tree`), so `SchemaRenderer` no longer spreads an authored `data` on a tree node as a React prop (objectui#9571). And `ObjectTree`'s own fetch effect no longer reads `schema.data` beside the host prop — that second reader bypassed the shared ladder, so an arm change alone would have removed nothing end to end.
+  
+  ⚠️ **Dated note, 2026-10-02 — two of the four spellings are retired — objectui#10859.**
+  Later in this same release objectui#10859 batch 8 unregistered the bare `tree` alias, and with it
+  `view:tree`; `recordSourceDataArmForType` answers `'view-data'` for `object-tree` and
+  `plugin-tree:object-tree` only. The rest of this entry is kept as the reading of this change.
+- 91facae: **Breaking behaviour change — a view block now honours only the `data` spelling its published row declares.**
+  
+  Maintainer ruling, decision batch #83 (2026-09-08), verbatim 「8348 以协议为准」: the contract decides. What `os validate` and the save gate refuse under `data`, the renderer refuses too. The shared record-source ladder (`resolveRecordSourceConfig` in `@object-ui/core`) now takes the arm the calling block's row declares, and rung 1 applies only on that arm.
+  
+  ⚠️ **`object-calendar` documents authored against the tolerated spelling stop rendering those rows.** The ladder falls past `data` to `staticData`, then to `objectName` — so such a calendar queries its object instead, or draws nothing when it names neither. This is accepted, with no transition window and no staged deprecation (the standing 2026-08-27 posture).
+  
+  **Per block — what the published row says, and what actually moves:**
+  
+  - **`object-calendar`** — row: `ComponentPropsMap['object-calendar'].data` is `z.array(z.unknown())` ("Pre-fetched records — skips the internal fetch"). A record-source **config object** under `data` — `{ provider: 'value', items }`, `{ provider: 'object', object }`, `{ provider: 'api', … }` — is no longer honoured, and this is a real end-to-end change: that object had exactly one carrier into the block, so an authored calendar written that way now queries its object (or draws nothing) instead of drawing the authored rows. There is no longer an api-provider branch to reach here. An **array** under `data` is unchanged, as are `staticData` and `objectName`.
+  - **`object-grid`** — row: the `ViewData` union, whose own description says "the bare-array shortcut is refused". `getDataConfig`'s `Array.isArray(schema.data)` head is removed, so the array is no longer a record source at the ladder. ⛔ Measured: this is **not** an end-to-end change for a node rendered through `SchemaRenderer`. An authored `data` array also arrives on the **props channel** (`SchemaRenderer` spreads node keys as props; `ObjectGrid`'s `passedData` lifts an array at higher priority), so such a grid still drew its rows when this landed. The removal took the second read, not the last one; objectui#9571 closed the props carrier afterwards.
+  - **`object-map`** — no `ComponentPropsMap` row existed when this landed; the governing row was this repo's own `ObjectMapSchema.data`, `ViewDataSchema.optional()` (the protocol row has since been published, and is the `ViewData` union too). Its array-shorthand head is removed on the same terms, with the same measured caveat at the time: through `SchemaRenderer` the props channel still drew an authored array, until objectui#9571. `data: { provider: 'value', items }` and `staticData` are unchanged.
+  - **`object-gantt`** — no `ComponentPropsMap` row when this landed; the governing row was `ObjectGanttSchema.data`, `ViewDataSchema.optional()` (the protocol row has since been published, and is the `ViewData` union too). A bare array under `data` is no longer a record source. Nothing observable moves: this block never lifted one, the array carried no `provider` and matched no fetch branch, and its renderer forwards no host props.
+  - **`object-tree`** — **unchanged by this change.** When it landed, no published face declared a `data` row for this block: not `ComponentPropsMap`, not `ObjectTreeSchema` (which declares `objectName` required and no `data`), not its registration `inputs`. Neither arm of the ruling reached it, so its rung 1 kept its previous behaviour and the block was reported rather than guessed at. Once the protocol published `ComponentPropsMap['object-tree']`, the tree moved to the `ViewData` arm too — see the separate `object-tree` entry for objectui#8348.
+  
+  The `data` **prop** — the pre-fetched rows a host such as `ObjectView` or `ListView` passes down — is a different carrier and is untouched on every block. That it is also reachable from an authored node key, because `SchemaRenderer` spreads node keys as props, is what limits the grid and map halves above; it is reported on objectui#8348 rather than changed here.
+- b38014e: `record:details`' dedupe and the page H1 now share ONE definition of "this record
+  has a value here" (objectui#8350).
+  
+  The renderer drops from the body grid the one field whose value the page H1 is
+  already showing. objectui#8175 (PR #8349) made the two halves agree on **which
+  field** — the ladder leads with the unified ADR-0079 resolver. They still
+  disagreed on **what counts as a value**.
+  
+  **The user-visible defect.** The header half decides emptiness through
+  `@object-ui/core`'s `recordDisplayValueAt`, which **trims**: a whitespace-only
+  value is empty, so `getRecordDisplayName` walks on to the next rung. The ladder
+  asked its own raw `undefined` / `null` / `''` question, which a whitespace-only
+  value passes. So for a record whose title field held only spaces:
+  
+  - the H1 walked past that field and showed something else — say `Acme
+    Corporation`, resolved one rung further down;
+  - the grid hid the blank field's row anyway, concluding it was the duplicate;
+  - and the row that really did repeat the heading, `Acme Corporation`, stayed.
+  
+  A field disappeared from the grid to deduplicate against a heading that never
+  displayed it. The failure is silent: nothing errors, a row is simply absent.
+  
+  **The change.** The ladder now calls `recordDisplayValueAt` — the very function
+  every value-keyed rung of `getRecordDisplayName` uses — instead of re-spelling
+  the test. `@object-ui/core` exports it for that purpose; it was the module-private
+  `valueAt`, unchanged in behaviour and renamed only to be a defensible public
+  name. One authority, not two implementations that agree today.
+  
+  **Behaviour change, deliberately — this is wider than trimming.** Sharing the
+  definition also imports the two other things it decides, and both bring the grid
+  into line with the heading:
+  
+  - an expanded/embedded reference object is **empty** when its Salesforce-style
+    display chain yields nothing, so a bare `{ id: 'u1' }` lookup payload no longer
+    claims the dedupe (the raw test read any object as a value — and so would a
+    bolted-on `.trim()`, which is why the fix is delegation rather than a trim);
+  - non-strings are stringified, so `0` and `false` remain values, not blanks.
+  
+  In every case the new answer is the one the H1 was already giving.
+  
+  **New export.** `@object-ui/core` gains `recordDisplayValueAt(record, field)`.
+  Additive: nothing imported the private `valueAt`, and `getRecordDisplayName`'s
+  own answers are unchanged.
+- f76f436: `ValueDataSource`'s object-dialect matcher executes the operators the spec declares and
+  refuses the rest, instead of waving every unrecognised one through (objectui#8447).
+  
+  **Breaking, deliberately — this MOVES RESULTS.** `matchesFilter` ended its operator
+  switch with `default: break`, which adds no constraint, so an unrecognised operator
+  matched **every** row, silently. The asymmetry sat inside one `if` in `find()`: an
+  array `$filter` goes to `matchesASTFilter`, which refuses an unknown node, excludes the
+  row and logs it; an object `$filter` went to `matchesFilter`, which admitted it and
+  included the row. Same file, opposite defaults, and nothing told an author which dialect
+  their filter took.
+  
+  **Now executed** — one arm per member of the spec's `FILTER_OPERATORS`, **all sixteen**,
+  each answering the same question its AST twin already answered: `$eq`, `$ne`, `$gt`,
+  `$gte`, `$lt`, `$lte`, `$in`, `$nin`, `$between`, `$contains`, `$icontains`,
+  `$notContains`, `$startsWith`, `$endsWith`, `$null`, `$exists`. Eight of those were
+  already implemented; the other eight selected every row. `$eq` is the sharpest of them:
+  `{ age: { $eq: 26 } }` selected everything while the plain `{ age: 26 }` beside it was
+  correct all along. `$exists` is the exact inverse of `$null` — `$exists: true` is
+  IS NOT NULL — which is the lowering `convertFiltersToAST` already performs, not a
+  reading invented here.
+  
+  **The closed vocabulary matters more than any one arm.** Because nothing the spec
+  declares is refused by name, the parity guard in the companion test can assert that the
+  case table equals `FILTER_OPERATORS` *exactly* — so a future spec release that adds a
+  `$` operator turns this file red instead of letting the new spelling reach the refusal
+  arm unannounced. An operator parked on a refused list would have been a hole that guard
+  could not see into.
+  
+  **Now refused** — excluded and logged once per distinct refusal per `find()`, in
+  `matchesASTFilter`'s own idiom. Everything here is OUTSIDE the declared vocabulary:
+  
+  - `$like` / `$ilike`, declared by `StringOperatorSchema` but deliberately staged out of
+    `FILTER_OPERATORS`; this matcher has no pattern engine.
+  - `$regex` / `$options`, retired from the protocol — the refusal prints the spec's own
+    `RETIRED_FILTER_OPERATORS` prescription verbatim, the way the driver-side refusal
+    sites do.
+  - Lowercase aliases (`$startswith`, `$notcontains`, `$notin`) and the off-spec
+    `$ncontains`: the canonical `$` spellings are camelCase, and growing alias arms in the
+    renderer would fossilise a second dialect.
+  - A nested relation constraint (`{ profile: { verified: true } }`), refused by the key
+    it could not read; this matcher does not descend into relations.
+  - `$and` / `$or` / `$not`, which are combinators rather than field operators. `$and` and
+    `$or` carry an array and were already excluding every row through the equality branch,
+    silently — those rows do not move, only the silence does. `$not` carries an object, so
+    it entered the operator branch, its inner field names were read as operator names and
+    each hit `default: break`: it matched **every** row, and now matches none. Executing a
+    group in this dialect is a feature with its own semantics to settle and is not part of
+    this repair; the AST array `$filter`, which the sibling arm of `find()` already
+    executes, is the door that works today.
+  
+  **Migration.** A filter that used any of the eight newly-executed operators was
+  returning unfiltered data; it now returns the rows it names. A filter using a refused
+  spelling now returns nothing and says why on the console — rewrite it in the canonical
+  spelling the refusal prints, or express it as an AST array `$filter`.
+- abc1b18: Add `isEmptyValue` to `@object-ui/core` — the weakest common claim about "is
+  this value empty": `null`, `undefined`, the empty string, the empty array, and
+  never a fifth member (objectui#8496, director seat, decision batch #86).
+  
+  Five surfaces had each grown their own copy of those four members, and
+  objectui#8481 was the third rediscovery of the same hole. They now call the
+  shared floor and state their own answer against it: `record:details`'
+  `hasCellValue` and `RelatedList` extend it with a trim, `BooleanCellRenderer`
+  with every non-boolean, the date cells with every falsy scalar; `JsonCellRenderer`
+  declines its `[]` member out loud (the array literal is drawn on purpose) and
+  `FileCellRenderer` states "0 files" instead.
+  
+  Two visible fixes come with it: a gallery card and a kanban card holding an
+  empty array in a card field now OMIT that field, as they already did for `null`,
+  instead of drawing a labelled "No value" em-dash for it.
+- 4d65991: `convertFiltersToAST` follows `@objectstack/spec`'s `$`-dialect spellings and nothing
+  else: the four lowercase aliases `$notin`, `$notcontains`, `$startswith` and `$endswith`
+  are retired from `convertOperatorToAST`'s `operatorMap` (objectui#8568).
+  
+  **BREAKING for anyone spelling those four in lowercase, and there is no deprecation
+  window.** A filter that carries one used to lower silently — `{ email: { $startswith:
+  'a' } }` became `['email', 'startswith', 'a']` — and now throws a `FilterOperatorError`
+  (`code: 'INVALID_FILTER'`, `httpStatus: 400`) at the call site. This repo forbids a
+  `major`, so the break ships as a `minor` and is spelled out here instead. The repair is
+  a key rename: `$notin` to `$nin`, `$notcontains` to `$notContains`, `$startswith` to
+  `$startsWith`, `$endswith` to `$endsWith`. The operator itself is unchanged, the lowered
+  node is unchanged, and no result set moves for a filter that was already spelled
+  canonically.
+  
+  **Why the tolerance had to go.** `ValueDataSource` refuses these same four by design —
+  objectui#8447 declined to grow alias arms there because they "would fossilise a second
+  dialect" — so one authored filter had two fates depending on which data source was
+  behind the view: rows through the ObjectStack adapter, nothing through the in-memory
+  matcher. One dialect with two acceptance sets is the second de-facto contract AGENTS.md
+  commandment 0.1 exists to refuse, and the decision had only ever reached one of the two
+  files. `ValueDataSource` is untouched by this change; the converter is the side that
+  moved.
+  
+  **The refusal names the canonical spelling for the alias you wrote** rather than
+  printing the generic "unknown operator, here are the supported ones". With no
+  deprecation window that message is the whole migration aid, so it is pinned as a
+  property, not left as a nicety.
+  
+  **Measured before landing, and it bounds the blast radius from the inside.** The in-repo
+  authored corpus (examples, docs, apps, e2e, fixtures) carries **zero** occurrences of the
+  four aliases in operator-key position — every tree-wide hit is the map that defined them
+  or something pointing at it — so no in-repo caller had to be repaired. That zero is
+  consumer-local, not seam-wide (objectui#6839): stored view / list / sharing-rule
+  criteria, producer-side metadata and published consumers of `@object-ui/core` are all
+  invisible from here. What is measurable about that population is that it is already half
+  broken: `kvToCondition`, the reader that loads stored `$`-criteria back into the filter
+  builder, has arms for fifteen spellings and none of these four, so a stored lowercase
+  criterion already failed to round-trip and dropped the admin into the raw-JSON editor.
+  
+  `packages/data-objectstack/README.md`'s operator tables follow the implementation, as
+  does the reconciliation test that holds them to it.
+- 0a174f3: fix(plugin-dashboard,core,plugin-charts): route a structured `aggregate.groupBy` on `object-metric` to the spec-shape wire
+  
+  An authored `aggregate.groupBy` is a union — a bare field name, or the
+  structured date-bucketing node `{ field, dateGranularity?, alias? }` — and the
+  two need different queries. The spec-shape
+  `{ groupBy: GroupByNode[], aggregations, where }` reaches `engine.aggregate` and
+  runs the server-side date-bucket engine; the legacy
+  `{ field, function, groupBy, filter }` query reaches the cube/analytics wire,
+  whose `dimensions` the contract declares as an array of dimension NAMES and
+  which does not honour `dateGranularity` at all.
+  
+  `ObjectChart.runAggregate` has routed between the two since objectui#7946.
+  `ObjectMetricWidget.computeOne` had no such branch: it forwarded the authored
+  value straight through, so a metric widget carrying a structured node posted
+  `dimensions: [{ field: 'closed_at', dateGranularity: 'month' }]` — an object
+  where a name is declared. Nothing refused it and nothing reported it, so the
+  author asked for one question and the platform answered another (objectui#8613).
+  
+  - The routing test and the payload are now one function,
+    `objectAggregateSpecQuery` (with `isStructuredGroupBy`) in `@object-ui/core`.
+    `ObjectChart.runAggregate` and `ObjectMetricWidget.computeOne` both call it,
+    so the two renderers cannot post different wires for one authored shape. The
+    measure alias is `chartMeasureKey`'s answer, i.e. what the chart's own
+    `aggregateValueKey` already delegated to — the chart's posted payload is
+    unchanged.
+  - `ObjectMetricWidgetProps.aggregate.groupBy` said `string`. That was a claim
+    about the author which nothing upstream backed: the value crosses two `any`
+    seams on the way in, so the declaration refused the node at neither compile
+    time nor runtime. It is now the contract's union, taken by reference through
+    `ObjectChartSchema['aggregate']`.
+  
+  Unchanged, and pinned as controls: a plain string `groupBy` and an absent one
+  (floored at the single `'_all'` bucket) still take the legacy query byte for
+  byte, and an ARRAY `groupBy` still travels there too — it is not this union's
+  object arm, and it must keep reaching the producer-side refusal `503cd8b89`
+  landed in the adapter.
+- 561abef: Refuse an empty or non-string `$icontains` / `icontains` comparand in `ValueDataSource`,
+  and stop `FilterConditionField` emitting the shape (objectui#8748).
+  
+  **This moves the accept set of a published adapter**, in both filter dialects, which is
+  why the two halves ship together.
+  
+  Measured before the change, over `@objectstack/spec`'s own `FILTER_TEXT_ROWS`:
+  `{ name: { $icontains: '' } }` and `['name', 'icontains', '']` each returned **all nine
+  rows with not one console line** — every value contains the empty substring, so the arm
+  ran and constrained nothing. `{ name: { $icontains: 42 } }` was evaluated after a
+  `String(42)` coercion nobody wrote. `FILTER_TEXT_CASES` (`@objectstack/spec/data`)
+  carries both shapes as REJECTION rows (`code: 'INVALID_FILTER'`,
+  `mustMention: ['$icontains']`), so this face was answering a published table's rows the
+  wrong way, in the same widening class objectui#7349 and objectui#8447 already fixed here.
+  
+  **`@object-ui/core`.** The `icontains` and `$icontains` arms now check the comparand
+  before folding: anything that is not a NON-EMPTY STRING excludes the row and drains one
+  console refusal naming the operator and the field. That is this face's declared refusal
+  shape (objectui#7349) — the row is excluded and logged, **not** thrown; the throwing
+  envelope is the wire-side `@object-ui/data-objectstack`'s, whose job is deciding whether
+  to send a query at all. The sibling positive operators (`$contains` / `$startsWith` /
+  `$endsWith`) are deliberately **not** widened by analogy: the published table declares
+  the refusal for `$icontains` and for no other operator, and that asymmetry is pinned.
+  
+  **`@object-ui/fields`.** `condToMongo` now drops a text-operator condition whose
+  comparand is empty (`contains`, `containsCaseInsensitive`, `notContains`, `startsWith`,
+  `endsWith`; `undefined` / `null` / `''`) instead of emitting it verbatim. This half is
+  what makes the refusal safe rather than a regression: a builder row with the operator
+  chosen and the value box still empty authored exactly the refused shape, so refusing it
+  in the matcher alone would have flipped that list from "every row" to "no rows" — the one
+  outcome `ValueDataSource`'s own `$exists` arm names as worse than the bug. The
+  value-less operators (`isNull` / `exists` / `isEmpty` and their negations) read no
+  comparand and are untouched, as is `equals ''`, which is a real predicate.
+  
+  **Migration.** An author who wrote an empty or numeric `$icontains` comparand was getting
+  either every row or a coerced answer; they now get no rows and a console line naming the
+  operator. Write a non-empty string comparand, or drop the condition.
+  
+  The producer half moves **stored criteria** as well, for the four sibling operators it
+  covers: a builder row left on `contains ''` / `startsWith ''` / `endsWith ''` used to
+  store `{ field: { $contains: '' } }` and friends — which the server evaluates as "the
+  value is a string" — and `notContains ''` stored its complement, "the value is not a
+  string". All four now store no fragment at all, so a rule whose only row was one of them
+  saves as empty criteria and is refused on save (objectstack#3896) instead of quietly
+  sharing by storage class. Rules already stored keep their fragment and keep evaluating as
+  they did; only what the builder WRITES from now on changes.
+  
+  ⚠️ The builder ROW is unaffected by the drop: it is held as local state and stays on
+  screen with its value box empty, so the five text operators stay reachable — the criteria
+  is what the rows emit, not what they are.
+  
+  Superseded in this release by objectui#9306, for the `@object-ui/fields` half:
+  the builder's operator ids are now the protocol's canonical spellings, so the
+  text operators `condToMongo` drops on an empty comparand are `contains`,
+  `icontains`, `not_contains`, `starts_with` and `ends_with` (the case-insensitive
+  contains is `icontains` now, and no longer opt-in), and the value-less operators
+  it leaves untouched are `is_null` / `exists` / `is_empty` and their negations
+  `is_not_null` / `notExists` / `is_not_empty`. The drop itself, `equals ''`, and
+  every emitted `$`-token (`$contains`, `$icontains`, `$notContains`,
+  `$startsWith`, `$endsWith`) are unchanged — objectui#9306's census measured the
+  same stored predicate for all 22 former ids and the ids they became.
+- abf710d: Lower the TRUE-identity filter combinators to "no constraint" instead of handing the
+  caller's own object back (objectui#8770).
+  
+  `convertFiltersToAST({ $and: [] })`, `{ $or: [{}] }` and `{ $and: [{}] }` returned the
+  INPUT OBJECT unchanged. `lowerLogicalGroup` correctly answers `undefined` for a group
+  that reduces to the TRUE identity — objectstack#5322 rules all three "every row", and a
+  childless `['and']` would be `isFilterAST` FALSE — but when such a group was the only
+  thing in the filter, that `undefined` fell through to the general tail
+  (`if (conditions.length === 0) return filter`) and the group reappeared one level up, in
+  the `$` dialect, in the slot the AST occupies. The same function already lowered the
+  fourth identity, `{ $or: [] }`, correctly, so this was an internal inconsistency rather
+  than an open question; the consumer half was settled by objectui#8513.
+  
+  **This widens what those three filters return, and that is the point.** Measured against
+  `@objectstack/spec` 17.4.0 and `@objectstack/client` 17.4.0 before the change: the
+  returned object is not sent as a filter and refused — `client.data.find()` tests the
+  value with `isFilterAST` and its else branch spreads a plain object's entries as query
+  parameters, so `{ $and: [] }` left as `?$and=` with **no `filter` parameter at all**, and
+  the server answered `400 UNSUPPORTED_QUERY_PARAM` for the unknown `$`-prefixed
+  parameter. A filter whose ruled answer is EVERY ROW was a **failed list**, not a narrowed
+  one — so nothing could have been relying on it to scope data. On the sibling
+  `$expand` / `$search` route the same object travelled as `filter={"$and":[]}`, which the
+  server accepts as a `FilterCondition` and already answers with every row; the two routes
+  disagreed about one filter and now agree.
+  
+  **`@object-ui/core`.** `convertFiltersToAST`'s declared return type gains `undefined`,
+  which is what `toFilterNode`, `mergeFilterNodes` and `data-objectstack`'s
+  `translateFilterToAST` already mean by "no filter, skip the slot". Every call site
+  already acted on it. The fold is scoped to a filter whose EVERY key is such a group:
+  the same tail also serves `{}`, an all-null filter and an empty operator map, and those
+  keep the object they always returned — a null-valued key is this converter's own
+  tolerance rather than a ruled identity, and the object it hands back reaches the server
+  as a REAL `a IS NULL` predicate on the `$expand` route, so folding it in would return
+  more rows on a path the ruling said nothing about.
+  
+  `{ $or: [] }` is untouched: FALSE is not "no constraint", the AST has no contradiction
+  literal, and its `['$or', '=', []]` leaf answers FALSE at both consumers.
+  
+  **`@object-ui/data-objectstack`.** `convertQueryParams` skips the `filters` slot when the
+  lowering answers `undefined`, the same answer the raw-GET route's
+  `if (translated !== undefined)` already gave, so the two `find()` routes cannot disagree
+  about one filter.
+  
+  **Migration.** A TypeScript caller that stored `convertFiltersToAST(...)` in a
+  `FilterNode | Record<string, any>` slot must widen it with `| undefined` and skip the
+  filter when it is absent — the same handling `toFilterNode` has always needed. At
+  runtime, a filter that is nothing but TRUE-identity combinators now returns every row
+  (what objectstack#5322 rules) instead of failing the request.
+  
+  ⚠️ **Dated note, 2026-09-27 — an empty operator map no longer keeps the object — objectui#9164.**
+  Later in this same release `convertFiltersToAST` refuses an empty operator map that is all
+  a filter says (`{ a: {} }`, `{ a: {}, b: undefined }`, `{ $and: [], a: {} }`) with a
+  `FilterOperatorError` instead of returning the object, so the sentence above that it
+  "keeps the object" no longer holds for it; an all-null filter had already moved to
+  `undefined` with objectui#9020. Only `{}` still comes back as itself. The rest of this
+  entry is kept as the reading of this change; the objectui#9164 entry states what an empty
+  operator map now answers.
+- 84defab: The ingestion choke point says out loud when it CANNOT fold a retired spelling
+  (objectui#8938)
+  
+  Maintainer ruling item 3 on objectui#7650 asked the retired-dialect fold for "a loud
+  diagnostic (not a silent drop) for a spelling the choke point cannot fold". What shipped
+  warned about the spelling it CAN fold and said nothing about the three it cannot, which is
+  the half that matters to a reader: a key that folds reaches every consumer, and a key that
+  does not reaches none of them — the retirement cards in this family (objectui#7155, #7166,
+  #7435) narrowed those consumers to the canonical spelling.
+  
+  `normalizeSchemaReferenceKeys` now names all three refusals, in dev only and memoised per
+  (object, field, spelling, reason), the discipline the two existing warnings already use:
+  
+  - **no declared twin** — `FieldSchema` declares neither the key nor anything sharing its
+    alias spelling, so there is nothing to fold onto (`id_field`, `title_format`, and a typo
+    such as `sortible`). The message ⛔ never offers a near match: the refused alternative
+    was the spec's `lintAuthoredRecordKeys`, whose Levenshtein fall-through answers "did you
+    mean `sortable`?" for that input, and a serve path that suggests a correction is one
+    revision away from applying it.
+  - **ambiguous probe** — two or more declared keys share the alias spelling, so the fold
+    refuses to choose. Unreachable against a spec with no collision; the pin that exercises
+    it substitutes a colliding `FieldSchema`.
+  - **occupied canonical** — the declared twin is on the def carrying a **different** value.
+    The producer's value stands (this choke point never overwrites one) and the retired value
+    is inert. Same value under both spellings is deliberately silent: that is the state the
+    pass leaves behind on its own second run, and the adapter re-serves a cached schema.
+  
+  **Nothing about which keys fold changes.** The diagnostic fires only on the paths that
+  already left the key alone, the leave arm stays lossless, and it is a no-op under
+  `NODE_ENV=production`. Whether the fold's full width — lock and gate keys included — is
+  the intended accept set is an open decision on objectui#7650, untouched here.
+  
+  Landed with the width pin objectui#8938 asked for, which drives every snake twin the
+  linked `@objectstack/spec` implies through the public choke point, and with the correction
+  to the objectui#7650 changeset that presented a handful of keys as the accepted set.
+  
+  **Correction, 2026-09-30 (objectui#7650).** Two sentences above claim more than holds. "A key
+  that does not reaches none of them" is true only of the consumers narrowed to the canonical
+  spelling: some reads of a retired spelling were kept on purpose, so a value the choke point
+  leaves alone can still reach a reader — `resolveActionParam` in `@object-ui/app-shell` reads
+  `id_field` and `title_format` (kept by objectui#7435), and `resolveGroupByLabels` in
+  `@object-ui/plugin-charts` reads `id_field`. Likewise, "the retired value is inert" holds only
+  for consumers of the declared spelling (`deriveColumns` in `@object-ui/plugin-form` reads
+  `display_field`). The diagnostic line now claims only what holds for every refusal: a consumer
+  that reads only the spellings `FieldSchema` declares will not see the value. No read changes,
+  and nothing about which keys fold changes.
+- 681d3f1: Compose an `ObjectChart` drill-down filter instead of spreading it, so the widget's own
+  filter survives into the drilled query for BOTH arms of `ObjectChartSchema.filter`
+  (objectui#8944).
+  
+  **The defect.** `ObjectChartSchema.filter` admits a spec `FilterArray`
+  (`[['region','=','emea']]`) and the ObjectQL `$filter` object (`{ region: 'emea' }`),
+  and both are read — both travel verbatim to `ds.aggregate` / `ds.find`. The drill seam
+  composed them by spreading the widget's filter into an object literal, which is correct
+  for the object arm and silent nonsense for the array arm: spreading an array yields
+  index keys, so an authored `FilterArray` drilled as
+  `{ '0': ['region','=','emea'], stage: 'won' }` — the widget's conditions replaced by a
+  key the query layer ignores. Nothing errored; the drawer opened and looked right.
+  
+  **Direction of the failure.** The widget's filter is what narrows. Dropping it made the
+  drilled list a **superset** — it showed records the chart itself was scoped to exclude.
+  Not a security boundary, but the worse direction for a silent bug.
+  
+  **The composition rule, named rather than picked.** `widget.filter ∧ drill.filter`. The
+  two are independent filter sources and a drill must satisfy both: the click context only
+  says which bucket of the widget's scope was asked for, so it may narrow that scope and
+  never widen it. This is not a new rule — it is the contract `mergeFilterNodes` already
+  states ("combine filter sources under a single `and`, each as its OWN child"), the sink
+  every other multi-source filter in this repo goes through. A new
+  `composeDrillFilter` helper in `@object-ui/core` applies it at the drill seam and
+  documents it, then lowers the result back to the `FilterCondition` object dialect with
+  `parseFilterAST` — the spec's single lowering sink — because that is the dialect both
+  drill sinks take.
+  
+  **Compatibility.** A lone surviving source lowers back to exactly the flat object the
+  spread produced, so a chart with no filter of its own drills byte-identically to before.
+  Only a genuinely composed pair gains the `$and`.
+  
+  `serializeDrillFilterParams` (the drill "Open in list" / `target: 'navigate'` URL writer)
+  learns to flatten that `$and` into the flat `filter[...]` params its own read side already
+  ANDs back together. Without that it took the `String(value)` path — `$and` holds an array —
+  and emitted `filter[$and]=[object Object],[object Object]` while both real conditions
+  vanished, which is the outcome that function's contract says it never produces.
+- f3bc481: `object-grid` normalizes its `sort` before joining it into `$orderby` (objectui#8973).
+  
+  **The defect.** `ObjectGrid` lowers `schema.sort` with private code rather than the
+  shared sink, and its array arm interpolated every key unconditionally:
+  
+  ```js
+  params.$orderby = schemaSort.map((s) => `${s.field} ${s.order}`).join(', ');
+  ```
+  
+  So an entry missing `field` or `order` reached the wire as the literal text
+  `undefined`. The legacy `defaultSort` arm one `else` down had the identical defect on a
+  single object, and was fixed with it at this change — leaving it would have kept the class
+  open inside the same `if`/`else` chain.
+  
+  ⚠️ **Dated note, 2026-09-25 — that legacy arm has since been retired — objectui#5861.**
+  Later in this same release `ObjectGrid` stopped reading `defaultSort` at all (an ADR-0049
+  retirement tombstone), so the chain has two arms, header sort and `sort`. Everything else
+  in this entry, including the table below, concerns `sort` and still holds.
+  
+  This is a wire failure, not a cosmetic one. `normalizeSortNodes` — the one normalizer
+  every `@objectstack` server ingress funnels through — validates the direction token, so
+  `$orderby: 'name undefined'` is answered `400 INVALID_QUERY`, while `'undefined desc'`
+  becomes a well-formed sort on a column literally named `undefined`.
+  
+  **What changes on the wire.** Only inputs that were already broken:
+  
+  | authored `sort` | before | after |
+  | --- | --- | --- |
+  | `[{ field: 'name', order: 'desc' }]` | `"name desc"` | `"name desc"` (unchanged) |
+  | `[{ field: 'name' }]` | `"name undefined"` | `"name asc"` |
+  | `[{ field: 'name', order: 'desc' }, { field: 'status' }]` | `"name desc, status undefined"` | `"name desc, status asc"` |
+  | `[]` | `""` | key omitted |
+  | `['name desc']` | `"undefined undefined"` | key omitted |
+  | `[{ order: 'desc' }]` | `"undefined desc"` | key omitted |
+  
+  **The wire SHAPE does not move.** The `"field order"` join string stays. Routing this
+  arm through `convertSortToQueryParams` would send that sink's `{field: direction}` map
+  instead — route B on objectui#8767, which the maintainer declined by name on 2026-09-10
+  pending a card that measures the server contract and both readers.
+  
+  **New in `@object-ui/core`:** `normalizeSortEntries` (and its `NormalizedSortEntry`
+  type) — the "which entries survive, and what does a missing `order` mean" decision,
+  lifted out of `convertSortToQueryParams`, which is now a map projection of it. This is
+  what lets a block sending a different wire shape share the one implementation of the
+  rule instead of keeping a private copy that drifts. `convertSortToQueryParams`'s own
+  behaviour is unchanged and pinned against literals captured from the previous
+  implementation.
+  
+  **Two false docblock sentences corrected** (`@object-ui/types`' `ObjectGridSchema.sort`
+  and this sink's own header). Both read "`order` is optional and means `'asc'`" — the
+  first sitting two lines above a declaration that requires it. `SortConfig.order` is
+  required on the interface, on the zod mirror, and on `@objectstack/spec`'s
+  `SortItemSchema`, which refuses an entry without it. An author following that
+  prescription wrote metadata the spec rejects. objectui#8767's contract review routed
+  both sentences to this card by name; comments only, no behaviour.
+- b79aac2: `convertFiltersToAST` accepts `$icontains`, the canonical case-insensitive `contains`
+  the rest of the stack already spoke (objectui#8976).
+  
+  `$icontains` is a member of `@objectstack/spec`'s `FILTER_OPERATORS`, `ValueDataSource`
+  executes it, `FilterConditionField` emits it for its "contains (ignore case)" builder
+  row, and `packages/core/src/adapters/README.md` prescribes it as the repair when
+  `$like` / `$ilike` / `$regex` are refused. `convertOperatorToAST` had no row for it, so
+  the ObjectStack lowering path answered a `FilterOperatorError` (`code:
+  'INVALID_FILTER'`, `httpStatus: 400`) with the generic unknown-operator paragraph — the
+  one spelling this repo tells an author to write was the one spelling it rejected. An
+  admin who picked "contains (ignore case)" in the filter builder authored criteria that
+  the in-memory matcher honoured and the ObjectStack data source refused.
+  
+  `{ name: { $icontains: 'john' } }` now lowers to `['name', 'icontains', 'john']`. The
+  value is an identity because `icontains` is itself a member of the spec's
+  `VALID_AST_OPERATORS`: unlike `$startsWith` → `startswith` there is no case to squash,
+  and the spelling the author writes is the spelling the AST carries. No existing filter
+  changes shape — this is a refusal becoming an acceptance, so nothing that lowered
+  before lowers differently now.
+  
+  Two smaller repairs ride along, both consequences of the same gap. The
+  unknown-operator message now enumerates `$icontains` among the supported operators, and
+  the `$regex` refusal now prescribes it by name for a case-insensitive substring —
+  `@objectstack/spec`'s own `FILTER_TEXT_CASES` requires that refusal to mention
+  `$icontains`, and it could not while the converter did not accept it.
+  
+  This is the opposite leg of objectui#8568, which retired four lowercase aliases the
+  converter accepted and the matcher refused. There the converter was more tolerant than
+  the contract; here it was less tolerant than it. The two needed different fixes: a
+  single "make the two sides agree" change would have widened the matcher instead.
+- 19a0b0e: `convertFiltersToAST` refuses the two `$icontains` comparand shapes the contract
+  declares refused, instead of lowering them onto the wire (objectui#9001).
+  
+  `@objectstack/spec`'s `FILTER_TEXT_CASES` carries an empty `$icontains` comparand and a
+  non-string one as REJECTION rows, each with `code: 'INVALID_FILTER'` and
+  `mustMention: ['$icontains']`. `ValueDataSource` has answered both since objectui#8748
+  (`refuseTextComparand`); this converter answered neither. Measured with both faces in
+  one process, `{ name: { $icontains: '' } }` and `{ name: { $icontains: 42 } }` were
+  refused by the in-memory matcher and lowered to `['name', 'icontains', '']` /
+  `['name', 'icontains', 42]` by the ObjectStack path — one authored filter with two
+  fates, decided by which data source happened to be behind the view. That is the
+  acceptance-set split objectui#8568 and objectui#8976 each closed on the operator-KEY
+  axis, here on the COMPARAND axis.
+  
+  Both shapes now raise the `FilterOperatorError` this file already uses for `$regex`,
+  `$not`, the retired aliases and three other comparand shapes — `code: 'INVALID_FILTER'`,
+  `httpStatus: 400`, which `classifyLoadError` renders as "this filter is malformed"
+  rather than as a network fault. The refusal is a PORT of `refuseTextComparand`, not a
+  second design: the discrimination and the message text are the sibling's, because
+  `mustMention` makes the wording part of the contract rather than a stylistic choice, and
+  a test drives both faces and pins the converter's message to contain the matcher's
+  refusal verbatim so the mirror cannot drift in silence. What deliberately does not
+  transfer is the DELIVERY: the matcher excludes-and-logs because it is deciding about one
+  row, while this function is the producer deciding whether to send a query at all and has
+  no row to exclude.
+  
+  **This narrows what the converter accepts, and that is the point.** A caller that hands
+  it `{ field: { $icontains: '' } }` gets a refusal where it used to get a lowered node.
+  Nothing was relying on the old answer to select rows: the empty comparand is a predicate
+  that constrains nothing, so the node either widened a list to every row or — for the
+  non-string comparand — asked the backend a question nobody wrote after a coercion nobody
+  requested. `@object-ui/data-objectstack`'s `translateFilterToAST` delegates its object
+  branch to this function, so its `$`-dialect route inherits the refusal without a source
+  change of its own.
+  
+  **Migration.** A producer that can emit an operator row with an empty value box must drop
+  the condition rather than send it — the same repair the refusal message prescribes.
+  `FilterConditionField` already does this (objectui#8748 shipped the producer half). The
+  sibling positive operators `$contains` / `$startsWith` / `$endsWith` are untouched: the
+  table declares no such row for them, and widening by analogy is the published table's
+  decision, not this converter's.
+- 804831c: A render-time filter refusal now renders a named "this view's filter is malformed" state instead of throwing out of render (objectui#9050).
+  
+  `convertFiltersToAST` refuses eleven authored shapes with a `FilterOperatorError`, and
+  `toFilterNode` delegates to it from four call sites that are not on the wire path:
+  `RelatedList`, `LineItemsPanel` and `ObjectGrid` read it from a render-time `useMemo`
+  (where a throw is a render error, with no `classifyLoadError` to turn it into "the
+  filter is malformed"), and `ObjectGrid`'s deprecated `defaultFilters` leg reads it
+  inside the load effect, which caught the refusal but reported it under "Error loading
+  grid" over the converter's English paragraph.
+  
+  What changes:
+  
+  - `@object-ui/core` gains `toFilterNodeSafely`, whose result is a UNION — `{ ok: true,
+    node }` or `{ ok: false, refusal }`. The refusal is deliberately NOT representable as
+    `undefined`: `undefined` means "no filter", i.e. every row, which is the silently
+    unconstrained query objectui#9001 closed. A caller must narrow before it can build a
+    query.
+  - `FilterOperatorError` now carries `operator` and `field` as data, and
+    `filterRefusalSubject` picks the token a diagnostic names. The eleven messages
+    deliberately share no idiom, so recovering that token by pattern would be a twelfth
+    dialect. `operator` is the spelling the AUTHOR wrote, never a canonical form
+    substituted for it; it is absent on exactly the two arms that judge a comparand
+    written with no operator in it, where `field` is the only handle.
+  - The three render-time readers keep the refusal as a value, send nothing, and render a
+    state that names the operator. The subtree around them is unaffected — on the
+    schema-rendered path a `SchemaErrorBoundary` already contained the throw, so what is
+    new there is the DIAGNOSIS in place of a generic "Component failed to render"; mounted
+    directly, which every one of these components supports through its package entry,
+    there was no boundary at all and the throw reached the host.
+  - `view.malformedFilter` is added to all ten locale packs and to the three affected
+    `createSafeTranslation` tables.
+  
+  ⛔ Not changed: which shapes convert. The converter's accept set is byte-identical —
+  this is a delivery change, not an acceptance one. Where the protocol's own parse accepts
+  an input this layer refuses, that gap is the protocol's to close and is filed against
+  `@objectstack/spec` rather than papered over here.
+  
+  ⚠️ **Dated note, 2026-09-27 — one more refusal carries no operator — objectui#9164.**
+  Later in this same release `convertFiltersToAST` also refuses an empty operator map that
+  is all a filter says (`{ a: {} }`). Its `FilterOperatorError` carries `field` and no
+  `operator`, like the two comparand arms, so `filterRefusalSubject` names the field and
+  the three render-time readers show the malformed-filter state for it. The counts above
+  (eleven shapes, two arms without an operator) are this change's reading. The rest of this
+  entry is kept as the reading of this change; the objectui#9164 entry states the new
+  refusal.
+- 835f0f3: Conjoin the widget filter into a dataset drill instead of SPREADING it
+  (objectui#9137) — the third and last site of the mis-composition objectui#8944
+  removed from `ObjectChart` and objectui#9024 removed from `ObjectPivotTable`.
+  
+  `buildDatasetDrillFilter` ended in `{ ...runtimeFilter, ...drillFilter }`.
+  Spreading is correct only for the object-dialect arm, and this site's declared
+  producer sends the other one: `DashboardWidgetSchema.filter` says so in as many
+  words — "objectui passes an ObjectQL FilterNode array here, not the spec's
+  `FilterCondition` envelope" — and `DatasetWidget`'s guard admits an array
+  (`typeof [] === 'object'` is true and `Object.keys(['x']).length` is 1). So the
+  arm the type's own docblock names as the one objectui sends reached the spread,
+  where `[['region','=','emea']]` became the index key `{ '0': [...] }`.
+  
+  **Breaking, deliberately** — the level is `minor` because every package in this
+  repo sits in one `fixed` group and `major` would drag the whole group off the
+  `@objectstack` major it tracks. What changes for a caller: when a widget filter
+  IS present, the composed drill filter is now `{ $and: [<widget>, <drill>] }`
+  rather than one flat object, and a field named by BOTH sources now applies both
+  conditions instead of letting the clicked bucket overwrite the widget's. That is
+  the repair — a drill may narrow the widget's scope and may never widen it. The
+  result is produced by `composeDrillFilter`, the seam objectui#8944 added, which
+  routes both arms through this repo's single filter confluence `mergeFilterNodes`
+  and lowers the answer back to the object dialect; no local composition is
+  derived here. The `runtimeFilter` parameter widens from
+  `Record<string, unknown>` to `unknown` so the arm the declaration names is
+  admitted without a cast — a widening, so no call site has to change, and
+  neither consumer's own type was touched.
+  
+  **Unchanged on purpose.** With no widget filter there is nothing to conjoin, so
+  that leg still returns the drill filter verbatim, byte for byte. Routing it
+  through the sink anyway was measured and rejected: a lone source of two or more
+  conditions also lowers to `$and`, which would have re-shaped every
+  multi-condition dataset drill — including paths pinned by objectui#9085,
+  objectui#4056, objectstack#5473 and #1752 — for no change in the rows selected
+  or the `filter[...]` params emitted.
+  
+  ⚠️ **Dated note, 2026-09-29 — the last pinned path in the list above is objectstack's — objectui#11016.** The list of
+  pinned paths above ends with a bare number after objectstack#5473, which in this
+  repository resolves to an unrelated objectui pull request. It is
+  objectstack-ai/objectstack#1752, the card that made a time-bucketed date dimension
+  drill by range rather than by equality. The text above is kept as the reading of this change.
+  
+  **The failure direction, corrected by measurement.** This was filed and graded
+  as a silent fail-OPEN superset, on the premise that an index key is one "nothing
+  reads as a condition". It is not: a bare array is not a legal equality comparand
+  in this dialect (objectui#8530 / objectui#8514), so `convertFiltersToAST`
+  THROWS, the in-memory matcher selects nothing, and `driver-sql` answers
+  `400 INVALID_FILTER`. The drilled list was dead, not wide. Pinned as row sets in
+  `dataset-drill-array-arm-9137.test.ts`.
+- 729e851: `ValueDataSource` deep-clones its inline rows with `structuredClone` instead of
+  `JSON.parse(JSON.stringify(...))` — in the constructor and in `getAll()`
+  (objectui#9175, maintainer ruling A on objectui#9061).
+  
+  **Why the round-trip was wrong.** The clone exists for exactly one reason, stated
+  in the comment above it: "Deep clone to prevent external mutation". That is an
+  ALIASING barrier on a read-only query source. A JSON round-trip is an aliasing
+  barrier too, but it is also a SERIALIZATION boundary — and nothing asked for one.
+  So every row that reached `provider: 'value'` silently acquired a requirement the
+  contract never states. `ViewData.items` is `z.array(z.unknown())` in
+  `@objectstack/spec`, not an array of JSON, and objectui#6018 pinned the
+  consequence in words: an inline value never has to be serializable at all. That
+  guarantee became false the moment a renderer routed its inline rows through this
+  adapter to honour `filter` / `sort` / the objectui#7210 row ceiling.
+  
+  **Behaviour that moves — measured, per shape.** Inline rows now reach the
+  renderer as authored:
+  
+  | in `items` | before | now |
+  | --- | --- | --- |
+  | `Date` | ISO **string** | a `Date` |
+  | key whose value is `undefined` | key **deleted** | key kept, value `undefined` |
+  | `Map` / `Set` | `{}` | a `Map` / a `Set` |
+  | `RegExp` | `{}` | a `RegExp` |
+  | `NaN` / `Infinity` | `null` | `NaN` / `Infinity` |
+  | `BigInt` | **threw** `TypeError` | the `BigInt` |
+  | cyclic row graph | **threw** `TypeError` | the graph, cycle intact |
+  | a function-valued key | key **deleted**, silently | **throws** `DataCloneError` |
+  
+  Two consequences worth naming because they are observable through the adapter's
+  own API rather than only in the rows: `getObjectSchema` infers types with
+  `typeof`, so a `Date` column now infers `'object'` where it inferred `'string'`,
+  and a key whose value is `undefined` now appears in the inferred schema at all;
+  and `$orderby` on a `Date` column now sorts chronologically rather than
+  lexically over ISO text (the same order for ISO-8601, a different one for any
+  other date rendering).
+  
+  **The last row of that table is the only narrowing, and it is deliberate.** A
+  function in a row used to vanish without a word; it now fails loudly at
+  construction. There is no `try`/`catch` fallback to the round-trip, because a
+  fallback would restore precisely the silent flattening this replaces — the
+  maintainer's ruling was to fix the clone, not to make it tolerant.
+  
+  **Migration.** Code that relied on reading a `Date` back as a string (for
+  example `row.start.slice(0, 10)`, or `===` against an ISO literal) must read it
+  as a `Date`. Code that relied on an `undefined`-valued key disappearing must test
+  the value rather than `in` / `hasOwnProperty`. A row carrying a function must
+  stop doing so — inline rows are data.
+  
+  Marked `minor` rather than `major` per this repo's version-alignment rule
+  (objectui's major tracks `@objectstack`'s); the breaking semantics are the table
+  above.
+- 20b507a: A picklist option with a blank label now renders its `value` instead of a blank row.
+  
+  Adding a picklist option in App Builder and filling only the value box publishes
+  `{ "value": "low", "label": "" }`, and the record form's select then offered three
+  unclickable blank rows with nothing anywhere explaining why.
+  
+  **The producer was not the bug.** An empty label is a document the contract accepts —
+  measured on `@objectstack/spec` 17.4.0, `SelectOptionSchema` accepts
+  `{ value: 'low', label: '' }` and refuses `{ value: 'low' }` at `[label]` — so `''` is
+  the only legal thing the designer can write for a cleared Label box, and it writes it
+  deliberately (`f0f774b0d`, pinned). What the contract does not state is what a
+  renderer should DISPLAY for a legal-but-blank label, and objectui had already answered
+  that on half its read sites: all four option widgets fell back to the value on their
+  read-only path (`opt?.label || v`) and rendered `{opt.label}` raw on their interactive
+  path. The same option read `low` in a read-only form and blank in an editable one.
+  
+  `optionDisplayLabel` in `@object-ui/core` is now that decision written once —
+  label, or the value when the label is blank or whitespace-only — and all eight read
+  sites across `SelectField`, `MultiSelectField`, `RadioField` and `CheckboxesField` call
+  it, so the two halves cannot drift apart again. Radio and checkbox rows gain real
+  `<label for>` text with it, which is hit area and an accessible name, not just glyphs.
+  
+  Minor rather than patch on the stored-data test: every option already published with an
+  empty label renders differently after this change, without the document moving. It also
+  adds one public export to `@object-ui/core`.
+  
+  This is display only. Nothing is rewritten, no metadata is migrated, and whether the
+  contract should refuse blank labels outright stays a `packages/spec` question.
+- 72d6587: A record id is a `string` everywhere in the published types, as
+  `@objectstack/spec` has always declared it. Three published declarations that
+  admitted `number` no longer do.
+  
+  ⚠️ **BREAKING if your code hands a numeric primary key to any of these three:**
+  
+  - **`RecordContextValue.recordId`** (`@object-ui/react`) — the value
+    `useRecordContext()` gives you is now a `string`, never a `number`.
+  - **`DataSource.update`'s `id` parameter** (`@object-ui/types`) — a call that
+    passes a `string | number` is now a type error. Adapters that *implement*
+    `DataSource` are unaffected (see Migration).
+  - **`TransactionOperation.id`** (`@object-ui/core`) — the operation record you
+    hand to `TransactionManager.recordOperation()` must carry a `string` id. If
+    you build that object from a numeric key, convert it where you build it. This
+    type is exported from the package root, so this is a breaking change for
+    `@object-ui/core` consumers in its own right, not just a knock-on.
+  
+  Ships as `minor` per the launch-window convention: objectui's
+  `major` is a cross-repo pin to `@objectstack`'s so that "same major means
+  compatible" holds across the two repos
+  (`scripts/check-changeset-no-major.mjs`), and objectui's own breaking changes
+  ship as `minor` with the break named where it lands — this entry is the channel
+  that carries it.
+  
+  ## What changed
+  
+  - `RecordContextValue.recordId` (`@object-ui/react`) was
+    `string | number | null | undefined`; it is now `string | null | undefined`.
+  - `DataSource.update`'s `id` parameter (`@object-ui/types`) was
+    `string | number`; it is now `string`.
+  - `TransactionOperation.id` (`@object-ui/core`) was `string | number`; it is now
+    `string`. Its sibling `BatchTransactionOperation.id` was already a `string`,
+    so the two operation records finally agree.
+  - `LineItemsPanel` (`@object-ui/plugin-form`) drops the type assertion
+    objectui#9304 left on its parent id. That assertion was the only thing making
+    the context declaration and `buildMasterDetailEditBatch(parentId: string)`
+    meet; the declaration now does it, so the evidence is discharged.
+  
+  ## Why the protocol, and not a wider consumer type
+  
+  `@objectstack/spec` declares a record id as `z.string()` on every record door —
+  get, update, delete and the batch operation. A consumer type may not be wider
+  than the protocol: a declaration that admits `number` promises callers something
+  the wire never carries, and the promise is kept only by an assertion at the far
+  end, which is what this card was filed about.
+  
+  ## Internal consumers repaired at the same time (no public contract moves)
+  
+  Narrowing an interface **parameter** never reaches implementors — TypeScript
+  compares method parameters bivariantly, so an adapter that still declares
+  `id: string | number` keeps satisfying `DataSource`. It reaches **callers**. A
+  full local type-check of every workspace type-check program found exactly six,
+  in three packages, and each was red because a further declaration one layer in
+  was itself wider than the protocol. All three are narrowed here, types only, with
+  no runtime change and no coercion added at any call site:
+  
+  - `UserPreferenceRecord.id` and the `cachedRowId` it feeds
+    (`@object-ui/data-objectstack`) are `string`. Module-local, not published —
+    these rows are read back off the protocol, so the union was a claim the wire
+    never makes.
+  - `resolveRecordId`'s return type (`@object-ui/plugin-grid`) is
+    `string | undefined`. Module-local, not published — it annotates `any`-typed
+    row data, so the union was an assertion rather than a measurement.
+  
+  ## Migration — no `String(...)` at your call sites
+  
+  `RecordContextProvider` still **accepts** `string | number | null | undefined`
+  and narrows it once, itself. A host that mounts a record with a numeric primary
+  key therefore changes nothing: the conversion is paid at that injection
+  boundary, typed, in one place. Consumers of `useRecordContext()` read a
+  `string`.
+  
+  `DataSource` implementors are unaffected — TypeScript compares method parameters
+  bivariantly, so an adapter that still declares `id: string | number` continues
+  to satisfy the interface. What changes is the **caller** side: a call that passes
+  a `string | number` to `dataSource.update` is now a type error. A backend whose
+  primary keys are numeric maps them at its own adapter boundary rather than
+  pushing the union through every caller.
+  
+  For `TransactionOperation`, the same rule applies one level up: build the
+  operation record with a `string` id. If the id arrives from a numeric-keyed
+  backend, convert it in your adapter — the one place that knows the backend's key
+  type — rather than at each `recordOperation()` call. Nothing about this change
+  alters what is sent over the wire; only the declarations moved.
+- ba0b61a: feat(core): export `declaredNameField`, the one spelling of the ADR-0079 declared name pointer (objectui#9436)
+  
+  `declaredNameField(objectDef)` returns the object's declared record-title
+  pointer exactly as `getRecordDisplayName` reads it at steps 1+2: the canonical
+  `nameField`, then the deprecated `displayNameField` and `NAME_FIELD_KEY`
+  aliases. It returns `undefined` when none is declared. It never derives, and
+  that is the difference from `resolveNameField`, which falls back to the
+  type-aware derivation.
+  
+  The function already existed privately in `record-title.ts` and its behaviour
+  is unchanged. It is exported so that a caller which renders `titleFormat`
+  itself can rank the declared pointer above the template and the derivation
+  below it, without re-typing the `??` chain:
+  
+  ```ts
+  import { declaredNameField, recordDisplayValueAt } from '@object-ui/core';
+  
+  const declaredTitle = recordDisplayValueAt(record, declaredNameField(objectDef));
+  ```
+  
+  `PageHeaderRenderer` (`@object-ui/components`), `DetailView` and the
+  `record:details` H1 dedupe (`@object-ui/plugin-detail`) read it this way in
+  the same release.
+- ab856ed: **`resolveRecordSourceConfig`'s `data` parameter now follows the arm it is already told, instead of contradicting it.**
+  
+  The shared record-source ladder in `@object-ui/core` takes a REQUIRED `dataArm` argument precisely because blocks declare `data` differently — its own docblock says there is no repo-wide default, "because the answer differs per block and a default is how the second de-facto contract got in" (ruling objectui#8348, decision batch #83, 「8348 以协议为准」). Its parameter nevertheless declared a flat `data?: ViewData` — a discriminated union over four strict OBJECT arms, with no array member — while its rung-1 predicate `authoredDataIsOnTheDeclaredArm` takes `unknown` and admits an ARRAY on the `'array'` arm. The declaration contradicted the contract the same function documents and implements.
+  
+  The `data` member is now `AuthoredRecordSourceData<Arm>`, a new exported conditional type keyed on the arm:
+  
+  - `'view-data'` → `ViewData`. **Unchanged** — this is what the flat declaration said, and it was right for the three blocks on this arm (`object-grid`, `object-map`, `object-gantt`).
+  - `'array'` → `unknown[]`, the shape `ComponentPropsMap['object-calendar'].data` declares (`z.array(z.unknown()).optional()`, "Pre-fetched records").
+  - `'undeclared'` → `unknown`, since no published face declares a `data` row for such a block and rung 1 keeps its pre-8348 verbatim behaviour there.
+  
+  ⚠️ **Type-level only — no runtime accept set moves.** Nothing in the ladder's body changed: `authoredDataIsOnTheDeclaredArm` still takes `unknown` and still decides rung 1 on the value's KIND, so every resolved config — including the off-arm ones that fall through to `staticData` and then `objectName` — is what it was. The emitted JavaScript of both packages is unchanged by this card.
+  
+  ⚠️ **One compile-time refusal is new**, and it is the half that keeps this from being a mere widening: a caller that declares a `ViewData` provider block under `data` while passing `'array'` no longer type-checks. That document was already refused at runtime by objectui#8348, and by `os validate` and the save gate before that; only the signature still accepted it. A caller that holds the arm as a `RecordSourceDataArm` variable rather than a literal is unaffected — the conditional type distributes to `unknown` there, which a set of literal-armed overloads would not have done.
+  
+  `@object-ui/plugin-calendar` loses the cast that stood in for the missing declaration: `ObjectCalendar`'s ladder call passed `data: schema.data as ViewData | undefined`, in a comment reporting an upstream defect in `@object-ui/core`. The three members are still passed one by one — they are what the ladder documents itself as reading — but the member is now `data: schema.data`, and `packages/plugin-calendar` type-checks green without the assertion.
+  
+  Two stale docblock passages in `record-source.ts` and `record-source-config.behaviourNeutrality-7632.test.ts` explained `ObjectCalendar`'s retired `'data' in schema` guard by the props union `ObjectGridSchema | CalendarSchema`, which objectui#8651 retired — `ObjectCalendarComponentProps.schema` is the published `ObjectCalendarSchema` today. Both now say that the clause is history rather than a reading anyone can re-derive from `main`.
+- f0f4d6c: `SchemaRenderer` no longer spreads an authored `data` key as a React prop for blocks
+  whose published `data` row is the `ViewData` OBJECT arm (objectui#9571, ruling
+  objectui#8348 Q2-C, decision batch #136 item 3, maintainer 「同意」).
+  
+  **Behavioural, deliberately.** 「8348 以协议为准」 (batch #83) retired the bare-array
+  `data` shorthand at the shared record-source ladder, but the key had a second carrier
+  that the ruling did not reach and that outranked the first: `SchemaRenderer` spreads
+  every non-metadata node key as a React prop, and `ObjectGrid` (`passedData`),
+  `ObjectMap` (`dataProp`) and `ObjectGantt` each lift a `data` PROP with an
+  unconditional `Array.isArray` ahead of the ladder. So an authored
+  `data: [ …rows… ]` on `object-grid` / `object-map` / `object-gantt` still drew,
+  end-to-end, after the ladder had refused it. AGENTS.md #0.1: one key, one honoured
+  spelling — the tolerated second carrier is the defect.
+  
+  An authored `data` now reaches such a block only as `schema.data`, judged by the
+  block's own row. In development the renderer says so, once per node: the ladder emits
+  no runtime signal of its own, so without that warning the retirement would land as a
+  page that quietly stopped drawing.
+  
+  **Unchanged, and refused on purpose.** The `data` PROP itself. Gating the prop on the
+  arm (option B) was refused because that prop is how a host — `plugin-list`'s
+  `ListView`, `ObjectView` — hands down rows it already fetched. A host rendering
+  `<ObjectGrid data={rows} …/>` directly, or passing `data` through `SchemaRenderer`'s
+  own props, still delivers those rows, and still outranks the authored key.
+  
+  Blocks on the ARRAY arm are untouched: `object-calendar`'s published row is
+  `z.array(...)`, so its authored bare array is on-contract and keeps the prop seat.
+  Every type the new reading does not list keeps today's behaviour verbatim.
+  
+  **Migration.** Author inline rows the declared way —
+  `data: { provider: 'value', items: [...] }` — or keep using the deprecated
+  `staticData: [...]` array, which is unchanged. Both were already the only spellings
+  `os validate` and the save gate accepted.
+  
+  `@object-ui/core` gains one export, `recordSourceDataArmForType(type)`: which `data`
+  arm a registered block type declares. It exists for the one consumer that cannot be
+  handed the arm as a parameter — `SchemaRenderer`, which is generic over every
+  registered type.
+- 5eabe86: Drop a saved view's row cap that the contract refuses, at the LOWERING layer every
+  repaired read point sits under — and say so on the one path that has no renderer to
+  say it (objectui#9928).
+  
+  `savedViewLimit` admitted its carrier on `typeof … === 'number'` alone, so a saved
+  view's `pagination.pageSize` (or its legacy flat `limit`) of `0`, `-10` or `25.5`
+  lowered unchecked into the composed `limit`. Both ends of that journey are declared
+  positive — the spec's element data source declares `limit` a positive integer, and a
+  view's pagination declares `pageSize` a positive integer with a default — so the
+  lowering layer in between was the one place that asked nothing.
+  
+  The two consumers of the composed key behave differently, and both were measured
+  rather than inferred:
+  
+  - through a RENDERER, the refused value reached a block that has its own guard, so
+    the block dropped it and drew its own default — the named view's cap went missing
+    and the read went **wider** than the view asked for, in the one direction a named
+    view exists to prevent;
+  - through `ViewDataProvider.resolveElementDataSource`, which forwards this key
+    straight to `DataFetcher.fetchRecords` with **no guard of its own**, `0`, `-10` and
+    `25.5` reached the fetcher verbatim and nothing anywhere said so.
+  
+  The cap is now **dropped**, not clamped and not thrown. Clamping was refused because
+  this layer has no default to clamp to — every consuming block owns its own default
+  and `ViewDataProvider` owns none, so a number invented here would override a default
+  the author never asked it to. Throwing was refused because the composer is pure and
+  sits under every block that can be bound to a view.
+  
+  Dropping alone would have been silent, and worse than silent: the renderer that used
+  to report the refused value now receives nothing and correctly says nothing, so the
+  repair would have removed the only place the author was being told. New export
+  `elementDataSourceRefusedLimitMessage` is the loud half — a pure builder, following
+  the shape `elementDataSourceViewNotFoundMessage` already established in this module so
+  that every caller reports the same defect the same way. `ViewDataProvider` reports it
+  on the `console.warn` channel the repaired read points use; the value is fail-soft, so
+  records still load.
+  
+  Unchanged: carrier precedence (a non-numeric `pagination.pageSize` still falls through
+  to the flat `limit`), every other composed key, and the binding's own `limit`, which
+  overrides a view cap exactly as before.
+- 6791717: A dataset-bound chart authored with an inline-locale-map `title` / `subtitle` /
+  `description` now draws its heading instead of drawing none (objectui#9038).
+  
+  `@objectstack/spec` types `ChartConfigSchema.title` / `.subtitle` / `.description` as
+  `I18nLabel` — a plain string OR an inline locale map — so
+  `{ "chartConfig": { "title": { "zh-CN": "定价", "en": "Pricing" } } }` is authored
+  surface, not an accident. `chartConfigPresentation` lowered all three through a local
+  limb that admitted only a plain string, so the map arm returned `undefined`, the
+  `if (title)` guard skipped the assignment, and the key never reached the result. The
+  chart then drew **no heading at all**, in every language, with no diagnostic.
+  
+  Note the shape of it, because it is not the sibling defect objectui#8943: the value was
+  not resolved badly, it was not resolved at all. There was no heading to compare against a
+  locale, so no locale-comparison check could see it, and an author who wrote spec-legal
+  metadata saw a chart that looked as though it had simply been given no title.
+  
+  The three keys are now carried through **unresolved**, as the union the spec declares,
+  and resolved where the viewer is known:
+  
+  - `normalizeChartSchema` (`@object-ui/plugin-charts`) already resolves exactly these
+    three slots through `pickLocalized` against the language `ChartRenderer` reads from
+    `useObjectTranslation()` (objectui#8943), and `ObjectChart` reads `schema.title`
+    through the same resolver for its drill heading. Forwarding is what lets that
+    resolver see the value; `pickLocalized` remains the one answer for the union.
+  - Resolving inside `@object-ui/core` was measured and is unavailable, not merely
+    undesirable: `pickLocalized` lives in `@object-ui/i18n`, which DEPENDS on this
+    package. Declaring the reverse edge makes the build graph cyclic — `turbo run build
+    --filter=@object-ui/core` refuses with `Cyclic dependency detected` — and that
+    package's entry point is a React provider plus hooks, which this package does not
+    admit.
+  - No signature changed. `chartConfigPresentation(raw, fieldCategoryColors?)` takes the
+    same two arguments, every existing caller compiles, and every key other than those
+    three is byte-for-byte unchanged.
+  - The admission test did not widen. A plain string, or a record carrying at least one
+    usable string entry — the same "is there anything here" question the old truthiness
+    guard asked, extended to the map arm. A number, a boolean, an array, `''`, `{}` and a
+    record with no string value are all still refused rather than stringified, because
+    broadening what the renderer accepts belongs in the spec and not in a renderer-side
+    coercion (AGENTS.md #0.1).
+  
+  Two neighbouring cases stay unresolved on purpose and are now ledgered by name in the
+  source: a series `label` and an axis `title` still take `labelText`'s first-string-wins
+  pick (objectui#4020 — a locale-unaware choice a caller can override, which is a different
+  question from an erasure); and `plugin-report`'s `DatasetReportChart` paints the report
+  chart's own `h3` from a plain-string narrowing of `chart.title` of its own, so a
+  locale-map title still draws no heading on that surface. `subtitle` and `description` do
+  reach the chart there and are fixed by this change.
+- d7573b3: `ComponentInput` is now declared once and re-exported, instead of restated in three
+  places (objectui#4972).
+  
+  `@object-ui/core`'s `ComponentInput` (`registry/Registry.ts`) and `@object-ui/types`'
+  plugin-scoped `ComponentInput` (`plugin-scope.ts`, published as `PluginComponentInput`)
+  were structural copies of the interface in `@object-ui/types`' `base.ts`. Both are now
+  re-exports of that one declaration, which is the disposition objectui#4580 ruled for the
+  identical shape — *a structural copy would reproduce the defect the moment either side
+  moved* — and the way `core/src/types/index.ts` already handles `SchemaNode`.
+  
+  Either side had already moved. `base.ts` declared thirteen keys; both copies declared
+  nine, so `min` / `max` / `step` / `placeholder` were missing from **the copy every
+  component registration actually imports**. Those four keys were unwritable at any real
+  registration — a plain TypeScript error at the call site — while `ComponentInputSchema`
+  (the zod schema) and `ComponentMeta.inputs` both accepted them. The publication face
+  advertised four keys the authoring face rejected. Measured over the repository, no
+  registration had tried to write one yet, so nothing a user hits was broken today; what
+  changes is that the four keys become writable, and there is no longer a second
+  declaration for the next widening to miss.
+  
+  `ComponentInput`'s arm vocabulary (`ComponentInputControlType`) was already a single
+  declaration imported by all three sites (objectui#3832); this converges the rest of the
+  interface.
+  
+  Measured, not assumed: `@object-ui/core`'s published entry `dist/index.d.ts` is
+  byte-identical across the change (sha256 `f6494f80…`, both legs). That gauge is reported
+  here only with its control — a probe that added a *required* key to `ComponentInput` left
+  the same file byte-identical, because `dist/index.d.ts` is a 63-line barrel of
+  `export *` lines that names `ComponentInput` zero times. The gauge that can actually fail
+  is the emitted declaration file: `dist/registry/Registry.d.ts` changes, as does
+  `@object-ui/types`' `dist/plugin-scope.d.ts`, and those two files are the *only* emitted
+  declarations that change in either package.
+  
+  `WidgetInput`'s union-arm capability is deliberately untouched — a different gate path
+  and a separate judgment.
+- bf3edfe: `ComponentRendererProps` is now declared once and re-exported, instead of
+  hand-declared a second time in `@object-ui/core` (objectui#4594).
+  
+  `@object-ui/core`'s `ComponentRendererProps` (`src/types/index.ts`) was a
+  non-generic interface typing `schema` as `SchemaNode`, while
+  `@object-ui/types`' declaration of the same name is generic —
+  `ComponentRendererProps< TSchema extends BaseSchema = BaseSchema >` with
+  `schema: TSchema`. Same name, both exported from their package entry, from two
+  packages the same consumers import together: which declaration a call site got
+  depended on which package it reached for, and the two disagree about whether a
+  primitive node is admissible. Core's is now a re-export of types', which is the
+  disposition objectui#4580 ruled for `SchemaNode` two lines above it in the same
+  file, and objectui#4972 for `ComponentInput` — *a structural copy would
+  reproduce the defect the moment either side moved*.
+  
+  **Published-surface effect, and the reason it is not neutral.** Resolved
+  through the TypeScript checker from `core/dist/index.d.ts` over a clean rebuild
+  of both legs, `ComponentRendererProps` as reached through `@object-ui/core`
+  moves from non-generic with
+  `schema: BaseSchema | string | number | boolean | null | undefined` to
+  `ComponentRendererProps<TSchema>` with `schema: TSchema`, defaulting to
+  `BaseSchema`. `schema` therefore **narrows** back to the object form — core's
+  copy had silently widened when objectui#4608 made core's `SchemaNode` a
+  re-export of types' union — and the type gains a parameter. **Nothing imported
+  it**, on either side, re-verified repo-wide on the merged ref, so no call site
+  can observe either move; the narrowing is recorded here because it is a change
+  to a published type, not because a consumer is affected.
+  
+  A compile-time pin now holds the reconciliation from
+  `@object-ui/react` — the only position that resolves both packages through
+  `node_modules` — alongside the existing `SchemaNode` one. It is a test-only
+  addition and emits nothing, so `@object-ui/react` takes no bump of its own.
+- 5aed9e4: `DataScopeManager` now **denies** a row when a scope rule names something that is not the record's own data, and when an ordered comparison would only succeed by coercing one of its two sides. It used to **admit** those rows.
+  
+  Two fail-opens on a row-level permission boundary, both measured against the previous release's source, both the same silent direction as objectui#7378 — a result set that is too large, with no error and no console line, which looks exactly like a correctly configured permissive scope.
+  
+  **The field a rule names is now read as an own member of the record, or not read at all.** `{ field: 'constructor', operator: 'ne', value: anything }` returned the ENTIRE dataset: the name resolved on the prototype chain, `Function !== 'x'` is true, and every row passed the rule that existed to hide it. The read now has three cases instead of one. A name in the refused list (`__proto__`, `constructor`, `prototype`) denies. An own member is read as before. A name that is not an own member but still resolves on the record's prototype chain — `toString`, `valueOf`, `hasOwnProperty`, or a field inherited from an `Object.create` parent — denies, because the value exists but is not this record's data. A name that resolves nowhere is a genuinely absent field and still reads as `undefined`, so the ordinary "this row has no `status`" rules keep every verdict they have always had.
+  
+  That third case was deliberately stricter than `evaluateCondition` in `@object-ui/permissions` as that evaluator then stood, which this card was filed to converge with. Reading with `hasOwnProperty` alone — the sibling's shape at the time — collapses "inherited" into "absent", and absent ADMITS on a negative operator, so the sibling returned `true` for `{ field: 'toString', operator: 'neq' }` on every record (filed as objectui#8044, and fixed since by PR objectui#8669, which ported this three-case read into the sibling). Converging on the sibling's exact lines would have closed three spellings and left the class open, and would itself have widened one case: an inherited field value flips from denied to admitted under `ne`. Distinguishing inherited from absent closes the class and keeps the change a narrowing everywhere.
+  
+  **Ordered comparisons (`gt` / `gte` / `lt` / `lte`) now require both sides to be the same comparable kind.** `{ field: 'age', operator: 'gte', value: 0 }` admitted records whose `age` was `null`, `'10'`, `true`, `false`, `''` or `[]` — every one of them through a coercion to a number that the rule's author never wrote. Both sides must now be numbers, or both strings, or both `Date`s.
+  
+  Same KIND, not "both numbers". The sibling requires `typeof === 'number'` on both sides; copying that predicate would have denied every row for `{ field: 'created', operator: 'gte', value: '2023-01-01' }`, since ISO date strings, plain string ranges and `Date` objects all order correctly on this evaluator today and none of those comparisons coerces anything. The hazard is cross-kind comparison, so cross-kind is what is refused.
+  
+  **`contains` now requires its rule value to be a string** rather than calling `String()` on it, so `{ operator: 'contains', value: 1 }` no longer matches the record value `'10'`. Same unwritten coercion as the ordered arms; the sibling already refused it.
+  
+  **The narrowing, named plainly for anyone upgrading with rules already stored.** A legitimate rule loses rows in exactly three shapes. A numeric rule (`age gte 18`) over a dataset where numbers arrive as strings — from JSON, a CSV import, an unparsed form field — stops matching those records; `'20'` was admitted by coercion and is now denied, and the fix is to parse the field at the producer rather than to widen the rule. A rule reading a field that records inherit from a shared prototype rather than own stops matching. And a `contains` rule written with a non-string value stops matching. Measured over a 2772-case differential matrix of value kinds, operators and record shapes: 352 verdicts narrowed, **zero widened**, and zero change to the genuinely-absent-field family.
+  
+  Operator SPELLING is untouched, deliberately: `ne` / `nin` here versus `neq` / `not_in` in the sibling, and the sibling's `is_null` / `is_not_null` which this evaluator does not implement, remain exactly as they were. That divergence is objectui#7750's question.
+  
+  Graded `minor` because a release reader can observe the narrowing on stored data; no declared type changed and the set of inputs the evaluator accepts has not widened.
+- 83c77dc: `DataScopeManager` now **denies** a row when a row-level scope rule carries an operator its evaluator does not implement. It used to **admit** the row.
+  
+  Behaviour change on a permission boundary, stated plainly. `evaluateFilter` implements nine operator spellings — `eq`, `ne`, `gt`, `lt`, `gte`, `lte`, `in`, `nin`, `contains` — and its `default` arm returned `true`, so a stored `RowLevelFilter` carrying any other spelling passed every record the rule existed to hide, silently: no error, no console line, only a result set that was too large, which looks exactly like a correctly configured permissive scope. The arm now returns `false`, the answer `evaluateCondition` in `@object-ui/permissions` already gives from its own `default` arm. Because `applyFilters` ANDs a scope's rules, one unrecognised rule now denies every row in that scope.
+  
+  Who this reaches, measured on this release's base rather than assumed. The `RowLevelFilter['operator']` union is closed, so no TypeScript caller can write an unimplemented spelling, and no code in this repository constructs a `RowLevelFilter` outside the evaluator's own test. The path that changes is scope configuration read back from stored or hand-written JSON and handed to `setFilters` / `registerScopeWithConfig`, where the operator arrives as a plain string the type never checked. A deployment holding such a rule with a spelling outside the nine — including the spec's canonical `equals` / `not_equals` / `greater_than` / `starts_with` and the null-ness family `is_null` / `is_not_null`, none of which have an arm — sees fewer rows from that scope after upgrading, never more. Those spellings are not implemented here; they are refused instead of admitted. Whether to canonicalise them through the spec's `canonicalAstOperator` is left open on objectui#7378.
+  
+  Graded `minor` because a release reader can observe the narrowing on stored data; the declared type is unchanged and the set of spellings the evaluator accepts has not widened.
+- e719ebd: `data-table` reads the declared `header`; the producers translate `label` into it.
+  
+  `TableColumn` declares `header: string` and does not declare `label`. The
+  renderer's column normalization nonetheless read `header: col.header || col.label`,
+  so the same key had one spelling the type admits and one only the runtime did.
+  That alias is gone (objectui#5351), and the translation it used to perform happens
+  once at each producer instead: metadata vocabulary in, adapter vocabulary out.
+  
+  **This narrows what `data-table` accepts, so read this if you author `data-table`
+  nodes by hand.** A column spelled `{ label: 'Stage', accessorKey: 'stage' }` on a
+  directly authored `data-table` now renders a **headerless** column over live
+  cells. Spell it `header` — the key `TableColumn` has always declared. Columns
+  reaching `data-table` through `object-data-table`, `object-grid` or a related
+  list are unaffected: those producers resolve `header` for you from the spec's
+  `ListColumnSchema.label`, so every spelling they accepted before they still
+  accept.
+  
+  `@object-ui/core` gains `columnHeader()` alongside `columnIdentity()` — the reader
+  producers use to cross that boundary. It is adapter-first (`header` wins over
+  `label`), so an author who addressed the table directly is never overwritten.
+  
+  `object-data-table` also gains a fix from the same move: a column carrying a
+  `label` used to render a **blank** header there even while the alias existed,
+  because the widget's field-meta enrichment overwrote the authored `label` before
+  the adapter ever saw it. `{ field: 'stage', label: 'Stage' }` now renders "Stage".
+  
+  The sibling `accessorKey: col.accessorKey || col.name` alias is **unchanged** here
+  and still resolves. Retiring it is objectui#5120's remaining step, which is
+  gated on two published skill guides that teach that spelling.
+- fa429cf: The register-meta key `defaultChildren` is retired (objectui#5051).
+  
+  It was declared in four places, produced in eleven, and read in **none**. The designer's
+  drop path builds a new node from its twin key only — `PageDesigner.tsx`,
+  `props: paletteItem?.defaultProps ?? {}` — with no `children:` line, so a palette item
+  that declared `defaultChildren` dropped an **empty** node and the declared children never
+  materialised. Nothing rendered the wrong thing; an entire declaration surface was simply
+  inert, which is the declared-but-unenforced shape ADR-0049 targets. Per the maintainer
+  ruling of 2026-08-19, the key is removed rather than wired up; if designer
+  default-children UX is ever product-wanted it returns as its own designed card.
+  
+  **If you author plugins against the published register-meta table, drop the key.** It is
+  gone from `skills/objectui/guides/plugin-development.md`, which had been teaching it. A
+  meta that still declares it stays *valid*: `ComponentMetaSchema` is a plain `z.object`,
+  and measured on zod 4.4.3 that STRIPS unknown keys rather than rejecting them — so the
+  key is silently dropped from the parse output instead of failing validation. TypeScript
+  authors get the loud signal instead: all three `ComponentMeta` declarations
+  (`@object-ui/types` `base.ts` and `plugin-scope.ts`, `@object-ui/core` `Registry.ts`) no
+  longer offer it, so re-declaring it is now a compile error.
+  
+  **No runtime behaviour changes in either direction.** No code path read the key before
+  this change, and the eleven producers that set it (`sidebar.tsx` x10, `span.tsx`) were
+  feeding a reader that did not exist. Dropping a `span` or any of the ten sidebar types
+  into the designer produces exactly the node it produced yesterday.
+  
+  Two suites keep it retired, one per package: `packages/types` pins the zod twin (the key
+  is absent from the parse output, with a surviving sibling asserted present through the
+  same parse as the control) plus the two TS twins with `@ts-expect-error`, and
+  `packages/core` pins the registration surface the eleven producers were written against.
+  Both are compile-time-enforced through each package's chained `tsconfig.test.json`.
+- 8e74b27: fix(core): an empty-bucket drill filters on "this dimension is empty" instead of writing a spelling the converter drops
+  
+  `buildDatasetDrillFilter` wrote a bare `null` for a bucket whose dimension value
+  is empty. `convertFiltersToAST` SKIPS a key whose value is `null` / `undefined`
+  — its oldest pinned behaviour — so the constraint never reached the wire and
+  drilling into the empty bucket answered with a SUPERSET: every row, silently,
+  with nothing thrown and nothing logged. Measured on three shapes (two drill
+  dimensions with one empty; one drill dimension plus a runtime filter; one drill
+  dimension with no runtime filter), all three were wrong.
+  
+  The empty bucket now lowers to `{ [field]: { $null: true } }`, which the
+  converter carries end to end as `[field, 'is_null', true]`. That spelling means
+  "this dimension has no value" — the rows the aggregate actually counted into
+  the bucket — where an equality test against `null` would have meant "this
+  dimension holds the literal value null" and dropped every row whose field is
+  absent. All three empty authorings (`''`, `null`, `undefined`) reach the one
+  spelling; `null` is included because JSON cannot carry `undefined`, so a SQL
+  NULL grouped value arrives over the wire as `null`.
+  
+  BREAKING for a direct consumer of the exported `buildDatasetDrillFilter`: the
+  value written for an empty bucket changes shape. Marked `minor` per this repo's
+  version-alignment rule, which reserves `major` for following `@objectstack`.
+  
+  The drill "escape hatch" (the host's `openRecordList`, which serializes a drill
+  filter into `filter[...]` URL params) is unchanged and still returns a superset
+  for the empty bucket: that URL dialect has no is-null operator, so it drops the
+  new spelling exactly as it dropped the bare `null`, byte for byte. Closing that
+  needs a URL-dialect operator on both the write and the read side.
+- 617707a: `convertFiltersToAST` lowers the `$and` / `$or` combinators to real ObjectQL AST
+  group nodes (objectui#6948).
+  
+  `FilterCondition` declares `$and` / `$or` / `$not`, and this repo's one lowering
+  had no branch for any of them. `$and` / `$or` fell through to the
+  simple-equality branch and became a leaf naming a field literally called `$and`
+  / `$or`. That leaf reached the server intact — `parseFilterAST` reads
+  `['$or', '=', [...]]` back as a real `$or`, so the wire condition was correct
+  and is unchanged by this release — but it is a well-formed *comparison* node, so
+  every AST evaluator in this repo read `$or` as a field name, found no such key
+  on any record, and returned an EMPTY list with no error. Producers that reach
+  this today include `mergeFilters` (dashboard scope broadcast, dataset report
+  blocks), `FilterConditionField`, and `Field.relatedListFilter`.
+  
+  `minor` rather than `patch`: shipped results move. A list filtered by a
+  combinator through any in-process data source went from zero rows to the rows
+  the author asked for, and an unknown or refused operator *inside* a combinator
+  branch — which used to travel to the wire unchecked inside the leaf's value slot
+  — is now refused at the same door as every other operator.
+  
+  `$not` is refused with an accurate message instead of translated: the AST has no
+  negation keyword (`FILTER_ARRAY_LOGIC_KEYWORDS` is `['and', 'or']`) and several
+  operators it carries have no negated counterpart, so a rewrite would be silently
+  partial. It threw before this change too, naming the author's own nested field
+  as a bogus operator; the verdict is unchanged, only the diagnostic.
+- 06973aa: Refuse an empty or non-string `icontains` comparand on the stored-view rule path, and give all three `@object-ui/core` faces one implementation of that refusal
+  
+  `@objectstack/spec`'s `FILTER_TEXT_CASES` declares two shapes refused for the case-insensitive contains operator — an empty comparand and a non-string one — each with `code: 'INVALID_FILTER'`. `ValueDataSource` has answered both since objectui#8748 and `convertFiltersToAST` since objectui#9001, but `viewFilterRuleToNode` (reached through the exported `toFilterNode`) lowered both onto the wire: a rule an author saved as `{ field, operator: 'icontains', value: '' }` became `['name','icontains','']`, which the in-memory matchers answer with zero rows while the published table states the wire answer is a predicate that constrains nothing. Same authored filter, two answers, chosen by which data source the view renders against.
+  
+  The refusal now throws `FilterOperatorError` (`INVALID_FILTER` / 400) from the lowering, naming the field and the operator spelling the view vocabulary actually uses. A valid comparand, the sibling positive operators (`contains` / `starts_with` / `ends_with`), objectui#8557's array-arity refusal and a rule carrying no comparand at all are all unchanged.
+  
+  The discrimination and the refusal text moved into one internal module that `ValueDataSource`, `convertFiltersToAST` and `viewFilterRuleToNode` all read, so the three faces cannot drift. Both already-shipped messages are byte-identical to what they were. No published export was added.
+- 105f3c5: Retire `CRUDSchema` and the `type: 'crud'` node spelling (objectui#5373,
+  maintainer ruling 2026-08-20, route 2) under ADR-0049 enforce-or-remove.
+  
+  `crud` had four declaration faces and no registered renderer, for the whole
+  life of the key: the TS interface (`packages/types/src/crud.ts`), the zod
+  mirror (`packages/types/src/zod/crud.zod.ts`), a dedicated branch in
+  `validateSchema` that affirmatively PASSED it, and `CRUDBuilder` in
+  `@object-ui/core`. A node spelling it painted the OBJUI-001 "Unknown component
+  type" panel, and `content/docs/api/schema-reference.md` published it as
+  reference material — so a reader (or an AI author) who copied the page got a
+  red panel.
+  
+  Removed from `@object-ui/types`: the `CRUDSchema` interface and its zod
+  mirror, the four shapes that existed only to type its keys — `CRUDOperation`,
+  `CRUDFilter`, `CRUDToolbar`, `CRUDPagination` and their zod mirrors and
+  `…SchemaType` aliases — and `CRUDSchema` as a member of `CRUDComponentSchema`,
+  which is what took it off the node union `AnySchema`. `ActionSchema`,
+  `DetailSchema` and `CRUDDialogSchema` are unchanged and remain the union's
+  members.
+  
+  Removed from `@object-ui/core`: `CRUDBuilder` and the `crud()` factory.
+  
+  Authoring `crud` is now REFUSED BY NAME rather than passed or silently
+  ignored. `validateSchema` returns an `error` with `code: 'RETIRED_TYPE'` on
+  `schema.type` — at any depth, since it is what `validateChildren` recurses
+  with — so `assertValidSchema` throws and `isValidSchema` answers `false`. The
+  message names the migration: `object-grid` for the record table with its
+  toolbar, filters, pagination and row/batch actions, `object-form` for the
+  create/edit form, and `detail` for the record view. `api/schema-reference.md`
+  is rewritten around those shapes.
+  
+  Note on blast radius: the repository itself contains zero authored `crud`
+  nodes and zero registrations of the key (measured on the merge base against
+  the doc gate's own 659-key registry derivation, which reads `register` and
+  `registerLazy` alike). That is an IN-REPO zero, not an npm zero — a published
+  consumer that imported the `CRUDSchema` type, called `crud()` / `CRUDBuilder`,
+  or authored `type: 'crud'` will see a compile error or a validation error
+  respectively. Both are the intended, loud replacement for a shape that has
+  never rendered.
+- 759606e: fix(related-list): the tab badge compiles its parent scope by relationship ARITY, like the rows
+  
+  A related list on a `multiple: true` relationship rendered its rows above a tab
+  with no count at all. The row query has compiled the parent-relationship
+  condition to match the field's arity since objectui#7299 (`$contains` for a
+  multi-value relationship, `=` for a single-value one), but the badge's count
+  probe carried a second compiler that always sent bare equality — which the
+  driver refuses on an array-valued column, and the count store swallows the
+  refusal without caching anything.
+  
+  Rather than teaching the second compiler the same rule, there is now one:
+  `@object-ui/core` exports `composeParentScopeFilter` (and the
+  `isMultiValueRelationship` verdict behind it), and both the row query and the
+  badge probe call it. The arity verdict remains `@objectstack/spec/data`'s own
+  `isMultiValueField`, so the renderer and the driver that executes the query
+  still decide on the same rule.
+  
+  `RelatedCountStore.fetch` takes the child object's field defs as a new optional
+  last argument; callers that cannot see metadata keep the previous equality
+  wire, byte for byte. Single-value related lists are unchanged on both sides.
+- a51fa0c: feat(core)!: bare-string `globalFilters[].options` is no longer lifted; use `{ value, label }` objects, the spec's form (objectui#4356).
+  
+  **Breaking — published runtime behaviour removed; the bump stays `minor` under this repository's version policy, with the break stated here.** `resolveDashboardFilterDefs` used to lift a bare-string member of a dashboard's `globalFilters[].options` — `'EMEA'` became `{ value: 'EMEA', label: 'EMEA' }` — and, since objectui PR #4601, logged a deprecation warning while doing so. That lift is gone. A member that is not a `{ value, label }` object (a string, a number, a boolean) now yields no option: a shorthand-only filter resolves with no `options`, and a mixed array keeps only its object members. The runtime reads the document exactly as `@objectstack/spec`'s `GlobalFilterSchema` does, which has always refused the shorthand at publish.
+  
+  **Why now.** Maintainer ruling on objectstack#7917 (2026-08-12, verbatim 「7917 ②」): the spec stays strict and the runtime lift retires. The retirement window closed on the 2026-09-02 ruling, verbatim 「objectstack#7917 不考虑现有数据」 — Phase 2 proceeds on release cadence alone, with no stored-dashboard survey and no migration entry. Phase 0 (objectui stopped teaching the form) and Phase 1 (the deprecation warning) shipped in PR #4601.
+  
+  **What a stored dashboard sees.** A `select` filter whose options were all bare strings renders with an empty option list. In development a single `console.warn` — once per offending filter per session, the same memo the deprecation warning used — names the filter, the dropped members and the rewrite; it no longer promises a lift. Rewrite each string `X` as `{ "value": "X", "label": "X" }`.
+  
+  `resetDashboardFilterWarnings()` stays exported: the warn-once memo it clears now guards the dropped-member warning instead of the deprecation warning.
+- 83fe6e7: row predicates on runtime record surfaces resolve `record.*` only; the bare-field and `data.*` spellings are no longer bound
+  
+  Phase 2 of the row-predicate canon (objectui#5330, ruled 2026-08-20, option B;
+  Phase 2 ruled 2026-09-02 and amended 2026-09-05). Until now a
+  row predicate — `visible` / `disabled` / `enabled` on an action renderer, a row
+  action, a `record:alert`, a `page:header` action, a conditional-formatting
+  `condition` — bound the row three ways: canonical `record.status`, bare
+  `status`, and `data.status`. The two non-canonical spellings are retired on
+  every runtime record surface, in both evaluation tiers (`evalRowPredicate` /
+  `partitionRowsByPredicate` in `@object-ui/core`; `usePredicateRecordContext` +
+  `useCondition` in `@object-ui/react`) and for both dialects: a legacy
+  `${data.x}` / `${x}` string on a row surface retires with the CEL spellings.
+  
+  **What a retired spelling does now: it faults, exactly as it already did on the
+  server** (`buildScope({ record })` mounts exactly `['record']`, so `status` and
+  `data` are unknown variables there), and each surface applies its EXISTING
+  fault policy — no runtime detector, no "treat as absent" special case, no
+  uniform override:
+  
+  - `evalRowPredicate` / `partitionRowsByPredicate` (row kebab, selection bar,
+    `page:header` actions, conditional formatting): the caller's `fallback` —
+    hidden / every row excluded / no style — reported once by the existing fault
+    warning, which names the unknown variable (`Unknown variable: status`) and,
+    on the fast route, carries the `record.` hint.
+  - `useCondition` legs that opt into `throwOnError` (`action:button` and
+    `action:menu` `visible`, `DeclaredActionsBar` `visible`): fail-closed —
+    hidden on every row, reported once as `was hidden/disabled: its predicate
+    threw — status is not defined`.
+  - the non-throwing `useCondition` legs (`action:icon` / `action:group`
+    `visible`, every `disabled` / `enabled`, `record:alert`): fail-soft — shown /
+    greyed / enabled on every row, with the evaluator's own console line.
+  - a host scope that carries its OWN `data` (app-shell's ambient `data: {}`) is
+    left standing: `data.*` on a record surface then reads the host's object — a
+    constant, silent `false` — which is what "no longer bound to the row" means.
+  
+  The Phase-1 deprecation warning is removed with the bindings:
+  `warnNonCanonicalRowSpelling` and `resetRowPredicateCanonWarnings` are no
+  longer exported from `@object-ui/core`. `detectNonCanonicalRowSpelling`,
+  `ROW_PREDICATE_CANONICAL_ROOT` and the `NonCanonicalRowSpelling` type stay
+  exported — the offline instrument for sweeping authored metadata.
+  
+  The layer rule is unchanged: `data` remains the canonical root on
+  metadata-editing surfaces (ADR-0089 D3, `CANONICAL_ROOT_BY_LAYER`), and
+  app-shell's metadata-admin `SchemaForm` / `predicate.ts` keep binding
+  `{ data: row }` through their own evaluator.
+  
+  No stored-metadata survey, export or migration rewrite was run (the maintainer
+  ruled the stored population out of scope, 「不考虑存量」); the Phase-1 warning
+  period was the notice.
+  
+  Release note: Phase 1 (`d1ab06f0f` — the canon statement plus the warning) shipped
+  in `@object-ui/core@17.6.0` (npm, 2026-08-24) although its changeset
+  `.changeset/row-predicate-record-canon-5330.md` is still pending on `main`, so
+  the next CHANGELOG section lists Phase 1 and this Phase 2 together: the warning
+  it describes was live from 17.6.0 and is gone from this release on.
+- d1ab06f: Row predicates declare a canon: `record.*`. The bare shorthand and `data.*` now
+  warn once, and are unchanged otherwise.
+  
+  A row predicate (`visible` / `disabled` / `enabled` on an action renderer, a row
+  scope, a `record:alert`) has bound the row three ways since objectui#4075 —
+  `record.status`, bare `status`, and `data.status` — without any of them being
+  declared the contract. The maintainer ruled that question on 2026-08-20
+  (objectui#5330, option B), mirroring the objectstack#7917 option-② precedent for
+  the identical renderer-tolerance shape: **the canon is `record.*`**, and the
+  other two enter a deprecation window.
+  
+  The canon states the **server's** accept set, which was this card's first
+  measurement and turns out to be strictly narrower than the renderer's. Measured
+  against `@objectstack/formula@17.1.0`, the engine the server evaluates with:
+  
+  | spelling | server runtime | server authoring oracle |
+  |---|---|---|
+  | `record.status` | `{ ok: true, value: true }` | accepted |
+  | bare `status` | `Unknown variable: status` | refused |
+  | `data.status` | `Unknown variable: data` | **silently accepted** |
+  
+  `buildScope({ record })` mounts exactly `['record']` — `data` is never bound and
+  the row's fields are never flattened to top level. The three-way binding is a
+  client tolerance with no server counterpart, which is why the warning belongs on
+  this side.
+  
+  `data.*` is the dangerous one, and the reason the warning exists. `data` is in
+  `@objectstack/formula`'s `SCOPE_ROOTS`, so the server's bare-identifier oracle
+  waves it through — that list is a deliberately generous "never faults" lint
+  baseline, not the runtime accept set. A `data.*` row predicate therefore passes
+  every authoring gate the platform has and then binds nothing at runtime: not an
+  error, a constant `false`. A `visible` that is constantly false is a button that
+  silently never appears — the objectui#4075 fail-closed signature.
+  
+  What ships:
+  
+  - `@object-ui/core` exports `detectNonCanonicalRowSpelling`,
+    `warnNonCanonicalRowSpelling`, `resetRowPredicateCanonWarnings` and
+    `ROW_PREDICATE_CANONICAL_ROOT` from a new `evaluator/rowPredicateCanon.ts`,
+    which carries the canon statement and the measurement.
+  - Both evaluation tiers report once, in dev: `evalRowPredicate` (core) and
+    `useCondition` (react, for bags bound by `usePredicateRecordContext`).
+  - Detection reuses the server's own oracles (`collectCelRootIdentifiers`,
+    `firstUndeclaredReference`) rather than a regex, so no second dialect
+    judgement is invented client-side.
+  
+  **No spelling is removed and no behaviour changes.** Every predicate that
+  resolved before resolves now — the ruling defers removal behind a stored-metadata
+  survey, and the warning is what makes that survey possible (ADR-0078: a
+  tolerance nothing ever reports can never be retired).
+  
+  The deprecation is scoped to the **runtime record layer**. `data` remains the
+  canonical root one layer over, in a metadata-editing form (ADR-0089 D3
+  `CANONICAL_ROOT_BY_LAYER`), and the detector stands down there.
+- 91783c4: Three more secret-field spellings no longer render a secret in clear text on the form's unregistered-widget branch.
+  
+  Measured on `main` at `f2e11ae6f`, the real `form` renderer on the built-in path
+  (no `registerAllFields()`), before and after objectui#5322's fix:
+  
+  ```
+  type            registry hit   rendered type
+  ui:password     true           text
+  secret          false          text
+  field:secret    false          text
+  ```
+  
+  Two halves, per the maintainer ruling of 2026-08-20:
+  
+  - **`@object-ui/core` — an unresolvable namespaced widget id is now an authoring
+    ERROR.** A form field's widget id (`widget`, else `type`) may name the
+    `field:` namespace or a bare name; any other namespace resolves no field
+    widget (objectui#5254) and used to degrade silently to a plain text box.
+    `validateSchema` now reports `UNRESOLVABLE_FIELD_WIDGET_NAMESPACE` and
+    `assertValidSchema` throws. Behaviour change: a schema that previously
+    validated with e.g. `type: 'ui:password'` is now invalid — inventing a
+    plausible-looking widget id fails loudly instead of rendering clear text.
+    `field:` ids stay valid whether or not the widget is registered, since
+    registration is a runtime fact an authoring-time validator cannot see.
+  - **`@object-ui/components` — the known secret types cover the remaining
+    spellings.** Bare `secret` and `ui:password` render the native masked input,
+    and `field:secret` is refused outright like `field:password`. Existing authors
+    need no migration.
+  
+  `ui:password` **is** registered — as an SDUI node renderer for a top-level
+  `{ type: 'email' }`-style node — so an author who checked whether it resolved
+  got a yes and still got a clear-text box on the field path. No producer emits
+  any of the three; all are reachable only through a hand-authored standalone
+  form schema, which is exactly the surface where the author is the producer and
+  no normalizer sits in between.
+- ca39427: Derive `ViewType` from `@objectstack/spec` instead of re-declaring it
+  
+  `ViewType` and its zod face `ViewTypeSchema` were hand-written eleven-arm copies of
+  the spec's list-view type vocabulary. `@objectstack/spec@17.3.0` added `page` and
+  neither followed, so every structure keyed on them stayed total over the copy and
+  compiled green while being incomplete — including the one whose doc comment promises
+  that "a kind added to the union fails the build HERE". A spec-valid `type: 'page'`
+  view was left unresolved and fell back to a grid with no error, no warning and no
+  console line, while the published validator accepted it.
+  
+  Both faces now derive from `@objectstack/spec/ui` `ListView['type']`, and the
+  renderer-side structures derive from that in turn:
+  
+  - `@object-ui/core` exports `ListViewVisualization` and `isListViewVisualization` —
+    the visualizations `ListView` draws, which deliberately exclude `page` for the same
+    reason the spec's own `VisualizationType` does (a `type: 'page'` view mounts a
+    published page through `pageName` rather than drawing records).
+  - A spec-valid but undrawable kind still falls back to a grid, but now warns once
+    instead of degrading identically to a typo.
+  
+  Widened surfaces: `ViewType` / `ViewTypeSchema` gain `page`; `UnifiedViewType` gains
+  `tree` (it had drifted); the `list-view` SDUI registry offers `chart` and `tree`,
+  which the renderer has drawn for releases.
+  
+  ⚠️ Consumers holding an exhaustive `switch` or a total `Record<ViewType, …>` will
+  now fail to compile until they account for `page`. That failure is the point of the
+  change — it is the guarantee that was silently lost.
+  
+  ⚠️ **Dated note, 2026-09-29 — `page` left the vocabulary again in this same release — objectui#11073.**
+  Later in this release this repository began resolving `@objectstack/spec` 17.5.0, which removed `type: 'page'` from the list-view vocabulary (ADR-0049 enforce-or-remove). Because `ViewType` and `ViewTypeSchema` are derived from the spec, as this change made them, they no longer carry `page`. A `type: 'page'` view is refused by name at parse rather than being "spec-valid", and the one-time "cannot draw" warning has no kind left to explain. The rest of this change stands: the vocabulary still follows the spec, now in the narrowing direction.
+- 2d36552: Pins `@objectstack/spec`, `@objectstack/client`, `@objectstack/formula` and `@objectstack/lint` to `17.1.0`, and adapts the two consumer surfaces the new build moves.
+  
+  The pin itself is a lockfile refresh — every manifest already declared `^17.0.0`, which admits `17.1.0`, so no dependency range changed. All four move together: a split resolution is what produced the dual-version spec graph that reddened `check:spec-symbols` in this repo's history.
+  
+  **A `icontains` filter now reaches the driver as a filter.** `icontains` is a canonical `VIEW_FILTER_OPERATORS` member as of `17.1.0`, so an author can declare it on a `ViewFilterRule` and the spec validates it — but `@object-ui/data-objectstack`'s alias table had no row for it, and an unmapped operator is how this adapter shipped an unfiltered query before (objectstack#3948). It is an identity row like `contains`: `icontains` is itself a member of `VALID_AST_OPERATORS`, so the spelling the author writes is the spelling the AST takes, and no case-sensitivity is translated away. Declared rather than left to the table's `?? op` fall-through, on the rule its own parity test states — the AST gate accepting a spelling is not the driver compiling it into a `WHERE` clause.
+  
+  The same operator reaches the list view's own bridge: `@object-ui/plugin-list`'s `mapOperator` gains an explicit `icontains` arm. The emitted spelling is identical to the input, but the arm is written out rather than left to the `default` passthrough — `icontains` is its own member of `VALID_AST_OPERATORS`, so a raw passthrough is accepted *today*, and depending on that coincidence is what the bridge's own parity test records as how it once stopped discriminating.
+  
+  `@object-ui/core` adds `onSuccess` to its spec key inventory, so an author writing the key `17.1.0` now declares is no longer warned that it is unknown. That is a diagnostic statement only — the four declared action surfaces still drop the key before it reaches the runner, which is tracked separately.
+  
+  **A stored view filtering case-insensitively still shows that operator when it is reopened.** `@object-ui/plugin-view`'s canonical-to-builder table is keyed by `ViewFilterOperator`, so `17.1.0` adding `icontains` failed to compile rather than letting the operator reach the FilterBuilder as a raw spelling its dropdown cannot select. It maps to the builder's `containsCaseInsensitive` — the id that authors the spec's `$icontains` — and deliberately not to `contains`, which would quietly rewrite a case-insensitive filter into a case-sensitive one the next time the view was saved.
+  
+  **The page-editor palette keeps one entry per renderer.** `17.1.0` retires `element:filter` from `PageComponentType` and adds `record:discussion`, leaving the member count at 34 either side — so the swap is invisible to any count-based reading. The stale `element:filter` exclusion is dropped, and `record:discussion` is excluded because it is the *same renderer* as the already-offered `record:chatter`, not because it is unauthorable. Nothing the palette offers changes.
+  
+  **The console eager-closure ceiling is re-baselined, by maintainer ruling.** The release is roughly 930 KB larger uncompressed and nearly all of it lands in `vendor-objectstack-*.js`, which put the closure past a ceiling that was deliberately sized to catch a 89 KiB regression — the gate refused the bump, correctly. Raising it was escalated rather than taken locally, because gate-strength policy had been ruled the maintainer's; the ruling on objectui#5531 authorised the raise. `MAX_EAGER_CLOSURE_GZIP_BYTES` and the `BASELINE` it is derived from move together in one commit, keeping headroom at 2.00% and below the 91,136-byte regression size the gate must still catch. The gate's *sensitivity* is untouched: a repeat of that regression from the new baseline still fails. No behaviour ships from this file — it is CI policy, recorded here because the version it governs is the one this changeset publishes.
+- e76634c: `ValueDataSource` reads the two comparand shapes it used to compare by reference.
+  
+  **An ARRAY comparand is refused rather than compared by reference**
+  (objectui#8514). `{ tags: ['a', 'b'] }` took the simple-equality branch and
+  `!==` compares references, so it excluded every row including the deep-equal
+  one — silently. It is now excluded with a logged reason naming `$in`, in both
+  dialects and on the `$`-operator positions too. The equality positions move no
+  rows (a reference comparison already excluded everything); the negations do:
+  `$ne` / `!=` against an array was always true, so it had been selecting EVERY
+  row in silence.
+  
+  The repair is a refusal rather than a deep-equality reading because the spec
+  declines to rule on an array outside `$in` / `$nin` / `$between`, and the two
+  in-memory matchers nearest this one both refuse it — inventing a reading here
+  would be a second de-facto contract the wire does not honour. Every producer in
+  this repo already spells a multi-value comparand `{ $in: [...] }`.
+  
+  **A `{ $field }` comparand is now resolved** (objectui#8515). The spec declares
+  it, `@objectstack/formula` emits it, and both platform evaluation paths execute
+  it; this adapter compared the reference object, so such a filter answered with
+  no rows and no diagnostic. It is now dereferenced against the record on the six
+  scalar comparisons it is declared for, in both dialects. A reference in a list
+  position, one carrying an `addDays` offset, a dotted path, and a non-string
+  `$field` are refused with the reason — an `addDays` silently dropped would
+  return wrong rows rather than none.
+- 92814db: `ValueDataSource`'s text operators answer the case question the wire answers: `contains` is case-SENSITIVE, `icontains` is its ASCII-folding twin (objectui#7379)
+  
+  The in-memory matcher lower-cased BOTH sides of `contains`, `not_contains`, `starts_with`, `ends_with` and — since the `icontains` arm was stacked onto the `contains` one — `icontains` too. So `contains` executed `icontains`, the two spellings named a single predicate, and a `provider: 'value'` list filtered with `contains` returned strictly more rows than the same filter run against a real driver. Nothing errored; the list was just longer, and both answers looked plausible.
+  
+  `$contains` is contractually case-sensitive (objectstack#4706 Q2 = A) and `$icontains` is the case-insensitive member, folding **ASCII only** (Q1 = A, because three of the five backends are SQLite underneath and its `lower()` folds ASCII only). All five drivers — `driver-sql`, `driver-sqlite-wasm`, `driver-turso`, `driver-mongodb`, `driver-memory` — plus objectql's `having` matcher import `FILTER_TEXT_CASES` from `@objectstack/spec/data` and answer its case rows. This adapter was the last face that did not.
+  
+  What changed:
+  
+  - `contains`, `not_contains`, `starts_with`, `ends_with` compare exactly. There is no `i` twin for the last three — `VALID_AST_OPERATORS` has `icontains` and nothing else with an `i` prefix — so case-sensitive is the only reading available to them, and it is the one `not_contains` needs so that no row can fail an operator *and* its negation.
+  - `icontains` now uses the spec's own `asciiCaseInsensitiveContains`, so `CAFÉ` no longer matches `café`. `String.prototype.toLowerCase()`, which this arm used, is the full Unicode fold — a promise the SQL family cannot keep.
+  - The `$`-dialect matcher follows: `$contains` compares exactly, and `$icontains` gains an arm. It had none, and an unrecognised `$` operator in that switch adds no constraint at all, so a `$icontains` filter used to select every row.
+  
+  **Behaviour change.** Metadata that relied on the lenient matching gets fewer rows and no error. A filter that means "match regardless of case" should be authored as `icontains` (AST/view dialect) or `$icontains` (`$` dialect); both now execute, and both fold ASCII case on either side.
+
+### Patch Changes
+
+- 8cedb0d: The two declared display-locale contracts now each name the caller they govern,
+  and each points at the other (objectui#10098). This is documentation only: no
+  module's behaviour moves.
+  
+  - `DisplayNumberFormatOptions.locale` (`@object-ui/core`): leaving the tag
+    `undefined` means the runtime default, and that rule is written for a non-React
+    display caller with no tag in hand. For that caller the viewer's own environment
+    is the honest locale for a user-facing display. A malformed tag lands in the
+    same place through `formatDisplayNumber`'s retry.
+  - `useDisplayLocale` (`@object-ui/i18n`): its concrete `'en'` last resort, kept for
+    determinism, is the rule for a React renderer whose provider chain yields no tag
+    at all, not a rule for every caller without a tag.
+  - `formatNumberInDisplayLocale` (`@object-ui/plugin-report`): the note on its
+    malformed-tag retry no longer calls the dropped-tag retry behind
+    `formatDisplayNumber` a wrong answer. Each retry follows its own package's
+    declared contract.
+  
+  Read alone, either docblock used to look like a rule for every caller, and each
+  contradicted the other. The new wording reaches each package's published type
+  declarations, which is why this is declared as a patch rather than left
+  undeclared.
+- 961ceaa: fix(core): a list's `$select` now carries the field a row action's `defaultFromRow` param seeds from and the `{field}` tokens of its `target`
+  
+  `listViewPredicates` is the harvest `ListView`, `ObjectGrid` and `RelatedList`'s
+  authored path use to decide which fields a projected row must carry. It read an
+  action's `visible` / `disabled` predicates and its `recordIdField`, but not two
+  other row keys an action reads. On a backend that honours `$select`, a field
+  named only there was absent from the row, and nothing said so:
+  
+  - a param with `defaultFromRow: true` bound to a field no column shows opened
+    the console's param dialog blank, because the param is seeded only when the
+    row has the key;
+  - a `{field}` token in an `api` action's `target` was filled with an empty
+    string by the console's `api` handler.
+  
+  For each action on the view's row, bulk and object action lists, the harvest now
+  also names:
+  
+  - the row key a `defaultFromRow` param seeds from: its `field` when it declares
+    one, its `name` otherwise. That is the precedence the param seeding reads, so
+    a `teamId` param bound to `field: 'team_id'` asks for `team_id`;
+  - every `{field}` token in `target` whose content is a bare identifier, the
+    grammar the console's `api` handler fills from the row. A dotted path, an
+    expression and the runner's `${param.X}` / `${ctx.X}` tokens are not filled
+    from the row that way, and are not harvested.
+  
+  A param key that is not a bare identifier is dropped, as a `recordIdField` is.
+  Every harvested name still passes each consumer's existing gates before it
+  reaches `$select`: the check against the object's declared fields and the
+  platform columns every record carries, and field-level security on a declared
+  field once the permission answer has loaded.
+- 544aca2: fix(core,fields): a date-time written on a calendar day that does not exist is refused, not rolled into another day
+  
+  `2026-02-30T10:00:00Z` names a day February does not have. The engine parses it anyway and rolls the surplus forward, so it rendered as `Mar 2, 2026, 10:00 AM`: a real day nobody wrote, with nothing to say the stored value was wrong. objectui#10026 made the shared date path refuse such a day on a date-only value; this extends the same refusal to a value that carries a time.
+  
+  - **`toDisplayDate` returns an Invalid Date for an ISO date-time whose leading `YYYY-MM-DD` is not a real calendar day** (the `isRealCalendarDate` judgement). The day is read from the stored string as written, so a real day written with an offset — `2026-02-28T23:30:00-05:00`, which is March 1st in UTC — is not refused, and a real date-time renders exactly as before. `formatDateTime`, `formatDate` and `formatRelativeDate` render `—` for such a value, `formatDateTimeCompactParts` returns `null`, and a dataset measure over it renders the same `—`: each function's existing answer for an unparsable value.
+  - **`@object-ui/fields`:** the `datetime` and `date` cells, the readonly `date` widget and a date-returning `FormulaField` show the shared "No value" placeholder for such a value, and the readonly `datetime` widget shows `—`, exactly as each does for an unparsable value.
+  - **The sub-grid (`GridField` / `LineItemsField`) `date` and `datetime` columns read the shared parse step instead of building their own `Date`.** A value that step refuses shows the stored string, this surface's existing face for a value it cannot parse: an impossible day in either column (`2026-02-30`, which the `date` column still rolled into March after objectui#10026), and an out-of-range month (`2026-13-45`, which the `date` column rendered as `Feb 14, 2027`). A `date` value with a year below 100 (`0026-08-01`) now renders that year, as the `date` cell does, instead of 1926.
+- 64563a9: **BREAKING (node type key):** `@object-ui/plugin-map` no longer registers the bare
+  `map` node type key, and its namespaced twin `view:map` goes with it. A node
+  authored `"type": "map"` no longer resolves a renderer. Write
+  `"type": "object-map"` — the one spelling the plugin serves (objectui#10393,
+  executing the objectui#8008 family ruling of 2026-09-09 that retired the bare
+  `gantt` and `kanban` keys).
+  
+  **Why.** The registry mounted a `map` node while the published declaration refused
+  it: `ObjectMapSchema.type` is the literal `'object-map'` and `AnyComponentSchema`
+  has no `map` arm, so `safeValidateSchema` answered a `map` node with
+  `invalid_union` while the html tier accepted it. Two faces, opposite verdicts.
+  No schema face ever declared `map` as a component node type, so there is no arm
+  to turn into a named refusal: unregistering is the whole retirement, exactly as
+  it was for `gantt`. After it, the html tier (`validateTree` over the live
+  registry) reports a `map` node as `unknown-component`, matching the Zod face.
+  
+  **⛔ No stored document moves.** The string `map` names two different things at
+  two different layers, and only one of them is retiring:
+  
+  | layer | value | who writes it | retired? |
+  | --- | --- | --- | --- |
+  | stored `NamedListView.type` / `defaultViewType` | `"map"` | `CreateViewDialog`, persisted per tenant | **no — untouched** |
+  | node type key | `map`, `view:map` | hand-authored JSON | **yes** |
+  
+  `ObjectView` and `ListView` map a stored `map` view onto the node type they
+  render, and both already emit `object-map`, so every map view created through
+  the console keeps rendering. Nothing in a tenant database changes, and ⛔ nothing
+  should be migrated there.
+  
+  **What moved with it.**
+  
+  - `@object-ui/console` drops its lazy `map` / `view:map` registration stub; the
+    lazy `object-map` stub is unchanged.
+  - `@object-ui/core`: `recordSourceDataArmForType` no longer lists the `map` and
+    `view:map` rows, since no block is registered under either key.
+  - `@object-ui/cli`: the generated known-type list that `objectui check` reads no
+    longer contains bare `map`, so the check now reports `map` as an unknown
+    schema type in a file it recognises. ⚠️ `view:map` stays on
+    that list, because the opt-in protocol placeholder (`registerPlaceholders()`
+    in `@object-ui/components`) registers it — in the console a `view:map` node
+    renders that placeholder panel, not a map, and `objectui check` does not report
+    it as an unknown schema type in a file it recognises. A bare
+    `{ "type": "view:map" }` with no structural key is listed in `check`'s advisory
+    did-not-validate list instead, because `view:map` is on the known-type list and
+    `AnyComponentSchema` has no arm for it; that line does not say the node renders
+    a placeholder. Search documents for `view:map` directly.
+  
+  ⚠️ **Dated note, 2026-09-25 — `objectui check` flags `map` only in a file it
+  recognises — objectui#10606.** This entry first said, unscoped, that the check now
+  flags bare `map`. `check` checks the `type` of each file it recognises, and a file
+  whose root carries an ObjectUI structural key (`children`, `className`, `body`, …)
+  is recognised by that key alone. A file with none of those keys is parsed against
+  the schema and recognised only if it validates; one that does not validate is
+  listed by name when its root `type` is on that known-type list, and is otherwise
+  counted as skipped. `map` is no longer on it, so `{ "type": "map" }` is
+  counted as skipped ("no ObjectUI recogniser admitted") and gets no unknown-type
+  line, while `{ "type": "map", "className": "h-64" }` gets one. `check` exits
+  non-zero on unreadable JSON only; the verdict is `objectui validate`'s: it refuses
+  `{ "type": "map" }` at `type` (`invalid_union`) and exits non-zero.
+  
+  The `@object-ui/plugin-map` README now describes one registered type, and its
+  sentence claiming a bare array under `data` reaches the in-memory adapter is
+  corrected: a bare array under `data` is not a record source on the map
+  (objectui#8348), so inline rows belong under `staticData`. The same false claim
+  is corrected on the two docs pages that carried it, `plugins/plugin-map.mdx`
+  and `fields/location.mdx`.
+  
+  **One pending entry in this same release is superseded in part.** The
+  objectui#10392 / #10394 entry (`10392-registration-record-source-inputs.md`)
+  says `object-map`, `map` and `object-gantt` gained `data` / `staticData`
+  inputs. It now reads as of its own change and carries a dated note naming this
+  card: `map` declares nothing after this retirement, while `object-map` and
+  `object-gantt` keep both inputs.
+- 3261e64: One `titleFormat` interpolator for the record title (objectui#10447, objectui#10446).
+  
+  `@object-ui/core`: `formatTitleTemplate` now judges a placeholder empty the way `recordDisplayValueAt` does: trim, then empty. A whitespace-only value used to count as resolved, so `{contract_no} - {name}` with a blank `name` rendered `HT-2026-003 -` in `formatTitleTemplate` and in `getRecordDisplayName`'s `titleFormat` rung, and so on every surface backed by that resolver. It now renders `HT-2026-003`. Both functions run one shared implementation of the rule, so a resolved placeholder renders the same trimmed display string `recordDisplayValueAt` returns. The exported signatures are unchanged.
+  
+  `@object-ui/components`: the record page H1 (`page:header`) renders its `titleFormat` rung through core's `formatTitleTemplate`, the function `getRecordDisplayName` and `record:details`' H1 dedupe already use, instead of its own interpolation and separator cleanup. Visible changes on that rung:
+  
+  - An expanded lookup token renders its display name: `{account} - {deal_no}` reads `Acme - Q3-042` where the H1 used to drop the lookup and read `Q3-042`, so `record:details` no longer prints the row it wrongly treated as distinct from the heading.
+  - A comma left by an empty placeholder is stripped: `{deal_no}, {code}` with no `code` reads `Q3-042`, not `Q3-042,`.
+  - A template none of whose placeholders resolves no longer shows its literal text (`Session — {user_id}` with no user used to read `Session`); the H1 walks on to the next rung, as `getRecordDisplayName` does.
+  - A select token still reads as its translated option label: the label is applied to a copy of the record before core renders it.
+  
+  The rungs' order is unchanged. `page:header`'s own `title` and `subtitle` templates keep their existing interpolation.
+  
+  This supersedes how two earlier changesets, still pending in the same release, describe the `titleFormat` rung; each now carries a dated note naming this card. objectui#9436 (the declared pointer outranks `titleFormat` in `page:header`) said the template kept the header's own interpolation. objectui#9174 (`interpolate()`'s no-token fast path) listed the record-title `titleFormat` among `interpolate()`'s callers. Both describe the header as it was at their change; from this release the rung renders through `formatTitleTemplate`.
+- 6c2f3c5: `ObjectView` resolves the spec's context tokens in the filters it hands on (objectui#10506).
+  
+  A per-user named list view, `{ field: 'owner', operator: 'equals', value: '{current_user_id}' }`,
+  reached the query with the literal token on the registered `object-view` node: this component
+  had no read of `@object-ui/core`'s `resolveFilterPlaceholders`, while the app-shell host resolved
+  the same view.
+  
+  The three authored filter segments (the active view's filter, `table.filter`,
+  `table.defaultFilters`) are now resolved once through that shared resolver, with the session
+  scope the host provides through `useFilterScope` (the console shell mounts `FilterScopeProvider`
+  from the signed-in user and the active organization). All three paths a filter leaves this
+  component by read the resolved segments: the query a non-grid view issues, the `object-grid`
+  schema handed to `ObjectGrid`, and the `list-view` schema handed to a host's `renderListView`.
+  The relative-date macros (`{today}`, `{current_quarter_start}`, …) resolve in the same call, in
+  the browser's local time, as they already did on the surfaces that call the resolver: the
+  app-shell host, `ObjectChart` and the dashboard widgets. (A directly authored `object-grid` or
+  `list-view` node calls it too, since objectui#10607.) Where they used to reach a backend that resolves them
+  itself, as the ObjectStack server does in the tenant's configured `localization.timezone` (UTC by
+  default), a browser whose local day differs from the server's day can now get a different day.
+  
+  A token the scope cannot resolve is left as written and the resolver warns once, which is the
+  resolver's own rule, so the filter is never widened. With no `FilterScopeProvider` mounted, what a
+  literal `{current_user_id}` then selects depends on the backend: the ObjectStack server resolves
+  it for a signed-in request and refuses the request otherwise (the REST face answers 401 at its
+  auth gate before the filter is read, and where a guest context reaches the engine the resolver
+  answers 400), and a backend with no resolver of its own matches no record.
+  
+  The resolved value is held against its inputs: the raw segments, compared by structure, and the
+  scope's three members (`currentUserId`, `currentOrgId`, `onUnresolved`), each compared on its own.
+  `ObjectGrid` and `ListView` key their fetch on the filter's identity, so a host that re-renders
+  without changing anything does not trigger a refetch. Date macros are resolved once and held until
+  the user, the organization or a segment changes, so `{now}` and `{today}` do not produce a new
+  value on every render of this component: that governs the query a non-grid view issues, the grid,
+  and a `renderListView` host that queries with the filter it is handed. The console's app-shell
+  host is not such a host: its `renderListView` resolves the active view's own filter itself
+  (`viewDef.filter ?? listSchema.filter`, with no filter segment in the schema it gives this
+  component; the active view's filter still reaches this component through the `views` prop), so
+  its date macros and its `'current-user'` fallback for a signed-out user are unchanged. A host that resolves the handed value again, as the app-shell's fallback would, changes
+  nothing: a resolved id or date no longer matches the placeholder pattern. With no user in scope,
+  this component's pass warns; the app-shell's own pass substitutes `'current-user'` silently, as
+  before, so the console's query is unchanged and the one difference is that warning.
+  
+  `@object-ui/core`'s two placeholder walks (`resolveContextTokens` and `resolveDateMacros`, both behind
+  `resolveFilterPlaceholders`) now return a non-plain object as the same instance instead of rebuilding
+  it from its own keys, so a `Date` comparand, which the spec admits, no longer comes back as `{}`;
+  plain and null-prototype objects are still walked. A non-plain object is a leaf whatever it is: a
+  class instance with own keys carrying a token is also returned as the same instance, no longer
+  copied and resolved. The contract review of this change found no in-repo caller that passes one.
+- 4758b33: `@object-ui/core` now exports the native date/time control adapters `toDateInputValue`, `toDateTimeInputValue`, `fromDateTimeInputValue` and `isImpossibleStoredDay` (objectui#10625). They moved down from `@object-ui/fields` unchanged, next to `isRealCalendarDate`, so the data table in `@object-ui/components` can use the same set instead of private copies. Their behaviour is unchanged: a stored day that does not exist (such as `2026-02-30`) is never rolled to a real one.
+- 39b8d51: feat(components): `div` is deprecated on the html tier too — a `kind:'html'` page that authors `<div>` is refused at compile time, and the error names `box`
+  
+  Executes the maintainer's ruling A on objectstack#20112 ("`div` stays
+  deprecated") in the renderer. Until now the published manifest left `div` out of
+  the html tier, so `os validate` refused a `<div>` page as `forbidden-tag`, while
+  the console compiled and rendered the same page. `div`'s registration declared
+  the deprecation for the JSON surface only, and its renderer exempted nodes the
+  html parser emitted (objectui#4000).
+  
+  **What moves for a consumer.**
+  
+  - **BREAKING (authoring): a `kind:'html'` (or legacy `kind:'jsx'`) page that
+    authors `<div>` or `<ui:div>` no longer renders.** The html compile fails, and
+    like every compile error this fails the whole page: the console shows the
+    "HTML page failed to compile" panel. Each refusal is the parser's
+    `forbidden-tag` sentence, followed by the declared replacement guidance, which
+    names `box`. Migration: retype `<div>` to `<box>`. `box` renders the same
+    element with the same `className` and no layout of its own.
+  - `div`'s registration now declares `deprecated.surfaces: ['json', 'html']`, so
+    `ComponentRegistry.deprecationFor('div', 'html')` answers the declaration
+    (with the unchanged `replacement`) instead of `undefined`. The html compile
+    derives what it refuses from `deprecationFor(type, 'html')`, the registration's
+    declaration, rather than from a list of tag names.
+  - The `div` renderer no longer exempts nodes carrying html-tier provenance, and
+    its dev-build notice now says it applies to JSON-authored nodes and html pages
+    alike. The migration bullets are unchanged.
+  - `span` is unchanged: it is still deprecated on the JSON surface only, and it
+    still compiles on html pages.
+  
+  Semver: `minor`, not `major`, per this repository's version-alignment rule. The
+  breaking semantics are stated above.
+  
+  **Published declaration text (prose only, no behaviour change).**
+  
+  - `@object-ui/core`: the emitted `dist/registry/Registry.d.ts` carries the
+    rewritten `ComponentDeprecation` and `deprecationFor` docblocks, where `span` is
+    now the worked example of a json-only deprecation and `div` is stated to name
+    both surfaces. `dist/registry/html-tier-intrinsics.d.ts` carries the rewritten
+    `HTML_TIER_INTRINSICS` docblock: its `div` bullet and the sentence describing the
+    console's html-tier whitelist.
+  - `@object-ui/sdui-parser`: the emitted `dist/provenance.d.ts` carries the
+    rewritten file-header sentence, where `span` is now the example of a tag that
+    stays html-tier vocabulary.
+- 17b323e: fix(core): `ValueDataSource.find` reads a spec `ViewFilterRule[]` `filter`, so an inline-data map, tree, calendar or gantt renders the rows the one filter form the spec accepts selects
+  
+  The spec's converged `filter` doors accept ONLY the rule array
+  `[{ field, operator, value }, …]` (objectui#6206 B). `ValueDataSource.find` picked a
+  matcher on the SHAPE of `$filter` — an object to the `$`-dialect matcher, an array
+  to the AST matcher — and a rule OBJECT is none of the AST shapes, so every row was
+  refused with one `console.warn` ("is not a shape the matcher reads"). The four
+  blocks whose rows can be inline (`object-map`, `object-tree`, `object-calendar`,
+  `object-gantt`, the last through `resolveDataSource`) hand `schema.filter` to this
+  adapter unlowered, so a spec-conformant page with inline rows rendered an EMPTY
+  component while `os validate` was green.
+  
+  The array arm now lowers through the repo's ONE sink, `toFilterNode`
+  (`toFilterNodeSafely`) — the same function the grid, the list and every other
+  lowering caller already use — before it matches, so the spec's vocabulary
+  (`equals`, `greater_than`, the aliases the spec folds, a valueless `is_null`) selects
+  rows in memory exactly as it does on the wire. No second lowering and no second
+  operator table were added; the `$`-dialect arm is untouched.
+  
+  The matcher is NOT relaxed. An empty rule array is still "no filter" (as on the
+  object-bound arm). A genuinely unreadable node, an operator the vocabulary does not
+  know, and a rule the lowering itself refuses (an ARRAY on a single-valued operator,
+  an empty `icontains` comparand) still exclude every row and log ONCE, with the same
+  sentence tail — the lowering's refusal is delivered the way this adapter delivers
+  every refusal, excluded and logged, never thrown.
+  
+  `QueryParams.$filter` (`@object-ui/types`) already declared the array form legal for
+  every DataSource and named the wire adapter's `translateFilterToAST` as the accept
+  set; this adapter was the one face in the family that did not read the rule array,
+  so `resolveDataSource` handed back an adapter whose `find` read fewer filter shapes
+  on `provider: 'value'` than on `provider: 'object'`. That gap is what closed.
+- 33e58d8: `convertFiltersToAST` now refuses an EMPTY operator map BESIDE a key that lowers —
+  `{ status: 'a', created: {} }` — with a `FilterOperatorError` (`INVALID_FILTER` / 400)
+  whose subject is the field, instead of silently dropping it (objectui#10788).
+  
+  **Before.** `{ created: {} }` names a field and no operator, so the operator loop ran zero
+  times and pushed no condition for it. objectui#9164 refused that map in the general tail,
+  but the tail was reached only when NOTHING produced a condition. Beside a key that lowers,
+  the sibling's condition carried the filter and the field vanished:
+  `{ status: 'a', created: {} }` lowered to `['status', '=', 'a']`, and both `find()` routes
+  of `@object-ui/data-objectstack` sent a request byte-identical to `{ status: 'a' }`. The
+  result was WIDER than the author wrote, with nothing thrown. `@objectstack/spec` records
+  `{ field: {} }` as REJECTED in every position (objectstack#5240, on
+  `FilterConditionSchema`).
+  
+  **After.** The empty operator map is refused in the operator-map arm, where it is met, like
+  this function's bare-array and exotic-comparand refusals. One throw site now answers it
+  alone (objectui#9164) and beside other keys, so the two cases cannot drift apart. The
+  message names the field and the fix: choose an operator (`$eq`, `$in`, `$null`, …) or
+  remove the key. A `$and` / `$or` member is converted by the same function, so
+  `{ $and: [{ status: 'a', created: {} }] }` is refused too.
+  
+  **What an author sees.** The same as for this function's other refusals. A list or view
+  that loads through `buildEffectiveFilter` / `ObjectView` fails its load with the
+  `INVALID_FILTER` envelope. `ObjectGrid`, `RelatedList` and `LineItemsPanel` read
+  `toFilterNodeSafely` and render the "this view's filter is malformed" state naming the
+  field. `@object-ui/data-objectstack`'s `find()` rejects with the envelope and sends no
+  request.
+  
+  **Unchanged.** `{ status: 'a' }` still lowers to `['status', '=', 'a']`. A real operator
+  beside the key (`{ status: 'a', created: { $gte: d } }`) still lowers. A `null` /
+  `undefined` value is still skipped, not refused. `{}` still returns `{}`.
+  
+  **Migration.** A stored filter carrying `{ field: {} }` beside other keys used to return
+  more rows than it said. It is now a named refusal. Give the field an operator, or delete
+  the key.
+- 256b4c9: A filter refused as malformed (`INVALID_FILTER`) no longer throws out of render or out of a click
+  handler at the sites that merge filters there. That holds whether this layer's filter converter
+  refused it or, at the drill seam, the spec's own `parseFilterAST`. Each site now surfaces the
+  refusal the way its siblings already do (objectui#10789). The filter stays **refused**: nothing
+  that was refused is accepted, and no site falls back to "no filter".
+  
+  - **`ElementDataSourceGate` / `useElementDataSource`** (`@object-ui/react`): the gate's merge of
+    the component's `filter` with the composed binding, and the merge of a saved view's filter
+    with the binding's own, lowered through the throwing converter inside render. A refused
+    filter from either now makes the binding `missing` with a new optional `filterRefusal` on the
+    result (`error` carries its message). The gate then draws, in place of the block, the
+    malformed-filter notice the wrapped blocks draw: `view.malformedFilter`, naming the refused
+    operator or field. `element:record_picker`, which reads the same hook, shows its
+    configuration-error panel with the refusal.
+  - **`PeoplePicker` / `RecordPickerDialog`** (`@object-ui/fields`): the recents merge and the
+    dialog's `mergedFilter` lower through `toFilterNodeSafely`; a refusal is shown in the picker's
+    existing error state and no query runs without the filter.
+  - **Drill-downs** (`ObjectChart`, `ObjectPivotTable`, `DatasetWidget`, `DatasetReportRenderer`):
+    a widget or report filter refused at the drill seam made the drill click throw. The converter
+    refuses some (a spec `$not`, say). The spec's `parseFilterAST` refuses others, such as a scalar
+    on a list operator in either dialect: `[['stage', 'in', 'won']]` or `{ stage: { $in: 'won' } }`.
+    The drill is now not opened or emitted (never with the scope dropped), and the refusal is logged
+    with `console.warn`, naming the operator. `composeDrillFilter` (`@object-ui/core`) now throws
+    one refusal type: the spec's `INVALID_FILTER` error is re-raised as a `FilterOperatorError` with
+    its message and the same `INVALID_FILTER` / 400 envelope, and any other error passes through
+    unchanged.
+  - **`ListView` export** (`@object-ui/plugin-list`): the server export builds its filter inside
+    its `try`, so a refusal is named in the export menu instead of escaping the click.
+  - **`convertFiltersToAST`** (`@object-ui/core`): an `$or` member that is the TRUE identity no
+    longer stops the members after it from being read. `{ $or: [{}, { a: {} }] }` is now refused
+    like `{ $or: [{ a: {} }, {}] }` already was, instead of answering TRUE (every row); a TRUE
+    disjunct beside members that lower still absorbs its `$or`.
+- 30b11ad: `ValueDataSource.find` now refuses an object `$filter` that carries an EMPTY operator
+  map — `{ created: {} }`, alone, beside other keys, or inside a `$and` / `$or` member —
+  instead of silently dropping that field's constraint (objectui#10817).
+  
+  **Before.** The object-dialect matcher read `{ created: {} }` as an operator map with
+  zero operators, so the field added no constraint. `{ status: 'a', created: {} }`
+  answered the same rows as `{ status: 'a' }`, and `{ created: {} }` answered every row,
+  with no console line. The ObjectStack path refuses the same filter: `@objectstack/spec`
+  ruled `{ field: {} }` REJECTED wherever it appears (objectstack#5240, recorded on
+  `FilterConditionSchema`), and `convertFiltersToAST` refuses it alone (objectui#9164) and
+  beside a key that lowers (objectui#10788).
+  
+  **After.** Before any row is matched, the object arm walks the filter's field entries
+  and the members of `$and` / `$or`. A field whose condition is an object with no own
+  keys is handed to `toFilterNodeSafely` on its own, so the converter alone decides what
+  an empty operator map is, in its own wording. If the converter refuses it, the whole
+  filter answers no rows (`data: []`, `total: 0`) and the converter's reason is logged
+  once — the envelope the array arm already uses for a rule its lowering refuses
+  (objectui#10767). `find` still never rejects. `{ $or: [{ status: 'b' }, { status: 'a',
+  created: {} }] }` answers no rows, not the `'b'` rows.
+  
+  **Also refused, by the same routing.** Any other object with no own keys that is not a
+  plain object or a `Date` — a `RegExp`, `Map`, `Set`, `URL` or a class instance with no
+  own fields — has no own keys either. The converter refuses it as an exotic comparand
+  (objectui#8567), so this face now refuses it too, with the converter's wording, instead
+  of dropping the constraint: `{ status: 'a', created: /x/ }` used to answer the same rows as `{ status: 'a' }`.
+  
+  **Unchanged.** `{ status: 'a' }`, a real operator beside the key, the `{}` whole filter
+  and a `null` condition answer as before. A `Date` comparand is not refused: the
+  converter lowers it, so it reaches the matcher exactly as before, where its constraint
+  still vanishes (objectui#10829). Every other refusal
+  on this face — an operator the matcher does not implement, an array comparand, `$not` —
+  is still excluded per node with its own sentence; when the same filter also carries a
+  condition the walk refuses, only that refusal is logged — `{ status: ['a'], created: {} }`
+  logs `created`'s refusal, where the converter names `status`.
+  
+  **Clause-②: no** — the value face now refuses, in its own exclude-and-log envelope, a
+  shape objectstack#5240 ruled refused, and comparands the spec's
+  `ACCEPTED_FILTER_COMPARAND_TYPES` rules out (objectui#8567); on this face both only
+  ever dropped a constraint. No declared surface moves and no export is added.
+  
+  **Migration.** A filter carrying `{ field: {} }` returned more rows than it said. It is
+  now a named refusal. Give the field an operator, or delete the key.
+  
+  ⚠️ **Dated note, 2026-09-27 — a `Date` condition now matches the rows holding that instant — objectui#10829.** Later in this same release a `Date` condition in an object `$filter` is read as implicit equality, and two `Date`s compare their instant in both arms, so `{ status: 'a', created: someDate }` answers the status-`'a'` rows whose `created` is a `Date` of that instant, the same rows as its lowered array, rather than the rows of `{ status: 'a' }`. "where its constraint still vanishes (objectui#10829)" above is this change's reading, not the release's. The rest of this entry is kept as the reading of this change; the objectui#10829 entry states what that input now answers.
+- 3d6badf: `ValueDataSource.find` now answers a `Date` equality or membership test with the rows
+  holding that instant as a `Date`, in both filter dialects (objectui#10829). The object
+  dialect used to drop an implicit `Date` equality, and every explicit equality or
+  membership test compared a `Date` by identity.
+  
+  **Before — the object dialect.** The object-dialect matcher sent every object condition
+  that is not an array to its operator branch. A `Date` has no own keys, so the operator
+  loop ran zero times and the field added no constraint: `{ status: 'a', created: someDate }`
+  answered the same rows as `{ status: 'a' }`, and `{ created: someDate }` answered every
+  row, with no console line. `convertFiltersToAST` lowers the same filter to
+  `['created', '=', someDate]` (objectui#8555), because `@objectstack/spec`'s
+  `ACCEPTED_FILTER_COMPARAND_TYPES` includes `Date`.
+  
+  **Before — both dialects.** Every equality and membership position compared with `===`,
+  and membership with `includes`, so a `Date` was compared by identity. The adapter clones
+  the rows it is constructed with, so none of those rows held the comparand's instance:
+  over them `['created', '=', someDate]`, `{ created: { $eq: someDate } }` and
+  `$in: [someDate]` matched nothing, not even the row holding that exact instant, while
+  `$gte` and `$lte` both matched it, and `!=`, `$ne` and `$nin` selected every one of
+  them. Only a row written through `create` or `update`, which copy the record shallowly,
+  could hold the caller's own instance and match it by identity.
+  
+  **After.** A condition the spec's `isAcceptedFilterComparand` accepts takes the
+  object dialect's implicit-equality branch, the predicate the converter lowers a `Date`
+  through; today a `Date` is its only object-typed member. One equality helper serves
+  implicit equality, `$eq` / `$ne` / `$in` / `$nin` and the AST `=` / `!=` / `in` / `nin`:
+  when the stored value and the comparand are both `Date` instances it compares
+  `getTime()`, and an invalid `Date` equals nothing. So an object filter answers what its
+  lowered array answers, and `=`, `$gte` and `$lte` agree on one instant.
+  
+  **Unchanged.** A `Date` comparand is not coerced to another storage form: a row holding
+  the same instant as an ISO string or as epoch milliseconds does not equal it.
+  `@objectstack/spec`'s `FILTER_COMPARAND_TYPE_CASES` declines to assert a `Date` row set,
+  because what it matches "legitimately differs per storage form (ADR-0053)". `$gt` /
+  `$gte` / `$lt` / `$lte` / `$between` compare a `Date` by its number, as before. Every
+  other comparand keeps `===`. The one value where membership moves is the number `NaN`:
+  `includes` found a stored `NaN` in `[NaN]` and `===` does not, so `$in: [NaN]` and
+  `['x', 'in', [NaN]]` no longer match a stored `NaN`, and `$nin` / `nin` now keep that
+  row, agreeing with `{ x: NaN }` and `$eq`, which never matched it.
+  
+  **Clause-②: no** — the value face stops dropping a `Date` constraint that
+  `@objectstack/spec`'s `ACCEPTED_FILTER_COMPARAND_TYPES` accepts and the converter lowers
+  to equality; no declared surface moves and no export is added.
+- 6650259: fix(plugin-calendar): a day event moved across a DST change writes the days it was dropped on (objectui#10866, slice 4)
+  
+  - **plugin-calendar.** At this change the month grid moved each date of an event by the milliseconds between two local midnights, the grabbed cell's and the drop cell's, and a date-only value is read at local midnight of its day. So when a DST change lay between one of an event's dates and where it landed, but not between the two cells (or the other way round), that date came back an hour off local midnight; at 23:00 of the day before, the write took the day before. Under `America/Los_Angeles` a span of `date` fields moved across November 1st or March 8th could be written a day short at its start or its end. A move of an event whose start, and end when it has one, are both stored calendar days now writes each `date` field as its stored day moved by the whole days the grid moved it. Every other write is unchanged: a `datetime` field still writes the instant the grid hands back, and at this change the grid's own arithmetic does not change.
+  
+    ⚠️ **Dated note, 2026-09-29 — the month grid now moves by calendar days — objectui#11005.** Later in this same release the month grid moves a value by the calendar days between the grabbed cell and the drop cell and keeps its time of day, for a move and for a drag of a span's end, so a 10:00 `datetime` stays at 10:00 across a DST change. A `date` value read at local midnight of its day then comes back at local midnight of the day it was dropped on, so the repair described above is removed and a moved `date` field is written as that local day, which is the same day the repair wrote. The rest of this entry is kept as the reading of this change; the objectui#11005 entry states what ships.
+  - **plugin-gantt, types.** The business `timeZone` prose (`GanttConfig.timeZone`, `GanttViewProps.timeZone` and `makeTzShift`) said persisted data stays real instants. A `date` field under a zoned chart has been written as a calendar day since this card's first slice; at this change the prose says so, and says that near a DST change of the chart's zone or the viewer's the shim can place a day's midnight an hour early, onto the day before. Documentation only.
+  
+    ⚠️ **Dated note, 2026-09-29 — a zoned chart reads and writes a day exactly on a DST change — objectui#10866, slice 5.** Later in this same release `ObjectGantt` inverts the shim exactly for a date-only day, so a stored day is drawn from its own midnight and a drop writes the day it was dropped on, on a DST change of the chart's zone or the viewer's too. The `GanttConfig.timeZone` and `GanttViewProps.timeZone` prose no longer says a day can land on the day before, and `makeTzShift`'s says a day does not take the shim's round trip. The rest of this entry is kept as the reading of this change; the slice-5 entry states what ships.
+  - **core.** The `DATEADD` / `DATEDIFF` / `DATEFORMAT` docblock names how a mixed `DATEDIFF`, one day and one instant, reads each argument when it counts months or years. Comment only.
+- 9e6619f: fix(plugin-timeline,core): the timeline's gantt axis draws a stored date-only day on that day in every viewer zone, and the formula date functions do their day arithmetic on the UTC calendar, as the server does (objectui#10866, slice 3)
+  
+  - **Timeline, gantt variant.** Every date string the gantt branch reads now goes through `toDisplayDate` from `@object-ui/core`, the step its bar tooltip already takes: in the axis headers, the extent computed from the rows, the bar positions, the validity check and the check that the start is not after the end. A date-only value is local midnight of the day it names, and a value with a time part keeps its instant, which the axis places at its local hour in the viewer's day. A number or a `Date` is an instant and is read as before. West of UTC the headers no longer read the day before: a day axis over October 5th to 7th reads Oct 5, Oct 6, Oct 7, and the schema catalog's `gantt-style-timeline.json` reads Jan 2024 to Apr 2024, where it read Dec 2023, Jan 2024, Mar 2024, Apr 2024 in Los Angeles. So the axis now agrees with the bar tooltip. The computed extent is printed as the viewer's calendar day. An empty plan's one-day axis is the viewer's today, where it was the UTC day. A bar date naming a day its month does not have, such as `2026-02-30`, is now refused by the render-time "not a valid date" message, where it was rolled into March and drawn there. `generateTimeScaleHeaders`, which the package exports, reads a date-only `minDate` / `maxDate` the same way.
+  - **Formula date functions.** `DATEADD`, `DATEDIFF` and `DATEFORMAT` in `@object-ui/core` now do a calendar day's arithmetic on the UTC calendar. A date-only value naming a day its month has is read as UTC midnight of that day, as before, and is now moved and read with UTC setters and getters, so what the three answer for a day no longer depends on the viewer's zone. `DATEADD` hands such a day moved by days, months or years back as `YYYY-MM-DD`, where it gave an instant string. Its months clamp to the target month's last day, as the server's `addMonths` does: `DATEADD('2026-01-31', 1, 'month')` is `2026-02-28`, where it was `2026-03-03T00:00:00.000Z` in every zone, and a year from February 29th is February 28th. West of UTC, `DATEFORMAT('2026-09-01', 'YYYY-MM-DD')` no longer prints `2026-08-31`, `DATEDIFF` in months or years counts between the stored days rather than the days before them (`DATEDIFF('2026-08-31', '2026-09-01', 'month')` read 0), and a day added across a DST change no longer lands an hour off midnight. A value with a time part is unchanged: it is still moved and read in the viewer's zone and comes back as an instant, so `DATEFORMAT` still prints an instant's clock in the viewer's zone. So is a date-only value naming a day its month does not have, which the engine rolls forward as before. `TODAY()` is unchanged.
+- b2683a2: fix(core): `normalizeListViewSchema`'s density fold tests an own key, not `in` (objectui#10868)
+  
+  The fold turned a legacy `densityMode` into `rowHeight` when the value was `in`
+  `DENSITY_MODE_TO_ROW_HEIGHT`, and `in` walks the prototype chain. So
+  `densityMode: 'toString'` came back with `rowHeight` set to
+  `Object.prototype.toString`, a function, and the key was dropped. The fold now
+  uses the same own-key test that `rowHeightToDensityMode` uses in the read
+  direction. An inherited key such as `'toString'` or `'constructor'` is now
+  treated like any other unrecognized density, such as `'cozy'`: nothing is
+  folded, `rowHeight` stays unset, and `densityMode` is kept. The three densities
+  `compact`, `comfortable` and `spacious` fold exactly as before.
+  
+  Such a value reaches the fold only on a render path that does not validate.
+  `@object-ui/types`' zod schemas already refuse it: the `list-view` node declares
+  `densityMode` as a three-value enum, and a named view refuses `densityMode` by
+  name.
+  
+  docs(types): `NamedListView`'s docblock no longer says the type is used in
+  `ObjectViewSchema.listViews`. Since objectui#7928 that member has been the
+  protocol's `ObjectListViewSchema`, by reference. The docblock now says what the
+  type is: exported, and the type of no member of the contract. The type itself is
+  unchanged.
+- 6cd8f66: The console strings objectui#10900 left English under zh-CN now read the session's language (objectui#10969).
+  
+  - **The action runner's other own text.** `ActionRunner` asks the translator installed through `setTranslator` (objectui#10900) for three more strings it writes itself: the error toast when the error that reached it carries no readable message (`actions.failed`), a parallel chain's error when no failed action reported one (`actions.parallelFailed`), and the label of an undoable success toast's Undo button (`actions.undo`). An author's `errorMessage` / `successMessage` and an action's own error stay untranslated. With no translator the text stays English.
+  - **The Undo label now arrives from the runner.** For an undoable result the runner hands the toast handler `undo: { label }` where it used to hand `undo: {}`; `ToastHandler`'s type is unchanged (`label` was already optional). A handler that renders `options.undo.label` shows the translated label; one that ignores it keeps its own.
+  - **The console app's `system/*` breadcrumbs.** In `AppHeader`, the segment after `System` for `settings`, `apps`, `profile`, `approvals`, `ai-approvals` and `audit-log` reads `console.breadcrumb.*` (as `marketplace` has since objectui#10900). In English, `ai-approvals` now reads `AI Approvals` instead of the humanized slug `Ai Approvals`; the other five read as before. A segment the header does not know keeps its humanized slug.
+  - **The Build Doctor drawer's body.** Its description, loading and not-found states, summary line, verdict, and each section's title and hint read `console.ai.buildDoctorDrawer.*`. The report's own data (tool, artifact and status names, timeline text) stays verbatim.
+  - **"manifest ID" leaves the marketplace search placeholder in every pack.** `en` now reads `Search apps by name or app ID…`, and the eight packs that translated the jargon literally follow. zh already read 「按名称或标识搜索应用…」 and is unchanged.
+  
+  The new keys are in all ten packs.
+- 63ab761: Citations of objectstack cards now name their repository (objectui#11016).
+  
+  A bare `#N` in this repository resolves to an objectui item. Where the sentence
+  meant an objectstack card, a reader who followed the number landed on an
+  unrelated objectui card or pull request, and nothing flagged it: both
+  repositories answer for the number, so an earlier sweep that looked for dead
+  numbers could not see this class.
+  
+  Two of those citations are runtime text, and they now name the card they mean:
+  
+  - `@object-ui/core`: the dev warning for an action that still carries the
+    retired `execute` key (`RETIRED_ACTION_KEYS.execute`) points at
+    objectstack-ai/objectstack#3855, the card that retired the alias. The rest of
+    the message, including "rename the key to `target`", is unchanged.
+  - `@object-ui/app-shell`: the Studio skill form's help text for
+    `triggerConditions` points at objectstack-ai/objectstack#1878 and
+    objectstack-ai/objectstack#1895.
+  
+  The other sites are code comments and doc comments in the non-test sources,
+  requalified the same way: a bare number whose sentence meant
+  an objectstack card now reads `objectstack-ai/objectstack#N`. Numbers that mean
+  an objectui card stay bare. Where a comment quotes objectstack's own text, the
+  quote keeps its words and the card name sits in square brackets, the editorial
+  mark for a substituted word.
+  
+  Pending entries in this release that carry such a number get a dated note
+  naming the card, and their frontmatter is unchanged.
+  
+  Nothing else moves: no key, accept set, refusal decision or code path.
+- a782fa7: An unlabelled undoable action's Undo and Redo toast names the object and carries no English verb (objectui#11080).
+  
+  - **The description no longer starts with a verb.** An `undoable` update whose action declared no `label` (or an empty one) described its operation as `Undo ` followed by the object's API name. The three places that build the operation now write the object identifier each already holds: `ActionRunner`, the console runtime's `api` handler and `RecordDetailView`'s `api` handler. An authored `label` still wins, byte for byte.
+  - **Why the verb goes.** The console's global Ctrl+Z / Ctrl+Shift+Z toasts already say Undo or Redo themselves, from the pack keys `actions.undoneOperation` and `actions.redoneOperation`. The fallback's own `Undo ` doubled that verb on the undo toast, and was wrong on the redo toast: under zh-CN they read 「撤销：Undo task」 and 「重做：Undo task」, and now read 「撤销：task」 and 「重做：task」. English reads `Undo: task` and `Redo: task`.
+  - **What does not change.** `UndoableOperation` is byte-identical, there is no new key, and `@object-ui/core` gains no text and no translator contract. The object is named by its API name in all three producers, not by its label.
+  - **No migration.** A stack restored from `objectui:undo-history` keeps the description it was saved with.
+  
+  The fallback is reached only by an undoable action with an empty or missing `label`: `@objectstack/spec` requires an action to declare one, so in practice that is a code-built `ActionDef` or an authored empty label.
+- bf43afa: fix(core,app-shell): Undo of a lookup update restores the stored id, not the expanded record (objectui#11122)
+  
+  **Clause-②: no** — no authorable key, schema or prop moves. `captureUpdateUndoData` gains a required third argument, the written object's field definitions; the function's export is still unreleased (it ships with the pending objectui#11082 changeset), so no published version carries the two-argument form. `ActionContext` declares no new member: the runner reads `objectFields` through the interface's existing open index signature, the way it already reads `objectName`.
+  
+  - **A relation's Undo value is the id it stores.** Surfaces read rows with `$expand` on the relations they show, and the server puts the related record where the id was. The Undo snapshot copied that record, so Undo wrote `{ id: 'a1', name: 'Acme' }` into a lookup that stores `'a1'`: refused under a strict value-shape posture, stored as corruption under the lenient one. `captureUpdateUndoData(writtenFields, rowRecord, fields)` now captures a field the object declares relational (`lookup`, `master_detail`, `user`, `tree`) as its id, and a `multiple` one as its array of ids. It uses `toPredicateRecord`, the rule that already binds a fetched record to its stored ids for predicates, so the two cannot disagree about which fields are relations.
+  - **Read from the field definitions, never from the value's shape.** A `json` field holding an object with an `id` is captured, and restored, exactly as the record carries it. Called with `undefined` for `fields`, nothing is treated as a relation.
+  - **All three writers pass the definitions.** The console runtime's `api` handler looks up the written object in its `objects` and then in the console's metadata store. The record page passes its object's fields. `ActionRunner`'s `operation: 'update'` reads `objectFields` from the action context, where the console runtime and the record page now publish their object's field definitions beside `objectName`; it uses them only for that object.
+  
+  Pinned in `packages/core/src/actions/__tests__/captureUpdateUndoData.relations-11122.test.ts`, `packages/app-shell/src/views/RecordDetailView.undoLookupId-11122.test.tsx` and `packages/app-shell/src/hooks/__tests__/useConsoleActionRuntime.undoLookupId-11122.test.tsx`.
+- 58da8ae: A blank gate predicate is diagnosed on the three paths that still drew it in
+  silence, and objectui's two gate mirrors whose protocol key refuses a blank now
+  refuse it too (objectui#11262, ADR-0137 D4 and D1). **No drawn verdict moves:** a
+  blank gate is still "no gate".
+  
+  **Diagnosed, verdict unchanged (`@object-ui/core`, `@object-ui/plugin-form`).**
+  ADR-0137 D4 says a blank gate predicate is "diagnosed, never a silent `true`".
+  objectui#8069 diagnosed the `{ dialect: 'cel' }` route; three paths stayed silent,
+  and each now reports through that same guard (`evalFieldPredicate`'s `[blank]`
+  report, deduped per blank text and locator):
+  
+  - `ExpressionEvaluator.evaluateCondition`'s legacy path: a bare `''`, a
+    whitespace-only string, and an envelope without `dialect` whose `source` is
+    blank. These are the values `SchemaRenderer`'s visibility legs pass through
+    raw. The answer is still `true` in every mode, `throwOnError` included. A
+    caller that passes `onFault` receives the `[blank]` reason there; every other
+    caller gets the built-in warning. A blank on either route lands on one dedupe
+    key, so `''` and `{ dialect: 'cel', source: '' }` print one line.
+  - `evalRowPredicate`: a bare blank string returned the caller's fallback before
+    anything could say so. It now takes the route its blank-envelope twin already
+    took, with the same fallback and the same report (labelled on the
+    `warnOnError` route).
+  - `sectionFields`' `attachVisibility` (every sectioned `object-form` arm): a
+    blank view-level predicate is still dropped, so the field draws with no gate,
+    and the drop is reported, naming the field. A runtime field that already
+    carries its own blank `visibleOn` keeps it. The form renderer reports that one
+    when it evaluates it.
+  
+  **Refused at authoring (`@object-ui/types`, minor, a narrowing).** The protocol
+  declares an option's `visibleWhen` and a form view field's `visibleWhen` /
+  `visibleOn` as `EvaluatedExpressionInputSchema`, which refuses a blank predicate
+  (since `@objectstack/spec` 17.5.0). objectui's `SelectOptionSchema.visibleWhen`
+  and `FormFieldSchema.visibleOn` override those keys to keep objectui's wire, and
+  they still accepted `''`, whitespace and a blank envelope `source`. Both now
+  refuse them at the key, with the protocol's own sentence, through the check the
+  field-rule triad already carries. The accepted shape is unchanged: the same wire
+  options, by reference, and the parsed value is the authored one.
+  
+  `BaseSchema`'s `visible` / `hidden` / `disabled` have no protocol counterpart,
+  so a blank there still parses and is only diagnosed.
+- 5638529: Docblock only, no behavior change: `partitionRowsByPredicate` now names its callers and says who decides
+  "is a gate declared?" (objectui#11322).
+  
+  The shared partitioner keeps its opening test exactly as it was (`null`, `undefined` or `''` admits
+  every record). Its docblock used to call that test "blank string", which it never was: whitespace-only
+  text and an envelope whose `source` is blank are evaluated there and exclude every record. That is the
+  answer its built-in Delete `userActions.delete.visibleWhen` callers get. The bulk-action fold asks the
+  action family's `hasDeclaredVisibilityGate` before calling it, so a blank bulk `visible` reaches it as
+  `undefined`. `hasDeclaredPredicate`'s docblock names that new consumer and the field-rule tests that stay
+  outside the family.
+- 9801765: The selection bar's built-in **Delete** now honours `userActions.delete.visibleWhen`
+  per selected record (objectui#4420). It used to read that key as a bare boolean — the
+  object-level verdict only — so ticking a record the author's predicate excludes still
+  offered the red Delete, and pressing it deleted the record the predicate was written to
+  protect. The row kebab on the same screen hid its Delete correctly, so one declared key
+  meant two different things on two surfaces.
+  
+  Ruled by the maintainer on 2026-08-17 (behaviour 1 of the card's three): **filter the
+  operation and report the skipped**. The bar evaluates the predicate once per selected
+  record, the delete runs over the allowed subset, and the excluded records are reported
+  rather than silently dropped. The button itself is never hidden or disabled by the
+  predicate — a mixed selection is not punished for one stray tick — and a selection where
+  every row is excluded is a legible refusal rather than an unexplained absence.
+  
+  - `@object-ui/core` gains `partitionRowsByPredicate`, the set-shaped counterpart of
+    `evalRowPredicate`: the fail-closed per-record fold a bulk gate needs, written once.
+    A bulk gate evaluates N records in a loop, which is why it can never be a hook.
+  - `@object-ui/plugin-grid`'s bulk bar routes an excluded selection through
+    `BulkActionDialog`, whose existing `bulk-skipped-notice` slot reports the skipped
+    count; a selection with nothing excluded keeps the consumer's own delete flow
+    untouched. `resolveRowCrudAffordances` now also returns `objectDeletePredicates` —
+    the bulk half of the same predicates, gated on the object verdict rather than on the
+    row `onDelete` wiring. The dialog declines to run over zero records.
+  - `@object-ui/plugin-list`'s non-grid bulk bar (kanban / calendar / gallery / …) filters
+    the built-in `delete` to the eligible subset and states the skipped count inline.
+  
+  Custom bulk action ids are untouched: they route through the action runner carrying
+  their own gates. This is a UI affordance — server enforcement was never the leak.
+- ae476b8: Pin that `normalizeListViewSchema`'s output is AUTHORABLE, and retire the stale
+  "pending promotion" note on the legacy toolbar-flag fold (objectui#5435).
+  
+  objectui#5435 was filed against `@objectstack/spec@17.0.0`, where the fold turned
+  the legacy `showGroup` / `showHideFields` / `showColor` flags into
+  `userActions.group` / `.hideFields` / `.rowColor` — three keys
+  `UserActionsConfigSchema` did not declare, so the fold's own output was refused BY
+  NAME by the schema a stored view is validated against.
+  
+  The maintainer ruled Option A (2026-08-22) and the fix landed **upstream**, not here:
+  the spec adopted all three, and its declaring docblock names this card by number.
+  This repo resolves `@objectstack/spec@17.4.0`, so the gap is closed in objectui's
+  actual installed behaviour, not merely in the protocol's source. Measured, with a
+  firing control that reddens on a genuinely undeclared key — the original defect was
+  that nothing ever asserted the fold's output was authorable.
+  
+  ⛔ The three toggles are NOT retired. `ListView` honours them and the protocol now
+  declares them, so tombstoning them here would leave objectui narrower than the
+  protocol.
+  
+  No behaviour changes. The published bytes that move are one corrected docblock in
+  `dist/utils/normalize-list-view.js`, which is why this is a `patch` and not a
+  no-release changeset: the comment told future readers (human and AI) that the
+  promotion was still pending upstream, which is now false. Graded `patch` rather than
+  `minor` because no API is added, removed or reshaped.
+- 546ddf7: A node-gate visibility predicate that FAULTS now says so in a production build, once per
+  distinct predicate source (objectui#6038, maintainer ruling 2026-08-25, option B: "the
+  silence is no longer an accepted property"). Observability only — no verdict moves.
+  
+  `SchemaRenderer`'s visibility chain is fail-open: a predicate that cannot be evaluated
+  resolves to the same answer as one that said yes, so a gate that stops biting looks
+  exactly like a gate the author got right. The diagnostic that names it (objectui#5454 /
+  objectui#5687) sat behind a `__DEV__` short-circuit, because the only fault-detection
+  channel available was `throwOnError`, and on the CEL branch `evaluateCelCondition`
+  implements that by evaluating **twice** — too expensive to ship for every predicate of
+  every node.
+  
+  **What production actually printed before, measured per dialect on the built evaluator**
+  — the card's premise held for one dialect of three, and the other two failed in opposite
+  directions:
+  
+  | dialect | production console, before |
+  |---|---|
+  | bare string | **nothing** |
+  | `{ dialect: 'cel' }` envelope | one generic line, deduped per source |
+  | `${…}` template | one generic line **per evaluation**, never deduped |
+  
+  So the dialect objectstack#11254 measured a live gate breaking on was the silent one,
+  while the template dialect was the console flood the ruling's rate-limit clause exists to
+  prevent.
+  
+  **The fix reports the fault the evaluator already detected, at the same number of engine
+  calls.** `EvaluationOptions.onFault` is a new passback on `@object-ui/core`'s
+  `ExpressionEvaluator`: every fault site is already inside a `catch`, or already holds the
+  canonical engine's failure reason, so nothing is evaluated twice. It mirrors, one layer
+  up, the seam `FieldPredicateDiagnostic` already documents (`warn: false` plus a reason
+  passback), and supplying it transfers reporting to the caller so one fault stays one
+  line. Pinned: the CEL branch performs the same number of record reads with the passback
+  as without it, and strictly fewer than the `throwOnError` probe.
+  
+  `SchemaRenderer` passes it in production and reports through the **same** reporter the dev
+  branch uses — same message, same severity, same dedupe `Set`, same key. Development and
+  production now print the identical line for the identical fault; the `__DEV__` gate no
+  longer decides *whether* a fault is reported, only *how* it is detected.
+  
+  `page:tabs` item-level `visibleWhen` (`@object-ui/components`) is covered by the same
+  reporter and the same rate limit. It swallowed the identical fault under a different
+  helper, and it was the worse of the two: the node gate at least reported in development,
+  while a faulting item predicate was silent in *both* builds on a gate whose false verdict
+  removes an entire tab, header and panel.
+  
+  **Rate limit:** deduped per (node type, gate key, predicate source) — never per render and
+  never per node instance. A two-hundred-row list of one broken predicate is one line; a
+  second distinct predicate source still gets its own line. Both halves are pinned, because
+  a test that asserts only "a warning was emitted" is equally green on an implementation
+  that emitted fifty, and one that asserts only "exactly one" is equally green on an
+  implementation that suppresses everything.
+  
+  **Not changed by this card, deliberately:** the fail-open semantics themselves; the
+  objectui#5687 adapter-only `data.*` report, which stays development-only under its own
+  2026-08-22 ruling (that path is not a fault — the predicate evaluated perfectly, against
+  the wrong object); and the `features` root on `/forms/:name`, which objectui#6262 settled
+  by refusing it in form-view predicates rather than wiring it.
+  
+  `reportUnresolvableVisibilityPredicate`, `formatUnresolvableVisibilityMessage`,
+  `UNRESOLVABLE_VISIBILITY_PREFIX` and `__resetVisibilityPredicateWarnings` are now exported
+  from `@object-ui/react` so every surface that evaluates a node `visibleWhen` shares one
+  reporter and one rate limit — a second copy would mean a second dedupe `Set`, and one
+  authored predicate would be entitled to one line per package instead of one line.
+- a26b9e4: `packages/core/src/adapters/README.md` now documents the adapters that are actually in that
+  directory, and the ObjectStack material it carried moved to the package that owns the behaviour
+  (objectui#6213). Both files ship to consumers — `@object-ui/core` publishes its `src/`, and a
+  README rides every tarball — so this was published documentation describing the wrong package.
+  
+  The page had been left behind when the ObjectStack adapter moved out to
+  `@object-ui/data-objectstack`: its headings, feature list, filter-operator table and
+  query-parameter table were all about that adapter, and its one-entry "Available Adapters" list
+  told a reader Object UI has exactly one adapter and that it comes from `@object-ui/core`.
+  `ApiDataSource`, `ValueDataSource`, `resolveDataSource`, `runBatchTransaction` and
+  `emulateBatchTransaction` — the five exports that directory really ships — were named nowhere.
+  
+  - **`@object-ui/core`**: the page now opens with what the directory holds, gives each export a
+    usage snippet and a `provider` mapping, and points at `@object-ui/data-objectstack` for the
+    ObjectStack adapter. `## Creating Custom Adapters` is unchanged — it is the one section that was
+    always about this directory.
+  - **`@object-ui/data-objectstack`**: gains a `## Query Translation` section carrying the
+    filter-operator and query-parameter mapping tables, the AST conversion example and the sorting
+    example. That material existed **only** in the `core` copy — this package's README documented
+    query translation as a single feature bullet — so it is ported, not dropped.
+  
+  No runtime behaviour changes; the duplicate copy of one package's documentation living under
+  another package is what goes away.
+- 3c2b6f7: Two deprecation warnings pointed at `MIGRATION_GUIDE.md`, a file deleted from the
+  repository in `8c5d20455` (objectui#6342).
+  
+  `Registry.register()`'s missing-namespace warning now points at the live docs page
+  that documents namespaced registration
+  (`/docs/guide/plugin-development#namespaced-registration`) instead of the deleted
+  guide. At this change, `ValidationEngine`'s function-based-condition warning drops
+  its `See:` line entirely: the deleted guide covered component namespaces and lazy
+  field registration and never documented conditions at all, so that pointer was
+  misdirected as well as dead, and the warning already carries the complete
+  before/after migration inline.
+  
+  ⚠️ **Dated note, 2026-09-25 — `ValidationEngine`, and with it the warning described
+  above, is removed from `@object-ui/core` by a later change; in a release that carries
+  both entries, only the `Registry.register()` warning ships — objectui#7659.**
+  
+  Both are console messages shipped to application developers, so neither can use
+  the immutable `git show <sha>^:<path>` provenance form objectui#6275 used for a
+  docblock — a reader of the npm package has no repository to run it against.
+- 5961030: `@object-ui/core` and `@object-ui/data-objectstack` now declare
+  `"@objectstack/spec": "^17.2.0"` rather than `^17.0.0`, which is the lowest published
+  spec that carries every symbol each package's own build output references
+  (objectui#6361).
+  
+  `packages/core/dist/utils/column-sortability.d.ts` references
+  `FIELD_SORTABLE_UNPROVISIONED_ANCHOR`, `FIELD_UNSORTABLE_VIRTUAL_TYPE`,
+  `FieldSortability` and `ObjectSortability` from `@objectstack/spec/api`, and
+  `packages/data-objectstack/dist/index.js` references the first two — none of which
+  `@objectstack/spec@17.0.0` exports. Measured against the published tarballs rather than
+  the installed tree, by `scripts/check-spec-range-floors.mjs`: six `floor-too-low`
+  findings across the two packages, and `^17.2.0` is that gate's own computed answer for
+  both. So the old range was a claim neither package could honour: any consumer
+  resolution that lands 17.0.0 — a sibling pinning it exactly, an `overrides` entry, a
+  mirror two minors behind — satisfied `^17.0.0` and got a dangling reference.
+  
+  Nothing a consumer installs today changes: normal resolution already picks the newest
+  17.x, and `pnpm-lock.yaml` still resolves `17.2.0` on both edges after the bump — only
+  the recorded `specifier:` moves. No source and no behaviour changes, which is why this
+  is scored `patch`, on the reasoning `111741454` used for the same remediation on
+  `@object-ui/plugin-detail`.
+  
+  The bump is release-blocking rather than cosmetic. `check:spec-floors` is deliberately
+  not a `pull_request` job, so every PR stayed green while its blocking copy on the
+  publish path — `pnpm changeset:publish` runs it before a single tarball reaches npm —
+  would have cancelled the next release.
+- 299102e: `ExpressionEvaluator.evaluate` now reports a faulting `${…}` at most **once per authored
+  source** instead of once per evaluation (objectui#6444). It is the hottest of the three
+  predicate paths in this area — `SchemaRenderer` calls it for every `properties.*` value,
+  every `props.*` value and `content`, for every node, on every render — so a single broken
+  `${…}` prop in a 200-row list wrote 200 console lines per render, and 200 more on the next
+  one. Measured on the built evaluator before the fix: three identical faulting
+  `evaluateCondition` calls produced 3 lines where the `{ dialect: 'cel' }` envelope produced
+  1; the 200-row list produced 200. After: 1 in every case.
+  
+  This is the one-per-source rate limit both sibling reporters already carry
+  (`warnPredicateFailure` in `fieldRules.ts`, `visibilityDiagnostic.ts` in `@object-ui/react`),
+  not a third mechanism. The dedupe key is the predicate's **authoring** identity — the fault
+  site plus the source text, never the scope it ran against — which is both the siblings'
+  precedent and the defect itself: the 200-row flood is one authored source evaluated against
+  200 distinct scopes, so a scope-sensitive key would emit all 200 lines again.
+  
+  Nothing else moves. The two message texts are unchanged, a distinct broken source still gets
+  its own line, `EvaluationOptions.onFault` still fires on every fault (objectui#6038's passback
+  contract, so a caller doing its own warn-once bookkeeping keeps control of it), `throwOnError`
+  still throws on every evaluation, and no symbol is added to the published surface.
+- 831be72: Dev-mode `validateSchema` no longer reports every expression-valued `visible` / `disabled`
+  gate as an invalid schema (objectui#6505). `BASE_SCHEMA_RULES` declared both keys
+  `typeof value === 'boolean'`, so the exact authoring form the docs teach —
+  `{ "type": "button", "disabled": "${record.stage == 'closed'}" }` — printed
+  `disabled must be a boolean` and its host element got `data-obj-schema-invalid`, the cue
+  apps are told to hang a red outline off.
+  
+  **The accept set widens to what the protocol already declares and the runtime already
+  accepts, not beyond it.** `AGENTS.md` §4 declares both keys as expressions, `SchemaRenderer`
+  evaluates them through `hasDeclaredPredicate` + `evaluateCondition`, `@objectstack/spec`
+  normalizes every authored predicate into a `{ dialect, source }` envelope, and the
+  objectui#3862 / objectui#3955 rulings are entirely about which expression spellings count
+  as declared. This table was the one place in the repo that disagreed, so this restores
+  declared = enforced rather than changing a contract.
+  
+  **The rule still bites, and that half is pinned separately.** The two keys stay in
+  `BASE_SCHEMA_RULES`: a number, `null`, `{}`, an array, `''`, whitespace-only predicate text
+  and the empty / blank-`source` envelope (objectui#3960) are all still reported at their own
+  path with `INVALID_TYPE`. Every one of those was reported before this change too — the
+  accept set is a strict superset of the old one, so nothing that validated stops validating
+  and nothing refused becomes accepted. The message now names both halves of the accept set
+  instead of only the half that did not change.
+  
+  The verdict is delegated to `hasDeclaredPredicate` (`evaluator/declaredPredicate.ts`), the
+  repo's single definition of "is a predicate gate declared on this value?"
+  (objectui#3850's ruling), rather than answered a second time in the validator — a
+  hand-rolled twin that agrees today and drifts tomorrow is the defect class this rule was
+  already an instance of. `packages/core/src/validation/__tests__/predicate-valued-gate-rules.test.ts`
+  pins the delegation behaviourally: the rule's verdict must equal
+  `boolean || hasDeclaredPredicate(value)` across every probe in the file.
+  
+  The explicit boolean arm is kept even though `hasDeclaredPredicate` already subsumes it, so
+  the superset relationship is provable locally: a future narrowing on the declaredness side
+  cannot silently start reporting `disabled: false` — the most explicit gate an author can
+  write — as an invalid schema.
+  
+  The zod `safeValidateSchema` surface (`@object-ui/types/zod`, objectui#6318) is a different
+  validator and is untouched.
+- d0889e2: Resolve a relationship target from `reference` only — the spec spelling
+  (objectui#6528).
+  
+  `resolveReferenceTo` (dataset designer) and its sibling
+  `resolveRelationshipTarget` (`chart-series.ts`) each read a relationship field's
+  target through a four-spelling tolerant chain — `reference ?? reference_to ??
+  referenceTo ?? reference_to_object`. Measured against every producer that can
+  reach them, three of the four are unfounded, so the chain is narrowed to
+  `reference` in BOTH places in one pass (they must not diverge — a fix leaving
+  them disagreeing recreates the defect one file over).
+  
+  The census, with `reference` itself as the positive control every zero is
+  measured against:
+  
+  | spelling | `ObjectSchema.safeParse` (spec 17.2.0) | producers on the object-metadata surface |
+  |---|---|---|
+  | `reference` | ACCEPTED | live — both designer writers emit it; 445 of 565 lookup/master_detail defs in the framework tree |
+  | `reference_to` | REFUSED BY NAME | 0 (live only on ObjectUI's own view/field schema — a different contract) |
+  | `referenceTo` | REFUSED BY NAME | 0 (producers retired by objectui#6041; stripped by the read door since objectui#6519) |
+  | `reference_to_object` | REFUSED (not even an alias) | 0 anywhere in either tree, outside the chain and its own test |
+  
+  Behaviour change, and it is deliberate: `chart-series.ts` reads
+  `GET /meta/object/:name` directly, with no read door stripping retired keys, so
+  a stored pre-objectui#6041 row spelling the target `referenceTo` no longer
+  resolves there. The walk is best-effort by construction — no entry is yielded
+  and the caller keeps the raw value — so such a row degrades visibly instead of
+  being silently absorbed. Per AGENTS.md #0.1 that row is a producer-side defect,
+  and a lenient consumer is where it would have stayed hidden. `reference` was
+  already head of the old chain, so any document carrying both is unaffected.
+  
+  The string / array / `{ object }` carriers are untouched: the carrier is a
+  separate axis from the spelling and narrowing it needs its own census.
+  
+  ⚠️ **Dated note, 2026-09-30 — `reference_to` is no longer live on ObjectUI's own view/field schema — objectui#11070.** The table's `reference_to` row said the spelling was "live only on ObjectUI's own view/field schema". Later in this same release objectui#11070 (round 4) moved that schema (`DetailViewField` / `DetailViewFieldSchema`) and the field metadata types to `reference`. The narrowing this change made is unaffected. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.
+- 4d5f9b4: Resolve a relationship target from a `reference` STRING only — the carrier axis
+  (objectui#6648).
+  
+  objectui#6528 narrowed both relationship-target resolvers to the single spec
+  SPELLING `reference` and left the CARRIER — the shape the value may take —
+  explicitly for its own census. That census is done, and it says the same thing:
+  `resolveReferenceTo` (dataset designer) and its sibling
+  `resolveRelationshipTarget` (`chart-series.ts`) each accepted three carriers on
+  the canonical key, two of which `FieldSchema` never declared. Both are removed
+  in BOTH files in one pass (they must not diverge — a fix leaving them
+  disagreeing recreates the defect one file over).
+  
+  The measurement, with the bare string as the positive control every zero is
+  measured against:
+  
+  | carrier | `ObjectSchema.safeParse` (spec 17.2.0) | producers at the field-def key position |
+  |---|---|---|
+  | `reference: 'crm_account'` | ACCEPTED | live — 587 across both trees |
+  | `reference: ['crm_account']` | REFUSED — `expected string, received array` | 0 |
+  | `reference: { object: 'crm_account' }` | REFUSED — `expected string, received object` | 0 |
+  
+  The census walked STRUCTURE, not text: JSON/YAML parsed and walked, TS/TSX read
+  through the TypeScript compiler API, each hit recorded with its ancestor
+  property chain and its enclosing object's sibling keys so a FIELD DEF is
+  separated from the other tiers that also spell `reference` (a form field
+  literally named `reference`, its translation entries, a JSON-Schema property
+  descriptor, a liveness-ledger row). Every dynamic initializer at the field-def
+  position resolved to a string-typed source, and every `reference` TYPE
+  declaration in either tree declares `string`. The detector is not blind to the
+  shape it hunted — it DID report array and `{ object }` carriers, and every one
+  was a test asserting this very tolerance plus one framework lint fixture whose
+  own rule already reads string-only.
+  
+  The array branch was also a silent PRODUCT decision: handed a multi-target
+  value it returned element zero and DISCARDED the rest. Nothing declares such a
+  value. Polymorphic lookup is an open, unbuilt gap in the spec's own audit report
+  ("Current `reference` only supports a single target", Tier 3), and the
+  platform's one polymorphic reference (ADR-0018 `xRef`) is a STRING with a
+  sibling discriminator, never a list. A multi-target lookup, if it lands, lands
+  as a declared spec shape — not as a carrier a consumer guesses at.
+  
+  Behaviour change, and it is deliberate: a field def whose `reference` is not a
+  non-empty string now resolves to `undefined` in both helpers. Such a document is
+  already refused by `ObjectSchema`, so per AGENTS.md #0.1 it is a producer-side
+  defect, and a lenient consumer is exactly where it would have stayed hidden. The
+  two unit assertions that pinned the tolerant reads are converted to refusal
+  pins, so re-widening the carrier turns red.
+- 9e37d9b: `binding` on a component input is framework-set, not author-declared: `@object-ui/types` gains `InjectedComponentInput`, the `'field'` binding arm is retired from `@object-ui/sdui-parser`'s `RegistryConfigLike`, and the `as ComponentMeta` cast at the injection seam in `@object-ui/core` is gone (maintainer ruling of 2026-09-07, director decision batch #69; ADR-0049 enforce-or-remove).
+  
+  **What was measured.** `binding` was published — the manifest serializer forwards it — and read — `validateTree` records a binding site for it — while `ComponentInput`, the authoring type every registration writes against, did not declare it. The one writer in the tree, `ELEMENT_DATA_SOURCE_INPUT`, therefore carried a hand-written inline type and reached a registration's `inputs` through `as ComponentMeta` in `Registry.register`. Declared narrower than enforced, on a published type — and `ComponentInput`'s own docblock listed `binding` among the forwarded per-input keys.
+  
+  **The ruling** answered the product question the card asked — may an ordinary registration declare a binding input? — with no. So:
+  
+  - **`@object-ui/types`** exports `InjectedComponentInput`, an `interface … extends ComponentInput` with the required marker `binding: 'object'`. `ComponentInput` itself does not change: no member is added, and authoring `binding` on a registration stays an excess-property `tsc` error — now on purpose and documented at the interface. The two tombstone docblocks that listed `binding` as a forwarded key now say it is forwarded from the framework's injected input, not authored.
+  - **`@object-ui/core`** types `ELEMENT_DATA_SOURCE_INPUT` as `InjectedComponentInput` and splices it through a typed local; the cast is gone. Runtime behaviour is unchanged — the same key, `type`, `binding` and `description` reach the manifest, and `validateTree` still records the binding site.
+  - **`@object-ui/sdui-parser`** narrows `RegistryConfigLike.inputs[].binding` from `'object' | 'field'` to `'object'`. The `'field'` arm had zero writers — every `binding:` literal in `packages/`, `apps/` and `examples/` is `'object'`, 7 of 7 at this change's merge-base — and nothing on either side of the manifest resolved a field binding. **Breaking, deliberately:** a config that feeds `manifestFromConfigs` a `binding: 'field'` input is now a type error instead of a manifest entry the server would never resolve. `ManifestInput.binding`, the manifest reader's vocabulary, is not narrowed by this change.
+  
+  If a real need for author-declared bindings is ever measured, it is filed as a widening of `ComponentInput` with the vocabulary decided then — not by putting the cast back.
+- 48c19bd: Render a dataset measure over a date field as a date (objectui#7178, maintainer
+  ruling 2026-09-02, director summon #8 — option A).
+  
+  `formatMeasure` opened with `if (typeof v !== 'number') return String(v)`,
+  placed **before** `format` was ever read. So a `min` / `max` measure over a date
+  or datetime field printed its stored value verbatim — a 24-character ISO string
+  in the KPI tile's `text-2xl font-semibold`, wrapping to two lines — and the
+  `format` that `DatasetMeasureSchema` accepts was unreachable for those values.
+  A date-shaped value now routes to the date display path before that
+  short-circuit, so all four dataset-bound surfaces are served at once: the metric
+  tile, chart values, dataset table cells, and the metadata-admin dataset preview.
+  
+  `min` / `max` over a date stays a legal measure; nothing in `@objectstack/spec`
+  narrows. `PivotTable` takes a `number` outright and is unchanged.
+  
+  **No second date formatter was written.** `formatDate`, `formatDateTime`,
+  `formatRelativeDate` and `DateDisplayOptions` MOVED from `@object-ui/fields`'
+  barrel down into `@object-ui/core` (`utils/date-display.ts`), which is the same
+  remedy objectui#4576 applied to `formatDisplayNumber` and for the same reason:
+  `core` is the React-free engine and could not import from a React package, so
+  the alternative was a parallel date convention in `dataset-format.ts` — exactly
+  the drift that once had a list cell rendering `1.234,5 %` beside a dashboard
+  measure's `1.234,5%`. `@object-ui/fields` re-exports all four names unchanged,
+  so no consumer's import path or behaviour changes, and a reference-identity test
+  pins that the cell renderer and the measure formatter call the same function.
+  
+  **What `format` can say for a date measure, measured rather than assumed.** The
+  shared date path takes a named STYLE, not a date pattern: `'short'` and
+  `'relative'` are honoured — the same words `DateCellRenderer` honours from
+  `field.format` — while a pattern such as `'YYYY-MM-DD'` renders the locale
+  default. That limit is unchanged by this release (`plugin-dashboard`'s
+  `recordFields` already routed a date-shaped `format` into the same style slot)
+  and is now pinned by a test instead of being silent.
+  
+  **Numeric measures are byte-identical.** 33,696 argument forms
+  (value × format × currency × percentScale × locale) were compared against a
+  verbatim copy of the pre-fix function: the only values that moved were the four
+  ISO-shaped, parseable ones. Numbers, numeric strings (`'1751612400000'`,
+  `'2026'`), the nullish em dash, arbitrary prose and non-strings all render
+  exactly as before.
+- a6d8b8d: Fix: a grid grouped by a field it does not also show as a column no longer collapses
+  every row into one `(empty)` group (objectui#7179).
+  
+  `$select` was built from the view's `columns` and nothing else, so a view declaring
+  `grouping: { fields: [{ field: 'business_unit' }] }` on a field absent from its columns
+  never asked the server for that field. It was `undefined` on every row by the time
+  grouping ran, and the grouping label builder — correctly, for a genuinely empty value —
+  answered `(empty)` for all of them. The result was one collapsible group holding every
+  record, with no error, no warning and no empty state: a grid that looked like it grouped
+  and did not, reading as "these records have no value for this field".
+  
+  The grouping fields are now unioned into the projection, at both places it is built —
+  `ObjectGrid` when it fetches for itself, and `ListView` when it fetches and hands the
+  rows down. Lookup grouping fields are unioned into `$expand` as well: a `select` that
+  fetches a bare foreign key without populating it buckets by raw id instead of by name,
+  which is a different wrong answer rather than a fix.
+  
+  Authors do not need to mirror a grouping field in `columns` any more. That was never
+  required by `@objectstack/spec` — `grouping` is a sibling of `columns`, not a subset of
+  it — and the neighbouring view kinds (kanban, gantt, timeline) already unioned their
+  `groupByField` with no column needed. Refusing the configuration at author time was
+  considered and rejected: it would make the grid the odd one out and reject working
+  intent that the schema explicitly allows.
+  
+  The union is guarded, and the guard is as load-bearing as the fix. A `grouping.fields[]`
+  entry carries a bare string that has never been through column validation, and some
+  backends answer an unknown `$select` key with an empty result set rather than ignoring
+  it. Unioned unguarded, a grouping field naming something the object does not declare
+  would have turned this bug into a strictly worse one — no rows at all, equally silently.
+  Grouping fields are therefore intersected with the object's declared fields and passed
+  through the same field-level-security gate as columns and predicate operands before they
+  reach the query.
+- e75f4c9: `colorField` now means the same thing in the gantt, the calendar and the timeline
+  (objectui#7243).
+  
+  **The inversion this fixes.** `gantt.colorField` is documented as "field that drives the
+  bar color", and the renderer passed the stored value straight into the bar's
+  `backgroundColor`. Pointing the key at a select field therefore emitted
+  `backgroundColor: "open"` — not a colour, so the browser dropped the declaration and
+  every bar rendered identically. OMITTING the key was strictly better: the absent-key
+  branch derived a real colour per status. Declaring the documented key was worse than not
+  declaring it, with no error, warning or console message either way.
+  
+  The same key also meant three different things across the three lenses: the timeline
+  resolved the field's authored option `color`, the calendar hashed the raw value onto a
+  fixed palette, and the gantt emitted the raw value. An author colouring three views by
+  one field got three unrelated results, one of which was no colour at all.
+  
+  **The ladder.** `@object-ui/core` gains `createFieldColorResolver` — the timeline's
+  resolver, lifted so all three call it:
+  
+  1. the field's own option `color` for the record's value;
+  2. else the value itself when it already IS a colour literal (`#rgb`, `#rrggbb`,
+     `#rrggbbaa`, `rgb(...)`, `hsl(...)`);
+  3. else each renderer's own last rung, which is deliberately NOT shared — the gantt
+     derives a semantic-token hex (a bar must be painted), the calendar keeps its
+     theme-aware 8-stop hash (a soft tint, not a solid fill), the timeline draws its
+     default marker.
+  
+  **What changes for authors.** A gantt or calendar whose `colorField` points at a select
+  field with authored option colours now paints those colours. A gantt value that is
+  neither an option colour nor a colour literal now derives a colour instead of emitting
+  an invalid CSS value — including a palette NAME (`red`), which now resolves to that
+  palette's hex, the behaviour the key's own contract has always promised ("hex or
+  semantic name") and the one `borderColorField` already had. `gantt.borderColorField`
+  takes rung 1 as well, so an authored option colour reaches the alert stroke; it keeps
+  today's behaviour otherwise and deliberately gains no derivation rung, since the stroke
+  is opt-in and deriving one for every record would draw an alert on records that have
+  none.
+  
+  Calendars whose `colorField` points at a plain categorical field are unchanged: that
+  value still reaches `CalendarView`'s deterministic hash exactly as before. The timeline
+  is unchanged apart from accepting the 8-digit `#rrggbbaa` hex spelling the calendar
+  already accepted.
+- 19f1639: A synthesized default list view now always leads with the object's name field
+  (objectui#7245).
+  
+  **The defect.** An object that declares no list view gets its default grid columns
+  synthesized from `highlightFields`, taken verbatim. But `highlightFields` is ADR-0085's
+  *"most important fields"* role, not a column list — and its first consumer, the
+  detail-page highlight strip, **deliberately removes the title field**, because the page
+  H1 directly above it already shows one. So metadata that is entirely correct routinely
+  omits the record's name from `highlightFields`. The showcase `showcase_account` declares
+  `nameField: "name"` and `highlightFields: ["status", "industry", "annual_revenue"]`, and
+  its default `所有记录` grid rendered 14 rows whose columns were `#` / Lifecycle / Industry
+  / Annual Revenue / actions — no name column, and no way to tell one account from another.
+  
+  A list has no H1 to lean on, so the same declaration needs the opposite treatment here.
+  This is not a new convention: `deriveLookupColumns` in `@object-ui/fields` already leads
+  its record-picker columns with the display field and filters it out of the declared list.
+  The list faces now agree with it.
+  
+  **What changed.** `@object-ui/core` gains two exports on the ADR-0079 title ladder:
+  
+  - `resolveNameField(objectDef)` — *which field* titles an object: the declared
+    `nameField` (then its deprecated `displayNameField` / `NAME_FIELD_KEY` aliases), else
+    the type-aware derivation. The name-space twin of `getRecordDisplayName`, which answers
+    what that field *says* on one record. Both now read one spelling of the declared
+    pointer, so they cannot drift into naming different fields.
+  - `leadWithNameField(objectDef, columns)` — moves that field to the front of a
+    **synthesized** column list.
+  
+  All three faces that synthesize default list columns call it: `ObjectView`
+  (`defaultListColumnsFromObject`), `InterfaceListPage` (`defaultColumnsFromObject`) and
+  `ObjectGrid`'s own derivation. The name field is **moved**, not merely appended, so an
+  author who lists it third still gets it first — "the column that identifies the row"
+  means first. On the two capped faces the lead is applied *before* the 5 / 6-column slice,
+  so an object declaring its name field late no longer loses it off the end.
+  
+  **Scope, deliberately narrow.** Author-declared column lists are untouched — a view or
+  grid that declares `columns` / `fields` said what it wants, and reordering it would be
+  renderer-side second-guessing of metadata. Three cases also decline to lead: a name field
+  the object carries no field def for (never fabricate a column), one marked
+  `hidden: true` (the author said don't show it), and a *derived* pick that lands on a
+  system-managed column — `deriveTitleField` filters by type only, and leading a default
+  list with a raw id is the regression objectui#2702 / #2777 fixed. A *declared*
+  `nameField` pointing at a system field still leads: `sys_migration` really does point at
+  `id`, and an explicit designation is not a heuristic misfire.
+- c6198c2: **Breaking for authored metadata:** `ComponentInput.label`, `ComponentInput.defaultValue` and
+  `ComponentInput.advanced` are RETIRED on both faces (objectui#7493 item ① and objectui#7781;
+  maintainer ruling A of 2026-09-06, immediate, no deprecation window; ADR-0049 enforce-or-remove).
+  They are the three keys the manifest serializer does not forward, and nothing read them on any
+  publication or consumption path.
+  
+  No manifest ever published them, so no consumer could ever have read them. `sdui-parser`'s
+  serializer (`packages/sdui-parser/src/index.ts`) forwards exactly seven keys per input — `name`,
+  `type`, `of`, `required`, `enum`, `binding`, `description` — so a value authored under any of the three
+  never reached `sdui.manifest.json`, the generated JSX `.d.ts`, or a diagnostic; its boundary type
+  has no slot for them; the registry's data-source seam reads `name` only; and neither the designer
+  nor the app-shell inspectors consult registry `inputs` at all. A structural census over every
+  `inputs:` array in the repository (re-measured on this change's merge-base, `name` 951 and `type`
+  951 as the controls) counted the writes: `label` 908, `defaultValue` 245, `advanced` 9 — written on
+  nearly every registration, read by nothing.
+  
+  FROM → TO, per key — all three **TOMBSTONED, not removed**, because the route was measured on
+  the built face before it was chosen: `ComponentInputSchema` is a non-strict `z.object`, and an
+  undeclared key parses GREEN and is silently STRIPPED, so a deletion would have swallowed 1,162
+  authored values in silence. The tombstone is what makes the refusal loud and by name.
+  
+  - `label?: string` → `label?: never` on the interface, `retirementTombstone()` on the Zod mirror.
+    Migration: delete the key. An input is identified by its `name` on every path that reaches it;
+    nothing ever rendered a label for it.
+  - `defaultValue?: any` → `defaultValue?: never` / `retirementTombstone()`. Migration: delete the
+    key. The renderer's own fallback read IS the default; tell the author about it in `description`,
+    which IS published. (Tightening the type to `unknown` was ruled out: it closes no error class,
+    since nothing reads the value.)
+  - `advanced?: boolean` → `advanced?: never` / `retirementTombstone()`. Migration: delete the key.
+    No designer surface ever hid an "advanced" input; there is nothing to write instead.
+  
+  The retirement kit: `?: never` on `ComponentInput` (`packages/types/src/base.ts`), so authoring one
+  is a `tsc` error at the registration site; `retirementTombstone()` on `ComponentInputSchema`
+  (`packages/types/src/zod/base.zod.ts`), so an authored value is REFUSED at parse time with
+  `code: 'invalid_type'`, the key named in the issue `path`, and the migration note as the message
+  (one string, both channels). Pinned in
+  `packages/types/src/__tests__/component-input-retired-keys-7493.test.ts`, which also holds a
+  tree-scoped absence census over every `inputs:` array under `packages/**` and `apps/**`.
+  
+  Accept-set change, stated plainly for reviewers: a document that sets any of the three keys on a
+  `ComponentInput` used to parse GREEN (the value was then dropped by the serializer) and now parses
+  RED. Every in-repo authoring site — 1,199 keys across 110 registration files, the three standalone
+  `ComponentInput[]` arrays and the two named input arrays `tsc` found included — is deleted in the same change, as the ruling's split rule
+  requires; the `WidgetRegistry` seam no longer copies the widget-manifest values onto the synthesized
+  `ComponentInput` (they fed nothing), and the data-source declaration `ELEMENT_DATA_SOURCE_INPUT`
+  drops its `label`. The patch entries on the other packages record exactly that: their registrations
+  stop authoring inert keys, with no runtime or published-manifest change.
+  
+  The nine test files that read `defaultValue` off a registration were re-pinned against the
+  renderer's ACTUAL default (its own fallback read, or the `defaultProps` it ships) instead of the
+  declaration that went away; two assertions that only restated the shadow default were dropped with
+  the reason on the line.
+  
+  The in-repo zero is what was measured. Whether anything OUTSIDE this repository writes these keys
+  is not measurable from here (the objectui#5674 limit); converting such a write from a silent drop
+  into a named refusal is exactly what the tombstones buy. `WidgetInput`'s own `label` /
+  `defaultValue` / `advanced` (the widget-manifest face) stay declared and writable — nothing has
+  ruled on that face; that it now has no reader either is recorded as objectui#7911.
+- 1e215c4: The ingestion choke point's diagnostic for a stored `id_field` now carries the reason
+  `@objectstack/spec` publishes for that key (objectui#7650).
+  
+  `FieldSchema` declares no successor for `id_field`, so `normalizeSchemaReferenceKeys`
+  leaves the key exactly as served and, in dev, says it cannot canonicalize it (the
+  `no-declared-twin` diagnostic). That line now also carries `FIELD_KEY_GUIDANCE.id_field.why`,
+  read from the installed `@objectstack/spec/data`: the spec's own sentence on why the key has
+  no successor and what to author instead. objectui keeps no copy of that sentence, and the
+  read has no fallback: on a spec without the row, the dev-mode diagnostic throws instead of
+  printing less. Production never reads the row.
+  
+  Nothing else moves. `id_field` is still never folded and no `idField` is read; a typo such as
+  `sortible` still gets no suggestion; no accepted document, published type or served value
+  changes. No floor raise: `@object-ui/core` already declares `@objectstack/spec ^17.5.0`, and
+  17.5.0 is the first published release carrying the row (17.4.0 has none).
+  
+  The line's closing clause is corrected for every refusal: it said the value "reaches no reader",
+  which is false where a retired spelling is still read on purpose (`resolveActionParam` reads
+  `id_field`), and it now says that a consumer reading only the spellings `FieldSchema` declares
+  will not see the value.
+- 52cac38: `formatDate` reads `options.style` (objectui#7745).
+  
+  `DateDisplayOptions` is the one bag `formatDate` / `formatRelativeDate` /
+  `formatDateTime` share. `style` was added to it for `formatDateTime`'s `'compact'`
+  grid face (objectui#7443, PR #7621) and only `formatDateTime` read it, so on
+  `formatDate` the key was inert — and inert beside a POSITIONAL parameter of the same
+  name. `formatDate(v, undefined, { style: 'short', locale: 'en-US' })` rendered
+  `Jul 4, 2024`, the default face, with no diagnostic; it now renders `Jul 4, '24`.
+  This is the additive half of the maintainer's long-run ruling on objectui#7443:
+  both functions accepting `options.style`.
+  
+  **The precedence is pinned: the positional argument wins.** `options.style` is
+  consulted only when the positional slot is `undefined` (`??`, not `||`, so `''`
+  still counts as given). That is the only direction that is purely additive — it
+  fires exactly on the input that is a silent no-op today, so no call that renders a
+  face today renders a different one after. The reverse would let a key aimed at a
+  SIBLING function outrank an argument written for this call: the bag is shared, and
+  carrying `{ style: 'compact', locale }` built for `formatDateTime` into
+  `formatDate(v, 'short', bag)` must not cost that call its short face.
+  
+  **What changes for you.** Only `formatDate(value, undefined, { style: 'short' | 'relative' })` —
+  a call that silently rendered the default face before. Every call that passes the
+  style positionally, and every `formatDateTime` / `formatRelativeDate` call, renders
+  byte-identically to before.
+  
+  `formatRelativeDate` still does NOT read `style`; the ruling names `formatDate`
+  only. Its out-of-window fallback to `formatDate` strips the key so that the new read
+  cannot leak in through the delegation — which also keeps
+  `formatRelativeDate(v, { style: 'relative' })` from recursing.
+- fc32921: Fix a dashboard chart widget with a FIELDLESS `count` aggregate plotting nothing
+  (objectui#8266).
+  
+  A widget bound to an object with `aggregate: { function: 'count', groupBy: 'status' }`
+  and no `field` — the normal way to author "how many records per status" — rendered an
+  empty chart. No error, no empty state: a plot frame with the category ticks drawn and
+  not one mark in it, which reads exactly like "this object has no rows yet".
+  
+  **Cause.** The two dashboard relays (`DashboardGridLayout`, `DashboardRenderer`) each
+  built the series binding as `aggregate?.field || (options.yField || 'value')`, which for
+  a fieldless count resolves to `'value'`. The rows an object-bound fieldless count
+  returns are keyed `'count'` — the alias the engine projects `COUNT(*)` under, pinned
+  since framework#3701. A `dataKey` naming a column no row carries plots nothing, and
+  neither of the renderer's two guards fires on it: the rows DO carry the category key,
+  and the series array is not empty.
+  
+  **Fix.** `chartMeasureKey` is a new `@object-ui/core` export delegating to
+  `chartAggregateValueKey` in `@objectstack/spec/ui` — the contract's own derivation of
+  "the value column an object-bound aggregate produces". Both relays now consult it, and
+  the row-projection side (`aggregateValueKey` in `@object-ui/plugin-charts`) is routed
+  through the same function, so the two halves of the question cannot drift again.
+  
+  **What moves on screen.** A chart that was blank now draws. Charts that already drew are
+  unaffected: a field-bearing aggregate resolves to its raw field under both the old and
+  the new reading, and a chart with no `aggregate` at all keeps the author's `yField`.
+  One authored key changes meaning: a `yField` written on an object-bound chart that
+  ALSO declares an aggregate no longer wins over the aggregate's own column — it named a
+  record column that a grouped aggregate never returns, so it plotted nothing before.
+  
+  **Not fixed here, and out of scope.** The same widget with no `options.xField` is
+  refused by the category-axis guard naming `name`, a key the author never wrote (they
+  wrote `aggregate.groupBy`). That is the category half of the same relay gap and is
+  filed separately.
+- 8f9d87a: Fix a dashboard chart widget that declares its category as `aggregate.groupBy` being
+  refused for lacking a `name` column (objectui#8269).
+  
+  A widget bound to an object with `aggregate: { function: 'count', groupBy: 'status' }`
+  and no `options.xField` rendered a refusal instead of a chart:
+  
+  > This chart cannot plot its category axis: no row has a `name` field.
+  
+  The author wrote `groupBy: 'status'`. Nothing on screen said `groupBy` was the key that
+  had been ignored, and `name` appeared nowhere in their metadata — so the diagnostic sent
+  them to debug the wrong layer.
+  
+  **Cause.** The two dashboard relays (`DashboardGridLayout`, `DashboardRenderer`) each
+  floored the category binding on a literal — `options.xField || 'name'` — and handed it to
+  the `object-chart` node without ever consulting the aggregate that decides it. An
+  object-bound aggregate returns one row per group keyed by the raw `groupBy` field, so no
+  row carried `name` and the category-axis guard (framework#4033) fired correctly on a
+  binding that was already wrong when it arrived.
+  
+  **Fix.** `chartCategoryKey` is a new `@object-ui/core` export delegating to
+  `chartAggregateCategoryKey` in `@objectstack/spec/ui` — the contract's own derivation of
+  "the category column an object-bound aggregate produces", and the published sibling of the
+  `chartAggregateValueKey` that objectui#8266 adopted for the measure axis. Both relays now
+  consult it for the object-provider branch.
+  
+  **What moves on screen.** A widget that rendered a refusal now draws. Measured through
+  `ChartRenderer` at 480x320 over the rows a fieldless count returns
+  (`[{status:'open',count:2},{status:'paid',count:5}]`): the composed binding went from
+  `xAxisKey: 'name'` — a `missing-category-key` refusal, 0 marks — to `xAxisKey: 'status'`,
+  1 series and 2 marks with the category ticks drawn.
+  
+  **Unaffected.** A chart with no `aggregate` at all keeps the author's `xField` (its rows
+  are raw records, so that key is the right one), an UNGROUPED aggregate keeps it too (it
+  returns a single row with no category column), and the authored-literal-rows branch — the
+  `chart` node composed after the object-provider check fails — keeps its floor unchanged.
+  One authored key changes meaning, exactly as objectui#8266's `yField` did: an `xField`
+  written on an object-bound chart that ALSO declares a `groupBy` no longer wins over the
+  aggregate's own column — it named a record column a grouped aggregate never returns, so it
+  produced the same refusal before.
+- 317dbce: `validateSchema` takes `unknown` instead of `any`, and narrows the value before it reads a
+  key off it (objectui#8416). The published declaration moves by exactly one token —
+  `validateSchema(schema: any, path?: string)` becomes `validateSchema(schema: unknown,
+  path?: string)` — and no call site has to move with it: every value is assignable to
+  `unknown`, the function is not generic, and its return type is the concrete
+  `SchemaNodeValidationResult`, which names no parameter type. Nothing outside the package
+  needed a cast or an edit.
+  
+  **The half that is not a type annotation: `validateSchema(null)` no longer throws.**
+  `validateSchema` calls four rules unconditionally and only one of them — `validateBaseSchema`
+  — ever checked that it had an object. `validateFormSchema` read `schema.type` and
+  `validateChildren` read `schema.children` regardless, so `validateSchema(null)` and
+  `validateSchema(undefined)` threw `TypeError: Cannot read properties of null (reading
+  'type')` instead of returning the `INVALID_SCHEMA` result the function's own contract
+  promises; `isValidSchema(null)` threw instead of answering the `false` its docblock
+  documents, and `assertValidSchema(null)` threw that `TypeError` in place of its own
+  `Schema validation failed:` refusal. The single guard now runs once, in `validateSchema`,
+  before any rule reads a key. The same one-level-down defect is closed with it: a `null`
+  entry inside a form's `fields` array threw the same `TypeError` and is now reported as
+  `MISSING_FIELD_NAME`.
+  
+  **No verdict that already existed changes.** The guard's accept set is the one it replaces,
+  spelled the same way (`!value && typeof value !== 'object'` refuses `null`, `undefined` and
+  every primitive; arrays and plain objects pass), so an array node keeps its
+  `MISSING_REQUIRED`, a primitive keeps its single `INVALID_SCHEMA`, `null` holes inside
+  `children` are still skipped, and no new error `code` is emitted. A 29-case accept-set
+  matrix was diffed before and after: every difference is a value that used to THROW and now
+  returns a result. The one exception is a corner JSON cannot express — a *named function* as
+  a `fields` entry used to satisfy `field.name` through `Function.prototype.name` and now
+  reports `MISSING_FIELD_NAME`; function values on this mirror are already refused
+  (objectui#6124).
+- ce45a03: `ValueDataSource`: a stored value that is not a string now satisfies `not_contains`
+  / `$notContains` instead of failing the operator and its negation both.
+  
+  Both arms were written as `typeof value === 'string' && !value.includes(target)` — a
+  type test standing in for the predicate. A row whose column held the number `5`
+  failed `contains '5'` (correct: a number cannot contain a substring) and also failed
+  `not_contains '5'` (wrong: for that same reason it does not contain it), so the row
+  appeared in **no** filter answer, and the opposite filter — the one thing a user has
+  to debug a missing row with — was silent too. Measured on a mixed fixture,
+  `not_contains '5'` returned 1 of 8 rows where it now returns 7.
+  
+  The arms are now the exact complement of `contains` / `$contains`. The positive text
+  operators are unchanged and keep their type gate: that is the other half of
+  objectstack#14079 (maintainer ruling 2026-09-05, option A) — a non-string never
+  satisfies a positive text operator and always satisfies `$notContains`, so
+  complementarity holds on every face.
+- fb3a101: `ValueDataSource`'s object-dialect matcher executes `$and` and `$or`
+  (objectui#8513). A `provider: 'value'` list with a grouped filter returned
+  **zero rows**; it now returns the rows the platform's own conformance table says
+  it should.
+  
+  **What moved.** `{ $or: [ … ] }` and `{ $and: [ … ] }` were refused by the
+  object-dialect matcher — the row excluded, the reason logged since
+  objectui#8447, and before that excluded in silence. They are now evaluated, and
+  they nest and AND with their sibling keys the way a `FilterCondition` says they
+  do. Refusing them made this adapter the one face answering "no rows" to a shape
+  `@objectstack/spec` declares, this repo's own `convertFiltersToAST` lowers, and
+  all five platform backends execute. **No accept set is widened**: no new
+  operator, no new key, nothing admitted that `FilterConditionSchema` does not
+  already declare.
+  
+  **The empty-group identities** follow objectstack#5322 (merged as
+  objectstack#5365) — `{ $and: [] }` matches every row, `{ $or: [] }` matches
+  none, a `{}` branch is a TRUE disjunct that absorbs its `$or` and drops out of an
+  `$and`. They are not written as special cases: `every` and `some` already answer
+  that way for an empty array. Pinned against the spec's published cross-backend
+  `FILTER_LOGIC_CASES` table rather than a local fixture — 27 of its 29 cases pass,
+  up from 10.
+  
+  **Why this is a fix and not a feature on the reachable path.**
+  `convertFiltersToAST` returns the ORIGINAL object when a filter lowers to no
+  conditions, and the TRUE identities are exactly that case — so `toFilterNode`
+  hands `{ $and: [] }` and `{ $or: [{}] }` back unlowered and every consumer on
+  that chain drops them straight onto `$filter`. Those two filters mean "every
+  row" and answered "no rows".
+  
+  **`$not` is unchanged and still refused**, deliberately. Its NULL-safe semantics
+  are ruled (objectstack#5146), but this repo's `convertFiltersToAST` throws for it
+  on an AST-shaped narrowing — `FILTER_ARRAY_LOGIC_KEYWORDS` is `['and', 'or']`,
+  and rewriting the negation inward is silently partial because `startswith` /
+  `endswith` / `between` / `icontains` have no negated counterpart. Whether that
+  narrowing should stand now that upstream has ruled is a separate question. The
+  refusal now carries its own message naming `$not` rather than falling through to
+  the generic combinator arm, so the three combinators stay three distinct cases —
+  they failed in **opposite** directions before objectui#8447 and a fix must not
+  flatten them.
+  
+  ⚠️ **Dated note, 2026-09-27 — a zero-key condition refuses the whole filter, a `{}` branch's `$or` included — objectui#10817.** Later in this same release an object `$filter` whose field entries or `$and` / `$or` members carry a condition that is an object with no own keys (`{ created: {} }`, or a non-`Date` exotic comparand) is refused before any row is matched, so `{ $or: [{}, { created: {} }] }` answers no rows rather than every row. "a `{}` branch is a TRUE disjunct that absorbs its `$or`" above is this change's reading for such a filter, not the release's. The rest of this entry is kept as the reading of this change; the objectui#10817 entry states what that input now answers.
+- f391ede: `convertFiltersToAST` now refuses a bare ARRAY in comparand position —
+  `{ tags: ['a', 'b'] }` — with a `FilterOperatorError` (`INVALID_FILTER` / 400)
+  that names the field, prints the comparand and prescribes the spelling that
+  works, instead of lowering it to `['tags', '=', ['a', 'b']]` (objectui#8530).
+  
+  That node was never answerable: the ObjectQL filter AST has no array-equality,
+  so `@objectstack/driver-sql` refused it with `400 INVALID_FILTER` from the wire
+  and every in-memory matcher (`@objectstack/formula`, `ValueDataSource` since
+  objectui#8514) excluded every row. The author found out two layers away, as a
+  failed list or an empty one. The refusal now lands at lowering time, where the
+  field and the offending value are still in hand — the same treatment this file
+  already gives `$regex` and `$not`, the two other shapes it cannot lower.
+  
+  It is deliberately NOT read as membership. `{ tags: [...] }` and
+  `{ tags: { $in: [...] } }` are different statements and the second is already
+  spellable; rewriting one into the other would guess at intent and silently
+  change which rows a stored view returns — the lenient second contract
+  objectui#8514 was resolved against on this same data shape one layer down. The
+  error message says so, and names `$in` / `$nin` / `$between` as the spellings to
+  use. `$in` / `$nin` / `$between` members, `$and` / `$or` groups and stored
+  `ViewFilterRule` values (`in` / `between`) are legitimately arrays and keep
+  lowering exactly as before.
+  
+  Every producer in this repository already spells a multi-value comparand
+  `{ $in: [...] }` (measured across the `$filter` literals and record builders
+  under `packages/*/src` and `apps/*/src`), so no shipped surface changes
+  behaviour; only a hand-authored `{ field: [...] }` now fails at the producer
+  instead of the consumer. No ruled contract ever answered that shape — the spec
+  leaves an array outside `$in` / `$nin` / `$between` unruled, `driver-sql` and the
+  in-memory matchers refuse it, and only a document store's native array-equality
+  happened to read it — so nothing a backend was promised is taken away.
+- f5cfbbd: `convertFiltersToAST` now lowers a `Date` comparand instead of silently dropping
+  the field it sits on (objectui#8555).
+  
+  The operator-object arm opened on `typeof value === 'object' &&
+  !Array.isArray(value)`, and a `Date` passes both tests. `Object.entries` of a
+  Date is `[]`, so the operator loop body never ran and NO condition was pushed:
+  `{ status: 'a', created: someDate }` lowered to `['status', '=', 'a']`. Nothing
+  threw and nothing warned — the result set simply got WIDER than the author asked
+  for, which is the one failure direction this file exists to avoid. The defect
+  also depended on the field's siblings: with the Date alone, `conditions` ended
+  empty and the original object came back untouched, so it only became visible
+  once a second field was present.
+  
+  It is LOWERED, not refused, and `@objectstack/spec` is what decides that —
+  the opposite answer to objectui#8514, which was a refusal precisely because the
+  spec declined to rule on that shape. Here it rules twice over (measured against
+  spec 17.3.0): `ACCEPTED_FILTER_COMPARAND_TYPES` is
+  `['string','number','bigint','boolean','null','Date']`, and
+  `$gt` / `$gte` / `$lt` / `$lte` / `$between` declare `z.ZodDate` in comparand
+  position.
+  
+  The AST leaf carries the `Date` INSTANCE. The wire form is deliberately not this
+  adapter's question to answer: `parseFilterAST(['created', '=', d])` hands back
+  `{ created: d }` with the Date intact, and the operator arm has always emitted
+  `{ created: { $gte: d } }` as `['created', '>=', d]` — so converting to an ISO
+  string or an epoch here would make the shorthand and the operator form emit two
+  different comparand types for one author intent. The gate is the spec's own
+  `isAcceptedFilterComparand` rather than a local `instanceof Date`, the same
+  reason this file already routes operators through the spec's
+  `normalizeFilterOperator` instead of a second map.
+  
+  Operator objects are untouched: `{ age: { $gt: 26 } }`, `$in` / `$nin` /
+  `$between` members, `$null` / `$exists`, the `$regex` / `$not` / bare-array
+  refusals, and an empty `{}` operator object (still the TRUE identity, still
+  constraining nothing) all behave exactly as before.
+  
+  ⚠️ **Dated note, 2026-09-27 — an empty operator object ALONE is now refused — objectui#9164.**
+  Later in this same release an empty operator map that is all a filter says
+  (`{ created: {} }`) is refused with a `FilterOperatorError` rather than returned as the
+  object. Beside a key that lowers it still constrains nothing, which is what "still the
+  TRUE identity" above describes. The rest of this entry is kept as the reading of this
+  change; the objectui#9164 entry states what that input now answers.
+  
+  ⚠️ **Dated note, 2026-09-27 — an empty operator object BESIDE a key is now refused too — objectui#10788.**
+  Later in this same release an empty operator map beside a key that lowers
+  (`{ status: 'a', created: {} }`) is refused with a `FilterOperatorError` naming the field
+  instead of constraining nothing, because `@objectstack/spec` records `{ field: {} }` as
+  REJECTED (objectstack#5240). So "still the TRUE identity, still constraining nothing" above
+  is this change's reading, and "Beside a key that lowers it still constrains nothing" is the
+  objectui#9164 note's reading; neither is the release's. The rest of this entry is kept as
+  the reading of this change; the objectui#10788 entry states what that input now answers.
+- f5cfbbd: `viewFilterRuleToNode` now refuses an ARRAY on a single-value operator instead
+  of passing it through verbatim (objectui#8557).
+  
+  A stored view rule never had its `value` inspected, so
+  `{ field: 'tags', operator: 'equals', value: ['a'] }` lowered to
+  `['tags', 'equals', ['a']]` — and the spec's own doors accept that node unjudged
+  (`isFilterAST` is `true`, `parseFilterAST` hands back `{ tags: ['a'] }`, measured
+  against spec 17.3.0). The refusal therefore arrived two layers away, as
+  `@objectstack/driver-sql`'s `400 INVALID_FILTER` or as an empty list from an
+  in-memory matcher, with nothing to attribute it to. It is the same
+  array-in-a-scalar-slot shape objectui#8530 refused in `convertFiltersToAST`'s
+  object arm, which deliberately did not reach this door — so a hand-authored
+  `{ tags: ['a'] }` failed fast with a message naming `$in` while the same mistake
+  saved into a view stayed silent. That asymmetry is closed.
+  
+  The guard keys on the operator's ARITY, never on `Array.isArray(value)`: `in`,
+  `not_in` and `between` legitimately carry arrays through this same function and
+  are untouched. The arity comes from the spec's own
+  `VIEW_FILTER_LIST_VALUE_OPERATORS` and `VIEW_FILTER_PAIR_VALUE_OPERATORS` rather
+  than a local list — the docblock on the first of them names a hard-coded
+  `["in", "notIn"]` as the mistake it exists to prevent — and the check runs after
+  `normalizeFilterOperator`, so an alias is judged by what it means (`nin` is
+  `not_in`, and keeps its array). Two classes are deliberately left alone: an
+  operator the spec does not know is still passed through verbatim, because the
+  misspelling is already the loud failure and refusing here would report the wrong
+  problem; and the valueless operators (`is_null`, `is_empty`, …) are not refused,
+  because the spec discards their value anyway
+  (`parseFilterAST(['tags', 'is_null', ['a']])` is `{ tags: { $null: true } }`), so
+  a stray array there cannot select the wrong rows. A pin holds the four arity
+  classes to an exact partition of `VIEW_FILTER_OPERATORS`, so a new spec operator
+  reddens rather than silently inheriting a verdict.
+  
+  The refusal is a `FilterOperatorError` (`INVALID_FILTER` / 400), which means a
+  saved view with one bad rule now fails at render rather than returning a
+  narrower result. That is not a new blast radius: both sinks already catch this
+  error class from this same file — `plugin-list`'s `buildEffectiveFilter` and
+  `plugin-view`'s `ObjectView` each call it inside their load `try` — and
+  `classifyLoadError` reads the code and status, so what a user sees is the
+  "filter is malformed" panel rather than a network fault or a crashed page. The
+  alternatives are both silent: dropping the rule widens the result set, and
+  rewriting `equals` into `in` changes what the saved view means.
+- 64c3cdd: `convertFiltersToAST` now refuses a non-Date EXOTIC object in comparand position
+  — `{ name: /abc/ }`, a `Set`, a `Map`, a `URL`, any class instance — with a
+  `FilterOperatorError` (`INVALID_FILTER` / 400) that names the field and the
+  value, instead of silently dropping the condition (objectui#8567).
+  
+  This is the other half of the hole objectui#8555 closed. The operator-object arm
+  iterates `Object.entries(value)`, and `Object.entries` of a `RegExp`, a `Set`, a
+  `Map` or a `URL` is `[]` — so the loop body never ran and NO condition was pushed
+  for the field: `{ status: 'a', created: /abc/ }` lowered to
+  `['status', '=', 'a']`. Nothing threw and nothing warned; the result set simply
+  got WIDER than the author asked for, which is the one failure direction this file
+  exists to avoid. As with the Date half, it depended on the field's siblings —
+  with the exotic value alone, `conditions` ended empty and the original object came
+  back untouched, so the defect was invisible until a second field appeared.
+  
+  It is REFUSED, not lowered, and `@objectstack/spec` is what decides that — the
+  opposite answer to objectui#8555 for the opposite reason. Measured against spec
+  17.3.0: `isAcceptedFilterComparand(/x/)` is `false`, and
+  `normalizeFilterComparandTypes({ created: /x/ })` answers `INVALID_FILTER` / 400
+  — *"Filter comparand at where.created is a RegExp instance ({}), which no driver
+  can compare."* Lowering the value would only move that refusal downstream, so the
+  answer the wire would give two layers later is given at lowering time, where the
+  field name and the offending value are both still in hand. The message states the
+  accepted types in the spec's own words (`ACCEPTED_FILTER_COMPARAND_TYPES_SENTENCE`)
+  rather than repeating a second list, and prescribes `$contains` / `$startsWith` /
+  `$endsWith` for a text match, `$in` for a membership test and `$gte` with a `Date`
+  for a date bound.
+  
+  The gate is the value's PROTOTYPE, not `Object.keys(value).length === 0`: zero own
+  entries is exactly what `{}` and `/x/` have in common, and they need opposite
+  answers. An empty operator object stays the TRUE identity and constrains nothing;
+  a null-prototype bag and a cross-realm plain object are still read as operator
+  maps; `Date` comparands still lower (objectui#8555); operator objects, `$in` /
+  `$nin` / `$between` members, `$null` / `$exists`, `$and` / `$or` groups and the
+  `$regex` / `$not` / bare-array refusals are all exactly as they were.
+  
+  ⚠️ **Dated note, 2026-09-27 — an empty operator object ALONE is now refused — objectui#9164.**
+  Later in this same release an empty operator map that is all a filter says
+  (`{ created: {} }`) is refused with a `FilterOperatorError` rather than returned as the
+  object. Beside a key that lowers it still constrains nothing — the case this entry's
+  control pins — and it is still never read as an exotic comparand. The rest of this entry
+  is kept as the reading of this change; the objectui#9164 entry states what that input now
+  answers.
+  
+  ⚠️ **Dated note, 2026-09-27 — an empty operator object BESIDE a key is now refused too — objectui#10788.**
+  Later in this same release an empty operator map beside a key that lowers
+  (`{ status: 'a', created: {} }`) is refused with a `FilterOperatorError` naming the field
+  instead of constraining nothing, because `@objectstack/spec` records `{ field: {} }` as
+  REJECTED (objectstack#5240). It is still never read as an exotic comparand: the refusal is
+  the empty-operator-map one, not this entry's. "An empty operator object stays the TRUE
+  identity and constrains nothing" above is this change's reading, and "Beside a key that
+  lowers it still constrains nothing" is the objectui#9164 note's reading; neither is the
+  release's. The rest of this entry is kept as the reading of this change; the objectui#10788
+  entry states what that input now answers.
+- d1865d2: A `dependsOn` declared on a field-backed **lookup action param** now gates, **ungates**
+  and filters the picker (objectui#8672, maintainer ruling — director decision batch #115,
+  2026-09-11, arm A "wire it").
+  
+  **What was broken.** `ActionParamDialog` threaded its live record (`dependentValues`) to
+  the option widgets only — `select` / `multiselect` / `radio` / `checkboxes`. A `lookup`
+  param is in none of those, so `LookupField` fell through to the `SchemaRendererContext`
+  tail that is unconditionally `{}` (nothing can populate a member the type does not
+  declare), `dependenciesMissing` could never clear, and the trigger rendered **disabled
+  forever** — prompting for the very field the user had just filled. There was no error at
+  author time, at type-check or at runtime: the failure looked like a broken picker rather
+  than a key that did nothing here.
+  
+  Independently, the one route the repo's own `RESOLVED_ONLY_PARAM_KEYS.dependsOn` message
+  points authors to ("make the param field-backed to pick it up") read the **snake**
+  spelling `field.depends_on`, which `@objectstack/spec`'s `FieldSchema` refuses by name,
+  while the camel `dependsOn` it declares was never read. The two spellings were disjoint,
+  so no spec-valid document could reach the feature at all.
+  
+  **What changed.**
+  
+  - `ActionParamDialog` now supplies its live `values` to the reference-bearing pickers as
+    well as to the option widgets. That is the dialog's whole record: unlike the grid
+    (`ctx.pendingRow ?? ctx.row`) it is not scoped to a row — its params *are* the record,
+    which is the same record its option widgets have resolved against since objectui#3765.
+  - `resolveActionParams` reads the declared `field.dependsOn` and no longer reads
+    `field.depends_on`. Unlike its five sibling lookup keys the snake leg is removed rather
+    than demoted, because there is no producer to protect: no document that parses can
+    carry a spelling `FieldSchema` rejects by name.
+  
+  Nothing about the cascade itself is new. `LookupField` has always turned `dependsOn` into
+  a hard `$filter` shared by the quick-select popover, the Level-2 table picker and
+  PeoplePicker; this supplies the one input no host could otherwise deliver.
+  
+  **Unchanged on purpose.** `ActionParamSchema` still refuses `dependsOn` written *inline*
+  on a param — the honoured route is the field-backed one. `CASCADE_OPTION_WIDGET_TYPES`
+  gains no member: it is shared verbatim with the object form's cascade-clear loop and with
+  `plugin-grid`'s `BulkActionDialog`, and it means "this widget's offered *option set* is
+  re-resolved", which a lookup has none of. The dialog ORs a second family beside it
+  instead — the shape the object form has shipped all along. The bulk action dialog is
+  untouched and still carries the original gap.
+- c372b29: The `dataSource.view` not-found panel no longer asserts that an object has no saved
+  views when nobody found out (objectui#8900).
+  
+  `elementDataSourceViewNotFoundMessage` ended its empty-list branch with "This object has
+  no saved views." — a statement about the OBJECT, derived from a count that is equally
+  zero in two different worlds. `ObjectStackAdapter.listViews` degrades every failure
+  (refused, offline, malformed) to `[]` on the RESOLVED path — deliberate, shipped, and
+  kept — while `useElementDataSource`'s own discrimination only catches a REJECTION, a
+  shape that contract never produces. So a `view` read that never successfully happened
+  arrived at the renderer indistinguishable from a genuine absence, and the config-error
+  panel stated as fact something nobody had established. A host that composes
+  `@object-ui/react` + `@object-ui/plugin-list` without `app-shell`'s `AdapterProvider`
+  subscribes to no warning channel at all and sees only that sentence.
+  
+  The empty branch now reads **"No saved views are known for this object. It may have
+  none, or they could not be read."** — the strongest claim that is true in BOTH worlds,
+  applying framework objectstack#13906 decision 1 option A (*a thing that could not be
+  READ is not a thing that is ABSENT*) at the one place the two worlds are structurally
+  indistinguishable.
+  
+  Unchanged: the non-empty branch (`Known views: …`), the adapter's degrade-to-`[]`
+  contract, and the refusal to fall back to an unfiltered query for the object. Saying
+  more than this needs the failure FACT plumbed through from the adapter, which is
+  objectui#8151's surface and not this change.
+- 969d4f2: docs(core): the `ElementDataSourceConfig.filter` note now separates what an author may write from what a renderer may still receive (objectui#8945)
+  
+  The note said "three shapes legitimately reach a renderer here" — a MongoDB-style
+  record, an ObjectQL AST tuple array and a spec `ViewFilterRule` array — and typed
+  `filter` as `unknown` "rather than the spec's `FilterCondition`". Since the spec's
+  `filter` doors converged on the rule array (objectui#6206; migration
+  `element-data-source-and-object-block-filter-rule-array`), that sentence mixes two
+  populations the convergence split apart:
+  
+  - **What an author may write** is the `ViewFilterRule` array alone,
+    `[{ field, operator, value }, …]`. `ElementDataSourceSchema` refuses the record
+    form by kind and refuses an AST tuple array because each member must be a rule
+    object.
+  - **What a renderer may still receive** is all three. The D2 conversion
+    `page-component-filter-record-to-rule-array` rewrites a stored `filter` only
+    where the rule array spells it losslessly (a flat record, an operator object
+    whose operators the rule vocabulary spells, several such keys, or a
+    single-level AST tuple array), on every ObjectStack stored-row read and under
+    `os migrate meta --stored`. It leaves exactly as stored a filter carrying
+    `$and` / `$or` / `$not`, any filter with a part that has no lossless rule
+    spelling (a `null` value, `$null` / `$exists` or an AST `like`, an array or
+    object comparand in equality position, an AST `and` / `or` group), and every
+    filter of a component whose rows are inline. This renderer is backend-agnostic
+    and replays no conversion itself; only ObjectStack's own data-at-rest seams do.
+    So all three shapes may still arrive, and `mergeFilterNodes` still lowers each
+    of them.
+  
+  The note now states both, names the spec's type as `ViewFilterRule[]` rather than
+  `FilterCondition`, and keeps `filter` typed `unknown` for the reason it always
+  had: this interface carries stored values, and narrowing it would only move the
+  cast. The module's example binding writes `"filter": [ … ]` instead of the record
+  form it used to show.
+  
+  Comments only. No type, export, runtime behaviour or accepted set changes.
+- f8e3e9a: Raise `@object-ui/core`'s declared `@objectstack/spec` floor from `^17.2.0` to
+  `^17.3.0` (objectui#9012) — the old range admitted a spec that refuses this
+  package's own output.
+  
+  `normalizeListViewSchema` folds objectui's legacy toolbar flags onto the
+  `userActions` keys `group` / `hideFields` / `rowColor`, which the protocol
+  adopted in 17.3.0 (objectui#5435). `@objectstack/spec` was declared in
+  `dependencies` — consumer-facing — as `^17.2.0`, so any resolution landing on
+  17.0.0 / 17.1.0 / 17.2.0 satisfied the declared range and got a normalizer whose
+  output is refused **by name** at the view save gate.
+  
+  Measured against the published artifacts rather than the workspace copy: each
+  published 17.x was installed into its own isolated consumer project and the
+  fold's real output parsed against that install's own `./ui` entry.
+  
+      17.0.0 / 17.1.0 / 17.2.0   REFUSED  refused-keys=[group, hideFields, rowColor]
+      17.3.0 / 17.4.0            ACCEPTED
+  
+  An undeclared firing-control key was refused by all five versions, so the
+  contrast is about those three keys and not about the harness. 17.3.0 is the
+  FIRST published version that accepts — verified across the entire published 17.x
+  stable line (17.0.0, 17.1.0, 17.2.0, 17.3.0, 17.4.0), not by taking the first
+  version that happened to work.
+  
+  A second, independent key family lands on the same floor: `ListViewSchema` gained
+  `pageName` in 17.3.0, and the `page` view fixture this package already pins is
+  refused by 17.0.0 / 17.1.0 / 17.2.0 (`refused-keys=[pageName]` plus an
+  `invalid_value` on `type`) and accepted from 17.3.0.
+  
+  No runtime behaviour changes: on the 17.4.0 every install resolves today, this is
+  the same normalizer. What changes is the declared contract — the range no longer
+  claims to work against specs that refuse its output.
+  
+  `scripts/check-spec-range-floors.mjs` was green before and after, and would be
+  green at any floor here: its criterion is symbol PRESENCE, and
+  `UserActionsConfigSchema` is exported by every version above. The floor is held
+  instead by `normalize-list-view.declaredSpecFloor-9012.test.ts`, which carries
+  firing controls proving its comparator can redden.
+- 3b6bc69: The retired-`sort` refusal no longer prescribes metadata the spec rejects (objectui#9031).
+  
+  `convertSortToQueryParams` refuses the retired string `sort` clause out loud, and the
+  diagnostic it prints is the text an author reads at the moment they are ALREADY being
+  corrected. It ended by telling them "`order` is optional and means `'asc'`". It is not
+  optional: `SortConfig.order` is required on the interface, on its zod counterpart, and on
+  `@objectstack/spec`'s `SortItemSchema`, which refuses an entry without it. An author who
+  followed the correction verbatim was refused a second time — at publish, by a different
+  door, with no hint that the advice itself was wrong.
+  
+  The repair is not "delete the sentence". A missing `order` genuinely IS read as ascending
+  by this renderer — a real runtime tolerance, documented as `normalizeSortEntries`' rule
+  since objectui#8973, and true because types are erased and an entry that arrives without
+  `order` still has to mean something. The message now keeps BOTH truths and stops stating
+  the runtime tolerance as an authoring permission: it asks for both keys on every entry,
+  names the three faces that require `order`, and says the tolerance is a runtime reading
+  rather than permission to omit the key.
+  
+  **Wording only — no behaviour moved.** The same inputs are refused, on the same
+  `console.error` channel, returning the same `undefined`; the array arm lowers unchanged.
+  Pinned by reading the ACTUAL emitted message and feeding the entry it prescribes back
+  through `SortItemSchema` from the installed `@objectstack/spec`, so the pin fails if
+  somebody shortens the example the diagnostic quotes rather than only if somebody edits
+  prose.
+- da45e6b: Fix the filter-token near-miss suggestion lookup reading `Object.prototype` (objectui#9129).
+  
+  `resolveContextTokens` looked a near-miss spelling up in the spec's suggestion map with a
+  plain bracket index. Two lower-cased spellings, `{constructor}` and `{__proto__}`, are
+  inherited `Object.prototype` member names, so the lookup resolved to
+  `Object.prototype.constructor` / `Object.prototype.__proto__` instead of `undefined`, and
+  the console warning asserted a "suggestion" that was actually native-code / object text —
+  not a real token, not spellable, and not anything an author could act on.
+  
+  This is **not** prototype pollution: the index was always a read, never an assignment, and
+  the resolved filter value is passed through untouched either way — no filter is ever
+  widened or narrowed and no record is ever mis-matched by it. The only observable effect was
+  a confusing string inside a `console.warn` call.
+  
+  The fix builds the lookup over a null-prototype copy of the suggestion map instead of
+  special-casing the two names, so the whole class of collisions is closed (any inherited
+  member, present or future), not just today's two spellings.
+- ed35b44: `convertFiltersToAST` now refuses an EMPTY operator map that is all a filter says —
+  `{ a: {} }`, `{ a: {}, b: undefined }`, `{ $and: [], a: {} }` — with a
+  `FilterOperatorError` (`INVALID_FILTER` / 400) whose subject is the field, instead of
+  handing the caller's own object back (objectui#9164).
+  
+  **Before.** `{ a: {} }` names a field and no operator. The converter entered the key,
+  the operator loop ran zero times, and with no condition produced the general tail
+  returned the CALLER'S ORIGINAL OBJECT — the one input still doing so after
+  objectui#8770, objectui#9020 and objectui#9030. `@object-ui/data-objectstack`'s `find()`
+  then sent two different wrong requests for it: `?a=[object Object]` with no `filter`
+  parameter on the plain route, and `filter={"a":{}}` on the `$expand` / `$search` route —
+  a shape `@objectstack/spec` rules REJECTED (objectstack#5240, recorded on
+  `FilterConditionSchema`).
+  
+  **After.** The filter is refused where the field name is still in hand. The message
+  names the field and the fix: choose an operator (`$eq`, `$in`, `$null`, …) or remove the
+  key. It is not folded to "no filter", which would silently drop a filter the author
+  wrote, and not lowered, because the spec accepts no form of it. `FilterOperatorError`
+  carries `field` and no `operator`, so `filterRefusalSubject` names the field.
+  
+  **What an author sees.** The same as for this function's other refusals. A list or view
+  that loads through `buildEffectiveFilter` / `ObjectView` fails its load with the
+  `INVALID_FILTER` envelope, which `classifyLoadError` reports as a malformed filter.
+  `ObjectGrid`, `RelatedList` and `LineItemsPanel` read `toFilterNodeSafely` and render the
+  "this view's filter is malformed" state naming the field. `@object-ui/data-objectstack`'s
+  `find()` and export reject with the envelope instead of sending either wrong request.
+  
+  **Also changed, by the same tail.** A combinator child that is an empty operator map is
+  refused too. `{ $or: [{ a: {} }, { b: 2 }] }` used to lower to "no filter" (every row),
+  because the child came back as its own object and `lowerLogicalGroup` read that as a TRUE
+  disjunct. `{ $and: [{ a: {} }] }` dropped its only conjunct the same way.
+  
+  **Unchanged.** `{}` still returns `{}`, and `toFilterNode` still answers `undefined` for
+  it. A filter that lowers (`{ a: 'x' }`) still lowers. An empty operator map BESIDE a key
+  that lowers is still dropped — `{ status: 'a', created: {} }` lowers to
+  `['status', '=', 'a']`. That boundary is pinned by objectui#8555 and objectui#8567, and
+  this change does not move it. The TRUE-identity fold (objectui#8770 / objectui#9030) and
+  the all-skipped fold (objectui#9020) are unchanged.
+  
+  **Migration.** A stored filter carrying `{ field: {} }` with nothing else to say was a
+  wrong request before this change. It is now a named refusal. Give the field an operator,
+  or delete the key.
+  
+  ⚠️ **Dated note, 2026-09-27 — the beside-a-key boundary is now refused too — objectui#10788.**
+  Later in this same release an empty operator map BESIDE a key that lowers
+  (`{ status: 'a', created: {} }`) is refused as well, with the same `FilterOperatorError`
+  naming the field, instead of being dropped. The refusal moved from the general tail into
+  the operator-map arm, so one throw site answers both cases. The "Unchanged" paragraph's
+  sentences about that boundary is this change's reading, not the release's. The rest of this
+  entry is kept as the reading of this change; the objectui#10788 entry states what that input
+  now answers.
+- 43c0d17: Accept an inline per-locale label on an action's `resultDialog`, and resolve it
+  against the display language.
+  
+  `@object-ui/core`'s `ResultDialogSpec` claimed in its own docblock to mirror
+  `Action.resultDialog` in `@objectstack/spec` and did not: `title`,
+  `description`, `acknowledge` and each `fields[].label` were hand-written
+  `string` where the contract declares every one of them `I18nLabel` — a plain
+  string **or** an inline per-locale map, both authorized by that type's docblock
+  and neither deprecated. This repo therefore refused what the platform accepts,
+  which is the `check:spec-symbols` rule-2 failure class (an alignment CLAIM with
+  a hand copy behind it), one package over from where that gate matches by name.
+  
+  **The consequence was measured, not inferred.** The map arm reached
+  `ActionResultDialog`'s JSX as a React child and React refuses an object there,
+  so the dialog did not mis-render — it threw and failed to render at all, on an
+  action that had **already succeeded**. That dialog is the only place a one-shot
+  reveal is ever shown (a TOTP secret, a freshly minted OAuth `client_secret`,
+  regenerated backup codes), so the value was gone. The rendering test in
+  `packages/app-shell` reproduces the throw: it is red on the unfixed tree with
+  `Objects are not valid as a React child (found: object with keys {en, zh-CN})`.
+  
+  The four members now DERIVE from the contract type instead of restating it, so
+  the mirror cannot drift again without `tsc` saying so, and the dialog resolves
+  each through `resolveI18nLabel` from `@objectstack/spec/ui` — the producer's own
+  resolver for the inline form — against `useObjectTranslation().language`, the
+  same display locale every other inline-`I18nLabel` caller in `app-shell`
+  resolves against. A plain-string label is unaffected: the resolver returns it
+  unchanged, and the existing fallback chain still answers for an absent label or
+  a map with no usable entry.
+  
+  Both action renderers drop the write-side narrowing assertion objectui#8648 had
+  to leave behind, so the whole `resultDialog` forward is compiler-checked again
+  with nothing asserted between it and `ActionDef`. The ledger leg that pinned
+  that workaround is converted rather than deleted outright: the `as any` negative
+  it carried is not a workaround and still guards a write-side cast that the
+  read-side matcher walks straight past.
+- 4a7ef0d: The `ObjectGanttSchema` and `ObjectCalendarSchema` record-source text now names
+  the function their renderers actually call (objectui#9618).
+  
+  Their zod `.describe` strings and TS docs said the `data` → `staticData` →
+  `objectName` ladder is resolved by `getDataConfig`. Neither renderer has had a
+  function by that name since the ladder moved into `@object-ui/core`'s shared
+  `resolveRecordSourceConfig` (`ce2aaefe1`), so the text now names that
+  function. The ladder order is unchanged, and so is every accepted document.
+  The `ObjectMapSchema` text still says `getDataConfig`, which is true:
+  `ObjectMap.tsx` keeps a local wrapper by that name that delegates to the shared
+  ladder. The `resolveRecordSourceConfig` docblock in `@object-ui/core` now says
+  that the text it quotes is the map faces' text.
+- 276d174: `Registry.registerLazy` now reports a bare-name collision, and `Registry.register`'s existing report is no longer blind to the other table.
+  
+  Clause-②: no — this adds no exported symbol, no key on a published payload, and relaxes no accept set. Which registrations the registry ACCEPTS is unchanged, and so is what `skipFallback` does; only what the registry SAYS changes.
+  
+  The registry has two doors onto one bare key: `register` writes `components`, `registerLazy` writes `lazyEntries`. `registerLazy` took the same `namespace && !skipFallback` fallback branch with no collision check at all, and `register`'s check read only its own table — so a contest that spans the two tables was reported by neither. Replaying this repository's own 425 declared registration claims against a real registry emitted zero collision warnings in every order, including for the one genuinely contested bare key.
+  
+  Both doors now consult both tables and key on the declared full type, so a contest is reported whichever order the declarations arrive in. The ordinary stub-then-real lifecycle stays silent: a stub and the registration that satisfies it name one full type, and so do the bare keys this repository stubs twice from two files with different loader closures.
+  
+  The two doors give different advice on purpose. `registerLazy` names `skipFallback: true`, which settles it there. `register` did not, because it cleared the bare stub whether or not the fallback was taken, so that opt-out would have left the bare key resolving to nothing — until objectui#9839, in this same release, moved that clear inside the fallback branch, after which declining the bare key leaves it with its owner and both doors prescribe the opt-out, which also supersedes the sentence this paragraph opens with.
+- 2982ed9: `Registry.register` with `skipFallback: true` no longer deletes another declaration's bare-name lazy stub, so an authored node under the bare name keeps rendering instead of resolving to nothing.
+  
+  Clause-②: no — no exported symbol is added, no key on a published payload moves, and no accept set is relaxed. Which registrations the registry ACCEPTS is unchanged; what changes is which bare key survives a registration that declined to take it.
+  
+  The user-visible symptom: a plugin declared lazily under a bare name — `registerLazy('dashboard', …, { namespace: 'plugin-dashboard' })` — and a second package registering the same base type under its own namespace *with the opt-out set*, `{ namespace: 'view', skipFallback: true }`. The opt-out exists precisely so the second registration does not take the bare key off the first. It did not take it; it deleted it anyway. The bare stub-clearing lines sat OUTSIDE the `namespace && !skipFallback` branch, so the branch that claims the bare key was skipped while the delete below it ran unconditionally. An authored `dashboard` node then resolved to nobody at all: the stub that would have loaded the chunk was gone, and the registration that removed it had declined to replace it. The registry reported no collision, because from its point of view no one was contesting anything.
+  
+  The clearing now sits inside that branch, under the same predicate that takes the key: a registration clears the bare stub when — and only when — it claims the bare key. A registration with no namespace still clears it, because its full type IS the bare key. The ordinary stub-then-real lifecycle is untouched: a registration that satisfies its own stub still clears both keys.
+  
+  `unregister` carried the identical unguarded pair and is repaired with it. Its docblock promised «the bare-name fallback (when the fallback still points at this registration), plus any matching lazy stub», and «matching» is ruled here from the code's own behaviour rather than from the phrase: the components half of that same sentence is already ownership-scoped and will not drop bare `dashboard` while it resolves to `plugin-dashboard:dashboard`. Reading the stub half as unconditional makes the same call, on the same bare key, with the same owner, decide the opposite way purely because the owner happens to be sitting in the other table at that instant — and which table it is sitting in is the "has the chunk loaded yet" race this class is about. The stub therefore gets the same ownership test. The bare form, `unregister(type)` with no namespace, stays unconditional on both tables: that is the force form teardown sites pair with the namespaced call.
+  
+  The eager door's cross-table collision warning changed with it, and had to. It used to talk the author OUT of `skipFallback: true` — correct while the delete ran either way, since the opt-out then left the bare key resolving to nothing. Now the opt-out settles that contest exactly as it does on the lazy door, so both doors prescribe it. The pending `registerLazy` cross-table collision entry in this same release gave the old reason in its closing paragraph; that one sentence is corrected in place here, so the two entries do not publish contradicting accounts of what the opt-out does.
+- 05a49f2: `normalize-list-view`'s two view-kind tables now derive their partition from the undrawable table's own keys instead of a hard-coded list of kinds, so one spelling is total against both the `@objectstack/spec` this repository resolves today and one built from objectstack `main`.
+  
+  `UNDRAWABLE_VIEW_KINDS` was annotated `Record<Exclude<ViewType, ListViewVisualization>, string | null>`, and `ListViewVisualization` subtracted the literal `'list' | 'detail' | 'page'`. An annotated object literal is exact in BOTH directions, so when objectstack retired the list-view kind `page` from the spec (objectstack#17063, ADR-0049 enforce-or-remove) the table's `page:` row became an excess property against the narrower union — a TS2353 whose only repair under that annotation is DELETING the row, which this repository cannot do while it resolves a published spec that still accepts `type: 'page'` views.
+  
+  The table now carries `satisfies Record<string, string | null>` — the value constraint without the exactness — and the undrawable union is `Extract<ViewType, keyof typeof UNDRAWABLE_VIEW_KINDS>`, so a row for a kind the spec has retired goes inert at type level while staying live at runtime, which is what an author who can still write a `page` view against the resolved spec needs. `ListViewVisualization` subtracts that derived union instead of a literal list; its members are unchanged under either spec, and so is every runtime answer this module gives.
+  
+  The guarantee the tables carry is unchanged and still mechanical, it just lands in one place instead of two: a kind the spec ADDS is classed by neither table, so it stays inside `ListViewVisualization`, and the total `Record<ListViewVisualization, true>` on `LIST_VIEW_KINDS` fails the build until the new kind is classed as drawable there or explained in the undrawable table. A MISSPELLED key in the undrawable table fails the same way, because the kind it was meant to class is not extracted either.
+  
+  Compiled both ways rather than argued. With the published pin `@objectstack/spec@17.4.0` installed, `turbo run type-check --filter=@object-ui/core` exits 0 before and after this change. With a spec built from objectstack `main` injected in its place, the same command reported the TS2353 in `normalize-list-view.ts` before and does not report it after; the diagnostics that remain on that leg come from other files, are reproduced against the pristine source, and are not this change's.
+  
+  `normalize-list-view.undrawableBothLegs-9880.test.ts` pins all of it over a SIMULATED vocabulary, because any single run installs only one spec: the retirement direction, the addition direction, and the old spelling's TS2353 kept as a firing control.
+- a78cd37: Dates and numbers across the console and the plugins format in the session's
+  display locale instead of the machine's (objectui#9909).
+  
+  Every one of these faces handed `Intl` — directly, or through a formatter called
+  without one — either no locale tag or an explicit `undefined`, which is not "the
+  user's locale": it is the locale of the machine the browser runs on, which is
+  neither of this repository's two locale channels.
+  A German or Spanish session therefore read, beside a translated label, a date or
+  an amount grouped and decimal-marked the machine's way — and an amount with
+  inverted separators does not read as unformatted, it reads as a different
+  number. They now go through `useDisplayLocale()` (tenant regional default, then
+  the active UI language, then `'en'`), and a plain helper takes that tag from its
+  caller. The surfaces:
+  
+  - **`@object-ui/fields`** — `GridField`'s numeric and currency cells (list mode
+    and computed columns) and both total cells. The same cell helper's date branch
+    already used the display locale, so a single grid row read two conventions at
+    once.
+  - **`@object-ui/plugin-charts`** — ISO-date x-axis ticks, compact y-axis ticks,
+    the single-value face, spec `format` strings and the tooltip value.
+  - **`@object-ui/app-shell`** — the organization invitations, members and
+    accept-invitation dates; marketplace version dates; the AI conversation row's
+    older-than-a-week date and its tooltip; the build-debug token count; the
+    record approvals timeline; and the metadata-admin audit, history, external
+    datasource snapshot, schema-browser row estimate, flow-run start and job
+    next-fire faces. The audit, history and flow-run panels format these in the
+    DISPLAY locale, not in the `locale` prop they take for their UI strings
+    (`AuditPanel` defaults that prop to `'en-US'`; `HistoryPanel` and
+    `FlowRunsPanel` leave it optional).
+  - **`@object-ui/console`** — the approvals inbox's timestamp tooltips, amounts
+    and payload summary; the audit log's timestamp column; the flow runs table and
+    its run detail.
+  - **`@object-ui/components`** — the export dialog's record counts and the debug
+    panel's event times.
+  - **`@object-ui/plugin-form`** — the analytics submission count, the
+    master-detail subtotal / tax / total stack and the edit-conflict dialog's
+    "their save" time.
+  - **`@object-ui/plugin-chatbot`** — the approvals inbox's past-30-days date and
+    the times stamped on local-mode chat messages (the user's and the
+    auto-response).
+  - **`@object-ui/plugin-dashboard`** — the record-count badge, and the currency
+    and date-format branches of `renderFieldValue`, which was handed the display
+    locale and spent it only on its percent branch.
+  - **`@object-ui/plugin-grid`** — the record-detail panel's inferred currency
+    value and the mobile card's amount line, siblings of date cells already on the
+    display locale.
+  - **`@object-ui/plugin-designer`** — `VersionHistory`'s version times.
+  
+  A host that mounts one of the components that newly read the display locale with
+  NO `I18nProvider` now gets react-i18next's once-per-module `NO_I18NEXT_INSTANCE`
+  notice in the console on the first such mount; the faces still render, in the
+  channel's `'en'` last resort, and mounting an `I18nProvider` (as the console
+  does) avoids the notice.
+  
+  **Additive API** (nothing that compiled before stops compiling):
+  
+  - `@object-ui/types`: `ValidationContext` gains an optional `locale`. At this
+    change, the `@object-ui/core` validation engine prints the `date_min` /
+    `date_max` bound in it; omitted, `Intl` follows the runtime default, as
+    `formatDisplayNumber` already declares for a caller with no locale in hand.
+  
+    ⚠️ **Dated note, 2026-09-25 — that engine (`ValidationEngine`) is removed from
+    `@object-ui/core` by a later change; `ValidationContext.locale` stays declared in
+    `@object-ui/types`, and at that change nothing in `@object-ui/core` reads it —
+    objectui#7659.**
+  
+    ⚠️ **Dated note, 2026-09-27 — `ValidationContext` itself is removed from
+    `@object-ui/types` by a later change, with the rest of the Phase 3.5
+    validation types it belonged to, so the `locale` member this entry adds no
+    longer exists — objectui#10719.**
+  - `@object-ui/plugin-report`: `exportReport`, `exportAsHTML` and `exportAsPDF`
+    take a trailing optional `locale` for the exported file's "Generated:" time,
+    and `LiveExportOptions` gains an optional `locale` that `exportWithLiveData`
+    forwards. Omitted, the time uses the display channel's own last resort
+    (`'en'`), never the machine's locale. `ReportViewer` passes the session's
+    display locale. The locale is deliberately NOT a `ReportExportConfig` member:
+    that type is authored report metadata, and a display locale belongs to the
+    session.
+  
+  **One census, repository-wide.** `plugin-detail`'s machine-locale census pin
+  (objectui#9786) is now a single test, `machineLocaleCensus-9909.test.ts` in
+  `@object-ui/i18n`, covering every workspace package whose manifest depends on
+  `@object-ui/i18n`. It refuses any call site that passes nothing, `undefined`,
+  the `'default'` pseudo-tag (a subtag no locale data answers, so `Intl` resolves
+  it to the machine's locale) or a hard-coded tag, unless the site is declared
+  with its reason — for example the `catch` fallback for a tag `Intl` itself
+  rejected, or an ISO formatter feeding `<input type="date">`. Each declared site
+  is counted exactly, so deleting one without its entry is refused too. The
+  per-package pin it replaces is deleted. The runtime tripwire that observes the
+  argument each locale-taking call (`Intl` constructors, `Date` and `Number`
+  `toLocale*`) actually receives moved into the private `@object-ui/test-support`
+  package, and every surface above is pinned with it: the same data under two
+  declared locales must render differently, NO locale-taking call may receive the
+  machine's locale (nothing, `undefined` or `'default'`), and the surface's own
+  calls must receive the declared tag. A call carrying another declared tag, such
+  as the `'en'` of the session's UI language, is tolerated by design: only the
+  machine's locale is the defect.
+- ff5ef1c: fix(core): refuse a retired string `sort` ENTRY out loud instead of dropping it in silence
+  
+  `convertSortToQueryParams` / `normalizeSortEntries` already refused the retired scalar
+  clause (`sort: 'name asc'`) with a prescription naming the array form. The same clause one
+  container deeper — `sort: ['name asc']` — fell through the array arm's skip, returned
+  `undefined`, and printed nothing, so an authored row order disappeared with no trace in the
+  console while its neighbouring spelling got a full correction.
+  
+  A string entry is now named by its own `console.error`, deduped per spelling like its scalar
+  sibling. The message carries the worked array-of-objects example, says `order` is required at
+  publish, and keeps the ascending default stated as a runtime tolerance rather than as
+  permission to omit the key.
+  
+  ⛔ No input starts being accepted: `['name asc']` still contributes no ordering, per
+  objectui#8221 (one `sort` spelling, the array, everywhere). Mixed arrays are unaffected —
+  `[{ field: 'a', order: 'asc' }, 'b desc']` still orders by `a`, and the message says so
+  instead of claiming the query lost its ordering. The `field`-less object entry keeps its
+  declared silence.
+- 81c0bc4: The dev-mode unknown-key warning stops stating a fact that was retired, and
+  sends the author to the file that actually declares the interface
+  (objectui#5642).
+  
+  Both halves of the message's tail had outlived the change they described. It
+  told the author the key was warned about rather than rejected because
+  `ActionDef` "still carries `[key: string]: any`" — objectstack#4075 step 3
+  deleted that index signature, and `actionKeys.pin.test.ts` pins the deletion in
+  the opposite direction (`{ ActionDef: false, ActionContext: true }`), while
+  `actionDef-closed-surface.test.ts` pins that `tsc` now rejects exactly such a
+  key at the construction site. And it prescribed promoting the key to an explicit
+  field on `ActionDef` "(packages/core/src/actions/actionKeys.ts)" — that file
+  holds the INVENTORY (`ACTION_DEF_KEYS`); the interface is in `ActionRunner.ts`.
+  The wrong pointer had teeth: an author who followed it edited the inventory
+  alone, which is precisely the half-change the pin test reddens on, since it
+  re-derives the inventory from the interface's AST.
+  
+  The tail now carries the reason the module's own header already gives for why
+  this warning survived step 3 — the two mechanisms cover disjoint populations.
+  `tsc` sees action literals authored in code; the warning sees actions that
+  arrive as data, from stored rows that are rehydrated unparsed and that no
+  compiler ever looked at (objectstack#3903). The prescription names
+  `ActionRunner.ts` for the field and `ACTION_DEF_KEYS` as the same-commit second
+  edit, saying why.
+  
+  No behaviour change: the classification logic, the key inventory and its
+  derivation are untouched, and the warning fires on exactly the same actions as
+  before. Two comments in the same file and two in the pin test that described the
+  pre-step-3 world were refreshed in the same pass, and the message text is now
+  pinned — the printed interface path is resolved off the message and read, so a
+  move or rename reddens by name instead of shipping a second dead prescription.
+- 60500cb: An all-skipped filter now says "no constraint" instead of handing back the caller's
+  object (objectui#9020).
+  
+  `convertFiltersToAST` skips a key whose value is `null` / `undefined`. That is
+  long-standing, pinned, and **unchanged**: `{ a: null, s: 1 }` still lowers to
+  `['s', '=', 1]`. What changed is the answer when the skip leaves nothing behind.
+  The general tail used to return the CALLER'S ORIGINAL OBJECT, and that object
+  meant two different things on the two `find()` routes of
+  `@object-ui/data-objectstack` — measured against `@objectstack/spec` 17.4.0 and
+  `@objectstack/client` 17.4.0:
+  
+  ```
+  plain  route   GET /data/acct                        ->  EVERY row
+  expand route   GET /data/acct?populate=…&filter={"a":null}  ->  the a = null rows
+  ```
+  
+  The plain route hands the value to `client.data.find`, whose non-AST branch
+  spreads a plain object's entries as query parameters and SKIPS the null ones, so
+  nothing at all was appended. The `$expand` / `$search` route JSON-serialises the
+  same object into `filter=`, and `{ a: null }` is a well-formed `FilterCondition`
+  the spec accepts (`null` is in `ACCEPTED_FILTER_COMPARAND_TYPES`), so it arrived
+  as a real predicate. One authored filter, two row sets, and the deciding input
+  was whether the query happened to want a lookup expanded — which is also why it
+  was self-inconsistent within one route: the key meant "no constraint" the moment
+  any sibling produced a condition and meant a predicate when it was alone.
+  
+  The tie is broken by what the function already says about the key rather than by
+  inventing a meaning for it: the loop's `continue` is the ruling, so carrying it
+  to the wire is `undefined`. `toFilterNode` and `mergeFilterNodes` inherit that,
+  so such a filter is now skipped rather than landing in AST child position, where
+  `isFilterAST` refused it and the whole list answered 400.
+  
+  An author who MEANT the predicate spells it `{ a: { $null: true } }` ->
+  `['a', 'is_null', true]`, on both routes, as before.
+  
+  Same ANSWER as objectui#8770's TRUE-identity fold, deliberately not the same
+  state: they are two counts and two guards, so a filter that MIXES the kinds
+  (`{ $and: [], a: null }`) still returns the object — objectui#9030's open
+  question, untouched here.
+- 516583b: fix(core): a date-only value renders the calendar day it names, in every viewer timezone
+  
+  `formatDate` / `formatRelativeDate` / `formatDateTime` parsed every string value
+  with `new Date(value)`. ECMAScript reads the two ISO shapes in two different
+  zones — a date-only form is UTC, a date-time form without an offset is local —
+  so `2026-08-01` became UTC midnight and was then read back through this module's
+  LOCAL getters. West of UTC that is the previous calendar day: a `date` field
+  storing `2026-08-01` rendered `7月31日` for a UTC-7 viewer while the stored
+  value, the API response and a UTC+8 viewer all said August 1st. The relative
+  branch shifted with it, one day per day (`2026-08-31` read `4天前` on the 3rd).
+  
+  A date-only value names a calendar day and carries no instant, so there is no
+  conversion to perform: it is now rebuilt at LOCAL midnight of the day it names,
+  and every getter downstream reports that day in every zone. Nothing adds or
+  subtracts hours — an offset that cancelled the shift would be wrong again at a
+  DST boundary and wrong in the other direction east of UTC, where the old parse
+  already landed on the right day. A value carrying a time is untouched: it HAS an
+  instant, and rendering an instant in the viewer's zone is what a `datetime` is
+  for. What the path accepts is unchanged by this fix. (A well-shaped impossible
+  day such as `2026-02-30`, which the engine rolls into March, is now refused by
+  the same path — objectui#10026, a separate entry in this release.)
+  
+  Every caller that hands these functions the wire string moves with the fix —
+  the `date` cell and its readonly field face, `ObjectGrid`'s date columns and
+  mobile cards, `ObjectGantt`'s tooltips, `FormulaField`, lookup column display,
+  and dataset date measures.
+- 8ebd57f: Both `evaluateExpression` references in the `ExpressionEvaluator.registerFunction`
+  JSDoc are now qualified, so each resolves to the entity it means (objectui#5580).
+  
+  `ExpressionEvaluator.ts` declares two things spelled `evaluateExpression`: the method
+  on `ExpressionEvaluator` (bare expression, throws) and the module-level export
+  (context bag, fail-soft, delegating to `evaluate`). The `registerFunction` block
+  referred to both under the one spelling, four lines apart.
+  
+  The prose link was not merely ambiguous, it was bound wrong. Measured with
+  `checker.getSymbolAtLocation` on the pre-fix source, `{@link evaluateExpression}`
+  resolved to the module-level `FunctionDeclaration` — the fail-soft one — inside the
+  sentence that calls it *"the throwing sibling"*. The neighbouring `{@link evaluate}`
+  binds to the method, but only because no module-level `evaluate` exists to outrank
+  it, so the rule "an unqualified link resolves to the enclosing class's member" does
+  not hold here. The link is now `{@link ExpressionEvaluator.evaluateExpression}`,
+  which the checker resolves to the `MethodDeclaration`.
+  
+  The `@example`'s final line is the module-level export — its second parameter is a
+  context bag and the `${...}` wrapper only resolves on the `evaluate` path — but it sat
+  two lines below calls that establish `evaluator.` as the receiver, and a `.d.ts` hover
+  carries no import to disambiguate. It now names the module-level export and shows the
+  import it needs.
+  
+  This is prose only: the diff is confined to a block comment and no declaration moves.
+  It is scored `patch` rather than the empty-frontmatter form because the block is
+  emitted into what npm ships — measured, this edit moves both
+  `dist/evaluator/ExpressionEvaluator.d.ts` and `dist/evaluator/ExpressionEvaluator.js`
+  (this package builds with a bare `tsc`, which preserves comments in the JS emit), and
+  the ten changed lines in that JS are all comment lines.
+  
+  `registerFunction-jsdoc-links.test.ts` pins the binding against the checker rather
+  than asserting it in prose, since a `{@link}` that binds to the wrong entity is
+  indistinguishable in source from one that binds right.
+- 7138bc1: The dev-mode unknown-key warning stops flagging `overrideNotice`, the console's
+  privileged-override safety copy (objectui#5611).
+  
+  `ActionRunner.execute` classifies the object it was HANDED, and a console host
+  hands it a DISPATCH, not a stored metadata row. `DeclaredActionsBar` composes
+  `overrideNotice` on that dispatch and two param-collection handlers read it —
+  yet the key inventory only mirrored AUTHORED surfaces, so the runner reported a
+  key two files read as one "no reader recognizes", and prescribed promoting it to
+  an explicit field on `ActionDef`. That prescription is the one shape the
+  2026-08-22 maintainer ruling forbids for this key, so acting on the diagnostic
+  walked an author into a rejected design. A false warning on the product's own
+  privileged path — the branch that finalises an approval over approvers who have
+  not acted — is how a dev console gets muted.
+  
+  Adds an exported `HOST_DISPATCH_ACTION_KEYS` (sole member `overrideNotice`) to
+  `actions/actionKeys.ts` and unions it into `KNOWN_ACTION_KEYS`, which is the
+  fourth input to that set and the first one that is not an authored-surface
+  mirror. Measured before and after on the exact dispatch the bar composes: the
+  warning went from one call naming `overrideNotice` to none, `KNOWN_ACTION_KEYS`
+  grew by exactly one member, and an action carrying a real typo alongside it
+  still warns — naming `targt` only.
+  
+  The authored surface does not move. `overrideNotice` is still NOT declared on
+  `ActionDef` and still NOT in `ACTION_DEF_KEYS`; writing it in an action literal
+  remains a compile error, and the AST-derived pin over the interface is unchanged.
+  Membership in `KNOWN_ACTION_KEYS` widens what the WARNING tolerates, never what
+  an author may write — `actionKeys.pin.test.ts` now pins both halves, including
+  the new list's exact contents so a second member cannot arrive quietly.
+- cef27e2: The value-fallback label prettifier `humanizeLabel` has one implementation instead of two byte-identical copies.
+  
+  `humanizeLabel` turns a stored value into a display string when nothing else
+  resolves it — an option with no declared label, an object name, a chart axis
+  member. It existed twice, byte for byte: once in `@object-ui/fields` (read by
+  `plugin-grid`, `plugin-gantt`, `plugin-detail` and by that package's own
+  renderers) and once as a deliberate local copy in `plugin-charts`'
+  `ObjectChart.tsx`, whose comment said it was there "to avoid a dependency on
+  `@object-ui/fields`".
+  
+  Two copies of one convention is a live hazard rather than tidiness: one
+  dashboard can hold a chart and a grid over the same stored value, so a change
+  landing on one copy alone would put that value on screen under two spellings at
+  once. The single implementation now lives in `@object-ui/core` — the shared
+  ancestor both packages already depend on, so the dependency the copy existed to
+  avoid is still avoided and no new edge is created, and core takes no React
+  (objectui#4389: core-canonical logic, plugins consume). Both former sites
+  re-export it, so `import { humanizeLabel } from '@object-ui/fields'` keeps
+  working unchanged.
+  
+  **Nothing rendered changes.** The surviving implementation is byte-identical to
+  both deleted copies, and each former call site is pinned by identity against the
+  core function — not by a copied output table that someone would have to remember
+  to edit in two places.
+  
+  The core module also writes down, for the first time, why this convention stays
+  distinct from `humanizeFieldKey` (the KEY fallback, in `@object-ui/plugin-dashboard`),
+  which additionally splits camelCase:
+  
+  ```
+  input                humanizeFieldKey     humanizeLabel
+  needs_analysis       Needs Analysis       Needs Analysis
+  NeedsAnalysis        Needs Analysis       NeedsAnalysis        <- differ
+  unitPrice            Unit Price           UnitPrice            <- differ
+  BestCase             Best Case            BestCase             <- differ
+  lost-to-competitor   Lost-To-Competitor   Lost To Competitor   <- differ
+  ```
+  
+  A field KEY is authored in the codebase and carries a machine spelling, so
+  splitting camelCase recovers words its author meant. A stored VALUE is arbitrary
+  tenant data, where a mid-token capital is not reliably a word boundary and
+  splitting it rewrites what the tenant wrote (`McDonald` to `Mc Donald`). The two
+  conventions also do not nest — on the last row each leaves alone the separator
+  the other rewrites. Whether they should ever converge is a separate decision
+  that would move rendered output in four packages at once; it is deliberately not
+  made here.
+- 50798f3: The TRUE-identity fold now counts only the keys the loop PROCESSED, so a filter
+  that mixes an identity group with a skipped key folds too (objectui#9030).
+  
+  `convertFiltersToAST` folds a filter that is nothing but TRUE-identity
+  combinators to `undefined` (objectui#8770), and folds a filter whose every key
+  the loop SKIPPED for a `null` / `undefined` value to `undefined` too
+  (objectui#9020). Each fold compared its own count with
+  `Object.keys(filter).length`.
+  
+  But the loop's first statement skips the null/undefined keys without
+  incrementing anything the identity fold counts, while that denominator counted
+  them anyway. So a filter carrying one identity group beside one skipped key read
+  `1 === 2`, the fold declined, and the caller's original object came back — even
+  though each of its keys, taken alone, folds:
+  
+  ```
+  { $and: [] }                ->  undefined         folded
+  { b: undefined }            ->  undefined         folded
+  { $and: [], b: undefined }  ->  { $and: [], … }   did NOT fold
+  ```
+  
+  Behaviour decided by a sibling, read the other way round: adding an always-TRUE
+  `$and: []` to a filter that folded could stop it folding.
+  
+  What that cost, measured on both `find()` routes of `@object-ui/data-objectstack`
+  rather than assumed. The plain route hands a non-AST object to
+  `client.data.find`, whose else-branch spreads its entries as query parameters, so
+  `{ $and: [], b: undefined }` left as `?$and=` with no `filter` parameter at all —
+  the `400 UNSUPPORTED_QUERY_PARAM` objectui#8770 exists to end. The
+  `$expand` / `$search` route JSON-serialises the same object into `filter=`, where
+  `{ $and: [], a: null }` arrived carrying a real `a IS NULL` predicate the
+  converter had already decided contributes nothing. One authored filter, two row
+  sets, and neither matched the converter's own answer for either key alone.
+  
+  The denominator is now the count of keys the loop actually processed — every key
+  minus the ones its own first statement skipped. Both skipped spellings come
+  along, because the loop skips them with one statement and objectui#9020 already
+  ruled what that skip means when it is all that is left.
+  
+  **Unchanged, and pinned as controls in the same run:** the null/undefined skip
+  itself (`{ a: null, s: 1 }` still lowers to `['s', '=', 1]`); the FALSE identity
+  `{ $or: [] }`, which still selects no row; an identity group beside a key that
+  does lower (`{ $and: [], a: 'x' }` still lowers to `['a', '=', 'x']`); a plain
+  filter's AST; and the object tail, which still serves `{}`, an empty operator map
+  `{ a: {} }`, and an empty operator map beside a skipped key — a key the loop
+  ENTERED and that produced no condition is neither an identity group nor a skipped
+  key, so no arm claims it. The two counts stay apart; only one denominator moved.
+  
+  This supersedes one sentence in objectui#9020's own entry above, which named
+  `{ $and: [], a: null }` as still returning the object and objectui#9030 as the
+  open question about it.
+  
+  ⚠️ **Dated note, 2026-09-27 — an empty operator map no longer reaches the object tail — objectui#10788.**
+  Later in this same release an empty operator map is refused with a
+  `FilterOperatorError` naming the field instead of reaching the object tail: all
+  a filter says or beside a skipped key since objectui#9164, and beside a key that
+  lowers since objectui#10788. So the object tail now serves `{}` only, and "an
+  empty operator map `{ a: {} }`, and an empty operator map beside a skipped key"
+  above is this change's reading, not the release's. The rest of this entry is
+  kept as the reading of this change; the objectui#9164 and objectui#10788 entries
+  state what those inputs now answer.
+- 42df928: A dataset measure over a `datetime` field now honours `measure.format`, like one over a `date` field already did (objectui#8352).
+  
+  `formatMeasureDate` routes a date-shaped measure value down one of two arms. The
+  date arm threaded `format` into `formatDate`'s style parameter; the datetime arm
+  called `formatDateTime(v, { locale })` and dropped `format` on the floor. That was
+  structural rather than a threading slip — `formatDateTime(value, options?)` has no
+  style parameter — so `format: 'relative'` on a `Field.datetime` measure could not be
+  honoured even in principle, and rendered the absolute face with no error, no warning
+  and no fallback. Measured on a real browser boot against the showcase app in both
+  `zh-CN` and `en-US`: `min(created_at)` five days old read `2026年9月1日 00:00` with
+  and without `format: 'relative'`, while `min(due_date)` — a `date` field, same page
+  load, same tile — moved from `9月8日` to `后天`.
+  
+  The datetime arm now selects a formatter instead of threading one, so both arms
+  honour the same two words and nothing else:
+  
+  - `'relative'` resolves through `formatRelativeDate`, the same function the date arm
+    reaches, so the same calendar day reads the same phrase for either field type. The
+    ±7-day window and its fallback belong to that function and are inherited here, not
+    re-decided at the call site. ⚠️ **Beyond ±7 days both arms render an absolute face,
+    and on the datetime arm that face changed:** it is now the DATE face (`Oct 19`)
+    where before this fix it was the DATETIME face (`Oct 19, 2026, 09:30 AM`) — the
+    time of day is gone. `formatRelativeDate`'s out-of-window branch calls
+    `formatDate(date, undefined, …)`, which renders through `toLocaleDateString` and
+    has no time component to add. That is the intended shape rather than a rough edge:
+    `'relative'` is day-granular by construction — it shows no time inside the window
+    either — so its degraded form is a day face on both arms, and any other fallback
+    would make the two arms unequal again, which is the defect this release fixes. Note
+    what the delta is and is not: before this fix the datetime arm ignored `format`
+    outright, so nothing was taken away from a working feature — the arm started
+    honouring a request whose granularity is days. It reaches only a measure whose
+    author actually wrote `format: 'relative'`; an unstyled datetime measure, or one
+    asking for any other style, renders exactly as it did.
+  - `'short'` resolves to the dense narrow-card face of the value's own type —
+    `formatDateTime`'s `'compact'` for a datetime, which keeps the time of day and is
+    byte-identical to what every `datetime` grid cell already paints.
+  - every other string, `'compact'` and date patterns such as `'YYYY-MM-DD'` included,
+    falls to that arm's default face, exactly as before.
+  
+  No published signature moved. Threading `format` into `formatDateTime`'s
+  `options.style` key would have honoured `'compact'` — the one word the date arm does
+  *not* honour — while still ignoring both words it does, so the call site maps the
+  vocabulary explicitly and a test pins that it does.
+  
+  The docblocks on `formatMeasure` and `formatMeasureDate` are now qualified per arm.
+  The previous wording ("`format: 'short'` and `format: 'relative'` are honoured") was
+  true of the date arm and read as though it covered both; a triage pass took it as
+  evidence the defect was already fixed and downgraded the card, which a driven browser
+  run then refuted. The arms agree now, but the undifferentiated sentence is not coming
+  back — it is what hid the disagreement.
+- af3861f: `normalizeListViewSchema` now folds the four per-view-type config aliases phase 3
+  carried over — `kanban.groupField` → `groupByField`, `kanban.cardFields` →
+  `columns`, `gallery.imageField` → `coverField`, `timeline.dateField` →
+  `startDateField` (objectui#2890).
+  
+  These are the pre-#2231 objectui spellings, kept declared alongside the spec keys
+  so stored view metadata would keep validating. They now fold at the same
+  component boundary as the A1–A5 vocabulary folds, in the same one-directional
+  shape: the canonical key wins when a config carries both, and the legacy key is
+  removed from the result so a missed read-site fails loudly instead of quietly
+  taking the legacy path.
+  
+  One rendering behaviour changes, and it is a correction of the same inverted
+  precedence the `densityMode` fold fixed: `ListView`'s kanban adapter resolves the
+  card field list as `cardFields || columns` — legacy over canonical — so a kanban
+  config carrying **both** rendered the legacy `cardFields` value and silently
+  ignored the spec-canonical `columns`. After the fold the authored `columns` is
+  what reaches it. Configs carrying only one of the two are unaffected, and every
+  other reader of these four keys was already canonical-first.
+  
+  `calendar.defaultView` is deliberately **not** folded: it aliases nothing and has
+  no spec counterpart, so it wants promotion upstream rather than a rename.
+- 1f4e029: docs(parent-scope): state the driver's real arity rule, and the arity-dependent parent scope in the shipped README (objectui#8937)
+  
+  Two published texts that objectui#8886 left behind, both measured false on `origin/main`:
+  
+  - **`packages/plugin-detail/README.md` (it is in `files[]`, so it ships).** It said the
+    node's `filter` is AND-combined with `{ [relationshipField]: parentId }`, full stop.
+    Since objectui#7299 the parent condition is compiled to match the relationship field's
+    arity, so a multi-valued relationship gets
+    `{ [relationshipField]: { $contains: parentId } }` instead. The paragraph now states
+    both spellings and names the arbiter (`@objectstack/spec/data`'s `isMultiValueField`).
+  - **The claim that the SQL driver decides arity on that same predicate.** It does not:
+    `driver-sql` gates the equality family on its own storage question, which reads
+    `multiple` as truthy on ANY type. The two rules therefore disagree for a type outside
+    `MULTI_CAPABLE_TYPES` carrying `multiple: true`. objectui#9184 moved the arity compiler
+    into `@object-ui/core`'s `parent-scope` seam and carried the claim with it, so the
+    correction is recorded there — the seam now states the driver's measured rule, records
+    the divergence as a divergence, and points at the upstream card that owns which of the
+    two rules is right (objectstack#17469). `RelatedList.tsx`'s pointer comment and the
+    objectui#7299 test header carried the same sentence and are corrected to match.
+  
+  No predicate moved and no wire changed — this release carries corrected published text
+  only. All three claims are pinned by re-derivation rather than transcription, in
+  `relatedListParentScopeResidue-8937.test.ts`.
+- c00bf28: `getRecordDisplayName`: stop consulting the undeclared object-level
+  `titleField`, restoring `nameField` as the top of the object ladder
+  
+  Step 0 of the unified record-title resolver read
+  `options?.titleField ?? objectDef?.titleField`. The second leg ranked an
+  object-level `titleField` above `nameField` — the pointer ADR-0079 Phase 2 made
+  canonical — and above the deprecated `displayNameField` alias and the legacy
+  `titleFormat` template.
+  
+  `@objectstack/spec`'s object schema does not declare that key, and it is not
+  merely undeclared: the schema is a `strictObject`, so
+  `ObjectSchema.safeParse({ …, titleField: 'x' })` fails with `unrecognized_keys`
+  — the same code a nonsense key gets — while `nameField`, `displayNameField` and
+  `titleFormat` all parse and survive. A producer census across both repos found
+  nothing that puts the key on an object-shaped payload: not the metadata, not any
+  `getObjectSchema` implementation (the ObjectStack adapter stamps only reference
+  keys and field-widget hints), not the lookup-chip path, not the
+  search-candidate path, and not the platform's own server-side resolver
+  (`@objectstack/objectql#titleFieldOf` reads `nameField` → `displayNameField`).
+  Reading a key no producer can ship is a consumer-side alias — the shape
+  Commandment #0.1 bans — and it inverted the governed-authority default on top of
+  that.
+  
+  No authoring surface changes and no view loses its author-chosen title field:
+  `titleField` remains a real, declared VIEW key (`ui/CalendarConfig`,
+  `ui/GalleryConfig`, `ui/GanttConfig`, `ui/ListMapConfig`,
+  `ui/ObjectKanbanProps`, `ui/TimelineConfig`), views hand it in as
+  `options.titleField`, and that half of step 0 still wins over everything.
+  The behaviour change is confined to an object payload that carried a key the
+  contract rejects: it now resolves through the declared ladder instead.
+- f2158ec: `ExpressionEvaluator.registerFunction` now documents the case-fold it has always
+  performed: the name is stored — and must be called — in UPPER CASE
+  (objectui#5363).
+  
+  `registerFunction('formatCurrency', fn)` registers `FORMATCURRENCY`, because the
+  method delegates to `FormulaFunctions.register`, which stores under
+  `name.toUpperCase()`. That fold is correct for the spreadsheet-style built-in
+  vocabulary (`SUM`, `IF`, `UPPER`) and is unchanged here — but nothing declared
+  it on the public method, and two things keep it from being self-evident at the
+  call site. The registry API stays case-insensitive, so `getFormulas().has()` and
+  `.get()` both answer to the original spelling and never reveal the fold; only
+  expressions see the stored key, because the evaluation scope is built from
+  `FormulaFunctions.toObject()`, a plain object whose identifiers are matched
+  case-sensitively. And a wrong-case call site does not raise: `evaluate()`
+  catches, warns, and returns `defaultValue ?? expression`, so the template
+  renders its own `${...}` source as literal text on screen rather than erroring.
+  
+  Behavior is untouched — this is the declaration catching up with what the code
+  enforces. It ships as a patch rather than as an empty changeset because the
+  JSDoc is emitted into the published `dist/evaluator/ExpressionEvaluator.d.ts`,
+  so it is what consumers see on hover.
+  
+  `ExpressionEvaluator.test.ts` gains three cases pinning the half that was
+  uncovered — that the given spelling does *not* resolve in an expression, that
+  the failure renders the raw template source instead of throwing, and that the
+  registry API stays case-insensitive underneath — so making registration
+  case-preserving fails a test instead of silently invalidating the new JSDoc.
+- 6c6cee7: A RETIRED field-type spelling is now refused — out loud, once — by every
+  field-type predicate in the renderer, not just by the widget road
+  (objectui#4914, maintainer ruling B of 2026-08-18).
+  
+  `@object-ui/fields` exports a single `isRetiredFieldType(t)` gate, and it runs
+  ahead of six predicate faces that previously granted a retired spelling
+  first-class treatment: the filter builder's operator buckets and its value
+  control (`@object-ui/components`), the detail page's highlight-strip picker
+  (`@object-ui/plugin-detail`), `normalizeFieldType` (`@object-ui/plugin-view`),
+  the dashboard's `$expand` whitelist and `isLookupType`
+  (`@object-ui/plugin-dashboard`), and the list toolbar's lookup-like filter
+  control (`@object-ui/plugin-list`). Each one now fires the migration
+  prescription on the console — once per spelling across all of them, never once
+  per predicate — and then answers as it would for a spelling it does not
+  recognise.
+  
+  This closes the whole CLASS rather than one word: the gate is quantified over
+  `RETIRED_FIELD_TYPES`, so the next retirement covers all seven consumers on the
+  day it lands. It is the shape objectui#4932 and objectui#4942 already
+  established for the form and inline-edit roads.
+  
+  Measured before the change, and the reason the fix is a gate rather than a
+  deletion: `owner` was not dead in these faces. `operatorsForFieldType('owner')`
+  equalled the `user` bucket item for item, `computeLookupExpand` actively
+  requested `$expand` for it, `isLookupType('owner')` was `true` alongside
+  `reference`, and `normalizeFieldType('owner')` answered `'select'` exactly as
+  `picklist` does. Deleting the members alone would have traded a visible
+  contradiction for a SILENT degradation — a filter picker collapsing to a bare id
+  box, `$expand` quietly stopping so cells show raw foreign-key ids — which is
+  verbatim the failure mode `RETIRED_FIELD_TYPES`' own docblock exists to prevent.
+  The gate keeps that fallback and adds the half that was missing: the author is
+  told.
+  
+  The boundary question is answered on record: `owner` arriving through a
+  backend-vocabulary normalizer is an authoring error to refuse loudly, not
+  legitimate foreign input to tolerate. The open backend vocabulary those
+  normalizers exist for is untouched — `reference`, `picklist`, `money`, `int`,
+  `datetime_tz` and the rest are equally absent from the spec's closed `FieldType`
+  and are equally unretired, so they classify exactly as before.
+  
+  `RETIRED_FIELD_TYPES`, `reportRetiredFieldType` and `resetRetiredFieldTypeReports`
+  move to `@object-ui/core` and are re-exported from `@object-ui/fields`, so that
+  package's published surface is unchanged apart from the newly ruled gate.
+  `@object-ui/components` is a consumer of the gate and `@object-ui/fields`
+  depends on it, so a single shared table could not live in `fields` — and a
+  second copy would have meant a second dedupe set and two console lines for one
+  spelling. No package gained a new dependency.
+  
+  A retired spelling never loses a stored value: `retypeFilterValue` is
+  deliberately not gated, and the refused filter row stays operable rather than
+  drawing a blank operator trigger.
+- ed71d9e: Withdraw the entry-surface justification on core's `SchemaNode` re-export, and put
+  the gauge that can actually fail in its place (objectui#5673).
+  
+  `packages/core/src/types/index.ts` carried, as the justification for the #4580
+  re-export convergence, *core's own entry surface is unchanged (`dist/index.d.ts` is
+  byte-identical across the change — measured, both rounds)*. The reading was real and
+  it certified nothing. `core/dist/index.d.ts` is emitted from a barrel that only
+  FORWARDS the symbol, and forwarding never restates a shape — not `export *`, and not
+  the `export type { … }` line that names this one. Only the module that DECLARES the
+  symbol can move, so that file is byte-identical under any change to a re-exported
+  declaration's shape, and it could not have failed for the change class it was quoted
+  against.
+  
+  Measured for this change rather than argued. One optional key was injected into
+  `BaseSchema` — the shape `SchemaNode` publishes — both packages were rebuilt from a
+  cleared `dist/` and a cleared `tsconfig.tsbuildinfo`, then the probe was dropped and
+  both rebuilt again:
+  
+  | emitted file | base | with probe | probe dropped |
+  |---|---|---|---|
+  | `@object-ui/types` `dist/base.d.ts` — declares the shape | `31b5a01d…` | `8487500e…` **moved** | `31b5a01d…` |
+  | `@object-ui/core` `dist/types/index.d.ts` — forwards it | `0e64c8c6…` | `0e64c8c6…` | `0e64c8c6…` |
+  | `@object-ui/core` `dist/index.d.ts` — entry barrel, names it | `5cca207a…` | `5cca207a…` | `5cca207a…` |
+  
+  The corrected block states that calibration as a recipe with its failure mode, so the
+  next reader inherits a gauge that can be checked instead of a sentence that cannot.
+  The `ComponentRendererProps` block below it already reached the right verdict, but
+  gave a narrower reason for it — that core's entry is an `export *` barrel — which is
+  not the mechanism, and is wrong for a symbol the barrel names on its
+  `export type { … }` line; it now states the forwarding rule.
+  
+  Documentation only, in a published declaration file: these docblocks sit on export
+  specifiers, so `core/dist/types/index.d.ts` carries them into the tarball, while
+  `core/dist/index.d.ts` does not move for them either — the same insensitivity,
+  demonstrated once more on this very change. No type moves and no runtime behaviour
+  changes.
+- 7776fc2: fix(core): `ValueDataSource` applies the filters it is given instead of returning every row
+  
+  `matchesASTFilter` recognised only two node shapes — a logical `and` / `or` head
+  and a three-element comparison — and answered `true` for everything else. Three
+  consequences, all silent: a legacy flat implicit-AND array (`[[…], […]]`) applied
+  no filter at all, at top level and as a nested child of `and` / `or` alike; the
+  null-ness operators had no arm, so `is_null` / `is_not_null` selected every row;
+  and 16 of the spec's 20 canonical view operators — `equals`, `greater_than`,
+  `starts_with` among them, the spellings `toFilterNode` lowers a stored view's
+  rules into — fell through the same way.
+  
+  The matcher now canonicalises operators through the spec's own
+  `canonicalAstOperator` and reads all four shapes `FilterArraySchema` declares, so
+  an in-memory `provider: 'value'` list applies the same filter the wire would. An
+  operator or shape it cannot execute now excludes the row and logs once per
+  `find()`, rather than passing every row with no signal anywhere.
+- Updated dependencies [b46c58f]
+- Updated dependencies [6f96fca]
+- Updated dependencies [5f00ff4]
+- Updated dependencies [c9e073a]
+- Updated dependencies [7b395d8]
+- Updated dependencies [0879812]
+- Updated dependencies [2dd4d3f]
+- Updated dependencies [e3ea4f9]
+- Updated dependencies [8b1f066]
+- Updated dependencies [af243c1]
+- Updated dependencies [f3f4e4c]
+- Updated dependencies [a05c350]
+- Updated dependencies [8c10f4f]
+- Updated dependencies [90dac98]
+- Updated dependencies [6096f20]
+- Updated dependencies [ea02938]
+- Updated dependencies [a14fb23]
+- Updated dependencies [ae98f1d]
+- Updated dependencies [f98eddf]
+- Updated dependencies [ce6bd99]
+- Updated dependencies [a5b08c9]
+- Updated dependencies [9b28151]
+- Updated dependencies [1a5003f]
+- Updated dependencies [d22b37b]
+- Updated dependencies [1daf477]
+- Updated dependencies [fb13e85]
+- Updated dependencies [c2d8659]
+- Updated dependencies [e0f8202]
+- Updated dependencies [c3a26cc]
+- Updated dependencies [a66e58e]
+- Updated dependencies [d89492c]
+- Updated dependencies [9327397]
+- Updated dependencies [17cc3a3]
+- Updated dependencies [9c78ebe]
+- Updated dependencies [12809a5]
+- Updated dependencies [f9c06ef]
+- Updated dependencies [5ad3b88]
+- Updated dependencies [f9d772b]
+- Updated dependencies [97b6c21]
+- Updated dependencies [29b45f6]
+- Updated dependencies [b956e69]
+- Updated dependencies [fec3b1a]
+- Updated dependencies [b8e0941]
+- Updated dependencies [0c50f18]
+- Updated dependencies [1dae95a]
+- Updated dependencies [e32dae1]
+- Updated dependencies [4aebea0]
+- Updated dependencies [f976774]
+- Updated dependencies [25cb364]
+- Updated dependencies [c6678b1]
+- Updated dependencies [0638322]
+- Updated dependencies [e3782d2]
+- Updated dependencies [db0beb2]
+- Updated dependencies [997ce38]
+- Updated dependencies [ae0b9d3]
+- Updated dependencies [3b469c8]
+- Updated dependencies [6650259]
+- Updated dependencies [4f8b7f8]
+- Updated dependencies [f6ae5e2]
+- Updated dependencies [7343376]
+- Updated dependencies [b2683a2]
+- Updated dependencies [dded788]
+- Updated dependencies [b45d463]
+- Updated dependencies [54a7830]
+- Updated dependencies [f3135a4]
+- Updated dependencies [b5696d3]
+- Updated dependencies [3f9d926]
+- Updated dependencies [e978ed5]
+- Updated dependencies [6a7f24e]
+- Updated dependencies [b3c96d6]
+- Updated dependencies [8d0ca91]
+- Updated dependencies [c30c8dd]
+- Updated dependencies [24d3e65]
+- Updated dependencies [95a7c8d]
+- Updated dependencies [cc4e476]
+- Updated dependencies [92970c4]
+- Updated dependencies [d570eaa]
+- Updated dependencies [42687ba]
+- Updated dependencies [24a0f14]
+- Updated dependencies [797a30f]
+- Updated dependencies [b4075c0]
+- Updated dependencies [9b85600]
+- Updated dependencies [99878d8]
+- Updated dependencies [3c13675]
+- Updated dependencies [0eb9f36]
+- Updated dependencies [ae582b7]
+- Updated dependencies [db11afd]
+- Updated dependencies [154075a]
+- Updated dependencies [582edef]
+- Updated dependencies [19f484f]
+- Updated dependencies [0a78a20]
+- Updated dependencies [615346d]
+- Updated dependencies [75dcc81]
+- Updated dependencies [55a12a8]
+- Updated dependencies [edfcf5a]
+- Updated dependencies [0a3e540]
+- Updated dependencies [f61dab1]
+- Updated dependencies [b0a05dd]
+- Updated dependencies [dd5ff19]
+- Updated dependencies [81f8498]
+- Updated dependencies [c27b575]
+- Updated dependencies [0e6e76b]
+- Updated dependencies [cd5b19a]
+- Updated dependencies [17dc167]
+- Updated dependencies [20d23be]
+- Updated dependencies [20d23be]
+- Updated dependencies [e6bc087]
+- Updated dependencies [a7557a7]
+- Updated dependencies [7d074ba]
+- Updated dependencies [6158e4c]
+- Updated dependencies [6158e4c]
+- Updated dependencies [52aad5c]
+- Updated dependencies [58da8ae]
+- Updated dependencies [138ad45]
+- Updated dependencies [5262f7d]
+- Updated dependencies [6aa029b]
+- Updated dependencies [770cc5b]
+- Updated dependencies [1a88ce2]
+- Updated dependencies [a1a44d6]
+- Updated dependencies [e0a9c67]
+- Updated dependencies [5638529]
+- Updated dependencies [c476be0]
+- Updated dependencies [c82ff39]
+- Updated dependencies [6c3da53]
+- Updated dependencies [31987bd]
+- Updated dependencies [3c3ce15]
+- Updated dependencies [e100589]
+- Updated dependencies [304f611]
+- Updated dependencies [e46ee77]
+- Updated dependencies [6e9c8d2]
+- Updated dependencies [9547063]
+- Updated dependencies [3f6efd6]
+- Updated dependencies [c4ab6d0]
+- Updated dependencies [0e9058b]
+- Updated dependencies [5988b6b]
+- Updated dependencies [00ccdf7]
+- Updated dependencies [9d9ed54]
+- Updated dependencies [ca3de72]
+- Updated dependencies [83e3f83]
+- Updated dependencies [401611b]
+- Updated dependencies [2c0ddf2]
+- Updated dependencies [4abc0aa]
+- Updated dependencies [2b188fa]
+- Updated dependencies [f68e0a0]
+- Updated dependencies [aea682a]
+- Updated dependencies [fcdc8ec]
+- Updated dependencies [2d576e4]
+- Updated dependencies [8366acc]
+- Updated dependencies [95e58a3]
+- Updated dependencies [9d7419b]
+- Updated dependencies [fc7db05]
+- Updated dependencies [9ed8d0f]
+- Updated dependencies [c73cdb5]
+- Updated dependencies [6f5719e]
+- Updated dependencies [06a8af5]
+- Updated dependencies [6a91586]
+- Updated dependencies [a04d7c6]
+- Updated dependencies [f3c2bb0]
+- Updated dependencies [460575f]
+- Updated dependencies [d88e20f]
+- Updated dependencies [2d7304d]
+- Updated dependencies [636b236]
+- Updated dependencies [d6d8fb9]
+- Updated dependencies [64d624d]
+- Updated dependencies [95bad12]
+- Updated dependencies [d2fb6ef]
+- Updated dependencies [fda49e5]
+- Updated dependencies [fc62bb4]
+- Updated dependencies [41df893]
+- Updated dependencies [0cba1b7]
+- Updated dependencies [00f3eb5]
+- Updated dependencies [1ec291c]
+- Updated dependencies [453dbaa]
+- Updated dependencies [69a2163]
+- Updated dependencies [24e027e]
+- Updated dependencies [2c3cd1b]
+- Updated dependencies [90665e0]
+- Updated dependencies [7e19d03]
+- Updated dependencies [1e946c9]
+- Updated dependencies [864154e]
+- Updated dependencies [b023625]
+- Updated dependencies [75bd83d]
+- Updated dependencies [40c479a]
+- Updated dependencies [971d387]
+- Updated dependencies [ee851c3]
+- Updated dependencies [6414dfd]
+- Updated dependencies [a8d5c71]
+- Updated dependencies [905b21f]
+- Updated dependencies [88e9109]
+- Updated dependencies [2c45966]
+- Updated dependencies [db3a600]
+- Updated dependencies [3a3db76]
+- Updated dependencies [0d723a3]
+- Updated dependencies [0c95d3d]
+- Updated dependencies [3e4fa2c]
+- Updated dependencies [b5b928a]
+- Updated dependencies [52a43de]
+- Updated dependencies [195052f]
+- Updated dependencies [e4559d1]
+- Updated dependencies [2c71482]
+- Updated dependencies [5ef9c4f]
+- Updated dependencies [46f0bb4]
+- Updated dependencies [6f81384]
+- Updated dependencies [8f1d995]
+- Updated dependencies [dddb942]
+- Updated dependencies [29754cf]
+- Updated dependencies [b84dc18]
+- Updated dependencies [ac8abb0]
+- Updated dependencies [9d86e1d]
+- Updated dependencies [3a5817f]
+- Updated dependencies [99a3c2d]
+- Updated dependencies [c8ea8af]
+- Updated dependencies [3190414]
+- Updated dependencies [4e480f5]
+- Updated dependencies [38a123c]
+- Updated dependencies [d7acad6]
+- Updated dependencies [45a9aeb]
+- Updated dependencies [713db46]
+- Updated dependencies [bf3a03c]
+- Updated dependencies [cb55718]
+- Updated dependencies [29cb85b]
+- Updated dependencies [3e028c8]
+- Updated dependencies [ce503e5]
+- Updated dependencies [f20dcf0]
+- Updated dependencies [4ca30d0]
+- Updated dependencies [7a5da14]
+- Updated dependencies [2c1c967]
+- Updated dependencies [d6ceb8d]
+- Updated dependencies [2acd8e1]
+- Updated dependencies [adb2a86]
+- Updated dependencies [3561bd2]
+- Updated dependencies [bf97b98]
+- Updated dependencies [b0d308d]
+- Updated dependencies [40f34b4]
+- Updated dependencies [8063bcb]
+- Updated dependencies [b74a859]
+- Updated dependencies [d4493fd]
+- Updated dependencies [240b80f]
+- Updated dependencies [77cb489]
+- Updated dependencies [bfaa158]
+- Updated dependencies [777e5c6]
+- Updated dependencies [0c386dd]
+- Updated dependencies [9e37d9b]
+- Updated dependencies [5ad86dd]
+- Updated dependencies [16a725f]
+- Updated dependencies [4dfdcc3]
+- Updated dependencies [446d93d]
+- Updated dependencies [ecd9cb2]
+- Updated dependencies [98d4108]
+- Updated dependencies [0e3b3be]
+- Updated dependencies [a29ae2d]
+- Updated dependencies [4388f71]
+- Updated dependencies [0b1ac58]
+- Updated dependencies [c93b4d5]
+- Updated dependencies [c1fe272]
+- Updated dependencies [8ad218d]
+- Updated dependencies [3e41187]
+- Updated dependencies [5f78953]
+- Updated dependencies [639114c]
+- Updated dependencies [1f31d3a]
+- Updated dependencies [351eb31]
+- Updated dependencies [20c04b2]
+- Updated dependencies [b652514]
+- Updated dependencies [adbda1b]
+- Updated dependencies [e2b3826]
+- Updated dependencies [2e32ed4]
+- Updated dependencies [1bee5d0]
+- Updated dependencies [858cd72]
+- Updated dependencies [554f2b6]
+- Updated dependencies [669d71b]
+- Updated dependencies [ed27d7c]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [2ceb43a]
+- Updated dependencies [7cdd2b9]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [caa0cd3]
+- Updated dependencies [25c7d58]
+- Updated dependencies [c6198c2]
+- Updated dependencies [51eb515]
+- Updated dependencies [c354ce5]
+- Updated dependencies [8fe8e5c]
+- Updated dependencies [feac439]
+- Updated dependencies [efbd566]
+- Updated dependencies [9587fc9]
+- Updated dependencies [e62c44e]
+- Updated dependencies [5d0876c]
+- Updated dependencies [544ecba]
+- Updated dependencies [bc640ec]
+- Updated dependencies [3e377c9]
+- Updated dependencies [a3eb5d0]
+- Updated dependencies [4ce14f1]
+- Updated dependencies [2af1fa7]
+- Updated dependencies [a137d0c]
+- Updated dependencies [caf477f]
+- Updated dependencies [f6375da]
+- Updated dependencies [967e5d8]
+- Updated dependencies [a4611b3]
+- Updated dependencies [20316ba]
+- Updated dependencies [d3499b3]
+- Updated dependencies [309c75e]
+- Updated dependencies [c9f9bae]
+- Updated dependencies [18897a4]
+- Updated dependencies [8b7ea39]
+- Updated dependencies [dcbf0b2]
+- Updated dependencies [1422a92]
+- Updated dependencies [d05fe17]
+- Updated dependencies [a480f79]
+- Updated dependencies [f08d1a8]
+- Updated dependencies [64a252d]
+- Updated dependencies [786bc91]
+- Updated dependencies [75fca96]
+- Updated dependencies [7ca6ddd]
+- Updated dependencies [f1cd290]
+- Updated dependencies [5a41ce7]
+- Updated dependencies [8d50bc2]
+- Updated dependencies [604476d]
+- Updated dependencies [335abea]
+- Updated dependencies [0f5cadf]
+- Updated dependencies [4f9f1ee]
+- Updated dependencies [66e8b2a]
+- Updated dependencies [aa083cd]
+- Updated dependencies [12b5992]
+- Updated dependencies [b93e245]
+- Updated dependencies [c842594]
+- Updated dependencies [290de37]
+- Updated dependencies [8c8da45]
+- Updated dependencies [8cd8eb5]
+- Updated dependencies [cf1d29e]
+- Updated dependencies [af9e957]
+- Updated dependencies [c974edf]
+- Updated dependencies [ad852b6]
+- Updated dependencies [ee4d19f]
+- Updated dependencies [496d31d]
+- Updated dependencies [9a853f2]
+- Updated dependencies [cb847fd]
+- Updated dependencies [ee70287]
+- Updated dependencies [3e98e13]
+- Updated dependencies [4eaa835]
+- Updated dependencies [b1777ae]
+- Updated dependencies [24845c4]
+- Updated dependencies [6f864cf]
+- Updated dependencies [24d1edd]
+- Updated dependencies [645087c]
+- Updated dependencies [33f4a19]
+- Updated dependencies [5323168]
+- Updated dependencies [841dd2b]
+- Updated dependencies [3014fc0]
+- Updated dependencies [dacb402]
+- Updated dependencies [474797d]
+- Updated dependencies [704e695]
+- Updated dependencies [a407bd6]
+- Updated dependencies [3a43a15]
+- Updated dependencies [421544b]
+- Updated dependencies [fb01022]
+- Updated dependencies [e9d9212]
+- Updated dependencies [ecfb693]
+- Updated dependencies [81a51db]
+- Updated dependencies [67749c7]
+- Updated dependencies [507b61b]
+- Updated dependencies [512c84b]
+- Updated dependencies [d4733f2]
+- Updated dependencies [8b532cb]
+- Updated dependencies [c42554e]
+- Updated dependencies [555b4ec]
+- Updated dependencies [1ccfc23]
+- Updated dependencies [542718f]
+- Updated dependencies [7f27bc5]
+- Updated dependencies [f95b140]
+- Updated dependencies [541ce4e]
+- Updated dependencies [6479086]
+- Updated dependencies [d79f525]
+- Updated dependencies [f1190b0]
+- Updated dependencies [6a4680b]
+- Updated dependencies [c3a4273]
+- Updated dependencies [093af32]
+- Updated dependencies [1bd1be7]
+- Updated dependencies [d234fa9]
+- Updated dependencies [adf5812]
+- Updated dependencies [5058336]
+- Updated dependencies [2f6b2bf]
+- Updated dependencies [2028b31]
+- Updated dependencies [63601ab]
+- Updated dependencies [8693b85]
+- Updated dependencies [58b7b3d]
+- Updated dependencies [681d3f1]
+- Updated dependencies [f3bc481]
+- Updated dependencies [93fc0e7]
+- Updated dependencies [a4b723f]
+- Updated dependencies [2b10ca0]
+- Updated dependencies [7db4a81]
+- Updated dependencies [526fc11]
+- Updated dependencies [6732df4]
+- Updated dependencies [fe9e0d0]
+- Updated dependencies [63fb72c]
+- Updated dependencies [279e48e]
+- Updated dependencies [8700d6d]
+- Updated dependencies [8db2a0f]
+- Updated dependencies [30443fb]
+- Updated dependencies [96919a4]
+- Updated dependencies [2e471dc]
+- Updated dependencies [be50942]
+- Updated dependencies [775e079]
+- Updated dependencies [7e8b3c0]
+- Updated dependencies [53374dc]
+- Updated dependencies [f6fb83f]
+- Updated dependencies [2049b03]
+- Updated dependencies [7cbc724]
+- Updated dependencies [fb91ac9]
+- Updated dependencies [8524372]
+- Updated dependencies [7cbefa5]
+- Updated dependencies [72d6587]
+- Updated dependencies [a272a4f]
+- Updated dependencies [55f39ee]
+- Updated dependencies [0970a0e]
+- Updated dependencies [e427e9c]
+- Updated dependencies [bbc9dc3]
+- Updated dependencies [02f1813]
+- Updated dependencies [ac716ff]
+- Updated dependencies [f0f3cd5]
+- Updated dependencies [20f3e65]
+- Updated dependencies [bbba098]
+- Updated dependencies [87af769]
+- Updated dependencies [3be720e]
+- Updated dependencies [c3df43a]
+- Updated dependencies [d16d0e9]
+- Updated dependencies [bbe57fd]
+- Updated dependencies [272a530]
+- Updated dependencies [1779e8d]
+- Updated dependencies [4128188]
+- Updated dependencies [b253c4e]
+- Updated dependencies [78a9c67]
+- Updated dependencies [4a7ef0d]
+- Updated dependencies [dea17b4]
+- Updated dependencies [89bb77a]
+- Updated dependencies [06611e4]
+- Updated dependencies [dc3893d]
+- Updated dependencies [1bbaa16]
+- Updated dependencies [6ee259a]
+- Updated dependencies [e708426]
+- Updated dependencies [3b6d53b]
+- Updated dependencies [a8198de]
+- Updated dependencies [a78cd37]
+- Updated dependencies [5ea623e]
+- Updated dependencies [ca5d671]
+- Updated dependencies [32bf2d6]
+- Updated dependencies [af4fb29]
+- Updated dependencies [9a97800]
+- Updated dependencies [6bca0e4]
+- Updated dependencies [2fcefb9]
+- Updated dependencies [b55a346]
+- Updated dependencies [065bba7]
+- Updated dependencies [100547e]
+- Updated dependencies [6d1c155]
+- Updated dependencies [d7573b3]
+- Updated dependencies [0e05aac]
+- Updated dependencies [18a8e7d]
+- Updated dependencies [e7957ab]
+- Updated dependencies [f7e34ca]
+- Updated dependencies [f9e4f91]
+- Updated dependencies [6ef48b1]
+- Updated dependencies [fa429cf]
+- Updated dependencies [ed8df3e]
+- Updated dependencies [8b446f5]
+- Updated dependencies [7357447]
+- Updated dependencies [199d31b]
+- Updated dependencies [3e01cb5]
+- Updated dependencies [4e8622b]
+- Updated dependencies [dffd752]
+- Updated dependencies [105f3c5]
+- Updated dependencies [3ccd9e8]
+- Updated dependencies [689b979]
+- Updated dependencies [e546222]
+- Updated dependencies [fd13f52]
+- Updated dependencies [fb336df]
+- Updated dependencies [0fce2ef]
+- Updated dependencies [0e2ddd4]
+- Updated dependencies [b7479ab]
+- Updated dependencies [b2ea297]
+- Updated dependencies [5b5a5c3]
+- Updated dependencies [14582b8]
+- Updated dependencies [51e144e]
+- Updated dependencies [a691c0b]
+- Updated dependencies [515f171]
+- Updated dependencies [258d264]
+- Updated dependencies [93127bd]
+- Updated dependencies [51f3d8d]
+- Updated dependencies [78cbdb5]
+- Updated dependencies [b7543a9]
+- Updated dependencies [ca39427]
+- Updated dependencies [c9327c9]
+- Updated dependencies [920165d]
+- Updated dependencies [968dc1e]
+- Updated dependencies [3c73d99]
+- Updated dependencies [1170ed1]
+- Updated dependencies [4d73b07]
+  - @object-ui/types@17.7.0
+
 ## 17.6.0
 
 ### Minor Changes

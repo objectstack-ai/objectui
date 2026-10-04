@@ -1,5 +1,829 @@
 # @object-ui/mobile
 
+## 17.7.0
+
+### Minor Changes
+
+- 2d7304d: Retire the `MobileOverrides` type and its `mobileOverrides` mount point (objectui#4919,
+  maintainer ruling 2026-08-19, ADR-0049 enforce-or-remove).
+  
+  `MobileOverrides` published a six-key mobile override surface — `layout`, `columns`,
+  `useBottomSheet`, `fullScreen`, `touchTarget` and a three-value `navigation` vocabulary
+  (`'bottom-tabs' | 'hamburger' | 'drawer'`) — from `@object-ui/types` and, re-exported,
+  from `@object-ui/mobile`. Nothing read any of it. Measured on current `main`: the type had
+  exactly four mentions repo-wide — its own declaration, the single
+  `MobileComponentConfig.mobileOverrides` mount point, and the two barrel re-exports — and
+  the lower-case property name (the spelling a renderer would actually read) appeared only
+  in that declaration. No renderer, hook or adapter resolved it, and a sweep of the example
+  apps and the `objectstack` sibling checkout found zero authors. The three `navigation`
+  values were three spellings of the same no-op.
+  
+  The declared surface is removed rather than narrowed. The #3985 lineage's rule is "narrow
+  to the implemented values"; here the implemented set is empty, so that rule terminates in
+  deletion — a config that type-checks, builds and silently does nothing is the
+  declare-without-enforce shape the platform doctrine forbids.
+  
+  Removal rather than a `?: never` tombstone follows this package's own retire-vs-remove
+  discriminator, in its amended form (`5f8190c8c`). That rule is cited here and not
+  restated: it is stated once, and a second copy carried in a release note could only drift
+  out of agreement with it. Measured against it the route is removal: there is no replacement
+  key to steer to, no documentation ever described the surface, and there is no successor
+  spelling. That is the same zero-pull, no-successor shape as the retired
+  `AccordionItem.icon` (objectui#4652) and `ToggleGroupItem.icon` (objectui#4632), both of
+  which were removed outright rather than tombstoned.
+  
+  **Breaking for TypeScript authors of `MobileOverrides` / `mobileOverrides` only** (marked
+  `minor` per this repo's version-alignment rule, which reserves `major` for following
+  `@objectstack` across a major — see AGENTS.md's 版本号策略, and the identical
+  classification used for `AccordionItem.icon`). Runtime behaviour is unchanged: an authored
+  `mobileOverrides` did nothing before and does nothing now. What changes is that the
+  contract no longer claims otherwise, so the mistake surfaces at authoring time — importing
+  the type is now a "has no exported member" error, and authoring the key on a
+  `MobileComponentConfig` object literal is an excess-property error, instead of a silent
+  no-op that type-checks and builds.
+  
+  If real mobile-override renderer work is ever wanted it re-enters deliberately, as designed
+  product surface on its own card, with the renderer landing in the same change as the
+  declaration — not by resurrecting this declaration.
+- 90665e0: **Removes a published export.** Retire the `MobileComponentConfig` type
+  (objectui#5942, ADR-0049 enforce-or-remove). The name is deleted from
+  `@object-ui/types` and from `@object-ui/mobile`, which re-exported it — after
+  this release `import type { MobileComponentConfig }` from either package is a
+  compile error, not a deprecation warning.
+  
+  `MobileComponentConfig` published a four-key "mobile component schema
+  extension" — `responsive`, `gestures`, `pullToRefresh` and `infiniteScroll` —
+  and nothing read it. Re-measured on current `main` before anything was deleted:
+  the type had exactly four code mentions repo-wide — its own declaration, one
+  doc-comment cross-reference, and the two barrel re-exports. It had **no mount
+  point at all**: no type mounted it as a property, nothing extended it, and no
+  renderer, hook or adapter annotated, cast to or imported it. A sweep of the
+  example apps and the `objectstack` sibling checkout found zero authors. Every
+  read-shape probe returned zero against a control lit in the same run.
+  
+  That makes it stricter than the usual case: not merely a surface whose values
+  were unimplemented, but a container with no path by which any authored value
+  could reach a renderer. objectui#4919 removed its last member
+  (`mobileOverrides`), which is what left the container itself inert.
+  
+  Removed outright rather than kept as a `?: never` tombstone, on this package's
+  own retire-vs-remove discriminator, in its amended form (`5f8190c8c`).
+  That rule is cited here and not restated: it is stated once, and a second copy
+  carried in a release note could only drift out of agreement with it. Measured
+  against it the route is removal — the whole interface goes, so there is no
+  surviving object to hang a `never` key on, and no documentation ever described
+  it (`skills/objectui/guides/mobile.md` teaches the hooks, never this type). Same
+  zero-pull, no-successor shape as `MobileOverrides` (objectui#4919) and
+  `AccordionItem.icon` / `ToggleGroupItem.icon`.
+  
+  ## Upgrading
+  
+  **No behaviour changes and there is nothing to migrate at runtime.** An object
+  authored against this type did nothing before and does nothing now; what
+  changes is that the contract no longer claims otherwise, so the mistake
+  surfaces at authoring time instead of silently type-checking.
+  
+  - **You imported the type only** (the only thing that was possible — nothing
+    accepted it as a value): delete the import. If you kept a local config object
+    annotated with it, drop the annotation; the object was never passed anywhere
+    that read it.
+  - **You actually wanted the behaviour:** it exists, and it is not being
+    retired. It lives in `@object-ui/mobile` as React hooks, which is where the
+    working code always was — `useResponsive` / `ResponsiveContainer` for
+    `responsive`, `useGesture` for `gestures`, `usePullToRefresh` for
+    `pullToRefresh`. `infiniteScroll` has no hook; it was never implemented in
+    any form. See `skills/objectui/guides/mobile.md`.
+  - **You want a declarative mobile config surface:** that re-enters deliberately
+    as designed product surface on its own card, with the renderer that reads it
+    landing in the same change as the declaration — not by restoring this
+    declaration.
+  
+  **Do not follow the compiler's suggestion.** TypeScript reports the removal from
+  `@object-ui/types` as TS2724 and appends `Did you mean 'ComponentConfig'?`. That
+  is a lexical near-match, not a migration target: `ComponentConfig` is the
+  renderer **registration** record (`{ type: string; component: T }`, extending
+  `ComponentMeta`) and has nothing to do with mobile configuration. The import
+  from `@object-ui/mobile` gets a plain TS2305 with no suggestion at all.
+  
+  Marked `minor`, not `major`, per this repo's version-alignment rule, which
+  reserves `major` for following `@objectstack` across a major (AGENTS.md
+  版本号策略) — the same classification objectui#4919's identically breaking type
+  removal used. **Breaking for TypeScript consumers of the name only.**
+  
+  Follow-up, deliberately not widened into this change: `MobileResponsiveConfig`
+  and `GestureConfig` were consumed only by this container and are now
+  zero-consumer published types themselves. Filed as objectui#7519 for triage.
+- 51eb515: **Removes two published exports.** Retire the `MobileResponsiveConfig` and
+  `GestureConfig` types (objectui#7519, ADR-0049 enforce-or-remove). Both names
+  are deleted from `@object-ui/types` and from `@object-ui/mobile`, which
+  re-exported them — after this release `import type { MobileResponsiveConfig }`
+  or `import type { GestureConfig }` from either package is a compile error, not a
+  deprecation warning.
+  
+  Each had exactly one consumer: the `responsive` and `gestures` members of
+  `MobileComponentConfig`, which objectui#5942 retired. Re-measured on current
+  `main` before anything was deleted, each was a declaration plus the two barrel
+  re-exports and nothing else — no type mounted either, nothing extended,
+  annotated, cast to or imported them outside the barrels, and the example apps
+  and the `objectstack` sibling checkout had zero authors. A value written against
+  either could not reach a renderer or a handler by any path. That is the same
+  declared-surface-with-no-consumption-path shape as `MobileComponentConfig`
+  itself and `MobileOverrides` (objectui#4919) before it, one level down.
+  
+  Removed outright rather than kept as `?: never` tombstones, measured against
+  this package's retire-vs-remove discriminator, in its amended form
+  (`5f8190c8c`). That rule is cited here and not restated: it is stated once, and
+  a second copy carried in a release note could only drift out of agreement with
+  it. The per-prong measurement it asks for is kept as the record. Prong 1:
+  neither has a replacement key — the behaviour they named lives in hooks, and
+  `SpecGestureConfig` is a different contract, not a successor. Prong 2: the only
+  release-note lines naming either are the objectstack#4115 rename-ledger rows
+  and, for `GestureConfig`, the objectui#3363 reclaim note; none taught a
+  renderer or dispatcher reading them, and no member carried a published
+  `@default` (contrast `triggerIcon`, tombstoned by objectui#7654 on exactly that
+  evidence). Structurally there is also no silent-strip hazard for a tombstone to
+  guard: whole interfaces go, nothing ever parsed them, and the mobile module has
+  never had a `zod/` twin to host a `retirementTombstone()`. The compiler was the
+  only channel these names ever had, and the refusal now lives there.
+  
+  ## Upgrading
+  
+  **No behaviour changes and there is nothing to migrate at runtime.** An object
+  authored against either type did nothing before and does nothing now; what
+  changes is that the contract no longer claims otherwise, so the mistake surfaces
+  at authoring time instead of silently type-checking.
+  
+  - **You imported a type only** (the only thing that was possible — nothing
+    accepted either as a value): delete the import. If you kept a local object
+    annotated with it, drop the annotation; it was never passed anywhere that read
+    it.
+  - **You wanted per-breakpoint layout:** it exists and is not being retired —
+    `useResponsive` / `ResponsiveContainer` / `useBreakpoint` in
+    `@object-ui/mobile`. `ResponsiveValue` and `BreakpointName` stay exported from
+    both packages.
+  - **You wanted to bind a gesture to a handler:** `useGesture` in
+    `@object-ui/mobile` takes `{ type: GestureType, onGesture, threshold?,
+    longPressDuration?, enabled? }`. `GestureType` and `GestureContext` stay
+    exported from both packages.
+  - **You want a declarative mobile config surface:** that re-enters deliberately
+    as designed product surface on its own card, with the renderer that reads it
+    landing in the same change as the declaration — not by restoring these
+    declarations.
+  
+  **Do not follow the compiler's suggestion for `GestureConfig`.** Measured against
+  the built declarations: `import type { GestureConfig }` from either package now
+  fails as TS2724 with `Did you mean 'SpecGestureConfig'?`. That is a lexical
+  near-match, not a migration target. `SpecGestureConfig` is the retired
+  `@objectstack/spec` `ui/touch` **tuning** record (`{ type, label, enabled,
+  swipe, pinch, longPress }`) that `useSpecGesture` reads; it has no `action`
+  member and does not bind a gesture to anything. `MobileResponsiveConfig` fails
+  as a plain TS2305 with no suggestion from either package.
+  
+  Marked `minor`, not `major`, per this repo's version-alignment rule (AGENTS.md
+  版本号策略), which reserves `major` for following `@objectstack` across a major —
+  the same classification objectui#5942 and objectui#4919 used for identically
+  breaking type removals. **Breaking for TypeScript consumers of the two names
+  only.** The in-repo consumer count is zero; consumers outside this repository
+  that import either name from either package are not visible from here, which is
+  why this entry is graded on the published-surface change and not on that count.
+- e62c44e: Re-home the breakpoint layout vocabulary and delete the two dead responsive
+  implementations (objectui#7580, maintainer ruling 2026-09-04, option A).
+  
+  **Breaking, deliberately, in one direction only.** `@objectstack/spec` retired its whole
+  `ui/responsive` vocabulary in objectstack#11027 — `ResponsiveConfigSchema`,
+  `BreakpointName`, `BreakpointColumnMapSchema` and `BreakpointOrderMapSchema` — on the
+  stated ground that the four types "had no other authorable carrier". That ground is
+  measurably false on the renderer side: `responsive-grid` is a REGISTERED SDUI component
+  whose authorable `columns` input is typed by `BreakpointColumnMap` and applied by
+  `resolveColumnClasses` on the render path, and `BreakpointName` types four live readers in
+  `@object-ui/mobile`. The tombstone's own return condition — the vocabulary "returns if and
+  when a renderer implements it" — is already met here, so the two types a renderer reads
+  are re-homed rather than retired.
+  
+  What survives, under the same names and the same members:
+  
+  - `BreakpointName` (`xs`…`2xl`) is now declared in `@object-ui/types` (`mobile.ts`) instead
+    of re-exported from the spec. **No consumer change**: same name, same six members, same
+    export sites on `@object-ui/types` and `@object-ui/mobile`. Only its provenance moved.
+  - `BreakpointColumnMap` is now declared in `@object-ui/layout` (`ResponsiveGrid.tsx`),
+    verbatim from the retired `$strict` schema: six optional column counts, no index
+    signature. `responsive-grid`'s `columns` input and its resolver are unchanged.
+  
+  What is removed:
+  
+  - `BreakpointOrderMap` (`@object-ui/layout`) — retired with the key, not re-homed. It had
+    no read point in the package; it was published only because the retired
+    `ResponsiveConfigSchema` paired it with the column map, so an author configuring `order`
+    needed the type. With the schema gone there is no order vocabulary for it to be the type
+    of, and re-declaring it would be the declare-without-enforce shape ADR-0049 removes.
+  - `useResponsiveConfig` (`@object-ui/mobile`), with its `SpecResponsiveConfig` and
+    `ResolvedResponsiveState` exports, and `ResponsiveProtocol` (`@object-ui/core`), with
+    `resolveResponsiveConfig` / `getVisibilityClasses` / `getColumnClasses` /
+    `getOrderClasses` / `shouldHideAtBreakpoint`. Both read the retired
+    `ResponsiveConfigSchema` and both were measured at zero callers (objectui#4773).
+  - `SpecResponsiveConfig` / `SpecBreakpointName` (`@object-ui/types`) — dead re-exports once
+    the two implementations above went, dropped rather than re-declared locally, the same
+    disposition the retired i18n names in that file already carry.
+  
+  No behaviour is retired. The live per-breakpoint readers — `useBreakpoint`,
+  `ResponsiveContainer`, `BREAKPOINTS` / `BREAKPOINT_ORDER` / `getCurrentBreakpoint`, and
+  `responsive-grid` itself — are untouched.
+  
+  **Sequencing.** objectui's next `@objectstack/spec` pin bump must carry `Blocked-by:`
+  objectui#7580: the retirement is merged upstream and unreleased, so this must land first.
+  
+  ⚠️ **Dated note, 2026-10-02 — the `responsive-grid` registration is retired — objectui#11441.**
+  Later in this same release the maintainer's ruling on objectui#11441 (letter B) unregistered `responsive-grid` (and
+  `layout:responsive-grid`). That ruling updates item 2 of this change's ruling: the vocabulary half stands, so
+  `BreakpointName` and `BreakpointColumnMap` stay declared here, and `ResponsiveGrid` stays a React export whose
+  `columns` prop `BreakpointColumnMap` types. The authorable breakpoint grid is the `grid` node with a breakpoint
+  `columns` object, which `BreakpointName` keys. The rest of this entry is kept as the reading of this change.
+- 1cfdff8: `useSpecGesture` fires a swipe on MEMBERSHIP of the declared direction set
+  (objectui#7974, maintainer ruling of decision batch #70).
+  
+  `SwipeGestureConfig.direction` is declared `SpecSwipeDirection[]` — a set — and the
+  hook now honours the whole of it: it recognizes the any-direction move past the
+  threshold and fires only when the DETECTED direction is a member of the declared
+  set. It used to read `direction[0]` and fuse that one element into a
+  direction-specific recognizer, so every element after the first was declared and
+  then never honoured.
+  
+  **Breaking in two narrow ways, deliberately.**
+  
+  - A declared set with more than one direction now fires for all of its members.
+    `direction: ['left', 'up']` used to fire on a left swipe only.
+  - An EMPTY or absent `swipe` sub-object now fires for nothing. It used to fall
+    back to a left-swipe recognizer, so a config that declared no direction at all
+    silently recognized one.
+  
+  **The lenient cast is gone, and nothing replaces it (AGENTS.md #0.1).** The hook
+  also read a SCALAR `direction` through an `as string` cast, which the declared
+  array type rejects — a second, undeclared contract that let the shipped
+  `@example` (which passed `direction: 'left'`) appear to work when hand-tested.
+  That example now passes `direction: ['left']`, and no runtime path accepts a
+  scalar. A tree-wide scan of `packages/`, `apps/` and `examples/` for scalar call
+  sites — run with a firing control that planted one and found it — reported zero,
+  so no caller has to change for this.
+- 0ee6e31: `useSpecGesture`'s `onGesture` fallback payload reports the DECLARED spec
+  gesture at every arm, not the recognizer's own name (objectui#9691).
+  
+  The hook builds each fallback payload by spreading the recognizer's runtime
+  context next to a declared `type`. That context carries a `type` of its own —
+  the direction-fused recognizer vocabulary — so the three arms that wrote `type`
+  BEFORE the spread (`pinch`, `pan`/`drag`, `rotate`) had their declared value
+  overwritten by the recognizer's. `type` now goes last at all three, which is
+  what the `swipe` arm already did.
+  
+  **Breaking in exactly one way, and it is worth stating narrowly.** A config that
+  declares `type: 'drag'` and supplies no `onPan` now receives `type: 'drag'` in
+  its `onGesture` payload; it used to receive `'pan'`, the recognizer's name for
+  the same move. That is the one row where the two vocabularies disagree, so it is
+  the one row where anything observable changes.
+  
+  The other repaired arms are LATENT, and the declaration would be dishonest if it
+  claimed otherwise: `pinch`, `rotate` and a declared `pan` name their recognizer
+  identically, so the overwrite replaced each value with itself and no payload
+  moves today. They are repaired because the two sides are different vocabularies
+  that happen to agree — a rename on either one turns them into the `drag` case
+  silently — not because anything is observably wrong at them now.
+
+### Patch Changes
+
+- 6ce001a: fix(mobile): `usePullToRefresh` arms on a host that mounts after the first render, and one pull has one owner (objectui#10105)
+  
+  The hook returns an object ref, so it cannot see when a consumer attaches it.
+  It used to bind its touch listeners in an effect keyed only on its handlers and
+  `enabled`, which read `ref.current` once. A view whose first render is a
+  loading screen has no host at that moment. When the host appeared, none of the
+  effect's keys had changed, so it never ran again and the pull gesture did
+  nothing, with no error. The listeners now follow the element the ref points at
+  after each commit: they bind when it appears, move when it is replaced, and are
+  released when it goes away or the consumer unmounts.
+  
+  Measured on this branch, on the internal-fetch path (the view fetches its own
+  rows): the gesture was dead on `ObjectCalendar`, `ObjectGrid` and
+  `ObjectTimeline` and now arms and refetches. `ListView` renders its host on the
+  first render and was not affected.
+  
+  Nested pull hosts now have one owner. `ListView` has its own pull host, and
+  so does the view it renders inside itself. A touch on the inner view bubbles
+  to `ListView`, so both used to respond to one pull. Before this change, the
+  calendar and timeline views inside `ListView` drew two "Pull to refresh"
+  strips for one pull, and arming the grid would have made its view do the
+  same. The gesture now belongs to the OUTERMOST armed pull host: an inner host
+  lets a pull go when an armed pull host is its ancestor in the DOM. So one pull
+  inside `ListView` draws one indicator, `ListView`'s, and runs one refetch,
+  which reloads the rows `ListView` hands the inner view. A view with no pull
+  host above it keeps its own pull. While it is armed, the hook marks its
+  element with a `data-pull-to-refresh-host` attribute; that attribute is how one
+  hook instance sees another, including across two copies of this package.
+  
+  Product-visible:
+  
+  - Nothing changes in what renders while loading.
+  - A pull inside `ListView` (calendar, grid or timeline view) shows one
+    indicator (calendar and timeline used to show two; the grid view keeps its
+    one), and still triggers one refetch.
+  - The pull gesture now works on those views when they fetch their own rows.
+  
+  The exported signature and return type of `usePullToRefresh` are unchanged.
+- Updated dependencies [b46c58f]
+- Updated dependencies [6f96fca]
+- Updated dependencies [5f00ff4]
+- Updated dependencies [c9e073a]
+- Updated dependencies [7b395d8]
+- Updated dependencies [0879812]
+- Updated dependencies [2dd4d3f]
+- Updated dependencies [e3ea4f9]
+- Updated dependencies [8b1f066]
+- Updated dependencies [af243c1]
+- Updated dependencies [f3f4e4c]
+- Updated dependencies [a05c350]
+- Updated dependencies [8c10f4f]
+- Updated dependencies [90dac98]
+- Updated dependencies [6096f20]
+- Updated dependencies [ea02938]
+- Updated dependencies [a14fb23]
+- Updated dependencies [ae98f1d]
+- Updated dependencies [f98eddf]
+- Updated dependencies [ce6bd99]
+- Updated dependencies [a5b08c9]
+- Updated dependencies [9b28151]
+- Updated dependencies [1a5003f]
+- Updated dependencies [d22b37b]
+- Updated dependencies [1daf477]
+- Updated dependencies [fb13e85]
+- Updated dependencies [c2d8659]
+- Updated dependencies [e0f8202]
+- Updated dependencies [c3a26cc]
+- Updated dependencies [a66e58e]
+- Updated dependencies [d89492c]
+- Updated dependencies [9327397]
+- Updated dependencies [17cc3a3]
+- Updated dependencies [9c78ebe]
+- Updated dependencies [12809a5]
+- Updated dependencies [f9c06ef]
+- Updated dependencies [5ad3b88]
+- Updated dependencies [f9d772b]
+- Updated dependencies [97b6c21]
+- Updated dependencies [29b45f6]
+- Updated dependencies [b956e69]
+- Updated dependencies [fec3b1a]
+- Updated dependencies [b8e0941]
+- Updated dependencies [0c50f18]
+- Updated dependencies [1dae95a]
+- Updated dependencies [e32dae1]
+- Updated dependencies [4aebea0]
+- Updated dependencies [f976774]
+- Updated dependencies [25cb364]
+- Updated dependencies [c6678b1]
+- Updated dependencies [0638322]
+- Updated dependencies [e3782d2]
+- Updated dependencies [db0beb2]
+- Updated dependencies [997ce38]
+- Updated dependencies [ae0b9d3]
+- Updated dependencies [3b469c8]
+- Updated dependencies [6650259]
+- Updated dependencies [4f8b7f8]
+- Updated dependencies [f6ae5e2]
+- Updated dependencies [7343376]
+- Updated dependencies [b2683a2]
+- Updated dependencies [dded788]
+- Updated dependencies [b45d463]
+- Updated dependencies [54a7830]
+- Updated dependencies [f3135a4]
+- Updated dependencies [b5696d3]
+- Updated dependencies [3f9d926]
+- Updated dependencies [e978ed5]
+- Updated dependencies [6a7f24e]
+- Updated dependencies [b3c96d6]
+- Updated dependencies [8d0ca91]
+- Updated dependencies [c30c8dd]
+- Updated dependencies [24d3e65]
+- Updated dependencies [95a7c8d]
+- Updated dependencies [cc4e476]
+- Updated dependencies [92970c4]
+- Updated dependencies [d570eaa]
+- Updated dependencies [42687ba]
+- Updated dependencies [24a0f14]
+- Updated dependencies [797a30f]
+- Updated dependencies [b4075c0]
+- Updated dependencies [9b85600]
+- Updated dependencies [99878d8]
+- Updated dependencies [3c13675]
+- Updated dependencies [0eb9f36]
+- Updated dependencies [ae582b7]
+- Updated dependencies [db11afd]
+- Updated dependencies [154075a]
+- Updated dependencies [582edef]
+- Updated dependencies [19f484f]
+- Updated dependencies [0a78a20]
+- Updated dependencies [615346d]
+- Updated dependencies [75dcc81]
+- Updated dependencies [55a12a8]
+- Updated dependencies [edfcf5a]
+- Updated dependencies [0a3e540]
+- Updated dependencies [f61dab1]
+- Updated dependencies [b0a05dd]
+- Updated dependencies [dd5ff19]
+- Updated dependencies [81f8498]
+- Updated dependencies [c27b575]
+- Updated dependencies [0e6e76b]
+- Updated dependencies [cd5b19a]
+- Updated dependencies [17dc167]
+- Updated dependencies [20d23be]
+- Updated dependencies [20d23be]
+- Updated dependencies [e6bc087]
+- Updated dependencies [a7557a7]
+- Updated dependencies [7d074ba]
+- Updated dependencies [6158e4c]
+- Updated dependencies [6158e4c]
+- Updated dependencies [52aad5c]
+- Updated dependencies [58da8ae]
+- Updated dependencies [138ad45]
+- Updated dependencies [5262f7d]
+- Updated dependencies [6aa029b]
+- Updated dependencies [770cc5b]
+- Updated dependencies [1a88ce2]
+- Updated dependencies [a1a44d6]
+- Updated dependencies [e0a9c67]
+- Updated dependencies [5638529]
+- Updated dependencies [c476be0]
+- Updated dependencies [c82ff39]
+- Updated dependencies [6c3da53]
+- Updated dependencies [31987bd]
+- Updated dependencies [3c3ce15]
+- Updated dependencies [e100589]
+- Updated dependencies [304f611]
+- Updated dependencies [e46ee77]
+- Updated dependencies [6e9c8d2]
+- Updated dependencies [9547063]
+- Updated dependencies [3f6efd6]
+- Updated dependencies [c4ab6d0]
+- Updated dependencies [0e9058b]
+- Updated dependencies [5988b6b]
+- Updated dependencies [00ccdf7]
+- Updated dependencies [9d9ed54]
+- Updated dependencies [ca3de72]
+- Updated dependencies [83e3f83]
+- Updated dependencies [401611b]
+- Updated dependencies [2c0ddf2]
+- Updated dependencies [4abc0aa]
+- Updated dependencies [2b188fa]
+- Updated dependencies [f68e0a0]
+- Updated dependencies [aea682a]
+- Updated dependencies [fcdc8ec]
+- Updated dependencies [2d576e4]
+- Updated dependencies [8366acc]
+- Updated dependencies [95e58a3]
+- Updated dependencies [9d7419b]
+- Updated dependencies [fc7db05]
+- Updated dependencies [9ed8d0f]
+- Updated dependencies [c73cdb5]
+- Updated dependencies [6f5719e]
+- Updated dependencies [06a8af5]
+- Updated dependencies [6a91586]
+- Updated dependencies [a04d7c6]
+- Updated dependencies [f3c2bb0]
+- Updated dependencies [460575f]
+- Updated dependencies [d88e20f]
+- Updated dependencies [2d7304d]
+- Updated dependencies [636b236]
+- Updated dependencies [d6d8fb9]
+- Updated dependencies [64d624d]
+- Updated dependencies [95bad12]
+- Updated dependencies [d2fb6ef]
+- Updated dependencies [fda49e5]
+- Updated dependencies [fc62bb4]
+- Updated dependencies [41df893]
+- Updated dependencies [0cba1b7]
+- Updated dependencies [00f3eb5]
+- Updated dependencies [1ec291c]
+- Updated dependencies [453dbaa]
+- Updated dependencies [69a2163]
+- Updated dependencies [24e027e]
+- Updated dependencies [2c3cd1b]
+- Updated dependencies [90665e0]
+- Updated dependencies [7e19d03]
+- Updated dependencies [1e946c9]
+- Updated dependencies [864154e]
+- Updated dependencies [b023625]
+- Updated dependencies [75bd83d]
+- Updated dependencies [40c479a]
+- Updated dependencies [971d387]
+- Updated dependencies [ee851c3]
+- Updated dependencies [6414dfd]
+- Updated dependencies [a8d5c71]
+- Updated dependencies [905b21f]
+- Updated dependencies [88e9109]
+- Updated dependencies [2c45966]
+- Updated dependencies [db3a600]
+- Updated dependencies [3a3db76]
+- Updated dependencies [0d723a3]
+- Updated dependencies [0c95d3d]
+- Updated dependencies [3e4fa2c]
+- Updated dependencies [b5b928a]
+- Updated dependencies [52a43de]
+- Updated dependencies [195052f]
+- Updated dependencies [e4559d1]
+- Updated dependencies [2c71482]
+- Updated dependencies [5ef9c4f]
+- Updated dependencies [46f0bb4]
+- Updated dependencies [6f81384]
+- Updated dependencies [8f1d995]
+- Updated dependencies [dddb942]
+- Updated dependencies [29754cf]
+- Updated dependencies [b84dc18]
+- Updated dependencies [ac8abb0]
+- Updated dependencies [9d86e1d]
+- Updated dependencies [3a5817f]
+- Updated dependencies [99a3c2d]
+- Updated dependencies [c8ea8af]
+- Updated dependencies [3190414]
+- Updated dependencies [4e480f5]
+- Updated dependencies [38a123c]
+- Updated dependencies [d7acad6]
+- Updated dependencies [45a9aeb]
+- Updated dependencies [713db46]
+- Updated dependencies [bf3a03c]
+- Updated dependencies [cb55718]
+- Updated dependencies [29cb85b]
+- Updated dependencies [3e028c8]
+- Updated dependencies [ce503e5]
+- Updated dependencies [f20dcf0]
+- Updated dependencies [4ca30d0]
+- Updated dependencies [7a5da14]
+- Updated dependencies [2c1c967]
+- Updated dependencies [d6ceb8d]
+- Updated dependencies [2acd8e1]
+- Updated dependencies [adb2a86]
+- Updated dependencies [3561bd2]
+- Updated dependencies [bf97b98]
+- Updated dependencies [b0d308d]
+- Updated dependencies [40f34b4]
+- Updated dependencies [8063bcb]
+- Updated dependencies [b74a859]
+- Updated dependencies [d4493fd]
+- Updated dependencies [240b80f]
+- Updated dependencies [77cb489]
+- Updated dependencies [bfaa158]
+- Updated dependencies [777e5c6]
+- Updated dependencies [0c386dd]
+- Updated dependencies [9e37d9b]
+- Updated dependencies [5ad86dd]
+- Updated dependencies [16a725f]
+- Updated dependencies [4dfdcc3]
+- Updated dependencies [446d93d]
+- Updated dependencies [ecd9cb2]
+- Updated dependencies [98d4108]
+- Updated dependencies [0e3b3be]
+- Updated dependencies [a29ae2d]
+- Updated dependencies [4388f71]
+- Updated dependencies [0b1ac58]
+- Updated dependencies [c93b4d5]
+- Updated dependencies [c1fe272]
+- Updated dependencies [8ad218d]
+- Updated dependencies [3e41187]
+- Updated dependencies [5f78953]
+- Updated dependencies [639114c]
+- Updated dependencies [1f31d3a]
+- Updated dependencies [351eb31]
+- Updated dependencies [20c04b2]
+- Updated dependencies [b652514]
+- Updated dependencies [adbda1b]
+- Updated dependencies [e2b3826]
+- Updated dependencies [2e32ed4]
+- Updated dependencies [1bee5d0]
+- Updated dependencies [858cd72]
+- Updated dependencies [554f2b6]
+- Updated dependencies [669d71b]
+- Updated dependencies [ed27d7c]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [2ceb43a]
+- Updated dependencies [7cdd2b9]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [caa0cd3]
+- Updated dependencies [25c7d58]
+- Updated dependencies [c6198c2]
+- Updated dependencies [51eb515]
+- Updated dependencies [c354ce5]
+- Updated dependencies [8fe8e5c]
+- Updated dependencies [feac439]
+- Updated dependencies [efbd566]
+- Updated dependencies [9587fc9]
+- Updated dependencies [e62c44e]
+- Updated dependencies [5d0876c]
+- Updated dependencies [544ecba]
+- Updated dependencies [bc640ec]
+- Updated dependencies [3e377c9]
+- Updated dependencies [a3eb5d0]
+- Updated dependencies [4ce14f1]
+- Updated dependencies [2af1fa7]
+- Updated dependencies [a137d0c]
+- Updated dependencies [caf477f]
+- Updated dependencies [f6375da]
+- Updated dependencies [967e5d8]
+- Updated dependencies [a4611b3]
+- Updated dependencies [20316ba]
+- Updated dependencies [d3499b3]
+- Updated dependencies [309c75e]
+- Updated dependencies [c9f9bae]
+- Updated dependencies [18897a4]
+- Updated dependencies [8b7ea39]
+- Updated dependencies [dcbf0b2]
+- Updated dependencies [1422a92]
+- Updated dependencies [d05fe17]
+- Updated dependencies [a480f79]
+- Updated dependencies [f08d1a8]
+- Updated dependencies [64a252d]
+- Updated dependencies [786bc91]
+- Updated dependencies [75fca96]
+- Updated dependencies [7ca6ddd]
+- Updated dependencies [f1cd290]
+- Updated dependencies [5a41ce7]
+- Updated dependencies [8d50bc2]
+- Updated dependencies [604476d]
+- Updated dependencies [335abea]
+- Updated dependencies [0f5cadf]
+- Updated dependencies [4f9f1ee]
+- Updated dependencies [66e8b2a]
+- Updated dependencies [aa083cd]
+- Updated dependencies [12b5992]
+- Updated dependencies [b93e245]
+- Updated dependencies [c842594]
+- Updated dependencies [290de37]
+- Updated dependencies [8c8da45]
+- Updated dependencies [8cd8eb5]
+- Updated dependencies [cf1d29e]
+- Updated dependencies [af9e957]
+- Updated dependencies [c974edf]
+- Updated dependencies [ad852b6]
+- Updated dependencies [ee4d19f]
+- Updated dependencies [496d31d]
+- Updated dependencies [9a853f2]
+- Updated dependencies [cb847fd]
+- Updated dependencies [ee70287]
+- Updated dependencies [3e98e13]
+- Updated dependencies [4eaa835]
+- Updated dependencies [b1777ae]
+- Updated dependencies [24845c4]
+- Updated dependencies [6f864cf]
+- Updated dependencies [24d1edd]
+- Updated dependencies [645087c]
+- Updated dependencies [33f4a19]
+- Updated dependencies [5323168]
+- Updated dependencies [841dd2b]
+- Updated dependencies [3014fc0]
+- Updated dependencies [dacb402]
+- Updated dependencies [474797d]
+- Updated dependencies [704e695]
+- Updated dependencies [a407bd6]
+- Updated dependencies [3a43a15]
+- Updated dependencies [421544b]
+- Updated dependencies [fb01022]
+- Updated dependencies [e9d9212]
+- Updated dependencies [ecfb693]
+- Updated dependencies [81a51db]
+- Updated dependencies [67749c7]
+- Updated dependencies [507b61b]
+- Updated dependencies [512c84b]
+- Updated dependencies [d4733f2]
+- Updated dependencies [8b532cb]
+- Updated dependencies [c42554e]
+- Updated dependencies [555b4ec]
+- Updated dependencies [1ccfc23]
+- Updated dependencies [542718f]
+- Updated dependencies [7f27bc5]
+- Updated dependencies [f95b140]
+- Updated dependencies [541ce4e]
+- Updated dependencies [6479086]
+- Updated dependencies [d79f525]
+- Updated dependencies [f1190b0]
+- Updated dependencies [6a4680b]
+- Updated dependencies [c3a4273]
+- Updated dependencies [093af32]
+- Updated dependencies [1bd1be7]
+- Updated dependencies [d234fa9]
+- Updated dependencies [adf5812]
+- Updated dependencies [5058336]
+- Updated dependencies [2f6b2bf]
+- Updated dependencies [2028b31]
+- Updated dependencies [63601ab]
+- Updated dependencies [8693b85]
+- Updated dependencies [58b7b3d]
+- Updated dependencies [681d3f1]
+- Updated dependencies [f3bc481]
+- Updated dependencies [93fc0e7]
+- Updated dependencies [a4b723f]
+- Updated dependencies [2b10ca0]
+- Updated dependencies [7db4a81]
+- Updated dependencies [526fc11]
+- Updated dependencies [6732df4]
+- Updated dependencies [fe9e0d0]
+- Updated dependencies [63fb72c]
+- Updated dependencies [279e48e]
+- Updated dependencies [8700d6d]
+- Updated dependencies [8db2a0f]
+- Updated dependencies [30443fb]
+- Updated dependencies [96919a4]
+- Updated dependencies [2e471dc]
+- Updated dependencies [be50942]
+- Updated dependencies [775e079]
+- Updated dependencies [7e8b3c0]
+- Updated dependencies [53374dc]
+- Updated dependencies [f6fb83f]
+- Updated dependencies [2049b03]
+- Updated dependencies [7cbc724]
+- Updated dependencies [fb91ac9]
+- Updated dependencies [8524372]
+- Updated dependencies [7cbefa5]
+- Updated dependencies [72d6587]
+- Updated dependencies [a272a4f]
+- Updated dependencies [55f39ee]
+- Updated dependencies [0970a0e]
+- Updated dependencies [e427e9c]
+- Updated dependencies [bbc9dc3]
+- Updated dependencies [02f1813]
+- Updated dependencies [ac716ff]
+- Updated dependencies [f0f3cd5]
+- Updated dependencies [20f3e65]
+- Updated dependencies [bbba098]
+- Updated dependencies [87af769]
+- Updated dependencies [3be720e]
+- Updated dependencies [c3df43a]
+- Updated dependencies [d16d0e9]
+- Updated dependencies [bbe57fd]
+- Updated dependencies [272a530]
+- Updated dependencies [1779e8d]
+- Updated dependencies [4128188]
+- Updated dependencies [b253c4e]
+- Updated dependencies [78a9c67]
+- Updated dependencies [4a7ef0d]
+- Updated dependencies [dea17b4]
+- Updated dependencies [89bb77a]
+- Updated dependencies [06611e4]
+- Updated dependencies [dc3893d]
+- Updated dependencies [1bbaa16]
+- Updated dependencies [6ee259a]
+- Updated dependencies [e708426]
+- Updated dependencies [3b6d53b]
+- Updated dependencies [a8198de]
+- Updated dependencies [a78cd37]
+- Updated dependencies [5ea623e]
+- Updated dependencies [ca5d671]
+- Updated dependencies [32bf2d6]
+- Updated dependencies [af4fb29]
+- Updated dependencies [9a97800]
+- Updated dependencies [6bca0e4]
+- Updated dependencies [2fcefb9]
+- Updated dependencies [b55a346]
+- Updated dependencies [065bba7]
+- Updated dependencies [100547e]
+- Updated dependencies [6d1c155]
+- Updated dependencies [d7573b3]
+- Updated dependencies [0e05aac]
+- Updated dependencies [18a8e7d]
+- Updated dependencies [e7957ab]
+- Updated dependencies [f7e34ca]
+- Updated dependencies [f9e4f91]
+- Updated dependencies [6ef48b1]
+- Updated dependencies [fa429cf]
+- Updated dependencies [ed8df3e]
+- Updated dependencies [8b446f5]
+- Updated dependencies [7357447]
+- Updated dependencies [199d31b]
+- Updated dependencies [3e01cb5]
+- Updated dependencies [4e8622b]
+- Updated dependencies [dffd752]
+- Updated dependencies [105f3c5]
+- Updated dependencies [3ccd9e8]
+- Updated dependencies [689b979]
+- Updated dependencies [e546222]
+- Updated dependencies [fd13f52]
+- Updated dependencies [fb336df]
+- Updated dependencies [0fce2ef]
+- Updated dependencies [0e2ddd4]
+- Updated dependencies [b7479ab]
+- Updated dependencies [b2ea297]
+- Updated dependencies [5b5a5c3]
+- Updated dependencies [14582b8]
+- Updated dependencies [51e144e]
+- Updated dependencies [a691c0b]
+- Updated dependencies [515f171]
+- Updated dependencies [258d264]
+- Updated dependencies [93127bd]
+- Updated dependencies [51f3d8d]
+- Updated dependencies [78cbdb5]
+- Updated dependencies [b7543a9]
+- Updated dependencies [ca39427]
+- Updated dependencies [c9327c9]
+- Updated dependencies [920165d]
+- Updated dependencies [968dc1e]
+- Updated dependencies [3c73d99]
+- Updated dependencies [1170ed1]
+- Updated dependencies [4d73b07]
+  - @object-ui/types@17.7.0
+
 ## 17.6.0
 
 ### Patch Changes

@@ -1673,7 +1673,7 @@ export const BarChartSchema = BaseSchema.extend({
   children: retirementTombstone(BAR_CHART_NEITHER_CHANNEL),
 });
 
-export const DataDisplaySchema = z.discriminatedUnion('type', [
+const DataDisplaySchemaInferred = z.discriminatedUnion('type', [
   AlertSchema,
   StatisticSchema,
   BadgeSchema,
@@ -1690,3 +1690,16 @@ export const DataDisplaySchema = z.discriminatedUnion('type', [
   HtmlSchema,
   BarChartSchema,
 ]);
+
+/**
+ * The TYPE of {@link DataDisplaySchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface DataDisplayZodType extends DataDisplaySchemaInferredType {
+  options: DataDisplaySchemaInferredType['options'];
+}
+type DataDisplaySchemaInferredType = typeof DataDisplaySchemaInferred;
+
+/** The union above, typed by its named {@link DataDisplayZodType}. */
+export const DataDisplaySchema: DataDisplayZodType = DataDisplaySchemaInferred;

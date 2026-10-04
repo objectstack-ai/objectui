@@ -569,7 +569,7 @@ export const DetailSectionNodeSchema = BaseSchema.extend({
 /**
  * Union of all view schemas
  */
-export const ViewComponentSchema = z.discriminatedUnion('type', [
+const ViewComponentSchemaInferred = z.discriminatedUnion('type', [
   DetailViewSchema,
   ViewSwitcherSchema,
   FilterUISchema,
@@ -577,6 +577,19 @@ export const ViewComponentSchema = z.discriminatedUnion('type', [
   // objectui#11440 — one field section as a node.
   DetailSectionNodeSchema,
 ]);
+
+/**
+ * The TYPE of {@link ViewComponentSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface ViewComponentZodType extends ViewComponentSchemaInferredType {
+  options: ViewComponentSchemaInferredType['options'];
+}
+type ViewComponentSchemaInferredType = typeof ViewComponentSchemaInferred;
+
+/** The union above, typed by its named {@link ViewComponentZodType}. */
+export const ViewComponentSchema: ViewComponentZodType = ViewComponentSchemaInferred;
 
 /**
  * Export type inference helpers

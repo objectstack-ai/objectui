@@ -303,8 +303,21 @@ export const NLQuerySchema = BaseSchema.extend({
  * Union of the AI component arms — the category member `AnyComponentSchema`
  * lists (objectui#10859).
  */
-export const AIComponentSchema = z.discriminatedUnion('type', [
+const AIComponentSchemaInferred = z.discriminatedUnion('type', [
   AIFormAssistSchema,
   AIRecommendationsSchema,
   NLQuerySchema,
 ]);
+
+/**
+ * The TYPE of {@link AIComponentSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface AIComponentZodType extends AIComponentSchemaInferredType {
+  options: AIComponentSchemaInferredType['options'];
+}
+type AIComponentSchemaInferredType = typeof AIComponentSchemaInferred;
+
+/** The union above, typed by its named {@link AIComponentZodType}. */
+export const AIComponentSchema: AIComponentZodType = AIComponentSchemaInferred;

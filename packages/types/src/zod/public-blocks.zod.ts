@@ -1082,16 +1082,18 @@ type RecordLineItemsBlockArmType = typeof RecordLineItemsBlockArm;
  * ## Why (objectui#10872)
  *
  * `tsc` prints an inferred type in full wherever a declaration uses it. So
- * `AnyComponentSchema`'s declaration in `index.zod.d.ts` spells out every
- * arm of every union it lists. That declaration sits close to the compiler's
- * serialization ceiling. Measured on objectstack main 5c9138b, this arm's own
+ * `AnyComponentSchema`'s declaration in `index.zod.d.ts` spelled out every
+ * arm of every union it listed, and sat close to the compiler's serialization
+ * ceiling. Measured on objectstack main 5c9138b, this arm's own
  * serialized size is the same as against 17.6.0; what grew is the rest of
  * `AnyComponentSchema`, which left too little room under the ceiling for the
  * arm inline. Printed inline, it made `@object-ui/types` fail with TS7056 at
  * `AnyComponentSchema` and emit no declarations; the Spec Main Shape Gate
  * caught it. An interface is printed by name, so naming the arm's type takes
- * its body out of the union's print: it is printed once, here. The family and
- * the remaining headroom are tracked in objectui#11573.
+ * its body out of the union's print: it is printed once, here. objectui#11573
+ * closed the family by naming every category union `AnyComponentSchema` lists,
+ * this one included (`PublicBlockComponentZodType`), and
+ * `../__tests__/any-component-emit-headroom-11573.test.ts` reads the headroom.
  *
  * ## Why the TYPE is unchanged
  *
@@ -1554,7 +1556,7 @@ export const ActionMenuBlockSchema = BaseSchema.extend({
  * Union of the public-block arms — the category member `AnyComponentSchema`
  * lists (objectui#10872).
  */
-export const PublicBlockComponentSchema = z.discriminatedUnion('type', [
+const PublicBlockComponentSchemaInferred = z.discriminatedUnion('type', [
   PageHeaderBlockSchema,
   PageTabsBlockSchema,
   PageCardBlockSchema,
@@ -1584,3 +1586,16 @@ export const PublicBlockComponentSchema = z.discriminatedUnion('type', [
   ActionGroupBlockSchema,
   ActionMenuBlockSchema,
 ]);
+
+/**
+ * The TYPE of {@link PublicBlockComponentSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface PublicBlockComponentZodType extends PublicBlockComponentSchemaInferredType {
+  options: PublicBlockComponentSchemaInferredType['options'];
+}
+type PublicBlockComponentSchemaInferredType = typeof PublicBlockComponentSchemaInferred;
+
+/** The union above, typed by its named {@link PublicBlockComponentZodType}. */
+export const PublicBlockComponentSchema: PublicBlockComponentZodType = PublicBlockComponentSchemaInferred;

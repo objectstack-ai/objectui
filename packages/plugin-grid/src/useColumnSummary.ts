@@ -500,7 +500,10 @@ function formatSummaryLabel(
 /**
  * Hook to compute column summary/aggregation values.
  *
- * @param columns - Column definitions (may include `summary` config)
+ * @param columns - Column definitions (may include `summary` config). Of a
+ *   column's members the hook reads `field`, `summary` and the declared
+ *   `type`; every other formatting hint comes from `fieldMetadata`
+ *   (objectui#11588).
  * @param data - Row data array
  * @param fieldMetadata - Optional `objectSchema.fields` map; when present
  *   the hook reads `type`/`currency`/`currencyConfig`/`defaultCurrency` and,
@@ -550,27 +553,27 @@ export function useColumnSummary(
       const targetField = config.field || col.field;
       const result = computeAggregation(config.type, data, targetField);
 
-      // Merge column-level hints (`col.currency`, `col.precision`, etc.) with
-      // any matching fieldMetadata entry so authors get correct currency/
-      // percent formatting without restating type info on every column.
+      // The column contributes its declared `type` (a `ListColumn` member,
+      // which outranks the field's); every other hint is read off the FIELD
+      // (`fieldMetadata`) only, as the list cell above reads it.
+      // objectui#10354, objectui#11475, objectui#11588 — `ListColumnSchema`
+      // declares none of `currency`, `defaultCurrency`, `currencyConfig`,
+      // `precision`, `scale` or `max`, and a column-level read would be a
+      // second, undeclared spelling. `col` stays typed as `ListColumn`, so
+      // such a read does not compile here.
       const meta = fieldMetadata?.[targetField];
       const columnHints = {
-        type: (col as any).type ?? meta?.type,
-        currency: (col as any).currency ?? meta?.currency,
-        defaultCurrency: (col as any).defaultCurrency ?? meta?.defaultCurrency,
+        type: col.type ?? meta?.type,
+        currency: meta?.currency,
+        defaultCurrency: meta?.defaultCurrency,
         // objectui#10354 — the spec's one fixed-currency spelling, handed to
         // `resolveFieldCurrency` verbatim, as the cell's bag carries it, so the
-        // footer and the cell above it resolve the same code. Read off the
-        // FIELD only: `ListColumnSchema` declares no `currencyConfig`, and a
-        // column-level read would be a second, undeclared spelling.
+        // footer and the cell above it resolve the same code.
         currencyConfig: meta?.currencyConfig,
-        precision: (col as any).precision ?? meta?.precision,
-        scale: (col as any).scale ?? meta?.scale,
+        precision: meta?.precision,
+        scale: meta?.scale,
         // objectui#11475 — a percent field's declared `max`, its STORAGE
-        // statement (`percentScaleOf`: a fraction unless `max` is above 1),
-        // read off the FIELD only, as `currencyConfig` is: `ListColumnSchema`
-        // declares no `max`, and a column-level read would be a second,
-        // undeclared spelling.
+        // statement (`percentScaleOf`: a fraction unless `max` is above 1).
         max: meta?.max,
       };
 

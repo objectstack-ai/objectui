@@ -351,6 +351,12 @@ A `currency` or `percent` column formats its `sum`/`avg`/`min`/`max` in that
 unit. Counts stay plain cardinalities and percentages carry their own `%`, so
 `count_unique` on a currency column reads `Unique: 3`, not `$3.00`.
 
+The unit comes from the column's `type`, or its object field's. Every other
+formatting hint (`currency`, `defaultCurrency`, `currencyConfig`, `precision`,
+`scale` and `max`) is read off the object field only, the way the list cell
+reads it. `ListColumnSchema` declares none of them, so a column that carries one
+does not change the footer (objectui#11588).
+
 A `percent` column's aggregate takes both halves of the percent rule from the
 same place the list cell above it does — the storage its field declares for
 the fraction-vs-points scaling (the spec's `percentScaleOf`: a fraction unless
@@ -362,11 +368,11 @@ under two conventions. On a column whose field declares `max: 100`, a sum of
 space before the sign) and `Sum: %1.235` in `tr-TR`, where the sign goes in
 front of the number (objectui#9269); on a fraction-stored column a sum of `1`
 renders `Sum: 100%`. The width
-is what `resolveFieldScale` in `@objectstack/spec/data` resolves for the column:
+is what `resolveFieldScale` in `@objectstack/spec/data` resolves for the field:
 its declared `scale`, or, when it declares none, the protocol's own width for a
 percent — the answer the list cell, the record header's summary chip and the
 percent edit widget read too, so an undeclared percent shows one width on every
-face (objectui#9843). It is never the column's `precision` (objectui#9295).
+face (objectui#9843). It is never the field's `precision` (objectui#9295).
 
 A `number` column's aggregate reads the same resolver. A declared `scale` is a
 fixed width (`Sum: 1.50`); a `number` declaring none has no fixed width, and the

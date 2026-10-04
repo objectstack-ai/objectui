@@ -1,5 +1,4142 @@
 # @object-ui/plugin-list
 
+## 17.7.0
+
+### Minor Changes
+
+- 57a2bc2: Retire the undeclared timeline `metaFields` reads in both packages (objectui#10222).
+  
+  The spec's `TimelineConfigSchema` is a strict object that declares no `metaFields` member and
+  refuses one, yet `ObjectTimeline` read it (through an `as any` cast) to pick the chip fields
+  beside each title, and `ListView` read it three times: two field collectors put the listed
+  fields into `$expand` / `$select`, and the status / priority auto-projection was skipped when
+  the list was present. All four reads are deleted.
+  
+  **Behaviour change:** a stored interface-page view carrying `options.timeline.metaFields` falls
+  back to the default card labels (the built-in `status` / `priority` chips, limited to the fields
+  the object declares), and the fields that list named are no longer fetched for it. No such view
+  has been found; the stored rows are not censused. A timeline without the key renders and fetches
+  exactly what it did before, because `ListView` now projects `status` / `priority` for every
+  timeline view.
+  
+  `cardFields` stays the reserved spelling if authored timeline chip fields are ever asked for;
+  nothing is declared.
+- ae98f1d: A `chart` list view bound to a semantic `dataset` takes its scope from the dataset:
+  a view filter on it is now refused at authoring, and its toolbar no longer offers
+  filter controls (objectui#10327).
+  
+  The dataset shape of the list view's chart builds a node with no filter: the chart
+  queries the dataset through `queryDataset` with its dimensions and measures, and a
+  dataset's fields need not be the list object's. So a view filter written on such a
+  view was accepted and silently dropped, and the chart drew unfiltered totals that
+  read as filtered ones. The toolbar Filter builder and the filter chips reached only
+  the list's own fetch of the object's rows, never the chart.
+  
+  **New refusal (`@object-ui/types`).** `ListViewSchema` refuses `filter` — and the
+  legacy `filters` alias — on a view with `viewType: 'chart'` whose chart block (`chart`,
+  or the legacy `options.chart` bag when no `chart` is declared) names a `dataset`. The
+  issue is a `custom` one at the written key, and its message ends with the remedy: a
+  dataset chart's scope is written in the dataset. An empty filter array, a chart bound
+  to the list object, and a view of another kind that only offers a switch to a dataset
+  chart are all still accepted.
+  
+  **Toolbar (`@object-ui/plugin-list`).** While a dataset-bound chart is on screen, the
+  Filter builder and the `userFilters` chips are not rendered. A chart bound to the list
+  object keeps both, because its node carries the effective filter.
+  
+  What an author sees change: a dataset chart view that declared a `filter` now fails
+  validation with the remedy above instead of drawing unfiltered numbers. Put the scope
+  in the dataset. No example, app or doc in this repository declared such a view; the
+  search is on the pull request.
+- 974760a: fix(plugin-list): a map list view requests the fields its markers are drawn from
+  
+  `ListView` builds its `$select` projection from the authored columns plus each
+  view kind's per-row bindings. Kanban, calendar, gallery, timeline and gantt each
+  had an arm there; the map had none, and the candidate keys named none of its
+  bindings. A map view whose columns omit the location field therefore asked for
+  `id` plus those columns, and on a backend that honours `$select` every row
+  arrived without coordinates: a map with no markers, and no error.
+  
+  The request shape changes: a map view now also requests the fields `ObjectMap`
+  reads off each row — `locationField`, or the `latitudeField` + `longitudeField`
+  pair, plus `titleField` and `descriptionField`. They are read through the same
+  resolver the map render branch and the view switcher already use (the spec's
+  view-level `map` block merged per key over the `options.map` bag), so a bag value
+  the view-level block shadows is not requested. A coordinate or title binding that
+  names a lookup is also expanded, as the map's own fetch already does; the
+  description binding is requested but not expanded, because the marker popup
+  renders it as text and cannot draw an expanded record there.
+  
+  Every one of these fields passes the same checks as the other view bindings: a
+  field the current user may not read is never requested, and a name the object
+  does not declare is never sent.
+- d0c0c7f: The list view's live query sends "Is empty" / "Is not empty" as the spec's `isempty` / `isnotempty` instead of an equality to `null` (objectui#10813). `@objectstack/spec` 17.6.0 and later lower that pair to `$empty`; an earlier reader lowers it to `$null`, as it does the saved view's `is_empty`.
+  
+  `convertFilterGroupToAST` resolved the pair to `[FIELD, '=', null]` / `[FIELD, '!=', null]`, a null-only test, before `mapOperator` was consulted. The same rule saved into the view is persisted as `is_empty`, which `@objectstack/spec` 17.6.0 lowers to `$empty` (objectstack#20446): so one filter panel answered two record sets, depending on whether the view had been saved. The pair now takes the value-less path like `is_null`, and `mapOperator` gains `isempty` / `isnotempty` arms. The node is `[FIELD, 'isempty', null]`; the spec discards the third slot.
+  
+  **What moves.** Nothing is stored by this path. Against a 17.6.0 or later server, on a text-like column a row holding `''` is now "empty", and on a multi-value column a row holding `[]` is, matching the server's per-type answer for the saved view. On a `provider: 'value'` list a row with no key at all is now "empty" too: the equality to `null` did not select it there.
+- 244d516: A grouped grid over a data source that declares no `queryGroupHeaders` now
+  **refuses grouping** instead of grouping a page of rows (objectui#10881,
+  maintainer ruling F). Grouping is a property of the query (ruling A on
+  objectui#7189): a data source that cannot answer the group header query cannot
+  group, so the grid names the member it is missing rather than drawing counts it
+  cannot know.
+  
+  - **`@object-ui/plugin-grid`** — a grouped `object-grid` that fetches its own
+    rows over such a source renders an error panel naming `queryGroupHeaders`
+    and issues no row query. It used to fetch one window and group it in the
+    browser, so every group count was a page slice and a group whose rows all
+    fell past the window was missing. Rows handed in WHOLE — a
+    `data: { provider: 'value', items }` block, or a `data` prop from a parent
+    view that declares no larger `rowCount` — are still grouped in the browser,
+    exactly. A host that hands rows in while declaring them one page of more
+    (the external-pagination props: `manualPagination`, `onPageChange` and a
+    `rowCount` above the rows it handed) is now refused as well, with a sentence
+    of its own: grouping needs every record. It used to have that page grouped as
+    if it were whole.
+  - **`@object-ui/plugin-list`** — `ListView` makes the same refusal, with the
+    same sentence, in place of a grouped grid over such a source, and fetches no
+    window for it. It used to fetch one window and hand it to the grid as
+    `data`, which the grid grouped as if the rows were whole. Rows handed to
+    `ListView` in whole are still handed to the grid.
+  - **`@object-ui/i18n`** — two new keys, `grid.grouping.needsHeaderQuery` and
+    `grid.grouping.needsWholeRows`, in all ten locale packs.
+  
+  The `Partial` marker described by the pending
+  `7189-grouped-grid-partial-disclosure` entry is retired everywhere before any
+  release carried it: its three `grid.grouping.partial*` strings, `GroupRow`'s
+  `partialLabel` / `partialTitle` props and the notice above the group list are
+  gone.
+  
+  **Breaking semantics (declared `minor` per this repo's version policy):** a
+  grouped grid that fetches its own rows over a data source without
+  `queryGroupHeaders` — `ApiDataSource`, `ValueDataSource`, or a host adapter —
+  grouped the page it fetched in the last release, and now renders an error panel
+  instead. So does a grouped grid view in `ListView` over such a source. So does
+  a grouped grid handed rows by a host that declares them one page of more
+  (`manualPagination`, `onPageChange` and a `rowCount` above the rows handed),
+  whatever its data source. To keep grouping, either:
+  
+  - implement `queryGroupHeaders` on the data source (the ObjectStack adapter
+    does), and let the grid fetch its own rows, or
+  - hand the rows in whole (`data: { provider: 'value', items }`, or a `data`
+    prop with no `rowCount` above it).
+  
+  Not changed here: while a toolbar search is active, `ListView` over a data
+  source that answers the header query still hands a grouped grid its window,
+  whose group counts are the window's, because the header query carries no
+  search (objectstack#20358).
+- e176053: Consolidate the seven lucide icon-name resolvers into one seam (objectui#5935).
+  
+  Seven modules resolved authored icon names into lucide's runtime `icons` record, each
+  with its own copy of the logic: **three different tokenisers** (`split('-')` on five of
+  them, `split(/[-_\s]/)` on one, `split(/[-_\s]+/)` on one) and the `Home` -> `House`
+  rename on only **four** of the seven. The same authored name therefore rendered on one
+  surface and not another — the sidebar-vs-action-bar disagreement objectui#5633 opened
+  with. There is now one resolver, `resolveIcon`, exported from `@object-ui/components`,
+  and the other six call it.
+  
+  **The tokeniser is `split(/[-_\s]+/)` with `Home` -> `House` applied universally, and it
+  was measured rather than chosen.** Its regression set is empty three independent ways:
+  against the authored population, against a maximally-pessimistic every-authored-name x
+  every-surface cross-product, and against a bound-free differential over 8,298 spellings
+  derived from all 1,767 live record keys — each with a discrimination control that fired
+  in the same run. `split('-')` was **not** adoptable: it regresses 4,748 name-surface
+  pairs in that last reading, stripping two surfaces of every snake_case and
+  space-separated spelling they resolve today.
+  
+  **What changes for you — all of it widening, none of it removal.** No name that resolved
+  before stops resolving: no key of lucide's record contains `_`, whitespace or `-`
+  (measured: 0 of 1,767), so whenever the old narrow tokeniser produced a live key the
+  wider one produces the same key. Sixteen name-surface pairs start resolving where they
+  rendered a fallback or nothing before:
+  
+  - `layout_dashboard` and `building_2` (and every other snake_case or space-separated
+    spelling) now resolve on the shared resolver, `ui:icon`, `ListView`'s empty state,
+    `TabBar` and `ViewSwitcher` — they previously resolved only on the action preview and
+    the related list.
+  - `home` / `Home` now resolves on `RelatedList`, `ListView` and `TabBar`, which carried
+    no rename map. `Home` is not a live record key, so this could only ever be a widening.
+  
+  **What does NOT change: what each surface draws when a name does not resolve.** The seam
+  answers `name -> component`, returning `null`, and decides nothing else (maintainer
+  ruling 2026-09-03 on objectui#5935). Every call site keeps its own fallback, visibly, at
+  the call site: `ui:icon` keeps its `SquareDashed` placeholder and its warning
+  (objectui#5631, untouched), `RelatedList` and `ListView` keep their `Inbox` glyph,
+  `ActionPreview` keeps its three-character name chip, and the shared resolver, `TabBar`
+  and `ViewSwitcher` keep `null`. A two-valued `onUnresolvable` parameter was ruled on and
+  then dropped once the tree was measured to have four such behaviours rather than two: a
+  lookup function is the wrong place to publish a presentation decision.
+  
+  `resolveIcon` is newly exported from `@object-ui/components`, which is the only surface
+  this adds. `scripts/check-lucide-icon-record-names.mjs` is simplified in the same change:
+  its census goes from seven sites to one, and its normalisation stops being a
+  widest-common approximation of three disagreeing resolvers — so the under-reporting that
+  gate disclosed at objectui#5932 is closed rather than merely bounded.
+- 4ca30d0: Two widget prop types anchor their `schema` to exported schema types that extend
+  `BaseSchema`, instead of hand-rolled inline literals with no `BaseSchema` in
+  their ancestry (objectui#6576, maintainer ruling 2026-08-31 option A; folds
+  objectui#6914).
+  
+  - `@object-ui/types` exports `ObjectGallerySchema` (`type: 'object-gallery'`)
+    and `ObjectDataTableSchema` (`type: 'object-data-table'`), each `extends
+    BaseSchema`, beside the other `Object*Schema` declarations, with zod mirrors
+    of the same names under `@object-ui/types/zod`. `ObjectDataTableSchema`
+    declares the two keys the widget was reading behind casts — `drillDown`
+    (`DrillDownConfig`, at this change) and `onRowClick` — which no declaration
+    carried before.
+  
+    ⚠️ **Dated note, 2026-09-25 — `drillDown` now takes the table's own shape —
+    objectui#10685.** `ObjectDataTableSchema.drillDown` is
+    `ObjectDataTableDrillDownConfig`, on both faces: `filter`, `maxRows` and
+    `report` are refused by name, and `target` is `'drawer'` or `'dialog'`. None of
+    the four was ever read by this block. The rest of this entry is kept as the
+    reading of this change.
+  - `@object-ui/plugin-list`: the published `ObjectGalleryProps.schema` is
+    `ObjectGallerySchema`. Its accept set WIDENS — every `BaseSchema` member is
+    writable (`visibleWhen`, a real base member, was a compile error on the
+    literal) — and NARROWS in one place: `type` is now required and pinned to
+    `'object-gallery'`. `data` stays `Record<string, unknown>[]`.
+  - `@object-ui/plugin-dashboard`: `ObjectDataTableProps.schema` (not exported
+    from the plugin index) is `ObjectDataTableSchema`. The literal's own
+    `[key: string]: any` is gone, so a wrong-typed base member (`visible: 42`) and
+    a wrong-shaped `drillDown` are refused, and `type` is pinned to
+    `'object-data-table'` instead of bare `string`.
+  
+  Unchanged on both, stated plainly: an UNKNOWN key still compiles, because
+  `BaseSchema`'s index signature is inherited (objectui#5155, open). No runtime
+  behaviour changes; the widgets render exactly as before.
+- 045d20b: Relationship-target readers resolve a lookup's target from `reference` alone,
+  dropping the `reference_to` fallback arm (objectui#6837, half 2).
+  
+  Maintainer ruling, 2026-08-31, 原文照录: 「objectui不是前端的项目吗?后端的元数据只要
+  对,前端按协议执行就行了呀」. Protocol normalization belongs on the SERVER; the front
+  end just executes the protocol. objectstack#13847 landed the server half — a
+  `field-reference-to-alias` conversion rewrites stored `reference_to` to
+  `reference` on the serve path and in `os migrate meta`.
+  
+  `reference` is the only target spelling `@objectstack/spec`'s `FieldSchema`
+  declares. Measured on the installed 17.2.0: it refuses `reference_to`,
+  `referenceTo` and `target` with `unrecognized_keys`, each carrying its own
+  "Did you mean -> `reference`?" rename, while a nonsense key gets the same
+  refusal with NO rename hint and `reference` parses clean.
+  
+  ## ⚠️ BREAKING for a hand-written schema that spells `reference_to` — read this
+  
+  **This is a behaviour change for BYO consumers, and it is being stated rather
+  than shipped silently.** ObjectUI is usable without an ObjectStack backend
+  (`examples/byo-backend-console`), and a hand-written TypeScript schema passes
+  through no zod door, so nothing rejects the legacy spelling at authoring time.
+  
+  **The break surface is narrower than "all BYO consumers", and this is the
+  measurement rather than a blanket claim.** Two ingestion choke points stamp both
+  snake_case keys from whichever spelling arrived — `MetadataProvider`'s type
+  cache for metadata type `object`, and `ObjectStackAdapter.getObjectSchema`. Any
+  def that passed either one already carries `reference` and is **completely
+  unaffected**. What is affected is exactly:
+  
+  - **A `DataSource` implementation other than `ObjectStackAdapter`.**
+    `getObjectSchema` is a required member of the published `DataSource`
+    interface, and the readers call it on the generic `dataSource` (through
+    `useSettledSchema` and directly), so a host adapter's object schema reaches
+    them raw. Every in-repo example of one is on this path:
+    `ApiDataSource`, `ValueDataSource`, `packages/types/examples/rest-data-source.ts`,
+    `examples/byo-backend-console/src/mockDataSource.ts`,
+    `packages/runner/src/lib/mockDataSource.ts`,
+    `apps/site/app/components/galleryDataSource.ts`,
+    `apps/console/src/sdui-workbench-preview.tsx`,
+    `packages/plugin-grid/demo/bulk-actions.tsx`.
+  
+  **Measured on this tree, none of those eight emits a relationship target at all** —
+  `reference_to` and `reference` are both zero in each, and
+  `examples/byo-backend-console` carries no lookup or master_detail field
+  anywhere (its only `reference` hits are a vite triple-slash directive and a
+  tsconfig `references` array). The single in-repo producer that WAS on this
+  surface, `packages/plugin-gantt/demo/main.tsx`, is fixed here at the producer.
+  
+  ⇒ **If you author object metadata by hand and spell a lookup's target
+  `reference_to`, rename that key to `reference`.** Symptom if you do not: the
+  target silently fails to resolve, and the affected surface degrades rather than
+  erroring — a related list is not derived, a gantt quick filter falls back to the
+  distinct values in the loaded rows instead of the referenced object's full
+  domain, a tree stops auto-detecting its parent pointer, a lookup cell shows a
+  raw id, a chart's group-by labels stay unresolved.
+  
+  The ingestion choke point now emits a **dev-mode warning** when a def arrives
+  carrying only `reference_to` or `referenceTo` and no `reference`. It names the
+  object, the field and the offending key, and points at this ruling. Stamping is
+  deliberately unchanged, so nothing that worked stops working. It is memoised
+  once per **(object name, field name, spelling, target value)** — every segment
+  of that key is pinned, in both directions, in
+  `reference-keys.legacyWarning-6837.test.ts`.
+  
+  ⛔ **This warning does NOT cover the break described above, and it is worth being
+  exact about that rather than letting it read as mitigation.** It lives in
+  `normalizeFieldReferenceKeys`, reachable only through
+  `normalizeSchemaReferenceKeys`, which has exactly two production call sites —
+  `MetadataProvider` (metadata type `object`) and
+  `ObjectStackAdapter.getObjectSchema`. Both of those also STAMP the def, so the
+  warning fires precisely where the def still resolves and nothing is broken. A
+  hand-written schema served through any OTHER `DataSource` — the break surface —
+  reaches a reader raw: it never passes through this code and produces **no
+  warning at all**. On that path the failure is exactly as silent as before.
+  A reader-side or shared-resolver diagnostic, which would cover it, remains open
+  on objectui#6837.
+  
+  ⚠️ **Dated note, 2026-09-29 — the call-site count above has since moved —
+  objectui#7650.** "exactly two production call sites" above held when this change landed
+  (`045d20ba8`). Later in this same release objectui#7650 (PR objectui#8868) added a call
+  on `MetadataProvider`'s by-name object-schema serve path. Re-measured for objectui#10979
+  on `main` at `2eaf5be27`, `normalizeSchemaReferenceKeys` had three production call sites:
+  two in `MetadataProvider`, on its list path and on its by-name path, and one in
+  `ObjectStackAdapter.getObjectSchema`.
+  `.changeset/7650-metadata-item-reference-canonicalisation.md` (PR objectui#8868) states
+  what ships; the text above is kept as the reading of this change.
+  
+  ## What did NOT change
+  
+  **Every key these readers EMIT is byte-identical**, and that was verified
+  mechanically over the whole diff rather than asserted. Eleven of the sixteen
+  sites write a target onto a bag whose own contract spells it `reference_to` (or
+  camelCase `referenceTo`): the six whose read and write share a line —
+  `RecordDetailDrawer`, `RelatedList`, `buildDefaultPageSchema`, `ListView`,
+  `FilterConditionField`, `resolveActionParams` — plus five more that read on one
+  line and emit on another, and so are just as much emitters: `RecordDetailView`,
+  `RecordMetaFooter`, `ObjectGallery`, `fieldEnrichment` (all `reference_to`) and
+  `UserFilters` (`referenceTo`). Only the right-hand read narrowed anywhere; the
+  emitted key is what its target contract declares, and renaming it would be a
+  separate change.
+  
+  **Three readers were deliberately left alone.** `LookupCellRenderer`
+  (`fields/src/index.tsx`), `LookupField` and `UserField` read `FieldMetadata` —
+  ObjectUI's OWN contract, whose `LookupFieldMetadata` declares `reference_to` and
+  never declares `reference`. They are fed by the emitters above and by published
+  example schemas (`examples/schema-catalog/src/schemas/fields-lookup/*.json`), so
+  narrowing them would break in-repo producers, and `plugin-grid`'s
+  `relationalMetaCopySet.derivation.test.ts` re-derives its read set from exactly
+  those three sources — where `reference_to` is recorded with verdict
+  `adapter-stamped`. `DetailViewFieldSchema` is likewise untouched.
+  
+  ⚠️ **Dated note, 2026-09-30 — the stamp, the three readers and the emitted key have since moved — objectui#11070.** Later in this same release objectui#11070 (round 4) retired `reference_to` inside ObjectUI as well. `normalizeFieldReferenceKeys` now FOLDS a legacy `reference_to` / `referenceTo` onto `reference` and no longer stamps `reference_to`, so "Stamping is deliberately unchanged" and "stamp both snake_case keys" above no longer describe what ships. `LookupCellRenderer`, `LookupField` and `UserField` read `reference` only; `LookupFieldMetadata`, `MasterDetailFieldMetadata` and `DetailViewField` (with `DetailViewFieldSchema`) declare `reference`; and the emitters listed under "What did NOT change" write `reference`. A hand-written schema served through a `DataSource` other than `ObjectStackAdapter` that spells only `reference_to` therefore also loses the lookup picker's target and the read cell's name. `.changeset/11070-reference-to-round4.md` states what ships; the text above is kept as the reading of this change.
+- bd0376d: Read `count` / `value` answers as the contract declares them at six more seams
+  (objectui#6917, following objectui#5945 / #6726 / #6840 / #6839).
+  
+  **One precedence inversion, repaired without deleting the arm.**
+  `@object-ui/fields`' lookup chip resolved fetch-on-demand rows with
+  `result?.value || result?.data || []` — `value` AHEAD of `data`, the one rows
+  member `QueryResult` (`@object-ui/types`) declares. A producer emitting both was
+  resolved to the undeclared key. It now reads through `@object-ui/core`'s
+  `extractRecords`, whose accepted set is identical (bare array, `data`, `value`)
+  and whose order is the contract's. The `value` arm is **kept**: its own producer
+  census measured eight live `find()` doubles emitting `{ value: [...] }` at this
+  seam (3 plugin-kanban, 3 plugin-calendar, 2 plugin-grid), so deleting it would
+  break them. Only the RANK was wrong.
+  
+  **Five dead arms deleted, each on its own measured zero.** Every module got its
+  own census with the control sitting on the producer→consumer join, because
+  objectui#6840's zero is seam-local and is not transferable — the same sweep read
+  0 producers for `value` at one seam and 5 at another in a single pass.
+  
+  - `count` at the `DataSource.find()` seam — `plugin-detail`'s reference rail and
+    `plugin-list`'s ListView. 0 of 592 `find()` producers emit `count`; controls
+    `data` (312) and `total` (150) lit on the same pass. Both adapters'
+    `normalizeQueryResult` already fold `count` into `total` below every consumer.
+  - `value` at the `client.meta.getItems()` seam — `app-shell`'s help menu and the
+    console's Public Forms and Flow Runs pages. **These three do not sit on the
+    `DataSource.find()` seam at all**, so they were measured on their own join: 0
+    of 28 `meta.getItems` producers emit `value`; control `items` (18) lit. The
+    canonical readers of that envelope (`MetadataProvider.extractItems`,
+    `MetadataService.getItems`) have never had a `value` arm either.
+  
+  No producer changes behaviour, because at these five sites there is no producer;
+  what changes is that a non-conforming one is refused rather than silently
+  absorbed (AGENTS.md #0.1).
+  
+  `QueryResult` is **not** widened to bless `count` or `value` — a published-type
+  change and the maintainer's call, the floor objectui#6726, #6840 and #6839 all
+  held. A producer that really speaks either belongs behind an adapter that folds
+  it, which is what both adapters already do.
+  
+  One refusal pin per module, each keeping the live arms green beside the deleted
+  one, and — where an inversion actually existed — a case feeding both members with
+  different contents, the only input that can tell the two orders apart.
+  
+  Also repaired: two `plugin-grid` test doubles answered `{ value: [],
+  '@odata.count': 0 }` while `ObjectGrid` reads `result.data` / `result.total`.
+  Inert only while the arrays were empty; the first row put in one would have been
+  silently dropped. Test-only.
+- 2a7ac32: Calendar views no longer render on invented field names (objectui#7029; ruled on
+  objectstack#13748, director batch #19, option A).
+  
+  A view that carried no `calendar:` block used to have a complete-looking calendar
+  configuration synthesized for it. `ObjectCalendar` has always decided whether it
+  has a usable configuration by asking whether a start-date binding is PRESENT, so
+  the fabrication short-circuited its own refusal screen — "Calendar configuration
+  required" — which existed all
+  along and was simply unreachable. Measured on a leave-request object whose real
+  fields are `start_date` / `end_date`: every record piled onto today's cell under
+  titles resolved through the display-name chain. A plausible, fully wrong screen,
+  with zero signal to the author.
+  
+  Three faces were fabricating, on two independent routes to the same renderer:
+  
+  - `app-shell/ObjectView` emitted `startDateField: 'due_date'` and
+    `titleField: 'name'` into `options.calendar` for every object view;
+  - `plugin-list/ListView`'s calendar branch floored the same two bindings at
+    `'start_date'` / `'end_date'` one layer down;
+  - `plugin-view/ObjectView.generateViewSchema` — the authored `object-view`
+    element route, which bypasses `ListView` entirely — carried its own copy.
+  
+  All three now forward only what the author declared. This converges the calendar
+  on the shape its siblings already had: `timelineViewOptions` (objectui#3129
+  retired this very literal from the timeline axis), the kanban lane detector
+  (ADR-0085, "never invents a field the object doesn't have"), and
+  `defaultCalendarFromObject` (a binding, or nothing).
+  
+  **Behaviour change, loud over silent.** With no binding to forward, ADR-0047's
+  capability gate stops offering the Calendar toggle to views that configured
+  none, and a view forced onto the calendar renderer reaches the refusal screen
+  instead of a wrong one. A view that happened to sit on an object carrying a real
+  `due_date` field was rendering by luck; it now refuses until its `calendar:`
+  block is written. Correctly configured calendars are unaffected — same fields,
+  same render. The same deletion also stops the fabricated name from answering for
+  the Timeline switcher, which accepts a calendar binding as a legitimate axis.
+  
+  The spec half — cross-field validation rejecting a half-written declaration at
+  authoring time — is objectstack#13817. This half makes the runtime honest
+  independent of which spec version the host pins.
+- 5f4514f: Gantt views no longer render on invented date field names.
+  
+  The half PR #7062 fenced out and reported separately. A view that carried no
+  `gantt:` block used to have a complete-looking date axis synthesized for it:
+  all three faces floored `startDateField` at `'start_date'` and `endDateField`
+  at `'end_date'` — field names no view had written and most objects do not
+  carry.
+  
+  `ObjectGantt.getGanttConfig` takes its flat branch as soon as BOTH date props
+  are present, so the fabricated pair short-circuited the renderer's own refusal
+  screen — "Gantt configuration required. Please specify startDateField,
+  endDateField, and titleField." — which existed all along and was simply
+  unreachable from every route. The same fabrication answered ADR-0047's
+  capability gate in `ListView.availableViews`, so the Gantt toggle was live on
+  every object view in the product.
+  
+  ⚠️ The premise was MEASURED before anything was deleted, because #7029's
+  mechanic is only correct where a refusal path exists and that had never been
+  established for this renderer: on the unmodified tree, `ObjectGantt` REFUSES an
+  absent binding — it does not render empty, and it does not throw.
+  
+  Three faces were fabricating, on two independent routes to the same renderer:
+  
+  - `app-shell/src/views/ObjectView.tsx` — the console object page. The inline
+    branch becomes `ganttViewOptions`, the sibling of `calendarViewOptions` and
+    `timelineViewOptions`: the declared block spread whole, title floored at
+    `'name'`, no date field invented.
+  - `plugin-list/src/ListView.tsx` — the render branch AND the capability gate.
+  - `plugin-view/src/ObjectView.tsx` — `generateViewSchema`, the authored
+    `object-view` element route, which bypasses `ListView` entirely.
+  
+  **What changes for an author.** A view that declared no gantt configuration is
+  no longer offered the Gantt toggle, and one forced onto the renderer reaches
+  the refusal screen instead of a plausible, fully wrong chart. A view that
+  declared a binding is unaffected — the declared block is forwarded exactly as
+  before, every spec key included.
+  
+  Also corrected: the objectui#3129 note at the top of `app-shell/ObjectView.tsx`
+  certified the gantt branch below it as already using the safe two-rung shape.
+  It did not. The note now states each sibling branch as measured, and says
+  explicitly which fabrication REMAINS — the timeline `'created_at'` floor at the
+  two plugin faces, which is routed to a ruling rather than settled
+  per-face.
+  
+  Deliberately out of scope, and left in place: `progressField` / `dependenciesField`
+  (not date axes, different absent-value semantics) and the timeline `'created_at'`
+  posture conflict.
+- 04a67b9: Retire the `'created_at'` timeline date-axis floors at both plugin faces
+  (step ③ of the maintainer ruling 2026-09-01, 总监批 #28).
+  
+  **Breaking, deliberately.** A timeline view that declares **no** date axis anywhere no
+  longer renders. `ListView`'s and `ObjectView`'s timeline branches used to hand
+  `ObjectTimeline` a `startDateField` of `'created_at'` for such a view; both now forward
+  a declared axis or no key at all, and the renderer shows its "declare a date axis"
+  refusal instead.
+  
+  House posture, entered with the ruling: **日期轴永不虚构** — a date axis is never
+  fabricated. This is the third and last step of a sequence the ruling ordered and forbade
+  reordering: `ObjectTimeline` gained the refusal screen and lost its own internal
+  `|| 'date'` floor first (objectui#7459), which by its own measurement changed nothing a
+  user could see — precisely because these two faces still supplied a name. They are the
+  supply.
+  
+  The floor was not a harmless default. `'created_at'` is a column nearly every object
+  carries, so downstream it was indistinguishable from a real binding and could never
+  resolve to nothing — while the `$select` projection is collected from the **declared**
+  `timeline` / `options.timeline` blocks and never from this prop. An undeclared view was
+  therefore given a timeline bound to a column the query had not requested, and every
+  record bucketed into "No date": a screen that looks built, is wrong, and gives the
+  author no signal. The ruling also explicitly replaced the written decision that stood on
+  the deleted `ListView` line ("`created_at` stays the last resort for a view that
+  declares no date axis anywhere") — it was a second, de-facto contract held at one face,
+  on the very literal objectui#3129 had retired at the app-shell face.
+  
+  **Migration.** Declare the axis on the view: `timeline.startDateField` (spec-canonical),
+  `timeline.dateField` (legacy alias), or a `calendar.startDateField` — objectui#3129
+  established that a calendar binding is a legitimate timeline axis, and it still is. All
+  three keep rendering exactly as before; only the *undeclared* case changes. A view that
+  really did want records laid out by creation time says so in one key:
+  `timeline: { startDateField: 'created_at' }`. The refusal names the accepted keys on
+  screen, so an affected view reports its own fix.
+  
+  `titleField` is unaffected and keeps its `'name'` floor at both faces — it is not a date
+  axis. So do gantt's `progressField` / `dependenciesField`, which the ruling scoped out
+  for separate evaluation.
+- 78ca238: `DataErrorState` accepts the icon props `DataEmptyState` already had, and `ListView`'s
+  load-failure panel is now rendered by the error state instead of the empty state
+  (objectui#7143; maintainer ruling 2026-09-01, director decision batch #27).
+  
+  `ListView` rendered its load FAILURE through `DataEmptyState` — the component named for
+  the *empty* case — passing it a destructive icon, error copy and a retry action, while
+  `DataErrorState`, in the same file and with the same layout, had no consumer anywhere in
+  the repo. objectui#7132 closed the accessibility half of that collision (the panel now
+  declares `role="alert"` over the empty state's `role="status"` default) and deliberately
+  left the structural half alone: `DataErrorState` hardcoded its icon, so the swap was a
+  props-surface question plus a visual change rather than a rename.
+  
+  **`@object-ui/components` — three additive optional props on `DataErrorState`**, mirrored
+  from `DataEmptyState` in the same file rather than spelled a second way:
+  
+  - `icon?: React.ReactNode` — rendered above the title; falls back to the `AlertCircle`
+    glyph the component has always drawn.
+  - `showIcon?: boolean` (default `true`) — `false` omits the icon container entirely.
+  - `iconWrapperClassName?: string` — REPLACES the wrapper's default class rather than
+    merging with it, so `""` renders the icon raw. `DataEmptyState` resolves it with `??`
+    against its own default and this does the same, against
+    `flex size-10 items-center justify-center rounded-lg bg-destructive/10` — the destructive
+    square `DataErrorState` already drew.
+  
+  Same names, same types, same default semantics as the empty state's; nothing existing on
+  `DataErrorState` changed, and a call site that passes none of the three renders exactly
+  what it rendered before. `illustration` and `action` were deliberately NOT mirrored — the
+  ruling pins three props, and this component's retry affordance is already spelled
+  `onRetry` / `retryLabel` (plus `children` for a call site that needs its own control).
+  
+  One non-prop addition rides along, called out rather than folded in: the icon wrapper now
+  carries `data-slot="data-error-state-icon"`, mirroring the empty state's
+  `data-empty-state-icon`. Without it the wrapper `iconWrapperClassName` governs has no
+  name — untestable and unstylable — and migrating a call site off `DataEmptyState` would
+  DROP that identifier rather than rename it.
+  
+  **`@object-ui/plugin-list` — the panel changes component identity, not pixels.** The call
+  site passes the same custom icon through the new `icon` prop, the same
+  `iconWrapperClassName="mb-3"`, the same title, and the same copy through `message` (the
+  error state's spelling of `description`); its retry `<Button>` moves from `action` to
+  `children`, which renders at the identical position. `role="alert"`, the
+  `data-testid="list-error-state"` hook and `data-error-kind` are untouched. The whole
+  rendered delta is two attributes:
+  
+  - the panel root's `data-slot` becomes `data-error-state` (was `data-empty-state`);
+  - the icon wrapper's becomes `data-error-state-icon` (was `data-empty-state-icon`).
+  
+  Both are renames, not removals. Nothing in this repo styles or selects on either — no CSS
+  rule and no test read them — so a stylesheet in a host app targeting
+  `[data-slot="data-empty-state"]` to reach *this* panel is the only way to notice, and it
+  should be reading `data-error-state` now. Every class on every node, and the glyphs
+  themselves, are byte-identical: this is a visual no-op, deliberately, so the review the
+  ruling asks for has a small thing to look at rather than a redesign.
+- e2b3826: Grid grouping is now **server-side** (objectui#7189, maintainer ruling A): the
+  set of groups and every number in a group header — the count and any per-group
+  aggregation — come from the query, and the rows inside a group are paged by the
+  server.
+  
+  Before, a grouped grid fetched one window and bucketed it in the browser, so
+  both the group set and every header number were properties of the page. On a
+  store of 186 records over five business units sized 86 / 61 / 31 / 7 / 1 with a
+  100-row page it rendered **two** headers (86, 14) when the rows were stored
+  contiguously and five page slices (31 / 31 / 30 / 7 / 1) when interleaved — and
+  the records past the window were not on a second page, they were unreachable.
+  The same store now renders five headers reading 86 / 61 / 31 / 7 / 1 in either
+  order, and every record is reachable through its group's own pager.
+  
+  - **`@object-ui/types`** — `DataSource` gains an optional
+    `queryGroupHeaders(resource, query)`: it answers the group header query
+    `@objectstack/spec/ui`'s `compileListViewGroupQuery` compiles (an
+    `EngineAggregateOptions`) with one header row per group. Presence is the
+    capability; a source that cannot answer it leaves it undeclared.
+  - **`@object-ui/data-objectstack`** — `ObjectStackAdapter.queryGroupHeaders`
+    posts the compiled query verbatim to the existing `POST /data/:object/query`
+    door and answers its `records`. It never degrades: a refusal throws, and a
+    body without `records` is refused rather than read as "no groups".
+  - **`@object-ui/plugin-grid`** — a grouped grid that fetches its own rows from a
+    source declaring `queryGroupHeaders` asks for its headers (one compiled query
+    per grouping level) and pages each **open** group's rows with the group's
+    own compiled row query (`compileListViewGroupRowsQuery`: the view's filter AND
+    the group key, `limit` / `offset` per group); a collapsed group costs no row
+    query, `aggregations` are the header query's numbers, and a reference-typed
+    grouping key is labelled from the referenced record. Such a grid's column
+    sort is the server's, and it no longer shows the `Partial` marker: its counts
+    are the query's own. Rows handed in whole are still grouped in the browser
+    (exact), and a source with no header query still groups the page it fetched
+    and still marks it partial.
+  - **`@object-ui/plugin-list`** — `ListView` hands a grouped grid its own fetch,
+    with the view's effective filter, when the data source can answer the header
+    query, and draws no record-count bar over it. While a toolbar search is
+    active it keeps hosting the rows as before: `$search` has no counterpart on
+    the header query.
+  
+  **Breaking semantics (declared `minor` per this repo's version policy):**
+  
+  - A grouped grid over a capable source sends different requests: one header
+    query per grouping level plus one row query per open group, instead of one
+    window. A host that counted or mocked the single window sees the new shape.
+  - `useGroupedData` takes an optional fifth argument (the server's header rows).
+  - `GroupEntry` gains two REQUIRED members: `count` (the group's size — use it
+    instead of `rows.length`, which is empty on a server-grouped grid) and
+    `keyValues`. Code that only READS a `GroupEntry` is unaffected; code that
+    CONSTRUCTS a `GroupEntry` literal no longer type-checks until it supplies
+    both.
+  - `AggregationResult.value` is `number | null`, `null` being what the server's
+    aggregate answered over no values (rendered as a dash, never invented as 0).
+  - `@object-ui/plugin-grid` and `@object-ui/data-objectstack` now require
+    `@objectstack/spec` `^17.4.0`, the first release that ships the group-query
+    compilers.
+  
+  This supersedes the last paragraph of the pending
+  `7189-grouped-grid-partial-disclosure` changeset, which said server-side
+  grouping was not built: it now is, and the `Partial` marker described there
+  remains only for the data sources that cannot answer the header query.
+  
+  ⚠️ **Dated note, 2026-09-28 — a source with no header query now refuses
+  grouping — objectui#10881.** Later in this same release two sentences above
+  stopped describing the grid: that a source with no header query still groups
+  the page it fetched and still marks it partial, and that the `Partial` marker
+  remains for the data sources that cannot answer the header query. Maintainer
+  ruling F retired both. Over such a source a grouped grid that fetches its own
+  rows, and a `ListView` hosting a grouped grid, refuse grouping with an error
+  naming `queryGroupHeaders`, and the marker is gone everywhere. Rows handed in
+  whole are still grouped in the browser. The rest of this entry is kept as the
+  reading of this change; the `10881-grouping-needs-header-query` entry states
+  what ships.
+- 4c2e1d7: Gantt views no longer hand the renderer invented `progress` / `dependencies`
+  field names (objectui#7499).
+  
+  Flavour 3 of the card whose date-axis half landed as `5f4514f7b` — the half its 2026-09-01 ruling ordered carded
+  separately and judged on its own terms, ⛔ explicitly forbidding the date-axis
+  conclusion from being imported. Two faces floored the pair, and app-shell
+  carries neither key (measured: `|| 'progress'` counts 0 there; the control that
+  the zero is not a dead probe is that app-shell *does* floor `titleField` at
+  `'name'`):
+  
+  - `plugin-list/src/ListView.tsx` — the `object-gantt` render branch.
+  - `plugin-view/src/ObjectView.tsx` — `generateViewSchema`, the authored
+    `object-view` element route, which bypasses `ListView` entirely.
+  
+  **The remedy is OMIT, not refuse — and the asymmetry against the date axis is
+  exactly why the date-axis conclusion must not be imported.** A fabricated date
+  axis has no legitimate twin: every bar lands on a column nobody declared, a
+  whole-chart error, so refusal is right there. A fabricated `progress` /
+  `dependencies` name yields a per-row `undefined`, which is indistinguishable
+  from the legitimate and common case — most gantt rows have neither. Refusing
+  would break that common case; fabricating manufactured a binding the author
+  never wrote, whose failure was silent. Omission does neither.
+  
+  **What changes for an author.** A view that declares neither `progressField`
+  nor `dependenciesField` now passes a config carrying neither key, instead of
+  `'progress'` / `'dependencies'`. A view that declares one passes the author's
+  value verbatim, exactly as before, through both the spec-canonical `gantt`
+  block and the legacy `options.gantt` nesting.
+  
+  The only population whose behaviour actually changes is a schema carrying a
+  column literally named `progress` or `dependencies` while NOT declaring the
+  corresponding field key — those worked by accident, because the floor happened
+  to match the column name. That population was measured across `examples/`,
+  `content/docs/**`, the `packages/*/src` fixtures and all 528 JSON/YAML metadata
+  files before anything was deleted: it is **empty**. The census and its
+  blind-spot reading are in the PR.
+  
+  Nothing about the refusal screen moves: `ObjectGantt.getGanttConfig` gates on
+  the two date fields alone, so deleting this pair cannot resurrect a config —
+  `plugin-gantt/src/ObjectGantt.unconfiguredRefusal-7070.test.tsx` is the
+  non-regression control and stays green.
+  
+  ⚠️ One consequence worth recording for objectui#6470, which is NOT touched
+  here. `getGanttConfig`'s flat branch reads
+  `schema.dependenciesField || schema.dependencyField`. While the floor was in
+  place, `dependenciesField` was always truthy through these two faces, so the
+  declared legacy singular alias `dependencyField` was unreachable via them —
+  shadowed, not read. With the floor gone, a view that wrote `dependencyField`
+  now resolves through the alias limb as its `@deprecated` contract already
+  promises. No in-repo view declares it (measured: zero sites at either routed
+  face), and the alias's own deprecation and retirement remain objectui#6470's
+  question, deliberately left alone.
+- d80447d: Stop inventing a gallery cover binding, and offer the view switcher only when it
+  can switch (objectui#7547).
+  
+  **The object page no longer floors `gallery.imageField` at `'image'`.** It used
+  to supply that key for every object view, declared or not. The screen damage was
+  small — `ObjectGallery` collapses the cover area when no record yields a cover —
+  but the key fed `ListView`'s ADR-0047 capability gate, which reads
+  `options.gallery.imageField`, so **Gallery was offered on every object view that
+  whitelisted it**, with nothing behind the toggle. `galleryViewOptions` now
+  forwards the view's own declared block (both legacy cover spellings still
+  cross-fill each other, and `titleField` keeps its `'name'` display floor) and
+  emits no cover key when the view declared none. Same class and same route as
+  objectui#7029 (calendar) and `5f4514f7b` (gantt dates).
+  
+  ⚠️ A view that whitelisted `gallery` without a `gallery:` block loses the Gallery
+  toggle. That is the ADR-0047 rule working: it was only ever offered because this
+  relay answered the gate on the author's behalf.
+  
+  **The visualization switcher is drawn for the resolved list, not the whitelist.**
+  `showViewSwitcher` was computed from the LENGTH of
+  `appearance.allowedVisualizations` — the whitelist BEFORE `ListView` intersects
+  it with the capability gate — so a view whitelisting `['grid', 'timeline']` with
+  no timeline block drew switcher chrome around a single Grid entry. The predicate
+  now lives at the one site that holds both halves. Views whose whitelisted types
+  all resolve are unaffected.
+- 6712930: The two kanban adapters stop writing the retired `groupField` onto the
+  `object-kanban` node they generate (objectui#7773). `groupBy` — the key the
+  renderer actually reads — is unchanged and is now the only lane key emitted.
+  
+  **What was measured, on this branch's base (`a915064e`).** Both adapters emitted
+  the key twice:
+  
+  ```
+  packages/plugin-view/src/ObjectView.tsx:1362   groupField: groupBy,
+  packages/plugin-list/src/ListView.tsx:2500     groupField: laneField,
+  ```
+  
+  The `object-kanban` renderer never read it: `groupField` has ZERO hits anywhere
+  under `packages/plugin-kanban/`, against a control of thirteen `schema.groupBy`
+  read sites in `ObjectKanban.tsx` from the same query — so the zero is a reading,
+  not a blind grep. The write was inert; the board grouped by `groupBy` and
+  `groupField` rode along unread.
+  
+  **Why it is removed rather than tolerated.** objectui#7322 RETIRED
+  `groupField` on this node on both published faces — `groupField?: never` on the
+  TypeScript interface and a `retirementTombstone()` in the Zod mirror, which
+  refuses an authored value BY NAME. So the adapters were producers emitting a
+  node their own published contract rejects. That was harmless only because a
+  generated node never reaches the mirror at runtime (`SchemaRenderer` runs the
+  structural `validateSchema`, not `safeValidateSchema`) — but the CLI's
+  `os check` / `os validate` DO run the mirror, so the identical node was already
+  refused when authored by hand and admitted when generated. This closes that
+  split.
+  
+  **What changes for a consumer.** Nothing on any documented path: the renderer's
+  behaviour is byte-identical, because it never read the key. A host that
+  registers its own `object-kanban` component and reads `props.schema.groupField`
+  off the generated node now reads `undefined` — read `groupBy` instead, which
+  carries the same value and always did. Graded `minor` rather than `patch` for
+  exactly that narrowing, following the repo convention that objectui's own
+  breaking changes ship as `minor` (AGENTS.md 版本号策略, mechanically enforced by
+  `scripts/check-changeset-no-major.mjs`).
+  
+  **Who is NOT affected — the boundary is node-local.** Every VIEW-LEVEL
+  `groupField` read is untouched and still live: it is a legacy alias of the
+  spec's `groupByField` on the kanban *view config*, mapped by
+  `normalize-list-view.ts`, and both adapters still resolve lanes through it
+  (`ObjectView.tsx`'s `kanbanCfg.groupField ||`, `ListView.tsx`'s
+  `groupByField || groupField`). Authoring `options.kanban.groupField` on a
+  `list-view` or `object-view` keeps working exactly as documented in
+  `packages/plugin-list/README.md`. `groupField` is dead only on the generated
+  `object-kanban` NODE.
+  
+  The two tests that pinned the duplicate write are TURNED, not deleted — they now
+  assert the key is absent, so restoring the write reddens them instead of being
+  silently re-blessed by a missing assertion.
+- edea22a: **BREAKING** — `SchemaRendererProvider`'s `dataSource` prop, and the context
+  type every `useSchemaContext()` consumer reads back, are the published
+  `DataSource` contract instead of `any`.
+  
+  **FROM** `dataSource={anything}` **TO** `dataSource={adapter}` — a `DataSource`
+  from `@object-ui/types`, or `null` / `undefined` when the host has no adapter
+  bound.
+  
+  ```ts
+  // before — compiled, and failed at runtime on the first find()
+  <SchemaRendererProvider dataSource={'not-an-adapter'}>
+  // before — compiled, and no reader can do anything with it
+  <SchemaRendererProvider dataSource={{}}>
+  // after
+  <SchemaRendererProvider dataSource={adapter}>       // a DataSource
+  <SchemaRendererProvider dataSource={undefined}>     // "I have no adapter"
+  ```
+  
+  Both sites are typed `DataSource | null | undefined` — the spelling
+  `useSettledSchema` in this same package already used. The two absences are part
+  of the contract, not a weakening of it: a Studio preview, a `kind:'react'` page
+  rendered before the host's adapter connects, and a widget probe driving
+  `apiFetch` alone all render with nothing bound, and every reader in the tree
+  already guards for it. What the union refuses is everything that is not an
+  adapter: a string, an empty object, a plain data bag, a partial adapter missing
+  a required member.
+  
+  The measured cost, both halves, because the two `any`s have different blast
+  radii (measured separately on `origin/main`, whole-repo type-check over the 33
+  packages that depend on `@object-ui/react`):
+  
+  - the **context type** — the `any` that reaches every `useSchemaContext()`
+    reader — reds **7 diagnostics at 7 sites in 4 packages**, all of them
+    production code or a mocked module factory.
+  - the **provider prop** — the injection points — reds **52 diagnostics at 27
+    sites in 11 packages**, all but one of them test doubles.
+  
+  That ordering is the reverse of the prediction on the card: the context `any`
+  was expected to be the expensive one because it infects the whole tree, and it
+  is the cheap one, because every reader in the tree already guarded and none of
+  them ever reached past `find` / `getObjectSchema`. The prop is the expensive
+  one, because the injection points are overwhelmingly test doubles that were
+  never complete adapters. The full accounting is on objectui#7912.
+  
+  Two runtime behaviours change, both in the "no adapter" direction and both
+  strictly closer to what the surrounding code already intended:
+  
+  - `@object-ui/components`' `kind:'react'` page passed an empty object as its
+    "no adapter yet" stand-in. An empty object is TRUTHY, so it walked past every
+    `if (!dataSource)` guard written to catch exactly that state and failed later,
+    at the call. It now passes the absent adapter itself, so the guard fires where
+    it was meant to. The module-constant identity that stand-in existed for is
+    preserved: `null` is a primitive, so the provider's memo is unaffected.
+  - `@object-ui/plugin-calendar`, `@object-ui/plugin-gantt` and
+    `@object-ui/plugin-kanban` collapse a `null` adapter from the context to
+    `undefined` before handing it to their widget, whose prop declares the single
+    spelling `dataSource?: DataSource`.
+  
+  Nothing else moves at runtime: no value flowing through this key changes, and
+  no data path is touched. A TypeScript consumer outside this repo that handed
+  this prop something other than an adapter now gets a compile error naming the
+  key (TS2322 / TS2739 / TS2740), which is why the FROM/TO is spelled out above.
+  
+  Five `as any` reads of this context in `@object-ui/fields` are gone — they were
+  redundant the moment the seam became honest — and `LookupField`'s local
+  re-declaration of the imported context as a `Context` of `any`, which laundered
+  its `dataSource` read while looking typed, is gone with them. Both directions of
+  the contract are pinned against the real compiler in
+  `SchemaRendererContext.dataSourceType.pin.test.ts`, and the card's planted
+  documentation probe (a bare string in `packages/react/README.md`'s provider
+  example) now fails `pnpm check:doc-snippets`, where it used to exit 0 with zero
+  diagnostics.
+  
+  objectui#7912.
+- fb82877: `ListViewProps.onSortChange` and `onFilterChange` are declared at the types they
+  actually fire with, instead of `any`.
+  
+  Both were left `any` by the objectui#4528 sweep that named every other prop on
+  this interface "at the type each one actually lands on". `dataSource?: any`
+  carries its own written justification right there; these two carried none, which
+  is what made this an oversight rather than a decision. The visible cost was that
+  the package README's documented "With Callbacks" example compiled green on all
+  four callbacks while only two of them were constrained by anything: assigning
+  `view` or `search` to a `number` inside the block raised TS2322, and assigning
+  `sort` or `filters` raised nothing at all.
+  
+  Each parameter was measured at the emit site rather than read off the
+  declaration, and the two are asymmetric:
+  
+  - `onSortChange` now takes `SortItem[]`. Every emit in the component crosses one
+    boundary, `emitSortChange`, and both of its legs carry that element type: the
+    array handed in, and `filterPlatformSortableSort`'s return, which is generic in
+    the element and so preserves whatever it is given. Normalized-vs-raw therefore
+    does not move the type here, only whether platform-unsortable entries are still
+    present.
+  - `onFilterChange` now takes `FilterGroup`. Its one call site passes the toolbar
+    `FilterBuilder`'s own `onChange` value straight through, beside a
+    `setCurrentFilters` that is itself state of that type. It is deliberately NOT
+    the filter AST `normalizeFilters` / `buildEffectiveFilter` speak — those run
+    later on the query-building path and nothing they produce reaches this
+    callback. A host receives the builder's group verbatim, which is what lets it
+    round-trip back in through `initialFilters`.
+  
+  Both types were already exported from `@object-ui/components` and already
+  imported by this file; nothing new is minted.
+  
+  Narrowing a callback parameter is contravariant, so the cost falls only on
+  handlers that did something with the parameter that `any` alone allowed — a
+  handler written `(sort: any) => ...` still compiles unchanged. The cost was
+  measured across every in-repo consumer that passes either callback
+  (`ObjectView`, in two places, and `InterfaceListPage`) plus every package that
+  imports `ListView` at all (`@object-ui/app-shell`, `@object-ui/plugin-map`,
+  `@object-ui/console`): all of them still type-check, and no handler needed
+  touching. Out-of-repo hosts that destructure or index the parameter in ways only
+  `any` permitted will now see a real error, which is the point.
+- cb725e7: An unbound map now REFUSES; coordinates are never guessed (objectui#8169, maintainer
+  ruling 2026-09-07, decision batch #67, option B).
+  
+  **Behaviour change, deliberately, with no staged window.** A map with no coordinate
+  binding renders
+  
+  > Map configuration required — declare `map.locationField` or `map.latitudeField` + `map.longitudeField`
+  
+  in place of the map, instead of painting an empty one. The principle behind
+  the 2026-09-01 date-axis ruling (date axes are never invented) and objectui#5953 (a marker title is never
+  forged) now covers coordinates as well: bindings are never fabricated, and an unbound
+  surface refuses.
+  
+  Three things moved together, because moving any one of them alone makes the tree worse:
+  
+  - `@object-ui/plugin-map` — `getMapConfig` loses its default branch, the one that
+    returned the field names `latitude` / `longitude` / `location` / `description` when
+    the author declared nothing, and `ObjectMap` gains the refusal state above. The
+    refusal covers every branch, so a declared block that binds no coordinate field
+    (`map: { titleField: 'name' }`) and a half pair (`latitudeField` with no
+    `longitudeField`) refuse too — those used to render an empty map under the
+    excluded-records notice.
+  - `@object-ui/plugin-list` and `@object-ui/plugin-view` — the `locationField: … ||
+    'location'` floor each flattener added on the way into the map is deleted. The
+    flattened schema now carries exactly what the view declared.
+  
+  ⚠️ **Deleting the relay floors alone would have widened the guess, not closed it** —
+  measured on the card. The floor forced `getMapConfig`'s flat branch, which returns
+  `locationField` and no `latitudeField` / `longitudeField`, so dropping it on its own
+  would have handed undeclared views the component's three-name default branch instead of
+  one name, and records carrying real `latitude` / `longitude` columns would have *started*
+  plotting on views that declared nothing.
+  
+  **Migration.** Declare the binding on any map view that relied on the old defaults:
+  `map: { locationField: 'your_field' }`, or `map: { latitudeField, longitudeField }`. A
+  record set carrying `latitude` / `longitude` (or `location`) columns no longer plots on a
+  view that declared no map block — it shows the refusal, which names what to write.
+  Interface pages are unaffected where the object actually has a location-typed field:
+  `defaultMapFromObject` derives `locationField` from the object's own field list, which is
+  a reading of declared metadata rather than a guess, and is unchanged.
+- 31a0d05: Emit the spec-canonical kanban lane key from the object page, and teach the
+  capability gate to recognize it (objectui#8193).
+  
+  `ObjectView` built the view-level kanban config it hands to `list-view` and wrote
+  the deprecated alias `groupField` — never `groupByField`, the key
+  `@objectstack/spec`'s `KanbanConfigSchema` actually declares — even though it
+  already READ the canonical key first. Its sibling producer in the same package,
+  `defaultKanbanFromObject` in `InterfaceListPage`, had migrated long before and
+  left the reasoning next to itself ("that read-site now prefers the spec key, so
+  one key is enough"); the twin was not carried along, so one producer surface
+  spoke two vocabularies for one concept depending on which entry point you
+  arrived through. `ObjectView` writes into `options.kanban`, which
+  `normalizeListViewSchema`'s alias fold deliberately does not reach, so nothing
+  corrected it downstream and the legacy spelling was what drove the lanes.
+  
+  The expression is now the exported `kanbanViewOptions`, the fifth member of the
+  `timelineViewOptions` / `calendarViewOptions` / `ganttViewOptions` /
+  `galleryViewOptions` family it had been the odd one out of.
+  
+  **`ListView`'s kanban capability gate changed with it, and had to.** The gate
+  consulted the `options.kanban` bag for the LEGACY spelling only, so a producer
+  writing the spec key into the bag was invisible to it while still rendering
+  correctly — the render branch merges the bag and resolves
+  `groupByField || groupField`, so the gate recognized strictly less than what
+  renders. Measured before and after: a bag of `{groupBy, groupField}` offered
+  Kanban and `{groupBy, groupByField}` did not, so shipping the producer change
+  alone would have removed the Kanban toggle from every object view. The gate now
+  reads both spellings out of the bag — the same one-question-two-sites repair
+  objectui#5042 made for `map` and objectui#7544 for `chart`.
+  
+  **No alias READ was removed, and the alias is not retired.** Stored metadata
+  still authors `groupField`, and every read site still resolves it; `ListView`
+  already preferring the canonical key is precisely why the sibling producer could
+  drop the alias write. What changed is only what this one face WRITES, plus one
+  added rung on the gate.
+  
+  **Migration.** Nothing authored has to change. If you read
+  `options.kanban.groupField` off the schema `ObjectView` produces, read
+  `groupByField` (or both) instead — that bag now carries the spec spelling.
+  
+  The view-level `groupBy` in the same bag is untouched. It is not a spec key
+  either — measured against the strict `KanbanConfigSchema`, which refuses it by
+  name — but `ListView`'s projection collectors read it, so retiring it needs its
+  own producer census and is filed as objectui#8213.
+- 474797d: **BREAKING** — the calendar date aliases `dateField` and `endField` are retired
+  at both faces (objectui#8355). They are now **declared refusals**: an authored
+  value is rejected **by name**, at its own key path, pointed at `startDateField` /
+  `endDateField`.
+  
+  **FROM** `calendar: { dateField, endField }` — accepted in silence, read by
+  `ObjectCalendar`'s alias ladder — **TO** a by-name refusal at validation, with
+  `startDateField` / `endDateField` as the only spellings that bind the axis.
+  
+  ```ts
+  // before — parsed green, drew a calendar
+  { type: 'list-view', objectName: 'task', calendar: { dateField: 'kickoff', endField: 'wrapup' } }
+  // after  — refused at validation, naming the canonical keys
+  { type: 'list-view', objectName: 'task', calendar: { startDateField: 'kickoff', endDateField: 'wrapup' } }
+  ```
+  
+  **The refusal an author now meets**, verbatim from the arms' own messages (one
+  string per arm feeds both the parse-time issue and the `.describe()` metadata):
+  
+  ```text
+  Unrecognized key(s) on this calendar configuration: `dateField`. Did you mean
+  `dateField` → `startDateField`? `dateField` and `endField` are the pre-#2231
+  objectui spellings of the calendar date axis, retired at both faces by
+  objectui#8355. `@objectstack/spec` spells the axis `startDateField` and
+  `endDateField` only. ⚠️ This package accepted BOTH legacy spellings green until
+  that retirement — they rode a `.passthrough()` straight through
+  `safeValidateSchema` into `ListView`'s calendar branch, which flattened them onto
+  the generated `object-calendar` node where the renderer's alias ladder read them.
+  That ladder is gone, so the key is refused here instead of being kept and then
+  ignored. Write `startDateField` for the event start. Kept rather than refused, an
+  authored `dateField` binds nothing: the calendar falls through to "Calendar
+  configuration required", a screen that names the canonical keys and never the key
+  you wrote.
+  ```
+  
+  ⚠️ **The consequence clause is per key, because the two spellings fail
+  differently.** `endField` gets the same stem and this tail instead — measured on
+  the renderer, not assumed:
+  
+  ```text
+  …Write `endDateField` for the event end. Kept rather than refused, an authored
+  `endField` fails even more quietly than its sibling: a calendar that also carries
+  a start binding still DRAWS, and only the end of every event is silently dropped.
+  ```
+  
+  On the flat node face the surface noun is `this object-calendar node`. ⚠️ **The
+  element's own `calendar` container carries a different tail for `dateField`**,
+  because it fails differently and was measured doing so: `getCalendarConfig` reads
+  that container WHOLE, so a retired spelling there never reaches the refusal
+  screen — the calendar mounts and simply places nothing, every record landing
+  under "Unscheduled". `endField` keeps one clause, because it reads the same on
+  both.
+  
+  ```text
+  …Write `startDateField` for the event start. Kept rather than refused, an
+  authored `dateField` fails without even reaching that refusal screen: this
+  container is read WHOLE, so the calendar still mounts and simply places nothing —
+  every record ends up under "Unscheduled" with no date to draw it on.
+  ```
+  
+  **ADR-0087 disposition — D2 tombstone, no conversion entry and no migration
+  prescription.** The keys stay DECLARED and unwritable rather than being deleted,
+  which is the whole of the ruling: every calendar block here ends `.passthrough()`
+  and `BaseSchema` does too, so a deleted key is not refused — it is KEPT
+  unexamined and then ignored. Nothing in `@objectstack/spec` converts these two
+  (the protocol never declared either: `CalendarConfigSchema` is a strict object of
+  `startDateField` / `endDateField` / `titleField` / `colorField`, measured on the
+  installed pin 17.4.0 with a nonsense-key control on the same call), so there is
+  no ledger entry to register and no `objectstack migrate meta` step to ship. The
+  channel that reaches an author is the validator, and it now names the key and the
+  remedy on all five authoring surfaces this vocabulary has: a list view's
+  `calendar` block and its legacy `options.calendar` twin, a named view's two
+  nestings under `listViews`, the flat `object-calendar` node face, and that
+  element's own `calendar` container. ⚠️ Stated as five surfaces rather than
+  "every author" on purpose: a host that builds the node in TypeScript and hands it
+  to `SchemaRenderer` never parses the mirror at all — `SchemaRenderer` runs the
+  structural core validator, which is dev-only and names no key — so the compiler
+  is that population's channel, not this one.
+  
+  ⚠️ **Dated note, 2026-09-28 — a named view's `options.calendar` nesting is no longer
+  judged inside — objectui#7928.** Later in this same release `ObjectViewSchema.listViews`
+  became the protocol's strict `ObjectListViewSchema` record, by reference, and that
+  record refuses a named view's `options` bag whole (`unrecognized_keys` at
+  `listViews.KEY`, naming `options`). So an alias written under
+  `listViews.KEY.options.calendar` no longer draws an issue naming the key or the remedy.
+  The named view's `calendar` block still does: the protocol refuses the alias there as an
+  unrecognized key, and this entry's check adds the pointer at the key beside it. A stored
+  body that `@object-ui/app-shell`'s `ViewPreview` relays has its `options.calendar` folded
+  onto the `calendar` block first (`foldStoredListOptions`). The list view's two nestings
+  and both `object-calendar` surfaces are unchanged; `calendar-date-alias-refusal-8355.test.ts`
+  in `@object-ui/types` re-derives each surface. `.changeset/7928-listviews-by-reference-fold.md`
+  (PR objectui#10821) states what ships; the text above is kept as the reading of this change.
+  
+  ⚠️ **Why this is `minor` and not `major`.** This repository forbids `major` in a
+  changeset: the fixed release group's major tracks `@objectstack`'s, so any
+  `major` here would push all of it off that cadence
+  (`scripts/check-changeset-no-major.mjs` enforces it). objectui's own breaking
+  changes ship as `minor` with the break spelled out, which is what this entry is.
+  
+  **What broke silently before, and why the two halves ship together.** An earlier
+  attempt removed the renderer's alias ladder on its own. The producer kept
+  spreading the authored block flat onto the generated `object-calendar` node, so
+  the alias still arrived, nothing read it, and the author met a generic "Calendar
+  configuration required" screen naming keys they had not written. A live authoring
+  path stopped rendering with every gate green (recorded on objectui#8651). The
+  refusal at the declaration is what turns that silence into a loud, by-name
+  failure — so the ladder removal, the producer strip and the tombstones are one
+  change and must stay one.
+  
+  **The four moving parts:**
+  
+  - `@object-ui/types` — `aliasKeyRefusal()` arms on the view-level `calendar`
+    block, on the legacy `options.calendar` nesting (a check, since an open record
+    declares no member — `custom` there, `invalid_type` at the declared slot), on
+    the flat `object-calendar` node face, and on that element's own `calendar`
+    container; plus a `.check()` on `ObjectViewSchema` for a named view's two
+    nestings. `z.input` of each arm is `undefined`, so the TypeScript face carries
+    `dateField?: never` / `endField?: never` and `tsc` refuses the key at the
+    authoring site as well.
+  - `@object-ui/plugin-calendar` — `getCalendarConfig` reads the declared
+    spellings only; the `CalendarAliasRungs` cast target and both read sites are
+    gone, and the config memo's dependency list loses the two entries with them.
+  - `@object-ui/plugin-list` — the `calendar` branch destructures the two
+    spellings out of the merged block and spreads only the remainder onto the node,
+    exactly as the kanban branch strips its own stray `groupBy` (objectui#8365).
+  - `@object-ui/plugin-view` — **the SECOND route**, and the reason this entry
+    moved four packages rather than three. `generateViewSchema` runs when no host
+    supplied `renderListView` — the authored `object-view` element — so a named
+    view never passes through `ListView`. Its calendar branch spread the authored
+    block raw, so removing the renderer's ladder turned a document that DREW into
+    one that shows "Calendar configuration required" and nothing else. Measured end
+    to end before the fix was written. It now strips the two spellings like its
+    sibling, and the `ObjectViewSchema` check is what makes an authored alias loud
+    there instead of mute.
+  
+  ⚠️ **`ObjectViewSchema.listViews` stays UNMIRRORED, and this entry does not
+  change that.** That key waits on a maintainer decision about its VALUE TYPE —
+  neither the spec's strict `ObjectListViewSchema` nor the local `NamedListView`
+  can be the declared value without losing documented behaviour or enforcing 43
+  unread members. A `.check()` decides none of it: it declares no value type, puts
+  no key in the object's `shape`, requires no `columns`, and refuses neither an
+  undeclared key nor the legacy `options` bag. It judges exactly the two spellings
+  this entry retires, at the two nestings the producer merges — with pins on each
+  of those non-effects.
+  
+  ⚠️ **Dated note, 2026-09-28 — `listViews` has since been mirrored — objectui#7928.** Later
+  in this same release the maintainer's ruling A chose the value type this paragraph waits
+  on: `ObjectViewSchema.listViews` is now `@objectstack/spec`'s own
+  `ViewSchema.shape.listViews`, a record of the strict `ObjectListViewSchema`, by reference
+  on both faces. It is in the object's `shape`, a named view needs `columns`, and the
+  record refuses an undeclared key and the legacy `options` bag whole. The named-view check
+  described here and in the `@object-ui/types` bullet above now reads the protocol's own
+  refusal at `listViews.KEY.calendar` and adds the pointer at the key; it no longer walks
+  the `options.calendar` nesting, so "a named view's two nestings" and "at the two nestings
+  the producer merges" now hold for the `calendar` block only.
+  `.changeset/7928-listviews-by-reference-fold.md` (PR objectui#10821) states what ships;
+  the text above is kept as the reading of this change.
+  
+  ⛔ **Not a producer-side fold.** Normalising `dateField` to `startDateField` in
+  `ListView` (option A) was put to the director seat and refused as the end state:
+  it keeps a second spelling alive at the producer, which is the lenient alias
+  AGENTS.md #0.1 names. The aliased view therefore produces **no** date binding,
+  and the author is told why at the door instead.
+  
+  ⚠️ **Upstream's refusal suggests the wrong canonical key for `dateField`, and it
+  is a typo-distance suggester rather than a declaration.** Re-derived by running
+  the installed pin (`@objectstack/spec` 17.4.0), with controls in the same pass:
+  `CalendarConfigSchema`'s `strictObject` options carry `surface` and `history` and
+  no `aliases` entry, so the protocol declares nothing about either spelling. The
+  "Did you mean `dateField` → `endDateField`?" an author meets is a fallback
+  `findClosestMatches` Levenshtein suggestion budgeted `max(2, floor(len/3))`:
+  `endDateField` is 3 edits from `dateField` and inside its budget of 3, while
+  `startDateField` is 5 and outside it — and `endField`, budgeted 2, reaches
+  nothing, which is why it and a nonsense control key both draw no suggestion at
+  all. A one-character typo of the canonical key does resolve to `startDateField`,
+  so the suggester is working as designed; it simply has no opinion to offer about
+  a legacy alias.
+  
+  ⇒ **nothing upstream says `dateField` means the end of an event.** The hazard is
+  author-facing rather than contractual: someone who copies that suggestion writes
+  `endDateField` and binds the END of an event to the date they meant as the START,
+  which every layer accepts. Every objectui read site folds this spelling onto the
+  **start** — the retired ladder did, `normalizeListViewSchema`'s `timeline` fold
+  does, `resolveTimelineDateBinding` documents it as "the pre-#2231 alias for
+  `startDateField`", and this package has published "Deprecated alias for
+  startDateField" for releases. So these arms name `startDateField` and a control
+  pin holds that line. The remedy upstream needs is an explicit `aliases` (or
+  `guidance`) entry for the two spellings so the suggester never answers for them;
+  that is upstream's formatter, on upstream's card, and is not fixed here.
+  
+  ⛔ **The timeline alias is NOT retired by this change.** `timeline.dateField`
+  stays a live, accepted alias with live consumers (`normalizeListViewSchema` folds
+  it onto `startDateField`, `ObjectView` reads it, and app-shell pins that it still
+  renders). The card's own boundaries put the map / gantt / timeline / kanban
+  ladders on their own cards; a pin in `@object-ui/types` asserts the timeline
+  spelling still parses green, so a later sweep has to say so rather than carrying
+  it in silently.
+  
+  **Pinned** by `calendar-date-alias-refusal-8355.test.ts` (`@object-ui/types`, all
+  five surfaces, the per-surface consequence split, the compile-time face, and the
+  structural guard that `listViews` stays out of the object's `shape`),
+  `ListView.calendarAliasRefused-8355.test.tsx` (`@object-ui/plugin-list`) and
+  `ObjectView.calendarAliasRefused-8355.test.tsx` (`@object-ui/plugin-view`) — both
+  reading the node their producer really emits through a spy registration, which is
+  the only census that can see a key arriving through a spread — and the inverted
+  ledger rows in `calendarUnionReads-8651.test.tsx` (`@object-ui/plugin-calendar`).
+  
+  ⚠️ **Dated note, 2026-09-28 — a named view now refuses `timeline.dateField`, and the
+  shape guard is inverted — objectui#7928.** Later in this same release the protocol's
+  strict named-view record refuses `timeline.dateField` on a named view as an unrecognized
+  key; the `list-view` route still accepts it, and that route is the one the timeline pin
+  reads. The structural guard in `calendar-date-alias-refusal-8355.test.ts` now asserts
+  the opposite of "`listViews` stays out of the object's shape": `listViews` is a member
+  of `ObjectViewSchema.shape`. `.changeset/7928-listviews-by-reference-fold.md` (PR
+  objectui#10821) states what ships; the text above is kept as the reading of this change.
+- 704e695: **A stray `groupBy` in a view's kanban config no longer overrides the lane, and on a `list-view` document is now refused by name.**
+  
+  `ListView`'s kanban branch destructured
+  `columns`/`groupByField`/`groupField`/`cardFields`/`titleField` out of the merged
+  kanban config and spread the **rest** *after* its own `groupBy: laneField`. A
+  `groupBy` surviving in that bag therefore **overrode the lane the branch had just
+  resolved**. Measured on a distinguishing fixture, not reasoned: with
+  `options.kanban = { groupBy: 'LANE_FROM_STRAY_GROUPBY' }` against
+  `kanban = { groupByField: 'LANE_FROM_CANONICAL' }`, the generated `object-kanban`
+  node carried `groupBy: 'LANE_FROM_STRAY_GROUPBY'`. It read as latent only because
+  the one producer that fed it wrote both spellings with the same value by
+  construction; that producer was retired separately, and this closes the override
+  itself.
+  
+  Two halves, per the maintainer's ruling (option B — a silent re-grouping was the
+  fallback and was **not** taken):
+  
+  1. **The canonical lane wins.** `groupBy` joins the destructure, so the stray key
+     can no longer reach the passthrough spread. A view that authored it now groups
+     by whatever `groupByField` / `groupField` / the declared lifecycle field
+     resolves.
+  2. **The stray key is refused loudly, at the read door of the view.** This repo's
+     `.passthrough()` `KanbanConfig` mirror (`@object-ui/types`) declares `groupBy`
+     as a named alias refusal pointing at `groupByField`, in the same sentence
+     shape `@objectstack/spec` already answers the sibling alias with — "Unrecognized
+     key(s) on this kanban configuration: `groupBy`. Did you mean `groupBy` →
+     `groupByField`?". The refusal lands on the `list-view` route: wherever
+     `safeValidateSchema` validates a `list-view` document (objectui's own
+     `objectui validate` runs it and prints the issue), and at the authoring site,
+     where `tsc` refuses the declared `kanban.groupBy` (the inferred authoring face
+     now carries `groupBy?: never`). The legacy `options.kanban` nesting — where the
+     retired producer wrote, and so where stored views carry the key — takes the
+     identical message through a check on that untyped bag. A named view's
+     `listViews.KEY.kanban.groupBy` on an `object-view` document is not reached by
+     this arm; objectui#10321 gives that route its own door, which refuses the key
+     in either nesting with the same message.
+  
+  ⚠️ **Dated note, 2026-09-28 — a named view's `options.kanban` bag is refused whole —
+  objectui#7928.** Later in this same release a named view became the protocol's strict
+  `ObjectListViewSchema` record, by reference, which refuses its `options` bag by name
+  (`unrecognized_keys` at `listViews.KEY`, naming `options`). So the objectui#10321 door no
+  longer refuses the key "in either nesting with the same message": it still adds that
+  message at `listViews.KEY.kanban.groupBy`, beside the protocol's own refusal of the key,
+  and nothing reports `listViews.KEY.options.kanban.groupBy`. A stored body that
+  `@object-ui/app-shell`'s `ViewPreview` relays has its `options.kanban` folded onto the
+  `kanban` block first (`foldStoredListOptions`). The `list-view` route described above is
+  unchanged, its `options.kanban` check included.
+  `.changeset/7928-listviews-by-reference-fold.md` (PR objectui#10821) states what ships;
+  the text above is kept as the reading of this change.
+  
+  **Breaking, in the sense worth stating explicitly** (shipped `minor`: this repo
+  never declares `major`, and `.changeset/config.json` puts every package in one
+  `fixed` group, so levels cannot be split). Two behaviours change for **stored
+  data**, which is why this is not a patch:
+  
+  - a stored view authoring `kanban.groupBy` (either nesting) **re-points its lane**
+    — it used to group by the stray key and now groups by the canonical binding, so
+    its board may show different columns;
+  - the same document, on the `list-view` route, now **fails validation** where it
+    used to pass: any pipeline running `safeValidateSchema` over it (objectui's own
+    `objectui validate` does) reports one issue naming the key and the replacement.
+  
+  Honouring `groupBy` as a declared alias was never an option here:
+  `@objectstack/spec`'s `KanbanConfigSchema` is a strict object of
+  `columns` / `groupByField` / `summarizeField` and refuses it by name — re-measured
+  on the pinned 17.4.0 with both controls firing — so legalising it would be a spec
+  change, not a renderer widening (AGENTS.md #0.1).
+  
+  `groupBy` on the generated `object-kanban` **node** is untouched: that is the live,
+  canonical lane key `ObjectKanban` reads. Only the **view-level** kanban config
+  spelling is refused. The `.passthrough()` itself is kept — an undeclared sibling
+  key still rides through, which is pinned as a control.
+- 3a9ab02: `list-view`: retire the legacy `title` alias from the export-filename read, and pin the
+  `rowActionDefs` exemption at both of `ListView`'s read sites (objectui#8653, the
+  objectui#8327 family's `plugin-list` card).
+  
+  **Two keys, two opposite exits — and the contract chose each one.**
+  
+  `title` — **retired.** `ListView` resolved its export filename through
+  `schema.label || (schema as any).title`. `@objectstack/spec/ui`'s `ListViewSchema`
+  refuses `title` **by name** (`unrecognized_keys: ['title']`) while
+  `ObjectGridPropsSchema` **accepts** it; `packages/types` mirrors the platform contract
+  rather than ruling over it, so declaring `title` on `ListViewSchema` would have made
+  this repo accept what the platform save gate rejects. That asymmetry is also why
+  objectui#6639 could take the *declare* branch for `ObjectGridSchema.title` one package
+  over and this site could not. A parse-based census of `apps/ examples/ content/` and
+  `packages/` found **zero** `list-view` nodes authoring `title`, so the retirement costs
+  no author a filename. Over that same corpus the instrument reports **three**
+  `object-grid` nodes carrying the key: **two authored** ones, both in
+  `content/docs/api/schema-reference.md`, plus one that is not authored at all —
+  `packages/plugin-view/src/ObjectView.tsx` composes `title: schema.table?.title` onto a
+  grid node it builds, so it is a producer writing the key rather than an author
+  declaring it. `ObjectGrid`'s own `title` reads are untouched — they remain declared,
+  ruled and read.
+  
+  **Behaviour change, deliberate.** A list view authoring only `title` (no `label`) no
+  longer contributes a view segment to the export filename; it exports as
+  `<objectLabel|objectName>-<timestamp>.<ext>`. Migration: write `label`, which is the
+  declared slot on both this repo's `ListViewSchema` and the platform's.
+  
+  **Bug fixed in the same expression.** The `as any` was laundering a second defect:
+  `X || any` collapses the whole expression to `any`, so an inline locale-map `label`
+  (`{ en: 'Quarterly Review', zh: '季度复盘' }` — the shape `BaseSchema.label` has
+  published since objectui#4580's revised Q1) reached `sanitizeFileNameBase` **unresolved**
+  and exported as `account-[object Object]-….csv`. The read now goes through the spec's
+  own `resolveI18nLabel` against the display locale, the same resolver and argument order
+  `ObjectGrid` already used at its twin site.
+  
+  `rowActionDefs` — **exempt, still read, and now pinned.** objectui#5091 ruled this
+  producer-derived key NON-AUTHOR SURFACE for `object-grid` on 2026-08-19. The exemption
+  extends to `ListView`: the platform refuses the key by name on **both** surfaces,
+  `@object-ui/types` declares it on neither mirror, and the producer is the same one
+  (`app-shell`'s `ObjectView` derives it from `objectDef.actions` filtered by
+  `locations.includes('list_item')`; `plugin-view`'s composes the same key onto a
+  `list-view` node). Both read sites now carry the ruling in a docblock, and a new pin
+  asserts — at runtime, never by source grep — that the defs still reach the child
+  `object-grid` node **and** that a field named only by a row action's `visible` CEL still
+  reaches `$select`. Without that second half, deleting the read would have returned rows
+  whose predicate operand was never selected: objectui#3501's fail-closed CEL fault
+  arriving with a success receipt.
+  
+  No published type changed: neither key is declared on any face by this change.
+- 502eb58: The row/card click props on the view components now declare the modifier
+  payload they have always been invoked with (objectui#9357).
+  
+  `useNavigationOverlay`'s `handleClick` invokes the handler it is given with two
+  arguments — the record, and an optional modifier payload (`metaKey` / `ctrlKey`
+  / `button`) a host needs to implement Cmd/Ctrl/middle-click. objectui#9360 made
+  the hook's own option say so. These components pass a host-supplied prop
+  straight into that option, so the value a host writes against them is invoked
+  with two arguments too — and every one of these props declared only the record.
+  The payload was therefore invisible on the one line a host reads, exactly as it
+  had been on the hook.
+  
+  Thirteen declarations across nine packages now name both parameters:
+  
+  - `ObjectGridComponentProps.onRowClick`
+  - `ObjectKanbanComponentProps.onRowClick` (its sibling `onCardClick`, the other
+    arm of the same fallback, already declared both)
+  - `KanbanRendererProps.schema.onCardClick`
+  - `ObjectCalendar`, `ObjectGantt`, `ObjectMap`, `ObjectTree`: `onRowClick`
+  - `ObjectTimeline`: `onRowClick` and `onItemClick`, the two arms of one fallback
+  - `ListView.onRowClick`
+  - `ObjectGallery`: `onRowClick` and `onCardClick`, likewise two arms of one
+  - `RelatedList.onRowClick`
+  
+  **Source-compatible, and with no refused class.** A one-parameter handler is
+  still assignable to the widened signature, and a handler written against the
+  widened signature was already assignable to the narrow one — its minimum
+  argument count is still one. The second parameter is spelled `any` rather than
+  `HandleClickModifiers`, which is the difference that matters for callers: the
+  hook's own option names that interface and therefore refuses a handler whose
+  second parameter is annotated narrower (objectui#9360 documents that class and
+  the one-line remedy). These faces refuse nothing. A host that discovered the
+  payload from the implementation and annotated it `React.MouseEvent` — which is
+  what actually arrives — keeps compiling. `any` is also the spelling
+  `ObjectKanbanSchema.onCardClick` already carries for this same payload
+  (objectui#9341) and the one `BaseSchema`'s own `onClick` / `onChange` /
+  `onSubmit` use, and it is forced on the published twins in `@object-ui/types`,
+  which may not name a type that lives in a package depending on them.
+  
+  **Runtime behaviour is unchanged.** Nothing is newly called and nothing newly
+  passes an argument; only the declarations move.
+  
+  Three declarations that share the name and the shape are deliberately NOT
+  widened, because the value flowing through them is not invoked with the
+  payload: `VirtualGrid.onRowClick`, whose second parameter is a row index;
+  `ManageViewsDialog.onRowClick`, which receives a view id; and the `data-table`
+  family (`DataTableSchema.onRowClick`, `ObjectDataTableSchema.onRowClick`),
+  whose renderer invokes with one argument. Widening those would have declared a
+  payload that never arrives.
+- de5d400: A page size with nothing declared is now the one `@objectstack/spec` declares for
+  `pagination.pageSize`, on every surface that has a pager; a fetch that has no
+  pager keeps its own fetch batch, which does not follow it (objectui#9853).
+  
+  "Page size" now means one page, and only where there is a pager. The grid,
+  the list and the board read the display default from the spec (`PaginationConfigSchema`)
+  instead of keeping numbers of their own, so it is declared once, in the protocol.
+  `@objectstack/spec` 17.5.0 declares **50**. The views that fetch one window and
+  page nothing keep a fetch batch of their own, with the value they had, so no
+  view loses records it could reach before.
+  
+  ⚠️ **Visible change where no page size is declared.** Measured on the renderer
+  with `@objectstack/spec` 17.5.0. Declare `pagination: { pageSize: N }` (or, on a
+  board, `limit`) to keep an old count:
+  
+  | surface (nothing declared) | before | after |
+  |:--|--:|--:|
+  | `object-grid` that fetches its own rows: rows per page, and the `$top` of each page fetch | 50 | 50 (unchanged) |
+  | `object-grid` over inline `data`: rows per page | 10 | **50** |
+  | grouped `object-grid`: groups per page | 10 | **50** |
+  | grouped `object-grid` over a data source that groups on the server: rows per group page (`$top`) | 50 | 50 (unchanged) |
+  | `list-view`, grid view (paged on the server): rows per page, and `$top` | 100 | **50** |
+  | `list-view`, every view it does not page (kanban, calendar, gallery, timeline and the rest, and a grouped grid): the one fetch's `$top` | 100 | 100 (unchanged) |
+  | `object-kanban` with no `limit`: the board's `$top` | 100 | 100 (unchanged) |
+  
+  What changed underneath:
+  
+  - **`@object-ui/plugin-grid`.** `ObjectGrid` falls back to the spec's display
+    default on every page it shows, with no local number behind it: if a future
+    spec stops declaring the default, the module throws at load instead of
+    inventing one. The old "server window" constant is renamed
+    `DEFAULT_FETCH_BATCH_SIZE` and keeps its value. Since grouping moved to the
+    server, it is read only when the grid groups a window of rows in the browser
+    because the server does not group it (a grouping key the principal may not
+    read), and never as a page size. The grouped view's rows-per-page selector
+    also lists the size in force when it is not one of its fixed steps.
+  - **`@object-ui/plugin-list`.** `ListView` splits its undeclared fallback by
+    whether the view pages. The grid view, which it pages on the server, falls
+    back to the spec's display default. Every other view falls back to a fetch
+    batch of 100, the value it had. A declared `pagination.pageSize` sizes the
+    window on every view, as before. With no declared size, switching between the
+    grid view and an unpaged view now changes the window, so the list fetches
+    again: one request, whose `$top` is the fetch batch. That qualifies the
+    objectui#10512 note in this same release, which says a switch into a dataset
+    chart with no user filter set issues no new request: it still holds when a
+    page size is declared. A refused page size still warns, and the warning names
+    the fallback that view actually used.
+  - **`@object-ui/plugin-kanban`.** The board's default `limit` is renamed from
+    `DEFAULT_KANBAN_LIMIT` to `DEFAULT_KANBAN_FETCH_BATCH_SIZE` and stays 100. Its
+    diagnostic for a refused `limit` now calls it the board's fetch batch.
+  
+  The display default follows the `@objectstack/spec` a host installs. A host
+  that resolves an older spec gets that spec's default, on every surface alike.
+  
+  Released as `minor`, not `major`: this repository keeps its major aligned with
+  `@objectstack/spec`, so the behaviour change is spelled out here instead.
+- e2e8e68: **Behaviour change:** the spec's view-level `map` block on a list view is now read at
+  runtime. `ListMapConfigSchema` (objectstack#9340) has been authorable and validated since
+  the `@objectstack/spec` 17.1.0 pin — it flows into this repo's own `ListViewSchema` by
+  reference — but nothing consumed it: `ListView`'s `case 'map'` forwarded only the legacy
+  `schema.options.map` bag, so declaring `map: { titleField: 'title', locationField:
+  'location' }` on a view changed nothing and marker titles fell back to the renderer's
+  placeholder.
+  
+  The block now reaches `plugin-map` and drives every one of its seven reads — coordinate
+  extraction, marker title and description, and the initial camera. Precedence follows the
+  convention the sibling visualization blocks in the same file already set: the view-level
+  block wins over `options.map`, per key, exactly as `kanban` / `calendar` / `gallery` /
+  `timeline` / `gantt` each merge their spec config over the legacy bag. Both sources go
+  through the existing objectui#5177 key whitelist, and the branch still emits the flat
+  form, so `getMapConfig`'s objectui#5018 precedence rule ("neither flattener emits a `map`
+  key at all") stays true.
+  
+  The visualization switcher had the same gap with a sharper consequence: the capability
+  gate that decides which visualizations are offered also read `options.map` alone, so a
+  view binding its coordinates in the spec block was filtered out of its own
+  `appearance.allowedVisualizations` and fell back to `['grid']`. The gate now asks the same
+  merged config the render seam forwards, so the two cannot disagree — including for a
+  binding split across the two sources.
+  
+  `InterfaceListPage` (ADR-0047 interface pages) forwards the referenced view's `map` block
+  for the same reason. It is passed alongside the auto-derived `options.map` rather than
+  replacing it, so a partial authored block — `map: { titleField: 'title' }` — keeps the
+  derived coordinate binding instead of dropping it.
+  
+  No defaults are introduced for `zoom` / `center`: an undeclared camera stays undeclared,
+  so the fit-to-queried-records behaviour ruled in objectui#5000 is unchanged.
+- ca39427: Derive `ViewType` from `@objectstack/spec` instead of re-declaring it
+  
+  `ViewType` and its zod face `ViewTypeSchema` were hand-written eleven-arm copies of
+  the spec's list-view type vocabulary. `@objectstack/spec@17.3.0` added `page` and
+  neither followed, so every structure keyed on them stayed total over the copy and
+  compiled green while being incomplete — including the one whose doc comment promises
+  that "a kind added to the union fails the build HERE". A spec-valid `type: 'page'`
+  view was left unresolved and fell back to a grid with no error, no warning and no
+  console line, while the published validator accepted it.
+  
+  Both faces now derive from `@objectstack/spec/ui` `ListView['type']`, and the
+  renderer-side structures derive from that in turn:
+  
+  - `@object-ui/core` exports `ListViewVisualization` and `isListViewVisualization` —
+    the visualizations `ListView` draws, which deliberately exclude `page` for the same
+    reason the spec's own `VisualizationType` does (a `type: 'page'` view mounts a
+    published page through `pageName` rather than drawing records).
+  - A spec-valid but undrawable kind still falls back to a grid, but now warns once
+    instead of degrading identically to a typo.
+  
+  Widened surfaces: `ViewType` / `ViewTypeSchema` gain `page`; `UnifiedViewType` gains
+  `tree` (it had drifted); the `list-view` SDUI registry offers `chart` and `tree`,
+  which the renderer has drawn for releases.
+  
+  ⚠️ Consumers holding an exhaustive `switch` or a total `Record<ViewType, …>` will
+  now fail to compile until they account for `page`. That failure is the point of the
+  change — it is the guarantee that was silently lost.
+  
+  ⚠️ **Dated note, 2026-09-29 — `page` left the vocabulary again in this same release — objectui#11073.**
+  Later in this release this repository began resolving `@objectstack/spec` 17.5.0, which removed `type: 'page'` from the list-view vocabulary (ADR-0049 enforce-or-remove). Because `ViewType` and `ViewTypeSchema` are derived from the spec, as this change made them, they no longer carry `page`. A `type: 'page'` view is refused by name at parse rather than being "spec-valid", and the one-time "cannot draw" warning has no kind left to explain. The rest of this change stands: the vocabulary still follows the spec, now in the narrowing direction.
+- 2d36552: Pins `@objectstack/spec`, `@objectstack/client`, `@objectstack/formula` and `@objectstack/lint` to `17.1.0`, and adapts the two consumer surfaces the new build moves.
+  
+  The pin itself is a lockfile refresh — every manifest already declared `^17.0.0`, which admits `17.1.0`, so no dependency range changed. All four move together: a split resolution is what produced the dual-version spec graph that reddened `check:spec-symbols` in this repo's history.
+  
+  **A `icontains` filter now reaches the driver as a filter.** `icontains` is a canonical `VIEW_FILTER_OPERATORS` member as of `17.1.0`, so an author can declare it on a `ViewFilterRule` and the spec validates it — but `@object-ui/data-objectstack`'s alias table had no row for it, and an unmapped operator is how this adapter shipped an unfiltered query before (objectstack#3948). It is an identity row like `contains`: `icontains` is itself a member of `VALID_AST_OPERATORS`, so the spelling the author writes is the spelling the AST takes, and no case-sensitivity is translated away. Declared rather than left to the table's `?? op` fall-through, on the rule its own parity test states — the AST gate accepting a spelling is not the driver compiling it into a `WHERE` clause.
+  
+  The same operator reaches the list view's own bridge: `@object-ui/plugin-list`'s `mapOperator` gains an explicit `icontains` arm. The emitted spelling is identical to the input, but the arm is written out rather than left to the `default` passthrough — `icontains` is its own member of `VALID_AST_OPERATORS`, so a raw passthrough is accepted *today*, and depending on that coincidence is what the bridge's own parity test records as how it once stopped discriminating.
+  
+  `@object-ui/core` adds `onSuccess` to its spec key inventory, so an author writing the key `17.1.0` now declares is no longer warned that it is unknown. That is a diagnostic statement only — the four declared action surfaces still drop the key before it reaches the runner, which is tracked separately.
+  
+  **A stored view filtering case-insensitively still shows that operator when it is reopened.** `@object-ui/plugin-view`'s canonical-to-builder table is keyed by `ViewFilterOperator`, so `17.1.0` adding `icontains` failed to compile rather than letting the operator reach the FilterBuilder as a raw spelling its dropdown cannot select. It maps to the builder's `containsCaseInsensitive` — the id that authors the spec's `$icontains` — and deliberately not to `contains`, which would quietly rewrite a case-insensitive filter into a case-sensitive one the next time the view was saved.
+  
+  **The page-editor palette keeps one entry per renderer.** `17.1.0` retires `element:filter` from `PageComponentType` and adds `record:discussion`, leaving the member count at 34 either side — so the swap is invisible to any count-based reading. The stale `element:filter` exclusion is dropped, and `record:discussion` is excluded because it is the *same renderer* as the already-offered `record:chatter`, not because it is unauthorable. Nothing the palette offers changes.
+  
+  **The console eager-closure ceiling is re-baselined, by maintainer ruling.** The release is roughly 930 KB larger uncompressed and nearly all of it lands in `vendor-objectstack-*.js`, which put the closure past a ceiling that was deliberately sized to catch a 89 KiB regression — the gate refused the bump, correctly. Raising it was escalated rather than taken locally, because gate-strength policy had been ruled the maintainer's; the ruling on objectui#5531 authorised the raise. `MAX_EAGER_CLOSURE_GZIP_BYTES` and the `BASELINE` it is derived from move together in one commit, keeping headroom at 2.00% and below the 91,136-byte regression size the gate must still catch. The gate's *sensitivity* is untouched: a repeat of that regression from the new baseline still fails. No behaviour ships from this file — it is CI policy, recorded here because the version it governs is the one this changeset publishes.
+
+### Patch Changes
+
+- 0427036: On a `gantt` list view, the toolbar's Filter control and the `UserFilters` chips now
+  narrow the chart (objectui#10037).
+  
+  Both controls were offered on a gantt view and changed nothing the user could see.
+  `ListView`'s own fetch applies the authored filter, the toolbar's filter group and the
+  chips together, but the gantt chart does not draw those rows: it queries for itself —
+  its registered renderer takes only the node's `schema` — and the node it was handed
+  carried the authored `filter` alone.
+  
+  The gantt node now carries the same effective filter `ListView`'s own fetch sends, so the
+  chart's query honours both controls. The value keeps its identity while its content is
+  unchanged, so re-rendering the list does not re-query the chart. The row ceiling from
+  objectui#7210 is untouched.
+- af243c1: On `tree` and `chart` list views, the toolbar's Filter control and the `UserFilters`
+  chips now narrow the view, and on a `gantt` list view the toolbar's Search box now
+  narrows the chart (objectui#10250).
+  
+  These three views run their own query instead of drawing the rows `ListView` fetched.
+  The tree and chart nodes carried only the authored `filter`, and the gantt node carried
+  no search term, so each control changed `ListView`'s own fetch and nothing on screen.
+  
+  - The `tree` node and the object-bound `chart` node now carry the same effective filter
+    `ListView`'s own fetch sends, as the `gantt` node has since objectui#10037. The value
+    keeps its identity while its content is unchanged, so re-rendering the list does not
+    re-query the view.
+  - `ObjectGanttSchema` declares two optional keys, `search` and `searchableFields`.
+    `ObjectGantt` sends `search` as `$search` and, only alongside a term,
+    `searchableFields` as `$searchFields` — the pair a list's own query sends. A `gantt`
+    list view writes both from its toolbar Search box and the view's `searchableFields`.
+  
+  Unchanged: the toolbar state still does not reach the query of a `chart` view bound to a
+  semantic `dataset`, and the toolbar Search box still does not reach the `tree` or `chart`
+  query. objectui#10326 stops offering that Search box on `tree` and `chart` views.
+- fb7f38b: fix(plugin-list): a list view whose every authored column is denied by field-level security still sends a `$select`
+  
+  `ListView`'s `$select` builder drops the authored columns the principal cannot read. When that left no column, it returned no projection, so the request carried no `$select` key and asked the server for every field of the object, the denied ones included. An emptied column list was read as "no restriction", the reading objectui#7215 fixed on `$expand` (objectui#10275).
+  
+  The builder now asks whether the author declared any column, not whether any column survived the permission gate. An authored list that field-level security empties projects to `id` plus the fields the builder already adds through its FLS-gated routes (the platform columns every object carries excepted, as before): the `$expand` roots, the view bindings (kanban, calendar, gallery, timeline and gantt fields), the grid's grouping fields, and the operands of the row predicates (conditional formatting; the `visible` / `disabled` predicates and `recordIdField` of the row actions, the bulk actions and the object's declared actions; the object's `userActions` overrides). A denied operand is not added back. That is the shape `ObjectGrid` and `RelatedList` (objectui#10186) send.
+  
+  Graded as defence in depth: ObjectStack's server strips denied fields from every returned row (`FieldMasker`), so nothing leaked from that backend. The projection matters for a backend that does not strip.
+  
+  Unchanged: a list with no authored `columns` (absent or an empty array) still sends no projection, a partially-denied list projects its surviving columns as before, and nothing is filtered before the permission answer has loaded.
+  
+  Behaviour to know about: on a backend that honours `$select`, a list whose every column is denied now receives rows carrying only the projected fields, as a list with one readable column already did.
+- 59636b3: On `tree` and `chart` list views, the toolbar no longer offers Search (objectui#10326).
+  
+  Both views draw what they query for themselves, and neither query carries a search
+  term: the tree's own `find` sends its filter, its row ceiling and its expansions, and
+  the chart's queries, aggregate or dataset, take no term at all. A term typed there
+  changed `ListView`'s own fetch, behind the record count and the export, and nothing
+  the view drew.
+  
+  - The Search control is not rendered while a `tree` or `chart` view is on screen,
+    whatever the chart is bound to. An authored `userActions.search: true` does not bring
+    it back on those views. Grid, kanban, calendar, gallery, timeline, map and gantt views
+    keep it as before.
+  - A term that is already set, whether the host restored it at mount through
+    `initialSearchTerm` or the user typed it on another view before switching, is not
+    applied to `ListView`'s own fetch or export while a `tree` or `chart` view is on
+    screen. The term is kept rather than cleared: switching back to a view that offers
+    Search applies it again, and `onSearchChange` is not called for the switch.
+- 5e0af5a: `ListView` no longer strands a server-paginated grid on a page a write has emptied. When a refetch comes back with zero rows past page 1 and the server's `total` says the last page is lower, the pager steps back to that last page and fetches it, showing a loading state in between. Before, bulk-deleting every row of the last page (or a concurrent delete) left the list on that page with the first-run "no records yet" empty state, although earlier pages still had records. A write that leaves the current page non-empty keeps the page, and an object with no records still shows the first-run empty state on page 1.
+- 6d1e77c: On a `chart` list view bound to a semantic `dataset`, a user filter that is already set
+  no longer narrows `ListView`'s own fetch (objectui#10512).
+  
+  The toolbar withholds the Filter builder and the `userFilters` chips on such a view
+  (objectui#10327), but a filter group the host restored at mount through
+  `initialFilters`, or a group or chip set on another view before switching, was still
+  applied to `ListView`'s own fetch of the object's rows. That fetch still runs on the
+  chart and feeds the record-count bar, so the count was narrowed by a filter nothing on
+  screen showed or could clear.
+  
+  - While a dataset-bound chart is on screen, `ListView`'s fetch and its export apply
+    the view's own `filter` only; the toolbar's filter group and the chips are not sent.
+  - The held state is kept rather than cleared: switching back to a view that offers the
+    controls applies the same group again, and `onFilterChange` is not called for the
+    switch.
+  - A chart bound to the list object, and every other view, apply the toolbar's filter
+    group and the chips as before. A switch into a dataset chart with no user filter set
+    issues no new request.
+- dddbc27: fix(plugin-list): list filters label a lookup's values by the `displayField` the object definition declares (objectui#10545)
+  
+  Once a list view's object definition loads, the filter builder's candidates and
+  the toolbar's lookup filter read each lookup field's display field off that
+  definition. They read `display_field`, then `reference_field`, and never
+  `displayField`, the only one of the three `@objectstack/spec`'s `FieldSchema`
+  declares. So a spec-compliant lookup's display field never reached the value
+  picker, which fell back to its default, `name`.
+  
+  Both now read `displayField`, and only it. This is the same single spelling
+  `@object-ui/plugin-grid` reads off a definition. `FieldSchema` refuses the other
+  two: `display_field` with a rename to `displayField`, and `reference_field` with
+  a pointer to `referenceVia`.
+  
+  Behaviour change: a field definition that carries only the refused
+  `display_field` no longer sets the picker's display field, and neither does one
+  that carries only `reference_field`. The picker falls back to `name`. A stored
+  definition served through the ObjectStack adapter still works, because that
+  adapter folds `display_field` onto `displayField` when the schema is loaded.
+  A definition that reaches the list any other way, such as a host `DataSource`
+  or an `objectDef` passed straight to `UserFilters`, needs `displayField`.
+  
+  The two readers also stop reading `id_field` as the lookup's id column.
+  `FieldSchema` declares no id column for a lookup and refuses both `id_field` and
+  `idField`, so the picker now always keys a lookup by `id`, its default. A
+  definition that carried `id_field` used to make the picker match and emit that
+  column's values instead.
+  
+  Also (objectui#10547): before a list view's object definition loads, the filter
+  builder's candidates come from the view's declared `columns`, and that fallback
+  no longer reads `options` off a list column. `ListColumnSchema` refuses the key
+  with `unrecognized_keys`, so a spec-compliant view never carries it. A select
+  field's options now reach the filter builder only from the object definition,
+  once it loads, which is where they already came from after the load.
+- 4a3d500: `list-view` re-reads its rows when the data-invalidation bus (`notifyDataChanged` from `@object-ui/react`) reports a change to the object it queries (objectui#10572). A write that bypasses the data source — a page action over raw HTTP, a flow, a server action — fires no `onMutation`, so a list on a page used to show it only when the whole page was remounted. The re-read keeps the list mounted; rows a host hands the list inline are still the host's to refresh.
+- 9fbbb17: BREAKING (`@object-ui/components`): `RefreshIndicator`'s `ariaLabel` prop is now required and has no default. It used to default to the English literal "Refreshing", so the progress bar on every view that passed no name was announced in English to screen-reader users in every locale (objectui#10580). A `RefreshIndicator` rendered without `ariaLabel` now fails to type-check.
+  
+  (The bump is `minor` by this repo's release model: objectui's major follows the `@objectstack` family major, and its own breaking changes ship as `minor` with the breaking semantics stated here.)
+  
+  Migration: pass the bar's accessible name from your own translation layer, for example `ariaLabel={t('grid.refreshing')}`. The component renders the string you pass as the bar's `aria-label` and does not translate it.
+  
+  `ObjectGrid`, `ListView`, `ObjectChart` and `ObjectDataTable` now name their refresh bar in the active locale. The grid and the list read the `grid.refreshing` and `list.refreshing` keys their pull-to-refresh text already uses. The chart reads `chart.refreshing` and the dashboard data table reads `dashboard.refreshing`, both with no English literal behind them, so a host that renders either one with no i18next instance at all gets the key itself as the bar's name.
+  
+  `@object-ui/i18n`: new keys `chart.refreshing` and `dashboard.refreshing` in every built-in locale pack.
+- 0c3f70a: A directly authored `object-grid` or `list-view` node resolves the spec's context tokens in its own filter (objectui#10607).
+  
+  `filter: [['owner', '=', '{current_user_id}']]` on an `object-grid` or `list-view` node authored
+  straight into a page, not reached through `object-view`, went out on `$filter` as the literal
+  token: neither package called `@object-ui/core`'s `resolveFilterPlaceholders`. Each now resolves
+  the node's own filter once through that shared resolver, with the session scope the host provides
+  through `useFilterScope` (the console shell mounts `FilterScopeProvider` from the signed-in user
+  and the active organization). On `object-grid` that is `filter` and its deprecated alias
+  `defaultFilters`: the resolved `filter` feeds the grid's query and its server-side export, and the
+  resolved alias feeds the query when `filter` is absent. On
+  `list-view` it is `filter`, and the resolved value feeds the list's query, the child view it
+  renders, the self-querying views (gantt, tree, chart), the export and the empty-state copy.
+  `object-view` has done this since objectui#10506; these two nodes, authored directly, had not.
+  
+  The relative-date macros (`{today}`, `{current_quarter_start}`, …) resolve in the same call, in
+  the browser's local time, as on the other surfaces that call the resolver. Where they used to
+  reach a backend that resolves them itself, as the ObjectStack server does in the tenant's
+  configured `localization.timezone` (UTC by default), a browser whose local day differs from the
+  server's day can now get a different day.
+  
+  A token the scope cannot resolve is left as written and the resolver warns once, which is the
+  resolver's own rule, so the filter is never widened.
+  
+  The resolved value is held against its inputs: the authored filter, compared by structure, and the
+  scope's three members (`currentUserId`, `currentOrgId`, `onUnresolved`), each compared on its own.
+  A re-render that changes none of them does not refetch, including one that rebuilds an equal
+  filter inline; a new signed-in user refetches with the new id. Date macros are therefore resolved
+  once and held until the scope or the authored filter changes, and a refetch for another reason
+  reuses the held value. `object-view` already hands these nodes a filter it has resolved
+  (objectui#10506); resolving that value again changes nothing, because a resolved id or date no
+  longer matches the placeholder pattern.
+  
+  On `object-grid`, the load effect now also refetches when the resolved `defaultFilters` changes (a
+  new signed-in user, or an in-place edit of the alias). It read that alias without keying on it
+  before.
+- 02e6d36: Five more page blocks re-read when the data-invalidation bus (`notifyDataChanged` from `@object-ui/react`) reports a write to the object they read (objectui#10623). These blocks read neither `onMutation` nor the bus, so any write — through the data source or past it (a page action over raw HTTP, a flow, a server action) — showed only when something remounted them. Each fetch effect now names the `useDataInvalidation` nonce for its object; an unscoped change (`'*'`) matches too, and a change to another object does not.
+  
+  - `@object-ui/plugin-timeline`: `object-timeline` re-reads its rows; a canvas that already shows rows stays mounted while the re-read runs.
+  - `@object-ui/plugin-list`: `object-gallery` re-reads its cards; collapsed groups stay collapsed.
+  - `@object-ui/plugin-map`: `object-map` re-reads the markers it is showing without its loading placeholder, so the map stays mounted and the camera stays where the user left it. If that re-read fails, the last markers stay on the map and the failure is logged to the console, as `ObjectGantt`'s background refresh does. A changed query still shows the placeholder and re-fits the camera, even when a bus event arrives with it. Two older faults in the same fetch are fixed as well: a slow earlier answer can no longer overwrite a newer one, and a load that succeeds now takes the map off an earlier error screen.
+  - `@object-ui/components`: `element:number` re-reads its aggregate and `element:repeater` its rows.
+  
+  Rows a host hands these blocks (`data`, `bind`, authored `items`, an inline `value` set) are still the host's to refresh; only the blocks' own queries follow the bus.
+- 12809a5: `ListView` hands its grid the object's field types together with the rows, so the grid draws a `password` / `secret` column masked from its first paint (objectui#10657, which folded objectui#10706).
+  
+  `ListView` fetches the rows and hands them to `object-grid` as `data`, and those rows
+  painted before the grid's own read of the object definition settled. In that window an
+  untyped column over a `password` / `secret` field had no type: it drew the raw value, and
+  since `object-grid` now withholds such a column instead, it would draw the mask for every
+  untyped column until the read lands. `ListView` reads the object definition before it
+  fetches the rows, so it now passes the definition's fields to the grid as `objectFields`
+  with them, and the grid has no window at all. Only the grid view is handed it. When the
+  definition could not be read, nothing is passed and the grid withholds on its own.
+- f9c06ef: Every data node that sends its own authored `filter` into a query now resolves the spec's context tokens first (objectui#10666). With `filter: [['owner', '=', '{current_user_id}']]` these nodes used to send the literal token; they now send the signed-in user's id, and `{current_org_id}` resolves to the active organization:
+  
+  - `object-calendar`, `object-map` and `object-tree`, on both the object query and the inline (`provider: 'value'`) query;
+  - `object-gantt`, `object-kanban` and `object-timeline`;
+  - `record:related_list` and `record:line_items`, where the node's own filter is combined with the parent-record condition;
+  - the `element:repeater`, `element:number` (both the `aggregate` filter and the `find` fallback) and `element:record_picker` page elements.
+  
+  `list-view`, `object-grid` and `object-gallery` already did this, and are unchanged.
+  
+  **New in `@object-ui/react`: `useResolvedFilter(filter, scope)`.** Pass it a node's authored filter and `useFilterScope()`. It resolves the filter through `@object-ui/core`'s shared `resolveFilterPlaceholders` and holds the result: re-rendering with an equal filter (even one rebuilt inline on every render) hands back the same value, so a fetch effect keyed on it does not run again, while a structurally different filter or a change of signed-in user or organization resolves again. A filter with no token to resolve is handed back as the value you passed in. The hold is the one `list-view` and `object-gallery` used privately; `plugin-list` now imports it from here, and no second copy remains in that package.
+  
+  What changes for an app:
+  
+  - A filter with no placeholders reaches the query as before, unchanged.
+  - Nodes that re-queried whenever the host rebuilt an equal filter inline (`object-calendar`, `object-gantt`, `object-kanban`, `object-map`, `object-tree`) no longer issue those redundant queries.
+  - Date macros such as `{today}` in these nodes' own filters are now resolved in the browser's local time, as they already are for `list-view`, `object-grid` and `object-view`. Before, they reached the server as literals, and the server resolved them in the tenant's time zone.
+  
+  `@object-ui/types`: the `filter` docblocks on `ObjectMapSchema`, `ObjectTreeSchema`, `ObjectGanttSchema`, `ObjectCalendarSchema`, `ObjectKanbanSchema`, `ObjectChartSchema` and `ObjectGallerySchema` (and the matching zod descriptions) no longer say the filter is forwarded verbatim; they say its context tokens are resolved first. No type changes.
+- c610990: A directly authored `object-gallery` node now resolves the spec's context tokens in its own `filter` (objectui#10666). With `filter: [['owner', '=', '{current_user_id}']]` the gallery used to send the literal token on `$filter`; it now sends the signed-in user's id, and `{current_org_id}` resolves to the active organization. The filter goes through `@object-ui/core`'s shared `resolveFilterPlaceholders`, against the scope `FilterScopeProvider` supplies, the same call `list-view` and `object-grid` have made since objectui#10607. The resolved value is held and compared by structure, so re-rendering with an equal filter issues no extra query, and a change of signed-in user queries again. A filter without placeholders reaches the query unchanged. A gallery rendered as a `list-view` child was already handed a resolved filter, and nothing changes for it.
+  
+  Date macros such as `{today}` in a directly authored gallery's filter are now resolved in the browser's local time, as they already are for `list-view`, `object-grid` and `object-view`. Before this change they reached the server as literals, and the server resolved them in the tenant's time zone.
+- be0ad00: `list-view` re-reads its rows when a `conditionalFormatting` rule, a row action def or a bulk action def adds a field its predicates read (objectui#10689).
+  
+  The list puts each predicate operand of those three into `$select`, but its fetch effect did not re-run when any of them changed. So a rule added to a mounted list never had its field fetched, and the rule never matched. The effect now keys on the operand names by content, so an equal value in a new array, or a change the query cannot see such as a rule's colour, does not re-read.
+- 256b4c9: A filter refused as malformed (`INVALID_FILTER`) no longer throws out of render or out of a click
+  handler at the sites that merge filters there. That holds whether this layer's filter converter
+  refused it or, at the drill seam, the spec's own `parseFilterAST`. Each site now surfaces the
+  refusal the way its siblings already do (objectui#10789). The filter stays **refused**: nothing
+  that was refused is accepted, and no site falls back to "no filter".
+  
+  - **`ElementDataSourceGate` / `useElementDataSource`** (`@object-ui/react`): the gate's merge of
+    the component's `filter` with the composed binding, and the merge of a saved view's filter
+    with the binding's own, lowered through the throwing converter inside render. A refused
+    filter from either now makes the binding `missing` with a new optional `filterRefusal` on the
+    result (`error` carries its message). The gate then draws, in place of the block, the
+    malformed-filter notice the wrapped blocks draw: `view.malformedFilter`, naming the refused
+    operator or field. `element:record_picker`, which reads the same hook, shows its
+    configuration-error panel with the refusal.
+  - **`PeoplePicker` / `RecordPickerDialog`** (`@object-ui/fields`): the recents merge and the
+    dialog's `mergedFilter` lower through `toFilterNodeSafely`; a refusal is shown in the picker's
+    existing error state and no query runs without the filter.
+  - **Drill-downs** (`ObjectChart`, `ObjectPivotTable`, `DatasetWidget`, `DatasetReportRenderer`):
+    a widget or report filter refused at the drill seam made the drill click throw. The converter
+    refuses some (a spec `$not`, say). The spec's `parseFilterAST` refuses others, such as a scalar
+    on a list operator in either dialect: `[['stage', 'in', 'won']]` or `{ stage: { $in: 'won' } }`.
+    The drill is now not opened or emitted (never with the scope dropped), and the refusal is logged
+    with `console.warn`, naming the operator. `composeDrillFilter` (`@object-ui/core`) now throws
+    one refusal type: the spec's `INVALID_FILTER` error is re-raised as a `FilterOperatorError` with
+    its message and the same `INVALID_FILTER` / 400 envelope, and any other error passes through
+    unchanged.
+  - **`ListView` export** (`@object-ui/plugin-list`): the server export builds its filter inside
+    its `try`, so a refusal is named in the export menu instead of escaping the click.
+  - **`convertFiltersToAST`** (`@object-ui/core`): an `$or` member that is the TRUE identity no
+    longer stops the members after it from being read. `{ $or: [{}, { a: {} }] }` is now refused
+    like `{ $or: [{ a: {} }, {}] }` already was, instead of answering TRUE (every row); a TRUE
+    disjunct beside members that lower still absorbs its `$or`.
+- d0ae5d0: fix(plugin-list,plugin-grid): a grouped list view under a toolbar search groups on the server, and each group counts all its matching rows
+  
+  A grouped list view whose data source answers the group header query hands
+  the grid its own fetch, so the groups and their counts come from the server.
+  A toolbar search used to take that back: the list view fetched one page of
+  searched rows and the grid grouped that page in the browser, so once the
+  matches outnumbered the page a group's count was the page's slice of it, and
+  a group whose matches all fell past the page was missing.
+  
+  The list view now hands the grid its toolbar term (the grid's `search` prop)
+  and the view's `searchableFields`, and the grid sends them on the group header
+  query and on every group's row query. A searched grouped list view shows only
+  the groups that hold matching rows, each counting all its matches, and
+  clearing the search restores the unsearched groups.
+  
+  `ObjectGrid` now reads a host's `search` whenever one is passed, not only
+  under host-driven paging: the host then owns the term, and the grid's own
+  queries carry it. Turning grouping back on no longer asks for, or briefly
+  shows, the groups of the query the grid held when it last grouped (a cleared
+  search, or an old filter or sort). `@object-ui/plugin-grid` now declares
+  `@objectstack/spec` `^17.5.0`, the release whose group header query takes a
+  search.
+- ae582b7: A number field's authored `useGrouping` now decides whether its value renders with thousands
+  separators (objectui#11026). This is the renderer half of `FieldSchema.useGrouping`, the
+  digit-grouping hint `@objectstack/spec` declares on a field.
+  
+  **What an author now controls.** Write `useGrouping` on a `number` field:
+  
+  - `useGrouping: false` renders the value with no separators, whatever its `scale`: a
+    `scale: 2` code field reads `12345.50`, not `12,345.50`.
+  - `useGrouping: true` groups it, even at `scale: 0`: a scale-0 headcount reads `2,026`, not
+    `2026`. An authored `true` reaches `Intl.NumberFormat` as `useGrouping: true`, which means
+    "always". So in a locale that leaves a four-digit number alone by default (es-ES, pl-PL),
+    `1234` renders `1.234` / `1 234`.
+  - Leave it out and nothing changes: a declared `scale: 0` still reads as an ordinal and renders
+    ungrouped (a year reads `2026`), and any other number is grouped the locale's way.
+  
+  Before this change nothing in the console read the key, so the only way to drop the separators
+  was `scale: 0`, and there was no way to keep them on a scale-0 count.
+  
+  **Where it applies.** List and grid cells, record detail sections and highlights, the record
+  quick-look panel, related-record tables and gallery cards. Each of these builds a cell's field
+  from the object's field definition key by key, and each now copies `useGrouping` next to
+  `scale`. Kanban cards and the grid's auto-generated columns hand the cell the whole field
+  definition, so they follow it too. The form's number input and the dashboard's record table
+  read neither `scale` nor `useGrouping` for grouping, and are unchanged.
+  
+  **API (additive).**
+  
+  - `@object-ui/core`: `DisplayNumberFormatOptions` gains `useGrouping?: boolean`, and
+    `shouldGroupDisplayNumber` takes it as an optional third parameter. An authored boolean
+    answers first; with it unset, the existing `scale`/`currency` rules decide as before.
+    `@object-ui/i18n` re-exports both names, so the same options reach it too.
+  - `@object-ui/types`: `NumberFieldMetadata` declares `useGrouping`, typed from the spec's
+    `FieldSchema.useGrouping`.
+- f61dab1: `reference` is now the only spelling ObjectUI writes or reads for a relational field's target object (objectui#11070, round 4, under the objectui#6837 ruling: 「objectui不是前端的项目吗？后端的元数据只要对，前端按协议执行就行了呀」).
+  
+  - **Types.** `LookupFieldMetadata`, `MasterDetailFieldMetadata` and `DetailViewField` (with its zod mirror `DetailViewFieldSchema`) declare `reference` and no longer declare `reference_to`. On the two field metadata types the member is typed by reference to `@objectstack/spec`'s `FieldSchema.reference`. `@object-ui/plugin-form`'s `FieldDefaultsSchemaLike` drops its `reference_to` member the same way.
+  - **Readers.** `LookupField`, `UserField`, `LookupCellRenderer`, `UserCellRenderer`, the inline editor's reference fallback, the form's `current_user` seeding and the inline-subform parent lookup read `reference` alone.
+  - **Emitters.** Every in-repo producer that builds a field definition or a widget `field` prop writes `reference`: the action-param dialog (`paramToField`), the bulk-action dialog, the record detail page, drawer, footer, related list and synthesised page, the gallery card, the form's section-field override and the flow designer's reference picker. The grid's and the dashboard's relational copy sets carry `reference` and no longer copy `reference_to`.
+  - **Ingestion.** `normalizeFieldReferenceKeys` (behind `ObjectStackAdapter.getObjectSchema` and `MetadataProvider`) still folds a legacy `reference_to` / `referenceTo` onto `reference` when `reference` is absent, and still warns in dev. It no longer stamps `reference_to` onto every relational definition, and it still never drops or overwrites a key.
+  
+  `@objectstack/spec`'s `FieldSchema` refuses `reference_to` by name, and objectstack#13847 rewrites stored ones on the serve path and in `os migrate meta`, so a definition served by an ObjectStack backend is unaffected.
+  
+  ## ⚠️ BREAKING for a host that hands `reference_to` to the widgets directly
+  
+  The type change is a compile error for TypeScript that writes `reference_to` on `LookupFieldMetadata`, `MasterDetailFieldMetadata` or `DetailViewField`: rename it to `reference`.
+  
+  At runtime the break reaches exactly one kind of host: one that serves object definitions spelling the target only as `reference_to` through a `DataSource` other than `ObjectStackAdapter`, or that passes such a definition straight into `LookupField`, `UserField` or a cell renderer. Those definitions never pass the ingestion fold. Measured with an object-bound lookup field on `ObjectForm` and a lookup column on `ObjectGrid`, both fed by a hand-written `DataSource` whose `getObjectSchema` returns `{ type: 'lookup', reference_to: 'account' }`:
+  
+  - before this change, opening the picker queried `account` and the cell resolved the record's name;
+  - after it, the picker has no object to query (no `find` call is made) and the cell shows the raw id beside the unresolved-reference marker.
+  
+  The same definition served through `ObjectStackAdapter.getObjectSchema` still works, before and after: the fold adds `reference`, the picker queries `account`, the cell resolves the name, and the dev warning names the field. **Fix:** spell the target `reference` in the definition your `DataSource` serves.
+  
+  ⚠️ **Dated note, 2026-09-30 — the break reaches more than the paragraph above states — objectui#11070.** Two corrections from the contract review of this change, appended rather than edited in; neither changes what ships.
+  
+  - "The break reaches exactly one kind of host" above is too narrow. Host code that read `reference_to` off a definition after ingestion — from `ObjectStackAdapter.getObjectSchema()` or `useMetadata().objects` — also loses that key, because the ingestion pass no longer stamps it (the **Ingestion** bullet above states the fact, and `reference_to` was never a declared member of those definitions). **Fix:** read `reference`.
+  - The measured break above is a `lookup` field's. A `user` field handed a `reference_to`-only definition directly does not end at "no query": `UserField` falls back to `sys_user`, so its picker queries `sys_user` rather than the object `reference_to` named. **Fix:** spell the target `reference` there too.
+  
+  The text above is kept as the reading of this change.
+- 81f8498: objectui now resolves `@objectstack/*` 17.5.0 and `zod` 4.6.5, and follows every contract move that release makes (objectui#11073). `@objectstack/spec` 17.5.0 and `@objectstack/core` 17.5.0 require `zod ^4.6.1`, so objectui's own `zod` resolves to the same 4.6.5: two zod minors do not type-check against each other.
+  
+  ⚠️ Breaking in places, marked `minor` under this repo's version-alignment rule (a `major` in the fixed group would move all of it off the `@objectstack` major). Every narrowing below is the spec's own, and already reaches any consumer that resolves `@objectstack/spec ^17.5`.
+  
+  - `@object-ui/types`: declares `@objectstack/spec ^17.5.0` and `zod ^4.6.1`. A named list view's `pageName` and `tabs` are retired, as the spec retired them: typed `never` and refused by name at parse. `DashboardWidgetSchema` attaches the spec's two new checks (`checkDashboardWidgetStageOrder`, `checkDashboardWidgetMetricMeasureArity`), so a widget the spec refuses is refused here too. Where a strict object is an arm of a plain union, its unknown-key refusal is terminal again (the spec's own mechanism, needed under zod 4.6): the union answers with every arm instead of the one that failed only on unknown keys. That changes the error shape, never the verdict (measured on every objectui union). Two by-name named-view checks that can no longer run are retired; the spec's refusal answers those documents.
+  - `@object-ui/core`: declares `@objectstack/spec ^17.5.0`. `page` leaves the list-view kinds the normalizer knows, as the spec removed `type: 'page'`. `isRefusedTextComparand` and `textComparandRefusalReason` are re-exported from `@objectstack/spec/data`, whose copies are byte-identical. `SPEC_ACTION_KEYS` lists `execution`, which `ActionSchema` now declares.
+  - `@object-ui/data-objectstack`: declares `@objectstack/spec ^17.5.0`, up from `^17.4.0`. Its bundle carries `@object-ui/core`'s filter converter, which now takes `isRefusedTextComparand` and `textComparandRefusalReason` from `@objectstack/spec/data`. `@objectstack/spec` 17.4.0 exports neither, so the old range admitted a spec under which the shipped module names exports that are not there (objectui#5793's floor gate). Nothing moves at runtime in this repository, because the lockfile already resolves 17.5.0. `patch`, as the floor raise of objectui#10864 was.
+  - `@object-ui/fields`: the percent and number `scale` clamp is gone, at the sunset its own test named. The spec now refuses a `scale` above 100 at the declaration, so the width a formatter cannot render no longer arrives, and every face passes the declared width through as it did before the clamp.
+  - `@object-ui/components`: two module-local prop interfaces of the action renderers are renamed (`ActionButtonRendererProps`, `ActionIconRendererProps`), because the spec now exports the old names for its authored props. Neither is reachable through the package's exports map; only the shipped per-file declarations change.
+  - `@object-ui/plugin-list`: the README's view-type example no longer lists the retired `page` kind.
+  - `@object-ui/app-shell`: the flow designer follows 17.5.0 (maintainer ruling on objectui#11088, decision 2). A new `wait` node is seeded `waitEventConfig: { eventType: 'timer', timerDuration: 'PT1H' }`, because the spec now refuses a timer wait with no duration; the inspector shows the Duration at once and it can be changed. The decision form offers the spec's new `mode` (exclusive or inclusive), with no default declared because the spec applies none. The screen form's `mode` states `create` again, because the spec now applies that default. `minor` because the decision form gains a control.
+  - `@object-ui/app-shell`: declares `@objectstack/spec ^17.5.0`, up from `^17.4.0`, and `zod ^4.6.1`, up from `^4.4.3`. The designer now states 17.5.0 behaviour. The screen form's declared `create` default equals a default the spec applies only since 17.5.0, and objectui#9109 requires the two to be equal, so a range that admitted 17.4.0 claimed more than the designer holds to. The resolved versions do not move.
+  - `@object-ui/console`: the bundle inlines the 17.5.0 packages, so its client-side validation answers as the published 17.5.0 contract does. The flow preview sample's script nodes use the 17.5.0 script contract. The eager-closure budget is re-baselined for the release's growth, under the maintainer ruling on objectui#11088 (decision 1).
+- b24f93a: A page now renders the accessible name an author declares in its `aria` bag, and the list view and the `record:*` blocks read the same bag through the one shared reader (objectui#11083).
+  
+  **The page root (a fix).** The spec's `PageSchema` declares `aria` as `AriaPropsSchema`, and `PageNodeSchema` mirrors it. The page renderer passed its wrapper only DOM attributes, so the `aria` object was dropped and `{ type: 'page', aria: { ariaLabel: 'Orders' } }` rendered no `aria-label` anywhere. The page's root element now carries:
+  
+  - `aria-label` from `ariaLabel`. A locale map (`{ en: 'Orders', 'zh-CN': '订单' }`) gives the entry for the display locale (`useDisplayLocale()`);
+  - `aria-describedby` from `ariaDescribedBy`;
+  - `role` from `role`.
+  
+  The page adds no default role, and a page that declares no `aria` renders the same DOM as before. The flat `ariaLabel` on the page node still reaches the root as before; when both spellings name the same attribute, the nested `aria` bag wins.
+  
+  **The list view and the `record:*` blocks (no visible change).** `ListView`'s list region and the `record:*` blocks' `useRecordAriaProps` used to map the nested bag themselves. Both now go through `resolveInlineAriaProps` from `@object-ui/react`, the reader the `element:*` blocks use, and keep only their own defaults: the list region's `region` role, and each block's default role, default name and the report of the refused `aria.label` spelling. One difference: an authored empty `role: ''` on a list view used to render an empty `role` attribute, and now falls back to `region`. The list view still reads `aria.live`, which objectui's `ListViewSchema` declares on top of the spec's bag.
+- 6158e4c: An `object-grid` publishes `description` and `emptyState` now that `@objectstack/spec` 17.6.0
+  declares them on its `object-grid` row, and `emptyState.title` / `.message` take an inline
+  locale map on both the grid and the list view (objectui#11227).
+  
+  **`@object-ui/plugin-grid` (feature and fix).**
+  
+  - `description` and `emptyState` are in the grid's declared inputs, so the designer panel, the
+    component manifest and the generated `sdui-intrinsics.d.ts` offer them, and the SDUI parser
+    no longer reports an authored `emptyState` as `unknown-prop`. `description` declares both
+    arms of the `I18nLabel` union, so a locale map on it is not a `type-mismatch`.
+  - `emptyState.title` and `emptyState.message` are resolved against the display locale, as
+    `label` and `description` are. Before, a locale map on either reached the empty-state
+    component as an object, and the grid failed to render. A map with no usable entry keeps
+    that member's default: the table's "No results found" heading, and no message line.
+  - `keyboardNavigation`, the row's third 17.6.0 key, is not published. The spec marks it
+    `[EXPERIMENTAL — not enforced]`, and nothing in the grid reads it yet.
+  
+  **`@object-ui/plugin-list` (fix).** A list view's authored `emptyState.title` and
+  `emptyState.message` are resolved against the display locale. Before, a locale map on either
+  was treated as absent, and the empty state drew the default copy in every locale. A plain
+  string is drawn as before.
+  
+  **`@object-ui/types` (breaking for a reader of the text members, hence `minor`).**
+  
+  - `ObjectGridSchema.emptyState` is the spec's `EmptyState`, and the Zod twin takes the spec's
+    `EmptyStateSchema` by reference. `title` and `message` are `string | I18nLabel`, `icon` stays
+    a string, and an unknown member is still refused by name. A locale map on `title` or
+    `message` now parses, and a value that is neither a string nor a map is refused at that
+    member.
+  - `NamedListView.emptyState` is `ListViewSchema['emptyState']`, the same spec type.
+  - TypeScript code that reads `emptyState.title` or `.message` as a `string` no longer
+    type-checks. Resolve the value first, for example with `resolveI18nLabel` from
+    `@objectstack/spec/ui`.
+  
+  **Correction, 2026-10-03 (objectui#11068, the `keyboardNavigation` build).** The bullet above
+  that says `keyboardNavigation` "is not published" and that "nothing in the grid reads it yet" is
+  superseded. The grid honours the key, with arrow-key cell navigation that is on by default when
+  the grid renders editable, and it is in the grid's declared inputs, so the designer panel, the
+  component manifest and the generated `sdui-intrinsics.d.ts` offer it
+  (`.changeset/11068-keyboard-navigation.md`).
+- 4a1adb7: The list view's record-count bar reads the right noun form in every language at every count (objectui#11445): it passes `count` to the `list.recordCount` count family instead of choosing `list.recordCountOne` on `=== 1`, so Russian reads `2 записи` and Arabic uses its dual at 2. `LIST_DEFAULT_TRANSLATIONS` carries the family's `_one` / `_other` rows.
+- f560ded: The gallery card's field bag now carries the field's `max`, the storage
+  statement the percent cell reads through the spec's `percentScaleOf`
+  (objectui#11475). Without it, a whole-stored `50` (`max: 100`) would read
+  `5000%` on a card beside `50%` in the grid.
+- 9801765: The selection bar's built-in **Delete** now honours `userActions.delete.visibleWhen`
+  per selected record (objectui#4420). It used to read that key as a bare boolean — the
+  object-level verdict only — so ticking a record the author's predicate excludes still
+  offered the red Delete, and pressing it deleted the record the predicate was written to
+  protect. The row kebab on the same screen hid its Delete correctly, so one declared key
+  meant two different things on two surfaces.
+  
+  Ruled by the maintainer on 2026-08-17 (behaviour 1 of the card's three): **filter the
+  operation and report the skipped**. The bar evaluates the predicate once per selected
+  record, the delete runs over the allowed subset, and the excluded records are reported
+  rather than silently dropped. The button itself is never hidden or disabled by the
+  predicate — a mixed selection is not punished for one stray tick — and a selection where
+  every row is excluded is a legible refusal rather than an unexplained absence.
+  
+  - `@object-ui/core` gains `partitionRowsByPredicate`, the set-shaped counterpart of
+    `evalRowPredicate`: the fail-closed per-record fold a bulk gate needs, written once.
+    A bulk gate evaluates N records in a loop, which is why it can never be a hook.
+  - `@object-ui/plugin-grid`'s bulk bar routes an excluded selection through
+    `BulkActionDialog`, whose existing `bulk-skipped-notice` slot reports the skipped
+    count; a selection with nothing excluded keeps the consumer's own delete flow
+    untouched. `resolveRowCrudAffordances` now also returns `objectDeletePredicates` —
+    the bulk half of the same predicates, gated on the object verdict rather than on the
+    row `onDelete` wiring. The dialog declines to run over zero records.
+  - `@object-ui/plugin-list`'s non-grid bulk bar (kanban / calendar / gallery / …) filters
+    the built-in `delete` to the eligible subset and states the skipped count inline.
+  
+  Custom bulk action ids are untouched: they route through the action runner carrying
+  their own gates. This is a UI affordance — server enforcement was never the leak.
+- 41b7ce3: **View configuration is explicitly org-wide, and its write path is now gated (objectstack#7494's
+  ruling, maintainer 2026-08-12).** The `sort` / `hiddenFields` / `columnState` / `rowHeight` that a
+  list toolbar persists were never per-user: they are one shared row on the view, so an ordinary user
+  dragging a column or cycling density was re-styling that view for the entire organization. Nothing
+  in the console said so, and nothing stopped it. A per-user scope stays parked (objectstack#7611,
+  v18) and is deliberately not built here — which is precisely why the write has to be gated rather
+  than narrowed: there is no second, private store for it to fall back to.
+  
+  `ObjectStackAdapter.updateViewConfig` now refuses when the session's **reported** ADR-0066 capability
+  set does not contain `manage_metadata`, throwing the new `ViewConfigPermissionDeniedError`
+  (`VIEW_CONFIG_PERMISSION_DENIED`, with `isViewConfigPermissionDeniedError` and the
+  `VIEW_CONFIG_CAPABILITY` constant alongside it). The gate is the **first** statement in the method —
+  before `connect()`, before the payload is assembled — so a refused call puts nothing on the wire.
+  It is on the write rather than on the toolbar button on purpose: withholding the affordance would
+  leave the method still accepting the call from anything else holding the adapter, whereas a gate on
+  the write is inherited by every caller, present and future.
+  
+  `manage_metadata` is not a newly minted name. It is the capability this repo already treats as
+  metadata-authoring authority — `HomePage`'s `AUTHORING_CAPABILITY`, the one the server itself
+  refuses metadata writes without — and the gated write goes through `client.meta.saveItem`, the very
+  same ADR-0005 metadata door, so this applies the authority the server is already applying instead of
+  inventing a parallel one.
+  
+  **Unknown fails open, by doctrine.** A capability set that was never reported (a backend predating
+  ADR-0066, or no permission provider mounted) is not a denial: the server enforces regardless, so a
+  client-side refusal on missing data cannot protect anything and can only break a permitted user. A
+  *reported* empty grant gates strictly. Hosts push the session's capabilities in with the new
+  `setSystemCapabilities`; `ObjectView` wires it from `usePermissions()`.
+  
+  The refusal is also **said out loud**. `ObjectView`'s persist path previously swallowed every failure
+  into `console.error`, which for a debounced toggle whose UI has already moved would have left the
+  operator looking at a density they did not get; a denied write now raises a toast. And the "View
+  settings" popover — where density and field visibility are actually changed — now states the scope
+  before the operator acts: *"Grouping, color, density, and visible fields. Applies to everyone who
+  uses this view."*, translated in all ten packs.
+- 39f4309: Published typings from every `vite-plugin-dts` package now carry an explicit extension on
+  every relative specifier, and a type error in the declaration build now fails the build
+  instead of being printed and ignored (objectui#5439, objectui#5483).
+  
+  **Consumers on `moduleResolution: nodenext` or `node16` may see NEW type errors, and that
+  is the fix working.** These packages re-export mostly through NAMED re-exports —
+  `export { useObjectChat } from './useObjectChat'`. TypeScript could not follow the
+  extensionless hop, but it still DECLARED the name, so the symbol resolved to a silent
+  `any`. Nothing errored; consumers simply got no types. With the extension emitted, the
+  symbol carries its real type, and any call site that was relying on the `any` now type
+  checks for the first time. This is the mode that produced the 21 residual `TS7006` on
+  `@object-ui/app-shell` reported against objectui#5365 — a type hole that opened quietly,
+  unlike objectui#5365's own `export * from './ui'` packages where the same defect surfaced
+  immediately as `TS2305: has no exported member`.
+  
+  410 extensionless relative specifiers across 19 packages were emitted before this change;
+  the count is now 0 in all 22 packages that build typings through `vite-plugin-dts`.
+  `@object-ui/fields` was already clean — its sources write explicit `.js` specifiers — and
+  is wired so it stays that way.
+  
+  The second half changes no emitted output today: 22/22 packages built green unmodified, so
+  making the declaration step's exit code honest turns nothing red. It changes what a FUTURE
+  regression does — print and exit 0, versus fail the build.
+- b4393e5: The last three sort-axis consumers read the platform's per-column sortability signal instead
+  of re-deriving it from the field's type (objectui#6108, inheriting objectstack#10235 ruling A
+  through objectui#5729's landed contract). ListView's toolbar sort picker and both of
+  RelatedList's sort entry points — the embedded table's column headers and the `data-list`
+  sort-button row — now go through `isPlatformSortableField`, the same spelling the grid header
+  adopted; their `UNMATERIALIZED_FIELD_TYPES` / `isUnmaterializedFieldType` re-derivations are
+  deleted.
+  
+  The re-derivation was not wrong about `formula`: the platform computes its own projection from
+  the same `@objectstack/spec` storage fact, which is why the drift went unnoticed across two
+  cards. It parts company on everything the projection encodes as ABSENCE — an unknown name, a
+  dotted path a caller can put in a related list's `columns`, an unprovisioned audit column —
+  where a type read finds no field definition, answers "sortable", and offers a control the
+  runtime meets with `400 INVALID_SORT`. It parts company again on any refusal that carries no
+  `reason: virtual-type`, and it cannot follow the platform in the other direction either: a
+  field the platform now DOES order by stays withheld forever on its type alone.
+  
+  Two behaviours are deliberately unchanged. The relational carve-out stays separate from the
+  signal — the projection answers `sortable: true` for a `lookup` because the platform can order
+  by the stored foreign key, while the UI withholds because that order means nothing beside a
+  column of names — so a relational column does not get its sort back. And ListView's picker
+  still lists a field the CURRENT sort already names, which is the only way to remove a sort the
+  server refuses outright; that exception now covers platform-refused fields, not just formulas.
+  
+  A deployment that served no `sortability` key at all is a different case from "nothing is
+  sortable": that branch keeps the type read as a compatibility floor, so behaviour on a backend
+  older than objectstack#10235 (or an inline/mock data source) is byte-identical to before.
+- bd2f56a: `ListView`'s toolbar sort picker no longer persists a sort the platform refuses to order by.
+  
+  The picker keeps a platform-refused field listed while the CURRENT sort names it
+  (#6108). That exception is deliberate and stays: it is the only way a user can
+  REMOVE a sort the server answers `400 INVALID_SORT` for — withholding the option
+  unconditionally renders a blank row nobody can delete, and drops the sort silently
+  on the next edit.
+  
+  What was wrong is that the picker rendered and emitted from the same array. Editing
+  anything ELSE in that popover — adding a second sort key, resetting to the view's
+  default — re-emitted the whole array with the refused entry still in it, and the
+  host's `onSortChange` turned that into `persistViewPatch({ sort })`: a
+  personalization PUT storing a refused column, written by a user who never touched
+  that row. A view stored before the sortability signal existed therefore kept
+  re-persisting its refused `$orderby` indefinitely.
+  
+  Every `onSortChange` this component emits — the builder, the column-header sort and
+  "reset to default" — now crosses one boundary that drops what the served projection
+  refuses, while `currentSort` keeps the array whole. So what the picker LISTS and
+  what it PERSISTS are separate: the refused entry stays visible and removable,
+  removing it persists the removal, and no write carries it. This is the separation
+  #5729 already made at the grid seam (`ObjectGrid`'s `manualSort` /
+  `manualOnSortChange` pair); the picker was the second door onto the same stored
+  view state.
+  
+  Only under a served sortability projection (objectstack#10235 ruling A). `undefined`
+  means NO SIGNAL SERVED — an older deployment, an inline/mock data source — not
+  "nothing is sortable", and that branch is byte-identical in behaviour to before.
+- babe956: `list-view` stops spelling "the author declared no columns" as an explicit empty
+  projection (objectui#6598).
+  
+  A production `kind:'html'` page carried `<list-view objectName="opportunity">`
+  with no `columns` and rendered the row count, the filter/group/sort toolbar and
+  the index column — and **not one data column**, with no diagnostic anywhere.
+  `ObjectGrid` derives default columns for exactly that case ("Default columns
+  priority (when schema doesn't specify columns)"), and it never ran: the
+  derivation is gated on `schema.fields` being ABSENT, `ListView` sent
+  `fields: []`, and an empty array is truthy. `normalizeColumns` had already read
+  the empty `columns` as unauthored, so the two keys disagreed about the same fact
+  and the stricter reading won.
+  
+  `ListView` now asks whether the AUTHOR declared a projection — `columns` present
+  and non-empty, after the legacy `fields` fold — and hands the child grid nothing
+  at all when they did not, so the grid's own defaults apply.
+  
+  ⚠️ The predicate reads the authored value and never what survived filtering, and
+  that distinction is load-bearing: when the author DID declare columns and the
+  field gate removed every one of them, the empty projection is still sent.
+  `ObjectGrid` re-applies FLS on its derived column path only, never on the
+  explicit-columns path, so falling through to the derivation there would put
+  fields on screen that the author never asked for and the principal may not read.
+  
+  Measured single-variable on the html tier: a bare
+  `<object-grid objectName="opportunity" />` renders the object's default columns;
+  the same object behind `<list-view>` rendered none. Pinned at the handoff
+  (`ListView.unauthoredColumnProjection-6598.test.tsx`) and end to end over the
+  real grid on a real html-kind page
+  (`htmlTierListViewDefaultColumns-6598.test.tsx`).
+  
+  This is one half of the reported symptom. Which columns the defaults resolve to
+  still depends on who owns the fetch — with a host like `ListView` fetching, the
+  grid takes its inline-data branch and derives from the row payload's keys rather
+  than from the object schema's policy (hidden and readonly system-managed fields
+  dropped, `highlightFields` honoured). That precedence sits in
+  `packages/plugin-grid` and is filed separately.
+- 3beef6d: The spec's `dataSource` element binding is now DECLARED by the blocks that read
+  it, so the html tier stops reporting the one working saved-view spelling as
+  `unknown-prop` (objectui#6678).
+  
+  `PageComponentSchema.dataSource` — `{ object, view, filter, sort, limit }` — is
+  the one spelling that resolves a saved view for an object-bound block. It works,
+  and it drew the identical `unknown-prop` warning as the two spellings that do
+  nothing (`viewName`, `view`), because `validateTree` looks a prop up in the
+  block's declared `inputs` and no registration declared this key. On the tier
+  built to accept AI-authored pages, where the diagnostic IS the contract, the
+  only signal pointed away from the key that works.
+  
+  Adopting the maintainer ruling of 2026-08-29 — option B **in the injection
+  form**:
+  
+  - `ELEMENT_DATA_SOURCE_INPUT` is the single declaration, in `@object-ui/core`
+    beside the binding's own semantics; `Registry.register` emits it for any
+    registration whose renderer passed through the new `elementDataSourceBlock()`
+    seam. One mechanism, one copy — not a hand-kept declaration per block, which is
+    the shape that drifts and that a new block forgets. The seam lives in
+    `@object-ui/core` and is re-exported by `@object-ui/react` beside
+    `ElementDataSourceGate` for discoverability; call sites take the core import,
+    because a registration runs at module scope and this repo's suites partially
+    mock `@object-ui/react`.
+  - Seventeen renderers, in thirteen files across twelve packages, reach the seam
+    and now publish the key to the save gate, the parser whitelist, the generated
+    JSX authoring types and the block list. The card named nine blocks; the tree
+    also has `plugin-grid`, `plugin-timeline`, two further `plugin-form` blocks and
+    `element:record_picker` — nothing was hand-listed, so the mechanism covered
+    them. `element:record_picker` consumes the gate's HOOK and status panels rather
+    than the wrapper tag (its object lives under `properties`), and was found by a
+    render probe rather than by reading sources.
+  - `dataSource` on a block that does NOT read it (`flex`, `card`) still reports
+    `unknown-prop`. Adding the key to `sdui-parser`'s `BASE_PROPS` was refused for
+    exactly this reason — that set mirrors `BaseSchema`, and silencing the key
+    everywhere would make the diagnostic lie in the other direction.
+  - New `check:element-data-source-declaration` fails any source that consumes the
+    gate without reaching the seam, so a block added tomorrow cannot forget.
+  
+  Behaviour of the binding itself is unchanged — this is a declaration, not a
+  resolution change. The saved view still resolves its columns, and an
+  unresolvable `view` still fails loudly rather than widening to the object's full
+  scope.
+  
+  The spec/registry parity gates (repo-wide and the `record:related_list` per-block
+  pin) now derive their accepted set from the WHOLE node contract rather than from
+  `ComponentPropsMap[type]` alone. `PageComponentSchema` accepts and keeps
+  `dataSource` on a page-component node — it is a node-level key, a sibling of
+  `type` and `className`, not a per-block prop — so the gates' previous complaint
+  was measurably wrong. Derived from the spec, not exempted, and both still
+  discriminate against an invented key.
+- 06b8c42: Re-key three more renderer effects onto the primitives they actually read,
+  instead of the memoised object identity that produced them (objectui#6697 —
+  the three census members from objectui#6592 that sit outside its
+  `getDataConfig(schema)` family):
+  
+  - `RelatedList`'s collection fetch now depends on `defaultSortKey` /
+    `filterKey` (the `JSON.stringify`-derived content strings the two memos are
+    already keyed on) rather than on `defaultSortSpec` / `listFilterNode`.
+  - `page:tabs`' related-count probe now depends on a serialised `probeKey`
+    rather than on the `probeTargets` `Map`.
+  - `ListView`'s data fetch now depends on the `expandFields` memo's own INPUTS
+    — `schema.columns`, the alternate views' binding blocks and
+    `objectDef?.fields`, all props and state a discard cannot move — rather than
+    on the `expandFields` array the memo returns.
+  
+  `useMemo` carries no semantic guarantee — React is permitted to discard a memo
+  cache and recompute even when its dependency array compares equal to the
+  previous render — and all three factories return a FRESH value on every call
+  (`normalizeSortSpec`/`toFilterNode` build a new array / a freshly lowered AST,
+  the probe factory builds a new `Map`, `buildExpandFields` returns a new array
+  in every branch). So each effect re-ran on a discard alone, with nothing an
+  author or a caller controls having changed: an extra `dataSource.find` for the
+  related collection, an extra `dataSource.find` for the list window, and a
+  redundant re-probe of every tab's count. Keying on the primitives makes a
+  cache discard a no-op and returns `useMemo` to being a pure optimisation.
+  
+  Severity is low and the fix is deliberately narrow: the observable was a
+  redundant round trip, never incorrect data, so only the re-run condition
+  moves — each effect body still reads the memoised value, and a genuine change
+  still refetches exactly as before.
+  
+  The three take two routes on purpose — key on the nearest DISCARD-IMMUNE
+  thing. `RelatedList`'s memos are keyed on exactly one primitive each, and
+  `page:tabs`' probe memo is keyed on another MEMO's output (`items`), which is
+  not discard-immune, so both take a content string. `ListView`'s memo is keyed
+  on props and state, so it names those directly: a value key over
+  `expandFields` would NOT have been content-equivalent there — `buildExpandFields`
+  collapses the collected set down to the relation roots, while the effect body
+  also builds `$select` from `schema.columns` and the view bindings — and it
+  would have defeated objectui#4567's live-dependency pin, which ruled that
+  "ListView's by-identity dependency is correct for a real column change" and
+  put the identity stabilisation at the PRODUCER.
+  
+  One correction to the census card's account, measured while pinning it: for
+  `page:tabs` the redundant probe costs nothing on the wire.
+  `RelatedCountStore.fetch` returns the cached count as its first act and dedupes
+  concurrent probes, so the extra work is the effect re-running, not an extra
+  request.
+- 4dfdcc3: `ListView` reads `exportOptions.streaming` without a cast (objectui#6956). The
+  two `as any` reads — the `exportableFormats` server-availability check and
+  `handleExport`'s server-eligibility gate — and the `'pdf'` in the bare-array
+  fold's cast are gone: the `ListViewSchema` type now carries `streaming` and not
+  `'pdf'`, because `@object-ui/types`' zod mirror binds the spec's `exportOptions`
+  field by reference. No behaviour change: the same formats are offered,
+  `streaming: false` still forces the client-side path, and the bare-array fold
+  (`resolvedExportOptions`, a stored `['csv', 'xlsx']` folded to `{ formats }`)
+  STAYS — nothing on the render path parses and `ObjectView` forwards a stored
+  value verbatim, so the spec's parse-time lift never runs before this renderer
+  and the fold is load-bearing rather than legacy. A `'pdf'` stored before the
+  retirement still arrives as data and is still dropped from the export menu with
+  the existing one-time warning.
+- d1842ab: `DataEmptyState` now declares `role="status"` by default, so an empty result is
+  distinguishable from a failed one on every surface that renders it
+  (objectui#7132).
+  
+  This is the convergence half of the two rulings that landed as objectui#7063 and
+  objectui#7064, both resting on objectstack#13848: uniform behaviour belongs to
+  the platform, and per-surface compensation is the per-app tax being ruled
+  against. Those two fixed their own surfaces deliberately and locally; this card
+  measured whether the shared primitive should carry the property. It did not.
+  
+  **Measured, not assumed.** All the surfaces were rendered and their empty boxes
+  read directly:
+  
+  | surface | `role` before |
+  |---|---|
+  | `DataEmptyState` bare default | *none* |
+  | `plugin-list` empty list | *none* |
+  | `plugin-list` load-error panel | *none* |
+  | `plugin-detail` activity timelines | *none* |
+  | `ui:empty` schema renderer | *none* |
+  | `plugin-dashboard` `WidgetEmptyState` (#7063) | `status`, typed at the call site |
+  | `plugin-kanban` empty board | `status`, typed at the call site |
+  
+  The sibling states in the same file had always declared themselves —
+  `DataLoadingState` is `role="status"`, `DataErrorState` is `role="alert"` — and
+  the empty state alone declared nothing. So the surfaces were not legitimately
+  differing: the ones that wanted the property had each hand-typed the same line,
+  and the ones that had not yet done so were silently missing it. That is one
+  platform default, copied by hand, at package level.
+  
+  **It is a default, not a fixed attribute** — `role` is spread from props, so a
+  call site keeps the last word. That is what makes this inert for the two ruled
+  surfaces: both already pass `role="status"` explicitly and receive the identical
+  attribute with or without it. Neither surface's behaviour changes.
+  
+  **One real defect fell out of the measurement.** `plugin-list` renders its load
+  FAILURE through `DataEmptyState`, borrowing it for layout — so a 403 saying "You
+  don't have access" and a young object saying "Nothing here yet" were the same
+  node shape, with no role on either. That panel now declares `role="alert"`,
+  which both fixes the pre-existing indistinguishability and stops the new default
+  from announcing an outage as a routine status.
+  
+  Metric/KPI widgets are untouched: their carve-out (`rows.length === 0 &&
+  !isMetric`) gates whether an empty state is rendered *at all*, upstream of this
+  component, so a KPI still reads `0` rather than "no data".
+- a6d8b8d: Fix: a grid grouped by a field it does not also show as a column no longer collapses
+  every row into one `(empty)` group (objectui#7179).
+  
+  `$select` was built from the view's `columns` and nothing else, so a view declaring
+  `grouping: { fields: [{ field: 'business_unit' }] }` on a field absent from its columns
+  never asked the server for that field. It was `undefined` on every row by the time
+  grouping ran, and the grouping label builder — correctly, for a genuinely empty value —
+  answered `(empty)` for all of them. The result was one collapsible group holding every
+  record, with no error, no warning and no empty state: a grid that looked like it grouped
+  and did not, reading as "these records have no value for this field".
+  
+  The grouping fields are now unioned into the projection, at both places it is built —
+  `ObjectGrid` when it fetches for itself, and `ListView` when it fetches and hands the
+  rows down. Lookup grouping fields are unioned into `$expand` as well: a `select` that
+  fetches a bare foreign key without populating it buckets by raw id instead of by name,
+  which is a different wrong answer rather than a fix.
+  
+  Authors do not need to mirror a grouping field in `columns` any more. That was never
+  required by `@objectstack/spec` — `grouping` is a sibling of `columns`, not a subset of
+  it — and the neighbouring view kinds (kanban, gantt, timeline) already unioned their
+  `groupByField` with no column needed. Refusing the configuration at author time was
+  considered and rejected: it would make the grid the odd one out and reject working
+  intent that the schema explicitly allows.
+  
+  The union is guarded, and the guard is as load-bearing as the fix. A `grouping.fields[]`
+  entry carries a bare string that has never been through column validation, and some
+  backends answer an unknown `$select` key with an empty result set rather than ignoring
+  it. Unioned unguarded, a grouping field naming something the object does not declare
+  would have turned this bug into a strictly worse one — no rows at all, equally silently.
+  Grouping fields are therefore intersected with the object's declared fields and passed
+  through the same field-level-security gate as columns and predicate operands before they
+  reach the query.
+- f626808: fix(app-shell,plugin-list): a list view's own `description` now reaches the screen
+  
+  A `description` authored on a per-list-view entry (`listViews.<viewName>.description`)
+  was validated, built and served correctly, then silently never rendered. Two
+  independent cuts, both fixed here:
+  
+  - **app-shell** — `ObjectView`'s `renderListView` relay copied ~46 keys off the
+    active view onto the schema it hands `ListView` (`label`, `sort`, `filter`,
+    `hiddenFields`, `inlineEdit`, `color`, `allowExport`, …) but had no rung for
+    `description`, so the renderer could only ever see the object-level list's
+    description and a per-view one was unreachable. It is relayed now, with the
+    same two-rung shape as `label`. This is *not* the object's own
+    `objectDef.description`, which stays the page header's subtitle.
+  - **plugin-list** — `ListView` rendered `typeof description === 'string' ? … : ''`,
+    a type test rather than a resolution. `ListViewSchema.description` is
+    `I18nLabel`, so an inline locale map (`{ en, 'zh-CN' }`) — metadata the spec
+    entitles an author to write — rendered a blank strip in every locale. It now
+    resolves through the same shared helper the sibling `label` uses, and the
+    visibility guard reads the resolved text, so a map with no usable entry drops
+    the strip instead of reserving empty space for it.
+  
+  `appearance.showDescription: false` still suppresses the description in both arms.
+- 3ed3eec: fix(plugin-form,plugin-list,plugin-view,react): read `SchemaRendererContext` as declared, not through a cast to `any` (objectui#7209)
+  
+  Six reads of the renderer context erased its type. Five cast at the read —
+  `useContext(SchemaRendererContext as React.Context<any>)` in the
+  `embeddable-form` and `object-master-detail-form` bridges, in `ListViewBlock`
+  and in `useResolvedDataSource`, and the same cast spelled with a bare
+  `Context<any>` in `useElementDataSource` — and the `object-view` renderer's
+  module re-declared the imported context as a `React.Context<any>`. Through
+  that cast a read of a member the context does not declare compiled clean,
+  which is how the phantom `ctx.formValues ?? ctx.data` channel retired by
+  objectui#7206 went unnoticed. Each of these reads now sees `SchemaRendererContextType` as
+  `@object-ui/react` declares it, so such a read is a compile error on the day it
+  is written.
+  
+  No runtime behaviour changes. Removing the casts surfaced no read of an
+  undeclared member; it surfaced two places where the declared `null` ("no
+  adapter bound") met a prop that does not admit it:
+  
+  - `embeddable-form` handed that `null` to `EmbeddableForm`'s optional
+    `dataSource`. It now collapses it to `undefined`, as
+    `object-master-detail-form` already did; `EmbeddableForm` only ever tests the
+    adapter for truthiness, so the two absences behave the same.
+  - `object-view` / `view` hand it to `ObjectViewProps.dataSource`, which is
+    declared required and stays so (objectui#7842). That one value now carries a
+    narrow, commented assertion instead of the whole context being erased; the
+    value passed is the same as before.
+  
+  The published signatures of `useResolvedDataSource` and `useElementDataSource`
+  do not move.
+- 5015fcf: A gantt list view no longer shows the record-count bar, because the bar describes a
+  request that view does not draw (objectui#7210, half 1).
+  
+  `ListView` renders one record-count bar for every `viewType`: the row count, the
+  "Showing first N records. More data may be available." warning that goes with its own
+  `$top: pageSize` query, and a rows-per-page selector that re-issues that query. On grid,
+  kanban, calendar, gallery, timeline and map the bar is accurate — those renderers draw
+  the `data` `ListView` hands down.
+  
+  On `gantt` it is not. Measured, not inferred: the registered `object-gantt` renderer
+  forwards no prop but `schema`, so the `data` prop never reaches the chart and
+  `ObjectGantt` issues its own query — one that carries no `$top` at all. In a harness of
+  18 rows with `pagination.pageSize: 6`, the chart drew all 18 while the bar under it read
+  "6 records · Showing first 6 records. More data may be available." Because it is the
+  only paging disclosure on the screen, a reader takes it as describing the chart; that
+  reading already produced a wrong finding in an application repo, which cost a browser
+  session to disprove. Authoring `pagination.pageSize` could not have fixed it either —
+  the chart's request never carried a page size to begin with.
+  
+  Scoped to `gantt` alone. Every other surface keeps its bar unchanged, warning included;
+  a kanban over the same result set still reports its page honestly.
+  
+  Not changed here, deliberately: the gantt's query still has no ceiling, and `ListView`
+  still issues its own paged query for that view (its rows still drive the loading
+  skeleton and load-error panel, `UserFilters`' option counts, and the client-side CSV /
+  JSON export). Capping a non-grid view's fetch is an open maintainer decision — adding
+  one would turn a complete schedule into a quietly truncated one — and this correction is
+  right whichever way that lands.
+- 67dadd6: FLS-gate the `$expand` projection at both build sites (objectui#7215).
+  
+  objectui#6898 closed field-level security on `$select`. `$expand` was left ungated at
+  both projection sites — `ObjectGrid`'s own fetch and `ListView`'s `expandFields` memo —
+  so a `lookup` / `master_detail` / `user` / `tree` field the current principal cannot
+  read was still handed to the server for expansion. `$select` on a denied lookup asks for
+  its bare foreign key; `$expand` on the same field asks the server to resolve it and
+  return the related record, so the larger of the two disclosures was the ungated one.
+  
+  **Reproduced before it was fixed**, as failing tests at both sites, and the same leak
+  reaches further on the `ListView` path: that builder's `$select` gate drops the denied
+  column and then adds the expand roots back unconditionally, so the denied field walked
+  back into `$select` as well. Gating the expansion closes both halves.
+  
+  **Grading, measured rather than assumed.** Against ObjectStack's own server this is
+  defence-in-depth, exactly as objectui#6898 is: `plugin-security`'s
+  `FieldMasker.maskRecord` deletes every unreadable key from each returned row, and
+  objectql's expand path writes the resolved record back under that same key, so one
+  statement removes the expanded object and the bare id alike; the expansion sub-read is
+  itself gated (`__expandRead` takes the referenced object's full CRUD + RLS + FLS
+  treatment). It is load-bearing for any backend that does not strip.
+  
+  **Nothing a permitted view did stops working.** The gate judges the OUTPUT of
+  `buildExpandFields`, which is already a subset of the object's declared
+  reference-bearing fields, so the "`checkField` answers false for an undeclared key"
+  trap cannot be reached and derived / host-joined columns are untouched. An unanswered
+  permission policy filters nothing. `buildExpandFields` itself is unchanged.
+- ac257b3: FLS-gate the speculative half of `ListView`'s `$select` projection (objectui#7216).
+  
+  `ListView` builds `$select` from two populations and, until now, asked them different
+  questions. The user-declared `columns` were passed through `perms.checkField(...)` by
+  objectui#6898. Everything the builder adds ON TOP — the kanban / gantt / timeline /
+  calendar / gallery field bindings, the timeline's auto-added `status` / `priority`
+  badge fields, and the operands harvested from row-action and conditional-formatting
+  predicates (objectui#3501) — went through `addSpeculative`, which intersected them
+  against the object's declared fields and then added them unconditionally.
+  
+  The two gates it needed answer unrelated questions and neither substitutes for the
+  other. The known-field gate keeps an **unknown** key out, because some backends answer
+  an unknown `$select` key with an empty result set rather than ignoring it. The FLS gate
+  keeps a **known but denied** key out, because sending it leaks the value at the server
+  boundary even though the UI hides it. A field can be perfectly well-declared and still
+  denied, and that was the case this path did not handle: a kanban grouped by a denied
+  field, or a gantt bound to a denied date, still named it in the request.
+  
+  **Reproduced before it was fixed.** Eight of fourteen new pins fail on the unmodified
+  tree, each reaching the denied field only through a view binding — a denied *column* has
+  been dropped since objectui#6898, so a pin naming one would have proved nothing.
+  
+  The gate goes inside `addSpeculative` rather than at the five call sites, so every route
+  into the speculative union is covered at once; gating call sites one at a time is how
+  the asymmetry arose. It runs **after** the known-field intersection, the ordering
+  objectui#7179 established: `checkField` answers false for an undeclared key, so asking
+  it first would drop derived and computed bindings — and would be the reason they were
+  dropped. The platform record columns (`created_at`, `owner_id`, the audit FKs) are
+  carved out for the reason they already are elsewhere in this builder: every object
+  carries them and none declares them, so no field policy mentions them and an FLS answer
+  about them is always false. Without the carve-out a calendar bound to `created_at` would
+  go blank for everybody.
+  
+  **Nothing a permitted view did stops working.** A permitted binding is still projected,
+  an unanswered permission policy filters nothing, and the projection is rebuilt when the
+  policy answers — pinned, because a gate that only runs before `/me/permissions` resolves
+  is a dead gate that passes almost every test written for it.
+  
+  objectui#7179's `addGroupingField` wrapper is removed: its predicate was identical to
+  the one now inside `addSpeculative`, and two spellings of one gate is the shape that
+  lets them drift. That path keeps its behaviour and gains the FLS pin it never had.
+- 2c878be: Honour a gantt view's authored `navigation` — forward it down the gantt
+  view-schema path, and give the component a destination for the non-overlay
+  modes (objectui#7334).
+  
+  **Leg 1, `@object-ui/plugin-list`.** `ObjectGantt` resolves
+  `schema.navigation ?? { mode: 'drawer' }` and classifies four overlay modes
+  (`drawer` / `modal` / `split` / `popover`). Nothing ever put `navigation` on the
+  node it receives — `ListView`'s shared `baseProps` declares no such key and the
+  `case 'gantt'` branch added only the data keys — so that fallback was the only
+  branch ever taken. A gantt view authoring `navigation: { mode: 'page' }` (or
+  `modal`, or `split`) opened a drawer instead, with no diagnostic. The key was
+  already authorable and already read; this restores declared = enforced. No new
+  authorable key is added.
+  
+  The key is forwarded on the `case 'gantt'` branch and deliberately **not** on
+  the shared `baseProps`, because every other child view resolves this same
+  question through the `onRowClick` that `baseProps` already carries:
+  `ObjectGrid`, `ObjectGallery`, `ObjectKanban`, `ObjectMap`, `ObjectTimeline` and
+  `ObjectTree` hand that callback to `useNavigationOverlay` unconditionally, and
+  the hook gives an external `onRowClick` full priority over any `navigation` — so
+  on `baseProps` the authored config would arrive there only to be outranked.
+  `ObjectCalendar` is the one that would genuinely change behaviour: it mirrors
+  gantt's `navIsOverlay ? undefined : onRowClick`, so an authored non-overlay mode
+  would stop it suppressing the host handler. Gantt is the only branch where
+  forwarding settles the question rather than splitting it, because its wrapper
+  drops host props entirely (objectui#7210 / objectui#7222) and there is no
+  `onRowClick` there to outrank anything.
+  
+  **Leg 2, `@object-ui/plugin-gantt`.** `ObjectGantt` now supplies its own
+  `onNavigate`, so a click under an authored `page` or `new_window` actually
+  reaches the record page. Leg 1 alone would have made `page` reachable and inert:
+  `useNavigationOverlay`'s `page` branch calls `onNavigate` and returns with no
+  fallback, this component supplied none, and its registration hands it no host
+  `onRowClick` either — both carriers empty at once, turning an authored `page`
+  from "a drawer opens, which is wrong" into "the click does nothing". The
+  destination is the record-page href the component already computes for the
+  drawer's full-page link, so the two cannot diverge; same-tab navigation uses the
+  history plus `popstate` pair (matching `DashboardRenderer` and `PageHeader`),
+  and `new_window` now opens the app-prefixed href rather than the hook's
+  unprefixed fallback. No host prop is forwarded to the chart.
+  
+  A view that authors no `navigation` still gets **no** key and still opens its
+  drawer, so the component's default is unchanged for every gantt in the product
+  today; an authored `none` stays inert.
+- 237e5b8: fix(plugin-list): stop re-issuing the identical records query on every visualization switch
+  
+  `ListView`'s fetch effect named `currentView` in its dependency list, so
+  switching between Grid, Kanban, Calendar and the other visualizations re-ran it
+  — but the query it builds never reads the current visualization. The only way a
+  surface reaches the wire is the `$skip` of its window, and on page 1 that number
+  is 0 for a flat grid and 0 for every other surface, so the re-issued request was
+  byte-for-byte the one already on screen. A board reached through a view switch
+  therefore cost two identical `GET /api/v1/data/<object>?top=…&select=…` round
+  trips before its first paint.
+  
+  The effect is now keyed on the window itself (`fetchSkip`), and the two
+  surface-shaped readings the fetch used to latch — the server total behind the
+  grid's pager, and the row-cap banner's "…but the real total is known" half — are
+  derived at render instead. Every re-fetch that changes the window is kept:
+  turning the page still refetches, and leaving a paged grid from page 3 for a
+  board that consumes the whole batch still refetches. What is gone is the
+  round trip that changed nothing.
+- d327b9c: FLS-gate the `$expand` projection at the seven remaining `buildExpandFields`
+  call sites (objectui#7429).
+  
+  objectui#7215 / PR #7229 gated the two projection sites in its scope
+  (`ObjectGrid`, `ListView`). objectui#7230 / PR #7428 gated four more
+  (`ObjectCalendar`, `ObjectGantt`, `RecordDetailView`, `DetailView`). This
+  closes the seven that were left: `ObjectKanban`, `ObjectTree`, `ObjectView`
+  (the non-grid record-fetch effect), `ObjectMap`, `ObjectGallery`,
+  `ObjectTimeline`, and the metadata-admin `PagePreview`'s record-binding fetch.
+  
+  **All seven pass no column list at all**, which makes every one of them the
+  sharp shape: `buildExpandFields` reads an absent column list as "no column
+  restriction" and falls back to **every declared relation on the object**,
+  denied ones included. So each of these components asked the server to resolve
+  the object's full relation set by default, not by configuration — the
+  ordinary shape of each surface, not a corner of it.
+  
+  **`PagePreview` is the one site where the judged principal is not the page's
+  eventual audience.** It calls the browser's own `fetch` with
+  `credentials: 'include'` rather than `DataSource.find`, so it runs under
+  whichever session is loading the Studio preview. Gating on that same session's
+  `usePermissions()` is still the correct principal: it is exactly the request
+  the browser is about to make, on its own credentials, regardless of who later
+  opens the published page.
+  
+  **Reproduced before it was fixed**, as a failing test per site (and, for the
+  two sites — `ObjectView`, `PagePreview` — where the gate was implemented
+  before its test was run red, a reverse-verification: the gate was reverted,
+  all four denial-and-set pins on each went red, and the two deferral/positive
+  control pins stayed green, before the gate was restored).
+  
+  **Grading, measured rather than assumed** — the same reading objectui#6898,
+  #7215 and #7230 recorded: against ObjectStack's own server this is
+  defence-in-depth, not a live disclosure. `plugin-security`'s
+  `FieldMasker.maskRecord` deletes every unreadable key from each returned row
+  and objectql's expand path writes the resolved record back under that same
+  key, so one statement removes the expanded object and the bare id alike; the
+  expansion sub-read is itself gated (the referenced object's full CRUD + RLS +
+  FLS treatment, objectstack#7626). It is load-bearing for any backend that does
+  not strip, and the client-request side is real regardless.
+  
+  **Nothing a permitted view did stops working.** The gate judges each site's
+  `buildExpandFields` OUTPUT, which contains only the object's declared
+  reference-bearing fields, so the "`checkField` answers false for an
+  undeclared key" trap cannot be reached. An unanswered permission policy
+  filters nothing. `buildExpandFields` itself is unchanged.
+  
+  `@object-ui/permissions` is added to `dependencies` for `plugin-kanban`,
+  `plugin-tree`, `plugin-map`, `plugin-timeline`, and `plugin-view` — the fifth
+  one objectui#7429's own dependency count missed (it named four); `plugin-list`
+  and `app-shell` already had it.
+- c6198c2: **Breaking for authored metadata:** `ComponentInput.label`, `ComponentInput.defaultValue` and
+  `ComponentInput.advanced` are RETIRED on both faces (objectui#7493 item ① and objectui#7781;
+  maintainer ruling A of 2026-09-06, immediate, no deprecation window; ADR-0049 enforce-or-remove).
+  They are the three keys the manifest serializer does not forward, and nothing read them on any
+  publication or consumption path.
+  
+  No manifest ever published them, so no consumer could ever have read them. `sdui-parser`'s
+  serializer (`packages/sdui-parser/src/index.ts`) forwards exactly seven keys per input — `name`,
+  `type`, `of`, `required`, `enum`, `binding`, `description` — so a value authored under any of the three
+  never reached `sdui.manifest.json`, the generated JSX `.d.ts`, or a diagnostic; its boundary type
+  has no slot for them; the registry's data-source seam reads `name` only; and neither the designer
+  nor the app-shell inspectors consult registry `inputs` at all. A structural census over every
+  `inputs:` array in the repository (re-measured on this change's merge-base, `name` 951 and `type`
+  951 as the controls) counted the writes: `label` 908, `defaultValue` 245, `advanced` 9 — written on
+  nearly every registration, read by nothing.
+  
+  FROM → TO, per key — all three **TOMBSTONED, not removed**, because the route was measured on
+  the built face before it was chosen: `ComponentInputSchema` is a non-strict `z.object`, and an
+  undeclared key parses GREEN and is silently STRIPPED, so a deletion would have swallowed 1,162
+  authored values in silence. The tombstone is what makes the refusal loud and by name.
+  
+  - `label?: string` → `label?: never` on the interface, `retirementTombstone()` on the Zod mirror.
+    Migration: delete the key. An input is identified by its `name` on every path that reaches it;
+    nothing ever rendered a label for it.
+  - `defaultValue?: any` → `defaultValue?: never` / `retirementTombstone()`. Migration: delete the
+    key. The renderer's own fallback read IS the default; tell the author about it in `description`,
+    which IS published. (Tightening the type to `unknown` was ruled out: it closes no error class,
+    since nothing reads the value.)
+  - `advanced?: boolean` → `advanced?: never` / `retirementTombstone()`. Migration: delete the key.
+    No designer surface ever hid an "advanced" input; there is nothing to write instead.
+  
+  The retirement kit: `?: never` on `ComponentInput` (`packages/types/src/base.ts`), so authoring one
+  is a `tsc` error at the registration site; `retirementTombstone()` on `ComponentInputSchema`
+  (`packages/types/src/zod/base.zod.ts`), so an authored value is REFUSED at parse time with
+  `code: 'invalid_type'`, the key named in the issue `path`, and the migration note as the message
+  (one string, both channels). Pinned in
+  `packages/types/src/__tests__/component-input-retired-keys-7493.test.ts`, which also holds a
+  tree-scoped absence census over every `inputs:` array under `packages/**` and `apps/**`.
+  
+  Accept-set change, stated plainly for reviewers: a document that sets any of the three keys on a
+  `ComponentInput` used to parse GREEN (the value was then dropped by the serializer) and now parses
+  RED. Every in-repo authoring site — 1,199 keys across 110 registration files, the three standalone
+  `ComponentInput[]` arrays and the two named input arrays `tsc` found included — is deleted in the same change, as the ruling's split rule
+  requires; the `WidgetRegistry` seam no longer copies the widget-manifest values onto the synthesized
+  `ComponentInput` (they fed nothing), and the data-source declaration `ELEMENT_DATA_SOURCE_INPUT`
+  drops its `label`. The patch entries on the other packages record exactly that: their registrations
+  stop authoring inert keys, with no runtime or published-manifest change.
+  
+  The nine test files that read `defaultValue` off a registration were re-pinned against the
+  renderer's ACTUAL default (its own fallback read, or the `defaultProps` it ships) instead of the
+  declaration that went away; two assertions that only restated the shadow default were dropped with
+  the reason on the line.
+  
+  The in-repo zero is what was measured. Whether anything OUTSIDE this repository writes these keys
+  is not measurable from here (the objectui#5674 limit); converting such a write from a silent drop
+  into a named refusal is exactly what the tombstones buy. `WidgetInput`'s own `label` /
+  `defaultValue` / `advanced` (the widget-manifest face) stay declared and writable — nothing has
+  ruled on that face; that it now has no reader either is recorded as objectui#7911.
+- fee1da5: `ListView` no longer reads relational keys off a list column while the object
+  definition is still loading (objectui#7531).
+  
+  Until the definition arrives, the filter and sort candidates are built from the
+  view's declared `columns`. That fallback used to read `reference_to` /
+  `reference`, `display_field` / `reference_field` and `id_field` off each
+  column. `ListColumnSchema` declares none of them in either casing, so a
+  spec-compliant producer can never put one there, and the read only kept a
+  second, undeclared route alive (AGENTS.md 0.1). The candidate now carries what
+  a column declares; its relational target (`referenceTo`, `displayField`,
+  `idField`) comes from the object definition once it loads, as it already did.
+  
+  Nothing changes for a spec-compliant view. A column that carried one of these
+  keys anyway now gets the same pre-load candidate as a column without it: the
+  filter's lookup value picker waits for the definition instead of taking the
+  column's word for the target.
+- 245c7b7: The list view's capability gate now resolves `chart` (objectui#7544).
+  
+  A `grid` list view that declared a complete `chart:` block and whitelisted
+  `appearance.allowedVisualizations: ['grid', 'chart']` was never offered the Chart
+  toggle. `availableViews` builds the resolvable set from each visualization's binding
+  and intersects it with the whitelist (ADR-0047, whitelist ∩ resolvable); seven
+  visualizations had a capability check there — kanban, gallery, calendar, timeline,
+  gantt, map, tree — and `chart` had none, so the author's own whitelist was filtered
+  down to nothing and the view fell back to `['grid']`. `chart` entered the offered set
+  only through the "always allow switching back to the schema's own viewType" leg, i.e.
+  only when the view was already `viewType: 'chart'`.
+  
+  Both halves were spec-legal and authorable the whole time: `chart` is a
+  `VisualizationTypeSchema` switcher target and `chart:` is a list-view key
+  (`ListChartConfigSchema`). Only the gate never asked. This is `map`'s objectui#5042 one
+  visualization over, and is fixed the same way.
+  
+  **What now resolves.** A chart block that binds to names the author wrote: the ADR-0021
+  shape (`dataset` plus at least one measure in `values`), or the legacy inline shape (a
+  declared category — `xAxisField` / `categoryField` — together with a declared measure —
+  `yAxisFields[0]` / `valueField`), in the view-level `chart` block or the legacy
+  `options.chart` bag. A block that declares no binding stays unoffered: reaching the
+  renderer with nothing declared lands on the legacy branch's invented `'name'` /
+  `'value'` floor, and the switcher must not offer a route into it. That floor itself is
+  unchanged here (objectui#7547).
+  
+  The gate and the `case 'chart'` render branch now read ONE resolver
+  (`resolveListChartBinding`) rather than two copies of the condition, so they cannot
+  drift about what a usable chart block is. `schema.chart` also joins the memo's
+  dependency array, so a block that arrives on a later render is seen.
+- 5a211b2: `ObjectGallery` waits for the object definition instead of querying twice
+  (objectui#7903).
+  
+  It sat outside the set objectui#6482 converged on the shared settled-schema gate
+  — `ObjectKanban`, `ObjectView`, `ObjectCalendar` and `ObjectTree` were named
+  there, `ObjectGantt` was ask 2 of objectui#7225 and `ObjectTimeline` was
+  objectui#7895 — and nothing marked it a deliberate exclusion. It still held the
+  object definition in a local `useState` fed by its own metadata effect, and
+  listed that definition in the record-fetch effect's dependency array.
+  
+  **User-visible.** Every object-bound gallery load issued **two** `find` calls
+  instead of one: the first before the definition landed, with `buildExpandFields`
+  seeing no fields and therefore carrying no `$expand` at all, and a second one
+  after. The first paint was therefore a grid of cards rendered from raw
+  foreign-key ids. After this change the gallery paints once, from a query that
+  already carries its expansion.
+  
+  Measured on the component with an instrumented renderer, one mount per hold,
+  `getObjectSchema` held 0/1/2/3/4/5/6/7/8/9/10/15/25/50/100 ms, with
+  `ObjectCalendar` as a positive control in the same run: before, 2 `find` calls
+  with expand sets `[null, ['owner']]` at every hold, the issue order always
+  `schema:issued, find(unexpanded), schema:settled, find(expanded)`, two distinct
+  painted states, 3 late writes into the card grid after the first paint, and a
+  first-paint time flat at 3-7 ms across the whole sweep; after, 1 `find` carrying
+  `['owner']`, one painted state, 0 late writes, and a first paint that tracks the
+  hold (9 ms at +3, 15 ms at +10, 35 ms at +25, 106 ms at +100). The control read
+  1 `find` carrying `['owner']` and a hold-tracking first paint both before and
+  after.
+  
+  The cost this component was paying is a **two**-step paint, not the three-step
+  one `ObjectCalendar` and `ObjectTimeline` each measured: those make `loading` an
+  unconditional early return, so their re-run drops back to a placeholder in
+  between, while this component's early return is `loading && !items.length` — the
+  raw ids were replaced in place. Measured here rather than inherited from the
+  matching shape, which is objectui#6482's own per-component standard.
+  
+  The resolution half is now `useSettledSchema` from `@object-ui/react`, which
+  settles on **every** exit — no source, no `getObjectSchema`, no object name, and
+  a read that threw alike. That is what makes the gate safe: the replaced effect
+  returned without settling on all four, which cost nothing while nothing waited on
+  it and would have held a gated query open forever. Pinned by
+  `ObjectGallery.fetchGate-7903.test.tsx`, including a gallery whose adapter
+  exposes no `getObjectSchema` and one whose definition read rejects — both still
+  query, unexpanded.
+  
+  Two departures, each judged for this component rather than copied. Like
+  `ObjectTimeline` and unlike `ObjectCalendar` / `ObjectGantt`, the metadata read
+  is **not** disabled for a gallery whose records were authored inline: this
+  component reads the definition on every path, for cell semantics and for ADR-0079
+  card titles, not only to expand a query. And the gate window now holds the
+  loading placeholder rather than showing "No items to display", which the two
+  siblings get from their initial `loading` state and this one did not.
+- abc1b18: Add `isEmptyValue` to `@object-ui/core` — the weakest common claim about "is
+  this value empty": `null`, `undefined`, the empty string, the empty array, and
+  never a fifth member (objectui#8496, director seat, decision batch #86).
+  
+  Five surfaces had each grown their own copy of those four members, and
+  objectui#8481 was the third rediscovery of the same hole. They now call the
+  shared floor and state their own answer against it: `record:details`'
+  `hasCellValue` and `RelatedList` extend it with a trim, `BooleanCellRenderer`
+  with every non-boolean, the date cells with every falsy scalar; `JsonCellRenderer`
+  declines its `[]` member out loud (the array literal is drawn on purpose) and
+  `FileCellRenderer` states "0 files" instead.
+  
+  Two visible fixes come with it: a gallery card and a kanban card holding an
+  empty array in a card field now OMIT that field, as they already did for `null`,
+  instead of drawing a labelled "No value" em-dash for it.
+- c10bc4c: fix(plugin-list): `convertFilterGroupToAST` folds the operator, so a canonical value-less row emits its node instead of being dropped (objectui#9359)
+  
+  NOT cosmetic, and not a new defect: a filter row carrying the spec's canonical
+  operator spelling QUERIED WITH NO FILTER AT ALL and returned every record,
+  while the filter panel showed the condition applied. Nothing errored and the
+  result set looked plausible.
+  
+  `convertFilterGroupToAST` read the row's operator RAW, against
+  `VALUELESS_FILTER_BUILDER_OPERATORS` — the FilterBuilder's six camelCase
+  dropdown ids. The completeness test it falls through to
+  (`isFilterValueComplete`) DOES fold, through the spec's
+  `normalizeFilterOperator`, to decide arity. So the two halves of one predicate
+  spoke different vocabularies: a row spelled `is_null` missed the value-less
+  short-circuit, landed on `scalar`, had its `value: ''` read as an unfinished
+  row, and was dropped. Measured through the real converter on one `text` column:
+  
+      isNull   (dropdown id)   ->  ["title","isnull",null]
+      is_null  (canonical)     ->  []                        <- the defect
+      equals + value "acme"    ->  ["title","=","acme"]      <- control, fires
+  
+  WHO REACHES THIS READER — measured, not assumed. Its one production caller is
+  `buildEffectiveFilter`, and the argument it converts is the list toolbar's own
+  FilterBuilder group: live in the session, or restored per browser by
+  `writeListFilterState`. Both carry the dropdown's camelCase ids, so the
+  canonical spelling has no measured producer into this reader today. A SAVED
+  view does NOT arrive here — its stored `ViewFilterRule[]` travels
+  `schema.filter` into the base-filter argument of that same call and is lowered
+  by `@object-ui/core`'s `toFilterNode` / `viewFilterRuleToNode`, which already
+  folds: `{ field: 'closed_at', operator: 'is_null', value: '' }` lowers to
+  `["closed_at","is_null",""]`, accepted by `isFilterAST`. So what is repaired is
+  not a live saved-view outage. It is a reader that contradicted its OWN declared
+  contract — the comment above it states it accepts both the FilterBuilder
+  vocabulary and the `@objectstack/spec` `ViewFilterRule` vocabulary, and it
+  dropped a COMPLETE row of the second one, emitting no filter rather than an
+  error. A reader that drops a complete row is a defect whether or not today's
+  saved-view path happens to pre-fold.
+  
+  This is the same failure objectui#4744 repaired for the dropdown's own
+  spellings, reached by the other vocabulary. Both raw reads in this function now
+  fold, as do the two `isEmpty` / `isNotEmpty` arms that resolve to a null
+  comparison ahead of `mapOperator` — leaving those on literal ids would have
+  fixed `is_null` and left `is_empty` emitting a different node from its twin,
+  which is this defect rather than a repair of it. All four canonical spellings
+  now emit exactly what their camelCase twins emit.
+  
+  **The exported set is unchanged, deliberately.** It states a fact about what the
+  BUILDER'S DROPDOWN draws, and `app-shell`'s `foldFilterGroupToSpecRules`
+  documents its own value-less set as that set PLUS the canonical spellings only
+  that layer sees. Widening the export would have made that layer's deliberate
+  compensation redundant by side effect, in a file nobody is editing. The defect
+  was a reader that forgot to normalize its input, so the reader is what was
+  repaired — the same shape the sibling repair used at the builder's value-input
+  gate (objectui#9302). No published type or export changes, and no stored
+  operator is rewritten: converting is not migrating.
+  
+  Which operator vocabulary should WIN is a separate, still-open question and is
+  not decided here. The `contains` / `icontains` boundary is untouched and pinned:
+  the fold this reader routes through maps neither onto the other.
+  
+  Superseded in this release by objectui#9306: the list toolbar's FilterBuilder
+  now emits the protocol's canonical ids, so the canonical spelling IS a measured
+  producer into this reader, and `VALUELESS_FILTER_BUILDER_OPERATORS` holds
+  `is_empty`, `is_not_empty`, `is_null`, `is_not_null`, `exists` and `notExists` —
+  its membership changed in this release by that change, still one id per
+  operator. A group restored per browser carries whatever ids it was written
+  with, so a group written before objectui#9306 can still reach this reader in
+  camelCase. This reader is unchanged and answers both spellings alike: over the
+  former dropdown ids and the ids they became (the list reader's leg of
+  objectui#9306's census), every pair emits the same node except
+  `containsCaseInsensitive`, which the toolbar never offered and which the builder
+  folds onto `icontains` before a row leaves it. The vocabulary
+  question this entry calls open is answered: the dropdown speaks the protocol's
+  ids, and camelCase is the deprecated alias form.
+  
+  **Correction, 2026-10-03 (objectui#10813).** The two `isEmpty` / `isNotEmpty` arms that
+  "resolve to a null comparison ahead of `mapOperator`" are gone in this release. The empty pair
+  now takes the same value-less path as `is_null`, and `mapOperator` emits the spec's `isempty` /
+  `isnotempty`, which the spec lowers to `$empty`; every spelling of the pair still emits one node
+  (`.changeset/10813-list-view-empty-operator.md`).
+- c1006ed: `ListView`'s record-detail overlay heading resolves an inline locale map.
+  
+  `ListViewSchema.label` is an `I18nLabel` — a plain string **or** an inline locale
+  map such as `{ en: 'Accounts', 'zh-CN': '客户' }`. The `detailTitle` computation
+  handed the raw member into the interpolation options of
+  `detail.recordDetailWithLabel`, so a map-valued label reached the interpolator as
+  an object and the heading rendered `[object Object] Detail`. That value is
+  `NavigationOverlay`'s `title` prop, which objectui#3426 established is the visible
+  heading of the record-detail drawer / modal / split / popover — so the corruption
+  was on user-visible chrome, in every locale, on both interpolators (the i18next
+  one and the provider-less fallback that stringifies with `String`).
+  
+  No compiler run could have named the site: `createSafeTranslation`'s options bag
+  is declared as a record of `unknown`, which accepts the map without a diagnostic.
+  Nothing but an executed assertion holds it, which is why the repair ships with
+  pins on both interpolator legs.
+  
+  The label is now resolved through `resolveI18nLabel` on the same `displayLocale`
+  this component already uses for the view label and the nested `aria` bag —
+  **before** the truthiness test rather than inside the branch, because
+  `resolveI18nLabel` answers `undefined` for a map with no usable entry and `''`
+  for an empty entry, and both have to fall through to the `objectName` branch the
+  way a missing label always did. Every object is truthy, so a resolution placed
+  inside the branch cannot do that.
+  
+  Output for a string-valued `label` is unchanged, byte for byte, in every locale
+  and with no provider mounted.
+- a883ec2: fix(plugin-list): gallery cards now pass a field's declared `scale` to the shared cell renderer, so a number or percent field declaring `scale` renders padded (`25.00%`) exactly as Grid and Detail do, instead of unpadded (`25%`). (objectui#9575)
+- f5e2fcb: Refuse a page size the contract already refuses before it reaches any of
+  `ListView`'s six consumers of the resolved value, instead of forwarding it to
+  the wire (objectui#9897).
+  
+  One authored `pagination.pageSize` is resolved once in this view and then feeds
+  six places: the `$top` window it fetches, the `$skip` step that turns the page,
+  the has-more gate behind the "showing first N" cap, the page size handed down to
+  the child grid, the record cap printed in that banner, and the rows-per-page
+  control's own displayed value. The resolution was a bare `??` chain, and `??`
+  rejects only `null` and `undefined` — so an authored `pageSize: 0` was not
+  nullish and survived as a real page size into all six.
+  
+  What the surviving value actually did, measured in the real renderer over a
+  twelve-row fixture rather than inferred from the sibling repair: `$top: 0` went
+  out on the wire, the data source was asked for nothing, nothing came back, and
+  the view drew its EMPTY STATE — the child grid never rendered at all, so there
+  was no table, no record-count bar and no pager, and nothing on screen named the
+  cause. A negative left the same way (`$top: -10`). A non-integer is worse than
+  silent: `25.5` reached the wire, became the child grid's page size, and turning
+  the page asked for a fractional `$skip`; at a size below the row count the
+  refused number was printed to the reader as the record cap ("showing first 2.5
+  records").
+  
+  All of it now goes through one resolver, mirroring the shape objectui#9853
+  landed on `ObjectGrid` — one resolver at every entry is what keeps the answer
+  single. A value the contract refuses is dropped, this view's own default is
+  used, and one `console.warn` on the channel this component already uses for
+  "you declared it, the renderer dropped it" names the member and the value. The
+  warning is conditional: an absent key and a usable page size both stay silent.
+  The runtime choice is covered as well, not only the authored one — an author can
+  put a refused number in `pageSizeOptions`, and picking it used to overwrite a
+  perfectly good authored size.
+  
+  Refusing these is not this renderer choosing a meaning. `@objectstack/spec`
+  declares the view pagination member a positive integer and its own suite pins
+  the refusals under the names `should reject zero pageSize` and `should reject
+  negative pageSize`; the `limit` this package's `ElementDataSourceMapping` lowers
+  `pagination.pageSize` into is declared positive as well.
+  
+  The fallback literal is now a named constant. Whether it belongs next to
+  `ObjectGrid`'s own three defaults is **not** decided here — changing it changes
+  what every list with no authored `pagination` fetches, which is a product
+  decision rather than an execution seat's, and it is handed back as a question on
+  the issue.
+- 3a54c39: Deliver an authored map `style` on the list-view and object-view paths (objectui#9950).
+  
+  `ObjectMapConfigSchema` declares `style` ("MapLibre style URL/spec (overrides the
+  public demo default)"), and both view flatteners dropped it before the renderer ever
+  saw it. A view authoring `map: { style: 'https://…/style.json' }` parsed green, nothing
+  refused it, nothing warned, and the map rendered on MapLibre's **public demo tiles**.
+  
+  Each flattener's key whitelist is now a TOTAL spelling table,
+  `FLAT_MAP_CONFIG_SPELLING`, mapping every key `ObjectMapConfigSchema` declares to the
+  name the internal flat form uses for it. Every entry is the identity except `style`,
+  which is delivered as `mapStyle`.
+  
+  `mapStyle`, not `style`, because the top-level `style` key is `BaseSchema.style` —
+  inline CSS, legal on every node. Collapsing the two namespaces onto one key is the
+  defect objectui#5177 closed and this change deliberately keeps closed: the flatten
+  still never writes a top-level `style`. `mapStyle` is a declared member of
+  `ObjectMapSchema` and is the first spelling `getMapConfig` reads
+  (`schema.mapStyle || schema.map?.style`), so the authored style now reaches the
+  renderer without inventing an undeclared transport key.
+  
+  An undeclared key in the `map` block still never reaches the product — that half of
+  objectui#5177 is unchanged and pinned in both packages' `mapFlatten` suites.
+  
+  **Why the anti-drift pins did not catch this.** Both sites already pinned their hand
+  list against the declaration, and both pins were green. They compared the list against
+  `Object.keys(ObjectMapConfigSchema.shape).filter((key) => key !== 'style')` — the
+  comparison set had the same key subtracted from it that the whitelist was missing, so
+  the pin agreed with the omission. Those pins now measure the relation "every declared
+  key is delivered, under its flat spelling" against the declaration read whole, and each
+  suite carries a control that feeds the pre-fix whitelist to the same assertion and
+  shows it rejected. The spelling table is additionally a `Record` over every
+  `keyof ObjectMapConfig`, so a key added to the declaration fails `tsc` until it is
+  given a flat spelling.
+  
+  **Migration.** None. Views that never authored `map.style` are byte-identical in
+  behaviour; views that did now render with the style they declared instead of the
+  public demo tiles.
+- 15236e0: `list-view` harvests row-action predicate fields from the OBJECT's `userActions` block only — a view's toolbar policy can no longer shadow it.
+  
+  `userActions` names two different blocks. On a **view** it is toolbar policy —
+  the spec's `UserActionsConfigSchema` (`sort`, `search`, `filter`, `refresh`,
+  `rowHeight`, `addRecordForm`, `editInline`, `buttons`), which rejects `edit` by
+  name. On an **object** it is the CRUD-predicate block (`edit` / `delete` /
+  `create` carrying `visibleWhen` / `disabledWhen`, objectui#2614) — and that is
+  the only shape `listViewPredicates` can read, since its loop skips every
+  non-object value.
+  
+  `ListView` read the key view-first when building the `$select` projection
+  (`(schema as any).userActions ?? (objectDef as any)?.userActions`). A view
+  carrying a perfectly legal toolbar block therefore shadowed the object's CRUD
+  predicates, the harvest found none, and the predicate's operand left the
+  projection. CEL then faults on the absent key, fails closed, and the row
+  Edit/Delete button disappears for everyone with nothing pointing at the
+  projection — objectui#3501's failure, reached with a success receipt at every
+  step.
+  
+  This is the sibling of the `plugin-grid` read site fixed in objectui#5426, and
+  it was the worse of the two: `app-shell`'s `ObjectView` builds the view-level
+  `userActions` it hands down as an object literal of two spreads, so the left
+  operand was `{}` at worst — never nullish. The `??` never fell through, and the
+  object's CRUD predicates were never consumed at all on that path, whether or
+  not an author wrote any toolbar policy.
+  
+  The harvest now reads the object block only. Both `userActions` read sites in
+  `ListView.tsx` carry a comment naming the collision, and
+  `__tests__/ListView.userActionsCollision.test.tsx` pins each clause of it: the
+  two shapes, a producer that manufactures the view one, the harvest's blindness
+  to it, and the projection that must keep the object's operand with a toolbar
+  block — or an empty block — present on the view.
+  
+  Toolbar policy itself is untouched — it was never read through this path.
+- ec9fdaa: `ListView` now resolves the nested `aria.ariaLabel` against the audience's locale
+  instead of casting it to a string (objectui#5134).
+  
+  `@objectstack/spec`'s `AriaPropsSchema` types `ariaLabel` as `I18nLabel` — a plain
+  string **or** an inline locale map (`{ en: 'Accounts', 'zh-CN': '客户' }`). The only
+  read site in this repo spread it into the DOM as
+  `{ 'aria-label': schema.aria.ariaLabel as string }`, and `as string` is a cast, not a
+  conversion: a map-valued label reached the DOM as `aria-label="[object Object]"`, which
+  a screen reader announces as the list view's accessible name — in every locale. The
+  read now goes through the spec's own `resolveI18nLabel` (the resolver four other
+  in-repo read sites already use) against `useDisplayLocale()`.
+  
+  ⚠️ **Dated note, 2026-09-29 — the read-site count above does not re-derive —
+  objectui#10979.** "the resolver four other in-repo read sites already use" above does not
+  hold even at this change's own base. On the commit this change landed on (`e40b8579bd`),
+  ten non-test source files already imported `@objectstack/spec`'s `resolveI18nLabel` (each
+  as `resolveInlineI18nLabel`) and called it on 17 lines. Re-measured on `main` at
+  `2eaf5be27`, fourteen non-test files besides `ListView` imported it, calling it on 27
+  lines. The text above is kept as the reading of this change.
+  
+  Reachability, stated plainly: the path is **live but unexercised**. `I18nLabel` was a
+  plain `string` through `@objectstack/spec` 17.0.0-rc.5, so no stored map-valued label
+  predates rc.6, and no measured author writes one today — but map values are legitimate
+  and arrive via API/import, so an imported list view carrying
+  `aria: { ariaLabel: { en: …, 'zh-CN': … } }` is spec-valid metadata that renders a wrong
+  accessible name. This is the map form working as declared, not a defect users are
+  currently hitting.
+  
+  Behaviour on the string arm is byte-identical, including `''` (falsy before and after,
+  so no attribute). One edge changes for the better: a map that matches no locale used to
+  render `aria-label="[object Object]"` (`{}` is truthy) and now omits the attribute — an
+  unnamed region beats a garbage-named one.
+  
+  The **flat** `schema.ariaLabel` is deliberately untouched: it carries a different
+  vocabulary (objectui's keyed `{ key, defaultValue?, params? }` ref, resolved by
+  `SchemaRenderer`'s `resolveKeyedI18nLabel`), and neither resolver accepts the other's
+  shape.
+- d6613a2: Two comment corrections in `ListView.tsx` (objectui#4559, objectui#4966). No runtime
+  behaviour changes and the emitted bundle is byte-identical; the published `.d.ts` does
+  change, which is why this is a `patch` rather than an empty frontmatter.
+  
+  **objectui#4559 — the sort rationale stopped prescribing a formula field.** The comment
+  block above the `sortFields` memo still called a formula field "the supported
+  alternative (… which sorts like any text column)". Since objectui#4294 the
+  `list.sortRelationalHint` string in this same file says the opposite ("Not a formula
+  field: it is virtual, so no column is stored for it and the server refuses to sort by
+  one"), the memo underneath filters formula out via `UNMATERIALIZED_FIELD_TYPES`, and the
+  server answers such a sort with `400 INVALID_SORT` (objectstack#6994). The parenthetical
+  now names the remedy the hint, the server's refusal and the README already share — a
+  stored field that denormalizes the name onto this object, written when the source
+  changes. This was the last copy of the retired advice in the repo.
+  
+  **objectui#4966 — `formatActionLabel`'s docblock now sits above `formatActionLabel`.**
+  It had drifted two declarations up, so the exported `parseSortConfig` carried two
+  stacked leading comments and the helper carried none. This one was not cosmetic: because
+  `parseSortConfig` is exported, `vite-plugin-dts` copied the misattributed block into
+  `dist/ListView.d.ts`, so every consumer's editor hover and TypeDoc introduced the sort
+  parser with a sentence about action labels. Moving the block removes it from the `.d.ts`;
+  `formatActionLabel` is module-private, so its now-correct docblock does not appear there.
+  It also matters to `scripts/check-spec-symbol-derivation.mjs`, whose rule 2 reads the
+  comment block *attached* to a declaration — a misattributed docblock is the mechanism by
+  which a claim gets scored against the wrong symbol. This block carries no spec-alignment
+  phrase, so nothing fired today.
+  
+  No tests accompany this change and none could: both edits are comment-only, and there is
+  no runtime behaviour to pin. The `.d.ts` delta was measured with the package's real
+  `vite build` before and after, not asserted.
+- fb336df: Move `lucide-react` from `^1.31.0` to `^1.43.0` in every package that declares it, and
+  repair what the jump breaks, so icons resolved from a STRING keep drawing a glyph.
+  
+  Measured once against the installed 1.43.0 artifact when this change was made; nothing in
+  the repository re-derives these readings. Across the jump lucide removes no runtime export,
+  no public type name and no `lucide-react/dynamic.mjs` name, and every name this repository
+  imports from `lucide-react` resolves. Exactly one key leaves the runtime `icons` record:
+  `Trash2`, retired in favour of `trash`.
+  
+  What a user sees change:
+  
+  - Icons the lazy icon seam draws (`resolveIcon`, objectui#9251) get their path data again.
+    lucide 1.43.0 icon modules export their path data inside `__iconData` and no longer
+    export `__iconNode`; the seam now reads both. Reading only `__iconNode` against 1.43.0
+    leaves every such glyph an empty box, with nothing thrown or logged.
+  - `DetailView`'s delete action and three schema-catalog examples spell their icon
+    `trash`, not `trash-2`, so they keep resolving. The glyph is unchanged: 1.43.0's `trash`
+    path data is byte-identical to the `trash-2` path data of 1.31.0 and 1.35.0. Anything
+    that already authored `trash` now draws that same artwork, because lucide moved it under
+    the `trash` name; a few other glyphs were also redrawn upstream.
+  - Icons imported as COMPONENTS carry lucide 1.43.0's own classes: one class per declared
+    alias (a spinner renders `class="lucide lucide-loader-circle lucide-loader-2 ..."`), and
+    no longer the class lucide used to derive from the PascalCase key where that differs
+    (`ArrowDown01` no longer carries `lucide-arrow-down01`). The canonical
+    `lucide-<icon name>` class is still there, so a `.lucide-loader-circle` selector still
+    matches.
+  - Icons resolved from a STRING through the seam keep the classes they had: `lucide`, the
+    canonical `lucide-<icon name>` class and the key-derived class. They do not carry
+    lucide's per-alias classes. That is a maintainer ruling (objectui#8941, option C): the
+    alias list lives only inside each lazily loaded icon module, and it was not moved into
+    the eager name list. A selector that targets an alias class matches a component-imported
+    icon and not a string-resolved one. This also dates the example in the objectui#9251
+    entry: `trash-2` no longer resolves as a string, so no seam-drawn glyph carries
+    `lucide-trash2 lucide-trash-2`; a digit-bearing name that still resolves, such as
+    `arrow-down-0-1`, carries `lucide-arrow-down01 lucide-arrow-down-0-1`.
+- 6c6cee7: A RETIRED field-type spelling is now refused — out loud, once — by every
+  field-type predicate in the renderer, not just by the widget road
+  (objectui#4914, maintainer ruling B of 2026-08-18).
+  
+  `@object-ui/fields` exports a single `isRetiredFieldType(t)` gate, and it runs
+  ahead of six predicate faces that previously granted a retired spelling
+  first-class treatment: the filter builder's operator buckets and its value
+  control (`@object-ui/components`), the detail page's highlight-strip picker
+  (`@object-ui/plugin-detail`), `normalizeFieldType` (`@object-ui/plugin-view`),
+  the dashboard's `$expand` whitelist and `isLookupType`
+  (`@object-ui/plugin-dashboard`), and the list toolbar's lookup-like filter
+  control (`@object-ui/plugin-list`). Each one now fires the migration
+  prescription on the console — once per spelling across all of them, never once
+  per predicate — and then answers as it would for a spelling it does not
+  recognise.
+  
+  This closes the whole CLASS rather than one word: the gate is quantified over
+  `RETIRED_FIELD_TYPES`, so the next retirement covers all seven consumers on the
+  day it lands. It is the shape objectui#4932 and objectui#4942 already
+  established for the form and inline-edit roads.
+  
+  Measured before the change, and the reason the fix is a gate rather than a
+  deletion: `owner` was not dead in these faces. `operatorsForFieldType('owner')`
+  equalled the `user` bucket item for item, `computeLookupExpand` actively
+  requested `$expand` for it, `isLookupType('owner')` was `true` alongside
+  `reference`, and `normalizeFieldType('owner')` answered `'select'` exactly as
+  `picklist` does. Deleting the members alone would have traded a visible
+  contradiction for a SILENT degradation — a filter picker collapsing to a bare id
+  box, `$expand` quietly stopping so cells show raw foreign-key ids — which is
+  verbatim the failure mode `RETIRED_FIELD_TYPES`' own docblock exists to prevent.
+  The gate keeps that fallback and adds the half that was missing: the author is
+  told.
+  
+  The boundary question is answered on record: `owner` arriving through a
+  backend-vocabulary normalizer is an authoring error to refuse loudly, not
+  legitimate foreign input to tolerate. The open backend vocabulary those
+  normalizers exist for is untouched — `reference`, `picklist`, `money`, `int`,
+  `datetime_tz` and the rest are equally absent from the spec's closed `FieldType`
+  and are equally unretired, so they classify exactly as before.
+  
+  `RETIRED_FIELD_TYPES`, `reportRetiredFieldType` and `resetRetiredFieldTypeReports`
+  move to `@object-ui/core` and are re-exported from `@object-ui/fields`, so that
+  package's published surface is unchanged apart from the newly ruled gate.
+  `@object-ui/components` is a consumer of the gate and `@object-ui/fields`
+  depends on it, so a single shared table could not live in `fields` — and a
+  second copy would have meant a second dedupe set and two console lines for one
+  spelling. No package gained a new dependency.
+  
+  A retired spelling never loses a stored value: `retypeFilterValue` is
+  deliberately not gated, and the refused filter row stays operable rather than
+  drawing a blank operator trigger.
+- 42887e0: Repair five retired lucide icon spellings that reach a record-reading resolver, and pin
+  the names against the runtime `icons` record so the next lucide bump goes red instead of
+  silently blanking a glyph (objectui#5622).
+  
+  lucide retires a spelling by dropping it from its runtime `icons` record while KEEPING it
+  as a deprecated named export. A retired name therefore still imports, still type-checks,
+  and still renders wherever it is used as a COMPONENT — and resolves to `null` wherever it
+  is used as a STRING, because every string lookup here reads that record. Nothing goes red
+  either way. Measured against the installed `lucide-react@1.31.0` (1767 record entries) at
+  implementation time.
+  
+  What a user sees change:
+  
+  - `DetailView`'s mobile Edit action (`icon: 'edit'` → `'square-pen'`) draws its icon
+    again. Its items become an `action:bar` schema whose renderers resolve `icon` through
+    `renderers/action/resolve-icon.ts`, so the touch-breakpoint edit affordance had been
+    drawing a label with nothing beside it. `Edit === SquarePen`, so the glyph is unchanged.
+  - The `ui:icon` renderer's own declared default (`'smile'` → `'face-slightly-smiling'`, in
+    both the registration `icon` and the `name` input's `defaultValue`) resolves again: the
+    designer palette entry's glyph was blank, and an `icon` dropped from that palette
+    rendered nothing plus a `console.warn`. `Smile === FaceSlightlySmiling`, so the palette
+    looks exactly as it did.
+  - `plugin-list`'s `ViewSwitcher` moves `Grid` → `Grid3x3`, `BarChart3` → `ChartColumn`
+    (both identical objects, no visual change) and `GanttChartSquare` → `ChartGantt`. The
+    gantt one IS a glyph change: it matches the spelling the sibling `plugin-view` switcher
+    landed in objectui#5586, so one view type no longer draws two different icons depending
+    on which switcher is on screen.
+  
+  Four resolvability pins are added — in `plugin-detail`, `plugin-list`, `components` and
+  alongside the `DeclaredActionsBar` fixtures. Each asserts `icons`-record MEMBERSHIP rather
+  than resolvability, because every retired spelling repaired here is the SAME component
+  object as its replacement (`Edit === SquarePen`, `Smile === FaceSlightlySmiling`,
+  `Grid === Grid3x3`, `BarChart3 === ChartColumn`, `CheckCircle === CircleCheckBig`,
+  `XCircle === CircleX` are all true): a pin that rendered the glyph, or reached for the
+  export, would pass on the broken name. That is the blindness that let this ship.
+- Updated dependencies [7b10bef]
+- Updated dependencies [97abedc]
+- Updated dependencies [b46c58f]
+- Updated dependencies [a507334]
+- Updated dependencies [ad694ac]
+- Updated dependencies [6f96fca]
+- Updated dependencies [afb2284]
+- Updated dependencies [3ac2de8]
+- Updated dependencies [0aacecc]
+- Updated dependencies [63f4f92]
+- Updated dependencies [777fca2]
+- Updated dependencies [c131d9e]
+- Updated dependencies [5f00ff4]
+- Updated dependencies [c9e073a]
+- Updated dependencies [0361d6b]
+- Updated dependencies [7b395d8]
+- Updated dependencies [0879812]
+- Updated dependencies [8cedb0d]
+- Updated dependencies [6ce001a]
+- Updated dependencies [162621b]
+- Updated dependencies [4c6f549]
+- Updated dependencies [80c5412]
+- Updated dependencies [6cc910b]
+- Updated dependencies [061f5e8]
+- Updated dependencies [2dd4d3f]
+- Updated dependencies [e686f4d]
+- Updated dependencies [212c451]
+- Updated dependencies [a04b06d]
+- Updated dependencies [4ab4f1b]
+- Updated dependencies [b57107d]
+- Updated dependencies [e3ea4f9]
+- Updated dependencies [65f1e8d]
+- Updated dependencies [1f8ef0a]
+- Updated dependencies [bb5d4ee]
+- Updated dependencies [dc666f7]
+- Updated dependencies [3335767]
+- Updated dependencies [8b1f066]
+- Updated dependencies [af243c1]
+- Updated dependencies [cff4b77]
+- Updated dependencies [31938f0]
+- Updated dependencies [961ceaa]
+- Updated dependencies [f3f4e4c]
+- Updated dependencies [a05c350]
+- Updated dependencies [1dbb993]
+- Updated dependencies [2b5f509]
+- Updated dependencies [808f339]
+- Updated dependencies [6cf5999]
+- Updated dependencies [274e14a]
+- Updated dependencies [8c10f4f]
+- Updated dependencies [90dac98]
+- Updated dependencies [6096f20]
+- Updated dependencies [544aca2]
+- Updated dependencies [ea02938]
+- Updated dependencies [a14fb23]
+- Updated dependencies [ae98f1d]
+- Updated dependencies [f98eddf]
+- Updated dependencies [ce6bd99]
+- Updated dependencies [a5b08c9]
+- Updated dependencies [86982ac]
+- Updated dependencies [8c929e6]
+- Updated dependencies [cdefa2a]
+- Updated dependencies [2fc2a24]
+- Updated dependencies [0961d5e]
+- Updated dependencies [9d25b9b]
+- Updated dependencies [6276478]
+- Updated dependencies [5e67837]
+- Updated dependencies [ff14e29]
+- Updated dependencies [9b28151]
+- Updated dependencies [64563a9]
+- Updated dependencies [1a5003f]
+- Updated dependencies [09ab32b]
+- Updated dependencies [8acc51b]
+- Updated dependencies [ea9d17f]
+- Updated dependencies [45362a3]
+- Updated dependencies [2a943bf]
+- Updated dependencies [111fa4c]
+- Updated dependencies [93a689d]
+- Updated dependencies [4357a27]
+- Updated dependencies [e5f4343]
+- Updated dependencies [3261e64]
+- Updated dependencies [f5178a2]
+- Updated dependencies [2ad3671]
+- Updated dependencies [39bf246]
+- Updated dependencies [8740e86]
+- Updated dependencies [d22b37b]
+- Updated dependencies [8c0e550]
+- Updated dependencies [fde4caf]
+- Updated dependencies [caf0ed0]
+- Updated dependencies [1daf477]
+- Updated dependencies [3d614ea]
+- Updated dependencies [a7df45f]
+- Updated dependencies [6c2f3c5]
+- Updated dependencies [fb13e85]
+- Updated dependencies [c2d8659]
+- Updated dependencies [6516320]
+- Updated dependencies [98b1a7c]
+- Updated dependencies [e0f8202]
+- Updated dependencies [ac2d6f1]
+- Updated dependencies [9fbbb17]
+- Updated dependencies [c3a26cc]
+- Updated dependencies [a66e58e]
+- Updated dependencies [d89492c]
+- Updated dependencies [9a5f998]
+- Updated dependencies [1c5ee33]
+- Updated dependencies [9327397]
+- Updated dependencies [17cc3a3]
+- Updated dependencies [a9c5ea0]
+- Updated dependencies [02e6d36]
+- Updated dependencies [4758b33]
+- Updated dependencies [4758b33]
+- Updated dependencies [4758b33]
+- Updated dependencies [f905090]
+- Updated dependencies [3cd6c5e]
+- Updated dependencies [5bb855d]
+- Updated dependencies [9c78ebe]
+- Updated dependencies [12809a5]
+- Updated dependencies [9c78ebe]
+- Updated dependencies [12809a5]
+- Updated dependencies [7afc81d]
+- Updated dependencies [f9c06ef]
+- Updated dependencies [5ad3b88]
+- Updated dependencies [f9d772b]
+- Updated dependencies [bf14b64]
+- Updated dependencies [4345558]
+- Updated dependencies [97b6c21]
+- Updated dependencies [26ca2ad]
+- Updated dependencies [41ae65b]
+- Updated dependencies [baac95a]
+- Updated dependencies [13220af]
+- Updated dependencies [29b45f6]
+- Updated dependencies [39b8d51]
+- Updated dependencies [17b323e]
+- Updated dependencies [b956e69]
+- Updated dependencies [b32e7de]
+- Updated dependencies [ff94a12]
+- Updated dependencies [33e58d8]
+- Updated dependencies [256b4c9]
+- Updated dependencies [97672ba]
+- Updated dependencies [c5ec15c]
+- Updated dependencies [fec3b1a]
+- Updated dependencies [b8e0941]
+- Updated dependencies [0c50f18]
+- Updated dependencies [1dae95a]
+- Updated dependencies [e32dae1]
+- Updated dependencies [d0c0c7f]
+- Updated dependencies [30b11ad]
+- Updated dependencies [4aebea0]
+- Updated dependencies [f976774]
+- Updated dependencies [3d6badf]
+- Updated dependencies [25cb364]
+- Updated dependencies [a60539b]
+- Updated dependencies [de1b879]
+- Updated dependencies [c6678b1]
+- Updated dependencies [0638322]
+- Updated dependencies [e3782d2]
+- Updated dependencies [db0beb2]
+- Updated dependencies [997ce38]
+- Updated dependencies [ae0b9d3]
+- Updated dependencies [ad1785c]
+- Updated dependencies [3b469c8]
+- Updated dependencies [990a2d6]
+- Updated dependencies [990a2d6]
+- Updated dependencies [1c84036]
+- Updated dependencies [1c84036]
+- Updated dependencies [6650259]
+- Updated dependencies [4f8b7f8]
+- Updated dependencies [9e6619f]
+- Updated dependencies [f6ae5e2]
+- Updated dependencies [eb97ce6]
+- Updated dependencies [7343376]
+- Updated dependencies [b2683a2]
+- Updated dependencies [dded788]
+- Updated dependencies [b45d463]
+- Updated dependencies [54a7830]
+- Updated dependencies [f3135a4]
+- Updated dependencies [b5696d3]
+- Updated dependencies [3f9d926]
+- Updated dependencies [e978ed5]
+- Updated dependencies [6a7f24e]
+- Updated dependencies [b3c96d6]
+- Updated dependencies [8d0ca91]
+- Updated dependencies [c30c8dd]
+- Updated dependencies [244d516]
+- Updated dependencies [deca847]
+- Updated dependencies [ac15833]
+- Updated dependencies [ac15833]
+- Updated dependencies [e2dffc9]
+- Updated dependencies [328abeb]
+- Updated dependencies [dd0d78f]
+- Updated dependencies [24d3e65]
+- Updated dependencies [95a7c8d]
+- Updated dependencies [e227156]
+- Updated dependencies [cc4e476]
+- Updated dependencies [92970c4]
+- Updated dependencies [d570eaa]
+- Updated dependencies [4b742f4]
+- Updated dependencies [42687ba]
+- Updated dependencies [6cd8f66]
+- Updated dependencies [24a0f14]
+- Updated dependencies [797a30f]
+- Updated dependencies [b4075c0]
+- Updated dependencies [9b85600]
+- Updated dependencies [e327c89]
+- Updated dependencies [2eaf5be]
+- Updated dependencies [bf7ab35]
+- Updated dependencies [99878d8]
+- Updated dependencies [3c13675]
+- Updated dependencies [63ab761]
+- Updated dependencies [0eb9f36]
+- Updated dependencies [ae582b7]
+- Updated dependencies [51c2949]
+- Updated dependencies [a4b017e]
+- Updated dependencies [8732846]
+- Updated dependencies [559a2e2]
+- Updated dependencies [db11afd]
+- Updated dependencies [154075a]
+- Updated dependencies [582edef]
+- Updated dependencies [19f484f]
+- Updated dependencies [0a78a20]
+- Updated dependencies [615346d]
+- Updated dependencies [75dcc81]
+- Updated dependencies [55a12a8]
+- Updated dependencies [edfcf5a]
+- Updated dependencies [0a3e540]
+- Updated dependencies [c021b35]
+- Updated dependencies [f61dab1]
+- Updated dependencies [b0a05dd]
+- Updated dependencies [dd5ff19]
+- Updated dependencies [54997ff]
+- Updated dependencies [81f8498]
+- Updated dependencies [a782fa7]
+- Updated dependencies [1d6a23d]
+- Updated dependencies [0645133]
+- Updated dependencies [76e9df0]
+- Updated dependencies [0ecaa7d]
+- Updated dependencies [b24f93a]
+- Updated dependencies [6158e4c]
+- Updated dependencies [cff8641]
+- Updated dependencies [c27b575]
+- Updated dependencies [84b275c]
+- Updated dependencies [0e6e76b]
+- Updated dependencies [bf43afa]
+- Updated dependencies [385ebc5]
+- Updated dependencies [3a0e7ab]
+- Updated dependencies [858eafb]
+- Updated dependencies [a8c5509]
+- Updated dependencies [c2a8d23]
+- Updated dependencies [0ffc423]
+- Updated dependencies [3cc4fe5]
+- Updated dependencies [cd5b19a]
+- Updated dependencies [cd5b19a]
+- Updated dependencies [17dc167]
+- Updated dependencies [20d23be]
+- Updated dependencies [20d23be]
+- Updated dependencies [2e3da72]
+- Updated dependencies [1263e40]
+- Updated dependencies [e6bc087]
+- Updated dependencies [9419df1]
+- Updated dependencies [8bab157]
+- Updated dependencies [a7557a7]
+- Updated dependencies [7d074ba]
+- Updated dependencies [6158e4c]
+- Updated dependencies [6158e4c]
+- Updated dependencies [52aad5c]
+- Updated dependencies [18d1a0a]
+- Updated dependencies [7fed09d]
+- Updated dependencies [c1763e5]
+- Updated dependencies [58da8ae]
+- Updated dependencies [a8b9889]
+- Updated dependencies [138ad45]
+- Updated dependencies [138ad45]
+- Updated dependencies [5262f7d]
+- Updated dependencies [6aa029b]
+- Updated dependencies [2124d04]
+- Updated dependencies [be52115]
+- Updated dependencies [770cc5b]
+- Updated dependencies [1a88ce2]
+- Updated dependencies [a1a44d6]
+- Updated dependencies [e0a9c67]
+- Updated dependencies [5638529]
+- Updated dependencies [5638529]
+- Updated dependencies [d0fba91]
+- Updated dependencies [c476be0]
+- Updated dependencies [c82ff39]
+- Updated dependencies [6c3da53]
+- Updated dependencies [31987bd]
+- Updated dependencies [3c3ce15]
+- Updated dependencies [063119f]
+- Updated dependencies [e100589]
+- Updated dependencies [304f611]
+- Updated dependencies [e46ee77]
+- Updated dependencies [f9c8c4e]
+- Updated dependencies [6e9c8d2]
+- Updated dependencies [9547063]
+- Updated dependencies [3f6efd6]
+- Updated dependencies [52c95a1]
+- Updated dependencies [55d18c6]
+- Updated dependencies [c4ab6d0]
+- Updated dependencies [0e9058b]
+- Updated dependencies [c4ab6d0]
+- Updated dependencies [5988b6b]
+- Updated dependencies [6158e4c]
+- Updated dependencies [00ccdf7]
+- Updated dependencies [9d9ed54]
+- Updated dependencies [6007dd4]
+- Updated dependencies [4a1adb7]
+- Updated dependencies [4a1adb7]
+- Updated dependencies [4a1adb7]
+- Updated dependencies [185b7a0]
+- Updated dependencies [50c73fe]
+- Updated dependencies [ca3de72]
+- Updated dependencies [83e3f83]
+- Updated dependencies [401611b]
+- Updated dependencies [2c0ddf2]
+- Updated dependencies [4abc0aa]
+- Updated dependencies [f560ded]
+- Updated dependencies [2b188fa]
+- Updated dependencies [b654d4e]
+- Updated dependencies [f68e0a0]
+- Updated dependencies [aea682a]
+- Updated dependencies [fcdc8ec]
+- Updated dependencies [2d576e4]
+- Updated dependencies [8366acc]
+- Updated dependencies [95e58a3]
+- Updated dependencies [9d7419b]
+- Updated dependencies [fc7db05]
+- Updated dependencies [9ed8d0f]
+- Updated dependencies [c73cdb5]
+- Updated dependencies [6f5719e]
+- Updated dependencies [d0097af]
+- Updated dependencies [432882b]
+- Updated dependencies [64dae8e]
+- Updated dependencies [b06e374]
+- Updated dependencies [06a8af5]
+- Updated dependencies [6a91586]
+- Updated dependencies [a04d7c6]
+- Updated dependencies [5ccc500]
+- Updated dependencies [f3c2bb0]
+- Updated dependencies [978507b]
+- Updated dependencies [778138e]
+- Updated dependencies [9801765]
+- Updated dependencies [9cebfca]
+- Updated dependencies [460575f]
+- Updated dependencies [d796c8d]
+- Updated dependencies [594704f]
+- Updated dependencies [d3995fe]
+- Updated dependencies [1b1d772]
+- Updated dependencies [d88e20f]
+- Updated dependencies [2d7304d]
+- Updated dependencies [636b236]
+- Updated dependencies [4172589]
+- Updated dependencies [d6d8fb9]
+- Updated dependencies [64d624d]
+- Updated dependencies [053fdc8]
+- Updated dependencies [41b7ce3]
+- Updated dependencies [ae476b8]
+- Updated dependencies [39f4309]
+- Updated dependencies [95bad12]
+- Updated dependencies [d2fb6ef]
+- Updated dependencies [7cd3987]
+- Updated dependencies [ee3b878]
+- Updated dependencies [e304a4e]
+- Updated dependencies [fda49e5]
+- Updated dependencies [490d9a9]
+- Updated dependencies [fc62bb4]
+- Updated dependencies [41df893]
+- Updated dependencies [0cba1b7]
+- Updated dependencies [00f3eb5]
+- Updated dependencies [1ec291c]
+- Updated dependencies [453dbaa]
+- Updated dependencies [95f8704]
+- Updated dependencies [f8cdbf2]
+- Updated dependencies [69a2163]
+- Updated dependencies [24e027e]
+- Updated dependencies [2c3cd1b]
+- Updated dependencies [e176053]
+- Updated dependencies [e30ed15]
+- Updated dependencies [90665e0]
+- Updated dependencies [8d3a529]
+- Updated dependencies [5ac2e2c]
+- Updated dependencies [194fae1]
+- Updated dependencies [7e19d03]
+- Updated dependencies [b08b7eb]
+- Updated dependencies [1e946c9]
+- Updated dependencies [546ddf7]
+- Updated dependencies [864154e]
+- Updated dependencies [b023625]
+- Updated dependencies [75bd83d]
+- Updated dependencies [44d075b]
+- Updated dependencies [40c479a]
+- Updated dependencies [971d387]
+- Updated dependencies [ee851c3]
+- Updated dependencies [6414dfd]
+- Updated dependencies [a8d5c71]
+- Updated dependencies [905b21f]
+- Updated dependencies [88e9109]
+- Updated dependencies [2c45966]
+- Updated dependencies [db3a600]
+- Updated dependencies [3a3db76]
+- Updated dependencies [0d723a3]
+- Updated dependencies [0c95d3d]
+- Updated dependencies [3e4fa2c]
+- Updated dependencies [b5b928a]
+- Updated dependencies [6fd2cf7]
+- Updated dependencies [5fa06c4]
+- Updated dependencies [52a43de]
+- Updated dependencies [195052f]
+- Updated dependencies [e4559d1]
+- Updated dependencies [2c71482]
+- Updated dependencies [129bcc5]
+- Updated dependencies [a26b9e4]
+- Updated dependencies [5ef9c4f]
+- Updated dependencies [46f0bb4]
+- Updated dependencies [06b82b8]
+- Updated dependencies [8ec11e1]
+- Updated dependencies [6f81384]
+- Updated dependencies [22ba927]
+- Updated dependencies [8631c32]
+- Updated dependencies [f8c70f4]
+- Updated dependencies [5d3a2d1]
+- Updated dependencies [8f1d995]
+- Updated dependencies [b362c1b]
+- Updated dependencies [f9c34df]
+- Updated dependencies [dddb942]
+- Updated dependencies [00c665e]
+- Updated dependencies [29754cf]
+- Updated dependencies [d7de534]
+- Updated dependencies [3c2b6f7]
+- Updated dependencies [6e88630]
+- Updated dependencies [b84dc18]
+- Updated dependencies [ac8abb0]
+- Updated dependencies [9d86e1d]
+- Updated dependencies [3a5817f]
+- Updated dependencies [99a3c2d]
+- Updated dependencies [5961030]
+- Updated dependencies [f24de8b]
+- Updated dependencies [c8ea8af]
+- Updated dependencies [9602dc8]
+- Updated dependencies [3190414]
+- Updated dependencies [4e480f5]
+- Updated dependencies [38a123c]
+- Updated dependencies [299102e]
+- Updated dependencies [30c73cd]
+- Updated dependencies [830ed58]
+- Updated dependencies [d7acad6]
+- Updated dependencies [45a9aeb]
+- Updated dependencies [713db46]
+- Updated dependencies [c71e14d]
+- Updated dependencies [bf3a03c]
+- Updated dependencies [cb55718]
+- Updated dependencies [748494b]
+- Updated dependencies [5967be0]
+- Updated dependencies [831be72]
+- Updated dependencies [29cb85b]
+- Updated dependencies [3e028c8]
+- Updated dependencies [d0889e2]
+- Updated dependencies [ce503e5]
+- Updated dependencies [f20dcf0]
+- Updated dependencies [12402a9]
+- Updated dependencies [aff3d7a]
+- Updated dependencies [4ca30d0]
+- Updated dependencies [7a5da14]
+- Updated dependencies [fff9645]
+- Updated dependencies [9c3b7ce]
+- Updated dependencies [2c1c967]
+- Updated dependencies [9486ac6]
+- Updated dependencies [9486ac6]
+- Updated dependencies [4d5f9b4]
+- Updated dependencies [d6ceb8d]
+- Updated dependencies [dc4365c]
+- Updated dependencies [e321d52]
+- Updated dependencies [969ba84]
+- Updated dependencies [98188c2]
+- Updated dependencies [4c68077]
+- Updated dependencies [7977ff9]
+- Updated dependencies [3beef6d]
+- Updated dependencies [06b8c42]
+- Updated dependencies [46b9bc9]
+- Updated dependencies [f46bd39]
+- Updated dependencies [b98352a]
+- Updated dependencies [b76ca67]
+- Updated dependencies [45ac2cb]
+- Updated dependencies [b97790a]
+- Updated dependencies [dbd5194]
+- Updated dependencies [7c9b044]
+- Updated dependencies [e552c31]
+- Updated dependencies [d47de51]
+- Updated dependencies [3fe6463]
+- Updated dependencies [b392674]
+- Updated dependencies [4f3a1e2]
+- Updated dependencies [31ab372]
+- Updated dependencies [846889b]
+- Updated dependencies [2acd8e1]
+- Updated dependencies [7b90231]
+- Updated dependencies [26896c6]
+- Updated dependencies [67fc3b0]
+- Updated dependencies [8579e34]
+- Updated dependencies [d57db5d]
+- Updated dependencies [33a3b3c]
+- Updated dependencies [b87f15b]
+- Updated dependencies [045d20b]
+- Updated dependencies [a2d2515]
+- Updated dependencies [c18d099]
+- Updated dependencies [0caacca]
+- Updated dependencies [adb2a86]
+- Updated dependencies [03380aa]
+- Updated dependencies [4562ea5]
+- Updated dependencies [3619792]
+- Updated dependencies [3561bd2]
+- Updated dependencies [bf97b98]
+- Updated dependencies [320374d]
+- Updated dependencies [b0d308d]
+- Updated dependencies [b458300]
+- Updated dependencies [40f34b4]
+- Updated dependencies [bd0376d]
+- Updated dependencies [8063bcb]
+- Updated dependencies [b74a859]
+- Updated dependencies [d4493fd]
+- Updated dependencies [240b80f]
+- Updated dependencies [77cb489]
+- Updated dependencies [bfaa158]
+- Updated dependencies [777e5c6]
+- Updated dependencies [0c386dd]
+- Updated dependencies [39d69ad]
+- Updated dependencies [9e37d9b]
+- Updated dependencies [5ad86dd]
+- Updated dependencies [16a725f]
+- Updated dependencies [4dfdcc3]
+- Updated dependencies [6a449fc]
+- Updated dependencies [446d93d]
+- Updated dependencies [ecd9cb2]
+- Updated dependencies [f08bcd9]
+- Updated dependencies [98d4108]
+- Updated dependencies [0e3b3be]
+- Updated dependencies [a29ae2d]
+- Updated dependencies [220c18d]
+- Updated dependencies [00d3f09]
+- Updated dependencies [4388f71]
+- Updated dependencies [0b1ac58]
+- Updated dependencies [c93b4d5]
+- Updated dependencies [c1fe272]
+- Updated dependencies [3cab570]
+- Updated dependencies [8ad218d]
+- Updated dependencies [3e41187]
+- Updated dependencies [5f78953]
+- Updated dependencies [639114c]
+- Updated dependencies [639114c]
+- Updated dependencies [1490691]
+- Updated dependencies [e8e4c4d]
+- Updated dependencies [1f31d3a]
+- Updated dependencies [d1842ab]
+- Updated dependencies [78ca238]
+- Updated dependencies [d8ec8d6]
+- Updated dependencies [351eb31]
+- Updated dependencies [866cd1d]
+- Updated dependencies [20c04b2]
+- Updated dependencies [01c9023]
+- Updated dependencies [48c19bd]
+- Updated dependencies [a6d8b8d]
+- Updated dependencies [4b5bb95]
+- Updated dependencies [b652514]
+- Updated dependencies [adbda1b]
+- Updated dependencies [adbda1b]
+- Updated dependencies [8952395]
+- Updated dependencies [e2b3826]
+- Updated dependencies [0348bc9]
+- Updated dependencies [e8c553b]
+- Updated dependencies [2e32ed4]
+- Updated dependencies [554e647]
+- Updated dependencies [3ed3eec]
+- Updated dependencies [7c3df8f]
+- Updated dependencies [a4514e8]
+- Updated dependencies [db3896c]
+- Updated dependencies [b9f5ff1]
+- Updated dependencies [e75f4c9]
+- Updated dependencies [19f1639]
+- Updated dependencies [4704aa4]
+- Updated dependencies [47547d0]
+- Updated dependencies [1bee5d0]
+- Updated dependencies [858cd72]
+- Updated dependencies [cfc9b6d]
+- Updated dependencies [554f2b6]
+- Updated dependencies [72f55c9]
+- Updated dependencies [26e06d7]
+- Updated dependencies [669d71b]
+- Updated dependencies [ed27d7c]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [2ceb43a]
+- Updated dependencies [7cdd2b9]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [3399704]
+- Updated dependencies [71a4a53]
+- Updated dependencies [7bf244b]
+- Updated dependencies [f0bb9fa]
+- Updated dependencies [81a2eb1]
+- Updated dependencies [caa0cd3]
+- Updated dependencies [caa0cd3]
+- Updated dependencies [20cb8db]
+- Updated dependencies [25c7d58]
+- Updated dependencies [00d2fa6]
+- Updated dependencies [77b2a18]
+- Updated dependencies [c6198c2]
+- Updated dependencies [721d1e0]
+- Updated dependencies [c2f0f48]
+- Updated dependencies [1237ae4]
+- Updated dependencies [2f61238]
+- Updated dependencies [51eb515]
+- Updated dependencies [c354ce5]
+- Updated dependencies [8fe8e5c]
+- Updated dependencies [feac439]
+- Updated dependencies [9ae871d]
+- Updated dependencies [efbd566]
+- Updated dependencies [2a5bf45]
+- Updated dependencies [9587fc9]
+- Updated dependencies [e62c44e]
+- Updated dependencies [daf9d57]
+- Updated dependencies [23b9958]
+- Updated dependencies [c15d7ec]
+- Updated dependencies [5d0876c]
+- Updated dependencies [f7ace0a]
+- Updated dependencies [b041b9c]
+- Updated dependencies [ce2aaef]
+- Updated dependencies [544ecba]
+- Updated dependencies [2ce2612]
+- Updated dependencies [bc640ec]
+- Updated dependencies [1e215c4]
+- Updated dependencies [da6e191]
+- Updated dependencies [3e377c9]
+- Updated dependencies [a3eb5d0]
+- Updated dependencies [4ce14f1]
+- Updated dependencies [aef97e5]
+- Updated dependencies [2af1fa7]
+- Updated dependencies [c14d3a0]
+- Updated dependencies [a137d0c]
+- Updated dependencies [caf477f]
+- Updated dependencies [f6375da]
+- Updated dependencies [967e5d8]
+- Updated dependencies [c907a9c]
+- Updated dependencies [a4611b3]
+- Updated dependencies [20316ba]
+- Updated dependencies [d3499b3]
+- Updated dependencies [91f9276]
+- Updated dependencies [309c75e]
+- Updated dependencies [c9f9bae]
+- Updated dependencies [18897a4]
+- Updated dependencies [8b7ea39]
+- Updated dependencies [a915064]
+- Updated dependencies [dcbf0b2]
+- Updated dependencies [52cac38]
+- Updated dependencies [93fea2e]
+- Updated dependencies [1422a92]
+- Updated dependencies [d05fe17]
+- Updated dependencies [a480f79]
+- Updated dependencies [f08d1a8]
+- Updated dependencies [64a252d]
+- Updated dependencies [786bc91]
+- Updated dependencies [75fca96]
+- Updated dependencies [7ca6ddd]
+- Updated dependencies [f1cd290]
+- Updated dependencies [5a41ce7]
+- Updated dependencies [8d50bc2]
+- Updated dependencies [604476d]
+- Updated dependencies [d1bebb0]
+- Updated dependencies [95bf128]
+- Updated dependencies [335abea]
+- Updated dependencies [edea22a]
+- Updated dependencies [0f5cadf]
+- Updated dependencies [4f9f1ee]
+- Updated dependencies [66e8b2a]
+- Updated dependencies [aa083cd]
+- Updated dependencies [12b5992]
+- Updated dependencies [b93e245]
+- Updated dependencies [c842594]
+- Updated dependencies [290de37]
+- Updated dependencies [1cfdff8]
+- Updated dependencies [e1c27e4]
+- Updated dependencies [8c8da45]
+- Updated dependencies [8cd8eb5]
+- Updated dependencies [f52a9d7]
+- Updated dependencies [cf1d29e]
+- Updated dependencies [1bd79c8]
+- Updated dependencies [af9e957]
+- Updated dependencies [b1030c7]
+- Updated dependencies [c974edf]
+- Updated dependencies [ad852b6]
+- Updated dependencies [6778809]
+- Updated dependencies [3a3dd28]
+- Updated dependencies [7fb22a1]
+- Updated dependencies [ad66d79]
+- Updated dependencies [0758bd8]
+- Updated dependencies [ee4d19f]
+- Updated dependencies [496d31d]
+- Updated dependencies [7ed9808]
+- Updated dependencies [0ea7054]
+- Updated dependencies [ac0e39a]
+- Updated dependencies [9a853f2]
+- Updated dependencies [cb847fd]
+- Updated dependencies [ee70287]
+- Updated dependencies [3e98e13]
+- Updated dependencies [a695f50]
+- Updated dependencies [fc32921]
+- Updated dependencies [4eaa835]
+- Updated dependencies [8f9d87a]
+- Updated dependencies [b1777ae]
+- Updated dependencies [24845c4]
+- Updated dependencies [6f864cf]
+- Updated dependencies [24d1edd]
+- Updated dependencies [645087c]
+- Updated dependencies [33f4a19]
+- Updated dependencies [6e9a3d4]
+- Updated dependencies [4a292d2]
+- Updated dependencies [5323168]
+- Updated dependencies [841dd2b]
+- Updated dependencies [3014fc0]
+- Updated dependencies [dacb402]
+- Updated dependencies [846cec0]
+- Updated dependencies [91facae]
+- Updated dependencies [b38014e]
+- Updated dependencies [474797d]
+- Updated dependencies [704e695]
+- Updated dependencies [a407bd6]
+- Updated dependencies [317dbce]
+- Updated dependencies [309728c]
+- Updated dependencies [c03d03b]
+- Updated dependencies [aa08d7e]
+- Updated dependencies [3a43a15]
+- Updated dependencies [868e825]
+- Updated dependencies [f76f436]
+- Updated dependencies [ce45a03]
+- Updated dependencies [421544b]
+- Updated dependencies [fb01022]
+- Updated dependencies [e9d9212]
+- Updated dependencies [ecfb693]
+- Updated dependencies [639ca9d]
+- Updated dependencies [2152962]
+- Updated dependencies [abc1b18]
+- Updated dependencies [81a51db]
+- Updated dependencies [67749c7]
+- Updated dependencies [507b61b]
+- Updated dependencies [512c84b]
+- Updated dependencies [c300267]
+- Updated dependencies [fb3a101]
+- Updated dependencies [d4733f2]
+- Updated dependencies [7c9145f]
+- Updated dependencies [1570eac]
+- Updated dependencies [f391ede]
+- Updated dependencies [f5cfbbd]
+- Updated dependencies [f5cfbbd]
+- Updated dependencies [8b532cb]
+- Updated dependencies [64c3cdd]
+- Updated dependencies [4d65991]
+- Updated dependencies [c42554e]
+- Updated dependencies [3e71b26]
+- Updated dependencies [b89583b]
+- Updated dependencies [70c4523]
+- Updated dependencies [555b4ec]
+- Updated dependencies [64f1cf1]
+- Updated dependencies [da5e4f6]
+- Updated dependencies [1ccfc23]
+- Updated dependencies [542718f]
+- Updated dependencies [7f27bc5]
+- Updated dependencies [0a174f3]
+- Updated dependencies [676f677]
+- Updated dependencies [f95b140]
+- Updated dependencies [541ce4e]
+- Updated dependencies [6479086]
+- Updated dependencies [d79f525]
+- Updated dependencies [d1865d2]
+- Updated dependencies [88a629d]
+- Updated dependencies [cdd2542]
+- Updated dependencies [ab77513]
+- Updated dependencies [55ba3ff]
+- Updated dependencies [3ecc369]
+- Updated dependencies [f1190b0]
+- Updated dependencies [561abef]
+- Updated dependencies [ef52001]
+- Updated dependencies [6a4680b]
+- Updated dependencies [c3a4273]
+- Updated dependencies [abf710d]
+- Updated dependencies [093af32]
+- Updated dependencies [1bd1be7]
+- Updated dependencies [d234fa9]
+- Updated dependencies [adf5812]
+- Updated dependencies [0eaed83]
+- Updated dependencies [e36acd4]
+- Updated dependencies [5058336]
+- Updated dependencies [2f6b2bf]
+- Updated dependencies [2028b31]
+- Updated dependencies [63601ab]
+- Updated dependencies [c372b29]
+- Updated dependencies [152f0a7]
+- Updated dependencies [8693b85]
+- Updated dependencies [e82dad1]
+- Updated dependencies [58b7b3d]
+- Updated dependencies [84defab]
+- Updated dependencies [681d3f1]
+- Updated dependencies [969d4f2]
+- Updated dependencies [f3bc481]
+- Updated dependencies [b79aac2]
+- Updated dependencies [93fc0e7]
+- Updated dependencies [a4b723f]
+- Updated dependencies [2b10ca0]
+- Updated dependencies [7db4a81]
+- Updated dependencies [19a0b0e]
+- Updated dependencies [526fc11]
+- Updated dependencies [f8e3e9a]
+- Updated dependencies [b9d47ec]
+- Updated dependencies [3b6bc69]
+- Updated dependencies [6214db6]
+- Updated dependencies [6732df4]
+- Updated dependencies [fe9e0d0]
+- Updated dependencies [63fb72c]
+- Updated dependencies [804831c]
+- Updated dependencies [279e48e]
+- Updated dependencies [8700d6d]
+- Updated dependencies [8db2a0f]
+- Updated dependencies [689953a]
+- Updated dependencies [30443fb]
+- Updated dependencies [8d3dbb2]
+- Updated dependencies [efc1c9c]
+- Updated dependencies [da45e6b]
+- Updated dependencies [7533465]
+- Updated dependencies [835f0f3]
+- Updated dependencies [6d5db7b]
+- Updated dependencies [a9d97be]
+- Updated dependencies [ed35b44]
+- Updated dependencies [9ba7e9c]
+- Updated dependencies [729e851]
+- Updated dependencies [96919a4]
+- Updated dependencies [345e24a]
+- Updated dependencies [20b507a]
+- Updated dependencies [2e471dc]
+- Updated dependencies [6748587]
+- Updated dependencies [be50942]
+- Updated dependencies [775e079]
+- Updated dependencies [7e8b3c0]
+- Updated dependencies [53374dc]
+- Updated dependencies [f6fb83f]
+- Updated dependencies [2049b03]
+- Updated dependencies [2bf34f7]
+- Updated dependencies [15b33ae]
+- Updated dependencies [7cbc724]
+- Updated dependencies [4a94c38]
+- Updated dependencies [7098eed]
+- Updated dependencies [3df7c5c]
+- Updated dependencies [fb91ac9]
+- Updated dependencies [fb91ac9]
+- Updated dependencies [641fb55]
+- Updated dependencies [8524372]
+- Updated dependencies [7cbefa5]
+- Updated dependencies [72d6587]
+- Updated dependencies [a272a4f]
+- Updated dependencies [55f39ee]
+- Updated dependencies [0ce32d5]
+- Updated dependencies [0970a0e]
+- Updated dependencies [e427e9c]
+- Updated dependencies [bbc9dc3]
+- Updated dependencies [02f1813]
+- Updated dependencies [1ef89c0]
+- Updated dependencies [ba0b61a]
+- Updated dependencies [ba0b61a]
+- Updated dependencies [ac716ff]
+- Updated dependencies [e05553c]
+- Updated dependencies [f0f3cd5]
+- Updated dependencies [ab856ed]
+- Updated dependencies [f0f2046]
+- Updated dependencies [20f3e65]
+- Updated dependencies [bbba098]
+- Updated dependencies [87af769]
+- Updated dependencies [3be720e]
+- Updated dependencies [43c0d17]
+- Updated dependencies [c3df43a]
+- Updated dependencies [d16d0e9]
+- Updated dependencies [bbe57fd]
+- Updated dependencies [272a530]
+- Updated dependencies [1779e8d]
+- Updated dependencies [9aa2a57]
+- Updated dependencies [f7fcc2c]
+- Updated dependencies [f0f4d6c]
+- Updated dependencies [4128188]
+- Updated dependencies [b253c4e]
+- Updated dependencies [78a9c67]
+- Updated dependencies [2e97c8c]
+- Updated dependencies [4a7ef0d]
+- Updated dependencies [4598f6d]
+- Updated dependencies [dea17b4]
+- Updated dependencies [89bb77a]
+- Updated dependencies [06611e4]
+- Updated dependencies [44152c4]
+- Updated dependencies [3939545]
+- Updated dependencies [0ee6e31]
+- Updated dependencies [66abbde]
+- Updated dependencies [dc3893d]
+- Updated dependencies [1bbaa16]
+- Updated dependencies [6ee259a]
+- Updated dependencies [7649f43]
+- Updated dependencies [e708426]
+- Updated dependencies [3b6d53b]
+- Updated dependencies [e22fa12]
+- Updated dependencies [1560d46]
+- Updated dependencies [276d174]
+- Updated dependencies [2982ed9]
+- Updated dependencies [741864f]
+- Updated dependencies [a8198de]
+- Updated dependencies [0c789a4]
+- Updated dependencies [05a49f2]
+- Updated dependencies [b234a84]
+- Updated dependencies [a78cd37]
+- Updated dependencies [5ea623e]
+- Updated dependencies [4d7d322]
+- Updated dependencies [5eabe86]
+- Updated dependencies [ca5d671]
+- Updated dependencies [32bf2d6]
+- Updated dependencies [ff0c384]
+- Updated dependencies [af4fb29]
+- Updated dependencies [c698a81]
+- Updated dependencies [ff5ef1c]
+- Updated dependencies [befd40c]
+- Updated dependencies [9a97800]
+- Updated dependencies [6bca0e4]
+- Updated dependencies [81c0bc4]
+- Updated dependencies [3c76801]
+- Updated dependencies [60500cb]
+- Updated dependencies [2fcefb9]
+- Updated dependencies [77f846a]
+- Updated dependencies [bc5870c]
+- Updated dependencies [b55a346]
+- Updated dependencies [065bba7]
+- Updated dependencies [f760064]
+- Updated dependencies [dd19463]
+- Updated dependencies [6791717]
+- Updated dependencies [8ea3bee]
+- Updated dependencies [100547e]
+- Updated dependencies [3a58149]
+- Updated dependencies [6d1c155]
+- Updated dependencies [d7573b3]
+- Updated dependencies [bf3edfe]
+- Updated dependencies [2c8474c]
+- Updated dependencies [6ce89da]
+- Updated dependencies [0e05aac]
+- Updated dependencies [ae61ad4]
+- Updated dependencies [5aed9e4]
+- Updated dependencies [83c77dc]
+- Updated dependencies [3c9fca3]
+- Updated dependencies [18a8e7d]
+- Updated dependencies [e7957ab]
+- Updated dependencies [f7e34ca]
+- Updated dependencies [e719ebd]
+- Updated dependencies [516583b]
+- Updated dependencies [f9e4f91]
+- Updated dependencies [6ef48b1]
+- Updated dependencies [58be55e]
+- Updated dependencies [fa429cf]
+- Updated dependencies [ed8df3e]
+- Updated dependencies [fe76ece]
+- Updated dependencies [8b446f5]
+- Updated dependencies [8e74b27]
+- Updated dependencies [7102b20]
+- Updated dependencies [8ebd57f]
+- Updated dependencies [968dc1e]
+- Updated dependencies [9a1fb41]
+- Updated dependencies [617707a]
+- Updated dependencies [c40f3b8]
+- Updated dependencies [58770f3]
+- Updated dependencies [aefe428]
+- Updated dependencies [485f096]
+- Updated dependencies [7357447]
+- Updated dependencies [199d31b]
+- Updated dependencies [b655a9d]
+- Updated dependencies [a865c73]
+- Updated dependencies [3e01cb5]
+- Updated dependencies [7138bc1]
+- Updated dependencies [cef27e2]
+- Updated dependencies [4e8622b]
+- Updated dependencies [dffd752]
+- Updated dependencies [06973aa]
+- Updated dependencies [50798f3]
+- Updated dependencies [6a576c9]
+- Updated dependencies [105f3c5]
+- Updated dependencies [3ccd9e8]
+- Updated dependencies [689b979]
+- Updated dependencies [c70f865]
+- Updated dependencies [e546222]
+- Updated dependencies [fd13f52]
+- Updated dependencies [d7bd274]
+- Updated dependencies [98c3a74]
+- Updated dependencies [fffa30d]
+- Updated dependencies [e4e9557]
+- Updated dependencies [7a28e1e]
+- Updated dependencies [ebce5a3]
+- Updated dependencies [fb336df]
+- Updated dependencies [4dc80d0]
+- Updated dependencies [9d9040d]
+- Updated dependencies [20e317c]
+- Updated dependencies [0fce2ef]
+- Updated dependencies [42df928]
+- Updated dependencies [0e2ddd4]
+- Updated dependencies [b7479ab]
+- Updated dependencies [9850c6e]
+- Updated dependencies [de570cc]
+- Updated dependencies [b2ea297]
+- Updated dependencies [5b5a5c3]
+- Updated dependencies [14582b8]
+- Updated dependencies [51e144e]
+- Updated dependencies [19cbf10]
+- Updated dependencies [b6e83be]
+- Updated dependencies [ab92940]
+- Updated dependencies [a691c0b]
+- Updated dependencies [0b1326d]
+- Updated dependencies [1e66879]
+- Updated dependencies [c5200f0]
+- Updated dependencies [af3861f]
+- Updated dependencies [2609812]
+- Updated dependencies [515f171]
+- Updated dependencies [1f4e029]
+- Updated dependencies [4f14ad7]
+- Updated dependencies [258d264]
+- Updated dependencies [cac64b3]
+- Updated dependencies [4bb940b]
+- Updated dependencies [8033ad1]
+- Updated dependencies [fa140b8]
+- Updated dependencies [71cba28]
+- Updated dependencies [190fbd0]
+- Updated dependencies [c00bf28]
+- Updated dependencies [93127bd]
+- Updated dependencies [f2158ec]
+- Updated dependencies [759606e]
+- Updated dependencies [fd8dace]
+- Updated dependencies [72ffc34]
+- Updated dependencies [a51fa0c]
+- Updated dependencies [51f3d8d]
+- Updated dependencies [bf28341]
+- Updated dependencies [78cbdb5]
+- Updated dependencies [b7543a9]
+- Updated dependencies [6c6cee7]
+- Updated dependencies [42887e0]
+- Updated dependencies [f1690d4]
+- Updated dependencies [83fe6e7]
+- Updated dependencies [d1ab06f]
+- Updated dependencies [38a9568]
+- Updated dependencies [f90b8fb]
+- Updated dependencies [91783c4]
+- Updated dependencies [982885d]
+- Updated dependencies [dba7d84]
+- Updated dependencies [ca39427]
+- Updated dependencies [bd09957]
+- Updated dependencies [5a07e67]
+- Updated dependencies [2d36552]
+- Updated dependencies [45d8288]
+- Updated dependencies [b2437a7]
+- Updated dependencies [f157423]
+- Updated dependencies [7a90afd]
+- Updated dependencies [eddc1dd]
+- Updated dependencies [490f482]
+- Updated dependencies [27308c5]
+- Updated dependencies [8689166]
+- Updated dependencies [c9327c9]
+- Updated dependencies [920165d]
+- Updated dependencies [9101be5]
+- Updated dependencies [f53a8d0]
+- Updated dependencies [30266cf]
+- Updated dependencies [968dc1e]
+- Updated dependencies [57f9b07]
+- Updated dependencies [3c73d99]
+- Updated dependencies [d91aed9]
+- Updated dependencies [ed71d9e]
+- Updated dependencies [7776fc2]
+- Updated dependencies [e76634c]
+- Updated dependencies [c86185e]
+- Updated dependencies [fb96ecb]
+- Updated dependencies [1170ed1]
+- Updated dependencies [92814db]
+- Updated dependencies [4d73b07]
+  - @object-ui/react@17.7.0
+  - @object-ui/core@17.7.0
+  - @object-ui/types@17.7.0
+  - @object-ui/i18n@17.7.0
+  - @object-ui/components@17.7.0
+  - @object-ui/fields@17.7.0
+  - @object-ui/mobile@17.7.0
+  - @object-ui/permissions@17.7.0
+
 ## 17.6.0
 
 ### Minor Changes

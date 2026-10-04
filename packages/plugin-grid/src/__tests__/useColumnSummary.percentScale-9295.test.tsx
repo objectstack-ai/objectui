@@ -52,9 +52,14 @@ function wrapper(locale: string) {
   );
 }
 
-function summaryLabel(stored: number, locale: string, column: Record<string, unknown> = {}): string {
-  const cols: any[] = [{ field: 'rate', summary: 'sum', type: 'percent', ...column }];
-  const { result } = renderHook(() => useColumnSummary(cols, [{ rate: stored }]), {
+/**
+ * `fieldHints` (`precision`, `scale`) sit on the FIELD, handed to the hook as
+ * `fieldMetadata`: objectui#11588 retired the column-level read of both.
+ */
+function summaryLabel(stored: number, locale: string, fieldHints: Record<string, unknown> = {}): string {
+  const cols: any[] = [{ field: 'rate', summary: 'sum', type: 'percent' }];
+  const meta = { rate: { type: 'percent', ...fieldHints } };
+  const { result } = renderHook(() => useColumnSummary(cols, [{ rate: stored }], meta as never), {
     wrapper: wrapper(locale),
   });
   return result.current.summaries.get('rate')?.label ?? '';
@@ -107,9 +112,9 @@ describe('the footer and the list cell above it move together (objectui#9295)', 
     [0.25, { precision: 10 }, 0],
     [0.12345, { scale: 4 }, 4],
     [0.12345, {}, 0],
-  ])('agrees with formatPercent for %p declaring %p', (stored, column, width) => {
-    expect(summaryLabel(stored as number, 'en', column as Record<string, unknown>)).toBe(
-      // Every row's column declares no `max`: a fraction (objectui#11475).
+  ])('agrees with formatPercent for %p declaring %p', (stored, hints, width) => {
+    expect(summaryLabel(stored as number, 'en', hints as Record<string, unknown>)).toBe(
+      // Every row's field declares no `max`: a fraction (objectui#11475).
       `${PREFIX}${formatPercent(stored as number, 'fraction', width as number, 'en')}`,
     );
   });

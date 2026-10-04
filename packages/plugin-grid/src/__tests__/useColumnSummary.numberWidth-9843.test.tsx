@@ -44,14 +44,19 @@ function wrapper(locale: string) {
   );
 }
 
+/**
+ * `fieldDef` is the FIELD's definition, handed to the hook as `fieldMetadata`:
+ * objectui#11588 retired the column-level read of `scale`, so the column names
+ * only its `field` and `summary`.
+ */
 function footer(
   summary: string,
   values: unknown[],
-  column: Record<string, unknown> = { type: 'number' },
+  fieldDef: Record<string, unknown> = { type: 'number' },
   locale = 'en',
 ): string {
-  const cols = [{ field: 'n', summary, ...column }] as unknown as ListColumn[];
-  const { result } = renderHook(() => useColumnSummary(cols, values.map((n) => ({ n }))), {
+  const cols = [{ field: 'n', summary }] as unknown as ListColumn[];
+  const { result } = renderHook(() => useColumnSummary(cols, values.map((n) => ({ n })), { n: fieldDef } as never), {
     wrapper: wrapper(locale),
   });
   return result.current.summaries.get('n')?.label ?? '';

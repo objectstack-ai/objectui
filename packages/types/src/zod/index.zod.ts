@@ -589,6 +589,33 @@ import { nestedComponentJudgment } from './nested-component-walk.js';
  * fill is an installation and nothing more. The slot itself is
  * still a plain `z.union` in `base.zod.ts` — that is what keeps its option array by
  * reference, and it is untouched by the discrimination.
+ *
+ * ## Why every category union's TYPE is named (objectui#11573)
+ *
+ * `tsc` prints an inferred type in full wherever a declaration uses it, and it
+ * refuses to print one past its serialization ceiling with TS7056 ("The
+ * inferred type of this node exceeds the maximum length the compiler will
+ * serialize"); `@object-ui/types` then emits no declarations at all, and every
+ * consumer of `./zod` fails with TS7016. This declaration lists the members
+ * below, so printed inline it is the SUM of every category's print — the
+ * `Spec Main Shape Gate` caught it crossing the ceiling, and single arms were
+ * named one TS7056 at a time to stay under it (`AppSchemaRendererNodeSchemaType`,
+ * `PageKindNodeSchemaType`, `ReportNodeZodType`, `RecordLineItemsBlockSchemaType`)
+ * until objectui#11573 measured what was left: under one percent of the ceiling.
+ *
+ * So every category union listed here has a NAMED type: an exported interface
+ * in its own module that extends the union's inferred type and adds no member
+ * (`LayoutZodType`, `PublicBlockComponentZodType` and their siblings). An
+ * interface is printed by name, so each union's body is printed once, in its
+ * own module's declaration, and this declaration prints a reference to it. The
+ * TYPES are unchanged: the value is the union itself, and `z.input` / `z.output`
+ * read the union's own internals. Only the printed `.d.ts` text moved.
+ *
+ * ⚠️ A member added below is printed inline unless its type is named the same
+ * way. `__tests__/any-component-emit-headroom-11573.test.ts` reads this
+ * declaration's size with the compiler's own counter, fails when it crosses its
+ * stated margin below the ceiling, and lists every member as named or inline,
+ * so a new member turns it red until it is classified there.
  */
 export const AnyComponentSchema = defineNodeComponentUnion(z.discriminatedUnion('type', [
   AppComponentSchema,

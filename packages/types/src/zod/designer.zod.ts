@@ -664,7 +664,7 @@ export const FieldDesignerSchema = BaseSchema.extend({
  * because `DesignerComponentSchema` is the canvas component's mirror above
  * (the `ReportUnionSchema` precedent in `reports.zod.ts`).
  */
-export const DesignerUnionSchema = z.discriminatedUnion('type', [
+const DesignerUnionSchemaInferred = z.discriminatedUnion('type', [
   PageDesignerSchema,
   DataModelDesignerSchema,
   ProcessDesignerSchema,
@@ -672,3 +672,16 @@ export const DesignerUnionSchema = z.discriminatedUnion('type', [
   ObjectManagerSchema,
   FieldDesignerSchema,
 ]);
+
+/**
+ * The TYPE of {@link DesignerUnionSchema}, NAMED so declaration emit prints it by
+ * reference (objectui#11573): see "Why every category union's TYPE is named"
+ * on `AnyComponentSchema` (`index.zod.ts`). It adds no member.
+ */
+export interface DesignerUnionZodType extends DesignerUnionSchemaInferredType {
+  options: DesignerUnionSchemaInferredType['options'];
+}
+type DesignerUnionSchemaInferredType = typeof DesignerUnionSchemaInferred;
+
+/** The union above, typed by its named {@link DesignerUnionZodType}. */
+export const DesignerUnionSchema: DesignerUnionZodType = DesignerUnionSchemaInferred;

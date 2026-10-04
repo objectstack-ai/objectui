@@ -65,6 +65,7 @@ import { PageHeader } from '../layout/PageHeader.js';
 import { getIcon } from '../utils/getIcon.js';
 import { useMetadataClient } from './metadata-admin/useMetadata.js';
 import { createRuntimeMetadata, viewEnvelope } from './runtime-metadata-persistence.js';
+import { buildNewViewSpec } from './newViewSpec.js';
 import { CreateViewDialog } from './CreateViewDialog.js';
 import {
   usePreviewDrafts,
@@ -168,22 +169,24 @@ function foldUrlFilterTriplesToSpecRules(triples: FilterTriple[]): ViewFilterRul
  * subConfig }`); `fallbackColumns` is this page's auto-derived, field-security
  * trimmed column list, used only when the dialog carried none.
  *
- * Exported for `ObjectDataPage.saveAsViewFilterFold.test.ts`. @internal
+ * This door resolves only its own inputs (those columns, and the URL
+ * conditions folded to spec rules); the spec itself, with every type-specific
+ * rule, is built by `buildNewViewSpec`, the one builder this door shares with
+ * the add-view door (objectui#11581). An all-dropped fold writes no `filter`
+ * key at all, byte-identical to a save with no drill conditions active.
+ *
+ * Exported for `ObjectDataPage.saveAsViewFilterFold.test.ts` and
+ * `CreateViewDialog.viewTypeParse-11581.test.tsx`. @internal
  */
 export function buildSaveAsViewSpec(
   config: Record<string, any>,
   fallbackColumns: string[],
   urlFilters: FilterTriple[],
 ): Record<string, any> {
-  const filterRules = foldUrlFilterTriplesToSpecRules(urlFilters);
-  return {
-    ...config,
-    columns:
-      Array.isArray(config.columns) && config.columns.length > 0 ? config.columns : fallbackColumns,
-    // An all-dropped fold writes no `filter` key at all, byte-identical to a
-    // save with no drill conditions active.
-    ...(filterRules.length ? { filter: filterRules } : {}),
-  };
+  return buildNewViewSpec(config, {
+    fallbackColumns,
+    filter: foldUrlFilterTriplesToSpecRules(urlFilters),
+  });
 }
 
 export function ObjectDataPage({ dataSource, objects }: any) {

@@ -444,9 +444,11 @@ const main: ContainerSchema = {
 };
 
 // An authored `flex` node takes its props, the child list included, in its
-// `properties` bag. `FlexBlockNode` is that node, its bag closed. The bag's
-// child list is `unknown[]`, as `FlexBlockSchema` declares it, so each child
-// written inline names its own type with `satisfies`.
+// `properties` bag. `FlexBlockNode` is that node, its bag closed, and each
+// entry of the bag's child list is checked as a node of its own `type`. The
+// nested `flex` still names its type with `satisfies`: as an entry it also
+// matches the post-hoist `FlexSchema`, whose `BaseSchema` index signature
+// admits any `properties` until that signature is removed.
 const page: FlexBlockNode = {
   type: 'flex',
   properties: {

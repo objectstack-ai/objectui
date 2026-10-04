@@ -1,5 +1,5 @@
 ---
-'@object-ui/app-shell': patch
+'@object-ui/app-shell': minor
 ---
 
 A Studio form field that declares the `ref:dataset` widget now renders a dataset picker instead of the JSON editor fallback (objectui#11601).
@@ -19,3 +19,7 @@ block row picks up the dataset picker once the spec's "Joined blocks" row declar
 block's `dataset` is still entered as free text.
 
 The dataset option list that the report and dashboard-widget inspectors already show is unchanged.
+
+`SchemaForm`'s `widgetContext` prop gains one optional member, `datasets`, the catalog the new widget
+reads. It is additive: a host that passes no `datasets` renders exactly as before, except that a
+`ref:dataset` field now shows the text input instead of the JSON fallback.

@@ -48,13 +48,14 @@ export interface ReportConfigPanelProps {
   /** The current report definition (flat spec Report document). */
   config: Record<string, any> | null;
   /**
-   * Persist all draft changes. Return a promise of the outcome to have the
-   * panel wait for it (objectui#11583): it clears its dirty state and closes
-   * only when the promise resolves to anything but `false`. `false` or a
-   * rejection leaves it open and dirty, with the edit in place, so it can be
-   * saved again. A host that returns nothing is read as saved at once.
+   * Persist all draft changes. Any return is accepted; the panel awaits it and
+   * reads one refusal signal (objectui#11583): `false` (returned, or resolved
+   * by a promise) or a rejection leaves it open and dirty, with the edit in
+   * place, so it can be saved again. Anything else, nothing included, is read
+   * as saved: the dirty state clears and the panel closes. Typed `unknown` for
+   * the reason `ViewConfigPanelProps.onSave` gives.
    */
-  onSave: (config: Record<string, any>) => void | Promise<boolean>;
+  onSave: (config: Record<string, any>) => unknown;
   /** Called on every field change so the host can drive a live preview. */
   onFieldChange?: (key: string, value: any, draft?: Record<string, any>) => void;
   /**

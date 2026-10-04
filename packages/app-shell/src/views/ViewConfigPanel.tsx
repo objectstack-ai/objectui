@@ -69,14 +69,21 @@ export interface ViewConfigPanelProps {
     /** Called when any view config field changes (local draft update) */
     onViewUpdate?: (field: string, value: any) => void;
     /**
-     * Called to persist all draft changes. Return a promise of the outcome to
-     * have the panel wait for it (objectui#11583): it reports the edit as
-     * saved (clears the dirty state and raises the draft indicator) only when
-     * the promise resolves to anything but `false`. `false` or a rejection
-     * leaves the panel dirty, so the edit can be saved again. A host that
-     * returns nothing is read as saved at once, as before.
+     * Called to persist all draft changes. Any return is accepted, as with the
+     * `void` this prop was typed with before objectui#11583; the panel awaits
+     * it and reads ONE refusal signal: `false` (returned, or resolved by a
+     * promise) or a rejection leaves the panel dirty, with no draft
+     * announced, so the edit can be saved again. Anything else, nothing
+     * included, is read as saved: the dirty state clears and the draft
+     * indicator is raised.
+     *
+     * Typed `unknown`, not a union naming the signal: against a union
+     * TypeScript checks the host's return type, and refuses hosts the `void`
+     * prop admitted (an `async` host that returns nothing, one resolving to a
+     * record, a sync non-void return). The contract review of objectui#11583
+     * measured that; `ViewConfigPanel.onSaveHosts-11583.test.ts` pins it.
      */
-    onSave?: (draft: Record<string, any>) => void | Promise<boolean>;
+    onSave?: (draft: Record<string, any>) => unknown;
     /** Called when create-mode view is created */
     onCreate?: (config: Record<string, any>) => void;
     /**

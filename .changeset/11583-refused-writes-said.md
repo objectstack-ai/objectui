@@ -31,5 +31,6 @@ save is in flight.
 The view-config panel waits for the save before it reports the edit as saved. A refused save
 leaves the panel dirty, so Save stays enabled for a retry, and the "unpublished changes"
 indicator is not raised for a draft that was never written. Save is disabled while the save is
-in flight. `ViewConfigPanel`'s `onSave` may now return a promise of the outcome (`true` saved,
-`false` not); a host that returns nothing is read as saved, as before.
+in flight. `ViewConfigPanel`'s `onSave` accepts any return, as it did when it was typed `void`:
+the panel awaits it, and `false` (returned, or resolved by a promise) or a rejection means the
+save was refused; anything else, nothing included, is read as saved.

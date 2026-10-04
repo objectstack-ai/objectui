@@ -31,8 +31,9 @@
  * membership is asserted on the mirror's OWN `.shape`, never on parse
  * acceptance — under `.passthrough()` acceptance cannot tell "declared" from
  * "admitted unexamined". The type-level pin uses invariant equality, so an
- * undeclared key (which resolves to `any` through the index signature) reads
- * as a failure rather than as a match.
+ * undeclared key (which resolved to `any` through the index signature until
+ * objectui#8347, and fails to compile at an indexed access now) reads as a
+ * failure rather than as a match.
  *
  * The CONTROL is a key the renderer does NOT read — derived from the renderer
  * source, not asserted from memory — and it must stay undeclared on both

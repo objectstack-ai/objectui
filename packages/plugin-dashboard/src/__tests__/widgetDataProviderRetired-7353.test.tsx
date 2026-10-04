@@ -206,8 +206,9 @@ describe('objectui#7353 — DashboardGridLayout: the table and pivot nodes carry
  *    consumer-side half of the types tombstone: red on a stale `dist`.
  *
  * Why a tombstone and not a deletion: both carriers extend `BaseSchema`, whose
- * `[key: string]: any` absorbs a deleted member silently at any value — an
- * authored `dataProvider` would still compile and still do nothing. The
+ * `[key: string]: any` absorbed a deleted member silently at any value until
+ * objectui#8347 (a widened value still would) — an authored `dataProvider`
+ * would still compile there and still do nothing. The
  * `@ts-expect-error` directives are real enforcement because this package's
  * `type-check` chains `tsc -p tsconfig.test.json`; vitest erases them.
  */

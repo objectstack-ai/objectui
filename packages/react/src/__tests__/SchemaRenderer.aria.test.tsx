@@ -24,8 +24,8 @@ import { SchemaRenderer } from '../SchemaRenderer';
  * `@objectstack/spec`'s `AriaProps`, the vocabulary that reader documents. The
  * node also carries the `content` that `TestWidget` renders.
  *
- * Each literal is checked against this node, so its keys stay checked once
- * objectui#8347 removes `BaseSchema`'s index signature. It is declared to
+ * Each literal is checked against this node, so its keys stay checked now that
+ * objectui#8347 has removed `BaseSchema`'s index signature. It is declared to
  * `@object-ui/types` through `CustomNodeRegistry` below, the way an
  * application declares a type it registers (objectui#11466): the `schema`
  * prop takes the declared node types only.

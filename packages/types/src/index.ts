@@ -135,7 +135,7 @@ export type {
 // the `./zod` entry.
 export type { ExpressionWire } from './expression.js';
 // TypeScript authoring types for the spec-declared nodes `BaseSchema` gives no
-// face once its index signature goes (objectui#11364): the public blocks, the
+// face now that objectui#8347 removed its index signature (objectui#11364): the public blocks, the
 // `element:text_input` / `element:record_picker` rows, and a stored page
 // document under its page kind. Each is derived by reference from its zod arm
 // or spec row; `@object-ui/react`'s `SchemaRendererProps.schema` accepts them.

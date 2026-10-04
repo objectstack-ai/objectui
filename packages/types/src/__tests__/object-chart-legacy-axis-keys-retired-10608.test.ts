@@ -25,8 +25,9 @@
  *
  * ## Why tombstones and not deletions
  *
- * `BaseSchema` is `.passthrough()` on the zod side and carries an index
- * signature on the TS side, so an UNDECLARED key is not refused, it is KEPT.
+ * `BaseSchema` is `.passthrough()` on the zod side (and carried an index
+ * signature on the TS side until objectui#8347), so an UNDECLARED key is not
+ * refused there, it is KEPT.
  * Deleting the three members would hand the authored spelling exactly the
  * silent no-op this card closes; block (d) pins that consequence on a
  * misspelling, so the reason is a reading and not prose. `?: never` +

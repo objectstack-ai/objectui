@@ -73,7 +73,8 @@
  * the ceiling never capped is the VALUE
  * dimension, and that is the half this file pins — on the TS face through
  * `@ts-expect-error` directives that go UNUSED (TS2578, a hard type-check
- * failure) the moment their member is deleted, and on the mirror through
+ * failure) the moment their member is widened (since objectui#8347 a deletion
+ * keeps them used and is caught by the `Equal` rows), and on the mirror through
  * refusals that land ON the key and reach `safeValidateSchema`, the path the
  * CLI's `validate` / `check` take.
  *
@@ -82,7 +83,9 @@
  * Membership is asserted on the mirror's OWN `.shape`, never on parse acceptance
  * (under `.passthrough()` acceptance cannot tell "declared" from "admitted
  * unexamined"). Type-level pins use invariant equality, so a member that fell
- * back to the index signature reads as `any` and therefore as a failure. And
+ * back to the index signature read as `any` and therefore as a failure (since
+ * objectui#8347 removed the signature, a deleted member's indexed access does
+ * not compile at all). And
  * every claim carries a CONTROL asserted to hold the opposite verdict, so no
  * assertion can pass vacuously.
  *
@@ -165,8 +168,9 @@ type IsAny<T> = 0 extends (1 & T) ? true : false;
 type IsOptional<T, K extends keyof T> = Record<string, never> extends Pick<T, K> ? true : false;
 
 // `colorField` is DERIVED from the spec's `CalendarConfig`, so it resolves to
-// that member's type. Delete the member and the indexed access falls back to
-// `[key: string]: any`, making `IsAny` true and this `Equal` false.
+// that member's type. Delete the member and the indexed access fell back to
+// `[key: string]: any`, making `IsAny` true and this `Equal` false; since
+// objectui#8347 it stops compiling instead.
 export type _ColorFieldIsString = Expect<Equal<TsObjectCalendarSchema['colorField'], string | undefined>>;
 export type _ColorFieldIsNotAny = Expect<Equal<IsAny<TsObjectCalendarSchema['colorField']>, false>>;
 export type _ColorFieldIsOptional = Expect<IsOptional<TsObjectCalendarSchema, 'colorField'>>;
@@ -187,7 +191,8 @@ export type _MisspellingIsNoMember = Expect<Equal<'colourField' extends keyof Ts
 
 // The SIBLING interface in the same plugin — served by its OWN renderer, which
 // reads the same five flat keys — already declares all five. A member that fell
-// back to the index signature reads as `any` and fails these, so these five
+// back to the index signature read as `any` and failed these (since
+// objectui#8347 a deleted member's indexed access does not compile), so these five
 // lines are what would catch the shared flat vocabulary drifting apart.
 type Declared<T, K extends keyof T> = Equal<IsAny<T[K]>, false>;
 const siblingPins: [
@@ -209,7 +214,9 @@ const calendarLiteral: TsObjectCalendarSchema = {
 };
 
 // …and REFUSES wrong-typed values the index signature used to admit. Each
-// directive goes unused — TS2578, a hard failure — if its member is deleted.
+// directive goes unused — TS2578, a hard failure — if its member is widened to
+// accept the value. A deletion keeps it used since objectui#8347 (the value is
+// refused as an undeclared key) and is caught by the `Equal` rows above.
 // @ts-expect-error — `colorField` names a FIELD, so it is a string, not the colour itself
 const calendarBadColorField: TsObjectCalendarSchema = { ...CALENDAR_NODE, colorField: 0xff0000 };
 // @ts-expect-error — `allDayField` names a FIELD; a boolean is the VALUE, the confusion this declaration catches

@@ -23,12 +23,13 @@
  *
  * ## Why a fixture pin and not a type annotation
  *
- * Annotating the snippet against `ObjectViewSchema` would catch nothing.
- * `BaseSchema` closes with `[key: string]: any` (`../base.ts`), so every
- * invented key type-checks through the index signature — measured directly in
- * objectui#7927 (probe P5: renaming `titleField` to `titleFieldd` inside an
- * annotated block left `check:doc-snippets` at exit 0). The annotation checks a
- * key's TYPE and never its NAME. `NamedListView` is a standalone interface that
+ * Annotating the snippet against `ObjectViewSchema` would have caught nothing
+ * when this was written: `BaseSchema` closed with `[key: string]: any`
+ * (`../base.ts`), so every invented key type-checked through the index signature
+ * — measured directly in objectui#7927 (probe P5: renaming `titleField` to
+ * `titleFieldd` inside an annotated block left `check:doc-snippets` at exit 0).
+ * The annotation checked a key's TYPE and never its NAME (objectui#8347 has
+ * since removed the signature). `NamedListView` is a standalone interface that
  * does NOT extend `BaseSchema`, so its declared members are a genuinely closed
  * list — which is what makes a name-level comparison possible here at all.
  *

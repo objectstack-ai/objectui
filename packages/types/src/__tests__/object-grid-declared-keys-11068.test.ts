@@ -20,9 +20,10 @@
  * `BaseSchema` members with no meaning on a grid — a grid is neither a form
  * field nor an input — and nothing read either on this node.
  *
- * Deleting them would refuse nothing: the zod twin ends `.passthrough()` (and
- * its base declares `name` / `placeholder` itself), and the interface inherits
- * `BaseSchema`'s members and index signature. So each stays DECLARED and
+ * Deleting them would refuse nothing on the zod face: the twin ends
+ * `.passthrough()` (and its base declares `name` / `placeholder` itself). The
+ * interface inherits `BaseSchema`'s members (and inherited its index signature
+ * until objectui#8347; a widened value still skips the excess-property check). So each stays DECLARED and
  * unwritable on both faces — `retirementTombstone()` and `?: never` — the
  * convention `defaultSort` set (objectui#5861).
  *
@@ -163,9 +164,11 @@ describe('the UPSTREAM half — the canonical action spellings, re-derived from 
 /**
  * The `@ts-expect-error` lines below ARE the assertions: each retired member is
  * `?: never`, so the literal is a compile error. They fail this package's
- * `tsc -p tsconfig.test.json` leg as UNUSED directives if a member is deleted
- * (`name` / `placeholder` would fall back to `BaseSchema`'s `string`, the other
- * two to the index signature) or re-typed as a live value.
+ * `tsc -p tsconfig.test.json` leg as UNUSED directives if a member is re-typed
+ * as a live value, or if `name` / `placeholder` is deleted (each would fall back
+ * to `BaseSchema`'s `string`). Deleting either of the other two fell to the
+ * index signature until objectui#8347; it is refused as an undeclared key now,
+ * which keeps its directive used, so this file no longer sees that deletion.
  */
 export const authoredRowSpecActionsRefused: ObjectGridSchemaType = {
   ...NODE,

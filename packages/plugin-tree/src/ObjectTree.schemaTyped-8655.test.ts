@@ -33,8 +33,9 @@
  *     component"). The `(schema as any)` at that read was hiding a declaration,
  *     not reaching past its absence, so the cast is gone. This is the same
  *     shape objectui#8655's body recorded for plugin-detail's `add`.
- *   - `navigation` is **UNDECLARED** — it survives on `BaseSchema`'s
- *     `[key: string]: any` alone.
+ *   - `navigation` was **UNDECLARED** at this card — it survived on
+ *     `BaseSchema`'s `[key: string]: any` alone (declared since objectui#11168
+ *     slice 3).
  *
  * ⚠️ And typing the prop made SIX more reads answerable that `any` had hidden —
  * the card calls that the expected outcome, ⛔ not scope creep. Five are
@@ -116,9 +117,10 @@
  *
  * ## The ceiling, stated so nobody reads this file as claiming more
  *
- * `BaseSchema` ends in `[key: string]: any`. Typing the prop makes the question
- * ANSWERABLE; it refuses nothing at the read site and rejects no misspelling
- * (objectui#5155 / objectui#7927). The counter-probe below pins that honestly.
+ * `BaseSchema` ended in `[key: string]: any` when this was written. Typing the
+ * prop made the question ANSWERABLE; it refused nothing at the read site and
+ * rejected no misspelling (objectui#5155 / objectui#7927). objectui#8347 removed
+ * the signature, and the counter-probe below is flipped.
  */
 /// <reference types="node" />
 // ⚠️ The triple-slash reference is the route, ⛔ not an oversight. This package's
@@ -244,8 +246,9 @@ type IsAny<T> = 0 extends (1 & T) ? true : false;
 /**
  * ⭐ THE instrument of this card, at the type level: the DECLARED member names
  * of `T`, with any index signature removed by key remapping. `keyof` alone
- * cannot answer — `BaseSchema` ends in `[key: string]: any`, so `keyof` of any
- * node schema is `string | number` and every token "extends" it. That is the
+ * could not answer while `BaseSchema` ended in `[key: string]: any` (until
+ * objectui#8347): `keyof` of any node schema was `string | number` and every
+ * token "extends" it. That is the
  * same blindness `checker.getPropertyOfType` avoids by returning a SYMBOL only
  * for a real member, and this is its compile-time twin.
  */

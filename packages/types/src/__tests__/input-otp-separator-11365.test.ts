@@ -10,8 +10,8 @@
  * objectui#11365 — `InputOTPSchema.separator` is declared on BOTH faces, as a
  * boolean (triage's enforce arm under ADR-0049).
  *
- * The TypeScript face carries `BaseSchema`'s `[key: string]: any`, so an
- * undeclared `separator` already compiled whatever its value; the declared
+ * The TypeScript face carried `BaseSchema`'s `[key: string]: any` when this was
+ * written, so an undeclared `separator` already compiled whatever its value; the declared
  * member is what makes a non-boolean refused. The compile-time rows below are
  * checked by `tsc -p tsconfig.test.json`; the `describe` block reads the zod
  * mirror at runtime, value probe and control included. The rendering half
@@ -32,7 +32,7 @@ export type _SeparatorIsABoolean = Expect<Equal<TsInputOTPSchema['separator'], b
 
 /** CONTROL — the declared spelling compiles. */
 export const _separatorAccepted: TsInputOTPSchema = { type: 'input-otp', length: 6, separator: true };
-// @ts-expect-error -- `separator` is a declared boolean, so the index signature no longer admits a string
+// @ts-expect-error -- `separator` is a declared boolean, so a string is refused
 export const _separatorRefused: TsInputOTPSchema = { type: 'input-otp', length: 6, separator: 'yes' };
 
 describe('InputOTPSchema.separator on the zod mirror (objectui#11365)', () => {

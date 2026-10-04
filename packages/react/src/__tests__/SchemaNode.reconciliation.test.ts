@@ -102,8 +102,8 @@ export const plainStringIsANode: CoreSchemaNode = 'Plain string';
 export const nullishIsANode: CoreSchemaNode = null;
 // Authored as the `text` node it is (objectui#11349). `value` is the spelling
 // `TextSchema` retired for `content` (objectui#7016), and a literal checked
-// against the union may author only `BaseSchema`'s own keys once objectui#8347
-// removes its index signature. Same string, same pin.
+// against the union may author only `BaseSchema`'s own keys now that
+// objectui#8347 has removed its index signature. Same string, same pin.
 const textNode: TextSchema = { type: 'text', content: 'Hello' };
 export const objectIsStillANode: CoreSchemaNode = textNode;
 

@@ -96,8 +96,9 @@ export type assertionZodMemberIsTheSpecType = [
 ];
 /**
  * Each published TypeScript twin declares the member as the spec's type. Without
- * the declaration the member resolves through `BaseSchema`'s index signature to
- * `any`, which `Equal` refuses.
+ * the declaration the member resolved through `BaseSchema`'s index signature to
+ * `any`, which `Equal` refuses; since objectui#8347 the indexed access does not
+ * compile at all.
  */
 export type assertionTsTwinIsTheSpecType = [
   Expect<Equal<TsFlexSchema['responsiveStyles'], SpecResponsiveStyles | undefined>>,

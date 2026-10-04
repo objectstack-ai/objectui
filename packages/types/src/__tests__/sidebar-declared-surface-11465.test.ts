@@ -22,9 +22,10 @@
  *
  * Each retired key is a `?: never` tombstone on the TypeScript face and a
  * `retirementTombstone` on the zod face, refused by name with the reason and
- * what to write instead. ⛔ Not a deletion: `BaseSchema` carries an index
- * signature on the TypeScript face and `.passthrough()` on the zod face, so a
- * deleted key would type as `any` and parse green unexamined.
+ * what to write instead. ⛔ Not a deletion: `BaseSchema` is `.passthrough()` on
+ * the zod face (and carried an index signature on the TypeScript face until
+ * objectui#8347), so a deleted key would parse green unexamined and, through a
+ * widened value, still type-check.
  *
  * ## Two instruments, and which half each one reads
  *

@@ -101,8 +101,9 @@ type Expect<T extends true> = T;
 type IsAny<T> = 0 extends (1 & T) ? true : false;
 
 // Declared as `string` on each of the five. Were a member removed, the read
-// would fall back to the index signature and resolve to `any`, and
-// `Equal<any, string>` is false — so these are guards, not restatements.
+// fell back to the index signature and resolved to `any` until objectui#8347
+// (it does not compile now); either way these go red — so these are guards,
+// not restatements.
 export type _SwitchWrapperClassIsString = Expect<Equal<NonNullable<TsSwitchSchema['wrapperClass']>, string>>;
 export type _SwitchWrapperClassIsNotAny = Expect<Equal<IsAny<TsSwitchSchema['wrapperClass']>, false>>;
 export type _TextareaWrapperClassIsString = Expect<Equal<NonNullable<TsTextareaSchema['wrapperClass']>, string>>;

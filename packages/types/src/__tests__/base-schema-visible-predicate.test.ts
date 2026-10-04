@@ -45,10 +45,10 @@
  * `boolean` is assignable to the wide `boolean | string`, so a widening that
  * never happened and a widening that overshot to `any` would both stay green.
  * Pinning the exact union is the only assertion that can go red for the right
- * reason — and `BaseSchema`'s `[key: string]: any` index signature makes the
- * overshoot a live risk rather than a hypothetical one, since deleting the
- * declared property altogether would leave `visible` typed `any` and every
- * fixture below still compiling.
+ * reason — and `BaseSchema`'s `[key: string]: any` index signature made the
+ * overshoot a live risk rather than a hypothetical one (until objectui#8347),
+ * since deleting the declared property altogether would have left `visible`
+ * typed `any` and every fixture below still compiling.
  *
  * Widened again by objectui#7530 (ruled 2026-09-04, option A): the expression
  * half is now `ExpressionWire` — the string-or-CEL-envelope union — on all three

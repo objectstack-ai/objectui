@@ -100,7 +100,7 @@ type DashboardWidgetEntry = DashboardComponentSchema['widgets'][number];
  * widget arm alone, so every such read below narrows with this first
  * (objectui#11598, N2 A): the component arm declares none of them, and reading
  * one off the entry whichever arm it was compiled only through `BaseSchema`'s
- * index signature, which objectui#8347 removes.
+ * index signature, which objectui#8347 removed.
  *
  * The twin of plugin-dashboard's `isSlotComponentEntry` (`widgetDispatch.ts`),
  * which this package cannot import: it does not depend on plugin-dashboard

@@ -30,8 +30,8 @@ import type {
 
 /**
  * Types a literal below as the node it is rather than as the `BaseSchema`
- * `renderComponent` accepts, children included (objectui#11347): once
- * `BaseSchema`'s index signature is gone (objectui#8347), a literal checked
+ * `renderComponent` accepts, children included (objectui#11347): since
+ * objectui#8347 removed `BaseSchema`'s index signature, a literal checked
  * against `BaseSchema` or `SchemaNode` may author only `BaseSchema`'s own keys.
  * The literals that deliberately author a retired or undeclared key stay
  * untyped, on purpose.

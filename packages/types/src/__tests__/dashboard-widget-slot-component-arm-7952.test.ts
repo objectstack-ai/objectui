@@ -36,10 +36,11 @@
  *      spec-family widget with an undeclared key is refused on both faces, and a
  *      `type` in neither vocabulary is refused;
  *   4. the measured limit of a TypeScript union with a passthrough arm, recorded
- *      two-faced so it cannot be read as a hatch: a `type`-less legacy envelope
- *      with an undeclared key COMPILES (nothing to discriminate on, so the arm's
- *      index signature satisfies the excess-property check) while the Zod face
- *      refuses it by name;
+ *      two-faced so it could not be read as a hatch: a `type`-less legacy
+ *      envelope with an undeclared key COMPILED (nothing to discriminate on, so
+ *      the arm's index signature satisfied the excess-property check) while the
+ *      Zod face refused it by name; objectui#8347 removed the signature, tsc
+ *      refuses it now, and the block is gone (a note marks where it stood);
  *   5. shape identity: the slot's element type IS the two-arm union, the arm's
  *      `type` IS `DashboardComponentWidgetType`, and the arm is NOT assignable
  *      to `DashboardWidgetSchema` (objectui#11514). It was until that card,

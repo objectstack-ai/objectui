@@ -48,8 +48,9 @@
  * ## Why tombstones and not deletions
  *
  * All six HAVE a Zod arm, which is what decides the route here: `BaseSchema` is
- * `.passthrough()` on the Zod side and carries a `[key: string]: any` index
- * signature on the TS side, so an UNDECLARED key is not refused, it is KEPT.
+ * `.passthrough()` on the Zod side (and carried a `[key: string]: any` index
+ * signature on the TS side until objectui#8347), so an UNDECLARED key is not
+ * refused there, it is KEPT.
  * Deleting the members would hand the authored spelling exactly the silent
  * no-op this card exists to close. `?: never` + `retirementTombstone()` is this
  * package's convention — `MarkdownSchema.sanitize` / `.components`
@@ -368,9 +369,10 @@ describe('the six keys are RETIRED on the TypeScript face too (objectui#7703)', 
   });
 
   it('refuses them in the form authors actually write — a fresh document literal', () => {
-    // The leg that proves the tombstones survive `BaseSchema`'s
-    // `[key: string]: any`: if the index signature won, each key would widen
-    // back to `any` here and every directive would go unused (TS2578).
+    // The leg that proved the tombstones survive `BaseSchema`'s
+    // `[key: string]: any` while it stood (objectui#8347 removed it): if the
+    // index signature had won, each key would have widened back to `any`
+    // here and every directive would have gone unused (TS2578).
     const retiredDocument: ChatbotSchemaTS = {
       type: 'chatbot',
       messages: [],
@@ -399,8 +401,8 @@ describe('the six keys are RETIRED on the TypeScript face too (objectui#7703)', 
     // Excess-property checking only reaches a FRESH literal (objectui#7654
     // measured the contrast on this very carrier): a deleted key would ride a
     // widened value silently, and on a `BaseSchema` carrier even a wrong-TYPED
-    // value goes quiet, because the index signature defeats the weak-type check
-    // as well. The declared `never` makes the assignment itself ill-typed, so
+    // value went quiet while the index signature defeated the weak-type check as
+    // well (until objectui#8347). The declared `never` makes the assignment itself ill-typed, so
     // freshness stops mattering.
     const raw = { type: 'chatbot' as const, messages: [], userAvatar: 'https://example.com/me.png' };
     // @ts-expect-error — `userAvatar` is RETIRED (objectui#7703), reached through a non-fresh value.

@@ -31,7 +31,7 @@
  *     arm's own `z.input`. The arm is `BaseSchema.extend(...)`, and the zod
  *     `BaseSchema` is `.passthrough()`, so a bare `z.input` of it carries
  *     `[k: string]: unknown`, which would put back the index signature
- *     objectui#8347 removes. So the arm's SHAPE is read and the object's
+ *     objectui#8347 removed. So the arm's SHAPE is read and the object's
  *     config is left closed. Every member, value type and refusal is the arm's,
  *     and through the arm the spec row's (`propsBag`); nothing is restated, and
  *     an arm added to that union is typed here the same day.
@@ -260,9 +260,9 @@ type FlexBlockArmShape = ClosedArmShape<(typeof FlexBlockSchema)['shape']>;
  * path (`./zod/nested-component-walk.ts`, objectui#11223). Its input type is
  * `unknown[]`, though, and nothing on the TypeScript face does what the walk
  * does. So read off the arm, the list, which is the form a `flex` node is
- * authored in, took any entry at all, and stays unchecked after objectui#8347
- * removes `BaseSchema`'s index signature, while a single child was judged as a
- * node. The mirror's member is the accept set the walk and the single-node arm
+ * authored in, took any entry at all, and would have stayed unchecked after
+ * objectui#8347 removed `BaseSchema`'s index signature, while a single child was
+ * judged as a node. The mirror's member is the accept set the walk and the single-node arm
  * judge between them.
  *
  * The zod arm does not move. The divergence is recorded where the mirror

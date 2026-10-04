@@ -26,8 +26,9 @@
  *
  * ## Why a tombstone and not a deletion
  *
- * `BaseSchema` is `.passthrough()` on the zod side and carries an index
- * signature on the TS side, so an UNDECLARED key is not refused, it is KEPT.
+ * `BaseSchema` is `.passthrough()` on the zod side (and carried an index
+ * signature on the TS side until objectui#8347), so an UNDECLARED key is not
+ * refused there, it is KEPT.
  * Block (d) takes that reading on this very mirror, so the reason is a
  * measurement and not prose.
  *

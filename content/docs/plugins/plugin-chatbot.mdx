@@ -147,9 +147,9 @@ Each registration has its own importable authoring-face type in
 nineteen shared rows below are one declaration the two newer faces pick off
 `ChatbotSchema` by name, and a scoped row is declared only on the face(s) whose
 registration reads it. A key a registration ignores is therefore not a declared
-member of its type. It still type-checks (`BaseSchema` ends in an index
-signature, so an unlisted key is `any` rather than an error) and still parses
-(the Zod twins are `.passthrough()`). It is then dropped silently at render
+member of its type. In a typed literal it is a compile error (objectui#8347
+removed the `BaseSchema` index signature that typed an unlisted key `any`), but
+it still parses (the Zod twins are `.passthrough()`). It is then dropped silently at render
 time, on all three registrations alike. `chatbot-floating` used to be the
 exception: its registration ended its panel element with an unfiltered props
 spread, so three keys its type does not declare (`processVisibility`, `surface`,

@@ -126,9 +126,9 @@ describe('objectui#6152 round 5 — the `chatbot-floating` face keeps its own `f
 
 /*
  * `editable` / `singleClickEdit` were filed by NAME as runtime slots (the seat's answer
- * B): the declarations did NOT move. Read off the member, so a deletion — which would
- * read as `any` through `BaseSchema`'s index signature — or a tombstone — which would
- * read as `undefined` — is red here.
+ * B): the declarations did NOT move. Read off the member, so a deletion — which read
+ * as `any` through `BaseSchema`'s index signature until objectui#8347, and does not
+ * compile now — or a tombstone — which would read as `undefined` — is red here.
  */
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 type Expect<T extends true> = T;

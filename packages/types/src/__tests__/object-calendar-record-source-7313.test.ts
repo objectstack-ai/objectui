@@ -81,8 +81,9 @@ type IsOptionalKey< T, K extends keyof T > = Partial< Pick< T, K > > extends Pic
 /**
  * `objectName` is OPTIONAL and still `string`. Both directions bite: required
  * again -> `string` is not `string | undefined` -> red; member DELETED -> the
- * key resolves through `BaseSchema`'s index signature to `any`, and
- * `Equal< any, … >` is false -> red.
+ * indexed access stops compiling -> red (until objectui#8347 the key resolved
+ * through `BaseSchema`'s index signature to `any`, and `Equal< any, … >` was
+ * false -> red).
  */
 export type _CalendarObjectNameIsOptionalString =
   Expect< Equal< TsObjectCalendarSchema['objectName'], string | undefined > >;

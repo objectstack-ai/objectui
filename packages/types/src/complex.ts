@@ -225,9 +225,10 @@ export interface KanbanColumn {
  *
  * ## ⚠️ Why the Zod mirror is a NAMED REFUSAL and not a deletion
  *
- * {@link BaseSchema} closes with `[key: string]: any` and its Zod twin ends
- * `.passthrough()`. A dropped MEMBER key is therefore KEPT, not refused — the
- * failure objectui#7664's own first cut shipped at `onCardClick`. A dropped
+ * {@link BaseSchema}'s Zod twin ends `.passthrough()` (and the interface closed
+ * with `[key: string]: any` until objectui#8347). A dropped MEMBER key is
+ * therefore KEPT, not refused, on the Zod face — the failure objectui#7664's own
+ * first cut shipped at `onCardClick`. A dropped
  * TYPE LITERAL behaves differently on a DISCRIMINATED union (`AnyComponentSchema`
  * selects one arm from the authored literal), so removal alone would already
  * refuse — but only with the union's generic `Invalid input`, naming no remedy.
@@ -1190,9 +1191,9 @@ type ChatMessageHandedBack = Omit<ChatMessage, 'toolInvocations'> & {
  * ## Why tombstones and not deletions — the mirror decides it here
  *
  * All six HAVE a Zod arm, so deleting the declaration would trade one silent
- * no-op for another: `BaseSchema` is `.passthrough()` on the Zod side and
- * carries a `[key: string]: any` index signature on the TS side, so an
- * UNDECLARED key is not refused, it is KEPT. That is the hazard the two-prong
+ * no-op for another: `BaseSchema` is `.passthrough()` on the Zod side (and
+ * carried a `[key: string]: any` index signature on the TS side until
+ * objectui#8347), so an UNDECLARED key is not refused there, it is KEPT. That is the hazard the two-prong
  * discriminator leaves to the carrier — where there is no mirror there is "no
  * silent-strip hazard for prong 2 to guard" (`mobile.ts`, objectui#5941 /
  * #7526 / `5f8190c8c`: a `?: never` tombstone is available only on a SURVIVING
@@ -1545,10 +1546,10 @@ export interface ChatbotSchema extends BaseSchema {
    * new key — which is why the guidance above names `type`.
    *
    * On a carrier extending {@link BaseSchema} — every component schema in this
-   * package — deleting an optional member is SILENT in every value shape,
-   * because the `[key: string]: any` index signature defeats both
-   * excess-property checking and the weak-type check. Measured on THIS member
-   * with `tsc -p tsconfig.test.json`, a no-index-signature control carrier
+   * package — deleting an optional member was SILENT in every value shape while
+   * `BaseSchema` carried `[key: string]: any` (until objectui#8347), because the
+   * index signature defeated both excess-property checking and the weak-type
+   * check. Measured on THIS member at the time with `tsc -p tsconfig.test.json`, a no-index-signature control carrier
    * (`FloatingChatbotConfig`) lit in the same run (TS2353 on a fresh undeclared
    * key, TS2559 on a lone-key widened value):
    *
@@ -1558,11 +1559,13 @@ export interface ChatbotSchema extends BaseSchema {
    *   | DELETED    | clean              | clean           | clean                |
    *   | TOMBSTONED | TS2322             | TS2322          | TS2322               |
    *
-   * Deleted, the member reads as `any` through the index signature and even a
-   * wrong-typed value goes quiet. Tombstoned, PRESENCE with any value is a
-   * compile error — a channel deletion cannot produce on this carrier at all:
-   * on a `BaseSchema` carrier the two routes are loud-vs-silent, not
-   * louder-vs-quieter. Pinned, the deleted row included as a live control, in
+   * Deleted, the member read as `any` through the index signature and even a
+   * wrong-typed value went quiet. Since objectui#8347 a deletion trips TS2353
+   * on a fresh literal, with no name for the remedy, and still rides a widened
+   * value clean. Tombstoned, PRESENCE with any value is a compile error in every
+   * shape, by name — a channel deletion cannot produce through a widened value:
+   * on a `BaseSchema` carrier the two routes were loud-vs-silent, and through a
+   * widened value they still are. Pinned, the deleted row included as a live control, in
    * `__tests__/chatbot-display-mode-retired.test.ts`.
    *
    * ## Runtime: unchanged, deliberately — zero validation before and after
@@ -1613,8 +1616,9 @@ export interface ChatbotSchema extends BaseSchema {
    *
    * A `?: never` tombstone and ⛔ not a deletion, by the discriminator stated
    * on {@link ChatbotSchema.displayMode} above (cited, not restated): a deleted
-   * member on this {@link BaseSchema} carrier reads as `any` through the index
-   * signature, and this member's published comment advertised the floating
+   * member on this {@link BaseSchema} carrier read as `any` through the index
+   * signature until objectui#8347 (and still rides a widened value), and this
+   * member's published comment advertised the floating
    * configuration on the `chatbot` face. The zod twin refuses it by name.
    *
    * @deprecated Not a key `chatbot` reads — author `type: 'chatbot-floating'`

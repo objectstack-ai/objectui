@@ -55,8 +55,9 @@
  *
  * ## Direction
  *
- * Declaring a key on a face that already carries `.passthrough()` /
- * `[key: string]: any` can only NARROW what that face accepts, and it narrows
+ * Declaring a key on a face that already carries `.passthrough()` can only
+ * NARROW what that face accepts (the TS face carried `[key: string]: any` too
+ * when this was written; objectui#8347 removed it), and it narrows
  * to the SPEC's own accepted set rather than below it — `Clause-②`. The
  * direction check is asserted in the first block below rather than argued in
  * prose.
@@ -186,10 +187,12 @@ export const BOTH_SPELLINGS_BOARD: TsObjectKanbanSchema = {
  *     `DeclaredKeys`, so a key the twin does not declare simply LEAVES the key
  *     set — blind by omission.
  *   - `NarrowerThanDeclared` maps over `MirroredKeys` intersected with `keyof D`
- *     — `keyof D`, not `DeclaredKeys` — and `keyof D` is absorbed by
- *     {@link BaseSchema}'s `[key: string]: any`, so the compared type is `any`
- *     and every mirror fits it. This is the ONLY operator the index signature
- *     explains; ⛔ it does not explain the other two, and `DeclaredKeys` itself
+ *     — `keyof D`, not `DeclaredKeys` — and `keyof D` was absorbed by
+ *     {@link BaseSchema}'s `[key: string]: any` when this was measured, so the
+ *     compared type was `any` and every mirror fit it. This was the ONLY
+ *     operator the index signature explained (since objectui#8347 `keyof D` is
+ *     literal, so it leaves an undeclared key out, blind by omission like the
+ *     first); ⛔ it did not explain the other two, and `DeclaredKeys` itself
  *     is index-signature-free by construction (`WithoutIndexSignature`).
  *   - `UnmirroredDeclaredKeys` measures the OPPOSITE subtraction,
  *     declared-but-unmirrored.
@@ -202,10 +205,13 @@ export const BOTH_SPELLINGS_BOARD: TsObjectKanbanSchema = {
  * author's editor reads, and this directive is what makes that declaration
  * measurable.
  *
- * The directive is REAL enforcement: with the member declared, `42` is not
- * assignable to `string | undefined` and the error it expects exists. Delete the
- * member and the index signature admits the `42`, the expected error disappears,
- * and `tsc` reddens with TS2578 — an unused `@ts-expect-error`. Measured both ways.
+ * The directive is REAL enforcement of the member's TYPE: with the member
+ * declared, `42` is not assignable to `string | undefined` and the error it
+ * expects exists. When written, deleting the member let the index signature
+ * admit the `42`, the expected error disappeared, and `tsc` reddened with TS2578
+ * — measured both ways. Since objectui#8347 a deleted member's `42` is refused
+ * as an undeclared key, so the directive stays used and a deletion of
+ * `cardTitle` no longer turns this file red.
  */
 export const NON_STRING_CARD_TITLE_IS_REFUSED_AT_COMPILE_TIME: TsObjectKanbanSchema = {
   type: 'object-kanban',

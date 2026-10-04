@@ -21,8 +21,8 @@
  *
  * ⚠️ Note what the union itself answers, because it is easy to get backwards
  * and this file's first cut did: on the UNION only SEVEN of the fifteen reads
- * were undeclared. `ObjectGridSchema` carries `BaseSchema`'s index signature,
- * so the five `CalendarSchema`-only keys resolved through it and compiled with
+ * were undeclared. `ObjectGridSchema` carried `BaseSchema`'s index signature
+ * (until objectui#8347), so the five `CalendarSchema`-only keys resolved through it and compiled with
  * no cast — silently typed `any`, which is the defect rather than the absence
  * of one. Per-ARM is the reading the card tabled; per-UNION is the reading the
  * compiler acts on; they are different numbers and both are measured here.
@@ -132,9 +132,11 @@
  *
  * ## The ceiling, stated rather than assumed (objectui#5155 / #7927)
  *
- * `BaseSchema` ends in `[key: string]: any` and its mirror is `.passthrough()`,
- * so declaring a key buys VALUE validation and never buys rejection of a
- * MISSPELLING. The counter-probe below pins that honestly, so nobody reads this
+ * The mirror is `.passthrough()`, so declaring a key buys VALUE validation and
+ * never buys rejection of a MISSPELLING on that face. (The TS face refused none
+ * either while `BaseSchema` ended in `[key: string]: any`; objectui#8347 removed
+ * it, so a typed literal refuses a misspelling now.) The counter-probe below
+ * pins the mirror half honestly, so nobody reads this
  * file as claiming more than it does.
  */
 
@@ -264,8 +266,9 @@ type Expect<T extends true> = T;
 
 /**
  * `Equal`, not `extends`: a union arm carrying `BaseSchema`'s index signature
- * makes an UNDECLARED member read `any`, and a one-way check accepts `any` on
- * both sides — which is precisely the before-state this card removes.
+ * (every extender did until objectui#8347) made an UNDECLARED member read `any`,
+ * and a one-way check accepts `any` on both sides — which is precisely the
+ * before-state this card removed.
  */
 export type assertionSchemaPropIsThePublishedElementSchema =
   Expect<Equal<ObjectCalendarComponentProps['schema'], ObjectCalendarSchema>>;

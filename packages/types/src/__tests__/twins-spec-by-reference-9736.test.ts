@@ -25,9 +25,10 @@
  *
  * ## Why the positive pins are TYPE equalities, not assignments
  *
- * `BaseSchema` carries `[key: string]: any`, so an object literal carrying ANY
- * key compiles against these interfaces whether or not the key is declared —
- * an "it compiles" pin would be green on the tree before this change. So:
+ * `BaseSchema` carried `[key: string]: any` when this was written, so an object
+ * literal carrying ANY key compiled against these interfaces whether or not the
+ * key was declared — an "it compiles" pin would have been green on the tree
+ * before this change. So:
  *   - declared-ness is read through `DeclaredKeys`, which filters the index
  *     signature out (`string extends K`);
  *   - member types are compared with `Equal`, against the spec's own member;
@@ -131,8 +132,10 @@ describe('spec tombstones surface on the twin as a refusal — the verdict the m
     // The control for the line above, through the same helper: an admitted
     // spec key on the same twin is NOT a retired-key type.
     const sourceIsLive: Equal<IsRetiredKeyType<PageNodeSchema['source']>, false> = true;
-    // The `@ts-expect-error` below only sticks because the key is DECLARED;
-    // undeclared, the index signature would absorb it as `any`.
+    // The `@ts-expect-error` below stuck only because the key is DECLARED while
+    // the index signature would have absorbed an undeclared one as `any`; since
+    // objectui#8347 an undeclared key is refused too, so `declared` here is what
+    // tells the two apart.
     const declared: 'assignedProfiles' extends DeclaredKeys<PageNodeSchema> ? true : false = true;
     expect([isSpecMember, admitsNoValue, sourceIsLive, declared]).toEqual([true, true, true, true]);
 

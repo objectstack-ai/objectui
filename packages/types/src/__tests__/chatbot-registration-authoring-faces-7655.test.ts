@@ -98,7 +98,7 @@ type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 type Expect<T extends true> = T;
 
-/** Declared keys, read past `BaseSchema`'s `[key: string]: any` index signature. */
+/** Declared keys, read past any index signature (`BaseSchema` carried one until objectui#8347). */
 type WithoutIndexSignature<D> = {
   [K in keyof D as string extends K ? never : number extends K ? never : K]: D[K];
 };
@@ -182,10 +182,11 @@ export type assertionChatbotKeepsItsWholeFace = Expect<
 
 /**
  * The two floating keys stay DECLARED on `ChatbotSchema` — as tombstones now. Read
- * off the member, not the key set: a member that fell off the declaration would not
- * go missing here — it would read as `any` through `BaseSchema`'s index signature,
- * any value would compile on a `chatbot` node (measured on #7655's first cut, which
- * moved the keys off this face by DELETION). `Equal` is what catches the `any`.
+ * off the member, not the key set: while `BaseSchema` carried its index signature, a
+ * member that fell off the declaration did not go missing here — it read as `any`,
+ * and any value compiled on a `chatbot` node (measured on #7655's first cut, which
+ * moved the keys off this face by DELETION). `Equal` is what caught the `any`; since
+ * objectui#8347 a member that falls off fails to compile at the indexed access.
  * `displayMode` reads as `undefined` since objectui#7654 tombstoned it, and
  * `floatingConfig` since objectui#6152 round 5 RETIRED it on this face (the `chatbot`
  * registration never read it): `?: never` without `exactOptionalPropertyTypes` is
@@ -211,8 +212,9 @@ export type assertionSharedKeysAreOneDeclaration = [
  * ── `maxToolRoundtrips`: retired on all three faces (objectui#5605) ──────────
  *
  * `?: never` reads `undefined` (without `exactOptionalPropertyTypes`), which
- * `Equal` tells apart from the `any` a DELETION would leave through
- * `BaseSchema`'s index signature — the reading that says the tombstone is
+ * `Equal` tells apart from the `any` a DELETION left through `BaseSchema`'s
+ * index signature until objectui#8347 (a deletion fails to compile here now) —
+ * the reading that says the tombstone is
  * there, and one declaration, on every face.
  */
 export type assertionMaxToolRoundtripsIsATombstoneOnEveryFace = [

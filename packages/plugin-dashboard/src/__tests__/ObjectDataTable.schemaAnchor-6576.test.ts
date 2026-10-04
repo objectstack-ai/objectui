@@ -30,8 +30,10 @@
  *   - WIDENS, in declaration only: `drillDown` / `onRowClick` are now DECLARED
  *     with real types — before, they compiled through the index signature as
  *     `any`, which is why a wrong-shaped `drillDown` compiled too.
- *   - UNCHANGED, pinned honestly: an unknown key still compiles, because
- *     `BaseSchema`'s `[key: string]: any` is inherited (objectui#5155).
+ *   - UNCHANGED then, pinned honestly: an unknown key still compiled, because
+ *     `BaseSchema`'s `[key: string]: any` was inherited (objectui#5155).
+ *     objectui#8347 removed it, and that row is flipped: an unknown key is
+ *     refused now.
  */
 
 import { describe, it, expect } from 'vitest';

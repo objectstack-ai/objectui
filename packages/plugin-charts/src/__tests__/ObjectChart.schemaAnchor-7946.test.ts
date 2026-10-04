@@ -37,12 +37,13 @@
  *
  * ## The ceiling, stated rather than assumed (objectui#5155)
  *
- * Anchoring buys DECLARED members their declared types. It does NOT buy
- * rejection of a MISSPELLING: `BaseSchema` carries `[key: string]: any`, which
- * `ObjectChartSchema` inherits, so `xAxisKy` compiles. objectui#6576 accepted
- * that cost knowingly for the gallery; the counter-probe at the bottom keeps it
- * visible so nobody reads this anchor as more than it is. Closing it is
- * objectui#5155, not this card.
+ * Anchoring buys DECLARED members their declared types. It did NOT buy
+ * rejection of a MISSPELLING while `BaseSchema` carried `[key: string]: any`,
+ * which `ObjectChartSchema` inherited, so `xAxisKy` compiled. objectui#6576
+ * accepted that cost knowingly for the gallery; the counter-probe at the bottom
+ * kept it visible so nobody read this anchor as more than it was. Closing it was
+ * objectui#5155's, not this card's: objectui#8347 closed it, and the
+ * counter-probe is flipped.
  *
  * The schema type's own members, the read census and the source-level pins are
  * in `packages/types/src/__tests__/widget-schema-anchors-7946.test.ts`.

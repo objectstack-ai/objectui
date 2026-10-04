@@ -31,9 +31,9 @@
  *
  * ## Why a TOMBSTONE rather than a deleted member
  *
- * `BaseSchema` carries `[key: string]: any` and its mirror ends
- * `.passthrough()`, so a deleted member is KEPT, not refused — one silent
- * no-op traded for another. The member stays declared and unwritable: `?: never`
+ * `BaseSchema`'s mirror ends `.passthrough()` (and the interface carried
+ * `[key: string]: any` until objectui#8347), so a deleted member is KEPT, not
+ * refused, on the zod face — one silent no-op traded for another. The member stays declared and unwritable: `?: never`
  * on the interface, `retirementTombstone()` on the mirror. Suite "the near
  * miss" below is what separates the two outcomes on one instrument.
  *
@@ -73,9 +73,9 @@ type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ?
 type IsAny<T> = 0 extends 1 & T ? true : false;
 
 // The tombstone admits exactly one value — absence. ⭐ DELETING the member
-// instead would make this indexed access fall through `BaseSchema`'s index
-// signature to `any`, and `Equal<any, undefined>` is false — so this pin is
-// what keeps the retirement from decaying into a silent strip.
+// instead made this indexed access fall through `BaseSchema`'s index signature
+// to `any` until objectui#8347 (it stops compiling now), and either way this
+// pin goes red — so this pin is what keeps the retirement from decaying into a silent strip.
 type _RetiredIsTombstone = Assert<Equal<TsObjectKanbanSchema['allowCollapse'], undefined>>;
 type _RetiredIsNotAny = Assert<Equal<IsAny<TsObjectKanbanSchema['allowCollapse']>, false>>;
 // Non-vacuity on the same instrument: a live member still resolves to its own
@@ -95,7 +95,9 @@ type _IsAnyCanAnswerTrue = Assert<IsAny<any>>;
 const liveLiteral: TsObjectKanbanSchema = { ...NODE, coverImageField: 'cover' };
 // …and REFUSES the retired spelling on a literal (a boolean is not `never`).
 // This directive goes unused — and the type-check goes red with TS2578 — the
-// moment the tombstone is deleted or widened back to `boolean`.
+// moment the tombstone is widened back to `boolean`. A deletion keeps it used
+// since objectui#8347 (the key is refused as undeclared) and is caught by the
+// tombstone `Equal` row above instead.
 // @ts-expect-error — `allowCollapse` is RETIRED on this node (objectui#8801); delete the key
 const retiredLiteral: TsObjectKanbanSchema = { ...NODE, allowCollapse: true };
 void liveLiteral;

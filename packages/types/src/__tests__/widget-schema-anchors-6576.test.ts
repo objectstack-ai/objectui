@@ -52,12 +52,13 @@
  *
  * ## The ceiling, stated rather than assumed (objectui#5155)
  *
- * `BaseSchema` still carries `[key: string]: any`, so anchoring buys DECLARED
+ * While `BaseSchema` carried `[key: string]: any`, anchoring bought DECLARED
  * members their declared types (`visible: 42` is refused on both widgets now)
- * but does NOT buy rejection of a misspelling: `visibleWhn` compiles on both.
- * The ruling accepted that cost knowingly; the counter-probe below pins it
- * honestly so nobody reads the anchor as more than it is. When objectui#5155
- * lands, that expectation is the one to revisit deliberately.
+ * but did NOT buy rejection of a misspelling: `visibleWhn` compiled on both.
+ * The ruling accepted that cost knowingly, and the counter-probe below pinned
+ * it honestly so nobody read the anchor as more than it was. objectui#8347
+ * landed that objectui#5155 phase and the expectation was revisited: the
+ * counter-probe now pins the refusal.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -108,8 +109,9 @@ export type assertionDrillDownDeclared = Expect<Equal<ObjectDataTableSchema['dri
 export type assertionOnRowClickDeclared = Expect<Equal<ObjectDataTableSchema['onRowClick'], ((row: any, event?: any) => void) | undefined>>;
 /**
  * Inherited members resolve to their DECLARED types. `Equal`, not `extends`:
- * through the index signature a missing member reads `any`, which a one-way
- * check would accept (the objectui#7087 disabled-twin lesson).
+ * through the index signature a missing member read `any` until objectui#8347
+ * (it fails to compile now), which a one-way check would accept (the
+ * objectui#7087 disabled-twin lesson).
  */
 // `string` until objectui#8347 typed it as the spec's evaluated-slot input, by reference.
 export type assertionGalleryInheritsVisibleWhen = Expect<Equal<ObjectGallerySchema['visibleWhen'], EvaluatedExpressionInput | undefined>>;
@@ -130,7 +132,9 @@ describe('ObjectGallerySchema / ObjectDataTableSchema — compile-time pins (obj
     // unknown-key error, for the wrong reason); the data-table literal's own
     // index signature typed it `any` and ACCEPTED 42. Now both refuse it for
     // the declared reason. Each directive fails the build (TS2578) the moment
-    // the member stops being declared.
+    // the member is widened to accept a number; since objectui#8347 an
+    // undeclared `visible` is refused as excess, so a deletion is caught by the
+    // inherited-member `Equal` rows instead.
 
     // @ts-expect-error — `visible` is `boolean | ExpressionWire | undefined` through `BaseSchema`.
     const gallery: ObjectGallerySchema = { type: 'object-gallery', visible: 42 };

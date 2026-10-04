@@ -40,7 +40,8 @@
  *
  * objectui#7997 (`DetailViewSchema.related`) recorded that a dropped member key
  * is KEPT: `BaseSchemaCore` ends `.passthrough()` and the TypeScript
- * `BaseSchema` closes with an any-valued index signature. ⛔ That mechanism does
+ * `BaseSchema` closed with an any-valued index signature (until objectui#8347).
+ * ⛔ That mechanism does
  * NOT apply to this surface and assuming it would misdescribe the change.
  * `MenuItemSchema` is a plain `z.object` under a `z.lazy`, built on no base, and
  * `AppMenuItem` declares no index signature ⇒ an undeclared key is STRIPPED,

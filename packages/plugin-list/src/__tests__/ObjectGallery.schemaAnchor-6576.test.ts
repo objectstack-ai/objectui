@@ -23,9 +23,10 @@
  *   - WIDENS: every `BaseSchema` member is now writable. `visibleWhen` — a real
  *     base member — was a compile error on the literal.
  *   - NARROWS: `type` is now required, and pinned to the registry key.
- *   - UNCHANGED, pinned honestly: an unknown key still compiles, because
- *     `BaseSchema`'s `[key: string]: any` is inherited (objectui#5155). The
- *     ruling accepted that cost; the counter-probe below keeps it visible.
+ *   - UNCHANGED then, pinned honestly: an unknown key still compiled, because
+ *     `BaseSchema`'s `[key: string]: any` was inherited (objectui#5155). The
+ *     ruling accepted that cost; objectui#8347 removed the signature, and the
+ *     counter-probe below is flipped: an unknown key is refused now.
  *
  * The schema type's own members and the widget's read census are pinned in
  * `packages/types/src/__tests__/widget-schema-anchors-6576.test.ts`.

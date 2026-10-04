@@ -61,8 +61,8 @@
  *     renderer's behaviour. It still carries no index signature — which is what
  *     keeps the assignment at the bottom of this file a real assertion.
  *   - `ObjectGridSchema` extends `BaseSchema`, whose `[key: string]: any` index
- *     signature absorbs any unstated key. TypeScript neither declares nor
- *     refuses `operators`; it types it `any`. The faces did not contradict —
+ *     signature absorbed any unstated key. TypeScript neither declared nor
+ *     refused `operators`; it typed it `any`. The faces did not contradict —
  *     one was simply silent, which is a weaker defect and was a different
  *     decision. ⭐ It was decided (objectui#9739, letter C): the MIRROR now
  *     refuses the key by name and prints the upstream spelling, while the twin

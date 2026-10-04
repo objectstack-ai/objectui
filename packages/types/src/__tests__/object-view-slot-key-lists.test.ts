@@ -14,8 +14,8 @@
  * Both derived types declared ZERO properties. `Omit<T, K>` is
  * `Pick<T, Exclude<keyof T, K>>`, and `keyof T` on a type carrying a string
  * index signature is `string | number` — the literal member names are ABSORBED.
- * `ObjectGridSchema` and `ObjectFormSchema` both inherit `BaseSchema`'s
- * `[key: string]: any` (objectui#5155), so each `Pick` rebuilt a type holding
+ * `ObjectGridSchema` and `ObjectFormSchema` both inherited `BaseSchema`'s
+ * `[key: string]: any` (objectui#5155) until objectui#8347, so each `Pick` rebuilt a type holding
  * the index signature and none of the named members. Measured through the
  * checker before the fix:
  *
@@ -37,7 +37,7 @@
  * the `table` slot withholds it as a node-level key. Section 1 pins the counts
  * as they stand; the "63 and 69" above are the reading of their day.
  *
- * Nothing errored — the index signature answers every key as `any` — so the
+ * Nothing errored — the index signature answered every key as `any` — so the
  * symptoms were in the tools that READ the declaration: `table: { colunms: 3 }`
  * type-checked, `table: { pageSize: 'ten' }` type-checked, and editor completion
  * inside `table: { … }` offered nothing at all for a slot documented as

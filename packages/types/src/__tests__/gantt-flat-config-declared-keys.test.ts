@@ -14,14 +14,15 @@
  * ## The concealment is an INDEX SIGNATURE, not a cast
  *
  * objectui#5903's ten keys were hidden by `(schema as any).K` — a syntax a regex
- * can find. These are hidden by `BaseSchema`'s `[key: string]: any`
+ * can find. These were hidden by `BaseSchema`'s `[key: string]: any`
  * (objectui#5155's structural ceiling) reached through a parameter typed
  * `ObjectGridSchema | any`: `schema.colorField` type-checked as `any` with no cast
  * anywhere. Same outcome, no syntax to grep for.
  *
  * The consequence for anyone re-measuring this: "annotate the parameter and see
- * what errors" DOES NOT WORK here. The index signature absorbs every literal name,
- * so the annotation compiles clean while enforcing nothing — the same blind
+ * what errors" DID NOT WORK here while `BaseSchema` carried the signature (until
+ * objectui#8347): it absorbed every literal name, so the annotation compiled clean
+ * while enforcing nothing — the same blind
  * instrument objectui#6373 records. The census behind this card is therefore an
  * AST enumeration of every top-level key read off the `schema` prop in
  * `packages/plugin-gantt/src/**` (non-test), stripping `as` / parenthesis /
@@ -88,9 +89,9 @@
  * ## What the pin has teeth against, and what it does not
  *
  * Unchanged from #5903, and worth restating because it is the half people read
- * wrongly: `BaseSchema` is `.passthrough()` on the zod side and carries
- * `[key: string]: any` on the TS side, so declaring these keys does NOT buy
- * rejection of a misspelling. What it buys is that a DECLARED key is validated
+ * wrongly: `BaseSchema` is `.passthrough()` on the zod side (and carried
+ * `[key: string]: any` on the TS side until objectui#8347), so declaring these
+ * keys does NOT buy rejection of a misspelling on the zod face. What it buys is that a DECLARED key is validated
  * (`capacity: 'one'` is refused where it used to parse green), that the published
  * types now TEACH the vocabulary, and that the type-level pins below fail when a
  * declaration is removed.
@@ -282,8 +283,9 @@ describe('ObjectGanttSchema — the flattened gantt config is declared (objectui
  * A declaration's OWN declared members, with any index signature stripped.
  *
  * Same construction as `zod-mirror-parity.test.ts` and for the same measured
- * reason: `keyof ObjectGanttSchema` resolves to bare `string`, because
- * `BaseSchema`'s `[key: string]: any` absorbs every literal name. A homomorphic
+ * reason: `keyof ObjectGanttSchema` resolved to bare `string` while
+ * `BaseSchema`'s `[key: string]: any` absorbed every literal name (until
+ * objectui#8347), and `GanttConfig` still carries a signature of its own. A homomorphic
  * mapped type maps declared members and index signatures separately, so remapping
  * the index-signature keys to `never` leaves the literal members.
  */
@@ -336,11 +338,13 @@ describe('ObjectGanttSchema (TS) — the flat face declares the whole block voca
 
 describe('ObjectGanttSchema (TS) — compile-time pin on every declared key', () => {
   it('refuses a wrong-typed value on every declared key', () => {
-    // Each directive below fails the build (TS2578, "unused '@ts-expect-error'")
-    // the moment its key stops being declared, because the member then resolves to
-    // `any` through `BaseSchema`'s index signature and the assignment starts
-    // succeeding. That failure is the signal this card exists to create, and
-    // `tsconfig.test.json` compiles this file, so it is real enforcement (#3009).
+    // Each directive below failed the build (TS2578, "unused '@ts-expect-error'")
+    // the moment its key stopped being declared, while the member resolved to
+    // `any` through `BaseSchema`'s index signature. Since objectui#8347 a removal
+    // makes the indexed access itself an error, which its directive swallows, so
+    // these directives guard each member's TYPE only; the derived invariant above
+    // catches a deletion of any `GanttConfig` key. `tsconfig.test.json` compiles
+    // this file, so it is real enforcement (#3009).
 
     // @ts-expect-error — `colorField` is declared `string | undefined`.
     const colorField: ObjectGanttSchemaTS['colorField'] = 5;

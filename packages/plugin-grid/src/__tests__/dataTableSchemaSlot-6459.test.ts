@@ -22,10 +22,11 @@
  * both writers are literals sitting DIRECTLY in annotated positions, so
  * excess-property checking is the live instrument — PROVIDED the type has no
  * index signature. `BaseSchema`'s `[key: string]: any` (which `DataTableSchema`
- * inherits) makes every key a member, and a check that refuses non-members has
- * nothing to refuse when non-membership cannot exist. `RemoveIndexSignature` in
- * `ObjectGrid.tsx` is what turns the annotation from inert to able-to-fail,
- * and the pins below hold each half of that claim separately.
+ * inherited until objectui#8347) made every key a member, and a check that
+ * refuses non-members has nothing to refuse when non-membership cannot exist.
+ * `RemoveIndexSignature` in `ObjectGrid.tsx` is what turned the annotation from
+ * inert to able-to-fail (it strips nothing since objectui#8347), and the pins
+ * below hold each half of that claim separately.
  */
 import { describe, it, expect } from 'vitest';
 import type { DataTableSchema, TableColumn } from '@object-ui/types';
@@ -60,11 +61,12 @@ type HeldLocally =
   'UNDECLARED by DataTableSchema — this hold is LOAD-BEARING. Re-derive the census prose in ObjectGrid.tsx (the census section, and the ObjectGridDataTableSchemaHolds docblock under it) before changing anything.';
 
 /**
- * ⚠️ Probes `DeclaredDataTableSchema`, NOT `DataTableSchema`, and that is not
- * cosmetic: `DataTableSchema` inherits `BaseSchema`'s `[key: string]: any`, so
- * `string extends keyof DataTableSchema` and the membership question is
- * ALWAYS-TRUE against it — an instrument with no `false` to give. The third
- * test below pins both halves of that, so the choice is measured, not asserted.
+ * ⚠️ Probes `DeclaredDataTableSchema`, NOT `DataTableSchema`, and that was not
+ * cosmetic: `DataTableSchema` inherited `BaseSchema`'s `[key: string]: any`
+ * until objectui#8347, so `string extends keyof DataTableSchema` and the
+ * membership question was ALWAYS-TRUE against it — an instrument with no
+ * `false` to give. The control test below pinned both halves of that, and is
+ * flipped since objectui#8347 made the raw type able to answer `false` too.
  */
 type HoldVerdict<K extends string> = K extends keyof DeclaredDataTableSchema
   ? DeclaredUpstream
@@ -279,12 +281,12 @@ describe('objectui#6459 — the schema slot annotation is an instrument, not a d
   /**
    * ⭐ THE CONTROL ON THE CHOICE OF TYPE, which is the one place this transplant
    * is NOT literal. Read against the raw `DataTableSchema`, the membership
-   * question is ALWAYS-TRUE: `BaseSchema`s `[key: string]: any` makes
-   * `string extends keyof DataTableSchema`, so a nonsense key is a member. A
+   * question was ALWAYS-TRUE: `BaseSchema`s `[key: string]: any` made
+   * `string extends keyof DataTableSchema`, so a nonsense key was a member. A
    * gate written the obvious way — asking `DataTableSchema` whether it declares
-   * the held key — would therefore be an instrument that can only answer "yes",
-   * green forever: the same failure objectui#7201 was filed about, one level up.
-   * The first line pins that blindness; the second pins that the strip
+   * the held key — would therefore have been an instrument that can only answer
+   * "yes", green forever: the same failure objectui#7201 was filed about, one
+   * level up. The first line pinned that blindness; the second pins that the strip
    * `ObjectGrid.tsx` already derives is what restores a usable `false`.
    *
    * The first line went red when objectui#8347 dropped `BaseSchema`'s index

@@ -132,10 +132,12 @@ export interface ObjectTreeProps {
    *
    * ## ⚠️ The CEILING, so nobody reads this as more than it is
    *
-   * `BaseSchema` ends in `[key: string]: any`, so an UNDECLARED key read off this
-   * type still compiles and still types `any`. What the annotation buys is that the
-   * question becomes ANSWERABLE by the checker, ⛔ not that an undeclared read is
-   * refused — the same ceiling objectui#5155 / objectui#7927 record for the mirror.
+   * `BaseSchema` ended in `[key: string]: any` when this was written, so an
+   * UNDECLARED key read off this type still compiled and typed `any`. What the
+   * annotation bought was that the question became ANSWERABLE by the checker, ⛔ not
+   * that an undeclared read was refused — the same ceiling objectui#5155 /
+   * objectui#7927 recorded for the mirror. objectui#8347 removed the signature, so
+   * an undeclared read off this type no longer compiles.
    */
   schema: ObjectTreeSchema;
   dataSource?: DataSource;
@@ -261,7 +263,8 @@ function fieldKey(f: any): string | undefined {
  * `checker.getPropertyOfType` cannot say declared-or-not through `any` — it
  * answers `undefined` for a key this node certainly declares exactly as it does
  * for a nonsense token. The annotation is what makes those six ANSWERABLE; it
- * refuses nothing, because `BaseSchema` ends in `[key: string]: any`.
+ * refused nothing while `BaseSchema` ended in `[key: string]: any` (since
+ * objectui#8347 it refuses an undeclared read too).
  *
  * objectui#8253's ruling said to declare the key only if the console writes it —
  * measured, it does not (`CreateViewDialog.tsx`'s `tree` slot collects

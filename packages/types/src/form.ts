@@ -1347,7 +1347,7 @@ export interface CalendarSchema extends BaseSchema {
    *
    * The tombstone reaches {@link UiCalendarSchema} on BOTH faces. On this one
    * it did not until objectui#9256's E3 slice: `UiCalendarSchema` was declared
-   * as a plain `Omit` of this interface, and because {@link BaseSchema} carries
+   * as a plain `Omit` of this interface, and because {@link BaseSchema} carried
    * an index signature that `Omit` resolved through `Exclude<string, 'type'>` =
    * `string` and collapsed every member into the signature — the checker
    * answered `any` for `UiCalendarSchema['body']` and for
@@ -1404,7 +1404,7 @@ export interface CalendarSchema extends BaseSchema {
    *
    * The tombstone reaches {@link UiCalendarSchema} on BOTH faces. On this one
    * it did not until objectui#9256's E3 slice: `UiCalendarSchema` was declared
-   * as a plain `Omit` of this interface, and because {@link BaseSchema} carries
+   * as a plain `Omit` of this interface, and because {@link BaseSchema} carried
    * an index signature that `Omit` resolved through `Exclude<string, 'type'>` =
    * `string` and collapsed every member into the signature — the checker
    * answered `any` for `UiCalendarSchema['body']` and for
@@ -2357,8 +2357,9 @@ export interface LabelSchema extends BaseSchema {
    * no alias window. Which of `text` / `label` is canonical is a separate question
    * and is not decided here.
    *
-   * `?: never` rather than deleted: this interface carries `BaseSchema`'s index
-   * signature, so a deleted member would type-check silently, while a tombstone
+   * `?: never` rather than deleted: this interface carried `BaseSchema`'s index
+   * signature, so a deleted member would type-check silently (since
+   * objectui#8347, through a widened value only), while a tombstone
    * makes presence a `tsc` error, and the zod twin refuses the key by name.
    *
    * @deprecated RETIRED (objectui#6152) — write the text as `text` (or `label`).
@@ -2804,7 +2805,8 @@ export interface CodeEditorSchema extends BaseSchema {
  * moved onto that card).
  *
  * The built-in `Omit<T, K>` is `Pick<T, Exclude<keyof T, K>>`, and `keyof T` on
- * a type carrying {@link BaseSchema}'s `[key: string]: any` is `string | number`:
+ * a type carrying a string index signature (as every {@link BaseSchema}
+ * extender did until objectui#8347) is `string | number`:
  * the literal member names are absorbed, `Exclude` leaves `string`, and the
  * `Pick` rebuilds the index signature and NONE of the named members (the same
  * mechanism objectui#6151 and objectui#6269 measured at other positions). The
@@ -2836,8 +2838,8 @@ type OmitDeclared<T, K extends PropertyKey> = {
  * `{ type: 'input', inputType: 'email' }` when the input type is the choice.
  *
  * ⚠️ objectui#8499 shipped this interface with the key merely OMITTED, and
- * recorded why that was not enough: {@link BaseSchema} carries an index
- * signature and its mirror is `.passthrough()`, so `inputType` rode through
+ * recorded why that was not enough: {@link BaseSchema} carried an index
+ * signature then and its mirror is `.passthrough()`, so `inputType` rode through
  * both faces unchallenged while the renderer threw the value away. objectui#8762
  * closes that — the key is DECLARED and unwritable on both faces, so `tsc`
  * refuses it at the authoring site and the zod twin refuses it BY NAME with

@@ -12,8 +12,9 @@
  */
 import { describe, it, expect } from 'vitest';
 // The one runtime import in this otherwise type-only file: the retirement pin
-// below has to read a zod shape, because the TS interfaces here inherit
-// `BaseSchema`'s `[key: string]: any` and cannot reject a key.
+// below had to read a zod shape when written, because the TS interfaces here
+// inherited `BaseSchema`'s `[key: string]: any` (until objectui#8347) and could
+// not reject a key.
 import { ObjectGridSchema as ObjectGridZodSchema } from '../zod/index.zod';
 import type {
   // P1.1 ListView types
@@ -82,11 +83,12 @@ describe('P1.1 ListView Spec Alignment', () => {
   // the spec's own `retiredKey()` tombstones arrive with it and do the
   // rejecting, which is the protocol's job, not this repo's.
   // Asserted against the ZOD ObjectGrid schema, not the TS interface, and that
-  // is forced rather than stylistic: `ObjectGridSchema` extends `BaseSchema`,
-  // which carries `[key: string]: any` for type-specific extensions, so no
-  // interface in that family can reject an excess key. Measured — the
-  // `@ts-expect-error` first written here failed as TS2578 "unused directive",
-  // i.e. the type still admitted `virtualScroll` and always would have. The
+  // was forced rather than stylistic when written: `ObjectGridSchema` extends
+  // `BaseSchema`, which carried `[key: string]: any` for type-specific
+  // extensions until objectui#8347, so no interface in that family could reject
+  // an excess key. Measured — the `@ts-expect-error` first written here failed
+  // as TS2578 "unused directive", i.e. the type still admitted `virtualScroll`
+  // then. The
   // zod shape is the surface that can actually say no, and it is objectui's
   // own, so the claim holds on the rc.6 pin and on GA alike.
   it('should no longer declare the retired keys on the ObjectGrid zod schema', () => {

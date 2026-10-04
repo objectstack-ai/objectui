@@ -32,7 +32,8 @@ import type { PageComponent } from '@objectstack/spec/ui';
  * `BaseSchema` does not declare the key. `@objectstack/spec` declares it on
  * `PageComponentSchema`, and the alias case below is typed by reference to
  * that row. It is checked against this node, not against `BaseSchema`, so the
- * key stays checked once objectui#8347 removes `BaseSchema`'s index signature.
+ * key stays checked now that objectui#8347 has removed `BaseSchema`'s index
+ * signature.
  */
 type DeprecatedVisibilityNode = BaseSchema & Pick<PageComponent, 'visibility'> & { type: 'test-component' };
 const deprecatedVisibilityNode = (schema: DeprecatedVisibilityNode): DeprecatedVisibilityNode => schema;

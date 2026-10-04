@@ -1092,15 +1092,17 @@ export type ObjectGridColumn =
  *      PLUS an undeclared `bogusKeyForProbe6459: true` WRITTEN OUT LONGHAND in
  *      the (fresh) literal  →  `tsc --noEmit` exit 0, ZERO diagnostics.
  *
- * The reason is `BaseSchema`'s `[key: string]: any` index signature, which
- * `DataTableSchema` inherits: under an index signature EVERY key is a member,
+ * The reason was `BaseSchema`'s `[key: string]: any` index signature, which
+ * `DataTableSchema` inherited until objectui#8347: under an index signature
+ * EVERY key is a member,
  * so excess-property checking never has a non-member to refuse — at a fresh
  * literal, through a spread, anywhere. It is the terminal case of the rule the
  * `options` tombstone above records ("a pin enforced by a key's non-membership
  * silently stops enforcing the moment the key becomes a member"): with an
  * index signature there is no non-membership to enforce with, ever.
  *
- * `RemoveIndexSignature` strips it — DERIVED from `DataTableSchema`, never a
+ * `RemoveIndexSignature` stripped it (since objectui#8347 it strips nothing on
+ * `DataTableSchema`) — DERIVED from `DataTableSchema`, never a
  * hand-copied member list, so a member added there tomorrow flows in on its
  * own and two enumerations of one vocabulary never exist. With the signature
  * gone, the same probe goes red (TS2353 naming the key), measured at both
@@ -1189,7 +1191,7 @@ type RemoveIndexSignature<T> = {
   [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K];
 };
 
-/** `DataTableSchema`'s DECLARED members only — the index signature stripped. */
+/** `DataTableSchema`'s DECLARED members only — any index signature stripped (it has none since objectui#8347). */
 export type DeclaredDataTableSchema = RemoveIndexSignature<DataTableSchema>;
 
 /**
@@ -1234,8 +1236,9 @@ export type DeclaredDataTableSchema = RemoveIndexSignature<DataTableSchema>;
  * pinned, so a member added or removed here reddens too. ⚠️ The transplant is
  * NOT literal in one respect, deliberately: the probe reads
  * `DeclaredDataTableSchema`, not `DataTableSchema`, because the index signature
- * stripped above makes the raw type answer "declared" to EVERY key — measured,
- * and pinned in that suite as its own control.
+ * stripped above made the raw type answer "declared" to EVERY key — measured,
+ * and pinned in that suite as its own control, which is flipped since
+ * objectui#8347 removed the signature.
  *
  * ⇒ Anything in this census that a reader would otherwise have to re-measure by
  * hand is still prose; what is mechanical is the ENTRY CONDITION of the two

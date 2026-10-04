@@ -70,7 +70,8 @@ type IsAny<T> = 0 extends 1 & T ? true : false;
 type KeepsFunction<T> = [Extract<NonNullable<T>, (...args: never[]) => unknown>] extends [never] ? false : true;
 
 // The tombstone admits exactly one value — absence. Deleting the member instead
-// would make this indexed access fall through the index signature to `any`.
+// made this indexed access fall through the index signature to `any` until
+// objectui#8347; it stops compiling now.
 export type _RetiredIsTombstone = Assert<Equal<TsObjectKanbanSchema['onQuickAdd'], undefined>>;
 export type _RetiredIsNotAny = Assert<Equal<IsAny<TsObjectKanbanSchema['onQuickAdd']>, false>>;
 export type _RetiredIsNotCallable = Assert<Equal<KeepsFunction<TsObjectKanbanSchema['onQuickAdd']>, false>>;
@@ -84,7 +85,9 @@ export type _IsAnyCanAnswerTrue = Assert<IsAny<any>>;
 
 const liveLiteral: TsObjectKanbanSchema = { ...NODE, onCardClick: () => undefined };
 // This directive goes unused — and the type-check goes red with TS2578 — the
-// moment the tombstone is deleted or widened back to a callable.
+// moment the tombstone is widened back to a callable. A deletion keeps it used
+// since objectui#8347 (the key is refused as undeclared) and is caught by the
+// tombstone `Equal` row above instead.
 // @ts-expect-error — `onQuickAdd` is RETIRED on this node (objectui#11234); mount `KanbanRenderer` for Quick Add
 const retiredLiteral: TsObjectKanbanSchema = { ...NODE, onQuickAdd: LIVE_FUNCTION };
 void liveLiteral;

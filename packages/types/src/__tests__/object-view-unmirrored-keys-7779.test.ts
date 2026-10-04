@@ -565,8 +565,9 @@ type ViewKind = 'grid' | 'kanban' | 'gallery' | 'calendar' | 'timeline' | 'gantt
 export type _DefaultViewTypeIsSevenUnion = Expect<Equal<TsObjectViewSchema['defaultViewType'], ViewKind | undefined>>;
 export type _DefaultViewTypeIsNotAny = Expect<Equal<IsAny<TsObjectViewSchema['defaultViewType']>, false>>;
 // `viewTabBar`: a `?: never` tombstone — the only value it admits is absence.
-// Deleting the member instead would make this `any` (index signature) and the
-// pin red, which is the point: the tombstone is load-bearing.
+// Deleting the member instead would make this pin red (`any` through the index
+// signature until objectui#8347, a non-compiling indexed access since), which is
+// the point: the tombstone is load-bearing.
 export type _ViewTabBarIsTombstone = Expect<Equal<TsObjectViewSchema['viewTabBar'], undefined>>;
 export type _ViewTabBarIsNotAny = Expect<Equal<IsAny<TsObjectViewSchema['viewTabBar']>, false>>;
 // `listViews`: the protocol's record since objectui#7928 — inverted from "STILL the
@@ -584,7 +585,9 @@ export type _IsAnyCanAnswerTrue = Expect<IsAny<any>>;
 export const literal: TsObjectViewSchema = { ...NODE, ...(ACCEPTED as Record<Mirrored, never>) };
 // …REFUSES the retired spelling on a literal (an object is not `never`). This
 // directive goes unused — and the type-check goes red with TS2578 — the moment
-// the tombstone is deleted or widened back to `ViewTabBarConfig`.
+// the tombstone is widened back to `ViewTabBarConfig`. A deletion keeps it used
+// since objectui#8347 (the key is refused as undeclared) and is caught by the
+// tombstone `Equal` row above instead.
 // @ts-expect-error — `viewTabBar` is RETIRED on this node (objectui#7779); it was never read
 export const retiredLiteral: TsObjectViewSchema = { ...NODE, viewTabBar: { showAddButton: true } };
 // …and REFUSES the host-only view kind: `tree` is not authorable here (objectui#5321).

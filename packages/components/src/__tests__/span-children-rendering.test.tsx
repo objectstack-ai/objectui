@@ -27,10 +27,12 @@
  * fossilize a second de-facto contract for the one type whose declaration never
  * named it (Commandment #0.1). The third case below pins that.
  *
- * Note on what the type surface can and cannot say: `body` was never a type
- * ERROR on a span, because `BaseSchema` declares both child keys and carries an
- * index signature. So the read side is the only place this can be stated, which
- * is exactly why it is stated here rather than left to review.
+ * Note on what the type surface could and could not say when this was written:
+ * `body` was not a type ERROR on a span, because `BaseSchema` declared both
+ * child keys and carried an index signature (`body` has since become a
+ * `?: never` tombstone, and objectui#8347 removed the signature). So the read
+ * side was the only place this could be stated, which is exactly why it is
+ * stated here rather than left to review.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -44,8 +46,8 @@ import '../renderers';
 
 /**
  * Types a child literal below as the `text` node it is (objectui#11347): a
- * `children` entry is checked against `SchemaNode`, and once `BaseSchema`'s
- * index signature is gone (objectui#8347) a literal checked against it may
+ * `children` entry is checked against `SchemaNode`, and since objectui#8347
+ * removed `BaseSchema`'s index signature a literal checked against it may
  * author only `BaseSchema`'s own keys.
  */
 const textNode = (schema: TextSchema): TextSchema => schema;

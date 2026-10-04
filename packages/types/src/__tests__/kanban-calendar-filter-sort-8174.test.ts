@@ -40,8 +40,10 @@
  * - TS: the member narrows `any` to `any[]` / `SortConfig[]`. `filter: 'a = b'`
  *   and `sort: 'name asc'` were assignable through the index signature and are
  *   now type errors. Each `@ts-expect-error` below goes UNUSED — TS2578, a hard
- *   type-check failure — the moment its member is deleted, which is what makes
- *   these pins rather than restatements.
+ *   type-check failure — the moment its member is widened; since objectui#8347 a
+ *   deletion keeps it used (the value is refused as an undeclared key) and is
+ *   caught by the `Equal` rows instead, which is what makes these pins rather
+ *   than restatements.
  * - Mirror: under `.passthrough()` a DECLARED key is value-validated where an
  *   undeclared one rides through unexamined, and this mirror reaches
  *   `safeValidateSchema` through `AnyComponentSchema`, so the refusal reaches
@@ -61,8 +63,9 @@
  * Membership is asserted on the mirror's OWN `.shape`, never on parse
  * acceptance (under `.passthrough()` acceptance cannot tell "declared" from
  * "admitted unexamined"). Type-level pins use invariant equality, so a member
- * that fell back to the index signature reads as `any` and therefore as a
- * failure. And every claim carries a CONTROL that is asserted to stay
+ * that fell back to the index signature read as `any` and therefore as a
+ * failure (since objectui#8347 removed the signature, a deleted member's
+ * indexed access does not compile at all). And every claim carries a CONTROL that is asserted to stay
  * undeclared — including the deliberate absence of `sort` on the kanban board,
  * which is measured off the spec rather than assumed (the board reads `sort`
  * only as the binding carrier since objectui#10068).
@@ -118,9 +121,10 @@ type IsAny<T> = 0 extends (1 & T) ? true : false;
 /** An object with no keys is assignable to `Pick<T, K>` only when `K` is optional on `T`. */
 type IsOptional<T, K extends keyof T> = Record<string, never> extends Pick<T, K> ? true : false;
 
-// `filter` on BOTH interfaces: declared `any[]`, optional, not `any`. Delete
-// either member and the indexed access falls back to `[key: string]: any`,
-// making `IsAny` true and `Equal<any, any[] | undefined>` false.
+// `filter` on BOTH interfaces: declared `any[]`, optional, not `any`. Deleting
+// either member made the indexed access fall back to `[key: string]: any`,
+// making `IsAny` true and `Equal<any, any[] | undefined>` false; since
+// objectui#8347 the indexed access stops compiling instead.
 export type _KanbanFilterIsArray = Expect<Equal<TsObjectKanbanSchema['filter'], any[] | undefined>>;
 export type _KanbanFilterIsNotAny = Expect<Equal<IsAny<TsObjectKanbanSchema['filter']>, false>>;
 export type _KanbanFilterIsOptional = Expect<IsOptional<TsObjectKanbanSchema, 'filter'>>;
@@ -155,7 +159,9 @@ const kanbanLiteral: TsObjectKanbanSchema = { ...KANBAN_NODE, filter: FILTER_VAL
 const calendarLiteral: TsObjectCalendarSchema = { ...CALENDAR_NODE, filter: FILTER_VALUE, sort: SORT_VALUE };
 
 // …and REFUSES wrong-typed values that the index signature used to admit. Each
-// directive goes unused — TS2578, a hard failure — if its member is deleted.
+// directive goes unused — TS2578, a hard failure — if its member is widened. A
+// deletion keeps it used since objectui#8347 (the value is refused as an
+// undeclared key) and is caught by the `Equal` rows above.
 // @ts-expect-error — `filter` is `any[]`; a string clause is not a JSON-Rules filter
 const kanbanBadFilter: TsObjectKanbanSchema = { ...KANBAN_NODE, filter: 'status = open' };
 // @ts-expect-error — `filter` is `any[]`; a string clause is not a JSON-Rules filter

@@ -733,8 +733,9 @@ type Equal<A, B> =
 type Expect<T extends true> = T;
 
 /** `?: never` reads as exactly `undefined` off the interface. `Equal`, not
- *  `extends`: `BaseSchema`'s `[key: string]: any` means a DELETED member reads
- *  `any`, which a one-way check would accept (the disabled-twin lesson). */
+ *  `extends`: `BaseSchema`'s `[key: string]: any` meant a DELETED member read
+ *  `any` until objectui#8347, which a one-way check would accept (the
+ *  disabled-twin lesson). */
 type RetiredIsNever<T> = Equal<T, undefined>;
 
 /** A runtime slot keeps a callable member: some function type survives the

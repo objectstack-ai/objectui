@@ -18,8 +18,10 @@
  * `list-view` toolbar's filter builder, switched by `userActions.filter`, so
  * honouring the key on the grid would have meant building a second filter
  * surface. The upstream protocol's `object-grid` row does not declare the key
- * either. Deleting the member would refuse nothing: the zod twin ends
- * `.passthrough()` and the interface inherits `BaseSchema`'s index signature.
+ * either. Deleting the member would refuse nothing on the zod face, whose twin
+ * ends `.passthrough()`; the interface inherited `BaseSchema`'s index signature
+ * until objectui#8347 (and a widened value still skips the excess-property
+ * check).
  * So the key stays DECLARED and unwritable on both faces — `retirementTombstone()`
  * and `?: never` — as `rowSpecActions` and `defaultSort` are.
  *
@@ -168,8 +170,10 @@ describe('the UPSTREAM half, re-derived from the installed pin', () => {
  * The `@ts-expect-error` line below IS the assertion: the member is `?: never`,
  * so the literal is a compile error. It fails this package's
  * `tsc -p tsconfig.test.json` leg as an UNUSED directive if the member is
- * deleted (the key would fall back to `BaseSchema`'s index signature) or
- * re-typed as a live value.
+ * re-typed as a live value. A deletion failed it too while the key fell back to
+ * `BaseSchema`'s index signature; since objectui#8347 a deleted member's key is
+ * refused as undeclared, which keeps the directive used, so this file no longer
+ * sees a deletion on the TS face.
  */
 export const authoredShowFiltersRefused: ObjectGridSchemaType = {
   ...GRID_POST_HOIST,

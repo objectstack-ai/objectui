@@ -87,10 +87,11 @@ export type _GalleryFilterIsOptional = Expect<IsOptional<TsObjectGallerySchema, 
 /**
  * FIRING CONTROLS for the pin above, in both directions it can be wrong.
  * `unknown` is what the member held before this card: reverting the declaration
- * turns the first of these false and the file red. `IsAny` catches the other
- * reversion — deleting the member entirely, which drops the indexed access
- * through `BaseSchema`'s `[key: string]: any` and would otherwise read as a
- * pass.
+ * turns the first of these false and the file red. `IsAny` caught the other
+ * reversion while `BaseSchema` carried `[key: string]: any` — deleting the
+ * member entirely dropped the indexed access through that signature and would
+ * otherwise have read as a pass; since objectui#8347 a deletion makes the
+ * indexed access fail to compile.
  */
 export type _GalleryFilterIsNotUnknownAnyMore =
   Expect<Equal<Equal<TsObjectGallerySchema['filter'], unknown>, false>>;

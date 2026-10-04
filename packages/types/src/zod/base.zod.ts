@@ -288,7 +288,7 @@ type NodeSlotZodType = z.ZodOptional<z.ZodUnion<readonly [SchemaNodeZodType, z.Z
  * what this schema accepts at runtime.
  *
  * ⛔ `SchemaNode` in `../base.ts` did NOT move under #8344 either: the TS face still
- * said `BaseSchema | primitive`, and `BaseSchema` carries an index signature, so the
+ * said `BaseSchema | primitive`, and `BaseSchema` carried an index signature, so the
  * runtime accept set was NARROWER than the declaration rather than wider. The
  * declaration repair was its own worklist and ⛔ not this const's to make.
  * ⚠️ Dated note, 2026-10-02 (objectui#11466): that repair has landed. `SchemaNode`'s

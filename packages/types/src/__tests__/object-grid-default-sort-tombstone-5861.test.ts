@@ -19,8 +19,10 @@
  *
  *   - the zod mirror reaches `BaseSchema`, which is `.passthrough()`, so an
  *     undeclared key is KEPT unexamined — the document would parse green;
- *   - the TypeScript twin extends `BaseSchema`'s `[key: string]: any`, so an
- *     undeclared key is absorbed as `any` — the literal would compile.
+ *   - the TypeScript twin extended `BaseSchema`'s `[key: string]: any`, so an
+ *     undeclared key was absorbed as `any` — the literal would have compiled
+ *     (since objectui#8347 a fresh literal is refused, unnamed, and a widened
+ *     value still passes).
  *
  * Either way an author would write a key nothing reads and get an unsorted
  * grid with no signal. So the key stays DECLARED and unwritable on both faces:
@@ -126,8 +128,10 @@ describe('the UPSTREAM half — re-derived from the installed pin, not copied in
  * The `@ts-expect-error` below IS the assertion: `defaultSort?: never` makes
  * the legacy literal a compile error. It fails this package's
  * `tsc -p tsconfig.test.json` leg as an UNUSED directive if the member is ever
- * deleted (the index signature would absorb the key) or re-typed as a live
- * `{ field, order }`.
+ * re-typed as a live `{ field, order }`. A deletion failed it too while the index
+ * signature absorbed the key; since objectui#8347 a deleted member's key is
+ * refused as undeclared, which keeps the directive used, so this file no longer
+ * sees a deletion on the TS face.
  */
 export const authoredDefaultSortRefused: ObjectGridSchemaType = {
   type: 'object-grid',

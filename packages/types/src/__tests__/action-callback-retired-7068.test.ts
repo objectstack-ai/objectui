@@ -29,9 +29,10 @@
  *
  * ## Why a tombstone on the keys, and a deletion of the type
  *
- * `BaseSchema` is `.passthrough()` on the mirror and carries `[key: string]: any`
- * on the interface, so DELETING the two keys would ADMIT an authored callback
- * unchecked on both faces — kept, inert, and green. The keys therefore stay
+ * `BaseSchema` is `.passthrough()` on the mirror and carried `[key: string]: any`
+ * on the interface until objectui#8347, so DELETING the two keys would have
+ * ADMITTED an authored callback unchecked on both faces — kept, inert, and green
+ * (the interface refuses it on a fresh literal now, as the base control shows). The keys therefore stay
  * declared as `?: never` / `retirementTombstone()` (the PR #7761 / #7769 shape),
  * and the base-vs-extended contrast is measured below on both faces. The
  * standalone `ActionCallback` type and its mirror have no such escape hatch and
@@ -317,8 +318,10 @@ describe('legacy ActionSchema.onSuccess / onFailure are RETIRED — the TS half 
     // On the pre-fix tree both assignments were LEGAL (`ActionCallback | undefined`),
     // so each directive would be unused and `tsc -p tsconfig.test.json` fails the
     // build with TS2578 naming the line — red before the fix in `type-check`, not
-    // in vitest. `BaseSchema` carries `[key: string]: any`; a declared `never`
-    // member wins over it, which is why this is a tombstone and not a deletion.
+    // in vitest. `BaseSchema` carried `[key: string]: any` when this was written;
+    // a declared `never` member wins over it, which is why this is a tombstone and
+    // not a deletion (since objectui#8347 a deletion is refused on a fresh literal
+    // too, unnamed).
     const retired: ActionSchemaTS = {
       type: 'action',
       label: 'Load',

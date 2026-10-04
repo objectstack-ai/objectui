@@ -307,10 +307,11 @@ export interface BaseSchema {
    *
    * ## What declaring it buys, and what it does not (objectui#5155 / #6269)
    *
-   * Same ceiling as the gantt and timeline pins. `BaseSchema` carries an index
-   * signature on the TS side and is `.passthrough()` on the zod side, so an
-   * UNDECLARED key is still accepted by both halves — this did NOT buy
-   * rejection of a misspelling such as `bindTo`. What it DOES buy is the VALUE:
+   * Same ceiling as the gantt and timeline pins. `BaseSchema` is
+   * `.passthrough()` on the zod side (and carried an index signature on the TS
+   * side until objectui#8347), so an UNDECLARED key is still accepted by the
+   * zod half — this did NOT buy rejection of a misspelling such as `bindTo`
+   * there. What it DOES buy is the VALUE:
    * `bind: 42` type-checked and parsed green before this declaration and is
    * refused by both halves now. That narrowing only refuses what already
    * crashed — `useDataScope` is `(path?: string)` and resolves via

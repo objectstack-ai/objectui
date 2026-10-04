@@ -82,9 +82,9 @@ type Expect< T extends true > = T;
  *
  * ⚠️ The second limb is NOT the index signature, and the difference matters
  * because it is the whole reason this card keeps the member instead of deleting
- * it. `BaseSchema` carries BOTH `data?: any` (`base.ts:183`) and
- * `[key: string]: any` (`base.ts:409`), and a declared member — inherited or
- * not — wins over an index signature. Measured: strip the index signature with
+ * it. `BaseSchema` carries `data?: any` (and carried `[key: string]: any` too,
+ * until objectui#8347), and a declared member — inherited or not — wins over
+ * an index signature. Measured: strip the index signature with
  * the homomorphic `keyof`-remap that `zod-mirror-parity.test.ts` uses, and
  * `['data']` is STILL `any`, while a key reachable only through the index
  * signature stops resolving at all. So deletion does not fall through to an

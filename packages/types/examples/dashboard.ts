@@ -17,9 +17,11 @@ import type { FlexBlockNode, SidebarSchema, HeaderBarSchema, CardSchema, DataTab
 
 // An authored `flex` node takes its props, the child list included, in its
 // `properties` bag (objectui#11276). `FlexBlockNode` is that node, its bag
-// closed (objectui#11468). The bag's child list is `unknown[]`, as the zod arm
-// declares it (the page walk judges each entry), so the nested `flex` node is
-// checked with `satisfies FlexBlockNode`.
+// closed (objectui#11468), and each entry of the bag's child list is typed as
+// a node (objectui#11564). A `flex` entry also matches the post-hoist
+// `FlexSchema`, whose `BaseSchema` index signature admits any `properties`
+// until objectui#8347 removes it, so the nested `flex` node is checked with
+// `satisfies FlexBlockNode`.
 export const dashboardSchema: FlexBlockNode = {
   type: 'flex',
   className: 'h-screen',

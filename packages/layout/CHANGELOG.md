@@ -1,5 +1,1692 @@
 # @object-ui/layout
 
+## 17.7.0
+
+### Minor Changes
+
+- d6a1a80: feat(layout): a host can hide a `doc` navigation entry the member may not read (objectui#10188)
+  
+  `NavigationRenderer`, `AppSchemaRenderer` and `hasVisibleNavigationItems` take an optional
+  `checkDocTarget` — a `DocTargetChecker`, asked `{ book, doc }` for each `type: 'doc'` entry.
+  An entry it answers `false` for is not drawn, is not collected into Favorites, and does not
+  make its area count as visible: it joins the one guard statement the other item guards
+  already share. Without it, `doc` entries draw as before.
+  
+  It is defence in depth. The server is the enforcer (ADR-0046 §6.7): its app read already
+  leaves out a `doc` entry the member may not read. This layer holds no audience rules, so the
+  host answers from the member's own doc / book reads. `DocNavTarget` and `DocTargetChecker` are
+  exported. `CapabilityChecker` is unchanged: it asks whether the runtime has a target, and this
+  checker asks whether the member may read it.
+- ad1785c: refactor(layout)!: retire the `page-header` node type key; the header node is `page:header` (objectui#10859, batch 8 phase 2c)
+  
+  **BREAKING (authoring):** `registerLayout()` no longer registers `PageHeader` under `page-header` (and with it `layout:page-header`). `objectui validate` already refused a `page-header` node at `type`, and nothing in this repository authored or emitted it. objectstack's `page-header-subtitle-alias` conversion renames the key `description` → `subtitle` on both header spellings and leaves the type to objectui. A `page-header` node now renders the "Unknown component type" panel. `PageHeader` stays a named export for JSX composition.
+  
+  Migration, measured against `objectui validate` (`page:header` carries its props in `properties`):
+  
+  - `{ "type": "page-header", "title": T, "subtitle": S }` → `{ "type": "page:header", "properties": { "title": T, "subtitle": S } }`;
+  - `actions` (action ids) → `properties.actions`, the same id array;
+  - `icon` has no `page:header` spelling: the contract refuses `properties.icon` by name (an ADR-0087 D2 tombstone). Drop it, or compose `PageHeader` in JSX, which still takes `icon`;
+  - `children` (the right-hand slot) has no `page:header` spelling: the contract refuses a node-level `children` by name, and `properties.children` as an unrecognized key. Put the buttons in `properties.actions` as action ids, or compose `PageHeader` in JSX, which still renders its `children`.
+  
+  `registerLayout()` now registers four keys: `layout:page:card`, `responsive-grid`, `navigation-renderer` and `app-schema-renderer`.
+  
+  **Clause-②: yes** — a registration leaves the runtime (narrowing), released as `minor` with this banner.
+  
+  ⚠️ **Dated note, 2026-10-02 — `responsive-grid` and `navigation-renderer` are retired too — objectui#11441.**
+  Later in this same release objectui#11441 (the maintainer's ruling, letters B / B) unregistered both, with their
+  `layout:` twins, so `registerLayout()` registers two keys: `layout:page:card` and `app-schema-renderer`. The rest of
+  this entry is kept as the reading of this change.
+- e6bc087: feat: a `doc` navigation entry (ADR-0046) validates and draws as a link into the docs portal
+  
+  `@objectstack/spec` 17.5.0 added a tenth navigation item type, `doc` — `{ type: 'doc', book }`
+  opens a book, `{ type: 'doc', doc }` opens one page, both opens that page in that book's
+  context. `objectui validate` refused it: `NavigationItemTypeSchema` was a hand-written list of
+  the nine older types, while the TypeScript `NavigationItemType`, derived from the spec, already
+  carried `doc`. And no renderer drew one — `resolveHref` had no `doc` branch, so the entry
+  rendered as a dead `#` link.
+  
+  - **`@object-ui/types`** — `NavigationItemTypeSchema` is now read off the discriminator of the
+    spec's navigation union instead of hand-listed, so it gains `doc`. A `doc` entry is judged by
+    the spec's own `DocNavItemSchema`: it accepts exactly what the spec accepts — at least one of
+    `book` / `doc`, a doc NAME (a filename or a path is refused), a snake_case `id`, and the closed
+    key set of the spec's `doc` arm — and refuses an empty `label` as every sibling type does. The
+    parsed entry is never rewritten. `NavigationEntryItem` gains the spec-derived `book` and `doc`
+    members. An unknown `type` is now refused with `invalid_union` at `type` (was `invalid_value`),
+    the code the spec's own union answers with.
+  - **`@object-ui/layout`** — `resolveHref` sends a `doc` entry to the console docs portal under
+    its `basePath`: `/docs/DOC`, `/docs/BOOK` or `/docs/BOOK/DOC`. An unlabelled `doc`
+    entry shows the page it opens, else the book. It is gated by the same base keys as its
+    siblings (`visible`, `requiredPermissions`, `requiresObject`, `requiresService`); the book
+    audience gate stays the server's. The mobile tab bar links it the same way.
+  - **`@object-ui/app-shell`** — the app designer's preview keys its navigation kinds by
+    `NavigationItemType`, so a `doc` entry is drawn with its target and route instead of being
+    dropped (label-less) or badged `untyped`.
+  - **`@object-ui/plugin-designer`** — `NAV_TYPE_META` drops the `| 'doc'` key that bridged the
+    spec pin lag; it is keyed by `NavigationItemType` alone.
+  - **`@object-ui/console`** — the docs portal resolves a path segment that is a book's NAME
+    rather than its `slug` — what a `{ type: 'doc', book }` entry links to — and redirects to
+    the book's canonical slug URL: `/docs/NAME` opens the book, `/docs/NAME/DOC` reads that page
+    with the book's sidebar. It is looked up after a book's slug and an installed doc's name, so
+    every URL that resolved before answers as it did; only former "Documentation not found"
+    answers change.
+- 770cc5b: feat(layout): a navigation label written as an inline locale map renders in the viewer's locale; three inert resolver props retire (objectui#11299)
+  
+  **Breaking for a consumer that passes the retired props or calls `resolveNavItemLabel` with six arguments** — a compile error, never a silent change of what renders.
+  
+  - **New: `NavigationRenderer`'s optional `locale` prop**, and a trailing `locale`
+    argument on `resolveNavItemLabel`. A present entry label written as an inline locale
+    map (`{ en: 'Accounts', 'zh-CN': '客户' }`) renders the entry for that locale, through
+    the spec's own `resolveI18nLabel`; when the map has no entry for it, that resolver's
+    fallback order applies. objectui#11201 rendered such a map's `en` entry for every
+    viewer; pass the viewer's language as `locale` to show theirs. Without `locale` the
+    map still reads its `en` entry. A plain-string label and an absent label are
+    unaffected.
+  - **Retired: `NavigationRenderer`'s `resolveObjectLabel`, `resolveDashboardLabel` and
+    `resolveViewLabel` props.** objectui#11201 stopped reading them and kept them as
+    no-ops; they are removed now. Delete them from your `NavigationRenderer` call. An
+    unlabelled entry's localized text comes from `resolveTargetLabel`, as before.
+  - **Changed signature: `resolveNavItemLabel(item, t?, targetLabel?, locale?)`.** The
+    2nd, 4th and 5th arguments (the same three resolvers) are gone. A call written
+    `resolveNavItemLabel(item, undefined, t, undefined, undefined, targetLabel)` becomes
+    `resolveNavItemLabel(item, t, targetLabel, locale)`.
+  
+  Marked `minor`, not `major`: this repository's fixed release group follows the
+  `@objectstack` major, so a breaking change of its own is declared `minor` with the
+  break spelled out here.
+- 9d1c0bf: refactor(layout)!: retire the `navigation-renderer` and `responsive-grid` node type keys; navigation is application metadata, and the breakpoint grid is `grid` (objectui#11441)
+  
+  **BREAKING (authoring):** `registerLayout()` no longer registers `NavigationRenderer` under `navigation-renderer` or `ResponsiveGrid` under `responsive-grid` (and with them `layout:navigation-renderer` and `layout:responsive-grid`). This executes the maintainer's ruling on objectui#11441 (letters B / B) as one more batch of objectui#10859. `objectui validate` already refused both keys at `type`, and nothing in this repository or in objectstack authored or emitted either node. A node of either type now renders the "Unknown component type" panel. `registerLayout()` now registers two keys: `layout:page:card` and `app-schema-renderer`.
+  
+  `NavigationRenderer` and `ResponsiveGrid` stay named exports for JSX composition. `NavigationRenderer` is what the console's sidebar and `AppSchemaRenderer` mount. `ResponsiveGrid` had no in-repo consumer other than the retired registration, and it stays because the same ruling keeps objectui#7580's vocabulary half: `BreakpointColumnMap` stays declared in this package as the type of its `columns` prop.
+  
+  Migration, measured against `objectui validate` on both of its faces:
+  
+  - `{ "type": "responsive-grid", "columns": C, "gap": G }` → `{ "type": "grid", "columns": C, "gap": G }`. `grid` accepts the same breakpoint `columns` object (`xs` … `2xl`) and a `gap` number, and refuses an unknown breakpoint key as an unrecognized key (`unrecognized_keys` on `columns`). Unlike `responsive-grid`, which drew `not-a-container` and rendered no authored child list, `grid` draws its `children`;
+  - `{ "type": "navigation-renderer", "items": I }` has no page-node replacement: navigation is application metadata. Put `I` in the app document's `navigation` (`{ "type": "app", "name": N, "navigation": I }` validates on both faces), and the shell draws it: the console's sidebar, or `AppSchemaRenderer` in JSX;
+  - `basePath` has no app-document spelling: the strict face refuses it as an unrecognized key. It belongs to the shell, as `AppSchemaRenderer`'s `basePath` prop.
+  
+  **Clause-②: yes** — two registrations leave the runtime (narrowing), released as `minor` with this banner.
+  
+  ⚠️ **Dated note, 2026-10-02 — `grid` takes one of ten `gap` steps, not any number — objectui#11474.** At this change `grid` accepted any `gap` number; now it accepts one of 0, 1, 2, 3, 4, 5, 6, 8, 10 and 12, the steps the `grid` renderer maps, and `objectui validate` refuses any other `G` at `gap` on both faces with that set named: 7, 9, 11, a number above 12, a negative number or a fraction. For such a number `grid` drew no gap anyway, because the class it built at runtime is in no compiled stylesheet. So in the migration above `G` must be one of those ten steps; each step `ResponsiveGrid`'s own class map drew (0 to 6 and 8) is one of them. `.changeset/11474-layout-spacing-sets.md` states what ships. The rest of this entry is kept as the reading of this change.
+  
+  ⚠️ **Dated note, 2026-10-02 — `grid` takes column counts 1 to 12, not any number — objectui#11491.** At this change `grid` accepted any count in the breakpoint `columns` object; now each count is one of 1 to 12, the counts the `grid` renderer maps, and `objectui validate` refuses any other count in `C` at `columns` on both faces with that set named. For such a count `grid` drew no column class at that breakpoint anyway. So in the migration above every count in `C` must be one of 1 to 12; each count `ResponsiveGrid`'s own class map drew (1, 2, 3, 4, 6 and 12) is one of them. `.changeset/11491-grid-columns-set.md` states what ships. The rest of this entry is kept as the reading of this change.
+- fcdc8ec: An `app-schema-renderer` node draws the app document it carries under `schema` (objectui#11494, triage ruling A).
+  
+  **Breaking for a node that writes the app document's keys flat on itself** (shipped as `minor`, per this repository's version policy). `SchemaRenderer` hands every registered component the node itself as its `schema` prop, and `registerLayout()` registered `AppSchemaRenderer` directly, so the component took the node for its app document: a document nested under the node's `schema` key drew an empty shell, and only app keys written flat on the node (`navigation`, `title`, …), which no schema declares, drew. `registerLayout()` now registers the key against an adapter that hands `node.schema` to `AppSchemaRenderer`:
+  
+  - `{ "type": "app-schema-renderer", "schema": { "type": "app", "name": "crm", "navigation": [ … ] } }` draws the document's branding and navigation.
+  - The same keys written flat on the node are no longer read. Move them under `schema`, with `"type": "app"`. No producer in objectui or objectstack authors them flat.
+  - A node without `schema` draws the shell with no branding and no navigation, as it did before.
+  
+  Unchanged: `basePath` and `mobileNavMode` are read off the node, the registration's three declared `inputs`, and `AppSchemaRenderer` itself, whose JSX hosts pass `schema={appDocument}` directly. A node's `children` are still not rendered.
+- 969ba84: Renderers for the `app:launcher` and `nav:menu` page blocks.
+  Phase 1 of the 2026-08-26 maintainer ruling on objectstack#12183 — the two
+  `PageComponentType` members that are purely metadata-driven, so nothing had to
+  ship before their renderers could. Phase 2 (`global:search` /
+  `global:notifications`) landed in `f99932a42` and set the pattern this
+  follows.
+  
+  A page that declared either member drew a dashed box. The two symptoms were not
+  the same, which is worth recording because it decides what "fixed" looks like
+  for each:
+  
+  - `nav:menu` is in `PALETTE_PLACEHOLDER_BLOCKS`, registered eagerly, so it drew
+    the literal "Component Placeholder" scaffold in every host.
+  - `app:launcher` is only in `PROTOCOL_COMPONENTS`, registered when a host opts
+    in via `registerPlaceholders()` — which just `apps/console` does. So it drew
+    the scaffold in the console and `SchemaRenderer`'s red OBJUI-001 "Unknown
+    component type" panel everywhere else.
+  
+  Neither block adds a data layer — each mounts plumbing that was already live,
+  and neither issues a request or touches an adapter:
+  
+  - `app:launcher` reads the metadata app registry (`useMetadata().apps`, which
+    `MetadataProvider` fetches eagerly) through the shared `filterActiveApps`
+    predicate, and draws it with `HomeAppsStrip` — the console's own launcher
+    grid — so an authored launcher and the Home launcher cannot drift into two
+    looks for one thing.
+  - `nav:menu` reads the active app's navigation tree from that same registry and
+    renders it as page content, taking every derived fact from `@object-ui/layout`:
+    hrefs from `resolveHref`, labels from `resolveNavItemLabel`, the active row
+    from `resolveActiveNavItem`, and the item-level guards (`visible`,
+    `requiredPermissions`, `requiresObject` / `requiresService`) in the order
+    `NavigationItemRenderer` applies them, wired to the same console providers
+    `UnifiedSidebar` wires them to. `action` items dispatch through
+    `useNavActionDispatch`, so framework#4509's "renders but dead-clicks" shape is
+    not reintroduced.
+  
+  `nav:menu` does not mount `NavigationRenderer` itself: that renders through
+  `SidebarMenuButton`, whose `useSidebar()` throws outside the shell's
+  `SidebarProvider`, and a page block has to render standalone. `@object-ui/layout`
+  therefore exports `resolveNavItemLabel`, which was module-private — an additive
+  export with no behaviour change, so the sidebar and an authored menu cannot show
+  one nav entry under two names.
+  
+  Both registrations publish **no** `inputs`: `ComponentPropsMap` declares an empty
+  shape for each, and both use `skipFallback: true` so neither claims the bare
+  `launcher` / `menu` keys. This does not change the Studio page palette —
+  `app:launcher` remains recorded there as a shell singleton, which is a palette
+  decision independent of whether a declared type renders.
+  
+  Three new strings — the launcher's and the menu's accessible names, and the
+  menu's empty state — are declared under `console.nav` in `en.ts` and its nine
+  sibling packs. An inline `defaultValue` alone is not a fix: it renders English
+  at one call site and leaves the string untranslatable everywhere
+  (objectui#3517).
+- e62c44e: Re-home the breakpoint layout vocabulary and delete the two dead responsive
+  implementations (objectui#7580, maintainer ruling 2026-09-04, option A).
+  
+  **Breaking, deliberately, in one direction only.** `@objectstack/spec` retired its whole
+  `ui/responsive` vocabulary in objectstack#11027 — `ResponsiveConfigSchema`,
+  `BreakpointName`, `BreakpointColumnMapSchema` and `BreakpointOrderMapSchema` — on the
+  stated ground that the four types "had no other authorable carrier". That ground is
+  measurably false on the renderer side: `responsive-grid` is a REGISTERED SDUI component
+  whose authorable `columns` input is typed by `BreakpointColumnMap` and applied by
+  `resolveColumnClasses` on the render path, and `BreakpointName` types four live readers in
+  `@object-ui/mobile`. The tombstone's own return condition — the vocabulary "returns if and
+  when a renderer implements it" — is already met here, so the two types a renderer reads
+  are re-homed rather than retired.
+  
+  What survives, under the same names and the same members:
+  
+  - `BreakpointName` (`xs`…`2xl`) is now declared in `@object-ui/types` (`mobile.ts`) instead
+    of re-exported from the spec. **No consumer change**: same name, same six members, same
+    export sites on `@object-ui/types` and `@object-ui/mobile`. Only its provenance moved.
+  - `BreakpointColumnMap` is now declared in `@object-ui/layout` (`ResponsiveGrid.tsx`),
+    verbatim from the retired `$strict` schema: six optional column counts, no index
+    signature. `responsive-grid`'s `columns` input and its resolver are unchanged.
+  
+  What is removed:
+  
+  - `BreakpointOrderMap` (`@object-ui/layout`) — retired with the key, not re-homed. It had
+    no read point in the package; it was published only because the retired
+    `ResponsiveConfigSchema` paired it with the column map, so an author configuring `order`
+    needed the type. With the schema gone there is no order vocabulary for it to be the type
+    of, and re-declaring it would be the declare-without-enforce shape ADR-0049 removes.
+  - `useResponsiveConfig` (`@object-ui/mobile`), with its `SpecResponsiveConfig` and
+    `ResolvedResponsiveState` exports, and `ResponsiveProtocol` (`@object-ui/core`), with
+    `resolveResponsiveConfig` / `getVisibilityClasses` / `getColumnClasses` /
+    `getOrderClasses` / `shouldHideAtBreakpoint`. Both read the retired
+    `ResponsiveConfigSchema` and both were measured at zero callers (objectui#4773).
+  - `SpecResponsiveConfig` / `SpecBreakpointName` (`@object-ui/types`) — dead re-exports once
+    the two implementations above went, dropped rather than re-declared locally, the same
+    disposition the retired i18n names in that file already carry.
+  
+  No behaviour is retired. The live per-breakpoint readers — `useBreakpoint`,
+  `ResponsiveContainer`, `BREAKPOINTS` / `BREAKPOINT_ORDER` / `getCurrentBreakpoint`, and
+  `responsive-grid` itself — are untouched.
+  
+  **Sequencing.** objectui's next `@objectstack/spec` pin bump must carry `Blocked-by:`
+  objectui#7580: the retirement is merged upstream and unreleased, so this must land first.
+  
+  ⚠️ **Dated note, 2026-10-02 — the `responsive-grid` registration is retired — objectui#11441.**
+  Later in this same release the maintainer's ruling on objectui#11441 (letter B) unregistered `responsive-grid` (and
+  `layout:responsive-grid`). That ruling updates item 2 of this change's ruling: the vocabulary half stands, so
+  `BreakpointName` and `BreakpointColumnMap` stay declared here, and `ResponsiveGrid` stays a React export whose
+  `columns` prop `BreakpointColumnMap` types. The authorable breakpoint grid is the `grid` node with a breakpoint
+  `columns` object, which `BreakpointName` keys. The rest of this entry is kept as the reading of this change.
+- 0ea7054: Remove 37 runtime dependencies that no file in the declaring package consumes, and gate
+  the direction so the next one cannot land (objectui#8198).
+  
+  `check:phantom-deps` judges imports that are not declared; nothing judged the reverse,
+  so a declaration could outlive its last consumer indefinitely. That is what happened to
+  `recharts` in `@object-ui/components` after objectui#7397 deleted its only importer — it
+  was removed by hand on objectui#7625, and nothing would have reported the next one. The
+  new `pnpm check:unused-deps` asks the reverse question over `dependencies` and
+  `optionalDependencies` of every released package.
+  
+  **Potentially breaking, for consumers relying on hoisting.** Nothing these packages ship
+  changes: their Vite `external` predicates are path-based and never read `dependencies`,
+  so no built artifact moves. What changes is the install graph — a project that imports
+  one of the removed packages while depending only on the ObjectUI package that used to
+  drag it in will no longer resolve it. Declare it directly; that is the correct
+  dependency edge in either case. The removals, by package:
+  
+  - `@object-ui/plugin-designer`: `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `@object-ui/fields`
+  - `@object-ui/plugin-chatbot`: `react-markdown`, `react-syntax-highlighter`, `remark-gfm` (and the orphaned `@types/react-syntax-highlighter`)
+  - `@object-ui/plugin-report`: `@object-ui/plugin-grid`, `clsx`, `react-i18next`, `tailwind-merge`
+  - `@object-ui/plugin-map`: `@objectstack/spec`, `lucide-react`, `zod`
+  - `@object-ui/runner`: `class-variance-authority`, `clsx`, `tailwind-merge`
+  - `@object-ui/core`: `lodash`, `zod`
+  - `@object-ui/layout`: `clsx`, `tailwind-merge`, and `react-dom` — which it pinned at an exact version in `dependencies` while also declaring it as a peer range, i.e. a library hard-depending on the renderer it asks its host to supply
+  - `@object-ui/plugin-dashboard`: `clsx`, `tailwind-merge`, and the same `react-dom` defect
+  - `@object-ui/plugin-ai`: `@object-ui/react`, `clsx`, `tailwind-merge`
+  - `@object-ui/fields`: `clsx`, `tailwind-merge`
+  - `@object-ui/console`: `@object-ui/react-runtime`, `sucrase`
+  - `@object-ui/auth`: `@object-ui/types`
+  - `@object-ui/plugin-calendar`: `@object-ui/fields`
+  - `@object-ui/plugin-editor`, `@object-ui/plugin-markdown`: `@object-ui/react`
+  - `@object-ui/react`: `react-hook-form`
+  
+  Every one was verified by a whole-package grep before removal — the name appeared nowhere
+  under the package but its own manifest and CHANGELOG — and the whole workspace builds,
+  type-checks and tests green afterwards.
+- a8198de: feat(types,layout,app-shell): a navigation entry with no `label` shows its target's current label, resolved at render time (objectui#9868)
+  
+  `@objectstack/spec` 17.5.0 made a navigation entry's `label` optional on every
+  entry arm of its `NavigationItemSchema` (the separator still carries none), with
+  a declared semantic (the cloud#2021 letter-A ruling): absent ⇒ the entry
+  shows the CURRENT label of what it opens — the view's label when it names a
+  labelled view, else the object's / dashboard's label; present ⇒ rendered
+  verbatim. Nothing is stored for the absent case, so a renamed target shows its
+  new name on the next render.
+  
+  - `@object-ui/types` (widening): `NavigationEntryItem.label` is optional, and
+    `NavigationItemSchema` accepts a label-less entry of every type the spec does,
+    filling nothing in at parse time. `id` is still required. An EMPTY label is
+    still refused — `''` is a present label that would render empty text — and the
+    message says to omit the key instead. `menuItemToNavigationItem` no longer
+    turns a missing legacy label into `''`.
+  - `@object-ui/layout` (additive public surface): `resolveNavItemLabel`
+    resolves an absent label through a new `resolveTargetLabel` resolver
+    (`NavigationRenderer` prop, types
+    `NavLabelTarget` / `NavTargetLabelResolver`), walking view → object /
+    dashboard, and falls back to the target's machine name (`viewName`,
+    `objectName`, `dashboardName`, `pageName`, `reportName`, `url`,
+    `componentRef`, the action name; a group shows its `id`). An authored label is
+    never replaced by the target's label, including one spelled like the machine
+    name. Action entries, the search filter and `AppSchemaRenderer`'s mobile tab
+    bar read the label through the same function, so an unlabelled entry no longer
+    throws there.
+  - `@object-ui/app-shell`: the sidebar, the `nav:menu` block, the ⌘K command
+    palette and the full-page search all name a nav entry through
+    `resolveNavItemLabel` with one hook over the metadata cache the shell already
+    holds (object schema, merged list views, dashboards) — no request per nav
+    entry. Read raw, a label-less entry drew a blank palette row searched as
+    `undefined`, and the search page listed it by its machine name.
+    Navigation sync stops writing `label: pageName` / `label: dashboardName` for an
+    unnamed page or dashboard; an author label is still written, and stored labels
+    are kept.
+- 5ea623e: fix(sdui-parser,components,layout,types): containment is the declared `children` slot, not `isContainer` (objectui#9910)
+  
+  `validateTree`'s `not-a-container` diagnostic now reads exactly one declaration:
+  an input named `children` in the component's registration `inputs`. Ten
+  registrations already carried such an input — `slot`-typed on `tooltip` and the
+  four `page:*` containers, `array`-typed on the five page kinds — and the
+  predicate reads the NAME, so both count. `isContainer` is no longer
+  consulted and is not a fallback — new exports `acceptsChildren` and
+  `CHILD_LIST_KEY` in `@object-ui/sdui-parser` spell the predicate, and the
+  retired `body` dialect follows the same reading.
+  
+  Why: the flag was hand-kept and drifted from the renderers four times; after
+  objectui#6771 converged a dozen `schema.body` readers onto `children`, and with
+  objectui#6804 ruling the flag OFF for that population (it means layout
+  containment, and declaring it deletes a public tag from every react page's JSX
+  scope), the diagnostic landed FALSE on the one key `button`, `badge`, `alert`
+  and the `sidebar-*` parts render. The maintainer ruled declare-and-pin
+  (2026-09-24).
+  
+  What is declared: every renderer under `@object-ui/components` and
+  `@object-ui/layout` that puts `schema.children` on the page — 65 registrations
+  measured bare plus `sidebar` and `sidebar-menu-button` in their provider
+  context — now declares the `children` slot; the 34 flow/inline HTML tags, the
+  seven sectioning tags, the layout primitives, `button` / `badge` / `alert` /
+  `toggle` (label and description fallbacks), `span` (read ahead of `value`),
+  `div`, `form`, `scroll-area`, the ten `sidebar-*` parts and `page-header`. Nine public blocks
+  gain the slot in `sdui.manifest.json`; a `slot` input emits no JSX attribute, so
+  the generated `.d.ts` is unchanged. `isContainer` is kept everywhere it was
+  declared and re-described on every published face (`ComponentMeta`,
+  `RuntimeWidgetManifest`, `ComponentMetaSchema`, the manifest types) as LAYOUT
+  containment — the react-page scope builder keeps reading it unchanged.
+  
+  The runtime containment census is re-pointed from the flag to the input in both
+  directions (declared ⇔ actually renders, with named context probes for the
+  provider-scoped and portal renderers), `scripts/container-declaration-baseline.json`
+  is at zero, and a registration that is a layout container but renders no
+  authored list (`page:tabs`, `page:accordion`, `responsive-grid`) now draws the
+  TRUE `not-a-container` the flag used to silence.
+  
+  ⚠️ **Dated note, 2026-10-02 — `page-header` is retired — objectui#10859.**
+  Later in this same release objectui#10859 batch 8 (phase 2c) unregistered `@object-ui/layout`'s
+  `page-header` (and `layout:page-header`), so its `children` slot declaration left with it; authors write
+  `page:header`. The rest of this entry is kept as the reading of this change.
+  
+  ⚠️ **Dated note, 2026-10-02 — `responsive-grid` is retired — objectui#11441.**
+  Later in this same release objectui#11441 unregistered `@object-ui/layout`'s `responsive-grid` (and
+  `layout:responsive-grid`), so it no longer draws `not-a-container`: a node written with it renders the "Unknown
+  component type" panel. Authors write `grid` with a breakpoint `columns` object. The rest of this entry is kept as the
+  reading of this change.
+  
+  ⚠️ **Dated note, 2026-10-02 — the ten `sidebar-*` parts are retired — objectui#10859.**
+  Later in this same release objectui#10859 batch 8 (phase 2d) unregistered the ten `sidebar-*` parts, so their
+  `children` slot declarations left with them. `sidebar` keeps its declaration, and it now mounts its own provider
+  when none is above it, so the containment census measures it bare and its provider-scoped context probe is
+  gone, as is `sidebar-menu-button`'s. The rest of this entry is kept as the reading of this change.
+- 73a3c89: Nav `visible`: an ancestor's predicate now reaches the whole subtree, and a group no longer outlives its children
+  
+  The card reported that an app navigation item's `visible` CEL predicate was served to the
+  browser and then ignored, so the entry rendered for every user. That headline no longer
+  reproduces: measured on today's `main`, a leaf and a group whose predicate is `false` for the
+  session are both absent, and the same predicate evaluating `true` renders both — one run,
+  two sessions, asserted as a difference rather than as an absence. `evaluateVisibility`
+  routes the served `{ dialect, source }` envelope to the CEL engine, and `NavigationRenderer`
+  applies it per item.
+  
+  Two paths into the same subtree did NOT apply it, and both are fixed here.
+  
+  - **A pinned descendant escaped its hidden ancestor.** The Favorites section collects pinned
+    items by walking `children`, and that walk asked nothing about the node it was descending
+    through. So an author could gate a group with `visible`, watch the group disappear from the
+    tree, and still find a pinned entry from inside it rendered under Favorites — the predicate
+    evaluated, answered `false`, and changed nothing the excluded user could see. `visible`,
+    `requiredPermissions` and the `requiresObject` / `requiresService` capability gates all
+    leaked the same way, because the collection applied none of them. It now stops at a
+    gated-away node. A Favorites section whose every entry is gated away is no longer rendered
+    as a heading over an empty list.
+  
+  - **A group whose children were all hidden rendered as an empty disclosure.** A labelled
+    collapsible that opens onto nothing is a dead affordance, and it contradicted
+    `hasVisibleNavigationItems` — the predicate the area switcher elects areas by, which already
+    scores such a group as contributing nothing and documents that it "can never disagree with
+    the rendered navigation". The renderer now asks that same predicate, so the sidebar and the
+    area list agree about what a user can reach. A group authored with no children at all
+    derives the same way, as it already did for area election.
+  
+  The per-item guard sequence was written out twice and omitted once; it is now a single
+  `passesNavItemGuards` statement that `NavigationItemRenderer`, `hasVisibleNavigationItems`
+  and the Favorites collection share, so the three cannot drift again.
+  
+  **Presentation, not authorization.** Hiding a nav entry is a UI affordance; the server still
+  enforces object and record permissions on every route an entry would have led to, and no
+  server-side check is touched. A user who types the URL directly gets the same answer as
+  before.
+  
+  **Failure direction: fail-open, unchanged and now pinned.** A predicate that cannot be
+  evaluated still renders the entry, which is this tier's shipped policy. Hiding on error would
+  silently delete a user's navigation with no way to notice; showing on error leaves an entry
+  the server still refuses, and the unresolvable-predicate diagnostic still names the source.
+
+### Patch Changes
+
+- cd7b728: `useAppShellBranding` now puts the previous favicon back when the shell unmounts
+  (objectui#10040), the same way it already puts the previous tab title back
+  (objectui#8637).
+  
+  The hook's effect makes two branded writes to the document: `document.title` and the
+  `href` of the page's icon link. The title write was scoped to the mount; the favicon
+  write was not, so a branded `favicon` stayed on the icon link after the shell went
+  away unless something else happened to re-apply an icon. In the console that something was
+  `FaviconSync`, which wrote the icon only when an operator favicon was configured (until
+  objectui#10379 removed that write) — so on a deployment without one, the icon link kept
+  a branded app's URL after the user left the app.
+  
+  When `branding.favicon` is set and the page has an icon link (`#favicon`, otherwise
+  `link[rel="icon"]`), the hook now records that link and its `href` attribute before
+  writing the branded URL, and restores the recorded attribute in the same cleanup that
+  restores the title — so switching from one branded app to another and then leaving
+  puts back the icon from before the first one. The attribute is captured rather than
+  the `href` property, because the property resolves an empty `href=""` (the console's
+  icon link before an operator favicon exists) to the page's own URL; an icon link that
+  had no `href` attribute is left without one. A shell with no `favicon`, or a page with
+  no icon link, is untouched in both directions, and the hook still never creates an
+  icon link.
+  
+  As with the title, the restore replays the captured value unconditionally: an icon
+  written by something else while the shell is mounted is overwritten when it unmounts.
+- c58b8e4: `ResponsiveGrid`'s component docblock no longer attributes its column map to the
+  spec's retired `BreakpointColumnMapSchema` (objectstack#11027 retired it; objectui#7580
+  re-homed the six-key shape as this package's own `BreakpointColumnMap`). The docblock
+  now names that local type. Text only: no member is added and no behaviour changes.
+- f976774: An app's `branding.logo` now shows in the console, and it is the only logo spelling
+  (objectui#10827).
+  
+  **The console renders it.** The designer (`AppCreationWizard`, `BrandingEditor`) writes an
+  app's `branding.logo` and previews it, but nothing mounted in the console drew it. Its only
+  reader was `AppSidebar`, which was never mounted and has since been removed. `UnifiedSidebar`,
+  the console's sidebar, now reads the active app's `branding.logo` and shows it as an image in a
+  header at the top of the sidebar. The image's alt text is the app's label. An app without a
+  logo gets no header, so its sidebar looks the same as before. The header appears only inside
+  an app. On Home the sidebar's fallback app is not the screen's app, so no logo is shown there.
+  `AppShellBranding` is unchanged: objectui#4818 removed its `logo` key, and this change does not
+  add it back.
+  
+  **One spelling — breaking for a top-level `logo`.** `@objectstack/spec` declares the app logo
+  only as `branding.logo` (a URL). Its app schema refuses a top-level `logo` and suggests
+  `branding`. objectui had a second spelling of its own: `AppComponentSchema.logo`, described as
+  "Logo URL or icon name". This change retires it:
+  
+  - `@object-ui/types`: `AppComponentSchema.logo` is now `never` on the TypeScript face, and the
+    zod mirror refuses a top-level `logo` by name, answering "Did you mean `logo` → `branding`?".
+    It is a named refusal rather than a deletion because the node is `.passthrough()`, and a
+    deleted key would be kept without any error. `wizardDraftToAppSchema` no longer copies the
+    draft's logo to the top level. The logo goes into `branding` only.
+  - `@object-ui/layout`: `AppSchemaRenderer`'s default sidebar header draws `branding.logo` as
+    an image. This includes site-relative paths and `data:` URIs, which the old read skipped
+    because it drew an image only for values starting with `http`. The header's icon now comes
+    from the app's `icon`.
+  - `@object-ui/runner`: `LayoutRenderer`'s sidebar brand mark does the same. It draws
+    `branding.logo` as an image and takes an icon name from `icon`. It no longer guesses the kind
+    of value from a `/` or `.`.
+  
+  Migration: move a top-level `logo` URL to `branding: { logo: '…' }`. An icon name that was
+  written as `logo` belongs in `icon`. The published 17.6.0 changelog entry that removed
+  `AppShellBranding.logo` says the top-level `logo` is "rendered directly by
+  `AppSchemaRenderer`'s default sidebar header". That is no longer true: the header reads
+  `branding.logo`.
+- 25cb364: The Studio's app wizard saves an app the platform accepts, and the app favicon has one
+  spelling, `branding.favicon` (objectui#10842).
+  
+  **Creating an app is no longer refused.** The console's "create app" and "edit app" pages save through
+  `client.meta.saveItem('app', …)`, and the platform judges that document with
+  `@objectstack/spec`'s strict `AppSchema`. `wizardDraftToAppSchema` wrote four top-level keys the
+  spec does not declare (`type`, `title`, `favicon` and `layout`), so the save was refused with
+  `422 INVALID_METADATA` (`unrecognized_keys`). It now writes only declared keys: the draft's
+  title as `label`, the logo and favicon inside `branding`, and no `type` or `layout`. The spec
+  has no app layout, so the wizard's layout choice is not saved.
+  
+  - `@object-ui/types` — **breaking:** `wizardDraftToAppSchema` now returns the app document
+    (the spec's `App` shape, with objectui's `NavigationItem[]` as `navigation`) instead of an
+    `AppComponentSchema` renderer node. It has no `type`, `title`, top-level `favicon` or `layout`.
+    Code that read `result.title` reads `result.label`. Code that fed the result to
+    `AppSchemaRenderer` builds the renderer node itself (`type: 'app'`, `title`).
+  - `@object-ui/types` — **breaking:** `AppComponentSchema.favicon` is now `never` on the
+    TypeScript face, and the zod mirror refuses a top-level `favicon` by name, answering "Did you
+    mean `favicon` → `branding`?". This is the objectui#10827 rule that retired the top-level
+    `logo`: the spec refuses the key, and the console reads only `branding.favicon`.
+  - `@object-ui/layout`: `AppSchemaRenderer` puts `branding.favicon` on the tab. It read the
+    top-level `favicon` before, and never `branding.favicon`.
+  - `@object-ui/plugin-designer`: `EditAppPage` keeps the keys the wizard does not maintain, but
+    only keys the spec's `AppSchema` declares, read from that schema. A row stored before the
+    schema closed is served with the old wizard's top-level keys, and echoing them made every
+    edit of such an app fail the same way. Its pre-fill no longer falls back onto a top-level
+    `logo`, `favicon` or `title`; it reads `branding.logo`, `branding.favicon` and `label`.
+  
+  Migration: move a top-level `favicon` URL to `branding: { favicon: '…' }`.
+  
+  ⚠️ **Dated note, 2026-09-28 — the wizard has no layout choice — objectui#10867.**
+  Later in this same release the wizard's Layout control was removed, with `AppWizardDraft.layout`, so there is no
+  layout choice left to not save. The rest of this entry still holds.
+- 7343376: fix(types,plugin-designer)!: the Studio app wizard saves a document the platform accepts, and an edit keeps the stored `accentColor` (objectui#10867)
+  
+  ⚠️ **BREAKING (authoring)**, marked `minor` under this repository's version-alignment rule (a `major` in the fixed group would move all of it off the `@objectstack` major). Two published `@object-ui/types` members narrow: a navigation separator no longer takes a `label`, and `AppWizardDraft.layout` is removed. A TypeScript literal that writes either no longer compiles. `NavigationItem` is now a union type alias, not an interface. So code that reads `label` off an unnarrowed `NavigationItem` into a `string` slot (its type is now `string | undefined`; objectui#11299, in the same release, widens it to the spec's `I18nLabel` or `undefined`, see `.changeset/11299-types-nav-label-locale-map.md`) also stops compiling, as does code that spreads an entry-only key onto one, and an `interface` that `extends NavigationItem` or augments it (extend `NavigationEntryItem` instead). `objectui validate` now refuses a separator `label` too: the zod mirror's `NavigationItemSchema` refuses every key on a separator that the spec's separator does not declare. The four `appDesigner` layout keys also leave the published `@object-ui/i18n` packs and `DESIGNER_DEFAULT_TRANSLATIONS`, so an application that calls `t()` with one of them now renders the raw key (unless the call passes a `defaultValue`).
+  
+  **Clause-②: yes (narrowing)** — the separator arm of `NavigationItem` loses `label`, and `AppWizardDraft` loses `layout`.
+  
+  - **A separator carries only `type`, `id` and `order`.** `@objectstack/spec`'s separator branch declares exactly those keys, and its `AppSchema` refuses anything else. `NavigationItem` required a `label` on every item, so the wizard's "Add separator" wrote `{ id, type: 'separator', label: '' }`, and the console's create-app and edit-app saves were refused with `422 INVALID_METADATA` (`unrecognized_keys` `['label']` at `navigation.N`). `NavigationItem` is now a union of two arms, discriminated by `type`. `NavigationEntryItem` holds every other nav type and keeps its required `label`. `NavigationSeparatorItem` admits `type`, `id` and `order`, and every other entry key is `?: never` on it. Both arms are exported. Reading an entry-only key off an unnarrowed item still compiles, but its type now includes `undefined` (a `label` is `string | undefined`; objectui#11299, in the same release, makes it the spec's `I18nLabel` or `undefined`, see `.changeset/11299-types-nav-label-locale-map.md`), so passing it where a `string` is required does not. Narrow on `item.type === 'separator'` before relying on `label`. `menuItemToNavigationItem` maps a legacy separator to `{ id, type: 'separator' }` and drops its label. `spec-derived-unions.test.ts` no longer pins the separator `label` as a blocker. It asserts, at both spec tiers, that the separator arm admits the spec separator's keys and no others.
+  - **`@object-ui/plugin-designer`: the wizard and `NavigationDesigner` write a separator as `{ id, type }`.** `NavigationDesigner` no longer writes a `label` onto a new separator, and its label, icon and visibility patchers skip one.
+  - **`@object-ui/layout` narrows on the separator arm; nothing it renders changes.** `resolveNavItemLabel` answers `''` for every separator. A stored separator carrying a non-empty `label`, which `menuItemToNavigationItem` produced before this change, used to resolve to that label. No renderer asks it for a separator's label. The mobile bottom nav's leaf list, which already skipped separators, is now typed as entries.
+  - **`@object-ui/app-shell` narrows the same way; nothing it renders changes.** `useNavPins` registers a favorite only for an entry and leaves a separator as it is, and the Studio sidebar's navigation walk passes a separator through unchanged.
+  - **`@object-ui/plugin-designer`: `EditAppPage` keeps the stored branding.** The wizard maintains the logo, primary colour and favicon, and its `branding` replaced the stored block, so a stored `accentColor` was dropped on every edit. The console reads that key. The save now keeps every stored `branding` key the spec's `AppBrandingSchema` declares, read from that schema. The wizard's values win for the keys it maintains. A stored key the spec does not declare is still left out.
+  - **The wizard's Layout control is removed, with `AppWizardDraft.layout`.** The spec declares no app `layout`, no console surface reads one, and since objectui#10842 the save wrote none. The control persisted nothing. `EditAppPage` no longer reads a stored `layout` into the draft. The Basic Info step's description now reads "Name, title, and icon".
+  - **`@object-ui/i18n`:** the four `appDesigner` layout keys (`layout`, `layoutSidebar`, `layoutHeader` and `layoutEmpty`) are removed from all ten packs, and `appDesigner.stepBasicDesc` no longer names a layout.
+  
+  **Migration:** write a separator as `{ id, type: 'separator' }`, with an optional `order`. Remove `layout` from any `AppWizardDraft` you build. Code that spreads an entry-only key (`label`, `visible`, `requiredPermissions` and the rest) onto a value typed `NavigationItem` narrows it first (`item.type !== 'separator'`) or types it `NavigationEntryItem`: the separator arm refuses those keys. `AppComponentSchema.layout`, the renderer node's own layout strategy, is a different member and is unchanged.
+  
+  Pinned in `packages/types/src/__tests__/app-wizard-separator-layout-10867.test.ts` and `packages/plugin-designer/src/__tests__/AppWizard.specDocument-10867.test.tsx`.
+- 1ccb5ba: fix(layout): a present navigation label renders as written, with no exception, and an inline locale-map label renders its text (objectui#11201)
+  
+  A navigation entry's text now follows one rule. A present label is shown as written. An absent label
+  shows the current, localized label of what the entry opens.
+  
+  - **Visible change.** An entry whose stored label is its target's machine name (for example
+    `account`, `sales_overview`) used to be translated, because the sidebar looked that text up as
+    the object's, view's or dashboard's name. It now shows the name as written, in every locale.
+    **To fix such an entry:** clear its label so it inherits the target's localized label, or set the
+    text you want shown. Stored navigation is not converted, and no notice is sent.
+  - An entry label written as an inline locale map (`{ en: 'Accounts', 'zh-CN': '客户' }`) used to
+    render as empty text. It now renders the map's text. objectui#11201 did not tell the sidebar the
+    viewer's locale, so it read the `en` entry, then `default`, then any entry; objectui#11299, in the
+    same release, gives the sidebar the viewer's locale (`.changeset/11299-layout-nav-label-locale.md`).
+  - `NavigationRenderer`'s `resolveObjectLabel`, `resolveDashboardLabel` and `resolveViewLabel` props,
+    and the matching arguments of `resolveNavItemLabel`, are no longer read. objectui#11201 still
+    accepted them, so no caller broke; objectui#11299, in the same release, removes them
+    (`.changeset/11299-layout-nav-label-locale.md`). An unlabelled entry's localized text comes from
+    `resolveTargetLabel`.
+- c18a075: fix(layout): the mobile tab bar opens the same page as the sidebar (objectui#11211)
+  
+  With `mobileNavMode: 'bottom_nav'`, `AppSchemaRenderer`'s bottom tab bar used to
+  build each tab's link itself, so some navigation entries opened a different page
+  there than in the sidebar:
+  
+  - a record deep link (`recordId`) opened the object's list instead of the record;
+  - an entry with `filters` opened the list without its filter;
+  - an entry with `runAction` opened the list without running its action;
+  - a `metadata:*` component entry opened the generic component route instead of
+    the metadata page;
+  - a `page` entry dropped its `params`, and `recordMode: 'edit'` was ignored.
+  
+  Every tab now links to exactly the page its sidebar row links to. Two related
+  behaviours follow the sidebar too: the highlighted tab is the one whose sidebar
+  row is highlighted (at most one tab lights, and a filtered or quick-action tab
+  lights on its own page), and a `url` entry with `target: '_blank'` opens in a
+  new browser tab.
+- 5ad9f5d: fix(layout): the mobile tab bar draws only the entries its sidebar draws
+  
+  `AppSchemaRenderer` with `mobileNavMode: 'bottom_nav'` drew its tab bar from the
+  navigation tree with no entry guard. An entry the author hid with `visible: false`,
+  or gated with `requiredPermissions` the viewer lacks, was hidden in the sidebar and
+  still drawn as a tab, and an `action` entry became a tab linking to the root. The
+  five-tab cap was applied before any guard, so a hidden entry also took the place of
+  one that should have shown.
+  
+  The bar now asks the sidebar's own guard about every node, through
+  `hasVisibleNavigationItems` (the predicate the area list already uses, built on
+  `passesNavItemGuards`), with the same evaluator, permission checker, capability
+  checker and doc-target checker the sidebar gets. The guard runs before the cap, and a
+  group the viewer may not see takes its entries with it, as in the sidebar. An
+  `action` entry is drawn the sidebar's way, as a button that hands the whole item to
+  `onAction`, and is left off the bar when no `onAction` is wired, which is when the
+  sidebar hides it too.
+  
+  These are UI visibility gates, not data access: a route behind a wrongly drawn tab
+  still answered with its own server-side checks.
+- 7728c67: fix(layout): the mobile tab bar draws its tabs in the sidebar's order, and shows an entry's badge
+  
+  `AppSchemaRenderer` with `mobileNavMode: 'bottom_nav'` drew its tab bar in authored
+  position and never read `order`. Two entries written `Zeta` (`order: 2`) then
+  `Ypsilon` (`order: 1`) came out `Ypsilon, Zeta` in the sidebar and `Zeta, Ypsilon` on
+  the bar. With more than five entries, the five-tab cap kept the first five by authored
+  position rather than the five the sidebar lists first.
+  
+  The bar now sorts each level with the sidebar's own comparator before it flattens:
+  first the top level, then each group's children. The guard and the five-tab cap run
+  after the sort, so the five tabs are the first five entries the sidebar draws. The
+  comparator lives in one internal module, and the sidebar's two sort sites use it too.
+  It is not exported, so the package's public API does not change. An entry with no
+  `order` still sorts as `0`, and entries with equal `order` keep their authored order,
+  as in the sidebar before.
+  
+  The bar also dropped an entry's `badge` and `badgeVariant`. It now draws them on the
+  tab with the same `Badge` component and the same variant the sidebar row uses.
+- d9a0490: Correct the `AppShellBranding.title` doc comment. It read "Page title
+  suffix (sets document.title)" while `useAppShellBranding` assigns `document.title = title`
+  wholesale — nothing is appended; the caller composes the whole string (the console passes
+  `"App label — Product name"`). That comment ships in `dist/index.d.ts` and is the only
+  description a consumer sees on editor hover, so a reader who followed it passed a
+  suffix-only fragment and got a truncated title with no error. The comment now carries the
+  same wording as `content/docs/layout/app-shell.mdx`, and agrees with the `AppShellProps`
+  tables in the package README and `content/docs/guide/layout.md`. No runtime behaviour
+  changes; the wholesale assignment and the four-surface agreement are now pinned by tests.
+- 63a8828: Record headers: give the title column a width floor so a wide action tail can no
+  longer starve it.
+  
+  Two headers repeated the title/action width arbitration objectui#7244 fixed on
+  `page:header`. Both were measured in Chromium at a 799px viewport with three
+  labelled `record_header` actions, before and after:
+  
+  | header | before | after |
+  | --- | --- | --- |
+  | `DetailView` (`type: 'detail'`, the header that renders when the host supplies no `page:header`) | h1 6.17px of a 218px title | 218.39px, tail wrapped to its own line |
+  | `PageHeader` (`@object-ui/layout`) | h1 170.59px of a 265px title | 751.00px, tail wrapped to its own line |
+  
+  `DetailView` gets the precedent's two utilities, both `sm:`-scoped so the
+  sub-640px column layout is untouched: `sm:flex-wrap` on the row and
+  `sm:min-w-64` on the title column. The floor is one step above the precedent's
+  `sm:min-w-48` because this title column carries the 40px back button and a 12px
+  gap inside it, so 256px is what leaves the h1 the same ~192px readable floor.
+  
+  `PageHeader`'s row already wrapped, so it needed only the floor — and that floor
+  is unconditional rather than `sm:`-scoped, because this row has no
+  breakpoint-scoped direction change and the squeeze measures worse just below
+  `sm` (639px: h1 10.59px of a 212px title). `min-w-48` replaces `min-w-0` rather
+  than joining it: an explicit min-width overrides a flex item's automatic
+  min-content minimum exactly as `min-w-0` did, so long titles still ellipsise
+  (measured at 799px: 751px rendered of a 1682px title, no horizontal overflow).
+  
+  Wide viewports are unchanged: at 1440px both headers keep the tail on the
+  title's line with the title unclipped, before and after alike.
+- c6198c2: **Breaking for authored metadata:** `ComponentInput.label`, `ComponentInput.defaultValue` and
+  `ComponentInput.advanced` are RETIRED on both faces (objectui#7493 item ① and objectui#7781;
+  maintainer ruling A of 2026-09-06, immediate, no deprecation window; ADR-0049 enforce-or-remove).
+  They are the three keys the manifest serializer does not forward, and nothing read them on any
+  publication or consumption path.
+  
+  No manifest ever published them, so no consumer could ever have read them. `sdui-parser`'s
+  serializer (`packages/sdui-parser/src/index.ts`) forwards exactly seven keys per input — `name`,
+  `type`, `of`, `required`, `enum`, `binding`, `description` — so a value authored under any of the three
+  never reached `sdui.manifest.json`, the generated JSX `.d.ts`, or a diagnostic; its boundary type
+  has no slot for them; the registry's data-source seam reads `name` only; and neither the designer
+  nor the app-shell inspectors consult registry `inputs` at all. A structural census over every
+  `inputs:` array in the repository (re-measured on this change's merge-base, `name` 951 and `type`
+  951 as the controls) counted the writes: `label` 908, `defaultValue` 245, `advanced` 9 — written on
+  nearly every registration, read by nothing.
+  
+  FROM → TO, per key — all three **TOMBSTONED, not removed**, because the route was measured on
+  the built face before it was chosen: `ComponentInputSchema` is a non-strict `z.object`, and an
+  undeclared key parses GREEN and is silently STRIPPED, so a deletion would have swallowed 1,162
+  authored values in silence. The tombstone is what makes the refusal loud and by name.
+  
+  - `label?: string` → `label?: never` on the interface, `retirementTombstone()` on the Zod mirror.
+    Migration: delete the key. An input is identified by its `name` on every path that reaches it;
+    nothing ever rendered a label for it.
+  - `defaultValue?: any` → `defaultValue?: never` / `retirementTombstone()`. Migration: delete the
+    key. The renderer's own fallback read IS the default; tell the author about it in `description`,
+    which IS published. (Tightening the type to `unknown` was ruled out: it closes no error class,
+    since nothing reads the value.)
+  - `advanced?: boolean` → `advanced?: never` / `retirementTombstone()`. Migration: delete the key.
+    No designer surface ever hid an "advanced" input; there is nothing to write instead.
+  
+  The retirement kit: `?: never` on `ComponentInput` (`packages/types/src/base.ts`), so authoring one
+  is a `tsc` error at the registration site; `retirementTombstone()` on `ComponentInputSchema`
+  (`packages/types/src/zod/base.zod.ts`), so an authored value is REFUSED at parse time with
+  `code: 'invalid_type'`, the key named in the issue `path`, and the migration note as the message
+  (one string, both channels). Pinned in
+  `packages/types/src/__tests__/component-input-retired-keys-7493.test.ts`, which also holds a
+  tree-scoped absence census over every `inputs:` array under `packages/**` and `apps/**`.
+  
+  Accept-set change, stated plainly for reviewers: a document that sets any of the three keys on a
+  `ComponentInput` used to parse GREEN (the value was then dropped by the serializer) and now parses
+  RED. Every in-repo authoring site — 1,199 keys across 110 registration files, the three standalone
+  `ComponentInput[]` arrays and the two named input arrays `tsc` found included — is deleted in the same change, as the ruling's split rule
+  requires; the `WidgetRegistry` seam no longer copies the widget-manifest values onto the synthesized
+  `ComponentInput` (they fed nothing), and the data-source declaration `ELEMENT_DATA_SOURCE_INPUT`
+  drops its `label`. The patch entries on the other packages record exactly that: their registrations
+  stop authoring inert keys, with no runtime or published-manifest change.
+  
+  The nine test files that read `defaultValue` off a registration were re-pinned against the
+  renderer's ACTUAL default (its own fallback read, or the `defaultProps` it ships) instead of the
+  declaration that went away; two assertions that only restated the shadow default were dropped with
+  the reason on the line.
+  
+  The in-repo zero is what was measured. Whether anything OUTSIDE this repository writes these keys
+  is not measurable from here (the objectui#5674 limit); converting such a write from a silent drop
+  into a named refusal is exactly what the tombstones buy. `WidgetInput`'s own `label` /
+  `defaultValue` / `advanced` (the widget-manifest face) stay declared and writable — nothing has
+  ruled on that face; that it now has no reader either is recorded as objectui#7911.
+- f4abff4: `@object-ui/layout` and `@object-ui/plugin-dashboard` no longer install a React of their
+  own. `react` moves from `dependencies` to `devDependencies` at the same pin (`19.2.8`);
+  `peerDependencies` is untouched, so both packages still ask their host for
+  `^18.0.0 || ^19.0.0` (objectui#8303).
+  
+  Both manifests were making two contradictory statements at once: asking the host for React
+  as a peer, and pinning an exact React 19 of their own. The peer range is the one a consumer
+  reads; the pin is the one their installer acts on. A consumer on React 18 therefore
+  satisfied the peer range and **still** got a second, pinned React 19 pulled into their
+  graph on these two packages' account. Two React copies in one tree is the classic cause of
+  `Invalid hook call`, and the failure is not at install time — it is at first render, in the
+  consumer's own component, with nothing pointing back at these manifests.
+  
+  Re-measured on `origin/main` at `348725a7c` across all four `pnpm-workspace.yaml` globs
+  (46 packages), rather than inherited from the card:
+  
+      declares a react peer AND pins react in dependencies    2   layout, plugin-dashboard
+      declares a react-dom peer AND pins it in dependencies    0   (objectui#8198 took that half)
+      pins react in dependencies with NO react peer            5   runner, site, 3 examples
+  
+  The last row is the control that keeps the fix narrow. Those five are applications that
+  supply React rather than libraries that ask for it: one statement, not two, and correctly
+  untouched. Against the 20+ sibling libraries the two packages fixed here were the only
+  outliers, so this converges on the existing house shape — `app-shell`, `auth`,
+  `collaboration`, `i18n`, `mobile` and `permissions` already carry `react` in
+  `devDependencies` at exactly this pin.
+  
+  `scripts/__tests__/react-peer-range-norm-3741.test.ts` gains the invariant so a regression
+  goes red rather than being re-found by a consumer. That file already owns React manifest
+  norms across the fixed version group, already walks the workspace globs, and already
+  governs `react` + `react-dom`, so this is a second assertion on an existing guard rather
+  than a new one. It asserts the CONTRADICTION, not "React in `dependencies`" — widening it
+  further would go red on the five applications above for doing the right thing.
+  
+  Two gates are green on this shape by construction and neither green was a reading of it.
+  `check:unused-deps` asks whether a declared runtime dependency has a consumer, and `react`
+  is imported by both packages — which is exactly why objectui#8198 could see and remove the
+  `react-dom` half here and could not see this one. `check-changeset-presence.mjs` reads an
+  eight-field allowlist that includes `peerDependencies` and deliberately excludes
+  `dependencies`; its own docblock states the trade ("a runtime dependency bump can be just
+  as user-visible as any of the eight, and this gate still does not see it"). This changeset
+  is therefore owed by the house rule, not demanded by the gate.
+- 0febe1a: The console tab title no longer reverts to the bare product name after an in-app
+  navigation (objectui#8637).
+  
+  Two effects wrote `document.title` on different keys. The console's `BrandingSync`
+  was keyed on `useLocation()` and assigned the bare product name on **every route
+  change**; `useAppShellBranding` assigns the composed `"App label — Product name"`
+  from an effect keyed on that string, so it fires when the title changes and not on
+  navigation. Both run on the commit that mounts the shell, and the composed title
+  wins — which is why the tab looked right and the defect stayed hidden. Navigating
+  between two pages of the same app moved `location` and not the composed title, so
+  only the route-keyed writer ran and the tab fell back to the bare product name.
+  Measured in a real browser, not inferred.
+  
+  The repair is one writer rather than two careful ones. `useAppShellBranding` now
+  owns `document.title` for as long as a shell is mounted: it captures whatever the
+  tab already said, writes `title` over it, and puts the captured string back when the
+  shell unmounts or `title` changes. That is what let the console's route-keyed writer
+  drop its title assignment entirely — it had doubled as the reset that took the app
+  label back off the tab on the way out — and it became `FaviconSync`, which kept only
+  the favicon write until objectui#10379 removed that too.
+  
+  For hosts of `@object-ui/layout`: the forward assignment is unchanged, and a shell
+  with no `title` still leaves the tab untouched in both directions. What is new is the
+  restore, so a shell mounted over part of a route tree hands the title back on exit
+  instead of stranding it. The restore replays the captured string unconditionally, so
+  a surface that writes the tab title from **inside** a mounted shell has its value
+  overwritten on unmount; keep such surfaces outside the shell.
+- fe76ece: The typings both packages publish now carry an explicit extension on every relative specifier, so a consumer on `moduleResolution: nodenext` can follow them.
+  
+  `vite-plugin-dts` emits one declaration file per source file, and TypeScript
+  copies a module specifier into the declaration verbatim. `export * from './ui'`
+  therefore shipped extensionless in `dist/index.d.ts` — 21 such re-exports in
+  `@object-ui/components`, 7 in `@object-ui/layout`, 128 across the two emitted
+  trees. Node16/NodeNext resolution does not extension-search a relative
+  specifier, so the compiler could follow none of the hops and every symbol they
+  carried read as absent from the package:
+  
+  ```
+  error TS2305: Module '"@object-ui/components"' has no exported member 'Badge'.
+  ```
+  
+  Measured on `@object-ui/app-shell`, the largest consumer and the one that pulls
+  in both packages: 880 TS2305 across 162 files (864 from `components`, 16 from
+  `layout`), plus 215 TS7006 as fallout from the imports that stopped resolving.
+  On `@object-ui/fields`, 178 TS2305 and 57 TS7006. Both are zero now.
+  
+  The emitted `.js` never had the defect — rolldown resolves the same specifier
+  away — which is why `pnpm check:esm-specifiers`, whose verdict is about
+  specifier-preserving `.js` builds, correctly never scanned either package. The
+  fix is therefore in the declaration EMIT (`scripts/vite-dts-explicit-extensions.ts`,
+  shared by both `vite.config.ts` files), not in the sources: the same source line
+  produces a clean `.js` and a broken `.d.ts`, so no source edit can express the
+  difference. The rewriter resolves each specifier against the source tree the
+  output mirrors — a file hop becomes `./x.js`, a directory hop `./x/index.js` —
+  throws on anything it cannot resolve, and after the build re-parses the emitted
+  declarations to assert every relative specifier both carries an extension and
+  names a file the build really emitted.
+  
+  `packages/fields` takes the `nodenext` pin as a result — the same two lines
+  `packages/react` has carried since objectui#4538 — so the property is enforced by
+  the compiler on the consumer side rather than by review. `packages/app-shell`
+  does not: it type-checks clean without the pin and still shows 23 errors with it,
+  none of them from these two packages. That residue is filed separately.
+- fb336df: Move `lucide-react` from `^1.31.0` to `^1.43.0` in every package that declares it, and
+  repair what the jump breaks, so icons resolved from a STRING keep drawing a glyph.
+  
+  Measured once against the installed 1.43.0 artifact when this change was made; nothing in
+  the repository re-derives these readings. Across the jump lucide removes no runtime export,
+  no public type name and no `lucide-react/dynamic.mjs` name, and every name this repository
+  imports from `lucide-react` resolves. Exactly one key leaves the runtime `icons` record:
+  `Trash2`, retired in favour of `trash`.
+  
+  What a user sees change:
+  
+  - Icons the lazy icon seam draws (`resolveIcon`, objectui#9251) get their path data again.
+    lucide 1.43.0 icon modules export their path data inside `__iconData` and no longer
+    export `__iconNode`; the seam now reads both. Reading only `__iconNode` against 1.43.0
+    leaves every such glyph an empty box, with nothing thrown or logged.
+  - `DetailView`'s delete action and three schema-catalog examples spell their icon
+    `trash`, not `trash-2`, so they keep resolving. The glyph is unchanged: 1.43.0's `trash`
+    path data is byte-identical to the `trash-2` path data of 1.31.0 and 1.35.0. Anything
+    that already authored `trash` now draws that same artwork, because lucide moved it under
+    the `trash` name; a few other glyphs were also redrawn upstream.
+  - Icons imported as COMPONENTS carry lucide 1.43.0's own classes: one class per declared
+    alias (a spinner renders `class="lucide lucide-loader-circle lucide-loader-2 ..."`), and
+    no longer the class lucide used to derive from the PascalCase key where that differs
+    (`ArrowDown01` no longer carries `lucide-arrow-down01`). The canonical
+    `lucide-<icon name>` class is still there, so a `.lucide-loader-circle` selector still
+    matches.
+  - Icons resolved from a STRING through the seam keep the classes they had: `lucide`, the
+    canonical `lucide-<icon name>` class and the key-derived class. They do not carry
+    lucide's per-alias classes. That is a maintainer ruling (objectui#8941, option C): the
+    alias list lives only inside each lazily loaded icon module, and it was not moved into
+    the eager name list. A selector that targets an alias class matches a component-imported
+    icon and not a string-resolved one. This also dates the example in the objectui#9251
+    entry: `trash-2` no longer resolves as a string, so no seam-drawn glyph carries
+    `lucide-trash2 lucide-trash-2`; a digit-bearing name that still resolves, such as
+    `arrow-down-0-1`, carries `lucide-arrow-down01 lucide-arrow-down-0-1`.
+- Updated dependencies [7b10bef]
+- Updated dependencies [97abedc]
+- Updated dependencies [b46c58f]
+- Updated dependencies [ad694ac]
+- Updated dependencies [6f96fca]
+- Updated dependencies [0aacecc]
+- Updated dependencies [777fca2]
+- Updated dependencies [c131d9e]
+- Updated dependencies [5f00ff4]
+- Updated dependencies [c9e073a]
+- Updated dependencies [7b395d8]
+- Updated dependencies [0879812]
+- Updated dependencies [8cedb0d]
+- Updated dependencies [162621b]
+- Updated dependencies [4c6f549]
+- Updated dependencies [6cc910b]
+- Updated dependencies [061f5e8]
+- Updated dependencies [2dd4d3f]
+- Updated dependencies [4ab4f1b]
+- Updated dependencies [e3ea4f9]
+- Updated dependencies [8b1f066]
+- Updated dependencies [af243c1]
+- Updated dependencies [cff4b77]
+- Updated dependencies [961ceaa]
+- Updated dependencies [f3f4e4c]
+- Updated dependencies [a05c350]
+- Updated dependencies [2b5f509]
+- Updated dependencies [808f339]
+- Updated dependencies [6cf5999]
+- Updated dependencies [274e14a]
+- Updated dependencies [8c10f4f]
+- Updated dependencies [90dac98]
+- Updated dependencies [6096f20]
+- Updated dependencies [544aca2]
+- Updated dependencies [ea02938]
+- Updated dependencies [a14fb23]
+- Updated dependencies [ae98f1d]
+- Updated dependencies [f98eddf]
+- Updated dependencies [ce6bd99]
+- Updated dependencies [a5b08c9]
+- Updated dependencies [86982ac]
+- Updated dependencies [cdefa2a]
+- Updated dependencies [0961d5e]
+- Updated dependencies [6276478]
+- Updated dependencies [ff14e29]
+- Updated dependencies [9b28151]
+- Updated dependencies [64563a9]
+- Updated dependencies [1a5003f]
+- Updated dependencies [09ab32b]
+- Updated dependencies [8acc51b]
+- Updated dependencies [93a689d]
+- Updated dependencies [e5f4343]
+- Updated dependencies [3261e64]
+- Updated dependencies [f5178a2]
+- Updated dependencies [2ad3671]
+- Updated dependencies [d22b37b]
+- Updated dependencies [1daf477]
+- Updated dependencies [3d614ea]
+- Updated dependencies [6c2f3c5]
+- Updated dependencies [fb13e85]
+- Updated dependencies [c2d8659]
+- Updated dependencies [e0f8202]
+- Updated dependencies [9fbbb17]
+- Updated dependencies [c3a26cc]
+- Updated dependencies [a66e58e]
+- Updated dependencies [d89492c]
+- Updated dependencies [9a5f998]
+- Updated dependencies [9327397]
+- Updated dependencies [17cc3a3]
+- Updated dependencies [02e6d36]
+- Updated dependencies [4758b33]
+- Updated dependencies [4758b33]
+- Updated dependencies [9c78ebe]
+- Updated dependencies [9c78ebe]
+- Updated dependencies [12809a5]
+- Updated dependencies [7afc81d]
+- Updated dependencies [f9c06ef]
+- Updated dependencies [5ad3b88]
+- Updated dependencies [f9d772b]
+- Updated dependencies [97b6c21]
+- Updated dependencies [26ca2ad]
+- Updated dependencies [41ae65b]
+- Updated dependencies [baac95a]
+- Updated dependencies [13220af]
+- Updated dependencies [29b45f6]
+- Updated dependencies [39b8d51]
+- Updated dependencies [17b323e]
+- Updated dependencies [b956e69]
+- Updated dependencies [33e58d8]
+- Updated dependencies [256b4c9]
+- Updated dependencies [c5ec15c]
+- Updated dependencies [fec3b1a]
+- Updated dependencies [b8e0941]
+- Updated dependencies [0c50f18]
+- Updated dependencies [1dae95a]
+- Updated dependencies [e32dae1]
+- Updated dependencies [30b11ad]
+- Updated dependencies [4aebea0]
+- Updated dependencies [f976774]
+- Updated dependencies [3d6badf]
+- Updated dependencies [25cb364]
+- Updated dependencies [a60539b]
+- Updated dependencies [de1b879]
+- Updated dependencies [c6678b1]
+- Updated dependencies [0638322]
+- Updated dependencies [e3782d2]
+- Updated dependencies [db0beb2]
+- Updated dependencies [997ce38]
+- Updated dependencies [ae0b9d3]
+- Updated dependencies [ad1785c]
+- Updated dependencies [3b469c8]
+- Updated dependencies [990a2d6]
+- Updated dependencies [1c84036]
+- Updated dependencies [1c84036]
+- Updated dependencies [6650259]
+- Updated dependencies [4f8b7f8]
+- Updated dependencies [9e6619f]
+- Updated dependencies [f6ae5e2]
+- Updated dependencies [7343376]
+- Updated dependencies [b2683a2]
+- Updated dependencies [dded788]
+- Updated dependencies [b45d463]
+- Updated dependencies [54a7830]
+- Updated dependencies [f3135a4]
+- Updated dependencies [b5696d3]
+- Updated dependencies [3f9d926]
+- Updated dependencies [e978ed5]
+- Updated dependencies [6a7f24e]
+- Updated dependencies [b3c96d6]
+- Updated dependencies [8d0ca91]
+- Updated dependencies [c30c8dd]
+- Updated dependencies [deca847]
+- Updated dependencies [328abeb]
+- Updated dependencies [dd0d78f]
+- Updated dependencies [24d3e65]
+- Updated dependencies [95a7c8d]
+- Updated dependencies [e227156]
+- Updated dependencies [cc4e476]
+- Updated dependencies [92970c4]
+- Updated dependencies [d570eaa]
+- Updated dependencies [4b742f4]
+- Updated dependencies [42687ba]
+- Updated dependencies [6cd8f66]
+- Updated dependencies [24a0f14]
+- Updated dependencies [797a30f]
+- Updated dependencies [b4075c0]
+- Updated dependencies [9b85600]
+- Updated dependencies [99878d8]
+- Updated dependencies [3c13675]
+- Updated dependencies [63ab761]
+- Updated dependencies [0eb9f36]
+- Updated dependencies [ae582b7]
+- Updated dependencies [a4b017e]
+- Updated dependencies [559a2e2]
+- Updated dependencies [db11afd]
+- Updated dependencies [154075a]
+- Updated dependencies [582edef]
+- Updated dependencies [19f484f]
+- Updated dependencies [0a78a20]
+- Updated dependencies [615346d]
+- Updated dependencies [75dcc81]
+- Updated dependencies [55a12a8]
+- Updated dependencies [edfcf5a]
+- Updated dependencies [0a3e540]
+- Updated dependencies [c021b35]
+- Updated dependencies [f61dab1]
+- Updated dependencies [b0a05dd]
+- Updated dependencies [dd5ff19]
+- Updated dependencies [81f8498]
+- Updated dependencies [a782fa7]
+- Updated dependencies [0645133]
+- Updated dependencies [76e9df0]
+- Updated dependencies [0ecaa7d]
+- Updated dependencies [b24f93a]
+- Updated dependencies [6158e4c]
+- Updated dependencies [c27b575]
+- Updated dependencies [84b275c]
+- Updated dependencies [0e6e76b]
+- Updated dependencies [bf43afa]
+- Updated dependencies [858eafb]
+- Updated dependencies [0ffc423]
+- Updated dependencies [3cc4fe5]
+- Updated dependencies [cd5b19a]
+- Updated dependencies [cd5b19a]
+- Updated dependencies [17dc167]
+- Updated dependencies [20d23be]
+- Updated dependencies [20d23be]
+- Updated dependencies [2e3da72]
+- Updated dependencies [1263e40]
+- Updated dependencies [e6bc087]
+- Updated dependencies [8bab157]
+- Updated dependencies [a7557a7]
+- Updated dependencies [7d074ba]
+- Updated dependencies [6158e4c]
+- Updated dependencies [6158e4c]
+- Updated dependencies [52aad5c]
+- Updated dependencies [18d1a0a]
+- Updated dependencies [7fed09d]
+- Updated dependencies [58da8ae]
+- Updated dependencies [a8b9889]
+- Updated dependencies [138ad45]
+- Updated dependencies [138ad45]
+- Updated dependencies [5262f7d]
+- Updated dependencies [6aa029b]
+- Updated dependencies [2124d04]
+- Updated dependencies [be52115]
+- Updated dependencies [770cc5b]
+- Updated dependencies [1a88ce2]
+- Updated dependencies [a1a44d6]
+- Updated dependencies [e0a9c67]
+- Updated dependencies [5638529]
+- Updated dependencies [5638529]
+- Updated dependencies [c476be0]
+- Updated dependencies [c82ff39]
+- Updated dependencies [6c3da53]
+- Updated dependencies [31987bd]
+- Updated dependencies [3c3ce15]
+- Updated dependencies [063119f]
+- Updated dependencies [e100589]
+- Updated dependencies [304f611]
+- Updated dependencies [e46ee77]
+- Updated dependencies [f9c8c4e]
+- Updated dependencies [6e9c8d2]
+- Updated dependencies [9547063]
+- Updated dependencies [3f6efd6]
+- Updated dependencies [c4ab6d0]
+- Updated dependencies [0e9058b]
+- Updated dependencies [5988b6b]
+- Updated dependencies [6158e4c]
+- Updated dependencies [00ccdf7]
+- Updated dependencies [9d9ed54]
+- Updated dependencies [4a1adb7]
+- Updated dependencies [50c73fe]
+- Updated dependencies [ca3de72]
+- Updated dependencies [83e3f83]
+- Updated dependencies [401611b]
+- Updated dependencies [2c0ddf2]
+- Updated dependencies [4abc0aa]
+- Updated dependencies [f560ded]
+- Updated dependencies [2b188fa]
+- Updated dependencies [b654d4e]
+- Updated dependencies [f68e0a0]
+- Updated dependencies [aea682a]
+- Updated dependencies [fcdc8ec]
+- Updated dependencies [2d576e4]
+- Updated dependencies [8366acc]
+- Updated dependencies [95e58a3]
+- Updated dependencies [9d7419b]
+- Updated dependencies [fc7db05]
+- Updated dependencies [9ed8d0f]
+- Updated dependencies [c73cdb5]
+- Updated dependencies [6f5719e]
+- Updated dependencies [64dae8e]
+- Updated dependencies [06a8af5]
+- Updated dependencies [6a91586]
+- Updated dependencies [a04d7c6]
+- Updated dependencies [5ccc500]
+- Updated dependencies [f3c2bb0]
+- Updated dependencies [978507b]
+- Updated dependencies [778138e]
+- Updated dependencies [9801765]
+- Updated dependencies [9cebfca]
+- Updated dependencies [460575f]
+- Updated dependencies [d796c8d]
+- Updated dependencies [1b1d772]
+- Updated dependencies [d88e20f]
+- Updated dependencies [2d7304d]
+- Updated dependencies [636b236]
+- Updated dependencies [4172589]
+- Updated dependencies [d6d8fb9]
+- Updated dependencies [64d624d]
+- Updated dependencies [053fdc8]
+- Updated dependencies [ae476b8]
+- Updated dependencies [39f4309]
+- Updated dependencies [95bad12]
+- Updated dependencies [d2fb6ef]
+- Updated dependencies [7cd3987]
+- Updated dependencies [ee3b878]
+- Updated dependencies [e304a4e]
+- Updated dependencies [fda49e5]
+- Updated dependencies [490d9a9]
+- Updated dependencies [fc62bb4]
+- Updated dependencies [41df893]
+- Updated dependencies [0cba1b7]
+- Updated dependencies [00f3eb5]
+- Updated dependencies [1ec291c]
+- Updated dependencies [453dbaa]
+- Updated dependencies [f8cdbf2]
+- Updated dependencies [69a2163]
+- Updated dependencies [24e027e]
+- Updated dependencies [2c3cd1b]
+- Updated dependencies [e176053]
+- Updated dependencies [e30ed15]
+- Updated dependencies [90665e0]
+- Updated dependencies [194fae1]
+- Updated dependencies [7e19d03]
+- Updated dependencies [1e946c9]
+- Updated dependencies [546ddf7]
+- Updated dependencies [864154e]
+- Updated dependencies [b023625]
+- Updated dependencies [75bd83d]
+- Updated dependencies [44d075b]
+- Updated dependencies [40c479a]
+- Updated dependencies [971d387]
+- Updated dependencies [ee851c3]
+- Updated dependencies [6414dfd]
+- Updated dependencies [a8d5c71]
+- Updated dependencies [905b21f]
+- Updated dependencies [88e9109]
+- Updated dependencies [2c45966]
+- Updated dependencies [db3a600]
+- Updated dependencies [3a3db76]
+- Updated dependencies [0d723a3]
+- Updated dependencies [0c95d3d]
+- Updated dependencies [3e4fa2c]
+- Updated dependencies [b5b928a]
+- Updated dependencies [6fd2cf7]
+- Updated dependencies [52a43de]
+- Updated dependencies [195052f]
+- Updated dependencies [e4559d1]
+- Updated dependencies [2c71482]
+- Updated dependencies [129bcc5]
+- Updated dependencies [a26b9e4]
+- Updated dependencies [5ef9c4f]
+- Updated dependencies [46f0bb4]
+- Updated dependencies [06b82b8]
+- Updated dependencies [8ec11e1]
+- Updated dependencies [6f81384]
+- Updated dependencies [22ba927]
+- Updated dependencies [f8c70f4]
+- Updated dependencies [8f1d995]
+- Updated dependencies [f9c34df]
+- Updated dependencies [dddb942]
+- Updated dependencies [29754cf]
+- Updated dependencies [d7de534]
+- Updated dependencies [3c2b6f7]
+- Updated dependencies [6e88630]
+- Updated dependencies [b84dc18]
+- Updated dependencies [ac8abb0]
+- Updated dependencies [9d86e1d]
+- Updated dependencies [3a5817f]
+- Updated dependencies [99a3c2d]
+- Updated dependencies [5961030]
+- Updated dependencies [f24de8b]
+- Updated dependencies [c8ea8af]
+- Updated dependencies [3190414]
+- Updated dependencies [4e480f5]
+- Updated dependencies [38a123c]
+- Updated dependencies [299102e]
+- Updated dependencies [30c73cd]
+- Updated dependencies [830ed58]
+- Updated dependencies [d7acad6]
+- Updated dependencies [45a9aeb]
+- Updated dependencies [713db46]
+- Updated dependencies [c71e14d]
+- Updated dependencies [bf3a03c]
+- Updated dependencies [cb55718]
+- Updated dependencies [748494b]
+- Updated dependencies [5967be0]
+- Updated dependencies [831be72]
+- Updated dependencies [29cb85b]
+- Updated dependencies [3e028c8]
+- Updated dependencies [d0889e2]
+- Updated dependencies [ce503e5]
+- Updated dependencies [f20dcf0]
+- Updated dependencies [12402a9]
+- Updated dependencies [aff3d7a]
+- Updated dependencies [4ca30d0]
+- Updated dependencies [7a5da14]
+- Updated dependencies [2c1c967]
+- Updated dependencies [9486ac6]
+- Updated dependencies [9486ac6]
+- Updated dependencies [4d5f9b4]
+- Updated dependencies [d6ceb8d]
+- Updated dependencies [dc4365c]
+- Updated dependencies [e321d52]
+- Updated dependencies [4c68077]
+- Updated dependencies [7977ff9]
+- Updated dependencies [3beef6d]
+- Updated dependencies [06b8c42]
+- Updated dependencies [46b9bc9]
+- Updated dependencies [b97790a]
+- Updated dependencies [7c9b044]
+- Updated dependencies [d47de51]
+- Updated dependencies [3fe6463]
+- Updated dependencies [31ab372]
+- Updated dependencies [846889b]
+- Updated dependencies [2acd8e1]
+- Updated dependencies [26896c6]
+- Updated dependencies [67fc3b0]
+- Updated dependencies [33a3b3c]
+- Updated dependencies [b87f15b]
+- Updated dependencies [045d20b]
+- Updated dependencies [a2d2515]
+- Updated dependencies [c18d099]
+- Updated dependencies [adb2a86]
+- Updated dependencies [03380aa]
+- Updated dependencies [4562ea5]
+- Updated dependencies [3619792]
+- Updated dependencies [3561bd2]
+- Updated dependencies [bf97b98]
+- Updated dependencies [b0d308d]
+- Updated dependencies [40f34b4]
+- Updated dependencies [8063bcb]
+- Updated dependencies [b74a859]
+- Updated dependencies [d4493fd]
+- Updated dependencies [240b80f]
+- Updated dependencies [77cb489]
+- Updated dependencies [bfaa158]
+- Updated dependencies [777e5c6]
+- Updated dependencies [0c386dd]
+- Updated dependencies [9e37d9b]
+- Updated dependencies [5ad86dd]
+- Updated dependencies [16a725f]
+- Updated dependencies [4dfdcc3]
+- Updated dependencies [6a449fc]
+- Updated dependencies [446d93d]
+- Updated dependencies [ecd9cb2]
+- Updated dependencies [98d4108]
+- Updated dependencies [0e3b3be]
+- Updated dependencies [a29ae2d]
+- Updated dependencies [00d3f09]
+- Updated dependencies [4388f71]
+- Updated dependencies [0b1ac58]
+- Updated dependencies [c93b4d5]
+- Updated dependencies [c1fe272]
+- Updated dependencies [3cab570]
+- Updated dependencies [8ad218d]
+- Updated dependencies [3e41187]
+- Updated dependencies [5f78953]
+- Updated dependencies [639114c]
+- Updated dependencies [1f31d3a]
+- Updated dependencies [d1842ab]
+- Updated dependencies [78ca238]
+- Updated dependencies [351eb31]
+- Updated dependencies [20c04b2]
+- Updated dependencies [48c19bd]
+- Updated dependencies [a6d8b8d]
+- Updated dependencies [4b5bb95]
+- Updated dependencies [b652514]
+- Updated dependencies [adbda1b]
+- Updated dependencies [adbda1b]
+- Updated dependencies [e2b3826]
+- Updated dependencies [2e32ed4]
+- Updated dependencies [3ed3eec]
+- Updated dependencies [7c3df8f]
+- Updated dependencies [b9f5ff1]
+- Updated dependencies [e75f4c9]
+- Updated dependencies [19f1639]
+- Updated dependencies [4704aa4]
+- Updated dependencies [47547d0]
+- Updated dependencies [1bee5d0]
+- Updated dependencies [858cd72]
+- Updated dependencies [cfc9b6d]
+- Updated dependencies [554f2b6]
+- Updated dependencies [72f55c9]
+- Updated dependencies [26e06d7]
+- Updated dependencies [669d71b]
+- Updated dependencies [ed27d7c]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [2ceb43a]
+- Updated dependencies [7cdd2b9]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [71a4a53]
+- Updated dependencies [7bf244b]
+- Updated dependencies [f0bb9fa]
+- Updated dependencies [81a2eb1]
+- Updated dependencies [caa0cd3]
+- Updated dependencies [caa0cd3]
+- Updated dependencies [25c7d58]
+- Updated dependencies [00d2fa6]
+- Updated dependencies [c6198c2]
+- Updated dependencies [721d1e0]
+- Updated dependencies [1237ae4]
+- Updated dependencies [2f61238]
+- Updated dependencies [51eb515]
+- Updated dependencies [c354ce5]
+- Updated dependencies [8fe8e5c]
+- Updated dependencies [feac439]
+- Updated dependencies [9ae871d]
+- Updated dependencies [efbd566]
+- Updated dependencies [9587fc9]
+- Updated dependencies [e62c44e]
+- Updated dependencies [daf9d57]
+- Updated dependencies [c15d7ec]
+- Updated dependencies [5d0876c]
+- Updated dependencies [f7ace0a]
+- Updated dependencies [b041b9c]
+- Updated dependencies [ce2aaef]
+- Updated dependencies [544ecba]
+- Updated dependencies [2ce2612]
+- Updated dependencies [bc640ec]
+- Updated dependencies [1e215c4]
+- Updated dependencies [da6e191]
+- Updated dependencies [3e377c9]
+- Updated dependencies [a3eb5d0]
+- Updated dependencies [4ce14f1]
+- Updated dependencies [aef97e5]
+- Updated dependencies [2af1fa7]
+- Updated dependencies [c14d3a0]
+- Updated dependencies [a137d0c]
+- Updated dependencies [caf477f]
+- Updated dependencies [f6375da]
+- Updated dependencies [967e5d8]
+- Updated dependencies [a4611b3]
+- Updated dependencies [20316ba]
+- Updated dependencies [d3499b3]
+- Updated dependencies [309c75e]
+- Updated dependencies [c9f9bae]
+- Updated dependencies [18897a4]
+- Updated dependencies [8b7ea39]
+- Updated dependencies [dcbf0b2]
+- Updated dependencies [52cac38]
+- Updated dependencies [93fea2e]
+- Updated dependencies [1422a92]
+- Updated dependencies [d05fe17]
+- Updated dependencies [a480f79]
+- Updated dependencies [f08d1a8]
+- Updated dependencies [64a252d]
+- Updated dependencies [786bc91]
+- Updated dependencies [75fca96]
+- Updated dependencies [7ca6ddd]
+- Updated dependencies [f1cd290]
+- Updated dependencies [5a41ce7]
+- Updated dependencies [8d50bc2]
+- Updated dependencies [604476d]
+- Updated dependencies [d1bebb0]
+- Updated dependencies [95bf128]
+- Updated dependencies [335abea]
+- Updated dependencies [edea22a]
+- Updated dependencies [0f5cadf]
+- Updated dependencies [4f9f1ee]
+- Updated dependencies [66e8b2a]
+- Updated dependencies [aa083cd]
+- Updated dependencies [12b5992]
+- Updated dependencies [b93e245]
+- Updated dependencies [c842594]
+- Updated dependencies [290de37]
+- Updated dependencies [8c8da45]
+- Updated dependencies [8cd8eb5]
+- Updated dependencies [cf1d29e]
+- Updated dependencies [1bd79c8]
+- Updated dependencies [af9e957]
+- Updated dependencies [b1030c7]
+- Updated dependencies [c974edf]
+- Updated dependencies [ad852b6]
+- Updated dependencies [7fb22a1]
+- Updated dependencies [ad66d79]
+- Updated dependencies [ee4d19f]
+- Updated dependencies [496d31d]
+- Updated dependencies [0ea7054]
+- Updated dependencies [9a853f2]
+- Updated dependencies [cb847fd]
+- Updated dependencies [ee70287]
+- Updated dependencies [3e98e13]
+- Updated dependencies [fc32921]
+- Updated dependencies [4eaa835]
+- Updated dependencies [8f9d87a]
+- Updated dependencies [b1777ae]
+- Updated dependencies [24845c4]
+- Updated dependencies [6f864cf]
+- Updated dependencies [24d1edd]
+- Updated dependencies [645087c]
+- Updated dependencies [33f4a19]
+- Updated dependencies [4a292d2]
+- Updated dependencies [5323168]
+- Updated dependencies [841dd2b]
+- Updated dependencies [3014fc0]
+- Updated dependencies [dacb402]
+- Updated dependencies [846cec0]
+- Updated dependencies [91facae]
+- Updated dependencies [b38014e]
+- Updated dependencies [474797d]
+- Updated dependencies [704e695]
+- Updated dependencies [a407bd6]
+- Updated dependencies [317dbce]
+- Updated dependencies [3a43a15]
+- Updated dependencies [868e825]
+- Updated dependencies [f76f436]
+- Updated dependencies [ce45a03]
+- Updated dependencies [421544b]
+- Updated dependencies [fb01022]
+- Updated dependencies [e9d9212]
+- Updated dependencies [ecfb693]
+- Updated dependencies [abc1b18]
+- Updated dependencies [81a51db]
+- Updated dependencies [67749c7]
+- Updated dependencies [507b61b]
+- Updated dependencies [512c84b]
+- Updated dependencies [c300267]
+- Updated dependencies [fb3a101]
+- Updated dependencies [d4733f2]
+- Updated dependencies [1570eac]
+- Updated dependencies [f391ede]
+- Updated dependencies [f5cfbbd]
+- Updated dependencies [f5cfbbd]
+- Updated dependencies [8b532cb]
+- Updated dependencies [64c3cdd]
+- Updated dependencies [4d65991]
+- Updated dependencies [c42554e]
+- Updated dependencies [555b4ec]
+- Updated dependencies [1ccfc23]
+- Updated dependencies [542718f]
+- Updated dependencies [7f27bc5]
+- Updated dependencies [0a174f3]
+- Updated dependencies [f95b140]
+- Updated dependencies [541ce4e]
+- Updated dependencies [6479086]
+- Updated dependencies [d79f525]
+- Updated dependencies [d1865d2]
+- Updated dependencies [f1190b0]
+- Updated dependencies [561abef]
+- Updated dependencies [6a4680b]
+- Updated dependencies [c3a4273]
+- Updated dependencies [abf710d]
+- Updated dependencies [093af32]
+- Updated dependencies [1bd1be7]
+- Updated dependencies [d234fa9]
+- Updated dependencies [adf5812]
+- Updated dependencies [e36acd4]
+- Updated dependencies [5058336]
+- Updated dependencies [2f6b2bf]
+- Updated dependencies [2028b31]
+- Updated dependencies [63601ab]
+- Updated dependencies [c372b29]
+- Updated dependencies [152f0a7]
+- Updated dependencies [8693b85]
+- Updated dependencies [e82dad1]
+- Updated dependencies [58b7b3d]
+- Updated dependencies [84defab]
+- Updated dependencies [681d3f1]
+- Updated dependencies [969d4f2]
+- Updated dependencies [f3bc481]
+- Updated dependencies [b79aac2]
+- Updated dependencies [93fc0e7]
+- Updated dependencies [a4b723f]
+- Updated dependencies [2b10ca0]
+- Updated dependencies [7db4a81]
+- Updated dependencies [19a0b0e]
+- Updated dependencies [526fc11]
+- Updated dependencies [f8e3e9a]
+- Updated dependencies [b9d47ec]
+- Updated dependencies [3b6bc69]
+- Updated dependencies [6214db6]
+- Updated dependencies [6732df4]
+- Updated dependencies [fe9e0d0]
+- Updated dependencies [63fb72c]
+- Updated dependencies [804831c]
+- Updated dependencies [279e48e]
+- Updated dependencies [8700d6d]
+- Updated dependencies [8db2a0f]
+- Updated dependencies [689953a]
+- Updated dependencies [30443fb]
+- Updated dependencies [8d3dbb2]
+- Updated dependencies [efc1c9c]
+- Updated dependencies [da45e6b]
+- Updated dependencies [7533465]
+- Updated dependencies [835f0f3]
+- Updated dependencies [a9d97be]
+- Updated dependencies [ed35b44]
+- Updated dependencies [9ba7e9c]
+- Updated dependencies [729e851]
+- Updated dependencies [96919a4]
+- Updated dependencies [345e24a]
+- Updated dependencies [20b507a]
+- Updated dependencies [2e471dc]
+- Updated dependencies [6748587]
+- Updated dependencies [be50942]
+- Updated dependencies [775e079]
+- Updated dependencies [7e8b3c0]
+- Updated dependencies [53374dc]
+- Updated dependencies [f6fb83f]
+- Updated dependencies [2049b03]
+- Updated dependencies [7cbc724]
+- Updated dependencies [7098eed]
+- Updated dependencies [3df7c5c]
+- Updated dependencies [fb91ac9]
+- Updated dependencies [fb91ac9]
+- Updated dependencies [641fb55]
+- Updated dependencies [8524372]
+- Updated dependencies [7cbefa5]
+- Updated dependencies [72d6587]
+- Updated dependencies [a272a4f]
+- Updated dependencies [55f39ee]
+- Updated dependencies [0ce32d5]
+- Updated dependencies [0970a0e]
+- Updated dependencies [e427e9c]
+- Updated dependencies [bbc9dc3]
+- Updated dependencies [02f1813]
+- Updated dependencies [1ef89c0]
+- Updated dependencies [ba0b61a]
+- Updated dependencies [ba0b61a]
+- Updated dependencies [ac716ff]
+- Updated dependencies [f0f3cd5]
+- Updated dependencies [ab856ed]
+- Updated dependencies [20f3e65]
+- Updated dependencies [bbba098]
+- Updated dependencies [87af769]
+- Updated dependencies [3be720e]
+- Updated dependencies [43c0d17]
+- Updated dependencies [c3df43a]
+- Updated dependencies [d16d0e9]
+- Updated dependencies [bbe57fd]
+- Updated dependencies [272a530]
+- Updated dependencies [1779e8d]
+- Updated dependencies [f7fcc2c]
+- Updated dependencies [f0f4d6c]
+- Updated dependencies [4128188]
+- Updated dependencies [b253c4e]
+- Updated dependencies [78a9c67]
+- Updated dependencies [4a7ef0d]
+- Updated dependencies [4598f6d]
+- Updated dependencies [dea17b4]
+- Updated dependencies [89bb77a]
+- Updated dependencies [06611e4]
+- Updated dependencies [3939545]
+- Updated dependencies [66abbde]
+- Updated dependencies [dc3893d]
+- Updated dependencies [1bbaa16]
+- Updated dependencies [6ee259a]
+- Updated dependencies [7649f43]
+- Updated dependencies [e708426]
+- Updated dependencies [3b6d53b]
+- Updated dependencies [276d174]
+- Updated dependencies [2982ed9]
+- Updated dependencies [a8198de]
+- Updated dependencies [0c789a4]
+- Updated dependencies [05a49f2]
+- Updated dependencies [b234a84]
+- Updated dependencies [a78cd37]
+- Updated dependencies [5ea623e]
+- Updated dependencies [5eabe86]
+- Updated dependencies [ca5d671]
+- Updated dependencies [32bf2d6]
+- Updated dependencies [ff0c384]
+- Updated dependencies [af4fb29]
+- Updated dependencies [ff5ef1c]
+- Updated dependencies [befd40c]
+- Updated dependencies [9a97800]
+- Updated dependencies [6bca0e4]
+- Updated dependencies [81c0bc4]
+- Updated dependencies [3c76801]
+- Updated dependencies [60500cb]
+- Updated dependencies [2fcefb9]
+- Updated dependencies [b55a346]
+- Updated dependencies [065bba7]
+- Updated dependencies [dd19463]
+- Updated dependencies [6791717]
+- Updated dependencies [100547e]
+- Updated dependencies [6d1c155]
+- Updated dependencies [d7573b3]
+- Updated dependencies [bf3edfe]
+- Updated dependencies [2c8474c]
+- Updated dependencies [0e05aac]
+- Updated dependencies [ae61ad4]
+- Updated dependencies [5aed9e4]
+- Updated dependencies [83c77dc]
+- Updated dependencies [18a8e7d]
+- Updated dependencies [e7957ab]
+- Updated dependencies [f7e34ca]
+- Updated dependencies [e719ebd]
+- Updated dependencies [516583b]
+- Updated dependencies [f9e4f91]
+- Updated dependencies [6ef48b1]
+- Updated dependencies [fa429cf]
+- Updated dependencies [ed8df3e]
+- Updated dependencies [fe76ece]
+- Updated dependencies [8b446f5]
+- Updated dependencies [8e74b27]
+- Updated dependencies [7102b20]
+- Updated dependencies [8ebd57f]
+- Updated dependencies [617707a]
+- Updated dependencies [58770f3]
+- Updated dependencies [aefe428]
+- Updated dependencies [485f096]
+- Updated dependencies [7357447]
+- Updated dependencies [199d31b]
+- Updated dependencies [b655a9d]
+- Updated dependencies [3e01cb5]
+- Updated dependencies [7138bc1]
+- Updated dependencies [cef27e2]
+- Updated dependencies [4e8622b]
+- Updated dependencies [dffd752]
+- Updated dependencies [06973aa]
+- Updated dependencies [50798f3]
+- Updated dependencies [105f3c5]
+- Updated dependencies [3ccd9e8]
+- Updated dependencies [689b979]
+- Updated dependencies [c70f865]
+- Updated dependencies [e546222]
+- Updated dependencies [fd13f52]
+- Updated dependencies [d7bd274]
+- Updated dependencies [98c3a74]
+- Updated dependencies [ebce5a3]
+- Updated dependencies [fb336df]
+- Updated dependencies [9d9040d]
+- Updated dependencies [0fce2ef]
+- Updated dependencies [42df928]
+- Updated dependencies [0e2ddd4]
+- Updated dependencies [b7479ab]
+- Updated dependencies [9850c6e]
+- Updated dependencies [b2ea297]
+- Updated dependencies [5b5a5c3]
+- Updated dependencies [14582b8]
+- Updated dependencies [51e144e]
+- Updated dependencies [ab92940]
+- Updated dependencies [a691c0b]
+- Updated dependencies [0b1326d]
+- Updated dependencies [af3861f]
+- Updated dependencies [515f171]
+- Updated dependencies [1f4e029]
+- Updated dependencies [4f14ad7]
+- Updated dependencies [258d264]
+- Updated dependencies [cac64b3]
+- Updated dependencies [8033ad1]
+- Updated dependencies [fa140b8]
+- Updated dependencies [71cba28]
+- Updated dependencies [190fbd0]
+- Updated dependencies [c00bf28]
+- Updated dependencies [93127bd]
+- Updated dependencies [f2158ec]
+- Updated dependencies [759606e]
+- Updated dependencies [72ffc34]
+- Updated dependencies [a51fa0c]
+- Updated dependencies [51f3d8d]
+- Updated dependencies [bf28341]
+- Updated dependencies [78cbdb5]
+- Updated dependencies [b7543a9]
+- Updated dependencies [6c6cee7]
+- Updated dependencies [42887e0]
+- Updated dependencies [83fe6e7]
+- Updated dependencies [d1ab06f]
+- Updated dependencies [f90b8fb]
+- Updated dependencies [91783c4]
+- Updated dependencies [982885d]
+- Updated dependencies [dba7d84]
+- Updated dependencies [ca39427]
+- Updated dependencies [bd09957]
+- Updated dependencies [5a07e67]
+- Updated dependencies [2d36552]
+- Updated dependencies [45d8288]
+- Updated dependencies [490f482]
+- Updated dependencies [27308c5]
+- Updated dependencies [8689166]
+- Updated dependencies [c9327c9]
+- Updated dependencies [920165d]
+- Updated dependencies [9101be5]
+- Updated dependencies [f53a8d0]
+- Updated dependencies [968dc1e]
+- Updated dependencies [57f9b07]
+- Updated dependencies [3c73d99]
+- Updated dependencies [d91aed9]
+- Updated dependencies [ed71d9e]
+- Updated dependencies [7776fc2]
+- Updated dependencies [e76634c]
+- Updated dependencies [c86185e]
+- Updated dependencies [1170ed1]
+- Updated dependencies [92814db]
+- Updated dependencies [4d73b07]
+  - @object-ui/react@17.7.0
+  - @object-ui/core@17.7.0
+  - @object-ui/types@17.7.0
+  - @object-ui/components@17.7.0
+
 ## 17.6.0
 
 ### Minor Changes

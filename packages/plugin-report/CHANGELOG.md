@@ -1,5 +1,1756 @@
 # @object-ui/plugin-report
 
+## 17.7.0
+
+### Minor Changes
+
+- f7af637: Report display sites follow the display locale instead of the literal tag `en-US`
+  (objectui#10020).
+  
+  Five display paths in this package handed `Intl` the literal BCP-47 tag `en-US` —
+  four branches of `formatValue` (`currency` / `currency_cny`, `currency_usd`,
+  `percent`, and the default thousand-separated branch) and the Excel cell formatter
+  behind `exportExcelWithFormulas`. That is the exact tag `useDisplayLocale`'s contract
+  in `@object-ui/i18n` names as the wrong answer, in as many words: *"Note this is
+  `'en'`, not `'en-US'`: the point of objectui#4033 is that `en-US` is not the world's
+  default."* A tenant that had configured `de-DE`, or a user reading the console in
+  Chinese, saw US grouping and decimal marks regardless — while the same package already
+  resolved that channel three times in `DatasetReportRenderer`.
+  
+  **Additive, not breaking.** `formatValue` is a published export, so its new display
+  locale is an OPTIONAL third parameter and `exportExcelWithFormulas` takes an optional
+  `locale` on the options bag it already had. Every call that compiled before compiles
+  after, and omitting the argument formats in `'en'` — the display channel's own last
+  resort, which is neither `en-US` nor an absent tag.
+  
+  **What that means for callers.** An optional parameter nobody passes would be the same
+  defect with a longer signature, so `ReportViewer` now resolves `useDisplayLocale()`
+  itself and threads it at all three of its call sites. If you call `formatValue` or
+  `exportExcelWithFormulas` from your own code, pass the locale you render in —
+  `useDisplayLocale()` in React, and for a non-React caller the tag your session
+  resolved. `exportExcelWithFormulas` cannot read the channel itself: it is not a
+  component, and a display locale is a property of the session rather than of the
+  authored report schema, so its caller is the only place the tag can come from.
+  
+  Threading a tag also introduces a hazard a literal never had — a tenant-configured tag
+  can be malformed (`en_US`, underscore instead of hyphen, makes `Intl` throw
+  `RangeError`), and these calls sit inside a cell render. A malformed tag now degrades
+  to the same last resort rather than taking the report down. It deliberately does NOT
+  degrade to a dropped tag, which would mean the machine's locale — the separate defect
+  shape tracked on objectui#9909, still present in this package's HTML export header and
+  deliberately not merged into this change.
+- 9d9ed54: refactor(plugin-report)!: retire the `spec-report` node type key; a spec report is embedded as `{ "type": "report", "report": { … } }` (objectui#11440)
+  
+  **BREAKING (authoring):** the plugin no longer registers `spec-report` (and with it `plugin-report:spec-report`), an alias of `report` on the same `ReportRenderer` that carried the report under a `report` member. `ReportRenderer` now unwraps that member on a `report` node, and only there: `report` is the one spelling, with no alias fallback. `objectui validate` refused a `spec-report` node at `type`, and so did the strict authoring face. A node authored `type: "spec-report"` now renders the "Unknown component type" panel.
+  
+  The `report` registration publishes `report` as an input, so the `sdui-parser` manifest and the designer offer it. `@object-ui/types/zod`'s `ReportNodeSchema` declares the same member (`.changeset/11440-report-node-wrapper.md`). The README and `content/docs/plugins/plugin-report.mdx` teach the `report` spelling and list two registered types, `report` and `report-viewer`.
+  
+  Migration:
+  
+  - `{ "type": "spec-report", "report": { … } }` → `{ "type": "report", "report": { … } }`, with the same `report` member. Measured with a dataset-bound report (`name`, `label`, `type: "summary"`, `dataset`, `rows`, `values`): the FROM document is refused with `invalid_union` at `type` by `objectui validate` and by the strict face; the TO document validates on both.
+  - A pre-9.0 stored report (the `objectName` / `columns` query form) under `report` still renders through the presentation bridge, but neither face accepts it in the TO document: the `@objectstack/spec` `ReportSchema` the member takes by reference refuses it under `report` (`objectName` as an unrecognized key, `invalid_type` at `report.columns.0`). Migrate it to a dataset binding (ADR-0021) to validate.
+  
+  **Clause-②: yes** — a registration leaves the runtime (narrowing), released as `minor` with this banner.
+- 64dae8e: Six user-visible fixes across the maker surface, the assistant rail and the
+  dataset captions.
+  
+  **The maker's start chips now promise only what ADR-0112 v1 builds
+  (cloud#1984).** Two of the five asked for automation the first version has no
+  flows or actions for — the ticket chip said 「状态流转」, the inventory chip said
+  「低库存预警」 — and the measured behaviour was not a refusal but a silent
+  degrade: a status kanban and a low-stock view. The chip promised an alert and
+  delivered a page. All five are reworded in all ten packs (and in the call-site
+  `defaultValue` fallbacks, which are a second copy of the same strings) to ask
+  for objects, fields, views, pages, dashboards and sample data, keeping each a
+  real business scenario — the ticket chip now asks for a status field and a board
+  grouped by it, the inventory chip for a view that filters below the reorder
+  point. A note beside the keys says to revert when v2 re-adds flows.
+  
+  **Five newer AI tools get their step labels (objectui#7481).** A zh conversation
+  read `✓ Get authoring rules 已完成` between 「读取元数据结构」 and 「列出对象」:
+  `get_authoring_rules` (cloud#1837), plus `load_tools`, `open_record`,
+  `test_flow` and `toggle_flow`, are registered by the cloud AI runtime but are
+  newer than the pinned spec's tool registry, so they had no `chatbot.tool.*`
+  entry in any pack and fell through to the English title-caser.
+  
+  **The assistant rail follows the thread when you send (objectui#7480).** The
+  rail and the full-page maker are the same component; what differs is width. A
+  reply that still ends on screen in the wide column runs two or three times
+  taller in a ~360px rail, so `StickToBottom`'s lock is escaped by the time the
+  user types and the new bubble, the tool steps and the streaming answer all land
+  below the fold. Every send path now re-arms the lock — including the plan-card
+  "Build it" and 确认修改 approvals, whose own code comments already named this
+  miss. Message APPENDS deliberately do not, so a user reading back through the
+  thread mid-answer is never yanked to the bottom.
+  
+  **Console toasts move off the assistant composer (objectui#7482).** 「客户更新
+  成功」 sat on the ChatDock composer's send button and stayed there. One defect,
+  two symptoms: `apps/console` pinned the toaster to `bottom-right` — an override
+  that predates ADR-0057 P3a — so a toast both covered the button and, because
+  sonner pauses a toast's dismiss timer while the pointer is inside the toaster
+  region, never got to run its 4s timer with a pointer resting on the composer
+  underneath. The override is gone; the console takes `ConsoleToaster`'s own
+  documented top-right anchor, and the 4s success duration is now pinned.
+  
+  **Built-in aggregate captions follow the locale everywhere (objectui#7534).**
+  objectui#7258 taught `buildChartSeries()` to resolve a server-minted default
+  measure through the locale map, so a chart legend read `计数` while the table
+  beneath it, the KPI caption, the pivot header and the dataset preview still
+  printed the server's hard-coded English `Count`. `buildDatasetFieldHelpers()`
+  takes the same optional `builtinAggregateLabels`, resolving through the one
+  `resolveMeasureLabel` order, and the five call sites pass it. Omitting the
+  argument reproduces the previous output byte for byte, and an author-declared
+  measure still keeps its own label verbatim (objectui#4106).
+  
+  **The activity feed stops asking for an object the environment does not have
+  (objectui#7476).** A tenant environment has no `sys_activity`, so every page
+  load issued a request that 404'd. Everything downstream was already correct —
+  the adapter memoizes the missing collection, its logger demotes the failure, the
+  feed retires as an ANSWER and the panel renders its earned empty state — so what
+  is left is the request itself, and `data-objectstack` states the rule for it:
+  the cure for a doomed request is not issuing it. New `useObjectPresence` reads
+  the object registry the shell loads for the nav anyway; only a registry that has
+  ANSWERED and lists other objects without this one skips the read. Every
+  uncertainty — no provider, empty registry, still loading, errored — reads as
+  before, because a wrong skip would cost a real deployment its feed.
+- 0ea7054: Remove 37 runtime dependencies that no file in the declaring package consumes, and gate
+  the direction so the next one cannot land (objectui#8198).
+  
+  `check:phantom-deps` judges imports that are not declared; nothing judged the reverse,
+  so a declaration could outlive its last consumer indefinitely. That is what happened to
+  `recharts` in `@object-ui/components` after objectui#7397 deleted its only importer — it
+  was removed by hand on objectui#7625, and nothing would have reported the next one. The
+  new `pnpm check:unused-deps` asks the reverse question over `dependencies` and
+  `optionalDependencies` of every released package.
+  
+  **Potentially breaking, for consumers relying on hoisting.** Nothing these packages ship
+  changes: their Vite `external` predicates are path-based and never read `dependencies`,
+  so no built artifact moves. What changes is the install graph — a project that imports
+  one of the removed packages while depending only on the ObjectUI package that used to
+  drag it in will no longer resolve it. Declare it directly; that is the correct
+  dependency edge in either case. The removals, by package:
+  
+  - `@object-ui/plugin-designer`: `@dnd-kit/core`, `@dnd-kit/sortable`, `@dnd-kit/utilities`, `@object-ui/fields`
+  - `@object-ui/plugin-chatbot`: `react-markdown`, `react-syntax-highlighter`, `remark-gfm` (and the orphaned `@types/react-syntax-highlighter`)
+  - `@object-ui/plugin-report`: `@object-ui/plugin-grid`, `clsx`, `react-i18next`, `tailwind-merge`
+  - `@object-ui/plugin-map`: `@objectstack/spec`, `lucide-react`, `zod`
+  - `@object-ui/runner`: `class-variance-authority`, `clsx`, `tailwind-merge`
+  - `@object-ui/core`: `lodash`, `zod`
+  - `@object-ui/layout`: `clsx`, `tailwind-merge`, and `react-dom` — which it pinned at an exact version in `dependencies` while also declaring it as a peer range, i.e. a library hard-depending on the renderer it asks its host to supply
+  - `@object-ui/plugin-dashboard`: `clsx`, `tailwind-merge`, and the same `react-dom` defect
+  - `@object-ui/plugin-ai`: `@object-ui/react`, `clsx`, `tailwind-merge`
+  - `@object-ui/fields`: `clsx`, `tailwind-merge`
+  - `@object-ui/console`: `@object-ui/react-runtime`, `sucrase`
+  - `@object-ui/auth`: `@object-ui/types`
+  - `@object-ui/plugin-calendar`: `@object-ui/fields`
+  - `@object-ui/plugin-editor`, `@object-ui/plugin-markdown`: `@object-ui/react`
+  - `@object-ui/react`: `react-hook-form`
+  
+  Every one was verified by a whole-package grep before removal — the name appeared nowhere
+  under the package but its own manifest and CHANGELOG — and the whole workspace builds,
+  type-checks and tests green afterwards.
+- 80da129: A dataset-bound report whose `chart.title` is an inline locale map now draws its heading
+  instead of drawing none (objectui#9150).
+  
+  `@objectstack/spec` types `ReportChartSchema.title` as `I18nLabel` — a plain string OR an
+  inline locale map — so `{ "chart": { "type": "bar", "title": { "en": "Pricing", "zh-CN": "定价" } } }`
+  is authored surface the contract accepts. `DatasetReportChart` paints the report chart's
+  heading itself, as its own `h3`, and read the value back through
+  `typeof chart.title === 'string'`. The map arm failed that test, the local `title` became
+  `undefined`, and the `{title ? … : null}` guard skipped the element entirely: the report
+  drew **no heading at all**, in every language, with no diagnostic.
+  
+  Note the shape, because it is the same one objectui#9038 described and not the sibling
+  objectui#8943: the value was not resolved badly, it was not resolved at all. There was no
+  heading to compare against a locale, so no locale-comparison check could see it, and an
+  author who wrote spec-legal metadata saw a chart that looked as though it had simply been
+  given no title.
+  
+  The read site now resolves through `pickLocalized`, this repo's one resolver for the
+  union — the form already used a few lines above in the same file for an authored
+  `series[].label`, against the same `useObjectTranslation().language`. Both branches that
+  paint the heading (the series chart and the single-value metric) read one binding, so one
+  change covers both, and both are pinned.
+  
+  Why this is `minor` and not `patch`. Every publishable package here sits in one `fixed`
+  group, so `major` is unavailable by policy and this repo ships behaviour-visible changes
+  as `minor`. This one is behaviour-visible on a **published** package: stored documents
+  that render nothing today start rendering an `h3`, and an author who worked around the
+  absence by authoring a separate heading of their own will now see two. That is a change
+  to what the renderer paints for metadata it already accepted, not an internal repair. The
+  direct sibling objectui#9038 — same union, same defect shape, same round — shipped
+  `minor` for exactly this, and one release should not classify the two differently.
+  
+  What did **not** change:
+  
+  - A plain-string `title` renders byte-identically, in every language. It is the lit
+    control in the new pins, and if it had moved the repair would have overshot.
+  - The chart component is still handed **no** `title`. This renderer drops it from the
+    lowered chrome on purpose, so the chart cannot draw a second heading inside its own
+    frame; that pin is kept and extended to the map arm.
+  - The resolution policy is not re-decided here. `pickLocalized`'s documented chain (exact
+    tag, base language, region-qualified sibling, `default`, `en`, first entry) is what a
+    map with no limb for the active language falls back along, so it draws another limb
+    rather than vanishing — `default` outranks `en`, pinned, so the fallback is demonstrably
+    the resolver's chain and not an ad-hoc "else English". Only a map carrying no usable
+    string at all resolves to a miss, and that still draws no heading rather than an empty
+    one.
+  
+  The neighbouring read sites objectui#9038 ledgered by name are unchanged, and that ledger
+  is updated to record this one as resolved. The remaining entry — a series `label` and an
+  axis `title` still taking `labelText`'s first-string-wins pick (objectui#4020) — stays
+  open on purpose.
+- a9d97be: Close the numeric-falsy `SchemaNode` slot class: a slot may no longer guard itself
+  (objectui#9162, triage ruling 2026-09-12).
+  
+  **What leaked.** `{schema.footer && <CardFooter>…</CardFooter>}` does not evaluate to
+  `false` when the slot is falsy — it evaluates to the **slot**, and React renders
+  numbers. A node slot's published zod face carries a `z.number()` arm
+  (`nodeUnionOptions`, `packages/types/src/zod/base.zod.ts`), so `footer: 0` is **legal
+  authored input**, and it painted a stray `0` into the DOM. `NaN` painted three
+  characters. The `&&` also short-circuits, so `renderChildren`'s own
+  `if (!children) return null` first leg was never reached — which is why the
+  objectui#8908 bridge repair could not cover any of these sites.
+  
+  **Why a class fix and not N instance fixes.** This class was patched one instance at a
+  time three times — objectui#8331 (`DataTableSchema.emptyAction`), objectui#9033
+  (`header-bar`'s `rightContent`), and then objectui#9162's census found eleven more,
+  because objectui#9033's grep was keyed on the spelling of the **right** operand while
+  the trap depends only on the **left** one. Nineteen guards across eight files are
+  repaired here, and the construct that permits them is now refused mechanically.
+  
+  **The one spelling, and the gate.** `renderChildren(slot)` is the guard for a bare
+  slot; the new `renderNodeSlot(slot, render)` is the guard for a slot wrapped in chrome
+  that must disappear with it. Both route through one exported predicate,
+  `isEmptyNodeSlot`. The new lint rule `object-ui/no-bare-node-slot-guard` refuses the
+  `&&` spelling, deriving its slot set per file from the file's own text — an expression
+  is a node slot there if that file hands it to `renderChildren`, `renderNodeSlot`,
+  `toRenderableSchema` or `<SchemaRenderer schema={…}>`. A twelfth slot is rendered
+  through one of those, so it is covered the moment it is written, with no list to keep
+  up to date.
+  
+  **Why `minor`.** Two reasons, and neither is a contract break.
+  
+  1. `@object-ui/components` gains public API: `renderNodeSlot` and `isEmptyNodeSlot` are
+     new exports. A new export is a `minor` on its own.
+  2. Published renderers change what they emit for two authored inputs. A node slot
+     authored `0` / `-0` / `NaN` stops painting that character — that is the defect, and
+     no author asked for it. A node slot authored `[]` no longer renders its empty chrome
+     (an empty `CardHeader` / `CardContent` / `CardFooter` / `DialogFooter` /
+     `SheetFooter` / `DrawerFooter` / `TableFooter`, or `plugin-detail`'s wrapping
+     `div`); the chrome now appears and disappears with its content. Measured across
+     `examples/`, `content/` and `apps/`: **zero** authored node slots carry a numeric
+     value, and the single authored `"children": []` is on `div`, which never had the
+     `&&` guard and is unaffected.
+  
+  ⛔ Deliberately **not** marked `**BREAKING**`: no authored input stops being accepted,
+  no export is removed, no key stops being read, and objectui#7105 is respected — the
+  declarations are untouched and node slots still relax the renderer. An author who
+  genuinely wants the character `0` writes `"0"` or a `text` node, both unchanged.
+- a78cd37: Dates and numbers across the console and the plugins format in the session's
+  display locale instead of the machine's (objectui#9909).
+  
+  Every one of these faces handed `Intl` — directly, or through a formatter called
+  without one — either no locale tag or an explicit `undefined`, which is not "the
+  user's locale": it is the locale of the machine the browser runs on, which is
+  neither of this repository's two locale channels.
+  A German or Spanish session therefore read, beside a translated label, a date or
+  an amount grouped and decimal-marked the machine's way — and an amount with
+  inverted separators does not read as unformatted, it reads as a different
+  number. They now go through `useDisplayLocale()` (tenant regional default, then
+  the active UI language, then `'en'`), and a plain helper takes that tag from its
+  caller. The surfaces:
+  
+  - **`@object-ui/fields`** — `GridField`'s numeric and currency cells (list mode
+    and computed columns) and both total cells. The same cell helper's date branch
+    already used the display locale, so a single grid row read two conventions at
+    once.
+  - **`@object-ui/plugin-charts`** — ISO-date x-axis ticks, compact y-axis ticks,
+    the single-value face, spec `format` strings and the tooltip value.
+  - **`@object-ui/app-shell`** — the organization invitations, members and
+    accept-invitation dates; marketplace version dates; the AI conversation row's
+    older-than-a-week date and its tooltip; the build-debug token count; the
+    record approvals timeline; and the metadata-admin audit, history, external
+    datasource snapshot, schema-browser row estimate, flow-run start and job
+    next-fire faces. The audit, history and flow-run panels format these in the
+    DISPLAY locale, not in the `locale` prop they take for their UI strings
+    (`AuditPanel` defaults that prop to `'en-US'`; `HistoryPanel` and
+    `FlowRunsPanel` leave it optional).
+  - **`@object-ui/console`** — the approvals inbox's timestamp tooltips, amounts
+    and payload summary; the audit log's timestamp column; the flow runs table and
+    its run detail.
+  - **`@object-ui/components`** — the export dialog's record counts and the debug
+    panel's event times.
+  - **`@object-ui/plugin-form`** — the analytics submission count, the
+    master-detail subtotal / tax / total stack and the edit-conflict dialog's
+    "their save" time.
+  - **`@object-ui/plugin-chatbot`** — the approvals inbox's past-30-days date and
+    the times stamped on local-mode chat messages (the user's and the
+    auto-response).
+  - **`@object-ui/plugin-dashboard`** — the record-count badge, and the currency
+    and date-format branches of `renderFieldValue`, which was handed the display
+    locale and spent it only on its percent branch.
+  - **`@object-ui/plugin-grid`** — the record-detail panel's inferred currency
+    value and the mobile card's amount line, siblings of date cells already on the
+    display locale.
+  - **`@object-ui/plugin-designer`** — `VersionHistory`'s version times.
+  
+  A host that mounts one of the components that newly read the display locale with
+  NO `I18nProvider` now gets react-i18next's once-per-module `NO_I18NEXT_INSTANCE`
+  notice in the console on the first such mount; the faces still render, in the
+  channel's `'en'` last resort, and mounting an `I18nProvider` (as the console
+  does) avoids the notice.
+  
+  **Additive API** (nothing that compiled before stops compiling):
+  
+  - `@object-ui/types`: `ValidationContext` gains an optional `locale`. At this
+    change, the `@object-ui/core` validation engine prints the `date_min` /
+    `date_max` bound in it; omitted, `Intl` follows the runtime default, as
+    `formatDisplayNumber` already declares for a caller with no locale in hand.
+  
+    ⚠️ **Dated note, 2026-09-25 — that engine (`ValidationEngine`) is removed from
+    `@object-ui/core` by a later change; `ValidationContext.locale` stays declared in
+    `@object-ui/types`, and at that change nothing in `@object-ui/core` reads it —
+    objectui#7659.**
+  
+    ⚠️ **Dated note, 2026-09-27 — `ValidationContext` itself is removed from
+    `@object-ui/types` by a later change, with the rest of the Phase 3.5
+    validation types it belonged to, so the `locale` member this entry adds no
+    longer exists — objectui#10719.**
+  - `@object-ui/plugin-report`: `exportReport`, `exportAsHTML` and `exportAsPDF`
+    take a trailing optional `locale` for the exported file's "Generated:" time,
+    and `LiveExportOptions` gains an optional `locale` that `exportWithLiveData`
+    forwards. Omitted, the time uses the display channel's own last resort
+    (`'en'`), never the machine's locale. `ReportViewer` passes the session's
+    display locale. The locale is deliberately NOT a `ReportExportConfig` member:
+    that type is authored report metadata, and a display locale belongs to the
+    session.
+  
+  **One census, repository-wide.** `plugin-detail`'s machine-locale census pin
+  (objectui#9786) is now a single test, `machineLocaleCensus-9909.test.ts` in
+  `@object-ui/i18n`, covering every workspace package whose manifest depends on
+  `@object-ui/i18n`. It refuses any call site that passes nothing, `undefined`,
+  the `'default'` pseudo-tag (a subtag no locale data answers, so `Intl` resolves
+  it to the machine's locale) or a hard-coded tag, unless the site is declared
+  with its reason — for example the `catch` fallback for a tag `Intl` itself
+  rejected, or an ISO formatter feeding `<input type="date">`. Each declared site
+  is counted exactly, so deleting one without its entry is refused too. The
+  per-package pin it replaces is deleted. The runtime tripwire that observes the
+  argument each locale-taking call (`Intl` constructors, `Date` and `Number`
+  `toLocale*`) actually receives moved into the private `@object-ui/test-support`
+  package, and every surface above is pinned with it: the same data under two
+  declared locales must render differently, NO locale-taking call may receive the
+  machine's locale (nothing, `undefined` or `'default'`), and the surface's own
+  calls must receive the declared tag. A call carrying another declared tag, such
+  as the `'en'` of the session's UI language, is tolerated by design: only the
+  machine's locale is the defect.
+
+### Patch Changes
+
+- 8cedb0d: The two declared display-locale contracts now each name the caller they govern,
+  and each points at the other (objectui#10098). This is documentation only: no
+  module's behaviour moves.
+  
+  - `DisplayNumberFormatOptions.locale` (`@object-ui/core`): leaving the tag
+    `undefined` means the runtime default, and that rule is written for a non-React
+    display caller with no tag in hand. For that caller the viewer's own environment
+    is the honest locale for a user-facing display. A malformed tag lands in the
+    same place through `formatDisplayNumber`'s retry.
+  - `useDisplayLocale` (`@object-ui/i18n`): its concrete `'en'` last resort, kept for
+    determinism, is the rule for a React renderer whose provider chain yields no tag
+    at all, not a rule for every caller without a tag.
+  - `formatNumberInDisplayLocale` (`@object-ui/plugin-report`): the note on its
+    malformed-tag retry no longer calls the dropped-tag retry behind
+    `formatDisplayNumber` a wrong answer. Each retry follows its own package's
+    declared contract.
+  
+  Read alone, either docblock used to look like a rule for every caller, and each
+  contradicted the other. The new wording reaches each package's published type
+  declarations, which is why this is declared as a patch rather than left
+  undeclared.
+- 256b4c9: A filter refused as malformed (`INVALID_FILTER`) no longer throws out of render or out of a click
+  handler at the sites that merge filters there. That holds whether this layer's filter converter
+  refused it or, at the drill seam, the spec's own `parseFilterAST`. Each site now surfaces the
+  refusal the way its siblings already do (objectui#10789). The filter stays **refused**: nothing
+  that was refused is accepted, and no site falls back to "no filter".
+  
+  - **`ElementDataSourceGate` / `useElementDataSource`** (`@object-ui/react`): the gate's merge of
+    the component's `filter` with the composed binding, and the merge of a saved view's filter
+    with the binding's own, lowered through the throwing converter inside render. A refused
+    filter from either now makes the binding `missing` with a new optional `filterRefusal` on the
+    result (`error` carries its message). The gate then draws, in place of the block, the
+    malformed-filter notice the wrapped blocks draw: `view.malformedFilter`, naming the refused
+    operator or field. `element:record_picker`, which reads the same hook, shows its
+    configuration-error panel with the refusal.
+  - **`PeoplePicker` / `RecordPickerDialog`** (`@object-ui/fields`): the recents merge and the
+    dialog's `mergedFilter` lower through `toFilterNodeSafely`; a refusal is shown in the picker's
+    existing error state and no query runs without the filter.
+  - **Drill-downs** (`ObjectChart`, `ObjectPivotTable`, `DatasetWidget`, `DatasetReportRenderer`):
+    a widget or report filter refused at the drill seam made the drill click throw. The converter
+    refuses some (a spec `$not`, say). The spec's `parseFilterAST` refuses others, such as a scalar
+    on a list operator in either dialect: `[['stage', 'in', 'won']]` or `{ stage: { $in: 'won' } }`.
+    The drill is now not opened or emitted (never with the scope dropped), and the refusal is logged
+    with `console.warn`, naming the operator. `composeDrillFilter` (`@object-ui/core`) now throws
+    one refusal type: the spec's `INVALID_FILTER` error is re-raised as a `FilterOperatorError` with
+    its message and the same `INVALID_FILTER` / 400 envelope, and any other error passes through
+    unchanged.
+  - **`ListView` export** (`@object-ui/plugin-list`): the server export builds its filter inside
+    its `try`, so a refusal is named in the export menu instead of escaping the click.
+  - **`convertFiltersToAST`** (`@object-ui/core`): an `$or` member that is the TRUE identity no
+    longer stops the members after it from being read. `{ $or: [{}, { a: {} }] }` is now refused
+    like `{ $or: [{ a: {} }, {}] }` already was, instead of answering TRUE (every row); a TRUE
+    disjunct beside members that lower still absorbs its `$or`.
+- ed76b1b: fix(plugin-report,plugin-form): a dataset report and an authored-parent `record:line_items` panel re-read on the data-invalidation bus
+  
+  The one fetch every dataset report presentation runs through (the tabular and
+  summary table, the matrix, the embedded chart, each joined block) now names the
+  `useDataInvalidation` nonce for the dataset's base object, the object the
+  query's answer names. So a write declared on the bus (`notifyDataChanged`, as a
+  page action over raw HTTP does) re-reads a `report` / `spec-report` block in
+  place: the rows on screen stay drawn until the answer replaces them, where
+  before the block dropped back to "Running report…". The `spec-report` a
+  drill-down drawer opens for `drillDown.report` re-reads the same way. A report
+  whose answer names no object does not subscribe. A re-read that fails shows the
+  error in place of the rows and keeps listening, so the next such write re-reads
+  the report; a first load that fails, or a new selection, listens to nothing
+  until an answer names its object.
+  
+  The child-row read of `record:line_items` now names the nonce for its child
+  object, so a panel with an authored `parentId` / `recordId` (one a stored page
+  holds with no record context) re-reads its lines after such a write. A re-read
+  of the lines on screen keeps the grid drawn, taking no input until the answer
+  lands. While the panel holds unsaved edits the re-read is held, and the save's
+  reload carries it, as for any other re-read of this panel.
+  
+  Before, both refreshed after such a write only when their host remounted them,
+  and `PageView` is about to stop doing that (objectui#10519).
+  
+  ⚠️ **Dated note, 2026-10-02 — `spec-report` is retired — objectui#11440.**
+  Later in this same release `@object-ui/plugin-report` stopped registering `spec-report`, an alias of
+  `report`, and the drill-down drawer renders `drillDown.report` as `{ type: 'report', report }`. So
+  "a `report` / `spec-report` block" above now reads a `report` block, and "The `spec-report` a
+  drill-down drawer opens" reads the `report` node it opens; both re-read the same way.
+  `.changeset/11440-retire-spec-report.md` states what ships. The rest of this entry is kept as the
+  reading of this change.
+- a60539b: fix(plugin-dashboard,components,plugin-report): three more read sites show the day a stored date-only value names, in every zone (objectui#10844)
+  
+  Each read below parsed a date-only `YYYY-MM-DD` string with the engine's own `Date`
+  parse, which reads it as UTC midnight. West of UTC that is the evening before, so
+  each face showed the previous day. Each now reads the value through `toDisplayDate`
+  (`@object-ui/core`), which rebuilds a date-only string at local midnight of the day it
+  names. For a real day, a viewer in UTC or east of it sees no change.
+  
+  - **Dashboard date filter, custom range.** The range calendar highlighted the day
+    before each stored bound and could open on the previous month: clicking 15 Sep stored
+    `2026-09-15` and then highlighted the 14th. It now highlights and opens on the stored
+    days. A bound naming a day its month does not have (`2026-02-30`) no longer rolls
+    into March: it selects no day, and a `from` like that opens the calendar on today, as
+    an unparseable `from` already did.
+  - **`date-picker` renderer, an ISO string `value`.** An authored or bound
+    `value: '2024-01-15'` was labelled "January 14th, 2024" and selected the 14th. It now
+    labels and selects the 15th. Only a date-only string naming a real day is read this
+    way: a `Date`, a date-time string and any other string reach date-fns exactly as
+    before. So an unparseable string still makes the trigger's `format` throw, as it did
+    before, and a date-only string naming a nonexistent day is still rolled forward
+    rather than refused, because refusing it would make `format` throw where it rendered
+    before.
+  - **Report cell date face (`formatValue`).** The `yyyy-MM-dd` face `ReportViewer` gives
+    an untyped ISO-looking value and an aggregated column read `2026-09-14` for a stored
+    `2026-09-15`. It now reads `2026-09-15`. A value naming a nonexistent day now renders
+    as the raw stored string, this face's existing answer for an unparseable value,
+    instead of a rolled-forward day.
+  
+  A date-time value (one with a time part) still renders in the viewer's zone at every
+  site.
+- 49f7672: A `matrix` report that declares `columns` now draws its declared `chart` below the cross-tab
+  (objectui#10964). `ReportSchema` has always accepted a matrix report carrying both `columns` and
+  a `chart`, but the renderer's cross-tab branch returned before the chart was read, so the chart
+  parsed and was never drawn. It binds the way the summary report's chart does: `chart.xAxis` names
+  a dataset dimension (a `rows` or a `columns` dimension of the matrix) and `chart.yAxis` a dataset
+  measure, plotted from the chart's own dataset query. Summary, tabular and matrix-without-`columns`
+  reports keep the chart above their table, as before.
+  
+  The notice an out-of-spec chart type shows no longer says the table is "below" it, since on a
+  matrix report the table sits above the notice.
+- 39f4309: Published typings from every `vite-plugin-dts` package now carry an explicit extension on
+  every relative specifier, and a type error in the declaration build now fails the build
+  instead of being printed and ignored (objectui#5439, objectui#5483).
+  
+  **Consumers on `moduleResolution: nodenext` or `node16` may see NEW type errors, and that
+  is the fix working.** These packages re-export mostly through NAMED re-exports —
+  `export { useObjectChat } from './useObjectChat'`. TypeScript could not follow the
+  extensionless hop, but it still DECLARED the name, so the symbol resolved to a silent
+  `any`. Nothing errored; consumers simply got no types. With the extension emitted, the
+  symbol carries its real type, and any call site that was relying on the `any` now type
+  checks for the first time. This is the mode that produced the 21 residual `TS7006` on
+  `@object-ui/app-shell` reported against objectui#5365 — a type hole that opened quietly,
+  unlike objectui#5365's own `export * from './ui'` packages where the same defect surfaced
+  immediately as `TS2305: has no exported member`.
+  
+  410 extensionless relative specifiers across 19 packages were emitted before this change;
+  the count is now 0 in all 22 packages that build typings through `vite-plugin-dts`.
+  `@object-ui/fields` was already clean — its sources write explicit `.js` specifiers — and
+  is wired so it stays that way.
+  
+  The second half changes no emitted output today: 22/22 packages built green unmodified, so
+  making the declaration step's exit code honest turns nothing red. It changes what a FUTURE
+  regression does — print and exit 0, versus fail the build.
+- 854222c: `@object-ui/plugin-report` now registers its three components under namespace
+  **`plugin-report`**, the spelling its consumers already declare (objectui#6416).
+  
+  It used to register `report`, `spec-report` and `report-viewer` under namespace
+  `report`, while `apps/console` declared the lazy stubs for the same three short
+  names under `plugin-report` and the CLI's known-type whitelist shipped the
+  `plugin-report:*` spellings as renderable. Two things followed from the
+  disagreement:
+  
+  - **`plugin-report:report`, `plugin-report:report-viewer` and
+    `plugin-report:spec-report` could never be satisfied.** `Registry.register`
+    clears the lazy stub for the type IT registers, and that type was
+    `report:report`, so those three stubs were never cleared and no component was
+    ever stored under them: `get('report', 'plugin-report')` returned `undefined`
+    and `hasLazy('report', 'plugin-report')` stayed `true` forever. A schema
+    authored with any of the three whitelisted keys resolved to nothing — the
+    gate handed authors a green light for a key the runtime could not satisfy.
+  - **The bare `report` key was claimed twice under two different namespaces.**
+    `Registry.register` and `Registry.registerLazy` share the
+    `meta?.namespace && !meta?.skipFallback` branch, so what bare `report`
+    *declared* depended on whether the plugin chunk had loaded yet — the
+    objectui#6353 shape.
+  
+  **No authored metadata changes.** The direction was chosen by measurement:
+  nothing in this repository, and nothing in the sibling `objectstack` checkout,
+  authors a `report:*` spelling (0 hits), while the bare spellings are authored in
+  48 places. `type: 'report'`, `type: 'spec-report'` and `type: 'report-viewer'`
+  resolve exactly as before; the three unreachable `report:*` keys are retired and
+  the three `plugin-report:*` keys now name real components for the first time.
+  
+  `packages/cli/src/utils/known-schema-types.ts` is regenerated from the
+  registrations, dropping `report:report`, `report:report-viewer` and
+  `report:spec-report`.
+  
+  Two pins are the half that outlives the fix:
+  `packages/plugin-report/src/__tests__/report-bare-key-ownership.test.ts` replays
+  this package's real declared metadata and a console-shaped lazy stub into a
+  fresh `Registry` in **both** registration orders, checking the bare key's
+  declared namespace after every step, so order- and phase-independence are
+  properties under test rather than properties of the file the test imports.
+  `scripts/__tests__/report-namespace-agreement-6416.test.ts` re-derives both
+  sites from source and fails if the plugin, the console stubs and the generated
+  whitelist ever disagree again.
+  
+  ⚠️ **Dated note, 2026-10-02 — `spec-report` is retired — objectui#11440.**
+  Later in this same release `@object-ui/plugin-report` stopped registering `spec-report`, and with it
+  `plugin-report:spec-report`; the console dropped its lazy stub, and `known-schema-types.ts` no longer
+  lists either key. So the package registers two components under `plugin-report`, not three, and
+  "`type: 'spec-report'` … resolve exactly as before" and "the three `plugin-report:*` keys now name
+  real components" above no longer hold for `spec-report`: a node of that type resolves to nothing.
+  `report` and `report-viewer` resolve as this entry says. `.changeset/11440-retire-spec-report.md`
+  states what ships. The rest of this entry is kept as the reading of this change.
+- 47547d0: Localize the server's built-in aggregate measure titles on dataset charts
+  (objectui#7258 — consumer half of the objectstack#14492 contract; maintainer
+  ruling B, 2026-09-02).
+  
+  A dataset-bound chart's aggregate axis / legend title read the analytics
+  service's hard-coded English `Count` on a zh console whose category labels were
+  already Chinese. The renderer was passing `fields[].label` through verbatim —
+  correctly, for an author-declared measure (objectui#4106) — and had no way to
+  tell the server's built-in default apart from an author's label.
+  
+  The wire now can: `AnalyticsResult.fields[]` gains an OPTIONAL structural
+  discriminator, `builtinAggregate?: 'count' | 'sum' | 'avg' | 'min' | 'max' |
+  'count_distinct'`, populated only on the server-side built-in defaults
+  (objectstack#14492). This change is the consumer side of that contract:
+  
+  - `@object-ui/core`: `buildChartSeries` now accepts `ChartMeasureField[]` —
+    `ChartResultField` plus the optional `builtinAggregate` carrier
+    (`BuiltinAggregateCarrier`), declared beside the renderer shape rather than
+    on it because the spec this release is built against does not carry the key
+    yet; new `BUILTIN_AGGREGATES` / `BuiltinAggregate` / `isBuiltinAggregate` /
+    `resolveMeasureLabel`; `ChartSeriesOptions.builtinAggregateLabels` carries
+    the locale strings in (core stays React-free and i18n-free — the same
+    division as `nullCategoryLabel`). A field carrying a recognised
+    discriminator resolves through that map; every other field keeps its wire
+    `label` verbatim — never by matching the label's text or the field's name
+    (the rejected option A).
+  - `@object-ui/i18n`: `builtinAggregateLabels(tt)` resolves the six strings
+    through the existing `report.aggregate.*` keys (zh already carried 计数 /
+    求和 / 平均 / …; all ten packs are pinned to cover the vocabulary).
+  - `plugin-charts` (`ObjectChart`), `plugin-dashboard` (`DatasetWidget`),
+    `plugin-report` (`DatasetReportRenderer`): pass the resolved map to
+    `buildChartSeries`.
+  
+  Before: 合作中 / 已流失 / 潜在 under an axis titled `Count`. After: the same
+  chart titled `计数`; an `en` session still reads `Count`; an author-labelled
+  measure (`Tasks`) and a measure literally named `count` without the
+  discriminator are byte-for-byte unchanged. Until the upstream field is
+  populated the wire carries no discriminator and every chart renders exactly as
+  before.
+- c6198c2: **Breaking for authored metadata:** `ComponentInput.label`, `ComponentInput.defaultValue` and
+  `ComponentInput.advanced` are RETIRED on both faces (objectui#7493 item ① and objectui#7781;
+  maintainer ruling A of 2026-09-06, immediate, no deprecation window; ADR-0049 enforce-or-remove).
+  They are the three keys the manifest serializer does not forward, and nothing read them on any
+  publication or consumption path.
+  
+  No manifest ever published them, so no consumer could ever have read them. `sdui-parser`'s
+  serializer (`packages/sdui-parser/src/index.ts`) forwards exactly seven keys per input — `name`,
+  `type`, `of`, `required`, `enum`, `binding`, `description` — so a value authored under any of the three
+  never reached `sdui.manifest.json`, the generated JSX `.d.ts`, or a diagnostic; its boundary type
+  has no slot for them; the registry's data-source seam reads `name` only; and neither the designer
+  nor the app-shell inspectors consult registry `inputs` at all. A structural census over every
+  `inputs:` array in the repository (re-measured on this change's merge-base, `name` 951 and `type`
+  951 as the controls) counted the writes: `label` 908, `defaultValue` 245, `advanced` 9 — written on
+  nearly every registration, read by nothing.
+  
+  FROM → TO, per key — all three **TOMBSTONED, not removed**, because the route was measured on
+  the built face before it was chosen: `ComponentInputSchema` is a non-strict `z.object`, and an
+  undeclared key parses GREEN and is silently STRIPPED, so a deletion would have swallowed 1,162
+  authored values in silence. The tombstone is what makes the refusal loud and by name.
+  
+  - `label?: string` → `label?: never` on the interface, `retirementTombstone()` on the Zod mirror.
+    Migration: delete the key. An input is identified by its `name` on every path that reaches it;
+    nothing ever rendered a label for it.
+  - `defaultValue?: any` → `defaultValue?: never` / `retirementTombstone()`. Migration: delete the
+    key. The renderer's own fallback read IS the default; tell the author about it in `description`,
+    which IS published. (Tightening the type to `unknown` was ruled out: it closes no error class,
+    since nothing reads the value.)
+  - `advanced?: boolean` → `advanced?: never` / `retirementTombstone()`. Migration: delete the key.
+    No designer surface ever hid an "advanced" input; there is nothing to write instead.
+  
+  The retirement kit: `?: never` on `ComponentInput` (`packages/types/src/base.ts`), so authoring one
+  is a `tsc` error at the registration site; `retirementTombstone()` on `ComponentInputSchema`
+  (`packages/types/src/zod/base.zod.ts`), so an authored value is REFUSED at parse time with
+  `code: 'invalid_type'`, the key named in the issue `path`, and the migration note as the message
+  (one string, both channels). Pinned in
+  `packages/types/src/__tests__/component-input-retired-keys-7493.test.ts`, which also holds a
+  tree-scoped absence census over every `inputs:` array under `packages/**` and `apps/**`.
+  
+  Accept-set change, stated plainly for reviewers: a document that sets any of the three keys on a
+  `ComponentInput` used to parse GREEN (the value was then dropped by the serializer) and now parses
+  RED. Every in-repo authoring site — 1,199 keys across 110 registration files, the three standalone
+  `ComponentInput[]` arrays and the two named input arrays `tsc` found included — is deleted in the same change, as the ruling's split rule
+  requires; the `WidgetRegistry` seam no longer copies the widget-manifest values onto the synthesized
+  `ComponentInput` (they fed nothing), and the data-source declaration `ELEMENT_DATA_SOURCE_INPUT`
+  drops its `label`. The patch entries on the other packages record exactly that: their registrations
+  stop authoring inert keys, with no runtime or published-manifest change.
+  
+  The nine test files that read `defaultValue` off a registration were re-pinned against the
+  renderer's ACTUAL default (its own fallback read, or the `defaultProps` it ships) instead of the
+  declaration that went away; two assertions that only restated the shadow default were dropped with
+  the reason on the line.
+  
+  The in-repo zero is what was measured. Whether anything OUTSIDE this repository writes these keys
+  is not measurable from here (the objectui#5674 limit); converting such a write from a silent drop
+  into a named refusal is exactly what the tombstones buy. `WidgetInput`'s own `label` /
+  `defaultValue` / `advanced` (the widget-manifest face) stay declared and writable — nothing has
+  ruled on that face; that it now has no reader either is recorded as objectui#7911.
+- fb336df: Move `lucide-react` from `^1.31.0` to `^1.43.0` in every package that declares it, and
+  repair what the jump breaks, so icons resolved from a STRING keep drawing a glyph.
+  
+  Measured once against the installed 1.43.0 artifact when this change was made; nothing in
+  the repository re-derives these readings. Across the jump lucide removes no runtime export,
+  no public type name and no `lucide-react/dynamic.mjs` name, and every name this repository
+  imports from `lucide-react` resolves. Exactly one key leaves the runtime `icons` record:
+  `Trash2`, retired in favour of `trash`.
+  
+  What a user sees change:
+  
+  - Icons the lazy icon seam draws (`resolveIcon`, objectui#9251) get their path data again.
+    lucide 1.43.0 icon modules export their path data inside `__iconData` and no longer
+    export `__iconNode`; the seam now reads both. Reading only `__iconNode` against 1.43.0
+    leaves every such glyph an empty box, with nothing thrown or logged.
+  - `DetailView`'s delete action and three schema-catalog examples spell their icon
+    `trash`, not `trash-2`, so they keep resolving. The glyph is unchanged: 1.43.0's `trash`
+    path data is byte-identical to the `trash-2` path data of 1.31.0 and 1.35.0. Anything
+    that already authored `trash` now draws that same artwork, because lucide moved it under
+    the `trash` name; a few other glyphs were also redrawn upstream.
+  - Icons imported as COMPONENTS carry lucide 1.43.0's own classes: one class per declared
+    alias (a spinner renders `class="lucide lucide-loader-circle lucide-loader-2 ..."`), and
+    no longer the class lucide used to derive from the PascalCase key where that differs
+    (`ArrowDown01` no longer carries `lucide-arrow-down01`). The canonical
+    `lucide-<icon name>` class is still there, so a `.lucide-loader-circle` selector still
+    matches.
+  - Icons resolved from a STRING through the seam keep the classes they had: `lucide`, the
+    canonical `lucide-<icon name>` class and the key-derived class. They do not carry
+    lucide's per-alias classes. That is a maintainer ruling (objectui#8941, option C): the
+    alias list lives only inside each lazily loaded icon module, and it was not moved into
+    the eager name list. A selector that targets an alias class matches a component-imported
+    icon and not a string-resolved one. This also dates the example in the objectui#9251
+    entry: `trash-2` no longer resolves as a string, so no seam-drawn glyph carries
+    `lucide-trash2 lucide-trash-2`; a digit-bearing name that still resolves, such as
+    `arrow-down-0-1`, carries `lucide-arrow-down01 lucide-arrow-down-0-1`.
+- Updated dependencies [7b10bef]
+- Updated dependencies [97abedc]
+- Updated dependencies [b46c58f]
+- Updated dependencies [a507334]
+- Updated dependencies [ad694ac]
+- Updated dependencies [6f96fca]
+- Updated dependencies [afb2284]
+- Updated dependencies [3ac2de8]
+- Updated dependencies [0aacecc]
+- Updated dependencies [63f4f92]
+- Updated dependencies [777fca2]
+- Updated dependencies [c131d9e]
+- Updated dependencies [5f00ff4]
+- Updated dependencies [c9e073a]
+- Updated dependencies [0361d6b]
+- Updated dependencies [7b395d8]
+- Updated dependencies [0879812]
+- Updated dependencies [8cedb0d]
+- Updated dependencies [162621b]
+- Updated dependencies [4c6f549]
+- Updated dependencies [80c5412]
+- Updated dependencies [6cc910b]
+- Updated dependencies [061f5e8]
+- Updated dependencies [2dd4d3f]
+- Updated dependencies [e686f4d]
+- Updated dependencies [212c451]
+- Updated dependencies [a04b06d]
+- Updated dependencies [4ab4f1b]
+- Updated dependencies [b57107d]
+- Updated dependencies [e3ea4f9]
+- Updated dependencies [65f1e8d]
+- Updated dependencies [1f8ef0a]
+- Updated dependencies [bb5d4ee]
+- Updated dependencies [dc666f7]
+- Updated dependencies [3335767]
+- Updated dependencies [8b1f066]
+- Updated dependencies [af243c1]
+- Updated dependencies [cff4b77]
+- Updated dependencies [31938f0]
+- Updated dependencies [961ceaa]
+- Updated dependencies [f3f4e4c]
+- Updated dependencies [a05c350]
+- Updated dependencies [1dbb993]
+- Updated dependencies [2b5f509]
+- Updated dependencies [808f339]
+- Updated dependencies [6cf5999]
+- Updated dependencies [274e14a]
+- Updated dependencies [8c10f4f]
+- Updated dependencies [90dac98]
+- Updated dependencies [6096f20]
+- Updated dependencies [544aca2]
+- Updated dependencies [ea02938]
+- Updated dependencies [a14fb23]
+- Updated dependencies [ae98f1d]
+- Updated dependencies [f98eddf]
+- Updated dependencies [ce6bd99]
+- Updated dependencies [a5b08c9]
+- Updated dependencies [86982ac]
+- Updated dependencies [8c929e6]
+- Updated dependencies [cdefa2a]
+- Updated dependencies [2fc2a24]
+- Updated dependencies [0961d5e]
+- Updated dependencies [9d25b9b]
+- Updated dependencies [6276478]
+- Updated dependencies [5e67837]
+- Updated dependencies [ff14e29]
+- Updated dependencies [9b28151]
+- Updated dependencies [64563a9]
+- Updated dependencies [1a5003f]
+- Updated dependencies [09ab32b]
+- Updated dependencies [8acc51b]
+- Updated dependencies [ea9d17f]
+- Updated dependencies [45362a3]
+- Updated dependencies [2a943bf]
+- Updated dependencies [111fa4c]
+- Updated dependencies [93a689d]
+- Updated dependencies [4357a27]
+- Updated dependencies [e5f4343]
+- Updated dependencies [3261e64]
+- Updated dependencies [f5178a2]
+- Updated dependencies [2ad3671]
+- Updated dependencies [39bf246]
+- Updated dependencies [8740e86]
+- Updated dependencies [d22b37b]
+- Updated dependencies [8c0e550]
+- Updated dependencies [fde4caf]
+- Updated dependencies [caf0ed0]
+- Updated dependencies [1daf477]
+- Updated dependencies [3d614ea]
+- Updated dependencies [a7df45f]
+- Updated dependencies [6c2f3c5]
+- Updated dependencies [fb13e85]
+- Updated dependencies [c2d8659]
+- Updated dependencies [6516320]
+- Updated dependencies [98b1a7c]
+- Updated dependencies [e0f8202]
+- Updated dependencies [ac2d6f1]
+- Updated dependencies [9fbbb17]
+- Updated dependencies [c3a26cc]
+- Updated dependencies [a66e58e]
+- Updated dependencies [d89492c]
+- Updated dependencies [9a5f998]
+- Updated dependencies [1c5ee33]
+- Updated dependencies [9327397]
+- Updated dependencies [17cc3a3]
+- Updated dependencies [a9c5ea0]
+- Updated dependencies [02e6d36]
+- Updated dependencies [4758b33]
+- Updated dependencies [4758b33]
+- Updated dependencies [4758b33]
+- Updated dependencies [f905090]
+- Updated dependencies [3cd6c5e]
+- Updated dependencies [5bb855d]
+- Updated dependencies [9c78ebe]
+- Updated dependencies [12809a5]
+- Updated dependencies [9c78ebe]
+- Updated dependencies [12809a5]
+- Updated dependencies [7afc81d]
+- Updated dependencies [f9c06ef]
+- Updated dependencies [5ad3b88]
+- Updated dependencies [f9d772b]
+- Updated dependencies [bf14b64]
+- Updated dependencies [4345558]
+- Updated dependencies [97b6c21]
+- Updated dependencies [26ca2ad]
+- Updated dependencies [41ae65b]
+- Updated dependencies [baac95a]
+- Updated dependencies [13220af]
+- Updated dependencies [29b45f6]
+- Updated dependencies [39b8d51]
+- Updated dependencies [17b323e]
+- Updated dependencies [b956e69]
+- Updated dependencies [b32e7de]
+- Updated dependencies [ff94a12]
+- Updated dependencies [33e58d8]
+- Updated dependencies [256b4c9]
+- Updated dependencies [97672ba]
+- Updated dependencies [c5ec15c]
+- Updated dependencies [fec3b1a]
+- Updated dependencies [b8e0941]
+- Updated dependencies [0c50f18]
+- Updated dependencies [1dae95a]
+- Updated dependencies [e32dae1]
+- Updated dependencies [d0c0c7f]
+- Updated dependencies [30b11ad]
+- Updated dependencies [4aebea0]
+- Updated dependencies [f976774]
+- Updated dependencies [3d6badf]
+- Updated dependencies [25cb364]
+- Updated dependencies [a60539b]
+- Updated dependencies [de1b879]
+- Updated dependencies [c6678b1]
+- Updated dependencies [0638322]
+- Updated dependencies [e3782d2]
+- Updated dependencies [db0beb2]
+- Updated dependencies [997ce38]
+- Updated dependencies [ae0b9d3]
+- Updated dependencies [ad1785c]
+- Updated dependencies [3b469c8]
+- Updated dependencies [990a2d6]
+- Updated dependencies [990a2d6]
+- Updated dependencies [1c84036]
+- Updated dependencies [1c84036]
+- Updated dependencies [6650259]
+- Updated dependencies [4f8b7f8]
+- Updated dependencies [9e6619f]
+- Updated dependencies [f6ae5e2]
+- Updated dependencies [eb97ce6]
+- Updated dependencies [7343376]
+- Updated dependencies [b2683a2]
+- Updated dependencies [dded788]
+- Updated dependencies [b45d463]
+- Updated dependencies [54a7830]
+- Updated dependencies [f3135a4]
+- Updated dependencies [b5696d3]
+- Updated dependencies [3f9d926]
+- Updated dependencies [e978ed5]
+- Updated dependencies [6a7f24e]
+- Updated dependencies [b3c96d6]
+- Updated dependencies [8d0ca91]
+- Updated dependencies [c30c8dd]
+- Updated dependencies [244d516]
+- Updated dependencies [deca847]
+- Updated dependencies [ac15833]
+- Updated dependencies [ac15833]
+- Updated dependencies [e2dffc9]
+- Updated dependencies [328abeb]
+- Updated dependencies [dd0d78f]
+- Updated dependencies [24d3e65]
+- Updated dependencies [95a7c8d]
+- Updated dependencies [e227156]
+- Updated dependencies [cc4e476]
+- Updated dependencies [92970c4]
+- Updated dependencies [d570eaa]
+- Updated dependencies [4b742f4]
+- Updated dependencies [42687ba]
+- Updated dependencies [6cd8f66]
+- Updated dependencies [24a0f14]
+- Updated dependencies [797a30f]
+- Updated dependencies [b4075c0]
+- Updated dependencies [9b85600]
+- Updated dependencies [e327c89]
+- Updated dependencies [2eaf5be]
+- Updated dependencies [bf7ab35]
+- Updated dependencies [99878d8]
+- Updated dependencies [3c13675]
+- Updated dependencies [63ab761]
+- Updated dependencies [0eb9f36]
+- Updated dependencies [ae582b7]
+- Updated dependencies [51c2949]
+- Updated dependencies [a4b017e]
+- Updated dependencies [8732846]
+- Updated dependencies [559a2e2]
+- Updated dependencies [db11afd]
+- Updated dependencies [154075a]
+- Updated dependencies [582edef]
+- Updated dependencies [19f484f]
+- Updated dependencies [0a78a20]
+- Updated dependencies [615346d]
+- Updated dependencies [75dcc81]
+- Updated dependencies [55a12a8]
+- Updated dependencies [edfcf5a]
+- Updated dependencies [0a3e540]
+- Updated dependencies [c021b35]
+- Updated dependencies [f61dab1]
+- Updated dependencies [b0a05dd]
+- Updated dependencies [dd5ff19]
+- Updated dependencies [54997ff]
+- Updated dependencies [81f8498]
+- Updated dependencies [a782fa7]
+- Updated dependencies [1d6a23d]
+- Updated dependencies [0645133]
+- Updated dependencies [76e9df0]
+- Updated dependencies [0ecaa7d]
+- Updated dependencies [b24f93a]
+- Updated dependencies [6158e4c]
+- Updated dependencies [cff8641]
+- Updated dependencies [c27b575]
+- Updated dependencies [84b275c]
+- Updated dependencies [0e6e76b]
+- Updated dependencies [bf43afa]
+- Updated dependencies [385ebc5]
+- Updated dependencies [3a0e7ab]
+- Updated dependencies [858eafb]
+- Updated dependencies [a8c5509]
+- Updated dependencies [c2a8d23]
+- Updated dependencies [0ffc423]
+- Updated dependencies [3cc4fe5]
+- Updated dependencies [cd5b19a]
+- Updated dependencies [cd5b19a]
+- Updated dependencies [17dc167]
+- Updated dependencies [20d23be]
+- Updated dependencies [20d23be]
+- Updated dependencies [2e3da72]
+- Updated dependencies [1263e40]
+- Updated dependencies [e6bc087]
+- Updated dependencies [9419df1]
+- Updated dependencies [8bab157]
+- Updated dependencies [a7557a7]
+- Updated dependencies [7d074ba]
+- Updated dependencies [6158e4c]
+- Updated dependencies [6158e4c]
+- Updated dependencies [52aad5c]
+- Updated dependencies [18d1a0a]
+- Updated dependencies [7fed09d]
+- Updated dependencies [c1763e5]
+- Updated dependencies [58da8ae]
+- Updated dependencies [a8b9889]
+- Updated dependencies [138ad45]
+- Updated dependencies [138ad45]
+- Updated dependencies [5262f7d]
+- Updated dependencies [6aa029b]
+- Updated dependencies [2124d04]
+- Updated dependencies [be52115]
+- Updated dependencies [770cc5b]
+- Updated dependencies [1a88ce2]
+- Updated dependencies [a1a44d6]
+- Updated dependencies [e0a9c67]
+- Updated dependencies [5638529]
+- Updated dependencies [5638529]
+- Updated dependencies [d0fba91]
+- Updated dependencies [c476be0]
+- Updated dependencies [c82ff39]
+- Updated dependencies [6c3da53]
+- Updated dependencies [31987bd]
+- Updated dependencies [3c3ce15]
+- Updated dependencies [063119f]
+- Updated dependencies [e100589]
+- Updated dependencies [304f611]
+- Updated dependencies [e46ee77]
+- Updated dependencies [f9c8c4e]
+- Updated dependencies [6e9c8d2]
+- Updated dependencies [9547063]
+- Updated dependencies [3f6efd6]
+- Updated dependencies [52c95a1]
+- Updated dependencies [55d18c6]
+- Updated dependencies [c4ab6d0]
+- Updated dependencies [0e9058b]
+- Updated dependencies [c4ab6d0]
+- Updated dependencies [5988b6b]
+- Updated dependencies [6158e4c]
+- Updated dependencies [00ccdf7]
+- Updated dependencies [9d9ed54]
+- Updated dependencies [6007dd4]
+- Updated dependencies [4a1adb7]
+- Updated dependencies [4a1adb7]
+- Updated dependencies [4a1adb7]
+- Updated dependencies [185b7a0]
+- Updated dependencies [50c73fe]
+- Updated dependencies [ca3de72]
+- Updated dependencies [83e3f83]
+- Updated dependencies [401611b]
+- Updated dependencies [2c0ddf2]
+- Updated dependencies [4abc0aa]
+- Updated dependencies [f560ded]
+- Updated dependencies [2b188fa]
+- Updated dependencies [b654d4e]
+- Updated dependencies [f68e0a0]
+- Updated dependencies [aea682a]
+- Updated dependencies [fcdc8ec]
+- Updated dependencies [2d576e4]
+- Updated dependencies [8366acc]
+- Updated dependencies [95e58a3]
+- Updated dependencies [9d7419b]
+- Updated dependencies [fc7db05]
+- Updated dependencies [9ed8d0f]
+- Updated dependencies [c73cdb5]
+- Updated dependencies [6f5719e]
+- Updated dependencies [d0097af]
+- Updated dependencies [432882b]
+- Updated dependencies [64dae8e]
+- Updated dependencies [b06e374]
+- Updated dependencies [06a8af5]
+- Updated dependencies [6a91586]
+- Updated dependencies [a04d7c6]
+- Updated dependencies [5ccc500]
+- Updated dependencies [f3c2bb0]
+- Updated dependencies [978507b]
+- Updated dependencies [778138e]
+- Updated dependencies [9801765]
+- Updated dependencies [9cebfca]
+- Updated dependencies [460575f]
+- Updated dependencies [d796c8d]
+- Updated dependencies [594704f]
+- Updated dependencies [d3995fe]
+- Updated dependencies [1b1d772]
+- Updated dependencies [d88e20f]
+- Updated dependencies [2d7304d]
+- Updated dependencies [636b236]
+- Updated dependencies [4172589]
+- Updated dependencies [d6d8fb9]
+- Updated dependencies [64d624d]
+- Updated dependencies [053fdc8]
+- Updated dependencies [41b7ce3]
+- Updated dependencies [ae476b8]
+- Updated dependencies [39f4309]
+- Updated dependencies [95bad12]
+- Updated dependencies [d2fb6ef]
+- Updated dependencies [7cd3987]
+- Updated dependencies [ee3b878]
+- Updated dependencies [e304a4e]
+- Updated dependencies [fda49e5]
+- Updated dependencies [490d9a9]
+- Updated dependencies [fc62bb4]
+- Updated dependencies [41df893]
+- Updated dependencies [0cba1b7]
+- Updated dependencies [00f3eb5]
+- Updated dependencies [1ec291c]
+- Updated dependencies [453dbaa]
+- Updated dependencies [95f8704]
+- Updated dependencies [f8cdbf2]
+- Updated dependencies [69a2163]
+- Updated dependencies [24e027e]
+- Updated dependencies [2c3cd1b]
+- Updated dependencies [e176053]
+- Updated dependencies [e30ed15]
+- Updated dependencies [90665e0]
+- Updated dependencies [8d3a529]
+- Updated dependencies [5ac2e2c]
+- Updated dependencies [194fae1]
+- Updated dependencies [7e19d03]
+- Updated dependencies [b08b7eb]
+- Updated dependencies [1e946c9]
+- Updated dependencies [546ddf7]
+- Updated dependencies [864154e]
+- Updated dependencies [b023625]
+- Updated dependencies [75bd83d]
+- Updated dependencies [44d075b]
+- Updated dependencies [40c479a]
+- Updated dependencies [971d387]
+- Updated dependencies [ee851c3]
+- Updated dependencies [6414dfd]
+- Updated dependencies [a8d5c71]
+- Updated dependencies [905b21f]
+- Updated dependencies [88e9109]
+- Updated dependencies [2c45966]
+- Updated dependencies [db3a600]
+- Updated dependencies [3a3db76]
+- Updated dependencies [0d723a3]
+- Updated dependencies [0c95d3d]
+- Updated dependencies [3e4fa2c]
+- Updated dependencies [b5b928a]
+- Updated dependencies [6fd2cf7]
+- Updated dependencies [5fa06c4]
+- Updated dependencies [52a43de]
+- Updated dependencies [195052f]
+- Updated dependencies [e4559d1]
+- Updated dependencies [2c71482]
+- Updated dependencies [129bcc5]
+- Updated dependencies [a26b9e4]
+- Updated dependencies [5ef9c4f]
+- Updated dependencies [46f0bb4]
+- Updated dependencies [06b82b8]
+- Updated dependencies [8ec11e1]
+- Updated dependencies [6f81384]
+- Updated dependencies [22ba927]
+- Updated dependencies [8631c32]
+- Updated dependencies [f8c70f4]
+- Updated dependencies [5d3a2d1]
+- Updated dependencies [8f1d995]
+- Updated dependencies [b362c1b]
+- Updated dependencies [f9c34df]
+- Updated dependencies [dddb942]
+- Updated dependencies [00c665e]
+- Updated dependencies [29754cf]
+- Updated dependencies [d7de534]
+- Updated dependencies [3c2b6f7]
+- Updated dependencies [6e88630]
+- Updated dependencies [b84dc18]
+- Updated dependencies [ac8abb0]
+- Updated dependencies [9d86e1d]
+- Updated dependencies [3a5817f]
+- Updated dependencies [99a3c2d]
+- Updated dependencies [5961030]
+- Updated dependencies [f24de8b]
+- Updated dependencies [c8ea8af]
+- Updated dependencies [9602dc8]
+- Updated dependencies [3190414]
+- Updated dependencies [4e480f5]
+- Updated dependencies [38a123c]
+- Updated dependencies [299102e]
+- Updated dependencies [30c73cd]
+- Updated dependencies [830ed58]
+- Updated dependencies [d7acad6]
+- Updated dependencies [45a9aeb]
+- Updated dependencies [713db46]
+- Updated dependencies [c71e14d]
+- Updated dependencies [bf3a03c]
+- Updated dependencies [cb55718]
+- Updated dependencies [748494b]
+- Updated dependencies [5967be0]
+- Updated dependencies [831be72]
+- Updated dependencies [29cb85b]
+- Updated dependencies [3e028c8]
+- Updated dependencies [d0889e2]
+- Updated dependencies [ce503e5]
+- Updated dependencies [f20dcf0]
+- Updated dependencies [12402a9]
+- Updated dependencies [aff3d7a]
+- Updated dependencies [4ca30d0]
+- Updated dependencies [7a5da14]
+- Updated dependencies [fff9645]
+- Updated dependencies [9c3b7ce]
+- Updated dependencies [2c1c967]
+- Updated dependencies [9486ac6]
+- Updated dependencies [9486ac6]
+- Updated dependencies [4d5f9b4]
+- Updated dependencies [d6ceb8d]
+- Updated dependencies [dc4365c]
+- Updated dependencies [e321d52]
+- Updated dependencies [969ba84]
+- Updated dependencies [98188c2]
+- Updated dependencies [4c68077]
+- Updated dependencies [7977ff9]
+- Updated dependencies [3beef6d]
+- Updated dependencies [06b8c42]
+- Updated dependencies [46b9bc9]
+- Updated dependencies [f46bd39]
+- Updated dependencies [b98352a]
+- Updated dependencies [b76ca67]
+- Updated dependencies [b97790a]
+- Updated dependencies [dbd5194]
+- Updated dependencies [7c9b044]
+- Updated dependencies [e552c31]
+- Updated dependencies [d47de51]
+- Updated dependencies [3fe6463]
+- Updated dependencies [b392674]
+- Updated dependencies [4f3a1e2]
+- Updated dependencies [31ab372]
+- Updated dependencies [846889b]
+- Updated dependencies [2acd8e1]
+- Updated dependencies [7b90231]
+- Updated dependencies [26896c6]
+- Updated dependencies [67fc3b0]
+- Updated dependencies [8579e34]
+- Updated dependencies [d57db5d]
+- Updated dependencies [33a3b3c]
+- Updated dependencies [b87f15b]
+- Updated dependencies [045d20b]
+- Updated dependencies [a2d2515]
+- Updated dependencies [c18d099]
+- Updated dependencies [0caacca]
+- Updated dependencies [adb2a86]
+- Updated dependencies [03380aa]
+- Updated dependencies [4562ea5]
+- Updated dependencies [3619792]
+- Updated dependencies [3561bd2]
+- Updated dependencies [bf97b98]
+- Updated dependencies [320374d]
+- Updated dependencies [b0d308d]
+- Updated dependencies [b458300]
+- Updated dependencies [40f34b4]
+- Updated dependencies [bd0376d]
+- Updated dependencies [8063bcb]
+- Updated dependencies [b74a859]
+- Updated dependencies [d4493fd]
+- Updated dependencies [240b80f]
+- Updated dependencies [77cb489]
+- Updated dependencies [bfaa158]
+- Updated dependencies [777e5c6]
+- Updated dependencies [0c386dd]
+- Updated dependencies [39d69ad]
+- Updated dependencies [9e37d9b]
+- Updated dependencies [5ad86dd]
+- Updated dependencies [16a725f]
+- Updated dependencies [4dfdcc3]
+- Updated dependencies [6a449fc]
+- Updated dependencies [446d93d]
+- Updated dependencies [ecd9cb2]
+- Updated dependencies [f08bcd9]
+- Updated dependencies [98d4108]
+- Updated dependencies [0e3b3be]
+- Updated dependencies [a29ae2d]
+- Updated dependencies [220c18d]
+- Updated dependencies [00d3f09]
+- Updated dependencies [4388f71]
+- Updated dependencies [0b1ac58]
+- Updated dependencies [c93b4d5]
+- Updated dependencies [c1fe272]
+- Updated dependencies [3cab570]
+- Updated dependencies [8ad218d]
+- Updated dependencies [3e41187]
+- Updated dependencies [5f78953]
+- Updated dependencies [639114c]
+- Updated dependencies [639114c]
+- Updated dependencies [1490691]
+- Updated dependencies [e8e4c4d]
+- Updated dependencies [1f31d3a]
+- Updated dependencies [d1842ab]
+- Updated dependencies [78ca238]
+- Updated dependencies [d8ec8d6]
+- Updated dependencies [351eb31]
+- Updated dependencies [866cd1d]
+- Updated dependencies [20c04b2]
+- Updated dependencies [01c9023]
+- Updated dependencies [48c19bd]
+- Updated dependencies [a6d8b8d]
+- Updated dependencies [4b5bb95]
+- Updated dependencies [b652514]
+- Updated dependencies [adbda1b]
+- Updated dependencies [adbda1b]
+- Updated dependencies [8952395]
+- Updated dependencies [e2b3826]
+- Updated dependencies [0348bc9]
+- Updated dependencies [e8c553b]
+- Updated dependencies [2e32ed4]
+- Updated dependencies [554e647]
+- Updated dependencies [3ed3eec]
+- Updated dependencies [7c3df8f]
+- Updated dependencies [a4514e8]
+- Updated dependencies [db3896c]
+- Updated dependencies [b9f5ff1]
+- Updated dependencies [e75f4c9]
+- Updated dependencies [19f1639]
+- Updated dependencies [4704aa4]
+- Updated dependencies [47547d0]
+- Updated dependencies [1bee5d0]
+- Updated dependencies [858cd72]
+- Updated dependencies [cfc9b6d]
+- Updated dependencies [554f2b6]
+- Updated dependencies [72f55c9]
+- Updated dependencies [26e06d7]
+- Updated dependencies [669d71b]
+- Updated dependencies [ed27d7c]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [2ceb43a]
+- Updated dependencies [7cdd2b9]
+- Updated dependencies [52c8cf7]
+- Updated dependencies [3399704]
+- Updated dependencies [71a4a53]
+- Updated dependencies [7bf244b]
+- Updated dependencies [f0bb9fa]
+- Updated dependencies [81a2eb1]
+- Updated dependencies [caa0cd3]
+- Updated dependencies [caa0cd3]
+- Updated dependencies [20cb8db]
+- Updated dependencies [25c7d58]
+- Updated dependencies [00d2fa6]
+- Updated dependencies [77b2a18]
+- Updated dependencies [c6198c2]
+- Updated dependencies [721d1e0]
+- Updated dependencies [c2f0f48]
+- Updated dependencies [1237ae4]
+- Updated dependencies [2f61238]
+- Updated dependencies [51eb515]
+- Updated dependencies [c354ce5]
+- Updated dependencies [8fe8e5c]
+- Updated dependencies [feac439]
+- Updated dependencies [9ae871d]
+- Updated dependencies [efbd566]
+- Updated dependencies [2a5bf45]
+- Updated dependencies [9587fc9]
+- Updated dependencies [e62c44e]
+- Updated dependencies [daf9d57]
+- Updated dependencies [23b9958]
+- Updated dependencies [c15d7ec]
+- Updated dependencies [5d0876c]
+- Updated dependencies [f7ace0a]
+- Updated dependencies [b041b9c]
+- Updated dependencies [ce2aaef]
+- Updated dependencies [544ecba]
+- Updated dependencies [2ce2612]
+- Updated dependencies [bc640ec]
+- Updated dependencies [1e215c4]
+- Updated dependencies [da6e191]
+- Updated dependencies [3e377c9]
+- Updated dependencies [a3eb5d0]
+- Updated dependencies [4ce14f1]
+- Updated dependencies [aef97e5]
+- Updated dependencies [2af1fa7]
+- Updated dependencies [c14d3a0]
+- Updated dependencies [a137d0c]
+- Updated dependencies [caf477f]
+- Updated dependencies [f6375da]
+- Updated dependencies [967e5d8]
+- Updated dependencies [c907a9c]
+- Updated dependencies [a4611b3]
+- Updated dependencies [20316ba]
+- Updated dependencies [d3499b3]
+- Updated dependencies [91f9276]
+- Updated dependencies [309c75e]
+- Updated dependencies [c9f9bae]
+- Updated dependencies [18897a4]
+- Updated dependencies [8b7ea39]
+- Updated dependencies [a915064]
+- Updated dependencies [dcbf0b2]
+- Updated dependencies [52cac38]
+- Updated dependencies [93fea2e]
+- Updated dependencies [1422a92]
+- Updated dependencies [d05fe17]
+- Updated dependencies [a480f79]
+- Updated dependencies [f08d1a8]
+- Updated dependencies [64a252d]
+- Updated dependencies [786bc91]
+- Updated dependencies [75fca96]
+- Updated dependencies [7ca6ddd]
+- Updated dependencies [f1cd290]
+- Updated dependencies [5a41ce7]
+- Updated dependencies [8d50bc2]
+- Updated dependencies [604476d]
+- Updated dependencies [d1bebb0]
+- Updated dependencies [95bf128]
+- Updated dependencies [335abea]
+- Updated dependencies [edea22a]
+- Updated dependencies [0f5cadf]
+- Updated dependencies [4f9f1ee]
+- Updated dependencies [66e8b2a]
+- Updated dependencies [aa083cd]
+- Updated dependencies [12b5992]
+- Updated dependencies [b93e245]
+- Updated dependencies [c842594]
+- Updated dependencies [290de37]
+- Updated dependencies [e1c27e4]
+- Updated dependencies [8c8da45]
+- Updated dependencies [8cd8eb5]
+- Updated dependencies [f52a9d7]
+- Updated dependencies [cf1d29e]
+- Updated dependencies [1bd79c8]
+- Updated dependencies [af9e957]
+- Updated dependencies [b1030c7]
+- Updated dependencies [c974edf]
+- Updated dependencies [ad852b6]
+- Updated dependencies [6778809]
+- Updated dependencies [3a3dd28]
+- Updated dependencies [7fb22a1]
+- Updated dependencies [ad66d79]
+- Updated dependencies [0758bd8]
+- Updated dependencies [ee4d19f]
+- Updated dependencies [496d31d]
+- Updated dependencies [7ed9808]
+- Updated dependencies [0ea7054]
+- Updated dependencies [ac0e39a]
+- Updated dependencies [9a853f2]
+- Updated dependencies [cb847fd]
+- Updated dependencies [ee70287]
+- Updated dependencies [3e98e13]
+- Updated dependencies [a695f50]
+- Updated dependencies [fc32921]
+- Updated dependencies [4eaa835]
+- Updated dependencies [8f9d87a]
+- Updated dependencies [b1777ae]
+- Updated dependencies [24845c4]
+- Updated dependencies [6f864cf]
+- Updated dependencies [24d1edd]
+- Updated dependencies [645087c]
+- Updated dependencies [33f4a19]
+- Updated dependencies [6e9a3d4]
+- Updated dependencies [4a292d2]
+- Updated dependencies [5323168]
+- Updated dependencies [841dd2b]
+- Updated dependencies [3014fc0]
+- Updated dependencies [dacb402]
+- Updated dependencies [846cec0]
+- Updated dependencies [91facae]
+- Updated dependencies [b38014e]
+- Updated dependencies [474797d]
+- Updated dependencies [704e695]
+- Updated dependencies [a407bd6]
+- Updated dependencies [317dbce]
+- Updated dependencies [309728c]
+- Updated dependencies [c03d03b]
+- Updated dependencies [aa08d7e]
+- Updated dependencies [3a43a15]
+- Updated dependencies [868e825]
+- Updated dependencies [f76f436]
+- Updated dependencies [ce45a03]
+- Updated dependencies [421544b]
+- Updated dependencies [fb01022]
+- Updated dependencies [e9d9212]
+- Updated dependencies [ecfb693]
+- Updated dependencies [639ca9d]
+- Updated dependencies [2152962]
+- Updated dependencies [abc1b18]
+- Updated dependencies [81a51db]
+- Updated dependencies [67749c7]
+- Updated dependencies [507b61b]
+- Updated dependencies [512c84b]
+- Updated dependencies [c300267]
+- Updated dependencies [fb3a101]
+- Updated dependencies [d4733f2]
+- Updated dependencies [7c9145f]
+- Updated dependencies [1570eac]
+- Updated dependencies [f391ede]
+- Updated dependencies [f5cfbbd]
+- Updated dependencies [f5cfbbd]
+- Updated dependencies [8b532cb]
+- Updated dependencies [64c3cdd]
+- Updated dependencies [4d65991]
+- Updated dependencies [c42554e]
+- Updated dependencies [3e71b26]
+- Updated dependencies [b89583b]
+- Updated dependencies [70c4523]
+- Updated dependencies [555b4ec]
+- Updated dependencies [64f1cf1]
+- Updated dependencies [da5e4f6]
+- Updated dependencies [1ccfc23]
+- Updated dependencies [542718f]
+- Updated dependencies [7f27bc5]
+- Updated dependencies [0a174f3]
+- Updated dependencies [676f677]
+- Updated dependencies [f95b140]
+- Updated dependencies [541ce4e]
+- Updated dependencies [6479086]
+- Updated dependencies [d79f525]
+- Updated dependencies [d1865d2]
+- Updated dependencies [88a629d]
+- Updated dependencies [cdd2542]
+- Updated dependencies [ab77513]
+- Updated dependencies [55ba3ff]
+- Updated dependencies [3ecc369]
+- Updated dependencies [f1190b0]
+- Updated dependencies [561abef]
+- Updated dependencies [ef52001]
+- Updated dependencies [6a4680b]
+- Updated dependencies [c3a4273]
+- Updated dependencies [abf710d]
+- Updated dependencies [093af32]
+- Updated dependencies [1bd1be7]
+- Updated dependencies [d234fa9]
+- Updated dependencies [adf5812]
+- Updated dependencies [0eaed83]
+- Updated dependencies [e36acd4]
+- Updated dependencies [5058336]
+- Updated dependencies [2f6b2bf]
+- Updated dependencies [2028b31]
+- Updated dependencies [63601ab]
+- Updated dependencies [c372b29]
+- Updated dependencies [152f0a7]
+- Updated dependencies [8693b85]
+- Updated dependencies [e82dad1]
+- Updated dependencies [58b7b3d]
+- Updated dependencies [84defab]
+- Updated dependencies [681d3f1]
+- Updated dependencies [969d4f2]
+- Updated dependencies [f3bc481]
+- Updated dependencies [b79aac2]
+- Updated dependencies [93fc0e7]
+- Updated dependencies [a4b723f]
+- Updated dependencies [2b10ca0]
+- Updated dependencies [7db4a81]
+- Updated dependencies [19a0b0e]
+- Updated dependencies [526fc11]
+- Updated dependencies [f8e3e9a]
+- Updated dependencies [b9d47ec]
+- Updated dependencies [3b6bc69]
+- Updated dependencies [6214db6]
+- Updated dependencies [6732df4]
+- Updated dependencies [fe9e0d0]
+- Updated dependencies [63fb72c]
+- Updated dependencies [804831c]
+- Updated dependencies [279e48e]
+- Updated dependencies [8700d6d]
+- Updated dependencies [8db2a0f]
+- Updated dependencies [689953a]
+- Updated dependencies [30443fb]
+- Updated dependencies [8d3dbb2]
+- Updated dependencies [efc1c9c]
+- Updated dependencies [da45e6b]
+- Updated dependencies [7533465]
+- Updated dependencies [835f0f3]
+- Updated dependencies [6d5db7b]
+- Updated dependencies [a9d97be]
+- Updated dependencies [ed35b44]
+- Updated dependencies [9ba7e9c]
+- Updated dependencies [729e851]
+- Updated dependencies [96919a4]
+- Updated dependencies [345e24a]
+- Updated dependencies [20b507a]
+- Updated dependencies [2e471dc]
+- Updated dependencies [6748587]
+- Updated dependencies [be50942]
+- Updated dependencies [775e079]
+- Updated dependencies [7e8b3c0]
+- Updated dependencies [53374dc]
+- Updated dependencies [f6fb83f]
+- Updated dependencies [2049b03]
+- Updated dependencies [2bf34f7]
+- Updated dependencies [15b33ae]
+- Updated dependencies [7cbc724]
+- Updated dependencies [4a94c38]
+- Updated dependencies [7098eed]
+- Updated dependencies [3df7c5c]
+- Updated dependencies [fb91ac9]
+- Updated dependencies [fb91ac9]
+- Updated dependencies [641fb55]
+- Updated dependencies [8524372]
+- Updated dependencies [7cbefa5]
+- Updated dependencies [72d6587]
+- Updated dependencies [a272a4f]
+- Updated dependencies [55f39ee]
+- Updated dependencies [0ce32d5]
+- Updated dependencies [0970a0e]
+- Updated dependencies [e427e9c]
+- Updated dependencies [bbc9dc3]
+- Updated dependencies [02f1813]
+- Updated dependencies [1ef89c0]
+- Updated dependencies [ba0b61a]
+- Updated dependencies [ba0b61a]
+- Updated dependencies [ac716ff]
+- Updated dependencies [e05553c]
+- Updated dependencies [f0f3cd5]
+- Updated dependencies [ab856ed]
+- Updated dependencies [f0f2046]
+- Updated dependencies [20f3e65]
+- Updated dependencies [bbba098]
+- Updated dependencies [87af769]
+- Updated dependencies [3be720e]
+- Updated dependencies [43c0d17]
+- Updated dependencies [c3df43a]
+- Updated dependencies [d16d0e9]
+- Updated dependencies [bbe57fd]
+- Updated dependencies [272a530]
+- Updated dependencies [1779e8d]
+- Updated dependencies [9aa2a57]
+- Updated dependencies [f7fcc2c]
+- Updated dependencies [f0f4d6c]
+- Updated dependencies [4128188]
+- Updated dependencies [b253c4e]
+- Updated dependencies [78a9c67]
+- Updated dependencies [2e97c8c]
+- Updated dependencies [4a7ef0d]
+- Updated dependencies [4598f6d]
+- Updated dependencies [dea17b4]
+- Updated dependencies [89bb77a]
+- Updated dependencies [06611e4]
+- Updated dependencies [44152c4]
+- Updated dependencies [3939545]
+- Updated dependencies [66abbde]
+- Updated dependencies [dc3893d]
+- Updated dependencies [1bbaa16]
+- Updated dependencies [6ee259a]
+- Updated dependencies [7649f43]
+- Updated dependencies [e708426]
+- Updated dependencies [3b6d53b]
+- Updated dependencies [e22fa12]
+- Updated dependencies [1560d46]
+- Updated dependencies [276d174]
+- Updated dependencies [2982ed9]
+- Updated dependencies [741864f]
+- Updated dependencies [a8198de]
+- Updated dependencies [0c789a4]
+- Updated dependencies [05a49f2]
+- Updated dependencies [b234a84]
+- Updated dependencies [a78cd37]
+- Updated dependencies [5ea623e]
+- Updated dependencies [4d7d322]
+- Updated dependencies [5eabe86]
+- Updated dependencies [ca5d671]
+- Updated dependencies [32bf2d6]
+- Updated dependencies [ff0c384]
+- Updated dependencies [af4fb29]
+- Updated dependencies [c698a81]
+- Updated dependencies [ff5ef1c]
+- Updated dependencies [befd40c]
+- Updated dependencies [9a97800]
+- Updated dependencies [6bca0e4]
+- Updated dependencies [81c0bc4]
+- Updated dependencies [3c76801]
+- Updated dependencies [60500cb]
+- Updated dependencies [2fcefb9]
+- Updated dependencies [77f846a]
+- Updated dependencies [bc5870c]
+- Updated dependencies [b55a346]
+- Updated dependencies [065bba7]
+- Updated dependencies [f760064]
+- Updated dependencies [dd19463]
+- Updated dependencies [6791717]
+- Updated dependencies [8ea3bee]
+- Updated dependencies [100547e]
+- Updated dependencies [3a58149]
+- Updated dependencies [6d1c155]
+- Updated dependencies [d7573b3]
+- Updated dependencies [bf3edfe]
+- Updated dependencies [2c8474c]
+- Updated dependencies [6ce89da]
+- Updated dependencies [0e05aac]
+- Updated dependencies [ae61ad4]
+- Updated dependencies [5aed9e4]
+- Updated dependencies [83c77dc]
+- Updated dependencies [18a8e7d]
+- Updated dependencies [e7957ab]
+- Updated dependencies [f7e34ca]
+- Updated dependencies [e719ebd]
+- Updated dependencies [516583b]
+- Updated dependencies [f9e4f91]
+- Updated dependencies [6ef48b1]
+- Updated dependencies [58be55e]
+- Updated dependencies [fa429cf]
+- Updated dependencies [ed8df3e]
+- Updated dependencies [fe76ece]
+- Updated dependencies [8b446f5]
+- Updated dependencies [8e74b27]
+- Updated dependencies [7102b20]
+- Updated dependencies [8ebd57f]
+- Updated dependencies [968dc1e]
+- Updated dependencies [9a1fb41]
+- Updated dependencies [617707a]
+- Updated dependencies [c40f3b8]
+- Updated dependencies [58770f3]
+- Updated dependencies [aefe428]
+- Updated dependencies [485f096]
+- Updated dependencies [7357447]
+- Updated dependencies [199d31b]
+- Updated dependencies [b655a9d]
+- Updated dependencies [a865c73]
+- Updated dependencies [3e01cb5]
+- Updated dependencies [7138bc1]
+- Updated dependencies [cef27e2]
+- Updated dependencies [4e8622b]
+- Updated dependencies [dffd752]
+- Updated dependencies [06973aa]
+- Updated dependencies [50798f3]
+- Updated dependencies [6a576c9]
+- Updated dependencies [105f3c5]
+- Updated dependencies [3ccd9e8]
+- Updated dependencies [689b979]
+- Updated dependencies [c70f865]
+- Updated dependencies [e546222]
+- Updated dependencies [fd13f52]
+- Updated dependencies [d7bd274]
+- Updated dependencies [98c3a74]
+- Updated dependencies [fffa30d]
+- Updated dependencies [e4e9557]
+- Updated dependencies [7a28e1e]
+- Updated dependencies [ebce5a3]
+- Updated dependencies [fb336df]
+- Updated dependencies [9d9040d]
+- Updated dependencies [20e317c]
+- Updated dependencies [0fce2ef]
+- Updated dependencies [42df928]
+- Updated dependencies [0e2ddd4]
+- Updated dependencies [b7479ab]
+- Updated dependencies [9850c6e]
+- Updated dependencies [de570cc]
+- Updated dependencies [b2ea297]
+- Updated dependencies [5b5a5c3]
+- Updated dependencies [14582b8]
+- Updated dependencies [51e144e]
+- Updated dependencies [19cbf10]
+- Updated dependencies [b6e83be]
+- Updated dependencies [ab92940]
+- Updated dependencies [a691c0b]
+- Updated dependencies [0b1326d]
+- Updated dependencies [1e66879]
+- Updated dependencies [c5200f0]
+- Updated dependencies [af3861f]
+- Updated dependencies [515f171]
+- Updated dependencies [1f4e029]
+- Updated dependencies [4f14ad7]
+- Updated dependencies [258d264]
+- Updated dependencies [cac64b3]
+- Updated dependencies [4bb940b]
+- Updated dependencies [8033ad1]
+- Updated dependencies [fa140b8]
+- Updated dependencies [71cba28]
+- Updated dependencies [190fbd0]
+- Updated dependencies [c00bf28]
+- Updated dependencies [93127bd]
+- Updated dependencies [f2158ec]
+- Updated dependencies [759606e]
+- Updated dependencies [fd8dace]
+- Updated dependencies [72ffc34]
+- Updated dependencies [a51fa0c]
+- Updated dependencies [51f3d8d]
+- Updated dependencies [bf28341]
+- Updated dependencies [78cbdb5]
+- Updated dependencies [b7543a9]
+- Updated dependencies [6c6cee7]
+- Updated dependencies [42887e0]
+- Updated dependencies [f1690d4]
+- Updated dependencies [83fe6e7]
+- Updated dependencies [d1ab06f]
+- Updated dependencies [38a9568]
+- Updated dependencies [f90b8fb]
+- Updated dependencies [91783c4]
+- Updated dependencies [982885d]
+- Updated dependencies [dba7d84]
+- Updated dependencies [ca39427]
+- Updated dependencies [bd09957]
+- Updated dependencies [5a07e67]
+- Updated dependencies [2d36552]
+- Updated dependencies [45d8288]
+- Updated dependencies [b2437a7]
+- Updated dependencies [f157423]
+- Updated dependencies [7a90afd]
+- Updated dependencies [eddc1dd]
+- Updated dependencies [490f482]
+- Updated dependencies [27308c5]
+- Updated dependencies [8689166]
+- Updated dependencies [c9327c9]
+- Updated dependencies [920165d]
+- Updated dependencies [9101be5]
+- Updated dependencies [f53a8d0]
+- Updated dependencies [968dc1e]
+- Updated dependencies [57f9b07]
+- Updated dependencies [3c73d99]
+- Updated dependencies [d91aed9]
+- Updated dependencies [ed71d9e]
+- Updated dependencies [7776fc2]
+- Updated dependencies [e76634c]
+- Updated dependencies [c86185e]
+- Updated dependencies [fb96ecb]
+- Updated dependencies [1170ed1]
+- Updated dependencies [92814db]
+- Updated dependencies [4d73b07]
+  - @object-ui/react@17.7.0
+  - @object-ui/core@17.7.0
+  - @object-ui/types@17.7.0
+  - @object-ui/i18n@17.7.0
+  - @object-ui/components@17.7.0
+  - @object-ui/fields@17.7.0
+
 ## 17.6.0
 
 ### Minor Changes

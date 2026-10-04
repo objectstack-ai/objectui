@@ -1,4 +1,0 @@
----
----
-
-Docs and test-ledger change; no package is released. The seven HTML sectioning tags (`article`, `aside`, `footer`, `header`, `main`, `nav`, `section`) in the console's declared-layout-container ledger (`UNCURATED_LAYOUT_CONTAINERS`) no longer read "NOT YET RULED": they record the ruling on objectui#8775 (letter B). They are html-tier intrinsics that render on `kind:'html'` pages, the curated `page:section` / `page:header` / `page:footer` / `page:sidebar` blocks already carry the landmarks a JSON page needs, and curating one of the seven would add a near-synonym pair. The page-builder skill guide no longer teaches `section` as a JSON layout primitive and points to those four blocks instead, and the semantic-elements docs page no longer teaches the `body` child-list key that objectui#6771 retired. `PUBLIC_BLOCKS`, `sdui.manifest.json`, the generated intrinsics and every published type are unchanged, and every pin over the ledger keeps its assertion.

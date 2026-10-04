@@ -37,6 +37,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const objectViewPath = path.join(here, 'ObjectView.tsx');
@@ -52,6 +53,47 @@ const widgetsSrc = readFileSync(widgetsPath, 'utf8');
  * rowHeight, never the filter.
  */
 const FILTER_PERSIST_CALLS = /persistViewPatch\s*\([^;]*?\{\s*filter\s*(?::\s*([A-Za-z0-9_.]+))?/gs;
+
+/**
+ * The initializer of `const NAME = …` in `ObjectView.tsx` — for a handler, its
+ * `useCallback(…)` call, so the function body and its dependency list — found
+ * by the TypeScript parser. An assertion about what a handler does is bound to
+ * the handler this way, not to a byte distance from its name: a fixed-width
+ * window after the name went red when a docblock and an early return were
+ * added to `handleViewConfigSave` (objectui#11583), with the call still there.
+ */
+function declarationInitializer(src: string, name: string): ts.Expression | undefined {
+    const sf = ts.createSourceFile('ObjectView.tsx', src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TSX);
+    let found: ts.Expression | undefined;
+    const visit = (node: ts.Node) => {
+        if (found) return;
+        if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.name.text === name) {
+            found = node.initializer;
+            return;
+        }
+        ts.forEachChild(node, visit);
+    };
+    visit(sf);
+    return found;
+}
+
+/** The calls to `callee` under `node` whose first argument is the string literal `first`. */
+function callsWithFirstArg(node: ts.Node, callee: string, first: string): ts.CallExpression[] {
+    const out: ts.CallExpression[] = [];
+    const visit = (n: ts.Node) => {
+        if (
+            ts.isCallExpression(n)
+            && ts.isIdentifier(n.expression)
+            && n.expression.text === callee
+            && n.arguments.length > 0
+            && ts.isStringLiteralLike(n.arguments[0])
+            && n.arguments[0].text === first
+        ) out.push(n);
+        ts.forEachChild(n, visit);
+    };
+    visit(node);
+    return out;
+}
 
 describe('objectui#4155 ratchet — the filter panel persists nothing', () => {
     it('the ratchet is reading real source, not an empty string', () => {
@@ -102,8 +144,15 @@ describe('objectui#4155 ratchet — the filter panel persists nothing', () => {
     it('the EXPLICIT save path is untouched — this is the control', () => {
         // "Save view" through the view config panel still writes the whole view
         // body through the metadata seam. #4155 removed the automatic write,
-        // not the deliberate one.
-        expect(objectViewSrc).toMatch(/handleViewConfigSave[\s\S]{0,600}persistRuntimeMetadata\('view'/);
+        // not the deliberate one. Read inside the handler's own declaration
+        // (see `declarationInitializer`), so the assertion cannot be satisfied
+        // by a call in some other function, nor broken by a comment.
+        const handler = declarationInitializer(objectViewSrc, 'handleViewConfigSave');
+        expect(handler, '`const handleViewConfigSave` is gone from ObjectView.tsx').toBeDefined();
+        expect(
+            callsWithFirstArg(handler!, 'persistRuntimeMetadata', 'view'),
+            `handleViewConfigSave no longer persists through the metadata seam:\n${handler!.getText().slice(0, 600)}`,
+        ).not.toHaveLength(0);
     });
 });
 

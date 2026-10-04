@@ -93,8 +93,8 @@
  *
  * Arm A restored four demos and did not close the class: `children` was
  * declared on `BaseSchema`, accepted by every other container renderer,
- * refused by neither zod nor tsc (`BaseSchema` is `.passthrough()` with an
- * index signature), and consumed by the pipeline before it could leak to the
+ * refused by neither zod nor tsc (`BaseSchema` was `.passthrough()` with an
+ * index signature then), and consumed by the pipeline before it could leak to the
  * DOM — so the next author who wrote `children` on a badge drew an empty pill
  * again. Arm B (teaching `badge.tsx` to read `children`) widened a published
  * renderer's read set, which AGENTS.md #0.1 governs, and was left to

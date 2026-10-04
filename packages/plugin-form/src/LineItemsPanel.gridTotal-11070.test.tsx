@@ -10,9 +10,10 @@
  * `record:line_items` shows its grid's footer total whenever `amountField`
  * names the child column to sum (objectui#11070 round 8).
  *
- * The grid's `total_field` is the CHILD column summed. `MasterDetailForm` maps
- * it from the detail's `amountField`; this panel used to map it only when
- * `totalField` (the PARENT field the sum is saved to) was set as well, so a
+ * The grid's `totalField` (`total_field` until objectui#11610) is the CHILD
+ * column summed. `MasterDetailForm` maps it from the detail's `amountField`;
+ * this panel used to map it only when the block's own `totalField` (the
+ * PARENT field the sum is saved to) was set as well, so a
  * panel that named only the column to sum (the objectstack showcase's
  * project page authors exactly that) showed no total. Both adapters now map
  * the same key the same way.

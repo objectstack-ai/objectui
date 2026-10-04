@@ -558,8 +558,9 @@ export interface AppComponentSchema extends BaseSchema, Omit<SpecApp, (typeof AP
    * Both now read `branding.logo` as an image URL, and take an icon NAME from
    * {@link AppComponentSchema.icon}, the key the rest of the shell already reads.
    *
-   * A tombstone rather than a deletion: `BaseSchema`'s index signature and the
-   * mirror's `.passthrough()` would otherwise KEEP an authored value in silence.
+   * A tombstone rather than a deletion: the mirror's `.passthrough()` would
+   * otherwise KEEP an authored value in silence, and so did `BaseSchema`'s
+   * index signature until objectui#8347 (a widened value still would).
    * `?: never` is the twin of `zod/app.zod.ts`'s `aliasKeyRefusal` arm; the pin
    * is `__tests__/app-logo-one-spelling-10827.test.ts`.
    *
@@ -717,8 +718,9 @@ export interface AppComponentSchema extends BaseSchema, Omit<SpecApp, (typeof AP
    * actionDef: { actionName: 'quick_create' } }]`. The signed-in user's menu is
    * the host's, not app metadata.
    *
-   * A tombstone rather than a deletion: `BaseSchema`'s index signature and the
-   * mirror's `.passthrough()` would otherwise KEEP an authored array in silence.
+   * A tombstone rather than a deletion: the mirror's `.passthrough()` would
+   * otherwise KEEP an authored array in silence, and so did `BaseSchema`'s
+   * index signature until objectui#8347 (a widened value still would).
    * `?: never` is the twin of `zod/app.zod.ts`'s `retirementTombstone` arm; the
    * pin is `__tests__/app-actions-retired-7469.test.ts`.
    *

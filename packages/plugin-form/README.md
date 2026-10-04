@@ -197,11 +197,12 @@ unknown-component placeholder.
 | `onSubmit` / `onChange` / `onDirtyChange` / `onCancel` | callbacks | **TypeScript-authored schemas only** — a JSON metadata document cannot carry a function. Metadata pages go through the object-form route instead |
 | `className`, `id`, `hidden`, … | — | inherited from `BaseSchema` |
 
-⚠️ `FormSchema` extends `BaseSchema`, which declares `[key: string]: any`
-(`packages/types/src/base.ts`), so an invented or misspelled key on a form schema
-is **not** a compile error — it is simply never read. That is why every example
-below is annotated with its real type *and* checked against these key tables:
-an un-annotated `const schema = { … }` type-checks whatever is written in it.
+`FormSchema` extends `BaseSchema`, which declares no index signature
+(objectui#8347), so an invented or misspelled key in a form schema literal
+annotated with its type is a compile error. That is why every example below is
+annotated with its real type: an un-annotated `const schema = { … }` type-checks
+whatever is written in it. (`fields` entries are `FormField`s, which still carry
+their own index signature — see below.)
 
 ### Form Field
 
@@ -232,8 +233,8 @@ only **required** one:
 | `colSpan` | `number` | legacy column span (1–4), clamped to the current column count |
 | `field` | `Record<string, any>` | the resolved object-field **metadata object**, stashed by the object-bound paths so widgets can read `precision`, `currency`, `reference`, … In the *spec* form-view vocabulary `field` is a string (the referenced field name); that shape ends at `normalizeSectionField` and never reaches a runtime `FormField` |
 
-`FormField` also declares `[key: string]: any`, so an invented key type-checks
-here too. Two that a reader might expect, and that are **not** declared:
+`FormField` declares its own `[key: string]: any`, so an invented key on a field
+still type-checks. Two that a reader might expect, and that are **not** declared:
 
 | Not a `FormField` key | Write this instead |
 |---|---|
@@ -800,8 +801,8 @@ const wizard: WizardFormSchema = {
 ```
 
 `WizardFormSchema` declares no index signature, so an invented key on *this*
-type is a real compile error — unlike `ObjectFormSchema`, which inherits
-`BaseSchema`'s `[key: string]: any`.
+type is a real compile error — and since objectui#8347 removed `BaseSchema`'s
+`[key: string]: any`, the same holds for `ObjectFormSchema`.
 
 One more route exists and is worth knowing about rather than reinventing: a flat
 `object-form` can be turned into a stepper on small viewports with
@@ -1057,9 +1058,10 @@ nothing:
 | `dataSource` | **Discarded.** The basic form strips it in both directions — `dataSource: _dataSource` at `form.tsx:304` (`stripRendererOnlyProps`) and `:2168` — so it never reaches a widget and never reaches the DOM. The adapter the fields receive is the context one |
 | `resource` | **Never read.** It is not declared on `FormSchema` or `ObjectFormSchema` at all. It used to exist elsewhere in the protocol — on `CRUDSchema`, where `CRUDBuilder` set it — but objectui#5373 retired both under ADR-0049, so today the key names nothing anywhere in this package's surface, and no form renderer reads it under any spelling |
 
-Both survive compilation for the reason [Schema API](#schema-api) gives: `FormSchema`
-and `ObjectFormSchema` extend `BaseSchema`, which declares `[key: string]: any`, so an
-invented key is not a type error — it is simply never read. That is also why the
+Both survived compilation while `FormSchema` and `ObjectFormSchema` extended a
+`BaseSchema` that declared `[key: string]: any`: an invented key was not a type
+error, it was simply never read. objectui#8347 removed that signature, so both are
+compile errors in an annotated literal now. That is also why the
 older version of this section looked like it worked: its `onSubmit` genuinely ran
 and genuinely saved, but through the adapter its closure captured. The `dataSource`
 and `resource` keys sitting beside it in the same object were inert. Delete them and

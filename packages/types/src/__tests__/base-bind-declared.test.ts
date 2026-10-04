@@ -59,21 +59,25 @@
  * ## The ceiling, stated rather than assumed (objectui#5155 / objectui#6269)
  *
  * Same ceiling as objectui#5903's gantt pin and objectui#6170's timeline pin.
- * `BaseSchema` carries `[key: string]: any` on the TS side and is
- * `.passthrough()` on the zod side, so:
+ * `BaseSchema` carried `[key: string]: any` on the TS side until objectui#8347
+ * and is `.passthrough()` on the zod side, so:
  *
- *   - an UNDECLARED key is still accepted by both halves. Declaring `bind` did
- *     NOT buy rejection of `bindTo`, and the counter-probe below pins that
+ *   - an UNDECLARED key is still accepted by the zod half (and was by the TS
+ *     half while the signature stood). Declaring `bind` did NOT buy rejection of
+ *     `bindTo` there, and the counter-probe below pins that
  *     honestly rather than letting a reader assume otherwise;
  *   - a DECLARED key IS validated. `bind: 42` type-checked and parsed green
  *     before this card and is refused by both halves now — the accept-set
  *     narrowing this card lands;
- *   - on the TS side a read site can never be the detector, because the index
- *     signature types `schema.bind` as `any` either way. So the compile-time
- *     pin is the `@ts-expect-error` block at the bottom: remove the
- *     declaration and the member resolves to `any`, the wrong-typed assignment
- *     starts succeeding, and the now-unused directive fails the build (TS2578)
- *     NAMING the key. `tsconfig.test.json` compiles this file, so that is real
+ *   - on the TS side a read site could never be the detector while the index
+ *     signature typed `schema.bind` as `any` either way. So the compile-time
+ *     pin is the `@ts-expect-error` block at the bottom: when written, removing
+ *     the declaration made the member resolve to `any`, the wrong-typed
+ *     assignment started succeeding, and the now-unused directive failed the
+ *     build (TS2578) NAMING the key. Since objectui#8347 a removal makes the
+ *     indexed access itself an error, which the directive swallows, so a
+ *     deletion is caught by the well-typed counter-probe beside it instead (its
+ *     `bind` becomes an excess key). `tsconfig.test.json` compiles this file, so that is real
  *     enforcement and not decoration (objectui#3009).
  *
  * The narrowing only refuses what already crashed: `useDataScope` is
@@ -141,10 +145,13 @@ describe('BaseSchema (zod) — `bind` is mirrored and validated', () => {
 
 describe('BaseSchema (TS) — compile-time pin on `bind`', () => {
   it('refuses a wrong-typed `bind`', () => {
-    // This directive fails the build (TS2578, "unused '@ts-expect-error'") the
-    // moment `bind` stops being declared, because the member then resolves to
-    // `any` through the index signature and the assignment starts succeeding.
-    // That failure is the signal this card exists to create.
+    // This directive failed the build (TS2578, "unused '@ts-expect-error'") the
+    // moment `bind` stopped being declared, while the index signature resolved
+    // the member to `any` and the assignment started succeeding. Since
+    // objectui#8347 a removal makes `BaseSchemaTS['bind']` itself an error, which
+    // this directive swallows, so the deletion signal comes from the well-typed
+    // counter-probe below; this directive still fails the build if `bind` is
+    // widened to accept a number.
 
     // @ts-expect-error — `bind` is declared `string | undefined`.
     const bind: BaseSchemaTS['bind'] = 42;

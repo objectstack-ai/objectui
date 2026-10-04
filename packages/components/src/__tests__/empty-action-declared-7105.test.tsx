@@ -22,7 +22,7 @@
  *     `className`, so the designer could not offer the key either;
  *   * only the docs row said the capability existed.
  *
- * The read compiled because `BaseSchema` ends in `[key: string]: any`, and the
+ * The read compiled because `BaseSchema` ended in `[key: string]: any`, and the
  * renderer spelled it `(schema as any).action` — which is also why
  * objectui#6150's census, scanning for `schema.KEY`, could not see this reader.
  *
@@ -107,7 +107,7 @@ const DEMO_ACTION: ButtonSchema = {
   variant: 'default',
 };
 // `DEMO_ACTION` is typed as the `button` node it is (objectui#11347): the slot is
-// `SchemaNode`, and once `BaseSchema`'s index signature is gone (objectui#8347)
+// `SchemaNode`, and since objectui#8347 removed `BaseSchema`'s index signature
 // a literal checked against it may author only `BaseSchema`'s own keys.
 const DEMO = {
   type: 'empty',

@@ -663,7 +663,8 @@ export const ObjectGridSchema = BaseSchema.extend({
   //
   // ⛔ NOT declared on the TypeScript twin — the ruling says so in as many
   // words. `ObjectGridSchema` extends `BaseSchema`, whose index signature
-  // absorbs an authored `operators` as `any`; adding a `?: never` half would
+  // absorbed an authored `operators` as `any` until objectui#8347 (that face
+  // now refuses it as an undeclared key); adding a `?: never` half would
   // write the misspelling INTO the published interface, which is the ruling's
   // letter A and was refused.
   operators: retirementTombstone(
@@ -2753,7 +2754,7 @@ export const ObjectGanttSchema = BaseSchema.extend({
   // config from these top-level keys when the node carries no `gantt` block and
   // `startDateField` / `endDateField` are both present — the block OUTRANKS this
   // face (objectui#6469); nothing declared them, on either side,
-  // because `BaseSchema`'s index signature admits them untyped. Mirrored at the
+  // because `BaseSchema`'s index signature admitted them untyped. Mirrored at the
   // SAME requiredness as `../objectql.ts` (all optional) so the zod-mirror-parity
   // ratchet stays at zero drift for this pair.
   //

@@ -12,7 +12,7 @@
  * The renderer has read `schema.title` all along, drawing it as a heading above
  * the list, and the `list` registration publishes it as an input. Until
  * objectui#11347 no declaration carried it, so it survived only on
- * `BaseSchema`'s index signature, which objectui#8347 removes. The installed
+ * `BaseSchema`'s index signature, which objectui#8347 removed. The installed
  * `@objectstack/spec` has no row for `list`, and a published producer authors
  * the key: the `skills/objectui` expressions guide teaches
  * `{ "type": "list", "title": "Team", "ordered": true, ... }`. So the key is

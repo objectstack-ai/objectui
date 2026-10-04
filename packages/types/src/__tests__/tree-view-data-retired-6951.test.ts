@@ -313,10 +313,10 @@ describe('TreeViewSchema.data is RETIRED — the TS half of the tombstone (objec
   });
 
   it('refuses the retired key in the form authors actually write — and shadows the inherited `BaseSchema.data?: any`', () => {
-    // The leg that proves the tombstone beats BOTH escape hatches on the TS
-    // face: `BaseSchema` carries `data?: any` AND `[key: string]: any`. A
-    // declared `never` member wins over the inherited `any` and over the index
-    // signature; if either won, `data` would widen back and the directive
+    // The leg that proves the tombstone beats the escape hatches on the TS
+    // face: `BaseSchema` carries `data?: any` (and carried `[key: string]: any`
+    // until objectui#8347). A declared `never` member wins over the inherited
+    // `any` and over an index signature; if either won, `data` would widen back and the directive
     // would go unused (TS2578).
     const retiredDocument: TreeViewSchemaTS = {
       type: 'tree-view',

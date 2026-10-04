@@ -2138,7 +2138,8 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
         // ⛔ Do not restore this fallback as a convenience. Authoring
         // kanban conditional formatting has two declared homes; a top-level key
         // that nothing declares, nothing publishes in the registry `inputs` and
-        // tsc cannot see (BaseSchema's index signature) is precisely the
+        // tsc could not see (BaseSchema's index signature, until objectui#8347) is
+        // precisely the
         // "renderer reads it, manifest denies it" condition objectui#4648 /
         // objectui#5091 exist to close. The host `renderListView` delegation
         // below still reads and forwards the key — that half is NOT narrowed.

@@ -365,8 +365,9 @@ export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema, objectFi
  *
  * ## Why unregistering is the whole retirement
  *
- * ⚠️ `BaseSchema` closes with `[key: string]: any` and `BaseSchemaCore` ends
- * `.passthrough()`, so a dropped MEMBER KEY is KEPT, not refused (objectui#7664).
+ * ⚠️ `BaseSchemaCore` ends `.passthrough()` (and `BaseSchema` closed with
+ * `[key: string]: any` until objectui#8347), so a dropped MEMBER KEY is KEPT,
+ * not refused, on the zod face (objectui#7664).
  * That hazard needs a schema face to arise on, and this key never had one:
  * measured whole-repo, `@object-ui/types` declares `kanban-ui` as a component
  * node type ZERO times (firing control: `object-kanban`, 2 — `objectql.ts` and

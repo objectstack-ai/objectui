@@ -48,8 +48,9 @@
  * ## Why tombstones and not deletions
  *
  * All six HAVE a Zod arm, which is what decides the route here: `BaseSchema` is
- * `.passthrough()` on the Zod side and carries a `[key: string]: any` index
- * signature on the TS side, so an UNDECLARED key is not refused, it is KEPT.
+ * `.passthrough()` on the Zod side (and carried a `[key: string]: any` index
+ * signature on the TS side until objectui#8347), so an UNDECLARED key is not
+ * refused there, it is KEPT.
  * Deleting the members would hand the authored spelling exactly the silent
  * no-op this card exists to close. `?: never` + `retirementTombstone()` is this
  * package's convention — `MarkdownSchema.sanitize` / `.components`
@@ -368,9 +369,10 @@ describe('the six keys are RETIRED on the TypeScript face too (objectui#7703)', 
   });
 
   it('refuses them in the form authors actually write — a fresh document literal', () => {
-    // The leg that proves the tombstones survive `BaseSchema`'s
-    // `[key: string]: any`: if the index signature won, each key would widen
-    // back to `any` here and every directive would go unused (TS2578).
+    // The leg that proved the tombstones survive `BaseSchema`'s
+    // `[key: string]: any` while it stood (objectui#8347 removed it): if the
+    // index signature had won, each key would have widened back to `any`
+    // here and every directive would have gone unused (TS2578).
     const retiredDocument: ChatbotSchemaTS = {
       type: 'chatbot',
       messages: [],
@@ -399,8 +401,8 @@ describe('the six keys are RETIRED on the TypeScript face too (objectui#7703)', 
     // Excess-property checking only reaches a FRESH literal (objectui#7654
     // measured the contrast on this very carrier): a deleted key would ride a
     // widened value silently, and on a `BaseSchema` carrier even a wrong-TYPED
-    // value goes quiet, because the index signature defeats the weak-type check
-    // as well. The declared `never` makes the assignment itself ill-typed, so
+    // value went quiet while the index signature defeated the weak-type check as
+    // well (until objectui#8347). The declared `never` makes the assignment itself ill-typed, so
     // freshness stops mattering.
     const raw = { type: 'chatbot' as const, messages: [], userAvatar: 'https://example.com/me.png' };
     // @ts-expect-error — `userAvatar` is RETIRED (objectui#7703), reached through a non-fresh value.
@@ -413,21 +415,22 @@ describe('the six keys are RETIRED on the TypeScript face too (objectui#7703)', 
     // boundary on the `tsc` face. `ChatbotEnhancedSchema` and
     // `ChatbotFloatingSchema` reach `ChatbotSchema` only through
     // `Pick<..., ChatbotSharedKey | ...>`, and none of the six is a picked key,
-    // so no tombstone can travel to them: the keys stay UNDECLARED there and
-    // ride `BaseSchema`'s index signature, exactly as before this change. Both
-    // annotated assignments below are directive-FREE on purpose — if a
-    // tombstone ever reached either face, they would stop compiling and this
-    // leg would be the one that says so.
-    const enhanced: ChatbotEnhancedSchemaTS = {
-      type: 'chatbot-enhanced',
-      messages: [],
-      showAvatars: true,
-    };
-    const floating: ChatbotFloatingSchemaTS = {
-      type: 'chatbot-floating',
-      messages: [],
-      height: 400,
-    };
-    expect([enhanced.type, floating.type]).toEqual(['chatbot-enhanced', 'chatbot-floating']);
+    // so no tombstone can travel to them: the keys stay UNDECLARED there — no
+    // member at all, where a tombstone would be a `?: never` member. Until
+    // objectui#8347 they rode `BaseSchema`'s index signature, and a
+    // directive-free annotated literal was this leg's instrument. With the
+    // signature gone an undeclared key is refused on a fresh literal as well,
+    // so the leg reads membership instead, which separates the two.
+    type IsMember<T, K extends PropertyKey> = K extends keyof T ? true : false;
+    const undeclared: [IsMember<ChatbotEnhancedSchemaTS, 'showAvatars'>, IsMember<ChatbotFloatingSchemaTS, 'height'>] = [
+      false,
+      false,
+    ];
+    // Control: a picked key IS a member of each sibling, so `false` is a reading.
+    const picked: [IsMember<ChatbotEnhancedSchemaTS, 'messages'>, IsMember<ChatbotFloatingSchemaTS, 'messages'>] = [
+      true,
+      true,
+    ];
+    expect([...undeclared, ...picked]).toEqual([false, false, true, true]);
   });
 });

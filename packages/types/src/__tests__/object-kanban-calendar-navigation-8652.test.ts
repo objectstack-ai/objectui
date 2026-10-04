@@ -189,9 +189,10 @@ type Equal<A, B> =
 type Expect<T extends true> = T;
 
 /**
- * `Equal`, not `extends`: an undeclared member reads `any` through
- * `BaseSchema`'s index signature, and `any` passes a one-way check on both
- * sides — which is precisely the before-state this card removes.
+ * `Equal`, not `extends`: an undeclared member read `any` through
+ * `BaseSchema`'s index signature until objectui#8347, and `any` passes a
+ * one-way check on both sides — which is precisely the before-state this card
+ * removed.
  */
 export type assertionKanbanNavigationIsTheSpecType =
   Expect<Equal<ObjectKanbanSchema['navigation'], ViewNavigationConfig | undefined>>;
@@ -204,9 +205,10 @@ export type assertionEqualCanFail = Expect<Equal<Equal<any, ViewNavigationConfig
  * The TS twin's own failing instrument. The zod-mirror-parity ratchet has no
  * operator for a mirrored key the twin does not declare (objectui#9711), so the
  * twin's member is defended here: with it declared, `'not-a-mode'` is not a
- * `NavigationMode` and the expected error exists; delete the member and the
- * index signature admits the value, the error disappears, and `tsc` reddens
- * with TS2578 (an unused `@ts-expect-error`).
+ * `NavigationMode` and the expected error exists. That guards the member's
+ * TYPE; since objectui#8347 a deleted member's value is refused as an undeclared
+ * key and the directive stays used, so a deletion is caught by the `Equal` rows
+ * above instead (the indexed access stops compiling).
  */
 export const BAD_KANBAN_MODE_IS_REFUSED_AT_COMPILE_TIME: ObjectKanbanSchema = {
   type: 'object-kanban',

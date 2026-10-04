@@ -259,9 +259,9 @@ describe('objectui#6939 — the mirror now accepts the spelling every board read
     // is STILL green, which is the finding that card had to make rather than
     // the one it was sent to make. Two corrections to the paragraph above:
     //
-    //   1. declaring on this face NARROWS, it does not widen — `BaseSchema`
-    //      carries `[key: string]: any` / `.passthrough()`, so a declaration
-    //      can only add validation where there was none;
+    //   1. declaring on this face NARROWED, it did not widen — `BaseSchema`
+    //      carried `[key: string]: any` / `.passthrough()` then, so a
+    //      declaration could only add validation where there was none;
     //   2. `columns[].items` was never refused BY NAME even on the retired
     //      arm. `KanbanColumnSchema` is a plain (strip-postured) object, so
     //      `items` was accepted and dropped there too; what refused the

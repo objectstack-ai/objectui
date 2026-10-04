@@ -445,9 +445,11 @@ The package README has the full rule, under "What an edit save writes".
 ### Form with Validation
 
 One `validation` object per field, keyed by rule name. The annotation is part of
-the example: `FormField` and `FormSchema` both carry an index signature, so an
-un-annotated `const schema = { … }` type-checks whatever is written in it, while
-`const signUpForm: FormSchema` makes a wrong `validation` shape a compile error.
+the example: an un-annotated `const schema = { … }` type-checks whatever is
+written in it, while `const signUpForm: FormSchema` makes a wrong `validation`
+shape a compile error, and a misspelled form-level key too (`FormSchema`
+carries no index signature since objectui#8347; a `FormField` entry still
+carries its own).
 
 ```typescript
 import type { FormSchema } from '@object-ui/types';

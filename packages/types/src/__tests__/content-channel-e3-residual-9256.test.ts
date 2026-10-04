@@ -350,9 +350,11 @@ describe('objectui#9256 E3 residual — the TypeScript face refuses both channel
 
   it('CONTROL — the same nodes WITHOUT a content channel compile (no `@ts-expect-error` here, and `tsc` is the reader)', () => {
     const ok = [grid, form, kanban, map, tree, view, gantt, calendar, chart, detail, email, password, uiCalendar];
-    // The repair keeps the index signature, so it narrows nothing an author
-    // could write before beyond the members' own declared types — an
-    // undeclared key still compiles, exactly as it did.
+    // The repair kept the index signature, so it narrowed nothing an author
+    // could write before beyond the members' own declared types. objectui#8347
+    // then removed `BaseSchema`'s signature, so an undeclared key no longer
+    // compiles on these nodes either.
+    // @ts-expect-error — `InputShorthandSchema` declares no `notAMember` (objectui#8347)
     const undeclared = { type: 'email', label: 'Email', notAMember: 1 } satisfies InputShorthandSchema;
     const calendarRange = { type: 'ui:calendar', mode: 'range' } satisfies UiCalendarSchema;
     expect(ok).toHaveLength(13);

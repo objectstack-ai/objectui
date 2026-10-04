@@ -147,9 +147,9 @@ type Equal<A, B> =
 type Expect<T extends true> = T;
 
 /**
- * `Equal`, not `extends`: an UNDECLARED member reads `any` through
- * `BaseSchema`'s index signature, and a one-way check accepts `any` — which is
- * precisely the before-state.
+ * `Equal`, not `extends`: an UNDECLARED member read `any` through
+ * `BaseSchema`'s index signature until objectui#8347, and a one-way check
+ * accepts `any` — which is precisely the before-state.
  */
 export type assertionYAxisIsTheSpecList = Expect<Equal<ObjectChartSchema['yAxis'], SpecChartAxis[] | undefined>>;
 /** `xAxis` is the spec's ONE object — not a string, not a list, not `any`. */

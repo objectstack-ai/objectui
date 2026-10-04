@@ -27,11 +27,12 @@
  *
  * ## What declaring buys — and what it does NOT, measured not assumed
  *
- * objectui#7927 measured the ceiling: `BaseSchema` ends in `[key: string]: any`,
- * so no annotation on any node schema can catch a MISSPELLED key. That ceiling
- * is real and this card does not lift it — `filtr` stays admitted on both
- * faces, and the control assertions below PIN that, so nobody reads this file as
- * claiming more than it does.
+ * objectui#7927 measured the ceiling: `BaseSchema` ended in `[key: string]: any`,
+ * so no annotation on any node schema could catch a MISSPELLED key. This card
+ * did not lift it; objectui#8347 did, by removing the signature — `filtr` is
+ * refused on a fresh literal on the TS face now (pinned below) and stays
+ * admitted by the tolerant mirror's `.passthrough()`, which the control
+ * assertions below PIN, so nobody reads this file as claiming more than it does.
  *
  * What the ceiling does not cap is the VALUE dimension, and that is the half
  * this file pins:
@@ -39,8 +40,10 @@
  * - TS: the member narrows `any` to `any[]` / `SortConfig[]`. `filter: 'a = b'`
  *   and `sort: 'name asc'` were assignable through the index signature and are
  *   now type errors. Each `@ts-expect-error` below goes UNUSED — TS2578, a hard
- *   type-check failure — the moment its member is deleted, which is what makes
- *   these pins rather than restatements.
+ *   type-check failure — the moment its member is widened; since objectui#8347 a
+ *   deletion keeps it used (the value is refused as an undeclared key) and is
+ *   caught by the `Equal` rows instead, which is what makes these pins rather
+ *   than restatements.
  * - Mirror: under `.passthrough()` a DECLARED key is value-validated where an
  *   undeclared one rides through unexamined, and this mirror reaches
  *   `safeValidateSchema` through `AnyComponentSchema`, so the refusal reaches
@@ -60,8 +63,9 @@
  * Membership is asserted on the mirror's OWN `.shape`, never on parse
  * acceptance (under `.passthrough()` acceptance cannot tell "declared" from
  * "admitted unexamined"). Type-level pins use invariant equality, so a member
- * that fell back to the index signature reads as `any` and therefore as a
- * failure. And every claim carries a CONTROL that is asserted to stay
+ * that fell back to the index signature read as `any` and therefore as a
+ * failure (since objectui#8347 removed the signature, a deleted member's
+ * indexed access does not compile at all). And every claim carries a CONTROL that is asserted to stay
  * undeclared — including the deliberate absence of `sort` on the kanban board,
  * which is measured off the spec rather than assumed (the board reads `sort`
  * only as the binding carrier since objectui#10068).
@@ -117,9 +121,10 @@ type IsAny<T> = 0 extends (1 & T) ? true : false;
 /** An object with no keys is assignable to `Pick<T, K>` only when `K` is optional on `T`. */
 type IsOptional<T, K extends keyof T> = Record<string, never> extends Pick<T, K> ? true : false;
 
-// `filter` on BOTH interfaces: declared `any[]`, optional, not `any`. Delete
-// either member and the indexed access falls back to `[key: string]: any`,
-// making `IsAny` true and `Equal<any, any[] | undefined>` false.
+// `filter` on BOTH interfaces: declared `any[]`, optional, not `any`. Deleting
+// either member made the indexed access fall back to `[key: string]: any`,
+// making `IsAny` true and `Equal<any, any[] | undefined>` false; since
+// objectui#8347 the indexed access stops compiling instead.
 export type _KanbanFilterIsArray = Expect<Equal<TsObjectKanbanSchema['filter'], any[] | undefined>>;
 export type _KanbanFilterIsNotAny = Expect<Equal<IsAny<TsObjectKanbanSchema['filter']>, false>>;
 export type _KanbanFilterIsOptional = Expect<IsOptional<TsObjectKanbanSchema, 'filter'>>;
@@ -133,23 +138,30 @@ export type _CalendarSortIsOptional = Expect<IsOptional<TsObjectCalendarSchema, 
 // …and DELIBERATELY not on the kanban board: the spec declares no top-level
 // `sort` there. The board's ordering is the binding's `dataSource.sort`, which
 // the gate carries in as `schema.sort` (objectui#10068) — not an authoring key.
-// It still falls through to the index signature; declaring it turns this red.
-export type _KanbanSortStaysUndeclared = Expect<IsAny<TsObjectKanbanSchema['sort']>>;
+// It fell through to the index signature as `any` until objectui#8347 removed
+// that; it is no member now, and `ObjectKanban` types the gate-written key on
+// its own read type (`GateBoundKanbanSchema`). Declaring it turns this red.
+export type _KanbanSortStaysUndeclared = Expect<Equal<'sort' extends keyof TsObjectKanbanSchema ? true : false, false>>;
+// Lit control for the detector: `IsAny` does answer `true`, so the `IsNotAny`
+// lines above are readings.
+export type _IsAnyCanAnswerTrue = Expect<IsAny<any>>;
 // The control key is undeclared on both, exactly as `filter` was before this
-// card. Same instrument, opposite verdict.
-export type _KanbanControlKeyFallsThrough = Expect<IsAny<TsObjectKanbanSchema['whereClause']>>;
-export type _CalendarControlKeyFallsThrough = Expect<IsAny<TsObjectCalendarSchema['whereClause']>>;
-// objectui#7927's ceiling, pinned rather than claimed away: a MISSPELLED key
-// still resolves to `any` and still type-checks. This card does not fix that,
-// and this line is what stops anyone reading it as if it had.
-export type _MisspellingStillAdmitted = Expect<IsAny<TsObjectCalendarSchema['filtr']>>;
+// card: no member of either (it read `any` before objectui#8347).
+export type _KanbanControlKeyIsNoMember = Expect<Equal<'whereClause' extends keyof TsObjectKanbanSchema ? true : false, false>>;
+export type _CalendarControlKeyIsNoMember = Expect<Equal<'whereClause' extends keyof TsObjectCalendarSchema ? true : false, false>>;
+// objectui#7927's ceiling — a MISSPELLED key still resolved to `any` and still
+// type-checked — was pinned here rather than claimed away. objectui#8347
+// removed it: the misspelling is no member, and a fresh literal is refused.
+export type _MisspellingIsNoMember = Expect<Equal<'filtr' extends keyof TsObjectCalendarSchema ? true : false, false>>;
 
 // The TS face ACCEPTS the documented shapes on a literal…
 const kanbanLiteral: TsObjectKanbanSchema = { ...KANBAN_NODE, filter: FILTER_VALUE };
 const calendarLiteral: TsObjectCalendarSchema = { ...CALENDAR_NODE, filter: FILTER_VALUE, sort: SORT_VALUE };
 
 // …and REFUSES wrong-typed values that the index signature used to admit. Each
-// directive goes unused — TS2578, a hard failure — if its member is deleted.
+// directive goes unused — TS2578, a hard failure — if its member is widened. A
+// deletion keeps it used since objectui#8347 (the value is refused as an
+// undeclared key) and is caught by the `Equal` rows above.
 // @ts-expect-error — `filter` is `any[]`; a string clause is not a JSON-Rules filter
 const kanbanBadFilter: TsObjectKanbanSchema = { ...KANBAN_NODE, filter: 'status = open' };
 // @ts-expect-error — `filter` is `any[]`; a string clause is not a JSON-Rules filter
@@ -158,6 +170,11 @@ const calendarBadFilter: TsObjectCalendarSchema = { ...CALENDAR_NODE, filter: 's
 const calendarRetiredSort: TsObjectCalendarSchema = { ...CALENDAR_NODE, sort: 'start_date asc' };
 // @ts-expect-error — `order` is `'asc' | 'desc'`; the member is `SortConfig[]`, not `any[]`
 const calendarBadSortOrder: TsObjectCalendarSchema = { ...CALENDAR_NODE, sort: [{ field: 'start_date', order: 'sideways' }] };
+// …and, since objectui#8347, the misspelling itself and the gate-only key on the board.
+// @ts-expect-error — `filtr` is no member of `ObjectCalendarSchema`; the key is `filter`
+const calendarMisspelledFilter: TsObjectCalendarSchema = { ...CALENDAR_NODE, filtr: FILTER_VALUE };
+// @ts-expect-error — `sort` is not an `object-kanban` authoring key; the binding's `dataSource.sort` is
+const kanbanAuthoredSort: TsObjectKanbanSchema = { ...KANBAN_NODE, sort: SORT_VALUE };
 
 /* ── Off-disk derivations ─────────────────────────────────────────────────── */
 
@@ -361,6 +378,6 @@ describe('objectui#8174 — the TS face accepts the documented nodes', () => {
     expect(calendarLiteral.sort).toEqual(SORT_VALUE);
     // The refused literals exist only so their `@ts-expect-error` directives do;
     // referencing them keeps `noUnusedLocals` off this file's back.
-    expect([kanbanBadFilter, calendarBadFilter, calendarRetiredSort, calendarBadSortOrder]).toHaveLength(4);
+    expect([kanbanBadFilter, calendarBadFilter, calendarRetiredSort, calendarBadSortOrder, calendarMisspelledFilter, kanbanAuthoredSort]).toHaveLength(6);
   });
 });

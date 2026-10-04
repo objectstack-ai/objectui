@@ -115,10 +115,12 @@ export interface AIFormAssistSchema extends BaseSchema {
    * A tombstone rather than a plain removal on PRONG 2 of the discriminator
    * (objectui#5941, #7526, `5f8190c8c`): this package's README taught the key as
    * working, in the Quick Start, in the `AIFormAssist` API example and in the
-   * schema-driven JSON example. {@link BaseSchema} carries `[key: string]: any`,
-   * so a DELETED member is absorbed silently at ANY value — deletion here is not
-   * a quieter refusal, it is no refusal — and the tombstone is what makes the
-   * compile-time refusal exist, by name.
+   * schema-driven JSON example. {@link BaseSchema} carried `[key: string]: any`
+   * when this was written, so a DELETED member was absorbed silently at ANY
+   * value — deletion was not a quieter refusal, it was no refusal. Since
+   * objectui#8347 a deletion is refused on a fresh literal, but a widened value
+   * still carries the key silently, and the tombstone is what makes the
+   * compile-time refusal exist in both positions, by name.
    *
    * ⛔ Not enforced instead (the ruling's words): implementing reads nobody asked
    * for is capability growth without pull. If an AI backend later needs the
@@ -175,9 +177,10 @@ export interface AIFormAssistSchema extends BaseSchema {
    * the node as `suggestions`.
    *
    * A tombstone rather than a deletion on the grounds
-   * {@link AIFormAssistSchema.formId} records: {@link BaseSchema} carries
-   * `[key: string]: any`, so a DELETED member is absorbed silently at any value,
-   * and the tombstone is what makes the compile-time refusal exist, by name. The
+   * {@link AIFormAssistSchema.formId} records: {@link BaseSchema} carried
+   * `[key: string]: any`, so a DELETED member was absorbed silently at any value
+   * (since objectui#8347, through a widened value only), and the tombstone is
+   * what makes the compile-time refusal exist, by name. The
    * zod mirror refuses the key by name with the same prescription
    * (`retirementTombstone`), so the two faces agree.
    *

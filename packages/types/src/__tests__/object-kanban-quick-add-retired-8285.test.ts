@@ -21,8 +21,9 @@
  *
  * ## Why a TOMBSTONE rather than a deleted member
  *
- * `BaseSchema` carries `[key: string]: any` and its mirror ends
- * `.passthrough()`, so a deleted member is KEPT, not refused. The member stays
+ * `BaseSchema`'s mirror ends `.passthrough()` (and the interface carried
+ * `[key: string]: any` until objectui#8347), so a deleted member is KEPT, not
+ * refused, on the zod face. The member stays
  * declared and unwritable: `?: never` on the interface, `retirementTombstone()`
  * on the mirror — the `allowCollapse` shape next door
  * (`object-kanban-allow-collapse-retired-8801.test.ts`). "The near miss" below
@@ -56,17 +57,23 @@ type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ?
 type IsAny<T> = 0 extends 1 & T ? true : false;
 
 // The tombstone admits exactly one value — absence. Deleting the member instead
-// would make this indexed access fall through the index signature to `any`.
+// made this indexed access fall through the index signature to `any` until
+// objectui#8347; it stops compiling now.
 type _RetiredIsTombstone = Assert<Equal<TsObjectKanbanSchema['quickAdd'], undefined>>;
 type _RetiredIsNotAny = Assert<Equal<IsAny<TsObjectKanbanSchema['quickAdd']>, false>>;
 // Non-vacuity on the same instrument: a live member resolves to its own type…
 type _LiveMemberStillDeclared = Assert<Equal<TsObjectKanbanSchema['coverImageField'], string | undefined>>;
-// …and the never-declared near miss does fall through to `any`.
-type _NearMissFallsThroughToIndexSignature = Assert<IsAny<TsObjectKanbanSchema['quickAdded']>>;
+// …and the never-declared near miss is no member at all (it fell through to
+// `any` until objectui#8347 removed `BaseSchema`'s index signature).
+type _NearMissIsNoMember = Assert<Equal<'quickAdded' extends keyof TsObjectKanbanSchema ? true : false, false>>;
+// Lit control for the detector: `IsAny` does answer `true`, so `_RetiredIsNotAny` is a reading.
+type _IsAnyCanAnswerTrue = Assert<IsAny<any>>;
 
 const liveLiteral: TsObjectKanbanSchema = { ...NODE, coverImageField: 'cover' };
 // This directive goes unused — and the type-check goes red with TS2578 — the
-// moment the tombstone is deleted or widened back to `boolean`.
+// moment the tombstone is widened back to `boolean`. A deletion keeps it used
+// since objectui#8347 (the key is refused as undeclared) and is caught by the
+// tombstone `Equal` row above instead.
 // @ts-expect-error — `quickAdd` is RETIRED on this node (objectui#8285); delete the key
 const retiredLiteral: TsObjectKanbanSchema = { ...NODE, quickAdd: true };
 void liveLiteral;

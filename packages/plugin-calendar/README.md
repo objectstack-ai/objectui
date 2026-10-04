@@ -194,10 +194,16 @@ const backwards: CalendarViewNode = shipped;
 
 > **What those two assignments do and do not buy.** They check every key's
 > **type**, in both directions. They do **not** check a key's **spelling**:
-> `CalendarViewSchema` extends `BaseSchema`, whose `[key: string]: any` accepts
-> any name, so a key invented or misspelled here is `any` rather than an error
-> (objectui#7927). Key-level validity is the strict `@objectstack/spec` twin's
-> question, not TypeScript's.
+> both assign a declared variable, not a fresh object literal, and TypeScript
+> runs its excess-property check only on a fresh literal. So a key renamed in
+> the listing is an extra optional member on one side and simply absent on the
+> other, and both assignments still compile. A fresh literal IS checked:
+> `CalendarViewSchema` extends `BaseSchema`, which carries no index signature
+> since objectui#8347, so
+> `const node: CalendarViewSchema = { type: 'calendar-view', titleFieldd: 'name' }`
+> is a compile error. Metadata that arrives as data is a question for the zod
+> faces (the strict `StrictAnyComponentSchema` refuses an unknown key), not for
+> TypeScript.
 
 There is deliberately **no authorable `events` key**: the renderer computes its
 events from `data` plus the field-name keys, and drops an authored `events`
@@ -297,11 +303,11 @@ import type { ObjectCalendarSchema } from '@object-ui/types';
 // What this annotation buys, and what it does not - measured, objectui#7925.
 // It type-checks the VALUES of the declared keys: `defaultView: 'agenda'` and
 // `calendar: { titleField: 42 }` are both compile errors, and
-// `check:doc-snippets` re-runs that check on every commit. It does NOT check
-// key NAMES - this interface extends `BaseSchema`, whose `[key: string]: any`
-// admits any spelling, and the `calendar` block is open the same way, so a
-// misspelt key still compiles clean. Read the block as type-checked values,
-// never as a guarded key set.
+// `check:doc-snippets` re-runs that check on every commit. Top-level key NAMES
+// are checked too since objectui#8347 removed `BaseSchema`'s `[key: string]: any`,
+// but NOT inside the `calendar` block, which is open (its type is inferred from
+// a `.passthrough()` schema), so a misspelt key there still compiles clean. Read
+// the `calendar` block as type-checked values, never as a guarded key set.
 const schema: ObjectCalendarSchema = {
   type: 'object-calendar',
   objectName: 'events',

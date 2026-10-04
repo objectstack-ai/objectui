@@ -31,8 +31,9 @@
  *      `boolean | string | undefined`, invariantly. `Equal`, not `extends`: the
  *      narrow `boolean` is assignable to the wide union, so a one-way check
  *      stays green on a narrowing that was never removed; and `BaseSchema`'s
- *      `[key: string]: any` index signature means an interface that LOST the
- *      member reads `any`, which a one-way check also accepts. `visible` is
+ *      `[key: string]: any` index signature meant an interface that LOST the
+ *      member read `any` (until objectui#8347), which a one-way check also
+ *      accepts. `visible` is
  *      asserted beside it as the twin control, so a schema that dropped both
  *      keys cannot pass vacuously.
  *   2. Runtime — each of the 18 zod mirrors `safeParse`s a predicate string on

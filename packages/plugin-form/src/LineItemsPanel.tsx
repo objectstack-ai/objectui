@@ -27,6 +27,7 @@ import {
   cn,
 } from '@object-ui/components';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
+import type { GridFieldMetadata } from '@object-ui/types';
 import { createSafeTranslation } from '@object-ui/i18n';
 import { useSchemaContext, useRecordContext, useFilterScope, useResolvedFilter, useDataInvalidation } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
@@ -701,16 +702,20 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
         // the surrounding form already disables that field (objectui#10163).
         // Adding and removing lines stay on `schema.readonly` below.
         columns: applyColumnPermissions(schema.columns, { perms, objectName: schema.childObject }),
-        // The grid's `total_field` is the CHILD column summed (this block's
+        // The grid's `totalField` is the CHILD column summed (this block's
         // `amountField`), shown whenever one is named, exactly as
-        // `MasterDetailForm` maps it; `totalField` is only the PARENT field
-        // the sum is written to on save (objectui#11070 round 8).
-        total_field: schema.amountField || (schema.totalField ? 'amount' : undefined),
-        min_rows: schema.minRows,
-        max_rows: schema.maxRows,
-        allow_add: !schema.readonly,
-        allow_delete: !schema.readonly,
-      }) as any,
+        // `MasterDetailForm` maps it. This block's own `totalField` is only
+        // the PARENT field the sum is written to on save, so the two
+        // same-named keys carry different values (objectui#11070 round 8).
+        totalField: schema.amountField || (schema.totalField ? 'amount' : undefined),
+        minRows: schema.minRows,
+        maxRows: schema.maxRows,
+        allowAdd: !schema.readonly,
+        allowDelete: !schema.readonly,
+        // Checked against the grid's published type (objectui#11610), so a key
+        // the grid does not declare, or one of its retired snake_case
+        // spellings, fails to compile here.
+      } satisfies Partial<GridFieldMetadata>) as GridFieldMetadata,
     [schema, perms],
   );
 

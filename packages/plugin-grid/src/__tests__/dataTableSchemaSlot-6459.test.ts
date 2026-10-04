@@ -22,10 +22,11 @@
  * both writers are literals sitting DIRECTLY in annotated positions, so
  * excess-property checking is the live instrument — PROVIDED the type has no
  * index signature. `BaseSchema`'s `[key: string]: any` (which `DataTableSchema`
- * inherits) makes every key a member, and a check that refuses non-members has
- * nothing to refuse when non-membership cannot exist. `RemoveIndexSignature` in
- * `ObjectGrid.tsx` is what turns the annotation from inert to able-to-fail,
- * and the pins below hold each half of that claim separately.
+ * inherited until objectui#8347) made every key a member, and a check that
+ * refuses non-members has nothing to refuse when non-membership cannot exist.
+ * `RemoveIndexSignature` in `ObjectGrid.tsx` is what turned the annotation from
+ * inert to able-to-fail (it strips nothing since objectui#8347), and the pins
+ * below hold each half of that claim separately.
  */
 import { describe, it, expect } from 'vitest';
 import type { DataTableSchema, TableColumn } from '@object-ui/types';
@@ -60,11 +61,12 @@ type HeldLocally =
   'UNDECLARED by DataTableSchema — this hold is LOAD-BEARING. Re-derive the census prose in ObjectGrid.tsx (the census section, and the ObjectGridDataTableSchemaHolds docblock under it) before changing anything.';
 
 /**
- * ⚠️ Probes `DeclaredDataTableSchema`, NOT `DataTableSchema`, and that is not
- * cosmetic: `DataTableSchema` inherits `BaseSchema`'s `[key: string]: any`, so
- * `string extends keyof DataTableSchema` and the membership question is
- * ALWAYS-TRUE against it — an instrument with no `false` to give. The third
- * test below pins both halves of that, so the choice is measured, not asserted.
+ * ⚠️ Probes `DeclaredDataTableSchema`, NOT `DataTableSchema`, and that was not
+ * cosmetic: `DataTableSchema` inherited `BaseSchema`'s `[key: string]: any`
+ * until objectui#8347, so `string extends keyof DataTableSchema` and the
+ * membership question was ALWAYS-TRUE against it — an instrument with no
+ * `false` to give. The control test below pinned both halves of that, and is
+ * flipped since objectui#8347 made the raw type able to answer `false` too.
  */
 type HoldVerdict<K extends string> = K extends keyof DeclaredDataTableSchema
   ? DeclaredUpstream
@@ -84,34 +86,37 @@ const columns: TableColumn[] = [{ header: 'Name', accessorKey: 'name' }];
 
 describe('objectui#6459 — the schema slot annotation is an instrument, not a decoration', () => {
   /**
-   * ⭐ THE ROOT CAUSE, PINNED: a bare `DataTableSchema` annotation refuses
-   * NOTHING. This assignment MUST COMPILE — the bogus key is written out
-   * longhand in a FRESH literal, the strongest position excess-property
-   * checking ever has, and the inherited `[key: string]: any` still admits it.
-   * Measured on the real seam before the fix was shaped (`tsc --noEmit`
-   * exit 0, zero diagnostics, with `bogusKeyForProbe6459: true` injected into
-   * the flat literal under a bare annotation). If this ever goes red,
-   * TypeScript or `BaseSchema` changed underneath and the docblock above
-   * `RemoveIndexSignature` in `ObjectGrid.tsx` needs re-measuring.
+   * ⭐ THE ROOT CAUSE, as it was: a bare `DataTableSchema` annotation refused
+   * NOTHING. The assignment below COMPILED — the bogus key written out longhand
+   * in a FRESH literal, the strongest position excess-property checking ever
+   * has, and the inherited `[key: string]: any` still admitted it. Measured on
+   * the real seam before the fix was shaped (`tsc --noEmit` exit 0, zero
+   * diagnostics). This docblock said that if it ever went red, `BaseSchema`
+   * had changed underneath and `RemoveIndexSignature` in `ObjectGrid.tsx`
+   * needed re-measuring: objectui#8347 removed the signature, the row went
+   * red, and it is flipped here. The local strip is redundant from that day
+   * (it strips nothing now); retiring it is left out of the removal PR.
    */
-  it('a bare `DataTableSchema` annotation accepts a bogus key even at a fresh literal (the blind instrument)', () => {
+  it('a bare `DataTableSchema` annotation refuses a bogus key at a fresh literal since objectui#8347', () => {
     const blind: DataTableSchema = {
       type: 'data-table',
       columns,
       data: [],
-      bogusKeyRefusedNowhere: 'admitted by the index signature',
+      // @ts-expect-error — `DataTableSchema` declares no such key, and `BaseSchema` carries no index signature (objectui#8347)
+      bogusKeyRefusedNowhere: 'admitted by the index signature until objectui#8347',
     };
     expect(blind.type).toBe('data-table');
   });
 
   /**
-   * …and the index signature is exactly what separates the two types: present
-   * on `DataTableSchema`, stripped from the seam type. If `@object-ui/types`
-   * ever removes the signature from `BaseSchema`, the first line goes red —
-   * a useful red: the local stripping machinery becomes redundant that day.
+   * …and the index signature was exactly what separated the two types: present
+   * on `DataTableSchema`, stripped from the seam type. This docblock predicted
+   * that the first line would go red if `@object-ui/types` removed the signature
+   * from `BaseSchema` — objectui#8347 did, and it is flipped: neither type is
+   * indexed by `string` now.
    */
-  it('the strip is real: `string` indexes `DataTableSchema` but not the seam type', () => {
-    type _UpstreamHasIndex = Expect<string extends keyof DataTableSchema ? true : false>;
+  it('neither `DataTableSchema` nor the seam type is indexed by `string` (objectui#8347)', () => {
+    type _UpstreamHasNone = Expect<string extends keyof DataTableSchema ? false : true>;
     type _SeamHasNone = Expect<string extends keyof ObjectGridDataTableSchema ? false : true>;
     expect(true).toBe(true);
   });
@@ -276,19 +281,22 @@ describe('objectui#6459 — the schema slot annotation is an instrument, not a d
   /**
    * ⭐ THE CONTROL ON THE CHOICE OF TYPE, which is the one place this transplant
    * is NOT literal. Read against the raw `DataTableSchema`, the membership
-   * question is ALWAYS-TRUE: `BaseSchema`s `[key: string]: any` makes
-   * `string extends keyof DataTableSchema`, so a nonsense key is a member. A
+   * question was ALWAYS-TRUE: `BaseSchema`s `[key: string]: any` made
+   * `string extends keyof DataTableSchema`, so a nonsense key was a member. A
    * gate written the obvious way — asking `DataTableSchema` whether it declares
-   * the held key — would therefore be an instrument that can only answer "yes",
-   * green forever: the same failure objectui#7201 was filed about, one level up.
-   * The first line pins that blindness; the second pins that the strip
+   * the held key — would therefore have been an instrument that can only answer
+   * "yes", green forever: the same failure objectui#7201 was filed about, one
+   * level up. The first line pinned that blindness; the second pins that the strip
    * `ObjectGrid.tsx` already derives is what restores a usable `false`.
    *
-   * If the first line ever goes red, `BaseSchema` dropped its index signature —
-   * a useful red, and the same one "the strip is real" above reports.
+   * The first line went red when objectui#8347 dropped `BaseSchema`'s index
+   * signature, as predicted here, and is flipped: the raw probe can refuse now,
+   * so both types answer alike.
    */
-  it('the gate must read the STRIPPED type — the raw `DataTableSchema` probe is blind', () => {
-    type _RawIsAlwaysTrue = Expect<Has<'zzNotADataTableSchemaKeyZZ', DataTableSchema>>;
+  it('the raw `DataTableSchema` probe can refuse since objectui#8347, as the stripped one always could', () => {
+    type _RawCanRefuse = Expect<
+      Has<'zzNotADataTableSchemaKeyZZ', DataTableSchema> extends false ? true : false
+    >;
     type _StrippedCanRefuse = Expect<
       Has<'zzNotADataTableSchemaKeyZZ', DeclaredDataTableSchema> extends false ? true : false
     >;

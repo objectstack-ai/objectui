@@ -29,8 +29,8 @@ import type { DataTableSchema } from '@object-ui/types';
 
 /**
  * Types a literal below as the node it is rather than as the `BaseSchema`
- * `renderComponent` accepts (objectui#11347): once `BaseSchema`'s index
- * signature is gone (objectui#8347), a literal checked against `BaseSchema`
+ * `renderComponent` accepts (objectui#11347): since objectui#8347 removed
+ * `BaseSchema`'s index signature, a literal checked against `BaseSchema`
  * may author only `BaseSchema`'s own keys.
  */
 const dataTableNode = (schema: DataTableSchema): DataTableSchema => schema;

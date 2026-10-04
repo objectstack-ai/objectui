@@ -94,7 +94,8 @@ type InputOf<T> = T extends z.ZodType ? z.input<T> : never;
  * without `exactOptionalPropertyTypes` is `never | undefined`, which collapses.
  * `Equal` separates that from the `boolean` / `string` / array types the
  * members carried, and, on the two `BaseSchema`-derived nodes, from the `any`
- * a DELETION would leave behind the index signature.
+ * a DELETION left behind the index signature until objectui#8347 (a deletion
+ * fails to compile at the indexed access now).
  */
 export type assertionRetiredMembersReadAsTombstones = [
   Expect<Equal<Ts_DataModelDesignerSchema['autoLayout'], undefined>>,

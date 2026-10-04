@@ -21,8 +21,8 @@
  *      (`@object-ui/plugin-charts`) reads `dataKey`/`name`, `label`,
  *      `chartType`/`type`, `variant`, `opacity`, `dashArray`, `stack`, `yAxis`
  *      and `color` — `data` is not among them. Rows come from the chart-level
- *      `data`, a key `ChartSchema` never declared at all, which survives only
- *      because `BaseSchema` carries an index signature.
+ *      `data`, a key `ChartSchema` did not declare at the time, which survived
+ *      only because `BaseSchema` carried an index signature.
  *   2. `categories` was documented as "X-axis labels/categories" and is read as
  *      an ALTERNATIVE SERIES LIST — consulted only when `series` is absent, each
  *      entry normalized as `{ dataKey }`. The category axis comes from

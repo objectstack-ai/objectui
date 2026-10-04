@@ -378,7 +378,7 @@ function handleClick() {
 
 const schema: ButtonSchema = {
   type: 'button',
-  text: 'Click me',
+  label: 'Click me',
   variant: 'default', // ✅ Type-checked
   onClick: handleClick, // ✅ a handler, not its name — onClick is () => void | Promise<void>
 }

@@ -461,8 +461,9 @@ export interface PaginationSchema extends BaseSchema {
    * `type: 'pagination'` object literal found `currentPage` three times and `page`
    * none. Honouring both would keep one fact writable two ways (AGENTS.md #0.1),
    * so it is retired at once, with no alias window. `?: never` rather than
-   * deleted: this interface carries `BaseSchema`'s index signature, so a deleted
-   * member would type-check silently, while a tombstone makes presence a `tsc`
+   * deleted: this interface carried `BaseSchema`'s index signature, so a deleted
+   * member would type-check silently (since objectui#8347, through a widened
+   * value only), while a tombstone makes presence a `tsc`
    * error, and the zod twin refuses the key by name.
    *
    * @deprecated RETIRED (objectui#6152) — rename the key to `currentPage`.

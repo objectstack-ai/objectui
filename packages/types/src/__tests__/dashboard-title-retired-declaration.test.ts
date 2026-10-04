@@ -36,11 +36,14 @@
  *
  * ## The trap: why this is a key-set probe and NOT `@ts-expect-error`
  *
- * ⚠️ `BaseSchema` carries `[key: string]: any`, so an authored `title:` on a
- * dashboard literal STILL COMPILES after the member is gone — it falls to the index
- * signature. A `@ts-expect-error` pin on an authored literal therefore cannot stick:
- * it would pass for the wrong reason before the removal and fail after it. The
- * pinnable effect is that `title` stops being a DECLARED member. The probe below
+ * ⚠️ When this was written `BaseSchema` carried `[key: string]: any`, so an
+ * authored `title:` on a dashboard literal STILL COMPILED after the member was gone
+ * — it fell to the index signature, and a `@ts-expect-error` pin on an authored
+ * literal could not stick. objectui#8347 removed that signature, so the literal is
+ * refused now too; the key-set probe stays the pin because it reads the
+ * DECLARATION, which an excess-key refusal on a literal cannot tell apart from a
+ * `?: never` tombstone. The pinnable effect is that `title` stops being a DECLARED
+ * member. The probe below
  * extracts the interface's literal key set — the index signature is filtered out by
  * `string extends K` — and asserts `title` is out while its neighbours stay in.
  * Real enforcement because `packages/types/tsconfig.test.json` is chained from this

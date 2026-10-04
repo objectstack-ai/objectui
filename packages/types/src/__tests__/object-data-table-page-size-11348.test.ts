@@ -12,7 +12,7 @@
  * `ObjectDataTable` spreads its node into the `data-table` it renders, and that
  * node reads `pageSize`, so the key was honoured on `object-data-table` while
  * neither face declared it. It reached the compiler only through `BaseSchema`'s
- * index signature, which objectui#8347 removes. `plugin-dashboard`'s drill-down
+ * index signature, which objectui#8347 removed. `plugin-dashboard`'s drill-down
  * drawer writes it on the node it builds (from its `maxRows`), and the drilled
  * list's row count depends on it: that runtime half is pinned by
  * `ObjectMetricWidget.drillRoutedToSharedDrawer-8970.test.tsx` in that package.
@@ -27,7 +27,8 @@
  * tolerant zod mirror and the strict authoring face; a non-number is refused
  * by value on the mirror (an `invalid_type` at `pageSize`, not an unrecognized
  * key) and by `tsc` (the `@ts-expect-error` below turns into TS2578 if the
- * member is ever widened or dropped back into the index signature).
+ * member is ever widened; a deletion did too, by dropping it back into the index
+ * signature, until objectui#8347, and is refused as an undeclared key now).
  *
  * ⚠️ The compile-time lines are erased at runtime; `tsc -p tsconfig.test.json`,
  * chained from this package's `type-check` script, is what executes them.

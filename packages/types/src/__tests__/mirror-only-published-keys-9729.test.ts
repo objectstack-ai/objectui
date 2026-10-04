@@ -61,13 +61,16 @@
  *     renderer's behaviour. It still carries no index signature — which is what
  *     keeps the assignment at the bottom of this file a real assertion.
  *   - `ObjectGridSchema` extends `BaseSchema`, whose `[key: string]: any` index
- *     signature absorbs any unstated key. TypeScript neither declares nor
- *     refuses `operators`; it types it `any`. The faces did not contradict —
+ *     signature absorbed any unstated key. TypeScript neither declared nor
+ *     refused `operators`; it typed it `any`. The faces did not contradict —
  *     one was simply silent, which is a weaker defect and was a different
  *     decision. ⭐ It was decided (objectui#9739, letter C): the MIRROR now
  *     refuses the key by name and prints the upstream spelling, while the twin
  *     is deliberately left alone — so the two faces still do not contradict,
  *     but the silent one is no longer the only one an author hears from.
+ *     ⚠️ Dated note (objectui#8347): `BaseSchema` no longer carries that index
+ *     signature, so the twin refuses an authored `operators` too, as an
+ *     undeclared key. Still not declared, still not tombstoned on the twin.
  *
  * ## ⚠️ The third key the ledger groups with these two is NOT this defect
  *
@@ -246,21 +249,24 @@ export type assertionDueLikeIsDeclaredOnTheTwin =
   Expect< Equal< DetailViewField['dueLike'], boolean | undefined > >;
 
 /**
- * The TWIN still does NOT refuse `operators` — and the absence of a
- * `@ts-expect-error` here is the measurement, not an omission: adding one
- * reddens the same type-check leg as unused, which is how this claim fails if
- * the twin ever loses `BaseSchema`'s index signature.
+ * The TWIN refuses `operators` too since objectui#8347 removed `BaseSchema`'s
+ * index signature. Before it, the absence of a `@ts-expect-error` here was the
+ * measurement — this binding compiled through the signature — and this
+ * docblock named the removal as the way that claim would fail. It failed as
+ * named: the key is still NOT declared on the twin (below), so it is refused
+ * as an undeclared key, with no name for the remedy; the mirror's tombstone
+ * is what names `operations`.
  *
  * ⭐ Unchanged by objectui#9739 ON PURPOSE. Letter C rules the key "not declared
  * on the TypeScript twin" — declaring it was letter A, refused, on the ground
  * that it writes a misspelling into the published interface beside the correct
- * spelling. So this binding compiling is still the true reading of the twin;
- * what changed is that the MIRROR beside it no longer agrees, and that asymmetry
- * is the ruled outcome rather than an unrepaired gap.
+ * spelling. That ruling stands: the twin declares nothing for `operators`,
+ * and both faces now refuse it, the mirror by name and the twin as undeclared.
  */
 export const authoredOperators: ObjectGridSchemaType = {
   type: 'object-grid',
   objectName: 'probe',
+  // @ts-expect-error — `operators` is not declared on the twin; since objectui#8347 an undeclared key is refused
   operators: { name: ['equals'] },
 };
 

@@ -61,8 +61,9 @@ type InputOf<K extends keyof Shape> = Shape[K] extends z.ZodType ? z.input<Shape
 /**
  * Each retired key READS as `undefined` on the TypeScript face (`?: never`
  * without `exactOptionalPropertyTypes` collapses to `undefined`), which
- * `Equal` separates from the `any` a deletion would leave behind
- * `BaseSchema`'s index signature.
+ * `Equal` separates from the `any` a deletion left behind `BaseSchema`'s index
+ * signature until objectui#8347 (a deletion fails to compile at the indexed
+ * access now).
  */
 export type assertionRetiredKeysReadAsTombstones = [
   Expect<Equal<Ts_GridSchema['smColumns'], undefined>>,

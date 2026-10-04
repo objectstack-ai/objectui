@@ -20,9 +20,10 @@
  * `BaseSchema` members with no meaning on a grid — a grid is neither a form
  * field nor an input — and nothing read either on this node.
  *
- * Deleting them would refuse nothing: the zod twin ends `.passthrough()` (and
- * its base declares `name` / `placeholder` itself), and the interface inherits
- * `BaseSchema`'s members and index signature. So each stays DECLARED and
+ * Deleting them would refuse nothing on the zod face: the twin ends
+ * `.passthrough()` (and its base declares `name` / `placeholder` itself). The
+ * interface inherits `BaseSchema`'s members (and inherited its index signature
+ * until objectui#8347; a widened value still skips the excess-property check). So each stays DECLARED and
  * unwritable on both faces — `retirementTombstone()` and `?: never` — the
  * convention `defaultSort` set (objectui#5861).
  *
@@ -163,9 +164,13 @@ describe('the UPSTREAM half — the canonical action spellings, re-derived from 
 /**
  * The `@ts-expect-error` lines below ARE the assertions: each retired member is
  * `?: never`, so the literal is a compile error. They fail this package's
- * `tsc -p tsconfig.test.json` leg as UNUSED directives if a member is deleted
- * (`name` / `placeholder` would fall back to `BaseSchema`'s `string`, the other
- * two to the index signature) or re-typed as a live value.
+ * `tsc -p tsconfig.test.json` leg as UNUSED directives if a member is re-typed
+ * as a live value, or if `name` / `placeholder` is deleted (each would fall back
+ * to `BaseSchema`'s `string`). Deleting either of the other two fell to the
+ * index signature until objectui#8347; it is refused as an undeclared key now,
+ * which keeps its directive used, so the directives no longer see that
+ * deletion. The deletion guards for those two are the `_RowSpecActions…` and
+ * `_BulkSpecActions…` rows at the bottom of this file.
  */
 export const authoredRowSpecActionsRefused: ObjectGridSchemaType = {
   ...NODE,
@@ -210,3 +215,21 @@ describe('the TypeScript twin', () => {
     ]).toHaveLength(5);
   });
 });
+
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+
+/**
+ * The two tombstones `BaseSchema` does not declare are MEMBERS on the TS face:
+ * an indexed access on a member that does not exist is itself a compile error,
+ * and each row pins the tombstone type (`?: never` reads as `undefined`), so a
+ * re-typing to a live value reddens it as well. Measured by ablation on this
+ * tree: deleting either member from `ObjectGridSchema` turns its row red while
+ * its directive above stays green (the `zod-mirror-parity` ledger reddens on
+ * the same deletion, since the zod twin still declares the member); restored,
+ * both are green. `name` and `placeholder` need no row: deleting either falls
+ * back to `BaseSchema`'s `string`, and the directive above goes unused (TS2578).
+ */
+export type _RowSpecActionsIsATombstone = Expect<Equal<ObjectGridSchemaType['rowSpecActions'], undefined>>;
+export type _BulkSpecActionsIsATombstone = Expect<Equal<ObjectGridSchemaType['bulkSpecActions'], undefined>>;

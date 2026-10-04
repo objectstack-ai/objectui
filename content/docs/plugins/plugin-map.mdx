@@ -130,8 +130,8 @@ const schema: ObjectMapBlockNode = {
     navigation?: NavigationConfig,    // What a marker click opens (see Marker click navigation)
     mapStyle?: string                 // MapLibre style URL; read before `map.style`
   },
-  onMarkerClick?: (record: any) => void,  // A host callback: on the node, in code only
   className?: string
+  // `onMarkerClick` is no node key: a React host passes it as a prop (see Marker Click)
 }
 ```
 
@@ -354,13 +354,15 @@ A click handler from a parent view (`onRowClick`) outranks the whole key.
 ### Marker Click
 
 `onMarkerClick` is a function, so it is no member of the `properties` bag (the
-spec's row declares none): a schema built in code carries it on the node, beside
-the bag.
+spec's row declares none) and no key of the node either: a React host passes it
+as a prop, and `SchemaRenderer` forwards it to the map. `ObjectMapBlockNode` is
+the node with its bag closed, so a misspelled key inside it is a compile error.
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import { SchemaRenderer } from '@object-ui/react';
+import type { ObjectMapBlockNode } from '@object-ui/types';
 
-const clickableMap: BaseSchema = {
+const clickableMap: ObjectMapBlockNode = {
   type: 'object-map',
   properties: {
     objectName: 'locations',
@@ -369,14 +371,20 @@ const clickableMap: BaseSchema = {
       longitudeField: 'lng',
       titleField: 'name'
     }
-  },
-  onMarkerClick: (location: Record<string, unknown>) => {
-    console.log('Marker clicked:', location);
-    // Show location details
-    // Navigate to location page
-    // Open directions
   }
 };
+
+export function ClickableMap() {
+  return (
+    <SchemaRenderer
+      schema={clickableMap}
+      onMarkerClick={(location: Record<string, unknown>) => {
+        console.log('Marker clicked:', location);
+        // Show location details, navigate to the location page, or open directions
+      }}
+    />
+  );
+}
 ```
 
 ## Examples
@@ -384,9 +392,9 @@ const clickableMap: BaseSchema = {
 ### Store Locator
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectMapBlockNode } from '@object-ui/types';
 
-const storeLocator: BaseSchema = {
+const storeLocator: ObjectMapBlockNode = {
   type: 'object-map',
   properties: {
     objectName: 'retail_locations',
@@ -398,20 +406,17 @@ const storeLocator: BaseSchema = {
       zoom: 10,
       center: [37.7749, -122.4194]  // San Francisco
     }
-  },
-  onMarkerClick: (store: Record<string, unknown>) => {
-    // Show store details
-    // Display hours, phone, etc.
   }
 }
+// Store details (hours, phone) come from `onMarkerClick`, a prop the host passes (see Marker Click).
 ```
 
 ### Delivery Tracking
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectMapBlockNode } from '@object-ui/types';
 
-const deliveryMap: BaseSchema = {
+const deliveryMap: ObjectMapBlockNode = {
   type: 'object-map',
   properties: {
     objectName: 'active_deliveries',
@@ -421,20 +426,17 @@ const deliveryMap: BaseSchema = {
       titleField: 'driver_name',
       descriptionField: 'delivery_address'
     }
-  },
-  onMarkerClick: (delivery: Record<string, unknown>) => {
-    // Show delivery details
-    // Contact driver
   }
 }
+// Delivery details and contacting the driver come from `onMarkerClick`, a prop the host passes (see Marker Click).
 ```
 
 ### Real Estate Listings
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectMapBlockNode } from '@object-ui/types';
 
-const propertyMap: BaseSchema = {
+const propertyMap: ObjectMapBlockNode = {
   type: 'object-map',
   properties: {
     objectName: 'properties',
@@ -445,12 +447,9 @@ const propertyMap: BaseSchema = {
       descriptionField: 'property_details',
       zoom: 12
     }
-  },
-  onMarkerClick: (property: Record<string, unknown>) => {
-    // Show property details
-    // Display photos, price, etc.
   }
 }
+// Property details (photos, price) come from `onMarkerClick`, a prop the host passes (see Marker Click).
 ```
 
 ### Event Venues
@@ -489,20 +488,17 @@ const venueMap = {
       descriptionField: 'details',
       zoom: 11
     }
-  },
-  onMarkerClick: (venue: Record<string, unknown>) => {
-    // Show venue details
-    // Book venue
   }
 }
+// Venue details and booking come from `onMarkerClick`, a prop the host passes (see Marker Click).
 ```
 
 ### Field Service Map
 
 ```tsx
-import type { BaseSchema } from '@object-ui/types';
+import type { ObjectMapBlockNode } from '@object-ui/types';
 
-const serviceMap: BaseSchema = {
+const serviceMap: ObjectMapBlockNode = {
   type: 'object-map',
   properties: {
     objectName: 'service_calls',
@@ -513,13 +509,9 @@ const serviceMap: BaseSchema = {
       descriptionField: 'service_type',
       zoom: 10
     }
-  },
-  onMarkerClick: (serviceCall: Record<string, unknown>) => {
-    // Show service call details
-    // Assign technician
-    // Get directions
   }
 }
+// Service-call details, assigning a technician and directions come from `onMarkerClick`, a prop the host passes (see Marker Click).
 ```
 
 ## Typical Use Cases

@@ -139,9 +139,10 @@ type Equal<A, B> =
 type Expect<T extends true> = T;
 
 /**
- * `Equal`, not `extends`: an undeclared member reads `any` through
- * `BaseSchema`'s index signature, and `any` passes a one-way check on both
- * sides — which is precisely the before-state this card removes.
+ * `Equal`, not `extends`: an undeclared member read `any` through
+ * `BaseSchema`'s index signature until objectui#8347, and `any` passes a
+ * one-way check on both sides — which is precisely the before-state this card
+ * removed.
  */
 export type assertionTimelineNavigationIsTheSpecType =
   Expect<Equal<ObjectTimelineProps['schema']['navigation'], ViewNavigationConfig | undefined>>;
@@ -150,9 +151,11 @@ export type assertionEqualCanFail = Expect<Equal<Equal<any, ViewNavigationConfig
 
 /**
  * The reading face's own failing instrument: with the member declared,
- * `'not-a-mode'` is not a `NavigationMode` and the expected error exists;
- * delete the member and the index signature admits the value, the error
- * disappears, and `tsc` reddens with TS2578 (an unused `@ts-expect-error`).
+ * `'not-a-mode'` is not a `NavigationMode` and the expected error exists. It
+ * guards the member's TYPE: since objectui#8347 removed the index signature, a
+ * deleted member's value is refused as an undeclared key and the directive
+ * stays used, so a deletion is caught by the `Equal` row above instead (the
+ * indexed access stops compiling).
  */
 export const BAD_TIMELINE_MODE_IS_REFUSED_AT_COMPILE_TIME: ObjectTimelineProps['schema'] = {
   type: 'timeline',

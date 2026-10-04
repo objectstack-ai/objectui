@@ -25,7 +25,7 @@
  * read straight off the `object-view` node. Nothing declared it —
  * `ObjectViewSchema` has no such member, the `object-view` registry
  * registration does not publish it in `inputs`, and `BaseSchema`'s index
- * signature means tsc says nothing either. It was honoured anyway, because this
+ * signature meant tsc said nothing either. It was honoured anyway, because this
  * branch runs exactly when no host supplied `renderListView` — the path the
  * REGISTERED renderer takes.
  *

@@ -32,13 +32,15 @@
  *   `packages/types/src/__tests__/page-body-arity-8310.test.ts`.
  * - **objectui#8912 — evidence, and it is RENDER OUTPUT.** The three
  *   `statistic` labels the flagship authors must appear in the rendered tree.
- *   ⛔ No compile-time check can stand in for this leg: `BaseSchema` is
- *   `.passthrough()` with an `[key: string]: any` index signature, so the
- *   defective key validated, type-checked, rode onto the node and drew nothing.
+ *   ⛔ No compile-time check could stand in for this leg when it was written:
+ *   `BaseSchema` was `.passthrough()` with an `[key: string]: any` index
+ *   signature, so the defective key validated, type-checked, rode onto the
+ *   node and drew nothing.
  *   `check:doc-types` only asks whether a fence's `type` literal is registered
- *   (`grid` is), and `check:doc-examples` compiles against that same index
- *   signature. Both are green on the defect BY DESIGN (objectui#4823), so a
- *   green from either is not a reading of this card.
+ *   (`grid` is), and `check:doc-examples` compiled against that same index
+ *   signature (objectui#8347 removed it). Both were green on the defect BY
+ *   DESIGN (objectui#4823), so a green from either is not a reading of this
+ *   card.
  *
  * ## ⚠️ Why the negative-space leg renders the OLD spelling
  *

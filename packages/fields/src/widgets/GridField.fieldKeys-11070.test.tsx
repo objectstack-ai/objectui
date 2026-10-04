@@ -9,7 +9,9 @@
 /**
  * The grid widget's FIELD-level keys: one spelling each, and that spelling is
  * the one `GridFieldMetadata` (`@object-ui/types`) declares (objectui#11070,
- * rounds 8 and 9).
+ * rounds 8 and 9). objectui#11610 renamed the eight keys to camelCase; this
+ * file uses the new spellings, and the retired snake_case ones are pinned in
+ * `GridField.retiredSnakeKeys-11610.test.tsx`.
  *
  * Before this round the published type and the widget disagreed in both
  * directions: `GridFieldMetadata.allow_reorder` was declared and taught by the
@@ -22,14 +24,14 @@
  *
  * What each block pins:
  *
- *   - reorder — `allow_reorder: false` removes the drag handle from every row,
+ *   - reorder — `allowReorder: false` removes the drag handle from every row,
  *     against a no-key control that draws one per row; the retired
  *     `reorderable` changes nothing;
- *   - total — `total_field` names the CHILD column summed into the footer
- *     (the spec's `amountField`, never its `totalField`); `amount_field` and
- *     `amountField` change nothing;
- *   - `add_label` — declared, and it labels the Add button;
- *   - `sort_field` — declared (round 9): it names the CHILD field each row is
+ *   - total — `totalField` names the CHILD column summed into the footer
+ *     (the spec's `amountField`, not the PARENT field the spec's own
+ *     `totalField` names); `amount_field` and `amountField` change nothing;
+ *   - `addLabel` — declared, and it labels the Add button;
+ *   - `sortField` — declared (round 9): it names the CHILD field each row is
  *     stamped with its index in, on every change, so a drag-reorder persists;
  *     with no key the rows carry no position;
  *   - `allow_duplicate` and `show_line_numbers` — retired under ADR-0049 (no
@@ -78,14 +80,14 @@ function show(field: GridFieldMetadata) {
 const dragHandles = () => screen.queryAllByTestId(/^line-items-drag-/).length;
 
 describe('GridField field-level keys: the declared spelling is the read spelling (objectui#11070 round 8)', () => {
-  describe('reorder: `allow_reorder`', () => {
+  describe('reorder: `allowReorder`', () => {
     it('CONTROL: with no key, every row draws a drag handle', () => {
       show(grid());
       expect(dragHandles()).toBe(rows.length);
     });
 
-    it('`allow_reorder: false` draws no drag handle on any row', () => {
-      show(grid({ allow_reorder: false }));
+    it('`allowReorder: false` draws no drag handle on any row', () => {
+      show(grid({ allowReorder: false }));
       expect(dragHandles()).toBe(0);
     });
 
@@ -95,9 +97,9 @@ describe('GridField field-level keys: the declared spelling is the read spelling
     });
   });
 
-  describe('total: `total_field` names the child column summed', () => {
-    it('`total_field` shows the footer total of that child column', () => {
-      show(grid({ total_field: 'amount' }));
+  describe('total: `totalField` names the child column summed', () => {
+    it('`totalField` shows the footer total of that child column', () => {
+      show(grid({ totalField: 'amount' }));
       expect(screen.getByTestId('line-items-total').textContent).toContain('30');
     });
 
@@ -112,14 +114,14 @@ describe('GridField field-level keys: the declared spelling is the read spelling
     });
   });
 
-  describe('`add_label`', () => {
+  describe('`addLabel`', () => {
     it('labels the Add button', () => {
-      show(grid({ add_label: 'Add invoice line' }));
+      show(grid({ addLabel: 'Add invoice line' }));
       expect(screen.getByTestId('line-items-add').textContent).toContain('Add invoice line');
     });
   });
 
-  describe('`sort_field`: the child field stamped with each row\'s index (objectui#11070 round 9)', () => {
+  describe('`sortField`: the child field stamped with each row\'s index (objectui#11070 round 9)', () => {
     /** Drag the second row onto the first, and return the rows the change handed back. */
     function dragSecondOntoFirst(field: GridFieldMetadata): Array<Record<string, unknown>> {
       const onChange = vi.fn();
@@ -132,8 +134,8 @@ describe('GridField field-level keys: the declared spelling is the read spelling
       return onChange.mock.calls[0][0];
     }
 
-    it('`sort_field` stamps each row with its new index after a drag-reorder', () => {
-      const next = dragSecondOntoFirst(grid({ sort_field: 'position' }));
+    it('`sortField` stamps each row with its new index after a drag-reorder', () => {
+      const next = dragSecondOntoFirst(grid({ sortField: 'position' }));
       expect(next.map((r) => [r.description, r.position])).toEqual([
         ['B', 0],
         ['A', 1],
@@ -153,8 +155,8 @@ describe('GridField field-level keys: the declared spelling is the read spelling
       expect(screen.queryAllByTestId(/^line-items-duplicate-/)).toHaveLength(rows.length);
     });
 
-    it('CONTROL: `allow_add: false` removes the duplicate action with the Add action', () => {
-      show(grid({ allow_add: false }));
+    it('CONTROL: `allowAdd: false` removes the duplicate action with the Add action', () => {
+      show(grid({ allowAdd: false }));
       expect(screen.queryAllByTestId(/^line-items-duplicate-/)).toHaveLength(0);
     });
   });
@@ -174,24 +176,24 @@ const declared: GridFieldMetadata = {
   type: 'grid',
   name: 'lines',
   columns,
-  min_rows: 1,
-  max_rows: 50,
-  allow_add: true,
-  allow_delete: true,
-  allow_reorder: false,
-  total_field: 'amount',
-  add_label: 'Add line',
-  sort_field: 'position',
+  minRows: 1,
+  maxRows: 50,
+  allowAdd: true,
+  allowDelete: true,
+  allowReorder: false,
+  totalField: 'amount',
+  addLabel: 'Add line',
+  sortField: 'position',
 };
 void declared;
 
-// @ts-expect-error objectui#11070 round 8: `reorderable` is retired; the reorder key is `allow_reorder`.
+// @ts-expect-error objectui#11070 round 8: `reorderable` is retired; the reorder key is `allowReorder`.
 const retiredReorderable: GridFieldMetadata = { type: 'grid', name: 'lines', reorderable: false };
-// @ts-expect-error objectui#11070 round 8: `amount_field` is retired; the summed child column is `total_field`.
+// @ts-expect-error objectui#11070 round 8: `amount_field` is retired; the summed child column is `totalField`.
 const retiredAmountSnake: GridFieldMetadata = { type: 'grid', name: 'lines', amount_field: 'amount' };
-// @ts-expect-error objectui#11070 round 8: `amountField` is retired on the widget; the summed child column is `total_field`.
+// @ts-expect-error objectui#11070 round 8: `amountField` is retired on the widget; the summed child column is `totalField`.
 const retiredAmountCamel: GridFieldMetadata = { type: 'grid', name: 'lines', amountField: 'amount' };
-// @ts-expect-error objectui#11070 round 8: `allow_duplicate` is retired (ADR-0049); duplicate follows `allow_add`.
+// @ts-expect-error objectui#11070 round 8: `allow_duplicate` is retired (ADR-0049); duplicate follows `allowAdd`.
 const retiredDuplicate: GridFieldMetadata = { type: 'grid', name: 'lines', allow_duplicate: false };
 // @ts-expect-error objectui#11070 round 8: `show_line_numbers` is retired (ADR-0049); the line-number column always shows.
 const retiredLineNumbers: GridFieldMetadata = { type: 'grid', name: 'lines', show_line_numbers: false };

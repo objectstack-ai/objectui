@@ -27,10 +27,11 @@
  *
  * ## Why tombstones, and not simply deleting the members
  *
- * `BaseSchema` is `.passthrough()` on the Zod side and carries a
- * `[key: string]: any` index signature on the TS side (objectui#5155 /
- * objectui#6269 own that ceiling). An UNDECLARED key is therefore accepted,
- * unvalidated, by both halves — deleting the members would hand the retired
+ * `BaseSchema` is `.passthrough()` on the Zod side and carried a
+ * `[key: string]: any` index signature on the TS side until objectui#8347
+ * (objectui#5155 / objectui#6269 owned that ceiling). An UNDECLARED key is
+ * therefore accepted, unvalidated, by the Zod half (and was by the TS half;
+ * since objectui#8347 only through a widened value) — deleting the members would hand the retired
  * keys exactly the silent no-op this pin exists to prevent. `?: never` /
  * `retirementTombstone()` on both halves, in lockstep, is this package's
  * convention (`timeline-timescale-retired.test.ts` pins the same shape for
@@ -229,11 +230,12 @@ describe('events / orientation / position are RETIRED — the TS half of the tom
     expect([events, orientation, position, items, variant]).toHaveLength(5);
   });
 
-  it('refuses them in the form authors actually write — survives the index signature', () => {
+  it('refuses them in the form authors actually write — by name, as `never` tombstones on a fresh literal', () => {
     // The member reads above could pass through a mapped or indexed type; this
     // leg writes a DOCUMENT, the shape an author (or an AI generating metadata)
-    // produces. If `BaseSchema`'s `[key: string]: any` won, the key would widen
-    // back to `any` here and the directive would go unused (TS2578).
+    // produces. If `BaseSchema`'s `[key: string]: any` had won (it stood until
+    // objectui#8347), the key would have widened back to `any` here and the
+    // directive would have gone unused (TS2578).
     // The directive sits on the PROPERTY: excess-property checking reports the
     // error at the member, so a directive on the `const` would suppress nothing.
     const retiredDocument: TimelineSchemaTS = {

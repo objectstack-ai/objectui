@@ -34,8 +34,9 @@
  *
  * ## Why a refusal and not a deletion — the mechanism, not a preference
  *
- * `BaseSchema` closes with an any-valued index signature and `BaseSchemaCore`
- * ends `.passthrough()`. A DROPPED member key is therefore KEPT, not refused:
+ * `BaseSchemaCore` ends `.passthrough()` (and `BaseSchema` closed with an
+ * any-valued index signature until objectui#8347). A DROPPED member key is
+ * therefore KEPT, not refused, on the zod face:
  * deleting the declaration would have left the silent accept exactly as it was
  * and thrown the diagnostic away with it (the mechanism objectui#7963
  * measured). Declared-and-unwritable is what makes the refusal loud —

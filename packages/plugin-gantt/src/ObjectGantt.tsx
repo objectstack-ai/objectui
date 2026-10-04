@@ -311,9 +311,10 @@ export interface ObjectGanttProps {
    * objectui#6051 declared what the FLAT branch reads: the 24 flattened
    * `GanttConfig` keys `getGanttConfig`'s first branch consumes, plus the
    * `staticData` / `filter` / `sort` the fetch path reads. The grid-style
-   * `{ gantt: { … } }` block keeps working exactly as before and is still read
-   * through the index signature — declaring it is the one change that would not
-   * have been additive, and it is severed to objectui#6475. The registered
+   * `{ gantt: { … } }` block kept working exactly as before and was still read
+   * through the index signature — declaring it was the one change that would not
+   * have been additive, so it was severed to objectui#6475, which has since
+   * declared it (`gantt?: GanttConfig`). The registered
    * renderer (`index.tsx`) still passes `schema: any`, so no runtime shape is
    * turned away either way.
    */

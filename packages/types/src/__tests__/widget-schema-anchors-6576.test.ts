@@ -52,12 +52,13 @@
  *
  * ## The ceiling, stated rather than assumed (objectui#5155)
  *
- * `BaseSchema` still carries `[key: string]: any`, so anchoring buys DECLARED
+ * While `BaseSchema` carried `[key: string]: any`, anchoring bought DECLARED
  * members their declared types (`visible: 42` is refused on both widgets now)
- * but does NOT buy rejection of a misspelling: `visibleWhn` compiles on both.
- * The ruling accepted that cost knowingly; the counter-probe below pins it
- * honestly so nobody reads the anchor as more than it is. When objectui#5155
- * lands, that expectation is the one to revisit deliberately.
+ * but did NOT buy rejection of a misspelling: `visibleWhn` compiled on both.
+ * The ruling accepted that cost knowingly, and the counter-probe below pinned
+ * it honestly so nobody read the anchor as more than it was. objectui#8347
+ * landed that objectui#5155 phase and the expectation was revisited: the
+ * counter-probe now pins the refusal.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -72,6 +73,7 @@ import {
   ObjectDataTableSchema as ObjectDataTableMirror,
 } from '../zod/objectql.zod.js';
 import type { ExpressionWire } from '../expression';
+import type { EvaluatedExpressionInput } from '@objectstack/spec/shared';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..', '..');
@@ -107,10 +109,12 @@ export type assertionDrillDownDeclared = Expect<Equal<ObjectDataTableSchema['dri
 export type assertionOnRowClickDeclared = Expect<Equal<ObjectDataTableSchema['onRowClick'], ((row: any, event?: any) => void) | undefined>>;
 /**
  * Inherited members resolve to their DECLARED types. `Equal`, not `extends`:
- * through the index signature a missing member reads `any`, which a one-way
- * check would accept (the objectui#7087 disabled-twin lesson).
+ * through the index signature a missing member read `any` until objectui#8347
+ * (it fails to compile now), which a one-way check would accept (the
+ * objectui#7087 disabled-twin lesson).
  */
-export type assertionGalleryInheritsVisibleWhen = Expect<Equal<ObjectGallerySchema['visibleWhen'], string | undefined>>;
+// `string` until objectui#8347 typed it as the spec's evaluated-slot input, by reference.
+export type assertionGalleryInheritsVisibleWhen = Expect<Equal<ObjectGallerySchema['visibleWhen'], EvaluatedExpressionInput | undefined>>;
 export type assertionGalleryInheritsBind = Expect<Equal<ObjectGallerySchema['bind'], string | undefined>>;
 // `boolean | string` until objectui#7530 declared the CEL envelope on the base union.
 export type assertionDataTableInheritsVisible = Expect<Equal<ObjectDataTableSchema['visible'], boolean | ExpressionWire | undefined>>;
@@ -128,7 +132,9 @@ describe('ObjectGallerySchema / ObjectDataTableSchema — compile-time pins (obj
     // unknown-key error, for the wrong reason); the data-table literal's own
     // index signature typed it `any` and ACCEPTED 42. Now both refuse it for
     // the declared reason. Each directive fails the build (TS2578) the moment
-    // the member stops being declared.
+    // the member is widened to accept a number; since objectui#8347 an
+    // undeclared `visible` is refused as excess, so a deletion is caught by the
+    // inherited-member `Equal` rows instead.
 
     // @ts-expect-error — `visible` is `boolean | ExpressionWire | undefined` through `BaseSchema`.
     const gallery: ObjectGallerySchema = { type: 'object-gallery', visible: 42 };
@@ -154,13 +160,16 @@ describe('ObjectGallerySchema / ObjectDataTableSchema — compile-time pins (obj
     expect(typeof table.onRowClick).toBe('function');
   });
 
-  it('still accepts a MISSPELLING — the ceiling, pinned honestly (objectui#5155)', () => {
-    // Counter-probe against reading the anchor as more than it is. `BaseSchema`'s
-    // `[key: string]: any` is inherited, so `visibleWhn` compiles on both. The
-    // ruling accepted this cost; closing it is objectui#5155, not this card.
+  it('refuses a MISSPELLING — the ceiling this row pinned is gone (objectui#8347)', () => {
+    // This row was the counter-probe against reading the anchor as more than it
+    // was: `BaseSchema`'s inherited `[key: string]: any` let `visibleWhn` compile
+    // on both, and closing that was left to the removal of the signature, which
+    // landed as objectui#8347.
+    // @ts-expect-error — `visibleWhn` is no member; the key is `visibleWhen`
     const gallery: ObjectGallerySchema = { type: 'object-gallery', visibleWhn: 'typo' };
+    // @ts-expect-error — `visibleWhn` is no member; the key is `visibleWhen`
     const table: ObjectDataTableSchema = { type: 'object-data-table', visibleWhn: 'typo' };
-    expect([gallery.visibleWhn, table.visibleWhn]).toEqual(['typo', 'typo']);
+    expect([gallery.type, table.type]).toEqual(['object-gallery', 'object-data-table']);
   });
 });
 

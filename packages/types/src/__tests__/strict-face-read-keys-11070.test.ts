@@ -119,18 +119,19 @@ const GRID_ENTRY = {
 
 /**
  * Round 10: the `grid` widget's field-level keys — every member
- * `GridFieldMetadata` declares besides `columns` (round 7) and the base field
- * keys — each with a value of its declared type, on a grid entry.
+ * `GridFieldMetadata` declares besides `columns` (round 7), the base field
+ * keys and the retired snake_case tombstones — each with a value of its
+ * declared type, on a grid entry. camelCase since objectui#11610.
  */
 const GRID_FIELD_KEYS = {
-  min_rows: 1,
-  max_rows: 20,
-  allow_add: false,
-  allow_delete: false,
-  allow_reorder: false,
-  total_field: 'amount',
-  add_label: 'Add line',
-  sort_field: 'position',
+  minRows: 1,
+  maxRows: 20,
+  allowAdd: false,
+  allowDelete: false,
+  allowReorder: false,
+  totalField: 'amount',
+  addLabel: 'Add line',
+  sortField: 'position',
 } as const;
 
 const GRID_FIELD_KEY_CASES: ReadonlyArray<readonly [string, Record<string, unknown>]> = Object.entries(GRID_FIELD_KEYS)
@@ -162,7 +163,9 @@ describe('objectui#11070 — the declared read keys parse on the strict face', (
     ['columns', { type: 'grid', columns: [{ name: 'qty', type: 'number' }, { name: 'sku' }] }],
     // Round 10: the `grid` widget's field-level keys, `GridFieldMetadata`'s
     // members, each on a grid entry. Every row was refused by name at the
-    // round's base (`fields.0.<key>`), so each one is a refusal that flipped.
+    // round's base (`fields.0.KEY`), so each one is a refusal that flipped;
+    // objectui#11610 renamed them to camelCase (their snake_case spellings
+    // are refused by name, `grid-field-keys-camelcase-11610.test.ts`).
     ...GRID_FIELD_KEY_CASES,
   ];
 
@@ -235,15 +238,16 @@ describe('objectui#11070 — a declared key is judged by its declared type on bo
     ['a bare-object `columns` (the spec types it as an array)', form({ type: 'grid', columns: { name: 'qty' } })],
     // Round 10: each grid field-level key is judged by `GridFieldMetadata`'s
     // type. At the round's base the tolerant face STRIPPED every one of these
-    // and accepted the document, so each row is red there.
-    ['a string `min_rows`', form({ ...GRID_ENTRY, min_rows: '1' })],
-    ['a string `max_rows`', form({ ...GRID_ENTRY, max_rows: '20' })],
-    ['a string `allow_add`', form({ ...GRID_ENTRY, allow_add: 'false' })],
-    ['a string `allow_delete`', form({ ...GRID_ENTRY, allow_delete: 'false' })],
-    ['a string `allow_reorder`', form({ ...GRID_ENTRY, allow_reorder: 'false' })],
-    ['a numeric `total_field`', form({ ...GRID_ENTRY, total_field: 3 })],
-    ['a numeric `add_label`', form({ ...GRID_ENTRY, add_label: 1 })],
-    ['a numeric `sort_field`', form({ ...GRID_ENTRY, sort_field: 0 })],
+    // and accepted the document, so each row is red there. camelCase since
+    // objectui#11610.
+    ['a string `minRows`', form({ ...GRID_ENTRY, minRows: '1' })],
+    ['a string `maxRows`', form({ ...GRID_ENTRY, maxRows: '20' })],
+    ['a string `allowAdd`', form({ ...GRID_ENTRY, allowAdd: 'false' })],
+    ['a string `allowDelete`', form({ ...GRID_ENTRY, allowDelete: 'false' })],
+    ['a string `allowReorder`', form({ ...GRID_ENTRY, allowReorder: 'false' })],
+    ['a numeric `totalField`', form({ ...GRID_ENTRY, totalField: 3 })],
+    ['a numeric `addLabel`', form({ ...GRID_ENTRY, addLabel: 1 })],
+    ['a numeric `sortField`', form({ ...GRID_ENTRY, sortField: 0 })],
     ['a `null` `object-chart` binding (the adapter placeholder the wrapper no longer writes)', { type: 'object-chart', properties: { objectName: 'task', chartType: 'bar' }, dataSource: null }],
     ['an adapter-shaped `object-chart` binding', { type: 'object-chart', properties: { objectName: 'task', chartType: 'bar' }, dataSource: 'objectstack' }],
   ];
@@ -288,6 +292,11 @@ describe('objectui#11070 — the retired spellings stay refused on the strict fa
     ['summary_field', { type: 'summary', summary_field: 'amount' }],
   ];
 
+  // ⚠️ The `grid` widget's eight snake_case keys (round 10's spellings, renamed
+  // to camelCase by objectui#11610) are NOT in this list: they stay DECLARED,
+  // as alias refusals naming the camelCase key, so the strict face answers
+  // `invalid_type` with that prescription rather than `unrecognized_keys`.
+  // Pinned on every face in `grid-field-keys-camelcase-11610.test.ts`.
   it.each(RETIRED)('the retired `fields[].%s` is refused by name', (key, field) => {
     expect(undeclared(issuesOf(StrictAnyComponentSchema, form(field)))).toEqual([`fields.0.${key}`]);
   });
@@ -379,23 +388,25 @@ export type assertionGridColumnsBySpecReference = [
  * the grid's type and not mirrored on the form-field face fails to compile
  * here; the zod side then follows through the `UnmirroredDeclared` ratchet in
  * `zod-mirror-parity.test.ts` and the key set in `form-field-zod-coverage`.
+ * Since objectui#11610 that member set includes the eight retired snake_case
+ * `?: never` tombstones, so the face mirrors the refusals too.
  */
 type DeclaredKeysOf<T> = keyof { [K in keyof T as string extends K ? never : number extends K ? never : K]: T[K] };
 type GridFieldOwnKeys = Exclude<keyof GridFieldMetadata, keyof BaseFieldMetadata>;
 export type assertionGridFieldKeysOnTheFormFieldFace = [
   // LIT CONTROL: the key set the two rows below range over is not empty, and
   // it holds no base field key (an empty set would pass both in silence).
-  Expect<Equal<Extract<GridFieldOwnKeys, 'columns' | 'sort_field' | 'name'>, 'columns' | 'sort_field'>>,
+  Expect<Equal<Extract<GridFieldOwnKeys, 'columns' | 'sortField' | 'sort_field' | 'name'>, 'columns' | 'sortField' | 'sort_field'>>,
   Expect<Equal<Exclude<GridFieldOwnKeys, DeclaredKeysOf<FormField>>, never>>,
   Expect<Equal<{ [K in GridFieldOwnKeys]: FormField[K] }, { [K in GridFieldOwnKeys]: GridFieldMetadata[K] }>>,
-  Expect<Equal<FormField['min_rows'], GridFieldMetadata['min_rows']>>,
-  Expect<Equal<FormField['max_rows'], GridFieldMetadata['max_rows']>>,
-  Expect<Equal<FormField['allow_add'], GridFieldMetadata['allow_add']>>,
-  Expect<Equal<FormField['allow_delete'], GridFieldMetadata['allow_delete']>>,
-  Expect<Equal<FormField['allow_reorder'], GridFieldMetadata['allow_reorder']>>,
-  Expect<Equal<FormField['total_field'], GridFieldMetadata['total_field']>>,
-  Expect<Equal<FormField['add_label'], GridFieldMetadata['add_label']>>,
-  Expect<Equal<FormField['sort_field'], GridFieldMetadata['sort_field']>>,
+  Expect<Equal<FormField['minRows'], GridFieldMetadata['minRows']>>,
+  Expect<Equal<FormField['maxRows'], GridFieldMetadata['maxRows']>>,
+  Expect<Equal<FormField['allowAdd'], GridFieldMetadata['allowAdd']>>,
+  Expect<Equal<FormField['allowDelete'], GridFieldMetadata['allowDelete']>>,
+  Expect<Equal<FormField['allowReorder'], GridFieldMetadata['allowReorder']>>,
+  Expect<Equal<FormField['totalField'], GridFieldMetadata['totalField']>>,
+  Expect<Equal<FormField['addLabel'], GridFieldMetadata['addLabel']>>,
+  Expect<Equal<FormField['sortField'], GridFieldMetadata['sortField']>>,
 ];
 
 // @ts-expect-error objectui#11070 round 7 — `GridColumnDefinition` is RETIRED from `../field-types`: a grid column is the spec's `InlineGridColumn` (`GridFieldMetadata['columns']`).

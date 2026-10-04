@@ -137,7 +137,12 @@ import {
   checkDashboardWidgetStageOrder,
   checkDashboardWidgetMetricMeasureArity,
 } from '@objectstack/spec/ui';
-import { FieldSchema as SpecFieldSchema, SelectOptionSchema as SpecSelectOptionSchema } from '@objectstack/spec/data';
+import {
+  FieldSchema as SpecFieldSchema,
+  SelectOptionSchema as SpecSelectOptionSchema,
+  // objectui#11266 — one `ObjectFormSchema.subforms[].columns` entry.
+  InlineGridColumnSchema as SpecInlineGridColumnSchema,
+} from '@objectstack/spec/data';
 import {
   EvaluatedExpressionInputSchema as SpecEvaluatedExpressionInputSchema,
   EvaluatedExpressionSchema as SpecEvaluatedExpressionSchema,
@@ -372,6 +377,11 @@ const IMPORTED: Array<readonly [string, z.ZodType]> = [
   // spec's `.default(false)` —
   // exactly what this boundary exists to keep out of a parse output.
   ['FieldSchema', SpecFieldSchema],
+  // objectui#11266: one `ObjectFormSchema.subforms[].columns` entry is the spec's
+  // inline grid column, crossed through this boundary. It carries no default and
+  // reaches no `z.lazy`, so the strip is the identity function: the row is here
+  // because the census below requires every imported symbol to be measured.
+  ['InlineGridColumnSchema', SpecInlineGridColumnSchema],
 ] as const;
 
 /** The subset that actually carries an imported default — where the strip does work. */

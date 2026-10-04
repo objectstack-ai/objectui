@@ -77,6 +77,11 @@ import {
   EmptyStateSchema as SpecEmptyStateSchema,
   checkListViewCalendarVisualization,
 } from '@objectstack/spec/ui';
+// objectui#11266 — one inline master-detail grid column, the closed shape
+// `@objectstack/spec` 17.6.0 judges `FormViewSchema.subforms[].columns` by
+// (objectstack#20927); `ObjectFormSchema.subforms[].columns` below takes it by
+// reference.
+import { InlineGridColumnSchema as SpecInlineGridColumnSchema } from '@objectstack/spec/data';
 import { BaseSchema, specFieldsExcept } from './base.zod.js';
 import { aliasKeyRefusal, handlerKeyRefusal, neitherContentChannelGuidance, retirementTombstone } from './tombstone.zod.js';
 import { DataTableSchema, DrillDownConfigSchema, PivotTableSchema } from './data-display.zod.js';
@@ -971,7 +976,17 @@ export const ObjectFormSchema = BaseSchema.extend({
   subforms: z.array(z.object({
     childObject: z.string().describe('Child object name'),
     relationshipField: z.string().optional().describe('Foreign-key field on the child (derived from metadata when omitted)'),
-    columns: z.array(z.any()).optional().describe('Grid columns for the child rows (derived from metadata when omitted)'),
+    // objectui#11266 — each column is the spec's `InlineGridColumnSchema`, by
+    // reference: the schema `@objectstack/spec` 17.6.0 holds
+    // `FormViewSchema.subforms[].columns` to, so `objectui validate` and
+    // `os validate` give one verdict on a column. It refuses an undeclared key
+    // by name, and a `scale` on a column that DECLARES `type: 'currency'`.
+    // ⛔ It cannot see a `scale` on an identity-only column (`{ name, scale }`)
+    // whose child field is a currency: that takes the child object's fields,
+    // which are not in the document judged here. `defineStack` refuses it at
+    // publish, and `plugin-form`'s `hydrateColumns` reports it at render.
+    columns: z.array(stripImportedDefaults(SpecInlineGridColumnSchema)).optional()
+      .describe('Grid columns for the child rows (derived from metadata when omitted). @objectstack/spec InlineGridColumn, by reference'),
     amountField: z.string().optional(),
     totalField: z.string().optional(),
     title: z.string().optional(),

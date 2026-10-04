@@ -36,6 +36,10 @@ import type { ElementDataSource } from '@objectstack/spec/ui';
 // objectui#10872 batch 9 — the per-breakpoint style maps `responsiveStyles` declares
 // on `ObjectGridSchema` and `ObjectChartSchema`, by reference.
 import type { ResponsiveStyles as SpecResponsiveStyles } from '@objectstack/spec/ui';
+// objectui#11266 — one `ObjectFormSchema.subforms[].columns` entry, by reference:
+// the spec's `InlineGridColumn` (its `z.input`, the authoring face), which the zod
+// twin judges with the spec's own `InlineGridColumnSchema`. Type-only.
+import type { InlineGridColumn as SpecInlineGridColumn } from '@objectstack/spec/data';
 // objectui#7928 — `ObjectViewSchema.listViews` is the protocol's record of this
 // schema, BY REFERENCE. The spec publishes a TS type for `ListView` and none for
 // the object-scoped `ObjectListView`, so the member reads it as `z.input` (the
@@ -2042,11 +2046,16 @@ export interface ObjectFormSchema extends BaseSchema {
    * derived from the child object's metadata (override with
    * `relationshipField` / `columns`). This lets a regular form view declare
    * master-detail without a bespoke page.
+   *
+   * A `columns` entry is the spec's `InlineGridColumn` (objectui#11266): an
+   * object keyed by `name`, never a bare field-name string. The minimal entry is
+   * `{ name: 'quantity' }`; a column that declares no `type` takes its label,
+   * type and the rest from the child object's field.
    */
   subforms?: Array<{
     childObject: string;
     relationshipField?: string;
-    columns?: any[];
+    columns?: SpecInlineGridColumn[];
     amountField?: string;
     totalField?: string;
     title?: string;

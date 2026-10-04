@@ -697,7 +697,7 @@ const schema: ObjectViewSchema = {
       {
         childObject: 'order_items',
         title: 'Line items',
-        columns: ['product', 'quantity', 'price'],
+        columns: [{ name: 'product' }, { name: 'quantity' }, { name: 'price' }],
       },
     ],
   },
@@ -706,7 +706,10 @@ const schema: ObjectViewSchema = {
 
 Only `childObject` is required — the relationship field and the grid columns are
 derived from the child object's metadata unless you override them
-(`relationshipField`, `columns`).
+(`relationshipField`, `columns`). A column is `@objectstack/spec`'s
+`InlineGridColumn`: an object keyed by `name`, never a bare field name. One that
+declares no `type` takes its label, type and the rest from the child field;
+an undeclared column key is refused by the validator.
 
 ### View tabs
 

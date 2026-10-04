@@ -335,7 +335,12 @@ function EntryDetail({ entry }: { entry: DraftChangeEntry }) {
 export interface DraftChangesPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** When set, list only pending drafts belonging to this package (Studio is package-scoped). */
+  /**
+   * When set, list only pending drafts belonging to this package (Studio is
+   * package-scoped), and the confirm note says they publish as one atomic
+   * batch. Without one, the note says each draft publishes by itself
+   * (objectui#11591).
+   */
   packageId?: string | null;
   /**
    * Narrows the listed drafts further, for a host whose scope the `_drafts`
@@ -627,11 +632,22 @@ export function DraftChangesPanel({
         {onPublish && (entries?.length ?? 0) > 0 && !error && (
           <div className="mt-auto flex flex-col gap-2 border-t px-4 py-3">
             <p className="text-xs text-muted-foreground">
-              {t('preview.changes.confirmNote', {
-                count: entries!.length,
-                defaultValue:
-                  'Publishing releases all {{count}} pending drafts of this package atomically.',
-              })}
+              {/* objectui#11591 — the note states what THIS scope's Publish
+                  does. Only a package publishes as one atomic batch (`POST
+                  /packages/:id/publish-drafts`); with no package there is no
+                  batch door, so the caller promotes each draft by itself and a
+                  draft that fails stays pending while the others go live. */}
+              {packageId
+                ? t('preview.changes.confirmNote', {
+                    count: entries!.length,
+                    defaultValue:
+                      'Publishing releases all {{count}} pending drafts of this package atomically.',
+                  })
+                : t('preview.changes.confirmNoteSeparate', {
+                    count: entries!.length,
+                    defaultValue:
+                      'Publishing releases the {{count}} pending drafts one at a time: a draft that fails stays pending while the others go live.',
+                  })}
             </p>
             <Button
               size="sm"

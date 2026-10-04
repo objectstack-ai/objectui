@@ -17,15 +17,14 @@
  * file, which pin the thing that made closing the second site safe.
  *
  * Same defect, same key name and same package as objectui#5940, which fixed the
- * sibling site in `MasterDetailForm`. `childObject` is declared
- * `required: true` on the registry entry for `record:line_items`
- * (`index.tsx`) and is typed `string` on `LineItemsPanelSchema`, but NOTHING
- * enforces either: `inputs[].required` is designer metadata (WidgetRegistry
- * copies it onto the ComponentRegistry entry and no one parses a node against
- * it), and the block has no spec schema at all — `@objectstack/spec` names
- * `record:line_items` only as an example of a type authored in the wild outside
- * its union. So a node reaches this renderer straight off an authored schema
- * with the key `undefined`, and the effect asked the data layer for it anyway.
+ * sibling site in `MasterDetailForm`. `childObject` is typed `string` on
+ * `LineItemsPanelSchema`, but the spec row and the registry entry for
+ * `record:line_items` (`index.tsx`) both leave it optional, because the node's
+ * `dataSource` binding can supply it (objectui#11569). So a node with neither
+ * reaches this renderer with the key `undefined`, and the effect asked the data
+ * layer for it anyway. That node is this file's answer: the page compile does
+ * not refuse it, and the configuration hint pinned below is what tells its
+ * author.
  *
  * ## Why the assertions read a CALL LIST
  *

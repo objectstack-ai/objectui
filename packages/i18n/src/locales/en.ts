@@ -3252,6 +3252,11 @@ const en = {
       confirmNote: 'Publishing releases all {{count}} pending drafts of this package atomically.',
       confirmNote_one: 'Publishing releases the {{count}} pending draft of this package atomically.',
       confirmNote_other: 'Publishing releases all {{count}} pending drafts of this package atomically.',
+      // objectui#11591 — the package-less sheet: no package to batch, so each
+      // draft publishes by itself and one that fails stays pending.
+      confirmNoteSeparate: 'Publishing releases the {{count}} pending drafts one at a time: a draft that fails stays pending while the others go live.',
+      confirmNoteSeparate_one: 'Publishing releases the {{count}} pending draft on its own: if it fails, it stays pending.',
+      confirmNoteSeparate_other: 'Publishing releases the {{count}} pending drafts one at a time: a draft that fails stays pending while the others go live.',
       publishConfirm: 'Publish all',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE

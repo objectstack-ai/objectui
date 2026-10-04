@@ -2869,6 +2869,11 @@ const zh = {
       confirmNote: '发布将一次性（原子地）发布此包全部 {{count}} 个待发布草稿。',
       confirmNote_one: '发布将一次性（原子地）发布此包全部 {{count}} 个待发布草稿。',
       confirmNote_other: '发布将一次性（原子地）发布此包全部 {{count}} 个待发布草稿。',
+      // objectui#11591 — the package-less sheet: no package to batch, so each
+      // draft publishes by itself and one that fails stays pending.
+      confirmNoteSeparate: '发布会逐个单独发布这 {{count}} 个待发布草稿：发布失败的草稿仍保持待发布，其余草稿照常发布。',
+      confirmNoteSeparate_one: '发布会逐个单独发布这 {{count}} 个待发布草稿：发布失败的草稿仍保持待发布，其余草稿照常发布。',
+      confirmNoteSeparate_other: '发布会逐个单独发布这 {{count}} 个待发布草稿：发布失败的草稿仍保持待发布，其余草稿照常发布。',
       publishConfirm: '全部发布',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE

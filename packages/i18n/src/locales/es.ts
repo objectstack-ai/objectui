@@ -3833,6 +3833,12 @@ const es = {
       confirmNote_one: 'Publicar libera atómicamente {{count}} borrador pendiente de este paquete.',
       confirmNote_many: 'Publicar libera atómicamente los {{count}} de borradores pendientes de este paquete.',
       confirmNote_other: 'Publicar libera atómicamente los {{count}} borradores pendientes de este paquete.',
+      // objectui#11591 — the package-less sheet: no package to batch, so each
+      // draft publishes by itself and one that fails stays pending.
+      confirmNoteSeparate: 'Publicar libera los {{count}} borradores pendientes uno por uno: el que falle sigue pendiente y los demás se publican igualmente.',
+      confirmNoteSeparate_one: 'Publicar libera {{count}} borrador pendiente por sí solo: si falla, sigue pendiente.',
+      confirmNoteSeparate_many: 'Publicar libera los {{count}} de borradores pendientes uno por uno: el que falle sigue pendiente y los demás se publican igualmente.',
+      confirmNoteSeparate_other: 'Publicar libera los {{count}} borradores pendientes uno por uno: el que falle sigue pendiente y los demás se publican igualmente.',
       publishConfirm: 'Publicar todo',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE

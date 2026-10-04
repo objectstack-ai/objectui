@@ -600,8 +600,19 @@ ComponentRegistry.register('line_items', LineItemsPanelRenderer, {
   // `LineItemsPanel` reads them itself; with one, the gate composes them with
   // the binding before the panel reads them. A key the panel does not read is
   // not declared here, and none of the row's fifteen is such a key.
+  //
+  // `childObject` is NOT required, as on the row (objectui#11569): the node's
+  // `dataSource` binding can supply it, and the page compile reads this list,
+  // so `required: true` here refused a bound node the row and the renderer
+  // accept. The manifest has no "one of these is required" form, so a node
+  // with neither is left to the panel's configuration hint.
   inputs: [
-    { name: 'childObject', type: 'string', required: true },
+    {
+      name: 'childObject',
+      type: 'string',
+      description:
+        'The child object whose records the panel lists, edits and saves. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, the panel shows a configuration hint naming this key and loads nothing.',
+    },
     { name: 'relationshipField', type: 'string', required: true },
     { name: 'columns', type: 'array', required: true },
     { name: 'totalField', type: 'string' },

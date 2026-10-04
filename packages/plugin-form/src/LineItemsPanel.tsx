@@ -304,12 +304,11 @@ export const LineItemsPanel: React.FC<{ schema: LineItemsPanelSchema }> = ({ sch
     const ds: any = dataSource;
     if (!ds || typeof ds.getObjectSchema !== 'function') return;
     // Decline to fetch when the child object never resolved (objectui#6188).
-    // `childObject` is declared `required: true` on this block's registry entry
-    // and typed `string` above, but nothing enforces either — `inputs[].required`
-    // is designer metadata, and the block has no spec schema — so a node reaches
-    // this renderer straight off an authored schema with the key `undefined`, and
-    // the fetch below then asked the data layer for an object literally named
-    // `undefined`. `RelatedList` already takes the other choice for the same class
+    // `childObject` is typed `string` above, but the spec row and this block's
+    // registry entry both leave it optional, because the node's `dataSource`
+    // binding can supply it (objectui#11569) — so a node with neither reaches
+    // this renderer with the key `undefined`, and the fetch below then asked the
+    // data layer for an object literally named `undefined`. `RelatedList` already takes the other choice for the same class
     // of missing key ("has no referenceField/parentId — refusing to fetch all
     // rows", RelatedList.tsx), and `MasterDetailForm` declines on this exact key
     // (objectui#5940) with its child-schema cache spelling it `.filter(Boolean)`.

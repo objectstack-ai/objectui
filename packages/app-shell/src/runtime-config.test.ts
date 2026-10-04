@@ -9,7 +9,7 @@
  */
 
 import { describe, it, expect, afterEach, vi } from 'vitest';
-import { initRuntimeConfig, getRuntimeConfig, getPlatformStage, isAiStudioEnabled, isMarketplaceEnabled, getClientErrorReporting, resetRuntimeConfigForTesting } from './runtime-config.js';
+import { initRuntimeConfig, getRuntimeConfig, getPlatformStage, isAiStudioEnabled, isMarketplaceEnabled, isStorageUsageServed, getClientErrorReporting, resetRuntimeConfigForTesting } from './runtime-config.js';
 
 function mockConfig(features: Record<string, unknown>) {
     vi.stubGlobal('fetch', vi.fn(async () => ({
@@ -158,6 +158,63 @@ describe('runtime-config isAiStudioEnabled (objectui#5577)', () => {
         expect(getRuntimeConfig().features).toBeDefined();
         expect(getRuntimeConfig().branding.productName).toBe('Acme');
         expect(isAiStudioEnabled()).toBe(true);
+    });
+});
+
+/**
+ * `features.storageUsage` — does this runtime serve `GET /api/v1/usage/storage`?
+ * (objectui#11002)
+ *
+ * A composition fact, not a plan one: the cloud distribution serves `true`
+ * exactly when it mounts the endpoint, and every other runtime sends no key.
+ * The two console banners that read that endpoint ask it only when this is on,
+ * so it is OFF unless the server sends the literal `true` — the runtimes that
+ * leave the question unanswered are exactly the ones that would answer the
+ * request with a 404. `'true'` and `1` are payloads a consumer should not teach
+ * itself to accept.
+ */
+describe('runtime-config storageUsage (objectui#11002)', () => {
+    it('is OFF before init', () => {
+        resetRuntimeConfigForTesting();
+        expect(getRuntimeConfig().features.storageUsage).toBe(false);
+        expect(isStorageUsageServed()).toBe(false);
+    });
+
+    it('is ON when the server sends the literal true', async () => {
+        mockConfig({ storageUsage: true });
+        await initRuntimeConfig();
+        expect(getRuntimeConfig().features.storageUsage).toBe(true);
+        expect(isStorageUsageServed()).toBe(true);
+    });
+
+    it.each([
+        ['absent (a self-hosted runtime)', { marketplace: true, installLocal: false }],
+        ['false', { storageUsage: false }],
+        ["the string 'true'", { storageUsage: 'true' }],
+        ['the number 1', { storageUsage: 1 }],
+    ])('is OFF when the key is %s', async (_label, features) => {
+        mockConfig(features);
+        await initRuntimeConfig();
+        expect(getRuntimeConfig().features.storageUsage).toBe(false);
+        expect(isStorageUsageServed()).toBe(false);
+    });
+
+    it('is OFF when the config fetch itself fails', async () => {
+        vi.stubGlobal('fetch', vi.fn(async () => {
+            throw new Error('network down');
+        }));
+        await initRuntimeConfig();
+        expect(isStorageUsageServed()).toBe(false);
+    });
+
+    it('withdraws it when a later fetch no longer serves it', async () => {
+        mockConfig({ storageUsage: true });
+        await initRuntimeConfig();
+        expect(isStorageUsageServed()).toBe(true);
+
+        mockConfig({ marketplace: true });
+        await initRuntimeConfig();
+        expect(isStorageUsageServed()).toBe(false);
     });
 });
 

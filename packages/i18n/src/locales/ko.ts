@@ -3753,6 +3753,11 @@ const ko = {
       confirmNote: '게시하면 이 패키지의 대기 중인 초안 {{count}}개가 한 번에(원자적으로) 게시됩니다.',
       confirmNote_one: '게시하면 이 패키지의 대기 중인 초안 {{count}}개가 한 번에(원자적으로) 게시됩니다.',
       confirmNote_other: '게시하면 이 패키지의 대기 중인 초안 {{count}}개가 한 번에(원자적으로) 게시됩니다.',
+      // objectui#11591 — the package-less sheet: no package to batch, so each
+      // draft publishes by itself and one that fails stays pending.
+      confirmNoteSeparate: '게시하면 대기 중인 초안 {{count}}개가 하나씩 따로 게시됩니다. 게시에 실패한 초안은 대기 상태로 남고, 나머지는 그대로 게시됩니다.',
+      confirmNoteSeparate_one: '게시하면 대기 중인 초안 {{count}}개가 하나씩 따로 게시됩니다. 게시에 실패한 초안은 대기 상태로 남고, 나머지는 그대로 게시됩니다.',
+      confirmNoteSeparate_other: '게시하면 대기 중인 초안 {{count}}개가 하나씩 따로 게시됩니다. 게시에 실패한 초안은 대기 상태로 남고, 나머지는 그대로 게시됩니다.',
       publishConfirm: '모두 게시',
       // [`7a90afdf9`] Pre-publish security-posture findings, shown next to
       // the confirm button so a refusal the door would issue is read BEFORE

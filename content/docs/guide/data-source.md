@@ -280,7 +280,9 @@ Reading the `object` column: it lands on the block's own object key, which is
 lists, fetches and writes is `childObject`. Its `relationshipField` is *not* part
 of the binding and stays the author's — it has to name a field on the bound child
 object, so rebinding `object` without updating it is an authoring error the panel
-cannot paper over.
+cannot paper over. A `record:line_items` node bound this way needs no `childObject`
+of its own, and the page compile accepts it; a node that names its child object in
+neither place shows a configuration hint naming `childObject` and loads nothing.
 
 Because the binding lands on `objectName`, a node bound this way needs no
 `objectName` of its own. The schema validator (`safeValidateSchema`, which

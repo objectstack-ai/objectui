@@ -132,7 +132,7 @@ vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn(), info: vi.f
 
 import { StudioDesignSurface } from './StudioDesignSurface';
 import { createEmptyDataSource, failOnAbsorbedFetchError } from './__tests__/emptyDataSource';
-import { registerMetadataPreview } from '../metadata-admin/preview-registry';
+import { getMetadataPreview, registerMetadataPreview } from '../metadata-admin/preview-registry';
 import { registerMetadataInspector } from '../metadata-admin/inspector-registry';
 import { FlowPreview } from '../metadata-admin/previews/FlowPreview';
 import { FlowInspector } from '../metadata-admin/inspectors/FlowInspector';
@@ -377,5 +377,67 @@ describe('the package-less scope reviews and publishes exactly its own drafts (o
 
     expect(server.publishedByRef).toEqual([{ type: 'flow', name: 'qa_urgent_alert_clone' }]);
     expect(server.packageBatches).toEqual([]);
+  });
+});
+
+/**
+ * objectui#11591 — the "no designers" notice keys on the designer registry,
+ * never on the absence of an open flow. On a deep-link miss and on an empty
+ * list no flow is open, and the canvas chip used to read the registry for the
+ * OPEN flow's type — none — so it said "No metadata designers are registered
+ * in this session…" on a page whose designers are registered (this file
+ * registers `FlowPreview` / `FlowInspector` above, and the controls below read
+ * the registry back). That the notice still shows when the registry really is
+ * empty, open flow or none, is pinned beside its other sites, in
+ * `StudioDesignSurface.designerRegistryMissing.test.tsx`.
+ */
+describe('a deep-link miss and an empty list show no "no designers" notice (objectui#11591)', () => {
+  const NO_DESIGNERS = 'No metadata designers are registered';
+
+  it('the measured miss: the package-less page, a link naming a packaged flow', async () => {
+    renderAt('/studio/~org/automations?surface=flow%3Ashowcase_urgent_task_alert');
+
+    await screen.findByText('The link names flow “showcase_urgent_task_alert”, which is not here.', undefined, {
+      timeout: 8000,
+    });
+    // Control: the designers are registered, so the notice would be false.
+    expect(getMetadataPreview('flow')).toBe(FlowPreview);
+    expect(document.body.textContent).not.toContain(NO_DESIGNERS);
+    expect(screen.getByText('Visual orchestration · click a node to configure')).toBeInTheDocument();
+    // No flow was opened in the missing one's place.
+    expect(mockClient.layered).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: /QA urgent alert clone/ })).toBeInTheDocument();
+  });
+
+  it('a package page’s miss, too', async () => {
+    renderAt(`/studio/${SHOWCASE}/automations?surface=flow%3Anobody_has_this`);
+
+    await screen.findByText('The link names flow “nobody_has_this”, which is not here.', undefined, { timeout: 8000 });
+    expect(getMetadataPreview('flow')).toBe(FlowPreview);
+    expect(document.body.textContent).not.toContain(NO_DESIGNERS);
+  });
+
+  it('an empty list shows the rail’s own empty state — no miss, no "no designers" notice', async () => {
+    server.active.delete('flow/qa_urgent_alert_clone');
+    renderAt('/studio/~org/automations');
+
+    await screen.findByText(
+      'No flows outside a package yet. Clone a packaged flow in Setup › Packaged automation to edit the copy here.',
+      undefined,
+      { timeout: 8000 },
+    );
+    expect(screen.getByText('Select an automation')).toBeInTheDocument();
+    expect(getMetadataPreview('flow')).toBe(FlowPreview);
+    expect(document.body.textContent).not.toContain(NO_DESIGNERS);
+    expect(document.body.textContent).not.toContain('The link names flow');
+    expect(mockClient.layered).not.toHaveBeenCalled();
+  });
+
+  it('control: an open flow on the same page reads the same chip', async () => {
+    renderAt('/studio/~org/automations');
+    await openedFlow('qa_urgent_alert_clone');
+
+    expect(screen.getByText('Visual orchestration · click a node to configure')).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain(NO_DESIGNERS);
   });
 });

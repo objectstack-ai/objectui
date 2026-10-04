@@ -54,6 +54,9 @@ import {
 import { getReportForm, getReportSchema } from '../report-schema.js';
 import { mergeServerFields } from '../mergeServerFields.js';
 import { t } from '../i18n.js';
+import { mapLoaded } from '../loadState.js';
+import type { WidgetContext } from '../widgets.js';
+import { labelBesideName, datasetPickerOptions, datasetSelectOptions } from './dataset-picker-options.js';
 import { pickLocalized, setLocalized, clearLocalized } from '@object-ui/i18n';
 
 /**
@@ -174,12 +177,14 @@ function readNames(value: unknown): string[] {
  * `InspectorComboField` renders as a muted suffix; a text-only item appends it
  * after ` — ` (the objectui#11028 form). An option's VALUE is always the
  * machine name — the label never reaches what a binding stores.
+ *
+ * The dataset options themselves (`datasetPickerOptions`, `labelBesideName`)
+ * live in `./dataset-picker-options.ts` since objectui#11601, so the spec-form
+ * `ref:dataset` widget offers them too without importing this inspector.
+ * `datasetPickerOptions` stays exported from here for the inspectors that
+ * already import it from this module.
  */
-
-/** `LABEL (name)`, or the bare name when no label is declared or it repeats the name. */
-function labelBesideName(name: string, label: string | undefined): string {
-  return label && label !== name ? `${label} (${name})` : name;
-}
+export { datasetPickerOptions };
 
 /** A measure's aggregate hint, appended where the options have always shown it. */
 function withAggregate(text: string, aggregate: string | undefined): string {
@@ -203,17 +208,6 @@ export function datasetDimensionOptions(dimensions: DatasetDimensionInfo[]): Obj
     label: d.label ?? d.name,
     type: d.type ?? 'text',
     hidden: false,
-  }));
-}
-
-/** The catalog as dataset-picker options: `LABEL (name)`, the description as `hint`. */
-export function datasetPickerOptions(
-  datasets: DatasetCatalogEntry[],
-): Array<{ value: string; label: string; hint?: string }> {
-  return datasets.map((d) => ({
-    value: d.name,
-    label: labelBesideName(d.name, d.label),
-    ...(d.description ? { hint: d.description } : {}),
   }));
 }
 
@@ -362,12 +356,30 @@ export function ReportDefaultInspector({
   // objectui#11161 — a select item renders text only, so a declared
   // description follows the label after ` — `.
   const datasetOptions = React.useMemo(
-    () =>
-      datasetPickerOptions(catalog.datasets).map((o) => ({
-        value: o.value,
-        label: o.hint ? `${o.label} — ${o.hint}` : o.label,
-      })),
+    () => datasetSelectOptions(catalog.datasets),
     [catalog.datasets],
+  );
+
+  // objectui#11601 — the SAME catalog, handed to the spec form below, so a row
+  // that declares `widget: 'ref:dataset'` (a joined report's block row, once
+  // objectstack#21714 declares it) renders the dataset picker. The row spec is
+  // the one authority for which control a block's `dataset` gets; this host
+  // only supplies the catalog the widget reads. `rosterFrom` carries the
+  // hook's loading and error into the widget's `LoadState`, failure first.
+  //
+  // `conditionScope` is required on every `WidgetContext`: `none` is this
+  // surface's ruled verdict (`report` in `CONDITION_SCOPE_BY_METADATA_TYPE`),
+  // and the bundled `ReportSchema` carries no predicate-named key the
+  // condition detector would match, so it changes no field this form renders.
+  const widgetContext = React.useMemo<WidgetContext>(
+    () => ({
+      conditionScope: 'none',
+      datasets: mapLoaded(
+        rosterFrom({ loading: catalog.loading, error: catalog.error }),
+        () => catalog.datasets,
+      ),
+    }),
+    [catalog.datasets, catalog.loading, catalog.error],
   );
 
   const measureOptions: ObjectFieldInfo[] = React.useMemo(
@@ -637,6 +649,7 @@ export function ReportDefaultInspector({
             value={draft}
             hiddenFields={['type', 'label', 'name', 'dataset', 'values', 'rows', 'columns', 'chart']}
             readOnly={readOnly}
+            widgetContext={widgetContext}
             onChange={(next) => onPatch(next)}
           />
         ) : (

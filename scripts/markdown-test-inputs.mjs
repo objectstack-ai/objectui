@@ -446,6 +446,17 @@ export const ADJUDICATED = new Map([
     'packages/plugin-markdown/src/toc-anchor-parity.test.tsx',
     { reads: ['content/docs/utilities/runner.mdx'] },
   ],
+  // objectui#11586. This reads a CHANGELOG as a CONTROL, the same shape as the
+  // components entry above. The test asserts that the published sheet lacks a
+  // class only that prose names, and it reads the file to prove the prose still
+  // names it.
+  [
+    'packages/runner/src/__tests__/published-stylesheet-sources.test.ts',
+    {
+      reads: ['packages/runner/CHANGELOG.md'],
+      notRead: ['CHANGELOG.md'],
+    },
+  ],
   [
     'packages/types/src/__tests__/action-callback-retired-7068.test.ts',
     {
@@ -522,6 +533,16 @@ export const ADJUDICATED = new Map([
   // objectui#10872 batch 4. `taughtActionButton()` extracts the first json fence
   // under the quick-start's "### Add Actions" heading -- the taught
   // `action:button` node -- and judges it on both zod faces, in a page and alone.
+  // objectui#11586. Reads no markdown. Its only `.md` literal is the
+  // `:!*CHANGELOG.md` pathspec that keeps every CHANGELOG OUT of its `git grep`
+  // census.
+  [
+    'packages/types/src/__tests__/handler-keys-string-any-mirrors-7344.test.ts',
+    {
+      reads: [],
+      walker: 'not-markdown: lists the zod mirror sources in `packages/types/src/zod`',
+    },
+  ],
   [
     'packages/types/src/__tests__/held-public-block-arms-10872.test.ts',
     { reads: ['content/docs/guide/quick-start.md'] },

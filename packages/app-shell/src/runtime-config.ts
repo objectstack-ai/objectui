@@ -78,6 +78,17 @@ export interface RuntimeFeatures {
    * implied by this declaration).
    */
   scim?: boolean;
+  /**
+   * `GET /api/v1/usage/storage` is served by this runtime — the one response
+   * behind the environment admin's storage-capacity banner and read-rate
+   * report. Optional cloud flag — absent on self-hosted / vanilla runtimes
+   * (treated as off). Server-derived from the runtime's COMPOSITION, not from
+   * the plan: the cloud distribution serves it `true` exactly when it mounts
+   * the endpoint's plugin (cloud#2481), and no key at all otherwise. When off,
+   * the console never asks that endpoint (objectui#11002); see
+   * {@link isStorageUsageServed}.
+   */
+  storageUsage?: boolean;
 }
 
 /**
@@ -289,7 +300,7 @@ const defaults: AppShellRuntimeConfig = {
   singleEnvironment: false,
   defaultOrgId: null,
   defaultEnvironmentId: null,
-  features: { installLocal: false, marketplace: true, aiStudio: true, autoPublishAiBuilds: true, customDomain: false, sso: false, scim: false },
+  features: { installLocal: false, marketplace: true, aiStudio: true, autoPublishAiBuilds: true, customDomain: false, sso: false, scim: false, storageUsage: false },
   // `stage: 'preview'` while the whole platform is pre-GA, so the badge shows
   // out of the box on any runtime that hasn't sent an explicit stage yet.
   branding: { productName: 'ObjectOS', productShortName: 'ObjectOS', stage: 'preview', brandColor: '#4F46E5', pwaThemeColor: '#4f46e5' },
@@ -376,6 +387,10 @@ export async function initRuntimeConfig(baseUrl: string = ''): Promise<void> {
           customDomain: body.features.customDomain === true,
           sso: body.features.sso === true,
           scim: body.features.scim === true,
+          // A composition fact, not a commercial one, but OFF unless served for
+          // the same reason: an unknown/older runtime is exactly the one that
+          // does not serve the endpoint, and asking it is a 404 per page load.
+          storageUsage: body.features.storageUsage === true,
         }
         : current.features,
       // Read off the RAW body, not off `body.telemetry`: the mirrored reader
@@ -557,6 +572,36 @@ export function isMarketplaceEnabled(): boolean {
  */
 export function isAiStudioEnabled(): boolean {
   return current.features?.aiStudio !== false;
+}
+
+/**
+ * Does this runtime serve `GET /api/v1/usage/storage`? (objectui#11002)
+ *
+ * Reads the server's OWN answer — `features.storageUsage`, which the cloud
+ * distribution derives from its composition (cloud#2481): `true` exactly when
+ * the endpoint is mounted, and no key at all on every other runtime. Both
+ * console surfaces that read that one response, `StorageUsageBanner` and
+ * `ReadRateBanner`, gate their request on this one boolean, so a runtime that
+ * does not serve the endpoint is never asked.
+ *
+ * ⛔ Never infer this from the SHAPE OF A FAILURE. "Ask once and remember the
+ * 404" spends the very request this flag exists to withhold, and reads a
+ * control plane that is merely down as a runtime without the endpoint.
+ *
+ * Fails CLOSED (`=== true`), the opposite direction from
+ * {@link isMarketplaceEnabled} and {@link isAiStudioEnabled}. Those withhold a
+ * working capability on an unanswered question; this one decides whether to
+ * make a request at all, and every unanswered question — a runtime predating
+ * the key, a self-hosted runtime, a failed config fetch — is precisely the
+ * population that would answer it with a 404. The cloud runtime that serves
+ * the endpoint is also the one that serves the flag.
+ *
+ * `features?.` for the reason {@link isAiStudioEnabled} gives: a caller reached
+ * through a partial snapshot sees `features` absent, and that must read as off,
+ * not throw.
+ */
+export function isStorageUsageServed(): boolean {
+  return current.features?.storageUsage === true;
 }
 
 /**

@@ -186,6 +186,13 @@ Both banners read that endpoint through one shared reader, so a page load
 issues one request for the two of them. The storage banner has the same
 audience and the same gate as the read-rate report.
 
+Neither banner asks a runtime that does not serve that endpoint. Both read one
+flag from the server-pushed runtime config, `features.storageUsage`, and ask
+only when it is `true` (objectui#11002). The cloud distribution sends it
+exactly when it mounts the endpoint; every other runtime sends no key, which
+reads as off, so a self-hosted admin's page load issues no request and logs no
+404. Only the literal `true` turns it on.
+
 ## Components
 
 ### AppShell

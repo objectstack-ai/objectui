@@ -95,7 +95,7 @@ Vite dev server proxies `/api/*` to the backend. See [Running with a Real Backen
 
 **2. Server-pushed runtime config — everything else.** Before React mounts, the console
 resolves `/api/v1/runtime/config` from that server and applies it: product branding, feature
-flags (marketplace, AI Studio, SSO, custom domain), and the cloud URL. Operators configure
+flags (marketplace, AI Studio, SSO, custom domain, the storage-usage reading), and the cloud URL. Operators configure
 these on the **server**, not in the SPA, which is why changing them needs no console rebuild.
 
 Apps, objects and views themselves are metadata fetched over HTTP — discovered at connect

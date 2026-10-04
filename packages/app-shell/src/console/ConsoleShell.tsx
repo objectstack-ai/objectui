@@ -182,11 +182,14 @@ function ConsoleShellProviders({ children }: { children: ReactNode }) {
                       report. Renders null unless the control plane's verdict is
                       `anomalous`, so an ordinary session and an unmeasured
                       environment both see nothing — and a non-admin session
-                      never even issues the request. */}
+                      never even issues the request, nor does any session on a
+                      runtime whose config does not serve `storageUsage`
+                      (objectui#11002). */}
                   <ReadRateBanner />
                   {/* objectui#10439 — the environment admin's storage-capacity
                       banner, beside the read-rate report and behind the same
-                      admin gate; the two read one `/usage/storage` response.
+                      two gates (the admin, and the runtime serving
+                      `storageUsage`); the two read one `/usage/storage` response.
                       Renders null unless the runtime's own verdict says `warn`
                       (80% and up) or `blocked` (uploads and imports refused). */}
                   <StorageUsageBanner />
@@ -284,8 +287,9 @@ function ConnectedShellInner({ children }: { children: ReactNode }) {
   if (adapter) lastLanguage.current = language;
 
   if (!adapter || isAuthLoading) return <LoadingFallback />;
-  // Expose the adapter via SchemaRendererContext so descendant hooks like
-  // useDiscovery() (used to gate the global AI chatbot) can resolve it.
+  // Expose the adapter via SchemaRendererContext so descendant hooks that fall
+  // back to the context's `dataSource` (`useViewData`, `useElementDataSource`)
+  // can resolve it.
   return (
     <SchemaRendererProvider dataSource={adapter} apiFetch={apiProviderFetch}>
       <MetadataProvider key={language} adapter={adapter}>

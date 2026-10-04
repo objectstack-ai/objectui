@@ -296,14 +296,22 @@ export function deriveColumns(
  * docblock says the reach stops there: an identity-only entry
  * (`{ name: 'amount', scale: 2 }`) takes its type from the child field at
  * render time, here, so it still parses. `objectui validate` cannot see it
- * either: a subform's `columns` is `z.array(z.any())` in the `object-form`
- * mirror, and the child object's fields are not in the document it judges.
- * This is the first place the child field is known, so the report is made
- * here — ⛔ never a silent drop.
+ * either: the `object-form` mirror judges a subform's `columns` with the spec's
+ * own `InlineGridColumnSchema` (objectui#11266), and the child object's fields
+ * are not in the document it judges. Only `defineStack` refuses it, at publish, by resolving
+ * `name` against the child object's fields: on a relationship field's
+ * `inlineColumns` and on a form view's `subforms[].columns`, and only when the
+ * stack declares that child object (objectstack-ai/objectstack#20927). Nothing
+ * in objectui does that, and this is the first place in objectui the child
+ * field is known, so the report is made here — ⛔ never a silent drop.
  *
- * The declared arm is reported too. A form view's `subforms[].columns` is
- * `z.array(z.any())` in the spec's `FormViewSchema`, so a typed currency column
- * carrying `scale` reaches this function unjudged on that path.
+ * The declared arm is reported too. On a form view's `subforms[].columns` both
+ * validators refuse a typed currency column carrying `scale`: the spec's
+ * `FormViewSchema` holds each column to `InlineGridColumnSchema` from 17.6.0,
+ * and the `object-form` mirror takes that schema by reference (objectui#11266).
+ * Neither runs between a stored or code-built form view and this function, so
+ * such a column can still arrive here, and it is reported rather than read in
+ * silence.
  *
  * Once per column per page load (the `sectionFields.ts` convention): this runs
  * on every child-schema resolve. The first sentence is the spec's refusal with

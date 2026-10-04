@@ -17,7 +17,7 @@ import { DocShell } from './DocShell';
 import { BookSidebar } from './BookSidebar';
 import { DocRefusal } from './BookPage';
 import { useBookData } from './use-book-data';
-import { resolveBookTree, scopeDocsToBook, bookSlug, bookNamedBy, type ResolvedBook } from './book-nav';
+import { resolveBookTree, bookSlug, bookNamedBy, type ResolvedBook } from './book-nav';
 
 interface DocItem {
   name: string;
@@ -157,7 +157,7 @@ export default function DocPage() {
   const base = appName ? `/apps/${appName}/docs` : '/docs';
   const resolvedBook = useMemo<ResolvedBook | null>(() => {
     const book = books.find((b) => bookSlug(b) === slug);
-    return book ? resolveBookTree(book, scopeDocsToBook(book, allDocs)) : null;
+    return book ? resolveBookTree(book, allDocs) : null;
   }, [books, allDocs, slug]);
   const docHref = useCallback((docName: string) => `${base}/${slug}/${docName}`, [base, slug]);
   // A `:slug` segment that is a book's NAME rather than its slug — what a

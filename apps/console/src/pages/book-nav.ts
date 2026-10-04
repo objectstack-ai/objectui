@@ -19,6 +19,10 @@
  * so the portal works the moment the backend serves `book` + `doc` through
  * the ordinary metadata API — without depending on a particular published
  * `@objectstack/spec` version or the `/meta/book/:name/tree` endpoint.
+ *
+ * The portal renders this resolver's answer over every doc it read: nothing
+ * narrows the doc set before it (objectui#11340), so book membership has one
+ * authority — the resolver — as ADR-0046 §6.4 asks.
  */
 
 // ── Authored spine (a subset of the framework `Book` shape) ────────────────
@@ -90,9 +94,9 @@ export interface ResolvedGroup {
   label: string;
   entries: ResolvedEntry[];
   /**
-   * True for the synthetic "Uncategorized" catch-all. It appears in EVERY
-   * book's resolution (it absorbs whatever the book's own groups didn't
-   * claim), so it must be excluded from authored-membership questions like
+   * True for the synthetic "Uncategorized" catch-all. It can appear in any
+   * book's resolution (it absorbs the book's own packages' docs that no group
+   * claimed), so it must be excluded from authored-membership questions like
    * "how many docs does this book organize?" or "which book owns this doc?".
    */
   synthetic?: boolean;
@@ -256,8 +260,19 @@ export function resolveBookTree(book: Book, docs: ResolverDoc[], bookPackage?: s
   }
 
   // Orphans: docs claimed by no group fall into a synthetic Uncategorized
-  // group appended last — nothing is ever dropped.
-  const orphans = docs.filter((d) => !claimed.has(d.name)).sort(byOrderThenLabel);
+  // group appended last — but only the docs of the book's own packages: the
+  // book's (`bookPackage`, else `book.packageId`) and each group's `package`,
+  // asked through `include`'s own scope test (ADR-0046 §6.4; the framework's
+  // resolver answers the same since objectstack#20980). Another package's
+  // unplaced doc is that package's own book's orphan, not this one's. A book
+  // that declares no package keeps every unclaimed doc.
+  const ownPackages = [scopeDefault, ...groupsSorted.map((g) => g.package)].filter(
+    (p): p is string => typeof p === 'string' && p.length > 0,
+  );
+  const orphans = docs
+    .filter((d) => !claimed.has(d.name))
+    .filter((d) => ownPackages.length === 0 || ownPackages.some((p) => matchesInclude(d, '*', p)))
+    .sort(byOrderThenLabel);
   if (orphans.length) {
     resolvedGroups.push({
       key: UNCATEGORIZED_KEY,
@@ -299,36 +314,6 @@ export interface BookCard {
   docCount: number;
 }
 
-/** The set of packages a book draws from: its own plus any group overrides. */
-function bookPackages(book: Book): Set<string> {
-  const pkgs = new Set<string>();
-  if (book.packageId) pkgs.add(book.packageId);
-  for (const g of book.groups ?? []) if (g.package) pkgs.add(g.package);
-  return pkgs;
-}
-
-/**
- * Narrow the doc set to the packages a book draws from before resolving, so the
- * synthetic Uncategorized group stays scoped to the book instead of vacuuming
- * up every other package's docs. When a book declares no package (its own or a
- * group override) we can't scope safely, so all docs are kept and membership
- * falls to each group's `include` glob.
- *
- * A doc whose own `group` names one of this book's group keys is kept whatever
- * its package (objectui#11245): the framework's `resolveBookTree` places a doc
- * by its explicit `group` with no package scope, and the book tree endpoint
- * answers that resolver, so the sidebar lists the doc where the endpoint does.
- * The package filter narrows only what `include` and the synthetic
- * Uncategorized group can collect; `include` stays scoped by the resolver
- * itself (`group.package`, else the book's package).
- */
-export function scopeDocsToBook(book: Book, docs: ResolverDoc[]): ResolverDoc[] {
-  const pkgs = bookPackages(book);
-  if (pkgs.size === 0) return docs;
-  const groupKeys = new Set((book.groups ?? []).map((g) => g.key));
-  return docs.filter((d) => pkgs.has(pkgOf(d)) || (d.group != null && groupKeys.has(d.group)));
-}
-
 /** Sort books for the index: by `order`, then label, then name (stable). */
 export function sortBooks(books: Book[]): Book[] {
   return [...books]
@@ -347,7 +332,7 @@ export function sortBooks(books: Book[]): Book[] {
  * excluding the synthetic Uncategorized catch-all (see {@link ResolvedGroup}).
  */
 export function countBookDocs(book: Book, docs: ResolverDoc[]): number {
-  const resolved = resolveBookTree(book, scopeDocsToBook(book, docs));
+  const resolved = resolveBookTree(book, docs);
   const seen = new Set<string>();
   for (const g of resolved.groups) {
     if (g.synthetic) continue;
@@ -438,7 +423,7 @@ export function findBookContainingDoc(
   docName: string,
 ): { book: Book; resolved: ResolvedBook } | null {
   for (const book of sortBooks(books)) {
-    const resolved = resolveBookTree(book, scopeDocsToBook(book, docs));
+    const resolved = resolveBookTree(book, docs);
     // Authored membership only — a doc that merely lands in this book's
     // synthetic Uncategorized group is not "owned" by it (every book has one).
     const has = resolved.groups.some(

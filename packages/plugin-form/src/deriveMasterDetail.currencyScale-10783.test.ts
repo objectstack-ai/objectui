@@ -14,9 +14,12 @@
  * `@objectstack/spec` 17.5.0 refuses `scale` on an inline grid column that
  * declares `type: 'currency'`. A column that declares no `type`
  * (`{ name: 'amount', scale: 2 }`) still parses: `hydrateColumns` fills its
- * `type` from the child field at render time, which the spec cannot see, and
- * `objectui validate` cannot either (a subform's `columns` is
- * `z.array(z.any())`, and the child object's fields are not in the document).
+ * `type` from the child field at render time. The spec's column schema cannot
+ * see that, and `objectui validate` cannot either: it judges a subform's
+ * `columns` with that same schema (objectui#11266), and the child object's
+ * fields are not in the document. Only `defineStack` refuses it, at publish, by
+ * resolving `name` against the child object the stack declares
+ * (objectstack-ai/objectstack#20927); nothing in objectui does.
  * `GridField`'s `currencyWidth` no longer reads a currency column's `scale`, so
  * without a report here the key would be accepted everywhere and read by
  * nothing.
@@ -69,7 +72,7 @@ describe('hydrateColumns reports a `scale` on a column that hydrates to currency
     expect(computeRow(cols, { quantity: 3, unit_price: 1.2345 }, 'KWD').amount).toBe(3.704);
   });
 
-  it('a declared currency column carrying `scale` is reported too (the form-view `subforms[].columns` path the spec does not judge)', () => {
+  it('a declared currency column carrying `scale` is reported too (a stored or code-built form view reaches the render without passing either validator)', () => {
     const warnings = spyWarn();
     hydrateColumns([{ name: 'amount', type: 'currency', computed: true, expr: 'quantity * unit_price', scale: 2 }], lineSchema('line_declared'));
     const reports = warnings().filter((m) => m.includes('`scale`'));

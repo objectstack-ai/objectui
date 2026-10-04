@@ -1081,33 +1081,6 @@ export type AnySchema =
 export type SchemaByType<T extends string> = Extract<AnySchema, { type: T }>;
 
 /**
- * Utility type to make all properties optional except the type.
- * Useful for partial schema definitions in editors.
- *
- * ⚠️ It did NOT deliver that until objectui#8347 (objectui#6397 measured it):
- * `Omit<T, K>` is `Pick<T, Exclude<keyof T, K>>`, and `keyof T` on a type
- * carrying a string index signature is `string | number`, so while every
- * `T extends BaseSchema` inherited `BaseSchema`'s `[key: string]: any`, the
- * literal member names were absorbed and every instantiation declared exactly
- * one property, `type`, beside a live index signature. objectui#8347 removed
- * that signature, so `keyof T` is the literal member union again and the
- * alias works as written, with no edit here. The collapse pin that recorded
- * the old reading (`partial-schema-collapse-pin.test.ts`) asked to be deleted
- * on that day, and was; `__tests__/base-schema-closed-face-8347.test.ts` pins
- * the working reading.
- *
- * ⚠️ A `T` that declares its OWN index signature still collapses the same way;
- * reach for `OmitDeclared` (`./form.ts`) there, the key-remapping spelling
- * objectui#9256 used. It had no in-repo consumer at the removal (a reading
- * taken then, which nothing re-derives); whether to keep or retire it is a
- * published-export question for the maintainer (the pin's own removal
- * condition asked for that card), ⛔ not something to settle here.
- */
-export type PartialSchema<T extends BaseSchema> = {
-  type: T['type'];
-} & Partial<Omit<T, 'type'>>;
-
-/**
  * Schema with required children (for container components).
  */
 export type ContainerSchemaWithChildren = BaseSchema & {

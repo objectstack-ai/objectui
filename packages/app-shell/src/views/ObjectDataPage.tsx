@@ -38,6 +38,8 @@ import {
   NavigationOverlay,
 } from '@object-ui/components';
 import { Database, Lock, Plus, Save, X } from 'lucide-react';
+import { toast } from 'sonner';
+import { formatMetadataError } from '@object-ui/data-objectstack';
 import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import { usePermissions, useFieldPermissions } from '@object-ui/permissions';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
@@ -361,9 +363,10 @@ export function ObjectDataPage({ dataSource, objects }: any) {
   }, [objectDef, columns, urlFilters, kanban, calendar, gallery, userFilters, allowedVisualizations]);
 
   // "Save as view" — the one exit into the workspace: materialize the current
-  // URL conditions as a new saved view, then navigate to it.
+  // URL conditions as a new saved view, then navigate to it. Resolves whether
+  // the view was saved: `CreateViewDialog` closes only on `true` (objectui#11578).
   const handleSaveAsView = React.useCallback(
-    async (config: Record<string, any> & { type: string; label: string }) => {
+    async (config: Record<string, any> & { type: string; label: string }): Promise<boolean> => {
       try {
         // The URL conditions are folded into spec `ViewFilterRule`s on the way
         // out (#3419). What renders this page is a runtime filter AST (triples);
@@ -389,11 +392,20 @@ export function ObjectDataPage({ dataSource, objects }: any) {
             : `?${PREVIEW_QUERY_FLAG}=${PREVIEW_QUERY_VALUE}`;
           navigate(`../view/${createdId}${previewSuffix}`, { relative: 'path' });
         }
+        return true;
       } catch (err) {
         console.error('[ObjectDataPage] Failed to save view:', err);
+        // objectui#11578: a refused save is SAID, with the door's own message
+        // (the field-anchored issues of a 422, or the refusal's text), and
+        // reported to the dialog as unsaved so it stays open.
+        toast.error(t('form.saveError'), {
+          description: formatMetadataError(err),
+          classNames: { description: 'whitespace-pre-line' },
+        });
+        return false;
       }
     },
-    [columns, urlFilters, metadataClient, dataSource, navigate, objectName, previewDrafts],
+    [columns, urlFilters, metadataClient, dataSource, navigate, objectName, previewDrafts, t],
   );
 
   // ─── The CRUD affordance matrix for this surface (#5164) ──────────────

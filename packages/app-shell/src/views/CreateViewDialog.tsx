@@ -16,7 +16,9 @@
  * field is left empty and the user must type a key before Create enables
  * (#2767 P5 — no more silent random names).
  *
- * On submit, calls `onCreate({ type, label, name, [type]: {...picked config} })`.
+ * On submit, calls `onCreate({ type, label, name, [type]: {...picked config} })`
+ * and waits for it: the dialog closes only when the save resolves `true`, and
+ * stays open with the user's input when it resolves `false` (objectui#11578).
  * The parent persists the view; this dialog WRITES nothing. It does READ:
  * while open, for the chart type, it lists the datasets through the metadata
  * client (`useDatasetCatalog`, keeping only those whose base `object` is this
@@ -26,7 +28,7 @@
  * nothing.
  */
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -78,8 +80,18 @@ export interface CreateViewDialogProps {
    * `chart.dataset`), the block of that name on the spec's `ListViewSchema`;
    * see `REQUIRED_FIELDS_BY_TYPE` below for which of those blocks a test
    * re-derives against the spec.
+   *
+   * Resolves `true` once the view is saved, and `false` when the save was
+   * refused; the caller has already told the user why. The dialog closes only
+   * on `true`. On `false` it stays open with the user's input intact and
+   * Create enabled again, so a refused save never looks like a saved one
+   * (objectui#11578). Create is disabled while the save is in flight. A
+   * rejection is not caught here: the dialog stays open and the error stays
+   * the caller's.
    */
-  onCreate: (config: Record<string, any> & { type: string; label: string; name: string }) => void;
+  onCreate: (
+    config: Record<string, any> & { type: string; label: string; name: string },
+  ) => boolean | Promise<boolean>;
   /** Used to suggest unique default names like "Grid 2" if "Grid 1" exists. */
   existingLabels?: string[];
   /** Restrict the available view types. Defaults to all built-in types. */
@@ -405,6 +417,10 @@ export function CreateViewDialog({
   /** Map of `${type}.${fieldKey}` → selected field name. Per-type so switching
    *  view types preserves the user's earlier choices in case they switch back. */
   const [requiredFieldValues, setRequiredFieldValues] = useState<Record<string, string>>({});
+  /** A save is in flight (objectui#11578). The ref turns away a second press
+   *  in the same tick, before the disabled Create button has rendered. */
+  const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   // Reset when the dialog opens, and re-suggest name whenever type changes
   // (only while the user hasn't manually edited it yet).
@@ -583,8 +599,8 @@ export function CreateViewDialog({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedType, fieldOptions, datasetKey, measureKey, dimensionKey]);
 
-  const handleSubmit = () => {
-    if (!canSubmit) return;
+  const handleSubmit = async () => {
+    if (!canSubmit || submittingRef.current) return;
     // Bundle the picks under their type-specific sub-key, the spec ListView
     // block of that name (e.g. { type: "kanban", kanban: { groupByField } }).
     // A `list` pick is written as a one-element array: the chart's `values`
@@ -603,8 +619,17 @@ export function CreateViewDialog({
     if (Object.keys(subConfig).length > 0) {
       payload[selectedType] = subConfig;
     }
-    onCreate(payload);
-    onOpenChange(false);
+    submittingRef.current = true;
+    setSubmitting(true);
+    try {
+      // Close only on a saved view (objectui#11578). A refused save resolves
+      // `false`: the dialog stays, with everything the user typed.
+      const saved = await onCreate(payload);
+      if (saved) onOpenChange(false);
+    } finally {
+      submittingRef.current = false;
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -756,7 +781,7 @@ export function CreateViewDialog({
             autoFocus
             value={label}
             onChange={(e) => { setLabel(e.target.value); setTouched(true); }}
-            onKeyDown={(e) => { if (e.key === 'Enter' && canSubmit) handleSubmit(); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && canSubmit) void handleSubmit(); }}
             placeholder={t('console.objectView.newView')}
             className="h-9"
           />
@@ -778,7 +803,7 @@ export function CreateViewDialog({
             data-testid="create-view-machine-name-input"
             value={name}
             onChange={(e) => { setName(e.target.value); setNameTouched(true); }}
-            onKeyDown={(e) => { if (e.key === 'Enter' && canSubmit) handleSubmit(); }}
+            onKeyDown={(e) => { if (e.key === 'Enter' && canSubmit) void handleSubmit(); }}
             placeholder="grid_1"
             className="h-9 font-mono"
           />
@@ -808,8 +833,8 @@ export function CreateViewDialog({
           </Button>
           <Button
             type="button"
-            disabled={!canSubmit}
-            onClick={handleSubmit}
+            disabled={!canSubmit || submitting}
+            onClick={() => void handleSubmit()}
             data-testid="create-view-submit"
           >
             {t('console.objectView.create')}

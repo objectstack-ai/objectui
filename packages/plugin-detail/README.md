@@ -707,8 +707,9 @@ const asideRegion = {
 };
 ```
 
-The renderer reads `entries` from both `schema.entries` and
-`schema.properties.entries` so either spec-style or flat authoring works.
+The `entries` go in the node's `properties` bag, as the example shows: that
+bag is the contract, and `objectui validate` refuses a flat `entries` written
+on the node itself, naming `properties.entries`.
 
 ## License
 

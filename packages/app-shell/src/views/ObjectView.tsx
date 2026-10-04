@@ -16,7 +16,7 @@ import { parseUserFilterParams, applyUserFilterParams } from './userFilterUrlSta
 import { buildListFilterKey, readListFilterState, writeListFilterState } from './listFilterStorage.js';
 import { VALUELESS_FILTER_OPERATORS } from './viewFilterFold.js';
 import { parseUrlEqualityFilterTriples } from './drillUrlFilters.js';
-import { narrowPersonalizationOverlay, isViewConfigPermissionDeniedError } from '@object-ui/data-objectstack';
+import { narrowPersonalizationOverlay, isViewConfigPermissionDeniedError, formatMetadataError } from '@object-ui/data-objectstack';
 const ObjectChart = lazy(() =>
   import('@object-ui/plugin-charts').then((m) => ({ default: m.ObjectChart })),
 );
@@ -1514,8 +1514,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
         }
     }, [metadataClient, dataSource, objectName]);
 
-    /** Create a new view via the config panel */
-    const handleViewCreate = useCallback(async (config: Record<string, any>) => {
+    /**
+     * Create a new view: the Create View dialog's door and the view-config
+     * panel's create mode. Resolves whether the view was saved, so the dialog
+     * closes only on `true` (objectui#11578).
+     */
+    const handleViewCreate = useCallback(async (config: Record<string, any>): Promise<boolean> => {
         try {
             let createdId: string | undefined;
             if (metadataClient) {
@@ -1591,10 +1595,19 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     navigate(`view/${createdId}${previewSuffix}`);
                 }
             }
+            return true;
         } catch (err) {
             console.error('[ViewConfigPanel] Failed to create view:', err);
+            // objectui#11578: a refused save is SAID, with the door's own
+            // message (the field-anchored issues of a 422, or the refusal's
+            // text), and reported to the dialog as unsaved so it stays open.
+            toast.error(t('form.saveError'), {
+                description: formatMetadataError(err),
+                classNames: { description: 'whitespace-pre-line' },
+            });
+            return false;
         }
-    }, [dataSource, objectName, objects, navigate, viewId, metadataClient, previewDrafts]);
+    }, [dataSource, objectName, objects, navigate, viewId, metadataClient, previewDrafts, t]);
     
     // Record count tracking for footer
     const [recordCount, setRecordCount] = useState<number | undefined>(undefined);

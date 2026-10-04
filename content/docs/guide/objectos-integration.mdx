@@ -113,26 +113,31 @@ export function App() {
   return (
     <div className="min-h-screen bg-background">
       <SchemaRenderer
+        dataSource={dataSource}
         schema={{
           type: 'page',
           template: 'header-sidebar-main',
-          header: {
-            type: 'header-bar',
-            crumbs: [{ label: 'My App' }]
-          },
-          sidebar: {
-            type: 'navigation-menu',
-            items: [
-              { label: 'Dashboard', path: '/', icon: 'home' },
-              { label: 'Contacts', path: '/contacts', icon: 'users' }
-            ]
-          },
-          main: {
-            type: 'object-view',
-            objectName: 'contact',
-            dataSource,
-            viewTypes: ['grid', 'kanban']
-          }
+          // The template draws the regions it names: `header`, `sidebar`, `main`.
+          regions: [
+            {
+              name: 'header',
+              components: [{ type: 'header-bar', crumbs: [{ label: 'My App' }] }]
+            },
+            {
+              name: 'sidebar',
+              components: [{
+                type: 'navigation-menu',
+                items: [
+                  { label: 'Dashboard', href: '/', icon: 'home' },
+                  { label: 'Contacts', href: '/contacts', icon: 'users' }
+                ]
+              }]
+            },
+            {
+              name: 'main',
+              components: [{ type: 'object-view', objectName: 'contact', defaultViewType: 'grid' }]
+            }
+          ]
         }}
       />
     </div>
@@ -214,12 +219,15 @@ const objectStackAdapter = new ObjectStackAdapter({
   baseUrl: 'http://localhost:3000/api'
 });
 
+// The adapter is handed to the renderer (`<SchemaRenderer dataSource={objectStackAdapter} … />`
+// or `SchemaRendererProvider`), never written on the node: a node's `dataSource`
+// is the spec's per-element binding, not an adapter.
 const sysUserView: ObjectViewSchema = {
   type: 'object-view',
   objectName: 'sys_user',
-  dataSource: objectStackAdapter,
   defaultViewType: 'grid',
-  columns: ['username', 'email', 'role', 'status', 'last_login']
+  // The grid's own configuration rides the `table` slot.
+  table: { columns: ['username', 'email', 'role', 'status', 'last_login'] }
 };
 ```
 

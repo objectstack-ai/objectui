@@ -194,10 +194,16 @@ const backwards: CalendarViewNode = shipped;
 
 > **What those two assignments do and do not buy.** They check every key's
 > **type**, in both directions. They do **not** check a key's **spelling**:
-> `CalendarViewSchema` extends `BaseSchema`, whose `[key: string]: any` accepts
-> any name, so a key invented or misspelled here is `any` rather than an error
-> (objectui#7927). Key-level validity is the strict `@objectstack/spec` twin's
-> question, not TypeScript's.
+> both assign a declared variable, not a fresh object literal, and TypeScript
+> runs its excess-property check only on a fresh literal. So a key renamed in
+> the listing is an extra optional member on one side and simply absent on the
+> other, and both assignments still compile. A fresh literal IS checked:
+> `CalendarViewSchema` extends `BaseSchema`, which carries no index signature
+> since objectui#8347, so
+> `const node: CalendarViewSchema = { type: 'calendar-view', titleFieldd: 'name' }`
+> is a compile error. Metadata that arrives as data is a question for the zod
+> faces (the strict `StrictAnyComponentSchema` refuses an unknown key), not for
+> TypeScript.
 
 There is deliberately **no authorable `events` key**: the renderer computes its
 events from `data` plus the field-name keys, and drops an authored `events`

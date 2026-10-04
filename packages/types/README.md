@@ -90,7 +90,8 @@ import type { DataTableSchema, FlexSchema, CardSchema } from '@object-ui/types';
 const dashboard: CardSchema = {
   type: 'card',
   title: 'User Management',
-  content: {
+  // A card's child channel is `children` (objectui#6771); `content` is no card key.
+  children: {
     type: 'data-table',
     columns: [
       { header: 'Name', accessorKey: 'name' },
@@ -424,8 +425,9 @@ Components can nest indefinitely:
 ```typescript
 import type { ContainerSchema, FlexBlockNode, HeaderBarSchema, SidebarSchema } from '@object-ui/types';
 
-// The two leaves are annotated so the nesting below is checked against the
-// shipped types rather than absorbed by `BaseSchema`'s index signature.
+// The two leaves are annotated with their node types, so each is checked
+// against its own declaration (`BaseSchema` carries no index signature to
+// absorb a stray key, objectui#8347).
 // The sidebar draws what it composes through `children` (an app's navigation
 // lives in the app's metadata, not on this node), and `collapsible: false`
 // draws it in the page flow, beside `main`.
@@ -446,9 +448,10 @@ const main: ContainerSchema = {
 // An authored `flex` node takes its props, the child list included, in its
 // `properties` bag. `FlexBlockNode` is that node, its bag closed, and each
 // entry of the bag's child list is checked as a node of its own `type`. The
-// nested `flex` still names its type with `satisfies`: as an entry it also
-// matches the post-hoist `FlexSchema`, whose `BaseSchema` index signature
-// admits any `properties` until that signature is removed.
+// nested `flex` names its type with `satisfies` too. That was needed while the
+// post-hoist `FlexSchema` inherited `BaseSchema`'s index signature, which
+// admitted any `properties`; objectui#8347 removed it, so the entry is judged
+// as `FlexBlockNode` either way, and the annotation stays as documentation.
 const page: FlexBlockNode = {
   type: 'flex',
   properties: {

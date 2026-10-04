@@ -22,14 +22,14 @@
 import * as React from 'react';
 import { describe, it, expect } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { MetadataCtx } from '@object-ui/react';
+import { MetadataCtx, type MetadataContextValue } from '@object-ui/react';
 import { useServedViewItems, isServedView } from '../useServedViewItems';
 
 const VIEW_DOC = { name: 'showcase_task.in_progress', object: 'showcase_task', viewKind: 'list', label: 'In Progress' };
 const TASK_DOC = { name: 'showcase_task', label: 'Task', listViews: { mine: { type: 'grid', label: 'My Tasks' } } };
 const PROJECT_DOC = { name: 'showcase_project', label: 'Project', listViews: { open: { type: 'grid', label: 'Open' } } };
 
-function metadataWith(read: { view: unknown[]; object: unknown[] }) {
+function metadataWith(read: { view: unknown[]; object: unknown[] }): MetadataContextValue {
   return {
     apps: [],
     objects: [],
@@ -43,14 +43,14 @@ function metadataWith(read: { view: unknown[]; object: unknown[] }) {
     ensureType: async () => [],
     getItem: async () => null,
     getItemsByType: (type: string) => (type === 'view' ? read.view : type === 'object' ? read.object : []),
-    getTypeStatus: () => 'ready' as const,
+    getTypeStatus: () => 'ready',
   };
 }
 
 function servedFrom(view: unknown[], object: unknown[]) {
   const value = metadataWith({ view, object });
   return renderHook(() => useServedViewItems(), {
-    wrapper: ({ children }) => <MetadataCtx.Provider value={value as any}>{children}</MetadataCtx.Provider>,
+    wrapper: ({ children }) => <MetadataCtx.Provider value={value}>{children}</MetadataCtx.Provider>,
   }).result.current;
 }
 
@@ -96,7 +96,7 @@ describe('useServedViewItems — one record per pair of read payloads (AGENTS.md
     const read = { view: [VIEW_DOC] as unknown[], object: [TASK_DOC] as unknown[] };
     const value = metadataWith(read);
     const { result, rerender } = renderHook(() => useServedViewItems(), {
-      wrapper: ({ children }) => <MetadataCtx.Provider value={value as any}>{children}</MetadataCtx.Provider>,
+      wrapper: ({ children }) => <MetadataCtx.Provider value={value}>{children}</MetadataCtx.Provider>,
     });
     const first = result.current;
 

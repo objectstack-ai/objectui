@@ -45,7 +45,10 @@
  *     kept `.passthrough()` for the tolerant face (objectui#11276). The
  *     derivation reads a bag's shape the way it reads the arm's, so the type
  *     is closed where the strict authoring face closes it. A spec-row bag is
- *     already closed, and the derivation changes nothing for it.
+ *     already closed, and the derivation changes nothing for it. One member
+ *     of `flex`'s bag is read off the flat mirror instead of the arm: its
+ *     `children`, whose list the arm leaves to the spec page walk and this
+ *     face types as nodes (objectui#11564, at `FlexBlockShape`).
  *   - {@link ElementTextInputNode} and {@link ElementRecordPickerNode}: no zod
  *     arm exists for these two. `AnyComponentSchema` still refuses both at
  *     `type`, and `registered-types-validate-ratchet-10859` in
@@ -99,7 +102,7 @@ import type {
   PageSchema as SpecPageSchema,
 } from '@objectstack/spec/ui';
 import type { BaseSchema as BaseSchemaMirror } from './zod/base.zod.js';
-import type { FlexBlockSchema } from './zod/layout.zod.js';
+import type { FlexBlockSchema, FlexSchema } from './zod/layout.zod.js';
 import type { ObjectQLPublicBlockComponentSchema } from './zod/objectql.zod.js';
 import type { NODE_ENVELOPE, PublicBlockComponentSchema } from './zod/public-blocks.zod.js';
 import type { retirementTombstone } from './zod/tombstone.zod.js';
@@ -237,14 +240,68 @@ export type ObjectPivotBlockNode = ObjectQLPublicBlockNodeOf<'object-pivot'>;
 /** An authored `embeddable-form` node: the `EmbeddableFormBlockSchema` arm's input (objectui#11440). */
 export type EmbeddableFormBlockNode = ObjectQLPublicBlockNodeOf<'embeddable-form'>;
 
+/** `FlexBlockSchema`'s shape with its `properties` member closed ({@link ClosedArmShape}). */
+type FlexBlockArmShape = ClosedArmShape<(typeof FlexBlockSchema)['shape']>;
+
+/**
+ * The shape {@link FlexBlockNode} reads: `FlexBlockSchema`'s, closed, with ONE
+ * member replaced. The bag's `children` is the flat `FlexSchema` mirror's own
+ * `children` member, by reference: one node, or a list of nodes
+ * (`SchemaNode | SchemaNode[]`, the slot every node slot takes since
+ * objectui#11466). Every other member, of the node and of the bag, is the
+ * arm's.
+ *
+ * ## Why this one member is not the arm's (objectui#11564)
+ *
+ * The arm's bag member is `FLEX_BAG_CHILDREN` (`./zod/layout.zod.ts`), whose
+ * list arm is `z.array(z.unknown())`. That is right for the zod faces: a list
+ * at `properties.children` is a position `@objectstack/spec`'s page walk
+ * descends, so each entry is judged as a component there, once, at its real
+ * path (`./zod/nested-component-walk.ts`, objectui#11223). Its input type is
+ * `unknown[]`, though, and nothing on the TypeScript face does what the walk
+ * does. So read off the arm, the list, which is the form a `flex` node is
+ * authored in, took any entry at all, and stays unchecked after objectui#8347
+ * removes `BaseSchema`'s index signature, while a single child was judged as a
+ * node. The mirror's member is the accept set the walk and the single-node arm
+ * judge between them.
+ *
+ * The zod arm does not move. The divergence is recorded where the mirror
+ * ledger records this arm (`EXCLUSIONS` in
+ * `__tests__/zod-mirror-parity.test.ts`) and pinned in
+ * `__tests__/flex-bag-children-list-11564.test.ts`. Both faces judge an object
+ * entry as a node of its own `type`: an undeclared `type` is refused by both,
+ * and a key the node does not declare is refused by the strict zod face and,
+ * once objectui#8347 removes the index signature, by this type (until then the
+ * signature absorbs it on the node types that extend `BaseSchema`, as it does
+ * for a single child). A primitive entry is admitted by both. They differ on
+ * one entry kind: a nested array, which the walk passes through unvisited and
+ * this type refuses, as the mirror does and as `renderChildren`
+ * (`@object-ui/components`) treats it, handing it to `SchemaRenderer` whole.
+ *
+ * A `properties` member that is not an optional zod object makes this
+ * `never`, so every `flex` literal stops compiling rather than silently losing
+ * the bag.
+ */
+type FlexBlockShape = ExtendedShape<
+  FlexBlockArmShape,
+  {
+    properties: FlexBlockArmShape['properties'] extends z.ZodOptional<infer Bag extends z.ZodObject>
+      ? z.ZodOptional<z.ZodObject<ExtendedShape<Bag['shape'], { children: (typeof FlexSchema)['shape']['children'] }>>>
+      : never;
+  }
+>;
+
 /**
  * An authored `flex` node: the `FlexBlockSchema` arm's input (objectui#11468),
- * derived as {@link PublicBlockNode} is. Its props, the child list included,
+ * derived as {@link PublicBlockNode} is, with one member replaced
+ * ({@link FlexBlockShape}, objectui#11564). Its props, the child list included,
  * are its `properties` bag: the `FlexSchema` mirror's own members
  * (`direction`, `justify`, `align`, `gap`, `wrap`, `children`), closed
  * ({@link ClosedBag}), because `@objectstack/spec` has no `flex` row
- * (objectui#11276). The TypeScript `FlexSchema` (`./layout.ts`) stays the node
- * as the `flex` renderer reads it after the hoist.
+ * (objectui#11276). The bag's `children` is one node or a list of nodes, each
+ * list entry judged as a node, as a single child is. The TypeScript
+ * `FlexSchema` (`./layout.ts`) stays the node as the `flex` renderer reads it
+ * after the hoist.
  *
  * ⚠️ An interface, not a type alias, for one reason (objectui#11466). The bag
  * holds node slots, so `FlexBlockSchema`'s inferred type names
@@ -254,10 +311,11 @@ export type EmbeddableFormBlockNode = ObjectQLPublicBlockNodeOf<'embeddable-form
  * reference (TS2456 on this type, `AuthoringNode`, `DeclaredNode` and
  * `SchemaNode`). An interface's members are resolved only when they are read,
  * so the loop is never walked while `SchemaNode` is being resolved. The
- * interface declares nothing of its own: every member is the arm's, as above.
+ * interface declares nothing of its own: every member is read off
+ * {@link FlexBlockShape}, as above.
  */
 // eslint-disable-next-line @typescript-eslint/no-empty-object-type -- an interface on purpose, to break the SchemaNode cycle its docblock names; it declares no member of its own.
-export interface FlexBlockNode extends ClosedArmInput<typeof FlexBlockSchema> {}
+export interface FlexBlockNode extends z.input<z.ZodObject<FlexBlockShape>> {}
 
 /**
  * `element:text_input`: `ComponentPropsMap['element:text_input']`

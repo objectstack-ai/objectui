@@ -163,7 +163,7 @@ describe('objectui#8355 · the compile-time fixtures above are real program inpu
     expect(canonicalBlockCompiles.calendar?.startDateField).toBe('kickoff');
     expect(canonicalNodeCompiles.endDateField).toBe('wrapup');
     expect((viewBlockRefusesBothByTsc.calendar as Record<string, unknown>).dateField).toBe('kickoff');
-    expect((nodeRefusesBothByTsc as Record<string, unknown>).endField).toBe('wrapup');
+    expect((nodeRefusesBothByTsc as unknown as Record<string, unknown>).endField).toBe('wrapup');
   });
 });
 

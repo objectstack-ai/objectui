@@ -200,7 +200,7 @@ describe('the retirement narrows exactly `onSuccess` / `onFailure` (objectui#706
     const result = ActionSchema.safeParse({ ...LEGACY_ACTION, notAKeyAtAll: 'anything' });
     expect(result.success).toBe(true);
     if (!result.success) return;
-    expect((result.data as Record<string, unknown>).notAKeyAtAll).toBe('anything');
+    expect((result.data as unknown as Record<string, unknown>).notAKeyAtAll).toBe('anything');
   });
 });
 

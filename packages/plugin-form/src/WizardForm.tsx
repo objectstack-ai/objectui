@@ -14,7 +14,7 @@
  */
 
 import React, { useState, useCallback, useMemo } from 'react';
-import type { FormField, FormSchema, DataSource, ObjectFormSchema } from '@object-ui/types';
+import type { FormField, FormSchema, DataSource, ObjectFormSchema, ObjectFormSection } from '@object-ui/types';
 import { Button, cn, toast } from '@object-ui/components';
 import { AlertCircle, Check, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { resolveFieldRuleState, evalFieldPredicate, isMissingForRequired, isServerOwnedValue } from '@object-ui/core';
@@ -141,9 +141,11 @@ export interface WizardStepConfig {
   columns?: 1 | 2 | 3 | 4;
 
   /**
-   * Field names or configurations in this step.
+   * The same three entry shapes as `ObjectFormSection.fields`, by reference:
+   * a field name, the form view's `{ field, … }` entry, or an inline
+   * `FormField` (objectui#11615).
    */
-  fields: (string | FormField)[];
+  fields: NonNullable<ObjectFormSection['fields']>;
 
   /**
    * Custom CSS class for this step's container.

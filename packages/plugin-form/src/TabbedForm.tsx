@@ -14,7 +14,7 @@
  */
 
 import React, { useState, useCallback, useRef } from 'react';
-import type { FormField, FormSchema, DataSource, ObjectFormSchema } from '@object-ui/types';
+import type { FormField, FormSchema, DataSource, ObjectFormSchema, ObjectFormSection } from '@object-ui/types';
 import { cn, toast } from '@object-ui/components';
 import { SchemaRenderer, useSafeFieldLabel } from '@object-ui/react';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
@@ -62,9 +62,11 @@ export interface FormSectionConfig {
   columns?: 1 | 2 | 3 | 4;
   
   /**
-   * Field names or configurations in this section
+   * The same three entry shapes as `ObjectFormSection.fields`, by reference:
+   * a field name, the form view's `{ field, … }` entry, or an inline
+   * `FormField` (objectui#11615).
    */
-  fields: (string | FormField)[];
+  fields: NonNullable<ObjectFormSection['fields']>;
 
   /**
    * ADR-0089 `FormSection.visibleWhen` — the TABBED arm of the one grouping

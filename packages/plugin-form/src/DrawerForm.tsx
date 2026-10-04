@@ -14,7 +14,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useRef, useId } from 'react';
-import type { FormField, FormSchema, DataSource, ObjectFormSchema } from '@object-ui/types';
+import type { FormField, FormSchema, DataSource, ObjectFormSchema, ObjectFormSection } from '@object-ui/types';
 import {
   Sheet,
   SheetContent,
@@ -105,7 +105,12 @@ export interface DrawerFormSectionConfig {
   label?: string;
   description?: string;
   columns?: 1 | 2 | 3 | 4;
-  fields: (string | FormField)[];
+  /**
+   * The same three entry shapes as `ObjectFormSection.fields`, by reference:
+   * a field name, the form view's `{ field, … }` entry, or an inline
+   * `FormField` (objectui#11615).
+   */
+  fields: NonNullable<ObjectFormSection['fields']>;
   collapsible?: boolean;
   collapsed?: boolean;
   /**

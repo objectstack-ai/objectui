@@ -109,7 +109,12 @@ export interface ModalFormSectionConfig {
   label?: string;
   description?: string;
   columns?: 1 | 2 | 3 | 4;
-  fields: (string | FormField)[];
+  /**
+   * The same three entry shapes as `ObjectFormSection.fields`, by reference:
+   * a field name, the form view's `{ field, … }` entry, or an inline
+   * `FormField` (objectui#11615).
+   */
+  fields: NonNullable<ObjectFormSection['fields']>;
   /**
    * Whether the section can be collapsed — spec `FormSection.collapsible`.
    * `collapsed: true` implies it (objectui#9780). The control lives on the

@@ -24,7 +24,7 @@
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
-import type { FormField, FormSchema, DataSource, ObjectFormSchema } from '@object-ui/types';
+import type { FormField, FormSchema, DataSource, ObjectFormSchema, ObjectFormSection } from '@object-ui/types';
 import { cn, toast } from '@object-ui/components';
 import { SchemaRenderer, useSafeFieldLabel } from '@object-ui/react';
 import { buildSectionFields as buildSectionFieldsShared } from './sectionFields';
@@ -61,7 +61,12 @@ export interface SplitFormSectionConfig {
    * positional rule (first section 'primary', every other 'secondary').
    */
   pane?: 'primary' | 'secondary';
-  fields: (string | FormField)[];
+  /**
+   * The same three entry shapes as `ObjectFormSection.fields`, by reference:
+   * a field name, the form view's `{ field, … }` entry, or an inline
+   * `FormField` (objectui#11615).
+   */
+  fields: NonNullable<ObjectFormSection['fields']>;
   /**
    * ADR-0089 `FormSection.visibleWhen` — conditional visibility for the
    * section's divider HEADER, evaluated by the form renderer with the canonical

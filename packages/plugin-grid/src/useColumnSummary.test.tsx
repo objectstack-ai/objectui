@@ -41,9 +41,12 @@ describe('useColumnSummary tenant-default currency', () => {
     expect(label).toMatch(/1,234/);
   });
 
-  it('still prefers an explicit column currency over the tenant default', () => {
-    const cols: any[] = [{ field: 'amount', summary: 'sum', type: 'currency', currency: 'USD' }];
-    const { result } = renderHook(() => useColumnSummary(cols, DATA), {
+  // objectui#11588 moved the explicit code from the column onto the field:
+  // `ListColumnSchema` declares no `currency`, and the footer reads it off the
+  // field only.
+  it('still prefers an explicit field currency over the tenant default', () => {
+    const cols: any[] = [{ field: 'amount', summary: 'sum', type: 'currency' }];
+    const { result } = renderHook(() => useColumnSummary(cols, DATA, { amount: { currency: 'USD' } }), {
       wrapper: wrapper('CNY'),
     });
     const label = result.current.summaries.get('amount')?.label ?? '';
@@ -54,8 +57,10 @@ describe('useColumnSummary tenant-default currency', () => {
   // column, NOT the decimal places. It must not drive fraction digits, or a
   // decimal(10, 0) sum renders as "…0000000000".
   it('does not pad a currency sum using precision (total digits)', () => {
-    const cols: any[] = [{ field: 'amount', summary: 'sum', type: 'currency', currency: 'USD', precision: 10, scale: 0 }];
-    const { result } = renderHook(() => useColumnSummary(cols, [{ amount: 1000 }, { amount: 234 }]), {
+    // The hints sit on the field (objectui#11588): a column-level one is not read.
+    const cols: any[] = [{ field: 'amount', summary: 'sum', type: 'currency' }];
+    const meta = { amount: { currency: 'USD', precision: 10, scale: 0 } };
+    const { result } = renderHook(() => useColumnSummary(cols, [{ amount: 1000 }, { amount: 234 }], meta), {
       wrapper: wrapper('USD'),
     });
     const label = result.current.summaries.get('amount')?.label ?? '';
@@ -74,8 +79,10 @@ describe('useColumnSummary tenant-default currency', () => {
   // `__tests__/useColumnSummary.currencyMinorUnit-10221.test.tsx`.
   it('takes a currency column\'s fraction digits from the currency, not from scale', () => {
     // A stale `scale: 0` is ignored: USD keeps its cents on a fractional total …
-    const cols: any[] = [{ field: 'amount', summary: 'sum', type: 'currency', currency: 'USD', precision: 12, scale: 0 }];
-    const fractional = renderHook(() => useColumnSummary(cols, [{ amount: 1000 }, { amount: 234.5 }]), {
+    // The hints sit on the field (objectui#11588): a column-level one is not read.
+    const cols: any[] = [{ field: 'amount', summary: 'sum', type: 'currency' }];
+    const meta = { amount: { currency: 'USD', precision: 12, scale: 0 } };
+    const fractional = renderHook(() => useColumnSummary(cols, [{ amount: 1000 }, { amount: 234.5 }], meta), {
       wrapper: wrapper('USD'),
     });
     expect(fractional.result.current.summaries.get('amount')?.label).toMatch(/1,234\.50/);
@@ -83,7 +90,7 @@ describe('useColumnSummary tenant-default currency', () => {
     // currency's width, never the stale `scale: 0`. Moved on purpose from
     // "drops the fraction" when objectui#11444 retired the whole-amount
     // trimming (triage comment 5946462862).
-    const whole = renderHook(() => useColumnSummary(cols, [{ amount: 1000 }, { amount: 234 }]), {
+    const whole = renderHook(() => useColumnSummary(cols, [{ amount: 1000 }, { amount: 234 }], meta), {
       wrapper: wrapper('USD'),
     });
     const label = whole.result.current.summaries.get('amount')?.label ?? '';
@@ -99,10 +106,12 @@ describe('useColumnSummary tenant-default currency', () => {
  */
 describe('useColumnSummary formatting stays with the numeric family', () => {
   const CURRENCY_DATA = [{ amount: 1000 }, { amount: 234 }, { amount: 1000 }];
+  // The code sits on the field (objectui#11588): a column-level one is not read.
+  const USD_FIELD = { amount: { currency: 'USD' } };
 
   it('does not apply currency formatting to a count on a currency column', () => {
-    const cols: any[] = [{ field: 'amount', summary: 'count_unique', type: 'currency', currency: 'USD' }];
-    const { result } = renderHook(() => useColumnSummary(cols, CURRENCY_DATA), {
+    const cols: any[] = [{ field: 'amount', summary: 'count_unique', type: 'currency' }];
+    const { result } = renderHook(() => useColumnSummary(cols, CURRENCY_DATA, USD_FIELD), {
       wrapper: wrapper('USD'),
     });
     const label = result.current.summaries.get('amount')?.label ?? '';
@@ -111,8 +120,8 @@ describe('useColumnSummary formatting stays with the numeric family', () => {
   });
 
   it('does not apply currency formatting to a percent aggregation', () => {
-    const cols: any[] = [{ field: 'amount', summary: 'percent_filled', type: 'currency', currency: 'USD' }];
-    const { result } = renderHook(() => useColumnSummary(cols, CURRENCY_DATA), {
+    const cols: any[] = [{ field: 'amount', summary: 'percent_filled', type: 'currency' }];
+    const { result } = renderHook(() => useColumnSummary(cols, CURRENCY_DATA, USD_FIELD), {
       wrapper: wrapper('USD'),
     });
     const label = result.current.summaries.get('amount')?.label ?? '';
@@ -132,8 +141,8 @@ describe('useColumnSummary formatting stays with the numeric family', () => {
 
   it('still applies currency formatting to the numeric family', () => {
     // Guard against over-correcting: sum/avg/min/max keep column formatting.
-    const cols: any[] = [{ field: 'amount', summary: 'sum', type: 'currency', currency: 'USD' }];
-    const { result } = renderHook(() => useColumnSummary(cols, CURRENCY_DATA), {
+    const cols: any[] = [{ field: 'amount', summary: 'sum', type: 'currency' }];
+    const { result } = renderHook(() => useColumnSummary(cols, CURRENCY_DATA, USD_FIELD), {
       wrapper: wrapper('USD'),
     });
     expect(result.current.summaries.get('amount')?.label).toMatch(/\$|US\$/);

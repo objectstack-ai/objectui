@@ -67,13 +67,20 @@ function wrapper(tenant: Tenant) {
   );
 }
 
-/** The footer label the hook produces for one column over `rows`. */
-function footer(column: Record<string, unknown>, rows: unknown[], tenant: Tenant): string {
-  const cols: any[] = [{ summary: 'sum', ...column }];
-  const { result } = renderHook(() => useColumnSummary(cols, rows as any[]), {
+/**
+ * The footer label the hook produces for one `sum` column over `rows`. The
+ * column names only its `field`; every other member of `def` is the FIELD's
+ * definition, handed to the hook as `fieldMetadata`, as the cell below is
+ * handed it. objectui#11588 retired the column-level read of `currency` and
+ * `scale`, so a def spread onto the column would no longer reach the footer.
+ */
+function footer(def: Record<string, unknown>, rows: unknown[], tenant: Tenant): string {
+  const { field, ...fieldDef } = def as { field: string } & Record<string, unknown>;
+  const cols: any[] = [{ summary: 'sum', field }];
+  const { result } = renderHook(() => useColumnSummary(cols, rows as any[], { [field]: fieldDef } as never), {
     wrapper: wrapper(tenant),
   });
-  return result.current.summaries.get(column.field as string)?.label ?? '';
+  return result.current.summaries.get(field)?.label ?? '';
 }
 
 /** What the list cell renders for `value` on the same field, under the same providers. */

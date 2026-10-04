@@ -142,10 +142,16 @@ function chipText(declared: Record<string, unknown>): string {
   return text;
 }
 
-/** Face 3 — the column-summary footer. */
+/**
+ * Face 3 — the column-summary footer. The field definition goes in as
+ * `fieldMetadata`, as the other faces are handed it: objectui#11588 retired
+ * the footer's column-level read of `scale`, so a def spread onto the column
+ * would not reach it.
+ */
 function footerText(declared: Record<string, unknown>): string {
-  const cols = [{ ...field(declared), field: 'rate', summary: 'sum' }] as unknown as ListColumn[];
-  const { result } = renderHook(() => useColumnSummary(cols, [{ rate: STORED }]), {
+  const cols = [{ field: 'rate', summary: 'sum' }] as unknown as ListColumn[];
+  const meta = { rate: field(declared) };
+  const { result } = renderHook(() => useColumnSummary(cols, [{ rate: STORED }], meta as never), {
     wrapper: ({ children }: { children: React.ReactNode }) => session(children),
   });
   const label = result.current.summaries.get('rate')?.label ?? '';

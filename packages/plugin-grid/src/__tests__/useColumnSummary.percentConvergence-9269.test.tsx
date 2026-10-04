@@ -233,12 +233,17 @@ describe('the grid summary percent arm takes BOTH halves from the declared sourc
    *
    * The repair itself is pinned in `useColumnSummary.percentScale-9295`; this
    * case keeps objectui#9269's convergence claim true across it.
+   *
+   * objectui#11588 then moved the declaration from the column to the FIELD:
+   * `ListColumnSchema` declares no `scale`, and the footer reads it off the
+   * field metadata only. The claim is unchanged again — only where it sits.
    */
-  it('still honours the width declared by the column scale', () => {
-    expect(summaryLabel(0.12345, 'en', { scale: 2 })).toBe(
+  it('still honours the width declared by the field scale', () => {
+    const declared = { rate: { type: 'percent', scale: 2 } };
+    expect(summaryLabel(0.12345, 'en', {}, declared)).toBe(
       `${PREFIX}${formatPercent(0.12345, 'fraction', 2, 'en')}`,
     );
-    expect(summaryLabel(0.12345, 'de-DE', { scale: 2 })).toBe(
+    expect(summaryLabel(0.12345, 'de-DE', {}, declared)).toBe(
       `${PREFIX}${formatPercent(0.12345, 'fraction', 2, 'de-DE')}`,
     );
   });

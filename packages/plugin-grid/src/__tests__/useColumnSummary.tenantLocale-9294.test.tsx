@@ -93,10 +93,20 @@ function wrapper(locale: string) {
   );
 }
 
-/** The footer label the hook itself produces, for one column of one fixture. */
-function summaryLabel(locale: string, column: Record<string, unknown>, rows: unknown[]): string {
+/**
+ * The footer label the hook itself produces, for one column of one fixture.
+ * `fieldDef` is the column's FIELD definition, handed over as `fieldMetadata`:
+ * objectui#11588 retired the column-level read of `currency` and `scale`.
+ */
+function summaryLabel(
+  locale: string,
+  column: Record<string, unknown>,
+  rows: unknown[],
+  fieldDef?: Record<string, unknown>,
+): string {
   const cols: any[] = [column];
-  const { result } = renderHook(() => useColumnSummary(cols, rows as any[]), {
+  const meta = fieldDef ? { [column.field as string]: fieldDef } : undefined;
+  const { result } = renderHook(() => useColumnSummary(cols, rows as any[], meta as never), {
     wrapper: wrapper(locale),
   });
   return result.current.summaries.get(column.field as string)?.label ?? '';
@@ -128,6 +138,8 @@ interface Arm {
   site: string;
   prefix: string;
   column: Record<string, unknown>;
+  /** The field's own hints (`currency`, `scale`), read off the field only. */
+  fieldDef?: Record<string, unknown>;
   rows: unknown[];
   declared: (locale: string) => string;
 }
@@ -136,7 +148,8 @@ const ARMS: Arm[] = [
   {
     site: 'currency, explicit code',
     prefix: 'Sum: ',
-    column: { field: 'amount', summary: 'sum', type: 'currency', currency: 'EUR', scale: 2 },
+    column: { field: 'amount', summary: 'sum', type: 'currency' },
+    fieldDef: { type: 'currency', currency: 'EUR', scale: 2 },
     rows: [{ amount: AMOUNT }],
     declared: (locale) =>
       new Intl.NumberFormat(locale, {
@@ -149,7 +162,8 @@ const ARMS: Arm[] = [
   {
     site: 'currency, no code resolved',
     prefix: 'Sum: ',
-    column: { field: 'amount', summary: 'sum', type: 'currency', scale: 2 },
+    column: { field: 'amount', summary: 'sum', type: 'currency' },
+    fieldDef: { type: 'currency', scale: 2 },
     rows: [{ amount: AMOUNT }],
     declared: (locale) =>
       new Intl.NumberFormat(locale, {
@@ -162,7 +176,8 @@ const ARMS: Arm[] = [
     // constructor throws and the arm falls through to its own catch.
     site: 'currency, constructor threw',
     prefix: 'Sum: ',
-    column: { field: 'amount', summary: 'sum', type: 'currency', currency: 'EU', scale: 2 },
+    column: { field: 'amount', summary: 'sum', type: 'currency' },
+    fieldDef: { type: 'currency', currency: 'EU', scale: 2 },
     rows: [{ amount: AMOUNT }],
     declared: (locale) => AMOUNT.toLocaleString(locale),
   },
@@ -247,9 +262,9 @@ describe('the grid summary footer formats in the tenant locale, not the machine 
     );
 
     it.each(moves)('the %s arm moves when the tenant locale moves to %s', (_site, locale, arm) => {
-      const baseline = summaryLabel('en', arm.column, arm.rows);
+      const baseline = summaryLabel('en', arm.column, arm.rows, arm.fieldDef);
       expect(baseline).not.toBe('');
-      expect(summaryLabel(locale, arm.column, arm.rows)).not.toBe(baseline);
+      expect(summaryLabel(locale, arm.column, arm.rows, arm.fieldDef)).not.toBe(baseline);
     });
   });
 
@@ -264,7 +279,7 @@ describe('the grid summary footer formats in the tenant locale, not the machine 
     );
 
     it.each(pairs)('the %s arm reads as %s renders it', (_site, locale, arm) => {
-      expect(summaryLabel(locale, arm.column, arm.rows)).toBe(
+      expect(summaryLabel(locale, arm.column, arm.rows, arm.fieldDef)).toBe(
         `${arm.prefix}${arm.declared(locale)}`,
       );
     });
@@ -283,7 +298,7 @@ describe('the grid summary footer formats in the tenant locale, not the machine 
    * than no literal at all.
    */
   it('tr-TR renders the currency total with the symbol in front and swapped marks', () => {
-    expect(summaryLabel('tr-TR', ARMS[0].column, ARMS[0].rows)).toBe('Sum: €1.234,50');
+    expect(summaryLabel('tr-TR', ARMS[0].column, ARMS[0].rows, ARMS[0].fieldDef)).toBe('Sum: €1.234,50');
   });
 
   /**
@@ -294,7 +309,7 @@ describe('the grid summary footer formats in the tenant locale, not the machine 
   it.each([...ARMS, CONTROL].map((arm) => [arm.site, arm] as const))(
     'the %s arm carries the label prefix the bundle produces',
     (_site, arm) => {
-      expect(summaryLabel('en', arm.column, arm.rows).startsWith(arm.prefix)).toBe(true);
+      expect(summaryLabel('en', arm.column, arm.rows, arm.fieldDef).startsWith(arm.prefix)).toBe(true);
     },
   );
 });

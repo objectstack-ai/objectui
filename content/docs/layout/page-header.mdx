@@ -192,7 +192,8 @@ The renderer picks one of two layouts when it renders:
   stack on the left, the action row sits on the right.
 - **Record chip** — a record page (a record context with its object schema) with the record
   chrome on. The title renders as the record chip: the heading, the object's label, the
-  copy-id button and the follow star.
+  copy-id button and the follow star, with the record's picture beside the heading when the
+  object names an `imageField` and the record's value for that field is not empty.
 
 ```plaintext
 ┌──────────────────────────────────────────────┐

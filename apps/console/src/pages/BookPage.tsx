@@ -11,7 +11,7 @@ import { Navigate, useParams } from 'react-router-dom';
 import { BookOpen, FileQuestion, Loader2, Lock } from 'lucide-react';
 import { DocShell } from './DocShell';
 import { useBookData } from './use-book-data';
-import { resolveBookTree, scopeDocsToBook, bookSlug, firstDoc } from './book-nav';
+import { resolveBookTree, bookSlug, firstDoc } from './book-nav';
 
 /**
  * The refusal a member outside a doc's or a book's audience gets on a direct
@@ -47,7 +47,7 @@ export default function BookPage() {
 
   const found = useMemo(() => books.find((b) => bookSlug(b) === slug), [books, slug]);
   const opensTo = useMemo(
-    () => (found ? firstDoc(resolveBookTree(found, scopeDocsToBook(found, docs))) : undefined),
+    () => (found ? firstDoc(resolveBookTree(found, docs)) : undefined),
     [found, docs],
   );
 

@@ -18,16 +18,16 @@
  * resolving, so a doc the admin placed from the doc editor (objectui#11241)
  * was listed by the endpoint and missing from the sidebar.
  *
- * The package filter still narrows what the synthetic Uncategorized group can
- * collect — the controls below hold that — and `include` stays scoped by the
- * resolver itself.
+ * That pre-filter is retired (objectui#11340): the portal renders the resolver's
+ * answer over every doc. The resolver's own orphan pass keeps another package's
+ * unplaced docs out of the synthetic Uncategorized group — the controls below
+ * hold that — and `include` stays scoped by the resolver itself.
  */
 
 import { describe, it, expect } from 'vitest';
 import { resolveBookTree as specResolveBookTree } from '@objectstack/spec/system';
 import {
   resolveBookTree,
-  scopeDocsToBook,
   countBookDocs,
   type Book,
   type ResolvedBook,
@@ -59,8 +59,8 @@ const docs: ResolverDoc[] = [
   { name: 'other_stray', label: 'Other Stray', group: 'appendix', packageId: OTHER_PKG },
 ];
 
-/** What the portal renders for a book: the same two calls `DocPage` / `BookPage` make. */
-const portalTree = (b: Book, all: ResolverDoc[]): ResolvedBook => resolveBookTree(b, scopeDocsToBook(b, all));
+/** What the portal renders for a book: the same call `DocPage` / `BookPage` make, over every doc. */
+const portalTree = (b: Book, all: ResolverDoc[]): ResolvedBook => resolveBookTree(b, all);
 
 /** What `GET /meta/book/:name/tree` answers: the spec resolver over every doc, scoped by the book's package. */
 const endpointTree = (b: Book, all: ResolverDoc[]) =>

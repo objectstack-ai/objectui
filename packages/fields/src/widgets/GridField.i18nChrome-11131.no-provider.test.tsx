@@ -47,12 +47,12 @@ describe('GridField chrome with no i18n provider (objectui#11131)', () => {
     expect(cellText(/^No items yet/)).toBe('No items yet — click “Add” to begin.');
   });
 
-  it('an authored `add_label` fills the hole on this path too', () => {
+  it('an authored `addLabel` fills the hole on this path too', () => {
     render(
       <GridField
         value={[]}
         onChange={() => {}}
-        field={{ columns, add_label: 'New row' } as never}
+        field={{ columns, addLabel: 'New row' } as never}
         displayMode="list"
         onAdd={() => {}}
       />,

@@ -98,7 +98,27 @@ const DECLARED_KEYS = [
   // `inlineColumns` list (its strict inline grid column), by reference.
   'columns',
   // objectui#11070 round 10 — the `grid` widget's field-level keys, the
-  // members of `GridFieldMetadata` (the TS twin carries each by reference).
+  // members of `GridFieldMetadata` (the TS twin carries each by reference),
+  // camelCase since objectui#11610.
+  'minRows',
+  'maxRows',
+  'allowAdd',
+  'allowDelete',
+  'allowReorder',
+  'totalField',
+  'addLabel',
+  'sortField',
+];
+
+/**
+ * Keys the schema DECLARES only to refuse by name — never authorable, so not in
+ * {@link DECLARED_KEYS}: the `grid` widget's eight retired snake_case spellings
+ * (objectui#11610), each an alias refusal naming its camelCase key, paired with
+ * a `?: never` tombstone on the TS twin. Their refusal is pinned in
+ * `grid-field-keys-camelcase-11610.test.ts`; this list only keeps the shape
+ * count honest, so a ninth arm (or a dropped one) must touch it.
+ */
+const REFUSED_BY_NAME_KEYS = [
   'min_rows',
   'max_rows',
   'allow_add',
@@ -110,8 +130,15 @@ const DECLARED_KEYS = [
 ];
 
 describe('FormFieldSchema covers the FormField contract', () => {
-  it('validates exactly the declared key set', () => {
-    expect(Object.keys(FormFieldSchema.shape).sort()).toEqual([...DECLARED_KEYS].sort());
+  it('validates exactly the declared key set, plus the keys it refuses by name', () => {
+    expect(Object.keys(FormFieldSchema.shape).sort()).toEqual([...DECLARED_KEYS, ...REFUSED_BY_NAME_KEYS].sort());
+  });
+
+  it('each refused-by-name key refuses every value, so none of them is authorable (objectui#11610)', () => {
+    for (const key of REFUSED_BY_NAME_KEYS) {
+      expect(FormFieldSchema.safeParse({ name: 'lines', type: 'grid', [key]: 1 }).success, key).toBe(false);
+      expect(FormFieldSchema.safeParse({ name: 'lines', type: 'grid', [key]: 'x' }).success, key).toBe(false);
+    }
   });
 
   it('requires only `name` — `type` is optional, matching the interface', () => {

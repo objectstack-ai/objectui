@@ -31,7 +31,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { BatchTransactionOperation, DataSource, I18nLabel } from '@object-ui/types';
+import type { BatchTransactionOperation, DataSource, GridFieldMetadata, I18nLabel } from '@object-ui/types';
 import { runBatchTransaction } from '@object-ui/core';
 import { LineItemsField, type GridColumn } from '@object-ui/fields';
 import { Button, Card, CardContent, CardHeader, CardTitle, cn, toast } from '@object-ui/components';
@@ -363,7 +363,7 @@ interface DetailEntry {
   /**
    * The child field the line grid stamps with each line's position, so a
    * drag-reorder persists: `deriveDetail`'s pick (the child object's
-   * `position` / `sort_order` / … field), handed to the grid as `sort_field`.
+   * `position` / `sort_order` / … field), handed to the grid as `sortField`.
    * Derived only, never authored (objectui#11070 round 9), so it lives here
    * beside the other resolved state rather than on the authored config. Absent
    * when the entry was not derived (a fully configured entry loads no child
@@ -862,7 +862,7 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               displayMode={d.inlineMode === 'form' ? 'list' : 'grid'}
               {...(d.inlineMode === 'form' ? { onAdd: () => onAddViaForm(entry.id) } : {})}
               field={
-                {
+                ({
                   // FLS gate, through the ONE render pass `LineItemsPanel` and
                   // the record-form containers share: a child column the caller
                   // may not read is omitted, and one they may read but not edit
@@ -870,12 +870,18 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
                   columns: applyColumnPermissions(d.columns, { perms, objectName: d.childObject }),
                   // Show the per-grid running total whenever an amount column is
                   // set — unless the document totals stack below subsumes it.
-                  total_field: showTaxStack ? undefined : (d.amountField || (d.totalField ? 'amount' : undefined)),
-                  sort_field: entry.sortField,
-                  min_rows: d.minRows,
-                  max_rows: d.maxRows,
-                  add_label: d.inlineMode === 'form' ? (d.addLabel || t('detail.add')) : d.addLabel,
-                } as any
+                  // The grid's `totalField` names the CHILD column summed (this
+                  // detail's `amountField`); the detail's own `totalField` is the
+                  // PARENT field the sum is saved to, and never reaches the grid.
+                  totalField: showTaxStack ? undefined : (d.amountField || (d.totalField ? 'amount' : undefined)),
+                  sortField: entry.sortField,
+                  minRows: d.minRows,
+                  maxRows: d.maxRows,
+                  addLabel: d.inlineMode === 'form' ? (d.addLabel || t('detail.add')) : d.addLabel,
+                  // Checked against the grid's published type (objectui#11610), so
+                  // a key the grid does not declare, or one of its retired
+                  // snake_case spellings, fails to compile here.
+                } satisfies Partial<GridFieldMetadata>) as GridFieldMetadata
               }
             />
           )}

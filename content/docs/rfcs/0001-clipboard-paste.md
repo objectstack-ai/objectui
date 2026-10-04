@@ -251,7 +251,7 @@ export interface UsePasteToGridOptions {
   rows: any[];
   /** Currently selected range, or null when nothing selected */
   selection?: CellRange | null;
-  /** Cap rows after paste (e.g. max_rows from GridFieldMetadata) */
+  /** Cap rows after paste (e.g. maxRows from GridFieldMetadata) */
   maxRows?: number;
   /** Whether append-beyond-selection is allowed */
   allowAppend?: boolean;
@@ -344,7 +344,7 @@ Dialog layout (Shadcn `Dialog` + `Table`):
 * **Row** — row is valid iff all mapped cells are `ok`. Invalid rows are
   dropped from the apply set but **kept in the preview** so the user can
   cancel and fix in the source spreadsheet.
-* **Table** — `max_rows` cap enforced: if `currentRows + valid > max_rows`,
+* **Table** — `maxRows` cap enforced: if `currentRows + valid > maxRows`,
   surface "Only first K rows will be appended" in the status bar.
 
 ### 6.4 Quick-paste optimisation (deferred to v1.1)
@@ -422,8 +422,8 @@ const { onPaste, previewDialog } = usePasteToGrid({
   columns: coercersFromGridFieldColumns(field.columns),
   rows: value ?? [],
   selection,
-  allowAppend: field.allow_add !== false,
-  maxRows: field.max_rows,
+  allowAppend: field.allowAdd !== false,
+  maxRows: field.maxRows,
   preview: true,
   onApply: (commands) => {
     onChange(applyCommands(value ?? [], commands));
@@ -468,7 +468,7 @@ RFC is marked Accepted.
 | `parseClipboard` | Vitest | 100% branch — covers TSV, CSV, mixed newlines, BOM, quoted with `""`, quoted with embedded newlines, single-cell, all-empty |
 | `coerceCell` | Vitest | 100% per supported type — locale-sensitive numbers, currency, percent, ISO date, Excel serial, boolean dictionary |
 | `usePasteToGrid` | RTL + Vitest | Selection-aware mode decision, header detection, mapping override, error rollup |
-| `PastePreviewDialog` | RTL + Vitest | Empty preview, all-valid, mixed valid/invalid, all-invalid, skipped columns, max_rows clamp |
+| `PastePreviewDialog` | RTL + Vitest | Empty preview, all-valid, mixed valid/invalid, all-invalid, skipped columns, maxRows clamp |
 | `ObjectGrid` integration | RTL + Playwright e2e | Paste flow end-to-end, staged toolbar, feature flag off path |
 | Cross-browser clipboard | Playwright | Chromium + WebKit (Safari has known clipboard quirks) |
 

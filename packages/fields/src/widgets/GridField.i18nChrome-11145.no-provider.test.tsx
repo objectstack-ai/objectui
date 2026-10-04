@@ -44,7 +44,7 @@ describe('GridField chrome with no i18n provider (objectui#11145)', () => {
       <GridField
         value={[{ qty: 2, price: 5, amount: 10 }]}
         onChange={() => {}}
-        field={{ columns, total_field: 'amount' } as never}
+        field={{ columns, totalField: 'amount' } as never}
         onRowExpand={() => {}}
       />,
     );

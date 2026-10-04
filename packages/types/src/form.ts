@@ -2073,24 +2073,74 @@ export interface FormField {
   // `GridFieldMetadata`'s own member BY REFERENCE, so the form-field face and
   // the grid field's published type cannot drift; the meaning of each key is
   // documented there. Only the `grid` widget reads them: on any other field
-  // type they are accepted and read by nothing.
+  // type they are accepted and read by nothing. objectui#11610 renamed all
+  // eight from snake_case to camelCase.
 
-  /** The grid's minimum row count: {@link GridFieldMetadata.min_rows}. */
-  min_rows?: GridFieldMetadata['min_rows'];
-  /** The grid's maximum row count: {@link GridFieldMetadata.max_rows}. */
-  max_rows?: GridFieldMetadata['max_rows'];
-  /** Whether the grid offers Add (on unless `false`): {@link GridFieldMetadata.allow_add}. */
-  allow_add?: GridFieldMetadata['allow_add'];
-  /** Whether the grid offers Delete (on unless `false`): {@link GridFieldMetadata.allow_delete}. */
-  allow_delete?: GridFieldMetadata['allow_delete'];
-  /** Whether rows can be drag-reordered (on unless `false`): {@link GridFieldMetadata.allow_reorder}. */
-  allow_reorder?: GridFieldMetadata['allow_reorder'];
-  /** The CHILD column summed into the footer total: {@link GridFieldMetadata.total_field}. */
-  total_field?: GridFieldMetadata['total_field'];
-  /** The Add button's label: {@link GridFieldMetadata.add_label}. */
-  add_label?: GridFieldMetadata['add_label'];
-  /** The row field stamped with each row's index: {@link GridFieldMetadata.sort_field}. */
-  sort_field?: GridFieldMetadata['sort_field'];
+  /** The grid's minimum row count: {@link GridFieldMetadata.minRows}. */
+  minRows?: GridFieldMetadata['minRows'];
+  /** The grid's maximum row count: {@link GridFieldMetadata.maxRows}. */
+  maxRows?: GridFieldMetadata['maxRows'];
+  /** Whether the grid offers Add (on unless `false`): {@link GridFieldMetadata.allowAdd}. */
+  allowAdd?: GridFieldMetadata['allowAdd'];
+  /** Whether the grid offers Delete (on unless `false`): {@link GridFieldMetadata.allowDelete}. */
+  allowDelete?: GridFieldMetadata['allowDelete'];
+  /** Whether rows can be drag-reordered (on unless `false`): {@link GridFieldMetadata.allowReorder}. */
+  allowReorder?: GridFieldMetadata['allowReorder'];
+  /** The CHILD column summed into the footer total: {@link GridFieldMetadata.totalField}. */
+  totalField?: GridFieldMetadata['totalField'];
+  /** The Add button's label: {@link GridFieldMetadata.addLabel}. */
+  addLabel?: GridFieldMetadata['addLabel'];
+  /** The row field stamped with each row's index: {@link GridFieldMetadata.sortField}. */
+  sortField?: GridFieldMetadata['sortField'];
+
+  // ── Their retired snake_case spellings (objectui#11610) ─────────────────
+  //
+  // REFUSED BY NAME, as on `GridFieldMetadata` (where the retirement is
+  // documented): each is a `?: never` tombstone here (a declared member, so
+  // it outranks the index signature above), and an alias refusal naming the
+  // camelCase key on the zod mirror. `GRID_FIELD_RETIRED_KEYS` maps each to
+  // its replacement.
+
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.minRows}.
+   * @deprecated Write `minRows`. Nothing reads this spelling.
+   */
+  min_rows?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.maxRows}.
+   * @deprecated Write `maxRows`. Nothing reads this spelling.
+   */
+  max_rows?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.allowAdd}.
+   * @deprecated Write `allowAdd`. Nothing reads this spelling.
+   */
+  allow_add?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.allowDelete}.
+   * @deprecated Write `allowDelete`. Nothing reads this spelling.
+   */
+  allow_delete?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.allowReorder}.
+   * @deprecated Write `allowReorder`. Nothing reads this spelling.
+   */
+  allow_reorder?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.totalField}.
+   * @deprecated Write `totalField`. Nothing reads this spelling.
+   */
+  total_field?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.addLabel}.
+   * @deprecated Write `addLabel`. Nothing reads this spelling.
+   */
+  add_label?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.sortField}.
+   * @deprecated Write `sortField`. Nothing reads this spelling.
+   */
+  sort_field?: never;
 }
 
 /**

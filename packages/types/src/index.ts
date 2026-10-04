@@ -588,7 +588,12 @@ export type {
   ObjectSchemaMetadata,
   ObjectSchemaClientExtensions,
   ObjectIndex,
+  GridFieldRetiredKey,
 } from './field-types.js';
+// objectui#11610 — the `grid` field's retired snake_case field-level keys, each
+// mapped to its camelCase replacement: the one list the form-field zod mirror's
+// alias refusals and the `grid` widget's named refusal both read.
+export { GRID_FIELD_RETIRED_KEYS } from './field-types.js';
 
 // System / audit / ownership field classification — runtime helper + name set,
 // used by default list-column derivation to keep framework-injected fields

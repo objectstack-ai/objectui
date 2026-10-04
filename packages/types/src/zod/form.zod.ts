@@ -29,6 +29,7 @@ import { ExpressionWireSchema } from './expression.zod.js';
 import { EvaluatedExpressionInputSchema as SpecEvaluatedExpressionInputSchema } from '@objectstack/spec/shared';
 import { stripImportedDefaults } from './imported-defaults.js';
 import { closeStrictUnionArms } from './node-derivation.js';
+import { GRID_FIELD_RETIRED_KEYS, type GridFieldRetiredKey } from '../field-types.js';
 
 /**
  * ⭐ THE IMPORT BOUNDARY (objectui#8317, decision batch #90, 2026-09-08).
@@ -1004,6 +1005,27 @@ function unresolvableFieldWidgetNamespaceMessage(id: string): string {
   );
 }
 
+/**
+ * The alias refusal for one of the `grid` widget's retired snake_case
+ * field-level keys (objectui#11610), on `FormFieldSchema`: the
+ * {@link aliasKeyRefusal} lead sentence names the camelCase key the entry
+ * should carry, read from `GRID_FIELD_RETIRED_KEYS`, so the arm, the TS twin's
+ * `?: never` tombstone and the `grid` widget's refusal name the same
+ * replacement. The value an author wrote is valid under the new key as it
+ * stands; only the key changes.
+ */
+function retiredGridFieldKey(alias: GridFieldRetiredKey) {
+  const canonical = GRID_FIELD_RETIRED_KEYS[alias];
+  return aliasKeyRefusal(
+    alias,
+    canonical,
+    'this form field',
+    `The \`grid\` widget's field-level keys are camelCase since objectui#11610, and no reader reads the `
+    + `snake_case spelling, so it is refused here by name rather than stripped. Rename the key to \`${canonical}\`; `
+    + 'its value stays the same.',
+  );
+}
+
 export const FormFieldSchema = z.object({
   id: z.string().optional().describe('Field ID'),
   name: z.string().describe('Field name (form data path)'),
@@ -1076,22 +1098,35 @@ export const FormFieldSchema = z.object({
   // are `GridFieldMetadata`'s members, which the TS twin carries by reference;
   // `@objectstack/spec` declares none of them (a `grid` field is objectui's own
   // type), so each value schema here is the TS member's own type, stated once.
-  min_rows: z.number().optional()
+  // objectui#11610 renamed all eight from snake_case to camelCase.
+  minRows: z.number().optional()
     .describe('Minimum row count of a `grid` field; read only by the `grid` widget'),
-  max_rows: z.number().optional()
+  maxRows: z.number().optional()
     .describe('Maximum row count of a `grid` field; read only by the `grid` widget'),
-  allow_add: z.boolean().optional()
+  allowAdd: z.boolean().optional()
     .describe('Whether a `grid` field offers Add (on unless false); read only by the `grid` widget'),
-  allow_delete: z.boolean().optional()
+  allowDelete: z.boolean().optional()
     .describe('Whether a `grid` field offers Delete (on unless false); read only by the `grid` widget'),
-  allow_reorder: z.boolean().optional()
+  allowReorder: z.boolean().optional()
     .describe('Whether a `grid` field\'s rows can be drag-reordered (on unless false); read only by the `grid` widget'),
-  total_field: z.string().optional()
+  totalField: z.string().optional()
     .describe('Name of the CHILD column a `grid` field sums into its footer total; read only by the `grid` widget'),
-  add_label: z.string().optional()
+  addLabel: z.string().optional()
     .describe('Label of a `grid` field\'s Add button; read only by the `grid` widget'),
-  sort_field: z.string().optional()
+  sortField: z.string().optional()
     .describe('Name of the row field a `grid` field stamps with each row\'s index, so a drag-reorder persists; read only by the `grid` widget'),
+  // objectui#11610 — the eight retired snake_case spellings, each REFUSED BY
+  // NAME with the camelCase key to write instead (the TS twin's `?: never`
+  // tombstones). One list feeds both the arms and the `grid` widget's own
+  // refusal: `GRID_FIELD_RETIRED_KEYS`.
+  min_rows: retiredGridFieldKey('min_rows'),
+  max_rows: retiredGridFieldKey('max_rows'),
+  allow_add: retiredGridFieldKey('allow_add'),
+  allow_delete: retiredGridFieldKey('allow_delete'),
+  allow_reorder: retiredGridFieldKey('allow_reorder'),
+  total_field: retiredGridFieldKey('total_field'),
+  add_label: retiredGridFieldKey('add_label'),
+  sort_field: retiredGridFieldKey('sort_field'),
 }).superRefine((field, ctx) => {
   // objectui#5449 — the namespace rule `@object-ui/core` has enforced since
   // objectui#5375, stated here so `objectui validate` (which reaches this

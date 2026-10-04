@@ -40,14 +40,14 @@
           "type": "currency"
         }
       ],
-      "min_rows": 1,
-      "max_rows": 10,
-      "allow_add": true,
-      "allow_delete": true,
-      "allow_reorder": true,
-      "total_field": "amount",
-      "add_label": "Add line item",
-      "sort_field": "position"
+      "minRows": 1,
+      "maxRows": 10,
+      "allowAdd": true,
+      "allowDelete": true,
+      "allowReorder": true,
+      "totalField": "amount",
+      "addLabel": "Add line item",
+      "sortField": "position"
     }
   ]
 }

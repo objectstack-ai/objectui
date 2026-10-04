@@ -233,10 +233,13 @@ async function dialogPayload(type: string, picks: ParseRow['picks']): Promise<Re
   return (onCreate.mock.calls[0] as unknown as [Record<string, any>])[0];
 }
 
-/** Assert the spec accepts `body`, surfacing its issues when it does not. */
+/**
+ * Assert the spec accepts `body`, surfacing its issues when it does not. Soft,
+ * so one row reports every door the spec refuses rather than the first.
+ */
 function expectAccepted(schema: { safeParse: (v: unknown) => any }, body: unknown, where: string) {
   const verdict = schema.safeParse(body);
-  expect(
+  expect.soft(
     verdict.success,
     `${where}: refused by the spec: ${JSON.stringify(verdict.error?.issues)}\nbody=${JSON.stringify(body)}`,
   ).toBe(true);

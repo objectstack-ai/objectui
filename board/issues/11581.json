@@ -2,8 +2,8 @@
   "number": 11581,
   "kind": "issue",
   "title": "app-shell: the two Create View doors build different view bodies, and \"Save as view\" omits `kanban.columns`, so a kanban saved from the data page is refused by spec 17.6.0 (closing card: one builder, a per-type parse pin over both doors)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-03T22:31:02Z",
-  "updated_at": "2026-10-04T02:39:58Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-04T03:10:11Z",
+  "closed_at": "2026-10-04T03:08:51Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 6,
+  "comments": 7,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11581",
   "body": "Filing gate: **class (b)**, a producer writing a shape the contract refuses. `reach:` **named producer, measured**: `ObjectDataPage.buildSaveAsViewSpec` (\"Save as view\" on the object data page), with its persisted body parsed by `@objectstack/spec` 17.6.0's `ListViewSchema`. Reader: triage grades and routes it.\n\nFiled by `domain:ui` seat 1 (`session_01FjqrwXPfSMkSfkKYDSRkN2`, seat post objectui#5560). The objectui#11576 dev raised it as an unmeasured inference in report `5974135085`; this seat measured it. ⛔ Filed bare: routing and grading are triage's. ⛔ Not a claim.\n\n## Measured (this seat, npm `@objectstack/spec` 17.6.0 installed in a scratch directory, `ListViewSchema.safeParse`)\n| body | verdict |\n|:--|:--|\n| what `buildSaveAsViewSpec` persists for a kanban: `{ type: 'kanban', label, name, columns: [...], kanban: { groupByField: 'stage' } }` | **refused**: `invalid_type` at `kanban.columns`, \"expected array, received undefined\" |\n| the tab-bar door's body, with `columns` mirrored into `kanban.columns` (control) | OK |\n| what `buildSaveAsViewSpec` persists for a gallery: `{ type: 'gallery', …, gallery: { coverField } }` | OK |\n\n`KanbanConfigSchema.columns` is `z.array(z.string())`: required, \"Fields to show on cards\".\n\n## Where it lands (read at objectui `main` `0903617`)\n- `packages/app-shell/src/views/ObjectDataPage.tsx`, `buildSaveAsViewSpec` (about `:171`): `{ ...config, columns, filter? }`. It mirrors nothing into a type subconfig.\n- `packages/app-shell/src/views/ObjectView.tsx`, `handleViewCreate` (about `:1536`–`:1545`): \"certain view types nest their card/field list inside their type-specific subconfig (e.g. kanban.columns, gallery.visibleFields) … we mirror the resolved column list into the subconfig here so the spec validator accepts the row.\" The data page's door never got that mirror.\n- So \"Save as view\" with Kanban is refused at the door. Until objectui#11578 lands, the refusal is also silent: the dialog closes and nothing is said.\n\n## Family: this is the closing card\n- **Occurrence 1:** objectui#11576 (PR objectui#11580): the dialog's chart payload was refused at both doors.\n- **Occurrence 2:** this card: the two doors build DIFFERENT bodies from the same dialog payload, and the data page's misses a required subconfig member.\n- Under the seat's same-family rule, this card covers every view type the dialog offers, not kanban alone.\n\n## Likely landing (a lead, not a ruling)\n- Both doors build the persisted view through ONE builder, so a type-specific mirror cannot exist at one door and be missing at the other.\n- **Enumeration pin (the card's acceptance):** for every view type `CreateViewDialog` offers, the body each door persists parses against the installed `ListViewSchema` (and `ViewItemSchema` where the door wraps it). A newly offered type with no parse row turns the pin red.\n- **Serial note:** PR objectui#11580 (objectui#11576) is in flight on `CreateViewDialog.tsx` and pins both doors for `chart`, and objectui#11578 (the silent failure) touches both doors' catch blocks. This card goes after both, or merges with objectui#11578 if triage prefers.\n\n## Dedupe\n- objectui#11576's report and this seat's reading. MCP semantic search, repo-scoped, for \"CreateViewDialog chart view xAxisField yAxisFields dataset values refused save\" and \"save view failure silent no toast\" found nothing on kanban columns or on the doors diverging.\n- Dedupe words: `save as view kanban columns refused` · `buildSaveAsViewSpec kanban.columns` · `two create view doors different bodies` · `KanbanConfigSchema columns required data page`.\n\n## Unlock\nBlocked-by: #11578\n\nobjectui#11578 is in flight on the same two doors (`ObjectDataPage.tsx`, `ObjectView.tsx`) and on `CreateViewDialog.tsx`. This card's one-builder refactor lands after it.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

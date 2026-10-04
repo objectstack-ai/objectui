@@ -2,8 +2,8 @@
   "number": 11583,
   "kind": "issue",
   "title": "app-shell: a refused metadata write on the view, report and draft surfaces is logged only — the view-config panel's edit Save is measured silent (the objectui#11578 family's closing card)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:blocked",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-zhuang"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-04T00:01:32Z",
-  "updated_at": "2026-10-04T00:52:28Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-04T06:48:33Z",
+  "closed_at": "2026-10-04T06:47:06Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 10,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11583",
   "body": "Filing gate: **class (a)**, a product defect with a named landing and a reproduction. `reach:` **public door, measured**: the object page's view-config panel Save in edit mode, mounted with a metadata client whose save rejects with 403. Reader: triage grades and routes it.\n\nFiled by `domain:ui` seat 1 (`session_01FjqrwXPfSMkSfkKYDSRkN2`, seat post objectui#5560). It comes from the objectui#11578 dev's out-of-scope finding (report `5974794723`, PR objectui#11582). This seat re-read every location at objectui `origin/main` `0a53c67`. ⛔ Filed bare: routing and grading are triage's. ⛔ Not a claim.\n\n**Family rule:** objectui#11578 (the two create doors) is the first occurrence of \"a refused metadata write is caught with a log line only, and the UI looks saved\". This is the second, so this card is the family's **closing card**, with an enumeration pin over every location, rather than one card per site.\n\n## What happens (measured)\nMeasured by the objectui#11578 dev, with a throwaway probe built on the objectui#10210 wiring harness (not committed): the metadata client's `save` rejects with 403, and the user presses Save in the view-config panel's edit mode.\n- `toast.error`: 0 calls. `toast.success`: 0 calls.\n- The only trace is `console.error('[ViewConfigPanel] Failed to persist view config:', …)`.\n- From source (not mounted): `ViewConfigPanel.handleSave` calls `onSave` without awaiting, then clears `isDirty` and bumps `savedSignal`. Save is disabled while the panel is not dirty in edit mode, so a refused edit looks saved, and the user cannot retry it without making another edit.\n\n## The family, enumerated (read at `0a53c67`)\n| # | Location | Write | Catch | Status |\n|:--|:--|:--|:--|:--|\n| 1 | `packages/app-shell/src/views/ObjectView.tsx`, `handleViewConfigSave` (about `:1495`) | `persistRuntimeMetadata('view', …)` | `.catch` → `console.error('[ViewConfigPanel] Failed to persist view config:')` | **measured** (above) |\n| 2 | `packages/app-shell/src/views/ViewConfigPanel.tsx`, `handleSave` (about `:192`) | calls row 1 through `onSave` | none: `setIsDirty(false)` runs before the save settles | read from source |\n| 3 | `packages/app-shell/src/views/ObjectView.tsx`, `handlePinView` (about `:2262`) | `dataSource.updateView(…, { isPinned })` | `console.error('[ViewTabBar] Failed to pin view:')`; its rename, delete and set-default siblings toast | read from source |\n| 4 | `packages/app-shell/src/views/ReportView.tsx`, `saveSchema` (about `:177`) | `persistRuntimeMetadata('report', …)` | `console.warn('[ReportView] Auto-save failed:')` | read from source |\n| 5 | `packages/app-shell/src/views/RuntimeDraftBar.tsx`, `handlePublish` (about `:127`) | `publishRuntimeMetadata(…)` | `console.error('[RuntimeDraftBar] Publish failed:')` | read from source |\n| 6 | `packages/app-shell/src/views/RuntimeDraftBar.tsx`, `handleDiscard` (about `:141`) | `discardRuntimeDraft(…)` | `console.error('[RuntimeDraftBar] Discard draft failed:')` | read from source |\n\nAlready fixed, not this card: `ObjectDataPage.handleSaveAsView` and `ObjectView.handleViewCreate` (objectui#11578, PR objectui#11582). Those doors now raise `toast.error(t('form.saveError'), { description: formatMetadataError(err) })` and report the failure to their dialog.\n\n## Likely landing (a lead, not a ruling)\n- Each row raises the refusal through the console's existing `toast.error` channel, with the door's message (`formatMetadataError`), the way objectui#11578's doors do. ⛔ No new notification surface.\n- Row 2: the panel clears `isDirty` only after a successful save, so a refused edit stays dirty and can be retried.\n- **Acceptance, the enumeration pin:** a census over every metadata write call site under `packages/app-shell/src/views/` (`createRuntimeMetadata`, `persistRuntimeMetadata`, `publishRuntimeMetadata`, `discardRuntimeDraft` and `dataSource.updateView`). Each site either surfaces a refusal to the user or is ledgered with a reason. A new write site with no row turns the census red.\n- **Serial note:** rows 1–3 share `ObjectView.tsx` with PR objectui#11582 (objectui#11578) and with objectui#11581 (`pm:blocked`, `Blocked-by: #11578`).\n\n## Dedupe\n- MCP semantic search, repo-scoped: \"view config panel save refused silent, persist view config failure only console.error, publish draft failed no toast, report auto-save failed silent\" returned objectui#11578 (the first occurrence, above), then #10210, #11204, #7345, #4373, #4211 and #4463, all closed and none about these catches.\n- Dedupe words: `view config save refused silent` · `Failed to persist view config console.error only` · `ViewConfigPanel edit save no toast` · `RuntimeDraftBar Publish failed silent` · `ReportView Auto-save failed console.warn` · `Failed to pin view no toast`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"

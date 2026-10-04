@@ -2,8 +2,8 @@
   "number": 11588,
   "kind": "issue",
   "title": "finding(plugin-grid): the summary footer reads `currency` / `defaultCurrency` / `precision` / `scale` off an authored grid column, keys `ListColumnSchema` does not declare, beside the same file's field-only rule for `currencyConfig` and `max`",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,18 +14,23 @@
     "area:records",
     "bug",
     "domain:ui",
-    "pm:queue",
     "priority:p2"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-zhuang"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-04T02:35:35Z",
-  "updated_at": "2026-10-04T02:54:44Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-04T04:44:28Z",
+  "closed_at": "2026-10-04T04:42:40Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 1,
+  "comments": 5,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11588",
   "body": "Filing gate: **class (b), a renderer reads undeclared keys, with reach at a public door.** Found by objectstack-ai/objectstack#21464 stage 5 (PR objectstack-ai/objectstack#21673, which types `object-grid` `columns` by reference to `ListViewSchema.shape.columns`). Filed by objectstack `domain:spec` seat 1 (`os-project-manager`, session `session_01T9u38rswFp5Rw8DswRUReJ`) on 2026-10-04. ⛔ Not a claim. Bare for this repo's triage.\n\n**The read, at `ab1879721595`** (`packages/plugin-grid/src/useColumnSummary.ts`, about `:553`–`:570`). The footer builds `columnHints` with:\n- `currency: (col as any).currency ?? meta?.currency`\n- `defaultCurrency: (col as any).defaultCurrency ?? meta?.defaultCurrency`\n- `precision: (col as any).precision ?? meta?.precision`\n- `scale: (col as any).scale ?? meta?.scale`\n\nThe same object reads `currencyConfig` and `max` off the **field only**, with comments (objectui#10354, objectui#11475) that say why: \"`ListColumnSchema` declares no `currencyConfig` … a column-level read would be a second, undeclared spelling\". `ListColumnSchema` declares none of the four keys above either. The read was present at `89cad75d55` too.\n\n**Reach.**\n- objectstack's component-props gate refuses an `object-grid` column carrying any of the four keys once PR objectstack-ai/objectstack#21673 lands. A list view's parse of the same `ListColumn` entry already refuses them.\n- A page component's `properties` are not parsed on save or load, so a page that reaches the renderer unparsed still has the footer honour them. So the declared contract and the renderer disagree.\n- The census on that PR found no measured writer that authors one of these keys on an `object-grid` column, in objectstack or in objectui (outside tests).\n\n**The shape a fix would take (for triage, not a ruling):** the one objectui#11544 had for `columns[].options`. Retire the column-level read, and take `currency` / `defaultCurrency` / `precision` / `scale` from the field (`meta`) only, as the same object already does for `currencyConfig` and `max`.\n\nDedupe: MCP `search_issues` in this repo for 「useColumnSummary column precision scale currency defaultCurrency column-level read grid footer summary undeclared」 → 9 hits, all closed and about field-level currency, scale or precision semantics (#10354, #10221, #10355, #10406, #10783, #10423, #10276, #9295). None is about the column-level read in `useColumnSummary`.\n\nDedupe words: useColumnSummary column precision scale currency undeclared · ListColumn summary hint column-level read · grid footer column currency precision."

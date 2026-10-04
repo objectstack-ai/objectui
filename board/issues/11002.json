@@ -13,19 +13,21 @@
   "labels": [
     "bug",
     "domain:ui",
-    "pm:queue",
+    "pm:dispatched",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-zhuang"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-09-28T15:18:56Z",
-  "updated_at": "2026-10-01T05:01:02Z",
+  "updated_at": "2026-10-04T09:50:13Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 5,
+  "comments": 6,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11002",
-  "body": "Ruled: 5890841811 · letter A — cloud declares features.storageUsage derived from mounting the endpoint plugin; objectui reads it default-off, one boolean for both banners · 2026-09-29T13:04Z\nBlocked-by: objectstack-ai/cloud#2481\n\n## Symptom\n\nOn a self-hosted or open-source objectstack runtime, every console page load issues `GET /api/v1/usage/storage` and gets `404`. The browser console shows `Failed to load resource: the server responded with a status of 404` on every navigation that remounts the shell.\n\n## Mechanism\n\n- `StorageUsageBanner` (objectui#10439, landed as #10910) is rendered unconditionally in `packages/app-shell/src/console/ConsoleShell.tsx`.\n- Its hook `useStorageUsageReading` defaults to `enabled = true` and calls `readStorageUsage()`, which fetches `${apiBase}/usage/storage`.\n- The endpoint is served only by cloud's `StorageUsageEndpointPlugin`, as objectui#10439 itself records.\n- objectstack's own runtime mounts no such route, and `/api/v1/discovery` advertises none. The hook's `.catch` swallows the failure, so the banner correctly renders nothing, but the request is made and fails on every mount.\n\n## Reproduction\n\n1. Boot objectstack's showcase at objectui pin `dd3f7e1be356` (`objectstack dev`).\n2. Sign in and open any console page.\n3. The network log shows `GET /api/v1/usage/storage → 404`, repeated on each shell mount.\n\n## Expected\n\nThe banner only asks when the runtime serves the reading: gate the hook on something the server advertises (discovery or runtime config), the way a capability-gated surface does. A deployment without the endpoint then issues no request. Machine-readable surfaces here should neither lie nor be guessed at."
+  "body": "Ruled: 5890841811 · letter A — cloud declares features.storageUsage derived from mounting the endpoint plugin; objectui reads it default-off, one boolean for both banners · 2026-09-29T13:04Z\nUnblocked: the cloud half, objectstack-ai/cloud#2481, closed `completed` 2026-10-01T04:12Z through PR objectstack-ai/cloud#2517. Cloud `main` `2205b53` serves `features.storageUsage` exactly when the composition mounts `StorageUsageEndpointPlugin` (`packages/objectos-runtime/src/cloud-runtime-config-plugin.ts:97`). Re-derived 2026-10-04 by `domain:ui` seat 1: no new blocker.\n\n## Symptom\n\nOn a self-hosted or open-source objectstack runtime, every console page load issues `GET /api/v1/usage/storage` and gets `404`. The browser console shows `Failed to load resource: the server responded with a status of 404` on every navigation that remounts the shell.\n\n## Mechanism\n\n- `StorageUsageBanner` (objectui#10439, landed as #10910) is rendered unconditionally in `packages/app-shell/src/console/ConsoleShell.tsx`.\n- Its hook `useStorageUsageReading` defaults to `enabled = true` and calls `readStorageUsage()`, which fetches `${apiBase}/usage/storage`.\n- The endpoint is served only by cloud's `StorageUsageEndpointPlugin`, as objectui#10439 itself records.\n- objectstack's own runtime mounts no such route, and `/api/v1/discovery` advertises none. The hook's `.catch` swallows the failure, so the banner correctly renders nothing, but the request is made and fails on every mount.\n\n## Reproduction\n\n1. Boot objectstack's showcase at objectui pin `dd3f7e1be356` (`objectstack dev`).\n2. Sign in and open any console page.\n3. The network log shows `GET /api/v1/usage/storage → 404`, repeated on each shell mount.\n\n## Expected\n\nThe banner only asks when the runtime serves the reading: gate the hook on something the server advertises (discovery or runtime config), the way a capability-gated surface does. A deployment without the endpoint then issues no request. Machine-readable surfaces here should neither lie nor be guessed at."
 }

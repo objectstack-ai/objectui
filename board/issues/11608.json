@@ -1,0 +1,26 @@
+{
+  "number": 11608,
+  "kind": "issue",
+  "title": "types: `PartialSchema<T>` is a published export with zero consumers; enforce-or-remove once objectui#8347's removal lands (retire, or give it a reader)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-04T10:01:32Z",
+  "updated_at": "2026-10-04T10:01:32Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11608",
+  "body": "Blocked-by: #8347\n\nFiling gate: **category ①**. The named landing point is `PartialSchema<T>` in `packages/types/src/index.ts` (published through the `.` entry), and the reproduction is the zero-consumer census below. **Reader:** the `domain:spec @ objectui` seat (objectui#10217), once objectui#8347's removal PR (#11607) lands. The fork ACCEPT `5953788689` on objectui#8347 committed this seat to filing it, and the removal PR's contract review (`5978769372`, ③) lists it as owed. Filed bare by session `session_01CPvhwGcirXqBGEdPSb72TZ`; triage grades and routes. ⛔ Not a claim.\n\n## The fact\n\n- Until objectui#8347, `BaseSchema`'s `[key: string]: any` made `keyof T` collapse, so `PartialSchema<T>` declared `type` alone (objectui#6397). `partial-schema-collapse-pin.test.ts` pinned that collapse, and its header asked for an enforce-or-remove card when the removal landed.\n- PR #11607 (head `e0a9af67`) removes the signature. With it gone, `PartialSchema<T>` keeps `T`'s declared members, optional, with `type` required, as its first line always promised. The PR deletes the collapse pin per its header and rewrites the docblock truthfully.\n- **Zero consumers.** `git grep -n '\\bPartialSchema\\b'` over tracked files, excluding CHANGELOGs, at objectui `2e818d0b5` hits only the declaration and docblock in `packages/types/src/index.ts` and the collapse pin. Positive control: `git grep -l '\\bSchemaByType\\b' -- packages` returns files. The only other uses at #11607's head are the new pin's two `PartialSchema` rows. Nothing in `packages/`, `apps/`, `examples/`, `content/`, `skills/` or `scripts/` uses it. (This is the objectui#8347 dev's reading in report `5978644114`, test 8; the seat has not re-run it.)\n\n## The question\n\nA published capability with no reader, which now finally works. North Star (阶段姿态; the 四轴 startup-focus axis): a zero-consumer published capability is not exempted by sunk cost, and a surface with no pull is handled implementation-first.\n- **Retire:** remove the export, and record the removal in a changeset as a breaking narrowing of the `.` entry (`minor` under this repo's policy).\n- **Keep:** only if a named reader exists or is about to: a producer, a doc block, a skill.\n\nThe seat's lean is retire, unless the census at work time finds a reader. Triage grades it.\n\nDedupe: MCP `search_issues`, scoped to this repo, for 「PartialSchema enforce-or-remove published type alias zero consumers collapse pin 6397」 → 35 hits; the first 15 were read, and none is a `PartialSchema` card (the nearest are #8347 and #7927, the removal's own cards). Dedupe words: `PartialSchema zero consumers` · `partial-schema-collapse-pin removal condition` · `PartialSchema enforce-or-remove`."
+}

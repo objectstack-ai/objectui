@@ -1,0 +1,35 @@
+{
+  "number": 11598,
+  "kind": "issue",
+  "title": "spec(plugin-dashboard,plugin-designer): 22 reads compile only through BaseSchema's index signature, new since objectui#8347's fork (N1 chart producer keys, N2 widget keys read off the slot entry); the half #8347's removal needs first",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "domain:spec",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-project-manager"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-04T05:42:00Z",
+  "updated_at": "2026-10-04T07:21:13Z",
+  "closed_at": "2026-10-04T07:20:11Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11598",
+  "body": "**This card carries the plugin-dashboard and plugin-designer half that objectui#8347's removal needs first: N1 and N2 below, 22 source reads, landed while `BaseSchema`'s index signature is still present.** objectui#8347 keeps everything else: the removal, the compile-fail pin, the AGENTS.md §4 / §5 #0.1 amendment, and the rest of its fork ACCEPT `5953788689` list as re-read in report `5976990563`.\n\nFiling gate: **category ①**, a derived sub-issue of the in-flight objectui#8347. It is reproducible: delete the `BaseSchema` signature (`packages/types/src/base.ts:600`) and these 22 sites stop compiling, while the base control reads 0. **Reader:** the `domain:spec @ objectui` seat (objectui#10217), which dispatches it now. Parent: objectui#8347. Domain and priority are inherited (`domain:spec`, `priority:p2`). Filed by session `session_01CPvhwGcirXqBGEdPSb72TZ`.\n\n## The measurement (objectui#8347 report `5976990563`, at `origin/main` `94985a9`)\n\n- The census removes the signature and runs every tsc program on its own: 16 programs red of 90, and 25 source errors. 3 of those are already on #8347's list. The other 22 are new since `5953788689`: 18 in plugin-dashboard and 4 in plugin-designer.\n- They come from objectui#11514 (PR #11524), which retyped the dashboard surfaces to read `widgets[]` entries by the slot element type, and from V1 (objectui#11466) typing the producers' nodes.\n- The seat spot-checked both classes on `main`:\n  - `colors` and `isAnimationActive` are written by the `chart` producers in `DashboardGridLayout.tsx` (about :352–373) and `DashboardRenderer.tsx` (about :812–815), and `ChartSchema` (`data-display.ts:2323`) declares neither;\n  - `DashboardRenderer.tsx` about :689–695 forks on `widget.dataset` \"on either arm\", and its own comment says it rests on \"the component arm's passthrough\".\n\n**N1, 2 sites, 4 keys.** The static-data `chart` literal in `DashboardGridLayout.tsx` and `DashboardRenderer.tsx` authors `colors` and `isAnimationActive` on `ChartSchema`. Neither face declares them; `ChartRenderer` reads both. The report's AST census found 83 `chart` literals, and only host code writes these two keys (the 2 producers, `DatasetWidget`, plugin-charts tests); no doc, skill or example authors them.\n\n**N2, 20 reads of widget-arm keys off `DashboardWidgetSlotEntry`:**\n- `DashboardRenderer`: `dataset`, `options`, `chartConfig`, `filter` ×3, `compareTo`, `searchable`, `pagination`;\n- `DashboardGridLayout`: `options`, `chartConfig`, `filter`, `searchable`, `pagination`;\n- `DashboardWithConfig`: `colorVariant`;\n- `widgetDispatch` `entryComponent`: `component`;\n- plugin-designer `DashboardEditor`: `values`, `dimensions` ×2, `colorVariant`.\n\nOn the zod faces, a `metric-card` entry carrying `dataset`, `options` or `component` is refused by `StrictAnyComponentSchema` and accepted by `AnyComponentSchema`.\n\n## Seat rulings (the fork report's Q1 and Q2; the ACCEPT on objectui#8347 records them too)\n\n- **N1: B.** A non-exported hand-off type in plugin-dashboard: the producer's literal is checked against it, then handed on with no cast.\n  - This reuses the maintainer's ruling on objectui#6356 (2026-09-27, Q1 = A), carried in `packages/plugin-timeline/src/renderHandoff.ts`: keys that only host code writes, with zero authored instances, are typed where their producer lives, never in `@object-ui/types`, because a public type naming them would invite a spelling the strict face refuses.\n  - That reason holds here as measured: zero authored instances, and both faces leave the keys undeclared.\n  - ⛔ Not option A (declaring them on `ChartSchema`'s TS face), ⛔ not a cast at the producer, ⛔ not dropping the keys (the palette and objectui#2756 depend on them).\n- **N2: A, premised.** Every read narrows with `isSlotComponentEntry`, the read rule in the `widgets` docblock. The either-arm `dataset` branch and `entryComponent`'s cross-arm read retire, so a widget-arm key is read only on the widget arm.\n  - Governing text: AGENTS.md #0.1 (contract-first: fix the metadata, not the renderer) and the `metric-card` arm rulings objectui#7952 / objectui#11467 (one dialect per node). Declaring the widget keys on the `metric-card` arm (option B) and a casting accessor (option C) are each refused by that text, so A is the one option it leaves.\n  - **Premise, which the dev checks first and reports with evidence:** no authored document carries a widget-arm key on a `metric-card` slot entry and relies on the either-arm draw. That means no example, no `content/docs/**` or `skills/**` block, no stored-document fixture, and no app-shell seed or preset. The evidence is the query, the hit count and a lit control.\n  - ⛔ **If the premise fails** (a real authored document relies on it), report the fork with the evidence. Do not build A anyway, and do not quietly fall back to B or C.\n\n## Acceptance\n\n- With the signature present: every program type-checks green, as today.\n- With the signature removed (the P1 mutation, a one-off probe that is never committed), none of the 22 sites above errors. Cite the before and after per site.\n- The runtime is unchanged for every document the strict face accepts. Pin the narrowed `dataset` path both ways: a widget-arm entry with `dataset` draws `DatasetWidget`, and a `metric-card` entry does not reach it.\n\n## Related\n\nobjectui#8347 (parent; its `Blocked-by:` names this card) · objectui#11514 (the retyping that introduced these reads) · objectui#11348 (closed; the previous generation of the same class) · objectui#6356 (the hand-off-type ruling) · objectui#7952, #11467 (one dialect per `metric-card` node).\n\nDedupe: MCP `search_issues`, scoped to this repo, for 「dashboard slot entry reads widget keys dataset options metric-card arm isSlotComponentEntry either arm DatasetWidget chart colors isAnimationActive」 → 18 hits; the first 15 were read, and none is an open card for these reads. The nearest is objectui#11348, closed. Dedupe words: `slot entry widget keys index signature` · `chart colors isAnimationActive hand-off` · `either arm dataset DatasetWidget`."
+}

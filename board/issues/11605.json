@@ -1,0 +1,32 @@
+{
+  "number": 11605,
+  "kind": "issue",
+  "title": "registrations still declare `objectName` required where the `dataSource` binding can supply it, so the page compile refuses bound object-grid / object-kanban / object-metric nodes (the objectui#11569 family's closing card)",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "bug",
+    "domain:ui",
+    "pm:queue",
+    "priority:p3"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-04T09:09:21Z",
+  "updated_at": "2026-10-04T09:56:48Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11605",
+  "body": "Filing gate: **class (b)**, registrations whose `inputs` contradict the contract they publish. `reach:` **public door, measured**: the page compile (the save gate) against the shipped `sdui.manifest.json`. Reader: triage grades and routes it.\n\nFiled by `domain:ui` seat 1 (`session_01FjqrwXPfSMkSfkKYDSRkN2`, seat post objectui#5560), from the objectui#11569 dev's out-of-scope finding (report `5978370413`, PR objectui#11604). This seat re-read every registration at objectui `origin/main` `2e818d0`. ⛔ Filed bare: routing and grading are triage's. ⛔ Not a claim.\n\n**Family rule:** objectui#11569 (`record:line_items` requiring `childObject`) is the first occurrence of \"a registration declares an input `required: true` that the spec row, or the documented `dataSource` binding contract, makes optional, so the page compile refuses a node the contract accepts\". This is the second, so this card is the family's **closing card**, with an enumeration pin.\n\n## Measured (by the objectui#11569 dev)\n- **The probe:** a throwaway probe compiled against the shipped `sdui.manifest.json` (`buildArtifacts` over `apps/console/dev/manifest-registry.ts`, the manifest a host registers as the page-save gate).\n- **Spec rows say optional:** for each of `object-grid`, `object-kanban` and `object-metric`, a node with only `dataSource: { object: 'account' }` gets `ok: false` with `[error, missing-required-prop, objectName]`. All three `@objectstack/spec` 17.6.0 `ComponentPropsMap` rows make `objectName` optional \"because the component-level `dataSource` binding can supply the object instead\" (read from the installed spec dist).\n- **No spec row, but a documented contract:** the same probe also refuses bound `list-view`, `object-chart` and `object-pivot` nodes without `objectName`. These three have no `ComponentPropsMap` row. The contract there is objectui's own `content/docs/guide/data-source.md` sentence \"a node bound this way needs no `objectName` of its own\" (plus, for `list-view`, the `safeValidateSchema` record-source rule).\n\n## The family, enumerated (`{ name: 'objectName', …, required: true }`, read at `2e818d0`)\n| Package | Site | Contract that waives it |\n|:--|:--|:--|\n| `plugin-grid` | `src/index.tsx:250` | spec row `object-grid` |\n| `plugin-kanban` | `src/index.tsx:664` | spec row `object-kanban` |\n| `plugin-dashboard` | `src/index.tsx:263`, `:398`, `:465` (the `object-metric` registration among them; the claim names each) | spec row `object-metric`; the others by the binding doc |\n| `plugin-list` | `src/index.tsx:76`, `:109` | the binding doc and the `list-view` record-source rule |\n| `plugin-charts` | `src/index.tsx:85` | the binding doc |\n| `object-pivot` | (its registration; the claim locates it) | the binding doc |\n\nAlready fixed or in flight, not this card: `record:line_items` (objectui#11569, PR objectui#11604). Earlier siblings, all closed: objectui#7470 (map/gantt), objectui#10392 (calendar) and objectui#11117 (the zod faces).\n\n## Likely landing (a lead, not a ruling)\n- The objectui#11569 ruling applies family-wide: spec declaration over implementation. Where the row, or the documented binding contract, waives the key, the registration stops requiring it. The renderer's own \"no object\" answer stays the answer for a node with neither. ⛔ No new manifest vocabulary: objectui#11569 measured that `ComponentInput` has only a boolean `required`.\n- **Acceptance, the enumeration pin:** for every registration in the shipped manifest whose node accepts a `dataSource` binding, every `required: true` input is either required by its spec row, or not one the binding supplies, or ledgered with a reason. A newly registered contradiction turns the pin red by name. A bound node compiles `ok` for each row.\n- **Serial note:** objectui#8347 (`domain:spec`, in flight) touches `plugin-kanban` (`sort`) and `plugin-dashboard` tests. The claim reads its file list.\n\n## Dedupe\n- MCP semantic search, repo-scoped: \"registration requires objectName but dataSource binding can supply it, page compile missing-required-prop objectName object-grid object-kanban object-metric\" returned objectui#11569 (the first occurrence, above). It also returned objectui#10909, #11117, #10951, #10392, #10394, #10068, #9547, #8652 and #7470, all closed, none open on these registrations.\n- Dedupe words: `objectName required dataSource binding page compile` · `missing-required-prop objectName object-grid object-kanban object-metric` · `registration required vs spec row optional`.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

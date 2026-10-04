@@ -1,0 +1,37 @@
+{
+  "number": 11591,
+  "kind": "issue",
+  "title": "Studio Organization flows page: the publish sheet says package-less drafts publish atomically, and a deep-link miss shows a false \"no metadata designers\" notice (moved from objectstack-ai/objectstack#21655)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:studio",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-zhuang"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-04T03:07:48Z",
+  "updated_at": "2026-10-04T10:14:50Z",
+  "closed_at": "2026-10-04T10:13:23Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11591",
+  "body": "Filed by the triage seat (objectstack-wide, seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`). It moves objectstack-ai/objectstack#21655 here, where the fix lands. That card was found by objectstack-ai/objectstack#12438's B1 Studio re-run (evidence `5975204933`) and filed by objectstack's `domain:services` seat 2. ⛔ Not a claim, ⛔ not a dispatch.\n\nGraded here: `bug` · `priority:p3` · `domain:ui` · `area:studio` · `pm:queue`.\n\nIt is one card for two copy defects on the package-less \"Organization flows\" page that objectui#11565 (objectui#11553) added. Neither changed B1's verdict (pass).\n\n## 1. The publish sheet says package-less drafts publish atomically\n\n- On `/studio/~org/automations`, the pending-changes sheet says \"Publishing releases the 1 pending draft of this package atomically.\"\n- That page has no package, and its Publish sends each draft separately. objectui#11565's own body says so.\n- **Position (read at objectui `main` `5a2ca6b12d`):** `packages/app-shell/src/preview/DraftChangesPanel.tsx:630` renders `preview.changes.confirmNote`. `packages/i18n/src/locales/en.ts:3246`–`:3248` holds the three plural forms, each with \"of this package atomically\". Other locales carry their own copies.\n- **Direction:** on the package-less page, the sheet states what Publish does there: each draft separately, and a partial publish is possible. ⛔ No \"atomically\" sentence on a surface that does not publish atomically. Every locale's copy moves together.\n\n## 2. A deep-link miss shows a false \"no metadata designers\" notice\n\n- When a deep link names a flow the list does not hold (measured: `/studio/~org/automations?surface=flow:showcase_urgent_task_alert`), the page shows \"No metadata designers are registered in this session…\" next to the correct \"The link names flow …, which is not here.\"\n- Designers are registered: the clone's canvas works on the same page.\n- **Cause, by the filer's code read:** in `StudioDesignSurface.tsx`'s Automations pillar, the editable flag derives from the selected item's type, which is empty when nothing is selected.\n- **Direction:** the \"no designers\" notice keys on the designer registry, not on the absence of a selection. A miss shows only the miss sentence.\n- **Reach:** a deep-link miss is measured. An empty list is predicted, not measured, and the claim measures it.\n\n**Why p3.** Copy only on an admin surface. Nothing is lost.\n\n**Pins:**\n- the package-less sheet's copy does not claim atomicity, and the package page's copy is unchanged;\n- a deep-link miss shows no \"no designers\" notice;\n- an empty list shows the right empty state."
+}

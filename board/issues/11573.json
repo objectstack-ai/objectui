@@ -2,8 +2,8 @@
   "number": 11573,
   "kind": "issue",
   "title": "types: `AnyComponentSchema`'s declaration emit is at 99% of TypeScript's serialization ceiling against objectstack main, so the next spec delta or inline arm hits TS7056 and `@object-ui/types` emits no `.d.ts` (TS7056 family)",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:devpath",
     "bug",
     "domain:spec",
-    "pm:dispatched",
     "priority:p1"
   ],
   "assignees": [
@@ -23,9 +22,13 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-03T18:58:05Z",
-  "updated_at": "2026-10-04T02:59:23Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-04T03:17:00Z",
+  "closed_at": "2026-10-04T03:16:06Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
   "comments": 4,
   "locked": false,

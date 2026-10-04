@@ -11,7 +11,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { Settings } from 'lucide-react';
 import { cn, Button } from '@object-ui/components';
 import type { DashboardComponentSchema } from '@object-ui/types';
-import type { DashboardWidgetSlotEntry } from './widgetDispatch';
+import { isSlotComponentEntry, type DashboardWidgetSlotEntry } from './widgetDispatch';
 import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
 
 import { DashboardRenderer } from './DashboardRenderer';
@@ -100,8 +100,7 @@ export function DashboardWithConfig({
     // dashboard surface reads a `widgets[]` entry. `title` and `layout` below
     // are declared on both arms: the widget arm's spec `DashboardWidget` row,
     // and the component arm's card heading and the spec's `layout` by reference
-    // (objectui#11070 round 11). `colorVariant` is the widget arm's member; on
-    // the component arm the passthrough reads it. The component arm
+    // (objectui#11070 round 11). The component arm
     // (`DashboardWidgetSlotComponentSchema`) is no longer assignable to the
     // widget arm, whose `type` names no component type since objectui#11514.
     const widgets: DashboardWidgetSlotEntry[] = liveSchema.widgets;
@@ -115,18 +114,25 @@ export function DashboardWithConfig({
     // leaves alone is the one the slider showed.
     const layout = completeWidgetLayout(widget.layout, {}, defaultWidgetPlacement(index));
     // ADR-0021 dataset shape — the only authoring shape the panel edits.
-    // `dataset`/`dimensions`/`values` are read through casts: the bundled
-    // `@object-ui/types` gains them once objectui bumps `@objectstack/spec`.
-    const w = widget as any;
+    // `dataset` / `dimensions` / `values` / `colorVariant` are widget keys,
+    // read on the widget arm alone (objectui#11598, N2 A): a component node in
+    // the slot (a `metric-card`) declares none of them, so the panel starts it
+    // from their empty values. They used to be read off the entry whichever
+    // arm it was, the first three through an `as any` cast and `colorVariant`
+    // through `BaseSchema`'s index signature.
+    const widgetArm = isSlotComponentEntry(widget) ? undefined : widget;
+    const dataset = widgetArm?.dataset;
+    const dimensions = widgetArm?.dimensions;
+    const values = widgetArm?.values;
     return {
       id: widget.id ?? '',
       title: widget.title ?? '',
       description: widget.description ?? '',
       type: widget.type ?? '',
-      dataset: typeof w.dataset === 'string' ? w.dataset : '',
-      dimensions: Array.isArray(w.dimensions) ? w.dimensions : [],
-      values: Array.isArray(w.values) ? w.values : [],
-      colorVariant: widget.colorVariant ?? 'default',
+      dataset: typeof dataset === 'string' ? dataset : '',
+      dimensions: Array.isArray(dimensions) ? dimensions : [],
+      values: Array.isArray(values) ? values : [],
+      colorVariant: widgetArm?.colorVariant ?? 'default',
       // No `actionUrl` / `actionType` / `actionIcon`: retired at the widget
       // level in @objectstack/spec 17.0.0-rc.3 (objectstack#5010, ADR-0049 D2)
       // and now `retiredKey` tombstones the spec refuses. Seeding

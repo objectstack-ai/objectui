@@ -45,6 +45,14 @@ import type { MetricWidgetProps } from './MetricWidget';
  * (objectui#11514). The widget arm, `DashboardWidgetSchema`, is not a read type
  * for an entry: since objectui#11483's closure its `type` names the widget
  * vocabulary only, so the component arm is not assignable to it.
+ *
+ * ⛔ A widget key (`dataset`, `options`, `chartConfig`, `filter`, `component`,
+ * …) is read on the widget arm alone: narrow the entry with
+ * {@link isSlotComponentEntry} first (objectui#11598, N2 A), the read rule
+ * `DashboardComponentSchema.widgets` states. The component arm declares none
+ * of them, and a component node in the slot draws itself whatever else it
+ * carries; reading one off the entry whichever arm it is compiled only through
+ * `BaseSchema`'s index signature, which objectui#8347 removes.
  */
 export type DashboardWidgetSlotEntry = DashboardComponentSchema['widgets'][number];
 
@@ -90,14 +98,18 @@ export function resolveWidgetType(entry: DashboardWidgetSlotEntry): DashboardWid
 
 /**
  * The node an entry's legacy `component` envelope holds, typed as the widget
- * arm declares that member (`DashboardWidgetSchema['component']`). Read off the
- * entry whichever arm it is, as the surfaces always read it. The component arm
- * declares no `component`, so a bare `entry.component` on the slot entry reads
- * through `BaseSchema`'s index signature and is `any` — which made each
- * surface's whole `getComponentSchema` return `any` (objectui#11514).
+ * arm declares that member (`DashboardWidgetSchema['component']`), or
+ * `undefined` for a component node in the slot.
+ *
+ * `component` is a widget key, so it is read on the widget arm alone
+ * (objectui#11598, N2 A). It used to be read off the entry whichever arm it
+ * was: the component arm declares no `component`, so that read went through
+ * `BaseSchema`'s index signature, and a `metric-card` entry carrying one (a
+ * document the strict face refuses) drew the envelope's node in the card's
+ * place.
  */
 export function entryComponent(entry: DashboardWidgetSlotEntry): DashboardWidgetSchema['component'] {
-  return entry.component;
+  return isSlotComponentEntry(entry) ? undefined : entry.component;
 }
 
 /**

@@ -24,7 +24,12 @@
  */
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import type { DashboardComponentSchema, DashboardWidgetSchema, DashboardWidgetTypeName } from '@object-ui/types';
+import type {
+  DashboardComponentSchema,
+  DashboardWidgetSchema,
+  DashboardWidgetSlotComponentSchema,
+  DashboardWidgetTypeName,
+} from '@object-ui/types';
 import {
   Trash2,
   GripVertical,
@@ -45,7 +50,7 @@ import {
 } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
+import { DASHBOARD_COMPONENT_WIDGET_TYPES, completeWidgetLayout, defaultWidgetPlacement } from '@object-ui/types';
 import { DashboardWidgetSchema as DashboardWidgetDoor } from '@object-ui/types/zod';
 import { pickLocalized, setLocalized } from '@object-ui/i18n';
 import { useUndoRedo } from './hooks/useUndoRedo';
@@ -85,6 +90,26 @@ export interface DashboardEditorProps {
  * type, so the component arm is not assignable to it.
  */
 type DashboardWidgetEntry = DashboardComponentSchema['widgets'][number];
+
+/**
+ * Whether an entry is the slot's component arm (a `metric-card`): its `type`
+ * is a member of the closed `DASHBOARD_COMPONENT_WIDGET_TYPES`, which no
+ * widget `type` names (objectui#11483).
+ *
+ * A widget key (`values`, `dimensions`, `colorVariant`, …) is read on the
+ * widget arm alone, so every such read below narrows with this first
+ * (objectui#11598, N2 A): the component arm declares none of them, and reading
+ * one off the entry whichever arm it was compiled only through `BaseSchema`'s
+ * index signature, which objectui#8347 removes.
+ *
+ * The twin of plugin-dashboard's `isSlotComponentEntry` (`widgetDispatch.ts`),
+ * which this package cannot import: it does not depend on plugin-dashboard
+ * (the same reason `measureRefusal` below is a twin). Both read the one
+ * closed list from `@object-ui/types`, so they cannot disagree on membership.
+ */
+function isSlotComponentEntry(entry: DashboardWidgetEntry): entry is DashboardWidgetSlotComponentSchema {
+  return (DASHBOARD_COMPONENT_WIDGET_TYPES as readonly unknown[]).includes(entry.type);
+}
 
 // ============================================================================
 // Constants
@@ -246,11 +271,15 @@ function writeWidgetTitle(
 function measureRefusal(widget: DashboardWidgetEntry, type: string | undefined): string | undefined {
   const strings = (value: unknown): string[] =>
     Array.isArray(value) ? value.filter((v): v is string => typeof v === 'string') : [];
+  // The measures are widget keys, read on the widget arm alone: a component
+  // node in the slot carries none, so it is probed with none (objectui#11598).
+  const measures = isSlotComponentEntry(widget) ? undefined : widget;
+  const dimensions = measures?.dimensions;
   const probe = {
     ...(typeof widget.id === 'string' ? { id: widget.id } : {}),
     ...(type ? { type } : {}),
-    values: strings(widget.values),
-    ...(Array.isArray(widget.dimensions) ? { dimensions: strings(widget.dimensions) } : {}),
+    values: strings(measures?.values),
+    ...(Array.isArray(dimensions) ? { dimensions: strings(dimensions) } : {}),
   };
   const result = DashboardWidgetDoor.safeParse(probe);
   if (result.success) return undefined;
@@ -394,6 +423,10 @@ function WidgetPropertyPanel({
   const currentType = widget.type ?? 'metric';
   const refusedUnder = (type: string) => measureRefusal(widget, type) !== undefined;
   const currentRefusal = measureRefusal(widget, widget.type);
+  // The widget arm, or `undefined` for a component node in the slot (a
+  // `metric-card`), which declares no widget key: the widget-only fields below
+  // are offered on the widget arm alone (objectui#11598, N2 A).
+  const widgetArm = isSlotComponentEntry(widget) ? undefined : widget;
   return (
     <div
       data-testid="widget-property-panel"
@@ -481,27 +514,33 @@ function WidgetPropertyPanel({
           dashboard's WidgetConfigPanel. The pre-ADR-0021 inline object /
           valueField / aggregate fields were retired in framework#3320. */}
 
-      {/* Color variant */}
-      <div className="space-y-1">
-        <label htmlFor="widget-color" className="text-xs font-medium text-gray-600">Color Variant</label>
-        <select
-          id="widget-color"
-          data-testid="widget-prop-color"
-          value={widget.colorVariant ?? 'default'}
-          onChange={(e) => onChange({ colorVariant: e.target.value as DashboardWidgetSchema['colorVariant'] })}
-          disabled={readOnly}
-          className="block w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
-        >
-          <option value="default">Default</option>
-          <option value="blue">Blue</option>
-          <option value="teal">Teal</option>
-          <option value="orange">Orange</option>
-          <option value="purple">Purple</option>
-          <option value="success">Success</option>
-          <option value="warning">Warning</option>
-          <option value="danger">Danger</option>
-        </select>
-      </div>
+      {/* Color variant — a widget key, so offered on the widget arm alone
+          (objectui#11598, N2 A). A `metric-card` declares no `colorVariant`:
+          the strict face refuses one on the card and `MetricCard` draws
+          nothing from it, so offering the select there could only store a key
+          publish refuses (AGENTS.md #0.1). */}
+      {widgetArm && (
+        <div className="space-y-1">
+          <label htmlFor="widget-color" className="text-xs font-medium text-gray-600">Color Variant</label>
+          <select
+            id="widget-color"
+            data-testid="widget-prop-color"
+            value={widgetArm.colorVariant ?? 'default'}
+            onChange={(e) => onChange({ colorVariant: e.target.value as DashboardWidgetSchema['colorVariant'] })}
+            disabled={readOnly}
+            className="block w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-50"
+          >
+            <option value="default">Default</option>
+            <option value="blue">Blue</option>
+            <option value="teal">Teal</option>
+            <option value="orange">Orange</option>
+            <option value="purple">Purple</option>
+            <option value="success">Success</option>
+            <option value="warning">Warning</option>
+            <option value="danger">Danger</option>
+          </select>
+        </div>
+      )}
 
       {/* Widget size */}
       <div className="space-y-1">

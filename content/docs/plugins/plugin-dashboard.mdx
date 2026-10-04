@@ -94,9 +94,11 @@ outside a dashboard's `widgets[]` renders nothing but the renderer's
 
 A card with no `value` is refused by `@object-ui/types/zod`, on the tolerant
 face and the strict one. `metric-card` is not a widget type, so a card is never
-read through widget keys alone, and no widget key stands in for `value`: a
-`dataset` makes the dashboard draw its dataset tile in the card's place, and
-`options` is not a binding (objectui#11483). For a figure queried from a
+read through widget keys, and no widget key stands in for `value`: the
+dashboard reads a widget key (`dataset`, `options`, `component`,
+`colorVariant`, …) on a widget alone, so a card draws its own keys whatever
+else it carries, and the strict face refuses a widget key on it
+(objectui#11483, objectui#11598). For a figure queried from a
 dataset, write a `metric` widget with `dataset` and `values`.
 
 ## Usage

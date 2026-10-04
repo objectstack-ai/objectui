@@ -685,21 +685,39 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
           ? { ...effectiveLayout, w: Math.min(effectiveLayout.w, columns) }
           : undefined;
 
+        // The widget arm, or `undefined` for a component node in the slot (a
+        // `metric-card`). Every widget key this function reads off the entry
+        // is read off this, or off `widget` after the same narrowing
+        // (objectui#11598, N2 A): the component arm declares none of them.
+        const widgetArm = isSlotComponentEntry(widget) ? undefined : widget;
+
         // ADR-0021 — a widget bound to a semantic-layer dataset renders through
         // the governed queryDataset path (DatasetWidget) instead of the inline
-        // object-aggregate schema. No cast needed: `dataset` flows onto the
-        // widget arm, `DashboardWidgetSchema`, from `@objectstack/spec`'s
-        // `DashboardWidget` (`packages/types/src/complex.ts`), and the component
-        // arm's passthrough reads it too, so `widget.dataset` type-checks on the
-        // slot entry directly. The fork ignores the entry's `type` on purpose: a
-        // `dataset` draws `DatasetWidget` on either arm.
-        const datasetBound = !!widget.dataset;
+        // object-aggregate schema. `dataset` flows onto the widget arm,
+        // `DashboardWidgetSchema`, from `@objectstack/spec`'s `DashboardWidget`,
+        // and is read there alone: a component node in the slot draws itself,
+        // whatever else it carries. The fork used to ignore the entry's `type`
+        // and draw `DatasetWidget` for a `dataset` on either arm, which
+        // type-checked only through `BaseSchema`'s index signature and reached
+        // only a `metric-card` the strict face refuses (objectui#11598).
+        const datasetBound = !!widgetArm?.dataset;
 
         // Every branch returns a node `SchemaRenderer` takes, so the return type
         // is that prop's (objectui#11466): each node is checked against its
         // declared type where it is built, and the render sites take it with no
         // cast.
         const getComponentSchema = (): SchemaRendererProps['schema'] => {
+            // The slot-component passthrough (the 2026-08-14 `metric-card` slot
+            // ruling) serves the slot's component arm alone (objectui#11514,
+            // Q2 A): the entry keeps its `type`, the node it becomes takes the
+            // namespaced key (`toDashboardNodeType`, objectui#10859 batch 8).
+            // It is decided FIRST and reads no widget key (objectui#11598,
+            // N2 A), so below it `widget` is the widget arm and every widget
+            // key is read off the arm that declares it. A card used to take
+            // `options` spread over its own keys here, a second spelling of
+            // its props the strict face refuses (objectui#11483).
+            if (isSlotComponentEntry(widget)) return toDashboardNodeType({ ...widget });
+
             // The author-supplied node keeps its spelling; only a `metric` /
             // `metric-card` node key moves onto its namespaced registration
             // (`toDashboardNodeType`, objectui#10859 batch 8).
@@ -1007,21 +1025,12 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 return unsupportedWidgetSchema(widgetType);
             }
 
-            // The slot-component passthrough (the 2026-08-14 `metric-card` slot
-            // ruling) serves the slot's component arm alone (objectui#11514,
-            // Q2 A): the entry keeps its `type`, the node it becomes takes the
-            // namespaced key (`toDashboardNodeType`, objectui#10859 batch 8).
-            if (isSlotComponentEntry(widget)) {
-                return toDashboardNodeType({
-                    ...widget,
-                    ...options
-                });
-            }
             // A widget whose `type` names no family and no component type is
             // stale metadata both validator faces refuse at `type`. It draws the
             // labelled placeholder an unsupported family draws, not the
             // registry's red OBJUI-001 panel dumping the widget (objectui#11514,
             // Q2 A). A typeless widget never gets here: it resolved to `metric`.
+            // Nor does a component node: the passthrough above took it.
             return unsupportedWidgetSchema(widgetType);
         };
         
@@ -1030,8 +1039,10 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         // AND-merge it with the widget's own filter. Object-backed child
         // schemas re-fetch on filter change, so no widget renderer changes
         // are needed downstream.
-        const scopedFilter = filterDefs.length > 0
-            ? buildWidgetScopedFilter(widget, filterDefs, filterValues)
+        // Widget arm only: `filterBindings` and `filter` are widget keys, and
+        // the node a component entry becomes takes no filter (objectui#11598).
+        const scopedFilter = widgetArm && filterDefs.length > 0
+            ? buildWidgetScopedFilter(widgetArm, filterDefs, filterValues)
             : undefined;
         const componentSchema = ((): SchemaRendererProps['schema'] => {
             // No cast (objectui#11466): `getComponentSchema` returns
@@ -1048,10 +1059,11 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
             return cs;
         })();
         // Dataset-bound widgets render through DatasetWidget, which forwards
-        // `widget.filter` to the dataset query as `runtimeFilter`.
-        const effectiveWidget = scopedFilter && datasetBound
-            ? { ...widget, filter: mergeFilters(widget.filter, scopedFilter) }
-            : widget;
+        // `widget.filter` to the dataset query as `runtimeFilter`. Built off
+        // the widget arm, so it is defined exactly when `datasetBound` holds.
+        const datasetWidget = widgetArm && datasetBound
+            ? (scopedFilter ? { ...widgetArm, filter: mergeFilters(widgetArm.filter, scopedFilter) } : widgetArm)
+            : undefined;
         // A `metric` widget renders its own card chrome ONLY in the inline
         // path: the `plugin-dashboard:metric` card, or, for a retired
         // `provider: 'object'` metric (objectui#11525), the placeholder, which
@@ -1129,9 +1141,9 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                 )}
                 <CardContent className="p-0">
                     <div className={cn("h-full w-full", "p-3 sm:p-4 md:p-6", designMode && "pointer-events-none")}>
-                        {datasetBound
+                        {datasetWidget
                           ? <DatasetWidget
-                              widget={effectiveWidget}
+                              widget={datasetWidget}
                               dataSource={dataSource}
                               /* objectui#8889 — dispatch site 1 of 2. Both must pass this;
                                  passing it from one surface only is objectui#4614's lesson
@@ -1141,7 +1153,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
                                  is how a bundle entry that resolves to empty would lose to
                                  the authored value on THIS surface while the inline arms of
                                  `getComponentSchema()` above render nothing. */
-                              subCaption={tWidgetSubCaption(widget) ?? null}
+                              subCaption={tWidgetSubCaption(datasetWidget) ?? null}
                             />
                           : <SchemaRenderer schema={componentSchema} dataSource={dataSource} />}
                     </div>

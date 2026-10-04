@@ -57,11 +57,11 @@ export interface DashboardGridLayoutProps {
    * `DatasetWidget` for ADR-0021 dataset-bound widgets (objectui#4614).
    *
    * Typed `unknown`, not `any`. The sibling declares `dataSource?: any`
-   * (`DashboardRenderer.tsx:198`) for a reason that is explicitly historical —
+   * (`DashboardRendererProps.dataSource`) for a reason that is explicitly historical —
    * "that is precisely what it resolved to before", via the index signature that
    * used to answer for it — and this is a NEW declaration with no prior
    * resolution to preserve. `unknown` is what the consumer itself declares
-   * (`DatasetWidget.tsx:655`, `dataSource: unknown`), so the value is forwarded
+   * (`DatasetWidget`'s own parameter, `dataSource: unknown`), so the value is forwarded
    * to exactly the type that receives it, and no call site is held to anything
    * new: every value is assignable to `unknown`. Narrowing it further to a real
    * adapter type is a separate change with its own consumer sweep, on both
@@ -74,10 +74,11 @@ export interface DashboardGridLayoutProps {
    * A dataset-bound widget arriving that way renders `DatasetWidget`'s own
    * no-capability diagnostic — a visible state, never a blank tile.
    *
-   * `SchemaRenderer` forwards this as a React prop (its `...props` spread, last:
-   * `SchemaRenderer.tsx:632`). It cannot be shadowed by the spec's per-element
-   * `dataSource` BINDING, which is stripped from the schema before that spread
-   * for exactly this reason (`SchemaRenderer.tsx:564-575`, objectstack#5576).
+   * `SchemaRenderer` forwards this as a React prop (its `...props` spread,
+   * last). It cannot be shadowed by the spec's per-element `dataSource`
+   * BINDING, which is stripped from the schema before that spread for exactly
+   * this reason (the `dataSource: _dataSource` strip in `SchemaRenderer`'s
+   * destructure, objectstack#5576).
    */
   dataSource?: unknown;
   /**
@@ -259,6 +260,14 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
   // that prop's (objectui#11466): each node is checked against its declared
   // type where it is built, and the render sites below take it with no cast.
   const getComponentSchema = React.useCallback((widget: DashboardWidgetSlotEntry): SchemaRendererProps['schema'] => {
+    // The slot-component passthrough serves the slot's component arm alone and
+    // takes the namespaced node key too (`toDashboardNodeType`, objectui#10859
+    // batch 8; objectui#11514, Q2 A). Decided FIRST, as `DashboardRenderer`
+    // decides it, and reading no widget key (objectui#11598, N2 A): below it
+    // `widget` is the widget arm, so every widget key is read off the arm that
+    // declares it.
+    if (isSlotComponentEntry(widget)) return toDashboardNodeType({ ...widget });
+
     // Same boundary as `DashboardRenderer`: the author's node keeps its
     // spelling except a `metric` / `metric-card` node key, which moves onto its
     // namespaced registration (`toDashboardNodeType`, objectui#10859 batch 8).
@@ -507,17 +516,9 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
       return unsupportedWidgetSchema(widgetType);
     }
 
-    // The slot-component passthrough serves the slot's component arm alone and
-    // takes the namespaced node key too (`toDashboardNodeType`, objectui#10859
-    // batch 8; objectui#11514, Q2 A). Any other entry here names no family:
-    // stale metadata, drawn as the labelled placeholder, as `DashboardRenderer`
-    // draws it.
-    if (isSlotComponentEntry(widget)) {
-      return toDashboardNodeType({
-        ...widget,
-        ...options
-      });
-    }
+    // An entry here names no family and is no component node (the passthrough
+    // above took those): stale metadata, drawn as the labelled placeholder, as
+    // `DashboardRenderer` draws it.
     return unsupportedWidgetSchema(widgetType);
   }, [resolveSeriesLabel]);
 
@@ -619,33 +620,31 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
             // ADR-0021 — a widget bound to a semantic-layer dataset renders
             // through the governed queryDataset path (DatasetWidget) instead of
             // the inline object-aggregate schema. Decided per widget AT THE
-            // RENDER SITE, which is `DashboardRenderer`'s own mechanic
-            // (`DashboardRenderer.tsx:524` for the predicate, `:849-851` for the
-            // fork) rather than a second dispatch idiom invented here: this
-            // surface had NO dataset path at all, so every current-shape widget
-            // fell through `getComponentSchema` to the static-data branch and
-            // drew `data: []` — a blank chart, an em-dash metric or an empty
-            // table depending on the family, with no diagnostic (objectui#4614).
-            // The cast names the ONE key it reads, rather than reaching for
-            // `as any` the way the sibling does (`DashboardRenderer.tsx:524`):
-            // the bundled DashboardWidget type gains `dataset` only after
-            // objectui bumps @objectstack/spec, and `legacyRetiredWidget.ts`
-            // already answers that same problem in this package by naming the
-            // undeclared keys in a shape of its own — "what keeps `as any` out
-            // of both call sites" (`legacyRetiredWidget.ts:64-80`). One key is
-            // read here, so the shape is stated inline.
+            // RENDER SITE, which is `DashboardRenderer`'s own mechanic rather
+            // than a second dispatch idiom invented here: this surface had NO
+            // dataset path at all, so every current-shape widget fell through
+            // `getComponentSchema` to the static-data branch and drew
+            // `data: []` — a blank chart, an em-dash metric or an empty table
+            // depending on the family, with no diagnostic (objectui#4614).
+            //
+            // `dataset` is a widget key, read on the widget arm alone
+            // (objectui#11598, N2 A), as `DashboardRenderer` reads it: a
+            // component node in the slot (a `metric-card`) draws itself,
+            // whatever else it carries. The read used to be a cast naming the
+            // one key, so a `metric-card` the strict face refuses for its
+            // `dataset` drew `DatasetWidget` in the card's place.
             //
             // Position relative to the objectui#4612 legacy sentinel (which
             // stays where it is, inside `getComponentSchema` BEFORE the dispatch
             // branches): the two conditions are MUTUALLY EXCLUSIVE by
             // construction, because `isLegacyRetiredWidget` returns false the
-            // moment a widget carries `dataset` (`legacyRetiredWidget.ts:107`).
-            // Neither can capture the other's widget, so their relative order
-            // cannot change a verdict on either surface — the same arrangement
-            // `DashboardRenderer` has carried since #4612, and the reason that
-            // module states step 1 on its own terms instead of inheriting it
-            // from a caller's fork (`legacyRetiredWidget.ts:97-102`).
-            const datasetBound = !!(widget as { dataset?: unknown }).dataset;
+            // moment a widget carries `dataset` (its step 1). Neither can capture
+            // the other's widget, so their relative order cannot change a verdict
+            // on either surface — the same arrangement `DashboardRenderer` has
+            // carried since #4612, and the reason that module states step 1 on
+            // its own terms instead of inheriting it from a caller's fork.
+            const datasetWidget = !isSlotComponentEntry(widget) && widget.dataset ? widget : undefined;
+            const datasetBound = datasetWidget !== undefined;
             // A `metric` widget renders its own card chrome ONLY in the inline
             // path (the `plugin-dashboard:metric` card, or a retired
             // `provider: 'object'` metric's placeholder, objectui#11525). A
@@ -694,27 +693,23 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
                     <CardContent className="p-0 h-full">
                       <div className={cn("h-full w-full overflow-auto p-4")}>
                         {/*
-                          The fork itself, mirroring `DashboardRenderer.tsx:849-851`.
-                          `widget` is passed whole: DatasetWidget reads
+                          The fork itself, mirroring `DashboardRenderer`'s.
+                          The widget arm is passed whole: DatasetWidget reads
                           `widget.filter` and forwards it to the query as
                           `runtimeFilter`, so an authored per-widget filter still
-                          applies. The sibling wraps it as `effectiveWidget` only
-                          to merge in the dashboard FILTER BAR's scoped filter,
+                          applies. The sibling copies it as its `datasetWidget`
+                          only to merge in the dashboard FILTER BAR's scoped filter,
                           which this surface does not have — there is no
                           `scopedFilter` here to merge, so re-creating the wrapper
                           would state a dependency that does not exist.
 
                           This is the ONLY fork: the self-contained branch above
                           cannot be reached by a dataset-bound widget, since
-                          `isSelfContained` now requires `!datasetBound`. The
-                          sibling carries a second, identical fork inside its
-                          self-contained branch (`:820-822`) that is unreachable
-                          for that same reason; the reachable mechanics are what
-                          is mirrored here, not the stranded limb.
+                          `isSelfContained` now requires `!datasetBound`.
                         */}
-                        {datasetBound
+                        {datasetWidget
                           ? <DatasetWidget
-                              widget={widget}
+                              widget={datasetWidget}
                               dataSource={dataSource}
                               /* objectui#8889 — dispatch site 2 of 2, and the half that
                                  objectui#4614 exists to stop anyone from forgetting: the
@@ -722,7 +717,7 @@ export const DashboardGridLayout: React.FC<DashboardGridLayoutProps> = ({
                                  this one silently unchanged. `?? null` says "a surface
                                  resolved it, to nothing", which is NOT the same as the
                                  prop being absent — see the prop's docblock. */
-                              subCaption={tWidgetSubCaption(widget) ?? null}
+                              subCaption={tWidgetSubCaption(datasetWidget) ?? null}
                             />
                           : <SchemaRenderer schema={componentSchema} />}
                       </div>

@@ -226,9 +226,10 @@ type Expect<T extends true> = T;
  * and each row pins the tombstone type (`?: never` reads as `undefined`), so a
  * re-typing to a live value reddens it as well. Measured by ablation on this
  * tree: deleting either member from `ObjectGridSchema` turns its row red while
- * its directive above stays green; restored, both are green. `name` and
- * `placeholder` need no row: deleting either falls back to `BaseSchema`'s
- * `string`, and the directive above goes unused (TS2578).
+ * its directive above stays green (the `zod-mirror-parity` ledger reddens on
+ * the same deletion, since the zod twin still declares the member); restored,
+ * both are green. `name` and `placeholder` need no row: deleting either falls
+ * back to `BaseSchema`'s `string`, and the directive above goes unused (TS2578).
  */
 export type _RowSpecActionsIsATombstone = Expect<Equal<ObjectGridSchemaType['rowSpecActions'], undefined>>;
 export type _BulkSpecActionsIsATombstone = Expect<Equal<ObjectGridSchemaType['bulkSpecActions'], undefined>>;

@@ -157,7 +157,9 @@ type Expect<T extends true> = T;
 /**
  * The tombstone is a MEMBER on the TS face too. Measured by ablation on this
  * tree: deleting `defaultSort?: never` from `ObjectGridSchema` turns this row
- * red (the directive above stays green); restored, it is green.
+ * red while the directive above stays green (the `zod-mirror-parity` ledger and
+ * the `ObjectGridSlotKey` constraint in `objectql.ts` redden on the same
+ * deletion, since both still name the member); restored, it is green.
  */
 export type _DefaultSortIsATombstone = Expect<Equal<ObjectGridSchemaType['defaultSort'], undefined>>;
 

@@ -175,12 +175,15 @@ export const BOTH_SPELLINGS_BOARD: TsObjectKanbanSchema = {
 /**
  * ⭐ The TS twin's OWN failing instrument, and the reason this file needs one.
  *
- * The zod declaration is pinned by the runtime rows above. The TypeScript twin is
- * NOT: measured by ablation on this tree, deleting `cardTitle?: string` from the
- * `ObjectKanbanSchema` interface leaves `pnpm --filter @object-ui/types type-check`
- * at EXIT 0, the zod-mirror-parity ratchet included — and it is structural, not a
- * threshold. Filed and re-derived from the ratchet's own source as objectui#9711;
- * its three operators are blind here for three DIFFERENT reasons, which is worth
+ * The zod declaration is pinned by the runtime rows above. The TypeScript twin was
+ * NOT, when this was written: measured by ablation on that tree, deleting
+ * `cardTitle?: string` from the `ObjectKanbanSchema` interface left
+ * `pnpm --filter @object-ui/types type-check` at EXIT 0, the zod-mirror-parity
+ * ratchet included — structural, not a threshold. (Re-measured with objectui#8347:
+ * the same deletion now reddens the fresh literals above, the `_CardTitle…` row
+ * below, and the ratchet's mirrored-undeclared ledger, which gained that direction
+ * since.) Filed and re-derived from the ratchet's own source as objectui#9711;
+ * its three operators were blind here for three DIFFERENT reasons, which is worth
  * stating because the obvious single explanation is wrong:
  *
  *   - `WiderThanDeclaredKeys` maps over `MirroredKeys` intersected with
@@ -243,8 +246,10 @@ type Expect<T extends true> = T;
  * `TsObjectKanbanSchema['cardTitle']` stops compiling the moment the member is
  * deleted, and `Equal` fails the moment it is re-typed. Measured by ablation on
  * this tree: deleting `cardTitle?: string` from the interface turns this row
- * red; restored, it is green. The alias row is the type-level half of the third
- * pin: reddening it means `titleField` was retired, which the ruling forbids.
+ * red (beside the two fresh literals above and the `zod-mirror-parity` ledger,
+ * since the zod twin still declares the member); restored, it is green. The
+ * alias row is the type-level half of the third pin: reddening it means
+ * `titleField` was retired, which the ruling forbids.
  */
 export type _CardTitleIsADeclaredString = Expect<Equal<TsObjectKanbanSchema['cardTitle'], string | undefined>>;
 export type _TitleFieldAliasIsStillDeclared = Expect<Equal<TsObjectKanbanSchema['titleField'], string | undefined>>;

@@ -191,9 +191,10 @@ type Expect<T extends true> = T;
 /**
  * The tombstone is a MEMBER on the TS face too. Measured by ablation on this
  * tree: deleting `showFilters?: never` from `ObjectGridSchema` turns this row
- * red (the directive above stays green); restored, it is green. The two
- * controls below it pin that the spellings a renderer still reads stay LIVE,
- * not tombstoned.
+ * red while the directive above stays green (the `zod-mirror-parity` ledger
+ * reddens on the same deletion, since the zod twin still declares the member);
+ * restored, it is green. The two controls below it pin that the spellings a
+ * renderer still reads stay LIVE, not tombstoned.
  */
 export type _ShowFiltersIsATombstone = Expect<Equal<ObjectGridSchemaType['showFilters'], undefined>>;
 export type _ListViewShowFiltersIsLive = Expect<Equal<ListViewSchemaType['showFilters'], boolean | undefined>>;

@@ -331,9 +331,10 @@ export interface DataModelDesignerSchema extends BaseSchema {
    * **Instead:** delete the key, and use the toolbar's Auto Layout button.
    *
    * A tombstone rather than a deletion on the grounds the AI declarations'
-   * retired members record: {@link BaseSchema} carries `[key: string]: any`, so a
-   * DELETED member is absorbed silently at any value, and the tombstone is what
-   * makes the compile-time refusal exist, by name. The zod mirror refuses the
+   * retired members record: {@link BaseSchema} carried `[key: string]: any`, so a
+   * DELETED member was absorbed silently at any value (since objectui#8347,
+   * through a widened value only), and the tombstone is what makes the
+   * compile-time refusal exist, by name. The zod mirror refuses the
    * key by name with the same prescription (`retirementTombstone`).
    * @deprecated Not part of this contract — the value was inert.
    */
@@ -510,8 +511,9 @@ export interface ProcessDesignerSchema extends BaseSchema {
    * of the retire-vs-remove discriminator `./complex.ts` states holds — there
    * is no live replacement key, and nothing taught the key as working. The zod
    * arm (`zod/designer.zod.ts`) does not declare it either. The index
-   * signature `BaseSchema` carries still admits the key at any value, and the
-   * strict authoring face refuses it as an unrecognized key.
+   * signature `BaseSchema` carried admitted the key at any value until
+   * objectui#8347, which refuses it on a fresh literal now; the strict
+   * authoring face refuses it as an unrecognized key.
    */
   /** Show minimap */
   showMinimap?: boolean;

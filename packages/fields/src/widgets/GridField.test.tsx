@@ -10,7 +10,7 @@ const columns = [
   { name: 'amount', label: 'Amount', type: 'currency' as const },
 ];
 
-const field = { columns, total_field: 'amount' } as any;
+const field = { columns, totalField: 'amount' } as any;
 
 describe('GridField / LineItemsField — editable line items', () => {
   it('is exported under both names', () => {
@@ -401,7 +401,7 @@ describe('GridField / LineItemsField — editable line items', () => {
         // (objectui#10783). The currency's minor unit decides.
         { name: 'amount', label: 'Amount', type: 'currency' as const, computed: true, expr: 'record.quantity * record.unit_price' },
       ],
-      total_field: 'amount',
+      totalField: 'amount',
     } as any;
 
     it('renders a computed column read-only (no input) and recomputes on edit', () => {

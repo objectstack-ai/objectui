@@ -1582,8 +1582,8 @@ trailing comment (which must **not** be reported), an `X as Y` with `X` fabricat
 in a type import.
 
 **Out of scope, deliberately:** compiling the extracted blocks (a separate card — it has pre-existing
-reds that need a baseline decision first), and authorable-JSON *key* surfaces, which no type check can
-reject while `BaseSchema` carries an index signature and its Zod mirror is `.passthrough()`.
+reds that need a baseline decision first), and authorable-JSON *key* surfaces: a JSON block carries no
+type annotation, and the Zod mirror `safeValidateSchema` reads is `.passthrough()`.
 
 **If it fails:** it names the README, the line of the offending specifier, and which package really
 exports the name. Run it locally with `pnpm check:readme-exports` after a build, or

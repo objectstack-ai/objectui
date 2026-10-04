@@ -33,7 +33,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import type { DataSource, DeclaredNode } from '@object-ui/types';
+import type { DataSource, DeclaredNode, ObjectMapBlockNode } from '@object-ui/types';
 import { safeValidateSchema } from '@object-ui/types/zod';
 
 type StandInProps = { children?: React.ReactNode; latitude?: number; longitude?: number };
@@ -56,7 +56,10 @@ vi.mock('react-map-gl/maplibre', () => ({
 import './index';
 
 const MAP = { latitudeField: 'lat', longitudeField: 'lng', titleField: 'name' };
-const FILTER = [{ field: 'region', operator: 'equals', value: 'west' }];
+// `as const` keeps `operator` the literal the bag's filter row declares; a
+// widened `string` is refused there (objectui#8347 took away the index
+// signature that used to admit the bag on the post-hoist node type).
+const FILTER = [{ field: 'region', operator: 'equals' as const, value: 'west' }];
 const SORT: Array<{ field: string; order: 'asc' | 'desc' }> = [{ field: 'name', order: 'desc' }];
 const ROWS = [
   { id: 's1', name: 'North Store', lat: 37.8044, lng: -122.2711, region: 'west' },
@@ -64,7 +67,7 @@ const ROWS = [
 ];
 
 /** The authored spelling, spec-valid. */
-const BAG: DeclaredNode = { type: 'object-map', properties: { objectName: 'store', map: MAP, filter: FILTER, sort: SORT } };
+const BAG: ObjectMapBlockNode = { type: 'object-map', properties: { objectName: 'store', map: MAP, filter: FILTER, sort: SORT } };
 /** The same props written flat — what a code composer builds. */
 const FLAT: DeclaredNode = { type: 'object-map', objectName: 'store', map: MAP, filter: FILTER, sort: SORT };
 /** The bag with its object supplied by the node's binding instead. */

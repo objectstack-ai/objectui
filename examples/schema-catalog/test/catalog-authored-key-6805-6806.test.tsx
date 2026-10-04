@@ -104,9 +104,9 @@
  * is objectui#6810, an open `needs-user-decision` card; this file deliberately
  * covers only the two renderers these two cards name.
  *
- * Nor could a parse have caught either: `BaseSchema` is `.passthrough()` and
- * carries `[key: string]: any`, so `content` is accepted by zod and by tsc
- * alike. `check-doc-component-types.mjs` rules the question out by name.
+ * Nor could a parse have caught either: `BaseSchema` is `.passthrough()`, so
+ * `content` is accepted by zod (and was by tsc, through `[key: string]: any`,
+ * until objectui#8347). `check-doc-component-types.mjs` rules the question out by name.
  *
  * Module-scope import of `@object-ui/components`, not `beforeAll` (AGENTS.md
  * §测试纪律): registering the renderers is an unbounded module load and must

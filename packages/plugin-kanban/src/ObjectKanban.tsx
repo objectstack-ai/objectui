@@ -7,7 +7,7 @@
  */
 
 import React, { useEffect, useState, useMemo } from 'react';
-import type { DataSource, ObjectKanbanSchema } from '@object-ui/types';
+import type { DataSource, ObjectKanbanSchema, SortConfig } from '@object-ui/types';
 import {
   useDataScope,
   useNavigationOverlay,
@@ -333,9 +333,12 @@ export interface ObjectKanbanComponentProps {
    * Nothing, for an `object-kanban` document. Such a node was never judged by
    * the `kanban` arm, so every key this component reads off `schema` that
    * `ObjectKanbanSchema` does not declare reached the renderer through
-   * {@link BaseSchema}'s `[key: string]: any` BEFORE the retirement and still
-   * does. ⇒ No `object-kanban` node changes meaning; what changed is that
-   * `kanban` nodes no longer exist.
+   * {@link BaseSchema}'s `[key: string]: any` BEFORE the retirement, and did
+   * after it. ⇒ No `object-kanban` node changed meaning; what changed is that
+   * `kanban` nodes no longer exist. Since objectui#8347 `BaseSchema` carries no
+   * index signature, so a read of an undeclared key here no longer compiles;
+   * the one key the gate writes that the node does not declare is typed at
+   * {@link GateBoundKanbanSchema}.
    *
    * ⛔ WHICH keys those are is deliberately not listed here, and neither is
    * how many there are. This paragraph listed both (objectui#8802,
@@ -389,8 +392,32 @@ export interface ObjectKanbanComponentProps {
   onCardClick?: (record: any, event?: any) => void;
 }
 
+/**
+ * The board node as this component READS it: {@link ObjectKanbanSchema} plus
+ * the one key `ElementDataSourceGate` writes onto it that the node does not
+ * declare (objectui#8347).
+ *
+ * `sort` is the gate's carrier for the per-element binding's `dataSource.sort`
+ * (`OBJECT_KANBAN_DATA_SOURCE` in `./index.tsx` maps it, objectui#10068), and
+ * the fetch lowers it onto `$orderby`. It is ⛔ not an authoring key: the
+ * spec's `object-kanban` props declare no top-level `sort` and refuse one, so
+ * neither `ObjectKanbanSchema` face declares it (objectui#8174, pinned by
+ * `_KanbanSortStaysUndeclared` in `@object-ui/types`). While `BaseSchema`
+ * carried `[key: string]: any` the read compiled as `any`; this type names it
+ * where its only reader lives instead, the way `plugin-timeline`'s
+ * `renderHandoff.ts` types the keys its composer writes (objectui#6356).
+ *
+ * ⛔ Deliberately NOT exported, and ⛔ never to be added to
+ * `ObjectKanbanComponentProps` or `@object-ui/types`: a public type naming
+ * `sort` would invite the spelling the authoring faces refuse.
+ */
+type GateBoundKanbanSchema = ObjectKanbanSchema & {
+  /** The binding's (or its view's) ordering, written by the gate. */
+  sort?: SortConfig[];
+};
+
 export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
-  schema,
+  schema: boardSchema,
   dataSource,
   className,
   data: externalData,
@@ -400,6 +427,9 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
   ..._props
 }) => {
   void _props;
+  // Widened, not cast: the gate-written `sort` is optional, so the declared
+  // node is assignable to the read type as it stands (see `GateBoundKanbanSchema`).
+  const schema: GateBoundKanbanSchema = boardSchema;
   const { translateOptions, fieldLabel } = useSafeFieldLabel();
   const tt = useSafeTranslate();
   // Separate from `tt` because the record-detail heading interpolates a label —

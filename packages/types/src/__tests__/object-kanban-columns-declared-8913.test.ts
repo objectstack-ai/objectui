@@ -18,8 +18,9 @@
  * `columns: "todo"`, `columns: [42]`, a lane with no `title` and — the one
  * objectui#6939 was filed for — a lane card with no `title` all parsed GREEN.
  *
- * Declaring on a face that already carries `[key: string]: any` /
- * `.passthrough()` can only NARROW. That direction check is the first `it`
+ * Declaring on a face that already carries `.passthrough()` can only NARROW
+ * (the TS face carried `[key: string]: any` too when this was written;
+ * objectui#8347 removed it). That direction check is the first `it`
  * below, and it is asserted rather than asserted-in-prose.
  *
  * ## ⛔ Why the element is NOT `KanbanColumn`

@@ -26,7 +26,7 @@ import { useFieldTranslation } from './useFieldTranslation.js';
 import { toDomProps } from './toDomProps.js';
 import { toHostGroupProps } from './toHostGroupProps.js';
 import type { InlineGridColumn } from '@objectstack/spec/data';
-import type { GridFieldMetadata } from '@object-ui/types';
+import { GRID_FIELD_RETIRED_KEYS, type GridFieldMetadata, type GridFieldRetiredKey } from '@object-ui/types';
 
 /**
  * GridField / LineItemsField — editable child-grid ("line items") widget.
@@ -79,8 +79,10 @@ import type { GridFieldMetadata } from '@object-ui/types';
  *
  * Field-level config: the keys `GridFieldMetadata` (`@object-ui/types`)
  * declares, each read under that one spelling (objectui#11070 round 8), and
- * no other key: `sort_field`, the last key read before any face declared it,
- * is declared there too (objectui#11070 round 9).
+ * no other key: `sortField`, the last key read before any face declared it,
+ * is declared there too (objectui#11070 round 9). objectui#11610 renamed all
+ * eight from snake_case to camelCase; a field still carrying a snake_case
+ * spelling is refused by name instead of drawn (`RetiredGridFieldKeys`).
  */
 
 /**
@@ -551,19 +553,7 @@ export function sumColumn(rows: Row[], field: string): number {
   }, 0);
 }
 
-export function GridField({
-  value,
-  onChange,
-  field,
-  readonly,
-  disabled,
-  className,
-  error,
-  onRowExpand,
-  displayMode,
-  onAdd,
-  ...props
-}: FieldWidgetComponentProps<Row[]> & {
+type GridFieldProps = FieldWidgetComponentProps<Row[]> & {
   /** When provided, each row shows an "expand" button that opens the row in a
    *  full form (the host — e.g. MasterDetailForm — renders the drawer/modal and
    *  writes the edited values back). Lets a "fat" child be edited in a real form
@@ -580,7 +570,98 @@ export function GridField({
    *  `readonlyWhen` / `requiredWhen` CEL predicate — so a line cell can react to
    *  the header (`parent.status == 'paid'`). Supplied by MasterDetailForm. */
   contextRecord?: Record<string, unknown>;
-}) {
+};
+
+/**
+ * The retired snake_case field-level keys a grid field's metadata carries, in
+ * {@link GRID_FIELD_RETIRED_KEYS} order (objectui#11610). A key holding
+ * `undefined` is not counted: no JSON document can carry one, and the TS and
+ * zod faces accept it too, so all three faces draw the line in one place.
+ */
+function retiredGridFieldKeysOf(field: unknown): GridFieldRetiredKey[] {
+  if (field == null || typeof field !== 'object') return [];
+  const carrier = field as Record<string, unknown>;
+  return (Object.keys(GRID_FIELD_RETIRED_KEYS) as GridFieldRetiredKey[]).filter(
+    (key) => carrier[key] !== undefined,
+  );
+}
+
+/**
+ * The prescription a grid field carrying retired keys answers with: names the
+ * field when it has a name, then each retired key beside the camelCase key to
+ * write. One sentence, read by the alert and by the console line.
+ */
+function retiredGridFieldKeysMessage(fieldName: unknown, keys: readonly GridFieldRetiredKey[]): string {
+  const which = typeof fieldName === 'string' && fieldName ? `Grid field \`${fieldName}\`` : 'This grid field';
+  const renames = keys.map((key) => `\`${key}\` → \`${GRID_FIELD_RETIRED_KEYS[key]}\``).join(', ');
+  return (
+    `[object-ui] ${which} carries retired snake_case key(s): ${renames}. ` +
+    "The grid's field-level keys are camelCase since objectui#11610 and it reads no snake_case spelling, " +
+    'so the grid is not drawn until each key is renamed; the values stay the same.'
+  );
+}
+
+/**
+ * Messages already logged this session, so a refused grid inside a rendered
+ * list logs once, not once per mount (the `reportRetiredFieldType` discipline).
+ */
+const reportedRetiredGridFieldKeys = new Set<string>();
+
+/**
+ * The widget-path face of the objectui#11610 retirement: what a grid field
+ * carrying a retired snake_case key renders INSTEAD of the grid. The shape is
+ * `RetiredFieldTombstone`'s (`../index`), this package's settled answer to an
+ * entry the renderer cannot honour: an inline alert naming the keys and the
+ * replacements, plus a `console.error` with the same text. Nothing is thrown,
+ * so the rest of the form still draws, and nothing is silently dropped: a grid
+ * drawn without the author's `allow_add: false` would look like it worked.
+ * The rows are untouched, since the alert never calls `onChange`.
+ */
+function RetiredGridFieldKeys({ message, keys }: { message: string; keys: readonly GridFieldRetiredKey[] }) {
+  React.useEffect(() => {
+    if (reportedRetiredGridFieldKeys.has(message)) return;
+    reportedRetiredGridFieldKeys.add(message);
+    console.error(message);
+  }, [message]);
+  return (
+    <div
+      role="alert"
+      data-testid="grid-field-retired-keys"
+      data-retired-keys={keys.join(' ')}
+      className="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+    >
+      {message}
+    </div>
+  );
+}
+
+/**
+ * The `grid` field widget. A field whose metadata carries one of the retired
+ * snake_case keys is refused by name ({@link RetiredGridFieldKeys}); any other
+ * field draws the grid.
+ */
+export function GridField(props: GridFieldProps) {
+  const retired = retiredGridFieldKeysOf(props.field);
+  if (retired.length > 0) {
+    const message = retiredGridFieldKeysMessage((props.field as { name?: unknown } | undefined)?.name, retired);
+    return <RetiredGridFieldKeys message={message} keys={retired} />;
+  }
+  return <GridFieldBody {...props} />;
+}
+
+function GridFieldBody({
+  value,
+  onChange,
+  field,
+  readonly,
+  disabled,
+  className,
+  error,
+  onRowExpand,
+  displayMode,
+  onAdd,
+  ...props
+}: GridFieldProps) {
   // The field-level keys, read as `GridFieldMetadata` declares them and as
   // nothing else, so a read of a key the type does not declare is a compile
   // error here rather than a second, unpublished contract (objectui#11070
@@ -665,8 +746,8 @@ export function GridField({
     });
   }, []);
 
-  const allowAdd = cfg.allow_add !== false && !readonly && !disabled;
-  const allowDelete = cfg.allow_delete !== false && !readonly && !disabled;
+  const allowAdd = cfg.allowAdd !== false && !readonly && !disabled;
+  const allowDelete = cfg.allowDelete !== false && !readonly && !disabled;
   // A duplicate IS an add, so it is offered exactly when adding is. There is
   // no key of its own: `allow_duplicate` was read here while no face declared
   // it and round 8's census of both repositories found no producer of it, so
@@ -678,27 +759,28 @@ export function GridField({
   // Enterprise line grids (NetSuite/SAP/Salesforce) show a line-number column,
   // always: the `show_line_numbers` switch was retired with `allow_duplicate`,
   // for the same reason (objectui#11070 round 8).
-  const minRows: number = cfg.min_rows ?? 0;
-  const maxRows: number | undefined = cfg.max_rows;
+  const minRows: number = cfg.minRows ?? 0;
+  const maxRows: number | undefined = cfg.maxRows;
   // The CHILD column summed into the footer: the spec's `amountField` (an
   // `inlineAmountField` / `subforms[].amountField`), which both adapters in
-  // `@object-ui/plugin-form` write here. ⛔ Not the spec's `totalField`, the
-  // PARENT field that receives the rollup on save. One spelling: the
-  // `amount_field` / `amountField` reads beside it are retired, round 8's
+  // `@object-ui/plugin-form` write here. ⚠️ Same name as the spec's
+  // `totalField` on those surfaces, which is the PARENT field that receives
+  // the rollup on save; the grid's key names the child column. One spelling:
+  // the `amount_field` / `amountField` reads beside it are retired, round 8's
   // census having found no producer of either (objectui#11070 round 8).
-  const totalField: string | undefined = cfg.total_field;
+  const totalField: string | undefined = cfg.totalField;
   // When set, the row's order is persisted by stamping `row[sortField] = index`
   // on every change — so drag-reorder survives a reload (the app adds a numeric
   // position field and lists sort by it). Without it, reorder is order-of-entry.
   // Declared on `GridFieldMetadata`; its producer is `deriveDetail`
   // (`@object-ui/plugin-form`, through `MasterDetailForm`), which picks the
   // child object's `position` / `sort_order` / … field (objectui#11070 round 9).
-  const sortField: string | undefined = cfg.sort_field;
+  const sortField: string | undefined = cfg.sortField;
   // Drag-to-reorder is on for editable grids (off in read-only / list mode),
-  // and `allow_reorder: false` turns it off: the key `GridFieldMetadata`
+  // and `allowReorder: false` turns it off: the key `GridFieldMetadata`
   // declares. The undeclared `reorderable` this used to read is retired
   // (objectui#11070 round 8).
-  const allowReorder = cfg.allow_reorder !== false && !readonly && !disabled;
+  const allowReorder = cfg.allowReorder !== false && !readonly && !disabled;
 
   const emit = useCallback(
     (next: Row[]) => {
@@ -1237,7 +1319,7 @@ export function GridField({
                   className="px-3 py-6 text-center text-muted-foreground"
                 >
                   {t('fields.grid.noItemsAddHint', {
-                    label: cfg.add_label || t('detail.add', { defaultValue: 'Add' }),
+                    label: cfg.addLabel || t('detail.add', { defaultValue: 'Add' }),
                     defaultValue: 'No items yet — click “{{label}}” to begin.',
                   })}
                 </td>
@@ -1406,7 +1488,7 @@ export function GridField({
           data-testid="line-items-add"
         >
           <Plus className="mr-1.5 h-4 w-4" />
-          {cfg.add_label || t('fields.grid.addLine', { defaultValue: 'Add line' })}
+          {cfg.addLabel || t('fields.grid.addLine', { defaultValue: 'Add line' })}
         </Button>
       )}
     </div>

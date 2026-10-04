@@ -120,9 +120,8 @@ type VisibilityPredicate = Parameters<ExpressionEvaluator['evaluateCondition']>[
  * and drops the `string` / `number` / `symbol` index keys.
  *
  * Applied to `BaseSchema` by {@link InterpreterWorkingCopy}, so that type's
- * `[key: string]: any` does not ride into the working copy. objectui#8347
- * removes that signature from `BaseSchema`; from then on this is the identity
- * on it.
+ * `[key: string]: any` did not ride into the working copy. objectui#8347
+ * removed that signature from `BaseSchema`, so this is the identity on it now.
  */
 type DeclaredMembersOf<T> = {
   [K in keyof T as string extends K
@@ -1050,7 +1049,7 @@ function withoutAuthoredObjectFields<T extends object>(bag: T): T {
  * `element:record_picker`, a stored page document under its page kind), and
  * the types an application declares in `CustomNodeRegistry`. It has no
  * `type: string` arm, so a node whose `type` no declaration names is refused
- * here, and each node's own keys are judged: once objectui#8347 removes
+ * here, and each node's own keys are judged: since objectui#8347 removed
  * `BaseSchema`'s index signature, a misspelled key is refused while the
  * declared spelling compiles. ⛔ The prop is widened by declared types only,
  * never by an index signature, a `Record` or a `type: string` arm.

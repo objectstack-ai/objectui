@@ -34,8 +34,9 @@
  *      invariantly, and the three carry the SAME declared type. `Equal`, not
  *      `extends`: the old `boolean | string` is assignable to the wide union,
  *      so a one-way check stays green on a widening that never happened, and
- *      `BaseSchema`'s `[key: string]: any` index signature means a DELETED
- *      member reads `any`, which a one-way check also accepts.
+ *      `BaseSchema`'s `[key: string]: any` index signature meant a DELETED
+ *      member read `any` (until objectui#8347), which a one-way check also
+ *      accepts.
  *   2. Twin parity -- `ExpressionWire` (TS) and `z.input` of
  *      `ExpressionWireSchema` (zod) are the same union, so the two faces cannot
  *      drift apart the way `hidden` did between #4581 and #7455.

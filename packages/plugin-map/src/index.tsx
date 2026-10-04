@@ -141,9 +141,9 @@ ComponentRegistry.register('object-map', ObjectMapRenderer, {
  *
  * ## Why unregistering is the whole retirement here — measured, not assumed
  *
- * ⚠️ `BaseSchema` closes with `[key: string]: any` and `BaseSchemaCore` ends
- * `.passthrough()`, so a dropped MEMBER KEY is KEPT, not refused (the
- * objectui#7664 failure). That hazard needs a schema face to arise on, and this
+ * ⚠️ `BaseSchemaCore` ends `.passthrough()` (and `BaseSchema` closed with
+ * `[key: string]: any` until objectui#8347), so a dropped MEMBER KEY is KEPT,
+ * not refused, on the zod face (the objectui#7664 failure). That hazard needs a schema face to arise on, and this
  * TYPE NAME never had one: in `@object-ui/types` the literal `'map'` appears
  * only in the stored view-type unions (`NamedListView.type`,
  * `defaultViewType`), never as a component node type, against a firing control

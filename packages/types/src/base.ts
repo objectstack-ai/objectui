@@ -17,6 +17,7 @@
  */
 
 import type { I18nLabel } from '@objectstack/spec/ui';
+import type { EvaluatedExpressionInput } from '@objectstack/spec/shared';
 import type { AuthoringNode } from './authoring-nodes.js';
 import type { ExpressionWire } from './expression.js';
 import type { AnySchema } from './index.js';
@@ -60,7 +61,21 @@ export type KeyedI18nLabel = {
 /**
  * Base schema interface that all component schemas extend.
  * This is the fundamental building block of the Object UI protocol.
- * 
+ *
+ * ⭐ It declares NO index signature (objectui#8347, executing the
+ * objectui#7927 ruling: the TypeScript face is a contract). A node literal
+ * written against a node type is excess-property checked, so a key no
+ * declaration names, a misspelling included, stops type-checking at the
+ * authoring site. When a key you need is refused, declare it on the node
+ * type that reads it, by reference to the spec row, or fix the producer
+ * (AGENTS.md #0.1); ⛔ do not cast past it or put the signature back.
+ * The bound: TypeScript checks excess keys only on a FRESH object literal, so
+ * a value that reached its annotation through a wider variable is not
+ * re-checked. `__tests__/base-schema-closed-face-8347.test.ts` pins both
+ * directions. Renderer props keep their tolerance: {@link ComponentRendererProps}
+ * still carries its own signature, and the zod mirror is still
+ * `.passthrough()` on the rendering face.
+ *
  * @example
  * ```typescript
  * const schema: BaseSchema = {
@@ -292,10 +307,11 @@ export interface BaseSchema {
    *
    * ## What declaring it buys, and what it does not (objectui#5155 / #6269)
    *
-   * Same ceiling as the gantt and timeline pins. `BaseSchema` carries an index
-   * signature on the TS side and is `.passthrough()` on the zod side, so an
-   * UNDECLARED key is still accepted by both halves — this did NOT buy
-   * rejection of a misspelling such as `bindTo`. What it DOES buy is the VALUE:
+   * Same ceiling as the gantt and timeline pins. `BaseSchema` is
+   * `.passthrough()` on the zod side (and carried an index signature on the TS
+   * side until objectui#8347), so an UNDECLARED key is still accepted by the
+   * zod half — this did NOT buy rejection of a misspelling such as `bindTo`
+   * there. What it DOES buy is the VALUE:
    * `bind: 42` type-checked and parsed green before this declaration and is
    * refused by both halves now. That narrowing only refuses what already
    * crashed — `useDataScope` is `(path?: string)` and resolves via
@@ -312,10 +328,12 @@ export interface BaseSchema {
    *
    * ## Why it is refused by name rather than merely deleted
    *
-   * `BaseSchema` carries an index signature on the TS side and
    * `BaseSchemaCore` ends `.passthrough()` on the zod side, so DELETING a
-   * member does not refuse it — it makes it silently acceptable and
-   * silently inert, which is the state this retirement exists to leave. The
+   * member does not refuse it there — it makes it silently acceptable and
+   * silently inert, which is the state this retirement exists to leave. (The
+   * TS side carried an index signature with the same effect when this was
+   * written; objectui#8347 removed it, so a deleted member is refused at the
+   * authoring site now, but the parse still needs the tombstone.) The
    * `?: never` twin of the mirror's `aliasKeyRefusal` is what turns the
    * removal into an answer: `tsc` refuses the key at the authoring site and
    * the parse names `children` as the remedy.
@@ -386,9 +404,22 @@ export interface BaseSchema {
    * Canonical conditional-visibility predicate (ADR-0089) — the element is shown
    * when this evaluates truthy. The spec folds the deprecated `visibleOn` /
    * `visibility` aliases into this key at parse.
+   *
+   * Typed BY REFERENCE as the spec's own input type for an evaluated slot,
+   * `EvaluatedExpressionInput` (objectui#8347, ruled Q6 = B): a predicate
+   * string, or the `{ dialect, source }` envelope the spec's parse of
+   * `PageComponentSchema.visibleWhen` produces and `SchemaRenderer` evaluates.
+   * It read `string` before, which refused the envelope the spec's own parse
+   * writes into this key. ⚠️ Narrower than
+   * `ExpressionWire` (`visible` / `hidden` / `disabled`, objectui#7530): the
+   * spec refuses a dialect-less envelope and an unknown dialect, and so does
+   * this key. Its zod twin is the same accept set without the spec's string
+   * transform (`../zod/base.zod.ts`).
+   *
    * @example "${data.role === 'admin'}"
+   * @example { dialect: 'cel', source: "record.status == 'open'" }
    */
-  visibleWhen?: string;
+  visibleWhen?: EvaluatedExpressionInput;
 
   /**
    * Expression for conditional visibility.
@@ -592,12 +623,6 @@ export interface BaseSchema {
    * @example { key: 'dialog.close', defaultValue: 'Close dialog' }
    */
   ariaLabel?: string | KeyedI18nLabel;
-
-  /**
-   * Additional properties specific to the component type.
-   * This index signature allows type-specific extensions.
-   */
-  [key: string]: any;
 }
 
 /**

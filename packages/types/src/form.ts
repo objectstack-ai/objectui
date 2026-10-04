@@ -1347,7 +1347,7 @@ export interface CalendarSchema extends BaseSchema {
    *
    * The tombstone reaches {@link UiCalendarSchema} on BOTH faces. On this one
    * it did not until objectui#9256's E3 slice: `UiCalendarSchema` was declared
-   * as a plain `Omit` of this interface, and because {@link BaseSchema} carries
+   * as a plain `Omit` of this interface, and because {@link BaseSchema} carried
    * an index signature that `Omit` resolved through `Exclude<string, 'type'>` =
    * `string` and collapsed every member into the signature — the checker
    * answered `any` for `UiCalendarSchema['body']` and for
@@ -1404,7 +1404,7 @@ export interface CalendarSchema extends BaseSchema {
    *
    * The tombstone reaches {@link UiCalendarSchema} on BOTH faces. On this one
    * it did not until objectui#9256's E3 slice: `UiCalendarSchema` was declared
-   * as a plain `Omit` of this interface, and because {@link BaseSchema} carries
+   * as a plain `Omit` of this interface, and because {@link BaseSchema} carried
    * an index signature that `Omit` resolved through `Exclude<string, 'type'>` =
    * `string` and collapsed every member into the signature — the checker
    * answered `any` for `UiCalendarSchema['body']` and for
@@ -2073,24 +2073,74 @@ export interface FormField {
   // `GridFieldMetadata`'s own member BY REFERENCE, so the form-field face and
   // the grid field's published type cannot drift; the meaning of each key is
   // documented there. Only the `grid` widget reads them: on any other field
-  // type they are accepted and read by nothing.
+  // type they are accepted and read by nothing. objectui#11610 renamed all
+  // eight from snake_case to camelCase.
 
-  /** The grid's minimum row count: {@link GridFieldMetadata.min_rows}. */
-  min_rows?: GridFieldMetadata['min_rows'];
-  /** The grid's maximum row count: {@link GridFieldMetadata.max_rows}. */
-  max_rows?: GridFieldMetadata['max_rows'];
-  /** Whether the grid offers Add (on unless `false`): {@link GridFieldMetadata.allow_add}. */
-  allow_add?: GridFieldMetadata['allow_add'];
-  /** Whether the grid offers Delete (on unless `false`): {@link GridFieldMetadata.allow_delete}. */
-  allow_delete?: GridFieldMetadata['allow_delete'];
-  /** Whether rows can be drag-reordered (on unless `false`): {@link GridFieldMetadata.allow_reorder}. */
-  allow_reorder?: GridFieldMetadata['allow_reorder'];
-  /** The CHILD column summed into the footer total: {@link GridFieldMetadata.total_field}. */
-  total_field?: GridFieldMetadata['total_field'];
-  /** The Add button's label: {@link GridFieldMetadata.add_label}. */
-  add_label?: GridFieldMetadata['add_label'];
-  /** The row field stamped with each row's index: {@link GridFieldMetadata.sort_field}. */
-  sort_field?: GridFieldMetadata['sort_field'];
+  /** The grid's minimum row count: {@link GridFieldMetadata.minRows}. */
+  minRows?: GridFieldMetadata['minRows'];
+  /** The grid's maximum row count: {@link GridFieldMetadata.maxRows}. */
+  maxRows?: GridFieldMetadata['maxRows'];
+  /** Whether the grid offers Add (on unless `false`): {@link GridFieldMetadata.allowAdd}. */
+  allowAdd?: GridFieldMetadata['allowAdd'];
+  /** Whether the grid offers Delete (on unless `false`): {@link GridFieldMetadata.allowDelete}. */
+  allowDelete?: GridFieldMetadata['allowDelete'];
+  /** Whether rows can be drag-reordered (on unless `false`): {@link GridFieldMetadata.allowReorder}. */
+  allowReorder?: GridFieldMetadata['allowReorder'];
+  /** The CHILD column summed into the footer total: {@link GridFieldMetadata.totalField}. */
+  totalField?: GridFieldMetadata['totalField'];
+  /** The Add button's label: {@link GridFieldMetadata.addLabel}. */
+  addLabel?: GridFieldMetadata['addLabel'];
+  /** The row field stamped with each row's index: {@link GridFieldMetadata.sortField}. */
+  sortField?: GridFieldMetadata['sortField'];
+
+  // ── Their retired snake_case spellings (objectui#11610) ─────────────────
+  //
+  // REFUSED BY NAME, as on `GridFieldMetadata` (where the retirement is
+  // documented): each is a `?: never` tombstone here (a declared member, so
+  // it outranks the index signature above), and an alias refusal naming the
+  // camelCase key on the zod mirror. `GRID_FIELD_RETIRED_KEYS` maps each to
+  // its replacement.
+
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.minRows}.
+   * @deprecated Write `minRows`. Nothing reads this spelling.
+   */
+  min_rows?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.maxRows}.
+   * @deprecated Write `maxRows`. Nothing reads this spelling.
+   */
+  max_rows?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.allowAdd}.
+   * @deprecated Write `allowAdd`. Nothing reads this spelling.
+   */
+  allow_add?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.allowDelete}.
+   * @deprecated Write `allowDelete`. Nothing reads this spelling.
+   */
+  allow_delete?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.allowReorder}.
+   * @deprecated Write `allowReorder`. Nothing reads this spelling.
+   */
+  allow_reorder?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.totalField}.
+   * @deprecated Write `totalField`. Nothing reads this spelling.
+   */
+  total_field?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.addLabel}.
+   * @deprecated Write `addLabel`. Nothing reads this spelling.
+   */
+  add_label?: never;
+  /**
+   * REFUSED BY NAME (objectui#11610): renamed {@link FormField.sortField}.
+   * @deprecated Write `sortField`. Nothing reads this spelling.
+   */
+  sort_field?: never;
 }
 
 /**
@@ -2357,8 +2407,9 @@ export interface LabelSchema extends BaseSchema {
    * no alias window. Which of `text` / `label` is canonical is a separate question
    * and is not decided here.
    *
-   * `?: never` rather than deleted: this interface carries `BaseSchema`'s index
-   * signature, so a deleted member would type-check silently, while a tombstone
+   * `?: never` rather than deleted: this interface carried `BaseSchema`'s index
+   * signature, so a deleted member would type-check silently (since
+   * objectui#8347, through a widened value only), while a tombstone
    * makes presence a `tsc` error, and the zod twin refuses the key by name.
    *
    * @deprecated RETIRED (objectui#6152) — write the text as `text` (or `label`).
@@ -2804,7 +2855,8 @@ export interface CodeEditorSchema extends BaseSchema {
  * moved onto that card).
  *
  * The built-in `Omit<T, K>` is `Pick<T, Exclude<keyof T, K>>`, and `keyof T` on
- * a type carrying {@link BaseSchema}'s `[key: string]: any` is `string | number`:
+ * a type carrying a string index signature (as every {@link BaseSchema}
+ * extender did until objectui#8347) is `string | number`:
  * the literal member names are absorbed, `Exclude` leaves `string`, and the
  * `Pick` rebuilds the index signature and NONE of the named members (the same
  * mechanism objectui#6151 and objectui#6269 measured at other positions). The
@@ -2836,8 +2888,8 @@ type OmitDeclared<T, K extends PropertyKey> = {
  * `{ type: 'input', inputType: 'email' }` when the input type is the choice.
  *
  * ⚠️ objectui#8499 shipped this interface with the key merely OMITTED, and
- * recorded why that was not enough: {@link BaseSchema} carries an index
- * signature and its mirror is `.passthrough()`, so `inputType` rode through
+ * recorded why that was not enough: {@link BaseSchema} carried an index
+ * signature then and its mirror is `.passthrough()`, so `inputType` rode through
  * both faces unchallenged while the renderer threw the value away. objectui#8762
  * closes that — the key is DECLARED and unwritable on both faces, so `tsc`
  * refuses it at the authoring site and the zod twin refuses it BY NAME with

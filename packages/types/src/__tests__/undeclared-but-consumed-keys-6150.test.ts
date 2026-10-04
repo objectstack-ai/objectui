@@ -9,9 +9,9 @@
  * keys that are not declared members of their shipped type; **13** were shown
  * to be genuinely READ by the renderer. Those are capabilities that work at
  * runtime, that the docs describe, and that the published contract never
- * mentioned — the reads compile only because `BaseSchema` ends with
+ * mentioned — the reads compiled only because `BaseSchema` ended with
  * `[key: string]: any` (objectui#5155), so `schema.trigger` on a type that
- * never declared `trigger` resolves to `any` instead of erroring.
+ * never declared `trigger` resolved to `any` instead of erroring.
  *
  * Re-derived on this branch before anything was edited, through the SAME
  * resolution path the census used (built `packages/types/dist/index.d.ts`, and
@@ -131,9 +131,10 @@ type Expect< T extends true > = T;
 /**
  * The declared TYPE of each of the 13, pinned invariantly.
  *
- * `[key: string]: any` would make every one of these `any` if the member were
- * NOT declared, and `Equal< any, string >` is false — so these fail the moment a
- * declaration is removed and the key falls back to the index signature. That is
+ * `[key: string]: any` made every one of these `any` if the member was NOT
+ * declared (until objectui#8347; an undeclared member's indexed access does not
+ * compile now), and `Equal< any, string >` is false — so these fail the moment
+ * a declaration is removed, either way. That is
  * what makes them a guard and not a restatement.
  */
 export type _ContentIsString = Expect< Equal< NonNullable< TsTextSchema['content'] >, string > >;
@@ -151,8 +152,9 @@ export type _AlignIsOverlayAlignment = Expect< Equal< NonNullable< TsHoverCardSc
 // `null | undefined` (`base.ts`), so `NonNullable` would strip those limbs out of
 // the union and compare a different type. Read raw, the optional `?` adds
 // `undefined` to a union that already carries it, so the two sides are equal —
-// and the guard still bites, because an undeclared `trigger` would resolve to
-// `any` through `BaseSchema`'s index signature and `Equal< any, … >` is false.
+// and the guard still bites, because an undeclared `trigger` would not compile
+// at the indexed access (until objectui#8347 it resolved to `any` through
+// `BaseSchema`'s index signature, and `Equal< any, … >` is false).
 export type _TriggerIsNodeOrNodes = Expect< Equal< TsContextMenuSchema['trigger'], SchemaNode | SchemaNode[] > >;
 
 /**

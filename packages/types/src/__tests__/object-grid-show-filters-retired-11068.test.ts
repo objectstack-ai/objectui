@@ -18,8 +18,10 @@
  * `list-view` toolbar's filter builder, switched by `userActions.filter`, so
  * honouring the key on the grid would have meant building a second filter
  * surface. The upstream protocol's `object-grid` row does not declare the key
- * either. Deleting the member would refuse nothing: the zod twin ends
- * `.passthrough()` and the interface inherits `BaseSchema`'s index signature.
+ * either. Deleting the member would refuse nothing on the zod face, whose twin
+ * ends `.passthrough()`; the interface inherited `BaseSchema`'s index signature
+ * until objectui#8347 (and a widened value still skips the excess-property
+ * check).
  * So the key stays DECLARED and unwritable on both faces — `retirementTombstone()`
  * and `?: never` — as `rowSpecActions` and `defaultSort` are.
  *
@@ -168,14 +170,35 @@ describe('the UPSTREAM half, re-derived from the installed pin', () => {
  * The `@ts-expect-error` line below IS the assertion: the member is `?: never`,
  * so the literal is a compile error. It fails this package's
  * `tsc -p tsconfig.test.json` leg as an UNUSED directive if the member is
- * deleted (the key would fall back to `BaseSchema`'s index signature) or
- * re-typed as a live value.
+ * re-typed as a live value. A deletion failed it too while the key fell back to
+ * `BaseSchema`'s index signature; since objectui#8347 a deleted member's key is
+ * refused as undeclared, which keeps the directive used, so the directive no
+ * longer sees a deletion. The deletion guard is the `_ShowFiltersIsATombstone`
+ * row below: an indexed access on a member that does not exist is itself a
+ * compile error, and the row pins the tombstone type (`?: never` reads as
+ * `undefined`), so a re-typing to a live value reddens it as well.
  */
 export const authoredShowFiltersRefused: ObjectGridSchemaType = {
   ...GRID_POST_HOIST,
   // @ts-expect-error — `showFilters` is RETIRED on `object-grid` (objectui#11068): a list view's `userActions.filter`.
   showFilters: true,
 };
+
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+
+/**
+ * The tombstone is a MEMBER on the TS face too. Measured by ablation on this
+ * tree: deleting `showFilters?: never` from `ObjectGridSchema` turns this row
+ * red while the directive above stays green (the `zod-mirror-parity` ledger
+ * reddens on the same deletion, since the zod twin still declares the member);
+ * restored, it is green. The two controls below it pin that the spellings a
+ * renderer still reads stay LIVE, not tombstoned.
+ */
+export type _ShowFiltersIsATombstone = Expect<Equal<ObjectGridSchemaType['showFilters'], undefined>>;
+export type _ListViewShowFiltersIsLive = Expect<Equal<ListViewSchemaType['showFilters'], boolean | undefined>>;
+export type _ObjectViewShowFiltersIsLive = Expect<Equal<ObjectViewSchemaType['showFilters'], boolean | undefined>>;
 
 /** LIT CONTROL: the spellings that stay live are declared, writable members. */
 export const listViewFilterToggleIsDeclared: ListViewSchemaType = {

@@ -44,10 +44,12 @@
  *
  * ## Why tombstones and not deletions — the carrier decides
  *
- * All three schemas extend {@link BaseSchema}, which carries
- * `[key: string]: any`. On such a carrier a DELETED optional member is absorbed
- * silently at any value: the index signature defeats excess-property checking
- * on a fresh literal and the weak-type check on a widened one. Deletion would
+ * All three schemas extend {@link BaseSchema}, which carried
+ * `[key: string]: any` when this was written. On such a carrier a DELETED
+ * optional member was absorbed silently at any value: the index signature
+ * defeated excess-property checking on a fresh literal and the weak-type check
+ * on a widened one (since objectui#8347 a fresh literal is refused, and a
+ * widened value still rides through). Deletion would
  * therefore have left exactly the silent no-op the retirement exists to end,
  * and the ruling's first pin — *refused by the schema types (compile-time)* —
  * would have been unsatisfiable. The routes are loud-vs-silent here, not
@@ -235,11 +237,15 @@ describe('the controls — without these, a broken import would satisfy every pi
     expect([assist.showConfidence, recs.layout, query.showHistory]).toEqual([true, 'grid', true]);
   });
 
-  it('an UNDECLARED key rides both shapes on this carrier — the DELETED row, live', () => {
-    // No directive on purpose: this is where each of the seven would sit had it
-    // been deleted instead of tombstoned. `BaseSchema`'s `[key: string]: any`
-    // absorbs it at any value in every shape, so a deletion produces no
-    // diagnostic at all — it is not a quieter refusal, it is none.
+  it('an UNDECLARED key is refused on a fresh literal, and still rides a widened value — the DELETED row, live', () => {
+    // This is where each of the seven would sit had it been deleted instead of
+    // tombstoned. Until objectui#8347 `BaseSchema`'s `[key: string]: any`
+    // absorbed it at any value in every shape, so a deletion produced no
+    // diagnostic at all. The signature is gone: a fresh literal is refused,
+    // with no name for the remedy, while a value that reached its annotation
+    // through a wider variable is still not re-checked (no excess-property
+    // check on a non-fresh object). The tombstone is what refuses both.
+    // @ts-expect-error — `AIFormAssistSchema` declares no `bogusUndeclared` (objectui#8347)
     const fresh: AIFormAssistSchema = { type: 'ai-form-assist', suggestions, bogusUndeclared: 1 };
     const raw = { type: 'ai-recommendations' as const, recommendations, bogusUndeclared: 1 };
     const widened: AIRecommendationsSchema = raw;
@@ -250,8 +256,10 @@ describe('the controls — without these, a broken import would satisfy every pi
     // `AIFieldSuggestion` and `AIRecommendationItem` declare no index
     // signature, so the compiler's two ordinary guards fire here: excess-property
     // checking on a fresh literal (TS2353) and the weak-type check on a
-    // lone-key widened value (TS2559). Their firing proves the silence above is
-    // the index signature and not a blind run.
+    // lone-key widened value (TS2559). Their firing proved the silence above
+    // was the index signature and not a blind run; since objectui#8347 the only
+    // silence left above is the widened value's (no excess-property check on a
+    // non-fresh object).
     const fresh: AIFieldSuggestion = {
       fieldName: 'company',
       value: 'ObjectStack Inc.',

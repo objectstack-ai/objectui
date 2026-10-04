@@ -101,8 +101,9 @@ type Expect<T extends true> = T;
 type IsAny<T> = 0 extends (1 & T) ? true : false;
 
 // Declared as `string` on each of the five. Were a member removed, the read
-// would fall back to the index signature and resolve to `any`, and
-// `Equal<any, string>` is false — so these are guards, not restatements.
+// fell back to the index signature and resolved to `any` until objectui#8347
+// (it does not compile now); either way these go red — so these are guards,
+// not restatements.
 export type _SwitchWrapperClassIsString = Expect<Equal<NonNullable<TsSwitchSchema['wrapperClass']>, string>>;
 export type _SwitchWrapperClassIsNotAny = Expect<Equal<IsAny<TsSwitchSchema['wrapperClass']>, false>>;
 export type _TextareaWrapperClassIsString = Expect<Equal<NonNullable<TsTextareaSchema['wrapperClass']>, string>>;
@@ -114,18 +115,22 @@ export type _SelectWrapperClassIsNotAny = Expect<Equal<IsAny<TsSelectSchema['wra
 export type _ListWrapperClassIsString = Expect<Equal<NonNullable<TsListSchema['wrapperClass']>, string>>;
 export type _ListWrapperClassIsNotAny = Expect<Equal<IsAny<TsListSchema['wrapperClass']>, false>>;
 
-// The control key is NOT declared on any of the five: it resolves to `any`
-// through the index signature, exactly as `wrapperClass` did before this card.
-// Declaring it anywhere turns the matching line red — which is the point.
-export type _SwitchControlFallsThrough = Expect<IsAny<TsSwitchSchema['labelClass']>>;
-export type _TextareaControlFallsThrough = Expect<IsAny<TsTextareaSchema['labelClass']>>;
-export type _DatePickerControlFallsThrough = Expect<IsAny<TsDatePickerSchema['labelClass']>>;
-export type _SelectControlFallsThrough = Expect<IsAny<TsSelectSchema['labelClass']>>;
-export type _ListControlFallsThrough = Expect<IsAny<TsListSchema['labelClass']>>;
+// The control key is NOT declared on any of the five: it resolved to `any`
+// through the index signature, exactly as `wrapperClass` did before this card,
+// until objectui#8347 removed the signature; it is no member now. Declaring it
+// anywhere turns the matching line red — which is the point.
+type NoMember<T, K extends PropertyKey> = Equal<K extends keyof T ? true : false, false>;
+export type _SwitchControlIsNoMember = Expect<NoMember<TsSwitchSchema, 'labelClass'>>;
+export type _TextareaControlIsNoMember = Expect<NoMember<TsTextareaSchema, 'labelClass'>>;
+export type _DatePickerControlIsNoMember = Expect<NoMember<TsDatePickerSchema, 'labelClass'>>;
+export type _SelectControlIsNoMember = Expect<NoMember<TsSelectSchema, 'labelClass'>>;
+export type _ListControlIsNoMember = Expect<NoMember<TsListSchema, 'labelClass'>>;
+// Lit control for the detector: `IsAny` does answer `true`, so the `IsNotAny` lines are readings.
+export type _IsAnyCanAnswerTrue = Expect<IsAny<any>>;
 
-// The TS face accepts the key on a literal. ⚠️ This is the WEAK half: the index
-// signature would accept it undeclared too. The invariant pins above are the
-// guard; these lines only show the declared spelling in use, once per type.
+// The TS face accepts the key on a literal. Since objectui#8347 this is no
+// longer the weak half: without the index signature an undeclared key is
+// refused on a fresh literal, so each acceptance reads the declaration.
 const literals = {
   switch: { type: 'switch', label: 'Enabled', wrapperClass: 'gap-4' } satisfies TsSwitchSchema,
   textarea: { type: 'textarea', label: 'Notes', wrapperClass: 'gap-4' } satisfies TsTextareaSchema,

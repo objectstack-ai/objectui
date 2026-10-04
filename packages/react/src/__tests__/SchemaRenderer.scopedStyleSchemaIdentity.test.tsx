@@ -61,7 +61,7 @@ declare module '@object-ui/types' {
  * reference to the spec row that declares it (`PageComponentSchema`).
  * `BaseSchema` declares the key on no arm this test uses. The literal is
  * checked against this node rather than against the `BaseSchema` the `schema`
- * prop accepts, so the key stays checked once objectui#8347 removes
+ * prop accepts, so the key stays checked now that objectui#8347 has removed
  * `BaseSchema`'s index signature.
  */
 type ScopedStyleNode = BaseSchema & Pick<PageComponent, 'responsiveStyles'> & { content?: string };

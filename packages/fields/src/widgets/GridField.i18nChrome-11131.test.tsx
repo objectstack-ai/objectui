@@ -14,10 +14,10 @@
  * “Add” to begin.` and the read-only grid's `No items`. They now read the
  * catalogue through the fields package's `useFieldTranslation`:
  * `fields.grid.addLine`, `fields.grid.noItemsAddHint` (whose `{{label}}` is the
- * authored `add_label`, or `detail.add`) and `fields.grid.noItems`.
+ * authored `addLabel`, or `detail.add`) and `fields.grid.noItems`.
  *
  * Only the DEFAULTS move. The `CONTROL` case pins the other half: an authored
- * `add_label` is the button's label exactly as written, and it is the label
+ * `addLabel` is the button's label exactly as written, and it is the label
  * the empty text names, under the same zh session.
  *
  * The provider-less English is the `.no-provider` companion of this file.
@@ -63,12 +63,12 @@ describe('GridField chrome resolves through the i18n catalogue (objectui#11131)'
     expect(screen.queryByText('No items')).toBeNull();
   });
 
-  it('CONTROL — an authored `add_label` is the button label and the label the empty text names', async () => {
+  it('CONTROL — an authored `addLabel` is the button label and the label the empty text names', async () => {
     inZh(
       <GridField
         value={[]}
         onChange={() => {}}
-        field={{ columns, add_label: 'Add invoice line' } as never}
+        field={{ columns, addLabel: 'Add invoice line' } as never}
         displayMode="list"
         onAdd={() => {}}
       />,

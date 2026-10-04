@@ -11,8 +11,8 @@
  *
  * `Omit<T, K>` is `Pick<T, Exclude<keyof T, K>>`, and `keyof T` on a type
  * carrying a string index signature is `string | number` — the literal member
- * names are ABSORBED. `FlexSchema` inherits `BaseSchema`'s `[key: string]: any`
- * (objectui#5155), so `Exclude<string | number, 'type'>` is still
+ * names are ABSORBED. `FlexSchema` inherited `BaseSchema`'s `[key: string]: any`
+ * (objectui#5155) until objectui#8347, so `Exclude<string | number, 'type'>` is still
  * `string | number`, and the `Pick` reconstructed a type with the index
  * signature and none of the named members. Measured on the emitted
  * `dist/layout.d.ts` before the fix:
@@ -21,7 +21,7 @@
  *   StackSchema ->  1 declared property: type
  *
  * `gap`, `children`, `align`, `justify`, `direction`, `wrap` and all 19 other
- * `BaseSchema` members were absent. Nothing errored — the index signature keeps
+ * `BaseSchema` members were absent. Nothing errored — the index signature kept
  * every absent key assignable and readable as `any` — so the only symptom was
  * in the tools that READ the declaration: editor completion on a `stack` node
  * offered `type` and nothing else, and objectui#6143's docs-vs-type sweep read
@@ -31,8 +31,8 @@
  * ## Why this reads the EMITTED declaration and not the source
  *
  * ⚠️ This is the load-bearing part of the guard. A source-level type assertion
- * (`Expect<Equal<StackSchema['gap'], number | undefined>>`) passes on the broken
- * code: the index signature answers for `gap` with `any`, and `any` satisfies
+ * (`Expect<Equal<StackSchema['gap'], number | undefined>>`) passed on the broken
+ * code: the index signature answered for `gap` with `any`, and `any` satisfies
  * everything. The gap between "what the source says" and "what the `.d.ts`
  * declares" IS this bug, so a guard that never opens the `.d.ts` cannot see it.
  *
@@ -202,7 +202,7 @@ describe('StackSchema ships the members it declares (objectui#6151)', () => {
   });
 
   it.each(['gap', 'children', 'align', 'justify', 'direction', 'wrap', 'className'])(
-    'declares `%s` in the emitted declaration, not merely via the index signature',
+    'declares `%s` as a named member of the emitted declaration, not a key a mapped type dropped',
     (member) => {
       // `getPropertyOfType` returned undefined for every one of these before the
       // fix, while `StackSchema['gap']` in SOURCE resolved to `any` and hid it.

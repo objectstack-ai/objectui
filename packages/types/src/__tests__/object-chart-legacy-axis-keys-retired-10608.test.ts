@@ -25,8 +25,9 @@
  *
  * ## Why tombstones and not deletions
  *
- * `BaseSchema` is `.passthrough()` on the zod side and carries an index
- * signature on the TS side, so an UNDECLARED key is not refused, it is KEPT.
+ * `BaseSchema` is `.passthrough()` on the zod side (and carried an index
+ * signature on the TS side until objectui#8347), so an UNDECLARED key is not
+ * refused there, it is KEPT.
  * Deleting the three members would hand the authored spelling exactly the
  * silent no-op this card closes; block (d) pins that consequence on a
  * misspelling, so the reason is a reading and not prose. `?: never` +
@@ -212,12 +213,14 @@ type Equal<A, B> =
   (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 type Expect<T extends true> = T;
 
-/** `Equal`, not `extends`: an UNDECLARED member reads `any` through the index signature. */
+/** `Equal`, not `extends`: an UNDECLARED member read `any` through the index signature until objectui#8347. */
 export type assertionXAxisFieldRetired = Expect<Equal<ObjectChartSchema['xAxisField'], undefined>>;
 export type assertionYAxisFieldsRetired = Expect<Equal<ObjectChartSchema['yAxisFields'], undefined>>;
 export type assertionAggregationRetired = Expect<Equal<ObjectChartSchema['aggregation'], undefined>>;
-/** The helper can FAIL — synthetic control (an undeclared key reads `any`). */
-export type assertionEqualCanFail = Expect<Equal<Equal<ObjectChartSchema['xAxisFeld'], undefined>, false>>;
+/** The helper can FAIL — synthetic control (a declared member is not `undefined`). */
+export type assertionEqualCanFail = Expect<Equal<Equal<ObjectChartSchema['type'], undefined>, false>>;
+/** An undeclared key is no member at all since objectui#8347 — it read `any` before. */
+export type assertionUndeclaredKeyIsNoMember = Expect<Equal<'xAxisFeld' extends keyof ObjectChartSchema ? true : false, false>>;
 
 describe('objectui#10608 (f) — the TS twin refuses what the mirror refuses', () => {
   it('each retired key is a compile error — checked by `tsc -p tsconfig.test.json`', () => {

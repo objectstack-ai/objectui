@@ -52,8 +52,9 @@
  *
  * ## The authority is the mirror's `.shape`, never parse acceptance
  *
- * `BaseSchema` is `.passthrough()` and carries `[key: string]: any`, so an
- * undeclared `selectionMode` PARSES GREEN and type-checks — acceptance cannot
+ * `BaseSchema` is `.passthrough()` (and carried `[key: string]: any` until
+ * objectui#8347), so an undeclared `selectionMode` PARSES GREEN (and
+ * type-checked) — acceptance cannot
  * tell "declared" from "admitted unexamined" (the reading
  * `undeclared-but-consumed-keys-6150.test.ts` and `object-grid-title-mirrored`
  * established). Membership is therefore read off `.shape`, optionality off each

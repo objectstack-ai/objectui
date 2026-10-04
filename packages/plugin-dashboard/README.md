@@ -698,9 +698,10 @@ a card directly in `widgets[]` whose `trend` is outside the three, or whose
 
 The widget keys (`colorVariant`, `filter`, `dataset`, …) are declared on the
 widget arm, `DashboardWidgetSchema`, which takes them from the spec's
-`DashboardWidget` row. The component arm declares none of them. Read straight
-off a `widgets[]` entry, such a key is typed `any`, supplied by the component
-arm's passthrough. This package's own readers take an entry by the slot's
+`DashboardWidget` row. The component arm declares none of them, so read
+straight off a `widgets[]` entry such a key is a compile error: the union offers
+only the keys both arms declare (before objectui#8347 removed `BaseSchema`'s index
+signature, the component arm answered it as `any`). This package's own readers take an entry by the slot's
 element type, `DashboardComponentSchema['widgets'][number]`. The component arm
 is not assignable to `DashboardWidgetSchema`, whose `type` names no component
 type, so narrow an entry on `type` first: `metric-card` is the one component

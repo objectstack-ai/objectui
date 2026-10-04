@@ -159,8 +159,9 @@ type ObjectFormLabelKey = (typeof OBJECT_FORM_LABEL_KEYS)[number];
 /**
  * `ObjectFormSchema` as every presentation below reads it: the seven
  * `I18nLabel` members already resolved to a string. A homomorphic mapped type
- * rather than `Omit`, because `BaseSchema`'s index signature makes `Omit`
- * collapse to that signature and drop every declared member.
+ * rather than `Omit`, because `BaseSchema`'s index signature made `Omit`
+ * collapse to that signature and drop every declared member (until
+ * objectui#8347 removed it).
  */
 type LocalizedObjectFormSchema = {
   [K in keyof ObjectFormSchema]: K extends ObjectFormLabelKey ? string : ObjectFormSchema[K];

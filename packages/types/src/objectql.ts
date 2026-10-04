@@ -1100,8 +1100,9 @@ export interface ObjectGridSchema extends BaseSchema {
    *
    * `?: never`, not a deletion — this package's tombstone convention (see
    * `ObjectViewSchema.viewTabBar`): {@link BaseSchema}'s `[key: string]: any`
-   * would absorb a deleted member, so the retired spelling would type-check
-   * green and do nothing. Lockstep with the Zod twin (`zod/objectql.zod.ts`,
+   * absorbed a deleted member until objectui#8347, and a deletion is still
+   * refused only on a fresh literal, so the retired spelling would type-check
+   * green through a widened value and do nothing. Lockstep with the Zod twin (`zod/objectql.zod.ts`,
    * `retirementTombstone()`).
    *
    * @deprecated RETIRED (objectui#5861) — write `sort: [{ field, order }]`
@@ -2280,11 +2281,11 @@ export interface ObjectFormSchema extends BaseSchema {
  * withheld key by name, and the pin below holds the two faces to one list.
  *
  * ⚠️ This is an explicit list, and NOT an `Omit` of `ObjectGridSchema`,
- * because `Omit` collapses here (objectui#6269). `Omit<T, K>` is
+ * because `Omit` collapsed here (objectui#6269). `Omit<T, K>` is
  * `Pick<T, Exclude<keyof T, K>>`, and `keyof T` on a type carrying a string
  * index signature is `string | number` — the literal member names are ABSORBED.
- * `ObjectGridSchema` inherits `BaseSchema`'s `[key: string]: any`
- * (objectui#5155), so the `Omit` rebuilt a type holding the index signature and
+ * `ObjectGridSchema` inherited `BaseSchema`'s `[key: string]: any`
+ * (objectui#5155) until objectui#8347, so the `Omit` rebuilt a type holding the index signature and
  * none of the named members: measured through the checker at objectui#6269,
  * `Omit<ObjectGridSchema, 'type' | 'objectName'>` declared 0 properties. The
  * slot accepted anything (`table: { colunms: 3 }` type-checked), offered no
@@ -2300,9 +2301,9 @@ export interface ObjectFormSchema extends BaseSchema {
  * A new grid member therefore turns it red until it is relayed (here and in
  * `OBJECT_VIEW_TABLE_RELAY_KEYS`) or withheld (there and on the zod twin).
  *
- * 🗑️ When a #5155 phase removes `BaseSchema`'s root index signature, `Omit`
- * stops collapsing, and this list may be spelled as an `Omit` of the identity
- * keys and the withheld set. The pin stays: what it guards now is that every
+ * 🗑️ objectui#8347 removed `BaseSchema`'s root index signature (the #5155 phase
+ * this waited for), so `Omit` no longer collapses here, and this list may be
+ * spelled as an `Omit` of the identity keys and the withheld set. The pin stays: what it guards now is that every
  * grid member is classified, which an `Omit` does not do by itself.
  */
 type ObjectGridSlotKey =
@@ -2350,9 +2351,10 @@ type ObjectGridSlotKey =
  *
  * Same `Omit` collapse and same pin as `ObjectGridSlotKey` above — see its
  * comment. Unlike that list, this one withholds nothing but the identity keys,
- * so its removal condition is the original one: when a #5155 phase removes
- * `BaseSchema`'s root index signature, this list and its half of the pin become
- * removable in favour of `Omit<ObjectFormSchema, 'type' | 'objectName' | 'mode'>`.
+ * so its removal condition is the original one, and objectui#8347 met it by
+ * removing `BaseSchema`'s root index signature (the #5155 phase it waited for):
+ * this list and its half of the pin are removable in favour of
+ * `Omit<ObjectFormSchema, 'type' | 'objectName' | 'mode'>`.
  * Measured before the objectui#6269 fix: that `Omit` declared 0 of
  * `ObjectFormSchema`'s 67 members.
  */
@@ -2610,9 +2612,10 @@ export interface ObjectViewSchema extends BaseSchema {
    *
    * `?: never` is this package's tombstone convention (see
    * `ObjectKanbanSchema.groupField`, objectui#7322), and it is load-bearing
-   * rather than decorative: {@link BaseSchema} carries `[key: string]: any`,
-   * so DELETING this member would let the retired spelling type-check green
-   * and go on doing nothing. Keeping the key declared as `never` is what makes
+   * rather than decorative: {@link BaseSchema} carried `[key: string]: any`
+   * until objectui#8347, and a deletion is still refused only on a fresh
+   * literal, so DELETING this member would let the retired spelling type-check
+   * green through a widened value and go on doing nothing. Keeping the key declared as `never` is what makes
    * the retirement audible at the authoring boundary. Lockstep with the Zod
    * twin (`zod/objectql.zod.ts`, `retirementTombstone()`): both halves or
    * neither. Absent stays valid on both, so a node that never wrote the key is
@@ -4166,9 +4169,9 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * `startDateField`.
    *
    * ⚠️ It is a TOMBSTONE, not a deletion, and the difference is the whole
-   * ruling. `BaseSchema` carries `[key: string]: any` on this face and
-   * `.passthrough()` on the mirror, so a DELETED key is not refused — it is
-   * KEPT, unexamined, and then ignored now that `ObjectCalendar`'s alias ladder
+   * ruling. `BaseSchema` is `.passthrough()` on the mirror (and carried
+   * `[key: string]: any` on this face until objectui#8347), so a DELETED key is
+   * not refused there — it is KEPT, unexamined, and then ignored now that `ObjectCalendar`'s alias ladder
    * is gone. Silent is the failure mode an earlier attempt shipped
    * (objectui#8651 records it); declared-and-unwritable is what makes the same
    * document fail loudly instead.
@@ -4243,7 +4246,7 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * {@link ObjectCalendarSchema.endDateField} above, which have shipped
    * DECLARED for releases. This key is the fifth member of that flat handoff,
    * not a new dialect. And under `BaseSchema`'s
-   * index signature the value was already `any`, so declaring only NARROWS.
+   * index signature the value was already `any`, so declaring only NARROWED.
    *
    * ⭐ Nor is it a new precedent: {@link CalendarViewSchema} — a sibling
    * calendar interface in the same plugin, whose OWN renderer
@@ -4524,9 +4527,10 @@ export interface ObjectKanbanSchema extends BaseSchema {
    *
    * `?: never` is this package's tombstone convention (see
    * `TimelineSchema.timeScale`, objectui#6355), and it is load-bearing rather
-   * than decorative: {@link BaseSchema} carries `[key: string]: any`, so
-   * DELETING this member would let the retired spelling type-check green and
-   * go on doing nothing. Keeping the key declared as `never` is what makes the
+   * than decorative: {@link BaseSchema} carried `[key: string]: any` until
+   * objectui#8347, and a deletion is still refused only on a fresh literal, so
+   * DELETING this member would let the retired spelling type-check green
+   * through a widened value and go on doing nothing. Keeping the key declared as `never` is what makes the
    * retirement audible at the authoring boundary. Lockstep with the Zod twin
    * (`zod/objectql.zod.ts`, `retirementTombstone()`): both halves or neither.
    * Absent stays valid on both, so a node that never wrote the key is untouched.
@@ -4548,8 +4552,8 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * {@link BaseSchema}'s `[key: string]: any` on this face: the renderer read
    * it at three sites while neither published face of this package named it,
    * so `columns: "todo"`, `columns: [42]` and a lane card with no `title` all
-   * parsed green. Declaring on a face that already carries an index signature
-   * can only NARROW — it adds validation where there was none — and that is
+   * parsed green. Declaring on a face that carries an index signature (as this
+   * one did until objectui#8347) can only NARROW — it adds validation where there was none — and that is
    * the whole of what this member does.
    *
    * ⚠️ Narrowing is not licence to bless whatever the protocol's literal
@@ -4777,10 +4781,11 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * reverse left open (objectui#9711).
    *
    * What this member buys, measured: {@link BaseSchema}'s `[key: string]: any`
-   * would admit `cardTitle: 42` in a typed corpus, and with the member declared
-   * `tsc` refuses it. The `@ts-expect-error` row in
-   * `__tests__/object-kanban-card-title-9606.test.ts` is what turns that into a
-   * guard — delete this member and the directive goes unused, TS2578.
+   * admitted `cardTitle: 42` in a typed corpus until objectui#8347, and with the
+   * member declared `tsc` refuses it. The `@ts-expect-error` row in
+   * `__tests__/object-kanban-card-title-9606.test.ts` guards the member's TYPE;
+   * it no longer catches a deletion, because since objectui#8347 a deleted
+   * member's `42` is refused as an undeclared key and the directive stays used.
    */
   cardTitle?: string;
   /** Field for card title */
@@ -4842,9 +4847,10 @@ export interface ObjectKanbanSchema extends BaseSchema {
    * resolves to that component since the `kanban-ui` tag retired
    * (objectui#8257), so this is a host capability, not a document one.
    *
-   * A tombstone rather than a deleted member because `BaseSchema` carries an
-   * index signature: a deleted member would type as `any` and be KEPT, not
-   * refused. Pinned in `__tests__/object-kanban-quick-add-retired-8285.test.ts`.
+   * A tombstone rather than a deleted member because `BaseSchema` carried an
+   * index signature when this was written: a deleted member would type as
+   * `any` and be KEPT, not refused. Since objectui#8347 a deletion is refused
+   * on a fresh literal, but a widened value still carries the key silently. Pinned in `__tests__/object-kanban-quick-add-retired-8285.test.ts`.
    *
    * @deprecated Not part of this contract — delete the key.
    */
@@ -4931,9 +4937,9 @@ export interface ObjectKanbanSchema extends BaseSchema {
    *
    * ## Why a tombstone rather than a plain deletion
    *
-   * {@link BaseSchema} carries `[key: string]: any` and its mirror ends
-   * `.passthrough()`, so a deleted member is KEPT, not refused — one silent
-   * no-op traded for another. The member therefore stays declared and
+   * {@link BaseSchema}'s mirror ends `.passthrough()` (and the interface carried
+   * `[key: string]: any` until objectui#8347), so a deleted member is KEPT, not
+   * refused, on the zod face — one silent no-op traded for another. The member therefore stays declared and
    * unwritable on both faces, paired with a `retirementTombstone()` on the zod
    * twin so the value is refused BY NAME instead of stripped, which is also
    * what keeps the two faces' key sets equal for the parity ratchet.
@@ -5273,11 +5279,13 @@ export interface KanbanConditionalFormattingRule extends SpecConditionalFormatti
  *
  * ## The ceiling, stated rather than assumed (objectui#5155)
  *
- * `BaseSchema` still carries `[key: string]: any`, so declaring a key buys it
+ * While `BaseSchema` carried `[key: string]: any`, declaring a key bought it
  * its declared TYPE — `xAxisKey: 42` and `title: 42` are both refused now — but
- * does NOT buy rejection of a MISSPELLING: `xAxisKy: 'x'` and `drillDwn: {}`
- * still compile, exactly as they do on `ObjectGallerySchema` (objectui#6576).
- * ONE ceiling, two cards, and each pins it honestly with its own counter-probe:
+ * did NOT buy rejection of a MISSPELLING: `xAxisKy: 'x'` and `drillDwn: {}`
+ * still compiled, exactly as they did on `ObjectGallerySchema` (objectui#6576).
+ * objectui#8347 removed the signature, so a misspelling in a fresh literal is
+ * refused now. ONE ceiling, two cards, and each pinned it with its own
+ * counter-probe, flipped by objectui#8347:
  * `__tests__/widget-schema-anchors-7946.test.ts` and
  * `__tests__/object-chart-undeclared-keys-8885.test.ts`.
  *
@@ -5427,8 +5435,9 @@ export interface ObjectChartSchema extends BaseSchema {
    * `xAxis: { field: 'status' }`; on the inline `objectName` path the category
    * is `aggregate.groupBy`.
    *
-   * A tombstone rather than a deletion: `BaseSchema`'s index signature and the
-   * mirror's `.passthrough()` would otherwise KEEP an authored value in silence.
+   * A tombstone rather than a deletion: the mirror's `.passthrough()` would
+   * otherwise KEEP an authored value in silence, and so did `BaseSchema`'s
+   * index signature until objectui#8347 (a widened value still would).
    *
    * @deprecated Not a key this node reads. Write `xAxis: { field }`.
    */
@@ -6009,9 +6018,10 @@ export interface ObjectDataTableSchema extends BaseSchema {
    * and no reader was added.
    *
    * A `?: never` tombstone, not a plain deletion: this carrier survives the
-   * retirement and extends {@link BaseSchema} (`[key: string]: any` here,
-   * `.passthrough()` on the zod mirror), so a deleted member would be absorbed
-   * silently at any value — the silent no-op the retirement exists to end.
+   * retirement and extends {@link BaseSchema} (`.passthrough()` on the zod
+   * mirror, and `[key: string]: any` here until objectui#8347; a widened value
+   * still skips the excess-property check), so a deleted member would be
+   * absorbed silently at any value — the silent no-op the retirement exists to end.
    * Licensed by prong 1 of the discriminator (objectui#5941, #7526, in its
    * amended form, `5f8190c8c`): it steers authors to the named live replacement,
    * `objectName`. The zod mirror refuses the key by name with that guidance.

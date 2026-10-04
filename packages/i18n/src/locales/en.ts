@@ -571,7 +571,7 @@ const en = {
     },
     // objectui#11131 — the line-items grid's default chrome (`GridField`):
     // its Add button, the read-only grid's empty state, and the list-mode
-    // grid's empty state. An authored `add_label` still wins over `addLine`,
+    // grid's empty state. An authored `addLabel` still wins over `addLine`,
     // and it fills the `{{label}}` hole (`detail.add` when none is authored).
     //
     // objectui#11145 — the rest of that chrome: the column chooser's heading,

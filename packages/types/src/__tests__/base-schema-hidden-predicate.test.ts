@@ -46,9 +46,9 @@
  *      until objectui#7530 declared the envelope), invariantly. `Equal`, not `extends`:
  *      the narrow `boolean` is assignable to the wide union, so a one-way check
  *      stays green on a widening that never happened, and `BaseSchema`'s
- *      `[key: string]: any` index signature means a DELETED member reads `any`,
- *      which a one-way check also accepts. The overshoot is the live risk here,
- *      not a hypothetical.
+ *      `[key: string]: any` index signature meant a DELETED member read `any`
+ *      (until objectui#8347), which a one-way check also accepts. The overshoot
+ *      was the live risk here, not a hypothetical.
  *   2. The three keys are asserted to carry the SAME declared type. The ruling's
  *      words are "matching `visible` and `disabled` on both faces"; asserting
  *      `hidden` alone would stay green if a later change narrowed one of the

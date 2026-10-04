@@ -20,12 +20,13 @@
  *
  * The card's pin is "a misspelled key inside an `element:text` `properties`
  * bag stops type-checking once `BaseSchema`'s index signature is gone, and the
- * spec's spelling compiles". Today `BaseSchema` still carries
+ * spec's spelling compiles". When this was written `BaseSchema` still carried
  * `[key: string]: any`, so the union `SchemaRenderer`'s `schema` prop declares
- * accepts that misspelling. `PostRemovalSchema` below is that same union with
- * `BaseSchema`'s index signatures stripped at the type level. It simulates the
- * removal without editing anything, so the pin runs in every type-check now and
- * keeps running after the removal lands. `@object-ui/react` pins the prop's
+ * accepted that misspelling. `PostRemovalSchema` below is that same union with
+ * `BaseSchema`'s index signatures stripped at the type level. It simulated the
+ * removal without editing anything, so the pin ran in every type-check before
+ * objectui#8347 and keeps running now that the removal has landed (the strip is
+ * the identity on `BaseSchema` since then). `@object-ui/react` pins the prop's
  * union exactly (`SchemaRenderer.propsResolution.test.ts`, assertion 1), and
  * this file substitutes only its `BaseSchema` member.
  *

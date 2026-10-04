@@ -51,8 +51,8 @@ import type { MetricWidgetProps } from './MetricWidget';
  * {@link isSlotComponentEntry} first (objectui#11598, N2 A), the read rule
  * `DashboardComponentSchema.widgets` states. The component arm declares none
  * of them, and a component node in the slot draws itself whatever else it
- * carries; reading one off the entry whichever arm it is compiled only through
- * `BaseSchema`'s index signature, which objectui#8347 removes.
+ * carries; reading one off the entry whichever arm it was compiled only through
+ * `BaseSchema`'s index signature, which objectui#8347 removed.
  */
 export type DashboardWidgetSlotEntry = DashboardComponentSchema['widgets'][number];
 

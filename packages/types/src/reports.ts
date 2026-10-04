@@ -381,8 +381,9 @@ export interface ReportComponentSchema extends BaseSchema {
    * that write is removed in the same change. A spec report's own `type` is what
    * selects a dataset-bound report's layout; this presentation key selected nothing.
    *
-   * `?: never` rather than deleted: this interface carries `BaseSchema`'s index
-   * signature, so a deleted member would type-check silently, while a tombstone
+   * `?: never` rather than deleted: this interface carried `BaseSchema`'s index
+   * signature, so a deleted member would type-check silently (since
+   * objectui#8347, through a widened value only), while a tombstone
    * makes presence a `tsc` error, and the zod twin refuses the key by name.
    *
    * @deprecated RETIRED (objectui#6152) — nothing reads it. Delete the key.
@@ -524,8 +525,9 @@ export interface ReportComponentSchema extends BaseSchema {
    * key on a different type), no in-code producer, and no document authoring it,
    * so an authored value configured nothing.
    *
-   * `?: never` rather than deleted: this interface carries `BaseSchema`'s index
-   * signature, so a deleted member would type-check silently, while a tombstone
+   * `?: never` rather than deleted: this interface carried `BaseSchema`'s index
+   * signature, so a deleted member would type-check silently (since
+   * objectui#8347, through a widened value only), while a tombstone
    * makes presence a `tsc` error, and the zod twin refuses the key by name.
    *
    * @deprecated RETIRED (objectui#6152) — nothing reads it. Delete the key.

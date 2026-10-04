@@ -168,14 +168,15 @@ const ouiDeclaredKeys = [
  * The EXPLICITLY DECLARED keys of an interface, with any index signature
  * filtered out.
  *
- * ⛔ The plain `keyof` spelling does not work here, and silently produces a
- * guard-shaped no-op rather than an error. `BaseSchema` ends with
+ * ⛔ The plain `keyof` spelling did not work here, and silently produced a
+ * guard-shaped no-op rather than an error, while `BaseSchema` ended with
  * `[key: string]: any` (`packages/types/src/base.ts`) — the escape hatch that
- * lets component nodes carry type-specific extensions. Any interface extending
- * it therefore has `keyof` = `string | number`, so
- * `Exclude<keyof ObjectViewInterface, keyof BaseInterface>` collapses to
- * `never`, `Record<never, true>` is `{}`, and the exhaustiveness check below
- * accepts literally any object — including one missing half the node's keys.
+ * let component nodes carry type-specific extensions until objectui#8347
+ * removed it. Any interface extending it therefore had `keyof` =
+ * `string | number`, so `Exclude<keyof ObjectViewInterface, keyof BaseInterface>`
+ * collapsed to `never`, `Record<never, true>` was `{}`, and the exhaustiveness
+ * check below accepted literally any object — including one missing half the
+ * node's keys.
  *
  * Measured, not reasoned: with the `keyof` spelling, deleting `viewActions`
  * from the record left `pnpm --filter @object-ui/types type-check` green.
@@ -183,8 +184,8 @@ const ouiDeclaredKeys = [
  * keeps the declared names, which restores the error.
  *
  * This is also the deeper reason the TS half of this node drifted unnoticed for
- * so long: the same index signature means the interface never rejected an
- * undeclared key either.
+ * so long: the same index signature meant the interface never rejected an
+ * undeclared key either (until objectui#8347).
  */
 type KnownKeys<T> = keyof {
   [K in keyof T as string extends K ? never : number extends K ? never : K]: unknown;

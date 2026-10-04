@@ -770,8 +770,8 @@ type Equal<A, B> =
 type Expect<T extends true> = T;
 
 /** `?: never` reads as exactly `undefined` off the interface (`Equal`, not
- *  `extends`, because `BaseSchema`'s index signature makes a DELETED member read
- *  `any`, which a one-way check would accept). */
+ *  `extends`, because `BaseSchema`'s index signature made a DELETED member read
+ *  `any` until objectui#8347, which a one-way check would accept). */
 type RetiredIsNever<T> = Equal<T, undefined>;
 
 /** A runtime slot keeps a callable member. Over `NonNullable` so `undefined`
@@ -815,8 +815,8 @@ export type assertionStringTwinsStopDeclaringString = [
 ];
 
 /**
- * The member is DECLARED on the interface, not inherited from `BaseSchema`'s
- * `[key: string]: any` index signature.
+ * The member is DECLARED on the interface, not read through the
+ * `[key: string]: any` index signature `BaseSchema` carried until objectui#8347.
  *
  * ⚠️ This exists because objectui#7804's two keys enter this ledger from a base
  * state the other four never had: ABSENT. `Extract`-based helpers read an
@@ -836,7 +836,7 @@ export type assertionDetailSlotsAreDECLARED = [
 
 // The four helpers must be able to FAIL — synthetic controls, both directions.
 export type assertionDeclaresExactlyCanFail = [
-  // an ABSENT member, as `BaseSchema`'s index signature types it
+  // an ABSENT member, as `BaseSchema`'s index signature typed it (until objectui#8347)
   Expect<Equal<DeclaresExactly<any, () => void>, false>>,
   // a DECLARED member with the wrong signature
   Expect<Equal<DeclaresExactly<((n: number) => void) | undefined, () => void>, false>>,

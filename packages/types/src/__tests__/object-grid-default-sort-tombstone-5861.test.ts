@@ -19,8 +19,10 @@
  *
  *   - the zod mirror reaches `BaseSchema`, which is `.passthrough()`, so an
  *     undeclared key is KEPT unexamined — the document would parse green;
- *   - the TypeScript twin extends `BaseSchema`'s `[key: string]: any`, so an
- *     undeclared key is absorbed as `any` — the literal would compile.
+ *   - the TypeScript twin extended `BaseSchema`'s `[key: string]: any`, so an
+ *     undeclared key was absorbed as `any` — the literal would have compiled
+ *     (since objectui#8347 a fresh literal is refused, unnamed, and a widened
+ *     value still passes).
  *
  * Either way an author would write a key nothing reads and get an unsorted
  * grid with no signal. So the key stays DECLARED and unwritable on both faces:
@@ -126,8 +128,13 @@ describe('the UPSTREAM half — re-derived from the installed pin, not copied in
  * The `@ts-expect-error` below IS the assertion: `defaultSort?: never` makes
  * the legacy literal a compile error. It fails this package's
  * `tsc -p tsconfig.test.json` leg as an UNUSED directive if the member is ever
- * deleted (the index signature would absorb the key) or re-typed as a live
- * `{ field, order }`.
+ * re-typed as a live `{ field, order }`. A deletion failed it too while the index
+ * signature absorbed the key; since objectui#8347 a deleted member's key is
+ * refused as undeclared, which keeps the directive used, so the directive no
+ * longer sees a deletion. The deletion guard is the `_DefaultSortIsATombstone`
+ * row below: an indexed access on a member that does not exist is itself a
+ * compile error, and the row pins the tombstone type (`?: never` reads as
+ * `undefined`), so a re-typing to a live value reddens it as well.
  */
 export const authoredDefaultSortRefused: ObjectGridSchemaType = {
   type: 'object-grid',
@@ -142,6 +149,19 @@ export const authoredSortIsDeclared: ObjectGridSchemaType = {
   objectName: 'probe',
   sort: AUTHORED_CANONICAL,
 };
+
+type Equal<A, B> =
+  (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
+type Expect<T extends true> = T;
+
+/**
+ * The tombstone is a MEMBER on the TS face too. Measured by ablation on this
+ * tree: deleting `defaultSort?: never` from `ObjectGridSchema` turns this row
+ * red while the directive above stays green (the `zod-mirror-parity` ledger and
+ * the `ObjectGridSlotKey` constraint in `objectql.ts` redden on the same
+ * deletion, since both still name the member); restored, it is green.
+ */
+export type _DefaultSortIsATombstone = Expect<Equal<ObjectGridSchemaType['defaultSort'], undefined>>;
 
 describe('the TypeScript twin', () => {
   it('is compiled by this package’s type-check leg, which is where the two bindings above are read', () => {

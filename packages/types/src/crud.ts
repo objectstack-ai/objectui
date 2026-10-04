@@ -160,8 +160,8 @@ export interface ActionSchema extends BaseSchema {
    * Where the live meaning lives: the spec's `onSuccess` block `{ navigate, openIn }`,
    * declared on `UIActionSchema` (`ui-action.ts`) and forwarded to the runner. A
    * success notice is {@link ActionSchema.successMessage}. `?: never` rather than a
-   * deletion because {@link BaseSchema} carries an index signature that would ADMIT
-   * a deleted key unchecked; the zod twin (`zod/crud.zod.ts`) refuses it by name.
+   * deletion because {@link BaseSchema} carried an index signature that would ADMIT
+   * a deleted key unchecked (since objectui#8347 a widened value still would); the zod twin (`zod/crud.zod.ts`) refuses it by name.
    * @deprecated Not part of this contract — write the spec's `onSuccess` block on `UIActionSchema`, or `successMessage`.
    */
   onSuccess?: never;

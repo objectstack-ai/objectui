@@ -814,7 +814,9 @@ const OBJECT_FORM_NEITHER_CHANNEL = neitherContentChannelGuidance(
  * `ObjectFormSchema` pair rather than as a pair of its own.
  *
  * ⚠️ A `fields` entry is `z.any()`, the precedent this mirror already set for
- * `customFields`: the declared entry is `string | FormField`, and
+ * `customFields`: the declared entry is `string | SpecFormFieldInput |
+ * FormField` (the spec's form-view `{ field }` entry joined it in
+ * objectui#11615), and
  * `FormFieldSchema` (`./form.zod.ts`) carries its own `KnownDrift` (`validation`)
  * and `UnmirroredDeclared` (`field`) rows, so binding it here would import that
  * drift into this pair. So every SECTION-level member is judged, and a field

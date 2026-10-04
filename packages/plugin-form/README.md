@@ -433,6 +433,24 @@ directly would have to re-spell the `collapse` enum onto its own boolean pair an
 pass `visibleWhen` through by hand, which is the duplication this export exists to
 prevent.
 
+### What a section's `fields` entries draw
+
+A section's `fields` takes three entry shapes, and every `formType` draws them
+the same way: a field **name** and the form view's `{ field, … }` entry (which
+overrides that object field) are resolved against the object schema, while an
+inline runtime `FormField` keyed by `name` carries its own definition and is
+drawn as it stands.
+
+On the default (`simple`) form the two named shapes resolve against the form's
+parent field pool — top-level `fields` when given, else the object's fields,
+plus `customFields` — so a named member the pool does not hold is dropped
+(reported once when the object declares it: `fields` and `sections`
+intersect). An inline entry names nothing to resolve, so it is drawn whatever
+the pool holds, exactly as the other five layouts draw it (objectui#11615). A
+`simple` form whose sections list only inline entries is therefore a
+self-contained collector, like the inline wizard below — see
+[What a form submits to](#what-a-form-submits-to).
+
 ### Column width of a sectioned form
 
 A sectioned form renders as ONE grid, and two keys decide its shape:

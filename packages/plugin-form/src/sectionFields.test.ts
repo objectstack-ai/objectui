@@ -259,13 +259,12 @@ describe('buildSectionFields — with a pool (objectui#10475)', () => {
     expect(fields.map((f) => f.name)).toEqual(['industry', 'name']);
   });
 
-  it('drops an entry the pool does not hold, in every shape — the objectui#9884 intersection', () => {
+  it('drops a NAME-ONLY entry the pool does not hold, in both named shapes — the objectui#9884 intersection', () => {
     const fields = buildSectionFields(
       {
         fields: [
           'billing_address',
           { field: 'billing_address', label: 'X' },
-          { name: 'billing_address', type: 'text' },
           'name',
         ],
       },
@@ -279,6 +278,42 @@ describe('buildSectionFields — with a pool (objectui#10475)', () => {
     expect(
       buildSectionFields({ fields: ['billing_address', 'name'] }, ctx).map((f) => f.name),
     ).toEqual(['billing_address', 'name']);
+  });
+
+  it('draws a SELF-DESCRIBING inline entry whatever the pool holds, as the pool-less branch does (objectui#11615)', () => {
+    // Three self-describing entries the pool does not hold: one naming a field
+    // nothing declares, one naming a field the object declares (absent from the
+    // pool — what top-level `fields` leaving it out produces), and one carrying
+    // no `type` at all: the spec's inline arm keys by `name` and leaves `type`
+    // optional, so `type` is not what makes an entry self-describing.
+    const memo = { name: 'memo', label: 'Memo', type: 'text' };
+    const billing = { name: 'billing_address', label: 'INLINE BILLING', type: 'textarea' };
+    const typeless = { name: 'typeless', label: 'Typeless' };
+    const section = { fields: ['industry', memo, billing, typeless, 'name'] as any[] };
+
+    const pooled = buildSectionFields(section, pooledCtx);
+    expect(pooled.map((f) => f.name), 'section order, the pooled names around the inline ones').toEqual([
+      'industry',
+      'memo',
+      'billing_address',
+      'typeless',
+      'name',
+    ]);
+    // Each is drawn AS IT STANDS — the same answer the pool-less branch gives.
+    const poolless = buildSectionFields(section, ctx);
+    expect(pooled[1]).toEqual(poolless[1]);
+    expect(pooled[2]).toEqual(poolless[2]);
+    expect(pooled[3]).toEqual(poolless[3]);
+    expect((pooled[2] as any).label, 'its own definition, not the object’s field').toBe('INLINE BILLING');
+    expect((pooled[3] as any).type, 'no `type` is invented for it').toBeUndefined();
+  });
+
+  it('still drops a malformed shape-3 entry with no `name` — it names nothing and describes nothing', () => {
+    // Not self-describing (`isInlineFieldDef` wants a `name`), and no pooled
+    // field answers to it: the one entry the pooled branch drops for having no
+    // identity at all, as it did before objectui#11615.
+    const fields = buildSectionFields({ fields: [{ label: 'nameless', type: 'text' } as any, 'name'] }, pooledCtx);
+    expect(fields.map((f) => f.name)).toEqual(['name']);
   });
 
   it('a name string draws the POOLED field as it is', () => {
@@ -319,7 +354,7 @@ describe('buildSectionFields — with a pool (objectui#10475)', () => {
     expect(f.disabled).toBe(true);
   });
 
-  it('an already-built runtime FormField entry is its own definition, drawn only when pooled', () => {
+  it('an already-built runtime FormField entry is its own definition, even when the pool holds its name', () => {
     const runtime = { name: 'industry', label: 'RUNTIME', type: 'field:text' };
     const [f] = buildSectionFields({ fields: [runtime as any] }, pooledCtx);
     expect(f.label).toBe('RUNTIME');

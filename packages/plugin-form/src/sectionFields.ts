@@ -45,6 +45,7 @@ import { evalFieldPredicate, isBlankPredicateText, type FieldRulePredicate } fro
 import { mapFieldTypeToFormType, buildValidationRules } from '@object-ui/fields';
 import { isCreateFormMode, isRequiredInForm } from './schemaDefaults';
 import { findCustomFieldMember } from './customFieldsMerge';
+import { isInlineFieldDef } from './submitTarget';
 
 export interface SectionFieldsContext {
   /** Resolved object schema (`{ fields: { [name]: fieldDef } }`) or null. */
@@ -91,7 +92,9 @@ export interface SectionFieldsContext {
    *
    * When set, {@link buildSectionFields} still walks the section's entries in
    * AUTHORED order and applies each entry's overrides by the same rules as
-   * every other arm; two things change, both the pool's to decide:
+   * every other arm; for a NAME-ONLY entry — shape (1) or (2), which names a
+   * field and leaves its definition to be resolved — two things change, both
+   * the pool's to decide:
    *
    *   - membership — an entry naming a field the pool does not hold is
    *     dropped. That is objectui#9884's INTERSECTION of `fields` and
@@ -107,8 +110,15 @@ export interface SectionFieldsContext {
    *     not one of them: every arm applies it after this builder, in
    *     `gateFormFields` (objectui#10612).
    *
-   * An already-built runtime FormField entry (shape 3) is its own definition
-   * with or without a pool; the pool decides only whether it is drawn.
+   * An already-built runtime FormField entry (shape 3) carrying its own
+   * `name` is its own definition, and the pool decides NOTHING about it: it is
+   * drawn whatever the pool holds, exactly as the pool-less arms draw it
+   * (objectui#11615). The intersection catches a NAME the object does not
+   * declare or `fields` does not list — a typo, a stale name — and an entry
+   * that declares itself names nothing to resolve, so dropping it guarded
+   * nothing and made this arm the one that skipped what the other five drew.
+   * "Self-describing" is `isInlineFieldDef` (`submitTarget.ts`), the one
+   * predicate the submit-target rule already reads.
    * Omitted → no pool: every entry is drawn, from the bases above.
    */
   pool?: readonly FormField[] | null;
@@ -458,9 +468,11 @@ function resolveSectionEntry(
 /**
  * Normalize every field def in a section, in the section's AUTHORED order.
  *
- * With a {@link SectionFieldsContext.pool}, an entry naming a field the pool
- * does not hold is dropped, and a pooled field is the base the entry starts
- * from; the order stays the section's own either way (objectui#10475).
+ * With a {@link SectionFieldsContext.pool}, a name-only entry naming a field
+ * the pool does not hold is dropped, and a pooled field is the base the entry
+ * starts from; a self-describing inline entry is drawn as it stands, pooled
+ * or not (objectui#11615); the order stays the section's own either way
+ * (objectui#10475).
  */
 export function buildSectionFields(
   section: { fields?: Array<string | Record<string, any>> },
@@ -478,6 +490,12 @@ export function buildSectionFields(
   }
   const drawn: FormField[] = [];
   for (const fieldDef of entries) {
+    // A self-describing inline entry needs nothing the pool holds: drawn the
+    // way the pool-less branch above draws it (objectui#11615).
+    if (isInlineFieldDef(fieldDef)) {
+      drawn.push(normalizeSectionField(fieldDef, ctx));
+      continue;
+    }
     const name = sectionEntryName(fieldDef);
     const pooled = name === undefined ? undefined : pooledByName.get(name);
     if (!pooled) continue;

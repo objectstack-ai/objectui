@@ -62,7 +62,7 @@ import { formWritePayload } from './writePayload';
 import { applyFieldPermissions, closedFormAffordance, fieldWriteGate, gateFormFields } from './fieldWriteGate';
 import { ClosedAffordanceNotice } from './closedAffordanceNotice';
 import { resolveInitialRecord } from './initialRecord';
-import { noSubmitTargetError } from './submitTarget';
+import { hasInlineFieldSource, isInlineFieldDef, noSubmitTargetError } from './submitTarget';
 import { useUploadGate, UploadGateProvider, UploadInFlightNotice } from './uploadGate';
 import {
   schemaDefaultValues,
@@ -754,6 +754,13 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
 
   // Check if using inline fields (fields defined as objects, not just names)
   const hasInlineFields = schema.customFields && schema.customFields.length > 0;
+  // objectui#11615 — the members-only field source as the five other layouts
+  // answer it (`hasInlineFieldSource`): `customFields` (limb a, which is
+  // `hasInlineFields` above), or sections whose EVERY entry is self-describing
+  // (limb b), which this arm now draws whatever its field pool holds. With no
+  // adapter such a form has nothing to read: it opens on the caller's record,
+  // and its `onSuccess` is the write (the carve-out in `handleSubmit`).
+  const hasInlineSource = hasInlineFieldSource(schema);
 
   // Initialize with inline data if provided
   useEffect(() => {
@@ -825,9 +832,13 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
     // what the registration's second sentence describes ("with inline
     // definitions and no data source, this becomes the only field source"), so
     // it is now the FALLBACK rather than the inline path's fixed answer.
+    //
+    // objectui#11615: sections of self-describing entries are the other
+    // members-only source (`hasInlineSource`), so they take the same fallback —
+    // which is what lets the record effect below seed such a form.
     if (schema.objectName && dataSource) {
       fetchObjectSchema();
-    } else if (hasInlineFields) {
+    } else if (hasInlineSource) {
       setObjectSchema(inlineOnlySchema);
       run.commit();
     } else {
@@ -835,7 +846,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       setLoading(false);
     }
     return () => { cancelled = true; };
-  }, [schema.objectName, dataSource, hasInlineFields]);
+  }, [schema.objectName, dataSource, hasInlineFields, hasInlineSource]);
 
   // objectui#10572 — the data-invalidation bus (`notifyDataChanged` from
   // `@object-ui/react`), read for the record this form READS (edit/view mode,
@@ -882,6 +893,17 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       }
 
       if (!dataSource) {
+        if (hasInlineSource) {
+          // objectui#11615 — sections of self-describing entries with no
+          // adapter: a self-contained collector with nothing to read, so it
+          // opens on the caller's record, as the five other layouts open the
+          // same form. Not a read, so no baseline.
+          loadedRecordRef.current = null;
+          setInitialData(resolveInitialRecord(schema));
+          run.commit();
+          setLoading(false);
+          return;
+        }
         run.fail(new Error('DataSource is required for fetching record data (inline data not provided)'));
         setLoading(false);
         return;
@@ -918,7 +940,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       fetchInitialData();
     }
     return () => { cancelled = true; };
-  }, [schema.objectName, schema.recordId, schema.mode, schema.initialValues, schema.initialData, dataSource, objectSchema, hasInlineFields, recordRefetch]);
+  }, [schema.objectName, schema.recordId, schema.mode, schema.initialValues, schema.initialData, dataSource, objectSchema, hasInlineFields, hasInlineSource, recordRefetch]);
 
   // FormField `visibleOn` (spec FormFieldSchema CEL expression) is consumed
   // directly by the form renderer via the canonical engine — it accepts both
@@ -1228,17 +1250,21 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
     // was never asked to perform (objectui#6388). Same rule and same precedence
     // as the five variant renderers — see `submitTarget.ts` for the whole rule.
     //
-    // The predicate stays this component's own `hasInlineFields` (non-empty
-    // `customFields`) rather than the shared `hasInlineFieldSource`. That
-    // helper's second limb — sections whose every field is an inline runtime
-    // `FormField` — is how the SECTIONED variants express an inline field
-    // source, and this renderer does not read it: here `sections[].fields` only
-    // SELECT (and override) fields already resolved from `customFields` or the
-    // object schema, so a sections-only form with no adapter resolves zero
-    // fields. Treating that as inline would widen the carve-out into a success
-    // signal for a form that collected nothing — this card's own defect class.
-    // Limb (a) is identical, and the refusal below is the shared one, verbatim.
-    if (!dataSource && !schema.submitHandler && hasInlineFields) {
+    // The predicate is the shared `hasInlineFieldSource`, as on the five other
+    // renderers (objectui#11615). Its limb (a) is this component's own
+    // `hasInlineFields` (non-empty `customFields`); its limb (b) — sections
+    // whose EVERY field is a self-describing inline `FormField` — is now one
+    // this renderer draws, because a section here draws such an entry whatever
+    // the parent field pool holds (`buildSectionFields`). So a sections-only
+    // form with no adapter collects exactly the fields its sections declare,
+    // and `onSuccess` is that collector's write, as it is everywhere else.
+    // Until objectui#11615 this renderer kept `hasInlineFields` alone, and
+    // rightly: a section only SELECTED pooled fields then, so the same form
+    // resolved zero fields, and counting it inline would have confirmed an
+    // empty submit. Limb (b) is all-or-nothing, so one name-only entry in any
+    // section still refuses below: a form that needed metadata it could not
+    // get never reaches the carve-out. The refusal is the shared one, verbatim.
+    if (!dataSource && !schema.submitHandler && hasInlineFieldSource(schema)) {
       if (schema.onSuccess) {
         await schema.onSuccess(formData);
       }
@@ -1444,7 +1470,7 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       
       throw err;
     }
-  }, [schema, dataSource, hasInlineFields, perms, objectSchema, saveWithOcc, initialData, uploadGate.uploading, uploadGate.reason, recordSaved, t]);
+  }, [schema, dataSource, perms, objectSchema, saveWithOcc, initialData, uploadGate.uploading, uploadGate.reason, recordSaved, t]);
 
   // Handle form cancellation
   const handleCancel = useCallback(() => {
@@ -1636,7 +1662,13 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       // exactly how a spec-legal section blanked the entire form — the
       // well-formed siblings with it — before objectui#7051. `buildSectionFields`
       // spells the same read `section.fields ?? []` for the members below.
-      const sectionFieldNames = (section.fields ?? []).map(sectionEntryName);
+      // NAME-ONLY entries only: a self-describing inline entry is drawn
+      // whatever the pool holds (objectui#11615, `isInlineFieldDef`), so it is
+      // never one the intersection below drops, and naming it there would
+      // report a loss that did not happen.
+      const sectionFieldNames = (section.fields ?? [])
+        .filter(entry => !isInlineFieldDef(entry))
+        .map(sectionEntryName);
 
       // objectui#9884 — make the INTERSECTION audible.
       //

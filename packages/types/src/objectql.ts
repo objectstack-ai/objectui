@@ -40,6 +40,10 @@ import type { ResponsiveStyles as SpecResponsiveStyles } from '@objectstack/spec
 // the spec's `InlineGridColumn` (its `z.input`, the authoring face), which the zod
 // twin judges with the spec's own `InlineGridColumnSchema`. Type-only.
 import type { InlineGridColumn as SpecInlineGridColumn } from '@objectstack/spec/data';
+// objectui#11615 — the form view's `{ field }` section entry, by reference: the
+// spec's `FormFieldInput` (the authoring face of `FormFieldSchema`, the arm the
+// spec's `FormSectionSchema.fields` takes beside a bare name). Type-only.
+import type { FormFieldInput as SpecFormFieldInput } from '@objectstack/spec/ui';
 // objectui#7928 — `ObjectViewSchema.listViews` is the protocol's record of this
 // schema, BY REFERENCE. The spec publishes a TS type for `ListView` and none for
 // the object-scoped `ObjectListView`, so the member reads it as `z.input` (the
@@ -1555,7 +1559,24 @@ export interface ObjectFormSection {
   pane?: 'primary' | 'secondary';
 
   /**
-   * Field names or inline field configurations for this section.
+   * The section's fields, in order. Each entry is one of three shapes, the
+   * three `buildSectionFields` (`@object-ui/plugin-form`) draws on every
+   * `formType`:
+   *
+   * - a field NAME, resolved against the object schema;
+   * - the form view's `{ field, … }` entry — `@objectstack/spec`'s
+   *   `FormFieldInput`, by reference (objectui#11615): `field` names an object
+   *   field and every other key overrides that field's generated definition;
+   * - an inline runtime {@link FormField} keyed by `name`, drawn as it stands
+   *   with no object schema needed.
+   *
+   * On the default (`simple`) form the first two shapes resolve against the
+   * form's parent field pool — top-level `fields` when it is given, else the
+   * object's fields, plus `customFields` — and a name the pool does not hold is
+   * dropped (with a warning when the object declares it: `fields` and
+   * `sections` intersect, objectui#9884). An inline `FormField` names nothing
+   * to resolve, so it is drawn whatever the pool holds, as on every other
+   * `formType` (objectui#11615).
    *
    * OPTIONAL since objectui#7051, and optional ONLY in the sense that
    * {@link group} is the other way to declare the same fact —
@@ -1565,7 +1586,7 @@ export interface ObjectFormSection {
    * read `group`, so this type refused the exact shape the spec declares and a
    * TypeScript author could not write the group-reference form at all.
    */
-  fields?: (string | FormField)[];
+  fields?: (string | SpecFormFieldInput | FormField)[];
 
   /**
    * Reference a declared field GROUP instead of enumerating members

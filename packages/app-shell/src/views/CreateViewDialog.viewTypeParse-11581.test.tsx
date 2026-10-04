@@ -298,7 +298,7 @@ describe('the one builder owns the type-specific mirrors (objectui#11581)', () =
   it('mirrors the payload\'s own columns over the door\'s fallback', () => {
     const spec = buildNewViewSpec({ type: 'kanban', columns: ['stage'], kanban: { groupByField: 'stage' } }, { fallbackColumns: ['name'] });
     expect(spec.columns).toEqual(['stage']);
-    expect(spec.kanban.columns).toEqual(['stage']);
+    expect(spec.kanban).toEqual({ groupByField: 'stage', columns: ['stage'] });
   });
 
   it('writes them into `gallery.visibleFields` only when the payload carries none', () => {

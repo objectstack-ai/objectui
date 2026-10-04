@@ -30,6 +30,9 @@ export interface NewViewInputs {
   filter?: ViewFilterRule[];
 }
 
+type ViewBlock = Record<string, unknown>;
+type ColumnMirror = (block: ViewBlock, columns: string[]) => ViewBlock;
+
 /**
  * Write the resolved column list into a type's own block, for the view types
  * whose spec block carries a field list of its own. Typed as a TOTAL record
@@ -37,8 +40,6 @@ export interface NewViewInputs {
  * build here until someone decides whether its block needs the columns;
  * `null` is that decision for "no".
  */
-type ColumnMirror = (block: Record<string, any>, columns: string[]) => Record<string, any>;
-
 const COLUMN_MIRRORS: Record<ListViewVisualization, ColumnMirror | null> = {
   // `KanbanConfigSchema.columns` is REQUIRED ("Fields to show on cards"), and
   // the dialog collects only the group-by pick.
@@ -66,22 +67,23 @@ const COLUMN_MIRRORS: Record<ListViewVisualization, ColumnMirror | null> = {
  * @internal Shared by the two doors; not exported from the package index.
  */
 export function buildNewViewSpec(
-  config: Record<string, any>,
+  config: Record<string, unknown>,
   { fallbackColumns, filter }: NewViewInputs,
-): Record<string, any> {
+): Record<string, unknown> {
   const columns: string[] =
     Array.isArray(config.columns) && config.columns.length > 0 ? config.columns : fallbackColumns;
-  const spec: Record<string, any> = {
+  const spec: Record<string, unknown> = {
     ...config,
     columns,
     // No rules writes no `filter` key at all, byte-identical to a save with
     // no conditions.
     ...(filter && filter.length > 0 ? { filter } : {}),
   };
+  const type = config.type;
   // `hasOwnProperty`, not a bare index: `'toString'` is not a view type.
-  const mirror = Object.prototype.hasOwnProperty.call(COLUMN_MIRRORS, config.type)
-    ? COLUMN_MIRRORS[config.type as ListViewVisualization]
-    : null;
-  if (mirror) spec[config.type] = mirror(spec[config.type] ?? {}, columns);
+  if (typeof type === 'string' && Object.prototype.hasOwnProperty.call(COLUMN_MIRRORS, type)) {
+    const mirror = COLUMN_MIRRORS[type as ListViewVisualization];
+    if (mirror) spec[type] = mirror((spec[type] as ViewBlock | undefined) ?? {}, columns);
+  }
   return spec;
 }

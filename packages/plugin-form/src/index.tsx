@@ -7,7 +7,7 @@
  */
 
 import React, { useContext } from 'react';
-import { ComponentRegistry, elementDataSourceBlock } from '@object-ui/core';
+import { ComponentRegistry, elementDataSourceBlock, type ComponentInput } from '@object-ui/core';
 import {
   ElementDataSourceGate,
   SchemaRendererContext,
@@ -17,6 +17,7 @@ import {
 } from '@object-ui/react';
 import type { DataSource } from '@object-ui/types';
 import { ObjectForm } from './ObjectForm';
+import { hasInlineFieldSource } from './submitTarget';
 
 export { ObjectForm };
 export type { ObjectFormComponentProps } from './ObjectForm';
@@ -210,25 +211,48 @@ const ObjectFormRenderer: React.FC<{ schema: any; dataSource?: unknown }> = elem
       // (objectui#5378 item 2). The one escape hatch is inline `customFields`,
       // which is exactly what `hasInlineFields` gates on inside the component,
       // so the two stay in step. A form with no `objectName` is a different
-      // defect and is left to report itself.
+      // defect, answered by `requiresObject` below.
       requiresDataSource={
         !(schema?.customFields?.length > 0)
         && typeof schema?.objectName === 'string'
         && schema.objectName.length > 0
       }
       noDataSourceMessage={noDataSourceMessage('object-form', schema?.objectName)}
+      // A form that names its object in neither place (objectui#11605) drew a
+      // field-less card with Cancel and Update buttons. A form whose fields are
+      // declared inline is a target-less collector and needs no object: the
+      // shared `hasInlineFieldSource` answers that for every variant, both
+      // non-empty `customFields` and the sectioned variants' fully-inline
+      // `sections` (objectui#10254).
+      requiresObject={!hasInlineFieldSource(schema)}
     >
       {(bound) => <ObjectForm schema={bound} dataSource={dataSource} />}
     </ElementDataSourceGate>
   );
 });
 
+/**
+ * The `objectName` input `object-form` and `view:form` publish (one renderer,
+ * one declaration). NOT required, as on the spec row (objectui#11605):
+ * `ComponentPropsMap['object-form']` leaves `objectName` optional "because the
+ * component-level `dataSource` binding can supply the object instead", and
+ * `ObjectFormRenderer` lands `dataSource.object` here. The page compile reads
+ * this list, so `required: true` refused a bound node the row and the renderer
+ * accept. A node with neither is answered by the gate's "no object named" hint.
+ */
+const OBJECT_FORM_OBJECT_NAME_INPUT: ComponentInput = {
+  name: 'objectName',
+  type: 'string',
+  description:
+    'Object this form creates or edits. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no inline fields (non-empty `customFields`, or `sections` whose every field is inline), the form shows a hint naming this key instead of a form with no fields.',
+};
+
 ComponentRegistry.register('object-form', ObjectFormRenderer, {
   namespace: 'plugin-form',
   label: 'Object Form',
   category: 'plugin',
   inputs: [
-    { name: 'objectName', type: 'string', required: true },
+    { ...OBJECT_FORM_OBJECT_NAME_INPUT },
     { name: 'fields', type: 'array', description: 'Bare field names to show, in order (each looked up in the object schema). NOT the same vocabulary as `sections[].fields`, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: "note", colSpan: 2 }`) — that shape resolves to no name HERE and is silently skipped (SimpleObjectForm in ObjectForm.tsx; buildFlatFields in flatFields.ts for the drawer/modal presentations).' },
     { name: 'mode', type: 'enum', enum: ['create', 'edit', 'view'] },
     { name: 'formType', type: 'enum', enum: ['simple', 'tabbed', 'wizard', 'split', 'drawer', 'modal'] },
@@ -337,7 +361,7 @@ ComponentRegistry.register('form', ObjectFormRenderer, {
   label: 'Data Form View',
   category: 'view',
   inputs: [
-    { name: 'objectName', type: 'string', required: true },
+    { ...OBJECT_FORM_OBJECT_NAME_INPUT },
     { name: 'fields', type: 'array', description: 'Bare field names to show, in order (each looked up in the object schema). NOT the same vocabulary as `sections[].fields`, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: "note", colSpan: 2 }`) — that shape resolves to no name HERE and is silently skipped (this renders through the same `ObjectFormRenderer` / `SimpleObjectForm` as `object-form` above — see its `fields` description).' },
     { name: 'mode', type: 'enum', enum: ['create', 'edit', 'view'] },
   ]
@@ -385,6 +409,10 @@ const EmbeddableFormRenderer: React.FC<{ schema: any }> = elementDataSourceBlock
       dataSource={dataSource}
       testId="embeddable-form"
       errorTitle="This form’s data source could not be resolved"
+      // A public form that names its object in neither place has no fields to
+      // fetch and no object to `create()` the submission in, and drew an empty
+      // form with a Submit button (objectui#11605).
+      requiresObject
     >
       {(bound) => <EmbeddableForm config={bound} dataSource={dataSource} />}
     </ElementDataSourceGate>
@@ -397,7 +425,18 @@ ComponentRegistry.register('embeddable-form', EmbeddableFormRenderer, {
   category: 'plugin',
   inputs: [
     { name: 'formId', type: 'string', required: true },
-    { name: 'objectName', type: 'string', required: true },
+    // NOT required (objectui#11605). This block has no `ComponentPropsMap` row;
+    // the contract is the binding doc (`content/docs/guide/data-source.md`, "a
+    // node bound this way needs no `objectName` of its own"), and
+    // `EmbeddableFormRenderer` lands `dataSource.object` here. The page compile
+    // reads this list, so `required: true` refused a bound node the renderer
+    // accepts. A node with neither is answered by the gate's hint.
+    {
+      name: 'objectName',
+      type: 'string',
+      description:
+        'Object the form creates a record in. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, the form shows a hint naming this key instead of a form that cannot submit.',
+    },
     { name: 'title', type: 'string' },
     { name: 'description', type: 'string' },
     { name: 'fields', type: 'array', description: 'Bare field names to show, in order (each looked up in the object schema). NOT the same vocabulary as `sections[].fields`, which also accepts the spec `FormFieldSchema` object (identity key `field`, e.g. `{ field: "note", colSpan: 2 }`) — that shape resolves to no name HERE and is silently skipped (`EmbeddableForm` passes this array straight through to `<ObjectForm>` with no `sections`, so it renders through the same `SimpleObjectForm` as `object-form` above — see its `fields` description).' },
@@ -457,6 +496,10 @@ const MasterDetailFormRenderer: React.FC<{ schema: any }> = elementDataSourceBlo
       dataSource={dataSource}
       testId="object-master-detail-form"
       errorTitle="This form’s data source could not be resolved"
+      // With no parent object in either place there is no parent form to draw
+      // and no relationship to derive: it drew an empty parent and a detail
+      // hint about a missing link to a blank parent (objectui#11605).
+      requiresObject
     >
       {(bound) => <MasterDetailForm schema={bound} dataSource={dataSource} />}
     </ElementDataSourceGate>
@@ -468,7 +511,19 @@ ComponentRegistry.register('object-master-detail-form', MasterDetailFormRenderer
   label: 'Master-Detail Form',
   category: 'plugin',
   inputs: [
-    { name: 'objectName', type: 'string', required: true },
+    // NOT required, as on the spec row (objectui#11605):
+    // `ComponentPropsMap['object-master-detail-form']` leaves the PARENT
+    // `objectName` optional "because the component-level `dataSource` binding
+    // can supply the object instead", and `MasterDetailFormRenderer` lands
+    // `dataSource.object` here. The page compile reads this list, so
+    // `required: true` refused a bound node the row and the renderer accept. A
+    // node with neither is answered by the gate's hint.
+    {
+      name: 'objectName',
+      type: 'string',
+      description:
+        'The PARENT object this form creates or edits. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, the form shows a hint naming this key instead of an empty parent form.',
+    },
     { name: 'mode', type: 'enum', enum: ['create', 'edit'] },
     { name: 'sections', type: 'array' },
     { name: 'details', type: 'array', required: true },

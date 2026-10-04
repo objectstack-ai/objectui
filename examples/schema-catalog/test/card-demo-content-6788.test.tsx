@@ -72,8 +72,8 @@
  *   1. DECLARED — read off the shipped `CardSchema`'s own zod shape, not a
  *      hand-copied list, so it follows the platform instead of yesterday's
  *      vocabulary. `.success` is NOT the probe here and could not be:
- *      `BaseSchema` is `.passthrough()` and carries `[key: string]: any`, so
- *      `content` parses green and type-checks. The structural read is the only
+ *      `BaseSchema` is `.passthrough()`, so `content` parses green (and it
+ *      type-checked through `[key: string]: any` until objectui#8347). The structural read is the only
  *      instrument that sees it.
  *   2. READ — the keys `card.tsx` reads, copied as literals on purpose: they
  *      are the contract this file is about, and a renderer that starts reading

@@ -89,8 +89,9 @@
  *      exported member 'KeyedI18nLabel'` (the name does not exist yet).
  *   2. `keyedAriaLabelIsAuthorable` / `keyedAriaLabelWithParamsIsAuthorable` —
  *      TS2322, an object is not assignable to `string`. The explicit
- *      `ariaLabel?: string` member wins over `BaseSchema`'s
- *      `[key: string]: any` index signature, which is precisely why the shipped
+ *      `ariaLabel?: string` member won over `BaseSchema`'s
+ *      `[key: string]: any` index signature (removed by objectui#8347), which is
+ *      precisely why the shipped
  *      fixture in `SchemaRenderer.aria.test.tsx` needed
  *      `as unknown as BaseSchema`.
  *   3. `disabledPredicateStringIsAuthorable` — TS2322, `Type 'string' is not
@@ -132,9 +133,9 @@
  * both directions — the narrow `string` is assignable to the wide
  * `string | KeyedI18nLabel`, so a widening that never happened AND a widening
  * that overshot to `any` would both stay green. `BaseSchema`'s
- * `[key: string]: any` makes the overshoot live rather than hypothetical:
- * deleting a declared property altogether leaves it typed `any` and every
- * fixture below still compiles.
+ * `[key: string]: any` made the overshoot live rather than hypothetical until
+ * objectui#8347: deleting a declared property altogether left it typed `any`
+ * and every fixture below still compiled.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -198,7 +199,8 @@ export type assertionDisabled = Expect<
  * inherits: a one-way `extends` is vacuous for a widening in BOTH directions —
  * the narrow `string` is assignable to the wide `string | I18nLabel`, so a
  * widening that never happened AND one that overshot to `any` would both stay
- * green. `BaseSchema`'s `[key: string]: any` makes the overshoot live.
+ * green. `BaseSchema`'s `[key: string]: any` made the overshoot live until
+ * objectui#8347.
  */
 export type assertionLabel = Expect<
   Equal< BaseSchema['label'], string | I18nLabel | undefined >

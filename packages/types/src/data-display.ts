@@ -1144,8 +1144,9 @@ export interface DataTableSchema extends BaseSchema {
    *
    * `?: never` is this package's tombstone convention (see `crud.ts`
    * `confirm`, {@link StaticTableColumn}, `TimelineSchema`'s `timeScale`), NOT
-   * a deletion: `BaseSchema`'s `[key: string]: any` would admit a deleted key
-   * as `any` again — the same silence one layer over. The Zod twin refuses it
+   * a deletion: `BaseSchema`'s `[key: string]: any` admitted a deleted key as
+   * `any` until objectui#8347, and a widened value still carries one
+   * unchecked — the same silence one layer over. The Zod twin refuses it
    * loudly via `retirementTombstone()` (`zod/data-display.zod.ts`).
    *
    * RETIRED (objectui#6881, ADR-0049) — never mounted by the data-table
@@ -1318,8 +1319,9 @@ export interface DataTableSchema extends BaseSchema {
    * A `?: never` tombstone and ⛔ not a deletion, by the retire-vs-remove
    * discriminator stated on `ChatbotSchema` in `complex.ts` (cited, not restated
    * here): this member's published comment taught `'hover'` as a working style,
-   * and on a {@link BaseSchema} carrier a deleted member reads as `any` through
-   * the index signature, so a stale `'hover'` would type-check in silence. The
+   * and on a {@link BaseSchema} carrier a deleted member read as `any` through
+   * the index signature until objectui#8347 (a widened value still skips the
+   * excess-property check), so a stale `'hover'` would type-check in silence. The
    * zod twin refuses the key by name.
    *
    * @deprecated Not part of this contract — selection checkboxes are always
@@ -1804,8 +1806,9 @@ export interface MarkdownSchema extends BaseSchema {
    *
    * `?: never` is this package's tombstone convention (see `crud.ts`
    * `confirm`, {@link StaticTableColumn}, `DataTableSchema.toolbar` above),
-   * NOT a deletion: `BaseSchema`'s `[key: string]: any` would admit a deleted
-   * key as `any` again — the same silence one layer over. The Zod twin refuses
+   * NOT a deletion: `BaseSchema`'s `[key: string]: any` admitted a deleted key
+   * as `any` until objectui#8347, and a widened value still carries one
+   * unchecked — the same silence one layer over. The Zod twin refuses
    * it loudly via `retirementTombstone()` (`zod/data-display.zod.ts`). Both
    * published faces carry the refusal: `@object-ui/plugin-markdown` re-exports
    * this one authority (objectui#6172), so its consumers meet the same
@@ -2819,8 +2822,8 @@ export interface PivotTableSchema extends BaseSchema {
    *
    * `?: never` is this package's tombstone convention (see
    * `DataTableSchema.toolbar`, {@link StaticTableColumn}), NOT a deletion:
-   * `BaseSchema`'s `[key: string]: any` would admit a deleted key as `any`
-   * again. The Zod twin refuses it loudly via `retirementTombstone()`
+   * `BaseSchema`'s `[key: string]: any` admitted a deleted key as `any` until
+   * objectui#8347, and a widened value still carries one unchecked. The Zod twin refuses it loudly via `retirementTombstone()`
    * (`zod/data-display.zod.ts`), naming the same remedy.
    *
    * RETIRED (objectui#10932, ADR-0049) — a `pivot` node draws a cross-tab of
@@ -3055,10 +3058,10 @@ export interface TimelineGanttItem {
  * adopted on objectui#6172: **the exported type aligns to the measured
  * authored + read set.** Before that ruling this interface declared `events` /
  * `orientation` / `position` and nothing else, and the divergence was
- * invisible to `tsc` because {@link BaseSchema} carries `[key: string]: any` —
+ * invisible to `tsc` because {@link BaseSchema} carried `[key: string]: any` —
  * every key the renderer reads resolved as `any`, so `schema: TimelineSchema`
- * constrained nothing. (The index signature itself is objectui#5155 /
- * objectui#6269, deliberately not touched here.)
+ * constrained nothing. (The index signature itself was objectui#5155 /
+ * objectui#6269's, deliberately not touched here; objectui#8347 removed it.)
  *
  * Measured on `origin/main` @ `79ebf30d1`: `TimelineRenderer`
  * (`plugin-timeline/src/renderer.tsx:250`) reads NINE keys off this node —
@@ -3159,9 +3162,10 @@ export interface TimelineSchema extends BaseSchema {
    *
    * `?: never` is this package's tombstone convention (see {@link
    * StaticTableColumn} objectui#5474, `crud.ts` `confirm` objectui#4314), and
-   * it is load-bearing rather than decorative. {@link BaseSchema} carries
-   * `[key: string]: any`, so DELETING this member would let the retired
-   * spelling type-check green and do nothing — the renderer no longer reads it,
+   * it is load-bearing rather than decorative. {@link BaseSchema} carried
+   * `[key: string]: any` until objectui#8347, and a deletion is still refused
+   * only on a fresh literal, so DELETING this member would let the retired
+   * spelling type-check green through a widened value and do nothing — the renderer no longer reads it,
    * and the axis would silently fall back to the `month` default with no
    * diagnostic. That is the silent axis breakage objectui#2942 closed, running
    * in the other direction. Keeping the key declared as `never` is what makes
@@ -3205,8 +3209,10 @@ export interface TimelineSchema extends BaseSchema {
    * `?: never` is this package's tombstone convention (see
    * {@link TimelineSchema.timeScale} a few members above, {@link StaticTableColumn}
    * objectui#5474), and it is load-bearing rather than decorative.
-   * {@link BaseSchema} carries `[key: string]: any`, so DELETING this member
-   * would let the retired key type-check green and keep drawing an empty rail
+   * {@link BaseSchema} carried `[key: string]: any` until objectui#8347, and a
+   * deletion is still refused only on a fresh literal, so DELETING this member
+   * would let the retired key type-check green through a widened value and
+   * keep drawing an empty rail
    * — the silent no-op this retirement exists to make audible. Keeping it
    * declared as `never` is what turns it into a compile error.
    *

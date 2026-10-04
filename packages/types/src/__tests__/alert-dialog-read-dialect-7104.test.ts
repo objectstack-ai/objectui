@@ -9,7 +9,7 @@
  * (draws `AlertDialogCancel` only when truthy), `schema.actionText` (draws
  * `AlertDialogAction` only when truthy) and `schema.onAction` (that button's
  * `onClick`) — and NONE of the four was declared on the TS interface or in the
- * zod mirror. They were accepted only because `BaseSchema` carries
+ * zod mirror. They were accepted only because `BaseSchema` carried
  * `[key: string]: any` and the mirror is `.passthrough()`: no editor completed
  * them, no page named them, and a wrong-typed value rode through unexamined.
  * Meanwhile the three keys the type DID declare for the same affordance

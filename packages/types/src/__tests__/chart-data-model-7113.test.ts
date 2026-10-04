@@ -51,13 +51,15 @@
  *
  * objectui#7113's ruling justifies option B by saying a misspelling like
  * `xAxiskey` / `datas` moves "from tsc-green + zod-green + empty chart to loud
- * at authoring time". That is FALSE on both faces, before AND after this change,
- * and section (f) below pins it rather than letting the claim stand unmeasured:
+ * at authoring time". When written that was FALSE on both faces, before AND
+ * after this change, and section (f) below pins the zod half rather than letting
+ * the claim stand unmeasured:
  *
  *   - the mirror's `BaseSchema` is `.passthrough()` (`base.zod.ts:212`), so an
  *     undeclared key is KEPT, never refused;
- *   - the TS `BaseSchema` carries `[key: string]: any` (`base.ts:409`), which
- *     suppresses excess-property checking on every chart literal.
+ *   - the TS `BaseSchema` carried `[key: string]: any`, which suppressed
+ *     excess-property checking on every chart literal; objectui#8347 removed it,
+ *     so a typed literal refuses the misspelling now.
  *
  * What the declaration DOES buy is the VALUE check — `data` and `xAxisKey` are
  * now refused BY NAME when malformed, where before they drew an empty chart in

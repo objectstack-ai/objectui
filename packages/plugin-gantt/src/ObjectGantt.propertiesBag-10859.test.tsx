@@ -34,7 +34,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import React from 'react';
 import { SchemaRenderer, SchemaRendererProvider } from '@object-ui/react';
-import type { DataSource, DeclaredNode } from '@object-ui/types';
+import type { DataSource, DeclaredNode, ObjectGanttBlockNode } from '@object-ui/types';
 import { safeValidateSchema } from '@object-ui/types/zod';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
@@ -73,7 +73,10 @@ vi.mock('@object-ui/plugin-detail', async (importOriginal) => ({
 import './index';
 
 const GANTT = { startDateField: 'start_date', endDateField: 'end_date', titleField: 'name', progressField: 'progress' };
-const FILTER = [{ field: 'status', operator: 'equals', value: 'open' }];
+// `as const` keeps `operator` the literal the bag's filter row declares; a
+// widened `string` is refused there (objectui#8347 took away the index
+// signature that used to admit the bag on the post-hoist node type).
+const FILTER = [{ field: 'status', operator: 'equals' as const, value: 'open' }];
 const SORT: Array<{ field: string; order: 'asc' | 'desc' }> = [{ field: 'name', order: 'desc' }];
 const ROWS = [
   { id: 't1', name: 'Design', start_date: '2026-03-02', end_date: '2026-03-06', progress: 100, status: 'open' },
@@ -81,7 +84,7 @@ const ROWS = [
 ];
 
 /** The authored spelling, spec-valid. */
-const BAG: DeclaredNode = { type: 'object-gantt', properties: { objectName: 'task', gantt: GANTT, filter: FILTER, sort: SORT } };
+const BAG: ObjectGanttBlockNode = { type: 'object-gantt', properties: { objectName: 'task', gantt: GANTT, filter: FILTER, sort: SORT } };
 /** The same props written flat, with the `gantt` block — what a code composer can build. */
 const FLAT: DeclaredNode = { type: 'object-gantt', objectName: 'task', gantt: GANTT, filter: FILTER, sort: SORT };
 /** The flattened `GanttConfig` keys `ObjectView` writes onto the node it composes. */

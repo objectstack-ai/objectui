@@ -81,6 +81,7 @@ describe('alias precedence across the two renderer families (objectui#5123)', ()
         schema={{
           type: 'badge',
           label: 'b',
+          // @ts-expect-error — `props` is not on the TS authoring face (objectui#8347, the `props` alias, option A); the runtime alias read is what this test measures
           props: { title: 'FROM_PROPS' },
           properties: { title: 'FROM_PROPERTIES' },
         }}
@@ -138,7 +139,12 @@ describe('alias precedence across the two renderer families (objectui#5123)', ()
 
     const badge = render(
       <SchemaRenderer
-        schema={{ type: 'badge', label: 'b', props: { title: 'ONLY_PROPS' } }}
+        schema={{
+          type: 'badge',
+          label: 'b',
+          // @ts-expect-error — `props` is not on the TS authoring face (objectui#8347, the `props` alias, option A); the runtime alias read is what this test measures
+          props: { title: 'ONLY_PROPS' },
+        }}
       />
     );
     expect(

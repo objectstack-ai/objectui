@@ -14,8 +14,8 @@
  *
  * ## Why these exist
  *
- * `BaseSchema` carries `[key: string]: any`, so today every key on every node
- * compiles. Once objectui#8347 removes it, a node may author only the keys some
+ * `BaseSchema` carried `[key: string]: any`, so every key on every node
+ * compiled. objectui#8347 removed it, so a node may author only the keys some
  * TypeScript declaration names. The nodes below had none: an `element:text`
  * with its `properties` bag, a `page:tabs` with `properties.items`, an
  * `action:button` with its executor keys in the bag (objectui#11183), and a
@@ -31,7 +31,7 @@
  *     arm's own `z.input`. The arm is `BaseSchema.extend(...)`, and the zod
  *     `BaseSchema` is `.passthrough()`, so a bare `z.input` of it carries
  *     `[k: string]: unknown`, which would put back the index signature
- *     objectui#8347 removes. So the arm's SHAPE is read and the object's
+ *     objectui#8347 removed. So the arm's SHAPE is read and the object's
  *     config is left closed. Every member, value type and refusal is the arm's,
  *     and through the arm the spec row's (`propsBag`); nothing is restated, and
  *     an arm added to that union is typed here the same day.
@@ -85,13 +85,13 @@
  * discriminates on the literal `type`: a node of one of these types has its own
  * keys judged wherever it is written, nested in a slot or at the prop, and its
  * required keys are required. A misspelled key inside an `element:text` bag, or
- * a bag on a node type that declares none, is refused once objectui#8347
- * removes `BaseSchema`'s index signature (`authoring-nodes-11364.test.ts` and
+ * a bag on a node type that declares none, is refused now that objectui#8347
+ * has removed `BaseSchema`'s index signature (`authoring-nodes-11364.test.ts` and
  * `node-slot-union-11466.test.ts` pin it).
  *
- * Until that removal, the component-schema members that extend `BaseSchema`
- * still carry its index signature, so a misspelled key on one of THEM still
- * compiles. These members carry none.
+ * Before that removal, the component-schema members that extend `BaseSchema`
+ * carried its index signature, so a misspelled key on one of THEM compiled.
+ * These members never carried one, and since the removal neither do they.
  */
 
 import type { z } from 'zod';
@@ -260,9 +260,9 @@ type FlexBlockArmShape = ClosedArmShape<(typeof FlexBlockSchema)['shape']>;
  * path (`./zod/nested-component-walk.ts`, objectui#11223). Its input type is
  * `unknown[]`, though, and nothing on the TypeScript face does what the walk
  * does. So read off the arm, the list, which is the form a `flex` node is
- * authored in, took any entry at all, and stays unchecked after objectui#8347
- * removes `BaseSchema`'s index signature, while a single child was judged as a
- * node. The mirror's member is the accept set the walk and the single-node arm
+ * authored in, took any entry at all, and would have stayed unchecked after
+ * objectui#8347 removed `BaseSchema`'s index signature, while a single child was
+ * judged as a node. The mirror's member is the accept set the walk and the single-node arm
  * judge between them.
  *
  * The zod arm does not move. The divergence is recorded where the mirror
@@ -271,8 +271,8 @@ type FlexBlockArmShape = ClosedArmShape<(typeof FlexBlockSchema)['shape']>;
  * `__tests__/flex-bag-children-list-11564.test.ts`. Both faces judge an object
  * entry as a node of its own `type`: an undeclared `type` is refused by both,
  * and a key the node does not declare is refused by the strict zod face and,
- * once objectui#8347 removes the index signature, by this type (until then the
- * signature absorbs it on the node types that extend `BaseSchema`, as it does
+ * since objectui#8347 removed the index signature, by this type (before it the
+ * signature absorbed it on the node types that extend `BaseSchema`, as it did
  * for a single child). A primitive entry is admitted by both. They differ on
  * one entry kind: a nested array, which the walk passes through unvisited and
  * this type refuses, as the mirror does and as `renderChildren`

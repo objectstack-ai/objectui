@@ -25,17 +25,18 @@
  * Same reading as `plugin-grid/src/__tests__/dataTableSchemaSlot-6459.test.ts`
  * next door.
  *
- * ## ⚠️ The index signature is what makes the naive pin vacuous
+ * ## ⚠️ The index signature is what made the naive pin vacuous
  *
- * `DataTableSchema extends BaseSchema`, and `BaseSchema` carries
- * `[key: string]: any`. So `DataTableSchema['renderCellEditor']` resolves to
- * `any` whether or not the key is declared, and every "is this key there?"
- * spelling written over the raw type answers `true` for EVERY string —
- * including `bogusKeyNobodyDeclared`. A pin written that way is green before
- * the fix, green after it, and measures nothing.
+ * `DataTableSchema extends BaseSchema`, and `BaseSchema` carried
+ * `[key: string]: any` until objectui#8347. So `DataTableSchema['renderCellEditor']`
+ * resolved to `any` whether or not the key was declared, and every "is this key
+ * there?" spelling written over the raw type answered `true` for EVERY string —
+ * including `bogusKeyNobodyDeclared`. A pin written that way was green before
+ * the fix, green after it, and measured nothing.
  *
  * `Declared<>` below strips the signature so NON-MEMBERSHIP can exist, which is
- * the only state in which a membership question has an answer.
+ * the only state in which a membership question has an answer (since
+ * objectui#8347 the strip is the identity on `DataTableSchema`).
  *
  * ## ⚠️ …and `extends` alone is vacuous a second way
  *

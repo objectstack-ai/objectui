@@ -452,11 +452,12 @@ export { extractRecords } from '@object-ui/core';
  *
  * With the anchor, a wrong VALUE TYPE on a declared key is a compile error at
  * the producer (`xAxisKey: 42`, `series: 'x'`, `type: 'chart'`, and every
- * `BaseSchema` member — `visible: 42`). ⚠️ A MISSPELLED key is still accepted:
- * `BaseSchema` carries `[key: string]: any` (objectui#5155), the same ceiling
- * objectui#6576 accepted knowingly. `__tests__/ObjectChart.schemaAnchor-7946.test.ts`
- * pins both halves, the ceiling included, so the anchor is not read as more
- * than it is.
+ * `BaseSchema` member — `visible: 42`). ⚠️ A MISSPELLED key was still accepted
+ * while `BaseSchema` carried `[key: string]: any` (objectui#5155), the same
+ * ceiling objectui#6576 accepted knowingly; objectui#8347 removed it, so a
+ * misspelled key in a fresh literal is refused now.
+ * `__tests__/ObjectChart.schemaAnchor-7946.test.ts` pins both halves, the
+ * flipped ceiling row included, so the anchor is not read as more than it is.
  */
 export interface ObjectChartProps {
   /**
@@ -1657,6 +1658,19 @@ const OBJECT_CHART_DATA_SOURCE: ElementDataSourceMapping = {
 };
 
 /**
+ * Whether a chart node has no record source but its object (objectui#11605):
+ * no inline `data`, no `dataset`, no `bind` path. `ObjectChart` fetches only by
+ * `objectName` or `dataset`, and draws inline or bound rows without either.
+ *
+ * `data` and `bind` are read as the `BaseSchema` members they are. `dataset` is
+ * this block's own key and no `BaseSchema` member, so it is read by name with
+ * `Reflect.get` rather than through a second type literal that would re-declare
+ * the base members beside it.
+ */
+const chartNeedsObject = (node: BaseSchema): boolean =>
+  node.data == null && node.bind == null && Reflect.get(node, 'dataset') == null;
+
+/**
  * Registry shell for `object-chart` — maps the spec's
  * `PageComponentSchema.dataSource` binding onto the keys {@link ObjectChart}
  * reads (objectstack#6953).
@@ -1692,6 +1706,11 @@ export const ObjectChartBlock = elementDataSourceBlock(
       dataSource={props.dataSource}
       testId="object-chart"
       errorTitle="This chart’s data source could not be resolved"
+      // A chart that names its object in neither place has nothing to
+      // aggregate, and drew an empty chart frame with no axis and no message
+      // (objectui#11605). Inline `data`, a semantic-layer `dataset` and a `bind`
+      // path are its other record sources, so any of them opts out.
+      requiresObject={chartNeedsObject(props.schema)}
     >
       {(bound) => (
         // The ONE loose member of this signature, kept on purpose. This is
@@ -1712,7 +1731,18 @@ ComponentRegistry.register('object-chart', ObjectChartBlock, {
     label: 'Object Chart',
     category: 'view',
     inputs: [
-        { name: 'objectName', type: 'string', required: true },
+        // NOT required (objectui#11605). This block has no `ComponentPropsMap`
+        // row; the contract is the binding doc (`content/docs/guide/data-source.md`,
+        // "a node bound this way needs no `objectName` of its own"), and
+        // `ObjectChartBlock` lands `dataSource.object` here. The page compile
+        // reads this list, so `required: true` refused a bound node the
+        // renderer accepts. A node with neither is answered by the gate's hint.
+        {
+          name: 'objectName',
+          type: 'string',
+          description:
+            'Object this chart aggregates. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no inline `data`, the chart shows a hint naming this key instead of an empty frame.',
+        },
         { name: 'data', type: 'array', description: 'Optional static data' },
         { name: 'filter', type: 'array' },
         { name: 'aggregate', type: 'object', description: 'Aggregation config: { field, function, groupBy }' },

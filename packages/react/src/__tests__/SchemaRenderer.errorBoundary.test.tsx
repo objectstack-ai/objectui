@@ -46,8 +46,8 @@ const StableWidget: React.FC<any> = (props) => (
  * The node a `stable-widget` case authors (objectui#11349): `BaseSchema` plus
  * the `content` that `StableWidget` renders. Each literal is checked against
  * this node rather than against the `BaseSchema` the `schema` prop accepts, so
- * `content` stays checked once objectui#8347 removes `BaseSchema`'s index
- * signature.
+ * `content` stays checked now that objectui#8347 has removed `BaseSchema`'s
+ * index signature.
  */
 type StableWidgetNode = BaseSchema & { type: 'stable-widget'; content?: string };
 const stableWidget = (schema: StableWidgetNode): StableWidgetNode => schema;

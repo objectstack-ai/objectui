@@ -74,12 +74,12 @@ Every node in the UI tree follows this shape (`@object-ui/types`):
 interface BaseSchema {
   type: string;                            // registry key: 'input', 'grid', 'card'
   id?: string;                             // DOM accessibility / event targeting
-  props?: Record<string, any>;             // element:* config envelope, not a general bag
   bind?: string;                           // data binding path: 'user.address.city'
   className?: string;                      // Tailwind overrides
   hidden?: boolean | ExpressionWire;       // expression or boolean: "${data.role != 'admin'}"
   disabled?: boolean | ExpressionWire;     // same wire as hidden
   children?: SchemaNode | SchemaNode[];    // layout slots; primitives admitted too
+  // no index signature: a key no member declares is a compile error (#0.1)
 }
 ```
 
@@ -90,6 +90,7 @@ interface BaseSchema {
 - **#-1 — English-only codebase.** This is an international OSS project. All user-facing text (component labels, buttons, titles, errors), code comments, docs (`README.md`, `docs/*.md`), and console/log messages MUST be English. No Chinese or other non-English in those. *(This rule governs the **codebase**; this instruction file may use Chinese in operational sections.)*
 - **#0 — Strict adherence to `@objectstack/spec`.** All schemas/JSON structures/types MUST follow `@objectstack/spec`. Don't invent schema properties — if the spec says `columns`, don't use `fields`. Check the spec before writing any `interface`/`type`.
 - **#0.1 — Fix the metadata, not the renderer (contract-first).** Corollary to #0. This is a metadata-driven system: `@objectstack/spec` is the contract between producers and this renderer. When a piece of metadata "doesn't render," ask **first**: *is it spec-compliant? is this the long-term-correct direction?* If the metadata is off-spec, fix it at the **producer** (and have it rejected at authoring/publish) — do **not** add a lenient fallback/alias in the renderer (reading both `columns` and `fields`, coercing a malformed shape, `??`-defaulting around bad input) to make non-compliant metadata "work." A tolerant fallback fossilizes the wrong convention into a second de-facto contract, dilutes the spec, and hides the producer's bug — one strict contract beats N dialects. We own both ends, so Postel's "be liberal in what you accept" does **not** apply (that's for untrusted boundaries). Change the **spec** only when it is genuinely wrong — deliberately, in `@objectstack/spec`, never by accreting renderer-side fallbacks.
+  - **The TypeScript authoring face is part of the contract (objectui#7927 ruling, executed by objectui#8347).** `BaseSchema` declares no index signature, so a node literal typed with its node type refuses, at the authoring site, a key no declaration names — a misspelling included. When a key you need is refused, this rule applies unchanged: declare it on the node type that reads it, by reference to the spec row, or fix the producer; a key only the host writes at runtime is typed on a package-local hand-off type where its producer and consumer live, never on the authoring face (objectui#6356). ⛔ Never make it compile with `as any`, a cast to `Record<string, unknown>`, a re-added index signature or an open `type: string` arm. Tolerance stays where it is deliberate: renderer props (`ComponentRendererProps` keeps its signature) and the tolerant zod face (`.passthrough()`); the derived strict zod face, `StrictAnyComponentSchema`, refuses an unknown key in metadata that arrives as data. ⚠️ The bound, said per #9: TypeScript excess-checks only a FRESH object literal, so a value that reached its annotation through a wider variable is not re-checked. `packages/types/src/__tests__/base-schema-closed-face-8347.test.ts` pins both directions and that bound.
 - **#1 — Protocol-agnostic.** Never hardcode `objectql.find()`. Use the DataSource interface; inject `dataSource` via `<SchemaRendererProvider dataSource={...} />`.
 - **#2 — Docs-driven.** For every feature/refactor, update package `README.md` **and** `content/docs/guide/*.md`. Not done until docs reflect the code.
 - **#3 — "Shadcn-native" aesthetics.** We are "serializable Shadcn". Follow Shadcn's DOM structure (`CardHeader`/`CardTitle`/`CardContent`). Always expose `className` in schema props so users can override via JSON.
@@ -97,7 +98,7 @@ interface BaseSchema {
   ```json
   { "type": "action:button", "properties": { "label": "Open details", "actionType": "url", "target": "/users/ada" } }
   ```
-  ⛔ Never author an `events` bag: `BaseSchema` declares no `events` member and no renderer reads `schema.events` — the node is `.passthrough()`, so one authored there is kept, judged by nothing and run by nothing. `ButtonSchema.onClick` is a runtime slot for a host-supplied function and is refused by name for the same reason.
+  ⛔ Never author an `events` bag: `BaseSchema` declares no `events` member and no renderer reads `schema.events` — a typed literal refuses it (#0.1), but the tolerant zod face is `.passthrough()`, so one that arrives as data is kept, judged by nothing and run by nothing. `ButtonSchema.onClick` is a runtime slot for a host-supplied function and is refused by name for the same reason.
 - **#5 — Layout as components.** Treat `Grid`/`Stack`/`Container` as first-class. Layout schemas declare responsive columns on the node as `columns` — a number, or a breakpoint object (`columns: { xs: 1, md: 2, lg: 4 }`); never `cols`, which nothing reads (objectui#4001).
 - **#6 — Type safety over magic.** No `any` — use strict generics. Map `"type": "button"` → React component via a central `ComponentRegistry`. **No `eval()` / runtime dynamic imports** to load components (security).
 - **#7 — No-Touch zones (Shadcn purity).** `packages/components/src/ui/**/*.tsx` are upstream 3rd-party files overwritten by sync scripts — **never edit their logic/styles**. To change `Button`/`Dialog` behavior: create/edit a wrapper in `packages/components/src/custom/`, import the primitive from `@/ui/...`, and wrap it.

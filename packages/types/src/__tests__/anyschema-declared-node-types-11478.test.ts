@@ -19,7 +19,7 @@
  *
  * The population is computed, never listed. The compiler API reads this
  * package's own sources with its own `tsconfig.json`, so nothing depends on a
- * built `dist/`, the same reason `partial-schema-collapse-pin.test.ts` gives.
+ * built `dist/`, the same reason `object-view-slot-key-lists.test.ts` gives.
  * It takes every type exported from the root barrel or from a published
  * subpath entry (read from `package.json` `exports`) that:
  *

@@ -14,13 +14,15 @@
  * field list as `$searchFields` alongside it — because a `ListView` gantt's
  * toolbar Search box can reach the chart's own query through no other door.
  * A key the renderer reads is declared on both faces, so it is validated:
- * `BaseSchema` is `.passthrough()` and carries `[key: string]: any`, so an
- * undeclared read would type as `any` and parse unjudged.
+ * `BaseSchema` is `.passthrough()`, so an undeclared key would parse unjudged
+ * (and an undeclared read typed as `any` until objectui#8347 removed
+ * `[key: string]: any`; it does not compile now).
  *
- * The compile-time half is the `@ts-expect-error` pair at the bottom: drop a
- * declaration and its member resolves to `any` through the index signature,
- * the wrong-typed assignment starts succeeding, and the unused directive fails
- * `tsc -p tsconfig.test.json` (TS2578) naming the key.
+ * The compile-time half is the `@ts-expect-error` pair at the bottom, which
+ * guards each member's TYPE. When written, a dropped declaration made its member
+ * resolve to `any` and the unused directive failed `tsc -p tsconfig.test.json`
+ * (TS2578); since objectui#8347 the indexed access itself errors, the directive
+ * swallows that, and the well-typed counter-probe beside it fails instead.
  */
 
 import { describe, it, expect } from 'vitest';

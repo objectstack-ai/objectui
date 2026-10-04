@@ -18,14 +18,15 @@
  *
  * ## The compile-fail pin, and why it does not wait for objectui#8347
  *
- * Until objectui#8347 removes `BaseSchema`'s index signature, a misspelled key on
- * a node type that extends `BaseSchema` still compiles: the signature absorbs it
- * on the type's own arm. What this card changes is the SLOT: it discriminates on
+ * Until objectui#8347 removed `BaseSchema`'s index signature, a misspelled key on
+ * a node type that extends `BaseSchema` still compiled: the signature absorbed it
+ * on the type's own arm. (Since the removal it is refused there too, pinned in
+ * `base-schema-closed-face-8347.test.ts`.) What this card changed is the SLOT: it discriminates on
  * `type`, so an inline child is judged against its own type's arm wherever it is
  * nested. `ClosedProbeNode` below is a node type declared WITHOUT an index
- * signature, the shape every arm has once the removal lands, registered through
- * `CustomNodeRegistry`. Its misspelling is refused at a nested slot today, so the
- * pin runs in every type-check now and keeps running after the removal. The
+ * signature, the shape every arm has now that the removal has landed (objectui#8347), registered through
+ * `CustomNodeRegistry`. Its misspelling is refused at a nested slot, so the pin
+ * ran in every type-check before the removal and keeps running after it. The
  * spec-derived `AuthoringNode`s carry no signature either and are pinned the
  * same way.
  */

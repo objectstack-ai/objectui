@@ -96,8 +96,9 @@ export type assertionZodMemberIsTheSpecType = [
 ];
 /**
  * Each published TypeScript twin declares the member as the spec's type. Without
- * the declaration the member resolves through `BaseSchema`'s index signature to
- * `any`, which `Equal` refuses.
+ * the declaration the member resolved through `BaseSchema`'s index signature to
+ * `any`, which `Equal` refuses; since objectui#8347 the indexed access does not
+ * compile at all.
  */
 export type assertionTsTwinIsTheSpecType = [
   Expect<Equal<TsFlexSchema['responsiveStyles'], SpecResponsiveStyles | undefined>>,
@@ -105,12 +106,17 @@ export type assertionTsTwinIsTheSpecType = [
   Expect<Equal<TsObjectChartSchema['responsiveStyles'], SpecResponsiveStyles | undefined>>,
 ];
 /**
- * The helper can FAIL, on the exact shape a missing declaration takes: `stack`
- * declares no `responsiveStyles`, so the member resolves through the index
- * signature, and `Equal` refuses it.
+ * The helper can FAIL: `Equal` refuses a member whose type differs from the
+ * spec's (`stack`'s declared `className` is no `SpecResponsiveStyles`), so the
+ * lines above are readings. `stack` declares no `responsiveStyles` at all: the
+ * member used to resolve through the index signature, and since objectui#8347
+ * removed it the key is no member of `stack`.
  */
-export type assertionUndeclaredTwinIsRefused = Expect<
-  Equal<Equal<TsStackSchema['responsiveStyles'], SpecResponsiveStyles | undefined>, false>
+export type assertionEqualCanFail = Expect<
+  Equal<Equal<TsStackSchema['className'], SpecResponsiveStyles | undefined>, false>
+>;
+export type assertionUndeclaredTwinIsNoMember = Expect<
+  Equal<'responsiveStyles' extends keyof TsStackSchema ? true : false, false>
 >;
 
 /* ── The population ───────────────────────────────────────────────────────── */

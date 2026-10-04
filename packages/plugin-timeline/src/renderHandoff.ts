@@ -67,17 +67,30 @@ export interface TimelineRenderFeedItem extends Omit<TimelineFeedItem, 'title' |
 }
 
 /**
- * `TimelineSchema` with every declared member kept and `items` widened to the
- * handoff element.
+ * `TimelineSchema` with every declared member kept, `items` widened to the
+ * handoff element, and the click slot `ObjectTimeline` installs.
  *
- * Spelled as a key-remapping mapped type and ⛔ not as `Omit`: `TimelineSchema`
- * inherits `BaseSchema`'s string index signature, so `keyof` resolves to
- * `string` and `Omit` collapses the whole interface into that signature,
- * dropping every declared member. A homomorphic mapped type maps the declared
- * members and the index signature separately, so only `items` leaves.
+ * Spelled as a key-remapping mapped type and ⛔ not as `Omit`. It was written
+ * while `TimelineSchema` inherited `BaseSchema`'s string index signature, under
+ * which `keyof` resolved to `string` and `Omit` collapsed the whole interface
+ * into that signature, dropping every declared member. A homomorphic mapped
+ * type maps the declared members and any index signature separately, so only
+ * `items` leaves whether or not a signature is present (objectui#8347 removed
+ * `BaseSchema`'s).
  */
 export type TimelineRenderSchema = {
   [K in keyof TimelineSchema as K extends 'items' ? never : K]: TimelineSchema[K];
 } & {
   items?: Array<TimelineRenderFeedItem | TimelineGanttItem>;
+  /**
+   * The click handler `ObjectTimeline` composes onto the schema it hands over
+   * (it resolves the item's record and fires the overlay navigation). A runtime
+   * slot, not authorable metadata: it stays off `TimelineSchema` on purpose,
+   * per the objectui#6170 docblock in `@object-ui/types` (`data-display.ts`).
+   * While `BaseSchema` carried `[key: string]: any` the renderer's read of it
+   * compiled as `any`; objectui#8347 removed the signature, so it is typed here,
+   * where its only producer and its only consumer live. The gantt branch also
+   * passes the authored row and both indices.
+   */
+  onItemClick?: (item: unknown, authored?: unknown, rowIndex?: number, itemIndex?: number) => void;
 };

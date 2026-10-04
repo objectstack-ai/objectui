@@ -34,9 +34,11 @@
  * position. `body` stays refused — see `span-children-rendering.test.tsx`; it is
  * declared nowhere for this type, whereas `value` is declared twice.
  *
- * What the type surface can and cannot say, same as on #5027: `BaseSchema`
- * carries an index signature, so no spelling here is ever a TS error. The read
- * side is the only place the contract can be stated, which is why it is pinned
+ * What the type surface could and could not say when this was written, same as
+ * on #5027: `BaseSchema` carried an index signature, so no spelling here was a
+ * TS error (objectui#8347 removed it, so an undeclared spelling in a typed
+ * literal is one now). The read side is the only place the precedence contract
+ * can be stated, which is why it is pinned
  * rather than left to review.
  */
 
@@ -51,8 +53,8 @@ import '../renderers';
 
 /**
  * Types a child literal below as the `text` node it is (objectui#11347): a
- * `children` entry is checked against `SchemaNode`, and once `BaseSchema`'s
- * index signature is gone (objectui#8347) a literal checked against it may
+ * `children` entry is checked against `SchemaNode`, and since objectui#8347
+ * removed `BaseSchema`'s index signature a literal checked against it may
  * author only `BaseSchema`'s own keys.
  */
 const textNode = (schema: TextSchema): TextSchema => schema;

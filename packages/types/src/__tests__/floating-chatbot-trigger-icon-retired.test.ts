@@ -111,8 +111,9 @@ describe('the `triggerIcon` tombstone makes authoring a `tsc` error', () => {
 
   it('reaches a `chatbot-floating` node through its face; on a `chatbot` node the WHOLE `floatingConfig` key is refused since objectui#6152 round 5', () => {
     // The pins above sit on `FloatingChatbotConfig` directly, so a face that LOST
-    // the member would not turn them red — the member would read as `any` through
-    // `BaseSchema`'s index signature and the literal would compile clean. That is
+    // the member would not turn them red — while `BaseSchema` carried its index
+    // signature the member read as `any` and the literal compiled clean (since
+    // objectui#8347 the literal is refused as undeclared instead). That is
     // what #7655's contract review measured on its first cut, which DELETED the key
     // off `ChatbotSchema`; pinned on the nodes since.
     const onFloating: TsChatbotFloatingSchema = {

@@ -1248,6 +1248,11 @@ const en = {
     readonlyAriaLabel: 'Read-only view',
     readonlyTooltip: 'System view — defined in code, read-only.',
     malformedFilter: 'This view’s filter is malformed, so no records are shown: the {{subject}} condition cannot be applied.',
+    // objectui#11605 — an object-bound block whose node names its object in
+    // neither place (no own key, no `dataSource.object`). `{{property}}` is the
+    // block's object key (`objectName`), interpolated and never translated; the
+    // wording is `element.number.noObject`'s with the property as a hole.
+    noObject: 'No object named: set {{property}} or dataSource.object.',
   },
   detail: {
     back: 'Back',

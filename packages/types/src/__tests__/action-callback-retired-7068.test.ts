@@ -29,9 +29,10 @@
  *
  * ## Why a tombstone on the keys, and a deletion of the type
  *
- * `BaseSchema` is `.passthrough()` on the mirror and carries `[key: string]: any`
- * on the interface, so DELETING the two keys would ADMIT an authored callback
- * unchecked on both faces — kept, inert, and green. The keys therefore stay
+ * `BaseSchema` is `.passthrough()` on the mirror and carried `[key: string]: any`
+ * on the interface until objectui#8347, so DELETING the two keys would have
+ * ADMITTED an authored callback unchecked on both faces — kept, inert, and green
+ * (the interface refuses it on a fresh literal now, as the base control shows). The keys therefore stay
  * declared as `?: never` / `retirementTombstone()` (the PR #7761 / #7769 shape),
  * and the base-vs-extended contrast is measured below on both faces. The
  * standalone `ActionCallback` type and its mirror have no such escape hatch and
@@ -200,7 +201,7 @@ describe('the retirement narrows exactly `onSuccess` / `onFailure` (objectui#706
     const result = ActionSchema.safeParse({ ...LEGACY_ACTION, notAKeyAtAll: 'anything' });
     expect(result.success).toBe(true);
     if (!result.success) return;
-    expect((result.data as Record<string, unknown>).notAKeyAtAll).toBe('anything');
+    expect((result.data as unknown as Record<string, unknown>).notAKeyAtAll).toBe('anything');
   });
 });
 
@@ -313,12 +314,14 @@ describe('no docs fence authors the retired callback shape any more (objectui#70
 /* ── the TS half ────────────────────────────────────────────────────────── */
 
 describe('legacy ActionSchema.onSuccess / onFailure are RETIRED — the TS half of the tombstone (objectui#7068)', () => {
-  it('refuses both retired keys at compile time, in the form authors actually write — and beats the inherited index signature', () => {
+  it('refuses both retired keys at compile time, in the form authors actually write — by name, as `never` tombstones, not as undeclared keys', () => {
     // On the pre-fix tree both assignments were LEGAL (`ActionCallback | undefined`),
     // so each directive would be unused and `tsc -p tsconfig.test.json` fails the
     // build with TS2578 naming the line — red before the fix in `type-check`, not
-    // in vitest. `BaseSchema` carries `[key: string]: any`; a declared `never`
-    // member wins over it, which is why this is a tombstone and not a deletion.
+    // in vitest. `BaseSchema` carried `[key: string]: any` when this was written;
+    // a declared `never` member wins over it, which is why this is a tombstone and
+    // not a deletion (since objectui#8347 a deletion is refused on a fresh literal
+    // too, unnamed).
     const retired: ActionSchemaTS = {
       type: 'action',
       label: 'Load',
@@ -338,8 +341,11 @@ describe('legacy ActionSchema.onSuccess / onFailure are RETIRED — the TS half 
       redirect: '/done',
     };
 
-    // BASE CONTROL on the TS face: the same literal IS a legal `BaseSchema` — the
-    // acceptance a deleted member would have fallen through to.
+    // BASE CONTROL on the TS face: the same literal WAS a legal `BaseSchema` — the
+    // acceptance a deleted member would have fallen through to — until
+    // objectui#8347 removed `BaseSchema`'s index signature. The base refuses it
+    // now too, so a deleted member is no longer silently acceptable here.
+    // @ts-expect-error — `BaseSchema` declares no `onSuccess` and no index signature (objectui#8347).
     const base: BaseSchemaTS = { type: 'action', onSuccess: { type: 'toast', message: 'ok' } };
 
     expect([retired, migrated, base]).toHaveLength(3);

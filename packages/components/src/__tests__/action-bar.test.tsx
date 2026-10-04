@@ -11,8 +11,8 @@ import type { ActionBarSchema } from '@object-ui/types';
 
 /**
  * Types each literal below as the `action:bar` node it is rather than as the
- * `BaseSchema` `renderComponent` accepts (objectui#11347): once `BaseSchema`'s
- * index signature is gone (objectui#8347), a literal checked against
+ * `BaseSchema` `renderComponent` accepts (objectui#11347): since objectui#8347
+ * removed `BaseSchema`'s index signature, a literal checked against
  * `BaseSchema` may author only `BaseSchema`'s own keys.
  */
 const actionBar = (schema: ActionBarSchema): ActionBarSchema => schema;

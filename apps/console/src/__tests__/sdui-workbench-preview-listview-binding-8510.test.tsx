@@ -31,9 +31,9 @@
  * (`getObjectSchema`, which nothing else on the page calls while the form is
  * closed) and its own query, which selects the preview's columns — and a
  * control renders the SAME extracted source with the `data` binding stripped:
- * once ListView reports its fetch effect settled (`data-state="idle"` on its
- * root), neither of its data calls may have happened and the stats query must
- * be the only one. The contract case carries a control too: the same source
+ * once the list block has answered (since objectui#11605 a list that names no
+ * object draws the "no object named" hint in place of `ListView`), neither of
+ * its data calls may have happened and the stats query must be the only one. The contract case carries a control too: the same source
  * with the retired spelling put back must go red.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
@@ -167,10 +167,11 @@ describe('sdui-workbench-preview — the react-tier ListView binding (objectui#8
 
     const { dataSource, container } = renderWorkbench(stripped);
 
-    // ListView's root reports `idle` only after its fetch effect has run —
-    // the branch a query would have started from.
+    // With no object named, the list block draws the "no object named" hint
+    // instead of mounting `ListView` (objectui#11605), so the hint is what
+    // says the block has answered.
     await waitFor(() =>
-      expect(container.querySelector('[role="region"][data-state="idle"]')).not.toBeNull(),
+      expect(container.querySelector('[data-testid="list-view-no-object"]')).not.toBeNull(),
     );
     expect(dataSource.getObjectSchema).not.toHaveBeenCalled();
     expect(dataSource.find.mock.calls.filter(([, params]) => !isStatsQuery(params))).toEqual([]);

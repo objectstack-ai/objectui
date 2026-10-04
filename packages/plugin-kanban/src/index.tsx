@@ -365,8 +365,9 @@ export const KanbanRenderer: React.FC<KanbanRendererProps> = ({ schema, objectFi
  *
  * ## Why unregistering is the whole retirement
  *
- * ⚠️ `BaseSchema` closes with `[key: string]: any` and `BaseSchemaCore` ends
- * `.passthrough()`, so a dropped MEMBER KEY is KEPT, not refused (objectui#7664).
+ * ⚠️ `BaseSchemaCore` ends `.passthrough()` (and `BaseSchema` closed with
+ * `[key: string]: any` until objectui#8347), so a dropped MEMBER KEY is KEPT,
+ * not refused, on the zod face (objectui#7664).
  * That hazard needs a schema face to arise on, and this key never had one:
  * measured whole-repo, `@object-ui/types` declares `kanban-ui` as a component
  * node type ZERO times (firing control: `object-kanban`, 2 — `objectql.ts` and
@@ -490,6 +491,10 @@ const OBJECT_KANBAN_DATA_SOURCE: ElementDataSourceMapping = {
   limit: 'limit',
 };
 
+/** Does an authored `columns` list carry lanes with their own `cards`? */
+const lanesCarryCards = (columns: unknown): boolean =>
+  Array.isArray(columns) && columns.some((column) => Array.isArray((column as { cards?: unknown } | null)?.cards));
+
 // Register object-kanban for ListView integration
 export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }> = elementDataSourceBlock(({ schema, ...props }) => {
   // `useSchemaContext()` may hand back a NULL adapter: a host with nothing
@@ -510,6 +515,20 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
       dataSource={dataSource}
       testId="object-kanban"
       errorTitle="This board’s data source could not be resolved"
+      // A board that names its object in neither place has nothing to fetch,
+      // and drew an empty board with "No cards" — the answer an empty query
+      // gives (objectui#11605). Every other rung of the board's record-source
+      // ladder supplies rows without an object: records a parent view hands
+      // down (`data` prop), a `bind` path, and inline `data` (an empty array is
+      // a static board, so presence is the test, not length). So do lanes that
+      // carry their own `cards`, which the board keeps ("Preserve static cards"
+      // in the column merge above).
+      requiresObject={
+        schema?.data == null
+        && schema?.bind == null
+        && !Array.isArray((props as { data?: unknown }).data)
+        && !lanesCarryCards(schema?.columns)
+      }
     >
       {(bound) => <ObjectKanban schema={bound} dataSource={dataSource} {...props} />}
     </ElementDataSourceGate>
@@ -661,7 +680,19 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  * `__tests__/ObjectKanban.structuredMembersReachTheirSinks-8313.test.tsx`.
  */
 const OBJECT_KANBAN_INPUTS: ComponentInput[] = [
-  { name: 'objectName', type: 'string', required: true },
+  // NOT required, as on the spec row (objectui#11605): `ComponentPropsMap
+  // ['object-kanban']` leaves `objectName` optional "because the
+  // component-level `dataSource` binding can supply the object instead", and
+  // the gate in `ObjectKanbanRenderer` lands `dataSource.object` here. The page
+  // compile reads this list, so `required: true` refused a bound node the row
+  // and the renderer accept. A node with neither is answered by the gate's
+  // "no object named" hint (`requiresObject` above).
+  {
+    name: 'objectName',
+    type: 'string',
+    description:
+      'Object this board lists. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no rows from `data`, `bind` or a parent view, the board shows a hint naming this key instead of an empty board.',
+  },
   { name: 'columns', type: 'array' },
   { name: 'filter', type: 'array', description: 'Filter criteria in JSON-rules form, narrowing the records the board fetches. Lowered to `$filter` on the query.' },
   { name: 'limit', type: 'number', description: 'Row cap — the most records the board fetches, lowered to the query’s top-level `$top` (renderer default 100). The board renders every fetched record into a lane and offers no pagination, so this is the author’s window on the object rather than a page size. PRECEDENCE: a node-level `dataSource` binding’s own `limit` wins outright; the `pagination.pageSize` of a view that binding names fills this key only when the node leaves it unset.' },

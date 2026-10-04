@@ -15,9 +15,9 @@
  * As in `authoring-nodes-11364.test.ts`, most assertions here are TYPE-level,
  * judged by this package's `type-check` (its `tsc -p tsconfig.test.json` leg),
  * never by vitest. `PostRemovalSchema` is `SchemaRenderer`'s `schema` prop with
- * `BaseSchema`'s index signature stripped at the type level, so the pins run
- * now, while the signature is still present, and keep running after
- * objectui#8347 removes it.
+ * `BaseSchema`'s index signature stripped at the type level, so the pins ran
+ * while the signature was still present and keep running now that
+ * objectui#8347 has removed it.
  */
 
 import { describe, expect, it } from 'vitest';

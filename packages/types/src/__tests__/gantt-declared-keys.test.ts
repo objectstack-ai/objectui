@@ -26,21 +26,26 @@
  *
  * ## What the pin has teeth against, and what it does not
  *
- * `BaseSchema` is `.passthrough()` on the zod side and carries
- * `[key: string]: any` on the TS side (objectui#5155 records that ceiling), so:
+ * `BaseSchema` is `.passthrough()` on the zod side and carried
+ * `[key: string]: any` on the TS side until objectui#8347 (objectui#5155
+ * recorded that ceiling), so:
  *
- *   - an UNDECLARED key is still accepted, by both halves. Declaring these ten
- *     did NOT buy rejection of a misspelling, and the test below pins that
+ *   - an UNDECLARED key is still accepted by the zod half (and was by the TS
+ *     half while the signature stood). Declaring these ten did NOT buy
+ *     rejection of a misspelling there, and the test below pins that
  *     plainly rather than leaving it to be assumed;
  *   - a DECLARED key IS validated. `readOnly: 'yes'` parsed green before this
  *     card and is refused now — that is the accept-set narrowing landed here,
  *     the same one objectui#5074 landed for `viewMode`;
- *   - on the TS side the index signature means a read site can never be the
- *     detector: `schema.readOnly` type-checks as `any` whether or not the key
- *     is declared. So the compile-time pin is the `@ts-expect-error` block at
- *     the bottom — remove a declaration and its member resolves to `any`, the
- *     wrong-typed assignment starts succeeding, and the now-unused directive
- *     fails the build (TS2578) NAMING the key. `tsconfig.test.json` compiles
+ *   - on the TS side the index signature meant a read site could never be the
+ *     detector: `schema.readOnly` type-checked as `any` whether or not the key
+ *     was declared. So the compile-time pin is the `@ts-expect-error` block at
+ *     the bottom — when written, removing a declaration made its member resolve
+ *     to `any`, the wrong-typed assignment started succeeding, and the
+ *     now-unused directive failed the build (TS2578) NAMING the key. Since
+ *     objectui#8347 a removal makes the indexed access itself an error, which
+ *     the directive swallows, so a deletion is caught by the well-typed
+ *     counter-probe instead (its literal names all ten keys). `tsconfig.test.json` compiles
  *     this file, so that is real enforcement and not decoration (#3009).
  */
 
@@ -149,10 +154,13 @@ describe('ObjectGanttSchema — the ten cast-read keys are declared (objectui#59
 
 describe('ObjectGanttSchema (TS) — compile-time pin on the same ten keys', () => {
   it('refuses a wrong-typed value on every declared key', () => {
-    // Each directive below fails the build (TS2578, "unused '@ts-expect-error'")
-    // the moment its key stops being declared, because the member then resolves
-    // to `any` through `BaseSchema`'s index signature and the assignment starts
-    // succeeding. That failure is the signal this card exists to create.
+    // Each directive below failed the build (TS2578, "unused '@ts-expect-error'")
+    // the moment its key stopped being declared, while the member resolved to
+    // `any` through `BaseSchema`'s index signature. Since objectui#8347 a removal
+    // makes the indexed access itself an error, which its directive swallows, so
+    // the deletion signal comes from the well-typed counter-probe below; each
+    // directive still fails the build if its member is widened to accept the
+    // value.
 
     // @ts-expect-error — `skipWeekends` is declared `boolean | undefined`.
     const skipWeekends: ObjectGanttSchemaTS['skipWeekends'] = 'yes';

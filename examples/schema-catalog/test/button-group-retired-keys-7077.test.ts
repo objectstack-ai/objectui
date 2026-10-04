@@ -15,8 +15,8 @@
  * All six fixtures in this category authored keys the shipped types do not
  * declare — `buttons[].value` ×17, `buttons[].icon` ×8, group-level `value` ×2
  * and `selectionMode` ×2, 29 occurrences over six files. Nothing went red:
- * `BaseSchema` is `.passthrough()` and carries `[key: string]: any`, so all 29
- * PARSED GREEN and type-checked — admitted unexamined, not refused (the reading
+ * `BaseSchema` is `.passthrough()` and carried `[key: string]: any` until
+ * objectui#8347, so all 29 PARSED GREEN and type-checked — admitted unexamined, not refused (the reading
  * `component-fixture-declared-keys.test.ts` and
  * `undeclared-but-consumed-keys-6150.test.ts` both record), and
  * `catalog-gallery-render.test.tsx` fails only on an unregistered `type`. So the

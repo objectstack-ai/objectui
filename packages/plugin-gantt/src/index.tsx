@@ -212,9 +212,9 @@ ComponentRegistry.register('object-gantt', ObjectGanttRenderer, {
  *
  * ## Why unregistering is the whole retirement here — measured, not assumed
  *
- * ⚠️ `BaseSchema` closes with `[key: string]: any` and `BaseSchemaCore` ends
- * `.passthrough()`, so a dropped MEMBER KEY is KEPT, not refused (the
- * objectui#7664 failure). That hazard does not reach a TYPE NAME on this
+ * ⚠️ `BaseSchemaCore` ends `.passthrough()` (and `BaseSchema` closed with
+ * `[key: string]: any` until objectui#8347), so a dropped MEMBER KEY is KEPT,
+ * not refused, on the zod face (the objectui#7664 failure). That hazard does not reach a TYPE NAME on this
  * surface, and the reason is structural rather than lucky: no schema face in
  * `@object-ui/types` ever declared `gantt` as a component node type — measured
  * whole-repo, zero declarations, against a firing control of two for

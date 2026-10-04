@@ -921,9 +921,9 @@ export interface DetailViewSchema extends BaseSchema {
    *
    * `?: never` is the twin of `zod/views.zod.ts`'s `retirementTombstone` arm,
    * and the pair is deliberate: a BARE DELETE would not refuse this key, it
-   * would KEEP it. `BaseSchema` closes with an any-valued index signature and
-   * `BaseSchemaCore` ends `.passthrough()`, so an undeclared member is passed
-   * through silently — the mechanism objectui#7963 measured. Declared-and-
+   * would KEEP it. `BaseSchemaCore` ends `.passthrough()` (and `BaseSchema`
+   * closed with an any-valued index signature until objectui#8347), so an
+   * undeclared member is passed through silently on the zod face — the mechanism objectui#7963 measured. Declared-and-
    * unwritable is what makes the refusal loud.
    *
    * @deprecated Not part of this contract. Author a `record:related_list` block.
@@ -964,8 +964,9 @@ export interface DetailViewSchema extends BaseSchema {
    * related lists from it; the related-list capability is the protocol-governed
    * `record:related_list` block. A key nothing honours is retired, not mirrored.
    *
-   * `?: never` rather than deleted: this interface carries `BaseSchema`'s index
-   * signature, so a deleted member would type-check silently, while a tombstone
+   * `?: never` rather than deleted: this interface carried `BaseSchema`'s index
+   * signature, so a deleted member would type-check silently (since
+   * objectui#8347, through a widened value only), while a tombstone
    * makes presence a `tsc` error, and the zod twin refuses the key by name.
    *
    * @deprecated RETIRED (objectui#6152) — nothing reads it. Author a

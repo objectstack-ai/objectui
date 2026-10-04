@@ -36,8 +36,9 @@ import { isConfigBag } from './configBag.js';
  * (objectui#6665): the `props` leg renders `No results found`, the `properties`
  * leg renders the rows.
  *
- * Every gate accepts the `props` spelling — `BaseSchema` is `.passthrough()`
- * with `[key: string]: any` — and `props` is documented as the annotated legacy
+ * The tolerant gates accept the `props` spelling — the zod `BaseSchema` is
+ * `.passthrough()`, and the TS face admitted it through `[key: string]: any`
+ * until objectui#8347 (a typed literal refuses it now) — and `props` is documented as the annotated legacy
  * alias of the config bag, so nothing between the author and the screen says a
  * word. That is the success-receipt shape objectui#6575 and objectui#6665 exist
  * to remove; this is the third instance, and the first at a tier that covers

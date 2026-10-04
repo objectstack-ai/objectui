@@ -1039,6 +1039,7 @@ const fr = {
     readonlyAriaLabel: "Vue en lecture seule",
     readonlyTooltip: "Vue système — définie dans le code, en lecture seule.",
     malformedFilter: "Le filtre de cette vue est incorrect, aucun enregistrement n’est donc affiché : la condition {{subject}} ne peut pas être appliquée.",
+    noObject: "Aucun objet indiqué : définissez {{property}} ou dataSource.object.",
   },
   designer: {
     undo: "Annuler",

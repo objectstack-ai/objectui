@@ -28,10 +28,10 @@
  *
  * ## The ceiling, stated rather than assumed
  *
- * A closed PROPS type refuses a misspelled prop NAME. It does not refuse a
- * misspelled key INSIDE the node: `BaseSchema` carries `[key: string]: any`,
- * the protocol's passthrough. The counter-probe at the bottom keeps that
- * visible so nobody reads this pin as more than it is.
+ * A closed PROPS type refuses a misspelled prop NAME. It did not refuse a
+ * misspelled key INSIDE the node while `BaseSchema` carried
+ * `[key: string]: any`; objectui#8347 removed it, and the counter-probe at the
+ * bottom that kept that visible is flipped (see its note).
  */
 
 import { describe, it, expect } from 'vitest';
@@ -112,8 +112,13 @@ const probes = () => (
       onSegmentClick={() => undefined}
     />
 
-    {/* CEILING, not a refusal: a misspelled key INSIDE the node still
-        compiles, through `BaseSchema`'s passthrough index signature. */}
+    {/* This row was the CEILING: a misspelled key INSIDE the node compiled
+        through `BaseSchema`'s index signature. objectui#8347 removed it, so a
+        fresh literal at the shell's pre-gate `BaseSchema` prop is excess-checked
+        against `BaseSchema` itself: the misspelling is refused, and so would a
+        correctly spelled `objectName` be. Hand the shell a typed node, as the
+        controls above do. */}
+    {/* @ts-expect-error — `objectNme` is no `BaseSchema` member, and the pre-gate prop is `BaseSchema` */}
     <ObjectChartBlock schema={{ type: 'object-chart', objectNme: 'opportunity' }} />
   </>
 );

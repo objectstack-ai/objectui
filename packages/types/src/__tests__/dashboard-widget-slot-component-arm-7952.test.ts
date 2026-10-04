@@ -36,10 +36,11 @@
  *      spec-family widget with an undeclared key is refused on both faces, and a
  *      `type` in neither vocabulary is refused;
  *   4. the measured limit of a TypeScript union with a passthrough arm, recorded
- *      two-faced so it cannot be read as a hatch: a `type`-less legacy envelope
- *      with an undeclared key COMPILES (nothing to discriminate on, so the arm's
- *      index signature satisfies the excess-property check) while the Zod face
- *      refuses it by name;
+ *      two-faced so it could not be read as a hatch: a `type`-less legacy
+ *      envelope with an undeclared key COMPILED (nothing to discriminate on, so
+ *      the arm's index signature satisfied the excess-property check) while the
+ *      Zod face refused it by name; objectui#8347 removed the signature, tsc
+ *      refuses it now, and the block is gone (a note marks where it stood);
  *   5. shape identity: the slot's element type IS the two-arm union, the arm's
  *      `type` IS `DashboardComponentWidgetType`, and the arm is NOT assignable
  *      to `DashboardWidgetSchema` (objectui#11514). It was until that card,
@@ -49,7 +50,7 @@
  *      type, so a `metric-card` with no `value` is refused on this face too;
  *   6. objectui#11467: the arm DECLARES `MetricCard`'s registered inputs, so the
  *      README's `metric-card` literals compile against members rather than
- *      against `BaseSchema`'s index signature (which objectui#8347 removes);
+ *      against `BaseSchema`'s index signature (which objectui#8347 removed);
  *      the Zod twin declares the same members; and the widget's `component`
  *      slot takes the arm first, on both faces. The members' parity with the
  *      live registration and `MetricCardProps` is pinned in
@@ -180,6 +181,9 @@ describe('NOT A HATCH — what the union still refuses, on both faces', () => {
     const doc: DashboardComponentSchema = {
       type: 'dashboard',
       // `value` is the card's required input since objectui#11467; `someProp` is the undeclared key.
+      // The TS face refuses it since objectui#8347 removed `BaseSchema`'s index
+      // signature; the passthrough this test reads is the zod face's.
+      // @ts-expect-error — `DashboardWidgetSlotComponentSchema` declares no `someProp` (objectui#8347)
       widgets: [{ type: 'metric-card', title: 'x', value: '1', someProp: 1 }],
     };
     const result = DashboardComponentZod.safeParse(doc);
@@ -189,27 +193,25 @@ describe('NOT A HATCH — what the union still refuses, on both faces', () => {
   });
 });
 
-describe('MEASURED LIMIT of a TypeScript union with a passthrough arm — recorded, not a contract', () => {
-  it('a `type`-less legacy envelope with an undeclared key compiles, and the Zod face refuses it by name', () => {
-    // Nothing to discriminate on (the legacy `component` envelope has no
-    // `type`), so the union's excess-property check accepts any key one arm
-    // could hold, and the component arm's index signature holds every key.
-    // If tsc ever refuses this literal, the corner has closed: delete this
-    // constant and the note on `widgets` in `complex.ts` — ⛔ do not add an
-    // `@ts-expect-error` to keep the file green.
-    const envelopeStray: DashboardComponentSchema = {
+// A `MEASURED LIMIT` block stood here: a `type`-less legacy envelope carrying an
+// undeclared key compiled, because the component arm's index signature
+// satisfied the union's excess-property check. objectui#8347 removed
+// `BaseSchema`'s signature, tsc refused the literal, and the block's own removal
+// condition deleted it together with the note on `widgets` in `complex.ts`.
+describe('the legacy `component` envelope on the TypeScript face (objectui#7952, objectui#8347)', () => {
+  it('a `metric-card` with no `value` inside the envelope is refused (objectui#8347, Q3 = A)', () => {
+    const valueless: DashboardComponentSchema = {
       type: 'dashboard',
-      widgets: [{ id: 'w', component: { type: 'metric-card', value: '1' }, bogus: 1 }],
+      // @ts-expect-error — `value` is the card's one required input, inside the envelope too (the diagnostic names `value`).
+      widgets: [{ id: 'w', component: { type: 'metric-card', title: 'Revenue' } }],
     };
-    const result = DashboardComponentZod.safeParse(envelopeStray);
-    expect(result.success, 'the runtime is the strict face on this corner').toBe(false);
-    if (result.success) return;
-    const flat = JSON.stringify(result.error.issues);
-    expect(flat).toContain('unrecognized_keys');
-    expect(flat).toContain('bogus');
+    // The tolerant zod face still accepts this document, through the widget
+    // `component` slot's `BaseSchema` arm (objectui#8344); that is the zod
+    // face's question, which this card leaves alone (objectui#8345).
+    expect(valueless.type).toBe('dashboard');
   });
 
-  it('the same envelope without the stray key is legal on both faces', () => {
+  it('the same envelope with `value` is legal on both faces (the control)', () => {
     const envelope: DashboardComponentSchema = {
       type: 'dashboard',
       widgets: [{ id: 'w', component: { type: 'metric-card', value: '1' }, layout: { x: 0, y: 0, w: 1, h: 1 } }],
@@ -271,7 +273,7 @@ describe('objectui#11467 — the component arm declares `MetricCard`\'s register
     expect(twins).toBe(true);
   });
 
-  it('the TypeScript face judges each value by its member, while the index signature still stands', () => {
+  it('the TypeScript face judges each value by its member', () => {
     // @ts-expect-error — TS2322: `trend` is the registration's enum.
     const sideways: DashboardWidgetSlotComponentSchema = { type: 'metric-card', value: '1', trend: 'sideways' };
     // @ts-expect-error — TS2741: `value` is the card's one required input.

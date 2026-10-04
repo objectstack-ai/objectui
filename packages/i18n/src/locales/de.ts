@@ -1012,6 +1012,7 @@ const de = {
     readonlyAriaLabel: "Schreibgeschützte Ansicht",
     readonlyTooltip: "Systemansicht — im Code definiert, schreibgeschützt.",
     malformedFilter: "Der Filter dieser Ansicht ist fehlerhaft, daher werden keine Datensätze angezeigt: Die Bedingung {{subject}} kann nicht angewendet werden.",
+    noObject: "Kein Objekt angegeben: Legen Sie {{property}} oder dataSource.object fest.",
   },
   designer: {
     undo: "Rückgängig",

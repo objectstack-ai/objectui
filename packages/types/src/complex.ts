@@ -2387,7 +2387,7 @@ export interface DashboardWidgetSchema
  * inherited, not restated. Until objectui#11467 the five reached the compiler
  * only through `BaseSchema`'s `[key: string]: any`, so each was `any` here and
  * the README's `metric-card` literals compiled on nothing but that signature,
- * which objectui#8347 removes.
+ * which objectui#8347 removed.
  *
  * Each member's type is the prop `MetricCard` declares for it, and `trend`'s
  * vocabulary is the registration's enum. This package depends on neither, so
@@ -2559,9 +2559,10 @@ export interface DashboardComponentSchema extends BaseSchema, Omit<SpecDashboard
   // a named removal message, so the Zod twin (`zod/complex.zod.ts`, `.passthrough()`
   // via `BaseSchema`) gains no refusal from this deletion and ⛔ must not be given a
   // hand-written one — that would assert a spec behaviour that does not exist.
-  // Note `BaseSchema`'s index signature still types an authored `title` as `any`:
-  // this deletion removes the type-level suggestion and the false rendering claim,
-  // not a key that ever rendered. Pinned by
+  // This deletion removed the type-level suggestion and the false rendering claim,
+  // not a key that ever rendered. `BaseSchema`'s index signature typed an authored
+  // `title` as `any` after it, until objectui#8347 removed the signature; an
+  // authored `title` is a compile error now. Pinned by
   // `__tests__/dashboard-title-retired-declaration.test.ts`.
   columns?: number;
   gap?: number;
@@ -2576,17 +2577,17 @@ export interface DashboardComponentSchema extends BaseSchema, Omit<SpecDashboard
    * the shape the 2026-08-14 ruling (objectstack#8593) admits and the runtime
    * renders — see the arm's own docblock for the measurement and the ruling.
    *
-   * ⚠️ Measured limits of a TypeScript union with a passthrough arm, recorded
-   * so nobody reads them as a hatch (pinned two-faced next to the arm):
+   * ⚠️ How the union judges a literal, recorded so nobody reads it as a hatch
+   * (pinned next to the arm):
    *  - a literal that NAMES a `type` outside the component set is discriminated
-   *    by it — `{ type: 'bar', bogus: 1 }` is still refused, because `'bar'`
+   *    by it — `{ type: 'bar', bogus: 1 }` is refused, because `'bar'`
    *    excludes the component arm and `DashboardWidgetSchema` has no `bogus`;
    *  - a literal with NO `type` (the legacy `component` envelope) cannot be
-   *    discriminated, and the component arm's index signature then satisfies
-   *    the union's excess-property check, so `{ component, bogus: 1 }`
-   *    compiles here. The Zod face refuses it (`.strict()` widget schema) —
-   *    the runtime is the strict face on that corner, as it already was for
-   *    every `BaseSchema` slot;
+   *    discriminated, so its excess-property check runs against both arms.
+   *    Until objectui#8347 the component arm's index signature satisfied it,
+   *    so `{ component, bogus: 1 }` compiled here; with `BaseSchema`'s
+   *    signature gone it is refused, as on the Zod face (`.strict()` widget
+   *    schema);
    *  - a `metric-card` with NO `value` (`{ type: 'metric-card', title }`) is
    *    refused here as on both Zod faces: no arm but the component arm names
    *    `metric-card` (objectui#11483 on the Zod faces, objectui#11514 here).

@@ -237,10 +237,13 @@ describe('objectui#7353 — both widget prop types refuse an authored dataProvid
       // @ts-expect-error `dataProvider` is a retirement tombstone (objectui#7353) — write `objectName`
       dataProvider: { provider: 'object', object: 'account' },
     };
-    // Control: an undeclared key carries no directive — the index signature
-    // absorbs it, which is what a deletion would have left `dataProvider` as.
+    // Control: an undeclared key carried no directive while the index signature
+    // absorbed it — what a deletion would have left `dataProvider` as. Since
+    // objectui#8347 it is refused too, as undeclared, with no remedy named; the
+    // tombstone above is what names `objectName`.
+    // @ts-expect-error — the pivot node declares no `zzUndeclared7353` (objectui#8347)
     const undeclared: PivotSchema = { type: 'pivot', rowField: 'r', columnField: 'c', valueField: 'v', data: [], zzUndeclared7353: 1 };
-    expect([node.objectName, undeclared.zzUndeclared7353]).toEqual(['account', 1]);
+    expect([node.objectName, undeclared.type]).toEqual(['account', 'pivot']);
   });
 
   it('ObjectDataTableProps (anchored to ObjectDataTableSchema): the same, through the built types', () => {
@@ -250,7 +253,8 @@ describe('objectui#7353 — both widget prop types refuse an authored dataProvid
       // @ts-expect-error `dataProvider` is a retirement tombstone (objectui#7353) — write `objectName`
       dataProvider: { provider: 'object', object: 'account' },
     };
+    // @ts-expect-error — `ObjectDataTableSchema` declares no `zzUndeclared7353` (objectui#8347)
     const undeclared: DataTableSchema = { type: 'object-data-table', zzUndeclared7353: 1 };
-    expect([node.objectName, undeclared.zzUndeclared7353]).toEqual(['account', 1]);
+    expect([node.objectName, undeclared.type]).toEqual(['account', 'object-data-table']);
   });
 });

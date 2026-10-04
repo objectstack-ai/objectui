@@ -397,6 +397,7 @@ describe('Form Renderers - Display Issue Detection', () => {
       // `@object-ui/types` retire it, so a node carrying only `content` renders no text.
       const { container } = renderComponent({
         type: 'label',
+        // @ts-expect-error — retired on `label` (objectui#6152), and `BaseSchema` declares no `content` and no index signature (objectui#8347)
         content: 'Retired Spelling',
       });
 

@@ -85,8 +85,10 @@ describe('ObjectGalleryProps.schema — anchored to ObjectGallerySchema (objectu
     expect(node.data).toBe('not-an-array');
   });
 
-  it('the ceiling, stated: an UNKNOWN key still compiles (inherited index signature, objectui#5155)', () => {
+  it('an UNKNOWN key is refused — the ceiling this row stated is gone (objectui#8347)', () => {
+    // The inherited index signature let it compile until objectui#8347 removed it.
+    // @ts-expect-error — `visibleWhn` is no member; the key is `visibleWhen`
     const node: ObjectGalleryProps['schema'] = { type: 'object-gallery', visibleWhn: 'typo' };
-    expect(node.visibleWhn).toBe('typo');
+    expect(node.type).toBe('object-gallery');
   });
 });

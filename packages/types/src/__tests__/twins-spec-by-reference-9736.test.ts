@@ -84,9 +84,10 @@ describe('admitted spec keys land on the twin with the SPEC\'S type, not `any`',
     const pageSource: Equal<PageNodeSchema['source'], Page['source']> = true;
     const pageRequires: Equal<PageNodeSchema['requires'], Page['requires']> = true;
     const pageInterfaceConfig: Equal<PageNodeSchema['interfaceConfig'], Page['interfaceConfig']> = true;
-    // Control: an undeclared key reads as `any` through the index signature, and
-    // `Equal` tells `any` apart from a real member type.
-    const anyControl: Equal<AppComponentSchema['notASpecKey9736'], App['_lock']> = false;
+    // Control: `Equal` tells `any` apart from a real member type. (An undeclared
+    // key read `any` through the index signature until objectui#8347 removed it;
+    // the control reads `any` directly now.)
+    const anyControl: Equal<any, App['_lock']> = false;
     expect([lock, appProtection, defaultAgent, dashProtection, dashPackageId, pageSource, pageRequires, pageInterfaceConfig, anyControl])
       .toEqual([true, true, true, true, true, true, true, true, false]);
   });

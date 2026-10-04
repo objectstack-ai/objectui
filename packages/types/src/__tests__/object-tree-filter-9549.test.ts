@@ -62,8 +62,16 @@ const treeStringFilter: TsObjectTreeSchema = { type: 'object-tree', objectName: 
 // @ts-expect-error — `filter` is `QueryParams['$filter']`; a number is neither arm
 const treeNumberFilter: TsObjectTreeSchema = { type: 'object-tree', objectName: 'account', filter: 42 };
 
-/** The objectui#7927 ceiling is unchanged: a misspelled key still resolves to `any`. */
-export type _MisspellingStillAdmitted = Expect<IsAny<TsObjectTreeSchema['filtr']>>;
+/**
+ * The objectui#7927 ceiling — a misspelled key resolved to `any` — was pinned
+ * here; objectui#8347 removed `BaseSchema`'s index signature, so the misspelling
+ * is no member and a fresh literal carrying it is refused.
+ */
+export type _MisspellingIsNoMember = Expect<Equal<'filtr' extends keyof TsObjectTreeSchema ? true : false, false>>;
+// @ts-expect-error — `filtr` is no member of `ObjectTreeSchema`; the key is `filter`
+const treeMisspelledFilter: TsObjectTreeSchema = { type: 'object-tree', objectName: 'account', filtr: 'stage=won' };
+// Lit control for the detector: `IsAny` does answer `true`, so the `IsNotAny` lines are readings.
+export type _IsAnyCanAnswerTrue = Expect<IsAny<any>>;
 
 /* ── The mirror, at runtime ───────────────────────────────────────────────── */
 
@@ -107,7 +115,7 @@ describe('objectui#9549 — the tree mirror refuses what the declaration refuses
 /* Keep the type-face literals referenced so `noUnusedLocals` cannot drop them. */
 describe('objectui#9549 — the type-face literals above are real', () => {
   it('each literal builds a node', () => {
-    for (const n of [treeArrayArm, treeRecordArm, treeStringFilter, treeNumberFilter]) {
+    for (const n of [treeArrayArm, treeRecordArm, treeStringFilter, treeNumberFilter, treeMisspelledFilter]) {
       expect(n.type).toBe('object-tree');
     }
   });

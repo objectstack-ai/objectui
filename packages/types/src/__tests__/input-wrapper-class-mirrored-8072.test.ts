@@ -90,17 +90,20 @@ type Expect<T extends true> = T;
 type IsAny<T> = 0 extends (1 & T) ? true : false;
 
 // The TS face already declared this key; these guard it against being removed
-// on the way past, in which case the read falls back to `BaseSchema`'s index
-// signature and resolves to `any`, and `Equal<any, string>` is false.
+// on the way past, in which case the read stops compiling (it fell back to
+// `BaseSchema`'s index signature as `any` until objectui#8347 removed it).
 export type _WrapperClassIsString = Expect<Equal<NonNullable<TsInputSchema['wrapperClass']>, string>>;
 export type _WrapperClassIsNotAny = Expect<Equal<IsAny<TsInputSchema['wrapperClass']>, false>>;
-// The control key is NOT declared: it resolves to `any` through the index
-// signature, exactly as `wrapperClass` did on the MIRROR before this card.
-export type _ControlKeyFallsThroughToIndexSignature = Expect<IsAny<TsInputSchema['labelClass']>>;
+// Lit control for the detector: `IsAny` does answer `true`, so the line above is a reading.
+export type _IsAnyCanAnswerTrue = Expect<IsAny<any>>;
+// The control key is NOT declared: it resolved to `any` through the index
+// signature, exactly as `wrapperClass` did on the MIRROR before this card,
+// until objectui#8347 removed the signature. It is no member now.
+export type _ControlKeyIsNoMember = Expect<Equal<'labelClass' extends keyof TsInputSchema ? true : false, false>>;
 
-// The TS face accepts the key on a literal. ⚠️ This is the WEAK half: the index
-// signature would accept it undeclared too. The invariant pins above are the
-// guard; this line only shows the declared spelling in use.
+// The TS face accepts the key on a literal. Since objectui#8347 this is no
+// longer the weak half: without the index signature an undeclared key is
+// refused on a fresh literal, so the acceptance reads the declaration.
 const literal: TsInputSchema = { type: 'input', label: 'Name', wrapperClass: 'gap-4' };
 
 interface Mirror {

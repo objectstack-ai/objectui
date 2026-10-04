@@ -294,8 +294,9 @@ type NodeSlotZodType = z.ZodOptional<z.ZodUnion<readonly [SchemaNodeZodType, z.Z
  * ⚠️ Dated note, 2026-10-02 (objectui#11466): that repair has landed. `SchemaNode`'s
  * object arm is `DeclaredNode`, the union of the declared node types with no
  * `type: string` arm, so an undeclared `type` is refused on the TS face too. The
- * members that extend `BaseSchema` keep its index signature until objectui#8347
- * removes it. The two sentences above are kept as the reading at #8344.
+ * members that extend `BaseSchema` kept its index signature until objectui#8347
+ * removed it; a key they do not declare is refused on the TS face now as well.
+ * The two sentences above are kept as the reading at #8344.
  *
  * ⭐ What #7760 bought: `__tests__/zod-mirror-parity.test.ts` can now compare the
  * `z.union([SchemaNodeSchema, z.array(SchemaNodeSchema)])` single-or-list slots that

@@ -82,9 +82,12 @@ type _RetiredIsNotAny = Assert<Equal<IsAny<TsObjectKanbanSchema['allowCollapse']
 // declared type, so the `undefined` above is a reading and not the shape the
 // whole interface collapsed to.
 type _LiveMemberStillDeclared = Assert<Equal<TsObjectKanbanSchema['coverImageField'], string | undefined>>;
-// …and the never-declared near miss DOES fall through to `any`, which is what
-// the retired key would look like had it been deleted rather than tombstoned.
-type _NearMissFallsThroughToIndexSignature = Assert<IsAny<TsObjectKanbanSchema['allowCollapsing']>>;
+// …and the never-declared near miss is no member at all, which is what the
+// retired key would look like had it been deleted rather than tombstoned (it
+// fell through to `any` until objectui#8347 removed `BaseSchema`'s signature).
+type _NearMissIsNoMember = Assert<Equal<'allowCollapsing' extends keyof TsObjectKanbanSchema ? true : false, false>>;
+// Lit control for the detector: `IsAny` does answer `true`, so `_RetiredIsNotAny` is a reading.
+type _IsAnyCanAnswerTrue = Assert<IsAny<any>>;
 
 // The TS face still accepts a live board…
 // (`quickAdd` stood in this literal until it was retired on this arm too —

@@ -178,9 +178,12 @@ describe('ObjectChartSchema — compile-time pins (objectui#7946)', () => {
     expect([chart.aggregate?.groupBy, chart.xAxisKey, first && 'dataKey' in first ? first.dataKey : undefined]).toEqual(['stage', 'stage', 'amount']);
   });
 
-  it('still accepts a MISSPELLING — the ceiling, pinned honestly (objectui#5155)', () => {
+  it('refuses a MISSPELLING — the ceiling this row pinned is gone (objectui#8347)', () => {
+    // `BaseSchema`'s inherited `[key: string]: any` let `xAxisKy` compile until
+    // objectui#8347 removed it.
+    // @ts-expect-error — `xAxisKy` is no member; the key is `xAxisKey`
     const chart: ObjectChartSchema = { type: 'object-chart', chartType: 'bar', xAxisKy: 'stage' };
-    expect(chart.xAxisKy).toBe('stage');
+    expect(chart.type).toBe('object-chart');
   });
 });
 

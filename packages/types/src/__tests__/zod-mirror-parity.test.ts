@@ -154,7 +154,13 @@
  *     a delta to this number; count the registry. Nothing asserts it against a written
  *     one, so this line is prose and can rot; the pin that cannot is the one
  *     comparing the two halves to each other.
- *   - **50 entries** in `KnownDrift`, **87 keys** across them — 50 / 88 until
+ *   - **55 entries** in `KnownDrift`, **92 keys** across them — 50 / 87 until
+ *     objectui#8347 removed `BaseSchema`'s index signature, which ledgered FIVE
+ *     new entries of one key each, all the INTERFACE-TO-PASSTHROUGH artifact
+ *     (`app.zod.ts#AppSchemaRendererNodeSchema` and four `reports.zod.ts`
+ *     pairs: a member typed with an `interface` against a `.passthrough()`
+ *     mirror input, which an interface is never implicitly assignable to). It
+ *     was 50 / 88 until
  *     objectui#11514 dropped the component type from the TS
  *     `DashboardWidgetSchema`'s `type`, once `plugin-dashboard` read slot entries
  *     by the slot's element type: both faces name the same widget vocabulary, so
@@ -876,7 +882,7 @@
  *
  * ## KNOWN_DRIFT is a ratchet, not a waiver
  *
- * 50 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
+ * 55 of the registered pairs carry TYPE drift TODAY (measured, not assumed). Each is
  * pinned to its EXACT drifted key set, so the entry fails when new drift appears on
  * that mirror AND when the recorded drift is fixed — a stale entry cannot rot
  * quietly. Correcting them is not one change: the pairs below split into DISJOINT
@@ -2210,6 +2216,21 @@ interface KnownDrift {
    */
   'ai.zod.ts#NLQuerySchema': 'onSubmit';
   /**
+   * INTERFACE-TO-PASSTHROUGH (objectui#8347), an artifact of this ratchet's
+   * assignability test and ⛔ not a narrowing a document can hit. The member is a
+   * node type declared as an `interface`; its mirror is a `.passthrough()` object,
+   * whose `z.input` carries `[k: string]: unknown`. TypeScript grants an IMPLICIT
+   * index signature to anonymous and mapped object types and never to an
+   * interface, so an interface is not assignable to it. While `BaseSchema`
+   * carried `[key: string]: any` the declared member had an explicit signature
+   * and fit; objectui#8347 removed it. Measured at removal: a one-level anonymous
+   * copy of the declared type (`{ [P in keyof D]: D[P] }`) IS assignable to the
+   * same mirror input, so the residue is exactly the interface rule. The four
+   * `reports.zod.ts` entries below are the same cause. They leave if the
+   * operator learns the rule, or if the member stops being an interface.
+   */
+  'app.zod.ts#AppSchemaRendererNodeSchema': 'schema';
+  /**
    * RUNTIME SLOT (objectui#6124): `calendar-view`'s `pickHostCallbacks` reads
    * `onViewChange` off the spread props (function values only) and hands it to
    * `CalendarView`. `onEventClick` joined with objectui#7344 — the same channel;
@@ -2676,6 +2697,22 @@ interface KnownDrift {
   'overlay.zod.ts#PopoverSchema': 'onOpenChange';
   /** RUNTIME SLOT (objectui#6124): the `sheet` renderer spreads leftover props onto the Radix `Sheet` (Dialog) root. */
   'overlay.zod.ts#SheetSchema': 'onOpenChange';
+  /**
+   * INTERFACE-TO-PASSTHROUGH (objectui#8347): the same artifact as
+   * `app.zod.ts#AppSchemaRendererNodeSchema` above — each member is, or holds,
+   * a declared `interface` (`report` is `ReportComponentSchema`, `chart` is
+   * `ChartSchema`, and `sections` holds `ReportSection`s, whose `chart` is)
+   * against a `.passthrough()` mirror whose input demands a string index
+   * signature an interface never implicitly has. Measured at removal for
+   * `chart`: the declared type is refused, a one-level anonymous copy fits.
+   */
+  'reports.zod.ts#ReportBuilderSchema': 'report';
+  /** INTERFACE-TO-PASSTHROUGH (objectui#8347): see `ReportBuilderSchema` above; `sections` carries the element. */
+  'reports.zod.ts#ReportComponentSchema': 'sections';
+  /** INTERFACE-TO-PASSTHROUGH (objectui#8347): see `ReportBuilderSchema` above. */
+  'reports.zod.ts#ReportSectionSchema': 'chart';
+  /** INTERFACE-TO-PASSTHROUGH (objectui#8347): see `ReportBuilderSchema` above. */
+  'reports.zod.ts#ReportViewerSchema': 'report';
   /**
    * RUNTIME SLOT (objectui#7344): `detail-view` spreads the node's keys onto
    * `DetailView`, whose `handleBack` calls `onBack()`. The TS twin declared the

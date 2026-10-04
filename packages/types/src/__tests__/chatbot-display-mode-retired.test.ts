@@ -148,11 +148,14 @@ describe('the `displayMode` tombstone makes authoring a `tsc` error on both face
     expect(onChatbot.processVisibility).toBe('debug');
   });
 
-  it('an UNDECLARED key rides a fresh literal AND a widened value on this carrier — the DELETED row, live', () => {
-    // No directive on purpose: this is where `displayMode` would sit had it
-    // been deleted instead of tombstoned. `BaseSchema`'s `[key: string]: any`
-    // absorbs the key at any value in every shape, so a deletion here is not
-    // "quieter" than a tombstone — it produces no diagnostic at all.
+  it('an UNDECLARED key is refused on a fresh literal and still rides a widened value — the DELETED row, live', () => {
+    // This is where `displayMode` would sit had it been deleted instead of
+    // tombstoned. Until objectui#8347 `BaseSchema`'s `[key: string]: any`
+    // absorbed the key at any value in every shape, so a deletion produced no
+    // diagnostic at all. The signature is gone: a fresh literal is refused,
+    // with no name for the remedy, while a widened value is still not
+    // re-checked (no excess-property check on a non-fresh object).
+    // @ts-expect-error — `ChatbotSchema` declares no `bogusUndeclared` (objectui#8347)
     const fresh: TsChatbotSchema = { type: 'chatbot', messages, bogusUndeclared: 1 };
     const raw = { type: 'chatbot' as const, messages, bogusUndeclared: 1 };
     const widened: TsChatbotSchema = raw;

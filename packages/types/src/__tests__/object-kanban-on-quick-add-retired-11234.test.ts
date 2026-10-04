@@ -76,8 +76,11 @@ export type _RetiredIsNotAny = Assert<Equal<IsAny<TsObjectKanbanSchema['onQuickA
 export type _RetiredIsNotCallable = Assert<Equal<KeepsFunction<TsObjectKanbanSchema['onQuickAdd']>, false>>;
 // Non-vacuity on the same instruments: the sibling slot is still callable…
 export type _LiveSlotStillCallable = Assert<KeepsFunction<TsObjectKanbanSchema['onCardClick']>>;
-// …and the never-declared near miss does fall through to `any`.
-export type _NearMissFallsThroughToIndexSignature = Assert<IsAny<TsObjectKanbanSchema['onQuickAdded']>>;
+// …and the never-declared near miss is no member at all (it fell through to
+// `any` until objectui#8347 removed `BaseSchema`'s index signature).
+export type _NearMissIsNoMember = Assert<Equal<'onQuickAdded' extends keyof TsObjectKanbanSchema ? true : false, false>>;
+// Lit control for the detector: `IsAny` does answer `true`, so `_RetiredIsNotAny` is a reading.
+export type _IsAnyCanAnswerTrue = Assert<IsAny<any>>;
 
 const liveLiteral: TsObjectKanbanSchema = { ...NODE, onCardClick: () => undefined };
 // This directive goes unused — and the type-check goes red with TS2578 — the

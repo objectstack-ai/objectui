@@ -413,21 +413,22 @@ describe('the six keys are RETIRED on the TypeScript face too (objectui#7703)', 
     // boundary on the `tsc` face. `ChatbotEnhancedSchema` and
     // `ChatbotFloatingSchema` reach `ChatbotSchema` only through
     // `Pick<..., ChatbotSharedKey | ...>`, and none of the six is a picked key,
-    // so no tombstone can travel to them: the keys stay UNDECLARED there and
-    // ride `BaseSchema`'s index signature, exactly as before this change. Both
-    // annotated assignments below are directive-FREE on purpose — if a
-    // tombstone ever reached either face, they would stop compiling and this
-    // leg would be the one that says so.
-    const enhanced: ChatbotEnhancedSchemaTS = {
-      type: 'chatbot-enhanced',
-      messages: [],
-      showAvatars: true,
-    };
-    const floating: ChatbotFloatingSchemaTS = {
-      type: 'chatbot-floating',
-      messages: [],
-      height: 400,
-    };
-    expect([enhanced.type, floating.type]).toEqual(['chatbot-enhanced', 'chatbot-floating']);
+    // so no tombstone can travel to them: the keys stay UNDECLARED there — no
+    // member at all, where a tombstone would be a `?: never` member. Until
+    // objectui#8347 they rode `BaseSchema`'s index signature, and a
+    // directive-free annotated literal was this leg's instrument. With the
+    // signature gone an undeclared key is refused on a fresh literal as well,
+    // so the leg reads membership instead, which separates the two.
+    type IsMember<T, K extends PropertyKey> = K extends keyof T ? true : false;
+    const undeclared: [IsMember<ChatbotEnhancedSchemaTS, 'showAvatars'>, IsMember<ChatbotFloatingSchemaTS, 'height'>] = [
+      false,
+      false,
+    ];
+    // Control: a picked key IS a member of each sibling, so `false` is a reading.
+    const picked: [IsMember<ChatbotEnhancedSchemaTS, 'messages'>, IsMember<ChatbotFloatingSchemaTS, 'messages'>] = [
+      true,
+      true,
+    ];
+    expect([...undeclared, ...picked]).toEqual([false, false, true, true]);
   });
 });

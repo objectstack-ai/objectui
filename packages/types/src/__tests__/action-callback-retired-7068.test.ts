@@ -338,8 +338,11 @@ describe('legacy ActionSchema.onSuccess / onFailure are RETIRED — the TS half 
       redirect: '/done',
     };
 
-    // BASE CONTROL on the TS face: the same literal IS a legal `BaseSchema` — the
-    // acceptance a deleted member would have fallen through to.
+    // BASE CONTROL on the TS face: the same literal WAS a legal `BaseSchema` — the
+    // acceptance a deleted member would have fallen through to — until
+    // objectui#8347 removed `BaseSchema`'s index signature. The base refuses it
+    // now too, so a deleted member is no longer silently acceptable here.
+    // @ts-expect-error — `BaseSchema` declares no `onSuccess` and no index signature (objectui#8347).
     const base: BaseSchemaTS = { type: 'action', onSuccess: { type: 'toast', message: 'ok' } };
 
     expect([retired, migrated, base]).toHaveLength(3);

@@ -293,15 +293,17 @@ export type _TreeIsDeclared = Expect<Declares<ObjectTreeNode, 'tree'>>;
 export type _StaticDataIsDeclared = Expect<Declares<ObjectTreeNode, 'staticData'>>;
 
 /**
- * ⚠️ THE CEILING. An undeclared key still compiles and still types `any`, so
- * declaring buys VALUE typing and never buys refusal of a misspelling. Both
- * halves are pinned: the control key resolves to `any`, and so does a typo —
- * while a declared key (`navigation`, since objectui#11168 slice 3) no longer
- * does, which is the value typing declaring bought.
+ * THE CEILING, as it was: an undeclared key compiled and typed `any`, so
+ * declaring bought VALUE typing and never refusal of a misspelling. objectui#8347
+ * removed `BaseSchema`'s index signature, so the control key and the typo are
+ * no members now, and a declared key (`navigation`, since objectui#11168 slice
+ * 3) still resolves to its own type, not `any`.
  */
-export type _UndeclaredStillResolvesToAny = Expect<IsAny<ObjectTreeNode[typeof CONTROL_KEY]>>;
+export type _UndeclaredIsNoMember = Expect<Equal<typeof CONTROL_KEY extends keyof ObjectTreeNode ? true : false, false>>;
 export type _DeclaredNoLongerResolvesToAny = Expect<Equal<IsAny<ObjectTreeNode['navigation']>, false>>;
-export type _MisspellingStillAdmitted = Expect<IsAny<ObjectTreeNode['objectNaem']>>;
+export type _MisspellingIsNoMember = Expect<Equal<'objectNaem' extends keyof ObjectTreeNode ? true : false, false>>;
+/** Lit control for the detector: `IsAny` does answer `true`, so the line above is a reading. */
+export type _IsAnyCanAnswerTrue = Expect<IsAny<any>>;
 
 /** The node still type-checks the way a host writes it, with no cast. */
 const node: ObjectTreeProps['schema'] = {

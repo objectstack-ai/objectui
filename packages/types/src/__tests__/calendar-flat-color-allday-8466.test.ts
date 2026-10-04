@@ -65,10 +65,12 @@
  *
  * ## What declaring buys — and what it does NOT, measured not assumed
  *
- * objectui#7927 measured the ceiling: `BaseSchema` ends in `[key: string]: any`,
- * so no annotation here can catch a MISSPELLED key. `colourField` stays admitted
- * on both faces, and the control assertions below PIN that, so nobody reads this
- * file as claiming more than it does. What the ceiling does not cap is the VALUE
+ * objectui#7927 measured the ceiling: `BaseSchema` ended in `[key: string]: any`,
+ * so no annotation here could catch a MISSPELLED key. objectui#8347 removed the
+ * signature, so the TS face refuses `colourField` on a fresh literal now (pinned
+ * below); the tolerant zod face still admits it, and the control assertions
+ * below PIN that, so nobody reads this file as claiming more than it does. What
+ * the ceiling never capped is the VALUE
  * dimension, and that is the half this file pins — on the TS face through
  * `@ts-expect-error` directives that go UNUSED (TS2578, a hard type-check
  * failure) the moment their member is deleted, and on the mirror through
@@ -138,16 +140,16 @@ const NEWLY_DECLARED = ['colorField', 'allDayField'] as const;
 
 /**
  * A key the renderer never reads and neither face declares. Non-vacuity control
- * for every "declared" assertion: it must stay `any` on the TS face and out of
- * the mirror shape, while still being ADMITTED — the objectui#7927 ceiling,
- * pinned rather than claimed away.
+ * for every "declared" assertion: it must stay no member of the TS face (it
+ * read `any` there until objectui#8347) and out of the mirror shape, while
+ * still being ADMITTED by the tolerant mirror's `.passthrough()`.
  */
 const CONTROL_KEY = 'swatchField';
 /** A declared-and-read control for the off-disk read census, read BARE. */
 const READ_CONTROL_KEY = 'objectName';
 /** The same, read through a CAST — the census must see both forms, not one. */
 const CAST_READ_CONTROL_KEY = 'defaultView';
-/** The misspelling the ceiling still admits. Pinned, not fixed here. */
+/** The misspelling the tolerant mirror still admits (the TS face refuses it since objectui#8347). */
 const MISSPELLING = 'colourField';
 
 const CALENDAR_NODE = { type: 'object-calendar', objectName: 'event' } as const;
@@ -172,11 +174,16 @@ export type _AllDayFieldIsString = Expect<Equal<TsObjectCalendarSchema['allDayFi
 export type _AllDayFieldIsNotAny = Expect<Equal<IsAny<TsObjectCalendarSchema['allDayField']>, false>>;
 export type _AllDayFieldIsOptional = Expect<IsOptional<TsObjectCalendarSchema, 'allDayField'>>;
 // The control key is undeclared, exactly as the two above were before this card.
-// Same instrument, opposite verdict — which is what makes the six lines above
-// readings rather than a type that says `true` for everything.
-export type _ControlKeyFallsThrough = Expect<IsAny<TsObjectCalendarSchema['swatchField']>>;
-// objectui#7927's ceiling, pinned rather than claimed away.
-export type _MisspellingStillAdmitted = Expect<IsAny<TsObjectCalendarSchema['colourField']>>;
+// Until objectui#8347 it fell through `BaseSchema`'s index signature and read
+// `any`; that signature is gone, so it is no member at all. `IsAny<any>` is the
+// lit control that keeps the `IsNotAny` lines above readings rather than a
+// type that says `false` for everything.
+export type _IsAnyCanAnswerTrue = Expect<IsAny<any>>;
+export type _ControlKeyIsNoMember = Expect<Equal<'swatchField' extends keyof TsObjectCalendarSchema ? true : false, false>>;
+// objectui#7927's ceiling ("a misspelling is still admitted") was pinned here
+// rather than claimed away; objectui#8347 removed it, so the misspelling is no
+// member either, and a fresh literal carrying it is refused (below).
+export type _MisspellingIsNoMember = Expect<Equal<'colourField' extends keyof TsObjectCalendarSchema ? true : false, false>>;
 
 // The SIBLING interface in the same plugin — served by its OWN renderer, which
 // reads the same five flat keys — already declares all five. A member that fell
@@ -190,9 +197,9 @@ const siblingPins: [
   Expect<Declared<TsCalendarViewSchema, 'allDayField'>>,
   Expect<Declared<TsCalendarViewSchema, 'colorField'>>,
 ] = [true, true, true, true, true];
-// Control: the same instrument returns the OPPOSITE verdict for a key the
-// sibling does not declare either, so the five above are readings.
-export type _SiblingControlFallsThrough = Expect<IsAny<TsCalendarViewSchema['swatchField']>>;
+// Control: a key the sibling does not declare either is no member of it — it
+// read `any` through the index signature until objectui#8347 removed it.
+export type _SiblingControlIsNoMember = Expect<Equal<'swatchField' extends keyof TsCalendarViewSchema ? true : false, false>>;
 
 // The TS face ACCEPTS the flat handoff shape…
 const calendarLiteral: TsObjectCalendarSchema = {
@@ -207,6 +214,9 @@ const calendarLiteral: TsObjectCalendarSchema = {
 const calendarBadColorField: TsObjectCalendarSchema = { ...CALENDAR_NODE, colorField: 0xff0000 };
 // @ts-expect-error — `allDayField` names a FIELD; a boolean is the VALUE, the confusion this declaration catches
 const calendarBadAllDayField: TsObjectCalendarSchema = { ...CALENDAR_NODE, allDayField: true };
+// …and, since objectui#8347 removed `BaseSchema`'s index signature, the misspelling itself.
+// @ts-expect-error — `colourField` is no member of `ObjectCalendarSchema`; the key is `colorField`
+const calendarMisspelledKey: TsObjectCalendarSchema = { ...CALENDAR_NODE, colourField: 'status_colour' };
 
 /* ── Off-disk derivations ─────────────────────────────────────────────────── */
 
@@ -662,6 +672,6 @@ describe('objectui#8466 — the TS face accepts the flat handoff node', () => {
     expect(calendarLiteral.allDayField).toBe('is_all_day');
     // The refused literals exist only so their `@ts-expect-error` directives do;
     // referencing them keeps `noUnusedLocals` off this file's back.
-    expect([calendarBadColorField, calendarBadAllDayField]).toHaveLength(2);
+    expect([calendarBadColorField, calendarBadAllDayField, calendarMisspelledKey]).toHaveLength(3);
   });
 });

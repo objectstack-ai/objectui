@@ -110,12 +110,16 @@ const galleryStringFilter: TsObjectGallerySchema = { type: 'object-gallery', fil
 const galleryNumberFilter: TsObjectGallerySchema = { type: 'object-gallery', filter: 42 };
 
 /**
- * The objectui#7927 ceiling, pinned rather than claimed away: `BaseSchema` ends
- * in `[key: string]: any`, so a MISSPELLED key still resolves to `any` and
- * still compiles. This card does not lift that, and this line is what stops
- * anyone reading it as if it had.
+ * The objectui#7927 ceiling was pinned here rather than claimed away: while
+ * `BaseSchema` ended in `[key: string]: any`, a MISSPELLED key resolved to `any`
+ * and compiled. objectui#8347 removed the signature, so the misspelling is no
+ * member, and a fresh literal carrying it is refused.
  */
-export type _MisspellingStillAdmitted = Expect<IsAny<TsObjectGallerySchema['filtr']>>;
+export type _MisspellingIsNoMember = Expect<Equal<'filtr' extends keyof TsObjectGallerySchema ? true : false, false>>;
+// Lit control for the detector: `IsAny` does answer `true`, so `_GalleryFilterIsNotAny` is a reading.
+export type _IsAnyCanAnswerTrue = Expect<IsAny<any>>;
+// @ts-expect-error — `filtr` is no member of `ObjectGallerySchema`; the key is `filter`
+const galleryMisspelledFilter: TsObjectGallerySchema = { type: 'object-gallery', filtr: 'stage=won' };
 
 /* ── The mirror, at runtime ───────────────────────────────────────────────── */
 
@@ -239,5 +243,6 @@ describe('objectui#9309 — the type-face literals above are real', () => {
     expect(galleryRecordArm.type).toBe('object-gallery');
     expect(galleryStringFilter.type).toBe('object-gallery');
     expect(galleryNumberFilter.type).toBe('object-gallery');
+    expect(galleryMisspelledFilter.type).toBe('object-gallery');
   });
 });

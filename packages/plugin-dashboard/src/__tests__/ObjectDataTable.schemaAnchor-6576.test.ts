@@ -107,8 +107,10 @@ describe('ObjectDataTableProps.schema — anchored to ObjectDataTableSchema (obj
     expect(node.data).toBe('not-an-array');
   });
 
-  it('the ceiling, stated: an UNKNOWN key still compiles (inherited index signature, objectui#5155)', () => {
+  it('an UNKNOWN key is refused — the ceiling this row stated is gone (objectui#8347)', () => {
+    // The inherited index signature let it compile until objectui#8347 removed it.
+    // @ts-expect-error — `ObjectDataTableSchema` declares no `bogusKey`
     const node: Schema = { type: 'object-data-table', bogusKey: 1 };
-    expect(node.bogusKey).toBe(1);
+    expect(node.type).toBe('object-data-table');
   });
 });

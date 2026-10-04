@@ -93,17 +93,20 @@
  *
  * ## 🗑️ Removal condition (recorded at triage's request)
  *
- * These `Pick` lists exist because `BaseSchema` carries a root string index
- * signature. When an objectui#5155 phase removes it, `keyof ObjectGridSchema`
- * becomes the literal member union again and `Omit` stops collapsing.
+ * These `Pick` lists exist because `BaseSchema` carried a root string index
+ * signature. objectui#8347 removed it (the objectui#5155 phase this condition
+ * waited for), so `keyof ObjectGridSchema` is the literal member union again
+ * and `Omit` no longer collapses.
  * `ObjectFormSlotKey` and the `form` half of this file then become removable in
  * favour of the original `Omit` form. The `table` half does NOT: since
  * objectui#10976 its list is a deliberate subset, so an `Omit` would have to
  * name the withheld set, and what this file guards for `table` — that every
  * grid member is either handed to the grid or withheld, and that both faces
  * withhold the same keys — stays true work. `declaresStringIndex` below is the
- * tripwire that will notice the index signature going: when it reports `false`
- * for the source schemas, the collapse half of this file is gone.
+ * tripwire that noticed the index signature going: it reports `false` for the
+ * source schemas since objectui#8347, so the collapse half of this file is gone
+ * and the `form` half may move back to `Omit` (not done here: the removal PR
+ * flipped the tripwires and left the lists, which still hold).
  */
 
 import { describe, it, expect, afterAll } from 'vitest';
@@ -262,20 +265,22 @@ function slotType(slot: 'table' | 'form'): ts.Type {
  */
 describe('the source schemas still declare their full member sets', () => {
   // 64 since objectui#10872 batch 9 declared `responsiveStyles` (withheld from the slot, above).
-  it('ObjectGridSchema declares 64 members and carries the #5155 index signature', () => {
+  it('ObjectGridSchema declares 64 members and no longer carries the #5155 index signature', () => {
     const grid = exportedType('ObjectGridSchema');
     expect(memberNames(grid)).toHaveLength(64);
     expect(memberNames(grid)).toEqual(expect.arrayContaining(['columns', 'pageSize', 'rowActions']));
-    // When this flips to `false`, objectui#5155 has removed the root index
-    // signature and the `Pick` lists this file pins become removable.
-    expect(declaresStringIndex(grid)).toBe(true);
+    // Flipped to `false` by objectui#8347, which removed the root index
+    // signature (the objectui#5155 phase this tripwire waited for): the `form`
+    // `Pick` list this file pins is removable now (see the removal condition
+    // in the header), and the `table` one stays deliberate.
+    expect(declaresStringIndex(grid)).toBe(false);
   });
 
-  it('ObjectFormSchema declares 69 members and carries the #5155 index signature', () => {
+  it('ObjectFormSchema declares 69 members and no longer carries the #5155 index signature', () => {
     const form = exportedType('ObjectFormSchema');
     expect(memberNames(form)).toHaveLength(69);
     expect(memberNames(form)).toEqual(expect.arrayContaining(['fields', 'sections', 'submitText']));
-    expect(declaresStringIndex(form)).toBe(true);
+    expect(declaresStringIndex(form)).toBe(false);
   });
 });
 

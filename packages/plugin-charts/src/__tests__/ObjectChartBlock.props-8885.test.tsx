@@ -112,8 +112,13 @@ const probes = () => (
       onSegmentClick={() => undefined}
     />
 
-    {/* CEILING, not a refusal: a misspelled key INSIDE the node still
-        compiles, through `BaseSchema`'s passthrough index signature. */}
+    {/* This row was the CEILING: a misspelled key INSIDE the node compiled
+        through `BaseSchema`'s index signature. objectui#8347 removed it, so a
+        fresh literal at the shell's pre-gate `BaseSchema` prop is excess-checked
+        against `BaseSchema` itself: the misspelling is refused, and so would a
+        correctly spelled `objectName` be. Hand the shell a typed node, as the
+        controls above do. */}
+    {/* @ts-expect-error — `objectNme` is no `BaseSchema` member, and the pre-gate prop is `BaseSchema` */}
     <ObjectChartBlock schema={{ type: 'object-chart', objectNme: 'opportunity' }} />
   </>
 );

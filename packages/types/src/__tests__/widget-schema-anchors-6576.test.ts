@@ -156,13 +156,16 @@ describe('ObjectGallerySchema / ObjectDataTableSchema — compile-time pins (obj
     expect(typeof table.onRowClick).toBe('function');
   });
 
-  it('still accepts a MISSPELLING — the ceiling, pinned honestly (objectui#5155)', () => {
-    // Counter-probe against reading the anchor as more than it is. `BaseSchema`'s
-    // `[key: string]: any` is inherited, so `visibleWhn` compiles on both. The
-    // ruling accepted this cost; closing it is objectui#5155, not this card.
+  it('refuses a MISSPELLING — the ceiling this row pinned is gone (objectui#8347)', () => {
+    // This row was the counter-probe against reading the anchor as more than it
+    // was: `BaseSchema`'s inherited `[key: string]: any` let `visibleWhn` compile
+    // on both, and closing that was left to the removal of the signature, which
+    // landed as objectui#8347.
+    // @ts-expect-error — `visibleWhn` is no member; the key is `visibleWhen`
     const gallery: ObjectGallerySchema = { type: 'object-gallery', visibleWhn: 'typo' };
+    // @ts-expect-error — `visibleWhn` is no member; the key is `visibleWhen`
     const table: ObjectDataTableSchema = { type: 'object-data-table', visibleWhn: 'typo' };
-    expect([gallery.visibleWhn, table.visibleWhn]).toEqual(['typo', 'typo']);
+    expect([gallery.type, table.type]).toEqual(['object-gallery', 'object-data-table']);
   });
 });
 

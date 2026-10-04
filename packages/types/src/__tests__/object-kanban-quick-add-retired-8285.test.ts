@@ -61,8 +61,11 @@ type _RetiredIsTombstone = Assert<Equal<TsObjectKanbanSchema['quickAdd'], undefi
 type _RetiredIsNotAny = Assert<Equal<IsAny<TsObjectKanbanSchema['quickAdd']>, false>>;
 // Non-vacuity on the same instrument: a live member resolves to its own type…
 type _LiveMemberStillDeclared = Assert<Equal<TsObjectKanbanSchema['coverImageField'], string | undefined>>;
-// …and the never-declared near miss does fall through to `any`.
-type _NearMissFallsThroughToIndexSignature = Assert<IsAny<TsObjectKanbanSchema['quickAdded']>>;
+// …and the never-declared near miss is no member at all (it fell through to
+// `any` until objectui#8347 removed `BaseSchema`'s index signature).
+type _NearMissIsNoMember = Assert<Equal<'quickAdded' extends keyof TsObjectKanbanSchema ? true : false, false>>;
+// Lit control for the detector: `IsAny` does answer `true`, so `_RetiredIsNotAny` is a reading.
+type _IsAnyCanAnswerTrue = Assert<IsAny<any>>;
 
 const liveLiteral: TsObjectKanbanSchema = { ...NODE, coverImageField: 'cover' };
 // This directive goes unused — and the type-check goes red with TS2578 — the

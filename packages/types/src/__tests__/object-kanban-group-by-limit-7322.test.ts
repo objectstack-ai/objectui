@@ -190,10 +190,13 @@ export type _LimitIsOptional = Expect<IsOptional<TsObjectKanbanSchema, 'limit'>>
 // pin red, which is the point: the tombstone is load-bearing.
 export type _GroupFieldIsTombstone = Expect<Equal<TsObjectKanbanSchema['groupField'], undefined>>;
 export type _GroupFieldIsNotAny = Expect<Equal<IsAny<TsObjectKanbanSchema['groupField']>, false>>;
-// The control key is NOT declared: it resolves to `any` through the index
-// signature, exactly as `groupBy` and `limit` did before this card. Declaring
-// it turns this red — which is the point.
-export type _ControlKeyFallsThroughToIndexSignature = Expect<IsAny<TsObjectKanbanSchema['laneField']>>;
+// The control key is NOT declared: it resolved to `any` through the index
+// signature, exactly as `groupBy` and `limit` did before this card, until
+// objectui#8347 removed the signature; it is no member now. Declaring it turns
+// this red — which is the point.
+export type _ControlKeyIsNoMember = Expect<Equal<'laneField' extends keyof TsObjectKanbanSchema ? true : false, false>>;
+// Lit control for the detector: `IsAny` does answer `true`, so the `IsNotAny` lines are readings.
+export type _IsAnyCanAnswerTrue = Expect<IsAny<any>>;
 
 // The TS face accepts the documented shape on a literal — the exact node the
 // doc page's row-cap block now annotates.

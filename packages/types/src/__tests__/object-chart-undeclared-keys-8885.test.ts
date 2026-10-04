@@ -160,11 +160,13 @@ describe('ObjectChartSchema — compile-time pins for the three keys (objectui#8
     expect(withMode.drillDown).toBeTruthy();
   });
 
-  it('the ceiling: a MISSPELLING still compiles, because `BaseSchema` carries an index signature', () => {
-    // Not a defect being papered over — the honest bound of what declaring a
-    // key buys. Revisit deliberately when objectui#5155 lands.
+  it('the ceiling is gone: a MISSPELLING stops compiling, since objectui#8347 removed `BaseSchema`\'s index signature', () => {
+    // This row pinned the honest bound of what declaring a key bought while the
+    // signature stood ("revisit deliberately when objectui#5155 lands"). The
+    // removal landed as objectui#8347, and the row flipped with it.
+    // @ts-expect-error — `drillDwn` is no member of `ObjectChartSchema`; the key is `drillDown`
     const typo: ObjectChartSchema = { type: 'object-chart', chartType: 'bar', drillDwn: { enabled: true } };
-    expect(typo.drillDwn).toEqual({ enabled: true });
+    expect(typo.type).toBe('object-chart');
   });
 });
 

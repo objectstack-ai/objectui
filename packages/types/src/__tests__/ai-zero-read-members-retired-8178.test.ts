@@ -235,11 +235,15 @@ describe('the controls — without these, a broken import would satisfy every pi
     expect([assist.showConfidence, recs.layout, query.showHistory]).toEqual([true, 'grid', true]);
   });
 
-  it('an UNDECLARED key rides both shapes on this carrier — the DELETED row, live', () => {
-    // No directive on purpose: this is where each of the seven would sit had it
-    // been deleted instead of tombstoned. `BaseSchema`'s `[key: string]: any`
-    // absorbs it at any value in every shape, so a deletion produces no
-    // diagnostic at all — it is not a quieter refusal, it is none.
+  it('an UNDECLARED key is refused on a fresh literal, and still rides a widened value — the DELETED row, live', () => {
+    // This is where each of the seven would sit had it been deleted instead of
+    // tombstoned. Until objectui#8347 `BaseSchema`'s `[key: string]: any`
+    // absorbed it at any value in every shape, so a deletion produced no
+    // diagnostic at all. The signature is gone: a fresh literal is refused,
+    // with no name for the remedy, while a value that reached its annotation
+    // through a wider variable is still not re-checked (no excess-property
+    // check on a non-fresh object). The tombstone is what refuses both.
+    // @ts-expect-error — `AIFormAssistSchema` declares no `bogusUndeclared` (objectui#8347)
     const fresh: AIFormAssistSchema = { type: 'ai-form-assist', suggestions, bogusUndeclared: 1 };
     const raw = { type: 'ai-recommendations' as const, recommendations, bogusUndeclared: 1 };
     const widened: AIRecommendationsSchema = raw;

@@ -61,7 +61,21 @@ export type KeyedI18nLabel = {
 /**
  * Base schema interface that all component schemas extend.
  * This is the fundamental building block of the Object UI protocol.
- * 
+ *
+ * ⭐ It declares NO index signature (objectui#8347, executing the
+ * objectui#7927 ruling: the TypeScript face is a contract). A node literal
+ * written against a node type is excess-property checked, so a key no
+ * declaration names, a misspelling included, stops type-checking at the
+ * authoring site. When a key you need is refused, declare it on the node
+ * type that reads it, by reference to the spec row, or fix the producer
+ * (AGENTS.md #0.1); ⛔ do not cast past it or put the signature back.
+ * The bound: TypeScript checks excess keys only on a FRESH object literal, so
+ * a value that reached its annotation through a wider variable is not
+ * re-checked. `__tests__/base-schema-closed-face-8347.test.ts` pins both
+ * directions. Renderer props keep their tolerance: {@link ComponentRendererProps}
+ * still carries its own signature, and the zod mirror is still
+ * `.passthrough()` on the rendering face.
+ *
  * @example
  * ```typescript
  * const schema: BaseSchema = {
@@ -313,10 +327,12 @@ export interface BaseSchema {
    *
    * ## Why it is refused by name rather than merely deleted
    *
-   * `BaseSchema` carries an index signature on the TS side and
    * `BaseSchemaCore` ends `.passthrough()` on the zod side, so DELETING a
-   * member does not refuse it — it makes it silently acceptable and
-   * silently inert, which is the state this retirement exists to leave. The
+   * member does not refuse it there — it makes it silently acceptable and
+   * silently inert, which is the state this retirement exists to leave. (The
+   * TS side carried an index signature with the same effect when this was
+   * written; objectui#8347 removed it, so a deleted member is refused at the
+   * authoring site now, but the parse still needs the tombstone.) The
    * `?: never` twin of the mirror's `aliasKeyRefusal` is what turns the
    * removal into an answer: `tsc` refuses the key at the authoring site and
    * the parse names `children` as the remedy.
@@ -606,12 +622,6 @@ export interface BaseSchema {
    * @example { key: 'dialog.close', defaultValue: 'Close dialog' }
    */
   ariaLabel?: string | KeyedI18nLabel;
-
-  /**
-   * Additional properties specific to the component type.
-   * This index signature allows type-specific extensions.
-   */
-  [key: string]: any;
 }
 
 /**

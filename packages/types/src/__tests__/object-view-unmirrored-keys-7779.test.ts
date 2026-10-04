@@ -573,9 +573,12 @@ export type _ViewTabBarIsNotAny = Expect<Equal<IsAny<TsObjectViewSchema['viewTab
 // declaration's local value", which this card (objectui#7779) pinned.
 export type _ListViewsIsNoLongerTheLocalRecord = Expect<Equal<Equal<TsObjectViewSchema['listViews'], Record<string, NamedListView> | undefined>, false>>;
 export type _ListViewsIsTheSpecRecord = Expect<Equal<TsObjectViewSchema['listViews'], Record<string, z.input<typeof SpecObjectListViewSchema>> | undefined>>;
-// The control key is NOT declared: it resolves to `any` through the index
-// signature, exactly as the ten did on the zod side before this card.
-export type _ControlKeyFallsThroughToIndexSignature = Expect<IsAny<TsObjectViewSchema['viewSwitcherPosition']>>;
+// The control key is NOT declared: it resolved to `any` through the index
+// signature, exactly as the ten did on the zod side before this card, until
+// objectui#8347 removed the signature; it is no member now.
+export type _ControlKeyIsNoMember = Expect<Equal<'viewSwitcherPosition' extends keyof TsObjectViewSchema ? true : false, false>>;
+// Lit control for the detector: `IsAny` does answer `true`, so the `IsNotAny` lines are readings.
+export type _IsAnyCanAnswerTrue = Expect<IsAny<any>>;
 
 // The TS face accepts the documented shape on a literal.
 export const literal: TsObjectViewSchema = { ...NODE, ...(ACCEPTED as Record<Mirrored, never>) };

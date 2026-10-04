@@ -210,11 +210,12 @@ describe('ObjectChartProps.schema — anchored to ObjectChartSchema (objectui#79
     expect(node.visibleWhen).toBe('${data.ready}');
   });
 
-  it('the ceiling, stated: an UNKNOWN key still compiles (inherited index signature, objectui#5155)', () => {
-    // Counter-probe against reading the anchor as more than it is. The ruling's
-    // acceptance is a wrong VALUE TYPE being refused loudly; a misspelled KEY
-    // is not reachable from here, exactly as on `ObjectGallerySchema`.
+  it('an UNKNOWN key is refused — the ceiling this row stated is gone (objectui#8347)', () => {
+    // This row was the counter-probe against reading the anchor as more than it
+    // was: the inherited index signature let a misspelled KEY compile. objectui#8347
+    // removed it, so the misspelling is refused like a wrong value type.
+    // @ts-expect-error — `xAxisKy` is no member; the key is `xAxisKey`
     const node: ObjectChartProps['schema'] = { type: 'object-chart', chartType: 'bar', xAxisKy: 'stage' };
-    expect(node.xAxisKy).toBe('stage');
+    expect(node.type).toBe('object-chart');
   });
 });

@@ -84,34 +84,37 @@ const columns: TableColumn[] = [{ header: 'Name', accessorKey: 'name' }];
 
 describe('objectui#6459 — the schema slot annotation is an instrument, not a decoration', () => {
   /**
-   * ⭐ THE ROOT CAUSE, PINNED: a bare `DataTableSchema` annotation refuses
-   * NOTHING. This assignment MUST COMPILE — the bogus key is written out
-   * longhand in a FRESH literal, the strongest position excess-property
-   * checking ever has, and the inherited `[key: string]: any` still admits it.
-   * Measured on the real seam before the fix was shaped (`tsc --noEmit`
-   * exit 0, zero diagnostics, with `bogusKeyForProbe6459: true` injected into
-   * the flat literal under a bare annotation). If this ever goes red,
-   * TypeScript or `BaseSchema` changed underneath and the docblock above
-   * `RemoveIndexSignature` in `ObjectGrid.tsx` needs re-measuring.
+   * ⭐ THE ROOT CAUSE, as it was: a bare `DataTableSchema` annotation refused
+   * NOTHING. The assignment below COMPILED — the bogus key written out longhand
+   * in a FRESH literal, the strongest position excess-property checking ever
+   * has, and the inherited `[key: string]: any` still admitted it. Measured on
+   * the real seam before the fix was shaped (`tsc --noEmit` exit 0, zero
+   * diagnostics). This docblock said that if it ever went red, `BaseSchema`
+   * had changed underneath and `RemoveIndexSignature` in `ObjectGrid.tsx`
+   * needed re-measuring: objectui#8347 removed the signature, the row went
+   * red, and it is flipped here. The local strip is redundant from that day
+   * (it strips nothing now); retiring it is left out of the removal PR.
    */
-  it('a bare `DataTableSchema` annotation accepts a bogus key even at a fresh literal (the blind instrument)', () => {
+  it('a bare `DataTableSchema` annotation refuses a bogus key at a fresh literal since objectui#8347', () => {
     const blind: DataTableSchema = {
       type: 'data-table',
       columns,
       data: [],
-      bogusKeyRefusedNowhere: 'admitted by the index signature',
+      // @ts-expect-error — `DataTableSchema` declares no such key, and `BaseSchema` carries no index signature (objectui#8347)
+      bogusKeyRefusedNowhere: 'admitted by the index signature until objectui#8347',
     };
     expect(blind.type).toBe('data-table');
   });
 
   /**
-   * …and the index signature is exactly what separates the two types: present
-   * on `DataTableSchema`, stripped from the seam type. If `@object-ui/types`
-   * ever removes the signature from `BaseSchema`, the first line goes red —
-   * a useful red: the local stripping machinery becomes redundant that day.
+   * …and the index signature was exactly what separated the two types: present
+   * on `DataTableSchema`, stripped from the seam type. This docblock predicted
+   * that the first line would go red if `@object-ui/types` removed the signature
+   * from `BaseSchema` — objectui#8347 did, and it is flipped: neither type is
+   * indexed by `string` now.
    */
-  it('the strip is real: `string` indexes `DataTableSchema` but not the seam type', () => {
-    type _UpstreamHasIndex = Expect<string extends keyof DataTableSchema ? true : false>;
+  it('neither `DataTableSchema` nor the seam type is indexed by `string` (objectui#8347)', () => {
+    type _UpstreamHasNone = Expect<string extends keyof DataTableSchema ? false : true>;
     type _SeamHasNone = Expect<string extends keyof ObjectGridDataTableSchema ? false : true>;
     expect(true).toBe(true);
   });
@@ -284,11 +287,14 @@ describe('objectui#6459 — the schema slot annotation is an instrument, not a d
    * The first line pins that blindness; the second pins that the strip
    * `ObjectGrid.tsx` already derives is what restores a usable `false`.
    *
-   * If the first line ever goes red, `BaseSchema` dropped its index signature —
-   * a useful red, and the same one "the strip is real" above reports.
+   * The first line went red when objectui#8347 dropped `BaseSchema`'s index
+   * signature, as predicted here, and is flipped: the raw probe can refuse now,
+   * so both types answer alike.
    */
-  it('the gate must read the STRIPPED type — the raw `DataTableSchema` probe is blind', () => {
-    type _RawIsAlwaysTrue = Expect<Has<'zzNotADataTableSchemaKeyZZ', DataTableSchema>>;
+  it('the raw `DataTableSchema` probe can refuse since objectui#8347, as the stripped one always could', () => {
+    type _RawCanRefuse = Expect<
+      Has<'zzNotADataTableSchemaKeyZZ', DataTableSchema> extends false ? true : false
+    >;
     type _StrippedCanRefuse = Expect<
       Has<'zzNotADataTableSchemaKeyZZ', DeclaredDataTableSchema> extends false ? true : false
     >;

@@ -859,21 +859,22 @@ type ViewLabelLookup = (objectName: string, viewName: string, fallback: string) 
  * A switcher tab's text — the desktop tab bar and the mobile switcher draw the
  * same string (objectui#11295).
  *
- * A view the `/meta/view` read served arrives translated by the server, a
- * published edit kept over the packaged catalog, so its text is drawn as
- * given. Offering it to `viewLabel` as the fallback was a second translation
- * pass in which the bundle won the edit back. Any other view — embedded in the
- * object document, derived client-side — still goes through `viewLabel`, its
- * only translation. `useServedViewItems` says which is which, and why.
+ * A view a server read served — a `/meta/view` document, or an entry the served
+ * object document embeds in its own `listViews` (objectui#11336) — arrives
+ * translated by the server, a published edit kept over the packaged catalog, so
+ * its text is drawn as given. Offering it to `viewLabel` as the fallback was a
+ * second translation pass in which the bundle won the edit back. Any other view
+ * — derived client-side — still goes through `viewLabel`, its only
+ * translation. `useServedViewItems` says which is which, and why.
  */
 function viewTabLabel(
     view: { id: string; name?: string; label?: string },
     objectName: string,
-    servedViews: readonly unknown[],
+    servedViews: ReturnType<typeof useServedViewItems>,
     viewLabel: ViewLabelLookup,
 ): string {
     const text = view.label || view.name || view.id;
-    return isServedView(servedViews, view.id) ? text : viewLabel(objectName, view.name || view.id, text);
+    return isServedView(servedViews, objectName, view.id) ? text : viewLabel(objectName, view.name || view.id, text);
 }
 
 /**
@@ -885,11 +886,11 @@ function viewTabLabel(
 function viewOriginLabel(
     view: { id?: string; name?: string; label?: string },
     objectName: string,
-    servedViews: readonly unknown[],
+    servedViews: ReturnType<typeof useServedViewItems>,
     viewLabel: ViewLabelLookup,
 ): string {
     const text = view.label ?? '';
-    return isServedView(servedViews, view.id) ? text : viewLabel(objectName, view.name ?? '', text);
+    return isServedView(servedViews, objectName, view.id) ? text : viewLabel(objectName, view.name ?? '', text);
 }
 
 /**
@@ -1379,8 +1380,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     const { showDebug } = useMetadataInspector();
     const { t } = useObjectTranslation();
     const { objectLabel, objectDescription: objectDesc, viewLabel, viewEmptyState, actionParamText, fieldLabel, fieldOptionLabel } = useObjectLabel();
-    // The views the `/meta/view` read served, already translated: their labels
-    // are drawn as given, every other view's through `viewLabel` (objectui#11295).
+    // The views a server read served — `/meta/view`, and the object document's
+    // own `listViews` — already translated: their labels are drawn as given,
+    // every other view's through `viewLabel` (objectui#11295, objectui#11336).
     const servedViews = useServedViewItems();
     // label + confirmText + successMessage through ONE call (objectui#4265).
     const localizeActionTexts = useActionTextLocalizer();

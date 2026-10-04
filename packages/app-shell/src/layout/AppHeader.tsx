@@ -188,7 +188,8 @@ export function AppHeader({
   const { t } = useObjectTranslation();
   const { objectLabel, dashboardLabel, pageLabel, reportLabel, viewLabel, appLabel } = useObjectLabel();
   const { apps: metadataApps, dashboards: metadataDashboards, pages: metadataPages, reports: metadataReports } = useMetadata();
-  // The views the `/meta/view` read served, already translated (objectui#11295).
+  // The views a server read served, already translated — `/meta/view`, and the
+  // object document's own `listViews` (objectui#11295, objectui#11336).
   const servedViews = useServedViewItems();
   const { currentAppName, recordTitle } = useNavigationContext();
   const mobileSwitcher = useMobileViewSwitcher();
@@ -458,7 +459,7 @@ export function AppHeader({
           const fallbackLabel = (viewDef && (viewDef.label || viewDef.title)) || humanizeSlug(viewName);
           // A served view's label is already translated — drawn as given, as its
           // tab draws it; any other view's goes through the bundle (objectui#11295).
-          const localizedViewLabel = viewDef && isServedView(servedViews, viewId)
+          const localizedViewLabel = viewDef && isServedView(servedViews, currentObject.name, viewId)
             ? fallbackLabel
             : viewLabel(currentObject.name, viewName, fallbackLabel);
           extraSegments.push({ label: localizedViewLabel });

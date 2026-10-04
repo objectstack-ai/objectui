@@ -30,7 +30,8 @@
  * 3. Control: the same node bound by `dataSource.object` draws no hint.
  * 4. Control, where the block has another record source: the neither node with
  *    that source draws no hint, so the hint is not painted over a block that
- *    is working.
+ *    is working. `object-kanban` has two such rows: inline `data`, and lanes
+ *    that carry their own `cards`.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -180,4 +181,16 @@ describe('objectui#11605 — a node naming its object in neither place shows the
       expect(r.hasHint(testId)).toBe(false);
     },
   );
+
+  it('object-kanban — control: lanes that carry their own cards are a record source, no hint', async () => {
+    // A static board: the board keeps a lane's own `cards` when it merges rows
+    // into its lanes, so this node draws cards with no object and no `data`.
+    const r = await mount({
+      type: 'object-kanban',
+      columns: [{ id: 'todo', title: 'To Do', cards: [{ id: '1', title: 'Static card' }] }],
+    });
+    expect(r.html).not.toContain('failed to render');
+    expect(r.hasHint('object-kanban')).toBe(false);
+    expect(r.text).toContain('Static card');
+  });
 });

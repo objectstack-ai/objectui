@@ -490,6 +490,10 @@ const OBJECT_KANBAN_DATA_SOURCE: ElementDataSourceMapping = {
   limit: 'limit',
 };
 
+/** Does an authored `columns` list carry lanes with their own `cards`? */
+const lanesCarryCards = (columns: unknown): boolean =>
+  Array.isArray(columns) && columns.some((column) => Array.isArray((column as { cards?: unknown } | null)?.cards));
+
 // Register object-kanban for ListView integration
 export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }> = elementDataSourceBlock(({ schema, ...props }) => {
   // `useSchemaContext()` may hand back a NULL adapter: a host with nothing
@@ -515,11 +519,14 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
       // gives (objectui#11605). Every other rung of the board's record-source
       // ladder supplies rows without an object: records a parent view hands
       // down (`data` prop), a `bind` path, and inline `data` (an empty array is
-      // a static board, so presence is the test, not length).
+      // a static board, so presence is the test, not length). So do lanes that
+      // carry their own `cards`, which the board keeps ("Preserve static cards"
+      // in the column merge above).
       requiresObject={
         schema?.data == null
         && schema?.bind == null
         && !Array.isArray((props as { data?: unknown }).data)
+        && !lanesCarryCards(schema?.columns)
       }
     >
       {(bound) => <ObjectKanban schema={bound} dataSource={dataSource} {...props} />}

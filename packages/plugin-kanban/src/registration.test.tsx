@@ -34,7 +34,10 @@ vi.mock('./ObjectKanban', () => ({
 describe('Plugin Kanban Registration', () => {
   it('renderer passes dataSource from context', () => {
     
-    render(<ObjectKanbanRenderer schema={{ type: 'object-kanban' }} />);
+    // The board names its object: a node with neither `objectName` nor a
+    // binding is answered by the gate's no-object hint (objectui#11605), and
+    // never reaches the board this probe stubs.
+    render(<ObjectKanbanRenderer schema={{ type: 'object-kanban', objectName: 'deal' }} />);
     expect(screen.getByTestId('kanban-mock')).toHaveTextContent('DataSource: mock-datasource');
   });
 });

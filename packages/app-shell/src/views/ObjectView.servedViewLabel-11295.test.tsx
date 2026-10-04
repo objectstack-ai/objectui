@@ -7,8 +7,8 @@
  */
 
 /**
- * objectui#11295 — the object page's view tab draws a SERVED view's label as
- * served.
+ * objectui#11295 / objectui#11336 — the object page's view tab draws a SERVED
+ * view's label as served.
  *
  * ## The defect
  *
@@ -19,22 +19,31 @@
  * back: measured on objectstack#20730, the `zh-CN` tab drew `进行中` over a
  * served `In Progress (edited-20730)`.
  *
+ * ## The object document's own views (objectui#11336)
+ *
+ * Since objectstack#21072 (`@objectstack/spec` 17.6.0) the server translates
+ * the `listViews` an OBJECT document embeds as well (`translateObject`, from
+ * `objects.<object>._views.<key>`, an explicit override kept over the catalog),
+ * so a tab the served `/meta/object` document carries is drawn as served too.
+ *
  * ## Why not every tab
  *
- * A view the OBJECT document embeds (`listViews` on the object, read from
- * `/meta/object`) is not translated by the server — its `translateObject` does
- * not touch `listViews` — so the client bundle is that tab's only translation.
- * The tab asks the `/meta/view` read whether it served the view
- * (`useServedViewItems`); the object-embedded tab below is the control that it
- * still translates.
+ * A view only the client derived — a stack container's expansion — was
+ * translated by no server, so the client bundle is that tab's only
+ * translation. The tab asks the two serving reads whether they served the view
+ * (`useServedViewItems`); the container tab below is the control that it still
+ * translates.
  *
  * Harness: the sibling relay pins' mocks (`ObjectView.viewDescriptionRelay-7199`),
  * with the REAL `ViewTabBar`, the real `useObjectLabel` under a real
- * `I18nProvider`, and a real `MetadataCtx` carrying the `/meta/view` answer.
+ * `I18nProvider`, and a real `MetadataCtx` carrying the `/meta/view` and
+ * `/meta/object` answers.
  *
  * Directions, written before the run: the served-edit cells RED before the
- * change (the bundle answered), GREEN after; the unedited-served and the
- * object-embedded cells GREEN on both sides.
+ * change (the bundle answered) — for objectui#11336, the embedded-edit cells
+ * RED with the object-document branch of `isServedView` removed — GREEN after;
+ * the unedited-served, the no-catalogue and the container cells GREEN on both
+ * sides.
  */
 
 import * as React from 'react';
@@ -118,31 +127,56 @@ const VIEW_ID = 'showcase_task.in_progress';
 const EDITED = 'In Progress (edited-11295)';
 const PACKAGED = { en: 'In Progress', 'zh-CN': '进行中' } as const;
 const EMBEDDED = { en: 'My Tasks', 'zh-CN': '我的任务' } as const;
+const EMBEDDED_EDITED = 'My Tasks (edited-11336)';
+/** An embedded view the catalogue carries no entry for: served as authored. */
+const UNCATALOGUED = 'Everything else';
+const CONTAINER_VIEW_ID = 'showcase_task.board';
+const CONTAINER = { authored: 'Board', en: 'Board View', 'zh-CN': '看板' } as const;
 
 /** The packaged catalog, as the console loads it into `I18nProvider`. */
 const BUNDLE = {
-  en: { showcase: { objects: { showcase_task: { label: 'Task', _views: { in_progress: { label: PACKAGED.en }, mine: { label: EMBEDDED.en } } } } } },
-  'zh-CN': { showcase: { objects: { showcase_task: { label: '任务', _views: { in_progress: { label: PACKAGED['zh-CN'] }, mine: { label: EMBEDDED['zh-CN'] } } } } } },
+  en: { showcase: { objects: { showcase_task: { label: 'Task', _views: { in_progress: { label: PACKAGED.en }, mine: { label: EMBEDDED.en }, board: { label: CONTAINER.en } } } } } },
+  'zh-CN': { showcase: { objects: { showcase_task: { label: '任务', _views: { in_progress: { label: PACKAGED['zh-CN'] }, mine: { label: EMBEDDED['zh-CN'] }, board: { label: CONTAINER['zh-CN'] } } } } } },
 };
 
 /**
- * The object as `MetadataProvider` merges it — the served view item under its
- * qualified id, and `mine`, a view the object document embeds — plus the
- * `/meta/view` answer that served the first one.
+ * The `/meta/object` answer: the object document as served, BEFORE the merge —
+ * its own `listViews`, `mine` with the label the server put in and `other`,
+ * which no catalogue entry translates.
  */
-function world(servedLabel: string) {
-  const viewItem = { name: VIEW_ID, object: OBJECT_NAME, viewKind: 'list', label: servedLabel, config: { type: 'grid', columns: ['name'] } };
-  const objects = [
-    {
-      name: OBJECT_NAME,
-      label: 'Task',
-      fields: { name: { type: 'text', label: 'Name' } },
-      listViews: {
-        [VIEW_ID]: { type: 'grid', columns: ['name'], name: VIEW_ID, label: servedLabel, isDefault: true },
-        mine: { type: 'grid', columns: ['name'], name: 'mine', label: 'Mine' },
-      },
+function servedObject(mineLabel: string) {
+  return {
+    name: OBJECT_NAME,
+    label: 'Task',
+    fields: { name: { type: 'text', label: 'Name' } },
+    listViews: {
+      mine: { type: 'grid', columns: ['name'], label: mineLabel },
+      other: { type: 'grid', columns: ['name'], label: UNCATALOGUED },
     },
-  ];
+  };
+}
+
+/**
+ * The two serving reads and the object as `MetadataProvider` merges them.
+ *
+ * `viewItem` world: the `/meta/view` answer serves one view item, merged under
+ * its qualified id beside the object document's own `listViews`.
+ *
+ * `container` world: the `/meta/view` answer is a stack container instead, whose
+ * `board` the console expands itself (`<object>.board`) — served translated by
+ * neither read.
+ */
+function world(servedLabel: string, mineLabel: string, source: 'viewItem' | 'container') {
+  const doc = servedObject(mineLabel);
+  const viewItem = { name: VIEW_ID, object: OBJECT_NAME, viewKind: 'list', label: servedLabel, config: { type: 'grid', columns: ['name'] } };
+  const container = { name: OBJECT_NAME, listViews: { board: { type: 'grid', columns: ['name'], label: CONTAINER.authored } } };
+  const fromViews = source === 'viewItem'
+    ? { [VIEW_ID]: { type: 'grid', columns: ['name'], name: VIEW_ID, label: servedLabel, isDefault: true } }
+    : { [CONTAINER_VIEW_ID]: { type: 'grid', columns: ['name'], name: CONTAINER_VIEW_ID, label: CONTAINER.authored } };
+  const objects = [{ ...doc, listViews: { ...fromViews, ...doc.listViews } }];
+  // One array per read, as the provider's cache holds it.
+  const viewAnswer = [source === 'viewItem' ? viewItem : container];
+  const objectAnswer = [doc];
   const metadata = {
     apps: [],
     objects,
@@ -155,7 +189,7 @@ function world(servedLabel: string) {
     invalidate: () => {},
     ensureType: async () => [],
     getItem: async () => null,
-    getItemsByType: (type: string) => (type === 'view' ? [viewItem] : []),
+    getItemsByType: (type: string) => (type === 'view' ? viewAnswer : type === 'object' ? objectAnswer : []),
     getTypeStatus: () => 'ready' as const,
   };
   return { objects, metadata };
@@ -171,8 +205,17 @@ function makeDataSource() {
   } as any;
 }
 
-async function renderIn(language: 'en' | 'zh-CN', servedLabel: string) {
-  const { objects, metadata } = world(servedLabel);
+/**
+ * `mineLabel` is what the object read served for `mine` — by default the
+ * catalogue's translation in `language`, as the server puts it in.
+ */
+async function renderIn(
+  language: 'en' | 'zh-CN',
+  servedLabel: string,
+  mineLabel: string = EMBEDDED[language],
+  source: 'viewItem' | 'container' = 'viewItem',
+) {
+  const { objects, metadata } = world(servedLabel, mineLabel, source);
   render(
     <I18nProvider config={{ defaultLanguage: language, detectBrowserLanguage: false, resources: BUNDLE }}>
       <MetadataCtx.Provider value={metadata as any}>
@@ -189,9 +232,10 @@ async function renderIn(language: 'en' | 'zh-CN', servedLabel: string) {
       </MetadataCtx.Provider>
     </I18nProvider>,
   );
-  // The object-embedded tab is drawn in every world, so its arrival says the
-  // tab bar rendered — waiting on the served label would hang on a regression.
-  await waitFor(() => expect(screen.getAllByText(EMBEDDED[language]).length).toBeGreaterThan(0));
+  // The uncatalogued embedded tab is drawn alike in every world and on both
+  // sides of either change, so its arrival says the tab bar rendered — waiting
+  // on a label under test would hang on a regression.
+  await waitFor(() => expect(screen.getAllByText(UNCATALOGUED).length).toBeGreaterThan(0));
 }
 
 beforeEach(() => {
@@ -225,10 +269,33 @@ describe('ObjectView — a served view tab is drawn as served (objectui#11295)',
     expect(screen.getAllByText(PACKAGED[language]).length).toBeGreaterThan(0);
   });
 
-  it.each(LANGUAGES)('%s: control — a view the object document embeds is still named by the bundle', async (language) => {
-    await renderIn(language, EDITED);
+  it.each(LANGUAGES)('%s: control — a view only the client derived (a container expansion) is still named by the bundle', async (language) => {
+    await renderIn(language, EDITED, undefined, 'container');
 
-    // `renderIn` already waited for the bundle's name; the authored one is gone.
-    expect(screen.queryAllByText('Mine')).toHaveLength(0);
+    expect(screen.getAllByText(CONTAINER[language]).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(CONTAINER.authored)).toHaveLength(0);
+  });
+});
+
+describe('ObjectView — a tab the object document embeds is drawn as served (objectui#11336)', () => {
+  it('zh-CN: the tab draws the string the object read served', async () => {
+    await renderIn('zh-CN', PACKAGED['zh-CN']);
+
+    expect(screen.getAllByText(EMBEDDED['zh-CN']).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(EMBEDDED.en)).toHaveLength(0);
+  });
+
+  it.each(LANGUAGES)('%s: a published edit the object read served renders as served, not as the packaged string', async (language) => {
+    await renderIn(language, PACKAGED[language], EMBEDDED_EDITED);
+
+    expect(screen.getAllByText(EMBEDDED_EDITED).length).toBeGreaterThan(0);
+    expect(screen.queryAllByText(EMBEDDED[language])).toHaveLength(0);
+  });
+
+  it.each(LANGUAGES)('%s: control — an embedded view with no catalogue entry keeps its authored label', async (language) => {
+    await renderIn(language, PACKAGED[language]);
+
+    // `renderIn` already waited for it; nothing else names that tab.
+    expect(screen.getAllByText(UNCATALOGUED).length).toBeGreaterThan(0);
   });
 });

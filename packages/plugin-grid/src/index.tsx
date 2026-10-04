@@ -247,7 +247,19 @@ export const ObjectGridRenderer: React.FC<{ schema: any; [key: string]: any }> =
  * read as back-compat, not advertised as authoring surface.
  */
 const GRID_QUERY_INPUTS: ComponentInput[] = [
-  { name: 'objectName', type: 'string', required: true },
+  // NOT required, as on the spec row (objectui#11605): `ComponentPropsMap
+  // ['object-grid']` leaves `objectName` optional "because the component-level
+  // `dataSource` binding can supply the object instead", and the gate above
+  // lands `dataSource.object` here. The page compile reads this list, so
+  // `required: true` refused a bound node the row and the renderer accept. A
+  // node with neither is answered by `ObjectGrid`'s own "object name required"
+  // error, unchanged.
+  {
+    name: 'objectName',
+    type: 'string',
+    description:
+      'Object this grid lists. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no inline `data` rows, the grid shows an error saying an object name is required and fetches nothing.',
+  },
   { name: 'columns', type: 'array', description: 'Columns to show, either field names (`["name", "email"]`) or column objects (`[{ field: "name", label: "Full Name", width: 200 }]`). The canonical spelling — the deprecated `fields` is only read when this is absent.' },
   { name: 'filter', type: 'array', description: 'Filter criteria in JSON-rules form. The canonical spelling — the deprecated `defaultFilters` is only read when this is absent.' },
   // ── identity ──────────────────────────────────────────────────────────────

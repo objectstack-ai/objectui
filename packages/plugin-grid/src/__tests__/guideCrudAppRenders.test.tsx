@@ -19,8 +19,8 @@
  *     which never becomes context; this block reads the adapter from
  *     `SchemaRendererProvider`. Measured `find` **0**.
  *  3. **keys** (#5377) — it named the object with `object`, and this block
- *     declares `objectName` (`GRID_QUERY_INPUTS`, `required: true`). Measured
- *     `find` **0** even under the right wiring.
+ *     declares `objectName` (`GRID_QUERY_INPUTS`; `required: true` then, not
+ *     since objectui#11605). Measured `find` **0** even under the right wiring.
  *  4. **capability** (#5446) — Step 7 named a top-level `view` and a
  *     `data.queryParams.$search`, neither of which `ObjectGrid` reads at all
  *     (`schema.view` — zero hits; `data` is the `ViewData` union, `queryParams`

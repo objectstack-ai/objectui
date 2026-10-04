@@ -1135,6 +1135,7 @@ const ar = {
     readonlyAriaLabel: "عرض للقراءة فقط",
     readonlyTooltip: "عرض النظام — معرَّف في الكود، للقراءة فقط.",
     malformedFilter: "عامل تصفية طريقة العرض هذه غير صالح، لذا لا تُعرض أي سجلات: يتعذّر تطبيق الشرط {{subject}}.",
+    noObject: "لم يُحدَّد أي كائن: عيّن {{property}} أو dataSource.object.",
   },
   designer: {
     undo: "تراجع",

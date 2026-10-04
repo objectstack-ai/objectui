@@ -240,6 +240,12 @@ const ObjectMetricBlock: React.FC<{ schema?: any; [key: string]: any }> = elemen
     dataSource={props.dataSource}
     testId="object-metric"
     errorTitle="This metric’s data source could not be resolved"
+    // A metric that names its object in neither place has nothing to
+    // aggregate, and drew a bare dash, which reads as a value (objectui#11605).
+    // A host rendering this widget with explicit props and no schema is not a
+    // node and is left alone, and an authored `fallbackValue` is a static tile
+    // the author chose.
+    requiresObject={schema != null && schema.fallbackValue === undefined}
   >
     {(bound) => (
       <ObjectMetricWidget
@@ -260,7 +266,19 @@ ComponentRegistry.register(
     label: 'Object Metric',
     category: 'Dashboard',
     inputs: [
-        { name: 'objectName', type: 'string', required: true },
+        // NOT required, as on the spec row (objectui#11605): `ComponentPropsMap
+        // ['object-metric']` leaves `objectName` optional "because the
+        // component-level `dataSource` binding can supply the object instead",
+        // and `ObjectMetricBlock` lands `dataSource.object` here. The page
+        // compile reads this list, so `required: true` refused a bound node the
+        // row and the renderer accept. A node with neither is answered by the
+        // gate's "no object named" hint.
+        {
+          name: 'objectName',
+          type: 'string',
+          description:
+            'Object this metric aggregates. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no `fallbackValue`, the tile shows a hint naming this key instead of a value.',
+        },
         // The row's three `I18nLabel` members (`ComponentPropsMap['object-metric']`):
         // `label`, `description` and `title`. `MetricWidget` resolves `label` and
         // `description` with `pickLocalized` against the active UI language, and
@@ -380,6 +398,12 @@ const ObjectPivotBlock: React.FC<{ schema?: any; [key: string]: any }> = element
     dataSource={props.dataSource}
     testId="object-pivot"
     errorTitle="This pivot table’s data source could not be resolved"
+    // A pivot that names its object in neither place has nothing to fetch, and
+    // drew the empty state that says its query "returned no records yet" — a
+    // query it never ran (objectui#11605). Inline `data` rows and a `bind`
+    // path are this table's other record sources, and a host rendering it with
+    // no schema is not a node.
+    requiresObject={schema != null && schema.data == null && schema.bind == null}
   >
     {(bound) => <ObjectPivotTable {...(props as any)} schema={bound as any} />}
   </ElementDataSourceGate>
@@ -395,7 +419,18 @@ ComponentRegistry.register(
     category: 'Dashboard',
     icon: 'table-2',
     inputs: [
-      { name: 'objectName', type: 'string', required: true },
+      // NOT required (objectui#11605). This block has no `ComponentPropsMap`
+      // row; the contract is the binding doc (`content/docs/guide/data-source.md`,
+      // "a node bound this way needs no `objectName` of its own"), and
+      // `ObjectPivotBlock` lands `dataSource.object` here. The page compile reads
+      // this list, so `required: true` refused a bound node the renderer
+      // accepts. A node with neither is answered by the gate's hint.
+      {
+        name: 'objectName',
+        type: 'string',
+        description:
+          'Object this pivot table cross-tabulates. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, the table shows a hint naming this key and fetches nothing.',
+      },
       { name: 'title', type: 'string' },
       { name: 'rowField', type: 'string', required: true },
       { name: 'columnField', type: 'string', required: true },

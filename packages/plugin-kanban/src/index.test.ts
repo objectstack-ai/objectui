@@ -55,14 +55,15 @@ describe('Plugin Kanban', () => {
       );
     });
 
-    it('should have objectName as required input', () => {
+    it('declares objectName as not required, naming the binding that can supply it (objectui#11605)', () => {
+      // The spec row leaves `objectName` optional because the node's
+      // `dataSource` binding can supply the object, and the page compile reads
+      // this list: `required: true` here refused a bound board.
       const config = ComponentRegistry.getConfig('object-kanban');
       const objectName = (config?.inputs ?? []).find((i) => i.name === 'objectName');
       expect(objectName).toBeDefined();
-      expect(objectName?.required).toBe(true);
-      // Control: not every declared input is required, so `true` above is a
-      // reading of this entry and not of a shape that marks everything.
-      expect((config?.inputs ?? []).find((i) => i.name === 'columns')?.required).toBeFalsy();
+      expect(objectName?.required).not.toBe(true);
+      expect(objectName?.description ?? '').toContain('`dataSource.object`');
     });
 
     it('every declared input carries a type', () => {

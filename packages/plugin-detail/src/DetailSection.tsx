@@ -27,7 +27,7 @@ import {
 } from '@object-ui/components';
 import { ChevronDown, ChevronRight, Copy, Check, Eye, EyeOff, Pencil } from 'lucide-react';
 import { SchemaRenderer, toRenderableSchema, useInlineEdit } from '@object-ui/react';
-import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
+import { getCellRenderer, resolveCellRendererType, coerceToSafeValue, TextAreaField } from '@object-ui/fields';
 import type { DetailViewSection as DetailViewSectionType, DetailViewField, FieldMetadata } from '@object-ui/types';
 import { applyDetailAutoLayout } from './autoLayout';
 import { useDetailTranslation } from './useDetailTranslation';
@@ -90,6 +90,12 @@ export function getResponsiveSpanClass(span: number | undefined, columns: number
 
   return '';
 }
+
+/**
+ * The `onChange` a read display is handed. `TextAreaField`'s `readonly` branch
+ * renders no control and never calls it; the widget contract requires the slot.
+ */
+const ignoreReadOnlyChange = (): void => {};
 
 export interface VirtualScrollOptions {
   /** Enable virtual scrolling for large field sets */
@@ -411,6 +417,27 @@ export const DetailSection: React.FC<DetailSectionProps> = ({
       // Use type-aware cell renderer; respect format hints (e.g.
       // text + format: 'phone' → PhoneCellRenderer with tel: link).
       const resolvedType = resolveCellRendererType(enrichedField as { type?: string; format?: string }) || field.type;
+      // `textarea` reads through `TextAreaField`'s own read display, the
+      // `readonly` branch the record form shows it with (objectui#11577) — the
+      // read half of what `InlineFieldInput` does for edit mode (objectui#11562).
+      // The cell renderer table maps `textarea` to `TextCellRenderer`, the
+      // GRID's one-line cell (`truncate`: no wrap, an ellipsis), which folded a
+      // multi-line note onto one line here. That mapping is right for a grid
+      // row and stays; this row is not one. ⛔ No second hand-written
+      // `whitespace-pre-wrap` copy here: the widget owns its read display.
+      // The value goes through `coerceToSafeValue` and `String`, exactly what
+      // `TextCellRenderer` drew from, so a string passes byte for byte and a
+      // non-string value reads as it did instead of reaching React as an object.
+      if (resolvedType === 'textarea') {
+        return (
+          <TextAreaField
+            field={enrichedField as unknown as FieldMetadata}
+            value={String(coerceToSafeValue(value))}
+            onChange={ignoreReadOnlyChange}
+            readonly
+          />
+        );
+      }
       if (resolvedType) {
         const CellRenderer = getCellRenderer(resolvedType);
         if (CellRenderer) {

@@ -623,7 +623,18 @@ ComponentRegistry.register('related_list', RecordRelatedListRenderer, {
     { name: 'objectName', type: 'string', required: true, description: 'Related object name (e.g. "task")' },
     { name: 'relationshipField', type: 'string', required: true, description: 'Field on the related object pointing back to this record' },
     { name: 'relationshipValueField', type: 'string', description: 'Which field OF THIS PARENT record `relationshipField` stores. Defaults to "id"; set it to the field a name-keyed junction points at (e.g. "name" when sys_user_position.position holds sys_position.name). The resolved value drives three things at once — the list filter, the Add-picker link value, and the pre-filled create form — so they cannot drift apart. While the parent record is still loading, a non-"id" field resolves to null and the list holds its fetch rather than querying on an empty value.' },
-    { name: 'columns', type: 'array', of: 'string', required: true, description: 'Fields to display in the related list' },
+    // `columns` is NOT required (objectui#11613). The spec row leaves it
+    // optional, and the registration may not be stricter than the row it
+    // publishes: the page compile reads `required` here, and with it set a node
+    // the row and the renderer accept was refused at the save gate. Both
+    // columns-less nodes draw a list: a `dataSource` binding that names a view
+    // lands the view's columns (`RECORD_RELATED_LIST_DATA_SOURCE` maps
+    // `columns: true`), and with neither `RelatedList` reads the unauthored list
+    // as "nothing authored" and derives the columns from the related object.
+    // Pinned by `RecordRelatedListRenderer.columnsOptional-11613.test.tsx`
+    // (what draws) and the console's `related-list-columns-optional-11613.test.ts`
+    // (what compiles).
+    { name: 'columns', type: 'array', of: 'string', description: 'Fields to display in the related list. Optional: without it, a `dataSource` binding that names a view supplies that view\'s columns, and with neither the list derives its columns from the related object (its `highlightFields`, otherwise its listable fields). Authored columns win over both.' },
     { name: 'sort', type: 'array' },
     { name: 'limit', type: 'number', description: 'Records to display initially' },
     // `type: 'array'` matches the spec (`RecordRelatedListProps.filter` is

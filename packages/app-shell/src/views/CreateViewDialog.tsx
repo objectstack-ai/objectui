@@ -150,6 +150,21 @@ function buildViewTypeMeta(t: (k: string) => string): ViewTypeMeta[] {
     .map(([type, row]) => ({ type, ...row }));
 }
 
+/**
+ * The view types this dialog offers, in grid order: the same rows the picker
+ * renders, read from {@link buildViewTypeMeta} with an identity translator.
+ *
+ * Pure, so a test can enumerate it at collection time without rendering.
+ * `CreateViewDialog.viewTypeParse-11581.test.tsx` drives its per-type parse
+ * pin from this list, so a type added to the picker without a parse row there
+ * turns that pin red (objectui#11581).
+ *
+ * Exported for that pin, not from the package index. @internal
+ */
+export function offeredViewTypes(): ListViewVisualization[] {
+  return buildViewTypeMeta((k) => k).map((m) => m.type);
+}
+
 /** Suggest a non-colliding default name like "Grid 1", "Grid 2", … */
 function suggestName(typeLabel: string, existing: Set<string>): string {
   for (let i = 1; i < 1000; i++) {
@@ -168,11 +183,13 @@ function suggestName(typeLabel: string, existing: Set<string>): string {
 // endDateField, gallery.coverField, map.latitudeField + longitudeField,
 // chart.chartType + dataset + values (+ dimensions), tree.parentField). The
 // blocks are meant to be the spec ListView blocks of those names. What
-// re-derives that is a parse against `ListViewSchema`, and only `chart` has
-// one: `CreateViewDialog.chartBinding-11576.test.tsx` (the "Save as view"
-// door) and `ObjectView.createChartView-11576.test.tsx` (the add-view door).
-// No test drives the other types' payloads through this dialog against the
-// spec (stated per AGENTS.md #9, not implied).
+// re-derives that is a parse against `ListViewSchema`:
+// `CreateViewDialog.viewTypeParse-11581.test.tsx` submits this dialog once per
+// type `offeredViewTypes()` lists and parses the body BOTH persisting doors
+// build from that payload ("Save as view" and the add-view door, which share
+// one builder, `buildNewViewSpec`). `chart` is also pinned on its own, through
+// each door's page: `CreateViewDialog.chartBinding-11576.test.tsx` and
+// `ObjectView.createChartView-11576.test.tsx`.
 //
 // `chart` was the one block that had drifted: it wrote `xAxisField` /
 // `yAxisFields`, the pre-ADR-0021 inline axes the spec's strict

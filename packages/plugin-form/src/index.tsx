@@ -17,6 +17,7 @@ import {
 } from '@object-ui/react';
 import type { DataSource } from '@object-ui/types';
 import { ObjectForm } from './ObjectForm';
+import { hasInlineFieldSource } from './submitTarget';
 
 export { ObjectForm };
 export type { ObjectFormComponentProps } from './ObjectForm';
@@ -218,9 +219,12 @@ const ObjectFormRenderer: React.FC<{ schema: any; dataSource?: unknown }> = elem
       }
       noDataSourceMessage={noDataSourceMessage('object-form', schema?.objectName)}
       // A form that names its object in neither place (objectui#11605) drew a
-      // field-less card with Cancel and Update buttons. Inline `customFields`
-      // is again the one escape hatch.
-      requiresObject={!(schema?.customFields?.length > 0)}
+      // field-less card with Cancel and Update buttons. A form whose fields are
+      // declared inline is a target-less collector and needs no object: the
+      // shared `hasInlineFieldSource` answers that for every variant, both
+      // non-empty `customFields` and the sectioned variants' fully-inline
+      // `sections` (objectui#10254).
+      requiresObject={!hasInlineFieldSource(schema)}
     >
       {(bound) => <ObjectForm schema={bound} dataSource={dataSource} />}
     </ElementDataSourceGate>
@@ -240,7 +244,7 @@ const OBJECT_FORM_OBJECT_NAME_INPUT: ComponentInput = {
   name: 'objectName',
   type: 'string',
   description:
-    'Object this form creates or edits. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no inline `customFields`, the form shows a hint naming this key instead of a form with no fields.',
+    'Object this form creates or edits. Not required: the node\'s `dataSource` binding can name the object instead, and `dataSource.object` lands on this key, outranking an authored value. With neither, and no inline fields (non-empty `customFields`, or `sections` whose every field is inline), the form shows a hint naming this key instead of a form with no fields.',
 };
 
 ComponentRegistry.register('object-form', ObjectFormRenderer, {

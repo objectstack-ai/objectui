@@ -31,7 +31,10 @@
  * 4. Control, where the block has another record source: the neither node with
  *    that source draws no hint, so the hint is not painted over a block that
  *    is working. `object-kanban` has two such rows: inline `data`, and lanes
- *    that carry their own `cards`.
+ *    that carry their own `cards`. `object-form` and `view:form` have two
+ *    kinds: inline `customFields`, and, for each sectioned `formType`
+ *    (`tabbed`, `wizard`, `split`, `drawer`, `modal`), sections whose every
+ *    field is inline.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -142,13 +145,30 @@ async function mount(schema: Record<string, unknown>) {
   }
   const html = view.container.innerHTML;
   const text = view.container.textContent ?? '';
+  // The drawer and modal form variants render into a portal, outside the
+  // container, so the body is read too.
+  const bodyText = document.body.textContent ?? '';
   try {
     view.unmount();
   } catch {
     /* teardown is not the subject */
   }
-  return { html, text, calls, hasHint: (testId: string) => html.includes(`data-testid="${testId}-no-object"`) };
+  return { html, text, bodyText, calls, hasHint: (testId: string) => html.includes(`data-testid="${testId}-no-object"`) };
 }
+
+/**
+ * Sections whose every field is an inline runtime `FormField`: the sectioned
+ * form variants read them as an inline field source, a target-less collector
+ * whose `onSuccess` is the write (objectui#10254, `hasInlineFieldSource`).
+ */
+const INLINE_SECTIONS = [{ label: 'Contact', fields: [{ name: 'email', label: 'Email address', type: 'text' }] }];
+
+/** The `formType`s `ObjectForm` dispatches to a sectioned renderer of its own. */
+const SECTIONED_VARIANTS = ['tabbed', 'wizard', 'split', 'drawer', 'modal'] as const;
+
+const SECTIONED_ROWS = (['object-form', 'view:form'] as const).flatMap((type) =>
+  SECTIONED_VARIANTS.map((formType) => ({ type, formType })),
+);
 
 describe('objectui#11605 — a node naming its object in neither place shows the no-object hint', () => {
   it.each(MEMBERS)('$type — the neither node draws the hint and fetches nothing', async ({ type, testId, base }) => {
@@ -179,6 +199,18 @@ describe('objectui#11605 — a node naming its object in neither place shows the
       const r = await mount({ type, ...base, ...otherSource });
       expect(r.html).not.toContain('failed to render');
       expect(r.hasHint(testId)).toBe(false);
+    },
+  );
+
+  it.each(SECTIONED_ROWS)(
+    '$type formType $formType — control: fully-inline sections are a record source, the collector renders, no hint',
+    async ({ type, formType }) => {
+      // No `objectName`, no binding and no `customFields`: the inline sections
+      // ARE the form, so the hint must not be painted over it.
+      const r = await mount({ type, formType, sections: INLINE_SECTIONS });
+      expect(r.html).not.toContain('failed to render');
+      expect(r.hasHint('object-form'), `<${type} formType=${formType}> drew the no-object hint over an inline collector`).toBe(false);
+      expect(r.bodyText).toContain('Email address');
     },
   );
 

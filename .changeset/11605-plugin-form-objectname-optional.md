@@ -23,7 +23,9 @@ or `object-master-detail-form` node that names its object through
 names its object in neither place also compiles now, and shows "No object named:
 set objectName or dataSource.object." where it used to draw a field-less card, a
 public form that could not submit, or an empty parent form. An `object-form`
-with inline `customFields` shows no hint and renders as before. `formId` on
-`embeddable-form` and `details` on `object-master-detail-form` are still
-required. The published `objectName` inputs now carry a description that says the
-binding can supply them.
+or `view:form` whose fields are declared inline shows no hint and renders as
+before: non-empty `customFields`, or `sections` whose every field is an inline
+field, the target-less collector the `tabbed`, `wizard`, `split`, `drawer` and
+`modal` variants render. `formId` on `embeddable-form` and `details` on
+`object-master-detail-form` are still required. The published `objectName`
+inputs now carry a description that says the binding can supply them.

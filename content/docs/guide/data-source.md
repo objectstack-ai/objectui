@@ -299,8 +299,9 @@ it. A node that names its object in neither place renders a short hint, "No obje
 named: set objectName or dataSource.object.", in place of an empty list, board,
 form, chart, metric or pivot. `object-grid` shows its own "Object name required for
 data fetching" error instead. A block with another record source (inline `data`
-rows, a form's `customFields`, a chart's `dataset`, a `bind` path, or a metric's
-`fallbackValue`) draws from that source and shows no hint.
+rows, a form's inline fields — `customFields`, or `sections` whose every field is
+inline — a chart's `dataset`, a `bind` path, or a metric's `fallbackValue`) draws
+from that source and shows no hint.
 
 The two `element:*` rows keep their configuration in the node's `properties` bag,
 so the binding does not land on a schema key there: each reads it directly, and

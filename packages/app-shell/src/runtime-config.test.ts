@@ -202,7 +202,7 @@ describe('runtime-config storageUsage (objectui#11002)', () => {
     it('is OFF when the config fetch itself fails', async () => {
         vi.stubGlobal('fetch', vi.fn(async () => {
             throw new Error('network down');
-        }) as any);
+        }));
         await initRuntimeConfig();
         expect(isStorageUsageServed()).toBe(false);
     });

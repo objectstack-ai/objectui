@@ -72,6 +72,7 @@ import {
   ObjectDataTableSchema as ObjectDataTableMirror,
 } from '../zod/objectql.zod.js';
 import type { ExpressionWire } from '../expression';
+import type { EvaluatedExpressionInput } from '@objectstack/spec/shared';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, '..', '..', '..', '..');
@@ -110,7 +111,8 @@ export type assertionOnRowClickDeclared = Expect<Equal<ObjectDataTableSchema['on
  * through the index signature a missing member reads `any`, which a one-way
  * check would accept (the objectui#7087 disabled-twin lesson).
  */
-export type assertionGalleryInheritsVisibleWhen = Expect<Equal<ObjectGallerySchema['visibleWhen'], string | undefined>>;
+// `string` until objectui#8347 typed it as the spec's evaluated-slot input, by reference.
+export type assertionGalleryInheritsVisibleWhen = Expect<Equal<ObjectGallerySchema['visibleWhen'], EvaluatedExpressionInput | undefined>>;
 export type assertionGalleryInheritsBind = Expect<Equal<ObjectGallerySchema['bind'], string | undefined>>;
 // `boolean | string` until objectui#7530 declared the CEL envelope on the base union.
 export type assertionDataTableInheritsVisible = Expect<Equal<ObjectDataTableSchema['visible'], boolean | ExpressionWire | undefined>>;

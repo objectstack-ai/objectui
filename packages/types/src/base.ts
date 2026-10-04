@@ -17,6 +17,7 @@
  */
 
 import type { I18nLabel } from '@objectstack/spec/ui';
+import type { EvaluatedExpressionInput } from '@objectstack/spec/shared';
 import type { AuthoringNode } from './authoring-nodes.js';
 import type { ExpressionWire } from './expression.js';
 import type { AnySchema } from './index.js';
@@ -386,9 +387,22 @@ export interface BaseSchema {
    * Canonical conditional-visibility predicate (ADR-0089) — the element is shown
    * when this evaluates truthy. The spec folds the deprecated `visibleOn` /
    * `visibility` aliases into this key at parse.
+   *
+   * Typed BY REFERENCE as the spec's own input type for an evaluated slot,
+   * `EvaluatedExpressionInput` (objectui#8347, ruled Q6 = B): a predicate
+   * string, or the `{ dialect, source }` envelope the spec's parse of
+   * `PageComponentSchema.visibleWhen` produces and `SchemaRenderer` evaluates.
+   * It read `string` before, which refused the envelope the spec's own parse
+   * writes into this key. ⚠️ Narrower than
+   * `ExpressionWire` (`visible` / `hidden` / `disabled`, objectui#7530): the
+   * spec refuses a dialect-less envelope and an unknown dialect, and so does
+   * this key. Its zod twin is the same accept set without the spec's string
+   * transform (`../zod/base.zod.ts`).
+   *
    * @example "${data.role === 'admin'}"
+   * @example { dialect: 'cel', source: "record.status == 'open'" }
    */
-  visibleWhen?: string;
+  visibleWhen?: EvaluatedExpressionInput;
 
   /**
    * Expression for conditional visibility.

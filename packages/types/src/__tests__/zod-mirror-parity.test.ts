@@ -5075,6 +5075,11 @@ const SPEC_DERIVED_PAIRS: readonly string[] = [
   // to the split's LOCAL half (its `UnmirroredDeclared` docblock carries the
   // per-key reading). The split's counts now derive from THIS list's membership
   // and are pinned against the header by 'objectui#7279' below.
+  // objectui#8347: `BaseSchema` is back, for a real reference this time —
+  // `visibleWhen` is the spec's `EvaluatedExpressionSchema` (the envelope arm)
+  // with `EvaluatedExpressionInputSchema`'s verdict, so a spec bump that moves
+  // the evaluated-slot input moves ONE side of this pair.
+  'base.zod.ts#BaseSchema',
   'complex.zod.ts#DashboardComponentSchema',
   'complex.zod.ts#DashboardWidgetSchema',
   // ⛔ `complex.zod.ts#KanbanSchema` removed with the retired `kanban` arm

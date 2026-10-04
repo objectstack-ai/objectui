@@ -160,19 +160,15 @@ const specRowRequires = (tag: string, key: string): boolean => {
  * Required inputs that the binding supplies and the spec row does not require,
  * each with the reason it stays required. Entries are debt, not acceptance:
  * row 2 fails on one that no longer describes the manifest.
+ *
+ * Empty. Its last row, `record:related_list.columns`, was moved rather than
+ * kept (objectui#11613): the registration stopped requiring `columns`, as the
+ * spec row does not, so row 1 now covers that member like the others. A
+ * columns-less node draws the named view's columns or, with no view, columns
+ * derived from the related object; the console's
+ * `related-list-columns-optional-11613.test.ts` pins the compile.
  */
-const LEDGER: Readonly<Record<string, Readonly<Record<string, string>>>> = {
-  'record:related_list': {
-    // Outside this card's `objectName` family, recorded rather than moved: the
-    // binding supplies `columns` only through a NAMED VIEW (the gate maps the
-    // view's field list onto them), never through its own `object`, so a node
-    // bound by `dataSource.object` alone still needs them. The spec row leaves
-    // `columns` optional; whether the registration should follow it is a
-    // separate question, reported on objectui#11605's dev report.
-    columns:
-      'supplied only by a named view, not by `dataSource.object`; a node bound by object alone still needs its own columns (objectui#11605 dev report)',
-  },
-};
+const LEDGER: Readonly<Record<string, Readonly<Record<string, string>>>> = {};
 
 /* ── 1–3: the enumeration pin ──────────────────────────────────────────────── */
 

@@ -28,7 +28,7 @@ const makeAdapter = () => ({
   getObjectSchema: vi.fn().mockResolvedValue({ name: 'account', listViews: {} }),
 });
 
-function Block({ schema }: { schema: any }) {
+function Block({ schema }: { schema: unknown }) {
   return <div data-testid="block">{JSON.stringify(schema)}</div>;
 }
 

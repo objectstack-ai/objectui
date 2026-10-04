@@ -80,14 +80,14 @@ const BODY_FIELDS = ['notes', 'summary', 'contact_email'];
  * `email` control below is what shows the declared types reached the rows.
  */
 async function renderBody(record: Record<string, unknown>) {
-  const ds: any = { getObjectSchema: vi.fn(async () => taskSchema) };
+  const ds = { getObjectSchema: vi.fn(async () => taskSchema) };
   render(
     <RecordContextProvider
       objectName="task"
       recordId="T1"
       data={{ id: 'T1', subject: 'Follow up', ...record }}
       objectSchema={taskSchema}
-      dataSource={ds}
+      dataSource={ds as never}
     >
       <RecordDetailsRenderer schema={{ fields: BODY_FIELDS } as never} />
     </RecordContextProvider>,

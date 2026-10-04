@@ -1,0 +1,35 @@
+{
+  "number": 11587,
+  "kind": "pull_request",
+  "title": "fix(console,runner,types): a release's CHANGELOG.md is not a source — the console and runner sheets take source(none), and two censuses exclude it (objectui#11586)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "apps",
+    "package: runner",
+    "package: types",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-04T01:44:53Z",
+  "updated_at": "2026-10-04T02:53:04Z",
+  "closed_at": "2026-10-04T02:53:02Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": "2026-10-04T02:53:02Z",
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11587",
+  "body": "Closes #11586.\n\n## Why\n\nThe 17.7.0 release PR #5400 is red in four `Test` shards on head `1a91327c` (CI run 37162552317), while `main` at `0a53c67f` was green. Auto-merge is enabled on #5400, so these four failures are the only thing keeping 17.7.0 off npm.\n\nAll four come from the release commit itself. `pnpm changeset:version` writes 2,693 changeset bodies into 40 `CHANGELOG.md` files, and four checks read those files as if they were source.\n\n## What changes\n\n| File | Change |\n|:--|:--|\n| `apps/console/src/index.css` | `@import 'tailwindcss' source(none)`. Automatic detection is off, so only the declared `@source` lines feed the sheet, as in `packages/components` since objectui#9569. |\n| `packages/runner/src/index.css` | Same, and the comment that called `./**` a no-op now says it is load-bearing. |\n| `packages/types/.../handler-keys-string-any-mirrors-7344.test.ts` | The `actions` census excludes `:!*CHANGELOG.md`, the spelling `ai-insights-retired-8800.test.ts` and its siblings use. |\n| `packages/types/.../base-bind-declared.test.ts` | The single-`bind` census excludes `:!*CHANGELOG.md`. |\n| `apps/console/.../index-css-scan-excludes-tests.test.ts` | New pin: the sheet compiled from the app directory equals the sheet compiled from an empty directory. |\n| `packages/runner/.../published-stylesheet-sources.test.ts` | The same pin, plus one that keeps the changelog-only `flex-shrink-0` out. |\n| `.changeset/11586-…md` | Patch for `@object-ui/console` and `@object-ui/runner`, whose published CSS changes. |\n\n## The stylesheet change drops only prose-sourced rules\n\nEach entry was compiled as written and with `source(none)`. Both compiles used the package root as base, which is where `pnpm build` runs.\n\n| Entry | Rules only automatic detection supplied on `main` `7a7660c6` | …with #5400's CHANGELOGs overlaid |\n|:--|:--|:--|\n| console (3,256 → 3,255 rules) | `.w-100`, from `apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md` | 11 rules, 9,450 bytes, including components' scan-test sentinel and `prose-lg` / `prose-slate` with their descendants |\n| runner (1,442 → 1,440 rules) | `.flex-shrink-0` and `.isolate`, from `packages/runner/CHANGELOG.md` | 5: `flex-nowrap`, `flex-shrink-0`, `invert`, `isolate` and `paused` |\n\nEvery rule that detection alone supplied comes from a `.md` file. None comes from `.ts`/`.tsx` source. With `source(none)` each entry compiles to the same rule set on `main` and on the release tree.\n\n## Verification (local, this worktree)\n\n- **Reproduced first:** the 40 release-head CHANGELOGs (`da0a6477`) were overlaid on `main` `7a7660c6`. Four files and seven tests failed, exactly the CI set.\n- **With the fix:** the four files plus components' scan test pass, 85/85, both with the overlay and without it.\n- **Reverse check:** both `index.css` files were restored to `main` with the fix commit in place. The three new pins failed (3 failed, 6 passed), then passed again once the files were put back.\n- `packages/types` `type-check` exits 0. The new test files add no TypeScript errors under the runner's `tsconfig.test.json` or the console's `tsc --noEmit`; those configs' other errors come from unbuilt workspace dependencies. `eslint` on the three changed test files reports 0 errors.\n- `node scripts/check-changeset-presence.mjs` passes. `node scripts/check-governed-queue-guard.mjs --test` reports NOT GOVERNED.\n\n## Changeset re-read (changeset-claim-re-read)\n\nThree pending changesets name a file this PR edits. I re-read each one against the diff, and none is falsified:\n\n- `6178-detail-section-header-color`: a byte-identity measurement of an expression in `plugin-detail`. Switching detection off does not change it.\n- `8454-runner-stylesheet-source-set`: says in the past tense what kept the runner sheet populated and what its two `@source not` lines removed. Both statements stay true, and both lines stay.\n- `6379-console-css-source-excludes-tests`: explains why its `@source not` anchor sits at the repository root. That root covers the package globs and the automatic-detection root as they were when the anchor was chosen. The anchor still covers the package globs. This PR's changeset publishes in the same release and records that detection is now off.\n\n## Not in this PR\n\nThe refresh lane's \"Validate the post-version tree\" step still runs only `scripts/__tests__`. That scope was priced and ruled on objectui#5397. A package test that reads `CHANGELOG.md` therefore still surfaces only when CI runs on the release PR. Widening that scope is a separate decision.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nhttps://claude.ai/code/session_014VGCS11YUtYAiinRcdqQwL\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_014VGCS11YUtYAiinRcdqQwL)_\n\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

@@ -1,0 +1,30 @@
+{
+  "number": 11586,
+  "kind": "issue",
+  "title": "finding(release): the 17.7.0 release head (#5400) is red in four Test shards — the CHANGELOG.md files `changeset:version` writes are read as source by two git-grep censuses and by the console and runner Tailwind entries",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-04T01:37:28Z",
+  "updated_at": "2026-10-04T02:53:04Z",
+  "closed_at": "2026-10-04T02:53:04Z",
+  "closed_by": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11586",
+  "body": "## What happened\n\nRelease PR #5400 (`chore: release packages`, 17.6.0 → 17.7.0) was refreshed by a `refresh_version_pr` dispatch on 2026-10-03 at 23:18Z, and auto-merge was enabled on it at 23:41Z. The maintainer updated the branch at the same time (head `1a91327c`) and approved its CI. Four `Test` shards failed (CI run 37162552317), so auto-merge never fired, and npm `latest` is still 17.6.0. At 01:22Z on 2026-10-04 the scheduled refresh force-pushed the head to `da0a6477`. Its CI is `action_required`, and auto-merge is still enabled.\n\n`main` at `0a53c67f`, the commit that update merged, was green: 51 successes and 3 skips. Every failure comes from the release commit itself, which writes 2,693 changeset bodies into 40 `CHANGELOG.md` files.\n\n## The four failures, reproduced locally\n\nThe release head's 40 `CHANGELOG.md` files were overlaid on `main` `7a7660c6`. Four files and seven tests then fail exactly as they did in CI:\n\n| Test | What it read |\n|:--|:--|\n| `packages/types/src/__tests__/handler-keys-string-any-mirrors-7344.test.ts`, four tests | `git grep` over `packages apps examples` found `.actions` / `AppAction` in the app-shell, i18n, layout, runner and types CHANGELOGs. |\n| `packages/types/src/__tests__/base-bind-declared.test.ts` | `git grep 'bind?:' packages` found the plugin-dashboard and types CHANGELOGs, which quote a changeset that says ObjectPivotTable dropped its local declaration. |\n| `apps/console/src/index-css-scan-excludes-tests.test.ts` | Tailwind's automatic source detection, rooted at the app directory, compiled `mt-[3.7331px]` out of `apps/console/CHANGELOG.md`. |\n| `packages/runner/src/__tests__/published-stylesheet-sources.test.ts` | The same mechanism compiled `paused` out of `packages/runner/CHANGELOG.md`. |\n\n## Why the two stylesheet failures are real defects\n\n`apps/console/src/index.css` and `packages/runner/src/index.css` are the two published Tailwind entries that still open with a bare `@import 'tailwindcss'`. Automatic detection is therefore on for them, and it scans every non-ignored file under the package, prose included. objectui#9569 closed the same door for `packages/components` with `source(none)`, but not for these two.\n\nI compiled each entry two ways, as written and with `source(none)`. In both cases the base was the package root, which is where `pnpm build` runs.\n\n| Entry | `main` `7a7660c6` | With #5400's CHANGELOGs |\n|:--|:--|:--|\n| console | +1 rule that only automatic detection supplies, `.w-100`, from `apps/console/docs/UI_IMPROVEMENT_PROPOSAL.md` | **+11 rules, 9,450 bytes**, e.g. `mt-[3.7331px]` and `prose-lg` / `prose-slate` with their descendant rules |\n| runner | +2: `.flex-shrink-0` and `.isolate`, both from `packages/runner/CHANGELOG.md` | +5: `flex-nowrap`, `flex-shrink-0`, `invert`, `isolate` and `paused`. The runner's own pin lists three of them as test-sourced classes that must not ship. |\n\nWith `source(none)`, both entries compile to the same rule set on `main` and on the release tree: console 3,255 rules, runner 1,440. Every rule that only automatic detection supplies comes from prose: a docs `.md` file or a `CHANGELOG.md`. No `.ts` or `.tsx` source contributes one. The publish job only runs `pnpm build`. If the release PR had merged without CI, these rules would have shipped.\n\n## Why the refresh lane did not see it\n\n\"Validate the post-version tree\" in `changeset-release.yml` runs `quick-reference:check`, `check:control-bytes` and `scripts/__tests__`. It does not run the package suites, and the release PR runs no CI unless someone approves it. A CHANGELOG-reading test therefore goes red only at merge time. That is a follow-up and is not in the fix below.\n\n## Fix (one PR)\n\n- Both censuses exclude `:!*CHANGELOG.md`, the spelling the sibling censuses already use (`ai-insights-retired-8800.test.ts` and three others).\n- `apps/console/src/index.css` and `packages/runner/src/index.css` take `source(none)`, as `packages/components/src/index.css` did in objectui#9569.\n- Each stylesheet test gains a pin that compiles the entry twice, once from the package root and once from an empty directory, and requires the same rules. This is red on `main` today, without any release overlay.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

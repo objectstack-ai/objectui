@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "repo": "objectstack-ai/objectui",
-  "generated_at": "2026-10-03T21:13:14.337Z",
+  "generated_at": "2026-10-04T03:07:55.003Z",
   "walk_phase": "incremental",
   "walk": {
     "open_set": {
@@ -11,8 +11,8 @@
     },
     "delta": {
       "complete": true,
-      "cursor": "2026-10-03T20:57:19Z",
-      "since": "2026-10-03T15:11:24Z",
+      "cursor": "2026-10-04T03:02:10Z",
+      "since": "2026-10-03T20:57:19Z",
       "slice": 300
     },
     "history": {
@@ -20,41 +20,41 @@
       "cursor": "2026-09-29T14:23:58Z"
     }
   },
-  "since": "2026-10-03T15:11:24Z",
-  "since_reason": "incremental from the previous run's next_since (2026-10-03T15:11:24Z)",
-  "next_since": "2026-10-03T20:57:19Z",
+  "since": "2026-10-03T20:57:19Z",
+  "since_reason": "incremental from the previous run's next_since (2026-10-03T20:57:19Z)",
+  "next_since": "2026-10-04T03:02:10Z",
   "resume": null,
   "counts": {
-    "issues_open": 60,
-    "issues_closed": 4486,
-    "pulls_open": 5,
-    "pulls_closed": 6640,
-    "records": 11191
+    "issues_open": 56,
+    "issues_closed": 4495,
+    "pulls_open": 4,
+    "pulls_closed": 6649,
+    "records": 11204
   },
   "board": {
-    "open_issues_count": 65,
-    "open_pull_requests": 5,
-    "read_at": "2026-10-03T21:13:13.936Z"
+    "open_issues_count": 61,
+    "open_pull_requests": 4,
+    "read_at": "2026-10-04T03:07:54.609Z"
   },
   "count_check": {
-    "verdict": "ok",
+    "verdict": "shortfall",
     "reason": null,
-    "expected": 60,
-    "archived": 60,
-    "shortfall": 0,
+    "expected": 57,
+    "archived": 56,
+    "shortfall": 1,
     "surplus": 0,
     "gone_ledger": 0,
-    "ok": true
+    "ok": false
   },
   "freshness": {
     "verdict": "fresh",
     "pending_since": null,
     "reason": null
   },
-  "requests": 68,
+  "requests": 58,
   "run": {
-    "numbers_read": 35,
-    "files_written": 68,
+    "numbers_read": 31,
+    "files_written": 62,
     "walk_complete": true,
     "open_set_completed_here": false,
     "delta_ran": false,

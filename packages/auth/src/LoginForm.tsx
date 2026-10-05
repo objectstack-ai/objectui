@@ -82,7 +82,12 @@ export interface LoginFormProps {
   onSuccess?: () => void;
   /** Callback on login error */
   onError?: (error: Error) => void;
-  /** Link to registration page */
+  /**
+   * Link to registration page. The "Sign up" link renders only when this is
+   * set: there is no default, so leaving it out (or passing `undefined`, as a
+   * caller does when the server reports `emailPassword.disableSignUp`) renders
+   * no link.
+   */
   registerUrl?: string;
   /** Link to forgot password page */
   forgotPasswordUrl?: string;
@@ -144,7 +149,7 @@ const DefaultLockIcon = () => (
 export function LoginForm({
   onSuccess,
   onError,
-  registerUrl = '/register',
+  registerUrl,
   forgotPasswordUrl = '/forgot-password',
   title = 'Sign in to your account',
   description = 'Enter your email and password to continue',

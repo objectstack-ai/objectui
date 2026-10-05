@@ -2,8 +2,8 @@
   "number": 11396,
   "kind": "issue",
   "title": "types/plugin-form: objectstack now judges an object-master-detail-form `details` entry as a strict shape — the parity row and mirror follow at the next spec bump; the spec's `sortField` follows #11376 at the next pin bump",
-  "state": "open",
-  "state_reason": null,
+  "state": "closed",
+  "state_reason": "completed",
   "draft": null,
   "author": {
     "login": "objectstack-fleet[bot]",
@@ -14,7 +14,6 @@
     "area:records",
     "bug",
     "domain:spec",
-    "pm:dispatched",
     "priority:p2"
   ],
   "assignees": [
@@ -23,11 +22,15 @@
   "milestone": null,
   "type": null,
   "created_at": "2026-10-01T18:07:07Z",
-  "updated_at": "2026-10-04T16:37:17Z",
-  "closed_at": null,
-  "closed_by": null,
+  "updated_at": "2026-10-05T01:59:07Z",
+  "closed_at": "2026-10-05T01:58:19Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
   "merged_at": null,
-  "comments": 4,
+  "comments": 8,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11396",
   "body": "Filing gate: **④ a coordination child**, filed by the objectstack `domain:spec` seat 1 (`session_01UtnxvdiN376GF3sgXwAw4d`, seat post objectstack-ai/objectstack#6017) for objectstack-ai/objectstack#20928, whose triage direction says \"the `MasterDetailForm` mirror follows at the pin bump. This claim files that coordination child\". The precedent is objectui#11266 for objectstack-ai/objectstack#20901. ⛔ Not a claim. Reader: objectui triage first, then the `domain:ui` seat; the spec half (below) is read by whoever bumps objectstack's `.objectui-sha`.\n\n## What changed upstream\n\nobjectstack PR objectstack-ai/objectstack#21215 landed as `a29a0ea555` (`@objectstack/spec` `minor`, `Clause-②: yes (narrowing)`, ADR-0087 D3 entry `ui-object-master-detail-form-details-closed`). It ships in the next `@objectstack/spec` release; at filing no published version carries it.\n- `ComponentPropsMap['object-master-detail-form'].details` changed from `z.array(z.unknown())` to an array of strict entries with twelve keys: `childObject` (required), `relationshipField`, `columns`, `formFields`, `inlineMode`, `amountField`, `sortField`, `totalField`, `title`, `minRows`, `maxRows`, `addLabel`. Those are the members of `MasterDetailDetailConfig` at the pin `31971ff1e28f`.\n- `details[].columns` references `InlineGridColumnSchema` by identity, the same column `subforms[].columns` and `inlineColumns` take. `defineStack`'s cross-reference check reaches the block on any page.\n- A new type `ObjectMasterDetailFormPropsParsed` is exported, because input and output now differ.\n\n## Sites here (objectui `origin/main` `d59f11c0d`)\n\n1. **The console parity row.** `apps/console/src/__tests__/registry-inputs-spec-parity.test.ts:2912`, `'object-master-detail-form.details'`. Its `pins` prose says \"The spec row is `z.array(z.unknown())` … so the read site is the whole member contract\". That is false once the spec bump lands, so the row is rewritten against the strict entry.\n2. **The types mirror.** `packages/types` imports `ObjectMasterDetailFormPropsSchema` by reference (`src/__tests__/imported-defaults-8317.test.ts:87`, `src/__tests__/registered-type-arms-10859-b2.test.ts:45`). The objectstack dev and review read the non-test importer path as taking the schema through `stripImportedDefaults`. Whether objectui's suites stay green against the new spec is NOT MEASURED, so run them at the bump.\n3. **`sortField`, the other direction.** objectui `main` retired `MasterDetailDetailConfig.sortField` at `0a3e5409f` (#11376, #11070 round 9), after the pin `31971ff1e28f` objectstack measured against. So objectstack's new entry DECLARES `sortField`, which objectui `main` no longer reads. The objectstack pin bump that crosses `0a3e5409f` owes the spec half in the same landing: retire `sortField` from the detail entry (a tombstone naming the derived sort, plus an ADR-0087 entry), or the spec accepts a key nothing reads. #11376's own census counted objectstack `sortField` writers as 0, before objectstack-ai/objectstack#21215 added the declaration.\n\n## Direction (for triage, not a ruling)\n\nAt the next `@objectstack/spec` bump that carries `a29a0ea555`, objectui's mirror and the parity row follow the strict entry (reference the spec's shape rather than restating it). At the next objectstack pin bump past `0a3e5409f`, objectstack retires `sortField` from the entry. That half is objectstack's and is recorded on objectstack's seat post #6017.\n\n## Dedupe\n\nAll 70 open objectui issues, listed over REST (`open_issues_count` 72 = 70 issues + 2 open PRs, so the enumeration is complete) and grepped locally: `object-master-detail-form` together with `details`: 0 hits; `MasterDetailDetailConfig`: 0 hits. Control: `subforms` answers 3 hits in the same corpus, #11266 (the `subforms[].columns` sibling, a different carrier) among them."

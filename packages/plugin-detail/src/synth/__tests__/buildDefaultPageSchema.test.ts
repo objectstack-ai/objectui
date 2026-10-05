@@ -1107,15 +1107,17 @@ describe('resolveDetailSections priority (ADR-0085)', () => {
   });
 
   it('derives from fieldGroups last, else undefined', () => {
+    // A declared group is emitted as the spec's `{ group }` reference
+    // (objectui#11630) — `record:details` resolves its heading and members.
     const derived = resolveDetailSections(groupedDef)!;
-    expect(derived[0]).toMatchObject({ name: 'g', label: 'G' });
+    expect(derived[0]).toEqual({ group: 'g', columns: expect.any(Number) });
     expect(resolveDetailSections(leadDef)).toBeUndefined();
     expect(resolveDetailSections(undefined)).toBeUndefined();
   });
 
   it('empty options.sections array does not shadow the fallbacks', () => {
     const derived = resolveDetailSections(groupedDef, [])!;
-    expect(derived[0]).toMatchObject({ name: 'g' });
+    expect(derived[0]).toMatchObject({ group: 'g' });
   });
 });
 
@@ -1133,7 +1135,7 @@ describe('buildDefaultPageSchema integration (#2148)', () => {
     const tabs = page.regions[0].components.find((c: any) => c.type === 'page:tabs');
     const details = tabItems(tabs)[0].children[0];
     expect(details.type).toBe('record:details');
-    expect(props(details).sections[0]).toMatchObject({ name: 'basic', label: 'Basic' });
+    expect(props(details).sections[0]).toMatchObject({ group: 'basic' });
   });
 
   it('stageField: false drops record:path', () => {

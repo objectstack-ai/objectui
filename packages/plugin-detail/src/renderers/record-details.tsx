@@ -29,7 +29,7 @@ import {
   withoutDeniedFields,
 } from '@object-ui/core';
 import { DetailView } from '../DetailView';
-import { deriveFieldGroupDetailSections } from '../synth/buildDefaultPageSchema';
+import { deriveFieldGroupDetailEntries, type FieldGroupDetailEntry } from '../synth/buildDefaultPageSchema';
 import { useRecordAriaProps } from './recordComponentAria';
 
 /** Normalize a field entry (string | {field} | {name}) to its machine name. */
@@ -152,25 +152,24 @@ function sectionPredicateRecord(
 }
 
 /**
- * Does a section's ADR-0089 `visibleWhen` admit it on this record?
- * (objectui#11630 — "the detail page evaluates `visibleWhen` per group exactly
- * as the form does".)
+ * Does a field GROUP's ADR-0089 `visibleWhen` admit its section on this
+ * record? (objectui#11630 — "the detail page evaluates `visibleWhen` per group
+ * exactly as the form does".)
  *
- * The predicate reaches this renderer on a section that a field GROUP produced:
- * `deriveFieldGroupDetailSections` carries it verbatim, both on the
- * synthesized default page and on an authored `{ group }` reference, which
- * inherits the group's `visibleWhen` per `@objectstack/spec`'s
- * `RecordDetailsProps.sections[].group` describe.
+ * Asked of exactly one kind of section: an authored or synthesized
+ * `{ group: KEY }` reference, which inherits the group's `visibleWhen` per
+ * `@objectstack/spec`'s `RecordDetailsProps.sections[].group` describe. The
+ * predicate comes from the object's `fieldGroups` through
+ * `deriveFieldGroupDetailEntries`, which carries it beside the resolved
+ * section, never on it.
  *
- * ⚠️ The key is NOT an authorable member of a `record:details` section, and
- * nothing here declares it as one. The spec's section entry is strict and
- * refuses `visibleWhen` on parse (`unrecognized_keys`), so neither
- * `RecordDetailsComponentProps.sections[]` nor this block's registered
- * `inputs` names it — the repo does not declare a key the spec refuses. To
- * gate a section on a hand-authored page, gate the field GROUP and reference it
- * with `{ group }`. The synthesized default page writes the key onto an
- * enumerated section, which arrives here looking exactly like a hand-written
- * one, so the read cannot be confined to group-produced sections by shape.
+ * ⛔ NOT read off an enumerated section. `RecordDetailsProps.sections[]` is
+ * strict and refuses `visibleWhen` on parse (`unrecognized_keys`), so a
+ * `visibleWhen` written on a `{ name, label, fields }` entry is a key the
+ * protocol rejects, and this renderer does not honour it either: declared =
+ * enforced, in both directions. To gate a section, gate the field GROUP and
+ * reference it with `{ group }` — which is what the synthesized default page
+ * and a Studio seed now emit.
  *
  * ⭐ ONE evaluator, the form's: `resolveFieldRuleState` from `@object-ui/core`,
  * the call the form renderer makes for a `section-divider` row's own
@@ -187,7 +186,11 @@ function sectionPredicateRecord(
  *    roots, the hook the form calls.
  *
  * Both spellings are the evaluator's to read — a bare string is CEL, an
- * envelope is read by its `dialect` — so neither is special-cased here.
+ * envelope is read by its `dialect` — so neither is special-cased here. The
+ * shared derivation types the predicate structurally (a string or any plain
+ * object); the evaluator itself answers a shape it cannot evaluate (no string
+ * `source`, `{}`) as a fault, which is why handing it over as a
+ * `FieldRulePredicate` is safe.
  *
  * ⚠️ A predicate that cannot be evaluated (parse error, unbound identifier, a
  * blank or `source`-less declaration) SHOWS the section, because that is what
@@ -197,14 +200,13 @@ function sectionPredicateRecord(
  * it here is what keeps the two surfaces from drifting if that constant moves.
  */
 function sectionPredicateVisible(
-  section: { visibleWhen?: FieldRulePredicate | null },
+  visibleWhen: FieldRulePredicate,
   record: Record<string, unknown>,
   scope: Record<string, unknown>,
   where: string,
 ): boolean {
-  if (section.visibleWhen == null) return true;
   return resolveFieldRuleState(
-    { visibleWhen: section.visibleWhen },
+    { visibleWhen },
     record,
     {},
     record,
@@ -404,7 +406,7 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // The bound object definition. Declared HERE rather than beside the
   // title-dedupe ladder below because two readers now need it and it must
   // precede the earlier of them: `withDeclaredLabel` (the field-label ladder)
-  // and `deriveFieldGroupDetailSections` (the `sections[].group` reference
+  // and `deriveFieldGroupDetailEntries` (the `sections[].group` reference
   // form). One read, one name.
   const objSchema: any = (ctx as any).objectSchema;
   const objSchemaFields: Record<string, any> | undefined = objSchema?.fields;
@@ -757,24 +759,40 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // section with it (objectui#8497). The declaration was right and the
   // runtime had never honoured it.
   //
-  // Resolved through `deriveFieldGroupDetailSections` — the SAME adapter the
-  // synthesized default page uses — deliberately, not a second derivation:
-  // that is what makes the two bodies agree. Authoring an object's fields as a
-  // group reference and enumerating the same fields by hand must render the
-  // same labels, and they now do because one of them IS the other's code path.
+  // Resolved through `deriveFieldGroupDetailEntries` — the derivation behind
+  // the public `deriveFieldGroupDetailSections` AND behind the `{ group }`
+  // references the synthesized default page emits — deliberately, not a
+  // second derivation: that is what makes the two bodies agree. Authoring an
+  // object's fields as a group reference and enumerating the same fields by
+  // hand must render the same labels, and they do because one of them IS the
+  // other's code path.
   const authoredSections: any[] = Array.isArray(schema.sections) ? (schema.sections as any[]) : [];
-  const groupSectionByKey = new Map<string, Record<string, any>>();
+  const groupEntryByKey = new Map<string, FieldGroupDetailEntry>();
   if (authoredSections.some((s) => s && typeof s === 'object' && typeof s.group === 'string')) {
-    for (const derived of deriveFieldGroupDetailSections(objSchema) ?? []) {
-      // The trailing ungrouped bucket carries no `name`, so no reference can
+    for (const entry of deriveFieldGroupDetailEntries(objSchema) ?? []) {
+      // The trailing ungrouped bucket carries no `key`, so no reference can
       // ever resolve to it — which is correct: it is not a declared group.
-      if (typeof derived.name === 'string') groupSectionByKey.set(derived.name, derived);
+      if (typeof entry.key === 'string') groupEntryByKey.set(entry.key, entry);
     }
   }
 
+  // The record a group's `visibleWhen` is evaluated against — assembled only
+  // when a referenced group actually declares one, so a page without a gated
+  // group does no extra work and renders exactly as before.
+  let sectionRecord: Record<string, unknown> | undefined;
+
   /**
    * Resolve one authored entry to the section the body renders, or `null` when
-   * a `group` reference names no declared group.
+   * a `group` reference names no declared group — or names a group whose
+   * `visibleWhen` is FALSE for this record (objectui#11630).
+   *
+   * The gate drops the section whole, heading and members, which is what the
+   * form does with the same group: its divider row claims the members, and a
+   * FALSE verdict hides the row and every claimed field. Display only — the
+   * record API serves the gated fields either way, exactly as a hidden form
+   * section's values still submit. An enumerated entry is returned untouched:
+   * see {@link sectionPredicateVisible} for why its `visibleWhen`, if any, is
+   * not read.
    *
    * The spread order IS the spec's precedence. `sectionGroupReferenceRefinement`
    * refuses, on a section carrying `group`, every key the group itself declares
@@ -787,41 +805,27 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
    */
   const resolveSectionGroup = (s: any): any | null => {
     if (!s || typeof s !== 'object' || typeof s.group !== 'string') return s;
-    const derived = groupSectionByKey.get(s.group);
-    if (!derived) {
+    const entry = groupEntryByKey.get(s.group);
+    if (!entry) {
       reportUnresolvedSectionGroup(objectName, s.group);
       return null;
     }
+    if (entry.visibleWhen != null) {
+      sectionRecord ??= sectionPredicateRecord(ctx.data, objSchemaFields);
+      const shown = sectionPredicateVisible(
+        entry.visibleWhen as FieldRulePredicate,
+        sectionRecord,
+        predicateScope,
+        `group '${s.group}' of record:details on object '${objectName}'`,
+      );
+      if (!shown) return null;
+    }
     const { group: _group, ...authored } = s;
-    return { ...derived, ...authored };
-  };
-
-  // ── A group's `visibleWhen` (objectui#11630) ─────────────────────────────
-  //
-  // A section whose predicate is FALSE for this record is dropped whole —
-  // heading and members — before anything below draws it, which is what the
-  // form does with the same group (its divider row claims the members, and a
-  // FALSE verdict hides the row and every claimed field). Evaluated AFTER
-  // `resolveSectionGroup`, so an authored `{ group }` reference is gated by the
-  // predicate it inherits. Display only: the record API serves the gated
-  // fields either way, exactly as a hidden form section's values still submit.
-  //
-  // The record is assembled only when some section carries a predicate, so a
-  // page without one does no extra work and renders exactly as before.
-  let sectionRecord: Record<string, unknown> | undefined;
-  const sectionShown = (s: { name?: string; visibleWhen?: FieldRulePredicate | null }, index: number): boolean => {
-    if (s.visibleWhen == null) return true;
-    sectionRecord ??= sectionPredicateRecord(ctx.data, objSchemaFields);
-    return sectionPredicateVisible(
-      s,
-      sectionRecord,
-      predicateScope,
-      `section '${s.name ?? index}' of record:details on object '${objectName}'`,
-    );
+    return { ...entry.section, ...authored };
   };
 
   const filteredSections = Array.isArray(schema.sections)
-    ? (schema.sections as any[]).map(resolveSectionGroup).filter((s) => s != null).filter(sectionShown).map((s) => {
+    ? (schema.sections as any[]).map(resolveSectionGroup).filter((s) => s != null).map((s) => {
         // Authored labels may carry inline translations (`{ en, 'zh-CN' }`) —
         // resolve via pickLocalized before any convention-based lookup.
         //

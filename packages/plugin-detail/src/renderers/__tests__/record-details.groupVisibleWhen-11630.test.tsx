@@ -16,6 +16,17 @@
  * `pro` row; the record detail page drew the section, header included, on
  * both. The synthesizer dropped the predicate, and `record:details` read none.
  *
+ * ## The route: the spec's own `{ group }` reference
+ *
+ * `@objectstack/spec`'s `RecordDetailsProps.sections[]` refuses `visibleWhen`
+ * on an enumerated section, and declares the `{ group }` reference, which
+ * inherits the group's presentation, `visibleWhen` included. So the synthesized
+ * default page (`buildDefaultDetails`) and app-shell's runtime default page
+ * write `{ group: KEY }`, and `record:details` gates the reference it resolves.
+ * An enumerated section's `visibleWhen` is NOT read — pinned below, because a
+ * renderer that honours a key the protocol refuses is the trap this route
+ * closes.
+ *
  * ## How "exactly as the form does" is measured, not asserted
  *
  * Every predicate case below is rendered TWICE on the same row: once through
@@ -289,6 +300,11 @@ describe('record:details evaluates a group\'s visibleWhen exactly as the form do
 
 describe('an authored `{ group }` reference inherits the group\'s visibleWhen (objectui#11630)', () => {
   const byReference = () => ({ sections: [{ group: 'general' }, { group: 'pro', columns: 2 }] });
+  // The shape app-shell's `RecordDetailView` writes for a declared group on the
+  // runtime default page: the reference plus the Card chrome it lays out.
+  const runtimeDefaultPage = () => ({
+    sections: [{ group: 'general', showBorder: true }, { group: 'pro', showBorder: true }],
+  });
 
   it('hidden on the basic row, drawn on the pro row — both spellings', () => {
     for (const visibleWhen of [cel("record.kind == 'pro'"), "record.kind == 'pro'"]) {
@@ -297,5 +313,31 @@ describe('an authored `{ group }` reference inherits the group\'s visibleWhen (o
         detailShowsPro(visibleWhen, PRO, {}, byReference),
       ]).toEqual([false, true]);
     }
+  });
+
+  it('the runtime default page\'s `{ group, showBorder }` sections are gated the same way', () => {
+    const gate = cel("record.kind == 'pro'");
+    expect([
+      detailShowsPro(gate, BASIC, {}, runtimeDefaultPage),
+      detailShowsPro(gate, PRO, {}, runtimeDefaultPage),
+    ]).toEqual([false, true]);
+  });
+});
+
+describe('an ENUMERATED section\'s visibleWhen is not read (objectui#11630)', () => {
+  it('a spec-refused `visibleWhen` on a hand-enumerated section gates nothing', () => {
+    // The group itself declares no predicate here, so the only predicate on the
+    // page is the one written on the enumerated entry — the key
+    // `RecordDetailsProps.sections[]` refuses with `unrecognized_keys`.
+    const enumerated = () => ({
+      sections: [
+        { group: 'general' },
+        { name: 'pro', label: 'Pro details', fields: ['pro_a', 'pro_b'], visibleWhen: "record.kind == 'pro'" },
+      ],
+    });
+    expect([
+      detailShowsPro(undefined, BASIC, {}, enumerated),
+      detailShowsPro(undefined, PRO, {}, enumerated),
+    ]).toEqual([true, true]);
   });
 });

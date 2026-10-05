@@ -20,9 +20,12 @@
  * objectui#11396): the spec row is an array of CLOSED entries — `childObject`
  * required, an undeclared key refused by name, `columns` the spec's inline grid
  * column — and `MasterDetailDetailConfig` is derived from that entry by
- * reference, with ONE stated fork: the spec declares `sortField`, which this
- * block does not read (objectui#11070 round 9 retired the authored override;
- * row 2c below pins that a written one reaches nothing). The registration
+ * reference, with ONE stated fork: `@objectstack/spec` 17.6.0 declares
+ * `sortField`, which this block does not read (objectui#11070 round 9 retired
+ * the authored override; row 2c below pins that a written one reaches
+ * nothing); objectstack `main` has since retired it too
+ * (objectstack-ai/objectstack#21589, unreleased after 17.6.0), and the fork
+ * closes at objectui's bump to the first release carrying that. The registration
  * declares `of: 'object'`, derived from that single-kind member contract. The
  * compile-time block at the end of this file holds the config equal to the
  * spec's entry minus that fork and spells the member list out, so the member
@@ -485,17 +488,18 @@ type SpecDetailEntry = NonNullable<ObjectMasterDetailFormProps['details']>[numbe
  * The config IS the spec's entry minus the one stated fork, by reference
  * (objectui#11396): a member the spec adds, drops or retypes lands on the
  * config with no hand edit, and a hand-written restatement that drifts is red
- * here before it is red anywhere else.
+ * here before it is red anywhere else. It holds on both spec shapes this
+ * repository is compiled against: 17.6.0, where the entry declares `sortField`
+ * as a string, and objectstack `main`, where the entry carries a `retiredKey()`
+ * tombstone for it (objectstack-ai/objectstack#21589, unreleased after 17.6.0)
+ * — the subtraction removes the key either way. ⛔ No row here pins which of
+ * the two shapes the spec has; the `Spec Main Shape Gate` compiles this file
+ * against `main`, so such a row is red there the day the two differ. The
+ * forward tripwire for the retirement is the runtime pin in `@object-ui/types`
+ * (`object-master-detail-form-details-entry-11396.test.ts`), which records
+ * `sortField` as ACCEPTED on 17.6.0 and flips at the bump.
  */
 const derivedFromSpec: Equal<MasterDetailDetailConfig, Omit<SpecDetailEntry, 'sortField'>> = true;
-
-/**
- * The fork is still open upstream: the spec entry declares `sortField`. When
- * this row reds, objectstack retired the member (objectstack-ai/objectstack#6017
- * records that half), and the `Omit` in `MasterDetailForm.tsx` is to be dropped
- * together with this row and the premise of row 2c and `retiredSortField`.
- */
-const specStillDeclaresSortField: Equal<SpecDetailEntry['sortField'], string | undefined> = true;
 
 /** A `columns` entry is the spec's inline grid column, the type the line grid reads. */
 const columnsAreTheGridColumn: Equal<NonNullable<MasterDetailDetailConfig['columns']>[number], GridColumn> = true;
@@ -522,6 +526,6 @@ const memberList: Equal<
 
 /** The lit control for the directive below: the same literal without the retired member compiles. */
 const authoredDetail: MasterDetailDetailConfig = { childObject: 'po_step', amountField: 'qty' };
-// @ts-expect-error objectui#11070 round 9: `sortField` is retired as a detail member; the sort field is derived from the child object. The spec still declares it (`specStillDeclaresSortField` above), and this face leaves it off on purpose (objectui#11396).
+// @ts-expect-error objectui#11070 round 9: `sortField` is retired as a detail member; the sort field is derived from the child object. This face leaves it off on purpose (objectui#11396), on 17.6.0 where the spec declares it and on objectstack main where the spec retired it too.
 const retiredSortField: MasterDetailDetailConfig = { childObject: 'po_step', sortField: 'line_no' };
-void [derivedFromSpec, specStillDeclaresSortField, columnsAreTheGridColumn, memberList, authoredDetail, retiredSortField];
+void [derivedFromSpec, columnsAreTheGridColumn, memberList, authoredDetail, retiredSortField];

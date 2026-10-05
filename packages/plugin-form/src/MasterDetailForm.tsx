@@ -78,16 +78,21 @@ import type { ObjectMasterDetailFormProps } from '@objectstack/spec/ui';
  * `__tests__/masterDetailDetailsMembers-8071.test.tsx` holds the two equal at
  * compile time.
  *
- * ⛔ ONE fork, stated rather than absorbed: the spec entry declares `sortField`,
- * and this form reads no such member. objectui#11070 round 9 retired the
- * authored override: the child field the grid stamps with each line's position
- * is DERIVED from the child object (`deriveDetail` picks its `position` /
- * `sort_order` / … field) and carried on the resolved entry, and row 2c of that
- * test pins that a written `sortField` is read by nothing. The spec-side
- * retirement is objectstack's half (recorded on
- * objectstack-ai/objectstack#6017); until it lands, the member is left OFF this
- * face, so the authoring face declares no key the renderer does not honour.
- * That omission is the whole of what is hand-written about the shape.
+ * ⛔ ONE fork, stated rather than absorbed: at 17.6.0 the spec entry declares
+ * `sortField`, and this form reads no such member. objectui#11070 round 9
+ * retired the authored override: the child field the grid stamps with each
+ * line's position is DERIVED from the child object (`deriveDetail` picks its
+ * `position` / `sort_order` / … field) and carried on the resolved entry, and
+ * row 2c of that test pins that a written `sortField` is read by nothing.
+ * objectstack has since retired the member on its `main` — a `retiredKey()`
+ * tombstone on the entry (objectstack-ai/objectstack#21589, landed by PR
+ * objectstack-ai/objectstack#21632 as `6ec54f00`), unreleased after 17.6.0 —
+ * so the fork closes at objectui's bump to the first `@objectstack/spec`
+ * release that carries it; the omission below then subtracts a key the entry
+ * no longer offers, and holds on both shapes. Until that bump the member is
+ * left OFF this face, so the authoring face declares no key the renderer does
+ * not honour. That omission is the whole of what is hand-written about the
+ * shape.
  *
  * Where each member lands — the renderer's reading, which the spec's
  * description does not carry:

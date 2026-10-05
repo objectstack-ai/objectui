@@ -38,14 +38,20 @@
  *
  * ## The fork, pinned as ACCEPTED so that closing it is a deliberate change
  *
- * The spec entry declares `sortField`; `MasterDetailForm` reads no such member
- * (objectui#11070 round 9 retired the authored override, and
+ * At 17.6.0 the spec entry declares `sortField`; `MasterDetailForm` reads no
+ * such member (objectui#11070 round 9 retired the authored override, and
  * `plugin-form`'s `masterDetailDetailsMembers-8071.test.tsx` row 2c pins that a
  * written one reaches nothing). So `objectui validate` ACCEPTS an entry carrying
- * `sortField` while the renderer ignores it. The spec-side retirement is
- * objectstack's half (objectstack-ai/objectstack#6017); the row below records
- * today's verdict, and reds the day the spec retires the key, which is the cue
- * to flip it and drop the `Omit` on `MasterDetailDetailConfig`.
+ * `sortField` while the renderer ignores it. objectstack has since retired the
+ * key on its `main` with a `retiredKey()` tombstone on the entry
+ * (objectstack-ai/objectstack#21589, PR objectstack-ai/objectstack#21632,
+ * `6ec54f00`), unreleased after 17.6.0. The row below is the forward tripwire:
+ * it records the 17.6.0 verdict, and reds at objectui's bump to the first
+ * `@objectstack/spec` release that carries the retirement — the cue to flip it
+ * to a refusal and drop the `Omit` on `MasterDetailDetailConfig`. It is a
+ * RUNTIME row on purpose: the `Spec Main Shape Gate` compiles this repository
+ * against objectstack `main`, so a compile-time row pinning the 17.6.0 shape
+ * would be red there today.
  */
 
 import { describe, it, expect } from 'vitest';
@@ -148,9 +154,10 @@ describe('an `object-master-detail-form` `details` entry is judged by the spec\'
       ]);
     });
 
-    it('ACCEPTS `sortField` — the fork the spec still declares and the renderer does not read (objectstack\'s half)', () => {
-      // When this reds, the spec retired the key: flip this row and drop the
-      // `Omit` on `MasterDetailDetailConfig` in `@object-ui/plugin-form`.
+    it('ACCEPTS `sortField` on 17.6.0 — the forward tripwire for objectstack#21589, which retired the key on main after 17.6.0', () => {
+      // When this reds, the installed spec carries the retirement: flip this
+      // row to a refusal and drop the `Omit` on `MasterDetailDetailConfig` in
+      // `@object-ui/plugin-form`.
       const result = parse(nodeWith({ childObject: 'po_line', sortField: 'line_no' }));
       expect(result.success, JSON.stringify(result.error?.issues)).toBe(true);
     });

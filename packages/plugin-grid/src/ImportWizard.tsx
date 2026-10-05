@@ -1734,7 +1734,9 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   // One import run at a time. The async paths capture this token, and a job
   // outcome is published only while it is unchanged: publishing moves it on, so
   // the poll loop and a user Cancel can never both publish (or call onComplete
-  // twice), and an outcome landing after a reset or a newer run is dropped.
+  // twice), and an outcome landing after a newer run started is dropped.
+  // Closing the wizard does NOT move it: a background job that finishes after
+  // the dialog closed still reports through onComplete, so the host refreshes.
   const jobRunRef = React.useRef(0);
   // The final read of the job the result screen shows, for its Undo button.
   const [finishedJob, setFinishedJob] = useState<ImportJobProgressInfo | null>(null);
@@ -2349,7 +2351,6 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
 
   const reset = useCallback(() => {
     cancelPollRef.current = false;
-    jobRunRef.current += 1;
     setFinishedJob(null); setUndoError(null);
     setStep('upload'); setHeaders([]); setRows([]); setMapping({}); setProgress(0); setResult(null);
     setCorrections({}); setSelectedTemplateId(null); setMappingName(null);

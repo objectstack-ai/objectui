@@ -294,6 +294,21 @@ describe('ImportWizard: a cancelled background import reports the job it cancell
     expect(onComplete.mock.calls[0][0]).toMatchObject({ cancelled: true, importedRows: 2000 });
   }, 20000);
 
+  it('closing the wizard mid-run still reports the background job through onComplete once it finishes', async () => {
+    const succeeded = jobRead({ status: 'succeeded', processed: 5000, created: 5000, percentComplete: 100 });
+    const ds = scriptedDataSource([RUNNING, succeeded], []);
+    const onComplete = vi.fn();
+    await startBackgroundImport(ds, onComplete);
+    // The dialog's own close control: the host unmounts or hides the wizard,
+    // and the job keeps running server-side.
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+
+    await waitFor(() => expect(onComplete).toHaveBeenCalledTimes(1), WAIT);
+    expect(onComplete.mock.calls[0][0]).toMatchObject({ importedRows: 5000, createdRows: 5000 });
+    expect(onComplete.mock.calls[0][0].cancelled).toBeUndefined();
+    expect(ds.cancelImportJob).not.toHaveBeenCalled();
+  }, 20000);
+
   it('when no read settles within the bound, the result shows no count it never read and skips onComplete', async () => {
     const ds = scriptedDataSource([RUNNING], [new Error('network down')]);
     const onComplete = vi.fn();

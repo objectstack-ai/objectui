@@ -1,0 +1,33 @@
+{
+  "number": 11658,
+  "kind": "issue",
+  "title": "AI build surface UX from the 2026-10-05 cloud acceptance: land on the running app after a build, a placeholder that names the task, one usage meter, a ring that is not a spinner, and a localized scope chip",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "domain:ui",
+    "enhancement",
+    "pm:dispatched",
+    "pm:epic"
+  ],
+  "assignees": [
+    "hotlong"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-05T13:27:46Z",
+  "updated_at": "2026-10-05T13:54:40Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 2,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11658",
+  "body": "## Source\n\nobjectstack-ai/cloud acceptance run, 2026-10-05: cloud main `4b38cd28`, objectstack main `088428fb`, objectui main `76993f8e`. A new zh-CN free user built an app with AI, added a table, and asked a data question. The items below are the objectui half of cloud#2627, cloud#2634 and cloud#2435 item 8, all on the AI build surface. Each is accepted independently.\n\n## Rulings\n\nThe maintainer delegated these decisions to the epic PM on 2026-10-05: 「你不用找我确认，你自己确认」. Under that delegation:\n\n1. **After the first AI build, land on the running app, not the designer.** Today the page jumps to `/_console/studio/<pkg>/interfaces?surface=dashboard:<name>` on the 「设计」 tab, with the properties panel open (列数 / 间距 / 自动刷新, squeezed into narrow columns). ADR-0080 sets the direction as preview-first. Default the post-build landing to the 「运行」 tab of the same workbench (or the app home), with the properties panel collapsed; 「设计」 stays one click away. (cloud#2634 item 1)\n2. **The in-app assistant placeholder names what the user can do, not the agent.** `console.ai.askAgent` = 「向 {{agent}} 提问…」 renders 「向 构建 提问…」 inside a running app (`packages/app-shell/src/console/ai/AiChatPage.tsx:2371`, plus the floating panel). In an app context, use 「问问数据，或让我改改这个应用…」 (en: \"Ask about your data, or ask me to change this app…\"). (cloud#2634 item 3)\n3. **The AI usage popover shows one meter.** After a data question asked through the single composer, the popover read 「AI 搭建 19% · 数据问询 0%」 (`meterBuild` / `meterAsk`, `zh.ts:1835-1836`). The free cap is one shared pool, and the split cannot attribute a composer turn honestly, so drop the split and show the single figure. (cloud#2634 item 3)\n4. **The usage ring must not look like a loading spinner.** `packages/app-shell/src/layout/AiUsageIndicator.tsx`: at low usage, the ring is a short arc in the header, which reads as 「还在加载」 in every screenshot. Give it a full track (or a different glyph at low usage) so that it reads as a gauge. (cloud#2627 item 4)\n5. **The plan card's scope chip is localized.** `packages/plugin-chatbot/src/ChatbotEnhanced.tsx:1421` and `:4012` hard-code `'Adding to existing app'`, and the chip also shows the internal app id (`\"customer_management\"`). Localize it and show the app's label. (cloud#2435 item 8)\n\n## Acceptance\n\nPer item: a screenshot of the same place after the fix, in zh-CN and en. Item 1 also needs the URL the build lands on. Item 5 also needs a test pinning that the chip has no ASCII-only literal.\n\n## Related\n\n- cloud#2627, cloud#2634, cloud#2435 (the cloud cards these items come from)\n- ADR-0080 (Studio preview-first)\n"
+}

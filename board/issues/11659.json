@@ -1,0 +1,29 @@
+{
+  "number": 11659,
+  "kind": "issue",
+  "title": "Console and record-page UX from the 2026-10-05 cloud acceptance: 「进入工作区」, a name-only workspace dialog, no backup-password banner in the first session, an uncut phone, and plain-language Studio copy",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement",
+    "pm:epic"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-05T13:27:50Z",
+  "updated_at": "2026-10-05T13:27:50Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11659",
+  "body": "## Source\n\nobjectstack-ai/cloud acceptance run, 2026-10-05: cloud main `4b38cd28`, objectstack main `088428fb`, objectui main `76993f8e`, new zh-CN free user. These are the console onboarding, record page and Studio items from cloud#2627 and cloud#2634 that live in objectui. Each is accepted independently.\n\n## Rulings\n\nThe maintainer delegated these decisions to the epic PM on 2026-10-05: 「你不用找我确认，你自己确认」. Under that delegation:\n\n1. **The cloud home's primary button reads 「进入工作区」 (en \"Open workspace\"), not 「打开生产环境」.** A new customer has exactly one environment, and 「生产环境」 is operator vocabulary. The destination is unchanged. `zh.ts:3243` `openProduction`, consumed by `packages/app-shell/src/console/home/CloudOnboardingNext.tsx`. Check the other locales and any secondary 「生产环境」 wording on the same page. (cloud#2634 item 5)\n2. **The create-workspace dialog asks for the name only.** `packages/app-shell/src/console/organizations/CreateWorkspaceDialog.tsx:207` shows 「URL 标识」, auto-filled as `workspace-b47zfh` after typing 「博远贸易」. The customer never sees it take effect. Hide the field and keep the generated slug; it stays editable in organization settings. (cloud#2634 item 6)\n3. **The 「建议设置一个备用密码」 banner does not appear in the user's first session.** It appeared on the environment home right after the first app was built, on top of 「我的应用」. Show it from the second session or day onward (`zh.ts:2683`; find the component that renders it). (cloud#2634 item 4)\n4. **The record drawer header does not cut the phone number.** The highlight row showed 「0574-876」 for 0574-8765-4321, with no ellipsis or hover. Show the full value, or truncate with an ellipsis and a title. (cloud#2627 item 5)\n5. **Studio's dashboard component list shows a localized widget type.** It showed 「按客户状态统计数量 · bar」. (cloud#2627 item 6)\n6. **Studio's automation pillar copy is plain language.** `packages/app-shell/src/views/metadata-admin/i18n.ts:5919-5920,5936` has 「自动化 · flow」 and 「默认 OFF · 审阅后再启用」. Drop `flow` and `OFF` from the zh copy. Whether this pillar should be offered at all on a plan where the AI declines automations is decided on the cloud side (cloud#2627 item 3). Do not hide it here unless that card says so. (cloud#2627 item 3, copy half)\n\n## Acceptance\n\nPer item: a screenshot of the same place after the fix, in zh-CN and en.\n\n## Related\n\n- cloud#2627, cloud#2634 (the cloud cards these items come from)\n"
+}

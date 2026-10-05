@@ -10,6 +10,6 @@ The `object-kanban` board totals the view's `summarizeField` in each column head
 - An absent, `null` or empty value counts as `0`, and an empty column totals `0`. A numeric string counts as the number the card shows for it. A column holding any other value shows no total, never `NaN`.
 - The total covers the cards the board loaded. When the board's own fetch filled its window, the total carries the same `+` the count carries (`6+`).
 - No total is shown for a field the viewer may not read, or a field the object does not declare. The rows never carry such a field, so the column would read `0`.
-- The field's label is the total's tooltip and its screen-reader name. No translation key is added.
+- A `Σ` glyph sets the total apart from the count badge beside it. The field's label is the total's tooltip and its screen-reader name, and the glyph is hidden from assistive technology. No translation key is added.
 
 A board whose node carries no `summarizeField` renders exactly as before. Nothing is added to the package entry: the total reaches the header through a package-private context, the same channel the records-settled signal uses.

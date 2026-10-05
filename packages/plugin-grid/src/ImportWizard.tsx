@@ -11,7 +11,7 @@ import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from '@object-ui/components';
 import { Upload, FileSpreadsheet, CheckCircle2, AlertCircle, X, ArrowRight, ArrowLeft, Save, Trash2, ClipboardPaste, Download, Undo2 } from 'lucide-react';
-import { useObjectTranslation } from '@object-ui/react';
+import { useObjectTranslation, notifyDataChanged } from '@object-ui/react';
 import { sanitizeFileNameBase } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
@@ -802,12 +802,14 @@ async function readSettledImportJob(
 }
 
 /** The Undo action, shared by the History list and the cancelled-result
- *  screen: confirm (destructive + irreversible), roll the job back, hand a
- *  failure to `onError` (cleared to `null` when an undo starts), then call
- *  `onSettled` so the caller re-reads the job and the Undo button gives way to
- *  "Undone". */
+ *  screen: confirm (destructive + irreversible), roll the job back, tell the
+ *  object's mounted readers their data changed (the undo deleted and restored
+ *  records, so an open list refetches in place), hand a failure to `onError`
+ *  (cleared to `null` when an undo starts), then call `onSettled` so the
+ *  caller re-reads the job and the Undo button gives way to "Undone". */
 function useImportJobUndo(
   dataSource: unknown,
+  objectName: string,
   t: (key: string, vars?: Record<string, unknown>) => string,
   onError: (message: string | null) => void,
   onSettled: () => void,
@@ -821,13 +823,14 @@ function useImportJobUndo(
     setUndoingId(jobId); onError(null);
     try {
       await ds.undoImportJob(jobId);
+      notifyDataChanged({ objectName });
     } catch (err) {
       onError(err instanceof Error ? err.message : String(err));
     } finally {
       setUndoingId(null);
       onSettled();
     }
-  }, [dataSource, t, onError, onSettled]);
+  }, [dataSource, objectName, t, onError, onSettled]);
   return { undoingId, undo };
 }
 
@@ -1618,7 +1621,7 @@ const ImportHistoryPanel: React.FC<{
   // first (destructive + irreversible), then reloads so the row flips to
   // "reverted" and its Undo button disappears.
   const reload = useCallback(() => { void load(); }, [load]);
-  const { undoingId, undo: handleUndo } = useImportJobUndo(dataSource, t, setError, reload);
+  const { undoingId, undo: handleUndo } = useImportJobUndo(dataSource, objectName, t, setError, reload);
 
   if (!supported) {
     return (
@@ -2341,7 +2344,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
       () => { /* keep the last read */ },
     );
   }, [dataSource, finishedJob?.jobId]);
-  const { undoingId, undo: undoFinishedJob } = useImportJobUndo(dataSource, t, setUndoError, rereadFinishedJob);
+  const { undoingId, undo: undoFinishedJob } = useImportJobUndo(dataSource, objectName, t, setUndoError, rereadFinishedJob);
   const canUndoJob = typeof (dataSource as Partial<DataSource> | undefined)?.undoImportJob === 'function';
 
   const reset = useCallback(() => {

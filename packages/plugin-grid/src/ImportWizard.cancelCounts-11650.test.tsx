@@ -26,6 +26,14 @@
  * settled one. A wizard that trusted the first terminal read shows 1800 here,
  * not 2000, and offers no Undo.
  *
+ * ## Undo refreshes the list it changed
+ *
+ * The cancel now hands the cancelled result to `onComplete`, so the host's
+ * list refetches and shows the committed rows. An Undo deletes them again, so
+ * the shared undo action announces the change on the data-invalidation bus
+ * (`notifyDataChanged`), as every write path should. Without it, the list kept
+ * showing the undone rows, from the History list and from the result screen.
+ *
  * Real timers throughout: the wizard polls on its own 800 ms interval, and the
  * pins wait on it with explicit timeouts rather than faking the clock under
  * React Testing Library's own waits.
@@ -35,8 +43,9 @@ import { render, screen, fireEvent, waitFor, act, within } from '@testing-librar
 import '@testing-library/jest-dom';
 import React from 'react';
 
+import { subscribeDataChanges, type DataChange } from '@object-ui/react';
 import { ImportWizard } from './ImportWizard';
-import type { ImportJobProgressInfo, ImportJobResultsInfo } from '@object-ui/types';
+import type { ImportJobProgressInfo, ImportJobResultsInfo, ImportJobSummaryInfo } from '@object-ui/types';
 
 const FIELDS = [{ name: 'name', label: 'Name', type: 'text' }];
 const JOB_ID = 'imp_11650';
@@ -203,6 +212,55 @@ describe('ImportWizard: a cancelled background import reports the job it cancell
     expect(ds.undoImportJob).toHaveBeenCalledWith(JOB_ID);
     expect(screen.queryByTestId('import-cancelled-undo')).not.toBeInTheDocument();
   }, 20000);
+
+  it('Undo on the cancelled result tells the readers of the object that its data changed', async () => {
+    const ds = scriptedDataSource([RUNNING], [CANCELLED_FINAL]);
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    const cancel = await startBackgroundImport(ds, vi.fn());
+    fireEvent.click(cancel);
+    const undo = await screen.findByTestId('import-cancelled-undo', undefined, WAIT);
+    const changes: DataChange[] = [];
+    const unsubscribe = subscribeDataChanges((change) => { changes.push(change); });
+    try {
+      fireEvent.click(undo);
+      await waitFor(() => expect(ds.undoImportJob).toHaveBeenCalledTimes(1), WAIT);
+      await waitFor(() => expect(changes).toEqual([{ objectName: 'contact' }]), WAIT);
+    } finally {
+      unsubscribe();
+    }
+  }, 20000);
+
+  it('Undo from the History list tells the readers of the object that its data changed, and a failed undo does not', async () => {
+    const row: ImportJobSummaryInfo = {
+      jobId: JOB_ID, object: 'contact', status: 'cancelled', total: 5000, processed: 2000,
+      created: 1950, updated: 50, skipped: 0, errors: 0, undoable: true,
+    };
+    const undoImportJob = vi.fn()
+      .mockRejectedValueOnce(new Error('undo failed'))
+      .mockResolvedValueOnce({ success: true, jobId: JOB_ID, object: 'contact', deleted: 1950, restored: 50, failed: 0 });
+    const ds = { listImportJobs: vi.fn(async () => [row]), undoImportJob };
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    render(
+      <ImportWizard objectName="contact" fields={FIELDS} dataSource={ds} open onOpenChange={() => {}} />,
+    );
+    fireEvent.click(screen.getByTestId('import-history-toggle'));
+    const undo = await screen.findByTestId(`import-history-undo-${JOB_ID}`);
+    const changes: DataChange[] = [];
+    const unsubscribe = subscribeDataChanges((change) => { changes.push(change); });
+    try {
+      fireEvent.click(undo);
+      await waitFor(() => expect(undoImportJob).toHaveBeenCalledTimes(1));
+      // The panel reloads after the attempt; wait for the row's Undo to be live again.
+      await waitFor(() => expect(screen.getByTestId(`import-history-undo-${JOB_ID}`)).toBeEnabled());
+      await waitFor(() => expect(ds.listImportJobs).toHaveBeenCalledTimes(2));
+      expect(changes).toEqual([]);
+      fireEvent.click(screen.getByTestId(`import-history-undo-${JOB_ID}`));
+      await waitFor(() => expect(undoImportJob).toHaveBeenCalledTimes(2));
+      await waitFor(() => expect(changes).toEqual([{ objectName: 'contact' }]));
+    } finally {
+      unsubscribe();
+    }
+  });
 
   it('a Cancel clicked while a poll read is in flight publishes one result and calls onComplete once', async () => {
     let releasePoll: (read: ImportJobProgressInfo) => void = () => {};

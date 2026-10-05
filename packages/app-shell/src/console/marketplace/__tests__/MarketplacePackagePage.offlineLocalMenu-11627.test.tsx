@@ -24,8 +24,8 @@
  *   asked for — no catalog request, no cloud-installation probe — and no
  *   install-to-cloud CTA, readme or version list is drawn.
  * - MUST NOT CHANGE: a marketplace-off boot WITHOUT install-local renders the
- *   notice alone and asks for nothing; so does a package that is not a local
- *   install.
+ *   notice alone and asks for nothing. A package that is not a local install
+ *   also gets the notice alone, once the ledger has answered.
  *
  * ## Why the cases drive the WIRE
  *
@@ -250,7 +250,10 @@ describe('a marketplace-off boot that permits install-local, seen by an admin', 
     );
   });
 
-  it('MUST NOT CHANGE — a package that is NOT a local install still gets the notice alone', async () => {
+  // The frame is the one this page always drew; the ledger read before it is
+  // new, and is what makes the absence of a menu here a reading rather than
+  // an answer that has not arrived yet.
+  it('a package that is NOT a local install gets the notice alone once the ledger has answered', async () => {
     await bootOffline(true, [{ ...CRM_ENTRY, packageId: 'com.example.todo', manifestId: 'com.example.todo' }]);
 
     render(<MarketplacePackagePage />);

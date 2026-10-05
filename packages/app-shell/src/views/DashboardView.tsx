@@ -50,12 +50,14 @@ import { useObjectTranslation } from '@object-ui/i18n';
  * `DashboardView.autoRefresh-11062.test.tsx` counts the re-reads and checks the
  * widget's node survives them.
  *
- * ⚠️ A `DatasetWidget` matches nothing until its answer names the dataset's
- * base object, and the server names it only beside drill-through metadata. A
- * dataset-bound KPI tile (no dimensions) therefore never re-reads on the bus,
- * from this handler or from a declared write. That gap is the widget's
- * subscription key, not this handler; it was measured in a running console on
- * objectui#11062.
+ * A `DatasetWidget` subscribes on the base object its query's answer names.
+ * Every dataset answer names it (`AnalyticsResult.object`,
+ * objectstack-ai/objectstack#20644), with or without dimensions and rows, so a
+ * dataset-bound KPI tile (no dimensions) re-reads on this handler and on a
+ * declared write to that object. `DatasetWidget.kpiInvalidation-11095.test.tsx`
+ * in `plugin-dashboard` pins the widget's half (objectui#11095); the
+ * producer's half is pinned upstream by `service-analytics`'s
+ * `dataset-answer-object.test.ts`.
  *
  * The scope is the bus's unknown-scope value, `'*'`, the same one `PageView`
  * uses after a page action. A timed re-read does not know what changed, and

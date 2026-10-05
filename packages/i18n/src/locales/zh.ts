@@ -1905,6 +1905,7 @@ const zh = {
       liveCanvasUnlisted: '运行预览 · {{app}}(未发布 · 仅自己可见)',
       loadingAgents: '正在加载助手…',
       askAnything: '输入你的问题…',
+      askOrChangeApp: '问问数据，或让我改改这个应用…',
       emptyTitle: '开始对话',
       emptyDescription: '可以直接提问，助手会结合当前应用上下文提供帮助。',
       switchAssistant: '切换助手',
@@ -3419,6 +3420,7 @@ const zh = {
       countDashboards_one: '{{count}} 个仪表板',
       countDashboards_other: '{{count}} 个仪表板',
       countSeedData: '示例数据',
+      extendTarget: '添加到现有应用：{{app}}',
     },
     build: {
       building: '正在构建{{app}}…',

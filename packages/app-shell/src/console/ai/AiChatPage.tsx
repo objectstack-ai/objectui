@@ -2006,6 +2006,17 @@ export function ChatPane({
     return app ? appLabel({ name: app.name, label: resolveKeyedI18nLabel(app.label, t) }) : undefined;
   }, [editPackageId, metadataApps, appLabel, t]);
 
+  // objectui#11658 — the plan card's extend-mode scope chip names the existing
+  // app it would add to by that app's label; the plan carries its machine name.
+  // An app not (yet) in metadata answers undefined and the chip shows the name.
+  const resolveAppLabel = useCallback(
+    (appName: string) => {
+      const app = (metadataApps ?? []).find((a) => a.name === appName);
+      return app ? appLabel({ name: app.name, label: resolveKeyedI18nLabel(app.label, t) }) : undefined;
+    },
+    [metadataApps, appLabel, t],
+  );
+
   // Per-surface empty-state branding (Build = authoring, Ask = data Q&A). On the
   // build surface, `?package=` flips it to edit mode: "what do you want to
   // change in <app>" + change-oriented starters, instead of the from-scratch
@@ -2368,7 +2379,13 @@ export function ChatPane({
               // The generic "Ask {agent}…" doubles to "Ask Ask…" for the data-query
               // agent whose label IS "Ask". Use its purpose-built placeholder instead.
               ? t('console.ai.askAnything')
-              : t('console.ai.askAgent', { agent: activeAgentLabel })
+              // objectui#11658 — inside an app (the build agent scoped to a
+              // package: the console dock in a running app, the Studio dock,
+              // `/ai/build?package=`) the composer names what the user can do
+              // there, never the agent: "Ask Build…" read as「向 构建 提问…」.
+              : editing
+                ? t('console.ai.askOrChangeApp')
+                : t('console.ai.askAgent', { agent: activeAgentLabel })
             : agentsLoading
               ? t('console.ai.loadingAgents')
               : t('console.ai.askAnything')
@@ -2556,6 +2573,7 @@ export function ChatPane({
         publishedLabel={t('console.ai.published', { defaultValue: 'Published' })}
         nextStepsLabel={t('console.ai.nextSteps', { defaultValue: "What's next" })}
         planTitleLabel={t('console.ai.planTitle', { defaultValue: 'Proposed plan' })}
+        resolveAppLabel={resolveAppLabel}
         planQuestionsLabel={t('console.ai.planQuestions', { defaultValue: 'Confirm before building' })}
         planAssumptionsLabel={t('console.ai.planAssumptions', { defaultValue: 'Assumptions' })}
         planDeferredLabel={t('console.ai.planDeferred', { defaultValue: 'Not yet built' })}

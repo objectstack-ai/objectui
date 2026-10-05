@@ -1737,6 +1737,7 @@ const ko = {
       liveCanvasUnlisted: "실시간 앱 — {{app}}(게시 전까지 비공개)",
       loadingAgents: "에이전트를 불러오는 중…",
       askAnything: "무엇이든 물어보세요…",
+      askOrChangeApp: "데이터에 대해 묻거나 이 앱을 바꿔 달라고 요청하세요…",
       emptyTitle: "대화 시작하기",
       emptyDescription: "무엇이든 물어보세요 — 어시스턴트는 현재 앱 컨텍스트에 접근할 수 있습니다.",
       switchAssistant: "어시스턴트 전환",
@@ -3271,6 +3272,7 @@ const ko = {
       countDashboards_one: "대시보드 {{count}}개",
       countDashboards_other: "대시보드 {{count}}개",
       countSeedData: "샘플 데이터",
+      extendTarget: "기존 앱에 추가: {{app}}",
     },
     build: {
       building: "{{app}} 빌드 중…",

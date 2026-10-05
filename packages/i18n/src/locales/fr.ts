@@ -1780,6 +1780,7 @@ const fr = {
       liveCanvasUnlisted: "Application en direct — {{app}} (non répertoriée jusqu'à publication)",
       loadingAgents: "Chargement des agents…",
       askAnything: "Posez n'importe quelle question…",
+      askOrChangeApp: "Posez une question sur vos données ou demandez-moi de modifier cette app…",
       emptyTitle: "Démarrer une conversation",
       emptyDescription: "Posez n'importe quelle question — l'assistant a accès au contexte de votre application actuelle.",
       switchAssistant: "Changer d'assistant",
@@ -3333,6 +3334,7 @@ const fr = {
       countDashboards_many: "{{count}} de tableaux de bord",
       countDashboards_other: "{{count}} tableaux de bord",
       countSeedData: "données d’exemple",
+      extendTarget: "Ajout à l’app existante : {{app}}",
     },
     build: {
       building: "Création de {{app}}…",

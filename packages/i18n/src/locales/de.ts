@@ -1737,6 +1737,7 @@ const de = {
       liveCanvasUnlisted: "Live-App — {{app}} (nicht gelistet bis zur Veröffentlichung)",
       loadingAgents: "Agenten werden geladen…",
       askAnything: "Fragen Sie irgendetwas…",
+      askOrChangeApp: "Fragen Sie zu Ihren Daten oder lassen Sie mich diese App ändern…",
       emptyTitle: "Unterhaltung beginnen",
       emptyDescription: "Fragen Sie irgendetwas — der Assistent hat Zugriff auf den Kontext Ihrer aktuellen App.",
       switchAssistant: "Assistenten wechseln",
@@ -3272,6 +3273,7 @@ const de = {
       countDashboards_one: "{{count}} Dashboard",
       countDashboards_other: "{{count}} Dashboards",
       countSeedData: "Beispieldaten",
+      extendTarget: "Wird zur bestehenden App hinzugefügt: {{app}}",
     },
     build: {
       building: "{{app}} wird erstellt…",

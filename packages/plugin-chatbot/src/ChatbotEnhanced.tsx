@@ -671,9 +671,16 @@ export interface ChatbotEnhancedProps extends React.HTMLAttributes<HTMLDivElemen
   nextStepsLabel?: string;
   /** Heading for the pre-build proposed-plan card (default "Proposed plan"). */
   planTitleLabel?: string;
-  /** Extend mode: prefix shown when proposedPlan.targetApp is set, framing
-   *  the build as additive (e.g. "Adding to existing app"). */
+  /** Extend mode: host override for the scope chip's prefix, shown before the
+   *  target app as `PREFIX "APP"` when proposedPlan.targetApp is set. Omitted,
+   *  the chip reads the localized `chatbot.plan.extendTarget` sentence — the
+   *  component carries no English default of its own (objectui#11658). */
   planExtendLabel?: string;
+  /** objectui#11658 — the display label of an existing app, by its machine
+   *  name. The extend-mode scope chip names the target app with it; the
+   *  internal name stays on the chip's tooltip. `undefined` (or a resolver that
+   *  does not know the app) shows the name as given. */
+  resolveAppLabel?: (appName: string) => string | undefined;
   /** Heading above the structure-deciding questions in the plan card (default "Confirm before building"). */
   planQuestionsLabel?: string;
   /** Heading above the agent's assumptions in the plan card (default "Assumptions"). */
@@ -1258,6 +1265,32 @@ function useMetadataCountBits(): (counts: {
   );
 }
 
+/**
+ * objectui#11658 — the extend-mode scope chip's text ("Adding to existing app:
+ * APP"), shared by the proposed-plan card and `BlueprintProgressPanel`.
+ *
+ * The chip names the target app by its display label, resolved by the host
+ * (`resolveAppLabel`), never by the machine name the plan carries — that name
+ * moves to the chip's tooltip. The sentence is the locale pack's
+ * `chatbot.plan.extendTarget`, so a zh user no longer reads the English literal
+ * the component used to default to. A host `planExtendLabel` still wins, in the
+ * `PREFIX "APP"` shape it always rendered.
+ */
+function useExtendChip(
+  override: string | undefined,
+  resolveAppLabel: ((appName: string) => string | undefined) | undefined,
+): (targetApp: string) => string {
+  const { t } = useObjectTranslation();
+  return React.useCallback(
+    (targetApp: string) => {
+      const app = resolveAppLabel?.(targetApp) || targetApp;
+      if (override) return `${override} "${app}"`;
+      return t('chatbot.plan.extendTarget', { app, defaultValue: 'Adding to existing app: {{app}}' });
+    },
+    [t, override, resolveAppLabel],
+  );
+}
+
 function summarizeTools(
   tools: ChatToolInvocation[],
   /**
@@ -1418,7 +1451,8 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
       builderHandoffSupersededTitle = 'A newer request is available',
       onOpenBuilder,
       onOpenRecord,
-      planExtendLabel = 'Adding to existing app',
+      planExtendLabel,
+      resolveAppLabel,
       planQuestionsLabel = 'Confirm before building',
       planAssumptionsLabel = 'Assumptions',
       planDeferredLabel = 'Not yet built',
@@ -1466,6 +1500,9 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
     // `BlueprintProgressPanel` so the plan card and the live design panel can
     // not word the same counts differently (objectui#7254).
     const countBitsOf = useMetadataCountBits();
+    // objectui#11658 — the extend-mode scope chip, shared with
+    // `BlueprintProgressPanel` so both name the target app the same way.
+    const extendChip = useExtendChip(planExtendLabel, resolveAppLabel);
 
     // objectui#7254 — the pack lookup for every string this component owns.
     // `useSafeTranslate` is provider-safe: with no I18nProvider (tests,
@@ -2564,8 +2601,9 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                   <span
                     className="inline-flex w-fit items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2 py-0.5 text-[11px] font-medium text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300"
                     data-testid="proposed-plan-extend"
+                    title={tool.proposedPlan.targetApp}
                   >
-                    + {planExtendLabel} "{tool.proposedPlan.targetApp}"
+                    + {extendChip(tool.proposedPlan.targetApp)}
                   </span>
                 ) : null}
                 {tool.proposedPlan.summary ? (
@@ -3184,7 +3222,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
                         <BlueprintProgressPanel
                           progress={blueprintProgress}
                           designingLabel={L.designingPlanLabel}
-                          extendLabel={planExtendLabel}
+                          extendChip={extendChip}
                           waitingLabel={L.connectionWaiting}
                           stalledLabel={L.connectionStalledLabel}
                           offlineLabel={L.connectionOfflineLabel}
@@ -4009,14 +4047,16 @@ function useBuildGroupLabel(): (type: string) => string {
 function BlueprintProgressPanel({
   progress,
   designingLabel = 'Designing your app…',
-  extendLabel = 'Adding to existing app',
+  extendChip,
   waitingLabel = 'Waiting for server…',
   stalledLabel = 'Still working…',
   offlineLabel = 'Connection lost — reconnecting…',
 }: {
   progress: ChatBlueprintProgress;
   designingLabel?: string;
-  extendLabel?: string;
+  /** objectui#11658 — the localized scope-chip text for a target app (see
+   *  `useExtendChip`); the panel owns no wording of its own for it. */
+  extendChip: (targetApp: string) => string;
   waitingLabel?: string;
   stalledLabel?: string;
   offlineLabel?: string;
@@ -4048,8 +4088,9 @@ function BlueprintProgressPanel({
           <span
             className="inline-flex shrink-0 items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:border-blue-900/50 dark:bg-blue-950/30 dark:text-blue-300"
             data-testid="blueprint-progress-extend"
+            title={targetApp}
           >
-            + {extendLabel} "{targetApp}"
+            + {extendChip(targetApp)}
           </span>
         ) : null}
         {!isDone ? (

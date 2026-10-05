@@ -2218,6 +2218,7 @@ const en = {
       liveCanvasUnlisted: 'Live app — {{app}} (unlisted until published)',
       loadingAgents: 'Loading agents…',
       askAnything: 'Ask anything…',
+      askOrChangeApp: 'Ask about your data, or ask me to change this app…',
       emptyTitle: 'Start a conversation',
       emptyDescription: 'Ask anything — the assistant has access to your current app context.',
       switchAssistant: 'Switch assistant',
@@ -3864,6 +3865,7 @@ const en = {
       countDashboards_one: '{{count}} dashboard',
       countDashboards_other: '{{count}} dashboards',
       countSeedData: 'sample data',
+      extendTarget: 'Adding to existing app: {{app}}',
     },
     build: {
       building: 'Building {{app}}…',

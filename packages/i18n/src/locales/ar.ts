@@ -1922,6 +1922,7 @@ const ar = {
       liveCanvasUnlisted: "تطبيق حي — {{app}} (غير مُدرج حتى النشر)",
       loadingAgents: "جارٍ تحميل الوكلاء…",
       askAnything: "اسأل عن أي شيء…",
+      askOrChangeApp: "اسأل عن بياناتك، أو اطلب مني تعديل هذا التطبيق…",
       emptyTitle: "ابدأ محادثة",
       emptyDescription: "اسأل عن أي شيء — يمكن للمساعد الاطلاع على سياق تطبيقك الحالي.",
       switchAssistant: "تبديل المساعد",
@@ -3535,6 +3536,7 @@ const ar = {
       countDashboards_many: "{{count}} لوحة معلومات",
       countDashboards_other: "{{count}} لوحة معلومات",
       countSeedData: "بيانات تجريبية",
+      extendTarget: "إضافة إلى التطبيق الحالي: {{app}}",
     },
     build: {
       building: "جارٍ إنشاء {{app}}…",

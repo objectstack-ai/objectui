@@ -1739,6 +1739,7 @@ const ja = {
       liveCanvasUnlisted: "ライブアプリ — {{app}}（公開するまで非掲載）",
       loadingAgents: "エージェントを読み込んでいます…",
       askAnything: "何でも質問してください…",
+      askOrChangeApp: "データについて質問するか、このアプリの変更を依頼…",
       emptyTitle: "会話を始める",
       emptyDescription: "何でも質問してください — アシスタントは現在のアプリのコンテキストを参照できます。",
       switchAssistant: "アシスタントを切り替え",
@@ -3274,6 +3275,7 @@ const ja = {
       countDashboards_one: "{{count}} 件のダッシュボード",
       countDashboards_other: "{{count}} 件のダッシュボード",
       countSeedData: "サンプルデータ",
+      extendTarget: "既存のアプリに追加：{{app}}",
     },
     build: {
       building: "{{app}}を構築しています…",

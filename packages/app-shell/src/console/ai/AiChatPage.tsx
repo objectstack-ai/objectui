@@ -22,6 +22,7 @@ import { Package as PackageIcon, Sparkles as SparklesIcon } from 'lucide-react';
 import { useAdapter } from '../../providers/AdapterProvider.js';
 import { useMetadata } from '../../providers/MetadataProvider.js';
 import { formatPublishFailures, type PublishFailure } from '../../views/studio-design/metadataError.js';
+import { STUDIO_RUN_LANDING } from '../../views/studio-design/studioLanding.js';
 import { useMetadataClient } from '../../views/metadata-admin/useMetadata.js';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 import { resolveKeyedI18nLabel } from '../../utils/index.js';
@@ -2107,7 +2108,11 @@ export function ChatPane({
     // app:<pkg>:build cache key — the exact key the Studio dock resolves — so
     // the workbench's right rail resumes THIS thread (A1.b machinery).
     onPackageBound?.(builtPackageId);
-    paneNavigate(`/studio/${encodeURIComponent(builtPackageId)}/interfaces`);
+    // objectui#11658 — land on the RUNNING app (ADR-0080 preview-first): the
+    // Interfaces pillar opens on 「运行」 with its properties collapsed. The
+    // explicit "Design in Studio" door below passes no state and still lands
+    // on 「设计」.
+    paneNavigate(`/studio/${encodeURIComponent(builtPackageId)}/interfaces`, { state: STUDIO_RUN_LANDING });
   }, [isBuildSurface, isLoading, canBind, builtPackageId, conversationId, onPackageBound, paneNavigate]);
 
   // objectui#5801 — when a turn that STAGED or PUBLISHED something finishes,

@@ -1705,8 +1705,7 @@ const fr = {
       },
       usage: {
         title: "Utilisation de l'IA",
-        meterBuild: "Créer",
-        meterAsk: "Demander",
+        poolUsed: "{{percent}} utilisé",
         statusOk: "Il en reste beaucoup",
         statusLow: "Bientôt épuisé",
         statusFull: "Limite atteinte",
@@ -1723,7 +1722,6 @@ const fr = {
         ctaUpgrade: "Passer à l'offre supérieure pour continuer",
         ctaTopUp: "Ajouter des crédits pour continuer",
         ariaLabel: "Utilisation de l'IA : {{status}}",
-        breakdownTitle: "Utilisé jusqu'à présent",
       },
       workspaceTitle: "Espace de travail IA",
       workspaceSubtitle: "Posez des questions, inspectez et reprenez vos conversations",

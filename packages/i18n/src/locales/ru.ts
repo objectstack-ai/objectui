@@ -1761,8 +1761,7 @@ const ru = {
       },
       usage: {
         title: "Использование ИИ",
-        meterBuild: "Сборка",
-        meterAsk: "Вопрос",
+        poolUsed: "Использовано {{percent}}",
         statusOk: "Осталось много",
         statusLow: "Заканчивается",
         statusFull: "Лимит исчерпан",
@@ -1781,7 +1780,6 @@ const ru = {
         ctaUpgrade: "Повысьте тариф, чтобы продолжить",
         ctaTopUp: "Добавьте кредиты, чтобы продолжить",
         ariaLabel: "Использование ИИ: {{status}}",
-        breakdownTitle: "Использовано на данный момент",
       },
       workspaceTitle: "Рабочее пространство ИИ",
       workspaceSubtitle: "Задавайте вопросы, изучайте и возвращайтесь к диалогам",

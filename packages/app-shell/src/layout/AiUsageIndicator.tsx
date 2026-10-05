@@ -4,19 +4,20 @@
  *
  * ADR-0057 #8 — the proactive AI usage indicator for the ChatDock header.
  *
- * ONE small progress ring for the environment's ONE AI quota pool (objectui#8524,
+ * ONE small gauge for the environment's ONE AI quota pool (objectui#8524,
  * following the cloud single-pool ruling), so the user sees remaining AI headroom
  * BEFORE a send hits the 429 wall, instead of only learning the limit reactively.
  * Data comes from {@link useAiUsage} (the cloud `GET /api/v1/ai/usage` endpoint),
  * which speaks D5-SAFE fractions — this component NEVER renders a token number,
- * only a ring, qualitative words and, in the popover, the pool's split as
- * percentages of that same pool.
+ * only the gauge, qualitative words and, in the popover, the pool's used share as
+ * ONE percentage.
  *
- * The split (`breakdown`: app-building vs data Q&A) answers "where did the
- * allowance go". It is text inside the popover, under the pool's own row — never
- * a second ring, which would imply a second budget. It appears only when at
- * least one of its members is a number; when it is absent or all-null the popover
- * is the pool row alone.
+ * objectui#11658 — the popover shows that one figure and nothing else. The pool's
+ * split (`breakdown`: app-building vs data Q&A) is no longer drawn: since the
+ * single composer, a data question asked of the build agent counts as building,
+ * so the split read「AI 搭建 19% · 数据问询 0%」after a data question — it cannot
+ * attribute a composer turn honestly. `useAiUsage` still reads `breakdown`
+ * strictly off the wire; nothing renders it.
  *
  * Near-full (≥ {@link NEAR_FULL}) the ring turns amber and, on click, the popover
  * shows "running low — resets tonight/next cycle" plus the SAME upgrade / top-up CTA
@@ -28,7 +29,7 @@
 import * as React from 'react';
 import { cn, Button, Popover, PopoverTrigger, PopoverContent } from '@object-ui/components';
 import { formatNumber, useObjectTranslation } from '@object-ui/i18n';
-import { useAiUsage, type AiMeterUsage, type AiUsageBreakdown } from '../hooks/useAiUsage.js';
+import { useAiUsage, type AiMeterUsage } from '../hooks/useAiUsage.js';
 import { cloudConsoleUrl } from '../console/marketplace/marketplaceApi.js';
 
 /** Fraction at/above which the pool is "running low" (amber + CTA). */
@@ -57,31 +58,30 @@ function statusColorClass(tone: Tone): string {
   return 'text-muted-foreground';
 }
 
-/** One row of the pool's split: a member that was measured (numeric). */
-interface BreakdownRow {
-  key: keyof AiUsageBreakdown;
-  fraction: number;
-}
-
-/** The split rows to show — measured members only; empty means no split section. */
-function breakdownRows(breakdown: AiUsageBreakdown | undefined): BreakdownRow[] {
-  if (!breakdown) return [];
-  const rows: BreakdownRow[] = [];
-  (['build', 'dataChat'] as const).forEach((key) => {
-    const fraction = breakdown[key];
-    if (fraction !== null) rows.push({ key, fraction });
-  });
-  return rows;
-}
-
-/** A small SVG progress ring. Presentational only (aria-hidden) — the button labels it. */
-function MeterRing({ fraction, tone, size = 16 }: { fraction: number; tone: Tone; size?: number }) {
-  const stroke = 2;
-  const r = (size - stroke) / 2;
+/**
+ * The pool gauge: a full, solid outline (the track) around a pie wedge that
+ * fills clockwise from 12 o'clock with the used share. Presentational only
+ * (aria-hidden) — the button labels it.
+ *
+ * objectui#11658 — it used to be a stroked arc over a faint 25%-opacity track,
+ * which at low usage is a short arc in the header: the exact silhouette of a
+ * loading spinner, read as「还在加载」in every acceptance screenshot. A pie
+ * inside a closed outline reads as a quantity at any fraction — an empty circle
+ * at 0, a sliver at 5%, a full disc at the cap — and never as a spinner, since
+ * a spinner is an OPEN arc. Both parts take the tone colour (`currentColor`),
+ * so the track is as visible as the fill.
+ */
+function MeterGauge({ fraction, tone, size = 16 }: { fraction: number; tone: Tone; size?: number }) {
+  const center = size / 2;
+  const outline = 1.5;
+  const trackR = (size - outline) / 2;
+  // The wedge is drawn as a circle whose stroke is as wide as its own diameter:
+  // a dash of `pct` of its circumference paints a pie sector of radius `pieR`,
+  // inset from the track by a gap the width of the outline.
+  const pieR = trackR - outline;
+  const r = pieR / 2;
   const circumference = 2 * Math.PI * r;
   const pct = Math.min(1, Math.max(0, fraction));
-  const dash = circumference * pct;
-  const center = size / 2;
   return (
     <svg
       width={size}
@@ -90,18 +90,27 @@ function MeterRing({ fraction, tone, size = 16 }: { fraction: number; tone: Tone
       className={ringColorClass(tone)}
       aria-hidden="true"
       focusable="false"
+      data-gauge="pie"
     >
-      <circle cx={center} cy={center} r={r} fill="none" strokeWidth={stroke} className="stroke-muted-foreground/25" />
+      <circle
+        cx={center}
+        cy={center}
+        r={trackR}
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={outline}
+        data-gauge-part="track"
+      />
       <circle
         cx={center}
         cy={center}
         r={r}
         fill="none"
         stroke="currentColor"
-        strokeWidth={stroke}
-        strokeLinecap="round"
-        strokeDasharray={`${dash} ${circumference}`}
+        strokeWidth={pieR}
+        strokeDasharray={`${circumference * pct} ${circumference}`}
         transform={`rotate(-90 ${center} ${center})`}
+        data-gauge-part="fill"
       />
     </svg>
   );
@@ -143,12 +152,7 @@ export function AiUsageIndicator({ apiBase, enabled = true, className }: AiUsage
   if (pool.unmetered || pool.fraction === null) return null;
   const fraction = pool.fraction;
   const tone = toneFor(fraction);
-  const split = breakdownRows(usage.breakdown);
-
-  const splitLabel = (key: BreakdownRow['key']): string =>
-    key === 'build'
-      ? t('console.ai.usage.meterBuild', { defaultValue: 'Build' })
-      : t('console.ai.usage.meterAsk', { defaultValue: 'Ask' });
+  const usedPercent = formatNumber(fraction, { locale: language, style: 'percent', maximumFractionDigits: 0 });
 
   const statusLabel = (level: Tone): string => {
     if (level === 'full') return t('console.ai.usage.statusFull', { defaultValue: 'Limit reached' });
@@ -215,7 +219,7 @@ export function AiUsageIndicator({ apiBase, enabled = true, className }: AiUsage
             status: statusLabel(tone),
           })}
         >
-          <MeterRing fraction={fraction} tone={tone} />
+          <MeterGauge fraction={fraction} tone={tone} />
           {tone !== 'ok' ? (
             <span className={cn('hidden text-xs font-medium sm:inline', statusColorClass(tone))}>
               {statusLabel(tone)}
@@ -228,9 +232,12 @@ export function AiUsageIndicator({ apiBase, enabled = true, className }: AiUsage
           {t('console.ai.usage.title', { defaultValue: 'AI usage' })}
         </div>
         <div className="flex items-start gap-2.5">
-          <MeterRing fraction={fraction} tone={tone} size={22} />
+          <MeterGauge fraction={fraction} tone={tone} size={22} />
           <div className="min-w-0 flex-1">
             <div className={cn('text-sm font-medium', statusColorClass(tone))}>{statusLabel(tone)}</div>
+            <div className="text-xs tabular-nums text-foreground" data-testid="ai-usage-pool-used">
+              {t('console.ai.usage.poolUsed', { percent: usedPercent, defaultValue: '{{percent}} used' })}
+            </div>
             {reset ? <div className="text-xs text-muted-foreground">{reset}</div> : null}
             {showCta ? (
               <Button
@@ -247,23 +254,6 @@ export function AiUsageIndicator({ apiBase, enabled = true, className }: AiUsage
             ) : null}
           </div>
         </div>
-        {split.length > 0 ? (
-          <div className="mt-3 border-t pt-2" data-testid="ai-usage-breakdown">
-            <div className="mb-1 text-xs text-muted-foreground">
-              {t('console.ai.usage.breakdownTitle', { defaultValue: 'Used so far' })}
-            </div>
-            <ul className="space-y-0.5">
-              {split.map((row) => (
-                <li key={row.key} className="flex items-center justify-between gap-2 text-xs">
-                  <span className="text-foreground">{splitLabel(row.key)}</span>
-                  <span className="tabular-nums text-muted-foreground">
-                    {formatNumber(row.fraction, { locale: language, style: 'percent', maximumFractionDigits: 0 })}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
       </PopoverContent>
     </Popover>
   );

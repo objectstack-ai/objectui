@@ -1832,8 +1832,7 @@ const zh = {
       },
       usage: {
         title: 'AI 用量',
-        meterBuild: 'AI 搭建',
-        meterAsk: '数据问询',
+        poolUsed: '已用 {{percent}}',
         statusOk: '额度充足',
         statusLow: '即将用完',
         statusFull: '额度已用完',
@@ -1848,7 +1847,6 @@ const zh = {
         ctaUpgrade: '升级以继续使用',
         ctaTopUp: '购买额度包以继续',
         ariaLabel: 'AI 用量：{{status}}',
-        breakdownTitle: '已用额度构成',
       },
       workspaceTitle: 'AI 工作区',
       workspaceSubtitle: '提问、查看并继续历史对话',

@@ -1703,8 +1703,7 @@ const pt = {
       },
       usage: {
         title: "Uso de IA",
-        meterBuild: "Criar",
-        meterAsk: "Perguntar",
+        poolUsed: "{{percent}} usado",
         statusOk: "Ainda há bastante",
         statusLow: "Está acabando",
         statusFull: "Limite atingido",
@@ -1721,7 +1720,6 @@ const pt = {
         ctaUpgrade: "Faça upgrade para continuar",
         ctaTopUp: "Adicione créditos para continuar",
         ariaLabel: "Uso de IA: {{status}}",
-        breakdownTitle: "Usado até agora",
       },
       workspaceTitle: "Workspace de IA",
       workspaceSubtitle: "Pergunte, inspecione e retome conversas",

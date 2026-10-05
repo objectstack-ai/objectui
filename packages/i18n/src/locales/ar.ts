@@ -1841,8 +1841,7 @@ const ar = {
       },
       usage: {
         title: "استخدام الذكاء الاصطناعي",
-        meterBuild: "الإنشاء",
-        meterAsk: "السؤال",
+        poolUsed: "تم استخدام {{percent}}",
         statusOk: "المتبقّي وفير",
         statusLow: "على وشك النفاد",
         statusFull: "تم بلوغ الحد",
@@ -1865,7 +1864,6 @@ const ar = {
         ctaUpgrade: "قم بالترقية للمتابعة",
         ctaTopUp: "أضف أرصدة للمتابعة",
         ariaLabel: "استخدام الذكاء الاصطناعي: {{status}}",
-        breakdownTitle: "المستخدَم حتى الآن",
       },
       workspaceTitle: "مساحة عمل الذكاء الاصطناعي",
       workspaceSubtitle: "اسأل وافحص واستأنف المحادثات",

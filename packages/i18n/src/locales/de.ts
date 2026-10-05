@@ -1664,8 +1664,7 @@ const de = {
       },
       usage: {
         title: "KI-Nutzung",
-        meterBuild: "Erstellen",
-        meterAsk: "Fragen",
+        poolUsed: "{{percent}} verbraucht",
         statusOk: "Reichlich übrig",
         statusLow: "Wird knapp",
         statusFull: "Limit erreicht",
@@ -1680,7 +1679,6 @@ const de = {
         ctaUpgrade: "Upgraden, um weiterzumachen",
         ctaTopUp: "Credits hinzufügen, um fortzufahren",
         ariaLabel: "KI-Nutzung: {{status}}",
-        breakdownTitle: "Bisher verbraucht",
       },
       workspaceTitle: "KI-Workspace",
       workspaceSubtitle: "Fragen stellen, prüfen und Unterhaltungen fortsetzen",

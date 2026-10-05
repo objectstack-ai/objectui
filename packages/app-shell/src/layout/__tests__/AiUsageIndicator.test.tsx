@@ -2,11 +2,11 @@
  * ObjectUI
  * Copyright (c) 2024-present ObjectStack Inc.
  *
- * AiUsageIndicator (ADR-0057 #8) — renders ONE ring for the ONE AI quota pool
+ * AiUsageIndicator (ADR-0057 #8) — renders ONE gauge for the ONE AI quota pool
  * (objectui#8524), hides itself when there's nothing to show (fail-soft), surfaces
  * a "running low" hint near the cap, offers the upgrade / top-up CTA (reusing the
- * 429 deep-link), and shows the pool's read-only split as text in the popover —
- * never as a second ring. Never a token #.
+ * 429 deep-link), and shows ONE figure in the popover — the pool's used share —
+ * never the build / data-Q&A split (objectui#11658). Never a token #.
  */
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
@@ -61,7 +61,7 @@ function setUsage(usage: AiUsageResponse | null) {
   });
 }
 
-/** Rings drawn inside an element — each `MeterRing` is one `svg`. */
+/** Gauges drawn inside an element — each `MeterGauge` is one `svg`. */
 const ringsIn = (el: HTMLElement) => el.querySelectorAll('svg').length;
 
 describe('AiUsageIndicator', () => {
@@ -118,38 +118,63 @@ describe('AiUsageIndicator', () => {
     expect(openMock).toHaveBeenCalledWith('https://cloud.example', '_blank', 'noopener,noreferrer');
   });
 
-  // objectui#8524 — `breakdown` answers "where did the allowance go". It is
-  // text under the pool's row, never a second gauge implying a second budget.
-  describe('the pool split (breakdown)', () => {
-    it('lists each measured member as a share of the pool — as text, not a ring', () => {
-      setUsage({ pool: pool({ fraction: 0.5 }), breakdown: { build: 0.3, dataChat: 0.2 } });
+  // objectui#11658 item 3 — the popover shows ONE figure. The pool's split
+  // (`breakdown`) read「AI 搭建 19% · 数据问询 0%」after a data question asked
+  // through the single composer: it cannot attribute a composer turn, so it is
+  // not drawn, whatever the wire carries.
+  describe('the popover figure (one meter)', () => {
+    it("shows the pool's used share as one percentage — and no split, even when the split is measured", () => {
+      setUsage({ pool: pool({ fraction: 0.19 }), breakdown: { build: 0.19, dataChat: 0 } });
       render(<AiUsageIndicator apiBase="/api/v1/ai" />);
       fireEvent.click(screen.getByTestId('ai-usage-indicator'));
-      const split = screen.getByTestId('ai-usage-breakdown');
-      expect(split).toHaveTextContent('Build');
-      expect(split).toHaveTextContent('30%');
-      expect(split).toHaveTextContent('Ask');
-      expect(split).toHaveTextContent('20%');
-      expect(ringsIn(split)).toBe(0);
-      expect(ringsIn(screen.getByTestId('ai-usage-popover'))).toBe(1);
-    });
-
-    it('with both members null (not measured): one ring, no split', () => {
-      setUsage({ pool: pool({ fraction: 0.5 }), breakdown: { build: null, dataChat: null } });
-      render(<AiUsageIndicator apiBase="/api/v1/ai" />);
-      expect(ringsIn(screen.getByTestId('ai-usage-indicator'))).toBe(1);
-      fireEvent.click(screen.getByTestId('ai-usage-indicator'));
-      expect(screen.getByTestId('ai-usage-popover')).toBeInTheDocument();
+      const popover = screen.getByTestId('ai-usage-popover');
+      expect(screen.getByTestId('ai-usage-pool-used')).toHaveTextContent('19% used');
+      // Exactly one percentage in the whole popover: the pool's.
+      expect(popover.textContent?.match(/\d+\s?%/g)).toEqual(['19%']);
       expect(screen.queryByTestId('ai-usage-breakdown')).not.toBeInTheDocument();
+      expect(popover).not.toHaveTextContent('Build');
+      expect(popover).not.toHaveTextContent('Ask');
+      expect(ringsIn(popover)).toBe(1);
     });
 
-    it('with no breakdown at all: one ring, no split', () => {
+    it('with no breakdown at all: the same one figure', () => {
       setUsage({ pool: pool({ fraction: 0.5 }) });
       render(<AiUsageIndicator apiBase="/api/v1/ai" />);
       expect(ringsIn(screen.getByTestId('ai-usage-indicator'))).toBe(1);
       fireEvent.click(screen.getByTestId('ai-usage-indicator'));
-      expect(screen.getByTestId('ai-usage-popover')).toBeInTheDocument();
-      expect(screen.queryByTestId('ai-usage-breakdown')).not.toBeInTheDocument();
+      expect(screen.getByTestId('ai-usage-pool-used')).toHaveTextContent('50% used');
+    });
+  });
+
+  // objectui#11658 item 4 — at low usage the old ring was a short stroked arc
+  // over a faint track: the silhouette of a loading spinner. The gauge is a
+  // CLOSED outline in the tone colour around a pie wedge, which reads as a
+  // quantity at any fraction.
+  describe('the gauge glyph (not a spinner)', () => {
+    const parts = (svg: SVGElement) => ({
+      track: svg.querySelector('[data-gauge-part="track"]'),
+      fill: svg.querySelector('[data-gauge-part="fill"]'),
+    });
+
+    it.each([0, 0.05, 0.19])('at %s: a full, tone-coloured track around a pie wedge', (fraction) => {
+      setUsage({ pool: pool({ fraction }) });
+      render(<AiUsageIndicator apiBase="/api/v1/ai" />);
+      const svg = screen.getByTestId('ai-usage-indicator').querySelector('svg') as SVGElement;
+      const { track, fill } = parts(svg);
+      // The track is a closed circle: undashed, drawn in the tone colour, no
+      // faded-out opacity class — as visible as the fill.
+      expect(track).not.toBeNull();
+      expect(track?.getAttribute('stroke')).toBe('currentColor');
+      expect(track?.hasAttribute('stroke-dasharray')).toBe(false);
+      expect(track?.getAttribute('class') ?? '').not.toMatch(/\/\d+/);
+      // The fill is a pie: a circle whose stroke is as wide as its diameter
+      // (a sector of a disc), inside the track — never an arc ON the track.
+      const r = Number(fill?.getAttribute('r'));
+      expect(Number(fill?.getAttribute('stroke-width'))).toBeCloseTo(2 * r);
+      expect(Number(track?.getAttribute('r'))).toBeGreaterThan(2 * r);
+      // The wedge's share is the pool's fraction.
+      const [dash, gap] = (fill?.getAttribute('stroke-dasharray') ?? '').split(' ').map(Number);
+      expect(dash / gap).toBeCloseTo(fraction);
     });
   });
 

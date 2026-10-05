@@ -1401,7 +1401,7 @@ function blockAt(node: Record<string, unknown> | null | undefined, block: readon
   return cur;
 }
 
-const isPlainRecord = (v: unknown): v is Record<string, unknown> =>
+const isBlockObject = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === 'object' && !Array.isArray(v);
 
 /**
@@ -1421,7 +1421,7 @@ const isPlainRecord = (v: unknown): v is Record<string, unknown> =>
  */
 export function readFieldValue(node: Record<string, unknown> | null | undefined, field: FlowConfigField): unknown {
   const switched = switchedBlockOf(node, field);
-  if (switched?.isSwitch && !isPlainRecord(blockAt(node, switched.block))) return false;
+  if (switched?.isSwitch && !isBlockObject(blockAt(node, switched.block))) return false;
   return getFieldValue(node, field);
 }
 
@@ -1435,7 +1435,7 @@ export function isBareSwitchedOffBlock(
   switched: SwitchedBlock,
 ): boolean {
   const block = blockAt(node, switched.block);
-  if (!isPlainRecord(block)) return false;
+  if (!isBlockObject(block)) return false;
   const keys = Object.keys(block);
   return keys.length === 1 && keys[0] === switched.switchKey && block[switched.switchKey] === false;
 }

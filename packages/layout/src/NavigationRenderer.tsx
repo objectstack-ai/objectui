@@ -1178,7 +1178,7 @@ const GroupReorderContext = React.createContext<GroupChildrenReorder | null>(nul
  * Whether `item` draws anything: the decisions `NavigationItemRenderer` takes
  * before it returns `null`, asked through the same shared guard statement and
  * predicate. A sortable wrapper is put only around an entry that draws, so a
- * gated-away entry does not leave an empty, focusable drag wrapper behind.
+ * gated-away entry does not leave an empty wrapper behind as a drop target.
  */
 function drawsNavItem(item: NavigationItem, options: NavigationVisibilityOptions): boolean {
   if (item.type === 'separator') return passesNavItemGuards(item, options);

@@ -306,8 +306,8 @@ const ActionBarRenderer = forwardRef<HTMLDivElement, { schema: ActionBarSchema; 
     // would reach the handler as raw `${…}` text. They are evaluated here, once,
     // with the memo's evaluator and scope (objectui#10290). An overflow member
     // is NOT evaluated here: it goes to the `action:menu` above as authored,
-    // and that renderer evaluates it when it runs it, so no value is evaluated
-    // twice.
+    // and that renderer reads no member's `properties`, so an overflow
+    // member's `properties.params` does not reach the runner (objectui#11638).
     const renderMember = (action: UIActionSchema, componentType: ActionComponent) => {
       const Renderer = ComponentRegistry.get(componentType);
       if (!Renderer) return null;

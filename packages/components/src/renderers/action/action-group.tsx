@@ -22,7 +22,7 @@ import type { ActionDef } from '@object-ui/core';
 import type { UIActionSchema, ActionLocation } from '@object-ui/types';
 import { ACTION_LOCATIONS, actionRendersAt } from '@object-ui/types';
 import { useAction } from '@object-ui/react';
-import { useCondition, toPredicateInput, usePredicateRecordContext, useConfigBagEvaluator } from '@object-ui/react';
+import { useCondition, toPredicateInput, usePredicateRecordContext } from '@object-ui/react';
 import { Button } from '../../ui';
 import {
   DropdownMenu,
@@ -35,7 +35,7 @@ import { cn } from '../../lib/utils';
 import { Loader2, ChevronDown } from 'lucide-react';
 import { resolveIcon } from './resolve-icon';
 import { hasDeclaredVisibilityGate } from './visibility-gate';
-import { readActionEntryParamValues, readMemberStaticParamValues } from './static-params';
+import { readActionEntryParamValues } from './static-params';
 
 // No group-level `name` (objectui#11168): nothing renders, forwards or keys on
 // it, and `@objectstack/spec` refuses it on this block, so the registration
@@ -276,9 +276,6 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
     } = props;
 
     const { execute } = useAction();
-    // The `SchemaRenderer` memo's `properties` evaluation, for the member this
-    // renderer runs itself (objectui#10290) — see `handleExecute`.
-    const evaluateBag = useConfigBagEvaluator();
     const [dropdownLoading, setDropdownLoading] = useState(false);
 
     // The row bound the three canonical ways — see `usePredicateRecordContext`.
@@ -320,19 +317,14 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
         // object is forwarded as values only for `type: 'api'`, the objectstack#5777
         // payload window; any other type drops it (objectui#10462).
         //
-        // The member's static values ride `properties.params`, as on
-        // `action:button`, and are evaluated here with the `SchemaRenderer` memo's
-        // evaluator and scope: the member never passes through that memo
-        // (objectui#10290). Independent of the input list, so both are forwarded.
-        // They win over the `api` window's object `params`, as `properties.params`
-        // wins over a node-level object on `action:button`.
-        const staticValues = readMemberStaticParamValues(action, evaluateBag);
-        const entryValues = Array.isArray(action.params)
-          ? undefined
-          : readActionEntryParamValues(action, action.type, 'action:group');
+        // A member has no other source of static values. It carries no
+        // `properties` bag, and its static parameter values are not part of the
+        // inline action vocabulary: an action that needs them is its own
+        // `action:button` node, whose `params` object carries them (the spec's
+        // member prescription, objectui#11638).
         const paramsPayload: ActionDef = Array.isArray(action.params)
-          ? { actionParams: action.params as any, params: staticValues }
-          : { params: staticValues !== undefined ? staticValues : entryValues };
+          ? { actionParams: action.params as any }
+          : { params: readActionEntryParamValues(action, action.type, 'action:group') };
         await execute({
           type: action.type,
           name: action.name,
@@ -381,7 +373,7 @@ const ActionGroupRenderer = forwardRef<HTMLDivElement, { schema: ActionGroupSche
           objectName: (action as any).objectName,
         });
       },
-      [execute, evaluateBag],
+      [execute],
     );
 
     // Dropdown items share the trigger's loading spinner, so wrap execution to

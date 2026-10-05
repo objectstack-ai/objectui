@@ -19,10 +19,17 @@
  * Static values a handler reads (`navigate_edit`'s `objectName` / `recordId`,
  * say) therefore ride the node's already-declared config bag, as
  * `properties.params`. `SchemaRenderer` template-evaluates every string leaf
- * of that bag; a container member, which never passes through
- * `SchemaRenderer`, is evaluated by its container with the same rule and scope
- * (`useConfigBagEvaluator`, objectui#10290) (objectui#10282), so `"recordId":
- * "${record.id}"` resolves on a record page.
+ * of that bag (objectui#10282), so `"recordId": "${record.id}"` resolves on a
+ * record page. An `action:bar` member reaches `action:button` /
+ * `action:icon` without passing through `SchemaRenderer`, so the bar evaluates
+ * its `properties` with the same rule and scope (`useConfigBagEvaluator`,
+ * objectui#10290).
+ *
+ * An `action:group` / `action:menu` member has no such bag. The spec's member
+ * prescription: "A member carries no `properties` bag: its static parameter
+ * values (`properties.params`) are not part of the inline action vocabulary."
+ * An action that needs static values is authored as its own `action:button`
+ * node, and neither container reads a member's `properties` (objectui#11638).
  *
  * The maintainer's ruling on objectui#10289 (letter A, 2026-09-25): `params`
  * never carries two shapes, and no new value-bag key is declared. So an OBJECT
@@ -107,20 +114,24 @@ export function readStaticParamValues(
 export type ConfigBagEvaluator = (bag: unknown) => unknown;
 
 /**
- * A container MEMBER with its `properties` evaluated (objectui#10290).
+ * An `action:bar` member with its `properties` evaluated (objectui#10290).
  *
- * `action:bar`, `action:group` and `action:menu` draw their member actions
- * themselves, so a member never passes through the `SchemaRenderer` memo that
- * evaluates a node's `properties`. Its static values ride `properties.params`
- * (objectui#10289), and they are templates (objectui#7867): on a record page,
+ * `action:bar` mounts its inline members on `action:button` / `action:icon`
+ * itself, so a member never passes through the `SchemaRenderer` memo that
+ * evaluates a node's `properties`. The renderer it lands on reads the static
+ * values off `properties.params` ({@link readStaticParamValues},
+ * objectui#10289), and they are templates (objectui#7867): on a record page,
  * `"recordId": "${record.id}"` has to reach the handler as the record's id. The
- * container evaluates the member's `properties` with the memo's own evaluator
- * and scope (`evaluateBag`, from `useConfigBagEvaluator()`), once, where it
- * composes or runs the member.
+ * bar evaluates the member's `properties` with the memo's own evaluator and
+ * scope (`evaluateBag`, from `useConfigBagEvaluator()`), once, where it
+ * composes the member.
  *
  * Returns the member itself when it carries no `properties` bag. Only
  * `properties` is evaluated. It is not copied onto the member (the memo's
  * hoist), and the member's other keys are left as authored.
+ *
+ * `action:group` and `action:menu` do not call this: their members carry no
+ * `properties` bag (objectui#11638).
  */
 export function withEvaluatedProperties<T extends object>(
   member: T,
@@ -131,33 +142,14 @@ export function withEvaluatedProperties<T extends object>(
 }
 
 /**
- * A container member's static values (objectui#10290): its `properties.params`,
- * evaluated through {@link withEvaluatedProperties}, or `undefined`.
- *
- * For `action:group` / `action:menu` items, which run the member themselves.
- * (`action:bar` hands an inline member to `action:button` / `action:icon` with
- * its `properties` already evaluated, and `readStaticParamValues` reads it
- * there.)
- */
-export function readMemberStaticParamValues(
-  member: StaticParamsSubject,
-  evaluateBag: ConfigBagEvaluator,
-): Record<string, unknown> | undefined {
-  if (!propertiesParams(member)) return undefined;
-  return propertiesParams(withEvaluatedProperties(member, evaluateBag));
-}
-
-/**
  * The same ruling on a spec ACTION ENTRY (objectui#10462): `element:button`'s
  * inline `action`, `action:group` / `action:menu` items and `page:header`'s
  * actions. `params` is an entry's `ActionParam[]` input list and nothing else.
- * (An `action:group` / `action:menu` item is also a container member, so its
- * static values are read from `properties.params` and evaluated by the
- * container through {@link readMemberStaticParamValues} (objectui#10290).
- * `UIActionSchema` declares no `properties`, so on a container member this bag
- * is read off the authored object, not off a declared key. `element:button`'s
- * inline `action` and `page:header`'s actions do not read
- * `properties.params`.)
+ * (No entry surface reads a `properties.params` bag. `UIActionSchema` declares
+ * no `properties`, and the spec refuses one on an `action:group` /
+ * `action:menu` member: its static parameter values are not part of the inline
+ * action vocabulary, and an action that needs them is its own `action:button`
+ * node (objectui#11638).)
  *
  * One type is still different: `api`. The objectstack#5777 window keeps the
  * runner reading an object `params` as the request payload (with its own

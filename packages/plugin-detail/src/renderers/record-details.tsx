@@ -21,6 +21,7 @@ import {
   deriveTitleField,
   formatTitleTemplate,
   isObjectInlineEditable,
+  type FieldRulePredicate,
   recordDisplayValueAt,
   resolveFieldRuleState,
   resolveNameField,
@@ -137,7 +138,7 @@ export function resetUnresolvedSectionGroupReports(): void {
  */
 function sectionPredicateRecord(
   data: Record<string, unknown> | null | undefined,
-  objectFields: Record<string, any> | undefined,
+  objectFields: Record<string, unknown> | undefined,
 ): Record<string, unknown> {
   const out: Record<string, unknown> = {};
   if (objectFields && typeof objectFields === 'object' && !Array.isArray(objectFields)) {
@@ -196,9 +197,9 @@ function sectionPredicateRecord(
  * it here is what keeps the two surfaces from drifting if that constant moves.
  */
 function sectionPredicateVisible(
-  section: Record<string, any>,
+  section: { visibleWhen?: FieldRulePredicate | null },
   record: Record<string, unknown>,
-  scope: Record<string, any>,
+  scope: Record<string, unknown>,
   where: string,
 ): boolean {
   if (section.visibleWhen == null) return true;
@@ -808,7 +809,7 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   // The record is assembled only when some section carries a predicate, so a
   // page without one does no extra work and renders exactly as before.
   let sectionRecord: Record<string, unknown> | undefined;
-  const sectionShown = (s: any, index: number): boolean => {
+  const sectionShown = (s: { name?: string; visibleWhen?: FieldRulePredicate | null }, index: number): boolean => {
     if (s.visibleWhen == null) return true;
     sectionRecord ??= sectionPredicateRecord(ctx.data, objSchemaFields);
     return sectionPredicateVisible(

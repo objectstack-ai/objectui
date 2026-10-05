@@ -1070,7 +1070,15 @@ describe('the declaration surface this card names', () => {
     ]);
 
     for (const c of cases) {
-      renderInspector(draftWith(c.type, { config: {} }));
+      // objectui#11660 — a field stored inside the approval escalation block is
+      // on screen only while that block EXISTS: the spec makes the block itself
+      // the switch, so no block reads off and hides its fields. Its case renders
+      // on the smallest block the spec accepts, `{ timeoutHours: 24 }` (the
+      // #6620 rows' fixture), whose own `enabled` is omitted and so reads on —
+      // the key under measurement is still unset. Every other case keeps the
+      // empty config.
+      const config = c.id.startsWith('approval.escalation.') ? { escalation: { timeoutHours: 24 } } : {};
+      renderInspector(draftWith(c.type, { config }));
       expect(
         triggerText(c.label),
         `${c.id}: an unset key states the declared default on the trigger`,

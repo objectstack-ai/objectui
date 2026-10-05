@@ -65,7 +65,6 @@ import {
   pivotBucketId,
   pivotDimensionValue,
   pivotCellKey,
-  compareToTrendLabelKey,
   // Which chart families ignore `compareTo` — ONE declaration, read by the
   // inline chart path too (objectui#7495). See `compareTo` below.
   chartTypeIgnoresCompareTo,
@@ -227,6 +226,35 @@ const TREND_LABEL_DEFAULTS: Record<string, string> = {
   vsYesterday: 'vs yesterday',
   vsPreviousPeriod: 'vs previous period',
 };
+
+/**
+ * The `dashboard.trend.*` key a comparison is labelled with on THIS path, read
+ * off `compareTo.kind` alone (objectui#11632).
+ *
+ * The dataset executor decides the comparison window from the kind: for
+ * `previousPeriod` it is the equal-length window immediately before the
+ * resolved one, and for `previousYear` the same window one calendar year back
+ * (`DatasetCompareTo` in `@objectstack/spec`). So each kind's label holds for
+ * every window it is applied to. "vs previous period" is true of a 30-day
+ * window and of a quarter alike.
+ *
+ * ⛔ Not `compareToTrendLabelKey` from `@object-ui/core`. That helper guesses
+ * the window from the RAW filter's date-macro tokens (`{today}` reads
+ * "vs yesterday"). The guess is faithful on the inline path, where
+ * `shiftFilterByCompareTo` really does swap `{today}` for `{yesterday}`. Here
+ * no token is swapped, because the executor shifts the whole resolved window.
+ * A dashboard date range of `last_30_days` (`{30_days_ago}` to `{today}`)
+ * compared the previous 30 days and was labelled "vs yesterday".
+ *
+ * Both keys already exist (`TREND_LABEL_DEFAULTS` above), so a dataset-bound
+ * and an inline KPI comparing one year back still read the same. `satisfies`
+ * makes a third kind added to `CompareToConfig` a compile error here instead
+ * of a comparison with no label of its own.
+ */
+const COMPARE_KIND_TREND_KEY = {
+  previousPeriod: 'vsPreviousPeriod',
+  previousYear: 'vsLastYear',
+} as const satisfies Record<CompareToConfig['kind'], string>;
 
 /**
  * ISO calendar date, optionally carrying a time part — `2026-01-15`,
@@ -1091,10 +1119,13 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     ? values.filter((m) => state.rows.some((r) => r[compareColumn(m)] != null))
     : [];
   // Window label from the SAME `dashboard.trend.*` vocabulary the inline metric
-  // widget uses. `compareToTrendLabelKey` reads `compareTo.kind` and — for
-  // `previousPeriod` — the RAW filter's macro tokens, so "vs last quarter"
-  // survives the resolution that turned those tokens into dates.
-  const compareTrendKey = compareTo ? compareToTrendLabelKey(compareTo, rawFilter) : '';
+  // widget uses, read off `compareTo.kind` and never off the filter's macro
+  // tokens (objectui#11632). The executor shifts the whole resolved window, so
+  // the kind is all there is to say about which window was compared. See
+  // `COMPARE_KIND_TREND_KEY`. This one label names the window on every surface
+  // below: the KPI delta, the table's comparison column header, the cross-tab
+  // caption and the chart's comparison series.
+  const compareTrendKey = compareTo ? COMPARE_KIND_TREND_KEY[compareTo.kind] : '';
   const compareLabel = compareTo
     ? tt(`dashboard.trend.${compareTrendKey}`, TREND_LABEL_DEFAULTS[compareTrendKey] ?? 'vs previous period')
     : '';

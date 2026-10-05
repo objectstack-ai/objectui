@@ -83,8 +83,15 @@ const ROOT_ORDER_KEY = '__root__';
 
 /**
  * One level in its saved order: the saved ids first, in the saved order, then
- * the entries the saved order does not name, in their own order. An id saved
- * for an entry that is gone is skipped.
+ * the entries the saved order does not name, in the order the app lists them.
+ * An id saved for an entry that is gone is skipped.
+ *
+ * Each entry of a level with a saved order carries its position there as
+ * `order` (0, 1, 2, …). The renderer sorts every level by `order` (the spec's
+ * "Sort order within the same level"), so for an app that authors `order` a
+ * saved order left in array position only was sorted straight back into the
+ * app's own, and a drag snapped back (objectui#11626). A level with no saved
+ * order is returned untouched and keeps following the app.
  */
 function applyLevelOrder(items: NavigationItem[], saved: string[] | undefined): NavigationItem[] {
   if (!saved) return items;
@@ -95,7 +102,7 @@ function applyLevelOrder(items: NavigationItem[], saved: string[] | undefined): 
     if (item) { ordered.push(item); byId.delete(id); }
   }
   byId.forEach(item => ordered.push(item));
-  return ordered;
+  return ordered.map((item, idx) => (item.order === idx ? item : { ...item, order: idx }));
 }
 
 /** Every group's saved order applied to its children, at every depth. */
@@ -114,22 +121,23 @@ function applyGroupOrders(
   return changed ? next : items;
 }
 
-/** The ids of each group's children, in order, by group `id`, at every depth. */
-function groupChildIds(
+/** Each group's children, by group `id`, at every depth. */
+function groupChildren(
   items: NavigationItem[],
-  into: Map<string, string[]> = new Map(),
-): Map<string, string[]> {
+  into: Map<string, NavigationItem[]> = new Map(),
+): Map<string, NavigationItem[]> {
   for (const item of items) {
     if (item.type !== 'group') continue;
     const children = item.children ?? [];
-    into.set(item.id, children.map(c => c.id));
-    groupChildIds(children, into);
+    into.set(item.id, children);
+    groupChildren(children, into);
   }
   return into;
 }
 
-const sameIds = (a: string[], b: string[]) =>
-  a.length === b.length && a.every((id, i) => id === b[i]);
+/** The same entries, in the same places, each with the same `order`. */
+const sameLevel = (a: NavigationItem[], b: NavigationItem[]) =>
+  a.length === b.length && a.every((item, i) => item.id === b[i].id && item.order === b[i].order);
 
 function useNavOrder(appName: string) {
   const storageKey = `objectui-nav-order-${appName}`;
@@ -174,14 +182,19 @@ function useNavOrder(appName: string) {
    * and every other group keep following the app until the user moves them.
    * A report in which no group's children moved is a move among top-level
    * entries, stored under `__root__` exactly as it was before groups had one.
+   *
+   * Children are compared by id AND `order`. The moved level comes back with
+   * its positions as `order` (0, 1, 2, …); the renderer had sorted it by
+   * `order` first, so where an app authors `order` the move can land on the
+   * drawn ARRAY's own id sequence, and only the positions tell it apart.
    */
   const handleReorder = React.useCallback(
     (reorderedItems: NavigationItem[], drawn: NavigationItem[]) => {
-      const before = groupChildIds(drawn);
+      const before = groupChildren(drawn);
       const movedGroups: Record<string, string[]> = {};
-      groupChildIds(reorderedItems).forEach((ids, groupId) => {
+      groupChildren(reorderedItems).forEach((children, groupId) => {
         const was = before.get(groupId);
-        if (was && !sameIds(was, ids)) movedGroups[groupId] = ids;
+        if (was && !sameLevel(was, children)) movedGroups[groupId] = children.map(c => c.id);
       });
       if (Object.keys(movedGroups).length > 0) {
         persist({ ...orderMap, ...movedGroups });

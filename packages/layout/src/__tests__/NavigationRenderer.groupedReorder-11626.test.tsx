@@ -169,7 +169,11 @@ describe('objectui#11626 — a grouped menu offers drag-to-reorder within each l
       onReorder,
       evaluateVisibility: (expr: unknown) => expr !== false,
     });
-    expect(container.querySelectorAll('[aria-roledescription="sortable"]')).toHaveLength(2);
+    // The sortable wrappers are the group menu's direct children: one per drawn
+    // entry, and none left empty by the gated-away one.
+    const wrappers = [...container.querySelectorAll('[data-sidebar="menu"] > div')];
+    expect(wrappers).toHaveLength(2);
+    expect(wrappers.every((w) => w.childElementCount > 0)).toBe(true);
 
     drop('nav-reorder-group-grp_a', 'a2', 'a1');
 
@@ -220,6 +224,33 @@ describe('objectui#11626 — a grouped menu offers drag-to-reorder within each l
     expect(container.querySelectorAll('a[href]').length).toBeGreaterThan(0);
     expect(container.querySelectorAll(GRIP)).toHaveLength(0);
     expect(dnd.byContext.size).toBe(0);
+  });
+});
+
+describe('objectui#11626 — the grip is the one drag activator a keyboard can reach', () => {
+  const FLAT: NavigationItem[] = [leaf('f1'), leaf('f2'), leaf('f3')];
+
+  it.each([
+    ['grouped', GROUPED, 7],
+    ['group-free', FLAT, 3],
+  ] as const)('%s menu: each grip is a focusable sortable button; no row wrapper is', (_shape, items, rows) => {
+    const { container } = renderNav(items as NavigationItem[], { enableReorder: true, onReorder: vi.fn() });
+    const grips = [...container.querySelectorAll(GRIP)];
+    expect(grips).toHaveLength(rows);
+    for (const grip of grips) {
+      expect(grip.getAttribute('role')).toBe('button');
+      expect(grip.getAttribute('tabindex')).toBe('0');
+      expect(grip.getAttribute('aria-roledescription')).toBe('sortable');
+    }
+    // The sortable description sits on the grips and nowhere else: a row
+    // wrapper carrying it was a focusable "button" no key could drag from.
+    expect(container.querySelectorAll('[aria-roledescription="sortable"]')).toHaveLength(rows);
+    const wrappers = [...container.querySelectorAll('[data-sidebar="menu"] > div')];
+    expect(wrappers).toHaveLength(rows);
+    for (const wrapper of wrappers) {
+      expect(wrapper.hasAttribute('tabindex')).toBe(false);
+      expect(wrapper.hasAttribute('role')).toBe(false);
+    }
   });
 });
 

@@ -263,6 +263,58 @@ describe('UnifiedSidebar — a grouped app menu keeps a personal order per group
   });
 });
 
+describe('UnifiedSidebar — a saved order holds where the app authors `order` (objectui#11626)', () => {
+  // The renderer sorts every level by `order`. A saved order applied by array
+  // position alone was sorted straight back into the app's: stored, never drawn.
+  const AUTHORED: NavigationItem[] = [
+    {
+      id: 'grp_sales',
+      type: 'group',
+      label: 'Sales',
+      children: [
+        entry('nav_accounts', 'Accounts', { order: 1 }),
+        entry('nav_contacts', 'Contacts', { order: 2 }),
+        entry('nav_leads', 'Leads', { order: 3 }),
+      ],
+    },
+  ];
+
+  it('a moved group is drawn in its new order at once and after a reload', () => {
+    const first = render(sidebarUi(AUTHORED));
+    expect(linkOrder(['Accounts', 'Contacts', 'Leads'])).toEqual(['Accounts', 'Contacts', 'Leads']);
+
+    drop('nav-reorder-group-grp_sales', 'nav_leads', 'nav_accounts');
+
+    expect(stored()).toEqual({ grp_sales: ['nav_leads', 'nav_accounts', 'nav_contacts'] });
+    expect(linkOrder(['Accounts', 'Contacts', 'Leads'])).toEqual(['Leads', 'Accounts', 'Contacts']);
+    first.unmount();
+
+    render(sidebarUi(AUTHORED));
+    expect(linkOrder(['Accounts', 'Contacts', 'Leads'])).toEqual(['Leads', 'Accounts', 'Contacts']);
+  });
+
+  it('a move that lands on the listed sequence is still that group’s move, not a top-level one', () => {
+    // Listed Alpha, Beta; authored `order` draws Beta first. Dragging Alpha
+    // above Beta reports the group as Alpha, Beta: the listed id sequence.
+    const navigation: NavigationItem[] = [
+      entry('nav_top', 'Top'),
+      {
+        id: 'grp_ab',
+        type: 'group',
+        label: 'AB',
+        children: [entry('nav_alpha', 'Alpha', { order: 2 }), entry('nav_beta', 'Beta', { order: 1 })],
+      },
+    ];
+    render(sidebarUi(navigation));
+    expect(linkOrder(['Alpha', 'Beta'])).toEqual(['Beta', 'Alpha']);
+
+    drop('nav-reorder-group-grp_ab', 'nav_alpha', 'nav_beta');
+
+    expect(stored()).toEqual({ grp_ab: ['nav_alpha', 'nav_beta'] });
+    expect(linkOrder(['Alpha', 'Beta'])).toEqual(['Alpha', 'Beta']);
+  });
+});
+
 describe('UnifiedSidebar — a group-free app’s `__root__` record is unchanged (objectui#11626)', () => {
   const FLAT: NavigationItem[] = [entry('nav_a', 'Alpha'), entry('nav_b', 'Beta'), entry('nav_c', 'Gamma')];
 
@@ -281,5 +333,18 @@ describe('UnifiedSidebar — a group-free app’s `__root__` record is unchanged
     localStorage.setItem(STORE, '{"__root__":["nav_b","nav_c","nav_a"]}');
     render(sidebarUi(FLAT));
     expect(linkOrder(['Alpha', 'Beta', 'Gamma'])).toEqual(['Beta', 'Gamma', 'Alpha']);
+  });
+
+  it('where the app authors `order`, the record is the same and a saved order is now drawn', () => {
+    const authored = FLAT.map((item, i) => ({ ...item, order: i + 1 }));
+    const first = render(sidebarUi(authored));
+    drop('(no id)', 'nav_c', 'nav_a');
+
+    expect(localStorage.getItem(STORE)).toBe('{"__root__":["nav_c","nav_a","nav_b"]}');
+    expect(linkOrder(['Alpha', 'Beta', 'Gamma'])).toEqual(['Gamma', 'Alpha', 'Beta']);
+    first.unmount();
+
+    render(sidebarUi(authored));
+    expect(linkOrder(['Alpha', 'Beta', 'Gamma'])).toEqual(['Gamma', 'Alpha', 'Beta']);
   });
 });

@@ -41,6 +41,8 @@ import {
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DraggableAttributes,
+  type DraggableSyntheticListeners,
 } from '@dnd-kit/core';
 import {
   SortableContext,
@@ -1239,6 +1241,28 @@ function SortableNavigationList({
   );
 }
 
+/** A sortable row's grip: dnd-kit's activator ref, its ARIA attributes and its listeners. */
+interface NavDragHandle {
+  ref: (element: HTMLElement | null) => void;
+  attributes: DraggableAttributes;
+  listeners: DraggableSyntheticListeners;
+}
+
+/** The drag grip drawn at the start of a sortable row; the row's one drag activator. */
+function NavDragGrip({ handle, t }: { handle: NavDragHandle; t?: NavigationRendererProps['t'] }) {
+  return (
+    <span
+      ref={handle.ref}
+      className="absolute left-0.5 top-1/2 -translate-y-1/2 cursor-grab text-muted-foreground"
+      {...handle.attributes}
+      {...handle.listeners}
+      aria-label={t ? t('console.nav.dragToReorder', { defaultValue: 'Drag to reorder' }) : 'Drag to reorder'}
+    >
+      <GripVertical className="h-3.5 w-3.5" />
+    </span>
+  );
+}
+
 // ---------------------------------------------------------------------------
 // SortableNavigationItem (drag-reorder wrapper)
 // ---------------------------------------------------------------------------
@@ -1278,6 +1302,7 @@ function SortableNavigationItem({
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging,
@@ -1290,8 +1315,13 @@ function SortableNavigationItem({
     zIndex: isDragging ? 10 : undefined,
   };
 
+  // The grip is the drag activator: dnd-kit's `attributes` (`role="button"`,
+  // `tabIndex={0}`, the sortable ARIA description) go on it together with the
+  // `listeners`, so the one element a keyboard can focus is the one the
+  // KeyboardSensor listens on. On the row wrapper they made every row a
+  // focusable "button" that no key could start a drag from (objectui#11626).
   return (
-    <div ref={setNodeRef} style={style} {...attributes}>
+    <div ref={setNodeRef} style={style}>
       <NavigationItemRenderer
         item={item}
         basePath={basePath}
@@ -1302,7 +1332,7 @@ function SortableNavigationItem({
         onAction={onAction}
         enablePinning={enablePinning}
         onPinToggle={onPinToggle}
-        dragListeners={enableReorder ? listeners : undefined}
+        dragHandle={enableReorder ? { ref: setActivatorNodeRef, attributes, listeners } : undefined}
         resolveTargetLabel={resolveTargetLabel}
         locale={locale}
         t={tProp}
@@ -1326,7 +1356,7 @@ function NavigationItemRenderer({
   onAction,
   enablePinning,
   onPinToggle,
-  dragListeners,
+  dragHandle,
   resolveTargetLabel,
   locale,
   t: tProp,
@@ -1341,7 +1371,7 @@ function NavigationItemRenderer({
   onAction?: (item: NavigationItem) => void;
   enablePinning?: boolean;
   onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
-  dragListeners?: Record<string, any>;
+  dragHandle?: NavDragHandle;
   resolveTargetLabel?: NavTargetLabelResolver;
   locale?: string;
   t?: (key: string, options?: any) => string;
@@ -1501,15 +1531,7 @@ function NavigationItemRenderer({
     const actionLabel = resolveNavItemLabel(item, tProp, resolveTargetLabel, locale);
     return (
       <SidebarMenuItem>
-        {dragListeners && (
-          <span
-            className="absolute left-0.5 top-1/2 -translate-y-1/2 cursor-grab text-muted-foreground"
-            aria-label={tProp ? tProp('console.nav.dragToReorder', { defaultValue: 'Drag to reorder' }) : 'Drag to reorder'}
-            {...dragListeners}
-          >
-            <GripVertical className="h-3.5 w-3.5" />
-          </span>
-        )}
+        {dragHandle && <NavDragGrip handle={dragHandle} t={tProp} />}
         <SidebarMenuButton
           tooltip={actionLabel}
           onClick={() => onAction?.(item)}
@@ -1569,15 +1591,7 @@ function NavigationItemRenderer({
 
   return (
     <SidebarMenuItem>
-      {dragListeners && (
-        <span
-          className="absolute left-0.5 top-1/2 -translate-y-1/2 cursor-grab text-muted-foreground"
-          aria-label={tProp ? tProp('console.nav.dragToReorder', { defaultValue: 'Drag to reorder' }) : 'Drag to reorder'}
-          {...dragListeners}
-        >
-          <GripVertical className="h-3.5 w-3.5" />
-        </span>
-      )}
+      {dragHandle && <NavDragGrip handle={dragHandle} t={tProp} />}
       <SidebarMenuButton asChild isActive={isActive} tooltip={itemLabel} className={mobileBtnClass}>
         {external ? (
           <a href={href} target="_blank" rel="noopener noreferrer">

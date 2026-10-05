@@ -36,16 +36,18 @@
  * A "reload" unmounts the page and mounts it again over a fresh adapter on the
  * same store.
  *
- * ## Direction, written before the reverse-verification run
+ * ## Direction of the reverse-verification run
  *
- * - Guard removed: the fallback-tab case is PREDICTED red (the writes are sent,
- *   the store refuses the body that carries no `viewKind`, a toast is raised);
- *   the three save-path cases stay green.
+ * - Guard removed: every case that drives the console-made tab goes red on its
+ *   write count — the first test, and the first half of the saved-view test,
+ *   which toggles that tab before it opens the saved view. The prediction named
+ *   the first test only; the run showed both. The two cases keyed on `all`
+ *   stay green.
  * - Guard keyed on the id `all` instead of the mark: the served view named `all`
- *   and the stored row named `all` are PREDICTED red (their writes stop); the
- *   fallback-tab case stays green.
- * - The stored-row clause dropped: only the stored row named `all` is PREDICTED
- *   red.
+ *   and the stored row named `all` go red (their writes stop); the two
+ *   console-made-tab cases stay green. As predicted.
+ * - The stored-row clause dropped: only the stored row named `all` goes red. As
+ *   predicted.
  */
 
 import * as React from 'react';

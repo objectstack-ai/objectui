@@ -33,7 +33,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { BatchTransactionOperation, DataSource, GridFieldMetadata, I18nLabel } from '@object-ui/types';
 import { runBatchTransaction } from '@object-ui/core';
-import { LineItemsField, type GridColumn } from '@object-ui/fields';
+import { LineItemsField } from '@object-ui/fields';
 import { Button, Card, CardContent, CardHeader, CardTitle, cn, toast } from '@object-ui/components';
 import {
   formatDisplayNumber,
@@ -59,40 +59,63 @@ import {
   type ChildSchema,
 } from './masterDetailTx';
 import { isSameStoredValue } from './sanitize';
-import { deriveDetail, type InlineMode } from './deriveMasterDetail';
+import { deriveDetail } from './deriveMasterDetail';
+// objectui#11396 — one `details` entry, by reference: the spec's own type for
+// `ComponentPropsMap['object-master-detail-form'].details[]`. Type-only.
+import type { ObjectMasterDetailFormProps } from '@objectstack/spec/ui';
 
-export interface MasterDetailDetailConfig {
-  /** Child object name, e.g. 'expense_line'. */
-  childObject: string;
-  /** FK field on the child pointing back to the parent, e.g. 'expense_claim'.
-   *  Optional — auto-detected from the child's master_detail/lookup field that
-   *  references the parent object when omitted. */
-  relationshipField?: string;
-  /** Editable columns for the child grid. Optional — derived from the child
-   *  object's fields (via DataSource.getObjectSchema) when omitted. */
-  columns?: GridColumn[];
-  /** Field names for the per-row expand form. Optional — derived from the child
-   *  object's fields (broader than `columns`: includes rich types) when omitted. */
-  formFields?: string[];
-  /** Inline-edit form factor: 'grid' = editable cells; 'form' = read-only list +
-   *  per-row full form. Optional — resolved from the relationship's `inlineEdit`
-   *  (incl. the smart default) when omitted. */
-  inlineMode?: InlineMode;
-  /** Numeric child column to sum, e.g. 'amount'. */
-  amountField?: string;
-  // ⛔ No `sortField` member. The child field the grid stamps with each line's
-  // position is DERIVED from the child object (`deriveDetail`: its `position` /
-  // `sort_order` / … field) and carried on the resolved entry, never authored:
-  // objectui#11070 round 9 retired the authored override, which nothing wrote
-  // in either repository and no spec key carries.
-  /** Parent field to receive the rolled-up sum, e.g. 'total_amount'. */
-  totalField?: string;
-  /** Section title. */
-  title?: string;
-  minRows?: number;
-  maxRows?: number;
-  addLabel?: string;
-}
+/**
+ * One detail collection: the `details` entry of
+ * `ComponentPropsMap['object-master-detail-form']` in `@objectstack/spec`, on
+ * its authoring face (`z.input`, what a document writes), taken by reference
+ * rather than restated here (objectui#11396). Since 17.6.0 the spec judges that
+ * entry as a closed shape (objectstack-ai/objectstack#21215): `childObject`
+ * required, every other member optional, `columns` the spec's inline grid
+ * column (the type the line grid's `GridColumn` is), an undeclared key refused
+ * by name. `@object-ui/types` takes the whole props row by reference, so
+ * `objectui validate` gives the spec's verdict on an entry; this is the
+ * TypeScript face of that entry, and
+ * `__tests__/masterDetailDetailsMembers-8071.test.tsx` holds the two equal at
+ * compile time.
+ *
+ * ⛔ ONE fork, stated rather than absorbed: at 17.6.0 the spec entry declares
+ * `sortField`, and this form reads no such member. objectui#11070 round 9
+ * retired the authored override: the child field the grid stamps with each
+ * line's position is DERIVED from the child object (`deriveDetail` picks its
+ * `position` / `sort_order` / … field) and carried on the resolved entry, and
+ * row 2c of that test pins that a written `sortField` is read by nothing.
+ * objectstack has since retired the member on its `main` — a `retiredKey()`
+ * tombstone on the entry (objectstack-ai/objectstack#21589, landed by PR
+ * objectstack-ai/objectstack#21632 as `6ec54f00`), unreleased after 17.6.0 —
+ * so the fork closes at objectui's bump to the first `@objectstack/spec`
+ * release that carries it; the omission below then subtracts a key the entry
+ * no longer offers, and holds on both shapes. Until that bump the member is
+ * left OFF this face, so the authoring face declares no key the renderer does
+ * not honour. That omission is the whole of what is hand-written about the
+ * shape.
+ *
+ * Where each member lands — the renderer's reading, which the spec's
+ * description does not carry:
+ * - `childObject` names the child object; `relationshipField` is the FK on the
+ *   child back to the parent, auto-detected from the child's `master_detail` /
+ *   `lookup` field that references the parent when omitted.
+ * - `columns` are the line grid's editable columns, derived from the child's
+ *   fields (via `DataSource.getObjectSchema`) when omitted; `formFields` are
+ *   the per-row expand form's field names (broader than `columns`: rich types
+ *   included), derived likewise.
+ * - `inlineMode`: `grid` = editable cells, `form` = read-only list + per-row
+ *   full form; resolved from the relationship's `inlineEdit` (incl. the smart
+ *   default) when omitted.
+ * - `amountField` is the CHILD column summed, and reaches the grid as its
+ *   `totalField`; `totalField` is the PARENT field the sum is saved to, and is
+ *   not forwarded to the grid.
+ * - `title` heads the collection's section (`Line Items` when unset);
+ *   `minRows`, `maxRows` and `addLabel` reach the grid under the same names.
+ */
+export type MasterDetailDetailConfig = Omit<
+  NonNullable<ObjectMasterDetailFormProps['details']>[number],
+  'sortField'
+>;
 
 export interface MasterDetailFormSchema {
   type?: 'object-master-detail-form';

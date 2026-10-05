@@ -550,16 +550,18 @@ function needsDataSourceWiring(widgetType: string): boolean {
  */
 function dependentLookupParents(f: FormFieldConfig | undefined): string[] {
   const name = f?.name;
-  if (!name) return [];
+  if (!f || !name) return [];
   const widget = resolveWidgetType(f);
   if (typeof widget !== 'string' || !EXPANDABLE_FIELD_TYPES.has(normalizeFieldType(widget))) {
     return [];
   }
-  const carrier = ((f as any).field || f) as Record<string, any>;
-  const inner = carrier?.field;
+  const carrier: Record<string, unknown> = f.field || (f as Record<string, unknown>);
+  const inner = carrier.field;
   const meta =
-    inner && typeof inner === 'object' && ('reference' in inner || 'type' in inner) ? inner : carrier;
-  const declared = meta?.dependsOn;
+    inner !== null && typeof inner === 'object' && ('reference' in inner || 'type' in inner)
+      ? (inner as Record<string, unknown>)
+      : carrier;
+  const declared = meta.dependsOn;
   if (!Array.isArray(declared)) return [];
   return resolveDependsOnFields(declared).filter((parent) => parent !== name);
 }

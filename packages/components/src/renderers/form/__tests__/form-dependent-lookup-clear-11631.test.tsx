@@ -51,12 +51,18 @@ import { ComponentRegistry } from '@object-ui/core';
 // Module-scope import (not `beforeAll`) — objectui#3010/#3021.
 import '../../../renderers';
 
-function LookupProbe(props: any) {
+interface LookupProbeProps {
+  name: string;
+  value?: unknown;
+  onChange: (next: string | null) => void;
+}
+
+function LookupProbe(props: LookupProbeProps) {
   const value = props.value;
   return (
     <input
       data-testid={`lookup-${props.name}`}
-      value={Array.isArray(value) ? value.join(',') : (value ?? '')}
+      value={Array.isArray(value) ? value.join(',') : value == null ? '' : String(value)}
       onChange={(e) => props.onChange(e.target.value === '' ? null : e.target.value)}
     />
   );

@@ -1,11 +1,11 @@
 /**
  * VerifyEmailPage — Console-hosted email-verification landing page.
  *
- * Ported from `framework/apps/account/src/routes/verify-email.tsx`. The
- * user hits this URL after clicking the link in the verification email:
- * `?token=…` is consumed on mount via `POST /api/v1/auth/verify-email`
- * (better-auth's standard endpoint). `useAuth()` doesn't expose a
- * `verifyEmail()` so we call the REST endpoint directly.
+ * Ported from `framework/apps/account/src/routes/verify-email.tsx`. A user
+ * who opens `/verify-email?token=…` has `?token=` consumed on mount via
+ * `GET /api/v1/auth/verify-email?token=…` (better-auth's standard endpoint,
+ * served as GET only). `useAuth()` doesn't expose a `verifyEmail()` so we
+ * call the REST endpoint directly.
  */
 
 import { useEffect, useState } from 'react';
@@ -44,21 +44,27 @@ export function VerifyEmailPage() {
     let cancelled = false;
     (async () => {
       try {
-        // better-auth exposes verify-email as a GET with `?token=` *or* a
-        // POST with `{ token }` body. The GET variant 302-redirects on
-        // success; the POST variant returns JSON. We use POST so the SPA
-        // controls the post-verify UX.
-        const res = await fetch(`${AUTH_BASE}/verify-email`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        // better-auth serves verify-email as `GET ?token=` only; a POST
+        // answers 404 (objectui#11633). Sent WITHOUT `callbackURL` the route
+        // answers JSON instead of a 302: `{ status: true, user }` once the
+        // token verifies (again on a repeat), and a 401 `{ code, message }`
+        // for a garbage or expired token. So the SPA keeps the post-verify
+        // UX, and only that JSON receipt counts as success: a 2xx that is
+        // not it (an HTML page, a followed redirect's landing) is an error.
+        const query = new URLSearchParams({ token });
+        const res = await fetch(`${AUTH_BASE}/verify-email?${query}`, {
+          method: 'GET',
           credentials: 'include',
-          body: JSON.stringify({ token }),
         });
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}));
+        const data = (await res.json().catch(() => null)) as {
+          status?: unknown;
+          message?: unknown;
+        } | null;
+        if (!res.ok || data?.status !== true) {
+          const serverMessage =
+            !res.ok && typeof data?.message === 'string' ? data.message : '';
           throw new Error(
-            (data as { message?: string })?.message ||
-              `Verification failed: ${res.status}`,
+            serverMessage || (res.ok ? '' : `Verification failed: ${res.status}`),
           );
         }
         if (!cancelled) setStatus('success');

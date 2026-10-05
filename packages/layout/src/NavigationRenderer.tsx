@@ -1241,21 +1241,27 @@ function SortableNavigationList({
   );
 }
 
-/** A sortable row's grip: dnd-kit's activator ref, its ARIA attributes and its listeners. */
+/** A sortable row's grip: dnd-kit's activator node setter, its ARIA attributes and its listeners. */
 interface NavDragHandle {
-  ref: (element: HTMLElement | null) => void;
+  activator: (element: HTMLElement | null) => void;
   attributes: DraggableAttributes;
   listeners: DraggableSyntheticListeners;
 }
 
 /** The drag grip drawn at the start of a sortable row; the row's one drag activator. */
-function NavDragGrip({ handle, t }: { handle: NavDragHandle; t?: NavigationRendererProps['t'] }) {
+function NavDragGrip({
+  handle: { activator, attributes, listeners },
+  t,
+}: {
+  handle: NavDragHandle;
+  t?: NavigationRendererProps['t'];
+}) {
   return (
     <span
-      ref={handle.ref}
+      ref={activator}
       className="absolute left-0.5 top-1/2 -translate-y-1/2 cursor-grab text-muted-foreground"
-      {...handle.attributes}
-      {...handle.listeners}
+      {...attributes}
+      {...listeners}
       aria-label={t ? t('console.nav.dragToReorder', { defaultValue: 'Drag to reorder' }) : 'Drag to reorder'}
     >
       <GripVertical className="h-3.5 w-3.5" />
@@ -1332,7 +1338,7 @@ function SortableNavigationItem({
         onAction={onAction}
         enablePinning={enablePinning}
         onPinToggle={onPinToggle}
-        dragHandle={enableReorder ? { ref: setActivatorNodeRef, attributes, listeners } : undefined}
+        dragHandle={enableReorder ? { activator: setActivatorNodeRef, attributes, listeners } : undefined}
         resolveTargetLabel={resolveTargetLabel}
         locale={locale}
         t={tProp}

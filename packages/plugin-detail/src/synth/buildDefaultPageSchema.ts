@@ -651,24 +651,42 @@ export function buildDefaultHighlights(
 }
 
 /**
- * Derive detail sections from the object's declared `fieldGroups` plus each
- * field's `group` membership. The grouping SEMANTICS (declared order, empty
- * groups dropped, trailing untitled bucket, audit-field handling, collapse
- * behaviour incl. legacy alias handling) are single-sourced in
- * `@objectstack/spec` (`deriveFieldGroupLayout`, ADR-0085 §5); this adapter
- * only maps the shared result onto DetailSection's shape.
+ * One field group, resolved — the section a `record:details` `{ group }`
+ * reference stands for — plus the group's own ADR-0089 `visibleWhen`
+ * (objectui#11630).
  *
- * Returns `null` when grouping does not apply — no declared groups, or no
- * visible field references one — so callers fall back to their existing
- * layout (flat or auto-split).
- *
- * Section fields are emitted as rich descriptors (`{ name, label, type,
- * options }`) so DetailSection renders typed values without re-resolving
- * the object definition.
+ * ⚠️ Package-internal. It is exported from this module for
+ * `renderers/record-details.tsx` and is NOT re-exported from the package entry.
+ * The predicate travels BESIDE the section, never on it: `section` is exactly
+ * what the public {@link deriveFieldGroupDetailSections} returns, so no caller
+ * of the public function can copy a `visibleWhen` onto an enumerated
+ * `record:details` section. `@objectstack/spec`'s `RecordDetailsProps.sections[]`
+ * is strict and refuses that key on parse; the spec's way to gate a section is
+ * to reference the gated group with `{ group }`, which inherits its predicate.
  */
-export function deriveFieldGroupDetailSections(
+export interface FieldGroupDetailEntry {
+  /** The group key. Absent on the trailing ungrouped bucket. */
+  key?: string;
+  /**
+   * The group's `visibleWhen`, verbatim and unevaluated — a bare CEL string or
+   * an Expression envelope, as `deriveFieldGroupLayout` passes it through.
+   * Never present on the ungrouped bucket.
+   */
+  visibleWhen?: unknown;
+  /** The resolved section, in DetailSection's shape. */
+  section: Record<string, any>;
+}
+
+/**
+ * The derivation behind both {@link deriveFieldGroupDetailSections} and the
+ * `{ group }` references {@link resolveDetailSections} emits — one code path,
+ * so a reference and the section it resolves to cannot disagree.
+ *
+ * Package-internal; see {@link FieldGroupDetailEntry}.
+ */
+export function deriveFieldGroupDetailEntries(
   def: ObjectDefLike | undefined,
-): Array<Record<string, any>> | null {
+): FieldGroupDetailEntry[] | null {
   if (!def) return null;
   const derived = deriveFieldGroupLayout(def);
   if (!derived) return null;
@@ -715,25 +733,89 @@ export function deriveFieldGroupDetailSections(
   // `title`, a second spelling of one slot that `record:details` read with
   // strict priority over `label`. One slot, one spelling.
   return derived.map((s) => ({
-    ...(s.key !== undefined ? { name: s.key, label: s.label ?? s.key } : {}),
-    // Group header chrome (ADR-0085 §5): the shared derivation passes the
-    // declared icon/description through; DetailSection renders them under
-    // the section title. Dropping them here made the spec keys silently
-    // inert on detail pages (#2548 follow-up).
-    ...(s.icon ? { icon: s.icon } : {}),
-    ...(s.description ? { description: s.description } : {}),
-    ...(s.collapse !== 'none' ? { collapsible: true } : {}),
-    ...(s.collapse === 'collapsed' ? { defaultCollapsed: true } : {}),
-    columns,
-    fields: s.fields.map(toField),
+    ...(s.key !== undefined ? { key: s.key } : {}),
+    // The group's ADR-0089 predicate (objectui#11630), carried BESIDE the
+    // section for `record:details` to evaluate per record — grouping is
+    // static layout, visibility is per-record state.
+    ...(s.visibleWhen !== undefined ? { visibleWhen: s.visibleWhen } : {}),
+    section: {
+      ...(s.key !== undefined ? { name: s.key, label: s.label ?? s.key } : {}),
+      // Group header chrome (ADR-0085 §5): the shared derivation passes the
+      // declared icon/description through; DetailSection renders them under
+      // the section title. Dropping them here made the spec keys silently
+      // inert on detail pages (#2548 follow-up).
+      ...(s.icon ? { icon: s.icon } : {}),
+      ...(s.description ? { description: s.description } : {}),
+      ...(s.collapse !== 'none' ? { collapsible: true } : {}),
+      ...(s.collapse === 'collapsed' ? { defaultCollapsed: true } : {}),
+      columns,
+      fields: s.fields.map(toField),
+    },
   }));
+}
+
+/**
+ * Derive detail sections from the object's declared `fieldGroups` plus each
+ * field's `group` membership. The grouping SEMANTICS (declared order, empty
+ * groups dropped, trailing untitled bucket, audit-field handling, collapse
+ * behaviour incl. legacy alias handling) are single-sourced in
+ * `@objectstack/spec` (`deriveFieldGroupLayout`, ADR-0085 §5); this adapter
+ * only maps the shared result onto DetailSection's shape.
+ *
+ * Returns `null` when grouping does not apply — no declared groups, or no
+ * visible field references one — so callers fall back to their existing
+ * layout (flat or auto-split).
+ *
+ * Section fields are emitted as rich descriptors (`{ name, label, type,
+ * options }`) so DetailSection renders typed values without re-resolving
+ * the object definition.
+ *
+ * ⚠️ This is the RESOLVED form of a group — what `record:details` renders for
+ * a `{ group }` reference — and not a page section to write into a
+ * `record:details` node: the rich `fields` descriptors are refused by
+ * `@objectstack/spec`'s `RecordDetailsProps.sections[].fields` (bare names), and
+ * a group's `visibleWhen` is deliberately not on it. A page references the group
+ * instead, which is what {@link resolveDetailSections} emits (objectui#11630).
+ */
+export function deriveFieldGroupDetailSections(
+  def: ObjectDefLike | undefined,
+): Array<Record<string, any>> | null {
+  return deriveFieldGroupDetailEntries(def)?.map((entry) => entry.section) ?? null;
+}
+
+/**
+ * The `record:details` sections a page writes for the object's field groups —
+ * spec-legal, so a Studio seed parses (objectui#11630).
+ *
+ * Each declared group is emitted as the spec's own reference form,
+ * `{ group: KEY, columns }` (`RecordDetailsProps.sections[].group`,
+ * ADR-0085 §5): `record:details` resolves it against the object's
+ * `fieldGroups`, inheriting the group's members, label, icon, description,
+ * collapse AND its `visibleWhen`, which it evaluates per record. `columns` is
+ * the one-object-wide width (objectui#2578) and is a key the spec permits
+ * beside `group`. The trailing ungrouped bucket has no group to reference, so
+ * it stays an enumerated, untitled section listing bare field NAMES — the
+ * only `fields` spelling the spec declares.
+ */
+function fieldGroupSectionReferences(
+  def: ObjectDefLike | undefined,
+): Array<Record<string, any>> | null {
+  const entries = deriveFieldGroupDetailEntries(def);
+  if (!entries) return null;
+  return entries.map(({ key, section }) =>
+    key !== undefined
+      ? { group: key, columns: section.columns }
+      : { columns: section.columns, fields: section.fields.map((f: { name: string }) => f.name) },
+  );
 }
 
 /**
  * Resolve the sections for the Details tab body:
  *   1) explicit `options.sections` from the caller (programmatic API —
  *      Studio preview / metadata-admin anchors);
- *   2) else sections derived from the object's `fieldGroups` semantic role;
+ *   2) else the object's `fieldGroups` semantic role, as `{ group }`
+ *      references plus the ungrouped bucket's field names
+ *      (`fieldGroupSectionReferences`, objectui#11630);
  *   3) else `undefined` — record:details falls back to its flat layout.
  */
 export function resolveDetailSections(
@@ -741,7 +823,7 @@ export function resolveDetailSections(
   sections?: BuildPageOptions['sections'],
 ): BuildPageOptions['sections'] | undefined {
   if (Array.isArray(sections) && sections.length > 0) return sections;
-  return deriveFieldGroupDetailSections(def) ?? undefined;
+  return fieldGroupSectionReferences(def) ?? undefined;
 }
 
 /**

@@ -166,13 +166,13 @@ export function MarketplacePackagePage() {
     // with no marketplace proxy at all), so it stays its own check rather than
     // being folded into the other two predicates.
     if (!getRuntimeConfig().features.installLocal) return;
-    // Its only consumer is `localInstalls.find(...)` in the content branch
-    // below, which is unreachable whenever the page has already returned
-    // `MarketplaceDisabled` or (post-objectui#5583) `MarketplaceAccessDenied`.
-    // Firing anyway would be the same discarded-request class `2573ff434`
-    // closed for this page, on the flag that change was not about
-    // (objectui#5620).
-    if (!marketplaceEnabled) return;
+    // Its only consumer is the `localInstall` match below, read by the content
+    // branch AND by the marketplace-off local view (objectui#11627). Neither
+    // is drawn for a viewer refused the admin surface, so firing for one would
+    // be the same discarded-request class `2573ff434` closed for this page
+    // (objectui#5620). `marketplaceEnabled` is deliberately NOT a gate any
+    // more: on a runtime with no marketplace but a mounted install-local
+    // surface, this answer is what decides whether the local menu is drawn.
     if (!isAdmin) return;
     let cancelled = false;
     (async () => {
@@ -180,7 +180,7 @@ export function MarketplacePackagePage() {
       if (!cancelled) setLocalInstalls(items);
     })();
     return () => { cancelled = true; };
-  }, [packageId, localResult, marketplaceEnabled, isAdmin]);
+  }, [packageId, localResult, isAdmin]);
 
   // Seed cloud-install state so the primary CTA renders as "Installed" on
   // first paint instead of inviting another install.
@@ -555,6 +555,103 @@ export function MarketplacePackagePage() {
     }
   };
 
+  // `features.installLocal` is the server's own answer to "is the install-local
+  // surface mounted here" -- the same read the effect above gates on, never a
+  // guess from the package's fields.
+  const supportsLocal = getRuntimeConfig().features.installLocal;
+  // Which local install, if any, this page is about. With a marketplace the
+  // catalog row names it, by manifest id. Without one there is no catalog row,
+  // and the route's id is the one Installed Apps built this link from
+  // (`entry.packageId`), so it is matched on that same field. Declared ahead of
+  // every early return: the local sample-data handlers above close over it.
+  const localInstall = (marketplaceEnabled
+    ? localInstalls.find((i) => !!data && i.manifestId === data.package.manifest_id)
+    : localInstalls.find((i) => i.packageId === packageId)) ?? null;
+
+  // The local-install menu and the two status banners, drawn by both the
+  // catalog view and the marketplace-off local view below (objectui#11627).
+  const localInstalledBadge = localInstall && (
+    <Badge variant="default" className="bg-green-600 hover:bg-green-600 gap-1">
+      <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+      {t('marketplace.detail.installedV', { version: localInstall.version })}
+    </Badge>
+  );
+  const localMenu = localInstall && (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="lg" className="px-2.5" aria-label={t('marketplace.detail.moreOptions')}>
+          <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end" className="w-56">
+        <DropdownMenuItem onSelect={doReseedLocalSampleData} disabled={sampleDataBusy !== null}>
+          {sampleDataBusy === 'reseed'
+            ? <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
+            : <Database className="h-4 w-4 mr-2" aria-hidden="true" />}
+          {localInstall.withSampleData
+            ? t('marketplace.detail.reseedAgain')
+            : t('marketplace.detail.addSampleData')}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={doPurgeLocalSampleData}
+          disabled={sampleDataBusy !== null || !localInstall.withSampleData}
+          className="text-destructive focus:text-destructive"
+        >
+          {sampleDataBusy === 'purge'
+            ? <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
+            : <Trash2 className="h-4 w-4 mr-2" aria-hidden="true" />}
+          {t('marketplace.detail.purgeSampleData')}
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={doUninstallLocal} disabled={installingLocal} className="text-destructive focus:text-destructive">
+          <Trash2 className="h-4 w-4 mr-2" aria-hidden="true" />
+          {t('marketplace.detail.uninstallFromRuntime')}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+  const sampleDataNote = sampleDataMsg && (
+    <div
+      role="status"
+      className={`flex items-start gap-2 rounded-md border p-3 text-sm ${sampleDataMsg.ok ? 'border-green-500/30 bg-green-500/5 text-green-700 dark:text-green-400' : 'border-destructive/30 bg-destructive/5 text-destructive'}`}
+    >
+      {sampleDataMsg.ok ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" /> : <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />}
+      <div className="flex-1">{sampleDataMsg.text}</div>
+      <button
+        type="button"
+        className="text-xs underline opacity-60 hover:opacity-100"
+        onClick={() => setSampleDataMsg(null)}
+      >
+        {t('marketplace.action.dismiss')}
+      </button>
+    </div>
+  );
+  // `suggestFor` is the manifest id whose suggested audience bindings a
+  // successful local INSTALL surfaces (ADR-0090 D5), or `null` where no install
+  // door is drawn and the only result this banner can carry is an uninstall's.
+  const localResultNote = (suggestFor: string | null) => localResult && (
+    <div
+      role="status"
+      className={`flex items-start gap-2 rounded-md border p-3 text-sm whitespace-pre-wrap ${localResult.ok ? 'border-green-500/30 bg-green-500/5 text-green-700 dark:text-green-400' : 'border-destructive/30 bg-destructive/5 text-destructive'}`}
+    >
+      {localResult.ok ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" /> : <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />}
+      <div className="flex-1">
+        {localResult.message}
+        {/* ADR-0090 D5 — local installs land in this runtime's kernel, so
+            its suggested audience bindings are confirmable right here. */}
+        {localResult.ok && suggestFor ? (
+          <SuggestedBindingsPanel packageId={suggestFor} strings={suggestionStrings} className="mt-2" />
+        ) : null}
+      </div>
+      <button
+        type="button"
+        className="text-xs underline opacity-60 hover:opacity-100"
+        onClick={() => setLocalResult(null)}
+      >
+        {t('marketplace.action.dismiss')}
+      </button>
+    </div>
+  );
+
   // A CONFIGURATION CONCLUSION, not a load failure -- the same informational
   // state the catalog page renders, so the two pages stop disagreeing about the
   // same runtime (`2573ff434`). Reached by a pasted or bookmarked package URL,
@@ -565,7 +662,45 @@ export function MarketplacePackagePage() {
   // `features.marketplace` is public runtime config that any client already
   // reads. Telling an unprivileged operator they lack permission for a surface
   // that exists for nobody is the same misdirection this fix removes.
-  if (!marketplaceEnabled) return <MarketplaceDisabled />;
+  //
+  // objectui#11627 — that answer covers the REMOTE half of the page only. A
+  // runtime with no marketplace can still mount the install-local surface (an
+  // offline boot, `OS_CLOUD_URL=off`), and Installed Apps links each local
+  // install's Details here; the notice used to be all that page showed, so
+  // local reseed / purge had no way in. Now an admin whose package IS a local
+  // install also gets its header and local menu, ABOVE the same notice: the
+  // catalog fetch, the install-to-cloud CTA, the readme and the version list
+  // stay refused exactly as before, and every other viewer sees the notice
+  // alone. The local half is ADDED once `listLocalInstalls` answers, so the
+  // notice is never painted and then retracted.
+  if (!marketplaceEnabled) {
+    if (!(supportsLocal && isAdmin && (localInstall || localResult))) return <MarketplaceDisabled />;
+    return (
+      <div className="mx-auto w-full max-w-6xl flex flex-col gap-6 p-4 sm:p-6">
+        {localInstall && (
+          <div className="flex items-start gap-5 flex-wrap sm:flex-nowrap rounded-2xl border bg-gradient-to-br from-primary/5 via-background to-background p-6 sm:p-8">
+            <PackageIcon
+              manifestId={localInstall.manifestId}
+              className="h-20 w-20 rounded-2xl shadow-sm ring-1 ring-border shrink-0"
+              initialClassName="text-3xl font-bold"
+            />
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-tight truncate">{localInstall.manifestId}</h1>
+              <div className="text-sm text-muted-foreground mt-2 flex flex-wrap items-center gap-1.5">
+                {localInstalledBadge}
+              </div>
+            </div>
+            <div className="flex items-center gap-2 shrink-0 self-start">
+              {localMenu}
+            </div>
+          </div>
+        )}
+        {sampleDataNote}
+        {localResultNote(null)}
+        <MarketplaceDisabled />
+      </div>
+    );
+  }
 
   // Ahead of BOTH the loading and the load-failure branches below
   // (objectui#5583): authorization is not a function of whether the fetch
@@ -630,7 +765,6 @@ export function MarketplacePackagePage() {
   const pkg = data.package;
   const loc = localizePackage(pkg as any, language);
   const latestVersion = pkg.latest_version?.version ?? data.versions[0]?.version ?? null;
-  const localInstall = localInstalls.find((i) => i.manifestId === pkg.manifest_id) ?? null;
   // PD4 (ADR-0025 §3.11): code-bearing packages must disclose + be acknowledged.
   const containsCode = !!pkg.latest_version?.contains_code;
   // ADR-0010 version lifecycle: installed cloud env is on an OLDER version than
@@ -643,7 +777,6 @@ export function MarketplacePackagePage() {
     && !!latestVersion
     && isNewerVersion(latestVersion, cloudInstalledVersion);
 
-  const supportsLocal = getRuntimeConfig().features.installLocal;
   const primaryDisabled = !latestVersion || installingLocal || installing || (!supportsLocal && !!cloudInstalledVersion && !cloudUpdateAvailable);
   const primaryAction = supportsLocal
     ? {
@@ -713,12 +846,7 @@ export function MarketplacePackagePage() {
             )}
             {categoryLabel && <Badge variant="outline">{categoryLabel}</Badge>}
             {pkg.license && <Badge variant="outline" className="font-normal">{pkg.license}</Badge>}
-            {localInstall && (
-              <Badge variant="default" className="bg-green-600 hover:bg-green-600 gap-1">
-                <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-                {t('marketplace.detail.installedV', { version: localInstall.version })}
-              </Badge>
-            )}
+            {localInstalledBadge}
             {!localInstall && cloudInstalledVersion && (
               <Badge variant="default" className="bg-green-600 hover:bg-green-600 gap-1">
                 <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
@@ -741,39 +869,7 @@ export function MarketplacePackagePage() {
             <Download className="h-4 w-4 mr-1.5" aria-hidden="true" />
             {primaryAction.label}
           </Button>
-          {localInstall && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="lg" className="px-2.5" aria-label={t('marketplace.detail.moreOptions')}>
-                  <MoreHorizontal className="h-4 w-4" aria-hidden="true" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <DropdownMenuItem onSelect={doReseedLocalSampleData} disabled={sampleDataBusy !== null}>
-                  {sampleDataBusy === 'reseed'
-                    ? <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
-                    : <Database className="h-4 w-4 mr-2" aria-hidden="true" />}
-                  {localInstall.withSampleData
-                    ? t('marketplace.detail.reseedAgain')
-                    : t('marketplace.detail.addSampleData')}
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={doPurgeLocalSampleData}
-                  disabled={sampleDataBusy !== null || !localInstall.withSampleData}
-                  className="text-destructive focus:text-destructive"
-                >
-                  {sampleDataBusy === 'purge'
-                    ? <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
-                    : <Trash2 className="h-4 w-4 mr-2" aria-hidden="true" />}
-                  {t('marketplace.detail.purgeSampleData')}
-                </DropdownMenuItem>
-                <DropdownMenuItem onSelect={doUninstallLocal} disabled={installingLocal} className="text-destructive focus:text-destructive">
-                  <Trash2 className="h-4 w-4 mr-2" aria-hidden="true" />
-                  {t('marketplace.detail.uninstallFromRuntime')}
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+          {localMenu}
           {/* Reseed / purge still POST cross-origin to the control plane, which
               the browser blocks on a tenant subdomain. Only offer them when the
               runtime IS the cloud (same-origin). On tenants the install state is
@@ -811,46 +907,9 @@ export function MarketplacePackagePage() {
         </div>
       </div>
 
-      {sampleDataMsg && (
-        <div
-          role="status"
-          className={`flex items-start gap-2 rounded-md border p-3 text-sm ${sampleDataMsg.ok ? 'border-green-500/30 bg-green-500/5 text-green-700 dark:text-green-400' : 'border-destructive/30 bg-destructive/5 text-destructive'}`}
-        >
-          {sampleDataMsg.ok ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" /> : <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />}
-          <div className="flex-1">{sampleDataMsg.text}</div>
-          <button
-            type="button"
-            className="text-xs underline opacity-60 hover:opacity-100"
-            onClick={() => setSampleDataMsg(null)}
-          >
-            {t('marketplace.action.dismiss')}
-          </button>
-        </div>
-      )}
+      {sampleDataNote}
 
-      {localResult && (
-        <div
-          role="status"
-          className={`flex items-start gap-2 rounded-md border p-3 text-sm whitespace-pre-wrap ${localResult.ok ? 'border-green-500/30 bg-green-500/5 text-green-700 dark:text-green-400' : 'border-destructive/30 bg-destructive/5 text-destructive'}`}
-        >
-          {localResult.ok ? <CheckCircle2 className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" /> : <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" aria-hidden="true" />}
-          <div className="flex-1">
-            {localResult.message}
-            {/* ADR-0090 D5 — local installs land in this runtime's kernel, so
-                its suggested audience bindings are confirmable right here. */}
-            {localResult.ok && (
-              <SuggestedBindingsPanel packageId={pkg.manifest_id} strings={suggestionStrings} className="mt-2" />
-            )}
-          </div>
-          <button
-            type="button"
-            className="text-xs underline opacity-60 hover:opacity-100"
-            onClick={() => setLocalResult(null)}
-          >
-            {t('marketplace.action.dismiss')}
-          </button>
-        </div>
-      )}
+      {localResultNote(pkg.manifest_id)}
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="lg:col-span-2 space-y-4">

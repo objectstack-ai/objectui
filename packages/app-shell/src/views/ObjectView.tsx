@@ -16,7 +16,7 @@ import { parseUserFilterParams, applyUserFilterParams } from './userFilterUrlSta
 import { buildListFilterKey, readListFilterState, writeListFilterState } from './listFilterStorage.js';
 import { VALUELESS_FILTER_OPERATORS } from './viewFilterFold.js';
 import { parseUrlEqualityFilterTriples } from './drillUrlFilters.js';
-import { narrowPersonalizationOverlay, isViewConfigPermissionDeniedError, formatMetadataError } from '@object-ui/data-objectstack';
+import { narrowPersonalizationOverlay, isViewConfigPermissionDeniedError, formatMetadataError, VIEW_OVERLAY_OWNED_KEYS } from '@object-ui/data-objectstack';
 const ObjectChart = lazy(() =>
   import('@object-ui/plugin-charts').then((m) => ({ default: m.ObjectChart })),
 );
@@ -1193,6 +1193,14 @@ export function dispatchViewPatches(
  * one. So the issue's three dispositions land as: tolerate on read (shipped),
  * strip on next write (here), no migration — and both halves are pinned.
  *
+ * ## What the caller hands in (objectui#11642)
+ *
+ * `persistViewPatch` passes the row the store holds when the write runs, read
+ * back, not the tab as it was at page load: for a saved view that row is
+ * `baseViewDef`, and for an overlay the stored overlay's own keys arrive inside
+ * `patch` while the tab still supplies `viewKind` only. See
+ * {@link toolbarWriteInputs}. This function's shapes are unchanged.
+ *
  * Extracted from `persistViewPatch` so the write shape is assertable without
  * mounting the view, the same reason `buildViewTabs`, `setDefaultViewPatches`
  * and `reorderViewPatches` above are exported.
@@ -1227,6 +1235,65 @@ export function buildPersistedViewBody(
     // Identity is stamped LAST for the same reason `updateViewConfig` stamps
     // `object`/`name`/the marker last: nothing in the payload can shadow it.
     return viewKind === undefined ? { ...patch } : { ...patch, viewKind };
+}
+
+/**
+ * What a toolbar write starts from (objectui#11642): **the row the store holds
+ * when the write runs**, read through {@link loadViewOverrides} — the reader a
+ * reload uses — and never the tab as it was when the page loaded.
+ *
+ * `updateViewConfig` is a whole-document PUT, so each write REPLACES the row.
+ * The write used to start from the active tab as it was at page load (or, for
+ * an overlay, from the pending patch alone), and nothing moved that base after
+ * a write landed. So a second toolbar change in one session was built from a
+ * row that no longer existed and silently dropped what the first one stored:
+ * measured live, a density change reverted after a header sort, on every row
+ * kind. Triage's ruling: after a successful write, the base for the next write
+ * is the row that write stored, on every row kind, with no client-side merge
+ * of guessed fields.
+ *
+ * Why the stored row is READ BACK rather than taken from the write itself,
+ * measured against the platform's save door (objectstack `main`, showcase app):
+ * the `PUT /api/v1/meta/view/NAME` answer carries no row — `{ success, version,
+ * seq, state, message }`, the shape `SaveMetaItemResponseSchema` declares — and
+ * the body sent is not what the door kept: it drops undeclared keys
+ * (ADR-0005 appendix (c)), a sort entry's row `id` among them. The read is the
+ * `GET /api/v1/meta/view` the page load takes, and the adapter drops its cache
+ * on every view write (`invalidateViewKeys`), so it is the post-write row, not
+ * the page-load copy. Reading when the write runs, rather than keeping a copy
+ * of the row after each write, also composes with a row another handler on this
+ * page wrote in between (set as default, pin, rename) and leaves no copy that
+ * has to be kept fresh.
+ *
+ * - **Saved view** (an envelope row or a flat row): the stored row is the base
+ *   {@link buildPersistedViewBody} places the patch on. The active tab is the
+ *   base only when no stored row was read — a draft-only view in preview mode,
+ *   or a failed read — which is how every write behaved before this change.
+ * - **Overlay**: the stored overlay's own keys ({@link VIEW_OVERLAY_OWNED_KEYS},
+ *   the keys `loadViewOverrides` narrows a marked overlay to) join the pending
+ *   patch, so the row becomes the user's patches composed. It still carries
+ *   nothing the shadowed view owns (objectui#5233): the tab supplies `viewKind`
+ *   only, exactly as before, and a key the stored row holds outside the owned
+ *   set is not carried forward.
+ */
+async function toolbarWriteInputs(
+    dataSource: unknown,
+    objectName: string,
+    viewId: string,
+    activeTab: Record<string, unknown>,
+    pending: Record<string, unknown>,
+    isSavedView: boolean,
+): Promise<{ base: Record<string, unknown>; patch: Record<string, unknown> }> {
+    const read: unknown = (await loadViewOverrides(dataSource, objectName, [viewId]))[viewId];
+    const stored = read && typeof read === 'object' && !Array.isArray(read)
+        ? (read as Record<string, unknown>)
+        : undefined;
+    if (isSavedView) return { base: stored ?? activeTab, patch: pending };
+    const owned: Record<string, unknown> = {};
+    for (const key of VIEW_OVERLAY_OWNED_KEYS) {
+        if (stored?.[key] !== undefined) owned[key] = stored[key];
+    }
+    return { base: activeTab, patch: { ...owned, ...pending } };
 }
 
 /**
@@ -1462,6 +1529,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // network write.
     const persistTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
     const persistPending = useRef<Record<string, Record<string, any>>>({});
+    // objectui#11642 — the writes to one view, chained. Each write reads the
+    // stored row it starts from (`toolbarWriteInputs`), so it must not start
+    // before the previous write to the same view has settled: a read taken
+    // while that PUT is still in flight returns the row from BEFORE it, and
+    // the second write would put the first change back.
+    const persistChains = useRef<Record<string, Promise<void>>>({});
     // `persistViewPatch` is defined (and its `useCallback` deps evaluated)
     // BEFORE `savedViews` state exists below — closing over it directly in
     // the dependency array would read it in its temporal dead zone. Mirror
@@ -1504,38 +1577,59 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 // `buildPersistedViewBody` for why the saved-view branch is
                 // deliberately NOT narrowed — its row IS the view, and
                 // `saveItem` is a whole-document PUT.
-                // Optional call: the guard at the top of `persistViewPatch`
-                // does not narrow across this `setTimeout` closure, and the
-                // contract declares `updateViewConfig` optional. `?.()` on the
-                // member keeps the adapter as `this`.
-                Promise.resolve(
-                    dataSource.updateViewConfig?.(
-                        objectName,
-                        viewIdLocal,
-                        buildPersistedViewBody(baseViewDef, merged, { isSavedView: targetIsSavedView }),
-                        { isSavedView: targetIsSavedView },
-                    )
-                ).catch((err: any) => {
-                    // objectstack#7494's ruling — the gate refuses ORG-WIDE
-                    // view-config writes for a session without the authoring
-                    // capability. The toggle that triggered this has ALREADY
-                    // moved on screen, so the refusal has to be SAID: swallowing
-                    // it into console.error leaves the operator with a density
-                    // they did not get and no way to learn why until a reload
-                    // silently puts it back.
-                    if (isViewConfigPermissionDeniedError(err)) {
-                        toast.error(t('console.objectView.viewConfigPermissionDenied'));
-                        return;
-                    }
-                    console.error('[ObjectView] Failed to persist view config:', err);
-                    // objectui#11583: every other refusal is said too, with the
-                    // door's message. The client gate above answers only for a
-                    // session whose capabilities were reported; an unreported
-                    // one passes it, and the server's 403 lands here.
-                    toast.error(t('form.saveError'), {
-                        description: formatMetadataError(err),
-                        classNames: { description: 'whitespace-pre-line' },
+                //
+                // objectui#11642 — and what the body starts from is the row
+                // the store holds when this write runs, read back, not the
+                // tab as it was at page load: see `toolbarWriteInputs`. The
+                // write waits for the previous write to this view first.
+                //
+                // Written as an assignment of one chain, not through a named
+                // local function: the write-refusal census
+                // (`writeRefusalCensus-11583.test.ts`) keys this write by its
+                // nearest named function, `persistViewPatch`, and reads its
+                // refusal path off the `.catch` below.
+                persistChains.current[viewIdLocal] = (persistChains.current[viewIdLocal] ?? Promise.resolve())
+                    .then(async () => {
+                        const { base, patch: toWrite } = await toolbarWriteInputs(
+                            dataSource, objectName, viewIdLocal, baseViewDef, merged, targetIsSavedView,
+                        );
+                        // Optional call: the guard at the top of `persistViewPatch`
+                        // does not narrow across this `setTimeout` closure, and the
+                        // contract declares `updateViewConfig` optional. `?.()` on
+                        // the member keeps the adapter as `this`.
+                        await dataSource.updateViewConfig?.(
+                            objectName,
+                            viewIdLocal,
+                            buildPersistedViewBody(base, toWrite, { isSavedView: targetIsSavedView }),
+                            { isSavedView: targetIsSavedView },
+                        );
+                    })
+                    .catch((err: any) => {
+                        // objectstack#7494's ruling — the gate refuses ORG-WIDE
+                        // view-config writes for a session without the authoring
+                        // capability. The toggle that triggered this has ALREADY
+                        // moved on screen, so the refusal has to be SAID: swallowing
+                        // it into console.error leaves the operator with a density
+                        // they did not get and no way to learn why until a reload
+                        // silently puts it back.
+                        if (isViewConfigPermissionDeniedError(err)) {
+                            toast.error(t('console.objectView.viewConfigPermissionDenied'));
+                            return;
+                        }
+                        console.error('[ObjectView] Failed to persist view config:', err);
+                        // objectui#11583: every other refusal is said too, with the
+                        // door's message. The client gate above answers only for a
+                        // session whose capabilities were reported; an unreported
+                        // one passes it, and the server's 403 lands here.
+                        toast.error(t('form.saveError'), {
+                            description: formatMetadataError(err),
+                            classNames: { description: 'whitespace-pre-line' },
+                        });
                     });
+                // Drop the settled tail so the map holds only writes in flight.
+                const chained = persistChains.current[viewIdLocal];
+                void chained.then(() => {
+                    if (persistChains.current[viewIdLocal] === chained) delete persistChains.current[viewIdLocal];
                 });
             }, 300);
         },

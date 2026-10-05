@@ -52,6 +52,7 @@ import {
 } from './requiredWhenPrompt';
 import { RequiredFieldsDialog } from './RequiredFieldsDialog';
 import { KanbanRecordsSettledContext } from './KanbanRecordsSettled';
+import { KanbanColumnSummaryContext, type KanbanColumnSummary } from './KanbanColumnSummary';
 
 /**
  * English fallbacks for the record-detail drawer heading this board opens on
@@ -394,8 +395,9 @@ export interface ObjectKanbanComponentProps {
 
 /**
  * The board node as this component READS it: {@link ObjectKanbanSchema} plus
- * the one key `ElementDataSourceGate` writes onto it that the node does not
- * declare (objectui#8347).
+ * the two keys a relay writes onto it that the node does not declare — the
+ * one `ElementDataSourceGate` writes (objectui#8347), and the one `ListView`'s
+ * kanban branch writes (objectui#11629).
  *
  * `sort` is the gate's carrier for the per-element binding's `dataSource.sort`
  * (`OBJECT_KANBAN_DATA_SOURCE` in `./index.tsx` maps it, objectui#10068), and
@@ -407,6 +409,12 @@ export interface ObjectKanbanComponentProps {
  * where its only reader lives instead, the way `plugin-timeline`'s
  * `renderHandoff.ts` types the keys its composer writes (objectui#6356).
  *
+ * `summarizeField` is the view's own key: `@objectstack/spec` declares it on
+ * the view-level `KanbanConfig` ("Field to sum at top of column"), and
+ * `ListView`'s kanban branch spreads the rest of that config onto the node it
+ * generates, which is how it arrives here. The `object-kanban` props declare
+ * no such key, so it is typed here for the same reason as `sort`.
+ *
  * ⛔ Deliberately NOT exported, and ⛔ never to be added to
  * `ObjectKanbanComponentProps` or `@object-ui/types`: a public type naming
  * `sort` would invite the spelling the authoring faces refuse.
@@ -414,6 +422,8 @@ export interface ObjectKanbanComponentProps {
 type GateBoundKanbanSchema = ObjectKanbanSchema & {
   /** The binding's (or its view's) ordering, written by the gate. */
   sort?: SortConfig[];
+  /** The view's `KanbanConfig.summarizeField`, relayed by `ListView` (objectui#11629). */
+  summarizeField?: string;
 };
 
 export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
@@ -1246,6 +1256,54 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     return [];
   }, [schema.columns, schema.groupBy, schema.objectName, effectiveData, objectDef, translateOptions]);
 
+  /**
+   * objectui#11629 — the lane total each column header paints, from the
+   * view's `summarizeField`. `KanbanImpl` sums the field over the lane's cards
+   * (`sumLaneField`); this decides only WHETHER there is a total and HOW it is
+   * written, because this component holds the object definition.
+   *
+   * - Written through the field's own cell renderer — the call the card
+   *   fields above make — so the total reads the way the cards read that
+   *   field. A field the definition does not describe renders as a number.
+   * - No total for a field the viewer may not read: the projection never
+   *   asked for it, so every card lacks it and the lane would read `0`. Same
+   *   `checkField` gate and same deferral as `$expand` above.
+   * - No total for a field the loaded definition does not declare, for the
+   *   same reason: `ListView`'s projection drops a binding the object lacks.
+   *
+   * What it covers is what the board drew: the lane's loaded cards. A windowed
+   * fetch marks the total as it marks the count (`countsAreWindowed`).
+   */
+  const summarizeField =
+    typeof schema.summarizeField === 'string' && schema.summarizeField !== ''
+      ? schema.summarizeField
+      : undefined;
+  const columnSummary = useMemo<KanbanColumnSummary | null>(() => {
+    // Until the definition settles the board does not yet know how the cards
+    // format the field, or whether the object has it; it paints no total
+    // rather than one it would repaint (a currency total first read as a bare
+    // number). A source with no schema read settles with nothing at once.
+    if (!summarizeField || !objectDefReady) return null;
+    const def = objectDef?.fields?.[summarizeField];
+    if (objectDef?.fields && !def) return null;
+    if (
+      def &&
+      perms?.isLoaded &&
+      schema.objectName &&
+      !perms.checkField(schema.objectName, summarizeField, 'read')
+    ) {
+      return null;
+    }
+    const fieldType = resolveCellRendererType(def ?? { type: 'number' });
+    const CellRenderer = getCellRenderer(fieldType);
+    const fieldForCell: any = def ?? { name: summarizeField, type: fieldType };
+    return {
+      field: summarizeField,
+      label: fieldLabel(objectDef?.name || schema.objectName || '', summarizeField, def?.label || summarizeField),
+      renderTotal: (total: number) => <CellRenderer value={total} field={fieldForCell} />,
+    };
+  }, [summarizeField, objectDefReady, objectDef, schema.objectName, perms, fieldLabel]);
+
   // Clone schema to inject data and className
   // Use grouping.fields[0].field as swimlaneField fallback when no explicit swimlaneField
   const effectiveSwimlaneField = schema.swimlaneField
@@ -1638,6 +1696,10 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
           `Suspense`/`React.lazy` boundary normally, which is what makes the
           private channel possible at all. Full argument on the context. */}
       <KanbanRecordsSettledContext.Provider value={recordsSettled}>
+      {/* objectui#11629 — the lane total rides the same kind of private
+          channel, for the same reason. `null` (no `summarizeField`) leaves
+          every header exactly as it was. See `KanbanColumnSummary`. */}
+      <KanbanColumnSummaryContext.Provider value={columnSummary}>
       {/* objectui#11234 — the internal board, not the exported
           `KanbanRenderer`. It takes the Quick Add pair only as explicit props,
           and this call passes neither, so the object-bound board draws no
@@ -1694,6 +1756,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
           },
         }}
       />
+      </KanbanColumnSummaryContext.Provider>
       </KanbanRecordsSettledContext.Provider>
       {pendingMove && (
         <RequiredFieldsDialog

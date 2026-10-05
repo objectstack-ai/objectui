@@ -547,7 +547,21 @@ ComponentRegistry.register('object-master-detail-form', MasterDetailFormRenderer
     },
     { name: 'mode', type: 'enum', enum: ['create', 'edit'] },
     { name: 'sections', type: 'array' },
-    { name: 'details', type: 'array', required: true },
+    // `of: 'object'` is DERIVED from the contract, as `ComponentInput.of`
+    // prescribes (objectui#11396): since `@objectstack/spec` 17.6.0 the row's
+    // `details` member is a closed object entry (objectstack-ai/objectstack#21215),
+    // the one coarse kind the spec accepts there, and the console parity gate's
+    // member direction witnesses the declaration against the spec row. The
+    // entry's TypeScript face is `MasterDetailDetailConfig`, derived from the
+    // same spec entry by reference (MasterDetailForm.tsx).
+    {
+      name: 'details',
+      type: 'array',
+      of: 'object',
+      required: true,
+      description:
+        'The child collections, one OBJECT per entry, judged by the spec\'s closed `details` entry: `childObject` (required) names the child object; `relationshipField` is the FK on the child back to the parent, derived from the child\'s metadata when omitted; `columns` are the line grid\'s columns as the spec\'s inline grid column objects (`{ name, … }`, never a bare field name), derived from the child\'s fields when omitted; `formFields` names the per-row form\'s fields; `inlineMode` is `grid` (editable cells) or `form` (list + per-row form); `amountField` is the CHILD column summed and `totalField` the PARENT field that sum is saved to; `title`, `minRows`, `maxRows` and `addLabel` dress the section and its grid. An undeclared member key is refused by name. The entry\'s `sortField` is read by nothing here — the line-position field is derived from the child object (objectui#11070) — and objectstack retires the key on its `main` (objectstack-ai/objectstack#21589, after 17.6.0).',
+    },
     { name: 'recordId', type: 'string', description: 'The parent record to load in `edit` mode. Leave unset for `create`.' },
     // TWO values, not the six `object-form` declares (objectui#5939). A bare
     // `string` here let an out-of-vocabulary value match NO renderer branch and

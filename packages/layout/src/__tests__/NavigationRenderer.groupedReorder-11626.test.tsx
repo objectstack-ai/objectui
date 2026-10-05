@@ -200,6 +200,20 @@ describe('objectui#11626 — a grouped menu offers drag-to-reorder within each l
     expect(ids(childrenOf(outer!, 'grp_inner'))).toEqual(['i2', 'i1']);
   });
 
+  it('a row inside a sortable group still lights for the current route, and opens its group', () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={[`${BASE}/a2`]}>
+        <SidebarProvider defaultOpen>
+          <NavigationRenderer items={GROUPED} basePath={BASE} enableReorder onReorder={vi.fn()} />
+        </SidebarProvider>
+      </MemoryRouter>,
+    );
+    const lit = [...container.querySelectorAll('[data-sidebar="menu-button"][data-active="true"]')];
+    expect(lit.map((el) => el.textContent)).toEqual(['A2']);
+    // The lit row sits in a sortable row: its grip is drawn beside it.
+    expect(lit[0].closest('[data-sidebar="menu-item"]')?.querySelector(GRIP)).not.toBeNull();
+  });
+
   it('while a search narrows a grouped menu, it offers no grip', () => {
     const { container } = renderNav(GROUPED, { enableReorder: true, onReorder: vi.fn(), searchQuery: 'a' });
     // Control: the search matched entries, so rows are drawn.

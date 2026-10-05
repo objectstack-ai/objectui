@@ -1195,7 +1195,7 @@ interface NavRowProps {
   onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
   resolveTargetLabel?: NavTargetLabelResolver;
   locale?: string;
-  t?: (key: string, options?: any) => string;
+  t?: NavigationRendererProps['t'];
   templateContext?: NavTemplateContext;
 }
 

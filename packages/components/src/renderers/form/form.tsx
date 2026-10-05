@@ -6,7 +6,7 @@
  * LICENSE file in the root directory of this source tree.
  */
 
-import { ComponentRegistry, resolveFieldRuleState, evalFieldPredicate, resolveCascadingOptions, CASCADE_OPTION_WIDGET_TYPES, EXPANDABLE_FIELD_TYPES, isValueStillOffered, isMissingForRequired, isServerOwnedValue } from '@object-ui/core';
+import { ComponentRegistry, resolveFieldRuleState, evalFieldPredicate, resolveCascadingOptions, resolveDependsOnFields, CASCADE_OPTION_WIDGET_TYPES, EXPANDABLE_FIELD_TYPES, isValueStillOffered, isMissingForRequired, isServerOwnedValue } from '@object-ui/core';
 import type { FormSchema, FormField as FormFieldConfig, FormFieldTab, FormFieldPane, FieldCondition, SelectOption } from '@object-ui/types';
 import { useForm } from 'react-hook-form';
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage, FormDescription } from '../../ui/form';
@@ -525,6 +525,46 @@ function needsDataSourceWiring(widgetType: string): boolean {
 // `CASCADE_OPTION_WIDGET_TYPES`, imported from `@object-ui/core` above: this
 // form, the action dialog and the bulk dialog feed one evaluator and must read
 // one allow-table (objectui#4770 — until then each held a private copy).
+
+/**
+ * The sibling fields that SCOPE a dependent lookup's candidate query — the
+ * parents whose change must clear its selection (objectui#11631). Empty for
+ * every field that is not a dependent member of the reference family.
+ *
+ * Read from exactly the slot the picker scopes by, so this form's clear and the
+ * picker's query cannot disagree about which parent moves the scope:
+ * `LookupField` (and `UserField`, which delegates to it) takes `dependsOn` from
+ * its `field` prop — this renderer hands it `field.field || field` — after
+ * unwrapping one nested `field` that carries `reference` or `type`, and it
+ * honours only the ARRAY shape the spec declares at field level
+ * (`FieldDependsOn`). A bare parent name there scopes nothing, so it moves
+ * nothing here either.
+ *
+ * The family is `EXPANDABLE_FIELD_TYPES` — the set `needsDataSourceWiring`
+ * above already feeds `dependentValues` to. ⛔ Not `CASCADE_OPTION_WIDGET_TYPES`:
+ * that shared allow-list names the OPTION widgets fed the live record, and its
+ * other readers rely on the lookup family not being in it.
+ *
+ * A field never counts as its own parent: a self-reference would clear the
+ * user's pick the moment it was made.
+ */
+function dependentLookupParents(f: FormFieldConfig | undefined): string[] {
+  const name = f?.name;
+  if (!f || !name) return [];
+  const widget = resolveWidgetType(f);
+  if (typeof widget !== 'string' || !EXPANDABLE_FIELD_TYPES.has(normalizeFieldType(widget))) {
+    return [];
+  }
+  const carrier: Record<string, unknown> = f.field || (f as Record<string, unknown>);
+  const inner = carrier.field;
+  const meta =
+    inner !== null && typeof inner === 'object' && ('reference' in inner || 'type' in inner)
+      ? (inner as Record<string, unknown>)
+      : carrier;
+  const declared = meta.dependsOn;
+  if (!Array.isArray(declared)) return [];
+  return resolveDependsOnFields(declared).filter((parent) => parent !== name);
+}
 
 function stripRendererOnlyProps<T extends Record<string, any>>(props: T): T {
   const {
@@ -1985,6 +2025,10 @@ ComponentRegistry.register('form',
     // stale "china + california" pair. Mirrors the dependent-lookup gate but for
     // static/predicate-driven option sets. Fail-open filtering keeps unrelated
     // fields untouched (no visibleWhen / dependsOn → nothing recomputed).
+    // A dependent LOOKUP never reaches this effect — it has no static option
+    // set to test a value against — and is cleared by its own rule further
+    // down, beside the `defaultValues` reset (`dependentLookupsKey`,
+    // objectui#11631).
     React.useEffect(() => {
       for (const f of fields as FormFieldConfig[]) {
         const name = f?.name;
@@ -2345,6 +2389,108 @@ ComponentRegistry.register('form',
         return () => subscription.unsubscribe();
       }
     }, [form, onChangeProp]);
+
+    // Dependent-lookup clear (objectui#11631) — the reference-family half of
+    // the cascade clear (#2284), which only ever covered option fields.
+    //
+    // ## The defect this closes
+    //
+    // A lookup whose `dependsOn` names a sibling (an invoice's `contact`
+    // scoped by its `account`) re-scopes its candidate QUERY when the parent
+    // moves, but nothing dropped the selection already made: switch Account
+    // from Northwind to Contoso and the Northwind contact stayed selected and
+    // was saved beside the Contoso account. The server checks only that a
+    // reference exists, so this form is the one place the contradictory pair
+    // can be stopped. The cascade clear above cannot take it: it tests a
+    // value against a STATIC option set, and a lookup has none to test — its
+    // offered set is a query result.
+    //
+    // ## The rule: a change of the parent is the clear
+    //
+    // When any parent that scopes a lookup (`dependentLookupParents`) takes a
+    // different value — another record, or empty — the lookup's selection is
+    // cleared: `null` for a single value, `[]` for a multi-value lookup, the
+    // sentinels the two clears above write (`null`, never `undefined`,
+    // objectui#10291). Whether the old selection happens to fall inside the
+    // new scope is not asked: answering it is a query against the server, and
+    // a pick the user made under a parent they have since replaced is not
+    // theirs to keep silently. A lookup that holds nothing is never written to,
+    // so a create form cannot turn an absent key into an explicit `null`.
+    //
+    // ## Only an EDIT moves a parent — the host's data landing does not
+    //
+    // The comparison is between successive values of the form, so the
+    // question is which value changes count. A `defaultValues` reset — an
+    // edit-mode record landing after first paint, a `recordId` swap in a
+    // still-mounted drawer, the carried input re-applied inside it — fills
+    // the parent AND the lookup in one operation; read as an edit, it would
+    // empty every saved pair the moment the record opened. So the comparison
+    // is re-based, never acted on, in two cases: inside the explicit reset
+    // window (`resetInFlightRef`, the same signal the two value channels above
+    // read), and on a notification that names no field — react-hook-form's
+    // whole-record replacement (`reset()`, including the bare ones the cancel
+    // and `resetOnSubmit` paths call). Everything else is a value moving in
+    // this form — a user's pick, or one of the clears above emptying a field —
+    // and is acted on. That is also what makes a multi-level chain converge:
+    // clearing `contact` is itself a named change, so a lookup scoped by
+    // `contact` is cleared in the same pass.
+    //
+    // The field whose change started a pass is never cleared by it, so two
+    // lookups that name each other cannot wipe the pick the user just made.
+    //
+    // A subscription, like the value channels above, and not a `ruleRecord`
+    // effect: the reset window is a synchronous span inside the reset itself,
+    // so only a subscriber notified INSIDE it can read it; an effect running
+    // after the commit sees two value sets and no record of which operation
+    // moved them. Established only when the form has a dependent lookup, and
+    // keyed on the primitive `dependentLookupsKey`, not on the memoised
+    // `fields` (AGENTS.md #10).
+    const dependentLookupsKey = React.useMemo(() => {
+      const pairs: Array<[string, string[]]> = [];
+      for (const f of fields as FormFieldConfig[]) {
+        const parents = dependentLookupParents(f);
+        if (parents.length > 0) pairs.push([f.name as string, parents]);
+      }
+      return pairs.length > 0 ? JSON.stringify(pairs) : '';
+    }, [fields]);
+    React.useLayoutEffect(() => {
+      if (!dependentLookupsKey) return;
+      const lookups = JSON.parse(dependentLookupsKey) as Array<[string, string[]]>;
+      const parentNames = Array.from(new Set(lookups.flatMap(([, parents]) => parents)));
+      const readParents = (): Record<string, unknown> => {
+        const values = form.getValues() as Record<string, unknown>;
+        const out: Record<string, unknown> = {};
+        for (const parent of parentNames) out[parent] = values?.[parent];
+        return out;
+      };
+      let seen = readParents();
+      // The field whose change started the current pass; clears nest inside
+      // it synchronously (`setValue` notifies this subscription re-entrantly).
+      let origin: string | undefined;
+      const subscription = form.watch((_values, info) => {
+        const before = seen;
+        const now = readParents();
+        seen = now;
+        if (resetInFlightRef.current || !info?.name) return;
+        const outermost = origin === undefined;
+        if (outermost) origin = info.name;
+        try {
+          for (const [name, parents] of lookups) {
+            if (name === origin) continue;
+            if (parents.every((parent) => valuesEqualForDirty(before[parent], now[parent]))) continue;
+            const current = form.getValues(name);
+            if (isEmptyish(current)) continue;
+            form.setValue(name, Array.isArray(current) ? [] : null, {
+              shouldValidate: false,
+              shouldDirty: true,
+            });
+          }
+        } finally {
+          if (outermost) origin = undefined;
+        }
+      });
+      return () => subscription.unsubscribe();
+    }, [form, dependentLookupsKey]);
 
     /**
      * Scroll a field into view and focus a control inside it. The field wrapper

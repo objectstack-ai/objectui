@@ -1136,7 +1136,31 @@ export function dispatchViewPatches(
  *   cannot arise here. A patch-only PUT would not narrow this row, it would
  *   **delete the user's view definition** — its `config`/`columns`/`filter`/
  *   `label` are not a frozen copy of anything, they are the view. This branch
- *   therefore still carries the body, byte-identical to the pre-fix write.
+ *   therefore still carries the body — with the patch placed where the body's
+ *   own shape keeps it (next section).
+ *
+ * ## Where the saved branch puts the patch (objectui#11625)
+ *
+ * The active tab of a served view carries the stored row's nested `config`
+ * (the ViewItem envelope `{ name, object, viewKind, config }`, merged into the
+ * tab by `loadViewOverrides`). A body with a `config` is judged by the spec's
+ * `viewItem` member of the `view` union, whose top level is stripped: the save
+ * door keeps only the keys that member declares (ADR-0005 appendix (c)), so a
+ * `rowHeight` spread beside `config` was answered `200` and dropped, and the
+ * density reverted on reload. For an envelope-shaped base the patch is
+ * therefore split by the spec's own vocabulary:
+ *
+ * - a key `ListViewSchema` declares (`rowHeight`, `sort`, `hiddenFields`,
+ *   `inlineEdit`) is written into `config`, and any stale copy of it on the
+ *   envelope is removed, so the wire carries the one spelling the door keeps;
+ * - any other key stays on the envelope. That is where the row-owned keys live
+ *   ({@link VIEW_ROW_STATE_KEYS}: `columnState` is the toolbar's one), and the
+ *   envelope's own row state (`isDefault`, `isPinned`, …) is never moved.
+ *
+ * A FLAT base (no `config`) is judged by the flattened `listOverlay` member,
+ * which declares the list-view keys at its top level, so it keeps the flat
+ * spread. Putting a `config` on such a body would move it to the `viewItem`
+ * member and strip every flat key the user's view is made of.
  *
  * The same `isSavedViewId` classification already decides the switcher's
  * readonly flag, its five mutating handlers, and whether `updateViewConfig`
@@ -1178,7 +1202,27 @@ export function buildPersistedViewBody(
     patch: Record<string, any>,
     opts: { isSavedView: boolean },
 ): Record<string, any> {
-    if (opts.isSavedView) return { ...(baseViewDef || {}), ...patch };
+    if (opts.isSavedView) {
+        const base = baseViewDef || {};
+        const baseConfig = base.config;
+        if (!baseConfig || typeof baseConfig !== 'object' || Array.isArray(baseConfig)) {
+            return { ...base, ...patch };
+        }
+        // objectui#11625 — an envelope-shaped row: list-view keys go inside
+        // `config`, everything else stays on the envelope (see the doc above).
+        const configKeys = getListViewConfigKeys();
+        const envelope: Record<string, any> = { ...base };
+        const config: Record<string, any> = { ...baseConfig };
+        for (const [key, value] of Object.entries(patch)) {
+            if (configKeys.has(key)) {
+                config[key] = value;
+                delete envelope[key];
+            } else {
+                envelope[key] = value;
+            }
+        }
+        return { ...envelope, config };
+    }
     const viewKind = (baseViewDef as any)?.viewKind;
     // Identity is stamped LAST for the same reason `updateViewConfig` stamps
     // `object`/`name`/the marker last: nothing in the payload can shadow it.

@@ -274,6 +274,7 @@ Foundation types that all components build upon:
 - `DeclaredNode` - The discriminated union, keyed by `type`, of every declared node type; every node slot and `SchemaRenderer`'s `schema` prop take it, so an inline child is checked against its own type and an undeclared `type` is refused
 - `CustomNodeRegistry` - The interface an application augments (`declare module '@object-ui/types'`) to declare a node type it registers, which then joins `DeclaredNode`
 - `AuthoringNode` - The spec-declared nodes with a typed `properties` bag (see "Authoring the spec's blocks in TypeScript")
+- `NODE_SLOT_DECLARATIONS` / `nodeSlotsFor(type)` - The per-type node slots beside `children`: where a renderer hands authored nodes back to `SchemaRenderer` through a key of its own (a dialog's `trigger`, a tab item's `content`, a page's `regions[].components`), spelled as key paths (`items[].content`). One declaration, read by `objectui check`, the core schema validator and the SDUI parser; `nodeSlotValues(node, path)` walks a node by it
 - `ComponentMeta` - Metadata for component registration
 - `ComponentInput` - Input field definitions for designers/editors
 

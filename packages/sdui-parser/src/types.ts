@@ -156,6 +156,19 @@ export interface ManifestComponent {
    */
   inputs: ManifestInput[];
   /**
+   * The NODE SLOTS this component's renderer reads besides `children`
+   * (objectui#11170): positions in the key-path grammar `@object-ui/types`'
+   * `NODE_SLOT_DECLARATIONS` states — `trigger`, `items[].content`,
+   * `regions[].components`. `validateTree` descends each one the way it
+   * descends `children`, so a slot-held node is judged too. Projected from
+   * that one declaration by `manifestFromConfigs`'s `slotsFor` option; the
+   * authoring tier leaves the declaration's RETIRED positions out, as the
+   * spec's own authoring walks do. ⛔ This tier keeps no slot list of its own:
+   * a manifest built without the option carries none, and the walk then
+   * follows `children` alone.
+   */
+  slots?: readonly string[];
+  /**
    * LAYOUT containment (objectui#6804, objectui#9910 Q2-A): the flag the
    * react-page JSX scope builder skips and the public layout ledger lists.
    * ⛔ Not "accepts children" — this tier's containment check does not read it.

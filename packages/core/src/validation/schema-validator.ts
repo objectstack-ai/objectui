@@ -17,6 +17,7 @@
  */
 
 import type { BaseSchema } from '@object-ui/types';
+import { nodeSlotValues, nodeSlotsFor } from '@object-ui/types';
 import { hasDeclaredPredicate } from '../evaluator/declaredPredicate.js';
 import { isUnevaluablePredicate } from '../evaluator/unevaluablePredicate.js';
 
@@ -470,8 +471,17 @@ function validateFormSchema(
   return errors;
 }
 
+/** `schema.items[0].content[1]`: the child's path, spelled the way `children[0]` already is. */
+function spellSlotPath(path: string, segments: readonly (string | number)[]): string {
+  return segments.reduce<string>(
+    (spelled, segment) => (typeof segment === 'number' ? `${spelled}[${segment}]` : `${spelled}.${segment}`),
+    path,
+  );
+}
+
 /**
- * Validate child schemas recursively
+ * Validate child schemas recursively: what `children` holds on every node,
+ * and what the node slots declared for this node's type hold.
  */
 function validateChildren(
   schema: SchemaNodeUnderValidation,
@@ -479,10 +489,11 @@ function validateChildren(
 ): SchemaNodeValidationError[] {
   const errors: SchemaNodeValidationError[] = [];
 
-  // One spelling. This walker resolved `children || body` for ANY node type,
-  // so it outlived every per-registration read of the dialect — objectui#6771
-  // retired it, and a recursive validator that still descended `body` would
-  // keep validating a child list no renderer puts on the page.
+  // One child-list spelling. This walker resolved `children || body` for ANY
+  // node type, so it outlived every per-registration read of the dialect —
+  // objectui#6771 retired it, and a recursive validator that still descended
+  // `body` on every node would keep validating a child list no renderer puts
+  // on the page.
   const children = schema.children;
   if (children) {
     if (Array.isArray(children)) {
@@ -495,6 +506,23 @@ function validateChildren(
     } else if (isSchemaNodeShape(children)) {
       const childResult = validateSchema(children, `${path}.children`);
       errors.push(...childResult.errors, ...childResult.warnings);
+    }
+  }
+
+  // The node slots THIS type's renderer reads — a dialog's `trigger`, a tab
+  // item's `content`, a page's `regions[].components` — from the one
+  // declaration in `@object-ui/types` (`nodeSlotsFor`, objectui#11170), which
+  // the `objectui check` gate and the SDUI parser read too. Per type, never a
+  // second generic spelling: `page:card`'s retired `body` is walked because
+  // that renderer is measured still painting it; `body` on any other type is
+  // not, which is the objectui#6771 line above, kept.
+  if (typeof schema.type === 'string') {
+    for (const slot of nodeSlotsFor(schema.type)) {
+      for (const { segments, value } of nodeSlotValues(schema, slot.path)) {
+        if (!isSchemaNodeShape(value)) continue;
+        const childResult = validateSchema(value, spellSlotPath(path, segments));
+        errors.push(...childResult.errors, ...childResult.warnings);
+      }
     }
   }
 

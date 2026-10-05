@@ -110,14 +110,33 @@
  *   long as the spec's per-field face leaves it out of
  *   `FLOW_SCREEN_FIELD_COPY_KEYS`. The overlay walks that constant, so the day
  *   the spec lists it the help text is translated with no edit here;
- * - the runner chrome (Cancel / Submit / Submitting… / the terminal toast) —
- *   the console's own words, ruled into its message catalog (objectstack#7646);
+ * - the runner chrome (Cancel / Submit / Submitting… / the terminal toast's
+ *   sentence) — the console's own words, ruled into its message catalog
+ *   (objectstack#7646). The flow NAME inside that toast is not chrome; see the
+ *   objectui#11092 section below;
  * - `FlowSchema.successMessage` — off the translation surface by design.
  *
  * ⚠️ One boundary of the client-side pick: the server interpolates `{var}`
  * tokens in the heading before it reaches the wire, and the wire does not carry
  * the variables, so a translated heading is drawn exactly as the bundle wrote
  * it — a token inside it renders literally.
+ *
+ * ## The flow is named by its label, in the user's language (objectui#11092)
+ *
+ * The runner used to name the flow only by its API name, and only in the
+ * completion toast. Every answer that evaluated the flow now carries the
+ * flow's authored label (`AutomationResult.flowLabel`, objectstack#20633),
+ * lifted once by `interpretFlowResponse` and handed in on
+ * {@link ScreenFlowState}; a resume answer that pauses again replaces it. The
+ * name the user reads resolves as: the active language's `flows.<flow>.label`,
+ * then the served `flowLabel`, then the API name (an answer from a backend
+ * that serves no label). The first two steps are the spec's `translateFlow`,
+ * read from the same bundle the screen copy above is, so the address is the
+ * spec's and there is still no second loader.
+ *
+ * It is drawn in two places: a line above the screen heading in the dialog
+ * header (the heading stays the step's own title, and stays the dialog's
+ * accessible name), and the completion toast, in place of the API name.
  *
  * Chrome goes through `@object-ui/i18n` (via the `@object-ui/react` re-export)
  * like its neighbours; the only English left in this file is the inline
@@ -141,9 +160,11 @@ import { notifyDataChanged, useObjectTranslation } from '@object-ui/react';
 import {
   FLOW_SCREEN_FIELD_COPY_KEYS,
   resolveFlowScreenTitle,
+  translateFlow,
   type TranslationBundle,
   type TranslationData,
 } from '@objectstack/spec/system';
+import type { AutomationResult } from '@objectstack/spec/contracts';
 import { toast } from 'sonner';
 import {
   ScreenView,
@@ -237,7 +258,29 @@ function localizeScreen(
   return { ...screen, title, fields };
 }
 
-export interface ScreenFlowState {
+/**
+ * The name the user reads for the flow (objectui#11092 — see the header): the
+ * active language's `flows.<flow>.label`, then the served `flowLabel`, then
+ * `flowName`. `translateFlow` takes the first two steps: handed the served
+ * label as the authored one, it answers the bundle's string where the bundle
+ * has one and that label otherwise.
+ */
+function displayFlowLabel(
+  flowName: string,
+  flowLabel: string | undefined,
+  bundle: TranslationBundle | undefined,
+  language: string,
+): string {
+  return translateFlow({ name: flowName, label: flowLabel }, bundle, { locale: language }).label || flowName;
+}
+
+/**
+ * The paused run a host opens the runner on. `flowLabel` is the flow's
+ * authored label exactly as the trigger answer served it
+ * (`AutomationResult.flowLabel`), absent when the answer carried none; the
+ * runner localizes it (see the header).
+ */
+export interface ScreenFlowState extends Pick<AutomationResult, 'flowLabel'> {
   flowName: string;
   runId: string;
   screen: ScreenSpec;
@@ -301,6 +344,7 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
   const [screen, setScreen] = useState<ScreenSpec | null>(null);
   const [runId, setRunId] = useState('');
   const [flowName, setFlowName] = useState('');
+  const [flowLabel, setFlowLabel] = useState<ScreenFlowState['flowLabel']>(undefined);
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [submitting, setSubmitting] = useState(false);
   const [resumeError, setResumeError] = useState<ResumeError | null>(null);
@@ -311,6 +355,7 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
       setScreen(state.screen);
       setRunId(state.runId);
       setFlowName(state.flowName);
+      setFlowLabel(state.flowLabel);
       setValues(initialScreenValues(state.screen));
       // A fresh run must not open under the previous run's refusal.
       setResumeError(null);
@@ -326,7 +371,10 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
   // to keep stable (AGENTS.md §5 #10). `screen` stays the payload the run is
   // driven by; `shown` differs from it in copy only, so every DISPLAY read —
   // including the names in the missing-fields toast below — goes through it.
-  const shown = localizeScreen(screen, flowName, activeFlowsBundle(i18n, language, flowName), language);
+  const bundle = activeFlowsBundle(i18n, language, flowName);
+  const shown = localizeScreen(screen, flowName, bundle, language);
+  // The flow's name as the user reads it (objectui#11092), from the same bundle.
+  const shownFlowLabel = displayFlowLabel(flowName, flowLabel, bundle, language);
 
   const setVal = (name: string, v: unknown) => {
     setValues((p) => ({ ...p, [name]: v }));
@@ -381,13 +429,18 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
     if (outcome.kind === 'paused') {
       setScreen(outcome.screen);
       setRunId(outcome.runId || runId);
+      setFlowLabel(outcome.flowLabel);
       setValues(initialScreenValues(outcome.screen));
       toast.success(t('flowRunner.nextStep', { defaultValue: 'Saved — next step' }));
     } else {
-      // Terminal success — show the flow's declared completion message.
+      // Terminal success — show the flow's declared completion message, else
+      // the catalog's sentence naming the flow by the label this answer served.
       toast.success(
         outcome.successMessage
-          || t('flowRunner.completed', { flow: flowName, defaultValue: 'Flow "{{flow}}" completed' }),
+          || t('flowRunner.completed', {
+            flow: displayFlowLabel(flowName, outcome.flowLabel, bundle, language),
+            defaultValue: 'Flow "{{flow}}" completed',
+          }),
       );
       // The flow may have written ANY object — a quote created from an
       // Opportunity page lands in a related list this component cannot name.
@@ -483,6 +536,9 @@ export function FlowRunner({ state, authFetch, baseUrl, onClose, onComplete, dat
     <Dialog open onOpenChange={(o) => { if (!o && !submitting) onClose(); }}>
       <DialogContent className={isObjectForm ? 'sm:max-w-3xl max-h-[90vh] overflow-y-auto' : 'sm:max-w-md'}>
         <DialogHeader>
+          {/* The flow being run (objectui#11092), above the step's own heading,
+              which stays the dialog's title. */}
+          <p className="text-xs font-medium text-muted-foreground">{shownFlowLabel}</p>
           <DialogTitle>{shown.title || t('flowRunner.title', { defaultValue: 'Input' })}</DialogTitle>
           {/* Authored and untranslated on purpose: `description` is outside the
               spec's flows face (see the header). */}

@@ -33,6 +33,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 import { EXPRESSION_BINDABLE_TEXT_KEYS, expressionBindableTextKeysFor } from '@objectstack/spec/ui';
+import { nodeSlotsFor } from '@object-ui/types';
 
 import { check } from '../commands/check.js';
 import { formatIssuePath } from '../utils/issue-path.js';
@@ -247,6 +248,79 @@ describe('sub-rule (i): component nodes only', () => {
     expect(refusalLines()).toHaveLength(1);
     expect(refusalLines()[0]).toContain(`at ${formatIssuePath(['children', 0, 'label'])}:`);
     expect(exitCodes).toEqual([1]);
+  });
+});
+
+/**
+ * The walk reaches the node slots the node's type declares (objectui#11170):
+ * `nodeSlotsFor` in `@object-ui/types`, the declaration core's
+ * `validateChildren` and the SDUI parser read too. Each case pins the path the
+ * way this command prints it, and the false-refusal rows of PR #11126's
+ * ablation 2 — `fields[]`, `columns[]`, `{ "type": "multiple" }` — stay green
+ * beside them: reach is decided by the declaration, not by the shape of a value.
+ */
+describe('component nodes under a declared node slot are judged (objectui#11170)', () => {
+  it('refuses under a direct slot (`dialog.content`), printing the slot path', async () => {
+    expect(nodeSlotsFor('dialog').map((s) => s.path)).toContain('content');
+    const document = { type: 'dialog', trigger: { type: 'button', label: 'Open' }, content: [{ type: 'text', value: EXPR }] };
+    await checkOne(document);
+    expect(findUnbindableTextExpressions(document).map((f) => f.path)).toEqual([['content', 0, 'value']]);
+    expect(refusalLines()).toHaveLength(1);
+    expect(refusalLines()[0]).toContain(`at ${formatIssuePath(['content', 0, 'value'])}:`);
+    expect(exitCodes).toEqual([1]);
+  });
+
+  it('refuses under a panel list (`tabs.items[].content`) and under a page’s `regions[].components`', async () => {
+    const tabs = { type: 'tabs', items: [{ value: 'a', label: 'A', content: { type: 'text', value: EXPR } }] };
+    expect(findUnbindableTextExpressions(tabs).map((f) => f.path)).toEqual([['items', 0, 'content', 'value']]);
+    await checkOne(tabs);
+    expect(refusalLines()[0]).toContain(`at ${formatIssuePath(['items', 0, 'content', 'value'])}:`);
+
+    lines = [];
+    exitCodes = [];
+    const page = { type: 'page', title: EXPR, regions: [{ name: 'main', components: [{ type: 'action:button', label: EXPR }] }] };
+    await checkOne(page);
+    // The page root's own `title` is still a page key (sub-rule i); the region node is judged.
+    expect(findUnbindableTextExpressions(page).map((f) => f.path)).toEqual([['regions', 0, 'components', 0, 'label']]);
+    expect(refusalLines()).toHaveLength(1);
+    expect(exitCodes).toEqual([1]);
+  });
+
+  it('walks a slot under a child under a slot, every hop in the path', () => {
+    const document = {
+      type: 'flex',
+      children: [{ type: 'sheet', content: { type: 'card', footer: [{ type: 'text', value: EXPR }] } }],
+    };
+    expect(findUnbindableTextExpressions(document).map((f) => f.path)).toEqual([
+      ['children', 0, 'content', 'footer', 0, 'value'],
+    ]);
+  });
+
+  it('walks the retired `body` only where the renderer still paints it (`page:card`), never as a generic key', () => {
+    expect(nodeSlotsFor('page:card').find((s) => s.path === 'body')?.retired).toBe(true);
+    expect(findUnbindableTextExpressions({ type: 'page:card', body: [{ type: 'text', value: EXPR }] }).map((f) => f.path)).toEqual([
+      ['body', 0, 'value'],
+    ]);
+    expect(nodeSlotsFor('badge')).toEqual([]);
+    expect(findUnbindableTextExpressions({ type: 'badge', body: [{ type: 'text', value: EXPR }] })).toEqual([]);
+  });
+
+  it('does not walk a key that is a slot of another type, nor the ablation-2 definition lists', async () => {
+    // `content` is `dialog`'s slot and nothing of `text`'s.
+    expect(findUnbindableTextExpressions({ type: 'text', content: { type: 'text', value: EXPR } })).toEqual([]);
+    // PR #11126's ablation 2, verbatim: these must stay green.
+    const field = { name: 'total', type: 'text', label: EXPR };
+    await checkOne({ type: 'form', fields: [field] });
+    expect(refusalLines()).toEqual([]);
+    expect(findUnbindableTextExpressions({ type: 'data-table', columns: [{ type: 'text', label: EXPR }] })).toEqual([]);
+    expect(findUnbindableTextExpressions({ type: 'data-table', selection: { type: 'multiple', label: EXPR } })).toEqual([]);
+    expect(exitCodes).toEqual([]);
+  });
+
+  it('a type with no row — unknown types included — has only its `children` walked', () => {
+    expect(nodeSlotsFor('stat-card')).toEqual([]);
+    const document = { type: 'stat-card', content: { type: 'text', value: EXPR }, children: [{ type: 'text', value: EXPR }] };
+    expect(findUnbindableTextExpressions(document).map((f) => f.path)).toEqual([['children', 0, 'value']]);
   });
 });
 

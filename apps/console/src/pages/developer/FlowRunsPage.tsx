@@ -303,9 +303,11 @@ function FlowTestRunner({
       const res = await client.automation.execute(flow.name, { params });
       setResult(res);
       // Screen flow: the run is suspended at a `screen` node. Open the runner
-      // so the tester can fill it in and the run can actually finish.
+      // so the tester can fill it in and the run can actually finish. `res` is
+      // the trigger door's `AutomationResult`, so it carries the flow's served
+      // `flowLabel` the runner names the flow by (objectui#11092).
       if (res?.status === 'paused' && res?.screen && res?.runId) {
-        setScreenFlow({ flowName: flow.name, runId: res.runId, screen: res.screen });
+        setScreenFlow({ flowName: flow.name, flowLabel: res.flowLabel, runId: res.runId, screen: res.screen });
       }
       onExecuted?.();
     } catch (e: any) {
@@ -394,7 +396,14 @@ function FlowTestRunner({
                 <Button
                   size="sm"
                   variant="outline"
-                  onClick={() => setScreenFlow({ flowName: flow.name, runId: result.runId, screen: result.screen })}
+                  onClick={() =>
+                    setScreenFlow({
+                      flowName: flow.name,
+                      flowLabel: result.flowLabel,
+                      runId: result.runId,
+                      screen: result.screen,
+                    })
+                  }
                 >
                   Continue run
                 </Button>

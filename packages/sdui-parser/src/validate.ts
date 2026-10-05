@@ -8,6 +8,13 @@
  * `requires` (plugin provenance) and binding sites the SERVER must resolve
  * against object schema (we cannot resolve objects/fields here — that check is
  * framework-side by design).
+ *
+ * The walk descends `children` on every node and, for a component the
+ * manifest knows, the NODE SLOTS its entry carries (`ManifestComponent.slots`,
+ * objectui#11170) — the positions besides `children` through which that
+ * renderer hands nodes back to `SchemaRenderer`, projected from the one
+ * declaration in `@object-ui/types` by `manifestFromConfigs`. ⛔ No slot list
+ * lives here.
  */
 
 import type {
@@ -172,6 +179,47 @@ const WHERE_UNDECLARED_BASE_PROPS = basePropNames('where-undeclared');
 const isExpr = (v: unknown): boolean =>
   typeof v === 'object' && v !== null && '$expr' in (v as Record<string, unknown>);
 
+const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null && !Array.isArray(v);
+
+const isElement = (v: unknown): v is SchemaElement =>
+  isPlainObject(v) && typeof v.type === 'string';
+
+/**
+ * The element nodes a slot position holds on `node`, in document order.
+ *
+ * The position is spelled in `@object-ui/types`' key-path grammar, which that
+ * package's `nodeSlotValues` implements for the other two readers and whose
+ * header states it: keys separated by `.`, a key followed by `[]` meaning each
+ * element of the array under it, and the value at the end being one node or a
+ * list of nodes. Restated here because this package imports nothing at
+ * runtime; the components-side census for objectui#11170 holds the two walks
+ * to the same answer over the same fixtures. Only element-shaped values are
+ * returned — a string child is legal in a slot and has nothing to validate.
+ */
+function slotElements(node: SchemaElement, path: string): SchemaElement[] {
+  let holders: unknown[] = [node];
+  for (const segment of path.split('.')) {
+    const each = segment.endsWith('[]');
+    const key = each ? segment.slice(0, -2) : segment;
+    const next: unknown[] = [];
+    for (const holder of holders) {
+      if (!isPlainObject(holder)) continue;
+      const value = holder[key];
+      if (!each) next.push(value);
+      else if (Array.isArray(value)) next.push(...value);
+    }
+    holders = next;
+  }
+  const found: SchemaElement[] = [];
+  for (const holder of holders) {
+    for (const value of Array.isArray(holder) ? holder : [holder]) {
+      if (isElement(value)) found.push(value);
+    }
+  }
+  return found;
+}
+
 export function validateTree(tree: SchemaElement | null, manifest: Manifest): ManifestValidationResult {
   const diagnostics: Diagnostic[] = [];
   const requires = new Set<string>();
@@ -309,6 +357,13 @@ export function validateTree(tree: SchemaElement | null, manifest: Manifest): Ma
     }
 
     if (node.children) node.children.forEach(visit);
+    // The node slots this component's renderer reads besides `children`
+    // (objectui#11170), as its manifest entry declares them. An unknown
+    // component has no entry and so no slots: its `unknown-component` above is
+    // the answer, and nothing under it is judged.
+    for (const path of comp?.slots ?? []) {
+      for (const element of slotElements(node, path)) visit(element);
+    }
   };
 
   if (tree) visit(tree);

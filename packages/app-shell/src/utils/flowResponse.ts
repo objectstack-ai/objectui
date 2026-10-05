@@ -22,7 +22,8 @@
  *     success: boolean,    ← required; FALSE when the run failed
  *     status?: 'completed' | 'paused' | 'failed',
  *     runId?, screen?,     ← set when paused at a `screen` node
- *     error?, errorMessage?, successMessage?
+ *     error?, errorMessage?, successMessage?,
+ *     flowLabel?           ← the flow's authored label (see below)
  *   }
  * }
  * ```
@@ -123,11 +124,23 @@
  * objectstack#14945 ruling (Close only, no completion toast) broken on the one
  * route `FlowRunner` never sees. {@link judgeFlowLaunch} is that decision,
  * once, so the next change cannot land in only one of the two hosts.
+ *
+ * ## The flow's label is lifted here, once (objectui#11092)
+ *
+ * Every 200 that evaluated a registered flow carries `flowLabel`, the flow
+ * definition's authored label (`AutomationResult.flowLabel`, objectstack#20633).
+ * `FlowRunner` names the flow by it, so it has to reach the runner from both
+ * launch hosts and from the runner's own resume. It is read in ONE place,
+ * {@link servedFlowLabel}, and carried on the `paused` and `done` arms and on
+ * the `screen` follow-up, typed by the contract rather than by a local copy.
+ * The `refused` arm does not carry it: nothing that arm opens names the flow
+ * (the launch notice is titled with the action's own label).
  */
 
 import { actionErrorDetail } from '@object-ui/core';
 import type { ActionResult } from '@object-ui/core';
 import { errorCodeIs } from '@object-ui/types';
+import type { AutomationResult } from '@objectstack/spec/contracts';
 
 /**
  * The `AutomationResult` fields the console reads. Deliberately loose: this is
@@ -193,8 +206,8 @@ export type FlowResponseOutcome<S = unknown> =
          */
         retryable: boolean;
     }
-    | { kind: 'paused'; runId?: string; screen: S; data: FlowRunResult }
-    | { kind: 'done'; data: FlowRunResult | undefined; successMessage?: string };
+    | ({ kind: 'paused'; runId?: string; screen: S; data: FlowRunResult } & Pick<AutomationResult, 'flowLabel'>)
+    | ({ kind: 'done'; data: FlowRunResult | undefined; successMessage?: string } & Pick<AutomationResult, 'flowLabel'>);
 
 /**
  * A flow declares a friendly `errorMessage`; prefer it over the raw `error`,
@@ -212,6 +225,16 @@ function flowFailureMessage(data: FlowRunResult, fallback: string): string {
  * has always been able to arrive as a bare string, and a non-2xx may carry no
  * parseable body at all, so nothing here may assume an object.
  */
+/**
+ * The flow's authored label as the answer serves it (objectui#11092 — see the
+ * header). Read from the ONE member the contract declares, with no alias chain
+ * (commandment #0.1). `undefined` when the body carries no string there: a
+ * backend older than objectstack#20633, or a body that is not an evaluation.
+ */
+function servedFlowLabel(data: FlowRunResult): AutomationResult['flowLabel'] {
+    return typeof data.flowLabel === 'string' ? data.flowLabel : undefined;
+}
+
 function errorEnvelopeDetails(json: unknown): FlowRunResult {
     const envelope = (json as { error?: { details?: unknown } } | null | undefined)?.error;
     const details = envelope?.details;
@@ -289,7 +312,7 @@ export function interpretFlowResponse<S = unknown>(
     }
 
     if (data.status === 'paused' && data.screen) {
-        return { kind: 'paused', runId: data.runId, screen: data.screen as S, data };
+        return { kind: 'paused', runId: data.runId, screen: data.screen as S, data, flowLabel: servedFlowLabel(data) };
     }
 
     // The run reached an `end` node declaring `outcome: 'refused'` (objectstack#14945):
@@ -314,6 +337,7 @@ export function interpretFlowResponse<S = unknown>(
         kind: 'done',
         data: json?.data as FlowRunResult | undefined,
         successMessage: typeof data.successMessage === 'string' ? data.successMessage : undefined,
+        flowLabel: servedFlowLabel(data),
     };
 }
 
@@ -322,8 +346,11 @@ export function interpretFlowResponse<S = unknown>(
  * caller's screen type, as on {@link FlowResponseOutcome}.
  */
 export type FlowLaunchFollowUp<S = unknown> =
-    /** Paused at a `screen` node: the host opens `FlowRunner` on this run. */
-    | { kind: 'screen'; runId: string; screen: S }
+    /**
+     * Paused at a `screen` node: the host opens `FlowRunner` on this run,
+     * handing it the served `flowLabel` with the screen (objectui#11092).
+     */
+    | ({ kind: 'screen'; runId: string; screen: S } & Pick<AutomationResult, 'flowLabel'>)
     /**
      * Ended `refused` without pausing: the host opens its Close-only refusal
      * notice. `message` is the engine-rendered sentence, `''` when the producer
@@ -373,7 +400,12 @@ export function judgeFlowLaunch<S = unknown>(
         case 'paused':
             return {
                 result: { success: true, silent: true },
-                followUp: { kind: 'screen', runId: outcome.runId ?? '', screen: outcome.screen },
+                followUp: {
+                    kind: 'screen',
+                    runId: outcome.runId ?? '',
+                    screen: outcome.screen,
+                    flowLabel: outcome.flowLabel,
+                },
                 refresh: false,
             };
         case 'refused':

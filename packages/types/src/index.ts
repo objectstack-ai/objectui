@@ -129,6 +129,12 @@ export type {
   EventHandlers,
   StyleProps,
 } from './base.js';
+// Per-type NODE SLOTS beside `BaseSchema.children` (objectui#11170): where a
+// renderer hands authored nodes back to `SchemaRenderer` through a key other
+// than `children`, read by the `objectui check` gate, core's `validateChildren`
+// and the SDUI parser's manifest projection so that none keeps a list of its own.
+export { NODE_SLOT_DECLARATIONS, nodeSlotsFor, nodeSlotPathSegments, nodeSlotValues } from './node-slots.js';
+export type { NodeSlotDeclaration, NodeSlotRow, NodeSlotSegment, NodeSlotValue } from './node-slots.js';
 // The predicate WIRE shape `BaseSchema.visible` / `.hidden` / `.disabled` and
 // the form predicate keys share (objectui#7530): a bare string or the CEL
 // envelope `{ dialect?, source }`. Its zod twin is `ExpressionWireSchema` on

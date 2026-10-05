@@ -10,6 +10,7 @@ import {
   EXPRESSION_BINDABLE_TEXT_KEYS,
   expressionBindableTextKeysFor,
 } from '@objectstack/spec/ui';
+import { nodeSlotValues, nodeSlotsFor } from '@object-ui/types';
 
 import { formatIssuePath } from './issue-path.js';
 import { isKnownSchemaType } from './known-schema-types.js';
@@ -49,7 +50,8 @@ import { isKnownSchemaType } from './known-schema-types.js';
  * suite `SchemaRenderer.bindableTextKeys.test.tsx`, this gate's over every
  * registered type by `check-unbindable-text-expression-4795.test.ts`.
  *
- * ## What a component node is: the root, and what `children` holds
+ * ## What a component node is: the root, what `children` holds, and the
+ * ## node slots the node's type declares
  *
  * `SchemaRenderer` does not recurse on its own. Each renderer decides which of
  * its keys it hands back to `SchemaRenderer`, and many keys that hold objects
@@ -60,13 +62,17 @@ import { isKnownSchemaType } from './known-schema-types.js';
  * `{ "type": "text", "label": "${…}" }` inside `fields[]` — a false refusal
  * on a key this gate has no business judging.
  *
- * So the walk follows the protocol's ONE composition key,
- * `BaseSchema.children`, from the document root: the same single spelling the
- * core validator's recursive walk and the SDUI parser's child-list key follow.
- * Nodes that a renderer reaches through a key of its own (`trigger`, `footer`,
- * a page's `regions`, a tab's `content`) are not walked. That is a stated
- * boundary, and it fails quiet in the safe direction: a node the walk does not
- * reach is not refused, and nothing outside a component node is refused.
+ * So the walk follows two things and nothing else, from the document root:
+ * the protocol's ONE composition key, `BaseSchema.children`, on every node;
+ * and the NODE SLOTS declared for the node's type — `nodeSlotsFor(type)` in
+ * `@object-ui/types` (objectui#11170), the one declaration of where a
+ * renderer hands nodes back through a key of its own (`trigger`, `footer`, a
+ * page's `regions[].components`, a tab's `items[].content`). The core
+ * validator's recursive walk and the SDUI parser read the same declaration;
+ * ⛔ this gate keeps no slot list of its own. The declaration's header says
+ * what a slot is, how a position is spelled and which test holds each row
+ * against the live renderer. A type with no row — an unknown or custom type
+ * included — has its `children` walked and nothing else.
  *
  * ## What an expression is
  *
@@ -78,7 +84,10 @@ import { isKnownSchemaType } from './known-schema-types.js';
 /** The evaluator's interpolation pattern, as `ExpressionEvaluator.evaluate` matches it. */
 const EXPRESSION_PATTERN = /\$\{[^}]+\}/;
 
-/** The protocol's one composition key: `BaseSchema.children`. */
+/**
+ * The protocol's one composition key: `BaseSchema.children`. Walked on every
+ * node; the per-type node slots beside it come from `nodeSlotsFor`.
+ */
 const COMPOSITION_KEY = 'children';
 
 /**
@@ -151,6 +160,15 @@ function visit(
     });
   } else if (isComponentNode(children)) {
     visit(children, [...path, COMPOSITION_KEY], false, into);
+  }
+  // The node slots this type's renderer reads (objectui#11170): the same
+  // declaration core's `validateChildren` and the SDUI parser walk. Retired
+  // positions are walked too — the renderer still paints them, so a `${…}`
+  // under one still reaches the user.
+  for (const slot of nodeSlotsFor(node.type)) {
+    for (const { segments, value } of nodeSlotValues(node, slot.path)) {
+      if (isComponentNode(value)) visit(value, [...path, ...segments], false, into);
+    }
   }
 }
 

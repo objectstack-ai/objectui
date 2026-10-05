@@ -2274,21 +2274,24 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           //    fields stay tucked away.
           const grouped = deriveFieldGroupDetailSections(objectDef as any);
           if (grouped) {
-            return grouped.flatMap((sec: any) => {
+            return grouped.flatMap<Record<string, unknown>>((sec: any) => {
               if (!sec.name) {
                 return splitPrimarySecondary(
                   (sec.fields as any[]).map((f: any) => f.name),
                 );
               }
-              return [{
-                ...sec,
-                // Re-resolve the derived heading through the per-object i18n
-                // convention. Reads and writes the same one slot the
-                // synthesizer emits and `record:details` consumes —
-                // `label` (objectui#6190).
-                label: sectionLabel(objectDef.name, sec.name, sec.label),
-                showBorder: true as const,
-              }];
+              // A declared group is written as the spec's own REFERENCE form,
+              // `{ group: KEY }` (`RecordDetailsProps.sections[].group`,
+              // ADR-0085 §5), never as an enumerated copy of the group
+              // (objectui#11630). `record:details` resolves it against the
+              // object's `fieldGroups` — members, heading (through the same
+              // per-object i18n convention, `sectionLabel`), icon,
+              // description, collapse — and evaluates the group's
+              // `visibleWhen` against this record, which an enumerated copy
+              // cannot carry: the spec refuses `visibleWhen` on one. The
+              // Card chrome stays this page's layout choice, a key the spec
+              // permits beside `group`.
+              return [{ group: sec.name as string, showBorder: true as const }];
             });
           }
 

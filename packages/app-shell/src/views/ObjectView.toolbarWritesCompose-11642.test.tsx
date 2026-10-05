@@ -200,7 +200,7 @@ function makeStore(seed: Record<string, any>[], opts: { putDelayMs?: (n: number)
       if (!item) throw Object.assign(new Error(`Not found: ${type}/${name}`), { status: 404 });
       return { type, name, item: structuredClone(item) };
     }),
-    saveItem: vi.fn(async (type: string, name: string, item: any) => {
+    saveItem: vi.fn(async (_type: string, name: string, item: any) => {
       const n = bodies.push(structuredClone(item));
       const delay = opts.putDelayMs?.(n) ?? 0;
       if (delay) await new Promise((resolve) => setTimeout(resolve, delay));

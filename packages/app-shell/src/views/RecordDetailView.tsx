@@ -2274,7 +2274,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
           //    fields stay tucked away.
           const grouped = deriveFieldGroupDetailSections(objectDef as any);
           if (grouped) {
-            return grouped.flatMap((sec: any) => {
+            return grouped.flatMap<Record<string, any>>((sec: any) => {
               if (!sec.name) {
                 return splitPrimarySecondary(
                   (sec.fields as any[]).map((f: any) => f.name),

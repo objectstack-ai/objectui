@@ -11,7 +11,7 @@
  */
 
 import React from 'react';
-import { useRecordContext, useHighlightFieldNames, useSafeFieldLabel } from '@object-ui/react';
+import { useRecordContext, useHighlightFieldNames, useSafeFieldLabel, usePredicateScope } from '@object-ui/react';
 import { useFieldPermissions, usePermissions } from '@object-ui/permissions';
 import { useObjectTranslation, pickLocalized } from '@object-ui/i18n';
 import type { RecordDetailsComponentProps } from '@object-ui/types';
@@ -22,7 +22,9 @@ import {
   formatTitleTemplate,
   isObjectInlineEditable,
   recordDisplayValueAt,
+  resolveFieldRuleState,
   resolveNameField,
+  toPredicateRecord,
   withoutDeniedFields,
 } from '@object-ui/core';
 import { DetailView } from '../DetailView';
@@ -117,6 +119,99 @@ export function resetUnresolvedSectionGroupReports(): void {
   reportedUnresolvedGroups.clear();
 }
 
+/**
+ * The record a section's `visibleWhen` is evaluated against — assembled the
+ * way the entry form assembles its own (objectui#11630).
+ *
+ * The form's `ruleRecord` (`@object-ui/components`' form renderer) seeds every
+ * declared field to `null` and then overlays the DEFINED values it holds, so a
+ * predicate naming a column the read did not return compares against `null`
+ * instead of faulting on a missing key. This does the same over the object's
+ * declared fields and the bound record.
+ *
+ * Relations are collapsed back to their stored foreign key first
+ * (`toPredicateRecord`): the edit form reads its record without `$expand`, so
+ * `record.owner == 'u1'` sees the id there, while this page's record may arrive
+ * expanded. Without the collapse one predicate would reach two verdicts on the
+ * same record.
+ */
+function sectionPredicateRecord(
+  data: Record<string, unknown> | null | undefined,
+  objectFields: Record<string, any> | undefined,
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (objectFields && typeof objectFields === 'object' && !Array.isArray(objectFields)) {
+    for (const name of Object.keys(objectFields)) out[name] = null;
+  }
+  const row = toPredicateRecord(data ?? {}, objectFields) as Record<string, unknown>;
+  for (const key of Object.keys(row)) {
+    if (row[key] !== undefined) out[key] = row[key];
+  }
+  return out;
+}
+
+/**
+ * Does a section's ADR-0089 `visibleWhen` admit it on this record?
+ * (objectui#11630 — "the detail page evaluates `visibleWhen` per group exactly
+ * as the form does".)
+ *
+ * The predicate reaches this renderer on a section that a field GROUP produced:
+ * `deriveFieldGroupDetailSections` carries it verbatim, both on the
+ * synthesized default page and on an authored `{ group }` reference, which
+ * inherits the group's `visibleWhen` per `@objectstack/spec`'s
+ * `RecordDetailsProps.sections[].group` describe.
+ *
+ * ⚠️ The key is NOT an authorable member of a `record:details` section, and
+ * nothing here declares it as one. The spec's section entry is strict and
+ * refuses `visibleWhen` on parse (`unrecognized_keys`), so neither
+ * `RecordDetailsComponentProps.sections[]` nor this block's registered
+ * `inputs` names it — the repo does not declare a key the spec refuses. To
+ * gate a section on a hand-authored page, gate the field GROUP and reference it
+ * with `{ group }`. The synthesized default page writes the key onto an
+ * enumerated section, which arrives here looking exactly like a hand-written
+ * one, so the read cannot be confined to group-produced sections by shape.
+ *
+ * ⭐ ONE evaluator, the form's: `resolveFieldRuleState` from `@object-ui/core`,
+ * the call the form renderer makes for a `section-divider` row's own
+ * `visibleWhen`, with the same three inputs it passes —
+ *
+ *  - `record` — {@link sectionPredicateRecord}; values bind under `record.`
+ *    only, so a bare `kind == 'pro'` is an unbound identifier on both
+ *    surfaces;
+ *  - `previous` — the SAME record. An edit form binds `previous` to the
+ *    persisted row, and the row this page shows IS the persisted row, so a
+ *    `previous.*` predicate reaches the verdict it reaches on that record's
+ *    unedited edit form;
+ *  - `scope` — `usePredicateScope()`, the host's `current_user` / `features`
+ *    roots, the hook the form calls.
+ *
+ * Both spellings are the evaluator's to read — a bare string is CEL, an
+ * envelope is read by its `dialect` — so neither is special-cased here.
+ *
+ * ⚠️ A predicate that cannot be evaluated (parse error, unbound identifier, a
+ * blank or `source`-less declaration) SHOWS the section, because that is what
+ * the form does: `resolveFieldRuleState` answers a faulted `visibleWhen` with
+ * `VISIBLE_WHEN_FAULTED` (`true`, ADR-0137 D3) and warns once per predicate
+ * text. Taking the direction from the shared evaluator rather than restating
+ * it here is what keeps the two surfaces from drifting if that constant moves.
+ */
+function sectionPredicateVisible(
+  section: Record<string, any>,
+  record: Record<string, unknown>,
+  scope: Record<string, any>,
+  where: string,
+): boolean {
+  if (section.visibleWhen == null) return true;
+  return resolveFieldRuleState(
+    { visibleWhen: section.visibleWhen },
+    record,
+    {},
+    record,
+    scope,
+    where,
+  ).visible;
+}
+
 export interface RecordDetailsRendererProps {
   schema?: RecordDetailsComponentProps & Record<string, any>;
   className?: string;
@@ -170,6 +265,11 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
   const { readableFields } = useFieldPermissions(objectName);
   const { sectionLabel } = useSafeFieldLabel();
   const { language } = useObjectTranslation();
+  // The host predicate scope (`current_user`, `features`, …) a section's
+  // `visibleWhen` binds beside `record` — the hook the entry form reads for the
+  // same predicate (objectui#11630). Called here with the other hooks because
+  // the returns below are conditional.
+  const predicateScope = usePredicateScope();
 
   // Phase N.4b: field names registered live by a mounted `record:highlights`
   // instance via HighlightFieldsContext (used to dedupe them out of the grid).
@@ -695,8 +795,32 @@ export const RecordDetailsRenderer: React.FC<RecordDetailsRendererProps> = ({
     return { ...derived, ...authored };
   };
 
+  // ── A group's `visibleWhen` (objectui#11630) ─────────────────────────────
+  //
+  // A section whose predicate is FALSE for this record is dropped whole —
+  // heading and members — before anything below draws it, which is what the
+  // form does with the same group (its divider row claims the members, and a
+  // FALSE verdict hides the row and every claimed field). Evaluated AFTER
+  // `resolveSectionGroup`, so an authored `{ group }` reference is gated by the
+  // predicate it inherits. Display only: the record API serves the gated
+  // fields either way, exactly as a hidden form section's values still submit.
+  //
+  // The record is assembled only when some section carries a predicate, so a
+  // page without one does no extra work and renders exactly as before.
+  let sectionRecord: Record<string, unknown> | undefined;
+  const sectionShown = (s: any, index: number): boolean => {
+    if (s.visibleWhen == null) return true;
+    sectionRecord ??= sectionPredicateRecord(ctx.data, objSchemaFields);
+    return sectionPredicateVisible(
+      s,
+      sectionRecord,
+      predicateScope,
+      `section '${s.name ?? index}' of record:details on object '${objectName}'`,
+    );
+  };
+
   const filteredSections = Array.isArray(schema.sections)
-    ? (schema.sections as any[]).map(resolveSectionGroup).filter((s) => s != null).map((s) => {
+    ? (schema.sections as any[]).map(resolveSectionGroup).filter((s) => s != null).filter(sectionShown).map((s) => {
         // Authored labels may carry inline translations (`{ en, 'zh-CN' }`) —
         // resolve via pickLocalized before any convention-based lookup.
         //

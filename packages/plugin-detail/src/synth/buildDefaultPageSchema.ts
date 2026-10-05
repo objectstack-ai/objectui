@@ -665,6 +665,9 @@ export function buildDefaultHighlights(
  * Section fields are emitted as rich descriptors (`{ name, label, type,
  * options }`) so DetailSection renders typed values without re-resolving
  * the object definition.
+ *
+ * A group that declares `visibleWhen` yields a section carrying it, verbatim
+ * and unevaluated (objectui#11630); `record:details` evaluates it per record.
  */
 export function deriveFieldGroupDetailSections(
   def: ObjectDefLike | undefined,
@@ -724,6 +727,18 @@ export function deriveFieldGroupDetailSections(
     ...(s.description ? { description: s.description } : {}),
     ...(s.collapse !== 'none' ? { collapsible: true } : {}),
     ...(s.collapse === 'collapsed' ? { defaultCollapsed: true } : {}),
+    // The group's ADR-0089 `visibleWhen` predicate (objectui#11630), carried
+    // VERBATIM and UNEVALUATED — a bare CEL string or a `{ dialect, source }`
+    // envelope, whichever the shared derivation passed through. Grouping is
+    // static layout and visibility is per-record state, so evaluation is not
+    // this function's job: `record:details` evaluates it against the bound
+    // record with the form's own evaluator (`resolveFieldRuleState`), see
+    // `sectionPredicateVisible` in `renderers/record-details.tsx`. This is the
+    // carriage `plugin-form`'s `deriveFieldGroupSections` already does for the
+    // form; dropping the key here is what let the detail page draw a section
+    // its author gated off. Never present on the trailing ungrouped bucket —
+    // the shared derivation never puts one there.
+    ...(s.visibleWhen !== undefined ? { visibleWhen: s.visibleWhen } : {}),
     columns,
     fields: s.fields.map(toField),
   }));

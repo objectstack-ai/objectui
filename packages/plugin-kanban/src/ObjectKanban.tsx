@@ -1296,7 +1296,7 @@ export const ObjectKanban: React.FC<ObjectKanbanComponentProps> = ({
     }
     const fieldType = resolveCellRendererType(def ?? { type: 'number' });
     const CellRenderer = getCellRenderer(fieldType);
-    const fieldForCell: any = def ?? { name: summarizeField, type: fieldType };
+    const fieldForCell = def ?? { name: summarizeField, type: fieldType };
     return {
       field: summarizeField,
       label: fieldLabel(objectDef?.name || schema.objectName || '', summarizeField, def?.label || summarizeField),

@@ -59,7 +59,7 @@ const { permsStub, permsState } = vi.hoisted(() => {
 
 vi.mock('@object-ui/permissions', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@object-ui/permissions')>();
-  return { ...actual, usePermissions: () => permsStub as any };
+  return { ...actual, usePermissions: () => permsStub as never };
 });
 
 // Registers `object-kanban`. Module scope, not a hook: the import IS the
@@ -109,9 +109,11 @@ const MIXED_ROWS = [
   { id: 't5', name: 'Win', stage: 'won', region: 'east', hours: 4, amount: 1250 },
 ];
 
-function makeAdapter(rows: any[]): Record<string, any> {
+type Row = Record<string, unknown>;
+
+function makeAdapter(rows: Row[]) {
   return {
-    find: vi.fn(async () => ({ data: rows })),
+    find: vi.fn(async (_object: string, _query?: Record<string, unknown>) => ({ data: rows })),
     findOne: vi.fn(),
     create: vi.fn(),
     update: vi.fn(),
@@ -127,11 +129,11 @@ const BOARD = {
   columns: LANES,
 };
 
-function renderBoard(rows: any[], extra: Record<string, unknown> = {}) {
+function renderBoard(rows: Row[], extra: Record<string, unknown> = {}) {
   const adapter = makeAdapter(rows);
   const view = render(
-    <SchemaRendererProvider dataSource={adapter as any}>
-      <SchemaRenderer schema={{ ...BOARD, ...extra } as any} />
+    <SchemaRendererProvider dataSource={adapter as never}>
+      <SchemaRenderer schema={{ ...BOARD, ...extra } as never} />
     </SchemaRendererProvider>,
   );
   return { ...view, adapter };

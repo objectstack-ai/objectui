@@ -1297,6 +1297,44 @@ async function toolbarWriteInputs(
 }
 
 /**
+ * The provenance mark on the tab this page MAKES for an object that declares no
+ * list view (objectui#11643): the `fallbackTab` the views memo hands
+ * {@link buildViewTabs}, which pushes it only when no defined or primary view
+ * exists.
+ *
+ * That tab is not a view anybody authored or served. No server serves it, and
+ * unless a stored row of the same name shadows it, no row backs it. Its id
+ * `all` is the console's placeholder, not a view name: a bare `all` would
+ * collide across objects, and storing a toolbar change under it would mint a
+ * metadata row nobody authored. Before this mark, a toolbar change on it took
+ * the overlay branch of `persistViewPatch` like a served view's and was sent as
+ * `PUT /meta/view/all` carrying no `viewKind`; with no registry entry of that
+ * name to inherit one from, the door judged the body as a view container and
+ * refused it (`422 INVALID_METADATA`), and the change was gone on reload.
+ *
+ * Triage's ruling (objectui#11643, comment `5988346142`): the fallback tab's
+ * toolbar changes apply for the session and send no metadata write, and no view
+ * is created to hold them. An object that wants saved personalization declares
+ * a list view, and the served-view path then applies.
+ *
+ * Why a mark and not the id: an object may declare a served list view whose tab
+ * id is `all` as well (a bare key in the object's own `listViews`), and that one
+ * keeps saving. Provenance is decided where the tab is made. Object spread and
+ * `Object.assign` copy a symbol-keyed property, so the mark rides every copy of
+ * the tab this page takes (the views memo, the active view, a config draft
+ * spread over it); `Object.entries`, `Object.keys` and `JSON.stringify` skip
+ * it, so it never reaches a request body. Module-local and not exported: it is
+ * a fact about this page's own tab, not a contract.
+ */
+const CONSOLE_MADE_TAB = Symbol('objectui#11643 console-made fallback tab');
+
+/** Whether `tab` is the tab this page made for a view-less object — see {@link CONSOLE_MADE_TAB}. */
+function isConsoleMadeTab(tab: unknown): boolean {
+    return !!tab && typeof tab === 'object'
+        && (tab as { [CONSOLE_MADE_TAB]?: unknown })[CONSOLE_MADE_TAB] === true;
+}
+
+/**
  * Item-level keys a switcher tab carries that belong to the ROW, not to the
  * view body — the ones this surface's own handlers write through `updateView`
  * (`isDefault`, `isPinned`, `sortOrder`; the adapter merges them at the row's
@@ -1544,6 +1582,16 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     const persistViewPatch = useCallback(
         (viewIdLocal: string, baseViewDef: Record<string, any>, patch: Record<string, any>) => {
             if (!dataSource?.updateViewConfig || !objectName || !viewIdLocal) return;
+            // objectui#11643 — the tab this page made for an object that
+            // declares no list view has no row to write into. Its toolbar
+            // changes apply for the session (the list keeps them in its own
+            // state) and nothing is scheduled here: no read, no PUT, no toast.
+            // One rule for every control that reaches this function — density,
+            // sort, hidden fields, column order and widths, inline edit. A
+            // stored row that shadows the tab is a real row (`isSavedViewId`,
+            // the classification the write below uses) and keeps its save
+            // path. See `CONSOLE_MADE_TAB`.
+            if (isConsoleMadeTab(baseViewDef) && !isSavedViewId(savedViewsRef.current, viewIdLocal)) return;
             // Merge into pending payload — every key present is the latest
             // value the user intended.
             const prev = persistPending.current[viewIdLocal] || {};
@@ -2195,6 +2243,9 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 id: 'all',
                 label: t('console.objectView.allRecords'),
                 type: 'grid',
+                // objectui#11643 — made here, so marked here: its toolbar
+                // changes are session-only. See `CONSOLE_MADE_TAB`.
+                [CONSOLE_MADE_TAB]: true,
             }),
         });
 

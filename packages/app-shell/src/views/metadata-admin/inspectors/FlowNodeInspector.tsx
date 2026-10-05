@@ -37,6 +37,9 @@ import {
   isFieldVisible,
   inactiveRetainedKind,
   getFieldValue,
+  readFieldValue,
+  switchedBlockOf,
+  isBareSwitchedOffBlock,
   configKeyOf,
   FLOW_NODE_TYPE_OPTIONS,
   type FlowConfigField,
@@ -365,7 +368,22 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
         nextEdges = syncDecisionEdgesByOrder(node.id, value, draftEdges);
       }
     }
-    let nextNode = setAtPath(node, path, stored);
+    // objectui#11660 — a block whose EXISTENCE is its switch (`switchedBlockOf`:
+    // the approval node's SLA escalation). Switching it off removes the block,
+    // and every value stored in it with it — triage's ruling: no
+    // `enabled: false` stub, no `timeoutHours` kept behind a disabled toggle.
+    // Any other write that leaves the bare `{ enabled: false }` stub (clearing
+    // the last value retained under a stored switched-off block) removes it as
+    // well. `setAtPath` deletes only the block — sibling config keys are not
+    // rebuilt — and prunes a `config` left empty.
+    const switched = switchedBlockOf(node, field);
+    let nextNode =
+      switched?.isSwitch && stored === false
+        ? setAtPath(node, [...switched.block], undefined)
+        : setAtPath(node, path, stored);
+    if (switched && isBareSwitchedOffBlock(nextNode, switched)) {
+      nextNode = setAtPath(nextNode, [...switched.block], undefined);
+    }
     // Migrate-on-edit: writing the canonical path drops any looser fallback
     // location, so the node never carries a stale duplicate (engine + designer agree).
     if (field.fallbackPath) nextNode = setAtPath(nextNode, field.fallbackPath, undefined);
@@ -489,7 +507,9 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
               // #4305 — show this repeater only the keys the typed sibling
               // fields do not own; `setField` merges its commit back.
               ? connectorInputExtras(getFieldValue(node, effField), effField.omitKeys)
-              : getFieldValue(node, effField);
+              // objectui#11660 — `readFieldValue`: a block switch over an
+              // absent block draws OFF, not its declared default.
+              : readFieldValue(node, effField);
         return (
           <FlowNodeConfigField
             key={field.id}

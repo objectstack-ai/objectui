@@ -993,6 +993,11 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     // `flow-node-config.spec-reconciliation.test.ts` derives every default in
     // this block from the installed `ApprovalEscalationSchema`, so the next
     // upstream flip reddens there rather than diverging silently again.
+    //
+    // That default applies INSIDE a block. Whether the block exists is the
+    // switch itself (objectui#11660, `BLOCK_SWITCHES` below): no block reads
+    // off, and switching off removes the block — so the engine-published copy
+    // of this gate behaves the same, it is keyed by path, not declared here.
     { id: 'escalation.enabled', path: ['config', 'escalation', 'enabled'], label: 'SLA escalation', kind: 'boolean', defaultValue: 'true', help: 'Escalate when a decision is not recorded within the timeout.' },
     { id: 'escalation.timeoutHours', path: ['config', 'escalation', 'timeoutHours'], label: 'Timeout (hours)', kind: 'number', placeholder: '24', showWhen: { field: 'escalation.enabled', equals: ['true'] } },
     {
@@ -1333,6 +1338,109 @@ export function getFieldValue(node: Record<string, unknown> | null | undefined, 
 }
 
 /**
+ * Boolean gates whose spec meaning is "the enclosing block EXISTS"
+ * (objectui#11660), keyed by node type and the gate's path.
+ *
+ * The approval node's SLA escalation is the one instance, and the spec states
+ * it in the declaration itself: `ApprovalEscalationSchema.enabled` is
+ * described as "the feature-level switch is whether the escalation block
+ * exists at all", while the block's `timeoutHours` is REQUIRED whatever
+ * `enabled` says. So the only spelling of OFF every reader accepts is NO
+ * BLOCK. The inspector used to write `{ enabled: false }` instead — a block
+ * `ApprovalNodeConfigSchema` refuses for its missing `timeoutHours`, so the
+ * flow saved and then failed at the approval node on every run.
+ *
+ * Keyed by PATH, not by a descriptor member: the offline table and the
+ * engine-published `configSchema` (`jsonSchemaToFlowFields`) both emit this
+ * path for the gate, so the rule holds whichever of the two produced the field
+ * on screen. Triage's ruling on objectui#11660 is what this list carries out:
+ * switching escalation off removes the block — no `enabled: false` stub, and
+ * no `timeoutHours` kept behind a disabled toggle.
+ */
+const BLOCK_SWITCHES: ReadonlyArray<{ nodeType: string; path: readonly string[] }> = [
+  { nodeType: 'approval', path: ['config', 'escalation', 'enabled'] },
+];
+
+/** Where a field sits relative to a {@link BLOCK_SWITCHES} block. */
+export interface SwitchedBlock {
+  /** The block whose existence is the switch, e.g. `['config', 'escalation']`. */
+  block: readonly string[];
+  /** The switch's own key inside that block, e.g. `enabled`. */
+  switchKey: string;
+  /** Whether the field IS the switch, rather than a value stored inside the block. */
+  isSwitch: boolean;
+}
+
+/**
+ * The switched block `field` belongs to on `node` — as its switch or as a
+ * value inside it — or `undefined` for every other field (objectui#11660).
+ */
+export function switchedBlockOf(
+  node: Record<string, unknown> | null | undefined,
+  field: Pick<FlowConfigField, 'path' | 'kind'>,
+): SwitchedBlock | undefined {
+  const type = node?.type;
+  if (typeof type !== 'string') return undefined;
+  for (const s of BLOCK_SWITCHES) {
+    if (s.nodeType !== type) continue;
+    const block = s.path.slice(0, -1);
+    if (field.path.length <= block.length || !block.every((seg, i) => field.path[i] === seg)) continue;
+    const isSwitch =
+      field.kind === 'boolean' && field.path.length === s.path.length && s.path.every((seg, i) => field.path[i] === seg);
+    return { block, switchKey: s.path[s.path.length - 1], isSwitch };
+  }
+  return undefined;
+}
+
+function blockAt(node: Record<string, unknown> | null | undefined, block: readonly string[]): unknown {
+  let cur: unknown = node;
+  for (const seg of block) {
+    if (cur && typeof cur === 'object' && !Array.isArray(cur)) cur = (cur as Record<string, unknown>)[seg];
+    else return undefined;
+  }
+  return cur;
+}
+
+const isPlainRecord = (v: unknown): v is Record<string, unknown> =>
+  !!v && typeof v === 'object' && !Array.isArray(v);
+
+/**
+ * The value a field's control draws and a `showWhen` controller resolves
+ * through: the stored value ({@link getFieldValue}), except that a block
+ * switch over an ABSENT block reads `false` (objectui#11660).
+ *
+ * The switch's declared default (`'true'`, the spec's `.default(true)`) is what
+ * the runtime applies to an `enabled` key omitted from a block that EXISTS —
+ * the objectui#6620 reading, unchanged: `{ timeoutHours: 24 }` draws checked.
+ * With no block there is nothing for that default to apply to, and the spec
+ * calls the block's absence OFF; reading the default there drew the toggle
+ * checked, and revealed the four escalation fields, on every approval node
+ * that has no escalation at all.
+ *
+ * A READ: it writes nothing, so a node that stores no block keeps storing none.
+ */
+export function readFieldValue(node: Record<string, unknown> | null | undefined, field: FlowConfigField): unknown {
+  const switched = switchedBlockOf(node, field);
+  if (switched?.isSwitch && !isPlainRecord(blockAt(node, switched.block))) return false;
+  return getFieldValue(node, field);
+}
+
+/**
+ * Whether `node` holds `switched`'s block as the bare `{ <switch>: false }`
+ * stub — OFF spelt as a block, which `ApprovalNodeConfigSchema` refuses for its
+ * missing `timeoutHours` and which absence already says (objectui#11660).
+ */
+export function isBareSwitchedOffBlock(
+  node: Record<string, unknown> | null | undefined,
+  switched: SwitchedBlock,
+): boolean {
+  const block = blockAt(node, switched.block);
+  if (!isPlainRecord(block)) return false;
+  const keys = Object.keys(block);
+  return keys.length === 1 && keys[0] === switched.switchKey && block[switched.switchKey] === false;
+}
+
+/**
  * The `config` key this field owns, or `undefined` for fields stored outside
  * `config` (spec-structured blocks, top-level `timeoutMs`). Used by the
  * inspector to compute "extra" config keys for the optional Advanced block —
@@ -1438,7 +1546,9 @@ function controllerAdmits(
   if (!field.showWhen) return true;
   const controller = fields.find((f) => f.id === field.showWhen!.field);
   if (!controller) return false;
-  const raw = getFieldValue(node, controller);
+  // `readFieldValue`, not the bare stored read: a block switch over an absent
+  // block resolves OFF rather than through its declared default (objectui#11660).
+  const raw = readFieldValue(node, controller);
   const resolved = isUnsetFieldValue(raw) ? controller.defaultValue : raw;
   // Boolean controllers (e.g. `escalation.enabled`) compare against 'true'/'false'.
   const value = typeof resolved === 'boolean' ? String(resolved) : resolved;

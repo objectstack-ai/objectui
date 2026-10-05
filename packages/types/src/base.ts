@@ -365,6 +365,13 @@ export interface BaseSchema {
    * which — a sentence that was itself load-bearing evidence on three
    * separate cards, because it told an author both spellings were live and
    * left them to guess per component.
+   *
+   * The keys OTHER than this one through which a renderer hands nodes back
+   * to `SchemaRenderer` — a dialog's `trigger`, a tab item's `content`, a
+   * page's `regions[].components` — are per-type and declared once, in
+   * `NODE_SLOT_DECLARATIONS` / `nodeSlotsFor` (`./node-slots.ts`,
+   * objectui#11170); every walk that judges a document follows `children`
+   * unconditionally and those positions by the node's type.
    */
   children?: SchemaNode | SchemaNode[];
 

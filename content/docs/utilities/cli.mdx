@@ -217,11 +217,17 @@ distinction matters:
 other type, the expression is never resolved: the user sees its literal text, or
 nothing. `objectui check` refuses it in every recognised file:
 
-- **Component nodes only.** The file's root node and every node its `children`
-  hold, at any depth. Objects under other keys (a form's `fields`, a grid's
-  `columns`) are definitions, not nodes, and are not judged. A root whose `type`
-  is `page` keeps its own `title`: that is a page key, while its `children` are
-  still judged.
+- **Component nodes only.** The file's root node, every node its `children`
+  hold, and every node under a slot the node's type declares — a dialog's
+  `trigger` and `content`, a tab item's `content`, a page's
+  `regions[].components` — at any depth. Which keys are slots is per type and
+  declared once, as `NODE_SLOT_DECLARATIONS` / `nodeSlotsFor` in
+  `@object-ui/types`, the same declaration core's schema validator and the
+  SDUI parser walk; the check keeps no list of its own. Objects under any other
+  key (a form's `fields`, a grid's `columns`) are definitions, not nodes, and
+  are not judged. A root whose `type` is `page` keeps its own `title`: that is
+  a page key, while its `children` and its regions' components are still
+  judged.
 - **The type is matched as written.** `ui:card` is not `card`, exactly as at
   render time.
 - **A type no registered component answers to** is warned about, not refused: a

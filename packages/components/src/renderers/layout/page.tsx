@@ -14,6 +14,7 @@
 
 import React, { useMemo } from 'react';
 import type { DeclaredNode, PageNodeSchema, PageNodeRegion, SchemaNode } from '@object-ui/types';
+import { nodeSlotsFor } from '@object-ui/types';
 import {
   SchemaRenderer,
   toRenderableSchema,
@@ -497,7 +498,13 @@ function getJsxManifest() {
         const meta = ComponentRegistry.getMeta(t);
         return { type: t, namespace: meta?.namespace, isContainer: meta?.isContainer, inputs: meta?.inputs };
       });
-    _jsxManifest = manifestFromConfigs(configs as unknown as Parameters<typeof manifestFromConfigs>[0]);
+    // `slotsFor` (objectui#11170): each entry carries the node slots its
+    // renderer reads besides `children`, from the one declaration in
+    // `@object-ui/types`, so the tier judges a node authored under a dialog's
+    // `content` or a tab item's `content` exactly as one under `children`.
+    _jsxManifest = manifestFromConfigs(configs as unknown as Parameters<typeof manifestFromConfigs>[0], {
+      slotsFor: nodeSlotsFor,
+    });
     _jsxManifestSig = version;
   }
   return _jsxManifest;

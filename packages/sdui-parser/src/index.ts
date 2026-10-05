@@ -61,6 +61,16 @@ export function compile(source: string, manifest: Manifest): CompileResult {
  * the `tier:'public'` set).
  * ------------------------------------------------------------------ */
 
+/**
+ * The shape of one `@object-ui/types` `NodeSlotDeclaration`, restated
+ * structurally because this package imports nothing at runtime: a position in
+ * that package's key-path grammar, and whether its spelling is retired.
+ */
+export interface NodeSlotDeclarationLike {
+  readonly path: string;
+  readonly retired?: boolean;
+}
+
 export interface RegistryConfigLike {
   type: string;
   namespace?: string;
@@ -184,19 +194,42 @@ export function assertFullyLoaded(configs: RegistryConfigLike[]): void {
  * no renderer read and sailed through it green (objectstack#4413; corrected in
  * objectstack#4472). Evidence about the render path has to come from the render
  * path — see `apps/console/src/__tests__/public-block-binding-reach.test.tsx`.
+ *
+ * `opts.slotsFor` is the one exception to "copied from the registration", and
+ * it is a DECLARATION too (objectui#11170): hand it `nodeSlotsFor` from
+ * `@object-ui/types` and every entry carries `slots`, the node-slot positions
+ * that type's renderer reads besides `children`, so `validateTree` judges the
+ * nodes under them. This package has no runtime dependency and so cannot
+ * import the declaration itself; the producers that build a live manifest
+ * (`getJsxManifest` in `@object-ui/components`' page renderer, the console's
+ * manifest generator) pass it. A RETIRED position is left out here: this is
+ * the authoring tier, and the spec's own authoring walks skip the tombstoned
+ * spellings for the same reason. Without the option no `slots` key is written,
+ * so every manifest built before the option existed serialises byte-identically.
  */
 export function manifestFromConfigs(
   configs: RegistryConfigLike[],
-  opts: { only?: Set<string>; publicOnly?: boolean } = {},
+  opts: {
+    only?: Set<string>;
+    publicOnly?: boolean;
+    slotsFor?: (type: string) => readonly NodeSlotDeclarationLike[];
+  } = {},
 ): Manifest {
   const components: Manifest['components'] = {};
   for (const c of configs) {
     if (opts.only && !opts.only.has(c.type)) continue;
     if (opts.publicOnly && c.tier !== 'public') continue;
+    const slots = opts.slotsFor
+      ? opts.slotsFor(c.type).filter((s) => !s.retired).map((s) => s.path)
+      : undefined;
     components[c.type] = {
       type: c.type,
       namespace: c.namespace,
       isContainer: c.isContainer,
+      // `undefined` is dropped by `JSON.stringify`, so a manifest built with
+      // no resolver — or an entry with no slots — serialises exactly as before
+      // this key existed.
+      slots: slots && slots.length > 0 ? slots : undefined,
       // The html tier's stamp, and ONLY that stamp (objectui#10735): a
       // registration's `'public'` / `'internal'` is registry mechanics the
       // manifest never carried, and `undefined` is dropped by `JSON.stringify`,

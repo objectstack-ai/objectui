@@ -22,12 +22,16 @@
  */
 import { writeFileSync } from 'node:fs';
 import { ComponentRegistry } from '@object-ui/core';
+import { nodeSlotsFor } from '@object-ui/types';
 import { assertFullyLoaded, generateBlockList, generateDts, manifestFromConfigs, type RegistryConfigLike } from '../src/index.js';
 
 export function buildArtifacts(outDir: string): void {
   const configs = ComponentRegistry.getPublicConfigs() as unknown as RegistryConfigLike[];
   assertFullyLoaded(configs);
-  const manifest = manifestFromConfigs(configs);
+  // `slotsFor` (objectui#11170): every entry carries the node slots its renderer
+  // reads besides `children`, from the one declaration in `@object-ui/types`, so
+  // the shipped manifest lets `validateTree` judge slot-held nodes.
+  const manifest = manifestFromConfigs(configs, { slotsFor: nodeSlotsFor });
   writeFileSync(`${outDir}/sdui.manifest.json`, JSON.stringify(manifest, null, 2));
   writeFileSync(`${outDir}/sdui-intrinsics.d.ts`, generateDts(manifest));
   writeFileSync(`${outDir}/sdui-blocks.md`, generateBlockList(manifest));

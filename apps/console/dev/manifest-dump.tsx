@@ -8,6 +8,7 @@
 import './manifest-registry';
 import { ComponentRegistry } from '@object-ui/core';
 import { assertFullyLoaded, manifestFromConfigs } from '@object-ui/sdui-parser';
+import { nodeSlotsFor } from '@object-ui/types';
 
 const out = document.getElementById('out')!;
 const win = window as unknown as { __MANIFEST?: string; __MANIFEST_ERROR?: string };
@@ -15,7 +16,10 @@ const win = window as unknown as { __MANIFEST?: string; __MANIFEST_ERROR?: strin
 try {
   const configs = ComponentRegistry.getPublicConfigs() as never;
   assertFullyLoaded(configs);
-  const json = JSON.stringify(manifestFromConfigs(configs), null, 2);
+  // `slotsFor` (objectui#11170): the dumped manifest carries each entry's node
+  // slots from the one declaration in `@object-ui/types`, as the shipped
+  // `sdui.manifest.json` does.
+  const json = JSON.stringify(manifestFromConfigs(configs, { slotsFor: nodeSlotsFor }), null, 2);
   out.textContent = json;
   win.__MANIFEST = json;
 } catch (err) {

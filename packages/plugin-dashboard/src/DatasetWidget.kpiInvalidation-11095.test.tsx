@@ -18,8 +18,9 @@
  * All, and declared writes. The fix is the producer's
  * (objectstack-ai/objectstack#20644): `AnalyticsResult.object` is declared in
  * `@objectstack/spec` 17.6.0 and named on every dataset answer, with or
- * without dimensions and with or without rows. Nothing changed here, so these
- * cases pin the consumer half of that contract.
+ * without dimensions and with or without rows. The producer half is pinned
+ * upstream, by `service-analytics`'s `dataset-answer-object.test.ts`, not here.
+ * Nothing changed in this package, so these cases pin the consumer half.
  *
  * The answers below have the shape the producer returns for a
  * `dimensions: []` selection: `rows`, `fields` and `object`, with no

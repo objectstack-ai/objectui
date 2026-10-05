@@ -397,11 +397,16 @@ describe('objectui#5233 WRITE — a SAVED view\'s own row is deliberately not na
         // a copied key to shadow, so the ruled harm cannot arise, while a
         // patch-only write would drop `config`/`columns`/`filter`/`label` on a
         // whole-document PUT and take the user's view with it.
-        expect(body.config).toEqual(SAVED_ROW.config);
+        //
+        // objectui#11625 — this row carries a `config`, so the door judges it
+        // by the spec's `viewItem` member and strips its top level: the patch
+        // is written INSIDE `config` (a top-level `sort` here was answered
+        // `200` and dropped), and nothing else in the body moves.
+        expect(body.config).toEqual({ ...SAVED_ROW.config, sort: [{ field: 'name', order: 'asc' }] });
         expect(body.columns).toEqual(SAVED_ROW.columns);
         expect(body.filter).toEqual(SAVED_ROW.filter);
         expect(body.label).toBe('My Pipeline');
-        expect(body.sort).toEqual([{ field: 'name', order: 'asc' }]);
+        expect(body).not.toHaveProperty('sort');
     });
 
     it('a toolbar toggle on a saved view leaves its definition intact at rest', async () => {
@@ -417,11 +422,13 @@ describe('objectui#5233 WRITE — a SAVED view\'s own row is deliberately not na
         );
 
         const stored = rows.get(`view::${SAVED_ID}`);
-        expect(stored.config).toEqual(SAVED_ROW.config);
+        // objectui#11625 — the density is stored where the door keeps it on
+        // an envelope-shaped row: inside `config`, beside the definition.
+        expect(stored.config).toEqual({ ...SAVED_ROW.config, rowHeight: 'compact' });
         expect(stored.columns).toEqual(SAVED_ROW.columns);
         expect(stored.filter).toEqual(SAVED_ROW.filter);
         expect(stored.label).toBe('My Pipeline');
-        expect(stored.rowHeight).toBe('compact');
+        expect(stored).not.toHaveProperty('rowHeight');
         // The marker stays withheld: stamping it would make `listViews()`
         // exclude the user's own view from the switcher (objectui#4227).
         expect(stored).not.toHaveProperty('_isOverride');

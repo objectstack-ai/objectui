@@ -446,6 +446,14 @@ export function galleryViewOptions(viewDef: any): Record<string, unknown> {
  * non-linear) and the shared name/type heuristic, which never invents a field
  * the object doesn't have (the old hard-coded 'status' did).
  *
+ * objectui#11629: `summarizeField` (the spec's "Field to sum at top of column")
+ * is relayed only when the view declares it. This block is the only kanban
+ * config `ListView` receives on this page when the stored row carries no
+ * `options.kanban` bag. Without the relay, the key never reached `ListView`'s
+ * projection or the board's column headers, so a view that declared it
+ * rendered counts with no totals. Like the lane, an absent key stays absent:
+ * no default field is invented.
+ *
  * Exported for the pin test.
  */
 export function kanbanViewOptions(viewDef: any, objectDef: any): Record<string, unknown> {
@@ -454,10 +462,12 @@ export function kanbanViewOptions(viewDef: any, objectDef: any): Record<string, 
         viewDef?.kanban?.groupField ||
         detectStatusField(objectDef as any) ||
         undefined;
+    const summarizeField = viewDef?.kanban?.summarizeField;
     return {
         ...(lane ? { groupByField: lane } : {}),
         titleField: viewDef?.kanban?.titleField || 'name',
         cardFields: viewDef?.kanban?.columns,
+        ...(summarizeField ? { summarizeField } : {}),
     };
 }
 

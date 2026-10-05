@@ -728,6 +728,109 @@ function isImportJobUndoable(job: Pick<ImportJobSummaryInfo, 'status' | 'undoabl
   return canUndo && !!job.undoable && !job.revertedAt && !isImportJobActive(job.status);
 }
 
+/** The statuses an import job never leaves. */
+const IMPORT_JOB_TERMINAL_STATUSES: ReadonlySet<string> = new Set(['succeeded', 'failed', 'cancelled']);
+
+/** How many progress reads the wizard spends, after the user cancels, waiting
+ *  for the cancelled job's outcome (one read per {@link IMPORT_JOB_POLL_INTERVAL}). */
+const IMPORT_JOB_CANCEL_SETTLE_READS = 10;
+
+/** The wizard's result for a job that reads `cancelled`: the rows the server
+ *  committed before the cancel took effect. One builder for both ways a job
+ *  ends cancelled — the wizard's own Cancel and the poll loop seeing a job
+ *  cancelled elsewhere (e.g. from the History list in another tab). */
+function cancelledJobToImportResult(prog: ImportJobProgressInfo): ImportResult {
+  return {
+    totalRows: prog.total,
+    importedRows: prog.created + prog.updated,
+    skippedRows: prog.skipped + prog.errors,
+    createdRows: prog.created,
+    updatedRows: prog.updated,
+    errors: [],
+    cancelled: true,
+  };
+}
+
+/** Whether a progress read is the job's final outcome, given the read before it.
+ *
+ *  A terminal status is enough for `succeeded` and `failed`: the worker writes
+ *  them together with its final counts. It is not enough for `cancelled`. The
+ *  server's cancel route marks the job row `cancelled` itself, before the
+ *  worker notices; the worker keeps writing rows until its next progress
+ *  boundary (cancel is cooperative — see `DataSource.cancelImportJob`), and
+ *  only then writes the final counts and, for a job it can undo, the undo log.
+ *  So a `cancelled` read is final once it is undoable (only that last write
+ *  makes it so), or once it repeats the previous `cancelled` read's counts. */
+function isSettledJobRead(prog: ImportJobProgressInfo, previous: ImportJobProgressInfo | null): boolean {
+  if (!IMPORT_JOB_TERMINAL_STATUSES.has(prog.status)) return false;
+  if (prog.status !== 'cancelled') return true;
+  if (prog.undoable) return true;
+  return previous !== null
+    && previous.status === 'cancelled'
+    && previous.processed === prog.processed
+    && previous.created === prog.created
+    && previous.updated === prog.updated
+    && previous.skipped === prog.skipped
+    && previous.errors === prog.errors;
+}
+
+/** Read a job until a read is its final outcome ({@link isSettledJobRead}), at
+ *  most `reads` times: the first read at once, then one per `interval`. A read
+ *  that fails counts against the bound and is otherwise skipped. Resolves to
+ *  the settled read, or `null` when none settled or `isStale()` turned true. */
+async function readSettledImportJob(
+  read: (jobId: string) => Promise<ImportJobProgressInfo>,
+  jobId: string,
+  reads: number,
+  interval: number,
+  isStale: () => boolean,
+): Promise<ImportJobProgressInfo | null> {
+  let previous: ImportJobProgressInfo | null = null;
+  for (let i = 0; i < reads; i++) {
+    if (i > 0) await new Promise((resolve) => setTimeout(resolve, interval));
+    if (isStale()) return null;
+    let prog: ImportJobProgressInfo;
+    try {
+      prog = await read(jobId);
+    } catch {
+      continue;
+    }
+    if (isSettledJobRead(prog, previous)) return prog;
+    previous = prog;
+  }
+  return null;
+}
+
+/** The Undo action, shared by the History list and the cancelled-result
+ *  screen: confirm (destructive + irreversible), roll the job back, hand a
+ *  failure to `onError` (cleared to `null` when an undo starts), then call
+ *  `onSettled` so the caller re-reads the job and the Undo button gives way to
+ *  "Undone". */
+function useImportJobUndo(
+  dataSource: unknown,
+  t: (key: string, vars?: Record<string, unknown>) => string,
+  onError: (message: string | null) => void,
+  onSettled: () => void,
+): { undoingId: string | null; undo: (jobId: string) => Promise<void> } {
+  // Job id currently being undone (disables its Undo button + confirm).
+  const [undoingId, setUndoingId] = useState<string | null>(null);
+  const undo = useCallback(async (jobId: string) => {
+    const ds = dataSource as Partial<DataSource> | undefined;
+    if (typeof ds?.undoImportJob !== 'function') return;
+    if (typeof window !== 'undefined' && !window.confirm(t('grid.import.undoConfirm'))) return;
+    setUndoingId(jobId); onError(null);
+    try {
+      await ds.undoImportJob(jobId);
+    } catch (err) {
+      onError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setUndoingId(null);
+      onSettled();
+    }
+  }, [dataSource, t, onError, onSettled]);
+  return { undoingId, undo };
+}
+
 /** Build a CSV blob of failed rows for re-export: the original mapped columns
  *  plus an `_error` column, so a user can fix and re-import just the failures. */
 function buildFailedRowsCsv(
@@ -1484,8 +1587,6 @@ const ImportHistoryPanel: React.FC<{
   const [jobs, setJobs] = useState<ImportJobSummaryInfo[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // Job id currently being undone (disables its row's Undo button + confirm).
-  const [undoingId, setUndoingId] = useState<string | null>(null);
 
   const ds = dataSource as Partial<DataSource> | undefined;
   const supported = typeof ds?.listImportJobs === 'function';
@@ -1516,19 +1617,8 @@ const ImportHistoryPanel: React.FC<{
   // Logical rollback: delete created records + restore updated ones. Confirms
   // first (destructive + irreversible), then reloads so the row flips to
   // "reverted" and its Undo button disappears.
-  const handleUndo = useCallback(async (jobId: string) => {
-    if (typeof ds?.undoImportJob !== 'function') return;
-    if (typeof window !== 'undefined' && !window.confirm(t('grid.import.undoConfirm'))) return;
-    setUndoingId(jobId); setError(null);
-    try {
-      await ds.undoImportJob(jobId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
-    } finally {
-      setUndoingId(null);
-      void load();
-    }
-  }, [ds, load, t]);
+  const reload = useCallback(() => { void load(); }, [load]);
+  const { undoingId, undo: handleUndo } = useImportJobUndo(dataSource, t, setError, reload);
 
   if (!supported) {
     return (
@@ -1638,6 +1728,14 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const [jobId, setJobId] = useState<string | null>(null);
   const [asyncCounts, setAsyncCounts] = useState<{ processed: number; total: number } | null>(null);
   const cancelPollRef = React.useRef(false);
+  // One import run at a time. The async paths capture this token, and a job
+  // outcome is published only while it is unchanged: publishing moves it on, so
+  // the poll loop and a user Cancel can never both publish (or call onComplete
+  // twice), and an outcome landing after a reset or a newer run is dropped.
+  const jobRunRef = React.useRef(0);
+  // The final read of the job the result screen shows, for its Undo button.
+  const [finishedJob, setFinishedJob] = useState<ImportJobProgressInfo | null>(null);
+  const [undoError, setUndoError] = useState<string | null>(null);
   // Small-file server dry-run pre-check — validates the exact payload without
   // writing, so the summary/error list reflect real coercion outcomes.
   const [validating, setValidating] = useState(false);
@@ -1945,6 +2043,34 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     setResult(importResult); setImporting(false); onComplete?.(importResult);
   }, [rows, mapping, fields, dataSource, objectName, onComplete, onErrorMode, corrections, t]);
 
+  // Publish a finished job's outcome — the result screen, the job read behind
+  // its Undo button, and onComplete — at most once per run (see jobRunRef). A
+  // `cancelled` read is its own result; the other terminal states fetch the
+  // per-row report. Resolves to whether this call published.
+  const publishJobOutcome = useCallback(async (
+    run: number,
+    id: string,
+    prog: ImportJobProgressInfo,
+  ): Promise<boolean> => {
+    const ds = dataSource as Partial<DataSource> | undefined;
+    let importResult: ImportResult;
+    if (prog.status === 'cancelled') {
+      importResult = cancelledJobToImportResult(prog);
+    } else {
+      if (typeof ds?.getImportJobResults !== 'function') return false;
+      importResult = jobResultToImportResult(await ds.getImportJobResults(id));
+      if (prog.status === 'failed' && importResult.errors.length === 0) {
+        importResult.errors.push({ row: 0, field: '', message: prog.error ?? 'Import failed' });
+      }
+    }
+    if (jobRunRef.current !== run) return false;
+    jobRunRef.current += 1;
+    if (prog.status !== 'cancelled') setProgress(100);
+    setFinishedJob(prog);
+    setResult(importResult); setImporting(false); onComplete?.(importResult);
+    return true;
+  }, [dataSource, onComplete]);
+
   // Large-file path: hand the rows to a server-side background job and poll it
   // to completion. Returns `true` when the async path handled the import
   // (success / failure / cancel) and `false` when the data source can't run
@@ -1960,6 +2086,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     }
 
     cancelPollRef.current = false;
+    const run = jobRunRef.current;
     let created: CreateImportJobResult;
     try {
       created = await ds.createImportJob(objectName, request);
@@ -1974,10 +2101,10 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     setJobId(created.jobId);
     setAsyncCounts({ processed: 0, total: created.total });
 
-    const terminal = new Set(['succeeded', 'failed', 'cancelled']);
     let consecutivePollErrors = 0;
-    // Poll until the job reaches a terminal state (or the user cancels, in
-    // which case the cancel handler owns producing the result).
+    let previous: ImportJobProgressInfo | null = null;
+    // Poll until the job's outcome is final (or the user cancels, in which
+    // case the cancel handler owns producing the result).
     for (;;) {
       if (cancelPollRef.current) return true;
       await new Promise((resolve) => setTimeout(resolve, IMPORT_JOB_POLL_INTERVAL));
@@ -1988,41 +2115,26 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
         prog = await ds.getImportJobProgress(created.jobId);
         consecutivePollErrors = 0;
       } catch (err) {
+        if (cancelPollRef.current) return true;
         // Tolerate transient poll blips; give up only after several in a row so
         // a network hiccup doesn't abort an import that's still running server-side.
         if (++consecutivePollErrors >= 5) throw err;
         continue;
       }
+      // A Cancel clicked while this read was in flight owns the outcome now.
+      if (cancelPollRef.current) return true;
 
       setAsyncCounts({ processed: prog.processed, total: prog.total });
       setProgress(prog.percentComplete);
 
-      if (!terminal.has(prog.status)) continue;
+      const settled = isSettledJobRead(prog, previous);
+      previous = prog;
+      if (!settled) continue;
 
-      if (prog.status === 'cancelled') {
-        const importResult: ImportResult = {
-          totalRows: prog.total,
-          importedRows: prog.created + prog.updated,
-          skippedRows: prog.skipped + prog.errors,
-          createdRows: prog.created,
-          updatedRows: prog.updated,
-          errors: [],
-          cancelled: true,
-        };
-        setResult(importResult); setImporting(false); onComplete?.(importResult);
-        return true;
-      }
-
-      const results = await ds.getImportJobResults(created.jobId);
-      const importResult = jobResultToImportResult(results);
-      if (prog.status === 'failed' && importResult.errors.length === 0) {
-        importResult.errors.push({ row: 0, field: '', message: prog.error ?? 'Import failed' });
-      }
-      setProgress(100);
-      setResult(importResult); setImporting(false); onComplete?.(importResult);
+      await publishJobOutcome(run, created.jobId, prog);
       return true;
     }
-  }, [dataSource, objectName, onComplete]);
+  }, [dataSource, objectName, publishJobOutcome]);
 
   // Assemble the server import request from the current mapping + options.
   // `dryRun` reuses the exact same payload the real import will send, so the
@@ -2042,7 +2154,8 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   const handleImport = useCallback(async () => {
     setImporting(true); setProgress(0);
     cancelPollRef.current = false;
-    setJobId(null); setAsyncCounts(null);
+    jobRunRef.current += 1;
+    setJobId(null); setAsyncCounts(null); setFinishedJob(null); setUndoError(null);
 
     const request = buildImportRequest();
 
@@ -2182,14 +2295,31 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
   }, [mapping, corrections, writeMode, matchFields, createMissingOptions, runAutomations, skipBlankMatchKey]);
 
   // User-initiated cancel of an in-flight async job. Stops the poll loop, asks
-  // the server to cancel (best-effort), and shows a cancelled result.
+  // the server to cancel (best-effort), then reads the job back until its
+  // outcome is final (bounded — see readSettledImportJob) and shows what the
+  // server committed, with Undo when the job can be undone. When no read
+  // settles within the bound, or the data source cannot read jobs, the result
+  // says only that the import was cancelled: it shows no count it never read.
   const handleCancelImport = useCallback(async () => {
     cancelPollRef.current = true;
+    const run = jobRunRef.current;
+    const isStale = () => jobRunRef.current !== run;
     const id = jobId;
     const ds = dataSource as Partial<DataSource> | undefined;
     if (id && typeof ds?.cancelImportJob === 'function') {
-      try { await ds.cancelImportJob(id); } catch { /* best-effort — the poll loop already stopped */ }
+      try { await ds.cancelImportJob(id); } catch { /* best-effort — the read below reports what happened */ }
     }
+    const read = typeof ds?.getImportJobProgress === 'function' ? ds.getImportJobProgress.bind(ds) : undefined;
+    if (id && read) {
+      const settled = await readSettledImportJob(
+        read, id, IMPORT_JOB_CANCEL_SETTLE_READS, IMPORT_JOB_POLL_INTERVAL, isStale,
+      );
+      try {
+        if (settled && await publishJobOutcome(run, id, settled)) return;
+      } catch { /* the per-row report failed — fall through to the bare cancelled result */ }
+    }
+    if (isStale()) return;
+    jobRunRef.current += 1;
     const importResult: ImportResult = {
       totalRows: asyncCounts?.total ?? rows.length,
       importedRows: 0,
@@ -2198,10 +2328,26 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
       cancelled: true,
     };
     setResult(importResult); setImporting(false);
-  }, [jobId, dataSource, asyncCounts, rows.length]);
+  }, [jobId, dataSource, asyncCounts, rows.length, publishJobOutcome]);
+
+  // Re-read the finished job after an Undo so its button gives way to "Undone".
+  // A read that lands after the wizard moved to another job is dropped.
+  const rereadFinishedJob = useCallback(() => {
+    const ds = dataSource as Partial<DataSource> | undefined;
+    const id = finishedJob?.jobId;
+    if (!id || typeof ds?.getImportJobProgress !== 'function') return;
+    ds.getImportJobProgress(id).then(
+      (job) => setFinishedJob((current) => (current?.jobId === job.jobId ? job : current)),
+      () => { /* keep the last read */ },
+    );
+  }, [dataSource, finishedJob?.jobId]);
+  const { undoingId, undo: undoFinishedJob } = useImportJobUndo(dataSource, t, setUndoError, rereadFinishedJob);
+  const canUndoJob = typeof (dataSource as Partial<DataSource> | undefined)?.undoImportJob === 'function';
 
   const reset = useCallback(() => {
     cancelPollRef.current = false;
+    jobRunRef.current += 1;
+    setFinishedJob(null); setUndoError(null);
     setStep('upload'); setHeaders([]); setRows([]); setMapping({}); setProgress(0); setResult(null);
     setCorrections({}); setSelectedTemplateId(null); setMappingName(null);
     setWriteMode('insert'); setMatchFields([]);
@@ -2443,7 +2589,9 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
             )}
             <div className="flex flex-wrap justify-center gap-2">
               {/* Prefer the finer created/updated breakdown when the server
-                  reports it; otherwise fall back to a single "imported" count. */}
+                  reports it; otherwise fall back to a single "imported" count.
+                  A cancelled result without the breakdown is one whose job the
+                  wizard could not read back, so it shows no count at all. */}
               {result.createdRows !== undefined || result.updatedRows !== undefined ? (
                 <>
                   {(result.createdRows ?? 0) > 0 && <Badge variant="default">{t('grid.import.createdCount', { count: result.createdRows })}</Badge>}
@@ -2452,11 +2600,33 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                     <Badge variant="default">{t('grid.import.imported', { count: result.importedRows })}</Badge>
                   )}
                 </>
-              ) : (
+              ) : !result.cancelled && (
                 <Badge variant="default">{t('grid.import.imported', { count: result.importedRows })}</Badge>
               )}
               {result.skippedRows > 0 && <Badge variant="destructive">{t('grid.import.skippedCount', { count: result.skippedRows })}</Badge>}
             </div>
+            {/* A cancelled job keeps the rows it committed; offer the same
+                Undo the History list does, once the job reads undoable. */}
+            {result.cancelled && finishedJob?.revertedAt && (
+              <span className="text-xs text-muted-foreground" data-testid="import-cancelled-reverted">
+                {t('grid.import.reverted')}
+              </span>
+            )}
+            {result.cancelled && finishedJob && isImportJobUndoable(finishedJob, canUndoJob) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => void undoFinishedJob(finishedJob.jobId)}
+                disabled={undoingId === finishedJob.jobId}
+                data-testid="import-cancelled-undo"
+              >
+                <Undo2 className="mr-1 h-4 w-4" />
+                {undoingId === finishedJob.jobId ? t('grid.import.undoing') : t('grid.import.undoImport')}
+              </Button>
+            )}
+            {result.cancelled && undoError && (
+              <p className="text-xs text-destructive" data-testid="import-cancelled-undo-error">{undoError}</p>
+            )}
             {result.degraded && !result.cancelled && (
               <div
                 className="flex w-full items-start gap-2 rounded-md border border-amber-400/40 bg-amber-50 p-3 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200"

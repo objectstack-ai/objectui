@@ -15,16 +15,21 @@
  * `MasterDetailForm` is its only reader. A member is one detail collection,
  * typed `MasterDetailDetailConfig`.
  *
- * Nothing declared says what a member is. The registration is a bare
- * `{ name: 'details', type: 'array', required: true }` with no `of` and no
- * description. The spec row is `z.array(z.unknown())`, so every member parses,
- * and its description names five members (`title`, `childObject`, `addLabel`,
- * `columns`, `relationshipField`). The renderer reads every member
- * `MasterDetailDetailConfig` declares, eleven since objectui#11070 round 9
- * retired `sortField`; the compile-time block at the end of this file holds
- * that member list, so the count is re-derived by the compiler rather than
- * by this sentence. So the read site is the whole member contract, and every
- * row below is measured there.
+ * What a member IS is declared on both sides, and both declarations are the
+ * spec's since `@objectstack/spec` 17.6.0 (objectstack-ai/objectstack#21215,
+ * objectui#11396): the spec row is an array of CLOSED entries — `childObject`
+ * required, an undeclared key refused by name, `columns` the spec's inline grid
+ * column — and `MasterDetailDetailConfig` is derived from that entry by
+ * reference, with ONE stated fork: the spec declares `sortField`, which this
+ * block does not read (objectui#11070 round 9 retired the authored override;
+ * row 2c below pins that a written one reaches nothing). The registration
+ * declares `of: 'object'`, derived from that single-kind member contract. The
+ * compile-time block at the end of this file holds the config equal to the
+ * spec's entry minus that fork and spells the member list out, so the member
+ * count is re-derived by the compiler rather than by this sentence. A
+ * declaration fixes an entry's SHAPE, not what this block DOES with a member,
+ * so the read site is still the whole member contract, and every row below is
+ * measured there.
  *
  * ## Where each member lands
  *
@@ -99,7 +104,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import React from 'react';
-import { registerAllFields } from '@object-ui/fields';
+import { registerAllFields, type GridColumn } from '@object-ui/fields';
+import type { ObjectMasterDetailFormProps } from '@objectstack/spec/ui';
 import { MasterDetailForm, type MasterDetailDetailConfig } from '../MasterDetailForm';
 
 /**
@@ -472,9 +478,32 @@ describe('`object-master-detail-form` — the member shape of `details`', () => 
 /** Exact type equality: `true` only when A and B are the same type. */
 type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B ? 1 : 2) ? true : false;
 
+/** The spec's own `details` entry, on its authoring face (objectui#11396). */
+type SpecDetailEntry = NonNullable<ObjectMasterDetailFormProps['details']>[number];
+
 /**
- * Every member a detail can be authored with: the list the header's count is
- * read from. `sortField` is not on it (objectui#11070 round 9).
+ * The config IS the spec's entry minus the one stated fork, by reference
+ * (objectui#11396): a member the spec adds, drops or retypes lands on the
+ * config with no hand edit, and a hand-written restatement that drifts is red
+ * here before it is red anywhere else.
+ */
+const derivedFromSpec: Equal<MasterDetailDetailConfig, Omit<SpecDetailEntry, 'sortField'>> = true;
+
+/**
+ * The fork is still open upstream: the spec entry declares `sortField`. When
+ * this row reds, objectstack retired the member (objectstack-ai/objectstack#6017
+ * records that half), and the `Omit` in `MasterDetailForm.tsx` is to be dropped
+ * together with this row and the premise of row 2c and `retiredSortField`.
+ */
+const specStillDeclaresSortField: Equal<SpecDetailEntry['sortField'], string | undefined> = true;
+
+/** A `columns` entry is the spec's inline grid column, the type the line grid reads. */
+const columnsAreTheGridColumn: Equal<NonNullable<MasterDetailDetailConfig['columns']>[number], GridColumn> = true;
+
+/**
+ * Every member a detail can be authored with, spelled out: the spec entry's
+ * keys minus `sortField` (objectui#11070 round 9). A key the spec adds is a
+ * red row here, never a silent widening of what this block is said to read.
  */
 const memberList: Equal<
   keyof MasterDetailDetailConfig,
@@ -493,6 +522,6 @@ const memberList: Equal<
 
 /** The lit control for the directive below: the same literal without the retired member compiles. */
 const authoredDetail: MasterDetailDetailConfig = { childObject: 'po_step', amountField: 'qty' };
-// @ts-expect-error objectui#11070 round 9: `sortField` is retired as a detail member; the sort field is derived from the child object.
+// @ts-expect-error objectui#11070 round 9: `sortField` is retired as a detail member; the sort field is derived from the child object. The spec still declares it (`specStillDeclaresSortField` above), and this face leaves it off on purpose (objectui#11396).
 const retiredSortField: MasterDetailDetailConfig = { childObject: 'po_step', sortField: 'line_no' };
-void [memberList, authoredDetail, retiredSortField];
+void [derivedFromSpec, specStillDeclaresSortField, columnsAreTheGridColumn, memberList, authoredDetail, retiredSortField];

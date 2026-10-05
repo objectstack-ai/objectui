@@ -31,8 +31,10 @@
  *   unchanged" on a PATCH).
  * - KEEP rows — an existing record opened for edit, whether its values are
  *   present at mount or land after first paint; a `recordId` swap in a
- *   still-mounted form; a `resetOnSubmit` reset; a change of an unrelated
- *   field; and a `dependsOn` the picker does not scope by.
+ *   still-mounted form; input the reset carries across a defaults change; a
+ *   `resetOnSubmit` reset; a change of an unrelated field; a lookup holding
+ *   nothing (never written to); and a `dependsOn` the picker does not scope
+ *   by.
  *
  * These components tests never load `@object-ui/fields`, so `field:lookup` is
  * served by a probe that renders a plain input and calls `onChange` with the
@@ -315,6 +317,37 @@ describe('objectui#11631 — what does NOT clear a dependent lookup', () => {
     const payload = await payloadOf(onSubmit);
     expect(payload.account).toBe('contoso');
     expect(payload.contact).toBe('buyer-3');
+  });
+
+  it('input the reset CARRIES across a defaults change is part of the reset, not a parent switch', async () => {
+    // The wizard shape (#2982): the next step's defaults name the contact but
+    // not the account the user already picked, so the reset carries the
+    // account across. Re-applying it is the same operation as the reset.
+    const onSubmit = vi.fn();
+    const Form = ComponentRegistry.get('form')!;
+    const { rerender } = render(
+      <Form
+        schema={formSchema({ fields: OBJECT_FORM_FIELDS, defaultValues: { status: 'draft' }, onSubmit })}
+      />,
+    );
+    pick('account', 'northwind');
+    rerender(
+      <Form
+        schema={formSchema({
+          fields: OBJECT_FORM_FIELDS,
+          defaultValues: { status: 'draft', contact: 'prospect-18' },
+          onSubmit,
+        })}
+      />,
+    );
+    await waitFor(() =>
+      expect((screen.getByTestId('lookup-contact') as HTMLInputElement).value).toBe('prospect-18'),
+    );
+
+    save();
+    const payload = await payloadOf(onSubmit);
+    expect(payload.account).toBe('northwind');
+    expect(payload.contact).toBe('prospect-18');
   });
 
   it('a `resetOnSubmit` reset restores the defaults instead of reading as a parent switch', async () => {

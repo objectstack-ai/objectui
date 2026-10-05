@@ -1280,15 +1280,16 @@ async function toolbarWriteInputs(
     dataSource: unknown,
     objectName: string,
     viewId: string,
-    activeTab: Record<string, any>,
-    pending: Record<string, any>,
+    activeTab: Record<string, unknown>,
+    pending: Record<string, unknown>,
     isSavedView: boolean,
-): Promise<{ base: Record<string, any>; patch: Record<string, any> }> {
-    const read = (await loadViewOverrides(dataSource, objectName, [viewId]))[viewId];
-    const stored: Record<string, any> | undefined =
-        read && typeof read === 'object' && !Array.isArray(read) ? read : undefined;
+): Promise<{ base: Record<string, unknown>; patch: Record<string, unknown> }> {
+    const read: unknown = (await loadViewOverrides(dataSource, objectName, [viewId]))[viewId];
+    const stored = read && typeof read === 'object' && !Array.isArray(read)
+        ? (read as Record<string, unknown>)
+        : undefined;
     if (isSavedView) return { base: stored ?? activeTab, patch: pending };
-    const owned: Record<string, any> = {};
+    const owned: Record<string, unknown> = {};
     for (const key of VIEW_OVERLAY_OWNED_KEYS) {
         if (stored?.[key] !== undefined) owned[key] = stored[key];
     }
@@ -1581,46 +1582,52 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 // the store holds when this write runs, read back, not the
                 // tab as it was at page load: see `toolbarWriteInputs`. The
                 // write waits for the previous write to this view first.
-                const write = async () => {
-                    const { base, patch: toWrite } = await toolbarWriteInputs(
-                        dataSource, objectName, viewIdLocal, baseViewDef, merged, targetIsSavedView,
-                    );
-                    // Optional call: the guard at the top of `persistViewPatch`
-                    // does not narrow across this `setTimeout` closure, and the
-                    // contract declares `updateViewConfig` optional. `?.()` on
-                    // the member keeps the adapter as `this`.
-                    await dataSource.updateViewConfig?.(
-                        objectName,
-                        viewIdLocal,
-                        buildPersistedViewBody(base, toWrite, { isSavedView: targetIsSavedView }),
-                        { isSavedView: targetIsSavedView },
-                    );
-                };
-                const prior = persistChains.current[viewIdLocal] ?? Promise.resolve();
-                const chained = prior.then(write).catch((err: any) => {
-                    // objectstack#7494's ruling — the gate refuses ORG-WIDE
-                    // view-config writes for a session without the authoring
-                    // capability. The toggle that triggered this has ALREADY
-                    // moved on screen, so the refusal has to be SAID: swallowing
-                    // it into console.error leaves the operator with a density
-                    // they did not get and no way to learn why until a reload
-                    // silently puts it back.
-                    if (isViewConfigPermissionDeniedError(err)) {
-                        toast.error(t('console.objectView.viewConfigPermissionDenied'));
-                        return;
-                    }
-                    console.error('[ObjectView] Failed to persist view config:', err);
-                    // objectui#11583: every other refusal is said too, with the
-                    // door's message. The client gate above answers only for a
-                    // session whose capabilities were reported; an unreported
-                    // one passes it, and the server's 403 lands here.
-                    toast.error(t('form.saveError'), {
-                        description: formatMetadataError(err),
-                        classNames: { description: 'whitespace-pre-line' },
+                //
+                // Written as an assignment of one chain, not through a named
+                // local function: the write-refusal census
+                // (`writeRefusalCensus-11583.test.ts`) keys this write by its
+                // nearest named function, `persistViewPatch`, and reads its
+                // refusal path off the `.catch` below.
+                persistChains.current[viewIdLocal] = (persistChains.current[viewIdLocal] ?? Promise.resolve())
+                    .then(async () => {
+                        const { base, patch: toWrite } = await toolbarWriteInputs(
+                            dataSource, objectName, viewIdLocal, baseViewDef, merged, targetIsSavedView,
+                        );
+                        // Optional call: the guard at the top of `persistViewPatch`
+                        // does not narrow across this `setTimeout` closure, and the
+                        // contract declares `updateViewConfig` optional. `?.()` on
+                        // the member keeps the adapter as `this`.
+                        await dataSource.updateViewConfig?.(
+                            objectName,
+                            viewIdLocal,
+                            buildPersistedViewBody(base, toWrite, { isSavedView: targetIsSavedView }),
+                            { isSavedView: targetIsSavedView },
+                        );
+                    })
+                    .catch((err: any) => {
+                        // objectstack#7494's ruling — the gate refuses ORG-WIDE
+                        // view-config writes for a session without the authoring
+                        // capability. The toggle that triggered this has ALREADY
+                        // moved on screen, so the refusal has to be SAID: swallowing
+                        // it into console.error leaves the operator with a density
+                        // they did not get and no way to learn why until a reload
+                        // silently puts it back.
+                        if (isViewConfigPermissionDeniedError(err)) {
+                            toast.error(t('console.objectView.viewConfigPermissionDenied'));
+                            return;
+                        }
+                        console.error('[ObjectView] Failed to persist view config:', err);
+                        // objectui#11583: every other refusal is said too, with the
+                        // door's message. The client gate above answers only for a
+                        // session whose capabilities were reported; an unreported
+                        // one passes it, and the server's 403 lands here.
+                        toast.error(t('form.saveError'), {
+                            description: formatMetadataError(err),
+                            classNames: { description: 'whitespace-pre-line' },
+                        });
                     });
-                });
-                persistChains.current[viewIdLocal] = chained;
                 // Drop the settled tail so the map holds only writes in flight.
+                const chained = persistChains.current[viewIdLocal];
                 void chained.then(() => {
                     if (persistChains.current[viewIdLocal] === chained) delete persistChains.current[viewIdLocal];
                 });

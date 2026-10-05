@@ -7,31 +7,46 @@
  */
 
 /**
- * objectui#10290: a member of an action CONTAINER (`action:bar`,
- * `action:group`, `action:menu`) carries its static execution values in
- * `properties.params` (objectui#10289, ruling A), and those values are
- * templates evaluated where `properties` are (objectui#7867, ruling A). A
- * container member never passes through the `SchemaRenderer` evaluation memo,
- * so each container evaluates its members' `properties` through the evaluator
- * that memo uses, against the scope that memo builds.
+ * objectui#10290, as narrowed by objectui#11638.
+ *
+ * objectui#10290 made every action CONTAINER (`action:bar`, `action:group`,
+ * `action:menu`) evaluate a member's `properties.params` where `properties`
+ * are (objectui#7867, ruling A), because a container member never passes
+ * through the `SchemaRenderer` evaluation memo. objectui#11638 retired the
+ * MEMBER half of that: the spec refuses a `properties` bag on an
+ * `action:group` / `action:menu` member ("A member carries no `properties`
+ * bag: its static parameter values (`properties.params`) are not part of the
+ * inline action vocabulary"), and an action that needs static values is its
+ * own `action:button` node. So the paths split by WHICH reader the member
+ * reaches:
+ *
+ *   - NODE path: `action:bar` mounts an inline member on `action:button` /
+ *     `action:icon`, whose own node reader (`readStaticParamValues`) reads
+ *     `properties.params`. The bar still evaluates it first (objectui#10290);
+ *     those pins are unchanged.
+ *   - MEMBER path: `action:group` / `action:menu` run the member themselves,
+ *     and so does an `action:bar` member that lands in the overflow menu. A
+ *     member's `properties.params` reaches the runner on none of them
+ *     (objectui#11638). These are the objectui#10290 pins INVERTED: each used
+ *     to assert the resolved values arrive.
  *
  * Driven end to end through the real pieces: the real `SchemaRenderer` renders
  * the real container, the click or menu selection goes through the real
- * `ActionRunner`, and the value asserted is the `params` on the `ActionDef` the
- * registered `navigate_edit` handler receives. The row is bound the way a
- * record page binds it, through `RecordContextProvider`.
+ * `ActionRunner`, and the value asserted is the `ActionDef` the registered
+ * handler receives. The row is bound the way a record page binds it, through
+ * `RecordContextProvider`.
  *
  * The CONTROL is a top-level `action:button` with the same `properties.params`.
- * It goes through the `SchemaRenderer` memo, so it resolved before this change
- * too: a red container row beside a green control means the container, never
- * an unbound `record` root.
+ * It goes through the `SchemaRenderer` memo, so it resolves on every path: a
+ * member row that differs from a green control means the container, never an
+ * unbound `record` root.
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
-import type { ActionContext, ActionDef, ActionResult } from '@object-ui/core';
+import type { ActionContext, ActionDef, ActionResult, ParamCollectionHandler } from '@object-ui/core';
 // These nodes are written the way the runtime reads them, flat on the node,
 // which the closed `action:*` node types refuse: measured on objectui#11466,
 // typing the fixtures as `DeclaredNode` refuses them line by line. So each
@@ -57,15 +72,30 @@ const AUTHORED = { objectName: 'account', recordId: '${record.id}' };
 /** What the handler must receive once the template is evaluated. */
 const RESOLVED = { objectName: 'account', recordId: 'rec_1' };
 
+/** An `api` member's object `params`: its request payload (objectstack#5777 window). */
+const PAYLOAD = { objectName: 'account', recordId: 'rec_7' };
+
+/** An `ActionParam[]` input list, and what the user answers it with. */
+const INPUTS = [{ name: 'reason', type: 'text', label: 'Reason' }];
+const COLLECTED = { reason: 'because' };
+
 /** The overflow trigger's accessible name, with no i18n bundle loaded. */
 const MORE = 'More actions';
 
-let navigateEdit: Mock<(action: ActionDef, ctx: ActionContext) => Promise<ActionResult>>;
+type Handler = Mock<(action: ActionDef, ctx: ActionContext) => Promise<ActionResult>>;
+
+let navigateEdit: Handler;
+let api: Handler;
+let onParamCollection: Mock<ParamCollectionHandler>;
 let warn: ReturnType<typeof vi.spyOn>;
 let consoleError: ReturnType<typeof vi.spyOn>;
 
 beforeEach(() => {
   navigateEdit = vi.fn(async () => ({ success: true }));
+  api = vi.fn(async () => ({ success: true }));
+  // The user fills the one input in; the handler then receives what was
+  // collected, merged over whatever static `params` the container forwarded.
+  onParamCollection = vi.fn(async () => COLLECTED);
   warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
   consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
   resetStaticParamsWarnings();
@@ -84,7 +114,7 @@ function member(extra: Record<string, unknown> = {}): Record<string, unknown> {
 /** Render `schema` on a record page bound to {@link ROW}. */
 function renderOnRecordPage(schema: Record<string, unknown>) {
   return render(
-    <ActionProvider handlers={{ navigate_edit: navigateEdit }}>
+    <ActionProvider handlers={{ navigate_edit: navigateEdit, api }} onParamCollection={onParamCollection}>
       <RecordContextProvider objectName="account" recordId={ROW.id} data={ROW}>
         <SchemaRenderer schema={undeclaredNode(schema)} />
       </RecordContextProvider>
@@ -110,12 +140,17 @@ const viaTrigger = (triggerName: string): Reach => async (label) => {
   await selectFromMenu(screen.getByRole('button', { name: triggerName }), label);
 };
 
-/** Every path a container member reaches the runner by. */
-const CONTAINERS: ReadonlyArray<{
+type Container = {
   path: string;
   schema: (m: Record<string, unknown>) => Record<string, unknown>;
   reach: Reach;
-}> = [
+};
+
+/**
+ * NODE path: `action:bar` mounts the member on `action:button` /
+ * `action:icon`, whose node reader reads `properties.params`.
+ */
+const NODE_PATH: ReadonlyArray<Container> = [
   {
     path: 'action:bar, inline member',
     schema: (m) => ({ type: 'action:bar', actions: [m] }),
@@ -131,6 +166,13 @@ const CONTAINERS: ReadonlyArray<{
     schema: (m) => ({ type: 'action:bar', actions: [{ ...m, component: 'action:group' }] }),
     reach: clickButton,
   },
+];
+
+/**
+ * MEMBER path: the container runs the member itself (`action:group`,
+ * `action:menu`, and the `action:menu` an `action:bar` overflows into).
+ */
+const MEMBER_PATH: ReadonlyArray<Container> = [
   {
     path: 'action:bar, member placed in the overflow menu (`component: action:menu`)',
     schema: (m) => ({ type: 'action:bar', actions: [{ ...m, component: 'action:menu' }] }),
@@ -163,15 +205,27 @@ const CONTAINERS: ReadonlyArray<{
   },
 ];
 
-/** Mount, reach the member, return the `params` the handler received. */
-async function paramsReceived(schema: Record<string, unknown>, reach: Reach): Promise<unknown> {
+/** Every path a container member reaches the runner by. */
+const CONTAINERS: ReadonlyArray<Container> = [...NODE_PATH, ...MEMBER_PATH];
+
+/** Mount, reach the member, return the `ActionDef` `handler` received. */
+async function defReceived(
+  schema: Record<string, unknown>,
+  reach: Reach,
+  handler: Handler = navigateEdit,
+): Promise<ActionDef> {
   renderOnRecordPage(schema);
   await reach('Edit');
-  await waitFor(() => expect(navigateEdit).toHaveBeenCalledTimes(1));
-  return (navigateEdit.mock.calls[0][0] as ActionDef).params;
+  await waitFor(() => expect(handler).toHaveBeenCalledTimes(1));
+  return handler.mock.calls[0][0] as ActionDef;
 }
 
-describe('objectui#10290 - a container member\'s `properties.params` is evaluated where `properties` are', () => {
+/** Mount, reach the member, return the `params` the handler received. */
+async function paramsReceived(schema: Record<string, unknown>, reach: Reach): Promise<unknown> {
+  return (await defReceived(schema, reach)).params;
+}
+
+describe('objectui#10290 - an `action:bar` member\'s `properties.params` is evaluated where `properties` are', () => {
   it('CONTROL: a top-level `action:button` resolves `${record.id}` through the SchemaRenderer memo', async () => {
     const params = await paramsReceived(
       {
@@ -186,12 +240,15 @@ describe('objectui#10290 - a container member\'s `properties.params` is evaluate
     expect(params).toEqual(RESOLVED);
   });
 
-  describe.each(CONTAINERS)('$path', ({ schema, reach }) => {
+  describe.each(NODE_PATH)('$path', ({ schema, reach }) => {
     it('the handler receives `properties.params` with `${record.id}` resolved', async () => {
       const params = await paramsReceived(schema(member({ properties: { params: AUTHORED } })), reach);
       expect(params).toEqual(RESOLVED);
     });
+  });
 
+  // On every path, node and member alike.
+  describe.each(CONTAINERS)('$path', ({ schema, reach }) => {
     it('a node-level `params` OBJECT is still not a values channel, and says so once (objectui#10289)', async () => {
       const params = await paramsReceived(schema(member({ params: AUTHORED })), reach);
       expect(params).toBeUndefined();
@@ -199,6 +256,39 @@ describe('objectui#10290 - a container member\'s `properties.params` is evaluate
         .map((c: unknown[]) => String(c[0]))
         .filter((m: string) => m.includes('action "edit"') && m.includes('`params`'));
       expect(lines).toHaveLength(1);
+    });
+  });
+});
+
+describe('objectui#11638 - a container member\'s `properties.params` does not reach the runner', () => {
+  describe.each(MEMBER_PATH)('$path', ({ schema, reach }) => {
+    // INVERTED from objectui#10290's "the handler receives `properties.params`
+    // with `${record.id}` resolved" on this path.
+    it('a member\'s `properties.params` is not forwarded as static values', async () => {
+      const params = await paramsReceived(schema(member({ properties: { params: AUTHORED } })), reach);
+      expect(params).toBeUndefined();
+    });
+
+    it('an array `params` reaches the runner as `actionParams` alone, beside a `properties.params`', async () => {
+      const def = await defReceived(
+        schema(member({ params: INPUTS, properties: { params: AUTHORED } })),
+        reach,
+      );
+      expect(onParamCollection).toHaveBeenCalledTimes(1);
+      expect(onParamCollection.mock.calls[0][0]).toEqual(INPUTS);
+      expect(def.actionParams).toEqual(INPUTS);
+      // Only what the user answered: no static values were forwarded to merge
+      // the answer over.
+      expect(def.params).toEqual(COLLECTED);
+    });
+
+    it('an `api` member\'s object `params` is its payload, and a `properties.params` beside it no longer replaces it', async () => {
+      const def = await defReceived(
+        schema(member({ type: 'api', target: '/api/v1/ping', params: PAYLOAD, properties: { params: AUTHORED } })),
+        reach,
+        api,
+      );
+      expect(def.params).toEqual(PAYLOAD);
     });
   });
 });

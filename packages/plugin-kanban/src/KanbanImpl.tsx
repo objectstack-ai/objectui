@@ -30,7 +30,7 @@ import { resolveConditionalFormatting } from "@object-ui/core"
 import type { KanbanConditionalFormattingRule } from "@object-ui/types"
 import type { KanbanCard, KanbanColumn } from './types'
 import { createSafeTranslation } from "@object-ui/i18n"
-import { Plus } from "lucide-react"
+import { Plus, Sigma } from "lucide-react"
 import { useKanbanRecordsSettled } from './KanbanRecordsSettled'
 import { useKanbanColumnSummary, sumLaneField } from './KanbanColumnSummary'
 
@@ -497,8 +497,9 @@ function laneCountLabel(count: number, countsAreWindowed?: boolean): string {
  * reads as the total of the group. A lane holding a value that is not a number
  * shows no total (`sumLaneField` answers `null`), never `NaN`.
  *
- * The field's label is the tooltip and the screen-reader name, so no new
- * user-facing string enters the product.
+ * The field's label is the tooltip and the screen-reader name, and a `Sigma`
+ * glyph (hidden from assistive technology) tells the total from the count
+ * badge beside it, so no new user-facing string enters the product.
  */
 function LaneTotal({
   cards,
@@ -515,10 +516,11 @@ function LaneTotal({
   if (total === null) return null
   return (
     <span
-      className={cn("text-[11px] font-medium text-muted-foreground tabular-nums whitespace-nowrap", className)}
+      className={cn("inline-flex items-center gap-0.5 text-[11px] font-medium text-muted-foreground tabular-nums whitespace-nowrap", className)}
       title={summary.label}
       data-kanban-lane-total=""
     >
+      <Sigma aria-hidden="true" className="h-3 w-3 shrink-0" />
       <span className="sr-only">{`${summary.label} `}</span>
       {summary.renderTotal(total)}
       {countsAreWindowed ? '+' : null}

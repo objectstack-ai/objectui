@@ -17,6 +17,7 @@
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor, within, fireEvent } from '@testing-library/react';
+import { DashboardWidgetSchema as SpecDashboardWidgetSchema } from '@objectstack/spec/ui';
 
 let lastChartSchema: any = null;
 
@@ -223,24 +224,6 @@ describe('DatasetWidget — showing the comparison the executor returned', () =>
     expect(trend).toHaveTextContent(/vs last year/i);
   });
 
-  it('labels the window from the RAW filter’s macros, which resolution erased', async () => {
-    // `previousPeriod` derives its label by sniffing the filter's date macros.
-    // The resolved filter has none left — passing that instead would silently
-    // downgrade every label to the generic "vs previous period".
-    const src = makeSource(async () => ({ rows: [{ revenue: 120, revenue__compare: 100 }] }));
-    render(
-      <DatasetWidget
-        widget={{
-          type: 'metric', dataset: 'sales', values: ['revenue'],
-          filter: { close_date: { $gte: '{current_quarter_start}', $lte: '{current_quarter_end}' } },
-          compareTo: { kind: 'previousPeriod' },
-        }}
-        dataSource={src}
-      />,
-    );
-    expect(await screen.findByTestId('dataset-compare-trend')).toHaveTextContent(/vs last quarter/i);
-  });
-
   it('shows no trend when the executor attached no comparison', async () => {
     const src = makeSource(async () => ({ rows: [{ revenue: 120 }] }));
     render(
@@ -321,6 +304,119 @@ describe('DatasetWidget — showing the comparison the executor returned', () =>
     await waitFor(() => expect(lastChartSchema).not.toBeNull());
     expect(lastChartSchema.series).toHaveLength(1);
     expect(lastChartSchema.series[0].variant).toBeUndefined();
+  });
+});
+
+/**
+ * objectui#11632 — on this path the label names the window the EXECUTOR
+ * compared, and `compareTo.kind` alone decides that window: `previousPeriod` is
+ * the equal-length window right before the resolved one, `previousYear` the
+ * same window a calendar year back. The label used to be guessed from the RAW
+ * filter's date-macro tokens, a guess that only holds on the inline path, where
+ * `shiftFilterByCompareTo` really does swap `{today}` for `{yesterday}`. So a
+ * dashboard's `last_30_days` range compared the previous 30 days and read
+ * "vs yesterday". The inline path keeps its guess; its pins live with
+ * `compareToTrendLabelKey` in `@object-ui/core` and with `ObjectMetricWidget`.
+ */
+describe('DatasetWidget — the comparison label comes from compareTo.kind (objectui#11632)', () => {
+  // The dashboard's `last_30_days` date range as `DashboardRenderer` merges it
+  // into a widget's filter: `{30_days_ago}` to `{today}`.
+  const LAST_30_DAYS = { created_at: { $gte: '{30_days_ago}', $lte: '{today}' } };
+  const compared = async () => ({
+    rows: [{ revenue: 120, revenue__compare: 100 }],
+    fields: [{ name: 'revenue', type: 'number', label: 'Revenue' }],
+  });
+
+  it('labels previousPeriod over a {today} window "vs previous period", not "vs yesterday"', async () => {
+    const src = makeSource(compared);
+    render(
+      <DatasetWidget
+        widget={{
+          type: 'metric', dataset: 'sales', values: ['revenue'],
+          filter: LAST_30_DAYS, compareTo: { kind: 'previousPeriod' },
+        }}
+        dataSource={src}
+      />,
+    );
+    const trend = await screen.findByTestId('dataset-compare-trend');
+    expect(trend).toHaveTextContent(/vs previous period/i);
+    expect(trend).not.toHaveTextContent(/yesterday/i);
+    // The whole resolved window went to the executor to shift. A one-day
+    // window would be the only one whose previous period is a single day.
+    const [td] = selectionOf(src).timeDimensions;
+    expect(td.dimension).toBe('created_at');
+    expect(td.dateRange[0]).not.toBe(td.dateRange[1]);
+  });
+
+  it('names the chart’s comparison series from the kind too (the line legend)', async () => {
+    const src = makeSource(async () => ({
+      rows: [
+        { stage: 'won', revenue: 120, revenue__compare: 100 },
+        { stage: 'lost', revenue: 20, revenue__compare: 40 },
+      ],
+      fields: [{ name: 'revenue', type: 'number', label: 'Revenue' }],
+    }));
+    render(
+      <DatasetWidget
+        widget={{
+          type: 'line', dataset: 'sales', dimensions: ['stage'], values: ['revenue'],
+          filter: LAST_30_DAYS, compareTo: { kind: 'previousPeriod' },
+        }}
+        dataSource={src}
+      />,
+    );
+    await waitFor(() => expect(lastChartSchema).not.toBeNull());
+    expect(lastChartSchema.series[1]).toMatchObject({ dataKey: 'revenue__compare', variant: 'comparison' });
+    expect(lastChartSchema.series[1].label).toMatch(/vs previous period/i);
+    expect(lastChartSchema.series[1].label).not.toMatch(/yesterday/i);
+  });
+
+  it('does not read a calendar unit off the macros: a quarter’s previousPeriod is "vs previous period"', async () => {
+    // The equal-length window before a quarter is a calendar quarter only by
+    // coincidence: Q1 (90 days) shifted back 90 days starts in October.
+    const src = makeSource(compared);
+    render(
+      <DatasetWidget
+        widget={{
+          type: 'metric', dataset: 'sales', values: ['revenue'],
+          filter: { close_date: { $gte: '{current_quarter_start}', $lte: '{current_quarter_end}' } },
+          compareTo: { kind: 'previousPeriod' },
+        }}
+        dataSource={src}
+      />,
+    );
+    const trend = await screen.findByTestId('dataset-compare-trend');
+    expect(trend).toHaveTextContent(/vs previous period/i);
+    expect(trend).not.toHaveTextContent(/quarter/i);
+  });
+
+  // Every kind the spec declares for a widget's `compareTo`, read from the spec
+  // itself, so a kind added there fails the coverage check below until it has
+  // a label of its own.
+  const SPEC_KINDS: readonly string[] = SpecDashboardWidgetSchema.shape.compareTo.unwrap().shape.kind.options;
+  const LABEL_OF_KIND: Record<string, RegExp> = {
+    previousPeriod: /vs previous period/i,
+    previousYear: /vs last year/i,
+  };
+
+  it('has an expected label for every kind the spec declares', () => {
+    expect([...SPEC_KINDS].sort()).toEqual(Object.keys(LABEL_OF_KIND).sort());
+  });
+
+  it.each(SPEC_KINDS)('labels %s over a {today} window from the kind alone', async (kind) => {
+    const src = makeSource(compared);
+    render(
+      <DatasetWidget
+        widget={{
+          type: 'metric', dataset: 'sales', values: ['revenue'],
+          filter: LAST_30_DAYS, compareTo: { kind },
+        }}
+        dataSource={src}
+      />,
+    );
+    const trend = await screen.findByTestId('dataset-compare-trend');
+    expect(trend).toHaveTextContent(LABEL_OF_KIND[kind]);
+    expect(trend).not.toHaveTextContent(/yesterday/i);
   });
 });
 

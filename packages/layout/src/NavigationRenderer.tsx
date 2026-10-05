@@ -220,10 +220,26 @@ export interface NavigationRendererProps {
     basePath?: string,
   ) => void;
 
-  /** Enable drag-to-reorder for navigation items */
+  /**
+   * Enable drag-to-reorder for navigation items.
+   *
+   * An entry moves within its own level only: among the top-level entries of a
+   * menu with no groups, among one group's children, or, in a grouped menu,
+   * among a run of top-level entries between two groups. It never moves into or
+   * out of a group (objectui#11626): which group an entry sits in is the app's
+   * structure, not a personal order. While `searchQuery` narrows a grouped
+   * menu, the menu offers no grip, because a narrowed group shows only some of
+   * its children.
+   */
   enableReorder?: boolean;
 
-  /** Called when navigation items are reordered via drag */
+  /**
+   * Called when navigation items are reordered via drag, always with the
+   * top-level list. After a move among top-level entries, that list is
+   * reordered. After a move within a group, the top-level list is as drawn and
+   * that group's `children` are reordered (objectui#11626). The moved level's
+   * entries carry their new positions as `order` (0, 1, 2, …).
+   */
   onReorder?: (reorderedItems: NavigationItem[]) => void;
 
   // RETIRED (objectui#11299): `resolveObjectLabel` / `resolveDashboardLabel` /
@@ -1109,6 +1125,121 @@ export function filterNavigationItems(
 const DRAG_ACTIVATION_DISTANCE = 5;
 
 // ---------------------------------------------------------------------------
+// Within-level reorder for a grouped menu (objectui#11626)
+// ---------------------------------------------------------------------------
+
+/**
+ * One level moved: the entry `activeId` taken out and put where `overId` was,
+ * every entry of the level carrying its new position as `order`, which is how
+ * the group-free arm reports a move too. `null` when either id is not in
+ * `level`.
+ *
+ * `level` is the WHOLE level as the renderer orders it, gated-away entries
+ * included, so the entries a user cannot see keep their places relative to the
+ * ones the user moved, and the reported level loses none of them.
+ */
+function moveWithinLevel(
+  level: NavigationItem[],
+  activeId: string,
+  overId: string,
+): NavigationItem[] | null {
+  const oldIndex = level.findIndex((i) => i.id === activeId);
+  const newIndex = level.findIndex((i) => i.id === overId);
+  if (oldIndex === -1 || newIndex === -1) return null;
+  return arrayMove(level, oldIndex, newIndex).map((item, idx) => ({ ...item, order: idx }));
+}
+
+/** `items` with the children of the group `groupId` replaced, at any depth. */
+function withGroupChildren(
+  items: NavigationItem[],
+  groupId: string,
+  children: NavigationItem[],
+): NavigationItem[] {
+  return items.map((item) => {
+    if (item.type !== 'group') return item;
+    if (item.id === groupId) return { ...item, children };
+    if (!item.children?.length) return item;
+    return { ...item, children: withGroupChildren(item.children, groupId, children) };
+  });
+}
+
+/**
+ * Reports a move within the group `groupId`: its children, already moved by
+ * {@link moveWithinLevel}. Provided by the grouped arm of
+ * {@link NavigationRenderer}. `null` means the menu offers no grip on a group's
+ * children: reorder is off, the menu has no groups, or a search narrows it.
+ */
+type GroupChildrenReorder = (groupId: string, reorderedChildren: NavigationItem[]) => void;
+const GroupReorderContext = React.createContext<GroupChildrenReorder | null>(null);
+
+/**
+ * Whether `item` draws anything: the decisions `NavigationItemRenderer` takes
+ * before it returns `null`, asked through the same shared guard statement and
+ * predicate. A sortable wrapper is put only around an entry that draws, so a
+ * gated-away entry does not leave an empty, focusable drag wrapper behind.
+ */
+function drawsNavItem(item: NavigationItem, options: NavigationVisibilityOptions): boolean {
+  if (item.type === 'separator') return passesNavItemGuards(item, options);
+  return hasVisibleNavigationItems([item], options);
+}
+
+/** The props every row renderer takes besides its `item`. */
+interface NavRowProps {
+  basePath: string;
+  evalVis: VisibilityEvaluator;
+  checkPerm: PermissionChecker;
+  checkCap: CapabilityChecker;
+  checkDocTarget?: DocTargetChecker;
+  onAction?: (item: NavigationItem) => void;
+  enablePinning?: boolean;
+  onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
+  resolveTargetLabel?: NavTargetLabelResolver;
+  locale?: string;
+  t?: (key: string, options?: any) => string;
+  templateContext?: NavTemplateContext;
+}
+
+/**
+ * One level of a grouped menu as a sortable list: its own `DndContext`, so a
+ * drag starts, moves and drops within this list only and no other list is a
+ * drop target. The rows are the group-free arm's `SortableNavigationItem`.
+ */
+function SortableNavigationList({
+  contextId,
+  items,
+  onMove,
+  rowProps,
+}: {
+  contextId: string;
+  items: NavigationItem[];
+  onMove: (activeId: string, overId: string) => void;
+  rowProps: NavRowProps;
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: DRAG_ACTIVATION_DISTANCE } }),
+    useSensor(KeyboardSensor),
+  );
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    onMove(String(active.id), String(over.id));
+  };
+
+  return (
+    <DndContext id={contextId} sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+      <SortableContext items={items.map((i) => i.id)} strategy={verticalListSortingStrategy}>
+        <SidebarMenu>
+          {items.map((item) => (
+            <SortableNavigationItem key={item.id} item={item} enableReorder {...rowProps} />
+          ))}
+        </SidebarMenu>
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // SortableNavigationItem (drag-reorder wrapper)
 // ---------------------------------------------------------------------------
 
@@ -1256,6 +1387,7 @@ function NavigationItemRenderer({
       ? true
       : (explicitOpen ?? (childCount >= AUTO_COLLAPSE_THRESHOLD ? false : true));
   const [isOpen, setIsOpen] = useState(initialOpen);
+  const reorderGroup = React.useContext(GroupReorderContext);
 
   // --- Per-item guards: `visible`, `requiredPermissions`, and the
   // runtime-capability gates (an entry whose required object/service is not
@@ -1293,6 +1425,24 @@ function NavigationItemRenderer({
 
     const groupLabel = resolveNavItemLabel(item, tProp, resolveTargetLabel, locale);
 
+    // objectui#11626: with reorder on, this group's children are one sortable
+    // list of their own. The move is taken over ALL of `children` (gated-away
+    // entries keep their places) and reported up as this group's new children.
+    const rowProps: NavRowProps = {
+      basePath,
+      evalVis,
+      checkPerm,
+      checkCap,
+      checkDocTarget,
+      onAction,
+      enablePinning,
+      onPinToggle,
+      resolveTargetLabel,
+      locale,
+      t: tProp,
+      templateContext,
+    };
+
     return (
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <SidebarGroup>
@@ -1306,26 +1456,27 @@ function NavigationItemRenderer({
           </SidebarGroupLabel>
           <CollapsibleContent>
             <SidebarGroupContent>
-              <SidebarMenu>
-                {children.map((child) => (
-                  <NavigationItemRenderer
-                    key={child.id}
-                    item={child}
-                    basePath={basePath}
-                    evalVis={evalVis}
-                    checkPerm={checkPerm}
-                    checkCap={checkCap}
-                    checkDocTarget={checkDocTarget}
-                    onAction={onAction}
-                    enablePinning={enablePinning}
-                    onPinToggle={onPinToggle}
-                    resolveTargetLabel={resolveTargetLabel}
-                    locale={locale}
-                    t={tProp}
-                    templateContext={templateContext}
-                  />
-                ))}
-              </SidebarMenu>
+              {reorderGroup ? (
+                <SortableNavigationList
+                  contextId={`nav-reorder-group-${item.id}`}
+                  items={children.filter((child) => drawsNavItem(child, guardOptions))}
+                  onMove={(activeId, overId) => {
+                    const moved = moveWithinLevel(children, activeId, overId);
+                    if (moved) reorderGroup(item.id, moved);
+                  }}
+                  rowProps={rowProps}
+                />
+              ) : (
+                <SidebarMenu>
+                  {children.map((child) => (
+                    <NavigationItemRenderer
+                      key={child.id}
+                      item={child}
+                      {...rowProps}
+                    />
+                  ))}
+                </SidebarMenu>
+              )}
             </SidebarGroupContent>
           </CollapsibleContent>
         </SidebarGroup>
@@ -1657,6 +1808,31 @@ export function NavigationRenderer({
   const fragments: React.ReactNode[] = [];
   let leafBuffer: NavigationItem[] = [];
 
+  // --- Grouped drag-reorder (objectui#11626) --- each group's children, and
+  // each run of top-level entries between two groups, is a sortable list of
+  // its own; nothing moves into or out of a group. Off while a search narrows
+  // the tree: a narrowed group shows only some of its children, and an order
+  // taken among some of them is not the group's order.
+  const groupedReorder = !!enableReorder && !searchQuery?.trim();
+  const reorderGroup: GroupChildrenReorder | null = groupedReorder
+    ? (groupId, reorderedChildren) => {
+        if (!onReorder) return;
+        onReorder(withGroupChildren(sorted, groupId, reorderedChildren));
+      }
+    : null;
+  const moveTopLevel = (activeId: string, overId: string) => {
+    if (!onReorder) return;
+    const moved = moveWithinLevel(sorted, activeId, overId);
+    if (moved) onReorder(moved);
+  };
+  const itemGuards: NavigationVisibilityOptions = {
+    evaluateVisibility: evalVis,
+    checkPermission: checkPerm,
+    checkCapability: checkCap,
+    checkDocTarget,
+    hasActionHandler: !!onAction,
+  };
+
   const flushLeaves = (key: string) => {
     if (leafBuffer.length === 0) return;
     const leaves = leafBuffer;
@@ -1664,15 +1840,24 @@ export function NavigationRenderer({
     fragments.push(
       <SidebarGroup key={key}>
         <SidebarGroupContent>
-          <SidebarMenu>
-            {leaves.map((item) => (
-              <NavigationItemRenderer
-                key={item.id}
-                item={item}
-                {...itemProps}
-              />
-            ))}
-          </SidebarMenu>
+          {groupedReorder ? (
+            <SortableNavigationList
+              contextId={`nav-reorder-top-${leaves[0].id}`}
+              items={leaves.filter((item) => drawsNavItem(item, itemGuards))}
+              onMove={moveTopLevel}
+              rowProps={itemProps}
+            />
+          ) : (
+            <SidebarMenu>
+              {leaves.map((item) => (
+                <NavigationItemRenderer
+                  key={item.id}
+                  item={item}
+                  {...itemProps}
+                />
+              ))}
+            </SidebarMenu>
+          )}
         </SidebarGroupContent>
       </SidebarGroup>,
     );
@@ -1698,7 +1883,9 @@ export function NavigationRenderer({
   return (
     <ActiveNavIdContext.Provider value={activeNavId}>
       {favoritesSection}
-      {fragments}
+      <GroupReorderContext.Provider value={reorderGroup}>
+        {fragments}
+      </GroupReorderContext.Provider>
     </ActiveNavIdContext.Provider>
   );
 }

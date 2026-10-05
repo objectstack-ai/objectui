@@ -73,6 +73,64 @@ import { LocalizedSidebarTrigger } from './LocalizedSidebarTrigger.js';
 // useNavOrder – localStorage-persisted drag-and-drop reorder for nav items
 // ---------------------------------------------------------------------------
 
+/**
+ * The stored key of the top level's order. A group's order is stored beside it
+ * under the group's `id` (objectui#11626): the one key a group has that holds
+ * across reloads and locales (its label is translated). A spec-valid `id` is
+ * snake_case starting with a letter, so no group can be keyed `__root__`.
+ */
+const ROOT_ORDER_KEY = '__root__';
+
+/**
+ * One level in its saved order: the saved ids first, in the saved order, then
+ * the entries the saved order does not name, in their own order. An id saved
+ * for an entry that is gone is skipped.
+ */
+function applyLevelOrder(items: NavigationItem[], saved: string[] | undefined): NavigationItem[] {
+  if (!saved) return items;
+  const byId = new Map(items.map(i => [i.id, i]));
+  const ordered: NavigationItem[] = [];
+  for (const id of saved) {
+    const item = byId.get(id);
+    if (item) { ordered.push(item); byId.delete(id); }
+  }
+  byId.forEach(item => ordered.push(item));
+  return ordered;
+}
+
+/** Every group's saved order applied to its children, at every depth. */
+function applyGroupOrders(
+  items: NavigationItem[],
+  orderMap: Record<string, string[]>,
+): NavigationItem[] {
+  let changed = false;
+  const next = items.map(item => {
+    if (item.type !== 'group' || !item.children?.length) return item;
+    const children = applyGroupOrders(applyLevelOrder(item.children, orderMap[item.id]), orderMap);
+    if (children === item.children) return item;
+    changed = true;
+    return { ...item, children };
+  });
+  return changed ? next : items;
+}
+
+/** The ids of each group's children, in order, by group `id`, at every depth. */
+function groupChildIds(
+  items: NavigationItem[],
+  into: Map<string, string[]> = new Map(),
+): Map<string, string[]> {
+  for (const item of items) {
+    if (item.type !== 'group') continue;
+    const children = item.children ?? [];
+    into.set(item.id, children.map(c => c.id));
+    groupChildIds(children, into);
+  }
+  return into;
+}
+
+const sameIds = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((id, i) => id === b[i]);
+
 function useNavOrder(appName: string) {
   const storageKey = `objectui-nav-order-${appName}`;
 
@@ -103,25 +161,34 @@ function useNavOrder(appName: string) {
   );
 
   const applyOrder = React.useCallback(
-    (items: NavigationItem[]): NavigationItem[] => {
-      const saved = orderMap['__root__'];
-      if (!saved) return items;
-      const byId = new Map(items.map(i => [i.id, i]));
-      const ordered: NavigationItem[] = [];
-      for (const id of saved) {
-        const item = byId.get(id);
-        if (item) { ordered.push(item); byId.delete(id); }
-      }
-      byId.forEach(item => ordered.push(item));
-      return ordered;
-    },
+    (items: NavigationItem[]): NavigationItem[] =>
+      applyGroupOrders(applyLevelOrder(items, orderMap[ROOT_ORDER_KEY]), orderMap),
     [orderMap],
   );
 
+  /**
+   * `drawn` is the tree this sidebar handed the renderer. A move within a group
+   * comes back as the top-level list with that group's children reordered
+   * (objectui#11626), so the group whose children now differ from the drawn
+   * ones is the group that moved, and only its order is stored: the top level
+   * and every other group keep following the app until the user moves them.
+   * A report in which no group's children moved is a move among top-level
+   * entries, stored under `__root__` exactly as it was before groups had one.
+   */
   const handleReorder = React.useCallback(
-    (reorderedItems: NavigationItem[]) => {
+    (reorderedItems: NavigationItem[], drawn: NavigationItem[]) => {
+      const before = groupChildIds(drawn);
+      const movedGroups: Record<string, string[]> = {};
+      groupChildIds(reorderedItems).forEach((ids, groupId) => {
+        const was = before.get(groupId);
+        if (was && !sameIds(was, ids)) movedGroups[groupId] = ids;
+      });
+      if (Object.keys(movedGroups).length > 0) {
+        persist({ ...orderMap, ...movedGroups });
+        return;
+      }
       const ids = reorderedItems.map(i => i.id);
-      persist({ ...orderMap, __root__: ids });
+      persist({ ...orderMap, [ROOT_ORDER_KEY]: ids });
     },
     [orderMap, persist],
   );
@@ -456,6 +523,12 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
     const ordered = applyOrder(studioNavigationItems);
     return applyPins(ordered);
   }, [studioNavigationItems, applyOrder, applyPins]);
+  // The drawn tree goes along with a report, so the store can tell which
+  // level moved (objectui#11626).
+  const handleNavReorder = React.useCallback(
+    (reorderedItems: NavigationItem[]) => handleReorder(reorderedItems, processedNavigation),
+    [handleReorder, processedNavigation],
+  );
 
   // Recent section collapsed by default
   const [recentExpanded, setRecentExpanded] = React.useState(false);
@@ -581,7 +654,7 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
              enablePinning={!isMobile}
              onPinToggle={togglePin}
              enableReorder={!isMobile}
-             onReorder={handleReorder}
+             onReorder={handleNavReorder}
              resolveTargetLabel={resolveNavTargetLabel}
              locale={language}
              onAction={dispatchNavAction}

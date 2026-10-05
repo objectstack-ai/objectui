@@ -138,3 +138,24 @@ describe('objectui#9973 — list-action flow launch that ends refused', () => {
     expect(document.body.textContent).not.toContain(SENTENCE);
   });
 });
+
+// objectui#11092 — the same harness, on a launch that PAUSES: the provider's
+// flow handler hands the trigger answer's `flowLabel` to the `FlowRunner` it
+// mounts, and the runner names the flow by it rather than by its API name.
+describe('objectui#11092 — a paused list-action launch names the flow by its served label', () => {
+  it('opens the runner headed by the served flowLabel', async () => {
+    const { result } = await launch({
+      success: true,
+      status: 'paused',
+      runId: 'run-1',
+      flowLabel: 'Duplicate Screening',
+      screen: { nodeId: 'confirm', title: 'Confirm', fields: [] },
+    });
+
+    expect(result).toEqual({ success: true, silent: true });
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByRole('heading', { name: 'Confirm' })).toBeTruthy();
+    expect(within(dialog).getByText('Duplicate Screening')).toBeTruthy();
+    expect(within(dialog).queryByText('check_dup')).toBeNull();
+  });
+});

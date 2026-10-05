@@ -12,7 +12,7 @@
  */
 
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 // Hoisted so the vi.mock factories below can close over them, and so the
@@ -30,6 +30,8 @@ const { execute, ADAPTER, authFetch } = vi.hoisted(() => {
     status: 'paused',
     runId: 'run_1',
     durationMs: 3,
+    // The flow's served label (objectui#11092): the runner names the flow by it.
+    flowLabel: 'Reassign',
     screen: {
       nodeId: 'collect',
       title: 'New Assignee',
@@ -122,5 +124,24 @@ describe('Flow Runs — screen flows are completable from the Test Run panel', (
     const resume = await screen.findByRole('button', { name: /Continue run/i });
     await user.click(resume);
     expect(await screen.findByRole('dialog')).toHaveTextContent('New Assignee');
+  });
+
+  it('names the flow by the trigger answer\'s served label, on the run and on Continue run (objectui#11092)', async () => {
+    const user = userEvent.setup();
+    render(<FlowRunsPage />);
+
+    await screen.findByRole('button', { name: /Run Flow/i });
+    await user.click(screen.getByRole('button', { name: /Run Flow/i }));
+    const first = within(await screen.findByRole('dialog'));
+    expect(first.getByText('Reassign')).toBeInTheDocument();
+    expect(first.queryByText('reassign_wizard')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+
+    await user.click(await screen.findByRole('button', { name: /Continue run/i }));
+    const reopened = within(await screen.findByRole('dialog'));
+    expect(reopened.getByText('Reassign')).toBeInTheDocument();
+    expect(reopened.queryByText('reassign_wizard')).not.toBeInTheDocument();
   });
 });

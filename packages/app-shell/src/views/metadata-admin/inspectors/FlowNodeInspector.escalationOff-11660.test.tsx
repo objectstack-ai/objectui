@@ -1,17 +1,29 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * objectui#11660 — switching an approval node's SLA escalation OFF removes the
- * `escalation` block; it never writes the `{ enabled: false }` stub.
+ * objectui#11660 — the SLA escalation switch never writes the bare
+ * `{ enabled: false }` block `ApprovalNodeConfigSchema` refuses, and switching
+ * it off keeps every value the author entered.
  *
  * The governing text is the spec's own: `ApprovalEscalationSchema.enabled` is
- * described as "the feature-level switch is whether the escalation block exists
- * at all", and the block's `timeoutHours` is required whatever `enabled` says.
- * Triage ruled the direction (comment 6000059097 on the card): turning
- * escalation off removes the block — no `enabled: false` stub, no
- * `timeoutHours` kept behind a disabled toggle — and the reading follows from
- * it: no block reads OFF, a block that omits `enabled` reads ON (the
- * objectui#6620 pin), a stored `enabled: false` reads OFF.
+ * described as "an escalation block carrying timeoutHours is live unless this
+ * is explicitly false — the feature-level switch is whether the escalation
+ * block exists at all", and the block's `timeoutHours` is required whatever
+ * `enabled` says. So `{ enabled: false, timeoutHours: N }` and no block are both
+ * a conforming OFF; the bare stub is not. Triage's amended direction (comment
+ * 6003792818 on the card, replacing 6000059097 under objectui#6499 Option C):
+ *
+ *  1. no block reads OFF, and rendering writes nothing;
+ *  2. switching off with no entered value writes no block;
+ *  3. switching off a block that holds values writes `enabled: false` and keeps
+ *     every value — the "inactive values retained" display carries them;
+ *  4. clearing the last retained value removes the block;
+ *  5. a block with values but no `timeoutHours` keeps its values on switch-off:
+ *     nothing filled in, nothing deleted, and its refusal is neither created
+ *     nor hidden by the switch.
+ *
+ * A block that omits `enabled` reads ON (the objectui#6620 pin), and a stored
+ * `enabled: false` reads OFF.
  *
  * Every case runs twice, once per DESCRIPTOR SOURCE, because the inspector
  * renders `serverFields ?? fieldsForNodeType(...)`:
@@ -215,10 +227,10 @@ for (const source of SOURCES) {
     });
   });
 
-  describe(`${source.name} descriptors: switching escalation off removes the block (objectui#11660)`, () => {
+  describe(`${source.name} descriptors: switching escalation off (objectui#11660, triage 6003792818)`, () => {
     beforeEach(source.install);
 
-    it('a block holding every value leaves no `escalation` key, and every sibling config key byte-identical', () => {
+    it('rule 3: a block holding every value gains `enabled: false`, every value and every sibling key byte-identical', () => {
       const siblings: Config = {
         approvers: APPROVERS,
         behavior: 'quorum',
@@ -238,36 +250,72 @@ for (const source of SOURCES) {
 
       gateBox(l)!.click();
 
-      const after = configOf(latest())!;
-      expect('escalation' in after, 'no `escalation` key is left behind — not a stub, not a hidden block').toBe(false);
-      // Byte-identical siblings, key order included: the removal deletes one key
-      // and rebuilds nothing else.
-      expect(JSON.stringify(after)).toBe(JSON.stringify(siblings));
+      const { escalation, ...rest } = configOf(latest())!;
+      // Byte-identical, key order included: the switch is the one key that moved.
+      expect(JSON.stringify(escalation)).toBe(
+        JSON.stringify({ enabled: false, timeoutHours: 24, action: 'reassign', escalateTo: 'sre_lead', notifySubmitter: false }),
+      );
+      expect(JSON.stringify(rest), 'the sibling config keys are untouched').toBe(JSON.stringify(siblings));
+      const parsed = ApprovalNodeConfigSchema.safeParse({ approvers: APPROVERS, escalation });
+      expect(parsed.success, parsed.success ? '' : JSON.stringify(parsed.error.issues)).toBe(true);
 
-      // What the author sees next: the switch off, nothing revealed, and nothing
-      // flagged as retained — there is nothing left to retain.
-      expect(gateBox(l)!.checked, 'the toggle reads the absent block as off').toBe(false);
-      expect(shownSubFields(l)).toEqual([]);
-      expect(retainedNotices()).toHaveLength(0);
+      // What the author sees next: the switch off, and the four values on screen
+      // as retained, not in effect (objectui#6499 Option C).
+      expect(gateBox(l)!.checked, 'the stored false reads off').toBe(false);
+      expect(shownSubFields(l)).toEqual(subLabels(l));
+      expect(retainedNotices()).toHaveLength(4);
     });
 
-    it('a block that omits `enabled` (switch drawn on by default) is removed too', () => {
+    it('rule 3: a block that omits `enabled` keeps its value and gains `enabled: false`', () => {
       const { latest } = mount(draftWith({ approvers: APPROVERS, escalation: { timeoutHours: 8 } }));
       gateBox(l)!.click();
-      expect(configOf(latest())).toEqual({ approvers: APPROVERS });
+      expect(configOf(latest())).toEqual({ approvers: APPROVERS, escalation: { timeoutHours: 8, enabled: false } });
     });
 
-    it('an emptied `config` is pruned with the block', () => {
-      const { latest } = mount(draftWith({ escalation: { enabled: true, timeoutHours: 24 } }));
+    it('rule 2: switching on writes only the switch, and switching off with nothing entered leaves no `escalation` key', () => {
+      const { latest } = mount(draftWith({ approvers: APPROVERS }));
+      gateBox(l)!.click();
+      // Nothing the author did not enter is written by switching on: no
+      // `action`, no `notifySubmitter` default (shown, never written).
+      expect(configOf(latest())!.escalation, 'switching on writes the switch alone').toEqual({ enabled: true });
+      gateBox(l)!.click();
+      expect(configOf(latest()), 'no `{ enabled: false }` stub is written').toEqual({ approvers: APPROVERS });
+      expect(gateBox(l)!.checked).toBe(false);
+    });
+
+    it('rule 2: an emptied `config` is pruned with the block', () => {
+      const { latest } = mount(draftWith({ escalation: { enabled: true } }));
       gateBox(l)!.click();
       expect(latest().nodes[0], 'removing the only config key leaves no empty `config` object').not.toHaveProperty('config');
+    });
+
+    it('rule 5: a block with values but no `timeoutHours` keeps them, gains no `timeoutHours`, and stays refused where it was', () => {
+      const before: Config = { approvers: APPROVERS, escalation: { enabled: true, action: 'reassign' } };
+      const refusedAt = (cfg: Config) => {
+        const r = ApprovalNodeConfigSchema.safeParse(cfg);
+        return r.success ? [] : r.error.issues.map((i) => i.path.join('.'));
+      };
+      expect(refusedAt(before), 'premise: refused at the missing hours before the switch').toEqual(['escalation.timeoutHours']);
+      const { latest } = mount(draftWith(before));
+      gateBox(l)!.click();
+      const after = configOf(latest())!;
+      expect(after.escalation, 'the value stays; nothing is filled in').toEqual({ enabled: false, action: 'reassign' });
+      expect(refusedAt(after), 'the switch neither creates nor hides that refusal').toEqual(['escalation.timeoutHours']);
+    });
+
+    it('rule 4 on a block rule 3 wrote: clearing its last retained value leaves no block', () => {
+      const { latest } = mount(draftWith({ approvers: APPROVERS, escalation: { enabled: true, timeoutHours: 24 } }));
+      gateBox(l)!.click();
+      expect(configOf(latest())!.escalation, 'premise: rule 3 kept the hours').toEqual({ enabled: false, timeoutHours: 24 });
+      fireEvent.click(within(retainedNotices()[0]).getByRole('button', { name: /clear value/i }));
+      expect(configOf(latest())).toEqual({ approvers: APPROVERS });
     });
   });
 
   describe(`${source.name} descriptors: an inspector-authored node round-trips through ApprovalNodeConfigSchema (objectui#11660)`, () => {
     beforeEach(source.install);
 
-    it('escalation ON with every value parses and keeps every value; OFF leaves no block and parses', async () => {
+    it('escalation ON with every value parses and keeps every value; OFF keeps every value beside `enabled: false` and parses', async () => {
       const { latest } = mount(draftWith({ approvers: APPROVERS }));
       expect(gateBox(l)!.checked, 'premise: a fresh node starts off').toBe(false);
 
@@ -287,23 +335,23 @@ for (const source of SOURCES) {
       expect(on.success, on.success ? '' : JSON.stringify(on.error.issues)).toBe(true);
       expect((on.data as { escalation?: unknown }).escalation, 'and the contract keeps every value').toEqual(authored);
 
-      // OFF.
+      // OFF, values retained.
       gateBox(l)!.click();
       const offConfig = configOf(latest())!;
-      expect('escalation' in offConfig, 'switching off leaves no block').toBe(false);
-      expect(offConfig).toEqual({ approvers: APPROVERS });
+      const retained = { ...authored, enabled: false };
+      expect(JSON.stringify(offConfig.escalation), 'every value identical, the switch false').toBe(JSON.stringify(retained));
       const off = ApprovalNodeConfigSchema.safeParse(offConfig);
       expect(off.success, off.success ? '' : JSON.stringify(off.error.issues)).toBe(true);
-      expect(off.data as Record<string, unknown>, 'the parsed node carries no escalation either').not.toHaveProperty('escalation');
+      expect((off.data as { escalation?: unknown }).escalation, 'and the contract keeps them, switched off').toEqual(retained);
     });
   });
 
-  describe(`${source.name} descriptors: a stored switched-off block from older metadata (objectui#11660)`, () => {
+  describe(`${source.name} descriptors: a stored switched-off block (objectui#11660)`, () => {
     beforeEach(source.install);
 
     it('`{ enabled: false, timeoutHours: 24 }` reads OFF, shows the retained value, and writes nothing on render', () => {
-      // A shape the spec ACCEPTS — the old inspector wrote it when an author
-      // switched off a filled block. It is read, never rewritten on sight.
+      // A shape the spec ACCEPTS, and the one rule 3 writes. It is read, never
+      // rewritten on sight.
       expect(ApprovalNodeConfigSchema.safeParse({ approvers: APPROVERS, escalation: { enabled: false, timeoutHours: 24 } }).success).toBe(true);
       const draft = draftWith({ approvers: APPROVERS, escalation: { enabled: false, timeoutHours: 24 } });
       const before = JSON.stringify(draft);

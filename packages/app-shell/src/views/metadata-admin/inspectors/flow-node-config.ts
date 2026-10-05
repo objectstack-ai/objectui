@@ -996,8 +996,10 @@ const FLOW_NODE_CONFIG: Record<string, FlowConfigField[]> = {
     //
     // That default applies INSIDE a block. Whether the block exists is the
     // switch itself (objectui#11660, `BLOCK_SWITCHES` below): no block reads
-    // off, and switching off removes the block — so the engine-published copy
-    // of this gate behaves the same, it is keyed by path, not declared here.
+    // off, and switching off never writes a bare `{ enabled: false }` — with
+    // nothing entered no block is written; entered values stay beside
+    // `enabled: false`. The engine-published copy of this gate behaves the
+    // same: the rule is keyed by path, not declared here.
     { id: 'escalation.enabled', path: ['config', 'escalation', 'enabled'], label: 'SLA escalation', kind: 'boolean', defaultValue: 'true', help: 'Escalate when a decision is not recorded within the timeout.' },
     { id: 'escalation.timeoutHours', path: ['config', 'escalation', 'timeoutHours'], label: 'Timeout (hours)', kind: 'number', placeholder: '24', showWhen: { field: 'escalation.enabled', equals: ['true'] } },
     {
@@ -1343,19 +1345,25 @@ export function getFieldValue(node: Record<string, unknown> | null | undefined, 
  *
  * The approval node's SLA escalation is the one instance, and the spec states
  * it in the declaration itself: `ApprovalEscalationSchema.enabled` is
- * described as "the feature-level switch is whether the escalation block
- * exists at all", while the block's `timeoutHours` is REQUIRED whatever
- * `enabled` says. So the only spelling of OFF every reader accepts is NO
- * BLOCK. The inspector used to write `{ enabled: false }` instead — a block
- * `ApprovalNodeConfigSchema` refuses for its missing `timeoutHours`, so the
- * flow saved and then failed at the approval node on every run.
+ * described as "an escalation block carrying timeoutHours is live unless this
+ * is explicitly false — the feature-level switch is whether the escalation
+ * block exists at all", and the block's `timeoutHours` is REQUIRED whatever
+ * `enabled` says. So OFF has two conforming spellings: NO BLOCK, and a block
+ * that keeps its `timeoutHours` beside `enabled: false` (the runtime skips the
+ * escalation sweep on an explicit `false`). What it refuses is the bare
+ * `{ enabled: false }` stub — and the inspector used to write exactly that when
+ * an author switched off a node with nothing entered, because the switch drew
+ * ON over a node with no block. The flow saved and then failed at the approval
+ * node on every run, or, at a door that judges the block, did not save.
  *
  * Keyed by PATH, not by a descriptor member: the offline table and the
  * engine-published `configSchema` (`jsonSchemaToFlowFields`) both emit this
  * path for the gate, so the rule holds whichever of the two produced the field
- * on screen. Triage's ruling on objectui#11660 is what this list carries out:
- * switching escalation off removes the block — no `enabled: false` stub, and
- * no `timeoutHours` kept behind a disabled toggle.
+ * on screen. Triage's ruling on objectui#11660 (6003792818, amending its
+ * first grade under objectui#6499 Option C) is what this list carries out: no
+ * block reads off; switching off with nothing entered writes no block;
+ * switching off a block holding values writes `enabled: false` and keeps every
+ * value; clearing the last retained value removes the block.
  */
 const BLOCK_SWITCHES: ReadonlyArray<{ nodeType: string; path: readonly string[] }> = [
   { nodeType: 'approval', path: ['config', 'escalation', 'enabled'] },
@@ -1427,8 +1435,11 @@ export function readFieldValue(node: Record<string, unknown> | null | undefined,
 
 /**
  * Whether `node` holds `switched`'s block as the bare `{ <switch>: false }`
- * stub — OFF spelt as a block, which `ApprovalNodeConfigSchema` refuses for its
- * missing `timeoutHours` and which absence already says (objectui#11660).
+ * stub — OFF spelt as a block that holds no entered value, which
+ * `ApprovalNodeConfigSchema` refuses for its missing `timeoutHours` and which
+ * absence already says (objectui#11660). A switched-off block that still holds
+ * any other key is NOT a stub: its values are the author's, kept (objectui#6499
+ * Option C).
  */
 export function isBareSwitchedOffBlock(
   node: Record<string, unknown> | null | undefined,

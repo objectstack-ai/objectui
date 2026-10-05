@@ -178,8 +178,10 @@ describe('clearing is deliberate, author-initiated, and goes through the ordinar
     // The retained key is gone. This row used to go on "the controller the
     // author actually set stays" and pin `{ enabled: false }` — the stub
     // `ApprovalNodeConfigSchema` refuses for its missing `timeoutHours`.
-    // objectui#11660: the escalation block's EXISTENCE is its switch, so the
-    // author's OFF survives as no block, the one spelling of it the spec admits.
+    // objectui#11660 (triage 6003792818, rule 4): with its last retained value
+    // cleared, the block would hold nothing but its switch, and the author's
+    // OFF survives as no block — which the spec reads as off too. A block that
+    // still held another value would be kept, `enabled: false` and all.
     expect(patched.nodes[0].config?.escalation).toBeUndefined();
   });
 

@@ -369,18 +369,18 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
       }
     }
     // objectui#11660 — a block whose EXISTENCE is its switch (`switchedBlockOf`:
-    // the approval node's SLA escalation). Switching it off removes the block,
-    // and every value stored in it with it — triage's ruling: no
-    // `enabled: false` stub, no `timeoutHours` kept behind a disabled toggle.
-    // Any other write that leaves the bare `{ enabled: false }` stub (clearing
-    // the last value retained under a stored switched-off block) removes it as
-    // well. `setAtPath` deletes only the block — sibling config keys are not
-    // rebuilt — and prunes a `config` left empty.
+    // the approval node's SLA escalation). The write itself is the ordinary
+    // one, so switching off a block that holds entered values stores
+    // `enabled: false` beside them, every value kept (objectui#6499 Option C,
+    // triage 6003792818) — including a block that has no `timeoutHours` yet:
+    // nothing is filled in, nothing deleted. What is never stored is the bare
+    // `{ enabled: false }` stub `ApprovalNodeConfigSchema` refuses: a write
+    // that would leave it — switching off with nothing entered, or clearing the
+    // last value retained under a switched-off block — removes the block
+    // instead, which says the same OFF. `setAtPath` deletes only the block —
+    // sibling config keys are not rebuilt — and prunes a `config` left empty.
     const switched = switchedBlockOf(node, field);
-    let nextNode =
-      switched?.isSwitch && stored === false
-        ? setAtPath(node, [...switched.block], undefined)
-        : setAtPath(node, path, stored);
+    let nextNode = setAtPath(node, path, stored);
     if (switched && isBareSwitchedOffBlock(nextNode, switched)) {
       nextNode = setAtPath(nextNode, [...switched.block], undefined);
     }

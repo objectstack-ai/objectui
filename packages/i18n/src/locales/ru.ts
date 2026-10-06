@@ -888,6 +888,7 @@ const ru = {
   timeline: {
     bucket: {
       overdue: "Просрочено",
+      earlier: "Ранее",
       today: "Сегодня",
       tomorrow: "Завтра",
       thisWeek: "На этой неделе",

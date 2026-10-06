@@ -194,6 +194,15 @@ async function openedDrawer(): Promise<HTMLElement> {
   return dialog;
 }
 
+/**
+ * Every snapshot key declared as a text field. Since objectui#11677 a snapshot
+ * key the object's metadata does not declare takes no row once that metadata
+ * has answered, so a fixture that wants a key on the card declares it.
+ */
+const EVERY_PAYLOAD_FIELD: Record<string, Record<string, unknown>> = Object.fromEntries(
+  Object.keys(ROW.payload as Record<string, unknown>).map((k) => [k, { type: 'text' }]),
+);
+
 /** The card really rendered its business content — run by every denial case. */
 function expectSummaryCardIntact(dialog: HTMLElement): void {
   for (const value of SIBLING_VALUES) {
@@ -216,11 +225,7 @@ afterEach(cleanup);
 describe('Approvals drawer summary card — `hidden: true` trim (objectui#5565)', () => {
   it('drops the hidden field and promotes the seventh into its slot', async () => {
     getObjectSchema.mockResolvedValue({
-      fields: {
-        subject: { type: 'text' },
-        diagnosis_code: { type: 'text', hidden: true },
-        justification: { type: 'text' },
-      },
+      fields: { ...EVERY_PAYLOAD_FIELD, diagnosis_code: { type: 'text', hidden: true } },
     });
     const dialog = await openedDrawer();
 
@@ -238,9 +243,7 @@ describe('Approvals drawer summary card — `hidden: true` trim (objectui#5565)'
   });
 
   it('COUNTER-PROBE: same fixture, same position, nothing declared hidden — it renders', async () => {
-    getObjectSchema.mockResolvedValue({
-      fields: { subject: { type: 'text' }, diagnosis_code: { type: 'text' } },
-    });
+    getObjectSchema.mockResolvedValue({ fields: EVERY_PAYLOAD_FIELD });
     const dialog = await openedDrawer();
 
     await waitFor(() => expect(getObjectSchema).toHaveBeenCalledWith(OBJECT));
@@ -277,7 +280,7 @@ describe('Approvals drawer lead amount — same card, same trim (objectui#5565)'
 
   it('does not lead with an amount field the object declares hidden', async () => {
     useAmountFixture();
-    getObjectSchema.mockResolvedValue({ fields: { total_amount: { hidden: true } } });
+    getObjectSchema.mockResolvedValue({ fields: { total_amount: { hidden: true }, subject: { type: 'text' } } });
     const dialog = await openedDrawer();
 
     await waitFor(() => expect(getObjectSchema).toHaveBeenCalledWith(OBJECT));
@@ -290,7 +293,7 @@ describe('Approvals drawer lead amount — same card, same trim (objectui#5565)'
 
   it('COUNTER-PROBE: the same amount, undeclared, still leads the card', async () => {
     useAmountFixture();
-    getObjectSchema.mockResolvedValue({ fields: { total_amount: {} } });
+    getObjectSchema.mockResolvedValue({ fields: { total_amount: {}, subject: { type: 'text' } } });
     const dialog = await openedDrawer();
 
     await waitFor(() => expect(getObjectSchema).toHaveBeenCalledWith(OBJECT));

@@ -1059,6 +1059,7 @@ const en = {
   timeline: {
     bucket: {
       overdue: 'Overdue',
+      earlier: 'Earlier',
       today: 'Today',
       tomorrow: 'Tomorrow',
       thisWeek: 'This week',

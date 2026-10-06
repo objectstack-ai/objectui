@@ -829,6 +829,7 @@ const de = {
   timeline: {
     bucket: {
       overdue: "Überfällig",
+      earlier: "Früher",
       today: "Heute",
       tomorrow: "Morgen",
       thisWeek: "Diese Woche",

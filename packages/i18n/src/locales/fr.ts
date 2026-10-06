@@ -853,6 +853,7 @@ const fr = {
   timeline: {
     bucket: {
       overdue: "En retard",
+      earlier: "Plus tôt",
       today: "Aujourd'hui",
       tomorrow: "Demain",
       thisWeek: "Cette semaine",

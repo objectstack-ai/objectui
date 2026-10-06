@@ -852,6 +852,7 @@ const pt = {
   timeline: {
     bucket: {
       overdue: "Atrasado",
+      earlier: "Antes",
       today: "Hoje",
       tomorrow: "Amanhã",
       thisWeek: "Esta semana",

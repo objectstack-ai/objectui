@@ -870,6 +870,36 @@ newlines (`whitespace-pre-line`). `formatMetadataIssue(issue)` is the same
 one-line format for a single issue, for code that lists several failures, such
 as a publish response's `failed[]`.
 
+## Saving an Object You Read From the Server
+
+A select field can name a shared picklist (`picklist: 'industry'`) instead of
+carrying its own options. The server *serves* such a field with both keys:
+`picklist`, and the `options` it resolved from the list. The server's authoring
+check refuses the two together, with `422 INVALID_METADATA` at
+`fields.FIELD.options`, and that refuses the whole object. So code that reads an
+object, edits it, and saves the whole document back must drop those resolved
+options first. `dropServedPicklistOptions` does that:
+
+```ts
+import { MetadataClient, dropServedPicklistOptions } from '@object-ui/data-objectstack';
+
+const client = new MetadataClient({ baseUrl: '/api/v1' });
+
+const account = await client.get<Record<string, unknown>>('object', 'account');
+const edited = { ...account, label: 'Customer' };
+await client.save('object', 'account', dropServedPicklistOptions(edited));
+```
+
+It removes `options` from every field that names a picklist, and touches
+nothing else: a field without `picklist` keeps its inline `options`, and every
+other key is kept. It never mutates its input, and it returns the same object
+when there is nothing to remove.
+
+Apply it only to a body built from a served read. `MetadataClient.save` does
+not apply it for you: the client cannot tell a served copy from an author who
+wrote `picklist` and `options` together, and that second case should stay the
+server's refusal, which says which key to delete.
+
 ## User-Scoped State Adapter
 
 In addition to the main `DataSource` adapter, this package ships

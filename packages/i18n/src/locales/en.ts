@@ -2271,6 +2271,14 @@ const en = {
       toolAwaitingApproval: 'Awaiting approval',
       toolFailed: 'Failed',
       toolDetailsHidden: 'Tool inputs and raw results are hidden in this view.',
+      // objectui#11667 — the inline HITL deny reason (stored on the pending
+      // action as `rejection_reason`, read as prose) and the ADR-0057 P4
+      // "Open in Builder" handoff card. The card's Approve / Reject buttons
+      // borrow `aiApprovals.approveAndExecute` / `aiApprovals.reject`.
+      toolDenyReason: 'Operator rejected from chat',
+      builderHandoffTitle: 'Build this in the Builder',
+      builderHandoffOpen: 'Open in Builder →',
+      builderHandoffSuperseded: 'A newer request is available',
       copy: 'Copy',
       copied: 'Copied',
       regenerate: 'Regenerate',

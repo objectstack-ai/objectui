@@ -170,6 +170,23 @@ describe('@object-ui/i18n', () => {
       expect(msg).not.toMatch(GATE);
     });
 
+    it('the inline HITL deny reason never reads as approval, in any pack (objectui#11667)', () => {
+      // `console.ai.toolDenyReason` is a label — it follows the UI locale, so
+      // all ten packs define it — but it does not stay on screen: the reject
+      // request stores it, and `useHitlInChat` embeds it in the continuation
+      // prompt it sends into the thread after the reject. A translation the
+      // gate read as approval would turn the operator's rejection into a
+      // go-ahead in that thread.
+      for (const lang of ['en', 'zh', 'ja', 'ko', 'de', 'fr', 'es', 'pt', 'ru', 'ar']) {
+        const i18n = createI18n({ defaultLanguage: lang, detectBrowserLanguage: false });
+        const msg = i18n.t('console.ai.toolDenyReason');
+        expect(msg, `${lang} toolDenyReason must not fall through to its raw key`).not.toBe(
+          'console.ai.toolDenyReason',
+        );
+        expect(msg, `${lang} toolDenyReason reads as approval to the cloud APPROVAL_RE`).not.toMatch(GATE);
+      }
+    });
+
     it('translates common keys in Japanese', () => {
       const i18n = createI18n({ defaultLanguage: 'ja', detectBrowserLanguage: false });
       expect(i18n.t('common.save')).toBe('保存');

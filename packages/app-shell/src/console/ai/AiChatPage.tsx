@@ -2373,6 +2373,11 @@ export function ChatPane({
             : undefined
         }
         onOpenBuilder={openBuilder}
+        // objectui#11667 — the ADR-0057 P4 handoff card's three strings. Left
+        // unset, the component's English defaults rendered in every locale.
+        builderHandoffTitleLabel={t('console.ai.builderHandoffTitle')}
+        builderHandoffOpenLabel={t('console.ai.builderHandoffOpen')}
+        builderHandoffSupersededTitle={t('console.ai.builderHandoffSuperseded')}
         onOpenRecord={openRecord}
         surface="plain"
         maxHeight="100%"
@@ -2460,9 +2465,16 @@ export function ChatPane({
         enableMarkdown
         onToolApprove={hitl.decide}
         toolDecisions={hitl.decisions}
-        toolApproveLabel="Approve & run"
-        toolDenyLabel="Reject"
-        toolDenyReason="Operator rejected from chat"
+        // objectui#11667 — the inline HITL decision card. The two buttons borrow
+        // the AI Approvals inbox's keys: the same decision on the same pending
+        // action through the same endpoint, so the two surfaces say it alike.
+        toolApproveLabel={t('aiApprovals.approveAndExecute')}
+        toolDenyLabel={t('aiApprovals.reject')}
+        // The deny reason is stored as the pending action's `rejection_reason`
+        // and read as prose: by people in the AI Approvals inbox (which writes
+        // free text in any language into the same field) and by the model on
+        // its next turn. No code parses it, so it follows the UI locale.
+        toolDenyReason={t('console.ai.toolDenyReason')}
         // Build-tree "Open app": jump straight into the app the agent just built.
         onOpenBuiltApp={(appName, appSegment) =>
           navigate(`/apps/${encodeURIComponent(appSegment ?? appName)}`)}

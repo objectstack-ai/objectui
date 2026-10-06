@@ -46,7 +46,6 @@
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, within } from '@testing-library/react';
-import type { z } from 'zod';
 import {
   ChartTypeSchema as SpecChartTypeSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
@@ -98,7 +97,7 @@ const DIMENSIONLESS_ARM = FAMILY.filter((type) => {
   const issues: unknown[] = [];
   checkDashboardWidgetChartMeasureArity(
     { id: 'sales_tile', type, values: TWO },
-    { addIssue: (issue: unknown) => issues.push(issue) } as unknown as z.RefinementCtx,
+    { addIssue: (issue: unknown) => issues.push(issue) } as unknown as Parameters<typeof checkDashboardWidgetChartMeasureArity>[1],
   );
   return issues.length === 1;
 });

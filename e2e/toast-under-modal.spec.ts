@@ -39,10 +39,12 @@ import { fileURLToPath } from 'node:url';
  * ## What is real here and what is a fixture
  *
  * REAL, built from source at run time and running in the page: `ConsoleToaster`
- * (with its objectui#11685 drawer clearance), `ThemeProvider`, the record drawer
- * host `NavigationOverlay` in drawer mode with the props `ObjectView` gives it,
- * and through it the Shadcn `Sheet` on `@radix-ui/react-dialog`, sonner itself,
- * React. The stylesheet is real Tailwind, compiled from the installed
+ * (with its objectui#11685 drawer clearance), `ThemeProvider`, the record
+ * overlay host `NavigationOverlay` with the props `ObjectView` gives it, and
+ * through it the Shadcn `Sheet` (drawer mode: both objectui#11685 paths, beside
+ * the drawer and below its header) and `Dialog` (modal mode: the centred
+ * dialog, toaster in its own corner), both on `@radix-ui/react-dialog`; sonner
+ * itself; React. The stylesheet is real Tailwind, compiled from the installed
  * `tailwindcss` for the class strings in those source files.
  *
  * FIXTURES, declared so nobody reads more into a green run than it says:
@@ -52,7 +54,7 @@ import { fileURLToPath } from 'node:url';
  *   - `@object-ui/react` is a stub exporting a `SchemaRenderer` that renders
  *     nothing. The components' `lib/utils` imports it for its slot helpers,
  *     which the drawer does not call.
- *   - The drawer's content is a stand-in for `RecordDetailView`: the record
+ *   - The overlay's content is a stand-in for `RecordDetailView`: the record
  *     title and two `record_header` actions in its first row, then filler.
  *     Every control in it logs its clicks, so a click that falls through a toast
  *     onto the record is caught.
@@ -94,6 +96,7 @@ const STYLED_SOURCES = [
   CONSOLE_TOASTER,
   NAVIGATION_OVERLAY,
   source('packages/components/src/ui/sheet.tsx'),
+  source('packages/components/src/ui/dialog.tsx'),
 ];
 
 const STUB_I18N = '\0toast-under-modal:i18n';
@@ -133,7 +136,7 @@ import { NavigationOverlay } from ${at(NAVIGATION_OVERLAY)};
 const h = React.createElement;
 const log = [];
 const record = (what) => () => log.push(what);
-let openDrawer = () => {};
+let openOverlay = () => {};
 
 const button = (label, what) =>
   h('button', { type: 'button', className: 'h-9 px-4 rounded-md border', onClick: record(what) }, label);
@@ -153,11 +156,11 @@ function RecordContent() {
 
 function Harness() {
   const [open, setOpen] = React.useState(false);
-  openDrawer = () => setOpen(true);
+  openOverlay = () => setOpen(true);
   return h(ThemeProvider, null,
     h('main', { className: 'p-6', onClick: record('page') }, button('New', 'new')),
     h(NavigationOverlay, {
-      mode: 'drawer',
+      mode: window.__overlayMode,
       isOverlay: true,
       isOpen: open,
       selectedRecord: open ? { id: 'widget-42' } : null,
@@ -175,7 +178,7 @@ function Harness() {
 
 window.__harness = {
   log,
-  open: () => openDrawer(),
+  open: () => openOverlay(),
   raise: (title) => toast.success(title, { action: { label: 'Undo', onClick: record('undo:' + title) } }),
 };
 createRoot(document.getElementById('root')).render(h(Harness));
@@ -267,24 +270,33 @@ test.beforeAll(async () => {
 interface Configuration {
   name: string;
   viewport: { width: number; height: number };
-  /** What `ObjectView` passes: `overlayWidthFor(...)`, `min(92vw, <bucket>px)`. */
+  /** `NavigationOverlay`'s mode: the record drawer, or the centred record dialog. */
+  mode: 'drawer' | 'modal';
+  /** What `ObjectView` passes: `overlayWidthFor(...)`, `min(92vw, BUCKET px)`. */
   drawerWidth: string;
-  /** objectui#11685's path for this window and drawer. */
-  path: 'beside' | 'below header';
+  /**
+   * Where objectui#11685 puts the toaster for this window and overlay: beside
+   * the drawer, below its header, or (no right-edge drawer) its own corner.
+   * Read back off the toaster in every test, so a configuration that stopped
+   * exercising its path fails instead of silently testing another one.
+   */
+  path: 'beside' | 'below header' | 'corner';
 }
 
 const CONFIGURATIONS: Configuration[] = [
-  { name: '1440 sm drawer', viewport: { width: 1440, height: 900 }, drawerWidth: 'min(92vw, 480px)', path: 'beside' },
-  { name: '1024 md drawer', viewport: { width: 1024, height: 768 }, drawerWidth: 'min(92vw, 720px)', path: 'below header' },
-  { name: '390 phone', viewport: { width: 390, height: 844 }, drawerWidth: 'min(92vw, 480px)', path: 'below header' },
+  { name: '1440 sm drawer', viewport: { width: 1440, height: 900 }, mode: 'drawer', drawerWidth: 'min(92vw, 480px)', path: 'beside' },
+  { name: '1024 md drawer', viewport: { width: 1024, height: 768 }, mode: 'drawer', drawerWidth: 'min(92vw, 720px)', path: 'below header' },
+  { name: '390 phone drawer', viewport: { width: 390, height: 844 }, mode: 'drawer', drawerWidth: 'min(92vw, 480px)', path: 'below header' },
+  { name: '1440 centred dialog', viewport: { width: 1440, height: 900 }, mode: 'modal', drawerWidth: 'min(92vw, 720px)', path: 'corner' },
 ];
+const BELOW_HEADER = CONFIGURATIONS[1];
 
 interface Point {
   x: number;
   y: number;
 }
 
-async function openDrawer(page: Page, configuration: Configuration) {
+async function openOverlay(page: Page, configuration: Configuration) {
   // A harness that never comes up must say why, not run into the test timeout.
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
@@ -310,19 +322,20 @@ async function openDrawer(page: Page, configuration: Configuration) {
       contentType: 'text/html',
       body:
         `<!doctype html><html><head><meta charset="utf-8"><style>${css}</style>` +
-        `<script>window.__drawerWidth = ${JSON.stringify(configuration.drawerWidth)};</script></head>` +
+        `<script>window.__drawerWidth = ${JSON.stringify(configuration.drawerWidth)};` +
+        `window.__overlayMode = ${JSON.stringify(configuration.mode)};</script></head>` +
         `<body><div id="root"></div><script src="/harness.js"></script></body></html>`,
     });
   });
   await page.goto(`${HARNESS_ORIGIN}/`);
   await ready('mounted', page.waitForFunction(() => '__harness' in window, null, { timeout: 10_000 }));
   await page.evaluate(() => (window as unknown as { __harness: { open(): void } }).__harness.open());
-  await ready('drawer open', page.waitForSelector('[role="dialog"][data-state="open"]', { timeout: 10_000 }));
+  await ready('overlay open', page.waitForSelector('[role="dialog"][data-state="open"]', { timeout: 10_000 }));
 }
 
 const log = (page: Page) => page.evaluate(() => [...(window as unknown as { __harness: { log: string[] } }).__harness.log]);
 
-const drawerIsOpen = (page: Page) =>
+const overlayIsOpen = (page: Page) =>
   page.evaluate(() => document.querySelector('[role="dialog"][data-state="open"]') !== null);
 
 const toastShowing = (page: Page, title: string) =>
@@ -330,6 +343,16 @@ const toastShowing = (page: Page, title: string) =>
     (t) => [...document.querySelectorAll('[data-sonner-toast]')].some((li) => li.textContent?.includes(t)),
     title,
   );
+
+/** Which objectui#11685 path the toaster took, read off the offsets it was given. */
+const pathOf = (page: Page) =>
+  page.evaluate(() => {
+    const toaster = document.querySelector<HTMLElement>('[data-sonner-toaster]');
+    if (!toaster) return 'no toaster';
+    if (toaster.style.getPropertyValue('--offset-right') !== '24px') return 'beside';
+    if (toaster.style.getPropertyValue('--offset-top') !== '24px') return 'below header';
+    return 'corner';
+  });
 
 interface ToastReading {
   box: { left: number; top: number; right: number; bottom: number };
@@ -384,7 +407,7 @@ const hitAt = (page: Page, point: Point) =>
       if (el.closest('[data-action]')) return 'toast action';
       if (el.closest('[data-close-button]')) return 'toast close';
       if (el.closest('[data-sonner-toast]')) return 'toast';
-      if (el.closest('[role="dialog"]')) return 'drawer';
+      if (el.closest('[role="dialog"]')) return 'modal';
       if (el.matches('[data-state][class*="bg-black"]')) return 'overlay';
       return el.tagName.toLowerCase();
     };
@@ -392,65 +415,81 @@ const hitAt = (page: Page, point: Point) =>
     return { top: describe(stack[0] ?? null), beneath: stack.slice(1).map(describe) };
   }, point);
 
-test.describe('toast actions under an open record drawer (objectui#11723)', () => {
+/** The modal's own surfaces: what a click falling through a toast reaches. */
+const isModalSurface = (what: string) => what === 'overlay' || what === 'modal';
+
+test.describe('toast actions under an open Radix modal (objectui#11723)', () => {
   for (const configuration of CONFIGURATIONS) {
-    test(`${configuration.name}: Undo is the click target, runs, and leaves the drawer open`, async ({ page }) => {
-      await openDrawer(page, configuration);
+    test(`${configuration.name}: Undo is the click target, runs, and leaves the modal open`, async ({ page }) => {
+      await openOverlay(page, configuration);
       const reading = await raise(page, 'Approved');
+      expect(await pathOf(page), 'the objectui#11685 path this configuration exercises').toBe(configuration.path);
 
       const hit = await hitAt(page, reading.action);
       expect(hit.top, 'the hit test at the Undo button').toBe('toast action');
       // Non-vacuity: the toast sits over something a stray click would reach.
-      expect(hit.beneath.some((what) => what === 'overlay' || what === 'drawer'), `beneath Undo: ${hit.beneath}`).toBe(true);
+      expect(hit.beneath.some(isModalSurface), `beneath Undo: ${hit.beneath}`).toBe(true);
 
       await page.mouse.click(reading.action.x, reading.action.y);
       await expect.poll(() => log(page)).toEqual(['undo:Approved']);
-      expect(await drawerIsOpen(page), 'the drawer stays open').toBe(true);
+      expect(await overlayIsOpen(page), 'the modal stays open').toBe(true);
       await expect.poll(() => toastShowing(page, 'Approved')).toBe(false);
     });
 
     test(`${configuration.name}: the close button dismisses the toast, and only the toast`, async ({ page }) => {
-      await openDrawer(page, configuration);
+      await openOverlay(page, configuration);
       const reading = await raise(page, 'Saved');
+      expect(await pathOf(page)).toBe(configuration.path);
 
       expect((await hitAt(page, reading.close)).top, 'the hit test at the close button').toBe('toast close');
       await page.mouse.click(reading.close.x, reading.close.y);
       await expect.poll(() => toastShowing(page, 'Saved')).toBe(false);
       expect(await log(page)).toEqual([]);
-      expect(await drawerIsOpen(page)).toBe(true);
+      expect(await overlayIsOpen(page)).toBe(true);
     });
 
     test(`${configuration.name}: a click on the toast reaches nothing under it`, async ({ page }) => {
-      await openDrawer(page, configuration);
+      await openOverlay(page, configuration);
       const reading = await raise(page, 'Updated');
+      expect(await pathOf(page)).toBe(configuration.path);
 
       const hit = await hitAt(page, reading.body);
       expect(hit.top, 'the hit test on the toast body').toBe('toast');
-      expect(hit.beneath.some((what) => what === 'overlay' || what === 'drawer'), `beneath the toast: ${hit.beneath}`).toBe(true);
+      expect(hit.beneath.some(isModalSurface), `beneath the toast: ${hit.beneath}`).toBe(true);
 
       await page.mouse.click(reading.body.x, reading.body.y);
       // Give a fall-through click every chance to land before reading the log.
       await page.waitForTimeout(250);
       expect(await log(page)).toEqual([]);
-      expect(await drawerIsOpen(page)).toBe(true);
+      expect(await overlayIsOpen(page)).toBe(true);
       expect(await toastShowing(page, 'Updated')).toBe(true);
     });
   }
 
-  test(`${CONFIGURATIONS[1].name}: the dismiss timer still runs with the pointer resting just outside the toast (objectui#7482)`, async ({
+  test(`${BELOW_HEADER.name}: the dismiss timer pauses only while the pointer is on the toast, not beside it (objectui#7482)`, async ({
     page,
   }) => {
     // objectui#7482: sonner pauses dismissal while the pointer is inside the
-    // toaster, so a pointer resting on a control the toaster covered kept the
-    // toast up for good. Only the toast itself takes the pointer: a pointer
-    // resting beside it, here over the record's own first row, is not inside.
-    const configuration = CONFIGURATIONS[1];
-    await openDrawer(page, configuration);
-    const reading = await raise(page, 'Approved');
-    const beside = { x: reading.box.left - 8, y: (reading.box.top + reading.box.bottom) / 2 };
-    expect((await hitAt(page, beside)).top, 'the point beside the toast').toBe('drawer');
+    // toaster, so a toaster over a control the pointer rests on stays up for
+    // good. Only the toast takes the pointer now, not the toaster around it.
+    // The below-header path is the one where a toast covers the record's own
+    // first row, so it is the path where that matters.
+    await openOverlay(page, BELOW_HEADER);
+
+    // The control: on the toast, the pause is real and observable here, so the
+    // second half's dismissal is not just a timer that never pauses.
+    const held = await raise(page, 'Held');
+    expect(await pathOf(page)).toBe(BELOW_HEADER.path);
+    await page.mouse.move(held.body.x, held.body.y);
+    await page.waitForTimeout(5_000);
+    expect(await toastShowing(page, 'Held'), 'past its 4s while the pointer is on it').toBe(true);
+
+    // Beside the toast, over the record's first row: the timer runs.
+    const beside = { x: held.box.left - 8, y: (held.box.top + held.box.bottom) / 2 };
+    expect((await hitAt(page, beside)).top, 'the point beside the toast').toBe('modal');
     await page.mouse.move(beside.x, beside.y);
     // Sonner's 4s default (objectui#7482 pins it), plus its unmount delay.
-    await expect.poll(() => toastShowing(page, 'Approved'), { timeout: 6_000 }).toBe(false);
+    await expect.poll(() => toastShowing(page, 'Held'), { timeout: 6_000 }).toBe(false);
+    expect(await log(page)).toEqual([]);
   });
 });

@@ -16,7 +16,7 @@
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
+import { cleanup, render, screen, within } from '@testing-library/react';
 
 type Row = Record<string, unknown>;
 
@@ -70,7 +70,8 @@ vi.mock('../useMetadata', async (importOriginal) => {
   return { ...mod, useMetadataClient: () => client };
 });
 
-import { PicklistPreview, extensionsOf } from './PicklistPreview';
+import { PicklistPreview } from './PicklistPreview';
+import { extensionsOf } from './picklist-extensions';
 import { registerBuiltinPreviews } from './index';
 import { getMetadataPreview } from '../preview-registry';
 

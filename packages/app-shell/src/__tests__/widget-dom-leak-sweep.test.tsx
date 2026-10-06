@@ -36,29 +36,34 @@
  *   | plugin-charts    |       5 |               0 |                 0 |
  *   | plugin-calendar  |       3 |               0 |                 0 |
  *   | plugin-chatbot   |       3 |               0 |                 0 |
- *   | plugin-dashboard |       7 |               2 |             7 / 9 |
+ *   | plugin-dashboard |       7 |               0 |                 0 |
  *   | components       |     150 |              82 |          12 .. 15 |
  *
- * **84 of 168 targets leak.** The `components` row is objectui#5574 and is
- * covered in its own section below; the two `plugin-dashboard` rows are the
- * older tail. Both are in {@link LEAK_LEDGER}:
- * `plugin-dashboard:metric` and `plugin-dashboard:metric-card`, the open tail
- * objectui#4425 owns directly. Two migration steps have closed their rows since
- * the phase-1 measurement:
+ * **82 of 168 targets leak.** All of them are the `components` row, which is
+ * objectui#5574 and is covered in its own section below. The four packages
+ * objectui#4425 named now read zero. Three migration steps have closed their
+ * rows since the phase-1 measurement:
  *
  *   - `plugin-chatbot:chatbot` / `chatbot-enhanced` — 14 attributes each,
  *     objectui#4431 / PR #4485, which also lifted `toDomProps` to
  *     `@object-ui/core` so later cards consume one executor.
  *   - `plugin-dashboard:dashboard` (spelled `view:dashboard` until
  *     objectui#9533) — `DashboardRenderer`'s widget-grid container, 13
- *     attributes, objectui#4432 / this file's most recent edit.
+ *     attributes, objectui#4432.
+ *   - `plugin-dashboard:metric` / `metric-card` — the KPI cards' open tail, 7
+ *     and 9 attributes, objectui#4425 itself: the last two rows inside these
+ *     four packages. See "what is left of it" below.
  *
- * The three packages now reading 0 are NOT clean for the same reason, and the
+ * The four packages now reading 0 are NOT clean for the same reason, and the
  * difference is worth keeping straight: `plugin-charts` never spreads the node
  * onto its container at all; `plugin-calendar`'s components take a declared prop
  * list and drop what they do not name, so the node's keys never reach an
- * element; `plugin-chatbot` and `DashboardRenderer`'s grid reach zero by
- * FILTERING — they still spread, through `toDomProps`.
+ * element; `plugin-chatbot`, `DashboardRenderer`'s grid and the two KPI cards
+ * reach zero by FILTERING — they still spread, through `toDomProps`. The KPI
+ * cards filter on the renderer's door only: rendered directly as React
+ * components they keep their declared `HTMLAttributes` pass-through
+ * (objectui#4426), and this gate, which renders every target through
+ * `SchemaRenderer`, never sees that door.
  *
  * `calendar-view` was originally swept with the `events` canary WITHHELD, because
  * authoring it crashed the component outright (objectui#4433) — a worse failure
@@ -81,23 +86,24 @@
  *   - a **deny-list** (`plugin-dashboard/src/schemaHostProps.ts`, #4357/PR
  *     #4428): destructure seven measured non-DOM props out, spread the rest.
  *
- * The deny-list is correct for the seven props it enumerates — this sweep
- * confirms all seven are gone from `metric` and `metric-card`. What it cannot
- * close is the **open tail**, exactly as `toDomProps`' docblock predicted: an
- * authored key the component does not declare still reaches the DOM. That is not
- * a hypothetical here; it is ledger rows {@link LEAK_LEDGER} `metric` and
- * `metric-card`, where `zzcanary` / `reference_to` / an authored
- * `props: { colorVariant }` all land as attributes while every one of the seven
- * named keys is correctly stripped. A deny-list bounded by enumeration cannot be
+ * The deny-list was correct for the seven props it enumerates — this sweep
+ * confirmed all seven gone from `metric` and `metric-card`. What it could not
+ * close was the **open tail**, exactly as `toDomProps`' docblock predicted: an
+ * authored key the component does not declare still reached the DOM. That was
+ * not a hypothetical here; it was two {@link LEAK_LEDGER} rows, `metric` (7
+ * attributes) and `metric-card` (9), where `zzcanary` / `reference_to` / `name`
+ * / an authored `props: { colorVariant }` — and, on `metric-card`, an authored
+ * `label` — all landed as attributes while every one of the seven named keys
+ * was correctly stripped. A deny-list bounded by enumeration cannot be
  * finished; a whitelist bounded by declaration can. That contrast IS the
  * measurement phase 2 waited for, and the ruling went to the whitelist on it.
  *
- * So the divergence is no longer a standing state of the repo — it is a
- * migration in progress, and the two rows still below are the last of it inside
- * these four packages. `plugin-dashboard` is now MIXED by design: its
- * `DashboardRenderer` grid container filters through `toDomProps` (#4432) while
- * the two KPI components still run the deny-list, and the two surviving rows are
- * precisely that difference, measured.
+ * The divergence is now gone from these four packages. objectui#4425 moved the
+ * two KPI components' renderer door onto `toDomProps` and deleted both rows in
+ * the same change — the two-way expiry below, which turned this gate red on
+ * exactly those two targets (each measured `[]` against its row) until they
+ * went. The deny-list stays in `schemaHostProps.ts` as the direct React door's
+ * filter, which this gate does not render.
  *
  * ## objectui#5574 — the family this sweep could not see, and what it found
  *
@@ -440,7 +446,8 @@ const AUTHORED_EXTRAS = {
 
 /**
  * Authored `props: { … }`. `colorVariant` is objectui#4425's own measured
- * example — `metric-card` has no such prop, so it lands as `colorvariant`.
+ * example — `metric-card` has no such prop, so it landed as `colorvariant`
+ * until that card moved onto `toDomProps`.
  */
 const AUTHORED_PROPS = {
   colorVariant: 'success',
@@ -885,6 +892,10 @@ const TARGETS: Readonly<Record<string, readonly Target[]>> = {
   ],
   'plugin-dashboard': [
     { type: 'plugin-dashboard:metric', schemaExtras: { label: 'Revenue', value: 42 }, ready: '.rounded-lg.border' },
+    // `label` is deliberately NOT this card's heading (`MetricCardProps` spells
+    // it `title`): authored here it is one more open-tail key, and it once
+    // leaked as `label="Revenue"` (objectui#4425). Kept so the gate keeps
+    // proving it stops at the component.
     { type: 'plugin-dashboard:metric-card', schemaExtras: { label: 'Revenue', value: 42 }, ready: '.rounded-lg.border' },
     { type: 'plugin-dashboard:object-metric', schemaExtras: { objectName: 'accounts' }, ready: '.rounded-lg.border' },
     { type: 'plugin-dashboard:pivot', ready: '[data-testid="pivot-empty-state"]' },
@@ -1201,40 +1212,12 @@ const COMPONENTS_LEAK_GROUPS: readonly LedgerGroup[] = [
 ];
 
 const LEAK_LEDGER: Readonly<Record<string, LedgerEntry>> = {
-  /* ── plugin-dashboard: the OPEN TAIL a deny-list cannot close ───────────── */
-  //
-  // Read these two rows against what is NOT in them. Every one of the seven keys
-  // `schemaHostProps.ts` enumerates (#4357 / PR #4428) is absent — `schema`,
-  // `bind`, `events`, `props`, `ariaLabel`, `ariaDescribedBy`, `dataSource` are
-  // all correctly stripped, on both components, including the adapter. The
-  // deny-list does exactly what it claims.
-  //
-  // What remains is the half it cannot reach: keys the component does not
-  // declare and the list never names. That is `toDomProps`' argument, measured
-  // rather than predicted, and it is the reading objectui#4425 phase 2 is for.
-  'plugin-dashboard:metric': {
-    attributes: [
-      'name', 'reference_to', 'zzcanary', 'zzcanarycamel', 'zzcanarynum',
-      'zzcanaryobj', 'zzcanaryprop',
-    ],
-    reason:
-      'the seven deny-listed props are gone; the open tail of authored keys ' +
-      '`MetricWidget` does not declare still reaches the Card.',
-    issue: 'objectui#4425',
-  },
-  'plugin-dashboard:metric-card': {
-    attributes: [
-      'colorvariant', 'label', 'name', 'reference_to', 'zzcanary',
-      'zzcanarycamel', 'zzcanarynum', 'zzcanaryobj', 'zzcanaryprop',
-    ],
-    reason:
-      'the same open tail as `metric`, plus two keys that are the tail in ' +
-      'miniature: `colorvariant` is objectui#4425\'s own measured example, and ' +
-      '`label` leaks because `MetricCardProps` spells its heading `title` — so ' +
-      'authoring the key its sibling `MetricWidget` takes puts the heading on ' +
-      'the DOM as an attribute instead of rendering it.',
-    issue: 'objectui#4425',
-  },
+  // ⛔ No `plugin-dashboard` rows. The last two — `metric` and `metric-card`,
+  // the open tail `schemaHostProps.ts`' deny-list could not close — were
+  // deleted by objectui#4425 when both KPI components moved their renderer door
+  // onto `toDomProps`. Both targets are still swept above with the full canary
+  // set, so a regression there is a NEW leak on an unledgered target and fails
+  // on the empty-report branch below, naming every attribute.
 
   /* ── packages/components: 82 of 150 targets, in four measured shapes ───── */
   ...Object.fromEntries(
@@ -1817,8 +1800,8 @@ const DOCBLOCK_COUNTS = {
   commonestShapeAttributes: 14,
   /** Every target this sweep renders, all five packages. */
   allTargets: 168,
-  /** Every ledgered row, `plugin-dashboard`'s open tail included. */
-  allLedgered: 84,
+  /** Every ledgered row, all five packages. */
+  allLedgered: 82,
 } as const;
 
 type CountName = keyof typeof DOCBLOCK_COUNTS;

@@ -1950,6 +1950,7 @@ const es = {
         collapse: "Contraer el chat",
         maximize: "Abrir como página completa",
         open: "Abrir el asistente",
+        planAwaitingApproval: "Un plan propuesto espera su aprobación",
       },
       group: {
         today: "Hoy",

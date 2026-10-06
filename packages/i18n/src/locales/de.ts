@@ -1904,6 +1904,7 @@ const de = {
         collapse: "Chat einklappen",
         maximize: "Als ganze Seite öffnen",
         open: "Assistent öffnen",
+        planAwaitingApproval: "Ein vorgeschlagener Plan wartet auf Ihre Freigabe",
       },
       group: {
         today: "Heute",

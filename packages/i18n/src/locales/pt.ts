@@ -1945,6 +1945,7 @@ const pt = {
         collapse: "Recolher a conversa",
         maximize: "Abrir como página inteira",
         open: "Abrir o assistente",
+        planAwaitingApproval: "Um plano proposto aguarda sua aprovação",
       },
       group: {
         today: "Hoje",

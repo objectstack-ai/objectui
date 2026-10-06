@@ -1906,6 +1906,7 @@ const ja = {
         collapse: "チャットを折りたたむ",
         maximize: "フルページで開く",
         open: "アシスタントを開く",
+        planAwaitingApproval: "提案されたプランが承認待ちです",
       },
       group: {
         today: "今日",

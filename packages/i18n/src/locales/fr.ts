@@ -1947,6 +1947,7 @@ const fr = {
         collapse: "Réduire la discussion",
         maximize: "Ouvrir en pleine page",
         open: "Ouvrir l'assistant",
+        planAwaitingApproval: "Un plan proposé attend votre approbation",
       },
       group: {
         today: "Aujourd'hui",

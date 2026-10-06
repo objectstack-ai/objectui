@@ -2089,6 +2089,7 @@ const ar = {
         collapse: "طي المحادثة",
         maximize: "فتح كصفحة كاملة",
         open: "فتح المساعد",
+        planAwaitingApproval: "خطة مقترحة بانتظار موافقتك",
       },
       group: {
         today: "اليوم",

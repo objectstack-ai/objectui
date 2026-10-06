@@ -12,10 +12,16 @@
  * path (and the flag) entirely — the dock loads the chat graph on demand, so
  * the FAB stays dependency-free.
  *
+ * objectui#11666 — while a proposed plan awaits the user's approval, the FAB
+ * carries a small marker, so a user who closed the chat still sees that the
+ * assistant is waiting on them. The reading comes off the assistant bus (the
+ * chat publishes it; see `usePlanApprovalPending`), never from chat code here,
+ * and only a change of the plan's state clears it — opening the chat does not.
+ *
  * @module
  */
-import React, { useEffect, useRef } from 'react';
-import { useAssistant } from '../assistant/assistantBus.js';
+import React, { useEffect, useId, useRef } from 'react';
+import { useAssistant, usePlanApprovalPending } from '../assistant/assistantBus.js';
 import { useObjectTranslation } from '@object-ui/i18n';
 
 export interface ConsoleChatbotFabProps {
@@ -39,10 +45,14 @@ export function ConsoleChatbotFab({ appLabel, onOpenDock }: ConsoleChatbotFabPro
     }
   }, [openSeq, onOpenDock]);
 
+  const planPending = usePlanApprovalPending();
+  const markerId = useId();
+
   return (
     <button
       type="button"
       aria-label={t('topbar.openAssistant', { defaultValue: 'Open {{name}} assistant', name: appLabel })}
+      aria-describedby={planPending ? markerId : undefined}
       onClick={onOpenDock}
       className="fixed bottom-20 right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg ring-1 ring-primary/20 transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 sm:bottom-6"
       data-testid="console-chatbot-fab"
@@ -69,6 +79,17 @@ export function ConsoleChatbotFab({ appLabel, onOpenDock }: ConsoleChatbotFabPro
         <path d="M16.3 7.7l2.1-2.1" />
         <circle cx="12" cy="12" r="3" />
       </svg>
+      {planPending ? (
+        <span
+          className="absolute right-1 top-1 flex size-3.5"
+          data-testid="console-chatbot-fab-plan-pending"
+        >
+          <span aria-hidden="true" className="size-3.5 rounded-full bg-amber-500 ring-2 ring-background" />
+          <span id={markerId} className="sr-only">
+            {t('console.ai.dock.planAwaitingApproval')}
+          </span>
+        </span>
+      ) : null}
     </button>
   );
 }

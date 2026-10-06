@@ -107,7 +107,7 @@ import {
 import { AppHeader } from '../../layout/AppHeader.js';
 import { armChatDockExpanded, readDockReturnLocation } from '../../layout/chatDockState.js';
 import { fetchPendingDraftCount } from '../../preview/draftStatus.js';
-import { emitMetadataRefresh } from '../../assistant/assistantBus.js';
+import { emitMetadataRefresh, publishPlanApprovalPending } from '../../assistant/assistantBus.js';
 import { getRuntimeConfig, isAiStudioEnabled } from '../../runtime-config.js';
 import { makerConvergedOnBuild, makerVisibleAgents } from '../../hooks/surfaceAgent.js';
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
@@ -2135,6 +2135,26 @@ export function ChatPane({
     emitMetadataRefresh();
   }, [isLoading, messages]);
 
+  // objectui#11666 — the launchers (console FAB, ChatDock edge launcher) show
+  // a marker while a proposed plan awaits the user's approval, and they are on
+  // screen only while this pane is NOT mounted. So the chat's own reading —
+  // `ChatbotEnhanced` reports it from the producer its plan card renders — is
+  // published on the assistant bus, per conversation and per user, and outlives
+  // this pane's unmount. `undefined` until the chat has reported once, so a
+  // mount never announces a reading it has not taken. Nothing here clears it on
+  // open: an open re-reads the same thread and reports the same state.
+  const { user: planApprovalUser } = useAuth();
+  const planApprovalUserId = planApprovalUser?.id;
+  const [planApprovalPending, setPlanApprovalPending] = useState<boolean | undefined>(undefined);
+  useEffect(() => {
+    if (!conversationId || planApprovalPending === undefined) return;
+    publishPlanApprovalPending({
+      userId: planApprovalUserId,
+      conversationId,
+      pending: planApprovalPending,
+    });
+  }, [planApprovalUserId, conversationId, planApprovalPending]);
+
   // A1.b switcher menu: every published app with a package identity, deduped
   // by package (apps sharing a package share the build thread — the scope is
   // per-package). Selecting one navigates to its Edit-with-AI surface, which
@@ -2643,6 +2663,8 @@ export function ChatPane({
         // ADR-0045: build materialized → canvas leaves the draft overlay for
         // the real (unlisted) app; the reload shows live seed rows.
         onBuildMaterialized={handleBuildMaterialized}
+        // objectui#11666 — mirrored onto the assistant bus (effect above).
+        onPlanApprovalPendingChange={setPlanApprovalPending}
         previewDraftLabel={t('console.ai.previewDraft', { defaultValue: 'Preview' })}
         data-testid="ai-chat-panel"
       />

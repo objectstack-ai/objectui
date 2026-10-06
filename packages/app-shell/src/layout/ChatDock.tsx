@@ -37,6 +37,7 @@ import {
   type PendingFirstMessage,
 } from '../console/ai/AiChatPage.js';
 import { AiUsageIndicator } from './AiUsageIndicator.js';
+import { usePlanApprovalPending } from '../assistant/assistantBus.js';
 import { useChatConversation, type HydratedUIMessage } from '../hooks/index.js';
 import { chatConversationScope, chatProductOfAgent } from '../hooks/chatScope.js';
 import { resolveSurfaceAgent } from '../hooks/surfaceAgent.js';
@@ -638,9 +639,15 @@ export interface ChatDockLauncherProps {
  * only while collapsed, so it never overlaps the expanded rail. The console
  * retired it in P3b (the FAB is that surface's launcher); the Studio dock (P3c)
  * uses it as its collapsed state, since Studio has no FAB.
+ *
+ * objectui#11666 — like the console FAB, it carries a marker while a proposed
+ * plan awaits the user's approval (read off the assistant bus, which the chat
+ * publishes to). Expanding the dock does not clear it; the plan's state does.
  */
 export function ChatDockLauncher({ onExpand, className }: ChatDockLauncherProps) {
   const { t } = useObjectTranslation();
+  const planPending = usePlanApprovalPending();
+  const markerId = React.useId();
   return (
     <Button
       variant="outline"
@@ -649,12 +656,21 @@ export function ChatDockLauncher({ onExpand, className }: ChatDockLauncherProps)
       data-testid="chat-dock-launcher"
       aria-label={t('console.ai.dock.open', { defaultValue: 'Open assistant' })}
       title={t('console.ai.dock.open', { defaultValue: 'Open assistant' })}
+      aria-describedby={planPending ? markerId : undefined}
       className={cn(
         'fixed right-0 top-1/2 z-40 hidden h-16 w-7 -translate-y-1/2 rounded-l-md rounded-r-none border-r-0 bg-background shadow-md md:inline-flex',
         className,
       )}
     >
       <MessagesSquare className="size-4" />
+      {planPending ? (
+        <span className="absolute left-1 top-1 flex size-2.5" data-testid="chat-dock-launcher-plan-pending">
+          <span aria-hidden="true" className="size-2.5 rounded-full bg-amber-500 ring-2 ring-background" />
+          <span id={markerId} className="sr-only">
+            {t('console.ai.dock.planAwaitingApproval')}
+          </span>
+        </span>
+      ) : null}
     </Button>
   );
 }

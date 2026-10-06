@@ -1904,6 +1904,7 @@ const ko = {
         collapse: "채팅 접기",
         maximize: "전체 페이지로 열기",
         open: "어시스턴트 열기",
+        planAwaitingApproval: "제안된 계획이 승인을 기다리고 있습니다",
       },
       group: {
         today: "오늘",

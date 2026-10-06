@@ -2425,6 +2425,8 @@ const en = {
         collapse: 'Collapse chat',
         maximize: 'Open full page',
         open: 'Open assistant',
+        // objectui#11666 — the launchers' marker while a proposed plan awaits approval.
+        planAwaitingApproval: 'A proposed plan is waiting for your approval',
       },
       group: {
         today: 'Today',

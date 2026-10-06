@@ -643,6 +643,17 @@ export interface ChatbotEnhancedProps extends React.HTMLAttributes<HTMLDivElemen
    */
   onBuildMaterialized?: (appName: string) => void;
   /**
+   * objectui#11666 — reports whether this thread's NEWEST proposed plan is
+   * still waiting for the user's approval: its card offers "Build it", i.e.
+   * {@link resolveProposalCardState} reads `pending` for it. Fires once on
+   * mount and again on every change of that boolean. An earlier plan does not
+   * count once a newer one exists (the newer card is the one awaiting); an
+   * approval (the optimistic "Building…" flip) or a build that ran ends it.
+   * Hosts mirror it outside the chat — the console's launchers show a marker
+   * while the chat is closed.
+   */
+  onPlanApprovalPendingChange?: (pending: boolean) => void;
+  /**
    * ADR-0057 P4 — invoked when the user clicks "Open in Builder →" on an `ask`
    * agent's `suggest_builder` decline. The host opens the build surface seeded
    * with the handoff prompt/package (never a silent re-route; ADR-0063). Absent
@@ -1439,6 +1450,7 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
       previewDraftLabel = 'Preview',
       onDraftArtifacts,
       onBuildMaterialized,
+      onPlanApprovalPendingChange,
       publishDraftsLabel = 'Publish',
       publishedLabel = 'Published',
       verifiedLabel = 'Verified',
@@ -2172,6 +2184,41 @@ const ChatbotEnhanced = React.forwardRef<HTMLDivElement, ChatbotEnhancedProps>(
     // the `submitted` phase before the first chunk, and a newer turn
     // streaming below an older plan card.
     const planActionsLocked = isLoading;
+
+    // objectui#11666 — is this thread's newest proposed plan still waiting for
+    // the user? Read off the SAME producer the plan card's header and body read
+    // (`resolveProposalCardState`, objectui#7254), so the host's mirror can
+    // never disagree with the card: `pending` is exactly the state that renders
+    // "Build it". The newest plan card is the one awaiting — an older card a
+    // newer proposal followed is superseded by it. Computed on every render
+    // rather than memoised: it is one pass over the tool calls, and its inputs
+    // are memo results whose identity this must not key on (Commandment #10).
+    let newestPlanId: string | undefined;
+    for (const message of messages) {
+      for (const tool of message.toolInvocations ?? []) {
+        if ((tool.proposedPlan || isUnstructuredBuildProposal(tool)) && tool.toolCallId) {
+          newestPlanId = tool.toolCallId;
+        }
+      }
+    }
+    const planApprovalPending =
+      newestPlanId !== undefined &&
+      resolveProposalCardState({
+        replayOutcome: replayOutcomeByProposalId.get(newestPlanId),
+        built: builtPlanIds.has(newestPlanId),
+        confirmed: confirmedChangeIds.has(newestPlanId),
+        approved: approvedPlanIds.has(newestPlanId),
+      }) === 'pending';
+    // The host's callback is read through a ref so the effect keys on the
+    // boolean alone — a host that passes a fresh function each render must not
+    // re-announce an unchanged reading.
+    const onPlanApprovalPendingChangeRef = React.useRef(onPlanApprovalPendingChange);
+    React.useEffect(() => {
+      onPlanApprovalPendingChangeRef.current = onPlanApprovalPendingChange;
+    }, [onPlanApprovalPendingChange]);
+    React.useEffect(() => {
+      onPlanApprovalPendingChangeRef.current?.(planApprovalPending);
+    }, [planApprovalPending]);
 
     const renderToolDetail = (tool: ChatToolInvocation) => {
       const state =

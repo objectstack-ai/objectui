@@ -2084,6 +2084,7 @@ const zh = {
         collapse: '收起对话',
         maximize: '以完整页面打开',
         open: '打开助手',
+        planAwaitingApproval: '有一个方案等待确认',
       },
       group: {
         today: '今天',

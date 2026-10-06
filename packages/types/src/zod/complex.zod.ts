@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import { handlerKeyRefusal, retiredNodeType, retirementTombstone } from './tombstone.zod.js';
+import { aliasKeyRefusal, handlerKeyRefusal, retiredNodeType, retirementTombstone } from './tombstone.zod.js';
 import {
   ChartTypeSchema as SpecChartTypeSchema,
   checkDashboardWidgetMetricMeasureArity,
@@ -1241,6 +1241,20 @@ const METRIC_CARD_NEITHER_CHANNEL =
   + '`trend` / `trendValue` and `description`.';
 
 /**
+ * objectui#4425: the site detail of the widget-slot `metric-card` node's `label` refusal. The lead
+ * sentence and the `title` remedy come from `aliasKeyRefusal`, because `label` is a second spelling
+ * of a key this node declares, not a withdrawn one. Module-private, like the string above.
+ */
+const METRIC_CARD_LABEL_IS_TITLE =
+  'REFUSED (objectui#4425, the objectui#8284 ruling: one spelling per rendered thing) — `metric-card` '
+  + 'spells its heading `title`. The registration (`plugin-dashboard:metric-card`) declares `title`, and '
+  + '`MetricCard` draws it as the card heading; nothing on that path reads `label`, which is how the sibling '
+  + '`metric` node (`plugin-dashboard:metric`) spells its heading. An authored `label` therefore drew a card '
+  + 'with NO heading, and no render-time error or warning; nor did the parser tier\'s `validateTree` notice it, '
+  + 'because it does not walk a dashboard\'s `widgets`. Write the heading as `title`: a plain string or an '
+  + 'inline per-locale map.';
+
+/**
  * A COMPONENT node sitting directly in a dashboard's widget slot — the
  * `metric-card` extension the 2026-08-14 ruling (objectstack#8593) admits:
  *
@@ -1275,6 +1289,14 @@ const METRIC_CARD_NEITHER_CHANNEL =
  * and the author gets one `invalid_union` at the widget's path
  * with each arm's issues under `errors` — this arm's message among them, which
  * `objectui validate` prints as one arm of two.
+ *
+ * `label` is refused by name too (objectui#4425), toward `title`: it is the
+ * `BaseSchema` member `MetricCard` never reads, and the sibling `metric` node's
+ * spelling of the heading this node spells `title`. Same shape as the two
+ * channels above — a MEMBER whose `z.never` refuses at the key's own path, with
+ * `label?: never` on the TypeScript twin — under the objectui#8284 ruling (one
+ * spelling per rendered thing). The message is `aliasKeyRefusal`'s, so it
+ * names the remedy in its lead sentence.
  *
  * ## The registered inputs are MEMBERS (objectui#11467)
  *
@@ -1323,6 +1345,9 @@ const DashboardWidgetSlotComponentSchema = BaseSchema.extend({
   icon: z.string().optional().describe('Lucide icon name'),
   trend: z.enum(['up', 'down', 'neutral']).optional().describe('Trend direction, drawn with trendValue'),
   trendValue: z.string().optional().describe('Trend text, drawn with trend'),
+  // objectui#4425: the heading is `title`; `label` is refused by name toward it, kept a MEMBER, as on
+  // the TypeScript twin.
+  label: aliasKeyRefusal('label', 'title', 'this `metric-card` node', METRIC_CARD_LABEL_IS_TITLE),
   // objectui#9256: `MetricCard` reads NEITHER content channel, so both are refused by name, each
   // kept a MEMBER, as on the TypeScript twin.
   body: retirementTombstone(METRIC_CARD_NEITHER_CHANNEL),

@@ -869,9 +869,9 @@ describe('objectui#3546 slice five — the marketplace and preview namespaces', 
     });
 
     it('the ru pack keeps ё, matching its own neighbours', () => {
-      // The pack writes ё in 161 places (`grid.import.undoConfirm` has
-      // «обновлённые», `console.shortcuts.toggleDarkMode` «тёмный»), and
-      // "Ещё не проверено" is exactly where a backfill would collapse it to е.
+      // The pack writes ё throughout (`grid.import.undoConfirm` has
+      // «обновлённые»), and "Ещё не проверено" is exactly where a backfill
+      // would collapse it to е.
       const { result } = renderHook(() => useObjectTranslation(), { wrapper: wrapperFor('ru') });
       expect(result.current.t('marketplace.disclosure.unreviewed')).toContain('Ещё');
     });

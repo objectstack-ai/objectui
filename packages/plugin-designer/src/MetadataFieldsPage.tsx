@@ -49,6 +49,7 @@ import { retiredFieldKeysFor } from '@object-ui/types/internal/retired-field-key
 import {
   MetadataClient,
   RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
+  dropServedPicklistOptions,
   formatMetadataError,
   type MetadataClientConfig,
 } from '@object-ui/data-objectstack';
@@ -951,7 +952,13 @@ export function MetadataFieldsPage({
         ...state.raw,
         fields: toFieldsMap(next, prevFields),
       };
-      await client.save('object', objectName, mergedObject);
+      // objectui#11692 — `state.raw` is the SERVED object, and `carryOver` /
+      // `carryPreservedField` carry every per-field key it holds, so a
+      // picklist-bound field leaves with `picklist` AND the options the runtime
+      // resolved from the list. The authoring door refuses the pair for the
+      // whole object, whichever field was edited. This page has no options
+      // editor, so those `options` can only be the served copy: they stay out.
+      await client.save('object', objectName, dropServedPicklistOptions(mergedObject));
       await reload();
     } catch (err) {
       // objectui#11302 - through the ONE metadata-save error reader. A save the

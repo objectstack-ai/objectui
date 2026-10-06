@@ -38,6 +38,8 @@ import { useMetadataClient, useMetadataTypes } from './useMetadata.js';
 import type { FormViewSpec } from './form-spec.js';
 import { useMetadataLocale, t, tFormat, translateValidationMessage } from './i18n.js';
 import { errorCodeIsAnyOf } from '@object-ui/types';
+// objectui#11692 - the served -> authored conversion of a picklist-bound field.
+import { dropServedPicklistOptions } from '@object-ui/data-objectstack';
 
 export interface EmbeddedItemEditorProps {
   parentType: string;
@@ -117,8 +119,17 @@ export function EmbeddedItemEditor({
       // 2. Splice modified item back into the parent collection.
       const updated = spliceEmbedded(parent, embeddedPath, itemName, draft);
 
-      // 3. PUT the parent.
-      await client.save(parentType, parentName, updated);
+      // 3. PUT the parent. objectui#11692 — an object parent was seeded from
+      // the SERVED read above, where a picklist-bound field carries `picklist`
+      // beside the options the runtime resolved from the list; the authoring
+      // door refuses the pair for the whole object, whichever item was edited.
+      // So the resolved `options` stay out of every bound field, and nothing
+      // else is touched. Other parent types are sent exactly as before.
+      await client.save(
+        parentType,
+        parentName,
+        parentType === 'object' ? dropServedPicklistOptions(updated) : updated,
+      );
       setSavedAt(Date.now());
       onSaved?.(draft);
     } catch (err: any) {

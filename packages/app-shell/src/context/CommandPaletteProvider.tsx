@@ -26,6 +26,19 @@ import {
 } from 'react';
 import { useUrlOverlay } from '../hooks/useUrlOverlay.js';
 import { COMMAND_PALETTE_PARAM } from '../urlParams.js';
+import {
+  useAdvertiseShortcut,
+  type AdvertisedShortcut,
+  type ShortcutLabelTranslate,
+} from '../chrome/advertisedShortcuts.js';
+
+/** `⌘K` / `Ctrl+K` — the keydown handler in {@link CommandPaletteProvider}. */
+const OPEN_COMMAND_PALETTE_SHORTCUT: AdvertisedShortcut = {
+  id: 'command-palette',
+  group: 'general',
+  chord: { key: 'k', mod: true },
+  label: (t: ShortcutLabelTranslate) => t('console.shortcuts.openCommandPalette'),
+};
 
 export interface CommandPaletteContextValue {
   /** Whether the palette is currently open (derived from the URL). */
@@ -61,6 +74,7 @@ export function CommandPaletteProvider({ children }: { children: ReactNode }) {
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [toggleOverlay]);
+  useAdvertiseShortcut(OPEN_COMMAND_PALETTE_SHORTCUT);
 
   const value = useMemo<CommandPaletteContextValue>(
     () => ({

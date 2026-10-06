@@ -19,6 +19,7 @@
 import { stripReadDecorations } from '@objectstack/spec/kernel';
 import {
   assertObjectMetadataWritable,
+  dropServedPicklistOptions,
   RELATIONSHIP_TYPES_REQUIRING_REFERENCE,
   viewItemObjectName,
   type ObjectStackAdapter,
@@ -704,6 +705,14 @@ export class MetadataService {
    * The object binding comes from the body being written, via the same
    * accessor `listViewOverrides` narrows those rows by — not from a fourth
    * private copy of "which object is this?".
+   *
+   * ⛔ No `dropServedPicklistOptions` here (objectui#11692). This method reads
+   * nothing: `data` is the caller's, so it cannot tell a served copy of a
+   * picklist-bound field from an author who wrote `picklist` and `options`
+   * together, and the second must stay the server's loud 422 with its
+   * prescription. A caller that seeded `data` from a served object read applies
+   * the conversion itself. Pinned (no read, the pair still refused) in
+   * `MetadataService.picklistServedOptions-11692.test.ts`.
    */
   async saveMetadataItem(category: string, name: string, data: Record<string, unknown>): Promise<void> {
     await this.putMetadataItem(category, name, data);
@@ -804,6 +813,14 @@ export class MetadataService {
    *     same way — but that builds capability for a path with zero measured
    *     pull and makes this parameter redundant, which then wants retiring on
    *     its own terms (ADR-0049 shape).
+   *
+   * ⛔ And, for the same reason it does not fetch, no `dropServedPicklistOptions`
+   * (objectui#11692): this method reads nothing, so every key it sends is one
+   * the caller handed it, and it cannot tell a served copy from an authored
+   * `picklist` + `options` pair — which must stay the server's loud 422.
+   * `FieldMetadataPayload` declares no `picklist`, so a fresh typed field
+   * literal cannot carry the binding here at all. Pinned (no read, the pair
+   * still refused) in `MetadataService.picklistServedOptions-11692.test.ts`.
    */
   async saveObject(obj: ObjectDefinition, existingFields: FieldMetadataPayload[]): Promise<void> {
     const payload = toObjectPayload(obj, existingFields);
@@ -894,6 +911,22 @@ export class MetadataService {
    *     previous entries ride in on the very document this method already
    *     fetched, so `toFieldPayload` merges onto them; see there for the mirror
    *     property that keeps a CLEARED designer property cleared.
+   *
+   * …and a fifth, pinned in `MetadataService.picklistServedOptions-11692.test.ts`:
+   *
+   *   - **A picklist-bound field leaves without its served `options`**
+   *     (objectui#11692). The fetched document is the SERVED one, so a field
+   *     naming a shared picklist carries `picklist` beside the options the
+   *     runtime resolved from the list, and the carry-over above brings the
+   *     binding back out. The authoring door refuses `options` beside
+   *     `picklist` for the WHOLE object, so the body passes through
+   *     `dropServedPicklistOptions` before the PUT. The binding can only have
+   *     come from that read: `DesignerFieldDefinition` declares no `picklist`,
+   *     so this method has no way to author one and none to remove one. A
+   *     bound field's `options` are therefore never half of an authored pair
+   *     here; they are the served copy, or a designer-model value the door
+   *     refuses beside the binding whatever it holds. Fields without a
+   *     `picklist` keep their `options` exactly as before.
    */
   async saveFields(objectName: string, fields: DesignerFieldDefinition[]): Promise<void> {
     const client = this.adapter.getClient();
@@ -944,7 +977,7 @@ export class MetadataService {
       fields: toFieldsMap(fields.map((field) => toFieldPayload(field, previousFieldEntry(previousFields, field.name)))),
     }) as Record<string, unknown>;
 
-    await this.putMetadataItem('object', objectName, updatedObject);
+    await this.putMetadataItem('object', objectName, dropServedPicklistOptions(updatedObject));
     this.adapter.invalidateCache(`object:${objectName}`);
   }
 

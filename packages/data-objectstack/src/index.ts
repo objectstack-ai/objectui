@@ -7136,6 +7136,13 @@ export { MetadataClient, readSaveAdvisories } from './metadata-client';
 // `getDraft` that produces the envelope, because the unwrap-and-strip is part
 // of that method's contract rather than a detail of any one view.
 export { extractDraftBody } from './draft-envelope';
+// objectui#10202 / objectui#11692 - the served -> authored conversion of a
+// picklist-bound field, exported for the WRITERS that seed an object PUT from a
+// served read (the read answers `picklist` beside the resolved `options`, and the
+// authoring door refuses the pair). ⛔ Never applied inside `MetadataClient.save`:
+// a door cannot tell a served copy from an authored pair, and the second must
+// stay the server's loud refusal. See the module's docblock.
+export { dropServedPicklistOptions } from './picklist-binding';
 // objectui#11302 - the one reader of a failed metadata save, exported beside the
 // `MetadataError.issues` it reads so every surface that saves through this
 // client renders the per-field prescription the same way.

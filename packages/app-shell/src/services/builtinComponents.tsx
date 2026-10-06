@@ -25,7 +25,10 @@ import {
   isAggregatedViewContainer,
   viewDisplayType,
 } from '../views/metadata-admin/view-item-normalize.js';
-import { dropServedPicklistOptions } from '../views/metadata-admin/picklist-binding.js';
+// objectui#11692 - the helper moved beside the metadata client, so the
+// plugin-designer writers share it; `@object-ui/data-objectstack` is already on
+// the console's eager path (its data source), so this adds no eager chunk.
+import { dropServedPicklistOptions } from '@object-ui/data-objectstack';
 
 /* -------------------------------------------------------------------------- */
 /* 1) Top-level admin pages — bound to `metadata:directory` + `metadata:resource` */

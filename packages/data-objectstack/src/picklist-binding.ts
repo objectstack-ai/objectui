@@ -2,23 +2,26 @@
 
 /**
  * The served form of a picklist-bound field, turned back into the authored
- * form before an object designer writes it (objectui#10202).
+ * form before a writer that seeded its body from a served read PUTs it
+ * (objectui#10202, objectui#11692).
  *
- * ## Why the designer has to do this
+ * ## Why the writer has to do this
  *
  * A select field may name a shared list instead of carrying its own options:
  * `picklist: 'industry'` (`FieldSchema.picklist`, `@objectstack/spec`
  * `data/picklist.zod.ts`). The runtime serves such a field with BOTH keys:
  * `picklist`, still naming the list, and `options`, RESOLVED from that list and
  * from every `picklistExtensions` entry other packages add to it
- * (`PicklistServedFieldSchema`). Every object read the designers seed from
- * carries that served form — `GET /meta/object/NAME` and the `effective` layer
- * of `GET /meta/object/NAME/layers` alike.
+ * (`PicklistServedFieldSchema`). Every object read carries that served form —
+ * the object list `GET /meta/object`, `GET /meta/object/NAME`, and the
+ * `effective` layer of `GET /meta/object/NAME/layers` alike, because the
+ * runtime resolves the binding in the one fold all three share.
  *
  * The authoring door refuses the two keys together: `FieldSchema` adds an issue
  * at `fields.FIELD.options` whose prescription is "Keep `picklist` and delete
- * `options`". So a designer that writes its seed back unchanged gets
- * `422 INVALID_METADATA` for the whole object, whatever the author edited.
+ * `options`". So a writer that sends its seed back unchanged gets
+ * `422 INVALID_METADATA` for the whole object, whatever the author edited —
+ * an OWD batch edit, a relabel, a field reorder, anything.
  * The resolved list belongs to the picklist, not to the field: the producer of
  * the PUT drops it (objectstack's producer obligation, pinned server-side in
  * `protocol-picklist-served-roundtrip.test.ts`).
@@ -41,8 +44,22 @@
  *
  * ⛔ Not at the transport. `MetadataClient.save` and the other metadata-write
  * doors cannot tell a served copy from an author who wrote both keys, and the
- * second must stay a loud refusal with its prescription. The designer can tell:
- * it seeded its draft from the served read.
+ * second must stay a loud refusal with its prescription. The writer can tell:
+ * it seeded its body from the served read. So this is exported for WRITERS —
+ * the opposite of `assertObjectMetadataWritable`, which is exported for doors —
+ * and the rule each writer applies is one sentence: a body seeded from a served
+ * object read goes through this function on its way to the PUT; a body built
+ * from the author's own input does not.
+ *
+ * ## Why it lives in this package (objectui#11692)
+ *
+ * The writers that seed from a served read are not all in one package: the
+ * Studio and metadata-admin surfaces live in `@object-ui/app-shell`, and the
+ * Setup fields and objects pages in `@object-ui/plugin-designer`, which does
+ * not depend on `app-shell`. Both depend on this package, which also owns the
+ * client that serves the read and carries the write — the same reason
+ * `extractDraftBody` lives here. One function, not one copy per package: a
+ * second copy is free to drift from the spec's served shape on its own.
  *
  * Pure: the input is never mutated, and a document with nothing to drop comes
  * back BY REFERENCE, so a caller can tell "unchanged" by identity.

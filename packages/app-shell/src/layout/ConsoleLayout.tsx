@@ -33,6 +33,11 @@ import { useResponsiveSidebar } from '../hooks/useResponsiveSidebar.js';
 import { useAiSurfaceEnabled } from '../hooks/useAiSurface.js';
 import { useNavigationContext } from '../context/NavigationContext.js';
 import { CommandPaletteProvider } from '../context/CommandPaletteProvider.js';
+import {
+  useAdvertiseShortcut,
+  type AdvertisedShortcut,
+  type ShortcutLabelTranslate,
+} from '../chrome/advertisedShortcuts.js';
 import { resolveKeyedI18nLabel } from '../utils/index.js';
 import { getProductName } from '../runtime-config.js';
 import type { ConnectionState } from '@object-ui/data-objectstack';
@@ -57,9 +62,24 @@ interface ConsoleLayoutProps {
   userId?: string;
 }
 
+/**
+ * `⌘B` / `Ctrl+B` toggles the sidebar. The listener is `SidebarProvider`'s own
+ * (`@object-ui/components`' synced Shadcn primitive, mounted by `AppShell`):
+ * it matches `b` with ⌘ or Ctrl, and a bare `B` does nothing. That code is not
+ * ours to edit, so the shortcut is advertised from inside the provider it
+ * belongs to, by {@link ConsoleLayoutInner} (objectui#11674).
+ */
+const TOGGLE_SIDEBAR_SHORTCUT: AdvertisedShortcut = {
+  id: 'toggle-sidebar',
+  group: 'navigation',
+  chord: { key: 'b', mod: true },
+  label: (t: ShortcutLabelTranslate) => t('console.shortcuts.toggleSidebar'),
+};
+
 /** Inner component that can access SidebarProvider context */
 function ConsoleLayoutInner({ children }: { children: React.ReactNode }) {
   useResponsiveSidebar();
+  useAdvertiseShortcut(TOGGLE_SIDEBAR_SHORTCUT);
   return <>{children}</>;
 }
 

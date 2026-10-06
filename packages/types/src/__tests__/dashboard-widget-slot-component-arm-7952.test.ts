@@ -54,7 +54,12 @@
  *      the Zod twin declares the same members; and the widget's `component`
  *      slot takes the arm first, on both faces. The members' parity with the
  *      live registration and `MetricCardProps` is pinned in
- *      `@object-ui/plugin-dashboard` (`metricCardRegisteredInputsStrictFace-11022.test.ts`).
+ *      `@object-ui/plugin-dashboard` (`metricCardRegisteredInputsStrictFace-11022.test.ts`);
+ *   7. objectui#4425: `label`, the inherited `BaseSchema` member `MetricCard` never
+ *      reads, is refused by name on the tolerant face, the strict face and the
+ *      TypeScript twin, and the message names `title`, the heading the card draws.
+ *      That the same card with `title` draws its heading is pinned where it renders,
+ *      `@object-ui/plugin-dashboard`'s `metricCardLabelRefusedTitleHeading-4425.test.tsx`.
  *
  * Type-level lines are erased at runtime and enforced because
  * `packages/types/tsconfig.test.json` is chained from this package's
@@ -327,5 +332,97 @@ describe('objectui#11467 — the component arm declares `MetricCard`\'s register
     // CONTROL — a non-card node in the slot is judged by `BaseSchema`, unchanged.
     expect(issues(envelope({ type: 'chart' }))).toBe('');
     expect(DashboardComponentZod.safeParse(envelope({ type: 'chart' })).success).toBe(true);
+  });
+});
+
+/* ── objectui#4425 — `label` is refused by name, and the remedy is `title` ── */
+
+type Issue = { code: string; path: PropertyKey[]; message: string; keys?: string[]; errors?: Issue[][] };
+
+/** The private arm, reached the one way it is reachable: the slot's union, first member. */
+const slotArm = (
+  DashboardComponentZod.shape.widgets as unknown as { element: { options: [{ shape: Record<string, { description?: string }> }] } }
+).element.options[0];
+
+/** Every issue, the union's per-arm `errors` flattened in, each path made absolute. */
+const flatIssues = (result: { success: boolean; error?: { issues: unknown[] } }): Issue[] => {
+  const out: Issue[] = [];
+  const walk = (list: Issue[], prefix: PropertyKey[]) => {
+    for (const issue of list) {
+      out.push({ ...issue, path: [...prefix, ...issue.path] });
+      for (const arm of issue.errors ?? []) walk(arm, [...prefix, ...issue.path]);
+    }
+  };
+  if (!result.success) walk(result.error!.issues as Issue[], []);
+  return out;
+};
+
+describe('objectui#4425 — `label` on the slot\'s `metric-card` is refused by name, naming `title`', () => {
+  const card = { type: 'metric-card', value: '$123,456' } as const;
+  const dashboard = (widget: Record<string, unknown>) => ({ type: 'dashboard', widgets: [widget] });
+  const labelRefusal = (doc: unknown, face: { safeParse: (v: unknown) => { success: boolean; error?: { issues: unknown[] } } }) =>
+    flatIssues(face.safeParse(doc)).find((i) => i.path.join('.') === 'widgets.0.label' && i.code === 'invalid_type');
+
+  it('CONTROL — the same card with `title` parses on both faces, every key kept', () => {
+    const titled = dashboard({ ...card, title: 'Total Revenue' });
+    const result = DashboardComponentZod.safeParse(titled);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect((result.data as { widgets: Record<string, unknown>[] }).widgets[0]).toHaveProperty('title', 'Total Revenue');
+    expect(StrictAnyComponentSchema.safeParse(titled).success).toBe(true);
+  });
+
+  it.each([
+    ['the tolerant face (`objectui validate`)', DashboardComponentZod],
+    ['the strict authoring face', StrictAnyComponentSchema],
+  ] as const)('%s refuses `label` at the key\'s own path, and the message names `title`', (_face, face) => {
+    for (const widget of [{ ...card, label: 'Total Revenue' }, { ...card, title: 'Total Revenue', label: 'Total Revenue' }]) {
+      const doc = dashboard(widget);
+      expect(face.safeParse(doc).success, JSON.stringify(widget)).toBe(false);
+      const refusal = labelRefusal(doc, face);
+      expect(refusal?.message).toContain('Did you mean `label` → `title`?');
+      expect(refusal?.message).toContain('objectui#4425');
+      expect(refusal?.message).toContain('`metric-card` spells its heading `title`');
+    }
+  });
+
+  it('the refusal is about the KEY, not a value domain: every value is refused', () => {
+    for (const value of ['Total Revenue', { en: 'Revenue', 'zh-CN': '收入' }, '', 42, null]) {
+      expect(labelRefusal(dashboard({ ...card, label: value }), DashboardComponentZod), JSON.stringify(value)).toBeDefined();
+    }
+  });
+
+  it('`label` is a MEMBER of the arm, and ONE string feeds both channels: the message IS its `.describe()`', () => {
+    const refusal = labelRefusal(dashboard({ ...card, label: 'x' }), DashboardComponentZod);
+    expect(slotArm.shape.label?.description).toBe(refusal?.message);
+  });
+
+  it('the TypeScript face refuses `label` at the AUTHORING site, on the arm and inside `widgets[]` (`tsc` is the reader)', () => {
+    const member: Equal< DashboardWidgetSlotComponentSchema['label'], undefined > = true;
+    const ok = { type: 'metric-card', title: 'Total Revenue', value: '1' } satisfies DashboardWidgetSlotComponentSchema;
+    // @ts-expect-error objectui#4425 — the card's heading is `title`
+    const onArm: DashboardWidgetSlotComponentSchema = { type: 'metric-card', value: '1', label: 'Total Revenue' };
+    const inSlot: DashboardComponentSchema = {
+      type: 'dashboard',
+      // @ts-expect-error objectui#4425 — no arm admits a `metric-card` carrying `label`
+      widgets: [{ type: 'metric-card', value: '1', label: 'Total Revenue' }],
+    };
+    expect([member, ok.type, onArm.type, inSlot.type]).toEqual([true, 'metric-card', 'metric-card', 'dashboard']);
+  });
+
+  it('in the legacy `component` envelope: the strict face and `tsc` refuse it; the tolerant face keeps its `BaseSchema` fallback', () => {
+    const envelope = { type: 'dashboard', widgets: [{ id: 'w', component: { ...card, label: 'Total Revenue' } }] };
+    expect(StrictAnyComponentSchema.safeParse(envelope).success).toBe(false);
+    expect(JSON.stringify(flatIssues(StrictAnyComponentSchema.safeParse(envelope)))).toContain('Did you mean `label` → `title`?');
+    const typed: DashboardComponentSchema = {
+      type: 'dashboard',
+      // @ts-expect-error objectui#4425 — inside the envelope too
+      widgets: [{ id: 'w', component: { type: 'metric-card', value: '1', label: 'Total Revenue' } }],
+    };
+    // MEASURED LIMIT, the one the objectui#11467 block above records for `trend`: the tolerant
+    // face's `component` slot falls back to `BaseSchema` for any node a `custom` widget carries.
+    // Directly in `widgets[]` there is no such fallback, and every face refuses.
+    expect(DashboardComponentZod.safeParse(envelope).success).toBe(true);
+    expect(typed.type).toBe('dashboard');
   });
 });

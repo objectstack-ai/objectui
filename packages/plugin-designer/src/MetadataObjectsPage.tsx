@@ -35,7 +35,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { ObjectDefinition } from '@object-ui/types';
-import { MetadataClient, type MetadataClientConfig } from '@object-ui/data-objectstack';
+import { MetadataClient, dropServedPicklistOptions, type MetadataClientConfig } from '@object-ui/data-objectstack';
 import { ObjectManager } from './ObjectManager';
 
 /**
@@ -254,7 +254,12 @@ export function MetadataObjectsPage({
         continue;
       }
       try {
-        await client.save('object', updated.name, merged);
+        // objectui#11692 — `merged` spreads the SERVED object (`client.list`),
+        // whose picklist-bound fields carry `picklist` beside the options the
+        // runtime resolved from the list. The authoring door refuses the pair
+        // for the whole object, so a relabel here was refused for a field it
+        // never touched. The resolved `options` stay out of the body.
+        await client.save('object', updated.name, dropServedPicklistOptions(merged));
       } catch (err) {
         errors.push(`Save ${updated.name}: ${err instanceof Error ? err.message : String(err)}`);
       }

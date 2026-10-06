@@ -2471,6 +2471,26 @@ export interface DashboardWidgetSlotComponentSchema extends BaseSchema {
   /** The trend's text, such as `+12%`. Drawn only together with `trend`. */
   trendValue?: string;
   /**
+   * REFUSED BY NAME (objectui#4425) — the card's heading is `title`.
+   *
+   * {@link BaseSchema} declares `label`, and this node inherited it, but
+   * nothing on the `metric-card` path reads it: the registration
+   * (`plugin-dashboard:metric-card`) declares `title`, and `MetricCard` draws
+   * `title` as the heading. `label` is how the sibling `metric` node
+   * (`plugin-dashboard:metric`) spells its heading, so an author who knows that
+   * node wrote it here and got a card with no heading: no render-time error or
+   * warning, and the parser tier's `validateTree` does not walk a dashboard's
+   * `widgets`. Under the objectui#8284 ruling (one spelling per rendered thing)
+   * the member is restated as a refusal, in the shape `body` / `children` below
+   * take.
+   *
+   * The zod twin is the private slot arm in `zod/complex.zod.ts`, which
+   * refuses `label` by name and names `title` in the message.
+   *
+   * @deprecated Not a key `metric-card` reads. Write the heading as `title`.
+   */
+  label?: never;
+  /**
    * REFUSED BY NAME (objectui#9256, ADR-0049) — `metric-card` reads NEITHER
    * content channel; see `children` below for the measurement.
    *

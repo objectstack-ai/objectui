@@ -152,9 +152,15 @@ describe('CreateWorkspaceDialog', () => {
     });
 
     it('retries a slug collision with a suffixed slug instead of showing an error the user cannot fix', async () => {
-      createOrganization
-        .mockRejectedValueOnce(Object.assign(new Error('Organization already exists'), { code: 'ORGANIZATION_ALREADY_EXISTS' }))
-        .mockResolvedValueOnce(NEW_ORG);
+      // A whole implementation, not a `…Once` queue: a queued value this case
+      // leaves unconsumed (when the retry is missing) would survive
+      // `vi.clearAllMocks()` and answer the next case's first call.
+      createOrganization.mockImplementation(async ({ slug }: { slug: string }) => {
+        if (slug === 'acme-inc') {
+          throw Object.assign(new Error('Organization already exists'), { code: 'ORGANIZATION_ALREADY_EXISTS' });
+        }
+        return NEW_ORG;
+      });
       const onCreated = vi.fn();
       render(<CreateWorkspaceDialog open onOpenChange={() => {}} onCreated={onCreated} />);
       await settleAuthConfig();

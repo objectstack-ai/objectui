@@ -1,0 +1,29 @@
+{
+  "number": 11665,
+  "kind": "issue",
+  "title": "Studio's automation canvas header still prints the literal 'flow · <api name>' chip, the residual of objectui#11659 ruling 6",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "hotlong",
+    "id": 50353452,
+    "type": "User"
+  },
+  "labels": [
+    "enhancement",
+    "pm:epic"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-06T00:47:32Z",
+  "updated_at": "2026-10-06T00:47:32Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11665",
+  "body": "## Source\n\nThis is the residual of objectstack-ai/objectui#11659 ruling 6. That ruling made Studio's automation-pillar copy plain language. objectui#11663 (its PR) cleaned the pillar copy. It left one surface, outside that card's file surface: when a flow is open, the automation canvas header in `StudioDesignSurface` renders a literal chip `flow · <api name>` in every locale.\n\n## Ruling\n\nThe maintainer delegated this decision to the epic PM on 2026-10-05 (「你不用找我确认，你自己确认」). The ruling: the zh header must not show the metadata type word `flow`. Show the flow's label. Keep the API name available on hover, for authors who need it.\n\n## Acceptance\n\n1. With a flow open in zh-CN, the canvas header shows no `flow` token, and hovering shows the API name.\n2. The en header follows the same rule.\n3. A test pins both, and is ablated once.\n\nParent: objectstack-ai/cloud#2636.\n"
+}

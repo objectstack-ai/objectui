@@ -35,10 +35,24 @@ import { cleanup, render, within } from '@testing-library/react';
 import React from 'react';
 import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRenderer } from '@object-ui/react';
+import type { BaseSchema } from '@object-ui/types';
 import { PlaceholderRenderer, registerPlaceholders } from '../renderers/placeholders';
 
+/**
+ * The two node types this file's stand-in plugins register, declared to
+ * `@object-ui/types` the way an application declares a type it registers
+ * (objectui#11466): `SchemaRenderer`'s `schema` prop takes declared node types
+ * only.
+ */
+declare module '@object-ui/types' {
+  interface CustomNodeRegistry {
+    'view:calendar': BaseSchema;
+    'view:timeline': BaseSchema;
+  }
+}
+
 /** The two protocol keys a console stub declares: [authored key, registered name]. */
-const CONTESTED: Array<[authored: string, name: string]> = [
+const CONTESTED: Array<[authored: 'view:calendar' | 'view:timeline', name: string]> = [
   ['view:calendar', 'calendar'],
   ['view:timeline', 'timeline'],
 ];

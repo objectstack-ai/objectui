@@ -53,7 +53,7 @@ export interface ShortcutChord {
 }
 
 /** The translator the dialog hands to {@link AdvertisedShortcut.label}. */
-export type ShortcutLabelTranslate = (key: string, options?: Record<string, unknown>) => string;
+export type ShortcutLabelTranslate = (key: string) => string;
 
 export interface AdvertisedShortcut {
   /** Stable identity: one row per id however many holders advertise it. */

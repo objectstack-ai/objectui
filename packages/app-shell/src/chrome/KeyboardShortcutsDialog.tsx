@@ -87,7 +87,7 @@ export function KeyboardShortcutsDialog() {
 
   // Sections in `SHORTCUT_GROUPS` order, rows alphabetical by their text: the
   // order handlers mount in is not an order a reader should see.
-  const translate: ShortcutLabelTranslate = (key, options) => String(t(key, options));
+  const translate: ShortcutLabelTranslate = (key) => String(t(key));
   const sections: ShortcutSection[] = SHORTCUT_GROUPS.map((group) => ({
     group,
     title: groupTitle(group, translate),

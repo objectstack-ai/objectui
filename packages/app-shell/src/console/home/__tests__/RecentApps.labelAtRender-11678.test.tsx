@@ -17,9 +17,11 @@
  * in `ui.recent`, and still English after switching to 中文.
  *
  * Driven end to end with real parts: the route tracker records the three
- * visits, the real `RecentItemsProvider` stores them, and the real
- * `RecentApps` renders them through `useRecentItemLabel` over a real
- * `MetadataCtx` and a real i18next instance. The metadata is what the `/meta`
+ * visits, the real `RecentItemsProvider` stores them, and both list surfaces
+ * render them through `useRecentItemLabel` over a real
+ * `MetadataCtx` and a real i18next instance: the /home rail (`HomeContinue`,
+ * which `HomePage` hands the resolver as `labelOf`) and the `RecentApps` cards
+ * (which call it themselves). The metadata is what the `/meta`
  * read serves in each language (the console re-reads it on a language switch,
  * `MetadataProvider key={language}`), and the zh-CN bundle carries one page
  * label, so the three entries take three different roads to their zh-CN text:
@@ -33,10 +35,11 @@
 
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import type { ComponentType } from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { MetadataCtx } from '@object-ui/react';
-import { createI18n, I18nProvider } from '@object-ui/i18n';
+import { createI18n, I18nProvider, useObjectTranslation } from '@object-ui/i18n';
 
 vi.mock('@object-ui/auth', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -44,6 +47,8 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
 }));
 
 import { RecentApps } from '../RecentApps.js';
+import { HomeContinue } from '../HomeRail.js';
+import { useRecentItemLabel } from '../../../hooks/useRecentItemLabel.js';
 import { RecentItemsProvider, useRecentItems } from '../../../context/RecentItemsProvider.js';
 import { UserStateAdaptersProvider } from '../../../context/UserStateAdapters.js';
 import { useTrackRouteAsRecent } from '../../../hooks/useTrackRouteAsRecent.js';
@@ -116,7 +121,20 @@ function Home() {
   return <RecentApps items={recentItems} />;
 }
 
-function tree(i18n: ReturnType<typeof newI18n>, language: keyof typeof SERVED, pathname: string) {
+/** The /home rail, wired as `HomePage` wires it. */
+function Rail() {
+  const { recentItems } = useRecentItems();
+  const { t } = useObjectTranslation();
+  const labelOf = useRecentItemLabel();
+  return <HomeContinue items={recentItems} onOpen={() => {}} t={t} labelOf={labelOf} />;
+}
+
+function tree(
+  i18n: ReturnType<typeof newI18n>,
+  language: keyof typeof SERVED,
+  pathname: string,
+  Surface: ComponentType = Home,
+) {
   return (
     <I18nProvider instance={i18n} persistLanguage={false}>
       <MemoryRouter>
@@ -124,13 +142,20 @@ function tree(i18n: ReturnType<typeof newI18n>, language: keyof typeof SERVED, p
           <UserStateAdaptersProvider>
             <RecentItemsProvider>
               <Visit pathname={pathname} />
-              <Home />
+              <Surface />
             </RecentItemsProvider>
           </UserStateAdaptersProvider>
         </MetadataCtx.Provider>
       </MemoryRouter>
     </I18nProvider>
   );
+}
+
+/** The rail's row labels, most recent first. */
+function railLabels(): string[] {
+  return screen
+    .getAllByRole('button')
+    .map((row) => (row.querySelector('span.truncate')?.textContent ?? '').trim());
 }
 
 /** The card titles, most recent first. */
@@ -171,6 +196,21 @@ describe('"Recently Accessed" labels each item when it is rendered (objectui#116
 
     expect(shownLabels()).toEqual(['Capability Map', '团队排期', '交付运营']);
     expect(localStorage.getItem('objectui-recent-items:u:u1')).toBe(stored);
+  });
+
+  it('the /home rail shows the same labels, in en then zh-CN', async () => {
+    const i18n = newI18n();
+    const view = render(tree(i18n, 'en', DASHBOARD, Rail));
+    view.rerender(tree(i18n, 'en', SCHEDULE, Rail));
+    view.rerender(tree(i18n, 'en', CAPABILITY_MAP, Rail));
+    expect(railLabels()).toEqual(['Capability Map', 'Team Schedule (Gantt)', 'Delivery Operations']);
+
+    await act(async () => {
+      await i18n.changeLanguage('zh-CN');
+    });
+    view.rerender(tree(i18n, 'zh-CN', CAPABILITY_MAP, Rail));
+    expect(railLabels()).toEqual(['Capability Map', '团队排期', '交付运营']);
+    for (const text of MINTED) expect(screen.queryByText(text)).toBeNull();
   });
 
   it('a list stored before the identity shape shows the items’ current labels, not the minted text', () => {

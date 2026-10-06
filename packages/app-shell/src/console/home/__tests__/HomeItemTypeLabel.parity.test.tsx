@@ -62,6 +62,7 @@ vi.mock('@object-ui/i18n', async (importOriginal) => {
 
 import { useObjectTranslation } from '@object-ui/i18n';
 import { HomeContinue } from '../HomeRail.js';
+import { useRecentItemLabel } from '../../../hooks/useRecentItemLabel.js';
 import { RecentApps } from '../RecentApps.js';
 import { StarredApps } from '../StarredApps.js';
 
@@ -79,7 +80,9 @@ const ITEM_LABEL = 'Quarterly revenue';
  */
 function Rail({ items }: { items: RecentItem[] }) {
   const { t } = useObjectTranslation();
-  return <HomeContinue items={items} onOpen={() => {}} t={t} />;
+  // HomePage hands the rail its labeller the same way (objectui#11678).
+  const labelOf = useRecentItemLabel();
+  return <HomeContinue items={items} onOpen={() => {}} t={t} labelOf={labelOf} />;
 }
 
 /**

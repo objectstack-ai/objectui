@@ -19,6 +19,7 @@ export {
   type RecentNamedItem,
   type RecentTextItem,
 } from '../context/RecentItemsProvider.js';
-// An object / dashboard / page / report entry stores no label; this is how a
-// surface that renders one asks for it (objectui#11678).
-export { useRecentItemLabel, type RecentItemLabelResolver } from './useRecentItemLabel.js';
+// ⛔ Not `useRecentItemLabel`: it reads the metadata cache, so re-exporting it
+// here would make every module that only wants the list — `RecordDetailView`
+// among them — load `MetadataProvider` and its metadata client at module load
+// (objectui#11678). The entry exports it from its own module.

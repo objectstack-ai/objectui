@@ -45,7 +45,10 @@ export {
   installSettleSignalGlobal,
   type ObjectUiGlobal,
 } from './observability/settleSignal.js';
-export { useRecentItems, useRecentItemLabel } from './hooks/useRecentItems.js';
+export { useRecentItems } from './hooks/useRecentItems.js';
+// From its own module, not the `useRecentItems` shim: it reads the metadata
+// cache, and the shim must not drag that into a list-only importer's graph.
+export { useRecentItemLabel } from './hooks/useRecentItemLabel.js';
 
 // Types
 export type {
@@ -68,8 +71,8 @@ export type {
   RecentItemType,
   RecentNamedItem,
   RecentTextItem,
-  RecentItemLabelResolver,
 } from './hooks/useRecentItems.js';
+export type { RecentItemLabelResolver } from './hooks/useRecentItemLabel.js';
 
 // Console building blocks — compose these in your App.tsx to build the console
 // routing tree. See examples/console-starter/src/App.tsx for a minimal example.

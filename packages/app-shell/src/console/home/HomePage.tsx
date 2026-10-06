@@ -19,6 +19,7 @@ import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMetadata } from '../../providers/MetadataProvider.js';
 import { useRecentItems } from '../../hooks/useRecentItems.js';
+import { useRecentItemLabel } from '../../hooks/useRecentItemLabel.js';
 import { useFavorites } from '../../hooks/useFavorites.js';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
@@ -237,6 +238,9 @@ export function HomePage() {
   const { t } = useObjectTranslation();
   const { apps, loading } = useMetadata();
   const { recentItems } = useRecentItems();
+  // A recent entry stores identity; the rail labels it with this, on the
+  // render, in the current language (objectui#11678).
+  const recentLabel = useRecentItemLabel();
   const { favorites } = useFavorites();
   const { user } = useAuth();
   const { isAdmin, isResolved: isAdminResolved } = useWorkspaceAdminStatus();
@@ -593,7 +597,7 @@ export function HomePage() {
 
           {/* Continue where you left off + ambient activity */}
           <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
-            <HomeContinue items={recentApps} onOpen={(href) => navigate(href)} t={t} />
+            <HomeContinue items={recentApps} onOpen={(href) => navigate(href)} t={t} labelOf={recentLabel} />
             <HomeActivity items={activities} onViewAll={() => navigate(`/apps/${hostAppSegment}/sys_activity`)} t={t} />
           </div>
         </div>

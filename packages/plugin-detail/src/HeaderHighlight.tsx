@@ -217,12 +217,32 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
             // expand-on-edit) instead of cramming it into a 9rem column.
             const useWide = isWide || editorActive;
 
+            // How the row's width is shared (objectui#11684). The basis is the
+            // column's FLOOR, and line breaking still reads it, so which chips
+            // share a line is what it always was. `grow` then hands the line's
+            // free width to the columns, and `max-w-max` caps each one at its
+            // own content: a column that already fits stops growing and the
+            // rest of the free width goes on to the columns that still need
+            // it. A value truncates only once its line has no free width left.
+            //
+            // The old fixed caps (16rem / 24rem, no grow) cut "QA Widget 1" to
+            // "QA Wid…" in a 9rem chip with most of the drawer row empty. The
+            // content cap keeps what those caps were for: no column is ever
+            // wider than what it shows, so a sparse strip still packs left
+            // and the hover pencil stays beside its value.
+            //
+            // The floor is a min-width as well as the basis, so a short value
+            // keeps its 9rem column. The `min(…, 100%)` lets a column narrow to
+            // the row when the row itself is narrower than the floor.
             return (
               <div
                 key={field.name}
                 className={cn(
-                  'group flex flex-col gap-1 min-w-[7rem] px-5 border-l border-border/60 first:border-l-0 first:pl-0',
-                  useWide ? 'basis-[16rem] max-w-[24rem]' : 'basis-[9rem] max-w-[16rem]',
+                  'group flex flex-col gap-1 px-5 border-l border-border/60 first:border-l-0 first:pl-0',
+                  'grow max-w-max',
+                  useWide
+                    ? 'basis-[16rem] min-w-[min(16rem,100%)]'
+                    : 'basis-[9rem] min-w-[min(9rem,100%)]',
                 )}
               >
                 <span className="text-xs font-medium text-muted-foreground">

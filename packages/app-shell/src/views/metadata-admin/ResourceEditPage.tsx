@@ -606,9 +606,26 @@ function MetadataResourceEditPageImpl({
       // schema the server runs. Judging a stored body by the authoring schema
       // made this editor reject bodies the server accepts — e.g. a view that
       // had been pinned or reordered carries `isPinned` / `sortOrder`.
+      //
+      // objectui#10202 — in edit mode the pass judges the body the save SENDS,
+      // `fromDraft(draft)`, the same serialiser `doSave` applies before
+      // `client.save`. A key that serialiser drops is not the author's to fix:
+      // an object's served picklist options (the door refuses them beside
+      // `picklist`) used to surface here as "`picklist` and `options` cannot
+      // both be declared" on a draft whose save sends neither pair. Read from
+      // the registry by `type`, so no memoised identity keys this effect.
+      const fromDraft = createMode ? undefined : getMetadataResource(type)?.fromDraft;
+      let judged: Record<string, unknown> = draft;
+      if (fromDraft) {
+        try {
+          judged = fromDraft(draft);
+        } catch {
+          judged = draft;
+        }
+      }
       void validateMetadataDraft(
         type,
-        draft,
+        judged,
         entry?.schema as { required?: unknown } | undefined,
         { mode: draftMode },
       ).then((res) => {
@@ -620,7 +637,7 @@ function MetadataResourceEditPageImpl({
       cancelled = true;
       window.clearTimeout(handle);
     };
-  }, [type, draft, entry?.schema, draftMode]);
+  }, [type, draft, entry?.schema, draftMode, createMode]);
   // Issues to DISPLAY (banner + inline). Suppressed on a pristine create form
   // so a blank new item doesn't open covered in required-field errors.
   const displayIssues = React.useMemo(

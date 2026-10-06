@@ -25,6 +25,7 @@ import {
   isAggregatedViewContainer,
   viewDisplayType,
 } from '../views/metadata-admin/view-item-normalize.js';
+import { dropServedPicklistOptions } from '../views/metadata-admin/picklist-binding.js';
 
 /* -------------------------------------------------------------------------- */
 /* 1) Top-level admin pages — bound to `metadata:directory` + `metadata:resource` */
@@ -158,6 +159,13 @@ registerMetadataResource({
     { key: 'label', label: 'Label', width: '25%' },
     { key: 'description', label: 'Description' },
   ],
+  // objectui#10202 — the editor is seeded from the SERVED object, where a
+  // picklist-bound field carries `picklist` plus the options resolved from the
+  // list; the authoring door refuses the two together. The saved body drops
+  // those resolved `options` from every picklist-bound field and touches
+  // nothing else. The draft is not changed, so the canvas keeps showing the
+  // list's options. See `dropServedPicklistOptions`.
+  fromDraft: dropServedPicklistOptions,
 });
 
 registerMetadataResource({

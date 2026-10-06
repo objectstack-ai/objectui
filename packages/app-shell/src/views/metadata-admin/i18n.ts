@@ -112,6 +112,7 @@ const TYPE_LABELS_EN: Record<string, string> = {
   theme: 'Theme',
   sharing_rule: 'Sharing Rule',
   analytics_cube: 'Analytics Cube',
+  picklist: 'Picklist',
 };
 
 const TYPE_LABELS_ZH: Record<string, string> = {
@@ -154,6 +155,7 @@ const TYPE_LABELS_ZH: Record<string, string> = {
   theme: '主题',
   sharing_rule: '共享规则',
   analytics_cube: '分析立方体',
+  picklist: '选项列表',
 };
 
 const DOMAIN_LABELS_EN: Record<string, string> = {
@@ -1606,6 +1608,22 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.positionPreview.bind':
     'Bind {name} to one or more {permissionSets} to control CRUD-VAMA, field access, and tab visibility. Record visibility comes from the business-unit tree and sharing rules, not from the position.',
   'engine.positionPreview.permissionSets': 'Permission Sets',
+  // objectui#10202 — the read-only picklist page (the kind is package-owned).
+  'engine.picklistPreview.empty': 'This picklist has no name.',
+  'engine.picklistPreview.readOnly':
+    'Read-only: a picklist is owned by the package that declares it, and is not created, edited or deleted here.',
+  'engine.picklistPreview.ownedBy': 'Owning package',
+  'engine.picklistPreview.options': 'Options',
+  'engine.picklistPreview.colLabel': 'Label',
+  'engine.picklistPreview.colValue': 'Value',
+  'engine.picklistPreview.noOptions': 'This picklist declares no options.',
+  'engine.picklistPreview.extensions': 'Extensions',
+  'engine.picklistPreview.extensionsHint': 'Options other packages add to this picklist.',
+  'engine.picklistPreview.addedBy': 'Added by {package}',
+  'engine.picklistPreview.noExtensions': 'No package extends this picklist.',
+  'engine.picklistPreview.extensionsLoading': 'Loading extensions…',
+  'engine.picklistPreview.extensionsFailed':
+    'The installed packages could not be read, so the extensions of this picklist are unknown.',
   'engine.translationPreview.empty':
     'This bundle is empty — add at least one translated string to see the coverage report.',
   'engine.translationPreview.category.objects': 'Objects',
@@ -2488,6 +2506,11 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'designer.field.noGroup': '— No group —',
   'designer.field.picklistValues': 'Picklist values',
   'designer.field.noValues': 'No values yet.',
+  // objectui#10202 — "use picklist": the field names a shared picklist instead of its own options.
+  'designer.field.optionSource': 'Options from',
+  'designer.field.optionSourceInline': "This field's own options",
+  'designer.field.picklistBound':
+    'Options come from the picklist “{picklist}”. A field bound to a picklist has no options of its own: to offer another value, add it to the picklist in its package.',
   'designer.field.optMalformed': 'This option cannot be edited here',
   'designer.field.optMalformed.notAnObject': 'It is not an option object.',
   'designer.field.optMalformed.valueNotText': 'Its `value` is missing or is not text.',
@@ -4604,6 +4627,20 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.positionPreview.bind':
     '将 {name} 绑定到一个或多个 {permissionSets}，以控制 CRUD-VAMA、字段访问和标签页可见性。记录的可见性来自业务单元树和共享规则，而不是岗位。',
   'engine.positionPreview.permissionSets': '权限集',
+  // objectui#10202 — the read-only picklist page (zh).
+  'engine.picklistPreview.empty': '该选项列表没有名称。',
+  'engine.picklistPreview.readOnly': '只读：选项列表归声明它的软件包所有，不能在这里新建、编辑或删除。',
+  'engine.picklistPreview.ownedBy': '所属软件包',
+  'engine.picklistPreview.options': '选项',
+  'engine.picklistPreview.colLabel': '标签',
+  'engine.picklistPreview.colValue': '取值',
+  'engine.picklistPreview.noOptions': '该选项列表没有声明任何选项。',
+  'engine.picklistPreview.extensions': '扩展',
+  'engine.picklistPreview.extensionsHint': '其他软件包为该选项列表追加的选项。',
+  'engine.picklistPreview.addedBy': '由 {package} 追加',
+  'engine.picklistPreview.noExtensions': '没有软件包扩展该选项列表。',
+  'engine.picklistPreview.extensionsLoading': '正在加载扩展…',
+  'engine.picklistPreview.extensionsFailed': '无法读取已安装的软件包,因此不知道该选项列表有哪些扩展。',
   'engine.translationPreview.empty': '此语言包为空 —— 至少添加一条译文，即可查看覆盖率报告。',
   'engine.translationPreview.category.objects': '对象',
   'engine.translationPreview.category.apps': '应用',
@@ -5389,6 +5426,11 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'designer.field.noGroup': '— 无分组 —',
   'designer.field.picklistValues': '选项值',
   'designer.field.noValues': '暂无选项值。',
+  // objectui#10202 — "use picklist" (zh): the field names a shared picklist instead of its own options.
+  'designer.field.optionSource': '选项来源',
+  'designer.field.optionSourceInline': '本字段自己的选项',
+  'designer.field.picklistBound':
+    '选项来自选项列表「{picklist}」。绑定了选项列表的字段没有自己的选项：要增加取值，请在选项列表所属的软件包里添加。',
   'designer.field.optMalformed': '此选项无法在这里编辑',
   'designer.field.optMalformed.notAnObject': '它不是一个选项对象。',
   'designer.field.optMalformed.valueNotText': '它的 `value` 缺失或不是文本。',

@@ -96,6 +96,7 @@ import {
 } from '../metadata-admin/inspector-registry.js';
 import { getMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
 import { getMetadataResource } from '../metadata-admin/registry.js';
+import { dropServedPicklistOptions } from '../metadata-admin/picklist-binding.js';
 import { useMetadataClient, useMetadataTypes } from '../metadata-admin/useMetadata.js';
 import {
   DESIGNER_SURFACE_PARAM,
@@ -3721,7 +3722,10 @@ export function DataPillar({
     setSaving('draft');
     setError(null);
     try {
-      await client.save('object', current.name, objDraft, { mode: 'draft', packageId });
+      // objectui#10202 — the buffer was seeded from the served object, whose
+      // picklist-bound fields carry the list's resolved `options`; the door
+      // refuses them beside `picklist`, so they stay out of the body.
+      await client.save('object', current.name, dropServedPicklistOptions(objDraft), { mode: 'draft', packageId });
       setHasDraft(true);
       // objectui#11204 — clean only if nothing was edited while it was in flight.
       if (sent.unmoved()) setDirty(false);
@@ -3788,7 +3792,8 @@ export function DataPillar({
       setSaving('draft');
       setError(null);
       try {
-        await client.save('object', current.name, body, { mode: 'draft', packageId });
+        // objectui#10202 — same served `options` as `doSave` above.
+        await client.save('object', current.name, dropServedPicklistOptions(body), { mode: 'draft', packageId });
         setHasDraft(true);
         if (sent.unmoved()) setDirty(false);
         onDraftSaved?.();

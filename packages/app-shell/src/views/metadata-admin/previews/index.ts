@@ -31,6 +31,7 @@ import { ValidationPreview } from './ValidationPreview.js';
 import { DatasetPreview } from './DatasetPreview.js';
 import { BookPreview } from './BookPreview.js';
 import { DocPreview } from './DocPreview.js';
+import { PicklistPreview } from './PicklistPreview.js';
 
 export function registerBuiltinPreviews(): void {
   // UI surfaces
@@ -43,6 +44,10 @@ export function registerBuiltinPreviews(): void {
   // Data
   registerMetadataPreview('object', ObjectPreview);
   registerMetadataPreview('datasource', DatasourcePreview);
+  // objectui#10202 — the shared picklist's read-only page: its options, and the
+  // options other packages add to it, each under its declaring package. The
+  // kind is package-owned, so the page offers no create, edit or delete.
+  registerMetadataPreview('picklist', PicklistPreview);
   // ADR-0088 retired STANDALONE `validation` items, and objectui#4132 removed
   // the console door that authored them. This registration is not residue: a
   // rule lives embedded in `object.validations`, and `EmbeddedItemEditor` looks

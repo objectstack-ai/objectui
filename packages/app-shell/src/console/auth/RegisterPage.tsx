@@ -20,7 +20,7 @@
  * same — and never renders the form, the notice, or an empty layout for them.
  */
 
-import { useEffect, useLayoutEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   RegisterForm,
@@ -51,11 +51,10 @@ export function RegisterPage() {
   // page knows who it is talking to before it offers anything. `isLoading` is
   // also raised by every `signUp` in flight, so it is latched the first time it
   // clears: a sign-up in flight must not unmount the form and the refusal it
-  // holds (the console's register page latches it the same way).
+  // holds (the console's register page latches it the same way). Latched
+  // while rendering, so the render that first sees the answer already uses it.
   const [sessionChecked, setSessionChecked] = useState(!isLoading);
-  useLayoutEffect(() => {
-    if (!isLoading) setSessionChecked(true);
-  }, [isLoading]);
+  if (!isLoading && !sessionChecked) setSessionChecked(true);
 
   // `null` until the public auth config has been read; then `{ config }`,
   // whose `config` is `null` when the read failed — answered as "offer the

@@ -237,9 +237,7 @@ export function useSignUpOffer(): SignUpOffer | 'signed-in' {
   // Whether the first session check has answered. Every sign-up in flight
   // raises `isLoading` again, so latch the first time it clears.
   const [sessionChecked, setSessionChecked] = useState(!isLoading);
-  useEffect(() => {
-    if (!isLoading) setSessionChecked(true);
-  }, [isLoading]);
+  if (!isLoading && !sessionChecked) setSessionChecked(true);
   // `null` until `/auth/config` has been read (and after a failed read).
   const [authConfig, setAuthConfig] = useState<AuthPublicConfig | null>(null);
   useEffect(() => {

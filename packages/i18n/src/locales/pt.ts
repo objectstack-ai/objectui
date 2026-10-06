@@ -730,6 +730,7 @@ const pt = {
     firstRunMessage: "Crie seu primeiro registro para começar.",
     noMatches: "Nenhum registro correspondente",
     noMatchesMessage: "Nenhum registro corresponde aos seus filtros ou à sua busca atuais. Tente ajustá-los ou limpá-los.",
+    viewFilterNoMatchesMessage: "Nenhum registro corresponde ao filtro desta visualização.",
     loadErrorTitle: "Não foi possível carregar os registros",
     loadErrorMessage: "Algo deu errado ao carregar estes dados. Verifique sua conexão e tente novamente.",
     loadErrorForbiddenTitle: "Você não tem acesso",

@@ -830,6 +830,10 @@ export const LIST_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'list.firstRunMessage': 'Create your first record to get started.',
   'list.noMatches': 'No matching records',
   'list.noMatchesMessage': 'No records match your current filters or search. Try adjusting or clearing them.',
+  // Emptied by the VIEW's own declared filter, with no user filter or search
+  // applied (objectui#11687): the "your filters" wording above would name
+  // filters the user never set.
+  'list.viewFilterNoMatchesMessage': 'No records match this view’s filter.',
   'list.loading': 'Loading records…',
   // Load FAILED (network / server error) — distinct from empty. Offer retry.
   'list.loadErrorTitle': 'Couldn\u2019t load records',
@@ -5200,17 +5204,24 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             // full of records. That reads as data loss or a permission problem
             // and sends triage away from the view layer, which is exactly what
             // this issue reported.
+            //
+            // …but it is not the USER's query (objectui#11687). "Your current
+            // filters or search" is said only when the user applied one — the
+            // search box, the user-filter chips, the filter panel. A view
+            // emptied by its own declared filter alone gets its own message,
+            // which names the view's filter instead of telling the user to
+            // clear filters they never set.
             const hasBaseFilter =
               Array.isArray(authoredFilter)
                 ? authoredFilter.length > 0
                 : !!authoredFilter && typeof authoredFilter === 'object'
                   ? Object.keys(authoredFilter).length > 0
                   : false;
-            const hasActiveQuery =
+            const hasUserQuery =
               !!(searchTerm && searchTerm.trim()) ||
-              hasBaseFilter ||
               (Array.isArray(appliedUserFilterConditions) && appliedUserFilterConditions.length > 0) ||
               (Array.isArray(appliedFilters?.conditions) && appliedFilters.conditions.length > 0);
+            const hasActiveQuery = hasUserQuery || hasBaseFilter;
             // objectui#11227 — `title` and `message` are the spec's `I18nLabel`
             // (`EmptyStateSchema`): a plain string or an inline locale map. They
             // are RESOLVED against the display locale, as the view's `label`
@@ -5222,7 +5233,11 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
             const title = resolveInlineI18nLabel(schema.emptyState?.title, displayLocale)
               ?? (hasActiveQuery ? t('list.noMatches') : t('list.firstRunTitle'));
             const description = resolveInlineI18nLabel(schema.emptyState?.message, displayLocale)
-              ?? (hasActiveQuery ? t('list.noMatchesMessage') : t('list.firstRunMessage'));
+              ?? (hasUserQuery
+                ? t('list.noMatchesMessage')
+                : hasBaseFilter
+                  ? t('list.viewFilterNoMatchesMessage')
+                  : t('list.firstRunMessage'));
             return (
               <DataEmptyState
                 data-testid="empty-state"

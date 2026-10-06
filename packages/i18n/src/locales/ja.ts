@@ -708,6 +708,7 @@ const ja = {
     firstRunMessage: "最初のレコードを作成して始めましょう。",
     noMatches: "該当するレコードがありません",
     noMatchesMessage: "現在のフィルターや検索条件に一致するレコードはありません。条件を調整するか解除してください。",
+    viewFilterNoMatchesMessage: "このビューのフィルターに一致するレコードはありません。",
     loadErrorTitle: "レコードを読み込めませんでした",
     loadErrorMessage: "データの読み込み中に問題が発生しました。接続を確認して再試行してください。",
     loadErrorForbiddenTitle: "アクセス権がありません",

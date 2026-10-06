@@ -708,6 +708,7 @@ const ko = {
     firstRunMessage: "첫 레코드를 만들어 시작하세요.",
     noMatches: "일치하는 레코드가 없습니다",
     noMatchesMessage: "현재 필터나 검색어와 일치하는 레코드가 없습니다. 조건을 조정하거나 지워 보세요.",
+    viewFilterNoMatchesMessage: "이 뷰의 필터와 일치하는 레코드가 없습니다.",
     loadErrorTitle: "레코드를 불러오지 못했습니다",
     loadErrorMessage: "이 데이터를 불러오는 중 문제가 발생했습니다. 연결을 확인하고 다시 시도하세요.",
     loadErrorForbiddenTitle: "접근 권한이 없습니다",

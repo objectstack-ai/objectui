@@ -735,6 +735,7 @@ const es = {
     firstRunMessage: "Cree su primer registro para empezar.",
     noMatches: "No hay registros coincidentes",
     noMatchesMessage: "Ningún registro coincide con sus filtros o su búsqueda actuales. Pruebe a ajustarlos o borrarlos.",
+    viewFilterNoMatchesMessage: "Ningún registro coincide con el filtro de esta vista.",
     loadErrorTitle: "No se pudieron cargar los registros",
     loadErrorMessage: "Algo salió mal al cargar estos datos. Compruebe su conexión y vuelva a intentarlo.",
     loadErrorForbiddenTitle: "No tiene acceso",

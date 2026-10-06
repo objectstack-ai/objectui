@@ -291,11 +291,26 @@ describe("date: both faces draw the date field's read-only face, formatDate's de
 
 // ── text ───────────────────────────────────────────────────────────────────
 
-describe('text: unchanged, a string as it arrives (objectui#11748 control)', () => {
+describe('text: the value as the cell prints it, in monospace (objectui#11748)', () => {
   it.each(FACES)("%s — returnType 'text' over a number stays text: the declaration wins", (_face, draw) => {
     const { container } = renderSession('en-US', draw(200000, { returnType: 'text' }));
     expect(container.textContent).toBe('200000');
     expect(container.querySelector('.font-mono')).not.toBeNull();
+  });
+
+  // The form face read `value == null` and printed `String(value)`, so these
+  // read a blank span with no accessible name, and `[object Object]`, in the
+  // form, beside the cell's affordance and the record's name.
+  it.each(FACES)("%s — '' and [] draw the shared empty affordance", (_face, draw) => {
+    for (const value of ['', []]) {
+      const { container } = renderSession('en-US', draw(value));
+      expect(affordance(container), `holding ${JSON.stringify(value)}`).not.toBeNull();
+      cleanup();
+    }
+  });
+
+  it.each(FACES)('%s — an expanded record reads its name, not [object Object]', (_face, draw) => {
+    expect(textOf('en-US', draw({ name: 'Ada' }))).toBe('Ada');
   });
 });
 
@@ -319,6 +334,9 @@ describe('one stored value, one reading: the form face equals the cell (objectui
     ['date, instant', '2020-07-04T09:30:00.000Z', { returnType: 'date' }],
     ['text, declared', 'Adult', { returnType: 'text' }],
     ['text, no returnType', 'Adult', {}],
+    ['text, an expanded record', { name: 'Ada' }, {}],
+    ['empty string', '', {}],
+    ['empty array', [], {}],
   ];
 
   describe.each(LOCALES)('%s', (locale) => {

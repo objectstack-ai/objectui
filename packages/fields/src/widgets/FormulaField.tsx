@@ -37,7 +37,10 @@ import { coerceToSafeValue } from '../coerceToSafeValue.js';
  *     it; only a JS boolean is a boolean, as there (objectui#8593).
  *   - date: `formatDate`'s DEFAULT face, as `DateField`'s read-only branch
  *     draws it (objectui#8194).
- *   - text: the value as it arrives, unchanged.
+ *   - text: the value as the cell prints it, in monospace as before.
+ *
+ * Both faces also share the emptiness floor (`isEmptyValue` on the coerced
+ * value), so an empty value reads the shared affordance in both.
  *
  * The rule is spelled here and in the cell, because the barrel and this lazily
  * loaded widget may not import each other (the reason `number-format.ts`
@@ -54,7 +57,12 @@ export function FormulaField({ value, field, ...props }: FieldWidgetComponentPro
   // Same reason as the hook above: before the early return.
   const booleanLabel = useBooleanValueLabel();
 
-  if (value == null) {
+  // The emptiness FLOOR (`isEmptyValue`), taken on the coerced value exactly
+  // as the formula cell takes it (objectui#11748). This read `value == null`,
+  // so `''` and `[]` drew a blank span with no accessible name here and the
+  // shared affordance in the table.
+  const safe = coerceToSafeValue(value);
+  if (isEmptyValue(safe)) {
     return <EmptyValue className={props.className} />;
   }
 
@@ -80,8 +88,7 @@ export function FormulaField({ value, field, ...props }: FieldWidgetComponentPro
     // `formatNumberFieldValue` call, so the text is the number cell's and
     // `NumberField`'s read-only text: grouped in the locale, at the width a
     // declared `scale` gives. This was `toFixed(2)`, which neither face makes.
-    const safe = coerceToSafeValue(value);
-    if (isEmptyValue(safe) || (typeof safe === 'string' && safe.trim() === '')) {
+    if (typeof safe === 'string' && safe.trim() === '') {
       return <EmptyValue className={props.className} />;
     }
     const num = Number(safe);
@@ -116,16 +123,17 @@ export function FormulaField({ value, field, ...props }: FieldWidgetComponentPro
     // shared function would dash for being unreadable, a date-only
     // nonexistent day included (objectui#10026). A falsy value is empty too,
     // the numeric epoch included, as on `DateField` and the date cell.
-    const safe = coerceToSafeValue(value);
     if (!safe || isNaN(toDisplayDate(safe as string | number).getTime())) {
       return <EmptyValue className={props.className} />;
     }
     return <span className={typedClassName}>{formatDate(safe as string | number, undefined, { locale })}</span>;
   }
 
+  // Text: the coerced value, as the cell prints it (an expanded record reads
+  // its name, not `[object Object]`).
   return (
     <span className={`text-sm font-mono text-gray-700 ${props.className || ''}`}>
-      {String(value)}
+      {String(safe)}
     </span>
   );
 }

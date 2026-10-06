@@ -132,6 +132,11 @@ function chordEvents(chord: ShortcutChord): KeyboardEventInit[] {
 }
 
 const probe = () => screen.getByTestId('probe');
+// `SidebarProvider` persists its state in this cookie and reads it on mount,
+// so one toggle would decide the next mount's starting state.
+const clearSidebarCookie = () => {
+  document.cookie = 'sidebar_state=; path=/; max-age=0';
+};
 const dialogShown = () => screen.queryByTestId('overlay:keyboard-shortcuts') !== null;
 
 /**
@@ -158,6 +163,7 @@ const FIRES: Record<string, (event: KeyboardEventInit) => Promise<void>> = {
     await waitFor(() => expect(dialogShown()).toBe(false));
   },
   'toggle-sidebar': async (event) => {
+    clearSidebarCookie();
     mountConsole('/apps/crm');
     expect(probe()).toHaveAttribute('data-sidebar-open', 'true');
     fireEvent.keyDown(document.body, event);
@@ -165,7 +171,10 @@ const FIRES: Record<string, (event: KeyboardEventInit) => Promise<void>> = {
   },
 };
 
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  clearSidebarCookie();
+});
 
 describe('the keyboard-shortcuts dialog lists only wired shortcuts (objectui#11674)', () => {
   it('every row the console dialog lists fires its real handler, with ⌘ and with Ctrl', async () => {

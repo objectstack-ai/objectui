@@ -6,6 +6,8 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import { toDomProps, type DomProps } from '@object-ui/core';
+
 /**
  * The props `SchemaRenderer` hands a widget that are NOT DOM attributes
  * (objectui#4357).
@@ -44,10 +46,21 @@
  *
  * The line this type draws is **"is the key an HTML attribute name"**. None of
  * the seven is (the two dashed `aria-*` forms the renderer emits itself are, and
- * they keep flowing). Everything that IS one stays in the spread and reaches the
- * DOM exactly as before: `id`, `name`, `role`, `disabled`, `aria-*`, `data-*`,
- * `className`. Removing the spread instead would have been the wrong fix — it is
- * the component's only accessibility passthrough.
+ * they keep flowing). Removing the spread instead would have been the wrong fix —
+ * it is the component's only accessibility passthrough.
+ *
+ * ⚠️ That line was a DENY-LIST, and on the renderer's door it is no longer the
+ * judge. It stripped every one of the seven and the leak gate
+ * (`packages/app-shell/src/__tests__/widget-dom-leak-sweep.test.tsx`) still
+ * found the OPEN TAIL on both components — an authored key neither declares
+ * (`zzcanary`, `reference_to`, a `props: { colorVariant }` on `metric-card`, a
+ * `label` on `metric-card`) and `name` all landed as attributes, because a
+ * deny-list can only name what already exists. Per objectui#4425's phase-2
+ * ruling, what a component reached through `SchemaRenderer` may put on its
+ * element is decided by `toDomProps`' WHITELIST — see {@link hostDomProps}
+ * below. The seven are still destructured by name: they are this type's keys,
+ * and on the direct React door (below) the destructure is still what keeps them
+ * off the element.
  *
  * The renderer strips its own schema metadata (`type` / `children` / `visible` /
  * the schema's `dataSource` binding / …) before spreading, so those never
@@ -77,4 +90,46 @@ export interface SchemaHostProps {
    * async, object-aware KPI is `ObjectMetricWidget`.
    */
   dataSource?: unknown;
+}
+
+/**
+ * What a KPI card may spread onto its host element, decided by the DOOR the
+ * render came through (objectui#4425, phase-2 ruling: "a registered SDUI
+ * widget's host element receives only what passes the `toDomProps` whitelist").
+ *
+ * Both metric components have two doors, and they hand the component two
+ * different populations:
+ *
+ *   - **The renderer's door.** `SchemaRenderer` — the registry render path, and
+ *     so also an app that registers the exported component under a key of its
+ *     own — hands the component the authored node's own keys, the contents of
+ *     its `props` container, the runtime props it injects and its host's
+ *     trailing props. That set is unbounded, so only the whitelist may decide
+ *     what reaches the element: `toDomProps` keeps the SDUI contract's declared
+ *     pass-through set (`SDUI_DOM_PASS_THROUGH_KEYS`) and the `aria-*` /
+ *     `data-*` families, and drops everything else — `name`, `disabled`, the
+ *     injected adapter, every authored key neither component declares. One
+ *     executor, `@object-ui/core`'s, the
+ *     one `DashboardRenderer`'s grid container and `plugin-chatbot`'s
+ *     registrations already use — not a third list.
+ *   - **The direct React door.** A host rendering the exported component passes
+ *     typed props, and both props interfaces DECLARE `React.HTMLAttributes` as
+ *     their DOM pass-through (objectui#4426). That declaration is the
+ *     objectui#4435 pattern the ruling keeps available, so this door stays as it
+ *     was: narrowing it at runtime while the exported interface still extends
+ *     `HTMLAttributes` would type-check a `title` or an `onMouseEnter` and drop
+ *     it — declared but not delivered. Narrowing the interface itself is a
+ *     public prop-surface change, which this card's fence excludes.
+ *
+ * The discriminator is `schema`: the one key `SchemaRenderer` injects on EVERY
+ * render (the table above), declared on this type as the renderer's private
+ * door and never on either exported props interface. A direct consumer that
+ * passes it anyway has chosen the renderer's door and gets the whitelist, so a
+ * mistaken reading DROPS an attribute and never leaks one. If the renderer ever
+ * stopped injecting it, every canary the leak gate plants would reach the DOM
+ * again and the gate would go red — that sweep is what holds this function to
+ * its claim, alongside `__tests__/MetricWidget.domProps.test.tsx`.
+ */
+export function hostDomProps<P extends object>(schema: unknown, rest: P): P | DomProps<P> {
+  return schema === undefined ? rest : toDomProps(rest);
 }

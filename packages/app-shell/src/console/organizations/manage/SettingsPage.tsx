@@ -78,8 +78,12 @@ export function SettingsPage() {
   const [membersLoading, setMembersLoading] = useState(true);
 
   // Slug availability — only an owner sees the form, so only an owner's visit
-  // asks about the organization's environments.
-  const [slugAvailability, setSlugAvailability] = useState<SlugAvailability>('pending');
+  // asks about the organization's environments. The answer is kept WITH the
+  // organization it was read for, so moving to another organization reads as
+  // `pending` again without a reset inside the effect.
+  const [slugAnswer, setSlugAnswer] = useState<{ orgId: string; locked: boolean } | null>(null);
+  const slugAvailability: SlugAvailability =
+    slugAnswer?.orgId === org.id ? (slugAnswer.locked ? 'locked' : 'open') : 'pending';
   const slugLocked = slugAvailability === 'locked';
 
   // Danger zone dialogs
@@ -120,9 +124,9 @@ export function SettingsPage() {
   useEffect(() => {
     if (isOwner !== true) return;
     let cancelled = false;
-    setSlugAvailability('pending');
-    void readOrgEnvironmentPresence(org.id).then((presence) => {
-      if (!cancelled) setSlugAvailability(presence === 'present' ? 'locked' : 'open');
+    const orgId = org.id;
+    void readOrgEnvironmentPresence(orgId).then((presence) => {
+      if (!cancelled) setSlugAnswer({ orgId, locked: presence === 'present' });
     });
     return () => {
       cancelled = true;

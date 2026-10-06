@@ -114,16 +114,22 @@ async function cellOf(rowLabel: string, column: (typeof COLUMNS)[number]): Promi
       screen.getAllByTestId('object-tree-row').some((r) => r.textContent?.includes(rowLabel)),
     ).toBe(true),
   );
-  // The schema arrives after the first rows: wait for the typed render, which
-  // is the one with the face's markup in the `active` column.
-  await waitFor(() =>
-    expect(document.querySelector('[data-testid="object-tree"] [role="checkbox"]')).not.toBeNull(),
-  );
-  const row = screen
-    .getAllByTestId('object-tree-row')
-    .find((r) => r.textContent?.includes(rowLabel))!;
-  // The first `<td>` is the label column.
-  return Array.from(row.querySelectorAll('td'))[1 + COLUMNS.indexOf(column)] as HTMLElement;
+  // The schema arrives after the first rows, and before it does EVERY column
+  // is untyped and prints its plain string — so each assertion below waits for
+  // the schema first. The signal is deliberately one the fix does not produce:
+  // the `kind` select reading its option label is what the tree printed
+  // before objectui#11686 too. Waiting on a face's own markup instead would
+  // make every test here fail at this line on a tree without the faces, and a
+  // reverse check would then prove only that the wait times out.
+  const cellIn = (label: string, col: (typeof COLUMNS)[number]) => {
+    const row = screen
+      .getAllByTestId('object-tree-row')
+      .find((r) => r.textContent?.includes(label));
+    // The first `<td>` is the label column.
+    return row ? (Array.from(row.querySelectorAll('td'))[1 + COLUMNS.indexOf(col)] as HTMLElement) : undefined;
+  };
+  await waitFor(() => expect(cellIn('Acme', 'kind')?.textContent).toBe('Holding Company'));
+  return cellIn(rowLabel, column)!;
 }
 
 /**

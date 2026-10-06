@@ -54,13 +54,15 @@ export interface ManagedByEmptyState {
  * multi-org-only "Invite User" counts in a multi-org deployment and not in a
  * single-org one, exactly as the button does.
  *
- * Every `list_toolbar` action on a `better-auth` object is an entry point
- * that adds a row (Invite User, Register OAuth Application, Create Team,
- * Enable 2FA, …), or is offered only where rows already exist ("Sign out
- * other devices" sits on session lists, every one of which is view-filtered,
- * so an empty one gets the view-filter copy, not first-run). That is why the
- * `better-auth` arm below can read "the toolbar draws an action" as "the page
- * offers a way to add a row" without asking an action what it does.
+ * Why "the toolbar draws an action" may stand for "the page offers a way to
+ * add a row" in the `better-auth` arm, without asking an action what it does:
+ * read off objectstack's platform objects when objectui#11687 landed, every
+ * `list_toolbar` action on a `better-auth` object either adds a row (Invite
+ * User, Register OAuth Application, Create Team, Enable 2FA, …) or sits on a
+ * list whose every view is filtered ("Sign out other devices" on sessions), so
+ * an empty one gets the list's view-filter copy rather than first-run copy.
+ * ⚠️ Nothing re-derives that reading (AGENTS.md #9); a `better-auth` object
+ * that gains a toolbar action which adds nothing should revisit it.
  */
 export function listToolbarDrawsAction(
   actions: readonly unknown[] | null | undefined,

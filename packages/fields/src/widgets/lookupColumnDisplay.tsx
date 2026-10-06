@@ -38,6 +38,7 @@
 import React from 'react';
 import { formatDate, getRecordDisplayName } from '@object-ui/core';
 import type { LookupColumnDef } from '@object-ui/types';
+import { BooleanValueText } from './booleanValueLabel.js';
 
 /**
  * Cell renderer function signature — matches `getCellRenderer` from
@@ -240,6 +241,9 @@ export function renderLookupColumnValue(
     if (val.name || val.label) return String(val.name || val.label);
     return JSON.stringify(val);
   }
-  if (typeof val === 'boolean') return val ? 'Yes' : 'No';
+  // The locale's word for the value (objectui#11689), the one every read-only
+  // boolean word reads. A node rather than a string: this function cannot call
+  // the translation hook itself, and both callers render what it returns.
+  if (typeof val === 'boolean') return <BooleanValueText value={val} />;
   return String(val);
 }

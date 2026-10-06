@@ -4423,6 +4423,11 @@ export * from './FieldEditWidget.js';
 export * from './widgets/TextField.js';
 export * from './widgets/NumberField.js';
 export * from './widgets/BooleanField.js';
+// objectui#11689 — the locale's word for a read-only boolean value, read by
+// every surface that draws one as text (including `@object-ui/plugin-detail`'s
+// highlights chip). `BooleanValueText` stays internal: its only caller is the
+// lookup column renderer in this package.
+export { useBooleanValueLabel, type BooleanValueLabel } from './widgets/booleanValueLabel.js';
 export * from './widgets/SelectField.js';
 export * from './widgets/DateField.js';
 export * from './widgets/DateTimeField.js';

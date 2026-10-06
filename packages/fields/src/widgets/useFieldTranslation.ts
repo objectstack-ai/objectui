@@ -11,6 +11,11 @@ const FIELD_DEFAULTS: Record<string, string> = {
   'common.noResults': 'No results found',
   'common.cancel': 'Cancel',
   'common.confirm': 'Confirm',
+  // objectui#11689 — the word a read-only boolean value is drawn with
+  // (`useBooleanValueLabel`). Same values as the `en` pack, so a provider-less
+  // render still says what the literals it replaced said.
+  'common.yes': 'Yes',
+  'common.no': 'No',
   'table.selected': '{{count}} selected',
   'table.search': 'Search…',
   'lookup.loading': 'Loading…',

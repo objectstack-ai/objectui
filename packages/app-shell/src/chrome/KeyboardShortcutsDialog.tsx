@@ -32,7 +32,7 @@ import {
 } from './advertisedShortcuts.js';
 
 /** `?` — the handler is this component's own keydown listener below. */
-export const SHOW_SHORTCUTS_SHORTCUT: AdvertisedShortcut = {
+const SHOW_SHORTCUTS_SHORTCUT: AdvertisedShortcut = {
   id: 'shortcuts-help',
   group: 'general',
   chord: { key: '?' },
@@ -44,7 +44,7 @@ export const SHOW_SHORTCUTS_SHORTCUT: AdvertisedShortcut = {
  * other dialog and panel in the shell carry. Advertised here, beside the
  * `Dialog` it closes.
  */
-export const CLOSE_OVERLAY_SHORTCUT: AdvertisedShortcut = {
+const CLOSE_OVERLAY_SHORTCUT: AdvertisedShortcut = {
   id: 'close-overlay',
   group: 'general',
   chord: { key: 'Escape' },

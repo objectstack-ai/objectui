@@ -33,7 +33,7 @@ import {
 } from '../chrome/advertisedShortcuts.js';
 
 /** `⌘K` / `Ctrl+K` — the keydown handler in {@link CommandPaletteProvider}. */
-export const OPEN_COMMAND_PALETTE_SHORTCUT: AdvertisedShortcut = {
+const OPEN_COMMAND_PALETTE_SHORTCUT: AdvertisedShortcut = {
   id: 'command-palette',
   group: 'general',
   chord: { key: 'k', mod: true },

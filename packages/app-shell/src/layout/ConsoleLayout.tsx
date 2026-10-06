@@ -69,7 +69,7 @@ interface ConsoleLayoutProps {
  * ours to edit, so the shortcut is advertised from inside the provider it
  * belongs to, by {@link ConsoleLayoutInner} (objectui#11674).
  */
-export const TOGGLE_SIDEBAR_SHORTCUT: AdvertisedShortcut = {
+const TOGGLE_SIDEBAR_SHORTCUT: AdvertisedShortcut = {
   id: 'toggle-sidebar',
   group: 'navigation',
   chord: { key: 'b', mod: true },

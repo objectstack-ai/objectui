@@ -105,20 +105,26 @@ function Probe() {
   );
 }
 
-function Capture({ into }: { into: { current: readonly AdvertisedShortcut[] } }) {
-  into.current = useAdvertisedShortcuts();
-  return null;
+/** The registry's own reading, beside the rows the dialog drew from it. */
+function AdvertisedReading() {
+  const advertised = useAdvertisedShortcuts();
+  const reading = advertised.map(({ id, chord }) => ({ id, chord }));
+  return <output data-testid="advertised" data-reading={JSON.stringify(reading)} />;
+}
+
+function readAdvertised(): Array<{ id: string; chord: ShortcutChord }> {
+  return JSON.parse(screen.getByTestId('advertised').dataset.reading ?? '[]');
 }
 
 /** The console chrome as `AppContent` composes it, with the dialog inside. */
-function mountConsole(path: string, capture?: { current: readonly AdvertisedShortcut[] }) {
+function mountConsole(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <NavigationProvider>
         <ConsoleLayout activeAppName="crm" activeApp={APP} onAppChange={vi.fn()} objects={[]}>
           <KeyboardShortcutsDialog />
           <Probe />
-          {capture ? <Capture into={capture} /> : null}
+          <AdvertisedReading />
         </ConsoleLayout>
       </NavigationProvider>
     </MemoryRouter>,
@@ -178,21 +184,21 @@ afterEach(() => {
 
 describe('the keyboard-shortcuts dialog lists only wired shortcuts (objectui#11674)', () => {
   it('every row the console dialog lists fires its real handler, with ⌘ and with Ctrl', async () => {
-    const advertised = { current: [] as readonly AdvertisedShortcut[] };
-    mountConsole('/apps/crm?shortcuts=1', advertised);
+    mountConsole('/apps/crm?shortcuts=1');
+    const advertised = readAdvertised();
     const rows = Array.from(document.querySelectorAll<HTMLElement>('[data-shortcut-id]'));
     const listed = rows.map((row) => row.dataset.shortcutId as string);
 
     // Rows are the advertisements, keycaps included — nothing else.
-    expect([...listed].sort()).toEqual(advertised.current.map((s) => s.id).sort());
+    expect([...listed].sort()).toEqual(advertised.map((s) => s.id).sort());
     for (const row of rows) {
-      const shortcut = advertised.current.find((s) => s.id === row.dataset.shortcutId)!;
+      const shortcut = advertised.find((s) => s.id === row.dataset.shortcutId)!;
       const caps = Array.from(row.querySelectorAll('kbd'), (kbd) => kbd.textContent);
       expect(caps, row.dataset.shortcutId).toEqual(shortcutKeycaps(shortcut.chord));
     }
     // Every listed row has a probe, and every probe still has a row.
     expect([...listed].sort()).toEqual(Object.keys(FIRES).sort());
-    const chords = new Map(advertised.current.map((s) => [s.id, s.chord]));
+    const chords = new Map(advertised.map((s) => [s.id, s.chord]));
     cleanup();
 
     for (const id of listed) {

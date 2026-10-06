@@ -185,6 +185,12 @@ The providers debounce backend writes with a 500ms window via `createDebouncedFl
 
 `localStorage` is written **synchronously** on every mutation, so reloads always show the latest state immediately even if the debounced backend write hasn't fired yet.
 
+## Recent items store identity, not labels
+
+An object, dashboard, page or report entry in the recent list is stored as its `type` and `name` (plus `href` and `visitedAt`), never as display text, so a rename or a language switch shows on the next render instead of being frozen at visit time. Surfaces label an entry with `useRecentItemLabel()`, which asks the resolver the console already uses for that kind; an item whose metadata is not loaded yet shows its machine name. Record entries (`type: 'record'`) and Studio metadata entries (`type: 'metadata'`) carry a `label`: a record's title, a metadata item's name.
+
+The provider writes nothing when a visit leaves the list unchanged: re-adding the entry already at the head keeps its `visitedAt` and costs no `save()`. Lists persisted in the earlier label-carrying shape are read by identity (the name is the part of `id` after `type:`) and their stored label is dropped.
+
 ## Race-safety
 
 Each provider keeps a monotonic `hydrationToken`. If the user switches accounts while a `load()` is in flight, the late response is discarded. This prevents seeing User A's favorites flash into User B's session.
@@ -199,6 +205,7 @@ Each provider keeps a monotonic `hydrationToken`. If the user switches accounts 
 | `useFavorites()` | `@object-ui/app-shell` | `{ favorites, addFavorite, removeFavorite, toggleFavorite, isFavorite, clearFavorites, setPinned, isPinned, pinnedNavIds }` |
 | `useNavPins()` | `@object-ui/app-shell` | Thin shim over `useFavorites` for sidebar pinning — `{ pinnedIds, togglePin, isPinned, applyPins, clearPins }`. |
 | `useRecentItems()` | `@object-ui/app-shell` | `{ recentItems, addRecentItem, clearRecentItems }` |
+| `useRecentItemLabel()` | `@object-ui/app-shell` | `(item) => string` — a recent entry's label, resolved on render from the item's metadata in the current language. |
 | `useFlowPaletteRecents()` | `@object-ui/app-shell` | `{ recents, recordRecent }` — flow-designer add-node MRU; falls back to localStorage outside a provider. |
 | `createObjectStackUserStateAdapter(opts)` | `@object-ui/data-objectstack` | Official adapter over the platform's `sys_user_preference` store. `{ dataSource, userId, key, resource?, onError? }` — one instance per `(user, key)` pair. |
 

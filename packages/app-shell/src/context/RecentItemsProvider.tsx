@@ -155,9 +155,13 @@ function readList(raw: unknown): RecentItem[] {
 
 /** What makes an entry this entry — everything but its visit time. */
 function contentOf(item: RecentItem): string {
-  return item.type === 'record' || item.type === 'metadata'
-    ? JSON.stringify([item.id, item.type, item.href, item.label])
-    : JSON.stringify([item.id, item.type, item.href, item.name]);
+  switch (item.type) {
+    case 'record':
+    case 'metadata':
+      return JSON.stringify([item.id, item.type, item.href, item.label]);
+    default:
+      return JSON.stringify([item.id, item.type, item.href, item.name]);
+  }
 }
 
 function loadRecent(userId?: string | null): RecentItem[] {

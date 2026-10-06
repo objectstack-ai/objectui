@@ -181,7 +181,6 @@ describe('RecentItemsProvider — no change, no write (objectui#11678)', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    mockUser.current = { id: 'user-1', name: 'Alice', email: 'a@x' } as any;
   });
 
   /** An attached, hydrated adapter whose saves are counted from zero. */
@@ -332,7 +331,6 @@ describe('RecentItemsProvider — reading a list stored before the identity shap
 
   beforeEach(() => {
     localStorage.clear();
-    mockUser.current = { id: 'user-1', name: 'Alice', email: 'a@x' } as any;
   });
 
   it('from localStorage: the identity is read out of the id, the minted label is dropped', () => {

@@ -11,4 +11,15 @@
  * @module
  */
 
-export { useRecentItems, type RecentItem } from '../context/RecentItemsProvider.js';
+export {
+  useRecentItems,
+  type RecentItem,
+  type RecentItemInput,
+  type RecentItemType,
+  type RecentNamedItem,
+  type RecentTextItem,
+} from '../context/RecentItemsProvider.js';
+// ⛔ Not `useRecentItemLabel`: it reads the metadata cache, so re-exporting it
+// here would make every module that only wants the list — `RecordDetailView`
+// among them — load `MetadataProvider` and its metadata client at module load
+// (objectui#11678). The entry exports it from its own module.

@@ -46,6 +46,7 @@ import {
 import { Button } from '@object-ui/components';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { useRecentItems, type RecentItem } from '../../context/RecentItemsProvider.js';
+import { useRecentItemLabel } from '../../hooks/useRecentItemLabel.js';
 import {
   useMetadataClient,
   useMetadataTypes,
@@ -146,6 +147,8 @@ export function StudioHomePage() {
   const client = useMetadataClient();
   const { loading, entries } = useMetadataTypes(client);
   const { recentItems } = useRecentItems();
+  // An entry's text is resolved on this render, never stored (objectui#11678).
+  const recentLabel = useRecentItemLabel();
   const locale = useMetadataLocale();
   // The visit times read the DISPLAY locale — not `locale` above, which picks
   // this page's strings (objectui#10232).
@@ -428,7 +431,7 @@ export function StudioHomePage() {
                             <Icon className="h-4 w-4" />
                           </span>
                           <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-medium">{item.label}</span>
+                            <span className="block truncate text-sm font-medium">{recentLabel(item)}</span>
                             <span className="block text-[11px] text-muted-foreground">
                               {relativeTime(item.visitedAt, displayLocale)}
                             </span>

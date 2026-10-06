@@ -45,11 +45,14 @@ vi.mock('../../context/RecentItemsProvider.js', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
   useRecentItems: () => ({
     recentItems: [
+      // A Studio metadata item — the entry kind that carries its own text, so
+      // the row reads 'Account' with no metadata cache behind it
+      // (objectui#11678 stores an object entry by identity only).
       {
-        id: 'object:account',
+        id: 'metadata:object:Account',
+        type: 'metadata',
         label: 'Account',
-        href: '/studio/object/account',
-        type: 'object',
+        href: '/studio/metadata/object/Account',
         visitedAt: new Date(Date.now() - THREE_DAYS).toISOString(),
       },
     ],

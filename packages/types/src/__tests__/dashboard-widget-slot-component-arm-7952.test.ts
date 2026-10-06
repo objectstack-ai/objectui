@@ -59,7 +59,13 @@
  *      reads, is refused by name on the tolerant face, the strict face and the
  *      TypeScript twin, and the message names `title`, the heading the card draws.
  *      That the same card with `title` draws its heading is pinned where it renders,
- *      `@object-ui/plugin-dashboard`'s `metricCardLabelRefusedTitleHeading-4425.test.tsx`.
+ *      `@object-ui/plugin-dashboard`'s `metricCardLabelRefusedTitleHeading-4425.test.tsx`;
+ *   8. objectui#11709: inside a widget's legacy `component` envelope, a `metric-card`
+ *      is judged by the arm ALONE on the tolerant face too (`safeValidateSchema`,
+ *      which `objectui validate` runs). One enumeration pin derives every refusal
+ *      from the arm's own members and proves each is refused there with the
+ *      member's own message, and with no `BaseSchema` fallback beside it. It
+ *      replaced the two "MEASURED LIMIT" notes that recorded the fallback.
  *
  * Type-level lines are erased at runtime and enforced because
  * `packages/types/tsconfig.test.json` is chained from this package's
@@ -79,8 +85,8 @@ import type {
   DashboardWidgetSlotComponentSchema,
 } from '../complex.js';
 import { DASHBOARD_COMPONENT_WIDGET_TYPES } from '../complex.js';
-import { DashboardComponentSchema as DashboardComponentZod } from '../zod/complex.zod.js';
-import { StrictAnyComponentSchema } from '../zod/index.zod.js';
+import { DashboardComponentSchema as DashboardComponentZod, DashboardWidgetSchema as DashboardWidgetZod } from '../zod/complex.zod.js';
+import { StrictAnyComponentSchema, safeValidateSchema } from '../zod/index.zod.js';
 
 type Equal< A, B > =
   (< T >() => T extends A ? 1 : 2) extends (< T >() => T extends B ? 1 : 2) ? true : false;
@@ -210,10 +216,12 @@ describe('the legacy `component` envelope on the TypeScript face (objectui#7952,
       // @ts-expect-error — `value` is the card's one required input, inside the envelope too (the diagnostic names `value`).
       widgets: [{ id: 'w', component: { type: 'metric-card', title: 'Revenue' } }],
     };
-    // The tolerant zod face still accepts this document, through the widget
-    // `component` slot's `BaseSchema` arm (objectui#8344); that is the zod
-    // face's question, which this card leaves alone (objectui#8345).
+    // The tolerant zod face accepted this document through the widget
+    // `component` slot's `BaseSchema` arm until objectui#11709, which routes a
+    // `metric-card` there to the arm alone. The objectui#11709 enumeration pin
+    // below derives the omission from the arm's required `value`.
     expect(valueless.type).toBe('dashboard');
+    expect(safeValidateSchema(valueless).success).toBe(false);
   });
 
   it('the same envelope with `value` is legal on both faces (the control)', () => {
@@ -323,12 +331,9 @@ describe('objectui#11467 — the component arm declares `MetricCard`\'s register
     const envelope = (component: Record<string, unknown>) => ({ type: 'dashboard', widgets: [{ id: 'w', component }] });
     const sideways = issues(envelope({ type: 'metric-card', value: '1', trend: 'sideways' }));
     expect(sideways).toContain('"trend"');
-    // MEASURED LIMIT, recorded rather than ruled: the tolerant face keeps its
-    // `BaseSchema` fallback for any component node a `custom` widget carries, so
-    // a card that fails the arm still parses through it. The TypeScript union
-    // has the same corner (the fallback arm has no closed `type` to exclude it).
-    // Directly in `widgets[]` there is no such fallback, and both faces refuse.
-    expect(DashboardComponentZod.safeParse(envelope({ type: 'metric-card', value: '1', trend: 'sideways' })).success).toBe(true);
+    // The tolerant face refuses the same card since objectui#11709, and the
+    // TypeScript union already did. That is pinned once for every refusal the
+    // arm carries, by the objectui#11709 enumeration pin below.
     // CONTROL — a non-card node in the slot is judged by `BaseSchema`, unchanged.
     expect(issues(envelope({ type: 'chart' }))).toBe('');
     expect(DashboardComponentZod.safeParse(envelope({ type: 'chart' })).success).toBe(true);
@@ -410,7 +415,7 @@ describe('objectui#4425 — `label` on the slot\'s `metric-card` is refused by n
     expect([member, ok.type, onArm.type, inSlot.type]).toEqual([true, 'metric-card', 'metric-card', 'dashboard']);
   });
 
-  it('in the legacy `component` envelope: the strict face and `tsc` refuse it; the tolerant face keeps its `BaseSchema` fallback', () => {
+  it('in the legacy `component` envelope: the strict face and `tsc` refuse it', () => {
     const envelope = { type: 'dashboard', widgets: [{ id: 'w', component: { ...card, label: 'Total Revenue' } }] };
     expect(StrictAnyComponentSchema.safeParse(envelope).success).toBe(false);
     expect(JSON.stringify(flatIssues(StrictAnyComponentSchema.safeParse(envelope)))).toContain('Did you mean `label` → `title`?');
@@ -419,10 +424,101 @@ describe('objectui#4425 — `label` on the slot\'s `metric-card` is refused by n
       // @ts-expect-error objectui#4425 — inside the envelope too
       widgets: [{ id: 'w', component: { type: 'metric-card', value: '1', label: 'Total Revenue' } }],
     };
-    // MEASURED LIMIT, the one the objectui#11467 block above records for `trend`: the tolerant
-    // face's `component` slot falls back to `BaseSchema` for any node a `custom` widget carries.
-    // Directly in `widgets[]` there is no such fallback, and every face refuses.
-    expect(DashboardComponentZod.safeParse(envelope).success).toBe(true);
+    // The tolerant face refuses it too since objectui#11709. It is one probe of
+    // the enumeration pin below, which derives `label` from the arm's members.
     expect(typed.type).toBe('dashboard');
   });
+});
+
+/* ── objectui#11709 — in the legacy `component` envelope, the arm alone judges a card ── */
+
+/** A member of the arm, read the way the enumeration reads it: its own parse, and its optionality. */
+type ArmMember = { safeParse: (value: unknown) => { success: boolean; error?: { issues: Issue[] } }; _zod: { optin?: string } };
+
+/** A probe: the well-formed card with one member authored wrong (or omitted), and that member's own first issue. */
+type Refusal = { key: string; authored: string; component: Record<string, unknown>; expected: Issue };
+
+describe('objectui#11709 — the legacy `component` envelope judges a `metric-card` by the arm alone, at `objectui validate`', () => {
+  /** The widget's `component` slot, unwrapped from `.optional()`: the routed two-arm union. */
+  const slot = (DashboardWidgetZod.shape.component as unknown as { unwrap: () => { options: readonly unknown[] } }).unwrap();
+  const card = { type: 'metric-card', value: '$123,456' } as const;
+  const envelope = (component: Record<string, unknown>) => ({ type: 'dashboard', widgets: [{ id: 'w', component }] });
+
+  /**
+   * Every refusal the arm carries, DERIVED from the arm, never listed (objectui#11709's pin).
+   *
+   * For each member except the discriminator `type` (a different `type` routes to `BaseSchema`,
+   * by design), the probe authors the first of these JSON values that the member itself refuses.
+   * A tombstone refuses the first, an enum refuses the first as out of vocabulary, and a typed
+   * member refuses a value of another kind. A required member also gets an omission probe. A
+   * member that refuses none of them (`data`, typed `any`) yields no probe. So a refusal added
+   * to the arm later, whether a tombstone, an enum or a required input, is enumerated here with
+   * no edit. ⚠️ The bound, said per AGENTS.md #9: a refusal that only a value outside this list
+   * trips (a `.refine` on a member, say) is not derived.
+   */
+  const CANDIDATES: readonly unknown[] = ['__not_a_member__', 42, true, null, {}, []];
+  const refusals: Refusal[] = Object.entries(slotArm.shape as unknown as Record<string, ArmMember>)
+    .filter(([key]) => key !== 'type')
+    .flatMap(([key, member]) => {
+      const out: Refusal[] = [];
+      const authored = CANDIDATES.find((value) => !member.safeParse(value).success);
+      if (authored !== undefined) {
+        out.push({ key, authored: JSON.stringify(authored), component: { ...card, [key]: authored }, expected: member.safeParse(authored).error!.issues[0] });
+      }
+      const omission = member.safeParse(undefined);
+      if (!omission.success) {
+        const component: Record<string, unknown> = { ...card };
+        delete component[key];
+        out.push({ key, authored: '(omitted)', component, expected: omission.error!.issues[0] });
+      }
+      return out;
+    });
+
+  it('the slot\'s first arm IS the arm `widgets[]` holds a card by: one arm, two slots', () => {
+    expect(slot.options[0]).toBe(slotArm);
+  });
+
+  it('LIT CONTROL — the derivation reaches the refusals the card named, and the required `value`', () => {
+    // Not the population (that is `refusals`): the floor that keeps a derivation reading
+    // nothing from passing with zero probes. A refusal retired from the arm turns this red.
+    const keys = new Set(refusals.map((r) => r.key));
+    for (const key of ['label', 'body', 'children', 'trend', 'value']) expect(keys, key).toContain(key);
+    expect(refusals.find((r) => r.key === 'value' && r.authored === '(omitted)')).toBeDefined();
+  });
+
+  it('CONTROL — a well-formed card, and the same card with `title`, parse on both faces with every key kept', () => {
+    for (const component of [card, { ...card, title: 'Total Revenue' }]) {
+      const result = safeValidateSchema(envelope(component));
+      expect(result.success, JSON.stringify(component)).toBe(true);
+      if (!result.success) continue;
+      const parsed = (result.data as { widgets: { component: Record<string, unknown> }[] }).widgets[0].component;
+      expect(parsed).toEqual(component);
+      expect(StrictAnyComponentSchema.safeParse(envelope(component)).success).toBe(true);
+    }
+  });
+
+  it('CONTROL — every other node is still the passthrough a `custom` widget\'s `component` carries', () => {
+    const doc = { type: 'dashboard', widgets: [{ id: 'w', type: 'custom', component: { type: 'text', content: 'hello', someProp: 1 } }] };
+    const result = safeValidateSchema(doc);
+    expect(result.success).toBe(true);
+    if (!result.success) return;
+    expect((result.data as { widgets: { component: Record<string, unknown> }[] }).widgets[0].component).toHaveProperty('someProp', 1);
+  });
+
+  it.each(refusals.map((r) => [`${r.key}: ${r.authored}`, r] as const))(
+    '%s — refused through the envelope with the member\'s own message, and judged by the arm alone',
+    (_name, refusal) => {
+      const doc = envelope(refusal.component);
+      const result = safeValidateSchema(doc);
+      expect(result.success).toBe(false);
+      const issues = flatIssues(result);
+      const at = ['widgets', 0, 'component', refusal.key, ...refusal.expected.path].join('.');
+      const own = issues.find((i) => i.path.join('.') === at && i.code === refusal.expected.code);
+      expect(own?.message, at).toBe(refusal.expected.message);
+      // No union issue at the slot: nothing but the arm judged the card, so no `BaseSchema`
+      // reading stands beside the arm's (before objectui#11709 one did, or it accepted).
+      expect(issues.filter((i) => i.path.join('.') === 'widgets.0.component' && i.code === 'invalid_union')).toEqual([]);
+      expect(StrictAnyComponentSchema.safeParse(doc).success).toBe(false);
+    },
+  );
 });

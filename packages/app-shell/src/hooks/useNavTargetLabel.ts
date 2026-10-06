@@ -53,8 +53,12 @@ import { useObjectLabel, useObjectTranslation } from '@object-ui/i18n';
 import type { NavLabelTarget, NavTargetLabelResolver } from '@object-ui/layout';
 import { useMetadata } from '../providers/MetadataProvider.js';
 
-/** A metadata label (plain string or inline locale map) as display text, or `undefined` when there is none. */
-function metadataText(label: unknown, language: string | undefined): string | undefined {
+/**
+ * A metadata label (plain string or inline locale map) as display text, or
+ * `undefined` when there is none. Shared with `useRecentItemLabel`, which asks
+ * the same question of a page or a report (objectui#11678).
+ */
+export function metadataText(label: unknown, language: string | undefined): string | undefined {
   const text = resolveInlineI18nLabel(label as Parameters<typeof resolveInlineI18nLabel>[0], language);
   return typeof text === 'string' && text.trim() !== '' ? text : undefined;
 }
@@ -65,13 +69,14 @@ function nonEmpty(text: string | undefined): string | undefined {
 }
 
 /** The two members this hook reads off a cached metadata record. */
-interface LabelledRecord {
+export interface LabelledRecord {
   name?: unknown;
   label?: unknown;
   listViews?: unknown;
 }
 
-function findByName(items: readonly unknown[] | undefined, name: string): LabelledRecord | undefined {
+/** The cached metadata record named `name`, or `undefined`. Shared with `useRecentItemLabel`. */
+export function findByName(items: readonly unknown[] | undefined, name: string): LabelledRecord | undefined {
   return (items ?? []).find(
     (item): item is LabelledRecord =>
       !!item && typeof item === 'object' && (item as LabelledRecord).name === name,

@@ -954,6 +954,23 @@ const { recentItems, addRecentItem } = useRecentItems();
 const { pinnedIds, togglePin, isPinned, applyPins } = useNavPins();
 ```
 
+A recent object, dashboard, page or report entry stores its identity only
+(`type` and `name`), never display text: label it where you render it with
+`useRecentItemLabel()`, which reads the item's current metadata label in the
+current language (a record entry keeps the title it was visited under). The
+provider writes nothing when a visit leaves the list unchanged, such as
+revisiting the item already at its head.
+
+```tsx
+import { useRecentItems, useRecentItemLabel } from '@object-ui/app-shell';
+
+function RecentList() {
+  const { recentItems } = useRecentItems();
+  const recentLabel = useRecentItemLabel();
+  return <ul>{recentItems.map((item) => <li key={item.id}>{recentLabel(item)}</li>)}</ul>;
+}
+```
+
 Nav pins and Favorites share a single `favorites` collection. `FavoriteItem`
 carries optional `type: 'nav'`, `pinned`, and `navId` fields so a single
 adapter syncs both flows. The legacy `objectui-nav-pins` localStorage key is

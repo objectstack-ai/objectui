@@ -1087,7 +1087,9 @@ export const DYNAMIC_KEY_FAMILIES = [
   },
   {
     head: 'home.recentApps.itemType.',
-    vocabulary: { module: 'packages/app-shell/src/context/RecentItemsProvider.tsx', name: 'RecentItem', kind: 'interfaceField', field: 'type' },
+    // `RecentItem` became a union of two entry shapes (objectui#11678); its
+    // `type` members are the one literal union both shapes draw their arms from.
+    vocabulary: { module: 'packages/app-shell/src/context/RecentItemsProvider.tsx', name: 'RecentItemType', kind: 'union' },
   },
   {
     head: 'managedByBadge.',

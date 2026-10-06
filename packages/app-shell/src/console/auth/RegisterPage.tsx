@@ -12,9 +12,15 @@
  *    deployment with no owner yet; anyone else is told that registration is
  *    by invitation BEFORE the form, instead of having the finished form
  *    refused with `SELF_REGISTRATION_CLOSED`.
+ *
+ * A signed-in visitor is not who that decision is about (objectui#11714): the
+ * page offers nothing a signed-in user can use, so once the first session
+ * check answers with a user, the page sends them where it sends a visitor
+ * after a successful sign-up (`/`) — the console's own register page does the
+ * same — and never renders the form, the notice, or an empty layout for them.
  */
 
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   RegisterForm,
@@ -39,7 +45,17 @@ export function RegisterPage() {
   const [params] = useSearchParams();
   const redirect = params.get('redirect');
   const { t } = useObjectTranslation();
-  const { user, getAuthConfig, sendVerificationEmail } = useAuth();
+  const { user, isLoading, getAuthConfig, sendVerificationEmail } = useAuth();
+
+  // objectui#11714 — whether the first session check has answered, so the
+  // page knows who it is talking to before it offers anything. `isLoading` is
+  // also raised by every `signUp` in flight, so it is latched the first time it
+  // clears: a sign-up in flight must not unmount the form and the refusal it
+  // holds (the console's register page latches it the same way).
+  const [sessionChecked, setSessionChecked] = useState(!isLoading);
+  useLayoutEffect(() => {
+    if (!isLoading) setSessionChecked(true);
+  }, [isLoading]);
 
   // `null` until the public auth config has been read; then `{ config }`,
   // whose `config` is `null` when the read failed — answered as "offer the
@@ -60,20 +76,32 @@ export function RegisterPage() {
 
   // objectui#11705 — the offer reads `disableSignUp` AND the audience posture;
   // the bootstrap probe runs only when the posture is closed to strangers and
-  // the visitor did not come from an invitation. See `./signUpOffer`.
+  // the visitor did not come from an invitation. See `./signUpOffer`. It is
+  // asked only for a visitor known to be signed out (objectui#11714).
   const authConfig = configRead ? configRead.config : null;
   const invitationRedirect = isInvitationRedirect(redirect);
-  const bootstrap = useBootstrapStatus(!user && needsBootstrapProbe(authConfig, invitationRedirect));
+  const signedOut = sessionChecked && !user;
+  const bootstrap = useBootstrapStatus(signedOut && needsBootstrapProbe(authConfig, invitationRedirect));
   const signUpOffer = decideSignUpOffer(authConfig, { invitationRedirect, bootstrap });
 
-  // Sign-up switched off — bounce to /login, keeping `?redirect=`.
+  // Where this visitor goes instead of this page. A signed-in visitor goes
+  // where a successful sign-up goes, without waiting for the config or the
+  // probe (objectui#11714); with sign-up switched off, a signed-out one is
+  // bounced to /login, keeping `?redirect=`.
   useEffect(() => {
-    if (signUpOffer !== 'closed') return;
+    if (user) {
+      navigate('/', { replace: true });
+      return;
+    }
+    if (!signedOut || signUpOffer !== 'closed') return;
     const search = redirect ? `?redirect=${encodeURIComponent(redirect)}` : '';
     navigate(`/login${search}`, { replace: true });
-  }, [signUpOffer, navigate, redirect]);
+  }, [user, signedOut, signUpOffer, navigate, redirect]);
 
-  if (configRead === null || signUpOffer === 'closed' || signUpOffer === 'pending') {
+  // Signed in — render nothing while the effect above moves them on.
+  if (user) return null;
+
+  if (!signedOut || configRead === null || signUpOffer === 'closed' || signUpOffer === 'pending') {
     // Render nothing until the offer is known — prevents a flash of the form.
     return <AuthPageLayout>{null}</AuthPageLayout>;
   }

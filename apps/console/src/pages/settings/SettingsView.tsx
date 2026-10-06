@@ -10,10 +10,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Loader2, ArrowLeft, RotateCcw, ShieldAlert } from 'lucide-react';
-import { Button, Card, CardContent, Skeleton, Badge } from '@object-ui/components';
+import { Button, Card, CardContent, Skeleton, Badge, getLazyIcon } from '@object-ui/components';
 import { extractFieldErrors } from '@object-ui/react';
 import { useObjectTranslation } from '@object-ui/i18n';
-import { getIcon } from '../../utils/getIcon';
 import { SettingsField } from './SettingsField';
 import {
   getSettingsNamespace,
@@ -202,7 +201,7 @@ export function SettingsView() {
   if (!payload) return null;
 
   const { manifest, values } = payload;
-  const Icon = manifest.icon ? getIcon(manifest.icon) : null;
+  const Icon = manifest.icon ? getLazyIcon(manifest.icon) : null;
   const title = labels.title(resolveLabel(manifest.label));
   const description = labels.description(manifest.description);
 
@@ -291,7 +290,7 @@ export function SettingsView() {
 
       <div className="mt-3 flex items-start gap-3">
         {Icon ? (
-          // eslint-disable-next-line react-hooks/static-components -- getIcon returns a module-cached stable component per name, not one created during render
+          // eslint-disable-next-line react-hooks/static-components -- getLazyIcon returns a module-cached stable component per name, not one created during render
           <Icon className="h-7 w-7 mt-0.5 text-muted-foreground" />
         ) : null}
         <div className="flex-1">

@@ -10,7 +10,9 @@
  *  - Under an audience posture closed to strangers (`invite_only`), shows
  *    the form only to an invitation redirect or on a deployment with no
  *    owner yet, and otherwise explains that registration is by invitation
- *    BEFORE the form — see `./signUpOffer` (objectui#11691).
+ *    BEFORE the form — see `decideSignUpOffer` in `@object-ui/app-shell`, the
+ *    one decision this page shares with the package's exported
+ *    `DefaultRegisterPage` (objectui#11691, objectui#11705).
  *  - Routes to `/verify-email-prompt` when the server requires email
  *    verification before sign-in, and carries `?redirect=` into the
  *    verification mail's link so it survives the inbox (objectui#10893).
@@ -24,11 +26,15 @@ import { useAuth, RegisterForm, AuthFormHeader, AUTH_LINK_CLASS } from '@object-
 import type { AuthPublicConfig } from '@object-ui/auth';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { Card } from '@object-ui/components';
-import { signUpRefusalMessages } from '@object-ui/app-shell';
+import {
+  signUpRefusalMessages,
+  decideSignUpOffer,
+  isInvitationRedirect,
+  needsBootstrapProbe,
+  useBootstrapStatus,
+} from '@object-ui/app-shell';
 import { AuthLayout } from './AuthLayout';
 import { followOauthAuthorize } from './followAuthorize';
-import { decideSignUpOffer, isInvitationRedirect, needsBootstrapProbe } from './signUpOffer';
-import { useBootstrapStatus } from '../../components/setupEntry';
 // Was a second module-private copy of LoginPage's helper; both now share one
 // implementation — objectui#4181. Behaviour here is unchanged.
 import { withConsoleBase, withConsoleBaseRootRelative } from '../../utils/consoleBase';
@@ -94,7 +100,8 @@ export function RegisterPage() {
 
   // objectui#11691 — the offer reads `disableSignUp` AND the audience posture;
   // the bootstrap probe runs only when the posture is closed to strangers and
-  // the visitor did not come from an invitation. See `./signUpOffer`.
+  // the visitor did not come from an invitation. See app-shell's
+  // `decideSignUpOffer`.
   const authConfig = configRead ? configRead.config : null;
   const invitationRedirect = isInvitationRedirect(redirect);
   const bootstrap = useBootstrapStatus(

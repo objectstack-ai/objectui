@@ -223,6 +223,33 @@ captureUpdateUndoData(['config'], { id: 't1', config: { id: 'c1', mode: 'strict'
 - `fields` is required. Pass `undefined` only when the caller has no field
   definitions for the object; nothing is then treated as a relation.
 
+### Display time zone (`setDisplayTimeZone`)
+
+The date and datetime faces this package exports (`formatDate`,
+`formatDateTime`, `formatDateTimeCompactParts`, `formatRelativeDate`) render
+an instant in one display zone. A host declares it once; no caller passes a
+zone, so every face on the page agrees.
+
+```typescript
+import { formatDateTime, setDisplayTimeZone } from '@object-ui/core'
+
+formatDateTime('2026-09-02T03:00:00Z', { locale: 'en-US' }) // the viewer's zone
+setDisplayTimeZone('America/Los_Angeles')
+formatDateTime('2026-09-02T03:00:00Z', { locale: 'en-US' }) // "Sep 1, 2026, 08:00 PM"
+formatDateTime('2026-09-01', { locale: 'en-US' })           // "Sep 1, 2026, 12:00 AM", in every zone
+setDisplayTimeZone(undefined)                               // back to the viewer's zone
+```
+
+- A date-only value names a calendar day and keeps it in every zone, including
+  the `Date` that `toDisplayDate` builds for one and a caller hands on.
+- "Today" for the relative face is the display zone's today.
+- An IANA name the runtime's `Intl` does not know clears the zone, with a
+  console warning.
+- `getDisplayTimeZone()` reads it back, and `subscribeDisplayTimeZone(listener)`
+  reports changes in React's `useSyncExternalStore` shape. In a React tree,
+  `LocalizationProvider` from `@object-ui/i18n` sets it from its `timezone`
+  value; a renderer never calls the setter.
+
 ## Philosophy
 
 This package is designed to be **framework-agnostic**. It contains:

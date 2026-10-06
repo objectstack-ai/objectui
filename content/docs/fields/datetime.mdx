@@ -92,6 +92,14 @@ import { DateTimeCellRenderer } from '@object-ui/fields';
 // Renders: Mar 15, 2024, 02:30 PM
 ```
 
+## Time Zone
+
+A datetime is an instant, and it renders in the workspace's time zone: the
+`timezone` that `GET /api/v1/auth/me/localization` answers, which the console
+hands to every date face through `LocalizationProvider`. Without one it renders
+in the viewer's own zone. A date-only value is a calendar day and shows the
+same day in every zone.
+
 ## Use Cases
 
 - **Event Scheduling**: Meeting times, appointments

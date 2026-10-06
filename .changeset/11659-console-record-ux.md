@@ -1,6 +1,7 @@
 ---
 '@object-ui/app-shell': patch
 '@object-ui/i18n': patch
+'@object-ui/plugin-detail': patch
 ---
 
 Console, record page and Studio copy from the 2026-10-05 cloud acceptance run (objectui#11659).
@@ -10,3 +11,5 @@ Console, record page and Studio copy from the 2026-10-05 cloud acceptance run (o
 **The create-workspace dialog asks for the name only.** `CreateWorkspaceDialog` no longer shows the "URL slug" field: the customer never sees the slug take effect at this step. The slug is still generated from the name, by the same rule as before, and sent with the create call; the owner can change it later in organization settings. Because the slug is no longer the user's to fix in the dialog, a slug collision (`ORGANIZATION_ALREADY_EXISTS` or `ORGANIZATION_SLUG_ALREADY_TAKEN`) is retried with a short random suffix, up to three attempts in all; any other refusal is shown as before. The `workspace.slugLabel` and `workspace.slugHint` pack keys are left in place, now unread.
 
 **The backup-password reminder no longer appears in the user's first session.** 「建议设置一个备用密码」 showed on the environment home right after a new user built their first app: the reminder was gated on a home-visit count (quiet on the first home mount, shown on the second), and coming back to home after building is the second mount inside the first sitting. It now stays quiet for 12 hours after the first home visit on the device, so it first shows on a later day's visit. The first-visit record (`os:recovery-pw-first-seen`) now holds a timestamp; a device that holds the old `'1'` flag starts the 12 hours over rather than reading it as long ago. When storage is unavailable it stays quiet. `RecoveryPasswordReminder` moves out of `HomePage.tsx` into its own module; it is not exported from the package entry, and its other conditions (dismissed, SSO-enforced, has a local password) are unchanged.
+
+**The record header's highlight row no longer cuts a phone number.** A drawer's highlight row read 「0574-876」 for the stored `0574-8765-4321`, with no ellipsis. The phone cell draws a dial icon, the number and a copy button in one `inline-flex` box, and the chip's single-line clip cannot put an ellipsis on such a box, so a 9rem chip cut the number mid-way. `HeaderHighlight` now gives a `phone` chip the wide basis that `email` and `url` already take, so a whole number shows; the full value stays in the chip's hover title. Other field types keep their chip width.

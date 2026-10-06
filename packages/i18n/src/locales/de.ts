@@ -25,6 +25,7 @@ const de = {
       setup_write: "Einstellungen schreiben",
       studio_access: "Studio-Zugriff",
       manage_sharing: "Freigaben verwalten",
+      view_all_audit_log: "Gesamtes Audit-Protokoll anzeigen",
     },
     group: {
       platform: 'Plattform',

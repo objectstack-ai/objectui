@@ -25,6 +25,7 @@ const ko = {
       setup_write: "설정 쓰기",
       studio_access: "Studio 접근",
       manage_sharing: "공유 관리",
+      view_all_audit_log: "모든 감사 로그 보기",
     },
     group: {
       platform: '플랫폼',

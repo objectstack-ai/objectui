@@ -25,6 +25,7 @@ const ar = {
       setup_write: "كتابة الإعدادات",
       studio_access: "الوصول إلى Studio",
       manage_sharing: "إدارة المشاركة",
+      view_all_audit_log: "عرض سجل التدقيق بالكامل",
     },
     group: {
       platform: 'منصة',

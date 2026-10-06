@@ -36,6 +36,7 @@ const en = {
       setup_write: 'Write Settings',
       studio_access: 'Studio Access',
       manage_sharing: 'Manage Sharing',
+      view_all_audit_log: 'View All Audit Log',
     },
   },
   // objectui#3546 slice six — the read-only facet summary + Studio deep-link a

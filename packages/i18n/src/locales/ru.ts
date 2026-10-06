@@ -25,6 +25,7 @@ const ru = {
       setup_write: "Запись настроек",
       studio_access: "Доступ к Studio",
       manage_sharing: "Управление общим доступом",
+      view_all_audit_log: "Просмотр всего журнала аудита",
     },
     group: {
       platform: 'Платформа',

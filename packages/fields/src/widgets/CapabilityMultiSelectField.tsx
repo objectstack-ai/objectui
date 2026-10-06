@@ -141,6 +141,8 @@ const CURATED_CAPABILITY_LABELS = new Set([
   'setup_write',
   'studio_access',
   'manage_sharing',
+  // `@objectstack/spec` 17.7.0 added it to `PLATFORM_CAPABILITIES` (objectui#11717).
+  'view_all_audit_log',
 ]);
 
 export function CapabilityMultiSelectField({

@@ -854,6 +854,7 @@ const zh = {
   timeline: {
     bucket: {
       overdue: '已逾期',
+      earlier: '更早',
       today: '今天',
       tomorrow: '明天',
       thisWeek: '本周',

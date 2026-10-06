@@ -28,7 +28,7 @@
  * a time part keeps its instant. The sort case holds one of each, because
  * only a mix can show the sort and the buckets disagreeing: the vertical
  * renderer groups ADJACENT items, so an order that disagrees with the buckets
- * reads as "Today" above "Overdue".
+ * reads as "Today" above "Earlier" (the past-day bucket, objectui#11676).
  *
  * ── ⚠️ The zone cases run ONLY when driven, in a FORKS child ────────────────
  * `process.env.TZ` written inside a test of the normal run does not move the
@@ -169,12 +169,12 @@ describe.runIf(DRIVEN)('ObjectTimeline date-only days west of UTC (objectui#1086
 
   it('control: an instant alone keeps its local day, the evening of the 5th', () => {
     enter(WEST);
-    expect(feed([MIXED[1]])).toEqual(['Overdue: Instant (10/5/2026)']);
+    expect(feed([MIXED[1]])).toEqual(['Earlier: Instant (10/5/2026)']);
   });
 
   it('the sort agrees with the buckets: an instant of the evening before comes first', () => {
     enter(WEST);
-    expect(feed(MIXED)).toEqual(['Overdue: Instant (10/5/2026)', 'Today: Day (10/6/2026)']);
+    expect(feed(MIXED)).toEqual(['Earlier: Instant (10/5/2026)', 'Today: Day (10/6/2026)']);
   });
 });
 

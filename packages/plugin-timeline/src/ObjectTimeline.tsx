@@ -735,7 +735,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
     // Decide on a final group label for each item:
     //   - explicit groupBy → use the localized field-option label (or
     //     "Unassigned" when null);
-    //   - otherwise → date bucket (Overdue / Today / Tomorrow / This week
+    //   - otherwise → date bucket (Earlier / Today / Tomorrow / This week
     //     / Next week / Later / No date) so the timeline doesn't render
     //     as one undifferentiated stripe.
     const now = new Date();
@@ -746,11 +746,25 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
     const endOfWeek = startOfWeek + 7 * day;
     const endOfNextWeek = endOfWeek + 7 * day;
 
+    // A day before today is "Earlier", never "Overdue" (objectui#11676).
+    // "Overdue" is a judgement about the RECORD, and it needs two facts this
+    // component is never given: that the bucketed field is a due date, and
+    // that the record is still open. The spec's `TimelineConfigSchema`
+    // declares neither (no due-date role, no closed-state marker), and the
+    // spec's field options declare no closed state either. The bucket used to
+    // pass that judgement on every past date, so a `created_at` timeline put
+    // every record under "Overdue", Done records included. ⛔ Not inferred
+    // from a field NAME (`due_date`) or a status VALUE (`done`): a guess here
+    // reads like a declaration and is wrong for every object that spells
+    // either one differently. Whether a declared signal should bring the
+    // judgement back is an open question on objectui#11676; until one exists,
+    // the honest answer is the calendar position alone. Pinned in
+    // `__tests__/ObjectTimeline.pastBucket-11676.test.tsx`.
     const dateBucket = (raw: any): string => {
       if (!raw) return t('timeline.bucket.noDate');
       const ts = startOfDay(toDisplayDate(raw));
       if (Number.isNaN(ts)) return t('timeline.bucket.noDate');
-      if (ts < today) return t('timeline.bucket.overdue');
+      if (ts < today) return t('timeline.bucket.earlier');
       if (ts === today) return t('timeline.bucket.today');
       if (ts === today + day) return t('timeline.bucket.tomorrow');
       if (ts < endOfWeek) return t('timeline.bucket.thisWeek');

@@ -386,7 +386,7 @@ describe('`object-timeline.timeline` — the members name record fields, and `sc
     expect(groups()).toEqual(['open', 'closed']);
     cleanup();
     await mount(bag({ timeline: TL, data: RECORDS }), { waitFor: 'Kickoff' });
-    expect(groups()).toEqual(['Overdue']);
+    expect(groups()).toEqual(['Earlier']);
   });
 
   it('`colorField` paints the marker with the value itself when it is a colour literal; without it, no colour is painted', async () => {

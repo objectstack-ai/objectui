@@ -829,6 +829,7 @@ const ko = {
   timeline: {
     bucket: {
       overdue: "기한 초과",
+      earlier: "이전",
       today: "오늘",
       tomorrow: "내일",
       thisWeek: "이번 주",

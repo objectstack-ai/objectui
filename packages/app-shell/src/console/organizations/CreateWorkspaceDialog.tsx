@@ -1,8 +1,12 @@
 /**
  * CreateWorkspaceDialog
  *
- * Dialog for creating a new workspace (organization).
- * Auto-generates a slug from the name.
+ * Dialog for creating a new workspace (organization). It asks for the NAME
+ * only (objectui#11659): the URL slug is generated from the name and never
+ * shown here. A customer creating a workspace never sees the slug take effect
+ * at this step, so a field for it was a question with no visible answer. The
+ * owner can still change it later, in organization settings (`SettingsPage`'s
+ * slug input).
  *
  * @module
  */
@@ -34,7 +38,8 @@ import { resolveOrgErrorMessage } from './orgErrorMessage.js';
  * yields the empty string — and an empty slug left the "Create workspace"
  * button permanently disabled (`!slug.trim()`), dead-ending the FIRST step of
  * onboarding for every non-Latin-name user. Rather than block them, fall back
- * to a deterministic, non-empty slug they can still edit.
+ * to a deterministic, non-empty slug, which the owner can still change in
+ * organization settings.
  *
  * Deterministic (not random) on purpose: a name-derived hash means the slug
  * doesn't jitter on every keystroke while typing a CJK name, and re-typing the
@@ -59,6 +64,54 @@ function nameToSlug(name: string): string {
   return `workspace-${hash.toString(36).slice(0, 6)}`;
 }
 
+/**
+ * The two answers better-auth gives when the requested slug is already in use.
+ * `createOrganization` refuses a taken slug with `ORGANIZATION_ALREADY_EXISTS`
+ * (its create route looks the slug up before inserting); a runtime that maps
+ * the collision itself answers `ORGANIZATION_SLUG_ALREADY_TAKEN`.
+ */
+const SLUG_TAKEN_CODES = new Set(['ORGANIZATION_ALREADY_EXISTS', 'ORGANIZATION_SLUG_ALREADY_TAKEN']);
+
+/** Attempts per submit: the generated slug, then two suffixed variants. */
+const SLUG_ATTEMPTS = 3;
+
+function isSlugTaken(err: unknown): boolean {
+  if (typeof err !== 'object' || err === null) return false;
+  const code = (err as { code?: unknown }).code;
+  return typeof code === 'string' && SLUG_TAKEN_CODES.has(code);
+}
+
+/**
+ * A variant of `base` for a retry after a slug collision: a short random
+ * suffix, kept inside the 48-character budget `nameToSlug` writes to.
+ */
+function suffixedSlug(base: string): string {
+  const suffix = Math.random().toString(36).slice(2, 6).padEnd(4, '0');
+  return `${base.slice(0, 43).replace(/-+$/, '')}-${suffix}`;
+}
+
+/**
+ * Create the organization under the generated slug, retrying a slug collision
+ * with a suffixed variant (at most `SLUG_ATTEMPTS` calls in all). The user
+ * cannot see or edit the slug in this dialog, so a collision is not theirs to
+ * resolve; any other refusal is rethrown unchanged.
+ */
+async function createWithGeneratedSlug(
+  create: (data: { name: string; slug: string }) => Promise<AuthOrganization>,
+  name: string,
+  slug: string,
+): Promise<AuthOrganization> {
+  let attemptSlug = slug;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      return await create({ name, slug: attemptSlug });
+    } catch (err) {
+      if (attempt >= SLUG_ATTEMPTS || !isSlugTaken(err)) throw err;
+      attemptSlug = suffixedSlug(slug);
+    }
+  }
+}
+
 interface CreateWorkspaceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -74,8 +127,10 @@ export function CreateWorkspaceDialog({
   const { createOrganization, getAuthConfig } = useAuth();
 
   const [name, setName] = useState('');
-  const [slug, setSlug] = useState('');
-  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
+  // The slug is not asked for (objectui#11659): it is derived from the name on
+  // every render and sent with the create call. Empty exactly when the trimmed
+  // name is empty, so the submit gate below stays a name check.
+  const slug = nameToSlug(name);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Defense-in-depth: the toolbar button that opens this dialog is already
@@ -100,19 +155,10 @@ export function CreateWorkspaceDialog({
     };
   }, [open, getAuthConfig]);
 
-  // Auto-generate slug from name (unless manually edited)
-  useEffect(() => {
-    if (!slugManuallyEdited) {
-      setSlug(nameToSlug(name));
-    }
-  }, [name, slugManuallyEdited]);
-
   // Reset form when dialog opens
   useEffect(() => {
     if (open) {
       setName('');
-      setSlug('');
-      setSlugManuallyEdited(false);
       setError(null);
     }
   }, [open]);
@@ -134,7 +180,7 @@ export function CreateWorkspaceDialog({
       setError(null);
 
       try {
-        const org = await createOrganization({ name: name.trim(), slug: slug.trim() });
+        const org = await createWithGeneratedSlug(createOrganization, name.trim(), slug.trim());
         // Born-with-env: eagerly ensure the new org's production environment so
         // the user lands in a ready workspace with no onboarding-wizard detour.
         // `createOrganization` already switched the active org; we also pass
@@ -200,25 +246,6 @@ export function CreateWorkspaceDialog({
                 autoFocus
                 data-testid="workspace-name-input"
               />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="workspace-slug">
-                {t('workspace.slugLabel', { defaultValue: 'URL slug' })}
-              </Label>
-              <Input
-                id="workspace-slug"
-                placeholder="acme-inc"
-                value={slug}
-                onChange={(e) => {
-                  setSlug(e.target.value);
-                  setSlugManuallyEdited(true);
-                }}
-                data-testid="workspace-slug-input"
-              />
-              <p className="text-xs text-muted-foreground">
-                {t('workspace.slugHint', { defaultValue: 'Used in URLs. Only lowercase letters, numbers, and hyphens.' })}
-              </p>
             </div>
 
             {error && (

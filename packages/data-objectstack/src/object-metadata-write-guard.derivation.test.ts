@@ -103,13 +103,13 @@ describe('the four target states, measured against the contract rather than asse
  * objectui#11253 — the choice set, and the one claim the guard's docblock makes
  * about the server for it.
  *
- * `FieldSchema` cannot answer "which types need options" yet: the door the
- * maintainer's ruling A on objectstack#20827 closes has not shipped. The
- * contract DOES already state the rule, at author time: ADR-0078's
- * `field/choice-without-options` in `checkFieldCompleteness`, which the ruling
- * names as the rule the door adopts. So the set is derived from THAT, keeping
- * only the `error`-severity findings (the `warning` one is `checkboxes`, which
- * the ruling does not name).
+ * The set is derived from ADR-0078's author-time rule,
+ * `field/choice-without-options` in `checkFieldCompleteness`, which the
+ * maintainer's ruling A on objectstack#20827 names as the rule its door adopts,
+ * keeping only the `error`-severity findings (the `warning` one is
+ * `checkboxes`, which the ruling does not name). The door itself shipped in
+ * `@objectstack/spec` 17.7.0, and the block below requires `FieldSchema`'s
+ * answer to equal this one (objectui#11717).
  */
 function deriveChoiceTypesRequiringOptions(): string[] {
   return FieldType.options.filter((type) =>
@@ -146,21 +146,42 @@ describe('CHOICE_TYPES_REQUIRING_OPTIONS — derived from the installed spec (ob
   });
 });
 
-describe('the installed server still ACCEPTS a choice with no options (objectui#11253)', () => {
-  // The guard's docblock says its choice refusal is deliberately AHEAD of the
-  // server, by ruling. That is a claim about the installed artifact, so it is
-  // measured here rather than left in prose (AGENTS.md #9).
+describe('the installed server refuses a choice with no options one layer down (objectui#11253)', () => {
+  // The guard's docblock says its choice refusal forecloses nothing the server
+  // would take. That is a claim about the installed artifact, so it is measured
+  // here rather than left in prose (AGENTS.md #9).
   //
-  // ⭐ When this goes red, the door has shipped and the pin has reached it. Then
-  // rewrite the guard's docblock paragraph on the choice refusal into the
-  // relationship form ("refused one layer down"), and turn this block into the
-  // refusal pin the relationship rule has above: refused at `options`.
+  // Until `@objectstack/spec` 17.7.0 this block pinned the opposite — the server
+  // still ACCEPTED a choice with no options, and the guard was ahead of it by
+  // ruling — and it named what to do when it went red: the door shipped
+  // (objectstack#21390), so the guard's docblock paragraph collapsed into the
+  // relationship form, and this block became the refusal pin the relationship
+  // rule has above: refused at `options` (objectui#11717).
   for (const type of CHOICE_TYPES_REQUIRING_OPTIONS) {
-    it(`\`${type}\` with no \`options\` still parses through \`ObjectSchema\``, () => {
-      const result = ObjectSchema.safeParse({ name: 'account', label: 'A', fields: { stage: { type, label: 'L' } } });
-      expect(result.success).toBe(true);
+    for (const [label, extra] of [['no `options`', {}], ['an EMPTY `options` list', { options: [] }]] as const) {
+      it(`the contract refuses a \`${type}\` with ${label}, at \`options\``, () => {
+        const result = ObjectSchema.safeParse({ name: 'account', label: 'A', fields: { stage: { type, label: 'L', ...extra } } });
+        expect(result.success).toBe(false);
+        if (result.success) return;
+        expect(result.error.issues.map((issue) => issue.path.join('.'))).toContain('fields.stage.options');
+      });
+    }
+
+    it(`CONTROL — a \`${type}\` with one option, or a shared \`picklist\`, is ACCEPTED by the same schema`, () => {
+      for (const extra of [{ options: [{ label: 'Open', value: 'open' }] }, { picklist: 'stage_values' }]) {
+        const result = ObjectSchema.safeParse({ name: 'account', label: 'A', fields: { stage: { type, label: 'L', ...extra } } });
+        expect(result.success, JSON.stringify(extra)).toBe(true);
+      }
     });
   }
+
+  it('the server-refused choice set is the guard\'s list: `FieldSchema` and `checkFieldCompleteness` give one answer', () => {
+    const refusedAtOptions = FieldType.options.filter((type) => {
+      const result = FieldSchema.safeParse({ type, label: 'L' });
+      return !result.success && result.error.issues.some((issue) => issue.path.join('.') === 'options');
+    });
+    expect([...refusedAtOptions].sort()).toEqual([...CHOICE_TYPES_REQUIRING_OPTIONS].sort());
+  });
 
   it('CONTROL — the same schema on the same document DOES refuse a target-less lookup', () => {
     const result = ObjectSchema.safeParse({ name: 'account', label: 'A', fields: { stage: { type: 'lookup', label: 'L' } } });

@@ -40,15 +40,23 @@ const SERVED_PICKLISTS: Row[] = [
 
 const roster = vi.hoisted(() => ({
   answer: null as null | (() => Promise<unknown[]>),
+  /** Hand the inspector a NEW client object on every call, as an unmemoised host would. */
+  freshClient: false,
+  /** How many times the roster was requested. */
+  reads: 0,
 }));
 
 vi.mock('../useMetadata', async (importOriginal) => {
   const mod = await importOriginal<typeof import('../useMetadata')>();
-  const client = {
-    list: async (type: string) => (type === 'picklist' && roster.answer ? roster.answer() : []),
+  const make = () => ({
+    list: async (type: string) => {
+      if (type === 'picklist') roster.reads += 1;
+      return type === 'picklist' && roster.answer ? roster.answer() : [];
+    },
     listDrafts: async () => [],
-  };
-  return { ...mod, useMetadataClient: () => client };
+  });
+  const stable = make();
+  return { ...mod, useMetadataClient: () => (roster.freshClient ? make() : stable) };
 });
 
 vi.mock('../previews/useObjectFields', async (importOriginal) => {
@@ -60,6 +68,8 @@ import { ObjectFieldInspector } from './ObjectFieldInspector';
 
 beforeEach(() => {
   roster.answer = async () => SERVED_PICKLISTS.map((p) => ({ ...p }));
+  roster.freshClient = false;
+  roster.reads = 0;
   // Radix Select reads pointer capture, which the DOM double does not implement.
   for (const m of ['hasPointerCapture', 'setPointerCapture', 'releasePointerCapture'] as const) {
     if (!(m in Element.prototype)) {
@@ -203,6 +213,31 @@ describe('ObjectFieldInspector — use picklist (objectui#10202)', () => {
   it('a stored name the served list does not carry is drawn flagged, never as unset', async () => {
     mount({ tier: { type: 'select', label: 'Tier', picklist: 'acme_gone' } }, 'tier');
     await waitFor(() => expect(sourcePicker()).toHaveTextContent('acme_gone (not found)'));
+  });
+
+  it('reads the roster once per mount, even when the host hands it a fresh client on every render (AGENTS.md #10)', async () => {
+    // A loader keyed on the client's identity re-ran on every render, and each
+    // run re-entered `loading` and rendered again: a render loop that held a
+    // worker at 100% CPU — measured on `ObjectFieldInspector.optionLabel.test.tsx`,
+    // whose mock returns a fresh client per call. Mounted the way that suite
+    // mounts it (no stateful host), with real timers only.
+    roster.freshClient = true;
+    render(
+      <ObjectFieldInspector
+        type="object"
+        name="acme_account"
+        draft={{ name: 'acme_account', fields: { tier: { type: 'select', label: 'Tier', picklist: 'acme_tier' } } }}
+        selection={{ kind: 'field', id: 'tier' }}
+        onPatch={() => {}}
+        onClearSelection={() => {}}
+        onSelectionChange={() => {}}
+        readOnly={false}
+        locale="en-US"
+      />,
+    );
+    await new Promise((r) => setTimeout(r, 300));
+    expect(screen.getByRole('combobox', { name: 'Options from' })).toBeInTheDocument();
+    expect(roster.reads).toBe(1);
   });
 
   it('a failed roster read says so and keeps the field\'s own options choosable; it is never drawn as "no picklists"', async () => {

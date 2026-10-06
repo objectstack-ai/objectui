@@ -2182,26 +2182,34 @@ interface PicklistRosterEntry {
  */
 function usePicklistRoster(): LoadState<PicklistRosterEntry[]> {
   const client: MetadataClient = useMetadataClient();
-  const load = React.useMemo(
-    () => async (): Promise<PicklistRosterEntry[]> => {
-      const items = await client.list<Record<string, unknown>>('picklist');
-      return (items ?? [])
-        .map((raw) =>
-          raw && typeof raw === 'object' && 'item' in raw
-            ? ((raw as { item?: Record<string, unknown> }).item ?? {})
-            : (raw as Record<string, unknown>),
-        )
-        .filter((i): i is Record<string, unknown> & { name: string } => typeof i?.name === 'string' && i.name !== '')
-        .map((i) => ({
-          name: i.name,
-          label: typeof i.label === 'string' && i.label ? i.label : i.name,
-          options: Array.isArray(i.options) ? (i.options as unknown[]) : [],
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name));
-    },
-    [client],
-  );
+  // The loader is made ONCE per mount and held in state, whose identity React
+  // guarantees, never in a `useMemo` keyed on `client` (AGENTS.md #10).
+  // `usePickerLoad` re-runs its request whenever the loader's identity changes
+  // and re-enters `loading` as it does, so a loader minted per render is a
+  // render loop wherever the host's client is not referentially stable —
+  // measured: an inspector suite whose mock returns a fresh client per call
+  // spun one worker at 100% CPU until killed. The list is read for the client
+  // this inspector mounted with.
+  const [load] = React.useState(() => () => fetchPicklistRoster(client));
   return usePickerLoad(load);
+}
+
+/** `GET /meta/picklist`, reduced to what the picker and the bound view read. */
+async function fetchPicklistRoster(client: MetadataClient): Promise<PicklistRosterEntry[]> {
+  const items = await client.list<Record<string, unknown>>('picklist');
+  return (items ?? [])
+    .map((raw) =>
+      raw && typeof raw === 'object' && 'item' in raw
+        ? ((raw as { item?: Record<string, unknown> }).item ?? {})
+        : (raw as Record<string, unknown>),
+    )
+    .filter((i): i is Record<string, unknown> & { name: string } => typeof i?.name === 'string' && i.name !== '')
+    .map((i) => ({
+      name: i.name,
+      label: typeof i.label === 'string' && i.label ? i.label : i.name,
+      options: Array.isArray(i.options) ? (i.options as unknown[]) : [],
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 /**

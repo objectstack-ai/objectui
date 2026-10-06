@@ -44,9 +44,12 @@ import { extensionsOf, shownOptions, type PicklistExtensionRow, type ShownOption
 
 function usePicklistExtensions(picklist: string): LoadState<PicklistExtensionRow[]> {
   const client = useMetadataClient();
-  const load = React.useMemo(
-    () => (picklist ? async () => extensionsOf(picklist, (await client.list<unknown>('package')) ?? []) : null),
-    [client, picklist],
+  // Made once per mount and held in state (AGENTS.md #10): a loader keyed on a
+  // memoised `client` re-runs `usePickerLoad` on every render of a host whose
+  // client is not referentially stable. The edit page keys this preview per
+  // item, so one mount is one picklist.
+  const [load] = React.useState(() =>
+    picklist ? async () => extensionsOf(picklist, (await client.list<unknown>('package')) ?? []) : null,
   );
   return usePickerLoad(load);
 }

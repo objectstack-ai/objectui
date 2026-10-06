@@ -16,7 +16,7 @@ import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate } from '@object-ui/react';
-import { buildExpandFields, captureUpdateUndoData, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
+import { buildExpandFields, captureUpdateUndoData, recordDelete, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
 import { toast } from 'sonner';
 import { useRecordPresence, PresenceAvatars } from '@object-ui/collaboration';
 import { Database, ChevronLeft } from 'lucide-react';
@@ -2614,17 +2614,35 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         // ActionDef is byte-identical to the pre-#4213 one.
         ...(deleteDisabledByPredicate ? { disabled: true } : null),
         onClick: async () => {
-          const msg = t('detail.deleteConfirmation', {
-            defaultValue: 'Are you sure you want to delete this record?',
-          });
+          // objectui#11695 — the list's delete copy, from the one shared core
+          // (`recordDelete.confirmCopy`): the title names this record by the
+          // ADR-0079 resolver over the READABLE row the header title reads
+          // (a denied name field reads as absent here too) plus the object
+          // label, the body is the list's question — ADR-0094's reset question
+          // for a package-owned permission set — and the confirm button is
+          // "Delete", painted destructive.
+          const copy = recordDelete.confirmCopy(
+            {
+              objectName: objectName!,
+              t,
+              label: objectLabel({ name: objectName!, label: objectDef?.label || objectName! }),
+              objectDef,
+            },
+            { record: (readablePageRecord as Record<string, unknown> | null | undefined) ?? { id: pureRecordId } },
+          );
           // objectui#11001 — asked through this page's own confirm runtime,
           // the in-app `ActionConfirmDialog` the list view's delete asks
           // through too, never the browser's native `window.confirm` (which
           // cannot be themed, and which headless automation dismisses, so the
-          // button reads as dead). ONE argument, like the runner's call: the
-          // dialog's title and buttons are its defaults, as on the list view.
-          // A cancel settles `false` and leaves the record and the page alone.
-          if (!(await confirmHandler(msg))) return;
+          // button reads as dead). A cancel settles `false` and leaves the
+          // record and the page alone.
+          if (
+            !(await confirmHandler(copy.message, {
+              title: copy.title,
+              confirmText: copy.confirmText,
+              destructive: true,
+            }))
+          ) return;
           try {
             await dataSource.delete(objectName!, pureRecordId!);
             toast.success(t('detail.deleted', { defaultValue: 'Record deleted' }));

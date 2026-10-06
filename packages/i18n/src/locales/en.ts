@@ -3358,6 +3358,11 @@ const en = {
     deleteFailed: 'Failed to delete {{label}}',
     noRecordId: 'No record ID provided',
     deleteConfirm: 'Are you sure you want to delete this record?',
+    deleteConfirmTitle: 'Delete {{label}} "{{name}}"?',
+    bulkDeleteConfirmTitle: 'Delete {{count}} {{label}} records?',
+    bulkDeleteConfirmTitle_one: 'Delete {{count}} {{label}} record?',
+    bulkDeleteConfirmTitle_other: 'Delete {{count}} {{label}} records?',
+    deleteConfirmButton: 'Delete',
     resetPackageSetConfirm:
       'This permission set ships with an installed package and cannot be removed. ' +
       'Deleting resets it to the shipped baseline and discards your environment customization. Continue?',

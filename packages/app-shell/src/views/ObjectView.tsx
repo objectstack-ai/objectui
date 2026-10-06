@@ -2628,7 +2628,12 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     // and Sonner toast instead of native window.confirm.
     const actions = useObjectActions({
         objectName: objectDef.name,
-        objectLabel: objectDef.label,
+        // The label this page shows (its header and breadcrumb read the same
+        // `objectLabel`), so the delete confirmation that names the record
+        // (objectui#11695) and the delete toasts read it in the session's
+        // language; with no translation bundle it is `objectDef.label`.
+        objectLabel: objectLabel(objectDef),
+        objectDef,
         dataSource,
         onEdit,
         onRefresh: refreshData,
@@ -3523,17 +3528,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 onBulkDelete={(records: any[]) => {
                     const valid = records.filter((r: any) => r?.id != null);
                     if (valid.length === 0) return;
-                    // Route through actions.execute so the shared AlertDialog
-                    // confirms once for the whole batch and the existing
-                    // delete handler (now batch-aware) handles refresh + toast.
-                    actions.execute({
-                        type: 'delete',
-                        confirmText: t('console.objectView.bulkDeleteConfirm', {
-                            count: valid.length,
-                            defaultValue: `Delete ${valid.length} selected records? This cannot be undone.`,
-                        }),
-                        params: { records: valid },
-                    });
+                    // `deleteRecords` confirms once for the whole batch, with the
+                    // shared copy that counts it (objectui#11695), and the
+                    // batch-aware delete handler handles refresh + toast.
+                    actions.deleteRecords(valid);
                 }}
                 onRowClick={(record: any, event?: any) => {
                     handleRowClick(record, event);

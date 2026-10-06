@@ -63,6 +63,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
+  buttonVariants,
   toast,
 } from '@object-ui/components';
 import { Plus } from 'lucide-react';
@@ -539,12 +540,17 @@ const VIEW_DEFAULT_TRANSLATIONS: Record<string, string> = {
   // The `objectActions.*` rows are asked for by the shared `recordDelete` core
   // (`@object-ui/core`), which this view hands `tView`, so a provider-less host
   // reads them here; the ADR-0094 reset rows carry their own inline
-  // `defaultValue` there. `console.objectView.bulkDeleteConfirm` and the
-  // `actionConfirm.*` chrome are this host's dialog, in the console's
+  // `defaultValue` there. The dialog's copy is the core's too
+  // (`recordDelete.confirmCopy`, objectui#11695): the title, the
+  // `console.objectView.bulkDeleteConfirm` question and the Delete label;
+  // `actionConfirm.cancel` is this host's own chrome, in the console's
   // `ActionConfirmDialog` shape.
-  'actionConfirm.title': 'Confirm Action',
-  'actionConfirm.confirm': 'Continue',
   'actionConfirm.cancel': 'Cancel',
+  'objectActions.deleteConfirmTitle': 'Delete {{label}} "{{name}}"?',
+  'objectActions.bulkDeleteConfirmTitle': 'Delete {{count}} {{label}} records?',
+  'objectActions.bulkDeleteConfirmTitle_one': 'Delete {{count}} {{label}} record?',
+  'objectActions.bulkDeleteConfirmTitle_other': 'Delete {{count}} {{label}} records?',
+  'objectActions.deleteConfirmButton': 'Delete',
   'objectActions.deleteConfirm': 'Are you sure you want to delete this record?',
   'console.objectView.bulkDeleteConfirm': 'Delete {{count}} selected records? This cannot be undone.',
   // Count families (objectui#11445): `fallbackT` reads a family's `_one` /
@@ -3114,12 +3120,24 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
   const toolbar = renderToolbar();
 
   // The delete confirmation (objectui#10383) — this host's confirm UI, in the
-  // console's `ActionConfirmDialog` shape and keys (`actionConfirm.*` chrome,
-  // the question as the description). The one-row question and the delete
-  // itself come from the shared `recordDelete` core. Close flips `open` and KEEPS the request, so
-  // the description does not blank during the exit animation (the objectui#6034
-  // lesson); the `open` guard on Continue is what stops a click during that
-  // animation from deleting twice.
+  // console's `ActionConfirmDialog` shape (`actionConfirm.cancel` chrome, the
+  // question as the description). Its copy — the title naming the record or
+  // counting the batch, the question, and the "Delete" confirm label — and the
+  // delete itself come from the shared `recordDelete` core, so this dialog
+  // says what the console's says (objectui#11695); the confirm button is
+  // painted destructive the way `ActionConfirmDialog` paints it. Close flips
+  // `open` and KEEPS the request, so the copy does not blank during the exit
+  // animation (the objectui#6034 lesson); the `open` guard on Delete is what
+  // stops a click during that animation from deleting twice.
+  const deleteLabel = (objectSchema?.label as string) || schema.objectName;
+  const deleteCopy = deleteRequest
+    ? recordDelete.confirmCopy(
+        { objectName: schema.objectName, t: tView, label: deleteLabel, objectDef: objectSchema },
+        deleteRequest.bulk
+          ? { count: deleteRequest.records.length }
+          : { record: deleteRequest.records[0] },
+      )
+    : null;
   const deleteConfirmDialog = (
     <AlertDialog
       open={deleteRequest?.open ?? false}
@@ -3129,19 +3147,13 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>{tView('actionConfirm.title')}</AlertDialogTitle>
-          <AlertDialogDescription>
-            {deleteRequest?.bulk
-              ? tView('console.objectView.bulkDeleteConfirm', { count: deleteRequest.records.length })
-              : recordDelete.confirmText(
-                  { objectName: schema.objectName, t: tView },
-                  deleteRequest?.records[0],
-                )}
-          </AlertDialogDescription>
+          <AlertDialogTitle>{deleteCopy?.title}</AlertDialogTitle>
+          <AlertDialogDescription>{deleteCopy?.message}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>{tView('actionConfirm.cancel')}</AlertDialogCancel>
           <AlertDialogAction
+            className={buttonVariants({ variant: 'destructive' })}
             onClick={() => {
               if (!deleteRequest?.open) return;
               const { records, bulk } = deleteRequest;
@@ -3149,7 +3161,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
               void recordDelete.run(
                 {
                   objectName: schema.objectName,
-                  label: (objectSchema?.label as string) || schema.objectName,
+                  label: deleteLabel,
                   dataSource,
                   t: tView,
                   toast,
@@ -3161,7 +3173,7 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
               );
             }}
           >
-            {tView('actionConfirm.confirm')}
+            {deleteCopy?.confirmText}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

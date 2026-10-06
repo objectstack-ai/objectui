@@ -2948,6 +2948,11 @@ const zh = {
     deleteFailed: '删除 {{label}} 失败',
     noRecordId: '未提供记录 ID',
     deleteConfirm: '确定要删除此记录吗？',
+    deleteConfirmTitle: '删除{{label}}“{{name}}”？',
+    bulkDeleteConfirmTitle: '删除 {{count}} 条 {{label}} 记录？',
+    bulkDeleteConfirmTitle_one: '删除 {{count}} 条 {{label}} 记录？',
+    bulkDeleteConfirmTitle_other: '删除 {{count}} 条 {{label}} 记录？',
+    deleteConfirmButton: '删除',
     resetPackageSetConfirm:
       '该权限集随已安装的软件包发布，无法删除。删除操作将丢弃环境定制并把它重置为发布基线。是否继续？',
     resetPackageSetSuccess: '权限集已重置为发布基线',

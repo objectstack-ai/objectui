@@ -45,6 +45,14 @@ import {
 // Types
 // ---------------------------------------------------------------------------
 
+/**
+ * Every kind of recent entry. Spelled as one literal union because the
+ * `home.recentApps.itemType.*` key family is checked against exactly these
+ * members (`pnpm check:i18n-keys`); the two entry shapes below take their arms
+ * from it.
+ */
+export type RecentItemType = 'object' | 'dashboard' | 'page' | 'report' | 'record' | 'metadata';
+
 interface RecentItemBase {
   /** Unique key, e.g. "object:contact" or "dashboard:sales_overview" */
   id: string;
@@ -65,7 +73,7 @@ interface RecentItemBase {
  * labelled "Delivery Operations".
  */
 export interface RecentNamedItem extends RecentItemBase {
-  type: 'object' | 'dashboard' | 'page' | 'report';
+  type: Exclude<RecentItemType, 'record' | 'metadata'>;
   /** The item's machine name: the object's, dashboard's, page's or report's `name`. */
   name: string;
 }
@@ -76,7 +84,7 @@ export interface RecentNamedItem extends RecentItemBase {
  * display title (data read off the record), a metadata item's name.
  */
 export interface RecentTextItem extends RecentItemBase {
-  type: 'record' | 'metadata';
+  type: Extract<RecentItemType, 'record' | 'metadata'>;
   label: string;
 }
 

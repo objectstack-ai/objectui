@@ -15,6 +15,7 @@ export {
   useRecentItems,
   type RecentItem,
   type RecentItemInput,
+  type RecentItemType,
   type RecentNamedItem,
   type RecentTextItem,
 } from '../context/RecentItemsProvider.js';

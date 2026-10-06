@@ -65,6 +65,7 @@ export type {
 export type {
   RecentItem,
   RecentItemInput,
+  RecentItemType,
   RecentNamedItem,
   RecentTextItem,
   RecentItemLabelResolver,

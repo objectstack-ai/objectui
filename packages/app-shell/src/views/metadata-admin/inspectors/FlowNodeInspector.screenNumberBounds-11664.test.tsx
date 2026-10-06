@@ -30,6 +30,14 @@
  * items declare `min` / `max` as numbers. The offline hand-written table lists
  * no `min` / `max` column for a screen field, so it has no number cell to pin.
  *
+ * THE ANSWER ARRIVES LATE, as it does in the console. `useFlowNodePalette` is
+ * not mocked: its real hook asks `GET /api/v1/automation/actions`, which the
+ * fetch double below answers, so the inspector first renders the hand-written
+ * fallback columns and then the engine's. A row built against the fallback
+ * held no cell for `min` / `max`, so a re-save of a code-authored field
+ * dropped both — measured in a live console against objectstack `main`, the
+ * second reason pin 2 failed there. Every case waits for the engine's columns.
+ *
  * Every saved shape is judged by `ScreenConfigSchema` from the installed
  * `@objectstack/spec/automation`, the contract the run refuses against.
  */
@@ -38,12 +46,6 @@ import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, within } from '@testing-library/react';
 
-const stubs = vi.hoisted(() => ({ configSchemas: {} as Record<string, unknown> }));
-
-vi.mock('../previews/useFlowNodePalette', () => ({
-  useActionConfigSchemas: () => stubs.configSchemas,
-  useFlowNodePalette: () => [],
-}));
 vi.mock('../previews/useObjectFields', () => ({
   useObjectFields: () => ({ fields: [], loading: false, error: null }),
 }));
@@ -106,15 +108,17 @@ const SCREEN_CONFIG_SCHEMA = {
   },
 };
 
-/* ── The `meta/*` double (objectui#7307), as the sibling inspector files serve
- * it: an empty registry in the `{ type, items: [] }` envelope, and an
- * `afterEach` that fails on any URL outside the metadata routes. ── */
+/* ── The network double. `meta/*` as the sibling inspector files serve it (an
+ * empty registry in the `{ type, items: [] }` envelope, objectui#7307), plus
+ * the engine's action descriptors, the one other route the inspector reads.
+ * The `afterEach` fails on any URL outside those two. ── */
 const META_PREFIX = '/api/v1/meta/';
+const ACTIONS_ROUTE = '/api/v1/automation/actions';
 let calls: string[] = [];
 const routeOf = (url: string) => url.split('?')[0];
+const served = (route: string) => route.startsWith(META_PREFIX) || route === ACTIONS_ROUTE;
 
 beforeEach(() => {
-  stubs.configSchemas = { screen: SCREEN_CONFIG_SCHEMA };
   calls = [];
   vi.stubGlobal(
     'fetch',
@@ -124,6 +128,14 @@ beforeEach(() => {
       );
       calls.push(url);
       const route = routeOf(url);
+      if (route === ACTIONS_ROUTE) {
+        return {
+          ok: true,
+          status: 200,
+          headers: new Headers(),
+          json: async () => ({ data: { actions: [{ type: 'screen', name: 'Screen', configSchema: SCREEN_CONFIG_SCHEMA }] } }),
+        };
+      }
       if (!route.startsWith(META_PREFIX)) {
         return { ok: false, status: 404, headers: new Headers(), json: async () => ({}) };
       }
@@ -138,7 +150,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  expect(calls.filter((url) => !routeOf(url).startsWith(META_PREFIX))).toEqual([]);
+  expect(calls.filter((url) => !served(routeOf(url)))).toEqual([]);
   cleanup();
   vi.unstubAllGlobals();
 });
@@ -179,6 +191,11 @@ function mount(initial: Draft) {
   }
   render(<Host />);
   return { latest: () => current };
+}
+
+/** The engine's columns have arrived: the `Fields` list shows its `Min` cell. */
+async function engineColumns(): Promise<void> {
+  await screen.findAllByText('Min', { selector: 'label' });
 }
 
 /**
@@ -247,8 +264,9 @@ describe('the screen descriptor maps fields[].min / .max to number columns (obje
 });
 
 describe('engine descriptors: a screen field’s Min / Max commit numbers (objectui#11664, triage 6007030030)', () => {
-  it('pin 1: Min 1 / Max 10 authored in the inspector save as numbers the screen contract accepts', () => {
+  it('pin 1: Min 1 / Max 10 authored in the inspector save as numbers the screen contract accepts', async () => {
     const { latest } = mount(draftWith([{ name: 'qty', type: 'number' }]));
+    await engineColumns();
     expect(cell('Min').type, 'the Min cell is a number input').toBe('number');
     expect(cell('Max').type).toBe('number');
 
@@ -262,28 +280,34 @@ describe('engine descriptors: a screen field’s Min / Max commit numbers (objec
     expect(refusals(fields), 'ScreenConfigSchema accepts the saved fields list').toEqual([]);
   });
 
-  it('pin 2: re-saving a code-authored screen with `min: 0` keeps `0` — and a text column’s string stays a string', () => {
+  it('pin 2: re-saving a code-authored screen with `min: 0` keeps `0` — and a text column’s string stays a string', async () => {
     const { latest } = mount(
       draftWith([
-        { name: 'qty', label: 'Qty', type: 'number', min: 0, max: 5 },
+        { name: 'qty', label: 'Qty', type: 'number', min: 0, max: 5, placeholder: 'How many?' },
         // A numeric-looking string in a TEXT column: ⛔ no coercion of other columns' strings.
         { name: 'note', label: '10', type: 'text' },
       ]),
     );
+    // The order the console sees: the hand-written fallback first (no Min
+    // column), the engine's columns once the descriptor answer lands.
+    expect(screen.queryAllByText('Min', { selector: 'label' }), 'the fallback columns render first').toEqual([]);
+    await engineColumns();
     expect(cell('Min').value, 'the number cell shows the stored 0').toBe('0');
+    expect(cell('Max').value).toBe('5');
 
     enter(cell('Label'), 'Quantity');
 
     const fields = fieldsOf(latest());
-    expect(fields[0]).toEqual({ name: 'qty', label: 'Quantity', type: 'number', min: 0, max: 5 });
+    expect(fields[0]).toEqual({ name: 'qty', label: 'Quantity', type: 'number', min: 0, max: 5, placeholder: 'How many?' });
     expect(typeof fields[0].min, 'the untouched 0 is still a number').toBe('number');
     expect(fields[1], 'the other row is untouched').toEqual({ name: 'note', label: '10', type: 'text' });
     expect(typeof fields[1].label).toBe('string');
     expect(refusals(fields)).toEqual([]);
   });
 
-  it('a typed `0` commits `0`, not "0" and not an absent key', () => {
+  it('a typed `0` commits `0`, not "0" and not an absent key', async () => {
     const { latest } = mount(draftWith([{ name: 'qty', type: 'number', max: 5 }]));
+    await engineColumns();
 
     enter(cell('Min'), '0');
 
@@ -292,8 +316,9 @@ describe('engine descriptors: a screen field’s Min / Max commit numbers (objec
     expect(Object.is(field.min, 0)).toBe(true);
   });
 
-  it('emptying a number cell commits nothing: the key is absent, not "", null or NaN', () => {
+  it('emptying a number cell commits nothing: the key is absent, not "", null or NaN', async () => {
     const { latest } = mount(draftWith([{ name: 'qty', type: 'number', min: 1, max: 10 }]));
+    await engineColumns();
 
     enter(cell('Max'), '');
 
@@ -308,8 +333,9 @@ describe('engine descriptors: a screen field’s Min / Max commit numbers (objec
   // field does. Two spellings: `ten` the DOM itself blanks, and `1e`, a partial
   // exponent this test DOM hands through as typed — the one that reaches the
   // cell's own parse.
-  it.each(['ten', '1e'])('a non-numeric entry (%s) is never committed as a string', (typed) => {
+  it.each(['ten', '1e'])('a non-numeric entry (%s) is never committed as a string', async (typed) => {
     const { latest } = mount(draftWith([{ name: 'qty', type: 'number', min: 1, max: 10 }]));
+    await engineColumns();
 
     enter(cell('Max'), typed);
 
@@ -318,10 +344,11 @@ describe('engine descriptors: a screen field’s Min / Max commit numbers (objec
     expect(refusals([field])).toEqual([]);
   });
 
-  it('a string stored in a number column is kept verbatim on re-save, ⛔ not coerced — the contract still refuses it', () => {
+  it('a string stored in a number column is kept verbatim on re-save, ⛔ not coerced — the contract still refuses it', async () => {
     // What the text cell used to save. The designer keeps stored data as it
     // is; the refusal stays where the contract puts it.
     const { latest } = mount(draftWith([{ name: 'qty', label: 'Qty', type: 'number', min: '1', max: 10 }]));
+    await engineColumns();
     expect(cell('Min').value, 'the cell shows the stored string the browser can read as a number').toBe('1');
 
     enter(cell('Label'), 'Quantity');

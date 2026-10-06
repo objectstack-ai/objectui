@@ -55,6 +55,12 @@ type Cell = string | boolean | number | unknown[];
 interface Row {
   id: string;
   values: Record<string, Cell>;
+  /**
+   * The stored item this row was read from (`{}` for a row the author added).
+   * A column the list gains after the row was built reads its cell from here —
+   * see the column-set effect in {@link FlowObjectListField}.
+   */
+  source: Record<string, unknown>;
 }
 
 /** Columns whose cell holds an array (a nested repeater) rather than a scalar. */
@@ -105,25 +111,27 @@ function numberCell(raw: string): number | '' {
   return Number.isFinite(n) ? n : '';
 }
 
+/** One column's cell, read from a stored item's value for that column. */
+function cellOf(col: FlowConfigColumn, v: unknown): Cell {
+  if (col.kind === 'boolean') return v === true;
+  if (isListColumn(col.kind)) return Array.isArray(v) ? v : [];
+  // objectui#11664 — a number column keeps a stored number a number (`0`
+  // included). A string stored there (what the text cell used to save) takes
+  // the line below and stays that same string, never coerced: it commits back
+  // verbatim until the author types over it.
+  if (col.kind === 'number' && typeof v === 'number') return v;
+  if (v != null) return String(v);
+  return '';
+}
+
 function toRows(list: Array<Record<string, unknown>>, columns: FlowConfigColumn[]): Row[] {
   const ids: string[] = [];
   return list.map((item) => {
     const id = uniqueId('ol', ids);
     ids.push(id);
     const values: Record<string, Cell> = {};
-    for (const col of columns) {
-      const v = item[col.key];
-      if (col.kind === 'boolean') values[col.key] = v === true;
-      else if (isListColumn(col.kind)) values[col.key] = Array.isArray(v) ? v : [];
-      // objectui#11664 — a number column keeps a stored number a number (`0`
-      // included). A string stored there (what the text cell used to save)
-      // takes the line below and stays that same string, never coerced: it
-      // commits back verbatim until the author types over it.
-      else if (col.kind === 'number' && typeof v === 'number') values[col.key] = v;
-      else if (v != null) values[col.key] = String(v);
-      else values[col.key] = '';
-    }
-    return { id, values };
+    for (const col of columns) values[col.key] = cellOf(col, item[col.key]);
+    return { id, values, source: item };
   });
 }
 
@@ -245,6 +253,36 @@ export function FlowObjectListField({
     }
   }, [external, columns]);
 
+  // objectui#11664 — the column set can change under live rows. The inspector
+  // renders the hand-written fallback columns until the engine's published
+  // `configSchema` answers, then the engine's; rows built against the first
+  // set hold no cell for a column only the second declares (a screen field's
+  // `min` / `max`, `options`, `placeholder`, …), so the next flush dropped
+  // that stored value. A column the rows do not hold yet, or one whose kind
+  // changed, now reads its cell from each row's stored item; every other cell,
+  // unflushed typing included, is kept. Nothing is committed here: the schema
+  // arriving writes nothing, the author's next edit does.
+  //
+  // Keyed on a string of the columns' keys and kinds, not on the `columns`
+  // array's identity (AGENTS.md #10).
+  const columnShape = columns.map((c) => `${c.key}:${c.kind}`).join('|');
+  const heldKinds = React.useRef(new Map(columns.map((c) => [c.key, c.kind])));
+  React.useEffect(() => {
+    const held = heldKinds.current;
+    heldKinds.current = new Map(columns.map((c) => [c.key, c.kind]));
+    const changed = columns.filter((c) => held.get(c.key) !== c.kind);
+    if (changed.length === 0) return;
+    setRows((rs) =>
+      rs.map((r) => {
+        const values = { ...r.values };
+        for (const col of changed) values[col.key] = cellOf(col, r.source[col.key]);
+        return { ...r, values };
+      }),
+    );
+    // `columns` is read for the shape `columnShape` already names.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [columnShape]);
+
   const flush = (nextRows: Row[]) => {
     const list = rowsToList(nextRows, columns);
     lastCommitted.current = JSON.stringify(list);
@@ -293,7 +331,7 @@ export function FlowObjectListField({
   const addRow = () => {
     const values: Record<string, Cell> = {};
     for (const col of columns) values[col.key] = col.kind === 'boolean' ? false : isListColumn(col.kind) ? [] : '';
-    setRows((rs) => [...rs, { id: uniqueId('ol', rs.map((r) => r.id)), values }]);
+    setRows((rs) => [...rs, { id: uniqueId('ol', rs.map((r) => r.id)), values, source: {} }]);
   };
 
   // Same shape as `commitCell`: bump the token, let the effect publish

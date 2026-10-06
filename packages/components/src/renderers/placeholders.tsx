@@ -137,8 +137,28 @@ export const PALETTE_PLACEHOLDER_BLOCKS = [
   'nav:menu', 'nav:breadcrumb', 'global:search', 'ai:suggestion',
 ];
 
-/** Register one placeholder, never overwriting a real implementation. */
+/**
+ * Register one placeholder, never over a key something else already owns: a
+ * loaded registration, or a pending `registerLazy` stub (objectui#11680).
+ *
+ * ⭐ The stub half is the one that was missing. `get()` answers for LOADED
+ * registrations only, so a key held by a stub whose chunk has not loaded read
+ * as free. The console declares `view:calendar` and `view:timeline` that way,
+ * and runs {@link registerPlaceholders} after its stubs. So the placeholder took
+ * both keys and the registry cleared the stubs under them, as it does for any
+ * key a registration takes. An authored `view:calendar` then drew the dashed
+ * scaffold until some other node happened to load the calendar chunk, and the
+ * registry's race warning fired for both keys on every boot. `hasLazy()` counts
+ * the pending stub, so the key stays with the plugin that declared it and
+ * `SchemaRenderer`'s lazy branch loads that plugin on first use.
+ *
+ * ⚠️ The check is made when the placeholder registers, so it only sees stubs
+ * declared before it. A stub declared afterwards finds the key already taken.
+ * That is why a host calls {@link registerPlaceholders} after its own stubs, as
+ * the console's `main.tsx` says it must.
+ */
 function registerPlaceholder(type: string) {
+    if (ComponentRegistry.hasLazy(type)) return;
     if (!ComponentRegistry.get(type)) {
         ComponentRegistry.register(type, PlaceholderRenderer, { namespace: 'protocol-placeholder' });
     }

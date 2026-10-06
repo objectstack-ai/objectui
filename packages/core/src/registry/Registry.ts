@@ -375,22 +375,27 @@ export type LazyComponentLoader = () => Promise<unknown>;
 type LazyEntry = {
   loader: LazyComponentLoader;
   meta?: ComponentMeta;
+  /**
+   * The full type this stub DECLARES — `namespace:type`, or the bare type with
+   * no namespace. Written once, by `registerLazy`, on the line that computes the
+   * key the entry is stored under, and read by every collision guard that asks
+   * who a stub belongs to (objectui#11680).
+   *
+   * ⭐ Recorded rather than recomputed, because the entry is stored under TWO
+   * keys, its full type and its bare one, and a lookup cannot tell which of
+   * the two it hit. The helper this field replaces re-derived the claim as
+   * "the entry's namespace, prefixed onto the key it was looked up under".
+   * That is right for the bare key and doubles the namespace for the full key:
+   * the protocol placeholder for `view:calendar` claims the bare key
+   * `view:calendar`, finds the console's stub under its FULL key, and the race
+   * warning named the stub's claim as `view:view:calendar`, a type nothing
+   * declares. The ownership comparisons in `register`, `registerLazy` and
+   * `unregister` read the same doubled spelling.
+   */
+  fullType: string;
   /** Pending import promise — reused when multiple consumers race. */
   pending?: Promise<unknown>;
 };
-
-/**
- * The full type a pending lazy stub DECLARES for a bare key.
- *
- * `registerLazy` computes `namespace:type` and stores the stub under both that
- * key and the bare one; nothing on the entry itself records which bare key it
- * claims, so the claim has to be recomputed from the entry's own meta. Spelled
- * once here because both doors' collision guards need it and a second copy
- * would be a second thing to keep in step with `registerLazy`'s own line.
- */
-function lazyStubFullType(type: string, entry: LazyEntry): string {
-  return entry.meta?.namespace ? `${entry.meta.namespace}:${type}` : type;
-}
 
 /**
  * Emit the spec's `dataSource` input for a registration whose renderer wraps
@@ -564,8 +569,7 @@ export class Registry<T = any> {
         // owner and the opt-out settles this contest exactly as it does on the
         // lazy door. Both doors therefore prescribe the same thing now, which
         // `each door prescribes the remedy that is true for it` pins.
-        const stub = this.lazyEntries.get(type);
-        const stubType = stub ? lazyStubFullType(type, stub) : undefined;
+        const stubType = this.lazyEntries.get(type)?.fullType;
         if (stubType && stubType !== fullType) {
           console.warn(
             `Component "${type}" bare-name fallback is being overwritten by "${fullType}", ` +
@@ -646,7 +650,7 @@ export class Registry<T = any> {
     // The same ownership test, on the other table.
     if (namespace) {
       const bareStub = this.lazyEntries.get(type);
-      if (bareStub && lazyStubFullType(type, bareStub) === fullType) {
+      if (bareStub && bareStub.fullType === fullType) {
         this.lazyEntries.delete(type);
       }
     }
@@ -668,7 +672,7 @@ export class Registry<T = any> {
    */
   registerLazy(type: string, loader: LazyComponentLoader, meta?: ComponentMeta) {
     const fullType = meta?.namespace ? `${meta.namespace}:${type}` : type;
-    const entry: LazyEntry = { loader, meta };
+    const entry: LazyEntry = { loader, meta, fullType };
     this.lazyEntries.set(fullType, entry);
     if (meta?.namespace && !meta?.skipFallback) {
       // Collision guard (objectui#9821). This door took the same bare-name
@@ -698,11 +702,7 @@ export class Registry<T = any> {
       // genuine contest.
       const loaded = this.components.get(type);
       const priorStub = loaded ? undefined : this.lazyEntries.get(type);
-      const claimedBy = loaded
-        ? loaded.type
-        : priorStub
-          ? lazyStubFullType(type, priorStub)
-          : undefined;
+      const claimedBy = loaded ? loaded.type : priorStub?.fullType;
       if (claimedBy && claimedBy !== fullType) {
         console.warn(
           `Lazy component "${type}" bare-name fallback is being overwritten by "${fullType}", ` +

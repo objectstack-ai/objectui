@@ -3,6 +3,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent, cleanup } from '@testing-library/react';
 import { DashboardDefaultInspector } from './DashboardDefaultInspector';
+import { t } from '../i18n';
 
 afterEach(cleanup);
 
@@ -106,5 +107,60 @@ describe('DashboardDefaultInspector — basics', () => {
     );
     expect(labelledInput('Label')).toBeDisabled();
     expect(labelledInput('Description')).toBeDisabled();
+  });
+});
+
+// objectui#11659 ruling 5: the widgets list names each widget's kind in the
+// designer's language — the name the add-widget picker shows for it — not the
+// stored `type` id. The acceptance run read 「按客户状态统计数量 · bar」.
+describe('DashboardDefaultInspector — the widgets list names each kind (objectui#11659)', () => {
+  const draftWithChart = {
+    name: 'crm',
+    label: 'CRM',
+    widgets: [
+      { id: 'w_bar', type: 'bar', title: '按客户状态统计数量' },
+      { id: 'w_kpi', type: 'metric', title: 'Revenue' },
+      { id: 'w_odd', type: 'not-a-catalogued-type', title: 'Legacy' },
+    ],
+  };
+  const kindOf = (id: string) =>
+    document.querySelector(`[data-widget-kind="${id}"]`) as HTMLElement | null;
+
+  for (const locale of ['zh-CN', 'en-US'] as const) {
+    it(`${locale}: a bar widget reads the picker's name for a bar chart, and keeps its id on hover`, () => {
+      render(
+        <DashboardDefaultInspector
+          {...baseProps}
+          locale={locale}
+          draft={draftWithChart}
+          onPatch={vi.fn()}
+          readOnly={false}
+        />,
+      );
+      const bar = kindOf('bar');
+      expect(bar).not.toBeNull();
+      const name = t('engine.widgetPicker.type.bar', locale);
+      // A real row, not the key echoed back.
+      expect(name).not.toBe('engine.widgetPicker.type.bar');
+      expect(bar!.textContent).toBe(name);
+      expect(bar!.textContent).not.toBe('bar');
+      expect(bar).toHaveAttribute('title', 'bar');
+      expect(kindOf('metric')!.textContent).toBe(t('engine.widgetPicker.type.metric', locale));
+      // No row prints a bare stored id where the catalogue has a name for it.
+      expect(screen.queryByText('bar', { selector: 'code' })).toBeNull();
+    });
+  }
+
+  it('a type the catalogue does not know still prints its id', () => {
+    render(
+      <DashboardDefaultInspector
+        {...baseProps}
+        locale={'zh-CN'}
+        draft={draftWithChart}
+        onPatch={vi.fn()}
+        readOnly={false}
+      />,
+    );
+    expect(kindOf('not-a-catalogued-type')!.textContent).toBe('not-a-catalogued-type');
   });
 });

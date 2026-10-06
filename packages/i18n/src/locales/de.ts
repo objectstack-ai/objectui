@@ -2930,6 +2930,7 @@ const de = {
       readOnlyNote: "Nur Eigentümer können Einstellungen ändern.",
       nameLabel: "Name der Organisation",
       slugLabel: "Slug",
+      slugLockedNote: "Diese Organisation hat aktive Umgebungen, daher kann ihr Slug hier nicht geändert werden: Eine Umbenennung verschiebt auch deren Subdomains.",
       logoLabel: "Logo",
       logoUpload: "Hochladen",
       logoReplace: "Ersetzen",
@@ -3398,7 +3399,7 @@ const de = {
     load: {
       failed: "Marktplatz konnte nicht geladen werden",
       failedHintConfigured: "Diese Laufzeitumgebung erreicht den Marktplatz über die Control Plane unter {{url}}. Prüfen Sie, ob diese online und von hier aus erreichbar ist.",
-      failedHintSameOrigin: "Diese Laufzeitumgebung stellt den Marktplatz-Katalog selbst bereit. Prüfen Sie, ob die Laufzeitumgebung online ist.",
+      failedHintSameOrigin: "Der Marktplatz-Katalog wird über diese Laufzeitumgebung erreicht. Prüfen Sie, ob die Laufzeitumgebung online ist und den Katalog erreichen kann.",
       packageFailed: "Paket konnte nicht geladen werden",
       notFound: "Nicht gefunden.",
     },

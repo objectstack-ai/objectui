@@ -2981,6 +2981,7 @@ const fr = {
       readOnlyNote: "Seuls les propriétaires peuvent modifier les paramètres.",
       nameLabel: "Nom de l'organisation",
       slugLabel: "Slug",
+      slugLockedNote: "Cette organisation a des environnements actifs, son slug ne peut donc pas être modifié ici : le renommer déplace aussi leurs sous-domaines.",
       logoLabel: "Logo",
       logoUpload: "Téléverser",
       logoReplace: "Remplacer",
@@ -3459,7 +3460,7 @@ const fr = {
     load: {
       failed: "Impossible de charger le marketplace",
       failedHintConfigured: "Ce runtime accède à la place de marché via le plan de contrôle situé à {{url}}. Vérifiez qu'il est en ligne et joignable depuis ici.",
-      failedHintSameOrigin: "Ce runtime sert lui-même le catalogue de la place de marché. Vérifiez qu'il est en ligne.",
+      failedHintSameOrigin: "Le catalogue de la place de marché est accessible via ce runtime. Vérifiez que le runtime est en ligne et qu'il peut joindre le catalogue.",
       packageFailed: "Impossible de charger le paquet",
       notFound: "Introuvable.",
     },

@@ -9,7 +9,10 @@
  * Browse Marketplace showed "Failed to load marketplace · Forbidden · This
  * runtime serves the marketplace catalog itself. Check that the runtime is
  * online.", then "No apps have been approved for the marketplace yet." below
- * it. The server had answered `403` with the `text/plain` body "Host not in
+ * it. (That hint sentence was itself wrong on this runtime, which proxies a
+ * control plane; objectui#11726 reworded it, and
+ * `MarketplacePage.sameOriginHint-11726.test.tsx` pins the new wording.)
+ * The server had answered `403` with the `text/plain` body "Host not in
  * allowlist: cloud.objectos.ai. …", which is what an egress proxy in front of
  * the control plane sends; the runtime's marketplace proxy forwards it
  * verbatim. Three faults, one per line:
@@ -119,7 +122,7 @@ afterEach(() => {
 
 describe('a failure the server answered shows the server its cause (objectui#11688)', () => {
   it.each([
-    ['a runtime reporting no upstream (`cloudUrl: ""`)', ''],
+    ['a runtime that names no upstream (`cloudUrl: ""`)', ''],
     ['a runtime reporting its control plane', 'https://cloud.acme.internal'],
   ])('a 403 whose plain-text body names the allowlist — on %s', async (_label, cloudUrl) => {
     await bootOn(cloudUrl);

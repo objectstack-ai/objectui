@@ -2984,6 +2984,7 @@ const es = {
       readOnlyNote: "Solo los propietarios pueden cambiar la configuración.",
       nameLabel: "Nombre de la organización",
       slugLabel: "Slug",
+      slugLockedNote: "Esta organización tiene entornos activos, por lo que su slug no se puede cambiar aquí: renombrarla también mueve sus subdominios.",
       logoLabel: "Logo",
       logoUpload: "Subir",
       logoReplace: "Reemplazar",
@@ -3462,7 +3463,7 @@ const es = {
     load: {
       failed: "No se pudo cargar el marketplace",
       failedHintConfigured: "Este runtime accede al marketplace a través del plano de control en {{url}}. Compruebe que esté en línea y sea accesible desde aquí.",
-      failedHintSameOrigin: "Este runtime sirve el catálogo del marketplace por sí mismo. Compruebe que el runtime esté en línea.",
+      failedHintSameOrigin: "Al catálogo del marketplace se accede a través de este runtime. Compruebe que el runtime esté en línea y pueda acceder al catálogo.",
       packageFailed: "No se pudo cargar el paquete",
       notFound: "No encontrado.",
     },

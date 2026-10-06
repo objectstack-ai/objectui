@@ -7,11 +7,14 @@
  * objectui#10520). Talks to the framework REST endpoint
  * `/api/v1/data/sys_audit_log` with standard ObjectQL filter params.
  *
- * Field shape mirrors framework/packages/platform-objects/src/audit/
- * sys-audit-log.object.ts (snake_case columns).
+ * Field shape mirrors `sys_audit_log` as objectstack declares it
+ * (packages/plugins/plugin-audit/src/objects/sys-audit-log.object.ts,
+ * snake_case columns).
  *
  * Scope (MVP):
- *  - Filter by action / object_name / actor (user_id) / date range
+ *  - Filter by action / object_name / actor (a `sys_user` lookup) / date range
+ *  - The actor is named, not shown as a raw id (objectui#11701): see
+ *    `actorOf` below
  *  - Paginated table (50/page)
  *  - Row click opens a side drawer with full event details + JSON
  *    diff of old_value → new_value when present
@@ -56,6 +59,8 @@ import {
   SelectValue,
   Separator,
 } from '@object-ui/components';
+import { LookupField } from '@object-ui/fields';
+import { useAdapter } from '@object-ui/app-shell';
 import { RefreshCw, Search, X, AlertCircle, ScrollText } from 'lucide-react';
 import { ACTION_OPTIONS, ACTION_VARIANT } from './auditLogActions';
 
@@ -66,7 +71,15 @@ interface AuditRow {
   id: string;
   created_at?: string;
   action?: string;
-  user_id?: string | null;
+  /**
+   * `sys_audit_log.user_id` is a lookup to `sys_user`. The list fetch asks for
+   * `$expand=user_id`, so a resolved actor arrives as the user's record and an
+   * unresolved one (the user is gone, or the viewer may not read them) as the
+   * bare id. `null` means no user made the change.
+   */
+  user_id?: string | Record<string, unknown> | null;
+  /** The principal that acted: a user id, `svc:NAME` for a service, or null for the system. */
+  actor?: string | null;
   object_name?: string | null;
   record_id?: string | null;
   ip_address?: string | null;
@@ -100,8 +113,77 @@ function tryPrettyJson(s: string | null | undefined): string {
   try { return JSON.stringify(JSON.parse(s), null, 2); } catch { return s; }
 }
 
+/** Who acted on one audit row, as the column and the drawer show it. */
+type ActorFace =
+  | {
+      kind: 'user';
+      /** The user's display name, when the expanded record carries one. */
+      name: string | null;
+      /** The user id, resolved or not. Shown on hover and in the drawer. */
+      id: string | null;
+    }
+  | {
+      kind: 'system';
+      /** The recorded principal (`svc:NAME`), if any. */
+      principal: string | null;
+    };
+
+/**
+ * The actor of an audit row (objectui#11701).
+ *
+ * The fetch expands `user_id`, and the engine replaces the id in place with
+ * the `sys_user` record. It keeps the bare id when that record cannot be read
+ * (the user is gone, or the viewer may not see them). Such a row shows the id,
+ * never a blank. `name` is `sys_user`'s declared name field. A record whose
+ * `name` the viewer may not read is shown by its id.
+ *
+ * A `null` `user_id` is a change no user made. The writer records the system
+ * as `null` and a service as `svc:NAME` on `actor`. Both read "System", and
+ * the principal stays on hover and in the drawer.
+ */
+function actorOf(row: AuditRow): ActorFace {
+  const ref = row.user_id;
+  if (ref && typeof ref === 'object') {
+    const id = typeof ref.id === 'string' && ref.id ? ref.id : null;
+    const name = typeof ref.name === 'string' && ref.name.trim() ? ref.name.trim() : null;
+    return { kind: 'user', name, id };
+  }
+  if (typeof ref === 'string' && ref) return { kind: 'user', name: null, id: ref };
+  const principal = typeof row.actor === 'string' && row.actor.trim() ? row.actor.trim() : null;
+  return { kind: 'system', principal };
+}
+
+/** The actor column's face: the name with the id on hover, else the id, else "System". */
+function ActorCell({ face }: { face: ActorFace }) {
+  if (face.kind === 'system') {
+    return <span className="text-muted-foreground" title={face.principal ?? undefined}>System</span>;
+  }
+  if (face.name) return <span title={face.id ?? undefined}>{face.name}</span>;
+  return <span className="font-mono text-xs" title={face.id ?? undefined}>{truncate(face.id, 18)}</span>;
+}
+
+/** The drawer's actor row: the name, then the full id (or the principal) to copy. */
+function ActorDetail({ face }: { face: ActorFace }) {
+  if (face.kind === 'system') {
+    return (
+      <>
+        <div>System</div>
+        {face.principal && <div className="font-mono text-xs break-all">{face.principal}</div>}
+      </>
+    );
+  }
+  return (
+    <>
+      {face.name && <div>{face.name}</div>}
+      <div className="font-mono text-xs break-all">{face.id || '—'}</div>
+    </>
+  );
+}
+
 export function AuditLogPage() {
   const displayLocale = useDisplayLocale();
+  // The actor filter's user lookup queries `sys_user` through the console's adapter.
+  const adapter = useAdapter();
   const [rows, setRows] = useState<AuditRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -109,6 +191,7 @@ export function AuditLogPage() {
   // Filters
   const [actionFilter, setActionFilter] = useState<string>('all');
   const [objectFilter, setObjectFilter] = useState<string>('');
+  /** The chosen user's id, or '' for any actor. */
   const [actorFilter, setActorFilter] = useState<string>('');
   const [fromDate, setFromDate] = useState<string>('');  // YYYY-MM-DD
   const [toDate, setToDate] = useState<string>('');
@@ -135,6 +218,9 @@ export function AuditLogPage() {
       if (Object.keys(filter).length > 0) {
         params.set('$filter', JSON.stringify(filter));
       }
+      // Name the actor on this one read: the engine batch-loads the referenced
+      // users and puts each record in place of its id (objectui#11701).
+      params.set('$expand', 'user_id');
       params.set('$orderby', 'created_at desc');
       params.set('$top', String(PAGE_SIZE + 1));  // +1 to detect hasMore
       params.set('$skip', String(page * PAGE_SIZE));
@@ -229,12 +315,20 @@ export function AuditLogPage() {
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Actor (user id)</Label>
-            <Input
-              placeholder="user id"
-              value={actorFilter}
-              onChange={(e) => { setActorFilter(e.target.value); setPage(0); }}
-              className="h-9"
+            <Label className="text-xs">Actor</Label>
+            {/* The same lookup a `sys_user` reference field gets. It commits the
+                chosen user's id, and removing the chip commits null. */}
+            <LookupField
+              value={actorFilter || null}
+              onChange={(v: unknown) => { setActorFilter(v == null ? '' : String(v)); setPage(0); }}
+              dataSource={adapter}
+              field={{
+                type: 'lookup',
+                name: 'user_id',
+                label: 'Actor',
+                reference: 'sys_user',
+                placeholder: 'Any user',
+              }}
             />
           </div>
           <div className="space-y-1.5">
@@ -307,7 +401,7 @@ export function AuditLogPage() {
                       <TableCell><Badge variant={variant}>{r.action || '—'}</Badge></TableCell>
                       <TableCell>{r.object_name || '—'}</TableCell>
                       <TableCell className="font-mono text-xs">{truncate(r.record_id, 18)}</TableCell>
-                      <TableCell className="font-mono text-xs">{truncate(r.user_id, 18)}</TableCell>
+                      <TableCell><ActorCell face={actorOf(r)} /></TableCell>
                       <TableCell className="font-mono text-xs">{r.ip_address || '—'}</TableCell>
                     </TableRow>
                   );
@@ -360,8 +454,8 @@ export function AuditLogPage() {
                   <div className="font-mono">{selected.ip_address || '—'}</div>
                 </div>
                 <div>
-                  <div className="text-xs text-muted-foreground">Actor (user_id)</div>
-                  <div className="font-mono break-all">{selected.user_id || '—'}</div>
+                  <div className="text-xs text-muted-foreground">Actor</div>
+                  <ActorDetail face={actorOf(selected)} />
                 </div>
                 <div>
                   <div className="text-xs text-muted-foreground">Tenant</div>

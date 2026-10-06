@@ -3077,6 +3077,7 @@ const zh = {
       readOnlyNote: '只有所有者可以修改设置。',
       nameLabel: '组织名称',
       slugLabel: '标识',
+      slugLockedNote: '该组织还有正在使用的环境，因此无法在此修改标识：重命名会同时迁移这些环境的子域名。',
       logoLabel: 'Logo',
       logoUpload: '上传',
       logoReplace: '更换',
@@ -3538,7 +3539,7 @@ const zh = {
       load: {
         failed: '应用市场加载失败',
         failedHintConfigured: '本运行时通过 {{url}} 上的控制面访问应用市场。请检查该地址是否在线、能否从本运行时访问。',
-        failedHintSameOrigin: '本运行时自己提供应用市场目录。请检查运行时是否在线。',
+        failedHintSameOrigin: '应用市场目录通过本运行时访问。请检查运行时是否在线、能否访问该目录。',
         packageFailed: '应用加载失败',
         notFound: '未找到。',
       },

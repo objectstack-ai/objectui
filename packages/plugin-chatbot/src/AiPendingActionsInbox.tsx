@@ -364,13 +364,21 @@ export function AiPendingActionsInbox({
         </Alert>
       ) : null}
 
+      {/*
+        The empty state is an ANSWER ("nothing is waiting"), so it is shown
+        only when the read answered (objectui#11736). If the read failed, the
+        error alert above is the whole story. On a deployment with no AI
+        service, an empty queue under the 501 alert read as a live approval
+        queue that happened to be empty, which is a queue the deployment does
+        not have.
+      */}
       {isLoading && rows.length === 0 ? (
         <div className="space-y-2">
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
           <Skeleton className="h-10 w-full" />
         </div>
-      ) : rows.length === 0 ? (
+      ) : rows.length === 0 && error ? null : rows.length === 0 ? (
         <Empty>
           <EmptyHeader>
             <EmptyMedia>

@@ -73,7 +73,9 @@ who supplies it:
    on the element a widget renders — the field's `id`, the `aria-describedby` the form
    control minted, and so on. `toDomProps` is this group's runtime executor, bound to
    the declaration in both directions by compile-time assertions, so a key cannot be
-   declared here and silently never delivered.
+   declared here and silently never delivered. Every other registered widget is held
+   to the same rule with the SDUI contract's own key set — the plugin-widget contract
+   is stated once, in [What Reaches the DOM](/docs/guide/plugin-development#what-reaches-the-dom).
 4. **The ARIA attribute family**, intersected in whole from React's `AriaAttributes`.
    This group is the bulk of the member count, which is why the count is not a useful
    thing to quote.

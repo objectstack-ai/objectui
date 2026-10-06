@@ -176,6 +176,66 @@ export type { BoardSchema, BoardProps, BoardColumn, BoardItem } from './types';
 
 Now any schema with `"type": "board"` will resolve to your component.
 
+## What Reaches the DOM
+
+`SchemaRenderer` hands a registered component far more than the keys it
+declares: the node itself as `schema`, every other key the author wrote on the
+node, the contents of its `props` bag, the runtime props it injects (`bind`,
+`events`, the camelCase `ariaLabel` the author wrote, the data-source adapter)
+and whatever its own host passed. React writes unknown lowercase props straight
+onto an element and stringifies objects, so a component that ends in a bare
+`{...props}` spread onto an element puts all of it on the page —
+`schema="[object Object]"`, `datasource="[object Object]"`, a `name` on a `div`,
+and every authored key the widget never declared. Nothing warns: React stays
+silent for lowercase names.
+
+**The contract for a registered widget's host element** (objectui#4425,
+phase-2 ruling, comment 5270759246): it receives only what `toDomProps` from `@object-ui/core`
+passes — the SDUI contract's declared DOM keys (`id`, `className`, `role`,
+`tabIndex` and the rest of `SDUI_DOM_PASS_THROUGH_KEYS`) and the open `aria-*`
+and `data-*` families. Everything else the renderer hands a widget is either
+**consumed** — read by name and turned into behaviour — or dropped. It is a
+whitelist rather than a list of keys to strip, because the set of keys an author
+may write is unbounded and a strip list can only name the ones that exist today.
+
+```tsx
+import type { HTMLAttributes, ReactNode } from 'react';
+import { toDomProps, type SduiDomPassThroughKey } from '@object-ui/core';
+
+// The DOM pass-through this widget declares is exactly what the whitelist
+// forwards — named from the whitelist's own key type, so the two cannot drift.
+interface BoardFrameProps extends Pick<HTMLAttributes<HTMLDivElement>, SduiDomPassThroughKey> {
+  children?: ReactNode;
+}
+
+export function BoardFrame({ className, children, ...props }: BoardFrameProps) {
+  return (
+    // Spread FIRST, so the attributes the widget computes stay authoritative.
+    <div {...toDomProps(props)} className={className}>
+      {children}
+    </div>
+  );
+}
+```
+
+A widget that really means to forward something beyond that set **declares**
+it on its props type and forwards it **by name** — the way `style` reaches the
+layout containers. Never reopen the spread to get it. A component that is both
+registered and exported for direct React use may keep a wider declared
+`HTMLAttributes` pass-through on its direct door, as `@object-ui/plugin-dashboard`'s
+metric cards do; what the renderer hands it still goes through the whitelist.
+
+Field widgets follow the same rule with their own declared set: `@object-ui/fields`
+exports a `toDomProps` that adds the form-control keys `name` and `disabled`
+(see [Field Widget Props](/docs/fields/widget-props)).
+
+**The gate.** `packages/app-shell/src/__tests__/widget-dom-leak-sweep.test.tsx`
+renders every registered widget of the packages it covers through the real
+`SchemaRenderer`, with planted canary keys from every family above, and fails
+on any attribute HTML does not define. A known leak is a ledger row in that
+file naming the issue that owns its fix, and the ledger is a two-way ratchet: a
+new leak fails the gate, and so does a fixed one until its row is deleted.
+
 ## Implementing a Custom Field Widget
 
 Field widgets follow the `FieldWidgetComponentProps` interface from `@object-ui/fields`.

@@ -35,6 +35,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
 import * as React from 'react';
+import type { HighlightField } from '@object-ui/types';
 import { InlineEditProvider, RecordContextProvider } from '@object-ui/react';
 import { HeaderHighlight } from '../HeaderHighlight';
 import { RecordHighlightsRenderer } from '../renderers/record-highlights';
@@ -113,10 +114,10 @@ describe('record:highlights shares the row instead of fixing each chip (objectui
 });
 
 describe('the wide floor keeps its role under the shared row (objectui#11684)', () => {
-  const fields = [
+  const fields: HighlightField[] = [
     { name: 'owner', label: 'Owner', type: 'text' },
     { name: 'email', label: 'Email', type: 'email' },
-  ] as any;
+  ];
   const data = { owner: 'Alice', email: 'ada@example.com' };
 
   it('gives a wide display type the 16rem floor, the grow and the content cap', () => {

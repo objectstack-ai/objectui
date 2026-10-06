@@ -40,12 +40,17 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { createI18n, I18nProvider } from '@object-ui/i18n';
 import { RECORD_SURFACE_PAGE_THRESHOLD } from '@object-ui/plugin-view';
 
-const { modalSchemas } = vi.hoisted(() => ({ modalSchemas: [] as any[] }));
+/** The part of the modal's schema this file reads. */
+interface ModalSchemaProbe {
+  objectName?: string;
+  onSuccess: (saved: { id: string }) => Promise<void> | void;
+}
+const { modalSchemas } = vi.hoisted(() => ({ modalSchemas: [] as ModalSchemaProbe[] }));
 
 /** The global record-form modal: its schema carries the `onSuccess` under test. */
 vi.mock('@object-ui/plugin-form', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
-  ModalForm: ({ schema }: any) => {
+  ModalForm: ({ schema }: { schema: ModalSchemaProbe }) => {
     modalSchemas.push(schema);
     return <div data-testid="modal-form" />;
   },

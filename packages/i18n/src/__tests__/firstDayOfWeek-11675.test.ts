@@ -22,8 +22,16 @@
  *    for the length of one call, and putting them back exactly.
  *
  * The parity case is what re-derives the table: region by region, it compares
- * the table's answer with this runtime's own week data, so a CLDR release that
- * moves a region reds here, naming the region.
+ * the table's answer with this runtime's own week data. The table transcribes
+ * one CLDR release (`WEEK_DATA_CLDR`), and the runtimes this repository runs on
+ * ship different ones: `engines` admits Node 22.13, and CI's `22.x` floats to
+ * the newest. So the case reads the runtime's release from
+ * `process.versions.cldr`, and the differences it must find are exactly the
+ * ones {@link RELEASE_DELTAS} records for that release. On the table's own
+ * release that is none at all. Exact equality is what keeps the case able to
+ * fail on every runtime: a table edited away from its release, a release that
+ * moves a region nobody recorded, and a recorded difference that no longer
+ * holds all go red, each naming the region.
  *
  * ⚠️ This file runs in the `unit` project, which shares one global object
  * between files (`isolate: false`). Every removal is undone in a `finally`, and
@@ -33,11 +41,34 @@
 
 import { afterAll, describe, expect, it } from 'vitest';
 import { firstDayOfWeek } from '../index';
+import { WEEK_DATA_CLDR } from '../utils/first-day-of-week';
 
 const SUNDAY = 0;
 const MONDAY = 1;
 const FRIDAY = 5;
 const SATURDAY = 6;
+
+/**
+ * Where a CLDR release other than the table's (`WEEK_DATA_CLDR`) starts a
+ * region's week on another day: by release, as the major part of
+ * `process.versions.cldr`, the region and the day that release answers.
+ *
+ * Measured when this ledger was written, by running this file's region probe
+ * on Node 22.13.0 (CLDR 46.0, the `engines` floor), Node 22.22.0 (CLDR 47.0)
+ * and Node 22.23.3 (CLDR 48.0, the table's release and CI's `22.x`): Iceland
+ * moved to a Sunday start in CLDR 48, and no other region differs across the
+ * three. ⛔ Not a list to grow by guessing: a row is added from a run on a
+ * runtime that ships the release, which is what the parity case prints.
+ */
+const RELEASE_DELTAS: Readonly<Record<string, Readonly<Record<string, number>>>> = {
+  '46': { IS: MONDAY },
+  '47': { IS: MONDAY },
+};
+
+/** The CLDR release this runtime ships, as the major part of `process.versions.cldr`. */
+function runtimeRelease(): string | undefined {
+  return process.versions.cldr?.split('.')[0];
+}
 
 const proto: object = Intl.Locale.prototype;
 const SPELLINGS = ['getWeekInfo', 'weekInfo'] as const;
@@ -160,7 +191,24 @@ describe('firstDayOfWeek — where the engine has no week info, CLDR\'s table an
     expect(withoutEngineWeekInfo(() => firstDayOfWeek('de-CH'))).toBe(MONDAY);
   });
 
-  it('PARITY: for every region this runtime names, the table answers what its week data answers', () => {
+  it('rig: this runtime reports its CLDR release, so the parity case knows which differences to expect', () => {
+    expect(runtimeRelease(), 'process.versions.cldr is unreadable here').toMatch(/^[0-9]+$/);
+    expect(WEEK_DATA_CLDR).toMatch(/^[0-9]+$/);
+  });
+
+  it("the ledger is honest about the table: no row for the table's own release, and every row names a day the table does not answer", () => {
+    expect(Object.keys(RELEASE_DELTAS)).not.toContain(WEEK_DATA_CLDR);
+    const rows = Object.entries(RELEASE_DELTAS).flatMap(([release, delta]) =>
+      Object.entries(delta).map(([region, day]) => ({ release, region, day })),
+    );
+    expect(rows.length, 'an empty ledger would make the case below the strict comparison by default').toBeGreaterThan(0);
+    for (const { release, region, day } of rows) {
+      expect(withoutEngineWeekInfo(() => firstDayOfWeek(`und-${region}`)), `CLDR ${release}: ${region}`).not.toBe(day);
+    }
+  });
+
+  it('PARITY: for every region this runtime names, the table answers what its week data answers, less the differences recorded for its CLDR release', () => {
+    const release = runtimeRelease() ?? 'unknown';
     const regions = canonicalRegions();
     // A collapsed enumeration would make the comparison below vacuous.
     expect(regions.length, `only ${regions.length} regions enumerated`).toBeGreaterThan(200);
@@ -174,14 +222,18 @@ describe('firstDayOfWeek — where the engine has no week info, CLDR\'s table an
     const table = withoutEngineWeekInfo(
       () => new Map(regions.map((region) => [region, firstDayOfWeek(`und-${region}`)])),
     );
-    const drift = regions
-      .filter((region) => table.get(region) !== engine.get(region))
-      .map((region) => `${region}: engine ${engine.get(region)}, table ${table.get(region)}`);
+    const found = Object.fromEntries(
+      regions.filter((region) => table.get(region) !== engine.get(region)).map((region) => [region, engine.get(region)]),
+    );
+    const expected = release === WEEK_DATA_CLDR ? {} : (RELEASE_DELTAS[release] ?? {});
     expect(
-      drift,
-      `the CLDR table in utils/first-day-of-week.ts no longer matches this runtime's week data ` +
-        `(CLDR ${process.versions.cldr ?? 'unknown'}); regenerate it from the engine`,
-    ).toEqual([]);
+      found,
+      `this runtime ships CLDR ${process.versions.cldr ?? 'unknown'}; the table in utils/first-day-of-week.ts ` +
+        `transcribes CLDR ${WEEK_DATA_CLDR}. On the table's own release every difference is drift: regenerate the ` +
+        `table from that runtime. On another release, a difference RELEASE_DELTAS does not record is CLDR moving a ` +
+        `region: record it there from a run on a runtime that ships that release, or move the table and ` +
+        `WEEK_DATA_CLDR to the newer release; a recorded row that is not found no longer holds`,
+    ).toEqual(expected);
   });
 
   it('both spellings are back exactly as the file found them', () => {

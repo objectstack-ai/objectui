@@ -34,12 +34,14 @@
  * default (`001`). This path reads the region only: a `-u-fw-` or `-u-rg-`
  * keyword is the engine path's alone.
  *
- * The table is a snapshot of one CLDR release, the one in Node's ICU at the
- * time of writing (`process.versions.cldr` printed `47.0`). Engines carry their
- * own release, and releases differ: Chromium 141 starts `AE` on Saturday where
- * CLDR 47 starts it on Monday. That is why the engine's answer wins wherever
+ * The table transcribes ONE CLDR release, the one {@link WEEK_DATA_CLDR} names:
+ * the newest release the repository's CI runtime ships. Engines carry their own
+ * week data, and it differs: CLDR moves a region now and then, and a browser
+ * may carry data of its own. That is why the engine's answer wins wherever
  * there is one. What re-derives the table against the running engine is
- * `__tests__/firstDayOfWeek-11675.test.ts`, region by region.
+ * `__tests__/firstDayOfWeek-11675.test.ts`, region by region. On a runtime
+ * whose CLDR release is not the table's, it reads that release's recorded
+ * differences from the table instead of reporting them as drift.
  *
  * ## A tag `Intl` refuses is refused here too
  *
@@ -76,15 +78,23 @@ function fromIsoWeekday(day: number): WeekdayIndex | undefined {
 }
 
 /**
- * CLDR 47's `weekData` `firstDay` rows other than Monday, by region. Regions
- * are the canonical codes `Intl.Locale` reports (`BU` reads `MM`), so the
- * deprecated aliases CLDR also lists are left out.
+ * The CLDR release {@link NON_MONDAY_REGIONS} transcribes, as the major part of
+ * `process.versions.cldr`. Change it only together with the table, from a
+ * runtime that ships that release.
+ */
+export const WEEK_DATA_CLDR = '48';
+
+/**
+ * CLDR's `weekData` `firstDay` rows other than Monday, by region, as of the
+ * release {@link WEEK_DATA_CLDR} names. Regions are the canonical codes
+ * `Intl.Locale` reports (`BU` reads `MM`), so the deprecated aliases CLDR also
+ * lists are left out.
  */
 const NON_MONDAY_REGIONS: ReadonlyArray<readonly [WeekdayIndex, string]> = [
   [
     0,
-    'AG AS BD BR BS BT BW BZ CA CO DM DO ET GT GU HK HN ID IL IN JM JP KE KH KR LA MH MM MO MT MX MZ ' +
-      'NI NP PA PE PH PK PR PT PY SA SG SV TH TT TW UM US VE VI WS YE ZA ZW',
+    'AG AS BD BR BS BT BW BZ CA CO DM DO ET GT GU HK HN ID IL IN IS JM JP KE KH KR LA MH MM MO MT MX ' +
+      'MZ NI NP PA PE PH PK PR PT PY SA SG SV TH TT TW UM US VE VI WS YE ZA ZW',
   ],
   [5, 'MV'],
   [6, 'AF BH DJ DZ EG IQ IR JO KW LY OM QA SD SY'],

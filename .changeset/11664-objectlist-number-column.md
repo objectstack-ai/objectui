@@ -4,7 +4,7 @@
 
 The flow designer saves a screen field's `Min` and `Max` as numbers (objectui#11664).
 
-A screen node's `fields` list is edited as a table, one row per field. The screen descriptor's `configSchema` declares `min` and `max` as `type: 'number'`, but the table had no number column, so it rendered them as text cells. Authoring `Min` = 1 saved `min: '1'`, and editing any other cell of a code-authored field turned a stored `min: 0` into `'0'`. The screen contract (`ScreenFieldConfigSchema.min` / `.max` are `z.number()`) refuses strings, so every run of such a flow failed at the screen node.
+A screen node's `fields` list is edited as a table, one row per field. The screen descriptor's `configSchema` declares `min` and `max` as `type: 'number'`, but the table had no number column, so it rendered them as text cells. Authoring `Min` = 1 saved `min: '1'`, and the text cell read a code-authored field's stored `min: 0` back as `'0'`. The screen contract (`ScreenFieldConfigSchema.min` / `.max` are `z.number()`) refuses strings, so every run of such a flow failed at the screen node.
 
 - **A number or integer item property is now a number column**, the same mapping the designer already used for a node's top-level number fields. Its cell is a number input.
 - **A number column commits a number.** A typed `0` is saved as `0`. Clearing the cell removes the key; it does not save `''`, `null` or `NaN`. An entry the browser cannot read as a number saves nothing, as in the top-level number field.

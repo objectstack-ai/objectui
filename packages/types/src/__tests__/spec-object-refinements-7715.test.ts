@@ -114,6 +114,33 @@ describe('objectui#7715 — the Page source-completeness refusal reaches objectu
   });
 });
 
+describe('objectui#11717 — the Page `requires` ⇄ `kind` refusal reaches objectui', () => {
+  it.each([
+    ['an absent `kind` (the spec default, `full`)', { requires: ['ui'] }],
+    ['a `react` page', { kind: 'react', source: 'export default () => null', requires: ['ui'] }],
+    ['a `slotted` page, with an EMPTY list', { kind: 'slotted', requires: [] }],
+  ])('%s: the spec refuses at `requires`, and objectui refuses with the spec\'s own issue', (_label, extra) => {
+    const spec = SpecPageSchema.safeParse(specPage(extra));
+    expect(spec.success).toBe(false);
+    const specIssue = spec.error!.issues.find((i) => i.path.join('.') === 'requires');
+    expect(specIssue?.code).toBe('custom');
+
+    for (const r of [PageNodeSchema.safeParse(pageNode(extra)), safeValidateSchema(pageNode(extra))]) {
+      expect(r.success).toBe(false);
+      const issues = r.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message }));
+      expect(issues).toContainEqual({ code: 'custom', path: 'requires', message: specIssue!.message });
+    }
+  });
+
+  it('controls: `requires` on a compiled `html` page, and a page that writes no `requires`, pass on both doors', () => {
+    for (const extra of [{ kind: 'html', source: '<section>x</section>', requires: ['ui'] }, { kind: 'react', source: 'x' }]) {
+      expect(SpecPageSchema.safeParse(specPage(extra)).success).toBe(true);
+      expect(PageNodeSchema.safeParse(pageNode(extra)).success).toBe(true);
+      expect(safeValidateSchema(pageNode(extra)).success).toBe(true);
+    }
+  });
+});
+
 // ── The census: every object-level check the spec runs is accounted for ─────
 
 /**
@@ -130,33 +157,32 @@ const SITES = [
   {
     site: 'DashboardWidgetSchema (complex.zod.ts)',
     spec: SpecDashboardWidgetSchema,
-    // Both added to the spec object at 17.5.0 and attached by objectui#11073: each reads only
-    // `type`, `options.stageOrder` / `values` and `id`, the spec's own fields on this node.
-    attached: ['checkDashboardWidgetStageOrder', 'checkDashboardWidgetMetricMeasureArity'],
-    // OWED TO objectui#11334. A BOOKING, not a measured structural refusal like the
-    // `checkListViewPageMount` entry the `ListViewSchema` row once held: objectstack
-    // `11d28c17` (#21053) added this check to the spec object, and objectui's mirror
-    // does not re-attach it yet. A static import of it compiles against the spec this
-    // repository resolves and fails the `Spec Main Shape Gate`, because objectstack
-    // `main` renamed the export (`32d57690`, #21293 / #21425) and no longer exports
-    // this name; objectui#11531 measured that attach on the bump's trunk and reverted
-    // it (its row 3). Nothing in this file measures that reason, for the Shape Gate
-    // compiles against objectstack `main`, which no run of this file sees.
-    // Booked by objectui#11438 ruling A″ (record 5968177777), which applies
-    // objectui#11111 decision 3 = B (record 5902351047) to the bump; group 5's
-    // booking of objectui#11536 has the same shape.
-    // Expires when objectui resolves an `@objectstack/spec` carrying `32d57690`, or
-    // 2026-11-02, whichever is first. The condition is enforced here and the date
-    // is read by objectui#11334, not by a clock: that resolution drops this export
-    // name, so the census test that matches every exported `check*` name against
-    // these lists turns red by name, and objectui#11334 strikes this entry as it
-    // re-attaches the renamed check. Capped by this row's own count equality and
-    // that census's exact name match: no check beyond the entries listed here is
-    // admitted.
-    notAttachable: ['checkDashboardWidgetDimensionlessMeasureArity'],
+    // The first two were added to the spec object at 17.5.0 and attached by objectui#11073;
+    // the third is `checkDashboardWidgetChartMeasureArity` (the 17.6.0 dimensionless check,
+    // renamed and given its single-series arm by objectstack `32d57690` in 17.7.0), attached
+    // by objectui#11717 for objectui#11334 / objectui#11417. Each reads only `type`,
+    // `options.stageOrder` / `dimensions` / `values` and `id`, the spec's own fields on this
+    // node.
+    attached: [
+      'checkDashboardWidgetStageOrder',
+      'checkDashboardWidgetMetricMeasureArity',
+      'checkDashboardWidgetChartMeasureArity',
+    ],
+    // EMPTY since objectui#11717. It held `checkDashboardWidgetDimensionlessMeasureArity`,
+    // OWED TO objectui#11334 (booked by objectui#11438 ruling A″, record 5968177777), until
+    // objectui resolved an `@objectstack/spec` carrying `32d57690`: 17.7.0 exports the check
+    // under its new name only, and the mirror attaches it above.
+    notAttachable: [],
   },
   { site: 'SpecDashboardFields → DashboardComponentSchema (complex.zod.ts)', spec: SpecDashboardSchema, attached: [], notAttachable: [] },
-  { site: 'SpecPageFields → PageNodeSchema (layout.zod.ts)', spec: SpecPageSchema, attached: ['checkPageSourceCompleteness'], notAttachable: [] },
+  {
+    site: 'SpecPageFields → PageNodeSchema (layout.zod.ts)',
+    spec: SpecPageSchema,
+    // `checkPageRequiresKind` joined the spec object at 17.7.0 (objectstack#21459) and was
+    // attached by objectui#11717: it reads `kind` and `requires`, both carried by reference.
+    attached: ['checkPageSourceCompleteness', 'checkPageRequiresKind'],
+    notAttachable: [],
+  },
   {
     site: 'ListViewSchema (objectql.zod.ts)',
     spec: SpecListViewSchema,

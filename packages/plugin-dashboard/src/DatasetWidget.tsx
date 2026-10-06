@@ -95,6 +95,7 @@ import { resolveFilterPlaceholders, computeMetricDelta } from './utils';
 import { metricAccentTextClass } from './colorVariants';
 import { DrillDownDrawer } from './DrillDownDrawer';
 import { specDefaultWidgetType } from './widgetDispatch';
+import { DASHBOARD_WIDGET_MULTI_MEASURE_TYPES } from '@objectstack/spec/ui';
 
 type Row = Record<string, unknown>;
 // One RESULT-side totals grouping (the response's `totals[]`), named apart from
@@ -388,29 +389,30 @@ const METRIC_TYPES = new Set(['metric', 'kpi', 'gauge', 'solid-gauge', 'bullet']
  * The chart families that draw a DIMENSIONLESS widget's measures: one mark per
  * measure, the measures' labels on the category axis (objectui#11261).
  *
- * The four families the spec names, read off the family a widget renders AS
- * (`CHART_TYPE_MAP`). The metric-family arity refusal and its ADR-0087 entry
- * (`dashboard-widget-metric-family-multi-measure-refused`) send an author who
- * wants several numbers in one widget here: "`type: 'table'` renders a row of
- * measures, and the chart families (`bar` / `line` / `area` / `combo`) render
- * one mark per measure". `table` / `pivot` are that sentence's other half
- * (`isTable`).
+ * The spec's own list, imported, never restated (objectui#11334 placement
+ * ruling 5925828806): `DASHBOARD_WIDGET_MULTI_MEASURE_TYPES` is the one list of
+ * the types that render several measures with no dimension — `table` / `pivot`
+ * and the chart families `bar` / `column` / `horizontal-bar` / `line` / `area` /
+ * `combo` — and the spec's chart measure-arity check refuses two or more
+ * measures on a dimensionless widget of any other type. It is read here off the
+ * family a widget renders AS (`CHART_TYPE_MAP`), so a `stacked-bar` draws as a
+ * `bar` does; `table` / `pivot` are no `CHART_TYPE_MAP` family, and take
+ * `isTable` instead.
  *
  * `column` and `horizontal-bar` are the `bar` family drawn in another
- * orientation, so the same sentence covers them and nothing is invented by
- * drawing them (objectui#8894, triage's answer on the card): `column` draws
- * the measures' labels along the bottom as `bar` does, and `horizontal-bar`
- * runs them down the left with one bar across per measure. `CHART_TYPE_MAP`
- * keeps both under their own names, which is why they are listed here.
+ * orientation (objectui#8894, triage's answer on the card): `column` draws the
+ * measures' labels along the bottom as `bar` does, and `horizontal-bar` runs
+ * them down the left with one bar across per measure.
  *
- * The spec's text names no other family, so a dimensionless one (pie, donut,
- * funnel, scatter, radar, treemap, sankey) keeps the tile it always rendered:
- * its display semantics for several measures are not invented here, and the
- * spec is to refuse that shape at its door instead (objectstack#20958). Until
- * that refusal is installed, the tile says which measures it drops (see
- * `renderedMeasures` in the component).
+ * A dimensionless widget of any other family (pie, donut, funnel, scatter,
+ * radar, treemap, sankey) keeps the tile it always rendered: its display
+ * semantics for several measures are not invented here, and since
+ * `@objectstack/spec` 17.7.0 the spec refuses that shape at its door, which
+ * objectui's door follows (objectui#11717). A stored widget from before that
+ * refusal still says which measures it drops (see `renderedMeasures` in the
+ * component).
  */
-const MEASURE_AXIS_CHART_FAMILIES = new Set(['bar', 'column', 'horizontal-bar', 'line', 'area', 'combo']);
+const MEASURE_AXIS_CHART_FAMILIES: ReadonlySet<string> = new Set(DASHBOARD_WIDGET_MULTI_MEASURE_TYPES);
 
 /**
  * The chart families that draw ONE series, whatever the widget declares
@@ -437,9 +439,10 @@ const MEASURE_AXIS_CHART_FAMILIES = new Set(['bar', 'column', 'horizontal-bar', 
  * change the drawn chart or this set names its family.
  *
  * Triage's ruling on objectui#11417 is that the spec refuses two or more
- * measures on these five types with a dimension too (objectstack#21293). Until
- * that refusal reaches objectui, every door accepts the shape, and the
- * dropped-measure diagnostic below is what says so.
+ * measures on these five types with a dimension too (objectstack#21293). Since
+ * `@objectstack/spec` 17.7.0 the spec's door and objectui's refuse the shape
+ * (objectui#11717); for a widget stored before that, the dropped-measure
+ * diagnostic below is what says so.
  */
 const SINGLE_SERIES_CHART_FAMILIES = new Set(['pie', 'donut', 'funnel', 'treemap', 'sankey']);
 

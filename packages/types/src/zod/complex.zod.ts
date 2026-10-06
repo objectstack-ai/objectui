@@ -20,6 +20,7 @@ import { z } from 'zod';
 import { aliasKeyRefusal, handlerKeyRefusal, retiredNodeType, retirementTombstone } from './tombstone.zod.js';
 import {
   ChartTypeSchema as SpecChartTypeSchema,
+  checkDashboardWidgetChartMeasureArity,
   checkDashboardWidgetMetricMeasureArity,
   checkDashboardWidgetStageOrder,
   DashboardSchema as SpecDashboardSchema,
@@ -1510,18 +1511,29 @@ export const DashboardWidgetSchema = specFieldsExcept(stripImportedDefaults(Spec
   // ⭐ THE SPEC'S OBJECT-LEVEL CHECKS, re-attached (objectui#7715, ruling B1; objectui#11073).
   //
   // `specFieldsExcept` rebuilds a fresh object from the spec's `.shape`, so it drops
-  // every check the spec attached to the OBJECT. `@objectstack/spec` 17.5.0 attaches two
-  // to `DashboardWidgetSchema` and exports both by name, so the one the spec runs is
-  // attached here instead of restated. Both are ATTACHABLE: each reads only `type`,
-  // `options.stageOrder` / `values` and `id`, and on this node those are the spec's own
-  // fields (`type` adds objectui's closed `list` / `custom` extensions, which the spec's
-  // checks judge as the non-funnel, non-metric types they are; an absent `type` resolves
-  // to the spec's default inside the check, as on the spec). This is objectui#9111's
-  // criterion: a non-funnel widget carrying `options.stageOrder` is refused here as the
-  // server refuses it. `__tests__/spec-object-refinements-7715.test.ts` re-derives the
-  // split from the spec object's own check count.
+  // every check the spec attached to the OBJECT. The spec attaches three to
+  // `DashboardWidgetSchema` and exports each by name, so the one the spec runs is
+  // attached here instead of restated. All three are ATTACHABLE: each reads only `type`,
+  // `options.stageOrder` / `dimensions` / `values` and `id`, and on this node those are
+  // the spec's own fields (`type` adds objectui's closed `list` / `custom` extensions,
+  // which the spec's checks judge as the non-funnel, non-metric, undeclared types they
+  // are; an absent `type` resolves to the spec's default inside the check, as on the
+  // spec). This is objectui#9111's criterion: a non-funnel widget carrying
+  // `options.stageOrder` is refused here as the server refuses it.
+  // `__tests__/spec-object-refinements-7715.test.ts` re-derives the split from the spec
+  // object's own check count.
+  //
+  // The third, `checkDashboardWidgetChartMeasureArity` (objectui#11334, objectui#11417),
+  // chained after the metric-family check as the spec orders them, so a metric-family
+  // widget keeps its one issue. Two arms: with no `dimensions`, two or more measures only
+  // on a type in `DASHBOARD_WIDGET_MULTI_MEASURE_TYPES`; on `pie` / `donut` / `funnel` /
+  // `treemap` / `sankey`, one measure whatever the dimension. A type outside the spec's
+  // `ChartTypeSchema` (objectui's `list` / `custom`) is not this check's to judge, by the
+  // check's own guard. Pinned on both doors by
+  // `__tests__/dashboard-widget-metric-measure-door-8894.test.ts`.
   .superRefine(checkDashboardWidgetStageOrder)
-  .superRefine(checkDashboardWidgetMetricMeasureArity);
+  .superRefine(checkDashboardWidgetMetricMeasureArity)
+  .superRefine(checkDashboardWidgetChartMeasureArity);
 
 /**
  * Global Filter Schema — a dashboard-level filter definition: `@objectstack/spec/ui`'s

@@ -211,13 +211,17 @@ describe('objectui#8894 — the dropped measures speak', () => {
     expect(measureWarning()).toBeDefined();
   });
 
-  it('SUBJECT (triage pin): a dimensionless pie with two measures warns and names the dropped one', async () => {
+  it('SUBJECT (triage pin): a STORED dimensionless pie with two measures warns and names the dropped one', async () => {
     // A widget that declares no dimension renders as a tile on a type the
     // spec's text gives no dimensionless rendering of, and drops the same
-    // measures. Every door accepts this document today, so the diagnostic is
-    // the only thing that speaks until the spec refuses the shape.
+    // measures. Since `@objectstack/spec` 17.7.0 the spec refuses the shape and
+    // objectui's door follows it (`checkDashboardWidgetChartMeasureArity`,
+    // objectui#11717), so — as for the stored metric below — it reaches the
+    // renderer only as a row stored before that narrowing, and the diagnostic
+    // is what speaks at the dashboard. This line asserted the acceptance until
+    // the mirror attached; it flipped on purpose.
     const doc = { id: 'bare_pie', type: 'pie', dataset: 'sales', values: ['revenue', 'cost'] };
-    expect(DashboardWidgetSchema.safeParse(doc).success, 'the door accepts it — the diagnostic is the only voice').toBe(true);
+    expect(DashboardWidgetSchema.safeParse(doc).success, 'the door refuses it — only a stored row reaches the renderer').toBe(false);
     await renderTile(doc, [{ revenue: 510000, cost: 120000 }], '510000');
     const msg = measureWarning();
     expect(msg).toContain('renders 1 of its 2 declared measures: "revenue".');

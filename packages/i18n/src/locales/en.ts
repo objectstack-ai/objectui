@@ -3985,7 +3985,7 @@ const en = {
       load: {
         failed: 'Failed to load marketplace',
         failedHintConfigured: 'This runtime reaches the marketplace through the control plane at {{url}}. Check that it is online and reachable from here.',
-        failedHintSameOrigin: 'This runtime serves the marketplace catalog itself. Check that the runtime is online.',
+        failedHintSameOrigin: 'The marketplace catalog is reached through this runtime. Check that the runtime is online and can reach the catalog.',
         packageFailed: 'Failed to load package',
         notFound: 'Not found.',
       },

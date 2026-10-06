@@ -3450,7 +3450,7 @@ const pt = {
     load: {
       failed: "Não foi possível carregar o marketplace",
       failedHintConfigured: "Este runtime acessa o marketplace através do plano de controle em {{url}}. Verifique se ele está online e acessível a partir daqui.",
-      failedHintSameOrigin: "Este runtime serve o catálogo do marketplace por conta própria. Verifique se o runtime está online.",
+      failedHintSameOrigin: "O catálogo do marketplace é acessado através deste runtime. Verifique se o runtime está online e consegue acessar o catálogo.",
       packageFailed: "Não foi possível carregar o pacote",
       notFound: "Não encontrado.",
     },

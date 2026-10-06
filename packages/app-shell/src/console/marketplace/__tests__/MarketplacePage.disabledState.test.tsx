@@ -28,6 +28,10 @@
  *     offline arm mounts runtime-config with `controlPlaneUrl: ''`, and the
  *     browse mount is absent, so the derived flag is false)
  *   - `OS_CLOUD_URL` unset -> `{ cloudUrl: 'https://cloud.objectos.ai', marketplace: true }`
+ *     from a host whose `RuntimeConfigPlugin` resolves its URL, but
+ *     `{ cloudUrl: '', marketplace: true }` from the CLI's cloud-connected
+ *     arm, whose runtime-config is mounted with `controlPlaneUrl: ''` while
+ *     its proxy forwards to that default plane (objectui#11726)
  *   - self-hosted plane    -> `{ cloudUrl: '<their URL>', marketplace: true }`
  *
  * ## The inversion this file exists to prevent
@@ -193,10 +197,13 @@ describe('a runtime whose control plane is merely DOWN — the inversion guard',
     );
   });
 
-  it('says so plainly when the runtime hosts the catalog itself', async () => {
-    // `cloudUrl: ''` with the browse surface mounted is the control plane
-    // serving `/api/v1/marketplace/*` natively — same origin, no upstream to
-    // name, and nothing for the operator to point anywhere.
+  it('names no plane when the runtime names none (`cloudUrl: ""`)', async () => {
+    // `cloudUrl: ''` with the browse surface mounted says only that requests
+    // stay on this origin. That is the control plane serving
+    // `/api/v1/marketplace/*` natively, and it is equally the CLI's
+    // cloud-connected arm proxying a plane it does not name (objectui#11726),
+    // so the same-origin hint claims neither. Its wording is pinned with the
+    // real packs in `MarketplacePage.sameOriginHint-11726.test.tsx`.
     await bootOn(serverConfig('', true));
     listMarketplacePackages.mockImplementation(CATALOG_404);
 

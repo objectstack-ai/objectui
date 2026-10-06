@@ -3390,7 +3390,7 @@ const ko = {
     load: {
       failed: "마켓플레이스를 로드할 수 없습니다",
       failedHintConfigured: "이 런타임은 {{url}} 의 컨트롤 플레인을 통해 마켓플레이스에 접속합니다. 해당 주소가 온라인이고 여기에서 접근 가능한지 확인하세요.",
-      failedHintSameOrigin: "이 런타임이 마켓플레이스 카탈로그를 직접 제공합니다. 런타임이 온라인인지 확인하세요.",
+      failedHintSameOrigin: "마켓플레이스 카탈로그는 이 런타임을 통해 접근합니다. 런타임이 온라인이고 카탈로그에 접근할 수 있는지 확인하세요.",
       packageFailed: "패키지를 로드할 수 없습니다",
       notFound: "찾을 수 없습니다.",
     },

@@ -3531,7 +3531,7 @@ const zh = {
       load: {
         failed: '应用市场加载失败',
         failedHintConfigured: '本运行时通过 {{url}} 上的控制面访问应用市场。请检查该地址是否在线、能否从本运行时访问。',
-        failedHintSameOrigin: '本运行时自己提供应用市场目录。请检查运行时是否在线。',
+        failedHintSameOrigin: '应用市场目录通过本运行时访问。请检查运行时是否在线、能否访问该目录。',
         packageFailed: '应用加载失败',
         notFound: '未找到。',
       },

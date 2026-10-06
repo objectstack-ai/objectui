@@ -41,6 +41,7 @@ import { builtInLocales } from '@object-ui/i18n/locales';
 import { AuthProvider, createAuthClient } from '@object-ui/auth';
 import type { AuthPublicConfig } from '@object-ui/auth';
 import { AUDIENCE_POSTURES, audiencePermitsSelfRegistration } from '@objectstack/spec/system';
+import type { AudiencePosture } from '@objectstack/spec/system';
 import { LoginPage } from '../LoginPage';
 import { RegisterPage } from '../RegisterPage';
 import {
@@ -59,17 +60,23 @@ const SELF_REGISTRATION_CLOSED_TEXT = builtInLocales.en.auth.register.errors.sel
 /** The dev-seeded admin hint is set by the SAME config read as the sign-up offer. */
 const DEV_SEED = { devSeedAdmin: { email: 'admin@objectos.ai', password: 'admin123' } };
 
-const OPEN_SIGN_UP = { enabled: true, disableSignUp: false, requireEmailVerification: false };
+type EmailPassword = NonNullable<AuthPublicConfig['emailPassword']>;
+const OPEN_SIGN_UP: EmailPassword = { enabled: true, disableSignUp: false, requireEmailVerification: false };
 
+/**
+ * The config as the server sends it. `posture` is a plain string because the
+ * cases include values OUTSIDE the spec vocabulary — what a newer server could
+ * send — so the one cast below is the wire, not a shortcut.
+ */
 function configFor(
   posture: string | undefined,
-  emailPassword: Record<string, unknown> = OPEN_SIGN_UP,
-): AuthPublicConfig {
+  emailPassword: EmailPassword = OPEN_SIGN_UP,
+): AuthPublicConfig & typeof DEV_SEED {
   return {
     ...DEV_SEED,
     emailPassword,
-    features: posture === undefined ? {} : { audiencePosture: posture },
-  } as AuthPublicConfig;
+    features: posture === undefined ? {} : { audiencePosture: posture as AudiencePosture },
+  };
 }
 
 interface Wire {
@@ -312,7 +319,7 @@ describe('RegisterPage — explains invitation-only registration before the form
   it('with disableSignUp: true, bounces an invitation redirect to /login as before', async () => {
     renderAt(`/register${INVITE_QUERY}`, configFor('invite_only', { enabled: true, disableSignUp: true }));
 
-    await waitFor(() => expect(seen.at(-1)).toBe(`/login${INVITE_QUERY}`));
+    await waitFor(() => expect(seen[seen.length - 1]).toBe(`/login${INVITE_QUERY}`));
     expect(screen.queryByRole('button', { name: 'Create Account' })).toBeNull();
     expect(screen.queryByTestId('register-by-invitation')).toBeNull();
   });

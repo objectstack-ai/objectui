@@ -35,6 +35,7 @@ import { useObjectTranslation } from '@object-ui/i18n';
 import { resolveKeyedI18nLabel, getRecordDisplayName, appRouteSegment } from '../utils/index.js';
 import { getIcon } from '../utils/getIcon.js';
 import { useRecentItems } from '../context/RecentItemsProvider.js';
+import { useRecentItemLabel } from '../hooks/useRecentItemLabel.js';
 import { useCommandPalette } from '../context/CommandPaletteProvider.js';
 import { resolveHref, resolveNavItemLabel } from '@object-ui/layout';
 import type { NavigationItem } from '@object-ui/types';
@@ -125,6 +126,9 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
   // user types anything. Filtered down to record-type entries so we
   // don't double up with the per-app nav above.
   const { recentItems } = useRecentItems();
+  // The one way a recent entry is labelled (objectui#11678); for a record it
+  // is the title the entry was visited under.
+  const recentLabel = useRecentItemLabel();
   const recentRecords = useMemo(
     () => recentItems.filter((it) => it.type === 'record').slice(0, 5),
     [recentItems],
@@ -215,11 +219,11 @@ export function CommandPalette({ apps, activeApp, objects, onAppChange, dataSour
             {recentRecords.map((item) => (
               <CommandItem
                 key={`recent:${item.id}`}
-                value={`recent ${item.label} ${item.id}`}
+                value={`recent ${recentLabel(item)} ${item.id}`}
                 onSelect={() => runCommand(() => navigate(item.href))}
               >
                 <Search className="mr-2 h-4 w-4" />
-                <span className="truncate">{item.label}</span>
+                <span className="truncate">{recentLabel(item)}</span>
               </CommandItem>
             ))}
           </CommandGroup>

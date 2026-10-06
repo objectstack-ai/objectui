@@ -19,8 +19,16 @@
  *   /apps/:appName/metadata/:type/:name
  *   /apps/:appName/metadata/:type/:name/history
  *
- * Pass `objects` (the list available in the current app) so we can resolve
- * a human-readable label for object routes.
+ * Pass `objects` (the list available in the current app) so only an object
+ * the app has is recorded.
+ *
+ * An object, dashboard, page or report is recorded by IDENTITY — its type and
+ * its `name` — and with no label (objectui#11678). The route holds nothing but
+ * the machine name, so a label made here could only be that name dressed up
+ * (`titleize` used to turn `showcase_ops_dashboard` into "Showcase Ops
+ * Dashboard" for a dashboard labelled "Delivery Operations"), frozen in the
+ * visit's language. The label is resolved where the entry is rendered, from the
+ * item's metadata in the current language: `useRecentItemLabel`.
  *
  * @module
  */
@@ -29,14 +37,14 @@ import { useRecentItems } from '../context/RecentItemsProvider.js';
 import type { ObjectLike as SpecObjectLike } from '@objectstack/spec/system';
 
 /**
- * The two members this hook reads off an object in the current app, TAKEN from
+ * The two members this hook's callers hand it for an object, TAKEN from
  * `@objectstack/spec/system`'s `ObjectLike` rather than restated under its name
  * (objectui#7265).
  *
  * That export is the spec's own minimal projection of an object metadata
  * document — the one `translateObject` consumes — and `name` / `label` mean
  * exactly what they mean here: the object's identifier and its display label.
- * This hook needs no more than those two, so it PICKS them; the alternative,
+ * This hook takes no more than those two, so it PICKS them; the alternative,
  * importing the whole shape, would drag in `fields` / `actions` / `pluralLabel`
  * that no caller of this hook supplies and this hook never reads.
  *
@@ -44,6 +52,10 @@ import type { ObjectLike as SpecObjectLike } from '@objectstack/spec/system';
  * members wide, and it stops compiling the day the spec renames or retires
  * either one — which a hand-written `{ name: string; label?: string }` never
  * would. Pinned in `spec-symbol-parity.test.ts`.
+ *
+ * Since objectui#11678 the hook reads `name` only: an object is recorded by
+ * identity and labelled when rendered. `label` stays on the projection so the
+ * published options type does not move under its callers.
  */
 type ObjectLike = Pick<SpecObjectLike, 'name' | 'label'>;
 
@@ -52,7 +64,7 @@ export interface UseTrackRouteAsRecentOptions {
   pathname: string;
   /** Currently selected app name. Used to build the `href` and namespace. */
   appName: string | undefined;
-  /** Objects available in the current app — used to resolve labels. */
+  /** Objects available in the current app — an object route is recorded only for one of these. */
   objects?: ObjectLike[];
   /** Optional override; defaults to `/apps`. */
   basePathSegment?: string;
@@ -62,10 +74,6 @@ export interface UseTrackRouteAsRecentOptions {
 
 /** Segments after `appName` that are NOT object names but route prefixes. */
 const ROUTE_PREFIXES = new Set(['view', 'record', 'page', 'dashboard', 'design', 'report']);
-
-function titleize(slug: string): string {
-  return slug.replace(/[-_]/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-}
 
 /** Decode a URL path segment, falling back to the raw value on malformed input. */
 function safeDecode(value: string): string {
@@ -128,9 +136,9 @@ export function useTrackRouteAsRecent({
       if (obj) {
         addRecentItem({
           id: `object:${obj.name}`,
-          label: obj.label || obj.name,
-          href: `${basePath}/${obj.name}`,
           type: 'object',
+          name: obj.name,
+          href: `${basePath}/${obj.name}`,
         });
       }
       return;
@@ -140,29 +148,17 @@ export function useTrackRouteAsRecent({
 
     switch (seg2) {
       case 'dashboard':
-        addRecentItem({
-          id: `dashboard:${seg3}`,
-          label: titleize(seg3),
-          href: `${basePath}/dashboard/${seg3}`,
-          type: 'dashboard',
-        });
-        break;
       case 'page':
+      case 'report': {
+        const name = safeDecode(seg3);
         addRecentItem({
-          id: `page:${seg3}`,
-          label: titleize(seg3),
-          href: `${basePath}/page/${seg3}`,
-          type: 'page',
+          id: `${seg2}:${name}`,
+          type: seg2,
+          name,
+          href: `${basePath}/${seg2}/${seg3}`,
         });
         break;
-      case 'report':
-        addRecentItem({
-          id: `report:${seg3}`,
-          label: titleize(seg3),
-          href: `${basePath}/report/${seg3}`,
-          type: 'report',
-        });
-        break;
+      }
       default:
         break;
     }

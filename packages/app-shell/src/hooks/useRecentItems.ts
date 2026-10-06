@@ -11,4 +11,13 @@
  * @module
  */
 
-export { useRecentItems, type RecentItem } from '../context/RecentItemsProvider.js';
+export {
+  useRecentItems,
+  type RecentItem,
+  type RecentItemInput,
+  type RecentNamedItem,
+  type RecentTextItem,
+} from '../context/RecentItemsProvider.js';
+// An object / dashboard / page / report entry stores no label; this is how a
+// surface that renders one asks for it (objectui#11678).
+export { useRecentItemLabel, type RecentItemLabelResolver } from './useRecentItemLabel.js';

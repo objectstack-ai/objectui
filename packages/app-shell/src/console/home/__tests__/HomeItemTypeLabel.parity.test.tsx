@@ -98,15 +98,21 @@ function typeLabelOf(node: HTMLElement, itemLabel: string): string {
 }
 
 function renderAllThree(kind: string) {
-  const recent: RecentItem[] = [
+  // A synthetic kind is no member of the `RecentItem` union, so the entry is
+  // cast. It carries BOTH `name` (what a named kind — `report` here — is
+  // labelled from when no metadata is loaded) and `label` (what any other kind
+  // shows), so every surface renders ITEM_LABEL whichever arm the kind falls in
+  // (objectui#11678).
+  const recent = [
     {
       id: 'r1',
+      name: ITEM_LABEL,
       label: ITEM_LABEL,
       href: '/x',
-      type: kind as RecentItem['type'],
+      type: kind,
       visitedAt: new Date().toISOString(),
     },
-  ];
+  ] as unknown as RecentItem[];
   const favorites: FavoriteItem[] = [
     {
       id: 'f1',

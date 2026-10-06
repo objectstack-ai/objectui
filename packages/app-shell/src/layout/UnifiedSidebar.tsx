@@ -45,6 +45,7 @@ import { useExpressionContext, evaluateVisibility } from '../providers/Expressio
 import { usePermissions } from '@object-ui/permissions';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useRecentItems } from '../hooks/useRecentItems.js';
+import { useRecentItemLabel } from '../hooks/useRecentItemLabel.js';
 import { useFavorites } from '../hooks/useFavorites.js';
 import { useNavPins } from '../hooks/useNavPins.js';
 import { useNavActionDispatch } from '../hooks/useNavActionDispatch.js';
@@ -279,6 +280,9 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
   }, [isMobile, setOpenMobile]);
 
   const { recentItems } = useRecentItems();
+  // A recent entry's text is the item's own, resolved on this render
+  // (objectui#11678); the entry stores identity only.
+  const recentLabel = useRecentItemLabel();
   const { favorites, removeFavorite } = useFavorites();
 
   const { apps: metadataApps, objects: metadataObjects } = useMetadata();
@@ -691,12 +695,12 @@ export function UnifiedSidebar({ activeAppName }: UnifiedSidebarProps) {
                  <SidebarMenu>
                    {recentItems.slice(0, 5).map(item => (
                      <SidebarMenuItem key={item.id}>
-                       <SidebarMenuButton asChild tooltip={item.label}>
+                       <SidebarMenuButton asChild tooltip={recentLabel(item)}>
                          <Link to={item.href}>
                            <span className="text-muted-foreground">
                              {item.type === 'dashboard' ? '📊' : item.type === 'report' ? '📈' : '📄'}
                            </span>
-                           <span className="truncate">{item.label}</span>
+                           <span className="truncate">{recentLabel(item)}</span>
                          </Link>
                        </SidebarMenuButton>
                      </SidebarMenuItem>

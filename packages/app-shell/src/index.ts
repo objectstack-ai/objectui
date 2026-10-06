@@ -45,7 +45,7 @@ export {
   installSettleSignalGlobal,
   type ObjectUiGlobal,
 } from './observability/settleSignal.js';
-export { useRecentItems } from './hooks/useRecentItems.js';
+export { useRecentItems, useRecentItemLabel } from './hooks/useRecentItems.js';
 
 // Types
 export type {
@@ -64,6 +64,10 @@ export type {
 
 export type {
   RecentItem,
+  RecentItemInput,
+  RecentNamedItem,
+  RecentTextItem,
+  RecentItemLabelResolver,
 } from './hooks/useRecentItems.js';
 
 // Console building blocks — compose these in your App.tsx to build the console

@@ -20,6 +20,7 @@ import { useDisplayLocale } from '@object-ui/i18n';
 import type { ActivityItem } from '../../layout/ActivityFeed.js';
 import type { HomeInboxStatus, HomeNotification } from '../../hooks/useHomeInbox.js';
 import type { RecentItem } from '../../hooks/useRecentItems.js';
+import { useRecentItemLabel } from '../../hooks/useRecentItemLabel.js';
 import { recentItemTypeLabel } from './recentItemTypeLabel.js';
 import { timeAgo } from '../../utils/relativeTime.js';
 
@@ -237,6 +238,9 @@ const RECENT_TONE: Record<string, string> = {
 };
 
 export function HomeContinue({ items, onOpen, t }: { items: RecentItem[]; onOpen: (href: string) => void; t: TFn }) {
+  // Resolved on this render, in the current language — the entry stores
+  // identity, not text (objectui#11678).
+  const recentLabel = useRecentItemLabel();
   return (
     <Card icon={Clock} title={t('home.recentApps.title', { defaultValue: 'Recently Accessed' })}>
       {items.length === 0 ? (
@@ -250,7 +254,7 @@ export function HomeContinue({ items, onOpen, t }: { items: RecentItem[]; onOpen
               key={it.id}
               icon={RECENT_ICON[it.type] || FileText}
               iconClass={RECENT_TONE[it.type] || 'bg-muted text-muted-foreground'}
-              label={it.label}
+              label={recentLabel(it)}
               meta={recentItemTypeLabel(t, it.type)}
               onClick={() => onOpen(it.href)}
             />

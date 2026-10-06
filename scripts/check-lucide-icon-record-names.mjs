@@ -302,8 +302,6 @@ export const DECLARED_RECORD_READERS = [
 ];
 
 export const DECLARED_DYNAMIC_READERS = [
-  'apps/console/src/utils/getIcon.ts',
-  'packages/app-shell/src/utils/getIcon.ts',
   'packages/app-shell/src/views/metadata-admin/widgets.tsx',
   'packages/components/src/lib/lazy-icon.tsx',
 ];

@@ -2734,6 +2734,8 @@ const ru = {
     greetingAfternoon: "Добрый день",
     greetingEvening: "Добрый вечер",
     greetingNight: "Ночная смена",
+    greetingSeparator: ", ",
+    greetingEnd: ".",
     heroTagline: "Продолжите с того места, где остановились, или откройте что-то новое.",
     open: "Открыть",
     recentApps: {

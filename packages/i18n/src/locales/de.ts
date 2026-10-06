@@ -2619,6 +2619,8 @@ const de = {
     greetingAfternoon: "Guten Nachmittag",
     greetingEvening: "Guten Abend",
     greetingNight: "Nachtschicht",
+    greetingSeparator: ", ",
+    greetingEnd: ".",
     heroTagline: "Machen Sie dort weiter, wo Sie aufgehört haben, oder entdecken Sie etwas Neues.",
     open: "Öffnen",
     recentApps: {

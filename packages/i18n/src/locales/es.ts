@@ -2670,6 +2670,8 @@ const es = {
     greetingAfternoon: "Buenas tardes",
     greetingEvening: "Buenas noches",
     greetingNight: "Turno de noche",
+    greetingSeparator: ", ",
+    greetingEnd: ".",
     heroTagline: "Continúe donde lo dejó o descubra algo nuevo.",
     open: "Abrir",
     recentApps: {

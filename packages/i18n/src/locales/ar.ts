@@ -2827,6 +2827,8 @@ const ar = {
     greetingAfternoon: "مساء الخير",
     greetingEvening: "مساء النور",
     greetingNight: "وردية الليل",
+    greetingSeparator: "، ",
+    greetingEnd: ".",
     heroTagline: "استمر من حيث توقفت أو اكتشف شيئاً جديداً.",
     open: "فتح",
     recentApps: {

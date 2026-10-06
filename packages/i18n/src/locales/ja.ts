@@ -2621,6 +2621,8 @@ const ja = {
     greetingAfternoon: "こんにちは",
     greetingEvening: "こんばんは",
     greetingNight: "夜遅くまで作業中",
+    greetingSeparator: "、",
+    greetingEnd: "。",
     heroTagline: "前回の続きを始めるか、新しいものを探索してください。",
     open: "開く",
     recentApps: {

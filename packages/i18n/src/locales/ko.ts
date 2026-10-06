@@ -2618,6 +2618,8 @@ const ko = {
     greetingAfternoon: "좋은 오후에요",
     greetingEvening: "좋은 저녁이에요",
     greetingNight: "야간 작업 중",
+    greetingSeparator: ", ",
+    greetingEnd: ".",
     heroTagline: "마지막으로 중단한 곳에서 이어서 하거나 새로운 것을 발견해 보세요.",
     open: "열기",
     recentApps: {

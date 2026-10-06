@@ -2665,6 +2665,8 @@ const pt = {
     greetingAfternoon: "Boa tarde",
     greetingEvening: "Boa noite",
     greetingNight: "Turno da noite",
+    greetingSeparator: ", ",
+    greetingEnd: ".",
     heroTagline: "Continue de onde parou ou descubra algo novo.",
     open: "Abrir",
     recentApps: {

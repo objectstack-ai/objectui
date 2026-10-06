@@ -2654,6 +2654,8 @@ const zh = {
     greetingAfternoon: '下午好',
     greetingEvening: '晚上好',
     greetingNight: '夜深了',
+    greetingSeparator: '，',
+    greetingEnd: '。',
     heroTagline: '从上次离开的地方继续，或者探索新的内容。',
     build: {
       title: '构建应用',

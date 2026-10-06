@@ -3042,6 +3042,12 @@ const en = {
     greetingAfternoon: 'Good afternoon',
     greetingEvening: 'Good evening',
     greetingNight: 'Working late',
+    // objectui#11689 — the greeting's two joiners: the separator between the
+    // greeting and the person's name (rendered only when there is a name), and
+    // the closing mark. Punctuation is a locale property: zh-CN and ja write
+    // full-width marks, ar its own comma.
+    greetingSeparator: ', ',
+    greetingEnd: '.',
     heroTagline: 'Pick up where you left off, or explore something new.',
     build: {
       title: 'Build an app',

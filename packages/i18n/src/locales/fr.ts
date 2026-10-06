@@ -2667,6 +2667,8 @@ const fr = {
     greetingAfternoon: "Bon après-midi",
     greetingEvening: "Bonsoir",
     greetingNight: "Travail de nuit",
+    greetingSeparator: ", ",
+    greetingEnd: ".",
     heroTagline: "Reprenez là où vous vous êtes arrêté ou découvrez quelque chose de nouveau.",
     open: "Ouvrir",
     recentApps: {

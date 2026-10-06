@@ -337,11 +337,19 @@ describe('the spec-row arms read the row by reference (objectui#10859)', () => {
     // transcribed list that could drift from it.
     expect(keysOf(bag)).toEqual(keysOf(row));
     expect(keysOf(bag).length).toBeGreaterThan(5);
-    // Neither row carries a spec default, so the import boundary hands the
-    // spec's own export back untouched; the bag is what that export resolves
-    // to (the spec exports each row behind a lazy facade), and it answers
-    // every probe exactly as the spec does.
-    expect(stripImportedDefaults(row)).toBe(row);
+    // Since `@objectstack/spec` 17.7.0 each row reaches a spec default (the
+    // `object-metric` row through `drillDown.report`, the spec's report
+    // definition; the `object-master-detail-form` row through the page-block
+    // section shape its `sections[].fields[]` take), so the import boundary
+    // hands back its stripped derivation, not the spec's own export
+    // (objectui#8317; re-measured at the bump, objectui#11717). Through 17.6.0
+    // neither row carried one, and this line asserted the spec's export came
+    // back untouched. The bag IS that derivation, memoised to one crossing, and
+    // it answers every probe exactly as the spec does.
+    const crossed = stripImportedDefaults(row);
+    expect(crossed).not.toBe(row);
+    expect(stripImportedDefaults(row)).toBe(crossed);
+    expect(bag).toBe(crossed);
     for (const probe of [{}, { objectName: 'order' }, { inventedKey10859: 1 }, { objectName: 7 }]) {
       expect(bag.safeParse(probe).success, JSON.stringify(probe)).toBe(row.safeParse(probe).success);
     }

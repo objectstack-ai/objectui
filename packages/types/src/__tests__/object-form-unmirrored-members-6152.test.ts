@@ -79,9 +79,19 @@ const ROWS: ReadonlyArray<{ key: string; valid: unknown; wrong: unknown }> = [
   { key: 'formType', valid: 'wizard', wrong: 'carousel' },
   {
     key: 'sections',
+    // `visibleWhen` rides the STANDALONE section: since `@objectstack/spec` 17.7.0
+    // a group-referencing section takes its presentation from the object's
+    // `fieldGroups` entry and refuses `visibleWhen` beside `group`
+    // (objectui#11717 re-judged this fixture; it wrote the pair together).
     valid: [
-      { name: 'basics', label: 'Basics', columns: 2, fields: ['name', { name: 'email', type: 'email' }] },
-      { group: 'contact_info', pane: 'secondary', visibleWhen: { dialect: 'cel', source: 'record.kind == "b2b"' } },
+      {
+        name: 'basics',
+        label: 'Basics',
+        columns: 2,
+        fields: ['name', { name: 'email', type: 'email' }],
+        visibleWhen: { dialect: 'cel', source: 'record.kind == "b2b"' },
+      },
+      { group: 'contact_info', pane: 'secondary' },
     ],
     wrong: 'basics',
   },

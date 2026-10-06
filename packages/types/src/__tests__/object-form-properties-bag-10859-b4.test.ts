@@ -269,11 +269,17 @@ describe('the bag is judged by the spec row (objectui#10859 batch 4)', () => {
     const keysOf = (schema: unknown) => Object.keys((schema as { shape: Record<string, unknown> }).shape).sort();
     // The same members, read off the installed spec on every run.
     expect(keysOf(bag)).toEqual(keysOf(SpecObjectFormPropsSchema));
-    // The row carries no spec default, so the import boundary hands the spec's
-    // own export back untouched (objectui#8317: a no-op on a clean subtree);
-    // the bag is what that export resolves to — the spec exports each row
-    // behind a lazy facade — and it answers every probe exactly as the spec does.
-    expect(stripImportedDefaults(SpecObjectFormPropsSchema)).toBe(SpecObjectFormPropsSchema);
+    // Since `@objectstack/spec` 17.7.0 the row reaches a spec default — its
+    // `sections[].fields[]` take the page-block section shape, which carries
+    // one — so the import boundary hands back its stripped derivation, not the
+    // spec's own export (objectui#8317; re-measured at the bump, objectui#11717).
+    // Through 17.6.0 the row carried none, and this line asserted the spec's
+    // export came back untouched. The bag IS that derivation, memoised to one
+    // crossing, and it answers every probe exactly as the spec does.
+    const crossed = stripImportedDefaults(SpecObjectFormPropsSchema);
+    expect(crossed).not.toBe(SpecObjectFormPropsSchema);
+    expect(stripImportedDefaults(SpecObjectFormPropsSchema)).toBe(crossed);
+    expect(bag).toBe(crossed);
     for (const probe of [
       {},
       { objectName: 'order', mode: 'create' },

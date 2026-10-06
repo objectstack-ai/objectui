@@ -31,7 +31,7 @@
  */
 
 import type { ReactElement } from 'react';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
 import { render, screen, cleanup, act } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { I18nProvider } from '@object-ui/i18n';
@@ -45,8 +45,8 @@ import { SettingsView } from '../SettingsView';
 const UNKNOWN_ICON = 'box-open';
 
 const fetchMock = vi.fn();
-let errorSpy: ReturnType<typeof vi.spyOn>;
-let warnSpy: ReturnType<typeof vi.spyOn>;
+let errorSpy: MockInstance<typeof console.error>;
+let warnSpy: MockInstance<typeof console.warn>;
 
 beforeEach(() => {
   fetchMock.mockReset();

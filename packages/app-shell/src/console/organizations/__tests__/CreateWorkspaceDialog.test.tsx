@@ -58,9 +58,9 @@ async function settleAuthConfig() {
   });
 }
 
-function fillAndSubmit(name = NEW_ORG.name, slug = NEW_ORG.slug) {
+/** The dialog asks for the name only (objectui#11659): there is no slug field to fill. */
+function fillAndSubmit(name = NEW_ORG.name) {
   fireEvent.change(screen.getByTestId('workspace-name-input'), { target: { value: name } });
-  fireEvent.change(screen.getByTestId('workspace-slug-input'), { target: { value: slug } });
   const form = screen.getByTestId('create-workspace-dialog').querySelector('form');
   fireEvent.submit(form as HTMLFormElement);
 }
@@ -118,5 +118,76 @@ describe('CreateWorkspaceDialog', () => {
     // Provision failure is swallowed — no user-facing error, the lazy gate covers it.
     expect(screen.queryByTestId('workspace-create-error')).toBeNull();
     warn.mockRestore();
+  });
+
+  // objectui#11659 ruling 2: the dialog asks for the name only. The slug is
+  // generated from the name, still sent with the create call, and stays
+  // editable in organization settings.
+  describe('asks for the name only (objectui#11659)', () => {
+    it('renders no slug field — the name is the only input', async () => {
+      render(<CreateWorkspaceDialog open onOpenChange={() => {}} />);
+      await settleAuthConfig();
+
+      const dialog = screen.getByTestId('create-workspace-dialog');
+      expect(screen.queryByTestId('workspace-slug-input')).toBeNull();
+      expect(dialog.querySelectorAll('input')).toHaveLength(1);
+      expect(screen.getByTestId('workspace-name-input')).toBeInTheDocument();
+    });
+
+    it('sends the slug generated from the name, and the submit gate is the name alone', async () => {
+      render(<CreateWorkspaceDialog open onOpenChange={() => {}} />);
+      await settleAuthConfig();
+
+      const submit = screen.getByTestId('workspace-create-submit');
+      expect(submit).toBeDisabled();
+      fireEvent.change(screen.getByTestId('workspace-name-input'), { target: { value: '博远贸易' } });
+      expect(submit).not.toBeDisabled();
+      fireEvent.submit(screen.getByTestId('create-workspace-dialog').querySelector('form') as HTMLFormElement);
+
+      await waitFor(() => expect(createOrganization).toHaveBeenCalledTimes(1));
+      const sent = createOrganization.mock.calls[0][0] as { name: string; slug: string };
+      expect(sent.name).toBe('博远贸易');
+      // A CJK name has no ASCII-sluggable characters: the deterministic fallback.
+      expect(sent.slug).toMatch(/^workspace-[0-9a-z]+$/);
+    });
+
+    it('retries a slug collision with a suffixed slug instead of showing an error the user cannot fix', async () => {
+      // A whole implementation, not a `…Once` queue: a queued value this case
+      // leaves unconsumed (when the retry is missing) would survive
+      // `vi.clearAllMocks()` and answer the next case's first call.
+      createOrganization.mockImplementation(async ({ slug }: { slug: string }) => {
+        if (slug === 'acme-inc') {
+          throw Object.assign(new Error('Organization already exists'), { code: 'ORGANIZATION_ALREADY_EXISTS' });
+        }
+        return NEW_ORG;
+      });
+      const onCreated = vi.fn();
+      render(<CreateWorkspaceDialog open onOpenChange={() => {}} onCreated={onCreated} />);
+      await settleAuthConfig();
+
+      fillAndSubmit();
+
+      await waitFor(() =>
+        expect(onCreated).toHaveBeenCalledWith(expect.objectContaining({ id: 'org-123' })),
+      );
+      expect(createOrganization).toHaveBeenCalledTimes(2);
+      expect(createOrganization.mock.calls[0][0]).toEqual({ name: 'Acme Inc', slug: 'acme-inc' });
+      expect((createOrganization.mock.calls[1][0] as { slug: string }).slug).toMatch(/^acme-inc-[0-9a-z]{4}$/);
+      expect(screen.queryByTestId('workspace-create-error')).toBeNull();
+    });
+
+    it('does not retry a refusal that is not a slug collision', async () => {
+      createOrganization.mockRejectedValue(
+        Object.assign(new Error('nope'), { code: 'YOU_ARE_NOT_ALLOWED_TO_CREATE_A_NEW_ORGANIZATION' }),
+      );
+      render(<CreateWorkspaceDialog open onOpenChange={() => {}} />);
+      await settleAuthConfig();
+
+      fillAndSubmit();
+
+      expect(await screen.findByTestId('workspace-create-error')).toBeInTheDocument();
+      expect(createOrganization).toHaveBeenCalledTimes(1);
+      expect(provisionMock).not.toHaveBeenCalled();
+    });
   });
 });

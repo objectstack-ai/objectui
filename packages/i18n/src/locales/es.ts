@@ -3149,9 +3149,9 @@ const es = {
   },
   cloudOnboarding: {
     hintCreate: "Cree su primer entorno: un espacio de trabajo privado con su propia URL, base de datos y plan. La creación de aplicaciones ocurre dentro de él.",
-    hintReady: "Su entorno de producción está listo. Ábralo para crear y ejecutar sus aplicaciones: todo ocurre dentro del entorno.",
+    hintReady: "Su espacio de trabajo está listo. Ábralo para crear y ejecutar sus aplicaciones: todo ocurre dentro de él.",
     createEnvironment: "Cree su entorno",
-    openProduction: "Abrir producción",
+    openWorkspace: "Abrir espacio de trabajo",
     manageEnvironments: "Gestionar entornos",
   },
   cloudPlanStatus: {

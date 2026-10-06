@@ -3089,9 +3089,9 @@ const ko = {
   },
   cloudOnboarding: {
     hintCreate: "첫 환경을 만들어 보세요. 고유한 URL과 데이터베이스, 요금제를 갖춘 전용 작업 공간이며 앱 구축은 그 안에서 이루어집니다.",
-    hintReady: "프로덕션 환경이 준비되었습니다. 열어서 앱을 만들고 실행하세요. 모두 환경 안에서 이루어집니다.",
+    hintReady: "워크스페이스가 준비되었습니다. 열어서 앱을 만들고 실행하세요. 모두 워크스페이스 안에서 이루어집니다.",
     createEnvironment: "환경 만들기",
-    openProduction: "프로덕션 열기",
+    openWorkspace: "워크스페이스 열기",
     manageEnvironments: "환경 관리",
   },
   cloudPlanStatus: {

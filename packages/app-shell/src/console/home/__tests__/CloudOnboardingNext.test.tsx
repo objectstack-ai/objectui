@@ -3,7 +3,7 @@
 /**
  * CloudOnboardingNext resolves `hasProductionEnv` from the entitlements summary
  * and shows the right primary next-step: "Create your environment" when the org
- * has none, "Open Production" once it does, and a graceful both-actions fallback
+ * has none, "Open workspace" once it does, and a graceful both-actions fallback
  * when the signal can't be resolved.
  */
 
@@ -32,9 +32,9 @@ import { CloudOnboardingNext } from '../CloudOnboardingNext';
  * these assertions would pass against nothing. Pinned to `en` with browser
  * detection off so the expectations stay deterministic.
  */
-const renderOnboarding = (ui: React.ReactElement) =>
+const renderOnboarding = (ui: React.ReactElement, language: 'en' | 'zh' = 'en') =>
   render(
-    <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }}>
+    <I18nProvider config={{ defaultLanguage: language, detectBrowserLanguage: false }}>
       {ui}
     </I18nProvider>,
   );
@@ -65,7 +65,7 @@ describe('CloudOnboardingNext', () => {
 
     const create = await screen.findByText('Create your environment');
     expect(create).toBeTruthy();
-    expect(screen.queryByText('Open Production')).toBeNull();
+    expect(screen.queryByText('Open workspace')).toBeNull();
 
     fireEvent.click(create);
     // Deep-links into the create dialog (#844): the environments list consumes
@@ -75,21 +75,21 @@ describe('CloudOnboardingNext', () => {
     );
   });
 
-  it('shows "Open Production" once the org has a production env', async () => {
+  it('shows "Open workspace" once the org has a production env', async () => {
     fetchImpl = async () => summary(true);
     renderOnboarding(<CloudOnboardingNext {...PROPS} />);
 
-    expect(await screen.findByText('Open Production')).toBeTruthy();
+    expect(await screen.findByText('Open workspace')).toBeTruthy();
     expect(screen.queryByText('Create your environment')).toBeNull();
   });
 
-  it('degrades to the open-production actions when the signal cannot be resolved', async () => {
+  it('degrades to the open-workspace actions when the signal cannot be resolved', async () => {
     fetchImpl = async () => ({ ok: false, status: 500, json: async () => null });
     renderOnboarding(<CloudOnboardingNext {...PROPS} />);
 
     // Unknown state is fail-safe: it must NEVER strand a real user behind a
-    // wrong "create" CTA, so it shows Open Production + Manage environments.
-    expect(await screen.findByText('Open Production')).toBeTruthy();
+    // wrong "create" CTA, so it shows Open workspace + Manage environments.
+    expect(await screen.findByText('Open workspace')).toBeTruthy();
     expect(screen.getByText('Manage environments')).toBeTruthy();
     expect(screen.queryByText('Create your environment')).toBeNull();
   });
@@ -124,9 +124,46 @@ describe('CloudOnboardingNext', () => {
     });
     const { container } = renderOnboarding(<CloudOnboardingNext {...PROPS} />);
 
-    expect(await screen.findByText('Open Production')).toBeTruthy();
+    expect(await screen.findByText('Open workspace')).toBeTruthy();
     expect(screen.queryByText('Create your environment')).toBeNull();
     expect(container.querySelector('[data-onboarding="unknown"]')).toBeTruthy();
+  });
+
+  // objectui#11659 ruling 1: the cloud home's primary button names the place in
+  // the customer's words. A new customer has exactly one environment, and
+  // "production" is operator vocabulary, so neither the button nor the hint
+  // under it says it. The destination is unchanged: the same sso-open URL.
+  describe('the ready state speaks of a workspace, not of production (objectui#11659)', () => {
+    it('zh: the primary button reads 进入工作区 and the block never says 生产环境', async () => {
+      fetchImpl = async () => summary(true);
+      const { container } = renderOnboarding(<CloudOnboardingNext {...PROPS} />, 'zh');
+
+      const open = await screen.findByRole('button', { name: '进入工作区' });
+      expect(container.querySelector('[data-onboarding="ready"]')).toBeTruthy();
+      expect(container.textContent).not.toContain('生产环境');
+
+      // Destination unchanged: the button still navigates to the page's sso-open URL.
+      const assign = vi.fn();
+      const original = window.location;
+      Object.defineProperty(window, 'location', {
+        configurable: true,
+        value: { ...original, set href(v: string) { assign(v); }, get href() { return original.href; } },
+      });
+      try {
+        fireEvent.click(open);
+      } finally {
+        Object.defineProperty(window, 'location', { configurable: true, value: original });
+      }
+      expect(assign).toHaveBeenCalledWith(PROPS.properties.openProductionUrl);
+    });
+
+    it('en: the primary button reads "Open workspace" and the block never says production', async () => {
+      fetchImpl = async () => summary(true);
+      const { container } = renderOnboarding(<CloudOnboardingNext {...PROPS} />);
+
+      expect(await screen.findByRole('button', { name: 'Open workspace' })).toBeTruthy();
+      expect(container.textContent ?? '').not.toMatch(/production/i);
+    });
   });
 
   it('renders a non-CTA skeleton while the signal is still loading', async () => {
@@ -135,11 +172,11 @@ describe('CloudOnboardingNext', () => {
     const { container } = renderOnboarding(<CloudOnboardingNext {...PROPS} />);
 
     // Before the fetch resolves: no CTA text, just the skeleton placeholder.
-    expect(screen.queryByText('Open Production')).toBeNull();
+    expect(screen.queryByText('Open workspace')).toBeNull();
     expect(screen.queryByText('Create your environment')).toBeNull();
     expect(container.querySelector('[data-onboarding="loading"]')).toBeTruthy();
 
     resolveFetch(summary(true));
-    await waitFor(() => expect(screen.getByText('Open Production')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('Open workspace')).toBeTruthy());
   });
 });

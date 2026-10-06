@@ -3237,9 +3237,9 @@ const zh = {
   },
   cloudOnboarding: {
     hintCreate: '创建你的第一个环境——一个独立的工作区，有自己的网址、数据库和套餐。应用的搭建在里面进行。',
-    hintReady: '你的生产环境已就绪。打开它来搭建和运行应用——这些都在环境内部进行。',
+    hintReady: '你的工作区已就绪。进入工作区来搭建和运行应用——这些都在工作区里进行。',
     createEnvironment: '创建你的环境',
-    openProduction: '打开生产环境',
+    openWorkspace: '进入工作区',
     manageEnvironments: '管理环境',
   },
   cloudPlanStatus: {

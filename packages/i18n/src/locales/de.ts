@@ -3090,9 +3090,9 @@ const de = {
   },
   cloudOnboarding: {
     hintCreate: "Erstellen Sie Ihre erste Umgebung — ein privater Arbeitsbereich mit eigener URL, Datenbank und eigenem Tarif. Die Entwicklung findet darin statt.",
-    hintReady: "Ihre Produktionsumgebung ist bereit. Öffnen Sie sie, um Ihre Apps zu erstellen und auszuführen — alles geschieht innerhalb der Umgebung.",
+    hintReady: "Ihr Arbeitsbereich ist bereit. Öffnen Sie ihn, um Ihre Apps zu erstellen und auszuführen — alles geschieht innerhalb des Arbeitsbereichs.",
     createEnvironment: "Umgebung erstellen",
-    openProduction: "Produktion öffnen",
+    openWorkspace: "Arbeitsbereich öffnen",
     manageEnvironments: "Umgebungen verwalten",
   },
   cloudPlanStatus: {

@@ -772,10 +772,10 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
     // every record under "Overdue", Done records included. ⛔ Not inferred
     // from a field NAME (`due_date`) or a status VALUE (`done`): a guess here
     // reads like a declaration and is wrong for every object that spells
-    // either one differently. Whether a declared signal should bring the
-    // judgement back is an open question on objectui#11676; until one exists,
-    // the honest answer is the calendar position alone. Pinned in
-    // `__tests__/ObjectTimeline.pastBucket-11676.test.tsx`.
+    // either one differently. Triage ruled on objectui#11676 that no timeline
+    // says "Overdue" (ruling A), so the bucket is the calendar position alone;
+    // a due-date timeline would be a new card that declares its signals in the
+    // spec first. Pinned in `__tests__/ObjectTimeline.pastBucket-11676.test.tsx`.
     const dateBucket = (raw: any): string => {
       if (!raw) return t('timeline.bucket.noDate');
       const ts = startOfDay(toDisplayDate(raw));

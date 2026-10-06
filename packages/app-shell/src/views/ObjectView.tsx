@@ -67,7 +67,7 @@ import { createIdentityImportDataSource, IDENTITY_IMPORT_OBJECT, type IdentityPa
 import { IdentityImportOptions, IdentityImportResultExtra, identityImportFields } from './IdentityImportPanels.js';
 import { importTargetFields } from './importTargetFields.js';
 import { useExpressionContext } from '../providers/ExpressionProvider.js';
-import { resolveManagedByEmptyState } from '../utils/managedByEmptyState.js';
+import { listToolbarDrawsAction, resolveManagedByEmptyState } from '../utils/managedByEmptyState.js';
 import { resolveViewId } from '../utils/resolveViewId.js';
 import { defaultListViewId, viewRowId, isSavedViewId, viewEntry } from '../utils/viewIdentity.js';
 import { warnSuppressedListNav } from '../utils/warnSuppressedListNav.js';
@@ -76,7 +76,7 @@ import { useObjectTranslation, useObjectLabel } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
 import { useAuth, useWorkspaceAdminStatus } from '@object-ui/auth';
 import { useRealtimeSubscription, useConflictResolution } from '@object-ui/collaboration';
-import { ActionProvider, useNavigationOverlay, SchemaRenderer, useActionTextLocalizer, useRowPredicate, RelatedRecordActionsProvider, notifyDataChanged } from '@object-ui/react';
+import { ActionProvider, useNavigationOverlay, SchemaRenderer, useActionTextLocalizer, useRowPredicate, RelatedRecordActionsProvider, notifyDataChanged, useCapabilityGate, usePredicateScope } from '@object-ui/react';
 import type { RelatedRecordActionsValue, RelatedRecordHandlers } from '@object-ui/react';
 import { toast } from 'sonner';
 import { useConsoleActionRuntime } from '../hooks/useConsoleActionRuntime.js';
@@ -2050,6 +2050,22 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     const createDisabled = createPredicates?.disabledWhen != null && createDisabledPred;
 
     /**
+     * objectui#11687 — does this page offer a way to add a row? The New button
+     * above, or a `list_toolbar` action the schema-driven toolbar draws (Invite
+     * User, Register OAuth Application, …), each by the verdict its own control
+     * renders on. The managed-by empty state reads it: a `better-auth` list
+     * must not say rows are "not added by hand here" beside such a button.
+     * A boolean, computed each render from the payload (`objectDef.actions`),
+     * so `renderListView` depends on a primitive, not a memoised identity
+     * (AGENTS.md #10).
+     */
+    const mayInvokeToolbarAction = useCapabilityGate();
+    const toolbarPredicateScope = usePredicateScope();
+    const pageOffersCreate =
+        (objectCanCreate && createVisible) ||
+        listToolbarDrawsAction(objectDef.actions, mayInvokeToolbarAction, toolbarPredicateScope);
+
+    /**
      * [#5142] The object-list toolbar's IMPORT predicates — the `import` half
      * of the toolbar-scope pair the spec resolver emits, mirroring what
      * `RelatedRecordActionsBridge` does for `create` (objectui#4646).
@@ -3346,7 +3362,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                     viewDef.name || viewDef.id || '',
                     viewDef.emptyState
                         ?? listSchema.emptyState
-                        ?? resolveManagedByEmptyState((objectDef as any)?.managedBy, t, objectDef.name, (objectDef as any)?.userActions),
+                        ?? resolveManagedByEmptyState((objectDef as any)?.managedBy, t, objectDef.name, (objectDef as any)?.userActions, pageOffersCreate),
                 ),
             aria: viewDef.aria ?? listSchema.aria,
             // (the legacy `filters` twin of the `filter` above lived here until
@@ -3552,7 +3568,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 dataSource={ds}
             />
         );
-    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, user?.id]);
+    }, [activeView, activeViewDeclaresColumns, objectDef, objectName, refreshKey, navOverlay, actions, persistViewPatch, urlFilters, initialUfSelections, handleUserFilterSelectionsChange, user?.id, pageOffersCreate]);
 
     // Memoize the merged views array so PluginObjectView doesn't get a new
     // reference on every render (which would trigger unnecessary data refetches).

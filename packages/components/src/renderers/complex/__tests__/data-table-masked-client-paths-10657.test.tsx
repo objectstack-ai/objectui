@@ -193,10 +193,17 @@ describe('data-table sizes a masked column without reading its values (objectui#
     expect(long.key, 'the masked column width does not follow the raw value').toBe(short.key);
   });
 
-  it('CONTROL: with the flag absent the same column grows with the raw value', () => {
+  it('CONTROL: with the flag absent the same column is sized from the mask its cells draw', () => {
+    // objectui#11682 moved every unmasked column from its stored value to what
+    // its cells DRAW, so this control no longer grows with the raw value: the
+    // cell draws the producer's mask whatever the value is. What still tells
+    // the flag apart is the read itself: unflagged, the drawn mask sizes the
+    // column; flagged, nothing in its cells is read and the header alone does.
     const short = widths(undefined, SHORT);
     const long = widths(undefined, LONG);
-    expect(long.key).not.toBe(short.key);
+    expect(long.key, 'the drawn mask, not the raw value, sizes the column').toBe(short.key);
+    const masked = widths({ masked: true }, SHORT);
+    expect(short.key, 'the flag is what keeps the cells out of the read').not.toBe(masked.key);
   });
 
   it('an explicit width on a masked column is kept', () => {

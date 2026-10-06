@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { resolveManagedByEmptyState } from '../managedByEmptyState';
+import { listToolbarDrawsAction, resolveManagedByEmptyState } from '../managedByEmptyState';
 
 // Mirror the real i18n fallback: return the English `defaultValue` baked into
 // the helper. The en.ts bundle mirrors these strings verbatim, so asserting on
@@ -95,5 +95,82 @@ describe('resolveManagedByEmptyState', () => {
       expect(es?.message).not.toMatch(/invite user/i);
       expect(es?.message).not.toMatch(/reset password/i);
     }
+  });
+  /**
+   * objectui#11687 — the copy says identity rows are "not added by hand here".
+   * A page that offers a way to add one (its New button, or a toolbar action
+   * such as Invite User / Register OAuth Application) contradicts it, so the
+   * arm yields to the list's own empty state.
+   */
+  describe('a page that offers a create action (objectui#11687)', () => {
+    it('yields the generic identity copy to the list when the page offers one', () => {
+      for (const name of ['sys_invitation', 'sys_oauth_application', 'sys_member', undefined]) {
+        expect(resolveManagedByEmptyState('better-auth', t, name, undefined, true)).toBeUndefined();
+      }
+    });
+
+    it('keeps the generic identity copy on a page that offers none (API Keys)', () => {
+      const es = resolveManagedByEmptyState('better-auth', t, 'sys_api_key', { edit: true }, false);
+      expect(es?.title).toBe('No identity records');
+      expect(es?.message).toMatch(/not added by hand here/i);
+    });
+
+    it('yields sys_user\'s "not created here" copy beside Invite User / Create User', () => {
+      expect(resolveManagedByEmptyState('better-auth', t, 'sys_user', { edit: true }, true)).toBeUndefined();
+    });
+
+    it('keeps sys_team\'s copy, which names its own Create Team button', () => {
+      expect(resolveManagedByEmptyState('better-auth', t, 'sys_team', undefined, true)?.title).toBe('No teams yet');
+    });
+
+    it('leaves the other buckets to their own rules', () => {
+      expect(resolveManagedByEmptyState('append-only', t, 'sys_audit_log', undefined, true)?.title).toBe('No events recorded');
+      expect(resolveManagedByEmptyState('engine-owned', t, 'sys_automation_run', undefined, true)?.title).toBe('Nothing here yet');
+    });
+  });
+
+  /**
+   * The toolbar half of "the page offers a create action": the same three
+   * questions `action:bar` and `action:button` ask of a `list_toolbar` action.
+   */
+  describe('listToolbarDrawsAction (objectui#11687)', () => {
+    const allowAll = () => true;
+    const invite = {
+      name: 'invite_user',
+      label: 'Invite User',
+      locations: ['list_toolbar'],
+      // `requiresFeature: 'organization'` as the spec lowers it (default-on flag).
+      visible: { dialect: 'cel', source: 'features.organization != false' },
+    };
+
+    it('counts an action placed on the toolbar whose gate holds', () => {
+      expect(listToolbarDrawsAction([invite], allowAll, { features: { organization: true } })).toBe(true);
+    });
+
+    it('does not count an action its own `visible` hides (single-org Invite User)', () => {
+      expect(listToolbarDrawsAction([invite], allowAll, { features: { organization: false } })).toBe(false);
+    });
+
+    it('does not count an action placed only on rows or the record header', () => {
+      const rowOnly = { name: 'cancel_invitation', locations: ['list_item', 'record_header'] };
+      const unplaced = { name: 'orphan' };
+      expect(listToolbarDrawsAction([rowOnly, unplaced], allowAll, {})).toBe(false);
+    });
+
+    it('does not count an action the caller may not invoke', () => {
+      const gated = { name: 'create_x', locations: ['list_toolbar'], requiredPermissions: ['manage_x'] };
+      expect(listToolbarDrawsAction([gated], () => false, {})).toBe(false);
+      expect(listToolbarDrawsAction([gated], allowAll, {})).toBe(true);
+    });
+
+    it('fails closed on a `visible` that throws, as the button does', () => {
+      const broken = { name: 'x', locations: ['list_toolbar'], visible: { dialect: 'cel', source: 'nope.missing ==' } };
+      expect(listToolbarDrawsAction([broken], allowAll, {})).toBe(false);
+    });
+
+    it('answers false for an object with no actions', () => {
+      expect(listToolbarDrawsAction(undefined, allowAll, {})).toBe(false);
+      expect(listToolbarDrawsAction([], allowAll, {})).toBe(false);
+    });
   });
 });

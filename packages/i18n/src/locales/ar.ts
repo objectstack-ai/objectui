@@ -812,6 +812,7 @@ const ar = {
     firstRunMessage: "أنشئ سجلك الأول للبدء.",
     noMatches: "لا توجد سجلات مطابقة",
     noMatchesMessage: "لا توجد سجلات تطابق عوامل التصفية أو البحث الحالية. حاول تعديلها أو مسحها.",
+    viewFilterNoMatchesMessage: "لا توجد سجلات تطابق عامل التصفية لطريقة العرض هذه.",
     loadErrorTitle: "تعذّر تحميل السجلات",
     loadErrorMessage: "حدث خطأ أثناء تحميل هذه البيانات. تحقق من اتصالك وحاول مرة أخرى.",
     loadErrorForbiddenTitle: "ليس لديك صلاحية الوصول",

@@ -961,6 +961,7 @@ const en = {
     firstRunMessage: 'Create your first record to get started.',
     noMatches: 'No matching records',
     noMatchesMessage: 'No records match your current filters or search. Try adjusting or clearing them.',
+    viewFilterNoMatchesMessage: 'No records match this view’s filter.',
     loadErrorTitle: 'Couldn\u2019t load records',
     loadErrorMessage: 'Something went wrong while loading this data. Check your connection and try again.',
     loadErrorForbiddenTitle: 'You don\u2019t have access',

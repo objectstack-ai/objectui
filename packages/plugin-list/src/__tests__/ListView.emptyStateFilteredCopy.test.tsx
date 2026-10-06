@@ -26,8 +26,15 @@
  * is RED against `origin/main` (which renders the first-run copy) and green
  * after; the other two are green in both worlds — they pin that the fix does
  * not swallow the genuine first-run case or the author's own override.
+ *
+ * objectui#11687 — the second half: a view filter is not the USER's filter.
+ * The "your current filters or search" message is said only when the user
+ * applied one (search, user-filter chips, filter panel); a view emptied by its
+ * own declared filter alone gets its own message (`list.viewFilterNoMatchesMessage`).
+ * Measured on the console: Webhooks' Active view, zero rows, nothing applied.
  */
 
+import * as React from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, waitFor } from '@testing-library/react';
 import { ListView } from '../ListView';
@@ -45,11 +52,14 @@ function emptyDataSource() {
   };
 }
 
-async function emptyState(schema: ListViewSchema): Promise<HTMLElement> {
+async function emptyState(
+  schema: ListViewSchema,
+  session: Pick<React.ComponentProps<typeof ListView>, 'initialFilters' | 'initialSearchTerm'> = {},
+): Promise<HTMLElement> {
   const ds = emptyDataSource();
   const { container } = render(
     <SchemaRendererProvider dataSource={ds as any}>
-      <ListView schema={schema} dataSource={ds as any} />
+      <ListView schema={schema} dataSource={ds as any} {...session} />
     </SchemaRendererProvider>,
   );
   await waitFor(() => {
@@ -100,6 +110,41 @@ describe('ListView empty state — a filtered view says it is filtered (#4155)',
     expect(panel.textContent).toMatch(/No matching records/i);
     expect(panel.textContent).not.toMatch(/Nothing here yet/i);
     expect(panel.textContent).not.toMatch(/Create your first record/i);
+  });
+
+  // objectui#11687 — the Webhooks "Active" view: its own filter, zero rows,
+  // and no filter or search from the user.
+  it('a view filtered to empty names the VIEW\'s filter, not "your current filters or search"', async () => {
+    const panel = await emptyState(
+      authored({ ...BASE, filter: [{ field: 'active', operator: 'equals', value: true }] }),
+    );
+
+    expect(panel.textContent).toContain('No records match this view’s filter.');
+    expect(panel.textContent).not.toMatch(/your current filters or search/i);
+    expect(panel.textContent).not.toMatch(/Create your first record/i);
+  });
+
+  it('a search the user typed still gets the "your current filters or search" copy', async () => {
+    const panel = await emptyState(BASE, { initialSearchTerm: 'zzz' });
+
+    expect(panel.textContent).toMatch(/No matching records/i);
+    expect(panel.textContent).toMatch(/your current filters or search/i);
+  });
+
+  it('a filter the user applied over a filtered view is the user\'s, and says so', async () => {
+    const panel = await emptyState(
+      authored({ ...BASE, filter: [['status', 'not_in', ['archived']]] }),
+      {
+        initialFilters: {
+          id: 'root',
+          logic: 'and',
+          conditions: [{ id: 'c1', field: 'name', operator: 'contains', value: 'zzz' }],
+        } as never,
+      },
+    );
+
+    expect(panel.textContent).toMatch(/your current filters or search/i);
+    expect(panel.textContent).not.toContain('No records match this view’s filter.');
   });
 
   it('a genuinely unfiltered empty list still invites the user to create', async () => {

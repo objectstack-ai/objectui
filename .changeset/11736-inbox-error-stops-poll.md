@@ -8,7 +8,7 @@ On a deployment with no AI service, the open edition answers `501` on `/api/v1/a
 
 - The inbox shows the empty state only when the read answered. When the read failed, the error alert stands alone.
 - `usePendingActions` now arms each poll after the previous read settles, according to its answer:
-  - A refused read stops the poll. That is `501`, or any other `4xx` than `408` and `429`, such as `401`, `403` or `404`. A manual `refresh()` that succeeds, the re-fetch after `approve` or `reject`, or a change to the hook's options starts it again.
+  - A refused read stops the poll. That is `501`, or any `4xx` except `408` and `429`, such as `401`, `403` or `404`. A manual `refresh()` that succeeds, the re-fetch after `approve` or `reject`, or a change to the hook's options starts it again.
   - A transient failure backs the poll off. That is no answer at all, `408`, `429`, or a `5xx` other than `501`. The delay doubles with each consecutive failure, up to 120 seconds, or up to `pollInterval` if that is longer.
   - A read that succeeds polls again after `pollInterval`, as before, and resets the backoff.
 

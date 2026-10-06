@@ -28,7 +28,7 @@
  *
  * | class                    | types                                                       | what the pill received                              |
  * |--------------------------|-------------------------------------------------------------|-----------------------------------------------------|
- * | ✅ plain inline text      | the other 35                                                | `Acme Corp`, or the JSON literal for the seven behind objectui#8481's declared json-literal fence, or a value-independent face |
+ * | ✅ plain inline text      | the other 35                                                | `Acme Corp`, or the JSON literal for the seven behind objectui#8481's declared json-literal fence (five since objectui#11697: `composite` / `record` now draw labelled sub-values), or a value-independent face |
  * | ⛔ a pill inside a pill   | `select` `status` `multiselect` `radio` `checkboxes` `tags`   | `SelectCellRenderer`'s own `Badge` — one `rounded-full` node nested in the chip's own |
  * | ⛔ an avatar composite    | `user`                                                      | TWO `rounded-full` nodes and the initials glued on: `ACAcme Corp` |
  * | ⛔ an image and no text   | `image` `avatar` `signature`                                | an `<img>`, `textContent === ''` |
@@ -143,8 +143,10 @@ const CENSUS: ReadonlyArray<readonly [type: string, text: string, verdict: Verdi
   ['address', '{"id":"acct-1","name":"Acme Corp"}', 'fit'],
   ['json', '{"id":"acct-1","name":"Acme Corp"}', 'fit'],
   ['object', '{"id":"acct-1","name":"Acme Corp"}', 'fit'],
-  ['composite', '{"id":"acct-1","name":"Acme Corp"}', 'fit'],
-  ['record', '{"id":"acct-1","name":"Acme Corp"}', 'fit'],
+  // ── plain inline text: labelled sub-values on one line (objectui#11697) ─
+  // A `<dl>` of inline `dt` / `dd` text: no pill, no image, no control.
+  ['composite', 'Id acct-1 · Name Acme Corp', 'fit'],
+  ['record', 'Id acct-1 · Name Acme Corp', 'fit'],
   // ── plain inline text: value-independent faces ─────────────────────────
   ['password', '••••••', 'fit'],
   ['secret', '••••••', 'fit'],

@@ -131,8 +131,7 @@ The object field stores data as parsed JSON:
 ## Cell Renderer
 
 In tables/grids, an `object` value is rendered by the JSON cell renderer —
-`getCellRenderer('object')` resolves to this same component, shared with `json`,
-`composite` and `record`:
+`getCellRenderer('object')` resolves to this same component, shared with `json`:
 
 ```ts
 import { JsonCellRenderer } from '@object-ui/fields';
@@ -141,6 +140,24 @@ import { JsonCellRenderer } from '@object-ui/fields';
 // truncated to the column width with the full text in the cell's `title`.
 // A null or empty value renders an em-dash instead.
 ```
+
+`composite` and `record` values are not drawn as JSON. Their cell — in a grid and
+on the record page alike — is one line of labelled sub-values, with the full text
+in the `title`:
+
+```plaintext
+// composite  { width: 10, height: 20 }
+Width 10 · Height 20
+
+// record     { primary: { name: "A", score: 9 }, backup: { name: "B", score: 7 } }
+Primary (Name A · Score 9) · Backup (Name B · Score 7)
+```
+
+A label is the humanized key: the field metadata declares no sub-fields to take a
+label from. A number sub-value is formatted as the number cell formats it, a boolean
+reads as Yes / No in the reader's language, a string reads as itself, and an object or
+an array nested inside a sub-value stays compact JSON.
+An empty value, `[]`, `{}` and a non-object value read as the JSON cell reads them.
 
 ## Schema Validation
 

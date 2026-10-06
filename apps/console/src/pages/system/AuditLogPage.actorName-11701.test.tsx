@@ -62,8 +62,10 @@ const { ADMIN, OTHER, ADAPTER } = vi.hoisted(() => {
   return { ADMIN, OTHER, ADAPTER };
 });
 
-// The page reads only `useAdapter` from the app shell.
-vi.mock('@object-ui/app-shell', () => ({ useAdapter: () => ADAPTER }));
+vi.mock('@object-ui/app-shell', async (importOriginal) => ({
+  ...(await importOriginal<Record<string, unknown>>()),
+  useAdapter: () => ADAPTER,
+}));
 
 import { AuditLogPage } from './AuditLogPage';
 

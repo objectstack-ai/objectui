@@ -974,6 +974,19 @@ a `data-testid` onto their content element and emit Radix `data-state="open|clos
 so overlays are locatable and their open/closed state is machine-readable by
 construction (C4).
 
+## Keyboard-shortcuts dialog
+
+`KeyboardShortcutsDialog` (`?`, or `?shortcuts=1`) has no list of its own. Each
+shortcut is advertised by the code that handles it, beside the handler and for as
+long as the handler is mounted, and the dialog lists what is advertised at that
+moment (objectui#11674). Inside an app that is the command palette (`⌘K`), the
+dialog itself (`?`), closing a dialog or panel (`Esc`) and the sidebar (`⌘B`, the
+`SidebarProvider` listener). The AI chat page advertises `⌘⇧O` and `⌘⇧S` itself,
+so they are listed only where that page is mounted. A shortcut without a mounted
+handler is never listed. Each listed row carries `data-shortcut-id`, and
+`KeyboardShortcutsDialog.wiredOnly-11674.test.tsx` fires every row the console
+lists against its real handler.
+
 ## Settle signal (is the app idle?)
 
 `<ConsoleShell>` exposes one global "no requests in flight" predicate so an

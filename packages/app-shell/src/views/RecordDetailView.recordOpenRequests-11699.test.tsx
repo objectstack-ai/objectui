@@ -424,11 +424,12 @@ describe('the page reads its record once, whatever identity its inputs arrive wi
   });
 
   it('a discarded memo cache (AGENTS.md #10) reads nothing again', async () => {
-    // A synthesized page: that is the memo over `objectDef` the old dependency
+    // Armed before mount, so no memo's dependency count changes mid-life. A
+    // synthesized page: that is the memo over `objectDef` the old dependency
     // list reached through `effectivePage`.
+    memoProxy.markers = [objectDef];
     const { held, show } = await openAndSettle({ pages: [] });
 
-    memoProxy.markers = [objectDef];
     memoProxy.epoch += 1;
     await show();
     memoProxy.epoch += 1;

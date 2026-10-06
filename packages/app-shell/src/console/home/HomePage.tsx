@@ -15,7 +15,7 @@
  * @module
  */
 
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMetadata } from '../../providers/MetadataProvider.js';
 import { useRecentItems } from '../../hooks/useRecentItems.js';
@@ -28,6 +28,7 @@ import { useAgents, isAskAgent, agentHasCapability } from '@object-ui/plugin-cha
 // unknown→fail-open) lives with the hook.
 import { useCanAuthorMetadata } from '../../hooks/useCanAuthorMetadata.js';
 import { HomeAppsStrip } from './HomeAppsStrip.js';
+import { RecoveryPasswordReminder } from './RecoveryPasswordReminder.js';
 import { HomeActionCenter, HomeContinue, HomeActivity } from './HomeRail.js';
 import { useHomeInbox } from '../../hooks/useHomeInbox.js';
 import { useNavigationContext } from '../../context/NavigationContext.js';
@@ -38,7 +39,7 @@ import {
   resolveNotificationTarget,
 } from '../../utils/index.js';
 import { Empty, EmptyTitle, EmptyDescription, Button } from '@object-ui/components';
-import { Sparkles, ShieldAlert, X, UploadCloud, MessageSquareText, Hammer, LayoutTemplate } from 'lucide-react';
+import { Sparkles, UploadCloud, MessageSquareText, Hammer, LayoutTemplate } from 'lucide-react';
 import { usePendingDrafts } from '../../preview/usePendingDrafts.js';
 import { usePublishAllDrafts } from '../../preview/usePublishAllDrafts.js';
 import { resolveAiApiBase } from '../../hooks/useAiSurface.js';
@@ -225,74 +226,6 @@ function PendingDraftsBanner({ t }: { t: (key: string, opts?: any) => string }) 
               ? t('home.pendingDrafts.publishing', { defaultValue: 'Publishing…' })
               : t('home.pendingDrafts.cta', { defaultValue: 'Publish' })}
           </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-/**
- * Dismissible nudge to set a local recovery password — shown when the user
- * signed in via SSO and has no local credential yet. We no longer force this
- * before the first session (it walled off the magic moment); this gentle,
- * one-time reminder preserves instance self-sufficiency without the friction.
- */
-function RecoveryPasswordReminder({ t }: { t: (key: string, opts?: any) => string }) {
-  const navigate = useNavigate();
-  const { hasLocalPassword, getAuthConfig } = useAuth();
-  const [show, setShow] = useState(false);
-  useEffect(() => {
-    if (typeof localStorage !== 'undefined' && localStorage.getItem('os:recovery-pw-dismissed') === '1') return;
-    // Don't nag on the very first landing: let a brand-new SSO user reach
-    // their magic moment (build their first app) before asking them to set a
-    // recovery password. Record the first home visit; show the reminder only
-    // from the next one on. (The component already intends 'not before the
-    // first session'; previously the code still fired on the very first screen.)
-    if (typeof localStorage !== 'undefined' && localStorage.getItem('os:recovery-pw-first-seen') !== '1') {
-      try { localStorage.setItem('os:recovery-pw-first-seen', '1'); } catch { /* ignore */ }
-      return;
-    }
-    let cancelled = false;
-    Promise.all([
-      Promise.resolve(hasLocalPassword?.()),
-      Promise.resolve(getAuthConfig?.()).catch(() => null),
-    ])
-      .then(([has, config]: [unknown, any]) => {
-        if (cancelled) return;
-        // Skip on SSO-enforced envs: password login is disabled there, so a
-        // recovery password can't be used — nudging for one is misleading and
-        // gives a false sense of security. Same signal LoginForm uses.
-        const passwordUnavailable =
-          config?.features?.ssoEnforced === true || config?.emailPassword?.enabled === false;
-        if (has === false && !passwordUnavailable) setShow(true);
-      })
-      .catch(() => { /* unknown → don't nag */ });
-    return () => { cancelled = true; };
-  }, [hasLocalPassword, getAuthConfig]);
-  const dismiss = () => {
-    try { localStorage.setItem('os:recovery-pw-dismissed', '1'); } catch { /* ignore */ }
-    setShow(false);
-  };
-  if (!show) return null;
-  return (
-    <div className="px-4 sm:px-6 lg:px-8 pt-4">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-3 rounded-xl border border-amber-300/60 dark:border-amber-700/50 bg-amber-50 dark:bg-amber-950/30 px-4 py-3">
-          <ShieldAlert className="h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
-          <p className="flex-1 min-w-0 text-sm text-amber-900 dark:text-amber-200">
-            {t('home.recoveryReminder.message', { defaultValue: 'Set a recovery password so you can still sign in if single sign-on is ever unavailable.' })}
-          </p>
-          <Button size="sm" variant="outline" onClick={() => navigate('/set-password')} data-testid="recovery-pw-set">
-            {t('home.recoveryReminder.cta', { defaultValue: 'Set password' })}
-          </Button>
-          <button
-            type="button"
-            onClick={dismiss}
-            aria-label={t('home.recoveryReminder.dismiss', { defaultValue: 'Dismiss' })}
-            className="shrink-0 rounded-md p-1 text-amber-700/70 hover:text-amber-900 dark:text-amber-300/70 dark:hover:text-amber-100"
-          >
-            <X className="h-4 w-4" />
-          </button>
         </div>
       </div>
     </div>

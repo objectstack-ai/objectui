@@ -3092,9 +3092,9 @@ const ja = {
   },
   cloudOnboarding: {
     hintCreate: "最初の環境を作成しましょう。独自の URL・データベース・プランを持つ専用ワークスペースで、アプリの構築はその中で行います。",
-    hintReady: "本番環境の準備が整いました。開いてアプリの構築と実行を行ってください。すべて環境の中で行われます。",
+    hintReady: "ワークスペースの準備が整いました。開いてアプリの構築と実行を行ってください。すべてワークスペースの中で行われます。",
     createEnvironment: "環境を作成",
-    openProduction: "本番環境を開く",
+    openWorkspace: "ワークスペースを開く",
     manageEnvironments: "環境を管理",
   },
   cloudPlanStatus: {

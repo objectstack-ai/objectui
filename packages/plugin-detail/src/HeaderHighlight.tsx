@@ -170,7 +170,13 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
             // Two independent reasons a chip needs the wide basis, kept
             // separate because only one of them is a shared table:
             //  1. long-text DISPLAY types, whose value simply does not fit a
-            //     9rem column — this surface's own list, unchanged here;
+            //     9rem column — this surface's own list. `phone` joined it in
+            //     objectui#11659: its cell draws a dial icon and a copy button
+            //     around the number inside an `inline-flex` box, and the
+            //     `truncate` span below cannot put an ellipsis on an
+            //     inline-flex child — it clips it. A 9rem chip cut
+            //     `0574-8765-4321` to `0574-876` with no ellipsis; the wide
+            //     basis shows a whole number;
             //  2. REFERENCE-BEARING types, whose inline editor is a record
             //     picker (see the `dataSource` prop doc above, which already
             //     names `lookup` / `user` together as the reference editors).
@@ -191,6 +197,7 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
             const isWide =
               resolvedType === 'email' ||
               resolvedType === 'url' ||
+              resolvedType === 'phone' ||
               resolvedType === 'textarea' ||
               (!!resolvedType && EXPANDABLE_FIELD_TYPES.has(resolvedType));
             const isBoolean = resolvedType === 'boolean';

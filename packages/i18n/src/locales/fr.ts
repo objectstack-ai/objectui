@@ -3146,9 +3146,9 @@ const fr = {
   },
   cloudOnboarding: {
     hintCreate: "Créez votre premier environnement — un espace de travail privé avec sa propre URL, sa base de données et son offre. C'est là que se fait la création.",
-    hintReady: "Votre environnement de production est prêt. Ouvrez-le pour créer et exécuter vos applications — tout se passe à l'intérieur.",
+    hintReady: "Votre espace de travail est prêt. Ouvrez-le pour créer et exécuter vos applications — tout se passe à l'intérieur.",
     createEnvironment: "Créer votre environnement",
-    openProduction: "Ouvrir la production",
+    openWorkspace: "Ouvrir l'espace de travail",
     manageEnvironments: "Gérer les environnements",
   },
   cloudPlanStatus: {

@@ -221,7 +221,18 @@ export function DashboardDefaultInspector({
                       w?.id ||
                       tFormat('engine.inspector.widget.untitledN', locale, { n: i + 1 })}
                   </button>
-                  <code className="text-[10px] text-muted-foreground">{w?.type}</code>
+                  {/* The widget's KIND in the designer's language — the name
+                      the add-widget picker shows for it (objectui#11659), not
+                      the stored `type` id (`bar`). The id stays on hover for
+                      authors. A type the catalogue does not know has no name
+                      to show, so it prints its id as before. */}
+                  <span
+                    className="shrink-0 text-[10px] text-muted-foreground"
+                    title={w?.type}
+                    data-widget-kind={w?.type}
+                  >
+                    {meta ? tr(meta.labelKey) : w?.type}
+                  </span>
                   {!readOnly && (
                     <Button
                       type="button"

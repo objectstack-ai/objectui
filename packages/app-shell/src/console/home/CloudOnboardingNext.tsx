@@ -13,13 +13,18 @@
  * the same `/cloud/environment-entitlements` endpoint the environment list uses
  * and renders the right primary action:
  *
- *   • has production env  → "Open Production" (the doorway into the env, where
+ *   • has production env  → "Open workspace" (the doorway into the env, where
  *                            building happens) + a "Manage environments" link.
+ *                            The label names the place in the customer's words,
+ *                            not the operator's: a new customer has exactly one
+ *                            environment, and "production" is control-plane
+ *                            vocabulary (objectui#11659). The destination is
+ *                            still the org's production environment.
  *   • no production env   → "Create your environment" (the real first step).
  *   • loading             → a neutral skeleton (no CTA flashes / layout jump).
  *   • unknown / error     → degrade to BOTH actions, so the button always works.
  *
- * Routes and the "Open Production" endpoint come from the page metadata
+ * Routes and the "Open workspace" endpoint come from the page metadata
  * (`properties`) so the Cloud app owns its URLs; this component owns only the
  * state logic. It mirrors `useEnvironmentEntitlements`' authoritative summary
  * fetch (org-scoped GET) without its list-only gating.
@@ -53,7 +58,7 @@ interface CloudOnboardingNextProps {
      * Optional backend pre-warm endpoint. When set and the caller already has
      * a production env, the widget fires a best-effort GET the moment it knows
      * the env exists — nudging a possibly-asleep container awake WHILE the user
-     * reads the hint, so the later "Open Production" click lands in an
+     * reads the hint, so the later "Open workspace" click lands in an
      * already-waking env instead of paying the full cold-start. No-op when
      * unset (older page metadata), so this is safe to ship ahead of the page.
      */
@@ -118,7 +123,7 @@ function useProductionEnvState(warmUrl?: string): Resolved {
         setState({ phase: 'ready', hasProductionEnv });
         // Pre-warm the prod env the instant we know it exists — fire-and-forget,
         // best-effort, once per resolve. The user is now reading the hint and
-        // will click "Open Production" seconds later; by then the container is
+        // will click "Open workspace" seconds later; by then the container is
         // already waking. The sso-open click warms again, so a failed warm here
         // costs nothing. Only when the page passes a warmUrl (else no-op).
         if (hasProductionEnv && warmUrl) {
@@ -194,7 +199,7 @@ export function CloudOnboardingNext({ properties }: CloudOnboardingNextProps) {
         ) : (
           <Button size="lg" onClick={() => openProduction(openUrl)}>
             <Rocket className="mr-2 h-4 w-4" />
-            {t('cloudOnboarding.openProduction')}
+            {t('cloudOnboarding.openWorkspace')}
           </Button>
         )}
         <Button size="lg" variant="secondary" onClick={() => navigate(envsRoute)}>

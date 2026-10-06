@@ -856,7 +856,6 @@ const es = {
   },
   timeline: {
     bucket: {
-      overdue: "Atrasado",
       earlier: "Antes",
       today: "Hoy",
       tomorrow: "Mañana",

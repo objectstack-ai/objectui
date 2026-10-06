@@ -25,9 +25,16 @@
  * and `scale`, and nothing that names a due-date role or a closed state; the
  * spec's field options declare no closed marker either. So a past day gets
  * the neutral `timeline.bucket.earlier` ("Earlier"), and no field NAME and no
- * status VALUE is read as one of those two facts. Whether an object-bound
- * timeline should ever say "Overdue", and through which declared signal, is
- * the open question on the card, not something this file decides.
+ * status VALUE is read as one of those two facts.
+ *
+ * ── The key retires (triage ruling A on the card) ──────────────────────────
+ * No timeline says "Overdue": that judgement stays where record state lives
+ * (the date cell's due treatment, the gantt's alert colour, conditional
+ * formatting). So `timeline.bucket.overdue`, which nothing read once the past
+ * bucket became "Earlier", is gone from `TIMELINE_DEFAULT_TRANSLATIONS` and
+ * from all ten packs; the last `describe` pins both. A due-date timeline, if a
+ * producer ever asks for one, is a new card that declares its signals in the
+ * spec first, not a row restored here.
  *
  * The clock is frozen on Tuesday 2026-10-06, and every value is a date-only
  * string, which the shared `toDisplayDate` step reads as local midnight of the
@@ -40,7 +47,9 @@ import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { I18nProvider, LocalizationProvider } from '@object-ui/i18n';
+import { BUILT_IN_LANGUAGE_CODES, builtInLocales } from '@object-ui/i18n/locales';
 import { ObjectTimeline } from '../ObjectTimeline';
+import { TIMELINE_DEFAULT_TRANSLATIONS, translateTimelineDefault } from '../useTimelineTranslation';
 
 vi.mock('@object-ui/react', async (importOriginal) => {
   const actual = await (importOriginal() as Promise<Record<string, unknown>>);
@@ -143,8 +152,7 @@ describe('ObjectTimeline past-date bucket (objectui#11676)', () => {
   it('no field name is read as a due-date role: a past `due_date` on an open record is "Earlier" too', () => {
     // The card's rule: field names are not guessed. Nothing the timeline reads
     // DECLARES this field a due date or this status open, so the neutral bucket
-    // is the honest answer until a declared signal exists (the card's open
-    // question). A name heuristic would flip this case to "Overdue".
+    // is the honest answer. A name heuristic would flip this case to "Overdue".
     const rows: Row[] = [
       { id: '1', title: 'Renew lease', due_date: '2026-10-02', status: 'open' },
       { id: '2', title: 'File taxes', due_date: '2026-10-08', status: 'open' },
@@ -159,5 +167,45 @@ describe('ObjectTimeline past-date bucket (objectui#11676)', () => {
       '今天: Order catering',
     ]);
     expect(document.body.textContent).not.toContain('已逾期');
+  });
+});
+
+/** The retired key, fully qualified, and its leaf inside each pack's `timeline.bucket`. */
+const RETIRED_KEY = 'timeline.bucket.overdue';
+const RETIRED_LEAF = 'overdue';
+
+type Pack = (typeof builtInLocales)[keyof typeof builtInLocales];
+const PACKS = Object.entries(builtInLocales) as Array<[string, Pack]>;
+
+describe('`timeline.bucket.overdue` is retired from the defaults row and every pack (objectui#11676)', () => {
+  it('reads every built-in pack and a defaults table that still has its bucket rows', () => {
+    // Non-vacuity: each assertion below reads these, so an unresolved import, a
+    // pack dropped from `builtInLocales` or an emptied table would be green
+    // without this.
+    expect(PACKS.map(([lang]) => lang).sort()).toEqual([...BUILT_IN_LANGUAGE_CODES].sort());
+    expect(TIMELINE_DEFAULT_TRANSLATIONS['timeline.bucket.earlier']).toBe('Earlier');
+    for (const [lang, pack] of PACKS) {
+      expect(Object.keys(pack.timeline.bucket), lang).toContain('earlier');
+    }
+  });
+
+  it('the defaults row is gone, and the provider-less fallback answers the bare key', () => {
+    expect(Object.keys(TIMELINE_DEFAULT_TRANSLATIONS)).not.toContain(RETIRED_KEY);
+    expect(translateTimelineDefault(RETIRED_KEY)).toBe(RETIRED_KEY);
+  });
+
+  it('no pack carries it, while the `fields.relativeDate.overdue` family beside it stays', () => {
+    const carriers = PACKS.filter(([, pack]) => RETIRED_LEAF in pack.timeline.bucket).map(([lang]) => lang);
+    expect(
+      carriers,
+      'A pack carries `timeline.bucket.overdue` again. No timeline reads it: a past day is ' +
+        '"Earlier", and triage ruled that no timeline says "Overdue" (objectui#11676). A ' +
+        'due-date timeline is a new card that declares its signals in the spec first.',
+    ).toEqual([]);
+    // A different family that happens to share the leaf name: the date cell's
+    // "Overdue Nd" phrase. A sweep by leaf name rather than by key takes it out.
+    for (const [lang, pack] of PACKS) {
+      expect(typeof pack.fields.relativeDate.overdue, lang).toBe('string');
+    }
   });
 });

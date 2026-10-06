@@ -939,7 +939,6 @@ const ar = {
   },
   timeline: {
     bucket: {
-      overdue: "متأخر",
       earlier: "سابقاً",
       today: "اليوم",
       tomorrow: "غداً",

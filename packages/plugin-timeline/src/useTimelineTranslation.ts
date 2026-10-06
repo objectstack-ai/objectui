@@ -15,12 +15,10 @@ import { createSafeTranslation } from '@object-ui/i18n';
  * embed) without an I18nProvider on the React tree.
  */
 export const TIMELINE_DEFAULT_TRANSLATIONS: Record<string, string> = {
-  // objectui#11676 — `overdue` has no call site here any more: a past day is
-  // bucketed `earlier`, because nothing the timeline reads declares a due date
-  // or a closed record (see `dateBucket` in `ObjectTimeline.tsx`). The row is
-  // kept with its pack key until the card's open question decides whether a
-  // declared signal brings "Overdue" back or the key retires.
-  'timeline.bucket.overdue': 'Overdue',
+  // objectui#11676 — the `overdue` bucket row is retired with its pack key: a
+  // past day is `earlier` (see `dateBucket` in `ObjectTimeline.tsx`), and no
+  // timeline heads a group "Overdue". `ObjectTimeline.pastBucket-11676.test.tsx`
+  // pins the row and the key absent from all ten packs.
   'timeline.bucket.earlier': 'Earlier',
   'timeline.bucket.today': 'Today',
   'timeline.bucket.tomorrow': 'Tomorrow',

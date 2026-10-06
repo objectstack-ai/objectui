@@ -828,7 +828,6 @@ const ja = {
   },
   timeline: {
     bucket: {
-      overdue: "期限超過",
       earlier: "以前",
       today: "今日",
       tomorrow: "明日",

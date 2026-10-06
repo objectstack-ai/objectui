@@ -45,7 +45,11 @@
  *   - **Positive control on that search.** The same command shape, run for
  *     `timeline.bucket.overdue` / `timeline.scale.week` / `timeline.gantt.rowLabel`,
  *     returned their call sites in `ObjectTimeline.tsx` and `renderer.tsx`. A
- *     search that has not been shown to fire is not a measurement.
+ *     search that has not been shown to fire is not a measurement. (That was
+ *     read at `83fe6e741`. `timeline.bucket.overdue` has since lost its call
+ *     site and then its row and pack key, objectui#11676, so a re-run needs
+ *     another `ObjectTimeline.tsx` key, such as `timeline.bucket.today`, as
+ *     its control.)
  *   - **The job moved to a formatter, not to other copy.** Day-granularity
  *     relative phrases ("Today", "Tomorrow", "3 days ago") are produced by
  *     `formatRelativeDate` / `formatRelativeDays` in `@object-ui/core`

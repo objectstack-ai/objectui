@@ -27,10 +27,10 @@ import {
   Separator,
   Badge,
   Button,
+  getLazyIcon,
 } from '@object-ui/components';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { ChevronRight, Info } from 'lucide-react';
-import { getIcon } from '../../utils/getIcon';
 import { EnvLockBadge } from './EnvLockBadge';
 import { resolveLabel, type Specifier, type ResolvedSettingValue } from './types';
 import type { SettingsLabelHelpers } from './useSettingsLabel';
@@ -297,7 +297,7 @@ export function SettingsField(props: SettingsFieldProps) {
   }
 
   if (spec.type === 'action_button') {
-    const Icon = spec.icon ? getIcon(spec.icon) : null;
+    const Icon = spec.icon ? getLazyIcon(spec.icon) : null;
     const actionId = spec.id ?? spec.key ?? 'test';
     const actionLabel = labels
       ? labels.actionLabel(actionId, literalLabel)
@@ -312,7 +312,7 @@ export function SettingsField(props: SettingsFieldProps) {
         </div>
         <Button size="sm" variant="secondary" onClick={onAction} disabled={saving}>
           {Icon ? (
-            // eslint-disable-next-line react-hooks/static-components -- getIcon returns a module-cached stable component per name, not one created during render
+            // eslint-disable-next-line react-hooks/static-components -- getLazyIcon returns a module-cached stable component per name, not one created during render
             <Icon className="h-4 w-4 mr-1.5" />
           ) : null}
           {actionLabel}

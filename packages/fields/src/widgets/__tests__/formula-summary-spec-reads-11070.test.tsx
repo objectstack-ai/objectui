@@ -45,9 +45,13 @@ const summaryText = (field: SummaryFieldMetadata, value: unknown) =>
   render(<SummaryField value={value} onChange={noop} field={field} />).container.textContent;
 
 describe('objectui#11070 — `FormulaField` formats by the spec `returnType`', () => {
-  it('`returnType: number` formats to two decimals; with no `returnType` the value prints as text', () => {
-    expect(formulaText({ type: 'formula', name: 'total', returnType: 'number' }, 3)).toBe('3.00');
-    expect(formulaText({ type: 'formula', name: 'total' }, 3)).toBe('3');
+  // The number face is the number field's since objectui#11748 (grouped, at a
+  // declared `scale`), not `toFixed(2)`. The control is a numeric STRING: the
+  // declaration reads it as a number, while with no `returnType` only a JS
+  // number is one, so a string of digits prints as text.
+  it('`returnType: number` reads a numeric string as a number; with no `returnType` it prints as text', () => {
+    expect(formulaText({ type: 'formula', name: 'total', returnType: 'number' }, '1234.5')).toBe('1,234.5');
+    expect(formulaText({ type: 'formula', name: 'total' }, '1234.5')).toBe('1234.5');
   });
 
   it('`returnType: boolean` prints Yes / No; `returnType: text` prints the raw value', () => {
@@ -75,9 +79,12 @@ describe('objectui#11070 — `SummaryField` formats by `summaryOperations.functi
 });
 
 describe('objectui#11070 — the snake_case spellings are retired: alone, they format nothing', () => {
+  // A numeric STRING, not a JS number: since objectui#11748 an undeclared JS
+  // number reads as a number too, so a number could not tell a read
+  // `return_type` from an ignored one.
   it('`return_type` is not read', () => {
     const legacy = { type: 'formula', name: 'total', return_type: 'number' } as unknown as FormulaFieldMetadata;
-    expect(formulaText(legacy, 3)).toBe('3');
+    expect(formulaText(legacy, '1234.5')).toBe('1234.5');
   });
 
   it('`summary_type` is not read', () => {

@@ -2659,11 +2659,25 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
 
 /**
  * Formula field cell renderer (read-only). `summary` is registered to it too.
+ *
+ * The TABLE face of a formula; `FormulaField`'s read-only branch is its FORM
+ * face, and the two read one rule (objectui#11748): the declared `returnType`,
+ * or, with none, a JS number as a number and anything else as text. Each type
+ * is then drawn through the calls the matching field type's faces make, so
+ * one stored value reads the same in the form and in the table. The rule is
+ * spelled in both modules because this barrel and the lazily loaded widget may
+ * not import each other; `__tests__/formulaFaces.returnType-11748.test.tsx`
+ * compares the two faces' text for every declared type.
  */
 export function FormulaCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
+  // Hooks before the empty-value early return: the hook count must not change
+  // when a value flips between null and set. The date face reads the display
+  // locale; the boolean face reads the locale's word.
+  const locale = useDisplayLocale();
+  const booleanLabel = useBooleanValueLabel();
   const safe = coerceToSafeValue(value);
   // THE FLOOR by name and nothing more (objectui#8496), on the coerced text —
-  // same relation as `TextCellRenderer`, which this renderer's output mirrors.
+  // same relation as `TextCellRenderer`, which this renderer's text face mirrors.
   if (isEmptyValue(safe)) return <EmptyValue />;
 
   // A NUMERIC result is drawn by the number cell (objectui#11683). This
@@ -2674,13 +2688,12 @@ export function FormulaCellRenderer({ value, field }: CellRendererProps): React.
   // locale's grouping, and the width `resolveFieldScale` answers for this field.
   // The spec applies `scale` to a `formula` field, so a declared one is honoured.
   //
-  // Which results are numbers:
-  //   - `returnType: 'number'`: the spec's declared value type, read as declared.
+  // Which results are of which type:
+  //   - a declared `returnType`: the spec's declared value type, read as
+  //     declared, and never overridden by the value.
   //   - no `returnType`: the value's own JSON type. Only a JS number counts; a
   //     string of digits from an undeclared formula stays text, because nothing
   //     says it is a quantity (a postcode built by concatenation is not one).
-  //   - any other `returnType`: drawn as before. A declaration is honoured,
-  //     never overridden by the value.
   //
   // ⛔ No type is inferred from the expression or from its inputs. The spec's
   // own field form says of `returnType` that consumers read it "instead of
@@ -2688,8 +2701,31 @@ export function FormulaCellRenderer({ value, field }: CellRendererProps): React.
   // `boolean` / `date`) carry no currency, so a formula over two currency
   // fields renders as a number here, not as money.
   const returnType = field && 'returnType' in field ? field.returnType : undefined;
-  if (returnType === 'number' || (returnType === undefined && typeof value === 'number')) {
+  const valueType = returnType ?? (typeof value === 'number' ? 'number' : 'text');
+  if (valueType === 'number') {
     return <NumberCellRenderer value={value} field={field} />;
+  }
+
+  // A declared BOOLEAN reads the locale's Yes / No word (objectui#11748), the
+  // word `BooleanField`'s read-only branch and the form face draw, and not
+  // `BooleanCellRenderer`'s checkbox: a box has no text to agree with the
+  // form's word. Only a JS boolean is a boolean, under the rule both boolean
+  // faces apply (objectui#8582 / objectui#8593); this printed `true` raw.
+  if (valueType === 'boolean') {
+    if (typeof value !== 'boolean') return <EmptyValue />;
+    return <span>{booleanLabel(value)}</span>;
+  }
+
+  // A declared DATE reads `formatDate`'s DEFAULT face (objectui#11748), the
+  // face `DateField`'s read-only branch and the form face draw; this printed
+  // the stored ISO text raw. ⛔ Not `DateCellRenderer`'s relative default
+  // (`Today`, `2 days ago`): that face exists in the table only, so a formula
+  // drawn with it would read one way in the form and another here. A falsy or
+  // unparsable value is empty, guarded exactly as the form face guards it,
+  // with `formatDate`'s own parse step.
+  if (valueType === 'date') {
+    if (!safe || isNaN(toDisplayDate(safe as string | number).getTime())) return <EmptyValue />;
+    return <span className="tabular-nums">{formatDate(safe as string | number, undefined, { locale })}</span>;
   }
 
   return (

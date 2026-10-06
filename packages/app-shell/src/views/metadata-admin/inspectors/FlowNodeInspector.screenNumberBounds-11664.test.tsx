@@ -36,7 +36,8 @@
  * fallback columns and then the engine's. A row built against the fallback
  * held no cell for `min` / `max`, so a re-save of a code-authored field
  * dropped both — measured in a live console against objectstack `main`, the
- * second reason pin 2 failed there. Every case waits for the engine's columns.
+ * second reason pin 2 failed there. Every inspector case waits for the
+ * engine's columns; the last block pins the same re-read on the list itself.
  *
  * Every saved shape is judged by `ScreenConfigSchema` from the installed
  * `@objectstack/spec/automation`, the contract the run refuses against.
@@ -51,7 +52,9 @@ vi.mock('../previews/useObjectFields', () => ({
 }));
 
 import { FlowNodeInspector } from './FlowNodeInspector';
+import { FlowObjectListField } from './FlowObjectListField';
 import { jsonSchemaToFlowFields } from './json-schema-to-fields';
+import type { FlowConfigColumn } from './flow-node-config';
 import type { MetadataSelection } from '../preview-registry';
 import { ScreenConfigSchema } from '@objectstack/spec/automation';
 
@@ -362,5 +365,40 @@ describe('engine descriptors: a screen field’s Min / Max commit numbers (objec
     const [retyped] = fieldsOf(latest());
     expect(retyped.min).toBe(2);
     expect(refusals([retyped])).toEqual([]);
+  });
+});
+
+describe('a column that changes under live rows reads the stored item (objectui#11664)', () => {
+  // The general form of pin 2's second reason, on the list itself: the same
+  // key re-declared with another kind — a hand-written `text` column the
+  // engine publishes as a `number` — re-reads its cell from the stored row,
+  // so the next save commits the stored number and not the string the text
+  // cell had made of it. Cells whose column did not change keep what they hold.
+  it('a key that turns from text to number commits the stored number on the next edit', () => {
+    const stored = [{ name: 'qty', min: 5 }];
+    const commits: Array<Array<Record<string, unknown>> | undefined> = [];
+    const props = {
+      label: 'Fields',
+      value: stored,
+      onCommit: (v: Array<Record<string, unknown>> | undefined) => commits.push(v),
+      addLabel: 'Add',
+      removeLabel: 'Remove',
+      emptyLabel: 'None',
+    };
+    const before: FlowConfigColumn[] = [
+      { key: 'name', label: 'Name', kind: 'text' },
+      { key: 'min', label: 'Min', kind: 'text' },
+    ];
+    const after: FlowConfigColumn[] = [
+      { key: 'name', label: 'Name', kind: 'text' },
+      { key: 'min', label: 'Min', kind: 'number' },
+    ];
+    const { rerender } = render(<FlowObjectListField {...props} columns={before} />);
+    rerender(<FlowObjectListField {...props} columns={after} />);
+    expect(commits, 'a column change writes nothing by itself').toEqual([]);
+
+    enter(screen.getByDisplayValue('qty') as HTMLInputElement, 'quantity');
+
+    expect(commits.at(-1)).toEqual([{ name: 'quantity', min: 5 }]);
   });
 });

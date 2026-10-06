@@ -371,6 +371,11 @@ const zh = {
       postalCode: '邮政编码',
       country: '国家 / 地区',
     },
+    boolean: {
+      offBadge: '{{label}} — 已关闭',
+      completed: '已完成',
+      notCompleted: '未完成',
+    },
     textarea: {
       characterCount: '已输入 {{count}} 个字符，最多 {{max}} 个',
       charactersRemaining: '还可输入 {{count}} 个字符',
@@ -2655,6 +2660,8 @@ const zh = {
     greetingAfternoon: '下午好',
     greetingEvening: '晚上好',
     greetingNight: '夜深了',
+    greetingSeparator: '，',
+    greetingEnd: '。',
     heroTagline: '从上次离开的地方继续，或者探索新的内容。',
     build: {
       title: '构建应用',

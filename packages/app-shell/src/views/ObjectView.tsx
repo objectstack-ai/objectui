@@ -1538,7 +1538,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
     const location = useLocation();
     const { showDebug } = useMetadataInspector();
     const { t } = useObjectTranslation();
-    const { objectLabel, objectDescription: objectDesc, viewLabel, viewEmptyState, actionParamText, fieldLabel, fieldOptionLabel } = useObjectLabel();
+    const { objectLabel, objectPluralLabel, objectDescription: objectDesc, viewLabel, viewEmptyState, actionParamText, fieldLabel, fieldOptionLabel } = useObjectLabel();
     // The views a server read served — `/meta/view`, and the object document's
     // own `listViews` — already translated: their labels are drawn as given,
     // every other view's through `viewLabel` (objectui#11295, objectui#11336).
@@ -3653,7 +3653,10 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
              <PageHeader
                  title={
                    <span className="inline-flex items-center gap-2">
-                     <span className="truncate">{objectLabel(objectDef)}</span>
+                     {/* The page lists the object's records, so it is titled
+                         with the plural, as the nav entry that opens it is
+                         (objectui#11696); the record page keeps the singular. */}
+                     <span className="truncate">{objectPluralLabel(objectDef)}</span>
                      <ManagedByBadge managedBy={(objectDef as any)?.managedBy} />
                    </span>
                  }

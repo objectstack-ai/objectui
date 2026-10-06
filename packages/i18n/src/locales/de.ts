@@ -360,6 +360,11 @@ const de = {
       postalCode: "Postleitzahl",
       country: "Land",
     },
+    boolean: {
+      offBadge: "{{label}} — Aus",
+      completed: "Abgeschlossen",
+      notCompleted: "Nicht abgeschlossen",
+    },
     textarea: {
       characterCount: "Zeichenanzahl: {{count}} von {{max}}",
       charactersRemaining: "Verbleibende Zeichen: {{count}}",
@@ -2620,6 +2625,8 @@ const de = {
     greetingAfternoon: "Guten Nachmittag",
     greetingEvening: "Guten Abend",
     greetingNight: "Nachtschicht",
+    greetingSeparator: ", ",
+    greetingEnd: ".",
     heroTagline: "Machen Sie dort weiter, wo Sie aufgehört haben, oder entdecken Sie etwas Neues.",
     open: "Öffnen",
     recentApps: {

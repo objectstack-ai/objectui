@@ -367,6 +367,11 @@ const fr = {
       postalCode: "Code postal",
       country: "Pays",
     },
+    boolean: {
+      offBadge: "{{label}} — Désactivé",
+      completed: "Terminé",
+      notCompleted: "Non terminé",
+    },
     textarea: {
       characterCount: "Nombre de caractères : {{count}} sur {{max}}",
       charactersRemaining: "Caractères restants : {{count}}",
@@ -2668,6 +2673,8 @@ const fr = {
     greetingAfternoon: "Bon après-midi",
     greetingEvening: "Bonsoir",
     greetingNight: "Travail de nuit",
+    greetingSeparator: ", ",
+    greetingEnd: ".",
     heroTagline: "Reprenez là où vous vous êtes arrêté ou découvrez quelque chose de nouveau.",
     open: "Ouvrir",
     recentApps: {

@@ -360,6 +360,11 @@ const ko = {
       postalCode: "우편번호",
       country: "국가",
     },
+    boolean: {
+      offBadge: "{{label}} — 꺼짐",
+      completed: "완료됨",
+      notCompleted: "완료되지 않음",
+    },
     textarea: {
       characterCount: "글자 수: {{max}}자 중 {{count}}자",
       charactersRemaining: "{{count}}자 남음",
@@ -2619,6 +2624,8 @@ const ko = {
     greetingAfternoon: "좋은 오후에요",
     greetingEvening: "좋은 저녁이에요",
     greetingNight: "야간 작업 중",
+    greetingSeparator: ", ",
+    greetingEnd: ".",
     heroTagline: "마지막으로 중단한 곳에서 이어서 하거나 새로운 것을 발견해 보세요.",
     open: "열기",
     recentApps: {

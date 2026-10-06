@@ -400,6 +400,11 @@ const ar = {
       postalCode: "الرمز البريدي",
       country: "الدولة",
     },
+    boolean: {
+      offBadge: "{{label}} — إيقاف",
+      completed: "مكتمل",
+      notCompleted: "غير مكتمل",
+    },
     textarea: {
       characterCount: "عدد الأحرف: {{count}} من {{max}}",
       charactersRemaining: "الأحرف المتبقية: {{count}}",
@@ -2828,6 +2833,8 @@ const ar = {
     greetingAfternoon: "مساء الخير",
     greetingEvening: "مساء النور",
     greetingNight: "وردية الليل",
+    greetingSeparator: "، ",
+    greetingEnd: ".",
     heroTagline: "استمر من حيث توقفت أو اكتشف شيئاً جديداً.",
     open: "فتح",
     recentApps: {

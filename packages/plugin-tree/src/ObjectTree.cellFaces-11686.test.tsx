@@ -228,6 +228,9 @@ describe('ObjectTree cells draw the list cell faces (objectui#11686)', () => {
     const badge = within(off).getByTestId('boolean-warning-badge');
     expect(badge.textContent).toContain('启用');
     expect(badge.textContent).not.toContain('Active');
+    // The badge's own word is the pack's too (objectui#11689), so the whole
+    // badge reads in the session language.
+    expect(badge.textContent).toBe('启用 — 已关闭');
 
     // …and it is the header's word, not a second translation of it.
     const header = screen.getAllByRole('columnheader')[1 + COLUMNS.indexOf('active')];

@@ -382,6 +382,11 @@ const ru = {
       postalCode: "Почтовый индекс",
       country: "Страна",
     },
+    boolean: {
+      offBadge: "{{label}} — Выкл.",
+      completed: "Выполнено",
+      notCompleted: "Не выполнено",
+    },
     textarea: {
       characterCount: "Количество символов: {{count}} из {{max}}",
       charactersRemaining: "Осталось символов: {{count}}",
@@ -2735,6 +2740,8 @@ const ru = {
     greetingAfternoon: "Добрый день",
     greetingEvening: "Добрый вечер",
     greetingNight: "Ночная смена",
+    greetingSeparator: ", ",
+    greetingEnd: ".",
     heroTagline: "Продолжите с того места, где остановились, или откройте что-то новое.",
     open: "Открыть",
     recentApps: {

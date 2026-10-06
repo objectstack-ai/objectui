@@ -4,6 +4,7 @@ import { useDisplayLocale } from '@object-ui/i18n';
 import { formatDate, toDisplayDate } from '@object-ui/core';
 import type { FormulaFieldMetadata } from '@object-ui/types';
 import { FieldWidgetComponentProps } from './types.js';
+import { useBooleanValueLabel } from './booleanValueLabel.js';
 
 /**
  * FormulaField - Read-only computed field
@@ -14,6 +15,8 @@ export function FormulaField({ value, field, ...props }: FieldWidgetComponentPro
   // a value flips between null and set. A `date` return type used to format
   // through the MACHINE's locale (objectui#4468).
   const locale = useDisplayLocale();
+  // Same reason as the hook above: before the early return.
+  const booleanLabel = useBooleanValueLabel();
   // The spec's `returnType` (`number` / `text` / `boolean` / `date`), the
   // spelling object metadata carries — authoring stamps it from the inferred
   // CEL type. It is the ONLY spelling read: the snake_case `return_type` this
@@ -29,7 +32,9 @@ export function FormulaField({ value, field, ...props }: FieldWidgetComponentPro
   if (returnType === 'number') {
     displayValue = typeof value === 'number' ? value.toFixed(2) : String(value);
   } else if (returnType === 'boolean') {
-    displayValue = value ? 'Yes' : 'No';
+    // The locale's word (objectui#11689), read the way every read-only boolean
+    // word is. The value is still read by truthiness, as it was.
+    displayValue = booleanLabel(Boolean(value));
   } else if (returnType === 'date') {
     // `formatDate`'s DEFAULT style — the one home for the `date` display
     // convention (objectui#8194, following the maintainer's ruling A behind

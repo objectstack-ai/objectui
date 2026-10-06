@@ -565,6 +565,15 @@ const en = {
     // to plural lookup before the base key, and these packs declare the base
     // key only; a sentence whose grammar does not bend on the number is
     // correct at 1 without ten plural entries per pack.
+    // objectui#11689 — `BooleanCellRenderer`'s own words (every list
+    // surface draws them): the badge a status-named column (`active`,
+    // `enabled`, …) shows for `false`, where `{{label}}` is the column label
+    // the face is handed, and the completion indicator's accessible names.
+    boolean: {
+      offBadge: '{{label}} — Off',
+      completed: 'Completed',
+      notCompleted: 'Not completed',
+    },
     textarea: {
       characterCount: 'Character count: {{count}} of {{max}}',
       charactersRemaining: 'Characters remaining: {{count}}',
@@ -3043,6 +3052,12 @@ const en = {
     greetingAfternoon: 'Good afternoon',
     greetingEvening: 'Good evening',
     greetingNight: 'Working late',
+    // objectui#11689 — the greeting's two joiners: the separator between the
+    // greeting and the person's name (rendered only when there is a name), and
+    // the closing mark. Punctuation is a locale property: zh-CN and ja write
+    // full-width marks, ar its own comma.
+    greetingSeparator: ', ',
+    greetingEnd: '.',
     heroTagline: 'Pick up where you left off, or explore something new.',
     build: {
       title: 'Build an app',

@@ -1354,6 +1354,60 @@ const DashboardWidgetSlotComponentSchema = BaseSchema.extend({
   children: retirementTombstone(METRIC_CARD_NEITHER_CHANNEL),
 });
 
+/** The legacy envelope's `component` slot: the two arms, in the TypeScript twin's order. */
+type WidgetComponentSlot = z.ZodUnion<readonly [typeof DashboardWidgetSlotComponentSchema, typeof BaseSchema]>;
+
+/**
+ * objectui#11709: the constructor of the legacy envelope's `component` slot. It is a
+ * `z.union` of the same two arms, plus one routing step before the union runs. A node
+ * whose `type` the FIRST arm declares is judged by that arm alone. Any other node goes
+ * to the union exactly as before, so the accept set for every other `type` does not move.
+ *
+ * ## Why the slot routes
+ *
+ * A plain union tries each arm, and the first arm with no issues wins. The second arm
+ * is passthrough `BaseSchema`. It admits a node whatever its `type` says, so every
+ * `metric-card` the component arm refuses parsed through it. That was true for
+ * `label`, `children` and an out-of-enum `trend`, and for a card with no `value`.
+ * The arm's refusals therefore never reached `objectui validate`, while the strict face
+ * and `tsc` refused the same document. `body` was refused, but by both arms, so
+ * `objectui validate` printed `BaseSchema`'s message beside the arm's.
+ *
+ * ## Why this shape, measured against the other two
+ *
+ *  - `z.discriminatedUnion('type', …)` cannot hold the second arm. `BaseSchema`'s `type`
+ *    is an open string, which declares no discriminator value, so zod refuses the option
+ *    (`Invalid discriminated union option at index "1"`), with or without `unionFallback`.
+ *  - A `BaseSchema` arm that refuses `type: 'metric-card'` does refuse the card. But the
+ *    union then fails on BOTH arms, and `objectui validate` prints each arm's issues,
+ *    so the arm's message arrives beside a second, routing-only message from the fallback.
+ *  - Routing gives the card to the arm, so the slot answers with the arm's own issues,
+ *    at the arm's own paths. There is no union issue at `component`, and nothing from
+ *    `BaseSchema`. That is the shape the same card already has directly in `widgets[]`.
+ *
+ * The routing reads the arm's own discriminator (its `propValues` for `type`, which is
+ * `DASHBOARD_COMPONENT_WIDGET_TYPES`), so it copies none of the arm's rules. A component
+ * type the arm later declares is routed with no edit here. This is the same mechanism as
+ * zod's `discriminatedUnion` with `unionFallback`. It is spelled here because zod's own
+ * version demands a declared value of every arm.
+ *
+ * ⚠️ The strict face derives this slot by cloning its def through this constructor
+ * (`../strict-authoring-face.ts`), so its twin routes the same way over the closed arms.
+ */
+const WidgetComponentSlotUnion = z.core.$constructor<WidgetComponentSlot>(
+  'ZodWidgetComponentSlotUnion',
+  (inst, def) => {
+    z.ZodUnion.init(inst, def);
+    const union = inst._zod.parse;
+    const [arm] = def.options;
+    inst._zod.parse = (payload, ctx) => {
+      const node = payload.value;
+      const type = typeof node === 'object' && node !== null ? (node as { type?: unknown }).type : undefined;
+      return arm._zod.propValues?.type?.has(type as string) ? arm._zod.run(payload, ctx) : union(payload, ctx);
+    };
+  },
+);
+
 /**
  * Dashboard Widget Schema — DERIVED from `@objectstack/spec/ui`
  * (objectstack#4115): every spec key flows in **by reference** via
@@ -1442,7 +1496,15 @@ export const DashboardWidgetSchema = specFieldsExcept(stripImportedDefaults(Spec
   // authoring face refused all five as unrecognized (`component.value` and the rest,
   // measured at `d93e53f5`); the arm admits them, judged by their members. Every
   // other component node (a `custom` widget's) still parses through `BaseSchema`.
-  component: z.union([DashboardWidgetSlotComponentSchema, BaseSchema]).optional()
+  //
+  // objectui#11709: a node whose `type` the arm declares is judged by the arm ALONE,
+  // with no `BaseSchema` fallback, so each key the arm refuses is refused here too,
+  // with the arm's own message (see `WidgetComponentSlotUnion` above). The passthrough
+  // stays for every other node.
+  component: new WidgetComponentSlotUnion({
+    type: 'union',
+    options: [DashboardWidgetSlotComponentSchema, BaseSchema],
+  }).optional()
     .describe('Widget Component (legacy format)'),
 }).strict()
   // ⭐ THE SPEC'S OBJECT-LEVEL CHECKS, re-attached (objectui#7715, ruling B1; objectui#11073).

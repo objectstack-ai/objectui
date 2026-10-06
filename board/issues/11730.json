@@ -1,0 +1,33 @@
+{
+  "number": 11730,
+  "kind": "pull_request",
+  "title": "fix(console): drop the three retired /api/v1/ai/assistant try-it rows from the Developer API console (objectui#11704)",
+  "state": "closed",
+  "state_reason": null,
+  "draft": false,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "apps",
+    "tests"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-06T16:12:22Z",
+  "updated_at": "2026-10-06T16:47:49Z",
+  "closed_at": "2026-10-06T16:47:47Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": "2026-10-06T16:47:47Z",
+  "comments": 1,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/pull/11730",
+  "body": "Fixes #11704\n\nClause-②: no\n\nThe Developer API console's AI group no longer lists the three retired ambient-assistant routes as try-it rows: `GET /api/v1/ai/assistant`, `GET /api/v1/ai/assistant/skills` and `POST /api/v1/ai/assistant/chat`. The maintainer ruled them retired on objectstack-ai/cloud#2621 (ruling A). A server that carries that change answers each one with 404, so every row was a try-it button that could only fail. `POST /api/v1/ai/agents/:agentName/chat` stays in the group as the one chat door.\n\nDispatched by the `domain:ui` seat 1 PM (claim comment 6019944567 and its addendum 6020010808 on #11704); session `session_01DrKzdPdyLLBW3qpZ4vtk7z`.\n\n## What changed\n\n- `apps/console/src/pages/developer/hooks/useApiDiscovery.ts`: the three rows and the \"Ambient assistant\" comment above them are removed. The comment that counts the conditionally mounted builders now says three, with `/assistant/*` dropped from its list. The agent row, the tools rows and everything else in the group are untouched.\n- Two sibling comments in the same block were made false or unverifiable by the removal, so they are repaired in this change instead of left to read as live. The ledger-mirror instruction now says \"added, renamed or retired\". The sentence that wrote down the family's builder count and route total (\"SEVEN builders ... All 26\") now carries no count: both numbers were derived once from cloud's route ledger, the removal falsifies the second and cannot be re-checked for the first from this repo, and AGENTS.md #9 asks for a pointer to the instrument, not its answer. The ledger is already named in that block.\n- `apps/console/src/pages/developer/hooks/useApiDiscovery.test.ts`: no test pinned the AI group before, so one new pin is added. It renders the hook against a discovery answer that reports the `ai` slot usable, asserts the named-agent chat row is present, and asserts no row carries `/assistant`. The presence assertion is the positive control that makes the empty list a measurement.\n- `.changeset/11704-drop-retired-assistant-rows.md`: a `patch` for `@object-ui/console`. `apps/console` is in the changeset `fixed` group and the edit is under its `src/`, so AGENTS.md section 9 requires a declaration. The change is user-visible (rows leave the shipped console), so it is a real patch entry, not the empty-frontmatter form. `node scripts/check-changeset-presence.mjs` reads it as satisfied.\n\n## Premises measured on origin/main before editing\n\n- The rows are static entries in the `ai` group of `SERVICE_ENDPOINT_CATALOG`, whose `defaultRoute` is `/api/v1/ai`: confirmed. The group is gated on `/discovery` reporting the `ai` slot usable and is not served from a route listing.\n- No other objectui code calls these paths: `git grep` for `ai/assistant` had no code hit, and a wider scan for a `/assistant` path (quote, backtick or slash led, imports and `role` literals filtered out) hit only the three rows and the count comment in this one file. Positive control in the same file: the `/api/v1/ai` default-route string hits.\n- No test pinned the AI group's rows or count: the only test beside the hook covers the storage group, the fail-closed posture and the slot-key tripwire.\n- Docs, skills and locale packs name none of these routes, so nothing else changes.\n\n## Acceptance notes\n\n- Reverse verification, run from the committed fix: one `/assistant` row planted back into the catalog turned the new pin red (1 failed, 14 passed in the file, `expected [ 'GET /api/v1/ai/assistant' ] to deeply equal []`), and the byte-identical restore was proven (blob equal to HEAD, `git diff HEAD` empty). The first attempt was a no-op: the tool refused it because the replacement text still contained the anchor, so nothing ran; it was redone with a replaced anchor. The tested module is imported by relative path from `src`, so the ablation has no `dist/` leg and needed no build.\n- NOT MEASURED: the state of objectstack-ai/cloud#2651 and the contents of cloud's route ledger. This seat has no read access to that repository. \"Three\" in the mount-gate comment is the card's own `Done when` and agrees with the rows left in this file (`/agents/*`, `/evals/runs`, `/conversations/:id/debug`).\n- Timing, from the triage comment on #11704: the routes are cloud-only and objectui `main` may drop the rows now. A deployment pinned to an older cloud keeps its old console.\n- Local gates ran on commit `26f43d6`: the console dependency-closure build, the full `@object-ui/console` test run (154 files, 1799 tests) and `type-check`, plus `check:control-bytes`, `check:new-line-citations`, `check:changeset-claims`, `check:pending-changeset-literals`, the four `check-changeset-*` scripts and `check:test-path-roots`. Repo-wide lint and the rest of the farm are left to CI.\n\n---\n_Generated by [Claude Code](https://claude.ai/code/session_01DrKzdPdyLLBW3qpZ4vtk7z)_\n"
+}

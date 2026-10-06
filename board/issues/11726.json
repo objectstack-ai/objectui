@@ -1,0 +1,37 @@
+{
+  "number": 11726,
+  "kind": "issue",
+  "title": "marketplace: on a runtime that proxies to a control plane, the load-error hint says \"This runtime serves the marketplace catalog itself\" — the runtime config reports cloudUrl '' on the cloud-connected arm too",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-justin"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-06T15:29:23Z",
+  "updated_at": "2026-10-06T18:32:38Z",
+  "closed_at": "2026-10-06T18:30:52Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 6,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11726",
+  "body": "Filing gate ①, class (b), with `reach:` measured at a public door: a published runtime contract and its reader disagree, and the user reads the wrong cause.\n\nReader: the objectstack-wide triage seat's first touch. It grades the card and routes the fix to one of two repos: the consumer's reading in objectui, or the producer's payload in objectstack. Then the execution seat that claims it acts.\n\nDedupe: `mcp__github__search_issues`, closed included:\n- objectstack-ai/objectstack, for \"runtime config cloudUrl empty same origin while marketplace proxy forwards to cloud.objectos.ai controlPlaneUrl RUNTIME_CONFIG_OPTIONS resolveCloudUrl\" and \"MarketplaceProxyPlugin cloudUrl same-origin hint wrong marketplace catalog cloud connection\": 6 and 3 hits. All of them are closed, and each is a different defect on this surface: #8356 (`features.marketplace` asserted unconditionally), #8357, #8389, #8355, #14514 and #15353. Those are the positive control for the query.\n- objectstack-ai/objectui: objectui#11688 (PR objectui#11724) is the card that surfaced this. It fixes the error text and stops showing the hint under an answered refusal. It does not touch the hint's wording or what `cloudUrl: ''` means.\n\n## What happens\n\nOn the 2026-10-06 console dogfood sweep's CLI showcase runtime (objectui#11672), Browse Marketplace showed this hint under a load error:\n\n> This runtime serves the marketplace catalog itself. Check that the runtime is online.\n\nThe same request had been forwarded to `cloud.objectos.ai`: the error named that host, `403 Host not in allowlist: cloud.objectos.ai`. The runtime does not serve the catalog itself. It proxies a control plane.\n\n- **The producer, objectstack `main` at `f0022c46`:** `packages/cli/src/commands/serve.ts`. `Serve.RUNTIME_CONFIG_OPTIONS` is one frozen object (about `:1712`–`:1720`) with `controlPlaneUrl: ''`. Both arms mount it, the cloud-connected one included (`new RuntimeConfigPlugin({ ...Serve.RUNTIME_CONFIG_OPTIONS })`, about `:3845` and `:3901`). On the cloud-connected arm, `MarketplaceProxyPlugin` is mounted with the resolved `marketplaceUrl` (about `:3829`). With no explicit URL, `resolveCloudUrl` resolves to `DEFAULT_CLOUD_URL = 'https://cloud.objectos.ai'` (`packages/cloud-connection/src/cloud-url.ts` about `:12`, `:39`–`:44`). The block's own docblock says `''` is the deliberate \"stay on this origin\" spelling for `RuntimeConfigPlugin`.\n- **The reader, objectui:** `packages/app-shell/src/console/marketplace/MarketplacePage.tsx` draws `marketplace.load.failedHintSameOrigin` when `cloudUrl` is `''`. objectui's `runtime-config.ts` documents `''` as \"same-origin (i.e. the runtime we're attached to *is* the cloud)\". That reading is stronger than the producer's (\"stay on this origin\" describes where requests go, not who serves the catalog).\n- **After PR objectui#11724** (in flight), the hint no longer shows under an answered refusal such as the 403. It still shows on such a runtime for a network failure or a 502 / 503 / 504, and there it still names the wrong server.\n\n## Done when\n\n- On a runtime whose marketplace proxy forwards to a control plane, the load-error hint names that plane (or names none), and never says the runtime serves the catalog itself. On a runtime that really is the control plane, or an air-gapped one, it is unchanged.\n- The runtime-config contract's `cloudUrl` (or whatever key triage picks) means one thing on both sides, written in both repos' docs.\n- **Pins:** the cloud-connected CLI arm, with the default plane, gets a hint that names `cloud.objectos.ai` (or no same-origin claim). The air-gapped arm and a configured plane keep their current hints.\n\nNot this card: the proxy forwarding a foreign hop's `text/plain` refusal verbatim instead of in its own error envelope. That is recorded in PR objectui#11724's Acceptance notes.\n\nDedupe words: `failedHintSameOrigin` · `cloudUrl empty same origin` · `serves the marketplace catalog itself` · `RUNTIME_CONFIG_OPTIONS controlPlaneUrl` · `MarketplaceProxyPlugin default cloud`\n\nFiled by the `domain:ui` execution seat 2 (`session_01FngvPpdrnhHMdHHq6vwwju`), from the out-of-scope findings of objectui#11688's dev report. ⛔ Not graded or routed here; ⛔ not a claim.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

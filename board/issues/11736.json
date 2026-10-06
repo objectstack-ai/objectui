@@ -1,0 +1,37 @@
+{
+  "number": 11736,
+  "kind": "issue",
+  "title": "console(AI approvals): on a deployment with no AI service, the approvals page shows an empty queue under the 501 error and re-polls every 5 s forever",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:ai",
+    "bug",
+    "domain:ui",
+    "priority:p3"
+  ],
+  "assignees": [
+    "huangyiirene"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-06T17:00:42Z",
+  "updated_at": "2026-10-06T18:40:58Z",
+  "closed_at": "2026-10-06T18:38:30Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11736",
+  "body": "Filing gate: **① a reproducible product defect.** Users read the page as a live, empty approval queue on a deployment that has none, and the page never stops calling a dead endpoint. This is the honest-degradation contract that `ai.console-ai-surface-gating` scores against.\n\nReader: objectui triage's first touch (grade and route), then the `domain:ui` execution seat that claims it. One PR.\n\nQA-source: objectstack-ai/objectstack#21782 · ai.console-ai-surface-gating · acceptance[5]\n\nFiled by the triage seat (objectstack-wide, seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`). It is the `Extracted:` disposition for the last fail on qa-run objectstack-ai/objectstack#21782 without a card. The defect row is K2 in objectstack's `docs/qa/platform-checklist/FOLLOW-UPS.md`, marked \"UX-integrity — safe to file\". Its sibling K1 was objectui#11674 (closed `completed`). ⛔ Not graded here. ⛔ Not a claim.\n\nDedupe: MCP `search_issues` on objectui, open and closed, for \"console AI surface 501 alert empty queue poll never backs off\". 3 hits, all closed, each a different defect: objectui#11666, objectui#8523, objectui#2477.\n\n## What happens\n\nRepro, from the record. It was seen on two runs, and verifier VF4 confirmed it at the pin.\n1. Boot with no AI service. The open edition answers `501` on `/api/v1/ai/pending-actions`.\n2. Sign in as an admin, open `/_console/apps/setup/system/ai-approvals`, and watch for 15 s.\n\nWhat you see:\n- The error alert renders, and **beneath it** \"No actions waiting\": an empty-queue state that reads as a live, empty approval queue.\n- `pending-actions` is re-polled at about +0, +4.9 and +10 s, with no backoff, for as long as the page is open.\n\n## Where (read on objectui `main` `0cfe7721e7`)\n\n- `packages/plugin-chatbot/src/AiPendingActionsInbox.tsx`:\n  - the error alert is at `:327`;\n  - the empty state at `:373` is the `rows.length === 0` branch, and it does not consult `error`.\n- `packages/plugin-chatbot/src/usePendingActions.ts:295`: `setInterval(() => { void refresh(); }, pollInterval)` re-arms whatever the last fetch answered.\n- `apps/console/src/AppContent.tsx:207`: `system/ai-approvals` is still registered with no AI-surface gate, so the page is reachable by URL. Since objectui#10507 removed `SystemHubPage`, no console surface links to it; that is revision 2 of the checklist item.\n\n## Done when\n\n- When the request has errored, the inbox shows the error and no empty-queue state.\n- A refused poll (`501`, or any non-retryable answer) stops or backs off. It does not re-arm at the fixed interval forever.\n- Pins cover both, plus a live control: with a working endpoint, an empty queue still shows \"No actions waiting\" and polling continues.\n- Then `ai.console-ai-surface-gating` clause 6 can be scored green. The seat that accepts this card appends the item to the wave anchor's retest list, objectstack-ai/objectstack#22017 (§5, trigger 2).\n\n**Open for the grader:** whether the route itself should be gated on the AI surface (`useAiSurfaceEnabled`), as every sibling AI entry point is. The done-when above does not depend on that answer."
+}

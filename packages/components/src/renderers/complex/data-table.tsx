@@ -2335,21 +2335,21 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
   // costs this table no commit).
   const drawnSizesRef = useRef<DrawnColumnSizes | null>(null);
   const readDrawnSizesRef = useRef<(force?: boolean) => void>(() => {});
-  readDrawnSizesRef.current = (force = false) => {
-    const body = tableBodyRef.current;
-    if (!body || editingCellRef.current) return;
-    const { heads, cells } = drawnSizeTargets(headerRowRef.current, body);
-    const signature = drawnSizeSignature([...heads, ...cells]);
-    if (!force && signature === drawnSignatureRef.current) return;
-    const next = measureDrawnColumnSizes(heads, cells);
-    // A read with nothing laid out is not remembered, so the next commit or
-    // resize reads again instead of keeping the text-only estimate.
-    drawnSignatureRef.current = next.px ? signature : null;
-    if (drawnSizesRef.current && sameDrawnSizes(drawnSizesRef.current, next)) return;
-    drawnSizesRef.current = next;
-    setDrawnSizes(next);
-  };
   useLayoutEffect(() => {
+    readDrawnSizesRef.current = (force = false) => {
+      const body = tableBodyRef.current;
+      if (!body || editingCellRef.current) return;
+      const { heads, cells } = drawnSizeTargets(headerRowRef.current, body);
+      const signature = drawnSizeSignature([...heads, ...cells]);
+      if (!force && signature === drawnSignatureRef.current) return;
+      const next = measureDrawnColumnSizes(heads, cells);
+      // A read with nothing laid out is not remembered, so the next commit or
+      // resize reads again instead of keeping the text-only estimate.
+      drawnSignatureRef.current = next.px ? signature : null;
+      if (drawnSizesRef.current && sameDrawnSizes(drawnSizesRef.current, next)) return;
+      drawnSizesRef.current = next;
+      setDrawnSizes(next);
+    };
     readDrawnSizesRef.current();
   });
   useEffect(() => {

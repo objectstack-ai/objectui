@@ -46,7 +46,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import '../data-table';
 
 function DataTable(props: { schema: Record<string, unknown> }) {
-  const Impl = ComponentRegistry.get('data-table') as any;
+  const Impl = ComponentRegistry.get('data-table') as React.ComponentType<{ schema: unknown }> | undefined;
   if (!Impl) throw new Error('data-table not registered');
   return <Impl schema={props.schema} />;
 }

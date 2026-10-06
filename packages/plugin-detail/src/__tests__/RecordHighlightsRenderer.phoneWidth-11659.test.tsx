@@ -43,7 +43,7 @@ const renderStrip = () =>
       data={{ phone: PHONE, status: 'Active' }}
       objectSchema={objectSchema}
     >
-      <RecordHighlightsRenderer schema={{ fields: ['phone', 'status'] } as any} />
+      <RecordHighlightsRenderer schema={{ fields: ['phone', 'status'] }} />
     </RecordContextProvider>,
   );
 

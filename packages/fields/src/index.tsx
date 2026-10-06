@@ -2681,10 +2681,10 @@ export function FormulaCellRenderer({ value, field }: CellRendererProps): React.
   //     never overridden by the value.
   //
   // ⛔ No type is inferred from the expression or from its inputs. The spec's
-  // `returnType` describe text says consumers read it "instead of re-parsing
-  // the expression", and its four values (`number` / `text` / `boolean` /
-  // `date`) carry no currency, so a formula over two currency fields renders as
-  // a number here, not as money.
+  // own field form says of `returnType` that consumers read it "instead of
+  // re-parsing the expression", and its four values (`number` / `text` /
+  // `boolean` / `date`) carry no currency, so a formula over two currency
+  // fields renders as a number here, not as money.
   const returnType = field && 'returnType' in field ? field.returnType : undefined;
   if (returnType === 'number' || (returnType === undefined && typeof value === 'number')) {
     return <NumberCellRenderer value={value} field={field} />;

@@ -94,6 +94,7 @@ describe('a protocol placeholder never takes a key a pending lazy stub owns (obj
       try {
         const { land, Plugin } = declareGatedStub(name);
         registerPlaceholders();
+        expect(raceWarnings(warn), 'registering the placeholders raced the stub').toEqual([]);
 
         // Before the chunk loads, the key is still the stub's.
         expect(ComponentRegistry.get(authored)).not.toBe(PlaceholderRenderer);
@@ -110,6 +111,7 @@ describe('a protocol placeholder never takes a key a pending lazy stub owns (obj
         const after = render(<SchemaRenderer schema={{ type: authored }} />);
         expect(within(after.container).getByTestId(`plugin-${name}`)).toBeTruthy();
 
+        // Nor does the chunk landing: its registration names the stub's own type.
         expect(raceWarnings(warn), 'the registry reported a race over the key').toEqual([]);
       } finally {
         warn.mockRestore();

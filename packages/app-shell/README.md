@@ -193,6 +193,64 @@ exactly when it mounts the endpoint; every other runtime sends no key, which
 reads as off, so a self-hosted admin's page load issues no request and logs no
 404. Only the literal `true` turns it on.
 
+## Default auth pages and the sign-up offer
+
+`DefaultLoginPage` and `DefaultRegisterPage` are the sign-in and sign-up pages
+a host mounts at `/login` and `/register` (`examples/console-starter` does).
+They offer a generic sign-up only where the server would accept one. The
+server states that rule in two keys of `GET /api/v1/auth/config`:
+`emailPassword.disableSignUp` (the hard off switch) and
+`features.audiencePosture` (who may self-register). Under the default
+`invite_only` posture the server keeps `disableSignUp` off so that a pending
+invitee can still register, and refuses anyone else with
+`SELF_REGISTRATION_CLOSED`. The pages read both keys (objectui#11705):
+
+| the visitor | `/login` | `/register` |
+| --- | --- | --- |
+| `disableSignUp: true` | no "Sign up" link | bounces to `/login` |
+| posture `open` or `email_domain`, or no posture sent | "Sign up" link | the form |
+| `invite_only`, `?redirect=` is an invitation (`/accept-invitation/ID`) | "Sign up" link, carrying the redirect | the form |
+| `invite_only`, the deployment has no owner yet | "Sign up" link | the form |
+| `invite_only`, anyone else | no "Sign up" link | "registration is by invitation", before any form |
+
+The decision is one exported function, which the console's own login and
+register pages call too, so a host that builds its own pages can follow the
+same rule:
+
+```tsx
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useAuth, type AuthPublicConfig } from '@object-ui/auth';
+import {
+  decideSignUpOffer,
+  isInvitationRedirect,
+  needsBootstrapProbe,
+  useBootstrapStatus,
+  type SignUpOffer,
+} from '@object-ui/app-shell';
+
+/** 'form' | 'by-invitation' | 'closed' | 'pending' */
+export function useSignUpOffer(): SignUpOffer {
+  const [searchParams] = useSearchParams();
+  const { user, getAuthConfig } = useAuth();
+  // `null` until `/auth/config` has been read (and after a failed read).
+  const [authConfig, setAuthConfig] = useState<AuthPublicConfig | null>(null);
+  useEffect(() => {
+    getAuthConfig().then(setAuthConfig, () => undefined);
+  }, [getAuthConfig]);
+
+  const invitationRedirect = isInvitationRedirect(searchParams.get('redirect'));
+  // Probes GET /api/v1/auth/bootstrap-status only when the posture is closed
+  // and nothing else admits the visitor.
+  const bootstrap = useBootstrapStatus(!user && needsBootstrapProbe(authConfig, invitationRedirect));
+  return decideSignUpOffer(authConfig, { invitationRedirect, bootstrap });
+}
+```
+
+A `null` config answers `form`, leaving the server's own gate as the source of
+truth. An invitation redirect is an affordance, not an authorization: the
+server still refuses a non-invitee's sign-up.
+
 ## Components
 
 ### AppShell

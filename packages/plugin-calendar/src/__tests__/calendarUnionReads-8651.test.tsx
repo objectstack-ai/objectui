@@ -179,7 +179,7 @@ const LEDGERED_OTHER_CARD_READS: readonly string[] = [];
  * `ObjectCalendarSchema` and must stay so.
  *
  * ⚠️ The ground is NOT that the spec singles these two out. MEASURED on
- * installed `@objectstack/spec` 17.6.0: `ComponentPropsMap['object-calendar']`
+ * installed `@objectstack/spec` 17.7.0: `ComponentPropsMap['object-calendar']`
  * is STRICT and declares exactly ten flat members — `calendar` `data`
  * `defaultView` `filter` `loading` `locale` `navigation` `objectName` `sort`
  * `staticData` (nine through 17.4.0; 17.5.0 added `navigation`) —
@@ -351,20 +351,22 @@ describe('objectui#8651 — every key read off the node is declared on that sche
 
 /* ── 3. `calendar`, the container the spec names ───────────────────────────── */
 
-describe('objectui#8651 — `calendar` is declared; the spec sets the KEY, objectui sets the SHAPE', () => {
-  it('⚠️ the spec declares the KEY but NOT its shape — the slot refuses nothing', () => {
-    // The grounds, stated the way the instrument returns them. An earlier cut
-    // of this card said the spec declares the container and that "no conforming
-    // author could write" the alias spellings inside it. The first half is
-    // true; the second is false, and this row is why.
+describe('objectui#8651 — `calendar` is declared; the spec sets the KEY, and since 17.7.0 its SHAPE too', () => {
+  it('the spec declares the KEY and, since 17.7.0, its shape — the slot is the list view\'s strict calendar block', () => {
+    // The grounds, stated the way the instrument returns them. Through 17.6.0
+    // this row pinned the slot as `z.unknown()`: a nonsense key, the alias
+    // spelling and a number all parsed inside it. `@objectstack/spec` 17.7.0
+    // types it (objectstack#21464 stage 2, `7d674dfc`) as the list view's own
+    // `calendar` member, `CalendarConfigSchema`, so each of those is refused now
+    // and this row flipped at that bump (objectui#11717).
     const oc = (ComponentPropsMap as unknown as Record<string, any>)['object-calendar'];
     const inside = (value: unknown) => oc.safeParse({ objectName: 'duly_task', calendar: value }).success;
     expect(inside({ startDateField: 'kickoff' })).toBe(true);   // known-accepted control
-    expect(inside({ [CONTROL_KEY]: 'x' })).toBe(true);          // ⇒ the slot is not strict
-    expect(inside({ dateField: 'kickoff' })).toBe(true);        // so the alias IS writable
-    expect(inside(42)).toBe(true);                              // it is `z.unknown()`
+    expect(inside({ [CONTROL_KEY]: 'x' })).toBe(false);         // ⇒ the slot is strict
+    expect(inside({ dateField: 'kickoff' })).toBe(false);       // so the alias is NOT writable
+    expect(inside(42)).toBe(false);                             // it is an object, not `z.unknown()`
     // CONTROL, same instrument, one level out: the element's props schema IS
-    // strict, so the reading above is about this SLOT and not a dead parser.
+    // strict too, so the readings above are about this SLOT's own shape.
     expect(oc.safeParse({ objectName: 'duly_task', [CONTROL_KEY]: 'x' }).success).toBe(false);
   });
 

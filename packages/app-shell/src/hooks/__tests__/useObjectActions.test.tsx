@@ -50,7 +50,7 @@ vi.mock('sonner', () => {
 
 import { toast } from 'sonner';
 import { useObjectActions } from '../useObjectActions';
-import type { ActionResult } from '@object-ui/core';
+import type { ActionResult, ConfirmationHandler } from '@object-ui/core';
 
 // Mirror ObjectView's real toastHandler: route the runner's post-execution
 // toast into the same sonner sink the handler uses directly.
@@ -216,7 +216,7 @@ describe('useObjectActions — package-owned permission set delete = reset copy'
 describe('useObjectActions — the delete confirmation names what it deletes (objectui#11695)', () => {
   function setupCopy(
     dataSource: { delete: ReturnType<typeof vi.fn> },
-    onConfirmSpy: ReturnType<typeof vi.fn>,
+    onConfirmSpy: ConfirmationHandler,
   ) {
     return renderHook(() =>
       useObjectActions({

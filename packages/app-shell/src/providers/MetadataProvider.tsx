@@ -587,9 +587,9 @@ export function attachInlineSubforms(objects: any[]): any[] {
  * Module-level and weak, so an entry lives only as long as the stored list it
  * was built from.
  */
-const COMPOSED_OBJECTS = new WeakMap<any[], { views: any[]; composed: any[] }>();
+const COMPOSED_OBJECTS = new WeakMap<unknown[], { views: unknown[]; composed: unknown[] }>();
 
-function composeObjects(objs: any[], views: any[]): any[] {
+function composeObjects(objs: unknown[], views: unknown[]): unknown[] {
   const cached = COMPOSED_OBJECTS.get(objs);
   if (cached && cached.views === views) return cached.composed;
   const merged = views.length ? mergeViewsIntoObjects(objs, views) : objs;

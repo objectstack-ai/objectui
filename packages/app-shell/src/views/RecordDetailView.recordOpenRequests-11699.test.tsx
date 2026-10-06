@@ -73,10 +73,13 @@ import { MemoryRouter } from 'react-router-dom';
  */
 const memoProxy = vi.hoisted(() => ({ markers: [] as unknown[], epoch: 0 }));
 
+type UseMemo = (factory: () => unknown, deps?: unknown[]) => unknown;
+type ReactModule = Record<string, unknown> & { useMemo: UseMemo; default?: Record<string, unknown> };
+
 vi.mock('react', async (importOriginal) => {
-  // `<any>` as in the sibling discard pins: a precise module type makes the
-  // real hook's deps parameter `DependencyList`, which the patch cannot satisfy.
-  const actual = await importOriginal<any>();
+  // Typed loosely on purpose: React's own `useMemo` type takes a
+  // `DependencyList`, which the patched signature below cannot satisfy.
+  const actual = await importOriginal<ReactModule>();
   const realUseMemo = actual.useMemo;
   const patched = (factory: () => unknown, deps?: unknown[]) =>
     Array.isArray(deps) && deps.some((d) => memoProxy.markers.includes(d))

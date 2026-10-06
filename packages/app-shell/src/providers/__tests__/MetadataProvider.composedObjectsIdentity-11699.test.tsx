@@ -55,11 +55,13 @@ import { MetadataProvider, useMetadata } from '../MetadataProvider';
 
 const memoProxy = vi.hoisted(() => ({ armed: false, epoch: 0 }));
 
+type UseMemo = (factory: () => unknown, deps?: unknown[]) => unknown;
+type ReactModule = Record<string, unknown> & { useMemo: UseMemo; default?: Record<string, unknown> };
+
 vi.mock('react', async (importOriginal) => {
-  // `<any>` matches the sibling discard pins and is load-bearing: a precise
-  // module type makes the real hook's deps parameter `DependencyList`, which
-  // the patched signature below cannot satisfy.
-  const actual = await importOriginal<any>();
+  // Typed loosely on purpose: React's own `useMemo` type takes a
+  // `DependencyList`, which the patched signature below cannot satisfy.
+  const actual = await importOriginal<ReactModule>();
   const realUseMemo = actual.useMemo;
   const patchedUseMemo = (factory: () => unknown, deps?: unknown[]) =>
     memoProxy.armed && Array.isArray(deps)
@@ -122,8 +124,8 @@ function mount(served: Record<string, unknown[]>) {
   };
 }
 
-const byName = (list: unknown[], name: string) =>
-  (list as Array<{ name: string } & Record<string, any>>).find((o) => o.name === name);
+type Def = { name: string; fields?: Record<string, unknown>; listViews?: Record<string, unknown>; form?: { subforms?: unknown[] } };
+const byName = (list: unknown[], name: string) => (list as Def[]).find((o) => o.name === name);
 
 /** Wait until both helpers have had something to wrap. */
 async function untilComposed(ctx: () => Ctx) {

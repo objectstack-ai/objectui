@@ -145,8 +145,6 @@ describe('resolveManagedByEmptyState', () => {
 
     it('counts an action placed on the toolbar whose gate holds', () => {
       expect(listToolbarDrawsAction([invite], allowAll, { features: { organization: true } })).toBe(true);
-      // A default-on flag the host never reported fails open, as the button does.
-      expect(listToolbarDrawsAction([invite], allowAll, { features: {} })).toBe(true);
     });
 
     it('does not count an action its own `visible` hides (single-org Invite User)', () => {

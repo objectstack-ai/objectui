@@ -31,13 +31,13 @@ vi.mock('@object-ui/auth', async (importOriginal) => ({
   useAuth: () => ({ hasLocalPassword, getAuthConfig }),
 }));
 
+import { RecoveryPasswordReminder } from '../RecoveryPasswordReminder';
 import {
   FIRST_SESSION_GRACE_MS,
   RECOVERY_REMINDER_DISMISSED_KEY,
   RECOVERY_REMINDER_FIRST_SEEN_KEY,
-  RecoveryPasswordReminder,
   isPastFirstSession,
-} from '../RecoveryPasswordReminder';
+} from '../recoveryReminderGate';
 
 const t = (key: string) => key;
 const SIGNUP = Date.UTC(2026, 9, 5, 9, 0, 0);

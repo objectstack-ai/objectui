@@ -32,7 +32,7 @@
 
 import type { ReactElement } from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
-import { render, screen, cleanup, act } from '@testing-library/react';
+import { render, screen, cleanup, act, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { I18nProvider } from '@object-ui/i18n';
 
@@ -93,6 +93,29 @@ function iconNoise(): string[] {
     .map(text)
     .filter((line) => /lucide|DynamicIcon|box-open|building-?2/i.test(line));
   return [...errors, ...warnings];
+}
+
+/**
+ * Wait until the icon beside `label` is `Building2`'s own glyph.
+ *
+ * `getLazyIcon('Building2')` is lucide's `DynamicIcon` (a `forwardRef`, which
+ * React's act warning names `ForwardRef`). It mounts on its `Database`
+ * fallback and calls its `setIconData` from a promise its mount effect starts,
+ * so the glyph arrives in a state update the test never caused. This waits
+ * with RTL's `waitFor`, not `vi.waitFor`, on purpose (objectui#11690): RTL
+ * keeps `IS_REACT_ACT_ENVIRONMENT` off while it waits, the same way
+ * `findByText` does, so that update is not an act() violation. `vi.waitFor`
+ * left the flag on, and whether the update landed inside `findByText`'s
+ * act-free window or after it was a scheduling race. When it lost, React
+ * logged "An update to ForwardRef inside a test was not wrapped in act(...)"
+ * through the `console.error` that `iconNoise()` holds silent, and the test
+ * failed on some runs and not others. Once this returns, the glyph has
+ * committed and `DynamicIcon` updates no more.
+ */
+async function waitForBuildingGlyph(label: string) {
+  await waitFor(() => expect(svgNear(label)?.getAttribute('class')).toContain('lucide-building-2'), {
+    timeout: 5000,
+  });
 }
 
 /** The `<svg>` inside the element whose text is `label`, walking up to the card. */
@@ -200,9 +223,7 @@ describe('settings icons go through the known-name check (objectui#11679)', () =
     );
     const hub = renderHub();
     expect(await screen.findByText('Company')).toBeTruthy();
-    await vi.waitFor(() => expect(svgNear('Company')?.getAttribute('class')).toContain('lucide-building-2'), {
-      timeout: 5000,
-    });
+    await waitForBuildingGlyph('Company');
     hub.unmount();
 
     fetchMock.mockResolvedValueOnce(
@@ -216,9 +237,7 @@ describe('settings icons go through the known-name check (objectui#11679)', () =
     );
     renderView('company');
     expect(await screen.findByText('Company')).toBeTruthy();
-    await vi.waitFor(() => expect(svgNear('Company')?.getAttribute('class')).toContain('lucide-building-2'), {
-      timeout: 5000,
-    });
+    await waitForBuildingGlyph('Company');
     await settle();
     expect(iconNoise()).toEqual([]);
   });

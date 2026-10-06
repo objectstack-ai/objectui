@@ -3664,9 +3664,9 @@ const en = {
   },
   cloudOnboarding: {
     hintCreate: 'Spin up your first environment — a private workspace with its own URL, database, and plan. Building happens inside it.',
-    hintReady: 'Your production environment is ready. Open it to build and run your apps — that all happens inside the environment.',
+    hintReady: 'Your workspace is ready. Open it to build and run your apps — that all happens inside the workspace.',
     createEnvironment: 'Create your environment',
-    openProduction: 'Open Production',
+    openWorkspace: 'Open workspace',
     manageEnvironments: 'Manage environments',
   },
   // `cloud:plan-status` — the Cloud pricing page's current-plan marker (objectui#10919).

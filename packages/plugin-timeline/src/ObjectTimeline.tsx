@@ -12,6 +12,7 @@ import { useDataScope, useNavigationOverlay, useSafeFieldLabel, useSettledSchema
 import { NavigationOverlay } from '@object-ui/components';
 import { extractRecords, buildExpandFields, convertSortToQueryParams, createFieldColorResolver, recordDisplayValueAt, toDisplayDate } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
+import { firstDayOfWeek, useDisplayLocale } from '@object-ui/i18n';
 import { usePullToRefresh } from '@object-ui/mobile';
 import { z } from 'zod';
 import { TimelineRenderer } from './renderer';
@@ -544,6 +545,9 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
   const rawData = (props as any).data || boundData || fetchedData;
   const { t } = useTimelineTranslation();
   const { fieldOptionLabel } = useSafeFieldLabel();
+  // The tag this feed's dates format with (the renderer reads the same hook),
+  // and so the tag its week buckets start the week from (objectui#11675).
+  const displayLocale = useDisplayLocale();
 
   // Resolve TimelineConfig with backwards-compatible fallbacks (computed
   // outside the items-derivation block so we can also use them for
@@ -738,13 +742,25 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
     //   - otherwise → date bucket (Earlier / Today / Tomorrow / This week
     //     / Next week / Later / No date) so the timeline doesn't render
     //     as one undifferentiated stripe.
+    //
+    // The week is the locale's (objectui#11675): "This week" runs from the
+    // first day `firstDayOfWeek` gives the display locale, so an `en-US` feed
+    // starts its week on Sunday and an `en-GB` or `zh-CN` one on Monday, the
+    // day the calendar's grids start on for the same tag. Every bound is a
+    // local midnight stepped on the local calendar, ⛔ never a multiple of 24
+    // hours from today: across a DST change, N times 24 hours from a midnight
+    // is an hour off the midnight N days later, so the day after the change
+    // fell out of "Tomorrow" and the first day of next week fell into "This
+    // week" (the calendar-day rule of objectui#11005).
     const now = new Date();
     const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
-    const today = startOfDay(now);
-    const day = 86400000;
-    const startOfWeek = today - ((now.getDay() + 6) % 7) * day; // Monday
-    const endOfWeek = startOfWeek + 7 * day;
-    const endOfNextWeek = endOfWeek + 7 * day;
+    const daysFromToday = (days: number) =>
+      new Date(now.getFullYear(), now.getMonth(), now.getDate() + days).getTime();
+    const today = daysFromToday(0);
+    const tomorrow = daysFromToday(1);
+    const daysIntoWeek = (now.getDay() - firstDayOfWeek(displayLocale) + 7) % 7;
+    const endOfWeek = daysFromToday(7 - daysIntoWeek);
+    const endOfNextWeek = daysFromToday(14 - daysIntoWeek);
 
     // A day before today is "Earlier", never "Overdue" (objectui#11676).
     // "Overdue" is a judgement about the RECORD, and it needs two facts this
@@ -766,7 +782,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
       if (Number.isNaN(ts)) return t('timeline.bucket.noDate');
       if (ts < today) return t('timeline.bucket.earlier');
       if (ts === today) return t('timeline.bucket.today');
-      if (ts === today + day) return t('timeline.bucket.tomorrow');
+      if (ts === tomorrow) return t('timeline.bucket.tomorrow');
       if (ts < endOfWeek) return t('timeline.bucket.thisWeek');
       if (ts < endOfNextWeek) return t('timeline.bucket.nextWeek');
       return t('timeline.bucket.later');
@@ -794,7 +810,7 @@ export const ObjectTimeline: React.FC<ObjectTimelineProps> = ({
     }
 
     return mapped.map((m) => ({ ...m, group: dateBucket(m.startDate) }));
-  }, [schema.items, rawData, objectDef, schema.objectName, titleField, startDateField, endDateField, descField, variantField, colorField, groupByField, t, fieldOptionLabel]);
+  }, [schema.items, rawData, objectDef, schema.objectName, titleField, startDateField, endDateField, descField, variantField, colorField, groupByField, t, fieldOptionLabel, displayLocale]);
 
   const handleRefresh = useCallback(async () => {
     setRefreshKey(k => k + 1);

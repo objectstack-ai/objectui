@@ -23,7 +23,7 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@object-ui/components"
-import { createSafeTranslation, useDisplayLocale } from "@object-ui/i18n"
+import { createSafeTranslation, firstDayOfWeek, useDisplayLocale, type WeekdayIndex } from "@object-ui/i18n"
 
 const DEFAULT_EVENT_COLOR = "bg-blue-100 text-blue-900 border border-blue-200"
 const STABLE_DEFAULT_DATE = new Date()
@@ -183,6 +183,12 @@ function CalendarView({
   // never the UI language (objectui#10442).
   const displayLocale = useDisplayLocale()
   const effectiveLocale = locale !== "default" ? locale : displayLocale
+  // The first day of the week is the locale's, read from the tag every date
+  // here formats with (objectui#11675): `en-US` starts on Sunday, `en-GB` and
+  // `zh-CN` on Monday. The month grid and its weekday heads, the week view's
+  // columns, the header's week range and the date popover all take this one
+  // answer, so no two of them start the week on different days.
+  const weekStart = firstDayOfWeek(effectiveLocale)
 
   // Sync state if props change
   React.useEffect(() => {
@@ -254,10 +260,10 @@ function CalendarView({
         year: "numeric",
       })
     } else if (selectedView === "week") {
-      const weekStart = getWeekStart(selectedDate)
-      const weekEnd = new Date(weekStart)
+      const firstDay = getWeekStart(selectedDate, weekStart)
+      const weekEnd = new Date(firstDay)
       weekEnd.setDate(weekEnd.getDate() + 6)
-      return `${weekStart.toLocaleDateString(effectiveLocale, {
+      return `${firstDay.toLocaleDateString(effectiveLocale, {
         month: "short",
         day: "numeric",
       })} - ${weekEnd.toLocaleDateString(effectiveLocale, {
@@ -358,9 +364,17 @@ function CalendarView({
                 `Date` instance through untouched): that names no month, and
                 react-day-picker throws on an invalid `defaultMonth`, so it
                 opens on today instead, as it always did.
+
+                Its weeks start on the grids' first day (objectui#11675).
+                react-day-picker would otherwise read the date-fns locale's
+                own `weekStartsOn`, which is not CLDR's for every tag (date-fns
+                has no `es-MX`, so that tag reads `es`, a Monday start, where
+                CLDR starts Mexico's week on Sunday), and which reads `enUS`,
+                a Sunday start, until the locale has loaded.
               */}
               <Calendar
                 localeTag={effectiveLocale}
+                weekStartsOn={weekStart}
                 mode="single"
                 defaultMonth={Number.isNaN(selectedDate.getTime()) ? undefined : selectedDate}
                 selected={selectedDate}
@@ -401,6 +415,7 @@ function CalendarView({
             date={selectedDate}
             events={events}
             locale={effectiveLocale}
+            weekStart={weekStart}
             onEventClick={onEventClick}
             onDateClick={onDateClick}
             onEventDrop={onEventDrop}
@@ -412,6 +427,7 @@ function CalendarView({
             date={selectedDate}
             events={events}
             locale={effectiveLocale}
+            weekStart={weekStart}
             slotMinutes={slotMinutes}
             onEventClick={onEventClick}
             onEventDrop={onEventDrop}
@@ -424,6 +440,7 @@ function CalendarView({
             date={selectedDate}
             events={events}
             locale={effectiveLocale}
+            weekStart={weekStart}
             slotMinutes={slotMinutes}
             onEventClick={onEventClick}
             onEventDrop={onEventDrop}
@@ -435,24 +452,33 @@ function CalendarView({
   )
 }
 
-function getWeekStart(date: Date): Date {
+/**
+ * How many days `date` lies after the start of its week, for a week that
+ * starts on `weekStart` (objectui#11675): 0 on the first day, 6 on the last.
+ */
+function daysIntoWeek(date: Date, weekStart: WeekdayIndex): number {
+  return (date.getDay() - weekStart + 7) % 7
+}
+
+/** `date` moved back, on the local calendar, to the first day of its week. */
+function getWeekStart(date: Date, weekStart: WeekdayIndex): Date {
   const d = new Date(date)
-  const day = d.getDay()
-  const diff = d.getDate() - day
-  d.setDate(diff)
+  d.setDate(d.getDate() - daysIntoWeek(d, weekStart))
   return d
 }
 
-function getMonthDays(date: Date): Date[] {
+function getMonthDays(date: Date, weekStart: WeekdayIndex): Date[] {
   const year = date.getFullYear()
   const month = date.getMonth()
   const firstDay = new Date(year, month, 1)
   const lastDay = new Date(year, month + 1, 0)
-  const startDay = firstDay.getDay()
+  // The grid's first row opens on the week's first day, so the days of the
+  // previous month before the 1st fill the row up to it.
+  const leadingDays = daysIntoWeek(firstDay, weekStart)
   const days: Date[] = []
 
   // Add previous month days
-  for (let i = startDay - 1; i >= 0; i--) {
+  for (let i = leadingDays - 1; i >= 0; i--) {
     const prevDate = new Date(firstDay.getTime())
     prevDate.setDate(prevDate.getDate() - (i + 1))
     days.push(prevDate)
@@ -533,23 +559,27 @@ interface MonthViewProps {
   date: Date
   events: CalendarViewEvent[]
   locale?: string
+  /** The first day of each row and of the weekday heads (objectui#11675). */
+  weekStart: WeekdayIndex
   onEventClick?: (event: CalendarViewEvent) => void
   onDateClick?: (date: Date) => void
   onEventDrop?: (event: CalendarViewEvent, newStart: Date, newEnd?: Date) => void
 }
 
-function MonthView({ date, events, locale = "default", onEventClick, onDateClick, onEventDrop }: MonthViewProps) {
-  const days = React.useMemo(() => getMonthDays(date), [date.getFullYear(), date.getMonth()])
+function MonthView({ date, events, locale = "default", weekStart, onEventClick, onDateClick, onEventDrop }: MonthViewProps) {
+  const days = React.useMemo(() => getMonthDays(date, weekStart), [date.getFullYear(), date.getMonth(), weekStart])
   const today = React.useMemo(() => new Date(), [])
   const { t } = useCalendarTranslation()
   const weekDays = React.useMemo(() => {
+    // 7 January 2024 is a Sunday, so `weekStart` days after it is the week's
+    // first day, and the heads run from there in the grid's column order.
     const refSunday = new Date(2024, 0, 7)
     return Array.from({ length: 7 }, (_, i) => {
       const d = new Date(refSunday)
-      d.setDate(d.getDate() + i)
+      d.setDate(d.getDate() + weekStart + i)
       return d.toLocaleDateString(locale, { weekday: "short" })
     })
-  }, [locale])
+  }, [locale, weekStart])
   const [draggedEventId, setDraggedEventId] = React.useState<string | number | null>(null)
   const [dropTargetIndex, setDropTargetIndex] = React.useState<number | null>(null)
 
@@ -573,11 +603,12 @@ function MonthView({ date, events, locale = "default", onEventClick, onDateClick
         const isSpanEnd = cursor.getTime() === eventEnd.getTime()
         // Show the title on:
         //   - the event's start day
-        //   - Sundays (first day of each new week the span enters)
+        //   - the first day of each new week the span enters (the
+        //     locale's first day, the one each grid row opens on)
         //   - the event's end day (so the user sees where it ends, and so
         //     the right-edge resize handle gets full hit area)
         // Single-day events naturally satisfy isSpanStart && isSpanEnd.
-        const isTitleDay = isSpanStart || isSpanEnd || cursor.getDay() === 0
+        const isTitleDay = isSpanStart || isSpanEnd || cursor.getDay() === weekStart
         const arr = map.get(key)
         const entry = { event, isTitleDay, isSpanStart, isSpanEnd }
         if (arr) {
@@ -589,7 +620,7 @@ function MonthView({ date, events, locale = "default", onEventClick, onDateClick
       }
     }
     return map
-  }, [events])
+  }, [events, weekStart])
 
   // Drag mode: "move" shifts the entire event so the day cell the user
   // grabbed lands on the drop-target day. "resize-end" only adjusts the
@@ -855,6 +886,8 @@ interface TimeGridViewProps {
   date: Date
   events: CalendarViewEvent[]
   locale?: string
+  /** The week view's first column (objectui#11675); the day view ignores it. */
+  weekStart: WeekdayIndex
   slotMinutes?: number
   onEventClick?: (event: CalendarViewEvent) => void
   onEventDrop?: (event: CalendarViewEvent, newStart: Date, newEnd?: Date) => void
@@ -989,6 +1022,7 @@ function TimeGridView({
   date,
   events,
   locale = "default",
+  weekStart,
   slotMinutes = 30,
   onEventClick,
   onEventDrop,
@@ -1001,13 +1035,13 @@ function TimeGridView({
   // Day columns
   const days = React.useMemo<Date[]>(() => {
     if (mode === "day") return [startOfDay(date)]
-    const weekStart = getWeekStart(date)
+    const firstDay = getWeekStart(date, weekStart)
     return Array.from({ length: 7 }, (_, i) => {
-      const d = new Date(weekStart)
-      d.setDate(weekStart.getDate() + i)
+      const d = new Date(firstDay)
+      d.setDate(firstDay.getDate() + i)
       return startOfDay(d)
     })
-  }, [mode, date.getFullYear(), date.getMonth(), date.getDate()])
+  }, [mode, date.getFullYear(), date.getMonth(), date.getDate(), weekStart])
 
   const today = React.useMemo(() => new Date(), [])
 

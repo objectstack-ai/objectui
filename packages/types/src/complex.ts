@@ -2478,9 +2478,11 @@ export interface DashboardWidgetSlotComponentSchema extends BaseSchema {
    * (`plugin-dashboard:metric-card`) declares `title`, and `MetricCard` draws
    * `title` as the heading. `label` is how the sibling `metric` node
    * (`plugin-dashboard:metric`) spells its heading, so an author who knows that
-   * node wrote it here and got a card with no heading and no warning. Under
-   * the objectui#8284 ruling (one spelling per rendered thing) the member is
-   * restated as a refusal, in the shape `body` / `children` below take.
+   * node wrote it here and got a card with no heading: no render-time error or
+   * warning, and the parser tier's `validateTree` does not walk a dashboard's
+   * `widgets`. Under the objectui#8284 ruling (one spelling per rendered thing)
+   * the member is restated as a refusal, in the shape `body` / `children` below
+   * take.
    *
    * The zod twin is the private slot arm in `zod/complex.zod.ts`, which
    * refuses `label` by name and names `title` in the message.

@@ -9,7 +9,7 @@ BREAKING (`@object-ui/types`): a `metric-card` in a dashboard's `widgets[]` that
 - FROM `{ "type": "metric-card", "label": "Total Revenue", "value": "$123,456" }`
 - TO `{ "type": "metric-card", "title": "Total Revenue", "value": "$123,456" }`
 
-Why: `MetricCard` draws `title` as the card heading and reads no `label`. `label` is how the sibling `metric` node spells its heading, and the card inherited it from `BaseSchema`, so a card authored with `label` validated on every face and drew no heading, with no warning. The objectui#8284 ruling settles which way to go: one spelling per rendered thing, and the other spelling is refused by name.
+Why: `MetricCard` draws `title` as the card heading and reads no `label`. `label` is how the sibling `metric` node spells its heading, and the card inherited it from `BaseSchema`, so a card authored with `label` validated on every face and drew no heading. Nothing said so: no render-time error or warning, and the parser tier's `validateTree` does not walk a dashboard's `widgets`. The objectui#8284 ruling settles which way to go: one spelling per rendered thing, and the other spelling is refused by name.
 
 **Migration.** Rename the key to `title`. The value keeps its type: a plain string or an inline per-locale map.
 

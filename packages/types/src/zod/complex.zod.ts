@@ -1250,8 +1250,9 @@ const METRIC_CARD_LABEL_IS_TITLE =
   + 'spells its heading `title`. The registration (`plugin-dashboard:metric-card`) declares `title`, and '
   + '`MetricCard` draws it as the card heading; nothing on that path reads `label`, which is how the sibling '
   + '`metric` node (`plugin-dashboard:metric`) spells its heading. An authored `label` therefore drew a card '
-  + 'with NO heading, and no render-time error or warning. Write the heading as `title`: a plain string or '
-  + 'an inline per-locale map.';
+  + 'with NO heading, and no render-time error or warning; nor did the parser tier\'s `validateTree` notice it, '
+  + 'because it does not walk a dashboard\'s `widgets`. Write the heading as `title`: a plain string or an '
+  + 'inline per-locale map.';
 
 /**
  * A COMPONENT node sitting directly in a dashboard's widget slot — the

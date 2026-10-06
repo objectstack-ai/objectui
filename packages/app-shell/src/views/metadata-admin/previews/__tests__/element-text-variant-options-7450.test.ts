@@ -9,9 +9,9 @@
  * shows, flagged, in `InspectorSelectField`. So it offers exactly the nine
  * values `ui:text` publishes (`TextSchema.variant` in the `@object-ui/types`
  * Zod mirror), each one a value the installed `@objectstack/spec` accepts on
- * `element:text`, and it no longer offers `heading` / `subheading`: the
- * contract still accepts that pair, but the ruling retires it in a later spec
- * release, so the designer stops writing it now.
+ * `element:text`, and it no longer offers `heading` / `subheading`: the ruling
+ * retired that pair, and `@objectstack/spec` 17.7.0 refuses it (objectui#11717),
+ * so the designer does not write it.
  *
  * Whether each label key exists in both locale tables, and is the key its
  * position implies, is `block-config-i18n.test.ts`'s question. This file asks

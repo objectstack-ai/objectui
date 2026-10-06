@@ -69,8 +69,8 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
   //   • in-body headings are `element:text` with a heading variant — `h3`
   //     renders an h3, which is what the old `level: 3` asked for. The variant
   //     names the level, the same nine values `ui:text` takes (objectui#7450);
-  //     `heading` / `subheading` are the pre-convergence spellings, not
-  //     authored here. (A heading is a VARIANT of element:text, never a type;
+  //     `heading` / `subheading` are the pre-convergence spellings, refused
+  //     since `@objectstack/spec` 17.7.0 and not authored here. (A heading is a VARIANT of element:text, never a type;
   //     `{ type: 'heading' }` is the near-miss the original made.)
   //   • the rule is `element:divider`. The old bare `separator` did resolve —
   //     `ui:separator` claims the bare name — but it is not a page block type,

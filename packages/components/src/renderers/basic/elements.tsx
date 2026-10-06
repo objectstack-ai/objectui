@@ -104,17 +104,19 @@ const ALIGN_CLASS = {
  * renderers for all nine and asserts they agree, so this map cannot drift from
  * `ui:text`'s without going red.
  *
- * ## `heading` / `subheading` — still accepted, still rendered, not offered
+ * ## `heading` / `subheading` — retired with the spec, in 17.7.0
  *
- * The installed contract still ACCEPTS the two pre-convergence spellings. The
- * ruling retires them in a LATER spec release, through the generic value-level
- * retirement mechanism (objectstack#17109), and no objectui face refuses a
- * value before the spec does. So they render exactly as they always have
- * (`heading` an `<h2>`, `subheading` an `<h3>`, with their old classes), and a
- * document the spec accepts keeps its heading. The Studio inspector stops
- * offering them; the registry `inputs` below keep accepting them, for the
- * reason written there. Migration: `heading` -> `h2`, `subheading` -> `h3`, or
- * the level the document means.
+ * Through 17.6.0 the contract still ACCEPTED the two pre-convergence
+ * spellings, and no objectui face refuses a value before the spec does, so they
+ * rendered as they always had (`heading` an `<h2>`, `subheading` an `<h3>`).
+ * `@objectstack/spec` 17.7.0 retires them through the value-level retirement
+ * mechanism (objectstack#17109; objectstack#21015 refuses both by name, and
+ * `os migrate meta` rewrites them to `h2` / `h3`), so they left this map and
+ * the registry `inputs` below at that bump (objectui#11717), as
+ * `__tests__/element-text-published-variants-7450.test.tsx` instructed. A
+ * stored value outside the contract renders as `body`, as the read site says.
+ * Migration: `heading` -> `h2`, `subheading` -> `h3`, or the level the document
+ * means.
  *
  * ## Absence is `body` here, and only here
  *
@@ -126,10 +128,7 @@ const ALIGN_CLASS = {
  * materialises the same value this renderer reads. Converging the vocabulary
  * moves what absence means on neither side.
  */
-type PublishedTextVariant = NonNullable<TextSchema['variant']>;
-/** The two spellings the installed contract still accepts, pending objectstack#17109's release. */
-type AcceptedLegacyTextVariant = 'heading' | 'subheading';
-type ElementTextVariant = PublishedTextVariant | AcceptedLegacyTextVariant;
+type ElementTextVariant = NonNullable<TextSchema['variant']>;
 
 const VARIANT_CLASS: Record<ElementTextVariant, string> = {
   h1: 'text-4xl font-semibold tracking-tight',
@@ -141,8 +140,6 @@ const VARIANT_CLASS: Record<ElementTextVariant, string> = {
   body: 'text-sm text-foreground',
   caption: 'text-xs text-muted-foreground',
   overline: 'text-xs font-medium uppercase tracking-widest text-muted-foreground',
-  heading: 'text-2xl font-semibold tracking-tight',
-  subheading: 'text-lg font-medium text-foreground',
 };
 
 const VARIANT_TAG: Record<ElementTextVariant, 'h1' | 'h2' | 'h3' | 'h4' | 'h5' | 'h6' | 'p'> = {
@@ -155,8 +152,6 @@ const VARIANT_TAG: Record<ElementTextVariant, 'h1' | 'h2' | 'h3' | 'h4' | 'h5' |
   body: 'p',
   caption: 'p',
   overline: 'p',
-  heading: 'h2',
-  subheading: 'h3',
 };
 
 function ElementTextRenderer({ schema }: { schema: any }) {
@@ -199,22 +194,21 @@ ComponentRegistry.register('text', ElementTextRenderer, {
     // description teaches the author to write.
     { name: 'content', type: ['string', 'object'], required: true, description: 'Accepts an inline translation map ({ en, "zh-CN", … })' },
     // The installed contract's accept set, member for member: the published nine
-    // first, then the two spellings the contract still accepts (objectui#7450).
-    // This list is not only an offer. It is what the html tier compiles against
-    // (`page.tsx` builds its JSX manifest from these `inputs`, and an
-    // `invalid-enum` there fails the whole page), and what the published
-    // `sdui.manifest.json` hands the platform's JSX gate. Leaving `heading` /
-    // `subheading` out would refuse two values the spec accepts, a retirement
-    // ahead of the spec's. They leave when the spec refuses them, and
-    // `registry-inputs-spec-parity.test.ts` goes red the day it does. The offer
-    // narrows to the nine in `description`, and in the Studio inspector.
+    // (objectui#7450). This list is not only an offer. It is what the html tier
+    // compiles against (`page.tsx` builds its JSX manifest from these `inputs`,
+    // and an `invalid-enum` there fails the whole page), and what the published
+    // `sdui.manifest.json` hands the platform's JSX gate. The two pre-convergence
+    // spellings `heading` / `subheading` stood here, after the nine, until the
+    // spec refused them: `@objectstack/spec` 17.7.0 retires both (objectstack#21015),
+    // and they left at that bump (objectui#11717), when
+    // `registry-inputs-spec-parity.test.ts` went red as it promised to.
     {
       name: 'variant',
       type: 'enum',
-      enum: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'body', 'caption', 'overline', 'heading', 'subheading'],
+      enum: ['h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'body', 'caption', 'overline'],
       description:
         'One of the nine text styles ui:text uses: h1-h6 (rendered as that heading level), body, caption or overline. '
-        + 'heading and subheading are earlier spellings the contract still accepts and renders as h2 and h3; write h2 or h3 instead.',
+        + 'The earlier spellings heading and subheading are refused; write h2 or h3 instead.',
     },
     { name: 'align', type: 'enum', enum: ['left', 'center', 'right'] },
   ],

@@ -24,7 +24,8 @@
  *  - the nine render the way `ui:text` renders them: the same heading element
  *    for `h1`-`h6`, the same class for all nine, and a paragraph (not
  *    `ui:text`'s inline `<span>`) for `body` / `caption` / `overline`;
- *  - the two spellings the contract still accepts render exactly as they did;
+ *  - the two pre-convergence spellings, retired by the spec in 17.7.0, are
+ *    refused at every objectui gate (objectui#11717);
  *  - absence still means `body` here, beside a `ui:text` control that still
  *    does not synthesise it (objectui#6942);
  *  - every objectui authoring gate accepts exactly the installed contract's set
@@ -35,9 +36,10 @@
  *
  * The nine come from the `@object-ui/types` Zod mirror (`TextSchema`), the
  * accept set from `@objectstack/spec`'s `ElementTextPropsSchema`. The one
- * restated fact is which two spellings are the pre-convergence pair: when the
- * spec release that retires them lands (objectstack#17109's mechanism), the
- * first test goes red and names the follow-up.
+ * restated fact is which two spellings are the pre-convergence pair, now
+ * named as the retired pair: the spec release that retires them
+ * (objectstack#17109's mechanism) landed in 17.7.0, the first test went red as
+ * it promised, and the follow-up it named is done (objectui#11717).
  */
 import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
@@ -106,10 +108,10 @@ describe('objectui#7450 — the two vocabularies, read where they live', () => {
     expect(HEADINGS).toEqual(['h1', 'h2', 'h3', 'h4', 'h5', 'h6']);
     expect(PARAGRAPHS).toEqual(['body', 'caption', 'overline']);
     expect(CONTRACT).toEqual(expect.arrayContaining(PUBLISHED));
-    // Red here means the spec release that retires the pair has landed: drop
-    // them from the registry `inputs` enum and from `VARIANT_CLASS` /
-    // `VARIANT_TAG` in `elements.tsx`, and move this expectation to `[]`.
-    expect(PRE_CONVERGENCE).toEqual(['heading', 'subheading']);
+    // The spec release that retires the pair landed in 17.7.0 (objectui#11717):
+    // they left the registry `inputs` enum and `VARIANT_CLASS` / `VARIANT_TAG`
+    // in `elements.tsx`, and this expectation moved to `[]`, as it instructed.
+    expect(PRE_CONVERGENCE).toEqual([]);
   });
 });
 
@@ -141,17 +143,25 @@ describe('objectui#7450 — the nine render the way ui:text renders them', () =>
   });
 });
 
-describe('objectui#7450 — the spellings the contract still accepts keep their heading', () => {
-  it('heading renders the h2 it always rendered, with its old class', () => {
-    const element = elementText('heading');
-    expect(element.tag).toBe('h2');
-    expect(withoutAlign(element.classes)).toEqual(['font-semibold', 'text-2xl', 'tracking-tight']);
+const RETIRED_PAIR = ['heading', 'subheading'] as const;
+
+describe('objectui#11717 — the retired pair is refused at every objectui gate, as the contract refuses it', () => {
+  it.each(RETIRED_PAIR)('the installed contract refuses %s on element:text', (variant) => {
+    expect(ElementTextPropsSchema.safeParse({ content: CONTENT, variant }).success).toBe(false);
+    expect(declaredVariantEnum('element:text')).not.toContain(variant);
   });
 
-  it('subheading renders the h3 it always rendered, with its old class', () => {
-    const element = elementText('subheading');
-    expect(element.tag).toBe('h3');
-    expect(withoutAlign(element.classes)).toEqual(['font-medium', 'text-foreground', 'text-lg']);
+  it.each(RETIRED_PAIR)('the html tier refuses %s with invalid-enum', (variant) => {
+    const { diagnostics } = compile(`<element:text content="${CONTENT}" variant="${variant}" />`, htmlTierManifest());
+    expect(diagnostics.filter((d) => d.severity === 'error').map((d) => d.code)).toEqual(['invalid-enum']);
+  });
+
+  it.each(RETIRED_PAIR)('objectui validate (safeValidateSchema) refuses %s on element:text', (variant) => {
+    expect(safeValidateSchema({ type: 'element:text', properties: { content: CONTENT, variant } }).success).toBe(false);
+  });
+
+  it.each(RETIRED_PAIR)('a stored %s renders as body, the read site\'s answer for a value outside the contract', (variant) => {
+    expect(elementText(variant).html).toBe(elementText('body').html);
   });
 });
 

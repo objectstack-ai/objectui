@@ -50,6 +50,7 @@ vi.mock('sonner', () => {
 
 import { toast } from 'sonner';
 import { useObjectActions } from '../useObjectActions';
+import type { ActionResult } from '@object-ui/core';
 
 // Mirror ObjectView's real toastHandler: route the runner's post-execution
 // toast into the same sonner sink the handler uses directly.
@@ -213,7 +214,10 @@ describe('useObjectActions — package-owned permission set delete = reset copy'
 // label, flagged destructive, through the host's confirm handler, ONCE; the
 // runner's own confirm step is not asked a second time.
 describe('useObjectActions — the delete confirmation names what it deletes (objectui#11695)', () => {
-  function setupCopy(dataSource: any, onConfirmSpy: any) {
+  function setupCopy(
+    dataSource: { delete: ReturnType<typeof vi.fn> },
+    onConfirmSpy: ReturnType<typeof vi.fn>,
+  ) {
     return renderHook(() =>
       useObjectActions({
         objectName: 'crm_product',
@@ -266,8 +270,8 @@ describe('useObjectActions — the delete confirmation names what it deletes (ob
     const confirmSpy = vi.fn().mockResolvedValue(false);
     const { result } = setupCopy(dataSource, confirmSpy);
 
-    let one: any;
-    let many: any;
+    let one: ActionResult | undefined;
+    let many: ActionResult | undefined;
     await act(async () => {
       one = await result.current.deleteRecord('p1', { id: 'p1', name: 'QA Widget 0' });
       many = await result.current.deleteRecords([{ id: 'a' }, { id: 'b' }]);

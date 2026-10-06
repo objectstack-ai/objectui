@@ -77,7 +77,7 @@ const PRODUCT = {
 const ROW = { id: 'p1', product_name: 'QA Widget 0', name: 'SKU-1' };
 const BATCH = [{ id: 'a' }, { id: 'b' }, { id: 'c' }];
 
-function ListDeleteHarness({ dataSource }: { dataSource: any }) {
+function ListDeleteHarness({ dataSource }: { dataSource: { delete: ReturnType<typeof vi.fn> } }) {
   const [state, setState] = React.useState<ConfirmDialogState>({ open: false, message: '' });
   // `useConsoleActionRuntime`'s confirm handler, verbatim in shape.
   const onConfirm = React.useCallback<ConfirmationHandler>(

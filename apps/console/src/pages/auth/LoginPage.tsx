@@ -12,18 +12,24 @@
  *  - Post-login orchestration: replay the original `/oauth2/authorize`
  *    request, auto-select the user's single organization, or honour a
  *    safe `?redirect=` target.
- *  - Hides the "Sign up" link when the server reports
- *    `emailPassword.disableSignUp === true`.
+ *  - Offers the "Sign up" link only when the server would accept a sign-up
+ *    from this visitor: never under `emailPassword.disableSignUp === true`,
+ *    and under an audience posture closed to strangers (`invite_only`) only
+ *    for an invitation redirect or a deployment with no owner yet — see
+ *    `./signUpOffer` (objectui#11691).
  */
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth, LoginForm, AuthErrorBanner } from '@object-ui/auth';
+import type { AuthPublicConfig } from '@object-ui/auth';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { Card } from '@object-ui/components';
 import { signInRefusalMessages } from '@object-ui/app-shell';
 import { AuthLayout } from './AuthLayout';
 import { followOauthAuthorize } from './followAuthorize';
+import { decideSignUpOffer, isInvitationRedirect, needsBootstrapProbe } from './signUpOffer';
+import { useBootstrapStatus } from '../../components/setupEntry';
 // Was module-private here; lifted to a shared module so `SetupPage` (whose
 // first-run exits went without it) and `RegisterPage` (which had copied it)
 // share ONE implementation — objectui#4181. Behaviour here is unchanged.
@@ -58,7 +64,10 @@ export function LoginPage() {
     getAuthConfig,
   } = useAuth();
 
-  const [signUpDisabled, setSignUpDisabled] = useState(false);
+  // The public auth config, once read — `null` until then (and after a failed
+  // read), which `decideSignUpOffer` answers as "offer the link", the
+  // behaviour before the config is known.
+  const [authConfig, setAuthConfig] = useState<AuthPublicConfig | null>(null);
   // Dev-only seeded-admin hint (15.1 third-party eval): the runtime seeds
   // admin@objectos.ai on an empty dev DB, but nothing on this page said so —
   // new users clicked "Sign up" and landed in an empty non-admin workspace.
@@ -100,6 +109,15 @@ export function LoginPage() {
     if (!isLoading) setHasBootstrapped(true);
   }, [isLoading]);
 
+  // objectui#11691 — whether this visitor is offered "Sign up". The bootstrap
+  // probe runs only when the posture is closed to strangers and the visitor
+  // did not come from an invitation; see `./signUpOffer`.
+  const invitationRedirect = isInvitationRedirect(redirect);
+  const bootstrap = useBootstrapStatus(
+    hasBootstrapped && !user && needsBootstrapProbe(authConfig, invitationRedirect),
+  );
+  const signUpOffer = decideSignUpOffer(authConfig, { invitationRedirect, bootstrap });
+
   // Detect SSO hand-off so we can surface the relying-party host.
   const ssoTarget = useMemo(() => {
     if (typeof window === 'undefined') return null;
@@ -127,14 +145,14 @@ export function LoginPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Read public auth config once to know whether sign-up is gated off and
+  // Read public auth config once to know whether sign-up is offered and
   // whether the dev-seeded admin credentials should be surfaced.
   useEffect(() => {
     let cancelled = false;
     getAuthConfig()
       .then((cfg) => {
         if (cancelled) return;
-        setSignUpDisabled(cfg?.emailPassword?.disableSignUp === true);
+        setAuthConfig(cfg ?? null);
         const seed = (cfg as { devSeedAdmin?: { email?: unknown; password?: unknown } } | null)
           ?.devSeedAdmin;
         setDevSeedAdmin(
@@ -296,7 +314,7 @@ export function LoginPage() {
         ) : null}
         <Card className="border-border/60 px-4 py-8 shadow-sm shadow-primary/5 backdrop-blur supports-[backdrop-filter]:bg-card/95">
           <LoginFormCard
-            registerUrl={signUpDisabled ? undefined : registerUrl}
+            registerUrl={signUpOffer === 'form' ? registerUrl : undefined}
             redirect={redirect}
           />
         </Card>

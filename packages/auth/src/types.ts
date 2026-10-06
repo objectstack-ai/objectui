@@ -13,6 +13,7 @@ import type {
   DelegableAdminScope,
 } from '@objectstack/spec/contracts';
 import type { TenancyPosture } from '@objectstack/spec/security';
+import type { AudiencePosture } from '@objectstack/spec/system';
 import type { AuthInvitationStatus } from './invitation-status.js';
 
 /**
@@ -295,6 +296,22 @@ export interface AuthPublicConfig {
      * Absent (older server / config not yet fetched) ⇒ no group affordances.
      */
     tenancyPosture?: TenancyPosture;
+    /**
+     * Which audience posture is in force — the deployment's declared answer
+     * to "who may self-register here" (`invite_only`, the undeclared default;
+     * `email_domain`; `open`). A value, not a flag: the spec lists it in
+     * `PUBLIC_AUTH_CONFIG_NON_FLAG_KEYS` beside `tenancyPosture`.
+     *
+     * It does NOT replace `emailPassword.disableSignUp`, and the server does
+     * not force that flag from it: under `invite_only` the sign-up route still
+     * admits a pending invitee (and a fresh deployment's first owner), so the
+     * two keys together read "sign-up is open to invitees only". A surface
+     * that offers a generic sign-up therefore reads both — the console's
+     * login and register pages do, through `pages/auth/signUpOffer.ts`
+     * (objectui#11691). Absent (older server / config not yet fetched) ⇒
+     * `disableSignUp` alone decides, as it did before the key existed.
+     */
+    audiencePosture?: AudiencePosture;
   };
 }
 

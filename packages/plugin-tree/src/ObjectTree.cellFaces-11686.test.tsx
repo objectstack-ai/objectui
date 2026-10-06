@@ -36,7 +36,8 @@ import { describe, it, expect, afterEach } from 'vitest';
 import { render, screen, waitFor, cleanup, within } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { I18nProvider } from '@object-ui/i18n';
-import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
+import { getCellRenderer, resolveCellRendererType, type CellRendererProps } from '@object-ui/fields';
+import type { DataSource } from '@object-ui/types';
 import { ObjectTree } from './ObjectTree';
 
 afterEach(cleanup);
@@ -94,11 +95,11 @@ const TREE_SCHEMA = {
   fields: ['name', ...COLUMNS],
 };
 
-function makeDataSource() {
+function makeDataSource(): DataSource {
   return {
     find: async () => ROWS.map((r) => ({ ...r, code: `${r.id.toUpperCase()}-CODE` })),
     getObjectSchema: async () => OBJECT_SCHEMA,
-  } as any;
+  } as unknown as DataSource;
 }
 
 function Tree() {
@@ -136,12 +137,12 @@ async function cellOf(rowLabel: string, column: (typeof COLUMNS)[number]): Promi
  * What a list cell draws for this column and value: the published two-step,
  * rendered on its own, with the `field` a list surface hands it.
  */
-function listFaceHtml(column: keyof typeof OBJECT_SCHEMA.fields, value: unknown, wrap?: (n: React.ReactElement) => React.ReactElement): string {
-  const def = OBJECT_SCHEMA.fields[column] as Record<string, any>;
+function listFaceHtml(column: keyof typeof OBJECT_SCHEMA.fields, value: unknown): string {
+  const def: { type: string; format?: string } = OBJECT_SCHEMA.fields[column];
   const rendererType = resolveCellRendererType({ type: def.type, format: def.format });
   const Face = getCellRenderer(rendererType);
-  const node = <Face value={value} field={{ ...def, name: column, type: rendererType } as any} />;
-  const { container, unmount } = render(wrap ? wrap(node) : node);
+  const field = { ...def, name: column, type: rendererType } as CellRendererProps['field'];
+  const { container, unmount } = render(<Face value={value} field={field} />);
   const html = container.innerHTML;
   unmount();
   return html;

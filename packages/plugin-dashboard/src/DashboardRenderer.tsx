@@ -1329,7 +1329,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         onChange={setFilterValue}
         onReset={resetFilterValues}
         dataSource={dataSource}
-        className={refreshControl ? 'min-w-0 flex-1' : undefined}
+        className={refreshControl ? 'min-w-0 grow' : undefined}
       />
     );
 

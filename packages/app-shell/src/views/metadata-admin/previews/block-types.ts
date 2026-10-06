@@ -122,9 +122,10 @@ export const BLOCK_TYPE_META: Record<BlockTypeId, Omit<BlockTypeMeta, 'id'>> = {
   // `ai:chat_window` is deliberately NOT in the palette: the floating chat
   // overlay (plugin-chatbot) is the canonical entry point and there is no
   // inline page-level renderer — `components/renderers/placeholders.tsx`
-  // documents that exclusion. The palette used to offer it (with a config
-  // panel), so an author dragged a block Studio advertised and got a red
-  // "Unknown component type" box (#2943). See PALETTE_EXCLUSIONS.
+  // documents that exclusion, and `@objectstack/spec` 17.7.0 retired the type
+  // (objectstack#21504). The palette used to offer it (with a config panel), so
+  // an author dragged a block Studio advertised and got a red "Unknown component
+  // type" box (#2943).
   'ai:suggestion': { label: 'AI suggestion', labelKey: 'engine.pageBlockCanvas.type.aiSuggestion', category: 'ai', Icon: Sparkles },
 
   // Elements
@@ -179,10 +180,16 @@ export const PALETTE_EXCLUSIONS: Record<string, string> = {
   // shell's own profile affordance is a React slot and never this block type,
   // and nothing anywhere registered `element:form`.
   //
-  // No renderer, by decision. No `ai:` namespace registration exists anywhere —
-  // `components/renderers/placeholders.tsx` keeps `ai:chat_window` out on
-  // purpose so a referencing schema fails loudly.
-  'ai:chat_window': 'no inline renderer — the floating chat overlay (plugin-chatbot) is canonical',
+  // ⛔ `ai:chat_window` is NOT a missing entry either — it is RETIRED UPSTREAM.
+  // `@objectstack/spec` 17.7.0 dropped it from `PageComponentType` and refuses
+  // it by name (objectstack#21504): its row refuses every props bag with a
+  // message naming the floating chat overlay as the AI chat entry point. That
+  // is the decision this entry recorded (no inline renderer; the overlay in
+  // plugin-chatbot is canonical), now made upstream, so the entry went with the
+  // type, as `user:profile` / `element:form` did (objectui#11717). The rest of
+  // the decision stands where it lives: `components/renderers/placeholders.tsx`
+  // still keeps `ai:chat_window` out so a referencing schema fails loudly, and
+  // the palette still does not offer it (`block-config.test.ts`).
   // Renders fine — excluded because it is not PAGE CONTENT, not because it is
   // unrenderable. Both types have a registered renderer under `namespace:
   // 'element'` (`components/renderers/basic/text-input.tsx:161`,

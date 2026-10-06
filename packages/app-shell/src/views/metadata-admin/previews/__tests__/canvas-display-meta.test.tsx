@@ -176,17 +176,24 @@ describe('canvas chrome for a renderable-but-unoffered spelling (#5837)', () => 
     // icon it has not earned.
     // `element:form` was a fourth probe here until `@objectstack/spec` 17.3.0
     // retired it from `PageComponentType` and objectui dropped its now-stale
-    // palette exclusion with it (objectui#7122). Three probes still exercise
-    // the same property on three different exclusion reasons, so the
-    // counter-probe keeps its force.
-    for (const type of ['element:text_input', 'element:record_picker', 'ai:chat_window']) {
+    // palette exclusion with it (objectui#7122). Two probes still exercise
+    // the same property on two different exclusion reasons, so the
+    // counter-probe keeps its force. `ai:chat_window` was the third until
+    // `@objectstack/spec` 17.7.0 retired it from `PageComponentType` the same way
+    // and its palette exclusion went with it (objectui#11717); it stays a probe
+    // below, as the retired type a stored page may still carry.
+    for (const type of ['element:text_input', 'element:record_picker']) {
       expect(PALETTE_EXCLUSIONS[type], `${type} is not an exclusion any more`).toBeTruthy();
       expect(resolveBlockDisplayMeta(type), `${type} borrowed display meta`).toBeUndefined();
       expect(resolveBlockTone(type), `${type} borrowed a tone`).toBe(BLOCK_CATEGORY_TONE.misc);
     }
-    // And an outright unknown type, which is what the fallback exists for.
-    expect(resolveBlockDisplayMeta('zz:not-a-block')).toBeUndefined();
-    expect(resolveBlockTone('zz:not-a-block')).toBe(BLOCK_CATEGORY_TONE.misc);
+    // And an outright unknown type, which is what the fallback exists for — a
+    // retired spec type included.
+    for (const type of ['zz:not-a-block', 'ai:chat_window']) {
+      expect(PALETTE_EXCLUSIONS[type], `${type} is an exclusion`).toBeUndefined();
+      expect(resolveBlockDisplayMeta(type), `${type} borrowed display meta`).toBeUndefined();
+      expect(resolveBlockTone(type), `${type} borrowed a tone`).toBe(BLOCK_CATEGORY_TONE.misc);
+    }
   });
 });
 

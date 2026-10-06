@@ -279,14 +279,19 @@ describe('page palette ↔ spec PageComponentType coverage', () => {
     }
   });
 
-  it('ai:chat_window is not offered — it has no inline renderer', () => {
+  it('ai:chat_window is not offered — it has no inline renderer, and the spec retired it', () => {
     // The palette used to offer it WITH a config panel while
     // `components/renderers/placeholders.tsx` deliberately excluded it to force
     // a loud error: an author dragged a block Studio advertised and got a red
     // "Unknown component type" box.
     expect((BLOCK_TYPE_META as any)['ai:chat_window']).toBeUndefined();
     expect(blockHasConfig('ai:chat_window')).toBe(false);
-    expect(PALETTE_EXCLUSIONS['ai:chat_window']).toBeTruthy();
+    // Excluded by the spec now, not by this palette: `@objectstack/spec` 17.7.0
+    // dropped it from `PageComponentType` (objectstack#21504), so it needs no
+    // exclusion entry, and "every exclusion names a real spec type" would refuse
+    // one (objectui#11717).
+    expect(specNames).not.toContain('ai:chat_window');
+    expect(PALETTE_EXCLUSIONS['ai:chat_window']).toBeUndefined();
   });
 
   it('element:button offers an action editor — without it the button is inert', () => {

@@ -2922,6 +2922,7 @@ const de = {
       readOnlyNote: "Nur Eigentümer können Einstellungen ändern.",
       nameLabel: "Name der Organisation",
       slugLabel: "Slug",
+      slugLockedNote: "Diese Organisation hat aktive Umgebungen, daher kann ihr Slug hier nicht geändert werden: Eine Umbenennung verschiebt auch deren Subdomains. Benennen Sie sie stattdessen im Datensatz der Organisation um.",
       logoLabel: "Logo",
       logoUpload: "Hochladen",
       logoReplace: "Ersetzen",

@@ -2971,6 +2971,7 @@ const pt = {
       readOnlyNote: "Somente proprietários podem alterar as configurações.",
       nameLabel: "Nome da organização",
       slugLabel: "Slug",
+      slugLockedNote: "Esta organização tem ambientes ativos, por isso o slug não pode ser alterado aqui: renomeá-la também move os subdomínios deles. Renomeie-a a partir do registro da organização.",
       logoLabel: "Logo",
       logoUpload: "Enviar",
       logoReplace: "Substituir",

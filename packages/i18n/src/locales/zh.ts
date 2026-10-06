@@ -3069,6 +3069,7 @@ const zh = {
       readOnlyNote: '只有所有者可以修改设置。',
       nameLabel: '组织名称',
       slugLabel: '标识',
+      slugLockedNote: '该组织还有正在使用的环境，因此无法在此修改标识：重命名会同时迁移这些环境的子域名。请改为在组织记录页中重命名。',
       logoLabel: 'Logo',
       logoUpload: '上传',
       logoReplace: '更换',

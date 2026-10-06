@@ -2924,6 +2924,7 @@ const ja = {
       readOnlyNote: "設定を変更できるのはオーナーのみです。",
       nameLabel: "組織名",
       slugLabel: "スラッグ",
+      slugLockedNote: "この組織には稼働中の環境があるため、ここではスラッグを変更できません。変更すると、それらの環境のサブドメインも移動します。組織のレコードから変更してください。",
       logoLabel: "ロゴ",
       logoUpload: "アップロード",
       logoReplace: "変更",

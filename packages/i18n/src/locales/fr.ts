@@ -2973,6 +2973,7 @@ const fr = {
       readOnlyNote: "Seuls les propriétaires peuvent modifier les paramètres.",
       nameLabel: "Nom de l'organisation",
       slugLabel: "Slug",
+      slugLockedNote: "Cette organisation a des environnements actifs, son slug ne peut donc pas être modifié ici : le renommer déplace aussi leurs sous-domaines. Renommez-la plutôt depuis la fiche de l’organisation.",
       logoLabel: "Logo",
       logoUpload: "Téléverser",
       logoReplace: "Remplacer",

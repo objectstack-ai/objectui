@@ -3489,6 +3489,7 @@ const en = {
       // The org's URL segment. `deleteConfirmSlugLabel` asks the user to
       // retype it, so the two must keep naming the same thing.
       slugLabel: 'Slug',
+      slugLockedNote: 'This organization has active environments, so its slug can’t be changed here: renaming it also moves their subdomains. Rename it from the organization’s record instead.',
       logoLabel: 'Logo',
       logoUpload: 'Upload',
       logoReplace: 'Replace',

@@ -69,11 +69,15 @@ const asRuntimeDefault = (d: Date) => d.toLocaleDateString('default', DAY_LABEL_
 const asLocale = (d: Date, locale: string) => d.toLocaleDateString(locale, DAY_LABEL_OPTS)
 
 /** The weekday column headers, formatted the way `MonthView` formats them —
- *  off a reference Sunday, `{ weekday: 'short' }`. This is the LIT CONTROL. */
-const weekdayHeaders = (locale: string) =>
+ *  `{ weekday: 'short' }`, from the week's first day. This is the LIT CONTROL.
+ *  The first day is the locale's (objectui#11675) and is stated here, not read
+ *  back from the component: `de` and `de-DE` start the week on Monday. */
+const MONDAY = 1
+const weekdayHeaders = (locale: string, firstDay: number) =>
   Array.from({ length: 7 }, (_, i) => {
+    // 7 January 2024 is a Sunday.
     const d = new Date(2024, 0, 7)
-    d.setDate(d.getDate() + i)
+    d.setDate(d.getDate() + firstDay + i)
     return d.toLocaleDateString(locale, { weekday: 'short' })
   })
 
@@ -140,8 +144,8 @@ describe('objectui#10144 — the month gridcell speaks the RESOLVED locale', () 
     // so their German proves the locale reached this component.
     const headers = columnHeaderTexts()
     expect(headers, 'no column headers rendered — the control would be unlit').toHaveLength(7)
-    expect(headers).toEqual(weekdayHeaders('de'))
-    expect(headers).not.toEqual(weekdayHeaders('default'))
+    expect(headers).toEqual(weekdayHeaders('de', MONDAY))
+    expect(headers).not.toEqual(weekdayHeaders('default', MONDAY))
 
     // THE FINDING: the day the user actually hears.
     const labels = gridcellLabels()
@@ -171,7 +175,7 @@ describe('objectui#10144 — the month gridcell speaks the RESOLVED locale', () 
     renderMonth({ language: 'en', locale: 'de-DE' })
 
     const headers = columnHeaderTexts()
-    expect(headers, 'no column headers rendered — the control would be unlit').toEqual(weekdayHeaders('de-DE'))
+    expect(headers, 'no column headers rendered — the control would be unlit').toEqual(weekdayHeaders('de-DE', MONDAY))
 
     const labels = gridcellLabels()
     const eventCell = labels.filter((v) => v.includes(asLocale(EVENT_DAY, 'de-DE')))

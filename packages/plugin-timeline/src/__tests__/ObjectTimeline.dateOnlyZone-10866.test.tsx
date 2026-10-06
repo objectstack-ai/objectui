@@ -200,3 +200,59 @@ describe.runIf(DRIVEN)('ObjectTimeline date-only days east of UTC, the control (
     expect(feed(MIXED)).toEqual(['Today: Day (10/6/2026), Instant (10/6/2026)']);
   });
 });
+
+/**
+ * objectui#11675 — the bucket bounds are local midnights, across a DST change
+ * too.
+ *
+ * The bounds used to be today's midnight plus multiples of 24 hours. In the
+ * west, 8 March 2026 is 23 hours long (DST begins at 02:00), so from that day
+ * 24 hours on is 01:00 on the 9th, and 7 days on is 01:00 on the 15th: the
+ * 9th was not "Tomorrow", and the 15th, the first day of next week under
+ * `en-US`, fell into "This week". The bounds are now stepped on the local
+ * calendar. The clock is 13:00 on Sunday 8 March in the west, and the feed
+ * reads `en-US`, whose week starts on Sunday.
+ */
+describe.runIf(DRIVEN)('ObjectTimeline week buckets across a DST change, west of UTC (objectui#11675)', () => {
+  /** 13:00 on Sunday 8 March 2026 in the west, after the 02:00 change. */
+  const DST_CLOCK = '2026-03-08T20:00:00.000Z';
+
+  function enterDstDay(): void {
+    process.env.TZ = WEST;
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date(DST_CLOCK));
+  }
+
+  it('rig: the zone really moved, and the clock reads Sunday the 8th there', () => {
+    enterDstDay();
+    expect(Intl.DateTimeFormat().resolvedOptions().timeZone).toBe(WEST);
+    expect(new Date().getDate()).toBe(8);
+    expect(new Date().getDay()).toBe(0);
+  });
+
+  it('fixture validity: 8 March is 23 hours long here, so 24-hour steps miss the next midnight', () => {
+    enterDstDay();
+    // Without this the case below would be green for free.
+    expect(new Date(2026, 2, 9).getTime() - new Date(2026, 2, 8).getTime()).toBe(23 * 60 * 60 * 1000);
+  });
+
+  it('the 9th is "Tomorrow", the 15th opens "Next week" and the 22nd is "Later"', () => {
+    enterDstDay();
+    expect(
+      feed([
+        { id: '1', name: 'Sun 8', when: '2026-03-08' },
+        { id: '2', name: 'Mon 9', when: '2026-03-09' },
+        { id: '3', name: 'Sat 14', when: '2026-03-14' },
+        { id: '4', name: 'Sun 15', when: '2026-03-15' },
+        { id: '5', name: 'Sat 21', when: '2026-03-21' },
+        { id: '6', name: 'Sun 22', when: '2026-03-22' },
+      ]),
+    ).toEqual([
+      'Today: Sun 8 (3/8/2026)',
+      'Tomorrow: Mon 9 (3/9/2026)',
+      'This week: Sat 14 (3/14/2026)',
+      'Next week: Sun 15 (3/15/2026), Sat 21 (3/21/2026)',
+      'Later: Sun 22 (3/22/2026)',
+    ]);
+  });
+});

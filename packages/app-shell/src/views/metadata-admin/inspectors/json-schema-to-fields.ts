@@ -30,7 +30,9 @@
  *   • array of object             → objectList (columns from item props; an item
  *                                   prop that is itself an array of string /
  *                                   number / object becomes a nested list column
- *                                   — a repeater-in-repeater, not a text cell)
+ *                                   — a repeater-in-repeater, not a text cell;
+ *                                   a number / integer item prop becomes a
+ *                                   number column, as at the top level)
  *   • object with fixed `properties`
  *                                 → flattened sub-fields under config.<key>.*
  *                                   (a nested `enabled: boolean` makes the
@@ -357,6 +359,12 @@ function columnsFor(item: JsonSchemaNode, depth = 0): FlowConfigColumn[] {
       options = enumOptions(prop.enum, prop.xEnumDeprecated);
     } else if (t === 'boolean') {
       kind = 'boolean';
+    } else if (scalarField(prop)?.kind === 'number') {
+      // objectui#11664 — the top-level number mapping, reused rather than
+      // re-detected: a `number` / `integer` item property (a screen field's
+      // `min` / `max`) is a number column, which commits the JSON number the
+      // node contract declares. As a text cell it saved a string.
+      kind = 'number';
     } else {
       // A string column marked xExpression:'expression' becomes a CEL column
       // (mono, predicate-checked by flow-expr-problems). 'template' and plain

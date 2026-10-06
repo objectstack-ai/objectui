@@ -10,6 +10,10 @@
  * never remounts mid-keystroke. Empty per-cell values are pruned; a row with no
  * populated cells is dropped on flush; an empty list commits `undefined`.
  *
+ * A `number` column (objectui#11664) holds a JSON number: a stored number stays
+ * one through the round trip, an empty cell commits no key, and a string stored
+ * there is kept verbatim rather than coerced.
+ *
  * A column may itself be a *list* (`stringList` / `numberList` / `objectList`) —
  * a repeater-in-repeater. Those cells hold an array and render the matching
  * sibling editor inline (recursively, for `objectList`), so an engine-published
@@ -42,8 +46,12 @@ import { FlowExprIssue } from './FlowExprIssue.js';
 import { isScreenVisibleWhenColumn } from '../previews/flow-expr-problems.js';
 import { screenPredicateRoots, type ScreenPreviewNode } from '../previews/screen-spec.js';
 
-/** A cell is a scalar (string/boolean) or, for a nested-list column, an array. */
-type Cell = string | boolean | unknown[];
+/**
+ * A cell is a scalar (string/boolean/number) or, for a nested-list column, an
+ * array. A `number` column's cell is a number, `''` (empty), or the string a
+ * row stored there — see {@link toRows}.
+ */
+type Cell = string | boolean | number | unknown[];
 interface Row {
   id: string;
   values: Record<string, Cell>;
@@ -83,6 +91,20 @@ function screenScopeGroups(node: ScreenPreviewNode, locale: string): ScopeGroup[
   return [{ id: 'screen_fields', label: t('engine.flowScope.group.screenFields', locale), refs }];
 }
 
+/**
+ * A `number` cell's input value → its cell (objectui#11664): a finite number, or
+ * `''` for an empty box. A browser's number input reports `''` for an entry it
+ * cannot read as a number (`1e`, `-`), so that entry commits nothing, exactly
+ * like the top-level number field; anything else non-numeric is never kept as a
+ * string either.
+ */
+function numberCell(raw: string): number | '' {
+  const s = raw.trim();
+  if (s === '') return '';
+  const n = Number(s);
+  return Number.isFinite(n) ? n : '';
+}
+
 function toRows(list: Array<Record<string, unknown>>, columns: FlowConfigColumn[]): Row[] {
   const ids: string[] = [];
   return list.map((item) => {
@@ -93,6 +115,11 @@ function toRows(list: Array<Record<string, unknown>>, columns: FlowConfigColumn[
       const v = item[col.key];
       if (col.kind === 'boolean') values[col.key] = v === true;
       else if (isListColumn(col.kind)) values[col.key] = Array.isArray(v) ? v : [];
+      // objectui#11664 — a number column keeps a stored number a number (`0`
+      // included). A string stored there (what the text cell used to save)
+      // takes the line below and stays that same string, never coerced: it
+      // commits back verbatim until the author types over it.
+      else if (col.kind === 'number' && typeof v === 'number') values[col.key] = v;
       else if (v != null) values[col.key] = String(v);
       else values[col.key] = '';
     }
@@ -116,6 +143,14 @@ function rowsToList(rows: Row[], columns: FlowConfigColumn[]): Array<Record<stri
         // A nested list commits its own already-normalized array (string[] /
         // number[] / object[]); an empty nested list drops the key entirely.
         if (Array.isArray(v) && v.length > 0) {
+          obj[col.key] = v;
+          hasValue = true;
+        }
+      } else if (col.kind === 'number') {
+        // objectui#11664 — a number commits as that number (`0` included); an
+        // empty cell commits nothing, so the key is absent rather than `''`.
+        // A stored string the author has not typed over goes back verbatim.
+        if ((typeof v === 'number' && Number.isFinite(v)) || (typeof v === 'string' && v !== '')) {
           obj[col.key] = v;
           hasValue = true;
         }
@@ -492,6 +527,29 @@ export function FlowObjectListField({
                         </div>
                       );
                     })()
+                  ) : col.kind === 'number' ? (
+                    // objectui#11664 — the same `Input type="number"` the
+                    // top-level number field renders, flushed on blur like the
+                    // text cell beside it. A stored string is handed to the
+                    // input as-is: the browser shows it when it reads as a
+                    // number and leaves the box blank when it does not, and the
+                    // row keeps the string either way until the author types.
+                    <Input
+                      type="number"
+                      value={(() => {
+                        const v = row.values[col.key];
+                        return typeof v === 'number' || typeof v === 'string' ? v : '';
+                      })()}
+                      onChange={(e) => setCell(row.id, col.key, numberCell(e.target.value))}
+                      onBlur={() => flush(rows)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+                      }}
+                      placeholder={col.placeholder}
+                      disabled={disabled}
+                      aria-required={cellRequired ? true : undefined}
+                      className="h-8 flex-1 text-xs"
+                    />
                   ) : (
                     <Input
                       value={typeof row.values[col.key] === 'string' ? (row.values[col.key] as string) : ''}

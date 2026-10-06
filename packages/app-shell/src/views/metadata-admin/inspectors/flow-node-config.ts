@@ -175,10 +175,15 @@ export interface FlowConfigColumn {
   key: string;
   label: string;
   /**
-   * Scalar cells (`text`/`expression`/`boolean`/`select`/`reference`) plus the
-   * three *nested-list* kinds — a cell that is itself a repeater
+   * Scalar cells (`text`/`expression`/`boolean`/`select`/`reference`/`number`)
+   * plus the three *nested-list* kinds — a cell that is itself a repeater
    * (repeater-in-repeater). `stringList`/`numberList` hold a primitive array;
    * `objectList` holds an array-of-objects whose own shape is in {@link columns}.
+   *
+   * `number` (objectui#11664) is a `type: 'number'` / `'integer'` item property —
+   * a screen field's `min` / `max`. It edits and commits a JSON number, the shape
+   * the node contract declares; as a `text` cell it saved the string the
+   * contract refuses.
    */
   kind:
     | 'text'
@@ -186,6 +191,7 @@ export interface FlowConfigColumn {
     | 'boolean'
     | 'select'
     | 'reference'
+    | 'number'
     | 'stringList'
     | 'numberList'
     | 'objectList';

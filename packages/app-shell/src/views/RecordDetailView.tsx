@@ -524,59 +524,85 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   //
   // ⚠️ [objectui#7230] THE POSITION IS LOAD-BEARING, not cosmetic. This used to
   // be a `usePermissions()` call ~670 lines below, next to the header's
-  // Edit/Delete gates. The record-load effect immediately after this line now
-  // FLS-gates its `$expand`, and an effect's DEPENDENCY ARRAY is evaluated
-  // DURING render — so listing `perms` there while the binding was still
-  // declared below would hit the temporal dead zone and throw
+  // Edit/Delete gates. The record-load effect just below FLS-gates its
+  // `$expand`, and that gated list is computed DURING render (objectui#11699)
+  // — so reading `perms` there while the binding was still declared below
+  // would hit the temporal dead zone and throw
   // `Cannot access 'perms' before initialization`: a crash, not a stale value.
   // The hook moved up; the site below destructures THIS value instead of
   // calling the hook a second time, so the hook order is unchanged in shape.
   // Same structural note PR #7229 recorded for `ListView`'s memo.
   const perms = usePermissions();
 
+  // What the page-record read below SENDS, held as primitives (objectui#11699).
+  //
+  // The record-load effect used to depend on three object identities —
+  // `effectivePage`, `objectDef` and `perms` — while all it reads from them
+  // is a yes/no ("is there a page?") and one list (the relations to expand).
+  // Measured on full reloads of a showcase record page, the record's `$expand`
+  // read went out twice in sequence, and the second run had changed nothing
+  // but `objectDef`'s identity: a JSON-equal definition, with the very same
+  // `fields` object, handed down again as a new object by a host re-render.
+  // `effectivePage` was the same trap one step removed: the synthesized page
+  // is a `useMemo` over `objectDef`, and an assigned page landing replaces it
+  // without changing anything the read sends.
+  //
+  // So the effect keys on the DATA it reads (AGENTS.md #10), never on the
+  // objects it reads it from: a new object carrying the same relations, an
+  // assigned page taking over from a synthesized one, a discarded memo, or a
+  // permission answer that leaves the list as it was does not read the record
+  // again; a list that CHANGES does.
+  const hasPage = !!effectivePage;
+  // Expand lookup/master_detail fields so the page receives display
+  // names (e.g. account.name) rather than raw foreign-key IDs. The
+  // page subtitle interpolation and record:* renderers depend on this.
+  //
+  // [objectui#7230] FIELD-LEVEL SECURITY ON `$expand`, the gate
+  // objectui#7215 / PR #7229 put on the two projection sites in its scope.
+  // `$select` on a denied lookup asks the server for a bare foreign key;
+  // `$expand` asks it to RESOLVE the relation and hand back the related
+  // record — the larger of the two requests.
+  //
+  // ⚠️ NO COLUMN LIST IS PASSED HERE, which makes this the sharpest of the
+  // family: `buildExpandFields` reads an absent column list as "no column
+  // restriction" and falls back to EVERY declared relation on the object,
+  // denied ones included. Every record page in the console therefore asked
+  // for the object's full relation set by default, not by configuration.
+  //
+  // Graded as objectui#7215 graded it, by measurement rather than assumption:
+  // against ObjectStack this is defence-in-depth, because `plugin-security`'s
+  // `FieldMasker.maskRecord` does `delete result[field]` on every unreadable
+  // key and objectql's expand path writes the resolved record back under THAT
+  // SAME KEY, so one statement removes the expanded object and the bare id
+  // alike; the expansion sub-read itself takes the referenced object's full
+  // CRUD + RLS + FLS treatment (objectstack#7626). It is load-bearing for a
+  // backend that does not strip.
+  //
+  // ⭐ THE GATE IS ON THE HELPER'S OUTPUT. There is no input to gate on this
+  // site, and the output holds only DECLARED reference-bearing fields, so the
+  // "`checkField` answers false for an undeclared key" trap is structurally
+  // unreachable and a derived / host-joined key is never judged. An
+  // unanswered policy filters nothing. The gated list is the effect's
+  // dependency (as a string), so an answer that NARROWS it re-reads the record
+  // without the denied relation the moment it arrives, and an answer that
+  // leaves it as it was reads nothing again (objectui#11699). Pinned in
+  // `RecordDetailView.expandFls-7230.test.tsx` and
+  // `RecordDetailView.recordOpenRequests-11699.test.tsx`.
+  const expandable = buildExpandFields(objectDef?.fields);
+  const pageRecordExpand = JSON.stringify(
+    !objectName || !perms?.isLoaded
+      ? expandable
+      : expandable.filter((f) => perms.checkField(objectName, f, 'read')),
+  );
+
   useEffect(() => {
     let cancelled = false;
-    if (!effectivePage || !pureRecordId || !objectName || !dataSource?.findOne) {
+    if (!hasPage || !pureRecordId || !objectName || !dataSource?.findOne) {
       setPageRecord(null);
       setPageRecordStatus('idle');
       return;
     }
-    // Expand lookup/master_detail fields so the page receives display
-    // names (e.g. account.name) rather than raw foreign-key IDs. The
-    // page subtitle interpolation and record:* renderers depend on this.
-    //
-    // [objectui#7230] FIELD-LEVEL SECURITY ON `$expand`, the gate
-    // objectui#7215 / PR #7229 put on the two projection sites in its scope.
-    // `$select` on a denied lookup asks the server for a bare foreign key;
-    // `$expand` asks it to RESOLVE the relation and hand back the related
-    // record — the larger of the two requests.
-    //
-    // ⚠️ NO COLUMN LIST IS PASSED HERE, which makes this the sharpest of the
-    // family: `buildExpandFields` reads an absent column list as "no column
-    // restriction" and falls back to EVERY declared relation on the object,
-    // denied ones included. Every record page in the console therefore asked
-    // for the object's full relation set by default, not by configuration.
-    //
-    // Graded as objectui#7215 graded it, by measurement rather than assumption:
-    // against ObjectStack this is defence-in-depth, because `plugin-security`'s
-    // `FieldMasker.maskRecord` does `delete result[field]` on every unreadable
-    // key and objectql's expand path writes the resolved record back under THAT
-    // SAME KEY, so one statement removes the expanded object and the bare id
-    // alike; the expansion sub-read itself takes the referenced object's full
-    // CRUD + RLS + FLS treatment (objectstack#7626). It is load-bearing for a
-    // backend that does not strip.
-    //
-    // ⭐ THE GATE IS ON THE HELPER'S OUTPUT. There is no input to gate on this
-    // site, and the output holds only DECLARED reference-bearing fields, so the
-    // "`checkField` answers false for an undeclared key" trap is structurally
-    // unreachable and a derived / host-joined key is never judged. An
-    // unanswered policy filters nothing; `perms` is in this effect's dependency
-    // list, so the record is re-read the moment the answer arrives. Pinned in
-    // `RecordDetailView.expandFls-7230.test.tsx`.
-    const expandable = buildExpandFields(objectDef?.fields);
-    const expandFields = !perms?.isLoaded
-      ? expandable
-      : expandable.filter((f) => perms.checkField(objectName, f, 'read'));
+    const expandFields: string[] = JSON.parse(pageRecordExpand);
     const params = expandFields.length > 0 ? { $expand: expandFields } : undefined;
     const loadRecord = () => {
       setPageRecordStatus('loading');
@@ -618,7 +644,12 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     };
     // #2269: recordInvalidationNonce re-runs this fetch in place whenever the
     // record (or its object) is invalidated on the bus.
-  }, [effectivePage, objectName, pureRecordId, dataSource, objectDef, recordInvalidationNonce, perms]);
+    //
+    // objectui#11699: every dependency here is either a primitive or the
+    // adapter the read goes through. ⛔ Do not list `objectDef`,
+    // `effectivePage` or `perms` here — derive what the read sends from them
+    // above instead (AGENTS.md #10).
+  }, [hasPage, objectName, pureRecordId, dataSource, pageRecordExpand, recordInvalidationNonce]);
 
   // The loaded record AS THE VIEWER MAY READ IT (objectui#10434,
   // objectui#10499): `withoutDeniedFields` removes the fields the loaded

@@ -180,14 +180,23 @@ function rejectRequests(fetchMock: ReturnType<typeof vi.fn>) {
   return fetchMock.mock.calls.filter(([url]) => String(url).endsWith('/pending-actions/pa_11667/reject'));
 }
 
+/** The slice of `Response` the page's requests read here. */
+interface FakeResponse {
+  ok: boolean;
+  status: number;
+  text: () => Promise<string>;
+  json: () => Promise<unknown>;
+}
+
 let fetchMock: ReturnType<typeof vi.fn>;
 
 beforeEach(() => {
   window.localStorage.clear();
   sendMessage.mockReset();
-  fetchMock = vi.fn(async (url: unknown) => {
+  fetchMock = vi.fn(async (url: unknown): Promise<FakeResponse> => {
     if (String(url).endsWith('/pending-actions/pa_11667/reject')) {
-      return { ok: true, status: 200, text: async () => JSON.stringify({ status: 'rejected', id: 'pa_11667' }) };
+      const body = JSON.stringify({ status: 'rejected', id: 'pa_11667' });
+      return { ok: true, status: 200, text: async () => body, json: async () => JSON.parse(body) };
     }
     return { ok: false, status: 404, text: async () => '', json: async () => ({}) };
   });

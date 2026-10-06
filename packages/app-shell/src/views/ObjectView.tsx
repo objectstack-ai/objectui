@@ -891,7 +891,8 @@ function viewTabLabel(
  * The open view's name on the record page's way back (`location.state.from`),
  * decided as {@link viewTabLabel} decides a tab's, so the link names the view
  * the way its tab does. Empty when the view has no label: the caller falls back
- * to the object's label.
+ * to the object's PLURAL label, since the link goes back to a list of its
+ * records (objectui#11733).
  */
 function viewOriginLabel(
     view: { id?: string; name?: string; label?: string },
@@ -2811,7 +2812,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
             const originState = {
               from: {
                 pathname: location.pathname + (location.search || ''),
-                label: viewOriginLabel({ id: activeView?.id, name: activeView?.name, label: activeView?.label }, objectDef.name, servedViews, viewLabel) || objectLabel(objectDef),
+                label: viewOriginLabel({ id: activeView?.id, name: activeView?.name, label: activeView?.label }, objectDef.name, servedViews, viewLabel) || objectPluralLabel(objectDef),
               },
             };
             if (viewId) {
@@ -2820,7 +2821,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 navigate(`record/${encodeURIComponent(String(recordId))}`, { state: originState });
             }
         },
-        [navigate, viewId, location.pathname, location.search, objectDef, activeView?.id, activeView?.name, activeView?.label, viewLabel, objectLabel, servedViews]
+        [navigate, viewId, location.pathname, location.search, objectDef, activeView?.id, activeView?.name, activeView?.label, viewLabel, objectPluralLabel, servedViews]
     );
     /**
      * The list surface's half of the record-link mechanism (objectui#4490):
@@ -3617,7 +3618,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 const originState = {
                   from: {
                     pathname: location.pathname + (location.search || ''),
-                    label: viewOriginLabel({ id: activeView?.id, name: activeView?.name, label: activeView?.label }, objectDef.name, servedViews, viewLabel) || objectLabel(objectDef),
+                    label: viewOriginLabel({ id: activeView?.id, name: activeView?.name, label: activeView?.label }, objectDef.name, servedViews, viewLabel) || objectPluralLabel(objectDef),
                   },
                 };
                 if (viewId) {
@@ -3627,7 +3628,7 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                 }
             }
         },
-    }), [objectDef, onEdit, activeViewSearch, activeViewFilter, activeViewSort, activeView?.id, activeView?.name, activeView?.label, navigate, viewId, isAdmin, location.pathname, location.search, viewLabel, objectLabel, servedViews]);
+    }), [objectDef, onEdit, activeViewSearch, activeViewFilter, activeViewSort, activeView?.id, activeView?.name, activeView?.label, navigate, viewId, isAdmin, location.pathname, location.search, viewLabel, objectPluralLabel, servedViews]);
 
     return (
         <ActionProvider {...actionRuntime.actionProviderProps}>
@@ -3662,14 +3663,16 @@ function ObjectViewInner({ dataSource, objects, onEdit, externalRefreshKey }: Co
                  icon={(() => { const I = getIcon((objectDef as any)?.icon); return <I className="h-4 w-4" />; })()}
                  actions={
                    <>
-                    {/* Favorite toggle */}
+                    {/* Favorite toggle. The entry opens this list, so it is
+                        named with the plural the title above reads
+                        (objectui#11733). */}
                     {objectName && (
                       <Button
                         size="sm"
                         variant="ghost"
                         onClick={() => toggleFavorite({
                           id: `object:${objectName}`,
-                          label: objectLabel(objectDef),
+                          label: objectPluralLabel(objectDef),
                           href: `/apps/${appName}/${objectName}`,
                           type: 'object',
                         })}

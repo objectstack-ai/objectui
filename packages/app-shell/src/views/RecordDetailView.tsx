@@ -401,7 +401,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // The DISPLAY locale the audit-history dates format with (objectui#10442).
   // `language` above stays for what it is: the key into per-locale LABEL maps.
   const displayLocale = useDisplayLocale();
-  const { objectLabel, viewLabel: _vLabel, sectionLabel, actionParamText, actionParamOptionLabel, actionDescription, actionResultDialog, fieldLabel, fieldOptionLabel } = useObjectLabel();
+  const { objectLabel, objectPluralLabel, viewLabel: _vLabel, sectionLabel, actionParamText, actionParamOptionLabel, actionDescription, actionResultDialog, fieldLabel, fieldOptionLabel } = useObjectLabel();
   // label + confirmText + successMessage through ONE call (objectui#4265) —
   // the three keys of an `_actions.<name>` bundle entry can no longer be
   // localized apart from one another on this surface.
@@ -1337,8 +1337,12 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   const childRelations = useMemo(
     () => deriveRelatedLists(objectDef, objects, {
       canRead: permissionsLoaded ? (name) => canOnObject(name, 'read') : undefined,
+      // A related list is a list of the child's records, so the multi-FK
+      // title it composes names it with the plural, as the single-FK title
+      // below does (objectui#11733).
+      listLabel: (child) => objectPluralLabel({ name: child.name, label: child.label || child.name, pluralLabel: child.pluralLabel }),
     }),
-    [objectDef, objects, canOnObject, permissionsLoaded],
+    [objectDef, objects, canOnObject, permissionsLoaded, objectPluralLabel],
   );
 
   // [objectstack#3821] RECORD-level write gate. Everything above is object
@@ -2365,10 +2369,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     const related = childRelations.map(({ childObject, childLabel, referenceField, title: titleOverride, columns: columnsOverride, isPrimary, sort: inheritedSort, filter: declaredFilter }) => {
       const childObjectDef = objects.find((o: any) => o.name === childObject);
       // A `relatedListTitle` on the relationship wins; else fall back to the
-      // localized child-object label.
+      // localized child-object PLURAL label — the section lists the child's
+      // records, so it is named as that object's list page is (objectui#11733).
       const localizedTitle = titleOverride
         || (childObjectDef
-          ? objectLabel({ name: childObjectDef.name, label: childObjectDef.label || childLabel })
+          ? objectPluralLabel({ name: childObjectDef.name, label: childObjectDef.label || childLabel, pluralLabel: childObjectDef.pluralLabel })
           : childLabel);
       return {
         title: localizedTitle,
@@ -2447,7 +2452,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // the panel's headline is the pending one. (The decision actions no longer
   // ride this list at all — objectui#3055 moved them to the declared-action
   // bar, which reads the pending row directly.)
-  }, [objectDef?.name, childRelations, t, objectLabel, objects, historyEnabled, historyEntries, historyLoading, approvals.available, approvals.pendingRequest, approvals.requests, user?.id]);
+  }, [objectDef?.name, childRelations, t, objectPluralLabel, objects, historyEnabled, historyEntries, historyLoading, approvals.available, approvals.pendingRequest, approvals.requests, user?.id]);
 
   if (isLoading) {
     return <SkeletonDetail />;

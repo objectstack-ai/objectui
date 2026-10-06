@@ -182,11 +182,14 @@ const RecordRelatedListBody: React.FC<RecordRelatedListRendererProps> = ({
   // Resolve a human-friendly title:
   //   1. authored `schema.title` wins — via pickLocalized so inline-i18n
   //      shapes (`{ en, 'zh-CN' }`) resolve instead of rendering "[object Object]"
-  //   2. translated object label via i18n (key `objects.{name}.label`)
+  //   2. translated object PLURAL label via i18n (key `objects.{name}.pluralLabel`),
+  //      else the translated label (key `objects.{name}.label`) — the block
+  //      lists the related object's records, so it is named as that object's
+  //      list page is (objectui#11733)
   //   3. humanized objectName (e.g. `opportunity_quote` → "Opportunity Quote")
   //   4. literal `'Related'` as final fallback
-  const resolvedObjectLabel = objectName && (i18n as any).objectLabel
-    ? (i18n as any).objectLabel({ name: objectName, label: humanizeLabel(objectName) })
+  const resolvedObjectLabel = objectName && 'objectPluralLabel' in i18n
+    ? i18n.objectPluralLabel({ name: objectName, label: humanizeLabel(objectName) })
     : objectName
       ? humanizeLabel(objectName)
       : '';

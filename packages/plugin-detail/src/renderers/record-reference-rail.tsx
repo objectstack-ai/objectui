@@ -8,7 +8,7 @@
  * related data without leaving the Details tab.
  *
  * Each entry renders a tight card with:
- *   - localized object label
+ *   - localized object PLURAL label (the card lists records; objectui#11733)
  *   - total related count (badge)
  *   - the top N related records (name only, truncated)
  *
@@ -520,8 +520,8 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
     .map(
       (e) =>
         e.title ||
-        (i18n?.objectLabel
-          ? i18n.objectLabel({ name: e.objectName, label: humanize(e.objectName) })
+        (i18n?.objectPluralLabel
+          ? i18n.objectPluralLabel({ name: e.objectName, label: humanize(e.objectName) })
           : humanize(e.objectName)),
     );
 
@@ -544,8 +544,8 @@ export const RecordReferenceRailRenderer: React.FC<RecordReferenceRailRendererPr
         );
         const title =
           entry.title ||
-          (i18n?.objectLabel
-            ? i18n.objectLabel({ name: entry.objectName, label: humanize(entry.objectName) })
+          (i18n?.objectPluralLabel
+            ? i18n.objectPluralLabel({ name: entry.objectName, label: humanize(entry.objectName) })
             : humanize(entry.objectName));
 
         return (

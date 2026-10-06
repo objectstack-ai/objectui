@@ -181,7 +181,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
   const homePath = useHomePath();
   const previewDrafts = usePreviewDrafts();
   const { t } = useObjectTranslation();
-  const { objectLabel } = useObjectLabel();
+  const { objectLabel, objectPluralLabel } = useObjectLabel();
 
   // Preload the metadata buckets that the routes under /apps/:appName/* assume
   // are fully loaded by render time (the lazy MetadataProvider only eagerly
@@ -635,7 +635,9 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
       originSp.delete(RECORD_FORM_LINK_PARAM);
       const originQs = originSp.toString();
       const originPath = `${location.pathname}${originQs ? `?${originQs}` : ''}`;
-      const originLabel = objectLabel(currentObjectDef as any);
+      // The origin is a list of the object's records, so the back link names
+      // it with the plural, as ObjectView's row navigation does (objectui#11733).
+      const originLabel = objectPluralLabel(currentObjectDef);
       navigate(target.url, {
         replace: true,
         state: originLabel ? { from: { pathname: originPath, label: originLabel } } : undefined,
@@ -643,7 +645,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
       return;
     }
     navigate(target.url, { replace: true });
-  }, [handleCrudSuccess, isChildFormTask, formObjectDef, editingRecord, currentObjectDef, appName, activeApp?.name, location.pathname, navigate, closeRecordForm, objectLabel, t]);
+  }, [handleCrudSuccess, isChildFormTask, formObjectDef, editingRecord, currentObjectDef, appName, activeApp?.name, location.pathname, navigate, closeRecordForm, objectLabel, objectPluralLabel, t]);
 
   // Track recent items on route change.
   useTrackRouteAsRecent({

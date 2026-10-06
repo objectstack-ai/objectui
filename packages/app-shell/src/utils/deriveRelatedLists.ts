@@ -45,7 +45,9 @@
  *     MORE THAN ONE relationship (e.g. `opportunity.primary_account` +
  *     `opportunity.partner_account`); each surfaces as its own list. When a
  *     child appears more than once and gave no explicit `relatedListTitle`, the
- *     FK's label is suffixed to disambiguate ("Opportunity · Partner Account").
+ *     FK's label is suffixed to the list's name (`options.listLabel`, the
+ *     plural on the detail page) to disambiguate ("Opportunities · Partner
+ *     Account").
  *   - Self-references are allowed (e.g. `account.parent_account` → `account`):
  *     the parent record lists the records whose self-FK points back at it
  *     ("Child Accounts"). Suppress with `relatedList: false` if unwanted.
@@ -152,6 +154,8 @@ export interface DerivedRelatedList {
 interface MergedObjectLike {
   name?: string;
   label?: string;
+  /** The spec's optional `pluralLabel`, read by a caller's `listLabel` only. */
+  pluralLabel?: string;
   fields?: Record<string, any> | any[];
   /**
    * The object's DEFAULT list view, as merged onto the object def by
@@ -227,6 +231,15 @@ export interface DeriveRelatedListsOptions {
    * flicker out during the fail-closed loading window.
    */
   canRead?: (objectName: string) => boolean;
+  /**
+   * What a LIST of the child's records is called, for the multi-FK title this
+   * helper composes ("Opportunities · Partner Account"). The detail page
+   * passes `useObjectLabel().objectPluralLabel`, the resolver its single-FK
+   * titles use (objectui#11733), so both kinds of related-list title name the
+   * list the same way. This helper holds no translation of its own; omitted,
+   * the title keeps `childLabel`.
+   */
+  listLabel?: (child: MergedObjectLike & { name: string }) => string;
 }
 
 /**
@@ -242,13 +255,15 @@ export function deriveRelatedLists(
   if (!objectDef?.name || !Array.isArray(objects) || objects.length === 0) return [];
   const parentName = objectDef.name;
 
-  // Working entries carry the FK label so we can disambiguate multi-FK children
-  // after the full sweep; it is stripped from the returned descriptors.
-  type Working = DerivedRelatedList & { _fkLabel: string };
+  // Working entries carry the FK label and the list's name so we can
+  // disambiguate multi-FK children after the full sweep; both are stripped
+  // from the returned descriptors.
+  type Working = DerivedRelatedList & { _fkLabel: string; _listLabel: string };
   const owned: Working[] = [];
   const referenced: Working[] = [];
 
   const canRead = options?.canRead;
+  const listLabel = options?.listLabel;
 
   for (const child of objects) {
     if (!child?.name) continue;
@@ -260,6 +275,8 @@ export function deriveRelatedLists(
     // child's own default list-view order, so compute it once per child
     // rather than once per FK.
     const inheritedSort = inheritedListViewSort(child.list);
+    const childLabel = child.label || child.name;
+    const childListLabel = (listLabel && listLabel(child as MergedObjectLike & { name: string })) || childLabel;
     for (const [fieldName, fieldDef] of fieldEntries(child.fields)) {
       if (!fieldDef) continue;
       const type = fieldDef.type;
@@ -279,12 +296,13 @@ export function deriveRelatedLists(
 
       const entry: Working = {
         childObject: child.name,
-        childLabel: child.label || child.name,
+        childLabel,
         referenceField: fieldName,
         isOwned: type === 'master_detail',
         isPrimary: fieldDef.relatedList === 'primary',
         ...(inheritedSort ? { sort: inheritedSort } : {}),
         _fkLabel: (typeof fieldDef.label === 'string' && fieldDef.label) || fieldName,
+        _listLabel: childListLabel,
         ...(typeof fieldDef.relatedListTitle === 'string' && fieldDef.relatedListTitle
           ? { title: fieldDef.relatedListTitle }
           : {}),
@@ -310,13 +328,14 @@ export function deriveRelatedLists(
   const all = [...owned, ...referenced];
   // Multi-FK disambiguation: when a child object points here through more than
   // one relationship and gave no explicit title, suffix the FK label so the two
-  // lists are distinguishable (e.g. "Opportunity · Partner Account").
+  // lists are distinguishable (e.g. "Opportunities · Partner Account"; the list
+  // half is `options.listLabel`, see there).
   const counts: Record<string, number> = {};
   for (const r of all) counts[r.childObject] = (counts[r.childObject] || 0) + 1;
 
-  return all.map(({ _fkLabel, ...rest }) => {
+  return all.map(({ _fkLabel, _listLabel, ...rest }) => {
     if (!rest.title && counts[rest.childObject] > 1) {
-      return { ...rest, title: `${rest.childLabel} · ${_fkLabel}` };
+      return { ...rest, title: `${_listLabel} · ${_fkLabel}` };
     }
     return rest;
   });

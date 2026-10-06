@@ -30,9 +30,14 @@
  *
  * The line the fix draws is "is this an HTML attribute name": the seven above are
  * not (the renderer already emits the two dashed `aria-*` forms itself), so they
- * are destructured out. Everything that IS one keeps flowing through the spread —
- * `id`, `name`, `role`, `disabled`, `aria-*`, `data-*`, `className` — because the
- * spread is genuine DOM/aria passthrough and stays.
+ * are destructured out. The spread itself stays — it is genuine DOM/aria
+ * passthrough.
+ *
+ * ⚠️ Since objectui#4425 the deny-list is not what decides the renderer's door:
+ * a render through `SchemaRenderer` spreads only what `toDomProps` passes, so
+ * `name` and the open tail of undeclared authored keys stop too (case (e) and
+ * `MetricWidget.sduiDomWhitelist-4425.test.tsx`). The seven keys above stay
+ * pinned here because they are still destructured, and still absent.
  *
  * `dataSource` is why case (g) exists and why it renders the dashboard WITH an
  * adapter. It is the only one of the seven that never appears in a schema —
@@ -195,7 +200,7 @@ describe('MetricWidget / MetricCard — schema-shaped props stay off the DOM (#4
     expect(container.textContent).toContain('1,930,000');
   });
 
-  it('(e) genuine DOM / aria passthrough survives — the spread is not removed', () => {
+  it('(e) genuine DOM / aria passthrough survives — the spread is not removed, and `name` is not part of it', () => {
     const { container } = renderSchema({
       type: 'plugin-dashboard:metric',
       label: 'Total Revenue',
@@ -207,7 +212,10 @@ describe('MetricWidget / MetricCard — schema-shaped props stay off the DOM (#4
     const el = card(container);
     // Authored DOM identity and ARIA, plus the renderer's own data attributes.
     expect(el.getAttribute('id')).toBe('revenue');
-    expect(el.getAttribute('name')).toBe('revenue_kpi');
+    // `name` is legal on form controls only. It reached this `div` while the
+    // deny-list decided the spread; the `toDomProps` whitelist withholds it
+    // (objectui#4425 — it was one of the leak-gate ledger's attributes).
+    expect(el.hasAttribute('name')).toBe(false);
     expect(el.getAttribute('role')).toBe('group');
     expect(el.getAttribute('aria-label')).toBe('Revenue KPI');
     expect(el.getAttribute('aria-describedby')).toBe('desc-1');

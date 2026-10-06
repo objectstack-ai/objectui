@@ -30,11 +30,12 @@
  *    and Tasks lists at a 1440px viewport (the `MEASURED` table below, one
  *    reading, ⛔ not re-derived here). A table that never probes reads 0 and
  *    falls back to the text path, so these pins fail if the probe is gone.
- *    What they assert is the arithmetic of that reading: the Budget column is
- *    given at least what its widest amount needs, and the Tasks columns fit
- *    the measured 1184px content box beside the measured fixed columns, so no
- *    scrolling column passes under the pinned Actions column. The live
- *    readings themselves are the PR's.
+ *    The cells' insets (cell width less content box) are replayed from the
+ *    same reading. What these pins assert is the arithmetic of it: the Budget
+ *    column is given at least what its widest amount needs, and the Tasks
+ *    columns fit the measured 1184px content box beside the measured fixed
+ *    columns, each one whole, so no scrolling column passes under the pinned
+ *    Actions column. The live readings themselves are the PR's.
  *  - The stacked-pin block mocks the header cells' widths, the way
  *    `data-table-sticky-offsets.test.tsx` does for the left pins.
  */
@@ -163,27 +164,44 @@ const MEASURED: Record<string, Record<string, number>> = {
 /** The measured content box of the list, and its fixed columns: checkbox, `#`, Actions. */
 const CONTENT_BOX = 1184;
 const FIXED_COLUMNS = 28 + 39.22 + 66.66;
-/** Measured cell padding, and the frozen first column's 2px right border. */
-const CELL_CSS = 'th, td { padding-left: 12px; padding-right: 12px; } .border-r-2 { border-right: 2px solid; }';
+/**
+ * The space each cell keeps around its content, measured the same way (cell
+ * width less content-box width). 24px is the 12px padding either side. Under
+ * the table's collapsed borders the frozen first column's 2px rule is split
+ * with its neighbour (25px each), and the Actions column's 1px left rule with
+ * the column before it (24.5px), and no computed style of those cells says so.
+ */
+const INSET: Record<string, number> = { title: 25, project: 25, progress: 24.5 };
+const insetOf = (key: string) => INSET[key] ?? 24;
 
+/**
+ * A fake layout for the table: a cell is as wide as its `style.width`, its
+ * content box is that less the measured inset, and the probe (an
+ * auto-width target at `max-content`) is as wide as `MEASURED` says.
+ */
 function installMeasuredLayout() {
-  const style = document.createElement('style');
-  style.textContent = CELL_CSS;
-  document.head.appendChild(style);
   const original = HTMLElement.prototype.getBoundingClientRect;
+  const rect = (width: number) =>
+    ({ width, height: 20, top: 0, left: 0, bottom: 20, right: width, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
   const spy = vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-    const key = this.getAttribute('data-auto-width-key');
-    // Only the probe is laid out; everything else answers what happy-dom does.
-    if (key === null || this.style.width !== 'max-content') return original.call(this);
-    const text = (this.textContent ?? '').trim();
-    const width = MEASURED[key]?.[text];
-    if (width === undefined) throw new Error(`no measured width for ${key} / "${text}"`);
-    return { width, height: 20, top: 0, left: 0, bottom: 20, right: width, x: 0, y: 0, toJSON: () => ({}) } as DOMRect;
+    const own = this.getAttribute('data-auto-width-key');
+    if (own !== null && this.style.width === 'max-content') {
+      const text = (this.textContent ?? '').trim();
+      const width = MEASURED[own]?.[text];
+      if (width === undefined) throw new Error(`no measured width for ${own} / "${text}"`);
+      return rect(width);
+    }
+    if (this.tagName === 'TD' || this.tagName === 'TH') return rect(parseFloat(this.style.width) || 0);
+    // The element a cell's content box is read off: the display cell itself,
+    // or the full-width row a header label sits in.
+    const key = own ?? (this.parentElement?.tagName === 'TH'
+      ? this.querySelector(':scope > [data-auto-width-key]')?.getAttribute('data-auto-width-key') ?? null
+      : null);
+    const box = this.closest('th, td') as HTMLElement | null;
+    if (key !== null && box) return rect((parseFloat(box.style.width) || 0) - insetOf(key));
+    return original.call(this);
   });
-  return () => {
-    spy.mockRestore();
-    style.remove();
-  };
+  return () => spy.mockRestore();
 }
 
 const STATUS: Record<string, string> = { done: 'Done', in_progress: 'In Progress', todo: 'To Do', backlog: 'Backlog', in_review: 'In Review' };
@@ -243,7 +261,7 @@ describe('data-table sizes a column from its measured drawn content, where the p
       />,
     );
     const width = px(header('Budget').style.width);
-    expect(width - 24, 'the content box holds the widest drawn amount').toBeGreaterThanOrEqual(72.61);
+    expect(width - insetOf('budget'), 'the content box holds the widest drawn amount').toBeGreaterThanOrEqual(72.61);
     for (const td of bodyCells('Budget')) expect(px(td.style.maxWidth)).toBe(width);
   });
 
@@ -263,7 +281,15 @@ describe('data-table sizes a column from its measured drawn content, where the p
     const widths = TASK_COLUMNS.map((c) => px(header(c.header).style.width));
     const total = widths.reduce((a, b) => a + b, 0) + FIXED_COLUMNS;
     expect(total, `the columns sum to ${total}px`).toBeLessThanOrEqual(CONTENT_BOX);
-    expect(px(header('Progress').style.width) - 24, 'the bar and the number render whole').toBeGreaterThanOrEqual(109.36);
+    expect(px(header('Progress').style.width) - insetOf('progress'), 'the bar and the number render whole')
+      .toBeGreaterThanOrEqual(109.36);
+    // And no column bought that by truncating: each content box holds its
+    // widest drawn cell and its label, the collapsed-border insets included.
+    for (const c of TASK_COLUMNS) {
+      const widest = Math.max(...Object.values(MEASURED[c.accessorKey]));
+      expect(px(header(c.header).style.width) - insetOf(c.accessorKey), `${c.header} renders whole`)
+        .toBeGreaterThanOrEqual(widest);
+    }
   });
 
   it('the probe leaves no width behind on what it measured', () => {

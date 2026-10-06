@@ -795,21 +795,30 @@ function drawnSizeSignature(targets: readonly HTMLElement[]): string {
   return JSON.stringify([...firstBoxClass.entries(), ...parts]);
 }
 
-/** A cell's horizontal padding plus borders, in px (0 where nothing is computed). */
-function horizontalInset(box: Element): number {
-  const cs = getComputedStyle(box);
-  return ['padding-left', 'padding-right', 'border-left-width', 'border-right-width']
-    .map((prop) => parseFloat(cs.getPropertyValue(prop)))
-    .reduce((acc, v) => acc + (Number.isFinite(v) ? v : 0), 0);
+/**
+ * The box a target is drawn in, and the element that spans that box's content
+ * width: a display cell is itself `w-full` in its `td`; a header label sits
+ * in the `th`'s full-width row (`th > div > label`).
+ */
+function drawnSizeBox(el: HTMLElement): { box: Element | null; span: Element | null } {
+  const box = el.closest('th, td');
+  return { box, span: box?.tagName === 'TH' ? el.parentElement : el };
 }
 
 /**
  * Read what the targets drew. The text lengths are read always; the widths
- * only where the page is laid out. Each target's NATURAL width (its content
- * on one line, at `max-content`) is read with one layout for all of them and
- * its own inline width restored at once, inside the same task, so no frame is
- * ever painted with the probe in place. The targets carry no React-managed
- * `style`, so the probe and its removal are invisible to React.
+ * only where the page is laid out.
+ *
+ * A column's width is its widest target's NATURAL width (the content on one
+ * line, at `max-content`) plus the space its cell keeps around the content.
+ * That space is MEASURED (the cell's width less its content box's), never
+ * read off the computed padding: under the table's collapsed borders a cell
+ * beside a frozen column's 2px rule carries half of it, which no computed
+ * style of its own reports. One layout reads the boxes, one reads the probe,
+ * and each target's own inline width is restored at once, inside the same
+ * task, so no frame is ever painted with the probe in place. The targets
+ * carry no React-managed `style`, so the probe and its removal are invisible
+ * to React.
  */
 function measureDrawnColumnSizes(heads: readonly HTMLElement[], cells: readonly HTMLElement[]): DrawnColumnSizes {
   const chars: Record<string, number> = {};
@@ -819,23 +828,21 @@ function measureDrawnColumnSizes(heads: readonly HTMLElement[], cells: readonly 
     if (!(key in chars) || len > chars[key]) chars[key] = len;
   }
   const targets = [...heads, ...cells];
+  const insets = targets.map((el) => {
+    const { box, span } = drawnSizeBox(el);
+    if (!box || !span) return 0;
+    const inset = box.getBoundingClientRect().width - span.getBoundingClientRect().width;
+    return Number.isFinite(inset) && inset > 0 ? inset : 0;
+  });
   const saved = targets.map((el) => el.style.width);
   for (const el of targets) el.style.width = 'max-content';
   const natural = targets.map((el) => el.getBoundingClientRect().width);
   targets.forEach((el, i) => { el.style.width = saved[i]; });
   if (!natural.some((w) => Number.isFinite(w) && w > 0)) return { chars, px: null };
-  const insets = new Map<string, number>();
   const px: Record<string, number> = {};
   targets.forEach((el, i) => {
     const key = el.getAttribute(AUTO_WIDTH_ATTR) ?? '';
-    const box = el.closest('th, td');
-    let inset = 0;
-    if (box) {
-      const boxKey = `${box.tagName} ${box.className}`;
-      if (!insets.has(boxKey)) insets.set(boxKey, horizontalInset(box));
-      inset = insets.get(boxKey) as number;
-    }
-    const need = Math.ceil((Number.isFinite(natural[i]) ? natural[i] : 0) + inset);
+    const need = Math.ceil((Number.isFinite(natural[i]) ? natural[i] : 0) + insets[i]);
     if (!(key in px) || need > px[key]) px[key] = need;
   });
   return { chars, px };

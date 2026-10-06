@@ -22,6 +22,7 @@
 import * as React from 'react';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
+import type { DataSource } from '@object-ui/types';
 
 vi.mock('@object-ui/plugin-report', async (importOriginal) => ({
   ...(await importOriginal<Record<string, unknown>>()),
@@ -33,7 +34,7 @@ vi.mock('@object-ui/plugin-dashboard', async (importOriginal) => ({
 }));
 vi.mock('./ReportConfigPanel', () => ({ ReportConfigPanel: () => null }));
 
-const meta = vi.hoisted(() => ({ value: null as any }));
+const meta = vi.hoisted(() => ({ value: null as unknown }));
 vi.mock('../providers/MetadataProvider', () => ({ useMetadata: () => meta.value }));
 
 vi.mock('react-router-dom', () => ({
@@ -87,7 +88,8 @@ describe('ReportView report card height (objectui#11694)', () => {
       getItemsByType: () => [],
       getTypeStatus: () => 'ready',
     };
-    render(<ReportView dataSource={{ find: vi.fn(async () => ({ data: [] })) } as any} />);
+    const dataSource = { find: vi.fn(async () => ({ data: [] })) } as unknown as DataSource;
+    render(<ReportView dataSource={dataSource} />);
 
     const body = await screen.findByTestId('report-body');
 

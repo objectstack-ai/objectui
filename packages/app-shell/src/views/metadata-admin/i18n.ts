@@ -2511,6 +2511,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'designer.field.optionSourceInline': "This field's own options",
   'designer.field.picklistBound':
     'Options come from the picklist “{picklist}”. A field bound to a picklist has no options of its own: to offer another value, add it to the picklist in its package.',
+  'designer.field.picklistOwnValues':
+    'These are the picklist’s own values. Values other packages add to it are offered too.',
   'designer.field.optMalformed': 'This option cannot be edited here',
   'designer.field.optMalformed.notAnObject': 'It is not an option object.',
   'designer.field.optMalformed.valueNotText': 'Its `value` is missing or is not text.',
@@ -5431,6 +5433,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'designer.field.optionSourceInline': '本字段自己的选项',
   'designer.field.picklistBound':
     '选项来自选项列表「{picklist}」。绑定了选项列表的字段没有自己的选项：要增加取值，请在选项列表所属的软件包里添加。',
+  'designer.field.picklistOwnValues': '以上是选项列表自身的取值；其他软件包为它追加的取值同样可选。',
   'designer.field.optMalformed': '此选项无法在这里编辑',
   'designer.field.optMalformed.notAnObject': '它不是一个选项对象。',
   'designer.field.optMalformed.valueNotText': '它的 `value` 缺失或不是文本。',

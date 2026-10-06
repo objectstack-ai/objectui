@@ -140,6 +140,8 @@ describe('ObjectFieldInspector — use picklist (objectui#10202)', () => {
     const bound = screen.getByTestId('picklist-bound-options');
     expect(bound).toHaveTextContent('Silver');
     expect(bound).toHaveTextContent(/Options come from the picklist “Tier”/);
+    // The roster carries the list's OWN options only, so the list says it is not the whole offer.
+    expect(bound).toHaveTextContent('These are the picklist’s own values. Values other packages add to it are offered too.');
     expect(addValueButton(), 'no inline options editor on a bound field').toBeNull();
     expect(bound.querySelector('input, textarea, button')).toBeNull();
   });
@@ -160,7 +162,10 @@ describe('ObjectFieldInspector — use picklist (objectui#10202)', () => {
       },
       'tier',
     );
-    expect(screen.getByTestId('picklist-bound-options')).toHaveTextContent('Platinum');
+    const bound = screen.getByTestId('picklist-bound-options');
+    expect(bound).toHaveTextContent('Platinum');
+    // The served copy IS the whole offer: no "own values only" note.
+    expect(bound).not.toHaveTextContent('own values');
     expect(addValueButton()).toBeNull();
   });
 

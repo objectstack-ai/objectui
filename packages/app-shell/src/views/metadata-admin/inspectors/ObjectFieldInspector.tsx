@@ -990,6 +990,7 @@ export function ObjectFieldInspector({
             <BoundPicklistOptions
               picklistLabel={boundListed?.label ?? String(def.picklist)}
               options={offeredOptions}
+              ownValuesOnly={options.length === 0}
               locale={locale}
             />
           )}
@@ -2244,14 +2245,21 @@ function PicklistSourceField({
  * editor: inline options are refused on a bound field, as the spec refuses
  * `picklist` with `options`. The options shown are the ones the field offers
  * (see `offeredOptions` in the inspector); nothing here writes.
+ *
+ * `ownValuesOnly` — the list shown is the picklist's OWN options from the
+ * roster, not the served field's resolved copy: `GET /meta/picklist` does not
+ * carry the options other packages add (`picklistExtensions`), so the note says
+ * those are offered too rather than letting the list read as complete.
  */
 function BoundPicklistOptions({
   picklistLabel,
   options,
+  ownValuesOnly,
   locale,
 }: {
   picklistLabel: string;
   options: Option[];
+  ownValuesOnly: boolean;
   locale?: string;
 }) {
   return (
@@ -2269,6 +2277,11 @@ function BoundPicklistOptions({
             </li>
           ))}
         </ul>
+      )}
+      {ownValuesOnly && options.length > 0 && (
+        <p className="text-[11px] leading-snug text-muted-foreground">
+          {t('designer.field.picklistOwnValues', locale)}
+        </p>
       )}
     </div>
   );

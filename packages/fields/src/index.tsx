@@ -393,7 +393,10 @@ export { coerceToSafeValue };
  * and all three are legitimate:
  *
  *  - **the floor exactly** — `SelectCellRenderer`, `LookupCellRenderer`,
- *    `TextCellRenderer`, `FormulaCellRenderer`, `ColorSwatchCellRenderer`, and
+ *    `TextCellRenderer`, `FormulaCellRenderer` (a numeric result past its
+ *    guard is then drawn by `NumberCellRenderer`, objectui#11683, so a
+ *    `returnType: 'number'` formula holding whitespace answers this helper's
+ *    extension below), `ColorSwatchCellRenderer`, and
  *    since objectui#8678 `MaskedCellRenderer` (on the coerced text, as `text`
  *    reads it), `VectorCellRenderer` and `GridCellRenderer`;
  *  - **the floor EXTENDED** — this helper (+ whitespace, on the coerced text);
@@ -1257,13 +1260,22 @@ export function DateTimeCellRenderer({ value, field }: CellRendererProps): React
   // identically.
   // `null` is unreachable: the invalid/empty values it answers for already
   // returned `<EmptyValue />` above.
+  //
+  // The gap between the halves is TEXT, one space (objectui#11683). It used to
+  // be an `ml-2` margin alone, so the cell's text was the two halves run
+  // together: `2026/10/6上午1:42` in zh-CN, `10/6/20261:42 am` in en-US. That is
+  // what a copy, a screen reader and `textContent` got. The space is the joiner
+  // `formatDateTime`'s compact face puts between the same two halves, so the
+  // cell's text is now that string exactly. The time half keeps its muted
+  // colour and a narrower `ml-1` margin, which with the space keeps the halves
+  // visibly apart.
   if (style === 'compact') {
     const parts = formatDateTimeCompactParts(date, { locale });
     if (parts) {
       return (
         <span className={cellClass}>
-          <span>{parts.date}</span>
-          <span className="ml-2 text-muted-foreground">{parts.time}</span>
+          <span>{parts.date}</span>{' '}
+          <span className="ml-1 text-muted-foreground">{parts.time}</span>
         </span>
       );
     }
@@ -2644,13 +2656,40 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
 }
 
 /**
- * Formula field cell renderer (read-only)
+ * Formula field cell renderer (read-only). `summary` is registered to it too.
  */
-export function FormulaCellRenderer({ value }: CellRendererProps): React.ReactElement {
+export function FormulaCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
   const safe = coerceToSafeValue(value);
   // THE FLOOR by name and nothing more (objectui#8496), on the coerced text —
   // same relation as `TextCellRenderer`, which this renderer's output mirrors.
   if (isEmptyValue(safe)) return <EmptyValue />;
+
+  // A NUMERIC result is drawn by the number cell (objectui#11683). This
+  // renderer printed every result as raw monospace text, so the showcase's
+  // Budget Remaining (a formula declaring no `returnType`) read `200000` beside
+  // a formatted currency column. A number now goes through `NumberCellRenderer`,
+  // whose `formatNumberFieldValue` is the one call every number face makes: the
+  // locale's grouping, and the width `resolveFieldScale` answers for this field.
+  // The spec applies `scale` to a `formula` field, so a declared one is honoured.
+  //
+  // Which results are numbers:
+  //   - `returnType: 'number'`: the spec's declared value type, read as declared.
+  //   - no `returnType`: the value's own JSON type. Only a JS number counts; a
+  //     string of digits from an undeclared formula stays text, because nothing
+  //     says it is a quantity (a postcode built by concatenation is not one).
+  //   - any other `returnType`: drawn as before. A declaration is honoured,
+  //     never overridden by the value.
+  //
+  // ⛔ No type is inferred from the expression or from its inputs. The spec's
+  // `returnType` describe text says consumers read it "instead of re-parsing
+  // the expression", and its four values (`number` / `text` / `boolean` /
+  // `date`) carry no currency, so a formula over two currency fields renders as
+  // a number here, not as money.
+  const returnType = field && 'returnType' in field ? field.returnType : undefined;
+  if (returnType === 'number' || (returnType === undefined && typeof value === 'number')) {
+    return <NumberCellRenderer value={value} field={field} />;
+  }
+
   return (
     <span className="text-gray-700 font-mono text-sm">
       {String(safe)}

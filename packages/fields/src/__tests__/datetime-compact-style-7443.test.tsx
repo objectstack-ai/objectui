@@ -215,9 +215,12 @@ describe('every existing datetime cell renders unchanged', () => {
     expect(spans[1].textContent).toBe(former.time);
     // The time half stays muted and offset — the two-tone face is the visual
     // half of "renders unchanged", and collapsing it to one string would be a
-    // visible change even with identical text.
+    // visible change even with identical text. Since objectui#11683 the offset
+    // is a text space plus `ml-1` (it was `ml-2` alone, so the text ran the
+    // halves together), and the cell's text is the joined compact face.
     expect(spans[1].className).toMatch(/text-muted-foreground/);
-    expect(spans[1].className).toMatch(/ml-2/);
+    expect(spans[1].className).toMatch(/\bml-1\b/);
+    expect(container.textContent).toBe(`${former.date} ${former.time}`);
   });
 
   it('an authored empty format is still the compact face, not the verbose one', () => {
@@ -229,7 +232,7 @@ describe('every existing datetime cell renders unchanged', () => {
         field={{ type: 'datetime', name: 'created_at', format: '' } as any}
       />,
     );
-    expect(container.textContent).toBe(`${former.date}${former.time}`);
+    expect(container.textContent).toBe(`${former.date} ${former.time}`);
   });
 });
 
@@ -270,7 +273,7 @@ describe('field.format now works for datetime, the way it already did for date',
       'en-US',
       <DateTimeCellRenderer value={INSTANT} field={undefined as any} />,
     );
-    expect(container.textContent).toBe('7/4/20247:00 am');
+    expect(container.textContent).toBe('7/4/2024 7:00 am');
   });
 });
 

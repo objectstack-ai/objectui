@@ -116,10 +116,14 @@ const dateTimeCell = (value: string, format?: string) => (
   />
 );
 
-/** The compact face as the cell paints it — two spans, so no separating space. */
+/**
+ * The compact face as the cell paints it — two spans with a text space between
+ * them, the compact face's own joiner (objectui#11683; before it the gap was a
+ * margin alone, so the text ran the halves together).
+ */
 function compactCellText(value: string, locale: string): string {
   const parts = formatDateTimeCompactParts(value, { locale })!;
-  return `${parts.date}${parts.time}`;
+  return `${parts.date} ${parts.time}`;
 }
 
 afterEach(() => {
@@ -153,7 +157,7 @@ describe('THE REPRO — `format: relative` means the same thing in both cells (#
     // face is the one this cell already paints, so a measure tile and a grid
     // cell showing the same instant agree.
     expect(faceOf(dateTimeCell(IN_WINDOW, 'short'))).toBe(compactCellText(IN_WINDOW, 'en-US'));
-    expect(faceOf(dateTimeCell(IN_WINDOW, 'short'))).toBe('9/11/20269:30 am');
+    expect(faceOf(dateTimeCell(IN_WINDOW, 'short'))).toBe('9/11/2026 9:30 am');
     expect(faceOf(dateTimeCell(IN_WINDOW, 'short'))).not.toBe('Sep 11, 2026, 09:30 AM');
   });
 

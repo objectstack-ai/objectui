@@ -29,15 +29,23 @@
  *
  * Why the host's attribute set is checked against a SHAPE rather than only a
  * list of canaries: the defect was an unbounded set, and a list of keys to look
- * for is a deny-list again. (a)/(b) assert that every attribute on the host is
- * one the whitelist can produce, and name the planted canaries only so a red
+ * for is a deny-list again. (a) asserts that every attribute on the host is
+ * one the whitelist can produce, and names the planted canaries only so a red
  * says which family came back.
  *
- * DIRECTIONS, written before the run: (a), (b), (c) and (e) RED on the
- * pre-change tree — the open tail, `name` and `label` reached the `Card`; (d)
- * GREEN on both sides, it is the acceptance boundary for the direct door.
- * Ablating `hostDomProps` to always spread the raw rest turns (a)/(b)/(c)/(e)
- * red; ablating it to always whitelist turns (d) red.
+ * DIRECTIONS, measured by ablating `hostDomProps` (each leg recorded on the
+ * pull request):
+ *
+ *   - spreading the raw rest on both doors — which IS the pre-change runtime,
+ *     the deny-list's destructure followed by an open spread — turns (a), (c)
+ *     and (e) red, and the leak gate's two KPI targets with them. (b) and (d)
+ *     stay green: the deliberate pass-through always arrived, and the direct
+ *     door is the one this card leaves alone.
+ *   - whitelisting both doors turns (d) red and nothing else. No older pin
+ *     sees that door's beyond-the-whitelist half —
+ *     `MetricWidget.domPassthrough.test.tsx` asserts only keys the whitelist
+ *     also passes — so (d) is the one line holding the exported interfaces to
+ *     what the runtime delivers.
  */
 
 import * as React from 'react';

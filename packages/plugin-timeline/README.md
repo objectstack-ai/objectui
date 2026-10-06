@@ -105,7 +105,10 @@ is read where the block leaves a binding unset, and `descriptionField` names
 the description field (`mapping.description` outranks it). `limit` caps the
 query (`$top`, default 100), and `filter` / `sort` lower to `$filter` /
 `$orderby` on it; the rail still draws composed entries by start date.
-`dateFormat` is `short`, `long` or `iso`. `rowLabel`, `minDate`, `maxDate` and
+`dateFormat` is `short`, `long` or `iso`. Without a `groupByField`, entries
+group into date buckets (Earlier, Today, Tomorrow, This week, Next week, Later,
+No date), and "This week" starts on the first day of the week of the display
+locale: Sunday under `en-US`, Monday under `en-GB` or `zh-CN`. `rowLabel`, `minDate`, `maxDate` and
 `timeline.scale` are read by the gantt branch only, which on this block draws
 authored `items`.
 

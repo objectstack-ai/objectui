@@ -19,6 +19,11 @@ Calendar view plugins for Object UI - includes both ObjectQL-integrated and stan
   option.
 - **ObjectQL Integration** - Connect to ObjectStack data sources
 - **Standalone Mode** - Use with static data or custom backends
+- **Locale week start** - Every week starts on the first day of the week
+  of the calendar's locale (the `locale` prop, else the display locale):
+  Sunday under `en-US`, Monday under `en-GB` or `zh-CN`. The month grid,
+  its weekday heads, the week view's columns, the header's week range and
+  the date popover all start on that day.
 - **Responsive** - Mobile-friendly calendar layouts
 - **Customizable** - Tailwind CSS styling support
 

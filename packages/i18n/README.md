@@ -198,6 +198,32 @@ its midnight, and `formatRelativeTime` counts to the start of it). A string
 with a time part is an instant, read in the viewer's zone. `formatDateSpec`
 applies its `timeZone` to an instant only.
 
+#### The first day of the week
+
+`firstDayOfWeek(locale)` answers the first day of the week for a BCP-47 tag,
+numbered as `Date.prototype.getDay` numbers weekdays (0 is Sunday), which is
+also what react-day-picker's `weekStartsOn` takes. It reads the engine's
+`Intl.Locale` week info, and CLDR's region table where the engine has none, so
+a week grid or a "this week" bound starts where the user's locale says rather
+than on a fixed day. There is no separate week-start setting: the tag is the
+one the caller already formats its dates with, such as `useDisplayLocale()`.
+
+```tsx
+import { firstDayOfWeek, useDisplayLocale } from '@object-ui/i18n';
+
+firstDayOfWeek('en-US'); // 0, Sunday
+firstDayOfWeek('en-GB'); // 1, Monday
+firstDayOfWeek('zh-CN'); // 1, Monday
+
+function WeekHeader() {
+  const weekStart = firstDayOfWeek(useDisplayLocale());
+  // ...lay the week out from `weekStart`
+}
+```
+
+A tag `Intl` refuses (`en_US`) throws the same `RangeError` that formatting a
+date with it would.
+
 ### Built-in locales — one is resident, nine are fetched on demand
 
 The package entry re-exports **`en` only**. It is `fallbackLng`, it is the

@@ -43,20 +43,138 @@
  * It is `formatDateTime`'s `'compact'` style now, byte-identical to what the
  * cell rendered before.
  *
- * Pure by construction (no React, no i18n): the only ambient inputs are `Intl`
- * and the clock, and the one phrase `Intl` cannot produce ("Overdue Nd") comes
+ * No React, no i18n: the ambient inputs are `Intl`, the clock and the display
+ * zone below, and the one phrase `Intl` cannot produce ("Overdue Nd") comes
  * in through the INJECTED `options.t`, the same way `buildDatasetFieldHelpers`
  * in `dataset-format.ts` takes `fieldLabel`.
  *
  * ⚠️ There is a third ambient input, and it is the one this module has to
- * decide about rather than pass on: the VIEWER's timezone. A value carrying a
- * time is an instant and renders in that zone; a DATE-ONLY value names a
- * calendar day, carries no instant, and must render as that day everywhere.
+ * decide about rather than pass on: the zone an instant renders in. A value
+ * carrying a time is an instant and renders in the DISPLAY ZONE — the zone the
+ * host declared through {@link setDisplayTimeZone} (objectui#11693), else the
+ * viewer's own; a DATE-ONLY value names a calendar day, carries no instant,
+ * and must render as that day everywhere, whatever the display zone.
  * `toDisplayDate` below is the single parse step that tells the two apart —
  * every function here goes through it (objectui#10110), and so does every
  * caller elsewhere that needs a face or a day comparison none of these
  * functions produce (objectui#10183).
  */
+
+// ── The display zone (objectui#11693) ──────────────────────────────────────
+
+/**
+ * The zone every instant face below renders in, when the host has declared
+ * one; `undefined` means the viewer's own zone (the runtime default), which is
+ * what every face rendered in before objectui#11693.
+ */
+let displayTimeZone: string | undefined;
+const displayTimeZoneListeners = new Set<() => void>();
+
+/** `true` when this runtime's `Intl` knows `timeZone`. */
+function isKnownTimeZone(timeZone: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Declare the zone instants render in — the host's half of objectui#11693.
+ *
+ * ## Why the zone enters HERE and nowhere else
+ *
+ * Every date and datetime face in the console is a function of this module
+ * (see the header), and each caller threads only its `locale`. The zone the
+ * signed-in workspace configures (`localization.timezone`, served by
+ * `GET /api/v1/auth/me/localization`) is the same for every face on the
+ * page, so it is set once, here, and every face reads it — rather than
+ * threaded through each call site, where one forgotten caller renders the
+ * same instant in a second zone beside the first (objectui#4272 is that
+ * defect for the locale). `LocalizationProvider` (`@object-ui/i18n`) is the
+ * host that calls this; a renderer never does.
+ *
+ * `undefined` (or an empty string) clears it: instants render in the
+ * viewer's zone again. A name this runtime's `Intl` does not know — a zone
+ * newer than the browser's time-zone data, say — clears it too, with a
+ * warning, rather than make every face throw the `RangeError` `Intl` raises
+ * for it.
+ *
+ * ⛔ A date-only value never takes the zone; see {@link toDisplayDate}.
+ */
+export function setDisplayTimeZone(timeZone: string | undefined): void {
+  let next: string | undefined;
+  if (timeZone) {
+    if (isKnownTimeZone(timeZone)) next = timeZone;
+    else console.warn(`[date-display] unknown time zone "${timeZone}"; instants render in the viewer's zone`);
+  }
+  if (next === displayTimeZone) return;
+  displayTimeZone = next;
+  for (const listener of [...displayTimeZoneListeners]) listener();
+}
+
+/** The zone {@link setDisplayTimeZone} declared, or `undefined` for the viewer's own. */
+export function getDisplayTimeZone(): string | undefined {
+  return displayTimeZone;
+}
+
+/**
+ * Be told when the display zone changes; returns the unsubscribe. The shape is
+ * React's `useSyncExternalStore` contract, which is how `LocalizationProvider`
+ * re-renders its consumers once the zone they format in has moved.
+ */
+export function subscribeDisplayTimeZone(listener: () => void): () => void {
+  displayTimeZoneListeners.add(listener);
+  return () => {
+    displayTimeZoneListeners.delete(listener);
+  };
+}
+
+/**
+ * The `Date`s this module built to NAME A CALENDAR DAY — {@link toDisplayDate}'s
+ * local midnight for a date-only value, and {@link toInclusiveEndDay}'s day.
+ *
+ * The faces below must read such a `Date` in the local zone (its own docblock
+ * says so), never in the display zone: west of the viewer it would name the
+ * day before. A string still says what it is, but callers hand these `Date`s
+ * on — `GridField`'s date cell formats the one `toDisplayDate` returned, and
+ * the functions here hand theirs to each other — so the fact travels with the
+ * object rather than with the string it came from.
+ */
+const calendarDays = new WeakSet<Date>();
+
+/** The zone a parsed value renders in: the display zone for an instant, the viewer's for a calendar day. */
+function zoneFor(date: Date): string | undefined {
+  return calendarDays.has(date) ? undefined : displayTimeZone;
+}
+
+/** `Intl` options naming `timeZone`, or none, so a face with no zone keeps its exact options bag. */
+function inZone(timeZone: string | undefined): Intl.DateTimeFormatOptions {
+  return timeZone ? { timeZone } : {};
+}
+
+const dayPartsFormats = new Map<string, Intl.DateTimeFormat>();
+
+/** The calendar day `date` falls on in `timeZone` (the viewer's when `undefined`); `month` is 0-based. */
+function dayIn(date: Date, timeZone: string | undefined): { year: number; month: number; day: number } {
+  if (!timeZone) return { year: date.getFullYear(), month: date.getMonth(), day: date.getDate() };
+  let format = dayPartsFormats.get(timeZone);
+  if (!format) {
+    format = new Intl.DateTimeFormat('en-US', { timeZone, year: 'numeric', month: 'numeric', day: 'numeric' });
+    dayPartsFormats.set(timeZone, format);
+  }
+  const parts = format.formatToParts(date);
+  const part = (type: Intl.DateTimeFormatPartTypes) => Number(parts.find((p) => p.type === type)?.value);
+  return { year: part('year'), month: part('month') - 1, day: part('day') };
+}
+
+/** A day as a whole number of days, so two days subtract to their distance with no DST hour in it. */
+function dayNumber({ year, month, day }: { year: number; month: number; day: number }): number {
+  const probe = new Date(0);
+  probe.setUTCFullYear(year, month, day);
+  return Math.round(probe.getTime() / 86_400_000);
+}
 
 /**
  * Options shared by {@link formatDate} / {@link formatRelativeDate} /
@@ -243,7 +361,9 @@ export function isRealCalendarDate(dateOnly: string): boolean {
  * ⛔ Read the result with LOCAL getters or local-zone `Intl` formatting only.
  * For a date-only value it is local midnight of the named day, so its
  * `toISOString()` / UTC getters name the previous day east of UTC — hand
- * those the stored value, never this.
+ * those the stored value, never this. The faces in this module know such a
+ * `Date` when they are handed one and keep it out of the display zone
+ * (objectui#11693, see `calendarDays`).
  */
 export function toDisplayDate(value: string | Date | number): Date {
   const parsed = value instanceof Date ? value : new Date(value as any);
@@ -264,6 +384,7 @@ export function toDisplayDate(value: string | Date | number): Date {
   // Setting the year back is co-extensive with that legacy mapping and a
   // no-op on every other year.
   local.setFullYear(year);
+  calendarDays.add(local);
   return local;
 }
 
@@ -329,6 +450,7 @@ export function toDisplayEndDate(value: string | Date | number): Date {
 export function toInclusiveEndDay(end: Date): Date {
   const day = new Date(end.getTime() - 1);
   day.setHours(0, 0, 0, 0);
+  calendarDays.add(day);
   return day;
 }
 
@@ -383,17 +505,18 @@ function absoluteFallbackOptions(options?: DateDisplayOptions): DateDisplayOptio
  * past dates render as plain "N days ago" instead. The overdue phrase has no
  * `Intl` equivalent, so it resolves through `options.t` (key
  * `fields.relativeDate.overdue`) with an English fallback.
+ *
+ * Days are counted in the display zone (objectui#11693): "today" is the
+ * display zone's today, and an instant falls on its day there. A date-only
+ * value keeps the day it names and is counted from that same today, so an
+ * instant and a date-only value on one day read one phrase.
  */
 export function formatRelativeDate(value: string | Date | number, options?: DateDisplayOptions): string {
   if (value === null || value === undefined || value === '') return '—';
   const date = toDisplayDate(value);
   if (!(date instanceof Date) || isNaN(date.getTime())) return '—';
 
-  const now = new Date();
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diffMs = startOfDate.getTime() - startOfToday.getTime();
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24));
+  const diffDays = dayNumber(dayIn(date, zoneFor(date))) - dayNumber(dayIn(new Date(), displayTimeZone));
 
   // Beyond the ±7-day window, fall back to the absolute (already localized) form.
   if (diffDays < -7 || diffDays > 7) return formatDate(date, undefined, absoluteFallbackOptions(options));
@@ -448,6 +571,9 @@ export function formatDate(value: string | Date | number, style?: string, option
   if (!(date instanceof Date) || isNaN(date.getTime())) return '—';
 
   const effectiveStyle = style ?? options?.style;
+  // An instant names its day in the display zone; a calendar day is its own
+  // day in every zone (objectui#11693).
+  const zone = zoneFor(date);
 
   if (effectiveStyle === 'short') {
     // Compact format for mobile: "Jan 15, '24" / "1月 15, '24".
@@ -456,10 +582,9 @@ export function formatDate(value: string | Date | number, style?: string, option
     // cards, not a locale-derived one. The tag comes from `options.locale`
     // like the default branch below — hardcoding `'en-US'` here made this the
     // one branch that ignored a locale its caller had threaded (objectui#4272).
-    const month = date.toLocaleDateString(options?.locale, { month: 'short' });
-    const day = date.getDate();
-    const year = String(date.getFullYear()).slice(-2);
-    return `${month} ${day}, '${year}`;
+    const month = date.toLocaleDateString(options?.locale, { month: 'short', ...inZone(zone) });
+    const { day, year } = dayIn(date, zone);
+    return `${month} ${day}, '${String(year).slice(-2)}`;
   }
 
   if (effectiveStyle === 'relative') {
@@ -471,11 +596,12 @@ export function formatDate(value: string | Date | number, style?: string, option
   // because the year is rarely useful for in-progress records and the
   // verbose "2026年7月21日" form crowds cards and table cells. Past- /
   // future-year dates keep the year so users can disambiguate.
-  const isCurrentYear = date.getFullYear() === new Date().getFullYear();
+  const isCurrentYear = dayIn(date, zone).year === dayIn(new Date(), displayTimeZone).year;
   return date.toLocaleDateString(options?.locale, {
     year: isCurrentYear ? undefined : 'numeric',
     month: 'short',
     day: 'numeric',
+    ...inZone(zone),
   });
 }
 
@@ -501,12 +627,16 @@ export function formatDateTimeCompactParts(
   if (value === null || value === undefined || value === '') return null;
   const date = toDisplayDate(value);
   if (!(date instanceof Date) || isNaN(date.getTime())) return null;
+  // Both halves in the display zone, so the day and the time of one instant
+  // never come from two zones (objectui#11693).
+  const zone = zoneFor(date);
 
   return {
     date: date.toLocaleDateString(options?.locale, {
       month: 'numeric',
       day: 'numeric',
       year: 'numeric',
+      ...inZone(zone),
     }),
     // `hour12` stays declared: this is the compact Airtable-style cell, and
     // the 12-hour face is its design, not a locale artefact. Locales that
@@ -515,6 +645,7 @@ export function formatDateTimeCompactParts(
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
+      ...inZone(zone),
     }).toLowerCase(),
   };
 }
@@ -543,6 +674,10 @@ export function formatDateTimeCompactParts(
  * hard it tried — it always handed `Intl` an `undefined` tag, i.e. the
  * MACHINE's locale, which is neither of the repo's two locale channels.
  * Callers should pass the tag from `useDisplayLocale()`.
+ *
+ * The zone is NOT an option: an instant renders in the display zone the host
+ * declared with {@link setDisplayTimeZone}, else the viewer's, on every face
+ * this module produces (objectui#11693).
  */
 export function formatDateTime(value: string | Date | number, options?: DateDisplayOptions): string {
   if (value === null || value === undefined || value === '') return '—';
@@ -560,5 +695,6 @@ export function formatDateTime(value: string | Date | number, options?: DateDisp
     day: 'numeric',
     hour: '2-digit',
     minute: '2-digit',
+    ...inZone(zoneFor(date)),
   });
 }

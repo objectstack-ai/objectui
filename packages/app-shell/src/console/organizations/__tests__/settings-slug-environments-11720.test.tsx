@@ -25,10 +25,13 @@
  * - the read: which request asks, and the one response dialect it believes;
  * - with environments: the field is read-only, the note renders, and a save
  *   sends no slug;
- * - outside cloud (the read is refused, as on every host without a
+ * - outside cloud (the read is refused, as on a multi-environment host with no
  *   `sys_environment` object): the form behaves as before — one update call,
  *   a changed slug in it;
  * - a name-only save carries no slug, whichever host;
+ * - a single-environment runtime (`singleEnvironment: true`, the CLI's arm) is
+ *   not asked at all: no request, the field editable, a changed slug sent;
+ * - the note states only the measured cause and names no rename path;
  * - a non-owner's visit does not ask about environments at all.
  *
  * Transport is stubbed at `createAuthenticatedFetch`, the one fetch the read
@@ -75,6 +78,17 @@ vi.mock('@object-ui/providers', async (importActual) => ({
 }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
+
+// The runtime's own answer to "am I single-environment?", flipped per test. The
+// real snapshot is kept and only that one field is overridden.
+const runtime = vi.hoisted(() => ({ singleEnvironment: false }));
+vi.mock('../../../runtime-config', async (importActual) => {
+  const actual = await importActual<typeof import('../../../runtime-config')>();
+  return {
+    ...actual,
+    getRuntimeConfig: () => ({ ...actual.getRuntimeConfig(), singleEnvironment: runtime.singleEnvironment }),
+  };
+});
 
 // ONE context object for every render: the page re-syncs its form from `org`
 // whenever that object changes, as it does after a save, so a fresh object per
@@ -131,7 +145,7 @@ function environments(...statuses: Array<string | undefined>): Response {
   });
 }
 
-/** What a host with no `sys_environment` object answers (every non-cloud host). */
+/** What a multi-environment host with no `sys_environment` object answers. */
 function noSuchObject(): Response {
   return json({ success: false, error: { code: 'OBJECT_NOT_FOUND', message: 'not found' } }, 404);
 }
@@ -147,6 +161,7 @@ async function renderForm() {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  runtime.singleEnvironment = false;
   asOwner();
   updateOrganization.mockResolvedValue({ id: 'org-42', name: 'Acme', slug: 'acme' });
 });
@@ -190,6 +205,13 @@ describe('readOrgEnvironmentPresence — the guard question, read from the guard
     transport.mockResolvedValueOnce(json({ records: [{ status: 'active' }] }));
     expect(await readOrgEnvironmentPresence('org-42')).toBe('unknown');
   });
+
+  it('on a single-environment runtime answers unknown without a request', async () => {
+    runtime.singleEnvironment = true;
+    transport.mockImplementation(async () => environments('active'));
+    expect(await readOrgEnvironmentPresence('org-42')).toBe('unknown');
+    expect(transport).not.toHaveBeenCalled();
+  });
 });
 
 // ── The form ─────────────────────────────────────────────────────────────────
@@ -201,7 +223,12 @@ describe('SettingsPage slug field — offered only where the update door accepts
 
     expect(input).toHaveAttribute('readonly');
     const note = screen.getByTestId('settings-slug-locked-note');
-    expect(note).toHaveTextContent(/active environments/);
+    // The measured cause, and nothing else: the note names no rename path,
+    // because none was measured reachable from this console.
+    expect(note.textContent).toBe(
+      'This organization has active environments, so its slug can’t be changed here: renaming it also moves their subdomains.',
+    );
+    expect(note.textContent).not.toMatch(/record|rename it from/i);
     expect(input).toHaveAttribute('aria-describedby', note.id);
 
     fireEvent.change(screen.getByTestId('settings-name-input'), { target: { value: 'Acme Corp' } });
@@ -218,6 +245,27 @@ describe('SettingsPage slug field — offered only where the update door accepts
     transport.mockImplementation(async () => noSuchObject());
     const input = await renderForm();
 
+    expect(input).not.toHaveAttribute('readonly');
+    expect(screen.queryByTestId('settings-slug-locked-note')).toBeNull();
+
+    fireEvent.change(input, { target: { value: 'acme-corp' } });
+    fireEvent.click(screen.getByTestId('settings-save-btn'));
+
+    await waitFor(() => expect(updateOrganization).toHaveBeenCalledTimes(1));
+    expect(updateOrganization).toHaveBeenCalledWith('org-42', {
+      name: 'Acme',
+      slug: 'acme-corp',
+      logo: undefined,
+    });
+  });
+
+  it('on a single-environment runtime: no request, the slug stays editable, and a changed slug is sent in the one update call', async () => {
+    runtime.singleEnvironment = true;
+    // Were the read made, this answer would lock the field.
+    transport.mockImplementation(async () => environments('active'));
+    const input = await renderForm();
+
+    expect(transport).not.toHaveBeenCalled();
     expect(input).not.toHaveAttribute('readonly');
     expect(screen.queryByTestId('settings-slug-locked-note')).toBeNull();
 

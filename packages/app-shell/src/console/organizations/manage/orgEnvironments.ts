@@ -37,13 +37,26 @@
  *   and the server keeps deciding, which is the guard's own posture: it lets
  *   the update through when its environment read fails.
  *
- * ⚠️ A runtime with no `sys_environment` object (every host that is not a
- * cloud control plane) answers this read with an error, once per owner visit
- * to the settings page. That request is the cost of this design: the
- * organization pages render outside the console's data layer, so the
- * metadata registry that could say "this deployment has no such object" is
- * not available here (see `useObjectPresence`). The answer is `unknown`, and
- * the page behaves exactly as it did before this module existed.
+ * ## A single-environment runtime is not asked
+ *
+ * A runtime whose config serves `singleEnvironment: true` (the CLI's
+ * `os serve` / `objectstack dev` arm serves it through
+ * `Serve.RUNTIME_CONFIG_OPTIONS`) has no `sys_environment` object to read:
+ * `@objectstack/spec` lists that object in `CLOUD_PROVIDED_OBJECT_NAMES`,
+ * "contributed by the CLOUD runtime ... They do not exist in a
+ * single-environment OSS runtime", and nothing in the framework defines it. The
+ * guard's own read cannot count a row there either. So this module answers
+ * `unknown` there WITHOUT a request: the answer the read would have given, with
+ * the request bound to fail removed (objectui#7476's rule).
+ *
+ * ⚠️ Every other runtime with no `sys_environment` object (a multi-environment
+ * host that is not a cloud control plane) still answers the read with an
+ * error, once per owner visit to the settings page. That request is the
+ * remaining cost: no served signal says "this host has no environment
+ * registry", and the organization pages render outside the console's data
+ * layer, so the metadata registry that could say "this deployment has no such
+ * object" is not available here (see `useObjectPresence`). The answer is
+ * `unknown`, and the page behaves exactly as it did before this module existed.
  *
  * ## The wire, read in one dialect
  *
@@ -59,6 +72,7 @@
  */
 
 import { createAuthenticatedFetch } from '@object-ui/auth';
+import { getRuntimeConfig } from '../../../runtime-config.js';
 
 /** What the read can say about the organization's environments. */
 export type OrgEnvironmentPresence = 'present' | 'none' | 'unknown';
@@ -75,12 +89,14 @@ type FetchLike = (input: RequestInfo | URL, init?: RequestInit) => Promise<Respo
 /**
  * Read whether `organizationId` has an environment the slug guard counts.
  *
- * Never rejects: every failure resolves to `unknown`.
+ * Never rejects: every failure resolves to `unknown`. On a single-environment
+ * runtime it answers `unknown` without a request (see the module header).
  */
 export async function readOrgEnvironmentPresence(
   organizationId: string,
   fetchImpl: FetchLike = createAuthenticatedFetch(),
 ): Promise<OrgEnvironmentPresence> {
+  if (getRuntimeConfig().singleEnvironment === true) return 'unknown';
   const base = ((import.meta.env.VITE_SERVER_URL as string | undefined) || '').replace(/\/+$/, '');
   const params = new URLSearchParams({
     filter: JSON.stringify({ organization_id: organizationId }),

@@ -10,8 +10,10 @@
  * neither archived nor failed: on a cloud control plane, a slug rename moves
  * every environment's subdomain, and only cloud's orchestrated rename does
  * that. So when `readOrgEnvironmentPresence` answers `present`, the field is
- * rendered read-only with a note saying why and where the rename lives, and no
- * slug is sent. Every other answer leaves the field as it always was.
+ * rendered read-only with a note saying why, and no slug is sent. The note
+ * states only the measured cause; it names no rename path, because none was
+ * measured reachable from this console. Every other answer leaves the field
+ * as it always was.
  *
  * A save sends `slug` only when it CHANGED. A name-only save therefore never
  * carries a slug, so the guard has nothing to judge and the save answers 200,
@@ -260,7 +262,7 @@ export function SettingsPage() {
                 >
                   {t('organization.settings.slugLockedNote', {
                     defaultValue:
-                      'This organization has active environments, so its slug can’t be changed here: renaming it also moves their subdomains. Rename it from the organization’s record instead.',
+                      'This organization has active environments, so its slug can’t be changed here: renaming it also moves their subdomains.',
                   })}
                 </p>
               )}

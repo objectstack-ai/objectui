@@ -40,9 +40,14 @@ import { validateMetadataDraft } from './clientValidation';
  * `connectorConfig` naming the connector and the action (objectui#11073). That
  * is a refusal about the NODE's config, addressed to `nodes.N.connectorConfig`,
  * ⛔ not a re-closed `type` enum — the next case pins exactly that — so the
- * type-only fixture carries the block its type requires.
+ * type-only fixture carries the block its type requires. 17.7.0 does the same
+ * for `approval` (objectstack#21893): the build doors judge its `config`
+ * against `ApprovalNodeConfigSchema`, which requires `approvers`, and refuse it
+ * at `nodes.N.config.approvers` — so that fixture carries one approver
+ * (objectui#11717).
  */
 const REQUIRED_SIBLING: Record<string, Record<string, unknown>> = {
+  approval: { config: { approvers: [{ type: 'user', value: 'usr_approver' }] } },
   connector_action: { connectorConfig: { connectorId: 'slack', actionId: 'post_message' } },
 };
 const flowWithNodeType = (type: unknown, extra: Record<string, unknown> = REQUIRED_SIBLING[type as string] ?? {}) => ({
@@ -74,6 +79,15 @@ describe('flow node `type` is an open string — the shim premise, re-measured',
     expect(res.ok).toBe(false);
     const paths = res.issues.map((i) => i.path);
     expect(paths).toEqual(['nodes.0.connectorConfig']);
+    expect(paths).not.toContain('nodes.0.type');
+  });
+
+  it('refuses an `approval` with no `approvers` at that config key — never at `type` (17.7.0)', async () => {
+    // The same shape as the row above, one release later (objectstack#21893).
+    const res = await validateMetadataDraft('flow', flowWithNodeType('approval', {}));
+    expect(res.ok).toBe(false);
+    const paths = res.issues.map((i) => i.path);
+    expect(paths).toEqual(['nodes.0.config.approvers']);
     expect(paths).not.toContain('nodes.0.type');
   });
 

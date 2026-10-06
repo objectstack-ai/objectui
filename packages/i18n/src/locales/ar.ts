@@ -400,6 +400,11 @@ const ar = {
       postalCode: "الرمز البريدي",
       country: "الدولة",
     },
+    boolean: {
+      offBadge: "{{label}} — إيقاف",
+      completed: "مكتمل",
+      notCompleted: "غير مكتمل",
+    },
     textarea: {
       characterCount: "عدد الأحرف: {{count}} من {{max}}",
       charactersRemaining: "الأحرف المتبقية: {{count}}",

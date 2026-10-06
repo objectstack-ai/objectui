@@ -30,6 +30,7 @@ import { builtInLocales } from '@object-ui/i18n/locales';
 import { BooleanField } from '../widgets/BooleanField';
 import { FormulaField } from '../widgets/FormulaField';
 import { renderLookupColumnValue } from '../widgets/lookupColumnDisplay';
+import { BooleanCellRenderer } from '../index';
 
 afterEach(() => cleanup());
 
@@ -107,4 +108,80 @@ describe('read-only boolean words come from the locale (objectui#11689)', () => 
       });
     });
   }
+});
+
+/**
+ * The list face's own words (objectui#11689, the family site seat 1 recorded
+ * from objectui#11721): the status column's "LABEL — Off" badge and the
+ * completion indicator's two accessible names. Every list surface draws this
+ * face, so these were English on every list under every pack.
+ */
+describe('BooleanCellRenderer words come from the locale (objectui#11689)', () => {
+  const badgeOf = (root: HTMLElement) =>
+    root.querySelector<HTMLElement>('[data-testid="boolean-warning-badge"]')?.textContent;
+  const indicatorName = (root: HTMLElement) =>
+    root.querySelector<HTMLElement>('[data-testid="completion-indicator"]')?.getAttribute('aria-label');
+
+  it('zh: the status badge reads the column label and the pack word', () => {
+    const { container } = inLocale(
+      'zh',
+      <BooleanCellRenderer value={false} field={{ name: 'active', type: 'boolean', label: '启用' } as never} />,
+    );
+    expect(badgeOf(container)).toBe('启用 — 已关闭');
+  });
+
+  it('zh: the completion indicator is named in the pack', () => {
+    const field = { name: 'completed', type: 'boolean', label: 'Completed' } as never;
+    expect(indicatorName(inLocale('zh', <BooleanCellRenderer value={true} field={field} />).container)).toBe('已完成');
+    cleanup();
+    expect(indicatorName(inLocale('zh', <BooleanCellRenderer value={false} field={field} />).container)).toBe('未完成');
+  });
+
+  it('en is unchanged: Active — Off, Completed, Not completed', () => {
+    expect(
+      badgeOf(
+        inLocale('en', <BooleanCellRenderer value={false} field={{ name: 'active', type: 'boolean', label: 'Active' } as never} />)
+          .container,
+      ),
+    ).toBe('Active — Off');
+    cleanup();
+    const field = { name: 'completed', type: 'boolean' } as never;
+    expect(indicatorName(inLocale('en', <BooleanCellRenderer value={true} field={field} />).container)).toBe('Completed');
+    cleanup();
+    expect(indicatorName(inLocale('en', <BooleanCellRenderer value={false} field={field} />).container)).toBe('Not completed');
+  });
+
+  it("every pack's own words are the ones drawn", () => {
+    for (const lang of LANGS) {
+      const words = builtInLocales[lang].fields.boolean;
+      expect(
+        badgeOf(
+          inLocale(lang, <BooleanCellRenderer value={false} field={{ name: 'active', type: 'boolean', label: 'L' } as never} />)
+            .container,
+        ),
+        `${lang}: badge`,
+      ).toBe(words.offBadge.replace('{{label}}', 'L'));
+      cleanup();
+      expect(
+        indicatorName(inLocale(lang, <BooleanCellRenderer value={true} field={{ name: 'done', type: 'boolean' } as never} />).container),
+        `${lang}: completed`,
+      ).toBe(words.completed);
+      cleanup();
+      expect(
+        indicatorName(inLocale(lang, <BooleanCellRenderer value={false} field={{ name: 'done', type: 'boolean' } as never} />).container),
+        `${lang}: not completed`,
+      ).toBe(words.notCompleted);
+      cleanup();
+    }
+  });
+
+  it('with no I18nProvider it still says the English words (the defaults table)', () => {
+    expect(
+      badgeOf(inLocale(null, <BooleanCellRenderer value={false} field={{ name: 'active', type: 'boolean', label: 'Active' } as never} />).container),
+    ).toBe('Active — Off');
+    cleanup();
+    expect(indicatorName(inLocale(null, <BooleanCellRenderer value={true} field={{ name: 'done', type: 'boolean' } as never} />).container)).toBe(
+      'Completed',
+    );
+  });
 });

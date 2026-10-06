@@ -3501,7 +3501,14 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             const fieldMeta: Record<string, any> = { name: col.field, type: inferredType || 'text' };
             // Merge objectDef field properties (options with colors, currency, precision, etc.)
             if (objectDefField) {
-              if (objectDefField.label) fieldMeta.label = objectDefField.label;
+              // The label the header above prints — `header`, resolved once
+              // (objectui#11689). A face that names its own column (the
+              // boolean face's "LABEL — Off" badge) reads `field.label`, so
+              // handing it the authored label made a translated header sit
+              // over a cell naming the column in the authored language. Handed
+              // where the authored label used to be, so an unlabelled field
+              // keeps the face's own fallback.
+              if (objectDefField.label) fieldMeta.label = header;
               if (objectDefField.currency) fieldMeta.currency = objectDefField.currency;
               // objectui#10354 — `currencyConfig` is the spec's one fixed-currency
               // spelling (a field key `currency` is refused by name), so a
@@ -3744,7 +3751,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           // Build field metadata with objectDef enrichment
           const fieldMeta: Record<string, any> = { name: fieldName, type: rendererType || 'text' };
           if (fieldDef) {
-            if (fieldDef.label) fieldMeta.label = fieldDef.label;
+            // The header's label, as path A hands it (objectui#11689).
+            if (fieldDef.label) fieldMeta.label = header;
             if (fieldDef.currency) fieldMeta.currency = fieldDef.currency;
             // Verbatim, as the ListColumn path copies it (objectui#10354).
             if (fieldDef.currencyConfig) fieldMeta.currencyConfig = fieldDef.currencyConfig;
@@ -3921,7 +3929,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           // Build field metadata with objectDef enrichment
           const fieldMeta: Record<string, any> = { name: fieldName, type: rendererType || 'text' };
           if (fieldDef) {
-            if (fieldDef.label) fieldMeta.label = fieldDef.label;
+            // The header's label, as path A hands it (objectui#11689).
+            if (fieldDef.label) fieldMeta.label = header;
             if (fieldDef.currency) fieldMeta.currency = fieldDef.currency;
             // Verbatim, as the ListColumn path copies it (objectui#10354).
             if (fieldDef.currencyConfig) fieldMeta.currencyConfig = fieldDef.currencyConfig;
@@ -4053,9 +4062,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
       const translatedField = field.options
         ? { ...field, options: translateOptions(schema.objectName, fieldName, field.options) }
         : field;
-      const fieldForCell: any = translatedField;
+      const header = schema.objectName ? resolveFieldLabel(schema.objectName, fieldName, field.label || fieldName) : field.label || fieldName;
+      // The face is handed the header's label, as paths A-C hand it
+      // (objectui#11689).
+      const fieldForCell: any = field.label ? { ...translatedField, label: header } : translatedField;
       generatedColumns.push({
-        header: schema.objectName ? resolveFieldLabel(schema.objectName, fieldName, field.label || fieldName) : field.label || fieldName,
+        header,
         accessorKey: fieldName,
         // Forward the field type for the type-aware inline editor.
         ...(fieldType && { type: fieldType }),

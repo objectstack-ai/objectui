@@ -382,6 +382,11 @@ const ru = {
       postalCode: "Почтовый индекс",
       country: "Страна",
     },
+    boolean: {
+      offBadge: "{{label}} — Выкл.",
+      completed: "Выполнено",
+      notCompleted: "Не выполнено",
+    },
     textarea: {
       characterCount: "Количество символов: {{count}} из {{max}}",
       charactersRemaining: "Осталось символов: {{count}}",

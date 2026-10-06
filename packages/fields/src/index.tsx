@@ -30,6 +30,7 @@ import { formatAddress, type AddressValue } from './widgets/address-format.js';
 // `NumberField`'s read-only branch (objectui#11431), and likewise for currency
 // (`CurrencyField`) and percent (`PercentField`) (objectui#11444).
 import { formatNumberFieldValue, formatCurrency, formatPercentPoints, percentCellScale } from './widgets/number-format.js';
+import { useFieldTranslation } from './widgets/useFieldTranslation.js';
 
 // Module-level cache so multiple renderers fetching the same lookup ID
 // only trigger one network call. Keyed by `${objectName}:${id}`. It holds the
@@ -886,6 +887,12 @@ const STATUS_FIELD_NAMES = new Set([
  * and warning badge for active/enabled fields when false.
  */
 export function BooleanCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
+  // The face's own words — the status badge's "Off" and the completion
+  // indicator's two accessible names — come from the locale (objectui#11689),
+  // through the same hook and defaults table as the read-only Yes / No words
+  // (`useBooleanValueLabel`). Called before the early return below so the hook
+  // count does not change with the value.
+  const { t } = useFieldTranslation();
   // Only a real boolean is a value of a boolean column (objectui#8582).
   //
   // `@objectstack/spec`'s runtime value contract for `boolean` / `toggle` is a
@@ -930,11 +937,11 @@ export function BooleanCellRenderer({ value, field }: CellRendererProps): React.
     return (
       <div className="flex items-center justify-center">
         {value ? (
-          <div className="size-5 rounded-full bg-green-500 flex items-center justify-center" role="img" aria-label="Completed" data-testid="completion-indicator">
+          <div className="size-5 rounded-full bg-green-500 flex items-center justify-center" role="img" aria-label={t('fields.boolean.completed')} data-testid="completion-indicator">
             <Check className="size-3 text-white" />
           </div>
         ) : (
-          <div className="size-5 rounded-full border-2 border-muted-foreground/30" role="img" aria-label="Not completed" data-testid="completion-indicator" />
+          <div className="size-5 rounded-full border-2 border-muted-foreground/30" role="img" aria-label={t('fields.boolean.notCompleted')} data-testid="completion-indicator" />
         )}
       </div>
     );
@@ -944,7 +951,7 @@ export function BooleanCellRenderer({ value, field }: CellRendererProps): React.
   if (STATUS_FIELD_NAMES.has(fieldName) && value === false) {
     return (
       <Badge variant="destructive" className="text-xs" data-testid="boolean-warning-badge">
-        {field?.label || humanizeLabel(fieldName)} — Off
+        {t('fields.boolean.offBadge', { label: field?.label || humanizeLabel(fieldName) })}
       </Badge>
     );
   }

@@ -371,6 +371,11 @@ const es = {
       postalCode: "Código postal",
       country: "País",
     },
+    boolean: {
+      offBadge: "{{label}} — Desactivado",
+      completed: "Completado",
+      notCompleted: "No completado",
+    },
     textarea: {
       characterCount: "Recuento de caracteres: {{count}} de {{max}}",
       charactersRemaining: "Caracteres restantes: {{count}}",

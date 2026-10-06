@@ -360,6 +360,11 @@ const ko = {
       postalCode: "우편번호",
       country: "국가",
     },
+    boolean: {
+      offBadge: "{{label}} — 꺼짐",
+      completed: "완료됨",
+      notCompleted: "완료되지 않음",
+    },
     textarea: {
       characterCount: "글자 수: {{max}}자 중 {{count}}자",
       charactersRemaining: "{{count}}자 남음",

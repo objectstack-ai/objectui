@@ -360,6 +360,11 @@ const de = {
       postalCode: "Postleitzahl",
       country: "Land",
     },
+    boolean: {
+      offBadge: "{{label}} — Aus",
+      completed: "Abgeschlossen",
+      notCompleted: "Nicht abgeschlossen",
+    },
     textarea: {
       characterCount: "Zeichenanzahl: {{count}} von {{max}}",
       charactersRemaining: "Verbleibende Zeichen: {{count}}",

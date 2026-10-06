@@ -371,6 +371,11 @@ const zh = {
       postalCode: '邮政编码',
       country: '国家 / 地区',
     },
+    boolean: {
+      offBadge: '{{label}} — 已关闭',
+      completed: '已完成',
+      notCompleted: '未完成',
+    },
     textarea: {
       characterCount: '已输入 {{count}} 个字符，最多 {{max}} 个',
       charactersRemaining: '还可输入 {{count}} 个字符',

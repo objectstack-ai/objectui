@@ -169,11 +169,13 @@ describe('objectui#11626 — a grouped menu offers drag-to-reorder within each l
       onReorder,
       evaluateVisibility: (expr: unknown) => expr !== false,
     });
-    // The sortable wrappers are the group menu's direct children: one per drawn
-    // entry, and none left empty by the gated-away one.
-    const wrappers = [...container.querySelectorAll('[data-sidebar="menu"] > div')];
+    // The sortable rows are the group menu's direct children: one per drawn
+    // entry, and none left empty by the gated-away one. Since objectui#11690
+    // a row is its own `<li>` — no wrapper sits between the list and its items.
+    const wrappers = [...container.querySelectorAll('[data-sidebar="menu"] > li')];
     expect(wrappers).toHaveLength(2);
     expect(wrappers.every((w) => w.childElementCount > 0)).toBe(true);
+    expect(container.querySelectorAll('[data-sidebar="menu"] > :not(li)')).toHaveLength(0);
 
     drop('nav-reorder-group-grp_a', 'a2', 'a1');
 
@@ -245,7 +247,8 @@ describe('objectui#11626 — the grip is the one drag activator a keyboard can r
     // The sortable description sits on the grips and nowhere else: a row
     // wrapper carrying it was a focusable "button" no key could drag from.
     expect(container.querySelectorAll('[aria-roledescription="sortable"]')).toHaveLength(rows);
-    const wrappers = [...container.querySelectorAll('[data-sidebar="menu"] > div')];
+    // The sortable node is each row's own `<li>` (objectui#11690).
+    const wrappers = [...container.querySelectorAll('[data-sidebar="menu"] > li')];
     expect(wrappers).toHaveLength(rows);
     for (const wrapper of wrappers) {
       expect(wrapper.hasAttribute('tabindex')).toBe(false);

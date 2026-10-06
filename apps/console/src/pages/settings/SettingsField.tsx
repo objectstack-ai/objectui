@@ -103,20 +103,31 @@ function InheritanceBadges({
   return null;
 }
 
+/**
+ * The row's label, bound to its control (objectui#11690): `htmlFor` names a
+ * control that carries the row's `id`, and `labelId` lets a control with no
+ * single labelable element (a radio group, a checkbox group, the colour row's
+ * hex input) point back with `aria-labelledby`. Unbound, the label was text
+ * beside an input that every screen reader announced as nameless.
+ */
 function FieldHeader({
   spec,
   resolved,
   labelText,
   labels,
+  labelId,
+  htmlFor,
 }: {
   spec: Specifier;
   resolved?: ResolvedSettingValue;
   labelText: string;
   labels?: SettingsLabelHelpers;
+  labelId?: string;
+  htmlFor?: string;
 }) {
   return (
     <div className="flex items-center gap-2">
-      <Label className="text-sm font-medium">
+      <Label id={labelId} htmlFor={htmlFor} className="text-sm font-medium">
         {labelText}
         {spec.required ? <span className="ml-0.5 text-destructive">*</span> : null}
       </Label>
@@ -329,9 +340,20 @@ export function SettingsField(props: SettingsFieldProps) {
   // through `wrapper`, so marking it here covers all of them at once instead of
   // per-case (objectstack#4224).
   const errorId = `${id}-error`;
-  const wrapper = (children: React.ReactNode) => (
+  const labelId = `${id}-label`;
+  // `labelFor` is the id of the labelable control the row renders — `id`, the
+  // one every single-control case puts on it — or `undefined` for a case whose
+  // control is a group that names itself from `labelId` instead.
+  const wrapper = (children: React.ReactNode, labelFor: string | undefined = id) => (
     <div className="space-y-1.5 py-2">
-      <FieldHeader spec={spec} resolved={resolved} labelText={fieldLabel} labels={labels} />
+      <FieldHeader
+        spec={spec}
+        resolved={resolved}
+        labelText={fieldLabel}
+        labels={labels}
+        labelId={labelId}
+        htmlFor={labelFor}
+      />
       {error && isValidElement(children)
         ? cloneElement(children as ReactElement<Record<string, unknown>>, {
             'aria-invalid': true,
@@ -409,7 +431,14 @@ export function SettingsField(props: SettingsFieldProps) {
       return (
         <div className="flex items-center justify-between py-3">
           <div>
-            <FieldHeader spec={spec} resolved={resolved} labelText={fieldLabel} labels={labels} />
+            <FieldHeader
+              spec={spec}
+              resolved={resolved}
+              labelText={fieldLabel}
+              labels={labels}
+              labelId={labelId}
+              htmlFor={id}
+            />
             <FieldDescription description={fieldHelp} />
           </div>
           <Switch
@@ -475,6 +504,7 @@ export function SettingsField(props: SettingsFieldProps) {
           value={value == null ? undefined : String(value)}
           onValueChange={(v) => onChange(v)}
           disabled={disabled}
+          aria-labelledby={labelId}
         >
           {spec.options?.map((opt) => (
             <div key={String(opt.value)} className="flex items-center space-x-2">
@@ -485,11 +515,12 @@ export function SettingsField(props: SettingsFieldProps) {
             </div>
           ))}
         </RadioGroup>,
+        undefined,
       );
     case 'multiselect': {
       const arr = Array.isArray(value) ? (value as (string | number)[]) : [];
       return wrapper(
-        <div className="grid grid-cols-2 gap-2">
+        <div role="group" aria-labelledby={labelId} className="grid grid-cols-2 gap-2">
           {spec.options?.map((opt) => {
             const v = String(opt.value);
             const checked = arr.map(String).includes(v);
@@ -509,6 +540,7 @@ export function SettingsField(props: SettingsFieldProps) {
             );
           })}
         </div>,
+        undefined,
       );
     }
     case 'slider':
@@ -525,6 +557,7 @@ export function SettingsField(props: SettingsFieldProps) {
           />
           <span className="text-sm tabular-nums w-12 text-right">{String(value ?? spec.min ?? 0)}</span>
         </div>,
+        undefined,
       );
     case 'color':
       return wrapper(
@@ -541,6 +574,7 @@ export function SettingsField(props: SettingsFieldProps) {
             value={(value as string | undefined) ?? ''}
             disabled={disabled}
             onChange={(e) => onChange(e.target.value)}
+            aria-labelledby={labelId}
             className="flex-1 font-mono text-sm"
           />
         </div>,
@@ -557,6 +591,9 @@ export function SettingsField(props: SettingsFieldProps) {
         />,
       );
     default:
-      return wrapper(<div className="text-sm text-muted-foreground">Unsupported specifier type: {spec.type}</div>);
+      return wrapper(
+        <div className="text-sm text-muted-foreground">Unsupported specifier type: {spec.type}</div>,
+        undefined,
+      );
   }
 }

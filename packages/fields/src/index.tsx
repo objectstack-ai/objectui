@@ -741,6 +741,11 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   // and set must not change the hook count between renders (same rule as
   // NumberCellRenderer / CurrencyCellRenderer above).
   const locale = useDisplayLocale();
+  // The bar's accessible name is the value text beside it (objectui#11690):
+  // a `progressbar` must be named, and the formatted number is the one string
+  // this cell has that is already in the viewer's locale — a translated
+  // literal would name every percent column the same thing.
+  const valueId = React.useId();
   const safe = coerceToSafeValue(value);
   // Same fabrication as `NumberCellRenderer` (objectui#8490): `[]` drew a 0%
   // progress bar with a `progressbar` role and `aria-valuenow` of 0.
@@ -861,6 +866,7 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
       <div
         className="h-1.5 w-16 min-w-0 shrink rounded-full bg-muted ring-1 ring-inset ring-border/60 overflow-hidden"
         role="progressbar"
+        aria-labelledby={valueId}
         aria-valuenow={clampedBar}
         aria-valuemin={0}
         aria-valuemax={100}
@@ -870,7 +876,7 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
           style={{ width: `${clampedBar}%` }}
         />
       </div>
-      <span className="shrink-0 tabular-nums whitespace-nowrap">{formatted}</span>
+      <span id={valueId} className="shrink-0 tabular-nums whitespace-nowrap">{formatted}</span>
     </div>
   );
 }

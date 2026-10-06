@@ -158,8 +158,11 @@ function readFace(nodes: Set<Z>, specOwned: Set<Z>): FaceReading {
     // (objectui#8069: the form field-rule triad's blank refusal, a `.superRefine`
     // over the shared predicate wire) stays on both sides and the differential
     // still measures the arms alone — `z.union(options)` would drop `def.checks`,
-    // the loss `node-derivation.ts`'s `cloneWithDef` exists to prevent.
-    const twin = new (z.ZodUnion as any)({
+    // the loss `node-derivation.ts`'s `cloneWithDef` exists to prevent. It is rebuilt
+    // with ITS constructor for the same reason: the widget `component` slot routes a
+    // closed component type to its arm before the union runs (objectui#11709), and a
+    // plain `z.ZodUnion` twin would drop that routing and read it as an arm's move.
+    const twin = new ((u._zod as { constr?: unknown }).constr as any)({
       ...d,
       options: (d.options as Z[]).map((o) => (isStrict(o) && isClosed(o) ? new (z.ZodObject as any)({ ...o._zod.def }) : o)),
     });

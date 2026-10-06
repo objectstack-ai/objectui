@@ -16,8 +16,8 @@ Why: the envelope's `component` slot was a plain union of the component arm and 
 What each face does now:
 
 - **zod (`@object-ui/types/zod`), tolerant face.** NARROWS. The slot reads the node's `type` before the union runs. A `type` the component arm declares (`metric-card`) goes to that arm alone, so its issues come back at their own paths with the arm's own messages, and no `BaseSchema` reading stands beside them. That is the shape the same card already has directly in `widgets[]`. Every other node goes to the same two-arm union as before, so a `custom` widget's `component` keeps the passthrough.
-- **zod, strict authoring face.** Refused these documents already. It is derived from the same slot, so a refusal there now also arrives as the arm's issues alone.
-- **TypeScript.** Unchanged. `DashboardWidgetSchema.component` already refused these literals.
+- **zod, strict authoring face.** It already refused the documents above. It is derived from the same slot, so its refusal now also arrives as the arm's issues alone. It NARROWS in one corner: a card with no `value` that carries only `BaseSchema` keys (`{ "type": "metric-card" }`, or that plus `id` / `className`) used to parse there through the strict `BaseSchema` arm, and is refused now for its missing `value`.
+- **TypeScript.** Unchanged. `DashboardWidgetSchema.component` already refused every literal above, that corner included.
 
 **Supersedes a line of objectui#4425's note.** That note says the tolerant face still accepts a `label` inside the `component` envelope, through the envelope's `BaseSchema` fallback. It is refused there now.
 

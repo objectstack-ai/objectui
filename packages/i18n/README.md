@@ -207,11 +207,21 @@ every renderer below it, and `useLocalization()` reads them (`{}` outside a
 provider). The console fills it from `GET /api/v1/auth/me/localization`.
 
 ```tsx
+import type { ReactNode } from 'react';
 import { LocalizationProvider, useLocalization } from '@object-ui/i18n';
 
-<LocalizationProvider value={{ currency: 'EUR', locale: 'de-DE', timezone: 'Europe/Berlin' }}>
-  {children}
-</LocalizationProvider>;
+export function Regional({ children }: { children: ReactNode }) {
+  return (
+    <LocalizationProvider value={{ currency: 'EUR', locale: 'de-DE', timezone: 'Europe/Berlin' }}>
+      {children}
+    </LocalizationProvider>
+  );
+}
+
+export function ZoneLabel() {
+  const { timezone } = useLocalization();
+  return <span>{timezone ?? 'viewer zone'}</span>;
+}
 ```
 
 - `currency` (ISO 4217) is the default a currency field without its own code

@@ -203,7 +203,7 @@ describe('record page open: one record GET and one explain per distinct question
       refresh: async () => {}, invalidate: () => {},
       ensureType: async () => [RECORD_PAGE], getItem: async () => null,
       getItemsByType: () => [RECORD_PAGE],
-    } as any;
+    } as never;
 
     render(
       <MemoryRouter initialEntries={[`/apps/demo/${OBJECT}/record/${REC}`]}>

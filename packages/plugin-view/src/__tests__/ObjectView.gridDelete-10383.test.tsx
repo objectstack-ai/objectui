@@ -25,8 +25,10 @@
  * The console's own list (`app-shell` `ObjectView` → `useObjectActions`) is
  * the behaviour matched, and every case below reads one of its steps:
  *  - a row asks "Are you sure you want to delete this record?"; a selection
- *    asks "Delete N selected records? This cannot be undone." once;
- *  - Continue deletes through `dataSource.delete`, one call per record, and the
+ *    asks "Delete N selected records? This cannot be undone." once; the
+ *    title names the row (or counts the selection) and the confirm button is
+ *    a destructive "Delete" (objectui#11695);
+ *  - Delete deletes through `dataSource.delete`, one call per record, and the
  *    row is gone after the refresh; Cancel deletes nothing;
  *  - success toasts `{{label}} deleted successfully` /
  *    `Deleted N {{label}} records`; a failure toasts `Failed to delete
@@ -82,6 +84,8 @@ vi.mock('@object-ui/permissions', async (importOriginal) => {
 });
 
 import { toast } from '@object-ui/components';
+import { I18nProvider } from '@object-ui/i18n';
+import { builtInLocales } from '@object-ui/i18n/locales';
 import { ActionProvider, SchemaRendererProvider } from '@object-ui/react';
 import type { DataSource, ObjectViewSchema } from '@object-ui/types';
 import { ObjectView } from '../ObjectView';
@@ -223,10 +227,15 @@ describe('objectui#10383 — row Delete on the registered object-view path', () 
 
     const dialog = await confirmDialog();
     expect(within(dialog).getByText('Are you sure you want to delete this record?')).toBeInTheDocument();
+    // objectui#11695 — the title names the row and its object; the confirm is
+    // a destructive Delete, not the generic "Confirm Action" / "Continue".
+    expect(within(dialog).getByRole('heading')).toHaveTextContent('Delete Test object "Alice"?');
+    expect(within(dialog).getByRole('button', { name: 'Delete' }).className).toContain('bg-destructive');
+    expect(within(dialog).queryByRole('button', { name: 'Continue' })).toBeNull();
     // Nothing is deleted before the user answers.
     expect(ds.delete).not.toHaveBeenCalled();
 
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Continue' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(ds.delete).toHaveBeenCalledTimes(1));
     expect(ds.delete).toHaveBeenCalledWith(OBJECT, 'r1');
@@ -257,7 +266,7 @@ describe('objectui#10383 — row Delete on the registered object-view path', () 
     await settled();
 
     await userEvent.click((await openRowMenu('Alice'))!);
-    await userEvent.click(within(await confirmDialog()).getByRole('button', { name: 'Continue' }));
+    await userEvent.click(within(await confirmDialog()).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(errorSpy).toHaveBeenCalledTimes(1));
     expect(ds.delete).toHaveBeenCalledWith(OBJECT, 'r1');
@@ -280,9 +289,11 @@ describe('objectui#10383 — bulk Delete on the registered object-view path', ()
     expect(
       within(dialog).getByText('Delete 2 selected records? This cannot be undone.'),
     ).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading')).toHaveTextContent('Delete 2 Test object records?');
+    expect(within(dialog).getByRole('button', { name: 'Delete' }).className).toContain('bg-destructive');
     expect(ds.delete).not.toHaveBeenCalled();
 
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Continue' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(ds.delete).toHaveBeenCalledTimes(2));
     expect(ds.delete).toHaveBeenCalledWith(OBJECT, 'r1');
@@ -301,7 +312,7 @@ describe('objectui#10383 — bulk Delete on the registered object-view path', ()
 
     selectRows(['Alice', 'Bob']);
     fireEvent.click(await screen.findByTestId('bulk-action-delete'));
-    await userEvent.click(within(await confirmDialog()).getByRole('button', { name: 'Continue' }));
+    await userEvent.click(within(await confirmDialog()).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(errorSpy).toHaveBeenCalledWith('1 deleted, 1 failed'));
     expect(ds.delete).toHaveBeenCalledTimes(2);
@@ -414,8 +425,9 @@ describe('objectui#10383 — ADR-0094 reset copy on the registered object-view p
           'Deleting resets it to the shipped baseline and discards your environment customization. Continue?',
       ),
     ).toBeInTheDocument();
+    expect(within(dialog).getByRole('heading')).toHaveTextContent('Delete Permission Set "Sales Rep"?');
 
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Continue' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() => expect(ds.delete).toHaveBeenCalledWith(PERMISSION_SET, 'ps1'));
     await waitFor(() =>
@@ -434,10 +446,58 @@ describe('objectui#10383 — ADR-0094 reset copy on the registered object-view p
       within(dialog).getByText('Are you sure you want to delete this record?'),
     ).toBeInTheDocument();
 
-    await userEvent.click(within(dialog).getByRole('button', { name: 'Continue' }));
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Delete' }));
 
     await waitFor(() =>
       expect(successSpy).toHaveBeenCalledWith('Permission Set deleted successfully'),
     );
+  });
+});
+
+/**
+ * objectui#11695 in a zh session: under a real `I18nProvider` this host's
+ * translator is the session's, so the title and the Delete label come from the
+ * zh pack — read here by KEY, so the pin is the keys and the named row, not
+ * today's wording.
+ */
+describe('objectui#11695 — the row Delete names the row in zh', () => {
+  const ZH = builtInLocales.zh as unknown as {
+    objectActions: { deleteConfirmTitle: string; deleteConfirmButton: string };
+  };
+
+  it('shows the zh title naming the row and the zh destructive Delete, and deletes on it', async () => {
+    const ds = makeDataSource();
+    render(
+      <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false }} persistLanguage={false}>
+        <ActionProvider>
+          <SchemaRendererProvider dataSource={ds}>
+            <ObjectView
+              schema={{
+                type: 'object-view',
+                objectName: OBJECT,
+                table: { columns: ['name'] },
+              } as unknown as ObjectViewSchema}
+              dataSource={ds as unknown as DataSource}
+            />
+          </SchemaRendererProvider>
+        </ActionProvider>
+      </I18nProvider>,
+    );
+    await settled();
+
+    const deleteItem = await openRowMenu('Alice');
+    expect(deleteItem, 'the row kebab offers no Delete — the harness is not reaching the subject').not.toBeNull();
+    await userEvent.click(deleteItem!);
+
+    const dialog = await confirmDialog();
+    const title = ZH.objectActions.deleteConfirmTitle
+      .replace('{{label}}', 'Test object')
+      .replace('{{name}}', 'Alice');
+    await waitFor(() => expect(within(dialog).getByRole('heading')).toHaveTextContent(title));
+    const confirm = within(dialog).getByRole('button', { name: ZH.objectActions.deleteConfirmButton });
+    expect(confirm.className).toContain('bg-destructive');
+
+    await userEvent.click(confirm);
+    await waitFor(() => expect(ds.delete).toHaveBeenCalledWith(OBJECT, 'r1'));
   });
 });

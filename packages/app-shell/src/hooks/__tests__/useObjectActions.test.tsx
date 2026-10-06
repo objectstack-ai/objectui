@@ -208,3 +208,74 @@ describe('useObjectActions — package-owned permission set delete = reset copy'
     );
   });
 });
+
+// objectui#11695 — the delete asks with the shared copy's title and Delete
+// label, flagged destructive, through the host's confirm handler, ONCE; the
+// runner's own confirm step is not asked a second time.
+describe('useObjectActions — the delete confirmation names what it deletes (objectui#11695)', () => {
+  function setupCopy(dataSource: any, onConfirmSpy: any) {
+    return renderHook(() =>
+      useObjectActions({
+        objectName: 'crm_product',
+        objectLabel: 'Product',
+        dataSource,
+        onConfirm: onConfirmSpy,
+        onToast,
+      }),
+    );
+  }
+
+  it('one record: asks once with the title, the Delete label and `destructive`, then deletes', async () => {
+    const dataSource = { delete: vi.fn().mockResolvedValue(undefined) };
+    const confirmSpy = vi.fn().mockResolvedValue(true);
+    const { result } = setupCopy(dataSource, confirmSpy);
+
+    await act(async () => {
+      await result.current.deleteRecord('p1', { id: 'p1', name: 'QA Widget 0' });
+    });
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(confirmSpy).toHaveBeenCalledWith('objectActions.deleteConfirm', {
+      title: 'objectActions.deleteConfirmTitle',
+      confirmText: 'objectActions.deleteConfirmButton',
+      destructive: true,
+    });
+    expect(dataSource.delete).toHaveBeenCalledWith('crm_product', 'p1');
+  });
+
+  it('a batch: asks ONCE for all of them with the counting title, then deletes each', async () => {
+    const dataSource = { delete: vi.fn().mockResolvedValue(undefined) };
+    const confirmSpy = vi.fn().mockResolvedValue(true);
+    const { result } = setupCopy(dataSource, confirmSpy);
+
+    await act(async () => {
+      await result.current.deleteRecords([{ id: 'a' }, { id: 'b' }, { id: 'c' }]);
+    });
+
+    expect(confirmSpy).toHaveBeenCalledTimes(1);
+    expect(confirmSpy).toHaveBeenCalledWith('console.objectView.bulkDeleteConfirm', {
+      title: 'objectActions.bulkDeleteConfirmTitle',
+      confirmText: 'objectActions.deleteConfirmButton',
+      destructive: true,
+    });
+    expect(dataSource.delete).toHaveBeenCalledTimes(3);
+  });
+
+  it('a cancel deletes nothing and returns what the runner\'s cancel returned', async () => {
+    const dataSource = { delete: vi.fn().mockResolvedValue(undefined) };
+    const confirmSpy = vi.fn().mockResolvedValue(false);
+    const { result } = setupCopy(dataSource, confirmSpy);
+
+    let one: any;
+    let many: any;
+    await act(async () => {
+      one = await result.current.deleteRecord('p1', { id: 'p1', name: 'QA Widget 0' });
+      many = await result.current.deleteRecords([{ id: 'a' }, { id: 'b' }]);
+    });
+
+    expect(confirmSpy).toHaveBeenCalledTimes(2);
+    expect(dataSource.delete).not.toHaveBeenCalled();
+    expect(one).toEqual({ success: false, error: 'Action cancelled by user' });
+    expect(many).toEqual({ success: false, error: 'Action cancelled by user' });
+  });
+});

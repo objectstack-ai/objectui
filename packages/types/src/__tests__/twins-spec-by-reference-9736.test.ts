@@ -160,7 +160,10 @@ describe('spec tombstones surface on the twin as a refusal — the verdict the m
 
   it('the Page control: the same document without `assignedProfiles`, and the admitted spec keys, pass both faces', () => {
     const bare: PageNodeSchema = { type: 'page' };
-    const admitted: PageNodeSchema = { type: 'page', source: 'pages/home.tsx', requires: ['crm'] };
+    // `kind: 'html'`: since `@objectstack/spec` 17.7.0 `requires` is admitted only on
+    // the kinds the platform compiles at save (`checkPageRequiresKind`, chained on
+    // this mirror by objectui#11717), and an absent `kind` is `full`.
+    const admitted: PageNodeSchema = { type: 'page', kind: 'html', source: 'pages/home.tsx', requires: ['crm'] };
     expect(PageMirror.safeParse(bare).success).toBe(true);
     expect(PageMirror.safeParse(admitted).success).toBe(true);
   });

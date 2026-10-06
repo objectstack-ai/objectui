@@ -83,11 +83,17 @@ const count = (haystack: string, needle: string) => haystack.split(needle).lengt
 function openAndRead(): { notificationsTab: string; activityTab: string } {
   const [bell] = screen.getAllByRole('button');
   fireEvent.click(bell);
+  // Radix tabs activate on a primary-button mouse down. Both tabs are selected
+  // explicitly: the tab the bell opens on follows the counts and the user's
+  // last pick in this browser-tab session (objectui#11698), and an earlier
+  // case's pick of Activity is still in sessionStorage.
+  const select = (name: RegExp) =>
+    act(() => {
+      fireEvent.mouseDown(screen.getByRole('tab', { name }), { button: 0, ctrlKey: false });
+    });
+  select(/notifications/i);
   const notificationsTab = screen.getByRole('dialog').textContent ?? '';
-  // Radix tabs activate on a primary-button mouse down.
-  act(() => {
-    fireEvent.mouseDown(screen.getByRole('tab', { name: /activity/i }), { button: 0, ctrlKey: false });
-  });
+  select(/activity/i);
   const activityTab = screen.getByRole('dialog').textContent ?? '';
   return { notificationsTab, activityTab };
 }

@@ -333,7 +333,9 @@ export const MetricWidget = ({
   // spread below cannot write them to the DOM (objectui#4357). Named and
   // measured in `./schemaHostProps`; `schema` alone put a
   // `schema="[object Object]"` attribute on every KPI card.
-  schema,
+  // Kept under its old binding name, so the exported signature's declaration
+  // text is unchanged; it is READ now, as the door discriminator below.
+  schema: _schema,
   bind: _bind,
   events: _events,
   props: _propsBag,
@@ -346,7 +348,7 @@ export const MetricWidget = ({
   // what `toDomProps` passes — the open tail of authored keys this component
   // does not declare stops here; on the direct React door, the declared
   // `HTMLAttributes` pass-through, unchanged. See `hostDomProps`.
-  const hostProps = hostDomProps(schema, domProps);
+  const hostProps = hostDomProps(_schema, domProps);
   const iconClasses = VARIANT_ICON_CLASSES[colorVariant] || VARIANT_ICON_CLASSES.default;
   const { t: tTrend } = useTrendT();
   // Two locale channels, deliberately distinct. `useDisplayLocale` is the

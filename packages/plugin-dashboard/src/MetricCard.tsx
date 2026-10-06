@@ -75,7 +75,8 @@ export const MetricCard: React.FC<MetricCardProps & SchemaHostProps> = ({
   // spread below cannot write them to the DOM (objectui#4357). Named and
   // measured in `./schemaHostProps`; `schema` alone put a
   // `schema="[object Object]"` attribute on every card.
-  schema,
+  // READ now, as the door discriminator below (same binding as `MetricWidget`).
+  schema: _schema,
   bind: _bind,
   events: _events,
   props: _propsBag,
@@ -86,7 +87,7 @@ export const MetricCard: React.FC<MetricCardProps & SchemaHostProps> = ({
 }) => {
   // What the `Card` may carry (objectui#4425): the `toDomProps` whitelist on
   // the renderer's door, the declared pass-through on the direct React door.
-  const hostProps = hostDomProps(schema, domProps);
+  const hostProps = hostDomProps(_schema, domProps);
   // Resolve icon via lazy resolver — each icon ships as its own micro-chunk
   const IconComponent = icon ? getLazyIcon(icon) : null;
   // Label text follows the active UI language (not the tenant's number locale).

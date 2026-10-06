@@ -15,8 +15,10 @@
  * trail continues into a record (`Projects › Apollo`); what the record page
  * itself calls the object is not this crumb's business.
  *
- * Harness: `AppHeader.servedLabels-11295`'s, verbatim, except that the dropdown
- * content renders. `useObjectLabel` is REAL — the bundle lookup is the subject.
+ * Harness: `AppHeader.servedLabels-11295`'s mocks, except that the dropdown
+ * content renders (so the siblings are on the page) and the navigation
+ * context's record title is settable. `useObjectLabel` is REAL — the bundle
+ * lookup is the subject.
  * The `zh-CN` plural differs from the `zh-CN` label on purpose, so the
  * assertion can tell which key was read.
  *

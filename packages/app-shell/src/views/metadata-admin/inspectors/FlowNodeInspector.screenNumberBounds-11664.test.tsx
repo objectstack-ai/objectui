@@ -249,6 +249,8 @@ describe('the screen descriptor maps fields[].min / .max to number columns (obje
 describe('engine descriptors: a screen field’s Min / Max commit numbers (objectui#11664, triage 6007030030)', () => {
   it('pin 1: Min 1 / Max 10 authored in the inspector save as numbers the screen contract accepts', () => {
     const { latest } = mount(draftWith([{ name: 'qty', type: 'number' }]));
+    expect(cell('Min').type, 'the Min cell is a number input').toBe('number');
+    expect(cell('Max').type).toBe('number');
 
     enter(cell('Min'), '1');
     enter(cell('Max'), '10');

@@ -191,17 +191,36 @@ export interface MarketplaceDetailResponse {
   versions: MarketplacePackageVersion[];
 }
 
+/**
+ * A browse request. A failure the server ANSWERED rejects with an `Error` that
+ * carries the response's `status` and `code`; a request no server answered (a
+ * network failure, a CORS refusal, an abort) rejects with whatever `fetch`
+ * threw, which has no `status`. `MarketplacePage` tells the two apart by that
+ * member, because only the second is a question of being online
+ * (objectui#11688).
+ */
 async function call<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     credentials: 'omit',
     headers: { 'Accept': 'application/json', ...(init?.headers || {}) },
     ...init,
   });
+  // Read once, as text. A hop in front of the control plane that is not an
+  // ObjectStack route (an egress proxy, a gateway) refuses in `text/plain`,
+  // the runtime's proxy forwards that body verbatim, and the text IS the
+  // cause: "Host not in allowlist: cloud.objectos.ai". Parsing straight to
+  // JSON threw it away and left the bare status text ("Forbidden") to show
+  // (objectui#11688).
+  const body = await res.text().catch(() => '');
   let payload: any = null;
-  try { payload = await res.json(); } catch { /* empty body */ }
+  try { payload = body ? JSON.parse(body) : null; } catch { /* not JSON */ }
   if (!res.ok) {
     const { code, message } = readApiError(payload, res);
-    const err = new Error(typeof message === 'string' ? message : `${code}`);
+    const plainText =
+      payload === null && (res.headers.get('content-type') ?? '').toLowerCase().startsWith('text/plain')
+        ? body.trim()
+        : '';
+    const err = new Error(plainText || message);
     (err as any).code = code;
     (err as any).status = res.status;
     throw err;

@@ -718,6 +718,147 @@ function isMaskedColumnKey(columns: readonly TableColumn[], accessorKey: string)
 }
 
 /**
+ * A right-pinned column: its sticky utilities arrive on `col.className` (the
+ * auto-pinned row-actions column, and an author's `pinned: 'right'`, both
+ * from `ObjectGrid`).
+ */
+function isPinnedRightColumn(col: { className?: unknown }): boolean {
+  return typeof col.className === 'string'
+    && /\bsticky\b/.test(col.className)
+    && /\bright-0\b/.test(col.className);
+}
+
+/**
+ * The attribute an auto-sized column's header label and display cells carry,
+ * naming the column (its `accessorKey`), so the auto-width estimate can read
+ * back what they drew (objectui#11682). The two JSX sites spell it literally;
+ * the read below selects by this constant.
+ */
+const AUTO_WIDTH_ATTR = 'data-auto-width-key';
+
+/**
+ * The column an auto-width target names: only one the estimate sizes (no
+ * explicit `width`, not `fitContent`), and never a masked one, whose values
+ * the estimate does not read (objectui#10657).
+ */
+function autoWidthKey(col: TableColumn): string | undefined {
+  return !col.width && !col.fitContent && !col.masked ? col.accessorKey : undefined;
+}
+
+/**
+ * What an auto-sized column's header and cells DREW, read back from the
+ * rendered table (objectui#11682). Keyed by `accessorKey`.
+ */
+type DrawnColumnSizes = {
+  /** Longest drawn cell text, in characters: the estimate's input where nothing is laid out. */
+  chars: Record<string, number>;
+  /**
+   * Width, in px, that renders the column's widest drawn cell and its header
+   * whole, padding and borders included; `null` where nothing is laid out
+   * (no layout engine, or a table inside a hidden panel).
+   */
+  px: Record<string, number> | null;
+};
+
+/**
+ * The elements the drawn-size read measures: this table's own header labels
+ * and display cells, never a nested table's (each match is a direct child of
+ * one of THIS table's header or body cells).
+ */
+function drawnSizeTargets(
+  headerRow: HTMLTableRowElement | null,
+  body: HTMLTableSectionElement | null,
+): { heads: HTMLElement[]; cells: HTMLElement[] } {
+  return {
+    heads: headerRow ? Array.from(headerRow.querySelectorAll<HTMLElement>(`:scope > th > div > [${AUTO_WIDTH_ATTR}]`)) : [],
+    cells: body ? Array.from(body.querySelectorAll<HTMLElement>(`:scope > tr > td > [${AUTO_WIDTH_ATTR}]`)) : [],
+  };
+}
+
+/**
+ * Everything a drawn-size read depends on: each target's column, its text,
+ * and the classes of the cell around it (they set its font and padding: the
+ * row density, a staged edit's weight). An equal signature means an equal
+ * read, so the measurement is skipped.
+ */
+function drawnSizeSignature(targets: readonly HTMLElement[]): string {
+  const firstBoxClass = new Map<string, string>();
+  const parts: string[] = [];
+  for (const el of targets) {
+    const key = el.getAttribute(AUTO_WIDTH_ATTR) ?? '';
+    const box = el.closest('th, td');
+    const boxClass = `${box?.tagName ?? ''} ${box?.className ?? ''}`;
+    const slot = `${box?.tagName ?? ''}:${key}`;
+    if (!firstBoxClass.has(slot)) firstBoxClass.set(slot, boxClass);
+    parts.push(key, el.textContent ?? '', firstBoxClass.get(slot) === boxClass ? '' : boxClass);
+  }
+  return JSON.stringify([...firstBoxClass.entries(), ...parts]);
+}
+
+/**
+ * The box a target is drawn in, and the element that spans that box's content
+ * width: a display cell is itself `w-full` in its `td`; a header label sits
+ * in the `th`'s full-width row (`th > div > label`).
+ */
+function drawnSizeBox(el: HTMLElement): { box: Element | null; span: Element | null } {
+  const box = el.closest('th, td');
+  return { box, span: box?.tagName === 'TH' ? el.parentElement : el };
+}
+
+/**
+ * Read what the targets drew. The text lengths are read always; the widths
+ * only where the page is laid out.
+ *
+ * A column's width is its widest target's NATURAL width (the content on one
+ * line, at `max-content`) plus the space its cell keeps around the content.
+ * That space is MEASURED (the cell's width less its content box's), never
+ * read off the computed padding: under the table's collapsed borders a cell
+ * beside a frozen column's 2px rule carries half of it, which no computed
+ * style of its own reports. One layout reads the boxes, one reads the probe,
+ * and each target's own inline width is restored at once, inside the same
+ * task, so no frame is ever painted with the probe in place. The targets
+ * carry no React-managed `style`, so the probe and its removal are invisible
+ * to React.
+ */
+function measureDrawnColumnSizes(heads: readonly HTMLElement[], cells: readonly HTMLElement[]): DrawnColumnSizes {
+  const chars: Record<string, number> = {};
+  for (const el of cells) {
+    const key = el.getAttribute(AUTO_WIDTH_ATTR) ?? '';
+    const len = (el.textContent ?? '').length;
+    if (!(key in chars) || len > chars[key]) chars[key] = len;
+  }
+  const targets = [...heads, ...cells];
+  const insets = targets.map((el) => {
+    const { box, span } = drawnSizeBox(el);
+    if (!box || !span) return 0;
+    const inset = box.getBoundingClientRect().width - span.getBoundingClientRect().width;
+    return Number.isFinite(inset) && inset > 0 ? inset : 0;
+  });
+  const saved = targets.map((el) => el.style.width);
+  for (const el of targets) el.style.width = 'max-content';
+  const natural = targets.map((el) => el.getBoundingClientRect().width);
+  targets.forEach((el, i) => { el.style.width = saved[i]; });
+  if (!natural.some((w) => Number.isFinite(w) && w > 0)) return { chars, px: null };
+  const px: Record<string, number> = {};
+  targets.forEach((el, i) => {
+    const key = el.getAttribute(AUTO_WIDTH_ATTR) ?? '';
+    const need = Math.ceil((Number.isFinite(natural[i]) ? natural[i] : 0) + insets[i]);
+    if (!(key in px) || need > px[key]) px[key] = need;
+  });
+  return { chars, px };
+}
+
+function sameNumberRecord(a: Record<string, number> | null, b: Record<string, number> | null): boolean {
+  if (a === null || b === null) return a === b;
+  const keys = Object.keys(a);
+  return keys.length === Object.keys(b).length && keys.every((k) => a[k] === b[k]);
+}
+
+function sameDrawnSizes(a: DrawnColumnSizes, b: DrawnColumnSizes): boolean {
+  return sameNumberRecord(a.chars, b.chars) && sameNumberRecord(a.px, b.px);
+}
+
+/**
  * Enterprise-level data table component with Airtable-like features.
  *
  * Provides comprehensive table functionality including:
@@ -970,6 +1111,11 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     }));
   }, [rawColumns]);
 
+  // What each auto-sized column's cells DREW (objectui#11682), keyed by
+  // `accessorKey` and read back from the rendered table by the layout effect
+  // that drives `readDrawnSizesRef` below. `null` until the table has drawn.
+  const [drawnSizes, setDrawnSizes] = useState<DrawnColumnSizes | null>(null);
+
   // Auto-size columns: estimate width from header and data content for columns without explicit widths
   const autoSizedWidths = useMemo(() => {
     const widths: Record<string, number> = {};
@@ -990,24 +1136,53 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       // estimating them from an absent string value pins them to the 80px
       // floor and clips inline buttons. Leave them out of the width map.
       if (col.fitContent) continue;
+      // Every column but a masked one is sized from WHAT ITS CELLS DREW
+      // (objectui#11682): a currency cell stores `200000` and draws
+      // `200,000.00`, a progress cell stores `45` and draws a bar and `45%`, a
+      // lookup stores an id and draws a name, a date stores an ISO string and
+      // draws `Feb 3, 2027`. Sized from the stored value, the first two were
+      // too narrow (the cell truncated) and the last two too wide (the sum
+      // pushed the scrolling columns under the right-pinned actions column).
+      // The drawn content is whatever the column's own `cell` renderer, or
+      // this table's `formatCellValue`, put in the cell — read back below, so
+      // no formatter is repeated here and no column key is needed to reach it.
+      //
+      // Where the page is laid out, the read is the width the widest drawn
+      // cell (and the header) needs to render whole, padding included.
+      const drawnPx = col.masked ? undefined : drawnSizes?.px?.[col.accessorKey];
+      if (drawnPx !== undefined) {
+        widths[col.accessorKey] = Math.min(400, Math.max(80, drawnPx));
+        continue;
+      }
       const headerLen = (col.header || '').length;
       let maxLen = headerLen;
       // A MASKED column never reads its values here (objectui#10657). Sized
       // from them, its width grew with the credential's length. Its cells draw
       // the producer's mask, which does not depend on the value, so the header
       // alone sizes it, with the same floor as every other column.
-      // Sample up to 50 rows for content width estimation
-      const sampleRows = col.masked ? [] : data.slice(0, 50);
-      for (const row of sampleRows) {
-        const val = row[col.accessorKey];
-        const len = val != null ? String(val).length : 0;
-        if (len > maxLen) maxLen = len;
+      //
+      // Where nothing is laid out (no layout engine, or a table drawn inside a
+      // hidden panel) the drawn TEXT is still there, and its length is the
+      // estimate's input. Before the table has drawn at all (the first render
+      // pass, which the layout effect re-sizes before paint, or a render with
+      // no effects) the stored value is the only text there is.
+      const drawnLen = col.masked ? undefined : drawnSizes?.chars[col.accessorKey];
+      if (drawnLen !== undefined) {
+        if (drawnLen > maxLen) maxLen = drawnLen;
+      } else {
+        // Sample up to 50 rows for content width estimation
+        const sampleRows = col.masked ? [] : data.slice(0, 50);
+        for (const row of sampleRows) {
+          const val = row[col.accessorKey];
+          const len = val != null ? String(val).length : 0;
+          if (len > maxLen) maxLen = len;
+        }
       }
       // Estimate pixel width: ~8px per character + 48px padding, min 80, max 400
       widths[col.accessorKey] = Math.min(400, Math.max(80, maxLen * 8 + 48));
     }
     return widths;
-  }, [rawColumns, data]);
+  }, [rawColumns, data, drawnSizes]);
 
   // State management
   const [searchQuery, setSearchQuery] = useState('');
@@ -1079,6 +1254,41 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
       .forEach((cell) => observer.observe(cell));
     return () => observer.disconnect();
   }, [stickyLeadingCount, columns]);
+
+  // Sticky-right offsets for the trailing pinned cells (objectui#11682), the
+  // mirror of the lefts above. Every right-pinned column carries `right-0`, so
+  // with two of them (an author's `pinned: 'right'` beside the auto-pinned
+  // row-actions column) both stuck to the same edge and the outer one drew
+  // over the inner one's content. Pin each at the cumulative measured width of
+  // the pinned header cells AFTER it instead; the outermost stays at
+  // `right-0`, so a table with one right-pinned column renders as before.
+  const [measuredStickyRights, setMeasuredStickyRights] = useState<Record<string, number> | null>(null);
+  useLayoutEffect(() => {
+    const headerRow = headerRowRef.current;
+    const leading = (selectable ? 1 : 0) + (showRowNumbers ? 1 : 0);
+    const pinned = columns
+      .map((col, index) => ({ key: col.accessorKey, index, col }))
+      .filter(({ col }) => isPinnedRightColumn(col));
+    const cells = headerRow ? pinned.map(({ index }) => headerRow.children[leading + index] as HTMLElement | undefined) : [];
+    if (pinned.length < 2 || cells.some((cell) => !cell)) {
+      setMeasuredStickyRights(null);
+      return;
+    }
+    const measure = () => {
+      const rights: Record<string, number> = {};
+      let acc = 0;
+      for (let j = pinned.length - 1; j >= 0; j--) {
+        rights[pinned[j].key] = acc;
+        acc += (cells[j] as HTMLElement).getBoundingClientRect().width;
+      }
+      setMeasuredStickyRights((prev) => (sameNumberRecord(prev, rights) ? prev : rights));
+    };
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    cells.forEach((cell) => observer.observe(cell as HTMLElement));
+    return () => observer.disconnect();
+  }, [selectable, showRowNumbers, columns]);
   const [draggedColumn, setDraggedColumn] = useState<number | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<number | null>(null);
   const [editingCell, setEditingCell] = useState<{ rowIndex: number; columnKey: string } | null>(null);
@@ -2104,6 +2314,70 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
     return () => document.removeEventListener('pointerdown', onPointerDown, true);
   }, [editingCell]);
 
+  // objectui#11682 — read back what the auto-sized columns DREW, for the
+  // width estimate (`autoSizedWidths`). Each such column's header label and
+  // display cells carry `AUTO_WIDTH_ATTR`; what they hold is the formatted
+  // content the column's own renderer produced (the display locale's grouping
+  // and currency, a percent's conversion and its bar, a lookup's resolved
+  // name, a select's badge), so the estimate never re-derives it.
+  //
+  // Read in a layout effect after every commit, so the first frame the user
+  // sees is already sized from the drawn content, and measured only when what
+  // was drawn changed (`drawnSizeSignature`): a commit that draws the same
+  // text in the same cells costs two queries and no layout. Read again when a
+  // cell's content changes AFTER this table rendered (a lookup cell resolves
+  // its name asynchronously, inside its own component), through a
+  // MutationObserver on the body; when the table changes size (a table shown
+  // from a hidden panel is laid out for the first time); and once the fonts
+  // have loaded (a width read in a fallback font is not the drawn one). Text
+  // and nodes only are observed: the probe and the style writes a re-size
+  // makes are attribute changes, and the state is replaced only when a size
+  // moved, so a read can never feed itself.
+  //
+  // Skipped while a cell is edited: its display element is unmounted for the
+  // editor, and a read then would size its column without it.
+  const tableBodyRef = useRef<HTMLTableSectionElement | null>(null);
+  const drawnSignatureRef = useRef<string | null>(null);
+  // The last read, mirrored so an equal read writes no state at all (and so
+  // costs this table no commit).
+  const drawnSizesRef = useRef<DrawnColumnSizes | null>(null);
+  const readDrawnSizesRef = useRef<(force?: boolean) => void>(() => {});
+  useLayoutEffect(() => {
+    readDrawnSizesRef.current = (force = false) => {
+      const body = tableBodyRef.current;
+      if (!body || editingCellRef.current) return;
+      const { heads, cells } = drawnSizeTargets(headerRowRef.current, body);
+      const signature = drawnSizeSignature([...heads, ...cells]);
+      if (!force && signature === drawnSignatureRef.current) return;
+      const next = measureDrawnColumnSizes(heads, cells);
+      // A read with nothing laid out is not remembered, so the next commit or
+      // resize reads again instead of keeping the text-only estimate.
+      drawnSignatureRef.current = next.px ? signature : null;
+      if (drawnSizesRef.current && sameDrawnSizes(drawnSizesRef.current, next)) return;
+      drawnSizesRef.current = next;
+      setDrawnSizes(next);
+    };
+    readDrawnSizesRef.current();
+  });
+  useEffect(() => {
+    const body = tableBodyRef.current;
+    if (!body) return;
+    const read = () => readDrawnSizesRef.current();
+    const mutations = typeof MutationObserver === 'undefined' ? null : new MutationObserver(read);
+    mutations?.observe(body, { subtree: true, childList: true, characterData: true });
+    const table = tableRef.current;
+    const resizes = typeof ResizeObserver === 'undefined' || !table ? null : new ResizeObserver(read);
+    if (table) resizes?.observe(table);
+    let live = true;
+    const fonts = typeof document === 'undefined' ? undefined : document.fonts;
+    fonts?.ready?.then(() => { if (live) readDrawnSizesRef.current(true); });
+    return () => {
+      live = false;
+      mutations?.disconnect();
+      resizes?.disconnect();
+    };
+  }, []);
+
   // Cleanup on unmount
   useEffect(() => {
     return () => {
@@ -2272,9 +2546,8 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                 // because `cn` is tailwind-merge — would win over that `sticky`
                 // and let the header scroll away while its body cells stay pinned.
                 // Detect it here so we skip `relative` and re-assert the pin.
-                const isPinnedRight = typeof col.className === 'string'
-                  && /\bsticky\b/.test(col.className)
-                  && /\bright-0\b/.test(col.className);
+                const isPinnedRight = isPinnedRightColumn(col);
+                const pinnedRightOffset = isPinnedRight ? measuredStickyRights?.[col.accessorKey] : undefined;
                 const frozenOffset = isFrozen
                   ? measuredStickyLefts?.[(selectable ? 1 : 0) + (showRowNumbers ? 1 : 0) + index]
                     ?? columns.slice(0, index).reduce((sum, c, i) => {
@@ -2312,6 +2585,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                       width: columnWidth,
                       minWidth: columnWidth,
                       ...(isFrozen && { left: frozenOffset }),
+                      ...(pinnedRightOffset ? { right: pinnedRightOffset } : {}),
                     }}
                     draggable={reorderEnabled}
                     onDragStart={(e) => handleColumnDragStart(e, index)}
@@ -2325,7 +2599,12 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                       "flex items-center",
                       col.align === 'right' ? 'justify-end' : 'justify-between'
                     )}>
-                      <div className="flex items-center gap-1">
+                      <div
+                        className="flex items-center gap-1"
+                        // The header half of the drawn-size read the auto
+                        // width is estimated from (objectui#11682).
+                        data-auto-width-key={autoWidthKey(col)}
+                      >
                         {reorderEnabled && (
                           <GripVertical className="h-4 w-4 opacity-0 group-hover:opacity-50 cursor-grab active:cursor-grabbing shrink-0" />
                         )}
@@ -2380,7 +2659,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
               )}
             </TableRow>
           </TableHeader>
-          <TableBody>
+          <TableBody ref={tableBodyRef}>
             {paginatedData.length === 0 ? (
               <TableRow className="hover:bg-transparent">
                 <TableCell
@@ -2626,6 +2905,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         // TEXT column authored with both keys would get, and
                         // that is the case this branch refuses.
                         const isWrap = col.wrap === true && !isFit;
+                        const pinnedRightOffset = isPinnedRightColumn(col) ? measuredStickyRights?.[col.accessorKey] : undefined;
                         const columnWidth = isFit
                           ? '1%'
                           : (columnWidths[col.accessorKey] || col.width || autoSizedWidths[col.accessorKey]);
@@ -2674,6 +2954,10 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                               minWidth: isFit ? undefined : columnWidth,
                               maxWidth: isFit ? undefined : columnWidth,
                               ...(isFrozen && { left: frozenOffset }),
+                              // Stacked right pins (objectui#11682): the
+                              // header cell's offset, so each body cell sticks
+                              // where its column does.
+                              ...(pinnedRightOffset ? { right: pinnedRightOffset } : {}),
                             }}
                             onDoubleClick={(e) => {
                               // Entering edit mode must NOT also fire the row's
@@ -2913,6 +3197,9 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                                 // the title carried the raw value, so a hover
                                 // showed what the cell's mask hides.
                                 title={!isFit && !col.masked && cellValue != null && typeof cellValue !== 'object' ? String(cellValue) : undefined}
+                                // The cell half of the drawn-size read the
+                                // auto width is estimated from (objectui#11682).
+                                data-auto-width-key={autoWidthKey(col)}
                               >
                                 {typeof col.cell === 'function'
                                   ? col.cell(cellValue, row)

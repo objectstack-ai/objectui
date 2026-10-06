@@ -18,7 +18,7 @@ import {
 } from '@object-ui/components';
 import type { HighlightField } from '@object-ui/types';
 import { EXPANDABLE_FIELD_TYPES } from '@object-ui/core';
-import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
+import { getCellRenderer, resolveCellRendererType, useBooleanValueLabel } from '@object-ui/fields';
 import { useSafeFieldLabel, useInlineEdit } from '@object-ui/react';
 import { Check, X, Pencil } from 'lucide-react';
 import { InlineFieldInput } from './InlineFieldInput';
@@ -53,6 +53,10 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
 }) => {
   const { fieldLabel } = useSafeFieldLabel();
   const { t } = useDetailTranslation();
+  // The boolean chip's word (objectui#11689) — the one every read-only boolean
+  // word in `@object-ui/fields` reads, so this strip cannot say a different
+  // word from the field the same record shows in its form.
+  const booleanLabel = useBooleanValueLabel();
   // Shared record-level inline-edit session (objectui#2407 P2). Null when the
   // host doesn't wrap the page in an <InlineEditProvider> → strip stays
   // read-only, exactly as before.
@@ -293,12 +297,12 @@ export const HeaderHighlight: React.FC<HeaderHighlightProps> = ({
                         value ? (
                           <span className="inline-flex items-center gap-1 self-start rounded-full bg-emerald-500/10 px-2 py-0.5 text-xs font-medium text-emerald-600 ring-1 ring-inset ring-emerald-500/30 dark:text-emerald-400">
                             <Check className="h-3 w-3" aria-hidden />
-                            Yes
+                            {booleanLabel(true)}
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1 self-start rounded-full bg-amber-500/10 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-inset ring-amber-500/30 dark:text-amber-400">
                             <X className="h-3 w-3" aria-hidden />
-                            No
+                            {booleanLabel(false)}
                           </span>
                         )
                       ) : isEmpty ? (

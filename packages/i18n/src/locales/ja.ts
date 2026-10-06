@@ -361,6 +361,11 @@ const ja = {
       postalCode: "郵便番号",
       country: "国",
     },
+    boolean: {
+      offBadge: "{{label}} — オフ",
+      completed: "完了",
+      notCompleted: "未完了",
+    },
     textarea: {
       characterCount: "文字数: {{max}} 文字中 {{count}} 文字",
       charactersRemaining: "残り {{count}} 文字",
@@ -709,6 +714,7 @@ const ja = {
     firstRunMessage: "最初のレコードを作成して始めましょう。",
     noMatches: "該当するレコードがありません",
     noMatchesMessage: "現在のフィルターや検索条件に一致するレコードはありません。条件を調整するか解除してください。",
+    viewFilterNoMatchesMessage: "このビューのフィルターに一致するレコードはありません。",
     loadErrorTitle: "レコードを読み込めませんでした",
     loadErrorMessage: "データの読み込み中に問題が発生しました。接続を確認して再試行してください。",
     loadErrorForbiddenTitle: "アクセス権がありません",
@@ -2622,6 +2628,8 @@ const ja = {
     greetingAfternoon: "こんにちは",
     greetingEvening: "こんばんは",
     greetingNight: "夜遅くまで作業中",
+    greetingSeparator: "、",
+    greetingEnd: "。",
     heroTagline: "前回の続きを始めるか、新しいものを探索してください。",
     open: "開く",
     recentApps: {

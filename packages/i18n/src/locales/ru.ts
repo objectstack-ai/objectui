@@ -383,6 +383,11 @@ const ru = {
       postalCode: "Почтовый индекс",
       country: "Страна",
     },
+    boolean: {
+      offBadge: "{{label}} — Выкл.",
+      completed: "Выполнено",
+      notCompleted: "Не выполнено",
+    },
     textarea: {
       characterCount: "Количество символов: {{count}} из {{max}}",
       charactersRemaining: "Осталось символов: {{count}}",
@@ -763,6 +768,7 @@ const ru = {
     firstRunMessage: "Создайте первую запись, чтобы начать.",
     noMatches: "Подходящих записей нет",
     noMatchesMessage: "Ни одна запись не соответствует текущим фильтрам или поиску. Измените или сбросьте их.",
+    viewFilterNoMatchesMessage: "Ни одна запись не соответствует фильтру этого представления.",
     loadErrorTitle: "Не удалось загрузить записи",
     loadErrorMessage: "При загрузке данных произошла ошибка. Проверьте соединение и попробуйте снова.",
     loadErrorForbiddenTitle: "Нет доступа",
@@ -2735,6 +2741,8 @@ const ru = {
     greetingAfternoon: "Добрый день",
     greetingEvening: "Добрый вечер",
     greetingNight: "Ночная смена",
+    greetingSeparator: ", ",
+    greetingEnd: ".",
     heroTagline: "Продолжите с того места, где остановились, или откройте что-то новое.",
     open: "Открыть",
     recentApps: {

@@ -368,6 +368,11 @@ const fr = {
       postalCode: "Code postal",
       country: "Pays",
     },
+    boolean: {
+      offBadge: "{{label}} — Désactivé",
+      completed: "Terminé",
+      notCompleted: "Non terminé",
+    },
     textarea: {
       characterCount: "Nombre de caractères : {{count}} sur {{max}}",
       charactersRemaining: "Caractères restants : {{count}}",
@@ -732,6 +737,7 @@ const fr = {
     firstRunMessage: "Créez votre premier enregistrement pour commencer.",
     noMatches: "Aucun enregistrement correspondant",
     noMatchesMessage: "Aucun enregistrement ne correspond à vos filtres ou à votre recherche. Essayez de les ajuster ou de les effacer.",
+    viewFilterNoMatchesMessage: "Aucun enregistrement ne correspond au filtre de cette vue.",
     loadErrorTitle: "Impossible de charger les enregistrements",
     loadErrorMessage: "Une erreur s'est produite lors du chargement de ces données. Vérifiez votre connexion et réessayez.",
     loadErrorForbiddenTitle: "Accès refusé",
@@ -2668,6 +2674,8 @@ const fr = {
     greetingAfternoon: "Bon après-midi",
     greetingEvening: "Bonsoir",
     greetingNight: "Travail de nuit",
+    greetingSeparator: ", ",
+    greetingEnd: ".",
     heroTagline: "Reprenez là où vous vous êtes arrêté ou découvrez quelque chose de nouveau.",
     open: "Ouvrir",
     recentApps: {

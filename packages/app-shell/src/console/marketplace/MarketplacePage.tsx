@@ -75,6 +75,38 @@ function useRelativeFormatter() {
   };
 }
 
+/**
+ * A failed catalog load as the page tells it (objectui#11688): the server's
+ * own words, and whether "check that it is online" is the real cause.
+ *
+ * Both hints end in that question, so they are shown only when it is the
+ * cause: no server answered at all (`call()` stamps `status` on every failure
+ * a server answered, so a failure without one never reached a server), or the
+ * server that answered said it could not reach the one behind it or is not
+ * serving. Any other answer is a refusal whose cause is the server's text, and
+ * an "is it online" line under a 403 sends the reader after the wrong fault.
+ */
+interface LoadFailure {
+  message: string;
+  showOnlineHint: boolean;
+}
+
+/**
+ * The answered statuses whose cause IS reachability: 502 and 504 are a gateway
+ * that got no (timely) answer upstream, the runtime proxy's own
+ * `MARKETPLACE_PROXY_FAILED` among them, and 503 is a service that is not up.
+ */
+const UNREACHABLE_STATUSES: ReadonlySet<number> = new Set([502, 503, 504]);
+
+function toLoadFailure(e: unknown): LoadFailure {
+  const err = e as { message?: unknown; status?: unknown } | null | undefined;
+  const status = typeof err?.status === 'number' ? err.status : undefined;
+  return {
+    message: typeof err?.message === 'string' ? err.message : String(e),
+    showOnlineHint: status === undefined || UNREACHABLE_STATUSES.has(status),
+  };
+}
+
 export function MarketplacePage() {
   const navigate = useNavigate();
   const { appName } = useParams();
@@ -94,7 +126,7 @@ export function MarketplacePage() {
   // no catalog is not "loading", it is done. Writing that from inside the
   // effect would be a second `react-hooks/set-state-in-effect` site.
   const [loading, setLoading] = useState(marketplaceEnabled);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<LoadFailure | null>(null);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState<string>('');
   const [installed, setInstalled] = useState<LocalInstallEntry[]>([]);
@@ -115,21 +147,33 @@ export function MarketplacePage() {
     setLoading(true);
     setError(null);
     try {
-      const [resp, installs, org, cloudInstalled] = await Promise.all([
-        listMarketplacePackages({ limit: 100 }),
+      const [catalog, installs, org, cloudInstalled] = await Promise.all([
+        // Settled here rather than left to reject the batch. The three side
+        // loads each answer "nothing" on their own failure, so the catalog is
+        // the only one that can fail, and its failure must not discard what
+        // they loaded: the org section and the installed count (objectui#11688).
+        listMarketplacePackages({ limit: 100 }).then(
+          (resp) => ({ resp, failure: null }),
+          (e: unknown) => ({ resp: null, failure: toLoadFailure(e) }),
+        ),
         listLocalInstalls(),
         listOrgPackages(),
         listInstalledPackages(),
       ]);
-      setItems(resp.items ?? []);
       setInstalled(installs);
       setOrgItems(org.items ?? []);
       const ids = new Set<string>();
       for (const e of installs) ids.add(e.manifestId);
       for (const e of cloudInstalled.items) ids.add(e.manifestId);
       setInstalledIds(ids);
-    } catch (e: any) {
-      setError(e?.message ?? String(e));
+      if (catalog.failure !== null) {
+        setError(catalog.failure);
+        setItems([]);
+      } else {
+        setItems(catalog.resp.items ?? []);
+      }
+    } catch (e: unknown) {
+      setError(toLoadFailure(e));
       setItems([]);
     } finally {
       setLoading(false);
@@ -303,17 +347,22 @@ export function MarketplacePage() {
           <AlertCircle className="h-4 w-4 mt-0.5 text-destructive" aria-hidden="true" />
           <div>
             <div className="font-medium text-destructive">{t('marketplace.load.failed')}</div>
-            <div className="text-muted-foreground mt-1">{error}</div>
+            {/* The server's own text, as a text child: it is server-supplied
+                data, so it never reaches `dangerouslySetInnerHTML`. */}
+            <div className="text-muted-foreground mt-1" data-testid="marketplace-load-cause">{error.message}</div>
             {/* The hint names the control plane the SERVER said it uses, so it
                 can never claim a default the operator overrode (objectui#5504).
                 Plain text, not `dangerouslySetInnerHTML`: `cloudBase` is
                 server-supplied data and interpolating it into innerHTML would
-                be an injection sink for no gain. */}
-            <div className="text-xs text-muted-foreground mt-2" data-testid="marketplace-load-hint">
-              {cloudBase
-                ? t('marketplace.load.failedHintConfigured', { url: cloudBase })
-                : t('marketplace.load.failedHintSameOrigin')}
-            </div>
+                be an injection sink for no gain. Shown only when being online
+                is the cause (`toLoadFailure`, objectui#11688). */}
+            {error.showOnlineHint && (
+              <div className="text-xs text-muted-foreground mt-2" data-testid="marketplace-load-hint">
+                {cloudBase
+                  ? t('marketplace.load.failedHintConfigured', { url: cloudBase })
+                  : t('marketplace.load.failedHintSameOrigin')}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -399,7 +448,9 @@ export function MarketplacePage() {
             </Card>
           ))}
         </div>
-      ) : filtered.length === 0 ? (
+      ) : error ? null : filtered.length === 0 ? (
+        // Not drawn under a load error: "no apps have been approved yet" is a
+        // claim about a catalog this page failed to read (objectui#11688).
         <div className="text-center py-12 text-sm text-muted-foreground">
           {items.length === 0 ? t('marketplace.noApprovedYet') : t('marketplace.noMatchFilters')}
         </div>

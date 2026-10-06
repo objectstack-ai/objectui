@@ -401,6 +401,11 @@ const ar = {
       postalCode: "الرمز البريدي",
       country: "الدولة",
     },
+    boolean: {
+      offBadge: "{{label}} — إيقاف",
+      completed: "مكتمل",
+      notCompleted: "غير مكتمل",
+    },
     textarea: {
       characterCount: "عدد الأحرف: {{count}} من {{max}}",
       charactersRemaining: "الأحرف المتبقية: {{count}}",
@@ -813,6 +818,7 @@ const ar = {
     firstRunMessage: "أنشئ سجلك الأول للبدء.",
     noMatches: "لا توجد سجلات مطابقة",
     noMatchesMessage: "لا توجد سجلات تطابق عوامل التصفية أو البحث الحالية. حاول تعديلها أو مسحها.",
+    viewFilterNoMatchesMessage: "لا توجد سجلات تطابق عامل التصفية لطريقة العرض هذه.",
     loadErrorTitle: "تعذّر تحميل السجلات",
     loadErrorMessage: "حدث خطأ أثناء تحميل هذه البيانات. تحقق من اتصالك وحاول مرة أخرى.",
     loadErrorForbiddenTitle: "ليس لديك صلاحية الوصول",
@@ -2828,6 +2834,8 @@ const ar = {
     greetingAfternoon: "مساء الخير",
     greetingEvening: "مساء النور",
     greetingNight: "وردية الليل",
+    greetingSeparator: "، ",
+    greetingEnd: ".",
     heroTagline: "استمر من حيث توقفت أو اكتشف شيئاً جديداً.",
     open: "فتح",
     recentApps: {

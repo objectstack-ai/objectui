@@ -11,6 +11,7 @@
  * | What               | Auto-generated key                              | Fallback              |
  * |--------------------|-------------------------------------------------|-----------------------|
  * | Object label       | {ns}.objects.{objectName}.label                  | objectDef.label       |
+ * | Object plural      | {ns}.objects.{objectName}.pluralLabel            | objectDef.pluralLabel, then the object label |
  * | Object description | {ns}.objects.{objectName}.description             | objectDef.description |
  * | Field label        | {ns}.fields.{objectName}.{fieldName}              | field.label           |
  *
@@ -295,12 +296,41 @@ export function useObjectLabel() {
     return objectSuffixes(objectName, `_views.${bareViewName}.${tail}`);
   };
 
+  /** The singular object label; `objectPluralLabel` falls back to it. */
+  const objectLabel = (objectDef: { name: string; label: string }) =>
+    resolve(objectSuffixes(objectDef.name, 'label'), objectDef.label);
+
   return {
     /**
      * Resolve translated object label, falling back to objectDef.label.
      */
-    objectLabel: (objectDef: { name: string; label: string }) =>
-      resolve(objectSuffixes(objectDef.name, 'label'), objectDef.label),
+    objectLabel,
+
+    /**
+     * Resolve the object's PLURAL label — what a list of its records is called:
+     * an object list page's title and the breadcrumb segment that links to that
+     * list (objectui#11696). Record-scoped surfaces (the record page, a record
+     * drawer, "New …") keep {@link objectLabel}.
+     *
+     * Order: the translated plural (`{ns}.objects.{objectName}.pluralLabel`),
+     * else the declared `objectDef.pluralLabel`, else the singular as
+     * `objectLabel` resolves it — `pluralLabel` is optional in the spec, and an
+     * object that declares none is called by its label everywhere.
+     *
+     * The first two rungs are the client half of `translateObject` in
+     * `@objectstack/spec` (`system/i18n-resolver`), which serves `pluralLabel`
+     * as the catalog entry, else the authored value. There is deliberately NO
+     * rung that prefers a translated SINGULAR over a declared plural the bundle
+     * leaves untranslated: the server has none either, so every consumer of
+     * `/meta` shows the authored plural in that case, and this client showing
+     * something else would be a second dialect (see `viewSuffixes`). The gap is
+     * the bundle's — `os i18n extract` writes `pluralLabel` wherever the object
+     * declares one — and is fixed there.
+     */
+    objectPluralLabel: (objectDef: { name: string; label: string; pluralLabel?: string }) =>
+      resolve(objectSuffixes(objectDef.name, 'pluralLabel'), '')
+        || objectDef.pluralLabel
+        || objectLabel(objectDef),
 
     /**
      * Resolve translated object description, falling back to objectDef.description.

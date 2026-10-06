@@ -429,13 +429,17 @@ export function HomePage() {
           {/* Greeting + global search + AI */}
           <div className="mb-7 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="min-w-0">
+              {/* The joiners are the locale's punctuation (objectui#11689):
+                  zh-CN and ja write the full-width comma and full stop, ar its
+                  own comma. Two keys rather than one interpolated sentence so
+                  the name keeps its own coloured span. */}
               <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-pretty">
                 <span className="text-foreground">
                   {greeting}
-                  {displayName ? ', ' : ''}
+                  {displayName ? t('home.greetingSeparator', { defaultValue: ', ' }) : ''}
                 </span>
                 {displayName && <span className="text-primary">{displayName}</span>}
-                <span className="text-foreground/40">.</span>
+                <span className="text-foreground/40">{t('home.greetingEnd', { defaultValue: '.' })}</span>
               </h1>
               <p className="mt-1 text-sm sm:text-base text-muted-foreground">
                 {t('home.heroTagline', { defaultValue: 'Pick up where you left off, or explore something new.' })}

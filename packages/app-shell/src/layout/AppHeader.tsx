@@ -186,7 +186,7 @@ export function AppHeader({
   const { isAdmin: isWorkspaceAdmin } = useWorkspaceAdminStatus();
   const canAuthorMetadata = useCanAuthorMetadata();
   const { t } = useObjectTranslation();
-  const { objectLabel, dashboardLabel, pageLabel, reportLabel, viewLabel, appLabel } = useObjectLabel();
+  const { objectPluralLabel, dashboardLabel, pageLabel, reportLabel, viewLabel, appLabel } = useObjectLabel();
   const { apps: metadataApps, dashboards: metadataDashboards, pages: metadataPages, reports: metadataReports } = useMetadata();
   // The views a server read served, already translated — `/meta/view`, and the
   // object document's own `listViews` (objectui#11295, objectui#11336).
@@ -362,8 +362,13 @@ export function AppHeader({
     ? appStudioRoutePath(currentApp, canDesignInStudio, { type: routeType, name: pathParts[3] })
     : null;
 
+  // An object crumb — this segment, its "Switch Object" siblings and the
+  // ancestor trail's object crumbs — links to that object's LIST, so it names
+  // the list: the plural, as the page it opens is titled and as the nav entry
+  // reads (objectui#11696). It is one crumb on every route under the object,
+  // so it does not turn singular when the trail continues into a record.
   const objectSiblings = appObjects.map((o: any) => ({
-    label: objectLabel(o),
+    label: objectPluralLabel(o),
     href: `${baseHref}/${o.name}`,
   }));
 
@@ -411,7 +416,7 @@ export function AppHeader({
       if (currentObject) {
         // Ancestor trail (record → related-record drill-in, `?from=`). Prepend
         // an object-list + record segment per ancestor so the path reads
-        // `Account → #parent → Invoice → #child`, each crumb a link back. The
+        // `Accounts → #parent → Invoices → #child`, each crumb a link back. The
         // ancestor record crumb carries its OWN ancestors so mid-path clicks
         // preserve everything above them.
         if (pathParts[3] === 'record' && pathParts[4]) {
@@ -419,7 +424,7 @@ export function AppHeader({
           trail.forEach((entry, k) => {
             const ancObj = safeObjects.find((o: any) => o.name === entry.o);
             extraSegments.push({
-              label: ancObj ? objectLabel(ancObj) : humanizeSlug(entry.o),
+              label: ancObj ? objectPluralLabel(ancObj) : humanizeSlug(entry.o),
               href: `${baseHref}/${entry.o}`,
             });
             const ancShortId = entry.i.length > 12 ? `${entry.i.slice(0, 8)}…` : entry.i;
@@ -430,7 +435,7 @@ export function AppHeader({
           });
         }
         extraSegments.push({
-          label: objectLabel(currentObject),
+          label: objectPluralLabel(currentObject),
           href: `${baseHref}/${routeType}`,
           siblings: objectSiblings,
         });

@@ -207,6 +207,7 @@ invitee can still register, and refuses anyone else with
 
 | the visitor | `/login` | `/register` |
 | --- | --- | --- |
+| signed in | as in the rows below | sent on to `/`, where a successful sign-up lands; no row below applies |
 | `disableSignUp: true` | no "Sign up" link | bounces to `/login` |
 | posture `open` or `email_domain`, or no posture sent | "Sign up" link | the form |
 | `invite_only`, `?redirect=` is an invitation (`/accept-invitation/ID`) | "Sign up" link, carrying the redirect | the form |
@@ -229,10 +230,14 @@ import {
   type SignUpOffer,
 } from '@object-ui/app-shell';
 
-/** 'form' | 'by-invitation' | 'closed' | 'pending' */
-export function useSignUpOffer(): SignUpOffer {
+/** 'signed-in' | 'form' | 'by-invitation' | 'closed' | 'pending' */
+export function useSignUpOffer(): SignUpOffer | 'signed-in' {
   const [searchParams] = useSearchParams();
-  const { user, getAuthConfig } = useAuth();
+  const { user, isLoading, getAuthConfig } = useAuth();
+  // Whether the first session check has answered. Every sign-up in flight
+  // raises `isLoading` again, so latch the first time it clears.
+  const [sessionChecked, setSessionChecked] = useState(!isLoading);
+  if (!isLoading && !sessionChecked) setSessionChecked(true);
   // `null` until `/auth/config` has been read (and after a failed read).
   const [authConfig, setAuthConfig] = useState<AuthPublicConfig | null>(null);
   useEffect(() => {
@@ -240,16 +245,23 @@ export function useSignUpOffer(): SignUpOffer {
   }, [getAuthConfig]);
 
   const invitationRedirect = isInvitationRedirect(searchParams.get('redirect'));
-  // Probes GET /api/v1/auth/bootstrap-status only when the posture is closed
-  // and nothing else admits the visitor.
-  const bootstrap = useBootstrapStatus(!user && needsBootstrapProbe(authConfig, invitationRedirect));
+  // Probes GET /api/v1/auth/bootstrap-status only for a visitor known to be
+  // signed out, when the posture is closed and nothing else admits them.
+  const signedOut = sessionChecked && !user;
+  const bootstrap = useBootstrapStatus(signedOut && needsBootstrapProbe(authConfig, invitationRedirect));
+  if (user) return 'signed-in';
+  if (!signedOut) return 'pending';
   return decideSignUpOffer(authConfig, { invitationRedirect, bootstrap });
 }
 ```
 
-A `null` config answers `form`, leaving the server's own gate as the source of
-truth. An invitation redirect is an affordance, not an authorization: the
-server still refuses a non-invitee's sign-up.
+A signed-in visitor is not who the offer is about, so the hook answers
+`signed-in` before anything else, without the probe: move that visitor on.
+`DefaultRegisterPage` sends them to `/`, where it sends a visitor after a
+successful sign-up (objectui#11714). A `null` config answers `form`, leaving
+the server's own gate as the source of truth. An invitation redirect is an
+affordance, not an authorization: the server still refuses a non-invitee's
+sign-up.
 
 ## Components
 

@@ -192,7 +192,7 @@ export function buildSaveAsViewSpec(
 export function ObjectDataPage({ dataSource, objects }: any) {
   const { appName, objectName } = useParams();
   const { t } = useObjectTranslation();
-  const { objectLabel, fieldLabel } = useObjectLabel();
+  const { objectLabel, objectPluralLabel, fieldLabel } = useObjectLabel();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { can, getObjectApiOperations } = usePermissions();
@@ -526,7 +526,10 @@ export function ObjectDataPage({ dataSource, objects }: any) {
         <PageHeader
           title={
             <span className="inline-flex items-center gap-2">
-              <span className="truncate">{objectLabel(objectDef)}</span>
+              {/* The page lists the object's records, so it is titled with the
+                  plural, as the object crumb above it is (objectui#11696). The
+                  record drawer below keeps the singular. */}
+              <span className="truncate">{objectPluralLabel(objectDef)}</span>
               <span className="rounded border px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 {t('console.objectData.badge', { defaultValue: 'Data' })}
               </span>

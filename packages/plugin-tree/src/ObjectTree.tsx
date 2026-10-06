@@ -64,6 +64,11 @@ import {
   RecordDetailPanel,
 } from '@object-ui/plugin-detail';
 import { createSafeTranslation } from '@object-ui/i18n';
+import {
+  getCellRenderer,
+  resolveCellRendererType,
+  type CellRendererProps,
+} from '@object-ui/fields';
 import { usePermissions } from '@object-ui/permissions';
 import {
   buildExpandFields,
@@ -519,12 +524,23 @@ type TranslateOptions = (
   options: FieldOption[],
 ) => FieldOption[];
 
-/** What {@link formatCellValue} needs to format one cell of one column. */
+/**
+ * What {@link renderTreeCell} (and its untyped fallback {@link formatCellValue})
+ * needs to draw one cell of one column.
+ */
 interface CellFormatContext {
   /** The object schema's definition for this column, when one was fetched. */
   fieldDef: any;
   /** The column's field key — the i18n option keys are scoped by it. */
   fieldName: string;
+  /**
+   * The column's label exactly as this tree's header prints it (the
+   * `{ns}.fields.{object}.{field}` key, then the authored label, then the
+   * humanized key). A face that names its own column — `BooleanCellRenderer`'s
+   * "LABEL — Off" badge — reads it from `field.label`, so the cell and the
+   * header it sits under say the same word in the session's language.
+   */
+  columnLabel: string;
   /** The object the tree is rendering; absent for a schema-less inline mount. */
   objectName?: string;
   /** `useSafeFieldLabel().translateOptions` — identity without a provider. */
@@ -532,6 +548,67 @@ interface CellFormatContext {
 }
 
 /**
+ * Draw one tree cell through the SAME per-field-type face every list surface
+ * draws — objectui#11686.
+ *
+ * The face is resolved by `@object-ui/fields`'s published two-step,
+ * `getCellRenderer(resolveCellRendererType(field))` — the resolution the grid
+ * (through its `resolveGridCellRendering`), the kanban card, the gallery card
+ * and the report viewer all spell. So a `boolean` column draws the checkbox
+ * face, a `date` column the locale-aware date face, a `select` column the
+ * option badge, a `lookup` column the referenced record's name, a `currency`
+ * column the formatted amount — and a type the tree has never heard of draws
+ * whatever the registry draws for it, with no list copied here to fall behind.
+ * Before this, every type outside "has options" and "is a reference" reached
+ * `String(value)`: the Org Chart's `active` column printed `true`.
+ *
+ * The `field` handed to the face is the column's definition with the four
+ * things this tree knows better than the raw definition:
+ *
+ *  - `name` — the column key. Faces read it (`BooleanCellRenderer`'s
+ *    completion / status names, the date faces' due-like name test), and a
+ *    served `fields` map is keyed by name rather than carrying it.
+ *  - `type` — the RENDERER key, the declared type promoted by its `format`
+ *    hint, as the grid's `fieldMeta.type` carries it.
+ *  - `options` — translated through `translateOptions`, the exact call the
+ *    grid makes when it builds a column's `fieldMeta`, so both views read one
+ *    `fieldOptions.*` i18n key (objectui#6014's half, kept).
+ *  - `label` — {@link CellFormatContext.columnLabel}.
+ *
+ * ⚠️ Only a column with a DECLARED type has a face to resolve. A column the
+ * object schema does not define, or a mount that never fetched one, keeps
+ * {@link formatCellValue}'s conservative string — the face for "no type at
+ * all" is not a guess this renderer gets to make.
+ *
+ * `empty` is the text a STRING answer falls back to when it comes out empty;
+ * a face draws its own empty affordance (`EmptyValue`) and never reads it.
+ */
+function renderTreeCell(value: unknown, ctx: CellFormatContext, empty = ''): React.ReactNode {
+  const def = ctx.fieldDef;
+  const declaredType: string = typeof def?.type === 'string' ? def.type : '';
+  if (!declaredType) return formatCellValue(value, ctx) || empty;
+
+  const rendererType = resolveCellRendererType({ type: declaredType, format: def.format });
+  const Face = getCellRenderer(rendererType);
+  const options: FieldOption[] | undefined = Array.isArray(def.options)
+    ? ctx.objectName
+      ? ctx.translateOptions(ctx.objectName, ctx.fieldName, def.options as FieldOption[])
+      : (def.options as FieldOption[])
+    : undefined;
+  const field: CellRendererProps['field'] = {
+    ...def,
+    name: ctx.fieldName,
+    type: rendererType,
+    label: ctx.columnLabel,
+    ...(options ? { options } : {}),
+  };
+  return <Face value={value} field={field} />;
+}
+
+/**
+ * The UNTYPED fallback of {@link renderTreeCell}, and the plain reading the
+ * record overlay prints when it has nothing declared to render against.
+ *
  * Format one cell the way the flat table formats the same field — objectui#6014.
  *
  * Both branches DELEGATE the decision rather than re-deciding it, so the tree
@@ -1042,6 +1119,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
   const cellContext = (field: string): CellFormatContext => ({
     fieldDef: objectSchema?.fields?.[field],
     fieldName: field,
+    columnLabel: fieldLabel(field),
     objectName: headerObjectName,
     translateOptions: i18n.translateOptions,
   });
@@ -1275,7 +1353,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
                       <span className="inline-block h-5 w-5" />
                     )}
                     <span className="truncate">
-                      {formatCellValue(node.record[config.labelField], cellContext(config.labelField)) || '—'}
+                      {renderTreeCell(node.record[config.labelField], cellContext(config.labelField), '—')}
                     </span>
                   </div>
                 </td>
@@ -1283,7 +1361,7 @@ export const ObjectTree: React.FC<ObjectTreeProps> = ({
                   .filter((f) => f !== config.labelField)
                   .map((f) => (
                     <td key={f} className="px-3 py-2 text-muted-foreground">
-                      {formatCellValue(node.record[f], cellContext(f))}
+                      {renderTreeCell(node.record[f], cellContext(f))}
                     </td>
                   ))}
               </tr>

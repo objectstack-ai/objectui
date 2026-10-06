@@ -372,6 +372,11 @@ const es = {
       postalCode: "Código postal",
       country: "País",
     },
+    boolean: {
+      offBadge: "{{label}} — Desactivado",
+      completed: "Completado",
+      notCompleted: "No completado",
+    },
     textarea: {
       characterCount: "Recuento de caracteres: {{count}} de {{max}}",
       charactersRemaining: "Caracteres restantes: {{count}}",
@@ -736,6 +741,7 @@ const es = {
     firstRunMessage: "Cree su primer registro para empezar.",
     noMatches: "No hay registros coincidentes",
     noMatchesMessage: "Ningún registro coincide con sus filtros o su búsqueda actuales. Pruebe a ajustarlos o borrarlos.",
+    viewFilterNoMatchesMessage: "Ningún registro coincide con el filtro de esta vista.",
     loadErrorTitle: "No se pudieron cargar los registros",
     loadErrorMessage: "Algo salió mal al cargar estos datos. Compruebe su conexión y vuelva a intentarlo.",
     loadErrorForbiddenTitle: "No tiene acceso",
@@ -2671,6 +2677,8 @@ const es = {
     greetingAfternoon: "Buenas tardes",
     greetingEvening: "Buenas noches",
     greetingNight: "Turno de noche",
+    greetingSeparator: ", ",
+    greetingEnd: ".",
     heroTagline: "Continúe donde lo dejó o descubra algo nuevo.",
     open: "Abrir",
     recentApps: {

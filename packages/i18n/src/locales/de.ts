@@ -361,6 +361,11 @@ const de = {
       postalCode: "Postleitzahl",
       country: "Land",
     },
+    boolean: {
+      offBadge: "{{label}} — Aus",
+      completed: "Abgeschlossen",
+      notCompleted: "Nicht abgeschlossen",
+    },
     textarea: {
       characterCount: "Zeichenanzahl: {{count}} von {{max}}",
       charactersRemaining: "Verbleibende Zeichen: {{count}}",
@@ -709,6 +714,7 @@ const de = {
     firstRunMessage: "Legen Sie Ihren ersten Datensatz an, um loszulegen.",
     noMatches: "Keine passenden Datensätze",
     noMatchesMessage: "Keine Datensätze entsprechen Ihren aktuellen Filtern oder Ihrer Suche. Passen Sie sie an oder setzen Sie sie zurück.",
+    viewFilterNoMatchesMessage: "Keine Datensätze entsprechen dem Filter dieser Ansicht.",
     loadErrorTitle: "Datensätze konnten nicht geladen werden",
     loadErrorMessage: "Beim Laden dieser Daten ist etwas schiefgelaufen. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
     loadErrorForbiddenTitle: "Kein Zugriff",
@@ -2620,6 +2626,8 @@ const de = {
     greetingAfternoon: "Guten Nachmittag",
     greetingEvening: "Guten Abend",
     greetingNight: "Nachtschicht",
+    greetingSeparator: ", ",
+    greetingEnd: ".",
     heroTagline: "Machen Sie dort weiter, wo Sie aufgehört haben, oder entdecken Sie etwas Neues.",
     open: "Öffnen",
     recentApps: {

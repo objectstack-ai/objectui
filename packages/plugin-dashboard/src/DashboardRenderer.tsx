@@ -1195,6 +1195,43 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     // spec's `I18nLabel`, a different DECLARED key that stays. The two are told
     // apart by RECEIVER — this one's receiver is the dashboard ROOT.
     const headerTitle = schema.label;
+
+    const recordCountBadge = recordCount !== undefined && (
+      <span className="text-xs text-muted-foreground">
+        {recordCount.toLocaleString(displayLocale)} records
+      </span>
+    );
+
+    /**
+     * The refresh control (with its record-count badge) never takes a row of
+     * its own when there is a row to share (objectui#11694).
+     *
+     * It used to be a `col-span-full` grid item of its own, between the filter
+     * bar and the widgets. In the positioned grid every implicit row has the
+     * `minmax(5rem, auto)` floor, so a button-high control claimed a 5rem row
+     * plus the grid gap; the reading on objectui#11694 (1440x900, a filtered
+     * dashboard) had that band push the first row of charts below the fold. So
+     * it shares, in this order: the filter bar's row (right-aligned, the row
+     * nearest the data it refreshes); else the header's row, when this
+     * renderer draws one; else it stands alone, in a row sized to its content
+     * (see `leadingRows` below).
+     */
+    const refreshControl = onRefresh && (
+      <div className="ml-auto flex shrink-0 items-center gap-3">
+        {recordCountBadge}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleRefresh}
+          disabled={refreshing}
+          aria-label={tt('dashboard.refreshDashboard', 'Refresh dashboard')}
+        >
+          <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
+          {refreshing ? tt('dashboard.refreshing', 'Refreshing…') : tt('dashboard.refreshAll', 'Refresh All')}
+        </Button>
+      </div>
+    );
+    const refreshInHeader = !!refreshControl && filterDefs.length === 0;
     /**
      * Decide what the header would actually SHOW before deciding whether to
      * render its wrapper at all.
@@ -1221,64 +1258,67 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
     const showHeaderDescription = !hideHeaderText && header?.showDescription !== false && !!schema.description;
     const headerActions = header?.actions ?? [];
     const headerSection = header && (showHeaderTitle || showHeaderDescription || headerActions.length > 0) && (
-      <div className="col-span-full mb-4">
-        {/* A `localized` document's label and description are the server's
-            answer and are drawn as given, as its widget texts are (objectui#11295). */}
-        {showHeaderTitle && (
-          <h2 className="text-lg font-semibold tracking-tight">
-            {dashName && !localized
-              ? dashboardLabel({ name: dashName, label: resolveLabel(headerTitle) })
-              : resolveLabel(headerTitle)}
-          </h2>
-        )}
-        {showHeaderDescription && (
-          <p className="text-sm text-muted-foreground mt-1">
-            {dashName && !localized
-              ? dashboardDescription({ name: dashName, description: resolveLabel(schema.description) })
-              : resolveLabel(schema.description)}
-          </p>
-        )}
-        {headerActions.length > 0 && (
-          <div className="flex gap-2 mt-3">
-            {headerActions.map((action, i) => {
-              const Icon = resolveLucideIcon(action.icon);
-              const handleClick = async () => {
-                const { actionType, actionUrl } = action;
-                if (!actionType || !actionUrl) {
-                  console.warn('[DashboardRenderer] Header action missing actionType/actionUrl:', action);
-                  return;
-                }
-                if (actionType === 'url') {
-                  if (/^https?:\/\//.test(actionUrl) || actionUrl.startsWith('//')) {
-                    window.location.assign(actionUrl);
-                  } else {
-                    // SPA-friendly navigation: use history API + popstate so React Router picks it up.
-                    window.history.pushState({}, '', actionUrl);
-                    window.dispatchEvent(new PopStateEvent('popstate'));
+      <div className={cn("col-span-full mb-4", refreshInHeader && "flex items-start justify-between gap-3")}>
+        <div className="min-w-0">
+          {/* A `localized` document's label and description are the server's
+              answer and are drawn as given, as its widget texts are (objectui#11295). */}
+          {showHeaderTitle && (
+            <h2 className="text-lg font-semibold tracking-tight">
+              {dashName && !localized
+                ? dashboardLabel({ name: dashName, label: resolveLabel(headerTitle) })
+                : resolveLabel(headerTitle)}
+            </h2>
+          )}
+          {showHeaderDescription && (
+            <p className="text-sm text-muted-foreground mt-1">
+              {dashName && !localized
+                ? dashboardDescription({ name: dashName, description: resolveLabel(schema.description) })
+                : resolveLabel(schema.description)}
+            </p>
+          )}
+          {headerActions.length > 0 && (
+            <div className="flex gap-2 mt-3">
+              {headerActions.map((action, i) => {
+                const Icon = resolveLucideIcon(action.icon);
+                const handleClick = async () => {
+                  const { actionType, actionUrl } = action;
+                  if (!actionType || !actionUrl) {
+                    console.warn('[DashboardRenderer] Header action missing actionType/actionUrl:', action);
+                    return;
                   }
-                  return;
-                }
-                // Everything that is not a raw navigation goes through the
-                // ActionRunner, which owns the type registry. This used to
-                // allow-list `modal` / `script` only, so a `flow` header action
-                // (and `api` / `form` / `navigation`) fell through to a warn and
-                // never dispatched — a screen flow could not even be launched
-                // from a dashboard (framework#3528). The runner reports an
-                // unknown type itself, so there is nothing to second-guess here.
-                // `actionUrl` is non-empty here (the guard above returns
-                // otherwise), and it is the name the def registered under.
-                const result = await executeAction(actionUrl);
-                if (!result?.success) console.warn('[DashboardRenderer] action failed', result?.error);
-              };
-              return (
-                <Button key={i} variant="outline" size="sm" onClick={handleClick}>
-                  {Icon && <Icon className="w-4 h-4 mr-1.5" />}
-                  {tActionLabel(action)}
-                </Button>
-              );
-            })}
-          </div>
-        )}
+                  if (actionType === 'url') {
+                    if (/^https?:\/\//.test(actionUrl) || actionUrl.startsWith('//')) {
+                      window.location.assign(actionUrl);
+                    } else {
+                      // SPA-friendly navigation: use history API + popstate so React Router picks it up.
+                      window.history.pushState({}, '', actionUrl);
+                      window.dispatchEvent(new PopStateEvent('popstate'));
+                    }
+                    return;
+                  }
+                  // Everything that is not a raw navigation goes through the
+                  // ActionRunner, which owns the type registry. This used to
+                  // allow-list `modal` / `script` only, so a `flow` header action
+                  // (and `api` / `form` / `navigation`) fell through to a warn and
+                  // never dispatched — a screen flow could not even be launched
+                  // from a dashboard (framework#3528). The runner reports an
+                  // unknown type itself, so there is nothing to second-guess here.
+                  // `actionUrl` is non-empty here (the guard above returns
+                  // otherwise), and it is the name the def registered under.
+                  const result = await executeAction(actionUrl);
+                  if (!result?.success) console.warn('[DashboardRenderer] action failed', result?.error);
+                };
+                return (
+                  <Button key={i} variant="outline" size="sm" onClick={handleClick}>
+                    {Icon && <Icon className="w-4 h-4 mr-1.5" />}
+                    {tActionLabel(action)}
+                  </Button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+        {refreshInHeader && refreshControl}
       </div>
     );
 
@@ -1289,15 +1329,31 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         onChange={setFilterValue}
         onReset={resetFilterValues}
         dataSource={dataSource}
-        className="mb-2"
+        className={refreshControl ? 'min-w-0 grow' : undefined}
       />
     );
 
-    const recordCountBadge = recordCount !== undefined && (
-      <span className="text-xs text-muted-foreground">
-        {recordCount.toLocaleString(displayLocale)} records
-      </span>
-    );
+    // The row under the header (objectui#11694): the filter bar with the
+    // refresh control at its right end; or the control alone, when there is no
+    // filter bar and no header row of this renderer's to share.
+    const toolbarRow = filterBar
+      ? (refreshControl ? (
+          <div className="col-span-full flex flex-wrap items-center gap-2">
+            {filterBar}
+            {refreshControl}
+          </div>
+        ) : filterBar)
+      : (refreshControl && !headerSection && (
+          <div className="col-span-full flex">{refreshControl}</div>
+        ));
+    /**
+     * The full-width rows above the widgets: the header and the toolbar row.
+     * In the positioned grid they are explicit `auto` tracks, sized to their
+     * content, so the `minmax(5rem, auto)` floor stays on the widget rows that
+     * need it (objectui#11694). Widgets are auto-placed by span only, so these
+     * leading items always take the first rows.
+     */
+    const leadingRows = (headerSection ? 1 : 0) + (toolbarRow ? 1 : 0);
 
     const userActionsAttr = userActions ? JSON.stringify(userActions) : undefined;
 
@@ -1332,22 +1388,6 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
      */
     const hostDomProps = toDomProps(props);
 
-    const refreshButton = onRefresh && (
-      <div className={cn("flex items-center justify-end gap-3 mb-2", !isMobile && "col-span-full")}>
-        {recordCountBadge}
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={refreshing}
-          aria-label={tt('dashboard.refreshDashboard', 'Refresh dashboard')}
-        >
-          <RefreshCw className={cn("h-4 w-4 mr-2", refreshing && "animate-spin")} />
-          {refreshing ? tt('dashboard.refreshing', 'Refreshing…') : tt('dashboard.refreshAll', 'Refresh All')}
-        </Button>
-      </div>
-    );
-
     const widgetIds = useMemo(
       () => (schema.widgets ?? []).map((w: DashboardWidgetSlotEntry) => w.id).filter((id: string | undefined): id is string => !!id),
       [schema.widgets]
@@ -1372,8 +1412,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
       const mobileBody = (
         <div ref={ref} {...hostDomProps} className={cn("flex flex-col gap-4 px-4", className)} data-user-actions={userActionsAttr} onClick={handleHostClick}>
           {headerSection}
-          {filterBar}
-          {refreshButton}
+          {toolbarRow}
 
           {/* Metric cards: 2-column grid */}
           {metricWidgets.length > 0 && (
@@ -1417,6 +1456,11 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
           // spanned row a floor (so `gridRow: span 4` => a real ~20rem box)
           // while still letting taller widgets (tables) grow.
           !hasExplicitColumns && "auto-rows-min grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4",
+          // That floor is for widget rows only: the full-width rows above the
+          // widgets (see `leadingRows`) are explicit `auto` tracks, sized to
+          // their content (objectui#11694).
+          hasExplicitColumns && leadingRows === 1 && "grid-rows-[auto]",
+          hasExplicitColumns && leadingRows === 2 && "grid-rows-[auto_auto]",
           className
         )}
         style={{
@@ -1430,8 +1474,7 @@ const DashboardRendererInner = forwardRef<HTMLDivElement, DashboardRendererProps
         onClick={handleHostClick}
       >
         {headerSection}
-        {filterBar}
-        {refreshButton}
+        {toolbarRow}
         <SortableContext items={widgetIds} strategy={rectSortingStrategy} disabled={!dragEnabled}>
           {schema.widgets?.map((widget: DashboardWidgetSlotEntry, index: number) => renderWidget(widget, index))}
         </SortableContext>

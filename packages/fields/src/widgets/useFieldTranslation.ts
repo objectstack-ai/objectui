@@ -11,6 +11,18 @@ const FIELD_DEFAULTS: Record<string, string> = {
   'common.noResults': 'No results found',
   'common.cancel': 'Cancel',
   'common.confirm': 'Confirm',
+  // objectui#11689 — the word a read-only boolean value is drawn with
+  // (`useBooleanValueLabel`). Same values as the `en` pack, so a provider-less
+  // render still says what the literals it replaced said.
+  'common.yes': 'Yes',
+  'common.no': 'No',
+  // objectui#11689 — `BooleanCellRenderer`'s own words: the status column's
+  // "LABEL — Off" badge (`{{label}}` is the column label the face is handed)
+  // and the completion indicator's two accessible names. Same values as the
+  // `en` pack, so a provider-less render reads what the literals did.
+  'fields.boolean.offBadge': '{{label}} — Off',
+  'fields.boolean.completed': 'Completed',
+  'fields.boolean.notCompleted': 'Not completed',
   'table.selected': '{{count}} selected',
   'table.search': 'Search…',
   'lookup.loading': 'Loading…',

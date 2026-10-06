@@ -178,6 +178,33 @@ describe('useApiDiscovery — fail-closed posture is preserved (ADR-0076 D12)', 
   });
 });
 
+// The AI group after the `/assistant` retirement (#11704). The three ambient
+// assistant routes were retired on the server (objectstack-ai/cloud#2621) and a
+// row for a route that answers 404 is a try-it button that can only fail. The
+// named-agent route is the one chat door, so it must stay — that `toContain` is
+// also the positive control: it proves the group rendered and its rows were
+// enumerated, so the empty `/assistant` list below is a measurement, not a
+// vacuous pass.
+describe('useApiDiscovery — the AI group lists no retired /assistant row (#11704)', () => {
+  const USABLE_AI: ServiceEntry = {
+    enabled: true,
+    status: 'available',
+    handlerReady: true,
+    route: '/api/v1/ai',
+  };
+
+  it('keeps the named-agent chat door and offers no /assistant route', async () => {
+    const groups = await groupsFor({ ai: USABLE_AI });
+
+    const ai = groups.find(g => g.key === 'AI');
+    expect(ai, 'the AI group must render when /discovery reports the `ai` slot usable').toBeDefined();
+
+    const rows = ai!.endpoints.map(e => `${e.method} ${e.path}`);
+    expect(rows).toContain('POST /api/v1/ai/agents/:agentName/chat');
+    expect(rows.filter(row => row.includes('/assistant'))).toEqual([]);
+  });
+});
+
 /**
  * The tripwire (#4240 dispatch rider).
  *

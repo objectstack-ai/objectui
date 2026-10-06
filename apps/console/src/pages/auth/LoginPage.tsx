@@ -16,7 +16,9 @@
  *    from this visitor: never under `emailPassword.disableSignUp === true`,
  *    and under an audience posture closed to strangers (`invite_only`) only
  *    for an invitation redirect or a deployment with no owner yet — see
- *    `./signUpOffer` (objectui#11691).
+ *    `decideSignUpOffer` in `@object-ui/app-shell`, the one decision this page
+ *    shares with the package's exported `DefaultLoginPage` (objectui#11691,
+ *    objectui#11705).
  */
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
@@ -25,11 +27,15 @@ import { useAuth, LoginForm, AuthErrorBanner } from '@object-ui/auth';
 import type { AuthPublicConfig } from '@object-ui/auth';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { Card } from '@object-ui/components';
-import { signInRefusalMessages } from '@object-ui/app-shell';
+import {
+  signInRefusalMessages,
+  decideSignUpOffer,
+  isInvitationRedirect,
+  needsBootstrapProbe,
+  useBootstrapStatus,
+} from '@object-ui/app-shell';
 import { AuthLayout } from './AuthLayout';
 import { followOauthAuthorize } from './followAuthorize';
-import { decideSignUpOffer, isInvitationRedirect, needsBootstrapProbe } from './signUpOffer';
-import { useBootstrapStatus } from '../../components/setupEntry';
 // Was module-private here; lifted to a shared module so `SetupPage` (whose
 // first-run exits went without it) and `RegisterPage` (which had copied it)
 // share ONE implementation — objectui#4181. Behaviour here is unchanged.
@@ -111,7 +117,7 @@ export function LoginPage() {
 
   // objectui#11691 — whether this visitor is offered "Sign up". The bootstrap
   // probe runs only when the posture is closed to strangers and the visitor
-  // did not come from an invitation; see `./signUpOffer`.
+  // did not come from an invitation; see app-shell's `decideSignUpOffer`.
   const invitationRedirect = isInvitationRedirect(redirect);
   const bootstrap = useBootstrapStatus(
     hasBootstrapped && !user && needsBootstrapProbe(authConfig, invitationRedirect),

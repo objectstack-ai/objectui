@@ -1,6 +1,22 @@
 /**
- * signUpOffer — what the console's login and register pages offer a visitor
- * who has no account yet (objectui#11691).
+ * ObjectUI
+ * Copyright (c) 2024-present ObjectStack Inc.
+ *
+ * This source code is licensed under the MIT license found in the
+ * LICENSE file in the root directory of this source tree.
+ */
+
+/**
+ * signUpOffer — what a login or register page offers a visitor who has no
+ * account yet (objectui#11691).
+ *
+ * ONE decision for every such page (objectui#11705): the console's own
+ * `/login` and `/register` (`apps/console/src/pages/auth/`) and this package's
+ * exported `DefaultLoginPage` / `DefaultRegisterPage` (`./LoginPage`,
+ * `./RegisterPage`, which `examples/console-starter` mounts) all call
+ * {@link decideSignUpOffer}. It was written for the console's pages and moved
+ * here unchanged, so that a package page can call it too; there is no second
+ * copy of the rule.
  *
  * The server publishes the sign-up rule as TWO keys of `/api/v1/auth/config`:
  *
@@ -14,20 +30,21 @@
  *    admits a pending invitee, so hiding the form outright would dead-end the
  *    people the posture exists to let in.
  *
- * Reading only the first key is how the console used to offer "Sign up" under
+ * Reading only the first key is how the pages used to offer "Sign up" under
  * the default `invite_only` posture and then refuse the finished form with
  * `403 SELF_REGISTRATION_CLOSED`. Reading both, the pages offer the generic
  * form only when the server would accept it from this visitor:
  *
  *  1. the posture admits uninvited self-registration (`open`, `email_domain`);
  *  2. the visitor came from an invitation — the signed-out bounce of
- *     `DefaultAcceptInvitationPage` (app-shell) lands on
+ *     `DefaultAcceptInvitationPage` (this package) lands on
  *     `/login?redirect=/accept-invitation/ID`, and the login page forwards
  *     that `redirect` to `/register`;
  *  3. the deployment has no owner yet (`GET /auth/bootstrap-status` answers
- *     `hasOwner: false`): the server admits the first account under every
- *     posture, so a fresh install never locks its operator out, and the
- *     self-hosting guide's first-run step is "open the root URL and sign up".
+ *     `hasOwner: false`, read by `useBootstrapStatus` in `./bootstrapStatus`):
+ *     the server admits the first account under every posture, so a fresh
+ *     install never locks its operator out, and the self-hosting guide's
+ *     first-run step is "open the root URL and sign up".
  *
  * Otherwise the login page offers no sign-up link, and the register page
  * explains that registration is by invitation BEFORE the form instead of
@@ -35,25 +52,26 @@
  *
  * A server that does not send `features.audiencePosture` (one that predates
  * the key) is answered exactly as before: `disableSignUp` alone decides. A
- * posture value this console does not recognise reads as "not admitting", so
+ * posture value this package does not recognise reads as "not admitting", so
  * an unknown future value never brings back a form the server refuses.
  */
 
 import type { AuthPublicConfig } from '@object-ui/auth';
-import type { BootstrapStatus } from '../../components/setupEntry';
+import type { BootstrapStatus } from './bootstrapStatus.js';
 
 /**
  * Whether an audience posture admits a stranger's own sign-up — the spec's
  * `audiencePermitsSelfRegistration` (`@objectstack/spec/system`), restated.
  *
- * Restated rather than imported for the reason `postureHasOrgWall` in
- * app-shell's `useTenancyPosture.ts` records: the login and register pages
- * are in the console's EAGER closure, and a runtime import of a spec subpath
- * there pays for the subpath's schema modules on every page load to spell a
- * three-value predicate. The drift that import would have prevented is caught
- * at test time instead — `__tests__/signUpFollowsPosture-11691.test.tsx`
- * imports the spec's real predicate and vocabulary and asserts this function
- * agrees for every posture the spec declares.
+ * Restated rather than imported for the reason `postureHasOrgWall` in this
+ * package's `hooks/useTenancyPosture.ts` records: the console's login and
+ * register pages, which call this, are in the console's EAGER closure, and a
+ * runtime import of a spec subpath there pays for the subpath's schema modules
+ * on every page load to spell a three-value predicate. The drift that import
+ * would have prevented is caught at test time instead —
+ * `__tests__/signUpOffer-11691.test.ts` imports the spec's real predicate and
+ * vocabulary and asserts this function agrees for every posture the spec
+ * declares.
  *
  * `unknown` on purpose: the value arrives off the wire, and anything outside
  * the spec's vocabulary must read as `false`.
@@ -63,9 +81,10 @@ export function audienceAdmitsUninvitedSignUp(posture: unknown): boolean {
 }
 
 /**
- * The console route an invitation link opens (`App.tsx`,
- * `/accept-invitation/:invitationId`), as a basename-stripped prefix — the
- * shape `?redirect=` carries by contract.
+ * The route an invitation link opens (the console's `App.tsx` mounts
+ * `/accept-invitation/:invitationId`, and `DefaultAcceptInvitationPage` bounces
+ * a signed-out visitor from it), as a basename-stripped prefix — the shape
+ * `?redirect=` carries by contract.
  */
 const INVITATION_ROUTE_PREFIX = '/accept-invitation/';
 

@@ -307,8 +307,9 @@ export interface AuthPublicConfig {
      * admits a pending invitee (and a fresh deployment's first owner), so the
      * two keys together read "sign-up is open to invitees only". A surface
      * that offers a generic sign-up therefore reads both — the console's
-     * login and register pages do, through `pages/auth/signUpOffer.ts`
-     * (objectui#11691). Absent (older server / config not yet fetched) ⇒
+     * login and register pages and `@object-ui/app-shell`'s exported default
+     * ones do, through app-shell's `decideSignUpOffer` (objectui#11691,
+     * objectui#11705). Absent (older server / config not yet fetched) ⇒
      * `disableSignUp` alone decides, as it did before the key existed.
      */
     audiencePosture?: AudiencePosture;

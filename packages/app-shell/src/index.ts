@@ -268,6 +268,17 @@ export { LoginPage as DefaultLoginPage } from './console/auth/LoginPage.js';
 export { signInRefusalMessages } from './console/auth/signInRefusalMessages.js';
 export { RegisterPage as DefaultRegisterPage } from './console/auth/RegisterPage.js';
 export { signUpRefusalMessages } from './console/auth/signUpRefusalMessages.js';
+// The sign-up decision the default login/register pages above and the
+// console's own pages share — one rule, read off `disableSignUp` AND
+// `features.audiencePosture` (objectui#11691, objectui#11705).
+export {
+  decideSignUpOffer,
+  needsBootstrapProbe,
+  isInvitationRedirect,
+  type SignUpOffer,
+  type SignUpOfferContext,
+} from './console/auth/signUpOffer.js';
+export { useBootstrapStatus, type BootstrapStatus } from './console/auth/bootstrapStatus.js';
 export { ForgotPasswordPage as DefaultForgotPasswordPage } from './console/auth/ForgotPasswordPage.js';
 export { HomeLayout as DefaultHomeLayout, HomeLayout } from './console/home/HomeLayout.js';
 export { HomePage as DefaultHomePage, HomePage } from './console/home/HomePage.js';

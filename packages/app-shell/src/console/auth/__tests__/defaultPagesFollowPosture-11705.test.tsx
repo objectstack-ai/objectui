@@ -7,36 +7,37 @@
  */
 
 /**
- * objectui#11691 — the console offers a generic sign-up only where the server
- * would accept one.
+ * objectui#11705 — `DefaultLoginPage` and `DefaultRegisterPage`, the auth
+ * pages this package publishes for hosts (`examples/console-starter` mounts
+ * them at `/login` and `/register`), offer a generic sign-up only where the
+ * server would accept one.
  *
  * `/api/v1/auth/config` states the sign-up rule as two keys:
  * `emailPassword.disableSignUp` (the hard off switch) and
- * `features.audiencePosture` (who may self-register). The server does not
- * force the first from the second — under `invite_only` its sign-up route
- * still admits a pending invitee — so a page reading only `disableSignUp`
- * offered "Sign up" under the DEFAULT posture and refused the finished form
- * with `403 SELF_REGISTRATION_CLOSED`.
+ * `features.audiencePosture` (who may self-register). Under the default
+ * `invite_only` posture the server keeps `disableSignUp: false` so a pending
+ * invitee can still register, and refuses anyone else with
+ * `403 SELF_REGISTRATION_CLOSED`. These pages read `disableSignUp` alone, so
+ * they offered "Sign up" — and the full form — to every visitor under the
+ * default posture. objectui#11691 fixed the console's own pages; this card
+ * moved that decision (`../signUpOffer`) into this package and the default
+ * pages now call it. Its unit cases are `signUpOffer-11691.test.ts` beside
+ * this file; the console pages' rendered pins stay in
+ * `apps/console/src/pages/auth/__tests__/signUpFollowsPosture-11691.test.tsx`.
  *
- * Nothing in `@object-ui/auth` is replaced: a real `AuthProvider` over a real
- * `createAuthClient` runs against a stub server that answers `/config` the way
- * the server wraps it (`{ success, data }`), `/bootstrap-status` the way the
+ * Rendered as shipped: the exported pages, `@object-ui/auth`'s real forms, a
+ * real `AuthProvider` over a real `createAuthClient`, and a real
+ * `I18nProvider`. Only `fetch` is a stub, answering `/config` the way the
+ * server wraps it (`{ success, data }`), `/bootstrap-status` the way the
  * first-run probe reads it, and `/sign-up/email` by recording the body — so
  * "reaches a working registration" is read off the request the server would
- * receive, not off a mocked hook.
- *
- * The decision these pages call, `decideSignUpOffer`, lives in
- * `@object-ui/app-shell` since objectui#11705, which moved it there so the
- * package's exported default pages call the same rule. Its unit cases —
- * including the parity case against the spec's own posture predicate and
- * vocabulary — moved with it, unchanged, to
- * `packages/app-shell/src/console/auth/__tests__/signUpOffer-11691.test.ts`.
- * The console pages' rendered pins stay here, unchanged.
+ * receive, not off a mocked hook. Visible text is read from the en locale
+ * pack, not copied here.
  */
 
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import { act, render, screen, cleanup, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { I18nProvider } from '@object-ui/i18n';
@@ -48,28 +49,23 @@ import { LoginPage } from '../LoginPage';
 import { RegisterPage } from '../RegisterPage';
 
 const AUTH_URL = 'http://localhost/api/v1/auth';
-const SIGN_UP_LINK = { name: 'Sign up' } as const;
+const en = builtInLocales.en.auth;
+const SIGN_UP_LINK = { name: en.login.signUpText } as const;
+const CREATE_ACCOUNT = { name: en.register.submitButton } as const;
 const INVITATION = '/accept-invitation/inv_1';
 const INVITE_QUERY = `?redirect=${encodeURIComponent(INVITATION)}`;
-const SELF_REGISTRATION_CLOSED_TEXT = builtInLocales.en.auth.register.errors.selfRegistrationClosed;
-
-/** The dev-seeded admin hint is set by the SAME config read as the sign-up offer. */
-const DEV_SEED = { devSeedAdmin: { email: 'admin@objectos.ai', password: 'admin123' } };
 
 type EmailPassword = NonNullable<AuthPublicConfig['emailPassword']>;
 const OPEN_SIGN_UP: EmailPassword = { enabled: true, disableSignUp: false, requireEmailVerification: false };
+const SIGN_UP_OFF: EmailPassword = { enabled: true, disableSignUp: true };
 
 /**
  * The config as the server sends it. `posture` is a plain string because the
- * cases include values OUTSIDE the spec vocabulary — what a newer server could
- * send — so the one cast below is the wire, not a shortcut.
+ * server's wire value is what is being modelled, so the one cast below is the
+ * wire, not a shortcut.
  */
-function configFor(
-  posture: string | undefined,
-  emailPassword: EmailPassword = OPEN_SIGN_UP,
-): AuthPublicConfig & typeof DEV_SEED {
+function configFor(posture: string | undefined, emailPassword: EmailPassword = OPEN_SIGN_UP): AuthPublicConfig {
   return {
-    ...DEV_SEED,
     emailPassword,
     features: posture === undefined ? {} : { audiencePosture: posture as AudiencePosture },
   };
@@ -109,14 +105,13 @@ function Recorder() {
 }
 
 /**
- * Mount `/login` and `/register` as `App.tsx` routes them. The bootstrap
- * probe uses the global `fetch` (`useBootstrapStatus`, `@object-ui/app-shell`),
+ * Mount the default pages as `examples/console-starter/src/App.tsx` routes
+ * them. The bootstrap probe uses the global `fetch` (`../bootstrapStatus`),
  * so the same stub answers it.
  */
 function renderAt(path: string, config: AuthPublicConfig, { hasOwner = true } = {}) {
   const fetchFn = stubServer(config, hasOwner);
   vi.stubGlobal('fetch', fetchFn);
-  window.history.replaceState({}, '', path);
   const client = createAuthClient({ baseURL: AUTH_URL, fetchFn });
   return render(
     <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }} persistLanguage={false}>
@@ -133,16 +128,26 @@ function renderAt(path: string, config: AuthPublicConfig, { hasOwner = true } = 
   );
 }
 
-/** Wait until the config read has been applied to the login page. */
+/**
+ * Wait until the config read has been applied to the login page. `LoginForm`
+ * shows its email field only once ITS read of the same cached `/config`
+ * promise settles, which is after the page's own `.then` on that promise has
+ * stored the config — so the field's presence means the page has decided.
+ */
 async function loginConfigApplied() {
-  await screen.findByTestId('dev-admin-hint');
-  await screen.findByLabelText('Email');
+  await screen.findByLabelText(en.login.emailLabel);
+}
+
+/** Let an answered probe's state update land before a negative assertion. */
+async function settle() {
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0));
+  });
 }
 
 beforeEach(() => {
   seen.length = 0;
   window.localStorage.clear();
-  vi.spyOn(window.location, 'assign').mockImplementation(() => undefined);
   vi.spyOn(console, 'warn').mockImplementation(() => {});
 });
 
@@ -150,14 +155,14 @@ afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-  window.history.replaceState({}, '', '/');
 });
 
-describe('LoginPage — the "Sign up" link follows the audience posture (objectui#11691)', () => {
+describe('DefaultLoginPage — the "Sign up" link follows the audience posture (objectui#11705)', () => {
   it('under invite_only on a deployment with an owner, offers no generic "Sign up"', async () => {
     renderAt('/login', configFor('invite_only'));
     await loginConfigApplied();
     await waitFor(() => expect(wire.bootstrapProbes).toBe(1));
+    await settle();
 
     expect(screen.queryByRole('link', SIGN_UP_LINK)).toBeNull();
   });
@@ -198,22 +203,24 @@ describe('LoginPage — the "Sign up" link follows the audience posture (objectu
   });
 
   it('with disableSignUp: true, hides "Sign up" even from an invitation redirect', async () => {
-    renderAt(`/login${INVITE_QUERY}`, configFor('invite_only', { enabled: true, disableSignUp: true }));
+    renderAt(`/login${INVITE_QUERY}`, configFor('invite_only', SIGN_UP_OFF));
     await loginConfigApplied();
 
     expect(screen.queryByRole('link', SIGN_UP_LINK)).toBeNull();
+    expect(wire.bootstrapProbes).toBe(0);
   });
 });
 
-describe('RegisterPage — explains invitation-only registration before the form (objectui#11691)', () => {
+describe('DefaultRegisterPage — explains invitation-only registration before the form (objectui#11705)', () => {
   it('under invite_only without an invitation, explains instead of rendering the form', async () => {
     renderAt('/register', configFor('invite_only'));
 
     const notice = await screen.findByTestId('register-by-invitation');
-    expect(notice).toHaveTextContent(SELF_REGISTRATION_CLOSED_TEXT);
-    expect(screen.getByRole('link', { name: 'Sign in' }).getAttribute('href')).toBe('/login');
-    expect(screen.queryByLabelText('Email')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Create Account' })).toBeNull();
+    expect(notice).toHaveTextContent(en.register.errors.selfRegistrationClosed);
+    expect(screen.getByRole('link', { name: en.register.signInText }).getAttribute('href')).toBe('/login');
+    expect(screen.queryByLabelText(en.register.emailLabel)).toBeNull();
+    expect(screen.queryByRole('button', CREATE_ACCOUNT)).toBeNull();
+    expect(wire.bootstrapProbes).toBe(1);
     expect(wire.signUps).toHaveLength(0);
   });
 
@@ -222,11 +229,14 @@ describe('RegisterPage — explains invitation-only registration before the form
     await loginConfigApplied();
     await userEvent.click(screen.getByRole('link', SIGN_UP_LINK));
 
-    await userEvent.type(await screen.findByLabelText('Name'), 'Ada');
-    await userEvent.type(screen.getByLabelText('Email'), 'ada@example.com');
-    await userEvent.type(screen.getByLabelText('Password'), 'hunter2hunter2');
-    await userEvent.type(screen.getByLabelText('Confirm Password'), 'hunter2hunter2');
-    await userEvent.click(screen.getByRole('button', { name: 'Create Account' }));
+    await userEvent.type(await screen.findByLabelText(en.register.nameLabel), 'Ada');
+    await userEvent.type(screen.getByLabelText(en.register.emailLabel), 'ada@example.com');
+    await userEvent.type(screen.getByLabelText(en.register.passwordLabel), 'hunter2hunter2');
+    await userEvent.type(screen.getByLabelText(en.register.confirmPasswordLabel), 'hunter2hunter2');
+    expect(screen.getByRole('link', { name: en.register.signInText }).getAttribute('href')).toBe(
+      `/login${INVITE_QUERY}`,
+    );
+    await userEvent.click(screen.getByRole('button', CREATE_ACCOUNT));
 
     await waitFor(() => expect(wire.signUps).toHaveLength(1));
     expect(wire.signUps[0]).toMatchObject({ name: 'Ada', email: 'ada@example.com' });
@@ -238,7 +248,7 @@ describe('RegisterPage — explains invitation-only registration before the form
   it('under invite_only on a deployment with no owner yet, renders the form', async () => {
     renderAt('/register', configFor('invite_only'), { hasOwner: false });
 
-    expect(await screen.findByRole('button', { name: 'Create Account' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', CREATE_ACCOUNT)).toBeInTheDocument();
     expect(screen.queryByTestId('register-by-invitation')).toBeNull();
     expect(wire.bootstrapProbes).toBe(1);
   });
@@ -246,15 +256,15 @@ describe('RegisterPage — explains invitation-only registration before the form
   it('under open, renders the form as before and makes no bootstrap probe', async () => {
     renderAt('/register', configFor('open'));
 
-    expect(await screen.findByRole('button', { name: 'Create Account' })).toBeInTheDocument();
+    expect(await screen.findByRole('button', CREATE_ACCOUNT)).toBeInTheDocument();
     expect(wire.bootstrapProbes).toBe(0);
   });
 
-  it('with disableSignUp: true, bounces an invitation redirect to /login as before', async () => {
-    renderAt(`/register${INVITE_QUERY}`, configFor('invite_only', { enabled: true, disableSignUp: true }));
+  it('with disableSignUp: true, bounces an invitation redirect to /login, keeping the redirect', async () => {
+    renderAt(`/register${INVITE_QUERY}`, configFor('invite_only', SIGN_UP_OFF));
 
     await waitFor(() => expect(seen[seen.length - 1]).toBe(`/login${INVITE_QUERY}`));
-    expect(screen.queryByRole('button', { name: 'Create Account' })).toBeNull();
+    expect(screen.queryByRole('button', CREATE_ACCOUNT)).toBeNull();
     expect(screen.queryByTestId('register-by-invitation')).toBeNull();
   });
 });

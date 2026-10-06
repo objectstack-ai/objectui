@@ -1,13 +1,34 @@
 /**
- * Register Page for ObjectStack Console
+ * Register Page for ObjectStack Console — exported as `DefaultRegisterPage`.
+ *
+ * What this visitor is offered is `decideSignUpOffer` (`./signUpOffer`), the
+ * same decision the console's own register page calls (objectui#11691,
+ * objectui#11705):
+ *
+ *  - `emailPassword.disableSignUp === true` bounces to `/login`
+ *    (defense-in-depth; the server-side gate is the source of truth);
+ *  - under an audience posture closed to strangers (`invite_only`, the
+ *    default) the form is shown only to an invitation redirect or on a
+ *    deployment with no owner yet; anyone else is told that registration is
+ *    by invitation BEFORE the form, instead of having the finished form
+ *    refused with `SELF_REGISTRATION_CLOSED`.
  */
 
 import { useEffect, useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
-import { RegisterForm, useAuth, type AuthLinkComponentProps } from '@object-ui/auth';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import {
+  RegisterForm,
+  AuthFormHeader,
+  AUTH_LINK_CLASS,
+  useAuth,
+  type AuthLinkComponentProps,
+  type AuthPublicConfig,
+} from '@object-ui/auth';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { AuthPageLayout } from './AuthPageLayout.js';
 import { signUpRefusalMessages } from './signUpRefusalMessages.js';
+import { decideSignUpOffer, isInvitationRedirect, needsBootstrapProbe } from './signUpOffer.js';
+import { useBootstrapStatus } from './bootstrapStatus.js';
 
 const RouterLink = ({ href, className, children }: AuthLinkComponentProps) => (
   <Link to={href} className={className}>{children}</Link>
@@ -15,15 +36,16 @@ const RouterLink = ({ href, className, children }: AuthLinkComponentProps) => (
 
 export function RegisterPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  const redirect = params.get('redirect');
   const { t } = useObjectTranslation();
-  const { getAuthConfig, sendVerificationEmail } = useAuth();
+  const { user, getAuthConfig, sendVerificationEmail } = useAuth();
 
-  // Defense-in-depth: even if a user lands on /register directly when
-  // signup is disabled, bounce them to /login. The server-side
-  // `disableSignUp` (set by env `OS_DISABLE_SIGNUP=true` or the
-  // `emailAndPassword.disableSignUp` config option) will still 403 any
-  // submission, but redirecting here avoids a confusing form.
-  const [allowed, setAllowed] = useState<boolean | undefined>(undefined);
+  // `null` until the public auth config has been read; then `{ config }`,
+  // whose `config` is `null` when the read failed — answered as "offer the
+  // form", leaving the server's own gate as the source of truth. Nothing is
+  // rendered before the read, so the form never flashes.
+  const [configRead, setConfigRead] = useState<{ config: AuthPublicConfig | null } | null>(null);
   const [pendingEmail, setPendingEmail] = useState<string | null>(null);
   const [resendState, setResendState] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
   const [resendError, setResendError] = useState<string | null>(null);
@@ -31,21 +53,56 @@ export function RegisterPage() {
   useEffect(() => {
     let cancelled = false;
     getAuthConfig()
-      .then(cfg => {
-        if (cancelled) return;
-        if (cfg?.emailPassword?.disableSignUp === true) {
-          navigate('/login', { replace: true });
-        } else {
-          setAllowed(true);
-        }
-      })
-      .catch(() => { if (!cancelled) setAllowed(true); });
+      .then(cfg => { if (!cancelled) setConfigRead({ config: cfg ?? null }); })
+      .catch(() => { if (!cancelled) setConfigRead({ config: null }); });
     return () => { cancelled = true; };
-  }, [getAuthConfig, navigate]);
+  }, [getAuthConfig]);
 
-  if (allowed !== true) {
-    // Render nothing until we know the flag — prevents a flash of the form.
+  // objectui#11705 — the offer reads `disableSignUp` AND the audience posture;
+  // the bootstrap probe runs only when the posture is closed to strangers and
+  // the visitor did not come from an invitation. See `./signUpOffer`.
+  const authConfig = configRead ? configRead.config : null;
+  const invitationRedirect = isInvitationRedirect(redirect);
+  const bootstrap = useBootstrapStatus(!user && needsBootstrapProbe(authConfig, invitationRedirect));
+  const signUpOffer = decideSignUpOffer(authConfig, { invitationRedirect, bootstrap });
+
+  // Sign-up switched off — bounce to /login, keeping `?redirect=`.
+  useEffect(() => {
+    if (signUpOffer !== 'closed') return;
+    const search = redirect ? `?redirect=${encodeURIComponent(redirect)}` : '';
+    navigate(`/login${search}`, { replace: true });
+  }, [signUpOffer, navigate, redirect]);
+
+  if (configRead === null || signUpOffer === 'closed' || signUpOffer === 'pending') {
+    // Render nothing until the offer is known — prevents a flash of the form.
     return <AuthPageLayout>{null}</AuthPageLayout>;
+  }
+
+  const loginUrl = redirect ? `/login?redirect=${encodeURIComponent(redirect)}` : '/login';
+
+  // Registration here is by invitation only. Say so BEFORE the form; the
+  // sentence is the `SELF_REGISTRATION_CLOSED` refusal's own copy, the same
+  // key the console's register page shows.
+  if (signUpOffer === 'by-invitation') {
+    return (
+      <AuthPageLayout>
+        <div
+          data-testid="register-by-invitation"
+          className="mx-auto flex w-full flex-col justify-center space-y-7 sm:w-[400px]"
+        >
+          <AuthFormHeader
+            title={t('auth.register.title')}
+            description={t('auth.register.errors.selfRegistrationClosed')}
+          />
+          <p className="px-8 text-center text-sm text-muted-foreground">
+            {t('auth.register.hasAccountText')}{' '}
+            <Link to={loginUrl} className={AUTH_LINK_CLASS}>
+              {t('auth.register.signInText')}
+            </Link>
+          </p>
+        </div>
+      </AuthPageLayout>
+    );
   }
 
   if (pendingEmail) {
@@ -114,7 +171,7 @@ export function RegisterPage() {
       <RegisterForm
         onSuccess={() => navigate('/')}
         onVerificationRequired={(email) => setPendingEmail(email)}
-        loginUrl="/login"
+        loginUrl={loginUrl}
         title={t('auth.register.title')}
         description={t('auth.register.description')}
         linkComponent={RouterLink}

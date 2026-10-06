@@ -45,19 +45,12 @@
  * {@link decideSetupEntry}.
  */
 
-import { useEffect, useState } from 'react';
 import { useAuth } from '@object-ui/auth';
-
-const AUTH_BASE = `${import.meta.env.VITE_SERVER_URL || ''}/api/v1/auth`;
-
-/**
- * Deployment bootstrap state. `fresh` is also what a FAILED probe reports —
- * same fall-open as `SetupPage`'s own `catch`: showing the wizard on an
- * already-bootstrapped deployment is recoverable (the wizard re-probes and
- * bounces to login), whereas hiding it on a genuinely fresh one is a dead end,
- * because no account exists to log in with.
- */
-export type BootstrapStatus = 'unknown' | 'fresh' | 'bootstrapped';
+// The `hasOwner` probe and its state type live in `@object-ui/app-shell`
+// (objectui#11705): the sign-up decision there reads the same probe, for the
+// console's login and register pages and the package's exported default ones.
+// `BootstrapStatus` documents why a FAILED probe reads `fresh`.
+import { useBootstrapStatus, type BootstrapStatus } from '@object-ui/app-shell';
 
 /** Which surface `/setup` resolves to. */
 export type SetupEntryMode =
@@ -101,36 +94,14 @@ export function decideSetupEntry(
 }
 
 /**
- * Probe `hasOwner` once. `enabled` is load-bearing twice over: an
- * already-authenticated visitor never pays for a request whose answer
- * {@link decideSetupEntry} would ignore, AND it is what confines a `fresh`
- * verdict to sessions-less visits, which is what makes that verdict durable.
- * The answer is kept once received — losing `enabled` (as `signUp()` does)
- * cancels the in-flight probe, it does not reset the state.
+ * The verdict for this mount. `useBootstrapStatus` probes `hasOwner` once;
+ * its `enabled` is load-bearing twice over here: an already-authenticated
+ * visitor never pays for a request whose answer {@link decideSetupEntry} would
+ * ignore, AND it is what confines a `fresh` verdict to session-less visits,
+ * which is what makes that verdict durable. The answer is kept once received —
+ * losing `enabled` (as `signUp()` does) cancels the in-flight probe, it does
+ * not reset the state.
  */
-export function useBootstrapStatus(enabled: boolean): BootstrapStatus {
-  const [status, setStatus] = useState<BootstrapStatus>('unknown');
-  useEffect(() => {
-    if (!enabled) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const res = await fetch(`${AUTH_BASE}/bootstrap-status`, { credentials: 'include' });
-        const data: { hasOwner?: boolean } = res.ok ? await res.json().catch(() => ({})) : {};
-        if (!cancelled) setStatus(data.hasOwner === true ? 'bootstrapped' : 'fresh');
-      } catch {
-        // Fall open to the wizard — see BootstrapStatus.
-        if (!cancelled) setStatus('fresh');
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [enabled]);
-  return status;
-}
-
-/** The verdict for this mount. */
 export function useSetupEntryMode(): SetupEntryMode {
   const { isAuthenticated, isLoading } = useAuth();
   const status = useBootstrapStatus(!isLoading && !isAuthenticated);

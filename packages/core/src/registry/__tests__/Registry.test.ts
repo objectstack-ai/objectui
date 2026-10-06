@@ -700,4 +700,80 @@ describe('Registry', () => {
       expect(registry.hasLazy('dashboard', 'plugin-dashboard')).toBe(true);
     });
   });
+
+  /**
+   * A stub reached under its FULL key is named by that full type, once
+   * (objectui#11680).
+   *
+   * `registerLazy` stores one entry under two keys, `namespace:type` and the
+   * bare `type`. A registration whose bare key is itself colon-shaped can land
+   * on the FULL one: the protocol placeholder for `view:calendar` claims the
+   * bare key `view:calendar`, which is where the console's
+   * `registerLazy('calendar', …, { namespace: 'view' })` stub lives. The guards
+   * used to re-derive the stub's claim by prefixing its namespace onto the key
+   * they looked it up under, which read `view:view:calendar` there, a type
+   * nothing declares. The stub now records its full type when it is declared,
+   * and each of the three readers below gets that one spelling.
+   *
+   * The registration shapes are written directly against a fresh registry, so
+   * these pins reach the registry's own doors. `@object-ui/components`'
+   * placeholder registrar no longer makes the first call at all while a stub is
+   * pending; `placeholder-lazy-stub-ownership-11680.test.tsx` pins that half.
+   */
+  describe('a stub found under its FULL key names that full type once (objectui#11680)', () => {
+    const loader = () => Promise.resolve();
+    const collisionWarnings = () =>
+      consoleWarnSpy.mock.calls
+        .map((args: unknown[]) => (typeof args[0] === 'string' ? args[0] : ''))
+        .filter((text: string) => text.includes('bare-name fallback is being overwritten'));
+    /** The full type a collision warning says the key is already claimed for. */
+    const claimantNamed = (text: string) => /already claims for "([^"]+)"/.exec(text)?.[1];
+
+    beforeEach(() => {
+      // The console's own declaration of the calendar view.
+      registry.registerLazy('calendar', loader, { namespace: 'view', category: 'view' });
+      consoleWarnSpy.mockClear();
+    });
+
+    it('the eager door names the stub by the full type it declared', () => {
+      registry.register('view:calendar', () => 'placeholder', { namespace: 'protocol-placeholder' });
+
+      const warned = collisionWarnings();
+      expect(warned).toHaveLength(1);
+      expect(claimantNamed(warned[0])).toBe('view:calendar');
+      expect(warned[0]).not.toContain('view:view:');
+    });
+
+    it('the eager door still reports a registration whose own full type is the doubled spelling', () => {
+      // `view:` written twice: the registration's full type is
+      // `view:view:calendar`, exactly the doubled spelling. Compared against the
+      // doubled claim, the guard read the stub as this registration's own and
+      // said nothing while the bare `view:calendar` key changed hands.
+      registry.register('view:calendar', () => 'twice', { namespace: 'view' });
+
+      const warned = collisionWarnings();
+      expect(warned).toHaveLength(1);
+      expect(claimantNamed(warned[0])).toBe('view:calendar');
+    });
+
+    it('the lazy door names the prior stub by the full type it declared', () => {
+      registry.registerLazy('view:calendar', () => Promise.resolve(), { namespace: 'protocol-placeholder' });
+
+      const warned = collisionWarnings();
+      expect(warned).toHaveLength(1);
+      expect(warned[0]).toContain('another pending stub');
+      expect(claimantNamed(warned[0])).toBe('view:calendar');
+      expect(warned[0]).not.toContain('view:view:');
+    });
+
+    it('unregister of the doubled spelling leaves the stub it does not own', () => {
+      // Nothing was ever registered as `view:view:calendar`. Read through the
+      // doubled claim, the stub under bare `view:calendar` looked like that
+      // registration's, and this call deleted the console's calendar stub.
+      expect(registry.unregister('view:calendar', 'view')).toBe(false);
+
+      expect(registry.hasLazy('calendar', 'view')).toBe(true);
+      expect(registry.hasLazy('calendar')).toBe(true);
+    });
+  });
 });

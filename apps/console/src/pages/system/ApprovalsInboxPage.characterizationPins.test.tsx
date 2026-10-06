@@ -18,7 +18,7 @@
  *     plus the "Flow-initiated" cell, instead of a bare person icon + em dash
  *     (#2803).
  *  3. **Record-card copy and emphasis** — `prettifyKey()` drops a trailing
- *     `id` token (`owner_id` → "Owner") and `decisionAmountEntry()` promotes
+ *     `id` token (`vendor_id` → "Vendor") and `decisionAmountEntry()` promotes
  *     the decision amount to a lead figure, excluded from the generic field
  *     grid so it renders exactly once (#2803).
  *
@@ -41,7 +41,7 @@
  *    two people to conflate;
  *  - a **`flow:`-prefixed submitter id** with no `submitter_name` — the shape
  *    a real flow-initiated request arrives in;
- *  - a payload carrying **both `owner_id` and `amount`** — `owner_id` proves
+ *  - a payload carrying **both `vendor_id` and `amount`** — `vendor_id` proves
  *    the id-token trim (a bare `id` key, or one with a resolvable non-`_id`
  *    name, would not exercise `prettifyKey`'s trim branch at all), `amount`
  *    proves both the lead-figure promotion and the single-render exclusion.
@@ -71,9 +71,9 @@ const APP = 'com.objectstack.account';
 // all imports) — so the two display-value fixtures live INSIDE it and are
 // destructured out below, rather than being plain top-level `const`s the
 // hoisted block would close over before they existed.
-const { approvalsApiStub, getObjectSchema, ADAPTER, AUTH, I18N, OWNER_DISPLAY, AMOUNT_DISPLAY } = vi.hoisted(() => {
-  /** The server-resolved display value for `owner_id` — never opaque-dropped. */
-  const OWNER_DISPLAY = 'Jordan Lee';
+const { approvalsApiStub, getObjectSchema, ADAPTER, AUTH, I18N, VENDOR_DISPLAY, AMOUNT_DISPLAY } = vi.hoisted(() => {
+  /** The server-resolved display value for `vendor_id` — never opaque-dropped. */
+  const VENDOR_DISPLAY = 'Northwind Labs';
   /** The server-formatted decision amount, as `payload_display` would send it. */
   const AMOUNT_DISPLAY = 'USD 42,000.00';
 
@@ -100,11 +100,14 @@ const { approvalsApiStub, getObjectSchema, ADAPTER, AUTH, I18N, OWNER_DISPLAY, A
     // Case 3 fixture: an `_id`-suffixed key (prettifyKey's trim branch) and
     // an amount-like key (decisionAmountEntry's lead figure), together.
     payload: {
-      owner_id: 'usr_9f3ma2xk1pqz88a',
+      // `owner_id` stood here until objectui#11677. It is the platform's
+      // injected ownership column, which the card now drops as bookkeeping
+      // (`isSystemManagedField`), so it never reaches `prettifyKey`'s trim.
+      vendor_id: 'vnd_9f3ma2xk1pqz88a',
       amount: 42000,
     },
     payload_display: {
-      owner_id: OWNER_DISPLAY,
+      vendor_id: VENDOR_DISPLAY,
       amount: AMOUNT_DISPLAY,
     },
   };
@@ -129,7 +132,7 @@ const { approvalsApiStub, getObjectSchema, ADAPTER, AUTH, I18N, OWNER_DISPLAY, A
     language: 'en',
   };
 
-  return { approvalsApiStub, getObjectSchema, ADAPTER, AUTH, I18N, OWNER_DISPLAY, AMOUNT_DISPLAY };
+  return { approvalsApiStub, getObjectSchema, ADAPTER, AUTH, I18N, VENDOR_DISPLAY, AMOUNT_DISPLAY };
 });
 
 vi.mock('@object-ui/i18n', async (importOriginal) => ({
@@ -228,13 +231,13 @@ describe('Approvals drawer — a flow-initiated request names its origin (object
 });
 
 describe('Approvals drawer — record-card copy and emphasis (objectui#2803, #6395)', () => {
-  it('reads `owner_id` as "Owner" and leads with the decision amount exactly once', async () => {
+  it('reads `vendor_id` as "Vendor" and leads with the decision amount exactly once', async () => {
     const dialog = await openedDrawer();
 
     // prettifyKey: the trailing `id` token is dropped, so the field label
-    // reads "Owner", not "Owner Id".
-    expect(within(dialog).getByText('Owner')).toBeInTheDocument();
-    expect(within(dialog).getByText(OWNER_DISPLAY)).toBeInTheDocument();
+    // reads "Vendor", not "Vendor Id".
+    expect(within(dialog).getByText('Vendor')).toBeInTheDocument();
+    expect(within(dialog).getByText(VENDOR_DISPLAY)).toBeInTheDocument();
 
     // decisionAmountEntry: the amount is promoted to the lead figure AND
     // excluded from the generic field grid, so its display value renders

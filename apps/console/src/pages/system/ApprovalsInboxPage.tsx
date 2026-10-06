@@ -24,9 +24,9 @@
  * an input is focused.
  */
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
-import { DeclaredActionsBar, isViaOverrideRow } from '@object-ui/app-shell';
+import { DeclaredActionsBar, isViaOverrideRow, useAdapter } from '@object-ui/app-shell';
 import { createAuthenticatedFetch } from '@object-ui/auth';
 import {
   Button,
@@ -76,7 +76,10 @@ import {
 import { toast } from 'sonner';
 import { useAuth } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
-import { useDisplayLocale, useObjectTranslation } from '@object-ui/i18n';
+import { useDisplayLocale, useObjectTranslation, useSafeFieldLabel } from '@object-ui/i18n';
+import { getCellRenderer, resolveCellRendererType } from '@object-ui/fields';
+import { isExpandableFieldType } from '@object-ui/core';
+import { isSystemManagedField, type FieldMetadata } from '@object-ui/types';
 import { APPROVAL_STATUS_LABELS } from '@objectstack/spec/contracts';
 import {
   CheckCircle2,
@@ -115,7 +118,7 @@ import {
   isUnresolvableRecordReference,
   useUnresolvableRecordReferenceLabel,
 } from './unresolvableRecordReference';
-import { useHiddenFieldsByObject } from './hiddenFields';
+import { useHiddenFieldsByObject, type HiddenFieldsSource } from './hiddenFields';
 import { holdsStudioAccess } from '../../components/studioEntry';
 
 type TabKey = 'pending' | 'submitted' | 'all';
@@ -341,9 +344,141 @@ function slaState(dueAt: string | null | undefined, now: number): { overdue: boo
   return { overdue: due < now, ms: Math.abs(now - due) };
 }
 
-const PAYLOAD_SYSTEM_KEYS = new Set([
-  'id', 'created_at', 'updated_at', 'created_by', 'updated_by', 'organization_id',
-]);
+/**
+ * Whether a snapshot key is a framework-managed column rather than a business
+ * field of the record — `@object-ui/types`' `isSystemManagedField`, the one
+ * classifier the default list columns, record pickers and related lists use
+ * to keep bookkeeping out of business surfaces. It reads the spec `system`
+ * flag the registry stamps on every column it injects, then its name list.
+ *
+ * This card used a private six-name copy of that list. The copy left out
+ * `owner_id`, the injected ownership column, and every business object's
+ * metadata labels it "Owner". So an object with its own `owner` field
+ * (showcase's invoice keeps a text `owner` as its row-level-security anchor)
+ * showed two rows labelled "Owner" (objectui#11677).
+ */
+function isBookkeepingKey(key: string, def: FieldDef | undefined): boolean {
+  return isSystemManagedField(key, def as { system?: boolean } | undefined);
+}
+
+/**
+ * One field's declaration as the object's metadata serves it. The index below
+ * adds `name` to each one, as the record page's field defs carry it.
+ */
+type FieldDef = Readonly<Record<string, unknown>>;
+
+/** An object's field declarations, keyed by field name. */
+type FieldDefs = Readonly<Record<string, FieldDef>>;
+
+/**
+ * Index an object schema's `fields` by name (objectui#11677). Reads both
+ * shapes the platform serves: the record shape (`{ name: def }`) and the array
+ * shape (`[{ name, ...def }]`), as `hiddenFieldNames` does.
+ *
+ * Returns `null` when the schema declares no field at all, and `null` is the
+ * UNKNOWN answer. A real object always declares fields: the registry injects
+ * its system columns on every business object. So an empty answer says the
+ * source did not describe the object, and the card stays on today's snapshot
+ * rendering rather than dropping every row as undeclared.
+ */
+function indexFieldDefs(schema: unknown): FieldDefs | null {
+  const fields = (schema as { fields?: unknown } | null | undefined)?.fields;
+  if (!fields || typeof fields !== 'object') return null;
+  const entries: Array<[unknown, unknown]> = Array.isArray(fields)
+    ? fields.map((def) => [(def as { name?: unknown } | null)?.name, def])
+    : Object.entries(fields as Record<string, unknown>);
+  const out: Record<string, FieldDef> = {};
+  for (const [name, def] of entries) {
+    if (typeof name !== 'string' || name === '' || !def || typeof def !== 'object') continue;
+    out[name] = { ...(def as Record<string, unknown>), name };
+  }
+  return Object.keys(out).length > 0 ? out : null;
+}
+
+/**
+ * The field declarations of the open request's object (objectui#11677).
+ * Returns `null` until the read answers, and `null` again when it cannot
+ * answer: no `getObjectSchema`, a transport error, or a principal without
+ * metadata read.
+ *
+ * It is the same `getObjectSchema` read `useHiddenFieldsByObject` makes for
+ * this object. It lands on the adapter's `MetadataCache`, which de-duplicates
+ * in-flight reads, so it adds no round trip. `null` fails OPEN, in the same
+ * direction as that hook: the card renders today's snapshot rows, because a
+ * metadata error must not empty the approver's decision surface.
+ */
+function useRequestFieldDefs(objectName: string | null | undefined): FieldDefs | null {
+  const adapter = useAdapter() as HiddenFieldsSource | null | undefined;
+  const [answer, setAnswer] = useState<{ object: string; defs: FieldDefs | null } | null>(null);
+  useEffect(() => {
+    if (!objectName || typeof adapter?.getObjectSchema !== 'function') return;
+    let cancelled = false;
+    adapter.getObjectSchema(objectName).then(
+      (schema) => { if (!cancelled) setAnswer({ object: objectName, defs: indexFieldDefs(schema) }); },
+      // Deliberately silent, as `readHiddenFields` is: a viewer without
+      // metadata access hits this on every drawer open.
+      () => { if (!cancelled) setAnswer({ object: objectName, defs: null }); },
+    );
+    return () => { cancelled = true; };
+  }, [adapter, objectName]);
+  // An answer for the PREVIOUS request's object is never applied to this one.
+  return answer !== null && answer.object === objectName ? answer.defs : null;
+}
+
+/**
+ * A declared field's stored value, drawn the way the record page draws it
+ * (objectui#11677). `resolveCellRendererType` → `getCellRenderer` is the chain
+ * `DetailSection` renders a field through, and the option labels are
+ * translated as it translates them. So the card shows `Sent` and `EMEA` where
+ * the record page does, a date as the date cell shows it, and a currency
+ * field in its currency.
+ *
+ * ⛔ Not a second formatter. This passes the declaration and the stored value
+ * to the record page's own cell and adds nothing. A face that looks wrong here
+ * looks wrong on the record page as well, and the fix belongs in the cell.
+ *
+ * Module scope on purpose, for the same reason as the row cells below
+ * (objectui#5348).
+ */
+function RecordFieldFace({ objectName, def, value }: { objectName: string; def: FieldDef; value: unknown }) {
+  const { translateOptions } = useSafeFieldLabel();
+  const options = def.options;
+  const field = Array.isArray(options) && options.length > 0
+    ? { ...def, options: translateOptions(objectName, def.name as string, options) }
+    : def;
+  const Cell = getCellRenderer(resolveCellRendererType(field as { type?: string; format?: string }));
+  // eslint-disable-next-line react-hooks/static-components -- getCellRenderer returns the registry's module-level renderer for the type, not a component created during render
+  return <Cell value={value} field={field as unknown as FieldMetadata} />;
+}
+
+/** One row of the drawer's summary card. `key` is the snapshot key, so it is unique. */
+interface SummaryRow {
+  key: string;
+  label: string;
+  value: ReactNode;
+  /** Hover text, set only when the value is plain text. */
+  title?: string;
+}
+
+/**
+ * Two rows never share a label (objectui#11677). The labels come from the
+ * object's metadata, and metadata can give two fields the same label: an
+ * author field and an injected column, or two author fields. Two identical
+ * labels on one card read as one field shown twice. Every row whose label is
+ * shared therefore names its field key as well, and none of them is dropped.
+ *
+ * Field keys are unique within one snapshot, so the qualified labels are
+ * unique. If a qualified label still matches another row's plain label (an
+ * author who labelled a field `Owner (owner_id)`), every row is qualified.
+ */
+function withDistinctLabels(rows: SummaryRow[]): SummaryRow[] {
+  const qualify = (pick: (r: SummaryRow) => boolean) =>
+    rows.map((r) => (pick(r) ? { ...r, label: `${r.label} (${r.key})` } : r));
+  const count = new Map<string, number>();
+  for (const r of rows) count.set(r.label, (count.get(r.label) ?? 0) + 1);
+  const once = qualify((r) => (count.get(r.label) ?? 0) > 1);
+  return new Set(once.map((r) => r.label)).size === once.length ? once : qualify(() => true);
+}
 
 function prettifyKey(k: string): string {
   const tokens = k.split('_').filter(Boolean);
@@ -390,34 +525,77 @@ const OPAQUE_ID_RE = /^[A-Za-z0-9_-]{15,}$/;
  * An empty `hiddenKeys` means "nothing known to be hidden" — including the case
  * where the metadata read has not answered — and renders today's card. See
  * `hiddenFields.ts` on why this presentation filter fails open.
+ *
+ * `meta` is the object's field declarations (objectui#11677). With it, the
+ * card follows the record page:
+ *  - each row takes its field's declared label, translated as the record page
+ *    translates it, and never a title-cased key;
+ *  - each value is drawn by {@link RecordFieldFace}, the record page's own
+ *    cell, unless the server resolved a display value for it;
+ *  - a snapshot key the object does not declare gets no row, because it has
+ *    no label and no face to show;
+ *  - a reference the server could not resolve gets no row, because its value
+ *    is an id.
+ * Without `meta` (not answered, failed, or undescribed) the card falls back to
+ * the snapshot as it rendered before: the server's labels, then the
+ * title-cased key, and the stored text. In both modes two rows never share a
+ * label ({@link withDistinctLabels}).
  */
 function payloadSummary(
   payload: unknown,
   locale: string,
-  display?: Record<string, string>,
-  labels?: Record<string, string>,
-  max = 6,
-  excludeKey?: string,
-  hiddenKeys?: ReadonlySet<string>,
-): Array<[string, string]> {
+  display: Record<string, string> | undefined,
+  labels: Record<string, string> | undefined,
+  max: number,
+  excludeKey: string | undefined,
+  hiddenKeys: ReadonlySet<string> | undefined,
+  meta: SummaryMeta | null,
+): SummaryRow[] {
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return [];
-  const out: Array<[string, string]> = [];
+  const out: SummaryRow[] = [];
   for (const [k, v] of Object.entries(payload as Record<string, unknown>)) {
-    if (PAYLOAD_SYSTEM_KEYS.has(k)) continue;
+    const def = meta?.defs[k];
+    if (isBookkeepingKey(k, def)) continue;
     if (hiddenKeys?.has(k)) continue; // author declared `hidden: true` (#5565)
     if (excludeKey && k === excludeKey) continue; // shown as the lead amount
     if (v == null || typeof v === 'object') continue;
     if (String(v).trim() === '') continue;
     const resolved = display?.[k];
-    if (!resolved && typeof v === 'string' && OPAQUE_ID_RE.test(v.trim()) && !/^\d+$/.test(v.trim())) {
-      continue;
+    if (meta) {
+      if (!def) continue; // not a field of this object (#11677)
+      if (!resolved && isExpandableFieldType(def)) continue; // an unresolved reference id
+      out.push({
+        key: k,
+        label: declaredLabel(meta, k, def),
+        value: resolved ?? <RecordFieldFace objectName={meta.objectName} def={def} value={v} />,
+        title: resolved,
+      });
+    } else {
+      if (!resolved && typeof v === 'string' && OPAQUE_ID_RE.test(v.trim()) && !/^\d+$/.test(v.trim())) {
+        continue;
+      }
+      // Prefer the server-resolved field label (the target object's own label,
+      // already localized for a single-locale project) over a title-cased key.
+      const text = resolved ?? formatPayloadValue(k, v, locale);
+      out.push({ key: k, label: labels?.[k] ?? prettifyKey(k), value: text, title: text });
     }
-    // Prefer the server-resolved field label (the target object's own label,
-    // already localized for a single-locale project) over a title-cased key.
-    out.push([labels?.[k] ?? prettifyKey(k), resolved ?? formatPayloadValue(k, v, locale)]);
     if (out.length >= max) break;
   }
-  return out;
+  return withDistinctLabels(out);
+}
+
+/** What {@link payloadSummary} needs to render the record page's faces. */
+interface SummaryMeta {
+  objectName: string;
+  defs: FieldDefs;
+  /** `useSafeFieldLabel().fieldLabel` — the record page's label translator. */
+  fieldLabel: (objectName: string, fieldName: string, fallback: string) => string;
+}
+
+/** A declared field's label, as the record page reads it: `field.label || field.name`, translated. */
+function declaredLabel(meta: SummaryMeta, key: string, def: FieldDef): string {
+  const label = typeof def.label === 'string' && def.label !== '' ? def.label : key;
+  return meta.fieldLabel(meta.objectName, key, label);
 }
 
 /**
@@ -445,17 +623,24 @@ const AMOUNT_KEY_RE = /(amount|total|price|value|cost|sum|budget|salary|fee|reve
  * An empty set means "nothing known to be hidden" — including the case where
  * the metadata read has not answered — and yields today's amount. See
  * `hiddenFields.ts` on why this presentation filter fails open.
+ *
+ * `defs` is the object's field declarations, which only the drawer has
+ * (objectui#11677). When given, a key the object does not declare is not a
+ * candidate, by the same rule as the drawer's field grid. The queue passes
+ * nothing, which keeps today's choice.
  */
 function decisionAmountEntry(
   r: ApprovalRequestRow,
   hiddenKeys: ReadonlySet<string>,
   locale: string,
+  defs: FieldDefs | null = null,
 ): { key: string; label: string; value: number; display: string } | null {
   const payload = r.payload;
   if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
   for (const [k, v] of Object.entries(payload as Record<string, unknown>)) {
-    if (PAYLOAD_SYSTEM_KEYS.has(k)) continue;
+    if (isBookkeepingKey(k, defs?.[k])) continue;
     if (hiddenKeys.has(k)) continue; // author declared `hidden: true` (#5565)
+    if (defs && !defs[k]) continue; // not a field of this object (#11677)
     if (!AMOUNT_KEY_RE.test(k)) continue;
     const num = typeof v === 'number'
       ? v
@@ -905,6 +1090,14 @@ export function ApprovalsInboxPage() {
   );
   const hiddenFields = useHiddenFieldsByObject(hiddenFieldObjects);
   const hiddenPayloadKeys = hiddenFields.forObject(selected?.object_name);
+  /**
+   * objectui#11677 — the open request's field declarations, so the drawer's
+   * summary card shows the record page's labels and value faces. `null` until
+   * the read answers or when it fails; the card then renders the snapshot as
+   * before. See `useRequestFieldDefs` for the cost and the fail-open choice.
+   */
+  const requestFieldDefs = useRequestFieldDefs(selected?.object_name);
+  const { fieldLabel } = useSafeFieldLabel();
   // Approve/reject/reassign/send-back/… are server-declared actions rendered by
   // DeclaredActionsBar (objectui#2697 + framework#3300); their param dialog
   // collects the comment and — since the shared upload-widget renderer (#2700/
@@ -2072,8 +2265,31 @@ export function ApprovalsInboxPage() {
               // the same `hidden` trim (objectui#5565) — otherwise a hidden
               // amount-like field would simply move from the field grid to the
               // bold lead figure at the top of the very card being fixed.
-              const drawerAmount = decisionAmountEntry(selected, hiddenPayloadKeys, displayLocale);
-              const summary = payloadSummary(selected.payload, displayLocale, selected.payload_display, selected.payload_labels, 6, drawerAmount?.key, hiddenPayloadKeys);
+              // objectui#11677: with the object's field declarations, both
+              // halves take the declared label and the record page's face.
+              const summaryMeta: SummaryMeta | null = requestFieldDefs
+                ? { objectName: selected.object_name, defs: requestFieldDefs, fieldLabel }
+                : null;
+              const drawerAmount = decisionAmountEntry(selected, hiddenPayloadKeys, displayLocale, requestFieldDefs);
+              const leadDef = drawerAmount ? summaryMeta?.defs[drawerAmount.key] : undefined;
+              const lead: SummaryRow | null = !drawerAmount
+                ? null
+                : summaryMeta && leadDef
+                  ? {
+                      key: drawerAmount.key,
+                      label: declaredLabel(summaryMeta, drawerAmount.key, leadDef),
+                      value: selected.payload_display?.[drawerAmount.key]
+                        ?? (
+                          <RecordFieldFace
+                            objectName={summaryMeta.objectName}
+                            def={leadDef}
+                            value={(selected.payload as Record<string, unknown>)[drawerAmount.key]}
+                          />
+                        ),
+                      title: selected.payload_display?.[drawerAmount.key],
+                    }
+                  : { key: drawerAmount.key, label: drawerAmount.label, value: drawerAmount.display, title: drawerAmount.display };
+              const summary = payloadSummary(selected.payload, displayLocale, selected.payload_display, selected.payload_labels, 6, drawerAmount?.key, hiddenPayloadKeys, summaryMeta);
               return (
               <Card>
                 <CardContent className="p-4 space-y-3">
@@ -2137,20 +2353,23 @@ export function ApprovalsInboxPage() {
                       </div>
                     </div>
                   </div>
-                  {drawerAmount && (
-                    <div className="border-t pt-3">
-                      <div className="text-[11px] text-muted-foreground">{drawerAmount.label}</div>
-                      <div className="text-xl font-semibold tabular-nums" title={drawerAmount.display}>
-                        {drawerAmount.display}
+                  {lead && (
+                    <div className="border-t pt-3" data-summary-lead={lead.key}>
+                      <div className="text-[11px] text-muted-foreground">{lead.label}</div>
+                      <div className="text-xl font-semibold tabular-nums" title={lead.title}>
+                        {lead.value}
                       </div>
                     </div>
                   )}
                   {summary.length > 0 && (
-                    <div className={cn('grid grid-cols-2 gap-x-4 gap-y-2 text-sm', !drawerAmount && 'border-t pt-3')}>
-                      {summary.map(([k, v]) => (
-                        <div key={k} className="min-w-0">
-                          <div className="text-[11px] text-muted-foreground">{k}</div>
-                          <div className="truncate" title={v}>{v}</div>
+                    <div className={cn('grid grid-cols-2 gap-x-4 gap-y-2 text-sm', !lead && 'border-t pt-3')}>
+                      {/* Keyed by FIELD key (objectui#11677): it was keyed by
+                          the label, and two fields labelled "Owner" logged
+                          React's duplicate-key warning on every drawer render. */}
+                      {summary.map((row) => (
+                        <div key={row.key} className="min-w-0" data-summary-field={row.key}>
+                          <div className="text-[11px] text-muted-foreground">{row.label}</div>
+                          <div className="truncate" title={row.title}>{row.value}</div>
                         </div>
                       ))}
                     </div>

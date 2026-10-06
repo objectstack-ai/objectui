@@ -27,7 +27,8 @@
  *
  * ## The witnesses
  *
- * `created_by` and `organization_id` are in the page's `PAYLOAD_SYSTEM_KEYS`,
+ * `created_by` and `organization_id` are bookkeeping columns to the page's
+ * `isBookkeepingKey` (`@object-ui/types`' `isSystemManagedField`, objectui#11677),
  * so the summary card already drops them: their values can reach the DOM only
  * through the raw panel. That makes them exact witnesses for "the panel
  * rendered", not proxies. (Both are also long enough to trip the summary's

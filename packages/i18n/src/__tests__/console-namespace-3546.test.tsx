@@ -466,10 +466,9 @@ describe('objectui#3546 slice four — the console namespace', () => {
     });
 
     it('the ru pack keeps ё, matching its own console neighbours', () => {
-      // `console.ai.emptyDescription` already writes «о чём угодно» and
-      // `console.shortcuts.toggleDarkMode` «тёмный режим»: this pack spells ё
-      // rather than collapsing it to е, and these two strings are where a
-      // backfill would most easily have dropped it.
+      // `console.ai.emptyDescription` already writes «о чём угодно»: this pack
+      // spells ё rather than collapsing it to е, and these two strings are where
+      // a backfill would most easily have dropped it.
       const { result } = renderHook(() => useObjectTranslation(), { wrapper: wrapperFor('ru') });
       expect(result.current.t('console.ai.planDeferred')).toContain('Ещё');
       expect(result.current.t('console.ai.unavailableDescription')).toContain('включён');

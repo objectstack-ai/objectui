@@ -106,6 +106,11 @@ import {
 
 import { AppHeader } from '../../layout/AppHeader.js';
 import { armChatDockExpanded, readDockReturnLocation } from '../../layout/chatDockState.js';
+import {
+  useAdvertiseShortcut,
+  type AdvertisedShortcut,
+  type ShortcutLabelTranslate,
+} from '../../chrome/advertisedShortcuts.js';
 import { fetchPendingDraftCount } from '../../preview/draftStatus.js';
 import { emitMetadataRefresh, publishPlanApprovalPending } from '../../assistant/assistantBus.js';
 import { getRuntimeConfig, isAiStudioEnabled } from '../../runtime-config.js';
@@ -696,6 +701,25 @@ export function matchAiChatShortcut(e: {
 }
 
 /**
+ * The two {@link matchAiChatShortcut} chords, advertised to the
+ * keyboard-shortcuts dialog by `AiChatPage` beside the listener that calls it,
+ * so they are listed only where that page is mounted (objectui#11674).
+ */
+export const NEW_CHAT_SHORTCUT: AdvertisedShortcut = {
+  id: 'ai-new-chat',
+  group: 'aiChat',
+  chord: { key: 'o', mod: true, shift: true },
+  label: (t: ShortcutLabelTranslate) => t('console.shortcuts.newChat'),
+};
+
+export const TOGGLE_CHATS_LIST_SHORTCUT: AdvertisedShortcut = {
+  id: 'ai-toggle-chats-list',
+  group: 'aiChat',
+  chord: { key: 's', mod: true, shift: true },
+  label: (t: ShortcutLabelTranslate) => t('console.shortcuts.toggleChatsList'),
+};
+
+/**
  * ADR-0057 P3c — where the "collapse to dock" affordance navigates, in
  * preference order:
  *
@@ -1092,6 +1116,8 @@ export function AiChatPage({ apiBase: apiBaseProp, defaultAgent: defaultAgentPro
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [toggleChatsCollapsed, navigate, activeAgentRoute]);
+  useAdvertiseShortcut(NEW_CHAT_SHORTCUT);
+  useAdvertiseShortcut(TOGGLE_CHATS_LIST_SHORTCUT);
   const restApiBase = useMemo(
     () => apiBase.replace(/\/v1\/ai$/, '').replace(/\/ai$/, '') || '/api',
     [apiBase],

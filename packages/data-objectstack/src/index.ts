@@ -3234,6 +3234,13 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
   // multiple sibling components requesting the same dataset on first paint)
   // into a single network round trip.
   private inflightFinds = new Map<string, Promise<QueryResult<T>>>();
+  // In-flight findOne() reads keyed by resource + record id + serialized
+  // params, shared the same way (objectui#11699). Opening one record page
+  // asked for the same record twice at once: `record:details`' DetailView
+  // re-runs its load effect while its first read is still on the wire. A
+  // write to a resource drops that resource's entries (see `emitMutation`),
+  // so a read asked after a save is never answered by one sent before it.
+  private inflightFindOnes = new Map<string, Promise<T | null>>();
   // Resources that have responded 404 at least once (collection not installed
   // on this backend). Subsequent find() calls short-circuit to an empty result
   // so optional collections like sys_presence don't hammer the server with
@@ -3503,10 +3510,7 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
       return { data: [], total: 0 } as QueryResult<T>;
     }
     const key = `${resource}::${stableStringify(params)}`;
-    const existing = this.inflightFinds.get(key);
-    if (existing) return existing;
-
-    const promise = (async () => {
+    return this.shareInFlight(this.inflightFinds, key, async () => {
       await this.connect();
 
       // When $expand is requested, use a raw GET request to the REST API with
@@ -3543,9 +3547,28 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
         }
         throw err;
       }
-    })();
+    });
+  }
 
-    this.inflightFinds.set(key, promise);
+  /**
+   * Share one in-flight read among concurrent callers asking the same
+   * question: the first call for `key` issues `read()`, every call that
+   * arrives while it is still pending gets that same promise, and the entry is
+   * dropped the moment it settles — so nothing is cached past the round trip,
+   * a rejection reaches every caller that shared it and is not remembered, and
+   * the next call after settle issues a fresh read. Used by `find` and
+   * `findOne` (objectui#11699).
+   */
+  private shareInFlight<R>(
+    inflight: Map<string, Promise<R>>,
+    key: string,
+    read: () => Promise<R>,
+  ): Promise<R> {
+    const existing = inflight.get(key);
+    if (existing) return existing;
+
+    const promise = read();
+    inflight.set(key, promise);
     // Use `.then(cleanup, cleanup)` instead of `.finally(cleanup)`. `.finally`
     // returns a new chained promise that re-raises the rejection, and because
     // we don't return that chain, Node/browsers see it as an unhandled
@@ -3553,9 +3576,10 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
     // via `.catch()` (e.g. AppHeader probing optional sys_presence/sys_activity).
     const cleanup = () => {
       // Only clear if the entry still points at this promise; a later call
-      // that started after settle may have already replaced it.
-      if (this.inflightFinds.get(key) === promise) {
-        this.inflightFinds.delete(key);
+      // that started after settle, or after a write dropped the entry, may
+      // have already replaced it.
+      if (inflight.get(key) === promise) {
+        inflight.delete(key);
       }
     };
     promise.then(cleanup, cleanup);
@@ -3664,8 +3688,17 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
 
   /**
    * Find a single record by ID.
+   *
+   * Concurrent calls for the same resource, id and params share one request,
+   * exactly as `find` does (objectui#11699); see {@link shareInFlight}.
    */
   async findOne(resource: string, id: string | number, params?: QueryParams): Promise<T | null> {
+    const key = `${resource}::${JSON.stringify(String(id))}::${stableStringify(params)}`;
+    return this.shareInFlight(this.inflightFindOnes, key, () => this.readOne(resource, id, params));
+  }
+
+  /** The one round trip behind {@link findOne}, unshared. */
+  private async readOne(resource: string, id: string | number, params?: QueryParams): Promise<T | null> {
     await this.connect();
 
     // When $expand is requested, use a raw GET request with a filter by id
@@ -3716,6 +3749,15 @@ export class ObjectStackAdapter<T = unknown> implements DataSource<T> {
    * mutation or starve the other subscribers, so each is isolated.
    */
   private emitMutation(event: DataSourceMutationEvent<T>): void {
+    // A record read still on the wire when a write to its resource lands was
+    // asked before that write, so a caller asking after it — typically the
+    // refetch a listener below triggers — must not join it (objectui#11699).
+    // Dropped before the listeners run. The pending read still answers the
+    // callers that already hold it.
+    const prefix = `${event.resource}::`;
+    for (const key of Array.from(this.inflightFindOnes.keys())) {
+      if (key.startsWith(prefix)) this.inflightFindOnes.delete(key);
+    }
     for (const listener of this.mutationListeners) {
       try {
         listener(event);

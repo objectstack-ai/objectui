@@ -98,6 +98,36 @@ interface InFlightProbe {
 const inFlight = new Set<InFlightProbe>();
 
 /**
+ * A question still on its way to the explain engine, by the same key as
+ * {@link verdictCache} (objectui#11699).
+ *
+ * The cache only holds FINISHED answers, so every mount that asked while the
+ * first answer was still on the wire sent its own `POST`. A record page asks
+ * each question from two hosts at once — the page header (app-shell's
+ * `RecordDetailView`) and `record:details`' `DetailView` — so one open sent
+ * every question twice. Now the first asker sends it and every asker that
+ * arrives before it settles waits on the same answer.
+ *
+ * `answer` is the verdict, or `undefined` for every fail-open outcome
+ * (non-OK, no record verdict, a network failure) and for a probe the record
+ * changed under. The entry is dropped when it settles, and also the moment a
+ * data change stales it (see {@link forgetChangedRecords}) or the principal
+ * changes (see {@link retainForPrincipal}), so a question asked after either
+ * is asked again rather than joined to an answer about the world before it.
+ *
+ * The first asker's fetch channel carries the question for everyone who
+ * shares it. The question itself names no principal — the server answers for
+ * the session on the request — so the channel does not change the question;
+ * a channel that fails fails open, as it would have for that asker alone.
+ */
+interface PendingVerdict {
+  readonly probe: InFlightProbe;
+  readonly answer: Promise<boolean | undefined>;
+}
+
+const pendingVerdicts = new Map<string, PendingVerdict>();
+
+/**
  * Drop every verdict a data change has made stale (objectui#10184).
  *
  * The verdict is a fact about the record as well as about the principal:
@@ -147,6 +177,11 @@ function forgetChangedRecords(change: DataChange): void {
       if (dataChangeMatches(change, probe.object, id)) probe.staled.add(id);
     }
   }
+  // A staled probe answers nobody, so nobody may join it (objectui#11699):
+  // the asker re-running on this change must send a fresh question.
+  for (const [key, pending] of Array.from(pendingVerdicts)) {
+    if (pending.probe.staled.size > 0) pendingVerdicts.delete(key);
+  }
 }
 
 subscribeDataChanges(forgetChangedRecords);
@@ -170,8 +205,60 @@ let cachedPrincipal: string | null | undefined;
 
 /** Drop everything if the acting principal is not the one the map was built for. */
 function retainForPrincipal(principal: string | null): void {
-  if (cachedPrincipal !== undefined && cachedPrincipal !== principal) verdictCache.clear();
+  if (cachedPrincipal !== undefined && cachedPrincipal !== principal) {
+    verdictCache.clear();
+    // Nor may an unanswered question span the change (objectui#11699).
+    pendingVerdicts.clear();
+  }
   cachedPrincipal = principal;
+}
+
+/**
+ * Ask the explain engine one question, or join the ask already on the wire
+ * for the same key (objectui#11699). A boolean verdict is written to
+ * {@link verdictCache} once, by the ask itself, for every asker sharing it.
+ */
+function askVerdict(
+  key: string,
+  objectName: string,
+  recordId: string,
+  operation: RecordOperation,
+  apiFetch: typeof fetch | undefined,
+): Promise<boolean | undefined> {
+  const pending = pendingVerdicts.get(key);
+  if (pending) return pending.answer;
+
+  const probe: InFlightProbe = { object: objectName, recordIds: [recordId], staled: new Set() };
+  inFlight.add(probe);
+  const answer = (async (): Promise<boolean | undefined> => {
+    try {
+      const doFetch = apiFetch ?? fetch;
+      const res = await doFetch('/api/v1/security/explain', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ object: objectName, operation, recordId }),
+      });
+      if (!res.ok) return undefined; // 401 / 403 / 501 → fail open
+      const decision = await res.json();
+      const verdict = decision?.record?.visible;
+      if (typeof verdict !== 'boolean') return undefined; // no record verdict → fail open
+      if (probe.staled.size > 0) return undefined; // asked before the record changed → not an answer
+      verdictCache.set(key, verdict);
+      return verdict;
+    } catch {
+      return undefined; // network/parse failure → fail open
+    } finally {
+      inFlight.delete(probe);
+    }
+  })();
+  const entry: PendingVerdict = { probe, answer };
+  pendingVerdicts.set(key, entry);
+  const settle = () => {
+    if (pendingVerdicts.get(key) === entry) pendingVerdicts.delete(key);
+  };
+  answer.then(settle, settle);
+  return answer;
 }
 
 export type RecordOperation = 'update' | 'delete';
@@ -224,30 +311,10 @@ export function useRecordEditable(
     // question fails open, as every other uncertainty in this hook does.
     setAllowed(true);
     let cancelled = false;
-    const probe: InFlightProbe = { object: objectName, recordIds: [recordId], staled: new Set() };
-    inFlight.add(probe);
-    (async () => {
-      try {
-        const doFetch = apiFetch ?? fetch;
-        const res = await doFetch('/api/v1/security/explain', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ object: objectName, operation, recordId }),
-        });
-        if (!res.ok) return; // 401 / 403 / 501 → fail open
-        const decision = await res.json();
-        const verdict = decision?.record?.visible;
-        if (typeof verdict !== 'boolean') return; // no record verdict → fail open
-        if (probe.staled.size > 0) return; // asked before the record changed → not an answer
-        verdictCache.set(key, verdict);
-        if (!cancelled) setAllowed(verdict);
-      } catch {
-        /* network/parse failure → fail open */
-      } finally {
-        inFlight.delete(probe);
-      }
-    })();
+    // Asked once per key however many mounts ask it at once (objectui#11699).
+    void askVerdict(key, objectName, recordId, operation, apiFetch).then((verdict) => {
+      if (verdict !== undefined && !cancelled) setAllowed(verdict);
+    });
     return () => {
       cancelled = true;
     };
@@ -256,8 +323,12 @@ export function useRecordEditable(
   return allowed;
 }
 
-/** Test seam — drops the memoised verdicts AND the principal they were for. */
+/**
+ * Test seam — drops the memoised verdicts, the unanswered questions waiting
+ * on the wire, AND the principal they were for.
+ */
 export function __clearRecordEditableCache(): void {
   verdictCache.clear();
+  pendingVerdicts.clear();
   cachedPrincipal = undefined;
 }

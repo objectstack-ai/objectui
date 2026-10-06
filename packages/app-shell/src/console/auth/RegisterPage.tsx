@@ -21,7 +21,7 @@
  */
 
 import { useEffect, useState } from 'react';
-import { useNavigate, useSearchParams, Link } from 'react-router-dom';
+import { Navigate, useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   RegisterForm,
   AuthFormHeader,
@@ -83,22 +83,17 @@ export function RegisterPage() {
   const bootstrap = useBootstrapStatus(signedOut && needsBootstrapProbe(authConfig, invitationRedirect));
   const signUpOffer = decideSignUpOffer(authConfig, { invitationRedirect, bootstrap });
 
-  // Where this visitor goes instead of this page. A signed-in visitor goes
-  // where a successful sign-up goes, without waiting for the config or the
-  // probe (objectui#11714); with sign-up switched off, a signed-out one is
-  // bounced to /login, keeping `?redirect=`.
+  // Sign-up switched off — bounce a signed-out visitor to /login, keeping
+  // `?redirect=`. A signed-in one is moved on below instead, never to /login.
   useEffect(() => {
-    if (user) {
-      navigate('/', { replace: true });
-      return;
-    }
     if (!signedOut || signUpOffer !== 'closed') return;
     const search = redirect ? `?redirect=${encodeURIComponent(redirect)}` : '';
     navigate(`/login${search}`, { replace: true });
-  }, [user, signedOut, signUpOffer, navigate, redirect]);
+  }, [signedOut, signUpOffer, navigate, redirect]);
 
-  // Signed in — render nothing while the effect above moves them on.
-  if (user) return null;
+  // objectui#11714 — signed in: go where a successful sign-up goes, without
+  // waiting for the config or the probe. `<Navigate>` renders nothing.
+  if (user) return <Navigate to="/" replace />;
 
   if (!signedOut || configRead === null || signUpOffer === 'closed' || signUpOffer === 'pending') {
     // Render nothing until the offer is known — prevents a flash of the form.

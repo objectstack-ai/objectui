@@ -2,7 +2,9 @@
 
 /**
  * objectui#10202 — `dropServedPicklistOptions`, the served → authored
- * conversion an object designer applies to the body it PUTs.
+ * conversion a writer that seeded its body from a served object read applies
+ * to the body it PUTs. Moved here from `@object-ui/app-shell` with the helper
+ * by objectui#11692, so the writers in `@object-ui/plugin-designer` share it.
  *
  * The contract it answers to is read from the installed `@objectstack/spec`,
  * not restated: `FieldSchema` refuses `picklist` beside `options` (the served

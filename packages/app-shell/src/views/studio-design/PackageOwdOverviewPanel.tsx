@@ -33,7 +33,9 @@ import type { MetadataClient } from '@object-ui/data-objectstack';
 // framework's read decorations in one place. This file used to carry its own
 // copy that did the unwrap and skipped the strip.
 // …and `formatMetadataError`, the one metadata-save error reader (objectui#11302).
-import { extractDraftBody, formatMetadataError } from '@object-ui/data-objectstack';
+// …and `dropServedPicklistOptions`, the served -> authored conversion of a
+// picklist-bound field (objectui#10202, objectui#11692).
+import { dropServedPicklistOptions, extractDraftBody, formatMetadataError } from '@object-ui/data-objectstack';
 import { t, tFormat, type SupportedLocale } from '../metadata-admin/i18n.js';
 import { isExternalWider, deriveMasterObject } from './owd-sharing.js';
 import { toast } from 'sonner';
@@ -261,7 +263,12 @@ export function PackageOwdOverviewPanel({
         else delete next.sharingModel;
         if (s.edit.external) next.externalSharingModel = s.edit.external;
         else delete next.externalSharingModel;
-        await client.save('object', s.row.name, next, { mode: 'draft', packageId });
+        // objectui#11692 — `next` is seeded from a SERVED object read, where a
+        // picklist-bound field carries `picklist` beside the options the
+        // runtime resolved from the list; the authoring door refuses the two
+        // together, for the whole object. So the resolved `options` stay out of
+        // the body, on every bound field and on nothing else.
+        await client.save('object', s.row.name, dropServedPicklistOptions(next), { mode: 'draft', packageId });
       }
       toast.success(tFormat('engine.studio.owd.saved', locale, { count: changed.length }));
       onDraftSaved?.();

@@ -21,7 +21,9 @@ import { useAdapter, SchemaRendererProvider } from '@object-ui/react';
 // framework's read decorations in one place. This file used to carry its own
 // copy that did the unwrap and skipped the strip.
 // …and `formatMetadataError`, the one metadata-save error reader (objectui#11302).
-import { extractDraftBody, formatMetadataError } from '@object-ui/data-objectstack';
+// …and `dropServedPicklistOptions`, the served -> authored conversion of a
+// picklist-bound field (objectui#10202), moved here by objectui#11692.
+import { dropServedPicklistOptions, extractDraftBody, formatMetadataError } from '@object-ui/data-objectstack';
 import type { FlowRuntimeState as SpecFlowRuntimeState } from '@objectstack/spec/contracts';
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { StudioChatDock, type StudioSurfaceLabel } from './StudioAiCopilot.js';
@@ -96,7 +98,6 @@ import {
 } from '../metadata-admin/inspector-registry.js';
 import { getMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
 import { getMetadataResource } from '../metadata-admin/registry.js';
-import { dropServedPicklistOptions } from '../metadata-admin/picklist-binding.js';
 import { useMetadataClient, useMetadataTypes } from '../metadata-admin/useMetadata.js';
 import {
   DESIGNER_SURFACE_PARAM,

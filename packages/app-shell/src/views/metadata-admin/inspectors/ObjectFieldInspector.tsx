@@ -58,6 +58,7 @@ import {
 import { Button, Input, Label, Badge } from '@object-ui/components';
 import { Plus, X, ArrowUp, ArrowDown, Copy, AlertTriangle } from 'lucide-react';
 import { InspectorComboField, type InspectorComboOption } from './InspectorComboField.js';
+import { ObjectPicker } from './ObjectPicker.js';
 import { useObjectFields } from '../previews/useObjectFields.js';
 import {
   readFields,
@@ -74,7 +75,7 @@ import {
 } from '../previews/field-types.js';
 import { CelPredicateField } from '../CelPredicateField.js';
 import type { CelLintIssue } from '../celAuthoring.js';
-import { t, tFormat } from '../i18n.js';
+import { t, tFormat, type SupportedLocale } from '../i18n.js';
 import { usePickerLoad, type LoadState } from '../loadState.js';
 
 
@@ -489,7 +490,6 @@ export function ObjectFieldInspector({
     ? ((draft as any).fieldGroups as Array<{ key?: string; label?: string }>)
     : [];
 
-  const objectOptions = useObjectOptions(locale);
   // objectui#10202 — the picklists the runtime serves, for the "use picklist"
   // picker. A `LoadState`, so a failed read is never shown as "no picklists".
   const picklistRoster = usePicklistRoster();
@@ -1008,10 +1008,10 @@ export function ObjectFieldInspector({
               <ObjectPicker
                 label={tr('designer.field.relatedObject')}
                 value={typeof def.reference === 'string' ? (def.reference as string) : ''}
-                options={objectOptions}
                 onCommit={(v) => patchDef({ reference: v || undefined })}
                 disabled={readOnly}
                 placeholder={tr('designer.field.objectNamePlaceholder')}
+                locale={locale}
               />
               <InspectorTextField
                 label={tr('designer.field.relationshipName')}
@@ -1068,7 +1068,6 @@ export function ObjectFieldInspector({
             <SummaryConfigFields
               def={def}
               patchDef={patchDef}
-              objectOptions={objectOptions}
               readOnly={readOnly}
               locale={locale}
             />
@@ -1381,43 +1380,6 @@ function TextareaField({
           (mono ? 'font-mono text-xs ' : '')
         }
       />
-    </div>
-  );
-}
-
-function ObjectPicker({
-  label,
-  value,
-  options,
-  onCommit,
-  disabled,
-  placeholder,
-}: {
-  label: string;
-  value: string;
-  options: Array<{ value: string; label: string }>;
-  onCommit: (v: string) => void;
-  disabled?: boolean;
-  placeholder?: string;
-}) {
-  // List may be empty (still loading or no objects). Allow free-text fallback.
-  const listId = React.useId();
-  return (
-    <div className="space-y-1">
-      <Label className="text-xs text-muted-foreground">{label}</Label>
-      <Input
-        list={listId}
-        value={value}
-        onChange={(e) => onCommit(e.target.value)}
-        disabled={disabled}
-        className="h-8 text-sm font-mono"
-        placeholder={placeholder ?? 'object_name'}
-      />
-      <datalist id={listId}>
-        {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
-        ))}
-      </datalist>
     </div>
   );
 }
@@ -1982,15 +1944,13 @@ const summaryValueToText = (v: unknown): string => (Array.isArray(v) ? v.join(',
 function SummaryConfigFields({
   def,
   patchDef,
-  objectOptions,
   readOnly,
   locale,
 }: {
   def: Record<string, unknown>;
   patchDef: (patch: Record<string, unknown>) => void;
-  objectOptions: Array<{ value: string; label: string }>;
   readOnly?: boolean;
-  locale?: string;
+  locale?: SupportedLocale;
 }) {
   const tr = (key: string) => t(key, locale);
   const ops = readSummaryOps(def);
@@ -2041,10 +2001,10 @@ function SummaryConfigFields({
       <ObjectPicker
         label={tr('designer.field.summary.object')}
         value={childObject}
-        options={objectOptions}
         onCommit={(v) => patchOps({ object: v || undefined })}
         disabled={readOnly}
         placeholder={tr('designer.field.objectNamePlaceholder')}
+        locale={locale}
       />
       <InspectorSelectField
         label={tr('designer.field.summary.function')}
@@ -2293,53 +2253,4 @@ function BoundPicklistOptions({
       )}
     </div>
   );
-}
-
-/* ─────────────── Hook: load object list for lookup picker ─────────────── */
-
-function useObjectOptions(locale?: string): Array<{ value: string; label: string }> {
-  const client: MetadataClient = useMetadataClient();
-  const [opts, setOpts] = React.useState<Array<{ value: string; label: string }>>([]);
-
-  React.useEffect(() => {
-    let cancelled = false;
-    Promise.all([
-      client.list<{ name?: string; label?: string }>('object'),
-      // Draft objects are not yet published, so `list('object')` can't see
-      // them. Include them so a lookup can target a SIBLING object being
-      // designed in the same authoring pass (before the package's first
-      // publish) instead of forcing the author to type an API name blind.
-      client.listDrafts({ type: 'object' }).catch(() => [] as Array<{ name?: string }>),
-    ])
-      .then(([published, drafts]) => {
-        if (cancelled) return;
-        const byName = new Map<string, { value: string; label: string }>();
-        for (const i of published ?? []) {
-          if (typeof i?.name === 'string' && i.name && !byName.has(i.name)) {
-            byName.set(i.name, {
-              value: i.name,
-              label: i.label ? `${i.label} (${i.name})` : i.name,
-            });
-          }
-        }
-        for (const d of drafts ?? []) {
-          const name = (d as { name?: string }).name;
-          if (typeof name === 'string' && name && !byName.has(name)) {
-            byName.set(name, {
-              value: name,
-              label: `${name} ${t('engine.inspector.draftSuffix', locale)}`,
-            });
-          }
-        }
-        setOpts([...byName.values()].sort((a, b) => a.value.localeCompare(b.value)));
-      })
-      .catch(() => {
-        // Empty list — picker falls back to free-text. No banner needed.
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [client, locale]);
-
-  return opts;
 }

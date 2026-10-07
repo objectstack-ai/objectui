@@ -268,7 +268,13 @@ function namesNoTarget(it: RawNav): boolean {
  * sent leaves it out. An entry that is kept, and a `children` list that loses
  * nothing, is returned as the same object, so a caller can tell by reference
  * whether anything was left out.
+ *
+ * Exported for the Studio nav save (`StudioDesignSurface`'s `doNavSave`) and
+ * its pins: it lives here so that it reads the card's own target table. It is
+ * a pure function, not a component, and it never reaches the package entry
+ * (`index.ts` re-exports a named list, and `package.json` exports only `.`).
  */
+// eslint-disable-next-line react-refresh/only-export-components -- see above
 export function navPayloadOf(entries: readonly unknown[]): Array<Record<string, unknown>> {
   const sent: Array<Record<string, unknown>> = [];
   for (const entry of entries) {

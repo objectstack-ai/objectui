@@ -128,7 +128,12 @@ export class DraftVersionGuard {
   /** Bumped by a reload: a save queued before it carries the replaced buffer. */
   private epoch = 0;
 
-  constructor(private readonly deps: DraftVersionGuardDeps) {}
+  constructor(private deps: DraftVersionGuardDeps) {}
+
+  /** Re-bind inputs that change between renders (the client, the reload, the locale's text). */
+  bind(deps: Pick<DraftVersionGuardDeps, 'client' | 'reload' | 'notSaved'>): void {
+    this.deps = { ...this.deps, ...deps };
+  }
 
   /** The version held, for the item `save` would address (tests read it). */
   heldFor(type: string, name: string, packageId?: string | null): string | null {
@@ -229,38 +234,35 @@ export interface DraftSaveGuard {
  */
 export function useDraftSaveGuard(client: Pick<MetadataClient, 'save'>, onReload: () => void): DraftSaveGuard {
   const locale = useMetadataLocale();
-  const clientRef = React.useRef(client);
-  const reloadRef = React.useRef(onReload);
-  const localeRef = React.useRef(locale);
-  React.useLayoutEffect(() => {
-    clientRef.current = client;
-    reloadRef.current = onReload;
-    localeRef.current = locale;
-  });
   const [pending, setPending] = React.useState<{
     conflict: DraftConflict;
     resolve: (choice: DraftConflictChoice) => void;
   } | null>(null);
+  const notSavedIn = (lang: string) => (conflict: DraftConflict) =>
+    new Error(
+      tFormat('engine.draftConflict.notSaved', lang, {
+        type: translateMetadataType(conflict.type, lang),
+        name: conflict.name,
+      }),
+    );
   // A state initializer, not a memo: the guard and the version it holds must
-  // outlive any render (AGENTS.md #10).
+  // outlive any render (AGENTS.md #10). Its per-render inputs are re-bound
+  // below, after every commit.
   const [guard] = React.useState(
     () =>
       new DraftVersionGuard({
-        client: () => clientRef.current,
+        client: () => client,
         ask: (conflict) =>
           new Promise<DraftConflictChoice>((resolve) => {
             setPending({ conflict, resolve });
           }),
-        reload: () => reloadRef.current(),
-        notSaved: (conflict) =>
-          new Error(
-            tFormat('engine.draftConflict.notSaved', localeRef.current, {
-              type: translateMetadataType(conflict.type, localeRef.current),
-              name: conflict.name,
-            }),
-          ),
+        reload: onReload,
+        notSaved: notSavedIn(locale),
       }),
   );
+  React.useLayoutEffect(() => {
+    guard.bind({ client: () => client, reload: onReload, notSaved: notSavedIn(locale) });
+  });
   // A dialog left open by an unmount answers "keep editing": nothing is sent.
   const pendingRef = React.useRef(pending);
   React.useLayoutEffect(() => {

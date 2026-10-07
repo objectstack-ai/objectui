@@ -44,6 +44,17 @@ import React from 'react';
 import { SchemaRendererContext, usePredicateScope, isPermissionError, extractWriteErrorMessage, extractFieldErrors, declaredUserMessage } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 
+/**
+ * Whether a `section-divider` row draws anything: a heading, a blurb, or both.
+ * A row with neither (a headingless section's gate row) renders nothing and
+ * exists only to carry its section's predicate and membership claim. Read by
+ * `SectionDivider` and by `splitAtUntitledRuns`, so the row that is drawn and
+ * the heading a block is split under are one answer.
+ */
+function dividerDrawsRow(label: unknown, description: unknown): boolean {
+  return Boolean(label) || Boolean(description);
+}
+
 /** Inline section header rendered as a virtual field inside a flat SchemaRenderer field list.
  *  Collapsibility is controlled externally (collapsed state lives in DrawerForm). */
 function SectionDivider({ label, description, collapsible, collapsed, onToggle, className }: {
@@ -54,7 +65,7 @@ function SectionDivider({ label, description, collapsible, collapsed, onToggle, 
   onToggle?: () => void;
   className?: string;
 }) {
-  if (!label && !description) return null;
+  if (!dividerDrawsRow(label, description)) return null;
   return (
     <div
       className={cn(
@@ -105,6 +116,65 @@ function unclaimedFields(
   const claimed = new Set<string>();
   for (const group of groups) for (const f of group.fields) claimed.add(f.name);
   return fields.filter((f) => f?.name && !claimed.has(f.name));
+}
+
+/**
+ * The classes that set an untitled block off from the section above it
+ * (objectui#11777) — a boundary on the block's own container, ⛔ never a row.
+ * Applied only when something above the block was drawn, so a form whose
+ * titled sections are all hidden does not open on a stray rule.
+ */
+const UNTITLED_BLOCK_CLASS = 'mt-4 border-t border-border pt-4';
+
+/**
+ * Split a sectioned field list into the blocks its field grid is drawn in —
+ * objectui#11777.
+ *
+ * A sectioned form is ONE form whose section headings are inline
+ * `section-divider` rows. Every row used to share one field grid, so the fields
+ * of an UNTITLED section — `@objectstack/spec`'s trailing ungrouped bucket
+ * (`deriveFieldGroupLayout`, ADR-0085 §5), which by the one row rule
+ * (objectui#9849, director ruling letter E: a row exists iff
+ * `title || description`) draws no row of its own — flowed on under the
+ * previous section's heading, into the same grid row, and read as its members.
+ *
+ * The heading already says where its section ends: its membership claim
+ * (`fields`, objectui#6236) names the section's members. A field the claim of
+ * the heading above it does not name is, by that declaration, not under that
+ * heading, so the grid is split there and the untitled run opens a block of its
+ * own. A row that draws nothing (a headingless section's gate row) is not under
+ * the heading above it either, and opens a block the same way. ⛔ Nothing is
+ * added for the untitled run: no row, no heading, no placeholder title — the
+ * block boundary is the whole separation.
+ *
+ * One block, the DOM this form drew before #11777, whenever no field sits
+ * under a heading that does not claim it: a flat form, titled sections only,
+ * and untitled fields that come BEFORE the first heading. A heading WITHOUT a
+ * claim keeps the pre-#6236 contract and is read as heading everything up to
+ * the next heading, so it never splits.
+ */
+function splitAtUntitledRuns(fields: FormFieldConfig[]): FormFieldConfig[][] {
+  const blocks: FormFieldConfig[][] = [[]];
+  // The claim of the heading the current block's tail sits under: `null` when
+  // there is none (no heading yet, or an untitled block is open), `'all'` for a
+  // heading that carries no claim.
+  let heading: ReadonlySet<string> | 'all' | null = null;
+  for (const f of fields) {
+    const isDivider = f?.type === 'section-divider';
+    if (isDivider && dividerDrawsRow(f.label, f.description)) {
+      const claim = f.fields;
+      heading = Array.isArray(claim) && claim.length > 0 ? new Set(claim) : 'all';
+      blocks[blocks.length - 1].push(f);
+      continue;
+    }
+    const underHeading = heading === 'all' || (heading !== null && !isDivider && heading.has(f?.name));
+    if (heading !== null && !underHeading) {
+      blocks.push([]);
+      heading = null;
+    }
+    blocks[blocks.length - 1].push(f);
+  }
+  return blocks;
 }
 
 /**
@@ -3432,6 +3502,32 @@ ComponentRegistry.register('form',
       );
     };
 
+    // The untabbed, unpaned field list, drawn one grid per block
+    // (`splitAtUntitledRuns`, objectui#11777). Every block lays its fields out
+    // on the same `fieldGridClass`, so a `colSpan` means the same thing in each,
+    // and every field is still rendered exactly once, into this one form. A
+    // single block is the pre-#11777 DOM, unchanged. Keyed by position in the
+    // split, which only the field list's structure moves — a predicate flipping
+    // never re-keys a block, so it never remounts the fields in it.
+    const renderFieldBlocks = (list: FormFieldConfig[]): React.ReactNode => {
+      let drawnAbove = false;
+      return splitAtUntitledRuns(list).map((block, index) => {
+        const nodes = block.map(renderFormField);
+        const draws = block.some(
+          (f, j) =>
+            nodes[j] != null &&
+            !(f?.type === 'section-divider' && !dividerDrawsRow(f.label, f.description)),
+        );
+        const separated = index > 0 && drawnAbove && draws;
+        drawnAbove = drawnAbove || draws;
+        return (
+          <div key={index} className={separated ? cn(fieldGridClass, UNTITLED_BLOCK_CLASS) : fieldGridClass}>
+            {nodes}
+          </div>
+        );
+      });
+    };
+
     // Extract designer-related props and conflicting handlers
     const { 
         'data-obj-id': dataObjId, 
@@ -3657,10 +3753,9 @@ ComponentRegistry.register('form',
               </ResizablePanelGroup>
             </>
           ) : (
-            // Otherwise render fields from schema
-            <div className={fieldGridClass}>
-              {fields.map(renderFormField)}
-            </div>
+            // Otherwise render fields from schema — one grid per block, split
+            // where an untitled run leaves a heading (objectui#11777).
+            renderFieldBlocks(fields as FormFieldConfig[])
           )}
 
           {/* Form Actions */}

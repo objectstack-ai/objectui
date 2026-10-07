@@ -1722,7 +1722,9 @@ const SimpleObjectForm: React.FC<{ schema: LocalizedObjectFormSchema; dataSource
       if (sectionFields.length === 0) return;
 
       const sectionKey = section.name || section.label || String(index);
-      // Untitled trailing bucket (ungrouped fields) renders flat — no divider.
+      // Untitled trailing bucket (ungrouped fields): no divider row. The
+      // renderer still draws it as its own block, split off where the previous
+      // heading's membership claim ends (objectui#11777).
       const label = section.name
         ? sectionLabel(schema.objectName, section.name, section.label || section.name)
         : section.label;

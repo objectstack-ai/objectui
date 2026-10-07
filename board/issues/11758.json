@@ -1,0 +1,37 @@
+{
+  "number": 11758,
+  "kind": "issue",
+  "title": "console: when the workspace timezone is still the default, prompt an administrator once to set it, pre-filled with the browser's zone (gate for #11693 / PR #11729)",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:i18n",
+    "domain:ui",
+    "enhancement",
+    "priority:p3"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-07T03:25:06Z",
+  "updated_at": "2026-10-07T05:31:38Z",
+  "closed_at": "2026-10-07T05:29:29Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 4,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11758",
+  "body": "Filing gate: **a ruling's prerequisite card.** Filed by the director seat (seat post objectstack-ai/objectstack#12708, summon #35, `session_01VYToj6PQehTEKNrjGM9akg`) on the ruling of batch #283 item 3 on #11693: the maintainer delegated the letter with 「总监决裁」 after the discussion in chat, and the seat ruled **B** (the server's `UTC` floor stays; PR #11729 lands) with **this card as its gate** (B2), in the prompt-and-confirm shape, not the silent-write shape. ⛔ Not a claim. Classes, positions and functions only.\n\nGates: #11693 (`Blocked-by:` this card) and its draft PR #11729 (`Part of #11693`, head `229db2b023`, all checks green at the ruling), which merges after this card closes.\n\n## What this card delivers\n\nWhen an administrator's session opens the console and the workspace's `localization.timezone` is still the manifest default (no tenant, global or env value), the console asks ONCE, pre-filled with the browser's zone, whether to set the workspace timezone to it. Confirm writes the value through the same settings write path the Settings page uses (same permission, same audit). Decline writes nothing and the session is not asked again. A workspace whose timezone was chosen (any non-default source) is never asked, and a session without the settings-write capability is never asked.\n\n⛔ Not taken (the seat's ruling): writing the browser's zone silently on sign-in. The first administrator's browser would then decide the organization's clock, with nobody told, and that value drives `TODAY()`, report buckets and rendered datetimes for everyone; a traveling administrator, a VPN, or the platform owner signing in to a customer workspace for support would set it wrong.\n\n## Measured premises (the seat's readings, each with its re-check)\n\n1. **The server already tells \"default\" from \"chosen\".** `ResolvedSettingValue.source` and `cascadeChain` (objectstack `packages/spec/src/system/settings-manifest.zod.ts`, `cascadeChain` scope enum `env | global | tenant | user | default`); the settings GET returns `{ values: { key: { value, source, … } } }` (objectstack `packages/services/service-settings/src/settings-routes.ts:155`). Re-check: `git grep -n \"GET returns\" origin/main -- packages/services/service-settings/src/settings-routes.ts` in objectstack.\n2. **The console already reads that cascade.** `apps/console/src/pages/settings/SettingsField.tsx:72-89` finds the effective entry and renders \"Inherited from\" from its scope. Re-check: `git grep -n \"e.effective\" origin/main -- apps/console/src/pages/settings/SettingsField.tsx`. So \"still the default\" is `effective.scope === 'default'` on `localization.timezone`, read through the existing settings API; ⛔ no change to objectstack's `/api/v1/auth/me/localization` contract (that endpoint keeps answering a string with the `UTC` floor, `current-user-endpoints.ts:612`).\n3. **The console reads no browser zone today.** Re-check: `git grep -n \"resolvedOptions().timeZone\" origin/main -- apps packages` returns nothing on `9b673e54`. The prompt's pre-fill is the one new reader.\n4. **Every cloud workspace is unconfigured today.** objectstack-ai/cloud provisioning writes no `localization.timezone` (the cloud tree's only `timezone` hit in `service-cloud` is a comment about `Z`-suffixed strings). So the population this card serves is every cloud workspace, until its administrator confirms.\n5. **A second home for the organization's zone exists and is NOT read by the cascade:** `sys_organization.timezone` (objectstack `managed-extension-fields.ts`, the #14238 ruling A). Recorded as a gap on the #11693 ruling; ⛔ not this card's to unify. This card writes the settings key the cascade reads.\n\n## Acceptance (pins, each with its ablation)\n\n- Default-sourced `localization.timezone` + a session that may write settings → the prompt renders once, pre-filled with the browser's zone; ablating the pre-fill reddens it.\n- Tenant-, global- or env-sourced `localization.timezone` → no prompt; ablating the source check reddens it.\n- A session without the settings-write capability → no prompt, no write.\n- Confirm → exactly one settings write of `localization.timezone` with the chosen value, through the Settings page's write path; decline → no write and no second prompt in the session.\n- The dogfood suite stays green with the prompt declined and with it confirmed.\n\n## Scope and lanes\n\n- `domain:ui`, console only (`apps/console`, with the prompt component where the console's other one-time notices live). ⛔ No objectstack change; ⛔ no new key; ⛔ no change to `LocalizationFetchProvider` beyond what PR #11729 already carries.\n- The claimant's first reading: which capability the Settings page checks before it writes `localization.*`, and whether a one-time notice surface already exists in the console to host the prompt.\n- Priority follows the card it gates (`priority:p3`). When this card closes, the unlock scan returns #11693 to `pm:queue` and the `domain:ui` seat re-checks PR #11729 (`Unlock-action: re-check PR #11729` on #11693).\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

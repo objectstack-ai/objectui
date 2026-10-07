@@ -186,16 +186,10 @@ export function StudioObjectRecordsCanvas({ name }: StudioCanvasPreviewProps) {
   const navId = entry?.navId;
   const filtersKey = JSON.stringify(entry?.filters ?? null);
   const entryViewName = entry?.viewName;
-  const target = React.useMemo(
-    () =>
-      navEntryListTarget(
-        name,
-        { navId, filters: entry?.filters, viewName: entryViewName },
-        { currentUserId, currentOrgId },
-      ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [name, navId, filtersKey, entryViewName, currentUserId, currentOrgId],
-  );
+  const target = React.useMemo(() => {
+    const filters = (JSON.parse(filtersKey) as StudioCanvasNavEntry['filters'] | null) ?? undefined;
+    return navEntryListTarget(name, { navId, filters, viewName: entryViewName }, { currentUserId, currentOrgId });
+  }, [name, navId, filtersKey, entryViewName, currentUserId, currentOrgId]);
   // Read only for an entry that names a view: a plain entry asks the metadata
   // cache for nothing, as before.
   const metadata = useMetadata();

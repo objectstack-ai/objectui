@@ -130,10 +130,8 @@ export function useActionTextLocalizer(): ActionTextLocalizer {
       // caller passes (objectui#11439). An action declared on `sales_order`
       // drawn where the caller knows no object still reads `sales_order`'s
       // `_actions` node, never `globalActions`.
-      const declaredObject = typeof (action as any).objectName === 'string' && (action as any).objectName
-        ? ((action as any).objectName as string)
-        : undefined;
-      const keyObject = declaredObject || objectName;
+      const declared: unknown = action.objectName;
+      const keyObject = (typeof declared === 'string' && declared) || objectName;
 
       const out: Record<string, any> = {
         ...action,

@@ -94,7 +94,7 @@ function readCatalogEntry(raw: unknown): ObjectCatalogEntry | null {
  * name alone. A caller the server does not admit to pending drafts is answered
  * the published list, which is the list it could pick from anyway.
  */
-export function useObjectCatalog() {
+function useObjectCatalog() {
   const client = useMetadataClient();
   // The read is asked ONCE per mount. The client is reached through a ref so
   // that a fresh client object (a discarded memo, a test double minted per
@@ -138,6 +138,9 @@ function useEditingPackageId(): string | undefined {
 }
 
 type GroupKey = 'package' | 'other' | 'system';
+
+/** The catalog before it answered: one stable empty list, not a fresh one per render. */
+const NO_ENTRIES: ObjectCatalogEntry[] = [];
 
 type Row =
   | { kind: 'option'; id: string; entry: ObjectCatalogEntry }
@@ -207,7 +210,7 @@ export function ObjectPicker({
   const [active, setActive] = React.useState(-1);
   const [systemOpen, setSystemOpen] = React.useState(false);
 
-  const entries = catalog.status === 'loaded' ? catalog.data : [];
+  const entries = catalog.status === 'loaded' ? catalog.data : NO_ENTRIES;
   const query = typed ? text.trim().toLowerCase() : '';
 
   const sections = React.useMemo<Section[]>(() => {

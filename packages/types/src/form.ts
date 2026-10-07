@@ -2037,10 +2037,16 @@ export interface FormField {
   pattern?: string;
   /**
    * The value type a `formula` field computes (`number` / `text` /
-   * `boolean` / `date`). The `formula` widget formats the value by it: a
-   * number to two decimals, a boolean as Yes/No, a date through the shared
-   * date face, anything else as text (the default when it is absent). The
-   * retired snake_case `return_type` is read by nothing and refused.
+   * `boolean` / `date`). The `formula` widget draws the value by it, by the
+   * same rule as the formula table cell, so one stored value reads the same
+   * in a form and in a table (objectui#11748): a number formatted as a
+   * `number` field formats it (the viewer's display locale, at the width a
+   * `scale` on the field sets); a boolean as the UI language's Yes / No
+   * word, where any value that is not a JS boolean reads as empty; a date
+   * in `formatDate`'s default face, the date field's read-only face; and
+   * text as text, in monospace. With no `returnType`, a JS number is drawn
+   * as a number and anything else as text. The retired snake_case
+   * `return_type` is read by nothing and refused.
    */
   returnType?: SpecField['returnType'];
   /**

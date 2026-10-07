@@ -858,9 +858,16 @@ export interface FormulaFieldMetadata extends BaseFieldMetadata {
   /**
    * The value type the formula computes — `@objectstack/spec`'s
    * `FieldSchema.returnType`, typed BY REFERENCE so the two cannot drift
-   * (objectui#11070). `FormulaField` formats the computed value by it: a
-   * number to two decimals, a boolean as Yes/No, a date through the shared
-   * date face, anything else as text (the default when it is absent).
+   * (objectui#11070). Both faces of a formula draw the computed value by it,
+   * `FormulaField` in a form and `FormulaCellRenderer` in a table cell, so
+   * one stored value reads the same in each (objectui#11748): a number
+   * formatted as a `number` field formats it (the viewer's display locale,
+   * at the width a `scale` on the field sets); a boolean as the UI
+   * language's Yes / No word, where any value that is not a JS boolean
+   * reads as empty; a date in `formatDate`'s default face, the date field's
+   * read-only face, not the date cell's relative one; and text as text, in
+   * monospace. With no `returnType`, a JS number is drawn as a number and
+   * anything else as text. Nothing is inferred from the expression.
    *
    * It replaces the retired snake_case `return_type`, which the spec refuses
    * by name and which no reader reads any more: the spec spelling is the one

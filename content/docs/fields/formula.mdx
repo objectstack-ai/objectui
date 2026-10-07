@@ -50,12 +50,20 @@ they are runtime widget props. See [Field Widget Props](/docs/fields/widget-prop
 
 ## Return Types
 
-The formula field formats values by `returnType`:
+The formula field draws its value by `returnType`. The form and the table cell
+read the same rule, so one stored value reads the same in both:
 
-- **number**: Displays with two decimal places
-- **boolean**: Displays as Yes/No
-- **date**: Displays the formatted date
-- **text**: Displays as a string (also the default when `returnType` is absent)
+- **number**: Formatted as a number field formats it, in the viewer's display
+  locale and at the width a `scale` on the field sets (`200000` reads `200,000`
+  in en-US)
+- **boolean**: The UI language's Yes / No word; a value that is not a JS boolean
+  reads as empty
+- **date**: The date field's read-only face (`2020-07-04` reads `Jul 4, 2020` in
+  en-US), in the table cell too: it does not use the date cell's relative style
+- **text**: The value as text, in a monospace font
+
+With no `returnType`, a JS number is drawn as a number and any other value as
+text. Nothing is inferred from the expression.
 
 ## Formula Examples
 
@@ -82,12 +90,15 @@ expression: 'daysBetween(record.start_date, record.end_date)'
 
 ## Cell Renderer
 
-In tables/grids, displays with monospace font:
+In tables/grids, `FormulaCellRenderer` draws the value by the same rule as the
+form (see Return Types above). Only text is drawn in a monospace font. A null or
+empty value renders an em-dash.
 
 ```ts
 import { FormulaCellRenderer } from '@object-ui/fields';
 
-// Renders computed value in monospace font
+// <FormulaCellRenderer value={200000} field={field} /> with no returnType
+// renders the number cell's text: 200,000 (en-US)
 ```
 
 ## Backend Implementation

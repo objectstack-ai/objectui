@@ -112,11 +112,13 @@ export function WorkspaceTimezonePrompt() {
       await saveSettingsNamespace(LOCALIZATION_NAMESPACE, { [TIMEZONE_KEY]: draft });
       toast.success(t('console.workspaceTimezonePrompt.saved', { zone: draft }));
       setOpen(false);
-    } catch (err: any) {
+    } catch (err) {
       // The Settings page's own reading of a refused save, for the one key
       // this dialog writes: a lock names the key, a validation refusal lands
       // in the field's error slot, anything else carries the server's sentence.
-      const apiError = err?.payload?.error;
+      // `api.ts` parks the raw error body on `err.payload`.
+      const failure = err as { message?: string; payload?: { error?: { code?: unknown } } } | undefined;
+      const apiError = failure?.payload?.error;
       if (apiError?.code === 'SETTINGS_LOCKED') {
         const key = lockedKeyOf(apiError);
         toast.error(
@@ -127,7 +129,7 @@ export function WorkspaceTimezonePrompt() {
       } else {
         const refused = extractFieldErrors(apiError)?.find((f) => f.field === TIMEZONE_KEY);
         if (refused) setFieldError(refused.message);
-        toast.error(err?.message ?? t('console.settingsView.saveFailed'));
+        toast.error(failure?.message ?? t('console.settingsView.saveFailed'));
       }
     } finally {
       setSaving(false);

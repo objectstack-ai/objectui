@@ -549,8 +549,8 @@ export const ObjectKanbanRenderer: React.FC<{ schema: any; [key: string]: any }>
  * ## Why these keys were added
  *
  * `@objectstack/spec`'s `ComponentPropsMap['object-kanban']` carries FIFTEEN
- * top-level keys on the installed 17.6.0 pin, fourteen of them live, the
- * same set as 17.5.0: that release
+ * top-level keys on the installed 17.7.0 pin, fourteen of them live, the
+ * same set as 17.5.0 and 17.6.0: 17.5.0
  * added `navigation` and turned `quickAdd` into a tombstone (typed `never`,
  * refused by name — objectui#8285's ruled retirement, landed). This list
  * published three until objectui#8186 added `filter`. ⚠️ The shape carried

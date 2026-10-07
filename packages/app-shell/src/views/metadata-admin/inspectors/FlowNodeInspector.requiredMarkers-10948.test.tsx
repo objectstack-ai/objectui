@@ -124,7 +124,10 @@ describe('each seeded kind: markers exactly where the spec requires the key (obj
     ['wait', ['Wait for', 'Duration'], []],
     ['boundary_event', ['Attached to', 'Event type'], ['Interrupting', 'Error code']],
     ['loop', [], ['Collection', 'Item variable']],
-    ['approval', [], ['Approvers']],
+    // `approval` marked nothing through 17.6.0. 17.7.0 judges its config against
+    // `ApprovalNodeConfigSchema` (objectstack#21893), which requires `approvers`
+    // and each approver's `type` (objectui#11717).
+    ['approval', ['Approvers', 'Type'], ['Value']],
     ['assignment', [], ['Assignments']],
     ['end', [], ['Outcome']],
     ['try_catch', [], ['Error variable']],

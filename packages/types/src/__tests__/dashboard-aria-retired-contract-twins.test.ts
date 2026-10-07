@@ -29,7 +29,7 @@
  * objectui#9736 closed that half. The interface now extends the spec's own
  * `Dashboard` input type (`Omit< Dashboard, … >` over the exclusion list its
  * mirror reads), so it inherits the spec's tombstone as a DECLARED member typed
- * as the spec's retired key (the branded `[REMOVED]` mark at the pinned 17.6.0
+ * as the spec's retired key (the branded `[REMOVED]` mark at the pinned 17.7.0
  * and on objectstack `main`, bare `undefined` through 17.5.0) — `aria` is back in the declared key
  * set, but only as a refusal,
  * and an authored value is a compile error: the same verdict the Zod twin gives
@@ -52,7 +52,7 @@ describe('the TS interface declares `aria` only as the spec tombstone (objectui#
   it('`aria` is declared, typed as the spec\'s retired key; the neighbours it stood beside still are', () => {
     // Type-level pins, erased at runtime. `aria` is a DECLARED key again — the
     // spec projection carries the tombstone — and its type admits no value:
-    // the branded `[REMOVED]` mark at the pinned 17.6.0 and on objectstack
+    // the branded `[REMOVED]` mark at the pinned 17.7.0 and on objectstack
     // `main`, bare `undefined` through 17.5.0 (both spellings are
     // `retired-key-type.ts`'s, objectui#11330).
     const ariaDeclared: 'aria' extends Declared ? true : false = true;

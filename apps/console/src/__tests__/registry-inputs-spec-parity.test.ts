@@ -972,7 +972,7 @@ const OBJECTUI_11111_LEDGER_CAPS = {
  */
 const UNJUDGED_SPEC_BLOCKS: Record<string, string> = {
   'ai:chat_window':
-    'NOT REGISTERED, DELIBERATELY. `packages/components/src/renderers/placeholders.tsx` omits it from `PROTOCOL_COMPONENTS` in so many words — the floating chat overlay (plugin-chatbot) is the canonical entry point, an inline page-level chat window is not a supported surface, and a page schema referencing it should raise a loud unknown-type error rather than draw a placeholder. `app-shell/src/views/metadata-admin/previews/block-types.ts` records the same refusal. objectui#8176.',
+    'RETIRED UPSTREAM. `@objectstack/spec` 17.7.0 retired it by name (objectstack#21504, landed by objectstack#21531): out of `PageComponentType`, named in `RETIRED_PAGE_COMPONENT_TYPES`, and its row `retiredComponentProps` — a `never` that refuses every props bag, `{}` included, with a message that names the floating chat overlay as the AI chat entry point — so there is no authoring surface for either direction to judge. Until that release it stood here as NOT REGISTERED, DELIBERATELY: `PROTOCOL_COMPONENTS` in `@object-ui/components` `renderers/placeholders.tsx` omits it in so many words, which the retirement now says upstream too. objectui#11717, ledger objectui#8176.',
   'app:launcher':
     'EMPTY SPEC SHAPE. `ComponentPropsMap[app:launcher]` declares no props at all, so there is nothing for either direction to judge. It IS registered — `app-shell/src/views/app-launcher-renderer.tsx` registers it propless for exactly this reason, and says so — but by `@object-ui/app-shell`, which this file does not import; the empty shape is the load-bearing half either way. objectui#8176.',
   'cloud-connection:panel':
@@ -1285,7 +1285,7 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
   // five extra (`showPagination`, `defaultSort`, `defaultFilters`,
   // `resizableColumns`, `title`) are the same class by the same test, so they are
   // carved out with it. `defaultSort` has since been harvested — spec 17.3.0
-  // tombstoned it (see the note below), leaving nine. Trimming back to exactly five is a one-line reversal
+  // tombstoned it (see the note below), and `resizableColumns` followed at 17.7.0, leaving eight. Trimming back to exactly five is a one-line reversal
   // (delete the entry, declare the input); publishing first and withdrawing later
   // is not, which is why the exemption is the direction taken while the card is
   // open.
@@ -1324,8 +1324,22 @@ const UNPUBLISHED_EXEMPTIONS: Record<string, string> = {
    */
   'object-grid.defaultFilters':
     '@deprecated in ObjectGridSchema ("Use filter instead"); GA describes it as the "Legacy base-filter fallback, read only when `filter` is absent. Prefer `filter`". Read as back-compat, deliberately not published — the canonical `filter` IS declared. Same ruled carve-out class as the five the ruling enumerated, measured on this branch — objectui#4648 (maintainer 2026-08-16).',
-  'object-grid.resizableColumns':
-    '@deprecated in ObjectGridSchema ("Moved to top-level resizable"); GA describes it as the "Alternate spelling of `resizable`". Read as back-compat, deliberately not published — the canonical `resizable` IS declared. Same ruled carve-out class as the five the ruling enumerated, measured on this branch — objectui#4648 (maintainer 2026-08-16).',
+  /*
+   * `object-grid.resizableColumns` WAS THE TENTH TOMBSTONE HARVESTED HERE —
+   * `@objectstack/spec` 17.7.0 (objectstack#21445, PR objectstack#21463), the way
+   * `defaultSort` above was at 17.3.0.
+   *
+   * 17.7.0 converted the key to a tombstone: `safeParse` of
+   * `{ resizableColumns: true }` fails `invalid_type` `expected: 'never'` at that
+   * path, with a message that opens "`object-grid` property `resizableColumns`
+   * was removed in @objectstack/spec 17.7.0 (ADR-0049) — it was the legacy
+   * second spelling of `resizable`", and `{ resizable: true }` parses. So the
+   * key left the AUTHORABLE set while staying listed, and the dangling and
+   * stale checks reported it exactly as designed; deleting the entry is the only
+   * way to green (objectui#11717). ⛔ Not resolved by declaring the input:
+   * `resizable`, the canonical spelling, is declared already. Retiring the
+   * renderer's own read of the old spelling is objectui#6152's.
+   */
   'object-grid.title':
     '@deprecated in ObjectGridSchema ("Use label instead"); GA describes it as the "Fallback for `label` (the renderer reads `label || title`)". Read as back-compat, deliberately not published — the canonical `label` IS declared. Same ruled carve-out class as the five the ruling enumerated, measured on this branch — objectui#4648 (maintainer 2026-08-16).',
 
@@ -1671,7 +1685,6 @@ const GA_PENDING_UNPUBLISHED_KEYS = [
   'object-grid.showSearch',
   'object-grid.showPagination',
   'object-grid.defaultFilters',
-  'object-grid.resizableColumns',
   'object-grid.title',
 ];
 
@@ -3034,7 +3047,7 @@ const MEMBER_PINS: Record<string, MemberPin> = {
   },
   'object-master-detail-form.details': {
     file: 'packages/plugin-form/src/__tests__/masterDetailDetailsMembers-8071.test.tsx',
-    pins: 'Members are detail-collection OBJECTS (`MasterDetailDetailConfig`), and unlike this block\'s parent keys the read site is THIS block: `MasterDetailForm` is the key\'s only reader. Each member renders as its own section in AUTHORED order, headed by `title` (fallback `Line Items`), with `columns` reaching the line grid in authored order. ⭐ The sharp row: four members reach the grid through ONE hand-written object under the grid\'s camelCase keys (objectui#11610): `minRows`, `maxRows` and `addLabel` by the same name, and `amountField` RENAMED to the grid\'s `totalField` (the CHILD column summed; the detail\'s own `totalField`, the PARENT field, is not forwarded), beside `columns` and the DERIVED `sortField` (objectui#11070 round 9 retired the detail\'s `sortField` member; row 2c pins that a written one is read by nothing). That object is pinned as a SORTED KEY SET of exactly six, with two off-list members (one in the grid\'s own spelling, `allowAdd`) asserted not forwarded and an all-empty control beside it. `inlineMode: \'form\'` makes a list whose Add opens the full form (labelled `Add` when unset), and in grid mode `formFields` wider than `columns` offers the row form; each arm is the other\'s control. `childObject` and `relationshipField` address the atomic batch (each line a create on the child, linked by `{ $ref: 0 }`) and the edit-mode read (`{ $filter: { FK: recordId }, $top: 500 }` per collection). `totalField` receives the sum of the lines\' `amountField` on the PARENT leg, and a collection without one puts nothing there. With `{ childObject }` alone the FK and the columns are DERIVED from the child object, the one member behaviour the spec\'s description promises, and the batch writes the derived FK. `details: []` is the non-vacuity control: no section, no grid, a one-leg batch. The line grid is the REAL `LineItemsField`, wrapped only to record the props it is handed. Since `@objectstack/spec` 17.6.0 (objectstack-ai/objectstack#21215) the spec row is an array of CLOSED entries — `childObject` required, `columns` the spec\'s inline grid column, an undeclared member key refused by name — and `@object-ui/types` takes that row by reference, so both published faces give the spec\'s verdict on an entry (`packages/types/src/__tests__/object-master-detail-form-details-entry-11396.test.ts`). `MasterDetailDetailConfig` is DERIVED from that entry (objectui#11396) and held `Equal` to it at compile time in the pinned file, with ONE stated fork: 17.6.0 declares `sortField`, which this block does not read (row 2c); objectstack `main` has since retired it (objectstack-ai/objectstack#21589, unreleased after 17.6.0), and the fork closes at the bump to the first release carrying that. The registration declares `of: \'object\'`, derived from the now single-kind member contract. A declaration fixes an entry\'s SHAPE, not what this block DOES with a member, so the read site is still the whole member contract. New file (objectui#8071 slice 18).',
+    pins: 'Members are detail-collection OBJECTS (`MasterDetailDetailConfig`), and unlike this block\'s parent keys the read site is THIS block: `MasterDetailForm` is the key\'s only reader. Each member renders as its own section in AUTHORED order, headed by `title` (fallback `Line Items`), with `columns` reaching the line grid in authored order. ⭐ The sharp row: four members reach the grid through ONE hand-written object under the grid\'s camelCase keys (objectui#11610): `minRows`, `maxRows` and `addLabel` by the same name, and `amountField` RENAMED to the grid\'s `totalField` (the CHILD column summed; the detail\'s own `totalField`, the PARENT field, is not forwarded), beside `columns` and the DERIVED `sortField` (objectui#11070 round 9 retired the detail\'s `sortField` member; row 2c pins that a written one is read by nothing). That object is pinned as a SORTED KEY SET of exactly six, with two off-list members (one in the grid\'s own spelling, `allowAdd`) asserted not forwarded and an all-empty control beside it. `inlineMode: \'form\'` makes a list whose Add opens the full form (labelled `Add` when unset), and in grid mode `formFields` wider than `columns` offers the row form; each arm is the other\'s control. `childObject` and `relationshipField` address the atomic batch (each line a create on the child, linked by `{ $ref: 0 }`) and the edit-mode read (`{ $filter: { FK: recordId }, $top: 500 }` per collection). `totalField` receives the sum of the lines\' `amountField` on the PARENT leg, and a collection without one puts nothing there. With `{ childObject }` alone the FK and the columns are DERIVED from the child object, the one member behaviour the spec\'s description promises, and the batch writes the derived FK. `details: []` is the non-vacuity control: no section, no grid, a one-leg batch. The line grid is the REAL `LineItemsField`, wrapped only to record the props it is handed. Since `@objectstack/spec` 17.6.0 (objectstack-ai/objectstack#21215) the spec row is an array of CLOSED entries — `childObject` required, `columns` the spec\'s inline grid column, an undeclared member key refused by name — and `@object-ui/types` takes that row by reference, so both published faces give the spec\'s verdict on an entry (`packages/types/src/__tests__/object-master-detail-form-details-entry-11396.test.ts`). `MasterDetailDetailConfig` is DERIVED from that entry (objectui#11396) and held `Equal` to it at compile time in the pinned file, minus ONE key, `sortField`, which this block does not read (row 2c): a fork through 17.6.0, closed by `@objectstack/spec` 17.7.0, whose entry refuses an authored `sortField` with its retired-key message (objectstack-ai/objectstack#21589, objectui#11717). The registration declares `of: \'object\'`, derived from the now single-kind member contract. A declaration fixes an entry\'s SHAPE, not what this block DOES with a member, so the read site is still the whole member contract. New file (objectui#8071 slice 18).',
   },
   'object-master-detail-form.fields': {
     file: 'packages/plugin-form/src/__tests__/topLevelFieldsWarnCoverage-8847.test.tsx',
@@ -4929,7 +4942,6 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       'defaultFilters',
       'fields',
       'pageSize',
-      'resizableColumns',
       'selectable',
       'showPagination',
       'showSearch',
@@ -5182,7 +5194,7 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     }
   });
 
-  it('the nine tombstoned keys are recognised, not exempted — and not published either', () => {
+  it('the ten tombstoned keys are recognised, not exempted — and not published either', () => {
     // The pin the harvest leaves behind (objectui#3809). Deleting eight
     // exemptions is only half the change: the derived assertions above would go
     // green just as readily if a future edit RE-EXEMPTED one of these keys, or
@@ -5192,8 +5204,9 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
     // the same reason the `#3808 / #3830` and `rc.6 record_picker` pins next door
     // are written by name.
     //
-    // Six upstream retirements, nine keys, several facts each (eight through
-    // 17.4.0; `object-kanban.quickAdd` joined at 17.5.0). The list is
+    // Seven upstream retirements, ten keys, several facts each (eight through
+    // 17.4.0; `object-kanban.quickAdd` joined at 17.5.0, and
+    // `object-grid.resizableColumns` at 17.7.0). The list is
     // pin-dependent by construction and that is the point: it is the measurement
     // (`@objectstack/spec@17.0.0`, and the same eight on the rc.6 that preceded
     // it — this change was verified on both), so a pin that un-retires one of
@@ -5212,6 +5225,9 @@ describe('registry `inputs` vs `@objectstack/spec` ComponentPropsMap (repo-wide)
       // (objectui#11073): objectui#8285's ruled retirement, which emptied
       // `LAZY_BLOCK_RULED_CARVE_OUTS` in the same change.
       ['object-kanban', 'quickAdd'],
+      // The tenth, harvested at the 17.7.0 bump (objectui#11717):
+      // objectstack#21445 retired the legacy second spelling of `resizable`.
+      ['object-grid', 'resizableColumns'],
     ];
 
     for (const [type, key] of HARVESTED) {

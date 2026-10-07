@@ -118,7 +118,7 @@ export function resolveVisibleOptions<T extends OptionLike>(
  * This is deliberately NOT the lenient renderer fallback AGENTS.md #0.1
  * forbids. That rule governs metadata the contract REFUSES ("if the metadata
  * is off-spec, fix it at the producer"); an empty label is metadata the
- * contract ACCEPTS. Measured on the installed `@objectstack/spec` 17.6.0,
+ * contract ACCEPTS. Measured on the installed `@objectstack/spec` 17.7.0,
  * `SelectOptionSchema`:
  *
  *   { value: 'low', label: 'Low' } -> ACCEPT   (lit control)

@@ -137,7 +137,10 @@ const walk = (schema: z.ZodType): z.ZodType => {
   // container crosses the boundary, not only the slot. objectui#11070 added a
   // FIFTH by importing the spec's `FieldSchema` for nine `FormFieldSchema`
   // members: the one under `FieldSchema.relatedListFilter`, walked for the
-  // same reason.
+  // same reason. `@objectstack/spec` 17.7.0 added a SIXTH (objectui#11717): the
+  // recursive form-field group under `ObjectFormPropsSchema.sections[].fields[]`,
+  // reached from the `object-form` and `object-master-detail-form` rows, whose
+  // `sections` take the page-block section shape since that release.
   // Each sits inside a schema that carries a default anyway, so the exception
   // costs no extra rebuild. objectui#10872 batch 2 had ONE named exception,
   // `ElementDataSourceSchema` (the `element:number` arm's `dataSource`), whose

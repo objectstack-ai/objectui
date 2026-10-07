@@ -4115,7 +4115,7 @@ export interface ObjectCalendarSchema extends BaseSchema {
    * (the spec's own `ObjectCalendarPropsSchema`) declares
    * `z.array(z.unknown()).optional()`, described *"Pre-fetched records — skips
    * the internal fetch"*.
-   * MEASURED on the installed artifact at `@objectstack/spec` 17.6.0 — the
+   * MEASURED on the installed artifact at `@objectstack/spec` 17.7.0 — the
    * version this repository's `pnpm-lock.yaml` resolves — through the published
    * `@objectstack/spec/ui` entry point: the provider block returns
    * `success=false` with `expected: 'array'` at `path: ['data']`, the array

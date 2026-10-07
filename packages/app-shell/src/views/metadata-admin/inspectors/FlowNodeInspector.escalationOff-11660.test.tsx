@@ -183,6 +183,16 @@ const SOURCES: Array<{ name: 'offline' | 'engine'; labels: Labels; install: () =
 ];
 
 const gateBox = (l: Labels) => screen.queryByLabelText(l.gate) as HTMLInputElement | null;
+/**
+ * A sub-field's control by its label, read the way `getByText` reads a label —
+ * its own text, without the required marker (`SchemaForm`'s `*`). Since
+ * `@objectstack/spec` 17.7.0 judges an approval node's config against
+ * `ApprovalNodeConfigSchema` (objectstack#21893), the inspector marks the
+ * escalation block's required `timeoutHours`, and a whole-label match on the
+ * plain text stopped resolving (objectui#11717).
+ */
+const controlLabelled = (text: string) =>
+  screen.getByLabelText(new RegExp(`^${text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\*?$`));
 const subLabels = (l: Labels) => [l.timeout, l.action, l.escalateTo, l.notify];
 const shownSubFields = (l: Labels) => subLabels(l).filter((label) => screen.queryByText(label) !== null);
 const retainedNotices = () => screen.queryAllByTestId('inactive-retained');
@@ -322,11 +332,11 @@ for (const source of SOURCES) {
       // ON, authored control by control through the inspector.
       gateBox(l)!.click();
       expect(gateBox(l)!.checked, 'switching on draws the switch on').toBe(true);
-      fireEvent.change(screen.getByLabelText(l.timeout), { target: { value: '24' } });
+      fireEvent.change(controlLabelled(l.timeout), { target: { value: '24' } });
       await userEvent.click(screen.getByRole('combobox', { name: l.action }));
       await userEvent.click(await screen.findByRole('option', { name: l.reassign }));
       fireEvent.change(escalateToInput(l), { target: { value: 'sre_lead' } });
-      (screen.getByLabelText(l.notify) as HTMLInputElement).click();
+      (controlLabelled(l.notify) as HTMLInputElement).click();
 
       const onConfig = configOf(latest())!;
       const authored = { enabled: true, timeoutHours: 24, action: 'reassign', escalateTo: 'sre_lead', notifySubmitter: false };

@@ -55,36 +55,31 @@
  * live Zod pass, on the stated ground that a schema issue on a draft the server
  * ACCEPTS would dead-bolt Save with no on-screen editor able to clear it.
  *
- * The two invariants stand in different relations to the server, and the
- * dead-bolt argument is made separately for each:
+ * Neither invariant forecloses anything the server would have taken, and that
+ * is the whole of the dead-bolt argument for both:
  *
- *   - The relationship refusal forecloses nothing the server would have taken:
- *     the same body is refused one layer down with a 422 on
- *     `fields.NAME.reference`, so the guard only moves an identical refusal
- *     earlier, where it can name the field while it is still on screen.
- *   - The choice refusal is deliberately AHEAD of the server. The installed
- *     `@objectstack/spec` still accepts a choice with no option source, and the
- *     ruling closes the client order first on purpose — its execution parameter
- *     (2) reads "if Studio saves a `select` before its options exist, the
- *     objectui side changes its order first (a card in that lane) and the door
- *     closes after". So this refusal does hold a body the server would store
- *     today. It is not a dead-bolt, for the reason the ruling gives and the
- *     reason the editors give: the ruling makes the same body a server refusal
- *     once the door closes (a stored row is named and every later save of that
- *     object is refused until it gains options), and the message names the
- *     field on every surface that holds one. The Studio data page and the
- *     metadata-admin object editor carry an options editor in that field's
- *     inspector, so the hold clears on screen, including for an object that
- *     already stores such a field (both pinned by their
- *     `*.choiceWithoutOptions-11253` suites). plugin-designer's drawer has no
- *     options editor, so it stops offering the choice types; a stored `select`
+ *   - The relationship refusal: the same body is refused one layer down with a
+ *     422 on `fields.NAME.reference`, so the guard only moves an identical
+ *     refusal earlier, where it can name the field while it is still on screen.
+ *   - The choice refusal: the same body is refused one layer down at
+ *     `fields.NAME.options`, an empty list included, since `@objectstack/spec`
+ *     17.7.0 shipped the door (objectstack#21390, the ruling's own door). Until
+ *     that release the installed spec still accepted a choice with no option
+ *     source and this refusal was deliberately AHEAD of the server, by the
+ *     ruling's execution parameter (2): "if Studio saves a `select` before its
+ *     options exist, the objectui side changes its order first (a card in that
+ *     lane) and the door closes after". The door has closed, the order changed
+ *     first, and the refusal collapsed into the relationship form at
+ *     objectui#11717's bump. The editors still clear it on screen: the Studio
+ *     data page and the metadata-admin object editor carry an options editor in
+ *     that field's inspector (both pinned by their
+ *     `*.choiceWithoutOptions-11253` suites); plugin-designer's drawer has no
+ *     options editor, so it stops offering the choice types, a stored `select`
  *     keeps its type there and can be retyped or removed, and a stored `radio`
  *     is among the types that page carries through unedited and sends to
  *     metadata-admin, as it already does for a target-less `master_detail`.
- *     `object-metadata-write-guard.derivation.test.ts` re-measures "still
- *     accepted by the installed server" on every run; when the door ships and
- *     the pin moves, that reading turns red, and this paragraph collapses into
- *     the relationship one above.
+ *     `object-metadata-write-guard.derivation.test.ts` re-measures "refused one
+ *     layer down" for both invariants on every run.
  *
  * ⛔ **NOT strip-and-report-saved.** Dropping the offending field and reporting
  * success would trade a visible refusal for an invisible deletion —
@@ -106,7 +101,7 @@
  *   - the choice set from the same members run through `checkFieldCompleteness`
  *     (ADR-0078's author-time rule, which the ruling's door adopts), keeping
  *     those it reports as `field/choice-without-options` at `error` severity.
- *     `FieldSchema` cannot answer this one yet, because the door has not shipped.
+ *     The door itself shipped in 17.7.0, and the pin holds the two answers equal.
  *
  * A spec release that changes either set turns that pin red instead of leaving
  * a guard that quietly stopped covering the contract.

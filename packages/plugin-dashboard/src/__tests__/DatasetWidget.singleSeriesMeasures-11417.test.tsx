@@ -7,12 +7,13 @@
  *
  * The chart branch of `DatasetWidget` hands every declared measure to the
  * shared chart renderer as a series, and the renderer's arms for those five
- * families bind `series[0]` and read no other series. Every door accepts the
- * document (objectui's `DashboardWidgetSchema` and `@objectstack/spec` alike),
- * the query runs both measures, and the chart looks finished while answering a
+ * families bind `series[0]` and read no other series. Every door accepted the
+ * document (objectui's `DashboardWidgetSchema` and `@objectstack/spec` alike)
+ * until 17.7.0, the query runs both measures, and the chart looks finished while answering a
  * narrower question than its metadata asked. Triage's ruling on the card: the
- * spec refuses the shape (objectstack#21293), and until that refusal reaches
- * objectui the widget's existing diagnostic reports the dropped measure.
+ * spec refuses the shape (objectstack#21293, in `@objectstack/spec` 17.7.0, which
+ * objectui's door follows since objectui#11717), and for a widget stored before
+ * that refusal the widget's existing diagnostic reports the dropped measure.
  *
  * The pins are triage's: for each of the five types with a dimension and two
  * measures, the diagnostic names the dropped measure; one measure stays silent
@@ -172,19 +173,22 @@ const renderChart = async (widget: Record<string, unknown>, rows: Row[] = ROWS) 
 describe('objectui#11417 — a single-series chart with a dimension says which measure it drops', () => {
   it.each(SINGLE_SERIES_TYPES)('SUBJECT (triage pin): a dimensioned `%s` with two measures names the dropped one', async (type) => {
     const doc = widgetOf(type);
-    // Every door accepts it, so the diagnostic is the only voice until the
-    // spec's refusal (objectstack#21293) reaches objectui. When the pin moves
-    // past that refusal these two go red ON PURPOSE: the mirror then follows the
-    // refusal (triage's item 2 on objectui#11417), and this pin becomes one
-    // about a STORED document, as objectui#8894's stored-metric pin is.
+    // A STORED document now, as objectui#8894's stored-metric pin is. Since
+    // `@objectstack/spec` 17.7.0 (objectstack#21293) the spec refuses the shape at
+    // `values`, and objectui's door refuses it with the spec's own issue (the
+    // mirror chains `checkDashboardWidgetChartMeasureArity`, objectui#11717,
+    // triage's item 2 on objectui#11417). These two asserted the acceptance until
+    // the pin moved past that refusal; they flipped on purpose. A widget stored
+    // before the refusal still renders, and the diagnostic still names the drop.
+    const spec = SpecDashboardWidgetSchema.safeParse(doc);
+    expect(spec.success, 'the spec\'s door refuses a dimensioned two-measure single-series widget').toBe(false);
+    const specIssue = spec.error!.issues.find((i) => i.path.join('.') === 'values')!;
+    expect(specIssue.code).toBe('custom');
+    const mirror = DashboardWidgetSchema.safeParse(doc);
+    expect(mirror.success, 'objectui\'s door refuses it too').toBe(false);
     expect(
-      SpecDashboardWidgetSchema.safeParse(doc).success,
-      'the spec\'s door refuses this now: objectstack#21293 has reached the pin — see the comment above',
-    ).toBe(true);
-    expect(
-      DashboardWidgetSchema.safeParse(doc).success,
-      'objectui\'s door refuses this now — see the comment above',
-    ).toBe(true);
+      mirror.error!.issues.map((i) => ({ code: i.code, path: i.path.join('.'), message: i.message })),
+    ).toContainEqual({ code: 'custom', path: 'values', message: specIssue.message });
     await renderChart(doc);
     const msg = measureWarning();
     expect(msg).toBeDefined();

@@ -25,6 +25,7 @@ const fr = {
       setup_write: "Écriture des paramètres",
       studio_access: "Accès à Studio",
       manage_sharing: "Gérer le partage",
+      view_all_audit_log: "Voir tout le journal d'audit",
     },
     group: {
       platform: 'Plateforme',

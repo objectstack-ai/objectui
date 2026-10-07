@@ -479,6 +479,14 @@ export const LEDGER = [
     why: "Four lines about the release, not the install. Two ask whether the installed spec carries \"the 17.5.0 set\" / \"the loaded 17.5.0 blocks\" (the version names a record SET, as the 17.1.0 entry above does). Two are `pins` prose whose `pinned` is an unrelated verb (\"pinned narrowly\", \"pinned as THE RESIDUAL LEG\") beside a WHEN sentence (`allDayField` \"since `@objectstack/spec` 17.5.0\"; `redactFields` \"until `@objectstack/spec` 17.5.0 declared it\"). None restamps (objectui#11438).",
   },
   {
+    file: "apps/console/src/__tests__/registry-inputs-spec-parity.test.ts",
+    package: "@objectstack/spec",
+    version: "17.6.0",
+    sites: 1,
+    class: "historical",
+    why: "The `object-master-detail-form.details` pins prose: \"Since `@objectstack/spec` 17.6.0 (objectstack-ai/objectstack#21215) the spec row is an array of CLOSED entries\", the release the closed entry landed in, and \"a fork through 17.6.0, closed by `@objectstack/spec` 17.7.0\", the release that still declared `sortField`. `pinned` on that line is the verb in \"the pinned file\". Neither restamps (objectui#11717).",
+  },
+  {
     file: "apps/console/src/components/FormPage.tsx",
     package: "@objectstack/spec",
     version: "17.0.0",
@@ -869,6 +877,22 @@ export const LEDGER = [
     sites: 1,
     class: "stale",
     why: "\"measured on the installed 17.0.0-rc.6: 18 exports entries, 17 of them reached by this repository's own imports, across 29 packages\" \u2014 three counts, all re-measurable against the resolved artifact.",
+  },
+  {
+    file: "packages/plugin-grid/src/index.tsx",
+    package: "@objectstack/spec",
+    version: "17.6.0",
+    sites: 1,
+    class: "historical",
+    why: "\"the row declares it since 17.6.0\" on the `keyboardNavigation` input's comment \u2014 the release `object-grid` gained the member; the line's `pinned` is the verb in \"is pinned there\". Permanently true (objectui#11717).",
+  },
+  {
+    file: "scripts/check-eager-closure-budget.mjs",
+    package: "@objectstack/spec",
+    version: "17.6.0",
+    sites: 1,
+    class: "historical",
+    why: "One line naming the 17.6.0 bump as an EVENT: \"the pair objectui#11438 re-pinned when the `@objectstack/*` 17.6.0 bump paid back the rest of the spec-root part\", in the MAX docblock's account of the headroom the fourth raise superseded. It dates a measurement anchored to a named commit and does not restamp. The second line this entry once counted moved to 17.7.0 when objectui#11717 re-pinned BASELINE onto `c1e32e96` under ruling 6027998226.",
   },
 ];
 

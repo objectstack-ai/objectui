@@ -258,11 +258,11 @@ export const BLOCK_CONFIG: Record<string, BlockPropField[]> = {
       kind: 'select',
       // The nine `ui:text` publishes and `element:text` renders, in the order
       // both registrations declare them (objectui#7450). `heading` and
-      // `subheading` are not offered: the installed contract still accepts both
-      // and the renderer still draws them, but the ruling retires them in a later
-      // spec release, so the designer stops writing them now. A block that
-      // already carries one keeps it; `InspectorSelectField` shows a stored
-      // value its options do not offer as a flagged row rather than blanking it.
+      // `subheading` are not offered: the designer stopped writing them ahead of
+      // the ruling's retirement, and `@objectstack/spec` 17.7.0 now refuses both
+      // (objectui#11717). A block that already carries one keeps it on screen;
+      // `InspectorSelectField` shows a stored value its options do not offer as
+      // a flagged row rather than blanking it.
       options: [
         { value: 'h1', label: 'engine.inspector.pageBlock.option.variant.h1' },
         { value: 'h2', label: 'engine.inspector.pageBlock.option.variant.h2' },

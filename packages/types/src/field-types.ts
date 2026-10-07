@@ -25,7 +25,7 @@ import type { Field as SpecField } from '@objectstack/spec/data';
  * sibling field names, or `{ field, param }` entries mapping a sibling onto the
  * remote query parameter a dependent lookup filters by.
  *
- * Measured on the installed `@objectstack/spec` (17.6.0), `FieldSchema` declares
+ * Measured on the installed `@objectstack/spec` (17.7.0), `FieldSchema` declares
  * `dependsOn` as an OPTIONAL ARRAY of `string | { field, param? }` — never a
  * bare string. That is deliberately narrower than `DependsOnInput` (`form.ts`),
  * the shape the widget prop `FieldWidgetComponentProps.dependsOn` and
@@ -288,7 +288,7 @@ export interface MarkdownFieldMetadata extends BaseFieldMetadata {
    * annotated literal rejected. Follows the `TextareaFieldMetadata` precedent.
    *
    * A DECLARED spec key as of `@objectstack/spec` 17.3.0, which implements that
-   * same ruling. Measured on the installed `@objectstack/spec` 17.6.0:
+   * same ruling. Measured on the installed `@objectstack/spec` 17.7.0:
    * `FieldSchema` ACCEPTS `rows` on all four of textarea/markdown/html/
    * richtext, as an integer of at least 1 — a non-integer answers
    * `invalid_type` and 0 answers `too_small`, so "declared" does not mean "any
@@ -572,7 +572,7 @@ export interface SelectOptionMetadata extends SelectOptionBase {
    *
    * A DECLARED `SelectOptionSchema` key as of `@objectstack/spec` 17.3.0,
    * which implements the objectui#6153 half of that ruling. Measured on the
-   * installed `@objectstack/spec` 17.6.0: an option carrying `description`
+   * installed `@objectstack/spec` 17.7.0: an option carrying `description`
    * is ACCEPTED, as a string (a non-string answers `invalid_type`; the empty
    * string is valid), and a field whose `options` carry it parses whole. ⇒ it
    * may now be written into authored object metadata, which is the point of

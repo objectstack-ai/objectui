@@ -20,15 +20,15 @@
  * objectui#11396): the spec row is an array of CLOSED entries — `childObject`
  * required, an undeclared key refused by name, `columns` the spec's inline grid
  * column — and `MasterDetailDetailConfig` is derived from that entry by
- * reference, with ONE stated fork: `@objectstack/spec` 17.6.0 declares
- * `sortField`, which this block does not read (objectui#11070 round 9 retired
- * the authored override; row 2c below pins that a written one reaches
- * nothing); objectstack `main` has since retired it too
- * (objectstack-ai/objectstack#21589, unreleased after 17.6.0), and the fork
- * closes at objectui's bump to the first release carrying that. The registration
- * declares `of: 'object'`, derived from that single-kind member contract. The
+ * reference, with ONE key left off: `sortField`, which this block does not read
+ * (objectui#11070 round 9 retired the authored override; row 2c below pins that
+ * a written one reaches nothing). That was a fork through 17.6.0, which
+ * declared the member; `@objectstack/spec` 17.7.0 retires it too
+ * (objectstack-ai/objectstack#21589, a `retiredKey()` tombstone the entry still
+ * lists), so the fork is closed (objectui#11717). The registration declares
+ * `of: 'object'`, derived from that single-kind member contract. The
  * compile-time block at the end of this file holds the config equal to the
- * spec's entry minus that fork and spells the member list out, so the member
+ * spec's entry minus that key and spells the member list out, so the member
  * count is re-derived by the compiler rather than by this sentence. A
  * declaration fixes an entry's SHAPE, not what this block DOES with a member,
  * so the read site is still the whole member contract, and every row below is
@@ -485,19 +485,18 @@ type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends (<T>() => T extends B 
 type SpecDetailEntry = NonNullable<ObjectMasterDetailFormProps['details']>[number];
 
 /**
- * The config IS the spec's entry minus the one stated fork, by reference
+ * The config IS the spec's entry minus `sortField`, by reference
  * (objectui#11396): a member the spec adds, drops or retypes lands on the
  * config with no hand edit, and a hand-written restatement that drifts is red
- * here before it is red anywhere else. It holds on both spec shapes this
- * repository is compiled against: 17.6.0, where the entry declares `sortField`
- * as a string, and objectstack `main`, where the entry carries a `retiredKey()`
- * tombstone for it (objectstack-ai/objectstack#21589, unreleased after 17.6.0)
- * — the subtraction removes the key either way. ⛔ No row here pins which of
- * the two shapes the spec has; the `Spec Main Shape Gate` compiles this file
- * against `main`, so such a row is red there the day the two differ. The
- * forward tripwire for the retirement is the runtime pin in `@object-ui/types`
- * (`object-master-detail-form-details-entry-11396.test.ts`), which records
- * `sortField` as ACCEPTED on 17.6.0 and flips at the bump.
+ * here before it is red anywhere else. The installed 17.7.0 entry carries a
+ * `retiredKey()` tombstone for `sortField` (objectstack-ai/objectstack#21589);
+ * 17.6.0 declared it as a string, and the subtraction removes the key either
+ * way. ⛔ No row here pins which of the two shapes the spec has; the `Spec Main
+ * Shape Gate` compiles this file against objectstack `main`, so such a row is
+ * red there the day the two differ. The runtime pin in `@object-ui/types`
+ * (`object-master-detail-form-details-entry-11396.test.ts`) records
+ * `sortField` as REFUSED, with the spec's retired-key message, since the
+ * 17.7.0 bump (objectui#11717).
  */
 const derivedFromSpec: Equal<MasterDetailDetailConfig, Omit<SpecDetailEntry, 'sortField'>> = true;
 
@@ -526,6 +525,6 @@ const memberList: Equal<
 
 /** The lit control for the directive below: the same literal without the retired member compiles. */
 const authoredDetail: MasterDetailDetailConfig = { childObject: 'po_step', amountField: 'qty' };
-// @ts-expect-error objectui#11070 round 9: `sortField` is retired as a detail member; the sort field is derived from the child object. This face leaves it off on purpose (objectui#11396), on 17.6.0 where the spec declares it and on objectstack main where the spec retired it too.
+// @ts-expect-error objectui#11070 round 9: `sortField` is retired as a detail member; the sort field is derived from the child object. This face leaves it off on purpose (objectui#11396), and the spec retired it too in 17.7.0 (objectstack-ai/objectstack#21589).
 const retiredSortField: MasterDetailDetailConfig = { childObject: 'po_step', sortField: 'line_no' };
 void [derivedFromSpec, columnsAreTheGridColumn, memberList, authoredDetail, retiredSortField];

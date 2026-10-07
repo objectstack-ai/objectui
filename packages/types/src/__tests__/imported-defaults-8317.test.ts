@@ -136,6 +136,8 @@ import {
   checkPageSourceCompleteness,
   checkDashboardWidgetStageOrder,
   checkDashboardWidgetMetricMeasureArity,
+  checkDashboardWidgetChartMeasureArity,
+  checkPageRequiresKind,
 } from '@objectstack/spec/ui';
 import {
   FieldSchema as SpecFieldSchema,
@@ -457,15 +459,17 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
     it('the walker docblock\'s `lazy` count is re-derived, not quoted', () => {
       // The `lazy` arm is the one place the identity property cannot hold: it
       // must rebuild without forcing the getter, so a clean subtree behind a
-      // `z.lazy` is rebuilt anyway. The module's docblock names FIVE such
+      // `z.lazy` is rebuilt anyway. The module's docblock names SIX such
       // nodes (the fourth, `ViewSchema`'s form-field group, since objectui#7928;
-      // the fifth, under `FieldSchema.relatedListFilter`, since objectui#11070)
+      // the fifth, under `FieldSchema.relatedListFilter`, since objectui#11070;
+      // the sixth, the form-field group under the `object-form` row's
+      // `sections[].fields[]`, since the 17.7.0 bump, objectui#11717)
       // and says the exception costs nothing extra for every owner but the
       // ones `REBUILT_CLEAN` names (objectui#10872 batch 2), because each
       // other owner sits inside a schema that is being rebuilt regardless.
       // Both halves are measured here, so a spec bump or an import that moves
       // either one is red rather than quietly making the docblock false.
-      expect(walk(IMPORTED.map(([, s]) => s)).lazies).toBe(5);
+      expect(walk(IMPORTED.map(([, s]) => s)).lazies).toBe(6);
       const lazyOwners = IMPORTED.filter(([, s]) => walk([s]).lazies > 0);
       expect(lazyOwners.length, 'no schema owns a lazy — the count above found them elsewhere').toBeGreaterThan(0);
       // The clean owners are exactly the named set: rebuilt (so NOT the spec's
@@ -671,6 +675,12 @@ describe('the import boundary strips every imported default (objectui#8317)', ()
       // re-attached by objectui's `DashboardWidgetSchema` under the same ruling.
       ['checkDashboardWidgetStageOrder', checkDashboardWidgetStageOrder],
       ['checkDashboardWidgetMetricMeasureArity', checkDashboardWidgetMetricMeasureArity],
+      // objectui#11717: the two `@objectstack/spec` 17.7.0 checks the mirrors re-attach
+      // under the same ruling — the chart measure-arity check on `DashboardWidgetSchema`
+      // (objectui#11334 / objectui#11417) and the page `requires` ⇄ `kind` check on
+      // `PageNodeSchema` and `PageKindNodeSchema`.
+      ['checkDashboardWidgetChartMeasureArity', checkDashboardWidgetChartMeasureArity],
+      ['checkPageRequiresKind', checkPageRequiresKind],
     ]);
 
     const isSpecModule = (m: string): boolean =>

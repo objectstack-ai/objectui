@@ -182,7 +182,16 @@ describe('FieldSchema declares `rows` on the four multiline editor types', () =>
 });
 
 describe('`rows` is TYPE-GATED — declared is not the same as declared everywhere', () => {
-  const base = (type: string) => ({ name: 'body', type, label: 'Body' });
+  // A `select` carries one option: since `@objectstack/spec` 17.7.0 a `select`
+  // with no option source is refused at `options` (objectstack#21390), and this
+  // block's control is about `rows` alone, so the document is otherwise legal
+  // (objectui#11717).
+  const base = (type: string) => ({
+    name: 'body',
+    type,
+    label: 'Body',
+    ...(type === 'select' ? { options: [{ label: 'Open', value: 'open' }] } : {}),
+  });
 
   for (const type of ['text', 'select'] as const) {
     it(`control: \`${type}\` without \`rows\` is accepted`, () => {

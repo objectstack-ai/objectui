@@ -230,6 +230,7 @@ const FIELD_DEFAULTS: Record<string, string> = {
   'capability.label.setup_write': 'Write Settings',
   'capability.label.studio_access': 'Studio Access',
   'capability.label.manage_sharing': 'Manage Sharing',
+  'capability.label.view_all_audit_log': 'View All Audit Log',
 };
 
 export const useFieldTranslation = createSafeTranslation(

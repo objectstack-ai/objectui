@@ -25,6 +25,7 @@ const ja = {
       setup_write: "設定の書き込み",
       studio_access: "Studio へのアクセス",
       manage_sharing: "共有の管理",
+      view_all_audit_log: "すべての監査ログを表示",
     },
     group: {
       platform: 'プラットフォーム',

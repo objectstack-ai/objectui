@@ -36,23 +36,22 @@
  *     own props row gives it, read live in the same run, at the same path under
  *     `properties`.
  *
- * ## The fork, pinned as ACCEPTED so that closing it is a deliberate change
+ * ## The fork, closed: `sortField` is refused with the spec's retired-key message
  *
- * At 17.6.0 the spec entry declares `sortField`; `MasterDetailForm` reads no
- * such member (objectui#11070 round 9 retired the authored override, and
+ * Through 17.6.0 the spec entry declared `sortField` while `MasterDetailForm`
+ * read no such member (objectui#11070 round 9 retired the authored override, and
  * `plugin-form`'s `masterDetailDetailsMembers-8071.test.tsx` row 2c pins that a
- * written one reaches nothing). So `objectui validate` ACCEPTS an entry carrying
- * `sortField` while the renderer ignores it. objectstack has since retired the
- * key on its `main` with a `retiredKey()` tombstone on the entry
+ * written one reaches nothing), so `objectui validate` ACCEPTED an entry carrying
+ * it while the renderer ignored it — and this row pinned that acceptance as the
+ * forward tripwire. `@objectstack/spec` 17.7.0 carries the retirement
  * (objectstack-ai/objectstack#21589, PR objectstack-ai/objectstack#21632,
- * `6ec54f00`), unreleased after 17.6.0. The row below is the forward tripwire:
- * it records the 17.6.0 verdict, and reds at objectui's bump to the first
- * `@objectstack/spec` release that carries the retirement — the cue to flip it
- * to a refusal and drop the `Omit` on `MasterDetailDetailConfig`. It is a
- * RUNTIME row on purpose: the `Spec Main Shape Gate` compiles this repository
- * against objectstack `main`, so a compile-time row pinning the 17.6.0 shape
- * would be red there today.
- */
+ * `6ec54f00`): a `retiredKey()` tombstone on the entry. So the row is flipped at
+ * objectui's bump to that release (objectui#11717): both published faces refuse
+ * an entry carrying `sortField` at that member, with the spec's own message.
+ * `MasterDetailDetailConfig` keeps its `Omit` of the key: the spec entry still
+ * LISTS it (as a tombstone), and the TypeScript face leaves it off rather than
+ * offer a member whose only legal value is absence.
+  */
 
 import { describe, it, expect } from 'vitest';
 import {
@@ -84,7 +83,7 @@ export type detailsEntryIsTheSpecs = [
 
 /* ── Runtime ──────────────────────────────────────────────────────────────── */
 
-type Issue = { code: string; path: readonly PropertyKey[]; keys?: readonly string[] };
+type Issue = { code: string; path: readonly PropertyKey[]; keys?: readonly string[]; message?: string };
 
 /** A node authored in the spec's `{ type, properties }` form, with ONE detail entry. */
 const nodeWith = (entry: unknown) => ({
@@ -112,7 +111,7 @@ const PROBES = [
   { name: 'no `childObject`', entry: { title: 'Lines' } },
   { name: 'a bare field-name column', entry: { childObject: 'po_line', columns: ['qty'] } },
   { name: 'a column with an undeclared key', entry: { childObject: 'po_line', columns: [{ name: 'qty', bogusKey: 1 }] } },
-  { name: 'the fork: `sortField`, declared by the spec and read by nothing', entry: { childObject: 'po_line', sortField: 'line_no' } },
+  { name: 'the retired `sortField` (a tombstone since 17.7.0)', entry: { childObject: 'po_line', sortField: 'line_no' } },
 ] as const;
 
 describe('an `object-master-detail-form` `details` entry is judged by the spec\'s closed entry (objectui#11396)', () => {
@@ -154,12 +153,20 @@ describe('an `object-master-detail-form` `details` entry is judged by the spec\'
       ]);
     });
 
-    it('ACCEPTS `sortField` on 17.6.0 — the forward tripwire for objectstack#21589, which retired the key on main after 17.6.0', () => {
-      // When this reds, the installed spec carries the retirement: flip this
-      // row to a refusal and drop the `Omit` on `MasterDetailDetailConfig` in
-      // `@object-ui/plugin-form`.
-      const result = parse(nodeWith({ childObject: 'po_line', sortField: 'line_no' }));
-      expect(result.success, JSON.stringify(result.error?.issues)).toBe(true);
+    it('REFUSES `sortField` at that member with the spec\'s retired-key message — objectstack#21589, released in 17.7.0', () => {
+      // Flipped at the bump (objectui#11717): this row asserted the 17.6.0
+      // acceptance as the forward tripwire for the retirement.
+      const entry = { childObject: 'po_line', sortField: 'line_no' };
+      const result = parse(nodeWith(entry));
+      expect(result.success).toBe(false);
+      const spec = SpecObjectMasterDetailFormPropsSchema.safeParse(nodeWith(entry).properties);
+      expect(spec.success).toBe(false);
+      const specIssue = spec.error!.issues.find((issue) => issue.path.join('.') === 'details.0.sortField')!;
+      expect(specIssue.message).toContain('`details[].sortField` was removed');
+      const atMember = issuesUnder(result, ['properties', 'details', 0, 'sortField']);
+      expect(atMember.map((issue) => [issue.code, issue.path, issue.message])).toEqual([
+        [specIssue.code, [], specIssue.message],
+      ]);
     });
   });
 

@@ -43,23 +43,33 @@
  *   dimension, the shape the spec's refusal points authors at), and the family
  *   derivation itself is checked for being non-vacuous in both directions.
  *
- * ## OWED TO objectui#11334 — a bounded ledger, not a skip
+ * ## The chart families: objectui#11334 and objectui#11417
  *
  * FAMILY is read by effect, so a second spec rule at `values` joins it: the
- * dimensionless measure-arity check (objectstack `11d28c17`, #21053) refuses two
- * measures with no `dimensions` on more types than the metric family, and
- * objectui's mirror does not re-attach it yet. Those types are booked in
- * `OWED_TO_OBJECTUI_11334` below: their rows assert today's difference, and a cap
- * row requires the set objectui fails to refuse to equal the ledger exactly.
+ * chart measure-arity check (`checkDashboardWidgetChartMeasureArity`, the
+ * dimensionless check of objectstack `11d28c17` under the name `32d57690` gave
+ * it, which `@objectstack/spec` 17.7.0 ships) refuses two measures with no
+ * `dimensions` on more types than the metric family. objectui#11717 chains it
+ * after the metric-family check, so every FAMILY type is refused on both faces
+ * with the spec's own issue. Until then those types were booked in an
+ * `OWED_TO_OBJECTUI_11334` ledger (objectui#11438 ruling A″, record 5968177777);
+ * the ledger is struck, its rows now assert the refusal, and the cap rows
+ * require the set objectui fails to refuse to be EMPTY.
+ *
+ * The same check's single-series arm (objectui#11417) refuses two measures on
+ * five of those types WITH a dimension too. Both arms are read off the spec's
+ * exported check itself (`chartArmIssues`), never off a list written here.
  *
  * ⛔ Not pinned here, deliberately: the TypeScript face. `values` stays
  * `string[]` on the type, as it does on the spec's own inferred type — the
  * card rules out a TypeScript narrowing.
  */
 import { describe, it, expect } from 'vitest';
+import type { z } from 'zod';
 import {
   ChartTypeSchema as SpecChartTypeSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
+  checkDashboardWidgetChartMeasureArity,
 } from '@objectstack/spec/ui';
 import { DashboardWidgetSchema } from '../zod/complex.zod';
 import { safeValidateSchema } from '../zod/index.zod';
@@ -98,40 +108,28 @@ const FAMILY = SPEC_TYPES.filter((t) => specArityIssue(widget(t, TWO)) !== undef
 const OTHERS = SPEC_TYPES.filter((t) => !FAMILY.includes(t));
 
 /**
- * ⚠️ OWED TO objectui#11334 — the FAMILY types whose refusal objectui's doors do
- * NOT mirror yet, booked rather than skipped.
- *
- * The spec this repository resolves refuses two or more measures on these types
- * when the widget declares no `dimensions`
- * (`checkDashboardWidgetDimensionlessMeasureArity`, objectstack `11d28c17`,
- * #21053). objectui's mirror does not re-attach that check: objectstack `main`
- * renamed its export (`32d57690`), and a static import of the name the resolved
- * spec ships fails the `Spec Main Shape Gate`. objectui#11334 owns the mirror.
- *
- * Booked by objectui#11438 ruling A″ (record 5968177777), which applies
- * objectui#11111 decision 3 = B (record 5902351047) to the bump. Each listed
- * type's rows assert TODAY's difference (the spec refuses; objectui's door
- * accepts), and the cap rows require the FAMILY types objectui fails to refuse
- * to EQUAL this list on both faces. A new difference is red, and so is a listed
- * type objectui starts refusing: the entries go stale, by name, when the mirror
- * attaches, and objectui#11334 strikes them in that change.
- *
- * EXPIRES when objectui resolves an `@objectstack/spec` carrying `32d57690`, or
- * 2026-11-02, whichever is first. That resolution is caught by name in
- * `spec-object-refinements-7715.test.ts`, whose census books the same check;
- * the date is read by objectui#11334, not by a clock.
+ * The issues the spec's chart measure-arity check raises on a widget, read by
+ * calling the exported check itself with a collecting context. The metric
+ * family is the sibling check's, so this answers for the chart arms alone.
  */
-const OWED_TO_OBJECTUI_11334 = ['pie', 'donut', 'funnel', 'scatter', 'treemap', 'sankey', 'radar'];
+const chartArmIssues = (doc: Record<string, unknown>): unknown[] => {
+  const issues: unknown[] = [];
+  checkDashboardWidgetChartMeasureArity(doc, { addIssue: (issue: unknown) => issues.push(issue) } as unknown as z.RefinementCtx);
+  return issues;
+};
 
-/** The reason every owed row prints when it fails. */
-const OWED_REASON =
-  'OWED TO objectui#11334: the dimensionless measure-arity check is not re-attached by the mirror yet. ' +
-  'Booked by objectui#11438 ruling A″ (record 5968177777), applying objectui#11111 decision 3 = B ' +
-  '(record 5902351047). Expires when objectui resolves an @objectstack/spec carrying 32d57690, or ' +
-  '2026-11-02, whichever is first.';
-
-/** The FAMILY types whose refusal objectui's doors mirror today: FAMILY minus the ledger. */
-const MIRRORED = FAMILY.filter((t) => !OWED_TO_OBJECTUI_11334.includes(t));
+/**
+ * The FAMILY types the chart check refuses with no dimension — its
+ * dimensionless arm (objectui#11334). These are the types the struck
+ * `OWED_TO_OBJECTUI_11334` ledger held.
+ */
+const DIMENSIONLESS_ARM = FAMILY.filter((t) => chartArmIssues(widget(t, TWO)).length === 1);
+/** The metric family proper: FAMILY minus the chart check's dimensionless arm. */
+const METRIC = FAMILY.filter((t) => !DIMENSIONLESS_ARM.includes(t));
+/** The types the chart check refuses two measures on WITH a dimension — its single-series arm (objectui#11417). */
+const SINGLE_SERIES_ARM = SPEC_TYPES.filter((t) => chartArmIssues(widget(t, TWO, { dimensions: ['stage'] })).length === 1);
+/** The dimensionless-arm types a dimension rescues: the single-series arm's complement within it. */
+const RESCUED_BY_A_DIMENSION = DIMENSIONLESS_ARM.filter((t) => !SINGLE_SERIES_ARM.includes(t));
 
 /** Does an objectui verdict carry the spec's own arity issue for `doc` at `path`? */
 const refusesAsSpec = (
@@ -164,7 +162,7 @@ describe('objectui#8894 — the family is read off the spec\'s own rule, and it 
 });
 
 describe('objectui#8894 — face 1: `DashboardWidgetSchema` refuses a second measure on the metric family', () => {
-  it.each(MIRRORED)('`%s` with two measures is refused at `values`, with the spec\'s own issue', (type) => {
+  it.each(FAMILY)('`%s` with two measures is refused at `values`, with the spec\'s own issue', (type) => {
     const doc = widget(type, TWO);
     const specIssue = specArityIssue(doc)!;
     const r = DashboardWidgetSchema.safeParse(doc);
@@ -203,7 +201,7 @@ describe('objectui#8894 — face 1: `DashboardWidgetSchema` refuses a second mea
 });
 
 describe('objectui#8894 — face 2: the published door (`safeValidateSchema`) refuses it inside a dashboard', () => {
-  it.each(MIRRORED)('`%s` with two measures is refused at `widgets.0.values`, with the spec\'s own issue', (type) => {
+  it.each(FAMILY)('`%s` with two measures is refused at `widgets.0.values`, with the spec\'s own issue', (type) => {
     const w = widget(type, TWO);
     const specIssue = specArityIssue(w)!;
     const r = safeValidateSchema(dashboardNode(w));
@@ -220,38 +218,113 @@ describe('objectui#8894 — face 2: the published door (`safeValidateSchema`) re
   });
 });
 
-describe('objectui#11334 — OWED: the spec refuses these widgets and objectui\'s doors accept them today', () => {
-  it.each(OWED_TO_OBJECTUI_11334)('OWED TO objectui#11334: `%s` with two measures and no dimension: the spec refuses at `values`, `DashboardWidgetSchema` accepts', (type) => {
-    const doc = widget(type, TWO);
-    expect(specArityIssue(doc), OWED_REASON).toBeDefined();
-    expect(DashboardWidgetSchema.safeParse(doc).success, OWED_REASON).toBe(true);
+describe('objectui#11334 — the dimensionless arm: the spec refuses these widgets and objectui\'s doors refuse them with its issue', () => {
+  // Formerly the OWED TO objectui#11334 rows, which asserted the difference (the
+  // spec refuses, objectui accepts). The mirror attaches the check, so each row
+  // now asserts the refusal itself, on both faces.
+  it('the arm is read off the spec\'s check and is not vacuous: it holds `pie`, and the metric family is outside it', () => {
+    expect(DIMENSIONLESS_ARM).toContain('pie');
+    expect(METRIC.length).toBeGreaterThan(0);
+    for (const t of METRIC) expect(chartArmIssues(widget(t, TWO)), t).toEqual([]);
   });
 
-  it.each(OWED_TO_OBJECTUI_11334)('OWED TO objectui#11334: `%s` with two measures and no dimension: the published door accepts it inside a dashboard', (type) => {
+  it.each(DIMENSIONLESS_ARM)('`%s` with two measures and no dimension: the spec refuses at `values`, `DashboardWidgetSchema` refuses with its issue', (type) => {
+    const doc = widget(type, TWO);
+    const specIssue = specArityIssue(doc);
+    expect(specIssue).toBeDefined();
+    const r = DashboardWidgetSchema.safeParse(doc);
+    expect(r.success).toBe(false);
+    expect(envelope(r.error!.issues as Issue[])).toContainEqual({ code: 'custom', path: 'values', message: specIssue!.message });
+  });
+
+  it.each(DIMENSIONLESS_ARM)('`%s` with two measures and no dimension: the published door refuses it inside a dashboard with the spec\'s issue', (type) => {
     const w = widget(type, TWO);
-    expect(specArityIssue(w), OWED_REASON).toBeDefined();
-    expect(safeValidateSchema(dashboardNode(w)).success, OWED_REASON).toBe(true);
+    const specIssue = specArityIssue(w);
+    expect(specIssue).toBeDefined();
+    const r = safeValidateSchema(dashboardNode(w));
+    expect(r.success).toBe(false);
+    expect(envelope(r.error!.issues as Issue[])).toContainEqual({ code: 'custom', path: 'widgets.0.values', message: specIssue!.message });
+  });
+
+  it('SUBJECT (the card\'s pin): a dimensionless two-measure `pie` is ONE issue at `values`, the spec\'s own, on both faces', () => {
+    const doc = widget('pie', TWO);
+    const specIssue = specArityIssue(doc)!;
+    expect(specIssue.message).toContain('with no `dimensions`');
+    const mirror = DashboardWidgetSchema.safeParse(doc);
+    expect(mirror.success).toBe(false);
+    expect(envelope(mirror.error!.issues as Issue[]).filter((i) => i.path === 'values')).toEqual([
+      { code: 'custom', path: 'values', message: specIssue.message },
+    ]);
+    const published = safeValidateSchema(dashboardNode(doc));
+    expect(published.success).toBe(false);
+    expect(envelope(published.error!.issues as Issue[])).toContainEqual({ code: 'custom', path: 'widgets.0.values', message: specIssue.message });
+  });
+
+  it('CONTROL: one dimension takes the same `pie` out of the dimensionless arm — what refuses it then is the single-series arm, and a `radar` it rescues parses', () => {
+    // The card asked for the one-dimension `pie` to parse as this control. 17.7.0
+    // refuses it anyway, by the single-series arm (objectui#11417, pinned below), so
+    // the control is stated per arm: the dimensionless refusal is gone, and a type
+    // the single-series arm does not hold parses whole with the same dimension.
+    const pie = widget('pie', TWO, { dimensions: ['stage'] });
+    const pieIssue = specArityIssue(pie)!;
+    expect(pieIssue.message).not.toContain('with no `dimensions`');
+    expect(envelope(DashboardWidgetSchema.safeParse(pie).error!.issues as Issue[]).map((i) => i.message)).not.toContain(specArityIssue(widget('pie', TWO))!.message);
+    expect(RESCUED_BY_A_DIMENSION).toContain('radar');
+    const radar = widget('radar', TWO, { dimensions: ['stage'] });
+    expect(SpecDashboardWidgetSchema.safeParse(radar).success).toBe(true);
+    expect(DashboardWidgetSchema.safeParse(radar).success).toBe(true);
+    expect(safeValidateSchema(dashboardNode(radar)).success).toBe(true);
   });
 });
 
-describe('objectui#11334 — the cap: objectui fails to refuse EXACTLY the ledgered FAMILY types', () => {
-  it('face 1: the FAMILY types `DashboardWidgetSchema` does not refuse with the spec\'s own issue equal the ledger', () => {
+describe('objectui#11417 — the single-series arm: a dimension does not rescue a second measure on these types', () => {
+  it('the arm is read off the spec\'s check and is not vacuous: it holds `pie`, and every member is in the dimensionless arm too', () => {
+    expect(SINGLE_SERIES_ARM).toContain('pie');
+    expect(RESCUED_BY_A_DIMENSION.length).toBeGreaterThan(0);
+    for (const t of SINGLE_SERIES_ARM) expect(DIMENSIONLESS_ARM, t).toContain(t);
+  });
+
+  it.each(SINGLE_SERIES_ARM)('`%s` with one dimension and two measures is refused at `values` on both faces, with the spec\'s own issue', (type) => {
+    const doc = widget(type, TWO, { dimensions: ['stage'] });
+    const specIssue = specArityIssue(doc);
+    expect(specIssue).toBeDefined();
+    const mirror = DashboardWidgetSchema.safeParse(doc);
+    expect(mirror.success).toBe(false);
+    expect(envelope(mirror.error!.issues as Issue[])).toContainEqual({ code: 'custom', path: 'values', message: specIssue!.message });
+    const published = safeValidateSchema(dashboardNode(doc));
+    expect(published.success).toBe(false);
+    expect(envelope(published.error!.issues as Issue[])).toContainEqual({ code: 'custom', path: 'widgets.0.values', message: specIssue!.message });
+  });
+
+  it.each(SINGLE_SERIES_ARM)('CONTROL: `%s` with one dimension and ONE measure parses on both faces', (type) => {
+    const doc = widget(type, ONE, { dimensions: ['stage'] });
+    expect(SpecDashboardWidgetSchema.safeParse(doc).success).toBe(true);
+    expect(DashboardWidgetSchema.safeParse(doc).success).toBe(true);
+    expect(safeValidateSchema(dashboardNode(doc)).success).toBe(true);
+  });
+
+  it.each(RESCUED_BY_A_DIMENSION)('CONTROL: `%s` with one dimension and two measures parses on both faces — the arm names five types, not the family', (type) => {
+    const doc = widget(type, TWO, { dimensions: ['stage'] });
+    expect(SpecDashboardWidgetSchema.safeParse(doc).success).toBe(true);
+    expect(DashboardWidgetSchema.safeParse(doc).success).toBe(true);
+    expect(safeValidateSchema(dashboardNode(doc)).success).toBe(true);
+  });
+});
+
+describe('objectui#11334 — the cap: objectui fails to refuse NO FAMILY type (the struck ledger stays empty)', () => {
+  it('face 1: no FAMILY type goes unrefused by `DashboardWidgetSchema` with the spec\'s own issue', () => {
     const unrefused = FAMILY.filter((t) => {
       const doc = widget(t, TWO);
       return !refusesAsSpec(DashboardWidgetSchema.safeParse(doc), doc, 'values');
     });
-    expect([...unrefused].sort(), OWED_REASON).toEqual([...OWED_TO_OBJECTUI_11334].sort());
+    expect(unrefused).toEqual([]);
   });
 
-  it('face 2: the FAMILY types the published door does not refuse with the spec\'s own issue equal the ledger', () => {
+  it('face 2: no FAMILY type goes unrefused by the published door with the spec\'s own issue', () => {
     const unrefused = FAMILY.filter((t) => {
       const w = widget(t, TWO);
       return !refusesAsSpec(safeValidateSchema(dashboardNode(w)), w, 'widgets.0.values');
     });
-    expect([...unrefused].sort(), OWED_REASON).toEqual([...OWED_TO_OBJECTUI_11334].sort());
-  });
-
-  it('the ledger leaves the metric family judged: the mirrored rows are not vacuous', () => {
-    expect(MIRRORED.length).toBeGreaterThan(0);
+    expect(unrefused).toEqual([]);
   });
 });

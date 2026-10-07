@@ -208,14 +208,20 @@ describe('objectui#6071 — PALETTE_EXCLUSIONS reasons that claim "no renderer"'
     }
   });
 
-  it('the ledger still contains a no-renderer claim to check (guards a vacuous loop)', () => {
-    // If this fails, every reason was reworded away from the claim. That may be
-    // fine — but then this file is no longer guarding anything, and that should
-    // be a decision rather than a silent green.
+  it('the ledger\'s no-renderer population is EMPTY, and why (guards a vacuous loop)', () => {
+    // This row asserted the population was non-empty, and said that an empty one
+    // "should be a decision rather than a silent green". It emptied by a
+    // retirement, not a rewording: its last member, `ai:chat_window`, left the
+    // ledger when `@objectstack/spec` 17.7.0 retired the type upstream
+    // (objectui#11717), because an exclusion must name a real spec type. So the
+    // emptiness is asserted here, with its cause, rather than left silent: the
+    // loop below runs over nothing until a new reason claims "no renderer", and
+    // that reason turns this row red, so the guard is re-armed by name.
     expect(
       claimingNoRenderer.map(([type]) => type),
-      'no exclusion claims "no renderer" any more — this guard has nothing left to check',
-    ).not.toEqual([]);
+      'an exclusion claims "no renderer" again — the loop below checks it now; restore the non-empty guard',
+    ).toEqual([]);
+    expect(PALETTE_EXCLUSIONS['ai:chat_window']).toBeUndefined();
   });
 
   it('no exclusion whose reason claims "no renderer" actually has one', () => {

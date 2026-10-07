@@ -25,6 +25,7 @@ const es = {
       setup_write: "Escritura de la configuración",
       studio_access: "Acceso a Studio",
       manage_sharing: "Gestionar el uso compartido",
+      view_all_audit_log: "Ver todo el registro de auditoría",
     },
     group: {
       platform: 'Plataforma',

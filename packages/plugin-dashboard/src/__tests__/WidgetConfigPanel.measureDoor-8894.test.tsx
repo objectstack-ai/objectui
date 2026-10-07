@@ -31,13 +31,16 @@
  * same document, read off the spec's own parse: equal text proves the panel
  * surfaces the door's verdict rather than a restatement of it.
  *
- * ## OWED TO objectui#11334 — a bounded ledger, not a skip
+ * ## The chart families: objectui#11334
  *
- * The spec's dimensionless measure-arity check puts more types into FAMILY than
- * objectui's door refuses, because the mirror does not re-attach it yet. Those
- * types are booked in `OWED_TO_OBJECTUI_11334` below, as in the types package's
- * test: their rows assert what the panel does today, and a cap row requires the
- * set the panel fails to refuse to equal the ledger exactly.
+ * The spec's chart measure-arity check (`checkDashboardWidgetChartMeasureArity`,
+ * `@objectstack/spec` 17.7.0) puts more types into FAMILY than the metric
+ * family: two measures with no `dimensions` on `pie`, `funnel` and the rest.
+ * objectui#11717 chained it on objectui's door, and the panel asks that door,
+ * so it refuses them with no edit of its own. Until then those types were booked
+ * in an `OWED_TO_OBJECTUI_11334` ledger; the ledger is struck, its rows now
+ * assert the refusal, and the cap row requires the set the panel fails to
+ * refuse to be EMPTY.
  */
 
 import * as React from 'react';
@@ -46,6 +49,7 @@ import { render, screen, cleanup, within } from '@testing-library/react';
 import {
   ChartTypeSchema as SpecChartTypeSchema,
   DashboardWidgetSchema as SpecDashboardWidgetSchema,
+  checkDashboardWidgetChartMeasureArity,
 } from '@objectstack/spec/ui';
 import { WidgetConfigPanel } from '../WidgetConfigPanel';
 import type { WidgetDatasetCatalogEntry } from '../dataset-catalog';
@@ -85,44 +89,18 @@ const FAMILY = SPEC_TYPES.filter((t) => specArityIssue(t, TWO) !== undefined);
 const OTHERS = SPEC_TYPES.filter((t) => !FAMILY.includes(t));
 
 /**
- * ⚠️ OWED TO objectui#11334 — the FAMILY types the panel does NOT refuse yet,
- * booked rather than skipped.
- *
- * The spec this repository resolves refuses two or more measures on these types
- * when the widget declares no `dimensions`
- * (`checkDashboardWidgetDimensionlessMeasureArity`, objectstack `11d28c17`,
- * #21053). The panel asks objectui's door (`measureRefusal`), and the door's
- * mirror does not re-attach that check: objectstack `main` renamed its export
- * (`32d57690`), and a static import of the name the resolved spec ships fails
- * the `Spec Main Shape Gate`. objectui#11334 owns the mirror; the panel follows
- * it with no edit of its own.
- *
- * Booked by objectui#11438 ruling A″ (record 5968177777), which applies
- * objectui#11111 decision 3 = B (record 5902351047) to the bump. Each listed
- * type's rows assert TODAY's behaviour (the add control is offered, and no
- * refusal is shown under a stored pair the spec refuses), and the cap row
- * requires the FAMILY types the panel fails to refuse to EQUAL this list. A new
- * difference is red, and so is a listed type the panel starts refusing: the
- * entries go stale, by name, when the mirror attaches, and objectui#11334
- * strikes them in that change.
- *
- * EXPIRES when objectui resolves an `@objectstack/spec` carrying `32d57690`, or
- * 2026-11-02, whichever is first. That resolution is caught by name in
- * `packages/types/src/__tests__/spec-object-refinements-7715.test.ts`, whose
- * census books the same check; the date is read by objectui#11334, not by a
- * clock.
+ * The FAMILY types the spec's chart measure-arity check refuses with no
+ * dimension (its dimensionless arm), read by calling the exported check with a
+ * collecting context — the types the struck `OWED_TO_OBJECTUI_11334` ledger held.
  */
-const OWED_TO_OBJECTUI_11334 = ['pie', 'donut', 'funnel', 'scatter', 'treemap', 'sankey', 'radar'];
-
-/** The reason every owed row prints when it fails. */
-const OWED_REASON =
-  'OWED TO objectui#11334: the dimensionless measure-arity check is not re-attached by the mirror yet. ' +
-  'Booked by objectui#11438 ruling A″ (record 5968177777), applying objectui#11111 decision 3 = B ' +
-  '(record 5902351047). Expires when objectui resolves an @objectstack/spec carrying 32d57690, or ' +
-  '2026-11-02, whichever is first.';
-
-/** The FAMILY types the panel refuses today: FAMILY minus the ledger. */
-const MIRRORED = FAMILY.filter((t) => !OWED_TO_OBJECTUI_11334.includes(t));
+const DIMENSIONLESS_ARM = FAMILY.filter((type) => {
+  const issues: unknown[] = [];
+  checkDashboardWidgetChartMeasureArity(
+    { id: 'sales_tile', type, values: TWO },
+    { addIssue: (issue: unknown) => issues.push(issue) } as unknown as Parameters<typeof checkDashboardWidgetChartMeasureArity>[1],
+  );
+  return issues.length === 1;
+});
 
 const renderPanel = (config: Record<string, unknown>, datasets: WidgetDatasetCatalogEntry[] | undefined = catalog) =>
   render(<WidgetConfigPanel open onClose={vi.fn()} config={config} onSave={vi.fn()} datasets={datasets} />);
@@ -142,7 +120,7 @@ describe('objectui#8894 — the family is read off the spec\'s rule, and it is n
 });
 
 describe('objectui#8894 — no second measure is offered on a metric-family widget', () => {
-  it.each(MIRRORED)('SUBJECT: `%s` with one measure chosen offers no add control (catalog)', (type) => {
+  it.each(FAMILY)('SUBJECT: `%s` with one measure chosen offers no add control (catalog)', (type) => {
     renderPanel({ id: 'rev_tile', type, dataset: 'sales_pipeline', values: ONE });
     expect(valuesField().getByTestId('dataset-name-chip-revenue')).toBeInTheDocument();
     expect(addControl()).toBeNull();
@@ -150,7 +128,7 @@ describe('objectui#8894 — no second measure is offered on a metric-family widg
     expect(valuesField().queryByTestId('dataset-names-refusal')).toBeNull();
   });
 
-  it.each(MIRRORED)('SUBJECT: `%s` with one measure chosen offers no add control (free text, no catalog)', (type) => {
+  it.each(FAMILY)('SUBJECT: `%s` with one measure chosen offers no add control (free text, no catalog)', (type) => {
     renderPanel({ id: 'rev_tile', type, dataset: 'sales_pipeline', values: ONE }, undefined);
     expect(addControl()).toBeNull();
   });
@@ -168,7 +146,7 @@ describe('objectui#8894 — no second measure is offered on a metric-family widg
 });
 
 describe('objectui#8894 — measures the door refuses are reported at once, in the door\'s words', () => {
-  it.each(MIRRORED)('SUBJECT: a stored `%s` with two measures shows the spec\'s own refusal under them', (type) => {
+  it.each(FAMILY)('SUBJECT: a stored `%s` with two measures shows the spec\'s own refusal under them', (type) => {
     renderPanel({ id: 'sales_tile', type, dataset: 'sales_pipeline', values: TWO });
     const shown = valuesField().getByTestId('dataset-names-refusal');
     expect(shown).toHaveAttribute('role', 'alert');
@@ -192,31 +170,40 @@ describe('objectui#8894 — measures the door refuses are reported at once, in t
   });
 });
 
-describe('objectui#11334 — OWED: what the panel does today for the types the spec refuses and the door accepts', () => {
-  it.each(OWED_TO_OBJECTUI_11334)('OWED TO objectui#11334: `%s` with one measure chosen still offers the add control (catalog)', (type) => {
+describe('objectui#11334 — the dimensionless arm: the panel refuses what the door refuses', () => {
+  // Formerly the OWED TO objectui#11334 rows, which asserted what the panel did
+  // while the door accepted these widgets (the add control offered, no refusal
+  // shown). The door refuses them now, so each row asserts the refusal.
+  it('the arm is read off the spec\'s check and is not vacuous: it holds `pie`, and not the metric family\'s `kpi`', () => {
+    expect(DIMENSIONLESS_ARM).toContain('pie');
+    expect(DIMENSIONLESS_ARM).not.toContain('kpi');
+  });
+
+  it.each(DIMENSIONLESS_ARM)('`%s` with one measure chosen and no dimension offers no add control (catalog)', (type) => {
     renderPanel({ id: 'rev_tile', type, dataset: 'sales_pipeline', values: ONE });
     expect(valuesField().getByTestId('dataset-name-chip-revenue')).toBeInTheDocument();
-    expect(addControl(), OWED_REASON).not.toBeNull();
-    expect(valuesField().queryByTestId('dataset-names-refusal'), OWED_REASON).toBeNull();
+    expect(addControl()).toBeNull();
+    expect(valuesField().queryByTestId('dataset-names-refusal')).toBeNull();
   });
 
-  it.each(OWED_TO_OBJECTUI_11334)('OWED TO objectui#11334: `%s` with one measure chosen still offers the add control (free text, no catalog)', (type) => {
+  it.each(DIMENSIONLESS_ARM)('`%s` with one measure chosen and no dimension offers no add control (free text, no catalog)', (type) => {
     renderPanel({ id: 'rev_tile', type, dataset: 'sales_pipeline', values: ONE }, undefined);
-    expect(addControl(), OWED_REASON).not.toBeNull();
+    expect(addControl()).toBeNull();
   });
 
-  it.each(OWED_TO_OBJECTUI_11334)('OWED TO objectui#11334: a stored `%s` with two measures and no dimension shows no refusal, though the spec refuses it', (type) => {
-    expect(specArityIssue(type, TWO), OWED_REASON).toBeDefined();
+  it.each(DIMENSIONLESS_ARM)('a stored `%s` with two measures and no dimension shows the spec\'s own refusal under them', (type) => {
     renderPanel({ id: 'sales_tile', type, dataset: 'sales_pipeline', values: TWO });
-    expect(valuesField().queryByTestId('dataset-names-refusal'), OWED_REASON).toBeNull();
+    const shown = valuesField().getByTestId('dataset-names-refusal');
+    expect(shown).toHaveAttribute('role', 'alert');
+    expect(shown.textContent).toBe(specArityIssue(type, TWO)!.message);
     expect(valuesField().getByTestId('dataset-name-chip-revenue')).toBeInTheDocument();
     expect(valuesField().getByTestId('dataset-name-chip-deal_count')).toBeInTheDocument();
-    expect(addControl(), OWED_REASON).not.toBeNull();
+    expect(addControl()).toBeNull();
   });
 });
 
-describe('objectui#11334 — the cap: the panel fails to refuse EXACTLY the ledgered FAMILY types', () => {
-  it('the FAMILY types whose stored two-measure widget shows no spec refusal equal the ledger', () => {
+describe('objectui#11334 — the cap: the panel fails to refuse NO FAMILY type (the struck ledger stays empty)', () => {
+  it('every FAMILY type\'s stored two-measure widget shows the spec\'s own refusal', () => {
     const unrefused = FAMILY.filter((type) => {
       const { unmount } = renderPanel({ id: 'sales_tile', type, dataset: 'sales_pipeline', values: TWO });
       const shown = valuesField().queryByTestId('dataset-names-refusal');
@@ -224,11 +211,10 @@ describe('objectui#11334 — the cap: the panel fails to refuse EXACTLY the ledg
       unmount();
       return !refused;
     });
-    expect([...unrefused].sort(), OWED_REASON).toEqual([...OWED_TO_OBJECTUI_11334].sort());
+    expect(unrefused).toEqual([]);
   });
 
-  it('the ledger leaves the metric family judged: the mirrored rows are not vacuous', () => {
-    expect(MIRRORED.length).toBeGreaterThan(0);
-    expect(MIRRORED).toContain('kpi');
+  it('the metric family is still judged beside the chart arm: `kpi` is in FAMILY', () => {
+    expect(FAMILY).toContain('kpi');
   });
 });

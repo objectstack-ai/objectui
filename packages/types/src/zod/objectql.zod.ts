@@ -1615,8 +1615,9 @@ const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().ext
  * about the protocol; the corrected mechanism, re-derived by RUNNING
  * `@objectstack/spec` 17.4.0 (the version in the lockfile then) rather than
  * reading it — RE-RUN on 17.5.0 (objectui#11073), whose answer moved, as the
- * last bullet says, and RE-RUN again on the installed 17.6.0 (objectui#11438),
- * which answers every bullet below as 17.5.0 did:
+ * last bullet says, RE-RUN on 17.6.0 (objectui#11438), and again on the
+ * installed 17.7.0 (objectui#11717), each of which answers every bullet below as
+ * 17.5.0 did:
  *
  *   - `CalendarConfigSchema`'s `strictObject` options carry `surface` and
  *     `history` and NOTHING ELSE. There is no `aliases` entry, so upstream holds
@@ -1639,8 +1640,8 @@ const KanbanConfig = stripImportedDefaults(SpecKanbanConfigSchema).partial().ext
  *     not say which end of the range it binds … Write the one you mean") and
  *     prescribes neither. `endField` still draws no hint, and a one-char typo
  *     still resolves by distance (`titleFeld` → `titleField`) — all three
- *     measured on 17.5.0, and again on the
- *     installed 17.6.0 (objectui#11438).
+ *     measured on 17.5.0, again on 17.6.0 (objectui#11438), and again on the
+ *     installed 17.7.0 (objectui#11717).
  *
  * ⇒ through 17.4.0 a generic typo-distance suggester picked the wrong sibling.
  * It was not a declaration, it contradicted no declaration, and ⛔ no upstream
@@ -1836,31 +1837,33 @@ const CalendarConfig = stripImportedDefaults(SpecCalendarConfigSchema).partial()
  *     renderer drops — `plugin-calendar/src/index.tsx` names that as this
  *     gate's own failure mode one layer in.
  *
- * ⚠️ THE MEMBER LIST IS objectui's OWN, and the spec does NOT supply it.
- * MEASURED on the installed `@objectstack/spec` 17.6.0 (the same answer
- * 17.5.0 and 17.4.0 gave):
- * `ComponentPropsMap['object-calendar'].calendar` is NOT `CalendarConfigSchema`
- * — it is `z.unknown().optional()` (wrapper chain `["optional","unknown"]`, and
- * not the same object reference), so at THIS position the protocol accepts
- * everything: a nonsense key, a wrong-typed member, even `calendar: 42` all
- * parse. `CalendarConfigSchema` is the strict object the spec uses for a LIST
- * VIEW's calendar block, which is a different position — four keys through
- * 17.4.0, five since 17.5.0 declared `allDayField` (objectui#11073).
+ * ⚠️ THE MEMBER LIST IS objectui's OWN. Through 17.6.0 the spec did NOT
+ * supply one: `ComponentPropsMap['object-calendar'].calendar` was
+ * `z.unknown().optional()` (measured on 17.4.0, 17.5.0 and 17.6.0), so at THIS
+ * position the protocol accepted everything — a nonsense key, a wrong-typed
+ * member, even `calendar: 42`. `@objectstack/spec` 17.7.0 types it
+ * (objectstack#21464 stage 2, `7d674dfc`). MEASURED on the installed 17.7.0:
+ * the slot is the list view's own `calendar` member (wrapper chain
+ * `["optional","object"]`, a strict copy of `CalendarConfigSchema`, not the
+ * same object reference), so a nonsense key, the alias `dateField`,
+ * `calendar: 42` and `calendar: { startDateField: 42 }` are all refused there
+ * now. `CalendarConfigSchema` is the strict object the spec uses for a LIST
+ * VIEW's calendar block — four keys through 17.4.0, five since 17.5.0 declared
+ * `allDayField` (objectui#11073).
  *
- * ⇒ what the protocol settles here is the KEY, not its SHAPE. The shape below
- * is objectui's, chosen as exactly the five members `ObjectCalendar.tsx`'s
- * events pass destructures out of the resolved config. Through 17.4.0 that was
- * the spec's four plus objectui's own `allDayField`, the same objectui-local
- * lane objectui#8466 took for the FLAT spelling of this vocabulary, on this same
- * interface, for the same renderer; since 17.5.0 it is the list view block's
- * five exactly.
+ * The shape below is still objectui's, chosen as exactly the five members
+ * `ObjectCalendar.tsx`'s events pass destructures out of the resolved config.
+ * Through 17.4.0 that was the spec's four plus objectui's own `allDayField`, the
+ * same objectui-local lane objectui#8466 took for the FLAT spelling of this
+ * vocabulary, on this same interface, for the same renderer; since 17.5.0 it is
+ * the list view block's five exactly.
  *
- * That makes this mirror STRICTER than the protocol at this position, which is
- * the sanctioned direction and not the forbidden one: objectui#8327's triage
- * ruling forbids accepting what the platform REFUSES, and under `BaseSchema`'s
- * `.passthrough()` — which already admitted this key unexamined — a declaration
- * can only narrow. The same asymmetry `filter` and `sort` already carry on this
- * block.
+ * Through 17.6.0 that made this mirror STRICTER than the protocol at this
+ * position, the sanctioned direction (objectui#8327's triage ruling forbids
+ * accepting what the platform REFUSES). ⚠️ Since 17.7.0 it is not, for KEYS:
+ * the `.passthrough()` below admits an unexamined key the spec now refuses.
+ * The objectui#11717 bump records that difference by row and leaves the
+ * declaration as it is; it narrows nothing on its own.
  *
  * ⛔ `.passthrough()` is kept, so this declaration refuses no KEY that parses
  * today: a `calendar` block carrying `defaultView`, or any other unexamined

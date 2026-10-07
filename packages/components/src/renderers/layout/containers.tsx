@@ -1510,6 +1510,10 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
   // the SAME key `action:menu`'s overflow trigger already reads, so the two
   // `⋯` buttons a record page can show cannot read differently per locale.
   const tt = useSafeTranslate();
+  // One id base for the disabled-reason descriptions the header's actions
+  // render (objectui#11811); each action suffixes it, since `renderHeaderActions`
+  // below draws them in a loop where no hook can be called.
+  const disabledReasonIdBase = React.useId();
   // ── Manual refresh (objectui#3460) ────────────────────────────────────────
   // Rendered as page CHROME at the far end of the header row, NOT as a header
   // action: business/system actions come and go per object and record state,
@@ -1766,7 +1770,7 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     [ctx?.data, headerPredicateScope, headerPredicateFields],
   );
 
-  const headerActionsRaw = React.useMemo<any[]>(() => {
+  const headerActionPlan = React.useMemo<{ actions: any[]; authoredKeys: ReadonlySet<string> }>(() => {
     const recordData: any = ctx?.data;
     // The record binds three ways inside `evalRowPredicate` — `record.status`
     // (spec/canonical), bare `status` (the row-action shorthand) and
@@ -1877,6 +1881,19 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       if (key) seen.add(key);
       out.push(a);
     }
+    // Which surviving keys are AUTHORED (objectui#11811). Authored entries go
+    // through the dedupe first, so a host action survives under a key only
+    // when no authored action holds it — the key alone tells the two apart
+    // past the localizer, which copies every def. Read by the disabled-reason
+    // branch below: only an authored action's DECLARED `disabled` is a fact
+    // about the record; the host's Edit / Delete carry a boolean the host
+    // computed for reasons of its own (approval lock, `userActions`), which
+    // the host explains where it computes them.
+    const authoredKeys = new Set<string>(
+      authored
+        .map((a) => (a?.name || a?.id || '') as string)
+        .filter((key) => key !== ''),
+    );
     // Order the merged list before the inline/overflow split — the same rule
     // action:bar applies (objectui#2339):
     //   1. `order` ascending (unset = 0; lower = more prominent)
@@ -1887,18 +1904,21 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     const needsOrdering = out.some(
       (a) => a?.order !== undefined || a?.variant === 'primary',
     );
-    if (!needsOrdering) return out;
-    return [...out].sort((a, b) => {
+    if (!needsOrdering) return { actions: out, authoredKeys };
+    const ordered = [...out].sort((a, b) => {
       const byOrder = (a?.order ?? 0) - (b?.order ?? 0);
       if (byOrder !== 0) return byOrder;
       const ap = a?.variant === 'primary' ? 0 : 1;
       const bp = b?.variant === 'primary' ? 0 : 1;
       return ap - bp; // equal → stable sort preserves registration order
     });
+    return { actions: ordered, authoredKeys };
     // `evalHeaderPredicate` closes over `predicateScope` (via
     // `headerPredicateScope`) and the object's fields, so it replaces the raw
     // scope in this list rather than adding to it.
   }, [resolvedHeaderActions, hostSystemActions, ctx?.data, evalHeaderPredicate]);
+  const headerActionsRaw = headerActionPlan.actions;
+  const authoredHeaderActionKeys = headerActionPlan.authoredKeys;
 
   /**
    * Localize the surviving actions ONCE, here, so the button text and the
@@ -2067,6 +2087,20 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
     const isActionDisabled = (action: any): boolean =>
       (inlineEditing && action?.disableDuringInlineEdit === true) ||
       resolveDisabled(action?.disabled, action?.name ?? action?.id);
+    // The reason a greyed-out action gives (objectui#11811) — or `undefined`
+    // when it gives none. Only an AUTHORED action's DECLARED `disabled` earns
+    // it: that verdict is a fact about the record, read off the action spec.
+    // The inline-edit lock above is the host's own state, and the host's Edit /
+    // Delete carry a boolean the host computed (see `authoredKeys` in the plan
+    // memo), so neither says "not available for this record". The reason is
+    // the generic one; an author-written reason beside the predicate would be a
+    // spec key, which is objectstack's to declare.
+    const disabledReasonFor = (action: any): string | undefined => {
+      const key = (action?.name || action?.id || '') as string;
+      if (key === '' || !authoredHeaderActionKeys.has(key)) return undefined;
+      if (!resolveDisabled(action?.disabled, action?.name ?? action?.id)) return undefined;
+      return tt('actions.notAvailableForRecord', 'Not available for this record');
+    };
     const renderButton = (action: any, idx: number) => {
       const label = resolveLabel(action);
       // `variant: 'primary'` is valid ActionSchema but not a Shadcn Button
@@ -2075,12 +2109,16 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
       const size = action.size || 'sm';
       const disabled = isActionDisabled(action);
       const icon = typeof action.icon === 'string' ? action.icon : null;
-      return (
+      const actionKey = action.name || action.id || `header-action-${idx}`;
+      const disabledReason = disabledReasonFor(action);
+      const reasonId = `${disabledReasonIdBase}-reason-${idx}`;
+      const button = (
         <Button
-          key={action.name || action.id || `header-action-${idx}`}
+          key={actionKey}
           variant={variant}
           size={size}
           disabled={disabled}
+          aria-describedby={disabledReason ? reasonId : undefined}
           className="gap-2"
           onClick={() => {
             if (typeof action.onClick === 'function') {
@@ -2093,6 +2131,34 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
           {icon && <LazyIcon name={icon} className="h-4 w-4" />}
           <span>{label}</span>
         </Button>
+      );
+      if (!disabledReason) return button;
+      // A natively `disabled` button fires no pointer or focus events, and the
+      // Button primitive adds `disabled:pointer-events-none` on top — so a
+      // tooltip (or a native `title`) on the button itself never opens. The
+      // wrapping span is the trigger instead, the idiom Radix documents for a
+      // disabled button: it takes the hover, and `tabIndex={0}` lets a keyboard
+      // user focus it, which opens the tooltip too. The reason is ALSO a
+      // persistent accessible description (`aria-describedby` on both the
+      // button and the span, onto an `sr-only` copy). Same shape as
+      // `record:quick_actions`' button and `DeclaredActionsBar`'s.
+      return (
+        <TooltipProvider key={actionKey} delayDuration={200}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                tabIndex={0}
+                aria-describedby={reasonId}
+                data-disabled-reason=""
+                className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              >
+                {button}
+                <span id={reasonId} className="sr-only">{disabledReason}</span>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent>{disabledReason}</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       );
     };
     return (
@@ -2121,10 +2187,23 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
                 const icon = typeof action.icon === 'string' ? action.icon : null;
                 const isDestructive =
                   action.variant === 'destructive' || action.name === 'sys_delete';
+                // objectui#11811 — the same reason as the inline button, but
+                // drawn as a visible second line, not a tooltip. Inside the
+                // menu a tooltip trigger is unreachable from the keyboard: a
+                // disabled item is skipped by arrow-key focus (`focusable:
+                // !disabled` in the menu's roving group), and the menu traps
+                // Tab. The menu is already an explicit, opened surface, so the
+                // reason simply shows there, and is the item's description
+                // while its name stays the label alone.
+                const disabledReason = disabledReasonFor(action);
+                const labelId = `${disabledReasonIdBase}-more-label-${idx}`;
+                const reasonId = `${disabledReasonIdBase}-more-reason-${idx}`;
                 return (
                   <DropdownMenuItem
                     key={action.name || action.id || `overflow-action-${idx}`}
                     disabled={disabled}
+                    aria-labelledby={disabledReason ? labelId : undefined}
+                    aria-describedby={disabledReason ? reasonId : undefined}
                     onSelect={(e) => {
                       e.preventDefault();
                       if (typeof action.onClick === 'function') {
@@ -2139,7 +2218,14 @@ const PageHeaderRenderer: React.FC<any> = ({ schema, className, ...props }) => {
                     )}
                   >
                     {icon && <LazyIcon name={icon} className="h-4 w-4" />}
-                    <span>{label}</span>
+                    {disabledReason ? (
+                      <span className="flex min-w-0 flex-col">
+                        <span id={labelId}>{label}</span>
+                        <span id={reasonId} className="text-xs text-muted-foreground">{disabledReason}</span>
+                      </span>
+                    ) : (
+                      <span>{label}</span>
+                    )}
                   </DropdownMenuItem>
                 );
               })}

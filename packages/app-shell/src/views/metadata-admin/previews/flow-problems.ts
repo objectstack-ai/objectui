@@ -19,6 +19,7 @@
  * too: listed in the panel, but without a badge.
  */
 
+import { createContext } from 'react';
 import { validateFlowDraft } from './simulator/flow-sim-validate.js';
 import type { Diagnostic, DiagnosticLevel, SimEdge, SimNode } from './simulator/flow-sim-types.js';
 import { conditionText, edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
@@ -301,7 +302,8 @@ export function buildFlowProblems({ nodes, edges, serverDiagnostics, variables, 
 //
 // It lives here, beside the problem list, because this module is the
 // component-free home the preview and the panel already share; the host that
-// reads `_status` imports it from here too.
+// reads `_status` imports it from here too, so the host takes on none of the
+// preview's canvas to hand it a row.
 
 /**
  * One flow's runtime row as Studio keeps it: the engine's `FlowRuntimeState`
@@ -373,6 +375,23 @@ export function deriveFlowRunStatus(runtime: FlowRuntimeRow | null | undefined, 
   if (!runtime.triggerType) return { kind: 'manual' };
   return runtime.reason ? { kind: 'not-running', reason: runtime.reason } : { kind: 'not-running' };
 }
+
+/**
+ * The open flow's runtime row, handed from a host that read
+ * `GET /api/v1/automation/_status` (Studio's Automations pillar) to the flow
+ * preview it renders, which derives the header's Status pill and the Problems
+ * panel's note from it with {@link deriveFlowRunStatus} — the derivation the
+ * host's rail reads.
+ *
+ *   - a row: the engine's answer for this flow;
+ *   - `null`: the host read `_status` and the engine has no row for this flow;
+ *   - `undefined` (the default, no provider): no runtime reading at all.
+ *
+ * A context rather than a preview prop because `MetadataPreviewProps` is the
+ * package's published preview contract, and this row is one host's hand-off to
+ * one preview.
+ */
+export const FlowRuntimeContext = createContext<FlowRuntimeRow | null | undefined>(undefined);
 
 /** How a {@link FlowRunStatus} reads: the visible words, the hover text, and a tone. */
 export interface FlowRunStatusView {
@@ -481,7 +500,7 @@ export function deriveInvalidElements(problems: FlowProblem[]): {
 // connection — so the two writers that can are here, beside the key they
 // share: the id a new node gets, and the edges a node removal keeps. The
 // canvas (`FlowCanvas`, `FlowPreview`) and the node inspector import them from
-// this React-free module rather than from a component.
+// this component-free module rather than from a component.
 
 /**
  * A fresh node id (objectui#11772): `uniqueId('node', …)` over every id the

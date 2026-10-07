@@ -130,8 +130,12 @@ import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadat
 import { useDisplayLocale } from '@object-ui/i18n';
 import { SuggestedBindingsPanel } from '../../components/SuggestedBindingsPanel.js';
 import { AppNavCanvas } from '../metadata-admin/previews/AppNavCanvas.js';
-import { FlowRuntimeContext } from '../metadata-admin/previews/ProblemsPanel.js';
-import { deriveFlowRunStatus, describeFlowRunStatus, type FlowRuntimeRow } from '../metadata-admin/previews/flow-problems.js';
+import {
+  FlowRuntimeContext,
+  deriveFlowRunStatus,
+  describeFlowRunStatus,
+  type FlowRuntimeRow,
+} from '../metadata-admin/previews/flow-problems.js';
 import {
   clearedLabel,
   inheritedNavEntryText,

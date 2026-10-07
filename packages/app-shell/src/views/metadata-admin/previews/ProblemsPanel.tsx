@@ -13,27 +13,8 @@
 import * as React from 'react';
 import { AlertCircle, AlertTriangle, CheckCircle2, CircleDot, CircleSlash, GitBranch } from 'lucide-react';
 import { cn } from '@object-ui/components';
-import { describeFlowRunStatus, type FlowProblem, type FlowRunStatus, type FlowRuntimeRow } from './flow-problems.js';
+import { describeFlowRunStatus, type FlowProblem, type FlowRunStatus } from './flow-problems.js';
 import { t as tr } from '../i18n.js';
-
-/**
- * The open flow's runtime row, handed from a host that read
- * `GET /api/v1/automation/_status` (Studio's Automations pillar) to the flow
- * preview it renders (objectui#11779). The preview derives ONE run status from
- * it (`deriveFlowRunStatus`) for its header's Status pill and for this panel's
- * note, the same derivation the host's rail reads.
- *
- *   - a row: the engine's answer for this flow;
- *   - `null`: the host read `_status` and the engine has no row for this flow;
- *   - `undefined` (the default, no provider): no runtime reading at all.
- *
- * It is a context rather than a preview prop because `MetadataPreviewProps` is
- * the package's published preview contract, and this row is one host's
- * hand-off to one preview. It sits in this module rather than in the preview's
- * because the host imports it, and the preview's module would bring the whole
- * canvas into the host with it.
- */
-export const FlowRuntimeContext = React.createContext<FlowRuntimeRow | null | undefined>(undefined);
 
 export interface ProblemsPanelProps {
   problems: FlowProblem[];

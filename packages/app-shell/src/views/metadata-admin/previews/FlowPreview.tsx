@@ -45,8 +45,9 @@ import { type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layo
 import { NESTED_NODE_KIND, parseNestedNodeId, encodeNestedNodeId } from '../inspectors/flow-nested-selection.js';
 import { FlowSimulatorPanel } from './FlowSimulatorPanel.js';
 import { FlowRunsPanel } from './FlowRunsPanel.js';
-import { FlowRuntimeContext, ProblemsPanel } from './ProblemsPanel.js';
+import { ProblemsPanel } from './ProblemsPanel.js';
 import {
+  FlowRuntimeContext,
   buildFlowProblems,
   deriveFlowRunStatus,
   deriveInvalidElements,

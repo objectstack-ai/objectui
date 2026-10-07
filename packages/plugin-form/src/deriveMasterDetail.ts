@@ -15,7 +15,11 @@
  * `reportCurrencyColumnScale` (objectui#10783).
  */
 
-import { DEFAULT_MAX_INLINE_GRID_COLUMNS, deriveInlineGridColumns } from '@objectstack/spec/data';
+import {
+  DEFAULT_MAX_INLINE_GRID_COLUMNS,
+  deriveInlineGridColumns,
+  deriveInlineRowFormFields,
+} from '@objectstack/spec/data';
 import type { GridColumn } from '@object-ui/fields';
 
 /**
@@ -43,17 +47,10 @@ export interface ChildObjectSchemaLike {
   fields?: Record<string, any>;
 }
 
-/** System / audit fields never offered in a line's row form. */
-const SYSTEM_FIELDS = new Set([
-  'id', '_id', 'recordId',
-  'created_at', 'updated_at', 'created_by', 'updated_by',
-  'createdAt', 'updatedAt', 'createdBy', 'updatedBy',
-  'organization_id', 'tenant_id', 'space', 'owner',
-]);
-
-/** Field names that hold a line's sort position — excluded from the row form
- *  (the grid stamps them on drag-reorder instead), and the names `deriveDetail`
- *  picks the line's sort field from. */
+/** Field names that hold a line's sort position — the names `deriveDetail`
+ *  picks the line's sort field from (the grid stamps it on drag-reorder). The
+ *  grid columns and the row form leave these names out by the spec's own rule
+ *  (`deriveInlineGridColumns`, `deriveInlineRowFormFields`). */
 const SORT_FIELD_NAMES = new Set(['position', 'sort_order', 'sequence', 'line_no', 'line_number', 'sort']);
 
 /** Map an ObjectQL field type to a LineItems grid column type. */
@@ -347,33 +344,34 @@ export function hydrateColumns(
   });
 }
 
-/** Computed / non-input field types — excluded from the row form (read-only,
- *  server-derived). Unlike grid columns we DO keep rich inputs (textarea,
- *  richtext, file, image, json…) since the row form has room for them. */
-const NON_INPUT_TYPES = new Set(['formula', 'summary', 'rollup', 'autonumber', 'auto_number']);
-
 /**
- * Field names for a child's full "row form" (the per-row expand editor) — every
- * editable business field, skipping system/audit fields, the back-reference FK,
- * and computed types. Broader than {@link deriveColumns} (which only returns
- * grid-friendly types): the form has room for textarea/richtext/file/etc.
+ * Field names for a child's full "row form" (the per-row expand editor) — the
+ * form an inline master-detail collection opens when its author listed no
+ * `formFields`.
+ *
+ * WHICH fields, in what order, is `@objectstack/spec`'s rule,
+ * `deriveInlineRowFormFields` (objectui#11428), the row-form twin of the
+ * `deriveInlineGridColumns` rule {@link deriveColumns} reads: it skips system /
+ * audit fields, sort-position fields, fields flagged `system` or `hidden`, the
+ * computed types, the back-reference FK to the parent and any `exclude`d name,
+ * and keeps every other field in the child's field order. So it is broader than
+ * the grid: `readonly` fields and the rich types a grid cell omits (textarea,
+ * richtext, json, file, …) stay, since the form has room for them. The rule
+ * lives in the spec so that an author-time tool (objectstack's
+ * `field-no-consumers` lint) credits exactly the fields this form draws.
+ *
+ * WHETHER a row offers the form at all is the spec's `isInlineRowFormOffered`,
+ * which `MasterDetailForm` asks. How each named field renders is the form's own
+ * per-field builder, over these names.
  */
 export function deriveFormFields(
   childSchema: ChildObjectSchemaLike | undefined,
   opts: { relationshipField?: string; exclude?: string[] } = {},
 ): string[] {
-  const fields = childSchema?.fields;
-  if (!fields || typeof fields !== 'object') return [];
-  const exclude = new Set([...(opts.exclude ?? []), ...(opts.relationshipField ? [opts.relationshipField] : [])]);
-  const out: string[] = [];
-  for (const [name, def] of Object.entries(fields)) {
-    const d = def as any;
-    if (SYSTEM_FIELDS.has(name) || exclude.has(name) || SORT_FIELD_NAMES.has(name)) continue;
-    if (d?.system || d?.hidden) continue;
-    if (NON_INPUT_TYPES.has(d?.type)) continue;
-    out.push(name);
-  }
-  return out;
+  return deriveInlineRowFormFields(childSchema, {
+    relationshipField: opts.relationshipField,
+    exclude: opts.exclude,
+  });
 }
 
 /** Inline-edit form factor. */

@@ -651,16 +651,45 @@ export async function purgeSampleData(installationId: string): Promise<SampleDat
 //
 // Backend: framework/packages/runtime/src/cloud/marketplace-install-local-plugin.ts
 
+/**
+ * The marker the install-local listing puts on an entry this runtime's startup
+ * rehydrate refused to load (objectstack#21822, served since `@objectstack/*`
+ * 17.7.0). CLOSED on the server: exactly these two members.
+ *
+ * `code` is the refusal's error code. The one the server sends today is
+ * `OS_PROTOCOL_INCOMPATIBLE`, and `requiredRange` is then the protocol range the
+ * package declares (the same `requiredRange` the install door's 422 carries in
+ * `error.details`). It is typed `string` rather than that literal because the
+ * console names a code it has no sentence for instead of hiding the row.
+ */
+export interface LocalInstallNotLoaded {
+  code: string;
+  requiredRange: string;
+}
+
+/**
+ * One item of `GET /api/v1/marketplace/install-local` (`listLocalInstalls`), and
+ * the shape `listInstalledPackages` maps the control plane's rows into.
+ *
+ * Two members are absent by the server's rule, never `false` or `null`:
+ *   - `installedBy` for a caller without `manage_metadata` (a narrowed caller);
+ *   - `withSampleData` on an entry carrying `notLoaded`, which stands IN PLACE
+ *     of it: the listing reads no rows of a package the runtime did not load.
+ */
 export interface LocalInstallEntry {
   packageId: string;
   versionId: string;
   manifestId: string;
   version: string;
   installedAt: string;
-  installedBy: string | null;
+  installedBy?: string | null;
   /** Whether the bundled seed datasets are currently loaded in the local
    *  kernel DB. True after install (with seed) or reseed; false after purge. */
   withSampleData?: boolean;
+  /** Present only when this runtime refused to load the package at startup
+   *  (objectui#11645). The entry is still installed: Uninstall and a
+   *  compatible re-install act on it. */
+  notLoaded?: LocalInstallNotLoaded;
 }
 
 export interface LocalInstallResult {

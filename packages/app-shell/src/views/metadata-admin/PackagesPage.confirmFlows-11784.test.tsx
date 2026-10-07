@@ -45,6 +45,8 @@ const DRAFTS = [
 
 type Call = { url: string; method: string; body: unknown };
 let calls: Call[];
+/** What `POST /duplicate` answers; a test may replace it. */
+let duplicateAnswer: unknown;
 let confirmSpy: ReturnType<typeof vi.fn>;
 let promptSpy: ReturnType<typeof vi.fn>;
 let savedConfirm: PropertyDescriptor | undefined;
@@ -62,6 +64,7 @@ function respond(body: unknown, status = 200) {
 
 beforeEach(() => {
   calls = [];
+  duplicateAnswer = { success: true, data: { success: true, copiedCount: 3, failedCount: 0 } };
   vi.stubGlobal(
     'fetch',
     vi.fn(async (input: string, init: RequestInit = {}) => {
@@ -75,7 +78,7 @@ beforeEach(() => {
         return respond({ success: true, data: { discardedCount: DRAFTS.length, failedCount: 0 } });
       }
       if (input.endsWith('/duplicate')) {
-        return respond({ success: true, data: { success: true } });
+        return respond(duplicateAnswer);
       }
       return respond({ success: true, data: {} });
     }),
@@ -291,6 +294,23 @@ describe('PackageDetailSheet — Duplicate is the landing inline form (objectui#
     fireEvent.keyDown(idInput, { key: 'Enter' });
     await settle();
     expect(writes()).toEqual([]);
+  });
+
+  it('a 200 whose verdict is `success: false` is an error, not "duplicated"', async () => {
+    // What the landing's call already refused (`duplicatePackage`); the sheet's
+    // own reader looked only at the envelope's `success` and said "duplicated".
+    duplicateAnswer = { success: true, data: { success: false, copiedCount: 0, failedCount: 0 } };
+    const { onChanged } = renderSheet();
+    fireEvent.click(await screen.findByRole('button', { name: 'Duplicate' }));
+    const form = await screen.findByTestId('pkg-detail-dup-form');
+    fireEvent.change(within(form).getByTestId('pkg-detail-dup-id-input'), {
+      target: { value: 'com.acme.crm2' },
+    });
+    fireEvent.click(within(form).getByRole('button', { name: 'Create copy' }));
+    await waitFor(() => expect(writes()).toHaveLength(1));
+    expect(await screen.findByText(/Nothing was copied/)).toBeTruthy();
+    expect(screen.queryByText('Package duplicated into a new base.')).toBeNull();
+    expect(onChanged).not.toHaveBeenCalled();
   });
 
   it('its Cancel closes the form and sends nothing', async () => {

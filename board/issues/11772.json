@@ -1,0 +1,37 @@
+{
+  "number": 11772,
+  "kind": "issue",
+  "title": "flow designer: Remove node leaves its edges behind, and the reused node id re-attaches them — a published flow ran one create_record three times for one update",
+  "state": "closed",
+  "state_reason": "completed",
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:workflow",
+    "bug",
+    "domain:ui",
+    "priority:p1"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-07T14:49:49Z",
+  "updated_at": "2026-10-07T19:21:44Z",
+  "closed_at": "2026-10-07T18:36:49Z",
+  "closed_by": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "merged_at": null,
+  "comments": 5,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11772",
+  "body": "**Filing gate ① — product defect with a named location and a reproduction.** reach: a published flow authored entirely in Studio ran one `create_record` node three times for one record update (measured through the public data API).\n\n**Who acts on it:** objectui triage → the Studio / app-shell owner. ⛔ Not a claim. Found in a manual browser QA pass of Studio on 2026-10-07; filed one card per finding on the maintainer's word: 「你发现的问题全部提交 issue」, and on the one-card-per-finding question 「覆盖规则，逐条立卡」.\n\n## What happens\n\nRemoving a node in the Studio flow designer leaves the edges that pointed at it in the document. The next node added gets the same id (`node_1`), so the stale edges silently re-attach to it. In the published flow below, `edges` held `start→node_1` three times; one status change created **three identical follow-up records**. The canvas draws the three edges on top of each other, so the author sees one line, and the Problems panel says \"No problems — this flow is structurally valid.\" The Runs panel shows the same run executing `node_1 CREATE_RECORD` three times and never reaching `end`.\n\n## Reproduction\n\n1. Studio → a writable package → Automations → New (\"Notify on Ticket Done\").\n2. Start node: Trigger *Record updated*, Object `repairs_repair_ticket`, Entry condition `status == 'done' && previous.status != 'done'`.\n3. Click the edge's \"+\" (*Insert node here*) → a `create_record` node appears → inspector *Remove node*.\n4. Select Start → *Add connected node* → configure the new `create_record` (object `repairs_repair_ticket`, field `name` = `Follow-up created by flow`).\n5. Publish all. `PATCH /api/v1/data/repairs_repair_ticket/{id}` with `{\"status\":\"done\",\"due_date\":\"2026-10-20\"}`.\n6. `GET /api/v1/data/repairs_repair_ticket` → three `Follow-up created by flow` rows. `GET /api/v1/meta/flow/<name>` → edges `e1 start→node_1`, `edge_1 start→node_1`, `edge_3 start→node_1`, `edge_2 node_1→end`.\n\nSecond, independent reproduction (flow `repro_edges`): after step 3 the saved draft holds nodes `[start, end]` but edges `[start→node_1, node_1→end]` — dangling, and the original `start→end` is gone.\n\n## Expected\n\nRemoving a node removes its incoming and outgoing edges (and reconnects predecessor → successor when it sat on a single path). A fresh node never inherits edges left by a removed one.\n\n## Where it comes from (read in source)\n\n- `FlowNodeInspector`'s `remove` callback (`app-shell/src/views/metadata-admin/inspectors/FlowNodeInspector.tsx`) writes `null` to the node's location and clears the selection; nothing touches `edges`.\n- New ids come from `uniqueId('node', existing)` over the *current* node ids only, so a removed id is reused.\n- The server half is objectstack-ai/objectstack#22088 (it publishes such a flow with `_diagnostics.valid: true`).\n\n## Suggested direction (triage to rule)\n\nDrop every edge whose `source` or `target` is the removed node in the same patch, reconnecting single-path predecessors to successors; never reuse an id that existed in this editing session; have the Problems panel flag edges whose endpoint is not a node and repeated (source, target) pairs.\n\n## Environment\n\nobjectstack `879bd38c` · `examples/app-showcase` booted with `objectstack dev --ui --seed-admin` on an isolated port and SQLite file · objectui `179f6fe9` (HEAD; the framework pin `.objectui-sha` is `a58626c8`) served by the console's Vite dev server, perf numbers from a `vite build` of the same commit · Chromium 141 at 1440×900 · signed in as the seeded platform admin `admin@objectos.ai` unless stated.\n\n## Duplicate check\n\n- Semantic issue search on objectstack-ai/objectui (open and closed), *flow designer remove node dangling edges duplicate edges node executed multiple times*: 2 hits (0 open, 2 closed).\n- Semantic issue search on objectstack-ai/objectstack (open and closed), *flow engine executes target node once per incoming edge duplicate execution create_record*: 3 hits (0 open, 3 closed).\n- Semantic issue search on objectstack-ai/objectui (open and closed), *flow canvas delete node leaves orphan edges reconnect*: 0 hits (0 open, 0 closed).\n- Related, not the same defect:\n  - objectstack-ai/objectstack#14964 (closed) — same malformed-edges family on the spec side (duplicate edge ids), not node removal / dangling endpoints\n  - objectstack-ai/objectui#10948 (closed) — neighbouring flow-designer save-integrity card; different defect\n- Positive control in the same run: *related lists action id refusal notice shown to end users* on objectstack-ai/objectui returned objectstack-ai/objectui#11768: yes.\n\nDedupe words: flow remove node dangling edges · duplicate edges node runs twice · insert node reuse id · Problems panel structurally valid\n\nFiled by Claude Code (session `session_01D76mrPJrSSdaKRxR2rvrMG`) from that QA pass.\n\n---\n_Generated by [Claude Code](https://claude.ai/code)_"
+}

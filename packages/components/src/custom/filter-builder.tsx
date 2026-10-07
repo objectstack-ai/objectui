@@ -15,6 +15,7 @@ import {
   VIEW_FILTER_PAIR_VALUE_OPERATORS,
   normalizeFilterOperator,
 } from "@objectstack/spec/ui"
+import { expandEmptyOperator } from "@objectstack/spec/data"
 import { SchemaRendererContext } from "@object-ui/react"
 import type {
   FilterBuilderCondition as AuthoredFilterBuilderCondition,
@@ -1179,8 +1180,15 @@ const selectLikeTypes = ["select", "status"]
 const lookupLikeTypes = ["lookup", "master_detail", "user"]
 
 /**
- * The operators the dropdown offers for a field of `fieldType`, given the
- * opt-in ids this instance was granted.
+ * The operators a row on a field of `fieldType` can HOLD, given the opt-in ids
+ * this instance was granted — every operator the dropdown can draw for it.
+ *
+ * What the dropdown OFFERS a fresh choice is this set minus the nullness pair
+ * on a type that cannot tell "empty" from "null" (objectui#11810, see
+ * {@link offeredOperatorsForRow}). That narrowing is deliberately NOT applied
+ * here: callers outside this file (`app-shell`'s dataset read-back,
+ * `plugin-list`'s parity pin) ask "can the builder hold this row", and a
+ * stored `is_null` on a `select` column still can.
  *
  * A pure function rather than a closure so the selection rule — and above all
  * the {@link OPT_IN_OPERATORS} gate, whose whole job is to keep an operator OFF
@@ -1228,6 +1236,61 @@ export function operatorsForFieldType(
   return defaultOperators.filter(
     (op) => bucket.includes(op.value) && (!OPT_IN_OPERATORS.has(op.value) || granted.has(op.value)),
   )
+}
+
+/**
+ * The nullness pair a column offers only when its type can hold an empty
+ * value that is not null (objectui#11810).
+ */
+const NULLNESS_PAIR: ReadonlySet<string> = new Set(["is_null", "is_not_null"])
+
+/**
+ * Which row of the spec's ruled 「is empty」 table a column of `fieldType`
+ * takes — read from `@objectstack/spec`'s `expandEmptyOperator`, the one
+ * function every server face expands `$empty` with, never from a local type
+ * list (objectui#11810):
+ *
+ *   - `text` — text-like types: `is_empty` matches null OR `''`;
+ *   - `multi_value` — list-valued types: `is_empty` matches null OR `[]`;
+ *   - `null_only` — every other type: `is_empty` matches null only, which is
+ *     exactly what `is_null` matches.
+ *
+ * Keyed on the TYPE alone because that is all a field descriptor here carries:
+ * a `lookup` / `user` / `select` declared `multiple: true` is `multi_value` on
+ * the server and is judged `null_only` here. The pair it is then offered,
+ * `is_empty` / `is_not_empty`, is the one whose server expansion counts `[]`.
+ */
+function emptyCheckArm(fieldType: string | undefined) {
+  return expandEmptyOperator({ type: fieldType || "text" }).arm
+}
+
+/**
+ * The operators the dropdown MOUNTS for one row (objectui#11810).
+ *
+ * {@link operatorsForFieldType}, minus `is_null` / `is_not_null` on a column
+ * whose type cannot tell empty from null (`null_only`, see
+ * {@link emptyCheckArm}). There the two pairs are one predicate under two
+ * labels — every dialect this builder writes expands `is_empty` on such a
+ * column to "is null" — so an end user was asked to choose between two words
+ * for the same records. `is_empty` / `is_not_empty` is the pair that stays: it
+ * is offered on every bucket that has an empty check, so one label means one
+ * thing across columns.
+ *
+ * The row's OWN operator is always mounted. A stored filter that already
+ * reads `is_null` on a `select` column (a sharing rule's `$null`, a saved
+ * view's `is_null` rule) must still load as what it is: an unmounted operator
+ * draws a BLANK trigger (objectui#4768 / #7561), and nothing here rewrites a
+ * stored spelling (objectui#9306 folds spellings, never predicates).
+ */
+function offeredOperatorsForRow(
+  fieldType: string | undefined,
+  extraOperators: readonly string[] | undefined,
+  rowOperator: string,
+): ReadonlyArray<{ value: string; label: string }> {
+  const drawable = operatorsForFieldType(fieldType, extraOperators)
+  if (emptyCheckArm(fieldType) !== "null_only") return drawable
+  const held = normalizeFilterBuilderOperator(rowOperator)
+  return drawable.filter((op) => !NULLNESS_PAIR.has(op.value) || op.value === held)
 }
 
 /**
@@ -1401,6 +1464,12 @@ function FilterBuilder({
   const getOperatorsForField = (fieldValue: string) => {
     const field = fields.find((f) => f.value === fieldValue)
     return operatorsForFieldType(field?.type, extraOperators)
+  }
+
+  // What the row's operator dropdown mounts — see `offeredOperatorsForRow`.
+  const getOperatorsForRow = (condition: FilterBuilderCondition) => {
+    const field = fields.find((f) => f.value === condition.field)
+    return offeredOperatorsForRow(field?.type, extraOperators, condition.operator)
   }
 
   /**
@@ -1920,7 +1989,7 @@ function FilterBuilder({
                   // keeps its own spelling; only this comparison is folded.
                   value={mountedOperatorValue(
                     condition.operator,
-                    getOperatorsForField(condition.field),
+                    getOperatorsForRow(condition),
                   )}
                   // Radix hands back the `value` of a mounted `SelectItem`,
                   // and every one mounted below is a builder id; the guard is
@@ -1933,7 +2002,7 @@ function FilterBuilder({
                     <SelectValue placeholder={t('filterBuilder.operator')} />
                   </SelectTrigger>
                   <SelectContent>
-                    {getOperatorsForField(condition.field).map((op) => (
+                    {getOperatorsForRow(condition).map((op) => (
                       <SelectItem key={op.value} value={op.value}>
                         {t(`filterBuilder.operators.${op.value}`)}
                       </SelectItem>

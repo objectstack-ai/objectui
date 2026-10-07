@@ -254,7 +254,10 @@ describe('objectui#7561 — ⛔ the dropdown still emits its own vocabulary', ()
     //
     // The order is `defaultOperators`' declaration order filtered by the
     // bucket — NOT the bucket array's own order (`operatorsForFieldType`
-    // filters the declaration list). Recorded from the base tree.
+    // filters the declaration list). Recorded from the base tree, less the
+    // `Is null` / `Is not null` pair objectui#11810 stopped offering on a
+    // number column: there they match exactly what `Is empty` / `Is not empty`
+    // match (`filter-builder-empty-null-pair-11810.test.tsx`).
     renderRow({ field: 'amount', operator: 'gt', value: '5' });
     fireEvent.keyDown(screen.getAllByRole('combobox')[1], { key: 'ArrowDown' });
     return waitFor(() => {
@@ -268,8 +271,6 @@ describe('objectui#7561 — ⛔ the dropdown still emits its own vocabulary', ()
         'Less than',
         'Greater than or equal',
         'Less than or equal',
-        'Is null',
-        'Is not null',
       ]);
     });
   });

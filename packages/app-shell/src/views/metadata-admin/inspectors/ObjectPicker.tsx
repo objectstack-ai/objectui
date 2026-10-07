@@ -401,27 +401,30 @@ export function ObjectPicker({
                       data-object-name={entry.name}
                       onClick={() => choose(row)}
                       className={cn(
-                        'flex cursor-pointer items-baseline gap-2 rounded-sm px-2 py-1 text-sm',
+                        'flex cursor-pointer flex-col rounded-sm px-2 py-1',
                         isActive && 'bg-accent text-accent-foreground',
                         entry.name === value && 'font-medium',
                       )}
                     >
-                      {/* Explicit spaces between the parts: each is its own
-                          element, so without them the option's accessible
-                          name reads as one run-on word. */}
-                      <span className="min-w-0 truncate">{displayName(entry)}</span>
+                      {/* Two lines, so neither the label nor the name is cut
+                          short in a narrow inspector. Explicit spaces between
+                          the parts: each is its own element, so without them
+                          the option's accessible name reads as one run-on word. */}
+                      <span className="flex min-w-0 items-baseline gap-2">
+                        <span className="min-w-0 truncate text-sm">{displayName(entry)}</span>
+                        {entry.draft && (
+                          <>
+                            {' '}
+                            <span data-draft-marker="" className="ml-auto shrink-0 text-[10px] text-muted-foreground">
+                              {t('engine.inspector.draftSuffix', locale)}
+                            </span>
+                          </>
+                        )}
+                      </span>
                       {entry.label && (
                         <>
                           {' '}
-                          <span className="min-w-0 truncate font-mono text-[11px] text-muted-foreground">{entry.name}</span>
-                        </>
-                      )}
-                      {entry.draft && (
-                        <>
-                          {' '}
-                          <span data-draft-marker="" className="ml-auto shrink-0 text-[10px] text-muted-foreground">
-                            {t('engine.inspector.draftSuffix', locale)}
-                          </span>
+                          <span className="truncate font-mono text-[11px] text-muted-foreground">{entry.name}</span>
                         </>
                       )}
                     </div>

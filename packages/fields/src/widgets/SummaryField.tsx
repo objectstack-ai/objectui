@@ -16,9 +16,9 @@ import { coerceToSafeValue } from '../coerceToSafeValue.js';
  * cell, `FormulaCellRenderer` in this package's barrel, which `summary` is
  * registered to. The two used to format the value each by itself, so one
  * stored value read two ways: this face picked a format by the roll-up's
- * aggregation `function` (`count` as it arrived, the other four with
- * `toFixed(2)`), so a `sum` over `15750.5` read `15750.50`, ungrouped and in
- * every locale, beside the cell's `15,750.5`.
+ * aggregation `function` (`count` as it arrived, the other four at two fixed
+ * decimals), so a `sum` over `15750.5` read `15750.50`, ungrouped and in every
+ * locale, beside the cell's `15,750.5`.
  *
  * This face now reads the value the way the cell reads a summary's value,
  * whatever the function:

@@ -24,16 +24,20 @@
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import React from 'react';
+import React, { type ComponentProps } from 'react';
+import type { DataSource } from '@object-ui/types';
 import { registerAllFields } from '@object-ui/fields';
 import { deriveInlineRowFormFields, isInlineRowFormOffered } from '@objectstack/spec/data';
-import { MasterDetailForm } from './MasterDetailForm';
+import { MasterDetailForm, type MasterDetailDetailConfig, type MasterDetailFormSchema } from './MasterDetailForm';
 import { deriveDetail, deriveFormFields } from './deriveMasterDetail';
 
 type SpecData = typeof import('@objectstack/spec/data');
+type Fields = typeof import('@object-ui/fields');
+/** The members of a grid's props these pins read. */
+type GridProps = { onRowExpand?: unknown; onAdd?: unknown; displayMode?: string; field?: { columns?: unknown[] } };
 
 const { gridProps, probe } = vi.hoisted(() => ({
-  gridProps: [] as Array<Record<string, any>>,
+  gridProps: [] as GridProps[],
   probe: {
     factoryRan: false,
     realRowFormFields: undefined as unknown as SpecData['deriveInlineRowFormFields'],
@@ -56,21 +60,21 @@ vi.mock('@objectstack/spec/data', async (importOriginal) => {
 
 /** Every prop object `MasterDetailForm` hands the line grid; the REAL grid still renders. */
 vi.mock('@object-ui/fields', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@object-ui/fields')>();
+  const actual = await importOriginal<Fields>();
   const { createElement } = await import('react');
   const RealLineItemsField = actual.LineItemsField;
   return {
     ...actual,
-    LineItemsField: (props: Record<string, any>) => {
-      gridProps.push(props);
-      return createElement(RealLineItemsField as any, props);
+    LineItemsField: (props: ComponentProps<Fields['LineItemsField']>) => {
+      gridProps.push(props as GridProps);
+      return createElement(RealLineItemsField, props);
     },
   };
 });
 
 registerAllFields();
 
-const OBJECTS: Record<string, { name: string; fields: Record<string, any> }> = {
+const OBJECTS: Record<string, { name: string; fields: Record<string, Record<string, unknown>> }> = {
   po: { name: 'po', fields: { ref: { type: 'text', label: 'Ref' } } },
   po_line: {
     name: 'po_line',
@@ -100,7 +104,7 @@ const OBJECTS: Record<string, { name: string; fields: Record<string, any> }> = {
   },
 };
 
-function makeDataSource() {
+function makeDataSource(): DataSource {
   return {
     getObjectSchema: vi.fn(async (name: string) => OBJECTS[name] ?? { name, fields: {} }),
     find: vi.fn().mockResolvedValue({ data: [] }),
@@ -110,24 +114,24 @@ function makeDataSource() {
     delete: vi.fn(),
     bulk: vi.fn(),
     batchTransaction: vi.fn().mockResolvedValue({ results: [{ id: 'po1' }] }),
-  } as any;
+  } as unknown as DataSource;
 }
 
 const QTY = { name: 'qty', label: 'Qty', type: 'number' as const };
 const NOTE = { name: 'note', label: 'Note', type: 'text' as const };
 
-const DETAILS = [
+const DETAILS: MasterDetailDetailConfig[] = [
   { childObject: 'po_line', relationshipField: 'po', title: 'As a list', columns: [QTY], inlineMode: 'form' },
   { childObject: 'po_line', relationshipField: 'po', title: 'Wider form', columns: [QTY], formFields: ['qty', 'price'] },
   { childObject: 'po_note', relationshipField: 'po', title: 'Cells only', columns: [NOTE], formFields: ['note'] },
   { childObject: 'po_vec', title: 'Derived' },
 ];
-const HEADINGS = DETAILS.map((d) => d.title);
+const HEADINGS = ['As a list', 'Wider form', 'Cells only', 'Derived'];
 
 /** Mount the block and wait until every section's grid has its columns. */
 async function mount() {
   const view = render(
-    <MasterDetailForm schema={{ objectName: 'po', mode: 'create', details: DETAILS } as any} dataSource={makeDataSource()} />,
+    <MasterDetailForm schema={{ objectName: 'po', mode: 'create', details: DETAILS } satisfies MasterDetailFormSchema} dataSource={makeDataSource()} />,
   );
   await waitFor(() => {
     if (!view.container.querySelector('input[name="ref"]')) throw new Error('parent form not ready');
@@ -137,7 +141,7 @@ async function mount() {
 }
 
 /** The props the grid of the section headed `heading` received LAST. */
-function gridOf(heading: string): Record<string, any> {
+function gridOf(heading: string): GridProps {
   const section = screen.getByRole('heading', { name: heading }).closest('section');
   if (!section) throw new Error(`no section headed ${heading}`);
   const sections = Array.from(document.querySelectorAll('section'));

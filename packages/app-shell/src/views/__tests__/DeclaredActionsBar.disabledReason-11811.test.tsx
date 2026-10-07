@@ -48,13 +48,21 @@ import { DeclaredActionsBar } from '../DeclaredActionsBar';
 const REASON_EN = 'Not available for this record';
 const REASON_ZH = '对此记录不可用';
 
-/** The `disabled`-predicate specimen the card measured (showcase Archive). */
+/**
+ * The `disabled`-predicate specimen the card measured (showcase Archive), in
+ * the shape the server SERVES it: the authored CEL string compiled into a
+ * `{ dialect: 'cel', source }` envelope. The bare string would take the legacy
+ * `${…}` evaluator, where `has()` faults — and a faulting `disabled` greys the
+ * action out on both rows (fail-soft), so the "disabled" case would pass for
+ * the wrong reason and the control below would go red. The envelope reaches a
+ * real verdict both ways.
+ */
 const ARCHIVE = {
   name: 'showcase_archive_task',
   type: 'script',
   label: 'Archive',
   locations: ['record_section'],
-  disabled: 'has(record.done) && record.done != true',
+  disabled: { dialect: 'cel', source: 'has(record.done) && record.done != true' },
 };
 
 function mount(

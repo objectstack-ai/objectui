@@ -34,7 +34,7 @@ import {
 import { EmptyDescription } from '@object-ui/components';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
-import { uniqueId, appendArray } from '../inspectors/_shared.js';
+import { appendArray } from '../inspectors/_shared.js';
 import { t as tr, translateFlowMeta } from '../i18n.js';
 import { FlowCanvas } from './FlowCanvas.js';
 import { defaultNodeLabel } from './flow-canvas-parts.js';
@@ -43,7 +43,7 @@ import { NESTED_NODE_KIND, parseNestedNodeId, encodeNestedNodeId } from '../insp
 import { FlowSimulatorPanel } from './FlowSimulatorPanel.js';
 import { FlowRunsPanel } from './FlowRunsPanel.js';
 import { ProblemsPanel } from './ProblemsPanel.js';
-import { buildFlowProblems, deriveInvalidElements, type FlowProblem } from './flow-problems.js';
+import { buildFlowProblems, deriveInvalidElements, freshNodeId, type FlowProblem } from './flow-problems.js';
 import { useConnectorRegistry } from '../inspectors/connector-input-fields.js';
 import { hasCommittedConnectorAction } from '../inspectors/flow-scope.js';
 
@@ -141,17 +141,42 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
     [nodes, onSelectionChange],
   );
 
+  // objectui#11772 — this editing session's memory of node ids: every id it
+  // has seen on a node or at either end of an edge. A node removed earlier in
+  // the session — its edges gone with it, so the draft no longer names it
+  // anywhere — is still never minted again: a fresh node never takes over an
+  // identity the author has already seen on another node. The session is this
+  // preview's mount (Studio remounts it when another flow is opened). The
+  // ledger is written after each render commits and read only when a node is
+  // added, by `mintNodeId`, which also takes the current draft's ids directly
+  // (`freshNodeId`), so a render whose effect has not run yet loses nothing.
+  // Keyed on the draft's own arrays, never on the memoised `nodes` / `edges`
+  // (AGENTS.md #10); recording is idempotent, so an extra run changes nothing.
+  const seenNodeIds = React.useRef<Set<string>>(new Set());
+  React.useEffect(() => {
+    const seen = seenNodeIds.current;
+    // Read as defensively as the rest of this preview: a mid-edit draft may
+    // hold a hole or a half-written edge, and nothing here may throw on it.
+    for (const n of Array.isArray(d.nodes) ? (d.nodes as Array<{ id?: unknown } | null>) : []) {
+      if (typeof n?.id === 'string') seen.add(n.id);
+    }
+    for (const e of Array.isArray(d.edges) ? (d.edges as Array<{ source?: unknown; target?: unknown } | null>) : []) {
+      if (typeof e?.source === 'string') seen.add(e.source);
+      if (typeof e?.target === 'string') seen.add(e.target);
+    }
+  }, [d.nodes, d.edges]);
+  const mintNodeId = React.useCallback(() => freshNodeId(nodes, edges, seenNodeIds.current), [nodes, edges]);
+
   const handleAddNode = React.useCallback(() => {
     if (!canEdit) return;
-    const existingIds = nodes.map((n) => n.id).filter(Boolean);
     // A flow's first node is its trigger — seed a `start` node (not a generic
     // `task`) so the canvas opens on the canonical entry point and the author
     // adds subsequent steps from there.
-    const newNode: FlowNode = { id: uniqueId('node', existingIds), type: 'start', label: defaultNodeLabel('start', locale) };
+    const newNode: FlowNode = { id: mintNodeId(), type: 'start', label: defaultNodeLabel('start', locale) };
     const next = appendArray(nodes, newNode);
     onPatch!({ nodes: next });
     onSelectionChange?.({ kind: 'node', id: newNode.id, label: newNode.label || newNode.id });
-  }, [canEdit, nodes, onPatch, onSelectionChange, locale]);
+  }, [canEdit, nodes, onPatch, onSelectionChange, locale, mintNodeId]);
 
   // Run history needs the published flow name (the engine keys runs by it).
   const flowName = typeof d.name === 'string' && d.name ? d.name : '';
@@ -315,6 +340,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
                     : onSelectionChange?.(null)
                 }
                 onPatch={onPatch}
+                mintNodeId={mintNodeId}
               />
             </div>
           </div>

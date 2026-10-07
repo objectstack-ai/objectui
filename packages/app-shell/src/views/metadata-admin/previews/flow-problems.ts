@@ -7,7 +7,8 @@
  *
  *   1. `validateFlowDraft` (client, structural): no resolvable entry,
  *      unreachable nodes, a decision with no default branch, duplicate node
- *      ids, dangling edges, un-declared cycles.
+ *      ids, dangling edges, un-declared cycles — plus, from this module, a
+ *      connection drawn more than once ({@link edgeRouteKey}, objectui#11772).
  *   2. The server `_diagnostics` already attached to the layered record
  *      (schema validation), each keyed by a dotted JSON path.
  *
@@ -20,8 +21,10 @@
 
 import { validateFlowDraft } from './simulator/flow-sim-validate.js';
 import type { Diagnostic, DiagnosticLevel, SimEdge, SimNode } from './simulator/flow-sim-types.js';
-import { edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
+import { conditionText, edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
 import { flowExpressionProblems } from './flow-expr-problems.js';
+import { tFormat } from '../i18n.js';
+import { uniqueId } from '../inspectors/unique-id.js';
 
 /** What a problem points at on the canvas — drives badge placement + reveal. */
 export type FlowProblemTarget =
@@ -59,6 +62,67 @@ export interface ServerDiagnostic {
 /** Stable `source->target` key matching an edge problem to a rendered edge. */
 export function edgeProblemKey(source: string, target: string): string {
   return `${source}->${target}`;
+}
+
+/**
+ * What makes two edges the SAME connection (objectui#11772): the same
+ * `source → target` taken the same way — the same `type` (the spec's default
+ * is `'default'`), the same guard (read through `conditionText`, so a bare
+ * string and its `{ dialect, source }` envelope agree), the same default-branch
+ * flag and the same `label`. The id is not part of it: ids are what tell the
+ * copies apart.
+ *
+ * Two such edges are one connection drawn twice, and the engine follows each
+ * of them, so the target runs once per copy — the card's published flow held
+ * `start → node_1` three times and created three records for one update.
+ *
+ * Deliberately narrower than "the same pair of nodes": two edges joining the
+ * same nodes DIFFERENTLY are a legitimate shape — an exclusive decision whose
+ * `a > 1` and `else` branches both lead to one node, or an approval whose
+ * `approve` and `reject` labels both do — and stay unflagged.
+ *
+ * One key for both of its readers: the Problems check below, and the node
+ * removal at the foot of this module (`edgesAfterNodeRemoval`), which never
+ * reconnects into a connection that already exists — so removing a node
+ * cannot draw the repeat this module flags.
+ */
+export function edgeRouteKey(edge: FlowDesignerEdge): string {
+  return JSON.stringify([
+    edge.source,
+    edge.target,
+    edge.type ?? 'default',
+    conditionText(edge.condition) ?? '',
+    edge.isDefault === true,
+    edge.label ?? '',
+  ]);
+}
+
+/**
+ * One error per extra copy of a connection ({@link edgeRouteKey}); the first
+ * copy is the connection and draws nothing. Each row targets its OWN copy by
+ * its own `edgeKey`, so clicking it selects exactly the edge to remove in the
+ * edge inspector — the repair path for a flow already saved with repeats (no
+ * stored flow is rewritten for the author).
+ */
+function repeatedEdgeProblems(edges: FlowDesignerEdge[], locale?: string): FlowProblem[] {
+  const seen = new Set<string>();
+  const out: FlowProblem[] = [];
+  edges.forEach((edge, index) => {
+    const route = edgeRouteKey(edge);
+    if (!seen.has(route)) {
+      seen.add(route);
+      return;
+    }
+    const target: FlowProblemTarget = { kind: 'edge', source: edge.source, target: edge.target, edgeKey: edgeKey(edge, index) };
+    out.push({
+      id: `structural:error:repeated:${index}:${targetKey(target)}`,
+      level: 'error',
+      message: tFormat('engine.flowProblems.repeatedEdge', locale, { source: edge.source, target: edge.target }),
+      target,
+      source: 'structural',
+    });
+  });
+  return out;
 }
 
 /** Resolve an edge's selection key (`edgeKey`) from its endpoints. */
@@ -178,6 +242,7 @@ export function buildFlowProblems({ nodes, edges, serverDiagnostics, variables, 
     });
   };
   pushStructural('error', v.errors);
+  problems.push(...repeatedEdgeProblems(edges, locale));
   pushStructural('warning', v.warnings);
 
   (serverDiagnostics ?? []).forEach((diag, i) => {
@@ -285,4 +350,118 @@ export function deriveInvalidElements(problems: FlowProblem[]): {
     for (const e of p.highlight?.edges ?? []) edgeSet.add(edgeProblemKey(e.source, e.target));
   }
   return { invalidNodeIds: [...nodeSet], invalidEdges: edgeSet };
+}
+
+// ── Edits that cannot draw these problems (objectui#11772) ─────────────────
+//
+// The designer's own writes must never produce the two edge problems flagged
+// above — an edge naming a node that does not exist, and a repeated
+// connection — so the two writers that can are here, beside the key they
+// share: the id a new node gets, and the edges a node removal keeps. The
+// canvas (`FlowCanvas`, `FlowPreview`) and the node inspector import them from
+// this React-free module rather than from a component.
+
+/**
+ * A fresh node id (objectui#11772): `uniqueId('node', …)` over every id the
+ * draft still REFERENCES — the node ids and both endpoints of every edge — plus
+ * `retired`, the ids the host's editing session has already seen.
+ *
+ * Edge endpoints are taken because an edge whose node is gone is a socket the
+ * next node with that id plugs into: a flow saved with `start → node_1` and no
+ * `node_1` re-attached that edge to whatever the designer named `node_1` next,
+ * and the published flow then ran that node once per stale edge. `retired`
+ * covers what the draft no longer shows at all — a node removed earlier in the
+ * session is never re-minted (see `FlowPreview`).
+ *
+ * A draft with nothing removed and nothing dangling references only its node
+ * ids, so it mints exactly what `uniqueId('node', nodeIds)` minted before.
+ * Edge ids keep that plain rule: nothing in a flow refers to an edge by its id
+ * (the engine routes by endpoints, guard and label), so a reused edge id
+ * cannot re-attach anything.
+ */
+export function freshNodeId(
+  nodes: ReadonlyArray<{ id?: string }>,
+  edges: ReadonlyArray<{ source: string; target: string }>,
+  retired: Iterable<string> = [],
+): string {
+  // `uniqueId` skips anything that is not a string; the `?.` keeps a hole in a
+  // mid-edit draft from throwing here.
+  const taken: Array<string | undefined> = nodes.map((n) => n?.id);
+  for (const e of edges) taken.push(e?.source, e?.target);
+  for (const id of retired) taken.push(id);
+  return uniqueId('node', taken);
+}
+
+/** An out-edge that makes no routing choice: unguarded, unlabelled, not the default branch, type `default`. */
+function isPlainEdge(edge: FlowDesignerEdge): boolean {
+  return (
+    edge.condition === undefined &&
+    edge.isDefault !== true &&
+    !edge.label &&
+    (edge.type === undefined || edge.type === 'default')
+  );
+}
+
+/**
+ * The edges a flow keeps when the node `removedId` is removed (objectui#11772)
+ * — ONE function for both removal gestures, the node inspector's "Remove
+ * node" and the canvas's Delete key (`FlowCanvas`), so the two cannot
+ * disagree.
+ *
+ * Every edge naming the removed node goes with it, in the same patch: an edge
+ * left behind names a node that no longer exists, and re-attaches to the next
+ * node given that id.
+ *
+ * A node on a SINGLE PATH is spliced out rather than cut out — its predecessor
+ * is reconnected to its successor. Single path, read off the edge shapes:
+ *
+ *   - exactly one edge in (`P → X`) and exactly one edge out (`X → S`), and
+ *     they are not the same (self-loop) edge;
+ *   - the edge in is not a declared back-edge — retargeting a loop's closing
+ *     hop would change what the loop re-enters;
+ *   - the edge out is plain (no guard, no label, not the default branch, type
+ *     `default`), so the removed node made no routing choice of its own that
+ *     the splice would drop;
+ *   - `P` and `S` are other nodes of the flow, and `P ≠ S`;
+ *   - no edge already joins `P → S` the same way (`edgeRouteKey`), so the
+ *     splice never draws the repeated connection the Problems panel flags.
+ *
+ * The reconnected edge is the edge in, retargeted — `{ ...in, target: S }`, in
+ * the edge in's place. Its id, guard, label, default flag and type are `P`'s
+ * routing choice and stay `P`'s: a decision branch that led to the removed
+ * node now leads to `S`, at the same position in the declaration order the
+ * engine evaluates branches in. That is exactly the inverse of the canvas's
+ * `insertOnEdge`, which splits `P → S` into `{ ...edge, target: X }` (in place) and an appended
+ * plain `X → S` — so inserting a node on an edge and removing it gives the
+ * edges back byte for byte.
+ *
+ * Anything else — a branch node (several edges out, or a guarded or labelled
+ * edge out), a join (several in), a node with no edge in or out — loses its
+ * edges and is not reconnected.
+ *
+ * `remainingNodeIds` are the flow's node ids after the removal. While another
+ * node still carries `removedId` (a draft holding a duplicate id, itself a
+ * Problems-panel error), the edges are that node's too and are kept as they are.
+ */
+export function edgesAfterNodeRemoval(
+  edges: FlowDesignerEdge[],
+  removedId: string,
+  remainingNodeIds: ReadonlySet<string>,
+): FlowDesignerEdge[] {
+  if (remainingNodeIds.has(removedId)) return edges;
+  const touches = (e: FlowDesignerEdge) => e.source === removedId || e.target === removedId;
+  const kept = edges.filter((e) => !touches(e));
+  const incoming = edges.filter((e) => e.target === removedId);
+  const outgoing = edges.filter((e) => e.source === removedId);
+  if (incoming.length !== 1 || outgoing.length !== 1) return kept;
+  const [edgeIn] = incoming;
+  const [edgeOut] = outgoing;
+  if (edgeIn === edgeOut || edgeIn.type === 'back' || !isPlainEdge(edgeOut)) return kept;
+  const predecessor = edgeIn.source;
+  const successor = edgeOut.target;
+  if (predecessor === successor || !remainingNodeIds.has(predecessor) || !remainingNodeIds.has(successor)) return kept;
+  const reconnected: FlowDesignerEdge = { ...edgeIn, target: successor };
+  const route = edgeRouteKey(reconnected);
+  if (kept.some((e) => edgeRouteKey(e) === route)) return kept;
+  return edges.flatMap((e) => (e === edgeIn ? [reconnected] : touches(e) ? [] : [e]));
 }

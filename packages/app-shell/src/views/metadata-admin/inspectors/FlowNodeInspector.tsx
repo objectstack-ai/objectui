@@ -64,6 +64,7 @@ import { NESTED_NODE_KIND, parseNestedNodeId, locateFlowNode, type InspectorFlow
 import { displayRegionLabel } from '../previews/flow-region-label.js';
 import type { FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
 import { ScreenPreview } from '../previews/ScreenPreview.js';
+import { edgesAfterNodeRemoval } from '../previews/flow-problems.js';
 
 /**
  * The node and edge shapes this panel edits — ALIASED, never restated
@@ -421,8 +422,23 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     }
   };
 
+  // objectui#11772 — removing a node removes the edges that name it in the
+  // SAME patch, splicing a single-path node out (predecessor → successor): the
+  // canvas's Delete key makes the identical removal (`edgesAfterNodeRemoval`).
+  // Writing `null` to the node alone left every edge naming it behind, and the
+  // next node minted with that id inherited them all. Top-level only: a nested
+  // node has no Remove (its routing lives in its region, not on `draft.edges`).
   const remove = () => {
     const patch = loc?.write(null);
+    if (patch && !loc?.nested) {
+      const draftEdges = Array.isArray((draft as { edges?: unknown }).edges)
+        ? ((draft as { edges: FlowEdge[] }).edges)
+        : [];
+      const remaining = new Set(
+        (patch.nodes as Array<{ id?: unknown } | null>).flatMap((n) => (typeof n?.id === 'string' ? [n.id] : [])),
+      );
+      patch.edges = edgesAfterNodeRemoval(draftEdges, node.id, remaining);
+    }
     if (patch) onPatch(patch);
     onClearSelection();
   };

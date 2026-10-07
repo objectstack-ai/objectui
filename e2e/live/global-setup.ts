@@ -1,4 +1,4 @@
-import { chromium, request } from '@playwright/test';
+import { chromium, request, type FullConfig, type LaunchOptions } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
@@ -31,7 +31,7 @@ const REPO_ROOT = decodeURIComponent(new URL(import.meta.url).pathname)
   .join('/');
 const STATE_PATH = join(REPO_ROOT, 'e2e/live/.auth/state.json');
 
-export default async function globalSetup() {
+export default async function globalSetup(config: FullConfig) {
   const ctx = await request.newContext();
   let res;
   try {
@@ -63,7 +63,9 @@ export default async function globalSetup() {
   // eslint-disable-next-line no-console
   console.log(`[live-e2e] authenticated as ${EMAIL}; storageState written to ${STATE_PATH}`);
 
-  await answerTimezonePrompt(token);
+  // The specs' own launch options, so the prompt is answered in the browser
+  // the specs run in.
+  await answerTimezonePrompt(token, config.projects[0]?.use?.launchOptions);
 }
 
 /**
@@ -90,7 +92,7 @@ export default async function globalSetup() {
  * reported, not failed: the specs then show whether anything stands in their
  * way.
  */
-async function answerTimezonePrompt(token: string) {
+async function answerTimezonePrompt(token: string, launchOptions: LaunchOptions | undefined) {
   const mode = process.env.LIVE_TIMEZONE_PROMPT === 'confirm' ? 'confirm' : 'decline';
   const api = await request.newContext({ extraHTTPHeaders: { Authorization: `Bearer ${token}` } });
   let wouldAsk = false;
@@ -110,7 +112,7 @@ async function answerTimezonePrompt(token: string) {
     return;
   }
 
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(launchOptions);
   try {
     const context = await browser.newContext({ storageState: STATE_PATH, baseURL: APP });
     const page = await context.newPage();

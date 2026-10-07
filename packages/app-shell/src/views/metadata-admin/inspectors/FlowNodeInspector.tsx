@@ -41,10 +41,8 @@ import {
   switchedBlockOf,
   isBareSwitchedOffBlock,
   configKeyOf,
-  FLOW_NODE_TYPE_OPTIONS,
   type FlowConfigField,
 } from './flow-node-config.js';
-import { translateNodeLabel } from '../i18n.js';
 import { jsonSchemaToFlowFields } from './json-schema-to-fields.js';
 import {
   applyConnectorInputForm,
@@ -55,7 +53,8 @@ import {
   useConnectorRegistry,
 } from './connector-input-fields.js';
 import { applyDecisionBranches, syncDecisionEdgesByOrder, withBranchTargets } from './flow-decision-edges.js';
-import { useActionConfigSchemas } from '../previews/useFlowNodePalette.js';
+import { useActionConfigSchemas, useFlowNodePalette } from '../previews/useFlowNodePalette.js';
+import { defaultNodeLabel, paletteTypeOptions } from '../previews/flow-canvas-parts.js';
 import { FlowNodeConfigField } from './FlowNodeConfigField.js';
 import { specRequiredColumns, specRequiresField } from './flow-required-keys.js';
 import { useFlowScope } from './useFlowScope.js';
@@ -178,6 +177,9 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
   // with the backend. Falls back to the hardcoded field group when no schema is
   // published (offline / plugin absent / older backend).
   const configSchemas = useActionConfigSchemas();
+  // objectui#11778 — the Node Type select offers the add-node palette's types
+  // with its display names: the list the canvas adds from, engine-merged.
+  const paletteItems = useFlowNodePalette();
   // A nested node anchors its scope on the container (ADR-0031 outer scope). The
   // container's own outputs — a loop's iteratorVariable — are excluded from the
   // graph walk at its id, so inject the loop group explicitly for a body node.
@@ -443,9 +445,15 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
     onClearSelection();
   };
 
-  const typeOptions = FLOW_NODE_TYPE_OPTIONS.includes(node.type as (typeof FLOW_NODE_TYPE_OPTIONS)[number])
-    ? [...FLOW_NODE_TYPE_OPTIONS]
-    : [...FLOW_NODE_TYPE_OPTIONS, node.type ?? ''].filter(Boolean);
+  // objectui#11778 — the palette's list (it once was a hand list here that
+  // missed `notify` and showed raw type names). A stored type the palette does
+  // not offer (`start`, an alias like `http_request`, a plugin type whose engine
+  // is not answering) is added for THIS node only, under its display name, so
+  // the select still shows what the node is; no other node is offered it.
+  const typeOptions = paletteTypeOptions(paletteItems, locale);
+  if (node.type && !typeOptions.some((o) => o.value === node.type)) {
+    typeOptions.push({ value: node.type, label: defaultNodeLabel(node.type, locale) });
+  }
 
   // A nested node has no structural editing this phase (no delete, id is
   // read-only — those live on the container's Advanced JSON).
@@ -482,7 +490,7 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
       <InspectorSelectField
         label={t('engine.inspector.flowNode.type', locale)}
         value={node.type}
-        options={typeOptions.map((v) => ({ value: v, label: translateNodeLabel(v, locale, v) }))}
+        options={typeOptions}
         onCommit={(v) => patchNode({ type: v })}
         disabled={readOnly}
       />

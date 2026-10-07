@@ -38,7 +38,7 @@ import * as Automation from '@objectstack/spec/automation';
 // The Zod wrapper-key vocabulary — one list, read by the `.mjs` CI gates that
 // walk the same internals (objectui#6923, ruled 2026-08-31).
 import { ZOD_WRAPPER_KEYS } from '@object-ui/test-support';
-import { fieldsForNodeType, FLOW_NODE_TYPE_OPTIONS, type FlowConfigField } from './flow-node-config';
+import { fieldsForNodeType, FLOW_NODE_CONFIG_TYPES, type FlowConfigField } from './flow-node-config';
 
 // Feature-detected exports — absent on a spec that predates framework#4278.
 // (Truthiness alone never resolves a lazySchema proxy.)
@@ -369,9 +369,10 @@ describe('declared defaults ↔ per-node-type spec schemas (#6794, #6620, object
     // sweep of their own: `fieldsForNodeType` resolves every alias to one of
     // these canonical tables, so walking the table keys walks every field.
     expect(NODE_TYPES.length, 'FLOW_NODE_CONFIG declares node types').toBeGreaterThan(20);
-    expect(NODE_TYPES, 'and the picker types are among them').toEqual(
-      expect.arrayContaining([...FLOW_NODE_TYPE_OPTIONS]),
-    );
+    expect(
+      [...NODE_TYPES].sort(),
+      'and they are exactly the table types the module exports (objectui#11778)',
+    ).toEqual([...FLOW_NODE_CONFIG_TYPES].sort());
     expect(NODE_TYPES, 'including the off-picker tables a picker-only sweep would miss').toEqual(
       expect.arrayContaining(['boundary_event', 'notify', 'legacy_action', 'join_gateway']),
     );

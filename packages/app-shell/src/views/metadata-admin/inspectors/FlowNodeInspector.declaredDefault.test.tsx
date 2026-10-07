@@ -79,7 +79,7 @@ vi.mock('../previews/useObjectFields', () => ({
 }));
 
 import { FlowNodeInspector } from './FlowNodeInspector';
-import { fieldsForNodeType, FLOW_NODE_TYPE_OPTIONS } from './flow-node-config';
+import { fieldsForNodeType, FLOW_NODE_CONFIG_TYPES } from './flow-node-config';
 import type { MetadataSelection } from '../preview-registry';
 // The runtime's own answer for an omitted `escalation` key. Imported so the
 // #6620 rows below compare the RENDERED control against the installed contract
@@ -989,19 +989,21 @@ describe('the declaration surface this card names', () => {
    * here; that is a result, not a method. Whoever lands next re-reads the
    * number the same way rather than trusting this sentence.
    *
-   * Swept over the picker's node types plus the four that carry config but are
-   * not offered in the picker (ADR-0031 import/export-only, and the legacy
-   * aliases). The sweep is asserted to cover the picker so a new node type
-   * cannot slip a declaration past it.
+   * Swept over every group the table holds (`FLOW_NODE_CONFIG_TYPES`, the
+   * table's own keys), so a new node type cannot slip a declaration past it.
+   * Until objectui#11778 this walked the inspector's hand-kept type list plus
+   * the types that carry config but that list never offered (ADR-0031
+   * import/export-only, the legacy aliases, and `notify`); the table's keys
+   * hold every one of them, which the first assertion re-reads.
    */
   const OFF_PICKER_TYPES = ['boundary_event', 'parallel_gateway', 'join_gateway', 'legacy_action', 'notify'];
 
   it('exactly ten fields declare a defaultValue, and these are they', () => {
-    const swept = [...FLOW_NODE_TYPE_OPTIONS, ...OFF_PICKER_TYPES];
+    const swept = FLOW_NODE_CONFIG_TYPES;
     expect(
-      FLOW_NODE_TYPE_OPTIONS.every((t) => swept.includes(t)),
-      'the sweep covers every node type the picker offers',
-    ).toBe(true);
+      swept,
+      'the sweep walks the whole table, the types the retired hand list never offered included',
+    ).toEqual(expect.arrayContaining(OFF_PICKER_TYPES));
 
     const declaring = new Set<string>();
     for (const type of swept) {
@@ -1040,7 +1042,7 @@ describe('the declaration surface this card names', () => {
    * whose growth should be visible in review.
    */
   it('every select-kind declaring field renders its declared default', () => {
-    const swept = [...FLOW_NODE_TYPE_OPTIONS, ...OFF_PICKER_TYPES];
+    const swept = FLOW_NODE_CONFIG_TYPES;
     const cases: Array<{ id: string; type: string; label: string; expected: string }> = [];
     for (const type of swept) {
       for (const field of fieldsForNodeType(type)) {

@@ -468,14 +468,23 @@ describe('FlowCanvas — geometry writes are spec-canonical `position` (#3172)',
     expectNoLegacyKey(nodes);
   });
 
-  it('insert-on-edge → the new node is pinned via `position`', () => {
+  /** The open add-node palette's row for `label` (objectui#11778: every "+" opens it). */
+  const pickInPalette = (label: string) => {
+    const option = screen.getAllByRole('option').find((o) => o.textContent?.startsWith(label));
+    expect(option, `palette row ${label}`).toBeDefined();
+    fireEvent.click(option!);
+  };
+
+  it('insert-on-edge → the new node is auto-laid (objectui#11778), legacy node still healed', () => {
     const onPatch = vi.fn();
     renderCanvas(onPatch);
     fireEvent.click(screen.getByRole('button', { name: 'Insert node here' }));
+    pickInPalette('Create record');
     const nodes = patchedNodes(onPatch);
     expect(nodes).toHaveLength(3);
-    const inserted = nodes[2].position as { x: number; y: number };
-    expect(Number.isFinite(inserted.x) && Number.isFinite(inserted.y)).toBe(true);
+    // Unpinned, like an append: the layered layout gives it its own layer.
+    expect(nodes[2].position).toBeUndefined();
+    expect(nodes.find((n) => n.id === 'b')!.position).toEqual({ x: 400, y: 120 });
     expectNoLegacyKey(nodes);
   });
 
@@ -483,6 +492,7 @@ describe('FlowCanvas — geometry writes are spec-canonical `position` (#3172)',
     const onPatch = vi.fn();
     renderCanvas(onPatch);
     fireEvent.click(screen.getAllByRole('button', { name: 'Add connected node' })[0]);
+    pickInPalette('Create record');
     const nodes = patchedNodes(onPatch);
     expect(nodes).toHaveLength(3);
     // An appended node is deliberately unpinned (the layered layout slots it).

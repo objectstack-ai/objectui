@@ -136,6 +136,7 @@ import { getMetadataPreview, registerMetadataPreview } from '../metadata-admin/p
 import { registerMetadataInspector } from '../metadata-admin/inspector-registry';
 import { FlowPreview } from '../metadata-admin/previews/FlowPreview';
 import { FlowInspector } from '../metadata-admin/inspectors/FlowInspector';
+import { t } from '../metadata-admin/i18n';
 
 const dataSource = createEmptyDataSource();
 failOnAbsorbedFetchError();
@@ -216,14 +217,17 @@ function renderAt(url: string) {
 
 const location = () => screen.getByTestId('location').textContent ?? '';
 
-/** The canvas's own status pill, which reads the open flow's `draft.status`. */
+/**
+ * The canvas's own status pill. With the `_status` probe answered "absent" it
+ * reads the open flow's `draft.status`, in the switch's words (objectui#11779).
+ */
 function canvasStatus(): string {
   return screen.getByText('Status:').nextElementSibling?.textContent ?? '';
 }
 
 async function openedFlow(name: string): Promise<void> {
   await screen.findByText(`flow · ${name}`, undefined, { timeout: 8000 });
-  await waitFor(() => expect(canvasStatus()).toBe('active'), { timeout: 8000 });
+  await waitFor(() => expect(canvasStatus()).toBe(t('engine.studio.auto.enabled', 'en')), { timeout: 8000 });
 }
 
 describe('the package-less scope lists a package-less flow and opens it editable (objectui#11553)', () => {

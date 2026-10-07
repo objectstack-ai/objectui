@@ -19,12 +19,13 @@
  * too: listed in the panel, but without a badge.
  */
 
+import { createContext } from 'react';
 import { collectFlowGraphs } from '@objectstack/spec/automation';
 import { validateFlowDraft } from './simulator/flow-sim-validate.js';
 import type { Diagnostic, DiagnosticLevel, SimEdge, SimNode } from './simulator/flow-sim-types.js';
 import { conditionText, edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
 import { flowExpressionProblems } from './flow-expr-problems.js';
-import { tFormat } from '../i18n.js';
+import { t, tFormat } from '../i18n.js';
 import { uniqueId } from '../inspectors/unique-id.js';
 
 /** What a problem points at on the canvas — drives badge placement + reveal. */
@@ -289,6 +290,146 @@ export function buildFlowProblems({ nodes, edges, serverDiagnostics, variables, 
     .map(([p]) => p);
 }
 
+// ── The flow's run status (objectui#11779) ─────────────────────────────────
+//
+// One derivation, three readers: the Automations rail's status chip
+// (`FlowStatusDot`), the flow header's Status pill (`FlowPreview`) and the
+// Problems panel's note (`ProblemsPanel`). Each used to read something of its
+// own: the rail the engine's runtime row, the header the draft's persisted
+// `status` (an absent key read as "draft", although the engine arms a draft
+// flow exactly like an active one), the panel nothing at all. So one flow could
+// read On in the rail, draft in the header and "no problems" in the panel while
+// the deployment never ran it.
+//
+// It lives here, beside the problem list, because this module is the
+// component-free home the preview and the panel already share; the host that
+// reads `_status` imports it from here too, so the host takes on none of the
+// preview's canvas to hand it a row.
+
+/**
+ * One flow's runtime row as Studio keeps it: the engine's `FlowRuntimeState`
+ * from `GET /api/v1/automation/_status`, narrowed by the host that read it
+ * (`flowRailState` in the Studio surface) — `enabled` / `bound`, plus
+ * `triggerType` and `reason` only as non-empty strings (objectui#11281).
+ */
+export interface FlowRuntimeRow {
+  enabled: boolean;
+  bound: boolean;
+  /**
+   * The flow's declared trigger type. Absent when the flow declares no trigger
+   * (the engine omits the field then), and on a backend that never sends it.
+   */
+  triggerType?: string;
+  /**
+   * The platform's sentence for why this flow is not armed. RENDERED verbatim,
+   * ⛔ never parsed, compared or restyled (the contract: "Consumers RENDER it;
+   * ⛔ do not parse it").
+   */
+  reason?: string;
+}
+
+/**
+ * What one flow's state reads as, everywhere Studio shows it.
+ *
+ * From a runtime row (the engine's answer):
+ *   - `on` — enabled and bound to its declared trigger;
+ *   - `manual` — enabled, and declares no trigger: it runs when something
+ *     invokes it, so it is never called "not running";
+ *   - `not-running` — enabled, declares a trigger, and that trigger is not
+ *     armed on this deployment (`bound: false` with a `triggerType`: the
+ *     contract's "declared trigger type has no registered trigger", or a
+ *     deployment policy). `reason` is the platform's sentence when it sent one;
+ *   - `off` — disabled: registered, and never runs.
+ * Without one:
+ *   - `unpublished` — the host read `_status` and the engine has no row for
+ *     this flow: nothing of it is deployed;
+ *   - `enabled` / `disabled` — no runtime reading at all (no host that reads
+ *     `_status`, a backend without the route, offline): only the draft's own
+ *     switch can be read, the way the engine reads it — `obsolete` / `invalid`
+ *     off, anything else (`active`, `draft`, no key) on.
+ */
+export type FlowRunStatus =
+  | { kind: 'on' }
+  | { kind: 'manual' }
+  | { kind: 'not-running'; reason?: string }
+  | { kind: 'off' }
+  | { kind: 'unpublished' }
+  | { kind: 'enabled' }
+  | { kind: 'disabled' };
+
+/**
+ * Derive a flow's {@link FlowRunStatus}.
+ *
+ * @param runtime the flow's runtime row; `null` when the host read `_status`
+ *   and the engine has no row for the flow; `undefined` when there is no
+ *   runtime reading to consult.
+ * @param draftStatus the draft's persisted `status`, read only when `runtime`
+ *   is `undefined`.
+ */
+export function deriveFlowRunStatus(runtime: FlowRuntimeRow | null | undefined, draftStatus?: unknown): FlowRunStatus {
+  if (runtime === undefined) {
+    return draftStatus === 'obsolete' || draftStatus === 'invalid' ? { kind: 'disabled' } : { kind: 'enabled' };
+  }
+  if (runtime === null) return { kind: 'unpublished' };
+  if (!runtime.enabled) return { kind: 'off' };
+  if (runtime.bound) return { kind: 'on' };
+  if (!runtime.triggerType) return { kind: 'manual' };
+  return runtime.reason ? { kind: 'not-running', reason: runtime.reason } : { kind: 'not-running' };
+}
+
+/**
+ * The open flow's runtime row, handed from a host that read
+ * `GET /api/v1/automation/_status` (Studio's Automations pillar) to the flow
+ * preview it renders, which derives the header's Status pill and the Problems
+ * panel's note from it with {@link deriveFlowRunStatus} — the derivation the
+ * host's rail reads.
+ *
+ *   - a row: the engine's answer for this flow;
+ *   - `null`: the host read `_status` and the engine has no row for this flow;
+ *   - `undefined` (the default, no provider): no runtime reading at all.
+ *
+ * A context rather than a preview prop because `MetadataPreviewProps` is the
+ * package's published preview contract, and this row is one host's hand-off to
+ * one preview.
+ */
+export const FlowRuntimeContext = createContext<FlowRuntimeRow | null | undefined>(undefined);
+
+/** How a {@link FlowRunStatus} reads: the visible words, the hover text, and a tone. */
+export interface FlowRunStatusView {
+  label: string;
+  title?: string;
+  /** `plain` is ordinary foreground text; nothing here is styled as an error. */
+  tone: 'green' | 'muted' | 'amber' | 'plain';
+}
+
+/**
+ * The words for a {@link FlowRunStatus}, so the rail, the header and the panel
+ * cannot word one state two ways. A platform `reason` is the hover text as
+ * sent; every other string is a row of the designer table.
+ */
+export function describeFlowRunStatus(status: FlowRunStatus, locale?: string): FlowRunStatusView {
+  switch (status.kind) {
+    case 'on':
+      return { label: t('engine.studio.auto.on', locale), title: t('engine.studio.auto.onBound', locale), tone: 'green' };
+    case 'manual':
+      return { label: t('engine.studio.auto.on', locale), title: t('engine.studio.auto.onUnbound', locale), tone: 'green' };
+    case 'not-running':
+      return {
+        label: t('engine.studio.auto.notRunning', locale),
+        title: status.reason ?? t('engine.studio.auto.notRunningTitle', locale),
+        tone: 'muted',
+      };
+    case 'off':
+      return { label: t('engine.studio.auto.off', locale), title: t('engine.studio.auto.offTitle', locale), tone: 'muted' };
+    case 'unpublished':
+      return { label: t('engine.studio.unpublishedDraft', locale), title: t('engine.studio.auto.unpublishedTitle', locale), tone: 'amber' };
+    case 'enabled':
+      return { label: t('engine.studio.auto.enabled', locale), tone: 'plain' };
+    case 'disabled':
+      return { label: t('engine.studio.auto.disabled', locale), tone: 'muted' };
+  }
+}
+
 /** A folded badge for one canvas element (errors dominate warnings). */
 export interface ProblemBadge {
   level: DiagnosticLevel;
@@ -361,7 +502,7 @@ export function deriveInvalidElements(problems: FlowProblem[]): {
 // beside the key they share: the id a new node gets, the edges a node removal
 // keeps, and what a node rename may take and must carry. The canvas
 // (`FlowCanvas`, `FlowPreview`) and the node inspector import them from this
-// React-free module rather than from a component.
+// component-free module rather than from a component.
 
 /**
  * A fresh node id (objectui#11772): `uniqueId('node', …)` over every id the

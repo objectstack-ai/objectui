@@ -4,8 +4,8 @@
  * AppNavCanvas — form-canvas-style editor for an App's top-level
  * navigation tree. Each nav entry becomes a card with a drag handle,
  * a kind icon, an inline-rename label, the metadata record it targets,
- * and a remove affordance on hover. Drag-drop reorders within the root
- * list.
+ * and a remove affordance shown on hover or keyboard focus. Drag-drop
+ * reorders within the root list.
  *
  * Kind and target are read from the spec's discriminated union — `type`
  * plus that branch's own target key — never inferred from off-spec keys
@@ -211,33 +211,86 @@ function navLabel(it: RawNav, i: number, locale: string, targetLabel: NavTargetL
 }
 
 /**
+ * Where each target-bearing branch of the spec's `NavigationItemSchema` names
+ * its target: the branch's own key, or keys in the order they are read.
+ * `group` and `separator` declare none — they open nothing, so neither is
+ * ever unbound. One table, two readers: what a card shows (`navTarget`) and
+ * what a save leaves out (`navPayloadOf`), so the two cannot disagree about
+ * which key is the target.
+ */
+const NAV_TARGET_READS = new Map<string, ReadonlyArray<(it: RawNav) => unknown>>([
+  ['object', [(it) => it.objectName]],
+  ['page', [(it) => it.pageName]],
+  ['dashboard', [(it) => it.dashboardName]],
+  ['report', [(it) => it.reportName]],
+  ['url', [(it) => it.url]],
+  ['component', [(it) => it.componentRef]],
+  ['action', [(it) => it.actionDef?.actionName]],
+  // The page it opens, else the book (objectui#11197).
+  ['doc', [(it) => it.doc, (it) => it.book]],
+]);
+
+/**
  * The metadata record this entry names, read from the key its own branch
  * declares. Replaces a `path ?? href ?? route ?? url` chain in which only
  * `url` was ever a real key — and only on `type: 'url'`.
  */
 function navTarget(it: RawNav): string | undefined {
-  const pick = (v: unknown) => (typeof v === 'string' && v ? v : undefined);
-  switch (it.type) {
-    case 'object':
-      return pick(it.objectName);
-    case 'page':
-      return pick(it.pageName);
-    case 'dashboard':
-      return pick(it.dashboardName);
-    case 'report':
-      return pick(it.reportName);
-    case 'url':
-      return pick(it.url);
-    case 'component':
-      return pick(it.componentRef);
-    case 'action':
-      return pick(it.actionDef?.actionName);
-    case 'doc':
-      // The page it opens, else the book (objectui#11197).
-      return pick(it.doc) ?? pick(it.book);
-    default:
-      return undefined;
+  const reads = typeof it.type === 'string' ? NAV_TARGET_READS.get(it.type) : undefined;
+  for (const read of reads ?? []) {
+    const v = read(it);
+    if (typeof v === 'string' && v) return v;
   }
+  return undefined;
+}
+
+/**
+ * Whether a save leaves this entry out (objectui#11776): it has no `type` (the
+ * placeholder an unbind leaves behind), or its `type` is a target-bearing
+ * branch and none of that branch's target keys holds a string — the entry the
+ * spec refuses for want of a target ("navigation.N.objectName — expected
+ * string, received undefined"). A key that holds a string is a target the
+ * spec takes, so the save sends it and the server judges it.
+ */
+function namesNoTarget(it: RawNav): boolean {
+  if (typeof it.type !== 'string') return true;
+  const reads = NAV_TARGET_READS.get(it.type);
+  return !!reads && !reads.some((read) => typeof read(it) === 'string');
+}
+
+/**
+ * The navigation a save sends (objectui#11776): the editor's entries, in their
+ * order, less every entry that names no target for its `type`, at every depth.
+ * A `group` is kept whatever its children are.
+ *
+ * *Add nav item* births an entry before its target is picked, and the editor
+ * keeps showing it so that it can be bound where it was added; only what is
+ * sent leaves it out. An entry that is kept, and a `children` list that loses
+ * nothing, is returned as the same object, so a caller can tell by reference
+ * whether anything was left out.
+ *
+ * Exported for the Studio nav save (`StudioDesignSurface`'s `doNavSave`) and
+ * its pins: it lives here so that it reads the card's own target table. It is
+ * a pure function, not a component, and it never reaches the package entry
+ * (`index.ts` re-exports a named list, and `package.json` exports only `.`).
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- see above
+export function navPayloadOf(entries: readonly unknown[]): Array<Record<string, unknown>> {
+  const sent: Array<Record<string, unknown>> = [];
+  for (const entry of entries) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+    const it = entry as RawNav;
+    if (namesNoTarget(it)) continue;
+    const kids = it.children;
+    if (!Array.isArray(kids)) {
+      sent.push(it);
+      continue;
+    }
+    const children = navPayloadOf(kids);
+    const kept = children.length === kids.length && children.every((c, i) => c === kids[i]);
+    sent.push(kept ? it : { ...it, children });
+  }
+  return sent;
 }
 
 export interface AppNavCanvasProps {
@@ -532,7 +585,6 @@ function NavCard({
   const authored = navItemLabelText(item.label, locale).trim();
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(authored);
-  const [hover, setHover] = React.useState(false);
   const [dropPos, setDropPos] = React.useState<'before' | null>(null);
 
   React.useEffect(() => {
@@ -571,8 +623,6 @@ function NavCard({
           onDropBefore();
         }}
         onClick={onClick}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
         aria-pressed={isSelected}
         className={`group flex w-full items-center gap-2 rounded-md border bg-card px-2.5 py-2 text-left text-xs transition-colors hover:border-primary/40 ${
           isSelected ? 'border-primary ring-1 ring-primary' : 'border-border'
@@ -629,7 +679,12 @@ function NavCard({
             {target}
           </code>
         )}
-        {canEdit && hover && !editing && (
+        {/* objectui#11776 — always in the tab order, shown on hover AND on
+            keyboard focus (the card's, or its own). It was mounted only while
+            a mouse hovered the card, so no keyboard path could reach it.
+            Hidden, it takes no room (no width, and its margin gives back the
+            row's gap), so the card lays out as it did when it was absent. */}
+        {canEdit && !editing && (
           <span
             role="button"
             tabIndex={0}
@@ -644,7 +699,7 @@ function NavCard({
                 onRemove();
               }
             }}
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+            className="-ml-2 inline-flex h-6 w-0 items-center justify-center overflow-hidden rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:ml-0 group-hover:w-6 group-hover:opacity-100 group-focus-visible:ml-0 group-focus-visible:w-6 group-focus-visible:opacity-100 focus-visible:ml-0 focus-visible:w-6 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             aria-label={t('engine.appNav.removeItem', locale)}
           >
             <Trash2 className="h-3 w-3" />

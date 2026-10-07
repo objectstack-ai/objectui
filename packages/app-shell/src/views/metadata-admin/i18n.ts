@@ -3138,6 +3138,12 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.auto.offTitle': 'Disabled — will not run',
   'engine.studio.auto.onBound': 'Enabled · bound to its trigger',
   'engine.studio.auto.onUnbound': 'Enabled · no trigger (run manually)',
+  // objectui#11779 — an enabled flow whose declared trigger is not armed on this
+  // deployment; the title is for a backend that sends no `reason` (with one,
+  // the platform's sentence is shown instead).
+  'engine.studio.auto.notRunning': 'Not running here',
+  'engine.studio.auto.notRunningTitle': 'Enabled, but its trigger is not armed on this deployment',
+  'engine.studio.auto.unpublishedTitle': 'Not deployed yet — publish to deploy it',
   'engine.studio.auto.enabled': 'Enabled',
   'engine.studio.auto.disabled': 'Disabled',
   'engine.studio.auto.enableTitle': 'Enable this automation (publish to apply)',
@@ -6031,6 +6037,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.auto.offTitle': '已停用 — 不会运行',
   'engine.studio.auto.onBound': '已启用 · 已绑定触发器',
   'engine.studio.auto.onUnbound': '已启用 · 无触发器(手动运行)',
+  'engine.studio.auto.notRunning': '未在此运行',
+  'engine.studio.auto.notRunningTitle': '已启用,但它的触发器在此部署中未生效',
+  'engine.studio.auto.unpublishedTitle': '尚未部署 — 发布后才会部署',
   'engine.studio.auto.enabled': '已启用',
   'engine.studio.auto.disabled': '已停用',
   'engine.studio.auto.enableTitle': '启用此自动化(发布后生效)',

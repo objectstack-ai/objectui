@@ -32,12 +32,19 @@
  * (`nav_item_3`, `nav_item_4`: the fixture has two entries) and a save carries
  * it with no `label` key. The counts and the saves below read that; what they
  * pin is unchanged.
+ *
+ * objectui#11776 re-judged what a save SENDS: an entry that names no target
+ * for its `type` is left out of it (the spec refuses one, and the server with
+ * it), so a bare Add is no longer an edit that reaches a save. Each edit here
+ * is an Add whose new entry is then bound to the fixture's object in its
+ * inspector: the rail shows it by that object's name, and a save still
+ * carries it with no `label` key. What these pins pin is unchanged.
  */
 
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, cleanup, waitFor, act } from '@testing-library/react';
+import { render, screen, fireEvent, cleanup, waitFor, act, within } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 
 const PKG = 'com.acme.app';
@@ -49,6 +56,8 @@ const NAV = [
 const APP = { name: 'acme_app', label: 'Acme', navigation: NAV };
 const HOME = { name: 'home', label: 'Home', type: 'app', regions: [{ name: 'main', components: [] }] };
 const LANDING = { name: 'landing', label: 'Landing', type: 'app', regions: [{ name: 'main', components: [] }] };
+/** The object an added entry is bound to (objectui#11776). */
+const TASK = { name: 'acme_task', label: 'Task', fields: [{ name: 'title', label: 'Title', type: 'text' }] };
 
 const server = vi.hoisted(() => ({
   active: new Map<string, Record<string, unknown>>(),
@@ -166,6 +175,7 @@ beforeEach(() => {
   server.active.set(key('app', APP.name), JSON.parse(JSON.stringify(APP)));
   server.active.set(key('page', HOME.name), JSON.parse(JSON.stringify(HOME)));
   server.active.set(key('page', LANDING.name), JSON.parse(JSON.stringify(LANDING)));
+  server.active.set(key('object', TASK.name), JSON.parse(JSON.stringify(TASK)));
   // The surface's pending-drafts counter polls over raw fetch — stub it flat.
   vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => [] })) as unknown as typeof fetch);
 });
@@ -217,10 +227,11 @@ function rail(): HTMLElement {
 
 /**
  * How many appended items the rail shows: a canvas row each while editing, a
- * tree entry each in view mode. A label-less new entry shows its `id`.
+ * tree entry each in view mode. A label-less new entry bound to the fixture's
+ * object shows that object's name.
  */
 function addedItemsInRail(): number {
-  return (rail().textContent ?? '').match(/nav_item_\d+/g)?.length ?? 0;
+  return within(rail()).queryAllByRole('button', { name: new RegExp(TASK.name) }).length;
 }
 
 /** True while the surface's leave guard holds unsaved nav edits (it cancels `beforeunload`). */
@@ -235,8 +246,16 @@ async function openEditing(): Promise<void> {
   await screen.findByRole('button', { name: /Add nav item/ }, { timeout: 8000 });
 }
 
+/**
+ * One edit: "Add nav item" (the canvas selects the new entry), then bind it to
+ * the fixture's object in its inspector — objectui#11776: an unbound entry is
+ * left out of what a save sends.
+ */
 function addItem(): void {
   fireEvent.click(screen.getByRole('button', { name: /Add nav item/ }));
+  const picker = screen.getAllByRole('combobox').find((s) => within(s).queryByRole('option', { name: new RegExp(TASK.name) }));
+  if (!picker) throw new Error('the new entry\'s inspector offers no object to bind it to');
+  fireEvent.change(picker, { target: { value: TASK.name } });
 }
 
 async function clickDone(): Promise<void> {

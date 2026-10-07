@@ -99,6 +99,7 @@ import { registerMetadataPreview } from '../metadata-admin/preview-registry';
 import { registerMetadataInspector } from '../metadata-admin/inspector-registry';
 import { FlowPreview } from '../metadata-admin/previews/FlowPreview';
 import { FlowInspector } from '../metadata-admin/inspectors/FlowInspector';
+import { t } from '../metadata-admin/i18n';
 
 const dataSource = createEmptyDataSource();
 failOnAbsorbedFetchError();
@@ -135,13 +136,20 @@ function renderPillar(readOnly: boolean) {
   );
 }
 
-/** The canvas's own status pill — it reads the same `draft.status` the switch reads. */
+/**
+ * The canvas's own status pill. The `_status` probe is answered 404 here, so
+ * there is no runtime reading and the pill reads the same `draft.status` the
+ * switch reads, in the switch's words (objectui#11779: `active` reads
+ * "Enabled", `obsolete` "Disabled").
+ */
 function canvasStatus(): string {
   return screen.getByText('Status:').nextElementSibling?.textContent ?? '';
 }
+const STATUS_ON = t('engine.studio.auto.enabled', 'en');
+const STATUS_OFF = t('engine.studio.auto.disabled', 'en');
 
 async function openFlow(): Promise<HTMLElement> {
-  await waitFor(() => expect(canvasStatus()).toBe('active'), { timeout: 8000 });
+  await waitFor(() => expect(canvasStatus()).toBe(STATUS_ON), { timeout: 8000 });
   return screen.getByRole('switch');
 }
 
@@ -165,7 +173,7 @@ describe('Automations pillar on a read-only package (objectui#11124)', () => {
     await new Promise((r) => setTimeout(r, 50));
     expect(server.saves).toHaveLength(0);
     expect(toggle).toHaveAttribute('aria-checked', 'true');
-    expect(canvasStatus()).toBe('active');
+    expect(canvasStatus()).toBe(STATUS_ON);
   });
 
   it('opens the flow inspector read-only: the node inputs are disabled', async () => {
@@ -201,7 +209,7 @@ describe('Automations pillar on a writable package — the control (objectui#111
     await waitFor(() => expect(server.saves).toHaveLength(1), { timeout: 8000 });
     expect(server.saves[0]!.body.status).toBe('obsolete');
     await waitFor(() => expect(toggle).toHaveAttribute('aria-checked', 'false'), { timeout: 8000 });
-    expect(canvasStatus()).toBe('obsolete');
+    expect(canvasStatus()).toBe(STATUS_OFF);
   });
 });
 
@@ -218,7 +226,7 @@ describe('A refused status toggle rolls back to the server state (objectui#11124
     await screen.findByText(LOCKED_MESSAGE, undefined, { timeout: 8000 });
     await waitFor(() => expect(toggle).toBeEnabled(), { timeout: 8000 });
     expect(toggle).toHaveAttribute('aria-checked', 'true');
-    expect(canvasStatus()).toBe('active');
+    expect(canvasStatus()).toBe(STATUS_ON);
   });
 
   it('puts back only `status`: an edit made while the refused save was in flight survives', async () => {
@@ -230,7 +238,7 @@ describe('A refused status toggle rolls back to the server state (objectui#11124
 
     fireEvent.click(toggle);
     await waitFor(() => expect(server.saves).toHaveLength(1), { timeout: 8000 });
-    expect(canvasStatus()).toBe('obsolete');
+    expect(canvasStatus()).toBe(STATUS_OFF);
 
     const label = await inspectStartNode();
     fireEvent.change(label, { target: { value: 'Kick-off' } });
@@ -239,7 +247,7 @@ describe('A refused status toggle rolls back to the server state (objectui#11124
 
     open();
     await screen.findByText(LOCKED_MESSAGE, undefined, { timeout: 8000 });
-    await waitFor(() => expect(canvasStatus()).toBe('active'), { timeout: 8000 });
+    await waitFor(() => expect(canvasStatus()).toBe(STATUS_ON), { timeout: 8000 });
     expect(toggle).toHaveAttribute('aria-checked', 'true');
     expect(document.querySelector('[data-node-id="start"]')).toHaveTextContent('Kick-off');
   });
@@ -260,12 +268,12 @@ describe('A refused status toggle rolls back to the server state (objectui#11124
     // pending toggle wrote — then let the first flow's save be refused.
     fireEvent.click(screen.getByRole('button', { name: /Nightly digest/ }));
     await waitFor(() => expect(screen.getByText('flow · nightly_digest')).toBeInTheDocument(), { timeout: 8000 });
-    await waitFor(() => expect(canvasStatus()).toBe('obsolete'), { timeout: 8000 });
+    await waitFor(() => expect(canvasStatus()).toBe(STATUS_OFF), { timeout: 8000 });
 
     open();
     await screen.findByText(LOCKED_MESSAGE, undefined, { timeout: 8000 });
     await new Promise((r) => setTimeout(r, 50));
-    expect(canvasStatus()).toBe('obsolete');
+    expect(canvasStatus()).toBe(STATUS_OFF);
     expect(screen.getByRole('switch')).toHaveAttribute('aria-checked', 'false');
   });
 });

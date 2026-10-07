@@ -62,10 +62,13 @@ describe('FlowStatusDot — a declared trigger the engine has not armed (objectu
     const el = dot(container);
     expect(el.getAttribute('title')).toBe(REASON);
     expect(el.getAttribute('title')).not.toBe(t('engine.studio.auto.onUnbound', 'en'));
-    // Only the title changes: the visible text and the dot's colour stay those of
-    // an enabled flow, and nothing is styled as an error.
-    expect(el.textContent).toBe(t('engine.studio.auto.on', 'en'));
-    expect(el.querySelector('.bg-emerald-500')).not.toBeNull();
+    // objectui#11779 — and it says, without hovering, that the deployment does
+    // not run it: a grey "Not running here", not the green "On" of a flow that
+    // runs. Still nothing is styled as an error: a policy is not a defect.
+    expect(el.textContent).toBe(t('engine.studio.auto.notRunning', 'en'));
+    expect(el.textContent).not.toBe(t('engine.studio.auto.on', 'en'));
+    expect(container.querySelector('.bg-emerald-500')).toBeNull();
+    expect(container.innerHTML).not.toMatch(/emerald/);
     expect(container.querySelector('[role="alert"]')).toBeNull();
     expect(container.innerHTML).not.toMatch(/destructive/);
   });
@@ -77,16 +80,23 @@ describe('FlowStatusDot — a declared trigger the engine has not armed (objectu
     expect(dot(container).getAttribute('title')).toBe(REASON);
   });
 
-  it('a flow with no declared trigger (no `triggerType`) still says "no trigger" — the control', () => {
+  it('a flow with no declared trigger (no `triggerType`) still says "no trigger", and still reads "On" — the control', () => {
     const { container } = render(<FlowStatusDot state={{ enabled: true, bound: false }} locale="en" />);
     expect(dot(container).getAttribute('title')).toBe(t('engine.studio.auto.onUnbound', 'en'));
+    // objectui#11779 — a manual flow runs when invoked: never "not running".
+    expect(dot(container).textContent).toBe(t('engine.studio.auto.on', 'en'));
+    expect(container.querySelector('.bg-emerald-500')).not.toBeNull();
   });
 
-  it('a declared trigger with no reason (a backend older than `reason`) says only "Enabled", never "no trigger"', () => {
+  it('a declared trigger with no reason (a backend older than `reason`) reads "Not running here", never "no trigger"', () => {
     const { container } = render(
       <FlowStatusDot state={{ enabled: true, bound: false, triggerType: 'record_change' }} locale="en" />,
     );
-    expect(dot(container).getAttribute('title')).toBe(t('engine.studio.auto.enabled', 'en'));
+    // objectui#11779 — `bound: false` WITH a `triggerType` is the contract's
+    // "declared trigger type has no registered trigger": not armed here, whatever
+    // the reason. Without the platform's sentence the title says only that.
+    expect(dot(container).textContent).toBe(t('engine.studio.auto.notRunning', 'en'));
+    expect(dot(container).getAttribute('title')).toBe(t('engine.studio.auto.notRunningTitle', 'en'));
     expect(dot(container).getAttribute('title')).not.toBe(t('engine.studio.auto.onUnbound', 'en'));
   });
 

@@ -454,14 +454,21 @@ describe('Studio surface — a package switch over an unsaved nav edit (objectui
       </MemoryRouter>
     );
   }
-  const railText = () => document.body.textContent ?? '';
-  const addedItems = () => railText().match(/nav_item_\d+/g)?.length ?? 0;
+  // objectui#11776: a save sends an entry only once it names a target, so each
+  // Add here is bound to an object of its package in its inspector, and the
+  // rail shows the label-less entry by that object's name.
+  const addedItems = () => screen.queryAllByRole('button', { name: new RegExp(`${TASK.name}|${BETA_ITEM.name}`) }).length;
   const navEditingOpen = () => screen.queryAllByRole('button', { name: /Add nav item/ }).length > 0;
   async function openEditing(): Promise<void> {
     fireEvent.click(screen.getByTitle(/^Edit navigation/));
     await screen.findByRole('button', { name: /Add nav item/ }, SLOW);
   }
-  const addItem = () => fireEvent.click(screen.getByRole('button', { name: /Add nav item/ }));
+  const addItem = (objectName: string = TASK.name) => {
+    fireEvent.click(screen.getByRole('button', { name: /Add nav item/ }));
+    const picker = screen.getAllByRole('combobox').find((s) => within(s).queryByRole('option', { name: new RegExp(objectName) }));
+    if (!picker) throw new Error('the new entry\'s inspector offers no object to bind it to');
+    fireEvent.change(picker, { target: { value: objectName } });
+  };
   async function switchTo(name: RegExp, confirmed: boolean): Promise<void> {
     fireEvent.click(await screen.findByTitle('Switch / create package', undefined, SLOW));
     confirmSpy.mockReturnValueOnce(confirmed);
@@ -473,6 +480,8 @@ describe('Studio surface — a package switch over an unsaved nav edit (objectui
     );
 
   it('a confirmed discard sends nothing to the new package; an edit after the switch saves normally', async () => {
+    // Package B's object, for the edit made there after the switch.
+    seedPackageB();
     render(surfaceTree());
     await screen.findByRole('button', { name: /Landing menu/ }, SLOW);
     await openEditing();
@@ -491,7 +500,7 @@ describe('Studio surface — a package switch over an unsaved nav edit (objectui
 
     // The control: an edit made after the switch saves normally, to the new package's app.
     await openEditing();
-    addItem();
+    addItem(BETA_ITEM.name);
     await waitFor(() => expect(server.saves.filter((s) => s.type === 'app')).toHaveLength(1), SLOW);
     expect(server.saves.map((s) => [s.type, s.name, s.packageId])).toEqual([['app', 'beta_app', PKG_B]]);
     expect(savedNav(server.saves[0].body)).toEqual(['Board menu', { id: 'nav_item_2' }]);

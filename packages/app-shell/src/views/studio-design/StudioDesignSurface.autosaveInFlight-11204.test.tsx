@@ -162,6 +162,7 @@ import { registerMetadataInspector } from '../metadata-admin/inspector-registry'
 import { registerMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry';
 import { FlowPreview } from '../metadata-admin/previews/FlowPreview';
 import { FlowInspector } from '../metadata-admin/inspectors/FlowInspector';
+import { t } from '../metadata-admin/i18n';
 import { PagePreview } from '../metadata-admin/previews/PagePreview';
 import { PageBlockInspector } from '../metadata-admin/inspectors/PageBlockInspector';
 import { PageDefaultInspector } from '../metadata-admin/inspectors/PageDefaultInspector';
@@ -239,7 +240,9 @@ describe('Automations pillar — an edit taken while a flow save is in flight (o
         <AutomationsPillar packageId={PKG} />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByText('Status:').nextElementSibling).toHaveTextContent('active'), { timeout: 8000 });
+    // Loaded once the Status pill reads the flow's `active` status — in the
+    // switch's words, with no runtime reading (objectui#11779).
+    await waitFor(() => expect(screen.getByText('Status:').nextElementSibling).toHaveTextContent(t('engine.studio.auto.enabled', 'en')), { timeout: 8000 });
     fireEvent.click(document.querySelector('[data-node-id="start"] [role="button"]') as HTMLElement);
     const label = await within(screen.getByRole('complementary')).findByLabelText('Label', undefined, { timeout: 8000 });
 
@@ -370,10 +373,18 @@ describe('Interfaces nav autosave — the same claim, in place of its edit gener
     expect(innermost).toHaveLength(1);
     return innermost[0];
   }
-  // objectui#11196: a new canvas entry is born with no `label`, so the rail
-  // shows it by its `id` (`nav_item_3`, `nav_item_4`) and a save carries it
-  // with no `label` key (`{ id }` below). It was born "New item".
-  const addedItemsInRail = () => (rail().textContent ?? '').match(/nav_item_\d+/g)?.length ?? 0;
+  // objectui#11196: a new canvas entry is born with no `label`, and a save
+  // carries it with no `label` key (`{ id }` below). It was born "New item".
+  // objectui#11776: a save sends an entry only once it names a target, so each
+  // Add here is bound to the fixture's object in its inspector, and the rail
+  // shows it by that object's name.
+  const addedItemsInRail = () => within(rail()).queryAllByRole('button', { name: new RegExp(OBJECT.name) }).length;
+  const addBoundItem = () => {
+    fireEvent.click(screen.getByRole('button', { name: /Add nav item/ }));
+    const picker = screen.getAllByRole('combobox').find((s) => within(s).queryByRole('option', { name: new RegExp(OBJECT.name) }));
+    if (!picker) throw new Error('the new entry\'s inspector offers no object to bind it to');
+    fireEvent.change(picker, { target: { value: OBJECT.name } });
+  };
   const navEditingOpen = () => screen.queryAllByRole('button', { name: /Add nav item/ }).length > 0;
   const savedNavEntries = () =>
     savesOf('app').map((b) =>
@@ -389,12 +400,12 @@ describe('Interfaces nav autosave — the same claim, in place of its edit gener
     await screen.findByRole('button', { name: /Add nav item/ }, { timeout: 8000 });
 
     const release = holdNextSave();
-    fireEvent.click(screen.getByRole('button', { name: /Add nav item/ }));
+    addBoundItem();
     await screen.findByTestId('nav-autosaving', undefined, { timeout: 8000 });
-    fireEvent.click(screen.getByRole('button', { name: /Add nav item/ }));
+    addBoundItem();
     expect(addedItemsInRail()).toBe(2);
     // Undo it: the buffer is back to exactly what the save in flight carries.
-    const rows = within(rail()).getAllByRole('button', { name: /nav_item_\d+/ });
+    const rows = within(rail()).getAllByRole('button', { name: new RegExp(OBJECT.name) });
     fireEvent.mouseEnter(rows[rows.length - 1]);
     fireEvent.click(within(rows[rows.length - 1]).getByRole('button', { name: 'Remove nav item' }));
     expect(addedItemsInRail()).toBe(1);

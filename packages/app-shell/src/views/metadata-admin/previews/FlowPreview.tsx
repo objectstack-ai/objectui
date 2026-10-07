@@ -7,7 +7,9 @@
  * pull in ReactFlow + its deps every time the metadata-admin loads,
  * which is too heavy for a glance-preview. Instead we render:
  *
- *   1. A header strip with type / status / runAs / version.
+ *   1. A header strip with trigger / status / runAs / version — the trigger
+ *      the Start node declares, and the status the deployment reports
+ *      (objectui#11779).
  *   2. A topologically ordered step list inferred from `nodes` +
  *      `edges`. Each step shows label, action type, branch markers,
  *      and outgoing edge conditions so authors can sanity-check the
@@ -19,6 +21,7 @@
  */
 
 import * as React from 'react';
+import { resolveFlowTriggerKind } from '@objectstack/spec/automation';
 import {
   AlertCircle,
   Bug,
@@ -43,9 +46,19 @@ import { NESTED_NODE_KIND, parseNestedNodeId, encodeNestedNodeId } from '../insp
 import { FlowSimulatorPanel } from './FlowSimulatorPanel.js';
 import { FlowRunsPanel } from './FlowRunsPanel.js';
 import { ProblemsPanel } from './ProblemsPanel.js';
-import { buildFlowProblems, deriveInvalidElements, freshNodeId, type FlowProblem } from './flow-problems.js';
+import {
+  FlowRuntimeContext,
+  buildFlowProblems,
+  deriveFlowRunStatus,
+  deriveInvalidElements,
+  describeFlowRunStatus,
+  freshNodeId,
+  type FlowProblem,
+  type FlowRunStatusView,
+} from './flow-problems.js';
 import { useConnectorRegistry } from '../inspectors/connector-input-fields.js';
 import { hasCommittedConnectorAction } from '../inspectors/flow-scope.js';
+import { fieldsForNodeType, localizeFlowFields } from '../inspectors/flow-node-config.js';
 
 /**
  * This preview reads the draft's nodes and edges and hands them straight to
@@ -59,6 +72,44 @@ import { hasCommittedConnectorAction } from '../inspectors/flow-scope.js';
  */
 type FlowNode = FlowDesignerNode;
 type FlowEdge = FlowDesignerEdge;
+
+/**
+ * The header's Trigger pill (objectui#11779): the trigger the engine arms this
+ * flow on, read from its Start node by the spec's own resolver
+ * (`resolveFlowTriggerKind`, the authoring-time mirror of the engine's binding
+ * resolution, in the engine's precedence). The flow-level `type` used to be
+ * shown instead, so a record-triggered flow read "autolaunched".
+ *
+ *   - a record trigger reads as its event (the Start node's `triggerType`, e.g.
+ *     "Record updated"), with the object it watches;
+ *   - a time-relative sweep reads as one, with the object it sweeps;
+ *   - a schedule (a `schedule` cadence on the Start node, or `type: 'schedule'`)
+ *     and an inbound API hook each read as that kind;
+ *   - a flow the resolver finds no trigger on — a manual / autolaunched Start,
+ *     a screen flow — falls back to the flow's `type`, as before.
+ *
+ * The words are the Start node inspector's own option labels for the same
+ * tokens (`flow-node-config`), localized the way the inspector localizes them,
+ * so the header and the inspector name one trigger one way.
+ */
+function flowTriggerLabel(d: Record<string, unknown>, nodes: FlowNode[], locale?: string): string {
+  const kind = resolveFlowTriggerKind(d);
+  if (!kind) return translateFlowMeta('type', String(d.type ?? 'autolaunched'), locale);
+  const config = nodes.find((n) => n?.type === 'start')?.config ?? {};
+  // A record kind means the Start node's `triggerType` IS a `record-*` token —
+  // the resolver read it to answer.
+  const token = kind === 'record_change' ? String(config.triggerType) : kind;
+  const options = localizeFlowFields('start', fieldsForNodeType('start'), locale).find((f) => f.id === 'triggerType')?.options;
+  const label = options?.find((o) => o.value === token)?.label ?? token;
+  const sweep = config.timeRelative as { object?: unknown } | undefined;
+  const object =
+    kind === 'record_change'
+      ? config.objectName
+      : kind === 'time_relative'
+        ? (typeof sweep?.object === 'string' ? sweep.object : config.objectName)
+        : undefined;
+  return typeof object === 'string' && object ? `${label} · ${object}` : label;
+}
 
 interface FlowVariable {
   name: string;
@@ -76,6 +127,14 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
   const nodes = React.useMemo<FlowNode[]>(() => (Array.isArray(d.nodes) ? (d.nodes as FlowNode[]) : []), [d.nodes]);
   const edges = React.useMemo<FlowEdge[]>(() => (Array.isArray(d.edges) ? (d.edges as FlowEdge[]) : []), [d.edges]);
   const variables: FlowVariable[] = Array.isArray(d.variables) ? (d.variables as FlowVariable[]) : [];
+
+  // objectui#11779 — the host's runtime row for this flow (see
+  // `FlowRuntimeContext`): the ONE run status the header's Status pill and the
+  // Problems panel show, derived as the host's rail derives it. Read before the
+  // empty-flow return below, so the hook order never depends on the draft.
+  const runtime = React.useContext(FlowRuntimeContext);
+  const runStatus = deriveFlowRunStatus(runtime, d.status);
+  const runView = describeFlowRunStatus(runStatus, locale);
 
   const designMode = !!(editing && onSelectionChange);
   const canEdit = designMode && !!onPatch;
@@ -180,8 +239,6 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
 
   // Run history needs the published flow name (the engine keys runs by it).
   const flowName = typeof d.name === 'string' && d.name ? d.name : '';
-  const flowType = String(d.type ?? 'autolaunched');
-  const status = String(d.status ?? (d.active ? 'active' : 'draft'));
   const runAs = String(d.runAs ?? 'user');
   const version = d.version != null ? String(d.version) : undefined;
   const errorStrategy = (d.errorHandling as any)?.strategy as string | undefined;
@@ -217,8 +274,14 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
           {/* Visual canvas */}
           <div className="flex flex-col min-w-0 min-h-0">
             <div className="rounded-none border-b bg-muted/30 px-3 py-2 text-xs flex flex-wrap items-center gap-x-4 gap-y-1">
-              <Pill icon={Zap} label={tr('engine.flowPreview.pill.trigger', locale)} value={translateFlowMeta('type', flowType, locale)} />
-              <Pill icon={CircleDot} label={tr('engine.flowPreview.pill.status', locale)} value={translateFlowMeta('status', status, locale)} tone={status === 'active' ? 'green' : status === 'draft' ? 'gray' : 'amber'} />
+              <Pill icon={Zap} label={tr('engine.flowPreview.pill.trigger', locale)} value={flowTriggerLabel(d, nodes, locale)} />
+              <Pill
+                icon={CircleDot}
+                label={tr('engine.flowPreview.pill.status', locale)}
+                value={runView.label}
+                tone={runView.tone}
+                title={runView.title}
+              />
               <Pill icon={Settings2} label={tr('engine.flowPreview.pill.runAs', locale)} value={translateFlowMeta('runAs', runAs, locale)} />
               {version && <Pill label="v" value={version} />}
               {errorStrategy && <Pill icon={GitBranch} label={tr('engine.flowPreview.pill.onError', locale)} value={translateFlowMeta('onError', errorStrategy, locale)} />}
@@ -355,6 +418,7 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
                 selectedKey={selectedKey}
                 onSelectProblem={handleSelectProblem}
                 locale={locale}
+                runStatus={runStatus}
               />
             </div>
           ) : showDebug ? (
@@ -421,21 +485,26 @@ function Pill({
   icon: Icon,
   label,
   value,
-  tone = 'gray',
+  tone = 'plain',
+  title,
 }: {
   icon?: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
-  tone?: 'gray' | 'green' | 'amber';
+  tone?: FlowRunStatusView['tone'];
+  /** Hover text — the run status's reason, for the Status pill. */
+  title?: string;
 }) {
   const cls =
     tone === 'green'
-      ? 'text-emerald-700'
+      ? 'text-emerald-700 dark:text-emerald-400'
       : tone === 'amber'
-        ? 'text-amber-700'
-        : 'text-foreground';
+        ? 'text-amber-700 dark:text-amber-300'
+        : tone === 'muted'
+          ? 'text-muted-foreground'
+          : 'text-foreground';
   return (
-    <span className="inline-flex items-center gap-1">
+    <span className="inline-flex items-center gap-1" title={title}>
       {Icon && <Icon className="h-3 w-3 text-muted-foreground" />}
       <span className="text-muted-foreground">{label}:</span>
       <span className={`font-medium ${cls}`}>{value}</span>

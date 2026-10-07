@@ -1133,6 +1133,11 @@ const useSafeFilterTranslation = createSafeTranslation(
     'filterBuilder.operators.is_not_null': 'Is not null',
     'filterBuilder.operators.exists': 'Is set',
     'filterBuilder.operators.notExists': 'Is not set',
+    // How the two empty checks differ, on the columns that keep both pairs
+    // (objectui#11810). The operator labels are interpolated rather than
+    // restated, so the hint names them exactly as the dropdown above it does.
+    'filterBuilder.emptyCheckHint.text': '"{{isEmpty}}" also matches blank text; "{{isNull}}" matches only a missing value.',
+    'filterBuilder.emptyCheckHint.list': '"{{isEmpty}}" also matches an empty list; "{{isNull}}" matches only a missing value.',
     // The half-filled range's description, read from the SHARED `validation`
     // namespace rather than declared as a new `filterBuilder.*` key
     // (objectui#10061). `{{field}} is required` already exists in all ten packs
@@ -1470,6 +1475,37 @@ function FilterBuilder({
   const getOperatorsForRow = (condition: FilterBuilderCondition) => {
     const field = fields.find((f) => f.value === condition.field)
     return offeredOperatorsForRow(field?.type, extraOperators, condition.operator)
+  }
+
+  /**
+   * The line under the operator list that says how "Is empty" and "Is null"
+   * differ, for a dropdown that offers both (objectui#11810). Only a column
+   * whose type can hold an empty value that is not null keeps both pairs, and
+   * the hint names which empty value the extra pair counts. Nothing at all
+   * when the dropdown offers at most one of them.
+   */
+  const renderEmptyCheckHint = (condition: FilterBuilderCondition): React.ReactNode => {
+    const ids = new Set(getOperatorsForRow(condition).map((op) => op.value))
+    if (!ids.has("is_empty") || !ids.has("is_null")) return null
+    const field = fields.find((f) => f.value === condition.field)
+    const labels = {
+      isEmpty: t("filterBuilder.operators.is_empty"),
+      isNull: t("filterBuilder.operators.is_null"),
+    }
+    const arm = emptyCheckArm(field?.type)
+    // A stored `is_null` held on a `null_only` column mounts both, and on that
+    // column they match the same records: there is no difference to explain.
+    if (arm === "null_only") return null
+    return (
+      <p
+        className="mt-1 border-t px-2 pb-1 pt-1.5 text-xs text-muted-foreground"
+        data-testid="filter-empty-check-hint"
+      >
+        {arm === "text"
+          ? t("filterBuilder.emptyCheckHint.text", labels)
+          : t("filterBuilder.emptyCheckHint.list", labels)}
+      </p>
+    )
   }
 
   /**
@@ -2007,6 +2043,7 @@ function FilterBuilder({
                         {t(`filterBuilder.operators.${op.value}`)}
                       </SelectItem>
                     ))}
+                    {renderEmptyCheckHint(condition)}
                   </SelectContent>
                 </Select>
               </div>

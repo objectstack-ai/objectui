@@ -3876,6 +3876,10 @@ const ja = {
       exists: "設定済み",
       notExists: "未設定",
     },
+    emptyCheckHint: {
+      text: '「{{isEmpty}}」は空白のテキストにも一致します。「{{isNull}}」は値がない場合にのみ一致します。',
+      list: '「{{isEmpty}}」は空のリストにも一致します。「{{isNull}}」は値がない場合にのみ一致します。',
+    },
   },
   sortBuilder: {
     sortBy: "並べ替え",

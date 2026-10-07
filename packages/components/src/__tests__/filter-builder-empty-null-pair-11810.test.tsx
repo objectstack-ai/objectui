@@ -29,6 +29,9 @@ import '@testing-library/jest-dom';
 import { expandEmptyOperator } from '@objectstack/spec/data';
 import { FilterBuilder, operatorsForFieldType } from '../custom/filter-builder';
 
+const TEXT_HINT = '"Is empty" also matches blank text; "Is null" matches only a missing value.';
+const LIST_HINT = '"Is empty" also matches an empty list; "Is null" matches only a missing value.';
+
 /** One field per type under test, so a row can be pointed at any of them. */
 const TYPES = [
   'text', 'textarea', 'email',
@@ -84,18 +87,20 @@ describe('objectui#11810 — the dropdown offers one empty-check pair unless the
   }
 
   for (const type of ['text', 'textarea', 'email'] as const) {
-    it(`a ${type} column offers both pairs`, async () => {
+    it(`a ${type} column offers both pairs and the blank-text hint`, async () => {
       renderRow({ field: `f_${type}`, operator: 'equals' });
-      const { options } = await openOperatorList();
+      const { options, hint } = await openOperatorList();
       expect(options).toEqual(expect.arrayContaining([...EMPTY_PAIR, ...NULL_PAIR]));
+      expect(hint).toBe(TEXT_HINT);
     });
   }
 
   for (const type of ['multiselect', 'tags'] as const) {
-    it(`a ${type} column offers both pairs`, async () => {
+    it(`a ${type} column offers both pairs and the empty-list hint`, async () => {
       renderRow({ field: `f_${type}`, operator: 'equals' });
-      const { options } = await openOperatorList();
+      const { options, hint } = await openOperatorList();
       expect(options).toEqual(expect.arrayContaining([...EMPTY_PAIR, ...NULL_PAIR]));
+      expect(hint).toBe(LIST_HINT);
     });
   }
 });

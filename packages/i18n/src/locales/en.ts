@@ -4411,6 +4411,10 @@ const en = {
       exists: 'Is set',
       notExists: 'Is not set',
     },
+    emptyCheckHint: {
+      text: '"{{isEmpty}}" also matches blank text; "{{isNull}}" matches only a missing value.',
+      list: '"{{isEmpty}}" also matches an empty list; "{{isNull}}" matches only a missing value.',
+    },
   },
   sortBuilder: {
     sortBy: 'Sort by',

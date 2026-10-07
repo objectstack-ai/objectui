@@ -3873,6 +3873,10 @@ const ko = {
       exists: "설정됨",
       notExists: "설정되지 않음",
     },
+    emptyCheckHint: {
+      text: '"{{isEmpty}}"은(는) 빈 텍스트도 포함합니다. "{{isNull}}"은(는) 값이 없는 경우만 포함합니다.',
+      list: '"{{isEmpty}}"은(는) 빈 목록도 포함합니다. "{{isNull}}"은(는) 값이 없는 경우만 포함합니다.',
+    },
   },
   sortBuilder: {
     sortBy: "정렬 기준",

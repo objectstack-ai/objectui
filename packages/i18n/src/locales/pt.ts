@@ -3951,6 +3951,10 @@ const pt = {
       exists: "Está definido",
       notExists: "Não está definido",
     },
+    emptyCheckHint: {
+      text: '"{{isEmpty}}" também corresponde a texto em branco; "{{isNull}}" apenas a um valor ausente.',
+      list: '"{{isEmpty}}" também corresponde a uma lista vazia; "{{isNull}}" apenas a um valor ausente.',
+    },
   },
   sortBuilder: {
     sortBy: "Ordenar por",

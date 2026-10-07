@@ -3956,6 +3956,10 @@ const es = {
       exists: "Está definido",
       notExists: "No está definido",
     },
+    emptyCheckHint: {
+      text: '«{{isEmpty}}» también incluye texto en blanco; «{{isNull}}» solo un valor ausente.',
+      list: '«{{isEmpty}}» también incluye una lista vacía; «{{isNull}}» solo un valor ausente.',
+    },
   },
   sortBuilder: {
     sortBy: "Ordenar por",

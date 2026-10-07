@@ -129,7 +129,7 @@ import { OWD_CREATE_MODELS, OWD_DEFAULT, type OwdCreateModel } from './owd-shari
 import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadata-admin/i18n.js';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { SuggestedBindingsPanel } from '../../components/SuggestedBindingsPanel.js';
-import { AppNavCanvas } from '../metadata-admin/previews/AppNavCanvas.js';
+import { AppNavCanvas, navPayloadOf } from '../metadata-admin/previews/AppNavCanvas.js';
 import {
   clearedLabel,
   inheritedNavEntryText,
@@ -2008,6 +2008,12 @@ export function InterfacesPillar({
   const [editNav, setEditNav] = React.useState(false);
   const [navSel, setNavSel] = React.useState<{ kind: string; id: string } | null>(null);
   const [navDirty, setNavDirty] = React.useState(false);
+  // objectui#11776 — the last nav save's failure, the nav editor's own: shown
+  // in the canvas banner beside the pillar's `error` until a nav save lands,
+  // or the buffer it was about is put back. Held apart from `error` so a nav
+  // save that lands clears its own failure and never one a leaf load or save
+  // is still showing.
+  const [navError, setNavError] = React.useState<string | null>(null);
 
   // App resolution status — tells "still loading" apart from "this package has
   // no app", so the canvas shows a real empty state instead of an endless
@@ -2041,6 +2047,8 @@ export function InterfacesPillar({
     if (navDirty) {
       setAppDraft(navBaselineRef.current);
       setNavDirty(false);
+      // objectui#11776 — a failure of the buffer just put back is moot.
+      setNavError(null);
     }
   }, [readOnly, editNav, navDirty]);
 
@@ -2584,33 +2592,46 @@ export function InterfacesPillar({
     if (!appName) return;
     setNavSaving('draft');
     try {
-      // "Add nav item" inserts a blank placeholder that only becomes a valid,
-      // spec-conformant item once a target is picked in the inspector. Drop
-      // still-untargeted placeholders (no `type`) so one stray blank can't fail
-      // the whole app's spec validation ("navigation.N: Invalid input"), and
-      // backfill a snake_case id defensively.
+      // objectui#11776 — "Add nav item" births `{ id, type: 'object' }`, which
+      // the spec refuses until a target is picked in the inspector, and an
+      // unbind leaves an entry with no `type`. The save sends the editor's
+      // navigation less every entry that names no target for its `type`, at
+      // every depth (`navPayloadOf`); the editor keeps showing it, in its
+      // place. A root entry with no `id` is given one by its place in the
+      // EDITOR, before anything is left out, so leaving an entry out never
+      // moves another entry's id.
       const rawNav = Array.isArray(appDraft.navigation) ? appDraft.navigation : [];
-      const cleanedNav = rawNav
-        .filter((n) => n && typeof (n as Record<string, unknown>).type === 'string')
-        .map((n, i) => {
-          const item = n as Record<string, unknown>;
-          return typeof item.id === 'string' && item.id ? item : { ...item, id: `nav_item_${i + 1}` };
-        });
-      const saved = { ...appDraft, navigation: cleanedNav };
+      const editorNav = rawNav.map((n, i) => {
+        const item = n as Record<string, unknown>;
+        if (!item || typeof item !== 'object' || (typeof item.id === 'string' && item.id)) return n;
+        return { ...item, id: `nav_item_${i + 1}` };
+      });
+      const sentNav = navPayloadOf(editorNav);
+      const leftOut = sentNav.length !== editorNav.length || sentNav.some((n, i) => n !== editorNav[i]);
+      const saved = { ...appDraft, navigation: sentNav };
       const outcome = await saveNavDraft('app', appName, saved, { mode: 'draft', packageId });
-      // objectui#11773 — the author chose the saved version; the load replaces the buffer.
-      if (outcome === 'reloaded') return;
+      // objectui#11773 — the author chose the saved version; the load replaces
+      // the buffer, and with it any failure this editor showed (objectui#11776).
+      if (outcome === 'reloaded') {
+        setNavError(null);
+        return;
+      }
       navEchoRef.current = publishNonce;
       navBaselineRef.current = saved;
       setNavHasDraft(true);
+      // objectui#11776 — the save landed: the failure an earlier one showed goes.
+      setNavError(null);
       // objectui#11189, objectui#11204 — clean only if the buffer is still what
       // this save sent. An edit taken while it was in flight keeps the buffer
       // dirty: the autosave (or a pending "Done") sends it next, and the leave
-      // guard holds until then.
-      if (sent.unmoved()) setNavDirty(false);
+      // guard holds until then. objectui#11776 — so does an entry this save
+      // left out for want of a target: it is on screen and not on the server,
+      // and a clean buffer would let the re-read this save signals install the
+      // served draft over it. Binding it is the edit that sends it.
+      if (sent.unmoved() && !leftOut) setNavDirty(false);
       onDraftSaved?.();
     } catch (e) {
-      setError(formatMetadataError(e));
+      setNavError(formatMetadataError(e));
     } finally {
       setNavSaving(false);
     }
@@ -2721,9 +2742,11 @@ export function InterfacesPillar({
           </span>
         )}
       </div>
-      {error && (
+      {(error || navError) && (
         <div className="mb-3 shrink-0 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive whitespace-pre-line">
-          {error}
+          {/* objectui#11776 — the pillar's failure and the nav editor's own,
+              each cleared by what settles it. */}
+          {error && navError && error !== navError ? `${error}\n${navError}` : (error ?? navError)}
         </div>
       )}
       <div

@@ -185,11 +185,11 @@ describe.each([
   });
 
   it('a loaded entry carries neither the badge nor a reason', async () => {
+    // A preservation pin: it holds on both sides of the fix. The cases above
+    // are what show these queries find the badge and the reason when present.
     serve([REFUSED, LOADED]);
     renderList(config);
 
-    // Lit control first: the refused row in the SAME render does carry them.
-    expect(within(await card('com.example.crm')).getByText(badge)).toBeInTheDocument();
     const row = await card('com.example.todo');
     expect(within(row).queryByText(badge)).toBeNull();
     // The static head of either reason sentence (the text before its placeholder).

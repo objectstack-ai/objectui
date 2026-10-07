@@ -95,6 +95,7 @@ import { registerMetadataPreview } from '../metadata-admin/preview-registry';
 import { registerMetadataInspector } from '../metadata-admin/inspector-registry';
 import { FlowPreview } from '../metadata-admin/previews/FlowPreview';
 import { FlowInspector } from '../metadata-admin/inspectors/FlowInspector';
+import { t } from '../metadata-admin/i18n';
 import { browserClick } from '../metadata-admin/previews/__tests__/browserClick';
 
 const dataSource = createEmptyDataSource();
@@ -129,7 +130,9 @@ function renderPillar(readOnly: boolean) {
 }
 
 async function openFlow(): Promise<void> {
-  await waitFor(() => expect(screen.getByText('Status:').nextElementSibling?.textContent).toBe('active'), { timeout: 8000 });
+  // The flow is loaded once the header's Status pill reads its `active` status,
+  // in the switch's words with no runtime reading (objectui#11779).
+  await waitFor(() => expect(screen.getByText('Status:').nextElementSibling?.textContent).toBe(t('engine.studio.auto.enabled', 'en')), { timeout: 8000 });
 }
 
 function startNodeCard(): HTMLElement {

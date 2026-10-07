@@ -162,6 +162,7 @@ import { registerMetadataInspector } from '../metadata-admin/inspector-registry'
 import { registerMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry';
 import { FlowPreview } from '../metadata-admin/previews/FlowPreview';
 import { FlowInspector } from '../metadata-admin/inspectors/FlowInspector';
+import { t } from '../metadata-admin/i18n';
 import { PagePreview } from '../metadata-admin/previews/PagePreview';
 import { PageBlockInspector } from '../metadata-admin/inspectors/PageBlockInspector';
 import { PageDefaultInspector } from '../metadata-admin/inspectors/PageDefaultInspector';
@@ -239,7 +240,9 @@ describe('Automations pillar — an edit taken while a flow save is in flight (o
         <AutomationsPillar packageId={PKG} />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(screen.getByText('Status:').nextElementSibling).toHaveTextContent('active'), { timeout: 8000 });
+    // Loaded once the Status pill reads the flow's `active` status — in the
+    // switch's words, with no runtime reading (objectui#11779).
+    await waitFor(() => expect(screen.getByText('Status:').nextElementSibling).toHaveTextContent(t('engine.studio.auto.enabled', 'en')), { timeout: 8000 });
     fireEvent.click(document.querySelector('[data-node-id="start"] [role="button"]') as HTMLElement);
     const label = await within(screen.getByRole('complementary')).findByLabelText('Label', undefined, { timeout: 8000 });
 

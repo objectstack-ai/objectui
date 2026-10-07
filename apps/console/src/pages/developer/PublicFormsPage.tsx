@@ -29,9 +29,22 @@
  * `thank-you`'s `title` / `message` stay unvalidated deliberately: the spec
  * declares both as free-form strings, so there is no contract for a door to
  * state.
+ *
+ * ## The anonymous URL is the router's answer, not a hard-coded mount
+ *
+ * The anonymous route is `/f/:slug` UNDER the console router's basename (the
+ * `<Route path="/f/:slug">` in `App.tsx`, inside `BrowserRouter
+ * basename={BASENAME}`), and that basename comes from the host's injected
+ * `<base href>`: `/_console` on every framework- and cloud-served mount, `/`
+ * on a standalone run. This page used to print `${origin}/console/f/SLUG`, a
+ * mount no host serves (objectui#11769). It now asks the router where `/f`
+ * lives (`useHref`, which prefixes the basename), so the copied URL, both
+ * snippets and the two slug-field prefixes are one value, and they follow the
+ * mount the page is actually running under.
  */
 
 import { useEffect, useState } from 'react';
+import { useHref } from 'react-router-dom';
 import { useAdapter } from '@object-ui/app-shell';
 import {
   Card,
@@ -87,6 +100,9 @@ function slugFromLink(link?: string): string | null {
 function sanitizeSlug(s: string): string {
   return s.trim().toLowerCase().replace(/[^a-z0-9-_]+/g, '-').replace(/^-+|-+$/g, '');
 }
+
+/** The anonymous form route's prefix, as `App.tsx` declares it (`/f/:slug`). */
+const PUBLIC_FORM_ROUTE = '/f';
 
 export function PublicFormsPage() {
   const adapter = useAdapter();
@@ -190,8 +206,11 @@ export function PublicFormsPage() {
   useEffect(() => { load(); }, []);
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  // Basename-prefixed by the router itself: `/_console/f` under a `/_console`
+  // mount, `/f` on a root-mounted console. Every URL below is built from it.
+  const publicFormPath = useHref(PUBLIC_FORM_ROUTE);
 
-  const formatPublicUrl = (slug: string) => `${origin}/console/f/${slug}`;
+  const formatPublicUrl = (slug: string) => `${origin}${publicFormPath}/${slug}`;
   const formatIframe = (slug: string) =>
     `<iframe src="${formatPublicUrl(slug)}" width="100%" height="640" frameborder="0" style="border:0;"></iframe>`;
   const formatReact = (slug: string) =>
@@ -476,7 +495,7 @@ export function PublicFormsPage() {
             <div className="space-y-1.5">
               <Label htmlFor="publish-slug">URL slug</Label>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">/console/f/</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{`${publicFormPath}/`}</span>
                 <Input
                   id="publish-slug"
                   placeholder="contact-us"
@@ -514,7 +533,7 @@ export function PublicFormsPage() {
             <div className="space-y-1.5">
               <Label htmlFor="edit-slug">URL slug</Label>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-muted-foreground whitespace-nowrap">/console/f/</span>
+                <span className="text-xs text-muted-foreground whitespace-nowrap">{`${publicFormPath}/`}</span>
                 <Input
                   id="edit-slug"
                   value={editSlug}

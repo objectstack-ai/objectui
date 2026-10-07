@@ -41,6 +41,9 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
+// The page asks the router where the anonymous route is served (objectui#11769),
+// so it renders inside one, as it does in the app.
+import { MemoryRouter } from 'react-router-dom';
 
 /**
  * One mutable answer, read by BOTH pages' `meta.getItems`. A stable singleton
@@ -140,7 +143,7 @@ describe('FlowRunsPage — meta.getItems envelope (objectui#6917)', () => {
 describe('PublicFormsPage — meta.getItems envelope (objectui#6917)', () => {
   it("still reads the envelope's `items` member", async () => {
     state.answer = { items: [FORM] };
-    render(<PublicFormsPage />);
+    render(<PublicFormsPage />, { wrapper: MemoryRouter });
     await waitFor(() => {
       expect(screen.getByText('Log Time')).toBeInTheDocument();
     });
@@ -148,7 +151,7 @@ describe('PublicFormsPage — meta.getItems envelope (objectui#6917)', () => {
 
   it('still reads a bare array', async () => {
     state.answer = [FORM];
-    render(<PublicFormsPage />);
+    render(<PublicFormsPage />, { wrapper: MemoryRouter });
     await waitFor(() => {
       expect(screen.getByText('Log Time')).toBeInTheDocument();
     });
@@ -156,7 +159,7 @@ describe('PublicFormsPage — meta.getItems envelope (objectui#6917)', () => {
 
   it('does NOT read `value` — not a member of this envelope', async () => {
     state.answer = { value: [FORM] };
-    render(<PublicFormsPage />);
+    render(<PublicFormsPage />, { wrapper: MemoryRouter });
     await waitFor(() => {
       expect(screen.getByText('No public forms yet')).toBeInTheDocument();
     });

@@ -67,7 +67,7 @@ describe('TranslationPreview draws a globalActions node by its label (objectui#1
   it('a node without a label renders its inner key count', () => {
     mountSpecValid({ globalActions: { archive: { confirmText: 'Archive?', successMessage: 'Archived' } } });
     expect(sampleValue(GLOBAL_ACTIONS, 'archive')).toBe(
-      tFormat('engine.translationPreview.keyCount', LOCALE, { count: 2 }),
+      tFormat('engine.translationPreview.keyCountOther', LOCALE, { count: 2 }),
     );
     expect(document.body.textContent).not.toContain('[object Object]');
   });
@@ -80,7 +80,7 @@ describe('TranslationPreview draws a globalActions node by its label (objectui#1
     expect(sampleValue('engine.translationPreview.category.messages', 'welcome')).toBe('"Bienvenue"');
     // An object node keeps its key count: only the globalActions category reads a node's label.
     expect(sampleValue('engine.translationPreview.category.objects', 'account')).toBe(
-      tFormat('engine.translationPreview.keyCount', LOCALE, { count: 2 }),
+      tFormat('engine.translationPreview.keyCountOther', LOCALE, { count: 2 }),
     );
   });
 });

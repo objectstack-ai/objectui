@@ -10,18 +10,21 @@
  *   1. "Which locale is this and how complete is it?" → header strip
  *      with the locale badge, total-key count, and an overall coverage
  *      bar (categories that have at least one entry).
- *   2. "Where are the strings?" → a card per category in
- *      `TranslationDataSchema`: objects · apps · messages ·
- *      validationMessages · globalActions · dashboards · settings ·
- *      metadataForms. Each card shows the count of top-level keys and
+ *   2. "Where are the strings?" → a card per group of the per-app
+ *      `TranslationDataSchema`, the groups the designer's
+ *      `validateMetadataDraft('translation', …)` judges a draft by
+ *      (objectui#11765). Each card shows the count of top-level keys and
  *      a sample of up to 5 keys so the user can confirm the right
- *      bundle is loaded.
+ *      bundle is loaded. A key the schema refuses (the removed
+ *      `validationMessages`, the platform-only `settings`) is no group:
+ *      it is neither drawn nor counted in the coverage denominator.
  *
- * For flat string maps (messages, validationMessages, settings) we
- * render a small key→value sample table. For nested objects (objects,
- * apps, dashboards, metadataForms) we list the top-level keys with their
- * inner key count. globalActions is nested too: each entry is an action
- * translation node (`TranslationDataSchema.globalActions.NAME`), so its
+ * messages is the one flat string map, so its sample is a small key→value
+ * table. Every other group is nested, and its sample lists the top-level
+ * keys with their inner key count. settingsCommon is one strict object
+ * rather than a record of named nodes; its members (`sourceLabels`) are
+ * its top-level keys, read the same way. globalActions entries are action
+ * translation nodes (`TranslationDataSchema.globalActions.NAME`), so that
  * sample shows the node's `label`, quoted as a flat string is, and the
  * inner key count when the node carries no `label` (objectui#11755).
  */
@@ -30,6 +33,7 @@ import * as React from 'react';
 import {
   AppWindow,
   ClipboardList,
+  Database,
   FileText,
   Gauge,
   Globe2,
@@ -37,10 +41,13 @@ import {
   Languages,
   ListChecks,
   MessageCircle,
+  PanelsTopLeft,
   Settings2,
-  ShieldAlert,
+  SquareChevronDown,
+  Workflow,
 } from 'lucide-react';
 import { EmptyDescription } from '@object-ui/components';
+import type { TranslationDataSchema } from '@objectstack/spec/system';
 import type { MetadataPreviewProps } from '../preview-registry.js';
 import { t as tr, tFormat } from '../i18n.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
@@ -61,27 +68,37 @@ interface CategoryDef {
   nodeLabel?: boolean;
 }
 
-const CATEGORIES: CategoryDef[] = [
-  { key: 'objects', label: 'engine.translationPreview.category.objects', icon: ListChecks, flat: false },
-  { key: 'apps', label: 'engine.translationPreview.category.apps', icon: AppWindow, flat: false },
-  { key: 'messages', label: 'engine.translationPreview.category.messages', icon: MessageCircle, flat: true },
-  {
-    key: 'validationMessages',
-    label: 'engine.translationPreview.category.validationMessages',
-    icon: ShieldAlert,
-    flat: true,
-  },
-  {
-    key: 'globalActions',
+/** A group of the per-app `TranslationDataSchema`. */
+type TranslationGroup = keyof (typeof TranslationDataSchema)['shape'];
+
+/**
+ * One row per group of the per-app `TranslationDataSchema`, in the schema's
+ * order (objectui#11765). The schema cannot supply a group's icon or heading,
+ * so the rows are written here, and `satisfies` keeps them exhaustive both
+ * ways: a group the spec adds without a row here, or a row for a key the spec
+ * does not declare, fails type-check. `TranslationPreview.categories-11765.test.tsx`
+ * pins the same against the schema at runtime.
+ */
+const CATEGORY_DEFS = {
+  objects: { label: 'engine.translationPreview.category.objects', icon: ListChecks, flat: false },
+  picklists: { label: 'engine.translationPreview.category.picklists', icon: SquareChevronDown, flat: false },
+  apps: { label: 'engine.translationPreview.category.apps', icon: AppWindow, flat: false },
+  messages: { label: 'engine.translationPreview.category.messages', icon: MessageCircle, flat: true },
+  globalActions: {
     label: 'engine.translationPreview.category.globalActions',
     icon: ClipboardList,
     flat: false,
     nodeLabel: true,
   },
-  { key: 'dashboards', label: 'engine.translationPreview.category.dashboards', icon: LayoutDashboard, flat: false },
-  { key: 'settings', label: 'engine.translationPreview.category.settings', icon: Settings2, flat: true },
-  { key: 'metadataForms', label: 'engine.translationPreview.category.metadataForms', icon: FileText, flat: false },
-];
+  dashboards: { label: 'engine.translationPreview.category.dashboards', icon: LayoutDashboard, flat: false },
+  datasets: { label: 'engine.translationPreview.category.datasets', icon: Database, flat: false },
+  pages: { label: 'engine.translationPreview.category.pages', icon: PanelsTopLeft, flat: false },
+  flows: { label: 'engine.translationPreview.category.flows', icon: Workflow, flat: false },
+  metadataForms: { label: 'engine.translationPreview.category.metadataForms', icon: FileText, flat: false },
+  settingsCommon: { label: 'engine.translationPreview.category.settingsCommon', icon: Settings2, flat: false },
+} satisfies Record<TranslationGroup, Omit<CategoryDef, 'key'>>;
+
+const CATEGORIES: CategoryDef[] = Object.entries(CATEGORY_DEFS).map(([key, def]) => ({ key, ...def }));
 
 /**
  * `locale` is the designer's language, the one the preview's own words read
@@ -217,7 +234,11 @@ function renderSampleValue(
     const nodeLabel = (v as Dict).label;
     if (cat.nodeLabel && typeof nodeLabel === 'string') return `"${nodeLabel}"`;
     const n = Object.keys(v as Dict).length;
-    return tFormat('engine.translationPreview.keyCount', locale, { count: n });
+    return tFormat(
+      n === 1 ? 'engine.translationPreview.keyCountOne' : 'engine.translationPreview.keyCountOther',
+      locale,
+      { count: n },
+    );
   }
   return String(v ?? '∅');
 }

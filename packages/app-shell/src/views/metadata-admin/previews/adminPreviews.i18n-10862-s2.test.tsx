@@ -438,19 +438,22 @@ describe('TranslationPreview reads the designer locale (objectui#10862)', () => 
         { key: 'engine.translationPreview.coverage' },
         { key: 'engine.translationPreview.totalKeys', vars: { count: 7 } },
         { key: 'engine.translationPreview.category.objects' },
+        { key: 'engine.translationPreview.category.picklists' },
         { key: 'engine.translationPreview.category.apps' },
         { key: 'engine.translationPreview.category.messages' },
-        { key: 'engine.translationPreview.category.validationMessages' },
         { key: 'engine.translationPreview.category.globalActions' },
         { key: 'engine.translationPreview.category.dashboards' },
-        { key: 'engine.translationPreview.category.settings' },
+        { key: 'engine.translationPreview.category.datasets' },
+        { key: 'engine.translationPreview.category.pages' },
+        { key: 'engine.translationPreview.category.flows' },
         { key: 'engine.translationPreview.category.metadataForms' },
+        { key: 'engine.translationPreview.category.settingsCommon' },
         { key: 'engine.translationPreview.categoryEmpty' },
         { key: 'engine.translationPreview.more', vars: { count: 1 } },
-        { key: 'engine.translationPreview.keyCount', vars: { count: 1 } },
+        { key: 'engine.translationPreview.keyCountOne', vars: { count: 1 } },
       ]);
       // The bundle's own locale is author data, not the designer's language.
-      expectAsWritten(['French', 'fr-FR', 'account', '"Un"', '2/8 (25%)']);
+      expectAsWritten(['French', 'fr-FR', 'account', '"Un"', '2/11 (18%)']);
     });
   }
 });

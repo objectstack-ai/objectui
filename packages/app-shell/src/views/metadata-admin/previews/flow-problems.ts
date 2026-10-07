@@ -7,7 +7,8 @@
  *
  *   1. `validateFlowDraft` (client, structural): no resolvable entry,
  *      unreachable nodes, a decision with no default branch, duplicate node
- *      ids, dangling edges, un-declared cycles.
+ *      ids, dangling edges, un-declared cycles — plus, from this module, a
+ *      connection drawn more than once ({@link edgeRouteKey}, objectui#11772).
  *   2. The server `_diagnostics` already attached to the layered record
  *      (schema validation), each keyed by a dotted JSON path.
  *
@@ -20,8 +21,9 @@
 
 import { validateFlowDraft } from './simulator/flow-sim-validate.js';
 import type { Diagnostic, DiagnosticLevel, SimEdge, SimNode } from './simulator/flow-sim-types.js';
-import { edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
+import { conditionText, edgeKey, type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
 import { flowExpressionProblems } from './flow-expr-problems.js';
+import { tFormat } from '../i18n.js';
 
 /** What a problem points at on the canvas — drives badge placement + reveal. */
 export type FlowProblemTarget =
@@ -59,6 +61,67 @@ export interface ServerDiagnostic {
 /** Stable `source->target` key matching an edge problem to a rendered edge. */
 export function edgeProblemKey(source: string, target: string): string {
   return `${source}->${target}`;
+}
+
+/**
+ * What makes two edges the SAME connection (objectui#11772): the same
+ * `source → target` taken the same way — the same `type` (the spec's default
+ * is `'default'`), the same guard (read through `conditionText`, so a bare
+ * string and its `{ dialect, source }` envelope agree), the same default-branch
+ * flag and the same `label`. The id is not part of it: ids are what tell the
+ * copies apart.
+ *
+ * Two such edges are one connection drawn twice, and the engine follows each
+ * of them, so the target runs once per copy — the card's published flow held
+ * `start → node_1` three times and created three records for one update.
+ *
+ * Deliberately narrower than "the same pair of nodes": two edges joining the
+ * same nodes DIFFERENTLY are a legitimate shape — an exclusive decision whose
+ * `a > 1` and `else` branches both lead to one node, or an approval whose
+ * `approve` and `reject` labels both do — and stay unflagged.
+ *
+ * One key for both of its readers: the Problems check below, and the node
+ * removal in `FlowCanvas` (`edgesAfterNodeRemoval`), which never reconnects
+ * into a connection that already exists — so removing a node cannot draw the
+ * repeat this module flags.
+ */
+export function edgeRouteKey(edge: FlowDesignerEdge): string {
+  return JSON.stringify([
+    edge.source,
+    edge.target,
+    edge.type ?? 'default',
+    conditionText(edge.condition) ?? '',
+    edge.isDefault === true,
+    edge.label ?? '',
+  ]);
+}
+
+/**
+ * One error per extra copy of a connection ({@link edgeRouteKey}); the first
+ * copy is the connection and draws nothing. Each row targets its OWN copy by
+ * its own `edgeKey`, so clicking it selects exactly the edge to remove in the
+ * edge inspector — the repair path for a flow already saved with repeats (no
+ * stored flow is rewritten for the author).
+ */
+function repeatedEdgeProblems(edges: FlowDesignerEdge[], locale?: string): FlowProblem[] {
+  const seen = new Set<string>();
+  const out: FlowProblem[] = [];
+  edges.forEach((edge, index) => {
+    const route = edgeRouteKey(edge);
+    if (!seen.has(route)) {
+      seen.add(route);
+      return;
+    }
+    const target: FlowProblemTarget = { kind: 'edge', source: edge.source, target: edge.target, edgeKey: edgeKey(edge, index) };
+    out.push({
+      id: `structural:error:repeated:${index}:${targetKey(target)}`,
+      level: 'error',
+      message: tFormat('engine.flowProblems.repeatedEdge', locale, { source: edge.source, target: edge.target }),
+      target,
+      source: 'structural',
+    });
+  });
+  return out;
 }
 
 /** Resolve an edge's selection key (`edgeKey`) from its endpoints. */
@@ -178,6 +241,7 @@ export function buildFlowProblems({ nodes, edges, serverDiagnostics, variables, 
     });
   };
   pushStructural('error', v.errors);
+  problems.push(...repeatedEdgeProblems(edges, locale));
   pushStructural('warning', v.warnings);
 
   (serverDiagnostics ?? []).forEach((diag, i) => {

@@ -51,8 +51,112 @@ import {
 import { predictExpandedNodeHeight } from './flow-region-metrics.js';
 import { NodeCard, NodePalette, defaultNodeLabel, defaultNodeExtras } from './flow-canvas-parts.js';
 import { useFlowNodePalette } from './useFlowNodePalette.js';
-import { indexProblemBadges, edgeProblemKey, type FlowProblem } from './flow-problems.js';
+import { indexProblemBadges, edgeProblemKey, edgeRouteKey, type FlowProblem } from './flow-problems.js';
 import type { NestedNodePath } from '../inspectors/flow-nested-selection.js';
+
+/**
+ * A fresh node id (objectui#11772): `uniqueId('node', …)` over every id the
+ * draft still REFERENCES — the node ids and both endpoints of every edge — plus
+ * `retired`, the ids the host's editing session has already seen.
+ *
+ * Edge endpoints are taken because an edge whose node is gone is a socket the
+ * next node with that id plugs into: a flow saved with `start → node_1` and no
+ * `node_1` re-attached that edge to whatever the designer named `node_1` next,
+ * and the published flow then ran that node once per stale edge. `retired`
+ * covers what the draft no longer shows at all — a node removed earlier in the
+ * session is never re-minted (see `FlowPreview`).
+ *
+ * A draft with nothing removed and nothing dangling references only its node
+ * ids, so it mints exactly what `uniqueId('node', nodeIds)` minted before.
+ * Edge ids keep that plain rule: nothing in a flow refers to an edge by its id
+ * (the engine routes by endpoints, guard and label), so a reused edge id
+ * cannot re-attach anything.
+ */
+export function freshNodeId(
+  nodes: ReadonlyArray<{ id?: string }>,
+  edges: ReadonlyArray<{ source: string; target: string }>,
+  retired: Iterable<string> = [],
+): string {
+  // `uniqueId` skips anything that is not a string; the `?.` keeps a hole in a
+  // mid-edit draft from throwing here.
+  const taken: Array<string | undefined> = nodes.map((n) => n?.id);
+  for (const e of edges) taken.push(e?.source, e?.target);
+  for (const id of retired) taken.push(id);
+  return uniqueId('node', taken);
+}
+
+/** An out-edge that makes no routing choice: unguarded, unlabelled, not the default branch, type `default`. */
+function isPlainEdge(edge: FlowDesignerEdge): boolean {
+  return (
+    edge.condition === undefined &&
+    edge.isDefault !== true &&
+    !edge.label &&
+    (edge.type === undefined || edge.type === 'default')
+  );
+}
+
+/**
+ * The edges a flow keeps when the node `removedId` is removed (objectui#11772)
+ * — ONE function for both removal gestures, the inspector's "Remove node" and
+ * this canvas's Delete key, so the two cannot disagree.
+ *
+ * Every edge naming the removed node goes with it, in the same patch: an edge
+ * left behind names a node that no longer exists, and re-attaches to the next
+ * node given that id.
+ *
+ * A node on a SINGLE PATH is spliced out rather than cut out — its predecessor
+ * is reconnected to its successor. Single path, read off the edge shapes:
+ *
+ *   - exactly one edge in (`P → X`) and exactly one edge out (`X → S`), and
+ *     they are not the same (self-loop) edge;
+ *   - the edge in is not a declared back-edge — retargeting a loop's closing
+ *     hop would change what the loop re-enters;
+ *   - the edge out is plain (no guard, no label, not the default branch, type
+ *     `default`), so the removed node made no routing choice of its own that
+ *     the splice would drop;
+ *   - `P` and `S` are other nodes of the flow, and `P ≠ S`;
+ *   - no edge already joins `P → S` the same way (`edgeRouteKey`), so the
+ *     splice never draws the repeated connection the Problems panel flags.
+ *
+ * The reconnected edge is the edge in, retargeted — `{ ...in, target: S }`, in
+ * the edge in's place. Its id, guard, label, default flag and type are `P`'s
+ * routing choice and stay `P`'s: a decision branch that led to the removed
+ * node now leads to `S`, at the same position in the declaration order the
+ * engine evaluates branches in. That is exactly the inverse of `insertOnEdge`,
+ * which splits `P → S` into `{ ...edge, target: X }` (in place) and an appended
+ * plain `X → S` — so inserting a node on an edge and removing it gives the
+ * edges back byte for byte.
+ *
+ * Anything else — a branch node (several edges out, or a guarded or labelled
+ * edge out), a join (several in), a node with no edge in or out — loses its
+ * edges and is not reconnected.
+ *
+ * `remainingNodeIds` are the flow's node ids after the removal. While another
+ * node still carries `removedId` (a draft holding a duplicate id, itself a
+ * Problems-panel error), the edges are that node's too and are kept as they are.
+ */
+export function edgesAfterNodeRemoval(
+  edges: FlowDesignerEdge[],
+  removedId: string,
+  remainingNodeIds: ReadonlySet<string>,
+): FlowDesignerEdge[] {
+  if (remainingNodeIds.has(removedId)) return edges;
+  const touches = (e: FlowDesignerEdge) => e.source === removedId || e.target === removedId;
+  const kept = edges.filter((e) => !touches(e));
+  const incoming = edges.filter((e) => e.target === removedId);
+  const outgoing = edges.filter((e) => e.source === removedId);
+  if (incoming.length !== 1 || outgoing.length !== 1) return kept;
+  const [edgeIn] = incoming;
+  const [edgeOut] = outgoing;
+  if (edgeIn === edgeOut || edgeIn.type === 'back' || !isPlainEdge(edgeOut)) return kept;
+  const predecessor = edgeIn.source;
+  const successor = edgeOut.target;
+  if (predecessor === successor || !remainingNodeIds.has(predecessor) || !remainingNodeIds.has(successor)) return kept;
+  const reconnected: FlowDesignerEdge = { ...edgeIn, target: successor };
+  const route = edgeRouteKey(reconnected);
+  if (kept.some((e) => edgeRouteKey(e) === route)) return kept;
+  return edges.flatMap((e) => (e === edgeIn ? [reconnected] : touches(e) ? [] : [e]));
+}
 
 const MIN_ZOOM = 0.4;
 const MAX_ZOOM = 1.6;
@@ -126,6 +230,13 @@ export interface FlowCanvasProps {
    */
   onSelectNested?: (path: NestedNodePath | null, node?: FlowDesignerNode) => void;
   onPatch?: (partial: Record<string, unknown>) => void;
+  /**
+   * objectui#11772 — the host's id minter for a new node, when the host keeps
+   * an editing session (`FlowPreview` remembers every node id it has seen, so
+   * a removed node's id is never minted again). Absent, the canvas mints with
+   * {@link freshNodeId} over the draft alone.
+   */
+  mintNodeId?: () => string;
 }
 
 export function FlowCanvas({
@@ -149,6 +260,7 @@ export function FlowCanvas({
   selectedNestedPath,
   onSelectNested,
   onPatch,
+  mintNodeId,
 }: FlowCanvasProps) {
   // objectui#3172 — the ONE geometry boundary: nodes enter the canvas with the
   // retired `ui: {x,y}` spelling already lifted onto the spec's `position`, so
@@ -259,11 +371,17 @@ export function FlowCanvas({
     [nodes, onPatch],
   );
 
+  // objectui#11772 — the one place this canvas names a node it adds: the
+  // host's session minter when it keeps one, else `freshNodeId` over the draft.
+  const newNodeId = React.useCallback(
+    () => (mintNodeId ? mintNodeId() : freshNodeId(nodes, edges)),
+    [mintNodeId, nodes, edges],
+  );
+
   const addNode = React.useCallback(
     (type: string, opts?: { from?: string; at?: Point }) => {
       if (!onPatch) return;
-      const existing = nodes.map((n) => n.id).filter(Boolean) as string[];
-      const id = uniqueId('node', existing);
+      const id = newNodeId();
       const label = defaultNodeLabel(type, locale);
       // Only an explicit `at` pins a manual position. A `from`-append is left
       // unpinned so the layered auto-layout slots it below its parent and
@@ -310,7 +428,7 @@ export function FlowCanvas({
       onSelect(newNode);
       setPaletteOpen(false);
     },
-    [edges, nodes, onPatch, onSelect, positionOf, locale],
+    [edges, nodes, onPatch, onSelect, positionOf, locale, newNodeId],
   );
 
   /** Split edge A→B by inserting a new node N: A→N (keeps guard) + N→B. */
@@ -319,8 +437,7 @@ export function FlowCanvas({
       if (!onPatch) return;
       const edgeIdx = edges.findIndex((e) => e === edge);
       if (edgeIdx < 0) return;
-      const existing = nodes.map((n) => n.id).filter(Boolean) as string[];
-      const id = uniqueId('node', existing);
+      const id = newNodeId();
       const from = positionOf(edge.source);
       const to = positionOf(edge.target);
       const at = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
@@ -342,7 +459,7 @@ export function FlowCanvas({
       onPatch({ nodes: appendArray(nodes, newNode), edges: appendArray(nextEdges, secondSegment) });
       onSelect(newNode);
     },
-    [edges, nodes, onPatch, onSelect, positionOf, locale],
+    [edges, nodes, onPatch, onSelect, positionOf, locale, newNodeId],
   );
 
   /**
@@ -358,7 +475,7 @@ export function FlowCanvas({
     (approvalId: string) => {
       if (!onPatch) return;
       if (!nodes.some((n) => n.id === approvalId)) return;
-      const waitId = uniqueId('node', nodes.map((n) => n.id).filter(Boolean) as string[]);
+      const waitId = newNodeId();
       const waitNode: FlowDesignerNode = {
         id: waitId,
         type: 'wait',
@@ -379,7 +496,7 @@ export function FlowCanvas({
       });
       onSelect(waitNode);
     },
-    [edges, nodes, onPatch, onSelect, locale],
+    [edges, nodes, onPatch, onSelect, locale, newNodeId],
   );
 
   // Approval nodes that already declare a `revise` out-edge — used to hide the
@@ -396,7 +513,8 @@ export function FlowCanvas({
     (id: string) => {
       if (!onPatch) return;
       const nextNodes = nodes.filter((n) => n.id !== id);
-      const nextEdges = edges.filter((e) => e.source !== id && e.target !== id);
+      // objectui#11772 — the same removal the inspector's "Remove node" makes.
+      const nextEdges = edgesAfterNodeRemoval(edges, id, new Set(nextNodes.map((n) => n.id)));
       onPatch({ nodes: nextNodes, edges: nextEdges });
       onSelect(null);
     },

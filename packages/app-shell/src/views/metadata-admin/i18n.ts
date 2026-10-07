@@ -1942,6 +1942,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowProblems.empty': 'No problems — this flow is structurally valid.',
   'engine.flowProblems.sourceSchema': 'schema',
   'engine.flowProblems.sourceExpression': 'expression',
+  // objectui#11772 — one extra copy of a connection (`edgeRouteKey`): the
+  // engine follows every copy, so the target runs once per copy.
+  'engine.flowProblems.repeatedEdge': 'Connection {source} → {target} is repeated; the flow runs "{target}" once for each copy. Remove this copy.',
   // References side panel (ResourceEditPage) empty state.
   'engine.edit.refsScanning': 'Scanning references…',
   'engine.edit.refsEmptyTitle': 'No references found',
@@ -4913,6 +4916,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowProblems.empty': '没有问题 —— 该流程结构有效。',
   'engine.flowProblems.sourceSchema': '架构',
   'engine.flowProblems.sourceExpression': '表达式',
+  // objectui#11772 — one extra copy of a connection (see the en row).
+  'engine.flowProblems.repeatedEdge': '连线 {source} → {target} 重复;流程会为每一条副本各运行一次 “{target}”。请删除这条副本。',
   // 引用关系侧栏(ResourceEditPage)空态。
   'engine.edit.refsScanning': '正在扫描引用…',
   'engine.edit.refsEmptyTitle': '未找到引用',

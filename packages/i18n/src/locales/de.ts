@@ -1968,8 +1968,8 @@ const de = {
     },
     workspaceTimezonePrompt: {
       title: "Zeitzone des Workspace festlegen",
-      description: "Dieser Workspace verwendet noch die Standardzeitzone der Plattform, {{current}}. Die Zeitzone des Workspace bestimmt, was „heute“ in Formeln bedeutet, wie Berichte nach Datum gruppieren und wie Datum und Uhrzeit angezeigt werden – für alle im Workspace. Unten ist die Zeitzone Ihres Browsers eingetragen.",
-      laterHint: "Sie können sie jederzeit auf der Seite „Einstellungen“ ändern.",
+      description: "Dieser Workspace verwendet noch die Standardzeitzone der Plattform, {{current}}. Die Zeitzone des Workspace bestimmt, welcher Tag in Formeln als heute gilt, wie Berichte nach Datum gruppieren und wie Datum und Uhrzeit angezeigt werden – für alle im Workspace. Unten ist die Zeitzone Ihres Browsers eingetragen.",
+      laterHint: "Sie können sie jederzeit in den Einstellungen ändern.",
       decline: "Standard beibehalten",
       confirm: "Zeitzone festlegen",
       saved: "Zeitzone des Workspace auf {{zone}} festgelegt",

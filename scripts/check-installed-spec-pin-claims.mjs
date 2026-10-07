@@ -890,9 +890,9 @@ export const LEDGER = [
     file: "scripts/check-eager-closure-budget.mjs",
     package: "@objectstack/spec",
     version: "17.6.0",
-    sites: 2,
+    sites: 1,
     class: "historical",
-    why: "Two lines naming the 17.6.0 bump as an EVENT: \"the pair objectui#11438 re-pinned when the `@objectstack/*` 17.6.0 bump paid back the rest of the spec-root part\" and \"BASELINE's `2ba091c`, the 17.6.0 bump's build, re-pinned both\". Each dates a measurement anchored to a named commit; neither restamps (objectui#11717).",
+    why: "One line naming the 17.6.0 bump as an EVENT: \"the pair objectui#11438 re-pinned when the `@objectstack/*` 17.6.0 bump paid back the rest of the spec-root part\", in the MAX docblock's account of the headroom the fourth raise superseded. It dates a measurement anchored to a named commit and does not restamp. The second line this entry once counted moved to 17.7.0 when objectui#11717 re-pinned BASELINE onto `c1e32e96` under ruling 6027998226.",
   },
 ];
 

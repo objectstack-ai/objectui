@@ -1966,6 +1966,14 @@ const ko = {
       cryptoRefusalToast: "시크릿을 암호화할 수 없습니다: {{subject}}",
       cryptoRefusalToastNoSubject: "시크릿을 암호화할 수 없습니다",
     },
+    workspaceTimezonePrompt: {
+      title: "워크스페이스 시간대 설정",
+      description: "이 워크스페이스는 아직 플랫폼 기본 시간대({{current}})를 사용하고 있습니다. 워크스페이스 시간대는 수식에서 \"오늘\"의 의미, 보고서의 날짜별 그룹화, 날짜와 시간의 표시 방식을 결정하며 워크스페이스의 모든 사용자에게 적용됩니다. 아래에 브라우저 시간대가 입력되어 있습니다.",
+      laterHint: "설정 페이지에서 언제든지 변경할 수 있습니다.",
+      decline: "기본값 유지",
+      confirm: "시간대 설정",
+      saved: "워크스페이스 시간대를 {{zone}}(으)로 설정했습니다",
+    },
     loadingSteps: {
       connecting: "데이터 소스에 연결 중",
       loadingConfig: "설정 로드 중",

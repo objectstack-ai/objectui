@@ -1763,6 +1763,14 @@ const zh = {
       cryptoRefusalToast: '无法加密机密信息:{{subject}}',
       cryptoRefusalToastNoSubject: '无法加密机密信息',
     },
+    workspaceTimezonePrompt: {
+      title: '设置工作区时区',
+      description: '此工作区仍在使用平台默认时区 {{current}}。工作区时区决定公式中“今天”的含义、报表如何按日期分组，以及日期和时间如何显示，对工作区内所有人生效。下方已填入你的浏览器时区。',
+      laterHint: '之后可随时在“设置”页面中修改。',
+      decline: '保持默认',
+      confirm: '设置时区',
+      saved: '工作区时区已设置为 {{zone}}',
+    },
     loadingSteps: {
       connecting: '正在连接数据源',
       loadingConfig: '正在加载配置',

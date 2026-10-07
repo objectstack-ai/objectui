@@ -2013,6 +2013,14 @@ const es = {
       cryptoRefusalToast: "No se pueden cifrar los secretos: {{subject}}",
       cryptoRefusalToastNoSubject: "No se pueden cifrar los secretos",
     },
+    workspaceTimezonePrompt: {
+      title: "Configure la zona horaria del espacio de trabajo",
+      description: "Este espacio de trabajo aún usa la zona horaria predeterminada de la plataforma, {{current}}. La zona horaria del espacio de trabajo determina qué significa «hoy» en las fórmulas, cómo agrupan los informes por fecha y cómo se muestran las fechas y horas, para todos en el espacio de trabajo. Abajo se indica la zona horaria de su navegador.",
+      laterHint: "Puede cambiarla en cualquier momento en la página de Configuración.",
+      decline: "Mantener la predeterminada",
+      confirm: "Configurar zona horaria",
+      saved: "Zona horaria del espacio de trabajo configurada en {{zone}}",
+    },
     loadingSteps: {
       connecting: "Conectando a la fuente de datos",
       loadingConfig: "Cargando configuración",

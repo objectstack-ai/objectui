@@ -277,9 +277,12 @@ describe('DatasetWidget chart — select-option labels run through the i18n bund
 
   it('BOUNDARY — a segment click still drills by the STORED value, whatever it displays', async () => {
     // Display translates; identity keys do not (objectui#4263's convention).
-    // The click is made with WHATEVER the first category reads — `欧励隆` with
+    // The click is made with WHATEVER the `orion` bar reads — `欧励隆` with
     // the seam in place, `Orion Engineered Carbons` without it — so this pin
-    // holds green in both directions and is about the filter alone.
+    // holds green in both directions and is about the filter alone. The bar is
+    // found by what it reads, not by its position: the chart lists the field's
+    // options in their declared order (objectui#11809), which puts `cabot`
+    // first.
     installMetaRouter({ crm_opportunity: OPPORTUNITY, crm_account: ACCOUNT });
     renderIn(
       'zh',
@@ -296,7 +299,8 @@ describe('DatasetWidget chart — select-option labels run through the i18n bund
     );
     await waitFor(() => expect(categories()).toContain('Birla Carbon'));
     // The click arrives with the DISPLAYED category — the chart knows no other.
-    const displayed = categories()[0];
+    const displayed = categories().find((c: unknown) => c === '欧励隆' || c === 'Orion Engineered Carbons');
+    expect(displayed).toBeDefined();
     expect(displayed).not.toBe('orion');
     capturedChartProps.onSegmentClick({ category: displayed });
     await waitFor(() => expect(drillFilters.length).toBeGreaterThan(0));

@@ -1619,27 +1619,14 @@ export function inactiveRetainedKind(
   return fields.some((f) => f.id === field.showWhen!.field) ? 'controller-off' : 'no-controller';
 }
 
-/** Node types offered in the inspector's type picker (spec `FlowNodeAction`). */
-export const FLOW_NODE_TYPE_OPTIONS = [
-  'start',
-  'create_record',
-  'update_record',
-  'delete_record',
-  'get_record',
-  'decision',
-  'assignment',
-  'loop',
-  'http_request',
-  'script',
-  'screen',
-  'approval',
-  'wait',
-  'subflow',
-  'map',
-  'connector_action',
-  // ADR-0031: structured constructs replace the BPMN gateway/boundary types in
-  // the picker — those remain import/export-only (no engine executor).
-  'parallel',
-  'try_catch',
-  'end',
-] as const;
+/**
+ * Every node type this table holds a hand-written field group for — its keys,
+ * the canonical types the aliases in `TYPE_ALIASES` resolve onto through
+ * {@link fieldsForNodeType}. The population a sweep over the table walks.
+ *
+ * ⛔ Not the inspector's Node Type list. That list is the add-node palette's
+ * (objectui#11778): it replaced the hand list `FLOW_NODE_TYPE_OPTIONS` that
+ * stood here, which offered `http_request` (the engine's deprecated alias of
+ * `http`) and missed `notify`, a type the palette adds.
+ */
+export const FLOW_NODE_CONFIG_TYPES: readonly string[] = Object.keys(FLOW_NODE_CONFIG);

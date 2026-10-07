@@ -18,7 +18,7 @@
  * `centerTab.ts` live beside it.
  */
 
-import type { I18nLabel } from '@objectstack/spec/ui';
+import type { I18nLabel, ObjectNavItem } from '@objectstack/spec/ui';
 import type { NavTargetLabelResolver } from '@object-ui/layout';
 import { navEntryLabelText } from '../metadata-admin/previews/navItemLabel.js';
 
@@ -39,6 +39,44 @@ export interface Surface {
   label: string;
   /** Lucide icon name from the object's metadata (`icon` field); falls back per getIcon. */
   icon?: string;
+  /**
+   * The nav entry's spec `id` (objectui#11774) — the entry's IDENTITY, which
+   * `{type,name}` is not: an app may hold several entries that open one
+   * object, each its own data slice (`filters`) or named view (`viewName`).
+   * Compared through {@link isSameSurface}. Absent only for an entry with no
+   * id, which the spec refuses (`id` is required on every nav item) and the
+   * nav save backfills.
+   */
+  navId?: string;
+  /**
+   * An `object` entry's `filters`, carried as authored for the canvas preview
+   * (objectui#11774). Interpreted only by the runtime's own nav reading (see
+   * `studio-canvas-preview`), never here.
+   */
+  filters?: ObjectNavItem['filters'];
+  /** An `object` entry's `viewName`, carried as authored for the canvas preview (objectui#11774). */
+  viewName?: ObjectNavItem['viewName'];
+}
+
+/**
+ * What a Surface is known by — a rail row, the open leaf, or a `?surface=`
+ * deep-link target (whose `navId` is the link's `nav` param).
+ */
+export type SurfaceIdentity = Pick<Surface, 'type' | 'name' | 'navId'>;
+
+/**
+ * The one identity rule for two surfaces (objectui#11774): the nav entry's
+ * `id` when both sides carry one, else `{type,name}` — the rule every reader
+ * used before ids were carried, kept for an id-less side.
+ *
+ * `{type,name}` alone named the TARGET, not the entry, so every entry of one
+ * object was the same surface: all of them highlighted at once, and a reload
+ * landed on the first. The rail's `isActive` reads this; `findSurfaceInTree`
+ * prefers an exact id the same way.
+ */
+export function isSameSurface(a: SurfaceIdentity, b: SurfaceIdentity): boolean {
+  if (a.navId && b.navId) return a.navId === b.navId;
+  return a.type === b.type && a.name === b.name;
 }
 
 export interface NavNode {
@@ -71,6 +109,13 @@ export interface NavNode {
   dashboardName?: string;
   reportName?: string;
   /**
+   * `ObjectNavItemSchema`'s list modifiers, typed as the spec types them
+   * (objectui#11774). Carried onto an `object` Surface as authored; the
+   * binding itself never reads them.
+   */
+  filters?: ObjectNavItem['filters'];
+  viewName?: ObjectNavItem['viewName'];
+  /**
    * `ActionNavItemSchema.actionDef` — a `.strict()` object of exactly
    * `{ actionName, params? }`. The spec answers `action` / `name` / `args` /
    * `input` here as REJECTED spellings with a redirect (objectstack#4001), so
@@ -101,22 +146,39 @@ export interface NavNode {
  * caller in the Studio passes. Without one the runtime's rule answers its
  * machine-name rung, as the console does before its metadata loads. The
  * binding itself never reads the label, the locale or the resolver.
+ *
+ * objectui#11774 — the Surface also carries the entry it came from: its `id`
+ * (`navId`) on every variant, and on `object` its `filters` / `viewName` as
+ * authored. Neither changes the binding: the five showcase entries that open
+ * `showcase_task` all bind `object:showcase_task`, and are told apart by id.
  */
 export function resolveSurface(
   node: NavNode,
   locale: string,
   targetLabel?: NavTargetLabelResolver,
 ): Surface | null {
-  const label = navEntryLabelText(node, locale, targetLabel);
+  const target = bindTarget(node);
+  if (!target) return null;
+  const surface: Surface = { ...target, label: navEntryLabelText(node, locale, targetLabel) };
+  if (node.id) surface.navId = node.id;
+  if (target.type === 'object') {
+    if (node.filters) surface.filters = node.filters;
+    if (node.viewName) surface.viewName = node.viewName;
+  }
+  return surface;
+}
+
+/** The `{type,name}` a leaf binds to, or `null` — the binding half of {@link resolveSurface}. */
+function bindTarget(node: NavNode): { type: string; name: string } | null {
   switch (node.type) {
     case 'page':
-      return node.pageName ? { type: 'page', name: String(node.pageName), label } : null;
+      return node.pageName ? { type: 'page', name: String(node.pageName) } : null;
     case 'object':
-      return node.objectName ? { type: 'object', name: String(node.objectName), label } : null;
+      return node.objectName ? { type: 'object', name: String(node.objectName) } : null;
     case 'dashboard':
-      return node.dashboardName ? { type: 'dashboard', name: String(node.dashboardName), label } : null;
+      return node.dashboardName ? { type: 'dashboard', name: String(node.dashboardName) } : null;
     case 'report':
-      return node.reportName ? { type: 'report', name: String(node.reportName), label } : null;
+      return node.reportName ? { type: 'report', name: String(node.reportName) } : null;
     // A nav action is a GLOBAL action by construction: `ActionNavItemSchema` is
     // `.strict()` with exactly `{ actionName, params? }` and carries no
     // `objectName`, so an object-scoped action is not addressable from the nav
@@ -130,35 +192,52 @@ export function resolveSurface(
     // (`ObjectActionsPanel`, objectui#2330) — this case cannot reach them and
     // must not try to.
     case 'action':
-      return node.actionDef?.actionName
-        ? { type: 'action', name: String(node.actionDef.actionName), label }
-        : null;
+      return node.actionDef?.actionName ? { type: 'action', name: String(node.actionDef.actionName) } : null;
     default:
       return null;
   }
 }
 
 /**
- * Walk the nav tree for the leaf that binds to `{type,name}`, returning its
+ * Walk the nav tree for the leaf a `?surface=` deep-link names, returning its
  * resolved Surface (carrying the node's label so the canvas title / highlight
- * match). Backs the `?surface=` deep-link restore — a shared URL only names
- * the target, so we re-derive the label from the live tree. The match is on
- * `{type,name}` alone: `locale` and `targetLabel` only resolve the label of the
- * leaf found.
+ * match). Backs the deep-link restore — a shared URL only names the target, so
+ * we re-derive the label from the live tree. `locale` and `targetLabel` only
+ * resolve the label of the leaf found.
+ *
+ * objectui#11774 — a target that names a nav id (`?nav=`) which still exists
+ * opens THAT entry, wherever it sits in the tree. Otherwise — no id, or an id
+ * no entry carries any more — the match is on `{type,name}` and the first such
+ * leaf in tree order wins, exactly as every `<type>:<name>` link resolved
+ * before ids were carried.
  */
 export function findSurfaceInTree(
   nodes: NavNode[],
-  target: { type: string; name: string },
+  target: SurfaceIdentity,
+  locale: string,
+  targetLabel?: NavTargetLabelResolver,
+): Surface | null {
+  if (target.navId) {
+    const byId = findLeaf(nodes, (s) => s.navId === target.navId, locale, targetLabel);
+    if (byId) return byId;
+  }
+  return findLeaf(nodes, (s) => s.type === target.type && s.name === target.name, locale, targetLabel);
+}
+
+/** The first leaf, in tree order, whose resolved Surface satisfies `match`. */
+function findLeaf(
+  nodes: NavNode[],
+  match: (s: Surface) => boolean,
   locale: string,
   targetLabel?: NavTargetLabelResolver,
 ): Surface | null {
   for (const node of nodes) {
     if (node.type === 'group' || node.children?.length) {
-      const hit = findSurfaceInTree(node.children ?? [], target, locale, targetLabel);
+      const hit = findLeaf(node.children ?? [], match, locale, targetLabel);
       if (hit) return hit;
     } else {
       const s = resolveSurface(node, locale, targetLabel);
-      if (s && s.type === target.type && s.name === target.name) return s;
+      if (s && match(s)) return s;
     }
   }
   return null;

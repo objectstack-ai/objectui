@@ -26,11 +26,16 @@ import { render, screen, cleanup, fireEvent, act, within } from '@testing-librar
 
 // The engine palette / config-schema reads are stubbed to their offline answer
 // and the trigger field catalog to an empty one, so nothing here needs a
-// network client (the inspectors' own tests stub the same two hooks).
-vi.mock('./useFlowNodePalette', () => ({
-  useActionConfigSchemas: () => ({}),
-  useFlowNodePalette: () => [],
-}));
+// network client (the inspectors' own tests stub the same two hooks). The
+// palette's offline answer is the hardcoded `NODE_PALETTE`, not an empty list:
+// since objectui#11778 every "+" opens it and the node lands on a pick.
+vi.mock('./useFlowNodePalette', async () => {
+  const { NODE_PALETTE } = await import('./flow-canvas-parts');
+  return {
+    useActionConfigSchemas: () => ({}),
+    useFlowNodePalette: () => NODE_PALETTE,
+  };
+});
 vi.mock('./useObjectFields', () => ({
   useObjectFields: () => ({ fields: [], loading: false, error: null }),
 }));
@@ -127,8 +132,20 @@ function danglingEdges(d: Draft): Edge[] {
   return edgesOf(d).filter((e) => !ids.has(e.source) || !ids.has(e.target));
 }
 
+/**
+ * The open add-node palette's row for the node type the card's reproduction
+ * added (`create_record`, the type the "+" inserted before objectui#11778 made
+ * it ask).
+ */
+function pickCreateRecord() {
+  const option = screen.getAllByRole('option').find((o) => o.textContent?.startsWith('Create record'));
+  expect(option, 'the palette offers Create record').toBeDefined();
+  fireEvent.click(option!);
+}
+
 function insertOnTheOnlyEdge() {
   fireEvent.click(screen.getByRole('button', { name: t('engine.flowCanvas.insertNode', 'en-US') }));
+  pickCreateRecord();
 }
 
 function removeSelectedNode() {
@@ -140,6 +157,7 @@ function addConnectedFrom(container: HTMLElement, nodeId: string) {
   const card = container.querySelector(`[data-node-id="${nodeId}"]`) as HTMLElement;
   expect(card, `node card ${nodeId}`).not.toBeNull();
   fireEvent.click(within(card).getByRole('button', { name: t('engine.flowCanvas.addConnected', 'en-US') }));
+  pickCreateRecord();
 }
 
 describe('flow designer: Remove node takes its edges, and a fresh node inherits none (objectui#11772)', () => {
@@ -177,9 +195,12 @@ describe('flow designer: Remove node takes its edges, and a fresh node inherits 
     const { probe, container } = mount(skeleton());
     addConnectedFrom(container, 'start');
     expect(nodesOf(probe.draft).map((n) => n.id)).toEqual(['start', 'end', 'node_1']);
+    // The same two ids as before the fix. Their WIRING is objectui#11778's: the
+    // node goes into Start's one path (`e1` now ends at it, `edge_1` carries on
+    // to End) where it used to open a second branch `start → node_1` beside it.
     expect(edgesOf(probe.draft)).toEqual([
-      { id: 'e1', source: 'start', target: 'end' },
-      { id: 'edge_1', source: 'start', target: 'node_1' },
+      { id: 'e1', source: 'start', target: 'node_1' },
+      { id: 'edge_1', source: 'node_1', target: 'end' },
     ]);
   });
 

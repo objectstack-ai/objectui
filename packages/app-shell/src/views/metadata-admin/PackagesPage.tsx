@@ -59,12 +59,24 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  RadioGroup,
+  RadioGroupItem,
 } from '@object-ui/components';
 import { useMetadataLocale, t, tFormat } from './i18n.js';
 import { useMetadataClient } from './useMetadata.js';
 import { PackageFormDialog } from './PackageFormDialog.js';
 import { errorCodeIs } from '@object-ui/types';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
+import { duplicatePackage, PACKAGE_ID_RE } from '../studio-design/packages-io.js';
+import { PackageIdInput } from '../studio-design/PackageIdInput.js';
 
 /* -------------------------------------------------------------------------- */
 /* Types + API                                                                 */
@@ -264,6 +276,14 @@ export function EditPackageDialog({
   );
 }
 
+/**
+ * What *Delete app* removes (ADR-0070 D4, Q3). `structure` removes the
+ * package's metadata and keeps the object tables with their records
+ * (`?keepData=true`); `all` also drops those tables. `''` = not chosen yet:
+ * the dialog has no default, so the author always picks one.
+ */
+type DeleteMode = '' | 'structure' | 'all';
+
 export function PackageDetailSheet({
   pkg,
   appBase,
@@ -298,10 +318,25 @@ export function PackageDetailSheet({
   const [drafts, setDrafts] = React.useState<Array<{ type: string; name: string }> | null>(null);
   const [editOpen, setEditOpen] = React.useState(false);
   const [viewOpen, setViewOpen] = React.useState(false);
+  // objectui#11784 — the three confirmations this sheet asks are in-app, never
+  // `window.confirm` / `window.prompt`: those are blocked or auto-answered in
+  // an embedded frame, and the old delete chained two confirms where the
+  // second one's Cancel still deleted.
+  const [deleteOpen, setDeleteOpen] = React.useState(false);
+  const [deleteMode, setDeleteMode] = React.useState<DeleteMode>('');
+  const [deleteTyped, setDeleteTyped] = React.useState('');
+  const [discardOpen, setDiscardOpen] = React.useState(false);
+  const [dupOpen, setDupOpen] = React.useState(false);
+  const [dupName, setDupName] = React.useState('');
+  const [dupId, setDupId] = React.useState('');
+  const fieldId = React.useId();
 
   React.useEffect(() => {
     setMsg(null);
     setBusy(null);
+    setDeleteOpen(false);
+    setDiscardOpen(false);
+    setDupOpen(false);
   }, [pkg?.manifest.id]);
 
   React.useEffect(() => {
@@ -329,6 +364,12 @@ export function PackageDetailSheet({
   const id = pkg.manifest.id;
   const enabled = pkg.enabled !== false && pkg.status !== 'disabled';
   const isKernel = pkg.manifest.scope === 'system' || pkg.manifest.scope === 'cloud';
+  // The name the delete dialog asks the author to type: the one the sheet's
+  // title shows.
+  const displayName = pkg.manifest.name || id;
+  const deleteArmed = deleteMode !== '' && deleteTyped.trim() === displayName.trim();
+  // The landing's duplicate form's own rule (`PACKAGE_ID_RE`), not a second one.
+  const dupArmed = dupName.trim().length > 0 && PACKAGE_ID_RE.test(dupId.trim());
 
   async function run(action: string, fn: () => Promise<any>, okText: string) {
     setBusy(action);
@@ -442,8 +483,10 @@ export function PackageDetailSheet({
     );
 
   // ADR-0033 — discard every pending draft of this app in one shot, reverting
-  // it to the last published baseline. NON-destructive: published metadata and
-  // data are untouched. Distinct from the metadata-service `/revert` above —
+  // it to the last published baseline. Published metadata and data are
+  // untouched, but the drafts are gone for good, so the *Discard changes*
+  // button opens a confirmation that names the count (objectui#11784) and only
+  // its confirm runs this. Distinct from the metadata-service `/revert` above —
   // this hits the robust `/discard-drafts` (sys_metadata) path.
   const discardDrafts = () =>
     run(
@@ -472,46 +515,69 @@ export function PackageDetailSheet({
       t('engine.packages.detail.discardDraftsOk', locale),
     );
 
-  // ADR-0033 — delete the WHOLE package: every metadata row (active + draft)
-  // plus each object's physical table (DESTRUCTIVE). Confirmed, then closes the
-  // sheet on success. Errors stay visible (sheet kept open).
+  // ADR-0033 — delete the WHOLE package: every metadata row (active + draft),
+  // and — unless the author keeps the data — each object's physical table
+  // (DESTRUCTIVE). One in-app dialog (objectui#11784): the author picks
+  // *structure only* or *structure and data* explicitly (no default), types the
+  // package's name, and only then is the delete armed. Its Cancel deletes
+  // nothing. Closes the sheet on success; a failure is shown on the sheet.
+  const openDelete = () => {
+    setDeleteMode('');
+    setDeleteTyped('');
+    setDeleteOpen(true);
+  };
+
   const deleteApp = async () => {
-    const ok = window.confirm(
-      tFormat('engine.packages.detail.deleteConfirm', locale, { name: pkg?.manifest.name || id }),
-    );
-    if (!ok) return;
-    // ADR-0070 D4 (Q3) — let the user keep records (delete structure only).
-    const alsoData = window.confirm(t('engine.packages.detail.deleteKeepData', locale));
-    const qs = alsoData ? '' : '?keepData=true';
+    if (!deleteArmed) return;
+    // ADR-0070 D4 (Q3) — `?keepData=true` removes the metadata and keeps the
+    // object tables with their records; without it the tables are dropped.
+    const qs = deleteMode === 'structure' ? '?keepData=true' : '';
     setBusy('delete');
     setMsg(null);
     try {
       await apiJson(`${API}/${encodeURIComponent(id)}${qs}`, { method: 'DELETE' });
+      setDeleteOpen(false);
       onChanged();
       onOpenChange(false);
     } catch (e: any) {
+      setDeleteOpen(false);
       setMsg({ kind: 'err', text: e?.message ?? t('engine.packages.detail.deleteFailed', locale) });
     } finally {
       setBusy(null);
     }
   };
 
-  // ADR-0070 D4 — duplicate this base into a NEW writable package (re-namespaced).
+  // ADR-0070 D4 — duplicate this base into a NEW writable package
+  // (re-namespaced). The Studio landing's inline duplicate form, on this sheet
+  // (objectui#11784): the same id input (`PackageIdInput`), the same id rule
+  // (`PACKAGE_ID_RE`) and the same call (`duplicatePackage`, which also refuses
+  // a 200 whose verdict is `success: false`), instead of a `window.prompt`.
+  const toggleDuplicate = () => {
+    if (dupOpen) {
+      setDupOpen(false);
+      return;
+    }
+    setDupName(tFormat('engine.studio.landing.dupDefaultName', locale, { name: displayName }));
+    setDupId(`${id}-copy`);
+    setDupOpen(true);
+  };
+
   const duplicateApp = async () => {
-    const target = window.prompt(t('engine.packages.detail.duplicatePrompt', locale), `${id}-copy`);
-    if (!target || !target.trim()) return;
+    const target = dupId.trim();
+    const name = dupName.trim();
+    if (!name || !PACKAGE_ID_RE.test(target)) return;
     setBusy('duplicate');
     setMsg(null);
     try {
-      await apiJson(`${API}/${encodeURIComponent(id)}/duplicate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ targetPackageId: target.trim(), targetName: `${pkg?.manifest.name ?? id} (copy)` }),
-      });
+      await duplicatePackage(id, target, name);
+      setDupOpen(false);
       setMsg({ kind: 'ok', text: t('engine.packages.detail.duplicated', locale) });
       onChanged();
-    } catch (e: any) {
-      setMsg({ kind: 'err', text: e?.message ?? 'Duplicate failed' });
+    } catch (e: unknown) {
+      setMsg({
+        kind: 'err',
+        text: e instanceof Error && e.message ? e.message : t('engine.packages.detail.actionFailed', locale),
+      });
     } finally {
       setBusy(null);
     }
@@ -624,7 +690,7 @@ export function PackageDetailSheet({
                       ? t('engine.packages.detail.publishing', locale)
                       : tFormat('engine.packages.detail.publishApp', locale, { count: drafts.length })}
                   </Button>
-                  <Button size="sm" variant="outline" onClick={discardDrafts} disabled={!!busy}>
+                  <Button size="sm" variant="outline" onClick={() => setDiscardOpen(true)} disabled={!!busy}>
                     <Undo2 className="mr-1.5 h-3.5 w-3.5" />
                     {busy === 'discard-drafts'
                       ? t('engine.packages.detail.discarding', locale)
@@ -701,7 +767,13 @@ export function PackageDetailSheet({
                 <Download className="mr-1.5 h-3.5 w-3.5" />
                 {busy === 'export' ? t('engine.packages.detail.exporting', locale) : t('engine.packages.detail.export', locale)}
               </Button>
-              <Button size="sm" variant="outline" onClick={duplicateApp} disabled={!!busy}>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={toggleDuplicate}
+                disabled={!!busy}
+                aria-expanded={dupOpen}
+              >
                 <Copy className="mr-1.5 h-3.5 w-3.5" />
                 {busy === 'duplicate' ? t('engine.packages.detail.duplicating', locale) : t('engine.packages.detail.duplicate', locale)}
               </Button>
@@ -712,7 +784,7 @@ export function PackageDetailSheet({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={deleteApp}
+                onClick={openDelete}
                 disabled={!!busy}
                 className="text-destructive hover:bg-destructive/10 hover:text-destructive"
               >
@@ -720,6 +792,45 @@ export function PackageDetailSheet({
                 {busy === 'delete' ? t('engine.packages.detail.deleting', locale) : t('engine.packages.detail.deleteApp', locale)}
               </Button>
             </div>
+            {dupOpen && (
+              <div className="flex flex-col gap-1.5 rounded-md border p-2.5" data-testid="pkg-detail-dup-form">
+                <input
+                  autoFocus
+                  value={dupName}
+                  onChange={(e) => setDupName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && dupArmed && !busy) void duplicateApp();
+                    if (e.key === 'Escape') setDupOpen(false);
+                  }}
+                  placeholder={t('engine.studio.landing.dupNamePlaceholder', locale)}
+                  aria-label={t('engine.studio.landing.dupNamePlaceholder', locale)}
+                  data-testid="pkg-detail-dup-name-input"
+                  className="h-7 w-full rounded-md border bg-background px-2 text-[11px] outline-none focus:ring-1 focus:ring-primary"
+                />
+                <PackageIdInput
+                  value={dupId}
+                  onChange={setDupId}
+                  onEnter={() => {
+                    if (dupArmed && !busy) void duplicateApp();
+                  }}
+                  onEscape={() => setDupOpen(false)}
+                  placeholder={t('engine.studio.landing.dupIdPlaceholder', locale)}
+                  locale={locale}
+                  testId="pkg-detail-dup-id-input"
+                />
+                <div className="flex items-center gap-1.5">
+                  <Button size="sm" onClick={() => void duplicateApp()} disabled={!!busy || !dupArmed}>
+                    <Copy className="mr-1.5 h-3.5 w-3.5" />
+                    {busy === 'duplicate'
+                      ? t('engine.packages.detail.duplicating', locale)
+                      : t('engine.packages.detail.duplicateGo', locale)}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => setDupOpen(false)} disabled={!!busy}>
+                    {t('engine.cancel', locale)}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -750,6 +861,118 @@ export function PackageDetailSheet({
           onOpenChange={setViewOpen}
           manifest={pkg?.manifest ?? null}
         />
+
+        <AlertDialog
+          open={deleteOpen}
+          onOpenChange={(next) => {
+            // Not dismissable while the DELETE is in flight.
+            if (busy === 'delete') return;
+            setDeleteOpen(next);
+          }}
+        >
+          <AlertDialogContent data-testid="pkg-detail-delete-dialog">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {tFormat('engine.packages.detail.deleteTitle', locale, { name: displayName })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('engine.packages.detail.deleteDescription', locale)}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <RadioGroup
+              value={deleteMode}
+              onValueChange={(v) => setDeleteMode(v === 'structure' || v === 'all' ? v : '')}
+              aria-label={t('engine.packages.detail.deleteApp', locale)}
+              className="gap-3"
+            >
+              <div className="flex items-start gap-2">
+                <RadioGroupItem
+                  value="structure"
+                  id={`${fieldId}-delete-structure`}
+                  data-testid="pkg-detail-delete-mode-structure"
+                  className="mt-0.5"
+                />
+                <Label htmlFor={`${fieldId}-delete-structure`} className="grid gap-0.5 font-normal">
+                  <span className="font-medium">{t('engine.packages.detail.deleteModeStructure', locale)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t('engine.packages.detail.deleteModeStructureHint', locale)}
+                  </span>
+                </Label>
+              </div>
+              <div className="flex items-start gap-2">
+                <RadioGroupItem
+                  value="all"
+                  id={`${fieldId}-delete-all`}
+                  data-testid="pkg-detail-delete-mode-all"
+                  className="mt-0.5"
+                />
+                <Label htmlFor={`${fieldId}-delete-all`} className="grid gap-0.5 font-normal">
+                  <span className="font-medium">{t('engine.packages.detail.deleteModeAll', locale)}</span>
+                  <span className="text-xs text-muted-foreground">
+                    {t('engine.packages.detail.deleteModeAllHint', locale)}
+                  </span>
+                </Label>
+              </div>
+            </RadioGroup>
+            <div className="grid gap-1.5">
+              <Label htmlFor={`${fieldId}-delete-name`} className="text-sm font-medium">
+                {tFormat('engine.packages.detail.deleteTypeName', locale, { name: displayName })}
+              </Label>
+              <Input
+                id={`${fieldId}-delete-name`}
+                value={deleteTyped}
+                onChange={(e) => setDeleteTyped(e.target.value)}
+                placeholder={displayName}
+                autoComplete="off"
+                data-testid="pkg-detail-delete-name-input"
+              />
+            </div>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={busy === 'delete'} data-testid="pkg-detail-delete-cancel">
+                {t('engine.cancel', locale)}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={!deleteArmed || busy === 'delete'}
+                data-testid="pkg-detail-delete-confirm"
+                onClick={(e) => {
+                  // Stay open while the DELETE runs; `deleteApp` closes it.
+                  e.preventDefault();
+                  void deleteApp();
+                }}
+              >
+                {busy === 'delete'
+                  ? t('engine.packages.detail.deleting', locale)
+                  : t('engine.packages.detail.deleteApp', locale)}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>
+          <AlertDialogContent data-testid="pkg-detail-discard-dialog">
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {tFormat('engine.packages.detail.discardTitle', locale, { count: drafts?.length ?? 0 })}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {t('engine.packages.detail.discardDescription', locale)}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel data-testid="pkg-detail-discard-cancel">
+                {t('engine.cancel', locale)}
+              </AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                data-testid="pkg-detail-discard-confirm"
+                onClick={() => void discardDrafts()}
+              >
+                {tFormat('engine.packages.detail.discardChanges', locale, { count: drafts?.length ?? 0 })}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </SheetContent>
     </Sheet>
   );

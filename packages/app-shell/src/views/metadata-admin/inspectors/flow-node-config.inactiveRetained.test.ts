@@ -23,7 +23,7 @@ import {
   fieldsForNodeType,
   isFieldVisible,
   inactiveRetainedKind,
-  FLOW_NODE_TYPE_OPTIONS,
+  FLOW_NODE_CONFIG_TYPES,
   type FlowConfigField,
 } from './flow-node-config.js';
 import { jsonSchemaToFlowFields } from './json-schema-to-fields.js';
@@ -131,7 +131,7 @@ describe('inactiveRetainedKind — mechanical coverage of every showWhen group',
     'subflow', 'notify', 'connector_action', 'parallel', 'try_catch', 'parallel_gateway',
     'join_gateway', 'boundary_event', 'legacy_action',
   ];
-  const TYPES = [...new Set([...CANONICAL, ...FLOW_NODE_TYPE_OPTIONS, ...TYPE_ALIASES])];
+  const TYPES = [...new Set([...CANONICAL, ...FLOW_NODE_CONFIG_TYPES, ...TYPE_ALIASES])];
 
   /** Write `value` at `field.path` on a fresh node object. */
   function nodeWith(type: string, entries: Array<[string[], unknown]>) {

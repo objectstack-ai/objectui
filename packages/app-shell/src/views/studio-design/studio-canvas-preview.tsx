@@ -32,7 +32,14 @@
  */
 
 import * as React from 'react';
-import { SchemaRenderer } from '@object-ui/react';
+import { SchemaRenderer, useMetadata } from '@object-ui/react';
+import { resolveViewId } from '@object-ui/core';
+import { useAuth } from '@object-ui/auth';
+import { resolveHref, type NavTemplateContext } from '@object-ui/layout';
+import type { NavigationEntryItem } from '@object-ui/types';
+import type { ObjectNavItem } from '@objectstack/spec/ui';
+import { parseUrlFilterTriples, type FilterTriple } from '../drillUrlFilters.js';
+import { findByName } from '../../hooks/useNavTargetLabel.js';
 
 /**
  * Props handed to a Studio-canvas renderer. Intentionally a small, read-only
@@ -79,16 +86,131 @@ export function listStudioCanvasPreviewTypes(): string[] {
 }
 
 /**
+ * The Interfaces nav entry the canvas is open on, as far as its list goes
+ * (objectui#11774): an `object` entry's `filters` (a data slice) or `viewName`
+ * (a named view), as authored, with the entry's `id`.
+ *
+ * ⛔ Studio-internal. A context and not a member of
+ * {@link StudioCanvasPreviewProps}: those props are on the package entry, and
+ * carrying an entry's modifiers to every registered canvas would widen that
+ * published face. The Interfaces pillar provides it around the canvas it
+ * renders; the built-in default below reads it. A canvas registered over the
+ * default, or one rendered outside the pillar, sees `null` and renders as it
+ * always did.
+ */
+export interface StudioCanvasNavEntry {
+  navId?: string;
+  filters?: ObjectNavItem['filters'];
+  viewName?: ObjectNavItem['viewName'];
+}
+
+export const StudioCanvasNavEntryContext = React.createContext<StudioCanvasNavEntry | null>(null);
+
+/** What an entry changes about the object's list: the slice's conditions, or the named view to open. */
+export interface NavEntryListTarget {
+  /** The entry's `filters` as the `/data` surface reads them; empty when it lands elsewhere. */
+  filter: FilterTriple[];
+  /** The view the entry lands on (`/view/:viewId`), as the entry names it; absent otherwise. */
+  viewName?: string;
+}
+
+/**
+ * Where the running app takes an `object` nav entry, read the way the route it
+ * lands on reads it (objectui#11774). The preview asks the runtime rather than
+ * interpreting `filters` / `viewName` a second time:
+ *
+ *  - `resolveHref` (`@object-ui/layout`) is the shell's single source of truth
+ *    for nav → URL. It decides the landing — `recordId` → `filters` →
+ *    `viewName` — and substitutes `{current_user_id}`-style values, dropping
+ *    an entry it cannot resolve, as the sidebar does;
+ *  - a `/data` landing is the bare data surface, whose `filter[...]` params
+ *    `ObjectDataPage` reads through `parseUrlFilterTriples` — read here by the
+ *    same function;
+ *  - a `/view/:viewId` landing names the view `ObjectView` opens; the caller
+ *    matches it as `ObjectView` does (`resolveViewId`).
+ *
+ * Any other landing (the plain list, a `recordId` detail page) changes nothing
+ * here, so such an entry previews the object's list as before.
+ */
+export function navEntryListTarget(
+  objectName: string,
+  entry: StudioCanvasNavEntry | null,
+  templateContext?: NavTemplateContext,
+): NavEntryListTarget {
+  if (!entry || (!entry.filters && !entry.viewName)) return { filter: [] };
+  // The question is where an entry with these modifiers lands; `resolveHref`
+  // reads no `id` off an object entry, so the id is carried only for the type.
+  const item: NavigationEntryItem = {
+    id: entry.navId ?? '',
+    type: 'object',
+    objectName,
+    ...(entry.filters ? { filters: entry.filters } : {}),
+    ...(entry.viewName ? { viewName: entry.viewName } : {}),
+  };
+  const { href } = resolveHref(item, '', templateContext);
+  const q = href.indexOf('?');
+  const route = (q < 0 ? href : href.slice(0, q)).slice(`/${objectName}`.length);
+  if (route === '/data') {
+    return { filter: parseUrlFilterTriples(new URLSearchParams(q < 0 ? '' : href.slice(q + 1))) };
+  }
+  const VIEW = '/view/';
+  if (route.startsWith(VIEW) && route.length > VIEW.length) {
+    return { filter: [], viewName: route.slice(VIEW.length) };
+  }
+  return { filter: [] };
+}
+
+/**
  * Default Studio-canvas renderer for `object` leaves: the runtime records grid,
  * exactly as the running app shows it (preview = runtime). Schema editing lives
  * in the Data pillar, so this is the object-view grid — NOT the field-form
  * designer that is the `object` entry in the MetadataPreviewRegistry.
  *
+ * objectui#11774 — opened on a nav entry that slices the object (`filters`) or
+ * names one of its views (`viewName`), it shows that slice or that view, as the
+ * running app does (see {@link navEntryListTarget}). The named view is the
+ * object's own, from the merged `listViews` the shell's metadata holds — the
+ * map `ObjectView` and the rail's label resolver (`useNavTargetLabel`) read —
+ * handed to the renderer as the Studio's view preview hands one. With no entry
+ * (or a plain one) the schema is exactly the one this rendered before.
+ *
  * Exported so downstream renderers can compose/wrap it; override the default
  * wholesale via `registerStudioCanvasPreview('object', …)`.
  */
 export function StudioObjectRecordsCanvas({ name }: StudioCanvasPreviewProps) {
-  return <SchemaRenderer schema={{ type: 'object-view', objectName: name } as never} />;
+  const entry = React.useContext(StudioCanvasNavEntryContext);
+  const { user, activeOrganization } = useAuth();
+  const currentUserId = user?.id ?? null;
+  const currentOrgId = activeOrganization?.id ?? null;
+  // Keyed on the values, never on the context object's identity (AGENTS.md #10).
+  const navId = entry?.navId;
+  const filtersKey = JSON.stringify(entry?.filters ?? null);
+  const entryViewName = entry?.viewName;
+  const target = React.useMemo(() => {
+    const filters = (JSON.parse(filtersKey) as StudioCanvasNavEntry['filters'] | null) ?? undefined;
+    return navEntryListTarget(name, { navId, filters, viewName: entryViewName }, { currentUserId, currentOrgId });
+  }, [name, navId, filtersKey, entryViewName, currentUserId, currentOrgId]);
+  // Read only for an entry that names a view: a plain entry asks the metadata
+  // cache for nothing, as before.
+  const metadata = useMetadata();
+  const objectViews = target.viewName ? listViewsOf(findByName(metadata.objects, name)) : undefined;
+  const viewId = objectViews && target.viewName ? resolveViewId(target.viewName, Object.keys(objectViews), name) : undefined;
+  const view = viewId ? objectViews?.[viewId] : undefined;
+  const schema = {
+    type: 'object-view',
+    objectName: name,
+    ...(target.filter.length > 0 ? { table: { filter: target.filter } } : {}),
+    ...(viewId && view ? { listViews: { [viewId]: view }, defaultListView: viewId } : {}),
+  };
+  // The renderer settles its named view once, at mount, so a different view is
+  // a different mount; a different slice of the same list is a refetch.
+  return <SchemaRenderer key={view ? viewId : ''} schema={schema as never} />;
+}
+
+/** An object definition's merged `listViews` map, or `{}` when it has none. */
+function listViewsOf(def: { listViews?: unknown } | undefined): Record<string, unknown> {
+  const views = def?.listViews;
+  return views && typeof views === 'object' ? (views as Record<string, unknown>) : {};
 }
 
 // Side-effect: register the built-in defaults. Kept inline (rather than a

@@ -16,16 +16,30 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useActionRunner } from '@object-ui/react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { toast } from 'sonner';
-import { recordDelete, type ActionDef, type ActionResult } from '@object-ui/core';
+import {
+  recordDelete,
+  type ActionDef,
+  type ActionResult,
+  type ConfirmationHandler,
+  type RecordDeleteConfirmCopy,
+} from '@object-ui/core';
+
+/** The browser's native box — the fallback when the host passes no `onConfirm`. */
+const nativeConfirm: ConfirmationHandler = async (message) => window.confirm(message);
 
 interface ObjectActionConfig {
   objectName: string;
   objectLabel?: string;
+  /**
+   * The object definition, so the delete confirmation names the record by its
+   * declared name field (ADR-0079) rather than a guessed record key.
+   */
+  objectDef?: unknown;
   dataSource: any;
   onEdit?: (record: any) => void;
   onRefresh?: () => void;
   /** Optional shadcn-style confirm handler — falls back to window.confirm */
-  onConfirm?: (message: string, options?: { title?: string; confirmText?: string; cancelText?: string }) => Promise<boolean>;
+  onConfirm?: ConfirmationHandler;
   /** Optional toast handler — falls back to sonner */
   onToast?: (message: string, options?: { type?: string }) => void;
 }
@@ -41,6 +55,8 @@ interface ObjectActions {
    * delete (ADR-0094) without an extra fetch.
    */
   deleteRecord: (recordId: string, record?: Record<string, unknown>) => Promise<ActionResult>;
+  /** Delete several records, confirmed once for the batch. */
+  deleteRecords: (records: Record<string, unknown>[]) => Promise<ActionResult>;
   /** Navigate to a view */
   navigateToView: (viewId: string) => void;
   /** Navigate to a record detail */
@@ -54,6 +70,7 @@ interface ObjectActions {
 export function useObjectActions({
   objectName,
   objectLabel,
+  objectDef,
   dataSource,
   onEdit,
   onRefresh,
@@ -119,19 +136,55 @@ export function useObjectActions({
     onEdit?.(null);
   }, [onEdit]);
 
+  // objectui#11695 — a delete asks with the shared core's WHOLE copy: a title
+  // that names the record (or counts the batch), the body, and a "Delete"
+  // button painted destructive. The runner's own confirm step hands the
+  // handler one argument — the `confirmText` body — so it can carry neither the
+  // title nor the button; the question is therefore asked here, through the
+  // same handler, and the delete then runs through the runner with no
+  // `confirmText`, so nothing asks twice. A cancel returns what the runner's
+  // cancel returned.
+  const label = objectLabel || objectName;
+  const confirmDelete = useCallback(
+    async (copy: RecordDeleteConfirmCopy): Promise<boolean> =>
+      (onConfirm ?? nativeConfirm)(copy.message, {
+        title: copy.title,
+        confirmText: copy.confirmText,
+        destructive: true,
+      }),
+    [onConfirm],
+  );
+
   const deleteRecord = useCallback(
-    async (recordId: string, record?: Record<string, unknown>) => {
-      // The question comes from the shared record-delete core (objectui#10383):
-      // for a package-owned permission set it is the honest RESET question
+    async (recordId: string, record?: Record<string, unknown>): Promise<ActionResult> => {
+      // The copy comes from the shared record-delete core (objectui#10383): for
+      // a package-owned permission set the body is the honest RESET question
       // (ADR-0094), not a promise of an irreversible delete the user can see
-      // doesn't happen (the row stays).
+      // doesn't happen (the row stays). With only an id in hand the title
+      // names the record by the resolver's `Record #id` floor.
+      const copy = recordDelete.confirmCopy(
+        { objectName, t, label, objectDef },
+        { record: record ?? { id: recordId } },
+      );
+      if (!(await confirmDelete(copy))) return { success: false, error: 'Action cancelled by user' };
       return execute({
         type: 'delete',
-        confirmText: recordDelete.confirmText({ objectName, t }, record),
         params: record ? { recordId, record } : { recordId },
       });
     },
-    [execute, t, objectName],
+    [execute, t, objectName, label, objectDef, confirmDelete],
+  );
+
+  const deleteRecords = useCallback(
+    async (records: Record<string, unknown>[]): Promise<ActionResult> => {
+      const copy = recordDelete.confirmCopy(
+        { objectName, t, label, objectDef },
+        { count: records.length },
+      );
+      if (!(await confirmDelete(copy))) return { success: false, error: 'Action cancelled by user' };
+      return execute({ type: 'delete', params: { records } });
+    },
+    [execute, t, objectName, label, objectDef, confirmDelete],
   );
 
   const navigateToView = useCallback(
@@ -152,6 +205,7 @@ export function useObjectActions({
     execute,
     create,
     deleteRecord,
+    deleteRecords,
     navigateToView,
     navigateToRecord,
     loading,

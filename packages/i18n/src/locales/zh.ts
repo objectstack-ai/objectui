@@ -2956,6 +2956,11 @@ const zh = {
     deleteFailed: '删除 {{label}} 失败',
     noRecordId: '未提供记录 ID',
     deleteConfirm: '确定要删除此记录吗？',
+    deleteConfirmTitle: '删除{{label}}“{{name}}”？',
+    bulkDeleteConfirmTitle: '删除 {{count}} 条 {{label}} 记录？',
+    bulkDeleteConfirmTitle_one: '删除 {{count}} 条 {{label}} 记录？',
+    bulkDeleteConfirmTitle_other: '删除 {{count}} 条 {{label}} 记录？',
+    deleteConfirmButton: '删除',
     resetPackageSetConfirm:
       '该权限集随已安装的软件包发布，无法删除。删除操作将丢弃环境定制并把它重置为发布基线。是否继续？',
     resetPackageSetSuccess: '权限集已重置为发布基线',
@@ -3078,6 +3083,7 @@ const zh = {
       readOnlyNote: '只有所有者可以修改设置。',
       nameLabel: '组织名称',
       slugLabel: '标识',
+      slugLockedNote: '该组织还有正在使用的环境，因此无法在此修改标识：重命名会同时迁移这些环境的子域名。',
       logoLabel: 'Logo',
       logoUpload: '上传',
       logoReplace: '更换',
@@ -3539,7 +3545,7 @@ const zh = {
       load: {
         failed: '应用市场加载失败',
         failedHintConfigured: '本运行时通过 {{url}} 上的控制面访问应用市场。请检查该地址是否在线、能否从本运行时访问。',
-        failedHintSameOrigin: '本运行时自己提供应用市场目录。请检查运行时是否在线。',
+        failedHintSameOrigin: '应用市场目录通过本运行时访问。请检查运行时是否在线、能否访问该目录。',
         packageFailed: '应用加载失败',
         notFound: '未找到。',
       },

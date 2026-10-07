@@ -80,6 +80,69 @@ describe('recordDelete.confirmText', () => {
   });
 });
 
+/**
+ * objectui#11695 — the delete confirmation names what it deletes. The title
+ * names ONE record by the ADR-0079 resolver (reading the object's declared
+ * `nameField` when the host hands the definition) plus the object label, or
+ * counts a batch; the confirm button is the delete verb, never the generic
+ * "Continue"; the body is `confirmText`'s question (the reset question for a
+ * package-owned permission set).
+ */
+describe('recordDelete.confirmCopy (objectui#11695)', () => {
+  const PRODUCT = {
+    name: 'crm_product',
+    label: 'Product',
+    nameField: 'product_name',
+    fields: { product_name: { type: 'text' }, name: { type: 'text' } },
+  };
+
+  it('names ONE record by its declared name field and the object label, and confirms with the delete verb', () => {
+    const copy = recordDelete.confirmCopy(
+      { objectName: 'crm_product', t, label: 'Product', objectDef: PRODUCT },
+      { record: { id: 'p1', product_name: 'QA Widget 0', name: 'SKU-1' } },
+    );
+    expect(copy).toEqual({
+      title: 'objectActions.deleteConfirmTitle {"label":"Product","name":"QA Widget 0"}',
+      message: 'objectActions.deleteConfirm',
+      confirmText: 'objectActions.deleteConfirmButton',
+    });
+  });
+
+  it('without the definition, the resolver reads the record itself (control: the name field above was READ)', () => {
+    const copy = recordDelete.confirmCopy(
+      { objectName: 'crm_product', t, label: 'Product' },
+      { record: { id: 'p1', product_name: 'QA Widget 0', name: 'SKU-1' } },
+    );
+    expect(copy.title).toBe('objectActions.deleteConfirmTitle {"label":"Product","name":"SKU-1"}');
+  });
+
+  it('a row with no name reads by the resolver floor, never a blank', () => {
+    const copy = recordDelete.confirmCopy(
+      { objectName: 'crm_product', t, label: 'Product', objectDef: PRODUCT },
+      { record: { id: 'p9' } },
+    );
+    expect(copy.title).toBe('objectActions.deleteConfirmTitle {"label":"Product","name":"Record #p9"}');
+  });
+
+  it('keeps the ADR-0094 reset question as the body for a package-owned permission set', () => {
+    const copy = recordDelete.confirmCopy(
+      { objectName: 'sys_permission_set', t, label: 'Permission Set' },
+      { record: { id: 'ps1', name: 'Sales Rep', managed_by: 'package' } },
+    );
+    expect(copy.message).toBe('objectActions.resetPackageSetConfirm');
+    expect(copy.title).toBe('objectActions.deleteConfirmTitle {"label":"Permission Set","name":"Sales Rep"}');
+  });
+
+  it('counts a batch in the title and asks the batch question', () => {
+    const copy = recordDelete.confirmCopy({ objectName: 'crm_lead', t, label: 'Lead' }, { count: 3 });
+    expect(copy).toEqual({
+      title: 'objectActions.bulkDeleteConfirmTitle {"count":3,"label":"Lead"}',
+      message: 'console.objectView.bulkDeleteConfirm {"count":3}',
+      confirmText: 'objectActions.deleteConfirmButton',
+    });
+  });
+});
+
 describe('recordDelete.run — one record', () => {
   it('deletes, refreshes, toasts success, and returns the silent success the runner expects', async () => {
     const { deps, dataSource, toast, onRefresh } = harness();

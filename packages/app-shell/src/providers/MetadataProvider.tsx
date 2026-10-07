@@ -561,6 +561,43 @@ export function attachInlineSubforms(objects: any[]): any[] {
   });
 }
 
+/**
+ * The composed object list, keyed on the two STORED arrays it is built from
+ * (objectui#11699).
+ *
+ * The context value's `objects` getter used to run `mergeViewsIntoObjects` +
+ * `attachInlineSubforms` on every READ, and both hand back a new wrapper for
+ * every object they touch. So each re-render of a host that reads `objects`
+ * handed its children a new object for an unchanged definition — measured on a
+ * showcase record page, where the record-load effect read the record a second
+ * time for a definition that was JSON-equal, from the same context version.
+ * AGENTS.md #10: a provider may not republish an equal payload as a new
+ * object.
+ *
+ * The key is the payload, not a React memo: `entry.items` for `object` and for
+ * `view`. Every write to a cache entry REPLACES that array (a landed fetch, a
+ * by-name or whole-type invalidation, an org or preview-mode clear), and none
+ * mutates it in place, so a new array is exactly "this input changed" and the
+ * same array is exactly "it did not". ⚠️ Nothing re-checks that (AGENTS.md
+ * #9): it was read off this file and the list's readers once, when this cache
+ * was written. A write that pushes, splices, sorts or index-assigns into a
+ * stored `object` / `view` array would make this hand out the list as it was
+ * — replace the array instead. A discarded `useMemo` around the context
+ * value cannot move either array, so it cannot move the composed list.
+ * Module-level and weak, so an entry lives only as long as the stored list it
+ * was built from.
+ */
+const COMPOSED_OBJECTS = new WeakMap<unknown[], { views: unknown[]; composed: unknown[] }>();
+
+function composeObjects(objs: unknown[], views: unknown[]): unknown[] {
+  const cached = COMPOSED_OBJECTS.get(objs);
+  if (cached && cached.views === views) return cached.composed;
+  const merged = views.length ? mergeViewsIntoObjects(objs, views) : objs;
+  const composed = attachInlineSubforms(merged);
+  COMPOSED_OBJECTS.set(objs, { views, composed });
+  return composed;
+}
+
 function emptyEntry(): TypeCacheEntry {
   return {
     status: 'idle',
@@ -1069,11 +1106,9 @@ export function MetadataProvider({ children, adapter, ttlMs = DEFAULT_TTL_MS }: 
 
     const base: MetadataContextValue = {
       apps: getEntry('app').items,
+      // The same list for the same stored inputs, read after read (objectui#11699).
       get objects() {
-        const objs = readType(TYPE_BY_STATE_KEY.objects);
-        const views = readType('view');
-        const merged = views.length ? mergeViewsIntoObjects(objs, views) : objs;
-        return attachInlineSubforms(merged);
+        return composeObjects(readType(TYPE_BY_STATE_KEY.objects), readType('view'));
       },
       get dashboards() {
         return readType(TYPE_BY_STATE_KEY.dashboards);

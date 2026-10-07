@@ -528,6 +528,11 @@ export type ActionRunnerHandler = (
  * `.cancel`), and `app-shell`'s `ActionConfirmDialog.tsx` renders them in
  * place of its generic `actionConfirm.*` fallbacks. Line numbers are left out
  * on purpose: #5205's pointer had already drifted by the time it was executed.
+ * The record delete is a second producer (objectui#11695): `app-shell`'s
+ * `useObjectActions` (the list's row and bulk Delete) and `RecordDetailView`
+ * (the record page's Delete) hand it `recordDelete.confirmCopy`'s title and
+ * confirm label with `destructive: true`, which paints the confirm button in
+ * the destructive button style.
  *
  * So re-measure across the repo, not this package: grep for two-argument
  * calls of `ConfirmationHandler`-typed values (`confirmHandler(`, `onConfirm(`)
@@ -541,6 +546,8 @@ export type ConfirmationHandler = (message: string, options?: {
   title?: string;
   confirmText?: string;
   cancelText?: string;
+  /** The confirmed action destroys data: paint the confirm button destructive. */
+  destructive?: boolean;
 }) => Promise<boolean>;
 
 /**

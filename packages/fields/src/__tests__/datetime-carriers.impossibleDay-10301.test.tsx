@@ -118,13 +118,14 @@ describe('objectui#10301 — the `datetime` cell', () => {
     // This suite runs in UTC (`vitest.config.mts` pins it).
     const root = renderCell('datetime', REAL_DATETIME);
     expect(affordanceIn(root)).toBeNull();
-    expect(root.textContent).toBe('2/28/202610:00 am');
+    // The halves are joined by a space, the compact face's own joiner (objectui#11683).
+    expect(root.textContent).toBe('2/28/2026 10:00 am');
   });
 
   it('control: a real day written with an offset renders its instant, not the affordance', () => {
     const root = renderCell('datetime', REAL_DAY_WITH_OFFSET);
     expect(affordanceIn(root)).toBeNull();
     const parts = formatDateTimeCompactParts(new Date(REAL_DAY_WITH_OFFSET), { locale: 'en' });
-    expect(root.textContent).toBe(`${parts!.date}${parts!.time}`);
+    expect(root.textContent).toBe(`${parts!.date} ${parts!.time}`);
   });
 });

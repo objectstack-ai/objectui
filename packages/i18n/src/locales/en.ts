@@ -3374,6 +3374,11 @@ const en = {
     deleteFailed: 'Failed to delete {{label}}',
     noRecordId: 'No record ID provided',
     deleteConfirm: 'Are you sure you want to delete this record?',
+    deleteConfirmTitle: 'Delete {{label}} "{{name}}"?',
+    bulkDeleteConfirmTitle: 'Delete {{count}} {{label}} records?',
+    bulkDeleteConfirmTitle_one: 'Delete {{count}} {{label}} record?',
+    bulkDeleteConfirmTitle_other: 'Delete {{count}} {{label}} records?',
+    deleteConfirmButton: 'Delete',
     resetPackageSetConfirm:
       'This permission set ships with an installed package and cannot be removed. ' +
       'Deleting resets it to the shipped baseline and discards your environment customization. Continue?',
@@ -3506,6 +3511,7 @@ const en = {
       // The org's URL segment. `deleteConfirmSlugLabel` asks the user to
       // retype it, so the two must keep naming the same thing.
       slugLabel: 'Slug',
+      slugLockedNote: 'This organization has active environments, so its slug can’t be changed here: renaming it also moves their subdomains.',
       logoLabel: 'Logo',
       logoUpload: 'Upload',
       logoReplace: 'Replace',
@@ -4001,7 +4007,7 @@ const en = {
       load: {
         failed: 'Failed to load marketplace',
         failedHintConfigured: 'This runtime reaches the marketplace through the control plane at {{url}}. Check that it is online and reachable from here.',
-        failedHintSameOrigin: 'This runtime serves the marketplace catalog itself. Check that the runtime is online.',
+        failedHintSameOrigin: 'The marketplace catalog is reached through this runtime. Check that the runtime is online and can reach the catalog.',
         packageFailed: 'Failed to load package',
         notFound: 'Not found.',
       },

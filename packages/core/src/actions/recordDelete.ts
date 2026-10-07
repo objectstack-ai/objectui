@@ -27,9 +27,20 @@
  * `@object-ui/core` is the lowest package both hosts already depend on. The
  * host-specific pieces are INJECTED — the translator, the toast sink, the data
  * source and the refresh — so this package gains no i18n or toast dependency.
- * The host keeps its own confirm UI (`app-shell` runs the question through the
- * action runner's confirm handler; `plugin-view` renders it in its own
- * AlertDialog); the QUESTION comes from {@link recordDelete}.confirmText.
+ * The host keeps its own confirm UI (`app-shell` hands the copy to the console's
+ * confirm handler; `plugin-view` renders it in its own AlertDialog); the COPY —
+ * title, body and confirm-button label — comes from
+ * {@link recordDelete}.confirmCopy, whose body for one record is
+ * {@link recordDelete}.confirmText.
+ *
+ * ## The confirmation names what it deletes (objectui#11695)
+ *
+ * A generic "Confirm Action" / "Continue" dialog never said WHICH record was
+ * about to go, nor that the click is a delete. The title names the record by
+ * the ONE ADR-0079 display-name resolver ({@link getRecordDisplayName}, the
+ * resolver the record header and lookups use), and the object label — or, for
+ * a batch, the count. The confirm button reads as the deletion it is; every
+ * host paints it in the destructive button style.
  *
  * ## ADR-0094 — a package-owned permission set is RESET, not deleted
  *
@@ -57,6 +68,7 @@
  */
 
 import type { ActionResult } from './ActionRunner.js';
+import { getRecordDisplayName } from '../utils/record-title.js';
 
 type Row = Record<string, unknown>;
 
@@ -93,6 +105,26 @@ interface RecordDeleteRequest {
   recordId?: unknown;
 }
 
+/**
+ * The copy of a delete confirmation — everything a host's confirm dialog shows,
+ * from {@link recordDelete}.confirmCopy (objectui#11695).
+ */
+export interface RecordDeleteConfirmCopy {
+  /** The dialog title: names the record and its object, or the batch size. */
+  title: string;
+  /** The dialog body: the plain delete question, or ADR-0094's reset question. */
+  message: string;
+  /** The confirm button's label: a deletion verb, painted destructive by the host. */
+  confirmText: string;
+}
+
+/**
+ * What a delete confirmation is about: ONE record (its row — at least its
+ * `id`, so a nameless row still reads by the resolver's `Record #id` floor) or
+ * a batch (how many).
+ */
+export type RecordDeleteConfirmTarget = { record: Row | null | undefined } | { count: number };
+
 const PERMISSION_SET_OBJECT = 'sys_permission_set';
 
 /** ADR-0094: is this permission-set row owned by an installed package? */
@@ -108,9 +140,10 @@ function isPackageOwned(row: unknown): boolean {
  */
 export const recordDelete = Object.freeze({
   /**
-   * The question to ask before deleting ONE record: the reset question for a
-   * package-owned permission set (ADR-0094), the plain delete question
-   * otherwise. Reads only the row it is handed — no lookup.
+   * The question to ask before deleting ONE record — the body of
+   * {@link recordDelete}.confirmCopy: the reset question for a package-owned
+   * permission set (ADR-0094), the plain delete question otherwise. Reads only
+   * the row it is handed — no lookup.
    */
   confirmText(deps: Pick<RecordDeleteDeps, 'objectName' | 't'>, record?: Row | null): string {
     const { objectName, t } = deps;
@@ -121,6 +154,45 @@ export const recordDelete = Object.freeze({
             'Deleting resets it to the shipped baseline and discards your environment customization. Continue?',
         })
       : t('objectActions.deleteConfirm');
+  },
+
+  /**
+   * The whole delete confirmation — title, body and confirm-button label — for
+   * ONE record or a batch (objectui#11695). Every host's delete dialog shows
+   * this copy, so the list's row Delete, its bulk Delete and the record page's
+   * Delete say the same thing.
+   *
+   * One record: the title names it — the object label plus the record's
+   * display name from {@link getRecordDisplayName}, reading `objectDef`'s
+   * declared name field when the host has the definition — and the body is
+   * {@link recordDelete}.confirmText (the ADR-0094 reset question for a
+   * package-owned permission set). A batch: the title counts it. The confirm
+   * button is the delete verb in both, which the host paints destructive.
+   */
+  confirmCopy(
+    deps: Pick<RecordDeleteDeps, 'objectName' | 't' | 'label'> & {
+      /** The object definition, so the name follows its declared `nameField`. */
+      objectDef?: unknown;
+    },
+    target: RecordDeleteConfirmTarget,
+  ): RecordDeleteConfirmCopy {
+    const { t, label } = deps;
+    const confirmText = t('objectActions.deleteConfirmButton');
+    if ('count' in target) {
+      return {
+        title: t('objectActions.bulkDeleteConfirmTitle', { count: target.count, label }),
+        message: t('console.objectView.bulkDeleteConfirm', { count: target.count }),
+        confirmText,
+      };
+    }
+    return {
+      title: t('objectActions.deleteConfirmTitle', {
+        label,
+        name: getRecordDisplayName(deps.objectDef, target.record),
+      }),
+      message: recordDelete.confirmText(deps, target.record),
+      confirmText,
+    };
   },
 
   /**

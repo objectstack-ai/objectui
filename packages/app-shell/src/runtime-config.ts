@@ -277,8 +277,12 @@ const DEFAULT_REPLAYS_ON_ERROR_SAMPLE_RATE = 0;
 export interface AppShellRuntimeConfig {
   /**
    * Upstream cloud base URL — the SPA dispatches install + env listing
-   * directly against this origin. Empty string ⇒ same-origin (i.e. the
-   * runtime we're attached to *is* the cloud).
+   * directly against this origin. Empty string ⇒ requests stay on this
+   * origin, and that is all it says: the runtime may serve the catalog
+   * itself or proxy a control plane it does not name. The CLI's cloud-connected
+   * `os serve` answers `''` while its marketplace proxy forwards to the
+   * default control plane (objectui#11726), so read `''` neither as "this
+   * runtime is the cloud" nor as "there is no upstream".
    */
   cloudUrl: string;
   /** Single-environment runtime (CLI `os serve`, etc.). */
@@ -496,9 +500,10 @@ export function isRuntimeConfigInitialised(): boolean {
 
 /**
  * Resolve the upstream cloud base URL the SPA should target. When the
- * runtime says it *is* the cloud (`cloudUrl: ''`) the SPA stays on the
- * current origin. Otherwise this returns the server-supplied URL with no
- * trailing slash.
+ * runtime answers `cloudUrl: ''` the SPA stays on the current origin; that
+ * says where requests go, not who serves them (see
+ * `AppShellRuntimeConfig.cloudUrl`). Otherwise this returns the
+ * server-supplied URL with no trailing slash.
  */
 export function getCloudBase(): string {
   return current.cloudUrl ?? '';

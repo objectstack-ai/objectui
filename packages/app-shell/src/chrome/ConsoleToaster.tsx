@@ -131,69 +131,110 @@ function useDrawerClearance(): DrawerClearance | null {
   return clearance;
 }
 
+/**
+ * objectui#11723 — a toast stays clickable, and its click stays its own, while
+ * a Radix modal (the record drawer, a dialog) is open.
+ *
+ * Two mechanisms made Undo and × dead under a modal; each needs its own answer.
+ *
+ * - A modal sets `pointer-events: none` on `<body>` and turns pointer events
+ *   back on for its own layer only. The toaster inherited the `none`, so the
+ *   hit test skipped every toast and the click landed on whatever lay under
+ *   it: the overlay, which closes the drawer, or a drawer control. Each toast
+ *   now carries `pointer-events-auto` (`toastOptions.classNames.toast` below).
+ *   The toast only, not the toaster: a pointer resting beside a toast is still
+ *   not inside the toaster, so objectui#7482's dismiss timer keeps running. A
+ *   toast hidden beyond `visibleToasts` keeps sonner's own
+ *   `pointer-events: none`, which is unlayered CSS and so outranks the utility.
+ * - A toast that takes the click is still outside the modal's content, and
+ *   Radix closes a modal on a `pointerdown` outside it, heard by a listener on
+ *   `document`. The `pointerdown` now stops at the toaster, so no
+ *   document-level outside-click handler hears it: not the drawer's, not a
+ *   dialog's, not an open popover's. React delegates at its root, so the stop
+ *   runs after sonner's own handlers (swipe, and the timer pause while a toast
+ *   is pressed) and before the event can reach `document`.
+ *
+ * Not Radix's `DismissableLayerBranch`, the answer Radix's own Toast uses: a
+ * branch registers in the module state of `@radix-ui/react-dismissable-layer`,
+ * which `@radix-ui/react-dialog` pins to an exact version. A copy imported here
+ * registers in a different module whenever the two resolve differently, and
+ * the branch then silently does nothing. Not each modal's `onInteractOutside`
+ * either: every modal host would have to know about the toaster, and one that
+ * forgot would close on Undo.
+ */
+const stopAtToaster = (event: React.PointerEvent) => event.stopPropagation();
+
 export function ConsoleToaster(props: ToasterProps) {
   const { theme = 'system' } = useTheme();
   const { t } = useObjectTranslation();
   const clearance = useDrawerClearance();
 
   return (
-    <Sonner
-      theme={theme as ToasterProps['theme']}
-      className="toaster group"
-      // UX defaults chosen for an enterprise console — match the Linear /
-      // Notion pattern users expect. Callers can still override any of
-      // these via the spread `{...props}` below.
-      //
-      // objectui#7482 — `top-right` is load-bearing, not cosmetic. The
-      // bottom-right corner belongs to the ChatDock's composer and the FAB
-      // that launches it (ADR-0057 P3a/P3b), and a toaster anchored there does
-      // more than overlap them: sonner pauses a toast's dismiss timer while
-      // the pointer is inside the toaster region (`expanded || interacting ||
-      // isDocumentHidden` in its Toast effect), so a pointer resting on the
-      // composer underneath keeps the toast on screen until the user clicks ×.
-      // Override the position only onto a corner nothing interactive occupies.
-      position="top-right"
-      // objectui#11685 — while a right-edge drawer is open, the same corner
-      // shifted clear of the drawer's chrome (see `useDrawerClearance`).
-      // `undefined` when none is open, which is sonner's own default.
-      offset={clearance?.offset}
-      mobileOffset={clearance?.mobileOffset}
-      closeButton
-      richColors
-      expand
-      visibleToasts={4}
-      containerAriaLabel={t('notifications.regionLabel', { defaultValue: 'Notifications' })}
-      icons={{
-        success: <CircleCheck className="h-4 w-4" />,
-        info: <Info className="h-4 w-4" />,
-        warning: <TriangleAlert className="h-4 w-4" />,
-        error: <OctagonX className="h-4 w-4" />,
-        loading: <LoaderCircle className="h-4 w-4 animate-spin" />,
-      }}
-      toastOptions={{
-        // 4s default keeps actionable toasts visible long enough to
-        // click an Undo button without feeling sticky. objectui#7482 asked for
-        // 3–5s on success toasts and this already sits in that band; it is
-        // pinned in `__tests__/ConsoleToaster.autoDismiss-7482` because
-        // nothing checked it, and a success toast that outlives its own
-        // information is what that card was reported as.
+    // objectui#11723 — `contents`: the wrapper draws no box, it only bounds
+    // where a toast's `pointerdown` stops (see `stopAtToaster`).
+    <div className="contents" onPointerDown={stopAtToaster}>
+      <Sonner
+        theme={theme as ToasterProps['theme']}
+        className="toaster group"
+        // UX defaults chosen for an enterprise console — match the Linear /
+        // Notion pattern users expect. Callers can still override any of
+        // these via the spread `{...props}` below.
         //
-        // NOT split per intent ("errors may persist"): sonner has no per-type
-        // duration on `Toaster`, so the only way to say it is a `duration` at
-        // each of the ~100 `toast.error(...)` call sites. `closeButton` below
-        // already gives every toast a manual exit.
-        duration: 4000,
-        classNames: {
-          toast:
-            'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',
-          description: 'group-[.toast]:text-muted-foreground',
-          actionButton:
-            'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
-          cancelButton:
-            'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
-        },
-      }}
-      {...props}
-    />
+        // objectui#7482 — `top-right` is load-bearing, not cosmetic. The
+        // bottom-right corner belongs to the ChatDock's composer and the FAB
+        // that launches it (ADR-0057 P3a/P3b), and a toaster anchored there does
+        // more than overlap them: sonner pauses a toast's dismiss timer while
+        // the pointer is inside the toaster region (`expanded || interacting ||
+        // isDocumentHidden` in its Toast effect), so a pointer resting on the
+        // composer underneath keeps the toast on screen until the user clicks ×.
+        // Override the position only onto a corner nothing interactive occupies.
+        position="top-right"
+        // objectui#11685 — while a right-edge drawer is open, the same corner
+        // shifted clear of the drawer's chrome (see `useDrawerClearance`).
+        // `undefined` when none is open, which is sonner's own default.
+        offset={clearance?.offset}
+        mobileOffset={clearance?.mobileOffset}
+        closeButton
+        richColors
+        expand
+        visibleToasts={4}
+        containerAriaLabel={t('notifications.regionLabel', { defaultValue: 'Notifications' })}
+        icons={{
+          success: <CircleCheck className="h-4 w-4" />,
+          info: <Info className="h-4 w-4" />,
+          warning: <TriangleAlert className="h-4 w-4" />,
+          error: <OctagonX className="h-4 w-4" />,
+          loading: <LoaderCircle className="h-4 w-4 animate-spin" />,
+        }}
+        toastOptions={{
+          // 4s default keeps actionable toasts visible long enough to
+          // click an Undo button without feeling sticky. objectui#7482 asked for
+          // 3–5s on success toasts and this already sits in that band; it is
+          // pinned in `__tests__/ConsoleToaster.autoDismiss-7482` because
+          // nothing checked it, and a success toast that outlives its own
+          // information is what that card was reported as.
+          //
+          // NOT split per intent ("errors may persist"): sonner has no per-type
+          // duration on `Toaster`, so the only way to say it is a `duration` at
+          // each of the ~100 `toast.error(...)` call sites. `closeButton` below
+          // already gives every toast a manual exit.
+          duration: 4000,
+          classNames: {
+            // objectui#11723 — `pointer-events-auto`: a toast takes its own
+            // clicks under an open Radix modal (see `stopAtToaster`). A plain
+            // utility on purpose: a `group-[…]:` form would outrank sonner's
+            // `pointer-events: none` on a hidden toast and make it clickable.
+            toast:
+              'group toast pointer-events-auto group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',
+            description: 'group-[.toast]:text-muted-foreground',
+            actionButton:
+              'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
+            cancelButton:
+              'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground',
+          },
+        }}
+        {...props}
+      />
+    </div>
   );
 }

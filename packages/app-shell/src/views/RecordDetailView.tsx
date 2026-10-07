@@ -16,7 +16,7 @@ import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate } from '@object-ui/react';
-import { buildExpandFields, captureUpdateUndoData, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
+import { buildExpandFields, captureUpdateUndoData, recordDelete, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
 import { toast } from 'sonner';
 import { useRecordPresence, PresenceAvatars } from '@object-ui/collaboration';
 import { Database, ChevronLeft } from 'lucide-react';
@@ -401,7 +401,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // The DISPLAY locale the audit-history dates format with (objectui#10442).
   // `language` above stays for what it is: the key into per-locale LABEL maps.
   const displayLocale = useDisplayLocale();
-  const { objectLabel, viewLabel: _vLabel, sectionLabel, actionParamText, actionParamOptionLabel, actionDescription, actionResultDialog, fieldLabel, fieldOptionLabel } = useObjectLabel();
+  const { objectLabel, objectPluralLabel, viewLabel: _vLabel, sectionLabel, actionParamText, actionParamOptionLabel, actionDescription, actionResultDialog, fieldLabel, fieldOptionLabel } = useObjectLabel();
   // label + confirmText + successMessage through ONE call (objectui#4265) —
   // the three keys of an `_actions.<name>` bundle entry can no longer be
   // localized apart from one another on this surface.
@@ -524,59 +524,85 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   //
   // ⚠️ [objectui#7230] THE POSITION IS LOAD-BEARING, not cosmetic. This used to
   // be a `usePermissions()` call ~670 lines below, next to the header's
-  // Edit/Delete gates. The record-load effect immediately after this line now
-  // FLS-gates its `$expand`, and an effect's DEPENDENCY ARRAY is evaluated
-  // DURING render — so listing `perms` there while the binding was still
-  // declared below would hit the temporal dead zone and throw
+  // Edit/Delete gates. The record-load effect just below FLS-gates its
+  // `$expand`, and that gated list is computed DURING render (objectui#11699)
+  // — so reading `perms` there while the binding was still declared below
+  // would hit the temporal dead zone and throw
   // `Cannot access 'perms' before initialization`: a crash, not a stale value.
   // The hook moved up; the site below destructures THIS value instead of
   // calling the hook a second time, so the hook order is unchanged in shape.
   // Same structural note PR #7229 recorded for `ListView`'s memo.
   const perms = usePermissions();
 
+  // What the page-record read below SENDS, held as primitives (objectui#11699).
+  //
+  // The record-load effect used to depend on three object identities —
+  // `effectivePage`, `objectDef` and `perms` — while all it reads from them
+  // is a yes/no ("is there a page?") and one list (the relations to expand).
+  // Measured on full reloads of a showcase record page, the record's `$expand`
+  // read went out twice in sequence, and the second run had changed nothing
+  // but `objectDef`'s identity: a JSON-equal definition, with the very same
+  // `fields` object, handed down again as a new object by a host re-render.
+  // `effectivePage` was the same trap one step removed: the synthesized page
+  // is a `useMemo` over `objectDef`, and an assigned page landing replaces it
+  // without changing anything the read sends.
+  //
+  // So the effect keys on the DATA it reads (AGENTS.md #10), never on the
+  // objects it reads it from: a new object carrying the same relations, an
+  // assigned page taking over from a synthesized one, a discarded memo, or a
+  // permission answer that leaves the list as it was does not read the record
+  // again; a list that CHANGES does.
+  const hasPage = !!effectivePage;
+  // Expand lookup/master_detail fields so the page receives display
+  // names (e.g. account.name) rather than raw foreign-key IDs. The
+  // page subtitle interpolation and record:* renderers depend on this.
+  //
+  // [objectui#7230] FIELD-LEVEL SECURITY ON `$expand`, the gate
+  // objectui#7215 / PR #7229 put on the two projection sites in its scope.
+  // `$select` on a denied lookup asks the server for a bare foreign key;
+  // `$expand` asks it to RESOLVE the relation and hand back the related
+  // record — the larger of the two requests.
+  //
+  // ⚠️ NO COLUMN LIST IS PASSED HERE, which makes this the sharpest of the
+  // family: `buildExpandFields` reads an absent column list as "no column
+  // restriction" and falls back to EVERY declared relation on the object,
+  // denied ones included. Every record page in the console therefore asked
+  // for the object's full relation set by default, not by configuration.
+  //
+  // Graded as objectui#7215 graded it, by measurement rather than assumption:
+  // against ObjectStack this is defence-in-depth, because `plugin-security`'s
+  // `FieldMasker.maskRecord` does `delete result[field]` on every unreadable
+  // key and objectql's expand path writes the resolved record back under THAT
+  // SAME KEY, so one statement removes the expanded object and the bare id
+  // alike; the expansion sub-read itself takes the referenced object's full
+  // CRUD + RLS + FLS treatment (objectstack#7626). It is load-bearing for a
+  // backend that does not strip.
+  //
+  // ⭐ THE GATE IS ON THE HELPER'S OUTPUT. There is no input to gate on this
+  // site, and the output holds only DECLARED reference-bearing fields, so the
+  // "`checkField` answers false for an undeclared key" trap is structurally
+  // unreachable and a derived / host-joined key is never judged. An
+  // unanswered policy filters nothing. The gated list is the effect's
+  // dependency (as a string), so an answer that NARROWS it re-reads the record
+  // without the denied relation the moment it arrives, and an answer that
+  // leaves it as it was reads nothing again (objectui#11699). Pinned in
+  // `RecordDetailView.expandFls-7230.test.tsx` and
+  // `RecordDetailView.recordOpenRequests-11699.test.tsx`.
+  const expandable = buildExpandFields(objectDef?.fields);
+  const pageRecordExpand = JSON.stringify(
+    !objectName || !perms?.isLoaded
+      ? expandable
+      : expandable.filter((f) => perms.checkField(objectName, f, 'read')),
+  );
+
   useEffect(() => {
     let cancelled = false;
-    if (!effectivePage || !pureRecordId || !objectName || !dataSource?.findOne) {
+    if (!hasPage || !pureRecordId || !objectName || !dataSource?.findOne) {
       setPageRecord(null);
       setPageRecordStatus('idle');
       return;
     }
-    // Expand lookup/master_detail fields so the page receives display
-    // names (e.g. account.name) rather than raw foreign-key IDs. The
-    // page subtitle interpolation and record:* renderers depend on this.
-    //
-    // [objectui#7230] FIELD-LEVEL SECURITY ON `$expand`, the gate
-    // objectui#7215 / PR #7229 put on the two projection sites in its scope.
-    // `$select` on a denied lookup asks the server for a bare foreign key;
-    // `$expand` asks it to RESOLVE the relation and hand back the related
-    // record — the larger of the two requests.
-    //
-    // ⚠️ NO COLUMN LIST IS PASSED HERE, which makes this the sharpest of the
-    // family: `buildExpandFields` reads an absent column list as "no column
-    // restriction" and falls back to EVERY declared relation on the object,
-    // denied ones included. Every record page in the console therefore asked
-    // for the object's full relation set by default, not by configuration.
-    //
-    // Graded as objectui#7215 graded it, by measurement rather than assumption:
-    // against ObjectStack this is defence-in-depth, because `plugin-security`'s
-    // `FieldMasker.maskRecord` does `delete result[field]` on every unreadable
-    // key and objectql's expand path writes the resolved record back under THAT
-    // SAME KEY, so one statement removes the expanded object and the bare id
-    // alike; the expansion sub-read itself takes the referenced object's full
-    // CRUD + RLS + FLS treatment (objectstack#7626). It is load-bearing for a
-    // backend that does not strip.
-    //
-    // ⭐ THE GATE IS ON THE HELPER'S OUTPUT. There is no input to gate on this
-    // site, and the output holds only DECLARED reference-bearing fields, so the
-    // "`checkField` answers false for an undeclared key" trap is structurally
-    // unreachable and a derived / host-joined key is never judged. An
-    // unanswered policy filters nothing; `perms` is in this effect's dependency
-    // list, so the record is re-read the moment the answer arrives. Pinned in
-    // `RecordDetailView.expandFls-7230.test.tsx`.
-    const expandable = buildExpandFields(objectDef?.fields);
-    const expandFields = !perms?.isLoaded
-      ? expandable
-      : expandable.filter((f) => perms.checkField(objectName, f, 'read'));
+    const expandFields: string[] = JSON.parse(pageRecordExpand);
     const params = expandFields.length > 0 ? { $expand: expandFields } : undefined;
     const loadRecord = () => {
       setPageRecordStatus('loading');
@@ -618,7 +644,12 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     };
     // #2269: recordInvalidationNonce re-runs this fetch in place whenever the
     // record (or its object) is invalidated on the bus.
-  }, [effectivePage, objectName, pureRecordId, dataSource, objectDef, recordInvalidationNonce, perms]);
+    //
+    // objectui#11699: every dependency here is either a primitive or the
+    // adapter the read goes through. ⛔ Do not list `objectDef`,
+    // `effectivePage` or `perms` here — derive what the read sends from them
+    // above instead (AGENTS.md #10).
+  }, [hasPage, objectName, pureRecordId, dataSource, pageRecordExpand, recordInvalidationNonce]);
 
   // The loaded record AS THE VIEWER MAY READ IT (objectui#10434,
   // objectui#10499): `withoutDeniedFields` removes the fields the loaded
@@ -1337,8 +1368,12 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   const childRelations = useMemo(
     () => deriveRelatedLists(objectDef, objects, {
       canRead: permissionsLoaded ? (name) => canOnObject(name, 'read') : undefined,
+      // A related list is a list of the child's records, so the multi-FK
+      // title it composes names it with the plural, as the single-FK title
+      // below does (objectui#11733).
+      listLabel: (child) => objectPluralLabel({ name: child.name, label: child.label || child.name, pluralLabel: child.pluralLabel }),
     }),
-    [objectDef, objects, canOnObject, permissionsLoaded],
+    [objectDef, objects, canOnObject, permissionsLoaded, objectPluralLabel],
   );
 
   // [objectstack#3821] RECORD-level write gate. Everything above is object
@@ -2365,10 +2400,11 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     const related = childRelations.map(({ childObject, childLabel, referenceField, title: titleOverride, columns: columnsOverride, isPrimary, sort: inheritedSort, filter: declaredFilter }) => {
       const childObjectDef = objects.find((o: any) => o.name === childObject);
       // A `relatedListTitle` on the relationship wins; else fall back to the
-      // localized child-object label.
+      // localized child-object PLURAL label — the section lists the child's
+      // records, so it is named as that object's list page is (objectui#11733).
       const localizedTitle = titleOverride
         || (childObjectDef
-          ? objectLabel({ name: childObjectDef.name, label: childObjectDef.label || childLabel })
+          ? objectPluralLabel({ name: childObjectDef.name, label: childObjectDef.label || childLabel, pluralLabel: childObjectDef.pluralLabel })
           : childLabel);
       return {
         title: localizedTitle,
@@ -2447,7 +2483,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   // the panel's headline is the pending one. (The decision actions no longer
   // ride this list at all — objectui#3055 moved them to the declared-action
   // bar, which reads the pending row directly.)
-  }, [objectDef?.name, childRelations, t, objectLabel, objects, historyEnabled, historyEntries, historyLoading, approvals.available, approvals.pendingRequest, approvals.requests, user?.id]);
+  }, [objectDef?.name, childRelations, t, objectPluralLabel, objects, historyEnabled, historyEntries, historyLoading, approvals.available, approvals.pendingRequest, approvals.requests, user?.id]);
 
   if (isLoading) {
     return <SkeletonDetail />;
@@ -2614,17 +2650,35 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
         // ActionDef is byte-identical to the pre-#4213 one.
         ...(deleteDisabledByPredicate ? { disabled: true } : null),
         onClick: async () => {
-          const msg = t('detail.deleteConfirmation', {
-            defaultValue: 'Are you sure you want to delete this record?',
-          });
+          // objectui#11695 — the list's delete copy, from the one shared core
+          // (`recordDelete.confirmCopy`): the title names this record by the
+          // ADR-0079 resolver over the READABLE row the header title reads
+          // (a denied name field reads as absent here too) plus the object
+          // label, the body is the list's question — ADR-0094's reset question
+          // for a package-owned permission set — and the confirm button is
+          // "Delete", painted destructive.
+          const copy = recordDelete.confirmCopy(
+            {
+              objectName: objectName!,
+              t,
+              label: objectLabel({ name: objectName!, label: objectDef?.label || objectName! }),
+              objectDef,
+            },
+            { record: (readablePageRecord as Record<string, unknown> | null | undefined) ?? { id: pureRecordId } },
+          );
           // objectui#11001 — asked through this page's own confirm runtime,
           // the in-app `ActionConfirmDialog` the list view's delete asks
           // through too, never the browser's native `window.confirm` (which
           // cannot be themed, and which headless automation dismisses, so the
-          // button reads as dead). ONE argument, like the runner's call: the
-          // dialog's title and buttons are its defaults, as on the list view.
-          // A cancel settles `false` and leaves the record and the page alone.
-          if (!(await confirmHandler(msg))) return;
+          // button reads as dead). A cancel settles `false` and leaves the
+          // record and the page alone.
+          if (
+            !(await confirmHandler(copy.message, {
+              title: copy.title,
+              confirmText: copy.confirmText,
+              destructive: true,
+            }))
+          ) return;
           try {
             await dataSource.delete(objectName!, pureRecordId!);
             toast.success(t('detail.deleted', { defaultValue: 'Record deleted' }));

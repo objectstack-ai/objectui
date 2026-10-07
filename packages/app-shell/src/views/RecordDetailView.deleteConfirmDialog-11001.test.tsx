@@ -26,10 +26,12 @@
  * - `window.confirm` is installed as a spy that ANSWERS YES. Against the
  *   native-box code that answer deletes at once with no dialog, so "the dialog
  *   is open and nothing is deleted yet" is red there, not vacuously green.
- * - The strings are read from the `en` pack by KEY, not written out: the pin
- *   is that the dialog carries the page's own `detail.deleteConfirmation`
- *   question and the dialog's default `actionConfirm.*` buttons (the same
- *   ones the list view's delete shows), not what those keys say today.
+ * - The strings are read from the packs by KEY, not written out: the pin is
+ *   that the dialog carries the list's delete copy (objectui#11695 — one
+ *   shared `recordDelete.confirmCopy`): a title naming this record and its
+ *   object, the list's question, and the destructive Delete confirm (the
+ *   same ones the list view's delete shows), not what those keys say today.
+ *   It is pinned in `en` and in `zh`.
  * - Cancel is judged on three observables — no delete call, no success toast,
  *   and the router location unchanged — because "nothing happened" is also
  *   what a click that never reached the handler looks like; the confirm case
@@ -85,11 +87,17 @@ const OBJECT_NAME = 'crm_call';
 const RECORD_ID = 'rec-call-1';
 const START_PATH = `/apps/crm/${OBJECT_NAME}/${RECORD_ID}`;
 
-/** The `en` pack, read by key — see the header on why nothing is written out. */
-const EN = builtInLocales.en as unknown as {
-  detail: { delete: string; deleteConfirmation: string };
-  actionConfirm: { confirm: string; cancel: string };
+type Pack = {
+  detail: { delete: string; moreActions: string };
+  objectActions: { deleteConfirm: string; deleteConfirmTitle: string; deleteConfirmButton: string };
+  actionConfirm: { title: string; confirm: string; cancel: string };
 };
+/** The packs, read by key — see the header on why nothing is written out. */
+const EN = builtInLocales.en as unknown as Pack;
+const ZH = builtInLocales.zh as unknown as Pack;
+
+const fill = (template: string, vars: Record<string, string>) =>
+  template.replace(/\{\{(\w+)\}\}/g, (_m, k: string) => vars[k]);
 
 const OBJECTS = [
   {
@@ -138,13 +146,13 @@ function currentPath(): string {
 }
 
 /** Mount the real record page and wait for its header toolbar. */
-async function mountRecordPage() {
+async function mountRecordPage(language: 'en' | 'zh' = 'en') {
   const dataSource = makeDataSource();
-  // Under a real `I18nProvider` in `en`, as the console mounts it: the dialog's
-  // own title and buttons are pack keys with no inline default, so without a
+  // Under a real `I18nProvider`, as the console mounts it: the dialog's own
+  // title and buttons are pack keys with no inline default, so without a
   // provider they would render as the bare key names.
   render(
-    <I18nProvider config={{ defaultLanguage: 'en', detectBrowserLanguage: false }} persistLanguage={false}>
+    <I18nProvider config={{ defaultLanguage: language, detectBrowserLanguage: false }} persistLanguage={false}>
       <MemoryRouter initialEntries={[START_PATH]}>
         <MetadataCtx.Provider value={METADATA}>
           <RecordDetailView
@@ -165,13 +173,13 @@ async function mountRecordPage() {
 }
 
 /** Open the header's overflow and choose Delete — the user's path to it. */
-async function chooseHeaderDelete() {
-  const trigger = screen.getByRole('button', { name: /more actions/i });
+async function chooseHeaderDelete(pack: Pack = EN) {
+  const trigger = screen.getByRole('button', { name: pack.detail.moreActions });
   fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' });
   await waitFor(() => expect(screen.getByRole('menu')).toBeInTheDocument());
   const item = screen
     .getAllByRole('menuitem')
-    .find((el) => (el.textContent ?? '').trim() === EN.detail.delete);
+    .find((el) => (el.textContent ?? '').trim() === pack.detail.delete);
   expect(item).toBeTruthy();
   fireEvent.click(item!);
 }
@@ -213,9 +221,16 @@ describe('record page Delete asks through the in-app confirm dialog (objectui#11
     await chooseHeaderDelete();
 
     const dialog = await screen.findByRole('alertdialog');
-    expect(within(dialog).getByText(EN.detail.deleteConfirmation)).toBeInTheDocument();
-    // The list view's delete shows the dialog's default buttons; so does this.
-    expect(within(dialog).getByRole('button', { name: EN.actionConfirm.confirm })).toBeInTheDocument();
+    // objectui#11695 — the list's copy: the title names this record and its
+    // object, the body is the list's question, the confirm is a destructive
+    // Delete (never the generic "Confirm Action" / "Continue").
+    expect(within(dialog).getByRole('heading')).toHaveTextContent(
+      fill(EN.objectActions.deleteConfirmTitle, { label: 'Call', name: 'Intro call' }),
+    );
+    expect(within(dialog).getByText(EN.objectActions.deleteConfirm)).toBeInTheDocument();
+    const confirm = within(dialog).getByRole('button', { name: EN.objectActions.deleteConfirmButton });
+    expect(confirm.className).toContain('bg-destructive');
+    expect(within(dialog).queryByRole('button', { name: EN.actionConfirm.confirm })).toBeNull();
     expect(within(dialog).getByRole('button', { name: EN.actionConfirm.cancel })).toBeInTheDocument();
 
     expect(nativeConfirm).not.toHaveBeenCalled();
@@ -229,7 +244,7 @@ describe('record page Delete asks through the in-app confirm dialog (objectui#11
     await chooseHeaderDelete();
 
     const dialog = await screen.findByRole('alertdialog');
-    fireEvent.click(within(dialog).getByRole('button', { name: EN.actionConfirm.confirm }));
+    fireEvent.click(within(dialog).getByRole('button', { name: EN.objectActions.deleteConfirmButton }));
 
     await waitFor(() => expect(dataSource.delete).toHaveBeenCalledTimes(1));
     expect(dataSource.delete).toHaveBeenCalledWith(OBJECT_NAME, RECORD_ID);
@@ -255,5 +270,24 @@ describe('record page Delete asks through the in-app confirm dialog (objectui#11
     expect(toast.success).not.toHaveBeenCalled();
     expect(currentPath()).toBe(START_PATH);
     expect(nativeConfirm).not.toHaveBeenCalled();
+  });
+});
+
+describe('record page Delete names the record in zh too (objectui#11695)', () => {
+  it('a zh session shows the zh title naming the record and the zh destructive Delete', async () => {
+    const dataSource = await mountRecordPage('zh');
+    await chooseHeaderDelete(ZH);
+
+    const dialog = await screen.findByRole('alertdialog');
+    const title = fill(ZH.objectActions.deleteConfirmTitle, { label: 'Call', name: 'Intro call' });
+    // The zh template is not the en one, so this reads the zh pack, not a fallback.
+    expect(title).not.toBe(fill(EN.objectActions.deleteConfirmTitle, { label: 'Call', name: 'Intro call' }));
+    expect(within(dialog).getByRole('heading')).toHaveTextContent(title);
+    expect(within(dialog).getByText(ZH.objectActions.deleteConfirm)).toBeInTheDocument();
+    const confirm = within(dialog).getByRole('button', { name: ZH.objectActions.deleteConfirmButton });
+    expect(confirm.className).toContain('bg-destructive');
+
+    fireEvent.click(confirm);
+    await waitFor(() => expect(dataSource.delete).toHaveBeenCalledWith(OBJECT_NAME, RECORD_ID));
   });
 });

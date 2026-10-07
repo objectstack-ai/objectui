@@ -118,8 +118,10 @@ export function MarketplacePage() {
   // runtime mounts no marketplace browse surface at all — there is nothing
   // to fetch, so nothing here fetches (objectui#5504).
   const marketplaceEnabled = isMarketplaceEnabled();
-  // Empty string means "this runtime IS the catalog host" (same origin),
-  // not "unknown" — see `AppShellRuntimeConfig.cloudUrl`.
+  // Empty string means "requests stay on this origin", not "unknown", and not
+  // "this runtime IS the catalog host" either: a runtime that proxies a
+  // control plane answers `''` too (objectui#11726) — see
+  // `AppShellRuntimeConfig.cloudUrl`.
   const cloudBase = getCloudBase();
   const [items, setItems] = useState<MarketplacePackageSummary[]>([]);
   // Seeded from the flag rather than settled by the effect: a runtime with
@@ -352,6 +354,11 @@ export function MarketplacePage() {
             <div className="text-muted-foreground mt-1" data-testid="marketplace-load-cause">{error.message}</div>
             {/* The hint names the control plane the SERVER said it uses, so it
                 can never claim a default the operator overrode (objectui#5504).
+                Under `''` it names none and says only that the catalog is
+                reached through this runtime, which is true whether the runtime
+                serves the catalog or proxies a plane: no failure the proxy
+                returns carries the upstream host in a field or a header, and
+                the server's prose is never parsed for one (objectui#11726).
                 Plain text, not `dangerouslySetInnerHTML`: `cloudBase` is
                 server-supplied data and interpolating it into innerHTML would
                 be an injection sink for no gain. Shown only when being online

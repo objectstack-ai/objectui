@@ -72,7 +72,7 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
   const dataSource = useAdapter();
   const { objects, loading: metadataLoading } = useMetadata();
   const { t } = useObjectTranslation();
-  const { objectLabel } = useObjectLabel();
+  const { objectLabel, objectPluralLabel } = useObjectLabel();
   const { user, getAuthConfig, activeOrganization } = useAuth();
 
   // Pull deployment-level feature flags so action visibility predicates
@@ -130,7 +130,12 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
     }
   }, [navigate, recordDetailUrl]);
 
+  // Two names, not one (objectui#11733): the title and the toasts speak of ONE
+  // record, so they keep the singular; the breadcrumb link opens the object's
+  // list, so it reads the plural, as that list page's title and the header
+  // crumb above this page do.
   const label = objectDef ? objectLabel(objectDef as any) : objectName ?? '';
+  const listLabel = objectDef ? objectPluralLabel(objectDef) : objectName ?? '';
   // No inline `defaultValue` on these lookups: every key below is defined in
   // all ten locale packs and `all-locales-key-parity.test.ts` pins that
   // permanently, so i18next always resolves the pack value and a fallback
@@ -329,7 +334,7 @@ export function RecordFormPage({ mode }: RecordFormPageProps) {
               to={objectListUrl}
               className="hover:text-foreground transition-colors"
             >
-              {label}
+              {listLabel}
             </Link>
             <span aria-hidden="true">/</span>
             <span className="text-foreground font-medium" data-testid="record-form-page-title">

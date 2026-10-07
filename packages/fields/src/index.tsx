@@ -31,6 +31,7 @@ import { formatAddress, type AddressValue } from './widgets/address-format.js';
 // (`CurrencyField`) and percent (`PercentField`) (objectui#11444).
 import { formatNumberFieldValue, formatCurrency, formatPercentPoints, percentCellScale } from './widgets/number-format.js';
 import { useFieldTranslation } from './widgets/useFieldTranslation.js';
+import { useBooleanValueLabel } from './widgets/booleanValueLabel.js';
 
 // Module-level cache so multiple renderers fetching the same lookup ID
 // only trigger one network call. Keyed by `${objectName}:${id}`. It holds the
@@ -393,7 +394,10 @@ export { coerceToSafeValue };
  * and all three are legitimate:
  *
  *  - **the floor exactly** — `SelectCellRenderer`, `LookupCellRenderer`,
- *    `TextCellRenderer`, `FormulaCellRenderer`, `ColorSwatchCellRenderer`, and
+ *    `TextCellRenderer`, `FormulaCellRenderer` (a numeric result past its
+ *    guard is then drawn by `NumberCellRenderer`, objectui#11683, so a
+ *    `returnType: 'number'` formula holding whitespace answers this helper's
+ *    extension below), `ColorSwatchCellRenderer`, and
  *    since objectui#8678 `MaskedCellRenderer` (on the coerced text, as `text`
  *    reads it), `VectorCellRenderer` and `GridCellRenderer`;
  *  - **the floor EXTENDED** — this helper (+ whitespace, on the coerced text);
@@ -403,8 +407,9 @@ export { coerceToSafeValue };
  *    empty, and + every unparsable one, objectui#8581);
  *  - **the floor with a member DECLINED, out loud** — `JsonCellRenderer` draws
  *    the two-character literal for `[]` on purpose (objectui#8474 measured and
- *    kept it), `LocationCellRenderer` and `AddressCellRenderer` inherit that
- *    through their JSON fallback, and `FileCellRenderer` states "0 files".
+ *    kept it), `LocationCellRenderer`, `AddressCellRenderer` and the
+ *    `composite` / `record` face (`StructuredValueCell`) inherit that through
+ *    their JSON fallback, and `FileCellRenderer` states "0 files".
  *
  * ⛔ Those disagreements are MEASURED, not drift: do not "finish the job" by
  * making every renderer answer the floor. The pins that go red if one is
@@ -742,6 +747,11 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
   // and set must not change the hook count between renders (same rule as
   // NumberCellRenderer / CurrencyCellRenderer above).
   const locale = useDisplayLocale();
+  // The bar's accessible name is the value text beside it (objectui#11690):
+  // a `progressbar` must be named, and the formatted number is the one string
+  // this cell has that is already in the viewer's locale — a translated
+  // literal would name every percent column the same thing.
+  const valueId = React.useId();
   const safe = coerceToSafeValue(value);
   // Same fabrication as `NumberCellRenderer` (objectui#8490): `[]` drew a 0%
   // progress bar with a `progressbar` role and `aria-valuenow` of 0.
@@ -862,6 +872,7 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
       <div
         className="h-1.5 w-16 min-w-0 shrink rounded-full bg-muted ring-1 ring-inset ring-border/60 overflow-hidden"
         role="progressbar"
+        aria-labelledby={valueId}
         aria-valuenow={clampedBar}
         aria-valuemin={0}
         aria-valuemax={100}
@@ -871,7 +882,7 @@ export function PercentCellRenderer({ value, field }: CellRendererProps): React.
           style={{ width: `${clampedBar}%` }}
         />
       </div>
-      <span className="shrink-0 tabular-nums whitespace-nowrap">{formatted}</span>
+      <span id={valueId} className="shrink-0 tabular-nums whitespace-nowrap">{formatted}</span>
     </div>
   );
 }
@@ -1251,13 +1262,22 @@ export function DateTimeCellRenderer({ value, field }: CellRendererProps): React
   // identically.
   // `null` is unreachable: the invalid/empty values it answers for already
   // returned `<EmptyValue />` above.
+  //
+  // The gap between the halves is TEXT, one space (objectui#11683). It used to
+  // be an `ml-2` margin alone, so the cell's text was the two halves run
+  // together: `2026/10/6上午1:42` in zh-CN, `10/6/20261:42 am` in en-US. That is
+  // what a copy, a screen reader and `textContent` got. The space is the joiner
+  // `formatDateTime`'s compact face puts between the same two halves, so the
+  // cell's text is now that string exactly. The time half keeps its muted
+  // colour and a narrower `ml-1` margin, which with the space keeps the halves
+  // visibly apart.
   if (style === 'compact') {
     const parts = formatDateTimeCompactParts(date, { locale });
     if (parts) {
       return (
         <span className={cellClass}>
-          <span>{parts.date}</span>
-          <span className="ml-2 text-muted-foreground">{parts.time}</span>
+          <span>{parts.date}</span>{' '}
+          <span className="ml-1 text-muted-foreground">{parts.time}</span>
         </span>
       );
     }
@@ -2638,13 +2658,40 @@ export function LookupCellRenderer({ value, field }: CellRendererProps): React.R
 }
 
 /**
- * Formula field cell renderer (read-only)
+ * Formula field cell renderer (read-only). `summary` is registered to it too.
  */
-export function FormulaCellRenderer({ value }: CellRendererProps): React.ReactElement {
+export function FormulaCellRenderer({ value, field }: CellRendererProps): React.ReactElement {
   const safe = coerceToSafeValue(value);
   // THE FLOOR by name and nothing more (objectui#8496), on the coerced text —
   // same relation as `TextCellRenderer`, which this renderer's output mirrors.
   if (isEmptyValue(safe)) return <EmptyValue />;
+
+  // A NUMERIC result is drawn by the number cell (objectui#11683). This
+  // renderer printed every result as raw monospace text, so the showcase's
+  // Budget Remaining (a formula declaring no `returnType`) read `200000` beside
+  // a formatted currency column. A number now goes through `NumberCellRenderer`,
+  // whose `formatNumberFieldValue` is the one call every number face makes: the
+  // locale's grouping, and the width `resolveFieldScale` answers for this field.
+  // The spec applies `scale` to a `formula` field, so a declared one is honoured.
+  //
+  // Which results are numbers:
+  //   - `returnType: 'number'`: the spec's declared value type, read as declared.
+  //   - no `returnType`: the value's own JSON type. Only a JS number counts; a
+  //     string of digits from an undeclared formula stays text, because nothing
+  //     says it is a quantity (a postcode built by concatenation is not one).
+  //   - any other `returnType`: drawn as before. A declaration is honoured,
+  //     never overridden by the value.
+  //
+  // ⛔ No type is inferred from the expression or from its inputs. The spec's
+  // own field form says of `returnType` that consumers read it "instead of
+  // re-parsing the expression", and its four values (`number` / `text` /
+  // `boolean` / `date`) carry no currency, so a formula over two currency
+  // fields renders as a number here, not as money.
+  const returnType = field && 'returnType' in field ? field.returnType : undefined;
+  if (returnType === 'number' || (returnType === undefined && typeof value === 'number')) {
+    return <NumberCellRenderer value={value} field={field} />;
+  }
+
   return (
     <span className="text-gray-700 font-mono text-sm">
       {String(safe)}
@@ -3019,9 +3066,28 @@ export function resolveCellRendererType(fieldOrType: string | { type?: string; f
 }
 
 /**
- * Renders structured/embedded values (json, object, composite, record,
- * address, geolocation) as compact, readable JSON. Objects and arrays are
- * stringified; primitives fall through to their string form.
+ * The compact JSON text of a value: objects and arrays are stringified,
+ * primitives fall through to their string form. A structure `JSON.stringify`
+ * cannot represent (a cycle) keeps its `String` form rather than throwing out
+ * of a render.
+ *
+ * ONE spelling, two readers: {@link JsonCellRenderer} draws a whole value with
+ * it, and the `composite` / `record` face below draws the nested values it
+ * still shows as JSON with it, so one stored value cannot read two ways.
+ */
+function compactJsonText(value: unknown): string {
+  if (typeof value !== 'object') return String(value);
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+/**
+ * Renders a free-form JSON value (`json`, `object`) as compact, readable JSON,
+ * and is the fallback face for a shape a structured renderer cannot recognize
+ * (`location` / `geolocation`, `address`, `composite` / `record`).
  */
 export function JsonCellRenderer({ value }: CellRendererProps): React.ReactElement {
   // THE FLOOR WITH ONE MEMBER DECLINED, and the declension is the point
@@ -3031,20 +3097,189 @@ export function JsonCellRenderer({ value }: CellRendererProps): React.ReactEleme
   // objectui#8474 measured that and pinned it. ⛔ Do not simplify this to
   // `isEmptyValue(value)`: that flattens a decision already on the record.
   if (isEmptyValue(value) && !Array.isArray(value)) return <EmptyValue />;
-  let text: string;
-  if (typeof value === 'object') {
-    try {
-      text = JSON.stringify(value);
-    } catch {
-      text = String(value);
-    }
-  } else {
-    text = String(value);
-  }
+  const text = compactJsonText(value);
   // The original site of the block-level+max-w-full+title pattern
   // (objectui#2578) — now shared with every single-line value renderer via
   // TruncatedText (objectui#3466).
   return <TruncatedText text={text} className="font-mono text-xs text-gray-600" />;
+}
+
+/**
+ * The `number` field a sub-value is formatted as: no `scale` is declared, so a
+ * sub-value keeps its natural precision and the default grouping, exactly what
+ * `NumberCellRenderer` draws for a `number` field that declares none.
+ */
+const UNDECLARED_NUMBER_SUB_FIELD: FieldMetadata = { name: '', type: 'number' };
+
+/** One drawn sub-value: the node the line shows, and its text for the `title`. */
+interface SubValueFace {
+  node: React.ReactNode;
+  text: string;
+}
+
+/** One labelled sub-value: a key and its face. */
+interface StructuredPair {
+  key: string;
+  label: string;
+  face: SubValueFace;
+}
+
+/** One entry of the face: a pair, or (a `record` entry) a labelled group of pairs. */
+type StructuredEntry = StructuredPair | { key: string; label: string; group: StructuredPair[] };
+
+const STRUCTURED_SEPARATOR = ' · ';
+
+/** The plain text of a list of entries — the line as the `title` spells it. */
+function structuredEntriesText(entries: readonly StructuredEntry[]): string {
+  return entries
+    .map((entry) =>
+      'group' in entry
+        ? `${entry.label} (${structuredEntriesText(entry.group)})`
+        : `${entry.label} ${entry.face.text}`,
+    )
+    .join(STRUCTURED_SEPARATOR);
+}
+
+/**
+ * The `dt` / `dd` pairs of a list of entries. The separator and the brackets
+ * are `aria-hidden` (the `<dl>` already says where a pair starts) and sit
+ * INSIDE a `dt` / `dd`, because a `<dl>` may hold nothing else.
+ */
+function structuredEntriesNodes(entries: readonly StructuredEntry[]): React.ReactNode {
+  return entries.map((entry, index) => (
+    <div key={entry.key} className="inline">
+      <dt className={cn('inline', 'group' in entry ? 'font-medium' : 'text-muted-foreground')}>
+        {index > 0 && (
+          <span aria-hidden="true" className="font-normal text-muted-foreground">
+            {STRUCTURED_SEPARATOR}
+          </span>
+        )}
+        {entry.label}
+      </dt>{' '}
+      <dd className="inline">
+        {'group' in entry ? (
+          <>
+            <span aria-hidden="true" className="text-muted-foreground">(</span>
+            <dl className="inline">{structuredEntriesNodes(entry.group)}</dl>
+            <span aria-hidden="true" className="text-muted-foreground">)</span>
+          </>
+        ) : (
+          entry.face.node
+        )}
+      </dd>
+    </div>
+  ));
+}
+
+/**
+ * `composite` / `record` cell renderers: an embedded value read as labelled
+ * sub-values, not as its stored JSON (objectui#11697).
+ *
+ * `@objectstack/spec` declares `composite` as one embedded sub-object and
+ * `record` as a name-keyed map of embedded sub-objects whose insertion order is
+ * the display order. Both were registered to {@link JsonCellRenderer}, so the
+ * record page, which reaches every value through this table (the one the grid
+ * reads too), drew `{"width":10,"height":20}` in a monospace face. `address`
+ * made the same move in objectui#4037.
+ *
+ * ## The face
+ *
+ *  - `composite`: one labelled pair per key, `Width 10 · Height 20`.
+ *  - `record`: one labelled group per entry name holding that entry's pairs,
+ *    `Primary (Name A · Score 9) · Backup (Name B · Score 7)`. An entry that
+ *    is not a populated sub-object is drawn as a pair, as a composite key is.
+ *  - A scalar sub-value is drawn with this package's face for its JS type: a
+ *    number through `formatNumberFieldValue` (the call `NumberCellRenderer`
+ *    makes, here with no declared `scale`), a boolean as the locale's word
+ *    (`useBooleanValueLabel`, the boolean-as-text face of the read-only
+ *    surfaces), a string as itself, and a floor member as {@link EmptyValue}.
+ *    ⛔ Not the cell components themselves: the text cell and the boolean
+ *    checkbox are block-level, and this face is one line.
+ *  - A nested object or array stays compact JSON ({@link compactJsonText}).
+ *
+ * It is ONE truncated line in every host, as {@link TruncatedText} is, because
+ * the grid cell, the record page row and the summary chip all draw it; the
+ * full text is the `title` on the value element. The structure is a `<dl>`, so
+ * assistive technology reads term / definition pairs.
+ *
+ * ## Labels
+ *
+ * The humanized key (`humanizeLabel`, the key fallback this package's boolean
+ * cell already uses for its "Off" badge). There is no declared sub-field label
+ * to prefer: the spec's `FieldSchema` has no sub-field member for either type
+ * and refuses `fields` / `subFields` as unrecognized keys, so no metadata a
+ * producer can publish carries one, and a label read from the field here would
+ * be a key the contract refuses (AGENTS.md #0.1).
+ *
+ * ## Unchanged
+ *
+ * The floor, and every shape this face does not recognize, answer exactly as
+ * {@link JsonCellRenderer} answers: `null` / `undefined` / `''` draw
+ * {@link EmptyValue}; `[]` and `{}` keep their literal (objectui#8474, and
+ * objectui#8481's json-literal fence); a value that is not an object, a JSON
+ * string included, is drawn as it is and never parsed (AGENTS.md #0.1).
+ *
+ * ⛔ Not exported, for the reason {@link RepeaterCellRenderer} gives: the table
+ * entries are reachable the way every call site reaches them,
+ * `getCellRenderer('composite')` / `getCellRenderer('record')`.
+ */
+function StructuredValueCell({
+  value,
+  field,
+  groupEntries,
+}: CellRendererProps & { groupEntries: boolean }): React.ReactElement {
+  // Hooks before the early returns, so the hook count does not change with the
+  // value (the rule `NumberCellRenderer` states).
+  const locale = useDisplayLocale();
+  const booleanLabel = useBooleanValueLabel();
+  if (isEmptyValue(value) && !Array.isArray(value)) return <EmptyValue />;
+  if (!isPlainObjectValue(value) || Object.keys(value).length === 0) {
+    return <JsonCellRenderer value={value} field={field} />;
+  }
+
+  const faceOf = (sub: unknown): SubValueFace => {
+    if (isEmptyValue(sub) && !Array.isArray(sub)) {
+      return { node: <EmptyValue />, text: '—' };
+    }
+    if (typeof sub === 'boolean') {
+      const word = booleanLabel(sub);
+      return { node: word, text: word };
+    }
+    if (typeof sub === 'number' && Number.isFinite(sub)) {
+      const formatted = formatNumberFieldValue(sub, UNDECLARED_NUMBER_SUB_FIELD, locale);
+      return { node: <span className="tabular-nums">{formatted}</span>, text: formatted };
+    }
+    if (Array.isArray(sub) || isPlainObjectValue(sub)) {
+      const json = compactJsonText(sub);
+      return { node: <span className="font-mono">{json}</span>, text: json };
+    }
+    const text = String(coerceToSafeValue(sub));
+    return { node: text, text };
+  };
+  const pairsOf = (object: Record<string, unknown>): StructuredPair[] =>
+    Object.entries(object).map(([key, sub]) => ({ key, label: humanizeLabel(key), face: faceOf(sub) }));
+
+  const entries: StructuredEntry[] = Object.entries(value).map(([key, sub]) =>
+    groupEntries && isPlainObjectValue(sub) && Object.keys(sub).length > 0
+      ? { key, label: humanizeLabel(key), group: pairsOf(sub) }
+      : { key, label: humanizeLabel(key), face: faceOf(sub) },
+  );
+
+  return (
+    <dl className="block max-w-full truncate" title={structuredEntriesText(entries)}>
+      {structuredEntriesNodes(entries)}
+    </dl>
+  );
+}
+
+/** `composite`: one embedded sub-object, drawn as labelled pairs. See {@link StructuredValueCell}. */
+function CompositeCellRenderer(props: CellRendererProps): React.ReactElement {
+  return <StructuredValueCell {...props} groupEntries={false} />;
+}
+
+/** `record`: a name-keyed map of sub-objects, one labelled group per entry. See {@link StructuredValueCell}. */
+function RecordMapCellRenderer(props: CellRendererProps): React.ReactElement {
+  return <StructuredValueCell {...props} groupEntries />;
 }
 
 /**
@@ -3454,8 +3689,9 @@ function buildStandardCellRendererMap(): Record<string, React.FC<CellRendererPro
     color: ColorSwatchCellRenderer,
     json: JsonCellRenderer,
     object: JsonCellRenderer,
-    composite: JsonCellRenderer,
-    record: JsonCellRenderer,
+    // Labelled sub-values, not the stored JSON (objectui#11697).
+    composite: CompositeCellRenderer,
+    record: RecordMapCellRenderer,
     repeater: RepeaterCellRenderer,
     vector: VectorCellRenderer,
     grid: GridCellRenderer,

@@ -18,10 +18,16 @@
  * It holds no labelling rule of its own. Each kind asks what the console
  * already asks for that kind:
  *
- *  - an object or a dashboard: {@link useNavTargetLabel} — the text the
- *    sidebar shows for an unlabelled navigation entry that opens the same
- *    target (the metadata label, an inline locale map read in the active
- *    language, through the `useObjectLabel` bundle lookup);
+ *  - an object: what the page the entry opens — the object's LIST — is titled,
+ *    `useObjectLabel`'s `objectPluralLabel` over the object's cached metadata
+ *    (the translated plural, else the declared `pluralLabel`, else the label
+ *    the singular rung reads; objectui#11733). ⛔ Not {@link useNavTargetLabel}:
+ *    its object rung is the spec's step 3 for an UNLABELLED NAVIGATION ENTRY
+ *    ("the object's label", the singular), a ruling this entry does not reopen;
+ *  - a dashboard: {@link useNavTargetLabel} — the text the sidebar shows for an
+ *    unlabelled navigation entry that opens the same target (the metadata
+ *    label, an inline locale map read in the active language, through the
+ *    `useObjectLabel` bundle lookup);
  *  - a page or a report: the same pair for that kind — the page's / report's
  *    cached metadata `label`, through `useObjectLabel`'s `pageLabel` /
  *    `reportLabel`. `useNavTargetLabel` has no page or report target because
@@ -40,7 +46,7 @@ import { useMemo } from 'react';
 import { useObjectLabel, useObjectTranslation } from '@object-ui/i18n';
 import type { RecentItem } from '../context/RecentItemsProvider.js';
 import { useMetadata } from '../providers/MetadataProvider.js';
-import { findByName, metadataText, useNavTargetLabel } from './useNavTargetLabel.js';
+import { findByName, metadataText, useNavTargetLabel, type LabelledRecord } from './useNavTargetLabel.js';
 
 /** Answers the display text of a recent entry, in the current language. */
 export type RecentItemLabelResolver = (item: RecentItem) => string;
@@ -53,14 +59,20 @@ function nonEmpty(text: string | undefined): string | undefined {
 export function useRecentItemLabel(): RecentItemLabelResolver {
   const targetLabel = useNavTargetLabel();
   const metadata = useMetadata();
-  const { pageLabel, reportLabel } = useObjectLabel();
+  const { objectPluralLabel, pageLabel, reportLabel } = useObjectLabel();
   const { language } = useObjectTranslation();
 
   return useMemo<RecentItemLabelResolver>(
     () => (item: RecentItem) => {
       switch (item.type) {
-        case 'object':
-          return targetLabel({ kind: 'object', objectName: item.name }) ?? item.name;
+        case 'object': {
+          const def = findByName(metadata.objects, item.name) as (LabelledRecord & { pluralLabel?: unknown }) | undefined;
+          // The singular half is read exactly as `useNavTargetLabel` reads it;
+          // `pluralLabel` is a plain string in the spec, so only a string is one.
+          const text = metadataText(def?.label, language);
+          const plural = typeof def?.pluralLabel === 'string' ? def.pluralLabel : undefined;
+          return nonEmpty(objectPluralLabel({ name: item.name, label: text ?? '', pluralLabel: plural })) ?? item.name;
+        }
         case 'dashboard':
           return targetLabel({ kind: 'dashboard', dashboardName: item.name }) ?? item.name;
         case 'page': {
@@ -75,6 +87,6 @@ export function useRecentItemLabel(): RecentItemLabelResolver {
           return item.label;
       }
     },
-    [targetLabel, metadata, pageLabel, reportLabel, language],
+    [targetLabel, metadata, objectPluralLabel, pageLabel, reportLabel, language],
   );
 }

@@ -306,7 +306,10 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // („{{label}}“) — one interpolated span, runtime data.
     // 70 once objectui#11445 made `search.resultsCount` a count family — its
     // `_one` and `_other` slots quote the query, and `resultsCountPlural` left.
-    expect(okSpans, 'correctly paired spans').toBe(70);
+    // 71 once objectui#11695 added `objectActions.deleteConfirmTitle`, the
+    // delete confirmation's title, which quotes the record's name
+    // („{{name}}“) — one interpolated span, runtime data.
+    expect(okSpans, 'correctly paired spans').toBe(71);
   });
 
   it('keeps the count identity that replaces the card’s count(„) === count(“)', () => {
@@ -345,7 +348,9 @@ describe('objectui#3876 — de pack closes „ with “ and not with a straight 
     // `fields.grid.noItemsAddHint`, one more matched pair. 70 / 70 / 0 after
     // objectui#11445 made `search.resultsCount` a count family: `_one` and
     // `_other` carry one matched pair each and `resultsCountPlural` left.
-    expect({ open, close, rdq }).toEqual({ open: 70, close: 70, rdq: 0 });
+    // 71 / 71 / 0 after objectui#11695 added `objectActions.deleteConfirmTitle`,
+    // one more matched pair.
+    expect({ open, close, rdq }).toEqual({ open: 71, close: 71, rdq: 0 });
     // The durable shape: every „ closed by a “, every surplus “ an English
     // opener answered by a ”. Survived translating the two English values.
     expect(close).toBe(open + rdq);

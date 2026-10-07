@@ -134,6 +134,9 @@ const TABLE_DEFAULT_TRANSLATIONS: Record<string, string> = {
   'table.modified_other': '{{count}} rows modified',
   'table.saveFailed': 'Save failed',
   'table.selected': '{{count}} selected',
+  // objectui#11690 — the selection checkboxes' accessible names.
+  'table.selectAllRows': 'Select all rows',
+  'table.selectRow': 'Select row',
   'table.edit': 'Edit',
   'table.delete': 'Delete',
   'common.actions': 'Actions',
@@ -2520,6 +2523,7 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                     <Checkbox
                       checked={allPageRowsSelected ? true : somePageRowsSelected ? 'indeterminate' : false}
                       onCheckedChange={handleSelectAll}
+                      aria-label={t('table.selectAllRows')}
                     />
                   )}
                 </TableHead>
@@ -2829,9 +2833,13 @@ const DataTableRenderer = ({ schema }: { schema: DataTableSchema }) => {
                         <TableCell className={cn(cellClassName, "px-3", frozenColumns > 0 && "sticky left-0 z-10 bg-background")}>
                           {/* Always visible: the hover-only `selectionStyle` was retired
                               (objectui#6152 round 5) — nothing authored or produced it. */}
+                          {/* A checkbox drawn alone in its cell has no label of its
+                              own; the name is the action, as the header's is
+                              (objectui#11690). */}
                           <Checkbox
                             checked={isSelected}
                             onCheckedChange={(checked) => handleSelectRow(rowId, checked as boolean)}
+                            aria-label={t('table.selectRow')}
                           />
                         </TableCell>
                       )}

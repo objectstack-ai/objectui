@@ -1326,26 +1326,36 @@ function SortableNavigationItem({
   // `listeners`, so the one element a keyboard can focus is the one the
   // KeyboardSensor listens on. On the row wrapper they made every row a
   // focusable "button" that no key could start a drag from (objectui#11626).
+  //
+  // The sortable NODE is the row's own `<li>` (`row`), not a wrapper around
+  // it: a `<div>` between the menu's `<ul>` and its `<li>`s broke the list
+  // for assistive tech — a list whose children are not items, and items with
+  // no list (axe `list` / `listitem`, objectui#11690).
   return (
-    <div ref={setNodeRef} style={style}>
-      <NavigationItemRenderer
-        item={item}
-        basePath={basePath}
-        evalVis={evalVis}
-        checkPerm={checkPerm}
-        checkCap={checkCap}
-        checkDocTarget={checkDocTarget}
-        onAction={onAction}
-        enablePinning={enablePinning}
-        onPinToggle={onPinToggle}
-        dragHandle={enableReorder ? { activator: setActivatorNodeRef, attributes, listeners } : undefined}
-        resolveTargetLabel={resolveTargetLabel}
-        locale={locale}
-        t={tProp}
-        templateContext={templateContext}
-      />
-    </div>
+    <NavigationItemRenderer
+      item={item}
+      basePath={basePath}
+      evalVis={evalVis}
+      checkPerm={checkPerm}
+      checkCap={checkCap}
+      checkDocTarget={checkDocTarget}
+      onAction={onAction}
+      enablePinning={enablePinning}
+      onPinToggle={onPinToggle}
+      dragHandle={enableReorder ? { activator: setActivatorNodeRef, attributes, listeners } : undefined}
+      row={{ ref: setNodeRef, style }}
+      resolveTargetLabel={resolveTargetLabel}
+      locale={locale}
+      t={tProp}
+      templateContext={templateContext}
+    />
   );
+}
+
+/** What a sortable list hands the row it wraps: dnd-kit's node ref and transform, for the row's own `<li>`. */
+interface NavRowNode {
+  ref: (element: HTMLElement | null) => void;
+  style: React.CSSProperties;
 }
 
 // ---------------------------------------------------------------------------
@@ -1363,6 +1373,8 @@ function NavigationItemRenderer({
   enablePinning,
   onPinToggle,
   dragHandle,
+  row,
+  inList = true,
   resolveTargetLabel,
   locale,
   t: tProp,
@@ -1378,6 +1390,15 @@ function NavigationItemRenderer({
   enablePinning?: boolean;
   onPinToggle?: (itemId: string, pinned: boolean, item?: NavigationItem, basePath?: string) => void;
   dragHandle?: NavDragHandle;
+  /** The sortable node this row is, when a sortable list draws it. */
+  row?: NavRowNode;
+  /**
+   * Whether this entry is drawn as a child of a menu `<ul>` — every entry
+   * is, except a top-level group, which is a section of its own. A list's
+   * children must be `<li>`s (objectui#11690), so in a list every arm roots
+   * at one: a separator and a nested group included, not just a row.
+   */
+  inList?: boolean;
   resolveTargetLabel?: NavTargetLabelResolver;
   locale?: string;
   t?: (key: string, options?: any) => string;
@@ -1439,9 +1460,15 @@ function NavigationItemRenderer({
   };
   if (!passesNavItemGuards(item, guardOptions)) return null;
 
-  // --- Separator ---
+  // --- Separator --- a rule, not an entry: its item is hidden from assistive
+  // tech, so a screen reader neither counts it in the list nor reads an empty
+  // item (objectui#11690).
   if (item.type === 'separator') {
-    return <Separator className="my-2" />;
+    return (
+      <li ref={row?.ref} style={row?.style} aria-hidden="true">
+        <Separator className="my-2" />
+      </li>
+    );
   }
 
   // --- Group (collapsible) ---
@@ -1479,7 +1506,7 @@ function NavigationItemRenderer({
       templateContext,
     };
 
-    return (
+    const group = (
       <Collapsible open={isOpen} onOpenChange={setIsOpen}>
         <SidebarGroup>
           <SidebarGroupLabel asChild>
@@ -1518,6 +1545,16 @@ function NavigationItemRenderer({
         </SidebarGroup>
       </Collapsible>
     );
+    // A plain `<li>`, not a `SidebarMenuItem`: that one is a `group/menu-item`,
+    // and every row inside the nested group would show its hover-only pin
+    // action whenever the pointer is anywhere over the group.
+    return inList ? (
+      <li ref={row?.ref} style={row?.style}>
+        {group}
+      </li>
+    ) : (
+      group
+    );
   }
 
   // --- Action ---
@@ -1536,7 +1573,7 @@ function NavigationItemRenderer({
     // `resolveLabel` does not do.
     const actionLabel = resolveNavItemLabel(item, tProp, resolveTargetLabel, locale);
     return (
-      <SidebarMenuItem>
+      <SidebarMenuItem ref={row?.ref} style={row?.style}>
         {dragHandle && <NavDragGrip handle={dragHandle} t={tProp} />}
         <SidebarMenuButton
           tooltip={actionLabel}
@@ -1596,7 +1633,7 @@ function NavigationItemRenderer({
   );
 
   return (
-    <SidebarMenuItem>
+    <SidebarMenuItem ref={row?.ref} style={row?.style}>
       {dragHandle && <NavDragGrip handle={dragHandle} t={tProp} />}
       <SidebarMenuButton asChild isActive={isActive} tooltip={itemLabel} className={mobileBtnClass}>
         {external ? (
@@ -1890,6 +1927,7 @@ export function NavigationRenderer({
         <NavigationItemRenderer
           key={item.id}
           item={item}
+          inList={false}
           {...itemProps}
         />,
       );

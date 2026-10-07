@@ -19,6 +19,12 @@
  * `approve`/`reject` mutators that re-fetch on completion so consumers
  * don't need to micromanage state.
  *
+ * The poll follows the answer it last got (objectui#11736). It does not re-arm
+ * at a fixed interval no matter what: a refused read stops it, a transient
+ * failure backs it off, and a success resets it. The policy lives here, in the
+ * hook, so every caller gets the same behaviour. It is documented on
+ * `ListReadOutcome` below.
+ *
  * @module
  */
 
@@ -202,7 +208,98 @@ async function call<T>(
 }
 
 /**
+ * The poll's one fault policy: what a single list read's answer does to the
+ * NEXT read (objectui#11736).
+ *
+ *  - `ok`: the read answered. The next poll comes after `pollInterval`, and
+ *    the backoff resets.
+ *  - `transient`: there was no answer, or the answer means "try again later".
+ *    That covers a transport failure (no HTTP status at all, such as a network
+ *    error or an unreadable body), `408`, `429`, and every `5xx` except `501`.
+ *    The poll backs off: each consecutive failure doubles the delay, up to
+ *    `MAX_BACKOFF_MS`.
+ *  - `refused`: an answer that repeating the same request cannot change. That
+ *    covers `501 Not Implemented`, which the open edition answers on a
+ *    deployment with no AI service, and every other HTTP status (`401`, `403`,
+ *    `404`, ...). The poll STOPS. Two things restart it: a read that succeeds
+ *    (a manual `refresh()`, or the re-fetch after `approve` / `reject`), or a
+ *    change to the hook's inputs, which starts the poll over.
+ *
+ * Before objectui#11736 the poll was a `setInterval` that re-armed whatever
+ * the read answered. On a deployment without the AI service it asked a dead
+ * endpoint every five seconds for as long as the page stayed open.
+ */
+type ListReadOutcome = 'ok' | 'transient' | 'refused';
+
+/**
+ * Ceiling for the transient-failure backoff, in ms. A caller whose own
+ * `pollInterval` is longer keeps that interval as the ceiling, so a backoff
+ * never polls faster than success does. The value was copied from
+ * `@object-ui/app-shell`'s shared user feeds (`MAX_BACKOFF_MS` in
+ * `sharedUserFeeds.ts`) when this was written. Nothing keeps the two equal.
+ */
+const MAX_BACKOFF_MS = 120_000;
+
+/** Classify a failed list read. `call()` puts the HTTP status on the error as `status`. */
+function classifyListFailure(err: Error): Exclude<ListReadOutcome, 'ok'> {
+  const status = (err as Error & { status?: unknown }).status;
+  if (typeof status !== 'number') return 'transient';
+  if (status === 408 || status === 429) return 'transient';
+  if (status >= 500 && status !== 501) return 'transient';
+  return 'refused';
+}
+
+/**
+ * The poll's schedule. It is held in a ref, and the timer is a `setTimeout`
+ * chain armed after each read settles, not a `setInterval`.
+ */
+interface PollSchedule {
+  /**
+   * Bumped by every start and every teardown of the poll effect. A read
+   * schedules the next one only if the generation it started in is still
+   * current, so a read that outlives an unmount or an input change re-arms
+   * nothing.
+   */
+  generation: number;
+  /** The success cadence in ms. `0` means the hook is not polling. */
+  interval: number;
+  /** Consecutive transient failures: the backoff exponent. */
+  failures: number;
+  timer: ReturnType<typeof setTimeout> | undefined;
+}
+
+/**
+ * Re-arm (or stop) the poll from a read that has just settled. Every list
+ * read comes through here: the poll's own tick, the initial read, a manual
+ * `refresh()`, and the re-fetch after a decision. So there is one timer at a
+ * time, and the policy cannot be skipped by reading through a different door.
+ */
+function settlePoll(
+  poll: PollSchedule,
+  generation: number,
+  outcome: ListReadOutcome,
+  read: () => Promise<void>,
+): void {
+  if (generation !== poll.generation || poll.interval <= 0) return;
+  clearTimeout(poll.timer);
+  poll.timer = undefined;
+  if (outcome === 'refused') return;
+  poll.failures = outcome === 'ok' ? 0 : poll.failures + 1;
+  const ceiling = Math.max(poll.interval, MAX_BACKOFF_MS);
+  const delay = Math.min(poll.interval * 2 ** poll.failures, ceiling);
+  poll.timer = setTimeout(() => {
+    poll.timer = undefined;
+    void read();
+  }, delay);
+}
+
+/**
  * Hook that drives the HITL pending-actions inbox.
+ *
+ * Polls every `pollInterval` while the endpoint answers. A refused read
+ * (`501`, `403`, `404`, any `4xx` other than `408` / `429`) stops the poll. A
+ * transient failure backs it off, doubling up to a ceiling. A read that
+ * succeeds resumes the normal cadence (objectui#11736; see `ListReadOutcome`).
  *
  * @example
  * ```tsx
@@ -237,10 +334,22 @@ export function usePendingActions(
   const cfgRef = React.useRef({ apiBase, status, conversationId, limit, headers });
   cfgRef.current = { apiBase, status, conversationId, limit, headers };
 
-  const refresh = React.useCallback(async () => {
+  const pollRef = React.useRef<PollSchedule>({
+    generation: 0,
+    interval: 0,
+    failures: 0,
+    timer: undefined,
+  });
+
+  // A named function expression: the poll's timer calls `load` itself, so the
+  // schedule never has to reach the fetch through a memoised identity.
+  const refresh = React.useCallback(async function load(): Promise<void> {
+    const poll = pollRef.current;
+    const generation = poll.generation;
     const { apiBase, status, conversationId, limit, headers } = cfgRef.current;
     setIsLoading(true);
     setError(undefined);
+    let outcome: ListReadOutcome = 'ok';
     try {
       const url = buildUrl(apiBase, '/pending-actions', {
         status: status && status !== 'all' ? status : undefined,
@@ -255,11 +364,21 @@ export function usePendingActions(
       setItems(Array.isArray(out.items) ? out.items : []);
       setTotal(typeof out.total === 'number' ? out.total : (out.items?.length ?? 0));
     } catch (err) {
-      setError(err instanceof Error ? err : new Error(String(err)));
+      const failure = err instanceof Error ? err : new Error(String(err));
+      setError(failure);
+      outcome = classifyListFailure(failure);
     } finally {
       setIsLoading(false);
     }
+    settlePoll(poll, generation, outcome, load);
   }, []);
+
+  // The effect below reaches `refresh` through this ref and keys only on the
+  // primitives that define the poll. It must not key on `refresh`'s identity:
+  // `useCallback` is a performance hint that React may discard (AGENTS.md
+  // commandment #10, objectui#8640).
+  const refreshRef = React.useRef(refresh);
+  refreshRef.current = refresh;
 
   const approve = React.useCallback(async (id: string): Promise<ApproveOutcome> => {
     const { apiBase, headers } = cfgRef.current;
@@ -287,14 +406,22 @@ export function usePendingActions(
     }
   }, [refresh]);
 
-  // Initial fetch + polling.
+  // Initial fetch + polling. Each read re-arms the next one through
+  // `settlePoll`, according to what it was answered.
   React.useEffect(() => {
     if (!enabled) return;
-    void refresh();
-    if (!pollInterval || pollInterval <= 0) return;
-    const id = setInterval(() => { void refresh(); }, pollInterval);
-    return () => clearInterval(id);
-  }, [enabled, pollInterval, refresh, apiBase, status, conversationId, limit]);
+    const poll = pollRef.current;
+    poll.generation += 1;
+    poll.interval = pollInterval > 0 ? pollInterval : 0;
+    poll.failures = 0;
+    void refreshRef.current();
+    return () => {
+      poll.generation += 1;
+      poll.interval = 0;
+      clearTimeout(poll.timer);
+      poll.timer = undefined;
+    };
+  }, [enabled, pollInterval, apiBase, status, conversationId, limit]);
 
   return { items, total, isLoading, error, refresh, approve, reject };
 }

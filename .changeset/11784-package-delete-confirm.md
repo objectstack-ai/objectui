@@ -2,7 +2,7 @@
 '@object-ui/app-shell': patch
 ---
 
-The package sheet's Delete, Discard changes and Duplicate ask in-app before they act, and Cancel on Delete deletes nothing (objectui#11784).
+The package sheet's Delete, Discard changes and Duplicate ask in-app before they act, Cancel on Delete deletes nothing, and Studio returns to its landing after the open package is deleted (objectui#11784).
 
 Delete app used to ask two browser confirms in a row, and the second one's Cancel still deleted the
 package's structure, keeping only its records. It now opens one dialog: the author picks "Delete the
@@ -10,6 +10,11 @@ structure, keep the records" or "Delete the structure and the data" (nothing is 
 the package's name, and only then is the delete button enabled. Cancel, at any point, sends no
 request. "Keep the records" sends the delete with `?keepData=true`, as before; the other choice
 also drops the object tables.
+
+After deleting the package that is open in Studio, Studio now returns to its landing (`/studio`),
+where the next package can be picked or a new one created. It used to open whichever package the
+list started with, or, with no package left, leave Studio for the home page. The console's Packages
+page is unchanged: a delete there reloads the list in place.
 
 Discard changes (N) used to discard every pending draft at once. It now asks first, naming the count.
 

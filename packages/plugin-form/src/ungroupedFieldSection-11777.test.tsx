@@ -60,18 +60,20 @@ const filerObject = (group: Record<string, unknown> = {}) => ({
 
 const UNGROUPED = ['status', 'due_date', 'problem_description', 'technician'];
 
-const makeDS = (objectSchema: unknown) =>
-  ({
-    getObjectSchema: vi.fn().mockResolvedValue(objectSchema),
-    create: vi.fn().mockResolvedValue({ id: 'w1' }),
-    update: vi.fn().mockResolvedValue({ id: 'w1' }),
-    findOne: vi.fn().mockResolvedValue({ id: 'w1' }),
-  }) as any;
+const makeDS = (objectSchema: unknown) => ({
+  getObjectSchema: vi.fn().mockResolvedValue(objectSchema),
+  create: vi.fn().mockResolvedValue({ id: 'w1' }),
+  update: vi.fn().mockResolvedValue({ id: 'w1' }),
+  findOne: vi.fn().mockResolvedValue({ id: 'w1' }),
+});
 
-const ARMS: Array<[string, React.ComponentType<any>, string | undefined]> = [
-  ['ObjectForm', ObjectForm as any, undefined],
-  ['ModalForm', ModalForm as any, 'modal'],
-  ['DrawerForm', DrawerForm as any, 'drawer'],
+/** The one prop shape these rows hand every arm. */
+type Arm = React.ComponentType<{ schema: Record<string, unknown>; dataSource: unknown }>;
+
+const ARMS: Array<[string, Arm, string | undefined]> = [
+  ['ObjectForm', ObjectForm as unknown as Arm, undefined],
+  ['ModalForm', ModalForm as unknown as Arm, 'modal'],
+  ['DrawerForm', DrawerForm as unknown as Arm, 'drawer'],
 ];
 
 const item = (name: string) => document.body.querySelector(`[data-field="${name}"]`) as HTMLElement | null;
@@ -93,7 +95,7 @@ describe.each(ARMS)('%s — the ungrouped fields are their own block (objectui#1
           mode: 'create',
           open: true,
           ...extra,
-        } as any}
+        }}
         dataSource={makeDS(objectSchema)}
       />,
     );

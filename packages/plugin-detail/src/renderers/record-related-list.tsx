@@ -120,7 +120,7 @@ const isDevBuild = (): boolean =>
   (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env
     ?.NODE_ENV !== 'production';
 
-const splitDesigner =(props: Record<string, any>) => {
+const splitDesigner = (props: Record<string, any>) => {
   const { 'data-obj-id': id, 'data-obj-type': type, style, ...rest } = props || {};
   return { designer: { 'data-obj-id': id, 'data-obj-type': type, style }, rest };
 };

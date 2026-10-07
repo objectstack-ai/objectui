@@ -148,7 +148,11 @@ function renderPage(config: typeof EN | typeof ZH) {
   );
 }
 
-/** Open the local menu and choose Uninstall. */
+/**
+ * Open the local menu and choose Uninstall. It waits on the menu trigger, which
+ * is drawn once the listing answers, and on nothing the header draws, so the
+ * Uninstall cases and the header cases each fail for their own face alone.
+ */
 async function uninstallFromMenu(pack: Pack) {
   const trigger = await screen.findByRole('button', { name: pack.marketplace.detail.moreOptions });
   fireEvent.keyDown(trigger, { key: 'Enter' });
@@ -210,7 +214,6 @@ describe.each([
     it('Uninstall on the not-loaded entry confirms and reports in not-loaded terms', async () => {
       await boot(marketplace, REFUSED);
       renderPage(config);
-      await screen.findByText(badge);
       await uninstallFromMenu(pack);
 
       await waitFor(() =>
@@ -227,7 +230,6 @@ describe.each([
     it('control: Uninstall on a loaded entry keeps the loaded package\'s confirm and `successInDetail`', async () => {
       await boot(marketplace, LOADED);
       renderPage(config);
-      await screen.findByText(installedV);
       await uninstallFromMenu(pack);
 
       await waitFor(() =>

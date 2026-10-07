@@ -21,9 +21,9 @@ import type { RegisteredErrorCode } from '@objectstack/spec/api';
  * this way. Read once, from objectstack's source at the 17.7.0 release this
  * console resolves; nothing in this repo re-derives it.
  *
- * ⛔ Never the `?password=` query parameter. A request URL ends up in browser
- * history, in a referrer and in any access log that records URLs; a header does
- * not. At that same release the server still reads the parameter, and reads it
+ * ⛔ Never the `?password=` query parameter. A request URL ends up in every
+ * server, proxy and CDN log that records URLs, and in a captured network trace;
+ * a header does not. At that same release the server still reads the parameter, and reads it
  * FIRST, for older clients — so a page that sent both would still be sending the
  * password in the URL. This page sends the header alone.
  */

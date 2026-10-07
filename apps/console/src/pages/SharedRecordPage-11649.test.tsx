@@ -133,7 +133,7 @@ beforeEach(() => {
 afterEach(() => {
   // Nothing the page writes to the console carries the password.
   for (const spy of consoleSpies) {
-    for (const args of spy.mock.calls) {
+    for (const args of spy.mock.calls as unknown[][]) {
       expect(args.map((a) => String(a)).join(' ')).not.toContain(SECRET);
     }
     spy.mockRestore();

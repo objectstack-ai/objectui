@@ -146,7 +146,9 @@ function run(verb: Verb) {
 async function formInDrawer(verb: Verb): Promise<HTMLElement> {
   const form = await screen.findByTestId('object-form');
   expect(form.getAttribute('data-mode')).toBe(verb);
-  const drawer = form.closest('[data-vaul-drawer]') as HTMLElement | null;
+  // The drawer is the right-hand Sheet on a desktop and vaul's bottom sheet on
+  // a phone (objectui#11775).
+  const drawer = (form.closest('[role="dialog"].inset-y-0.right-0') ?? form.closest('[data-vaul-drawer]')) as HTMLElement | null;
   expect(drawer, `the ${verb} form is not inside the drawer`).not.toBeNull();
   return drawer!;
 }

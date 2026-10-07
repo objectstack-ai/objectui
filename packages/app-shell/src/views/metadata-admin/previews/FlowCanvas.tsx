@@ -51,7 +51,13 @@ import {
 import { predictExpandedNodeHeight } from './flow-region-metrics.js';
 import { NodeCard, NodePalette, defaultNodeLabel, defaultNodeExtras } from './flow-canvas-parts.js';
 import { useFlowNodePalette } from './useFlowNodePalette.js';
-import { indexProblemBadges, edgeProblemKey, type FlowProblem } from './flow-problems.js';
+import {
+  indexProblemBadges,
+  edgeProblemKey,
+  edgesAfterNodeRemoval,
+  freshNodeId,
+  type FlowProblem,
+} from './flow-problems.js';
 import type { NestedNodePath } from '../inspectors/flow-nested-selection.js';
 
 const MIN_ZOOM = 0.4;
@@ -126,6 +132,13 @@ export interface FlowCanvasProps {
    */
   onSelectNested?: (path: NestedNodePath | null, node?: FlowDesignerNode) => void;
   onPatch?: (partial: Record<string, unknown>) => void;
+  /**
+   * objectui#11772 — the host's id minter for a new node, when the host keeps
+   * an editing session (`FlowPreview` remembers every node id it has seen, so
+   * a removed node's id is never minted again). Absent, the canvas mints with
+   * `freshNodeId` (`flow-problems`) over the draft alone.
+   */
+  mintNodeId?: () => string;
 }
 
 export function FlowCanvas({
@@ -149,6 +162,7 @@ export function FlowCanvas({
   selectedNestedPath,
   onSelectNested,
   onPatch,
+  mintNodeId,
 }: FlowCanvasProps) {
   // objectui#3172 — the ONE geometry boundary: nodes enter the canvas with the
   // retired `ui: {x,y}` spelling already lifted onto the spec's `position`, so
@@ -259,11 +273,17 @@ export function FlowCanvas({
     [nodes, onPatch],
   );
 
+  // objectui#11772 — the one place this canvas names a node it adds: the
+  // host's session minter when it keeps one, else `freshNodeId` over the draft.
+  const newNodeId = React.useCallback(
+    () => (mintNodeId ? mintNodeId() : freshNodeId(nodes, edges)),
+    [mintNodeId, nodes, edges],
+  );
+
   const addNode = React.useCallback(
     (type: string, opts?: { from?: string; at?: Point }) => {
       if (!onPatch) return;
-      const existing = nodes.map((n) => n.id).filter(Boolean) as string[];
-      const id = uniqueId('node', existing);
+      const id = newNodeId();
       const label = defaultNodeLabel(type, locale);
       // Only an explicit `at` pins a manual position. A `from`-append is left
       // unpinned so the layered auto-layout slots it below its parent and
@@ -310,7 +330,7 @@ export function FlowCanvas({
       onSelect(newNode);
       setPaletteOpen(false);
     },
-    [edges, nodes, onPatch, onSelect, positionOf, locale],
+    [edges, nodes, onPatch, onSelect, positionOf, locale, newNodeId],
   );
 
   /** Split edge A→B by inserting a new node N: A→N (keeps guard) + N→B. */
@@ -319,8 +339,7 @@ export function FlowCanvas({
       if (!onPatch) return;
       const edgeIdx = edges.findIndex((e) => e === edge);
       if (edgeIdx < 0) return;
-      const existing = nodes.map((n) => n.id).filter(Boolean) as string[];
-      const id = uniqueId('node', existing);
+      const id = newNodeId();
       const from = positionOf(edge.source);
       const to = positionOf(edge.target);
       const at = { x: (from.x + to.x) / 2, y: (from.y + to.y) / 2 };
@@ -342,7 +361,7 @@ export function FlowCanvas({
       onPatch({ nodes: appendArray(nodes, newNode), edges: appendArray(nextEdges, secondSegment) });
       onSelect(newNode);
     },
-    [edges, nodes, onPatch, onSelect, positionOf, locale],
+    [edges, nodes, onPatch, onSelect, positionOf, locale, newNodeId],
   );
 
   /**
@@ -358,7 +377,7 @@ export function FlowCanvas({
     (approvalId: string) => {
       if (!onPatch) return;
       if (!nodes.some((n) => n.id === approvalId)) return;
-      const waitId = uniqueId('node', nodes.map((n) => n.id).filter(Boolean) as string[]);
+      const waitId = newNodeId();
       const waitNode: FlowDesignerNode = {
         id: waitId,
         type: 'wait',
@@ -379,7 +398,7 @@ export function FlowCanvas({
       });
       onSelect(waitNode);
     },
-    [edges, nodes, onPatch, onSelect, locale],
+    [edges, nodes, onPatch, onSelect, locale, newNodeId],
   );
 
   // Approval nodes that already declare a `revise` out-edge — used to hide the
@@ -396,7 +415,8 @@ export function FlowCanvas({
     (id: string) => {
       if (!onPatch) return;
       const nextNodes = nodes.filter((n) => n.id !== id);
-      const nextEdges = edges.filter((e) => e.source !== id && e.target !== id);
+      // objectui#11772 — the same removal the inspector's "Remove node" makes.
+      const nextEdges = edgesAfterNodeRemoval(edges, id, new Set(nextNodes.map((n) => n.id)));
       onPatch({ nodes: nextNodes, edges: nextEdges });
       onSelect(null);
     },

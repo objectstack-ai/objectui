@@ -49,6 +49,11 @@ import {
   DrawerHeader,
   DrawerTitle,
   DrawerDescription,
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
   NavigationOverlay,
   Button,
   Tabs,
@@ -2669,22 +2674,60 @@ export const ObjectView: React.FC<ObjectViewProps> = ({
     return `max-w-[${w}]`;
   }, [navigationConfig]);
 
-  // Render the form in a drawer
-  const renderDrawerForm = () => (
-    <Drawer open={isFormOpen} onOpenChange={setIsFormOpen} direction="right">
-      <DrawerContent className={cn('w-full sm:max-w-2xl', formWidthClass)}>
-        <DrawerHeader>
-          <DrawerTitle>{getFormTitle()}</DrawerTitle>
-          {formDescriptionText && (
-            <DrawerDescription>{formDescriptionText}</DrawerDescription>
-          )}
-        </DrawerHeader>
-        <div className="flex-1 overflow-y-auto px-4 pb-4">
-          <ObjectForm schema={buildFormSchema()} dataSource={dataSource} />
-        </div>
-      </DrawerContent>
-    </Drawer>
-  );
+  // Render the form in a drawer: a right-hand panel on a desktop, a bottom
+  // sheet on a phone (`isMobile`, the breakpoint the record surface is
+  // derived on).
+  //
+  // objectui#11775: this used to be one vaul `Drawer` with
+  // `direction="right"` on every viewport. vaul honours `direction` for the
+  // slide and the drag gesture only; the shipped `DrawerContent` is the
+  // upstream bottom sheet and styles itself as one whatever the direction, so
+  // on a desktop the form drew as a bottom sheet pinned to the bottom-left by
+  // `sm:max-w-2xl`. The desktop panel is now the right-hand `Sheet`, the
+  // primitive `NavigationOverlay`'s drawer mode and `DrawerForm` already open
+  // records in. The phone keeps vaul's bottom sheet, opened in vaul's own
+  // default direction so its slide and drag match how it is drawn, and spans
+  // the viewport like every other bottom sheet: the width classes, and an
+  // authored `navigation.width`, size the side panel only.
+  const renderDrawerForm = () => {
+    const form = (
+      <div className="flex-1 overflow-y-auto px-4 pb-4">
+        <ObjectForm schema={buildFormSchema()} dataSource={dataSource} />
+      </div>
+    );
+    if (isMobile) {
+      return (
+        <Drawer open={isFormOpen} onOpenChange={setIsFormOpen}>
+          <DrawerContent>
+            <DrawerHeader>
+              <DrawerTitle>{getFormTitle()}</DrawerTitle>
+              {formDescriptionText && (
+                <DrawerDescription>{formDescriptionText}</DrawerDescription>
+              )}
+            </DrawerHeader>
+            {form}
+          </DrawerContent>
+        </Drawer>
+      );
+    }
+    return (
+      <Sheet open={isFormOpen} onOpenChange={setIsFormOpen}>
+        <SheetContent
+          side="right"
+          className={cn('flex w-full flex-col gap-0 p-0 sm:max-w-2xl', formWidthClass)}
+        >
+          {/* `pr-12` keeps the title clear of the Sheet's own close button. */}
+          <SheetHeader className="p-4 pr-12">
+            <SheetTitle>{getFormTitle()}</SheetTitle>
+            {formDescriptionText && (
+              <SheetDescription>{formDescriptionText}</SheetDescription>
+            )}
+          </SheetHeader>
+          {form}
+        </SheetContent>
+      </Sheet>
+    );
+  };
 
   // Render the form in a modal
   const renderModalForm = () => (

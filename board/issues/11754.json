@@ -1,0 +1,31 @@
+{
+  "number": 11754,
+  "kind": "issue",
+  "title": "decision: objectui#11168 — `action:button.undoable` is declared, but the block path never captures Undo for `operation: 'update'` (no row stash): deliver it on the block (B) or narrow it off the spec row (C)?",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:records",
+    "domain:spec",
+    "needs-user-decision",
+    "priority:p2"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-07T02:31:01Z",
+  "updated_at": "2026-10-07T02:31:01Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 0,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11754",
+  "body": "Filing gate: **② a decision only the maintainer can make.** Filed by the triage seat (objectstack-wide, seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`), on the maintainer's instruction 「需要我决裁的问题，立决策卡」. ⛔ Not a claim. Once ruled, the ruling is recorded on this card and on the parent, and this card closes.\n\nParent: objectui#11168 (p2, `pm:on-hold`). Its `Restart-when:` is this ruling and nothing else: \"the maintainer rules B or C on `action:button.undoable`\" (`5982135645`). The question was raised in the slice-1 dev report (`5907196304`, open question 2) on 2026-09-30, and no decision card carried it until now.\n\n### 维护者速读\n页面上作者配置的\"更新\"按钮（`action:button`，`operation: 'update'`）可以声明 `undoable`，spec 也接受这个写法，但点完之后没有\"撤销\"按钮。原因是运行时要靠一份行快照才能做撤销，而按钮区块从来不写这份快照。记录详情页上的 `api` 写法则能正常撤销。\n\n- **B**：改 objectui 的运行时，让按钮区块在有记录上下文时（记录页的当前记录、表格的当前行）也能撤销，然后把这个键发布出去。不破坏任何东西，现在就能做。\n- **C**：请 spec 把 `undoable` 从 `action:button` 这一行收窄掉。这是破坏性收窄，只能放进 v18；而且记录页上原本好用的 `api` 撤销会一并失去这个已声明的键。\n\n推荐 **B**。回一个字母：B / C。\n\n### 四棱（os-decision-facets）\n- ① 项目长远合理性：B 让 spec 的规范写法（`operation: 'update'`）在区块上也兑现，符合\"声明即兑现\"。C 用删除的办法消除差距，代价是丢掉一条今天就能用的路径。\n- ② 实际业务拉动：撤销是用户直接看得到的能力，作者在页面上配的更新按钮今天会\"静默没有撤销\"。目前没有测到具体客户需求。\n- ③ 防 AI 犯错：B 之后，AI 按 spec 写出的 `undoable` 在区块上真的生效。C 之后，AI 写这个键会被拒，信号是响亮的，但能力也就没了。\n- ④ 创业阶段不扩散：B 是 objectui 内部一处运行时改动，加上它的 pins，不新增键。C 要动一次 spec，而且必须等 v18。\n\nPrior rulings read: `undoable` / ActionSchema fulfilment → ruling `5754211444` (objectstack batch #203 item 5, letter C, landed as objectstack-ai/objectstack#19635). Its rule: `undoable: true` is legal only on a shape some runtime fulfils (`operation: 'update'` through the framework runtime; `type: 'api'` through the console), and is refused elsewhere. That rule is why D (publish with a caveat) is out. It does not choose between delivering and narrowing on the block. `check-prior-rulings` on these terms: 0 further hits. Thread: objectui#11168 `5907196304`, `5907833984`, `5982135645`.\n\n## 一句话问题\nspec 对 `action:button` 声明了 `undoable`，但按钮区块上 `operation: 'update'` 这种规范写法从来做不出撤销。是让它在区块上兑现（B），还是从 spec 行里收窄掉（C）？\n\n## 选项 × 代价\n| 选项 | 做什么 | 代价 |\n|:--|:--|:--|\n| A（现状） | 继续不发布，记账留在 objectui#11168 | 卡片永远挂着；按钮上声明了也不生效 |\n| **B** | `@object-ui/core` 的 update 路径在区块调用时，从作用域里的记录（记录页的当前记录、表格的当前行）取撤销基准；有基准时生效，然后发布 `undoable` | 一处运行时改动加 pins。没有记录上下文的独立按钮仍然无法撤销，description 要写明这一点（这是声明写法所需的上下文，不是附带的免责说明） |\n| C | 请 spec 从 `action:button` 行收窄掉 `undoable` | 破坏性收窄，要等 v18；记录页的 `api` 路径失去一个今天就兑现的已声明键 |\n| D | 原样发布，加一句说明 | 声明了却做不到，`5754211444` 已排除这种做法 |\n\n## 推荐 + 回退 + 置信缺口\n- **推荐 B。** 它兑现的是 spec 自己的规范写法，`5754211444` 已认定框架运行时兑现 `operation: 'update'`。它不破坏任何东西，现在就能在 objectui 落地，并且不让任何已兑现的路径倒退。\n- **两年后的样子：** 区块、记录页、列表上同一个 `undoable` 行为一致，只要有记录上下文就能撤销，与动作从哪个界面发起无关。\n- **回退 C**，在 v18 里做。\n- **置信缺口：** 没有量过有多少已存储页面在 `action:button` 上写了 `undoable`。B 的认领方先盘点一遍。\n- 只看①选 B；②③④ 是否翻转：否。\n\n## 裁后执行\n- **B：** objectui#11168 回到 `pm:queue`，下一个切片做 B，加上发布和 pins。分诊记录裁决。\n- **C：** 在 objectstack 立 spec 收窄卡，带 `target:v18`，并挡在 #15193 之后。objectui#11168 的这条记账改为指向那张卡。"
+}

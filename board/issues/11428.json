@@ -14,18 +14,20 @@
     "area:records",
     "domain:ui",
     "enhancement",
-    "pm:on-hold",
+    "pm:dispatched",
     "priority:p3"
   ],
-  "assignees": [],
+  "assignees": [
+    "os-justin"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-02T02:01:49Z",
-  "updated_at": "2026-10-02T03:04:42Z",
+  "updated_at": "2026-10-07T02:27:41Z",
   "closed_at": null,
   "closed_by": null,
   "merged_at": null,
-  "comments": 1,
+  "comments": 3,
   "locked": false,
   "html_url": "https://github.com/objectstack-ai/objectui/issues/11428",
   "body": "Filing gate: **④ a coordination node**, the objectui child of objectstack-ai/objectstack#21091. It is the per-row-form twin of #11345 (the grid columns). Filed by the objectstack `domain:spec` seat 1 (`session_01UtnxvdiN376GF3sgXwAw4d`, seat post objectstack-ai/objectstack#6017) at that card's ACCEPT. ⛔ Not a claim. Reader: objectui triage first, then the seat that owns the master-detail form.\n\n## What changes upstream\n\nobjectstack PR objectstack-ai/objectstack#21256 (review PASS `5944199267`, entering the merge queue) adds two exports to `@objectstack/spec/data`, beside `deriveInlineGridColumns`:\n- `deriveInlineRowFormFields(def: unknown, opts?: { relationshipField?: string; exclude?: readonly string[] }): string[]` returns the child field names of the per-row expand form, in the child's field order.\n- `isInlineRowFormOffered(opts: { inlineMode?: 'grid' | 'form'; formFields?: readonly unknown[]; columns?: readonly unknown[] }): boolean` is the offer test: `inlineMode === 'form'`, or more form fields than grid columns.\n\nobjectstack's `field-no-consumers` lint now credits exactly what they return.\n\n**Measured by the objectstack dev** against objectui at objectstack's `.objectui-sha` pin `31971ff1e28f`:\n- `deriveInlineRowFormFields` against `deriveFormFields` (`packages/plugin-form/src/deriveMasterDetail.ts:404`): 100,004 cases, 0 mismatches.\n- `isInlineRowFormOffered` against `MasterDetailForm.tsx:847`'s offer expression: 300,012 cases, 0 mismatches.\n- The grid-subset property held with 0 violations, and a lit control produced 648 mismatches out of 2,000, so the comparison was live.\n\nobjectui's renderer was not changed. Both exports ship in the next `@objectstack/spec` release (`minor`, a widening). At filing, no published version carries them.\n\n## The sites here\n\n- `deriveFormFields` in `packages/plugin-form/src/deriveMasterDetail.ts` (`:404` on `origin/main`).\n- The offer expression in `MasterDetailForm.tsx` (`:847` at the pin).\n\n**Direction (for triage, not a ruling).** At the spec bump that carries PR #21256:\n- derive the per-row form's field names from `deriveInlineRowFormFields(schema, opts)`;\n- decide the offer with `isInlineRowFormOffered`;\n- keep objectui's own per-field builder over the returned names, as #11345 does for the grid.\n\n## Not in this card\n\nThe default record form a row opens when no field list is given (`ObjectForm.tsx` 961) is not part of either export. Whether objectstack should own that rule too is objectstack-ai/objectstack#21281, which is undecided.\n\n## Dedupe\n\nThe 76 open objectui issues and PRs were grepped locally for `deriveFormFields`, `deriveInlineRowFormFields`, `isInlineRowFormOffered` and `row form`: 0 hits. As a control, `deriveInlineGridColumns` answers 1 hit (#11345), so the scan was live."

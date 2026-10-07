@@ -14,11 +14,13 @@
     "apps",
     "tests"
   ],
-  "assignees": [],
+  "assignees": [
+    "huangyiirene"
+  ],
   "milestone": null,
   "type": null,
   "created_at": "2026-10-06T16:12:22Z",
-  "updated_at": "2026-10-06T16:47:49Z",
+  "updated_at": "2026-10-07T02:32:08Z",
   "closed_at": "2026-10-06T16:47:47Z",
   "closed_by": {
     "login": "objectstack-fleet[bot]",

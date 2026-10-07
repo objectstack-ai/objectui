@@ -299,7 +299,7 @@ describe('DatasetWidget chart — select-option labels run through the i18n bund
     );
     await waitFor(() => expect(categories()).toContain('Birla Carbon'));
     // The click arrives with the DISPLAYED category — the chart knows no other.
-    const displayed = categories().find((c) => c === '欧励隆' || c === 'Orion Engineered Carbons');
+    const displayed = categories().find((c: unknown) => c === '欧励隆' || c === 'Orion Engineered Carbons');
     expect(displayed).toBeDefined();
     expect(displayed).not.toBe('orion');
     capturedChartProps.onSegmentClick({ category: displayed });

@@ -27,9 +27,9 @@
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 
-import { PackageDetailSheet, type InstalledPackageRow } from './PackagesPage';
+import { PackageDetailSheet, PackagesPage, type InstalledPackageRow } from './PackagesPage';
 
 const PKG_ID = 'com.acme.crm';
 const PKG_NAME = 'Acme CRM';
@@ -71,6 +71,9 @@ beforeEach(() => {
       const method = (init.method ?? 'GET').toUpperCase();
       const body = typeof init.body === 'string' && init.body ? JSON.parse(init.body) : undefined;
       calls.push({ url: input, method, body });
+      if (input === '/api/v1/packages' && method === 'GET') {
+        return respond({ success: true, data: { packages: [PKG] } });
+      }
       if (input.startsWith('/api/v1/meta/_drafts')) {
         return respond({ success: true, data: { drafts: DRAFTS } });
       }
@@ -371,5 +374,47 @@ describe('PackageDetailSheet — no native dialog on these three paths (objectui
 
     expect(confirmSpy).not.toHaveBeenCalled();
     expect(promptSpy).not.toHaveBeenCalled();
+  });
+});
+
+describe('Console Packages page — a delete there stays on the page (objectui#11784)', () => {
+  /**
+   * Studio's return to its landing after a delete is the Studio HOST's
+   * (`PackageSwitcher`'s eviction in `StudioDesignSurface.tsx`), not the
+   * sheet's. The same sheet serves this console page, whose `onChanged` only
+   * reloads the list; `/studio` is not a destination here.
+   */
+  function PathProbe() {
+    return <div data-testid="path">{useLocation().pathname}</div>;
+  }
+
+  it('reloads the list and closes the sheet, without navigating to /studio', async () => {
+    const START = '/apps/demo/component/packages';
+    render(
+      <MemoryRouter initialEntries={[START]}>
+        <PathProbe />
+        <Routes>
+          <Route path={START} element={<PackagesPage />} />
+          <Route path="/studio" element={<div data-testid="studio-landing" />} />
+          <Route path="*" element={<div data-testid="elsewhere" />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+    const listReads = () => calls.filter((c) => c.method === 'GET' && c.url === '/api/v1/packages');
+
+    fireEvent.click(await screen.findByText(PKG_NAME));
+    const dialog = await openDeleteDialog();
+    fireEvent.click(within(dialog).getByTestId('pkg-detail-delete-mode-all'));
+    fireEvent.change(within(dialog).getByTestId('pkg-detail-delete-name-input'), {
+      target: { value: PKG_NAME },
+    });
+    fireEvent.click(within(dialog).getByTestId('pkg-detail-delete-confirm'));
+
+    await waitFor(() => expect(deletes()).toHaveLength(1));
+    await waitFor(() => expect(listReads()).toHaveLength(2));
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Delete app' })).toBeNull());
+    expect(screen.getByTestId('path').textContent).toBe(START);
+    expect(screen.queryByTestId('studio-landing')).toBeNull();
+    expect(screen.queryByTestId('elsewhere')).toBeNull();
   });
 });

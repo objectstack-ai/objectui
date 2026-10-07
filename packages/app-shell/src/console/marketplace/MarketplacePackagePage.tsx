@@ -584,24 +584,34 @@ export function MarketplacePackagePage() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuItem onSelect={doReseedLocalSampleData} disabled={sampleDataBusy !== null}>
-          {sampleDataBusy === 'reseed'
-            ? <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
-            : <Database className="h-4 w-4 mr-2" aria-hidden="true" />}
-          {localInstall.withSampleData
-            ? t('marketplace.detail.reseedAgain')
-            : t('marketplace.detail.addSampleData')}
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={doPurgeLocalSampleData}
-          disabled={sampleDataBusy !== null || !localInstall.withSampleData}
-          className="text-destructive focus:text-destructive"
-        >
-          {sampleDataBusy === 'purge'
-            ? <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
-            : <Trash2 className="h-4 w-4 mr-2" aria-hidden="true" />}
-          {t('marketplace.detail.purgeSampleData')}
-        </DropdownMenuItem>
+        {/* objectui#11645 — re-seed and purge write and read the package's own
+            objects, which a package this runtime refused to load at startup
+            (`notLoaded`) never registered, so neither is offered for it. The
+            listing omits `withSampleData` for such an entry, and its absence
+            used to read as "Add sample data". Uninstall stays: it is how the
+            operator removes the refused entry. */}
+        {!localInstall.notLoaded && (
+          <>
+            <DropdownMenuItem onSelect={doReseedLocalSampleData} disabled={sampleDataBusy !== null}>
+              {sampleDataBusy === 'reseed'
+                ? <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
+                : <Database className="h-4 w-4 mr-2" aria-hidden="true" />}
+              {localInstall.withSampleData
+                ? t('marketplace.detail.reseedAgain')
+                : t('marketplace.detail.addSampleData')}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={doPurgeLocalSampleData}
+              disabled={sampleDataBusy !== null || !localInstall.withSampleData}
+              className="text-destructive focus:text-destructive"
+            >
+              {sampleDataBusy === 'purge'
+                ? <Loader2 className="h-4 w-4 mr-2 animate-spin" aria-hidden="true" />
+                : <Trash2 className="h-4 w-4 mr-2" aria-hidden="true" />}
+              {t('marketplace.detail.purgeSampleData')}
+            </DropdownMenuItem>
+          </>
+        )}
         <DropdownMenuItem onSelect={doUninstallLocal} disabled={installingLocal} className="text-destructive focus:text-destructive">
           <Trash2 className="h-4 w-4 mr-2" aria-hidden="true" />
           {t('marketplace.detail.uninstallFromRuntime')}

@@ -3401,6 +3401,13 @@ const ko = {
     cachedAs: "<code>{{path}}</code>로 캐시됨",
     versionBadge: "v{{version}}",
     installedBadge: "v{{version}} 설치됨",
+    // objectui#11645 — an install-local entry this runtime refused to load at
+    // startup (the listing's `notLoaded` marker), read on Installed Apps.
+    notLoaded: {
+      badge: "로드되지 않음",
+      protocolIncompatible: "이 런타임은 이 패키지를 로드하지 않았습니다. 이 패키지는 프로토콜 {{requiredRange}}을(를) 대상으로 하지만 이 런타임은 해당 프로토콜을 지원하지 않습니다.",
+      otherReason: "이 런타임은 이 패키지를 로드하지 않았습니다({{code}}).",
+    },
     load: {
       failed: "마켓플레이스를 로드할 수 없습니다",
       failedHintConfigured: "이 런타임은 {{url}} 의 컨트롤 플레인을 통해 마켓플레이스에 접속합니다. 해당 주소가 온라인이고 여기에서 접근 가능한지 확인하세요.",
@@ -3507,6 +3514,8 @@ const ko = {
       confirm: "이 런타임에서 {{manifestId}} v{{version}}을(를) 제거하시겠습니까?\n\n캐시된 매니페스트가 삭제됩니다.",
       successInList: "{{manifestId}} 제거됨. 완전히 언로드하려면 런타임을 재시작하세요.",
       successInDetail: "{{manifestId}}의 캐시된 매니페스트 제거됨.",
+      confirmNotLoaded: "이 런타임에서 {{manifestId}} v{{version}}을(를) 제거하시겠습니까?\n\n캐시된 매니페스트가 삭제됩니다. 이 런타임은 이 패키지를 로드하지 않았으므로 실행 중인 부분이 없습니다.",
+      successNotLoaded: "{{manifestId}} 제거됨. 로드되지 않았으므로 재시작할 필요가 없습니다.",
     },
     accessDenied: {
       title: "관리자 전용 앱 마켓플레이스",

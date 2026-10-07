@@ -4004,6 +4004,13 @@ const en = {
       cachedAs: 'Cached as <code>{{path}}</code>',
       versionBadge: 'v{{version}}',
       installedBadge: 'Installed v{{version}}',
+      // objectui#11645 — an install-local entry this runtime refused to load at
+      // startup (the listing's `notLoaded` marker), read on Installed Apps.
+      notLoaded: {
+        badge: 'Not loaded',
+        protocolIncompatible: 'This runtime did not load this package: it targets protocol {{requiredRange}}, which this runtime does not support.',
+        otherReason: 'This runtime did not load this package ({{code}}).',
+      },
       load: {
         failed: 'Failed to load marketplace',
         failedHintConfigured: 'This runtime reaches the marketplace through the control plane at {{url}}. Check that it is online and reachable from here.',
@@ -4122,6 +4129,8 @@ const en = {
         confirm: 'Uninstall {{manifestId}} v{{version}} from this runtime?\n\nThe cached manifest will be removed. The app will remain loaded in the running kernel until the next restart.',
         successInList: 'Removed {{manifestId}}. Restart the runtime to fully unload it from the running kernel.',
         successInDetail: 'Removed cached manifest for {{manifestId}}. Restart the runtime to fully unload the app from the running kernel.',
+        confirmNotLoaded: 'Uninstall {{manifestId}} v{{version}} from this runtime?\n\nThe cached manifest will be removed. This runtime did not load the package, so none of it is running.',
+        successNotLoaded: 'Removed {{manifestId}}. It was not loaded, so no restart is needed.',
       },
       accessDenied: {
         title: 'App Marketplace is admin-only',

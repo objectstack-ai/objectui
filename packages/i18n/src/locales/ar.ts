@@ -3669,6 +3669,13 @@ const ar = {
     cachedAs: "مخزن مؤقتاً كـ <code>{{path}}</code>",
     versionBadge: "v{{version}}",
     installedBadge: "مثبت v{{version}}",
+    // objectui#11645 — an install-local entry this runtime refused to load at
+    // startup (the listing's `notLoaded` marker), read on Installed Apps.
+    notLoaded: {
+      badge: "غير محمّل",
+      protocolIncompatible: "لم يقم وقت التشغيل هذا بتحميل هذه الحزمة: فهي تستهدف البروتوكول {{requiredRange}}، وهو بروتوكول لا يدعمه وقت التشغيل هذا.",
+      otherReason: "لم يقم وقت التشغيل هذا بتحميل هذه الحزمة ({{code}}).",
+    },
     load: {
       failed: "تعذر تحميل السوق",
       failedHintConfigured: "يصل وقت التشغيل هذا إلى السوق عبر مستوى التحكم على {{url}}. تحقق من أنه متصل بالإنترنت ويمكن الوصول إليه من هنا.",
@@ -3783,6 +3790,8 @@ const ar = {
       confirm: "إلغاء تثبيت {{manifestId}} v{{version}} من هذا الوقت التشغيل؟\n\nسيتم إزالة المانيفست المخزن مؤقتاً.",
       successInList: "تم إزالة {{manifestId}}. أعد تشغيل الوقت التشغيل لتفريغه بالكامل.",
       successInDetail: "تم إزالة المانيفست المخزن مؤقتاً لـ {{manifestId}}.",
+      confirmNotLoaded: "إلغاء تثبيت {{manifestId}} v{{version}} من وقت التشغيل هذا؟\n\nسيتم إزالة المانيفست المخزن مؤقتاً. لم يقم وقت التشغيل هذا بتحميل الحزمة، لذا لا يعمل أي جزء منها.",
+      successNotLoaded: "تمت إزالة {{manifestId}}. لم تكن الحزمة محمّلة، لذا لا حاجة لإعادة التشغيل.",
     },
     accessDenied: {
       title: "سوق التطبيقات للمشرفين فقط",

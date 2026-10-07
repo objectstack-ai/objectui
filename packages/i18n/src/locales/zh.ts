@@ -3542,6 +3542,13 @@ const zh = {
       cachedAs: '缓存为 <code>{{path}}</code>',
       versionBadge: 'v{{version}}',
       installedBadge: '已安装 v{{version}}',
+      // objectui#11645 — an install-local entry this runtime refused to load at
+      // startup (the listing's `notLoaded` marker), read on Installed Apps.
+      notLoaded: {
+        badge: '未加载',
+        protocolIncompatible: '本运行时未加载此包：它面向协议 {{requiredRange}}，而本运行时不支持该协议。',
+        otherReason: '本运行时未加载此包（{{code}}）。',
+      },
       load: {
         failed: '应用市场加载失败',
         failedHintConfigured: '本运行时通过 {{url}} 上的控制面访问应用市场。请检查该地址是否在线、能否从本运行时访问。',
@@ -3659,6 +3666,8 @@ const zh = {
         confirm: '从本运行时卸载 {{manifestId}} v{{version}}？\n\n磁盘上的清单缓存将被移除。运行中的内核仍会保留该应用，直到下次重启运行时才会真正卸载。',
         successInList: '已移除 {{manifestId}}。重启运行时即可从内核中彻底卸载。',
         successInDetail: '已移除 {{manifestId}} 的清单缓存。重启运行时即可从内核中彻底卸载该应用。',
+        confirmNotLoaded: '从本运行时卸载 {{manifestId}} v{{version}}？\n\n磁盘上的清单缓存将被移除。本运行时并未加载该包，因此它没有任何部分在运行。',
+        successNotLoaded: '已移除 {{manifestId}}。该包未被加载，无需重启运行时。',
       },
       accessDenied: {
         title: '应用市场仅限管理员使用',

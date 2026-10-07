@@ -3402,6 +3402,13 @@ const de = {
     cachedAs: "Zwischengespeichert als <code>{{path}}</code>",
     versionBadge: "v{{version}}",
     installedBadge: "Installiert v{{version}}",
+    // objectui#11645 — an install-local entry this runtime refused to load at
+    // startup (the listing's `notLoaded` marker), read on Installed Apps.
+    notLoaded: {
+      badge: "Nicht geladen",
+      protocolIncompatible: "Dieses Laufzeitsystem hat das Paket nicht geladen: Es zielt auf das Protokoll {{requiredRange}} ab, das dieses Laufzeitsystem nicht unterstützt.",
+      otherReason: "Dieses Laufzeitsystem hat das Paket nicht geladen ({{code}}).",
+    },
     load: {
       failed: "Marktplatz konnte nicht geladen werden",
       failedHintConfigured: "Diese Laufzeitumgebung erreicht den Marktplatz über die Control Plane unter {{url}}. Prüfen Sie, ob diese online und von hier aus erreichbar ist.",
@@ -3508,6 +3515,8 @@ const de = {
       confirm: "{{manifestId}} v{{version}} aus diesem Laufzeitsystem deinstallieren?\n\nDas zwischengespeicherte Manifest wird entfernt.",
       successInList: "{{manifestId}} entfernt. Starten Sie das Laufzeitsystem neu, um es vollständig zu entladen.",
       successInDetail: "Zwischengespeichertes Manifest für {{manifestId}} entfernt.",
+      confirmNotLoaded: "{{manifestId}} v{{version}} aus diesem Laufzeitsystem deinstallieren?\n\nDas zwischengespeicherte Manifest wird entfernt. Dieses Laufzeitsystem hat das Paket nicht geladen, daher läuft nichts davon.",
+      successNotLoaded: "{{manifestId}} entfernt. Es war nicht geladen, ein Neustart ist nicht nötig.",
     },
     accessDenied: {
       title: "App-Marktplatz nur für Administratoren",

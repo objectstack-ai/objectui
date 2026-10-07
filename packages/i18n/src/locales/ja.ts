@@ -3404,6 +3404,13 @@ const ja = {
     cachedAs: "<code>{{path}}</code> としてキャッシュ",
     versionBadge: "v{{version}}",
     installedBadge: "インストール済み v{{version}}",
+    // objectui#11645 — an install-local entry this runtime refused to load at
+    // startup (the listing's `notLoaded` marker), read on Installed Apps.
+    notLoaded: {
+      badge: "未読み込み",
+      protocolIncompatible: "このランタイムはこのパッケージを読み込んでいません。このパッケージはプロトコル {{requiredRange}} を対象としていますが、このランタイムはそのプロトコルをサポートしていません。",
+      otherReason: "このランタイムはこのパッケージを読み込んでいません（{{code}}）。",
+    },
     load: {
       failed: "マーケットプレイスの読み込みに失敗しました",
       failedHintConfigured: "このランタイムは {{url}} のコントロールプレーン経由でマーケットプレイスに接続します。オンラインであること、ここから到達できることを確認してください。",
@@ -3510,6 +3517,8 @@ const ja = {
       confirm: "このランタイムから {{manifestId}} v{{version}} をアンインストールしますか？\n\nキャッシュされたマニフェストが削除されます。アプリは次の再起動まで実行中のカーネルに読み込まれたままになります。",
       successInList: "{{manifestId}} を削除しました。ランタイムを再起動して実行中のカーネルから完全にアンロードしてください。",
       successInDetail: "{{manifestId}} のキャッシュされたマニフェストを削除しました。ランタイムを再起動してアプリを完全にアンロードしてください。",
+      confirmNotLoaded: "このランタイムから {{manifestId}} v{{version}} をアンインストールしますか？\n\nキャッシュされたマニフェストが削除されます。このランタイムはこのパッケージを読み込んでいないため、実行中の部分はありません。",
+      successNotLoaded: "{{manifestId}} を削除しました。読み込まれていなかったため、再起動は不要です。",
     },
     accessDenied: {
       title: "アプリマーケットプレイスは管理者専用です",

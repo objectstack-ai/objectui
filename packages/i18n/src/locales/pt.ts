@@ -3462,6 +3462,13 @@ const pt = {
     cachedAs: "Armazenado em cache como <code>{{path}}</code>",
     versionBadge: "v{{version}}",
     installedBadge: "Instalado v{{version}}",
+    // objectui#11645 — an install-local entry this runtime refused to load at
+    // startup (the listing's `notLoaded` marker), read on Installed Apps.
+    notLoaded: {
+      badge: "Não carregado",
+      protocolIncompatible: "Este runtime não carregou este pacote: ele é destinado ao protocolo {{requiredRange}}, que este runtime não suporta.",
+      otherReason: "Este runtime não carregou este pacote ({{code}}).",
+    },
     load: {
       failed: "Não foi possível carregar o marketplace",
       failedHintConfigured: "Este runtime acessa o marketplace através do plano de controle em {{url}}. Verifique se ele está online e acessível a partir daqui.",
@@ -3570,6 +3577,8 @@ const pt = {
       confirm: "Desinstalar {{manifestId}} v{{version}} deste runtime?\n\nO manifesto em cache será removido.",
       successInList: "{{manifestId}} removido. Reinicie o runtime para descarregá-lo completamente.",
       successInDetail: "Manifesto em cache para {{manifestId}} removido.",
+      confirmNotLoaded: "Desinstalar {{manifestId}} v{{version}} deste runtime?\n\nO manifesto em cache será removido. Este runtime não carregou o pacote, então nenhuma parte dele está em execução.",
+      successNotLoaded: "{{manifestId}} removido. Não estava carregado, então não é necessário reiniciar.",
     },
     accessDenied: {
       title: "Marketplace somente para administradores",

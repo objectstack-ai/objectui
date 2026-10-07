@@ -3548,6 +3548,13 @@ const ru = {
     cachedAs: "Кэшировано как <code>{{path}}</code>",
     versionBadge: "v{{version}}",
     installedBadge: "Установлено v{{version}}",
+    // objectui#11645 — an install-local entry this runtime refused to load at
+    // startup (the listing's `notLoaded` marker), read on Installed Apps.
+    notLoaded: {
+      badge: "Не загружен",
+      protocolIncompatible: "Рантайм не загрузил этот пакет: он рассчитан на протокол {{requiredRange}}, который этот рантайм не поддерживает.",
+      otherReason: "Рантайм не загрузил этот пакет ({{code}}).",
+    },
     load: {
       failed: "Не удалось загрузить маркетплейс",
       failedHintConfigured: "Этот рантайм обращается к маркетплейсу через control plane по адресу {{url}}. Убедитесь, что он доступен и достижим отсюда.",
@@ -3658,6 +3665,8 @@ const ru = {
       confirm: "Удалить {{manifestId}} v{{version}}?\n\nКэшированный манифест будет удалён.",
       successInList: "{{manifestId}} удалён. Перезапустите рантайм для полной выгрузки.",
       successInDetail: "Кэшированный манифест {{manifestId}} удалён.",
+      confirmNotLoaded: "Удалить {{manifestId}} v{{version}}?\n\nКэшированный манифест будет удалён. Рантайм не загружал этот пакет, поэтому ничего из него не запущено.",
+      successNotLoaded: "{{manifestId}} удалён. Пакет не был загружен, перезапуск не требуется.",
     },
     accessDenied: {
       title: "Только для администраторов",

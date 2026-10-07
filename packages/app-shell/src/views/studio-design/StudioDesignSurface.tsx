@@ -89,7 +89,7 @@ import {
   listMetadataPreviewTypes,
   type MetadataSelection,
 } from '../metadata-admin/preview-registry.js';
-import { getStudioCanvasPreview } from './studio-canvas-preview.js';
+import { getStudioCanvasPreview, StudioCanvasNavEntryContext, type StudioCanvasNavEntry } from './studio-canvas-preview.js';
 import { PermissionMatrixEditPage } from '../metadata-admin/PermissionMatrixEditor.js';
 import { AccessExplainPanel } from '../metadata-admin/AccessExplainPanel.js';
 import {
@@ -120,7 +120,7 @@ import {
 } from './studioScope.js';
 import { useMetadataRefreshNonce } from './useMetadataRefreshNonce.js';
 import { useHomePath } from '../../hooks/useHomePath.js';
-import { resolveSurface, findSurfaceInTree, type NavNode, type Surface } from './navSurface.js';
+import { resolveSurface, findSurfaceInTree, isSameSurface, type NavNode, type Surface } from './navSurface.js';
 import { useSurfaceDeepLink, resolveSurfaceDeepLink, type SurfaceTarget } from './useSurfaceDeepLink.js';
 import { isStudioRunLanding } from './studioLanding.js';
 import { SurfaceDeepLinkProvider, useRequestedSurface } from './surfaceDeepLinkChannel.js';
@@ -1709,7 +1709,9 @@ function NavTree({
         // type-generic fallback.
         const objIcon = surface?.type === 'object' ? objectIcons?.[surface.name] : undefined;
         const Icon: React.ElementType = node.icon ? getIcon(node.icon) : objIcon ? getIcon(objIcon) : navIcon(node.type);
-        const isActive = !!surface && active?.type === surface.type && active?.name === surface.name;
+        // objectui#11774 — the ENTRY is active, not every entry of its target:
+        // compared by nav id when both carry one (see `isSameSurface`).
+        const isActive = !!surface && !!active && isSameSurface(active, surface);
         return (
           <button type="button"
             key={node.id ?? i}
@@ -2370,6 +2372,8 @@ export function InterfacesPillar({
         })(tree);
         // A `?surface=` deep-link wins over the first-leaf default when it
         // still resolves to a leaf in this app's nav; otherwise fall back.
+        // Its `?nav=` entry id, when that entry still exists, picks the entry
+        // among several that open one target (objectui#11774).
         const deepLinked = initialSurface ? findSurfaceInTree(tree, initialSurface, locale, resolveTarget) : null;
         setCurrent((cur) => cur ?? deepLinked ?? firstLeaf);
       } catch (e) {
@@ -2390,6 +2394,13 @@ export function InterfacesPillar({
   // runtime records grid, not the field-form designer that is `object`'s
   // MetadataPreview). Overridable/extendable via `registerStudioCanvasPreview`.
   const StudioCanvas = getStudioCanvasPreview(current?.type ?? '');
+  // objectui#11774 — the entry the canvas is open on (its id, and an object
+  // entry's `filters` / `viewName`), handed to the studio canvas beside its
+  // props. Read by value downstream, never by this object's identity.
+  const canvasNavEntry = React.useMemo<StudioCanvasNavEntry | null>(
+    () => (current ? { navId: current.navId, filters: current.filters, viewName: current.viewName } : null),
+    [current],
+  );
   const Inspector = getMetadataInspector(current?.type ?? '');
   // The "home" (no-selection) inspector for the surface type — e.g. a page's
   // interfaceConfig form. Interface/list pages (kanban/calendar boards) have no
@@ -2759,7 +2770,12 @@ export function InterfacesPillar({
           // grid, not the field-form preview. Default lives in
           // `studio-canvas-preview`; downstream can override via
           // `registerStudioCanvasPreview()` instead of forking this component.
-          <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+          // objectui#11774 — the open nav entry rides beside the props, not in
+          // them (`StudioCanvasPreviewProps` is a published face): the default
+          // object canvas previews the entry's slice or named view.
+          <StudioCanvasNavEntryContext.Provider value={canvasNavEntry}>
+            <StudioCanvas type={current.type} name={current.name} draft={draft} locale={locale} />
+          </StudioCanvasNavEntryContext.Provider>
         ) : isSourcePage ? (
           // Source pages have no block tree — the canvas shows only the live
           // preview; the code editor lives in the inspector's Source tab.

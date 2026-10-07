@@ -19,10 +19,12 @@
  * type formatting. The snake_case reads are retired at once, with no dual
  * read.
  *
- * Each case below has a control that changes only the key under test, so a
- * green reads "the widget consumed the spec key", never "the default happened
- * to match". The last block pins the retirement: a snake_case spelling alone
- * no longer formats anything.
+ * Each formula case below has a control that changes only the key under
+ * test, so a green reads "the widget consumed the spec key", never "the
+ * default happened to match". The summary widget no longer reads any roll-up
+ * key to format (objectui#11752), so its block pins that the function moves
+ * nothing. The last block pins the retirement: a snake_case spelling alone no
+ * longer formats anything.
  *
  * The annotated literals are judged by TypeScript's excess-property check
  * (`tsc -p tsconfig.test.json`), which refuses the retired members by name.
@@ -61,20 +63,26 @@ describe('objectui#11070 — `FormulaField` formats by the spec `returnType`', (
   });
 });
 
-describe('objectui#11070 — `SummaryField` formats by `summaryOperations.function`', () => {
+describe('`SummaryField` draws every `summaryOperations.function` through the number face', () => {
+  // objectui#11070 pinned a per-function format here (`count` as it arrived,
+  // the other four to two decimals). objectui#11752 retired it: the form face
+  // now reads a summary's value as its table cell does, so the function
+  // decides nothing and a JS number reads the number face, grouped, at its
+  // natural precision. `__tests__/summaryFaces.numberFace-11752.test.tsx`
+  // pins that rule per function, face and locale.
   const rollUp = (fn: 'count' | 'sum' | 'avg' | 'min' | 'max'): SummaryFieldMetadata => ({
     type: 'summary',
     name: 'line_total',
     summaryOperations: { object: 'order_line', field: 'amount', function: fn },
   });
 
-  it.each(['sum', 'avg', 'min', 'max'] as const)('`function: %s` formats to two decimals', (fn) => {
-    expect(summaryText(rollUp(fn), 15750.5)).toBe('15750.50');
+  it.each(['count', 'sum', 'avg', 'min', 'max'] as const)('`function: %s` reads the same text as a field with no roll-up', (fn) => {
+    expect(summaryText(rollUp(fn), 15750.5)).toBe('15,750.5');
+    expect(summaryText(rollUp(fn), 15750.5)).toBe(summaryText({ type: 'summary', name: 'line_total' }, 15750.5));
   });
 
-  it('`function: count` prints the value as it arrives, as does a field with no roll-up', () => {
+  it('`function: count` reads a whole number whole', () => {
     expect(summaryText(rollUp('count'), 42)).toBe('42');
-    expect(summaryText({ type: 'summary', name: 'line_total' }, 15750.5)).toBe('15750.5');
   });
 });
 
@@ -87,8 +95,11 @@ describe('objectui#11070 — the snake_case spellings are retired: alone, they f
     expect(formulaText(legacy, '1234.5')).toBe('1234.5');
   });
 
+  // Since objectui#11752 no roll-up key decides the summary face, so the
+  // control is a field with no roll-up at all: a `summary_type` beside it
+  // must not move the text.
   it('`summary_type` is not read', () => {
     const legacy = { type: 'summary', name: 'line_total', summary_type: 'sum' } as unknown as SummaryFieldMetadata;
-    expect(summaryText(legacy, 15750.5)).toBe('15750.5');
+    expect(summaryText(legacy, 15750.5)).toBe(summaryText({ type: 'summary', name: 'line_total' }, 15750.5));
   });
 });

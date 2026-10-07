@@ -49,8 +49,18 @@ they are runtime widget props. See [Field Widget Props](/docs/fields/widget-prop
 
 ## Aggregation Functions
 
-The summary field formats values by `summaryOperations.function`: `count` as it
-arrives, the other four to two decimal places.
+The function decides what the backend computes, not how the value is drawn. The
+form and the table cell read the same rule for every function, so one stored
+value reads the same in both:
+
+- **a number**: Formatted as a number field formats it, in the viewer's display
+  locale (`15750.5` reads `15,750.5` in en-US). With no `scale` on the field it
+  keeps its own precision, so a `count` reads as a whole number (`12000` reads
+  `12,000`); a `scale` on the field sets a fixed width in both places (`scale: 2`
+  reads `15,750.50`)
+- **anything else**: The value as text; an empty value reads as empty
+
+The five functions:
 
 - **count**: Count of related records
 - **sum**: Sum of numeric field values

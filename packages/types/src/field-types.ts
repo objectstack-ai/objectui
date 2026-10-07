@@ -895,9 +895,14 @@ export interface SummaryFieldMetadata extends BaseFieldMetadata {
    * drift (objectui#11070): the child `object`, the child `field` to
    * aggregate, the aggregation `function` (`count` / `sum` / `min` / `max` /
    * `avg`), and optionally the child's `relationshipField` and a `filter`
-   * restricting which child rows are aggregated. `SummaryField` formats the
-   * value by `function`: `count` as it arrives, the other four to two
-   * decimals.
+   * restricting which child rows are aggregated. The backend computes the
+   * value from it; neither face of a summary reads it to format. Whatever the
+   * `function`, `SummaryField` in a form and the summary table cell draw the
+   * value by one rule, so one stored value reads the same in each
+   * (objectui#11752): a number formatted as a `number` field formats it (the
+   * viewer's display locale, at the width a `scale` on the field sets, at its
+   * natural precision with none, so a `count` reads whole), and anything else
+   * as text.
    *
    * It replaces four retired snake_case members, one per part:
    * `summary_object` (now `object`), `summary_field` (now `field`),

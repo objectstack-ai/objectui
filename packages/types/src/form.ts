@@ -1961,9 +1961,9 @@ export interface FormField {
   // ⛔ Not every key a widget reads off the carrier is declared here. No
   // widget reads a snake_case second spelling of a spec key any more: the
   // length readers read ONLY the spec's `minLength` / `maxLength` (below),
-  // the lookup and user widgets ONLY the spec's `reference`, and the formula
-  // and summary widgets ONLY the spec's `returnType` and `summaryOperations`.
-  // Their snake_case forms (`min_length`, `max_length`, `reference_to`,
+  // the lookup and user widgets ONLY the spec's `reference`, the formula
+  // widget ONLY the spec's `returnType`, and the summary widget no roll-up
+  // key at all (objectui#11752). Their snake_case forms (`min_length`, `max_length`, `reference_to`,
   // `return_type`, `summary_type`, …) are retired, read by nothing and
   // refused by the strict face (objectui#11070). The grid field's `columns`
   // is the spec's inline grid column list, by reference (below).
@@ -2052,10 +2052,15 @@ export interface FormField {
   /**
    * The roll-up definition of a `summary` field: the child `object`, the
    * child `field` and the aggregation `function`, plus an optional
-   * `relationshipField` and `filter`. The `summary` widget formats the value
-   * by `function`: `count` as it arrives, the other four to two decimals. The
-   * retired snake_case `summary_object` / `summary_field` / `summary_type`
-   * are read by nothing and refused.
+   * `relationshipField` and `filter`. The backend computes the value from
+   * it; the `summary` widget does not read it to format. Whatever the
+   * `function`, the widget draws the value by the same rule as the summary
+   * table cell, so one stored value reads the same in a form and in a table
+   * (objectui#11752): a number formatted as a `number` field formats it (the
+   * viewer's display locale, at the width a `scale` on the field sets, at its
+   * natural precision with none, so a `count` reads whole), and anything else
+   * as text. The retired snake_case `summary_object` / `summary_field` /
+   * `summary_type` are read by nothing and refused.
    */
   summaryOperations?: SpecField['summaryOperations'];
   /**

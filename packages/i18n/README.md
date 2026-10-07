@@ -196,7 +196,44 @@ A date-only string such as `'2026-09-01'` names a calendar day: every date
 helper reads it as that day in every viewer's time zone (`formatDateTime` shows
 its midnight, and `formatRelativeTime` counts to the start of it). A string
 with a time part is an instant, read in the viewer's zone. `formatDateSpec`
-applies its `timeZone` to an instant only.
+applies its `timeZone` to an instant only. These helpers do not read the
+display zone below; the field cells and measures format through
+`@object-ui/core`'s date faces, which do.
+
+### Regional defaults (`LocalizationProvider`)
+
+`LocalizationProvider` carries the workspace's resolved regional defaults to
+every renderer below it, and `useLocalization()` reads them (`{}` outside a
+provider). The console fills it from `GET /api/v1/auth/me/localization`.
+
+```tsx
+import type { ReactNode } from 'react';
+import { LocalizationProvider, useLocalization } from '@object-ui/i18n';
+
+export function Regional({ children }: { children: ReactNode }) {
+  return (
+    <LocalizationProvider value={{ currency: 'EUR', locale: 'de-DE', timezone: 'Europe/Berlin' }}>
+      {children}
+    </LocalizationProvider>
+  );
+}
+
+export function ZoneLabel() {
+  const { timezone } = useLocalization();
+  return <span>{timezone ?? 'viewer zone'}</span>;
+}
+```
+
+- `currency` (ISO 4217) is the default a currency field without its own code
+  renders in.
+- `locale` (BCP-47) outranks the UI language for number and date formatting;
+  read the effective tag with `useDisplayLocale()`.
+- `timezone` (IANA) is the zone instants render in. The provider hands it to
+  `setDisplayTimeZone` in `@object-ui/core`, so every date and datetime face
+  takes it without any renderer passing a zone, and `useLocalization().timezone`
+  reads back the zone those faces use (`undefined` for a name the runtime does
+  not know). Without one, instants render in the viewer's zone. There is one
+  display zone per page, and unmounting the provider clears it.
 
 #### The first day of the week
 

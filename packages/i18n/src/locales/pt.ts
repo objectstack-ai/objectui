@@ -2008,6 +2008,14 @@ const pt = {
       cryptoRefusalToast: "Não é possível criptografar segredos: {{subject}}",
       cryptoRefusalToastNoSubject: "Não é possível criptografar segredos",
     },
+    workspaceTimezonePrompt: {
+      title: "Definir o fuso horário do workspace",
+      description: "Este workspace ainda usa o fuso horário padrão da plataforma, {{current}}. O fuso horário do workspace define o que \"hoje\" significa nas fórmulas, como os relatórios agrupam por data e como datas e horas são exibidas, para todos no workspace. O fuso horário do seu navegador foi preenchido abaixo.",
+      laterHint: "Você pode alterá-lo a qualquer momento na página de Configurações.",
+      decline: "Manter o padrão",
+      confirm: "Definir fuso horário",
+      saved: "Fuso horário do workspace definido como {{zone}}",
+    },
     loadingSteps: {
       connecting: "Conectando à fonte de dados",
       loadingConfig: "Carregando configuração",

@@ -2061,6 +2061,17 @@ const en = {
       cryptoRefusalToast: 'Cannot encrypt secrets: {{subject}}',
       cryptoRefusalToastNoSubject: 'Cannot encrypt secrets',
     },
+    // The one-time workspace-timezone prompt (objectui#11758): asked of an
+    // administrator while `localization.timezone` is still the manifest default.
+    // `{{current}}` is that default, `{{zone}}` the zone the admin confirmed.
+    workspaceTimezonePrompt: {
+      title: 'Set the workspace timezone',
+      description: 'This workspace still uses the platform default timezone, {{current}}. The workspace timezone decides what "today" means in formulas, how reports group dates and how dates and times are shown, for everyone in the workspace. Your browser timezone is filled in below.',
+      laterHint: 'You can change it at any time on the Settings page.',
+      decline: 'Keep the default',
+      confirm: 'Set timezone',
+      saved: 'Workspace timezone set to {{zone}}',
+    },
     loadingSteps: {
       connecting: 'Connecting to data source',
       loadingConfig: 'Loading configuration',

@@ -41,6 +41,14 @@
  *   here overrides it.
  * - **A nameless action is not translatable.** Without `action.name` there is
  *   no `_actions.<name>` key to look up, so the literals pass through.
+ * - **The entry is keyed on the action's own object** (objectui#11439): its
+ *   declared `objectName`, else the host object the caller draws it on — the
+ *   object `translateObject` in `@objectstack/spec` stamps on an embedded
+ *   action. Only an action with neither reads `globalActions.<name>`; a bound
+ *   action never does (see `actionSuffixes` in `@object-ui/i18n`). The
+ *   runtime-side resolvers (`useConsoleActionRuntime`, `RecordDetailView`)
+ *   already key the param / description / result-dialog copy the same way, so
+ *   one action reads one bundle node on every surface.
  * - **`confirmText` / `successMessage` are resolved only when the action
  *   DECLARES them.** A bundle must not be able to bolt a confirmation gate
  *   onto an action whose metadata never asked for one (nor a success toast).
@@ -82,7 +90,8 @@ export interface ActionTextLocalizerOptions {
  * Returns a copy of `action` with `label` — plus `confirmText`,
  * `successMessage` and `outcomeMessages` when the action declares them —
  * resolved from the active locale's bundle, falling back to the authored
- * literals.
+ * literals. `objectName` is the host object the action is drawn on; the
+ * action's own declared `objectName` wins over it when present.
  */
 export type ActionTextLocalizer = <T extends Record<string, any>>(
   objectName: string | undefined,
@@ -117,16 +126,23 @@ export function useActionTextLocalizer(): ActionTextLocalizer {
         return displayLabel === (action as any).label ? action : { ...action, label: displayLabel };
       }
 
+      // The key object: the action's declared `objectName`, else the host the
+      // caller passes (objectui#11439). An action declared on `sales_order`
+      // drawn where the caller knows no object still reads `sales_order`'s
+      // `_actions` node, never `globalActions`.
+      const declared: unknown = action.objectName;
+      const keyObject = (typeof declared === 'string' && declared) || objectName;
+
       const out: Record<string, any> = {
         ...action,
-        label: actionLabel(objectName, name, displayLabel),
+        label: actionLabel(keyObject, name, displayLabel),
       };
       if ((action as any).confirmText !== undefined) {
-        out.confirmText = actionConfirm(objectName, name, (action as any).confirmText);
+        out.confirmText = actionConfirm(keyObject, name, (action as any).confirmText);
       }
       if ((action as any).successMessage !== undefined) {
         out.successMessage = actionSuccess(
-          objectName,
+          keyObject,
           name,
           pickLocalized((action as any).successMessage, language),
         );
@@ -137,7 +153,7 @@ export function useActionTextLocalizer(): ActionTextLocalizer {
       if (isConfigBag(authoredOutcomes)) {
         const outcomeMessages: Record<string, string> = {};
         for (const [outcome, copy] of Object.entries(authoredOutcomes)) {
-          const text = actionOutcome(objectName, name, outcome, pickLocalized(copy, language));
+          const text = actionOutcome(keyObject, name, outcome, pickLocalized(copy, language));
           if (text !== undefined) outcomeMessages[outcome] = text;
         }
         out.outcomeMessages = outcomeMessages;

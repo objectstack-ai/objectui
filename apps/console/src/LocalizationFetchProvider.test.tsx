@@ -16,7 +16,8 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
-import { LOCALE_SEED_STORAGE_KEY, LOCALE_STORAGE_KEY } from '@object-ui/i18n';
+import { LOCALE_SEED_STORAGE_KEY, LOCALE_STORAGE_KEY, useLocalization } from '@object-ui/i18n';
+import { formatDateTime, setDisplayTimeZone } from '@object-ui/core';
 import { LocalizationFetchProvider } from './LocalizationFetchProvider';
 // Not on the `@object-ui/auth` barrel; the vitest alias maps that barrel to
 // `packages/auth/src`, so this deep path is the SAME module instance the
@@ -199,6 +200,59 @@ describe('LocalizationFetchProvider', () => {
       expect(window.localStorage.getItem(LOCALE_SEED_STORAGE_KEY)).toBeNull();
       // One request, answered — not a request that never came back.
       expect((globalThis.fetch as never as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // objectui#11693: the answer carries `timezone` beside `currency` and
+  // `locale`, and this provider used to keep only those two. The probe renders
+  // a datetime through the central face the way a cell does — locale threaded,
+  // zone not — so the served zone has to arrive through the provider alone.
+  // The suite runs in UTC (objectui#8366), so UTC is the viewer's zone here.
+  describe('the served time zone', () => {
+    /** 03:00 on Sep 2nd in UTC, 11:00 on Sep 2nd in Shanghai. */
+    const INSTANT = '2026-09-02T03:00:00.000Z';
+
+    function ZoneProbe() {
+      const { timezone } = useLocalization();
+      return <span data-testid="zone">{`${timezone ?? '∅'}|${formatDateTime(INSTANT, { locale: 'en-US' })}`}</span>;
+    }
+
+    function renderZoneProbe() {
+      return render(
+        <LocalizationFetchProvider endpoint={ENDPOINT}>
+          <ZoneProbe />
+        </LocalizationFetchProvider>,
+      );
+    }
+
+    afterEach(() => { setDisplayTimeZone(undefined); });
+
+    it('renders a datetime in the zone the server answers', async () => {
+      (globalThis.fetch as never as ReturnType<typeof vi.fn>).mockResolvedValue(
+        ok({ authenticated: true, currency: null, locale: 'en-US', timezone: 'Asia/Shanghai' }),
+      );
+
+      renderZoneProbe();
+
+      // Before the answer the viewer's zone renders, as it always did.
+      expect(screen.getByTestId('zone')).toHaveTextContent('∅|Sep 2, 2026, 03:00 AM');
+      await waitFor(() =>
+        expect(screen.getByTestId('zone')).toHaveTextContent('Asia/Shanghai|Sep 2, 2026, 11:00 AM'),
+      );
+    });
+
+    it('an answer with no zone leaves the viewer\'s zone in place', async () => {
+      (globalThis.fetch as never as ReturnType<typeof vi.fn>).mockResolvedValue(
+        ok({ authenticated: true, currency: 'CNY', locale: 'en-US', timezone: null }),
+      );
+
+      renderZoneProbe();
+
+      await waitFor(() =>
+        expect((globalThis.fetch as never as ReturnType<typeof vi.fn>)).toHaveBeenCalledTimes(1),
+      );
+      await new Promise((r) => setTimeout(r, 20));
+      expect(screen.getByTestId('zone')).toHaveTextContent('∅|Sep 2, 2026, 03:00 AM');
     });
   });
 });

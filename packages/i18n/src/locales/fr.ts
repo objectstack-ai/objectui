@@ -2010,6 +2010,14 @@ const fr = {
       cryptoRefusalToast: "Impossible de chiffrer les secrets : {{subject}}",
       cryptoRefusalToastNoSubject: "Impossible de chiffrer les secrets",
     },
+    workspaceTimezonePrompt: {
+      title: "Définir le fuseau horaire de l’espace de travail",
+      description: "Cet espace de travail utilise encore le fuseau horaire par défaut de la plateforme, {{current}}. Le fuseau horaire de l’espace de travail détermine ce que signifie « aujourd’hui » dans les formules, la façon dont les rapports regroupent les dates et l’affichage des dates et des heures, pour tous les membres de l’espace de travail. Le fuseau horaire de votre navigateur est renseigné ci-dessous.",
+      laterHint: "Vous pouvez le modifier à tout moment sur la page Paramètres.",
+      decline: "Conserver la valeur par défaut",
+      confirm: "Définir le fuseau horaire",
+      saved: "Fuseau horaire de l’espace de travail défini sur {{zone}}",
+    },
     loadingSteps: {
       connecting: "Connexion à la source de données",
       loadingConfig: "Chargement de la configuration",

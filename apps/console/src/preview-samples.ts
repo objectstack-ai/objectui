@@ -484,12 +484,21 @@ export const SAMPLES: Record<string, Record<string, unknown>> = {
     description: 'Simplified Chinese bundle for the CRM app.',
     data: {
       objects: {
-        sales_order: { label: '销售订单', fields: { amount: '金额' } },
+        sales_order: {
+          label: '销售订单',
+          // A field's entry is a node (`{ label }`), never a bare string.
+          fields: { amount: { label: '金额' } },
+          // `close_order` is bound to `sales_order` (the `action` sample's
+          // `objectName`), so its copy lives under the object's `_actions`.
+          // `globalActions` is only for actions bound to no object: a bound
+          // action's copy filed there is never read for it, by the server or
+          // the console, and `os validate` refuses it (objectui#11439).
+          _actions: { close_order: { label: '关闭订单' } },
+        },
         account: { label: '客户' },
       },
       apps: { crm: { label: 'CRM' } },
       messages: { welcome: '欢迎', saved: '已保存' },
-      globalActions: { close_order: '关闭订单' },
     },
   },
 };

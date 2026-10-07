@@ -1968,6 +1968,14 @@ const ja = {
       cryptoRefusalToast: "シークレットを暗号化できません: {{subject}}",
       cryptoRefusalToastNoSubject: "シークレットを暗号化できません",
     },
+    workspaceTimezonePrompt: {
+      title: "ワークスペースのタイムゾーンを設定",
+      description: "このワークスペースは、まだプラットフォームの既定のタイムゾーン（{{current}}）を使用しています。ワークスペースのタイムゾーンは、数式での「今日」の意味、レポートの日付ごとのグループ化、日付と時刻の表示方法を決め、ワークスペースの全員に適用されます。下にブラウザーのタイムゾーンを入力しています。",
+      laterHint: "設定ページでいつでも変更できます。",
+      decline: "既定のままにする",
+      confirm: "タイムゾーンを設定",
+      saved: "ワークスペースのタイムゾーンを {{zone}} に設定しました",
+    },
     loadingSteps: {
       connecting: "データソースに接続中",
       loadingConfig: "設定を読み込み中",

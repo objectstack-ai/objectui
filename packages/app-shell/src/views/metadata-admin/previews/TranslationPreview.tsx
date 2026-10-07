@@ -17,10 +17,13 @@
  *      a sample of up to 5 keys so the user can confirm the right
  *      bundle is loaded.
  *
- * For flat string maps (messages, validationMessages, globalActions,
- * settings) we render a small key→value sample table. For nested
- * objects (objects, apps, dashboards, metadataForms) we list the
- * top-level keys with their inner key count.
+ * For flat string maps (messages, validationMessages, settings) we
+ * render a small key→value sample table. For nested objects (objects,
+ * apps, dashboards, metadataForms) we list the top-level keys with their
+ * inner key count. globalActions is nested too: each entry is an action
+ * translation node (`TranslationDataSchema.globalActions.NAME`), so its
+ * sample shows the node's `label`, quoted as a flat string is, and the
+ * inner key count when the node carries no `label` (objectui#11755).
  */
 
 import * as React from 'react';
@@ -51,6 +54,11 @@ interface CategoryDef {
   icon: React.ComponentType<{ className?: string }>;
   /** When true, the value is { key: string } (flat). Otherwise { key: nestedObject }. */
   flat: boolean;
+  /**
+   * Nested categories only: each value is a translation node whose `label` the
+   * sample shows in place of its inner key count (objectui#11755).
+   */
+  nodeLabel?: boolean;
 }
 
 const CATEGORIES: CategoryDef[] = [
@@ -63,7 +71,13 @@ const CATEGORIES: CategoryDef[] = [
     icon: ShieldAlert,
     flat: true,
   },
-  { key: 'globalActions', label: 'engine.translationPreview.category.globalActions', icon: ClipboardList, flat: true },
+  {
+    key: 'globalActions',
+    label: 'engine.translationPreview.category.globalActions',
+    icon: ClipboardList,
+    flat: false,
+    nodeLabel: true,
+  },
   { key: 'dashboards', label: 'engine.translationPreview.category.dashboards', icon: LayoutDashboard, flat: false },
   { key: 'settings', label: 'engine.translationPreview.category.settings', icon: Settings2, flat: true },
   { key: 'metadataForms', label: 'engine.translationPreview.category.metadataForms', icon: FileText, flat: false },
@@ -173,7 +187,7 @@ function CategoryCard({
             {cat.sample.map(([k, v]) => (
               <li key={k} className="flex items-baseline gap-2 truncate">
                 <code className="font-mono text-muted-foreground shrink-0">{k}</code>
-                <span className="truncate text-foreground/80">{renderSampleValue(v, cat.flat, locale)}</span>
+                <span className="truncate text-foreground/80">{renderSampleValue(v, cat, locale)}</span>
               </li>
             ))}
             {cat.count > cat.sample.length && (
@@ -188,13 +202,20 @@ function CategoryCard({
   );
 }
 
-function renderSampleValue(v: unknown, flat: boolean, locale: string | undefined): string {
-  if (flat) {
+function renderSampleValue(
+  v: unknown,
+  cat: Pick<CategoryDef, 'flat' | 'nodeLabel'>,
+  locale: string | undefined,
+): string {
+  if (cat.flat) {
     if (typeof v === 'string') return `"${v}"`;
     if (v == null) return '∅';
     return String(v);
   }
   if (v && typeof v === 'object') {
+    // `label` is optional on a translation node, so a node without one keeps the key count.
+    const nodeLabel = (v as Dict).label;
+    if (cat.nodeLabel && typeof nodeLabel === 'string') return `"${nodeLabel}"`;
     const n = Object.keys(v as Dict).length;
     return tFormat('engine.translationPreview.keyCount', locale, { count: n });
   }

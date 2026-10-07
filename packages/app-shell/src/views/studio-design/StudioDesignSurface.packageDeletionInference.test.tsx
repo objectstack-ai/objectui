@@ -33,13 +33,13 @@
  *      degrade into "never navigate", which strands the author on a package
  *      that no longer exists.
  *
- * Where a REAL deletion lands changed with objectui#11784 (triage comment
- * 6041966855: "return to `/studio` after a delete"): the Studio landing,
- * whatever is left. It used to open `list[0]` — whichever package the list
- * started with, so a delete read as "Studio moved me into another app" — or,
- * with nothing left, the home path. The three REAL-deletion cases below say
- * the new destination; the FAILED-refresh cases and the "package still there"
- * case are unchanged, as controls.
+ * Where a REAL deletion lands while other packages remain changed with
+ * objectui#11784 (triage comment 6041966855: "return to `/studio` after a
+ * delete"): the Studio landing. It used to open `list[0]`, whichever package
+ * the list started with, so a delete read as "Studio moved me into another
+ * app". The "sibling survives" case says the new destination; every other case
+ * here is unchanged and stays as a control, the two "nothing left" cases
+ * included (that arm is still objectui#7373's declared home).
  *
  * ⛔ The `.catch` is deliberately still a `.catch` (one 503 must not take the
  * Studio down — objectui#7368's ruling) and there is deliberately still no
@@ -301,28 +301,24 @@ describe('Studio package lifecycle — a failed refresh is not a deletion (#7821
     expect(await screen.findByText('Packages (apps)')).toBeInTheDocument();
   });
 
-  it('REAL deletion, nothing left: returns to the Studio landing, not /home (objectui#11784)', async () => {
+  it('REAL deletion, nothing left: still navigates to /home (behaviour unchanged)', async () => {
     const lifecycle = await openLifecycleSheet();
 
     // The list came back — successfully — and the package is gone from it.
     fetchPackagesMock.mockResolvedValue([]);
     fireEvent.click(lifecycle);
 
-    // Triage 6041966855: "return to `/studio` after a delete". The landing
-    // needs no package to open; it offers "New package".
-    expect(await screen.findByTestId('studio-landing')).toBeInTheDocument();
-    expect(where()).toBe('/studio');
-    expect(screen.queryByTestId('home-page')).not.toBeInTheDocument();
+    expect(await screen.findByTestId('home-page')).toBeInTheDocument();
+    expect(where()).toBe('/home');
     // A successful refresh is not a failure: nothing was reported.
     expect(toastError).not.toHaveBeenCalled();
   });
 
-  it('REAL deletion, nothing left, a DECLARED landing: still the Studio landing, never the launcher (objectui#11784, objectui#7373)', async () => {
+  it('REAL deletion, nothing left, a DECLARED landing: evicts to it, not to the launcher (objectui#7373)', async () => {
     // Same eviction as the case above — the only difference is that this
-    // deployment declares where home is. objectui#7373 kept this eviction out
-    // of the environment launcher by following the declared landing; since
-    // objectui#11784 (triage 6041966855: "return to `/studio` after a delete")
-    // it does not leave Studio at all, so neither home is consulted.
+    // deployment declares where home is. Pre-#7373 the destination was the
+    // `/home` literal either way, which on a control plane drops the author
+    // into the environment launcher.
     const lifecycle = await openLifecycleSheet([row(PACKAGE_ID)], [
       { name: 'cloud_control', label: 'Cloud', isDefault: true },
       { name: 'account', label: 'Account' },
@@ -331,17 +327,15 @@ describe('Studio package lifecycle — a failed refresh is not a deletion (#7821
     fetchPackagesMock.mockResolvedValue([]);
     fireEvent.click(lifecycle);
 
-    expect(await screen.findByTestId('studio-landing')).toBeInTheDocument();
-    expect(where()).toBe('/studio');
-    expect(screen.queryByTestId('declared-landing')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('home-page')).not.toBeInTheDocument();
+    expect(await screen.findByTestId('declared-landing')).toBeInTheDocument();
+    expect(where()).toBe('/apps/cloud_control');
     expect(toastError).not.toHaveBeenCalled();
   });
 
   it('REAL deletion, a sibling survives: returns to the Studio landing, not into the sibling (objectui#11784)', async () => {
     // The card's measured complaint: after the delete, Studio landed on
-    // another package (showcase) — `list[0]` — instead of the Studio landing.
-    // Triage 6041966855: "return to `/studio` after a delete".
+    // another package (showcase), the list's first entry, instead of the
+    // Studio landing. Triage 6041966855: "return to `/studio` after a delete".
     const lifecycle = await openLifecycleSheet([row(PACKAGE_ID), row(SIBLING_ID)]);
 
     fetchPackagesMock.mockResolvedValue([row(SIBLING_ID)]);
@@ -349,7 +343,6 @@ describe('Studio package lifecycle — a failed refresh is not a deletion (#7821
 
     expect(await screen.findByTestId('studio-landing')).toBeInTheDocument();
     expect(where()).toBe('/studio');
-    expect(where()).not.toBe(`/studio/${SIBLING_ID}/interfaces`);
     expect(screen.queryByTestId('home-page')).not.toBeInTheDocument();
   });
 

@@ -431,6 +431,10 @@ function PackageSwitcher({
 }): React.ReactElement {
   const navigate = useNavigate();
   const locale = useMetadataLocale();
+  // objectui#7373 — where the deleted-package eviction below lands when no
+  // other package is left to open: the DECLARED landing, the launcher only when
+  // the deployment declares none.
+  const homePath = useHomePath();
   const [open, setOpen] = React.useState(false);
   const [pkgs, setPkgs] = React.useState<PkgEntry[] | null>(null);
   /**
@@ -658,7 +662,8 @@ function PackageSwitcher({
 
   // A lifecycle action ran in the sheet — refresh the list AND the managed
   // snapshot (so an edit shows immediately). If the managed package was the one
-  // we're editing and it's now gone (deleted), return to the Studio landing.
+  // we're editing and it's now gone (deleted), return to the Studio landing
+  // (home, when no package is left).
   const onManageChanged = React.useCallback(async () => {
     /**
      * `null` means "the refresh did not tell us anything", which is NOT the
@@ -699,12 +704,15 @@ function PackageSwitcher({
     // either way: the author stays put, and the managed snapshot below is
     // still refreshed (that call reports its own outcome).
     if (list !== null && !list.some((p) => p.id === managedId)) {
-      // Deleted — only navigate away if it was the package we're editing, and
-      // then to the Studio landing (objectui#11784), where the author picks the
-      // next package or creates one. This used to open `list[0]` — whichever
-      // package the list happened to start with, so a delete read as "Studio
-      // moved me into another app" — or, with nothing left, the home path.
-      if (managedId === packageId) navigate('/studio');
+      // Deleted — only navigate away if it was the package we're editing.
+      // While other packages remain, that is the Studio landing
+      // (objectui#11784), where the author picks the next one or creates one;
+      // this used to open `list[0]`, whichever package the list started with,
+      // so a delete read as "Studio moved me into another app". With nothing
+      // left it is still the declared home (objectui#7373).
+      if (managedId === packageId) {
+        navigate(list.length > 0 ? '/studio' : homePath);
+      }
       return;
     }
     /**
@@ -782,7 +790,7 @@ function PackageSwitcher({
       );
       setManageOpen(false);
     }
-  }, [manage, packageId, navigate, fetchFullPackage, locale]);
+  }, [manage, packageId, navigate, fetchFullPackage, locale, homePath]);
 
   return (
     // Radix Popover (portaled to <body>) — the top bar is `overflow-x-auto`,

@@ -13,8 +13,8 @@ also drops the object tables.
 
 After deleting the package that is open in Studio, Studio now returns to its landing (`/studio`),
 where the next package can be picked or a new one created. It used to open whichever package the
-list started with, or, with no package left, leave Studio for the home page. The console's Packages
-page is unchanged: a delete there reloads the list in place.
+list started with. With no package left at all it still goes to the home page, as before. The
+console's Packages page is unchanged: a delete there reloads the list in place.
 
 Discard changes (N) used to discard every pending draft at once. It now asks first, naming the count.
 

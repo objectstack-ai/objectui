@@ -45,6 +45,7 @@ import {
   buildChartSeries,
   buildOptionColorMap,
   buildCategoryOrder,
+  buildCategoryRank,
   relabelDimensions,
   localizeFieldOptions,
   deriveDimensionLabelMaps,
@@ -453,6 +454,21 @@ const SINGLE_SERIES_CHART_FAMILIES = new Set(['pie', 'donut', 'funnel', 'treemap
  */
 const MEASURE_CATEGORY_KEY = '__measure';
 const MEASURE_VALUE_KEY = '__value';
+
+/**
+ * Where a select dimension's value sits in the order its field DECLARES its
+ * options (objectui#11809), read off a `buildCategoryRank` map, which keys the
+ * stored value and the display label alike: a declared option at its declared
+ * position, then any value the options do not declare, then the empty bucket.
+ * Callers sort STABLY on it, so undeclared values keep the dataset's order
+ * among themselves, as the funnel keeps them.
+ */
+function declaredOptionPosition(value: unknown, rank: ReadonlyMap<string, number>, emptyLabel?: string): number {
+  const declared = value == null ? undefined : rank.get(String(value));
+  if (declared !== undefined) return declared;
+  if (value == null || value === '' || (emptyLabel !== undefined && value === emptyLabel)) return Number.MAX_SAFE_INTEGER;
+  return Number.MAX_SAFE_INTEGER - 1;
+}
 
 /**
  * Map a dashboard widget `type` to the advanced chart renderer's `chartType`.
@@ -986,8 +1002,8 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // that path exactly as they did when it returned early (objectui#4263).
   // #4330 widened only WHICH DIMENSIONS get a label map, never what a table
   // consumes — hence the `isTable` gate on `firstDimPath` and nothing else.
-  const { categoryColors, dimensionLabels, categoryOrder } = useMemo(() => {
-    if (!dimensionMeta) return { categoryColors: null, dimensionLabels: null, categoryOrder: null };
+  const { categoryColors, dimensionLabels, categoryOrder, seriesOrder } = useMemo(() => {
+    if (!dimensionMeta) return { categoryColors: null, dimensionLabels: null, categoryOrder: null, seriesOrder: null };
     const { metaByPath, relabel } = dimensionMeta;
     // Colours and declared order read `option.label`, so they are fed the
     // LOCALIZED options — the same "translate the options, then render them"
@@ -1001,10 +1017,20 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
     const firstDimOptions = firstDimPath
       ? localizeFieldOptions(firstDimMeta?.options, dimensionOptionTranslator(firstDimMeta, fieldOptionLabel))
       : undefined;
+    // objectui#11809 — the SECOND dimension's declared order too: a chart that
+    // pivots it into series lists those series in its legend, and a select
+    // there reads in its declared order like the axis does. Chart-only, gated
+    // as the first dimension's order is.
+    const secondDimPath = isTable ? undefined : relabel[1]?.path;
+    const secondDimMeta = secondDimPath ? metaByPath[secondDimPath] : undefined;
+    const secondDimOptions = secondDimPath
+      ? localizeFieldOptions(secondDimMeta?.options, dimensionOptionTranslator(secondDimMeta, fieldOptionLabel))
+      : undefined;
     return {
       categoryColors: buildOptionColorMap(firstDimOptions),
       dimensionLabels: deriveDimensionLabelMaps(metaByPath, relabel, fieldOptionLabel),
       categoryOrder: buildCategoryOrder(firstDimOptions),
+      seriesOrder: buildCategoryOrder(secondDimOptions),
     };
   }, [dimensionMeta, fieldOptionLabel, isTable]);
 
@@ -1862,7 +1888,26 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
   // new string is minted.
   const measuresOnAxis = dimensions.length === 0;
   const measureAxisSeriesLabel = tt('dashboard.total', 'Total');
-  const { data: chartData, xAxisKey, series } = measuresOnAxis
+  // ── A select dimension in its DECLARED order (objectui#11809) ──
+  // The dataset answers its buckets in GROUP BY order — the stored values'
+  // alphabetical order — so the axis read Backlog, Done, In Progress, In
+  // Review, To Do, and a donut's legend High, Low, Medium, Urgent. The field's
+  // own option order is the domain order (the Kanban lanes are drawn in it),
+  // so the rows are put in it before they are
+  // charted: declared options first, undeclared values next, the empty bucket
+  // last. Only the copy that is CHARTED is reordered; `chartRows` keeps its
+  // index alignment with `drillRawRows`, which the drill lookup below relies
+  // on. An explicit `options.sortBy` is the author's order and is kept as the
+  // dataset answered it.
+  const categoryRank = measuresOnAxis || sortable ? null : buildCategoryRank(categoryOrder);
+  const plotRows = categoryRank
+    ? [...chartRows].sort(
+        (a, b) =>
+          declaredOptionPosition(a[dimensions[0]], categoryRank) -
+          declaredOptionPosition(b[dimensions[0]], categoryRank),
+      )
+    : chartRows;
+  const { data: chartData, xAxisKey, series: derivedSeries } = measuresOnAxis
     ? {
         data: values.map((m) => ({
           [MEASURE_CATEGORY_KEY]: headerLabel(m),
@@ -1876,10 +1921,22 @@ export function DatasetWidget({ widget, dataSource, subCaption }: { widget: any;
         xAxisKey: MEASURE_CATEGORY_KEY,
         series: [{ dataKey: MEASURE_VALUE_KEY, label: measureAxisSeriesLabel }],
       }
-    : buildChartSeries(chartRows, dimensions, values, state.fields, {
+    : buildChartSeries(plotRows, dimensions, values, state.fields, {
         nullCategoryLabel,
         builtinAggregateLabels: builtinAggregateLabels(tt),
       });
+  // The pivoted series — a second select dimension's values, which the legend
+  // lists — in that dimension's declared order too (objectui#11809).
+  // `buildChartSeries` pivots a second dimension into the series exactly when
+  // the chart carries one measure (`pivotedSeries` below is the same test).
+  const seriesRank = dimensions.length >= 2 && values.length === 1 && !sortable ? buildCategoryRank(seriesOrder) : null;
+  const series = seriesRank
+    ? [...derivedSeries].sort(
+        (a, b) =>
+          declaredOptionPosition(a.label, seriesRank, nullCategoryLabel) -
+          declaredOptionPosition(b.label, seriesRank, nullCategoryLabel),
+      )
+    : derivedSeries;
 
   // The chart's STRUCTURE is the dataset's: the series and the category axis
   // above are emitted as derived, and nothing authored is merged onto them.

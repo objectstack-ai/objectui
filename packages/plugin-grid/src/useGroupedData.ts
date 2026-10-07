@@ -230,6 +230,74 @@ function compareGroups(a: string, b: string, order: 'asc' | 'desc'): number {
 }
 
 /**
+ * Per grouping field, the field's DECLARED option order (objectui#11809):
+ * `field → { key → position }`, each rank map as `@object-ui/core`'s
+ * `buildCategoryRank(buildCategoryOrder(options))` builds it from the object
+ * field's `options` — the ONE reading of a picklist's order the funnel already
+ * uses. A field absent here has no option order and keeps label order.
+ *
+ * A package-internal hand-off: `ObjectGrid` holds the object definition and
+ * builds it; the published {@link useGroupedData} carries none.
+ */
+export type GroupOptionRanks = ReadonlyMap<string, ReadonlyMap<string, number>>;
+
+/** What one group is ordered by. */
+interface SortableGroup {
+  /** The group's value key — `''` is the empty group. */
+  segment: string;
+  /** The group's raw stored value (an array for a multi-value field). */
+  raw: unknown;
+  /** The header label, for the label-order arms. */
+  label: string;
+}
+
+/**
+ * A group's place in its field's declared option order: one position per
+ * stored value (a multi-value key ranks as the tuple of its members), or
+ * `null` when any member is not a declared option.
+ */
+function optionRankOf(raw: unknown, ranks: ReadonlyMap<string, number>): number[] | null {
+  const members = Array.isArray(raw) ? raw : [raw];
+  if (members.length === 0) return null;
+  const out: number[] = [];
+  for (const member of members) {
+    const rank = ranks.get(extractValueKey(member));
+    if (rank === undefined) return null;
+    out.push(rank);
+  }
+  return out;
+}
+
+/**
+ * The group order for a field (objectui#11809). With a declared option order:
+ * the options in that order (reversed for `desc`), then any value the options
+ * do not declare, by label, then the empty group — empty and unknown values
+ * sit last in both directions. Without one: label order, exactly as before.
+ */
+function compareGroupEntries(
+  a: SortableGroup,
+  b: SortableGroup,
+  order: 'asc' | 'desc',
+  ranks: ReadonlyMap<string, number> | undefined,
+): number {
+  if (!ranks) return compareGroups(a.label, b.label, order);
+  const aEmpty = a.segment === '';
+  const bEmpty = b.segment === '';
+  if (aEmpty || bEmpty) return aEmpty === bEmpty ? 0 : aEmpty ? 1 : -1;
+  const aRank = optionRankOf(a.raw, ranks);
+  const bRank = optionRankOf(b.raw, ranks);
+  if (aRank && bRank) {
+    const shared = Math.min(aRank.length, bRank.length);
+    let cmp = 0;
+    for (let i = 0; i < shared && cmp === 0; i++) cmp = aRank[i] - bRank[i];
+    if (cmp === 0) cmp = aRank.length - bRank.length;
+    return order === 'desc' ? -cmp : cmp;
+  }
+  if (aRank || bRank) return aRank ? -1 : 1;
+  return compareGroups(a.label, b.label, order);
+}
+
+/**
  * One entry of the spec's `grouping.fields[]` as AUTHORED — `field` plus the
  * optional `order` / `collapsed`.
  *
@@ -399,6 +467,25 @@ export function useGroupedData(
   formatValue?: GroupValueFormatter,
   server?: ServerGroupSource,
 ): UseGroupedDataResult {
+  return useGroupedDataInOptionOrder(config, data, aggregations, formatValue, server, undefined);
+}
+
+/**
+ * {@link useGroupedData}, with each select grouping field's groups in the
+ * field's declared option order (objectui#11809) — what `ObjectGrid`, which
+ * holds the object definition, calls. A field `optionRanks` does not name keeps
+ * label order.
+ *
+ * @param optionRanks - per grouping field, its declared option order
+ */
+export function useGroupedDataInOptionOrder(
+  config: GroupingConfig | undefined,
+  data: any[],
+  aggregations: AggregationConfig[] | undefined,
+  formatValue: GroupValueFormatter | undefined,
+  server: ServerGroupSource | undefined,
+  optionRanks: GroupOptionRanks | undefined,
+): UseGroupedDataResult {
   // [objectui#7217] The SAME normalized list `ObjectGrid`'s formatter memo
   // reads. Memoized on the raw array rather than on `config`: hosts rebuild
   // the `{ grouping }` object literal every render, so keying on `config`
@@ -441,7 +528,8 @@ export function useGroupedData(
           };
         });
         const order = f.order ?? 'asc';
-        entries.sort((a, b) => compareGroups(a.label, b.label, order));
+        const ranks = optionRanks?.get(f.field);
+        entries.sort((a, b) => compareGroupEntries(a, b, order, ranks));
 
         return entries.map(({ row, raw, segment, label }) => {
           const compositeKey = parentKey ? `${parentKey}__${depth}:${segment}` : `${depth}:${segment}`;
@@ -499,11 +587,12 @@ export function useGroupedData(
       }
 
       const order = f.order ?? 'asc';
-      keyOrder.sort((a, b) => {
-        const labelA = map.get(a)?.label ?? a;
-        const labelB = map.get(b)?.label ?? b;
-        return compareGroups(labelA, labelB, order);
-      });
+      const ranks = optionRanks?.get(f.field);
+      const sortableOf = (segment: string): SortableGroup => {
+        const entry = map.get(segment);
+        return { segment, raw: entry?.rows[0]?.[f.field], label: entry?.label ?? segment };
+      };
+      keyOrder.sort((a, b) => compareGroupEntries(sortableOf(a), sortableOf(b), order, ranks));
 
       return keyOrder.map((segment) => {
         const entry = map.get(segment)!;
@@ -534,7 +623,7 @@ export function useGroupedData(
     };
 
     return buildLevel(data, 0, '', {});
-  }, [data, fields, isGrouped, toggledKeys, aggregations, formatValue, server]);
+  }, [data, fields, isGrouped, toggledKeys, aggregations, formatValue, server, optionRanks]);
 
   const toggleGroup = useCallback((key: string) => {
     setToggledKeys((prev) => {

@@ -57,7 +57,7 @@ import {
   DataEmptyState, resolveIcon,
 } from '@object-ui/components';
 import { usePullToRefresh } from '@object-ui/mobile';
-import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, type FilterTokenScope } from '@object-ui/core';
+import { resolveConditionalFormatting, leadWithNameField, buildExpandFields, buildExportFileName, columnIdentity, collectPredicateFieldRefs, collectGroupingFieldRefs, listViewPredicates, isObjectInlineEditable, isProjectableField, isExpandableFieldType, isUnmaterializedFieldType, readObjectSortability, isPlatformSortableField, filterPlatformSortableSort, toFilterNode, toFilterNodeSafely, filterRefusalSubject, FilterOperatorError, convertSortToQueryParams, normalizeSortEntries, type QuerySortEntry, ROW_HEIGHT_TO_DENSITY_MODE, resolveRecordSourceConfig, resolveRecordSourceObjectName, resolveFilterPlaceholders, partitionRowsByPredicate, buildCategoryOrder, buildCategoryRank, type FilterTokenScope } from '@object-ui/core';
 import { usePermissions } from '@object-ui/permissions';
 import {
   RECORD_OVERLAY_DEFAULT_WIDTH,
@@ -65,7 +65,7 @@ import {
 } from '@object-ui/plugin-detail';
 import { ChevronRight, ChevronLeft, ChevronsLeft, ChevronsRight, Download, Rows2, Rows3, Rows4, AlignJustify, Type, Hash, Calendar, CheckSquare, User, Tag, Clock, Loader2 } from 'lucide-react';
 import { useRowColor } from './useRowColor';
-import { useGroupedData, usableGroupingFields, type ServerGroupSource } from './useGroupedData';
+import { useGroupedDataInOptionOrder, usableGroupingFields, type GroupOptionRanks, type ServerGroupSource } from './useGroupedData';
 import { groupSearchOf, useServerGroupHeaders, useServerGroupRows, type ServerGroupLeaf } from './useServerGrouping';
 import { GroupRow } from './GroupRow';
 import { useColumnSummary } from './useColumnSummary';
@@ -2981,7 +2981,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
   // A select value's label is the OBJECT FIELD's option label (objectui#11544).
   const groupValueFormatter = React.useMemo(() => {
     // [objectui#7217] ONE normalized entry list, shared with the
-    // `useGroupedData` call below. Reading `grouping.fields` raw here threw
+    // `useGroupedDataInOptionOrder` call below. Reading `grouping.fields` raw here threw
     // `TypeError: Cannot read properties of null (reading 'field')` on a null
     // hole — the whole grid gone, during render, before any projection was
     // built. `usableGroupingFields` admits exactly the entries
@@ -3117,7 +3117,30 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     [serverGroupedFetch, groupHeaderRows, groupKeyLabels],
   );
 
-  const { groups, isGrouped, toggleGroup } = useGroupedData(
+  // [objectui#11809] Each grouping field's DECLARED option order: the object
+  // field's `options` read through core's `buildCategoryOrder` /
+  // `buildCategoryRank`, the same reading the dashboard's category axis and
+  // the funnel use. A select field's groups then follow the order the author
+  // declared (Backlog → To Do → In Progress …), as the Kanban lanes do, rather
+  // than the order of their labels; empty and undeclared values sit last. A
+  // field with no options keeps label order. Keyed on the order itself (a
+  // string), not on `schema.grouping`, which a host rebuilds every render.
+  const groupOptionOrderKey = JSON.stringify(
+    usableGroupingFields(schema.grouping?.fields).flatMap((gf) => {
+      const order = buildCategoryOrder(objectFields?.[gf.field]?.options);
+      return order ? [[gf.field, order]] : [];
+    }),
+  );
+  const groupOptionRanks = React.useMemo((): GroupOptionRanks | undefined => {
+    const ranks = new Map<string, ReadonlyMap<string, number>>();
+    for (const [field, order] of JSON.parse(groupOptionOrderKey) as Array<[string, string[]]>) {
+      const rank = buildCategoryRank(order);
+      if (rank) ranks.set(field, rank);
+    }
+    return ranks.size > 0 ? ranks : undefined;
+  }, [groupOptionOrderKey]);
+
+  const { groups, isGrouped, toggleGroup } = useGroupedDataInOptionOrder(
     serverGroupedFetch
       ? (schema.grouping ? { ...schema.grouping, fields: serverGroupingFields } : undefined)
       : groupingForRender,
@@ -3125,6 +3148,7 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
     schema.aggregations,
     groupValueFormatter,
     serverGroupSource,
+    groupOptionRanks,
   );
 
   // Reset grouped pagination to page 1 whenever the grouping config, page size

@@ -60,6 +60,8 @@ import {
 } from './masterDetailTx';
 import { isSameStoredValue } from './sanitize';
 import { deriveDetail } from './deriveMasterDetail';
+// objectui#11428 — the per-row form's offer test is the spec's rule.
+import { isInlineRowFormOffered } from '@objectstack/spec/data';
 // objectui#11396 — one `details` entry, by reference: the spec's own type for
 // `ComponentPropsMap['object-master-detail-form'].details[]`. Type-only.
 import type { ObjectMasterDetailFormProps } from '@objectstack/spec/ui';
@@ -877,8 +879,10 @@ const MasterDetailLines: React.FC<MasterDetailLinesProps> = ({
               // always in form mode (it IS the editor), and in grid mode only
               // when the full form has fields the grid omits. A thin grid whose
               // columns already cover every field (e.g. invoice lines) shows no
-              // redundant expand button.
-              {...((d.inlineMode === 'form' || (d.formFields?.length ?? 0) > (d.columns?.length ?? 0))
+              // redundant expand button. The test is `@objectstack/spec`'s
+              // `isInlineRowFormOffered` (objectui#11428), asked with the
+              // collection's RESOLVED form factor and lists, authored or derived.
+              {...(isInlineRowFormOffered({ inlineMode: d.inlineMode, formFields: d.formFields, columns: d.columns })
                 ? { onRowExpand: (rowIdx: number) => onRowExpand(entry.id, rowIdx) }
                 : {})}
               displayMode={d.inlineMode === 'form' ? 'list' : 'grid'}

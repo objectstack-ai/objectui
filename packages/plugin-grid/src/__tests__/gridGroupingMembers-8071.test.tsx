@@ -43,9 +43,11 @@
  *
  * ⛔ What a declaration can never publish:
  *
- *   - **`order` sorts the group HEADERS by their rendered LABEL, not by the
- *     stored value.** So the same member produces a different order once the
- *     object field's options rename the values it sorts.
+ *   - **`order` runs the object field's DECLARED option order when the field
+ *     has options, and the rendered LABEL order when it has none — never the
+ *     stored value's (objectui#11809).** So the same member produces a
+ *     different order once the object field declares options for the values
+ *     it sorts: the options' own sequence, reversed by `desc`.
  *   - **`collapsed` is a DEFAULT, not a state.** It decides what an untouched
  *     group looks like, and the first click inverts that default rather than
  *     setting it.
@@ -279,13 +281,14 @@ describe('object-grid `grouping` × `columns` — the SHARED memo (objectui#8071
 describe('object-grid group-header LABELS come from the object field (objectui#11544)', () => {
   it('the object field\'s `options` decide the header label, and a column `options` beside them is not read', async () => {
     // The field's labels reach the header.
+    // In the field's declared option order — `won`, then `lost` (objectui#11809).
     renderGrouped(
       { fields: [{ field: 'stage' }] },
       [{ field: 'stage', label: 'Stage' }],
       stageField({ won: 'Closed Won', lost: 'Closed Lost' }),
     );
     await settled();
-    expect(groupLabels()).toEqual(['Closed Lost', 'Closed Won']);
+    expect(groupLabels()).toEqual(['Closed Won', 'Closed Lost']);
     cleanup();
     // The retirement: `options` is not a `ListColumn` member and the strict
     // `ListColumnSchema` refuses it at publish, so a column carrying it is
@@ -305,7 +308,7 @@ describe('object-grid group-header LABELS come from the object field (objectui#1
       stageField({ won: 'Closed Won', lost: 'Closed Lost' }),
     );
     await settled();
-    expect(groupLabels()).toEqual(['Closed Lost', 'Closed Won']);
+    expect(groupLabels()).toEqual(['Closed Won', 'Closed Lost']);
     cleanup();
     // With no field options, the same column `options` relabels nothing: the
     // header shows the stored values.
@@ -323,20 +326,30 @@ describe('object-grid group-header LABELS come from the object field (objectui#1
     expect(groupLabels()).toEqual(['lost', 'won']);
   });
 
-  it('`order` sorts the RENDERED labels, so the field\'s options move the groups', async () => {
-    // `lost` < `won` on the stored values; `Closed Won` < `Zeta` on the
-    // rendered ones. Same `order: 'asc'`, different order — which is only
-    // visible because `order` sorts what the label memo produced.
+  it('`order` runs the field\'s DECLARED option order, so the field\'s options move the groups (objectui#11809)', async () => {
+    // The field declares `won` before `lost`. Its labels sort the other way
+    // (`Alpha` < `Zeta`) and so do its stored values (`lost` < `won`), so
+    // `Zeta`, `Alpha` is a reading of the declared order and of nothing else.
     renderGrouped(
       { fields: [{ field: 'stage', order: 'asc' }] },
       [{ field: 'name', label: 'Name' }],
-      stageField({ won: 'Closed Won', lost: 'Zeta' }),
+      stageField({ won: 'Zeta', lost: 'Alpha' }),
     );
     await settled();
-    expect(groupLabels()).toEqual(['Closed Won', 'Zeta']);
+    expect(groupLabels()).toEqual(['Zeta', 'Alpha']);
     cleanup();
-    // Control: the same `order` without the field's labels sorts the stored
-    // values, so the row above is a reading of the labels, not of `order`.
+    // `desc` reverses the declared order.
+    renderGrouped(
+      { fields: [{ field: 'stage', order: 'desc' }] },
+      [{ field: 'name', label: 'Name' }],
+      stageField({ won: 'Zeta', lost: 'Alpha' }),
+    );
+    await settled();
+    expect(groupLabels()).toEqual(['Alpha', 'Zeta']);
+    cleanup();
+    // Control: the same `order` without the field's options sorts the labels,
+    // which are the stored values here, so the rows above are a reading of
+    // the options, not of `order`.
     renderGrouped({ fields: [{ field: 'stage', order: 'asc' }] });
     await settled();
     expect(groupLabels()).toEqual(['lost', 'won']);

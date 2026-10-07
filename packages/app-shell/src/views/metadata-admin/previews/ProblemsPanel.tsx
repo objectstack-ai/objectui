@@ -11,10 +11,29 @@
  */
 
 import * as React from 'react';
-import { AlertCircle, AlertTriangle, CheckCircle2, CircleDot, GitBranch } from 'lucide-react';
+import { AlertCircle, AlertTriangle, CheckCircle2, CircleDot, CircleSlash, GitBranch } from 'lucide-react';
 import { cn } from '@object-ui/components';
-import type { FlowProblem } from './flow-problems.js';
+import { describeFlowRunStatus, type FlowProblem, type FlowRunStatus, type FlowRuntimeRow } from './flow-problems.js';
 import { t as tr } from '../i18n.js';
+
+/**
+ * The open flow's runtime row, handed from a host that read
+ * `GET /api/v1/automation/_status` (Studio's Automations pillar) to the flow
+ * preview it renders (objectui#11779). The preview derives ONE run status from
+ * it (`deriveFlowRunStatus`) for its header's Status pill and for this panel's
+ * note, the same derivation the host's rail reads.
+ *
+ *   - a row: the engine's answer for this flow;
+ *   - `null`: the host read `_status` and the engine has no row for this flow;
+ *   - `undefined` (the default, no provider): no runtime reading at all.
+ *
+ * It is a context rather than a preview prop because `MetadataPreviewProps` is
+ * the package's published preview contract, and this row is one host's
+ * hand-off to one preview. It sits in this module rather than in the preview's
+ * because the host imports it, and the preview's module would bring the whole
+ * canvas into the host with it.
+ */
+export const FlowRuntimeContext = React.createContext<FlowRuntimeRow | null | undefined>(undefined);
 
 export interface ProblemsPanelProps {
   problems: FlowProblem[];
@@ -23,6 +42,14 @@ export interface ProblemsPanelProps {
   onSelectProblem: (problem: FlowProblem) => void;
   /** UI locale for the panel chrome. */
   locale?: string;
+  /**
+   * The flow's run status (objectui#11779), the one the header's Status pill
+   * shows. A flow the deployment does not run on its trigger (`not-running`)
+   * gets a note above the list: a deployment fact, not an authoring problem,
+   * so it is never counted, never styled as an error, and the structural
+   * verdict below it stands as it is.
+   */
+  runStatus?: FlowRunStatus;
 }
 
 function targetLabel(p: FlowProblem): string {
@@ -31,9 +58,10 @@ function targetLabel(p: FlowProblem): string {
   return 'flow';
 }
 
-export function ProblemsPanel({ problems, selectedKey, onSelectProblem, locale }: ProblemsPanelProps) {
+export function ProblemsPanel({ problems, selectedKey, onSelectProblem, locale, runStatus }: ProblemsPanelProps) {
   const errorCount = problems.filter((p) => p.level === 'error').length;
   const warningCount = problems.length - errorCount;
+  const runNote = runStatus?.kind === 'not-running' ? describeFlowRunStatus(runStatus, locale) : null;
 
   return (
     <div className="flex h-full flex-col text-xs">
@@ -50,6 +78,19 @@ export function ProblemsPanel({ problems, selectedKey, onSelectProblem, locale }
           </span>
         )}
       </div>
+      {runNote && (
+        <div
+          role="note"
+          data-testid="flow-run-status-note"
+          className="mx-1.5 mt-1.5 flex items-start gap-2 rounded-md border border-dashed px-2 py-1.5 text-muted-foreground"
+        >
+          <CircleSlash className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+          <span className="min-w-0 flex-1">
+            <span className="block leading-snug text-foreground">{runNote.label}</span>
+            {runNote.title && <span className="mt-0.5 block text-[10px] leading-snug">{runNote.title}</span>}
+          </span>
+        </div>
+      )}
       {problems.length === 0 ? (
         <div className="flex flex-1 flex-col items-center justify-center gap-1.5 p-4 text-center text-muted-foreground">
           <CheckCircle2 className="h-5 w-5 text-emerald-500" />

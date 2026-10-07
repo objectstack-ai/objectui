@@ -130,6 +130,8 @@ import { t, tFormat, translateMetadataType, useMetadataLocale } from '../metadat
 import { useDisplayLocale } from '@object-ui/i18n';
 import { SuggestedBindingsPanel } from '../../components/SuggestedBindingsPanel.js';
 import { AppNavCanvas } from '../metadata-admin/previews/AppNavCanvas.js';
+import { FlowRuntimeContext } from '../metadata-admin/previews/ProblemsPanel.js';
+import { deriveFlowRunStatus, describeFlowRunStatus, type FlowRuntimeRow } from '../metadata-admin/previews/flow-problems.js';
 import {
   clearedLabel,
   inheritedNavEntryText,
@@ -4560,22 +4562,12 @@ type FlowRuntimeState = Partial<SpecFlowRuntimeState>;
  * distinguishes the two". `reason` is the platform's one sentence for why such a
  * flow is not armed: a deployment policy and a binding failure each arrive in
  * the platform's own words. So the rail keeps both beside `enabled` / `bound`.
+ *
+ * The shape is `flow-problems`' `FlowRuntimeRow` (objectui#11779): the rail,
+ * the flow header and the Problems panel derive one run status from it
+ * (`deriveFlowRunStatus`), so it is declared once, where that derivation is.
  */
-interface FlowRailState {
-  enabled: boolean;
-  bound: boolean;
-  /**
-   * The flow's declared trigger type. Absent when the flow declares no trigger
-   * (the engine omits the field then), and on a backend that never sends it.
-   */
-  triggerType?: string;
-  /**
-   * The platform's sentence for why this flow is not armed. RENDERED verbatim,
-   * ⛔ never parsed, compared or restyled here (the contract: "Consumers RENDER
-   * it; ⛔ do not parse it"), the way the Setup page shows it (objectui#9217).
-   */
-  reason?: string;
-}
+type FlowRailState = FlowRuntimeRow;
 
 /**
  * Narrow one unvalidated runtime row into the rail's state. `triggerType` and
@@ -4594,38 +4586,42 @@ function flowRailState(s: FlowRuntimeState): FlowRailState {
 }
 
 /**
- * A flow's live status in the Automations rail: a colored dot + On/Off, from the
- * engine's runtime state (persisted `status` is intent; this is what's actually
- * live). Renders nothing for a flow the engine doesn't know yet (never published)
- * — the amber "unpublished draft" chip already covers that case.
+ * A flow's live status in the Automations rail, from the engine's runtime state
+ * (persisted `status` is intent; this is what's actually live). Renders nothing
+ * for a flow the engine doesn't know yet (never published) — the amber
+ * "unpublished draft" chip already covers that case.
  *
- * The title of an enabled, unbound flow (objectui#11281):
- *   - with a `reason`: that sentence, verbatim, and nothing else;
- *   - with no `triggerType`: "no trigger (run manually)", the one case the
- *     contract lets `bound: false` mean that, and what every older backend got;
- *   - a declared trigger with no `reason` (a backend that predates the field):
- *     only "Enabled". It claims nothing about the binding, as the Setup page
- *     claims nothing for the same row.
- * The visible text and the dot's colour follow `enabled` alone: a reason is
- * never styled as an error.
+ * The state is the run status `deriveFlowRunStatus` derives, worded by
+ * `describeFlowRunStatus` — the derivation the flow header's Status pill and the
+ * Problems panel read too (objectui#11779), so the three cannot disagree:
+ *   - enabled and bound, or enabled with no declared trigger: a green dot +
+ *     "On", titled "bound to its trigger" / "no trigger (run manually)" — a flow
+ *     that runs when invoked is never called "not running";
+ *   - enabled, with a declared trigger the engine has not armed: a grey
+ *     "Not running here" chip — visible without hovering, since the deployment
+ *     will never run it on that trigger. Its title is the platform's `reason`,
+ *     verbatim (objectui#11281), or, from a backend that predates the field, the
+ *     contract's own reading of the row: its trigger is not armed here;
+ *   - disabled: a grey dot + "Off".
+ * Nothing here is styled as an error: a deployment policy is not a defect.
  */
 export function FlowStatusDot({ state, locale }: { state?: FlowRailState; locale: string }): React.ReactElement | null {
   if (!state) return null;
-  const { enabled, bound, triggerType, reason } = state;
-  const title = !enabled
-    ? t('engine.studio.auto.offTitle', locale)
-    : bound
-      ? t('engine.studio.auto.onBound', locale)
-      : reason
-        ? reason
-        : triggerType
-          ? t('engine.studio.auto.enabled', locale)
-          : t('engine.studio.auto.onUnbound', locale);
+  const status = deriveFlowRunStatus(state);
+  const { label, title } = describeFlowRunStatus(status, locale);
+  if (status.kind === 'not-running') {
+    return (
+      <span title={title} className="inline-flex shrink-0 items-center rounded bg-muted px-1.5 py-px text-[10px] text-muted-foreground">
+        {label}
+      </span>
+    );
+  }
+  const enabled = status.kind !== 'off';
   return (
     <span title={title} className="inline-flex shrink-0 items-center gap-1">
       <span className={'h-1.5 w-1.5 rounded-full ' + (enabled ? 'bg-emerald-500' : 'bg-muted-foreground/40')} />
       <span className={'text-[10px] ' + (enabled ? 'text-emerald-600 dark:text-emerald-400' : 'text-muted-foreground')}>
-        {enabled ? t('engine.studio.auto.on', locale) : t('engine.studio.auto.off', locale)}
+        {label}
       </span>
     </span>
   );
@@ -4724,6 +4720,11 @@ export function AutomationsPillar({
   // behind the rail's status dots. Refetched after a publish (publishNonce);
   // degrades silently on an older backend / offline (dots just don't render).
   const [flowStatus, setFlowStatus] = React.useState<Record<string, FlowRailState>>({});
+  // objectui#11779 — whether `flowStatus` holds an answer from the engine. With
+  // one, a flow the map has no row for is a flow the engine does not have
+  // (nothing of it is deployed); without one, there is nothing to say about any
+  // flow's live state, and the header reads the draft's own switch instead.
+  const [flowStatusRead, setFlowStatusRead] = React.useState(false);
   React.useEffect(() => {
     let cancelled = false;
     (async () => {
@@ -4736,6 +4737,7 @@ export function AutomationsPillar({
         const map: Record<string, FlowRailState> = {};
         for (const s of list) if (s?.name) map[s.name] = flowRailState(s);
         setFlowStatus(map);
+        setFlowStatusRead(true);
       } catch {
         /* offline / older backend → no dots */
       }
@@ -4797,12 +4799,23 @@ export function AutomationsPillar({
       try {
         // Minimal valid, autolaunched skeleton: start → end. The designer fills in
         // the trigger + nodes; publishing it is a separate, user-initiated step.
-        const skeleton = buildFlowSkeleton(
-          name,
-          label,
-          t('engine.studio.auto.nodeStart', locale),
-          t('engine.studio.auto.nodeEnd', locale),
-        );
+        //
+        // objectui#11779 — and it is born switched OFF, as the bar above the
+        // rail promises ("Off by default · review before enabling"). With no
+        // `status` the spec's default is `draft`, which the engine arms like
+        // `active`: the switch read "Enabled" on a flow nobody had reviewed, and
+        // a package publish armed it as soon as it had a trigger. `obsolete` is
+        // what the switch itself writes for Off; enabling it is the author's
+        // own flip.
+        const skeleton = {
+          ...buildFlowSkeleton(
+            name,
+            label,
+            t('engine.studio.auto.nodeStart', locale),
+            t('engine.studio.auto.nodeEnd', locale),
+          ),
+          status: 'obsolete',
+        };
         await client.save('flow', name, skeleton, { mode: 'draft', packageId: draftPackageId });
         const item: Surface = { type: 'flow', name, label };
         setFlows((fs) => [...fs.filter((f) => f.name !== name), item]);
@@ -5103,20 +5116,26 @@ export function AutomationsPillar({
                 </div>
               )
             ) : Preview ? (
-              React.createElement(Preview, {
-                type: current.type,
-                name: current.name,
-                draft,
-                editing: true,
-                selection,
-                onSelectionChange: setSelection,
-                // objectui#11124 — a read-only package gets no `onPatch`: per
-                // the preview contract the canvas is then read-only (no add,
-                // insert, drag or delete — each a doomed write), while node and
-                // edge selection still open the inspector read-only below.
-                onPatch: readOnly ? undefined : onPatch,
-                locale,
-              })
+              // objectui#11779 — the open flow's runtime row, so the flow
+              // header and its Problems panel read the run status this rail
+              // reads: the row, `null` when the engine has none for this flow,
+              // nothing while no runtime answer is in.
+              <FlowRuntimeContext.Provider value={flowStatusRead ? (flowStatus[current.name] ?? null) : undefined}>
+                {React.createElement(Preview, {
+                  type: current.type,
+                  name: current.name,
+                  draft,
+                  editing: true,
+                  selection,
+                  onSelectionChange: setSelection,
+                  // objectui#11124 — a read-only package gets no `onPatch`: per
+                  // the preview contract the canvas is then read-only (no add,
+                  // insert, drag or delete — each a doomed write), while node and
+                  // edge selection still open the inspector read-only below.
+                  onPatch: readOnly ? undefined : onPatch,
+                  locale,
+                })}
+              </FlowRuntimeContext.Provider>
             ) : (
               <pre className="overflow-auto text-[11px] text-muted-foreground">
                 {JSON.stringify(draft, null, 2)}

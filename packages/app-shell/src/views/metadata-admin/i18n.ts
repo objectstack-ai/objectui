@@ -439,6 +439,11 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.flowNode.kind': 'Node',
   'engine.inspector.flowNode.close': 'Close node',
   'engine.inspector.flowNode.id': 'ID',
+  // objectui#11827 — the ID field's inline refusal of a rename that cannot land;
+  // the field shows the stored id again, so each says nothing was renamed.
+  'engine.inspector.flowNode.idRequired': 'Not renamed: a node needs an id.',
+  'engine.inspector.flowNode.idTaken': 'Not renamed: another node in this flow already has the id "{id}".',
+  'engine.inspector.flowNode.idEdgeNamed': 'Not renamed: an edge still names "{id}", a node that is no longer in the flow. Remove or reconnect that edge first.',
   'engine.inspector.flowNode.label': 'Label',
   'engine.inspector.flowNode.type': 'Node Type',
   'engine.inspector.flowNode.configuration': 'Configuration',
@@ -3526,6 +3531,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.flowNode.kind': '节点',
   'engine.inspector.flowNode.close': '关闭节点',
   'engine.inspector.flowNode.id': 'ID',
+  'engine.inspector.flowNode.idRequired': '未重命名：节点必须有 ID。',
+  'engine.inspector.flowNode.idTaken': '未重命名：此流程中已有另一个节点的 ID 是“{id}”。',
+  'engine.inspector.flowNode.idEdgeNamed': '未重命名：仍有连线指向“{id}”，而该节点已不在流程中。请先删除或重新连接那条连线。',
   'engine.inspector.flowNode.label': '标签',
   'engine.inspector.flowNode.type': '节点类型',
   'engine.inspector.flowNode.configuration': '配置',

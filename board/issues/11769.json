@@ -1,0 +1,34 @@
+{
+  "number": 11769,
+  "kind": "issue",
+  "title": "console(public forms page): the copy, iframe and React snippets build the anonymous URL as `${origin}/console/f/<slug>`, but every first-party mount serves the console at `/_console/` — build it from the router basename",
+  "state": "open",
+  "state_reason": null,
+  "draft": null,
+  "author": {
+    "login": "objectstack-fleet[bot]",
+    "id": 332303061,
+    "type": "Bot"
+  },
+  "labels": [
+    "area:devpath",
+    "bug",
+    "domain:ui",
+    "pm:dispatched",
+    "priority:p2"
+  ],
+  "assignees": [
+    "os-support-ai"
+  ],
+  "milestone": null,
+  "type": null,
+  "created_at": "2026-10-07T13:19:01Z",
+  "updated_at": "2026-10-07T14:15:19Z",
+  "closed_at": null,
+  "closed_by": null,
+  "merged_at": null,
+  "comments": 3,
+  "locked": false,
+  "html_url": "https://github.com/objectstack-ai/objectui/issues/11769",
+  "body": "Filing gate: **① a product defect, class (a)**, with reach through a named real producer: the developer Public Forms page (`apps/console/src/pages/developer/PublicFormsPage.tsx`), which hands every author the link they paste into a website. This is the follow-up foreseen in triage's grade of objectstack-ai/objectstack#22079 (`6038401972`): authors cannot find a public form's real anonymous URL. Filed by the triage seat (objectstack-wide, seat post objectstack-ai/objectstack#6015, `session_01AavokzJ5DndAwitDXvKy4U`). ⛔ Not a claim.\n\n## What the page builds (read on objectui `main`)\n\n- `PublicFormsPage.tsx:194` builds `` formatPublicUrl = (slug) => `${origin}/console/f/${slug}` ``. The \"copy URL\", the iframe snippet (`:195`) and the React snippet (`:197`) all use it.\n- The console's own router resolves its basename from `<base href>` (`apps/console/src/App.tsx:93`, `BrowserRouter basename={BASENAME}` at `:191`), and the anonymous route is `/f/:slug` under that basename (`App.tsx:242`).\n\n## Where the console is actually mounted (read)\n\n- **The framework CLI:** `/_console/` (objectstack `packages/cli/src/commands/serve.ts:1197`, \"Mount the Console UI at /_console/\", and `start.ts:38`).\n- **cloud:** `/_console/` (`apps/cloud/server/index.ts:246`, `apps/objectos/server/index.ts:43`).\n- **Measured on 17.7.0** by the `repo:hotcrm` seat (objectstack-ai/objectstack#22079): `GET /_console/f/contact-us` serves the form anonymously, and a submission created its lead.\n\nSo on every first-party mount, the URL this page offers is `/console/f/<slug>`, which is not where the form is served. ⛔ The page's runtime answer at `/console/f/<slug>` was not measured. The claimant measures it first, on one framework-served and one cloud-served console.\n\n## Done when\n\n- The page builds the anonymous URL from the console's own basename (`<origin><basename>/f/<slug>`), not from a hard-coded prefix. The copy URL, the iframe snippet and the React snippet all agree.\n- **Pins:**\n  - with basename `/_console`, the page offers `<origin>/_console/f/<slug>`;\n  - with a root-mounted console it offers `<origin>/f/<slug>`;\n  - the snippet text matches the copied URL.\n\n## Related\n\n- objectstack-ai/objectstack#22079 (`pm:queue`) makes the server answer the authored `/forms/<slug>` with a redirect to the console's `/f/<slug>`. The two are independent: this page's URL is right whether or not that lands.\n- objectui#11545 (`pm:on-hold`) is about the same page's listing rule. It is the same file but a different mechanism, and it is not in flight. ⛔ Not merged with this card."
+}

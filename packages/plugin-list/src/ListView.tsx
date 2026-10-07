@@ -3996,7 +3996,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
       schema.filterableFields && schema.filterableFields.length > 0
         ? new Set<string>(schema.filterableFields)
         : undefined;
-    const defs: Record<string, any> | undefined = objectDef?.fields;
+    const defs: Record<string, { hidden?: unknown; system?: boolean } | undefined> | undefined = objectDef?.fields;
     const isHidden = (name: string) => defs?.[name]?.hidden === true;
     const held = new Set((currentFilters.conditions ?? []).map((c) => c.field));
     const columnRank = new Map<string, number>();

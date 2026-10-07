@@ -27,7 +27,7 @@ import React from 'react';
 import { cleanup, render, screen, fireEvent, waitFor } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import { expandEmptyOperator } from '@objectstack/spec/data';
-import { FilterBuilder, operatorsForFieldType } from '../custom/filter-builder';
+import { FilterBuilder, operatorsForFieldType, type FilterGroup } from '../custom/filter-builder';
 
 const TEXT_HINT = '"Is empty" also matches blank text; "Is null" matches only a missing value.';
 const LIST_HINT = '"Is empty" also matches an empty list; "Is null" matches only a missing value.';
@@ -46,8 +46,9 @@ afterEach(cleanup);
 function renderRow(condition: Record<string, unknown>) {
   const onChange = vi.fn();
   // Hoisted out of the JSX: the builder re-seeds on a new `value` identity.
-  const value = { id: 'root', logic: 'and', conditions: [{ id: 'c1', value: '', ...condition }] };
-  render(<FilterBuilder fields={FIELDS as any} value={value as any} onChange={onChange} />);
+  // Cast: a stored row may carry a spelling the row type does not admit.
+  const value = { id: 'root', logic: 'and', conditions: [{ id: 'c1', value: '', ...condition }] } as unknown as FilterGroup;
+  render(<FilterBuilder fields={FIELDS} value={value} onChange={onChange} />);
   return { onChange };
 }
 

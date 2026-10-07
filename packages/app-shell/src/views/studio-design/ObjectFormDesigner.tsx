@@ -55,8 +55,21 @@ import {
 } from '../metadata-admin/previews/object-fields-io.js';
 import { useSafeFieldLabel } from '@object-ui/i18n';
 import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
+import { isStudioHiddenSystemField } from './studioHiddenSystemField.js';
 
 const UNGROUPED = '__ungrouped__';
+
+/**
+ * Kept off the layout canvas, and written back untouched on every commit: a
+ * field the host names in `systemFieldNames`, or one the platform injects AND
+ * hides (`system: true` + `hidden: true` — `__search`,
+ * `owning_business_unit_id`; objectui#11780). One test for all three readers
+ * below — the density count, the containers, and the write-back — so a field
+ * can never be hidden from the canvas and then dropped by the commit.
+ */
+function isKeptOffLayout(entry: FieldEntry, systemFieldNames: ReadonlySet<string>): boolean {
+  return systemFieldNames.has(entry.name) || isStudioHiddenSystemField(entry.def);
+}
 const cid = (key: string) => `g:${key}`; // container (section) droppable id
 const fid = (name: string) => `f:${name}`; // sortable field id
 const unCid = (id: string) => id.slice(2);
@@ -72,7 +85,11 @@ export interface ObjectFormDesignerProps {
    * more reliable handle (a freshly created draft may not have been named yet).
    */
   objectName?: string;
-  /** Field names to hide from the layout (system/audit) but preserve on write. */
+  /**
+   * Field names to hide from the layout (system/audit) but preserve on write.
+   * A field marked `system: true` + `hidden: true` is hidden and preserved the
+   * same way without being named here (objectui#11780).
+   */
   systemFieldNames: Set<string>;
   /** Persist a partial object-draft patch (fields / fieldGroups) + mark dirty. */
   onChange: (patch: Record<string, unknown>) => void;
@@ -379,7 +396,7 @@ export function ObjectFormDesigner({
   // designer reads at the same density end users see. Each section's container
   // queries then clamp this cap to the actually-rendered width.
   const formColumns = React.useMemo(
-    () => inferColumns(view.entries.filter((e) => !systemFieldNames.has(e.name)).length),
+    () => inferColumns(view.entries.filter((e) => !isKeptOffLayout(e, systemFieldNames)).length),
     [view.entries, systemFieldNames],
   );
 
@@ -401,7 +418,7 @@ export function ObjectFormDesigner({
     const map: Record<string, string[]> = {};
     for (const c of containerOrder) map[c] = [];
     for (const e of view.entries) {
-      if (systemFieldNames.has(e.name)) continue;
+      if (isKeptOffLayout(e, systemFieldNames)) continue;
       const g = typeof e.def.group === 'string' ? e.def.group : '';
       const target = g && map[cid(g)] ? cid(g) : cid(UNGROUPED);
       map[target].push(fid(e.name));
@@ -450,7 +467,9 @@ export function ObjectFormDesigner({
           editable.push({ name: e.name, def });
         }
       }
-      const system = view.entries.filter((e) => systemFieldNames.has(e.name));
+      // Every field the canvas does not show rides back unchanged — the same
+      // test that kept it off the containers (objectui#11780).
+      const system = view.entries.filter((e) => isKeptOffLayout(e, systemFieldNames));
       const finalView: FieldsView = { shape: view.shape, entries: [...system, ...editable] };
       onChange({ fields: writeFields(finalView) });
     },

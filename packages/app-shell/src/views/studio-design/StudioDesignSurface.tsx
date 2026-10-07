@@ -149,6 +149,7 @@ import {
   type InstalledPackageRow,
 } from '../metadata-admin/PackagesPage.js';
 import { ObjectFormDesigner } from './ObjectFormDesigner.js';
+import { isStudioHiddenSystemField } from './studioHiddenSystemField.js';
 import { ObjectGroupInspector } from './ObjectGroupInspector.js';
 import { ObjectValidationsPanel } from './ObjectValidationsPanel.js';
 import { ObjectSettingsPanel } from './ObjectSettingsPanel.js';
@@ -3233,6 +3234,14 @@ function nextFieldName(existing: string[]): string {
  * what a user manages in a data grid, so the Data pillar drops them from the
  * column set (mirrors ObjectGrid's regular-vs-system split) to open on the
  * meaningful fields first — the same way Airtable hides system columns.
+ *
+ * objectui#11780 — this list is no longer the only test. The columns the
+ * platform injects AND hides (`system: true` + `hidden: true` on the served
+ * definition: `__search`, `owning_business_unit_id`, `organization_id`) are
+ * dropped by `isStudioHiddenSystemField`, read off each field's definition
+ * beside this list. The list keeps its own job: the audit columns are
+ * `system` but NOT `hidden` in the platform's own definitions
+ * (`AUDIT_FIELD_DEFS`), so the marks alone would put them back.
  */
 const STUDIO_SYSTEM_FIELD_NAMES = new Set<string>([
   '_id', 'id', 'organization_id', 'org_id', 'space_id',
@@ -3622,7 +3631,12 @@ export function DataPillar({
   const gridColumns = React.useMemo(
     () =>
       readFields(objDraft.fields)
-        .entries.map((e) => e.name)
+        // objectui#11780 — a column the platform injects AND hides (`__search`,
+        // `owning_business_unit_id`) is no column an author manages. Read off
+        // the definition this memo already holds, so the key stays
+        // `objDraft.fields` and the identity reasoning above is unchanged.
+        .entries.filter((e) => !isStudioHiddenSystemField(e.def))
+        .map((e) => e.name)
         .filter((n) => !STUDIO_SYSTEM_FIELD_NAMES.has(n) && n !== 'actions')
         // cloud#1652 — a column the server does not have yet must not reach the
         // `select`. "+ add field" appends `field_<N>` to the DRAFT, this array
@@ -3672,7 +3686,9 @@ export function DataPillar({
   const formFields = React.useMemo(
     () =>
       readFields(objDraft.fields)
-        .entries.map((e) => e.name)
+        // objectui#11780 — the same injected-and-hidden test as `gridColumns`.
+        .entries.filter((e) => !isStudioHiddenSystemField(e.def))
+        .map((e) => e.name)
         .filter((n) => !STUDIO_SYSTEM_FIELD_NAMES.has(n)),
     [objDraft.fields],
   );

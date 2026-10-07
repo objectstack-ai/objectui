@@ -326,8 +326,10 @@ describe('Interfaces nav save — its banner goes once a nav save lands (objectu
     await waitFor(() => expect(server.appSaves).toHaveLength(1), { timeout: 8000 });
     await screen.findByText('Service unavailable', undefined, { timeout: 8000 });
 
-    // The author removes the entry; the save that sends that lands.
+    // The author removes the entry; the save that sends that lands. (Pointed
+    // at first, as a mouse user removes it: this pin reads the banner alone.)
     const row = within(rail()).getAllByRole('button', { name: /acme_task|Task/ })[0];
+    fireEvent.mouseEnter(row);
     fireEvent.click(within(row).getByRole('button', { name: 'Remove nav item' }));
     await waitFor(() => expect(server.appSaves).toHaveLength(2), { timeout: 8000 });
     expect(server.appSaves[1]).toEqual({ navigation: NAV, accepted: true });

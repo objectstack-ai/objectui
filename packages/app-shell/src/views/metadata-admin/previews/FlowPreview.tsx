@@ -150,17 +150,21 @@ export function FlowPreview({ draft, editing, selection, onSelectionChange, onPa
   // ledger is written after each render commits and read only when a node is
   // added, by `mintNodeId`, which also takes the current draft's ids directly
   // (`freshNodeId`), so a render whose effect has not run yet loses nothing.
+  // Keyed on the draft's own arrays, never on the memoised `nodes` / `edges`
+  // (AGENTS.md #10); recording is idempotent, so an extra run changes nothing.
   const seenNodeIds = React.useRef<Set<string>>(new Set());
   React.useEffect(() => {
     const seen = seenNodeIds.current;
     // Read as defensively as the rest of this preview: a mid-edit draft may
     // hold a hole or a half-written edge, and nothing here may throw on it.
-    for (const n of nodes) if (typeof n?.id === 'string') seen.add(n.id);
-    for (const e of edges) {
+    for (const n of Array.isArray(d.nodes) ? (d.nodes as Array<{ id?: unknown } | null>) : []) {
+      if (typeof n?.id === 'string') seen.add(n.id);
+    }
+    for (const e of Array.isArray(d.edges) ? (d.edges as Array<{ source?: unknown; target?: unknown } | null>) : []) {
       if (typeof e?.source === 'string') seen.add(e.source);
       if (typeof e?.target === 'string') seen.add(e.target);
     }
-  }, [nodes, edges]);
+  }, [d.nodes, d.edges]);
   const mintNodeId = React.useCallback(() => freshNodeId(nodes, edges, seenNodeIds.current), [nodes, edges]);
 
   const handleAddNode = React.useCallback(() => {

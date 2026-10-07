@@ -28,6 +28,8 @@ import { toast } from 'sonner';
 import { SchemaForm } from '../metadata-admin/SchemaForm.js';
 import { getMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
 import { useMetadataClient } from '../metadata-admin/useMetadata.js';
+// objectui#11773 — the hook's draft save sends the version it was built on.
+import { useDraftSaveGuard } from '../metadata-admin/DraftConflictDialog.js';
 import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
 // `formatMetadataError` is the one metadata-save error reader (objectui#11302).
 import { extractDraftBody, formatMetadataError } from '@object-ui/data-objectstack';
@@ -75,10 +77,16 @@ export function ObjectHooksPanel({
   packageId,
   disabled,
   hookSchema,
+  publishNonce = 0,
 }: {
   objectName: string;
   packageId: string;
   disabled?: boolean;
+  /**
+   * objectui#11773 — bumped by a package publish, which drops every draft and
+   * with them the version this panel's last save received.
+   */
+  publishNonce?: number;
   /**
    * The live server JSONSchema for the `hook` type (`/meta/types`). Drives the
    * SchemaForm so the fields, enums and grouping come from the real hook
@@ -99,6 +107,19 @@ export function ObjectHooksPanel({
   const [dirty, setDirty] = React.useState(false);
   const [saving, setSaving] = React.useState(false);
   const [nonce, setNonce] = React.useState(0);
+  // objectui#11773 — the version the open hook's draft was saved at, sent as
+  // `If-Match` by its next save. The list re-read that follows this panel's own
+  // save reads back what it wrote, so the version survives it; a conflict's
+  // "reload" re-reads the list, and a publish forgets the version.
+  const reloadHooks = React.useCallback(() => setNonce((n) => n + 1), []);
+  const {
+    save: saveHookDraft,
+    forget: forgetHookVersion,
+    dialog: hookConflictDialog,
+  } = useDraftSaveGuard(client, reloadHooks);
+  React.useEffect(() => {
+    forgetHookVersion();
+  }, [publishNonce, forgetHookVersion]);
 
   /* ─── Blocking CEL verdicts → this panel's OWN Save (objectui#4527) ────────
    *
@@ -176,7 +197,7 @@ export function ObjectHooksPanel({
     setSaving(true);
     setError(null);
     try {
-      await client.save('hook', String(draft.name), draft, { mode: 'draft', packageId });
+      if ((await saveHookDraft('hook', String(draft.name), draft, { mode: 'draft', packageId })) === 'reloaded') return;
       toast.success(tFormat('engine.studio.hooks.saved', locale, { label: String(draft.label || draft.name) }));
       setDirty(false);
       setNonce((n) => n + 1);
@@ -185,7 +206,7 @@ export function ObjectHooksPanel({
     } finally {
       setSaving(false);
     }
-  }, [client, draft, packageId, locale]);
+  }, [saveHookDraft, draft, packageId, locale]);
 
   const addHook = React.useCallback(async () => {
     const name = nextHookName(objectName, hooks.map((h) => String(h.name ?? '')));
@@ -215,6 +236,7 @@ export function ObjectHooksPanel({
 
   return (
     <div className="flex min-h-0 flex-1 gap-4">
+      {hookConflictDialog}
       {/* hook list */}
       <div className="flex w-72 shrink-0 flex-col rounded-lg border">
         <header className="flex items-center gap-2 border-b px-3 py-2">

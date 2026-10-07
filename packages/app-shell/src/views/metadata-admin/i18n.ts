@@ -2678,6 +2678,21 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.saveDraft': 'Save draft',
   'engine.studio.more': 'More',
   'engine.studio.autoSaving': 'Saving…',
+  // objectui#11773 — the draft-save version conflict (`DraftConflictDialog.tsx`):
+  // a draft save the server refused because the draft was saved elsewhere after
+  // this editor opened it.
+  'engine.draftConflict.title': 'This draft changed since you opened it',
+  'engine.draftConflict.description':
+    'The draft of {type} “{name}” was saved elsewhere — by someone else or in another tab — after you opened it. Reload the saved version (your unsaved edits here are dropped), or overwrite it with yours.',
+  'engine.draftConflict.reload': 'Reload saved version',
+  'engine.draftConflict.overwrite': 'Overwrite…',
+  'engine.draftConflict.keepEditing': 'Keep editing',
+  'engine.draftConflict.overwriteTitle': 'Overwrite the saved draft?',
+  'engine.draftConflict.overwriteDescription':
+    'Your version of {type} “{name}” will replace the saved draft, and the changes saved after you opened it will be lost.',
+  'engine.draftConflict.overwriteConfirm': 'Overwrite',
+  'engine.draftConflict.back': 'Back',
+  'engine.draftConflict.notSaved': 'Not saved: {type} “{name}” was saved elsewhere after you opened it.',
   'engine.studio.data.tab.advanced': 'Advanced',
   // Standard create-dialog field labels (shared by object / app / flow / permission).
   'engine.studio.app.nameLabel': 'App name',
@@ -5591,6 +5606,18 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.saveDraft': '保存草稿',
   'engine.studio.more': '更多',
   'engine.studio.autoSaving': '保存中…',
+  'engine.draftConflict.title': '此草稿在你打开后已被修改',
+  'engine.draftConflict.description':
+    '{type}「{name}」的草稿在你打开后已在别处保存（其他人或另一个标签页）。可以重新加载已保存的版本（此处未保存的修改将丢弃），或用你的版本覆盖它。',
+  'engine.draftConflict.reload': '重新加载已保存版本',
+  'engine.draftConflict.overwrite': '覆盖…',
+  'engine.draftConflict.keepEditing': '继续编辑',
+  'engine.draftConflict.overwriteTitle': '覆盖已保存的草稿？',
+  'engine.draftConflict.overwriteDescription':
+    '你的{type}「{name}」将替换已保存的草稿，你打开之后保存的那些修改会丢失。',
+  'engine.draftConflict.overwriteConfirm': '覆盖',
+  'engine.draftConflict.back': '返回',
+  'engine.draftConflict.notSaved': '未保存：{type}「{name}」在你打开后已在别处保存。',
   'engine.studio.data.tab.advanced': '高级',
   // Standard create-dialog field labels (shared by object / app / flow / permission).
   'engine.studio.app.nameLabel': '应用名称',

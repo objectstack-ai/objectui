@@ -109,6 +109,8 @@ import {
   useMetadataTypes,
   type RichMetadataTypeEntry,
 } from './useMetadata.js';
+// objectui#11773 — the draft save's optimistic-concurrency guard and its dialog.
+import { useDraftSaveGuard } from './DraftConflictDialog.js';
 import {
   getMetadataResource,
   resolveResourceConfig,
@@ -675,6 +677,15 @@ function MetadataResourceEditPageImpl({
   // Bumped by destructive operations (rollback / discard-draft) to
   // force the load effect to refetch layered + draft state.
   const [reloadKey, setReloadKey] = React.useState(0);
+  // objectui#11773 — the version the editor's draft was saved at, sent as
+  // `If-Match` by every draft save of an existing item. A conflict's "reload"
+  // re-runs the load effect, the same way a discard does.
+  const reloadFromServer = React.useCallback(() => setReloadKey((k) => k + 1), []);
+  const {
+    save: saveDraftVersioned,
+    forget: forgetDraftVersion,
+    dialog: draftConflictDialog,
+  } = useDraftSaveGuard(client, reloadFromServer);
 
   // Form edit mode. The form is read-only by default — admins land in a
   // "view" state and must click Edit to mutate, mirroring the Salesforce /
@@ -1054,6 +1065,8 @@ function MetadataResourceEditPageImpl({
         const initial = config.toDraft ? config.toDraft(rawInitial) : rawInitial;
         setDraft(initial);
         draftSnapshotRef.current = initial;
+        // objectui#11773 — a read serves no version: the next save is unpinned.
+        forgetDraftVersion();
         setHasDraft(!!draftReal);
         setLoading(false);
       } catch (err: any) {
@@ -1077,7 +1090,7 @@ function MetadataResourceEditPageImpl({
     return () => {
       cancelled = true;
     };
-  }, [client, type, name, ownerPackageId, createMode, reloadKey, locale]);
+  }, [client, type, name, ownerPackageId, createMode, reloadKey, locale, forgetDraftVersion]);
 
   // Lazy-load references the first time the References sheet opens.
   //
@@ -1491,11 +1504,20 @@ function MetadataResourceEditPageImpl({
       // stamps it on create and preserves an existing binding on update, so
       // env-local overlays (no `?package=`) are unaffected.
       const activePackage = readActivePackageBinding();
-      await client.save<any>(type, savedName, itemToSave, {
+      const saveOptions = {
         force,
-        mode: 'draft',
+        mode: 'draft' as const,
         ...(activePackage ? { packageId: activePackage } : {}),
-      });
+      };
+      // objectui#11773 — a create sends no `If-Match` (the door cannot pin "no
+      // row yet"); a save of the item this editor loaded sends the version its
+      // last save received.
+      if (createMode) {
+        await client.save<any>(type, savedName, itemToSave, saveOptions);
+      } else if ((await saveDraftVersioned(type, savedName, itemToSave, saveOptions)) === 'reloaded') {
+        // The author chose the saved version; the load effect replaces the draft.
+        return;
+      }
       // Refresh layered + draft state after save — scope to the same package
       // as the initial load (ADR-0048) so a same-name collision re-reads this
       // package's own row, not another's.
@@ -1646,6 +1668,8 @@ function MetadataResourceEditPageImpl({
     setError(null);
     try {
       await client.reset(type, name);
+      // objectui#11773 — the buffer below is re-read, so no version describes it.
+      forgetDraftVersion();
       if (isResetSemantic) {
         const lay = await client.layered<any>(type, name);
         setLayered(lay);
@@ -1704,6 +1728,8 @@ function MetadataResourceEditPageImpl({
       const fresh = config.toDraft ? config.toDraft(rawFresh) : rawFresh;
       setDraft(fresh);
       draftSnapshotRef.current = fresh;
+      // objectui#11773 — the publish dropped the draft the version named.
+      forgetDraftVersion();
     } catch (err: any) {
       setError(err?.message ?? String(err));
     } finally {
@@ -1721,6 +1747,8 @@ function MetadataResourceEditPageImpl({
     setError(null);
     try {
       await client.reset(type, name, { state: 'draft' });
+      // objectui#11773 — the discard dropped the draft the version named.
+      forgetDraftVersion();
       const lay = await client.layered<any>(type, name);
       setLayered(lay);
       const fresh = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
@@ -3103,6 +3131,9 @@ function MetadataResourceEditPageImpl({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {/* objectui#11773 — the draft-version conflict, apart from the
+          destructive-change confirmation above: two different 409s. */}
+      {draftConflictDialog}
     </PageShell>
   );
 }

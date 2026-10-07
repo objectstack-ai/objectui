@@ -99,6 +99,8 @@ import {
 import { getMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
 import { getMetadataResource } from '../metadata-admin/registry.js';
 import { useMetadataClient, useMetadataTypes } from '../metadata-admin/useMetadata.js';
+// objectui#11773 — every draft save of an existing item sends the version its buffer was built on.
+import { useDraftSaveGuard } from '../metadata-admin/DraftConflictDialog.js';
 import {
   DESIGNER_SURFACE_PARAM,
   formatSurfaceParam,
@@ -2081,6 +2083,34 @@ export function InterfacesPillar({
   );
   const [navHasDraft, setNavHasDraft] = React.useState(false);
   const [navSaving, setNavSaving] = React.useState<false | 'draft' | 'publish'>(false);
+  // objectui#11773 — two buffers, two guards: the open leaf's `draft` and the
+  // app document `appDraft` the nav editor saves. Each sends the version its
+  // own buffer was saved at; a conflict's "reload" re-runs that buffer's load.
+  const [leafReloadNonce, setLeafReloadNonce] = React.useState(0);
+  const reloadLeafDraft = React.useCallback(() => setLeafReloadNonce((n) => n + 1), []);
+  const {
+    save: saveLeafDraft,
+    forget: forgetLeafVersion,
+    dialog: leafConflictDialog,
+  } = useDraftSaveGuard(client, reloadLeafDraft);
+  const [navReloadNonce, setNavReloadNonce] = React.useState(0);
+  // A reload replaces the buffer even over an unsent edit: the author chose
+  // the saved version over it.
+  const reloadNavDraft = React.useCallback(() => {
+    setNavDirty(false);
+    setNavReloadNonce((n) => n + 1);
+  }, []);
+  const {
+    save: saveNavDraft,
+    forget: forgetNavVersion,
+    dialog: navConflictDialog,
+  } = useDraftSaveGuard(client, reloadNavDraft);
+  // The app load also re-reads after every draft save in the package (the
+  // `draftNonce` it keys on), its own included. The re-read that follows this
+  // pillar's own nav save installs what that save wrote, so the version stays;
+  // any other install forgets it. Holds the `publishNonce` the save landed
+  // under: a publish in between dropped the draft, version and all.
+  const navEchoRef = React.useRef<number | null>(null);
   // objectui#7255 — the copilot dock shares this document, so a turn that
   // staged/published metadata converges the rail here instead of waiting for a
   // page reload. HELD while the nav editor has unsaved (or in-flight) edits:
@@ -2310,6 +2340,10 @@ export function InterfacesPillar({
         if (!isSameApp || !navCommittedRef.current.dirty) {
           setAppDraft(body);
           setAppDraftFor(`app:${name}`);
+          // objectui#11773 — a read serves no version, unless it is the read-back
+          // of this pillar's own nav save (see `navEchoRef`).
+          if (!isSameApp || navEchoRef.current !== publishNonce) forgetNavVersion();
+          navEchoRef.current = null;
         }
         navBaselineRef.current = body;
         setNavHasDraft(!!appDraftBody);
@@ -2347,7 +2381,7 @@ export function InterfacesPillar({
     return () => {
       cancelled = true;
     };
-  }, [client, packageId, publishNonce, draftNonce, metadataRefreshNonce]);
+  }, [client, packageId, publishNonce, draftNonce, metadataRefreshNonce, navReloadNonce, forgetNavVersion]);
 
   const Preview = getMetadataPreview(current?.type ?? '');
   // Studio-canvas surface override: the SAME type can render as a different
@@ -2430,6 +2464,7 @@ export function InterfacesPillar({
       // page's draft.
       setDraft({});
       setDraftFor(leafKeyOf(current));
+      forgetLeafVersion();
       setHasDraft(false);
       setIfDirty(false);
       return;
@@ -2461,6 +2496,8 @@ export function InterfacesPillar({
         // spread over `effective` resurrects every key the draft deleted.
         setDraft(body ?? baseline);
         setDraftFor(leafKeyOf(current));
+        // objectui#11773 — a read serves no version: the next save is unpinned.
+        forgetLeafVersion();
         setHasDraft(!!body);
         setIfDirty(false);
       } catch (e) {
@@ -2482,7 +2519,7 @@ export function InterfacesPillar({
       // same rule.
       if (!settled) setLoading(false);
     };
-  }, [client, current, isEditable, publishNonce]);
+  }, [client, current, isEditable, publishNonce, leafReloadNonce, forgetLeafVersion]);
 
   // objectui#5813 — a local dirty flag so auto-save only arms after a real
   // edit, never on the load-effect's own setDraft.
@@ -2498,7 +2535,9 @@ export function InterfacesPillar({
     if (!current) return;
     setSaving('draft');
     try {
-      await client.save(current.type, current.name, interfacesSaveBody(current.type, draft), { mode: 'draft', packageId });
+      const outcome = await saveLeafDraft(current.type, current.name, interfacesSaveBody(current.type, draft), { mode: 'draft', packageId });
+      // objectui#11773 — the author chose the saved version; the load replaces the buffer.
+      if (outcome === 'reloaded') return;
       setHasDraft(true);
       // objectui#11204 — clean only if nothing was edited while it was in flight.
       if (sent.unmoved()) setIfDirty(false);
@@ -2508,7 +2547,7 @@ export function InterfacesPillar({
     } finally {
       setSaving(false);
     }
-  }, [client, current, draft, onDraftSaved]);
+  }, [saveLeafDraft, current, draft, onDraftSaved, packageId]);
   const { loaded: draftLoaded } = useDraftAutoSave({
     // objectui#11232 — the leaf `doSave` addresses, `type:name`.
     target: leafKey,
@@ -2541,7 +2580,10 @@ export function InterfacesPillar({
           return typeof item.id === 'string' && item.id ? item : { ...item, id: `nav_item_${i + 1}` };
         });
       const saved = { ...appDraft, navigation: cleanedNav };
-      await client.save('app', appName, saved, { mode: 'draft', packageId });
+      const outcome = await saveNavDraft('app', appName, saved, { mode: 'draft', packageId });
+      // objectui#11773 — the author chose the saved version; the load replaces the buffer.
+      if (outcome === 'reloaded') return;
+      navEchoRef.current = publishNonce;
       navBaselineRef.current = saved;
       setNavHasDraft(true);
       // objectui#11189, objectui#11204 — clean only if the buffer is still what
@@ -2555,7 +2597,7 @@ export function InterfacesPillar({
     } finally {
       setNavSaving(false);
     }
-  }, [client, appName, appDraft, onDraftSaved]);
+  }, [saveNavDraft, appName, appDraft, onDraftSaved, packageId, publishNonce]);
   // objectui#5813 — nav edits auto-save while edit mode is open.
   const { flush: flushNavSave } = useDraftAutoSave({
     // objectui#11232 — the app `doNavSave` addresses. The package is this
@@ -2973,6 +3015,8 @@ export function InterfacesPillar({
 
   return (
     <div className="flex h-full flex-col">
+      {leafConflictDialog}
+      {navConflictDialog}
       <div className="flex items-center gap-2 border-b px-3 py-1.5">
         <button
           type="button"
@@ -3429,6 +3473,16 @@ export function DataPillar({
   // Tracks which object's baseline is currently loaded — so we (re)load exactly
   // once per selected object and never clobber an in-progress draft.
   const loadedNameRef = React.useRef<string | null>(null);
+  // objectui#11773 — the version `objDraft` was saved at, sent as `If-Match` by
+  // every save of this buffer (the autosave and the column reorder). A
+  // conflict's "reload" re-runs the load below for the open object.
+  const [objReloadNonce, setObjReloadNonce] = React.useState(0);
+  const reloadObjDraft = React.useCallback(() => setObjReloadNonce((n) => n + 1), []);
+  const {
+    save: saveObjDraft,
+    forget: forgetObjVersion,
+    dialog: objConflictDialog,
+  } = useDraftSaveGuard(client, reloadObjDraft);
   // Left-rail search + inline "new object" creator (design §4: rail = search + New).
   const [query, setQuery] = React.useState('');
   const [creating, setCreating] = React.useState(false);
@@ -3532,7 +3586,7 @@ export function DataPillar({
     // clobber the in-progress form-layout draft the designer is editing.
     // Keyed by object + publishNonce: a package publish (nonce++) re-reads the
     // fresh published baseline; otherwise we never clobber an in-progress draft.
-    const loadKey = `${current.name}#${publishNonce}`;
+    const loadKey = `${current.name}#${publishNonce}#${objReloadNonce}`;
     if (loadedNameRef.current === loadKey) return;
     loadedNameRef.current = loadKey;
     let cancelled = false;
@@ -3555,6 +3609,8 @@ export function DataPillar({
         // Served draft as-is, baseline only without one (objectui#10765).
         setObjDraft(draftBody ?? baseline);
         setObjDraftFor(`object:${current.name}`);
+        // objectui#11773 — a read serves no version: the next save is unpinned.
+        forgetObjVersion();
         // objectui#11272 — the buffer installed is clean, as every pillar's
         // is: an edit a period began while it was another object's is dropped
         // with it, never sent as this object's.
@@ -3587,7 +3643,7 @@ export function DataPillar({
         loadedNameRef.current = null;
       }
     };
-  }, [client, current, publishNonce]);
+  }, [client, current, publishNonce, objReloadNonce, forgetObjVersion]);
 
   const fieldCount = React.useMemo(() => readFields(objDraft.fields).entries.length, [objDraft]);
 
@@ -3726,7 +3782,9 @@ export function DataPillar({
       // objectui#10202 — the buffer was seeded from the served object, whose
       // picklist-bound fields carry the list's resolved `options`; the door
       // refuses them beside `picklist`, so they stay out of the body.
-      await client.save('object', current.name, dropServedPicklistOptions(objDraft), { mode: 'draft', packageId });
+      const outcome = await saveObjDraft('object', current.name, dropServedPicklistOptions(objDraft), { mode: 'draft', packageId });
+      // objectui#11773 — the author chose the saved version; the load replaces the buffer.
+      if (outcome === 'reloaded') return;
       setHasDraft(true);
       // objectui#11204 — clean only if nothing was edited while it was in flight.
       if (sent.unmoved()) setDirty(false);
@@ -3739,7 +3797,7 @@ export function DataPillar({
     } finally {
       setSaving(false);
     }
-  }, [client, current, objDraft, onDraftSaved, packageId, locale]);
+  }, [saveObjDraft, current, objDraft, onDraftSaved, packageId, locale]);
 
   // objectui#5813 — auto-save replaces the Save draft button; the blocked guard
   // is the button's old disabled-condition verbatim.
@@ -3794,7 +3852,8 @@ export function DataPillar({
       setError(null);
       try {
         // objectui#10202 — same served `options` as `doSave` above.
-        await client.save('object', current.name, dropServedPicklistOptions(body), { mode: 'draft', packageId });
+        const outcome = await saveObjDraft('object', current.name, dropServedPicklistOptions(body), { mode: 'draft', packageId });
+        if (outcome === 'reloaded') return;
         setHasDraft(true);
         if (sent.unmoved()) setDirty(false);
         onDraftSaved?.();
@@ -3805,7 +3864,7 @@ export function DataPillar({
         setSaving(false);
       }
     },
-    [client, current, objDraft, onDraftSaved, sendingObjDraft],
+    [saveObjDraft, current, objDraft, onDraftSaved, sendingObjDraft, packageId],
   );
 
   const inspector = getMetadataInspector('object');
@@ -3840,6 +3899,7 @@ export function DataPillar({
 
   return (
     <div className="flex h-full flex-col">
+      {objConflictDialog}
       <div className="flex items-center gap-3 border-b px-3 py-2">
         <button
           type="button"
@@ -4093,6 +4153,7 @@ export function DataPillar({
                   packageId={packageId}
                   disabled={readOnly}
                   hookSchema={typeSchemas.hook}
+                  publishNonce={publishNonce}
                 />
               ) : viewMode === 'actions' ? (
                 <ObjectActionsPanel
@@ -4597,6 +4658,16 @@ export function AutomationsPillar({
   // objectui#11272 — the flow `draft` was loaded for, `flow:NAME`: written
   // where the load below installs it, and nowhere else.
   const [draftFor, setDraftFor] = React.useState('');
+  // objectui#11773 — the version `draft` was saved at, sent as `If-Match` by
+  // every save of this buffer (the autosave and the enable switch). A
+  // conflict's "reload" re-runs the flow load below.
+  const [flowReloadNonce, setFlowReloadNonce] = React.useState(0);
+  const reloadFlowDraft = React.useCallback(() => setFlowReloadNonce((n) => n + 1), []);
+  const {
+    save: saveFlowDraft,
+    forget: forgetFlowVersion,
+    dialog: flowConflictDialog,
+  } = useDraftSaveGuard(client, reloadFlowDraft);
   const [selection, setSelection] = React.useState<MetadataSelection | null>(null);
   const [loading, setLoading] = React.useState(false);
   const [saving, setSaving] = React.useState<false | 'draft' | 'publish'>(false);
@@ -4754,6 +4825,8 @@ export function AutomationsPillar({
         // Served draft as-is, baseline only without one (objectui#10765).
         setDraft(draftBody ?? baseline);
         setDraftFor(`flow:${current.name}`);
+        // objectui#11773 — a read serves no version: the next save is unpinned.
+        forgetFlowVersion();
         setHasDraft(!!draftBody);
       } catch (e) {
         if (!cancelled) setError(formatMetadataError(e));
@@ -4771,7 +4844,7 @@ export function AutomationsPillar({
       // `loading` it raised, as in InterfacesPillar's draft load.
       if (!settled) setLoading(false);
     };
-  }, [client, current, publishNonce]);
+  }, [client, current, publishNonce, flowReloadNonce, forgetFlowVersion]);
 
   // objectui#5813 — local dirty flag: auto-save arms only after a real edit.
   const [autoDirty, setAutoDirty] = React.useState(false);
@@ -4787,7 +4860,9 @@ export function AutomationsPillar({
     setSaving('draft');
     setError(null);
     try {
-      await client.save('flow', current.name, draft, { mode: 'draft', packageId: draftPackageId });
+      const outcome = await saveFlowDraft('flow', current.name, draft, { mode: 'draft', packageId: draftPackageId });
+      // objectui#11773 — the author chose the saved version; the load replaces the buffer.
+      if (outcome === 'reloaded') return;
       setHasDraft(true);
       // objectui#11204 — clean only if nothing was edited while it was in flight.
       if (sent.unmoved()) setAutoDirty(false);
@@ -4797,7 +4872,7 @@ export function AutomationsPillar({
     } finally {
       setSaving(false);
     }
-  }, [client, current, draft, draftPackageId, onDraftSaved]);
+  }, [saveFlowDraft, current, draft, draftPackageId, onDraftSaved]);
   const { sending: sendingFlowDraft, loaded: flowLoaded } = useDraftAutoSave({
     // objectui#11232 — the flow `doSave` addresses.
     target: `flow:${current?.name ?? ''}`,
@@ -4836,7 +4911,8 @@ export function AutomationsPillar({
     setSaving('draft');
     setError(null);
     try {
-      await client.save('flow', flowName, nextDraft, { mode: 'draft', packageId: draftPackageId });
+      // objectui#11773 — a reload replaced the buffer the flip was taken on.
+      if ((await saveFlowDraft('flow', flowName, nextDraft, { mode: 'draft', packageId: draftPackageId })) === 'reloaded') return;
       setHasDraft(true);
       onDraftSaved?.();
       toast.success(next ? t('engine.studio.auto.enabledToast', locale) : t('engine.studio.auto.disabledToast', locale));
@@ -4855,10 +4931,11 @@ export function AutomationsPillar({
     } finally {
       setSaving(false);
     }
-  }, [client, current, draft, draftPackageId, onDraftSaved, locale, readOnly, sendingFlowDraft]);
+  }, [saveFlowDraft, current, draft, draftPackageId, onDraftSaved, locale, readOnly, sendingFlowDraft]);
 
   return (
     <div className="flex h-full flex-col">
+      {flowConflictDialog}
       <div className="flex items-center gap-2 border-b px-3 py-1.5">
         <button
           type="button"

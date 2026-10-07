@@ -294,7 +294,9 @@ describe('#4305 — pins that must NOT move', () => {
     mockRegistry([{ key: 'chat.postMessage', label: 'Post Message', inputSchema: SLACK_POST_MESSAGE }]);
     renderInspector(makeDraft());
 
-    await waitFor(() => expect(screen.getByText('Connector')).toBeTruthy());
+    // The field's label: since objectui#11778 the Node Type select names this
+    // node's type "Connector" too (the palette's name), not `connector_action`.
+    await waitFor(() => expect(screen.getByText('Connector', { selector: 'label' })).toBeTruthy());
     expect(screen.getByText('Action')).toBeTruthy();
     expect(screen.getByDisplayValue('slack')).toBeTruthy();
     expect(screen.getByDisplayValue('chat.postMessage')).toBeTruthy();

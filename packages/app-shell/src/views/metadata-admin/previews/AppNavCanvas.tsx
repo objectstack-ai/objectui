@@ -674,8 +674,10 @@ function NavCard({
           </code>
         )}
         {/* objectui#11776 — always in the tab order, shown on hover AND on
-            keyboard focus. It was mounted only while a mouse hovered the
-            card, so no keyboard path could reach it. */}
+            keyboard focus (the card's, or its own). It was mounted only while
+            a mouse hovered the card, so no keyboard path could reach it.
+            Hidden, it takes no room (no width, and its margin gives back the
+            row's gap), so the card lays out as it did when it was absent. */}
         {canEdit && !editing && (
           <span
             role="button"
@@ -691,7 +693,7 @@ function NavCard({
                 onRemove();
               }
             }}
-            className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+            className="-ml-2 inline-flex h-6 w-0 items-center justify-center overflow-hidden rounded text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:ml-0 group-hover:w-6 group-hover:opacity-100 group-focus-visible:ml-0 group-focus-visible:w-6 group-focus-visible:opacity-100 focus-visible:ml-0 focus-visible:w-6 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
             aria-label={t('engine.appNav.removeItem', locale)}
           >
             <Trash2 className="h-3 w-3" />

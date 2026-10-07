@@ -14,8 +14,8 @@
  *    while a mouse hovered the card, so Tab never reached it. Now it is always
  *    in the tab order, shown on hover and on focus, and Enter or Space removes
  *    the entry. Whether it is VISIBLE when focused is a stylesheet question no
- *    DOM double answers; the classes are pinned here and the rendered result
- *    was read in Chromium (see the pull request).
+ *    DOM double answers: the classes are pinned here, and the rendered result
+ *    was read once in Chromium for the pull request — nothing here re-reads it.
  */
 import '@testing-library/jest-dom/vitest';
 import * as React from 'react';
@@ -185,8 +185,19 @@ describe('AppNavCanvas — the remove control is reachable by keyboard (objectui
     home.focus();
     await user.tab();
     expect(remove).toHaveFocus();
+    // Hidden it takes no room; the card's hover, the card's keyboard focus and
+    // its own keyboard focus each show it at full size.
     expect(remove.className.split(/\s+/)).toEqual(
-      expect.arrayContaining(['opacity-0', 'group-hover:opacity-100', 'group-focus-within:opacity-100', 'focus-visible:opacity-100']),
+      expect.arrayContaining([
+        'opacity-0',
+        'w-0',
+        'group-hover:opacity-100',
+        'group-hover:w-6',
+        'group-focus-visible:opacity-100',
+        'group-focus-visible:w-6',
+        'focus-visible:opacity-100',
+        'focus-visible:w-6',
+      ]),
     );
     // The card is the `group` those variants read.
     expect(home.className.split(/\s+/)).toContain('group');

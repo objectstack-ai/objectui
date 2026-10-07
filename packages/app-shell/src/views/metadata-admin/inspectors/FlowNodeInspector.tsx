@@ -64,7 +64,7 @@ import { NESTED_NODE_KIND, parseNestedNodeId, locateFlowNode, type InspectorFlow
 import { displayRegionLabel } from '../previews/flow-region-label.js';
 import type { FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
 import { ScreenPreview } from '../previews/ScreenPreview.js';
-import { edgesAfterNodeRemoval } from '../previews/FlowCanvas.js';
+import { edgesAfterNodeRemoval } from '../previews/flow-problems.js';
 
 /**
  * The node and edge shapes this panel edits — ALIASED, never restated

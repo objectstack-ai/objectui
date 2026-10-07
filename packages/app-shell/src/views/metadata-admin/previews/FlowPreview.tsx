@@ -36,14 +36,14 @@ import type { MetadataPreviewProps } from '../preview-registry.js';
 import { PreviewShell, PreviewMessage, PreviewErrorBoundary } from './PreviewShell.js';
 import { appendArray } from '../inspectors/_shared.js';
 import { t as tr, translateFlowMeta } from '../i18n.js';
-import { FlowCanvas, freshNodeId } from './FlowCanvas.js';
+import { FlowCanvas } from './FlowCanvas.js';
 import { defaultNodeLabel } from './flow-canvas-parts.js';
 import { type FlowDesignerEdge, type FlowDesignerNode } from './flow-canvas-layout.js';
 import { NESTED_NODE_KIND, parseNestedNodeId, encodeNestedNodeId } from '../inspectors/flow-nested-selection.js';
 import { FlowSimulatorPanel } from './FlowSimulatorPanel.js';
 import { FlowRunsPanel } from './FlowRunsPanel.js';
 import { ProblemsPanel } from './ProblemsPanel.js';
-import { buildFlowProblems, deriveInvalidElements, type FlowProblem } from './flow-problems.js';
+import { buildFlowProblems, deriveInvalidElements, freshNodeId, type FlowProblem } from './flow-problems.js';
 import { useConnectorRegistry } from '../inspectors/connector-input-fields.js';
 import { hasCommittedConnectorAction } from '../inspectors/flow-scope.js';
 

@@ -21,7 +21,7 @@
  */
 
 import * as React from 'react';
-import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup, fireEvent, act, within } from '@testing-library/react';
 
 // The engine palette / config-schema reads are stubbed to their offline answer
@@ -35,7 +35,7 @@ vi.mock('./useObjectFields', () => ({
   useObjectFields: () => ({ fields: [], loading: false, error: null }),
 }));
 
-import { t, tFormat } from '../i18n';
+import { t, tFormat, type SupportedLocale } from '../i18n';
 import { FlowPreview } from './FlowPreview';
 import { FlowInspector } from '../inspectors/FlowInspector';
 import type { MetadataSelection } from '../preview-registry';
@@ -44,17 +44,17 @@ type Draft = Record<string, unknown>;
 type Edge = { id?: string; source: string; target: string } & Record<string, unknown>;
 type Node = { id: string; type?: string } & Record<string, unknown>;
 
-beforeEach(() => {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn(async () => new Response('not found', { status: 404 })),
-  );
-});
+// The canvas palette and the node inspectors read the engine
+// (`/api/v1/automation/actions`, `/api/v1/meta/object`); answer every read as
+// an absent engine. Installed once for the whole file and never torn down, so
+// no read flushed after a test body can reach a real socket (the shape
+// `RecordDetailView.approvalDeclaredActions.test.tsx` documents).
+vi.stubGlobal(
+  'fetch',
+  vi.fn(async () => new Response('not found', { status: 404 })),
+);
 
-afterEach(() => {
-  cleanup();
-  vi.unstubAllGlobals();
-});
+afterEach(cleanup);
 
 /** The draft Studio's "New flow" saves (`buildFlowSkeleton`). */
 function skeleton(): Draft {
@@ -74,11 +74,11 @@ function skeleton(): Draft {
  * The Studio Automations pillar in miniature: one draft, one selection, the
  * canvas and the inspector both writing through the same shallow merge.
  */
-function Host({ initial, probe, locale = 'en-US' }: { initial: Draft; probe: { draft: Draft }; locale?: string }) {
+function Host({ initial, onDraft, locale = 'en-US' }: { initial: Draft; onDraft: (d: Draft) => void; locale?: SupportedLocale }) {
   const [draft, setDraft] = React.useState<Draft>(initial);
   const [selection, setSelection] = React.useState<MetadataSelection | null>(null);
   const onPatch = React.useCallback((patch: Record<string, unknown>) => setDraft((d) => ({ ...d, ...patch })), []);
-  probe.draft = draft;
+  React.useEffect(() => onDraft(draft), [draft, onDraft]);
   return (
     <>
       <FlowPreview
@@ -108,9 +108,12 @@ function Host({ initial, probe, locale = 'en-US' }: { initial: Draft; probe: { d
   );
 }
 
-function mount(initial: Draft, locale?: string) {
+function mount(initial: Draft, locale?: SupportedLocale) {
   const probe = { draft: initial };
-  const utils = render(<Host initial={initial} probe={probe} locale={locale} />);
+  const onDraft = (d: Draft) => {
+    probe.draft = d;
+  };
+  const utils = render(<Host initial={initial} onDraft={onDraft} locale={locale} />);
   return { probe, ...utils };
 }
 
@@ -219,7 +222,7 @@ describe('flow designer: Remove node takes its edges, and a fresh node inherits 
 });
 
 /** Every Problems-panel row's message, after opening the panel. */
-function panelMessages(locale: string): string[] {
+function panelMessages(locale: SupportedLocale): string[] {
   fireEvent.click(screen.getByTitle(t('engine.flowPreview.problemsTitle', locale)));
   const title = screen.getAllByText(t('engine.flowProblems.title', locale)).find((el) => el.tagName === 'SPAN');
   expect(title, 'the Problems panel title').toBeTruthy();

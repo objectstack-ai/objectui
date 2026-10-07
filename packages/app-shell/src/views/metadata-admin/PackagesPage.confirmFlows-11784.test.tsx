@@ -218,6 +218,33 @@ describe('PackageDetailSheet — Delete app is one in-app dialog (objectui#11784
     expect(deletes()[0].url).toBe(`/api/v1/packages/${PKG_ID}`);
   });
 
+  it('a refused DELETE closes the dialog, keeps the sheet open and shows the refusal', async () => {
+    const REFUSAL = 'Deleting packages requires the `studio.access` capability.';
+    const base = globalThis.fetch as unknown as (input: string, init?: RequestInit) => Promise<Response>;
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (input: string, init: RequestInit = {}) => {
+        if ((init.method ?? 'GET').toUpperCase() === 'DELETE') {
+          calls.push({ url: input, method: 'DELETE', body: undefined });
+          return respond({ success: false, error: { code: 'FORBIDDEN', message: REFUSAL } }, 403);
+        }
+        return base(input, init);
+      }),
+    );
+    const { onChanged, onOpenChange } = renderSheet();
+    const dialog = await openDeleteDialog();
+    fireEvent.click(within(dialog).getByTestId('pkg-detail-delete-mode-all'));
+    fireEvent.change(within(dialog).getByTestId('pkg-detail-delete-name-input'), {
+      target: { value: PKG_NAME },
+    });
+    fireEvent.click(within(dialog).getByTestId('pkg-detail-delete-confirm'));
+    await waitFor(() => expect(deletes()).toHaveLength(1));
+    expect(await screen.findByText(`${REFUSAL} (FORBIDDEN)`)).toBeTruthy();
+    await waitFor(() => expect(screen.queryByTestId('pkg-detail-delete-dialog')).toBeNull());
+    expect(onChanged).not.toHaveBeenCalled();
+    expect(onOpenChange).not.toHaveBeenCalledWith(false);
+  });
+
   it('reopening the dialog starts over: no mode, no name', async () => {
     renderSheet();
     let dialog = await openDeleteDialog();

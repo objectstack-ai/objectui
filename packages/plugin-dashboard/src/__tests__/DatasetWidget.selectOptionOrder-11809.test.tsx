@@ -42,9 +42,19 @@ import { render, cleanup, waitFor, act } from '@testing-library/react';
 import { ComponentRegistry, NULL_CATEGORY_LABEL, chartRowBucketId, type ChartSegmentClickEvent } from '@object-ui/core';
 import { DatasetWidget } from '../DatasetWidget';
 
-let capturedChartProps: any = null;
+/** What the widget hands the chart renderer, as far as these pins read it. */
+interface CapturedChartProps {
+  schema?: {
+    data?: Array<Record<string, unknown>>;
+    xAxisKey?: string;
+    series?: Array<{ dataKey: string; label?: string }>;
+  };
+  onSegmentClick?: (event: ChartSegmentClickEvent) => void;
+}
+
+let capturedChartProps: CapturedChartProps | null = null;
 beforeAll(() => {
-  ComponentRegistry.register('chart', (props: any) => {
+  ComponentRegistry.register('chart', (props: CapturedChartProps) => {
     capturedChartProps = props;
     return null;
   });
@@ -144,14 +154,17 @@ function renderWidget(widget: Record<string, unknown>, dataSource: { queryDatase
   return render(
     <DatasetWidget
       widget={{ dataset: 'showcase_task_metrics', values: ['task_count'], drillDown: { enabled: true }, ...widget }}
-      dataSource={dataSource as any}
+      dataSource={dataSource}
     />,
   );
 }
 
-const schema = () => capturedChartProps?.schema;
-const categories = (): unknown[] => (schema()?.data ?? []).map((r: Record<string, unknown>) => r[schema().xAxisKey]);
-const seriesLabels = (): unknown[] => (schema()?.series ?? []).map((s: { label?: string }) => s.label);
+const chartRows = (): Array<Record<string, unknown>> => capturedChartProps?.schema?.data ?? [];
+const categories = (): unknown[] => {
+  const xAxisKey = capturedChartProps?.schema?.xAxisKey ?? '';
+  return chartRows().map((r) => r[xAxisKey]);
+};
+const seriesLabels = (): unknown[] => (capturedChartProps?.schema?.series ?? []).map((s) => s.label);
 
 describe('dataset charts follow a select dimension\'s declared option order (objectui#11809)', () => {
   it('Tasks by Status (bar) reads Backlog → To Do → In Progress → In Review → Done, then undeclared, then empty', async () => {
@@ -161,7 +174,7 @@ describe('dataset charts follow a select dimension\'s declared option order (obj
       expect(categories()).toEqual([...DECLARED_STATUS, 'legacy', NULL_CATEGORY_LABEL]),
     );
     // Each count stays on its own category.
-    const byCategory = Object.fromEntries((schema().data as Array<Record<string, unknown>>).map((r) => [r.status, r.task_count]));
+    const byCategory = Object.fromEntries(chartRows().map((r) => [r.status, r.task_count]));
     expect(byCategory).toEqual({ Backlog: 4, 'To Do': 5, 'In Progress': 3, 'In Review': 2, Done: 9, legacy: 1, [NULL_CATEGORY_LABEL]: 1 });
   });
 
@@ -207,14 +220,14 @@ describe('dataset charts follow a select dimension\'s declared option order (obj
       expect(categories()).toEqual([...DECLARED_STATUS, 'legacy', NULL_CATEGORY_LABEL]),
     );
     // `To Do` is charted second but answered last.
-    const row = (schema().data as Array<Record<string, unknown>>)[1];
+    const row = chartRows()[1];
     const ev: ChartSegmentClickEvent = {
       category: String(row.status),
       categoryId: chartRowBucketId(row),
       series: 'task_count',
       value: row.task_count as number,
     };
-    capturedChartProps.onSegmentClick(ev);
+    capturedChartProps?.onSegmentClick?.(ev);
     await waitFor(() => expect(drawerFilters.length).toBeGreaterThan(0));
     expect(drawerFilters[drawerFilters.length - 1]).toEqual({ status: 'todo' });
   });

@@ -391,6 +391,10 @@ export function MarketplacePage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {orgItems.map((pkg) => {
               const isInstalled = installedIds.has(pkg.manifest_id);
+              // objectui#11760 — the same page's other "Installed": an org
+              // package installed into this runtime that it refused to load at
+              // startup reads "Not loaded", from the local listing's marker.
+              const notLoaded = !!installedByManifestId.get(pkg.manifest_id)?.notLoaded;
               return (
                 <Card key={pkg.id} className="flex flex-col" data-testid={`org-card-${pkg.manifest_id}`}>
                   <CardHeader className="flex flex-row items-start gap-3 pb-2">
@@ -417,7 +421,11 @@ export function MarketplacePage() {
                         </Badge>
                       )}
                       <div className="ml-auto">
-                        {isInstalled ? (
+                        {notLoaded ? (
+                          <Badge variant="destructive" className="text-xs">
+                            {t('marketplace.notLoaded.badge')}
+                          </Badge>
+                        ) : isInstalled ? (
                           <Badge variant="default" className="text-xs bg-green-600 hover:bg-green-600">
                             <CheckCircle2 className="h-3 w-3 mr-1" aria-hidden="true" />
                             {t('marketplace.org.installedBadge', { defaultValue: 'Installed' })}
@@ -504,7 +512,21 @@ export function MarketplacePage() {
                     {loc.description || t('marketplace.noDescription')}
                   </p>
                   <div className="flex items-center gap-2 mt-auto pt-2 flex-wrap">
-                    {localEntry && (
+                    {/* objectui#11760 — a local install this runtime refused to
+                        load at startup (the listing's `notLoaded` marker) is not
+                        drawn as "Installed": its version and the destructive
+                        "Not loaded" badge, as Installed Apps draws the same
+                        entry (objectui#11645). Details carries the reason. */}
+                    {localEntry && (localEntry.notLoaded ? (
+                      <>
+                        <Badge variant="outline" className="text-xs">
+                          {t('marketplace.versionBadge', { version: localEntry.version })}
+                        </Badge>
+                        <Badge variant="destructive" className="text-xs">
+                          {t('marketplace.notLoaded.badge')}
+                        </Badge>
+                      </>
+                    ) : (
                       <Badge
                         variant="default"
                         className="text-xs bg-green-600 hover:bg-green-600"
@@ -512,7 +534,7 @@ export function MarketplacePage() {
                         <CheckCircle2 className="h-3 w-3 mr-1" aria-hidden="true" />
                         {t('marketplace.installedBadge', { version: localEntry.version })}
                       </Badge>
-                    )}
+                    ))}
                     {pkg.latest_version?.version && (
                       <Badge variant="outline" className="text-xs">
                         <Package className="h-3 w-3 mr-1" aria-hidden="true" />

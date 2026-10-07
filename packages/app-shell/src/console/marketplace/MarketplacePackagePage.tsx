@@ -62,6 +62,7 @@ import {
   type MarketplaceDetailResponse,
   type CloudEnvironment,
   type LocalInstallEntry,
+  type LocalInstallNotLoaded,
   type CloudInstallationInfo,
 } from './marketplaceApi.js';
 import { getRuntimeConfig, isMarketplaceEnabled } from '../../runtime-config.js';
@@ -414,10 +415,19 @@ export function MarketplacePackagePage() {
    * NB: kernel API is additive only — the app remains live in the
    * running kernel until the runtime restarts. We surface that
    * caveat in the success message.
+   *
+   * Except for a package this runtime did not load (the listing's `notLoaded`
+   * marker): nothing of it is in the running kernel, so its confirm and its
+   * result drop that caveat, which would contradict the header's own
+   * "Not loaded" — the texts Installed Apps uses for the same entry
+   * (objectui#11760, objectui#11645).
    */
   const doUninstallLocal = async () => {
     if (!localInstall) return;
-    if (!confirm(t('marketplace.uninstall.confirm', { manifestId: localInstall.manifestId, version: localInstall.version }))) {
+    const question = localInstall.notLoaded
+      ? t('marketplace.uninstall.confirmNotLoaded', { manifestId: localInstall.manifestId, version: localInstall.version })
+      : t('marketplace.uninstall.confirm', { manifestId: localInstall.manifestId, version: localInstall.version });
+    if (!confirm(question)) {
       return;
     }
     setInstallingLocal(true);
@@ -431,7 +441,9 @@ export function MarketplacePackagePage() {
       }
       setLocalResult({
         ok: true,
-        message: t('marketplace.uninstall.successInDetail', { manifestId: localInstall.manifestId }),
+        message: localInstall.notLoaded
+          ? t('marketplace.uninstall.successNotLoaded', { manifestId: localInstall.manifestId })
+          : t('marketplace.uninstall.successInDetail', { manifestId: localInstall.manifestId }),
       });
     } catch (e: any) {
       setLocalResult({ ok: false, message: e?.message ?? String(e) });
@@ -570,11 +582,34 @@ export function MarketplacePackagePage() {
 
   // The local-install menu and the two status banners, drawn by both the
   // catalog view and the marketplace-off local view below (objectui#11627).
-  const localInstalledBadge = localInstall && (
+  //
+  // objectui#11760 — a local install this runtime refused to load at startup
+  // (the listing's `notLoaded` marker) is still installed but none of it runs,
+  // so it is not drawn as "Installed": it gets the installed version and the
+  // destructive "Not loaded" badge Installed Apps draws for the same entry, and
+  // the reason beneath the badges (objectui#11645). A loaded entry is untouched.
+  const localInstalledBadge = localInstall && (localInstall.notLoaded ? (
+    <>
+      <Badge variant="outline">{t('marketplace.versionBadge', { version: localInstall.version })}</Badge>
+      <Badge variant="destructive">{t('marketplace.notLoaded.badge')}</Badge>
+    </>
+  ) : (
     <Badge variant="default" className="bg-green-600 hover:bg-green-600 gap-1">
       <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
       {t('marketplace.detail.installedV', { version: localInstall.version })}
     </Badge>
+  ));
+  // The reason in plain words. A code the console has no sentence for is still
+  // read as not loaded, naming the code — Installed Apps' reading of the marker.
+  const notLoadedReason = (marker: LocalInstallNotLoaded): string =>
+    marker.code === 'OS_PROTOCOL_INCOMPATIBLE'
+      ? t('marketplace.notLoaded.protocolIncompatible', { requiredRange: marker.requiredRange })
+      : t('marketplace.notLoaded.otherReason', { code: marker.code });
+  const localNotLoadedReason = localInstall?.notLoaded && (
+    <p className="text-xs text-destructive mt-2 flex items-start gap-1.5">
+      <AlertCircle className="h-3.5 w-3.5 mt-px shrink-0" aria-hidden="true" />
+      <span>{notLoadedReason(localInstall.notLoaded)}</span>
+    </p>
   );
   const localMenu = localInstall && (
     <DropdownMenu>
@@ -699,6 +734,7 @@ export function MarketplacePackagePage() {
               <div className="text-sm text-muted-foreground mt-2 flex flex-wrap items-center gap-1.5">
                 {localInstalledBadge}
               </div>
+              {localNotLoadedReason}
             </div>
             <div className="flex items-center gap-2 shrink-0 self-start">
               {localMenu}
@@ -870,6 +906,7 @@ export function MarketplacePackagePage() {
               </Badge>
             )}
           </div>
+          {localNotLoadedReason}
           {loc.description && (
             <p className="text-sm sm:text-base text-foreground/80 mt-3 max-w-2xl leading-relaxed">{loc.description}</p>
           )}

@@ -175,6 +175,7 @@ const ru = {
       copyAll: 'Копировать всё',
     },
     notAvailableHere: '«{{action}}» недоступно на текущей странице.',
+    notAvailableForRecord: 'Недоступно для этой записи',
     completedSuccessfully: 'Действие успешно выполнено',
     failed: 'Действие не выполнено',
     parallelFailed: 'Одно или несколько параллельных действий не выполнены',

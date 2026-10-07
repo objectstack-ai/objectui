@@ -162,6 +162,7 @@ const zh = {
       copyAll: '全部复制',
     },
     notAvailableHere: '「{{action}}」在当前页面不可用。',
+    notAvailableForRecord: '对此记录不可用',
     completedSuccessfully: '操作已成功完成',
     failed: '操作失败',
     parallelFailed: '一个或多个并行操作失败',

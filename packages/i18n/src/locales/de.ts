@@ -155,6 +155,7 @@ const de = {
       copyAll: 'Alle kopieren',
     },
     notAvailableHere: '„{{action}}“ ist auf der aktuellen Seite nicht verfügbar.',
+    notAvailableForRecord: 'Für diesen Datensatz nicht verfügbar',
     completedSuccessfully: 'Aktion erfolgreich abgeschlossen',
     failed: 'Aktion fehlgeschlagen',
     parallelFailed: 'Eine oder mehrere parallele Aktionen sind fehlgeschlagen',

@@ -160,6 +160,7 @@ const es = {
       copyAll: 'Copiar todo',
     },
     notAvailableHere: '«{{action}}» no está disponible en la página actual.',
+    notAvailableForRecord: 'No disponible para este registro',
     completedSuccessfully: 'La acción se completó correctamente',
     failed: 'La acción falló',
     parallelFailed: 'Una o más acciones paralelas fallaron',

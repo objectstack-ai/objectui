@@ -115,7 +115,9 @@ const mockClient = {
   listDrafts: vi.fn(async () => []),
   layered: vi.fn(async () => ({ effective: servedObject, code: servedObject })),
   getDraft: vi.fn(async () => servedDraft),
-  save: vi.fn(async () => ({ ok: true })),
+  save: vi.fn<(type: string, name: string, body: Record<string, unknown>, opts?: unknown) => Promise<unknown>>(
+    async () => ({ ok: true }),
+  ),
 };
 
 vi.mock('../metadata-admin/useMetadata', async (importOriginal) => {
@@ -284,7 +286,7 @@ describe.each(CASES)('Data pillar on an object with $title (objectui#11780)', ({
 
     // The auto-save sends the draft the designer committed.
     await waitFor(() => expect(mockClient.save).toHaveBeenCalled(), { timeout: 5000 });
-    const body = mockClient.save.mock.calls.at(-1)![2] as { fields: Record<string, unknown> };
+    const body = mockClient.save.mock.calls.at(-1)![2] as { fields: Record<string, Record<string, unknown>> };
 
     // The edit really committed — `industry` now leads `name` …
     const order = Object.keys(body.fields).filter((k) => k === 'name' || k === 'industry');
@@ -309,7 +311,7 @@ describe.each(CASES)('Data pillar on an object with $title (objectui#11780)', ({
     expect(seenColumns[seenColumns.length - 1]).toBe(before);
     // The edit was real: the draft the pillar saves carries the new label.
     await waitFor(() => expect(mockClient.save).toHaveBeenCalled(), { timeout: 5000 });
-    expect((mockClient.save.mock.calls.at(-1)![2] as { label?: string }).label).toBe('Account (renamed)');
+    expect(mockClient.save.mock.calls.at(-1)![2].label).toBe('Account (renamed)');
   });
 });
 

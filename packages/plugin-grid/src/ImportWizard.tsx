@@ -15,6 +15,7 @@ import { useObjectTranslation, notifyDataChanged } from '@object-ui/react';
 import { sanitizeFileNameBase } from '@object-ui/core';
 import { useDisplayLocale } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
+import { MULTI_OPTION_TYPES, SINGLE_OPTION_TYPES } from '@objectstack/spec/data';
 import { BOOLEAN_IMPORT_TOKENS, REFERENCE_IMPORT_TYPES } from './importCoercionContract';
 import type {
   DataSource,
@@ -310,6 +311,10 @@ export const __testables = {
   get buildSourceRows() { return buildSourceRows; },
   get summarizeSavedMapping() { return summarizeSavedMapping; },
   get savedMappingToDisplayIndexMap() { return savedMappingToDisplayIndexMap; },
+  get checkImportCell() { return checkImportCell; },
+  get parseImportNumber() { return parseImportNumber; },
+  get mergeRowFindings() { return mergeRowFindings; },
+  get transformedSourceColumns() { return transformedSourceColumns; },
   /** The read-only server-mapping summary table. Exposed so its cells can be
    *  read directly: reaching it through the wizard means driving a file parse
    *  and a Radix `Select`, neither of which this component owns. */
@@ -518,14 +523,168 @@ export function isPlausibleEmail(value: string): boolean {
   return dot > 0 && dot < domain.length - 1;
 }
 
-function validateValue(value: string, type: string): boolean {
-  if (!value) return true;
-  switch (type) {
-    case 'number': case 'currency': case 'percent': return !isNaN(Number(value));
-    case 'boolean': return BOOLEAN_IMPORT_TOKENS.has(value.trim().toLowerCase());
-    case 'date': case 'datetime': return !isNaN(Date.parse(value));
-    case 'email': return isPlausibleEmail(value.trim());
-    default: return true;
+// ── The preview's cell check (objectui#11814) ─────────────────────────────
+//
+// A cell is flagged here only where the server's import refuses it, because the
+// import button counts the rows nobody has flagged: a check stricter than the
+// server would shrink that count below what the import then writes. The server
+// side lives in the framework: `coerceFieldValue` and its helpers in
+// `packages/core/src/utils/import-coerce.ts`, then the engine's `validateRecord`.
+
+/** One mapped target field of the import. */
+type ImportTargetField = ImportWizardProps['fields'][number];
+type ImportTargetOption = NonNullable<ImportTargetField['options']>[number];
+
+/** The only comma a numeric cell may carry: a thousands grouping of its integer part. */
+const THOUSANDS_GROUPED_INTEGER = /^[+-]?\d{1,3}(?:,\d{3})+(?![\d,])[^,]*$/;
+
+/**
+ * A numeric cell read the way the server's `parseNumberCell` reads it, or
+ * `undefined` where the server answers `invalid_number`. It takes a thousands
+ * grouping, one leading currency symbol, a trailing percent sign and an
+ * accounting-style parenthesised negative, and nothing else.
+ *
+ * `Number()` did this job before and disagreed with the server both ways: it
+ * refused `1,234`, `$12` and `25%`, which the server takes, and took `0x10`,
+ * `Infinity` and `12.`, which the server refuses.
+ */
+function parseImportNumber(cell: string): number | undefined {
+  let s = cell.trim();
+  if (s === '') return undefined;
+  let negative = false;
+  if (/^\(.*\)$/.test(s)) { negative = true; s = s.slice(1, -1).trim(); }
+  s = s.replace(/^[$¥€£￥]\s*/, '');
+  s = s.replace(/%$/, '').trim();
+  if (s.includes(',')) {
+    if (!THOUSANDS_GROUPED_INTEGER.test(s)) return undefined;
+    s = s.replace(/,/g, '');
+  }
+  if (s === '' || !/^[+-]?\d*\.?\d+(e[+-]?\d+)?$/i.test(s)) return undefined;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return undefined;
+  return negative ? -n : n;
+}
+
+/** An option's stored value and its label; a bare-string option is both. */
+function optionValueAndLabel(option: ImportTargetOption): { value?: string; label?: string } {
+  if (typeof option === 'string') return { value: option, label: option };
+  return {
+    value: option?.value === undefined ? undefined : String(option.value),
+    label: typeof option?.label === 'string' ? option.label : undefined,
+  };
+}
+
+/**
+ * Whether the server's `matchOption` takes this cell: the trimmed cell equals
+ * an option's value exactly, or equals its trimmed label ignoring case. A field
+ * with no options takes anything.
+ */
+function matchesImportOption(cell: string, options: readonly ImportTargetOption[]): boolean {
+  if (options.length === 0) return true;
+  const s = cell.trim();
+  const lower = s.toLowerCase();
+  return options.some((option) => {
+    const { value, label } = optionValueAndLabel(option);
+    return value === s || (label !== undefined && label.trim().toLowerCase() === lower);
+  });
+}
+
+/** A multi-value cell split the way the server's `splitMulti` splits it. */
+function splitImportMultiValue(cell: string): string[] {
+  return cell.split(/[,;、\n]/).map((v) => v.trim()).filter((v) => v !== '');
+}
+
+/**
+ * The value the server refuses in a select / multiselect cell, or `undefined`
+ * when it takes the cell. The option types come from the spec, as the server
+ * reads them: a multi-option type is split and each token matched.
+ *
+ * Two readings are not the server's exactly, and both err towards taking a cell:
+ *
+ * - A `select` / `radio` flagged `multiple: true` is split by the server as
+ *   well, and the wizard's field shape does not carry `multiple`. So a
+ *   single-option cell is refused only when both readings refuse it: as one
+ *   value, and as a split list.
+ * - With *Keep unknown option values* on, the server's coercion keeps an unknown
+ *   value, but the engine's write validation still refuses a value outside the
+ *   options. It skips that check for a readonly field only, and such a field
+ *   reaches the wizard as `matchOnly`. So the setting spares match-only fields
+ *   alone.
+ */
+function refusedOptionValue(
+  cell: string,
+  field: ImportTargetField,
+  keepUnknownOptions: boolean,
+): string | undefined {
+  const options = field.options ?? [];
+  if (options.length === 0) return undefined;
+  if (keepUnknownOptions && field.matchOnly) return undefined;
+  const fits = (token: string) => matchesImportOption(token, options);
+  if (MULTI_OPTION_TYPES.has(field.type)) return splitImportMultiValue(cell).find((token) => !fits(token));
+  if (!SINGLE_OPTION_TYPES.has(field.type)) return undefined;
+  if (fits(cell) || splitImportMultiValue(cell).every(fits)) return undefined;
+  return cell.trim();
+}
+
+/** Why the server will refuse a cell, as the preview reports it. */
+type CellRefusal =
+  | { code: 'required' }
+  | {
+      code: 'invalid_number' | 'invalid_boolean' | 'invalid_date' | 'invalid_email' | 'invalid_option';
+      /** The refused value: the trimmed cell, or the refused token of a multi-value cell. */
+      value: string;
+    };
+
+/** What the check needs to know about this import beyond the cell and its field. */
+interface CellCheckOptions {
+  /** The *Keep unknown option values* setting the import request carries. */
+  keepUnknownOptions: boolean;
+  /**
+   * Whether a blank cell in a required field is refused. Only a create is: the
+   * engine never asks an update for a field the row leaves out, and the import
+   * leaves a blank cell out.
+   */
+  requireValues: boolean;
+}
+
+/**
+ * The reason the server refuses this cell, or `undefined` when it takes it. A
+ * blank or whitespace-only cell is empty, as the server's `isBlank` reads it.
+ */
+function checkImportCell(
+  cell: string,
+  field: ImportTargetField,
+  opts: CellCheckOptions,
+): CellRefusal | undefined {
+  const value = cell.trim();
+  if (value === '') return field.required && opts.requireValues ? { code: 'required' } : undefined;
+  switch (field.type) {
+    case 'number': case 'currency': case 'percent':
+      return parseImportNumber(value) === undefined ? { code: 'invalid_number', value } : undefined;
+    case 'boolean':
+      return BOOLEAN_IMPORT_TOKENS.has(value.toLowerCase()) ? undefined : { code: 'invalid_boolean', value };
+    case 'date': case 'datetime':
+      return isNaN(Date.parse(value)) ? { code: 'invalid_date', value } : undefined;
+    case 'email':
+      return isPlausibleEmail(value) ? undefined : { code: 'invalid_email', value };
+  }
+  const refused = refusedOptionValue(cell, field, opts.keepUnknownOptions);
+  return refused === undefined ? undefined : { code: 'invalid_option', value: refused };
+}
+
+/** The sentence a cell refusal reads as: the one the server's code reads as, where one exists. */
+function cellRefusalMessage(
+  refusal: CellRefusal,
+  field: ImportTargetField,
+  t: (key: string, vars?: Record<string, unknown>) => string,
+): string {
+  switch (refusal.code) {
+    case 'required': return t('grid.import.requiredValue');
+    case 'invalid_number': return t('grid.import.invalidNumber', { value: refusal.value });
+    case 'invalid_boolean': return t('grid.import.invalidBoolean', { value: refusal.value });
+    case 'invalid_date': return t('grid.import.invalidDate', { value: refusal.value });
+    case 'invalid_option': return t('grid.import.invalidOption', { value: refusal.value });
+    case 'invalid_email': return t('grid.import.invalidType', { type: field.type });
   }
 }
 
@@ -596,24 +755,103 @@ function applyTemplate(
   return next;
 }
 
-type MappedCol = { csvIdx: number; field: ImportWizardProps['fields'][0] };
+type MappedCol = { csvIdx: number; field: ImportTargetField };
 
-function validateRow(row: string[], mappedCols: MappedCol[], rowIndex: number) {
+/**
+ * The legacy per-row `create` path's check. Every write there is a create, so a
+ * required field's blank cell is always refused.
+ */
+function validateRow(row: string[], mappedCols: MappedCol[], rowIndex: number, keepUnknownOptions: boolean) {
   const errors: ImportResult['errors'] = [];
   const record: Record<string, any> = {};
   for (const col of mappedCols) {
     const raw = row[col.csvIdx] ?? '';
-    if (col.field.required && !raw) {
+    const refusal = checkImportCell(raw, col.field, { keepUnknownOptions, requireValues: true });
+    if (refusal?.code === 'required') {
       errors.push({ row: rowIndex, field: col.field.name, message: 'Required field is empty' });
       continue;
     }
-    if (raw && !validateValue(raw, col.field.type)) {
-      errors.push({ row: rowIndex, field: col.field.name, message: `Invalid ${col.field.type} value: "${raw}"` });
+    if (refusal) {
+      errors.push({ row: rowIndex, field: col.field.name, message: `Invalid ${col.field.type} value: "${refusal.value}"` });
       continue;
     }
     record[col.field.name] = raw;
   }
   return { record, errors };
+}
+
+/** One reason a row will not import: the preview's own check, or the server's dry run. */
+type RowFinding =
+  | { source: 'client'; field: ImportTargetField; csvIdx: number; refusal: CellRefusal }
+  | { source: 'server'; result: ImportRowResult; csvIdx?: number };
+
+/** The preview's findings on the rows it checked, keyed by 0-based row index. */
+type ClientFindings = Map<number, Array<Extract<RowFinding, { source: 'client' }>>>;
+
+/** The client findings for one row, in column order. Empty when the row passes. */
+function checkImportRow(
+  row: readonly string[],
+  checkedCols: readonly MappedCol[],
+  opts: CellCheckOptions,
+): Array<Extract<RowFinding, { source: 'client' }>> {
+  const out: Array<Extract<RowFinding, { source: 'client' }>> = [];
+  for (const col of checkedCols) {
+    const refusal = checkImportCell(row[col.csvIdx] ?? '', col.field, opts);
+    if (refusal) out.push({ source: 'client', field: col.field, csvIdx: col.csvIdx, refusal });
+  }
+  return out;
+}
+
+/**
+ * One list of findings per row: the preview's own, then each server dry-run
+ * failure on a field the preview has not already flagged in that row. Rows are
+ * 0-based indexes into the loaded rows; the dry run numbers them from 1. A dry
+ * run result with no row of its own (row 0) is a refusal of the whole request,
+ * returned apart.
+ */
+function mergeRowFindings(
+  client: ClientFindings,
+  dryRun: ImportRecordsResult | null,
+  csvIdxByField: ReadonlyMap<string, number>,
+  rowCount: number,
+): { byRow: Map<number, RowFinding[]>; request: ImportRowResult[] } {
+  const byRow = new Map<number, RowFinding[]>();
+  for (const [rIdx, findings] of client) {
+    if (findings.length > 0) byRow.set(rIdx, [...findings]);
+  }
+  const request: ImportRowResult[] = [];
+  for (const result of dryRun?.results ?? []) {
+    if (result.ok) continue;
+    const rIdx = result.row - 1;
+    if (!(rIdx >= 0 && rIdx < rowCount)) { request.push(result); continue; }
+    const list = byRow.get(rIdx) ?? [];
+    const duplicate = result.field !== undefined
+      && list.some((f) => f.source === 'client' && f.field.name === result.field);
+    if (duplicate) continue;
+    list.push({ source: 'server', result, csvIdx: result.field ? csvIdxByField.get(result.field) : undefined });
+    byRow.set(rIdx, list);
+  }
+  return { byRow, request };
+}
+
+/**
+ * The columns of a named server mapping whose values the server transforms
+ * (`map`, `lookup`, …) before coercing them. The preview cannot predict a
+ * transformed value, so it does not check those columns.
+ */
+function transformedSourceColumns(m: SavedMapping | null, headers: string[]): Set<number> {
+  const out = new Set<number>();
+  if (!m) return out;
+  const headerIndex = new Map<string, number>();
+  headers.forEach((h, idx) => { if (h) headerIndex.set(h.trim().toLowerCase(), idx); });
+  for (const e of m.fieldMapping ?? []) {
+    if (!e.transform || e.transform === 'none') continue;
+    for (const source of Array.isArray(e.source) ? e.source : [e.source]) {
+      const idx = headerIndex.get(String(source).trim().toLowerCase());
+      if (idx !== undefined) out.add(idx);
+    }
+  }
+  return out;
 }
 
 /** Assemble the server `/import` request from mapping-applied raw rows plus the
@@ -1318,18 +1556,25 @@ const StepMapping: React.FC<{
   );
 };
 
-// Step 3: Preview & Import (shows first 10 rows with per-row validation errors)
+/** How many rows the findings list names before it summarises the rest. */
+const FINDINGS_ROW_LIMIT = 20;
+
+/** A finding's field label and sentence, for a cell's tooltip and the findings list. */
+type DescribeFinding = (finding: RowFinding) => { fieldLabel?: string; message: string };
+
+// Step 3: Preview & Import (shows first 10 rows; every row's findings mark its cells)
 const StepPreview: React.FC<{
-  headers: string[]; rows: string[][]; mapping: Record<number, string>; fields: ImportWizardProps['fields'];
+  rows: string[][];
+  /** The mapped columns, in column order. */
+  mappedCols: MappedCol[];
   /** Inline corrections keyed by row index → csv column index → fixed value. */
   corrections: Record<number, Record<number, string>>;
   onCorrect: (rowIdx: number, csvIdx: number, value: string) => void;
-}> = ({ headers, rows, mapping, fields, corrections, onCorrect }) => {
+  /** Every row's merged findings (client and server), keyed by 0-based row index. */
+  findingsByRow: ReadonlyMap<number, RowFinding[]>;
+  describe: DescribeFinding;
+}> = ({ rows, mappedCols, corrections, onCorrect, findingsByRow, describe }) => {
   const { t } = useImportTranslation();
-  const mappedCols = useMemo(() =>
-    Object.entries(mapping).map(([idx, fieldName]) => ({
-      csvIdx: Number(idx), header: headers[Number(idx)], field: fields.find((f) => f.name === fieldName)!,
-    })), [mapping, headers, fields]);
   const previewRows = rows.slice(0, PREVIEW_ROW_COUNT);
 
   /** Resolve the effective value for a cell, preferring an inline correction. */
@@ -1338,17 +1583,21 @@ const StepPreview: React.FC<{
     return fix !== undefined ? fix : (previewRows[rIdx]?.[csvIdx] ?? '');
   }, [corrections, previewRows]);
 
-  const rowValidations = useMemo(() => previewRows.map((_row, rIdx) => {
+  // A cell is marked with the first finding on its column; a finding with no
+  // column (a server finding on an unmapped field) marks the row only.
+  const rowValidations = previewRows.map((_row, rIdx) => {
     const errs: Record<number, string> = {};
-    for (const col of mappedCols) {
-      const raw = effectiveValue(rIdx, col.csvIdx);
-      if (col.field.required && !raw) errs[col.csvIdx] = t('grid.import.required');
-      else if (raw && !validateValue(raw, col.field.type)) errs[col.csvIdx] = t('grid.import.invalidType', { type: col.field.type });
+    for (const finding of findingsByRow.get(rIdx) ?? []) {
+      if (finding.csvIdx !== undefined && errs[finding.csvIdx] === undefined) {
+        errs[finding.csvIdx] = describe(finding).message;
+      }
     }
     return errs;
-  }), [previewRows, mappedCols, effectiveValue, t]);
+  });
 
-  const errorCount = rowValidations.filter(e => Object.keys(e).length > 0).length;
+  // Every row with a finding, not only the previewed ones: the same rows the
+  // import button leaves out of its count.
+  const errorCount = findingsByRow.size;
   const correctedCount = Object.keys(corrections).length;
 
   return (
@@ -1383,7 +1632,7 @@ const StepPreview: React.FC<{
         <TableBody>
           {previewRows.map((_row, rIdx) => {
             const errs = rowValidations[rIdx];
-            const hasError = Object.keys(errs).length > 0;
+            const hasError = findingsByRow.has(rIdx);
             const wasCorrected = corrections[rIdx] !== undefined;
             return (
               <TableRow
@@ -1423,6 +1672,50 @@ const StepPreview: React.FC<{
         </TableBody>
       </Table>
       <p className="mt-2 text-xs text-muted-foreground">{t('grid.import.showingRows', { shown: previewRows.length, total: rows.length })}</p>
+    </div>
+  );
+};
+
+/**
+ * One list of what will keep rows out of the import: each row once, with every
+ * finding on it, from the preview's own check and the server's dry run alike.
+ * A dry-run refusal of the whole request heads the list without a row number.
+ */
+const ImportFindingsList: React.FC<{
+  findingsByRow: ReadonlyMap<number, RowFinding[]>;
+  requestFindings: readonly ImportRowResult[];
+  describe: DescribeFinding;
+}> = ({ findingsByRow, requestFindings, describe }) => {
+  const { t } = useImportTranslation();
+  if (findingsByRow.size === 0 && requestFindings.length === 0) return null;
+  const rowsInOrder = [...findingsByRow.entries()].sort(([a], [b]) => a - b);
+  const shown = rowsInOrder.slice(0, FINDINGS_ROW_LIMIT);
+  const moreFindings = rowsInOrder
+    .slice(FINDINGS_ROW_LIMIT)
+    .reduce((n, [, findings]) => n + findings.length, 0);
+  return (
+    <div className="max-h-32 overflow-auto rounded-md border border-destructive/30 p-2 text-xs" data-testid="import-findings">
+      <ul className="text-destructive">
+        {requestFindings.map((result, i) => (
+          <li key={`request-${i}`}>{describe({ source: 'server', result }).message}</li>
+        ))}
+        {shown.map(([rIdx, findings]) => (
+          <li key={rIdx} data-testid={`import-findings-row-${rIdx}`}>
+            {t('grid.import.errorRowPrefix', { row: rIdx + 1 })}
+            {findings.map((finding, i) => {
+              const { fieldLabel, message } = describe(finding);
+              return (
+                <span key={i}>
+                  {i > 0 ? '; ' : ''}{fieldLabel ? `${fieldLabel}: ` : ''}{message}
+                </span>
+              );
+            })}
+          </li>
+        ))}
+      </ul>
+      {moreFindings > 0 && (
+        <p className="text-muted-foreground">{t('grid.import.moreErrors', { count: moreFindings })}</p>
+      )}
     </div>
   );
 };
@@ -1971,6 +2264,66 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     [headers, fields, rows],
   );
 
+  // ── Findings: what keeps a row out of the import (objectui#11814) ──────────
+  // The mapped columns with their target field; a target no field declares is
+  // left out. The preview checks every row, not just the previewed ones, since
+  // the import button counts the rows nothing was found on.
+  const mappedCols = useMemo<MappedCol[]>(
+    () => Object.entries(mapping).flatMap(([idx, fieldName]) => {
+      const field = fields.find((f) => f.name === fieldName);
+      return field ? [{ csvIdx: Number(idx), field }] : [];
+    }),
+    [mapping, fields],
+  );
+  const checkedCols = useMemo(() => {
+    const transformed = transformedSourceColumns(activeMapping, headers);
+    return mappedCols.filter((col) => !transformed.has(col.csvIdx));
+  }, [mappedCols, activeMapping, headers]);
+  // A named mapping's request does not carry the setting (assembleImportRequest).
+  const keepUnknownOptions = !mappingName && createMissingOptions;
+  const requireValues = writeMode === 'insert';
+  const uncorrectedFindings = useMemo<ClientFindings>(() => {
+    const out: ClientFindings = new Map();
+    const opts = { keepUnknownOptions, requireValues };
+    rows.forEach((row, rIdx) => {
+      const found = checkImportRow(row, checkedCols, opts);
+      if (found.length > 0) out.set(rIdx, found);
+    });
+    return out;
+  }, [rows, checkedCols, keepUnknownOptions, requireValues]);
+  // Corrections touch previewed rows only, so only those are checked again.
+  const clientFindings = useMemo<ClientFindings>(() => {
+    const correctedRows = Object.entries(corrections);
+    if (correctedRows.length === 0) return uncorrectedFindings;
+    const out: ClientFindings = new Map(uncorrectedFindings);
+    const opts = { keepUnknownOptions, requireValues };
+    for (const [key, fixes] of correctedRows) {
+      const rIdx = Number(key);
+      const effective = [...(rows[rIdx] ?? [])];
+      for (const [csvIdx, value] of Object.entries(fixes)) effective[Number(csvIdx)] = value;
+      const found = checkImportRow(effective, checkedCols, opts);
+      if (found.length > 0) out.set(rIdx, found);
+      else out.delete(rIdx);
+    }
+    return out;
+  }, [uncorrectedFindings, corrections, rows, checkedCols, keepUnknownOptions, requireValues]);
+  const findings = useMemo(
+    () => mergeRowFindings(clientFindings, dryRunResult, csvIdxByField, rows.length),
+    [clientFindings, dryRunResult, csvIdxByField, rows.length],
+  );
+  const describeFinding: DescribeFinding = (finding) => {
+    if (finding.source === 'server') {
+      return formatDryRunError(finding.result, fieldLabelByName, dryRunCellValue(finding.result.row, finding.result.field), t);
+    }
+    // Named the way formatDryRunError names a server finding's field, so the
+    // two halves of one row read alike.
+    const fieldName = finding.field.name;
+    const fieldLabel = fieldLabelByName.get(fieldName) ?? fieldName;
+    return { fieldLabel, message: cellRefusalMessage(finding.refusal, finding.field, t) };
+  };
+  // The rows the import is expected to write: those with no finding at all.
+  const importableRowCount = rows.length - findings.byRow.size;
+
   // Build raw, mapping-applied rows keyed by target field name (inline
   // corrections applied). Values stay RAW strings — the server coerces them to
   // storage values from field metadata, so booleans / dates / lookups / selects
@@ -2025,7 +2378,9 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
         ? original.map((v, idx) => (fixes[idx] !== undefined ? fixes[idx] : v))
         : original;
 
-      const { record, errors: rowErrors } = validateRow(effectiveRow, mappedCols, i + 1);
+      // The per-row create runs no import coercion, so only the engine's own
+      // option check applies: the one *Keep unknown option values* leaves.
+      const { record, errors: rowErrors } = validateRow(effectiveRow, mappedCols, i + 1, true);
       if (rowErrors.length > 0) {
         skippedRows++;
         errors.push(...rowErrors);
@@ -2503,12 +2858,12 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                   </div>
                 )}
                 <StepPreview
-                  headers={headers}
                   rows={rows}
-                  mapping={mapping}
-                  fields={fields}
+                  mappedCols={mappedCols}
                   corrections={corrections}
                   onCorrect={handleCorrect}
+                  findingsByRow={findings.byRow}
+                  describe={describeFinding}
                 />
                 {rows.length > ASYNC_IMPORT_THRESHOLD && (
                   <div
@@ -2519,6 +2874,11 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                     <span>{t('grid.import.largeSampleNotice', { shown: PREVIEW_ROW_COUNT, total: rows.length })} {t('grid.import.asyncLargeHint')}</span>
                   </div>
                 )}
+                <ImportFindingsList
+                  findingsByRow={findings.byRow}
+                  requestFindings={findings.request}
+                  describe={describeFinding}
+                />
                 {rows.length <= ASYNC_IMPORT_THRESHOLD
                   && typeof (dataSource as Partial<DataSource> | undefined)?.importRecords === 'function' && (
                   <div className="flex flex-col gap-2 rounded-md border border-border p-3" data-testid="import-validate">
@@ -2541,19 +2901,8 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                             ? t('grid.import.validateFailed', { ok: dryRunResult.ok, errors: dryRunResult.errors })
                             : t('grid.import.validatePassed', { ok: dryRunResult.ok })}
                         </p>
-                        {dryRunResult.errors > 0 && (
-                          <ul className="max-h-32 overflow-auto text-xs text-destructive">
-                            {dryRunResult.results.filter((r) => !r.ok).slice(0, 20).map((r, i) => {
-                              const { fieldLabel, message } = formatDryRunError(r, fieldLabelByName, dryRunCellValue(r.row, r.field), t);
-                              return (
-                                <li key={i}>
-                                  {r.row > 0 ? t('grid.import.errorRowPrefix', { row: r.row }) : ''}
-                                  {fieldLabel ? `${fieldLabel}: ` : ''}{message}
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        )}
+                        {/* The failures themselves join the preview's findings in
+                            the one per-row list above. */}
                       </div>
                     )}
                   </div>
@@ -2712,7 +3061,7 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
                   disabled={importing || (!mappingName && writeMode !== 'insert' && matchFields.length === 0)}
                   data-testid="import-run-btn"
                 >
-                  {importing ? t('grid.import.importingProgress') : t('grid.import.importNRows', { count: rows.length })}
+                  {importing ? t('grid.import.importingProgress') : t('grid.import.importNRows', { count: importableRowCount })}
                 </Button>
               )}
             </>

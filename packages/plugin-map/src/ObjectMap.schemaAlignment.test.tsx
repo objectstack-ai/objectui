@@ -40,6 +40,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ObjectMapSchema, ObjectMapConfig } from '@object-ui/types';
 import { ObjectMap } from './ObjectMap';
+import './__tests__/webgl2Available';
 
 let capturedProps: any = null;
 

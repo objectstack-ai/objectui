@@ -72,6 +72,7 @@ import { ObjectMap } from './ObjectMap';
 // Registers `object-map` — row 3 renders through it.
 import './index';
 import type { DataSource } from '@object-ui/types';
+import './__tests__/webgl2Available';
 
 vi.mock('react-map-gl/maplibre', () => ({
   default: (props: any) => <div aria-label="Map">{props.children}</div>,

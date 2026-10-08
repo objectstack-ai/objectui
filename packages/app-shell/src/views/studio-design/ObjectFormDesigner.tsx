@@ -481,33 +481,31 @@ export function ObjectFormDesigner({
   }, [items]);
 
   // What the drag live region speaks (objectui#11802): the labels the cards and
-  // section headers render, never the `f:` / `g:` ids. dnd-kit asks from its own
-  // events, after this component has committed, so the announcements read the
-  // latest render through a ref, as `onDragEnd` reads `itemsRef`.
-  const dndLabels = React.useRef({ derived, entryByName, fieldLabelOf, labelOf });
-  React.useEffect(() => {
-    dndLabels.current = { derived, entryByName, fieldLabelOf, labelOf };
-  });
+  // section headers render, never the `f:` / `g:` ids, and places read off the
+  // container map `onDragEnd` reads (`itemsRef` holds this render's `items`).
+  // dnd-kit subscribes the newest object each time a render commits, so a
+  // sentence always reads the committed layout and labels. A rebuild, here or
+  // on React's own account, changes no sentence.
   const dndAccessibility = React.useMemo(() => {
     const slot = (place: LayoutPlace | null): FormDndSlot | null =>
       place && {
         container: place.container,
-        group: dndLabels.current.labelOf.get(place.container) ?? t('engine.studio.designer.ungrouped', locale),
+        group: labelOf.get(place.container) ?? t('engine.studio.designer.ungrouped', locale),
         position: place.index + 1,
         total: place.total,
       };
     const lookups: FormDndLookups = {
       fieldLabel: (id) => {
-        const entry = dndLabels.current.entryByName.get(unFid(id));
+        const entry = entryByName.get(unFid(id));
         // A drag starts only on a rendered card, which has an entry.
-        return entry ? dndLabels.current.fieldLabelOf(entry) : unFid(id);
+        return entry ? fieldLabelOf(entry) : unFid(id);
       },
-      slotOf: (id) => slot(placeIn(itemsRef.current, id)),
-      dropSlot: (id, overId) => slot(dropPlaceIn(itemsRef.current, id, overId)),
-      committedSlotOf: (id) => slot(placeIn(dndLabels.current.derived, id)),
+      slotOf: (id) => slot(placeIn(items, id)),
+      dropSlot: (id, overId) => slot(dropPlaceIn(items, id, overId)),
+      committedSlotOf: (id) => slot(placeIn(derived, id)),
     };
     return formDndAccessibility(locale, lookups);
-  }, [locale]);
+  }, [locale, items, derived, labelOf, entryByName, fieldLabelOf]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),

@@ -36,7 +36,7 @@ export interface FormDndSlot {
   total: number;
 }
 
-/** What the announcements read from the designer, at the moment dnd-kit asks. */
+/** What the announcements read from the designer. */
 export interface FormDndLookups {
   /** The field's label, through the resolver the field cards render from. */
   fieldLabel(fieldId: string): string;
@@ -62,9 +62,10 @@ export function formDndAccessibility(locale: string, lookups: FormDndLookups): F
   // `onDragOver` is the field over its own card, the place `onDragStart` has
   // just named; a second sentence about that place would replace the pick-up
   // sentence before a screen reader reads it. Returning `undefined` leaves the
-  // region as it is, which dnd-kit's `Announcements` contract allows. Losing
-  // this memory (the designer rebuilds the object when the locale changes)
-  // costs one repeated sentence; every sentence stays true without it.
+  // region as it is, which dnd-kit's `Announcements` contract allows. The
+  // designer rebuilds this object when its layout or labels change, which
+  // drops the memory; that costs at most one repeated sentence, and every
+  // sentence stays true without it.
   let lastPlace: string | undefined;
   const placeOf = (slot: FormDndSlot) => JSON.stringify([slot.container, slot.position, slot.total]);
   const say = (key: string, field: string, slot: FormDndSlot) =>

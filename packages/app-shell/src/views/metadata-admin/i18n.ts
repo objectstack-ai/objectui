@@ -3228,8 +3228,8 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.inspector.listView.addSort': '+ Add sort…',
   'engine.studio.inspector.listView.sortAsc': '{field} ascending',
   'engine.studio.inspector.listView.sortDesc': '{field} descending',
-  // objectui#11823 (steps 2 and 3) — the Interfaces pillar's New dashboard / New report / New page.
-  'engine.studio.interfaces.create.menuTitle': 'Create a dashboard, a report or a page in this package',
+  // objectui#11823 (step 2) — the Interfaces pillar's New dashboard / New report.
+  'engine.studio.interfaces.create.menuTitle': 'Create a dashboard or a report in this package',
   'engine.studio.interfaces.create.dashboard': 'New dashboard',
   'engine.studio.interfaces.create.report': 'New report',
   'engine.studio.interfaces.create.description':
@@ -3256,20 +3256,6 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.interfaces.create.datasetsFailed': 'The datasets could not be loaded: {error}',
   'engine.studio.interfaces.create.noMeasures': 'This dataset declares no measures, so a report cannot show it.',
   'engine.studio.interfaces.create.needsBinding': 'Choose the dataset this report reads, and one of its measures.',
-  'engine.studio.interfaces.create.page': 'New page',
-  'engine.studio.interfaces.create.pageNameLabel': 'Page name',
-  'engine.studio.interfaces.create.pageNamePlaceholder': 'Page name (e.g. Team handbook)',
-  'engine.studio.interfaces.create.pageIdPlaceholder': 'Identifier (e.g. team_handbook)',
-  'engine.studio.interfaces.create.pageTaken':
-    'A page with the identifier “{name}” already exists. Choose another identifier.',
-  'engine.studio.interfaces.create.pageKind': 'Written in',
-  'engine.studio.interfaces.create.pageKindHtml': 'HTML',
-  'engine.studio.interfaces.create.pageKindReact': 'React',
-  'engine.studio.interfaces.create.pageKindHtmlHint':
-    'Built from the platform’s components and HTML tags, parsed and never run. The page opens on its source beside a live preview.',
-  'engine.studio.interfaces.create.pageKindReactHint':
-    'Real React code, run when the page renders, for state, effects and event handlers. The page opens on its source beside a live preview.',
-  'engine.studio.interfaces.create.pageStarter': 'A new page. Write its content in the source editor.',
   'engine.studio.inspector.designersMissing':
     'No metadata designers are registered in this session, so there is nothing to edit here.',
   'engine.studio.inspector.noPageSchema': 'Page settings are unavailable — the page schema could not be loaded.',
@@ -6344,7 +6330,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.inspector.listView.sortAsc': '{field} 升序',
   'engine.studio.inspector.listView.sortDesc': '{field} 降序',
   // objectui#11823 (step 2) — the Interfaces pillar's New dashboard / New report.
-  'engine.studio.interfaces.create.menuTitle': '在本包中新建仪表盘、报表或页面',
+  'engine.studio.interfaces.create.menuTitle': '在本包中新建仪表盘或报表',
   'engine.studio.interfaces.create.dashboard': '新建仪表盘',
   'engine.studio.interfaces.create.report': '新建报表',
   'engine.studio.interfaces.create.description': '存为本包的草稿,加入 {app} 的导航,并在画布上打开。',
@@ -6366,17 +6352,6 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.interfaces.create.datasetsFailed': '无法加载数据集:{error}',
   'engine.studio.interfaces.create.noMeasures': '这个数据集没有声明度量,报表无法展示它。',
   'engine.studio.interfaces.create.needsBinding': '请选择这个报表读取的数据集,以及其中的一个度量。',
-  'engine.studio.interfaces.create.page': '新建页面',
-  'engine.studio.interfaces.create.pageNameLabel': '页面名称',
-  'engine.studio.interfaces.create.pageNamePlaceholder': '页面名称(如:团队手册)',
-  'engine.studio.interfaces.create.pageIdPlaceholder': '标识符(如:team_handbook)',
-  'engine.studio.interfaces.create.pageTaken': '已有标识为「{name}」的页面,请换一个标识。',
-  'engine.studio.interfaces.create.pageKind': '编写方式',
-  'engine.studio.interfaces.create.pageKindHtml': 'HTML',
-  'engine.studio.interfaces.create.pageKindReact': 'React',
-  'engine.studio.interfaces.create.pageKindHtmlHint': '由平台组件与 HTML 标签组成,只解析、不执行。页面打开时,源码与实时预览并排显示。',
-  'engine.studio.interfaces.create.pageKindReactHint': '真正的 React 代码,在页面渲染时运行,可使用状态、副作用与事件处理。页面打开时,源码与实时预览并排显示。',
-  'engine.studio.interfaces.create.pageStarter': '新页面。请在源码编辑器中编写它的内容。',
   'engine.studio.inspector.designersMissing': '本次会话没有注册任何元数据设计器,这里没有可编辑的内容。',
   'engine.studio.inspector.noPageSchema': '页面设置不可用——无法加载页面 schema。',
   'engine.studio.inspector.sourcePageLine1': '这个页面是 {kind} 源码,不是积木树 ——',

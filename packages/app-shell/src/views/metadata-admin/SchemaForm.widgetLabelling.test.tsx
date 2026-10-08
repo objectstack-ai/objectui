@@ -51,8 +51,18 @@
  * that renders nothing, and that green would mean nothing.
  */
 
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, cleanup, within } from '@testing-library/react';
+
+// The `code` widget reads the page's Monaco loader probe on mount
+// (objectui#11858). Unstubbed, the real loader injects its CDN script, which
+// this environment refuses, and the loader leaves a rejection that no browser
+// listener is here to cancel. Monaco's loader fails (offline), as on an install
+// without CDN access, so the widget renders its textarea fallback.
+vi.mock('@monaco-editor/react', () => {
+  const Editor = () => null;
+  return { Editor, default: Editor, loader: { init: () => Promise.reject(new Error('offline')) } };
+});
 import { SchemaForm, type FormFieldSpec } from './SchemaForm';
 import {
   WIDGETS,

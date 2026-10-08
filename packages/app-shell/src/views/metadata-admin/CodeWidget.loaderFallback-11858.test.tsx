@@ -192,7 +192,11 @@ describe('CodeWidget — a failing Monaco loader falls back to an editable texta
       </React.StrictMode>,
     );
     // `visibleWhen` sits in the field form's collapsed Advanced section.
-    fireEvent.click(screen.getByRole('button', { name: /^advanced/i }));
+    const advanced = screen.getByText('Advanced').closest('button');
+    expect(advanced, 'the Advanced section trigger').not.toBeNull();
+    expect(advanced).toHaveAttribute('aria-expanded', 'false');
+    fireEvent.click(advanced!);
+    expect(advanced).toHaveAttribute('aria-expanded', 'true');
     await settle();
 
     expect(heldLoaderScripts, 'the loader appends its script once per page').toHaveLength(1);

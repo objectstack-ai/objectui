@@ -75,6 +75,7 @@ import { useMetadataClient } from './useMetadata.js';
 import { PackageFormDialog } from './PackageFormDialog.js';
 import { errorCodeIs } from '@object-ui/types';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
+import { refusedItemsText } from '../../preview/publishRefusal.js';
 import { duplicatePackage, isSpecPackageId } from '../studio-design/packages-io.js';
 import { PackageIdInput } from '../studio-design/PackageIdInput.js';
 
@@ -432,7 +433,12 @@ export function PackageDetailSheet({
           const marked = readEnvelopeFailureText((e as { body?: unknown } | null)?.body);
           throw marked ? new Error(marked) : e;
         });
-        if ((r as { success?: boolean }).success === false) {
+        // objectui#11922 — `failed[]` is read BEFORE the batch's own `success`.
+        // A refusal carries both: `success` is false on it, and `failed[]` is
+        // where its items and reasons are. Asked in the other order, every
+        // refusal reached the author as "Action failed".
+        const failedList = Array.isArray(r.failed) ? r.failed : [];
+        if (failedList.length === 0 && (r as { success?: boolean }).success === false) {
           // Preserves what `apiJson` did for this call: a batch that did not
           // publish is an error on this surface, read through the same
           // envelope ladder. The status is no longer in hand — a non-2xx
@@ -452,24 +458,25 @@ export function PackageDetailSheet({
         } catch {
           setDrafts([]);
         }
-        if (r?.failedCount) {
+        if (failedList.length > 0) {
           // framework 15.1+ (ADR-0067 D2): the batch is all-or-nothing — a
           // failure means NOTHING landed and `failed[]` marks the rolled-back
-          // drafts `batch_aborted`, with the causal item carrying the real
+          // drafts `BATCH_ABORTED`, with the causal item carrying the real
           // error. Say "rolled back because X", not "{n} failed" (which reads
           // as a partial publish that no longer exists).
-          const failedList = Array.isArray(r.failed) ? r.failed : [];
-          const causal = failedList.find((f) => !errorCodeIs(f, 'BATCH_ABORTED') && f?.error);
+          const cause = refusedItemsText(failedList);
           if (failedList.some((f) => errorCodeIs(f, 'BATCH_ABORTED'))) {
-            throw new Error(tFormat('engine.packages.detail.publishDraftsRolledBack', locale, {
-              cause: causal ? `${causal.type ?? '?'}/${causal.name ?? '?'}: ${causal.error}` : String(r.failedCount),
-            }));
+            throw new Error(tFormat('engine.packages.detail.publishDraftsRolledBack', locale, { cause }));
           }
-          // pre-15.1 server — genuine partial publish.
-          throw new Error(tFormat('engine.packages.detail.publishDraftsPartial', locale, {
-            published: r.publishedCount ?? 0,
-            failed: r.failedCount,
-          }));
+          // No aborted sibling: a pre-flight refusal, or a pre-15.1 server's
+          // genuine partial publish. Either way every element is an item that
+          // did not publish, so each is named with its reason.
+          throw new Error(
+            `${tFormat('engine.packages.detail.publishDraftsPartial', locale, {
+              published: r.publishedCount ?? 0,
+              failed: failedList.length,
+            })} ${cause}`,
+          );
         }
         return r;
       },

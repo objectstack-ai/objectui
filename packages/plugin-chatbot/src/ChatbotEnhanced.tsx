@@ -23,7 +23,6 @@ import { SchemaRenderer } from '@object-ui/react';
 import { useObjectTranslation, useSafeTranslate } from '@object-ui/i18n';
 import { AlertCircle, ArrowRight, Copy, Check, RefreshCw, CornerDownLeft, Bot, Eye, GitCompareArrows, Rocket, Clock3, CheckCircle2, XCircle, Loader2, ShieldCheck, TriangleAlert, ClipboardList, HelpCircle, Table2, WifiOff, Sparkles, Hourglass } from 'lucide-react';
 import type { ChatStatus } from 'ai';
-import type { BuildProgressPhase } from '@objectstack/spec/ai';
 import {
   humanizeToolName,
   isRateLimitError,
@@ -158,15 +157,20 @@ export interface ChatChart {
   series: Array<{ dataKey: string; label?: string }>;
 }
 
+/**
+ * A build-progress frame's phase: `@objectstack/spec/ai`'s closed
+ * `BuildProgressPhase` vocabulary, plus `unknown` for a value outside it, which
+ * is surfaced as a warning — never as "Building" (objectui#11988). Spelled out
+ * rather than imported so the published typings need no newer spec floor;
+ * `buildVerify-11988.test.tsx` asserts at compile time that it equals the
+ * spec's union, both ways.
+ */
+type ChatBuildPhase = 'structure' | 'data' | 'verify' | 'done' | 'unknown';
+
 /** A reconciled snapshot of an in-flight app build (apply_blueprint). */
 export interface ChatBuildProgress {
-  /**
-   * Coarse phase, from `@objectstack/spec/ai`'s closed vocabulary: drafting
-   * structure, generating sample data, or finished. `unknown` is a value
-   * outside that vocabulary, surfaced as a warning — never as "Building"
-   * (objectui#11988).
-   */
-  phase: BuildProgressPhase | 'unknown';
+  /** Coarse phase: drafting structure, generating sample data, or finished. */
+  phase: ChatBuildPhase;
   /** Human label for the app being built (for the panel header). */
   appLabel?: string;
   /** Artifacts drafted so far, cumulative. */
@@ -187,7 +191,7 @@ export interface ChatBuildProgress {
    * beside the tree (objectui#11988): `verify` while a hop runs, `done` once
    * the loop exits. `hop` and `tool` are the spec frame's own fields.
    */
-  verify?: { phase: BuildProgressPhase | 'unknown'; hop?: number; tool?: string };
+  verify?: { phase: ChatBuildPhase; hop?: number; tool?: string };
 }
 
 /**

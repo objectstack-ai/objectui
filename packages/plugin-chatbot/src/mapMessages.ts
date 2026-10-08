@@ -826,14 +826,16 @@ function extractSources(parts: AnyPart[]): ChatSource[] | undefined {
 
 /**
  * The build-progress frame vocabulary of `@objectstack/spec/ai`, read through
- * its TYPES (objectui#11988). Both tables are typed by the spec's own
+ * its TYPES (objectui#11988). Both constants are typed by the spec's own
  * declarations, so the compiler refuses a value the spec does not declare and,
  * for the phases, requires a row for every phase it does: neither can drift
  * from the vocabulary. The spec's runtime `BUILD_PROGRESS_PHASES` is not
  * imported: its module does not tree-shake, and a value import of it moved the
  * console's eager closure about 27 KB gzipped over budget (a one-time reading
- * of `pnpm check:eager-closure` against `fff07fbba`, objectui#11988). The test
- * beside the panel reads the runtime array and pins every member.
+ * of `pnpm check:eager-closure` against `fff07fbba`, objectui#11988). The
+ * type-only import is erased from the published typings, so it asks nothing of
+ * the package's spec floor. `buildVerify-11988.test.tsx` reads the runtime
+ * array and pins every member.
  */
 const BUILD_FRAME_TYPE: typeof BUILD_PROGRESS_FRAME_TYPE = 'data-build-progress';
 const BUILD_PHASES: Record<BuildProgressPhase, true> = { structure: true, data: true, verify: true, done: true };

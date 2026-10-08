@@ -21,10 +21,15 @@
 import '@testing-library/jest-dom/vitest';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, cleanup } from '@testing-library/react';
-import { BUILD_PROGRESS_PHASES } from '@objectstack/spec/ai';
+import { BUILD_PROGRESS_PHASES, type BuildProgressPhase } from '@objectstack/spec/ai';
 import { I18nProvider } from '@object-ui/i18n';
-import { ChatbotEnhanced } from '../ChatbotEnhanced';
+import { ChatbotEnhanced, type ChatBuildProgress } from '../ChatbotEnhanced';
 import { uiMessageToChatMessage } from '../mapMessages';
+
+type Assert<T extends true> = T;
+type Equal<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2
+  ? true
+  : false;
 
 const ITEMS = [
   { type: 'object', name: 'customer' },
@@ -56,6 +61,18 @@ function renderIn(language: string, parts: Array<Record<string, unknown>>) {
 }
 
 afterEach(cleanup);
+
+describe('the published phase union IS the spec vocabulary plus `unknown` (objectui#11988)', () => {
+  it('is pinned at compile time, in both directions', () => {
+    // A `tsc` error, not a runtime failure: compiled by this package's
+    // `tsconfig.test.json`. A phase the spec adds or drops turns it red.
+    type _TreePhaseIsSpec = Assert<Equal<Exclude<ChatBuildProgress['phase'], 'unknown'>, BuildProgressPhase>>;
+    type _VerifyPhaseIsSpec = Assert<
+      Equal<Exclude<NonNullable<ChatBuildProgress['verify']>['phase'], 'unknown'>, BuildProgressPhase>
+    >;
+    expect(true).toBe(true);
+  });
+});
 
 describe('the receiver keeps the tree and the build-verify part apart (objectui#11988)', () => {
   it('a verify hop never displaces the finished tree', () => {

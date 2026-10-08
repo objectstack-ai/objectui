@@ -175,6 +175,17 @@ export function namedListViewOf(row: Row): Row {
   return { ...foldStoredListOptions(body), ...(label !== undefined ? { label } : {}) };
 }
 
+/**
+ * The panel buffer's identity, as the pillar's autosave (`target`,
+ * `loadedFor`) and this hook's own load and save compare it: one spelling for
+ * all of them. ⛔ Never `view:` + the name: that is the adapter's view CACHE
+ * key, which only `invalidateViewKeys` spells (objectui#4373), and this is
+ * not a cache key.
+ */
+function listViewBufferKey(viewId: string): string {
+  return `listView:${viewId}`;
+}
+
 /** What `useDraftAutoSave` hands a save: whether the buffer is still what it sent. */
 interface DraftSendClaim {
   unmoved: () => boolean;
@@ -183,7 +194,7 @@ interface DraftSendClaim {
 export interface ObjectListViewDraft {
   /** The view the open leaf's panel edits; `null` on a leaf that is not an `object`. */
   target: ListViewTarget | null;
-  /** The autosave's `target`: `view:<viewId>`, `''` with no target. */
+  /** The autosave's `target`: the buffer key of the view ({@link listViewBufferKey}), `''` with no target. */
   targetKey: string;
   /** The autosave's `loadedFor`: the target the buffer was loaded for. */
   loadedFor: string;
@@ -251,7 +262,7 @@ export function useObjectListViewDraft({
   const objectDef = objectName ? findByName(metadata.objects, objectName) : undefined;
   const target = objectName ? listViewTargetOf(objectName, landingViewName, listViewsOf(objectDef)) : null;
   const viewId = target?.viewId ?? '';
-  const targetKey = viewId ? `view:${viewId}` : '';
+  const targetKey = viewId ? listViewBufferKey(viewId) : '';
   const seedColumns = React.useMemo(() => defaultListColumnsFromObject(objectDef, 5), [objectDef]);
 
   const [buffer, setBuffer] = React.useState<{ for: string; row: Row | null; dirty: boolean; hasDraft: boolean }>({
@@ -289,7 +300,7 @@ export function useObjectListViewDraft({
         const row = draft ?? (isPlainObject(published) ? (stripReadDecorations(published) as Row) : null);
         // objectui#11773 — a read serves no version: the next save is unpinned.
         forget();
-        setBuffer({ for: `view:${viewId}`, row, dirty: false, hasDraft: !!draft });
+        setBuffer({ for: listViewBufferKey(viewId), row, dirty: false, hasDraft: !!draft });
       } catch (e) {
         if (!cancelled) setFailure({ during: 'load', error: e });
       }
@@ -315,7 +326,7 @@ export function useObjectListViewDraft({
         if (outcome === 'reloaded') return;
         // objectui#11204 — clean only if nothing was edited while it was in flight.
         const clean = sent.unmoved();
-        setBuffer((b) => (b.for === `view:${viewId}` ? { ...b, hasDraft: true, dirty: clean ? false : b.dirty } : b));
+        setBuffer((b) => (b.for === listViewBufferKey(viewId) ? { ...b, hasDraft: true, dirty: clean ? false : b.dirty } : b));
         setFailure(null);
         onDraftSaved?.();
       } catch (e) {

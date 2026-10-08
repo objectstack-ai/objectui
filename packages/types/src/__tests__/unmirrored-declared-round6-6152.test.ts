@@ -23,8 +23,10 @@
  * The authored `object-grid` node does not move: its bag is the spec row by
  * reference, and a prop written flat on the node stays refused by name.
  *
- * `resizableColumns`, the eleventh key, is NOT mirrored. Its route is open on the
- * card, and `zod-mirror-parity.test.ts` keeps it in `UnmirroredDeclared`.
+ * `resizableColumns`, the eleventh key, was NOT mirrored: its route was open on the
+ * card until round 7 RETIRED it. It is a member of the mirror since then, as a
+ * retirement tombstone that refuses every value, and `zod-mirror-parity.test.ts`
+ * no longer ledgers it (`unmirrored-declared-round7-6152.test.ts` pins the rest).
  */
 import { describe, it, expect } from 'vitest';
 
@@ -92,8 +94,15 @@ describe('objectui#6152 round 6 — the flat `ObjectGridSchema` mirror judges te
     expect(refused.every((i) => i.path[0] === key), JSON.stringify(refused)).toBe(true);
   });
 
-  it('`resizableColumns` is NOT mirrored: its route is open, and the parity ledger keeps it', () => {
-    expect('resizableColumns' in ObjectGridSchema.shape).toBe(false);
+  it('`resizableColumns` was not mirrored but RETIRED (round 7): a member that refuses every value', () => {
+    // Flipped by objectui#6152 round 7. This read `false` while the key's route was
+    // open; the retirement made it a tombstone member, which is what a passthrough
+    // mirror needs to refuse the key instead of keeping it unexamined.
+    expect('resizableColumns' in ObjectGridSchema.shape).toBe(true);
+    for (const value of [true, false]) {
+      expect(codeAndPath(ObjectGridSchema.safeParse({ ...GRID, resizableColumns: value })))
+        .toEqual([{ code: 'invalid_type', path: ['resizableColumns'] }]);
+    }
   });
 
   it('the members the twin takes from the spec by name are the spec\'s, by reference', () => {

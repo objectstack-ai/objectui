@@ -30,8 +30,9 @@ const mockClient = {
   listDrafts: vi.fn(async () => []),
   getDraft: vi.fn(async () => null),
   // The curated hook editor resolves the bound object's field catalog through
-  // `useObjectFields` -> `client.get`.
+  // `useObjectFields` -> `client.withPreviewDrafts(true).get`.
   get: vi.fn(async () => null),
+  withPreviewDrafts() { return this; },
   save: vi.fn(async () => ({})),
 };
 

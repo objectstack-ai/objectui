@@ -7,52 +7,29 @@
  */
 
 /**
- * objectui#4032 item 4 — the KPI card's SUB-CAPTION.
+ * objectui#11389 — the metric card's SUB-CAPTION is retired at both ends
+ * (ruling C, which reverses objectstack#5428 item 4).
  *
- * The metric card renders two authored strings, and they are two DIFFERENT
- * authored fields with two DIFFERENT convention keys (objectstack#5428 item-4
- * ruling, 2026-08-06: 「两个作者字段两个 key」):
+ * This file used to pin the opposite (objectui#4032 item 4): an authored
+ * `options.description` drew as the line under a metric's value, and a client
+ * bundle entry at `dashboards.<d>.widgets.<id>.subCaption` translated it. The
+ * spec never declared that options key. Its only writer was objectstack's own
+ * `translateDashboard` overlay, which `@objectstack/spec` 17.7.0 removed, and
+ * the same release refuses a `subCaption` bundle entry by name. So the reader
+ * half goes too, and these are the reversed pins, on the INLINE metric arm of
+ * both dashboard surfaces:
  *
- *   | authored field         | rendered as              | bundle key                                    |
- *   |------------------------|--------------------------|-----------------------------------------------|
- *   | `widget.description`   | the SHARED card header   | `dashboards.<d>.widgets.<id>.description`      |
- *   | `options.description`  | the KPI card sub-caption | `dashboards.<d>.widgets.<id>.subCaption`       |
+ *  - an authored `options.description`, a plain string or a per-locale map,
+ *    draws nothing;
+ *  - a bundle `subCaption` entry draws nothing, while the bundle `title` on
+ *    the same entry still does (the lit control: bundle lookups are live);
+ *  - `widget.description` still draws as the card-header subtitle on a widget
+ *    that has a card header (the ruling's other pin), translated through the
+ *    widget node's `description` key.
  *
- * `subCaption` is the member objectstack#8056 added to the widget translation
- * node (shipped in `@objectstack/spec@17.0.0`, the version this repo pins).
- * PR #4358 landed items 1-3 and deliberately STOPPED here, because at the time
- * every candidate segment was rejected by the spec and the only accepted key
- * was `description` — the shared key the ruling forbids.
- *
- * The server half already exists: `translateDashboard` overlays `subCaption`
- * onto `options.description` on the `/meta` path. These tests pin the CLIENT
- * half — the same key path, resolved through the #4358 seam, for the app
- * bundles objectui loads into `I18nProvider` itself.
- *
- * DIRECTIONS, written before the reverse verification was run:
- *
- *  - **(a) bundle `subCaption` → sub-caption: RED before the change.** Nothing
- *    in the renderer reads `subCaption`; the metric dispatch spreads
- *    `...options` straight through, so `options.description` reaches
- *    `MetricWidget` as the raw authored English.
- *  - **(c) bundle `subCaption` AND `description` on ONE widget: HALF-RED.** The
- *    shared card header already translates from `description` (#4358), so that
- *    half is GREEN before the change; the sub-caption half is RED. This is the
- *    separation pin, and the asymmetry is the point — the two keys must land in
- *    two different places, and a future tidy-up that collapses them to one key
- *    would turn (b)/(c) red rather than passing quietly.
- *  - **(f) bundle beats an inline per-locale map: RED before the change.**
- *  - **(b) `description` must NOT reach the sub-caption: GREEN on both sides.**
- *    Nothing routes it today; the pin exists so nothing starts to.
- *  - **(d) no `subCaption` entry → untouched: GREEN on both sides.** Same
- *    reference semantics as `title`: an app with no translations keeps the exact
- *    bytes it renders today, and a widget with no authored sub-caption grows no
- *    caption row (the resolver must answer `undefined`, never `''`).
- *  - **(e) inline per-locale map alone: GREEN on both sides.** `MetricWidget`
- *    already collapses it via `pickLocalized` (#4208's seam). The fix must
- *    compose the two channels in the SAME fixed order `tWidgetTitle` uses —
- *    collapse the authored value to the active language FIRST, then offer the
- *    plain string to the bundle as its fallback — not replace this channel.
+ * Directions, written before the run: every "draws nothing" case is RED on the
+ * pre-change code (it drew the caption) and GREEN after; the label, value,
+ * title and header-subtitle controls are GREEN on both sides.
  */
 
 import * as React from 'react';
@@ -61,19 +38,17 @@ import { render, screen, cleanup } from '@testing-library/react';
 import { I18nProvider } from '@object-ui/i18n';
 import type { DashboardComponentSchema } from '@object-ui/types';
 // Module scope, never a hook — AGENTS.md §测试纪律. The dashboard renders each
-// widget through `SchemaRenderer`, which resolves `metric` / `kpi` from the
+// widget through `SchemaRenderer`, which resolves the metric node from the
 // registry, populated as a side effect of this barrel.
-import { DashboardRenderer } from '../index';
+import { DashboardRenderer, DashboardGridLayout } from '../index';
 
 afterEach(cleanup);
 
 /**
  * `crm` is discovered as an app namespace because it carries a `dashboards`
- * sub-key — the same discovery every other convention lookup performs.
- *
- * `revenue` carries BOTH keys with visibly different values, which is what
- * makes the separation assertions in (c) meaningful: if the two ever collapse
- * onto one key, one of the two strings goes missing.
+ * sub-key. `revenue` keeps a `subCaption` entry beside its live keys: the
+ * installed spec refuses that entry, but `I18nProvider` takes a host's
+ * resources without the schema, so this is the door the pins close.
  */
 const ZH_BUNDLE = {
   zh: {
@@ -86,18 +61,6 @@ const ZH_BUNDLE = {
               description: '卡片头部描述',
               subCaption: '本季度已赢单',
             },
-            // A widget whose bundle entry has `description` but NO
-            // `subCaption` — the (b) direction.
-            winrate: {
-              title: '赢单率',
-              description: '只属于卡片头部',
-            },
-            // Sub-caption only, no `description` — used by (e)'s precedence
-            // control is NOT this one; this one pins that a `subCaption`
-            // entry alone is enough.
-            pipeline: {
-              subCaption: '按阶段推进',
-            },
           },
         },
       },
@@ -106,169 +69,119 @@ const ZH_BUNDLE = {
 };
 
 function dashboard(...widgets: Record<string, unknown>[]): DashboardComponentSchema {
-  return {
-    type: 'dashboard',
-    name: 'sales',
-    widgets,
-  } as unknown as DashboardComponentSchema;
+  return { type: 'dashboard', name: 'sales', widgets } as unknown as DashboardComponentSchema;
 }
 
-function renderIn(language: string, schema: DashboardComponentSchema) {
-  return render(
-    <I18nProvider config={{ defaultLanguage: language, detectBrowserLanguage: false, resources: ZH_BUNDLE }}>
-      <DashboardRenderer schema={schema} />
+/** Both surfaces, driven identically: an inline metric renders through each one's own metric arm. */
+const SURFACES: Array<[string, (schema: DashboardComponentSchema) => React.ReactElement]> = [
+  ['DashboardRenderer', (schema) => <DashboardRenderer schema={schema} />],
+  ['DashboardGridLayout', (schema) => <DashboardGridLayout schema={schema} />],
+];
+
+async function renderIn(
+  surface: (schema: DashboardComponentSchema) => React.ReactElement,
+  schema: DashboardComponentSchema,
+  value: string,
+) {
+  const view = render(
+    <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false, resources: ZH_BUNDLE }}>
+      {surface(schema)}
     </I18nProvider>,
   );
+  // The grid mounts its widgets only after it measures its width, so settle on
+  // the drawn value (the lit half of every case) before asserting absence.
+  await screen.findByText(value);
+  return view;
 }
 
-describe('DashboardRenderer — the KPI sub-caption translates from its OWN convention key (#4032 item 4)', () => {
-  it('(a) renders the bundle `subCaption` on a self-contained metric card', () => {
-    renderIn('zh', dashboard({
-      id: 'revenue',
-      type: 'metric',
-      title: 'Total Revenue',
-      options: { value: 1930000, description: 'Won this quarter' },
-    }));
-
-    expect(screen.getByText('本季度已赢单')).toBeTruthy();
-    // The authored English must not survive beside the translation.
-    expect(screen.queryByText('Won this quarter')).toBeNull();
-  });
-
-  it('(a2) resolves a `subCaption`-only bundle entry (no `description` sibling)', () => {
-    renderIn('zh', dashboard({
-      id: 'pipeline',
-      type: 'metric',
-      title: 'Pipeline',
-      options: { value: 42, description: 'Advancing by stage' },
-    }));
-
-    expect(screen.getByText('按阶段推进')).toBeTruthy();
-    expect(screen.queryByText('Advancing by stage')).toBeNull();
-  });
-
-  it('(b) SEPARATION — the `description` key never reaches `options.description`', () => {
-    // `winrate` has a `description` entry and NO `subCaption`. The sub-caption
-    // must stay the authored English: the card header's translation is not a
-    // substitute for the sub-caption's, and borrowing it is exactly the shared
-    // key the item-4 ruling forbids.
-    renderIn('zh', dashboard({
-      id: 'winrate',
-      type: 'metric',
-      title: 'Win Rate',
-      options: { value: '42%', description: 'Closed-won share' },
-    }));
-
-    expect(screen.getByText('Closed-won share')).toBeTruthy();
-    expect(screen.queryByText('只属于卡片头部')).toBeNull();
-  });
-
-  it('(c) SEPARATION — one widget, both keys, two destinations', () => {
-    // `kpi` is metric-family but NOT self-contained, so it takes the shared
-    // Card header (fed by `widget.description` → the `description` key) AND
-    // renders a metric card inside it (fed by `options.description` → the
-    // `subCaption` key). Both are visible at once, which is the only place the
-    // two-fields-two-keys contract can be observed end to end in the renderer.
-    renderIn('zh', dashboard({
-      id: 'revenue',
-      type: 'kpi',
-      title: 'Total Revenue',
-      description: 'Card header caption',
-      options: { value: 1930000, description: 'Won this quarter' },
-    }));
-
-    // Header half — already green since #4358.
-    expect(screen.getByText('卡片头部描述')).toBeTruthy();
-    expect(screen.queryByText('Card header caption')).toBeNull();
-    // Sub-caption half — this card.
-    expect(screen.getByText('本季度已赢单')).toBeTruthy();
-    expect(screen.queryByText('Won this quarter')).toBeNull();
-    // And they are DISTINCT strings in distinct nodes: a collapse onto one key
-    // would render one of them twice and drop the other.
-    expect(screen.getAllByText('卡片头部描述')).toHaveLength(1);
-    expect(screen.getAllByText('本季度已赢单')).toHaveLength(1);
-  });
-
-  it('(d) leaves a metric with no `subCaption` entry exactly as authored', () => {
-    renderIn('zh', dashboard({
+describe.each(SURFACES)('%s — an inline metric card draws no sub-caption from `options` (objectui#11389)', (_name, surface) => {
+  it('an authored plain-string `options.description` draws nothing', async () => {
+    await renderIn(surface, dashboard({
       id: 'untranslated',
       type: 'metric',
       title: 'Bookings',
-      options: { value: 12, description: 'Signed this week' },
-    }));
+      options: { value: '12 deals', description: 'Signed this week' },
+    }), '12 deals');
 
-    expect(screen.getByText('Signed this week')).toBeTruthy();
-  });
-
-  it('(d2) grows no caption row when nothing authored one and nothing translates it', () => {
-    // The resolver must answer `undefined`, not `''`: `MetricWidget` gates the
-    // whole caption row on `(trend || description)`, so an empty string is the
-    // difference between "no row" and "an empty row with the muted styling".
-    const { container } = renderIn('zh', dashboard({
-      id: 'untranslated',
-      type: 'metric',
-      title: 'Win Rate',
-      options: { value: '42%' },
-    }));
-
-    expect(container.textContent).toBe('Win Rate42%');
-  });
-
-  it('(e) still collapses an inline per-locale map on `options.description`', () => {
-    // The #4208 channel `MetricWidget` already owns. It must survive: the fix
-    // composes the two channels, it does not replace this one.
-    renderIn('zh', dashboard({
-      id: 'untranslated',
-      type: 'metric',
-      title: 'Bookings',
-      options: {
-        value: 12,
-        description: { en: 'Signed this week', 'zh-CN': '本周已签' },
-      },
-    }));
-
-    expect(screen.getByText('本周已签')).toBeTruthy();
+    expect(screen.getByText('Bookings')).toBeTruthy();
     expect(screen.queryByText('Signed this week')).toBeNull();
   });
 
-  it('(f) prefers the bundle `subCaption` over an inline per-locale map', () => {
-    // Same fixed composition order `tWidgetTitle` applies: the authored value
-    // is collapsed to the active language FIRST and handed to the bundle as its
-    // fallback, so a bundle entry always wins.
-    renderIn('zh', dashboard({
+  it('an authored per-locale map on `options.description` draws nothing, in any language', async () => {
+    await renderIn(surface, dashboard({
+      id: 'untranslated',
+      type: 'metric',
+      title: 'Bookings',
+      options: { value: '12 deals', description: { en: 'Signed this week', 'zh-CN': '本周已签' } },
+    }), '12 deals');
+
+    expect(screen.queryByText('本周已签')).toBeNull();
+    expect(screen.queryByText('Signed this week')).toBeNull();
+  });
+});
+
+describe('DashboardRenderer — the bundle `subCaption` limb is gone too (objectui#11389)', () => {
+  it('a bundle `subCaption` entry draws nothing, while the same entry\'s `title` still translates', async () => {
+    await renderIn(SURFACES[0]![1], dashboard({
       id: 'revenue',
       type: 'metric',
       title: 'Total Revenue',
-      options: {
-        value: 1930000,
-        description: { en: 'Won this quarter', 'zh-CN': '内联副标题' },
-      },
-    }));
+      options: { value: '1.93M', description: 'Won this quarter' },
+    }), '1.93M');
 
-    expect(screen.getByText('本季度已赢单')).toBeTruthy();
-    expect(screen.queryByText('内联副标题')).toBeNull();
+    // Lit control: the bundle lookup is live on this widget.
+    expect(screen.getByText('总收入')).toBeTruthy();
+    expect(screen.queryByText('本季度已赢单')).toBeNull();
+    expect(screen.queryByText('Won this quarter')).toBeNull();
   });
 
-  it('(g) falls back to the authored sub-caption when the dashboard has no name', () => {
-    // No `name` → no convention key to build. The authored value is all there
-    // is, and it must still render.
+  it('`widget.description` still draws as the card-header subtitle; `options.description` beside it does not', async () => {
+    // `kpi` is metric-family but not self-contained, so it takes the shared
+    // card header: title + `widget.description`, translated through the widget
+    // node's `description` key. The metric inside it no longer draws a caption.
+    await renderIn(SURFACES[0]![1], dashboard({
+      id: 'revenue',
+      type: 'kpi',
+      title: 'Total Revenue',
+      description: 'Card header subtitle',
+      options: { value: '1.93M', description: 'Won this quarter' },
+    }), '1.93M');
+
+    expect(screen.getByText('卡片头部描述')).toBeTruthy();
+    expect(screen.queryByText('Card header subtitle')).toBeNull();
+    expect(screen.queryByText('本季度已赢单')).toBeNull();
+    expect(screen.queryByText('Won this quarter')).toBeNull();
+  });
+
+  it('an untranslated `widget.description` draws as the header subtitle verbatim (control)', async () => {
+    await renderIn(SURFACES[0]![1], dashboard({
+      id: 'untranslated',
+      type: 'kpi',
+      title: 'Bookings',
+      description: 'Card header subtitle',
+      options: { value: '12 deals', description: 'Signed this week' },
+    }), '12 deals');
+
+    expect(screen.getByText('Card header subtitle')).toBeTruthy();
+    expect(screen.queryByText('Signed this week')).toBeNull();
+  });
+
+  it('a dashboard with no name draws no authored sub-caption either', async () => {
+    // No `name` meant no bundle key, and the authored value used to answer
+    // alone. There is no authored channel left to answer.
     render(
       <I18nProvider config={{ defaultLanguage: 'zh', detectBrowserLanguage: false, resources: ZH_BUNDLE }}>
         <DashboardRenderer
           schema={{
             type: 'dashboard',
-            widgets: [{
-              id: 'revenue',
-              type: 'metric',
-              title: 'Total Revenue',
-              options: { value: 1930000, description: 'Won this quarter' },
-            }],
+            widgets: [{ id: 'revenue', type: 'metric', title: 'Total Revenue', options: { value: '1.93M', description: 'Won this quarter' } }],
           } as unknown as DashboardComponentSchema}
         />
       </I18nProvider>,
     );
 
-    expect(screen.getByText('Won this quarter')).toBeTruthy();
-    expect(screen.queryByText('本季度已赢单')).toBeNull();
+    await screen.findByText('1.93M');
+    expect(screen.getByText('Total Revenue')).toBeTruthy();
+    expect(screen.queryByText('Won this quarter')).toBeNull();
   });
 });

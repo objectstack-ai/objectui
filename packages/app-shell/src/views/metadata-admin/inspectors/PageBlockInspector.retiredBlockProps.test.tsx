@@ -44,7 +44,7 @@ import { PageSchema } from '@objectstack/spec/ui';
 // mount-time fetch instead of letting it escape to the real network. No
 // assertion here reads the fetched object list or its fields.
 const state = vi.hoisted(() => ({
-  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]) },
+  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]), withPreviewDrafts() { return this; } },
 }));
 vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,

@@ -234,6 +234,14 @@ export const JUSTIFIED = {
   // and `_rowRecord` is a host stash — `isAuthoredParamKey` excludes it by its
   // `_` prefix (packages/core/src/actions/actionKeys.ts:326-327). So the guard
   // cannot hold on this path and the key is unreachable, not dropped.
+  //
+  // One exception since objectui#11168 (ruling B on objectui#11754):
+  // `action:button` itself writes the stash, for an `undoable`
+  // `operation: 'update'` of the record in scope only. That action dispatches
+  // to the `script` route, never to the console `api` handler that seeds
+  // `recordIdParam`, so `action:button:recordIdParam` below stays unreachable;
+  // `undoable` and `recordIdField` are forwarded by `action:button` and need no
+  // entry for it.
   ...Object.fromEntries(
     [
       ["recordIdParam", "action:button", "action:icon", "action:group", "action:menu"],
@@ -249,12 +257,14 @@ export const JUSTIFIED = {
             "row (`resolveRecordIdParamSeed(action, rowRecord)`, which is where " +
             "`recordIdField` is read since objectstack#8018), and reads " +
             "`action.undoable && obj && recId && rowRecord && …` — and `rowRecord` is " +
-            "`params._rowRecord`, written only by the spread-based hosts listed above, " +
-            "none of which dispatch through this renderer. objectstack#6938 made the same " +
+            "`params._rowRecord`, written by the spread-based hosts listed above, none of " +
+            "which dispatch through this renderer, and by `action:button` for an `undoable` " +
+            "`operation: 'update'` alone (objectui#11168), a path that never reaches the " +
+            "console `api` handler. objectstack#6938 made the same " +
             "reachability call for `recordIdParam`; this gate's own measurement extended it " +
             "to the two siblings behind the same guard (objectui#4192 had read the omission " +
-            "as a live Undo loss — it is not: `action:button` forwards `undoable` and " +
-            "`recordIdField` on this path INERTLY, for want of the same `rowRecord`).",
+            "as a live Undo loss — it is not on these surfaces, and `action:button` forwards " +
+            "both).",
           issue: 4192,
         },
       ])

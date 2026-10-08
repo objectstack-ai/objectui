@@ -40,7 +40,7 @@ import { PageSchema } from '@objectstack/spec/ui';
  * effects forever (the reasoning in `PageBlockInspector.i18n.test.tsx`).
  */
 const state = vi.hoisted(() => ({
-  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]) },
+  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]), withPreviewDrafts() { return this; } },
 }));
 vi.mock('../useMetadata', () => ({ useMetadataClient: () => state.metadataClient }));
 

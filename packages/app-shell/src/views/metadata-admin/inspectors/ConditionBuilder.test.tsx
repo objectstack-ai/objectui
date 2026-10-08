@@ -21,7 +21,7 @@ import userEvent from '@testing-library/user-event';
 // the shared client so that mount-time fetch doesn't escape to the real
 // network; see PageBlockInspector.i18n.test.tsx for the full mechanism.
 const state = vi.hoisted(() => ({
-  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]) },
+  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]), withPreviewDrafts() { return this; } },
 }));
 vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,

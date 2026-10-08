@@ -55,7 +55,7 @@ import '@objectstack/formula';
 // objectui#4697 — these inspectors call `useObjectFields(objectName)`
 // unconditionally, so a mount-time fetch would escape to the real network.
 const state = vi.hoisted(() => ({
-  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]) },
+  metadataClient: { get: vi.fn(async () => undefined), list: vi.fn(async () => [] as unknown[]), withPreviewDrafts() { return this; } },
 }));
 vi.mock('../useMetadata', () => ({
   useMetadataClient: () => state.metadataClient,

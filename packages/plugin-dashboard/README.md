@@ -834,7 +834,7 @@ keeps a published edit over that catalog: an explicit override beats the
 packaged default. Pass `localized={true}` when your document came from such a
 read. The renderer then draws these texts as given:
 
-- the widget `title`, `description` and sub-caption (`options.description`);
+- the widget `title` and `description`;
 - its own header `label` and `description`.
 
 An inline per-locale map is still collapsed to the active language. The client

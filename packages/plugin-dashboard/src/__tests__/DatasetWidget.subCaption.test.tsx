@@ -1,48 +1,34 @@
 // Copyright (c) 2026 ObjectStack. Licensed under the Apache-2.0 license.
 
 /**
- * objectui#7293 — a dataset-bound KPI tile must render the sub-caption its
- * author declared in `options.description`.
+ * objectui#11389 — a dataset-bound KPI tile draws no sub-caption from its
+ * options bag, whatever an author wrote there (ruling C: the metric sub-caption
+ * is retired at both ends).
  *
- * Why it never did: the sub-caption slot is wired end to end and terminated
- * nowhere. It has its own translation key
- * (`{ns}.dashboards.{dash}.widgets.{id}.subCaption`, objectui#4032 item 4 /
- * objectstack#8056), the server's `translateDashboard` overlays that
- * translation onto `options.description`, and `DashboardRenderer`'s
- * `tWidgetSubCaption` resolves it — but attaches the resolved value only to the
- * two INLINE arms of `getComponentSchema()`. `dataset` is REQUIRED on
- * `DashboardWidgetSchema` (re-read for this card against the PUBLISHED
- * `@objectstack/spec@17.4.0`: required keys are exactly `id` / `dataset` /
- * `values`), so every spec-legal widget routes to `DatasetWidget` instead, and
- * `grep -n description` in that file returned 0 hits against 25 line-hits for
- * `options` — a real absence, not a misread. Four layers of live plumbing, no
- * consumer: the ADR-0049 declared-but-unenforced shape.
+ * This file used to pin objectui#7293, which taught `DatasetWidget` to draw an
+ * authored `options.description` as a caption row under the value. The spec
+ * never declared that key; the server overlay that wrote it is gone in
+ * `@objectstack/spec` 17.7.0, which also refuses the `subCaption` translation
+ * key by name. The component now has no sub-caption prop and no read of the
+ * key, and these are the reversed pins, rendered with `DatasetWidget` mounted
+ * directly (no dashboard surface, so nothing upstream can supply a caption):
  *
- * The fix reads the key in `DatasetWidget` rather than plumbing it in as a
- * prop, and that is load-bearing: BOTH dashboard surfaces route a dataset-bound
- * widget to this one component (`DashboardRenderer` and `DashboardGridLayout`,
- * objectui#4614), so a prop passed from one dispatch site would have fixed one
- * surface and left the other silently unchanged.
+ *  - every authored form of `options.description` (plain string, a value the
+ *    server used to overlay, a per-locale map under either language) renders
+ *    the no-caption markup BYTE-FOR-BYTE — RED on the pre-change code, which
+ *    appended a caption span, and GREEN after;
+ *  - the no-options and empty-value rows were the old file's control half and
+ *    stay GREEN on both sides: that markup is the one every case now draws;
+ *  - the objectui#7293 repro (three measures) still draws one value and,
+ *    now, no caption.
  *
- * The two halves of this file pin OPPOSITE directions on purpose:
- *
- *  - the **no-sub-caption** markup is asserted byte-for-byte. It was green
- *    BEFORE this change and stays green after — it proves the caption row
- *    gained no empty node and no stray spacing. Reverting the change must NOT
- *    turn it red, which is what makes it a control rather than a second copy
- *    of the subject;
- *  - the **declared sub-caption** assertions were RED before (nothing rendered
- *    at all) and are green after. Those are the fix's evidence.
- *
- * Deliberately NOT pinned as a feature: measures after `values[0]`. That is
- * suggestion 2 on the card, it would give `values[1..]` rendering semantics
- * they do not have today, and it is a separate card on the manual-floor route.
- * The one assertion about it here records that this change did not ride it in.
+ * The widget's one authored description is `widget.description`, drawn as the
+ * card-header subtitle by the dashboard surface, not by this component; the
+ * surfaces' files pin that half.
  *
  * No `dist/` is involved: the root `vitest.config.mts` aliases every
  * `@object-ui/*` specifier to that package's `src/`, and this file imports
- * `../DatasetWidget` relatively, so an ablation of the fix reads source
- * directly.
+ * `../DatasetWidget` relatively.
  */
 
 import { describe, it, expect, vi, afterEach } from 'vitest';
@@ -53,24 +39,16 @@ import { DatasetWidget } from '../DatasetWidget';
 afterEach(cleanup);
 
 /**
- * The metric tile's markup with NO sub-caption declared, exactly as
- * origin/main@64c3cdd44 renders it. Spelled out in full (not a snapshot file)
- * so a regression shows up as a diff in the test source review. This is the
- * same byte string `DatasetWidget.colorVariant.test.tsx` pins for the same
- * widget — two files measuring the pre-change bytes independently.
+ * The metric tile's markup with no sub-caption, spelled out in full (not a
+ * snapshot file) so a regression shows up as a diff in the test source review.
+ * The same byte string `DatasetWidget.colorVariant.test.tsx` pins for the same
+ * widget.
  */
 const BASELINE_NO_SUBCAPTION =
   '<div class="flex h-full w-full flex-col items-start justify-center gap-1 p-2">'
   + '<span class="text-2xl font-semibold tabular-nums">510000</span>'
   + '<span class="text-xs text-muted-foreground">revenue</span>'
   + '</div>';
-
-/** The baseline with the sub-caption span appended — nothing else may move. */
-const withSubCaption = (text: string) =>
-  BASELINE_NO_SUBCAPTION.replace(
-    '</div>',
-    `<span class="text-xs text-muted-foreground" data-testid="dataset-metric-subcaption">${text}</span></div>`,
-  );
 
 const renderMetric = async (
   widgetExtras: Record<string, unknown> = {},
@@ -102,81 +80,52 @@ const renderMetricIn = async (language: string, widgetExtras: Record<string, unk
   return container;
 };
 
-describe('DatasetWidget metric tile — the declared sub-caption (#7293)', () => {
-  // ── Control half: green BEFORE and after. Must not red on ablation. ──────
-  it('renders the pre-change markup byte-for-byte when no sub-caption is declared', async () => {
-    const container = await renderMetric();
-    expect(container.innerHTML).toBe(BASELINE_NO_SUBCAPTION);
-  });
+const CAPTION = '[data-testid="dataset-metric-subcaption"]';
 
+describe('DatasetWidget metric tile — no sub-caption from the options bag (objectui#11389)', () => {
+  // ── Control half: GREEN before and after. ────────────────────────────────
   it.each([
     ['no options bag at all', undefined],
     ['an options bag without the key', { limit: 10 }],
     ['an explicitly empty string', { description: '' }],
     ['a null', { description: null }],
     ['a locale map with no usable entry', { description: {} }],
-  ])('injects no node for %s', async (_label, options) => {
+  ])('renders the no-caption markup for %s', async (_label, options) => {
     const container = await renderMetric(options === undefined ? {} : { options });
     expect(container.innerHTML).toBe(BASELINE_NO_SUBCAPTION);
-    expect(container.querySelector('[data-testid="dataset-metric-subcaption"]')).toBeNull();
   });
 
-  // ── Subject half: RED before this change, green after. ───────────────────
-  it('renders the sub-caption an author declared as a plain string', async () => {
+  // ── Reversed half: RED before this change (a caption span was appended). ──
+  it('renders the no-caption markup for an authored plain-string `options.description`', async () => {
     const container = await renderMetric({
       options: { description: 'awaiting confirmation / awaiting approval' },
     });
-    expect(screen.getByTestId('dataset-metric-subcaption')).toHaveTextContent(
-      'awaiting confirmation / awaiting approval',
-    );
-    // …and the tile is otherwise untouched: the value, the measure label and
-    // the layout are the baseline bytes with exactly one span appended.
-    expect(container.innerHTML).toBe(withSubCaption('awaiting confirmation / awaiting approval'));
+    expect(container.querySelector(CAPTION)).toBeNull();
+    expect(container.innerHTML).toBe(BASELINE_NO_SUBCAPTION);
   });
 
-  it('renders the value the server overlaid onto the key', async () => {
-    // `translateDashboard` writes the resolved `widgets.{id}.subCaption`
-    // translation onto `options.description` before the document reaches the
-    // client, so on a served dashboard the plain string IS the translation.
-    // Nothing extra is needed for that path — it is the case above, and this
-    // pins that a served document keeps its overlaid text verbatim.
+  it('renders the no-caption markup for the text the server used to overlay onto the key', async () => {
+    // `translateDashboard` wrote the resolved `subCaption` translation here
+    // until `@objectstack/spec` 17.7.0. A stored document can still carry it.
     const container = await renderMetric({
       id: 'list_completeness',
       options: { description: '待确认 7 / 待审批 3' },
     });
-    expect(container.innerHTML).toBe(withSubCaption('待确认 7 / 待审批 3'));
+    expect(container.innerHTML).toBe(BASELINE_NO_SUBCAPTION);
   });
 
-  it.each([
-    ['zh', '待确认 / 待审批'],
-    ['en', 'to confirm / to approve'],
-  ])('collapses an authored inline per-locale map under %s', async (language, expected) => {
+  it.each(['zh', 'en'])('renders the no-caption markup for an authored per-locale map under %s', async (language) => {
     const container = await renderMetricIn(language, {
-      options: {
-        description: { en: 'to confirm / to approve', zh: '待确认 / 待审批' },
-      },
+      options: { description: { en: 'to confirm / to approve', zh: '待确认 / 待审批' } },
     });
-    expect(screen.getByTestId('dataset-metric-subcaption')).toHaveTextContent(expected);
-    expect(container.innerHTML).toBe(withSubCaption(expected));
-  });
-
-  it('reads the map through `pickLocalized`, not a private string-only test', async () => {
-    // objectui#4032 is what a private resolver that could not read the inline
-    // map already cost this vocabulary: the KPI card rendered the literal
-    // string "metric". A `typeof === 'string'` guard here would silently drop
-    // the map form and re-create THIS card's own bug class inside its fix, so
-    // the map must not merely "not crash" — it must resolve.
-    const container = await renderMetricIn('zh', {
-      options: { description: { en: 'English only' } },
-    });
-    // No `zh` entry: `pickLocalized` falls through to `en` rather than missing.
-    expect(container.innerHTML).toBe(withSubCaption('English only'));
+    expect(container.querySelector(CAPTION)).toBeNull();
+    expect(container.innerHTML).toBe(BASELINE_NO_SUBCAPTION);
   });
 });
 
-describe('#7293 delivers the sub-caption WITHOUT widening the value vocabulary', () => {
-  it("renders the card's own repro: three measures, one sub-caption", async () => {
-    // The duly#109 tile, verbatim from the card's repro block.
+describe('the objectui#7293 repro draws one value and no caption', () => {
+  it('three measures and an authored `options.description`: the first measure, nothing under it', async () => {
+    // The duly#109 tile, verbatim from objectui#7293's repro block.
     const src = {
       queryDataset: vi.fn(async () => ({
         rows: [{ approved_rate: 82, duties_to_confirm: 7, duties_to_review: 3 }],
@@ -195,15 +144,10 @@ describe('#7293 delivers the sub-caption WITHOUT widening the value vocabulary',
       />,
     );
     await screen.findByText('82');
-    expect(screen.getByTestId('dataset-metric-subcaption')).toHaveTextContent(
-      'awaiting confirmation / awaiting approval',
-    );
-    // Suggestion 2 on the card — rendering `values[1..]` as secondary tile
-    // values — is NOT part of this change: it would give those entries
-    // rendering semantics they do not have today (a widening, hence a separate
-    // card on the manual-floor route). The measures after `values[0]` are still
-    // dropped, and this assertion is the evidence that this PR did not ride it
-    // in. The successor card is EXPECTED to change this expectation.
+    expect(container.querySelector(CAPTION)).toBeNull();
+    expect(container.textContent).not.toContain('awaiting confirmation');
+    // Measures after `values[0]` are still not drawn (objectui#8894 reports
+    // the drop); this change neither drew them nor moved that.
     expect(container.textContent).not.toContain('7');
     expect(container.textContent).not.toContain('3');
   });

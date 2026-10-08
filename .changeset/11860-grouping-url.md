@@ -14,3 +14,5 @@ The console object page (`@object-ui/app-shell`) writes that value into a fourth
 - Each change replaces the current history entry. Clearing the grouping removes the parameter; the spec has no empty grouping, so a link to a view that declares a grouping cannot carry "no grouping". Switching to another view opens it on its own grouping. Opening or closing the Group panel leaves the URL unchanged.
 
 The grouping is written to the URL only: it is not stored on the view or in the per-browser filter memory.
+
+Also fixed on the console object page: a link's `uf__sort` now sorts the list on a view that declares a sort of its own. Before, the view's declared sort overrode it, so the link's sort showed in the address bar while the list stayed in the view's order.

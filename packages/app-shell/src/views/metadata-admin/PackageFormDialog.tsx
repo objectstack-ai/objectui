@@ -15,12 +15,19 @@
  *              `namespace` / `scope` / … are `immutable` in the form and lock
  *              automatically once `createMode` is false)
  *   • view   → read-only render of the manifest
+ *
+ * Create mode's Package ID is not the spec form's text field but the shared
+ * {@link PackageIdInput} (objectui#11792): it follows the display name until
+ * the author edits it, and the dialog submits only an id the installed
+ * `ManifestSchema` accepts — the rule `POST /api/v1/packages` refuses by.
  */
 
 import * as React from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { ManifestSchema, deriveNamespaceFromPackageId } from '@objectstack/spec/kernel';
+import { useAuth } from '@object-ui/auth';
 import { NAMESPACE_RE } from '../studio-design/packages-io.js';
+import { PackageIdInput, type PackageIdRule } from '../studio-design/PackageIdInput.js';
 import {
   Button,
   Dialog,
@@ -29,13 +36,21 @@ import {
   DialogTitle,
   DialogDescription,
   DialogFooter,
+  Label,
 } from '@object-ui/components';
-import { useMetadataLocale, t, tFormat } from './i18n.js';
+import { useMetadataLocale, t, tFormat, tOptional } from './i18n.js';
 import { SchemaForm, type SchemaFormIssue } from './SchemaForm.js';
 import { getPackageSchema, getPackageForm } from './package-schema.js';
 import { readEnvelopeFailureText } from '../../utils/apiErrorEnvelope.js';
 
 const API = '/api/v1/packages';
+
+/**
+ * Create mode renders the id through {@link PackageIdInput} above the spec
+ * form, so the form's own text field for it is hidden (still preserved on
+ * save). Edit and view keep the form's locked id field (objectui#11792).
+ */
+const CREATE_HIDDEN_FIELDS = ['id'];
 
 /**
  * Is `v` a package version the INSTALLED `@objectstack/spec` accepts?
@@ -49,6 +64,53 @@ const API = '/api/v1/packages';
  */
 function isSpecPackageVersion(v: string): boolean {
   return ManifestSchema.shape.version.safeParse(v).success;
+}
+
+/**
+ * Is `v` a package id the INSTALLED `@objectstack/spec` accepts?
+ *
+ * Same reasoning as {@link isSpecPackageVersion}, and the same declaration the
+ * server refuses by: `POST /api/v1/packages` parses the raw id with
+ * `ManifestSchema.shape.id` before it installs anything, answering 400
+ * otherwise (objectui#11792). ⛔ Not `PACKAGE_ID_RE` from `packages-io`: that
+ * hand-copied grammar admits underscores and refuses a digit-led first segment,
+ * so it disagrees with this rule in both directions.
+ */
+function isSpecPackageId(v: string): boolean {
+  return ManifestSchema.shape.id.safeParse(v).success;
+}
+
+/**
+ * One reverse-domain id segment from free text: accents folded, lowercased,
+ * every run of other characters turned into one hyphen, no hyphen at either
+ * end. Empty when nothing usable remains (a CJK-only name, say).
+ */
+function toIdSegment(raw: string): string {
+  return raw
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+/**
+ * The id a new package's display name suggests: `com.<org>.<name>`, where
+ * `<org>` is the active organization's slug as the session already holds it
+ * (objectui#11792). With no active organization — no auth provider, a
+ * single-tenant deployment, or a session whose organizations have not loaded
+ * — the segment is left out rather than invented, giving `com.<name>`.
+ *
+ * The candidate is checked against the spec before it is offered, so a
+ * derivation never puts an id in the field that the dialog itself refuses.
+ * `null` when the name yields no segment at all.
+ */
+function deriveCreatePackageId(name: string, orgSlug: string | null | undefined): string | null {
+  const nameSegment = toIdSegment(name);
+  if (!nameSegment) return null;
+  const orgSegment = orgSlug ? toIdSegment(orgSlug) : '';
+  const candidate = ['com', orgSegment, nameSegment].filter(Boolean).join('.');
+  return isSpecPackageId(candidate) ? candidate : null;
 }
 
 export type PackageFormMode = 'create' | 'edit' | 'view';
@@ -170,6 +232,11 @@ export function PackageFormDialog({
   const locale = useMetadataLocale();
   const schema = React.useMemo(() => getPackageSchema(), []);
   const form = React.useMemo(() => getPackageForm(locale), [locale]);
+  // objectui#11792 — the `<org>` of a derived `com.<org>.<name>` id. Null
+  // outside an AuthProvider and whenever the session has no active
+  // organization; `deriveCreatePackageId` then leaves the segment out.
+  const orgSlug = useAuth().activeOrganization?.slug ?? null;
+  const idInputId = React.useId();
 
   const createMode = mode === 'create';
   const readOnly = mode === 'view';
@@ -180,10 +247,14 @@ export function PackageFormDialog({
   // Object-name namespace (framework#2694) tracks the id-derived default until
   // the user edits it directly.
   const nsTouched = React.useRef(false);
+  // On create the id tracks the display name (objectui#11792) the same way,
+  // until the author types into the id field.
+  const idTouched = React.useRef(false);
 
   React.useEffect(() => {
     if (!open) return;
     nsTouched.current = false;
+    idTouched.current = false;
     if (createMode) {
       // Defaults for a new WRITABLE base package. Deliberately no `scope`:
       // a runtime-created base is writable, whereas `scope: 'project'` marks a
@@ -201,7 +272,9 @@ export function PackageFormDialog({
   // On create, keep `namespace` in sync with the id (deriveNamespaceFromPackageId)
   // until the user edits the namespace field themselves — mirroring the old
   // create form's behaviour (framework#2694). SchemaForm hands us the full next
-  // value, so we diff id/namespace to decide.
+  // value, so we diff id/namespace to decide. The id itself follows the display
+  // name the same way until the author edits it (objectui#11792), and a
+  // derived id moves the namespace exactly as a typed one does.
   const handleChange = React.useCallback(
     (next: ManifestRecord) => {
       if (!createMode) {
@@ -209,6 +282,10 @@ export function PackageFormDialog({
         return;
       }
       setDraft((prev) => {
+        let id = next.id;
+        if (!idTouched.current && next.name !== prev.name) {
+          id = deriveCreatePackageId(String(next.name ?? ''), orgSlug) ?? '';
+        }
         let namespace = next.namespace;
         if (namespace !== prev.namespace) {
           // Direct edit — stop tracking the id and sanitize to the allowed
@@ -218,14 +295,57 @@ export function PackageFormDialog({
             .toLowerCase()
             .replace(/[^a-z0-9_]/g, '');
         }
-        if (!nsTouched.current && next.id !== prev.id) {
-          namespace = deriveNamespaceFromPackageId(String(next.id ?? '')) ?? '';
+        if (!nsTouched.current && id !== prev.id) {
+          namespace = deriveNamespaceFromPackageId(String(id ?? '')) ?? '';
         }
-        return { ...next, namespace };
+        return { ...next, id, namespace };
       });
     },
-    [createMode],
+    [createMode, orgSlug],
   );
+
+  // The create-mode id field (PackageIdInput) reports the sanitized id alone.
+  // Typing into it ends the name derivation for this opening of the dialog;
+  // the namespace keeps following the id exactly as above.
+  const handleIdChange = React.useCallback((id: string) => {
+    idTouched.current = true;
+    setDraft((prev) => {
+      if (id === prev.id) return prev;
+      const namespace = nsTouched.current ? prev.namespace : (deriveNamespaceFromPackageId(id) ?? '');
+      return { ...prev, id, namespace };
+    });
+  }, []);
+
+  // The active organization can arrive after the author has typed the name
+  // (the session's organization list loads on its own schedule); an id still
+  // following the name picks the segment up then.
+  React.useEffect(() => {
+    if (!open || !createMode || idTouched.current) return;
+    setDraft((prev) => {
+      const name = String(prev.name ?? '');
+      if (!name.trim()) return prev;
+      const id = deriveCreatePackageId(name, orgSlug) ?? '';
+      if (id === prev.id) return prev;
+      const namespace = nsTouched.current
+        ? prev.namespace
+        : (deriveNamespaceFromPackageId(id) ?? '');
+      return { ...prev, id, namespace };
+    });
+  }, [open, createMode, orgSlug]);
+
+  // The create-mode id field judges by the spec's id rule and says so in its
+  // own words (objectui#11792); the landing duplicate form keeps its own.
+  const idRule: PackageIdRule = React.useMemo(
+    () => ({
+      test: isSpecPackageId,
+      formatHint: tFormat('engine.packages.idRule.formatHint', locale, { example: 'com.acme.crm' }),
+      strippedNotice: t('engine.packages.idRule.strippedNotice', locale),
+    }),
+    [locale],
+  );
+  // The help line SchemaForm would have shown under the id: the localized row
+  // when there is one, else the spec's own `.describe()` (see package-schema).
+  const idHelp = tOptional('engine.packages.form.help.id', locale) ?? ManifestSchema.shape.id.description;
 
   // Spec validation → inline issues (only where fields are editable).
   const issues: SchemaFormIssue[] = React.useMemo(() => {
@@ -240,7 +360,9 @@ export function PackageFormDialog({
   const versionOk = createMode
     ? isSpecPackageVersion(versionStr)
     : !versionStr || isSpecPackageVersion(versionStr);
-  const idOk = !createMode || !!String(draft.id ?? '').trim();
+  // objectui#11792 — on create, only an id the spec accepts: a non-empty id
+  // used to be enough, so `Repairs Center` was posted and refused with a 400.
+  const idOk = !createMode || isSpecPackageId(String(draft.id ?? '').trim());
   // Namespace is required on create (framework#2694): every object name is
   // prefixed with it. On edit it's immutable and not resubmitted.
   const nsOk = !createMode || NAMESPACE_RE.test(String(draft.namespace ?? '').trim());
@@ -359,12 +481,35 @@ export function PackageFormDialog({
         </DialogHeader>
 
         <div className="py-1" data-testid="package-form">
+          {createMode && (
+            <div className="mb-4 space-y-1.5" data-testid="package-form-id">
+              <Label htmlFor={idInputId} className="text-sm font-medium">
+                {t('engine.packages.create.id', locale)}
+                <span className="ml-0.5 text-destructive" aria-hidden="true">
+                  *
+                </span>
+              </Label>
+              <PackageIdInput
+                id={idInputId}
+                value={String(draft.id ?? '')}
+                onChange={handleIdChange}
+                placeholder="com.acme.crm"
+                locale={locale}
+                rule={idRule}
+                inputClassName="h-10 px-3 py-2 text-base md:text-sm"
+                testId="package-form-id-input"
+              />
+              {idHelp && <p className="text-xs text-muted-foreground">{idHelp}</p>}
+              <p className="text-xs text-muted-foreground">{t('engine.packages.idRule.derived', locale)}</p>
+            </div>
+          )}
           <SchemaForm
             schema={schema}
             form={form}
             value={draft}
             onChange={handleChange}
             issues={issues}
+            hiddenFields={createMode ? CREATE_HIDDEN_FIELDS : undefined}
             readOnly={readOnly}
             createMode={createMode}
           />

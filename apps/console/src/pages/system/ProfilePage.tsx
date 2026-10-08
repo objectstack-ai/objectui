@@ -29,6 +29,11 @@ import {
   Badge,
   Alert,
   AlertDescription,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@object-ui/components';
 import { useUpload } from '@object-ui/providers';
 import { useObjectTranslation, type TranslateFn } from '@object-ui/i18n';
@@ -331,8 +336,84 @@ function nativeLanguageName(code: string): string {
   }
 }
 
-/** The `<option>` value standing for "no stored tag" — see {@link LanguageCard}. */
+/** The picker option's value standing for "no stored tag" — see {@link LanguageCard}. */
 const USE_DEPLOYMENT_DEFAULT = '';
+
+/** The item a value none of the picker's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — the language picker, drawn with the shared `Select` the rest
+ * of the console picks with. It used to be a browser-native `<select>`. What a
+ * pick writes is unchanged: `onPick` receives the picked option's own `value`,
+ * the string the native control's `change` carried, and {@link LanguageCard}
+ * saves it as before. Re-picking the current option writes nothing, as it did
+ * there.
+ *
+ * - Items carry their option's INDEX, not its value. The first option is
+ *   {@link USE_DEPLOYMENT_DEFAULT}, whose value is `''`, which `SelectItem`
+ *   refuses; an index cannot collide with a language tag, as any stand-in
+ *   string could.
+ * - The card already lists a stored tag the deployment no longer publishes.
+ *   A value none of the options carries all the same (a pick the offered list
+ *   dropped since) gets an item of its own, labelled with the value, so the
+ *   trigger shows what Save would write. The native control showed its first
+ *   option there. Picking that item writes nothing.
+ * - Read-only follows the primitive (objectui#11781): `disabled` disables the
+ *   trigger itself.
+ * - `id` lands on the trigger, so the card's `<Label htmlFor>` names it as it
+ *   named the native control, and the refusal stays attached to it.
+ */
+function LanguagePicker({
+  id,
+  testId,
+  value,
+  options,
+  onPick,
+  disabled,
+  invalid,
+  describedBy,
+}: {
+  id: string;
+  testId: string;
+  value: string;
+  options: ReadonlyArray<{ value: string; label: string }>;
+  onPick: (value: string) => void;
+  disabled: boolean;
+  invalid: boolean;
+  describedBy: string | undefined;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the card's own value, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+      disabled={disabled}
+    >
+      <SelectTrigger
+        id={id}
+        data-testid={testId}
+        aria-invalid={invalid ? true : undefined}
+        aria-describedby={describedBy}
+        className="h-9"
+      >
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
 
 interface LanguageCardProps {
   /** The signed-in user's `sys_user` record id. */
@@ -514,31 +595,28 @@ function LanguageCard({ userId }: LanguageCardProps) {
             <Label htmlFor="profile-language">
               {t('profile.language.label', { defaultValue: 'Preferred language' })}
             </Label>
-            <select
+            <LanguagePicker
               id="profile-language"
-              data-testid="profile-language-select"
+              testId="profile-language-select"
               value={choice}
-              onChange={(e: React.ChangeEvent<HTMLSelectElement>) => {
-                setChoice(e.target.value);
+              options={[
+                {
+                  value: USE_DEPLOYMENT_DEFAULT,
+                  label: t('profile.language.systemDefault', {
+                    defaultValue: 'Use the deployment default',
+                  }),
+                },
+                ...codes.map((code) => ({ value: code, label: nativeLanguageName(code) })),
+              ]}
+              onPick={(next) => {
+                setChoice(next);
                 setFieldError(null);
                 setSaved(false);
               }}
               disabled={!writable || submitting}
-              aria-invalid={fieldError ? true : undefined}
-              aria-describedby={fieldError ? 'profile-language-error' : undefined}
-              className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              <option value={USE_DEPLOYMENT_DEFAULT}>
-                {t('profile.language.systemDefault', {
-                  defaultValue: 'Use the deployment default',
-                })}
-              </option>
-              {codes.map((code) => (
-                <option key={code} value={code}>
-                  {nativeLanguageName(code)}
-                </option>
-              ))}
-            </select>
+              invalid={!!fieldError}
+              describedBy={fieldError ? 'profile-language-error' : undefined}
+            />
             {fieldError && (
               <p id="profile-language-error" className="text-sm text-destructive">
                 {fieldError}

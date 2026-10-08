@@ -69,6 +69,11 @@ import {
   Input,
   Label,
   EmptyValue,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
 } from '@object-ui/components';
 import { Copy, ExternalLink, FormInput, RefreshCw, Code2, Link2, Settings2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
@@ -104,6 +109,76 @@ function sanitizeSlug(s: string): string {
 /** The anonymous form route's prefix, as `App.tsx` declares it (`/f/:slug`). */
 const PUBLIC_FORM_ROUTE = '/f';
 
+type SubmitBehaviorKind = 'thank-you' | 'redirect' | 'continue' | 'next-record';
+
+/** The "After submit" picker's options, in the order the dialog offers them. */
+const SUBMIT_BEHAVIOR_OPTIONS: ReadonlyArray<{ value: SubmitBehaviorKind; label: string }> = [
+  { value: 'thank-you', label: 'Show a thank-you panel' },
+  { value: 'redirect', label: 'Redirect to a URL' },
+  { value: 'continue', label: 'Reset for another response' },
+  { value: 'next-record', label: 'Advance to next record (internal queues)' },
+];
+
+/** The item a value none of a picker's options carries is shown by. */
+const OUTSIDE_OPTIONS = 'outside';
+
+/**
+ * objectui#11865 — the two dialogs' pickers (the FormView to publish, and what
+ * happens after submit), drawn with the shared `Select` the rest of the
+ * console picks with. They used to be browser-native `<select>`s. What a pick
+ * writes is unchanged: `onPick` receives the picked option's own `value`, the
+ * string the native control's `change` carried. Re-picking the current option
+ * writes nothing, as it did there.
+ *
+ * - Items carry their option's INDEX, not its value. The FormView picker opens
+ *   on "— Select a FormView —", whose value is `''`, which `SelectItem`
+ *   refuses; an index cannot collide with a view's name, as any stand-in
+ *   string could.
+ * - A value none of the options carries gets an item of its own, labelled with
+ *   the value, so the trigger shows what the dialog holds and would save. The
+ *   native control showed its first option there. Picking that item writes
+ *   nothing.
+ * - `id` lands on the trigger, so the field's `<Label htmlFor>` names it as it
+ *   named the native control.
+ * - Neither dialog has a read-only state: both are reached only from this
+ *   page's own Publish and Edit buttons.
+ */
+function FormsPicker<V extends string>({
+  id,
+  value,
+  options,
+  onPick,
+}: {
+  id: string;
+  value: V;
+  options: ReadonlyArray<{ value: V; label: string }>;
+  onPick: (value: V) => void;
+}) {
+  const at = options.findIndex((o) => o.value === value);
+  return (
+    <Select
+      value={at !== -1 ? String(at) : OUTSIDE_OPTIONS}
+      onValueChange={(token) => {
+        // `undefined` for the outside item: it is the dialog's own value, so there is nothing to write.
+        const picked = options[Number(token)];
+        if (picked) onPick(picked.value);
+      }}
+    >
+      <SelectTrigger id={id} className="h-9">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {at === -1 && <SelectItem value={OUTSIDE_OPTIONS}>{value}</SelectItem>}
+        {options.map((o, i) => (
+          <SelectItem key={`${i}:${o.value}`} value={String(i)}>
+            {o.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
 export function PublicFormsPage() {
   const adapter = useAdapter();
   const client: any = adapter?.getClient?.();
@@ -121,7 +196,7 @@ export function PublicFormsPage() {
   const [editOpen, setEditOpen] = useState(false);
   const [editRow, setEditRow] = useState<PublicFormRow | null>(null);
   const [editSlug, setEditSlug] = useState('');
-  const [editBehavior, setEditBehavior] = useState<'thank-you' | 'redirect' | 'continue' | 'next-record'>('thank-you');
+  const [editBehavior, setEditBehavior] = useState<SubmitBehaviorKind>('thank-you');
   const [editBehaviorTitle, setEditBehaviorTitle] = useState('');
   const [editBehaviorMessage, setEditBehaviorMessage] = useState('');
   const [editBehaviorUrl, setEditBehaviorUrl] = useState('');
@@ -478,19 +553,18 @@ export function PublicFormsPage() {
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label htmlFor="publish-view">FormView</Label>
-              <select
+              <FormsPicker
                 id="publish-view"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
                 value={publishView}
-                onChange={(e) => setPublishView(e.target.value)}
-              >
-                <option value="">— Select a FormView —</option>
-                {publishable.map((p) => (
-                  <option key={p.name} value={p.name}>
-                    {p.label ?? p.name} ({p.name}) {p.object ? `· ${p.object}` : ''}
-                  </option>
-                ))}
-              </select>
+                options={[
+                  { value: '', label: '— Select a FormView —' },
+                  ...publishable.map((p) => ({
+                    value: p.name,
+                    label: `${p.label ?? p.name} (${p.name}) ${p.object ? `· ${p.object}` : ''}`,
+                  })),
+                ]}
+                onPick={setPublishView}
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="publish-slug">URL slug</Label>
@@ -543,20 +617,15 @@ export function PublicFormsPage() {
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="edit-behavior">After submit</Label>
-              <select
+              <FormsPicker
                 id="edit-behavior"
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm"
                 value={editBehavior}
-                onChange={(e) => {
-                  setEditBehavior(e.target.value as any);
+                options={SUBMIT_BEHAVIOR_OPTIONS}
+                onPick={(kind) => {
+                  setEditBehavior(kind);
                   setEditUrlRefusal(null);
                 }}
-              >
-                <option value="thank-you">Show a thank-you panel</option>
-                <option value="redirect">Redirect to a URL</option>
-                <option value="continue">Reset for another response</option>
-                <option value="next-record">Advance to next record (internal queues)</option>
-              </select>
+              />
             </div>
             {editBehavior === 'thank-you' && (
               <>

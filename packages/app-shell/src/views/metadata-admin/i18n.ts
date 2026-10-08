@@ -2199,6 +2199,11 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.packages.create.id': 'Package ID',
   'engine.packages.create.namespace': 'Object namespace',
   'engine.packages.create.name': 'Display name',
+  // objectui#11792 — the create dialog's Package ID field (PackageIdInput),
+  // which judges by the spec's id rule rather than the landing form's own.
+  'engine.packages.idRule.formatHint': 'Use a reverse-domain id like {example}: two or more parts separated by dots, each made of lowercase letters, digits and inner hyphens. Underscores are not allowed.',
+  'engine.packages.idRule.strippedNotice': 'Unsupported characters were removed — allowed: lowercase letters, digits, dots and hyphens',
+  'engine.packages.idRule.derived': 'Filled in from the display name until you edit it.',
   'engine.packages.create.version': 'Version',
   'engine.packages.create.versionInvalid': 'Use semantic version, e.g. 0.1.0',
   'engine.packages.create.creating': 'Creating…',
@@ -2685,6 +2690,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.cancel': 'Cancel',
   'engine.studio.create': 'Create',
   'engine.studio.creating': 'Creating…',
+  // objectui#11792 — CreateItemDialog's preview of the name the item is saved
+  // under, shown when the caller supplies that rule (an object's namespace prefix).
+  'engine.studio.createItem.savedAs': 'Saved as',
   // `383502b23` — this is the CONFIRM control of the shared create dialog.
   // Never give it a name that shares a leading run with the affordance that
   // OPENS that dialog (`engine.studio.app.create`, `Create app` — and the
@@ -5179,6 +5187,9 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.packages.create.id': '软件包 ID',
   'engine.packages.create.namespace': '对象命名空间',
   'engine.packages.create.name': '显示名称',
+  'engine.packages.idRule.formatHint': '请使用反向域名格式的 ID，例如 {example}：由点分隔的两段或更多段，每段只含小写字母、数字和段内连字符，不能使用下划线。',
+  'engine.packages.idRule.strippedNotice': '已移除不支持的字符——仅允许小写字母、数字、点和连字符',
+  'engine.packages.idRule.derived': '编辑前会根据显示名称自动填写。',
   'engine.packages.create.version': '版本',
   'engine.packages.create.versionInvalid': '请使用语义化版本号，例如 0.1.0',
   'engine.packages.create.creating': '创建中…',
@@ -5647,6 +5658,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.cancel': '取消',
   'engine.studio.create': '创建',
   'engine.studio.creating': '创建中…',
+  'engine.studio.createItem.savedAs': '保存为',
   // `383502b23` — see the English entry. This value must share no leading
   // run with `engine.studio.app.create`, which opens the same dialog.
   'engine.studio.createDraft': '存为草稿',

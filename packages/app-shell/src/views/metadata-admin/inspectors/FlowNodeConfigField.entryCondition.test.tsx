@@ -316,11 +316,12 @@ describe('#6226 the flow entry field offers the FLATTENED trigger vocabulary', (
     expect(opts).toContain('previous.amount');
   });
 
-  it('does NOT offer `record.id` — the root this site does not bind', async () => {
+  it('does NOT offer `record.id` — one subject per value, in the bare spelling', async () => {
     const opts = await subjectOptions(mountOneRow().container);
     // The builder's record-scoped DEFAULT context would have put it here. The
-    // flow entry field declares its own (empty) context precisely so the editor
-    // cannot emit the one spelling its own sibling ref-check flags.
+    // flow entry field declares its own (empty) context: the engine binds
+    // `record` at this gate too (objectui#11789), but `record.FIELD` is the
+    // same value as the bare `FIELD` already offered, not a second subject.
     expect(opts).not.toContain('record.id');
     expect(opts.filter((o) => o.startsWith('record.'))).toEqual([]);
   });

@@ -37,11 +37,10 @@ import { findUnknownRefs, scopeRoots, describeUnknownRefs } from './flow-ref-che
  * ConditionBuilder's default context list is `record.id` / `user.*` / `org.*`,
  * which is right for its five record-scoped consumers and wrong here: at a
  * record-trigger gate the evaluation context is the changed record FLATTENED to
- * top level plus `previous`, and `record` is exactly the root `flow-scope.ts`
- * withholds on the start node. Inheriting the default would make this editor
- * emit `record.id` — the one spelling the `findUnknownRefs` note rendered a few
- * lines below, reading the SAME scope, flags as out of scope. One panel
- * contradicting its own generated output.
+ * top level plus `previous`, and that is the vocabulary this site declares. The
+ * engine binds `record` there too, and `flow-scope.ts` scopes it on the start
+ * node (objectui#11789), but `record.FIELD` is the same value as the bare
+ * `FIELD` the builder already offers — a second spelling, not a new subject.
  *
  * So the vocabulary offered here is exactly what `TriggerScope` declares: the
  * trigger record's fields (bare) and `previous` / `previous.FIELD`. Roots this
@@ -177,6 +176,34 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
   // `interpolate()` field (a loop `collection`) out even if one ever opts in.
   const asConditionBuilder =
     field.kind === 'expression' && !!field.conditionBuilder && !!triggerScope && refMode !== 'template';
+  // ADR-0032 — surface a malformed condition (e.g. the `{record.x}` brace-in-CEL
+  // mistake) inline, with the same corrective message the build/agent emit. Only
+  // for expression fields in a *predicate* mode — an expression field flagged
+  // `refMode: 'template'` (e.g. a loop/map collection authored as `{leadList}`)
+  // is an `interpolate()` single-brace template where `{var}` is legal, so the
+  // CEL brace-trap must be gated off or it false-positives on every `{…}`.
+  const isTemplate = refMode === 'template';
+  const exprIssue =
+    field.kind === 'expression' && !isTemplate ? validateExpressionClient('predicate', value, locale) : null;
+
+  // #1934 — pair the picker with a gentle, scope-aware "unknown reference"
+  // warning: CEL for predicate expression fields, `{…}` holes for template
+  // fields (including an expression field in template mode). Skipped for
+  // free-form code (refMode 'expression' on a textarea, e.g. a script body) and
+  // when scope is unknown. The brace error above takes precedence.
+  const scopeRole: 'predicate' | 'template' | null =
+    field.kind === 'expression'
+      ? isTemplate
+        ? 'template'
+        : 'predicate'
+      : refMode === 'template' && (field.kind === 'text' || field.kind === 'textarea')
+        ? 'template'
+        : null;
+  const unknownRefs =
+    !exprIssue && scopeRole && scopeGroups && scopeGroups.length > 0
+      ? findUnknownRefs(value, scopeRole, scopeRoots(scopeGroups.flatMap((g) => g.refs)))
+      : [];
+
   const secretId = React.useId();
   const control = (() => {
     if (asConditionBuilder && triggerScope) {
@@ -192,6 +219,9 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             includePrevious: triggerScope.includePrevious,
             context: FLOW_TRIGGER_CONTEXT_SUBJECTS,
           }}
+          // objectui#11789 — one verdict: the scope note this field renders
+          // below replaces the raw editor's "Valid CEL", never sits under it.
+          scopeIssue={unknownRefs.length > 0}
         />
       );
     }
@@ -473,34 +503,6 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
         );
     }
   })();
-
-  // ADR-0032 — surface a malformed condition (e.g. the `{record.x}` brace-in-CEL
-  // mistake) inline, with the same corrective message the build/agent emit. Only
-  // for expression fields in a *predicate* mode — an expression field flagged
-  // `refMode: 'template'` (e.g. a loop/map collection authored as `{leadList}`)
-  // is an `interpolate()` single-brace template where `{var}` is legal, so the
-  // CEL brace-trap must be gated off or it false-positives on every `{…}`.
-  const isTemplate = refMode === 'template';
-  const exprIssue =
-    field.kind === 'expression' && !isTemplate ? validateExpressionClient('predicate', value, locale) : null;
-
-  // #1934 — pair the picker with a gentle, scope-aware "unknown reference"
-  // warning: CEL for predicate expression fields, `{…}` holes for template
-  // fields (including an expression field in template mode). Skipped for
-  // free-form code (refMode 'expression' on a textarea, e.g. a script body) and
-  // when scope is unknown. The brace error above takes precedence.
-  const scopeRole: 'predicate' | 'template' | null =
-    field.kind === 'expression'
-      ? isTemplate
-        ? 'template'
-        : 'predicate'
-      : refMode === 'template' && (field.kind === 'text' || field.kind === 'textarea')
-        ? 'template'
-        : null;
-  const unknownRefs =
-    !exprIssue && scopeRole && scopeGroups && scopeGroups.length > 0
-      ? findUnknownRefs(value, scopeRole, scopeRoots(scopeGroups.flatMap((g) => g.refs)))
-      : [];
 
   return (
     <div className="space-y-1">

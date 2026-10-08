@@ -1353,6 +1353,18 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
         // below nor a success.
         toast.info(t('engine.studio.publishNoneTitle', locale));
         setChangesOpen(false);
+      } else if (failed.length > 0) {
+        // Partial publish: some drafts did NOT go live. The server returns 200
+        // with them buried in `failed[]`, so the UI used to claim success and
+        // swallow the reason — surface which drafts failed and why instead.
+        //
+        // objectui#11807 — read BEFORE `success === false`, because a refusal
+        // carries both: the batch's own `success` is false on `refused`, and
+        // `failed[]` is where its reasons are. Asked in the other order (as
+        // since objectui#10039 moved this call onto the client, which unwraps
+        // the dispatcher's envelope and so hands back the batch's own
+        // `success`), every refusal reached the author as "Action failed".
+        toast.error(formatPublishFailures(failed));
       } else if (payload?.success === false) {
         // The status is no longer in hand — a non-2xx threw above — so the
         // last rung is a sentence rather than "HTTP 200".
@@ -1366,11 +1378,6 @@ export function StudioDesignSurface({ aiSlot }: StudioDesignSurfaceProps): React
           ),
           { issues: payload?.error?.details?.issues },
         );
-      } else if (failed.length > 0) {
-        // Partial publish: some drafts did NOT go live. The server returns 200
-        // with them buried in `failed[]`, so the UI used to claim success and
-        // swallow the reason — surface which drafts failed and why instead.
-        toast.error(formatPublishFailures(failed));
       } else {
         // objectui#11807 — name how many items went live, read off the batch's
         // own `published[]` (every promoted draft, a draft that changed

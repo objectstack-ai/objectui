@@ -13,7 +13,9 @@
  * wrong in opposite directions: the package-less scope toasted its success
  * sentence after publishing nothing, and the batch's `nothing_to_publish`
  * answer (`success: false`, which the spec says not to read as a refusal) was
- * thrown as a failure.
+ * thrown as a failure. A refusal itself reached the author as "Action failed":
+ * the batch's own `success` is false on it, and that was read before
+ * `failed[]`, where the refused item and its reason are.
  *
  * ## Real vs stubbed
  *
@@ -168,7 +170,7 @@ function toasts() {
   };
 }
 
-describe('the package publish names how many items went live (objectui#11807)', () => {
+describe('the package publish names how many items went live, and what was refused (objectui#11807)', () => {
   it('two published items: the count row, with 2', async () => {
     batchBody = batch({
       outcome: 'published',
@@ -203,18 +205,25 @@ describe('the package publish names how many items went live (objectui#11807)', 
     expect(toasts()).toEqual({ success: [], info: [t('engine.studio.publishNoneTitle', 'en')], error: [] });
   });
 
-  it('a refused batch claims no success', async () => {
+  it('a refused batch claims no success, and names the refused item with the server’s reason', async () => {
+    // The refusal as the producer answers it: the batch's own `success` is
+    // false AND `failed[]` carries the reason. Read `success` first and the
+    // reason never reaches the author (measured: "Action failed").
+    const reason = 'sharingModel is not set';
     batchBody = batch({
       outcome: 'refused',
       publishedCount: 0,
       failedCount: 1,
       published: [],
-      failed: [{ type: 'object', name: 'visit', error: 'object/visit: refused' }],
+      failed: [{ type: 'object', name: 'visit', error: reason, code: 'SECURITY_OWD_UNSET' }],
     });
     await publishAt(`/studio/${PACKAGE_ID}/interfaces`, 1);
     await waitFor(() => expect(toast.error).toHaveBeenCalled());
     expect(toasts().success).toEqual([]);
     expect(toasts().info).toEqual([]);
+    expect(toasts().error).toHaveLength(1);
+    expect(toasts().error[0]).toContain('object/visit');
+    expect(toasts().error[0]).toContain(reason);
   });
 });
 

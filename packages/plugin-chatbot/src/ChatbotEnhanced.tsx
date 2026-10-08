@@ -23,6 +23,7 @@ import { SchemaRenderer } from '@object-ui/react';
 import { useObjectTranslation, useSafeTranslate } from '@object-ui/i18n';
 import { AlertCircle, ArrowRight, Copy, Check, RefreshCw, CornerDownLeft, Bot, Eye, GitCompareArrows, Rocket, Clock3, CheckCircle2, XCircle, Loader2, ShieldCheck, TriangleAlert, ClipboardList, HelpCircle, Table2, WifiOff, Sparkles, Hourglass } from 'lucide-react';
 import type { ChatStatus } from 'ai';
+import type { BuildProgressPhase } from '@objectstack/spec/ai';
 import {
   humanizeToolName,
   isRateLimitError,
@@ -159,8 +160,13 @@ export interface ChatChart {
 
 /** A reconciled snapshot of an in-flight app build (apply_blueprint). */
 export interface ChatBuildProgress {
-  /** Coarse phase: drafting structure, generating sample data, or finished. */
-  phase: 'structure' | 'data' | 'done';
+  /**
+   * Coarse phase, from `@objectstack/spec/ai`'s closed vocabulary: drafting
+   * structure, generating sample data, or finished. `unknown` is a value
+   * outside that vocabulary, surfaced as a warning — never as "Building"
+   * (objectui#11988).
+   */
+  phase: BuildProgressPhase | 'unknown';
   /** Human label for the app being built (for the panel header). */
   appLabel?: string;
   /** Artifacts drafted so far, cumulative. */
@@ -176,6 +182,12 @@ export interface ChatBuildProgress {
    * heartbeat). Absent from older runtimes.
    */
   seq?: number;
+  /**
+   * The post-apply verification loop, read from its own `build-verify` part
+   * beside the tree (objectui#11988): `verify` while a hop runs, `done` once
+   * the loop exits. `hop` and `tool` are the spec frame's own fields.
+   */
+  verify?: { phase: BuildProgressPhase | 'unknown'; hop?: number; tool?: string };
 }
 
 /**
@@ -4222,13 +4234,17 @@ function BuildProgressPanel({
   stalledLabel?: string;
   offlineLabel?: string;
 }) {
-  const { phase, appLabel, items, done, total, seq } = progress;
+  const { phase, appLabel, items, done, total, seq, verify } = progress;
   // objectui#7388 — every string this panel OWNS goes through the pack. The
   // labels it receives as props (`openBuiltAppLabel`, the connection cues, …)
   // are already localized by the host; these were the island left behind.
   const { t } = useObjectTranslation();
   const groupLabelOf = useBuildGroupLabel();
   const isDone = phase === 'done';
+  // objectui#11988 — only the phases the tree draws read as "Building"; any
+  // other value is surfaced as a warning, never coerced into one of them.
+  const unknownPhase = t('chatbot.build.unknownPhase', { defaultValue: 'Unknown build phase' });
+  const isUnknown = !isDone && phase !== 'structure' && phase !== 'data';
   // The unnamed-build stand-in is itself a translated noun phrase, so it can be
   // interpolated into the two header frames the same way a real app label is —
   // one hole per frame, which is what `check-i18n-call-site-keys` checks.
@@ -4258,13 +4274,17 @@ function BuildProgressPanel({
       <div className="mb-2 flex items-center gap-2 font-medium">
         {isDone ? (
           <CheckCircle2 className="size-4 shrink-0 text-emerald-600" />
+        ) : isUnknown ? (
+          <TriangleAlert className="size-4 shrink-0 text-amber-600" />
         ) : (
           <Loader2 className="size-4 shrink-0 animate-spin text-primary" />
         )}
         <span>
           {isDone
             ? t('chatbot.build.built', { app: appName, defaultValue: 'Built {{app}}' })
-            : t('chatbot.build.building', { app: appName, defaultValue: 'Building {{app}}…' })}
+            : isUnknown
+              ? unknownPhase
+              : t('chatbot.build.building', { app: appName, defaultValue: 'Building {{app}}…' })}
         </span>
         {!isDone && phase === 'data' ? (
           <span className="text-xs font-normal text-muted-foreground">
@@ -4334,6 +4354,26 @@ function BuildProgressPanel({
           );
         })}
       </ul>
+      {verify ? (
+        // The verification line advances per hop and closes on `done`.
+        <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground" data-testid="build-verify" title={verify.tool}>
+          {verify.phase === 'done' ? (
+            <CheckCircle2 className="size-3.5 shrink-0 text-emerald-600" />
+          ) : verify.phase === 'verify' ? (
+            <Loader2 className="size-3.5 shrink-0 animate-spin" />
+          ) : (
+            <TriangleAlert className="size-3.5 shrink-0 text-amber-600" />
+          )}
+          {verify.phase === 'done'
+            ? t('chatbot.build.verified', { defaultValue: 'Checked the change' })
+            : verify.phase === 'verify'
+              ? t('chatbot.build.verifying', { defaultValue: 'Checking the change…' })
+              : unknownPhase}
+          {verify.phase === 'verify' && verify.hop !== undefined
+            ? ` ${t('chatbot.build.verifyStep', { n: verify.hop, defaultValue: 'step {{n}}' })}`
+            : null}
+        </div>
+      ) : null}
       {isDone && builtApp && (onDesignBuiltApp || onOpenBuiltApp || onPreviewDraftApp) ? (
         <div className="mt-3 flex items-center gap-2">
           {/* ADR-0080 D5 cold-start handoff: Studio is the built app's

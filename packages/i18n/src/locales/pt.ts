@@ -3375,6 +3375,10 @@ const pt = {
         seed: "Dados de exemplo",
       },
       moreArtifacts: "+{{n}} mais",
+      verifying: "Verificando a alteração…",
+      verifyStep: "etapa {{n}}",
+      verified: "Alteração verificada",
+      unknownPhase: "Fase de criação desconhecida",
     },
   },
   chatbotError: {

@@ -2845,6 +2845,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.held.needsInput': '{input} on the step “{step}” needs a value',
   'engine.studio.held.needsCondition': 'the rule “{rule}” needs a condition',
   'engine.studio.held.needsThenCondition': 'the “Then” rule of “{rule}” needs a condition',
+  // objectui#11910 — a dashboard widget held until it is bound; `input` is the
+  // widget inspector's own label for it (Dataset, Values (measures)).
+  'engine.studio.held.widgetNeedsInput': '{input} on the widget “{widget}” needs a value',
   'engine.studio.held.line': 'Not saved yet: {clause}. Your changes are kept here and saved once it is filled in.',
   'engine.studio.held.publish': 'Not published: {clause}, so that change is not saved yet. Finish it, then publish.',
   'engine.studio.held.inputHint': 'Required. Changes are saved once this has a value.',
@@ -5988,6 +5991,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.held.needsInput': '步骤「{step}」的「{input}」需要填写',
   'engine.studio.held.needsCondition': '规则「{rule}」需要一个条件',
   'engine.studio.held.needsThenCondition': '规则「{rule}」的「Then」规则需要一个条件',
+  'engine.studio.held.widgetNeedsInput': '组件「{widget}」的「{input}」需要填写',
   'engine.studio.held.line': '尚未保存：{clause}。更改已保留在此处，补全后会自动保存。',
   'engine.studio.held.publish': '未发布：{clause}，该更改尚未保存。请先补全，再发布。',
   'engine.studio.held.inputHint': '必填。填写后才会保存更改。',

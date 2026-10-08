@@ -28,9 +28,12 @@
  * mounts and this message must NOT appear, is
  * {@link file://./DataPillar.designerRegistryPopulated.test.tsx}.
  *
- * ⛔ No message may promise recovery ("loading…", "try again"): the registry
- * is a plain `Map` read during render with no subscription, so a registration
- * landing later never reaches this component (measured on #6795).
+ * ⛔ No message may promise recovery ("loading…", "try again"). When this pin
+ * was written the registry was a plain `Map` read during render with no
+ * subscription, so a later registration never reached this component (measured
+ * on #6795). Since objectui#11939 it does (pinned in
+ * `ObjectPanels.lateRegistration-11939.test.tsx`), but nothing here knows a
+ * registration is on its way, so the message still promises nothing.
  *
  * ⚠️ This file must never register a designer — its subject is the empty
  * branch, and the registries are module state shared by every test in a file.

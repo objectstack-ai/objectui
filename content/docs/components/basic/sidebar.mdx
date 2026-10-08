@@ -26,6 +26,22 @@ A group is a heading `text` node followed by its items. A `separator` node divid
 
 <SchemaExample id="components-basic-sidebar/collapsible-sidebar" />
 
+## The `side` key
+
+`side` picks the edge of the viewport the collapsible form is drawn against: `left`, the default, or `right`. On the right edge the sidebar's border moves to its left side, and on a narrow viewport the sheet slides in from the right.
+
+```json
+{
+  "type": "sidebar",
+  "side": "right",
+  "children": [
+    { "type": "text", "content": "Details", "className": "px-2 text-xs text-muted-foreground" }
+  ]
+}
+```
+
+`side` shows on the collapsible form only, as `variant` does. With `collapsible: false` the sidebar is drawn in the page flow, where the page's layout places it, so every value draws the same column.
+
 ## Schema
 
 ```ts
@@ -43,7 +59,7 @@ const sidebar: SidebarSchema = {
 };
 ```
 
-The renderer reads `collapsible` and `children`, and passes `className` to the sidebar element.
+The renderer reads `collapsible` and `children`, and passes `side`, `variant` and `className` to the sidebar element.
 
 ## Examples
 

@@ -19,9 +19,15 @@
  *   registerMetadataInspector('dashboard', DashboardWidgetInspector);
  *   // → preview emits onSelectionChange({kind:'widget', id:'kpi_1'})
  *   // → host renders <DashboardWidgetInspector ... /> on the right
+ *
+ * Observable, like the preview registry (objectui#11939): a component reads it
+ * during render through `useRegisteredMetadataInspector(type)` /
+ * `useRegisteredMetadataInspectorTypes()` and re-renders when an inspector is
+ * registered later. `getMetadataInspector` / `listMetadataInspectorTypes` read
+ * the registry as it is at the moment of the call, for non-render code.
  */
 import type { ComponentType } from 'react';
-import type { MetadataSelection } from './preview-registry.js';
+import { createObservableTypeRegistry, type MetadataSelection } from './preview-registry.js';
 import type { SupportedLocale } from './i18n.js';
 
 export interface MetadataInspectorProps {
@@ -66,8 +72,13 @@ export interface MetadataInspectorProps {
 
 export type MetadataInspector = ComponentType<MetadataInspectorProps>;
 
-const REGISTRY = new Map<string, MetadataInspector>();
+const REGISTRY = createObservableTypeRegistry<MetadataInspector>();
 
+/**
+ * Register (or replace) the scoped inspector for a metadata type. Every
+ * component that read this type through {@link useRegisteredMetadataInspector}
+ * re-renders with the new entry.
+ */
 export function registerMetadataInspector(
   type: string,
   component: MetadataInspector,
@@ -75,10 +86,33 @@ export function registerMetadataInspector(
   REGISTRY.set(type, component);
 }
 
+/**
+ * The registered inspector for a type, if any, as the registry is now. During
+ * render use {@link useRegisteredMetadataInspector}: this read is not told about
+ * a later registration.
+ */
 export function getMetadataInspector(type: string): MetadataInspector | undefined {
   return REGISTRY.get(type);
 }
 
 export function listMetadataInspectorTypes(): string[] {
-  return Array.from(REGISTRY.keys()).sort();
+  return REGISTRY.types();
+}
+
+/**
+ * The registered inspector for `type`, if any, for a component to render
+ * (objectui#11939). The component re-renders when an inspector for `type` is
+ * registered or replaced after its first render.
+ */
+export function useRegisteredMetadataInspector(type: string): MetadataInspector | undefined {
+  return REGISTRY.useEntry(type);
+}
+
+/**
+ * The registered inspector types, sorted, for a component to render
+ * (objectui#11939). The component re-renders when a new type is registered; the
+ * array is frozen and stays the same array until then.
+ */
+export function useRegisteredMetadataInspectorTypes(): readonly string[] {
+  return REGISTRY.useTypes();
 }

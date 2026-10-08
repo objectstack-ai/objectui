@@ -82,6 +82,7 @@ export const KNOWN_SCHEMA_TYPES: readonly string[] = [
   'cloud:ai-model-status',
   'cloud:onboarding-next',
   'cloud:plan-status',
+  'cloud:workspace-timezone-notice',
   'code',
   'code-editor',
   'collapsible',

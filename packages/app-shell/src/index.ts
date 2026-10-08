@@ -336,6 +336,8 @@ import './console/connect/ConnectAgentWidget.js';
 import './console/home/CloudOnboardingNext.js';
 // SDUI widget for the Cloud pricing page's "current plan" marker (objectui#10919).
 import './console/home/CloudPlanStatus.js';
+// SDUI widget for the Cloud welcome page's seeded workspace-timezone line (objectui#11930).
+import './console/home/CloudWorkspaceTimezoneNotice.js';
 // SDUI widget: read-only admin diagnostic for the env's effective AI model
 // (cloud#797) — fetches GET /api/v1/ai/effective-model.
 import './console/diagnostics/CloudAiModelStatus.js';
@@ -380,7 +382,7 @@ import './views/metadata-admin/register-builtins.js';
 // list / edit / create components, and host apps can compose the
 // page primitives directly when needed.
 //
-// ⚠️ These 25 runtime re-exports name the LEAF modules, never
+// ⚠️ These runtime re-exports name the LEAF modules, never
 // `./views/metadata-admin/index.js` (objectui#6776). The names and their types
 // are unchanged — an out-of-package consumer imports exactly what it imported
 // before — but a named re-export is an ordinary STATIC EDGE, and the console's
@@ -413,15 +415,22 @@ export {
   useGlobalDiagnostics,
   matchesQuery,
 } from './views/metadata-admin/useMetadata.js';
+// objectui#11939 — the `useRegistered*` hooks are the render-time reads of the
+// two designer registries: a component that reads through them re-renders when
+// a designer is registered after its first render. `get*` / `list*` remain the
+// reads for non-render code.
 export {
   registerMetadataPreview,
   getMetadataPreview,
   listMetadataPreviewTypes,
+  useRegisteredMetadataPreview,
+  useRegisteredMetadataPreviewTypes,
 } from './views/metadata-admin/preview-registry.js';
 export {
   registerMetadataInspector,
   getMetadataInspector,
   listMetadataInspectorTypes,
+  useRegisteredMetadataInspector,
 } from './views/metadata-admin/inspector-registry.js';
 export type {
   MetadataResourceConfig,

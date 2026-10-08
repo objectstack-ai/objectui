@@ -3127,6 +3127,9 @@ const ja = {
   cloudPlanStatus: {
     current: "現在のプラン",
   },
+  cloudWorkspaceTimezoneNotice: {
+    seeded: "ワークスペースのタイムゾーンは、作成時にブラウザーに合わせて {{zone}} に設定されました。「設定 → ローカリゼーション」で変更できます。",
+  },
   ai: {
     nlQuery: {
       placeholder: "データについて質問してください…",

@@ -121,11 +121,15 @@ import { RelatedPanel, type RelatedTarget } from './RelatedPanel.js';
 import { MetadataDetailDrawer } from './MetadataDetailDrawer.js';
 import { HistoryPanel } from './ResourceHistoryPage.js';
 import { AuditPanel } from './AuditPanel.js';
-import { getMetadataPreview, type MetadataSelection } from './preview-registry.js';
+import {
+  getMetadataPreview,
+  useRegisteredMetadataPreview,
+  type MetadataSelection,
+} from './preview-registry.js';
 import { readFields } from './previews/object-fields-io.js';
 import { useRegisterAssistantEditor, type AssistantEditorContext } from '../../assistant/assistantBus.js';
-import { getMetadataInspector } from './inspector-registry.js';
-import { getMetadataDefaultInspector } from './default-inspector-registry.js';
+import { useRegisteredMetadataInspector } from './inspector-registry.js';
+import { useRegisteredMetadataDefaultInspector } from './default-inspector-registry.js';
 import { useMetadataLocale, t, tFormat, translateValidationMessage } from './i18n.js';
 import { JsonSourceEditor } from './JsonSourceEditor.js';
 import { validateMetadataDraft, hasClientValidator, type DraftMode } from './clientValidation.js';
@@ -463,6 +467,16 @@ function MetadataResourceEditPageImpl({
       : (entry?.schema as Record<string, unknown> | undefined)) ??
     (config.defaultSchema as Record<string, unknown> | undefined);
   const locale = useMetadataLocale();
+  // objectui#11939 — the designer registries, read so that this page re-renders
+  // when a preview or inspector for `type` is registered after its first render
+  // (a designer that arrives in a lazily loaded chunk). Hooks, so they are read
+  // here, above the auto-design effect that depends on the preview and above
+  // the `loading` early return; the read sites below use these values. The two
+  // reads inside `doSave` / `doReset` stay plain `getMetadataPreview` calls:
+  // they run in an event handler and read the registry as it is at that moment.
+  const registeredPreview = useRegisteredMetadataPreview(type);
+  const registeredInspector = useRegisteredMetadataInspector(type);
+  const registeredDefaultInspector = useRegisteredMetadataDefaultInspector(type);
   // Which DOOR this page is (objectstack#5316): a create draft is authored here
   // and judged by the strict authoring schema; an edit draft is a body that came
   // back out of storage. Hoisted to one name because it now also decides whether
@@ -1377,8 +1391,7 @@ function MetadataResourceEditPageImpl({
     if (createMode || embedded || loading) return;
     const key = `${type}/${name ?? ''}`;
     if (designerAutoOnRef.current === key) return;
-    const PC = getMetadataPreview(type);
-    if (!PC) return;
+    if (!registeredPreview) return;
     // Same tier question as the Save gate below, from the same derivation —
     // this used to be an in-place copy of the artifact heuristic, so the two
     // could (and did) answer differently for one item (objectui#4308).
@@ -1388,7 +1401,7 @@ function MetadataResourceEditPageImpl({
     if (!cw) return;
     designerAutoOnRef.current = key;
     setEditing(true);
-  }, [type, name, createMode, embedded, loading, entry, isArtifactItem]);
+  }, [type, name, createMode, embedded, loading, entry, isArtifactItem, registeredPreview]);
 
   // Keyboard shortcut: Cmd/Ctrl+\ toggles the inspector. This is the
   // designer convention shared by Figma, VS Code (Cmd+B), Sketch — `\`
@@ -2014,7 +2027,7 @@ function MetadataResourceEditPageImpl({
   const showPreviewInCreate = CREATE_MODE_CANVAS_TYPES.has(type);
   const PreviewComponent =
     !embedded && (!createMode || showPreviewInCreate)
-      ? getMetadataPreview(type)
+      ? registeredPreview
       : undefined;
 
   // The id scope for THIS editor's form (objectui#5092). Embedded means we are
@@ -2029,11 +2042,11 @@ function MetadataResourceEditPageImpl({
   // dashboard widget). Registered separately via
   // `registerMetadataInspector()` so a type can opt in independently
   // of having a Preview, and so plugins can swap implementations.
-  const InspectorComponent = getMetadataInspector(type);
+  const InspectorComponent = registeredInspector;
   // Optional "home" inspector shown when there is NO selection, replacing
   // the generic whole-draft SchemaForm with a curated panel (e.g. the View
   // type + fields manager). Falls back to SchemaForm when unregistered.
-  const DefaultInspectorComponent = getMetadataDefaultInspector(type);
+  const DefaultInspectorComponent = registeredDefaultInspector;
 
   // Cancel edits: revert the draft to the last saved snapshot and exit
   // edit mode. Safe to call even with no snapshot (no-op).
@@ -2735,7 +2748,7 @@ function MetadataResourceEditPageImpl({
                         </div>
                       </div>
                       <div className="flex-1 min-h-0 overflow-auto p-4 bg-[radial-gradient(circle_at_1px_1px,theme(colors.border)_1px,transparent_0)] [background-size:16px_16px] bg-muted/30">
-                        {/* eslint-disable-next-line react-hooks/static-components -- getMetadataPreview returns a registered component (stable), not one created during render */}
+                        {/* eslint-disable-next-line react-hooks/static-components -- useRegisteredMetadataPreview returns a registered component (stable), not one created during render */}
                         <PreviewComponent
                           type={type}
                           name={name}
@@ -2859,7 +2872,7 @@ function MetadataResourceEditPageImpl({
                             }))}
                           />
                         ) : selection && InspectorComponent ? (
-                          // eslint-disable-next-line react-hooks/static-components -- getMetadataInspector returns a registered component (stable), not one created during render
+                          // eslint-disable-next-line react-hooks/static-components -- useRegisteredMetadataInspector returns a registered component (stable), not one created during render
                           <InspectorComponent
                             type={type}
                             name={name}
@@ -2880,7 +2893,7 @@ function MetadataResourceEditPageImpl({
                             locale={locale}
                           />
                         ) : !selection && DefaultInspectorComponent ? (
-                          // eslint-disable-next-line react-hooks/static-components -- getMetadataDefaultInspector returns a registered component (stable), not one created during render
+                          // eslint-disable-next-line react-hooks/static-components -- useRegisteredMetadataDefaultInspector returns a registered component (stable), not one created during render
                           <DefaultInspectorComponent
                             type={type}
                             name={name}

@@ -20,7 +20,7 @@
  * from `ResourceEditPage`'s Preview tab, i.e. only for STANDALONE metadata —
  * which meant `ValidationPreview` rendered only on the standalone `validation`
  * door ADR-0088 retired, and never on `object.validations`, the path the
- * framework actually evaluates. The lookup is generic (`getMetadataPreview`),
+ * framework actually evaluates. The lookup is generic (`useRegisteredMetadataPreview`),
  * so any embedded sub-type that has a preview gets it; one that has none is
  * unchanged, with no empty preview chrome.
  */
@@ -33,7 +33,7 @@ import {
   DRAWER_EMBEDDED_ITEM_ID_SCOPE,
   type SchemaFormIssue,
 } from './SchemaForm.js';
-import { getMetadataPreview } from './preview-registry.js';
+import { useRegisteredMetadataPreview } from './preview-registry.js';
 import { useMetadataClient, useMetadataTypes } from './useMetadata.js';
 import type { FormViewSpec } from './form-spec.js';
 import { useMetadataLocale, t, tFormat, translateValidationMessage } from './i18n.js';
@@ -79,8 +79,10 @@ export function EmbeddedItemEditor({
   const form = subEntry?.form ?? fallback?.form;
   // Opt-in per sub-type, exactly like the Preview tab on the full page: a type
   // with no registered renderer gets no surface at all (never a "preview not
-  // available" placeholder).
-  const Preview = editAs ? getMetadataPreview(editAs) : undefined;
+  // available" placeholder). Read through the hook so a preview registered
+  // after this drawer opened still mounts (objectui#11939).
+  const registeredPreview = useRegisteredMetadataPreview(editAs ?? '');
+  const Preview = editAs ? registeredPreview : undefined;
 
   const [draft, setDraft] = React.useState<Record<string, unknown>>(initialRaw);
   const [saving, setSaving] = React.useState(false);
@@ -229,7 +231,7 @@ export function EmbeddedItemEditor({
         // Read-only: the drawer edits through the form below, so no `onPatch`
         // is handed over and `editing` stays false. `draft` is the live value,
         // so the preview follows keystrokes the way the full-page tab does.
-        /* eslint-disable-next-line react-hooks/static-components -- getMetadataPreview returns a registered component (stable), not one created during render */
+        /* eslint-disable-next-line react-hooks/static-components -- useRegisteredMetadataPreview returns a registered component (stable), not one created during render */
         <Preview
           type={editAs as string}
           name={itemName}

@@ -847,7 +847,7 @@ import type {
 import type { CRUDComponentSchema } from './crud.js';
 import type { ObjectQLComponentSchema, ListViewSchema } from './objectql.js';
 import type { AppComponentSchema, AppSchemaRendererNodeSchema } from './app.js';
-import type { CloudPlanStatusSchema } from './cloud.js';
+import type { CloudPlanStatusSchema, CloudWorkspaceTimezoneNoticeSchema } from './cloud.js';
 import type {
   PageDesignerSchema,
   DataModelDesignerSchema,
@@ -971,8 +971,10 @@ export type {
 } from './ai.js';
 
 export type {
-  // Cloud widgets — the `cloud:plan-status` node's TS twin (objectui#11515).
+  // Cloud widgets — the `cloud:plan-status` node's TS twin (objectui#11515)
+  // and the `cloud:workspace-timezone-notice` node's (objectui#11930).
   CloudPlanStatusSchema,
+  CloudWorkspaceTimezoneNoticeSchema,
 } from './cloud.js';
 
 // The Block System re-export block is GONE, not emptied: `BlockSchema`,
@@ -1071,7 +1073,9 @@ export type AnySchema =
   // objectui#11515 — the TS twins of two zod-only arms; the third,
   // `DetailSectionNodeSchema`, is a member through `ViewComponentSchema`.
   | AppSchemaRendererNodeSchema
-  | CloudPlanStatusSchema;
+  | CloudPlanStatusSchema
+  // objectui#11930 — landed with its zod arm.
+  | CloudWorkspaceTimezoneNoticeSchema;
 
 /**
  * Utility type to extract the schema type from a type string.

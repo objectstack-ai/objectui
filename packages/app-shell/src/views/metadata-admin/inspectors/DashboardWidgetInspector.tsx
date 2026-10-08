@@ -49,6 +49,7 @@ import {
 } from './ReportDefaultInspector.js';
 import { useDatasetCatalog, useDatasetSemantics } from '../previews/useDatasetCatalog.js';
 import type { ObjectFieldInfo } from '../previews/useObjectFields.js';
+import { widgetMissingInputs } from '../../studio-design/metadataError.js';
 
 // ADR-0021: dashboard widgets author the semantic-layer dataset shape only
 // (dataset + dimensions + values). The pre-ADR-0021 inline single-object query
@@ -201,6 +202,17 @@ export function DashboardWidgetInspector({
   // completed against it — what the width / height inputs show and write.
   const placement = defaultWidgetPlacement(index);
   const layout = completeWidgetLayout(widget.layout, {}, placement);
+  // objectui#11910 — the binding inputs this widget leaves out that the spec
+  // refuses it without, while that is all it lacks: what holds Studio's
+  // autosave of the dashboard (and what the server refuses), so each says so
+  // under its input.
+  const heldInputs = new Set(widgetMissingInputs(widget));
+  const heldHint = (key: string) =>
+    heldInputs.has(key) ? (
+      <p data-testid={`widget-field-held-hint-${key}`} className="text-[11px] leading-snug text-muted-foreground">
+        {t('engine.studio.held.inputHint', locale)}
+      </p>
+    ) : null;
 
   function patchWidget(updates: Partial<DashboardWidgetSchema>) {
     const widgets = [...widgetsAll];
@@ -357,6 +369,7 @@ export function DashboardWidgetInspector({
             disabled={readOnly}
             mono
           />
+          {heldHint('dataset')}
           <p className="text-[10px] leading-snug text-muted-foreground">
             {t('engine.inspector.widget.datasetHint', locale)}
           </p>
@@ -376,6 +389,7 @@ export function DashboardWidgetInspector({
               readOnly={readOnly}
               onCommit={(next) => patchWidget({ dimensions: next } as Partial<DashboardWidgetSchema>)}
             />
+            {heldHint('dimensions')}
             <DatasetNamesEditor
               label={t('engine.inspector.widget.values', locale)}
               emptyText={t('engine.inspector.widget.valuesHint', locale)}
@@ -386,6 +400,7 @@ export function DashboardWidgetInspector({
               readOnly={readOnly}
               onCommit={(next) => patchWidget({ values: next } as Partial<DashboardWidgetSchema>)}
             />
+            {heldHint('values')}
           </>
         )}
       </div>

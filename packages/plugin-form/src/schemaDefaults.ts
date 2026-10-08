@@ -30,18 +30,26 @@
  * empty, with a required marker, forcing the user to pick a value the system
  * already knew (and putting every neighbouring option one click away).
  *
- * ## Which spelling is honoured, and why only that one
+ * ## Which spellings are honoured: the producer's, in the producer's order
  *
- * `field.defaultValue` — and deliberately NOT a select option's `default: true`,
- * even though `@objectstack/spec`'s `SelectOptionSchema` declares that key.
- * The reason is the producer, not taste: the server's insert path
- * (`ObjectQL.applyFieldDefaults`) resolves `field.defaultValue` and nothing
- * else, which is exactly why omitting the field from a create request stores
- * the declared default (measured on the reporting stack). A console that
- * additionally seeded from option-level `default` would preselect values the
- * server would never have applied — a second, UI-only default contract, which
- * is the renderer-side dialect AGENTS.md #0.1 forbids. If option-level
- * `default` is to mean "the initial value", that belongs at the producer.
+ * Two declarations name a field's initial value, and this module reads both
+ * exactly as the server's insert path (`ObjectQL.applyFieldDefaults`) does —
+ * the form previews the value omitting the field would store, never a value
+ * of its own:
+ *
+ *   1. `field.defaultValue`, whenever it is present (`!= null`).
+ *   2. Otherwise, the option a field's option list marks `default: true`
+ *      (`@objectstack/spec`'s `SelectOptionSchema.default`). The engine falls
+ *      back to it since objectstack#7246 (`resolveOptionDefault`); see
+ *      {@link optionListDefault} for the rule, which mirrors that method.
+ *
+ * Until objectui#11914 this module read (1) only, on the then-true ground
+ * that the server read nothing else — so the tutorial's required `priority`
+ * and `status` selects, which mark an option and declare no `defaultValue`,
+ * opened on the placeholder while a create that omitted them stored the
+ * marked options. The producer moved; the reading follows it. A flag the
+ * server does NOT apply (an option marked beside a present `defaultValue`)
+ * is not seeded either, so there is still exactly one default contract.
  *
  * ## Which defaults are seeded, and why the rest are skipped
  *
@@ -76,7 +84,7 @@
  */
 
 import { isMissingForRequired, isRuntimeDefault } from '@object-ui/core';
-import { isCurrentUserDefaultToken } from '@objectstack/spec/data';
+import { isCurrentUserDefaultToken, isMultiValueField } from '@objectstack/spec/data';
 
 // Re-exported (not re-implemented) so this package's long-standing import site
 // keeps working while there is exactly ONE classifier in the workspace. It
@@ -87,7 +95,11 @@ export { isRuntimeDefault };
 
 /**
  * An object schema as the data source serves it (`{ fields: { [name]: def } }`),
- * narrowed to the four field members THIS module's rule reads.
+ * narrowed to `defaultValue` and the two members the `current_user` seed reads
+ * (`type`, `reference`). The keys the option-list fallback reads
+ * (objectui#11914) sit on the package-local `SeedFieldLike` below instead: no
+ * published function reads them, and every member added here is published
+ * surface somebody then has to keep.
  *
  * Exported and published (objectui#7324) because `omitServerResolvedDefaults`
  * is published and this is its second parameter: a host with its own form
@@ -113,6 +125,28 @@ export interface FieldDefaultsSchemaLike {
     string,
     { defaultValue?: unknown; type?: unknown; reference?: unknown } | undefined
   >;
+}
+
+/**
+ * One field as the SEEDING half of this module reads it: the published
+ * {@link FieldDefaultsSchemaLike} member set plus the two keys the option-list
+ * fallback reads (objectui#11914) — `options`, and `multiple` for the arity.
+ *
+ * Package-local, and derived from the published type rather than restating
+ * it: seeding is not on the package entry (`schemaDefaultValues` and
+ * `seedCreateValues` are withheld, see `index.tsx`), so the keys only it reads
+ * stay off the published shape, whose members are pinned to what the
+ * published pair reads (`parameterTypesNameable-7324.test.ts`). Every value of
+ * the published type is still a value of this one.
+ */
+type SeedFieldLike = NonNullable<NonNullable<FieldDefaultsSchemaLike['fields']>[string]> & {
+  options?: unknown;
+  multiple?: unknown;
+};
+
+/** An object schema as the seeding half reads it — see {@link SeedFieldLike}. */
+interface SeedSchemaLike {
+  fields?: Record<string, SeedFieldLike | undefined>;
 }
 
 /**
@@ -213,13 +247,15 @@ export function isRequiredInForm(
 }
 
 /**
- * The static `defaultValue`s an object schema declares, as a form-values patch.
+ * The static defaults an object schema declares, as a form-values patch: each
+ * field's `defaultValue`, or — for a field that declares none — the option its
+ * option list marks `default: true` ({@link optionListDefault}).
  *
  * Returns a fresh object (never shared), and `{}` for a missing/!object schema
  * so callers can spread it unconditionally.
  */
 export function schemaDefaultValues(
-  objectSchema: FieldDefaultsSchemaLike | null | undefined,
+  objectSchema: SeedSchemaLike | null | undefined,
   ctx?: SeedContext,
 ): Record<string, unknown> {
   const fields = objectSchema?.fields;
@@ -243,9 +279,62 @@ export function schemaDefaultValues(
       // anonymous) the field seeds nothing and the pre-#5683 contract holds:
       // empty control, key omitted, server resolves.
       defaults[name] = ctx.currentUserId;
+    } else if (dv == null) {
+      // objectui#11914 — no `defaultValue`, so the option list speaks. The
+      // `== null` gate is the engine's own presence test (`applyFieldDefaults`
+      // reaches `resolveOptionDefault` only through `f.defaultValue == null`),
+      // which is what keeps a runtime `defaultValue` — skipped above, resolved
+      // by the server at insert — from being replaced here by a flag the
+      // server never applies to that field.
+      const fromOptions = optionListDefault(f);
+      if (fromOptions !== undefined) defaults[name] = fromOptions;
     }
   }
   return defaults;
+}
+
+/**
+ * The value a field's option list declares as its initial value — the option
+ * marked `default: true` — or `undefined` when it marks none (objectui#11914).
+ *
+ * The client reading of `ObjectQL.resolveOptionDefault` (objectstack#7246),
+ * rule for rule, so a create form preselects exactly what omitting the field
+ * would store:
+ *
+ *   - **Only `default === true`, on the canonical key.** The authoring aliases
+ *     (`isDefault`, `selected`) are normalized by `SelectOptionSchema` before
+ *     metadata is served, and the engine reads the canonical key alone.
+ *   - **A marked option with no value declares nothing** and is skipped.
+ *   - **Single-valued: the FIRST marked option wins** — the schema does not
+ *     dedupe the flag, so declaration order decides.
+ *   - **Multi-valued: every marked option, as an array** — even one, since the
+ *     field stores an array. Arity is `@objectstack/spec`'s `isMultiValueField`,
+ *     the one predicate the engine asks too (`declaredMultiValued`), ⛔ never a
+ *     raw `multiple` read: `multiselect` stores an array without the flag.
+ *
+ * Not gated on `type: 'select'`, as the engine's is not: `options` is a
+ * field-level key, and a field the server defaults must not open empty here.
+ */
+function optionListDefault(field: SeedFieldLike | undefined): unknown {
+  const options = field?.options;
+  if (!Array.isArray(options)) return undefined;
+  const marked: unknown[] = [];
+  for (const option of options as unknown[]) {
+    if (!isMarkedOption(option)) continue;
+    if (option.value === undefined || option.value === null) continue;
+    marked.push(option.value);
+  }
+  if (marked.length === 0) return undefined;
+  const multiValued = isMultiValueField({
+    type: typeof field?.type === 'string' ? field.type : '',
+    multiple: field?.multiple === true,
+  });
+  return multiValued ? marked : marked[0];
+}
+
+/** Is this option-list entry an object marked `default: true`? */
+function isMarkedOption(option: unknown): option is { value?: unknown; default: true } {
+  return typeof option === 'object' && option !== null && 'default' in option && option.default === true;
 }
 
 /**
@@ -277,7 +366,7 @@ function isCurrentUserSeedField(
  * "leave this blank", not an absence.
  */
 export function seedCreateValues(
-  objectSchema: FieldDefaultsSchemaLike | null | undefined,
+  objectSchema: SeedSchemaLike | null | undefined,
   initial?: Record<string, unknown> | null,
   ctx?: SeedContext,
 ): Record<string, unknown> {

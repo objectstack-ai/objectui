@@ -41,7 +41,7 @@
 
 import React from 'react';
 import { Settings2, ShieldCheck, Sparkles, ToggleRight, X } from 'lucide-react';
-import { getMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
+import { useRegisteredMetadataDefaultInspector } from '../metadata-admin/default-inspector-registry.js';
 import { readFields } from '../metadata-admin/previews/object-fields-io.js';
 import { t, tFormat, type SupportedLocale } from '../metadata-admin/i18n.js';
 import { isExternalWider } from './owd-sharing.js';
@@ -72,7 +72,9 @@ export function ObjectSettingsPanel({
    */
   onBlockingIssuesChange?: (count: number) => void;
 }) {
-  const DefaultInspector = getMetadataDefaultInspector('object');
+  // Observed (objectui#11939): an object inspector registered after this panel
+  // mounted replaces the "not registered" note below without a remount.
+  const DefaultInspector = useRegisteredMetadataDefaultInspector('object');
 
   const fields = React.useMemo(() => readFields(draft.fields).entries, [draft.fields]);
   const selectFields = fields.filter((e) => (e.def.type ?? 'text') === 'select');
@@ -144,7 +146,7 @@ export function ObjectSettingsPanel({
         </header>
         <div className="max-w-xl p-3">
           {DefaultInspector ? (
-            // eslint-disable-next-line react-hooks/static-components -- getMetadataDefaultInspector returns a registered component (stable), not one created during render
+            // eslint-disable-next-line react-hooks/static-components -- useRegisteredMetadataDefaultInspector returns a registered component (stable), not one created during render
             <DefaultInspector
               type="object"
               name={name}

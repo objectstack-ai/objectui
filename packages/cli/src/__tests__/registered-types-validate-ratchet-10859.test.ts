@@ -571,6 +571,14 @@ describe('registered NAMESPACED component types refused at `type` — a ratchet 
     expect(BARE_KEYS).not.toContain('plan-status');
     expect(refusedAtType('cloud:plan-status')).toBe(false);
   });
+
+  it('counts `cloud:workspace-timezone-notice` armed — it registered WITH its arm (objectui#11930)', () => {
+    // One registry key (`skipFallback: true`, so no bare `workspace-timezone-notice`),
+    // armed in `@object-ui/types/zod` in the same change, so the pin above did not move.
+    expect(NAMESPACED_KEYS).toContain('cloud:workspace-timezone-notice');
+    expect(BARE_KEYS).not.toContain('workspace-timezone-notice');
+    expect(refusedAtType('cloud:workspace-timezone-notice')).toBe(false);
+  });
 });
 
 /* ── End to end: the README document through `objectui validate` ─────────── */

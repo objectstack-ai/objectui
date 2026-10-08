@@ -29,7 +29,6 @@ import {
   AlertCircle,
   ChevronLeft,
   ChevronRight,
-  Check,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
@@ -43,6 +42,7 @@ import type { DataSource, LookupColumnDef, LookupFilterDef } from '@object-ui/ty
 import { buildExpandFields, mergeFilterNodes, toFilterNodeSafely, toPredicateRecord, withoutDeniedFields, type FilterNodeResult } from '@object-ui/core';
 import { useSafeFieldLabel, useDisplayLocale } from '@object-ui/i18n';
 import { usePermissions } from '@object-ui/permissions';
+import { RelatedRecordActionsProvider, useRelatedRecordActions } from '@object-ui/react';
 import { useFieldTranslation } from './useFieldTranslation.js';
 import { useRecordQuery } from './useRecordQuery.js';
 // The one place a lookup column's display value is decided — shared with the
@@ -65,6 +65,71 @@ const MIN_COL_WIDTH = 60;
 
 /** Number of skeleton rows displayed during initial loading */
 const SKELETON_ROW_COUNT = 5;
+
+/**
+ * objectui#11903 — the dialog's width follows the number of columns it draws.
+ *
+ * It used to be one fixed `lg:max-w-5xl` whatever the column count, so a
+ * three-column picker (a related list's *Add*: name, email, email verified)
+ * stretched to about a thousand pixels. Each rung is the `sm:` (and, for the
+ * widest, `lg:`) max width for that many drawn columns; past the last rung the
+ * old fixed width stays as the ceiling. Below `sm` the dialog is `95vw`, as it
+ * always was. The selection column `multiple` adds is narrow and not counted.
+ *
+ * In `multiple` mode the footer bar also carries the selected count, Cancel
+ * and Confirm beside the page controls, which the one- and two-column rungs
+ * cannot hold on one line (measured in the console preview gallery: at the
+ * one-column rung the bar wrapped to two lines), so that mode starts at the
+ * three-column rung. The bar still wraps rather than overflow where a longer
+ * locale or a phone needs it.
+ */
+const WIDTH_BY_COLUMN_COUNT: readonly string[] = [
+  'sm:max-w-xl', // 1 column
+  'sm:max-w-xl', // 2
+  'sm:max-w-2xl', // 3
+  'sm:max-w-3xl', // 4
+  'sm:max-w-3xl lg:max-w-4xl', // 5
+];
+const WIDTH_CEILING = 'sm:max-w-3xl lg:max-w-5xl';
+
+/** The smallest rung a `multiple` picker uses — the three-column one. */
+const MULTIPLE_MIN_COLUMN_RUNG = 3;
+
+function dialogWidthClass(columnCount: number, multiple: boolean): string {
+  const rung = multiple ? Math.max(columnCount, MULTIPLE_MIN_COLUMN_RUNG) : columnCount;
+  return WIDTH_BY_COLUMN_COUNT[rung - 1] ?? WIDTH_CEILING;
+}
+
+/**
+ * objectui#11903 — inside the picker a cell never renders as a navigational
+ * link: the row is the only click target, and a link in it is a second one
+ * competing with selection (a `mailto:` opening the mail client instead of
+ * ticking the row).
+ *
+ * These cell renderer keys draw their value as their OWN anchor without asking
+ * the host — `mailto:`, a URL, `tel:`, and the file family's download link —
+ * so the picker draws them with the `text` face instead: the address, the URL,
+ * the number, the file's name. The reference family draws its anchor only when
+ * the host's `recordHref` answers, so the built-in table renders its rows under
+ * the same host with no record destination (see the table below).
+ *
+ * The idea is objectui#11817's `linkCellRenderer` in `@object-ui/plugin-grid`,
+ * re-stated here because that module is internal to that package. Whether a
+ * registered type draws an anchor is measured, not recalled: the census in
+ * `RecordPickerDialog.layout-11903.test.tsx` draws every type
+ * `listCellRendererTypes()` reports through this table.
+ */
+const SELF_LINKING_CELL_TYPES: ReadonlySet<string> = new Set([
+  'email',
+  'url',
+  'phone',
+  'file',
+  'video',
+  'audio',
+]);
+
+/** The cell renderer key a self-linking value is drawn with in the picker. */
+const PICKER_TEXT_FACE = 'text';
 
 /**
  * Cell renderer function signature — matches getCellRenderer from @object-ui/fields.
@@ -440,6 +505,25 @@ export interface RecordPickerDialogProps {
 }
 
 /**
+ * objectui#11903 — no anchor in a picker row. A reference value (the lookup
+ * cell's `ReferencedRecordLink`) draws one whenever the host answers
+ * `recordHref`, so the built-in table renders its rows under the same host with
+ * no record destination: "the host cannot route to that object", which the
+ * context documents as render the plain value. objectui#11817's `LinkCell`
+ * withholds the answer from a grid's link cell the same way. Every other member
+ * of the host passes through; with no host there is nothing to withhold.
+ */
+function WithoutRecordLinks({ children }: { children: React.ReactNode }): React.ReactElement {
+  const host = useRelatedRecordActions();
+  if (!host) return <>{children}</>;
+  return (
+    <RelatedRecordActionsProvider value={{ ...host, recordHref: undefined, openRecord: undefined }}>
+      {children}
+    </RelatedRecordActionsProvider>
+  );
+}
+
+/**
  * RecordPickerDialog — Enterprise-grade record selection dialog.
  *
  * Renders records in a table with multi-column display, search,
@@ -801,6 +885,33 @@ export function RecordPickerDialog({
     [multiple, getRecordId, fieldsMeta, onSelect, onSelectRecords, onOpenChange],
   );
 
+  // The header's select-all for the page (objectui#11903, the table-selection
+  // pattern the `Table` primitive's `:has([role=checkbox])` cell rule is built
+  // for): when every row on this page is pending it clears them, otherwise it
+  // adds the ones missing. Rows on other pages are never touched, and each row
+  // it adds is cached for `onSelectRecords` exactly as a row click caches it.
+  const handleTogglePage = useCallback(() => {
+    const pageRows = records.map((record) => ({
+      rid: getRecordId(record),
+      // A host receives the row as it was before `$expand` (objectui#10223).
+      selected: toPredicateRecord(record, fieldsMeta),
+    }));
+    setPendingSelection(prev => {
+      const next = new Set(prev);
+      const wholePage = pageRows.length > 0 && pageRows.every(({ rid }) => next.has(rid));
+      for (const { rid, selected } of pageRows) {
+        if (wholePage) {
+          next.delete(rid);
+          selectedRecordsMap.current.delete(rid);
+        } else if (!next.has(rid)) {
+          next.add(rid);
+          selectedRecordsMap.current.set(rid, selected);
+        }
+      }
+      return next;
+    });
+  }, [records, getRecordId, fieldsMeta]);
+
   // Confirm multi-select
   const handleConfirm = useCallback(() => {
     const ids = Array.from(pendingSelection);
@@ -883,6 +994,12 @@ export function RecordPickerDialog({
   // exactly as it does for that row. The rule is `@object-ui/core`'s
   // `withoutDeniedFields`, the one every surface calls (objectui#10594). The id
   // field is never judged: it is the value committed, not a display value.
+  //
+  // The resolver is the host's, with one substitution (objectui#11903): a
+  // self-linking type is drawn with the text face, so no cell is a link
+  // (`SELF_LINKING_CELL_TYPES`). Every other type, and the value each face is
+  // handed, is exactly what the shared renderer chose before — the two-surface
+  // agreement pin (objectui#5492) compares the TEXT both surfaces print.
   const renderCellContent = useCallback(
     (record: any, col: LookupColumnDef): React.ReactNode =>
       renderLookupColumnValue(
@@ -892,7 +1009,10 @@ export function RecordPickerDialog({
         col,
         {
           descriptors: columnFieldDescriptors,
-          cellRenderer,
+          cellRenderer: cellRenderer
+            ? (fieldType: string) =>
+                cellRenderer(SELF_LINKING_CELL_TYPES.has(fieldType) ? PICKER_TEXT_FACE : fieldType)
+            : undefined,
           objectSchema,
           titleField: declaredDisplayField,
           displayField,
@@ -1055,10 +1175,30 @@ export function RecordPickerDialog({
     return 'hover:bg-accent/30';
   }, []);
 
+  // The select-all reads the page as the rows show it: checked only when every
+  // row on this page is pending.
+  const wholePageSelected =
+    multiple && records.length > 0 && records.every((record) => pendingSelection.has(getRecordId(record)));
+
+  // One footer bar (objectui#11903): the record count and page controls, and in
+  // `multiple` mode the selected count, Cancel and Confirm, in one `DialogFooter`.
+  // The count and page controls belong to the built-in table; the grid slot is
+  // handed paging through its own props, as it always was.
+  const showPagination = !renderGrid && !error && totalCount > 0;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* objectui#11903 — the container keeps the primitive's `gap-4`: no
+          `gap-0`, and no per-section margins standing in for it, so the
+          title-to-search distance is the one `DialogHeader` gets in every other
+          dialog. `flex flex-col` is what lets the table region below be the
+          one bounded scroll area (`flex-1 min-h-0`); the width is
+          `dialogWidthClass`'s rung for the drawn column count. */}
       <DialogContent
-        className="w-[95vw] sm:max-w-3xl lg:max-w-5xl max-h-[85vh] sm:max-h-[80vh] flex flex-col gap-0"
+        className={cn(
+          'w-[95vw] max-h-[85vh] sm:max-h-[80vh] flex flex-col',
+          dialogWidthClass(readableColumns.length, multiple),
+        )}
         data-testid="record-picker-dialog"
       >
         <DialogHeader>
@@ -1068,14 +1208,22 @@ export function RecordPickerDialog({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Search bar */}
-        <div className="relative rounded-md border bg-muted/30 mb-3">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+        {/* Search — the `Input` primitive with a leading icon, the pattern every
+            other search field in this repo uses: the wrapper only positions the
+            icon, the input draws its own one border and its own one focus ring
+            (objectui#11903). A bordered wrapper around a borderless input
+            stacked two outlines; `focus-visible:ring-0` still drew the
+            primitive's ring offset as a second, 2px ring. */}
+        <div className="relative">
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
+          />
           <Input
             placeholder={t('table.search')}
             value={searchQuery}
             onChange={(e) => handleSearchChange(e.target.value)}
-            className="pl-9 border-0 bg-transparent shadow-none focus-visible:ring-0"
+            className="pl-9 pr-9"
             data-testid="record-picker-search"
           />
           {loading && (
@@ -1088,7 +1236,7 @@ export function RecordPickerDialog({
 
         {/* Filter bar (inline) — supports external FilterUI via renderFilterBar slot */}
         {effectiveFilterColumns && effectiveFilterColumns.length > 0 && (
-          <div className="py-2">
+          <div>
             {renderFilterBar ? (
               /* External filter bar (e.g. FilterUI from plugin-view) */
               <div data-testid="record-picker-filter-bar">
@@ -1195,7 +1343,11 @@ export function RecordPickerDialog({
                 <Table>
                   <TableHeader>
                     <TableRow className="bg-muted/40">
-                      {multiple && <TableHead className="w-10" />}
+                      {multiple && (
+                        <TableHead className="w-10">
+                          <Skeleton className="size-4 rounded" />
+                        </TableHead>
+                      )}
                       {readableColumns.map(col => (
                         <TableHead key={col.field}>
                           <Skeleton className="h-4 w-20" />
@@ -1250,91 +1402,131 @@ export function RecordPickerDialog({
                     <Loader2 className="size-6 animate-spin text-muted-foreground" />
                   </div>
                 )}
-                <Table style={Object.keys(columnWidths).length > 0 ? { tableLayout: 'fixed' } : undefined}>
-                  <TableHeader className="sticky top-0 z-[5] bg-muted/50 [&_tr]:border-b" data-testid="record-picker-sticky-header">
-                    <TableRow>
-                      {multiple && (
-                        <TableHead className="w-10" />
-                      )}
-                      {readableColumns.map(col => {
-                        const w = columnWidths[col.field];
-                        const styleWidth = w ? { width: `${w}px`, minWidth: `${w}px` } : col.width ? { width: col.width } : undefined;
-                        return (
-                          <TableHead
-                            key={col.field}
-                            style={styleWidth}
-                            className="cursor-pointer select-none relative group text-xs font-semibold uppercase tracking-wider"
-                            onClick={() => handleSort(col.field)}
-                            aria-sort={sortField === col.field ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
-                          >
-                            <span className="inline-flex items-center">
-                              {col.label || fieldToLabel(col.field)}
-                              {renderSortIcon(col.field)}
-                            </span>
-                            {/* Column resize handle */}
-                            <span
-                              role="separator"
-                              aria-orientation="vertical"
-                              className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 group-hover:opacity-100 bg-border hover:bg-primary/50 transition-opacity"
-                              onMouseDown={e => {
-                                const th = e.currentTarget.parentElement;
-                                const rect = th?.getBoundingClientRect();
-                                handleResizeStart(e, col.field, rect?.width ?? 100);
-                              }}
-                              onClick={e => e.stopPropagation()}
-                              data-testid={`resize-handle-${col.field}`}
+                <WithoutRecordLinks>
+                  <Table style={Object.keys(columnWidths).length > 0 ? { tableLayout: 'fixed' } : undefined}>
+                    <TableHeader className="sticky top-0 z-[5] bg-muted/50 [&_tr]:border-b" data-testid="record-picker-sticky-header">
+                      <TableRow>
+                        {multiple && (
+                          // The table-selection pattern (objectui#11903): a
+                          // select-all for the page in the header. Its keys stay
+                          // its own — the grid's arrow / Enter / Space handling
+                          // below is for rows.
+                          <TableHead className="w-10">
+                            <Checkbox
+                              checked={wholePageSelected}
+                              onCheckedChange={handleTogglePage}
+                              onKeyDown={e => e.stopPropagation()}
+                              aria-label={t('table.selectAllRows', { defaultValue: 'Select all rows' })}
+                              data-testid="record-picker-select-page"
                             />
                           </TableHead>
+                        )}
+                        {readableColumns.map(col => {
+                          const w = columnWidths[col.field];
+                          const styleWidth = w ? { width: `${w}px`, minWidth: `${w}px` } : col.width ? { width: col.width } : undefined;
+                          return (
+                            <TableHead
+                              key={col.field}
+                              style={styleWidth}
+                              className="cursor-pointer select-none relative group text-xs font-semibold uppercase tracking-wider"
+                              onClick={() => handleSort(col.field)}
+                              aria-sort={sortField === col.field ? (sortDirection === 'asc' ? 'ascending' : 'descending') : 'none'}
+                            >
+                              <span className="inline-flex items-center">
+                                {col.label || fieldToLabel(col.field)}
+                                {renderSortIcon(col.field)}
+                              </span>
+                              {/* Column resize handle */}
+                              <span
+                                role="separator"
+                                aria-orientation="vertical"
+                                className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize opacity-0 group-hover:opacity-100 bg-border hover:bg-primary/50 transition-opacity"
+                                onMouseDown={e => {
+                                  const th = e.currentTarget.parentElement;
+                                  const rect = th?.getBoundingClientRect();
+                                  handleResizeStart(e, col.field, rect?.width ?? 100);
+                                }}
+                                onClick={e => e.stopPropagation()}
+                                data-testid={`resize-handle-${col.field}`}
+                              />
+                            </TableHead>
+                          );
+                        })}
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody ref={tableBodyRef}>
+                      {records.map((record, idx) => {
+                        const rid = getRecordId(record);
+                        const selected = isSelected(record);
+                        const focused = idx === focusedRow;
+
+                        return (
+                          <TableRow
+                            key={rid ?? idx}
+                            data-row-index={idx}
+                            className={cn(
+                              'cursor-pointer transition-colors',
+                              getRowBgClass(selected, idx),
+                              focused && 'ring-2 ring-primary ring-inset',
+                            )}
+                            onClick={() => handleRowClick(record)}
+                            data-testid={`record-row-${rid}`}
+                            aria-selected={selected}
+                          >
+                            {multiple && (
+                              // The row's selection, drawn by the `Checkbox`
+                              // primitive in every row, ticked or not
+                              // (objectui#11903). It is not a tab stop: the
+                              // grid's arrow keys and Enter / Space stay the one
+                              // keyboard path. A click on it toggles the row
+                              // once — it does not also reach the row's handler.
+                              <TableCell className="w-10 py-2.5">
+                                <Checkbox
+                                  checked={selected}
+                                  tabIndex={-1}
+                                  onClick={e => e.stopPropagation()}
+                                  onCheckedChange={() => handleRowClick(record)}
+                                  aria-label={t('table.selectRow', { defaultValue: 'Select row' })}
+                                  data-testid={`record-picker-row-checkbox-${rid}`}
+                                />
+                              </TableCell>
+                            )}
+                            {readableColumns.map(col => (
+                              // `data-lookup-cell` names the column this cell
+                              // renders, so the two-surface agreement pin can
+                              // compare it against the inline dropdown's
+                              // `data-lookup-preview` for the same column
+                              // (objectui#5492).
+                              <TableCell key={col.field} className="py-2.5" data-lookup-cell={col.field}>
+                                {renderCellContent(record, col)}
+                              </TableCell>
+                            ))}
+                          </TableRow>
                         );
                       })}
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody ref={tableBodyRef}>
-                    {records.map((record, idx) => {
-                      const rid = getRecordId(record);
-                      const selected = isSelected(record);
-                      const focused = idx === focusedRow;
-
-                      return (
-                        <TableRow
-                          key={rid ?? idx}
-                          data-row-index={idx}
-                          className={cn(
-                            'cursor-pointer transition-colors',
-                            getRowBgClass(selected, idx),
-                            focused && 'ring-2 ring-primary ring-inset',
-                          )}
-                          onClick={() => handleRowClick(record)}
-                          data-testid={`record-row-${rid}`}
-                          aria-selected={selected}
-                        >
-                          {multiple && (
-                            <TableCell className="w-10">
-                              {selected && <Check className="size-4 text-primary" />}
-                            </TableCell>
-                          )}
-                          {readableColumns.map(col => (
-                            // `data-lookup-cell` names the column this cell
-                            // renders, so the two-surface agreement pin can
-                            // compare it against the inline dropdown's
-                            // `data-lookup-preview` for the same column
-                            // (objectui#5492).
-                            <TableCell key={col.field} className="py-2.5" data-lookup-cell={col.field}>
-                              {renderCellContent(record, col)}
-                            </TableCell>
-                          ))}
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                    </TableBody>
+                  </Table>
+                </WithoutRecordLinks>
               </div>
             )}
+          </>
+        )}
 
-            {/* Pagination — fixed bottom bar */}
-            {!error && totalCount > 0 && (
+        {/* One footer bar (objectui#11903). The record count, the page
+            controls and — in `multiple` mode — the selected count, Cancel and
+            Confirm sit in ONE `DialogFooter`, so they share one baseline and
+            the dialog's one horizontal padding; the count and controls used to
+            be a second bar above it, with a padding of its own. Single-select
+            keeps its one bar, without buttons. The bar wraps rather than
+            overflow when a narrow rung cannot hold it on one line. */}
+        {(showPagination || multiple) && (
+          <DialogFooter
+            className="gap-2 sm:flex-wrap sm:items-center sm:justify-between sm:space-x-0"
+            data-testid="record-picker-footer"
+          >
+            {showPagination && (
               <div
-                className="flex items-center justify-between text-sm text-muted-foreground border-t pt-3 mt-2 px-1"
+                className="flex items-center gap-3 text-sm text-muted-foreground"
                 data-testid="record-picker-pagination"
               >
                 <span>
@@ -1378,25 +1570,27 @@ export function RecordPickerDialog({
                 )}
               </div>
             )}
-          </>
-        )}
 
-        {/* Multi-select confirmation */}
-        {multiple && (
-          <DialogFooter>
-            <div className="flex items-center gap-2 w-full justify-between">
-              <span className="text-sm text-muted-foreground">
-                {t('table.selected', { count: pendingSelection.size })}
-              </span>
-              <div className="flex gap-2">
+            {/* Multi-select confirmation, right-aligned on the same bar.
+                Confirm is disabled while nothing is pending (objectui#11903). */}
+            {multiple && (
+              <div className="flex items-center gap-2 sm:ml-auto">
+                <span className="text-sm text-muted-foreground" data-testid="record-picker-selected-count">
+                  {t('table.selected', { count: pendingSelection.size })}
+                </span>
                 <Button variant="outline" type="button" onClick={() => onOpenChange(false)}>
                   {t('common.cancel')}
                 </Button>
-                <Button type="button" onClick={handleConfirm}>
+                <Button
+                  type="button"
+                  onClick={handleConfirm}
+                  disabled={pendingSelection.size === 0}
+                  data-testid="record-picker-confirm"
+                >
                   {t('common.confirm')}
                 </Button>
               </div>
-            </div>
+            )}
           </DialogFooter>
         )}
       </DialogContent>

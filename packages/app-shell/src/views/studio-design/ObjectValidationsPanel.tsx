@@ -125,6 +125,10 @@ interface FieldOpt {
   name: string;
   label?: string;
   hidden?: boolean;
+  /** The field's declared type and `multiple` flag — what `ConditionBuilder`
+   *  words and compiles its value-less operators by (objectui#11894). */
+  type?: string;
+  multiple?: boolean;
 }
 
 /** Rule types, in menu order. `json_schema` matches the spec literal (not `json`). */
@@ -693,6 +697,14 @@ export function ObjectValidationsPanel({
         name: e.name,
         label: typeof e.def.label === 'string' ? (e.def.label as string) : undefined,
         hidden: e.def.hidden === true,
+        // objectui#11894 — the type the condition builder compiles "is empty"
+        // by. Without it every field here read as undeclared, and a rule built
+        // as "due date is empty" saved as `!record.due_date`, which the server
+        // cannot evaluate on a date, so it refused every matching write.
+        // `multiple` puts a multi-capable field declared `multiple` on the
+        // null-or-empty-list check.
+        type: typeof e.def.type === 'string' ? (e.def.type as string) : undefined,
+        multiple: e.def.multiple === true,
       })),
     [draft.fields],
   );

@@ -26,6 +26,7 @@ import { Skeleton } from '@object-ui/components';
 import { SchemaRenderer } from '@object-ui/react';
 import { PreviewShell, PreviewErrorBoundary } from './PreviewShell.js';
 import { useMonacoFallback } from '../useMonacoFallback.js';
+import { pageKindNode } from '../../pageKindNode.js';
 import { t as tr } from '../i18n.js';
 
 // Lazy for the same reason as JsonSourceEditor — Monaco's core is ~3MB and
@@ -150,8 +151,14 @@ export function SourcePageEditor({
     onPatch?.({ source: v });
   };
 
+  // The page's KIND rides two keys, as the running app hands it (`PageView`):
+  // the node `type` the registry dispatches on and the `pageType` PageRenderer
+  // reads for the page width and the title heading. Writing `type` alone drew
+  // every source page as a record page — record width, no title — whatever
+  // its kind (objectui#11933). One shared builder writes both keys, for the
+  // running app and for both Studio page previews.
   const previewSchema = React.useMemo(
-    () => ({ ...(draft as Record<string, unknown>), type: (draft as { type?: string }).type ?? 'page' }),
+    () => ({ ...(draft as Record<string, unknown>), ...pageKindNode(draft as { type?: string }) }),
     [draft],
   );
 

@@ -28,6 +28,7 @@ import { ConsoleActionRuntimeProvider } from '../hooks/useConsoleActionRuntime.j
 import { useCanAuthorMetadata } from '../hooks/useCanAuthorMetadata.js';
 import { InterfaceListPage } from './InterfaceListPage.js';
 import { pageRecordActionsValue } from './pageRecordActions.js';
+import { pageKindNode } from './pageKindNode.js';
 
 /**
  * After a successful page-level action, declare the change on the
@@ -182,8 +183,12 @@ export function PageView() {
                   // package, so its module graph cannot reach this file: gutting
                   // this mapping leaves it green, and deleting a registration
                   // turns it red. Both directions were measured on objectui#9718.
-                  type: (page as any).type || 'page',
-                  pageType: (page as any).type,
+                  //
+                  // The pair is built by `pageKindNode`, the ONE builder this
+                  // writer shares with Studio's page previews (objectui#11933):
+                  // they used to write `type` alone, so they drew an app or
+                  // home page as a record page.
+                  ...pageKindNode(page),
                   // `context` is built here, never read off the page: `PageSchema`
                   // refuses a page-level `context` key, so no parsed page can
                   // carry one (objectui#9673). Written after `...page`, it also

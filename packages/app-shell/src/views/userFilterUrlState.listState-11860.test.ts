@@ -8,8 +8,8 @@
 
 /**
  * objectui#11860 — the list toolbar's state in the `uf_` URL family: the
- * Filter panel's conditions (`uf__filter`), the search term (`uf__search`) and
- * the sort (`uf__sort`).
+ * Filter panel's conditions (`uf__filter`), the search term (`uf__search`), the
+ * sort (`uf__sort`) and the grouping (`uf__group`).
  *
  * Pinned here, without mounting anything: the round trip of every piece through
  * a real `URLSearchParams` string, the spec shapes the values carry, and the
@@ -20,10 +20,11 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { ViewFilterRuleSchema } from '@objectstack/spec/ui';
-import type { FilterGroup, SortItem } from '@object-ui/components';
+import { GroupingConfigSchema, ViewFilterRuleSchema } from '@objectstack/spec/ui';
+import type { FilterGroup, GroupingConfigValue, SortItem } from '@object-ui/components';
 import {
   LIST_FILTER_PARAM,
+  LIST_GROUP_PARAM,
   LIST_SEARCH_PARAM,
   LIST_SORT_PARAM,
   applyListStateParams,
@@ -227,6 +228,72 @@ describe('the sort and the search term (objectui#11860)', () => {
   });
 });
 
+describe('the toolbar grouping round-trips through `uf__group` (objectui#11860)', () => {
+  it('what the grouping editor emits is the spec `GroupingConfig`, and comes back unchanged', () => {
+    // The editor's own value type, as `GroupingEditor`'s `onChange` hands it.
+    const emitted: GroupingConfigValue = {
+      fields: [
+        { field: 'status', order: 'desc', collapsed: true },
+        { field: 'priority', order: 'asc', collapsed: false },
+      ],
+    };
+    // The spec parses it as it is: no key added, none refused.
+    expect(GroupingConfigSchema.parse(emitted)).toEqual(emitted);
+    const params = applyListStateParams(new URLSearchParams(), { grouping: emitted });
+    expect(JSON.parse(params.get(LIST_GROUP_PARAM)!)).toEqual(emitted);
+    expect(parseListStateParams(viaLink(params), acceptKnown).grouping).toEqual(emitted);
+  });
+
+  it('a level that leaves out `order` and `collapsed` reads back with the spec defaults', () => {
+    const params = new URLSearchParams({ [LIST_GROUP_PARAM]: JSON.stringify({ fields: [{ field: 'status' }] }) });
+    expect(parseListStateParams(params, acceptKnown).grouping).toEqual({
+      fields: [{ field: 'status', order: 'asc', collapsed: false }],
+    });
+  });
+
+  it('a level the spec refuses, or naming a field not accepted, is dropped; the others keep their order', () => {
+    const raw = JSON.stringify({
+      fields: [
+        { field: 'ghost', order: 'asc' },
+        { field: 'priority', order: 'sideways' },
+        { field: 'status', order: 'desc', collapsed: true },
+        { field: 'name', order: 'asc', extra: 1 },
+        { field: 'due_date' },
+      ],
+    });
+    expect(parseListStateParams(new URLSearchParams({ [LIST_GROUP_PARAM]: raw }), acceptKnown).grouping).toEqual({
+      fields: [
+        { field: 'status', order: 'desc', collapsed: true },
+        { field: 'due_date', order: 'asc', collapsed: false },
+      ],
+    });
+  });
+
+  it('a value that is not JSON, not the spec envelope, or left with no level carries no grouping', () => {
+    const read = (raw: string) =>
+      parseListStateParams(new URLSearchParams({ [LIST_GROUP_PARAM]: raw }), acceptKnown).grouping;
+    expect(read('{not json')).toBeUndefined();
+    expect(read('status')).toBeUndefined();
+    expect(read(JSON.stringify([{ field: 'status' }]))).toBeUndefined();
+    expect(read(JSON.stringify({ fields: [] }))).toBeUndefined();
+    expect(read(JSON.stringify({ fields: [{ field: 'ghost' }] }))).toBeUndefined();
+    // `GroupingConfigSchema` declares `fields` alone: another key drops the whole value.
+    expect(read(JSON.stringify({ fields: [{ field: 'status' }], groupBy: 'priority' }))).toBeUndefined();
+  });
+
+  it('a cleared grouping deletes the param, and an absent piece leaves it alone', () => {
+    const start = applyListStateParams(new URLSearchParams({ recordId: 'r1' }), {
+      grouping: { fields: [{ field: 'status' }] },
+    });
+    expect(applyListStateParams(start, { search: 'x' }).get(LIST_GROUP_PARAM)).toBe(start.get(LIST_GROUP_PARAM));
+    for (const cleared of [null, undefined, { fields: [] }]) {
+      const next = applyListStateParams(start, { grouping: cleared as never });
+      expect(next.has(LIST_GROUP_PARAM)).toBe(false);
+      expect(next.get('recordId')).toBe('r1');
+    }
+  });
+});
+
 describe('the list-state keys are not quick-filter selections (objectui#11860)', () => {
   it('`parseUserFilterParams` hands `UserFilters` its fields and `_tab`, never a list-state key', () => {
     let params = applyUserFilterParams(new URLSearchParams(), { status: ['open'], _tab: ['mine'] });
@@ -234,7 +301,9 @@ describe('the list-state keys are not quick-filter selections (objectui#11860)',
       search: 'x',
       sort: [{ field: 'name', order: 'asc' }],
       filters: { logic: 'and', conditions: [{ id: 'a', field: 'priority', operator: 'equals', value: 'urgent' }] },
+      grouping: { fields: [{ field: 'status', order: 'asc', collapsed: false }] },
     });
+    expect(params.has(LIST_GROUP_PARAM)).toBe(true);
     expect(parseUserFilterParams(viaLink(params))).toEqual({ status: ['open'], _tab: ['mine'] });
   });
 

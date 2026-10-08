@@ -32,7 +32,7 @@ const h = vi.hoisted(() => {
   const previewList = vi.fn(async (_type: string) => CATALOG);
   const client = {
     get,
-    withPreviewDrafts: vi.fn((_on: boolean) => ({ list: previewList })),
+    withPreviewDrafts: vi.fn((_on: boolean) => ({ list: previewList, get })),
     list: vi.fn(async (type: string) => (type === 'object' ? CATALOG.filter((o) => !o._draft) : [])),
     listDrafts: vi.fn(async () => [] as unknown[]),
   };

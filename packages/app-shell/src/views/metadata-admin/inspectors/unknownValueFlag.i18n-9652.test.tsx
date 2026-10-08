@@ -54,6 +54,7 @@ const state = vi.hoisted(() => ({
       fields: { stage: { type: 'text', label: 'Stage' } },
     })),
     list: vi.fn(async () => [] as unknown[]),
+    withPreviewDrafts() { return this; },
   },
 }));
 vi.mock('../useMetadata', () => ({

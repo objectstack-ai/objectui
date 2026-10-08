@@ -51,6 +51,7 @@ function renderInspector(node: Record<string, unknown>, language: Language) {
         navId="navigation[0]"
         appDraft={{ navigation: [node] }}
         objects={OBJECTS}
+        packageId="com.acme.app"
         onNavPatch={onNavPatch}
         onClear={vi.fn()}
       />
@@ -75,6 +76,7 @@ function StatefulInspector({ node, onDraft }: { node: Record<string, unknown>; o
       navId="navigation[0]"
       appDraft={draft}
       objects={OBJECTS}
+      packageId="com.acme.app"
       onNavPatch={(p) => {
         const next = { ...draft, ...(p as NavPatch) };
         onDraft(next);

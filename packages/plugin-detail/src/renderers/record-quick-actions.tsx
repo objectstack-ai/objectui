@@ -18,7 +18,16 @@
 import React from 'react';
 import { useRecordContext, useActionEngine, useMetadataItem, useCondition, toPredicateInput, useActionTextLocalizer } from '@object-ui/react';
 import { usePermissions } from '@object-ui/permissions';
-import { Button, cn, hasDeclaredVisibilityGate } from '@object-ui/components';
+import {
+  Button,
+  cn,
+  hasDeclaredVisibilityGate,
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@object-ui/components';
+import { useSafeTranslate } from '@object-ui/i18n';
 import { Loader2 } from 'lucide-react';
 import type { ActionDef, ActionLocation } from '@object-ui/core';
 import { resolveDeclaredActionIds } from '@object-ui/types';
@@ -360,6 +369,8 @@ function QuickActionButton({
   // engine. The previous `typeof === 'string'` split dropped the envelope, so
   // a spec-authored `disabled` never disabled anything on this surface.
   const isDisabledPred = useCondition(toPredicateInput((action as any).disabled), recordCtx);
+  const tt = useSafeTranslate();
+  const reasonId = React.useId();
   // Is a `disabled` gate DECLARED? Read from the one definition on the action
   // face rather than re-spelled here (objectui#3842 ruling, applied to this
   // site by #3849 — the historic `visible`-flavoured name is kept on purpose;
@@ -370,12 +381,24 @@ function QuickActionButton({
   // `disabled` means DISABLE — so `disabled: ''` (an empty predicate, i.e.
   // nothing declared) greyed this quick action out permanently, with no way for
   // the author to un-grey it. There is no legacy `enabled` leg on this surface.
-  const isDisabled = (hasDeclaredVisibilityGate((action as any).disabled) ? isDisabledPred : false) || running;
-  return (
+  //
+  // Kept apart from `running` (objectui#11811): only the DECLARED predicate is
+  // a fact about the record, so only it earns the "not available" reason. A
+  // button greyed out while its own action runs already says why — the spinner.
+  const disabledByPredicate = hasDeclaredVisibilityGate((action as any).disabled) ? isDisabledPred : false;
+  const isDisabled = disabledByPredicate || running;
+  // The generic reason (objectui#11811). The author-written reason beside the
+  // predicate is a spec question for objectstack, not a key this renderer may
+  // invent, so every predicate-disabled action says the same thing for now.
+  const disabledReason = disabledByPredicate
+    ? tt('actions.notAvailableForRecord', 'Not available for this record')
+    : undefined;
+  const button = (
     <Button
       variant={variant}
       size={size}
       disabled={isDisabled}
+      aria-describedby={disabledReason ? reasonId : undefined}
       onClick={async () => {
         setRunning(true);
         try { await onRun(); } finally { setRunning(false); }
@@ -384,6 +407,35 @@ function QuickActionButton({
       {running && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
       {label}
     </Button>
+  );
+  if (!disabledReason) return button;
+  // A natively `disabled` button fires no pointer or focus events, and the
+  // Button primitive adds `disabled:pointer-events-none` on top — so a tooltip
+  // (or a native `title`) on the button itself never opens: the card's "hovering
+  // or focusing it shows nothing". The wrapping span is the trigger instead,
+  // the idiom Radix documents for a disabled button: it takes the hover, and
+  // `tabIndex={0}` lets a keyboard user focus it, which opens the tooltip too.
+  // The reason is ALSO a persistent accessible description (`aria-describedby`
+  // on both the button and the span, onto an `sr-only` copy), so a screen
+  // reader reaching either one hears it without the tooltip being open. Same
+  // shape as `DeclaredActionsBar`'s button in `@object-ui/app-shell`.
+  return (
+    <TooltipProvider delayDuration={200}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span
+            tabIndex={0}
+            aria-describedby={reasonId}
+            data-disabled-reason=""
+            className="inline-flex rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            {button}
+            <span id={reasonId} className="sr-only">{disabledReason}</span>
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>{disabledReason}</TooltipContent>
+      </Tooltip>
+    </TooltipProvider>
   );
 }
 

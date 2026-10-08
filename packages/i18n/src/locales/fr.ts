@@ -2807,6 +2807,10 @@ const fr = {
     back: "Retour",
     recordNotFound: "Enregistrement introuvable",
     recordNotFoundDescription: "L'enregistrement que vous recherchez n'existe pas ou a peut-être été supprimé.",
+    recordAccessDenied: "Vous n'avez pas accès aux enregistrements {{object}}",
+    recordAccessDeniedDescription: "Vous n'avez pas la permission de consulter les enregistrements de ce type. Contactez votre administrateur si vous pensez devoir y accéder.",
+    recordLoadFailed: "Impossible de charger cet enregistrement",
+    recordLoadFailedDescription: "Une erreur s'est produite lors du chargement. Vérifiez votre connexion et réessayez.",
   },
   actionDialog: {
     title: "Paramètres d'action",

@@ -11,15 +11,15 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { activityRowToFeedItem, InlineEditSaveBar, buildDefaultPageSchema, deriveFieldGroupDetailSections, extractMentions, isRefusedFeedRead, resolveTitleField, useRecordEditable } from '@object-ui/plugin-detail';
-import { Empty, EmptyTitle, EmptyDescription } from '@object-ui/components';
+import { Empty, EmptyTitle, EmptyDescription, Button } from '@object-ui/components';
 import { useAuth, createAuthenticatedFetch } from '@object-ui/auth';
 import { usePermissions } from '@object-ui/permissions';
 import { useDisplayLocale } from '@object-ui/i18n';
-import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate } from '@object-ui/react';
+import { ActionProvider, useObjectTranslation, useObjectLabel, useActionTextLocalizer, usePageAssignment, RecordContextProvider, SchemaRenderer, DiscussionContextProvider, HighlightFieldsProvider, InlineEditProvider, useGlobalUndo, useDataInvalidation, notifyDataChanged, useRowPredicate, classifyLoadError } from '@object-ui/react';
 import { buildExpandFields, captureUpdateUndoData, recordDelete, resolveRecordIdParamSeed, userActionPredicates, withoutDeniedFields } from '@object-ui/core';
 import { toast } from 'sonner';
 import { useRecordPresence, PresenceAvatars } from '@object-ui/collaboration';
-import { Database, ChevronLeft } from 'lucide-react';
+import { Database, ChevronLeft, Lock, AlertTriangle, RotateCw } from 'lucide-react';
 import { MetadataPanel, useMetadataInspector } from './MetadataInspector.js';
 import { SkeletonDetail } from '../skeletons/index.js';
 import { ManagedByBadge } from '../components/ManagedByBadge.js';
@@ -512,13 +512,32 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
   }, [assignedPage, assignedSlots, objectDef]);
   const effectivePage = assignedPage || synthesizedPage;
   const [pageRecord, setPageRecord] = useState<any>(null);
-  // 'idle' | 'loading' | 'loaded' | 'missing' — distinguishes "haven't
-  // tried yet" from "tried and the record really doesn't exist". The
-  // not-found short-circuit below uses `missing` to render a clean empty
-  // state instead of a half-broken page chrome (rail + discussion).
+  // 'idle' | 'loading' | 'loaded' | 'missing' | 'forbidden' | 'failed' —
+  // distinguishes "haven't tried yet" from each way the read can end. The
+  // short-circuits below render a clean empty state for the last three
+  // instead of a half-broken page chrome (rail + discussion), one per answer
+  // (objectui#11902):
+  //
+  //   - `missing`   — the read resolved with no record. The adapter answers a
+  //     404 that way (`ObjectStackAdapter.findOne` resolves `null`), so this is
+  //     the not-found state, and the only one that says "not found".
+  //   - `forbidden` — the read was REFUSED: `classifyLoadError`'s `forbidden`
+  //     kind (a 403 / `PERMISSION_DENIED`), the shared classifier the list
+  //     view's error panel, the activity feed and the attachments panel read.
+  //   - `failed`    — every other rejection (a 5xx, a transport error, …). It
+  //     says the load failed and offers Retry, which re-runs the same read.
+  //
+  // Every rejection used to land on `missing`, so a refused read told the
+  // viewer the record "may have been deleted" — and they reported a lost record
+  // instead of asking for access — and a transient failure looked final.
   const [pageRecordStatus, setPageRecordStatus] = useState<
-    'idle' | 'loading' | 'loaded' | 'missing'
+    'idle' | 'loading' | 'loaded' | 'missing' | 'forbidden' | 'failed'
   >('idle');
+  // The record-load effect's own `loadRecord`, for the `failed` state's Retry
+  // (objectui#11902). Held so Retry re-runs THE read the page already makes —
+  // same request, same cancellation guard — rather than a second read path.
+  // Cleared with the effect, so a Retry can never run a superseded load.
+  const reloadPageRecordRef = useRef<(() => void) | null>(null);
 
   // Permissions context.
   //
@@ -620,12 +639,16 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
             setPageRecordStatus('missing');
           }
         })
-        .catch(() => {
+        .catch((err: unknown) => {
           if (cancelled) return;
           setPageRecord(null);
-          setPageRecordStatus('missing');
+          // objectui#11902 — a rejection is never "not found": the adapter
+          // answers a 404 by resolving `null` (the branch above). A refusal is
+          // told apart by the shared classifier; anything else is a failed load.
+          setPageRecordStatus(classifyLoadError(err) === 'forbidden' ? 'forbidden' : 'failed');
         });
     };
+    reloadPageRecordRef.current = loadRecord;
     loadRecord();
 
     // Re-sync when any descendant signals the record changed (e.g.
@@ -640,6 +663,7 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
     window.addEventListener('objectui:record-changed', onChanged as EventListener);
     return () => {
       cancelled = true;
+      if (reloadPageRecordRef.current === loadRecord) reloadPageRecordRef.current = null;
       window.removeEventListener('objectui:record-changed', onChanged as EventListener);
     };
     // #2269: recordInvalidationNonce re-runs this fetch in place whenever the
@@ -2523,6 +2547,68 @@ export function RecordDetailView({ dataSource, objects, onEdit, objectNameOverri
                 'The record you are looking for does not exist or may have been deleted.',
             })}
           </EmptyDescription>
+        </Empty>
+      </div>
+    );
+  }
+
+  // objectui#11902 — a REFUSED read. The refusal is about the object, not this
+  // record, so the copy names the object and never implies the record exists:
+  // it shows no more than the server's own 403 already says (objectstack#8013).
+  // No Retry: retrying a permission decision cannot change it — the same
+  // reasoning as the app-level `appAccessDenied` screen in `AppContent`.
+  if (pageRecordStatus === 'forbidden') {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <Empty data-testid="record-access-denied">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <Lock className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <EmptyTitle>
+            {t('empty.recordAccessDenied', {
+              object: objectLabel({ name: objectName!, label: objectDef?.label || objectName! }),
+              defaultValue: 'You don’t have access to {{object}} records',
+            })}
+          </EmptyTitle>
+          <EmptyDescription>
+            {t('empty.recordAccessDeniedDescription', {
+              defaultValue:
+                'You don’t have permission to view records of this type. Contact your administrator if you think you should have access.',
+            })}
+          </EmptyDescription>
+        </Empty>
+      </div>
+    );
+  }
+
+  // objectui#11902 — the read FAILED (a 5xx, a transport error, …): say so,
+  // and offer Retry, which re-runs the page's own record load.
+  if (pageRecordStatus === 'failed') {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <Empty data-testid="record-load-failed">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+            <AlertTriangle className="h-6 w-6 text-muted-foreground" />
+          </div>
+          <EmptyTitle>
+            {t('empty.recordLoadFailed', { defaultValue: 'Couldn’t load this record' })}
+          </EmptyTitle>
+          <EmptyDescription>
+            {t('empty.recordLoadFailedDescription', {
+              defaultValue: 'Something went wrong while loading it. Check your connection and try again.',
+            })}
+          </EmptyDescription>
+          <div className="mt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              data-testid="record-load-failed-retry"
+              onClick={() => reloadPageRecordRef.current?.()}
+            >
+              <RotateCw className="mr-1.5 h-4 w-4" />
+              {t('common.retry', { defaultValue: 'Retry' })}
+            </Button>
+          </div>
         </Empty>
       </div>
     );

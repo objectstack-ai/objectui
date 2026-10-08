@@ -280,7 +280,10 @@ describe('PermissionMatrixEditPage — the PACKAGE door refuses rather than dele
 
     await waitFor(() => expect(server.saved).toHaveLength(1));
     expect((server.saved[0] as any).objects.a_account).toEqual({});
-    expect(server.layeredCalls).toBe(2);
+    // objectui#11799 — the load reads no layers for this set: the published
+    // set list does not hold it and its draft is in hand. The one read is the
+    // save's re-read, answering the 404 shape (`opts.load` above).
+    expect(server.layeredCalls).toBe(1);
     expect(screen.queryByText(REFUSAL)).toBeNull();
   });
 });

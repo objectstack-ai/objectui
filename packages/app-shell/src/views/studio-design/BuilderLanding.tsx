@@ -11,19 +11,38 @@
  *
  * Writable bases (where authoring happens) lead; the organization's own
  * package-less flows have one entry of their own (objectui#11553); read-only
- * code packages are listed secondary for browsing. Writability is the shared display heuristic
- * from packages-io — the ADR-0070 D4 gate stays the server-side authority.
+ * code and installed packages are listed last: they open for browsing, and each
+ * card points at the routes that customize one (objectui#11808). Writability is
+ * the server's verdict read by packages-io (`PkgEntry.writable`, ADR-0070 D2),
+ * and the server's write gate stays the authority.
  */
 
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Boxes, Building2, Hammer, Lock, Plus, Loader2, Copy } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Boxes, Building2, Hammer, Layers, Lock, Plus, Loader2, Copy, Store } from 'lucide-react';
 import { toast } from 'sonner';
 import { t, tFormat, useMetadataLocale } from '../metadata-admin/i18n.js';
 import { PackageFormDialog } from '../metadata-admin/PackageFormDialog.js';
+import { isMarketplaceEnabled } from '../../runtime-config.js';
 import { fetchPackages, duplicatePackage, isSpecPackageId, type PkgEntry } from './packages-io.js';
 import { PackageIdInput } from './PackageIdInput.js';
 import { studioOrgScopePath } from './studioScope.js';
+
+/**
+ * objectui#11808 — the two places a read-only package's card sends the author.
+ * Both are routes the console already serves, spelled the way its own entries
+ * spell them under the `setup` app: the Setup sidebar's metadata entries
+ * (`/apps/setup/metadata/:type`) and Home's "Start with a template".
+ *
+ * The overlay route is the package's metadata directory, scoped by its
+ * `package` query parameter. It marks, per metadata type, whether the type
+ * accepts an org overlay — the answer this page cannot give, because
+ * `allowOrgOverride` belongs to the TYPE (ADR-0005), not to the package or the
+ * item, and `PkgEntry` does not say which types a package ships.
+ */
+const MARKETPLACE_PATH = '/apps/setup/system/marketplace';
+const overlayPath = (packageId: string) =>
+  `/apps/setup/metadata?package=${encodeURIComponent(packageId)}`;
 
 export function BuilderLanding(): React.ReactElement {
   const navigate = useNavigate();
@@ -51,10 +70,14 @@ export function BuilderLanding(): React.ReactElement {
   const writable = pkgs?.filter((p) => p.writable) ?? [];
   const readonly = pkgs?.filter((p) => !p.writable) ?? [];
 
-  // Duplicate into a writable copy (ADR-0070 D4): a read-only code package is a STARTING POINT,
-  // not a dead end — duplicate re-namespaces it into a new writable base and
-  // drops the user straight into its builder. This is also the real substance
-  // behind Home's "Start with a template".
+  // Duplicate (ADR-0070 D4) clones a writable BASE into a new writable package,
+  // the "duplicate base" gesture, and drops the user straight into the copy's
+  // builder. It is offered on writable bases only. A read-only code or
+  // installed package is not a duplicate source: ADR-0070 D2 customizes it by
+  // org overlay, where the item's metadata type declares `allowOrgOverride`
+  // (ADR-0005), so its card points there instead (the read-only section
+  // below). Home's "Start with a template" is not this gesture either: it
+  // opens the marketplace.
   const [dupFor, setDupFor] = React.useState<string | null>(null);
   const [dupName, setDupName] = React.useState('');
   const [dupId, setDupId] = React.useState('');
@@ -132,9 +155,11 @@ export function BuilderLanding(): React.ReactElement {
               <span className="rounded bg-emerald-400/15 px-1.5 py-0.5 text-[10px] text-emerald-600 dark:text-emerald-300">
                 {t('engine.studio.pkg.writable', locale)}
               </span>
-              {/* ADR-0070 D4 — duplicate base only makes sense for writable bases: it
-                * copies sys_metadata rows; customizing a code package goes through
-                * templates / marketplace install, not here. */}
+              {/* ADR-0070 D4 — Duplicate clones a writable base: the copy is a new
+                * writable package holding the base's sys_metadata rows. It is
+                * offered here, on writable bases only; a read-only package's card
+                * offers the routes that exist for it (org overlay, the
+                * marketplace). */}
               <button
                 type="button"
                 onClick={() => (dupFor === p.id ? setDupFor(null) : startDup(p))}
@@ -233,30 +258,65 @@ export function BuilderLanding(): React.ReactElement {
         </button>
       </div>
 
+      {/* objectui#11808 — a read-only package is not a dead end. ADR-0070 D2:
+        * code and installed packages take no new items, and D4's Duplicate
+        * clones a writable base, not them. They are customized by org overlay
+        * where the item's metadata type declares `allowOrgOverride` (ADR-0005),
+        * so each card links to the package's metadata directory, which says
+        * per type whether an overlay is accepted (see `overlayPath`). The
+        * marketplace, which Home's "Start with a template" opens, is offered
+        * only when this runtime serves one (`isMarketplaceEnabled`,
+        * objectui#5504): elsewhere that route does not exist. */}
       {readonly.length > 0 && (
         <>
-          <h2 className="mb-2 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+          <h2 className="mb-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             {t('engine.studio.landing.installedHeading', locale)}
           </h2>
+          <p
+            data-testid="studio-landing-readonly-hint"
+            className="mb-2 max-w-2xl text-[11px] leading-4 text-muted-foreground"
+          >
+            {t('engine.studio.landing.readonlyHint', locale)}
+          </p>
+          {isMarketplaceEnabled() && (
+            <Link
+              to={MARKETPLACE_PATH}
+              data-testid="studio-landing-marketplace"
+              className="mb-2 flex w-fit items-center gap-1 text-[11px] text-primary hover:underline"
+            >
+              <Store className="h-3 w-3" /> {t('engine.studio.landing.marketplace', locale)}
+            </Link>
+          )}
           <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
             {readonly.map((p) => (
-              <button
-                key={p.id}
-                type="button"
-                onClick={() => open(p.id)}
-                className="flex items-center gap-2.5 rounded-lg border bg-muted/20 px-3 py-2.5 text-left hover:bg-muted/40"
-              >
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
-                  <Boxes className="h-4 w-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[13px]">{p.name}</span>
-                  <span className="block truncate font-mono text-[10px] text-muted-foreground">{p.id}</span>
-                </span>
-                <span className="inline-flex items-center gap-0.5 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] text-amber-600 dark:text-amber-300">
-                  <Lock className="h-2.5 w-2.5" /> {t('engine.studio.pkg.readonly', locale)}
-                </span>
-              </button>
+              <div key={p.id} className="rounded-lg border bg-muted/20">
+                <button
+                  type="button"
+                  onClick={() => open(p.id)}
+                  className="flex w-full items-center gap-2.5 rounded-t-lg px-3 py-2.5 text-left hover:bg-muted/40"
+                >
+                  <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-muted text-muted-foreground">
+                    <Boxes className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px]">{p.name}</span>
+                    <span className="block truncate font-mono text-[10px] text-muted-foreground">{p.id}</span>
+                  </span>
+                  <span className="inline-flex items-center gap-0.5 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] text-amber-600 dark:text-amber-300">
+                    <Lock className="h-2.5 w-2.5" /> {t('engine.studio.pkg.readonly', locale)}
+                  </span>
+                </button>
+                <div className="border-t px-3 py-1.5">
+                  <Link
+                    to={overlayPath(p.id)}
+                    title={t('engine.studio.landing.overlayTitle', locale)}
+                    data-testid="studio-landing-overlay"
+                    className="inline-flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground hover:underline"
+                  >
+                    <Layers className="h-3 w-3" /> {t('engine.studio.landing.overlay', locale)}
+                  </Link>
+                </div>
+              </div>
             ))}
           </div>
         </>

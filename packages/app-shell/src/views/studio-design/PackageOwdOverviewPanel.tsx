@@ -28,7 +28,7 @@
 
 import * as React from 'react';
 import { ShieldCheck, Save, Loader2, Lock, ArrowUpRight, AlertTriangle } from 'lucide-react';
-import type { MetadataClient } from '@object-ui/data-objectstack';
+import type { MetadataClient, MetadataLayered } from '@object-ui/data-objectstack';
 // The ONE draft-envelope reader (objectui#8181): unwrap AND strip the
 // framework's read decorations in one place. This file used to carry its own
 // copy that did the unwrap and skipped the strip.
@@ -56,6 +56,32 @@ interface OwdRow {
   master?: string;
   /** True when this object already has an unpublished draft. */
   hasDraft: boolean;
+  /** True when the package's published list held this object at load (objectui#11799). */
+  saved: boolean;
+}
+
+/**
+ * One object's two reads for this table: its layered baseline and its pending
+ * draft. The baseline is used only when there is no draft (objectui#10765).
+ *
+ * objectui#11799 — an object the package's published list does not hold has
+ * never been saved, so it has no layer, and `GET …/layers` answers 404 for it.
+ * Such an object is not asked while its draft is in hand. Should no draft come
+ * back (a failed read, or the object was published or discarded since the
+ * list was read), its baseline is read as before. A saved object is read
+ * exactly as before: both reads together.
+ */
+async function readObjectBodies(
+  client: MetadataClient,
+  name: string,
+  saved: boolean,
+): Promise<[MetadataLayered<Record<string, unknown>> | null, unknown]> {
+  const readLayered = () => client.layered<Record<string, unknown>>('object', name).catch(() => null);
+  const readDraft = () => client.getDraft<Record<string, unknown>>('object', name).catch(() => null);
+  if (saved) return Promise.all([readLayered(), readDraft()]);
+  const draftResp = await readDraft();
+  if (extractDraftBody(draftResp)) return [null, draftResp];
+  return [await readLayered(), draftResp];
 }
 
 /** The user's working value for one row ('' = unset). */
@@ -153,10 +179,9 @@ export function PackageOwdOverviewPanel({
       // from that one source.
       const built = await Promise.all(
         names.map(async (name): Promise<OwdRow> => {
-          const [layRaw, draftResp] = await Promise.all([
-            client.layered<Record<string, unknown>>('object', name).catch(() => null),
-            client.getDraft<Record<string, unknown>>('object', name).catch(() => null),
-          ]);
+          // objectui#11799 — saved = held by the published list read above.
+          const saved = publishedLabel.has(name);
+          const [layRaw, draftResp] = await readObjectBodies(client, name, saved);
           const lay = (layRaw ?? {}) as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
           const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
           const draftBody = extractDraftBody(draftResp);
@@ -173,6 +198,7 @@ export function PackageOwdOverviewPanel({
             external: typeof body.externalSharingModel === 'string' ? body.externalSharingModel : '',
             master: internal === 'controlled_by_parent' ? deriveMasterObject(body.fields) : undefined,
             hasDraft: !!draftBody,
+            saved,
           };
         }),
       );
@@ -247,10 +273,9 @@ export function PackageOwdOverviewPanel({
       // save. Identical to the per-object Settings write, N times — publish
       // then goes through the same package security-domain gate unchanged.
       for (const s of changed) {
-        const [layRaw, draftResp] = await Promise.all([
-          client.layered<Record<string, unknown>>('object', s.row.name).catch(() => null),
-          client.getDraft<Record<string, unknown>>('object', s.row.name).catch(() => null),
-        ]);
+        // objectui#11799 — the row's saved state from the load decides whether
+        // the baseline is asked before the draft is in hand.
+        const [layRaw, draftResp] = await readObjectBodies(client, s.row.name, s.row.saved);
         const lay = (layRaw ?? {}) as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
         const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
         const draftBody = extractDraftBody(draftResp);

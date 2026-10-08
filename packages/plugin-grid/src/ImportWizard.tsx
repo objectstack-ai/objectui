@@ -2311,11 +2311,16 @@ export const ImportWizard: React.FC<ImportWizardProps> = ({
     () => mergeRowFindings(clientFindings, dryRunResult, csvIdxByField, rows.length),
     [clientFindings, dryRunResult, csvIdxByField, rows.length],
   );
-  const describeFinding: DescribeFinding = (finding) => (
-    finding.source === 'client'
-      ? { fieldLabel: finding.field.label || finding.field.name, message: cellRefusalMessage(finding.refusal, finding.field, t) }
-      : formatDryRunError(finding.result, fieldLabelByName, dryRunCellValue(finding.result.row, finding.result.field), t)
-  );
+  const describeFinding: DescribeFinding = (finding) => {
+    if (finding.source === 'server') {
+      return formatDryRunError(finding.result, fieldLabelByName, dryRunCellValue(finding.result.row, finding.result.field), t);
+    }
+    // Named the way formatDryRunError names a server finding's field, so the
+    // two halves of one row read alike.
+    const fieldName = finding.field.name;
+    const fieldLabel = fieldLabelByName.get(fieldName) ?? fieldName;
+    return { fieldLabel, message: cellRefusalMessage(finding.refusal, finding.field, t) };
+  };
   // The rows the import is expected to write: those with no finding at all.
   const importableRowCount = rows.length - findings.byRow.size;
 

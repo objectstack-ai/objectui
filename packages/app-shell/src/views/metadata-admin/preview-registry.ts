@@ -124,7 +124,11 @@ export type MetadataPreview = ComponentType<MetadataPreviewProps>;
  * take their shared types from here.
  */
 export interface ObservableTypeRegistry<T> {
-  /** Store `value` under `type`, replacing any earlier entry, and notify subscribers. */
+  /**
+   * Store `value` under `type`, replacing any earlier entry, and notify subscribers —
+   * except inside a built-in pass ({@link registerAsBuiltIns}), which never
+   * replaces an entry that is already there.
+   */
   set(type: string, value: T): void;
   /** The entry for `type` as it is now. */
   get(type: string): T | undefined;

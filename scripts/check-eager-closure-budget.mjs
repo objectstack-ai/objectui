@@ -1030,7 +1030,10 @@ export const BASELINE = Object.freeze({
    * `apps/console/vite.config.ts` run through Vite's `build()` with one
    * read-only module-graph dump appended, reading the `eager-closure.json` the
    * build writes, under `scripts/pm/os-verify-lock.sh`, in the same container
-   * as the `9cb4e29` control build. The commits after it on the branch (this
+   * as the `9cb4e29` control build. The console's ordinary build of `57a1066`
+   * (`CI=true pnpm exec turbo run build --filter=@object-ui/console...
+   * --concurrency=2`, exit 0) wrote the same figure to the byte, which is this
+   * instrument's calibration. The commits after `406f760` on the branch (this
    * re-pin, its unit test and the changeset) reach no bundler input, so they
    * cannot move the figure it pins.
    *

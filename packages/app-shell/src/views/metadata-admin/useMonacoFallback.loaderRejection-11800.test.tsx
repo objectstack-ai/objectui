@@ -124,14 +124,15 @@ describe('useMonacoFallback — a failing Monaco loader (objectui#11800)', () =>
     expect(fallback.tagName).toBe('TEXTAREA');
     await settle();
 
-    expect(uncaught, 'uncaught rejections after the loader failed').toHaveLength(0);
+    // Soft, so a regression reports every reading at once, not just the first.
+    expect.soft(uncaught, 'uncaught rejections after the loader failed').toHaveLength(0);
     const editorInitErrors = consoleError.mock.calls.filter(
       ([first]) => typeof first === 'string' && first.startsWith('Monaco initialization'),
     );
-    expect(editorInitErrors, "<Editor>'s own init error lines").toHaveLength(0);
+    expect.soft(editorInitErrors, "<Editor>'s own init error lines").toHaveLength(0);
     const reports = monacoReports(consoleWarn.mock.calls);
-    expect(reports, 'console lines reporting the Monaco failure').toHaveLength(1);
-    expect(reports[0]).toContain(loaderScript.src);
+    expect.soft(reports, 'console lines reporting the Monaco failure').toHaveLength(1);
+    expect.soft(reports.join('\n'), 'the report names the loader script URL').toContain(loaderScript.src);
 
     // Reopen: a source editor mounted after the failure is known. Same page,
     // so no second report, no second script, and nothing uncaught.
@@ -140,15 +141,16 @@ describe('useMonacoFallback — a failing Monaco loader (objectui#11800)', () =>
     expect(json.value).toContain('work_order');
     await settle();
 
-    expect(uncaught, 'uncaught rejections after a reopen').toHaveLength(0);
-    expect(heldLoaderScripts).toHaveLength(1);
-    expect(monacoReports(consoleWarn.mock.calls), 'reports after a reopen').toHaveLength(1);
+    expect.soft(uncaught, 'uncaught rejections after a reopen').toHaveLength(0);
+    expect.soft(heldLoaderScripts, 'loader scripts after a reopen').toHaveLength(1);
+    expect.soft(monacoReports(consoleWarn.mock.calls), 'reports after a reopen').toHaveLength(1);
 
     // Only the loader's own rejection is cancelled: any other one on the page
     // is still reported.
     const unrelated = new Error('an unrelated rejection');
+    const before = uncaught.length;
     void Promise.reject(unrelated);
     await settle();
-    expect(uncaught).toEqual([unrelated]);
+    expect(uncaught.slice(before), 'a rejection the loader did not make').toEqual([unrelated]);
   });
 });

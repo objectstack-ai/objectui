@@ -11,8 +11,8 @@
  * record was refused (`no such overload: !null` / `!string`). The builder
  * types its value-less operators by the field list it is given, and this panel
  * then gave it names, labels and hidden flags only — so every field here read
- * as undeclared and kept the `!` form. The panel now copies `type` (also read
- * by the New menu's presets, objectui#11861) and `multiple`.
+ * as undeclared and kept the `!` form. The panel now copies `type` and
+ * `multiple`.
  *
  * Each verdict is read off what the panel WRITES through `onPatch` and
  * evaluated with `@objectstack/formula`'s `ExpressionEngine.evaluate`, called

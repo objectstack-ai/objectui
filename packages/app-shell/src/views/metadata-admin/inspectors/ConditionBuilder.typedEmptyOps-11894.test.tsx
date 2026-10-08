@@ -31,6 +31,8 @@ const state = vi.hoisted(() => ({
   metadataClient: {
     get: vi.fn(async (): Promise<unknown> => undefined),
     list: vi.fn(async () => [] as unknown[]),
+    // `useObjectFields` reads the draft-overlaid object (objectui#11895).
+    withPreviewDrafts() { return this; },
   },
 }));
 vi.mock('../useMetadata', () => ({

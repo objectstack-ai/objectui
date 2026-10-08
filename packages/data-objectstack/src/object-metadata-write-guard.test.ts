@@ -32,6 +32,23 @@ import {
 
 const objectWith = (fields: unknown) => ({ name: 'account', label: 'Account', fields });
 
+/** The message a refused call throws; a call that does not throw fails the test. */
+function messageOf(call: () => void): string {
+  try {
+    call();
+  } catch (e) {
+    return (e as Error).message;
+  }
+  throw new Error('expected the guard to refuse this body');
+}
+
+/**
+ * Code an author cannot act on (objectui#11785): a door's class or function
+ * name, a package name, or a tracker id. The rationale for each rule stays in
+ * the module's docblock, out of the runtime string.
+ */
+const NAMES_CODE = /MetadataClient|MetadataService|importObjectDraft|@objectstack|objectstack#|objectui#|#\d+/;
+
 describe('assertObjectMetadataWritable — the four states of an unusable target', () => {
   // The four states the contract distinguishes, each measured against
   // `ObjectSchema` by the derivation pin. The guard must refuse all four,
@@ -72,10 +89,11 @@ describe('assertObjectMetadataWritable — the four states of an unusable target
       .toThrow(/whitespace-only `reference`/);
   });
 
-  it('names the door that refused, so a thrown message says where the write stopped', () => {
+  it('reads the same at every door and names no code (objectui#11785)', () => {
     const body = objectWith({ owner: { type: 'lookup', label: 'Owner' } });
-    expect(() => assertObjectMetadataWritable('object', body, 'MetadataClient.save'))
-      .toThrow(/^MetadataClient\.save refused/);
+    const at = (door: string) => messageOf(() => assertObjectMetadataWritable('object', body, door));
+    expect(at('MetadataClient.save')).toBe(at('importObjectDraft'));
+    expect(at('MetadataClient.save')).not.toMatch(NAMES_CODE);
   });
 });
 
@@ -206,10 +224,11 @@ describe('assertObjectMetadataWritable — a choice field needs an option source
     expect(() => assertObjectMetadataWritable('object', body, 'TEST')).toThrow(/`field_2`/);
   });
 
-  it('names the door that refused', () => {
+  it('reads the same at every door and names no code (objectui#11785)', () => {
     const body = objectWith({ stage: { type: 'radio', label: 'Stage' } });
-    expect(() => assertObjectMetadataWritable('object', body, 'MetadataClient.save'))
-      .toThrow(/^MetadataClient\.save refused/);
+    const at = (door: string) => messageOf(() => assertObjectMetadataWritable('object', body, door));
+    expect(at('MetadataClient.save')).toBe(at('MetadataService'));
+    expect(at('MetadataClient.save')).not.toMatch(NAMES_CODE);
   });
 
   it('says nothing about the multi-choice types the ruling does not name', () => {

@@ -10,7 +10,7 @@
  * outside the groups", and the draft never changed.
  *
  * The instrument: the REAL `DndContext`, the real `KeyboardSensor` with the
- * designer's `sortableKeyboardCoordinates`, the real `PointerSensor`, the
+ * designer's own coordinate getter, the real `PointerSensor`, the
  * designer's own collision detection and its real handlers. Nothing in
  * `@dnd-kit` is mocked. The test DOM does no layout, so `layoutRect` lays the
  * canvas out the way real Chromium does for this draft at a narrow width, one
@@ -204,11 +204,12 @@ describe('a keyboard drag in the form designer reaches a drop target (objectui#1
   it('carries a field up through the empty group into a group that has fields', async () => {
     renderDesigner();
     const heard = await keyboardMove('Name', ['ArrowUp', 'ArrowUp', 'ArrowUp']);
-    // The first step reaches the top of the field's own group, which moves
-    // nothing; Chromium does the same.
+    // Each step is one place in reading order (objectui#11898): the first
+    // leaves the field's own group, which until objectui#11898 moved nothing,
+    // and the second enters Contact at its end. Chromium does the same.
     expect(heard).toEqual([
-      'Picked up Name. It is in Ungrouped, position 1 of 2.',
       'Name is over New group, position 1 of 1.',
+      'Name is over Contact, position 3 of 3.',
       'Name is over Contact, position 2 of 3.',
     ]);
     expect(said()).toBe('Name moved to Contact, position 2 of 3.');

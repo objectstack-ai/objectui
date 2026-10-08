@@ -3990,8 +3990,21 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
    *
    * So "Add filter" starts on the view's first visible column — no default is
    * chosen here or in the builder beyond "the first entry of this list".
+   *
+   * objectui#11925 — field-level read security, asked with the SAME call the
+   * columns use (`perms.checkField(objectName, field, 'read')`, behind the same
+   * `isLoaded` gate as `effectiveFields`): a field the user may not read is
+   * never offered, whatever else would keep it — not the `filterableFields`
+   * whitelist, not a held condition. Before this the list was built from the
+   * object definition and the declared columns with no read check, so a field
+   * the grid had dropped could still be picked here, and the two field lists
+   * drifted. Both candidate sources pass through this one gate, the
+   * definition's fields and the declared-columns fallback alike. An
+   * unanswered policy filters nothing, exactly as the column gate defers.
    */
   const filterFields = React.useMemo(() => {
+    const canRead = (name: string) =>
+      !perms?.isLoaded || !schema.objectName || perms.checkField(schema.objectName, name, 'read');
     const whitelist =
       schema.filterableFields && schema.filterableFields.length > 0
         ? new Set<string>(schema.filterableFields)
@@ -4009,6 +4022,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
     const tierOf = (name: string) =>
       isHidden(name) ? 3 : columnRank.has(name) ? 0 : isSystemManagedField(name, defs?.[name]) ? 2 : 1;
     return candidateFields
+      .filter((f) => canRead(f.value))
       .filter((f) => (!whitelist || whitelist.has(f.value)) && (!isHidden(f.value) || !!whitelist || held.has(f.value)))
       .map((field, index) => ({ field, index, tier: tierOf(field.value) }))
       .sort((a, b) =>
@@ -4016,7 +4030,7 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
         (a.tier === 0 ? columnRank.get(a.field.value)! - columnRank.get(b.field.value)! : a.index - b.index),
       )
       .map(({ field }) => field);
-  }, [candidateFields, currentFilters.conditions, effectiveFields, objectDef, schema.filterableFields]);
+  }, [candidateFields, currentFilters.conditions, effectiveFields, objectDef, schema.filterableFields, schema.objectName, perms]);
 
   // Sort candidates: ALL fields the view can name, minus the ones the sort
   // cannot honestly reach (objectui#4243 — previously ⊂ filter candidates).

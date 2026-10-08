@@ -287,16 +287,18 @@ export function useObjectListViewDraft({
     let cancelled = false;
     (async () => {
       try {
-        const [lay, draftResp] = await Promise.all([
-          client.layered<Row>('view', viewId),
-          client.getDraft<Row>('view', viewId).catch(() => null),
-        ]);
+        const draftResp = await client.getDraft<Row>('view', viewId).catch(() => null);
         if (cancelled) return;
         // A served draft is the whole document, taken as-is (objectui#10765);
         // the published layer only without one. Both lose the read
         // decorations a save must not send back.
         const draft = extractDraftBody(draftResp) as Row | null;
-        const published = (lay as { effective?: unknown; code?: unknown }).effective ?? (lay as { code?: unknown }).code;
+        // objectui#11799 — so the published layer is read only for a view with
+        // no pending draft. A view the panel created and nobody published has
+        // a draft and no layer, and `GET …/layers` answers 404 for it.
+        const lay = draft ? null : await client.layered<Row>('view', viewId);
+        if (cancelled) return;
+        const published = (lay as { effective?: unknown; code?: unknown } | null)?.effective ?? (lay as { code?: unknown } | null)?.code;
         const row = draft ?? (isPlainObject(published) ? (stripReadDecorations(published) as Row) : null);
         // objectui#11773 — a read serves no version: the next save is unpinned.
         forget();

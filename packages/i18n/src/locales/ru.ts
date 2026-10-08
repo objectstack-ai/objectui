@@ -2879,6 +2879,10 @@ const ru = {
     back: "Назад",
     recordNotFound: "Запись не найдена",
     recordNotFoundDescription: "Искомая запись не существует или была удалена.",
+    recordAccessDenied: "Нет доступа к записям «{{object}}»",
+    recordAccessDeniedDescription: "У вас нет прав на просмотр записей этого типа. Обратитесь к администратору, если считаете, что доступ вам нужен.",
+    recordLoadFailed: "Не удалось загрузить эту запись",
+    recordLoadFailedDescription: "При загрузке произошла ошибка. Проверьте соединение и попробуйте снова.",
   },
   actionDialog: {
     title: "Параметры действия",

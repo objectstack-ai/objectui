@@ -2759,6 +2759,10 @@ const ja = {
     back: "戻る",
     recordNotFound: "レコードが見つかりません",
     recordNotFoundDescription: "お探しのレコードは存在しないか、削除された可能性があります。",
+    recordAccessDenied: "{{object}}レコードへのアクセス権がありません",
+    recordAccessDeniedDescription: "この種類のレコードを表示する権限がありません。必要な場合は管理者にお問い合わせください。",
+    recordLoadFailed: "このレコードを読み込めませんでした",
+    recordLoadFailedDescription: "読み込み中に問題が発生しました。接続を確認して再試行してください。",
   },
   actionDialog: {
     title: "アクションパラメーター",

@@ -1238,6 +1238,9 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.flowCanvas.summary.approversOther': '{count} approvers',
   'engine.flowCanvas.summary.unanimous': 'all',
   'engine.flowCanvas.summary.code': 'code',
+  // objectui#11905 — the connect handle on a node card (FlowCanvas): drag it
+  // onto another node to draw a connection between two existing nodes.
+  'engine.flowCanvas.connect': 'Drag onto another node to connect',
   // Nested structured-region tray headers (FlowRegionView / extractRegions).
   'engine.flowRegion.branchN': 'Branch {n}',
   'engine.flowRegion.try': 'Try',
@@ -2004,6 +2007,13 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // objectui#11772 — one extra copy of a connection (`edgeRouteKey`): the
   // engine follows every copy, so the target runs once per copy.
   'engine.flowProblems.repeatedEdge': 'Connection {source} → {target} is repeated; the flow runs "{target}" once for each copy. Remove this copy.',
+  // objectui#11905 — why a connection between two existing nodes is refused,
+  // shown by both doors that draw one: the canvas's connect handle and the
+  // connection inspector's From / To (`edgeConnectionRefusal`).
+  'engine.flowProblems.connectRefused.missingSource': 'Cannot connect: this flow has no node "{source}".',
+  'engine.flowProblems.connectRefused.missingTarget': 'Cannot connect: this flow has no node "{target}".',
+  'engine.flowProblems.connectRefused.self': 'Cannot connect "{source}" to itself.',
+  'engine.flowProblems.connectRefused.repeat': '"{source}" already connects to "{target}". Select that connection to change it.',
   // References side panel (ResourceEditPage) empty state.
   'engine.edit.refsScanning': 'Scanning references…',
   'engine.edit.refsEmptyTitle': 'No references found',
@@ -2974,7 +2984,7 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.pkg.readonlyHint': 'Read-only package — switch to or create a writable package to edit.',
   'engine.studio.app.scaffoldNav': "Add this package's objects as menu items",
   'engine.studio.landing.title': 'App Builder',
-  'engine.studio.landing.description': 'Design objects, forms, automations and interfaces inside a writable package; edits save as drafts and the whole package publishes in one release. Code-loaded packages are read-only (browse only).',
+  'engine.studio.landing.description': 'Design objects, forms, automations and interfaces inside a writable package; edits save as drafts and the whole package publishes in one release. Code and installed packages are read-only: browse them here, and customize them with an org overlay.',
   'engine.studio.landing.mineHeading': 'My packages (writable)',
   'engine.studio.landing.noneWritable': 'No writable packages yet — create one to start.',
   'engine.studio.landing.dup': 'Duplicate',
@@ -2985,6 +2995,12 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.studio.landing.dupGo': 'Duplicate and open the builder',
   'engine.studio.landing.dupCreated': 'Duplicated into writable package “{name}”',
   'engine.studio.landing.installedHeading': 'Installed (read-only · browsable)',
+  // objectui#11808 — the routes a read-only package does have (ADR-0070 D2,
+  // ADR-0005): an org overlay, and the marketplace where the runtime has one.
+  'engine.studio.landing.readonlyHint': 'Code and installed packages are read-only, so they are not edited or duplicated here. Customize one with an org overlay, for the metadata types that accept one.',
+  'engine.studio.landing.overlay': 'Customize with an overlay',
+  'engine.studio.landing.overlayTitle': 'Open this package’s metadata: each type shows whether it accepts an org overlay',
+  'engine.studio.landing.marketplace': 'Or install a template app from the marketplace',
   // objectui#11553 — the package-less scope: the organization's own flows.
   'engine.studio.landing.orgHeading': 'Not in a package',
   'engine.studio.org.name': 'Organization flows',
@@ -4552,6 +4568,8 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowCanvas.summary.approversOther': '{count} 位审批人',
   'engine.flowCanvas.summary.unanimous': '全员',
   'engine.flowCanvas.summary.code': '代码',
+  // objectui#11905 — the connect handle (see the en row).
+  'engine.flowCanvas.connect': '拖到另一个节点上以连线',
   // Nested structured-region tray headers.
   'engine.flowRegion.branchN': '分支 {n}',
   'engine.flowRegion.try': '尝试',
@@ -5213,6 +5231,11 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.flowProblems.sourceExpression': '表达式',
   // objectui#11772 — one extra copy of a connection (see the en row).
   'engine.flowProblems.repeatedEdge': '连线 {source} → {target} 重复;流程会为每一条副本各运行一次 “{target}”。请删除这条副本。',
+  // objectui#11905 — a refused connection (see the en rows).
+  'engine.flowProblems.connectRefused.missingSource': '无法连线：此流程中没有节点 “{source}”。',
+  'engine.flowProblems.connectRefused.missingTarget': '无法连线：此流程中没有节点 “{target}”。',
+  'engine.flowProblems.connectRefused.self': '无法将 “{source}” 连到它自身。',
+  'engine.flowProblems.connectRefused.repeat': '“{source}” 已经连到 “{target}”。请选中那条连线再修改。',
   // 引用关系侧栏(ResourceEditPage)空态。
   'engine.edit.refsScanning': '正在扫描引用…',
   'engine.edit.refsEmptyTitle': '未找到引用',
@@ -6099,7 +6122,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.pkg.readonlyHint': '只读软件包 — 请切换或新建可写软件包后再编辑。',
   'engine.studio.app.scaffoldNav': '将本包的对象添加为菜单项',
   'engine.studio.landing.title': '应用构建',
-  'engine.studio.landing.description': '在一个可写软件包里设计对象、表单、自动化与界面;编辑存为草稿,整包一次发布。源码加载的软件包为只读(仅可浏览)。',
+  'engine.studio.landing.description': '在一个可写软件包里设计对象、表单、自动化与界面;编辑存为草稿,整包一次发布。源码与已安装的软件包为只读：可在此浏览，并用组织覆盖进行定制。',
   'engine.studio.landing.mineHeading': '我的软件包(可写)',
   'engine.studio.landing.noneWritable': '还没有可写软件包 — 新建一个开始。',
   'engine.studio.landing.dup': '复制',
@@ -6110,6 +6133,11 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.studio.landing.dupGo': '复制并进入构建器',
   'engine.studio.landing.dupCreated': '已复制为可写软件包「{name}」',
   'engine.studio.landing.installedHeading': '已安装(只读 · 可浏览)',
+  // objectui#11808 — the routes a read-only package does have.
+  'engine.studio.landing.readonlyHint': '源码与已安装的软件包为只读，不能在此编辑或复制。对于接受组织覆盖的元数据类型，可用组织覆盖（overlay）进行定制。',
+  'engine.studio.landing.overlay': '用覆盖定制',
+  'engine.studio.landing.overlayTitle': '打开该软件包的元数据：每种类型都会标明是否接受组织覆盖',
+  'engine.studio.landing.marketplace': '或从应用市场安装一个模板应用',
   // objectui#11553 — the package-less scope: the organization's own flows.
   'engine.studio.landing.orgHeading': '不属于软件包',
   'engine.studio.org.name': '组织流程',

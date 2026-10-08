@@ -256,6 +256,7 @@ ignores would be accepted and dropped, which is the defect this binding removes.
 | `object-grid` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `element:record_picker` | ✅ | ✅ | ✅ | ✅ | ✅ |
 | `element:number` | ✅ | filter | ✅ | — single value | — single value |
+| `element:repeater` | ✅ | filter / sort / limit | ✅ (AND `properties.filter`) | ✅ | ✅ |
 | `record:related_list` | ✅ | columns / filter / sort / limit | ✅ | ✅ | ✅ |
 | `object-calendar` | ✅ | filter / sort | ✅ | ✅ | — platform ceiling |
 | `object-kanban` | ✅ | filter / limit | ✅ | — no ordering | ✅ (`limit`) |
@@ -303,10 +304,10 @@ rows, a form's inline fields — `customFields`, or `sections` whose every field
 inline — a chart's `dataset`, a `bind` path, or a metric's `fallbackValue`) draws
 from that source and shows no hint.
 
-The two `element:*` rows keep their display configuration in the node's
-`properties` bag and take their query from the binding **only**: every query
-key either one reads comes from `dataSource` and from nowhere else. The flat
-`properties.object`, `properties.filter`, `properties.sort` and
+`element:record_picker` and `element:number` keep their display configuration
+in the node's `properties` bag and take their query from the binding **only**:
+every query key either one reads comes from `dataSource` and from nowhere else.
+The flat `properties.object`, `properties.filter`, `properties.sort` and
 `properties.limit` that the spec still declares on these two elements are not
 read, and `@objectstack/spec` retires them in v18 (objectstack#11509). The
 binding's filter is AND-combined with its view's filter, as on every block
@@ -314,12 +315,41 @@ above. On `element:number`,
 `{ "dataSource": { "object": "contact" }, "properties": { "aggregate": "count" } }`
 is a complete metric; its `sort` and `limit` are not read, because an aggregate
 has no ordering and a capped count would be a wrong number, and a filter the
-converter refuses shows the configuration-error panel instead of a count. An
-element whose node names no `dataSource.object` issues no query: an
+converter refuses shows the configuration-error panel instead of a count.
+Either of the two whose node names no `dataSource.object` issues no query: an
 `element:number` that sets `aggregate` shows a short "No object named: set
 dataSource.object." notice instead of a count, and an `element:record_picker`
 offers no records. The Studio page designer writes the metric's object into
 `dataSource`.
+
+`element:repeater` reads the binding **first**, and its flat
+`properties.object`, `properties.filter`, `properties.sort` and
+`properties.limit` only as the fallback, until `@objectstack/spec` retires those
+four keys in v18 (objectstack#11509) and its pin bump moves them into
+`dataSource`. A repeater bound only through `dataSource` lists the records it
+names, and one carrying only the flat keys reads them exactly as before. Where a
+node carries both, the repeater follows the precedence `ElementDataSourceGate`
+applies to the object-bound blocks above: the binding's `object` wins; `properties.filter` is AND-combined
+with the binding's filter (and its view's), so neither is dropped; and for `sort`
+and `limit` the binding's own key wins, the flat key wins over one the named
+saved view supplies, and the view's is the baseline. The spec still **requires**
+`properties.object` on this element, and so does the schema validator
+(`safeValidateSchema`) on a `properties` bag that omits it, so a repeater names
+its object in its bag even when it binds through `dataSource`. The Studio page
+designer writes the repeater's object into `properties.object` for that reason.
+
+```json
+{
+  "type": "element:repeater",
+  "dataSource": {
+    "object": "task",
+    "filter": [{ "field": "status", "operator": "equals", "value": "open" }],
+    "sort": [{ "field": "due_date", "order": "asc" }],
+    "limit": 5
+  },
+  "properties": { "object": "task", "titleField": "subject", "fields": ["due_date"] }
+}
+```
 
 #### Scoping a filter to the record in view: `{record_id}`
 

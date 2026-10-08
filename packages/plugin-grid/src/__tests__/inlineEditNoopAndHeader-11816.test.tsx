@@ -16,12 +16,14 @@
  *  - with inline edit on, the grid drew TWO columns headed "Actions": its own
  *    row-menu column and the data-table's per-row cancel/save column.
  */
-import { describe, it, expect, vi, beforeAll } from 'vitest';
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
+import { describe, it, expect, vi, beforeAll, beforeEach, afterEach } from 'vitest';
+import { render, screen, waitFor, fireEvent, cleanup } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import React from 'react';
 
 import { ObjectGrid } from '../ObjectGrid';
+import { __clearRecordCrudVerdictCache } from '../hooks/useRecordCrudVerdicts';
+import { installExplainDouble } from './explainDouble';
 import { registerAllFields } from '@object-ui/fields';
 import { ActionProvider, SchemaRendererProvider } from '@object-ui/react';
 
@@ -41,6 +43,16 @@ beforeAll(() => {
   if (!(Element.prototype as any).releasePointerCapture) {
     (Element.prototype as any).releasePointerCapture = () => {};
   }
+});
+
+// The row menu asks the record-level verdict endpoint; serve it from a double.
+beforeEach(() => {
+  __clearRecordCrudVerdictCache();
+  installExplainDouble();
+});
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
 });
 
 const OBJECT = 'task_11816';

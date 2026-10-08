@@ -42,7 +42,19 @@ const renderCellEditor = ({ column, stage, commit }: any) => {
     );
   }
   if (column.accessorKey === 'priority') {
-    return <button data-testid="pick-high" onClick={() => commit('high')}>High</button>;
+    // A real select's option sits in a portal; this stand-in sits in the cell,
+    // so keep its click from re-entering the cell's own click-to-edit.
+    return (
+      <button
+        data-testid="pick-high"
+        onClick={(e) => {
+          e.stopPropagation();
+          commit('high');
+        }}
+      >
+        High
+      </button>
+    );
   }
   return null;
 };

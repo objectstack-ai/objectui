@@ -898,7 +898,8 @@ export function ObjectValidationsPanel({
                 <button
                   type="button"
                   aria-expanded={advancedOpen}
-                  aria-controls={`${presetIds}-advanced`}
+                  // Names the list only while it is on the page.
+                  aria-controls={advancedOpen ? `${presetIds}-advanced` : undefined}
                   onClick={() => setAdvancedOpen((v) => !v)}
                   className="flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-[12px] text-muted-foreground hover:bg-muted"
                 >

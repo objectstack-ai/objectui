@@ -2587,7 +2587,7 @@ describe('the prose attached to the baselines (objectui#7046)', () => {
 
     // ...and the neighbours are not swept in. Each baseline sits directly under
     // the ceiling it was measured for, whose block is much the larger of the two.
-    expect(baseline.prose).not.toContain('Re-baselined DOWNWARD four times');
+    expect(baseline.prose).not.toContain('Re-baselined DOWNWARD five times');
     expect(perChunk.prose).not.toContain('## Raising one');
 
     // The code is not prose. Without this the positive pin below would be

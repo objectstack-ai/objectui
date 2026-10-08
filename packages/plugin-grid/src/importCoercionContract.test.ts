@@ -26,7 +26,10 @@ import {
   BOOLEAN_TRUE_IMPORT_TOKENS,
   IMPORT_TEMPORAL_YEARS,
   REFERENCE_IMPORT_TYPES,
+  isIdentityEmail,
   isImportableDateCell,
+  isImportableTimeCell,
+  isRecordEmail,
 } from './importCoercionContract';
 
 describe('BOOLEAN_IMPORT_TOKENS (server BOOL_TRUE/BOOL_FALSE mirror)', () => {
@@ -154,5 +157,82 @@ describe('isImportableDateCell (server parseDateCell mirror, objectui#11889)', (
         expect(isImportableDateCell(cell, 'datetime'), cell).toBe(!Number.isNaN(Date.parse(cell)));
       }
     }
+  });
+});
+
+describe('isImportableTimeCell (server parseDateCell time mirror, objectui#11913)', () => {
+  // `parseDateCell(cell, 'time')` in `@objectstack/core`'s `import-coerce.ts`
+  // asks `readTimeOfDayCell` (core's comparand rule: the spec's
+  // `ClockTimeValueSchema`, or an ISO day or instant), then `readYearFirstCell`.
+  // Core is not a dependency of this package, so these inventories are the
+  // tripwire. Each verdict below was read from core 17.7.0's `parseDateCell`.
+  // If one fails you changed what the preview takes: check that function takes
+  // the same cells before re-pinning, or the import button miscounts.
+
+  it('takes a wall clock, an ISO day or instant, and the year-first form', () => {
+    const taken = [
+      '10:00', ' 10:00 ', '00:00', '23:59', '09:30:15', '23:59:59.5', '10:00:00.123456', '2026-07-15', '0000-06-15',
+      '2026-07-15T10:00', '2026-07-15T10:00:00Z', '2026-07-15T10:00+08:00', '2026-07-15T10:00+0800', '2026-07-15 10:00',
+      '2026-07-15 24:00', '2026-07-15T24:00Z', '2026/7/15', '2026-7-15 9:00', '2026/08/01 06:00:00',
+    ];
+    for (const cell of taken) expect(isImportableTimeCell(cell), cell).toBe(true);
+  });
+
+  it('refuses the card cells, a clock the spec does not read, and an instant with no four-digit UTC year', () => {
+    const refused = [
+      '25:00', 'abc', '10:00Z', '9am', '9:00', '24:00', '23:60', '10:00+08:00', '10:00 AM', '10.00', '1000', '{now}',
+      '2026-07-15 10:00Z', '2026/7/15 24:00', '2026/7/15T9:00', '2026-02-30', '07/15/2026', '2026-07-15T24:01Z',
+      '9999-12-31T24:00Z', '+010000-01-01T10:00:00Z', '0000-01-01T00:30:00+01:00',
+    ];
+    for (const cell of refused) expect(isImportableTimeCell(cell), cell).toBe(false);
+  });
+
+  it('reads an ISO instant exactly where the V8 Date.parse the server runs on reads one', () => {
+    // A `T` cell with a zone is parsed as written, and one without a zone with
+    // a `Z` appended (core's `readsAsInstant`). Its time survives only when the
+    // instant's UTC year has four digits (`keepsTimeOfDay`).
+    const clocks = ['00:00', '10:00:30.250', '23:59:59', '23:60', '24:00', '24:00:00.001', '25:00'];
+    const zones = ['', 'Z', '+08:00', '+0800', '-01:00', '+24:00'];
+    for (const day of ['2026-07-15', '0000-01-01', '9999-12-31']) {
+      for (const clock of clocks) {
+        for (const zone of zones) {
+          const cell = `${day}T${clock}${zone}`;
+          const ms = Date.parse(zone === '' ? `${cell}Z` : cell);
+          const year = Number.isNaN(ms) ? undefined : new Date(ms).getUTCFullYear();
+          expect(isImportableTimeCell(cell), cell).toBe(year !== undefined && year >= 0 && year <= 9999);
+        }
+      }
+    }
+  });
+});
+
+describe('isIdentityEmail (user import endpoint mirror, objectui#11913)', () => {
+  // `resolveRowIdentity` in plugin-auth's `admin-import-users.ts` refuses a row
+  // with `INVALID_EMAIL` unless `isLikelyEmail` takes its trimmed email cell,
+  // and when `isPlaceholderEmail` does. Neither is published to this package,
+  // so this inventory is the tripwire. If it fails, check the 17.7.0 functions
+  // take the same cells before re-pinning.
+
+  it('takes a plain ASCII address', () => {
+    for (const email of ['ada@example.com', 'a@b.co', 'first.last+tag@sub.example.org', `${'a'.repeat(249)}@x.co`]) {
+      expect(isIdentityEmail(email), email).toBe(true);
+    }
+  });
+
+  it('refuses a non-ASCII or placeholder address, a malformed one, and one past 254 characters', () => {
+    const refused = [
+      '735431496@柴仟.com', 'é@x.com', 'u-abc@placeholder.invalid', 'U-ABC@Placeholder.Invalid',
+      'a@b', 'a@b.', 'a@.b', '@b.c', 'a@', 'a@@b.c', 'a b@c.d', `${'a'.repeat(250)}@x.co`,
+    ];
+    for (const email of refused) expect(isIdentityEmail(email), email).toBe(false);
+  });
+
+  it('is not a stricter record rule: each takes an address the other refuses', () => {
+    // So the preview reads an identity email column by this rule INSTEAD of
+    // `isRecordEmail`; asking both would mark `a@b..c`, which the endpoint takes.
+    expect(isIdentityEmail('a@b..c')).toBe(true);
+    expect(isRecordEmail('a@b..c')).toBe(false);
+    expect(isIdentityEmail('735431496@柴仟.com')).toBe(false);
+    expect(isRecordEmail('735431496@柴仟.com')).toBe(true);
   });
 });

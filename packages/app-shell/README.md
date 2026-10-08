@@ -1003,9 +1003,11 @@ const { pinnedIds, togglePin, isPinned, applyPins } = useNavPins();
 A recent object, dashboard, page or report entry stores its identity only
 (`type` and `name`), never display text: label it where you render it with
 `useRecentItemLabel()`, which reads the item's current metadata label in the
-current language (a record entry keeps the title it was visited under). The
-provider writes nothing when a visit leaves the list unchanged, such as
-revisiting the item already at its head.
+current language (a record entry keeps the title it was visited under). A
+Studio package entry (`type: 'package'`) is stored the same way; label it with
+`useRecentItemLabel({ packages })`, passing the package list you loaded, or
+leave it out where you have no list. The provider writes nothing when a visit
+leaves the list unchanged, such as revisiting the item already at its head.
 
 ```tsx
 import { useRecentItems, useRecentItemLabel } from '@object-ui/app-shell';
@@ -1013,7 +1015,9 @@ import { useRecentItems, useRecentItemLabel } from '@object-ui/app-shell';
 function RecentList() {
   const { recentItems } = useRecentItems();
   const recentLabel = useRecentItemLabel();
-  return <ul>{recentItems.map((item) => <li key={item.id}>{recentLabel(item)}</li>)}</ul>;
+  // No package list is loaded here, so Studio package entries are left out.
+  const shown = recentItems.filter((item) => item.type !== 'package');
+  return <ul>{shown.map((item) => <li key={item.id}>{recentLabel(item)}</li>)}</ul>;
 }
 ```
 

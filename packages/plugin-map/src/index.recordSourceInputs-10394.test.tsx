@@ -69,6 +69,7 @@ import type { DataSource } from '@object-ui/types';
 // Module scope, not a hook: this import IS the registration (AGENTS.md
 // test-discipline section).
 import './index';
+import './__tests__/webgl2Available';
 
 const MAP_KEYS = [
   { label: 'object-map', type: 'object-map', namespace: 'plugin-map' },

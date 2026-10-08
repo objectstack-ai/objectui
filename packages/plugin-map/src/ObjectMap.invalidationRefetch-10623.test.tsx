@@ -47,6 +47,7 @@ vi.mock('react-map-gl/maplibre', () => ({
 
 // Registers `object-map` through this package's own entry.
 import './index';
+import './__tests__/webgl2Available';
 
 beforeEach(() => {
   // Best-effort metadata probes are not what these cases are about.

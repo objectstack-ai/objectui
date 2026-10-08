@@ -26,14 +26,14 @@ import type { ObjectGridSchema, DataSource, ListColumn, TableColumn, ViewData, T
 import { isSystemManagedField, normalizeTableColumnType } from '@object-ui/types';
 import type { I18nLabel } from '@objectstack/spec/ui';
 import { parseFilterAST, resolveFieldScale, type FilterCondition } from '@objectstack/spec/data';
-import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, useDataInvalidation, useFilterScope } from '@object-ui/react';
+import { SchemaRenderer, useDataScope, useNavigationOverlay, useAction, useSafeFieldLabel, usePredicateScope, useRelatedRecordActions, RelatedRecordActionsProvider, useDataInvalidation, useFilterScope } from '@object-ui/react';
 import { createSafeTranslation } from '@object-ui/i18n';
 // objectui#8920 — the grid reaches a cell renderer through THIS module and
 // nowhere else. `getCellRenderer` / `resolveCellRendererType` are deliberately
 // NOT imported here: six sites spelling the resolve three different ways is
 // what dropped a `format`-hinted column's renderer, and one shared owner is
 // what stops a seventh site picking a convention of its own.
-import { resolveGridCellRendering, gridCellRendererForFixedKey, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
+import { resolveGridCellRendering, gridCellRendererForFixedKey, linkCellRenderer, BADGE_PREFIX_RENDERER_KEY } from './cellRendererResolution';
 import { isMaskedGridColumn, isWithheldGridColumn } from './maskedColumn';
 import { formatCurrency, formatCompactCurrency, formatDate, formatPercent, percentCellScale, humanizeLabel, getBadgeColorClasses, getBadgeHexAppearance, FieldEditWidget, hasFieldEditWidget, DISCRETE_EDIT_TYPES, coerceToSafeValue, MaskedCellRenderer } from '@object-ui/fields';
 import { useLocalization, useDisplayLocale, resolveFieldCurrency } from '@object-ui/i18n';
@@ -365,7 +365,16 @@ const LinkCell: React.FC<{
       ? host.recordHref(objectName, recordId)
       : null;
 
-  if (href) {
+  if (href && host) {
+    // objectui#11817 — no anchor inside this anchor. A reference value in the
+    // cell (`LookupCellRenderer`'s `ReferencedRecordLink`) draws its own `a`
+    // whenever the host answers `recordHref` for the referenced object, so the
+    // children are rendered under the same host with no record destination:
+    // "the host cannot route to that object", which the context documents as
+    // render the plain value. The self-linking faces (`mailto:`, URL, `tel:`)
+    // never ask the host; the cell is handed their text face instead
+    // (`linkCellRenderer` in `./cellRendererResolution`).
+    const unlinkedHost = { ...host, recordHref: undefined, openRecord: undefined };
     return (
       <a
         href={href}
@@ -395,7 +404,7 @@ const LinkCell: React.FC<{
           }
         }}
       >
-        {children}
+        <RelatedRecordActionsProvider value={unlinkedHost}>{children}</RelatedRecordActionsProvider>
       </a>
     );
   }
@@ -3578,12 +3587,15 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             // Auto-link primary field (first column) to record detail (Airtable-style)
             const isPrimaryField = colIndex === 0 && !col.link && !col.action;
             const isLinked = col.link || isPrimaryField;
+            // The face the value takes INSIDE the link: never an anchor of its
+            // own (objectui#11817, `linkCellRenderer`).
+            const LinkContentRenderer = linkCellRenderer(inferredType, CellRenderer);
 
             if ((col.link && col.action) || (isPrimaryField && col.action)) {
               // Both link and action: link takes priority for navigation, action executes on secondary interaction
               cellRenderer = (value: any, row: any) => {
-                const displayContent = CellRenderer
-                  ? <CellRenderer value={value} field={fieldMeta as any} />
+                const displayContent = LinkContentRenderer
+                  ? <LinkContentRenderer value={value} field={fieldMeta as any} />
                   : (value != null && value !== '' ? String(value) : <EmptyValue />);
                 return (
                   <LinkCell
@@ -3600,8 +3612,8 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
             } else if (isLinked) {
               // Link column: clicking navigates to the record detail
               cellRenderer = (value: any, row: any) => {
-                const displayContent = CellRenderer
-                  ? <CellRenderer value={value} field={fieldMeta as any} />
+                const displayContent = LinkContentRenderer
+                  ? <LinkContentRenderer value={value} field={fieldMeta as any} />
                   : (value != null && value !== '' ? String(value) : <EmptyValue />);
                 return (
                   <LinkCell
@@ -3809,9 +3821,12 @@ export const ObjectGrid: React.FC<ObjectGridComponentProps> = ({
           const isPrimaryField = colIndex === 0;
           let cellRenderer: ((value: any, row?: any) => React.ReactNode) | undefined;
 
-          if (isPrimaryField && CellRenderer) {
+          // The face the value takes inside the link (objectui#11817).
+          const LinkContentRenderer = linkCellRenderer(rendererType, CellRenderer);
+
+          if (isPrimaryField && LinkContentRenderer) {
             cellRenderer = (value: any, row: any) => {
-              const displayContent = <CellRenderer value={value} field={fieldMeta as any} />;
+              const displayContent = <LinkContentRenderer value={value} field={fieldMeta as any} />;
               return (
                 <LinkCell
                   testId="primary-field-link"

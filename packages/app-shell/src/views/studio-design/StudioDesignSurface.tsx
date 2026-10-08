@@ -4250,11 +4250,37 @@ export function DataPillar({
         // Published objects + pending DRAFT objects, merged. `list()` only
         // sees published/active metadata, so a freshly-created writable base
         // whose objects are all drafts would render an empty (previously:
-        // forever-"loading") rail. Draft headers carry no label — show the
-        // machine name until the draft body loads on selection.
-        const [list, draftHeaders] = await Promise.all([
+        // forever-"loading") rail.
+        //
+        // objectui#11843 — a draft header carries no label, so a draft-only
+        // object takes its label from the draft-overlaid list
+        // (`GET /meta/object?package=…&preview=draft`), which serves each
+        // pending draft of the package with its own label and a `_draft` mark.
+        // That list is read for labels ONLY:
+        //  - the rail's members are still the published list plus the draft
+        //    headers, in that order;
+        //  - a published object keeps its published label, even when a pending
+        //    draft of it declares another one;
+        //  - a draft that declares no label, a caller the server answers the
+        //    published list (pending drafts are not served to everyone), and a
+        //    failed read all leave a draft-only object on its name, as before.
+        //    The read is an async function so that even a throw before it is
+        //    sent rejects, and the rail never fails on it.
+        const readDraftLabels = async (): Promise<Map<string, string>> => {
+          const overlaid = await client
+            .withPreviewDrafts(true)
+            .list<Record<string, unknown>>('object', { packageId });
+          const labels = new Map<string, string>();
+          for (const o of overlaid || []) {
+            if (!o || o._draft !== true || typeof o.name !== 'string') continue;
+            if (typeof o.label === 'string' && o.label.trim()) labels.set(o.name, o.label);
+          }
+          return labels;
+        };
+        const [list, draftHeaders, draftLabels] = await Promise.all([
           client.list('object', { packageId }) as Promise<Array<Record<string, unknown>>>,
           client.listDrafts({ packageId, type: 'object' }).catch(() => []),
+          readDraftLabels().catch(() => new Map<string, string>()),
         ]);
         if (cancelled) return;
         const items = (list || [])
@@ -4263,7 +4289,7 @@ export function DataPillar({
         const known = new Set(items.map((o) => o.name));
         for (const d of draftHeaders) {
           if (d.name && !known.has(d.name)) {
-            items.push({ type: 'object', name: d.name, label: d.name, icon: undefined });
+            items.push({ type: 'object', name: d.name, label: draftLabels.get(d.name) ?? d.name, icon: undefined });
           }
         }
         setObjects(items);

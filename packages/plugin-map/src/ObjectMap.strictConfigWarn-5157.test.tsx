@@ -25,6 +25,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import type { ObjectMapSchema } from '@object-ui/types';
 import { ObjectMap } from './ObjectMap';
+import './__tests__/webgl2Available';
 
 type Slot = { children?: React.ReactNode };
 

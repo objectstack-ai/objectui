@@ -46,6 +46,7 @@ import { ComponentRegistry } from '@object-ui/core';
 import { SchemaRendererProvider } from '@object-ui/react';
 import { ListView } from '@object-ui/plugin-list';
 import { ObjectMap } from './ObjectMap';
+import './__tests__/webgl2Available';
 
 let capturedProps: any = null;
 

@@ -185,6 +185,7 @@ import {
   NAV_ENTRY_TYPES,
   isNavEntryType,
   isStaticPageOption,
+  navEntryOffersField,
   navTypeAcceptsChildren,
   retypedNavEntry,
 } from '../metadata-admin/inspectors/nav-target.js';
@@ -2294,10 +2295,10 @@ export function StudioNavItemInspector({
       )}
       {unbound && <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.unboundHint', locale)}</p>}
       {kind === 'group' && <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.groupHint', locale)}</p>}
-      {kind === 'separator' ? (
-        <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.separatorHint', locale)}</p>
-      ) : (
+      {navEntryOffersField(kind, 'label') ? (
         labelField
+      ) : (
+        <p className="text-[11px] text-muted-foreground">{t('engine.inspector.appNav.separatorHint', locale)}</p>
       )}
       <button
         type="button"
@@ -2906,13 +2907,17 @@ export function InterfacesPillar({
         }
         setAppLabel(label);
         setAppName(name);
+        // objectui#11799 — an app the published list does not hold was found
+        // in the drafts ledger: it has never been saved, so it has no layer to
+        // read and `/layers` would answer 404. Its draft is the whole document.
+        const saved = !!published?.[0]?.name;
         const [layRaw, appDraftResp] = await Promise.all([
-          client.layered<Record<string, unknown>>('app', name),
+          saved ? client.layered<Record<string, unknown>>('app', name) : null,
           client.getDraft<Record<string, unknown>>('app', name).catch(() => null),
         ]);
         if (cancelled) return;
-        const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
-        const eff = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
+        const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> } | null;
+        const eff = (lay?.effective ?? lay?.code ?? {}) as Record<string, unknown>;
         const appDraftBody = extractDraftBody(appDraftResp);
         // A served draft is the whole document — taken as-is, never spread
         // over the published layer (objectui#10765; the rule is stated once
@@ -3083,15 +3088,19 @@ export function InterfacesPillar({
     setSelection(null);
     (async () => {
       try {
-        const [lay, draftResp] = await Promise.all([
-          client.layered<Record<string, unknown>>(current.type, current.name),
-          client.getDraft<Record<string, unknown>>(current.type, current.name).catch(() => null),
-        ]);
+        const draftResp = await client
+          .getDraft<Record<string, unknown>>(current.type, current.name)
+          .catch(() => null);
         if (cancelled) return;
-        const baseline = ((lay as { effective?: unknown; code?: unknown }).effective ??
-          (lay as { code?: unknown }).code ??
-          {}) as Record<string, unknown>;
         const body = extractDraftBody(draftResp);
+        // objectui#11799 — the baseline is read only when it is used, for a
+        // leaf with no pending draft. An unsaved leaf always has one, so it
+        // never asks `/layers`, which answers 404 for a name with no layer.
+        const lay = body ? null : await client.layered<Record<string, unknown>>(current.type, current.name);
+        if (cancelled) return;
+        const baseline = ((lay as { effective?: unknown; code?: unknown } | null)?.effective ??
+          (lay as { code?: unknown } | null)?.code ??
+          {}) as Record<string, unknown>;
         // Served draft as-is, baseline only without one (objectui#10765): a
         // spread over `effective` resurrects every key the draft deleted.
         setDraft(body ?? baseline);
@@ -4415,11 +4424,37 @@ export function DataPillar({
         // Published objects + pending DRAFT objects, merged. `list()` only
         // sees published/active metadata, so a freshly-created writable base
         // whose objects are all drafts would render an empty (previously:
-        // forever-"loading") rail. Draft headers carry no label — show the
-        // machine name until the draft body loads on selection.
-        const [list, draftHeaders] = await Promise.all([
+        // forever-"loading") rail.
+        //
+        // objectui#11843 — a draft header carries no label, so a draft-only
+        // object takes its label from the draft-overlaid list
+        // (`GET /meta/object?package=…&preview=draft`), which serves each
+        // pending draft of the package with its own label and a `_draft` mark.
+        // That list is read for labels ONLY:
+        //  - the rail's members are still the published list plus the draft
+        //    headers, in that order;
+        //  - a published object keeps its published label, even when a pending
+        //    draft of it declares another one;
+        //  - a draft that declares no label, a caller the server answers the
+        //    published list (pending drafts are not served to everyone), and a
+        //    failed read all leave a draft-only object on its name, as before.
+        //    The read is an async function so that even a throw before it is
+        //    sent rejects, and the rail never fails on it.
+        const readDraftLabels = async (): Promise<Map<string, string>> => {
+          const overlaid = await client
+            .withPreviewDrafts(true)
+            .list<Record<string, unknown>>('object', { packageId });
+          const labels = new Map<string, string>();
+          for (const o of overlaid || []) {
+            if (!o || o._draft !== true || typeof o.name !== 'string') continue;
+            if (typeof o.label === 'string' && o.label.trim()) labels.set(o.name, o.label);
+          }
+          return labels;
+        };
+        const [list, draftHeaders, draftLabels] = await Promise.all([
           client.list('object', { packageId }) as Promise<Array<Record<string, unknown>>>,
           client.listDrafts({ packageId, type: 'object' }).catch(() => []),
+          readDraftLabels().catch(() => new Map<string, string>()),
         ]);
         if (cancelled) return;
         const items = (list || [])
@@ -4428,7 +4463,7 @@ export function DataPillar({
         const known = new Set(items.map((o) => o.name));
         for (const d of draftHeaders) {
           if (d.name && !known.has(d.name)) {
-            items.push({ type: 'object', name: d.name, label: d.name, icon: undefined });
+            items.push({ type: 'object', name: d.name, label: draftLabels.get(d.name) ?? d.name, icon: undefined });
           }
         }
         setObjects(items);
@@ -5810,14 +5845,18 @@ export function AutomationsPillar({
     setSelection(null);
     (async () => {
       try {
-        const [layRaw, draftResp] = await Promise.all([
-          client.layered<Record<string, unknown>>('flow', current.name),
-          client.getDraft<Record<string, unknown>>('flow', current.name).catch(() => null),
-        ]);
+        const draftResp = await client
+          .getDraft<Record<string, unknown>>('flow', current.name)
+          .catch(() => null);
         if (cancelled) return;
-        const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> };
-        const baseline = (lay.effective ?? lay.code ?? {}) as Record<string, unknown>;
         const draftBody = extractDraftBody(draftResp);
+        // objectui#11799 — the baseline is read only for a flow with no
+        // pending draft, the one case it is used. An unsaved flow always has
+        // one, so it never asks `/layers`, which answers 404 for it.
+        const layRaw = draftBody ? null : await client.layered<Record<string, unknown>>('flow', current.name);
+        if (cancelled) return;
+        const lay = layRaw as { effective?: Record<string, unknown>; code?: Record<string, unknown> } | null;
+        const baseline = (lay?.effective ?? lay?.code ?? {}) as Record<string, unknown>;
         // Served draft as-is, baseline only without one (objectui#10765).
         setDraft(draftBody ?? baseline);
         setDraftFor(`flow:${current.name}`);

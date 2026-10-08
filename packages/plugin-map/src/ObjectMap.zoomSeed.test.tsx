@@ -27,6 +27,7 @@ import React from 'react';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { ObjectMap } from './ObjectMap';
+import './__tests__/webgl2Available';
 
 let capturedProps: any = null;
 

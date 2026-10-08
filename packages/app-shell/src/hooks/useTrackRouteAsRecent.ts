@@ -62,7 +62,13 @@ type ObjectLike = Pick<SpecObjectLike, 'name' | 'label'>;
 export interface UseTrackRouteAsRecentOptions {
   /** Active route path. Usually `useLocation().pathname`. */
   pathname: string;
-  /** Currently selected app name. Used to build the `href` and namespace. */
+  /**
+   * The current app's ROUTE SEGMENT — the `/apps/<segment>` part of `pathname`
+   * (ADR-0048 option A: the package id, or the name alias the URL used). A
+   * route is recorded only when its app segment equals this, and the entry's
+   * `href` is built on it. Not the app's `name`: on a package-id route the two
+   * differ and nothing is recorded (objectui#11818).
+   */
   appName: string | undefined;
   /** Objects available in the current app — an object route is recorded only for one of these. */
   objects?: ObjectLike[];

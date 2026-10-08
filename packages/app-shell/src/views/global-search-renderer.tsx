@@ -60,7 +60,7 @@ import { Input, Card, CardContent, Badge } from '@object-ui/components';
 import { Search } from 'lucide-react';
 import { useObjectTranslation } from '@object-ui/i18n';
 import { getIcon } from '../utils/getIcon.js';
-import { getRecordDisplayName } from '../utils/index.js';
+import { getRecordDisplayName, resolveHostAppSegment } from '../utils/index.js';
 import { useNavigationContext } from '../context/NavigationContext.js';
 
 /** Keep the designer's own data attributes on the wrapper, drop the rest. */
@@ -82,7 +82,7 @@ export const GlobalSearchRenderer: React.FC<GlobalSearchRendererProps> = ({
 }) => {
   const { t } = useObjectTranslation();
   const [query, setQuery] = useState('');
-  const { objects: metadataObjects } = useMetadata();
+  const { apps, objects: metadataObjects } = useMetadata();
   const dataSource = useAdapter();
   const { appName } = useParams();
   const { currentAppName } = useNavigationContext();
@@ -104,7 +104,12 @@ export const GlobalSearchRenderer: React.FC<GlobalSearchRendererProps> = ({
     fieldReadPolicy: perms,
   });
 
-  const baseUrl = `/apps/${appName || currentAppName || ''}`;
+  // The hits host under the route's own app segment. Outside the
+  // `/apps/:appName/*` router there is none, and `currentAppName` is the app's
+  // NAME as the shell last published it — so it is resolved to the app's route
+  // segment (ADR-0048 option A) by the resolver every app-independent link
+  // uses, never spliced in raw (objectui#11818).
+  const baseUrl = `/apps/${appName || resolveHostAppSegment(apps, currentAppName)}`;
   const placeholder = t('search.placeholder', {
     defaultValue: 'Search objects, dashboards, pages, reports…',
   }) as string;

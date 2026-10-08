@@ -35,7 +35,7 @@ import { useSignedInUserLocale } from '../hooks/useUserLocale.js';
 import { resolveRecordFormTarget, resolveFormViewLayout, resolveNavigateCreateUrl, resolveNavigateEditUrl, resolvePostCreateTarget } from '../utils/recordFormNavigation.js';
 import { deriveRecordSurface, deriveRecordFlowSurface } from '@object-ui/plugin-view';
 import { RECORD_FORM_PARAM, RECORD_FORM_OBJECT_PARAM, RECORD_FORM_LINK_PARAM } from '../urlParams.js';
-import { matchAppBySegment } from '../utils/appRoute.js';
+import { appRouteSegment, matchAppBySegment } from '../utils/appRoute.js';
 import { resolveHref, type NavTemplateContext } from '@object-ui/layout';
 
 // Components (eagerly loaded — always needed)
@@ -253,6 +253,13 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
       ? (launcherApps.find((a: any) => a.isDefault === true) || launcherApps[0])
       : undefined);
 
+  // ADR-0048 (A) — the segment every `/apps/…` path this component builds is
+  // keyed on: the URL's own (`appName` — the package id, or the name alias the
+  // user followed), else the resolved app's route segment. Never `activeApp.name`
+  // raw: on a package-id route that is a second address for the same app, and
+  // the recent-items tracker below matches it against the URL (objectui#11818).
+  const appSegment = appName ?? appRouteSegment(activeApp);
+
   // A normal app was requested but isn't present in the loaded metadata — the
   // post-publish readiness lag, or a genuinely-missing app. Applies in BOTH
   // preview and published mode (preview already guarded this; published used to
@@ -383,18 +390,17 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
 
   useEffect(() => {
     if (!activeApp?.name) return;
-    // ADR-0048 — build against the URL's own segment (`appName`, which may be the
-    // package id) so the match works and the redirect keeps the same segment;
+    // ADR-0048 — build against the URL's own segment (`appSegment`, which may be
+    // the package id) so the match works and the redirect keeps the same segment;
     // `activeApp.name` would flip a `/apps/<packageId>/…` URL to the name form.
-    const seg = appName ?? activeApp.name;
-    const packageMetadataPath = `/apps/${seg}/metadata/package`;
+    const packageMetadataPath = `/apps/${appSegment}/metadata/package`;
     if (
       location.pathname === packageMetadataPath ||
       location.pathname.startsWith(`${packageMetadataPath}/`)
     ) {
-      navigate(`/apps/${seg}/component/developer/packages`, { replace: true });
+      navigate(`/apps/${appSegment}/component/developer/packages`, { replace: true });
     }
-  }, [activeApp?.name, appName, location.pathname, navigate]);
+  }, [activeApp?.name, appSegment, location.pathname, navigate]);
 
   // objectstack-ai/objectstack#2604 — the create/edit overlay is URL-driven (`?form=new` / `?form=<id>`),
   // not component state: the record form is a TASK overlay over the origin
@@ -615,7 +621,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     if (editingRecord || !currentObjectDef) return;
     const target = resolvePostCreateTarget({
       objectName: currentObjectDef.name,
-      baseUrl: appName ? `/apps/${appName}` : (activeApp?.name ? `/apps/${activeApp.name}` : ''),
+      baseUrl: appSegment ? `/apps/${appSegment}` : '',
       pathname: location.pathname,
       search: window.location.search,
       surface: deriveRecordSurface(currentObjectDef),
@@ -645,12 +651,14 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
       return;
     }
     navigate(target.url, { replace: true });
-  }, [handleCrudSuccess, isChildFormTask, formObjectDef, editingRecord, currentObjectDef, appName, activeApp?.name, location.pathname, navigate, closeRecordForm, objectLabel, objectPluralLabel, t]);
+  }, [handleCrudSuccess, isChildFormTask, formObjectDef, editingRecord, currentObjectDef, appSegment, location.pathname, navigate, closeRecordForm, objectLabel, objectPluralLabel, t]);
 
-  // Track recent items on route change.
+  // Track recent items on route change. The hook matches `appName` against the
+  // pathname's app segment, so it takes the ROUTE SEGMENT: handed
+  // `activeApp.name`, it recorded nothing on a package-id route (objectui#11818).
   useTrackRouteAsRecent({
     pathname: location.pathname,
-    appName: activeApp?.name,
+    appName: appSegment,
     objects: allObjects,
   });
 
@@ -661,7 +669,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
     // preserved for any object without the flag.
     const target = resolveRecordFormTarget({
       objectDef: currentObjectDef as any,
-      baseUrl: appName ? `/apps/${appName}` : (activeApp?.name ? `/apps/${activeApp.name}` : ''),
+      baseUrl: appSegment ? `/apps/${appSegment}` : '',
       record,
     });
     if (target.kind === 'page') {
@@ -1083,7 +1091,7 @@ export function AppContent({ extraRoutes, extraRoutesNoApp }: AppContentProps = 
                     score 16; declaration order breaks the tie). */}
                 <Route
                   path="metadata/package/*"
-                  element={<Navigate to={`/apps/${appName ?? activeApp.name}/component/developer/packages`} replace />}
+                  element={<Navigate to={`/apps/${appSegment}/component/developer/packages`} replace />}
                 />
                 <Route path="metadata">
                   <Route index element={<MetadataDirectoryPage />} />

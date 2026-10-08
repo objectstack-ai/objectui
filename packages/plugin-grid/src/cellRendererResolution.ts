@@ -144,3 +144,56 @@ export function gridCellRendererForFixedKey(
 
 /** The registry key the compound-cell prefix badge draws with. */
 export const BADGE_PREFIX_RENDERER_KEY = 'select';
+
+/**
+ * Renderer keys whose cell draws its value as its OWN anchor, without asking
+ * the host: `mailto:`, a `target="_blank"` URL and `tel:` (email and phone
+ * with a copy button beside it), and the file family's download link
+ * (`file`, `video`, `audio`).
+ *
+ * The reference family (`lookup`, `master_detail`, `tree`) is not listed: its
+ * anchor is drawn only when the host's `recordHref` answers, and `LinkCell`
+ * withholds that answer from its own children instead (see `LinkCell` in
+ * `ObjectGrid.tsx`). Whether a registered type belongs here is measured, not
+ * recalled: the census in `ObjectGrid.linkCellNoNestedAnchor-11817.test.tsx`
+ * draws every type `listCellRendererTypes()` reports in a link column.
+ */
+const SELF_LINKING_RENDERER_TYPES: ReadonlySet<string> = new Set([
+  'email',
+  'url',
+  'phone',
+  'file',
+  'video',
+  'audio',
+]);
+
+/** The registry key a link cell draws a self-linking value with. */
+export const LINK_CELL_TEXT_RENDERER_KEY = 'text';
+
+/**
+ * objectui#11817 — the renderer a LINK cell (the primary column, or a column
+ * authored `link: true`) draws its value with.
+ *
+ * A link cell is the row's anchor to its record. A renderer that draws its
+ * own anchor inside it nested an `a` inside an `a` — React's "In HTML, an
+ * anchor cannot be a descendant of an anchor" warning, measured on the
+ * Invitations list, whose first column is `email` — and put a second click
+ * target on the very text the user clicks to open the record. Inside a link
+ * cell those values are drawn as their text (`coerceToSafeValue`'s answer: the
+ * address, the URL, the number, a file's name; an unexpanded file id prints
+ * the id); outside one (any other column) they keep their anchor.
+ *
+ * Not a third way to reach a renderer: it narrows the one
+ * {@link resolveGridCellRendering} answered, and the text face it substitutes
+ * is reached through {@link gridCellRendererForFixedKey}. A `null` renderer
+ * (no declared type) and a withheld column's mask pass through unchanged.
+ */
+export function linkCellRenderer(
+  rendererType: string | null,
+  Renderer: React.FC<CellRendererProps> | null,
+): React.FC<CellRendererProps> | null {
+  if (Renderer && rendererType !== null && SELF_LINKING_RENDERER_TYPES.has(rendererType)) {
+    return gridCellRendererForFixedKey(LINK_CELL_TEXT_RENDERER_KEY);
+  }
+  return Renderer;
+}

@@ -17,8 +17,9 @@
  * so the existing, polished field widgets — select, boolean, the `objectList`
  * repeater (e.g. approvers), the optional Advanced-JSON escape hatch — are
  * reused unchanged. Anything the mapping can't express (deeply nested objects,
- * unions) is simply left off the form and remains editable in the Advanced
- * block, so authors are never locked out.
+ * unions, an untyped property) is left off the mapped list; it stays editable in
+ * the Advanced block, unless the offline table edits that key, whose editor
+ * then stands in for it (`mergeServerFlowFields`, objectui#11788).
  *
  * Scope mirrors what `z.toJSONSchema` emits for real node configs:
  *   • string                      → text  (enum → select; an `xExpression` marker
@@ -392,6 +393,43 @@ function meta(node: JsonSchemaNode, key: string): { label: string; help?: string
     ...(node.description ? { help: node.description } : {}),
     ...(defaultString(node) ? { defaultValue: defaultString(node) } : {}),
   };
+}
+
+/** One config key a published schema declares, with the schema's own words for it. */
+export interface DeclaredConfigKey {
+  key: string;
+  /** The property's `title`, when the schema gives one. */
+  title?: string;
+  /** The property's `description`, when the schema gives one. */
+  description?: string;
+}
+
+/**
+ * The config keys a published config JSON Schema DECLARES, in declaration
+ * order — including the ones {@link jsonSchemaToFlowFields} cannot type and so
+ * emits no field for (objectui#11788). `null` exactly when that function
+ * returns `null`.
+ *
+ * The two lists differ on purpose: a declared key with no mapped field is a key
+ * the engine accepts (it rejects UNdeclared keys at `registerFlow()`) that the
+ * mapper cannot draw. `mergeServerFlowFields` reads the difference to keep the
+ * hand-written editor for such a key instead of demoting it to Advanced (JSON),
+ * under the schema's own title and description.
+ */
+export function declaredConfigKeys(schema: unknown): DeclaredConfigKey[] | null {
+  if (!isObject(schema) || schemaType(schema) !== 'object' || !isObject(schema.properties)) {
+    return null;
+  }
+  const out: DeclaredConfigKey[] = [];
+  for (const [key, prop] of Object.entries(schema.properties)) {
+    if (!isObject(prop)) continue;
+    out.push({
+      key,
+      ...(typeof prop.title === 'string' && prop.title ? { title: prop.title } : {}),
+      ...(typeof prop.description === 'string' && prop.description ? { description: prop.description } : {}),
+    });
+  }
+  return out;
 }
 
 /**

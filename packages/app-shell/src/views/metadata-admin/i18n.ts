@@ -1142,6 +1142,24 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   'engine.inspector.reference.actionsOf': 'Actions of {connector}.',
   'engine.inspector.reference.chooseConnector': 'Choose a Connector above to list its actions.',
   'engine.inspector.reference.declarative': 'declarative',
+  // objectui#11788 — the notify node's recipient picker (`FlowRecipientsField`).
+  'engine.inspector.recipients.kindLabel': 'Recipient type',
+  'engine.inspector.recipients.kind.field': 'Record field',
+  'engine.inspector.recipients.kind.user': 'User',
+  'engine.inspector.recipients.kind.team': 'Team',
+  'engine.inspector.recipients.kind.email': 'Email address',
+  'engine.inspector.recipients.kind.custom': 'Other',
+  'engine.inspector.recipients.placeholder.field': 'Field of the trigger record',
+  'engine.inspector.recipients.placeholder.user': 'Pick a user',
+  'engine.inspector.recipients.placeholder.team': 'Pick a team',
+  'engine.inspector.recipients.placeholder.email': 'name@example.com',
+  'engine.inspector.recipients.placeholder.custom': 'Saved as typed, e.g. {ownerId}',
+  'engine.inspector.recipients.add': 'Add recipient',
+  'engine.inspector.recipients.remove': 'Remove recipient',
+  'engine.inspector.recipients.empty': 'No recipients yet.',
+  'engine.inspector.recipients.notEmail': 'Not an email address — the messaging service would read it as a user id.',
+  // objectui#11788 — the create/update record nodes' field-value keys, picked from the target object.
+  'engine.inspector.fieldMap.chooseObject': 'Choose the Object above to list its fields.',
   // objectui#11783 — the shared object picker (inspectors/ObjectPicker.tsx).
   'engine.inspector.objectPicker.groupPackage': 'This package',
   'engine.inspector.objectPicker.groupOther': 'Other objects',
@@ -4203,6 +4221,24 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.reference.actionsOf': '{connector} 的动作。',
   'engine.inspector.reference.chooseConnector': '请先在上方选择连接器，才能列出其动作。',
   'engine.inspector.reference.declarative': '声明式',
+  // objectui#11788 — 通知节点的收件人选择器(`FlowRecipientsField`)。
+  'engine.inspector.recipients.kindLabel': '收件人类型',
+  'engine.inspector.recipients.kind.field': '记录字段',
+  'engine.inspector.recipients.kind.user': '用户',
+  'engine.inspector.recipients.kind.team': '团队',
+  'engine.inspector.recipients.kind.email': '邮箱地址',
+  'engine.inspector.recipients.kind.custom': '其他',
+  'engine.inspector.recipients.placeholder.field': '触发记录的字段',
+  'engine.inspector.recipients.placeholder.user': '选择用户',
+  'engine.inspector.recipients.placeholder.team': '选择团队',
+  'engine.inspector.recipients.placeholder.email': 'name@example.com',
+  'engine.inspector.recipients.placeholder.custom': '按原样保存，例如 {ownerId}',
+  'engine.inspector.recipients.add': '添加收件人',
+  'engine.inspector.recipients.remove': '移除收件人',
+  'engine.inspector.recipients.empty': '还没有收件人。',
+  'engine.inspector.recipients.notEmail': '这不是邮箱地址 —— 消息服务会把它当作用户 id。',
+  // objectui#11788 — 新建/更新记录节点的字段值键,从目标对象中选取。
+  'engine.inspector.fieldMap.chooseObject': '请先在上方选择对象，才能列出它的字段。',
   // objectui#11783 — the shared object picker (inspectors/ObjectPicker.tsx).
   'engine.inspector.objectPicker.groupPackage': '本软件包',
   'engine.inspector.objectPicker.groupOther': '其他对象',
@@ -6480,7 +6516,7 @@ const FLOW_FIELD_ZH: Record<string, Record<string, FlowFieldZh>> = {
   // notify has no client field table (offline → Advanced JSON); these localize
   // the engine-published configSchema fields shown when online.
   notify: {
-    recipients: { label: '收件人', help: '接收通知的用户 id / 受众。' },
+    recipients: { label: '收件人', help: '接收通知的人：触发记录的某个字段、用户、团队或邮箱地址。至少需要一个。' },
     title: { label: '标题', help: '通知标题(别名:subject)。' },
     message: { label: '内容', help: '通知正文(别名:body)。' },
     channels: { label: '渠道', help: '扇出投递的渠道(默认站内)。' },

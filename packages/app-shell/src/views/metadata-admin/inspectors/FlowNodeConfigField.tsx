@@ -22,6 +22,7 @@ import { Button, Label } from '@object-ui/components';
 import { FlowKeyValueField } from './FlowKeyValueField.js';
 import { isValueEnvelopeSlot } from './flow-value-envelope.js';
 import { FlowStringListField } from './FlowStringListField.js';
+import { FlowRecipientsField } from './FlowRecipientsField.js';
 import { FlowObjectListField } from './FlowObjectListField.js';
 import { FlowReferenceField, type FlowReferenceContext } from './FlowReferenceField.js';
 import { validateExpressionClient } from './expression-validate.js';
@@ -246,6 +247,19 @@ export function FlowNodeConfigField({ field, value, onCommit, disabled, locale, 
             itemLabel={t('engine.inspector.flowNode.list.item', locale)}
             removeLabel={t('engine.inspector.flowNode.list.remove', locale)}
             emptyLabel={t('engine.inspector.flowNode.list.empty', locale)}
+          />
+        );
+      case 'recipients':
+        return (
+          <FlowRecipientsField
+            label={field.label}
+            value={value}
+            onCommit={(v) => onCommit(v)}
+            disabled={disabled}
+            locale={locale}
+            context={context}
+            scopeGroups={scopeGroups}
+            required={required}
           />
         );
       case 'numberList':

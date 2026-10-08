@@ -69,11 +69,12 @@
  * - DARK CONTROL (`groupByField` alone) — parses GREEN through the same door.
  *   Without it, "the door refuses the fixture" is satisfied by a door that
  *   refuses everything.
- * - PASSTHROUGH CONTROL (an undeclared `zzzBogusKey`) — still parses GREEN.
- *   `KanbanConfig` stays `.passthrough()` for renderer-ahead knobs
- *   (`swimlaneField` is the live one); this card declared exactly ONE named
- *   refusal arm and did not close the object. Without this arm a later
- *   `.strict()` would satisfy every other assertion here.
+ * - UNDECLARED-KEY CONTROL (an undeclared `zzzBogusKey`). This card declared
+ *   exactly ONE named refusal arm and did not close the object, so the key
+ *   parsed GREEN here. objectui#6152 round 11 has since CLOSED `KanbanConfig`
+ *   (it is the spec's strict list-view slot by reference), so the control now
+ *   pins the OTHER code: the spec's own `unrecognized_keys` at `kanban`, which
+ *   keeps the by-name `groupBy` arm distinguishable from a plain unknown key.
  * - PROTOCOL CONTROL — `@objectstack/spec`'s own `KanbanConfigSchema` refuses
  *   `groupBy` by name, with a lit control (`zzzBogusKey`) firing and a dark
  *   control (`groupByField` alone) drawing no `unrecognized_keys`. This is what
@@ -262,15 +263,22 @@ describe('objectui#8365 · half 2 — the stray key is REFUSED at the read door'
     expect(result.success).toBe(true);
   });
 
-  it('PASSTHROUGH CONTROL: an undeclared sibling key still rides through GREEN', () => {
-    // `KanbanConfig` keeps `.passthrough()` for renderer-ahead knobs. This card
-    // declared ONE named refusal arm; it did not close the object.
+  it('UNDECLARED-KEY CONTROL: an undeclared sibling key is refused with the spec\'s own `unrecognized_keys` (objectui#6152 round 11 closed the block)', () => {
+    // Until round 11 this row pinned the block OPEN. `groupBy` is refused at its
+    // own path with `invalid_type`; a key no arm names is refused at `kanban`
+    // with the spec slot's `unrecognized_keys` — two codes, so the arm cannot be
+    // read as a plain strictness refusal.
     const result = safeValidateSchema({
       type: 'list-view',
       objectName: OBJECT,
-      kanban: { groupByField: CANONICAL, zzzBogusKey: 'still accepted' },
+      kanban: { groupByField: CANONICAL, zzzBogusKey: 'refused now' },
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+    const issue = result.success
+      ? undefined
+      : (result.error.issues.find((i) => i.path.join('.') === 'kanban') as { code?: string; keys?: string[] } | undefined);
+    expect(issue?.code).toBe('unrecognized_keys');
+    expect(issue?.keys).toEqual(['zzzBogusKey']);
   });
 });
 

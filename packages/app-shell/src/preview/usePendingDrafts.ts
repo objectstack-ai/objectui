@@ -41,17 +41,74 @@ export interface PendingDraftEntry {
   packageId: string | null;
 }
 
+/**
+ * The `_drafts` requests currently on the wire, per `fetch` and URL
+ * (objectui#11797).
+ *
+ * Opening a package asked the same ledger several times at once: this hook
+ * reads on mount, and the surfaces that mount it (the Studio topbar, the chat
+ * bar) also call `refresh()` from a mount effect of their own. A caller that
+ * arrives while a request for the same URL is pending now waits for that
+ * request instead of sending another.
+ *
+ * ⛔ Not a response cache, deliberately:
+ *  - the entry goes the moment the request settles, so a call made after an
+ *    answer always reaches the network. There is no reuse window because the
+ *    ledger changes on writes this module never sees (a draft save, an
+ *    agent's server-side staging), and a window would answer the read after
+ *    such a write with the count from before it;
+ *  - a failure reaches the callers already waiting and is then forgotten;
+ *  - the publish pulse (`emitMetadataRefresh`, the contract every publish path
+ *    keeps — see the module doc) drops the pending requests before the hooks
+ *    it wakes read again, so their read is never answered by a request sent
+ *    before the publish.
+ *
+ * Keyed by the `fetch` the request went through: a request only answers
+ * callers of the same transport. Each caller parses the shared payload itself,
+ * so every caller still gets its own entry list.
+ */
+const pendingDraftReads = new WeakMap<typeof fetch, Map<string, Promise<unknown>>>();
+let publishPulseObserved = false;
+
+function readDraftsPayload(url: string): Promise<unknown> {
+  // Registered on first use rather than at import, and so before the hook's
+  // own pulse subscription (the hook reads first, then subscribes): the drop
+  // runs before the refresh that pulse triggers.
+  if (!publishPulseObserved) {
+    publishPulseObserved = true;
+    subscribeMetadataRefresh(() => pendingDraftReads.get(globalThis.fetch)?.clear());
+  }
+  const transport = globalThis.fetch;
+  let reads = pendingDraftReads.get(transport);
+  if (!reads) {
+    reads = new Map();
+    pendingDraftReads.set(transport, reads);
+  }
+  const pending = reads.get(url);
+  if (pending) return pending;
+  const read = (async () => {
+    const res = await fetch(url, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`_drafts HTTP ${res.status}`);
+    return res.json() as Promise<unknown>;
+  })();
+  reads.set(url, read);
+  const owner = reads;
+  const settle = () => {
+    if (owner.get(url) === read) owner.delete(url);
+  };
+  read.then(settle, settle);
+  return read;
+}
+
 export async function fetchPendingDrafts(
   packageId?: string | null,
 ): Promise<PendingDraftEntry[]> {
   const qs = packageId ? `?packageId=${encodeURIComponent(packageId)}` : '';
-  const res = await fetch(`/api/v1/meta/_drafts${qs}`, {
-    credentials: 'include',
-    headers: { Accept: 'application/json' },
-    cache: 'no-store',
-  });
-  if (!res.ok) throw new Error(`_drafts HTTP ${res.status}`);
-  const data = (await res.json()) as
+  const data = (await readDraftsPayload(`/api/v1/meta/_drafts${qs}`)) as
     | Array<Record<string, unknown>>
     | { drafts?: Array<Record<string, unknown>>; data?: { drafts?: Array<Record<string, unknown>> } };
   const list = Array.isArray(data) ? data : (data?.drafts ?? data?.data?.drafts ?? []);

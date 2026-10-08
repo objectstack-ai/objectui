@@ -11,6 +11,6 @@ Studio's action "New" menu opens on common actions in plain words, with the blan
 
 The menu row for "Change a picklist field" names the field it will ask about. When the object has no picklist the author can change, the row is listed disabled, saying what it needs.
 
-The blank action is unchanged, one click away under "Advanced". No starting point writes a script.
+The blank action, still named "New action", is unchanged, one click away under "Advanced". No starting point writes a script.
 
 Nothing is added to the package entry: no export, prop, type member or language-pack key. The new copy lives in the metadata-admin designer's own string tables (en and zh).

@@ -126,7 +126,8 @@ function Harness({ onPatch, initial }: { onPatch: (p: Record<string, unknown>) =
   );
 }
 
-const openNew = () => fireEvent.click(screen.getByRole('button', { name: /New/ }));
+// Exactly "New": the blank action under Advanced is named "New action".
+const openNew = () => fireEvent.click(screen.getByRole('button', { name: 'New' }));
 const presetButton = (id: string) => screen.getByTestId(`action-preset-${id}`);
 
 /** The last action the panel wrote, as the save sends it (through the JSON wire). */
@@ -175,14 +176,14 @@ describe('the Actions New menu opens on presets (objectui#11861)', () => {
       expect(screen.getByRole('button', { name: t(preset.labelKey, EN) })).toBeInTheDocument();
     }
     // The blank action is not what the menu opens on.
-    expect(screen.queryByRole('button', { name: 'Blank action' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New action' })).toBeNull();
 
     const advanced = screen.getByRole('button', { name: 'Advanced' });
     expect(advanced).toHaveAttribute('aria-expanded', 'false');
     fireEvent.click(advanced);
     expect(advanced).toHaveAttribute('aria-expanded', 'true');
     const region = document.getElementById(advanced.getAttribute('aria-controls') ?? '') as HTMLElement;
-    expect(within(region).getAllByRole('button').map((b) => b.textContent)).toEqual(['Blank action']);
+    expect(within(region).getAllByRole('button').map((b) => b.textContent)).toEqual(['New action']);
   });
 
   it('opens folded again on every opening', () => {
@@ -244,7 +245,8 @@ describe('the Actions New menu opens on presets (objectui#11861)', () => {
     const onPatch = vi.fn();
     render(<Harness onPatch={onPatch} initial={draft} />);
     openNew();
-    expect(presetButton('run_flow')).toHaveAccessibleDescription('You pick the flow next.');
+    // Its label says it all: no second line (every line is first-load bytes).
+    expect(presetButton('run_flow')).not.toHaveAttribute('aria-describedby');
     fireEvent.click(presetButton('run_flow'));
 
     expect(onPatch).not.toHaveBeenCalled();

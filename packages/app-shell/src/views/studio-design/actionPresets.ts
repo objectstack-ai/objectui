@@ -47,12 +47,15 @@ export interface PresetFieldOpt {
  * What a preset would do on this object, computed before the author picks it so
  * the menu can say so.
  *
- * - `ready: true` — `keys` are written on top of the panel's seed; `hint` is
- *   the line the menu shows under the preset's label.
+ * - `ready: true` — `keys` are written on top of the panel's seed; `hint`, when
+ *   the label alone does not say it, is the line the menu shows under it.
  * - `ready: false` — the object lacks what the preset needs; `hint` says what.
+ *
+ * Every line here is eager first-load bytes (the designer table), so a preset
+ * whose label says it all carries no hint.
  */
 export type ActionPresetPlan =
-  | { ready: true; keys: Record<string, unknown>; hint: string }
+  | { ready: true; keys: Record<string, unknown>; hint?: string }
   | { ready: false; hint: string };
 
 export interface ActionPreset {
@@ -111,11 +114,7 @@ function changeableChoice(fields: readonly PresetFieldOpt[]): PresetFieldOpt | u
 }
 
 /** A preset that waits for its target: only the type is its own. */
-const waitsForTarget = (type: string, hintKey: string) => (_fields: readonly PresetFieldOpt[], locale: string): ActionPresetPlan => ({
-  ready: true,
-  keys: { type },
-  hint: t(hintKey, locale),
-});
+const waitsForTarget = (type: string) => (): ActionPresetPlan => ({ ready: true, keys: { type } });
 
 export const ACTION_PRESETS: ReadonlyArray<ActionPreset> = [
   {
@@ -143,16 +142,16 @@ export const ACTION_PRESETS: ReadonlyArray<ActionPreset> = [
   {
     id: 'run_flow',
     labelKey: 'engine.studio.actions.preset.runFlow',
-    plan: waitsForTarget('flow', 'engine.studio.actions.preset.runFlowHint'),
+    plan: waitsForTarget('flow'),
   },
   {
     id: 'open_url',
     labelKey: 'engine.studio.actions.preset.openUrl',
-    plan: waitsForTarget('url', 'engine.studio.actions.preset.openUrlHint'),
+    plan: waitsForTarget('url'),
   },
   {
     id: 'open_page',
     labelKey: 'engine.studio.actions.preset.openPage',
-    plan: waitsForTarget('modal', 'engine.studio.actions.preset.openPageHint'),
+    plan: waitsForTarget('modal'),
   },
 ];

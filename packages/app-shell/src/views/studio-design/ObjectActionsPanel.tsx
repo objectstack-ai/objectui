@@ -341,7 +341,7 @@ export function ObjectActionsPanel({
                     data-testid={`action-preset-${preset.id}`}
                     disabled={!plan.ready}
                     aria-labelledby={`${presetIds}-${preset.id}-label`}
-                    aria-describedby={`${presetIds}-${preset.id}-hint`}
+                    aria-describedby={plan.hint ? `${presetIds}-${preset.id}-hint` : undefined}
                     onClick={() => {
                       if (!plan.ready) return;
                       addPreset(plan);
@@ -352,9 +352,11 @@ export function ObjectActionsPanel({
                     <span id={`${presetIds}-${preset.id}-label`} className="text-[12px]">
                       {t(preset.labelKey, locale)}
                     </span>
-                    <span id={`${presetIds}-${preset.id}-hint`} className="text-[11px] text-muted-foreground">
-                      {plan.hint}
-                    </span>
+                    {plan.hint && (
+                      <span id={`${presetIds}-${preset.id}-hint`} className="text-[11px] text-muted-foreground">
+                        {plan.hint}
+                      </span>
+                    )}
                   </button>
                 ))}
                 <div className="my-1 border-t" />
@@ -367,9 +369,10 @@ export function ObjectActionsPanel({
                   className="flex w-full items-center gap-1 rounded-md px-2 py-1.5 text-left text-[12px] text-muted-foreground hover:bg-muted"
                 >
                   {advancedOpen ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-                  {t('engine.studio.actions.advanced', locale)}
+                  {/* The Validations menu's own word for the same fold. */}
+                  {t('engine.studio.rules.advanced', locale)}
                 </button>
-                {/* The blank action, unchanged, folded under Advanced. */}
+                {/* The blank action, unchanged and named as before, folded under Advanced. */}
                 {advancedOpen && (
                   <div id={`${presetIds}-advanced`}>
                     <button
@@ -380,7 +383,7 @@ export function ObjectActionsPanel({
                       }}
                       className="flex w-full items-center rounded-md px-2 py-1.5 text-left text-[12px] hover:bg-muted"
                     >
-                      {t('engine.studio.actions.blank', locale)}
+                      {t('engine.studio.actions.newLabel', locale)}
                     </button>
                   </div>
                 )}

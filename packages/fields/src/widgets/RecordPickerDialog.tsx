@@ -75,6 +75,13 @@ const SKELETON_ROW_COUNT = 5;
  * widest, `lg:`) max width for that many drawn columns; past the last rung the
  * old fixed width stays as the ceiling. Below `sm` the dialog is `95vw`, as it
  * always was. The selection column `multiple` adds is narrow and not counted.
+ *
+ * In `multiple` mode the footer bar also carries the selected count, Cancel
+ * and Confirm beside the page controls, which the one- and two-column rungs
+ * cannot hold on one line (measured in the console preview gallery: at the
+ * one-column rung the bar wrapped to two lines), so that mode starts at the
+ * three-column rung. The bar still wraps rather than overflow where a longer
+ * locale or a phone needs it.
  */
 const WIDTH_BY_COLUMN_COUNT: readonly string[] = [
   'sm:max-w-xl', // 1 column
@@ -85,8 +92,12 @@ const WIDTH_BY_COLUMN_COUNT: readonly string[] = [
 ];
 const WIDTH_CEILING = 'sm:max-w-3xl lg:max-w-5xl';
 
-function dialogWidthClass(columnCount: number): string {
-  return WIDTH_BY_COLUMN_COUNT[columnCount - 1] ?? WIDTH_CEILING;
+/** The smallest rung a `multiple` picker uses — the three-column one. */
+const MULTIPLE_MIN_COLUMN_RUNG = 3;
+
+function dialogWidthClass(columnCount: number, multiple: boolean): string {
+  const rung = multiple ? Math.max(columnCount, MULTIPLE_MIN_COLUMN_RUNG) : columnCount;
+  return WIDTH_BY_COLUMN_COUNT[rung - 1] ?? WIDTH_CEILING;
 }
 
 /**
@@ -1186,7 +1197,7 @@ export function RecordPickerDialog({
       <DialogContent
         className={cn(
           'w-[95vw] max-h-[85vh] sm:max-h-[80vh] flex flex-col',
-          dialogWidthClass(readableColumns.length),
+          dialogWidthClass(readableColumns.length, multiple),
         )}
         data-testid="record-picker-dialog"
       >

@@ -58,6 +58,7 @@ import { expressionSource, writeExpressionSource } from './inspectors/expression
 import { humanizeKey } from './inspectors/json-schema-to-fields.js';
 import { datasetSelectOptions } from './inspectors/dataset-picker-options.js';
 import type { DatasetCatalogEntry } from './previews/useDatasetCatalog.js';
+import { useMonacoFallback } from './useMonacoFallback.js';
 import {
   type LoadState,
   isLoading,
@@ -3174,7 +3175,7 @@ export function widgetLabelling(widget: string | undefined): WidgetLabelling {
 }
 
 /* -------------------------------------------------------------------------- */
-/* CodeWidget — Monaco editor for `type: 'code'` fields                       */
+/* CodeWidget — Monaco editor (textarea fallback) for `type: 'code'` fields   */
 /* -------------------------------------------------------------------------- */
 
 /**
@@ -3231,6 +3232,18 @@ export function CodeWidget({
     : typeof value === 'string' ? value : (value == null ? '' : String(value));
   const commit = (next: string | undefined): void =>
     onChange(isExpression ? writeExpressionSource(value, next ?? '') : (next ?? ''));
+  // Monaco's core comes from a public CDN. Where it cannot be fetched (no
+  // egress, a strict CSP) the editor never paints, so this widget reads the
+  // page's one loader probe that the source editors read (objectui#11800) and
+  // renders a plain textarea instead (objectui#11858). The editor is mounted
+  // only once the probe has resolved: mounted earlier, its own `loader.init()`
+  // on a failing install logs a second report and leaks an uncaught rejection.
+  const [monacoStatus, containerRef] = useMonacoFallback();
+  const loadingEditor = (
+    <div className="h-[280px] flex items-center justify-center text-xs text-muted-foreground">
+      {t('engine.form.loadingEditor', locale)}
+    </div>
+  );
   return (
     // The editor's own focusable is Monaco's internal textarea — this widget
     // never renders it and cannot put the host id on it, so a `<label for>` can
@@ -3240,25 +3253,37 @@ export function CodeWidget({
         <span>{language}</span>
         {readOnly && <span>{t('engine.form.readOnly', locale)}</span>}
       </div>
-      <React.Suspense
-        fallback={
-          <div className="h-[280px] flex items-center justify-center text-xs text-muted-foreground">
-            {t('engine.form.loadingEditor', locale)}
-          </div>
-        }
-      >
-        <LazyCodeEditor
-          schema={{
-            type: 'code',
-            language,
-            theme: 'vs-dark',
-            height: '280px',
-            readOnly,
-          }}
-          value={editorText}
-          onChange={commit}
-        />
-      </React.Suspense>
+      <div ref={containerRef}>
+        {monacoStatus === 'unavailable' ? (
+          // The fallback is this widget's own element, so it takes the same
+          // IDREF as the group. It edits the same text and writes through the
+          // same `commit` as the editor: a string, or the expression envelope.
+          <textarea
+            value={editorText}
+            onChange={(e) => commit(e.target.value)}
+            readOnly={readOnly}
+            spellCheck={false}
+            aria-labelledby={ariaLabelledBy}
+            className="block h-[280px] w-full resize-y bg-background p-3 font-mono text-xs leading-relaxed outline-none"
+          />
+        ) : monacoStatus === 'loading' ? (
+          loadingEditor
+        ) : (
+          <React.Suspense fallback={loadingEditor}>
+            <LazyCodeEditor
+              schema={{
+                type: 'code',
+                language,
+                theme: 'vs-dark',
+                height: '280px',
+                readOnly,
+              }}
+              value={editorText}
+              onChange={commit}
+            />
+          </React.Suspense>
+        )}
+      </div>
     </div>
   );
 }

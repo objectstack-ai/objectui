@@ -31,7 +31,7 @@
 import React from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { usePendingDrafts } from './usePendingDrafts.js';
+import { fetchPendingDrafts, usePendingDrafts } from './usePendingDrafts.js';
 import { emitMetadataRefresh } from '../assistant/assistantBus.js';
 
 interface HeldRequest {
@@ -102,6 +102,25 @@ describe('usePendingDrafts — one request per question, not per reader (objectu
     await act(async () => reads(CRM)[0].respond(200, { drafts: [draft('crm_account'), draft('crm_contact')] }));
     await waitFor(() => expect(screen.getByTestId('topbar').textContent).toBe('2'));
     expect(screen.getByTestId('chatbar').textContent).toBe('2');
+  });
+
+  it('a caller editing its entries in its own continuation leaves another caller untouched', async () => {
+    // Every caller maps the shared payload itself into new entries that hold
+    // only primitives, so no caller is handed anything that points into the
+    // payload or into another caller's list.
+    const { reads } = heldFetch();
+    const first = fetchPendingDrafts('app.crm').then((mine) => {
+      mine[0].name = 'edited-by-first';
+      mine.push({ type: 'view', name: 'extra', packageId: null });
+      return mine;
+    });
+    const second = fetchPendingDrafts('app.crm');
+    await drain();
+    expect(reads(CRM)).toHaveLength(1);
+    reads(CRM)[0].respond(200, { drafts: [draft('crm_account')] });
+
+    expect((await first).map((d) => d.name)).toEqual(['edited-by-first', 'extra']);
+    expect(await second).toEqual([{ type: 'object', name: 'crm_account', packageId: 'app.crm' }]);
   });
 
   it('keeps different scopes apart', async () => {

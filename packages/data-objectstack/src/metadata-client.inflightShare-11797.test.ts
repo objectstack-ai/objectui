@@ -22,7 +22,8 @@
  * The rules pinned besides the one-request count:
  *   - the key is method + URL + headers + transport — a different scope, a
  *     draft-preview client or another transport is a different question;
- *   - every caller gets its own copy of the answer;
+ *   - every caller, the first one included, gets an answer no other caller
+ *     holds;
  *   - the entry goes when the read settles, so a later call asks again (no
  *     reuse window);
  *   - a failure reaches every caller that shared it and is not remembered;
@@ -122,6 +123,56 @@ describe('MetadataClient — concurrent identical GETs share one request (object
     expect(mine).not.toBe(theirs);
     mine!.fields.extra = { type: 'number' };
     expect(theirs!.fields).toEqual({ name: { type: 'text' } });
+  });
+
+  it.each([
+    ['in the same tick', false],
+    ['once the first request is already on the wire', true],
+  ])(
+    'the first caller editing its answer in its own continuation leaves a caller that joined %s with the answer as served',
+    async (_when, joinLater) => {
+      const { fetch, gets } = heldTransport();
+      const [a, b] = clientsOn(fetch);
+      const first = a.list<string>('object').then((mine) => {
+        mine.push('added-by-first');
+        mine.sort();
+        return mine;
+      });
+      if (joinLater) await drain();
+      const second = b.list<string>('object');
+      await drain();
+      expect(gets()).toHaveLength(1);
+      gets()[0].respond(200, ['zeta', 'alpha']);
+
+      expect(await first).toEqual(['added-by-first', 'alpha', 'zeta']);
+      expect(await second).toEqual(['zeta', 'alpha']);
+    },
+  );
+
+  /**
+   * The rule under the public methods, checked where it cannot lean on them:
+   * no caller of `shareRead` is handed the value the others are copied from.
+   * Every public method reaches its caller through an `async` hop, which
+   * happens to queue the caller's code behind every joiner's copy; a reader
+   * that awaits the shared read with no hop in between must be just as safe.
+   */
+  it('no caller of the private `shareRead` holds the value another caller is copied from', async () => {
+    type Sharing = { shareRead<R>(reader: string, url: string, read: () => Promise<R>): Promise<R> };
+    const { fetch } = heldTransport();
+    const [a, b] = clientsOn(fetch);
+    let serve!: (value: string[]) => void;
+    const read = () => new Promise<string[]>((resolve) => (serve = resolve));
+    const shareOn = (c: MetadataClient) => (c as unknown as Sharing).shareRead.bind(c);
+
+    const first = shareOn(a)('probe', `${BASE}/probe`, read).then((mine) => {
+      mine.push('added-by-first');
+      return mine;
+    });
+    const second = shareOn(b)('probe', `${BASE}/probe`, read);
+    serve(['as-served']);
+
+    expect(await first).toEqual(['as-served', 'added-by-first']);
+    expect(await second).toEqual(['as-served']);
   });
 
   it('keeps different questions apart: scope, draft preview, headers and transport are part of the key', async () => {

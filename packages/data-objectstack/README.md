@@ -67,7 +67,7 @@ const dataSource = createObjectStackAdapter({
 ## Features
 
 - ✅ **CRUD Operations**: Implements `find`, `findOne`, `create`, `update`, `delete`.
-- ✅ **Shared In-Flight Reads**: Concurrent `find` calls with the same resource and params, and concurrent `findOne` calls with the same resource, id and params, share one request. The entry is dropped when the read settles, so a later call reads again (this is not a response cache), and a failed read is not remembered. A write through the adapter drops the pending `findOne` reads of the resource it wrote, so a read asked after a save never gets an answer sent before it.
+- ✅ **Shared In-Flight Reads**: Concurrent `find` calls with the same resource and params, and concurrent `findOne` calls with the same resource, id and params, share one request. The entry is dropped when the read settles, so a later call reads again (this is not a response cache), and a failed read is not remembered. A write through the adapter drops the pending `findOne` reads of the resource it wrote, so a read asked after a save never gets an answer sent before it. `MetadataClient` shares its `listTypes`, `list`, `listDrafts`, `get` and `getDraft` reads the same way. Calls with the same method, URL and headers on clients built with the same `fetch` share one request, and every caller gets an answer no other caller holds. A save, publish or reset through any of those clients drops the reads still pending.
 - ✅ **Metadata Caching**: Automatic LRU caching of schema metadata with TTL expiration.
 - ✅ **Metadata Fetching**: Implements `getObjectSchema` to power auto-generated forms and grids.
 - ✅ **Query Translation**: Converts Object UI's OData-like query parameters to ObjectStack's native query format.

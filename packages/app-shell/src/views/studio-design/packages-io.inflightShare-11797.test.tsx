@@ -85,6 +85,24 @@ describe('fetchPackages — concurrent calls share one request (objectui#11797)'
     expect(b[0]).not.toBe(a[0]);
   });
 
+  it('a caller editing its list or an entry in its own continuation leaves another caller untouched', async () => {
+    // Every caller parses the shared payload itself, and `PkgEntry` holds only
+    // primitives, so no caller is handed anything that points into the payload
+    // or into another caller's list.
+    const { listReads } = heldFetch();
+    const first = fetchPackages().then((mine) => {
+      mine[0].name = 'edited-by-first';
+      mine.push({ id: 'com.acme.extra', name: 'extra', writable: false, namespace: null });
+      return mine;
+    });
+    const second = fetchPackages();
+    await drain();
+    listReads()[0].respond(200, listBody('com.acme.crm'));
+
+    expect((await first).map((p) => p.name)).toEqual(['edited-by-first', 'extra']);
+    expect(await second).toEqual([{ id: 'com.acme.crm', name: 'com.acme.crm', writable: true, namespace: 'crm' }]);
+  });
+
   it('is not a response cache: once the request settles, the next call asks the server again', async () => {
     const { listReads } = heldFetch();
     const first = fetchPackages();

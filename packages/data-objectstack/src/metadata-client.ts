@@ -786,9 +786,16 @@ function isMetaItemEnvelope(
  * the sibling that is asking the same question. See
  * {@link MetadataClient.shareRead} for the rules.
  */
-const pendingReads = new WeakMap<typeof fetch, Map<string, Promise<unknown>>>();
+const pendingReads = new WeakMap<typeof fetch, Map<string, PendingRead>>();
 
-function pendingReadsOn(transport: typeof fetch): Map<string, Promise<unknown>> {
+interface PendingRead {
+  /** The one request every sharer waits on. ⛔ Never handed to a caller itself. */
+  read: Promise<unknown>;
+  /** Sharers that have asked and not yet been handed their answer. */
+  waiting: number;
+}
+
+function pendingReadsOn(transport: typeof fetch): Map<string, PendingRead> {
   let reads = pendingReads.get(transport);
   if (!reads) {
     reads = new Map();
@@ -798,17 +805,29 @@ function pendingReadsOn(transport: typeof fetch): Map<string, Promise<unknown>> 
 }
 
 /**
- * A caller that joined a pending read gets its own copy of the answer, so
- * sharing the request never means sharing the object: before the request was
- * shared every caller parsed its own body, and one caller editing what it got
- * back must still not change what another caller holds. The answers are parsed
- * JSON, which `structuredClone` copies exactly.
+ * Every sharer gets an answer no other sharer holds, so sharing the request
+ * never means sharing the object: before the request was shared every caller
+ * parsed its own body, and one caller editing what it got back must still not
+ * change what another caller holds.
  *
- * The first caller keeps the parsed original. The copies are taken in
- * reactions on the pending read itself, which run before any caller's own
- * code after the read settles — the reading methods hand that read back
- * without touching it in between.
+ * Each sharer is handed its answer in its own reaction on the pending read,
+ * registered when it asked — the request's first caller included, whose code
+ * would otherwise run ahead of the copies and could edit the very object they
+ * are taken from. The LAST sharer to be handed the answer takes the parsed
+ * original and every earlier one a copy of it, so nothing is copied when
+ * nobody joined. The count is final by the first hand-out: a caller can only
+ * join while the entry is in the map, and the entry's own settle reaction,
+ * registered before any hand-out, takes it out.
  */
+function handOut(entry: PendingRead): Promise<unknown> {
+  entry.waiting += 1;
+  return entry.read.then((value) => {
+    entry.waiting -= 1;
+    return entry.waiting === 0 ? value : ownCopy(value);
+  });
+}
+
+/** The answers are parsed JSON, which `structuredClone` copies exactly. */
 function ownCopy<R>(value: R): R {
   if (value === null || typeof value !== 'object') return value;
   return typeof structuredClone === 'function'
@@ -907,23 +926,25 @@ export class MetadataClient {
    *  - a write sent through the same transport drops every pending read when
    *    it lands (see {@link sendWrite}), so a read asked after a save or a
    *    publish is never answered by a request sent before it;
-   *  - every caller that joined gets its own copy of the answer (see
-   *    {@link ownCopy}).
+   *  - every caller, the first one included, gets an answer no other caller
+   *    holds (see {@link handOut}).
    */
   private shareRead<R>(reader: string, url: string, read: () => Promise<R>): Promise<R> {
     const reads = pendingReadsOn(this.fetchImpl);
     // `reader` names the method: two methods reading one URL read different
     // answers out of it (`list('_drafts')` and `listDrafts()` share a URL).
     const key = JSON.stringify([reader, url, Object.entries(this.headers).sort(([a], [b]) => a.localeCompare(b))]);
-    const pending = reads.get(key) as Promise<R> | undefined;
-    if (pending) return pending.then(ownCopy);
-    const promise = read();
-    reads.set(key, promise);
-    const settle = () => {
-      if (reads.get(key) === promise) reads.delete(key);
-    };
-    promise.then(settle, settle);
-    return promise;
+    let entry = reads.get(key);
+    if (!entry) {
+      const created: PendingRead = { read: read(), waiting: 0 };
+      reads.set(key, created);
+      const settle = () => {
+        if (reads.get(key) === created) reads.delete(key);
+      };
+      created.read.then(settle, settle);
+      entry = created;
+    }
+    return handOut(entry) as Promise<R>;
   }
 
   /**

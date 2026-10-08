@@ -126,14 +126,23 @@ describe('the rule editor pickers are the shared Select (objectui#11865)', () =>
     expect(screen.getByRole('combobox', { name: 'Severity' })).toBe(screen.getByTestId('rule-severity'));
   });
 
-  it('the state machine and JSON schema editors pick their field with it too', () => {
-    for (const rule of [
-      { type: 'state_machine', name: 'status_flow', message: 'Bad move', field: 'status', transitions: {} },
-      { type: 'json_schema', name: 'payload_shape', message: 'Bad payload', field: 'payload', schema: {} },
-    ]) {
-      const { container, unmount } = renderPanel(rule);
+  it('the state machine and JSON schema editors pick their field with it too, writing what the native control wrote', async () => {
+    for (const [rule, json] of [
+      [
+        { type: 'state_machine', name: 'status_flow', message: 'Bad move', field: 'status', transitions: {} },
+        '{"validations":[{"type":"state_machine","name":"status_flow","message":"Bad move","field":"code","transitions":{}}]}',
+      ],
+      [
+        { type: 'json_schema', name: 'payload_shape', message: 'Bad payload', field: 'payload', schema: {} },
+        '{"validations":[{"type":"json_schema","name":"payload_shape","message":"Bad payload","field":"code","schema":{}}]}',
+      ],
+    ] as const) {
+      const { container, onPatch, unmount } = renderPanel(rule);
       expect(container.querySelector('select')).toBeNull();
       expect(screen.getByTestId('rule-field')).toHaveAttribute('role', 'combobox');
+      await pick('rule-field', 'Code (code)');
+      expect(onPatch).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(onPatch.mock.calls[0][0])).toBe(json);
       unmount();
     }
   });

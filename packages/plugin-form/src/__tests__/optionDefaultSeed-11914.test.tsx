@@ -176,6 +176,31 @@ describe('schemaDefaultValues — an option marked `default: true` (objectui#119
     ).toEqual({ tags: ['o0', 'o2'], picks: ['o1', 'o2'], one: ['o1'] });
   });
 
+  it('keeps the default a scalar when `multiple` sits on a type outside the multi-valued sets', () => {
+    // `isMultiValueField` calls `text` single-valued whatever the flag says,
+    // and the engine stores a scalar for it — so the form seeds one too.
+    expect(
+      schemaDefaultValues({
+        fields: { t: { type: 'text', multiple: true, options: opts(true, true) } },
+      }),
+    ).toEqual({ t: 'o0' });
+  });
+
+  it('seeds an option spelled `current_user` as that literal value, never the acting user', () => {
+    // An option value is a picklist literal, not a runtime token: the engine
+    // stores the twelve characters, so the form previews the same.
+    expect(
+      schemaDefaultValues(
+        {
+          fields: {
+            s: { type: 'select', options: [{ label: 'Me', value: 'current_user', default: true }] },
+          },
+        },
+        { currentUserId: 'u42' },
+      ),
+    ).toEqual({ s: 'current_user' });
+  });
+
   it('skips a marked option that carries no value', () => {
     expect(
       schemaDefaultValues({

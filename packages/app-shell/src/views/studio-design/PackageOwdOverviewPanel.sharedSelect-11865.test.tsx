@@ -22,12 +22,13 @@
  *   - the keyboard alone opens a dial and selects.
  *
  * DIRECTION, observed against the native control: every pin here is red
- * there except the two read-only cases, which hold on both, because each
- * other one reads the dials as the primitive's triggers. What makes the save pins guards of "the conversion
- * changed nothing the panel writes" is the literal each compares against: a
- * `change` event on the pre-conversion panel's native dial, then Save, sent
- * that same JSON, read once on that component. The names were read there the
- * same way.
+ * there except three, which hold on both: the two read-only cases, and the
+ * name pin, because the native dials had no name either. Each other pin reads
+ * the dials as the primitive's triggers. What makes the save pins guards of
+ * "the conversion changed nothing the panel writes" is the literal each
+ * compares against: a `change` event on the pre-conversion panel's native
+ * dial, then Save, sent that same JSON, read once on that component. The names
+ * were read there the same way.
  */
 
 import '@testing-library/jest-dom/vitest';

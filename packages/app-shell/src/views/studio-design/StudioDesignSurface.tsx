@@ -102,13 +102,17 @@ import {
 } from './studio-canvas-preview.js';
 import { ObjectListViewInspector, useObjectListViewDraft } from './ObjectListViewInspector.js';
 import {
+  DEFAULT_PAGE_SOURCE_KIND,
   NO_REPORT_BINDING,
+  PageCreateFields,
   ReportCreateFields,
   buildDashboardSkeleton,
+  buildPageSkeleton,
   buildReportSkeleton,
   interfaceNavEntry,
   isReportBindingComplete,
   type InterfaceCreateKind,
+  type PageSourceKind,
   type ReportBinding,
 } from './interfaceCreate.js';
 import { PermissionMatrixEditPage } from '../metadata-admin/PermissionMatrixEditor.js';
@@ -3382,24 +3386,34 @@ export function InterfacesPillar({
     setNavSel(null);
   }, [navClosing, navSaving, navDirty, flushNavSave]);
 
-  // objectui#11823 (step 2) — *New dashboard* / *New report* (ADR-0084: the
-  // Interface pillar holds dashboards and reports). The rail is the app's
-  // navigation, so a create writes the item's draft AND the entry that links
-  // it, then opens the new leaf on the canvas this pillar renders for its type
-  // (the structured canvas, builder-ui §6). Offered only while nav editing is
-  // closed: the nav buffer is then the app document as the server holds it,
-  // and no nav save is in flight ("Done" closes only once the buffer is clean).
+  // objectui#11823 (steps 2 and 3) — *New dashboard* / *New report* / *New
+  // page* (ADR-0084: the Interface pillar holds dashboards, reports and
+  // pages). The rail is the app's navigation, so a create writes the item's
+  // draft AND the entry that links it, then opens the new leaf on the canvas
+  // this pillar renders for its type (builder-ui §6): the structured canvas
+  // for a dashboard or a report, a page's source beside its live preview.
+  // Offered only while nav editing is closed: the nav buffer is then the app
+  // document as the server holds it, and no nav save is in flight ("Done"
+  // closes only once the buffer is clean).
   const [createKind, setCreateKind] = React.useState<InterfaceCreateKind | null>(null);
   const [createBusy, setCreateBusy] = React.useState(false);
   const [createError, setCreateError] = React.useState<string | null>(null);
   const [reportBinding, setReportBinding] = React.useState<ReportBinding>(NO_REPORT_BINDING);
+  const [pageKind, setPageKind] = React.useState<PageSourceKind>(DEFAULT_PAGE_SOURCE_KIND);
   const openCreate = React.useCallback((kind: InterfaceCreateKind) => {
     setCreateError(null);
     setReportBinding(NO_REPORT_BINDING);
+    setPageKind(DEFAULT_PAGE_SOURCE_KIND);
     setCreateKind(kind);
   }, []);
   const doCreateSurface = React.useCallback(
-    async (kind: InterfaceCreateKind, label: string, name: string, binding: ReportBinding) => {
+    async (
+      kind: InterfaceCreateKind,
+      label: string,
+      name: string,
+      binding: ReportBinding,
+      sourceKind: PageSourceKind,
+    ) => {
       if (readOnly || !appName || editNav) return;
       if (kind === 'report' && !isReportBindingComplete(binding)) {
         setCreateError(t('engine.studio.interfaces.create.needsBinding', locale));
@@ -3422,7 +3436,9 @@ export function InterfacesPillar({
             tFormat(
               kind === 'dashboard'
                 ? 'engine.studio.interfaces.create.dashboardTaken'
-                : 'engine.studio.interfaces.create.reportTaken',
+                : kind === 'report'
+                  ? 'engine.studio.interfaces.create.reportTaken'
+                  : 'engine.studio.interfaces.create.pageTaken',
               locale,
               { name },
             ),
@@ -3430,7 +3446,11 @@ export function InterfacesPillar({
           return;
         }
         const body =
-          kind === 'dashboard' ? buildDashboardSkeleton(name, label) : buildReportSkeleton(name, label, binding);
+          kind === 'dashboard'
+            ? buildDashboardSkeleton(name, label)
+            : kind === 'report'
+              ? buildReportSkeleton(name, label, binding)
+              : buildPageSkeleton(name, label, sourceKind, t('engine.studio.interfaces.create.pageStarter', locale));
         await client.save(kind, name, body, { mode: 'draft', packageId });
         onDraftSaved?.();
         // The entry that links it, appended to the app document and sent
@@ -3447,6 +3467,13 @@ export function InterfacesPillar({
         const surface = resolveSurface(entry, locale, targetLabelRef.current);
         if (surface) setCurrent(surface);
         setCanvasMode('design');
+        // A page opens on its source beside the live preview: the rail shows
+        // the code editor (its Source tab, the aside expanded), whichever tab
+        // and width an earlier leaf left it on.
+        if (kind === 'page') {
+          setInspectorTab('source');
+          setInspectorCollapsed(false);
+        }
         if (isMobile) setRailOpen(false);
         await doNavSave(navSending(linked) ?? { unmoved: () => false }, linked);
       } catch (e) {
@@ -3456,7 +3483,20 @@ export function InterfacesPillar({
         setCreateBusy(false);
       }
     },
-    [readOnly, appName, editNav, locale, client, packageId, onDraftSaved, setCanvasMode, isMobile, doNavSave, navSending],
+    [
+      readOnly,
+      appName,
+      editNav,
+      locale,
+      client,
+      packageId,
+      onDraftSaved,
+      setCanvasMode,
+      setInspectorCollapsed,
+      isMobile,
+      doNavSave,
+      navSending,
+    ],
   );
 
   // ADR-0057 P3c — the canvas and the inspector are rendered by BOTH layouts
@@ -3902,8 +3942,9 @@ export function InterfacesPillar({
       {leafConflictDialog}
       {navConflictDialog}
       {listView.conflictDialog}
-      {/* objectui#11823 (step 2) — the shared create dialog; a report also
-          asks for its dataset and one measure (`ReportCreateFields`). */}
+      {/* objectui#11823 (steps 2 and 3) — the shared create dialog; a report
+          also asks for its dataset and one measure (`ReportCreateFields`), a
+          page for its source kind (`PageCreateFields`). */}
       <CreateItemDialog
         open={createKind !== null && !readOnly}
         onOpenChange={(open) => {
@@ -3912,7 +3953,9 @@ export function InterfacesPillar({
         title={t(
           createKind === 'report'
             ? 'engine.studio.interfaces.create.report'
-            : 'engine.studio.interfaces.create.dashboard',
+            : createKind === 'page'
+              ? 'engine.studio.interfaces.create.page'
+              : 'engine.studio.interfaces.create.dashboard',
           locale,
         )}
         description={tFormat('engine.studio.interfaces.create.description', locale, {
@@ -3921,20 +3964,26 @@ export function InterfacesPillar({
         labelFieldLabel={t(
           createKind === 'report'
             ? 'engine.studio.interfaces.create.reportNameLabel'
-            : 'engine.studio.interfaces.create.dashboardNameLabel',
+            : createKind === 'page'
+              ? 'engine.studio.interfaces.create.pageNameLabel'
+              : 'engine.studio.interfaces.create.dashboardNameLabel',
           locale,
         )}
         labelPlaceholder={t(
           createKind === 'report'
             ? 'engine.studio.interfaces.create.reportNamePlaceholder'
-            : 'engine.studio.interfaces.create.dashboardNamePlaceholder',
+            : createKind === 'page'
+              ? 'engine.studio.interfaces.create.pageNamePlaceholder'
+              : 'engine.studio.interfaces.create.dashboardNamePlaceholder',
           locale,
         )}
         idFieldLabel={t('engine.studio.interfaces.create.idLabel', locale)}
         idPlaceholder={t(
           createKind === 'report'
             ? 'engine.studio.interfaces.create.reportIdPlaceholder'
-            : 'engine.studio.interfaces.create.dashboardIdPlaceholder',
+            : createKind === 'page'
+              ? 'engine.studio.interfaces.create.pageIdPlaceholder'
+              : 'engine.studio.interfaces.create.dashboardIdPlaceholder',
           locale,
         )}
         submitLabel={t('engine.studio.createDraft', locale)}
@@ -3945,10 +3994,12 @@ export function InterfacesPillar({
         extra={
           createKind === 'report' ? (
             <ReportCreateFields value={reportBinding} onChange={setReportBinding} locale={locale} />
+          ) : createKind === 'page' ? (
+            <PageCreateFields value={pageKind} onChange={setPageKind} locale={locale} />
           ) : undefined
         }
         onSubmit={({ label, name }) => {
-          if (createKind) void doCreateSurface(createKind, label, name, reportBinding);
+          if (createKind) void doCreateSurface(createKind, label, name, reportBinding, pageKind);
         }}
       />
       <div className="flex items-center gap-2 border-b px-3 py-1.5">
@@ -4013,9 +4064,9 @@ export function InterfacesPillar({
           <div className="shrink-0 border-b px-2 py-1.5">
             <div className="flex items-center justify-between gap-1">
               <p className="truncate text-[11px] font-medium text-muted-foreground">{tFormat('engine.studio.if.navHeading', locale, { app: navItemLabelText(appLabel, locale) })}</p>
-              {/* objectui#11823 (step 2) — New dashboard / report: an app to
-                  link it from, a writable package, nav editing closed (see
-                  `doCreateSurface`). */}
+              {/* objectui#11823 (steps 2 and 3) — New dashboard / report /
+                  page: an app to link it from, a writable package, nav editing
+                  closed (see `doCreateSurface`). */}
               {appStatus === 'ready' && !readOnly && !editNav && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
@@ -4036,6 +4087,10 @@ export function InterfacesPillar({
                     <DropdownMenuItem data-testid="if-create-report" onSelect={() => openCreate('report')}>
                       <BarChart3 className="mr-2 h-3.5 w-3.5" />
                       {t('engine.studio.interfaces.create.report', locale)}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem data-testid="if-create-page" onSelect={() => openCreate('page')}>
+                      <FileText className="mr-2 h-3.5 w-3.5" />
+                      {t('engine.studio.interfaces.create.page', locale)}
                     </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>

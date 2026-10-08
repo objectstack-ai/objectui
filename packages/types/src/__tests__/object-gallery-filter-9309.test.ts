@@ -179,20 +179,22 @@ function filterCensus(source: string, fileName = 'census.ts'): FilterRow[] {
  * The population, in file order. ⛔ No line numbers: the file moved +241 lines
  * on the day this card was taken and would move again.
  *
- * ⚠️ Four spellings, not one — so "match the siblings, one vocabulary" is not
+ * ⚠️ Several spellings, not one (the table below is the count; AGENTS.md #9) — so "match the siblings, one vocabulary" is not
  * an argument available to anyone editing any of these. Whatever this table
  * grows into, it is a reading and not a restatement, because it is compared
  * against the parser on every run.
  */
 const EXPECTED_CENSUS: readonly FilterRow[] = [
-  { owner: 'ObjectGridSchema', type: 'any[]' },
+  // objectui#6152 round 8 — the grid, calendar and kanban rows take their
+  // `ComponentPropsMap` row's own member by reference (the `ViewFilterRule` array).
+  { owner: 'ObjectGridSchema', type: "SpecObjectGridProps['filter']" },
   { owner: 'NamedListView', type: 'any[]' },
   { owner: 'ObjectMapSchema', type: 'any[]' },
   // objectui#9549 — declared in the shape this card settled.
   { owner: 'ObjectTreeSchema', type: "QueryParams['$filter']" },
   { owner: 'ObjectGanttSchema', type: 'any[]' },
-  { owner: 'ObjectCalendarSchema', type: 'any[]' },
-  { owner: 'ObjectKanbanSchema', type: 'any[]' },
+  { owner: 'ObjectCalendarSchema', type: "SpecObjectCalendarProps['filter']" },
+  { owner: 'ObjectKanbanSchema', type: "SpecObjectKanbanProps['filter']" },
   { owner: 'ObjectChartSchema', type: 'any[] | Record<string, any>' },
   { owner: 'ObjectGallerySchema', type: "QueryParams['$filter']" },
   { owner: 'ObjectDataTableSchema', type: 'any' },

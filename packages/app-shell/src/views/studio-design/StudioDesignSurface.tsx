@@ -5010,6 +5010,10 @@ export function DataPillar({
         busy={createBusy}
         error={error?.message ?? null}
         locale={locale}
+        // objectui#11792 — preview the name `doCreateObject` saves: the same
+        // `prefixObjectName` over the same `namespace` state, so the dialog
+        // shows `repairs_repair_ticket`, not the bare identifier.
+        storedName={(identifier) => prefixObjectName(identifier, namespace)}
         extra={
           /* Record sharing (OWD) — the third thing `New object` must ask for
              (`7a90afdf9`). Without it the object saves as a draft happily and

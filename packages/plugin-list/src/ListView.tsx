@@ -3477,7 +3477,12 @@ export const ListView = React.forwardRef<ListViewHandle, ListViewProps>(({
           ...((schema as any).rowActionDefs ? { rowActionDefs: (schema as any).rowActionDefs } : {}),
           ...(schema.bulkActions ? { batchActions: schema.bulkActions } : {}),
           ...((schema as any).bulkActionDefs ? { bulkActionDefs: (schema as any).bulkActionDefs } : {}),
-          ...(schema.options?.grid || {}),
+          // objectui#6152 round 12: `grid` is no longer a member of the typed
+          // `options` bag. The spec's list-overlay bag refuses it (a grid has no
+          // per-kind block), and so does `ListViewSchema.options`. The READ stays,
+          // typed here as the stored input it is, for a row stored before the view
+          // write door judged the bag; it retires with the other legacy readers.
+          ...((schema.options as { grid?: Record<string, unknown> } | undefined)?.grid || {}),
         };
       case 'kanban': {
         // The spec's lane field is `groupByField`; `groupField` is the legacy

@@ -449,6 +449,10 @@ const ENGINE_STRINGS_EN: Record<string, string> = {
   // each as `<node or edge> › <path>: <expression>`.
   'engine.inspector.flowNode.idRefsUnparsed': 'Not renamed: these expressions read "{id}" but do not parse, so the rename cannot carry them: {refs}. Fix them first.',
   'engine.inspector.flowNode.idRefsAmbiguous': 'Not renamed: "{name}" is also the name of a variable in this flow, so these expressions could read either and cannot be carried: {refs}. Rename the variable first, or edit them by hand.',
+  // objectui#11838 — a removal cannot carry a boundary event's host or an
+  // expression root, so it is refused while one names the node (the Remove
+  // node button and the canvas Delete key both show this).
+  'engine.inspector.flowNode.removeRefused': 'Not removed: these still name "{id}" and would name a node that no longer exists: {refs}. Change or remove them first.',
   'engine.inspector.flowNode.label': 'Label',
   'engine.inspector.flowNode.type': 'Node Type',
   'engine.inspector.flowNode.configuration': 'Configuration',
@@ -3550,6 +3554,7 @@ const ENGINE_STRINGS_ZH: Record<string, string> = {
   'engine.inspector.flowNode.idEdgeNamed': '未重命名：仍有连线指向“{id}”，而该节点已不在流程中。请先删除或重新连接那条连线。',
   'engine.inspector.flowNode.idRefsUnparsed': '未重命名：以下表达式引用了“{id}”，但无法解析，重命名无法同步更新它们：{refs}。请先修正。',
   'engine.inspector.flowNode.idRefsAmbiguous': '未重命名：“{name}”同时也是此流程中某个变量的名称，以下表达式可能引用其中任何一个，无法同步更新：{refs}。请先重命名该变量，或手动修改这些表达式。',
+  'engine.inspector.flowNode.removeRefused': '未删除：以下位置仍引用“{id}”，删除后将指向不存在的节点：{refs}。请先修改或删除它们。',
   'engine.inspector.flowNode.label': '标签',
   'engine.inspector.flowNode.type': '节点类型',
   'engine.inspector.flowNode.configuration': '配置',

@@ -66,8 +66,10 @@ import type { FlowDesignerEdge } from '../previews/flow-canvas-layout.js';
 import { ScreenPreview } from '../previews/ScreenPreview.js';
 import {
   boundaryRefsAfterNodeRename,
+  describeNodeRemovalRefusal,
   edgesAfterNodeRemoval,
   edgesAfterNodeRename,
+  nodeRemovalRefusal,
   nodeRenameRefusal,
 } from '../previews/flow-problems.js';
 import { describeExprSite, expressionRefsAfterNodeRename, type ExprRenameRefusal } from '../previews/flow-node-refs.js';
@@ -403,6 +405,17 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
   const [advOpen, setAdvOpen] = React.useState(extraJson.trim() !== '');
   // Reveals the optional custom-keys editor on nodes that currently have none.
   const [advReveal, setAdvReveal] = React.useState(false);
+  // objectui#11838 — the node whose "Remove node" was refused. The message is
+  // derived from the draft while that node stays selected, so it names what
+  // still blocks the removal and goes away once nothing does. Reset while
+  // rendering when another node is shown, as `FlowNodeIdField` resets its own.
+  const [removeRefusedId, setRemoveRefusedId] = React.useState<string | null>(null);
+  const shownNodeId = node?.id ?? null;
+  const [refusalShownFor, setRefusalShownFor] = React.useState(shownNodeId);
+  if (refusalShownFor !== shownNodeId) {
+    setRefusalShownFor(shownNodeId);
+    setRemoveRefusedId(null);
+  }
   React.useEffect(() => {
     setAdvText(extraJson);
     setAdvError(null);
@@ -529,7 +542,18 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
   // Writing `null` to the node alone left every edge naming it behind, and the
   // next node minted with that id inherited them all. Top-level only: a nested
   // node has no Remove (its routing lives in its region, not on `draft.edges`).
+  //
+  // objectui#11838 — and it is refused, writing nothing, while a boundary
+  // event's host or an expression root still names the node: a removal has no
+  // new id for those to follow. `nodeRemovalRefusal` is the one rule the
+  // canvas's Delete key applies too; the refusal names each site under the
+  // button, and the node stays selected.
+  const removalSites = removeRefusedId === node.id ? nodeRemovalRefusal(draft as Record<string, unknown>, node.id) : null;
   const remove = () => {
+    if (nodeRemovalRefusal(draft as Record<string, unknown>, node.id)) {
+      setRemoveRefusedId(node.id);
+      return;
+    }
     const patch = loc?.write(null);
     if (patch && !loc?.nested) {
       const draftEdges = Array.isArray((draft as { edges?: unknown }).edges)
@@ -624,7 +648,18 @@ export function FlowNodeInspector({ selection, draft, onPatch, onClearSelection,
       title={node.label || node.id}
       onClose={onClearSelection}
       closeLabel={t('engine.inspector.flowNode.close', locale)}
-      footer={nested ? undefined : <InspectorRemoveButton label={t('engine.inspector.flowNode.remove', locale)} onClick={remove} disabled={readOnly} />}
+      footer={
+        nested ? undefined : (
+          <div className="space-y-1.5">
+            {removalSites && (
+              <p className="text-[11px] leading-snug text-destructive" role="alert">
+                {describeNodeRemovalRefusal(node.id, removalSites, locale)}
+              </p>
+            )}
+            <InspectorRemoveButton label={t('engine.inspector.flowNode.remove', locale)} onClick={remove} disabled={readOnly} />
+          </div>
+        )
+      }
     >
       {nested && (
         <div className="flex flex-wrap items-center gap-1 text-[11px] text-muted-foreground" aria-label={t('engine.inspector.flowNode.nestedLocation', locale)}>

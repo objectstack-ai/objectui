@@ -10,13 +10,17 @@
  * (`flow-node-refs.ts`): an edge's source and target, a boundary event's host,
  * an expression reference's root. Every designer write that adds, removes or
  * renames a node runs here, through the real canvas and inspector, on a flow
- * that holds every kind of position; after each, the positions naming a
- * missing node are exactly the ones `WRITES` records for that write, and the
- * Problems check names each of them as an error.
+ * that holds every kind of position; after each, NO position names a missing
+ * node, and the Problems check finds none.
  *
- * A new kind of position fails `every write declares every kind of position`
- * until each write says what it does with it; a new write joins `WRITES` with
- * its own gesture below. The designer has no duplicate gesture — there is no
+ * A write either carries every position (`applied`), or is refused and writes
+ * nothing (`refused`): a removal of a node that a boundary event's host or an
+ * expression root still names has no new id for them to follow, so both
+ * removal gestures refuse it, naming each site (`nodeRemovalRefusal`).
+ *
+ * A new kind of position fails the fixture control until the fixture holds
+ * one, and then every write below runs against it; a new write joins `WRITES`
+ * with its own gesture. The designer has no duplicate gesture — there is no
  * write that copies a node — so `WRITES` holds none.
  */
 
@@ -42,7 +46,7 @@ import { t, tFormat } from '../i18n';
 import { FlowPreview } from './FlowPreview';
 import { FlowInspector } from '../inspectors/FlowInspector';
 import { buildFlowProblems } from './flow-problems';
-import { missingNodePositions, NODE_ID_POSITION_KINDS, type NodeIdPosition, type NodeIdPositionKind } from './flow-node-refs';
+import { missingNodePositions, nodeIdPositions, NODE_ID_POSITION_KINDS, type NodeIdPosition } from './flow-node-refs';
 import type { MetadataSelection } from '../preview-registry';
 
 vi.stubGlobal(
@@ -132,6 +136,17 @@ function every(): Draft {
   };
 }
 
+/** The refusal both removal gestures show for `x`, naming each site that still names it. */
+const REFUSAL_X = tFormat('engine.inspector.flowNode.removeRefused', 'en-US', {
+  id: 'x',
+  refs: [
+    'be › boundaryConfig.attachedToNodeId: `x`',
+    "d › config.conditions[0].expression: `x.decision == 'approve'`",
+    'c › config.fields.subject: `{x.comment}`',
+    "d → c › condition: `x.decision == 'approve'`",
+  ].join('; '),
+});
+
 function selectCard(container: HTMLElement, nodeId: string) {
   const card = container.querySelector(`[data-node-id="${nodeId}"] [role="button"]`) as HTMLElement;
   expect(card, `node card ${nodeId}`).not.toBeNull();
@@ -144,22 +159,20 @@ function pickCreateRecord() {
   fireEvent.click(option!);
 }
 
-/**
- * What a write may leave behind for each kind of position: `none` — no
- * position of that kind names a missing node afterwards; `reported` — some do,
- * and the Problems check names each as an error. A `reported` entry is a write
- * that does not carry that kind yet, kept visible here rather than left to
- * become a card.
- */
-type Outcome = 'none' | 'reported';
+const alerts = () => screen.queryAllByRole('alert').map((el) => el.textContent ?? '');
+const pressDelete = () => fireEvent.keyDown(screen.getByRole('application', { name: 'Flow canvas' }), { key: 'Delete' });
+const clickRemove = () => fireEvent.click(screen.getByRole('button', { name: t('engine.inspector.flowNode.remove', 'en-US') }));
 
+/**
+ * `applied` — the write changed the draft and carried every position;
+ * `refused` — the write changed nothing, and the surface that refused it shows
+ * the refusal naming each site.
+ */
 interface Write {
   /** The gesture, through the real canvas and inspector. */
   run: (container: HTMLElement) => void;
-  leaves: Record<NodeIdPositionKind, Outcome>;
+  outcome: 'applied' | 'refused';
 }
-
-const NONE: Record<NodeIdPositionKind, Outcome> = { 'edge-source': 'none', 'edge-target': 'none', 'boundary-host': 'none', 'expression-root': 'none' };
 
 const WRITES: Record<string, Write> = {
   'add: a node card\'s "Add connected node"': {
@@ -168,20 +181,20 @@ const WRITES: Record<string, Write> = {
       fireEvent.click(within(card).getByRole('button', { name: t('engine.flowCanvas.addConnected', 'en-US') }));
       pickCreateRecord();
     },
-    leaves: NONE,
+    outcome: 'applied',
   },
   'add: an edge\'s "Insert node here"': {
     run: () => {
       fireEvent.click(screen.getAllByRole('button', { name: t('engine.flowCanvas.insertNode', 'en-US') })[0]);
       pickCreateRecord();
     },
-    leaves: NONE,
+    outcome: 'applied',
   },
   'add: an approval\'s "Add revision loop"': {
     run: () => {
       fireEvent.click(screen.getByRole('button', { name: t('engine.flowCanvas.addReviseLoopShort', 'en-US') }));
     },
-    leaves: NONE,
+    outcome: 'applied',
   },
   'rename: the inspector\'s ID field, on the node every position names': {
     run: (container) => {
@@ -190,42 +203,39 @@ const WRITES: Record<string, Write> = {
       fireEvent.change(id, { target: { value: 'approval' } });
       fireEvent.blur(id);
     },
-    leaves: NONE,
+    outcome: 'applied',
   },
   'remove: the inspector\'s "Remove node", on a node no position names': {
     run: (container) => {
       selectCard(container, 'c');
-      fireEvent.click(screen.getByRole('button', { name: t('engine.inspector.flowNode.remove', 'en-US') }));
+      clickRemove();
     },
-    leaves: NONE,
+    outcome: 'applied',
   },
   'remove: the canvas Delete key, on a node no position names': {
     run: (container) => {
       selectCard(container, 'c');
-      fireEvent.keyDown(screen.getByRole('application', { name: 'Flow canvas' }), { key: 'Delete' });
+      pressDelete();
     },
-    leaves: NONE,
+    outcome: 'applied',
   },
-  // The removal carries the edges (objectui#11772) and nothing else: a removed
-  // node's boundary event and the expressions that read its outputs have no
-  // new id to follow, and are left for the author with an error row each.
   'remove: the inspector\'s "Remove node", on the node every position names': {
     run: (container) => {
       selectCard(container, 'x');
-      fireEvent.click(screen.getByRole('button', { name: t('engine.inspector.flowNode.remove', 'en-US') }));
+      clickRemove();
     },
-    leaves: { ...NONE, 'boundary-host': 'reported', 'expression-root': 'reported' },
+    outcome: 'refused',
   },
   'remove: the canvas Delete key, on the node every position names': {
     run: (container) => {
       selectCard(container, 'x');
-      fireEvent.keyDown(screen.getByRole('application', { name: 'Flow canvas' }), { key: 'Delete' });
+      pressDelete();
     },
-    leaves: { ...NONE, 'boundary-host': 'reported', 'expression-root': 'reported' },
+    outcome: 'refused',
   },
 };
 
-/** The Problems row that names one position left naming a missing node. */
+/** The Problems row that would name one position, were it left naming a missing node. */
 function rowFor(p: NodeIdPosition): string {
   switch (p.kind) {
     case 'edge-source':
@@ -239,58 +249,53 @@ function rowFor(p: NodeIdPosition): string {
   }
 }
 
-describe('every designer write runs against the one list of node-id positions (objectui#11838)', () => {
-  it('every write declares every kind of position', () => {
-    for (const [name, write] of Object.entries(WRITES)) {
-      expect(Object.keys(write.leaves).sort(), name).toEqual([...NODE_ID_POSITION_KINDS].sort());
-    }
-  });
+function errorRows(draft: Draft): string[] {
+  return buildFlowProblems({ nodes: draft.nodes as never, edges: draft.edges as never, variables: [], locale: 'en-US' })
+    .filter((p) => p.level === 'error')
+    .map((p) => p.message);
+}
 
+describe('every designer write runs against the one list of node-id positions (objectui#11838)', () => {
   it('control: the fixture holds every kind of position, and none names a missing node', () => {
+    expect(new Set(nodeIdPositions(every()).map((p) => p.kind))).toEqual(new Set(NODE_ID_POSITION_KINDS));
     expect(missingNodePositions(every())).toEqual([]);
-    const errors = buildFlowProblems({ nodes: every().nodes as never, edges: every().edges as never, variables: [], locale: 'en-US' })
-      .filter((p) => p.level === 'error');
-    expect(errors).toEqual([]);
+    expect(errorRows(every())).toEqual([]);
   });
 
   for (const [name, write] of Object.entries(WRITES)) {
-    it(name, () => {
+    it(`${name} — ${write.outcome}`, () => {
       const before = every();
       const { probe, container } = mount(before);
       write.run(container);
-      expect(probe.draft, 'the write changed the draft').not.toBe(before);
 
-      const left = missingNodePositions(probe.draft);
-      const kindsLeft = new Set(left.map((p) => p.kind));
-      for (const kind of NODE_ID_POSITION_KINDS) {
-        expect(kindsLeft.has(kind), `${kind}: ${write.leaves[kind]}`).toBe(write.leaves[kind] === 'reported');
+      if (write.outcome === 'applied') {
+        expect(probe.draft, 'the write changed the draft').not.toBe(before);
+        expect(alerts()).not.toContain(REFUSAL_X);
+      } else {
+        expect(probe.draft, 'a refused write changes nothing').toBe(before);
+        expect(alerts(), 'the refusal names each site').toEqual([REFUSAL_X]);
       }
 
-      // The Problems check finds every position left naming a missing node, as an error.
-      const errors = buildFlowProblems({
-        nodes: probe.draft.nodes as never,
-        edges: probe.draft.edges as never,
-        variables: [],
-        locale: 'en-US',
-      })
-        .filter((p) => p.level === 'error')
-        .map((p) => p.message);
-      for (const p of left) expect(errors, `${p.kind} ${p.id}`).toContain(rowFor(p));
+      // After every write, no position names a missing node, and the Problems
+      // check names none of the fixture's positions as missing.
+      expect(missingNodePositions(probe.draft)).toEqual([]);
+      const errors = errorRows(probe.draft);
+      for (const p of nodeIdPositions(before)) expect(errors, `${p.kind} ${p.id}`).not.toContain(rowFor(p));
     });
   }
 
-  it('the rows a removal leaves are in the Problems panel, as errors', () => {
+  it("a refusal is not left standing: the canvas's goes once another node is selected, the inspector's with the node", () => {
     const { container } = mount(every());
     selectCard(container, 'x');
-    fireEvent.click(screen.getByRole('button', { name: t('engine.inspector.flowNode.remove', 'en-US') }));
-    fireEvent.click(screen.getByTitle(t('engine.flowPreview.problemsTitle', 'en-US')));
-    const title = screen.getAllByText(t('engine.flowProblems.title', 'en-US')).find((el) => el.tagName === 'SPAN');
-    const panel = title!.parentElement!.parentElement as HTMLElement;
-    const rows = within(panel)
-      .queryAllByRole('listitem')
-      .map((li) => li.querySelector('span.block')?.textContent ?? '');
-    expect(rows).toContain(tFormat('engine.flowValidate.exprRefNodeMissing', 'en-US', { ref: 'x.decision', id: 'x' }));
-    expect(rows).toContain(tFormat('engine.flowValidate.exprRefNodeMissing', 'en-US', { ref: 'x.comment', id: 'x' }));
-    expect(rows).toContain(tFormat('engine.flowValidate.boundaryHostMissing', 'en-US', { id: 'be', host: 'x' }));
+    pressDelete();
+    expect(alerts()).toEqual([REFUSAL_X]);
+    selectCard(container, 'd');
+    expect(alerts()).toEqual([]);
+
+    selectCard(container, 'x');
+    clickRemove();
+    expect(alerts()).toEqual([REFUSAL_X]);
+    selectCard(container, 'd');
+    expect(alerts()).toEqual([]);
   });
 });

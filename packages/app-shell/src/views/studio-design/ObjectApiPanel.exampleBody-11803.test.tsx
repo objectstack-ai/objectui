@@ -5,9 +5,14 @@
  * objectui#11803.
  *
  * The defect: the example typed every field it did not list by name as
- * `"string"` (a select, a location, a time, a multi-valued lookup) and stopped
- * at the first 8 writable fields in served order, so a required field declared
- * after them was missing from a body that is then refused.
+ * `"string"` (a select, a location, a time), gave a multi-valued field a single
+ * value, and stopped at the first 8 writable fields in served order, so a
+ * required field declared after them was missing from a body that is then
+ * refused.
+ *
+ * The copied-cURL case is the other half of the card, and it is GREEN on the
+ * pre-fix tree too: the `Authorization` header was already there. It pins that
+ * the half stays done, not that this change did it.
  *
  * The oracle is `@objectstack/spec`'s field-value contract,
  * `valueSchemaFor(def, 'stored')` — the shape the record write path accepts

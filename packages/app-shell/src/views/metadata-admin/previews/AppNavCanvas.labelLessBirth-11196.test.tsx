@@ -8,8 +8,10 @@
  * designer surface — so an entry the author then bound to an object kept
  * saying "New item" wherever a picker did not recognise the sentinel. A
  * placeholder is not the author's label, and an absent label is exactly what
- * inherits: the entry now shows its `id` until a target is bound, then that
- * target's current label, as the console draws it.
+ * inherits: the entry now shows its target's current label once a target is
+ * bound, as the console draws it. Until then it reads the positional "Item N"
+ * wording by its place, never the `nav_item_N` id it was minted with
+ * (objectui#11862; it showed that id before).
  *
  * The canvas renders under a real `MetadataCtx` that labels the object, so the
  * inherited text (`Customers`) differs from the machine name (`account`). The
@@ -78,16 +80,17 @@ describe('objectui#11196 — a new canvas entry is stored label-less', () => {
     expect(JSON.parse(JSON.stringify(entry))).not.toHaveProperty('label');
   });
 
-  it('the new entry is selected, titled by the text it shows: its id', () => {
+  it('the new entry is selected, titled by the text it shows: the positional wording, not its id', () => {
     const { selection } = add([HOME]);
-    expect(selection).toEqual({ kind: 'nav', id: 'navigation[1]', label: 'nav_item_2' });
+    expect(selection).toEqual({ kind: 'nav', id: 'navigation[1]', label: 'Item 2' });
   });
 });
 
-describe('objectui#11196 — the card shows its id until a target is bound, then inherits', () => {
-  it('unbound: the card shows the entry id', () => {
+describe('objectui#11196 — the card reads the positional wording until a target is bound, then inherits', () => {
+  it('unbound: the card reads "Item N" by its place, never the entry id (objectui#11862)', () => {
     render(canvas([HOME, { id: 'nav_item_2', type: 'object' }]));
-    expect(screen.getByText('nav_item_2')).toBeInTheDocument();
+    expect(screen.getByText('Item 2')).toBeInTheDocument();
+    expect(screen.queryByText('nav_item_2')).not.toBeInTheDocument();
   });
 
   it("bound to an object: the card shows the object's label, not its id or machine name as its name", () => {

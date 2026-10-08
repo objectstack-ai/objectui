@@ -203,8 +203,16 @@ function kindTone(kind: string): KindTone {
  * rule — objectui#11196). The positional `engine.appNav.item` row is left for
  * what that rule cannot name: a separator, a label that is present but
  * resolves to nothing, and an entry with no target and no `id`.
+ *
+ * objectui#11862 — and for an entry with no label that names no target yet
+ * (*Add nav item* not bound, or an unbind): the rule's last rung would name it
+ * by the `nav_item_N` id this canvas minted, so the card reads the positional
+ * wording instead, as the Studio's nav rail does. "Names no target" is the
+ * save's own rule ({@link namesNoTarget}). Display only: the id is minted as
+ * before and no label is written.
  */
 function navLabel(it: RawNav, i: number, locale: string, targetLabel: NavTargetLabelResolver): string {
+  if (it.label === undefined && namesNoTarget(it)) return tFormat('engine.appNav.item', locale, { n: i + 1 });
   const l = navEntryLabelText(it, locale, targetLabel).trim();
   if (l) return l;
   return tFormat('engine.appNav.item', locale, { n: i + 1 });

@@ -122,6 +122,43 @@ const personLabel = (u: unknown): string => {
   return String(r.full_name || r.name || r.display_name || r.email || r.id || '');
 };
 
+/** A person as the principal line names one (objectui#11862): a name and an email, either may be `''`. */
+interface PersonName {
+  name: string;
+  email: string;
+}
+
+/**
+ * The name and the email of a `sys_user` row — the row the user picker hands
+ * back, or one the same lookup answers. The name reads the columns
+ * {@link personLabel} tries before the email, so the two never disagree about
+ * who a row is.
+ */
+const personOf = (u: unknown): PersonName => {
+  const r = (u ?? {}) as Record<string, unknown>;
+  const text = (v: unknown) => (typeof v === 'string' ? v.trim() : '');
+  return { name: text(r.full_name) || text(r.name) || text(r.display_name), email: text(r.email) };
+};
+
+/**
+ * One person on the principal line (objectui#11862): the name and the email as
+ * the primary text, the user id beneath it as secondary text. A user id the
+ * lookup could not answer shows the id alone, as the line always did.
+ */
+function PrincipalPerson({ id, person }: { id: string; person?: PersonName }): React.ReactElement {
+  const primary = person?.name || person?.email || '';
+  if (!primary) return <span className="min-w-0 truncate font-mono text-foreground">{id}</span>;
+  return (
+    <span className="flex min-w-0 flex-col">
+      <span className="truncate text-foreground">
+        <span className="font-medium">{primary}</span>
+        {person?.name && person.email ? <span className="text-muted-foreground"> {person.email}</span> : null}
+      </span>
+      <span className="truncate font-mono text-[10px] text-muted-foreground">{id}</span>
+    </span>
+  );
+}
+
 export interface AccessExplainPanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -180,10 +217,49 @@ export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageI
   const [busy, setBusy] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [decision, setDecision] = React.useState<ExplainDecision | null>(null);
+  // objectui#11862 — the people this panel can name, by user id: the row the
+  // user picker handed back, and the rows the same lookup answered for a
+  // decision's principal. An id with no entry renders as the id.
+  const [people, setPeople] = React.useState<Record<string, PersonName>>({});
 
   React.useEffect(() => {
     if (defaultObject) setObjectName((v) => v || defaultObject);
   }, [defaultObject]);
+
+  /**
+   * Name the people a decision cites (objectui#11862). The ids the picker
+   * already answered are known; the rest are asked, once per run, of the lookup
+   * the user picker reads — `sys_user` through the data adapter. A lookup that
+   * fails or finds no row leaves the id as the text, which is what the line
+   * showed before.
+   */
+  const lookUpPeople = React.useCallback(
+    async (d: ExplainDecision) => {
+      const wanted = [
+        ...new Set(
+          [d.principal?.userId, d.principal?.onBehalfOf?.userId].filter(
+            (id): id is string => typeof id === 'string' && id !== '' && !people[id],
+          ),
+        ),
+      ];
+      if (wanted.length === 0 || typeof adapter?.find !== 'function') return;
+      try {
+        const res = await adapter.find('sys_user', { $filter: { id: { $in: wanted } }, $top: wanted.length });
+        const rows: unknown[] = Array.isArray(res) ? res : (res?.data ?? []);
+        const found: Record<string, PersonName> = {};
+        for (const row of rows) {
+          const id = (row as { id?: unknown } | null)?.id;
+          if (id == null) continue;
+          const person = personOf(row);
+          if (person.name || person.email) found[String(id)] = person;
+        }
+        if (Object.keys(found).length > 0) setPeople((prev) => ({ ...prev, ...found }));
+      } catch {
+        /* the id stays the text — the line's reading before objectui#11862 */
+      }
+    },
+    [adapter, people],
+  );
 
   const run = React.useCallback(async () => {
     const object = objectName.trim();
@@ -225,13 +301,15 @@ export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageI
         setError(detail);
         return;
       }
-      setDecision(data as unknown as ExplainDecision);
+      const decided = data as unknown as ExplainDecision;
+      setDecision(decided);
+      void lookUpPeople(decided);
     } catch (err) {
       setError((err as Error)?.message ?? String(err));
     } finally {
       setBusy(false);
     }
-  }, [authFetch, objectName, operation, user, recordId, locale]);
+  }, [authFetch, objectName, operation, user, recordId, locale, lookUpPeople]);
 
   const opLabel = (op: string) => t(`engine.studio.access.explain.op.${op}`, locale);
 
@@ -467,10 +545,24 @@ export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageI
                     </Badge>
                   )}
                 </div>
-                <p className="mt-1 truncate font-mono text-xs text-foreground">
-                  {decision.principal.userId ?? '(anonymous)'}
-                  {decision.principal.onBehalfOf?.userId ? ` ⇄ ${decision.principal.onBehalfOf.userId}` : ''}
-                </p>
+                {/* objectui#11862 — each user id names its person: the name
+                    and email first, the id as secondary text. */}
+                <div className="mt-1 flex min-w-0 items-start gap-1.5 text-xs" data-testid="explain-principal">
+                  {decision.principal.userId ? (
+                    <PrincipalPerson id={decision.principal.userId} person={people[decision.principal.userId]} />
+                  ) : (
+                    <span className="font-mono text-foreground">(anonymous)</span>
+                  )}
+                  {decision.principal.onBehalfOf?.userId ? (
+                    <>
+                      <span className="shrink-0 text-muted-foreground">⇄</span>
+                      <PrincipalPerson
+                        id={decision.principal.onBehalfOf.userId}
+                        person={people[decision.principal.onBehalfOf.userId]}
+                      />
+                    </>
+                  ) : null}
+                </div>
                 <div className="mt-2 space-y-1.5">
                   <div className="flex flex-wrap items-center gap-1">
                     <span className="text-[11px] text-muted-foreground">
@@ -629,7 +721,13 @@ export function AccessExplainPanel({ open, onOpenChange, defaultObject, packageI
           onSelect={() => {}}
           onSelectRecords={(records: any[]) => {
             const u = records?.[0];
-            if (u?.id != null) setUser({ id: String(u.id), label: personLabel(u) });
+            if (u?.id != null) {
+              setUser({ id: String(u.id), label: personLabel(u) });
+              // objectui#11862 — the picked row names its person on the
+              // principal line, with no second lookup.
+              const person = personOf(u);
+              if (person.name || person.email) setPeople((prev) => ({ ...prev, [String(u.id)]: person }));
+            }
             setPickerOpen(false);
           }}
         />

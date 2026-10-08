@@ -193,11 +193,11 @@ describe('ObjectFieldInspector — use picklist (objectui#10202)', () => {
   it('a retype keeps the binding on another option type and drops it on any other type (the spec refuses it there)', async () => {
     const { field } = mount({ tier: { type: 'select', label: 'Tier', picklist: 'acme_tier' } }, 'tier');
     await userEvent.click(screen.getByRole('combobox', { name: 'Type' }));
-    await userEvent.click(await screen.findByRole('option', { name: 'Selection · Multi-Select' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Multi-Select' }));
     expect(field()).toMatchObject({ type: 'multiselect', picklist: 'acme_tier' });
 
     await userEvent.click(screen.getByRole('combobox', { name: 'Type' }));
-    await userEvent.click(await screen.findByRole('option', { name: 'Text · Text' }));
+    await userEvent.click(await screen.findByRole('option', { name: 'Text' }));
     expect(field()).toEqual({ type: 'text', label: 'Tier' });
     expect(FieldSchema.safeParse(field()).success).toBe(true);
   });

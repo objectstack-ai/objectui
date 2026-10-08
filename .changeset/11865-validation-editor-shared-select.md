@@ -12,4 +12,4 @@ On a read-only package each picker is disabled and wears the shared control's ow
 
 One display change: a rule whose stored value is not among a picker's options now shows that value. This happens, for example, when a rule's field has been removed from the object. The native select showed its first option instead ("pick a field", "none", or "error"), which is not what the rule says.
 
-**Clause-②: no.** Nothing on the package entry changes. `ObjectValidationsPanel`'s props and the exports of `@object-ui/app-shell` are unchanged, and no i18n key is added.
+**Clause-②: no.** No published face moves: `ObjectValidationsPanel` takes the same props, the package entry exports the same names, and no i18n key is added. What moves is the editor's own markup, described above.

@@ -27,6 +27,7 @@ import {
 } from '@object-ui/data-objectstack';
 import { resolveFlowTriggerKind } from '@objectstack/spec/automation';
 import { DashboardWidgetSchema, resolveI18nLabel, type I18nLabel } from '@objectstack/spec/ui';
+import type { RegisteredErrorCode } from '@objectstack/spec/api';
 import type { NavTargetLabelResolver } from '@object-ui/layout';
 import type { MetadataSelection } from '../metadata-admin/preview-registry.js';
 import { t, tFormat, translateValidationMessage } from '../metadata-admin/i18n.js';
@@ -44,7 +45,7 @@ export interface PublishFailure {
   type: string;
   name: string;
   error: string;
-  /** Machine code — `batch_aborted` marks a draft rolled back with the batch (ADR-0067 D2). */
+  /** Machine code — `BATCH_ABORTED` marks a draft rolled back with the batch (ADR-0067 D2). */
   code?: string;
   issues?: MetadataValidationIssue[];
 }
@@ -53,8 +54,14 @@ export interface PublishFailure {
  * framework 15.1+ (ADR-0067 D2): package publishes are ALL-OR-NOTHING. A
  * failed batch reports every draft in `failed[]` — the causal item with its
  * real error, the rest with this code — and `publishedCount: 0`.
+ *
+ * Spelled exactly as `publishPackageDrafts` emits it and as the spec's
+ * error-code ledger registers it, and compared exactly: ⛔ no case-folding
+ * (objectui#11985). The `satisfies` ties the literal to the ledger at compile
+ * time, so a code the spec does not register does not compile; the import is
+ * type-only and adds no runtime bytes.
  */
-export const BATCH_ABORTED_CODE = 'batch_aborted';
+export const BATCH_ABORTED_CODE = 'BATCH_ABORTED' satisfies RegisteredErrorCode;
 
 /**
  * Format the `failed[]` from a publish response (the server returns 200 with
@@ -63,7 +70,7 @@ export const BATCH_ABORTED_CODE = 'batch_aborted';
  * Two server generations produce two shapes (both handled):
  * - **15.1+ all-or-nothing** (ADR-0067 D2): the batch rolled back atomically —
  *   render ONE rolled-back banner anchored on the causal item(s), not N
- *   parallel errors (`batch_aborted` entries are consequences, not causes).
+ *   parallel errors (`BATCH_ABORTED` entries are consequences, not causes).
  * - **pre-15.1 partial publish**: each failed draft gets a heading and, when
  *   the failure was a validation error, its field-anchored issues indented
  *   below.

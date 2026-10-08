@@ -170,6 +170,13 @@ import type {
   // so `ObjectGridSchema.operations` and `.filter` take the row's own members
   // by reference. Aliased for the reason `SpecObjectCalendarProps` above is.
   ObjectGridProps as SpecObjectGridProps,
+  // objectui#6152 round 10 — `ComponentPropsMap['object-gantt']` /
+  // `['object-map']`'s author states, so the flat `ObjectGanttSchema.filter` /
+  // `ObjectMapSchema.filter` take their rows' own member by reference. Aliased
+  // for the reason `SpecObjectCalendarProps` above is (`ObjectGanttProps` is
+  // also `plugin-gantt`'s own component props name).
+  ObjectGanttProps as SpecObjectGanttProps,
+  ObjectMapProps as SpecObjectMapProps,
   // objectui#11355 — `ComponentPropsMap['object-kanban']`'s author state, so
   // `ObjectKanbanSchema.swimlaneField` takes the row's own type by reference.
   ObjectKanbanProps as SpecObjectKanbanProps,
@@ -1136,10 +1143,30 @@ export interface ObjectGridSchema extends BaseSchema {
   defaultSort?: never;
 
   /**
-   * @deprecated Use filter instead
-   * Legacy default filters
+   * The legacy base-filter fallback, read only when {@link ObjectGridSchema.filter}
+   * is absent — the SAME `ViewFilterRule` array, `[{ field, operator, value }, ...]`,
+   * taken BY REFERENCE from the `object-grid` row
+   * (`ComponentPropsMap['object-grid'].defaultFilters`), which has declared it so
+   * since `@objectstack/spec` 17.6.0 and refuses the MongoDB-style record, a bare
+   * string and the AST tuple array. `ObjectGrid` lowers it through the same
+   * `toFilterNode` sink as `filter`, so a rule array here sends the same `$filter`
+   * as the same rule array written as `filter`.
+   *
+   * objectui#6152 round 10: this was `Record<string, any>`, so the record form
+   * (`{ status: 'open' }`) type-checked here, and through the `object-view`
+   * `table` slot, while the protocol refused it. Write
+   * `[{ field: 'status', operator: 'equals', value: 'open' }]` instead — or, better,
+   * move it to `filter`. ⚠️ The read did not narrow: the sink still lowers a record
+   * or an AST array that reaches the slot at runtime (`ObjectView` hands it an
+   * active named view's `filter`, which {@link NamedListView.filter} types
+   * `any[]`), which is not a shape an author writes here, so this face does not
+   * publish it (the objectui#10199 split, as {@link ObjectGridSchema.filter}
+   * makes it).
+   *
+   * @deprecated Use filter instead — the same rule array; this key is read only
+   * when `filter` is absent.
    */
-  defaultFilters?: Record<string, any>;
+  defaultFilters?: SpecObjectGridProps['defaultFilters'];
   
   /**
    * RETIRED (objectui#6152 round 7, ADR-0049) — the legacy second spelling of
@@ -3473,10 +3500,22 @@ export interface ObjectMapSchema extends BaseSchema {
   /** Inline records, wrapped into a `{ provider: 'value' }` data config; read SECOND */
   staticData?: any[];
   /**
-   * Query filter, forwarded as `$filter` with its
-   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).
+   * Query filter — the protocol's `ViewFilterRule` array,
+   * `[{ field, operator, value }, ...]`, taken BY REFERENCE from the `object-map`
+   * row (`ComponentPropsMap['object-map'].filter`), which refuses the
+   * MongoDB-style record and the AST tuple array by name. Forwarded as `$filter`
+   * with its context tokens (`{current_user_id}`, `{current_org_id}`, the date
+   * macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders`
+   * (objectui#10666).
+   *
+   * objectui#6152 round 10: this was `any[]`, so a tuple array type-checked here
+   * while the row refused it. ⚠️ What did NOT narrow is the read: `ObjectMap`
+   * still forwards an AST a host composes at runtime (`ElementDataSourceGate`'s
+   * merged binding), which is not a shape an author writes, so this face does
+   * not publish it (the objectui#10199 split, as {@link ObjectGridSchema.filter}
+   * makes it).
    */
-  filter?: any[];
+  filter?: SpecObjectMapProps['filter'];
   /** Sort configuration, forwarded as `$orderby`. Array only — the legacy string clause is retired (objectui#8221). */
   sort?: SortConfig[];
   /**
@@ -4024,10 +4063,22 @@ export interface ObjectGanttSchema extends BaseSchema {
   /** Inline records, wrapped into a `{ provider: 'value' }` config by `resolveRecordSourceConfig`. */
   staticData?: any[];
   /**
-   * Query filter (JSON Rules format), forwarded as `$filter` with its
-   * context tokens (`{current_user_id}`, `{current_org_id}`, the date macros) resolved first through `@object-ui/core`'s `resolveFilterPlaceholders` (objectui#10666).
+   * Query filter — the protocol's `ViewFilterRule` array,
+   * `[{ field, operator, value }, ...]`, taken BY REFERENCE from the
+   * `object-gantt` row (`ComponentPropsMap['object-gantt'].filter`), which refuses
+   * the MongoDB-style record and the AST tuple array by name. Forwarded as
+   * `$filter` with its context tokens (`{current_user_id}`, `{current_org_id}`,
+   * the date macros) resolved first through `@object-ui/core`'s
+   * `resolveFilterPlaceholders` (objectui#10666).
+   *
+   * objectui#6152 round 10: this was `any[]`, so a tuple array type-checked here
+   * while the row refused it. ⚠️ What did NOT narrow is the read: `ObjectGantt`
+   * still forwards an AST a host composes at runtime (`ElementDataSourceGate`'s
+   * merged binding, `ListView`'s effective filter), which is not a shape an
+   * author writes, so this face does not publish it (the objectui#10199 split, as
+   * {@link ObjectGridSchema.filter} makes it).
    */
-  filter?: any[];
+  filter?: SpecObjectGanttProps['filter'];
   /** Sort configuration, forwarded as `$orderby` via `convertSortToQueryParams`. Array only — the legacy string clause is retired (objectui#8221). */
   sort?: SortConfig[];
   /**

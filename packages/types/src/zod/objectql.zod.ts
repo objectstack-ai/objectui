@@ -671,7 +671,16 @@ export const ObjectGridSchema = BaseSchema.extend({
     + 'and nothing reads it any more; the upstream protocol refuses it by name on `object-grid`. '
     + 'Rename the key to `sort` and wrap the value in an array: `sort: [{ field, order }]`.',
   ),
-  defaultFilters: z.record(z.string(), z.any()).optional(),
+  // objectui#6152 round 10 — the `object-grid` row's own `defaultFilters` member BY
+  // REFERENCE: the SAME `ViewFilterRule` array as `filter` above, with the row's
+  // refusal of the MongoDB-style record, a bare string and the AST tuple array
+  // (its message names this key as the one written). It was
+  // `z.record(z.string(), z.any())`, so the `object-view` `table` slot built from
+  // this mirror accepted the record the row refuses, and refused the rule array
+  // the row takes. The read is wider on purpose, as for
+  // `filter`: `ObjectGrid` lowers this slot through the same `toFilterNode` sink
+  // (see the TS twin's member).
+  defaultFilters: stripImportedDefaults(SpecObjectGridPropsSchema).shape.defaultFilters,
   // objectui#6152 round 7 — RETIRED under ADR-0049, in lockstep with the `?: never`
   // twin on the interface. `@objectstack/spec` 17.7.0 (objectstack#21445) refuses
   // this key BY NAME on `object-grid` (a retired-key tombstone in the row that
@@ -2648,7 +2657,12 @@ export const ObjectMapSchema = BaseSchema.extend({
   objectName: z.string().optional().describe('ObjectQL object name — the THIRD record source getDataConfig resolves, after data and staticData; one of the three must be present, unless the node\'s dataSource.object names the object, which ElementDataSourceGate lands here (objectui#11117)'),
   data: ViewDataSchema.optional().describe('Data source configuration — read FIRST by getDataConfig'),
   staticData: z.array(z.any()).optional().describe('Inline records — read SECOND by getDataConfig, wrapped into a { provider: value } config'),
-  filter: z.array(z.any()).optional().describe('Query filter, forwarded as $filter'),
+  // objectui#6152 round 10 — the `object-map` row's own `filter` member BY
+  // REFERENCE: the `ViewFilterRule` array, with the row's refusal of the
+  // MongoDB-style record and the AST tuple array. It was `z.array(z.any())`. This
+  // mirror is not an authoring arm (the authored node's `properties` IS the row),
+  // so no authored door moves; the read stays wider (see the TS twin's member).
+  filter: stripImportedDefaults(SpecObjectMapPropsSchema).shape.filter,
   sort: z.array(SortConfigSchema).optional().describe('Sort configuration, forwarded as $orderby (array only; the legacy string clause is retired — objectui#8221)'),
   map: ObjectMapConfigSchema.optional().describe('Map configuration (the author face)'),
   enableClustering: z.boolean().optional().describe('Group nearby markers into clusters'),
@@ -2881,7 +2895,12 @@ export const ObjectGanttSchema = BaseSchema.extend({
   // `ObjectGridSchema` — what `ObjectGanttProps.schema` used to be typed as before
   // objectui#5903 retyped it to `ObjectGanttSchema` — so they need declaring here.
   staticData: z.array(z.any()).optional().describe('Inline records, wrapped into a { provider: value } data config — read SECOND by resolveRecordSourceConfig'),
-  filter: z.array(z.any()).optional().describe('Query filter, forwarded as $filter with its context tokens ({current_user_id}, {current_org_id}, date macros) resolved first'),
+  // objectui#6152 round 10 — the `object-gantt` row's own `filter` member BY
+  // REFERENCE: the `ViewFilterRule` array, with the row's refusal of the
+  // MongoDB-style record and the AST tuple array. It was `z.array(z.any())`. This
+  // mirror is not an authoring arm (the authored node's `properties` IS the row),
+  // so no authored door moves; the read stays wider (see the TS twin's member).
+  filter: stripImportedDefaults(SpecObjectGanttPropsSchema).shape.filter,
   sort: z.array(SortConfigSchema).optional().describe('Sort configuration, forwarded as $orderby (array only; the legacy string clause is retired — objectui#8221)'),
   // objectui#10250 — the full-text pair the record query carries, declared in
   // step with the twin in `../objectql.ts`. ListView's toolbar Search writes

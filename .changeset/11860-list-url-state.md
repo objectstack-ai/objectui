@@ -18,6 +18,6 @@ How a list opens:
 
 Each change replaces the current history entry rather than adding one, so Back leaves the list in one step. Switching to another view opens it without the previous view's parameters. When a URL carries a sort, the list's "reset to default" returns to that sort.
 
-Panels and dialogs are not written to the URL; opening or closing the Filter panel or the search box leaves it unchanged. Toolbar grouping is not included yet.
+Panels and dialogs are not written to the URL; opening or closing the Filter panel or the search box leaves it unchanged.
 
 Nothing is added to the package entry: no export, prop, type member or language-pack key. The per-browser filter memory is unchanged.

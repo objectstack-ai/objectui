@@ -7,7 +7,17 @@
  */
 
 /**
- * `element:number.filter` — the MEMBER SHAPE this metric reads (objectui#8071).
+ * `element:number`'s filter — the MEMBER SHAPE this metric reads (objectui#8071).
+ *
+ * ⚠️ objectui#11880 moved the door: the metric reads its filter from the
+ * node-level `dataSource.filter` only (objectstack#11509, ruled A-narrow), and
+ * the flat `properties.filter` this file first pinned stays published (until
+ * the spec's v18 retirement) and is not read. Every row below drives the
+ * binding. What changed on the wire is the
+ * SHAPE of the value: the binding's filter is lowered to the ObjectQL AST
+ * (`toFilterNodeSafely`) before it reaches either spelling, where the flat key
+ * used to arrive verbatim. The two spellings and the by-value rule are
+ * unchanged.
  *
  * The member pin for this key. Unlike the other keys this card has pinned,
  * `filter` carries no NAMED member set of its own: it is a query predicate
@@ -28,17 +38,15 @@
  * confidently wrong number. No diagnostic, no empty state — the failure mode
  * this whole direction (objectui#8068) exists to make loud.
  *
- * The third member semantic is the re-query rule. The effect keys on
- * `JSON.stringify(props.filter)`, not on the object identity:
- *
- *     const filterKey = React.useMemo(
- *       () => (props.filter ? JSON.stringify(props.filter) : ''), [props.filter]);
+ * The third member semantic is the re-query rule. The effect keys on the
+ * resolved filter's CONTENT (`filterKey`, a `JSON.stringify` of it), not on
+ * the object identity,
  *
  * so the predicate is read BY VALUE. A parent that rebuilds an equal filter
  * literal every render must NOT re-probe the server, and a parent that changes
  * one comparand MUST. Both arms are asserted, because a dependency array
- * "simplified" to `props.filter` passes the second and turns the first into a
- * per-render fetch storm.
+ * "simplified" to the raw filter object passes the second and turns the first
+ * into a per-render fetch storm.
  *
  * ## Nothing pre-existing covered this
  *
@@ -61,14 +69,17 @@ import '../../../renderers';
 
 afterEach(cleanup);
 
-const OPEN_ONLY = { stage: { $ne: 'closed' } };
+const OPEN_ONLY = [{ field: 'stage', operator: 'not_equals', value: 'closed' }];
+/** {@link OPEN_ONLY} as the metric hands it on: lowered to the ObjectQL AST. */
+const OPEN_ONLY_NODE = [['stage', 'not_equals', 'closed']];
 
 const metric = (filter?: unknown) => ({
   type: 'element:number',
   id: 'metric',
-  // Element config lives in the `properties` bag (`readProps`), not on the
-  // node — the same door an authored page writes through.
-  properties: { object: 'opportunity', field: 'amount', aggregate: 'sum', ...(filter ? { filter } : {}) },
+  // The query is the node-level `dataSource` binding (objectui#11880); the
+  // aggregate's own keys live in the `properties` bag (`readProps`).
+  dataSource: { object: 'opportunity', ...(filter ? { filter } : {}) },
+  properties: { field: 'amount', aggregate: 'sum' },
 });
 
 /** An adapter that CAN aggregate — the primary path. */
@@ -101,11 +112,11 @@ describe('element:number filter — member shape (objectui#8071)', () => {
       field: 'amount',
       function: 'sum',
       groupBy: '_all',
-      filter: OPEN_ONLY,
+      filter: OPEN_ONLY_NODE,
     });
-    // Verbatim: the renderer does not normalise, wrap or re-key the predicate
-    // on this path.
-    expect((adapter.aggregate as any).mock.calls[0][1].filter).toEqual(OPEN_ONLY);
+    // Lowered, and otherwise as authored: the renderer does not wrap or
+    // re-key the predicate on this path.
+    expect((adapter.aggregate as any).mock.calls[0][1].filter).toEqual(OPEN_ONLY_NODE);
   });
 
   it('reaches the `find()` fallback WRAPPED as `$filter` — the other spelling', async () => {
@@ -115,11 +126,11 @@ describe('element:number filter — member shape (objectui#8071)', () => {
     mount(adapter, OPEN_ONLY);
 
     await waitFor(() => expect(adapter.find).toHaveBeenCalledOnce());
-    expect(adapter.find).toHaveBeenCalledWith('opportunity', { $filter: OPEN_ONLY });
+    expect(adapter.find).toHaveBeenCalledWith('opportunity', { $filter: OPEN_ONLY_NODE });
   });
 
   it('sends NO options at all to `find()` when no filter is authored', async () => {
-    // `props.filter ? { $filter: props.filter } : undefined`. The control for
+    // `queryFilter ? { $filter: queryFilter } : undefined`. The control for
     // the row above: an unfiltered metric must not ship an empty envelope,
     // which some adapters read as "match nothing".
     const adapter = findingOnly();
@@ -134,13 +145,13 @@ describe('element:number filter — member shape (objectui#8071)', () => {
     // the normal case, not an exotic one, and a dependency on the reference
     // would turn every such render into a server round trip.
     const adapter = aggregating();
-    const view = mount(adapter, { stage: { $ne: 'closed' } });
+    const view = mount(adapter, [{ field: 'stage', operator: 'not_equals', value: 'closed' }]);
     await waitFor(() => expect(adapter.aggregate).toHaveBeenCalledOnce());
 
     view.rerender(
       <AdapterCtx.Provider value={adapter as never}>
         {/* Deep-equal, freshly allocated — a different object, the same predicate. */}
-        <SchemaRenderer schema={metric({ stage: { $ne: 'closed' } }) as never} />
+        <SchemaRenderer schema={metric([{ field: 'stage', operator: 'not_equals', value: 'closed' }]) as never} />
       </AdapterCtx.Provider>,
     );
 
@@ -152,16 +163,16 @@ describe('element:number filter — member shape (objectui#8071)', () => {
     // The other arm, and the non-vacuity control for the row above: without it
     // a renderer that never re-probed at all would pass that assertion.
     const adapter = aggregating();
-    const view = mount(adapter, { stage: { $ne: 'closed' } });
+    const view = mount(adapter, [{ field: 'stage', operator: 'not_equals', value: 'closed' }]);
     await waitFor(() => expect(adapter.aggregate).toHaveBeenCalledOnce());
 
     view.rerender(
       <AdapterCtx.Provider value={adapter as never}>
-        <SchemaRenderer schema={metric({ stage: { $ne: 'won' } }) as never} />
+        <SchemaRenderer schema={metric([{ field: 'stage', operator: 'not_equals', value: 'won' }]) as never} />
       </AdapterCtx.Provider>,
     );
 
     await waitFor(() => expect(adapter.aggregate).toHaveBeenCalledTimes(2));
-    expect((adapter.aggregate as any).mock.calls[1][1].filter).toEqual({ stage: { $ne: 'won' } });
+    expect((adapter.aggregate as any).mock.calls[1][1].filter).toEqual([['stage', 'not_equals', 'won']]);
   });
 });

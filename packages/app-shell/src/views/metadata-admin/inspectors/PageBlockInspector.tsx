@@ -472,23 +472,40 @@ export function PageBlockInspector({ selection, draft, onPatch, onClearSelection
     block.type as string | undefined,
     (block.properties as Record<string, unknown>) || {},
   );
+  // The node-level `dataSource` binding (objectui#11880): a field marked
+  // `at: 'dataSource'` reads and writes its member, patched at node level the
+  // way `visibleWhen` is below, never under `properties`.
+  const binding: Record<string, unknown> =
+    block.dataSource && typeof block.dataSource === 'object' && !Array.isArray(block.dataSource)
+      ? (block.dataSource as Record<string, unknown>)
+      : {};
+  const readBinding = (name: string): unknown => binding[name];
+  const patchBinding = (name: string, value: unknown) =>
+    patch({ dataSource: { ...binding, [name]: value } } as Partial<Block>);
   // The record page's bound object — drives `field-picker`/`field-list` with
-  // objectFrom:'page'. (objectFrom:'self' reads a sibling block property.)
+  // objectFrom:'page'. (objectFrom:'self' reads a sibling block property, and
+  // objectFrom:'dataSource' the binding's object.)
   const pageObject = typeof (draft as any)?.object === 'string' ? ((draft as any).object as string) : undefined;
   const resolveObject = (src: BlockPropField & { objectFrom?: string; objectProp?: string }): string | undefined =>
     src.objectFrom === 'page'
       ? pageObject
-      : src.objectProp != null && blockProps[src.objectProp] != null
-        ? String(blockProps[src.objectProp])
-        : undefined;
+      : src.objectFrom === 'dataSource'
+        ? (typeof binding.object === 'string' ? binding.object : undefined)
+        : src.objectProp != null && blockProps[src.objectProp] != null
+          ? String(blockProps[src.objectProp])
+          : undefined;
   const readProp = (name: string): unknown => blockProps[name] ?? (block as any)[name];
   const patchProp = (name: string, value: unknown) =>
     patch({ properties: { ...blockProps, [name]: value } } as Partial<Block>);
 
   // Properties already handled by curated fields — excluded from the generic
-  // "Advanced" section so each property has exactly one editor.
+  // "Advanced" section so each property has exactly one editor. A field homed
+  // in the binding edits no `properties` key, so a stored `properties.<name>`
+  // of the same name stays visible there rather than hidden behind it.
   const curatedNames = new Set(
-    (blockHasConfig(block.type) ? BLOCK_CONFIG[block.type as string] : []).map((f) => f.name),
+    (blockHasConfig(block.type) ? BLOCK_CONFIG[block.type as string] : [])
+      .filter((f) => f.at !== 'dataSource')
+      .map((f) => f.name),
   );
   const advancedKeys = Object.keys(blockProps).filter(
     (key) => !curatedNames.has(key) && !STRUCTURAL_PROP_KEYS.has(key),
@@ -779,7 +796,9 @@ export function PageBlockInspector({ selection, draft, onPatch, onClearSelection
           <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {t('engine.inspector.pageBlock.properties', locale)}
           </div>
-          {BLOCK_CONFIG[block.type as string].map((f) => renderField(f, readProp, patchProp))}
+          {BLOCK_CONFIG[block.type as string].map((f) =>
+            f.at === 'dataSource' ? renderField(f, readBinding, patchBinding) : renderField(f, readProp, patchProp),
+          )}
         </div>
       )}
 

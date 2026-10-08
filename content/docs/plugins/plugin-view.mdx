@@ -171,7 +171,7 @@ its legacy half is retired — see the note above.)
 | --- | --- |
 | `pagination: { pageSize, pageSizeOptions? }` | `pageSize: number` |
 | `selection: { type: 'single' \| 'multiple' \| 'none' }` | `selectable: boolean \| 'single' \| 'multiple'` |
-| `filter: [{ field, operator, value }, …]` (same shape as a named view's `filter`) | `defaultFilters: Record<field, value>` (equality-only) |
+| `filter: [{ field, operator, value }, …]` (same shape as a named view's `filter`) | `defaultFilters: [{ field, operator, value }, …]` — the same rule array; TypeScript and the validator refuse the record form `{ field: value }` (objectui#6152 round 10) |
 
 Before objectui#5102, `pagination` / `selection` / `filter` / `sort` had **no
 read point at all** in this file: an author who wrote the canonical shape

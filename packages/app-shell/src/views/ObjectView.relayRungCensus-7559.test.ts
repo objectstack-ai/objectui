@@ -412,7 +412,7 @@ const ABSENCES: Record<string, Absence> = {
   // second, competing source of the same value.
   columns: { kind: 'relayed-upstream', upstreamReads: ['activeView', 'currentNamedViewConfig'], reason: "The view's column set is composed upstream (`currentNamedViewConfig?.columns || activeView?.columns || …`, objectui#5269) and arrives through `...listSchema`." },
   viewType: { kind: 'relayed-upstream', upstreamReads: ['currentViewType'], reason: "The view KIND is resolved upstream into `currentViewType` (it drives which branch runs there) and handed down; the relay must not re-decide it." },
-  grouping: { kind: 'relayed-upstream', upstreamReads: ['activeView'], reason: 'Composed upstream as `grouping: activeView?.grouping` and read by ListView from the spread.' },
+  grouping: { kind: 'relayed-upstream', upstreamReads: ['activeView'], reason: 'Composed upstream as `grouping: activeView?.grouping` and read by ListView from the spread. The relay writes the key only to lay a grouping the URL carries over that value (objectui#11860); it reads no `viewDef`.' },
   compactToolbar: { kind: 'relayed-upstream', upstreamReads: ['activeView'], reason: 'Composed upstream from the active view; no second rung needed.' },
   showDescription: { kind: 'relayed-upstream', upstreamReads: ['activeView'], reason: "Legacy bare flag, composed upstream AND folded on top of the view's `appearance` by this relay's `appearance` rung (ADR-0047)." },
 

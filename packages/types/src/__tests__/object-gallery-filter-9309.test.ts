@@ -189,10 +189,11 @@ const EXPECTED_CENSUS: readonly FilterRow[] = [
   // `ComponentPropsMap` row's own member by reference (the `ViewFilterRule` array).
   { owner: 'ObjectGridSchema', type: "SpecObjectGridProps['filter']" },
   { owner: 'NamedListView', type: 'any[]' },
-  { owner: 'ObjectMapSchema', type: 'any[]' },
+  // objectui#6152 round 10 — the flat map and gantt mirrors take their rows' member too.
+  { owner: 'ObjectMapSchema', type: "SpecObjectMapProps['filter']" },
   // objectui#9549 — declared in the shape this card settled.
   { owner: 'ObjectTreeSchema', type: "QueryParams['$filter']" },
-  { owner: 'ObjectGanttSchema', type: 'any[]' },
+  { owner: 'ObjectGanttSchema', type: "SpecObjectGanttProps['filter']" },
   { owner: 'ObjectCalendarSchema', type: "SpecObjectCalendarProps['filter']" },
   { owner: 'ObjectKanbanSchema', type: "SpecObjectKanbanProps['filter']" },
   { owner: 'ObjectChartSchema', type: 'any[] | Record<string, any>' },

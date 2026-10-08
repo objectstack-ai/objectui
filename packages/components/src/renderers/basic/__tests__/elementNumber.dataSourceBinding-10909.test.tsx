@@ -25,20 +25,22 @@
  *
  *   | member   | read? | how                                                        |
  *   |----------|-------|------------------------------------------------------------|
- *   | `object` | yes   | `dataSource.object ?? properties.object` — ONE value for   |
- *   |          |       | the fetch guard, `aggregate` / `find` and the bus key; no  |
- *   |          |       | object at all while a named view is unresolved            |
+ *   | `object` | yes   | `dataSource.object` ONLY — ONE value for the fetch guard,  |
+ *   |          |       | `aggregate` / `find` and the bus key; no object at all     |
+ *   |          |       | while a named view is unresolved (objectui#11880)          |
  *   | `view`   | yes   | a saved view's `filter` scopes the aggregate; one that     |
  *   |          |       | cannot be resolved REPORTS and aggregates nothing          |
- *   | `filter` | yes   | `properties.filter` AND (view AND binding filter) — the    |
- *   |          |       | `ElementDataSourceGate` rule: neither is dropped, and a    |
- *   |          |       | refused merge REPORTS and aggregates nothing               |
+ *   | `filter` | yes   | view AND binding filter, lowered; a refused one REPORTS    |
+ *   |          |       | and aggregates nothing. `properties.filter` is not read    |
+ *   |          |       | (objectui#11880)                                           |
  *   | `sort`   | no    | an aggregate has no ordering — never reaches the call      |
  *   | `limit`  | no    | an aggregate has no row cap — a capped count is a wrong    |
  *   |          |       | number, so neither the binding's nor a view's cap reaches  |
  *   |          |       | the call                                                   |
  *
- * A metric with no binding at all is the control: it behaves exactly as before.
+ * Since objectui#11880 (objectstack#11509, ruled A-narrow) the binding is the
+ * metric's ONE source: the flat `properties.object` / `filter` are read by
+ * nothing, and a metric with no binding shows its no-object state.
  * No record-context binding is added here — that is objectui#7297's, and the
  * filter shape note is objectui#8945's.
  *
@@ -76,23 +78,19 @@ const BINDING_FILTER = [{ field: 'owner', operator: 'equals', value: 'ada' }];
 const PROPS_FILTER = [{ field: 'region', operator: 'equals', value: 'emea' }];
 /**
  * A rule the converter refuses: an ARRAY comparand on single-valued `equals`
- * (objectui#8557). Written as `properties.filter` beside a binding, it is the
- * merge's own refusal, not the view's.
+ * (objectui#8557). Written as the binding's own `filter`, it is the lowering's
+ * refusal, not the view's.
  */
 const REFUSED_FILTER = [{ field: 'tags', operator: 'equals', value: ['a'] }];
 
 /**
  * The wire shapes, written out rather than computed with the renderer's own
- * helpers, so a pin cannot agree with an implementation by construction. With
- * a binding present, every filter source is lowered to the ObjectQL AST and
- * the survivors are AND-combined, each as its own child — the
- * `ElementDataSourceGate` merge. With NO binding, `properties.filter` reaches
- * the adapter exactly as authored (the control rows, and
- * `elementNumberFilterMembers-8071.test.tsx`).
+ * helpers, so a pin cannot agree with an implementation by construction. The
+ * binding's filter (AND-combined with its view's) is lowered to the ObjectQL
+ * AST before it reaches the adapter.
  */
 const HOT_NODE = [['status', 'equals', 'hot']];
 const BINDING_NODE = [['owner', 'equals', 'ada']];
-const PROPS_NODE = [['region', 'equals', 'emea']];
 
 /** An adapter that CAN aggregate — the primary path. */
 function makeAdapter() {
@@ -126,7 +124,7 @@ const BOUND = {
   properties: { aggregate: 'count' },
 };
 
-/** The `properties` form — the control. */
+/** The flat `properties` form — read by nothing since objectui#11880. */
 const FLAT = {
   type: 'element:number',
   id: 'flat',
@@ -146,7 +144,7 @@ describe('element:number reads its object from `dataSource.object` (objectui#109
     expect(screen.queryByText('—')).toBeNull();
   });
 
-  it('dataSource.object wins over properties.object when both are set', async () => {
+  it('a flat properties.object beside the binding is not read: only the bound object is aggregated', async () => {
     const adapter = makeAdapter();
     mount({ ...BOUND, properties: { object: 'account', aggregate: 'count' } }, adapter);
     await waitFor(() => expect(adapter.aggregate).toHaveBeenCalledTimes(1));
@@ -154,12 +152,13 @@ describe('element:number reads its object from `dataSource.object` (objectui#109
     expect(adapter.aggregate.mock.calls.map((call) => call[0])).toEqual(['contact']);
   });
 
-  it('control: the properties form is unchanged', async () => {
+  it('the flat properties form alone binds nothing: the no-object state, and no read (objectui#11880)', async () => {
     const adapter = makeAdapter();
     mount(FLAT, adapter);
-    await waitFor(() => expect(adapter.aggregate).toHaveBeenCalledTimes(1));
-    expect(adapter.aggregate).toHaveBeenCalledWith('contact', countBag(undefined));
-    await waitFor(() => expect(screen.getByText('7')).toBeTruthy());
+    expect(await screen.findByTestId('element-number-no-object')).toBeTruthy();
+    await settle();
+    expect(adapter.aggregate).not.toHaveBeenCalled();
+    expect(adapter.find).not.toHaveBeenCalled();
     // No binding means no saved-view read either.
     expect(adapter.getObjectSchema).not.toHaveBeenCalled();
   });
@@ -172,13 +171,14 @@ describe('element:number reads its object from `dataSource.object` (objectui#109
     await waitFor(() => expect(screen.getByText('3')).toBeTruthy());
   });
 
-  it('a binding that names no object supplies nothing, and the flat object stands', async () => {
+  it('a binding that names no object supplies nothing: the no-object state, whatever the flat object says', async () => {
     // The spec gate's own reading of "supplies": an empty or non-string
-    // `dataSource.object` waives nothing, so it cannot displace the flat key.
+    // `dataSource.object` names nothing, and the flat key is not read.
     const adapter = makeAdapter();
     mount({ ...FLAT, dataSource: { object: '' } }, adapter);
-    await waitFor(() => expect(adapter.aggregate).toHaveBeenCalledTimes(1));
-    expect(adapter.aggregate).toHaveBeenCalledWith('contact', countBag(undefined));
+    expect(await screen.findByTestId('element-number-no-object')).toBeTruthy();
+    await settle();
+    expect(adapter.aggregate).not.toHaveBeenCalled();
   });
 });
 
@@ -202,7 +202,7 @@ describe('element:number re-reads the dataSource form on the data-invalidation b
     expect(adapter.aggregate, 'the bound object changed and the metric never re-read').toHaveBeenCalledTimes(2);
   });
 
-  it('the key is the binding, not the flat object it outranks', async () => {
+  it('the key is the binding, not a flat object beside it', async () => {
     const adapter = makeAdapter();
     mount({ ...BOUND, properties: { object: 'account', aggregate: 'count' } }, adapter);
     await waitFor(() => expect(adapter.aggregate).toHaveBeenCalledTimes(1));
@@ -212,7 +212,7 @@ describe('element:number re-reads the dataSource form on the data-invalidation b
       notifyDataChanged({ objectName: 'account' });
     });
     await settle();
-    expect(adapter.aggregate, 'a change to the outranked flat object re-read the metric').toHaveBeenCalledTimes(1);
+    expect(adapter.aggregate, 'a change to the unread flat object re-read the metric').toHaveBeenCalledTimes(1);
 
     await act(async () => {
       notifyDataChanged({ objectName: 'contact' });
@@ -231,7 +231,7 @@ describe('element:number — the `dataSource` members it reads, and the ones it 
     expect(adapter.aggregate).toHaveBeenCalledWith('contact', countBag(BINDING_NODE));
   });
 
-  it('filter: properties.filter is AND-combined with the binding filter — both reach the aggregate, neither is dropped', async () => {
+  it('filter: properties.filter is not read — the binding filter alone reaches the aggregate, with no AND (objectui#11880)', async () => {
     const both = makeAdapter();
     mount(
       {
@@ -242,17 +242,17 @@ describe('element:number — the `dataSource` members it reads, and the ones it 
       both,
     );
     await waitFor(() => expect(both.aggregate).toHaveBeenCalledTimes(1));
-    expect(both.aggregate).toHaveBeenCalledWith('contact', countBag(['and', PROPS_NODE, BINDING_NODE]));
+    expect(both.aggregate).toHaveBeenCalledWith('contact', countBag(BINDING_NODE));
     cleanup();
 
-    // A binding that carries no filter leaves the node's own to apply alone.
+    // A binding that carries no filter scopes nothing: the node's own is not read.
     const flatOnly = makeAdapter();
     mount({ ...BOUND, properties: { aggregate: 'count', filter: PROPS_FILTER } }, flatOnly);
     await waitFor(() => expect(flatOnly.aggregate).toHaveBeenCalledTimes(1));
-    expect(flatOnly.aggregate).toHaveBeenCalledWith('contact', countBag(PROPS_NODE));
+    expect(flatOnly.aggregate).toHaveBeenCalledWith('contact', countBag(undefined));
   });
 
-  it("filter: a named view's filter and properties.filter are both applied, AND-combined", async () => {
+  it("filter: a named view's filter scopes the aggregate, and properties.filter beside it is not read", async () => {
     const adapter = makeAdapter();
     mount(
       {
@@ -263,16 +263,16 @@ describe('element:number — the `dataSource` members it reads, and the ones it 
       adapter,
     );
     await waitFor(() => expect(adapter.aggregate).toHaveBeenCalledTimes(1));
-    expect(adapter.aggregate).toHaveBeenCalledWith('contact', countBag(['and', PROPS_NODE, HOT_NODE]));
+    expect(adapter.aggregate).toHaveBeenCalledWith('contact', countBag(HOT_NODE));
   });
 
-  it('filter: a merge the converter refuses reports on the error panel and aggregates nothing', async () => {
+  it('filter: a binding filter the converter refuses reports on the error panel and aggregates nothing', async () => {
     const adapter = makeAdapter();
     mount(
       {
         ...BOUND,
-        dataSource: { object: 'contact', filter: BINDING_FILTER },
-        properties: { aggregate: 'count', filter: REFUSED_FILTER },
+        dataSource: { object: 'contact', filter: REFUSED_FILTER },
+        properties: { aggregate: 'count' },
       },
       adapter,
     );
@@ -303,9 +303,10 @@ describe('element:number — the `dataSource` members it reads, and the ones it 
   });
 
   it('view: an unresolvable one does not fall back to properties.object — no object while it is unresolved', async () => {
-    // The `unresolved ? undefined :` half of the resolution line. Without it,
-    // a flat object beside the binding would be aggregated WITHOUT the view's
-    // filter — the wider count the view was written to prevent.
+    // The `unresolved ? undefined :` half of the resolution line, and since
+    // objectui#11880 the flat object is not read at all: a count over it
+    // WITHOUT the view's filter is the wider count the view was written to
+    // prevent.
     const adapter = makeAdapter();
     mount(
       {
@@ -349,13 +350,19 @@ describe('element:number — the `dataSource` members it reads, and the ones it 
 describe('element:number declares the `dataSource` binding it reads (objectui#10909)', () => {
   const inputs = () => ComponentRegistry.getMeta('element:number')?.inputs ?? [];
 
-  it('the registration declares dataSource as an object binding, and object is no longer required', () => {
+  it('the registration declares dataSource as an object binding; the flat `object` / `filter` say they are not read (objectui#11880)', () => {
     const dataSource = inputs().find((input) => input.name === 'dataSource');
     expect(dataSource, 'element:number publishes no dataSource input').toBeTruthy();
     expect((dataSource as { binding?: string }).binding).toBe('object');
+    // Published until the spec's v18 retirement (objectstack#11509), never
+    // required, and each description names the binding member that IS read.
     const object = inputs().find((input) => input.name === 'object');
-    expect(object).toBeTruthy();
     expect(object?.required).not.toBe(true);
+    expect(object?.description).toMatch(/NOT READ/);
+    expect(object?.description).toMatch(/dataSource\.object/);
+    const filter = inputs().find((input) => input.name === 'filter');
+    expect(filter?.description).toMatch(/NOT READ/);
+    expect(filter?.description).toMatch(/dataSource\.filter/);
   });
 
   it('the html tier accepts the dataSource form without a diagnostic', () => {

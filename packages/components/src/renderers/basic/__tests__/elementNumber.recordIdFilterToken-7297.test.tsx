@@ -20,7 +20,9 @@
  *   - on a record page the count follows the record: two records, two counts,
  *     with no remount between them;
  *   - the component-level `dataSource.filter` takes the token too, through the
- *     same resolution;
+ *     same resolution (since objectui#11880 it is the metric's ONLY filter:
+ *     every row below authors its filter there, and the binding's rule array
+ *     reaches the adapter lowered to the ObjectQL AST);
  *   - with no record in context the token is refused by name (the
  *     `onUnresolved` channel, defaulting to `console.warn`) and left as written,
  *     so the query can only be refused or match nothing, never count everybody;
@@ -67,12 +69,19 @@ function makeAdapter() {
   };
 }
 
+/** One equality rule of a binding filter. */
+const eq = (field: string, value: string) => ({ field, operator: 'equals', value });
+
 /** The person's record page: "how many open tasks does THIS person have". */
 const OPEN_TASKS = {
   type: 'element:number',
   id: 'open-tasks',
-  properties: { object: 'task', aggregate: 'count', filter: { assignee: '{record_id}', status: 'open' } },
+  dataSource: { object: 'task', filter: [eq('assignee', '{record_id}'), eq('status', 'open')] },
+  properties: { aggregate: 'count' },
 };
+
+/** {@link OPEN_TASKS} with another binding filter. */
+const openTasksFiltered = (filter: unknown[]) => ({ ...OPEN_TASKS, dataSource: { object: 'task', filter } });
 
 function Page({ adapter, recordId, schema = OPEN_TASKS }: { adapter: object; recordId?: string; schema?: object }) {
   const tree = <SchemaRenderer schema={schema as never} />;
@@ -99,12 +108,18 @@ describe('element:number resolves {record_id} against the mounted record (object
     const { rerender } = render(<Page adapter={adapter} recordId="rec_ada" />);
 
     await waitFor(() => expect(screen.getByText('3')).toBeTruthy());
-    expect(adapter.aggregate).toHaveBeenLastCalledWith('task', countBag({ assignee: 'rec_ada', status: 'open' }));
+    expect(adapter.aggregate).toHaveBeenLastCalledWith(
+      'task',
+      countBag([['assignee', 'equals', 'rec_ada'], ['status', 'equals', 'open']]),
+    );
 
     // Same tree, same mounted metric; only the record in context moves.
     rerender(<Page adapter={adapter} recordId="rec_grace" />);
     await waitFor(() => expect(screen.getByText('5')).toBeTruthy());
-    expect(adapter.aggregate).toHaveBeenLastCalledWith('task', countBag({ assignee: 'rec_grace', status: 'open' }));
+    expect(adapter.aggregate).toHaveBeenLastCalledWith(
+      'task',
+      countBag([['assignee', 'equals', 'rec_grace'], ['status', 'equals', 'open']]),
+    );
     expect(screen.queryByText('3')).toBeNull();
   });
 
@@ -133,17 +148,14 @@ describe('element:number resolves {record_id} against the mounted record (object
       <Page
         adapter={adapter}
         recordId="rec_ada"
-        schema={{
-          ...OPEN_TASKS,
-          properties: { ...OPEN_TASKS.properties, filter: { assignee: '{record_id}', reviewer: '{current_user_id}' } },
-        }}
+        schema={openTasksFiltered([eq('assignee', '{record_id}'), eq('reviewer', '{current_user_id}')])}
       />,
     );
 
     await waitFor(() => expect(adapter.aggregate).toHaveBeenCalled());
     expect(adapter.aggregate).toHaveBeenLastCalledWith(
       'task',
-      countBag({ assignee: 'rec_ada', reviewer: 'usr_viewer' }),
+      countBag([['assignee', 'equals', 'rec_ada'], ['reviewer', 'equals', 'usr_viewer']]),
     );
   });
 });
@@ -157,7 +169,10 @@ describe('element:number refuses {record_id} by name with no record in context (
     await waitFor(() => expect(adapter.aggregate).toHaveBeenCalled());
     // The condition reaches the query as authored: dropping it would count
     // every task (the card's failure), `null` would count none.
-    expect(adapter.aggregate).toHaveBeenLastCalledWith('task', countBag({ assignee: '{record_id}', status: 'open' }));
+    expect(adapter.aggregate).toHaveBeenLastCalledWith(
+      'task',
+      countBag([['assignee', 'equals', '{record_id}'], ['status', 'equals', 'open']]),
+    );
 
     const named = warn.mock.calls.map((c) => String(c[0])).filter((m) => m.includes('"{record_id}"'));
     expect(named.length).toBeGreaterThan(0);
@@ -185,7 +200,7 @@ describe('element:number refuses {record_id} by name with no record in context (
     render(
       <AdapterCtx.Provider value={sessionAdapter as never}>
         <SchemaRenderer
-          schema={{ ...OPEN_TASKS, properties: { ...OPEN_TASKS.properties, filter: { owner: '{current_user_id}' } } } as never}
+          schema={openTasksFiltered([eq('owner', '{current_user_id}')]) as never}
         />
       </AdapterCtx.Provider>,
     );

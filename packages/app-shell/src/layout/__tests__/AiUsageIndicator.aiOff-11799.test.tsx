@@ -89,11 +89,12 @@ describe('AiUsageIndicator — no usage read with AI off (objectui#11799)', () =
   it('an empty agent catalog: /ai/usage is never requested, not on mount and not on a nudge', async () => {
     const server = serverWith([]);
     const { container } = render(<AiUsageIndicator apiBase="/api/v1/ai-off" />);
-    await waitFor(() => expect(server.urls).toContain('/api/v1/ai-off/agents'));
     await settle();
     await nudge();
     expect(server.usageReads()).toBe(0);
     expect(container).toBeEmptyDOMElement();
+    // The "never" above is read after the catalog answered empty.
+    expect(server.urls).toContain('/api/v1/ai-off/agents');
   });
 
   it('while the catalog is still loading, usage is not read yet', async () => {
